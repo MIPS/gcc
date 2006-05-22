@@ -1,3 +1,13 @@
+2006-05-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4501833
+	* gcc.apple/asm-function-2.c: Enable rest of testcase.
+	* g++.apple/asm-function-2.C: Likewise.
+	* gcc.apple/asm-function-21.c: Add.
+	* gcc.apple/asm-function-22.c: Add.
+	* g++.apple/asm-function-21.C: Add.
+	* g++.apple/asm-function-22.C: Add.
+
 2006-04-26  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4508851

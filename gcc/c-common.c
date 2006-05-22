@@ -6729,6 +6729,7 @@ iasm_identifier (tree expr)
 #endif
 
 /* Return true iff id is a instruction prefix.  */
+
 bool
 iasm_is_prefix (tree ARG_UNUSED (id))
 {
@@ -6887,7 +6888,40 @@ iasm_extra_clobbers (const char *opcode, tree *clobbersp)
     }
 }
 
+/* True when we've seen frfree and we need to delete the next blr.  */
+
+static GTY(()) bool iasm_delete_blr;
+
+/* True when we've seen frfree followed by blr, used to give give
+   errors for instructions that follow blr.  */
+
+static GTY(()) bool iasm_saw_frfree_blr;
+
+/* Used to ensure that we see a blr after frfree before the block
+   ends.  */
+
+static void
+iasm_ensure_blr_last ()
+{
+  if (iasm_delete_blr)
+    {
+      error ("blr must follow frfree");
+      iasm_delete_blr = false;
+    }
+  iasm_saw_frfree_blr = false;
+}
+
+/* Called to end asm blocks.  */
+
+void
+iasm_end_block ()
+{
+  inside_iasm_block = false;
+  iasm_ensure_blr_last ();
+}
+
 /* Build an asm statement from CW-syntax bits.  */
+
 tree
 iasm_stmt (tree expr, tree args, int lineno)
 {
@@ -6925,10 +6959,24 @@ iasm_stmt (tree expr, tree args, int lineno)
 
   opcodename = IDENTIFIER_POINTER (expr);
 
+  if (iasm_saw_frfree_blr)
+    error ("not allowed after frfree blr");
+
+  if (iasm_delete_blr)
+    {
+      if (strcmp (opcodename, "blr") == 0)
+	{
+	  iasm_delete_blr = false;
+	  iasm_saw_frfree_blr = true;
+	  input_location.line = saved_lineno;
+	  return NULL_TREE;
+	}
+    }
+
   /* Handle special directives specially.  */
   if (strcmp (opcodename, "entry") == 0)
     return iasm_entry (expr, NULL_TREE, TREE_VALUE (args));
-  else if (strcmp (opcodename, "fralloc") == 0)
+  else if (strcmp (opcodename, "fralloc") == 0 && ! flag_ms_asms)
     {
       /* The correct default size is target-specific, so leave this as
 	 a cookie for the backend.  */
@@ -6948,24 +6996,36 @@ iasm_stmt (tree expr, tree args, int lineno)
 	  else
 	    error ("fralloc argument is not an integer");
 	}
+      input_location.line = saved_lineno;
       return NULL_TREE;
     }
-  else if (strcmp (opcodename, "frfree") == 0)
+  else if (strcmp (opcodename, "frfree") == 0 && ! flag_ms_asms)
     {
+#if 0
+      /* We'd like to generate an elilogue right here and let the user
+	 do the return, but...  */
       DECL_IASM_NORETURN (current_function_decl) = 1;
+#else
+      iasm_delete_blr = true;
+#endif
       /* Create a default-size frame retroactively.  */
       if (DECL_IASM_FRAME_SIZE (current_function_decl) == (unsigned int)-2)
 	DECL_IASM_FRAME_SIZE (current_function_decl) = (unsigned int)-1;
+      input_location.line = saved_lineno;
       return NULL_TREE;
     }
   else if (strcmp (opcodename, "nofralloc") == 0)
     {
       DECL_IASM_NORETURN (current_function_decl) = 1;
       DECL_IASM_FRAME_SIZE (current_function_decl) = -2;
+      input_location.line = saved_lineno;
       return NULL_TREE;
     }
   else if (strcmp (opcodename, "machine") == 0)
-    return NULL_TREE;
+    {
+      input_location.line = saved_lineno;
+      return NULL_TREE;
+    }
   else if (strcmp (opcodename, "opword") == 0)
     opcodename = " .long";
   else if (strncmp (opcodename, "_emit", 5) == 0)
@@ -7481,6 +7541,7 @@ iasm_reg_name (tree id)
 }
 
 /* Build an asm label from CW-syntax bits.  */
+
 tree
 iasm_label (tree labid, int atsign)
 {
@@ -7709,6 +7770,7 @@ iasm_build_register_offset (tree offset, tree regname)
 /* Given some bits of info from the parser, determine if this is a
    valid entry statement, and then generate traditional asm statements
    to create the label. The entry may be either static or extern.  */
+
 tree
 iasm_entry (tree keyword, tree scspec, tree fn)
 {

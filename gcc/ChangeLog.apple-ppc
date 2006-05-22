@@ -1,3 +1,20 @@
+2006-05-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4501833
+	* c-common.c (iasm_delete_blr): Add.
+	(iasm_saw_frfree_blr): Add.
+	(iasm_ensure_blr_last): Add.
+	(iasm_stmt): Add logic to ensure that blr follows frfree and that
+	blr is last.  Manage line numbes better.  Only allow fralloc and
+	frfree on ppc.
+	* c-parse.in (compstmt_nostart): Use iasm_end_block to end inline
+	assmebly blocks.
+	(iasm_compstmt): Likewise.
+	(iasm_compstmt_nostart): Likewise.
+	* config/asm.h (iasm_end_block): Add.
+	* function.c (assign_parm_setup_reg): Don't spill to memory for a
+	frameless asm function.
+	
 2006-05-03  Mike Stump  <mrs@apple.com>
 
 	Radar 4529651

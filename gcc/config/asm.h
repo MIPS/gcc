@@ -82,4 +82,5 @@ extern void iasm_get_register_var (tree var, const char *modifier, char *buf,
 				   unsigned argnum, bool must_be_reg, iasm_md_extra_info *e);
 extern bool iasm_is_pseudo (const char *);
 extern tree iasm_addr (tree);
+extern void iasm_end_block (void);
 #endif
