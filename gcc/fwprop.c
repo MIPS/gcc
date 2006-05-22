@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "timevar.h"
 #include "rtl.h"
+#include "tm_p.h"
 #include "emit-rtl.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -38,6 +39,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+
 
 /* This pass does simple forward propagation and simplification when an
    operand of an insn can only come from a single def.  This pass uses
@@ -122,16 +124,18 @@ can_simplify_addr (rtx addr)
 {
   rtx reg;
 
+  if (CONSTANT_ADDRESS_P (addr))
+    return false;
+
   if (GET_CODE (addr) == PLUS)
     reg = XEXP (addr, 0);
   else
     reg = addr;
 
-  return !REG_P (reg)
-	 || (REGNO (reg) > FIRST_PSEUDO_REGISTER
-	     && REGNO (reg) != FRAME_POINTER_REGNUM
-	     && REGNO (reg) != HARD_FRAME_POINTER_REGNUM
-	     && REGNO (reg) != ARG_POINTER_REGNUM);
+  return (!REG_P (reg)
+	  || (REGNO (reg) != FRAME_POINTER_REGNUM
+	      && REGNO (reg) != HARD_FRAME_POINTER_REGNUM
+	      && REGNO (reg) != ARG_POINTER_REGNUM));
 }
 
 /* Returns a canonical version of X for the address, from the point of view,
@@ -179,8 +183,8 @@ canonicalize_address (rtx x)
       }
 }
 
-/* X is a canonicalized MEM.  Return whether it is good to use NEW instead of
-   X's address.  */
+/* OLD is a memory address.  Return whether it is good to use NEW instead,
+   for a memory access in the given MODE.  */
 
 static bool
 should_replace_address (rtx old, rtx new, enum machine_mode mode)
@@ -431,17 +435,20 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
 static bool 
 local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 {
-  while (from != to)
+  rtx insn;
+
+  for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
-      struct df_ref * def = DF_INSN_DEFS (df, from);
+      if (!INSN_P (insn))
+	continue;
+
+      struct df_ref * def = DF_INSN_DEFS (df, insn);
       while (def)
 	{
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
 	    return true;
 	  def = def->next_ref;
 	}
-
-      from = NEXT_INSN (from);
     }
   return false;
 }
@@ -473,7 +480,18 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
   def_bb = BLOCK_FOR_INSN (def_insn);
   target_bb = BLOCK_FOR_INSN (target_insn);
   if (def_bb == target_bb)
-    return local_ref_killed_between_p (use, def_insn, target_insn);
+    {
+      /* In some obscure situations we can have a def reaching a use
+	 that is _before_ the def.  In other words the def does not
+	 dominate the use even though the use and def are in the same
+	 basic block.  This can happen when a register may be used
+	 uninitialized in a loop.  In such cases, we must assume that
+	 DEF is not available.  */
+      if (DF_INSN_LUID (df, def_insn) >= DF_INSN_LUID (df, target_insn))
+	return true;
+
+      return local_ref_killed_between_p (use, def_insn, target_insn);
+    }
 
   /* Finally, if DEF_BB is the sole predecessor of TARGET_BB.  */
   if (single_pred_p (target_bb)
@@ -501,24 +519,19 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 }
 
 
-/* When *BODY is equal to X or X is directly referenced by *BODY
-   return nonzero, thus for_each_rtx stops traversing and returns nonzero
-   too, otherwise for_each_rtx continues traversing *BODY.  */
+/* for_each_rtx traversal function that returns 1 if BODY points to
+   a non-constant mem.  */
 
 static int
 varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
 {
   rtx x = *body;
-  
-  if (MEM_P (x))
-    return MEM_READONLY_P (x) ? -1 : 1;
-  else
-    return 0;
+  return MEM_P (x) && !MEM_READONLY_P (x);
 }
             
 /* Check if all uses in DEF_INSN can be used in TARGET_INSN.  This
    would require full computation of available expressions;
-   we check only restricted conditions, see def_available_p.  */
+   we check only restricted conditions, see use_killed_between.  */
 static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
@@ -528,9 +541,8 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
   gcc_assert (def_set);
 
   /* If target_insn comes right after def_insn, which is very common
-     for addresses, we can optimize.  */
+     for addresses, we can use a quicker test.  */
   if (NEXT_INSN (def_insn) == target_insn
-      && (def_set = single_set (def_insn)) != NULL
       && REG_P (SET_DEST (def_set)))
     {
       rtx def_reg = SET_DEST (def_set);
@@ -546,17 +558,58 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
       for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
-	{
-	  if (use_killed_between (use, def_insn, target_insn))
-	    return false;
-	}
+	if (use_killed_between (use, def_insn, target_insn))
+	  return false;
     }
 
-  def_set = single_set (def_insn);
-  gcc_assert (def_set);
+  /* We don't do any analysis of memories or aliasing.  Reject any
+     instruction that involves references to non-constant memory.  */
   return !for_each_rtx (&SET_SRC (def_set), varying_mem_p, NULL);
 }
 
+
+struct find_occurrence_data
+{
+  rtx find;
+  rtx *retval;
+};
+
+/* Callback for for_each_rtx, used in find_occurrence.
+   See if PX is the rtx we have to find.  Return 1 to stop for_each_rtx
+   if successful, or 0 to continue traversing otherwise.  */
+
+static int
+find_occurrence_callback (rtx *px, void *data)
+{
+  struct find_occurrence_data *fod = (struct find_occurrence_data *) data;
+  rtx x = *px;
+  rtx find = fod->find;
+
+  if (x == find)
+    {
+      fod->retval = px;
+      return 1;
+    }
+
+  return 0;
+}
+
+/* Return a pointer to one of the occurrences of register FIND in *PX.  */
+
+static rtx *
+find_occurrence (rtx *px, rtx find)
+{
+  struct find_occurrence_data data;
+
+  gcc_assert (REG_P (find)
+	      || (GET_CODE (find) == SUBREG
+		  && REG_P (SUBREG_REG (find))));
+
+  data.find = find;
+  data.retval = NULL;
+  for_each_rtx (px, find_occurrence_callback, &data);
+  return data.retval;
+}
 
 
 /* Inside INSN, the expression rooted at *LOC has been changed, moving some
@@ -569,7 +622,7 @@ update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
 {
   struct df_ref *use;
 
-  /* Else, add a use for the registers that were propagated.  */
+  /* Add a use for the registers that were propagated.  */
   for (use = orig_uses; use; use = use->next_ref)
     {
       struct df_ref *orig_use = use, *new_use;
@@ -592,15 +645,17 @@ update_df (rtx insn, rtx *loc, struct df_ref *orig_uses, enum df_ref_type type,
 
 
 /* Try substituting NEW into LOC, which originated from forward propagation
-   of USE's value from NEW_DEF_INSN.  SET_REG_EQUAL says whether we are
+   of USE's value from DEF_INSN.  SET_REG_EQUAL says whether we are
    substituting the whole SET_SRC, so we can set a REG_EQUAL note if the
    new insn is not recognized.  Return whether the substitution was
    performed.  */
 
 static bool
-subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
+try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
 {
   rtx insn = DF_REF_INSN (use);
+  enum df_ref_type type = DF_REF_TYPE (use);
+  int flags = DF_REF_FLAGS (use);
 
   if (dump_file)
     {
@@ -620,8 +675,7 @@ subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
       /* Unlink the use that we changed.  */
       df_ref_remove (df, use);
       if (!CONSTANT_P (new))
-	update_df (insn, loc, DF_INSN_USES (df, def_insn),
-		   DF_REF_TYPE (use), DF_REF_FLAGS (use));
+	update_df (insn, loc, DF_INSN_USES (df, def_insn), type, flags);
 
       return true;
     }
@@ -643,7 +697,7 @@ subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
 
           if (!CONSTANT_P (new))
 	    update_df (insn, loc, DF_INSN_USES (df, def_insn),
-		       DF_REF_TYPE (use), DF_REF_IN_NOTE);
+		       type, DF_REF_IN_NOTE);
 	}
 
       return false;
@@ -679,7 +733,8 @@ forward_propagate_subreg (struct df_ref *use, rtx def_insn, rtx def_set)
       && GET_MODE (SUBREG_REG (src)) == use_mode
       && subreg_lowpart_p (src)
       && all_uses_available_at (def_insn, use_insn))
-    return subst (use, DF_REF_LOC (use), SUBREG_REG (src), def_insn, false);
+    return try_fwprop_subst (use, DF_REF_LOC (use), SUBREG_REG (src),
+			     def_insn, false);
   else
     return false;
 }
@@ -771,7 +826,11 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
     mode = GET_MODE (*loc);
 
   new = propagate_rtx (*loc, mode, reg, src);
-  return new && subst (use, loc, new, def_insn, set_reg_equal);
+  
+  if (!new)
+    return false;
+
+  return try_fwprop_subst (use, loc, new, def_insn, set_reg_equal);
 }
 
 
@@ -830,29 +889,29 @@ static void
 fwprop_init (void)
 {
   num_changes = 0;
-  df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
-  df_chain_add_problem (df, DF_UD_CHAIN);
-  df_analyze (df);
-  df_dump (df, dump_file);
 
+  /* We do not always want to propagate into loops, so we have to find
+     loops and be careful about them.  But we have to call flow_loops_find
+     before df_analyze, because flow_loops_find may introduce new jump
+     insns (sadly) if we are not working in cfglayout mode.  */
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
     {
       calculate_dominance_info (CDI_DOMINATORS);
       flow_loops_find (&loops);
     }
+
+  /* Now set up the dataflow problem (we only want use-def chains) and
+     put the dataflow solver to work.  */
+  df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
+  df_chain_add_problem (df, DF_UD_CHAIN);
+  df_analyze (df);
+  df_dump (df, dump_file);
 }
 
 static void
 fwprop_done (void)
 {
   df_finish (df);
-/*  cleanup_cfg (CLEANUP_PRE_LOOP);*/
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-
-  if (dump_file)
-    fprintf (dump_file,
-	     "\nNumber of successful forward propagations: %d\n\n",
-	     num_changes);
 
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
     {
@@ -861,6 +920,13 @@ fwprop_done (void)
       loops.num = 0;
     }
 
+  cleanup_cfg (0);
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+
+  if (dump_file)
+    fprintf (dump_file,
+	     "\nNumber of successful forward propagations: %d\n\n",
+	     num_changes);
 }
 
 
@@ -898,6 +964,7 @@ fwprop (void)
     }
 
   fwprop_done ();
+
   return 0;
 }
 
@@ -944,6 +1011,7 @@ fwprop_addr (void)
     }
 
   fwprop_done ();
+
   return 0;
 }
 

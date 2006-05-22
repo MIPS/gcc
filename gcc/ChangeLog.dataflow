@@ -1,3 +1,22 @@
+2006-05-23  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* rtlanal.c (find_occurrence): Move to fwprop.c.
+	* rtl.h (find_occurrence): Remove prototype.
+	* fwprop.c (can_simplify_addr): Fix check for frame based addresses.
+	(should_replace_address): Update comment before this function.
+	(local_ref_killed_between_p): Don't choque on NOTEs.
+	(use_killed_between): Handle the exceptional case that a DEF does
+	not dominate one of its uses.
+	(varying_mem_p): Simplify return type.
+	(all_uses_available_at): Clean up unnecessary single_set calls.
+	(find_occurrence_callback, find_occurrence): New.
+	(subst): Rename to try_fwprop_subst.
+	(forward_propagate_subreg): Update caller.
+	(forward_propagate_and_simplify): Likewise.
+	(fwprop_init): Find loops before computing data flow info.
+	(fwprop_done): Call cleanup_cfg without CLEANUP_PRE_LOOP.  Free
+	loop tree before cleanup_cfg.
+
 2006-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regclass.c (init_subregs_of_mode): Created dummy version 
