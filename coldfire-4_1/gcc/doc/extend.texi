@@ -1906,6 +1906,9 @@ void f () __attribute__ ((interrupt ("IRQ")));
 
 Permissible values for this parameter are: IRQ, FIQ, SWI, ABORT and UNDEF@.
 
+On ARMv7M the interrupt type is ignored, and the attibute means the function
+may be called with a word aligned stack pointer.
+
 @item interrupt_handler
 @cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
 Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to

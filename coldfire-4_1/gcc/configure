@@ -7028,7 +7028,7 @@ if test "${with_versuffix+set}" = set; then
     yes) { { echo "$as_me:$LINENO: error: version suffix not specified" >&5
 echo "$as_me: error: version suffix not specified" >&2;}
    { (exit 1); exit 1; }; } ;;
-    no)  VERSUFFIX= ;;
+    no)  VERSUFFIX=" (CodeSourcery Unofficial)" ;;
     *)   VERSUFFIX=" ($withval)" ;;
    esac
 else
@@ -7046,9 +7046,7 @@ if test "${with_bugurl+set}" = set; then
     yes) { { echo "$as_me:$LINENO: error: bug URL not specified" >&5
 echo "$as_me: error: bug URL not specified" >&2;}
    { (exit 1); exit 1; }; } ;;
-    no)  { { echo "$as_me:$LINENO: error: bug URL required" >&5
-echo "$as_me: error: bug URL required" >&2;}
-   { (exit 1); exit 1; }; } ;;
+    no)  BUGURL="<unsupported>" ;;
     *)   BUGURL="<URL:$withval>" ;;
    esac
 else
@@ -7538,7 +7536,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7541: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7539: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)

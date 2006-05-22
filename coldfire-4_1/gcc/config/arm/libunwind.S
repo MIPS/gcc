@@ -43,7 +43,14 @@ ARM_FUNC_START restore_core_regs
 	   this.  */
 	add r1, r0, #52
 	ldmia r1, {r3, r4, r5}  /* {sp, lr, pc}.  */
-#ifdef __INTERWORKING__
+#if defined(__thumb2__)
+	/* Thumb-2 doesn't allow sp in a load-multiple instruction, so push
+	   the target address onto the target stack.  This is safe as
+	   we're always returning to somewhere further up the call stack.  */
+	mov ip, r3
+	mov lr, r4
+	str r5, [ip, #-4]!
+#elif defined(__INTERWORKING__)
 	/* Restore pc into ip.  */
 	mov r2, r5
 	stmfd sp!, {r2, r3, r4}
@@ -52,8 +59,12 @@ ARM_FUNC_START restore_core_regs
 #endif
 	/* Don't bother restoring ip.  */
 	ldmia r0, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp}
+#if defined(__thumb2__)
+	/* Pop the return address off the target stack.  */
+	mov sp, ip
+	pop {pc}
+#elif defined(__INTERWORKING__)
 	/* Pop the three registers we pushed earlier.  */
-#ifdef __INTERWORKING__
 	ldmfd sp, {ip, sp, lr}
 	bx ip
 #else
@@ -82,7 +93,13 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 	ARM_FUNC_START \name
 	/* Create a phase2_vrs structure.  */
 	/* Split reg push in two to ensure the correct value for sp.  */
+#if defined(__thumb2__)
+	mov ip, sp
+	push {lr} /* PC is ignored.  */
+	push {ip, lr} /* Push original SP and LR.  */
+#else
 	stmfd sp!, {sp, lr, pc}
+#endif
 	stmfd sp!, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip}
 	
 	/* Demand-save flags, plus an extra word for alignment.  */
@@ -91,7 +108,7 @@ ARM_FUNC_START gnu_Unwind_Save_VFP
 
 	/* Point r1 at the block.  Pass r[0..nargs) unchanged.  */
 	add r\nargs, sp, #4
-#if defined(__thumb__)
+#if defined(__thumb__) && !defined(__thumb2__)
 	/* Switch back to thumb mode to avoid interworking hassle.  */
 	adr ip, .L1_\name
 	orr ip, ip, #1

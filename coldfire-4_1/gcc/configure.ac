@@ -750,7 +750,7 @@ AC_ARG_WITH(versuffix,
                  [Append SFX to the version string]),
   [case "$withval" in
     yes) AC_MSG_ERROR([version suffix not specified]) ;;
-    no)  VERSUFFIX= ;;
+    no)  VERSUFFIX=" (CodeSourcery Unofficial)" ;;
     *)   VERSUFFIX=" ($withval)" ;;
    esac],
   VERSUFFIX=
@@ -763,7 +763,7 @@ AC_ARG_WITH(bugurl,
                  [Direct users to URL to report a bug]),
   [case "$withval" in
     yes) AC_MSG_ERROR([bug URL not specified]) ;;
-    no)  AC_MSG_ERROR([bug URL required]) ;;
+    no)  BUGURL="<unsupported>" ;; 
     *)   BUGURL="<URL:$withval>" ;;
    esac],
    BUGURL="<URL:http://gcc.gnu.org/bugs.html>"

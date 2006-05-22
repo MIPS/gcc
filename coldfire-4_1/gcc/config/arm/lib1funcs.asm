@@ -29,6 +29,10 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 /* ------------------------------------------------------------------------ */
 
+#if !defined(__thumb__)
+.syntax unified
+#endif
+
 /* We need to know what prefix to add to function names.  */
 
 #ifndef __USER_LABEL_PREFIX__
@@ -62,29 +66,28 @@ Boston, MA 02110-1301, USA.  */
 
 /* Function end macros.  Variants for interworking.  */
 
-@ This selects the minimum architecture level required.
-#define __ARM_ARCH__ 3
-
 #if defined(__ARM_ARCH_3M__) || defined(__ARM_ARCH_4__) \
 	|| defined(__ARM_ARCH_4T__)
 /* We use __ARM_ARCH__ set to 4 here, but in reality it's any processor with
    long multiply instructions.  That includes v3M.  */
-# undef __ARM_ARCH__
 # define __ARM_ARCH__ 4
 #endif
 	
 #if defined(__ARM_ARCH_5__) || defined(__ARM_ARCH_5T__) \
 	|| defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
 	|| defined(__ARM_ARCH_5TEJ__)
-# undef __ARM_ARCH__
 # define __ARM_ARCH__ 5
 #endif
 
 #if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
 	|| defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
-	|| defined(__ARM_ARCH_6ZK__)
-# undef __ARM_ARCH__
+	|| defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__)
 # define __ARM_ARCH__ 6
+#endif
+
+#if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
+	|| defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
+# define __ARM_ARCH__ 7
 #endif
 
 #ifndef __ARM_ARCH__
@@ -186,7 +189,7 @@ LSYM(Lend_fde):
 	.ifc "\regs",""
 	ldr\cond	lr, [sp], #8
 	.else
-	ldm\cond\dirn	sp!, {\regs, lr}
+	pop\cond	{\regs, lr}
 	.endif
 	.ifnc "\unwind", ""
 	/* Mark LR as restored.  */
@@ -194,14 +197,27 @@ LSYM(Lend_fde):
 	.endif
 	bx\cond	lr
 #else
+	/* Caller is responsible for providing IT instruction.  */
 	.ifc "\regs",""
 	ldr\cond	pc, [sp], #8
 	.else
-	ldm\cond\dirn	sp!, {\regs, pc}
+	pop\cond	{\regs, pc}
 	.endif
 #endif
 .endm
 
+/* Perform an arithmetic operation with a variable shift operand.  This
+   requires two instructions and a scratch register on Thumb-2.  */
+#if defined(__thumb2__)
+.macro shiftop name, dest, src1, src2, shiftop, shiftreg, tmp
+	\shiftop \tmp, \src2, \shiftreg
+	\name \dest, \src1, \tmp
+.endm
+#else
+.macro shiftop name, dest, src1, src2, shiftop, shiftreg, tmp
+	\name \dest, \src1, \src2, \shiftop \shiftreg
+.endm
+#endif
 
 .macro ARM_LDIV0 name
 	str	lr, [sp, #-8]!
@@ -253,11 +269,13 @@ SYM (\name):
 #ifdef __thumb__
 #define THUMB_FUNC .thumb_func
 #define THUMB_CODE .force_thumb
+#define THUMB_SYNTAX .syntax divided
 #else
 #define THUMB_FUNC
 #define THUMB_CODE
+#define THUMB_SYNTAX
 #endif
-	
+
 .macro FUNC_START name
 	.text
 	.globl SYM (__\name)
@@ -265,17 +283,32 @@ SYM (\name):
 	.align 0
 	THUMB_CODE
 	THUMB_FUNC
+	THUMB_SYNTAX
 SYM (__\name):
 .endm
 
 /* Special function that will always be coded in ARM assembly, even if
    in Thumb-only compilation.  */
 
-#if defined(__INTERWORKING_STUBS__)
+#if defined(__thumb2__)
+
+/* For Thumb-2 we build everything in thumb mode.  */
+.macro ARM_FUNC_START name
+       FUNC_START \name
+       .syntax unified
+.endm
+#define EQUIV .thumb_set
+.macro  ARM_CALL name
+	bl	__\name
+.endm
+
+#elif defined(__INTERWORKING_STUBS__)
+
 .macro	ARM_FUNC_START name
 	FUNC_START \name
 	bx	pc
 	nop
+	.syntax unified
 	.arm
 /* A hook to tell gdb that we've switched to ARM mode.  Also used to call
    directly from other local arm routines.  */
@@ -287,12 +320,15 @@ _L__\name:
 .macro  ARM_CALL name
 	bl	_L__\name
 .endm
-#else
+
+#else /* !(__INTERWORKING_STUBS__ || __thumb2__) */
+
 .macro	ARM_FUNC_START name
 	.text
 	.globl SYM (__\name)
 	TYPE (__\name)
 	.align 0
+	.syntax unified
 	.arm
 SYM (__\name):
 .endm
@@ -300,6 +336,7 @@ SYM (__\name):
 .macro  ARM_CALL name
 	bl	__\name
 .endm
+
 #endif
 
 .macro	FUNC_ALIAS new old
@@ -1176,6 +1213,10 @@ LSYM(Lover12):
 
 #endif /* L_call_via_rX */
 
+/* Don't bother with the old interworking routines for Thumb-2.  */
+/* ??? Maybe only omit these on v7m.  */
+#ifndef __thumb2__
+
 #if defined L_interwork_call_via_rX
 
 /* These labels & instructions are used by the Arm/Thumb interworking code,
@@ -1300,6 +1341,7 @@ LSYM(Lchange_\register):
 	SIZE	(_interwork_call_via_lr)
 	
 #endif /* L_interwork_call_via_rX */
+#endif /* !__thumb2__ */
 #endif /* Arch supports thumb.  */
 
 #ifndef __symbian__
