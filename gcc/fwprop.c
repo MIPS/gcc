@@ -439,10 +439,11 @@ local_ref_killed_between_p (struct df_ref * ref, rtx from, rtx to)
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
+      struct df_ref * def;
       if (!INSN_P (insn))
 	continue;
 
-      struct df_ref * def = DF_INSN_DEFS (df, insn);
+      def = DF_INSN_DEFS (df, insn);
       while (def)
 	{
 	  if (DF_REF_REGNO (ref) == DF_REF_REGNO (def))
