@@ -6901,7 +6901,7 @@ static GTY(()) bool iasm_saw_frfree_blr;
    ends.  */
 
 static void
-iasm_ensure_blr_last ()
+iasm_ensure_blr_last (void)
 {
   if (iasm_delete_blr)
     {
@@ -6914,7 +6914,7 @@ iasm_ensure_blr_last ()
 /* Called to end asm blocks.  */
 
 void
-iasm_end_block ()
+iasm_end_block (void)
 {
   inside_iasm_block = false;
   iasm_ensure_blr_last ();
