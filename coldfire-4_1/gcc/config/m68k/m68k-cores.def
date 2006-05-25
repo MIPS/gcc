@@ -64,6 +64,8 @@ M68K_CORE("5212",  mcf5212,  "5211",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_M
 M68K_CORE("5213",  mcf5213,  "5211",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_MAC)
 M68K_CORE("5214",  mcf5214,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5216",  mcf5216,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("52235", mcf52235, "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5225",  mcf5225,  "5211",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_MAC)
 M68K_CORE("523x",  mcf523x,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5249",  mcf5249,  "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5250",  mcf5250,  "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_EMAC)

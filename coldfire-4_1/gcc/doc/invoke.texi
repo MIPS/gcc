@@ -9832,10 +9832,11 @@ used.  M680x0 cpus are: @samp{68000}, @samp{68010}, @samp{68020},
 @samp{68030}, @samp{68040}, @samp{68060}, @samp{68302}, @samp{68332}
 and @samp{cpu32}.  Coldfire cpus are: @samp{5202}, @samp{5204}
 @samp{5206}, @samp{5206e}, @samp{5207}, @samp{5208}, @samp{5211},
-@samp{5211}, @samp{5213}, @samp{5214}, @samp{5216}, @samp{523x},
-@samp{5249}, @samp{5250}, @samp{5270}, @samp{5271}, @samp{5272},
-@samp{5274}, @samp{5275}, @samp{528x}, @samp{5307}, @samp{532x},
-@samp{537x}, @samp{5407}, @samp{547x} and @samp{548x}.
+@samp{5212}, @samp{5213}, @samp{5214}, @samp{5216}, @samp{52235},
+@samp{5225}, @samp{523x}, @samp{5249}, @samp{5250}, @samp{5270},
+@samp{5271}, @samp{5272}, @samp{5274}, @samp{5275}, @samp{528x},
+@samp{5307}, @samp{532x}, @samp{537x}, @samp{5407}, @samp{547x} and
+@samp{548x}.
 
 @item -mtune=@var{tune}
 @opindex mtune

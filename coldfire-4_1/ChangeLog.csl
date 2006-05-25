@@ -1,3 +1,8 @@
+2006-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Add 52235 & 5225 cores.
+	* gcc/doc/invoke.texi (M680x0 Options): Add 52235 & 5225.
+
 2006-05-22  Richard Sandiford  <richard@codesourcery.com>
 
 	Merge from branches/csl/sourcerygxx-4_1:
