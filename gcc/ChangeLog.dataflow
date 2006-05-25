@@ -1,3 +1,49 @@
+2006-05-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_scan_free_internal, df_grow_reg_info,
+	df_reg_chain_unlink, df_ref_remove,
+	df_insn_create_insn_record, df_insn_refs_delete,
+	df_ref_create_structure, df_ref_record, df_mark_reg, 
+	df_record_entry_block_defs, df_record_exit_block_uses): 
+	Formatting fixes.
+	(df_get_artificial_defs): Spelling fixes.
+	(df_ref_record, df_def_record_1, df_uses_record): 
+	Fix the way that subregs are processed.
+	(df_defs_record, df_def_record_1, df_insn_refs_record): 
+	Split DF_REF_CLOBBER into two cases.
+	* df-core.c (df_analyze): Added comments
+	(df_simple_iterative_dataflow): New function.
+	(df_dump): Formatting fixes.
+	* df.h (DF_REF_CLOBBER): Deleted.
+	(DF_REF_MUST_CLOBBER, DF_REF_MAY_CLOBBER): New enums.
+	(df_ru_bb_info, df_rd_bb_info, df_lr_bb_info, df_ur_bb_info,
+	df_urec_bb_info): Added comments.
+	(df_simple_iterative_dataflow): New function.
+	* df-problems.c (df_print_bb_index, df_set_dead_notes_for_mw):
+	Added comments.
+	(df_ru_alloc, df_ru_local_compute, df_ru_confluence_n,
+	df_ru_free, df_ru_dump, df_rd_alloc,
+	df_rd_bb_local_compute_process_def, df_rd_bb_local_compute,
+	df_rd_local_compute, df_rd_confluence_n, df_rd_free, 
+	df_rd_dump, df_lr_bb_local_compute, df_lr_bb_local_compute, 
+	df_lr_local_compute, df_ur_alloc, df_ur_dump, df_urec_alloc,
+	df_urec_bb_local_compute, df_urec_local_compute,
+	df_urec_local_finalize, df_urec_dump, df_chain_create_bb,
+	df_create_unused_note,  df_ri_bb_compute): Formatting fixes.
+	(df_ru_bb_local_compute_process_def): Do not clear gen set.
+	(df_ru_bb_local_compute): Reorder processing insn.
+	(df_ru_transfer_function): Fixed incorrect use of bitmaps.
+	(df_ru_dump, df_rd_dump, df_chains_dump): Added debugging code.
+	(df_lr_bb_local_compute, df_lr_simulate_one_insn, 
+	df_ur_bb_local_compute, df_chain_create_bb, 
+	df_create_unused_note, df_ri_bb_compute): Split 
+	DF_REF_CLOBBER into two cases.
+	* ddg.c (add_deps_for_def): Changed to use ru info.
+	* modulo-sched.c (sms_schedule): Added debugging.
+	* dce.c (rs_dflow, df_problem reaching_stores_problem): Deleted.
+	(init_rs_dflow, calculate_reaching_stores): Move dataflow to new 
+	df function.
+
 2006-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* fwprop.c (local_ref_killed_between_p): Rearranged definition.

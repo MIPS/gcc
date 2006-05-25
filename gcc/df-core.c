@@ -113,7 +113,10 @@ df_set_blocks, these blocks are added to the set of blocks.
 
 DF_ANALYZE causes all of the defined problems to be (re)solved.  It
 does not cause blocks to be (re)scanned at the rtl level unless no
-prior call is made to df_rescan_blocks.
+prior call is made to df_rescan_blocks.  When DF_ANALYZE is completes,
+the IN and OUT sets for each basic block contain the computer
+information.  The DF_*_BB_INFO macros can be used to access these
+bitvectors.
 
 
 DF_DUMP can then be called to dump the information produce to some
@@ -296,7 +299,7 @@ are write-only operations.
 static struct df *ddf = NULL;
 struct df *ra_df = NULL;
 
-static void * df_get_bb_info (struct dataflow *, unsigned int);
+static void *df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
@@ -842,7 +845,37 @@ df_analyze (struct df *df)
   free (postorder);
 }
 
+static struct df_problem user_problem; 
+static struct dataflow user_dflow;
 
+/* Interface for calling iterative dataflow with user defined
+   confluence and transfer functions.  All that is necessary is to
+   supply DIR, a direction, CONF_FUN_0, a confluence function for
+   blocks with no logical preds (or NULL), CONF_FUN_N, the normal
+   confluence function, TRANS_FUN, the basic block transfer function,
+   and BLOCKS, the set of blocks to examine, POSTORDER the blocks in
+   postorder, and N_BLOCKS, the number of blocks in POSTORDER. */
+
+void
+df_simple_iterative_dataflow (enum df_flow_dir dir,
+			      df_init_function init_fun,
+			      df_confluence_function_0 con_fun_0,
+			      df_confluence_function_n con_fun_n,
+			      df_transfer_function trans_fun,
+			      bitmap blocks, int * postorder, int n_blocks)
+{
+  memset (&user_problem, 0, sizeof (struct df_problem));
+  user_problem.dir = dir;
+  user_problem.init_fun = init_fun;
+  user_problem.con_fun_0 = con_fun_0;
+  user_problem.con_fun_n = con_fun_n;
+  user_problem.trans_fun = trans_fun;
+  user_dflow.problem = &user_problem;
+  df_iterative_dataflow (&user_dflow, blocks, blocks, 
+			 postorder, n_blocks, false);
+}
+
+			      
 
 /*----------------------------------------------------------------------------
    Functions to support limited incremental change.
@@ -1197,7 +1230,7 @@ df_dump (struct df *df, FILE *file)
 {
   int i;
 
-  if (! df || ! file)
+  if (!df || !file)
     return;
 
   fprintf (file, "\n\n%s\n", current_function_name ());

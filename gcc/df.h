@@ -94,15 +94,30 @@ enum df_ref_flags
     /* This flag is set if the use is inside a REG_EQUAL note.  */
     DF_REF_IN_NOTE = 16,
 
-    /* This flag is set if this ref is really a clobber, and not a def.  */
-    DF_REF_CLOBBER = 32,
+    /* This flag is set if this ref, generally a def, may clobber the
+       referenced register.  This is generally only set for hard
+       registers that cross a call site.  With better information
+       about calls, some of these could be changed in the future to
+       DF_REF_MUST_CLOBBER.  */
+    DF_REF_MAY_CLOBBER = 32,
+
+    /* This flag is set if this ref, generally a def, is a real
+       clobber. This is not currently set for registers live across a
+       call because that clobbering may or may not happen.  
+
+       Most of the uses of this are with sets that have a
+       GET_CODE(..)==CLOBBER.  Note that this is set even if the
+       clobber is to a subreg.  So in order to tell if the clobber
+       wipes out the entire register, it is necessary to also check
+       the DF_REF_PARTIAL flag.  */
+    DF_REF_MUST_CLOBBER = 64,
 
     /* This bit is true if this ref is part of a multiword hardreg.  */
-    DF_REF_MW_HARDREG = 64,
+    DF_REF_MW_HARDREG = 128,
 
     /* This flag is set if this ref is a partial use or def of the
        associated register.  */
-    DF_REF_PARTIAL = 128
+    DF_REF_PARTIAL = 256
   };
 
 
@@ -225,7 +240,7 @@ struct dataflow
 
 /* The set of multiword hardregs used as operands to this
    instruction. These are factored into individual uses and defs but
-   the aggrigate is still needed to service the REG_DEAD and
+   the aggregate is still needed to service the REG_DEAD and
    REG_UNUSED notes.  */
 struct df_mw_hardreg
 {
@@ -419,7 +434,7 @@ struct df
 /* Macros to determine the reference type.  */
 
 #define DF_REF_REG_DEF_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_DEF)
-#define DF_REF_REG_USE_P(REF) ((REF) && ! DF_REF_REG_DEF_P (REF))
+#define DF_REF_REG_USE_P(REF) ((REF) && !DF_REF_REG_DEF_P (REF))
 #define DF_REF_REG_MEM_STORE_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_STORE)
 #define DF_REF_REG_MEM_LOAD_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_LOAD)
 #define DF_REF_REG_MEM_P(REF) (DF_REF_REG_MEM_STORE_P (REF) \
@@ -484,55 +499,85 @@ struct df_scan_bb_info
 };
 
 
-/* Reaching uses.  */
+/* Reaching uses.  All bitmaps are indexed by the id field of the ref
+   except sparse_kill (see below).  */
 struct df_ru_bb_info 
 {
+  /* Local sets to describe the basic blocks.  */
+  /* The kill set is the set of uses that are killed in this block.
+     However, if the number of uses for this register is greater than
+     DF_SPARSE_THRESHOLD, the sparse_kill is used instead. In
+     sparse_kill, each register gets a slot and a 1 in this bitvector
+     means that all of the uses of that register are killed.  This is
+     a very useful efficiency hack in that it keeps from having push
+     around big groups of 1s.  This is implemened by the
+     bitmap_clear_range call.  */
+
   bitmap kill;
   bitmap sparse_kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  bitmap gen;   /* The set of uses generated in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Reaching definitions.  */
+/* Reaching definitions.  All bitmaps are indexed by the id field of
+   the ref except sparse_kill (see above).  */
 struct df_rd_bb_info 
 {
-  bitmap kill;
+  /* Local sets to describe the basic blocks.  See the note in the RU
+     datastructures for kill and sparse_kill.  */
+  bitmap kill;  
   bitmap sparse_kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  bitmap gen;   /* The set of defs generated in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Live registers.  */
+/* Live registers.  All bitmaps are referenced by the register number.  */
 struct df_lr_bb_info 
 {
-  bitmap def;
-  bitmap use;
-  bitmap in;
-  bitmap out;
+  /* Local sets to describe the basic blocks.  */
+  bitmap def;   /* The set of registers set in this block.  */
+  bitmap use;   /* The set of registers used in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Uninitialized registers.  */
+/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
 struct df_ur_bb_info 
 {
-  bitmap kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  /* Local sets to describe the basic blocks.  */
+  bitmap kill;  /* The set of registers unset in this block.  Calls,
+		   for instance, unset registers.  */
+  bitmap gen;   /* The set of registers set in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
-/* Uninitialized registers.  */
+/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
 struct df_urec_bb_info 
 {
-  bitmap earlyclobber;
+  /* Local sets to describe the basic blocks.  */
+  bitmap earlyclobber;  /* The set of registers that are referenced
+			   with an an early clobber mode.  */
+  /* Kill and gen are defined as in the UR problem.  */
   bitmap kill;
   bitmap gen;
-  bitmap in;
-  bitmap out;
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
@@ -549,6 +594,9 @@ extern void df_delete_basic_block (struct df *, int);
 extern void df_finish1 (struct df *);
 extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
+extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
+					  df_confluence_function_0, df_confluence_function_n,
+					  df_transfer_function, bitmap, int *, int);
 extern void df_analyze_simple_change_some_blocks (struct df *, int *, int);
 extern void df_analyze_simple_change_one_block (struct df *, basic_block);
 extern void df_compact_blocks (struct df *);

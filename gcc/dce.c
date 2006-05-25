@@ -862,10 +862,6 @@ static store_group_info stores;
 /* The identifiers of stores for which we haven't found a potential use.  */
 static VEC(int,heap) *unmarked_stores;
 
-/* Used to store the in, out, gen and kill sets of reaching stores.
-   Bit S of in_vec[B] is set if store S reaches the beginning
-   of block B, etc.  */
-static struct dataflow rs_dflow;
 
 /* max_in_luid[B][S] is the luid of the last instruction in basic block B
    that is reached by the incoming value of store S.  It is -1 if store S
@@ -945,28 +941,6 @@ rs_transfer_function (struct dataflow * dflow ATTRIBUTE_UNUSED, int bb_index)
   return bitmap_ior_and_compl (out, gen, in, kill);
 }
  
-/* The problem to be solved by rs_dflow.  */
-
-static struct df_problem reaching_stores_problem =
-{
-  0,                          /* Problem id.  */
-  DF_FORWARD,                 /* Direction.  */
-  NULL,                       /* Allocate the problem specific data.  */
-  NULL,                       /* Reset global information.  */
-  NULL,                       /* Delete the basic block data.  */
-  NULL,                       /* Local compute function.  */
-  rs_init,                    /* Init the solution specific data.  */
-  df_iterative_dataflow,      /* Iterative solver.  */
-  NULL,                       /* Confluence operator 0.  */ 
-  rs_confluence,              /* Confluence operator n.  */ 
-  rs_transfer_function,       /* Transfer function.  */
-  NULL,                       /* Finalize function.  */
-  NULL,                       /* Free all of the problem information.  */
-  NULL,                       /* Debugging.  */
-  NULL,                       /* Dependent problem.  */
-  0                           /* Changeable flags.  */
-};
-
 /* Initialize store group *GROUP.  */
  
  static void
@@ -1012,8 +986,6 @@ init_rs_dflow (void)
   postorder = XNEWVEC (int, last_basic_block);
   n_blocks = post_order_compute (postorder, true);
   iterating = BITMAP_ALLOC (NULL);
-
-  rs_dflow.problem = &reaching_stores_problem;
 
   num_stores = VEC_length (store_info, stores.stores);
   max_in_luid = XCNEWVEC (int *, last_basic_block);
@@ -1426,8 +1398,9 @@ static void
 calculate_reaching_stores (void)
 {
   htab_traverse (stores.bases, store_base_global, NULL);
-  df_iterative_dataflow (&rs_dflow, iterating, iterating, 
-			 postorder, n_blocks, false);
+  df_simple_iterative_dataflow (DF_FORWARD, rs_init, NULL, 
+				rs_confluence, rs_transfer_function, 
+				iterating, postorder, n_blocks);
   finish_max_in_luid ();
   if (dump_file)
     dump_stores (dump_file);
