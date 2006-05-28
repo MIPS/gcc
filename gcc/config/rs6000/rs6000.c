@@ -752,7 +752,7 @@ static bool rs6000_vector_mode_supported_p (enum machine_mode);
 static int get_vec_cmp_insn (enum rtx_code, enum machine_mode,
 			     enum machine_mode);
 static rtx rs6000_emit_vector_compare (enum rtx_code, rtx, rtx,
-				       enum machine_mode);
+				       enum machine_mode, bool *);
 static int get_vsel_insn (enum machine_mode);
 static void rs6000_emit_vector_select (rtx, rtx, rtx, rtx);
 static tree rs6000_stack_protect_fail (void);
@@ -11512,12 +11512,16 @@ get_vec_cmp_insn (enum rtx_code code,
 }
 
 /* Emit vector compare for operands OP0 and OP1 using code RCODE.
-   DMODE is expected destination mode. This is a recursive function.  */
+   DMODE is expected destination mode. If RCODE is not supported,
+   inverse condition and return in SWAP_SELECT_OPERANDS whether
+   the operands of a following call to rs6000_emit_vector_select
+   need to be swapped. */
 
 static rtx
 rs6000_emit_vector_compare (enum rtx_code rcode,
 			    rtx op0, rtx op1,
-			    enum machine_mode dmode)
+			    enum machine_mode dmode,
+			    bool * swap_select_operands)
 {
   int vec_cmp_insn;
   rtx mask;
@@ -11536,104 +11540,60 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 
   mask = gen_reg_rtx (dest_mode);
   vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
+  *swap_select_operands = false;
 
   if (vec_cmp_insn == INSN_NOT_AVAILABLE)
     {
-      bool swap_operands = false;
-      bool try_again = false;
+      bool swap_compare_operands = false;
+
       switch (rcode)
 	{
 	case LT:
 	  rcode = GT;
-	  swap_operands = true;
-	  try_again = true;
+	  swap_compare_operands = true;
 	  break;
+
 	case LTU:
 	  rcode = GTU;
-	  swap_operands = true;
-	  try_again = true;
+	  swap_compare_operands = true;
 	  break;
+
 	case NE:
-	  /* Treat A != B as ~(A==B).  */
-	  {
-	    enum insn_code nor_code;
-	    rtx eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
-						     dest_mode);
-
-	    nor_code = one_cmpl_optab->handlers[(int)dest_mode].insn_code;
-	    gcc_assert (nor_code != CODE_FOR_nothing);
-	    emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
-
-	    if (dmode != dest_mode)
-	      {
-		rtx temp = gen_reg_rtx (dest_mode);
-		convert_move (temp, mask, 0);
-		return temp;
-	      }
-	    return mask;
-	  }
+	  rcode = EQ;
+	  *swap_select_operands = true;
 	  break;
+
 	case GE:
-	case GEU:
-	case LE:
-	case LEU:
-	  /* Try GT/GTU/LT/LTU OR EQ */
-	  {
-	    rtx c_rtx, eq_rtx;
-	    enum insn_code ior_code;
-	    enum rtx_code new_code;
-
-	    switch (rcode)
-	      {
-	      case  GE:
-		new_code = GT;
-		break;
-
-	      case GEU:
-		new_code = GTU;
-		break;
-
-	      case LE:
-		new_code = LT;
-		break;
-
-	      case LEU:
-		new_code = LTU;
-		break;
-
-	      default:
-		gcc_unreachable ();
-	      }
-
-	    c_rtx = rs6000_emit_vector_compare (new_code,
-						op0, op1, dest_mode);
-	    eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
-						 dest_mode);
-
-	    ior_code = ior_optab->handlers[(int)dest_mode].insn_code;
-	    gcc_assert (ior_code != CODE_FOR_nothing);
-	    emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
-	    if (dmode != dest_mode)
-	      {
-		rtx temp = gen_reg_rtx (dest_mode);
-		convert_move (temp, mask, 0);
-		return temp;
-	      }
-	    return mask;
-	  }
+	  rcode = GT;
+	  swap_compare_operands = true;
+	  *swap_select_operands = true;
 	  break;
+
+	case GEU:
+	  rcode = GTU;
+	  swap_compare_operands = true;
+	  *swap_select_operands = true;
+	  break;
+
+	case LE:
+	  rcode = GT;
+	  *swap_select_operands = true;
+	  break;
+
+	case LEU:
+	  rcode = GTU;
+	  *swap_select_operands = true;
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
 
-      if (try_again)
-	{
-	  vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
-	  /* You only get two chances.  */
-	  gcc_assert (vec_cmp_insn != INSN_NOT_AVAILABLE);
-	}
+      vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
+      /* You only get two chances.  */
+      gcc_assert (vec_cmp_insn != INSN_NOT_AVAILABLE);
 
-      if (swap_operands)
+      if (swap_compare_operands)
 	{
 	  rtx tmp;
 	  tmp = op0;
@@ -11716,13 +11676,21 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
   enum machine_mode dest_mode = GET_MODE (dest);
   enum rtx_code rcode = GET_CODE (cond);
   rtx mask;
+  bool swap_select_operands = false;
 
   if (!TARGET_ALTIVEC)
     return 0;
 
   /* Get the vector mask for the given relational operations.  */
-  mask = rs6000_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode);
 
+  mask = rs6000_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode,
+				     &swap_select_operands);
+  if (swap_select_operands)
+    {
+      rtx tmp = op1;
+      op1 = op2;
+      op2 = tmp;
+    }
   rs6000_emit_vector_select (dest, op1, op2, mask);
 
   return 1;

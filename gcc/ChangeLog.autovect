@@ -1,3 +1,12 @@
+2006-05-28  Victor Kaplansky   <victork@il.ibm.com>
+	    Vladimir Yanovsky  <yanov@il.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (rs6000_emit_vector_compare): New
+	return param swap_select_operands. Handle NE, LE, LEU rcodes by
+	requesting to swap operands of select.
+	(rs6000_emit_vector_cond_expr): call to rs6000_emit_vector_compare with
+	new param and swap operands of select if needed.
+
 2006-05-23  Victor Kaplansky   <victork@il.ibm.com>
 
 	Reverted last patch.
