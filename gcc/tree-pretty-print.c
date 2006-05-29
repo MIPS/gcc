@@ -1822,8 +1822,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_omp_clauses (buffer, OMP_SINGLE_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
-    case OMP_RETURN_EXPR:
+    case OMP_RETURN:
       pp_string (buffer, "OMP_RETURN");
+      if (OMP_RETURN_NOWAIT (node))
+	pp_string (buffer, " [nowait]");
+      is_expr = false;
+      break;
+
+    case OMP_CONTINUE:
+      pp_string (buffer, "OMP_CONTINUE");
       is_expr = false;
       break;
 
@@ -2505,9 +2512,7 @@ pretty_print_string (pretty_printer *buffer, const char *str)
 	  pp_string (buffer, "\\'");
 	  break;
 
-	case '\0':
-	  pp_string (buffer, "\\0");
-	  break;
+	  /* No need to handle \0; the loop terminates on \0.  */
 
 	case '\1':
 	  pp_string (buffer, "\\1");

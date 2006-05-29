@@ -1,6 +1,6 @@
 /* Intrinsic function resolution.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -1081,16 +1081,32 @@ gfc_resolve_maxloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
 
   if (dim == NULL)
-    f->rank = 1;
+    {
+      f->rank = 1;
+      f->shape = gfc_get_shape (1);
+      mpz_init_set_si (f->shape[0], array->rank);
+    }
   else
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+      if (array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1125,6 +1141,7 @@ gfc_resolve_maxval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts = array->ts;
 
@@ -1132,6 +1149,18 @@ gfc_resolve_maxval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+
+      if (f->rank && array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1188,16 +1217,32 @@ gfc_resolve_minloc (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts.type = BT_INTEGER;
   f->ts.kind = gfc_default_integer_kind;
 
   if (dim == NULL)
-    f->rank = 1;
+    {
+      f->rank = 1;
+      f->shape = gfc_get_shape (1);
+      mpz_init_set_si (f->shape[0], array->rank);
+    }
   else
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+      if (array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1232,6 +1277,7 @@ gfc_resolve_minval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
 		    gfc_expr * mask)
 {
   const char *name;
+  int i, j, idim;
 
   f->ts = array->ts;
 
@@ -1239,6 +1285,18 @@ gfc_resolve_minval (gfc_expr * f, gfc_expr * array, gfc_expr * dim,
     {
       f->rank = array->rank - 1;
       gfc_resolve_dim_arg (dim);
+
+      if (f->rank && array->shape && dim->expr_type == EXPR_CONSTANT)
+	{
+	  idim = (int) mpz_get_si (dim->value.integer);
+	  f->shape = gfc_get_shape (f->rank);
+	  for (i = 0, j = 0; i < f->rank; i++, j++)
+	    {
+	      if (i == (idim - 1))
+	        j++;
+	      mpz_init_set (f->shape[i], array->shape[j]);
+	    }
+	}
     }
 
   if (mask)
@@ -1520,7 +1578,7 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%c%d"),
 			  gfc_type_letter (BT_COMPLEX), source->ts.kind);
-      else if (source->ts.type == BT_REAL && kind == 10)
+      else if (source->ts.type == BT_REAL && (kind == 10 || kind == 16))
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%c%d"),
 			  gfc_type_letter (BT_REAL), source->ts.kind);
@@ -1985,9 +2043,10 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
           break;
 
         case BT_REAL:
-	  /* There is no kind=10 integer type.  We need to
+	  /* There is no kind=10 integer type and on 32-bit targets
+	     there is usually no kind=16 integer type.  We need to
 	     call the real version.  */
-	  if (kind == 10)
+	  if (kind == 10 || kind == 16)
 	    {
 	      f->value.function.name =
 		gfc_get_string (PREFIX("transpose_r%d"), kind);

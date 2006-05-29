@@ -1282,6 +1282,30 @@ clobbers_queued_reg_save (rtx insn)
   return false;
 }
 
+/* Entry point for saving the first register into the second.  */
+
+void
+dwarf2out_reg_save_reg (const char *label, rtx reg, rtx sreg)
+{
+  size_t i;
+  unsigned int regno, sregno;
+
+  for (i = 0; i < num_regs_saved_in_regs; i++)
+    if (REGNO (regs_saved_in_regs[i].orig_reg) == REGNO (reg))
+      break;
+  if (i == num_regs_saved_in_regs)
+    {
+      gcc_assert (i != ARRAY_SIZE (regs_saved_in_regs));
+      num_regs_saved_in_regs++;
+    }
+  regs_saved_in_regs[i].orig_reg = reg;
+  regs_saved_in_regs[i].saved_in_reg = sreg;
+
+  regno = DWARF_FRAME_REGNUM (REGNO (reg));
+  sregno = DWARF_FRAME_REGNUM (REGNO (sreg));
+  reg_save (label, regno, sregno, 0);
+}
+
 /* What register, if any, is currently saved in REG?  */
 
 static rtx
@@ -1669,7 +1693,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case UNSPEC_VOLATILE:
 	  gcc_assert (targetm.dwarf_handle_frame_unspec);
 	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
-	  break;
+	  return;
 
 	default:
 	  gcc_unreachable ();
@@ -2194,7 +2218,12 @@ output_call_frame_info (int for_eh)
   if (for_eh)
     switch_to_eh_frame_section ();
   else
-    switch_to_section (debug_frame_section);
+    {
+      if (!debug_frame_section)
+	debug_frame_section = get_section (DEBUG_FRAME_SECTION,
+					   SECTION_DEBUG, NULL);
+      switch_to_section (debug_frame_section);
+    }
 
   ASM_GENERATE_INTERNAL_LABEL (section_start_label, FRAME_BEGIN_LABEL, for_eh);
   ASM_OUTPUT_LABEL (asm_out_file, section_start_label);
@@ -3199,12 +3228,24 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 static unsigned long
 size_of_locs (dw_loc_descr_ref loc)
 {
+  dw_loc_descr_ref l;
   unsigned long size;
 
-  for (size = 0; loc != NULL; loc = loc->dw_loc_next)
+  /* If there are no skip or bra opcodes, don't fill in the dw_loc_addr
+     field, to avoid writing to a PCH file.  */
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
     {
-      loc->dw_loc_addr = size;
-      size += size_of_loc_descr (loc);
+      if (l->dw_loc_opc == DW_OP_skip || l->dw_loc_opc == DW_OP_bra)
+	break;
+      size += size_of_loc_descr (l);
+    }
+  if (! l)
+    return size;
+
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
+    {
+      l->dw_loc_addr = size;
+      size += size_of_loc_descr (l);
     }
 
   return size;
@@ -3652,18 +3693,22 @@ dw_separate_line_info_entry;
 typedef struct dw_attr_struct GTY(())
 {
   enum dwarf_attribute dw_attr;
-  dw_attr_ref dw_attr_next;
   dw_val_node dw_attr_val;
 }
 dw_attr_node;
 
-/* The Debugging Information Entry (DIE) structure */
+DEF_VEC_O(dw_attr_node);
+DEF_VEC_ALLOC_O(dw_attr_node,gc);
+
+/* The Debugging Information Entry (DIE) structure.  DIEs form a tree.
+   The children of each node form a circular list linked by
+   die_sib.  die_child points to the node *before* the "first" child node.  */
 
 typedef struct die_struct GTY(())
 {
   enum dwarf_tag die_tag;
   char *die_symbol;
-  dw_attr_ref die_attr;
+  VEC(dw_attr_node,gc) * die_attr;
   dw_die_ref die_parent;
   dw_die_ref die_child;
   dw_die_ref die_sib;
@@ -3671,9 +3716,20 @@ typedef struct die_struct GTY(())
   dw_offset die_offset;
   unsigned long die_abbrev;
   int die_mark;
+  /* Die is used and must not be pruned as unused.  */
+  int die_perennial_p;
   unsigned int decl_id;
 }
 die_node;
+
+/* Evaluate 'expr' while 'c' is set to each child of DIE in order.  */
+#define FOR_EACH_CHILD(die, c, expr) do {	\
+  c = die->die_child;				\
+  if (c) do {					\
+    c = c->die_sib;				\
+    expr;					\
+  } while (c != die->die_child);		\
+} while (0)
 
 /* The pubname structure */
 
@@ -3994,8 +4050,6 @@ static bool is_fortran (void);
 static bool is_ada (void);
 static void remove_AT (dw_die_ref, enum dwarf_attribute);
 static void remove_child_TAG (dw_die_ref, enum dwarf_tag);
-static inline void free_die (dw_die_ref);
-static void remove_children (dw_die_ref);
 static void add_child_die (dw_die_ref, dw_die_ref);
 static dw_die_ref new_die (enum dwarf_tag, dw_die_ref, tree);
 static dw_die_ref lookup_type_die (tree);
@@ -4011,8 +4065,6 @@ static void add_var_loc_to_decl (tree, struct var_loc_node *);
 static void print_spaces (FILE *);
 static void print_die (dw_die_ref, FILE *);
 static void print_dwarf_line_table (FILE *);
-static void reverse_die_lists (dw_die_ref);
-static void reverse_all_dies (dw_die_ref);
 static dw_die_ref push_new_compile_unit (dw_die_ref, dw_die_ref);
 static dw_die_ref pop_compile_unit (dw_die_ref);
 static void loc_checksum (dw_loc_descr_ref, struct md5_ctx *);
@@ -4807,17 +4859,18 @@ decl_class_context (tree decl)
   return context;
 }
 
-/* Add an attribute/value pair to a DIE.  We build the lists up in reverse
-   addition order, and correct that in reverse_all_dies.  */
+/* Add an attribute/value pair to a DIE.  */
 
 static inline void
 add_dwarf_attr (dw_die_ref die, dw_attr_ref attr)
 {
-  if (die != NULL && attr != NULL)
-    {
-      attr->dw_attr_next = die->die_attr;
-      die->die_attr = attr;
-    }
+  /* Maybe this should be an assert?  */
+  if (die == NULL)
+    return;
+  
+  if (die->die_attr == NULL)
+    die->die_attr = VEC_alloc (dw_attr_node, gc, 1);
+  VEC_safe_push (dw_attr_node, gc, die->die_attr, attr);
 }
 
 static inline enum dw_val_class
@@ -4831,13 +4884,12 @@ AT_class (dw_attr_ref a)
 static inline void
 add_AT_flag (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int flag)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_flag;
-  attr->dw_attr_val.v.val_flag = flag;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_flag;
+  attr.dw_attr_val.v.val_flag = flag;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline unsigned
@@ -4852,13 +4904,12 @@ AT_flag (dw_attr_ref a)
 static inline void
 add_AT_int (dw_die_ref die, enum dwarf_attribute attr_kind, HOST_WIDE_INT int_val)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_const;
-  attr->dw_attr_val.v.val_int = int_val;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_const;
+  attr.dw_attr_val.v.val_int = int_val;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline HOST_WIDE_INT
@@ -4874,13 +4925,12 @@ static inline void
 add_AT_unsigned (dw_die_ref die, enum dwarf_attribute attr_kind,
 		 unsigned HOST_WIDE_INT unsigned_val)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_unsigned_const;
-  attr->dw_attr_val.v.val_unsigned = unsigned_val;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_unsigned_const;
+  attr.dw_attr_val.v.val_unsigned = unsigned_val;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline unsigned HOST_WIDE_INT
@@ -4896,14 +4946,13 @@ static inline void
 add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
 		  long unsigned int val_hi, long unsigned int val_low)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_long_long;
-  attr->dw_attr_val.v.val_long_long.hi = val_hi;
-  attr->dw_attr_val.v.val_long_long.low = val_low;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_long_long;
+  attr.dw_attr_val.v.val_long_long.hi = val_hi;
+  attr.dw_attr_val.v.val_long_long.low = val_low;
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add a floating point attribute value to a DIE and return it.  */
@@ -4912,15 +4961,14 @@ static inline void
 add_AT_vec (dw_die_ref die, enum dwarf_attribute attr_kind,
 	    unsigned int length, unsigned int elt_size, unsigned char *array)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_vec;
-  attr->dw_attr_val.v.val_vec.length = length;
-  attr->dw_attr_val.v.val_vec.elt_size = elt_size;
-  attr->dw_attr_val.v.val_vec.array = array;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_vec;
+  attr.dw_attr_val.v.val_vec.length = length;
+  attr.dw_attr_val.v.val_vec.elt_size = elt_size;
+  attr.dw_attr_val.v.val_vec.array = array;
+  add_dwarf_attr (die, &attr);
 }
 
 /* Hash and equality functions for debug_str_hash.  */
@@ -4943,7 +4991,7 @@ debug_str_eq (const void *x1, const void *x2)
 static inline void
 add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
   struct indirect_string_node *node;
   void **slot;
 
@@ -4959,11 +5007,10 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   node->str = ggc_strdup (str);
   node->refcount++;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_str;
-  attr->dw_attr_val.v.val_str = node;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_str;
+  attr.dw_attr_val.v.val_str = node;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline const char *
@@ -5015,14 +5062,13 @@ AT_string_form (dw_attr_ref a)
 static inline void
 add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_die)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_die_ref;
-  attr->dw_attr_val.v.val_die_ref.die = targ_die;
-  attr->dw_attr_val.v.val_die_ref.external = 0;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_die_ref;
+  attr.dw_attr_val.v.val_die_ref.die = targ_die;
+  attr.dw_attr_val.v.val_die_ref.external = 0;
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add an AT_specification attribute to a DIE, and also make the back
@@ -5064,13 +5110,12 @@ set_AT_ref_external (dw_attr_ref a, int i)
 static inline void
 add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int targ_fde)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_fde_ref;
-  attr->dw_attr_val.v.val_fde_index = targ_fde;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_fde_ref;
+  attr.dw_attr_val.v.val_fde_index = targ_fde;
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add a location description attribute value to a DIE.  */
@@ -5078,13 +5123,12 @@ add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int tar
 static inline void
 add_AT_loc (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_descr_ref loc)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_loc;
-  attr->dw_attr_val.v.val_loc = loc;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_loc;
+  attr.dw_attr_val.v.val_loc = loc;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline dw_loc_descr_ref
@@ -5097,13 +5141,12 @@ AT_loc (dw_attr_ref a)
 static inline void
 add_AT_loc_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_list_ref loc_list)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_loc_list;
-  attr->dw_attr_val.v.val_loc_list = loc_list;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_loc_list;
+  attr.dw_attr_val.v.val_loc_list = loc_list;
+  add_dwarf_attr (die, &attr);
   have_location_lists = true;
 }
 
@@ -5119,13 +5162,12 @@ AT_loc_list (dw_attr_ref a)
 static inline void
 add_AT_addr (dw_die_ref die, enum dwarf_attribute attr_kind, rtx addr)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_addr;
-  attr->dw_attr_val.v.val_addr = addr;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_addr;
+  attr.dw_attr_val.v.val_addr = addr;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline rtx
@@ -5140,13 +5182,12 @@ AT_addr (dw_attr_ref a)
 static inline void
 add_AT_lbl_id (dw_die_ref die, enum dwarf_attribute attr_kind, const char *lbl_id)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_lbl_id;
-  attr->dw_attr_val.v.val_lbl_id = xstrdup (lbl_id);
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_lbl_id;
+  attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_id);
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add a section offset attribute value to a DIE, an offset into the
@@ -5156,13 +5197,12 @@ static inline void
 add_AT_lineptr (dw_die_ref die, enum dwarf_attribute attr_kind,
 		const char *label)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_lineptr;
-  attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_lineptr;
+  attr.dw_attr_val.v.val_lbl_id = xstrdup (label);
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add a section offset attribute value to a DIE, an offset into the
@@ -5172,13 +5212,12 @@ static inline void
 add_AT_macptr (dw_die_ref die, enum dwarf_attribute attr_kind,
 	       const char *label)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_macptr;
-  attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_macptr;
+  attr.dw_attr_val.v.val_lbl_id = xstrdup (label);
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add an offset attribute value to a DIE.  */
@@ -5187,13 +5226,12 @@ static inline void
 add_AT_offset (dw_die_ref die, enum dwarf_attribute attr_kind,
 	       unsigned HOST_WIDE_INT offset)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_offset;
-  attr->dw_attr_val.v.val_offset = offset;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_offset;
+  attr.dw_attr_val.v.val_offset = offset;
+  add_dwarf_attr (die, &attr);
 }
 
 /* Add an range_list attribute value to a DIE.  */
@@ -5202,13 +5240,12 @@ static void
 add_AT_range_list (dw_die_ref die, enum dwarf_attribute attr_kind,
 		   long unsigned int offset)
 {
-  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+  dw_attr_node attr;
 
-  attr->dw_attr_next = NULL;
-  attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_range_list;
-  attr->dw_attr_val.v.val_offset = offset;
-  add_dwarf_attr (die, attr);
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_range_list;
+  attr.dw_attr_val.v.val_offset = offset;
+  add_dwarf_attr (die, &attr);
 }
 
 static inline const char *
@@ -5226,20 +5263,21 @@ static dw_attr_ref
 get_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
   dw_attr_ref a;
+  unsigned ix;
   dw_die_ref spec = NULL;
 
-  if (die != NULL)
-    {
-      for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
-	if (a->dw_attr == attr_kind)
-	  return a;
-	else if (a->dw_attr == DW_AT_specification
-		 || a->dw_attr == DW_AT_abstract_origin)
-	  spec = AT_ref (a);
+  if (! die)
+    return NULL;
 
-      if (spec)
-	return get_AT (spec, attr_kind);
-    }
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (a->dw_attr == attr_kind)
+      return a;
+    else if (a->dw_attr == DW_AT_specification
+	     || a->dw_attr == DW_AT_abstract_origin)
+      spec = AT_ref (a);
+  
+  if (spec)
+    return get_AT (spec, attr_kind);
 
   return NULL;
 }
@@ -5363,127 +5401,102 @@ is_ada (void)
   return lang == DW_LANG_Ada95 || lang == DW_LANG_Ada83;
 }
 
-/* Free up the memory used by A.  */
-
-static inline void free_AT (dw_attr_ref);
-static inline void
-free_AT (dw_attr_ref a)
-{
-  if (AT_class (a) == dw_val_class_str)
-    if (a->dw_attr_val.v.val_str->refcount)
-      a->dw_attr_val.v.val_str->refcount--;
-}
-
 /* Remove the specified attribute if present.  */
 
 static void
 remove_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
-  dw_attr_ref *p;
-  dw_attr_ref removed = NULL;
+  dw_attr_ref a;
+  unsigned ix;
 
-  if (die != NULL)
-    {
-      for (p = &(die->die_attr); *p; p = &((*p)->dw_attr_next))
-	if ((*p)->dw_attr == attr_kind)
-	  {
-	    removed = *p;
-	    *p = (*p)->dw_attr_next;
-	    break;
-	  }
+  if (! die)
+    return;
 
-      if (removed != 0)
-	free_AT (removed);
-    }
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (a->dw_attr == attr_kind)
+      {
+	if (AT_class (a) == dw_val_class_str)
+	  if (a->dw_attr_val.v.val_str->refcount)
+	    a->dw_attr_val.v.val_str->refcount--;
+
+	/* VEC_ordered_remove should help reduce the number of abbrevs
+	   that are needed.  */
+	VEC_ordered_remove (dw_attr_node, die->die_attr, ix);
+	return;
+      }
 }
 
-/* Remove child die whose die_tag is specified tag.  */
+/* Remove CHILD from its parent.  PREV must have the property that
+   PREV->DIE_SIB == CHILD.  Does not alter CHILD.  */
+
+static void
+remove_child_with_prev (dw_die_ref child, dw_die_ref prev)
+{
+  gcc_assert (child->die_parent == prev->die_parent);
+  gcc_assert (prev->die_sib == child);
+  if (prev == child)
+    {
+      gcc_assert (child->die_parent->die_child == child);
+      prev = NULL;
+    }
+  else
+    prev->die_sib = child->die_sib;
+  if (child->die_parent->die_child == child)
+    child->die_parent->die_child = prev;
+}
+
+/* Remove child DIE whose die_tag is TAG.  Do nothing if no child
+   matches TAG.  */
 
 static void
 remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
 {
-  dw_die_ref current, prev, next;
-  current = die->die_child;
-  prev = NULL;
-  while (current != NULL)
-    {
-      if (current->die_tag == tag)
-	{
-	  next = current->die_sib;
-	  if (prev == NULL)
-	    die->die_child = next;
-	  else
-	    prev->die_sib = next;
-	  free_die (current);
-	  current = next;
-	}
-      else
-	{
-	  prev = current;
-	  current = current->die_sib;
-	}
-    }
+  dw_die_ref c;
+  
+  c = die->die_child;
+  if (c) do {
+    dw_die_ref prev = c;
+    c = c->die_sib;
+    while (c->die_tag == tag)
+      {
+	remove_child_with_prev (c, prev);
+	/* Might have removed every child.  */
+	if (c == c->die_sib)
+	  return;
+	c = c->die_sib;
+      }
+  } while (c != die->die_child);
 }
 
-/* Free up the memory used by DIE.  */
-
-static inline void
-free_die (dw_die_ref die)
-{
-  remove_children (die);
-}
-
-/* Discard the children of this DIE.  */
+/* Add a CHILD_DIE as the last child of DIE.  */
 
 static void
-remove_children (dw_die_ref die)
-{
-  dw_die_ref child_die = die->die_child;
-
-  die->die_child = NULL;
-
-  while (child_die != NULL)
-    {
-      dw_die_ref tmp_die = child_die;
-      dw_attr_ref a;
-
-      child_die = child_die->die_sib;
-
-      for (a = tmp_die->die_attr; a != NULL;)
-	{
-	  dw_attr_ref tmp_a = a;
-
-	  a = a->dw_attr_next;
-	  free_AT (tmp_a);
-	}
-
-      free_die (tmp_die);
-    }
-}
-
-/* Add a child DIE below its parent.  We build the lists up in reverse
-   addition order, and correct that in reverse_all_dies.  */
-
-static inline void
 add_child_die (dw_die_ref die, dw_die_ref child_die)
 {
-  if (die != NULL && child_die != NULL)
-    {
-      gcc_assert (die != child_die);
+  /* FIXME this should probably be an assert.  */
+  if (! die || ! child_die)
+    return;
+  gcc_assert (die != child_die);
 
-      child_die->die_parent = die;
-      child_die->die_sib = die->die_child;
-      die->die_child = child_die;
+  child_die->die_parent = die;
+  if (die->die_child)
+    {
+      child_die->die_sib = die->die_child->die_sib;
+      die->die_child->die_sib = child_die;
     }
+  else
+    child_die->die_sib = child_die;
+  die->die_child = child_die;
 }
 
 /* Move CHILD, which must be a child of PARENT or the DIE for which PARENT
-   is the specification, to the front of PARENT's list of children.  */
+   is the specification, to the end of PARENT's list of children.  
+   This is done by removing and re-adding it.  */
 
 static void
 splice_child_die (dw_die_ref parent, dw_die_ref child)
 {
-  dw_die_ref *p;
+  dw_die_ref p;
 
   /* We want the declaration DIE from inside the class, not the
      specification DIE at toplevel.  */
@@ -5498,17 +5511,15 @@ splice_child_die (dw_die_ref parent, dw_die_ref child)
   gcc_assert (child->die_parent == parent
 	      || (child->die_parent
 		  == get_AT_ref (parent, DW_AT_specification)));
-
-  for (p = &(child->die_parent->die_child); *p; p = &((*p)->die_sib))
-    if (*p == child)
+  
+  for (p = child->die_parent->die_child; ; p = p->die_sib)
+    if (p->die_sib == child)
       {
-	*p = child->die_sib;
+	remove_child_with_prev (child, p);
 	break;
       }
 
-  child->die_parent = parent;
-  child->die_sib = parent->die_child;
-  parent->die_child = child;
+  add_child_die (parent, child);
 }
 
 /* Return a pointer to a newly created DIE node.  */
@@ -5674,6 +5685,7 @@ print_die (dw_die_ref die, FILE *outfile)
 {
   dw_attr_ref a;
   dw_die_ref c;
+  unsigned ix;
 
   print_spaces (outfile);
   fprintf (outfile, "DIE %4lu: %s\n",
@@ -5682,7 +5694,7 @@ print_die (dw_die_ref die, FILE *outfile)
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
   fprintf (outfile, " offset: %lu\n", die->die_offset);
 
-  for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       print_spaces (outfile);
       fprintf (outfile, "  %s: ", dwarf_attr_name (a->dw_attr));
@@ -5754,9 +5766,7 @@ print_die (dw_die_ref die, FILE *outfile)
   if (die->die_child != NULL)
     {
       print_indent += 4;
-      for (c = die->die_child; c != NULL; c = c->die_sib)
-	print_die (c, outfile);
-
+      FOR_EACH_CHILD (die, c, print_die (c, outfile));
       print_indent -= 4;
     }
   if (print_indent == 0)
@@ -5806,52 +5816,6 @@ debug_dwarf (void)
     print_dwarf_line_table (stderr);
 }
 
-/* We build up the lists of children and attributes by pushing new ones
-   onto the beginning of the list.  Reverse the lists for DIE so that
-   they are in order of addition.  */
-
-static void
-reverse_die_lists (dw_die_ref die)
-{
-  dw_die_ref c, cp, cn;
-  dw_attr_ref a, ap, an;
-
-  for (a = die->die_attr, ap = 0; a; a = an)
-    {
-      an = a->dw_attr_next;
-      a->dw_attr_next = ap;
-      ap = a;
-    }
-
-  die->die_attr = ap;
-
-  for (c = die->die_child, cp = 0; c; c = cn)
-    {
-      cn = c->die_sib;
-      c->die_sib = cp;
-      cp = c;
-    }
-
-  die->die_child = cp;
-}
-
-/* reverse_die_lists only reverses the single die you pass it. Since we used to
-   reverse all dies in add_sibling_attributes, which runs through all the dies,
-   it would reverse all the dies.  Now, however, since we don't call
-   reverse_die_lists in add_sibling_attributes, we need a routine to
-   recursively reverse all the dies. This is that routine.  */
-
-static void
-reverse_all_dies (dw_die_ref die)
-{
-  dw_die_ref c;
-
-  reverse_die_lists (die);
-
-  for (c = die->die_child; c; c = c->die_sib)
-    reverse_all_dies (c);
-}
-
 /* Start a new compilation unit DIE for an include file.  OLD_UNIT is the CU
    for the enclosing include file, if any.  BINCL_DIE is the DW_TAG_GNU_BINCL
    DIE that marks the start of the DIEs for this include file.  */
@@ -5965,6 +5929,7 @@ die_checksum (dw_die_ref die, struct md5_ctx *ctx, int *mark)
 {
   dw_die_ref c;
   dw_attr_ref a;
+  unsigned ix;
 
   /* To avoid infinite recursion.  */
   if (die->die_mark)
@@ -5976,11 +5941,10 @@ die_checksum (dw_die_ref die, struct md5_ctx *ctx, int *mark)
 
   CHECKSUM (die->die_tag);
 
-  for (a = die->die_attr; a; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     attr_checksum (a, ctx, mark);
 
-  for (c = die->die_child; c; c = c->die_sib)
-    die_checksum (c, ctx, mark);
+  FOR_EACH_CHILD (die, c, die_checksum (c, ctx, mark));
 }
 
 #undef CHECKSUM
@@ -6084,7 +6048,8 @@ static int
 same_die_p (dw_die_ref die1, dw_die_ref die2, int *mark)
 {
   dw_die_ref c1, c2;
-  dw_attr_ref a1, a2;
+  dw_attr_ref a1;
+  unsigned ix;
 
   /* To avoid infinite recursion.  */
   if (die1->die_mark)
@@ -6094,21 +6059,36 @@ same_die_p (dw_die_ref die1, dw_die_ref die2, int *mark)
   if (die1->die_tag != die2->die_tag)
     return 0;
 
-  for (a1 = die1->die_attr, a2 = die2->die_attr;
-       a1 && a2;
-       a1 = a1->dw_attr_next, a2 = a2->dw_attr_next)
-    if (!same_attr_p (a1, a2, mark))
-      return 0;
-  if (a1 || a2)
+  if (VEC_length (dw_attr_node, die1->die_attr)
+      != VEC_length (dw_attr_node, die2->die_attr))
     return 0;
+  
+  for (ix = 0; VEC_iterate (dw_attr_node, die1->die_attr, ix, a1); ix++)
+    if (!same_attr_p (a1, VEC_index (dw_attr_node, die2->die_attr, ix), mark))
+      return 0;
 
-  for (c1 = die1->die_child, c2 = die2->die_child;
-       c1 && c2;
-       c1 = c1->die_sib, c2 = c2->die_sib)
-    if (!same_die_p (c1, c2, mark))
-      return 0;
-  if (c1 || c2)
-    return 0;
+  c1 = die1->die_child;
+  c2 = die2->die_child;
+  if (! c1)
+    {
+      if (c2)
+	return 0;
+    }
+  else
+    for (;;)
+      {
+	if (!same_die_p (c1, c2, mark))
+	  return 0;
+	c1 = c1->die_sib;
+	c2 = c2->die_sib;
+	if (c1 == die1->die_child)
+	  {
+	    if (c2 == die2->die_child)
+	      break;
+	    else
+	      return 0;
+	  }
+    }
 
   return 1;
 }
@@ -6239,7 +6219,8 @@ is_symbol_die (dw_die_ref c)
 {
   return (is_type_die (c)
 	  || (get_AT (c, DW_AT_declaration)
-	      && !get_AT (c, DW_AT_specification)));
+	      && !get_AT (c, DW_AT_specification))
+	  || c->die_tag == DW_TAG_namespace);
 }
 
 static char *
@@ -6272,8 +6253,7 @@ assign_symbol_names (dw_die_ref die)
 	die->die_symbol = gen_internal_sym ("LDIE");
     }
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    assign_symbol_names (c);
+  FOR_EACH_CHILD (die, c, assign_symbol_names (c));
 }
 
 struct cu_hash_table_entry
@@ -6371,41 +6351,34 @@ record_comdat_symbol_number (dw_die_ref cu, htab_t htable, unsigned int sym_num)
 static void
 break_out_includes (dw_die_ref die)
 {
-  dw_die_ref *ptr;
+  dw_die_ref c;
   dw_die_ref unit = NULL;
   limbo_die_node *node, **pnode;
   htab_t cu_hash_table;
 
-  for (ptr = &(die->die_child); *ptr;)
-    {
-      dw_die_ref c = *ptr;
+  c = die->die_child;
+  if (c) do {
+    dw_die_ref prev = c;
+    c = c->die_sib;
+    while (c->die_tag == DW_TAG_GNU_BINCL || c->die_tag == DW_TAG_GNU_EINCL
+	   || (unit && is_comdat_die (c)))
+      {
+	dw_die_ref next = c->die_sib;
 
-      if (c->die_tag == DW_TAG_GNU_BINCL || c->die_tag == DW_TAG_GNU_EINCL
-	  || (unit && is_comdat_die (c)))
-	{
-	  /* This DIE is for a secondary CU; remove it from the main one.  */
-	  *ptr = c->die_sib;
-
-	  if (c->die_tag == DW_TAG_GNU_BINCL)
-	    {
-	      unit = push_new_compile_unit (unit, c);
-	      free_die (c);
-	    }
-	  else if (c->die_tag == DW_TAG_GNU_EINCL)
-	    {
-	      unit = pop_compile_unit (unit);
-	      free_die (c);
-	    }
-	  else
-	    add_child_die (unit, c);
-	}
-      else
-	{
-	  /* Leave this DIE in the main CU.  */
-	  ptr = &(c->die_sib);
-	  continue;
-	}
-    }
+	/* This DIE is for a secondary CU; remove it from the main one.  */
+	remove_child_with_prev (c, prev);
+	
+	if (c->die_tag == DW_TAG_GNU_BINCL)
+	  unit = push_new_compile_unit (unit, c);
+	else if (c->die_tag == DW_TAG_GNU_EINCL)
+	  unit = pop_compile_unit (unit);
+	else
+	  add_child_die (unit, c);
+	c = next;
+	if (c == die->die_child)
+	  break;
+      }
+  } while (c != die->die_child);
 
 #if 0
   /* We can only use this in debugging, since the frontend doesn't check
@@ -6446,13 +6419,13 @@ add_sibling_attributes (dw_die_ref die)
 {
   dw_die_ref c;
 
-  if (die->die_tag != DW_TAG_compile_unit
-      && die->die_sib && die->die_child != NULL)
-    /* Add the sibling link to the front of the attribute list.  */
+  if (! die->die_child)
+    return;
+
+  if (die->die_parent && die != die->die_parent->die_child)
     add_AT_die_ref (die, DW_AT_sibling, die->die_sib);
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    add_sibling_attributes (c);
+  FOR_EACH_CHILD (die, c, add_sibling_attributes (c));
 }
 
 /* Output all location lists for the DIE and its children.  */
@@ -6461,15 +6434,14 @@ static void
 output_location_lists (dw_die_ref die)
 {
   dw_die_ref c;
-  dw_attr_ref d_attr;
+  dw_attr_ref a;
+  unsigned ix;
 
-  for (d_attr = die->die_attr; d_attr; d_attr = d_attr->dw_attr_next)
-    if (AT_class (d_attr) == dw_val_class_loc_list)
-      output_loc_list (AT_loc_list (d_attr));
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (AT_class (a) == dw_val_class_loc_list)
+      output_loc_list (AT_loc_list (a));
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    output_location_lists (c);
-
+  FOR_EACH_CHILD (die, c, output_location_lists (c));
 }
 
 /* The format of each DIE (and its attribute value pairs) is encoded in an
@@ -6483,44 +6455,48 @@ build_abbrev_table (dw_die_ref die)
   unsigned long abbrev_id;
   unsigned int n_alloc;
   dw_die_ref c;
-  dw_attr_ref d_attr, a_attr;
+  dw_attr_ref a;
+  unsigned ix;
 
   /* Scan the DIE references, and mark as external any that refer to
      DIEs from other CUs (i.e. those which are not marked).  */
-  for (d_attr = die->die_attr; d_attr; d_attr = d_attr->dw_attr_next)
-    if (AT_class (d_attr) == dw_val_class_die_ref
-	&& AT_ref (d_attr)->die_mark == 0)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (AT_class (a) == dw_val_class_die_ref
+	&& AT_ref (a)->die_mark == 0)
       {
-	gcc_assert (AT_ref (d_attr)->die_symbol);
+	gcc_assert (AT_ref (a)->die_symbol);
 
-	set_AT_ref_external (d_attr, 1);
+	set_AT_ref_external (a, 1);
       }
 
   for (abbrev_id = 1; abbrev_id < abbrev_die_table_in_use; ++abbrev_id)
     {
       dw_die_ref abbrev = abbrev_die_table[abbrev_id];
-
-      if (abbrev->die_tag == die->die_tag)
+      dw_attr_ref die_a, abbrev_a;
+      unsigned ix;
+      bool ok = true;
+      
+      if (abbrev->die_tag != die->die_tag)
+	continue;
+      if ((abbrev->die_child != NULL) != (die->die_child != NULL))
+	continue;
+      
+      if (VEC_length (dw_attr_node, abbrev->die_attr)
+	  != VEC_length (dw_attr_node, die->die_attr))
+	continue;
+  
+      for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, die_a); ix++)
 	{
-	  if ((abbrev->die_child != NULL) == (die->die_child != NULL))
+	  abbrev_a = VEC_index (dw_attr_node, abbrev->die_attr, ix);
+	  if ((abbrev_a->dw_attr != die_a->dw_attr)
+	      || (value_format (abbrev_a) != value_format (die_a)))
 	    {
-	      a_attr = abbrev->die_attr;
-	      d_attr = die->die_attr;
-
-	      while (a_attr != NULL && d_attr != NULL)
-		{
-		  if ((a_attr->dw_attr != d_attr->dw_attr)
-		      || (value_format (a_attr) != value_format (d_attr)))
-		    break;
-
-		  a_attr = a_attr->dw_attr_next;
-		  d_attr = d_attr->dw_attr_next;
-		}
-
-	      if (a_attr == NULL && d_attr == NULL)
-		break;
+	      ok = false;
+	      break;
 	    }
 	}
+      if (ok)
+	break;
     }
 
   if (abbrev_id >= abbrev_die_table_in_use)
@@ -6541,8 +6517,7 @@ build_abbrev_table (dw_die_ref die)
     }
 
   die->die_abbrev = abbrev_id;
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    build_abbrev_table (c);
+  FOR_EACH_CHILD (die, c, build_abbrev_table (c));
 }
 
 /* Return the power-of-two number of bytes necessary to represent VALUE.  */
@@ -6571,9 +6546,10 @@ size_of_die (dw_die_ref die)
 {
   unsigned long size = 0;
   dw_attr_ref a;
+  unsigned ix;
 
   size += size_of_uleb128 (die->die_abbrev);
-  for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       switch (AT_class (a))
 	{
@@ -6657,8 +6633,7 @@ calc_die_sizes (dw_die_ref die)
   die->die_offset = next_die_offset;
   next_die_offset += size_of_die (die);
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    calc_die_sizes (c);
+  FOR_EACH_CHILD (die, c, calc_die_sizes (c));
 
   if (die->die_child != NULL)
     /* Count the null byte used to terminate sibling lists.  */
@@ -6678,8 +6653,7 @@ mark_dies (dw_die_ref die)
   gcc_assert (!die->die_mark);
 
   die->die_mark = 1;
-  for (c = die->die_child; c; c = c->die_sib)
-    mark_dies (c);
+  FOR_EACH_CHILD (die, c, mark_dies (c));
 }
 
 /* Clear the marks for a die and its children.  */
@@ -6692,8 +6666,7 @@ unmark_dies (dw_die_ref die)
   gcc_assert (die->die_mark);
 
   die->die_mark = 0;
-  for (c = die->die_child; c; c = c->die_sib)
-    unmark_dies (c);
+  FOR_EACH_CHILD (die, c, unmark_dies (c));
 }
 
 /* Clear the marks for a die, its children and referred dies.  */
@@ -6703,15 +6676,15 @@ unmark_all_dies (dw_die_ref die)
 {
   dw_die_ref c;
   dw_attr_ref a;
+  unsigned ix;
 
   if (!die->die_mark)
     return;
   die->die_mark = 0;
 
-  for (c = die->die_child; c; c = c->die_sib)
-    unmark_all_dies (c);
+  FOR_EACH_CHILD (die, c, unmark_all_dies (c));
 
-  for (a = die->die_attr; a; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     if (AT_class (a) == dw_val_class_die_ref)
       unmark_all_dies (AT_ref (a));
 }
@@ -6845,11 +6818,11 @@ output_abbrev_section (void)
 {
   unsigned long abbrev_id;
 
-  dw_attr_ref a_attr;
-
   for (abbrev_id = 1; abbrev_id < abbrev_die_table_in_use; ++abbrev_id)
     {
       dw_die_ref abbrev = abbrev_die_table[abbrev_id];
+      unsigned ix;
+      dw_attr_ref a_attr;
 
       dw2_asm_output_data_uleb128 (abbrev_id, "(abbrev code)");
       dw2_asm_output_data_uleb128 (abbrev->die_tag, "(TAG: %s)",
@@ -6860,8 +6833,8 @@ output_abbrev_section (void)
       else
 	dw2_asm_output_data (1, DW_children_no, "DW_children_no");
 
-      for (a_attr = abbrev->die_attr; a_attr != NULL;
-	   a_attr = a_attr->dw_attr_next)
+      for (ix = 0; VEC_iterate (dw_attr_node, abbrev->die_attr, ix, a_attr);
+	   ix++)
 	{
 	  dw2_asm_output_data_uleb128 (a_attr->dw_attr, "(%s)",
 				       dwarf_attr_name (a_attr->dw_attr));
@@ -7005,6 +6978,7 @@ output_die (dw_die_ref die)
   dw_attr_ref a;
   dw_die_ref c;
   unsigned long size;
+  unsigned ix;
 
   /* If someone in another CU might refer to us, set up a symbol for
      them to point to.  */
@@ -7014,7 +6988,7 @@ output_die (dw_die_ref die)
   dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (0x%lx) %s)",
 			       die->die_offset, dwarf_tag_name (die->die_tag));
 
-  for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       const char *name = dwarf_attr_name (a->dw_attr);
 
@@ -7180,8 +7154,7 @@ output_die (dw_die_ref die)
 	}
     }
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    output_die (c);
+  FOR_EACH_CHILD (die, c, output_die (c));
 
   /* Add null byte to terminate sibling list.  */
   if (die->die_child != NULL)
@@ -7259,14 +7232,12 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
     }
 }
 
-/* The DWARF2 pubname for a nested thingy looks like "A::f".  The
-   output of lang_hooks.decl_printable_name for C++ looks like
-   "A::f(int)".  Let's drop the argument list, and maybe the scope.  */
+/* Return the DWARF2/3 pubname associated with a decl.  */
 
 static const char *
 dwarf2_name (tree decl, int scope)
 {
-  return lang_hooks.decl_printable_name (decl, scope ? 1 : 0);
+  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -8504,7 +8475,13 @@ dbx_reg_number (rtx rtl)
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
-  regno = LEAF_REG_REMAP (regno);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (regno);
+    if (leaf_reg != -1)
+      regno = (unsigned) leaf_reg;
+  }
 #endif
 
   return DBX_REGISTER_NUMBER (regno);
@@ -8573,7 +8550,13 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 
   reg = REGNO (rtl);
 #ifdef LEAF_REG_REMAP
-  reg = LEAF_REG_REMAP (reg);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (reg);
+    if (leaf_reg != -1)
+      reg = (unsigned) leaf_reg;
+  }
 #endif
   gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
@@ -11507,6 +11490,32 @@ dwarf2out_abstract_function (tree decl)
   current_function_decl = save_fn;
 }
 
+/* Helper function of premark_used_types() which gets called through
+   htab_traverse_resize().
+
+   Marks the DIE of a given type in *SLOT as perennial, so it never gets
+   marked as unused by prune_unused_types.  */
+static int
+premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  tree type;
+  dw_die_ref die;
+
+  type = *slot;
+  die = lookup_type_die (type);
+  if (die != NULL)
+    die->die_perennial_p = 1;
+  return 1;
+}
+
+/* Mark all members of used_types_hash as perennial.  */
+static void
+premark_used_types (void)
+{
+  if (cfun && cfun->used_types_hash)
+    htab_traverse (cfun->used_types_hash, premark_used_types_helper, NULL);
+}
+
 /* Generate a DIE to represent a declared function (either file-scope or
    block-local).  */
 
@@ -11521,6 +11530,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   dw_die_ref old_die = lookup_decl_die (decl);
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
+
+  premark_used_types();
 
   /* It is possible to have both DECL_ABSTRACT and DECLARATION be true if we
      started to generate the abstract instance of an inline, decided to output
@@ -13841,7 +13852,18 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
   return 1;
 }
 
+#if ENABLE_ASSERT_CHECKING
+/* Verify that all marks are clear.  */
 
+static void
+verify_marks_clear (dw_die_ref die)
+{
+  dw_die_ref c;
+  
+  gcc_assert (! die->die_mark);
+  FOR_EACH_CHILD (die, c, verify_marks_clear (c));
+}
+#endif /* ENABLE_ASSERT_CHECKING */
 
 /* Clear the marks for a die and its children.
    Be cool if the mark isn't set.  */
@@ -13850,11 +13872,11 @@ static void
 prune_unmark_dies (dw_die_ref die)
 {
   dw_die_ref c;
-  die->die_mark = 0;
-  for (c = die->die_child; c; c = c->die_sib)
-    prune_unmark_dies (c);
+  
+  if (die->die_mark)
+    die->die_mark = 0;
+  FOR_EACH_CHILD (die, c, prune_unmark_dies (c));
 }
-
 
 /* Given DIE that we're marking as used, find any other dies
    it references as attributes and mark them as used.  */
@@ -13863,8 +13885,9 @@ static void
 prune_unused_types_walk_attribs (dw_die_ref die)
 {
   dw_attr_ref a;
+  unsigned ix;
 
-  for (a = die->die_attr; a != NULL; a = a->dw_attr_next)
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       if (a->dw_attr_val.val_class == dw_val_class_die_ref)
 	{
@@ -13878,6 +13901,10 @@ prune_unused_types_walk_attribs (dw_die_ref die)
 	  a->dw_attr_val.v.val_unsigned =
 	    maybe_emit_file (a->dw_attr_val.v.val_unsigned);
 	}
+      /* Set the string's refcount to 0 so that prune_unused_types_mark
+	 accounts properly for it.  */
+      if (AT_class (a) == dw_val_class_str)
+	a->dw_attr_val.v.val_str->refcount = 0;
     }
 }
 
@@ -13915,16 +13942,12 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
 	 Remember that we've walked the kids.  */
       die->die_mark = 2;
 
-      /* Walk them.  */
-      for (c = die->die_child; c; c = c->die_sib)
-	{
-	  /* If this is an array type, we need to make sure our
-	     kids get marked, even if they're types.  */
-	  if (die->die_tag == DW_TAG_array_type)
-	    prune_unused_types_mark (c, 1);
-	  else
-	    prune_unused_types_walk (c);
-	}
+      /* If this is an array type, we need to make sure our
+	 kids get marked, even if they're types.  */
+      if (die->die_tag == DW_TAG_array_type)
+	FOR_EACH_CHILD (die, c, prune_unused_types_mark (c, 1));
+      else
+	FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
     }
 }
 
@@ -13960,6 +13983,9 @@ prune_unused_types_walk (dw_die_ref die)
   case DW_TAG_subrange_type:
   case DW_TAG_ptr_to_member_type:
   case DW_TAG_file_type:
+    if (die->die_perennial_p)
+      break;
+
     /* It's a type node --- don't mark it.  */
     return;
 
@@ -13974,38 +14000,73 @@ prune_unused_types_walk (dw_die_ref die)
   prune_unused_types_walk_attribs (die);
 
   /* Mark children.  */
-  for (c = die->die_child; c; c = c->die_sib)
-    prune_unused_types_walk (c);
+  FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
 }
 
+/* Increment the string counts on strings referred to from DIE's
+   attributes.  */
+
+static void
+prune_unused_types_update_strings (dw_die_ref die)
+{
+  dw_attr_ref a;
+  unsigned ix;
+
+  for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
+    if (AT_class (a) == dw_val_class_str)
+      {
+	struct indirect_string_node *s = a->dw_attr_val.v.val_str;
+	s->refcount++;
+	/* Avoid unnecessarily putting strings that are used less than
+	   twice in the hash table.  */
+	if (s->refcount
+	    == ((DEBUG_STR_SECTION_FLAGS & SECTION_MERGE) ? 1 : 2))
+	  {
+	    void ** slot;
+	    slot = htab_find_slot_with_hash (debug_str_hash, s->str,
+					     htab_hash_string (s->str),
+					     INSERT);
+	    gcc_assert (*slot == NULL);
+	    *slot = s;
+	  }
+      }
+}
 
 /* Remove from the tree DIE any dies that aren't marked.  */
 
 static void
 prune_unused_types_prune (dw_die_ref die)
 {
-  dw_die_ref c, p, n;
+  dw_die_ref c;
 
   gcc_assert (die->die_mark);
 
-  p = NULL;
-  for (c = die->die_child; c; c = n)
-    {
-      n = c->die_sib;
-      if (c->die_mark)
+  if (! die->die_child)
+    return;
+  
+  c = die->die_child;
+  do {
+    dw_die_ref prev = c;
+    for (c = c->die_sib; ! c->die_mark; c = c->die_sib)
+      if (c == die->die_child)
 	{
-	  prune_unused_types_prune (c);
-	  p = c;
-	}
-      else
-	{
-	  if (p)
-	    p->die_sib = n;
+	  /* No marked children between 'prev' and the end of the list.  */
+	  if (prev == c)
+	    /* No marked children at all.  */
+	    die->die_child = NULL;
 	  else
-	    die->die_child = n;
-	  free_die (c);
+	    {
+	      prev->die_sib = c->die_sib;
+	      die->die_child = prev;
+	    }
+	  return;
 	}
-    }
+
+    if (c != prev->die_sib)
+      prev->die_sib = c;
+    prune_unused_types_update_strings (c);
+    prune_unused_types_prune (c);
+  } while (c != die->die_child);
 }
 
 
@@ -14017,10 +14078,12 @@ prune_unused_types (void)
   unsigned int i;
   limbo_die_node *node;
 
-  /* Clear all the marks.  */
-  prune_unmark_dies (comp_unit_die);
+#if ENABLE_ASSERT_CHECKING
+  /* All the marks should already be clear.  */
+  verify_marks_clear (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
-    prune_unmark_dies (node->die);
+    verify_marks_clear (node->die);
+#endif /* ENABLE_ASSERT_CHECKING */
 
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die);
@@ -14034,7 +14097,9 @@ prune_unused_types (void)
   for (i = 0; i < arange_table_in_use; i++)
     prune_unused_types_mark (arange_table[i], 1);
 
-  /* Get rid of nodes that aren't marked.  */
+  /* Get rid of nodes that aren't marked; and update the string counts.  */
+  if (debug_str_hash)
+    htab_empty (debug_str_hash);
   prune_unused_types_prune (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
     prune_unused_types_prune (node->die);
@@ -14130,10 +14195,6 @@ dwarf2out_finish (const char *filename)
   /* Walk through the list of incomplete types again, trying once more to
      emit full debugging info for them.  */
   retry_incomplete_types ();
-
-  /* We need to reverse all the dies before break_out_includes, or
-     we'll see the end of an include file before the beginning.  */
-  reverse_all_dies (comp_unit_die);
 
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();

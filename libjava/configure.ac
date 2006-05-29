@@ -800,13 +800,12 @@ case "$THREADS" in
 	THREADSPEC='%{!pthread: %{!shared: %eUnder this configuration, the user must provide -pthread when linking.}}'
 	;;
      *-*-freebsd*)
-	# FreeBSD 5 implements a model much closer to other modern UNIX
-	# which support threads.  However, it still does not support
-	# -lpthread.
+	# FreeBSD >=5.3 implements a model much closer to other modern UNIX
+	# systems which support threads and -lpthread.
 	THREADLDFLAGS=-pthread
-	THREADSPEC=-lc_r
+	THREADSPEC=-lpthread
 	;;
-     alpha*-dec-osf*)
+     alpha*-dec-osf* | hppa*-hp-hpux*)
 	THREADCXXFLAGS=-pthread
 	# boehm-gc needs some functions from librt, so link that too.
 	THREADLIBS='-lpthread -lrt'
@@ -896,11 +895,14 @@ else
 		   access stat mkdir rename rmdir unlink realpath utime chmod \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate])
+		   fork execvp pipe sigaction ftruncate mmap])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
-   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
+   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
+   # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
    AC_CHECK_LIB(dl, dladdr, [
-       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])])
+       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])], [
+       AC_CHECK_LIB(dld, dladdr, [
+       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])])])
 
    if test x"$build" = x"$host"; then
      AC_CHECK_FILES(/proc/self/exe, [
@@ -1054,9 +1056,11 @@ else
    if test "$memcpy_found" = no; then
       AC_MSG_ERROR([memcpy is required])
    fi
-
+   # Do an additional check on dld, HP-UX for example has dlopen in libdld.sl
    AC_CHECK_LIB(dl, dlopen, [
-       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])], [
+       AC_CHECK_LIB(dld, dlopen, [
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])])
 
    # Some library-finding code we stole from Tcl.
    #--------------------------------------------------------------------
@@ -1272,7 +1276,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h])
+		  dirent.h sys/rw_lock.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1347,7 +1351,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[struct tm tim; tim.t
           [AC_MSG_RESULT(no)])])])
 
 AC_FUNC_ALLOCA
-AC_FUNC_MMAP
 
 AC_CHECK_PROGS(PERL, perl, false)
 
@@ -1367,6 +1370,9 @@ case "${host}" in
 #    ;;
  hppa*-*-linux*)
     SIGNAL_HANDLER=include/pa-signal.h
+    ;;
+ hppa*-hp-hpux*)
+    SIGNAL_HANDLER=include/hppa-signal.h
     ;;
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h

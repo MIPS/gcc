@@ -1712,7 +1712,7 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr, int g77)
      temporary array has lbounds of zero and strides of one in all
      dimensions, so this is very simple.  The offset is only computed
      outside the innermost loop, so the overall transfer could be
-     optimised further.  */
+     optimized further.  */
   info = &rse.ss->data.info;
 
   tmp_index = gfc_index_zero_node;
@@ -1832,6 +1832,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   gfc_charlen cl;
   gfc_expr *e;
   gfc_symbol *fsym;
+  stmtblock_t post;
 
   arglist = NULL_TREE;
   retargs = NULL_TREE;
@@ -1861,6 +1862,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   else
     info = NULL;
 
+  gfc_init_block (&post);
   gfc_init_interface_mapping (&mapping);
   need_interface_mapping = ((sym->ts.type == BT_CHARACTER
 				  && sym->ts.cl->length
@@ -1970,7 +1972,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	gfc_add_interface_mapping (&mapping, fsym, &parmse);
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
-      gfc_add_block_to_block (&se->post, &parmse.post);
+      gfc_add_block_to_block (&post, &parmse.post);
 
       /* Character strings are passed as two parameters, a length and a
          pointer.  */
@@ -2035,11 +2037,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  callee_alloc = sym->attr.allocatable || sym->attr.pointer;
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
 				       false, !sym->attr.pointer, callee_alloc);
-
-	  /* Zero the first stride to indicate a temporary.  */
-	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
-	  gfc_add_modify_expr (&se->pre, tmp,
-			       convert (TREE_TYPE (tmp), integer_zero_node));
 
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
@@ -2176,6 +2173,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	}
     }
+
+  /* Follow the function call with the argument post block.  */
+  if (byref)
+    gfc_add_block_to_block (&se->pre, &post);
+  else
+    gfc_add_block_to_block (&se->post, &post);
 
   return has_alternate_specifier;
 }

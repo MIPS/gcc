@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_H
 #define GCC_TREE_H
 
+#include "hashtab.h"
 #include "machmode.h"
 #include "input.h"
 #include "statistics.h"
@@ -170,14 +171,15 @@ extern const enum tree_code_class tree_code_type[];
 
 #define OMP_DIRECTIVE_P(NODE)				\
     (TREE_CODE (NODE) == OMP_PARALLEL			\
-     || TREE_CODE (NODE) == OMP_SECTIONS		\
-     || TREE_CODE (NODE) == OMP_SECTION			\
      || TREE_CODE (NODE) == OMP_FOR			\
-     || TREE_CODE (NODE) == OMP_RETURN_EXPR		\
+     || TREE_CODE (NODE) == OMP_SECTIONS		\
      || TREE_CODE (NODE) == OMP_SINGLE			\
+     || TREE_CODE (NODE) == OMP_SECTION			\
      || TREE_CODE (NODE) == OMP_MASTER			\
      || TREE_CODE (NODE) == OMP_ORDERED			\
-     || TREE_CODE (NODE) == OMP_CRITICAL)
+     || TREE_CODE (NODE) == OMP_CRITICAL		\
+     || TREE_CODE (NODE) == OMP_RETURN			\
+     || TREE_CODE (NODE) == OMP_CONTINUE)
 
 /* Number of argument-words in each kind of tree-node.  */
 
@@ -437,6 +439,12 @@ struct tree_common GTY(())
            CALL_EXPR
        DECL_BY_REFERENCE in
            PARM_DECL, RESULT_DECL
+       OMP_RETURN_NOWAIT in
+	   OMP_RETURN
+       OMP_SECTION_LAST in
+	   OMP_SECTION
+       OMP_PARALLEL_COMBINED in
+	   OMP_PARALLEL
 
    protected_flag:
 
@@ -1546,7 +1554,6 @@ struct tree_constructor GTY(())
 
 #define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
-#define OMP_SECTIONS_SECTIONS(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 2)
 
 #define OMP_SECTION_BODY(NODE)	   TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
 
@@ -1565,6 +1572,23 @@ struct tree_constructor GTY(())
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
 	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* True on an OMP_SECTION statement that was the last lexical member.
+   This status is meaningful in the implementation of lastprivate.  */
+#define OMP_SECTION_LAST(NODE) \
+  TREE_PRIVATE (OMP_SECTION_CHECK (NODE))
+
+/* True on an OMP_RETURN statement if the return does not require a
+   thread synchronization via some sort of barrier.  The exact barrier
+   that would otherwise be emitted is dependent on the OMP statement
+   with which this return is associated.  */
+#define OMP_RETURN_NOWAIT(NODE) \
+  TREE_PRIVATE (OMP_RETURN_CHECK (NODE))
+
+/* True on an OMP_PARALLEL statement if it represents an explicit
+   combined parallel work-sharing constructs.  */
+#define OMP_PARALLEL_COMBINED(NODE) \
+  TREE_PRIVATE (OMP_PARALLEL_CHECK (NODE))
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
@@ -1661,10 +1685,6 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
-/* Auxiliary pass-specific data.  */
-#define SSA_NAME_AUX(N) \
-   SSA_NAME_CHECK (N)->ssa_name.aux
-
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
 #endif
@@ -1703,9 +1723,6 @@ struct tree_ssa_name GTY(())
      this field; in the future we will allow VALUE_HANDLEs to persist
      as well.  */
   tree value_handle;
-
-  /* Auxiliary information stored with the ssa name.  */
-  PTR GTY((skip)) aux;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_d imm_uses;
@@ -2312,6 +2329,7 @@ struct tree_memory_tag GTY(())
   struct tree_decl_minimal common;
   unsigned int is_global:1;
   unsigned int is_used_alone:1;
+  unsigned int old_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
@@ -2320,6 +2338,11 @@ struct tree_memory_tag GTY(())
    directly, because the access had all of the SMT's aliases pruned
    from it.  */
 #define SMT_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+
+/* This flag is used to temporarily store the old value of the used alone
+   flag when updating so we know whether to mark the symbol for
+   renaming.  */
+#define SMT_OLD_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.old_used_alone)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -4244,7 +4267,7 @@ extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);
 extern int simple_cst_equal (tree, tree);
-extern unsigned int iterative_hash_expr (tree, unsigned int);
+extern hashval_t iterative_hash_expr (tree, hashval_t);
 extern int compare_tree_int (tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);
@@ -4452,6 +4475,10 @@ extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 /* Entry point for saving the return address in a register.  */
 
 extern void dwarf2out_return_reg (const char *, unsigned);
+
+/* Entry point for saving the first register into the second.  */
+
+extern void dwarf2out_reg_save_reg (const char *, rtx, rtx);
 
 /* In tree-inline.c  */
 

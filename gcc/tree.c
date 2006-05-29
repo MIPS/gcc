@@ -1209,7 +1209,6 @@ integer_zerop (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == INTEGER_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && TREE_INT_CST_LOW (expr) == 0
 	   && TREE_INT_CST_HIGH (expr) == 0)
 	  || (TREE_CODE (expr) == COMPLEX_CST
@@ -1226,7 +1225,6 @@ integer_onep (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == INTEGER_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && TREE_INT_CST_LOW (expr) == 1
 	   && TREE_INT_CST_HIGH (expr) == 0)
 	  || (TREE_CODE (expr) == COMPLEX_CST
@@ -1250,8 +1248,7 @@ integer_all_onesp (tree expr)
       && integer_zerop (TREE_IMAGPART (expr)))
     return 1;
 
-  else if (TREE_CODE (expr) != INTEGER_CST
-	   || TREE_CONSTANT_OVERFLOW (expr))
+  else if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
@@ -1303,7 +1300,7 @@ integer_pow2p (tree expr)
       && integer_zerop (TREE_IMAGPART (expr)))
     return 1;
 
-  if (TREE_CODE (expr) != INTEGER_CST || TREE_CONSTANT_OVERFLOW (expr))
+  if (TREE_CODE (expr) != INTEGER_CST)
     return 0;
 
   prec = (POINTER_TYPE_P (TREE_TYPE (expr))
@@ -1341,7 +1338,6 @@ integer_nonzerop (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == INTEGER_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && (TREE_INT_CST_LOW (expr) != 0
 	       || TREE_INT_CST_HIGH (expr) != 0))
 	  || (TREE_CODE (expr) == COMPLEX_CST
@@ -1434,7 +1430,6 @@ real_zerop (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == REAL_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst0))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_zerop (TREE_REALPART (expr))
@@ -1449,7 +1444,6 @@ real_onep (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == REAL_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst1))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_onep (TREE_REALPART (expr))
@@ -1464,7 +1458,6 @@ real_twop (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == REAL_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst2))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_twop (TREE_REALPART (expr))
@@ -1479,7 +1472,6 @@ real_minus_onep (tree expr)
   STRIP_NOPS (expr);
 
   return ((TREE_CODE (expr) == REAL_CST
-	   && ! TREE_CONSTANT_OVERFLOW (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconstm1))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_minus_onep (TREE_REALPART (expr))
@@ -1725,7 +1717,6 @@ int_size_in_bytes (tree type)
   t = TYPE_SIZE_UNIT (type);
   if (t == 0
       || TREE_CODE (t) != INTEGER_CST
-      || TREE_OVERFLOW (t)
       || TREE_INT_CST_HIGH (t) != 0
       /* If the result would appear negative, it's too big to represent.  */
       || (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)
@@ -3145,7 +3136,7 @@ build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 
 #if 1 /* ! defined(USE_MAPPED_LOCATION) */
 /* ??? gengtype doesn't handle conditionals */
-static GTY(()) location_t *last_annotated_node;
+static GTY(()) source_locus last_annotated_node;
 #endif
 
 #ifdef USE_MAPPED_LOCATION
@@ -4404,7 +4395,6 @@ int
 host_integerp (tree t, int pos)
 {
   return (TREE_CODE (t) == INTEGER_CST
-	  && ! TREE_OVERFLOW (t)
 	  && ((TREE_INT_CST_HIGH (t) == 0
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
@@ -5639,19 +5629,14 @@ variably_modified_type_p (tree type, tree fn)
   if (type == error_mark_node)
     return false;
 
-  /* If TYPE itself has variable size, it is variably modified.
-
-     We do not yet have a representation of the C99 '[*]' syntax.
-     When a representation is chosen, this function should be modified
-     to test for that case as well.  */
+  /* If TYPE itself has variable size, it is variably modified.  */
   RETURN_TRUE_IF_VAR (TYPE_SIZE (type));
-  RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT(type));
+  RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT (type));
 
   switch (TREE_CODE (type))
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-    case ARRAY_TYPE:
     case VECTOR_TYPE:
       if (variably_modified_type_p (TREE_TYPE (type), fn))
 	return true;
@@ -5684,7 +5669,7 @@ variably_modified_type_p (tree type, tree fn)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* We can't see if any of the field are variably-modified by the
+      /* We can't see if any of the fields are variably-modified by the
 	 definition we normally use, since that would produce infinite
 	 recursion via pointers.  */
       /* This is variably modified if some field's type is.  */
@@ -5699,6 +5684,13 @@ variably_modified_type_p (tree type, tree fn)
 	      RETURN_TRUE_IF_VAR (DECL_QUALIFIER (t));
 	  }
 	break;
+
+    case ARRAY_TYPE:
+      /* Do not call ourselves to avoid infinite recursion.  This is
+	 variably modified if the element type is.  */
+      RETURN_TRUE_IF_VAR (TYPE_SIZE (TREE_TYPE (type)));
+      RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      break;
 
     default:
       break;
@@ -7000,7 +6992,7 @@ tree
 unsigned_type_for (tree type)
 {
   if (POINTER_TYPE_P (type))
-    return size_type_node;
+    return lang_hooks.types.unsigned_type (size_type_node);
   return lang_hooks.types.unsigned_type (type);
 }
 
@@ -7009,6 +7001,8 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return lang_hooks.types.signed_type (size_type_node);
   return lang_hooks.types.signed_type (type);
 }
 

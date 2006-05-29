@@ -148,7 +148,6 @@ target_libraries="target-libiberty \
 		target-libstdc++-v3 \
 		target-libmudflap \
 		target-libssp \
-		target-libgcc-math \
 		target-libgfortran \
 		${libgcj} \
 		target-libobjc \
@@ -227,7 +226,7 @@ esac
 
 # Some tools are only suitable for building in a "native" situation.
 # Remove these if host!=target.  
-native_only="autoconf automake libtool fileutils find gawk gettext gzip hello indent m4 rcs recode sed shellutils tar textutils uudecode wdiff gprof target-groff guile perl time ash bash bzip2 prms gnuserv target-gperf"
+native_only="autoconf automake libtool fileutils find gawk gettext gzip hello indent m4 rcs recode sed shellutils tar textutils uudecode wdiff target-groff guile perl time ash bash bzip2 prms gnuserv target-gperf"
 
 # Similarly, some are only suitable for cross toolchains.
 # Remove these if host=target.
@@ -312,18 +311,6 @@ AC_ARG_ENABLE(libssp,
 [  --enable-libssp        Builds libssp directory],
 ENABLE_LIBSSP=$enableval,
 ENABLE_LIBSSP=yes)
-
-# Set the default so we build libgcc-math for ix86 and x86_64
-AC_ARG_ENABLE(libgcc-math,
-[  --enable-libgcc-math   Builds libgcc-math directory],,
-[
-case "${target}" in
-  i?86-* | x86_64-* )
-    enable_libgcc_math=yes ;;
-  *)
-    enable_libgcc_math=no ;;
-esac
-])
 
 # Save it here so that, even in case of --enable-libgcj, if the Java
 # front-end isn't enabled, we still get libgcj disabled.
@@ -444,9 +431,6 @@ case "${target}" in
     ;;
   *-*-vxworks*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss target-libiberty target-libstdc++-v3 ${libgcj}"
-    ;;
-  m32c-*-*)
-    noconfigdirs="$noconfigdirs target-libstdc++-v3"
     ;;
   alpha*-dec-osf*)
     # ld works, but does not support shared libraries.
@@ -586,6 +570,9 @@ case "${target}" in
   hppa*-*-openbsd* | \
   hppa*64*-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
+  hppa*-hp-hpux11*)
+    noconfigdirs="$noconfigdirs ld shellutils"
     ;;
   hppa*-*-*)
     # According to Alexandre Oliva <aoliva@redhat.com>, libjava won't
@@ -1081,6 +1068,26 @@ fi
 ACX_PROG_GNAT
 ACX_PROG_CMP_IGNORE_INITIAL
 
+# Check for html and install-html
+AC_ARG_WITH(datarootdir,
+[  --with-datarootdir   Use datarootdir as the data root directory.],
+[datarootdir="\${prefix}/${withval}"],
+[datarootdir="\${prefix}/share"])
+
+AC_ARG_WITH(docdir,
+[  --with-docdir        Install documentation in this directory.],
+[docdir="\${prefix}/${withval}"],
+[docdir="\${datarootdir}/doc"])
+
+AC_ARG_WITH(htmldir,
+[  --with-htmldir       Install html in this directory.],
+[htmldir="\${prefix}/${withval}"],
+[htmldir="\${docdir}"])
+
+AC_SUBST(datarootdir)
+AC_SUBST(docdir)
+AC_SUBST(htmldir)
+
 # Check for GMP and MPFR
 gmplibs=
 gmpinc=
@@ -1145,8 +1152,8 @@ if test x"$have_gmp" = xyes; then
 #include <mpfr.h>], [mpfr_t n; mpfr_init(n);],
     [AC_MSG_RESULT([yes])],  [AC_MSG_RESULT([no]); have_gmp=no])
   LIBS="$saved_LIBS"
-  CFLAGS="$saved_CFLAGS"
 fi
+CFLAGS="$saved_CFLAGS"
 
 # Flags needed for both GMP and/or MPFR
 AC_SUBST(gmplibs)
@@ -2128,6 +2135,20 @@ if test "x${use_gnu_ld}" = x &&
   # Arrange for us to find uninstalled linker scripts.
   FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -L$$r/$(HOST_SUBDIR)/ld'
 fi
+
+# Search for other target-specific linker scripts and such.
+case "${target}" in
+  m32c-*-* )
+    if test -d ${srcdir}/libgloss/m32c; then
+      # This is for crt0.o
+      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -B$$r/$(TARGET_SUBDIR)/libgloss/m32c'
+      # This is for r8c.ld
+      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -L$$r/$(TARGET_SUBDIR)/libgloss/m32c'
+      # This is for libnosys.a
+      FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -L$$r/$(TARGET_SUBDIR)/libgloss/libnosys'
+    fi
+    ;;
+esac
 
 # Makefile fragments.
 for frag in host_makefile_frag target_makefile_frag alphaieee_frag ospace_frag;

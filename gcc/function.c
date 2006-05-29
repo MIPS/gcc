@@ -63,6 +63,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "vecprim.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -122,9 +123,6 @@ struct machine_function * (*init_machine_status) (void);
 
 /* The currently compiled function.  */
 struct function *cfun = 0;
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
 static VEC(int,heap) *prologue;
@@ -548,14 +546,18 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
+  if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
+    {
+      size_t old_length = VEC_length (temp_slot_p, used_temp_slots);
+      temp_slot_p *p;
 
-  if (!used_temp_slots)
-    VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
+      VEC_safe_grow (temp_slot_p, gc, used_temp_slots, level + 1);
+      p = VEC_address (temp_slot_p, used_temp_slots);
+      memset (&p[old_length], 0,
+	      sizeof (temp_slot_p) * (level + 1 - old_length));
+    }
 
-  while (level >= (int) VARRAY_ACTIVE_SIZE (used_temp_slots))
-    VARRAY_PUSH_GENERIC_PTR (used_temp_slots, NULL);
-
-  return (struct temp_slot **) &VARRAY_GENERIC_PTR (used_temp_slots, level);
+  return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
 }
 
 /* Returns the maximal temporary slot level.  */
@@ -566,7 +568,7 @@ max_slot_level (void)
   if (!used_temp_slots)
     return -1;
 
-  return VARRAY_ACTIVE_SIZE (used_temp_slots) - 1;
+  return VEC_length (temp_slot_p, used_temp_slots) - 1;
 }
 
 /* Moves temporary slot TEMP to LEVEL.  */
@@ -2968,22 +2970,9 @@ assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
   tree fnargs, parm;
-  rtx internal_arg_pointer;
 
-  /* If the reg that the virtual arg pointer will be translated into is
-     not a fixed reg or is the stack pointer, make a copy of the virtual
-     arg pointer, and address parms via the copy.  The frame pointer is
-     considered fixed even though it is not marked as such.
-
-     The second time through, simply use ap to avoid generating rtx.  */
-
-  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
-       || ! (fixed_regs[ARG_POINTER_REGNUM]
-	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
-    internal_arg_pointer = copy_to_reg (virtual_incoming_args_rtx);
-  else
-    internal_arg_pointer = virtual_incoming_args_rtx;
-  current_function_internal_arg_pointer = internal_arg_pointer;
+  current_function_internal_arg_pointer
+    = targetm.calls.internal_arg_pointer ();
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
@@ -3835,6 +3824,15 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
+int
+get_last_funcdef_no (void)
+{
+  int temp;
+  
+  temp = funcdef_no;
+  funcdef_no++;
+  return temp;
+}
 /* Allocate a function structure for FNDECL and set its contents
    to the defaults.  */
 
@@ -3991,42 +3989,6 @@ struct tree_opt_pass pass_init_function =
 void
 expand_main_function (void)
 {
-#ifdef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN)
-    {
-      int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      rtx tmp, seq;
-
-      start_sequence ();
-      /* Forcibly align the stack.  */
-#ifdef STACK_GROWS_DOWNWARD
-      tmp = expand_simple_binop (Pmode, AND, stack_pointer_rtx, GEN_INT(-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#else
-      tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-				 GEN_INT (align - 1), NULL_RTX, 1, OPTAB_WIDEN);
-      tmp = expand_simple_binop (Pmode, AND, tmp, GEN_INT (-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#endif
-      if (tmp != stack_pointer_rtx)
-	emit_move_insn (stack_pointer_rtx, tmp);
-
-      /* Enlist allocate_dynamic_stack_space to pick up the pieces.  */
-      tmp = force_reg (Pmode, const0_rtx);
-      allocate_dynamic_stack_space (tmp, NULL_RTX, BIGGEST_ALIGNMENT);
-      seq = get_insns ();
-      end_sequence ();
-
-      for (tmp = get_last_insn (); tmp; tmp = PREV_INSN (tmp))
-	if (NOTE_P (tmp) && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_FUNCTION_BEG)
-	  break;
-      if (tmp)
-	emit_insn_before (seq, tmp);
-      else
-	emit_insn (seq);
-    }
-#endif
-
 #if (defined(INVOKE__main)				\
      || (!defined(HAS_INIT_SECTION)			\
 	 && !defined(INIT_SECTION_ASM_OP)		\
@@ -5569,8 +5531,8 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
 void
 reset_block_changes (void)
 {
-  VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
-  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
+  cfun->ib_boundaries_block = VEC_alloc (tree, gc, 100);
+  VEC_quick_push (tree, cfun->ib_boundaries_block, NULL_TREE);
 }
 
 /* Record the boundary for BLOCK.  */
@@ -5586,13 +5548,12 @@ record_block_change (tree block)
   if(!cfun->ib_boundaries_block)
     return;
 
-  last_block = VARRAY_TOP_TREE (cfun->ib_boundaries_block);
-  VARRAY_POP (cfun->ib_boundaries_block);
+  last_block = VEC_pop (tree, cfun->ib_boundaries_block);
   n = get_max_uid ();
-  for (i = VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block); i < n; i++)
-    VARRAY_PUSH_TREE (cfun->ib_boundaries_block, last_block);
+  for (i = VEC_length (tree, cfun->ib_boundaries_block); i < n; i++)
+    VEC_safe_push (tree, gc, cfun->ib_boundaries_block, last_block);
 
-  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, block);
+  VEC_safe_push (tree, gc, cfun->ib_boundaries_block, block);
 }
 
 /* Finishes record of boundaries.  */
@@ -5607,17 +5568,17 @@ check_block_change (rtx insn, tree *block)
 {
   unsigned uid = INSN_UID (insn);
 
-  if (uid >= VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block))
+  if (uid >= VEC_length (tree, cfun->ib_boundaries_block))
     return;
 
-  *block = VARRAY_TREE (cfun->ib_boundaries_block, uid);
+  *block = VEC_index (tree, cfun->ib_boundaries_block, uid);
 }
 
 /* Releases the ib_boundaries_block records.  */
 void
 free_block_changes (void)
 {
-  cfun->ib_boundaries_block = NULL;
+  VEC_free (tree, gc, cfun->ib_boundaries_block);
 }
 
 /* Returns the name of the current function.  */
@@ -5638,14 +5599,32 @@ rest_of_handle_check_leaf_regs (void)
   return 0;
 }
 
-int
-get_last_funcdef_no (void)
+/* Insert a TYPE into the used types hash table of CFUN.  */
+static void
+used_types_insert_helper (tree type, struct function *func)
 {
-  int temp;
-  
-  temp = funcdef_no;
-  funcdef_no++;
-  return temp;
+  if (type != NULL && func != NULL)
+    {
+      void **slot;
+
+      if (func->used_types_hash == NULL)
+	func->used_types_hash = htab_create_ggc (37, htab_hash_pointer,
+						 htab_eq_pointer, NULL);
+      slot = htab_find_slot (func->used_types_hash, type, INSERT);
+      if (*slot == NULL)
+	*slot = type;
+    }
+}
+
+/* Given a type, insert it into the used hash table in cfun.  */
+void
+used_types_insert (tree t)
+{
+  while (POINTER_TYPE_P (t) || TREE_CODE (t) == ARRAY_TYPE)
+    t = TREE_TYPE (t);
+  t = TYPE_MAIN_VARIANT (t);
+  if (debug_info_level > DINFO_LEVEL_NONE)
+    used_types_insert_helper (t, cfun);
 }
 
 struct tree_opt_pass pass_leaf_regs =

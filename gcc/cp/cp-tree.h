@@ -3184,10 +3184,6 @@ typedef enum base_kind {
 			     binfo.  */
 } base_kind;
 
-/* in decl{2}.c */
-/* A node that is a list (length 1) of error_mark_nodes.  */
-extern GTY(()) tree error_mark_list;
-
 /* Node for "pointer to (virtual) function".
    This may be distinct from ptr_type_node so gdb can distinguish them.  */
 #define vfunc_ptr_type_node  vtable_entry_type
@@ -3691,9 +3687,6 @@ struct cp_declarator {
   } u;
 };
 
-/* An erroneous declarator.  */
-extern cp_declarator *cp_error_declarator;
-
 /* A parameter list indicating for a function with no parameters,
    e.g  "int f(void)".  */
 extern cp_parameter_declarator *no_parameters;
@@ -3710,11 +3703,13 @@ extern bool sufficient_parms_p			(tree);
 extern tree type_decays_to			(tree);
 extern tree build_user_type_conversion		(tree, tree, int);
 extern tree build_new_function_call		(tree, tree, bool);
-extern tree build_operator_new_call		(tree, tree, tree *, tree *);
-extern tree build_new_method_call		(tree, tree, tree, tree, int);
+extern tree build_operator_new_call		(tree, tree, tree *, tree *,
+						 tree *);
+extern tree build_new_method_call		(tree, tree, tree, tree, int,
+						 tree *);
 extern tree build_special_member_call		(tree, tree, tree, tree, int);
 extern tree build_new_op			(enum tree_code, int, tree, tree, tree, bool *);
-extern tree build_op_delete_call		(enum tree_code, tree, tree, bool, tree);
+extern tree build_op_delete_call		(enum tree_code, tree, tree, bool, tree, tree);
 extern bool can_convert				(tree, tree);
 extern bool can_convert_arg			(tree, tree, tree, int);
 extern bool can_convert_arg_bad			(tree, tree, tree);
@@ -3748,7 +3743,7 @@ extern tree get_vtable_decl			(tree, int);
 extern void resort_type_method_vec		(void *, void *,
 						 gt_pointer_operator, void *);
 extern bool add_method				(tree, tree, tree);
-extern int currently_open_class			(tree);
+extern bool currently_open_class		(tree);
 extern tree currently_open_derived_class	(tree);
 extern tree finish_struct			(tree, tree);
 extern void finish_struct_1			(tree);
@@ -3840,13 +3835,14 @@ extern tree check_tag_decl			(cp_decl_specifier_seq *);
 extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
 extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, tree *);
-extern void start_decl_1			(tree);
+extern void start_decl_1			(tree, bool);
 extern void cp_finish_decl			(tree, tree, bool, tree, int);
 extern void finish_decl				(tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type			(tree, tree);
 /* the grokdeclarator prototype is in decl.h */
+extern tree build_this_parm                     (tree, cp_cv_quals);
 extern int copy_fn_p				(tree);
 extern tree get_scope_of_declarator		(const cp_declarator *);
 extern void grok_special_member_properties	(tree);
@@ -3904,12 +3900,11 @@ extern bool have_extern_spec;
 
 /* in decl2.c */
 extern bool check_java_method			(tree);
-extern cp_cv_quals grok_method_quals		(tree, tree, cp_cv_quals);
+extern tree build_memfn_type                    (tree, tree, cp_cv_quals);
 extern void maybe_retrofit_in_chrg		(tree);
 extern void maybe_make_one_only			(tree);
 extern void grokclassfn				(tree, tree,
-						 enum overload_flags,
-						 cp_cv_quals);
+						 enum overload_flags);
 extern tree grok_array_decl			(tree, tree);
 extern tree delete_sanity			(tree, tree, bool, int);
 extern tree check_classfn			(tree, tree, tree);
@@ -3939,6 +3934,7 @@ extern tree cxx_callgraph_analyze_expr		(tree *, int *, tree);
 extern void mark_needed				(tree);
 extern bool decl_needed_p			(tree);
 extern void note_vague_linkage_fn		(tree);
+extern tree build_artificial_parm               (tree, tree);
 
 /* in error.c */
 extern void init_error				(void);
@@ -3971,13 +3967,12 @@ extern tree cplus_expand_constant		(tree);
 extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend				(tree, tree, bool);
-extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, cp_cv_quals, bool);
+extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, bool);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
 extern void emit_mem_initializers		(tree);
 extern tree build_aggr_init			(tree, tree, int);
-extern tree build_init				(tree, tree, int);
 extern int is_aggr_type				(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
@@ -4157,6 +4152,7 @@ extern void stop_deferring_access_checks	(void);
 extern void pop_deferring_access_checks		(void);
 extern tree get_deferred_access_checks		(void);
 extern void pop_to_parent_deferring_access_checks (void);
+extern void perform_access_checks               (tree);
 extern void perform_deferred_access_checks	(void);
 extern void perform_or_defer_access_check	(tree, tree);
 extern int stmts_are_full_exprs_p		(void);
@@ -4194,9 +4190,9 @@ extern void finish_try_block			(tree);
 extern tree begin_eh_spec_block			(void);
 extern void finish_eh_spec_block		(tree, tree);
 extern void finish_handler_sequence		(tree);
-extern tree begin_function_try_block		(void);
+extern tree begin_function_try_block		(tree *);
 extern void finish_function_try_block		(tree);
-extern void finish_function_handler_sequence    (tree);
+extern void finish_function_handler_sequence    (tree, tree);
 extern void finish_cleanup_try_block		(tree);
 extern tree begin_handler			(void);
 extern void finish_handler_parms		(tree, tree);
@@ -4271,6 +4267,7 @@ extern tree cxx_omp_clause_default_ctor		(tree, tree);
 extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
+extern bool cxx_omp_privatize_by_reference	(tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4338,6 +4335,8 @@ extern tree cp_add_pending_fn_decls		(void*,tree);
 extern int cp_auto_var_in_fn_p			(tree,tree);
 extern tree fold_if_not_in_template		(tree);
 extern tree rvalue                              (tree);
+extern tree convert_bitfield_to_declared_type   (tree);
+extern tree cp_save_expr                        (tree);
    
 /* in typeck.c */
 extern int string_conv_p			(tree, tree, int);
@@ -4356,8 +4355,8 @@ extern tree cxx_sizeof_or_alignof_expr		(tree, enum tree_code);
 extern tree cxx_sizeof_or_alignof_type		(tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
+extern tree is_bitfield_expr_with_lowered_type  (tree); 
 extern tree decay_conversion			(tree);
-extern tree default_conversion			(tree);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool);
 extern tree finish_class_member_access_expr     (tree, tree, bool);
 extern tree build_x_indirect_ref		(tree, const char *);

@@ -74,6 +74,9 @@ details.  */
 // Execution engine for compiled code.
 _Jv_CompiledEngine _Jv_soleCompiledEngine;
 
+// Execution engine for code compiled with -findirect-classes
+_Jv_IndirectCompiledEngine _Jv_soleIndirectCompiledEngine;
+
 // We allocate a single OutOfMemoryError exception which we keep
 // around for use if we run out of memory.
 static java::lang::OutOfMemoryError *no_memory;
@@ -762,6 +765,11 @@ _Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
 jobject
 _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 {
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if (_Jv_IsPhantomClass(array_type))
+    throw new java::lang::NoClassDefFoundError(array_type->getName());
+
   va_list args;
   jint sizes[dimensions];
   va_start (args, dimensions);

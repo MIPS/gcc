@@ -464,6 +464,9 @@ build_dynamic_cast_1 (tree type, tree expr)
   tree old_expr = expr;
   const char *errstr = NULL;
 
+  /* Save casted types in the function's used types hash table.  */
+  used_types_insert (type);
+
   /* T shall be a pointer or reference to a complete class type, or
      `pointer to cv void''.  */
   switch (tc)
@@ -513,10 +516,7 @@ build_dynamic_cast_1 (tree type, tree expr)
     }
   else
     {
-      /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
       exprtype = build_reference_type (exprtype);
-      expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
-				   LOOKUP_NORMAL, NULL_TREE);
 
       /* T is a reference type, v shall be an lvalue of a complete class
 	 type, and the result is an lvalue of the type referred to by T.  */
@@ -532,6 +532,9 @@ build_dynamic_cast_1 (tree type, tree expr)
 	  goto fail;
 	}
 
+      /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
+      expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
+				   LOOKUP_NORMAL, NULL_TREE);
     }
 
   /* The dynamic_cast operator shall not cast away constness.  */

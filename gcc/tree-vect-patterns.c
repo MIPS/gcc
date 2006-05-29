@@ -357,7 +357,7 @@ vect_recog_widen_mult_pattern (tree last_stmt ATTRIBUTE_UNUSED,
 
    where type 'TYPE' is at least double the size of type 'type', i.e - we're 
    summing elements of type 'type' into an accumulator of type 'TYPE'. This is
-   a sepcial case of a reduction computation.
+   a special case of a reduction computation.
 
    Input:
 
@@ -516,7 +516,7 @@ vect_pattern_recog_1 (
   code = TREE_CODE (pattern_expr);
   pattern_type = TREE_TYPE (pattern_expr);
   var = create_tmp_var (pattern_type, "patt");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   var_name = make_ssa_name (var, NULL_TREE);
   pattern_expr = build2 (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
   SSA_NAME_DEF_STMT (var_name) = pattern_expr;

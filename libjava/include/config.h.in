@@ -115,9 +115,6 @@
 /* Define if gethostname is declared in <unistd.h>. */
 #undef HAVE_GETHOSTNAME_DECL
 
-/* Define to 1 if you have the `getpagesize' function. */
-#undef HAVE_GETPAGESIZE
-
 /* Define to 1 if you have the `getpwuid_r' function. */
 #undef HAVE_GETPWUID_R
 
@@ -187,7 +184,7 @@
 /* Define is you have 'mktime' in <time.h> */
 #undef HAVE_MKTIME
 
-/* Define to 1 if you have a working `mmap' system call. */
+/* Define to 1 if you have the `mmap' function. */
 #undef HAVE_MMAP
 
 /* Define to 1 if you have the <netdb.h> header file. */
@@ -294,6 +291,9 @@
 
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #undef HAVE_SYS_IOCTL_H
+
+/* Define to 1 if you have the <sys/rw_lock.h> header file. */
+#undef HAVE_SYS_RW_LOCK_H
 
 /* Define to 1 if you have the <sys/select.h> header file. */
 #undef HAVE_SYS_SELECT_H

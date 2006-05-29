@@ -361,7 +361,7 @@ struct rtvec_def GTY(()) {
 /* Predicate yielding nonzero iff X is an rtx for a memory location.  */
 #define MEM_P(X) (GET_CODE (X) == MEM)
 
-/* Prediacte yielding nonzero iff X is an rtx for a constant integer.  */
+/* Predicate yielding nonzero iff X is an rtx for a constant integer.  */
 #define CONST_INT_P(X) (GET_CODE (X) == CONST_INT)
 
 /* Predicate yielding nonzero iff X is a label insn.  */
@@ -1977,6 +1977,12 @@ extern int epilogue_completed;
    Required by some machines to handle any generated moves differently.  */
 
 extern int reload_in_progress;
+
+#ifdef STACK_REGS
+/* Nonzero after end of regstack pass.
+   Set to 1 or 0 by reg-stack.c.  */
+extern int regstack_completed;
+#endif
 
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to

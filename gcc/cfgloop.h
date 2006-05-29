@@ -47,12 +47,10 @@ struct lpt_decision
 
 struct nb_iter_bound
 {
-  tree bound;		/* The expression whose value is an upper bound on the
-			   number of executions of anything after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* A conjunction of conditions the operands of BOUND
-			   satisfy.  The additional information about the value
-			   of the bound may be derived from it.  */
+  tree bound;		/* The constant expression whose value is an upper
+			   bound on the number of executions of ...  */
+  tree at_stmt;		/* ... this statement during one execution of
+			   a loop.  */
   struct nb_iter_bound *next;
 			/* The next bound in a list.  */
 };
@@ -149,13 +147,10 @@ struct loops
   /* Number of natural loops in the function.  */
   unsigned num;
 
-  /* Array of natural loop descriptors (scanning this array in reverse order
-     will find the inner loops before their enclosing outer loops).  */
-  struct loop *array;
+  /* State of loops.  */
+  int state;
 
-  /* The above array is unused in new loop infrastructure and is kept only for
-     purposes of the old loop optimizer.  Instead we store just pointers to
-     loops here.  
+  /* We store just pointers to loops here.  
      Note that a loop in this array may actually be NULL, if the loop
      has been removed and the entire loops structure has not been
      recomputed since that time.  */
@@ -177,9 +172,6 @@ struct loops
 
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
-
-  /* State of loops.  */
-  int state;
 };
 
 /* The loop tree currently optimized.  */
@@ -278,7 +270,7 @@ extern bool remove_path (struct loops *, edge);
 
    If first_special is true, the value in the first iteration is
      delta + mult * base
-     
+
    If extend = UNKNOWN, first_special must be false, delta 0, mult 1 and value is
      subreg_{mode} (base + i * step)
 
@@ -407,10 +399,5 @@ extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
 extern void record_estimate (struct loop *, tree, tree, tree);
-
-/* Old loop optimizer interface.  */
-
-/* Flags passed to loop_optimize.  */
-#define LOOP_PREFETCH 1
 
 #endif /* GCC_CFGLOOP_H */

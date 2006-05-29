@@ -858,7 +858,7 @@ current_function_has_exception_handlers (void)
 }
 
 /* A subroutine of duplicate_eh_regions.  Search the region tree under O
-   for the miniumum and maximum region numbers.  Update *MIN and *MAX.  */
+   for the minimum and maximum region numbers.  Update *MIN and *MAX.  */
 
 static void
 duplicate_eh_regions_0 (eh_region o, int *min, int *max)
@@ -912,7 +912,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
   return ret;
 }
 
-/* Duplicate the EH regions of IFUN, rootted at COPY_REGION, into current
+/* Duplicate the EH regions of IFUN, rooted at COPY_REGION, into current
    function and root the tree below OUTER_REGION.  Remap labels using MAP
    callback.  The special case of COPY_REGION of 0 means all regions.  */
 
@@ -956,7 +956,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
   /* Zero all entries in the range allocated.  */
   memset (VEC_address (eh_region, cfun->eh->region_array)
-	  + cfun_last_region_number + 1, 0, num_regions);
+	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region));
 
   /* Locate the spot at which to insert the new tree.  */
   if (outer_region > 0)
@@ -1077,6 +1077,48 @@ eh_region_outer_p (struct function *ifun, int region_a, int region_b)
   while (rp_b);
 
   return false;
+}
+
+/* Return region number of region that is outer to both if REGION_A and
+   REGION_B in IFUN.  */
+
+int
+eh_region_outermost (struct function *ifun, int region_a, int region_b)
+{
+  struct eh_region *rp_a, *rp_b;
+  sbitmap b_outer;
+
+  gcc_assert (ifun->eh->last_region_number > 0);
+  gcc_assert (ifun->eh->region_tree);
+
+  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
+  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
+  gcc_assert (rp_a != NULL);
+  gcc_assert (rp_b != NULL);
+
+  b_outer = sbitmap_alloc (ifun->eh->last_region_number + 1);
+  sbitmap_zero (b_outer);
+
+  do
+    {
+      SET_BIT (b_outer, rp_b->region_number);
+      rp_b = rp_b->outer;
+    }
+  while (rp_b);
+
+  do
+    {
+      if (TEST_BIT (b_outer, rp_a->region_number))
+	{
+	  sbitmap_free (b_outer);
+	  return rp_a->region_number;
+	}
+      rp_a = rp_a->outer;
+    }
+  while (rp_a);
+
+  sbitmap_free (b_outer);
+  return -1;
 }
 
 static int

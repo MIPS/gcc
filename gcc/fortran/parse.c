@@ -428,9 +428,9 @@ next_free (void)
 
           if (cnt > 5)
 	    gfc_error_now ("Too many digits in statement label at %C");
-	  
+
 	  if (c == 0)
-	    gfc_error_now ("Statement label at %C is zero");
+	    gfc_error_now ("Zero is not a valid statement label at %C");
 
 	  do
 	    c = gfc_next_char ();
@@ -439,6 +439,7 @@ next_free (void)
 	  if (!gfc_is_whitespace (c))
 	    gfc_error_now ("Non-numeric character in statement label at %C");
 
+	  return ST_NONE;
 	}
       else
 	{
@@ -600,7 +601,7 @@ next_fixed (void)
 
 blank_line:
   if (digit_flag)
-    gfc_warning ("Statement label in blank line will be ignored at %C");
+    gfc_warning ("Ignoring statement label in empty statement at %C");
   gfc_advance_line ();
   return ST_NONE;
 }
@@ -624,6 +625,7 @@ next_statement (void)
       if (gfc_at_eol ())
 	{
 	  if (gfc_option.warn_line_truncation
+	      && gfc_current_locus.lb
 	      && gfc_current_locus.lb->truncated)
 	    gfc_warning_now ("Line truncated at %C");
 
@@ -1269,7 +1271,7 @@ accept_statement (gfc_statement st)
 static void
 reject_statement (void)
 {
-
+  gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
   undo_new_statement ();

@@ -2378,7 +2378,8 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results)
 	 ignore this constraint. When we handle pointer subtraction,
 	 we may have to do something cute here.  */
       
-      if (result->offset < get_varinfo (result->var)->fullsize)
+      if (result->offset < get_varinfo (result->var)->fullsize
+	  && bitmaxsize != 0)
 	{
 	  /* It's also not true that the constraint will actually start at the
 	     right offset, it may start in some padding.  We only care about
@@ -2399,6 +2400,12 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results)
 	  /* Still the user could access one past the end of an array
 	     embedded in a struct resulting in accessing *only* padding.  */
 	  gcc_assert (curr || ref_contains_array_ref (orig_t));
+	}
+      else if (bitmaxsize == 0)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Access to zero-sized part of variable,"
+		     "ignoring\n");
 	}
       else
 	if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2553,7 +2560,7 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 		    heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
 		    DECL_EXTERNAL (heapvar) = 1;
 		    if (referenced_vars)
-		      add_referenced_tmp_var (heapvar);
+		      add_referenced_var (heapvar);
 		    heapvar_insert (t, heapvar);
 		  }
 
@@ -3041,7 +3048,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
       if (!TEST_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (op)))
 	{
 	  SET_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (op));
-	  VARRAY_PUSH_TREE (ai->processed_ptrs, op);
+	  VEC_safe_push (tree, heap, ai->processed_ptrs, op);
 	}
 
       /* If STMT is a PHI node, then it will not have pointer
@@ -4067,7 +4074,7 @@ intra_create_variable_infos (void)
 					    "PARM_NOALIAS");
 	      DECL_EXTERNAL (heapvar) = 1;
 	      if (referenced_vars)
-		add_referenced_tmp_var (heapvar);
+		add_referenced_var (heapvar);
 	      heapvar_insert (t, heapvar);
 	    }
 	  id = create_variable_info_for (heapvar,
@@ -4485,7 +4492,7 @@ compute_points_to_sets (struct alias_info *ai)
       dump_constraints (dump_file);
     }
   
-  if (need_to_solve ())
+  if (1 || need_to_solve ())
     {
       if (dump_file)
 	fprintf (dump_file,

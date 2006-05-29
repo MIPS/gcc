@@ -1,3 +1,14 @@
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (ada/decl.o): Replace target.h with $(TARGET_H).
+	(ada/misc.o): Likewise.
+	(ada/utils.o): Likewise.
+
+2006-04-08  Aurelien Jarno  <aurel32@debian.org>
+
+	* Makefile.in: Add Ada support for GNU/kFreeBSD.
+	* s-osinte-kfreebsd-gnu.ads: New file.
+
 2006-03-29  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Make-lang.in: Rename docdir to gcc_docdir.

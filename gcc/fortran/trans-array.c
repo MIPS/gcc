@@ -702,6 +702,8 @@ gfc_conv_array_transpose (gfc_se * se, gfc_expr * expr)
 
   src_info = &src_ss->data.info;
   dest_info = &dest_ss->data.info;
+  gcc_assert (dest_info->dimen == 2);
+  gcc_assert (src_info->dimen == 2);
 
   /* Get a descriptor for EXPR.  */
   gfc_init_se (&src_se, NULL);
@@ -722,8 +724,6 @@ gfc_conv_array_transpose (gfc_se * se, gfc_expr * expr)
 
   /* Copy the dimension information, renumbering dimension 1 to 0 and
      0 to 1.  */
-  gcc_assert (dest_info->dimen == 2);
-  gcc_assert (src_info->dimen == 2);
   for (n = 0; n < 2; n++)
     {
       dest_info->delta[n] = gfc_index_zero_node;
@@ -1035,9 +1035,6 @@ gfc_trans_array_constructor_subarray (stmtblock_t * pblock,
   gfc_copy_loopinfo_to_se (&se, &loop);
   se.ss = ss;
 
-  if (expr->ts.type == BT_CHARACTER)
-    gfc_todo_error ("character arrays in constructors");
-
   gfc_trans_array_ctor_element (&body, desc, *poffset, &se, expr);
   gcc_assert (se.ss == gfc_ss_terminator);
 
@@ -1311,7 +1308,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 	  /* Array references don't change the string length.  */
 	  break;
 
-	case COMPONENT_REF:
+	case REF_COMPONENT:
 	  /* Use the length of the component.  */
 	  ts = &ref->u.c.component->ts;
 	  break;
@@ -1331,7 +1328,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 /* Figure out the string length of a character array constructor.
    Returns TRUE if all elements are character constants.  */
 
-static bool
+bool
 get_array_ctor_strlen (gfc_constructor * c, tree * len)
 {
   bool is_const;
@@ -1951,7 +1948,7 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
       gfc_conv_expr_type (&indexse, ar->start[n], gfc_array_index_type);
       gfc_add_block_to_block (&se->pre, &indexse.pre);
 
-      if (flag_bounds_check)
+      if (flag_bounds_check && ar->as->type != AS_ASSUMED_SIZE)
 	{
 	  /* Check array bounds.  */
 	  tree cond;
@@ -2393,6 +2390,18 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	  loop->dimen = ss->data.info.dimen;
 	  break;
 
+	/* As usual, lbound and ubound are exceptions!.  */
+	case GFC_SS_INTRINSIC:
+	  switch (ss->expr->value.function.isym->generic_id)
+	    {
+	    case GFC_ISYM_LBOUND:
+	    case GFC_ISYM_UBOUND:
+	      loop->dimen = ss->data.info.dimen;
+
+	    default:
+	      break;
+	    }
+
 	default:
 	  break;
 	}
@@ -2417,6 +2426,17 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	  for (n = 0; n < ss->data.info.dimen; n++)
 	    gfc_conv_section_startstride (loop, ss, n);
 	  break;
+
+	case GFC_SS_INTRINSIC:
+	  switch (ss->expr->value.function.isym->generic_id)
+	    {
+	    /* Fall through to supply start and stride.  */
+	    case GFC_ISYM_LBOUND:
+	    case GFC_ISYM_UBOUND:
+	      break;
+	    default:
+	      continue;
+	    }
 
 	case GFC_SS_CONSTRUCTOR:
 	case GFC_SS_FUNCTION:
@@ -2913,6 +2933,13 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
   tree size;
   tree offset;
   tree stride;
+  tree cond;
+  tree or_expr;
+  tree thencase;
+  tree elsecase;
+  tree var;
+  stmtblock_t thenblock;
+  stmtblock_t elseblock;
   gfc_expr *ubound;
   gfc_se se;
   int n;
@@ -2925,6 +2952,8 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
   /* Set the dtype.  */
   tmp = gfc_conv_descriptor_dtype (descriptor);
   gfc_add_modify_expr (pblock, tmp, gfc_get_dtype (TREE_TYPE (descriptor)));
+
+  or_expr = NULL_TREE;
 
   for (n = 0; n < rank; n++)
     {
@@ -2979,6 +3008,14 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
       /* Calculate the size of this dimension.  */
       size = fold_build2 (PLUS_EXPR, gfc_array_index_type, se.expr, size);
 
+      /* Check wether the size for this dimension is negative.  */
+      cond = fold_build2 (LE_EXPR, boolean_type_node, size,
+			  gfc_index_zero_node);
+      if (n == 0)
+	or_expr = cond;
+      else
+	or_expr = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, or_expr, cond);
+
       /* Multiply the stride by the number of elements in this dimension.  */
       stride = fold_build2 (MULT_EXPR, gfc_array_index_type, stride, size);
       stride = gfc_evaluate_now (stride, pblock);
@@ -2995,8 +3032,20 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
       *poffset = offset;
     }
 
-  size = gfc_evaluate_now (size, pblock);
-  return size;
+  var = gfc_create_var (TREE_TYPE (size), "size");
+  gfc_start_block (&thenblock);
+  gfc_add_modify_expr (&thenblock, var, gfc_index_zero_node);
+  thencase = gfc_finish_block (&thenblock);
+
+  gfc_start_block (&elseblock);
+  gfc_add_modify_expr (&elseblock, var, size);
+  elsecase = gfc_finish_block (&elseblock);
+
+  tmp = gfc_evaluate_now (or_expr, pblock);
+  tmp = build3_v (COND_EXPR, tmp, thencase, elsecase);
+  gfc_add_expr_to_block (pblock, tmp);
+
+  return var;
 }
 
 
@@ -3016,9 +3065,20 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree pstat)
   gfc_expr **upper;
   gfc_ref *ref;
   int allocatable_array;
+  int must_be_pointer;
 
   ref = expr->ref;
 
+  /* In Fortran 95, components can only contain pointers, so that,
+     in ALLOCATE (foo%bar(2)), bar must be a pointer component.
+     We test this by checking for ref->next.
+     An implementation of TR 15581 would need to change this.  */
+
+  if (ref)
+    must_be_pointer = ref->next != NULL;
+  else
+    must_be_pointer = 0;
+  
   /* Find the last reference in the chain.  */
   while (ref && ref->next != NULL)
     {
@@ -3061,7 +3121,10 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree pstat)
   tmp = gfc_conv_descriptor_data_addr (se->expr);
   pointer = gfc_evaluate_now (tmp, &se->pre);
 
-  allocatable_array = expr->symtree->n.sym->attr.allocatable;
+  if (must_be_pointer)
+    allocatable_array = 0;
+  else
+    allocatable_array = expr->symtree->n.sym->attr.allocatable;
 
   if (TYPE_PRECISION (gfc_array_index_type) == 32)
     {
@@ -3498,7 +3561,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   tree dumdesc;
   tree tmp;
   tree stmt;
-  tree stride;
+  tree stride, stride2;
   tree stmt_packed;
   tree stmt_unpacked;
   tree partial;
@@ -3645,9 +3708,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 				 ubound, lbound);
-              stride = build2 (MINUS_EXPR, gfc_array_index_type,
+              stride2 = build2 (MINUS_EXPR, gfc_array_index_type,
 			       dubound, dlbound);
-              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride);
+              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride2);
 	      gfc_trans_runtime_check (tmp, gfc_strconst_bounds, &block);
 	    }
 	}
@@ -4042,10 +4105,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       /* Finish the copying loops.  */
       gfc_trans_scalarizing_loops (&loop, &block);
 
-      /* Set the first stride component to zero to indicate a temporary.  */
       desc = loop.temp_ss->data.info.descriptor;
-      tmp = gfc_conv_descriptor_stride (desc, gfc_rank_cst[0]);
-      gfc_add_modify_expr (&loop.pre, tmp, gfc_index_zero_node);
 
       gcc_assert (is_gimple_lvalue (desc));
     }
@@ -4388,7 +4448,14 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
 
   /* Get the descriptor type.  */
   type = TREE_TYPE (sym->backend_decl);
-  gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
+  if (!GFC_DESCRIPTOR_TYPE_P (type))
+    {
+      /* If the backend_decl is not a descriptor, we must have a pointer
+	 to one.  */
+      descriptor = build_fold_indirect_ref (sym->backend_decl);
+      type = TREE_TYPE (descriptor);
+      gcc_assert (GFC_DESCRIPTOR_TYPE_P (type));
+    }
 
   /* NULLIFY the data pointer.  */
   gfc_conv_descriptor_data_set (&fnblock, descriptor, null_pointer_node);

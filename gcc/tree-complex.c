@@ -387,7 +387,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
 			  const char *suffix, enum tree_code code)
 {
   tree r = create_tmp_var (type, prefix);
-  add_referenced_tmp_var (r);
+  add_referenced_var (r);
 
   DECL_SOURCE_LOCATION (r) = DECL_SOURCE_LOCATION (orig);
   DECL_ARTIFICIAL (r) = 1;
@@ -652,6 +652,8 @@ update_parameter_components (void)
 
       type = TREE_TYPE (type);
       ssa_name = default_def (parm);
+      if (!ssa_name)
+	continue;
 
       r = build1 (REALPART_EXPR, type, ssa_name);
       i = build1 (IMAGPART_EXPR, type, ssa_name);

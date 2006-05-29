@@ -204,7 +204,7 @@ struct mem_ref
   struct mem_ref *next;		/* The next reference in the group.  */
 };
 
-/* Dumps information obout reference REF to FILE.  */
+/* Dumps information about reference REF to FILE.  */
 
 static void
 dump_mem_ref (FILE *file, struct mem_ref *ref)
@@ -366,7 +366,7 @@ idx_analyze_ref (tree base, tree *index, void *data)
   if (cst_and_fits_in_hwi (ibase))
     {
       idelta += int_cst_value (ibase);
-      ibase = build_int_cst_type (TREE_TYPE (ibase), 0);
+      ibase = build_int_cst (TREE_TYPE (ibase), 0);
     }
 
   if (TREE_CODE (base) == ARRAY_REF)
@@ -810,7 +810,7 @@ anything_to_prefetch_p (struct mem_ref_group *groups)
 
 /* Issue prefetches for the reference REF into loop as decided before.
    HEAD is the number of iterations to prefetch ahead.  UNROLL_FACTOR
-   is the factor by thet LOOP was unrolled.  */
+   is the factor by which LOOP was unrolled.  */
 
 static void
 issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)

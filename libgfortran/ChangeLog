@@ -1,3 +1,153 @@
+2006-05-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/io.h (find_or_create_unit): Correct export declaration.
+	
+2006-05-27  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsics/abort.c (abort_): Remove.
+
+2006-05-26  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac: Remove AC_FUNC_MMAP.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* config.h.in: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2006-05-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/associated.c (associated): Zero-sized arrays should
+	not be reported as ASSOCIATED.
+
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.am: Add install-html target. Add install-html to .PHONY
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	
+2006-05-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24459
+	* io/list_read.c (nml_parse_qualifier): Leave loop spec end value
+	at default value unless -std=f95 or if an array section
+	is specified in namelist input.  Warn if -pedantic.
+	* io/io.h (st_parameter_dt): Add expanded_read flag.
+
+2006-05-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/22423
+	* io/transfer.c (read_block): Return NULL instead of nothing.
+	
+2006-05-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27575
+	* io/transfer.c (read_block):  Add check for end file condition.
+	(read_block_direct): Add check for end file condition.
+
+2006-05-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/26985
+	* m4/matmul.m4: Correct the condition for the memset call,
+	and remove the unneeded call to size0.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-04-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27360
+	* io/list_read.c (read_logical):  Free line_buffer and free saved.
+
+2006-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27304
+	* io/transfer.c (formatted_transfer_scalar):  Generate error if data
+	descriptors are exhausted.
+	* io/format.c (next_format0): Fix comment.
+
+2006-04-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/20257
+	* io/io.h: Add prototypes for get_internal_unit and free_internal_unit.
+	* io/unit.c (get_internal_unit): Initialize unit number, not zero.
+	(free_internal_unit): New function to consolidate freeing memory.
+	(get_unit): Initialize internal_unit_desc to NULL when unit is
+	external.
+	* io/unix.c (mem_close): Check for not NULL before freeing memory.
+	* io/transfer.c (read_block): Reset bytes_left and skip error if unit
+	is preconnected and default record length is reached.
+	(read_block_direct): Ditto.
+	(write_block): Ditto.
+	(write_buf): Ditto.
+	(data_transfer_init): Only flush if not internal unit.
+	(finalize_transfer): Ditto and delete code to free memory used by
+	internal units.
+	(st_read_done): Use new function - free_internal_unit.
+	(st_write_done): Use new function - free_internal unit.
+
+2006-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/26769
+	* Makefile.am (i_transpose_c): Add generated/transpose_r16.c.
+	(i_reshape_c): Add generated/reshape_r16.c.
+	* Makefile.in: Regenerated.
+	* generated/transpose_r16.c: Generated new file.
+	* generated/redhape_r16.c: Generated new file.
+
+2006-04-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27138
+	* io/list_read.c (eat_line): New function.
+	(parse_repeat): Use new function and free_saved.
+	(read_logical): Same.
+	(read_integer): Use new function.
+	(parse_real): Use nml_bad_return and new function.
+	(read_complex): Use new function and free_saved.
+	(read_real): Same.
+
+2006-04-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26766
+	* io/io.h: Add bit to identify associated unit as internal.
+	* io/unit.c (get_external_unit): Renamed the find_unit_1 function to
+	reflect the external unit functionality vs internal unit.
+	(get_internal_unit): New function to allocate and initialize an internal
+	unit structure.
+	(get_unit): Use get_internal_unit and get_external_unit.
+	(is_internal_unit): Revised to use new bit added in io.h.
+	* io/transfer.c (data_transfer_init): Fix line width.
+	(st_read_done): Free memory allocated for internal unit.
+	(st_write_done): Add test to only flush and truncate when not an
+	internal unit.  Free memory allocated for internal unit.
+
+2006-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/io.h (st_parameter_dt): Revert 2005-12-10 change to
+	u.pad, fix comment.
+	(check_st_parameter_dt): New compile time assert.
+
+2006-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgfortran/24685
+	* io/write.c (MIN_FIELD_WIDTH, STR, STR1): Define.
+	(output_float): Increase buffer sizes for IEEE quad and IBM extended
+	long double.
+	(write_real): Output REAL(16) as 1PG43.34E4 rather than 1PG40.31E4.
+
+2006-04-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26890
+	* io/io.h: Revert change to pad size made on 2006-03-30.
+	Add comment explaining dependency with fortran/trans-io.c.
+	
 2006-04-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	* io/write.c (output_float): Update condition to not error when

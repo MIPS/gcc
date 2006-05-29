@@ -1114,10 +1114,6 @@ do a @samp{make -C gcc gnatlib_and_tools}.
 Specify that the run-time libraries for stack smashing protection
 should not be built.
 
-@item --disable-libgcc-math
-Specify that the run-time libraries for arch and gcc specific math
-functions should not be built.
-
 @item --disable-libgomp
 Specify that the run-time libraries used by GOMP should not be built.
 
@@ -1323,8 +1319,6 @@ will be run on these files to make them compatible with GCC@.
 Tells GCC not use any target headers from a libc when building a cross
 compiler.  When crossing to GNU/Linux, you need the headers so GCC
 can build the exception handling for libgcc.
-See @uref{http://www.objsw.com/CrossGCC/,,CrossGCC} for more information
-on this option.
 
 @item --with-libs
 @itemx --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
@@ -1659,10 +1653,6 @@ the one you are building on: for example, you could build a
 
 
 @section Building a cross compiler
-
-We recommend reading the
-@uref{http://www.objsw.com/CrossGCC/,,crossgcc FAQ}
-for information about building cross compilers.
 
 When building a cross compiler, it is not generally possible to do a
 3-stage bootstrap of the compiler.  This makes for an interesting problem
@@ -2298,6 +2288,11 @@ works.
 
 Please read this document carefully @emph{before} installing the
 GNU Compiler Collection on your machine.
+
+Note that this list of install notes is @emph{not} a list of supported
+hosts or targets.  Not all supported hosts and targets are listed
+here, only the ones that require host-specific or target-specific
+information are.
 
 @ifhtml
 @itemize
@@ -3664,15 +3659,14 @@ GCC you first have to install a pre-built compiler, see the
 
 The Solaris 2 @command{/bin/sh} will often fail to configure
 @file{libstdc++-v3}, @file{boehm-gc} or @file{libjava}.  We therefore
-recommend to use the following sequence of commands to bootstrap and
-install GCC:
+recommend using the following initial sequence of commands
 
 @smallexample
    % CONFIG_SHELL=/bin/ksh
    % export CONFIG_SHELL
 @end smallexample
 
-and then proceed as described in @uref{build.html,,the build instructions}.
+and proceed as described in @uref{configure.html,,the configure instructions}.
 In addition we strongly recommend specifying an absolute path to invoke
 @var{srcdir}/configure.
 

@@ -1350,6 +1350,11 @@ rs6000_override_options (const char *default_cpu)
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
 
+  /* Place FP constants in the constant pool instead of TOC
+     if section anchors enabled.  */
+  if (flag_section_anchors)
+    TARGET_NO_FP_IN_TOC = 1;
+
   /* Handle -mtls-size option.  */
   rs6000_parse_tls_size_option ();
 
@@ -1621,6 +1626,12 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 
   /* Double growth factor to counter reduced min jump length.  */
   set_param_value ("max-grow-copy-bb-insns", 16);
+
+  /* Enable section anchors by default.
+     Skip section anchors for Objective C and Objective C++
+     until front-ends fixed.  */
+  if (lang_hooks.name[4] != 'O')
+    flag_section_anchors = 1;
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -3402,9 +3413,12 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && !flag_pic
 #endif
       /* Don't do this for TFmode, since the result isn't offsettable.
-	 The same goes for DImode without 64-bit gprs.  */
+	 The same goes for DImode without 64-bit gprs and DFmode
+	 without fprs.  */
       && mode != TFmode
-      && (mode != DImode || TARGET_POWERPC64))
+      && (mode != DImode || TARGET_POWERPC64)
+      && (mode != DFmode || TARGET_POWERPC64
+	  || (TARGET_FPRS && TARGET_HARD_FLOAT)))
     {
 #if TARGET_MACHO
       if (flag_pic)
@@ -3449,7 +3463,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && constant_pool_expr_p (x)
       && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
-      (x) = create_TOC_reference (x);
+      x = create_TOC_reference (x);
       *win = 1;
       return x;
     }
@@ -5058,17 +5072,13 @@ rs6000_mixed_function_arg (enum machine_mode mode, tree type, int align_words)
   if (align_words + n_units > GP_ARG_NUM_REG)
     /* Not all of the arg fits in gprs.  Say that it goes in memory too,
        using a magic NULL_RTX component.
-       FIXME: This is not strictly correct.  Only some of the arg
-       belongs in memory, not all of it.  However, there isn't any way
-       to do this currently, apart from building rtx descriptions for
-       the pieces of memory we want stored.  Due to bugs in the generic
-       code we can't use the normal function_arg_partial_nregs scheme
-       with the PARALLEL arg description we emit here.
-       In any case, the code to store the whole arg to memory is often
-       more efficient than code to store pieces, and we know that space
-       is available in the right place for the whole arg.  */
-    /* FIXME: This should be fixed since the conversion to
-       TARGET_ARG_PARTIAL_BYTES.  */
+       This is not strictly correct.  Only some of the arg belongs in
+       memory, not all of it.  However, the normal scheme using
+       function_arg_partial_nregs can result in unusual subregs, eg.
+       (subreg:SI (reg:DF) 4), which are not handled well.  The code to
+       store the whole arg to memory is often more efficient than code
+       to store pieces, and we know that space is available in the right
+       place for the whole arg.  */
     rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
 
   i = 0;
@@ -5310,9 +5320,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 include the portion actually in registers here.  */
 		      enum machine_mode rmode = TARGET_32BIT ? SImode : DImode;
 		      rtx off;
-		      int i=0;
-		      if (align_words + n_words > GP_ARG_NUM_REG
-			  && (TARGET_32BIT && TARGET_POWERPC64))
+		      int i = 0;
+		      if (align_words + n_words > GP_ARG_NUM_REG)
 			/* Not all of the arg fits in gprs.  Say that it
 			   goes in memory too, using a magic NULL_RTX
 			   component.  Also see comment in
@@ -5391,18 +5400,20 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   align_words = rs6000_parm_start (mode, type, cum->words);
 
-  if (USE_FP_FOR_ARG_P (cum, mode, type)
+  if (USE_FP_FOR_ARG_P (cum, mode, type))
+    {
       /* If we are passing this arg in the fixed parameter save area
 	 (gprs or memory) as well as fprs, then this function should
-	 return the number of bytes passed in the parameter save area
-	 rather than bytes passed in fprs.  */
-      && !(type
-	   && (cum->nargs_prototype <= 0
-	       || (DEFAULT_ABI == ABI_AIX
-		   && TARGET_XL_COMPAT
-		   && align_words >= GP_ARG_NUM_REG))))
-    {
-      if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
+	 return the number of partial bytes passed in the parameter
+	 save area rather than partial bytes passed in fprs.  */
+      if (type
+	  && (cum->nargs_prototype <= 0
+	      || (DEFAULT_ABI == ABI_AIX
+		  && TARGET_XL_COMPAT
+		  && align_words >= GP_ARG_NUM_REG)))
+	return 0;
+      else if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3)
+	       > FP_ARG_MAX_REG + 1)
 	ret = (FP_ARG_MAX_REG + 1 - cum->fregno) * 8;
       else if (cum->nargs_prototype >= 0)
 	return 0;
@@ -5960,10 +5971,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build1 (LABEL_EXPR, void_type_node, lab_false);
       append_to_statement_list (t, pre_p);
 
-      if (n_reg > 2)
+      if ((n_reg == 2 && reg != gpr) || n_reg > 2)
 	{
 	  /* Ensure that we don't find any more args in regs.
-	     Alignment has taken care of the n_reg == 2 case.  */
+	     Alignment has taken care of the n_reg == 2 gpr case.  */
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
@@ -15326,7 +15337,8 @@ rs6000_output_function_epilogue (FILE *file,
 	 official way to discover the language being compiled, so we
 	 use language_string.
 	 C is 0.  Fortran is 1.  Pascal is 2.  Ada is 3.  C++ is 9.
-	 Java is 13.  Objective-C is 14.  */
+	 Java is 13.  Objective-C is 14.  Objective-C++ isn't assigned
+	 a number, so for now use 9.  */
       if (! strcmp (language_string, "GNU C"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
@@ -15336,7 +15348,8 @@ rs6000_output_function_epilogue (FILE *file,
 	i = 2;
       else if (! strcmp (language_string, "GNU Ada"))
 	i = 3;
-      else if (! strcmp (language_string, "GNU C++"))
+      else if (! strcmp (language_string, "GNU C++")
+	       || ! strcmp (language_string, "GNU Objective-C++"))
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
 	i = 13;
@@ -17303,9 +17316,8 @@ rs6000_trampoline_size (void)
 void
 rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
 {
-  enum machine_mode pmode = Pmode;
   int regsize = (TARGET_32BIT) ? 4 : 8;
-  rtx ctx_reg = force_reg (pmode, cxt);
+  rtx ctx_reg = force_reg (Pmode, cxt);
 
   switch (DEFAULT_ABI)
     {
@@ -17313,15 +17325,15 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
       gcc_unreachable ();
 
 /* Macros to shorten the code expansions below.  */
-#define MEM_DEREF(addr) gen_rtx_MEM (pmode, memory_address (pmode, addr))
+#define MEM_DEREF(addr) gen_rtx_MEM (Pmode, memory_address (Pmode, addr))
 #define MEM_PLUS(addr,offset) \
-  gen_rtx_MEM (pmode, memory_address (pmode, plus_constant (addr, offset)))
+  gen_rtx_MEM (Pmode, memory_address (Pmode, plus_constant (addr, offset)))
 
     /* Under AIX, just build the 3 word function descriptor */
     case ABI_AIX:
       {
-	rtx fn_reg = gen_reg_rtx (pmode);
-	rtx toc_reg = gen_reg_rtx (pmode);
+	rtx fn_reg = gen_reg_rtx (Pmode);
+	rtx toc_reg = gen_reg_rtx (Pmode);
 	emit_move_insn (fn_reg, MEM_DEREF (fnaddr));
 	emit_move_insn (toc_reg, MEM_PLUS (fnaddr, regsize));
 	emit_move_insn (MEM_DEREF (addr), fn_reg);
@@ -17333,12 +17345,12 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
     /* Under V.4/eabi/darwin, __trampoline_setup does the real work.  */
     case ABI_DARWIN:
     case ABI_V4:
-      emit_library_call (gen_rtx_SYMBOL_REF (SImode, "__trampoline_setup"),
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__trampoline_setup"),
 			 FALSE, VOIDmode, 4,
-			 addr, pmode,
+			 addr, Pmode,
 			 GEN_INT (rs6000_trampoline_size ()), SImode,
-			 fnaddr, pmode,
-			 ctx_reg, pmode);
+			 fnaddr, Pmode,
+			 ctx_reg, Pmode);
       break;
     }
 
@@ -17526,6 +17538,10 @@ rs6000_set_default_type_attributes (tree type)
     TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("longcall"),
 					NULL_TREE,
 					TYPE_ATTRIBUTES (type));
+
+#if TARGET_MACHO
+  darwin_set_default_type_attributes (type);
+#endif
 }
 
 /* Return a reference suitable for calling a function with the
@@ -18642,28 +18658,25 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
       /* FALLTHRU */
 
     case CONST_DOUBLE:
-      if (mode == DImode
-	  && ((outer_code == AND
-	       && (satisfies_constraint_K (x)
-		   || satisfies_constraint_L (x)
-		   || mask_operand (x, DImode)
-		   || mask64_operand (x, DImode)))
-	      || ((outer_code == IOR || outer_code == XOR)
-		  && CONST_DOUBLE_HIGH (x) == 0
-		  && (CONST_DOUBLE_LOW (x)
-		      & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0)))
+      if (mode == DImode && code == CONST_DOUBLE)
 	{
-	  *total = 0;
-	  return true;
-	}
-      else if (mode == DImode
-	       && (outer_code == SET
-		   || outer_code == IOR
-		   || outer_code == XOR)
-	       && CONST_DOUBLE_HIGH (x) == 0)
-	{
-	  *total = COSTS_N_INSNS (1);
-	  return true;
+	  if ((outer_code == IOR || outer_code == XOR)
+	      && CONST_DOUBLE_HIGH (x) == 0
+	      && (CONST_DOUBLE_LOW (x)
+		  & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0)
+	    {
+	      *total = 0;
+	      return true;
+	    }
+	  else if ((outer_code == AND && and64_2_operand (x, DImode))
+		   || ((outer_code == SET
+			|| outer_code == IOR
+			|| outer_code == XOR)
+		       && CONST_DOUBLE_HIGH (x) == 0))
+	    {
+	      *total = COSTS_N_INSNS (1);
+	      return true;
+	    }
 	}
       /* FALLTHRU */
 

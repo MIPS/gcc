@@ -377,7 +377,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
       if (!decl)
-	p_msg ("invalid use of undefined type %q#T", type);
+	p_msg ("invalid use of incomplete type %q#T", type);
       if (!TYPE_TEMPLATE_INFO (type))
 	p_msg ("forward declaration of %q+#T", type);
       else
@@ -404,6 +404,10 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
 
     case TEMPLATE_TYPE_PARM:
       p_msg ("invalid use of template type parameter");
+      break;
+
+    case TYPENAME_TYPE:
+      p_msg ("invalid use of dependent type %qT", type);
       break;
 
     case UNKNOWN_TYPE:
@@ -1196,8 +1200,6 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  datum = decay_conversion (datum);
-
   if (datum == error_mark_node || component == error_mark_node)
     return error_mark_node;
 
@@ -1214,7 +1216,7 @@ build_m_component_ref (tree datum, tree component)
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer %qE to %qE, which is of "
-	     "non-aggregate type %qT",
+	     "non-class type %qT",
 	     component, datum, objtype);
       return error_mark_node;
     }

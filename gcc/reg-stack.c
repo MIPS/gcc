@@ -173,9 +173,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
-
-DEF_VEC_I(char);
-DEF_VEC_ALLOC_I(char,heap);
+#include "vecprim.h"
 
 #ifdef STACK_REGS
 
@@ -188,6 +186,8 @@ DEF_VEC_ALLOC_I(char,heap);
 static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
+
+int regstack_completed = 0;
 
 /* This is the basic stack record.  TOP is an index into REG[] such
    that REG[TOP] is the top of stack.  If TOP is -1 the stack is empty.
@@ -3153,6 +3153,7 @@ rest_of_handle_stack_regs (void)
 #ifdef STACK_REGS
   if (reg_to_stack () && optimize)
     {
+      regstack_completed = 1;
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
                        | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
           && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
@@ -3161,6 +3162,8 @@ rest_of_handle_stack_regs (void)
           cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
         }
     }
+  else 
+    regstack_completed = 1;
 #endif
   return 0;
 }

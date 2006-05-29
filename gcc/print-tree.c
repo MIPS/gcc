@@ -458,6 +458,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  print_node (file, "offset", DECL_FIELD_OFFSET (node), indent + 4);
 	  print_node (file, "bit offset", DECL_FIELD_BIT_OFFSET (node),
 		      indent + 4);
+	  if (DECL_BIT_FIELD_TYPE (node))
+	    print_node (file, "bit_field_type", DECL_BIT_FIELD_TYPE (node),
+			indent + 4);
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
@@ -819,8 +822,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fprintf (file, " in-free-list");
 
 	  if (SSA_NAME_PTR_INFO (node)
-	      || SSA_NAME_VALUE (node)
-	      || SSA_NAME_AUX (node))
+	      || SSA_NAME_VALUE (node))
 	    {
 	      indent_to (file, indent + 3);
 	      if (SSA_NAME_PTR_INFO (node))
@@ -829,8 +831,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      if (SSA_NAME_VALUE (node))
 		fprintf (file, " value %p",
 			 (void *) SSA_NAME_VALUE (node));
-	      if (SSA_NAME_AUX (node))
-		fprintf (file, " aux %p", SSA_NAME_AUX (node));
 	    }
 	  break;
 

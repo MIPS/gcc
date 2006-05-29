@@ -430,10 +430,6 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
-  /* Expand a target-specific library builtin.  */
-  rtx (* expand_library_builtin) (tree exp, rtx target, rtx subtarget,
-			  enum machine_mode mode, int ignore);
-
   /* Select a replacement for a target-specific builtin.  This is done
      *before* regular type checking, and so allows the target to implement
      a crude form of function overloading.  The result is a complete
@@ -519,6 +515,14 @@ struct gcc_target
      so that it is profitable to turn the division into a multiplication by
      the reciprocal.  */
   unsigned int (* min_divisions_for_recip_mul) (enum machine_mode mode);
+
+  /* If the representation of integral MODE is such that values are
+     always sign-extended to a wider mode MODE_REP then return
+     SIGN_EXTEND.  Return UNKNOWN otherwise.  */
+  /* Note that the return type ought to be RTX_CODE, but that's not
+     necessarily defined at this point.  */
+  int (* mode_rep_extended) (enum machine_mode mode,
+			     enum machine_mode mode_rep);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -711,6 +715,10 @@ struct gcc_target
        specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
     rtx (*function_value) (tree ret_type, tree fn_decl_or_type,
 			   bool outgoing);
+
+    /* Return an rtx for the argument pointer incoming to the
+       current function.  */
+    rtx (*internal_arg_pointer) (void);
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE

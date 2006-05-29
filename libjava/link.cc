@@ -21,6 +21,12 @@ details.  */
 
 #include <java-interp.h>
 
+// Set GC_DEBUG before including gc.h!
+#ifdef LIBGCJ_GC_DEBUG
+# define GC_DEBUG
+#endif
+#include <gc.h>
+
 #include <jvm.h>
 #include <gcj/cni.h>
 #include <string.h>
@@ -265,6 +271,21 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 {
   using namespace java::lang::reflect;
 
+  if (GC_base (klass) && klass->constants.data
+      && ! GC_base (klass->constants.data))
+    {
+      jsize count = klass->constants.size;
+      if (count)
+	{
+	  _Jv_word* constants
+	    = (_Jv_word*) _Jv_AllocRawObj (count * sizeof (_Jv_word));
+	  memcpy ((void*)constants,
+		  (void*)klass->constants.data,
+		  count * sizeof (_Jv_word));
+	  klass->constants.data = constants;
+	}
+    }
+
   _Jv_Constants *pool = &klass->constants;
 
   if ((pool->tags[index] & JV_CONSTANT_ResolvedFlag) != 0)
@@ -475,16 +496,11 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 	    throw new java::lang::NoSuchMethodError (sb->toString());
 	  }
       
-	int vtable_index = -1;
-	if (pool->tags[index] != JV_CONSTANT_InterfaceMethodref)
-	  vtable_index = (jshort)the_method->index;
-
 	pool->data[index].rmethod
 	  = klass->engine->resolve_method(the_method,
 					  found_class,
 					  ((the_method->accflags
-					    & Modifier::STATIC) != 0),
-					  vtable_index);
+					    & Modifier::STATIC) != 0));
 	pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
       }
       break;
@@ -1511,6 +1527,8 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
   else
     instance_size = java::lang::Object::class$.size();
 
+  klass->engine->allocate_field_initializers (klass); 
+
   for (int i = 0; i < klass->field_count; i++)
     {
       int field_size;
@@ -1523,7 +1541,6 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
 	  // It is safe to resolve the field here, since it's a
 	  // primitive class, which does not cause loading to happen.
 	  resolve_field (field, klass->loader);
-
 	  field_size = field->type->size ();
 	  field_align = get_alignment_from_class (field->type);
 	}
@@ -1612,21 +1629,6 @@ _Jv_Linker::ensure_class_linked (jclass klass)
 		resolve_pool_entry (klass, index, true);
 	    }
 	}
-
-#if 0  // Should be redundant now
-      // If superclass looks like a constant pool entry,
-      // resolve it now.
-      if ((uaddr) klass->superclass < (uaddr) pool->size)
-	klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
-
-      // Likewise for interfaces.
-      for (int i = 0; i < klass->interface_count; i++)
-	{
-	  if ((uaddr) klass->interfaces[i] < (uaddr) pool->size)
-	    klass->interfaces[i]
-	      = pool->data[(uaddr) klass->interfaces[i]].clazz;
-	}
-#endif
 
       // Resolve the remaining constant pool entries.
       for (int index = 1; index < pool->size; ++index)
@@ -1893,6 +1895,21 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
   java::lang::Thread *save = klass->thread;
   klass->thread = self;
 
+  // Allocate memory for static fields and constants.
+  if (GC_base (klass) && klass->fields && ! GC_base (klass->fields))
+    {
+      jsize count = klass->field_count;
+      if (count)
+	{
+	  _Jv_Field* fields 
+	    = (_Jv_Field*) _Jv_AllocRawObj (count * sizeof (_Jv_Field));
+	  memcpy ((void*)fields,
+		  (void*)klass->fields,
+		  count * sizeof (_Jv_Field));
+	  klass->fields = fields;
+	}
+    }
+      
   // Print some debugging info if requested.  Interpreted classes are
   // handled in defineclass, so we only need to handle the two
   // pre-compiled cases here.

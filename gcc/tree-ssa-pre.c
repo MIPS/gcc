@@ -2422,7 +2422,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     }
 
   temp = pretemp;
-  add_referenced_tmp_var (temp);
+  add_referenced_var (temp);
 
   if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
@@ -2565,7 +2565,7 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
     }
 
   temp = prephitemp;
-  add_referenced_tmp_var (temp);
+  add_referenced_var (temp);
 
   if (TREE_CODE (type) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
@@ -3040,7 +3040,7 @@ insert_extra_phis (basic_block block, basic_block dom)
 		  fprintf (dump_file, " to merge available but not dominating values ");
 		}
 
-	      add_referenced_tmp_var (temp);
+	      add_referenced_var (temp);
 	      temp = create_phi_node (temp, block);
 	      NECESSARY (temp) = 0; 
 	      VEC_safe_push (tree, heap, inserted_exprs, temp);
@@ -3288,24 +3288,63 @@ realify_fake_stores (void)
 	  tree newstmt;
 
 	  /* Mark the temp variable as referenced */
-	  add_referenced_tmp_var (SSA_NAME_VAR (TREE_OPERAND (stmt, 0)));
+	  add_referenced_var (SSA_NAME_VAR (TREE_OPERAND (stmt, 0)));
 
-	  /* Put the new statement in GC memory, fix up the annotation
-	     and SSA_NAME_DEF_STMT on it, and then put it in place of
-	     the old statement in the IR stream.  */
-	  newstmt = unshare_expr (stmt);
-	  SSA_NAME_DEF_STMT (TREE_OPERAND (newstmt, 0)) = newstmt;
-
-	  newstmt->common.ann = stmt->common.ann;
-
+	  /* Put the new statement in GC memory, fix up the 
+	     SSA_NAME_DEF_STMT on it, and then put it in place of
+	     the old statement before the store in the IR stream
+	     as a plain ssa name copy.  */
 	  bsi = bsi_for_stmt (stmt);
-	  bsi_replace (&bsi, newstmt, true);
+	  bsi_prev (&bsi);
+	  newstmt = build2 (MODIFY_EXPR, void_type_node,
+			    TREE_OPERAND (stmt, 0),
+			    TREE_OPERAND (bsi_stmt (bsi), 1));
+	  SSA_NAME_DEF_STMT (TREE_OPERAND (newstmt, 0)) = newstmt;
+	  bsi_insert_before (&bsi, newstmt, BSI_SAME_STMT);
+	  bsi = bsi_for_stmt (stmt);
+	  bsi_remove (&bsi, true);
 	}
       else
 	release_defs (stmt);
     }
 }
 
+/* Tree-combine a value number expression *EXPR_P that does a type
+   conversion with the value number expression of its operand.
+   Returns true, if *EXPR_P simplifies to a value number or
+   gimple min-invariant expression different from EXPR_P and
+   sets *EXPR_P to the simplified expression value number.
+   Otherwise returns false and does not change *EXPR_P.  */
+
+static bool
+try_combine_conversion (tree *expr_p)
+{
+  tree expr = *expr_p;
+  tree t;
+
+  if (!((TREE_CODE (expr) == NOP_EXPR
+	 || TREE_CODE (expr) == CONVERT_EXPR)
+	&& TREE_CODE (TREE_OPERAND (expr, 0)) == VALUE_HANDLE
+	&& !VALUE_HANDLE_VUSES (TREE_OPERAND (expr, 0))))
+    return false;
+
+  t = fold_unary (TREE_CODE (expr), TREE_TYPE (expr),
+		  VALUE_HANDLE_EXPR_SET (TREE_OPERAND (expr, 0))->head->expr);
+
+  /* Disallow value expressions we have no value number for already, as
+     we would miss a leader for it here.  */
+  if (t
+      && !(TREE_CODE (t) == VALUE_HANDLE
+	   || is_gimple_min_invariant (t)))
+    t = vn_lookup (t, NULL);
+
+  if (t && t != expr)
+    {
+      *expr_p = t;
+      return true;
+    }
+  return false;
+}
 
 /* Compute the AVAIL set for all basic blocks.
 
@@ -3430,9 +3469,19 @@ compute_avail (void)
 		  tree newt = create_value_expr_from (rhs, block, stmt);
 		  if (newt)
 		    {
-		      add_to_sets (lhs, newt, stmt, TMP_GEN (block),
-				   AVAIL_OUT (block));
-		      value_insert_into_set (EXP_GEN (block), newt);
+		      /* If we can combine a conversion expression
+			 with the expression for its operand just
+			 record the value number for it.  */
+		      if (try_combine_conversion (&newt))
+			vn_add (lhs, newt);
+		      else
+			{
+			  tree val = vn_lookup_or_add (newt, stmt);
+			  vn_add (lhs, val);
+			  value_insert_into_set (EXP_GEN (block), newt);
+			}
+		      bitmap_insert_into_set (TMP_GEN (block), lhs);
+		      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
 		      continue;
 		    }
 		}

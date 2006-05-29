@@ -934,11 +934,14 @@ sms_schedule (void)
   sched_init ();
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
-  df_rd_add_problem (df);
-  df_ru_add_problem (df);
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
+  df_rd_add_problem (df, 0);
+  df_ru_add_problem (df, 0);
   df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
   df_analyze (df);
+
+  if (dump_file)
+    df_dump (df, dump_file);
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
@@ -2545,7 +2548,7 @@ struct tree_opt_pass pass_sms =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_start */
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'm'                                   /* letter */

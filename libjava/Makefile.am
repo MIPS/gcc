@@ -26,6 +26,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 # autoconf2.13's target_alias
 target_noncanonical = @target_noncanonical@
 
+# This is required by TL_AC_GXX_INCLUDE_DIR.
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 ##
 ## What gets installed, and where.
 ##
@@ -301,31 +304,18 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
-## Build property files into the library.
-property_files = \
-classpath/resource/org/ietf/jgss/MessagesBundle.properties \
-classpath/resource/java/util/iso4217.properties	\
-classpath/resource/gnu/java/awt/peer/gtk/font.properties \
-classpath/resource/gnu/regexp/MessagesBundle_it.properties \
-classpath/resource/gnu/regexp/MessagesBundle_fr.properties \
-classpath/resource/gnu/regexp/MessagesBundle.properties	\
-classpath/resource/META-INF/services/org.xml.sax.driver	\
-classpath/resource/META-INF/services/javax.xml.parsers.SAXParserFactory	\
-classpath/resource/META-INF/services/javax.xml.parsers.DocumentBuilderFactory \
-classpath/resource/META-INF/services/javax.xml.parsers.TransformerFactory
-
+## Note that property_files is defined in sources.am.
 propertyo_files = $(patsubst classpath/resource/%,%,$(addsuffix .lo,$(property_files)))
 
 $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
-libgcj-$(gcc_version).jar:
+libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
 
-CLEANFILES = libgcj-$(gcc_version).jar \
-	$(all_java_deps_files) $(all_java_filelist_files)
+CLEANFILES = libgcj-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 
 mostlyclean-local:
@@ -781,6 +771,7 @@ gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
 gnu/java/lang/natMainThread.cc \
@@ -818,7 +809,7 @@ java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
-java/nio/channels/natChannels.cc \
+java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
@@ -990,6 +981,10 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
+
+# No install-html support yet.
+.PHONY: install-html
+install-html:
 
 # Multilib support variables.
 MULTISRCTOP =

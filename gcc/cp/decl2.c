@@ -103,33 +103,31 @@ tree static_ctors;
 tree static_dtors;
 
 
-/* Incorporate `const' and `volatile' qualifiers for member functions.
-   FUNCTION is a TYPE_DECL or a FUNCTION_DECL.
-   QUALS is a list of qualifiers.  Returns any explicit
-   top-level qualifiers of the method's this pointer, anything other than
-   TYPE_UNQUALIFIED will be an extension.  */
 
-int
-grok_method_quals (tree ctype, tree function, cp_cv_quals quals)
+/* Return a member function type (a METHOD_TYPE), given FNTYPE (a
+   FUNCTION_TYPE), CTYPE (class type), and QUALS (the cv-qualifiers
+   that apply to the function).  */
+
+tree
+build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 {
-  tree fntype = TREE_TYPE (function);
-  tree raises = TYPE_RAISES_EXCEPTIONS (fntype);
-  int type_quals = TYPE_UNQUALIFIED;
-  int this_quals = TYPE_UNQUALIFIED;
+  tree raises;
+  int type_quals;
+
+  if (fntype == error_mark_node || ctype == error_mark_node)
+    return error_mark_node;
 
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
-  this_quals = quals & TYPE_QUAL_RESTRICT;
-
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
 				       (TREE_CODE (fntype) == METHOD_TYPE
 					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
 					: TYPE_ARG_TYPES (fntype)));
+  raises = TYPE_RAISES_EXCEPTIONS (fntype);
   if (raises)
     fntype = build_exception_variant (fntype, raises);
 
-  TREE_TYPE (function) = fntype;
-  return this_quals;
+  return fntype;
 }
 
 /* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
@@ -149,7 +147,7 @@ cp_build_parm_decl (tree name, tree type)
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
-static tree
+tree
 build_artificial_parm (tree name, tree type)
 {
   tree parm = cp_build_parm_decl (name, type);
@@ -257,11 +255,9 @@ maybe_retrofit_in_chrg (tree fn)
    QUALS are the qualifiers for the this pointer.  */
 
 void
-grokclassfn (tree ctype, tree function, enum overload_flags flags,
-	     cp_cv_quals quals)
+grokclassfn (tree ctype, tree function, enum overload_flags flags)
 {
   tree fn_name = DECL_NAME (function);
-  cp_cv_quals this_quals = TYPE_UNQUALIFIED;
 
   /* Even within an `extern "C"' block, members get C++ linkage.  See
      [dcl.link] for details.  */
@@ -272,28 +268,6 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags,
       error ("name missing for member function");
       fn_name = get_identifier ("<anonymous>");
       DECL_NAME (function) = fn_name;
-    }
-
-  if (quals)
-    this_quals = grok_method_quals (ctype, function, quals);
-
-  if (TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE)
-    {
-      /* Must add the class instance variable up front.  */
-      /* Right now we just make this a pointer.  But later
-	 we may wish to make it special.  */
-      tree type = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (function)));
-      tree qual_type;
-      tree parm;
-
-      /* The `this' parameter is implicitly `const'; it cannot be
-	 assigned to.  */
-      this_quals |= TYPE_QUAL_CONST;
-      qual_type = cp_build_qualified_type (type, this_quals);
-      parm = build_artificial_parm (this_identifier, qual_type);
-      cp_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
-      DECL_ARGUMENTS (function) = parm;
     }
 
   DECL_CONTEXT (function) = ctype;
@@ -478,16 +452,9 @@ check_member_template (tree tmpl)
 	error ("invalid declaration of member template %q#D in local class",
 	       decl);
 
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
-	{
-	  /* 14.5.2.3 [temp.mem]
-
-	     A member function template shall not be virtual.  */
-	  error
-	    ("invalid use of %<virtual%> in template declaration of %q#D",
-	     decl);
-	  DECL_VIRTUAL_P (decl) = 0;
-	}
+      /* The parser rejects any use of virtual in a function template.  */
+      gcc_assert (!(TREE_CODE (decl) == FUNCTION_DECL
+		    && DECL_VIRTUAL_P (decl)));
 
       /* The debug-information generating code doesn't know what to do
 	 with member templates.  */
@@ -753,9 +720,6 @@ finish_static_data_member_decl (tree decl,
   /* We cannot call pushdecl here, because that would fill in the
      TREE_CHAIN of our decl.  Instead, we modify cp_finish_decl to do
      the right thing, namely, to put this decl out straight away.  */
-  /* current_class_type can be NULL_TREE in case of error.  */
-  if (!asmspec_tree && current_class_type)
-    DECL_INITIAL (decl) = error_mark_node;
 
   if (! processing_template_decl)
     note_vague_linkage_var (decl);
@@ -787,7 +751,7 @@ finish_static_data_member_decl (tree decl,
   cp_finish_decl (decl, init, init_const_expr_p, asmspec_tree, flags);
 }
 
-/* DECLARATOR and DECLSPECS correspond to a class member.  The othe
+/* DECLARATOR and DECLSPECS correspond to a class member.  The other
    parameters are as for cp_finish_decl.  Return the DECL for the
    class member declared.  */ 
 
@@ -952,10 +916,10 @@ grokfield (const cp_declarator *declarator,
     case  FUNCTION_DECL:
       if (asmspec)
 	set_user_assembler_name (value, asmspec);
-      if (!DECL_FRIEND_P (value))
-	grok_special_member_properties (value);
 
-      cp_finish_decl (value, init, /*init_const_expr_p=*/false, 
+      cp_finish_decl (value, 
+		      /*init=*/NULL_TREE, 
+		      /*init_const_expr_p=*/false, 
 		      asmspec_tree, flags);
 
       /* Pass friends back this way.  */
@@ -3348,29 +3312,28 @@ mark_used (tree decl)
     {
       synthesize_method (decl);
       /* If we've already synthesized the method we don't need to
-	 instantiate it, so we can return right away.  */
-      return;
+	 do the instantiation test below.  */
     }
-
-  /* If this is a function or variable that is an instance of some
-     template, we now know that we will need to actually do the
-     instantiation. We check that DECL is not an explicit
-     instantiation because that is not checked in instantiate_decl.  */
-  if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
-      && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
-      && (!DECL_EXPLICIT_INSTANTIATION (decl)
-	  || (TREE_CODE (decl) == FUNCTION_DECL
-	      && DECL_INLINE (DECL_TEMPLATE_RESULT
-			      (template_for_substitution (decl))))
-	  /* We need to instantiate static data members so that there
-	     initializers are available in integral constant
-	     expressions.  */
-	  || (TREE_CODE (decl) == VAR_DECL
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
-    /* We put off instantiating functions in order to improve compile
+  else if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
+	   && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
+	   && (!DECL_EXPLICIT_INSTANTIATION (decl)
+	       || (TREE_CODE (decl) == FUNCTION_DECL
+		   && DECL_INLINE (DECL_TEMPLATE_RESULT
+				   (template_for_substitution (decl))))
+	       /* We need to instantiate static data members so that there
+		  initializers are available in integral constant
+		  expressions.  */
+	       || (TREE_CODE (decl) == VAR_DECL
+		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
+    /* If this is a function or variable that is an instance of some
+       template, we now know that we will need to actually do the
+       instantiation. We check that DECL is not an explicit
+       instantiation because that is not checked in instantiate_decl.
+       
+       We put off instantiating functions in order to improve compile
        times.  Maintaining a stack of active functions is expensive,
        and the inliner knows to instantiate any functions it might
-       need.  */
+       need.  Therefore, we always try to defer instantiation.  */
     instantiate_decl (decl, /*defer_ok=*/true, 
 		      /*expl_inst_class_mem_p=*/false);
 

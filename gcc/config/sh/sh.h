@@ -507,8 +507,8 @@ enum sh_divide_strategy_e {
   SH_DIV_INV_CALL2,
   SH_DIV_INV_FP,
   /* SH1 .. SH4 strategies.  Because of the small number of registers
-     available, the compiler uses knowledge of the actual et of registers
-     being clobbed by the different functions called.  */
+     available, the compiler uses knowledge of the actual set of registers
+     being clobbered by the different functions called.  */
   SH_DIV_CALL_DIV1, /* No FPU, medium size, highest latency.  */
   SH_DIV_CALL_FP,     /* FPU needed, small size, high latency.  */
   SH_DIV_CALL_TABLE,  /* No FPU, large size, medium latency. */
@@ -631,7 +631,7 @@ do {									\
 		   || (TARGET_HARD_SH4 && TARGET_SH2E)			\
 		   || (TARGET_SHCOMPACT && TARGET_FPU_ANY)))		\
 	sh_div_strategy = SH_DIV_CALL_FP;				\
-      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH3)	\
+      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH2)	\
 	sh_div_strategy = SH_DIV_CALL_TABLE;				\
       else								\
 	/* Pick one that makes most sense for the target in general.	\
@@ -651,6 +651,8 @@ do {									\
 	  sh_div_strategy = SH_DIV_CALL_FP;				\
         /* SH1 .. SH3 cores often go into small-footprint systems, so	\
 	   default to the smallest implementation available.  */	\
+	else if (TARGET_SH2)	/* ??? EXPERIMENTAL */			\
+	  sh_div_strategy = SH_DIV_CALL_TABLE;				\
 	else								\
 	  sh_div_strategy = SH_DIV_CALL_DIV1;				\
     }									\

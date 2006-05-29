@@ -35,6 +35,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-inline.h"
 #include "debug.h"
 #include "target.h"
+#include "convert.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -362,6 +363,22 @@ get_target_expr (tree init)
   return build_target_expr_with_type (init, TREE_TYPE (init));
 }
 
+/* If EXPR is a bitfield reference, convert it to the declared type of
+   the bitfield, and return the resulting expression.  Otherwise,
+   return EXPR itself.  */
+
+tree
+convert_bitfield_to_declared_type (tree expr)
+{
+  tree bitfield_type;
+
+  bitfield_type = is_bitfield_expr_with_lowered_type (expr);
+  if (bitfield_type)
+    expr = convert_to_integer (TYPE_MAIN_VARIANT (bitfield_type),
+			       expr);
+  return expr;
+}
+
 /* EXPR is being used in an rvalue context.  Return a version of EXPR
    that is marked as an rvalue.  */
 
@@ -369,16 +386,22 @@ tree
 rvalue (tree expr)
 {
   tree type;
-  if (real_lvalue_p (expr))
-    {
-      type = TREE_TYPE (expr);
-      /* [basic.lval]
-	 
-         Non-class rvalues always have cv-unqualified types.  */
-      if (!CLASS_TYPE_P (type))
-	type = TYPE_MAIN_VARIANT (type);
-      expr = build1 (NON_LVALUE_EXPR, type, expr);
-    }
+
+  if (error_operand_p (expr))
+    return expr;
+
+  /* [basic.lval]
+
+     Non-class rvalues always have cv-unqualified types.  */
+  type = TREE_TYPE (expr);
+  if (!CLASS_TYPE_P (type) && cp_type_quals (type))
+    type = TYPE_MAIN_VARIANT (type);
+
+  if (!processing_template_decl && real_lvalue_p (expr))
+    expr = build1 (NON_LVALUE_EXPR, type, expr);
+  else if (type != TREE_TYPE (expr))
+    expr = build_nop (type, expr);
+
   return expr;
 }
 
@@ -2058,6 +2081,20 @@ cp_auto_var_in_fn_p (tree var, tree fn)
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
 	  && nonstatic_local_decl_p (var));
+}
+
+/* Like save_expr, but for C++.  */
+
+tree
+cp_save_expr (tree expr)
+{
+  /* There is no reason to create a SAVE_EXPR within a template; if
+     needed, we can create the SAVE_EXPR when instantiating the
+     template.  Furthermore, the middle-end cannot handle C++-specific
+     tree codes.  */
+  if (processing_template_decl)
+    return expr;
+  return save_expr (expr);
 }
 
 /* Initialize tree.c.  */

@@ -248,7 +248,7 @@ remap_decl (tree decl, copy_body_data *id)
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
 	    }
-	  add_referenced_tmp_var (t);
+	  add_referenced_var (t);
 	}
       return t;
     }
@@ -660,6 +660,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  if (n)
 	    {
 	      tree new;
+	      tree old;
 	      /* If we happen to get an ADDR_EXPR in n->value, strip
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
@@ -668,13 +669,17 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	         does other useful transformations, try that first, though.  */
 	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
 	      new = unshare_expr ((tree)n->value);
+	      old = *tp;
 	      *tp = fold_indirect_ref_1 (type, new);
 	      if (! *tp)
 	        {
 		  if (TREE_CODE (new) == ADDR_EXPR)
 		    *tp = TREE_OPERAND (new, 0);
 	          else
-	            *tp = build1 (INDIRECT_REF, type, new);
+		    {
+	              *tp = build1 (INDIRECT_REF, type, new);
+		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		    }
 		}
 	      *walk_subtrees = 0;
 	      return NULL;
@@ -688,7 +693,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Global variables we didn't seen yet needs to go into referenced vars.
 	 */
       if (in_ssa_p && TREE_CODE (*tp) == VAR_DECL)
-	add_referenced_tmp_var (*tp);
+	add_referenced_var (*tp);
        
       /* If EXPR has block defined, map it to newly constructed block.
          When inlining we want EXPRs without block appear in the block
@@ -1056,7 +1061,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count, int frequ
   new_cfun->unexpanded_var_list = NULL;
   new_cfun->cfg = NULL;
   new_cfun->decl = new_fndecl /*= copy_node (callee_fndecl)*/;
-  new_cfun->ib_boundaries_block = (varray_type) 0;
+  new_cfun->ib_boundaries_block = NULL;
   DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
   push_cfun (new_cfun);
   init_empty_tree_cfg ();
@@ -1259,7 +1264,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
   if (in_ssa_p && TREE_CODE (var) == VAR_DECL)
     {
       get_var_ann (var);
-      add_referenced_tmp_var (var);
+      add_referenced_var (var);
     }
 
   /* See if the frontend wants to pass this by invisible reference.  If
@@ -1460,29 +1465,33 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
       gcc_assert (!modify_dest);
       if (DECL_BY_REFERENCE (result))
 	{
-	  tree base_var = TREE_OPERAND (return_slot_addr, 0);
-
-	  /* FIXME: rewriting random variables in SSA form is going
-	     to cause missoptimizations once we start optimizing.  */
-	  if (TREE_CODE (base_var) == SSA_NAME)
-	    base_var = SSA_NAME_VAR (base_var);
-	  if (in_ssa_p)
+	  /* The address might be folded to direct assignment already.  */
+	  if (TREE_CODE (return_slot_addr) == ADDR_EXPR)
 	    {
-	      HOST_WIDE_INT bitsize;
-	      HOST_WIDE_INT bitpos;
-	      tree offset;
-	      enum machine_mode mode;
-	      int unsignedp;
-	      int volatilep;
-	      tree base;
-	      base = get_inner_reference (base_var, &bitsize, &bitpos, &offset,
-					  &mode, &unsignedp, &volatilep,
-					  false);
-	      if (TREE_CODE (base) == INDIRECT_REF)
-		base = TREE_OPERAND (base, 0);
-	      if (TREE_CODE (base) == SSA_NAME)
-		base = SSA_NAME_VAR (base);
-	      mark_sym_for_renaming (base);
+	      tree base_var = TREE_OPERAND (return_slot_addr, 0);
+
+	      /* FIXME: rewriting random variables in SSA form is going
+		 to cause missoptimizations once we start optimizing.  */
+	      if (TREE_CODE (base_var) == SSA_NAME)
+		base_var = SSA_NAME_VAR (base_var);
+	      if (in_ssa_p)
+		{
+		  HOST_WIDE_INT bitsize;
+		  HOST_WIDE_INT bitpos;
+		  tree offset;
+		  enum machine_mode mode;
+		  int unsignedp;
+		  int volatilep;
+		  tree base;
+		  base = get_inner_reference (base_var, &bitsize, &bitpos, &offset,
+					      &mode, &unsignedp, &volatilep,
+					      false);
+		  if (TREE_CODE (base) == INDIRECT_REF)
+		    base = TREE_OPERAND (base, 0);
+		  if (TREE_CODE (base) == SSA_NAME)
+		    base = SSA_NAME_VAR (base);
+		  mark_sym_for_renaming (base);
+		}
 	    }
 	  var = return_slot_addr;
 	}
@@ -1561,7 +1570,7 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
       /* TODO: We probably can go directly into SSA name here without much
          trouble.  */
       get_var_ann (var);
-      add_referenced_tmp_var (var);
+      add_referenced_var (var);
     }
 
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
@@ -1924,7 +1933,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case PHI_NODE:
     case WITH_SIZE_EXPR:
     case OMP_CLAUSE:
-    case OMP_RETURN_EXPR:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2394,6 +2404,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
       if (CALL_EXPR_RETURN_SLOT_OPT (t))
 	{
 	  return_slot_addr = build_fold_addr_expr (modify_dest);
+	  STRIP_USELESS_TYPE_CONVERSION (return_slot_addr);
 	  modify_dest = NULL;
 	}
     }
