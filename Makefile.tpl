@@ -53,6 +53,9 @@ libdir = @libdir@
 includedir = @includedir@
 oldincludedir = @oldincludedir@
 infodir = @infodir@
+datarootdir = @datarootdir@
+docdir = @docdir@
+htmldir = @htmldir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
@@ -532,7 +535,7 @@ do-[+make_target+]:
 
 # Here are the targets which correspond to the do-X targets.
 
-.PHONY: info installcheck dvi html install-info
+.PHONY: info installcheck dvi html install-info install-html
 .PHONY: clean distclean mostlyclean maintainer-clean realclean
 .PHONY: local-clean local-distclean local-maintainer-clean
 info: do-info
@@ -549,6 +552,8 @@ install-info: do-install-info dir.info
 	if [ -f dir.info ] ; then \
 	  $(INSTALL_DATA) dir.info $(DESTDIR)$(infodir)/dir.info ; \
 	else true ; fi
+
+install-html: do-install-html
 
 local-clean:
 	-rm -f *.a TEMP errs core *.o *~ \#* TAGS *.E *.log
@@ -1254,7 +1259,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
-	ADAC="\$$(CC)"
+	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
 
 # For stage 1:
 # * We force-disable intermodule optimizations, even if
@@ -1423,14 +1428,14 @@ do-distclean: distclean-stage1
 # not work as a dependency, just as the minimum necessary to avoid errors.
 stage_last:
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage1-bubble
-@endif gcc-bootstrap
 
 .PHONY: restrap
 restrap:
 	@: $(MAKE); $(stage)
 	rm -rf stage1-$(TARGET_SUBDIR) [+ FOR bootstrap-stage +][+ IF prev
-	  +]stage[+id+] [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
+	  +]stage[+id+]-* [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+@endif gcc-bootstrap
 
 # --------------------------------------
 # Dependencies between different modules

@@ -1,3 +1,264 @@
+2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* pt.c (convert_nontype_argument): Fix a typo in an error
+	message.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c, decl2.c, parser.c: Fix comment typos.  Follow
+	spelling conventions.
+
+2006-05-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20103
+	* decl.c (cp_make_fname_decl): Don't set DECL_INITIAL to
+	error_mark_node to indicate an initialization is OK.
+	(start_decl): Likewise.  Adjust call to start_decl_1.
+	(start_decl_1): Add initialized parameter.  Simplify.
+	* except.c (initialize_handler_parm): Adjust call to
+	setart_decl_1.
+	(expand_start_catch_block): Let cp_finish_decl initialize catch
+	parameters.
+	* cp-tree.h (start_decl_1): Adjust prototype.
+	* pt.c (tsubst_expr): Don't set DECL_INITIAL to error_mark_node.
+	(instantiate_decl): Let cp_finish_decl handle initialization.
+	* semantics.c (finish_compound_literal): Create a temporary
+	variable for the literal.
+	* typeck.c (build_unary_op): Remove COMPOUND_LITERAL_P special
+	cases.
+	* decl2.c (finish_static_data_member_decl): Don't set
+	DECL_INITIAL.
+	(grokfield): Do not try to initialize functions.
+
+2006-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20173
+	* pt.c (determine_specialization): Disallow partial
+	specializations of templates.
+
+2006-05-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27716
+	* typeck.c (build_modify_expr): Test arguments for error_operand_p.
+
+	* decl.c (grokdeclarator): Return error_mark_node instead of NULL_TREE.
+
+2006-05-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27210
+	* cp-tree.h (cp_save_expr): New function.
+	* init.c (build_new): Correct logic for zero-element array
+	warning.  Use cp_save_expr.
+	* tree.c (cp_save_expr): New function.
+
+2006-05-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27398
+	* decl.c (grokdeclarator): Return error_mark_node instead of NULL_TREE
+	or void_type_node.
+
+2006-05-19  Mike Stump  <mrs@apple.com>
+
+	* typeck.c (default_conversion): Remove static.
+
+2006-05-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26433
+	* cp-tree.h (begin_function_try_block): Change prototype.
+	(finish_function_handler_sequence): Likewise.
+	* parser.c (cp_parser_function_try_block): Adjust calls.
+	* pt.c (tsubst_expr): Adjust calls.
+	* semantics.c (begin_function_try_block): Create an artificial
+	outer scope.
+	(finish_function_handler_sequence): Close it.
+
+2006-05-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27471
+	PR c++/27506
+	* typeck.c (decay_conversion): Convert bitfields to their declared
+	types here.  Improve documentation.  Avoid use of cp_convert.
+	(default_conversion): Make it static.  Perform integral promotions
+	before lvalue-to-rvalue, function-to-pointer, and array-to-pointer
+	conversions.
+	* init.c (build_init): Remove.
+	(expand_default_init): Do not call rvalue.
+	* call.c (null_ptr_cst_p): Robustify.
+	(build_conditional_expr): Tidy.
+	* except.c (build_throw): Do not perform lvalue-to-rvalue
+	conversion on operand before initializing temporary.
+	* tree.c (convert.h): Include it.
+	(convert_bitfield_to_declared_type): Use convert_to_integer, not
+	cp_convert.
+	(rvalue): Don't convert bitfields to their declared type here.
+	* cp-tree.h (build_init): Remove.
+	(default_conversion): Likewise.
+	* typeck2.c (build_m_component_ref): Do not perform
+	lvalue-to-rvalue, function-to-pointer, or array-to-pointer
+	conversions here.  Correct error message.
+
+2006-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26122
+	* decl2.c (check_member_template): Remove checks for virtual
+	functions.
+	* parser.c (cp_parser_function_specifier_opt): Complain about
+	virtual templates.
+	(cp_parser_pure_specifier): Likewise.
+
+	PR c++/26068
+	* parser.c (cp_parser_set_storage_class): Check for 
+	invalid uses of storage classes on unbraced linkage
+	specifications.
+	(cp_parser_decl_specifier_seq): Pass keywords, not storage classes,
+	to cp_parser_set_storage_class.
+
+2006-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/27491
+	* semantics.c (finish_compound_literal): Only set TREE_HAS_CONSTRUCTOR
+	on CONSTRUCTORs.
+
+	PR middle-end/27415
+	* parser.c (cp_parser_omp_parallel): Set OMP_PARALLEL_COMBINED
+	on combined parallel workshare constructs.
+	* pt.c (tsubst_expr): Copy OMP_PARALLEL_COMBINED flag.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in (GXX_OBJS): Replace gcc.o with $(GCC_OBJS).
+
+2006-05-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27339
+	* cp-tree.h (perform_access_checks): New function.
+	* semantics.c (perform_access_checks): New function.
+	(perform_deferred_access_checks): Use it.
+	* parser.c (cp_parser_simple_declaration): Adjust call to
+	cp_parser_init_declarator.
+	(cp_parser_type_parameter): Do not defer checks in default
+	arguments.
+	(cp_parser_explicit_specialization): Adjust call to
+	cp_parser_single_declaration.
+	(cp_parser_init_declarator): Perform template-parameter access
+	checks. 
+	(cp_parser_parameter_declaration): Do not defer checks for
+	template parameter default arguments.
+	(cp_parser_template_declaration_after_export): Gather access
+	checks for template parameters, and pass them to
+	cp_parser_single_declaration.
+	(cp_parser_template_parameter_access_checks): New function.
+	(cp_parser_single_declaration): Add checks parameter.
+
+	PR c++/27505
+	* call.c (convert_like_real): Convert bitfields to their declared
+	types when forming an rvalue.
+	* tree.c (convert_bitfield_to_declared_type): New function.
+	(rvalue): Use it.
+	* cp-tree.h (convert_bitfield_to_declare_type): Declare it.
+
+2006-05-15  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27582
+	* pt.c (any_dependent_template_arguments_p): Return early on invalid
+	argument list.
+
+	PR c++/27581
+	* search.c (adjust_result_of_qualified_name_lookup): Skip on
+	invalid context_class.
+
+	PR c++/27315
+	* pt.c (do_decl_instantiation): Return early on invalid decl.
+
+	PR c++/27559
+	* pt.c (push_template_decl_real): Return error_mark_node instead
+	of broken decl.
+
+	PR c++/27496
+	* pt.c (tsubst_friend_class): Return early on invalid friend
+	declarations.
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (cp/decl.o): Add dependency on $(TARGET_H).
+	(cp/decl2.o): Likewise.
+	(cp/typeck.o): Likewise.
+	(cp/cvt.o): Likewise.
+	(cp/parser.o): Likewise.
+	(cp/call.o): Replace target.h with $(TARGET_H).
+
+2006-05-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* pt.c (build_non_dependent_expr): Leave ADDR_EXPR of
+	COMPONENT_REF alone.
+
+2006-05-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27547
+	* decl.c (copy_fn_p): Return early on non-member functions.
+
+2006-05-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27447
+	* decl2.c (build_memfn_type): Skip invalid functions and class types.
+
+2006-05-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27427
+	* pt.c (convert_nontype_argument): Return early on invalid arguments.
+
+	* pt.c (process_template_parm): Remove superfluous temporary.
+
+	PR c++/27430
+	* pt.c (process_template_parm): Handle erroneous non-type parameters.
+
+	PR c++/27423
+	* typeck.c (convert_for_initialization): Skip erroneous types.
+
+	PR c++/27422
+	* typeck.c (convert_arguments): Return early on args with
+	invalid types.
+
+2006-05-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/21391
+	* typeck.c (build_static_cast_1): Save casted types in used types
+	hash table.
+	(build_reinterpret_cast_1): Same.
+	* rtti.c (build_dynamic_cast_1): Same.
+
+2006-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/27359
+	* parser.c (cp_parser_omp_for_loop): Only call
+	cp_parser_abort_tentative_parse if cp_parser_parse_definitely was not
+	called.
+
+2006-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27102
+	* decl.c (grokdeclarator): Robustify checks for defining members
+	of incomplete types.
+
+	PR c++/27309
+	* class.c (add_method): Call grok_special_member_properties.
+	* decl.c (grokdeclarator): Don't call it here.
+	(copy_fn_p): A TEMPLATE_DECL is never a copy constructor or
+	assignment operator.  Set TYPE_HAS_CONSTURCTOR if DECL is a
+	constructor.
+	(start_method): Don't call grok_special_member_properties.
+	* method.c (implicitly_declare_fn): Likewise.
+	* pt.c (instantiate_class_template): Likewise.
+	* decl2.c (grokfield): Likewise.
+
+2006-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27337
+	* cp-gimplify.c (cxx_omp_privatize_by_reference): New function.
+	* cp-tree.h (cxx_omp_privatize_by_reference): New prototype.
+	* cp-objcp-common.h (LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE): Define.
+
 2006-04-30  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/27094

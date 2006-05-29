@@ -168,9 +168,9 @@ create_temp (tree t)
     }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
-  add_referenced_tmp_var (tmp);
+  add_referenced_var (tmp);
 
-  /* add_referenced_tmp_var will create the annotation and set up some
+  /* add_referenced_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
   var_ann (tmp)->symbol_mem_tag = var_ann (t)->symbol_mem_tag;
@@ -2214,7 +2214,7 @@ analyze_edges_for_bb (basic_block bb)
 	leader_match = leader;
 
 	/* The tree_* cfg manipulation routines use the PENDING_EDGE field
-	   for various PHI manipulations, so it gets cleared whhen calls are 
+	   for various PHI manipulations, so it gets cleared when calls are 
 	   made to make_forwarder_block(). So make sure the edge is clear, 
 	   and use the saved stmt list.  */
 	PENDING_STMT (leader) = NULL;

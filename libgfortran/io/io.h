@@ -432,7 +432,9 @@ typedef struct st_parameter_dt
 	  struct format_data *fmt;
 	  jmp_buf *eof_jump;
 	  namelist_info *ionml;
-
+	  /* A flag used to identify when a non-standard expanded namelist read
+	     has occurred.  */
+	  int expanded_read;
 	  /* Storage area for values except for strings.  Must be large
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
@@ -718,7 +720,7 @@ extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
 extern gfc_unit *find_or_create_unit (int);
-internal_proto(find_unit);
+internal_proto(find_or_create_unit);
 
 extern gfc_unit *get_unit (st_parameter_dt *, int);
 internal_proto(get_unit);

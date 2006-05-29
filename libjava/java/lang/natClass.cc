@@ -1,6 +1,6 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation
 
    This file is part of libgcj.
@@ -115,9 +115,19 @@ java::lang::Class::getClassLoader (void)
   if (s != NULL)
     {
       jclass caller = _Jv_StackTrace::GetCallingClass (&Class::class$);
-      ClassLoader *caller_loader = NULL;
-      if (caller)
-	caller_loader = caller->getClassLoaderInternal();
+      return getClassLoader (caller);
+   }
+
+  return loader;
+}
+
+java::lang::ClassLoader *
+java::lang::Class::getClassLoader (jclass caller)
+{
+  java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
+  if (s != NULL)
+    {
+      ClassLoader *caller_loader = caller->getClassLoaderInternal();
 
       // If the caller has a non-null class loader, and that loader
       // is not this class' loader or an ancestor thereof, then do a
@@ -895,9 +905,9 @@ static __thread _Jv_mcache *method_cache;
 #endif // HAVE_TLS
 
 static void *
-_Jv_FindMethodInCache (jclass klass,
-                       _Jv_Utf8Const *name,
-                       _Jv_Utf8Const *signature)
+_Jv_FindMethodInCache (jclass klass MAYBE_UNUSED,
+		       _Jv_Utf8Const *name MAYBE_UNUSED,
+		       _Jv_Utf8Const *signature MAYBE_UNUSED)
 {
 #ifdef HAVE_TLS
   _Jv_mcache *cache = method_cache;
@@ -917,7 +927,8 @@ _Jv_FindMethodInCache (jclass klass,
 }
 
 static void
-_Jv_AddMethodToCache (jclass klass, _Jv_Method *method)
+_Jv_AddMethodToCache (jclass klass MAYBE_UNUSED,
+		      _Jv_Method *method MAYBE_UNUSED)
 {
 #ifdef HAVE_TLS
   if (method_cache == NULL)

@@ -114,6 +114,9 @@ build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
   tree raises;
   int type_quals;
 
+  if (fntype == error_mark_node || ctype == error_mark_node)
+    return error_mark_node;
+
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
@@ -449,16 +452,9 @@ check_member_template (tree tmpl)
 	error ("invalid declaration of member template %q#D in local class",
 	       decl);
 
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
-	{
-	  /* 14.5.2.3 [temp.mem]
-
-	     A member function template shall not be virtual.  */
-	  error
-	    ("invalid use of %<virtual%> in template declaration of %q#D",
-	     decl);
-	  DECL_VIRTUAL_P (decl) = 0;
-	}
+      /* The parser rejects any use of virtual in a function template.  */
+      gcc_assert (!(TREE_CODE (decl) == FUNCTION_DECL
+		    && DECL_VIRTUAL_P (decl)));
 
       /* The debug-information generating code doesn't know what to do
 	 with member templates.  */
@@ -724,9 +720,6 @@ finish_static_data_member_decl (tree decl,
   /* We cannot call pushdecl here, because that would fill in the
      TREE_CHAIN of our decl.  Instead, we modify cp_finish_decl to do
      the right thing, namely, to put this decl out straight away.  */
-  /* current_class_type can be NULL_TREE in case of error.  */
-  if (!asmspec_tree && current_class_type)
-    DECL_INITIAL (decl) = error_mark_node;
 
   if (! processing_template_decl)
     note_vague_linkage_var (decl);
@@ -923,10 +916,10 @@ grokfield (const cp_declarator *declarator,
     case  FUNCTION_DECL:
       if (asmspec)
 	set_user_assembler_name (value, asmspec);
-      if (!DECL_FRIEND_P (value))
-	grok_special_member_properties (value);
 
-      cp_finish_decl (value, init, /*init_const_expr_p=*/false, 
+      cp_finish_decl (value, 
+		      /*init=*/NULL_TREE, 
+		      /*init_const_expr_p=*/false, 
 		      asmspec_tree, flags);
 
       /* Pass friends back this way.  */
@@ -2113,7 +2106,7 @@ start_objects (int method_type, int initp)
 
   /* We cannot allow these functions to be elided, even if they do not
      have external linkage.  And, there's no point in deferring
-     compilation of thes functions; they're all going to have to be
+     compilation of these functions; they're all going to have to be
      out anyhow.  */
   DECL_INLINE (current_function_decl) = 0;
   DECL_UNINLINABLE (current_function_decl) = 1;

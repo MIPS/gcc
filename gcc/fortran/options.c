@@ -61,6 +61,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_underflow = 1;
   gfc_option.warn_unused_labels = 0;
 
+  gfc_option.flag_all_intrinsics = 0;
   gfc_option.flag_default_double = 0;
   gfc_option.flag_default_integer = 0;
   gfc_option.flag_default_real = 0;
@@ -279,6 +280,9 @@ gfc_post_options (const char **pfilename)
   if (pedantic)
     gfc_option.warn_ampersand = 1;
 
+  if (gfc_option.flag_all_intrinsics)
+    gfc_option.warn_nonstd_intrinsics = 0;
+
   return false;
 }
 
@@ -424,6 +428,18 @@ gfc_handle_option (size_t scode, const char *arg, int value)
     case OPT_Wunused_labels:
       gfc_option.warn_unused_labels = value;
       break;
+
+    case OPT_fall_intrinsics:
+      gfc_option.flag_all_intrinsics = 1;
+      break;
+
+    case OPT_fautomatic:
+      gfc_option.flag_automatic = value;
+      break;
+
+    case OPT_fbackslash:
+      gfc_option.flag_backslash = value;
+      break;
       
     case OPT_fcray_pointer:
       gfc_option.flag_cray_pointer = value;
@@ -435,14 +451,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fdollar_ok:
       gfc_option.flag_dollar_ok = value;
-      break;
-
-    case OPT_fautomatic:
-      gfc_option.flag_automatic = value;
-      break;
-
-    case OPT_fbackslash:
-      gfc_option.flag_backslash = value;
       break;
 
     case OPT_fd_lines_as_code:
@@ -525,7 +533,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fmax_identifier_length_:
       if (value > GFC_MAX_SYMBOL_LEN)
-	gfc_fatal_error ("Maximum supported idenitifier length is %d",
+	gfc_fatal_error ("Maximum supported identifier length is %d",
 			 GFC_MAX_SYMBOL_LEN);
       gfc_option.max_identifier_length = value;
       break;
@@ -593,7 +601,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wnonstd_intrinsics:
-      gfc_option.warn_nonstd_intrinsics = 1;
+      gfc_option.warn_nonstd_intrinsics = value;
       break;
 
     case OPT_fshort_enums:

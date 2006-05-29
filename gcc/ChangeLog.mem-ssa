@@ -1,3 +1,7 @@
+2006-05-29  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2006-05-29 (@114205).
+
 2006-05-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-dse.c (aggregate_vardecl_d): New.

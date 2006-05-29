@@ -1344,7 +1344,8 @@ make_field_value (tree fdecl)
 
   {
     tree field_address = integer_zero_node;
-    if (! flag_indirect_classes && FIELD_STATIC (fdecl))
+    if ((DECL_INITIAL (fdecl) || ! flag_indirect_classes) 
+	&& FIELD_STATIC (fdecl))
       field_address = build_address_of (fdecl);
 
     PUSH_FIELD_VALUE
@@ -1610,16 +1611,6 @@ supers_all_compiled (tree type)
   return 1;
 }
 
-/* The forth (index of 3) element in the vtable is the GC descriptor.
-   A value of 2 indicates that the class uses _Jv_MarkObj. */
-static int
-uses_jv_markobj_p(tree dtable)
-{
-  tree v;
-  v = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (dtable), 3)->value;
-  return (2 == TREE_INT_CST_LOW (v));
-}
-
 void
 make_class_data (tree type)
 {
@@ -1658,7 +1649,7 @@ make_class_data (tree type)
       && !flag_indirect_dispatch)
     {
       tree dtable = get_dispatch_table (type, this_class_addr);
-      uses_jv_markobj = uses_jv_markobj_p(dtable);
+      uses_jv_markobj = uses_jv_markobj_p (dtable);
       dtable_decl = build_dtable_decl (type);
       DECL_INITIAL (dtable_decl) = dtable;
       TREE_STATIC (dtable_decl) = 1;
@@ -2538,8 +2529,8 @@ register_class (void)
   VEC_safe_push (tree, gc, registered_class, node);
 }
 
-/* Emit a function that calls _Jv_NewClassFromInitializer for every
-   class.  */
+/* Emit a function that calls _Jv_RegisterNewClasses with a list of
+   all the classes we have emitted.  */
 
 static void
 emit_indirect_register_classes (tree *list_p)
@@ -2615,7 +2606,7 @@ emit_register_classes (tree *list_p)
   /* TARGET_USE_JCR_SECTION defaults to 1 if SUPPORTS_WEAK and
      TARGET_ASM_NAMED_SECTION, else 0.  Some targets meet those conditions
      but lack suitable crtbegin/end objects or linker support.  These
-     targets can overide the default in tm.h to use the fallback mechanism.  */
+     targets can override the default in tm.h to use the fallback mechanism.  */
   if (TARGET_USE_JCR_SECTION)
     {
       tree klass, t;

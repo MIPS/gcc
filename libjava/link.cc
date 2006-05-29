@@ -1527,6 +1527,8 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
   else
     instance_size = java::lang::Object::class$.size();
 
+  klass->engine->allocate_field_initializers (klass); 
+
   for (int i = 0; i < klass->field_count; i++)
     {
       int field_size;
@@ -1539,7 +1541,6 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
 	  // It is safe to resolve the field here, since it's a
 	  // primitive class, which does not cause loading to happen.
 	  resolve_field (field, klass->loader);
-
 	  field_size = field->type->size ();
 	  field_align = get_alignment_from_class (field->type);
 	}
@@ -1628,21 +1629,6 @@ _Jv_Linker::ensure_class_linked (jclass klass)
 		resolve_pool_entry (klass, index, true);
 	    }
 	}
-
-#if 0  // Should be redundant now
-      // If superclass looks like a constant pool entry,
-      // resolve it now.
-      if ((uaddr) klass->superclass < (uaddr) pool->size)
-	klass->superclass = pool->data[(uaddr) klass->superclass].clazz;
-
-      // Likewise for interfaces.
-      for (int i = 0; i < klass->interface_count; i++)
-	{
-	  if ((uaddr) klass->interfaces[i] < (uaddr) pool->size)
-	    klass->interfaces[i]
-	      = pool->data[(uaddr) klass->interfaces[i]].clazz;
-	}
-#endif
 
       // Resolve the remaining constant pool entries.
       for (int index = 1; index < pool->size; ++index)

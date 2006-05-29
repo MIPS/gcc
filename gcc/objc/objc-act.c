@@ -3540,9 +3540,9 @@ next_sjlj_build_enter_and_setjmp (void)
   return build3 (COND_EXPR, void_type_node, cond, NULL, NULL);
 }
 
-/* Build
-	DECL = objc_exception_extract(&_stack);
-*/
+/* Build:
+
+   DECL = objc_exception_extract(&_stack);  */
    
 static tree
 next_sjlj_build_exc_extract (tree decl)
@@ -3954,7 +3954,7 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
 
    struct _objc_exception_data
    {
-     int buf[_JBLEN];
+     int buf[JBLEN];
      void *pointers[4];
    }; */
 
@@ -3963,10 +3963,10 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
 
 #ifdef TARGET_POWERPC
 /* snarfed from /usr/include/ppc/setjmp.h */
-#define _JBLEN (26 + 36 + 129 + 1)
+#define JBLEN (26 + 36 + 129 + 1)
 #else
 /* snarfed from /usr/include/i386/{setjmp,signal}.h */
-#define _JBLEN 18
+#define JBLEN 18
 #endif
 
 static void
@@ -3977,9 +3977,9 @@ build_next_objc_exception_stuff (void)
   objc_exception_data_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_EXCDATA));
 
-  /* int buf[_JBLEN]; */
+  /* int buf[JBLEN]; */
 
-  index = build_index_type (build_int_cst (NULL_TREE, _JBLEN - 1));
+  index = build_index_type (build_int_cst (NULL_TREE, JBLEN - 1));
   field_decl = create_field_decl (build_array_type (integer_type_node, index),
 				  "buf");
   field_decl_chain = field_decl;
@@ -5195,6 +5195,7 @@ generate_ivars_list (tree type, const char *name, int size, tree list)
 }
 
 /* Count only the fields occurring in T.  */
+
 static int
 ivar_list_length (tree t)
 {
@@ -6889,6 +6890,7 @@ lookup_method_static (tree interface, tree ident, int flags)
 
 /* Add the method to the hash list if it doesn't contain an identical
    method already. */
+
 static void
 add_method_to_hash_list (hash *hash_list, tree method)
 {
@@ -7167,6 +7169,9 @@ objc_is_public (tree expr, tree identifier)
   if (processing_template_decl)
     return 1;
 #endif
+
+  if (TREE_TYPE (expr) == error_mark_node)
+    return 1;
 
   basetype = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
 

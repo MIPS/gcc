@@ -7232,14 +7232,12 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
     }
 }
 
-/* The DWARF2 pubname for a nested thingy looks like "A::f".  The
-   output of lang_hooks.decl_printable_name for C++ looks like
-   "A::f(int)".  Let's drop the argument list, and maybe the scope.  */
+/* Return the DWARF2/3 pubname associated with a decl.  */
 
 static const char *
 dwarf2_name (tree decl, int scope)
 {
-  return lang_hooks.decl_printable_name (decl, scope ? 1 : 0);
+  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -8477,7 +8475,13 @@ dbx_reg_number (rtx rtl)
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
-  regno = LEAF_REG_REMAP (regno);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (regno);
+    if (leaf_reg != -1)
+      regno = (unsigned) leaf_reg;
+  }
 #endif
 
   return DBX_REGISTER_NUMBER (regno);
@@ -8546,7 +8550,13 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 
   reg = REGNO (rtl);
 #ifdef LEAF_REG_REMAP
-  reg = LEAF_REG_REMAP (reg);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (reg);
+    if (leaf_reg != -1)
+      reg = (unsigned) leaf_reg;
+  }
 #endif
   gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];

@@ -217,7 +217,7 @@ struct named_label_entry GTY(())
 
   /* The following bits are set after the label is defined, and are
      updated as scopes are popped.  They indicate that a backward jump
-     to the label will illegally enter a scope of the given flavour.  */
+     to the label will illegally enter a scope of the given flavor.  */
   bool in_try_scope;
   bool in_catch_scope;
   bool in_omp_scope;
@@ -3311,7 +3311,6 @@ cp_make_fname_decl (tree id, int type_dep)
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_INITIAL (decl) = init;
 
   TREE_USED (decl) = 1;
 
@@ -3848,11 +3847,6 @@ start_decl (const cp_declarator *declarator,
       DECL_EXTERNAL (decl) = 0;
       if (toplevel_bindings_p ())
 	TREE_STATIC (decl) = 1;
-
-      /* Tell `pushdecl' this is an initialized decl
-	 even though we don't yet have the initializer expression.
-	 Also tell `cp_finish_decl' it may store the real initializer.  */
-      DECL_INITIAL (decl) = error_mark_node;
     }
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
@@ -3895,8 +3889,7 @@ start_decl (const cp_declarator *declarator,
 		 declaration will have DECL_EXTERNAL set, but will have an
 		 initialization.  Thus, duplicate_decls won't warn
 		 about this situation, and so we check here.  */
-	      if (DECL_INITIAL (decl) 
-		  && DECL_INITIALIZED_IN_CLASS_P (field))
+	      if (initialized && DECL_INITIALIZED_IN_CLASS_P (field))
 		error ("duplicate initialization of %qD", decl);
 	      if (duplicate_decls (decl, field, /*newdecl_is_friend=*/false))
 		decl = field;
@@ -3930,8 +3923,7 @@ start_decl (const cp_declarator *declarator,
 
 	     We check for processing_specialization so this only applies
 	     to the new specialization syntax.  */
-	  if (!DECL_INITIAL (decl)
-	      && processing_specialization)
+	  if (!initialized && processing_specialization)
 	    DECL_EXTERNAL (decl) = 1;
 	}
 
@@ -3960,20 +3952,24 @@ start_decl (const cp_declarator *declarator,
       && !have_global_bss_p ())
     DECL_COMMON (tem) = 1;
 
-  if (! processing_template_decl)
-    start_decl_1 (tem);
+  if (!processing_template_decl && TREE_CODE (tem) == VAR_DECL)
+    start_decl_1 (tem, initialized);
 
   return tem;
 }
 
 void
-start_decl_1 (tree decl)
+start_decl_1 (tree decl, bool initialized)
 {
-  tree type = TREE_TYPE (decl);
-  int initialized = (DECL_INITIAL (decl) != NULL_TREE);
+  tree type;
 
-  if (type == error_mark_node)
+  gcc_assert (!processing_template_decl);
+
+  if (error_operand_p (decl))
     return;
+
+  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  type = TREE_TYPE (decl);
 
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
@@ -3998,16 +3994,10 @@ start_decl_1 (tree decl)
 	  initialized = 0;
 	}
     }
-
-  if (!initialized
-      && TREE_CODE (decl) != TYPE_DECL
-      && TREE_CODE (decl) != TEMPLATE_DECL
-      && type != error_mark_node
-      && IS_AGGR_TYPE (type)
-      && ! DECL_EXTERNAL (decl))
+  else if (IS_AGGR_TYPE (type)
+	   && ! DECL_EXTERNAL (decl))
     {
-      if ((! processing_template_decl || ! uses_template_parms (type))
-	  && !COMPLETE_TYPE_P (complete_type (type)))
+      if (!COMPLETE_TYPE_P (complete_type (type)))
 	{
 	  error ("aggregate %q#D has incomplete type and cannot be defined",
 		 decl);
@@ -4026,9 +4016,6 @@ start_decl_1 (tree decl)
 	  initialized = TYPE_NEEDS_CONSTRUCTING (type);
 	}
     }
-
-  if (! initialized)
-    DECL_INITIAL (decl) = NULL_TREE;
 
   /* Create a new scope to hold this declaration if necessary.
      Whether or not a new scope is necessary cannot be determined
@@ -4665,16 +4652,6 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
   tree type = TREE_TYPE (decl);
   tree init_code = NULL;
 
-  /* If `start_decl' didn't like having an initialization, ignore it now.  */
-  if (init != NULL_TREE && DECL_INITIAL (decl) == NULL_TREE)
-    init = NULL_TREE;
-
-  /* If an initializer is present, DECL_INITIAL has been
-     error_mark_node, to indicate that an as-of-yet unevaluated
-     initialization will occur.  From now on, DECL_INITIAL reflects
-     the static initialization -- if any -- of DECL.  */
-  DECL_INITIAL (decl) = NULL_TREE;
-
   /* Things that are going to be initialized need to have complete
      type.  */
   TREE_TYPE (decl) = type = complete_type (TREE_TYPE (decl));
@@ -5040,7 +5017,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if (at_function_scope_p ())
 	add_decl_expr (decl);
 
-      if (init && DECL_INITIAL (decl))
+      if (init)
 	{
 	  DECL_INITIAL (decl) = init;
 	  if (init_const_expr_p)
@@ -5227,10 +5204,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    {
 	      /* Initialize the local variable.  */
 	      if (processing_template_decl)
-		{
-		  if (init || DECL_INITIAL (decl) == error_mark_node)
-		    DECL_INITIAL (decl) = init;
-		}
+		DECL_INITIAL (decl) = init;
 	      else if (!TREE_STATIC (decl))
 		initialize_local_var (decl, init);
 	    }
@@ -7285,7 +7259,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (dependent_name && !friendp)
     {
       error ("%<%T::%D%> is not a valid declarator", ctype, dependent_name);
-      return void_type_node;
+      return error_mark_node;
     }
 
   /* Issue errors about use of storage classes for parameters.  */
@@ -7529,7 +7503,7 @@ grokdeclarator (const cp_declarator *declarator,
 		    && !member_function_or_else (ctype,
 						 current_class_type,
 						 flags))
-		  return void_type_node;
+		  return error_mark_node;
 
 		if (flags != DTOR_FLAG)
 		  {
@@ -7541,12 +7515,9 @@ grokdeclarator (const cp_declarator *declarator,
 			pedwarn ("constructors cannot be declared virtual");
 			virtualp = 0;
 		      }
-		    if (decl_context == FIELD)
-		      {
-			TYPE_HAS_CONSTRUCTOR (ctype) = 1;
-			if (sfk != sfk_constructor)
-			  return NULL_TREE;
-		      }
+		    if (decl_context == FIELD
+			&& sfk != sfk_constructor)
+		      return error_mark_node;
 		  }
 		if (decl_context == FIELD)
 		  staticp = 0;
@@ -7725,12 +7696,19 @@ grokdeclarator (const cp_declarator *declarator,
       else if (/* If the qualifying type is already complete, then we
 		  can skip the following checks.  */
 	       !COMPLETE_TYPE_P (ctype)
-	       /* If a function is being defined, then the qualifying
-		  type must be complete.  The qualifying type may be
-		  incomplete for a declaration only if the qualifying
-		  type is one of the classes presently being defined,
-		  or if it is a dependent type.  */
-	       && (funcdef_flag 
+	       && (/* If the function is being defined, then
+		      qualifying type must certainly be complete.  */
+		   funcdef_flag 
+		   /* A friend declaration of "T::f" is OK, even if
+		      "T" is a template parameter.  But, if this
+		      function is not a friend, the qualifying type
+		      must be a class.  */
+		   || (!friendp && !CLASS_TYPE_P (ctype))
+		   /* For a declaration, the type need not be
+		      complete, if either it is dependent (since there
+		      is no meaningful definition of complete in that
+		      case) or the qualifying class is currently being
+		      defined.  */
 		   || !(dependent_type_p (ctype)
 			|| currently_open_class (ctype)))
 	       /* Check that the qualifying type is complete.  */
@@ -8144,7 +8122,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  {
 		    error ("can't make %qD into a method -- not in a class",
 			   unqualified_id);
-		    return void_type_node;
+		    return error_mark_node;
 		  }
 
 		/* ``A union may [ ... ] not [ have ] virtual functions.''
@@ -8153,7 +8131,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  {
 		    error ("function %qD declared virtual inside a union",
 			   unqualified_id);
-		    return void_type_node;
+		    return error_mark_node;
 		  }
 
 		if (NEW_DELETE_OPNAME_P (unqualified_id))
@@ -8207,7 +8185,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       sfk,
 			       funcdef_flag, template_count, in_namespace, attrlist);
 	    if (decl == NULL_TREE)
-	      return decl;
+	      return error_mark_node;
 #if 0
 	    /* This clobbers the attrs stored in `decl' from `attrlist'.  */
 	    /* The decl and setting of decl_attr is also turned off.  */
@@ -8255,7 +8233,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       funcdef_flag, template_count, in_namespace,
 			       attrlist);
 	    if (decl == NULL_TREE)
-	      return NULL_TREE;
+	      return error_mark_node;
 	  }
 	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
@@ -8312,7 +8290,7 @@ grokdeclarator (const cp_declarator *declarator,
 		return decl;
 	      }
 	    else
-	      return void_type_node;
+	      return error_mark_node;
 	  }
 
 	/* Structure field.  It may not be a function, except for C++.  */
@@ -8351,7 +8329,7 @@ grokdeclarator (const cp_declarator *declarator,
 		     void_type_node, as if this was a friend
 		     declaration, to cause callers to completely
 		     ignore this declaration.  */
-		  return void_type_node;
+		  return error_mark_node;
 	      }
 
 	    if (staticp)
@@ -8399,7 +8377,7 @@ grokdeclarator (const cp_declarator *declarator,
 	int publicp = 0;
 
 	if (!unqualified_id)
-	  return NULL_TREE;
+	  return error_mark_node;
 
 	if (TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR)
 	  original_name = dname;
@@ -8454,7 +8432,7 @@ grokdeclarator (const cp_declarator *declarator,
 			   publicp, inlinep, sfk, funcdef_flag,
 			   template_count, in_namespace, attrlist);
 	if (decl == NULL_TREE)
-	  return NULL_TREE;
+	  return error_mark_node;
 
 	if (staticp == 1)
 	  {
@@ -8814,10 +8792,13 @@ copy_fn_p (tree d)
   tree arg_type;
   int result = 1;
 
-  gcc_assert (DECL_FUNCTION_MEMBER_P (d));
+  if (!DECL_FUNCTION_MEMBER_P (d))
+    /* Non-members are invalid.  We complained, but kept the declaration.  */
+    return 0;
 
-  if (DECL_TEMPLATE_INFO (d)
-      && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (d)))
+  if (TREE_CODE (d) == TEMPLATE_DECL
+      || (DECL_TEMPLATE_INFO (d)
+	  && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (d))))
     /* Instantiations of template member functions are never copy
        functions.  Note that member functions of templated classes are
        represented as template functions internally, and we must
@@ -8859,11 +8840,17 @@ copy_fn_p (tree d)
 
 void grok_special_member_properties (tree decl)
 {
+  tree class_type;
+
   if (!DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-    ; /* Not special.  */
-  else if (DECL_CONSTRUCTOR_P (decl))
+    return;
+
+  class_type = DECL_CONTEXT (decl);
+  if (DECL_CONSTRUCTOR_P (decl))
     {
       int ctor = copy_fn_p (decl);
+
+      TYPE_HAS_CONSTRUCTOR (class_type) = 1;
 
       if (ctor > 0)
 	{
@@ -8874,12 +8861,12 @@ void grok_special_member_properties (tree decl)
 	     X&, volatile X& or const volatile X&, and either there
 	     are no other parameters or else all other parameters have
 	     default arguments.  */
-	  TYPE_HAS_INIT_REF (DECL_CONTEXT (decl)) = 1;
+	  TYPE_HAS_INIT_REF (class_type) = 1;
 	  if (ctor > 1)
-	    TYPE_HAS_CONST_INIT_REF (DECL_CONTEXT (decl)) = 1;
+	    TYPE_HAS_CONST_INIT_REF (class_type) = 1;
 	}
       else if (sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (decl)))
-	TYPE_HAS_DEFAULT_CONSTRUCTOR (DECL_CONTEXT (decl)) = 1;
+	TYPE_HAS_DEFAULT_CONSTRUCTOR (class_type) = 1;
     }
   else if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
     {
@@ -8893,9 +8880,9 @@ void grok_special_member_properties (tree decl)
 
       if (assop)
 	{
-	  TYPE_HAS_ASSIGN_REF (DECL_CONTEXT (decl)) = 1;
+	  TYPE_HAS_ASSIGN_REF (class_type) = 1;
 	  if (assop != 1)
-	    TYPE_HAS_CONST_ASSIGN_REF (DECL_CONTEXT (decl)) = 1;
+	    TYPE_HAS_CONST_ASSIGN_REF (class_type) = 1;
 	}
     }
 }
@@ -11203,7 +11190,6 @@ start_method (cp_decl_specifier_seq *declspecs,
 	  fndecl = copy_node (fndecl);
 	  TREE_CHAIN (fndecl) = NULL_TREE;
 	}
-      grok_special_member_properties (fndecl);
     }
 
   finish_decl (fndecl, NULL_TREE, NULL_TREE);

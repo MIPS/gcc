@@ -2207,6 +2207,20 @@ SSE registers instead of on the stack.  Functions that take a
 variable number of arguments will continue to pass all of their
 floating point arguments on the stack.
 
+@item force_align_arg_pointer
+@cindex @code{force_align_arg_pointer} attribute
+On the Intel x86, the @code{force_align_arg_pointer} attribute may be
+applied to individual function definitions, generating an alternate
+prologue and epilogue that realigns the runtime stack.  This supports
+mixing legacy codes that run with a 4-byte aligned stack with modern
+codes that keep a 16-byte stack for SSE compatibility.  The alternate
+prologue and epilogue are slower and bigger than the regular ones, and
+the alternate prologue requires a scratch register; this lowers the
+number of registers available if used in conjunction with the
+@code{regparm} attribute.  The @code{force_align_arg_pointer}
+attribute is incompatible with nested functions; this is considered a
+hard error.
+
 @item returns_twice
 @cindex @code{returns_twice} attribute
 The @code{returns_twice} attribute tells the compiler that a function may
@@ -6840,35 +6854,6 @@ v2sf __builtin_ia32_pfpnacc (v2sf, v2sf)
 v2sf __builtin_ia32_pi2fw (v2si)
 v2sf __builtin_ia32_pswapdsf (v2sf)
 v2si __builtin_ia32_pswapdsi (v2si)
-@end smallexample
-
-The following built-in functions are available when @option{-msse2}
-is used.  All of them generate calls to an SSE2 ABI IEEE754 math intrinsic
-that is part of the name.  Rather than using these directly you may
-want them automatically substituted for calls to the regular intrinsics
-using the @option{-msselibm}.
-
-@smallexample
-double __builtin_sse2_acos (double)
-float __builtin_sse2_acosf (float)
-double __builtin_sse2_asin (double)
-float __builtin_sse2_asinf (float)
-double __builtin_sse2_atan (double)
-float __builtin_sse2_atanf (float)
-double __builtin_sse2_atan2 (double, double)
-float __builtin_sse2_atan2f (float, float)
-double __builtin_sse2_cos (double)
-float __builtin_sse2_cosf (float)
-double __builtin_sse2_exp (double)
-float __builtin_sse2_expf (float)
-double __builtin_sse2_log10 (double)
-float __builtin_sse2_log10f (float)
-double __builtin_sse2_log (double)
-float __builtin_sse2_logf (float)
-double __builtin_sse2_sin (double)
-float __builtin_sse2_sinf (float)
-double __builtin_sse2_tan (double)
-float __builtin_sse2_tanf (float)
 @end smallexample
 
 @node MIPS DSP Built-in Functions

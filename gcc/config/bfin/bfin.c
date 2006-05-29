@@ -43,6 +43,7 @@
 #include "expr.h"
 #include "toplev.h"
 #include "recog.h"
+#include "optabs.h"
 #include "ggc.h"
 #include "integrate.h"
 #include "cgraph.h"
@@ -128,7 +129,7 @@ static e_funkind funkind (tree funtype)
    necessary.  PICREG is the register holding the pointer to the PIC offset
    table.  */
 
-rtx
+static rtx
 legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
 {
   rtx addr = orig;
@@ -140,26 +141,30 @@ legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
 	reg = new = orig;
       else
 	{
+	  int unspec;
+	  rtx tmp;
+
+	  if (TARGET_ID_SHARED_LIBRARY)
+	    unspec = UNSPEC_MOVE_PIC;
+	  else if (GET_CODE (addr) == SYMBOL_REF
+		   && SYMBOL_REF_FUNCTION_P (addr))
+	    {
+	      unspec = UNSPEC_FUNCDESC_GOT17M4;
+	    }
+	  else
+	    {
+	      unspec = UNSPEC_MOVE_FDPIC;
+	    }
+
 	  if (reg == 0)
 	    {
 	      gcc_assert (!no_new_pseudos);
 	      reg = gen_reg_rtx (Pmode);
 	    }
 
-	  if (flag_pic == 2)
-	    {
-	      emit_insn (gen_movsi_high_pic (reg, addr));
-	      emit_insn (gen_movsi_low_pic (reg, reg, addr));
-	      emit_insn (gen_addsi3 (reg, reg, picreg));
-	      new = gen_const_mem (Pmode, reg);
-	    }
-	  else
-	    {
-	      rtx tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
-					UNSPEC_MOVE_PIC);
-	      new = gen_const_mem (Pmode,
-				   gen_rtx_PLUS (Pmode, picreg, tmp));
-	    }
+	  tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), unspec);
+	  new = gen_const_mem (Pmode, gen_rtx_PLUS (Pmode, picreg, tmp));
+
 	  emit_move_insn (reg, new);
 	}
       if (picreg == pic_offset_table_rtx)
@@ -253,7 +258,8 @@ n_pregs_to_save (bool is_inthandler)
 
   for (i = REG_P0; i <= REG_P5; i++)
     if ((regs_ever_live[i] && (is_inthandler || ! call_used_regs[i]))
-	|| (i == PIC_OFFSET_TABLE_REGNUM
+	|| (!TARGET_FDPIC
+	    && i == PIC_OFFSET_TABLE_REGNUM
 	    && (current_function_uses_pic_offset_table
 		|| (TARGET_ID_SHARED_LIBRARY && ! current_function_is_leaf))))
       return REG_P5 - i + 1;
@@ -1342,6 +1348,16 @@ print_operand (FILE *file, rtx x, char code)
 	      fprintf (file, "@GOT");
 	      break;
 
+	    case UNSPEC_MOVE_FDPIC:
+	      output_addr_const (file, XVECEXP (x, 0, 0));
+	      fprintf (file, "@GOT17M4");
+	      break;
+
+	    case UNSPEC_FUNCDESC_GOT17M4:
+	      output_addr_const (file, XVECEXP (x, 0, 0));
+	      fprintf (file, "@FUNCDESC_GOT17M4");
+	      break;
+
 	    case UNSPEC_LIBRARY_OFFSET:
 	      fprintf (file, "_current_shared_library_p5_offset_");
 	      break;
@@ -1575,17 +1591,26 @@ initialize_trampoline (tramp, fnaddr, cxt)
   rtx t1 = copy_to_reg (fnaddr);
   rtx t2 = copy_to_reg (cxt);
   rtx addr;
+  int i = 0;
 
-  addr = memory_address (Pmode, plus_constant (tramp, 2));
+  if (TARGET_FDPIC)
+    {
+      rtx a = memory_address (Pmode, plus_constant (tramp, 8));
+      addr = memory_address (Pmode, tramp);
+      emit_move_insn (gen_rtx_MEM (SImode, addr), a);
+      i = 8;
+    }
+
+  addr = memory_address (Pmode, plus_constant (tramp, i + 2));
   emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, t1));
   emit_insn (gen_ashrsi3 (t1, t1, GEN_INT (16)));
-  addr = memory_address (Pmode, plus_constant (tramp, 6));
+  addr = memory_address (Pmode, plus_constant (tramp, i + 6));
   emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, t1));
 
-  addr = memory_address (Pmode, plus_constant (tramp, 10));
+  addr = memory_address (Pmode, plus_constant (tramp, i + 10));
   emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, t2));
   emit_insn (gen_ashrsi3 (t2, t2, GEN_INT (16)));
-  addr = memory_address (Pmode, plus_constant (tramp, 14));
+  addr = memory_address (Pmode, plus_constant (tramp, i + 14));
   emit_move_insn (gen_rtx_MEM (HImode, addr), gen_lowpart (HImode, t2));
 }
 
@@ -1596,11 +1621,13 @@ emit_pic_move (rtx *operands, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   rtx temp = reload_in_progress ? operands[0] : gen_reg_rtx (Pmode);
 
+  gcc_assert (!TARGET_FDPIC || !(reload_in_progress || reload_completed));
   if (GET_CODE (operands[0]) == MEM && SYMBOLIC_CONST (operands[1]))
     operands[1] = force_reg (SImode, operands[1]);
   else
     operands[1] = legitimize_pic_address (operands[1], temp,
-					  pic_offset_table_rtx);
+					  TARGET_FDPIC ? OUR_FDPIC_REG
+					  : pic_offset_table_rtx);
 }
 
 /* Expand a move operation in mode MODE.  The operands are in OPERANDS.  */
@@ -1608,9 +1635,10 @@ emit_pic_move (rtx *operands, enum machine_mode mode ATTRIBUTE_UNUSED)
 void
 expand_move (rtx *operands, enum machine_mode mode)
 {
-  if (flag_pic && SYMBOLIC_CONST (operands[1]))
+  rtx op = operands[1];
+  if ((TARGET_ID_SHARED_LIBRARY || TARGET_FDPIC)
+      && SYMBOLIC_CONST (op))
     emit_pic_move (operands, mode);
-
   /* Don't generate memory->memory or constant->memory moves, go through a
      register */
   else if ((reload_in_progress | reload_completed) == 0
@@ -1673,23 +1701,46 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
 {
   rtx use = NULL, call;
   rtx callee = XEXP (fnaddr, 0);
-  rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (sibcall ? 3 : 2));
+  int nelts = 2 + !!sibcall;
+  rtx pat;
+  rtx picreg = get_hard_reg_initial_val (SImode, FDPIC_REGNO);
+  int n;
 
   /* In an untyped call, we can get NULL for operand 2.  */
   if (cookie == NULL_RTX)
     cookie = const0_rtx;
 
   /* Static functions and indirect calls don't need the pic register.  */
-  if (flag_pic
+  if (!TARGET_FDPIC && flag_pic
       && GET_CODE (callee) == SYMBOL_REF
       && !SYMBOL_REF_LOCAL_P (callee))
     use_reg (&use, pic_offset_table_rtx);
 
-  if ((!register_no_elim_operand (callee, Pmode)
-       && GET_CODE (callee) != SYMBOL_REF)
-      || (GET_CODE (callee) == SYMBOL_REF
-	  && (flag_pic
-	      || bfin_longcall_p (callee, INTVAL (cookie)))))
+  if (TARGET_FDPIC)
+    {
+      if (GET_CODE (callee) != SYMBOL_REF
+	  || bfin_longcall_p (callee, INTVAL (cookie)))
+	{
+	  rtx addr = callee;
+	  if (! address_operand (addr, Pmode))
+	    addr = force_reg (Pmode, addr);
+
+	  fnaddr = gen_reg_rtx (SImode);
+	  emit_insn (gen_load_funcdescsi (fnaddr, addr));
+	  fnaddr = gen_rtx_MEM (Pmode, fnaddr);
+
+	  picreg = gen_reg_rtx (SImode);
+	  emit_insn (gen_load_funcdescsi (picreg,
+					  plus_constant (addr, 4)));
+	}
+
+      nelts++;
+    }
+  else if ((!register_no_elim_operand (callee, Pmode)
+	    && GET_CODE (callee) != SYMBOL_REF)
+	   || (GET_CODE (callee) == SYMBOL_REF
+	       && (flag_pic
+		   || bfin_longcall_p (callee, INTVAL (cookie)))))
     {
       callee = copy_to_mode_reg (Pmode, callee);
       fnaddr = gen_rtx_MEM (Pmode, callee);
@@ -1699,10 +1750,14 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
   if (retval)
     call = gen_rtx_SET (VOIDmode, retval, call);
 
-  XVECEXP (pat, 0, 0) = call;
-  XVECEXP (pat, 0, 1) = gen_rtx_USE (VOIDmode, cookie);
+  pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (nelts));
+  n = 0;
+  XVECEXP (pat, 0, n++) = call;
+  if (TARGET_FDPIC)
+    XVECEXP (pat, 0, n++) = gen_rtx_USE (VOIDmode, picreg);
+  XVECEXP (pat, 0, n++) = gen_rtx_USE (VOIDmode, cookie);
   if (sibcall)
-    XVECEXP (pat, 0, 2) = gen_rtx_RETURN (VOIDmode);
+    XVECEXP (pat, 0, n++) = gen_rtx_RETURN (VOIDmode);
   call = emit_call_insn (pat);
   if (use)
     CALL_INSN_FUNCTION_USAGE (call) = use;
@@ -1895,9 +1950,22 @@ override_options (void)
   if (bfin_lib_id_given && ! TARGET_ID_SHARED_LIBRARY)
     error ("-mshared-library-id= specified without -mid-shared-library");
 
-  if (TARGET_ID_SHARED_LIBRARY)
-    /* ??? Provide a way to use a bigger GOT.  */
+  if (TARGET_ID_SHARED_LIBRARY && flag_pic == 0)
     flag_pic = 1;
+
+  if (TARGET_ID_SHARED_LIBRARY && TARGET_FDPIC)
+      error ("ID shared libraries and FD-PIC mode can't be used together.");
+
+  /* There is no single unaligned SI op for PIC code.  Sometimes we
+     need to use ".4byte" and sometimes we need to use ".picptr".
+     See bfin_assemble_integer for details.  */
+  if (TARGET_FDPIC)
+    targetm.asm_out.unaligned_op.si = 0;
+
+  /* Silently turn off flag_pic if not doing FDPIC or ID shared libraries,
+     since we don't support it and it'll just break.  */
+  if (flag_pic && !TARGET_FDPIC && !TARGET_ID_SHARED_LIBRARY)
+    flag_pic = 0;
 
   flag_schedule_insns = 0;
 }
@@ -2282,6 +2350,12 @@ bfin_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (GET_MODE_SIZE (GET_MODE (x)) <= UNITS_PER_WORD)
 	*total = COSTS_N_INSNS (3);
       return false;
+
+    case VEC_CONCAT:
+    case VEC_SELECT:
+      if (outer_code == SET)
+	*total = cost2;
+      return true;
 
     default:
       return false;
@@ -2888,6 +2962,34 @@ const struct attribute_spec bfin_attribute_table[] =
   { NULL, 0, 0, false, false, false, NULL }
 };
 
+/* Implementation of TARGET_ASM_INTEGER.  When using FD-PIC, we need to
+   tell the assembler to generate pointers to function descriptors in
+   some cases.  */
+
+static bool
+bfin_assemble_integer (rtx value, unsigned int size, int aligned_p)
+{
+  if (TARGET_FDPIC && size == UNITS_PER_WORD)
+    {
+      if (GET_CODE (value) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (value))
+	{
+	  fputs ("\t.picptr\tfuncdesc(", asm_out_file);
+	  output_addr_const (asm_out_file, value);
+	  fputs (")\n", asm_out_file);
+	  return true;
+	}
+      if (!aligned_p)
+	{
+	  /* We've set the unaligned SI op to NULL, so we always have to
+	     handle the unaligned case here.  */
+	  assemble_integer_with_op ("\t.4byte\t", value);
+	  return true;
+	}
+    }
+  return default_assemble_integer (value, size, aligned_p);
+}
+
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
    declaration for the thunk function itself, FUNCTION is the decl for
    the target function.  DELTA is an immediate constant offset to be
@@ -2963,6 +3065,56 @@ enum bfin_builtins
 {
   BFIN_BUILTIN_CSYNC,
   BFIN_BUILTIN_SSYNC,
+  BFIN_BUILTIN_COMPOSE_2X16,
+  BFIN_BUILTIN_EXTRACTLO,
+  BFIN_BUILTIN_EXTRACTHI,
+
+  BFIN_BUILTIN_SSADD_2X16,
+  BFIN_BUILTIN_SSSUB_2X16,
+  BFIN_BUILTIN_SSADDSUB_2X16,
+  BFIN_BUILTIN_SSSUBADD_2X16,
+  BFIN_BUILTIN_MULT_2X16,
+  BFIN_BUILTIN_MULTR_2X16,
+  BFIN_BUILTIN_NEG_2X16,
+  BFIN_BUILTIN_ABS_2X16,
+  BFIN_BUILTIN_MIN_2X16,
+  BFIN_BUILTIN_MAX_2X16,
+
+  BFIN_BUILTIN_SSADD_1X16,
+  BFIN_BUILTIN_SSSUB_1X16,
+  BFIN_BUILTIN_MULT_1X16,
+  BFIN_BUILTIN_MULTR_1X16,
+  BFIN_BUILTIN_NORM_1X16,
+  BFIN_BUILTIN_NEG_1X16,
+  BFIN_BUILTIN_ABS_1X16,
+  BFIN_BUILTIN_MIN_1X16,
+  BFIN_BUILTIN_MAX_1X16,
+
+  BFIN_BUILTIN_DIFFHL_2X16,
+  BFIN_BUILTIN_DIFFLH_2X16,
+
+  BFIN_BUILTIN_SSADD_1X32,
+  BFIN_BUILTIN_SSSUB_1X32,
+  BFIN_BUILTIN_NORM_1X32,
+  BFIN_BUILTIN_NEG_1X32,
+  BFIN_BUILTIN_MIN_1X32,
+  BFIN_BUILTIN_MAX_1X32,
+  BFIN_BUILTIN_MULT_1X32,
+
+  BFIN_BUILTIN_MULHISILL,
+  BFIN_BUILTIN_MULHISILH,
+  BFIN_BUILTIN_MULHISIHL,
+  BFIN_BUILTIN_MULHISIHH,
+
+  BFIN_BUILTIN_LSHIFT_1X16,
+  BFIN_BUILTIN_LSHIFT_2X16,
+  BFIN_BUILTIN_SSASHIFT_1X16,
+  BFIN_BUILTIN_SSASHIFT_2X16,
+
+  BFIN_BUILTIN_CPLX_MUL_16,
+  BFIN_BUILTIN_CPLX_MAC_16,
+  BFIN_BUILTIN_CPLX_MSU_16,
+
   BFIN_BUILTIN_MAX
 };
 
@@ -2976,12 +3128,306 @@ do {									\
 static void
 bfin_init_builtins (void)
 {
+  tree V2HI_type_node = build_vector_type_for_mode (intHI_type_node, V2HImode);
   tree void_ftype_void
     = build_function_type (void_type_node, void_list_node);
+  tree short_ftype_short
+    = build_function_type_list (short_integer_type_node, short_integer_type_node,
+				NULL_TREE);
+  tree short_ftype_int_int
+    = build_function_type_list (short_integer_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree int_ftype_int_int
+    = build_function_type_list (integer_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree int_ftype_int
+    = build_function_type_list (integer_type_node, integer_type_node,
+				NULL_TREE);
+  tree short_ftype_int
+    = build_function_type_list (short_integer_type_node, integer_type_node,
+				NULL_TREE);
+  tree int_ftype_v2hi_v2hi
+    = build_function_type_list (integer_type_node, V2HI_type_node,
+				V2HI_type_node, NULL_TREE);
+  tree v2hi_ftype_v2hi_v2hi
+    = build_function_type_list (V2HI_type_node, V2HI_type_node,
+				V2HI_type_node, NULL_TREE);
+  tree v2hi_ftype_v2hi_v2hi_v2hi
+    = build_function_type_list (V2HI_type_node, V2HI_type_node,
+				V2HI_type_node, V2HI_type_node, NULL_TREE);
+  tree v2hi_ftype_int_int
+    = build_function_type_list (V2HI_type_node, integer_type_node,
+				integer_type_node, NULL_TREE);
+  tree v2hi_ftype_v2hi_int
+    = build_function_type_list (V2HI_type_node, V2HI_type_node,
+				integer_type_node, NULL_TREE);
+  tree int_ftype_short_short
+    = build_function_type_list (integer_type_node, short_integer_type_node,
+				short_integer_type_node, NULL_TREE);
+  tree v2hi_ftype_v2hi
+    = build_function_type_list (V2HI_type_node, V2HI_type_node, NULL_TREE);
+  tree short_ftype_v2hi
+    = build_function_type_list (short_integer_type_node, V2HI_type_node,
+				NULL_TREE);
 
   /* Add the remaining MMX insns with somewhat more complicated types.  */
   def_builtin ("__builtin_bfin_csync", void_ftype_void, BFIN_BUILTIN_CSYNC);
   def_builtin ("__builtin_bfin_ssync", void_ftype_void, BFIN_BUILTIN_SSYNC);
+
+  def_builtin ("__builtin_bfin_compose_2x16", v2hi_ftype_int_int,
+	       BFIN_BUILTIN_COMPOSE_2X16);
+  def_builtin ("__builtin_bfin_extract_hi", short_ftype_v2hi,
+	       BFIN_BUILTIN_EXTRACTHI);
+  def_builtin ("__builtin_bfin_extract_lo", short_ftype_v2hi,
+	       BFIN_BUILTIN_EXTRACTLO);
+
+  def_builtin ("__builtin_bfin_min_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MIN_2X16);
+  def_builtin ("__builtin_bfin_max_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MAX_2X16);
+
+  def_builtin ("__builtin_bfin_add_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSADD_2X16);
+  def_builtin ("__builtin_bfin_sub_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSSUB_2X16);
+  def_builtin ("__builtin_bfin_dspaddsubsat", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSADDSUB_2X16);
+  def_builtin ("__builtin_bfin_dspsubaddsat", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSSUBADD_2X16);
+  def_builtin ("__builtin_bfin_mult_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULT_2X16);
+  def_builtin ("__builtin_bfin_multr_fr2x16", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULTR_2X16);
+  def_builtin ("__builtin_bfin_negate_fr2x16", v2hi_ftype_v2hi,
+	       BFIN_BUILTIN_NEG_2X16);
+  def_builtin ("__builtin_bfin_abs_fr2x16", v2hi_ftype_v2hi,
+	       BFIN_BUILTIN_ABS_2X16);
+
+  def_builtin ("__builtin_bfin_add_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_SSADD_1X16);
+  def_builtin ("__builtin_bfin_sub_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_SSSUB_1X16);
+  def_builtin ("__builtin_bfin_mult_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_MULT_1X16);
+  def_builtin ("__builtin_bfin_multr_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_MULTR_1X16);
+  def_builtin ("__builtin_bfin_negate_fr1x16", short_ftype_short,
+	       BFIN_BUILTIN_NEG_1X16);
+  def_builtin ("__builtin_bfin_abs_fr1x16", short_ftype_short,
+	       BFIN_BUILTIN_ABS_1X16);
+  def_builtin ("__builtin_bfin_norm_fr1x16", short_ftype_int,
+	       BFIN_BUILTIN_NORM_1X16);
+
+  def_builtin ("__builtin_bfin_diff_hl_fr2x16", short_ftype_v2hi,
+	       BFIN_BUILTIN_DIFFHL_2X16);
+  def_builtin ("__builtin_bfin_diff_lh_fr2x16", short_ftype_v2hi,
+	       BFIN_BUILTIN_DIFFLH_2X16);
+
+  def_builtin ("__builtin_bfin_mulhisill", int_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULHISILL);
+  def_builtin ("__builtin_bfin_mulhisihl", int_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULHISIHL);
+  def_builtin ("__builtin_bfin_mulhisilh", int_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULHISILH);
+  def_builtin ("__builtin_bfin_mulhisihh", int_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_MULHISIHH);
+
+  def_builtin ("__builtin_bfin_add_fr1x32", int_ftype_int_int,
+	       BFIN_BUILTIN_SSADD_1X32);
+  def_builtin ("__builtin_bfin_sub_fr1x32", int_ftype_int_int,
+	       BFIN_BUILTIN_SSSUB_1X32);
+  def_builtin ("__builtin_bfin_negate_fr1x32", int_ftype_int,
+	       BFIN_BUILTIN_NEG_1X32);
+  def_builtin ("__builtin_bfin_norm_fr1x32", short_ftype_int,
+	       BFIN_BUILTIN_NORM_1X32);
+  def_builtin ("__builtin_bfin_mult_fr1x32", int_ftype_short_short,
+	       BFIN_BUILTIN_MULT_1X32);
+
+  /* Shifts.  */
+  def_builtin ("__builtin_bfin_shl_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_SSASHIFT_1X16);
+  def_builtin ("__builtin_bfin_shl_fr2x16", v2hi_ftype_v2hi_int,
+	       BFIN_BUILTIN_SSASHIFT_2X16);
+  def_builtin ("__builtin_bfin_lshl_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_LSHIFT_1X16);
+  def_builtin ("__builtin_bfin_lshl_fr2x16", v2hi_ftype_v2hi_int,
+	       BFIN_BUILTIN_LSHIFT_2X16);
+
+  /* Complex numbers.  */
+  def_builtin ("__builtin_bfin_cmplx_mul", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MUL_16);
+  def_builtin ("__builtin_bfin_cmplx_mac", v2hi_ftype_v2hi_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MAC_16);
+  def_builtin ("__builtin_bfin_cmplx_msu", v2hi_ftype_v2hi_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MSU_16);
+}
+
+
+struct builtin_description
+{
+  const enum insn_code icode;
+  const char *const name;
+  const enum bfin_builtins code;
+  int macflag;
+};
+
+static const struct builtin_description bdesc_2arg[] =
+{
+  { CODE_FOR_composev2hi, "__builtin_bfin_compose_2x16", BFIN_BUILTIN_COMPOSE_2X16, -1 },
+
+  { CODE_FOR_ssashiftv2hi3, "__builtin_bfin_shl_fr2x16", BFIN_BUILTIN_SSASHIFT_2X16, -1 },
+  { CODE_FOR_ssashifthi3, "__builtin_bfin_shl_fr1x16", BFIN_BUILTIN_SSASHIFT_1X16, -1 },
+  { CODE_FOR_lshiftv2hi3, "__builtin_bfin_lshl_fr2x16", BFIN_BUILTIN_LSHIFT_2X16, -1 },
+  { CODE_FOR_lshifthi3, "__builtin_bfin_lshl_fr1x16", BFIN_BUILTIN_LSHIFT_1X16, -1 },
+
+  { CODE_FOR_sminhi3, "__builtin_bfin_min_fr1x16", BFIN_BUILTIN_MIN_1X16, -1 },
+  { CODE_FOR_smaxhi3, "__builtin_bfin_max_fr1x16", BFIN_BUILTIN_MAX_1X16, -1 },
+  { CODE_FOR_ssaddhi3, "__builtin_bfin_add_fr1x16", BFIN_BUILTIN_SSADD_1X16, -1 },
+  { CODE_FOR_sssubhi3, "__builtin_bfin_sub_fr1x16", BFIN_BUILTIN_SSSUB_1X16, -1 },
+
+  { CODE_FOR_sminsi3, "__builtin_bfin_min_fr1x32", BFIN_BUILTIN_MIN_1X32, -1 },
+  { CODE_FOR_smaxsi3, "__builtin_bfin_max_fr1x32", BFIN_BUILTIN_MAX_1X32, -1 },
+  { CODE_FOR_ssaddsi3, "__builtin_bfin_add_fr1x32", BFIN_BUILTIN_SSADD_1X32, -1 },
+  { CODE_FOR_sssubsi3, "__builtin_bfin_sub_fr1x32", BFIN_BUILTIN_SSSUB_1X32, -1 },
+
+  { CODE_FOR_sminv2hi3, "__builtin_bfin_min_fr2x16", BFIN_BUILTIN_MIN_2X16, -1 },
+  { CODE_FOR_smaxv2hi3, "__builtin_bfin_max_fr2x16", BFIN_BUILTIN_MAX_2X16, -1 },
+  { CODE_FOR_ssaddv2hi3, "__builtin_bfin_add_fr2x16", BFIN_BUILTIN_SSADD_2X16, -1 },
+  { CODE_FOR_sssubv2hi3, "__builtin_bfin_sub_fr2x16", BFIN_BUILTIN_SSSUB_2X16, -1 },
+  { CODE_FOR_ssaddsubv2hi3, "__builtin_bfin_dspaddsubsat", BFIN_BUILTIN_SSADDSUB_2X16, -1 },
+  { CODE_FOR_sssubaddv2hi3, "__builtin_bfin_dspsubaddsat", BFIN_BUILTIN_SSSUBADD_2X16, -1 },
+
+  { CODE_FOR_flag_mulhisi, "__builtin_bfin_mult_fr1x32", BFIN_BUILTIN_MULT_1X32, MACFLAG_NONE },
+  { CODE_FOR_flag_mulhi, "__builtin_bfin_mult_fr1x16", BFIN_BUILTIN_MULT_1X16, MACFLAG_T },
+  { CODE_FOR_flag_mulhi, "__builtin_bfin_multr_fr1x16", BFIN_BUILTIN_MULTR_1X16, MACFLAG_NONE },
+  { CODE_FOR_flag_mulv2hi, "__builtin_bfin_mult_fr2x16", BFIN_BUILTIN_MULT_2X16, MACFLAG_T },
+  { CODE_FOR_flag_mulv2hi, "__builtin_bfin_multr_fr2x16", BFIN_BUILTIN_MULTR_2X16, MACFLAG_NONE }
+};
+
+static const struct builtin_description bdesc_1arg[] =
+{
+  { CODE_FOR_signbitshi2, "__builtin_bfin_norm_fr1x16", BFIN_BUILTIN_NORM_1X16, 0 },
+  { CODE_FOR_ssneghi2, "__builtin_bfin_negate_fr1x16", BFIN_BUILTIN_NEG_1X16, 0 },
+  { CODE_FOR_abshi2, "__builtin_bfin_abs_fr1x16", BFIN_BUILTIN_ABS_1X16, 0 },
+
+  { CODE_FOR_signbitssi2, "__builtin_bfin_norm_fr1x32", BFIN_BUILTIN_NORM_1X32, 0 },
+  { CODE_FOR_ssnegsi2, "__builtin_bfin_negate_fr1x32", BFIN_BUILTIN_NEG_1X32, 0 },
+
+  { CODE_FOR_movv2hi_hi_low, "__builtin_bfin_extract_lo", BFIN_BUILTIN_EXTRACTLO, 0 },
+  { CODE_FOR_movv2hi_hi_high, "__builtin_bfin_extract_hi", BFIN_BUILTIN_EXTRACTHI, 0 },
+  { CODE_FOR_ssnegv2hi2, "__builtin_bfin_negate_fr2x16", BFIN_BUILTIN_NEG_2X16, 0 },
+  { CODE_FOR_absv2hi2, "__builtin_bfin_abs_fr2x16", BFIN_BUILTIN_ABS_2X16, 0 }
+};
+
+/* Errors in the source file can cause expand_expr to return const0_rtx
+   where we expect a vector.  To avoid crashing, use one of the vector
+   clear instructions.  */
+static rtx
+safe_vector_operand (rtx x, enum machine_mode mode)
+{
+  if (x != const0_rtx)
+    return x;
+  x = gen_reg_rtx (SImode);
+
+  emit_insn (gen_movsi (x, CONST0_RTX (SImode)));
+  return gen_lowpart (mode, x);
+}
+
+/* Subroutine of bfin_expand_builtin to take care of binop insns.  MACFLAG is -1
+   if this is a normal binary op, or one of the MACFLAG_xxx constants.  */
+
+static rtx
+bfin_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target,
+			   int macflag)
+{
+  rtx pat;
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  enum machine_mode op0mode = GET_MODE (op0);
+  enum machine_mode op1mode = GET_MODE (op1);
+  enum machine_mode tmode = insn_data[icode].operand[0].mode;
+  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+
+  if (VECTOR_MODE_P (mode0))
+    op0 = safe_vector_operand (op0, mode0);
+  if (VECTOR_MODE_P (mode1))
+    op1 = safe_vector_operand (op1, mode1);
+
+  if (! target
+      || GET_MODE (target) != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  if ((op0mode == SImode || op0mode == VOIDmode) && mode0 == HImode)
+    {
+      op0mode = HImode;
+      op0 = gen_lowpart (HImode, op0);
+    }
+  if ((op1mode == SImode || op1mode == VOIDmode) && mode1 == HImode)
+    {
+      op1mode = HImode;
+      op1 = gen_lowpart (HImode, op1);
+    }
+  /* In case the insn wants input operands in modes different from
+     the result, abort.  */
+  gcc_assert ((op0mode == mode0 || op0mode == VOIDmode)
+	      && (op1mode == mode1 || op1mode == VOIDmode));
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = copy_to_mode_reg (mode0, op0);
+  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
+
+  if (macflag == -1)
+    pat = GEN_FCN (icode) (target, op0, op1);
+  else
+    pat = GEN_FCN (icode) (target, op0, op1, GEN_INT (macflag));
+  if (! pat)
+    return 0;
+
+  emit_insn (pat);
+  return target;
+}
+
+/* Subroutine of bfin_expand_builtin to take care of unop insns.  */
+
+static rtx
+bfin_expand_unop_builtin (enum insn_code icode, tree arglist,
+			  rtx target)
+{
+  rtx pat;
+  tree arg0 = TREE_VALUE (arglist);
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  enum machine_mode op0mode = GET_MODE (op0);
+  enum machine_mode tmode = insn_data[icode].operand[0].mode;
+  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+
+  if (! target
+      || GET_MODE (target) != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  if (VECTOR_MODE_P (mode0))
+    op0 = safe_vector_operand (op0, mode0);
+
+  if (op0mode == SImode && mode0 == HImode)
+    {
+      op0mode = HImode;
+      op0 = gen_lowpart (HImode, op0);
+    }
+  gcc_assert (op0mode == mode0 || op0mode == VOIDmode);
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = copy_to_mode_reg (mode0, op0);
+
+  pat = GEN_FCN (icode) (target, op0);
+  if (! pat)
+    return 0;
+  emit_insn (pat);
+  return target;
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -2996,8 +3442,15 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 		     enum machine_mode mode ATTRIBUTE_UNUSED,
 		     int ignore ATTRIBUTE_UNUSED)
 {
+  size_t i;
+  enum insn_code icode;
+  const struct builtin_description *d;
   tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arglist = TREE_OPERAND (exp, 1);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree arg0, arg1, arg2;
+  rtx op0, op1, op2, accvec, pat, tmp1, tmp2;
+  enum machine_mode tmode, mode0;
 
   switch (fcode)
     {
@@ -3008,9 +3461,111 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       emit_insn (gen_ssync ());
       return 0;
 
+    case BFIN_BUILTIN_DIFFHL_2X16:
+    case BFIN_BUILTIN_DIFFLH_2X16:
+      arg0 = TREE_VALUE (arglist);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      icode = (fcode == BFIN_BUILTIN_DIFFHL_2X16
+	       ? CODE_FOR_subhilov2hi3 : CODE_FOR_sublohiv2hi3);
+      tmode = insn_data[icode].operand[0].mode;
+      mode0 = insn_data[icode].operand[1].mode;
+
+      if (! target
+	  || GET_MODE (target) != tmode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+	target = gen_reg_rtx (tmode);
+
+      if (VECTOR_MODE_P (mode0))
+	op0 = safe_vector_operand (op0, mode0);
+
+      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      pat = GEN_FCN (icode) (target, op0, op0);
+      if (! pat)
+	return 0;
+      emit_insn (pat);
+      return target;
+
+    case BFIN_BUILTIN_CPLX_MUL_16:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      accvec = gen_reg_rtx (V2PDImode);
+
+      if (! target
+	  || GET_MODE (target) != V2HImode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, V2HImode))
+	target = gen_reg_rtx (tmode);
+      if (! register_operand (op0, GET_MODE (op0)))
+	op0 = copy_to_mode_reg (GET_MODE (op0), op0);
+      if (! register_operand (op1, GET_MODE (op1)))
+	op1 = copy_to_mode_reg (GET_MODE (op1), op1);
+
+      emit_insn (gen_flag_macinit1v2hi_parts (accvec, op0, op1, const0_rtx,
+					      const0_rtx, const0_rtx,
+					      const1_rtx, GEN_INT (MACFLAG_NONE)));
+      emit_insn (gen_flag_macv2hi_parts (target, op0, op1, const1_rtx,
+					 const1_rtx, const1_rtx,
+					 const0_rtx, accvec, const1_rtx, const0_rtx,
+					 GEN_INT (MACFLAG_NONE), accvec));
+
+      return target;
+
+    case BFIN_BUILTIN_CPLX_MAC_16:
+    case BFIN_BUILTIN_CPLX_MSU_16:
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      accvec = gen_reg_rtx (V2PDImode);
+
+      if (! target
+	  || GET_MODE (target) != V2HImode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, V2HImode))
+	target = gen_reg_rtx (tmode);
+      if (! register_operand (op0, GET_MODE (op0)))
+	op0 = copy_to_mode_reg (GET_MODE (op0), op0);
+      if (! register_operand (op1, GET_MODE (op1)))
+	op1 = copy_to_mode_reg (GET_MODE (op1), op1);
+
+      tmp1 = gen_reg_rtx (SImode);
+      tmp2 = gen_reg_rtx (SImode);
+      emit_insn (gen_ashlsi3 (tmp1, gen_lowpart (SImode, op2), GEN_INT (16)));
+      emit_move_insn (tmp2, gen_lowpart (SImode, op2));
+      emit_insn (gen_movstricthi_1 (gen_lowpart (HImode, tmp2), const0_rtx));
+      emit_insn (gen_load_accumulator_pair (accvec, tmp1, tmp2));
+      emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op0, op1, const0_rtx,
+						 const0_rtx, const0_rtx,
+						 const1_rtx, accvec, const0_rtx,
+						 const0_rtx,
+						 GEN_INT (MACFLAG_W32)));
+      tmp1 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const1_rtx : const0_rtx);
+      tmp2 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const0_rtx : const1_rtx);
+      emit_insn (gen_flag_macv2hi_parts (target, op0, op1, const1_rtx,
+					 const1_rtx, const1_rtx,
+					 const0_rtx, accvec, tmp1, tmp2,
+					 GEN_INT (MACFLAG_NONE), accvec));
+
+      return target;
+
     default:
-      gcc_unreachable ();
+      break;
     }
+
+  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
+    if (d->code == fcode)
+      return bfin_expand_binop_builtin (d->icode, arglist, target,
+					d->macflag);
+
+  for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+    if (d->code == fcode)
+      return bfin_expand_unop_builtin (d->icode, arglist, target);
+
+  gcc_unreachable ();
 }
 
 #undef TARGET_INIT_BUILTINS
@@ -3039,6 +3594,9 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_ASM_INTERNAL_LABEL
 #define TARGET_ASM_INTERNAL_LABEL bfin_internal_label
+
+#undef  TARGET_ASM_INTEGER
+#define TARGET_ASM_INTEGER bfin_assemble_integer
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG bfin_reorg

@@ -409,6 +409,22 @@ vrp_expr_computes_nonzero (tree expr)
   return false;
 }
 
+/* Returns true if EXPR is a valid value (as expected by compare_values) --
+   a gimple invariant, or SSA_NAME +- CST.  */
+
+static bool
+valid_value_p (tree expr)
+{
+  if (TREE_CODE (expr) == SSA_NAME)
+    return true;
+
+  if (TREE_CODE (expr) == PLUS_EXPR
+      || TREE_CODE (expr) == MINUS_EXPR)
+    return (TREE_CODE (TREE_OPERAND (expr, 0)) == SSA_NAME
+	    && TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST);
+  
+  return is_gimple_min_invariant (expr);
+}
 
 /* Compare two values VAL1 and VAL2.  Return
    
@@ -923,14 +939,22 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	  max = limit_vr->max;
 	}
 
-      /* For LT_EXPR, we create the range [MIN, MAX - 1].  */
-      if (cond_code == LT_EXPR)
+      /* If the maximum value forces us to be out of bounds, simply punt.
+	 It would be pointless to try and do anything more since this
+	 all should be optimized away above us.  */
+      if (cond_code == LT_EXPR && compare_values (max, min) == 0)
+	set_value_range_to_varying (vr_p);
+      else
 	{
-	  tree one = build_int_cst (type, 1);
-	  max = fold_build2 (MINUS_EXPR, type, max, one);
-	}
+	  /* For LT_EXPR, we create the range [MIN, MAX - 1].  */
+	  if (cond_code == LT_EXPR)
+	    {
+	      tree one = build_int_cst (type, 1);
+	      max = fold_build2 (MINUS_EXPR, type, max, one);
+	    }
 
-      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	  set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	}
     }
   else if (cond_code == GE_EXPR || cond_code == GT_EXPR)
     {
@@ -946,14 +970,22 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	  min = limit_vr->min;
 	}
 
-      /* For GT_EXPR, we create the range [MIN + 1, MAX].  */
-      if (cond_code == GT_EXPR)
+      /* If the minimum value forces us to be out of bounds, simply punt.
+	 It would be pointless to try and do anything more since this
+	 all should be optimized away above us.  */
+      if (cond_code == GT_EXPR && compare_values (min, max) == 0)
+	set_value_range_to_varying (vr_p);
+      else
 	{
-	  tree one = build_int_cst (type, 1);
-	  min = fold_build2 (PLUS_EXPR, type, min, one);
-	}
+	  /* For GT_EXPR, we create the range [MIN + 1, MAX].  */
+	  if (cond_code == GT_EXPR)
+	    {
+	      tree one = build_int_cst (type, 1);
+	      min = fold_build2 (PLUS_EXPR, type, min, one);
+	    }
 
-      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	  set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	}
     }
   else
     gcc_unreachable ();
@@ -1191,17 +1223,39 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
   if (TYPE_UNSIGNED (TREE_TYPE (val1)))
     {
       int checkz = compare_values (res, val1);
+      bool overflow = false;
 
       /* Ensure that res = val1 [+*] val2 >= val1
          or that res = val1 - val2 <= val1.  */
-      if (((code == PLUS_EXPR || code == MULT_EXPR)
+      if ((code == PLUS_EXPR
 	   && !(checkz == 1 || checkz == 0))
           || (code == MINUS_EXPR
 	      && !(checkz == 0 || checkz == -1)))
 	{
+	  overflow = true;
+	}
+      /* Checking for multiplication overflow is done by dividing the
+	 output of the multiplication by the first input of the
+	 multiplication.  If the result of that division operation is
+	 not equal to the second input of the multiplication, then the
+	 multiplication overflowed.  */
+      else if (code == MULT_EXPR && !integer_zerop (val1))
+	{
+	  tree tmp = int_const_binop (TRUNC_DIV_EXPR,
+				      TYPE_MAX_VALUE (TREE_TYPE (val1)),
+				      val1, 0);
+	  int check = compare_values (tmp, val2);
+
+	  if (check != 0)
+	    overflow = true;
+	}
+
+      if (overflow)
+	{
 	  res = copy_node (res);
 	  TREE_OVERFLOW (res) = 1;
 	}
+
     }
   else if (TREE_OVERFLOW (res)
 	   && !TREE_OVERFLOW (val1)
@@ -1937,7 +1991,7 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
 			tree var)
 {
   tree init, step, chrec;
-  bool init_is_max, unknown_max;
+  enum ev_direction dir;
 
   /* TODO.  Don't adjust anti-ranges.  An anti-range may provide
      better opportunities than a regular range, but I'm not sure.  */
@@ -1952,16 +2006,22 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
   step = evolution_part_in_loop_num (chrec, loop->num);
 
   /* If STEP is symbolic, we can't know whether INIT will be the
-     minimum or maximum value in the range.  */
+     minimum or maximum value in the range.  Also, unless INIT is
+     a simple expression, compare_values and possibly other functions
+     in tree-vrp won't be able to handle it.  */
   if (step == NULL_TREE
-      || !is_gimple_min_invariant (step))
+      || !is_gimple_min_invariant (step)
+      || !valid_value_p (init))
     return;
 
-  /* Do not adjust ranges when chrec may wrap.  */
-  if (scev_probably_wraps_p (chrec_type (chrec), init, step, stmt,
-			     current_loops->parray[CHREC_VARIABLE (chrec)],
-			     &init_is_max, &unknown_max)
-      || unknown_max)
+  dir = scev_direction (chrec);
+  if (/* Do not adjust ranges if we do not know whether the iv increases
+	 or decreases,  ... */
+      dir == EV_DIR_UNKNOWN
+      /* ... or if it may wrap.  */
+      || scev_probably_wraps_p (init, step, stmt,
+				current_loops->parray[CHREC_VARIABLE (chrec)],
+				true))
     return;
 
   if (!POINTER_TYPE_P (TREE_TYPE (init))
@@ -1972,7 +2032,7 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
       tree min = TYPE_MIN_VALUE (TREE_TYPE (init));
       tree max = TYPE_MAX_VALUE (TREE_TYPE (init));
 
-      if (init_is_max)
+      if (dir == EV_DIR_DECREASES)
 	max = init;
       else
 	min = init;
@@ -1990,7 +2050,7 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
       tree min = vr->min;
       tree max = vr->max;
 
-      if (init_is_max)
+      if (dir == EV_DIR_DECREASES)
 	{
 	  /* INIT is the maximum value.  If INIT is lower than VR->MAX
 	     but no smaller than VR->MIN, set VR->MAX to INIT.  */

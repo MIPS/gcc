@@ -334,7 +334,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
 -fsched2-use-superblocks @gol
--fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
+-fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
 -fstack-protector  -fstack-protector-all @gol
 -fstrict-aliasing  -ftracer  -fthread-jumps @gol
@@ -533,10 +533,11 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow -msselibm @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
+-mstackrealign @gol
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num}}
@@ -1610,7 +1611,7 @@ when used within the DSO@.  Enabling this option can have a dramatic effect
 on load and link times of a DSO as it massively reduces the size of the
 dynamic export table when the library makes heavy use of templates.
 
-The behaviour of this switch is not quite the same as marking the
+The behavior of this switch is not quite the same as marking the
 methods as hidden directly.  Normally if there is a class with default
 visibility which has a hidden method, the effect of this is that the
 method must be defined in only one shared object.  This switch does
@@ -3270,7 +3271,7 @@ in some fonts or display methodologies, especially once formatting has
 been applied.  For instance @code{\u207F}, ``SUPERSCRIPT LATIN SMALL
 LETTER N'', will display just like a regular @code{n} which has been
 placed in a superscript.  ISO 10646 defines the @dfn{NFKC}
-normalisation scheme to convert all these into a standard form as
+normalization scheme to convert all these into a standard form as
 well, and GCC will warn if your code is not in NFKC if you use
 @option{-Wnormalized=nfkc}.  This warning is comparable to warning
 about every identifier that contains the letter O because it might be
@@ -4418,7 +4419,7 @@ the performance and/or code size at the expense of compilation time
 and possibly the ability to debug the program.
 
 The compiler performs optimization based on the knowledge it has of
-the program.  Optimization levels @option{-O2} and above, in
+the program.  Optimization levels @option{-O} and above, in
 particular, enable @emph{unit-at-a-time} mode, which allows the
 compiler to consider information gained from later functions in
 the file when compiling a function.  Compiling multiple files at
@@ -4458,6 +4459,7 @@ compilation time.
 -ftree-copyrename @gol
 -ftree-fre @gol
 -ftree-ch @gol
+-funit-at-a-time @gol
 -fmerge-constants}
 
 @option{-O} also turns on @option{-fomit-frame-pointer} on machines
@@ -4488,7 +4490,6 @@ also turns on the following optimization flags:
 -fstrict-aliasing @gol
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
--funit-at-a-time @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
 -ftree-vrp @gol
@@ -5008,6 +5009,11 @@ match the reality and hurt the performance.  This only makes
 sense when scheduling after register allocation, i.e.@: with
 @option{-fschedule-insns2} or at @option{-O2} or higher.
 
+@item -fsee
+@opindex fsee
+Eliminates redundant extension instructions and move the non redundant
+ones to optimal placement using LCM.
+
 @item -freschedule-modulo-scheduled-loops
 @opindex fscheduling-in-modulo-scheduled-loops
 The modulo scheduling comes before the traditional scheduling, if a loop was modulo scheduled
@@ -5416,7 +5422,7 @@ attribute @code{used} will prevent this behavior.
 As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
 but this scheme may not be supported by future releases of GCC@.
 
-Enabled at levels @option{-O2}, @option{-O3}.
+Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fno-toplevel-reorder
 Do not reorder top-level functions, variables, and @code{asm}
@@ -9170,6 +9176,13 @@ indicates the instruction set the compiler can use, and there is no
 generic instruction set applicable to all processors.  In contrast,
 @option{-mtune} indicates the processor (or, in this case, collection of
 processors) for which the code is optimized.
+@item native
+This selects the CPU to tune for at compilation time by determining
+the processor type of the compiling machine.  Using @option{-mtune=native}
+will produce code optimized for the local machine under the constraints
+of the selected instruction set.  Using @option{-march=native} will
+enable all instruction subsets supported by the local machine (hence
+the result might not run on different machines).
 @item i386
 Original Intel's i386 CPU@.
 @item i486
@@ -9452,6 +9465,21 @@ function by using the function attribute @samp{sseregparm}.
 modules with the same value, including any libraries.  This includes
 the system libraries and startup modules.
 
+@item -mstackrealign
+@opindex mstackrealign
+Realign the stack at entry.  On the Intel x86, the
+@option{-mstackrealign} option will generate an alternate prologue and
+epilogue that realigns the runtime stack.  This supports mixing legacy
+codes that keep a 4-byte aligned stack with modern codes that keep a
+16-byte stack for SSE compatibility.  The alternate prologue and
+epilogue are slower and bigger than the regular ones, and the
+alternate prologue requires an extra scratch register; this lowers the
+number of registers available if used in conjunction with the
+@code{regparm} attribute.  The @option{-mstackrealign} option is
+incompatible with the nested function prologue; this is considered a
+hard error.  See also the attribute @code{force_align_arg_pointer},
+applicable to individual functions.
+
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary
 Attempt to keep the stack boundary aligned to a 2 raised to @var{num}
@@ -9509,12 +9537,6 @@ perform runtime CPU detection must compile separate files for each
 supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
-
-@item -msselibm
-@opindex msselibm
-Use special versions of certain libm routines that come with an SSE
-ABI and an SSE implementation.  Useful together with @option{-mfpmath=sse}
-to avoid moving values between SSE registers and the x87 FP stack.
 
 @item -mpush-args
 @itemx -mno-push-args

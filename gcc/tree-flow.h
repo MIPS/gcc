@@ -263,7 +263,7 @@ typedef struct immediate_use_iterator_d
 
 
 /* Use this iterator in combination with FOR_EACH_IMM_USE_STMT to 
-   get access to each occurence of ssavar on the stmt returned by
+   get access to each occurrence of ssavar on the stmt returned by
    that iterator..  for instance:
 
      FOR_EACH_IMM_USE_STMT (stmt, iter, var)
@@ -633,7 +633,7 @@ extern void debug_variable (tree);
 extern void dump_subvars_for (FILE *, tree);
 extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
-extern void add_referenced_tmp_var (tree);
+extern void add_referenced_var (tree);
 extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
 
@@ -667,7 +667,6 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
-extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
@@ -810,9 +809,13 @@ tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
-bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *,
-			    bool *);
-tree convert_step (struct loop *, tree, tree, tree, tree);
+bool scev_probably_wraps_p (tree, tree, tree, struct loop *, bool);
+bool convert_affine_scev (struct loop *, tree, tree *, tree *, tree, bool);
+
+bool nowrap_type_p (tree);
+enum ev_direction {EV_DIR_GROWS, EV_DIR_DECREASES, EV_DIR_UNKNOWN};
+enum ev_direction scev_direction (tree);
+
 void free_numbers_of_iterations_estimates (struct loops *);
 void free_numbers_of_iterations_estimates_loop (struct loop *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
@@ -842,6 +845,7 @@ bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 			struct tree_niter_desc *niter);
 void tree_unroll_loop (struct loops *, struct loop *, unsigned,
 		       edge, struct tree_niter_desc *);
+bool contains_abnormal_ssa_name_p (tree);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);

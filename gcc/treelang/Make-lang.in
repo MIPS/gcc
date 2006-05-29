@@ -87,10 +87,10 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
 	$(BACKEND) $(LIBS) attribs.o
 
 # Create the compiler driver treelang.
-gtreelang$(exeext): gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
+gtreelang$(exeext): $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) \
   $(LIBDEPS) treelang/spec.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ treelang/spec.o \
-	  gcc.o version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
+	  $(GCC_OBJS) version.o prefix.o intl.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 
 
@@ -107,7 +107,7 @@ treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   $(TM_H) $(TREE_H) flags.h output.h $(RTL_H) $(GGC_H) toplev.h \
   varray.h $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
-  treelang/treetree.h treelang/parse.h
+  treelang/treetree.h treelang/parse.h $(TARGET_H)
 
 treelang/tree-convert.o: treelang/tree-convert.c $(CONFIG_H) $(SYSTEM_H) \
   coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
@@ -173,9 +173,9 @@ doc/treelang.info: $(TEXI_TREELANG_FILES)
 doc/treelang.dvi: $(TEXI_TREELANG_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
-treelang.html: $(htmldir)/treelang/index.html
+treelang.html: $(gcc_htmldir)/treelang/index.html
 
-$(htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
+$(gcc_htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/treelang -o $(@D) $<

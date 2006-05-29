@@ -805,7 +805,7 @@ case "$THREADS" in
 	THREADLDFLAGS=-pthread
 	THREADSPEC=-lpthread
 	;;
-     alpha*-dec-osf*)
+     alpha*-dec-osf* | hppa*-hp-hpux*)
 	THREADCXXFLAGS=-pthread
 	# boehm-gc needs some functions from librt, so link that too.
 	THREADLIBS='-lpthread -lrt'
@@ -1276,7 +1276,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h])
+		  dirent.h sys/rw_lock.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1370,6 +1370,9 @@ case "${host}" in
 #    ;;
  hppa*-*-linux*)
     SIGNAL_HANDLER=include/pa-signal.h
+    ;;
+ hppa*-hp-hpux*)
+    SIGNAL_HANDLER=include/hppa-signal.h
     ;;
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h

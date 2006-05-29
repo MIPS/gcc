@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -1213,7 +1213,7 @@ single_phi_def (tree stmt, int flags)
 }
 
 /* Initialize the iterator PTR for uses matching FLAGS in PHI.  FLAGS should
-   be either SSA_OP_USES or SAS_OP_VIRTUAL_USES.  */
+   be either SSA_OP_USES or SSA_OP_VIRTUAL_USES.  */
 static inline use_operand_p
 op_iter_init_phiuse (ssa_op_iter *ptr, tree phi, int flags)
 {
@@ -1361,8 +1361,8 @@ first_imm_use_stmt (imm_use_iterator *imm, tree var)
   imm->next_imm_name = NULL_USE_OPERAND_P;
 
   /* iter_node is used as a marker within the immediate use list to indicate
-     where the end of the current stmt's uses are.  Iintialize it to NULL
-     stmt and use, which indicateds a marker node.  */
+     where the end of the current stmt's uses are.  Initialize it to NULL
+     stmt and use, which indicates a marker node.  */
   imm->iter_node.prev = NULL_USE_OPERAND_P;
   imm->iter_node.next = NULL_USE_OPERAND_P;
   imm->iter_node.stmt = NULL_TREE;

@@ -3604,18 +3604,21 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
     return simplify_gen_relational (code, mode, cmp_mode,
 				    XEXP (op0, 0), XEXP (op0, 1));
 
-  /* (eq/ne (xor x y) x) simplifies to (eq/ne x 0).  */
+  /* (eq/ne (xor x y) x) simplifies to (eq/ne y 0).  */
   if ((code == EQ || code == NE)
       && op0code == XOR
       && rtx_equal_p (XEXP (op0, 0), op1)
-      && !side_effects_p (XEXP (op0, 1)))
-    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
-  /* Likewise (eq/ne (xor x y) y) simplifies to (eq/ne y 0).  */
+      && !side_effects_p (XEXP (op0, 0)))
+    return simplify_gen_relational (code, mode, cmp_mode,
+				    XEXP (op0, 1), const0_rtx);
+
+  /* Likewise (eq/ne (xor x y) y) simplifies to (eq/ne x 0).  */
   if ((code == EQ || code == NE)
       && op0code == XOR
       && rtx_equal_p (XEXP (op0, 1), op1)
-      && !side_effects_p (XEXP (op0, 0)))
-    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
+      && !side_effects_p (XEXP (op0, 1)))
+    return simplify_gen_relational (code, mode, cmp_mode,
+				    XEXP (op0, 0), const0_rtx);
 
   /* (eq/ne (xor x C1) C2) simplifies to (eq/ne x (C1^C2)).  */
   if ((code == EQ || code == NE)
@@ -4549,7 +4552,22 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (regno, innermode))
 	{
-	  rtx x = gen_rtx_REG_offset (op, outermode, final_regno, byte);
+	  rtx x;
+	  int final_offset = byte;
+
+	  /* Adjust offset for paradoxical subregs.  */
+	  if (byte == 0
+	      && GET_MODE_SIZE (innermode) < GET_MODE_SIZE (outermode))
+	    {
+	      int difference = (GET_MODE_SIZE (innermode)
+				- GET_MODE_SIZE (outermode));
+	      if (WORDS_BIG_ENDIAN)
+		final_offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
+	      if (BYTES_BIG_ENDIAN)
+		final_offset += difference % UNITS_PER_WORD;
+	    }
+
+	  x = gen_rtx_REG_offset (op, outermode, final_regno, final_offset);
 
 	  /* Propagate original regno.  We don't have any way to specify
 	     the offset inside original regno, so do so only for lowpart.

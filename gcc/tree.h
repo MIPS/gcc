@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_H
 #define GCC_TREE_H
 
+#include "hashtab.h"
 #include "machmode.h"
 #include "input.h"
 #include "statistics.h"
@@ -442,6 +443,8 @@ struct tree_common GTY(())
 	   OMP_RETURN
        OMP_SECTION_LAST in
 	   OMP_SECTION
+       OMP_PARALLEL_COMBINED in
+	   OMP_PARALLEL
 
    protected_flag:
 
@@ -1582,6 +1585,11 @@ struct tree_constructor GTY(())
 #define OMP_RETURN_NOWAIT(NODE) \
   TREE_PRIVATE (OMP_RETURN_CHECK (NODE))
 
+/* True on an OMP_PARALLEL statement if it represents an explicit
+   combined parallel work-sharing constructs.  */
+#define OMP_PARALLEL_COMBINED(NODE) \
+  TREE_PRIVATE (OMP_PARALLEL_CHECK (NODE))
+
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
    to what it has been remapped to.  */
@@ -1677,10 +1685,6 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
-/* Auxiliary pass-specific data.  */
-#define SSA_NAME_AUX(N) \
-   SSA_NAME_CHECK (N)->ssa_name.aux
-
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
 #endif
@@ -1719,9 +1723,6 @@ struct tree_ssa_name GTY(())
      this field; in the future we will allow VALUE_HANDLEs to persist
      as well.  */
   tree value_handle;
-
-  /* Auxiliary information stored with the ssa name.  */
-  PTR GTY((skip)) aux;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_d imm_uses;
@@ -4266,7 +4267,7 @@ extern bool variably_modified_type_p (tree, tree);
 extern int tree_log2 (tree);
 extern int tree_floor_log2 (tree);
 extern int simple_cst_equal (tree, tree);
-extern unsigned int iterative_hash_expr (tree, unsigned int);
+extern hashval_t iterative_hash_expr (tree, hashval_t);
 extern int compare_tree_int (tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (tree, tree);
 extern int chain_member (tree, tree);

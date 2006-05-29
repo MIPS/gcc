@@ -3854,11 +3854,19 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		 && goal_alternative_offmemok[i]
 		 && MEM_P (recog_data.operand[i]))
 	  {
+	    /* If the address to be reloaded is a VOIDmode constant,
+	       use Pmode as mode of the reload register, as would have
+	       been done by find_reloads_address.  */
+	    enum machine_mode address_mode;
+	    address_mode = GET_MODE (XEXP (recog_data.operand[i], 0));
+	    if (address_mode == VOIDmode)
+	      address_mode = Pmode;
+
 	    operand_reloadnum[i]
 	      = push_reload (XEXP (recog_data.operand[i], 0), NULL_RTX,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     base_reg_class (VOIDmode, MEM, SCRATCH),
-			     GET_MODE (XEXP (recog_data.operand[i], 0)),
+			     address_mode,
 			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
 	    rld[operand_reloadnum[i]].inc
 	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
@@ -4559,20 +4567,24 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
       rtx tem;
 
       if (subreg_lowpart_p (x)
-	  && regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
+	  && regno >= FIRST_PSEUDO_REGISTER
+	  && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0
 	  && (tem = gen_lowpart_common (GET_MODE (x),
-					reg_equiv_constant[regno])) != 0)
+					reg_equiv_constant[regno])) != 0
+	  && LEGITIMATE_CONSTANT_P (tem))
 	return tem;
 
-      if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
+      if (regno >= FIRST_PSEUDO_REGISTER
+	  && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0)
 	{
 	  tem =
 	    simplify_gen_subreg (GET_MODE (x), reg_equiv_constant[regno],
 				 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
 	  gcc_assert (tem);
-	  return tem;
+	  if (LEGITIMATE_CONSTANT_P (tem))
+	    return tem;
 	}
 
       /* If the subreg contains a reg that will be converted to a mem,
@@ -4588,7 +4600,7 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	 a wider mode if we have a paradoxical SUBREG.  find_reloads will
 	 force a reload in that case.  So we should not do anything here.  */
 
-      else if (regno >= FIRST_PSEUDO_REGISTER
+      if (regno >= FIRST_PSEUDO_REGISTER
 #ifdef LOAD_EXTEND_OP
 	       && (GET_MODE_SIZE (GET_MODE (x))
 		   <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
@@ -5363,7 +5375,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 						       GET_MODE (orig_op1))));
 	  }
 	/* Plus in the index register may be created only as a result of
-	   register remateralization for expression like &localvar*4.  Reload it.
+	   register rematerialization for expression like &localvar*4.  Reload it.
 	   It may be possible to combine the displacement on the outer level,
 	   but it is probably not worthwhile to do so.  */
 	if (context == 1)
