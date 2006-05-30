@@ -1,5 +1,5 @@
 /* gnu/regexp/CharIndexedInputStream.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998-2001, 2004, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -145,5 +145,37 @@ class CharIndexedInputStream implements CharIndexed {
     public boolean isValid() {
 	return (cached != OUT_OF_BOUNDS);
     }
+
+    public CharIndexed lookBehind(int index, int length) {
+	throw new UnsupportedOperationException(
+	    "difficult to look behind for an input stream");
+    }
+
+    public int length() {
+	throw new UnsupportedOperationException(
+	    "difficult to tell the length for an input stream");
+    }
+
+    public void setLastMatch(REMatch match) {
+	throw new UnsupportedOperationException(
+	    "difficult to support setLastMatch for an input stream");
+    }
+
+    public REMatch getLastMatch() {
+	throw new UnsupportedOperationException(
+	    "difficult to support getLastMatch for an input stream");
+    }
+
+    public int getAnchor() {
+	throw new UnsupportedOperationException(
+	    "difficult to support getAnchor for an input stream");
+    }
+
+    public void setAnchor(int anchor) {
+	throw new UnsupportedOperationException(
+	    "difficult to support setAnchor for an input stream");
+    }
+
+
 }
 

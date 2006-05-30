@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -74,6 +74,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      (4) Scan the function making replacements.
 */
 
+
+/* The set of todo flags to return from tree_sra.  */
+static unsigned int todoflags;
 
 /* The set of aggregate variables that are candidates for scalarization.  */
 static bitmap sra_candidates;
@@ -165,7 +168,7 @@ is_sra_scalar_type (tree type)
   enum tree_code code = TREE_CODE (type);
   return (code == INTEGER_TYPE || code == REAL_TYPE || code == VECTOR_TYPE
 	  || code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
-	  || code == CHAR_TYPE || code == POINTER_TYPE || code == OFFSET_TYPE
+	  || code == POINTER_TYPE || code == OFFSET_TYPE
 	  || code == REFERENCE_TYPE);
 }
 
@@ -1432,6 +1435,9 @@ decide_instantiations (void)
       bitmap_and_compl_into (needs_copy_in, &done_head);
     }
   bitmap_clear (&done_head);
+  
+  if (!bitmap_empty_p (sra_candidates))
+    todoflags |= TODO_update_smt_usage;
 
   mark_set_for_renaming (sra_candidates);
 
@@ -1515,6 +1521,7 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
       }
 
     case ARRAY_TYPE:
+      todoflags |= TODO_update_smt_usage;
       return build4 (ARRAY_REF, elt->type, base, elt->element, NULL, NULL);
 
     case COMPLEX_TYPE:
@@ -2178,10 +2185,11 @@ sra_init_cache (void)
 
 /* Main entry point.  */
 
-static void
+static unsigned int
 tree_sra (void)
 {
   /* Initialize local variables.  */
+  todoflags = 0;
   gcc_obstack_init (&sra_obstack);
   sra_candidates = BITMAP_ALLOC (NULL);
   needs_copy_in = BITMAP_ALLOC (NULL);
@@ -2204,6 +2212,7 @@ tree_sra (void)
   BITMAP_FREE (sra_type_decomp_cache);
   BITMAP_FREE (sra_type_inst_cache);
   obstack_free (&sra_obstack, NULL);
+  return todoflags;
 }
 
 static bool
@@ -2223,9 +2232,10 @@ struct tree_opt_pass pass_sra =
   TV_TREE_SRA,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,		        /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  TODO_dump_func /* todo_flags_finish */
+  | TODO_update_ssa
+  | TODO_ggc_collect | TODO_verify_ssa,
   0					/* letter */
 };

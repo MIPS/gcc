@@ -969,7 +969,7 @@ locate_copy (tree type, void *client_)
    reference argument or a non-const reference.  Returns the
    FUNCTION_DECL for the implicitly declared function.  */
 
-tree
+static tree
 implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
@@ -978,6 +978,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
   tree fn_type;
   tree raises = empty_except_spec;
   tree rhs_parm_type = NULL_TREE;
+  tree this_parm;
   tree name;
   HOST_WIDE_INT saved_processing_template_decl;
 
@@ -1067,8 +1068,7 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ASSIGNMENT_OPERATOR_P (fn) = 1;
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
-  /* Create the argument list.  The call to "grokclassfn" will add the
-     "this" parameter and any other implicit parameters.  */
+  /* Create the explicit arguments.  */
   if (rhs_parm_type)
     {
       /* Note that this parameter is *not* marked DECL_ARTIFICIAL; we
@@ -1077,10 +1077,12 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ARGUMENTS (fn) = cp_build_parm_decl (NULL_TREE, rhs_parm_type);
       TREE_READONLY (DECL_ARGUMENTS (fn)) = 1;
     }
+  /* Add the "this" parameter.  */ 
+  this_parm = build_this_parm (fn_type, TYPE_UNQUALIFIED);
+  TREE_CHAIN (this_parm) = DECL_ARGUMENTS (fn);
+  DECL_ARGUMENTS (fn) = this_parm;
 
-  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL,
-	       TYPE_UNQUALIFIED);
-  grok_special_member_properties (fn);
+  grokclassfn (type, fn, kind == sfk_destructor ? DTOR_FLAG : NO_SPECIAL);
   set_linkage_according_to_type (type, fn);
   rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
   DECL_IN_AGGR_P (fn) = 1;
@@ -1135,7 +1137,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
 	 TYPE_METHODS list, which cause the destructor to be emitted
 	 in an incorrect location in the vtable.  */
       if (warn_abi && DECL_VIRTUAL_P (fn))
-	warning (0, "vtable layout for class %qT may not be ABI-compliant"
+	warning (OPT_Wabi, "vtable layout for class %qT may not be ABI-compliant"
 		 "and may change in a future version of GCC due to "
 		 "implicit virtual destructor",
 		 type);

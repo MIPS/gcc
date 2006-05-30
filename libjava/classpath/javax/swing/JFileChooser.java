@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.Component;
 import java.awt.Frame;
 import java.awt.HeadlessException;
@@ -49,7 +51,6 @@ import java.util.ArrayList;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
-import javax.swing.JDialog;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.filechooser.FileView;
@@ -407,8 +408,7 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public JFileChooser(String currentDirectoryPath)
   {
-    setup(null);
-    setCurrentDirectory(fsv.createFileObject(currentDirectoryPath));
+    this(currentDirectoryPath, null);
   }
 
   /**
@@ -424,7 +424,10 @@ public class JFileChooser extends JComponent implements Accessible
   public JFileChooser(String currentDirectoryPath, FileSystemView fsv)
   {
     setup(fsv);
-    setCurrentDirectory(fsv.createFileObject(currentDirectoryPath));
+    File dir = null;
+    if (currentDirectoryPath != null)
+      dir = getFileSystemView().createFileObject(currentDirectoryPath);
+    setCurrentDirectory(dir);
   }
 
   /**
@@ -489,6 +492,7 @@ public class JFileChooser extends JComponent implements Accessible
    * @param b DOCUMENT ME!
    */
   public void setDragEnabled(boolean b)
+    throws NotImplementedException
   {
     // FIXME: Implement
   }
@@ -499,6 +503,7 @@ public class JFileChooser extends JComponent implements Accessible
    * @return DOCUMENT ME!
    */
   public boolean getDragEnabled()
+    throws NotImplementedException
   {
     // FIXME: Implement
     return false;
@@ -525,7 +530,7 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public void setSelectedFile(File file)
   {
-    if (selectedFile != file)
+    if (selectedFile == null || !selectedFile.equals(file))
       {
 	File old = selectedFile;
 	selectedFile = file;
@@ -534,10 +539,10 @@ public class JFileChooser extends JComponent implements Accessible
   }
 
   /**
-   * Returns the selected file or files.
+   * Returns the selected file or files in an array.  If no files are selected,
+   * an empty array is returned.
    *
-   * @return An array of the selected files, or <code>null</code> if there are 
-   *         no selected files.
+   * @return An array of the selected files (possibly empty).
    */
   public File[] getSelectedFiles()
   {
@@ -545,7 +550,7 @@ public class JFileChooser extends JComponent implements Accessible
       return selectedFiles;
     if (selectedFile != null)
       return new File[] { selectedFile };
-    return null;
+    return new File[0];
   }
 
   /**
@@ -557,6 +562,12 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public void setSelectedFiles(File[] selectedFiles)
   {
+    if (selectedFiles == null)
+      selectedFiles = new File[0];
+    if (selectedFiles.length > 0)
+      setSelectedFile(selectedFiles[0]);
+    else
+      setSelectedFile(null);
     if (this.selectedFiles != selectedFiles)
       {
 	File[] old = this.selectedFiles;
@@ -564,8 +575,6 @@ public class JFileChooser extends JComponent implements Accessible
 	firePropertyChange(SELECTED_FILES_CHANGED_PROPERTY, old, selectedFiles);
       }
 
-    if (selectedFiles != null)
-      setSelectedFile(selectedFiles[0]);
   }
 
   /**
@@ -607,8 +616,7 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public void changeToParentDirectory()
   {
-    if (fsv.getParentDirectory(currentDir) != null)
-      setCurrentDirectory(fsv.getParentDirectory(currentDir));
+    setCurrentDirectory(fsv.getParentDirectory(currentDir));
   }
 
   /**
@@ -720,7 +728,7 @@ public class JFileChooser extends JComponent implements Accessible
   {
     Frame toUse = (Frame) SwingUtilities.getAncestorOfClass(Frame.class, parent);
     if (toUse == null)
-      toUse = SwingUtilities.getOwnerFrame();
+      toUse = (Frame) SwingUtilities.getOwnerFrame(null);
 
     JDialog dialog = new JDialog(toUse);
     setSelectedFile(null);
@@ -958,14 +966,19 @@ public class JFileChooser extends JComponent implements Accessible
    * {@link #CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY}) to all registered 
    * listeners.
    *
-   * @param filter  the filter.
+   * @param filter  the filter (<code>null</code> permitted).
    */
   public void addChoosableFileFilter(FileFilter filter)
   {
-    FileFilter[] old = getChoosableFileFilters();
-    choosableFilters.add(filter);
-    FileFilter[] newFilters = getChoosableFileFilters();
-    firePropertyChange(CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY, old, newFilters);
+    if (filter != null)
+      {
+        FileFilter[] old = getChoosableFileFilters();
+        choosableFilters.add(filter);
+        FileFilter[] newFilters = getChoosableFileFilters();
+        firePropertyChange(CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY, old, 
+              newFilters);
+      }
+    setFileFilter(filter);
   }
 
   /**
@@ -981,6 +994,8 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public boolean removeChoosableFileFilter(FileFilter f)
   {
+    if (f == currentFilter)
+      setFileFilter(null);
     FileFilter[] old = getChoosableFileFilters();
     if (! choosableFilters.remove(f))
       return false;
@@ -1037,6 +1052,10 @@ public class JFileChooser extends JComponent implements Accessible
     if (isAcceptAll != b)
       {
 	isAcceptAll = b;
+        if (b)
+          addChoosableFileFilter(getAcceptAllFileFilter());
+        else 
+          removeChoosableFileFilter(getAcceptAllFileFilter());
 	firePropertyChange(ACCEPT_ALL_FILE_FILTER_USED_CHANGED_PROPERTY,
 	                   ! isAcceptAll, isAcceptAll);
       }
@@ -1208,15 +1227,17 @@ public class JFileChooser extends JComponent implements Accessible
    * property name {@link #FILE_FILTER_CHANGED_PROPERTY}) to all registered 
    * listeners.
    *
-   * @param filter  the filter.
+   * @param filter  the filter (<code>null</code> permitted).
    */
   public void setFileFilter(FileFilter filter)
   {
     if (currentFilter != filter)
       {
-	FileFilter old = currentFilter;
-	currentFilter = filter;
-	firePropertyChange(FILE_FILTER_CHANGED_PROPERTY, old, currentFilter);
+        if (filter != null && !choosableFilters.contains(filter))
+          addChoosableFileFilter(filter);
+        FileFilter old = currentFilter;
+        currentFilter = filter;
+        firePropertyChange(FILE_FILTER_CHANGED_PROPERTY, old, currentFilter);
       }
   }
 
@@ -1356,8 +1377,12 @@ public class JFileChooser extends JComponent implements Accessible
   public boolean accept(File f)
   {
     if (f == null)
-      return false;
-    return getFileFilter().accept(f);
+      return true;
+    FileFilter ff = getFileFilter();
+    if (ff != null) 
+      return ff.accept(f);
+    else
+      return true;
   }
 
   /**
@@ -1466,7 +1491,6 @@ public class JFileChooser extends JComponent implements Accessible
   public void updateUI()
   {
     setUI((FileChooserUI) UIManager.getUI(this));
-    revalidate();
   }
 
   /**
@@ -1506,7 +1530,9 @@ public class JFileChooser extends JComponent implements Accessible
    */
   public AccessibleContext getAccessibleContext()
   {
-    return new AccessibleJFileChooser();
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJFileChooser();
+    return accessibleContext;
   }
 
   /**

@@ -23,7 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Before including this file, you should define a macro:
 
      DEF_BUILTIN (ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P,
-                  FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT)
+                  FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT, COND)
 
    This macro will be called once for each builtin function.  The
    ENUM will be of type `enum built_in_function', and will indicate
@@ -54,28 +54,30 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    exist when compiling in ANSI conformant mode.
 
    ATTRs is an attribute list as defined in builtin-attrs.def that
-   describes the attributes of this builtin function.  
+   describes the attributes of this builtin function.
 
    IMPLICIT specifies condition when the builtin can be produced by
    compiler.  For instance C90 reserves floorf function, but does not
    define it's meaning.  When user uses floorf we may assume that the
    floorf has the meaning we expect, but we can't produce floorf by
    simplifying floor((double)float) since the runtime need not implement
-   it.  */
-   
+   it.
+
+   The builtins is registered only if COND is true.  */
+
 /* A GCC builtin (like __builtin_saveregs) is provided by the
    compiler, but does not correspond to a function in the standard
    library.  */
 #undef DEF_GCC_BUILTIN
 #define DEF_GCC_BUILTIN(ENUM, NAME, TYPE, ATTRS)		\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,	\
-               false, false, false, ATTRS, true, true)
+	       false, false, false, ATTRS, true, true)
 
 /* Like DEF_GCC_BUILTIN, except we don't prepend "__builtin_".  */
 #undef DEF_SYNC_BUILTIN
 #define DEF_SYNC_BUILTIN(ENUM, NAME, TYPE, ATTRS)		\
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,	\
-               false, false, false, ATTRS, true, true)
+	       false, false, false, ATTRS, true, true)
 
 /* A library builtin (like __builtin_strchr) is a builtin equivalent
    of an ANSI/ISO standard library function.  In addition to the
@@ -83,7 +85,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    `strchr') as well.  If we cannot compute the answer using the
    builtin function, we will fall back to the standard library
    version.  */
-#undef DEF_LIB_BUILTIN					
+#undef DEF_LIB_BUILTIN
 #define DEF_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
 	       true, true, false, ATTRS, true, true)
@@ -92,39 +94,39 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    specified by ANSI/ISO C.  So, when we're being fully conformant we
    ignore the version of these builtins that does not begin with
    __builtin.  */
-#undef DEF_EXT_LIB_BUILTIN				
+#undef DEF_EXT_LIB_BUILTIN
 #define DEF_EXT_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, true, ATTRS, false, true)
+	       true, true, true, ATTRS, false, true)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C94 or above.  */
-#undef DEF_C94_BUILTIN					
+#undef DEF_C94_BUILTIN
 #define DEF_C94_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C99 or above.  */
-#undef DEF_C99_BUILTIN					
+#undef DEF_C99_BUILTIN
 #define DEF_C99_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Builtin that is specified by C99 and C90 reserve the name for future use.
    We can still recognize the builtin in C90 mode but we can't produce it
    implicitly.  */
-#undef DEF_C99_C90RES_BUILTIN					
+#undef DEF_C99_C90RES_BUILTIN
 #define DEF_C99_C90RES_BUILTIN(ENUM, NAME, TYPE, ATTRS)	\
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,	\
-   	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+	       true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
 
 /* Builtin that C99 reserve the name for future use. We can still recognize
    the builtin in C99 mode but we can't produce it implicitly.  */
 #undef DEF_EXT_C99RES_BUILTIN
 #define DEF_EXT_C99RES_BUILTIN(ENUM, NAME, TYPE, ATTRS)        \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,   \
-              true, true, true, ATTRS, false, true)
+	      true, true, true, ATTRS, false, true)
 
 /* Allocate the enum and the name for a builtin, but do not actually
    define it here at all.  */
@@ -132,6 +134,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define DEF_BUILTIN_STUB(ENUM, NAME) \
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, 0, 0, false, false, \
 	       false, 0, false, false)
+
+/* Builtin used by the implementation of GNU OpenMP.  None of these are
+   actually implemented in the compiler; they're all in libgomp.  */
+#undef DEF_GOMP_BUILTIN
+#define DEF_GOMP_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
+  DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
+               false, true, true, ATTRS, false, flag_openmp)
 
 /* Define an attribute list for math functions that are normally
    "impure" because some of them may write into global memory for
@@ -711,3 +720,6 @@ DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit")
 
 /* Synchronization Primitives.  */
 #include "sync-builtins.def"
+
+/* OpenMP builtins.  */
+#include "omp-builtins.def"

@@ -490,7 +490,7 @@ scan_function (tree *tp,
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  funct_state l = xcalloc (1, sizeof (struct funct_state_d));
+  funct_state l = XCNEW (struct funct_state_d);
   tree decl = fn->decl;
   struct ipa_dfs_info * w_info = fn->aux;
 
@@ -572,13 +572,13 @@ analyze_function (struct cgraph_node *fn)
    on the local information that was produced by ipa_analyze_function
    and ipa_analyze_variable.  */
 
-static void
+static unsigned int
 static_execute (void)
 {
   struct cgraph_node *node;
   struct cgraph_node *w;
   struct cgraph_node **order =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int order_pos = order_pos = ipa_utils_reduced_inorder (order, true, false);
   int i;
   struct ipa_dfs_info * w_info;
@@ -703,6 +703,7 @@ static_execute (void)
       }
 
   free (order);
+  return 0;
 }
 
 static bool

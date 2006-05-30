@@ -1,17 +1,18 @@
 ## Input file for automake to generate the Makefile.in used by configure
+GLIBJ_CLASSPATH='$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
 
 # Setup the compiler to use the GNU Classpath library we just build
 if FOUND_GCJ
-JCOMPILER = $(GCJ) --bootclasspath '$(top_builddir)/lib' --classpath . -C
+JCOMPILER = $(GCJ) -encoding UTF-8 --bootclasspath $(GLIBJ_CLASSPATH) --classpath . -C
 else
 if FOUND_JIKES
-JCOMPILER = $(JIKES) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(top_builddir)/lib:.
+JCOMPILER = $(JIKES) $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_GCJX
-JCOMPILER = $(GCJX) -bootclasspath '' -sourcepath '' -classpath $(top_builddir)/lib:.
+JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_ECJ
-JCOMPILER = $(ECJ) -bootclasspath '$(top_builddir)/lib' -classpath .
+JCOMPILER = $(ECJ) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
 else
 error dunno how to setup the JCOMPILER and compile
 endif
@@ -53,25 +54,25 @@ install-data-local:
 	for file in $(ALL_EXAMPLE_FILES); do \
 	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
 	  fdir=`dirname $$f`; \
-	  if test ! -d $(DESTDIR)/$(pkgdatadir)/examples/$$fdir; then \
-	    echo "$(mkinstalldirs) $(DESTDIR)/$(pkgdatadir)/examples/$$fdir"; \
-	    $(mkinstalldirs) $(DESTDIR)/$(pkgdatadir)/examples/$$fdir; \
+	  if test ! -d $(DESTDIR)$(pkgdatadir)/examples/$$fdir; then \
+	    echo "$(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/examples/$$fdir"; \
+	    $(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/examples/$$fdir; \
 	  fi; \
-	  echo "$(INSTALL_DATA) $$file $(DESTDIR)/$(pkgdatadir)/examples/$$f"; \
-	  $(INSTALL_DATA) $$file $(DESTDIR)/$(pkgdatadir)/examples/$$f; \
+	  echo "$(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/examples/$$f"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
-	echo "$(INSTALL_DATA) Makefile.jawt $(DESTDIR)/$(pkgdatadir)/examples/"
-	$(INSTALL_DATA) Makefile.jawt $(DESTDIR)/$(pkgdatadir)/examples/
+	echo "$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/"
+	$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/
 
 uninstall-local:
 	srcdir_cnt=`echo $(srcdir) | wc -c`; \
 	for file in $(ALL_EXAMPLE_FILES); do \
 	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
-	  echo "rm -f $(DESTDIR)/$(pkgdatadir)/examples/$$f"; \
-	  rm -f $(DESTDIR)/$(pkgdatadir)/examples/$$f; \
+	  echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/$$f"; \
+	  rm -f $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
-	echo "rm -f $(DESTDIR)/$(pkgdatadir)/examples/Makefile.jawt"
-	rm -f $(DESTDIR)/$(pkgdatadir)/examples/Makefile.jawt
+	echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt"
+	rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt
 
 # Make sure everything is included in the distribution.
 EXTRA_DIST = README Makefile.jawt.in
@@ -95,7 +96,10 @@ $(EXAMPLE_ZIP): $(EXAMPLE_JAVA_FILES)
 	mkdir -p classes/gnu/classpath/examples/icons
 	cp $(EXAMPLE_ICONS) classes/gnu/classpath/examples/icons
 	$(JCOMPILER) -d classes $(EXAMPLE_JAVA_FILES) 
-	cd classes; $(ZIP) -r ../$(EXAMPLE_ZIP) .; cd ..
+	(cd classes; \
+	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(EXAMPLE_ZIP) .; fi; \
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(EXAMPLE_ZIP) .; fi; \
+	cd ..)
 	rm -rf classes
 
 # Zip file be gone! (and make sure the classes are gone too)

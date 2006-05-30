@@ -123,6 +123,44 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 		 NODE_NAME (node));
       break;
 
+    case BT_TIMESTAMP:
+      {
+	cpp_buffer *pbuffer = cpp_get_buffer (pfile);
+	if (pbuffer->timestamp == NULL)
+	  {
+	    /* Initialize timestamp value of the assotiated file. */
+            struct _cpp_file *file = cpp_get_file (pbuffer);
+	    if (file)
+	      {
+    		/* Generate __TIMESTAMP__ string, that represents 
+		   the date and time of the last modification 
+		   of the current source file. The string constant 
+		   looks like "Sun Sep 16 01:03:52 1973".  */
+		struct tm *tb = NULL;
+		struct stat *st = _cpp_get_file_stat (file);
+		if (st)
+		  tb = localtime (&st->st_mtime);
+		if (tb)
+		  {
+		    char *str = asctime (tb);
+		    size_t len = strlen (str);
+		    unsigned char *buf = _cpp_unaligned_alloc (pfile, len + 2);
+		    buf[0] = '"';
+		    strcpy ((char *) buf + 1, str);
+		    buf[len] = '"';
+		    pbuffer->timestamp = buf;
+		  }
+		else
+		  {
+		    cpp_errno (pfile, CPP_DL_WARNING,
+			"could not determine file timestamp");
+		    pbuffer->timestamp = U"\"??? ??? ?? ??:??:?? ????\"";
+		  }
+	      }
+	  }
+	result = pbuffer->timestamp;
+      }
+      break;
     case BT_FILE:
     case BT_BASE_FILE:
       {
@@ -169,16 +207,12 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 	 However, if (a) we are in a system header, (b) the option
 	 stdc_0_in_system_headers is true (set by target config), and
 	 (c) we are not in strictly conforming mode, then it has the
-	 value 0.  */
+	 value 0.  (b) and (c) are already checked in cpp_init_builtins.  */
     case BT_STDC:
-      {
-	if (cpp_in_system_header (pfile)
-	    && CPP_OPTION (pfile, stdc_0_in_system_headers)
-	    && !CPP_OPTION (pfile,std))
-	  number = 0;
-	else
-	  number = 1;
-      }
+      if (cpp_in_system_header (pfile))
+	number = 0;
+      else
+	number = 1;
       break;
 
     case BT_DATE:

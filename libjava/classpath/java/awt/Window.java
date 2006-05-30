@@ -1,5 +1,5 @@
 /* Window.java --
-   Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -37,6 +37,8 @@ exception statement from your version. */
 
 
 package java.awt;
+
+import gnu.classpath.NotImplementedException;
 
 import java.awt.event.ComponentEvent;
 import java.awt.event.FocusEvent;
@@ -281,50 +283,53 @@ public class Window extends Container implements Accessible
   public void show()
   {
     synchronized (getTreeLock())
-    {
-    if (parent != null && !parent.isDisplayable())
-      parent.addNotify();
-    if (peer == null)
-      addNotify();
-
-    // Show visible owned windows.
-	Iterator e = ownedWindows.iterator();
-	while(e.hasNext())
-	  {
-	    Window w = (Window)(((Reference) e.next()).get());
-	    if (w != null)
-	      {
-		if (w.isVisible())
-		  w.getPeer().setVisible(true);
-	      }
-     	    else
-	      // Remove null weak reference from ownedWindows.
-	      // Unfortunately this can't be done in the Window's
-	      // finalize method because there is no way to guarantee
-	      // synchronous access to ownedWindows there.
-	      e.remove();
-	  }
-    validate();
-    super.show();
-    toFront();
-
-    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
-    manager.setGlobalFocusedWindow (this);
-    
-    if (!shown)
       {
-        FocusTraversalPolicy policy = getFocusTraversalPolicy ();
-        Component initialFocusOwner = null;
+        if (parent != null && ! parent.isDisplayable())
+          parent.addNotify();
+        if (peer == null)
+          addNotify();
 
-        if (policy != null)
-          initialFocusOwner = policy.getInitialComponent (this);
+        validate();
+        if (visible)
+          toFront();
+        else
+          {
+            super.show();
+            // Show visible owned windows.
+            Iterator e = ownedWindows.iterator();
+            while (e.hasNext())
+              {
+                Window w = (Window) (((Reference) e.next()).get());
+                if (w != null)
+                  {
+                    if (w.isVisible())
+                      w.getPeer().setVisible(true);
+                  }
+                else
+                  // Remove null weak reference from ownedWindows.
+                  // Unfortunately this can't be done in the Window's
+                  // finalize method because there is no way to guarantee
+                  // synchronous access to ownedWindows there.
+                  e.remove();
+              }
+          }
+        KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        manager.setGlobalFocusedWindow(this);
 
-        if (initialFocusOwner != null)
-          initialFocusOwner.requestFocusInWindow ();
+        if (! shown)
+          {
+            FocusTraversalPolicy policy = getFocusTraversalPolicy();
+            Component initialFocusOwner = null;
 
-        shown = true;
+            if (policy != null)
+              initialFocusOwner = policy.getInitialComponent(this);
+
+            if (initialFocusOwner != null)
+              initialFocusOwner.requestFocusInWindow();
+
+            shown = true;
+          }
       }
-    }
   }
 
   public void hide()
@@ -617,10 +622,25 @@ public class Window extends Container implements Accessible
 	    || windowStateListener != null
 	    || (eventMask & AWTEvent.WINDOW_EVENT_MASK) != 0))
       processEvent(e);
-    else if (e.id == ComponentEvent.COMPONENT_RESIZED)
-      validate ();
-    else
-      super.dispatchEventImpl(e);
+    else 
+      {
+	if (peer != null && (e.id == ComponentEvent.COMPONENT_RESIZED
+	    || e.id == ComponentEvent.COMPONENT_MOVED))
+            {
+	    Rectangle bounds = peer.getBounds();
+	    x = bounds.x;
+	    y = bounds.y;
+	    height = bounds.height;
+	    width = bounds.width;
+	    
+	    if (e.id == ComponentEvent.COMPONENT_RESIZED)
+	      {
+		invalidate();
+		validate();
+	      }
+	  }
+	super.dispatchEventImpl(e);
+      }
   }
 
   /**
@@ -1029,6 +1049,7 @@ public class Window extends Container implements Accessible
    * @deprecated
    */
   public void applyResourceBundle(ResourceBundle rb)
+    throws NotImplementedException
   {
     throw new Error ("Not implemented");
   }
@@ -1139,6 +1160,47 @@ public class Window extends Container implements Accessible
   public void setFocusableWindowState (boolean focusableWindowState)
   {
     this.focusableWindowState = focusableWindowState;
+  }
+  
+  /**
+   * Check whether this Container is a focus cycle root.
+   * Returns always <code>true</code> as Windows are the 
+   * root of the focus cycle.
+   *
+   * @return Always <code>true</code>.
+   *
+   * @since 1.4
+   */
+  public final boolean isFocusCycleRoot()
+  {
+    return true;
+  }
+
+  /**
+   * Set whether or not this Container is the root of a focus
+   * traversal cycle. Windows are the root of the focus cycle
+   * and therefore this method does nothing.
+   * 
+   * @param focusCycleRoot ignored.
+   *
+   * @since 1.4
+   */
+  public final void setFocusCycleRoot(boolean focusCycleRoot)
+  {
+    // calls to the method are ignored
+  }
+
+  /**
+   * Returns the root container that owns the focus cycle where this
+   * component resides. Windows have no ancestors and this method
+   * returns always <code>null</code>.
+   *
+   * @return Always <code>null</code>.
+   * @since 1.4
+   */
+  public final Container getFocusCycleRootAncestor()
+  {
+    return null;
   }
 
   /**

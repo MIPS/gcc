@@ -1,6 +1,6 @@
 // interpret.cc - Code for the interpreter
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -25,7 +25,6 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/lang/Class.h>
 #include <java/lang/reflect/Modifier.h>
-#include <java/lang/VirtualMachineError.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/ArithmeticException.h>
@@ -47,18 +46,16 @@ _Jv_InterpreterEngine _Jv_soleInterpreterEngine;
 
 using namespace gcj;
 
-static void throw_internal_error (char *msg)
+static void throw_internal_error (const char *msg)
   __attribute__ ((__noreturn__));
 static void throw_incompatible_class_change_error (jstring msg)
   __attribute__ ((__noreturn__));
-#ifndef HANDLE_SEGV
 static void throw_null_pointer_exception ()
   __attribute__ ((__noreturn__));
-#endif
 
 static void throw_class_format_error (jstring msg)
 	__attribute__ ((__noreturn__));
-static void throw_class_format_error (char *msg)
+static void throw_class_format_error (const char *msg)
 	__attribute__ ((__noreturn__));
 
 #ifdef DIRECT_THREADED
@@ -224,12 +221,20 @@ static jint get4(unsigned char* loc) {
 
 #define SAVE_PC() frame_desc.pc = pc
 
-#ifdef HANDLE_SEGV
-#define NULLCHECK(X) SAVE_PC()
-#define NULLARRAYCHECK(X) SAVE_PC()
-#else
+// We used to define this conditionally, depending on HANDLE_SEGV.
+// However, that runs into a problem if a chunk in low memory is
+// mapped and we try to look at a field near the end of a large
+// object.  See PR 26858 for details.  It is, most likely, relatively
+// inexpensive to simply do this check always.
 #define NULLCHECK(X) \
   do { SAVE_PC(); if ((X)==NULL) throw_null_pointer_exception (); } while (0)
+
+// Note that we can still conditionally define NULLARRAYCHECK, since
+// we know that all uses of an array will first reference the length
+// field, which is first -- and thus will trigger a SEGV.
+#ifdef HANDLE_SEGV
+#define NULLARRAYCHECK(X) SAVE_PC()
+#else
 #define NULLARRAYCHECK(X) \
   do { SAVE_PC(); if ((X)==NULL) { throw_null_pointer_exception (); } } while (0)
 #endif
@@ -330,6 +335,7 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
       if (! first_pass)
 	{
 	  insns = (insn_slot *) _Jv_AllocBytes (sizeof (insn_slot) * next);
+	  number_insn_slots = next;
 	  next = 0;
 	}
 
@@ -792,6 +798,8 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 }
 #endif /* DIRECT_THREADED */
 
+/* Run the given method.
+   When args is NULL, don't run anything -- just compile it. */
 void
 _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 {
@@ -804,26 +812,12 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
   // destructor so it cleans up automatically when the interpreter
   // returns.
   java::lang::Thread *thread = java::lang::Thread::currentThread();
-  _Jv_InterpFrame frame_desc (meth,
-			      (_Jv_InterpFrame **) &thread->interp_frame);
+  _Jv_InterpFrame frame_desc (meth, thread);
 
   _Jv_word stack[meth->max_stack];
   _Jv_word *sp = stack;
 
   _Jv_word locals[meth->max_locals];
-
-  /* Go straight at it!  the ffi raw format matches the internal
-     stack representation exactly.  At least, that's the idea.
-  */
-  memcpy ((void*) locals, (void*) args, meth->args_raw_size);
-
-  _Jv_word *pool_data = meth->defining_class->constants.data;
-
-  /* These three are temporaries for common code used by several
-     instructions.  */
-  void (*fun)();
-  _Jv_ResolvedMethod* rmeth;
-  int tmpval;
 
 #define INSN_LABEL(op) &&insn_##op
 
@@ -1070,6 +1064,11 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	meth->compile (insn_target);
       _Jv_MutexUnlock (&compile_mutex);
     }
+
+  // If we're only compiling, stop here
+  if (args == NULL)
+    return;
+
   pc = (insn_slot *) meth->prepared;
 
 #else
@@ -1101,6 +1100,19 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 #endif /* DIRECT_THREADED */
 
 #define TAKE_GOTO pc = GOTO_VAL ()
+
+  /* Go straight at it!  the ffi raw format matches the internal
+     stack representation exactly.  At least, that's the idea.
+  */
+  memcpy ((void*) locals, (void*) args, meth->args_raw_size);
+
+  _Jv_word *pool_data = meth->defining_class->constants.data;
+
+  /* These three are temporaries for common code used by several
+     instructions.  */
+  void (*fun)();
+  _Jv_ResolvedMethod* rmeth;
+  int tmpval;
 
   try
     {
@@ -1135,31 +1147,27 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	 * the corresponding bit JV_CONSTANT_ResolvedFlag in the tag
 	 * directly.  For now, I don't think it is worth it.  */
 
-	SAVE_PC();
 	rmeth = (_Jv_Linker::resolve_pool_entry (meth->defining_class,
 						   index)).rmethod;
 
 	sp -= rmeth->stack_item_count;
-	// We don't use NULLCHECK here because we can't rely on that
-	// working if the method is final.  So instead we do an
-	// explicit test.
-	if (! sp[0].o)
-	  {
-	    //printf("invokevirtual pc = %p/%i\n", pc, meth->get_pc_val(pc));
-	    throw new java::lang::NullPointerException;
-	  }
 
-	if (rmeth->vtable_index == -1)
+	if (rmeth->method->accflags & Modifier::FINAL)
 	  {
-	    // final methods do not appear in the vtable,
-	    // if it does not appear in the superclass.
+	    // We can't rely on NULLCHECK working if the method is final.
+	    SAVE_PC();
+	    if (! sp[0].o)
+	      throw_null_pointer_exception ();
+
+	    // Final methods might not appear in the vtable.
 	    fun = (void (*)()) rmeth->method->ncode;
 	  }
 	else
 	  {
+	    NULLCHECK (sp[0].o);
 	    jobject rcv = sp[0].o;
 	    _Jv_VTable *table = *(_Jv_VTable**) rcv;
-	    fun = (void (*)()) table->get_method (rmeth->vtable_index);
+	    fun = (void (*)()) table->get_method (rmeth->method->index);
 	  }
 
 #ifdef DIRECT_THREADED
@@ -1176,26 +1184,22 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
       {
 	rmeth = (_Jv_ResolvedMethod *) AVAL ();
 	sp -= rmeth->stack_item_count;
-	// We don't use NULLCHECK here because we can't rely on that
-	// working if the method is final.  So instead we do an
-	// explicit test.
-	if (! sp[0].o)
-	  {
-	    SAVE_PC();
-	    throw new java::lang::NullPointerException;
-	  }
 
-	if (rmeth->vtable_index == -1)
+	if (rmeth->method->accflags & Modifier::FINAL)
 	  {
-	    // final methods do not appear in the vtable,
-	    // if it does not appear in the superclass.
+	    // We can't rely on NULLCHECK working if the method is final.
+	    SAVE_PC();
+	    if (! sp[0].o)
+	      throw_null_pointer_exception ();
+
+	    // Final methods might not appear in the vtable.
 	    fun = (void (*)()) rmeth->method->ncode;
 	  }
 	else
 	  {
 	    jobject rcv = sp[0].o;
 	    _Jv_VTable *table = *(_Jv_VTable**) rcv;
-	    fun = (void (*)()) table->get_method (rmeth->vtable_index);
+	    fun = (void (*)()) table->get_method (rmeth->method->index);
 	  }
       }
       goto perform_invoke;
@@ -2545,8 +2549,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 
 	jclass type = field->type;
 	jint field_offset = field->u.boffset;
-	if (field_offset > 0xffff)
-	  throw new java::lang::VirtualMachineError;
 
 	jobject obj   = POPA();
 	NULLCHECK(obj);
@@ -2749,8 +2751,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	    (JvNewStringLatin1 ("field is static"));
 
 	jint field_offset = field->u.boffset;
-	if (field_offset > 0xffff)
-	  throw new java::lang::VirtualMachineError;
 
 	void *newinsn = NULL;
 	if (type->isPrimitive ())
@@ -2875,7 +2875,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	if (! sp[0].o)
 	  {
 	    SAVE_PC();
-	    throw new java::lang::NullPointerException;
+	    throw_null_pointer_exception ();
 	  }
 
 	fun = (void (*)()) rmeth->method->ncode;
@@ -2899,7 +2899,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 	if (! sp[0].o)
 	  {
 	    SAVE_PC();
-	    throw new java::lang::NullPointerException;
+	    throw_null_pointer_exception ();
 	  }
 	fun = (void (*)()) rmeth->method->ncode;
       }
@@ -3286,7 +3286,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 }
 
 static void
-throw_internal_error (char *msg)
+throw_internal_error (const char *msg)
 {
   throw new java::lang::InternalError (JvNewStringLatin1 (msg));
 }
@@ -3297,17 +3297,11 @@ throw_incompatible_class_change_error (jstring msg)
   throw new java::lang::IncompatibleClassChangeError (msg);
 }
 
-#ifndef HANDLE_SEGV
-static java::lang::NullPointerException *null_pointer_exc;
 static void 
 throw_null_pointer_exception ()
 {
-  if (null_pointer_exc == NULL)
-    null_pointer_exc = new java::lang::NullPointerException;
-
-  throw null_pointer_exc;
+  throw new java::lang::NullPointerException;
 }
-#endif
 
 /* Look up source code line number for given bytecode (or direct threaded
    interpreter) PC. */
@@ -3665,6 +3659,80 @@ _Jv_InterpMethod::ncode ()
   return self->ncode;
 }
 
+#ifdef DIRECT_THREADED
+/* Find the index of the given insn in the array of insn slots
+   for this method. Returns -1 if not found. */
+jlong
+_Jv_InterpMethod::insn_index (pc_t pc)
+{
+  jlong left = 0;
+  jlong right = number_insn_slots;
+  insn_slot* slots = reinterpret_cast<insn_slot*> (prepared);
+
+  while (right >= 0)
+    {
+      jlong mid = (left + right) / 2;
+      if (&slots[mid] == pc)
+	return mid;
+
+      if (pc < &slots[mid])
+	right = mid - 1;
+      else
+        left = mid + 1;
+    }
+
+  return -1;
+}
+#endif // DIRECT_THREADED
+
+void
+_Jv_InterpMethod::get_line_table (jlong& start, jlong& end,
+				  jintArray& line_numbers,
+				  jlongArray& code_indices)
+{
+#ifdef DIRECT_THREADED
+  /* For the DIRECT_THREADED case, if the method has not yet been
+   * compiled, the linetable will change to insn slots instead of
+   * bytecode PCs. It is probably easiest, in this case, to simply
+   * compile the method and guarantee that we are using insn
+   * slots.
+   */
+  _Jv_CompileMethod (this);
+
+  if (line_table_len > 0)
+    {
+      start = 0;
+      end = number_insn_slots;
+      line_numbers = JvNewIntArray (line_table_len);
+      code_indices = JvNewLongArray (line_table_len);
+
+      jint* lines = elements (line_numbers);
+      jlong* indices = elements (code_indices);
+      for (int i = 0; i < line_table_len; ++i)
+	{
+	  lines[i] = line_table[i].line;
+	  indices[i] = insn_index (line_table[i].pc);
+	}
+    }
+#else // !DIRECT_THREADED
+  if (line_table_len > 0)
+    {
+      start = 0;
+      end = code_length;
+      line_numbers = JvNewIntArray (line_table_len);
+      code_indices = JvNewLongArray (line_table_len);
+
+      jint* lines = elements (line_numbers);
+      jlong* indices = elements (code_indices);
+      for (int i = 0; i < line_table_len; ++i)
+	{
+	  lines[i] = line_table[i].line;
+	  indices[i] = (jlong) line_table[i].bytecode_pc;
+	}
+    }
+#endif // !DIRECT_THREADED
+}
+
 void *
 _Jv_JNIMethod::ncode ()
 {
@@ -3735,7 +3803,7 @@ throw_class_format_error (jstring msg)
 }
 
 static void
-throw_class_format_error (char *msg)
+throw_class_format_error (const char *msg)
 {
   throw_class_format_error (JvNewStringLatin1 (msg));
 }
@@ -3795,25 +3863,40 @@ _Jv_InterpreterEngine::do_create_ncode (jclass klass)
 
 void
 _Jv_InterpreterEngine::do_allocate_static_fields (jclass klass,
-						  int static_size)
+						  int pointer_size,
+						  int other_size)
 {
   _Jv_InterpClass *iclass = (_Jv_InterpClass *) klass->aux_info;
 
-  char *static_data = (char *) _Jv_AllocBytes (static_size);
+  // Splitting the allocations here lets us scan reference fields and
+  // avoid scanning non-reference fields.  How reference fields are
+  // scanned is a bit tricky: we allocate using _Jv_AllocRawObj, which
+  // means that this memory will be scanned conservatively (same
+  // difference, since we know all the contents here are pointers).
+  // Then we put pointers into this memory into the 'fields'
+  // structure.  Most of these are interior pointers, which is ok (but
+  // even so the pointer to the first reference field will be used and
+  // that is not an interior pointer).  The 'fields' array is also
+  // allocated with _Jv_AllocRawObj (see defineclass.cc), so it will
+  // be scanned.  A pointer to this array is held by Class and thus
+  // seen by the collector.
+  char *reference_fields = (char *) _Jv_AllocRawObj (pointer_size);
+  char *non_reference_fields = (char *) _Jv_AllocBytes (other_size);
 
   for (int i = 0; i < klass->field_count; i++)
     {
       _Jv_Field *field = &klass->fields[i];
 
-      if ((field->flags & java::lang::reflect::Modifier::STATIC) != 0)
+      if ((field->flags & java::lang::reflect::Modifier::STATIC) == 0)
+	continue;
+
+      char *base = field->isRef() ? reference_fields : non_reference_fields;
+      field->u.addr  = base + field->u.boffset;
+
+      if (iclass->field_initializers[i] != 0)
 	{
-	  field->u.addr  = static_data + field->u.boffset;
-	      
-	  if (iclass->field_initializers[i] != 0)
-	    {
-	      _Jv_Linker::resolve_field (field, klass->loader);
-	      _Jv_InitField (0, klass, i);
-	    }
+	  _Jv_Linker::resolve_field (field, klass->loader);
+	  _Jv_InitField (0, klass, i);
 	}
     }
 
@@ -3824,7 +3907,7 @@ _Jv_InterpreterEngine::do_allocate_static_fields (jclass klass,
 
 _Jv_ResolvedMethod *
 _Jv_InterpreterEngine::do_resolve_method (_Jv_Method *method, jclass klass,
-					  jboolean staticp, jint vtable_index)
+					  jboolean staticp)
 {
   int arg_count = _Jv_count_arguments (method->signature, staticp);
 
@@ -3840,7 +3923,6 @@ _Jv_InterpreterEngine::do_resolve_method (_Jv_Method *method, jclass klass,
 		&result->arg_types[0],
 		NULL);
 
-  result->vtable_index        = vtable_index;
   result->method              = method;
   result->klass               = klass;
 
@@ -3865,5 +3947,14 @@ _Jv_InterpreterEngine::do_post_miranda_hook (jclass klass)
       iclass->interpreted_methods[i]->self = &klass->methods[i];
     }
 }
+
+#ifdef DIRECT_THREADED
+void
+_Jv_CompileMethod (_Jv_InterpMethod* method)
+{
+  if (method->prepared == NULL)
+    _Jv_InterpMethod::run (NULL, NULL, method);
+}
+#endif // DIRECT_THREADED
 
 #endif // INTERPRETER

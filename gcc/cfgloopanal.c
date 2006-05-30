@@ -111,10 +111,10 @@ void dump_graph (FILE *f, struct graph *g)
 static struct graph *
 new_graph (int n_vertices)
 {
-  struct graph *g = xmalloc (sizeof (struct graph));
+  struct graph *g = XNEW (struct graph);
 
   g->n_vertices = n_vertices;
-  g->vertices = xcalloc (n_vertices, sizeof (struct vertex));
+  g->vertices = XCNEWVEC (struct vertex, n_vertices);
 
   return g;
 }
@@ -178,7 +178,7 @@ dfs (struct graph *g, int *qs, int nq, int *qt, bool forward)
 	    {
 	      if (qt)
 		qt[tick] = v;
- 	      g->vertices[v].post = tick++;
+	      g->vertices[v].post = tick++;
 
 	      if (!top)
 		break;
@@ -257,7 +257,7 @@ free_graph (struct graph *g)
    for parts of cycles that only "pass" through some loop -- i.e. for
    each cycle, we want to mark blocks that belong directly to innermost
    loop containing the whole cycle.
-   
+
    LOOPS is the loop tree.  */
 
 #define LOOP_REPR(LOOP) ((LOOP)->num + last_basic_block)
@@ -271,8 +271,8 @@ mark_irreducible_loops (struct loops *loops)
   edge_iterator ei;
   int i, src, dest;
   struct graph *g;
-  int *queue1 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
-  int *queue2 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  int *queue1 = XNEWVEC (int, last_basic_block + loops->num);
+  int *queue2 = XNEWVEC (int, last_basic_block + loops->num);
   int nq, depth;
   struct loop *cloop;
 
@@ -290,8 +290,8 @@ mark_irreducible_loops (struct loops *loops)
   FOR_BB_BETWEEN (act, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     FOR_EACH_EDGE (e, ei, act->succs)
       {
-        /* Ignore edges to exit.  */
-        if (e->dest == EXIT_BLOCK_PTR)
+	/* Ignore edges to exit.  */
+	if (e->dest == EXIT_BLOCK_PTR)
 	  continue;
 
 	/* And latch edges.  */
@@ -433,9 +433,9 @@ expected_loop_iterations (const struct loop *loop)
 	  count_in += e->count;
 
       if (count_in == 0)
-        expected = count_latch * 2;
+	expected = count_latch * 2;
       else
-        expected = (count_latch + count_in - 1) / count_in;
+	expected = (count_latch + count_in - 1) / count_in;
 
       /* Avoid overflows.  */
       return (expected > REG_BR_PROB_BASE ? REG_BR_PROB_BASE : expected);
@@ -526,7 +526,7 @@ init_set_costs (void)
   target_res_regs = 3;
 
   /* These are really just heuristic values.  */
-  
+
   start_sequence ();
   emit_move_insn (reg1, reg2);
   seq = get_insns ();
@@ -572,7 +572,7 @@ mark_loop_exit_edges (struct loops *loops)
 {
   basic_block bb;
   edge e;
- 
+
   if (loops->num <= 1)
     return;
 

@@ -79,7 +79,7 @@ cvc_insert (unsigned int uid, tree to)
   struct int_tree_map *h;
   void **loc;
 
-  h = xmalloc (sizeof (struct int_tree_map));
+  h = XNEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (complex_variable_components, h,
@@ -387,7 +387,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
 			  const char *suffix, enum tree_code code)
 {
   tree r = create_tmp_var (type, prefix);
-  add_referenced_tmp_var (r);
+  add_referenced_var (r);
 
   DECL_SOURCE_LOCATION (r) = DECL_SOURCE_LOCATION (orig);
   DECL_ARTIFICIAL (r) = 1;
@@ -652,6 +652,8 @@ update_parameter_components (void)
 
       type = TREE_TYPE (type);
       ssa_name = default_def (parm);
+      if (!ssa_name)
+	continue;
 
       r = build1 (REALPART_EXPR, type, ssa_name);
       i = build1 (IMAGPART_EXPR, type, ssa_name);
@@ -1480,7 +1482,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
 /* Entry point for complex operation lowering during optimization.  */
 
-static void
+static unsigned int
 tree_lower_complex (void)
 {
   int old_last_basic_block;
@@ -1488,7 +1490,7 @@ tree_lower_complex (void)
   basic_block bb;
 
   if (!init_dont_simulate_again ())
-    return;
+    return 0;
 
   complex_lattice_values = VEC_alloc (complex_lattice_t, heap, num_ssa_names);
   VEC_safe_grow (complex_lattice_t, heap,
@@ -1525,6 +1527,7 @@ tree_lower_complex (void)
   htab_delete (complex_variable_components);
   VEC_free (tree, heap, complex_ssa_name_components);
   VEC_free (complex_lattice_t, heap, complex_lattice_values);
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_complex = 
@@ -1549,7 +1552,7 @@ struct tree_opt_pass pass_lower_complex =
 
 /* Entry point for complex operation lowering without optimization.  */
 
-static void
+static unsigned int
 tree_lower_complex_O0 (void)
 {
   int old_last_basic_block = last_basic_block;
@@ -1563,6 +1566,7 @@ tree_lower_complex_O0 (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	expand_complex_operations_1 (&bsi);
     }
+  return 0;
 }
 
 static bool

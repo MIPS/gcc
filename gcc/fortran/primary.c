@@ -1,6 +1,6 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -40,10 +40,8 @@ match_kind_param (int *kind)
   gfc_symbol *sym;
   const char *p;
   match m;
-  int cnt;
 
-  /* cnt is unused, here.  */
-  m = gfc_match_small_literal_int (kind, &cnt);
+  m = gfc_match_small_literal_int (kind, NULL);
   if (m != MATCH_NO)
     return m;
 
@@ -267,7 +265,7 @@ match_hollerith_constant (gfc_expr ** result)
 	}
       if (e->ts.kind != gfc_default_integer_kind)
 	{
-	  gfc_error ("Invalid Hollerith constant: Interger kind at %L "
+	  gfc_error ("Invalid Hollerith constant: Integer kind at %L "
 		"should be default", &old_loc);
 	  goto cleanup;
 	}
@@ -1935,6 +1933,21 @@ gfc_match_rvalue (gfc_expr ** result)
 
   if (sym->attr.function && sym->result == sym)
     {
+      /* See if this is a directly recursive function call.  */
+      gfc_gobble_whitespace ();
+      if (sym->attr.recursive
+	    && gfc_peek_char () == '('
+	    && gfc_current_ns->proc_name == sym)
+	{
+	  if (!sym->attr.dimension)
+	    goto function0;
+
+	  gfc_error ("'%s' is array valued and directly recursive "
+		     "at %C , so the keyword RESULT must be specified "
+		     "in the FUNCTION statement", sym->name);
+	  return MATCH_ERROR;
+	}
+	
       if (gfc_current_ns->proc_name == sym
 	  || (gfc_current_ns->parent != NULL
 	      && gfc_current_ns->parent->proc_name == sym))

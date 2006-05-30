@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -172,10 +172,19 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90s8515", 2, "__AVR_AT90S8515__" },
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
-  { "at86rf401", 2, "__AVR_AT86RF401__" },
     /* Classic + MOVW, <= 8K.  */
   { "attiny13",   2, "__AVR_ATtiny13__" },
   { "attiny2313", 2, "__AVR_ATtiny2313__" },
+  { "attiny24", 2, "__AVR_ATtiny24__" },
+  { "attiny44", 2, "__AVR_ATtiny44__" },
+  { "attiny84", 2, "__AVR_ATtiny84__" },
+  { "attiny25", 2, "__AVR_ATtiny25__" },
+  { "attiny45", 2, "__AVR_ATtiny45__" },
+  { "attiny85", 2, "__AVR_ATtiny85__" },
+  { "attiny261", 2, "__AVR_ATtiny261__" },
+  { "attiny461", 2, "__AVR_ATtiny461__" },
+  { "attiny861", 2, "__AVR_ATtiny861__" },
+  { "at86rf401", 2, "__AVR_AT86RF401__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -190,24 +199,46 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega88",   4, "__AVR_ATmega88__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
   { "atmega8535", 4, "__AVR_ATmega8535__" },
+  { "at90pwm2",  4, "__AVR_AT90PWM2__" },
+  { "at90pwm3",  4, "__AVR_AT90PWM3__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
   { "atmega161", 5, "__AVR_ATmega161__" },
   { "atmega162", 5, "__AVR_ATmega162__" },
   { "atmega163", 5, "__AVR_ATmega163__" },
+  { "atmega164p",5, "__AVR_ATmega164P__" },
   { "atmega165", 5, "__AVR_ATmega165__" },
+  { "atmega165p",5, "__AVR_ATmega165P__" },
   { "atmega168", 5, "__AVR_ATmega168__" },
   { "atmega169", 5, "__AVR_ATmega169__" },
+  { "atmega169p",5, "__AVR_ATmega169P__" },
   { "atmega32",  5, "__AVR_ATmega32__" },
   { "atmega323", 5, "__AVR_ATmega323__" },
+  { "atmega324p",5, "__AVR_ATmega324P__" },
   { "atmega325", 5, "__AVR_ATmega325__" },
   { "atmega3250", 5, "__AVR_ATmega3250__" },
+  { "atmega329", 5, "__AVR_ATmega329__" },
+  { "atmega3290", 5, "__AVR_ATmega3290__" },
+  { "atmega406", 5, "__AVR_ATmega406__" },
   { "atmega64",  5, "__AVR_ATmega64__" },
+  { "atmega640", 5, "__AVR_ATmega640__" },
+  { "atmega644", 5, "__AVR_ATmega644__" },
+  { "atmega644p",5, "__AVR_ATmega644P__" },
   { "atmega645", 5, "__AVR_ATmega645__" },
   { "atmega6450", 5, "__AVR_ATmega6450__" },
+  { "atmega649", 5, "__AVR_ATmega649__" },
+  { "atmega6490", 5, "__AVR_ATmega6490__" },
   { "atmega128", 5, "__AVR_ATmega128__" },
+  { "atmega1280",5, "__AVR_ATmega1280__" },
+  { "atmega1281",5, "__AVR_ATmega1281__" },
+  { "at90can32", 5, "__AVR_AT90CAN32__" },
+  { "at90can64", 5, "__AVR_AT90CAN64__" },
   { "at90can128", 5, "__AVR_AT90CAN128__" },
+  { "at90usb646", 5, "__AVR_AT90USB646__" },
+  { "at90usb647", 5, "__AVR_AT90USB647__" },
+  { "at90usb1286", 5, "__AVR_AT90USB1286__" },
+  { "at90usb1287", 5, "__AVR_AT90USB1287__" },
   { "at94k",     5, "__AVR_AT94K__" },
     /* Assembler only.  */
   { "avr1",      1, NULL },
@@ -322,35 +353,6 @@ avr_regno_reg_class (int r)
   if (r <= 33)
     return reg_class_tab[r];
   return ALL_REGS;
-}
-
-
-/* A C expression which defines the machine-dependent operand
-   constraint letters for register classes.  If C is such a
-   letter, the value should be the register class corresponding to
-   it.  Otherwise, the value should be `NO_REGS'.  The register
-   letter `r', corresponding to class `GENERAL_REGS', will not be
-   passed to this macro; you do not need to handle it.  */
-
-enum reg_class
-avr_reg_class_from_letter  (int c)
-{
-  switch (c)
-    {
-    case 't' : return R0_REG;
-    case 'b' : return BASE_POINTER_REGS;
-    case 'e' : return POINTER_REGS;
-    case 'w' : return ADDW_REGS;
-    case 'd' : return LD_REGS;
-    case 'l' : return NO_LD_REGS;
-    case 'a' : return SIMPLE_LD_REGS;
-    case 'x' : return POINTER_X_REGS;
-    case 'y' : return POINTER_Y_REGS;
-    case 'z' : return POINTER_Z_REGS;
-    case 'q' : return STACK_REG;
-    default: break;
-    }
-  return NO_REGS;
 }
 
 /* Return nonzero if FUNC is a naked function.  */
@@ -5475,48 +5477,35 @@ avr_address_cost (rtx x)
   return 4;
 }
 
-/*  EXTRA_CONSTRAINT helper */
+/* Test for extra memory constraint 'Q'.
+   It's a memory address based on Y or Z pointer with valid displacement.  */
 
 int
-extra_constraint (rtx x, int c)
+extra_constraint_Q (rtx x)
 {
-  if (c == 'Q'
-      && GET_CODE (x) == MEM
-      && GET_CODE (XEXP (x,0)) == PLUS)
+  if (GET_CODE (XEXP (x,0)) == PLUS
+      && REG_P (XEXP (XEXP (x,0), 0))
+      && GET_CODE (XEXP (XEXP (x,0), 1)) == CONST_INT
+      && (INTVAL (XEXP (XEXP (x,0), 1))
+	  <= MAX_LD_OFFSET (GET_MODE (x))))
     {
-	  if (TARGET_ALL_DEBUG)
-	    {
-	      fprintf (stderr, ("extra_constraint:\n"
-				"reload_completed: %d\n"
-				"reload_in_progress: %d\n"),
-		       reload_completed, reload_in_progress);
-	      debug_rtx (x);
-	    }
-      if (GET_CODE (x) == MEM
-	  && GET_CODE (XEXP (x,0)) == PLUS
-	  && REG_P (XEXP (XEXP (x,0), 0))
-	  && GET_CODE (XEXP (XEXP (x,0), 1)) == CONST_INT
-	  && (INTVAL (XEXP (XEXP (x,0), 1))
-	      <= MAX_LD_OFFSET (GET_MODE (x))))
+      rtx xx = XEXP (XEXP (x,0), 0);
+      int regno = REGNO (xx);
+      if (TARGET_ALL_DEBUG)
 	{
-	  rtx xx = XEXP (XEXP (x,0), 0);
-	  int regno = REGNO (xx);
-	  if (TARGET_ALL_DEBUG)
-	    {
-	      fprintf (stderr, ("extra_constraint:\n"
-				"reload_completed: %d\n"
-				"reload_in_progress: %d\n"),
-		       reload_completed, reload_in_progress);
-	      debug_rtx (x);
-	    }
-	  if (regno >= FIRST_PSEUDO_REGISTER)
-	    return 1;		/* allocate pseudos */
-	  else if (regno == REG_Z || regno == REG_Y)
-	    return 1;		/* strictly check */
-	  else if (xx == frame_pointer_rtx
-		   || xx == arg_pointer_rtx)
-	    return 1;		/* XXX frame & arg pointer checks */
+	  fprintf (stderr, ("extra_constraint:\n"
+			    "reload_completed: %d\n"
+			    "reload_in_progress: %d\n"),
+		   reload_completed, reload_in_progress);
+	  debug_rtx (x);
 	}
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	return 1;		/* allocate pseudos */
+      else if (regno == REG_Z || regno == REG_Y)
+	return 1;		/* strictly check */
+      else if (xx == frame_pointer_rtx
+	       || xx == arg_pointer_rtx)
+	return 1;		/* XXX frame & arg pointer checks */
     }
   return 0;
 }

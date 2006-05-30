@@ -142,11 +142,18 @@ cpu_include_dir=cpu/${try_cpu}
 abi_baseline_pair=${try_cpu}-${host_os}
 unset try_cpu
 
-if test -f ${glibcxx_srcdir}/config/${cpu_include_dir}/atomicity.h ; then
-  atomicity_dir=$cpu_include_dir
-else
-  atomicity_dir="cpu/generic"
-fi
+case "${host_cpu}" in
+  alpha* | ia64 | powerpc* | rs6000 | s390*)
+    atomicity_dir="cpu/generic/atomic_builtins"
+    ;;
+  *)
+    if test -f ${glibcxx_srcdir}/config/${cpu_include_dir}/atomicity.h ; then
+      atomicity_dir=$cpu_include_dir
+    else
+      atomicity_dir="cpu/generic"
+    fi
+    ;;
+esac
 
 if test -f ${glibcxx_srcdir}/config/${cpu_include_dir}/cxxabi_tweaks.h ; then
   abi_tweaks_dir=$cpu_include_dir
@@ -206,7 +213,11 @@ case "${host_os}" in
     os_include_dir="os/bsd/freebsd"
     ;;
   gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
-    os_include_dir="os/gnu-linux"
+    if [ "$uclibc" = "yes" ]; then
+      os_include_dir="os/uclibc"
+    else
+      os_include_dir="os/gnu-linux"
+    fi
     ;;
   hpux*)
     os_include_dir="os/hpux"

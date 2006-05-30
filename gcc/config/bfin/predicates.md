@@ -1,4 +1,6 @@
 ;; Predicate definitions for the Blackfin.
+;; Copyright (C) 2005, 2006  Free Software Foundation, Inc.
+;; Contributed by Analog Devices.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -54,6 +56,15 @@
   (ior (match_operand 0 "register_operand")
        (match_code "const_int")))
 
+(define_predicate "const01_operand"
+  (and (match_code "const_int")
+       (match_test "op == const0_rtx || op == const1_rtx")))
+
+(define_predicate "vec_shift_operand"
+  (ior (and (match_code "const_int")
+	    (match_test "INTVAL (op) >= -16 && INTVAL (op) < 15"))
+       (match_operand 0 "register_operand")))
+
 ;; Like register_operand, but make sure that hard regs have a valid mode.
 (define_predicate "valid_reg_operand"
   (match_operand 0 "register_operand")
@@ -64,11 +75,6 @@
     return HARD_REGNO_MODE_OK (REGNO (op), mode);
   return 1;
 })
-
-;; Return nonzero if OP is the CC register.
-(define_predicate "cc_operand"
-  (and (match_code "reg")
-       (match_test "REGNO (op) == REG_CC && GET_MODE (op) == BImode")))
 
 ;; Return nonzero if OP is a register or a 7 bit signed constant.
 (define_predicate "reg_or_7bit_operand"

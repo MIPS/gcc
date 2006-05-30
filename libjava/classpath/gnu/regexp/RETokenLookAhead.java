@@ -1,5 +1,5 @@
 /* gnu/regexp/RETokenLookAhead.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -52,28 +52,21 @@ final class RETokenLookAhead extends REToken
     this.negative = negative;
   }
 
-  boolean match(CharIndexed input, REMatch mymatch)
+  int getMaximumLength() {
+    return 0;
+  }
+
+  REMatch matchThis(CharIndexed input, REMatch mymatch)
   {
     REMatch trymatch = (REMatch)mymatch.clone();
-    REMatch trymatch1 = (REMatch)mymatch.clone();
-    REMatch newMatch = null;
     if (re.match(input, trymatch)) {
-      if (negative) return false;
-      if (next(input, trymatch1))
-        newMatch = trymatch1;
+      if (negative) return null;
+      trymatch.index = mymatch.index;
+      return trymatch;
     }
-
-    if (newMatch != null) {
-      if (negative) return false;
-      //else
-      mymatch.assignFrom(newMatch);
-      return true;
-    }
-    else { // no match
-      if (negative)
-        return next(input, mymatch);
-      //else
-      return false;
+    else {
+      if (negative) return mymatch;
+      return null;
     }
   }
 

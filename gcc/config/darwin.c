@@ -79,6 +79,9 @@ Boston, MA 02110-1301, USA.  */
 /* Section names.  */
 section * darwin_sections[NUM_DARWIN_SECTIONS];
 
+/* True if we're setting __attribute__ ((ms_struct)).  */
+int darwin_ms_struct = false;
+
 /* A get_unnamed_section callback used to switch to an ObjC section.
    DIRECTIVE is as for output_section_asm_op.  */
 
@@ -559,7 +562,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 		 (Pmode,
 		  machopic_indirection_name (orig, /*stub_p=*/false)));
 
-      SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
+      SYMBOL_REF_DATA (ptr_ref) = SYMBOL_REF_DATA (orig);
 
       ptr_ref = gen_const_mem (Pmode, ptr_ref);
       machopic_define_symbol (ptr_ref);
@@ -642,10 +645,9 @@ machopic_indirect_call_target (rtx target)
       const char *stub_name = machopic_indirection_name (sym_ref,
 							 /*stub_p=*/true);
       enum machine_mode mode = GET_MODE (sym_ref);
-      tree decl = SYMBOL_REF_DECL (sym_ref);
 
       XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
-      SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
+      SYMBOL_REF_DATA (XEXP (target, 0)) = SYMBOL_REF_DATA (sym_ref);
       MEM_READONLY_P (target) = 1;
       MEM_NOTRAP_P (target) = 1;
     }
@@ -1329,31 +1331,16 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     ? DECL_ASSEMBLER_NAME (decl)
     : DECL_NAME (decl);
 
-  const char *prefix = user_label_prefix;
-
   const char *base = IDENTIFIER_POINTER (id);
-  unsigned int base_len = IDENTIFIER_LENGTH (id);
 
-  const char *suffix = ".eh";
-
-  int need_quotes = name_needs_quotes (base);
-  int quotes_len = need_quotes ? 2 : 0;
+  bool need_quotes = name_needs_quotes (base);
   char *lab;
 
   if (! for_eh)
-    suffix = ".eh1";
+    return;
 
-  lab = xmalloc (strlen (prefix)
-		 + base_len + strlen (suffix) + quotes_len + 1);
-  lab[0] = '\0';
-
-  if (need_quotes)
-    strcat(lab, "\"");
-  strcat(lab, prefix);
-  strcat(lab, base);
-  strcat(lab, suffix);
-  if (need_quotes)
-    strcat(lab, "\"");
+  lab = concat (need_quotes ? "\"" : "", user_label_prefix, base, ".eh",
+		need_quotes ? "\"" : "", NULL);
 
   if (TREE_PUBLIC (decl))
     fprintf (file, "\t%s %s\n",
@@ -1458,6 +1445,63 @@ darwin_asm_output_dwarf_delta (FILE *file, int size,
     fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }
 
+/* Output labels for the start of the DWARF sections if necessary.  */
+void
+darwin_file_start (void)
+{
+  if (write_symbols == DWARF2_DEBUG)
+    {
+      static const char * const debugnames[] =
+	{
+	  DEBUG_FRAME_SECTION,
+	  DEBUG_INFO_SECTION,
+	  DEBUG_ABBREV_SECTION,
+	  DEBUG_ARANGES_SECTION,
+	  DEBUG_MACINFO_SECTION,
+	  DEBUG_LINE_SECTION,
+	  DEBUG_LOC_SECTION,
+	  DEBUG_PUBNAMES_SECTION,
+	  DEBUG_STR_SECTION,
+	  DEBUG_RANGES_SECTION
+	};
+      size_t i;
+
+      for (i = 0; i < ARRAY_SIZE (debugnames); i++)
+	{
+	  int namelen;
+
+	  switch_to_section (get_section (debugnames[i], SECTION_DEBUG, NULL));
+
+	  gcc_assert (strncmp (debugnames[i], "__DWARF,", 8) == 0);
+	  gcc_assert (strchr (debugnames[i] + 8, ','));
+
+	  namelen = strchr (debugnames[i] + 8, ',') - (debugnames[i] + 8);
+	  fprintf (asm_out_file, "Lsection%.*s:\n", namelen, debugnames[i] + 8);
+	}
+    }
+}
+
+/* Output an offset in a DWARF section on Darwin.  On Darwin, DWARF section
+   offsets are not represented using relocs in .o files; either the
+   section never leaves the .o file, or the linker or other tool is
+   responsible for parsing the DWARF and updating the offsets.  */
+
+void
+darwin_asm_output_dwarf_offset (FILE *file, int size, const char * lab,
+				section *base)
+{
+  char sname[64];
+  int namelen;
+
+  gcc_assert (base->common.flags & SECTION_NAMED);
+  gcc_assert (strncmp (base->named.name, "__DWARF,", 8) == 0);
+  gcc_assert (strchr (base->named.name + 8, ','));
+
+  namelen = strchr (base->named.name + 8, ',') - (base->named.name + 8);
+  sprintf (sname, "*Lsection%.*s", namelen, base->named.name + 8);
+  darwin_asm_output_dwarf_delta (file, size, lab, sname);
+}
+
 void
 darwin_file_end (void)
 {
@@ -1478,6 +1522,30 @@ bool
 darwin_binds_local_p (tree decl)
 {
   return default_binds_local_p_1 (decl, 0);
+}
+
+/* The Darwin's implementation of TARGET_ASM_OUTPUT_ANCHOR.  Define the
+   anchor relative to ".", the current section position.  We cannot use
+   the default one because ASM_OUTPUT_DEF is wrong for Darwin.  */
+
+void
+darwin_asm_output_anchor (rtx symbol)
+{
+  fprintf (asm_out_file, "\t.set\t");
+  assemble_name (asm_out_file, XSTR (symbol, 0));
+  fprintf (asm_out_file, ", . + " HOST_WIDE_INT_PRINT_DEC "\n",
+	   SYMBOL_REF_BLOCK_OFFSET (symbol));
+}
+
+/* Set the darwin specific attributes on TYPE.  */
+void
+darwin_set_default_type_attributes (tree type)
+{
+  if (darwin_ms_struct
+      && TREE_CODE (type) == RECORD_TYPE)
+    TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("ms_struct"),
+                                        NULL_TREE,
+                                        TYPE_ATTRIBUTES (type));
 }
 
 #include "gt-darwin.h"

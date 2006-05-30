@@ -49,8 +49,10 @@ details.  */
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/ArithmeticException.h>
 #include <java/lang/ClassFormatError.h>
+#include <java/lang/ClassNotFoundException.h>
 #include <java/lang/InternalError.h>
 #include <java/lang/NegativeArraySizeException.h>
+#include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/System.h>
@@ -71,6 +73,9 @@ details.  */
 
 // Execution engine for compiled code.
 _Jv_CompiledEngine _Jv_soleCompiledEngine;
+
+// Execution engine for code compiled with -findirect-classes
+_Jv_IndirectCompiledEngine _Jv_soleIndirectCompiledEngine;
 
 // We allocate a single OutOfMemoryError exception which we keep
 // around for use if we run out of memory.
@@ -168,7 +173,6 @@ SIGNAL_HANDLER (catch_fpe)
 }
 #endif
 
-
 
 jboolean
 _Jv_equalUtf8Consts (const Utf8Const* a, const Utf8Const *b)
@@ -236,9 +240,123 @@ _Jv_equaln (Utf8Const *a, jstring str, jint n)
   return true;
 }
 
+// Determines whether the given Utf8Const object contains
+// a type which is primitive or some derived form of it, eg.
+// an array or multi-dimensional array variant.
+jboolean
+_Jv_isPrimitiveOrDerived(const Utf8Const *a)
+{
+  unsigned char *aptr = (unsigned char *) a->data;
+  unsigned char *alimit = aptr + a->length;
+  int ac = UTF8_GET(aptr, alimit);
+
+  // Skips any leading array marks.
+  while (ac == '[')
+    ac = UTF8_GET(aptr, alimit);
+
+  // There should not be another character. This implies that
+  // the type name is only one character long.
+  if (UTF8_GET(aptr, alimit) == -1)
+    switch ( ac )
+      {
+        case 'Z':
+        case 'B':
+        case 'C':
+        case 'S':
+        case 'I':
+        case 'J':
+        case 'F':
+        case 'D':
+          return true;
+        default:
+          break;
+       }
+
+   return false;
+}
+
+// Find out whether two _Jv_Utf8Const candidates contain the same
+// classname.
+// The method is written to handle the different formats of classnames.
+// Eg. "Ljava/lang/Class;", "Ljava.lang.Class;", "java/lang/Class" and
+// "java.lang.Class" will be seen as equal.
+// Warning: This function is not smart enough to declare "Z" and "boolean"
+// and similar cases as equal (and is not meant to be used this way)!
+jboolean
+_Jv_equalUtf8Classnames (const Utf8Const *a, const Utf8Const *b)
+{
+  // If the class name's length differs by two characters
+  // it is possible that we have candidates which are given
+  // in the two different formats ("Lp1/p2/cn;" vs. "p1/p2/cn")
+  switch (a->length - b->length)
+    {
+      case -2:
+      case 0:
+      case 2:
+        break;
+      default:
+        return false;
+    }
+
+  unsigned char *aptr = (unsigned char *) a->data;
+  unsigned char *alimit = aptr + a->length;
+  unsigned char *bptr = (unsigned char *) b->data;
+  unsigned char *blimit = bptr + b->length;
+
+  if (alimit[-1] == ';')
+    alimit--;
+
+  if (blimit[-1] == ';')
+    blimit--;
+
+  int ac = UTF8_GET(aptr, alimit);
+  int bc = UTF8_GET(bptr, blimit);
+
+  // Checks whether both strings have the same amount of leading [ characters.
+  while (ac == '[')
+    {
+      if (bc == '[')
+        {
+          ac = UTF8_GET(aptr, alimit);
+          bc = UTF8_GET(bptr, blimit);
+          continue;
+        }
+
+      return false;
+    }
+
+  // Skips leading L character.
+  if (ac == 'L')
+    ac = UTF8_GET(aptr, alimit);
+        
+  if (bc == 'L')
+    bc = UTF8_GET(bptr, blimit);
+
+  // Compares the remaining characters.
+  while (ac != -1 && bc != -1)
+    {
+      // Replaces package separating dots with slashes.
+      if (ac == '.')
+        ac = '/';
+
+      if (bc == '.')
+        bc = '/';
+      
+      // Now classnames differ if there is at least one non-matching
+      // character.
+      if (ac != bc)
+        return false;
+
+      ac = UTF8_GET(aptr, alimit);
+      bc = UTF8_GET(bptr, blimit);
+    }
+
+  return (ac == bc);
+}
+
 /* Count the number of Unicode chars encoded in a given Ut8 string. */
 int
-_Jv_strLengthUtf8(char* str, int len)
+_Jv_strLengthUtf8(const char* str, int len)
 {
   unsigned char* ptr;
   unsigned char* limit;
@@ -259,7 +377,7 @@ _Jv_strLengthUtf8(char* str, int len)
  * This returns the same hash value as specified or java.lang.String.hashCode.
  */
 jint
-_Jv_hashUtf8String (char* str, int len)
+_Jv_hashUtf8String (const char* str, int len)
 {
   unsigned char* ptr = (unsigned char*) str;
   unsigned char* limit = ptr + len;
@@ -276,7 +394,7 @@ _Jv_hashUtf8String (char* str, int len)
 }
 
 void
-_Jv_Utf8Const::init(char *s, int len)
+_Jv_Utf8Const::init(const char *s, int len)
 {
   ::memcpy (data, s, len);
   data[len] = 0;
@@ -285,7 +403,7 @@ _Jv_Utf8Const::init(char *s, int len)
 }
 
 _Jv_Utf8Const *
-_Jv_makeUtf8Const (char* s, int len)
+_Jv_makeUtf8Const (const char* s, int len)
 {
   if (len < 0)
     len = strlen (s);
@@ -434,6 +552,9 @@ _Jv_AllocObjectNoInitNoFinalizer (jclass klass)
 jobject
 _Jv_AllocObjectNoFinalizer (jclass klass)
 {
+  if (_Jv_IsPhantomClass(klass) )
+    throw new java::lang::NoClassDefFoundError(klass->getName());
+
   _Jv_InitClass (klass);
   jint size = klass->size ();
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
@@ -512,6 +633,11 @@ _Jv_AllocPtrFreeObject (jclass klass)
 jobjectArray
 _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
 {
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if ( _Jv_IsPhantomClass(elementClass) )
+    throw new java::lang::NoClassDefFoundError(elementClass->getName());
+
   if (__builtin_expect (count < 0, false))
     throw new java::lang::NegativeArraySizeException;
 
@@ -639,6 +765,11 @@ _Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
 jobject
 _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 {
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if (_Jv_IsPhantomClass(array_type))
+    throw new java::lang::NoClassDefFoundError(array_type->getName());
+
   va_list args;
   jint sizes[dimensions];
   va_start (args, dimensions);
@@ -671,7 +802,7 @@ DECLARE_PRIM_TYPE(double)
 DECLARE_PRIM_TYPE(void)
 
 void
-_Jv_InitPrimClass (jclass cl, char *cname, char sig, int len)
+_Jv_InitPrimClass (jclass cl, const char *cname, char sig, int len)
 {    
   using namespace java::lang::reflect;
 
@@ -766,7 +897,28 @@ _Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader,
   return result;
 }
 
-
+
+jclass
+_Jv_FindClassFromSignatureNoException (char *sig, java::lang::ClassLoader *loader,
+                                       char **endp)
+{
+  jclass klass;
+
+  try
+    {
+      klass = _Jv_FindClassFromSignature(sig, loader, endp);
+    }
+  catch (java::lang::NoClassDefFoundError *ncdfe)
+    {
+      return NULL;
+    }
+  catch (java::lang::ClassNotFoundException *cnfe)
+    {
+      return NULL;
+    }
+
+  return klass;
+}
 
 JArray<jstring> *
 JvConvertArgv (int argc, const char **argv)
@@ -857,10 +1009,6 @@ next_property_value (char *s, size_t *length)
   while (isspace (*s))
     s++;
 
-  // If we've reached the end, return NULL.
-  if (*s == 0)
-    return NULL;
-
   // Determine the length of the property value.
   while (s[l] != 0
 	 && ! isspace (s[l])
@@ -883,12 +1031,17 @@ static void
 process_gcj_properties ()
 {
   char *props = getenv("GCJ_PROPERTIES");
-  char *p = props;
-  size_t length;
-  size_t property_count = 0;
 
   if (NULL == props)
     return;
+
+  // Later on we will write \0s into this string.  It is simplest to
+  // just duplicate it here.
+  props = strdup (props);
+
+  char *p = props;
+  size_t length;
+  size_t property_count = 0;
 
   // Whip through props quickly in order to count the number of
   // property values.
@@ -1380,7 +1533,7 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
         ("Exception during runtime initialization"));
       t->printStackTrace();
       if (runtime)
-	runtime->exit (1);
+	java::lang::Runtime::exitNoChecksAccessor (1);
       // In case the runtime creation failed.
       ::exit (1);
     }

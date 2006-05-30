@@ -731,7 +731,7 @@ reload_combine (void)
      destination.  */
   min_labelno = get_first_label_num ();
   n_labels = max_label_num () - min_labelno;
-  label_live = xmalloc (n_labels * sizeof (HARD_REG_SET));
+  label_live = XNEWVEC (HARD_REG_SET, n_labels);
   CLEAR_HARD_REG_SET (ever_live_at_start);
 
   FOR_EACH_BB_REVERSE (bb)
@@ -1572,7 +1572,7 @@ gate_handle_postreload (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_postreload (void)
 {
   /* Do a very simple CSE pass over just the hard registers.  */
@@ -1581,6 +1581,7 @@ rest_of_handle_postreload (void)
      Remove any EH edges associated with them.  */
   if (flag_non_call_exceptions)
     purge_all_dead_edges ();
+  return 0;
 }
 
 struct tree_opt_pass pass_postreload_cse =

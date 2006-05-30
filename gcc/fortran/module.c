@@ -1,7 +1,7 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free
+   Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -181,6 +181,9 @@ iomode;
 static gfc_use_rename *gfc_rename_list;
 static pointer_info *pi_root;
 static int symbol_number;	/* Counter for assigning symbol numbers */
+
+/* Tells mio_expr_ref not to load unused equivalence members.  */
+static bool in_load_equiv;
 
 
 
@@ -1432,7 +1435,7 @@ typedef enum
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
-  AB_CRAY_POINTEE
+  AB_CRAY_POINTEE, AB_THREADPRIVATE
 }
 ab_attribute;
 
@@ -1446,6 +1449,7 @@ static const mstring attr_bits[] =
     minit ("POINTER", AB_POINTER),
     minit ("SAVE", AB_SAVE),
     minit ("TARGET", AB_TARGET),
+    minit ("THREADPRIVATE", AB_THREADPRIVATE),
     minit ("DUMMY", AB_DUMMY),
     minit ("RESULT", AB_RESULT),
     minit ("DATA", AB_DATA),
@@ -1515,6 +1519,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_SAVE, attr_bits);
       if (attr->target)
 	MIO_NAME(ab_attribute) (AB_TARGET, attr_bits);
+      if (attr->threadprivate)
+	MIO_NAME(ab_attribute) (AB_THREADPRIVATE, attr_bits);
       if (attr->dummy)
 	MIO_NAME(ab_attribute) (AB_DUMMY, attr_bits);
       if (attr->result)
@@ -1589,6 +1595,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_TARGET:
 	      attr->target = 1;
+	      break;
+	    case AB_THREADPRIVATE:
+	      attr->threadprivate = 1;
 	      break;
 	    case AB_DUMMY:
 	      attr->dummy = 1;
@@ -2129,6 +2138,11 @@ mio_symtree_ref (gfc_symtree ** stp)
     {
       require_atom (ATOM_INTEGER);
       p = get_integer (atom_int);
+
+      /* An unused equivalence member; bail out.  */
+      if (in_load_equiv && p->u.rsym.symtree == NULL)
+	return;
+      
       if (p->type == P_UNKNOWN)
         p->type = P_SYMBOL;
 
@@ -2455,6 +2469,7 @@ static const mstring intrinsics[] =
     minit ("LT", INTRINSIC_LT),
     minit ("LE", INTRINSIC_LE),
     minit ("NOT", INTRINSIC_NOT),
+    minit ("PARENTHESES", INTRINSIC_PARENTHESES),
     minit (NULL, -1)
 };
 
@@ -2513,6 +2528,7 @@ mio_expr (gfc_expr ** ep)
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
 	case INTRINSIC_NOT:
+	case INTRINSIC_PARENTHESES:
 	  mio_expr (&e->value.op.op1);
 	  break;
 
@@ -2980,13 +2996,18 @@ load_commons(void)
 
   while (peek_atom () != ATOM_RPAREN)
     {
+      int flags;
       mio_lparen ();
       mio_internal_string (name);
 
       p = gfc_get_common (name, 1);
 
       mio_symbol_ref (&p->head);
-      mio_integer (&p->saved);
+      mio_integer (&flags);
+      if (flags & 1)
+	p->saved = 1;
+      if (flags & 2)
+	p->threadprivate = 1;
       p->use_assoc = 1;
 
       mio_rparen();
@@ -2995,14 +3016,18 @@ load_commons(void)
   mio_rparen();
 }
 
-/* load_equiv()-- Load equivalences. */
+/* load_equiv()-- Load equivalences. The flag in_load_equiv informs
+   mio_expr_ref of this so that unused variables are not loaded and
+   so that the expression can be safely freed.*/
 
 static void
 load_equiv(void)
 {
-  gfc_equiv *head, *tail, *end;
+  gfc_equiv *head, *tail, *end, *eq;
+  bool unused;
 
   mio_lparen();
+  in_load_equiv = true;
 
   end = gfc_current_ns->equiv;
   while(end != NULL && end->next != NULL)
@@ -3026,16 +3051,40 @@ load_equiv(void)
 	mio_expr(&tail->expr);
       }
 
+    /* Unused variables have no symtree.  */
+    unused = false;
+    for (eq = head; eq; eq = eq->eq)
+      {
+	if (!eq->expr->symtree)
+	  {
+	    unused = true;
+	    break;
+	  }
+      }
+
+    if (unused)
+      {
+	for (eq = head; eq; eq = head)
+	  {
+	    head = eq->eq;
+	    gfc_free_expr (eq->expr);
+	    gfc_free (eq);
+	  }
+      }
+
     if (end == NULL)
       gfc_current_ns->equiv = head;
     else
       end->next = head;
 
-    end = head;
+    if (head != NULL)
+      end = head;
+
     mio_rparen();
   }
 
   mio_rparen();
+  in_load_equiv = false;
 }
 
 /* Recursive function to traverse the pointer_info tree and load a
@@ -3048,16 +3097,17 @@ load_needed (pointer_info * p)
   gfc_namespace *ns;
   pointer_info *q;
   gfc_symbol *sym;
+  int rv;
 
+  rv = 0;
   if (p == NULL)
-    return 0;
-  if (load_needed (p->left))
-    return 1;
-  if (load_needed (p->right))
-    return 1;
+    return rv;
+
+  rv |= load_needed (p->left);
+  rv |= load_needed (p->right);
 
   if (p->type != P_SYMBOL || p->u.rsym.state != NEEDED)
-    return 0;
+    return rv;
 
   p->u.rsym.state = USED;
 
@@ -3176,12 +3226,6 @@ read_module (void)
       skip_list ();
 
       /* See if the symbol has already been loaded by a previous module.
-         If so, we reference the existing symbol and prevent it from
-         being loaded again.  */
-
-      sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
-
-        /* See if the symbol has already been loaded by a previous module.
 	 If so, we reference the existing symbol and prevent it from
 	 being loaded again.  This should not happen if the symbol being
 	 read is an index for an assumed shape dummy array (ns != 1).  */
@@ -3383,6 +3427,7 @@ write_common (gfc_symtree *st)
 {
   gfc_common_head *p;
   const char * name;
+  int flags;
 
   if (st == NULL)
     return;
@@ -3399,7 +3444,9 @@ write_common (gfc_symtree *st)
 
   p = st->n.common;
   mio_symbol_ref(&p->head);
-  mio_integer(&p->saved);
+  flags = p->saved ? 1 : 0;
+  if (p->threadprivate) flags |= 2;
+  mio_integer(&flags);
 
   mio_rparen();
 }
@@ -3410,6 +3457,7 @@ static void
 write_blank_common (void)
 {
   const char * name = BLANK_COMMON_NAME;
+  int saved;
 
   if (gfc_current_ns->blank_common.head == NULL)
     return;
@@ -3419,7 +3467,8 @@ write_blank_common (void)
   mio_pool_string(&name);
 
   mio_symbol_ref(&gfc_current_ns->blank_common.head);
-  mio_integer(&gfc_current_ns->blank_common.saved);
+  saved = gfc_current_ns->blank_common.saved;
+  mio_integer(&saved);
 
   mio_rparen();
 }

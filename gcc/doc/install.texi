@@ -43,8 +43,13 @@
 @end ifset
 
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-@c 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
+
+@c IMPORTANT: whenever you modify this file, run `install.texi2html' to
+@c test the generation of HTML documents for the gcc.gnu.org web pages.
+@c
+@c Do not use @footnote{} in this file as it breaks install.texi2html!
 
 @c Include everything if we're not making html
 @ifnothtml
@@ -64,7 +69,7 @@
 @c Part 2 Summary Description and Copyright
 @copying
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -230,10 +235,10 @@ described below.
 @heading Tools/packages necessary for building GCC
 @table @asis
 @item ISO C90 compiler
-Necessary to bootstrap the GCC package, although versions of GCC prior
+Necessary to bootstrap GCC, although versions of GCC prior
 to 3.4 also allow bootstrapping with a traditional (K&R) C compiler.
 
-To make all languages in a cross-compiler or other configuration where
+To build all languages in a cross-compiler or other configuration where
 3-stage bootstrap is not performed, you need to start with an existing
 GCC binary (version 2.95 or later) because source code for language
 frontends other than C might use GCC extensions.
@@ -249,8 +254,8 @@ specific information.
 
 Necessary when running @command{configure} because some
 @command{/bin/sh} shells have bugs and may crash when configuring the
-target libraries.  In other cases, @command{/bin/sh} or even some
-@command{ksh} have disastrous corner-case performance problems.  This
+target libraries.  In other cases, @command{/bin/sh} or @command{ksh}
+have disastrous corner-case performance problems.  This
 can cause target @command{configure} runs to literally take days to
 complete in some cases.
 
@@ -279,7 +284,7 @@ obtained via FTP mirror sites.
 
 You must have GNU make installed to build GCC@.
 
-@item GNU tar version 1.12 (or later)
+@item GNU tar version 1.14 (or later)
 
 Necessary (only on some platforms) to untar the source code.  Many
 systems' @command{tar} programs will also work, only try GNU
@@ -299,6 +304,10 @@ release (4.1.3) when configured with @option{--enable-mpfr}.
 
 The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
 be used if your MPFR Library is not installed in your library search path.
+
+@item jar
+
+Necessary to build libgcj, the GCJ runtime.
 
 @end table
 
@@ -338,11 +347,11 @@ Necessary when modifying @command{gperf} input files, e.g.@:
 @file{gcc/cp/cfns.gperf} to regenerate its associated header file, e.g.@:
 @file{gcc/cp/cfns.h}.
 
-@item expect version ???
-@itemx tcl version ???
-@itemx dejagnu version 1.4.4 (or later)
+@item DejaGnu 1.4.4
+@itemx Expect
+@itemx Tcl
 
-Necessary to run the GCC testsuite.
+Necessary to run the GCC testsuite; see the section on testing for details.
 
 @item autogen version 5.5.4 (or later) and
 @itemx guile version 1.4.1 (or later)
@@ -350,19 +359,19 @@ Necessary to run the GCC testsuite.
 Necessary to regenerate @file{fixinc/fixincl.x} from
 @file{fixinc/inclhack.def} and @file{fixinc/*.tpl}.
 
-Necessary to run the @file{fixinc} @command{make check}.
+Necessary to run @samp{make check} for @file{fixinc}.
 
 Necessary to regenerate the top level @file{Makefile.in} file from
 @file{Makefile.tpl} and @file{Makefile.def}.
 
 @item GNU Bison version 1.28 (or later)
 Berkeley @command{yacc} (@command{byacc}) is also reported to work other
-than for java.
+than for GCJ.
 
 Necessary when modifying @file{*.y} files.
 
 Necessary to build GCC during development because the generated output
-files are not included in the CVS repository.  They are included in
+files are not included in the SVN repository.  They are included in
 releases.
 
 @item Flex version 2.5.4 (or later)
@@ -370,7 +379,7 @@ releases.
 Necessary when modifying @file{*.l} files.
 
 Necessary to build GCC during development because the generated output
-files are not included in the CVS repository.  They are included in
+files are not included in the SVN repository.  They are included in
 releases.
 
 @item Texinfo version 4.4 (or later)
@@ -379,7 +388,7 @@ Necessary for running @command{makeinfo} when modifying @file{*.texi}
 files to test your changes.
 
 Necessary to build GCC documentation during development because the
-generated output files are not included in the CVS repository.  They are
+generated output files are not included in the SVN repository.  They are
 included in releases.
 
 @item @TeX{} (any working version)
@@ -387,25 +396,25 @@ included in releases.
 Necessary for running @command{texi2dvi}, used when running
 @command{make dvi} to create DVI files.
 
-@item cvs version 1.10 (or later)
-@itemx ssh (any version)
+@item SVN (any version)
+@itemx SSH (any version)
 
-Necessary to access the CVS repository.  Public releases and weekly
+Necessary to access the SVN repository.  Public releases and weekly
 snapshots of the development sources are also available via FTP@.
 
-@item perl version 5.6.1 (or later)
+@item Perl version 5.6.1 (or later)
 
 Necessary when regenerating @file{Makefile} dependencies in libiberty.
 Necessary when regenerating @file{libiberty/functions.texi}.
 Necessary when generating manpages from Texinfo manuals.
 Necessary when targetting Darwin, building libstdc++,
 and not using @option{--disable-symvers}.
-Used by various scripts to generate some files included in CVS (mainly
+Used by various scripts to generate some files included in SVN (mainly
 Unicode-related and rarely changing) from source tables.
 
 @item GNU diffutils version 2.7 (or later)
 
-Necessary when creating changes to GCC source code to submit for review.
+Useful when submitting patches for the GCC source code.
 
 @item patch version 2.5.4 (or later)
 
@@ -435,7 +444,7 @@ own sources.
 @cindex Downloading GCC
 @cindex Downloading the Source
 
-GCC is distributed via @uref{http://gcc.gnu.org/cvs.html,,CVS} and FTP
+GCC is distributed via @uref{http://gcc.gnu.org/svn.html,,SVN} and FTP
 tarballs compressed with @command{gzip} or
 @command{bzip2}.  It is possible to download a full distribution or specific
 components.
@@ -494,7 +503,7 @@ for both native and cross targets.
 We use @var{srcdir} to refer to the toplevel source directory for
 GCC; we use @var{objdir} to refer to the toplevel build/object directory.
 
-If you obtained the sources via CVS, @var{srcdir} must refer to the top
+If you obtained the sources via SVN, @var{srcdir} must refer to the top
 @file{gcc} directory, the one where the @file{MAINTAINERS} can be found,
 and not its @file{gcc} subdirectory, otherwise the build will fail.
 
@@ -527,6 +536,7 @@ Second, when configuring a native system, either @command{cc} or
 your environment before running configure.  Otherwise the configuration
 scripts may fail.
 
+@ignore
 Note that the bootstrap compiler and the resulting GCC must be link
 compatible, else the bootstrap will fail with linker errors about
 incompatible object file formats.  Several multilibed targets are
@@ -537,6 +547,7 @@ affected by this requirement, see
 @ifhtml
 @uref{specific.html,,host/target specific installation notes}.
 @end ifhtml
+@end ignore
 
 To configure GCC:
 
@@ -777,7 +788,8 @@ assembler found is not actually the GNU assembler.  (Confusion may also
 result if the compiler finds the GNU assembler but has not been
 configured with @option{--with-gnu-as}.)  If you have more than one
 assembler installed on your system, you may want to use this option in
-connection with @option{--with-as=@var{pathname}}.
+connection with @option{--with-as=@var{pathname}} or
+@option{--with-build-time-tools=@var{pathname}}.
 
 The following systems are the only ones where it makes a difference
 whether you use the GNU assembler.  On any other system,
@@ -800,28 +812,40 @@ the 386, if you use the GNU assembler, you should also use the GNU linker
 (and specify @option{--with-gnu-ld}).
 
 @item @anchor{with-as}--with-as=@var{pathname}
-Specify that the
-compiler should use the assembler pointed to by @var{pathname}, rather
-than the one found by the standard rules to find an assembler, which
-are:
+Specify that the compiler should use the assembler pointed to by
+@var{pathname}, rather than the one found by the standard rules to find
+an assembler, which are:
 @itemize @bullet
 @item
-Check the @file{@var{libexec}/gcc/@var{target}/@var{version}}
-directory, where @var{libexec} defaults to
-@file{@var{exec-prefix}/libexec} and @var{exec-prefix} defaults to
-@var{prefix} which defaults to @file{/usr/local} unless overridden by
-the @option{--prefix=@var{pathname}} switch described
-above.  @var{target} is the target system triple, such as
-@samp{sparc-sun-solaris2.7}, and @var{version} denotes the GCC
-version, such as 3.0.
+Unless GCC is being built with a cross compiler, check the
+@file{@var{libexec}/gcc/@var{target}/@var{version}} directory.
+@var{libexec} defaults to @file{@var{exec-prefix}/libexec};
+@var{exec-prefix} defaults to @var{prefix}, which
+defaults to @file{/usr/local} unless overridden by the
+@option{--prefix=@var{pathname}} switch described above.  @var{target}
+is the target system triple, such as @samp{sparc-sun-solaris2.7}, and
+@var{version} denotes the GCC version, such as 3.0.
+
 @item
-Check operating system specific directories (e.g.@: @file{/usr/ccs/bin} on
+If the target system is the same that you are building on, check
+operating system specific directories (e.g.@: @file{/usr/ccs/bin} on
 Sun Solaris 2).
+
+@item
+Check in the @env{PATH} for a tool whose name is prefixed by the
+target system triple.
+
+@item
+Check in the @env{PATH} for a tool whose name is not prefixed by the
+target system triple, if the host and target system triple are
+the same (in other words, we use a host tool if it can be used for
+the target as well).
 @end itemize
-Note that these rules do not check for the value of @env{PATH}.  You may
-want to use @option{--with-as} if no assembler is installed in the
-directories listed above, or if you have multiple assemblers installed
-and want to choose one that is not found by the above rules.
+
+You may want to use @option{--with-as} if no assembler
+is installed in the directories listed above, or if you have multiple
+assemblers installed and want to choose one that is not found by the
+above rules.
 
 @item @anchor{with-gnu-ld}--with-gnu-ld
 Same as @uref{#with-gnu-as,,@option{--with-gnu-as}}
@@ -945,6 +969,18 @@ Microsoft Win32 API thread support.
 Novell Kernel Services thread support.
 @end table
 
+@item --enable-tls
+Specify that the target supports TLS (Thread Local Storage).  Usually
+configure can correctly determine if TLS is supported.  In cases where
+it guesses incorrectly, TLS can be explicitly enabled or disabled with
+@option{--enable-tls} or @option{--disable-tls}.  This can happen if
+the assembler supports TLS but the C library does not, or if the
+assumptions made by the configure test are incorrect.
+
+@item --disable-tls
+Specify that the target does not support TLS.
+This is an alias for @option{--enable-tls=no}.
+
 @item --with-cpu=@var{cpu}
 Specify which cpu variant the compiler should generate code for by default.
 @var{cpu} will be used as the default value of the @option{-mcpu=} switch.
@@ -962,6 +998,10 @@ These configure options provide default values for the @option{-mschedule=},
 options and for @option{-mhard-float} or @option{-msoft-float}.  As with
 @option{--with-cpu}, which switches will be accepted and acceptable values
 of the arguments depend on the target.
+
+@item --with-mode=@var{mode}
+Specify if the compiler should default to @option{-marm} or @option{-mthumb}.
+This option is only supported on ARM targets.
 
 @item --with-divide=@var{type}
 Specify how the compiler should generate code for checking for
@@ -1013,18 +1053,18 @@ this.  Note that you need a recent version of the @code{gettext} tools
 to do so.
 
 @item --enable-generated-files-in-srcdir
-Neither the .c and .h files that are generated from bison and flex nor the
+Neither the .c and .h files that are generated from Bison and flex nor the
 info manuals and man pages that are built from the .texi files are present
-in the CVS development tree.  When building GCC from that development tree,
-or from a snapshot which are created from CVS, then those generated files
-are placed in your build directory, which allows for the source to be in a
-readonly directory.
+in the SVN development tree.  When building GCC from that development tree,
+or from one of our snapshots, those generated files are placed in your
+build directory, which allows for the source to be in a readonly
+directory.
 
 If you configure with @option{--enable-generated-files-in-srcdir} then those
 generated files will go into the source directory.  This is mainly intended
 for generating release or prerelease tarballs of the GCC sources, since it
-is not a requirement that the users of source releases to have flex, bison, or
-makeinfo.
+is not a requirement that the users of source releases to have flex, Bison,
+or makeinfo.
 
 @item --enable-version-specific-runtime-libs
 Specify
@@ -1060,9 +1100,9 @@ Building the Ada compiler has special requirements, see below.
 If you do not pass this flag, or specify the option @code{all}, then all
 default languages available in the @file{gcc} sub-tree will be configured.
 Ada, Objective-C++, and treelang are not default languages; the rest are.
-Re-defining @code{LANGUAGES} when calling @samp{make bootstrap}
-@strong{does not} work anymore, as those language sub-directories might
-not have been configured!
+Re-defining @code{LANGUAGES} when calling @samp{make} @strong{does not}
+work anymore, as those language sub-directories might not have been
+configured!
 
 @item --disable-libada
 Specify that the run-time libraries and tools used by GNAT should not
@@ -1073,6 +1113,9 @@ do a @samp{make -C gcc gnatlib_and_tools}.
 @item --disable-libssp
 Specify that the run-time libraries for stack smashing protection
 should not be built.
+
+@item --disable-libgomp
+Specify that the run-time libraries used by GOMP should not be built.
 
 @item --with-dwarf2
 Specify that the compiler should
@@ -1140,7 +1183,7 @@ consistency checks of the requested complexity.  This does not change the
 generated code, but adds error checking within the compiler.  This will
 slow down the compiler and may only work properly if you are building
 the compiler with GCC@.  This is @samp{yes} by default when building
-from CVS or snapshots, but @samp{release} for releases.  More control
+from SVN or snapshots, but @samp{release} for releases.  More control
 over the checks may be had by specifying @var{list}.  The categories of
 checks available are @samp{yes} (most common checks
 @samp{assert,misc,tree,gc,rtlflag,runtime}), @samp{no} (no checks at
@@ -1220,6 +1263,14 @@ extension.  This is enabled by default only on PowerPC GNU/Linux
 systems.  Other systems may also support it, but require the user to
 specifically enable it.
 
+@item --with-long-double-128
+Specify if @code{long double} type should be 128-bit by default on selected
+GNU/Linux architectures.  If using @code{--without-long-double-128},
+@code{long double} will be by default 64-bit, the same as @code{double} type.
+When neither of these configure options are used, the default will be
+128-bit @code{long double} when built against GNU C Library 2.4 and later,
+64-bit @code{long double} otherwise.
+
 @end table
 
 @subheading Cross-Compiler-Specific Options
@@ -1268,8 +1319,6 @@ will be run on these files to make them compatible with GCC@.
 Tells GCC not use any target headers from a libc when building a cross
 compiler.  When crossing to GNU/Linux, you need the headers so GCC
 can build the exception handling for libgcc.
-See @uref{http://www.objsw.com/CrossGCC/,,CrossGCC} for more information
-on this option.
 
 @item --with-libs
 @itemx --with-libs=``@var{dir1} @var{dir2} @dots{} @var{dirN}''
@@ -1278,11 +1327,29 @@ Specifies a list of directories which contain the target runtime
 libraries.  These libraries will be copied into the @file{gcc} install
 directory.  If the directory list is omitted, this option has no
 effect.
+
 @item --with-newlib
 Specifies that @samp{newlib} is
 being used as the target C library.  This causes @code{__eprintf} to be
 omitted from @file{libgcc.a} on the assumption that it will be provided by
 @samp{newlib}.
+
+@item --with-build-time-tools=@var{dir}
+Specifies where to find the set of target tools (assembler, linker, etc.)
+that will be used while building GCC itself.  This option can be useful
+if the directory layouts are different between the system you are building
+GCC on, and the system where you will deploy it.
+
+For example, on a @option{ia64-hp-hpux} system, you may have the GNU
+assembler and linker in @file{/usr/bin}, and the native tools in a
+different path, and build a toolchain that expects to find the
+native tools in @file{/usr/bin}.
+
+When you use this option, you should ensure that @var{dir} includes
+@command{ar}, @command{as}, @command{ld}, @command{nm},
+@command{ranlib} and @command{strip} if necessary, and possibly
+@command{objdump}.  Otherwise, GCC may use an inconsistent set of
+tools.
 @end table
 
 @subheading Fortran-Specific Options
@@ -1492,35 +1559,33 @@ that type mismatches occur, this could be the cause.
 
 The solution is not to use such a directory for building GCC@.
 
-When building from CVS or snapshots, or if you modify parser sources,
-you need the Bison parser generator installed.  Any version 1.25 or
-later should work; older versions may also work.  If you do not modify
+When building from SVN or snapshots, or if you modify parser sources,
+you need the Bison parser generator installed.  If you do not modify
 parser sources, releases contain the Bison-generated files and you do
 not need Bison installed to build them.
 
-When building from CVS or snapshots, or if you modify Texinfo
+When building from SVN or snapshots, or if you modify Texinfo
 documentation, you need version 4.4 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
 @section Building a native compiler
 
-For a native build issue the command @samp{make bootstrap}.  This
-will build the entire GCC system, which includes the following steps:
+For a native build, the command @samp{make} will trigger a 3-stage
+bootstrap of the compiler.  This will build the entire GCC system
+and ensure that it compiles itself correctly, by doing the
+following steps:
 
 @itemize @bullet
 @item
-Build host tools necessary to build the compiler such as texinfo, bison,
-gperf.
+Build tools necessary to build the compiler.
 
 @item
-Build target tools for use by the compiler such as binutils (bfd,
-binutils, gas, gprof, ld, and opcodes)
-if they have been individually linked
-or moved into the top level GCC source tree before configuring.
-
-@item
-Perform a 3-stage bootstrap of the compiler.
+Perform a 3-stage bootstrap of the compiler.  This includes building
+three times the target tools for use by the compiler such as binutils
+(bfd, binutils, gas, gprof, ld, and opcodes) if they have been
+individually linked or moved into the top level GCC source tree before
+configuring.
 
 @item
 Perform a comparison test of the stage2 and stage3 compilers.
@@ -1531,8 +1596,8 @@ Build runtime libraries using the stage3 compiler from the previous step.
 @end itemize
 
 If you are short on disk space you might consider @samp{make
-bootstrap-lean} instead.  This is identical to @samp{make
-bootstrap} except that object files from the stage1 and
+bootstrap-lean} instead.  The sequence of compilation is the
+same described above, but object files from the stage1 and
 stage2 of the 3-stage bootstrap of the compiler are deleted as
 soon as they are no longer needed.
 
@@ -1549,7 +1614,7 @@ roughly 40% of disk space both for the bootstrap and the final installation.
 
 If you wish to use non-default GCC flags when compiling the stage2 and
 stage3 compilers, set @code{BOOT_CFLAGS} on the command line when doing
-@samp{make bootstrap}.  Non-default optimization flags are less well
+@samp{make}.  Non-default optimization flags are less well
 tested here than the default of @samp{-g -O2}, but should still work.
 In a few cases, you may find that you need to specify special flags such
 as @option{-msoft-float} here to complete the bootstrap; or, if the
@@ -1558,17 +1623,17 @@ around this, by choosing @code{BOOT_CFLAGS} to avoid the parts of the
 stage1 compiler that were miscompiled, or by using @samp{make
 bootstrap4} to increase the number of stages of bootstrap.
 
-Note that using non-standard @code{CFLAGS} can cause bootstrap to fail in
-@file{libiberty}, if these trigger a warning with the new compiler.  For
-example using @samp{-O2 -g -mcpu=i686} on @code{i686-pc-linux-gnu} will
-cause bootstrap failure as @option{-mcpu=} is deprecated in 3.4.0 and above.
+Note that using non-standard @code{CFLAGS} can cause bootstrap to fail
+if these trigger a warning with the new compiler.  For example using
+@samp{-O2 -g -mcpu=i686} on @code{i686-pc-linux-gnu} will cause bootstrap
+failure as @option{-mcpu=} is deprecated in 3.4.0 and above.
 
 
 If you used the flag @option{--enable-languages=@dots{}} to restrict
 the compilers to be built, only those you've actually enabled will be
 built.  This will of course only build those runtime libraries, for
 which the particular compiler has been built.  Please note,
-that re-defining @env{LANGUAGES} when calling @samp{make bootstrap}
+that re-defining @env{LANGUAGES} when calling @samp{make}
 @strong{does not} work anymore!
 
 If the comparison of stage2 and stage3 fails, this normally indicates
@@ -1578,11 +1643,16 @@ a few systems, meaningful comparison of object files is impossible; they
 always appear ``different''.  If you encounter this problem, you will
 need to disable comparison in the @file{Makefile}.)
 
-@section Building a cross compiler
+If you do not want to bootstrap your compiler, you can configure with
+@option{--disable-bootstrap}.  In particular cases, you may want to
+bootstrap your compiler even if the target system is not the same as
+the one you are building on: for example, you could build a
+@code{powerpc-unknown-linux-gnu} toolchain on a
+@code{powerpc64-unknown-linux-gnu} host.  In this case, pass
+@option{--enable-bootstrap} to the configure script.
 
-We recommend reading the
-@uref{http://www.objsw.com/CrossGCC/,,crossgcc FAQ}
-for information about building cross compilers.
+
+@section Building a cross compiler
 
 When building a cross compiler, it is not generally possible to do a
 3-stage bootstrap of the compiler.  This makes for an interesting problem
@@ -1599,8 +1669,7 @@ following steps:
 
 @itemize @bullet
 @item
-Build host tools necessary to build the compiler such as texinfo, bison,
-gperf.
+Build host tools necessary to build the compiler.
 
 @item
 Build target tools for use by the compiler such as binutils (bfd,
@@ -1662,21 +1731,25 @@ compilation options.  Check your target's definition of
 
 @section Building in parallel
 
-You can use @samp{make bootstrap MAKE="make -j 2" -j 2}, or just
-@samp{make -j 2 bootstrap} for GNU Make 3.79 and above, instead of
-@samp{make bootstrap} to build GCC in parallel.
-You can also specify a bigger number, and in most cases using a value
-greater than the number of processors in your machine will result in
-fewer and shorter I/O latency hits, thus improving overall throughput;
-this is especially true for slow drives and network filesystems.
+GNU Make 3.79 and above, which is necessary to build GCC, support
+building in parallel.  To activate this, you can use @samp{make -j 2}
+instead of @samp{make}.  You can also specify a bigger number, and 
+in most cases using a value greater than the number of processors in
+your machine will result in fewer and shorter I/O latency hits, thus
+improving overall throughput; this is especially true for slow drives
+and network filesystems.
 
 @section Building the Ada compiler
 
 In order to build GNAT, the Ada compiler, you need a working GNAT
-compiler (GNAT version 3.14 or later, or GCC version 3.1 or later),
-including GNAT tools such as @command{gnatmake} and @command{gnatlink},
-since the Ada front end is written in Ada (with some
-GNAT-specific extensions), and GNU make.
+compiler (GNAT version 3.14 or later, or GCC version 3.1 or later).
+This includes GNAT tools such as @command{gnatmake} and
+@command{gnatlink}, since the Ada front end is written in Ada and
+uses some GNAT-specific extensions.
+
+In order to build a cross compiler, it is suggested to install
+the new compiler as native first, and then use it to build the cross
+compiler.
 
 @command{configure} does not test whether the GNAT installation works
 and has a sufficiently recent version; if too old a GNAT version is
@@ -1688,7 +1761,7 @@ used to disable building the Ada front end.
 It is possible to use profile feedback to optimize the compiler itself.  This
 should result in a faster compiler binary.  Experiments done on x86 using gcc
 3.3 showed approximately 7 percent speedup on compiling C programs.  To
-bootstrap compiler with profile feedback, use @code{make profiledbootstrap}.
+bootstrap the compiler with profile feedback, use @code{make profiledbootstrap}.
 
 When @samp{make profiledbootstrap} is run, it will first build a @code{stage1}
 compiler.  This compiler is used to build a @code{stageprofile} compiler
@@ -1696,7 +1769,7 @@ instrumented to collect execution counts of instruction and branch
 probabilities.  Then runtime libraries are compiled with profile collected.
 Finally a @code{stagefeedback} compiler is built using the information collected.
 
-Unlike @samp{make bootstrap} several additional restrictions apply.  The
+Unlike standard bootstrap, several additional restrictions apply.  The
 compiler used to build @code{stage1} needs to support a 64-bit integral type.
 It is recommended to only use GCC for this.  Also parallel make is currently
 not supported since collisions in profile collecting may occur.
@@ -1740,8 +1813,8 @@ These are part of the full distribution, but if you downloaded the
 separately.
 
 Second, you must have the testing tools installed.  This includes
-@uref{http://www.gnu.org/software/dejagnu/,,DejaGnu} 1.4.4 and later,
-Tcl, and Expect; the DejaGnu site has links to these.
+@uref{http://www.gnu.org/software/dejagnu/,,DejaGnu}, Tcl, and Expect;
+the DejaGnu site has links to these.
 
 If the directories where @command{runtest} and @command{expect} were
 installed are not in the @env{PATH}, you may need to set the following
@@ -2002,7 +2075,7 @@ it will not be created otherwise.  This is regarded as a feature,
 not as a bug, because it gives slightly more control to the packagers
 using the @code{DESTDIR} feature.
 
-If you built a released version of GCC using @samp{make bootstrap} then please
+If you are bootstrapping a released version of GCC then please
 quickly review the build status page for your release, available from
 @uref{http://gcc.gnu.org/buildstat.html}.
 If your system is not listed for the version of GCC that you built,
@@ -2215,6 +2288,11 @@ works.
 
 Please read this document carefully @emph{before} installing the
 GNU Compiler Collection on your machine.
+
+Note that this list of install notes is @emph{not} a list of supported
+hosts or targets.  Not all supported hosts and targets are listed
+here, only the ones that require host-specific or target-specific
+information are.
 
 @ifhtml
 @itemize
@@ -2460,17 +2538,16 @@ and it is not possible to build parallel applications.  Cray modules are not
 supported; in particular, Craylibs are assumed to be in
 @file{/opt/ctl/craylibs/craylibs}.
 
-You absolutely @strong{must} use GNU make on this platform.  Also, you
-need to tell GCC where to find the assembler and the linker.  The
-simplest way to do so is by providing @option{--with-as} and
-@option{--with-ld} to @file{configure}, e.g.@:
+On this platform, you need to tell GCC where to find the assembler and
+the linker.  The simplest way to do so is by providing @option{--with-as}
+and @option{--with-ld} to @file{configure}, e.g.@:
 
 @smallexample
     configure --with-as=/opt/ctl/bin/cam --with-ld=/opt/ctl/bin/cld \
       --enable-languages=c
 @end smallexample
 
-The comparison test during @samp{make bootstrap} fails on Unicos/Mk
+The comparison test at the end of the bootstrapping process fails on Unicos/Mk
 because the assembler inserts timestamps into object files.  You should
 be able to work around this by doing @samp{make all} after getting this
 failure.
@@ -2770,6 +2847,17 @@ or @samp{98}.  Another way is to add an appropriate set of predefines
 to @env{CC}.  The description for the @option{munix=} option contains
 a list of the predefines used with each standard.
 
+As of GCC 4.1, @env{DWARF2} exception handling is available on HP-UX. 
+It is now the default.  This exposed a bug in the handling of data
+relocations in the GAS assembler.  The handling of 64-bit data relocations
+was seriously broken, affecting debugging and exception support on all
+@samp{hppa64-*-*} targets.  Under some circumstances, 32-bit data relocations
+could also be handled incorrectly.  This problem is fixed in GAS version
+2.16.91 20051125.
+
+GCC versions prior to 4.1 incorrectly passed and returned complex
+values.  They are now passed in the same manner as aggregates.
+
 More specific information to @samp{hppa*-hp-hpux*} targets follows.
 
 @html
@@ -2797,9 +2885,9 @@ and Latin-America.
 
 The HP assembler on these systems has some problems.  Most notably the
 assembler inserts timestamps into each object file it creates, causing
-the 3-stage comparison test to fail during a @samp{make bootstrap}.
-You should be able to continue by saying @samp{make all} after getting
-the failure from @samp{make bootstrap}.
+the 3-stage comparison test to fail during a bootstrap.
+You should be able to continue by saying @samp{make all-host all-target}
+after getting the failure from @samp{make}.
 
 GCC 4.0 requires CVS binutils as of April 28, 2004 or later.  Earlier
 versions require binutils 2.8 or later.
@@ -2885,10 +2973,10 @@ many limitations.  For example, it does not support weak symbols or alias
 definitions.  As a result, explicit template instantiations are required
 when using C++.  This makes it difficult if not impossible to build many
 C++ applications.  You can't generate debugging information when using
-the HP assembler.  Finally, @samp{make bootstrap} fails in the final
+the HP assembler.  Finally, bootstrapping fails in the final
 comparison of object modules due to the time stamps that it inserts into
 the modules.  The bootstrap can be continued from this point with
-@samp{make all}.
+@samp{make all-host all-target}.
 
 A recent linker patch must be installed for the correct operation of
 GCC 3.3 and later.  @code{PHSS_26559} and @code{PHSS_24304} are the
@@ -3053,7 +3141,7 @@ command like this:
 @emph{You should substitute @samp{i686} in the above command with the appropriate
 processor for your host.}
 
-After the usual @samp{make bootstrap} and
+After the usual @samp{make} and
 @samp{make install}, you can then access the UDK-targeted GCC
 tools by adding @command{udk-} before the commonly known name.  For
 example, to invoke the C compiler, you would use @command{udk-gcc}.
@@ -3102,9 +3190,6 @@ removed and the system libunwind library will always be used.
 @heading @anchor{x-ibm-aix}*-ibm-aix*
 Support for AIX version 3 and older was discontinued in GCC 3.4.
 
-AIX Make frequently has problems with GCC makefiles.  GNU Make 3.79.1 or
-newer is recommended to build on this platform.
-
 ``out of memory'' bootstrap failures may indicate a problem with
 process resource limits (ulimit).  Hard limits are configured in the
 @file{/etc/security/limits} system configuration file.
@@ -3117,8 +3202,8 @@ one may use GNU Bash instead of AIX @command{/bin/sh}, e.g.,
    % export CONFIG_SHELL
 @end smallexample
 
-and then proceed as described in @uref{build.html,,the build instructions},
-where we strongly recommend using GNU make and specifying an absolute path
+and then proceed as described in @uref{build.html,,the build
+instructions}, where we strongly recommend specifying an absolute path
 to invoke @var{srcdir}/configure.
 
 Errors involving @code{alloca} when building GCC generally are due
@@ -3574,15 +3659,14 @@ GCC you first have to install a pre-built compiler, see the
 
 The Solaris 2 @command{/bin/sh} will often fail to configure
 @file{libstdc++-v3}, @file{boehm-gc} or @file{libjava}.  We therefore
-recommend to use the following sequence of commands to bootstrap and
-install GCC:
+recommend using the following initial sequence of commands
 
 @smallexample
    % CONFIG_SHELL=/bin/ksh
    % export CONFIG_SHELL
 @end smallexample
 
-and then proceed as described in @uref{build.html,,the build instructions}.
+and proceed as described in @uref{configure.html,,the configure instructions}.
 In addition we strongly recommend specifying an absolute path to invoke
 @var{srcdir}/configure.
 
@@ -3988,7 +4072,7 @@ operating system may still cause problems.
 Support for older systems as targets for cross-compilation is less
 problematic than support for them as hosts for GCC; if an enthusiast
 wishes to make such a target work again (including resurrecting any of
-the targets that never worked with GCC 2, starting from the last CVS
+the targets that never worked with GCC 2, starting from the last
 version before they were removed), patches
 @uref{../contribute.html,,following the usual requirements} would be
 likely to be accepted, since they should not affect the support for more

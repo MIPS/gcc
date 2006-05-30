@@ -224,7 +224,8 @@ add_sym (const char *name, int elemental, int actual_ok ATTRIBUTE_UNUSED,
 
   /* First check that the intrinsic belongs to the selected standard.
      If not, don't add it to the symbol list.  */
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   switch (sizing)
@@ -711,8 +712,13 @@ find_sym (gfc_intrinsic_sym * start, int n, const char *name)
 gfc_intrinsic_sym *
 gfc_find_function (const char *name)
 {
+  gfc_intrinsic_sym *sym;
 
-  return find_sym (functions, nfunc, name);
+  sym = find_sym (functions, nfunc, name);
+  if (!sym)
+    sym = find_sym (conversion, nconv, name);
+
+  return sym;
 }
 
 
@@ -777,7 +783,8 @@ make_generic (const char *name, gfc_generic_isym_id generic_id, int standard)
 {
   gfc_intrinsic_sym *g;
 
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   if (sizing != SZ_NOTHING)
@@ -819,7 +826,8 @@ make_alias (const char *name, int standard)
 
   /* First check that the intrinsic belongs to the selected standard.
      If not, don't add it to the symbol list.  */
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   switch (sizing)
@@ -1665,7 +1673,7 @@ add_functions (void)
 
   make_generic ("log10", GFC_ISYM_LOG10, GFC_STD_F77);
 
-  add_sym_2 ("logical", 0, 1, BT_LOGICAL, dl, GFC_STD_F95,
+  add_sym_2 ("logical", 1, 1, BT_LOGICAL, dl, GFC_STD_F95,
 	     gfc_check_logical, gfc_simplify_logical, gfc_resolve_logical,
 	     l, BT_LOGICAL, dl, REQUIRED, kind, BT_INTEGER, di, OPTIONAL);
 
@@ -1894,7 +1902,7 @@ add_functions (void)
 	     a, BT_UNKNOWN, dr, REQUIRED);
 
   add_sym_1 ("float", 1, 0, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_float, NULL,
+	     gfc_check_i, gfc_simplify_float, NULL,
 	     a, BT_INTEGER, di, REQUIRED);
 
   add_sym_1 ("sngl", 1, 0, BT_REAL, dr, GFC_STD_F77,
@@ -3414,6 +3422,17 @@ gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
   new->where = old_where;
   new->rank = rank;
   new->shape = gfc_copy_shape (shape, rank);
+
+  gfc_get_ha_sym_tree (sym->name, &new->symtree);
+  new->symtree->n.sym->ts = *ts;
+  new->symtree->n.sym->attr.flavor = FL_PROCEDURE;
+  new->symtree->n.sym->attr.function = 1;
+  new->symtree->n.sym->attr.intrinsic = 1;
+  new->symtree->n.sym->attr.elemental = 1;
+  new->symtree->n.sym->attr.pure = 1;
+  new->symtree->n.sym->attr.referenced = 1;
+  gfc_intrinsic_symbol(new->symtree->n.sym);
+  gfc_commit_symbol (new->symtree->n.sym);
 
   *expr = *new;
 

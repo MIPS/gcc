@@ -1,9 +1,248 @@
-2006-05-04  Chad Rosier <mcrosier@unity.ncsu.edu>
-	* gcc/haifa-sched.c (ddg_init,ddg_finish): new.
-	* gcc/sched-treegions.c (td_treegions): Added ICSE threshold.
-	* gcc/emit-rtl.c (copy_insn_1): Double size of copy_insn_scratch_in
-	  to avoid assert for SCRATCH registers.
-	* gcc/params.def: Added PARAM_ICSE_THRESHOLD.
+2006-05-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (bfd, opcodes): Fix lib_path.
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Replace ADAC with ADAFLAGS.
+	(restrap): Move under "@if gcc-bootstrap".  Fix typo.
+	* Makefile.in: Regenerate.
+
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Regenerate.
+
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.def: Add install-html target. Add datarootdir
+	docdir and htmldir to flags_to_pass.
+	* Makefile.tpl: Add install-html target.
+	* Makefile.in: Regenerate.
+	* configure.in: Add --with-datarootdir, --with-docdir, and
+	--with-htmldir options. AC_SUBST datarootdir, docdir and htmldir.
+	* configure: Regenerate.
+
+2006-05-24  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* configure.in: Enable gprof for cross builds.
+	* configure: Regenerate.
+
+2006-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2006-01-31  Richard Guenther  <rguenther@suse.de>
+	Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (target_modules): Add libgcc-math target module.
+	* configure.in (target_libraries): Add libgcc-math target library.
+	(--enable-libgcc-math): New configure switch.
+	* Makefile.in: Re-generate.
+	* configure: Re-generate.
+	* libgcc-math: New toplevel directory.
+
+2006-05-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+	    Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.in:  Enable libgcj for hppa*-hp-hpux11*.
+	* configure: Rebuilt.
+
+2006-05-12  Sandra Loosemore <sandra@codesourcery.com>
+	
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-05-01  DJ Delorie  <dj@redhat.com>
+
+	* configure.in: Restore CFLAGS if GMP isn't present.
+	* configure: Regenerate.
+
+2006-05-01  Richard Guenther  <rguenther@suse.de>
+
+	* MAINTAINERS (Various Maintainers): Add myself as libgcc-math
+	maintainer.
+
+2006-04-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-04-28  Jan Beulich  <jbeulich@novell.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-04-18  DJ Delorie  <dj@redhat.com>
+
+	* configure.in (m32c): Build libstdc++-v3.  Pass flags to
+	reference libgloss so that libssp can be built in a combined
+	tree.
+	* configure: Regenerate.
+
+2006-04-08  Robert Millan  <rmh@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-04-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.in: Require makeinfo 4.4 or higher.
+	* configure: Regenerate.
+
+2006-04-04  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* MAINTAINERS: Add Richard Henderson as libgomp maintainer.
+	Rearrange the entries of other libraries to have them in one place.
+
+2006-03-22  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Remove myself. 
+	(Language Front End Maintainers): Add myself as fortran 95 maintainer.
+
+2006-03-14  Richard Guenther  <rguenther@suse.de>
+
+	* configure: Regenerate with autoconf 2.13.
+
+2006-03-13  Jim Blandy  <jimb@codesourcery.com>
+
+	* MAINTAINERS: Use my work address.
+
+	* MAINTAINERS: Update my E-mail address.
+
+2006-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* configure.in: Handle --disable-<component> generically.
+	* configure: Regenerate.
+
+2006-03-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/17311
+	* ltmain.sh: Don't use "$finalize_rpath" for compile.
+
+2006-02-21  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as fortran 95 maintainer.
+
+2006-02-21  Rafael Avila de Espindola <rafael.espindola@gmail.com>
+
+	* Makefile.tpl  (BUILD_CONFIGDIRS): Remove.
+	(TARGET_CONFIGDIRS): Remove.
+	* configure.in: Remove AC_SUBST(target_configdirs).
+	* Makefile.in, configure: Regenerated.
+
+2006-02-20  Steven G. Kargl  <kargls@comcast.net>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as fortran 95 maintainer.
+
+2006-02-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/25670
+
+	* Makefile.tpl ([+compare-target+]): Print explanation messages.
+
+	* Makefile.def (ADAFLAGS, BOOT_ADAFLAGS, LANGUAGES): New flags_to_pass.
+	* Makefile.tpl (BASE_FLAGS_TO_PASS): Support optional flags_to_pass.
+	(EXTRA_GCC_FLAGS): Remove ADAFLAGS, BOOT_ADAFLAGS, LANGUAGES,
+	BUILD_PREFIX, BUILD_PREFIX_1.
+	* configure.in: (BUILD_PREFIX, BUILD_PREFIX_1): Don't substitute.
+
+	* Makefile.def (bootstrap stage 1): Pass LIBCFLAGS too.
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Override LIBCFLAGS too.
+
+	* Makefile.tpl (configure-stage[+id+]-[+prefix+][+module+],
+	all-stage[+id+]-[+prefix+][+module+], : Use $(current_stage) instead
+	of `cat stage_current`.  Always provide the `r' and `s' variables.
+	(clean-stage[+id+]-[+prefix+][+module+]): Likewise, and make it into
+	a single shell execution.
+	(configure-[+prefix+][+module+], all-[+prefix+][+module+]): For
+	bootstrapped modules, make the stage1 module if the build was not
+	started yet, else build the current stage.
+	(all-host, all-target): Omit bootstrapped modules (if bootstrapping).
+	(all-build, all-host, all-target, [+make_target+]-host,
+	[+make_target+]-target): Do not use \-continued lines.
+	(target modules): Depend on stage_last, not all-gcc, if bootstrapping.
+	(current_stage, restrap, stage_last): New.
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2006-02-19  Bud Davis  <jmdavis@link.com>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as fortran 95
+	maintainer and update e-mail address.
+
+2006-02-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as fortran 95
+	maintainer.
+
+2006-02-16  Victor Kaplansky  <victork@il.ibm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-02-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as
+	fortran 95 maintainer.
+
+2006-02-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	Sync from src:
+
+	2005-12-27  Leif Ekblad  <leif@rdos.net>
+
+        * configure.in: Add support for RDOS target.
+        * configure: Regenerate.
+
+2006-02-14  Paolo Bonzini  <bonzini@gnu.org>
+            Andreas Schwab  <schwab@suse.de>
+
+        * configure: Regenerate.
+
+2006-02-12  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure.in (enable_libgomp): Add AIX.
+	* configure: Regenerate.
+
+2006-02-07  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+	
+2006-02-03  Lee Millward  <lee.millward@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+	
+2006-01-31  Richard Guenther  <rguenther@suse.de>
+	Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (target_modules): Add libgcc-math target module.
+	* configure.in (target_libraries): Add libgcc-math target library.
+	(--enable-libgcc-math): New configure switch.
+	* Makefile.in: Re-generate.
+	* configure: Re-generate.
+	* libgcc-math: New toplevel directory.
+
+2006-01-26  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Set with_gnu_as, with_gnu_ld, with_newlib earlier.
+	Set md_exec_prefix.  Use ACX_CHECK_INSTALLED_TARGET_TOOL to find
+	the assembler, linker and binutils.
+	* configure: Regenerate.
+
+2006-01-22  Dirk Mueller  <dmueller@suse.de>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-01-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* configure: Regenerate.
+
+2006-01-18  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* libgomp: New directory.
+	* Makefile.def: Add target_module libgomp.
+	* Makefile.in: Regenerate.
+	* configure.in (target_libraries): Add target-libgomp.
+	* configure: Regenerate.
 
 2006-01-05  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -24,10 +263,10 @@
 	(EXTRA_HOST_FLAGS): Add it.
 	(EXTRA_GCC_FLAGS): Remove flags already specified in flags_to_pass.
 
-        * Makefile.tpl (stage[+id+]-start, stage[+id+]-end): Do not try
-        to use symbolic links between directories.  Avoid race conditions
-        or make them harmless.
-        * configure.in: Do not try to use symbolic links between directories.
+	* Makefile.tpl (stage[+id+]-start, stage[+id+]-end): Do not try
+	to use symbolic links between directories.  Avoid race conditions
+	or make them harmless.
+	* configure.in: Do not try to use symbolic links between directories.
 
 	* Makefile.def (LEAN): Pass.
 	* Makefile.tpl (LEAN): Define.
@@ -40,8 +279,8 @@
 	([+bootstrap-target+]-lean): New.
 	* configure.in: Remove lean bootstrap support from here.
 
-        * Makefile.in: Regenerate.
-        * configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
 
 2006-01-04  Ben Elliston  <bje@au.ibm.com>
 
@@ -1788,7 +2027,7 @@
 	of libf2c.
 	* configure, Makefile.in: Regenerate.
 
-2004-05-13  Tobias Schl�ter  <tobi@gcc.gnu.org>
+2004-05-13  Tobias SchlÃ¼ter  <tobi@gcc.gnu.org>
 
 	* MAINTAINERS (Write After Approval): Add myself.
 

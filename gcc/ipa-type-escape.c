@@ -1,5 +1,5 @@
 /* Type based alias analysis.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -200,7 +200,7 @@ compare_type_brand (splay_tree_key sk1, splay_tree_key sk2)
 static tree
 discover_unique_type (tree type)
 {
-  struct type_brand_s * brand = xmalloc (sizeof (struct type_brand_s));
+  struct type_brand_s * brand = XNEW (struct type_brand_s);
   int i = 0;
   splay_tree_node result;
 
@@ -267,7 +267,6 @@ type_to_consider (tree type)
   switch (TREE_CODE (type))
     {
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
@@ -395,7 +394,7 @@ ipa_type_escape_type_contained_p (tree type)
 			get_canon_type_uid (type, true, false));
 }
 
-/* Return true a modification to a field of type FIELD_TYPE cannot
+/* Return true if a modification to a field of type FIELD_TYPE cannot
    clobber a record of RECORD_TYPE.  */
 
 bool 
@@ -1671,7 +1670,7 @@ close_addressof_down (int uid)
 
 /* The main entry point for type escape analysis.  */
 
-static void
+static unsigned int
 type_escape_execute (void)
 {
   struct cgraph_node *node;
@@ -1773,9 +1772,6 @@ type_escape_execute (void)
       result = splay_tree_successor (all_canon_types, (splay_tree_key) key);
     }
 
-/*   { */
-/*     FILE * tmp = dump_file; */
-/*     dump_file = stderr; */
   if (dump_file)
     { 
       EXECUTE_IF_SET_IN_BITMAP (global_types_seen, 0, i, bi)
@@ -1792,8 +1788,6 @@ type_escape_execute (void)
 	    fprintf(dump_file, " contained\n");
 	}
     }
-/*   dump_file = tmp; */
-/*   } */
 
   /* Get rid of uid_to_addressof_up_map and its bitmaps.  */
   result = splay_tree_min (uid_to_addressof_up_map);
@@ -1823,6 +1817,7 @@ type_escape_execute (void)
   BITMAP_FREE (been_there_done_that);
   BITMAP_FREE (bitmap_tmp);
   BITMAP_FREE (results_of_malloc);
+  return 0;
 }
 
 static bool

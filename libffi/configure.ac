@@ -57,7 +57,7 @@ sparc-sun-4*) TARGET=SPARC; TARGETDIR=sparc;;
 sparc*-sun-*) TARGET=SPARC; TARGETDIR=sparc;;
 sparc-*-linux* | sparc-*-netbsdelf* | sparc-*-knetbsd*-gnu) TARGET=SPARC; TARGETDIR=sparc;;
 sparc*-*-rtems*) TARGET=SPARC; TARGETDIR=sparc;;
-sparc64-*-linux* | sparc64-*-netbsd* | sparc64-*-knetbsd*-gnu) TARGET=SPARC; TARGETDIR=sparc;;
+sparc64-*-linux* | sparc64-*-freebsd* | sparc64-*-netbsd* | sparc64-*-knetbsd*-gnu) TARGET=SPARC; TARGETDIR=sparc;;
 alpha*-*-linux* | alpha*-*-osf* | alpha*-*-freebsd* | alpha*-*-kfreebsd*-gnu | alpha*-*-netbsd* | alpha*-*-knetbsd*-gnu) TARGET=ALPHA; TARGETDIR=alpha;;
 ia64*-*-*) TARGET=IA64; TARGETDIR=ia64;;
 m32r*-*-linux* ) TARGET=M32R; TARGETDIR=m32r;;
@@ -82,7 +82,9 @@ x86_64-*-linux* | x86_64-*-freebsd* | x86_64-*-kfreebsd*-gnu) TARGET=X86_64; TAR
 sh-*-linux* | sh[[34]]*-*-linux*) TARGET=SH; TARGETDIR=sh;;
 sh-*-rtems*) TARGET=SH; TARGETDIR=sh;;
 sh64-*-linux* | sh5*-*-linux*) TARGET=SH64; TARGETDIR=sh64;;
-hppa-*-linux* | parisc-*-linux*) TARGET=PA; TARGETDIR=pa;;
+hppa*-*-linux* | parisc*-*-linux*) TARGET=PA_LINUX; TARGETDIR=pa;;
+hppa*64-*-hpux*) TARGET=PA64_HPUX; TARGETDIR=pa;;
+hppa*-*-hpux*) TARGET=PA_HPUX; TARGETDIR=pa;;
 esac
 
 AC_SUBST(AM_RUNTESTFLAGS)
@@ -111,7 +113,9 @@ AM_CONDITIONAL(S390, test x$TARGET = xS390)
 AM_CONDITIONAL(X86_64, test x$TARGET = xX86_64)
 AM_CONDITIONAL(SH, test x$TARGET = xSH)
 AM_CONDITIONAL(SH64, test x$TARGET = xSH64)
-AM_CONDITIONAL(PA, test x$TARGET = xPA)
+AM_CONDITIONAL(PA_LINUX, test x$TARGET = xPA_LINUX)
+AM_CONDITIONAL(PA_HPUX, test x$TARGET = xPA_HPUX)
+AM_CONDITIONAL(PA64_HPUX, test x$TARGET = xPA64_HPUX)
 
 case x$TARGET in
   xMIPS*) TARGET=MIPS ;;

@@ -1,5 +1,6 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -51,6 +52,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "insn-modes.h"
 
 struct stdarg_info;
+struct spec_info_def;
 
 /* The struct used by the secondary_reload target hook.  */
 typedef struct secondary_reload_info
@@ -198,6 +200,9 @@ struct gcc_target
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
 
+    /* Output the definition of a section anchor.  */
+    void (*output_anchor) (rtx);
+
     /* Output a DTP-relative reference to a TLS symbol.  */
     void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
 
@@ -303,6 +308,58 @@ struct gcc_target
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
+
+    /* Given the current cost, COST, of an insn, INSN, calculate and
+       return a new cost based on its relationship to DEP_INSN through the
+       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
+    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler. This hook is called to notify the backend
+       that new instructions were emitted.  */
+    void (* h_i_d_extended) (void);
+    
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.
+       The first parameter is an instruction, the second parameter is the type
+       of the requested speculation, and the third parameter is a pointer to the
+       speculative pattern of the corresponding type (set if return value == 1).
+       It should return
+       -1, if there is no pattern, that will satisfy the requested speculation
+       type,
+       0, if current pattern satisfies the requested speculation type,
+       1, if pattern of the instruction should be changed to the newly
+       generated one.  */
+    int (* speculate_insn) (rtx, int, rtx *);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return true if the check instruction
+       corresponding to the instruction passed as the parameter needs a
+       recovery block.  */
+    bool (* needs_block_p) (rtx);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return a pattern for the check
+       instruction.
+       The first parameter is a speculative instruction, the second parameter
+       is the label of the corresponding recovery block (or null, if it is a
+       simple check).  If the mutation of the check is requested (e.g. from
+       ld.c to chk.a), the third parameter is true - in this case the first
+       parameter is the previous check.  */
+    rtx (* gen_check) (rtx, rtx, bool);
+
+    /* The following member value is a pointer to a function controlling
+       what insns from the ready insn queue will be considered for the
+       multipass insn scheduling.  If the hook returns zero for the insn
+       passed as the parameter, the insn will not be chosen to be
+       issued.  This hook is used to discard speculative instructions,
+       that stand at the first position of the ready list.  */
+    bool (* first_cycle_multipass_dfa_lookahead_guard_spec) (rtx);
+
+    /* The following member value is a pointer to a function that provides
+       information about the speculation capabilities of the target.
+       The parameter is a pointer to spec_info variable.  */
+    void (* set_sched_flags) (struct spec_info_def *);
   } sched;
 
   /* Functions relating to vectorization.  */
@@ -362,6 +419,10 @@ struct gcc_target
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
 
+  /* Return true if volatile bitfields should use the narrowest type possible.
+     Return false if they should use the container type.  */
+  bool (* narrow_volatile_bitfield) (void);
+
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) (void);
 
@@ -417,6 +478,16 @@ struct gcc_target
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
 
+  /* True if the given constant can be put into an object_block.  */
+  bool (* use_blocks_for_constant_p) (enum machine_mode, rtx);
+
+  /* The minimum and maximum byte offsets for anchored addresses.  */
+  HOST_WIDE_INT min_anchor_offset;
+  HOST_WIDE_INT max_anchor_offset;
+
+  /* True if section anchors can be used to access the given symbol.  */
+  bool (* use_anchors_for_symbol_p) (rtx);
+
   /* True if it is OK to do sibling call optimization for the specified
      call expression EXP.  DECL will be the called function, or NULL if
      this is an indirect call.  */
@@ -444,6 +515,14 @@ struct gcc_target
      so that it is profitable to turn the division into a multiplication by
      the reciprocal.  */
   unsigned int (* min_divisions_for_recip_mul) (enum machine_mode mode);
+
+  /* If the representation of integral MODE is such that values are
+     always sign-extended to a wider mode MODE_REP then return
+     SIGN_EXTEND.  Return UNKNOWN otherwise.  */
+  /* Note that the return type ought to be RTX_CODE, but that's not
+     necessarily defined at this point.  */
+  int (* mode_rep_extended) (enum machine_mode mode,
+			     enum machine_mode mode_rep);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -703,6 +782,11 @@ struct gcc_target
        target modifications).  */
     void (*adjust_class_at_definition) (tree type);
   } cxx;
+  
+  /* For targets that need to mark extra registers as live on entry to
+     the function, they should define this target hook and set their
+     bits in the bitmap passed in. */  
+  void (*live_on_entry) (bitmap); 
 
   /* True if unwinding tables should be generated by default.  */
   bool unwind_tables_default;
@@ -711,6 +795,10 @@ struct gcc_target
 
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
+
+  /* True if we can create zeroed data by switching to a BSS section
+     and then using ASM_OUTPUT_SKIP to allocate the space.  */
+  bool have_switchable_bss_sections;
 
   /* True if "native" constructors and destructors are supported,
      false if we're using collect2 for the job.  */

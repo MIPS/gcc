@@ -1,6 +1,6 @@
 // stacktrace.cc - Functions for unwinding & inspecting the call stack.
 
-/* Copyright (C) 2005  Free Software Foundation
+/* Copyright (C) 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -171,7 +171,8 @@ _Jv_StackTrace::GetStackTrace(void)
 
 void
 _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder, 
-		 jstring *sourceFileName, jint *lineNum)
+				      jstring *sourceFileName, jint *lineNum,
+				      jstring *methodName)
 {
 #ifdef INTERPRETER
   if (frame->type == frame_interpreter)
@@ -199,6 +200,9 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
 	binaryName = JvNewStringUTF (info.dli_fname);
       else
         return;
+
+      if (*methodName == NULL && info.dli_sname)
+	*methodName = JvNewStringUTF (info.dli_sname);
 
       // addr2line expects relative addresses for shared libraries.
       if (strcmp (info.dli_fname, argv0) == 0)
@@ -239,7 +243,8 @@ _Jv_StackTrace::FillInFrameInfo (_Jv_StackFrame *frame)
 	// Find method in class
 	for (int j = 0; j < klass->method_count; j++)
 	  {
-	    if (klass->methods[j].ncode == frame->start_ip)
+	    void *wncode = UNWRAP_FUNCTION_DESCRIPTOR (klass->methods[j].ncode);
+	    if (wncode == frame->start_ip)
 	      {
 		meth = &klass->methods[j];
 		break;
@@ -323,16 +328,22 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
 	end_idx = i - 1;
     }
   
+  const jboolean remove_unknown 
+    = gnu::gcj::runtime::NameFinder::removeUnknown();
+
   // Second pass: Look up line-number info for remaining frames.
   for (int i = start_idx; i <= end_idx; i++)
     {
       _Jv_StackFrame *frame = &trace->frames[i];
       
-      if (frame->klass == NULL)
-        // Not a Java frame.
+      if (frame->klass == NULL && remove_unknown)
+	// Not a Java frame.
 	continue;
-      
-      jstring className = frame->klass->getName ();
+
+      jstring className = NULL;
+      if (frame->klass != NULL)
+	className = frame->klass->getName ();
+
       jstring methodName = NULL;
       if (frame->meth)
         methodName = JvNewStringUTF (frame->meth->name->chars());
@@ -340,7 +351,8 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
       jstring sourceFileName = NULL;
       jint lineNum = -1;
       
-      getLineNumberForFrame(frame, finder, &sourceFileName, &lineNum);
+      getLineNumberForFrame(frame, finder, &sourceFileName, &lineNum, 
+			    &methodName);
       
       StackTraceElement *element = new StackTraceElement (sourceFileName, lineNum,
         className, methodName, 0);

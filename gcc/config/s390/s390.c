@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM S/390 and zSeries
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -71,13 +71,17 @@ struct processor_costs
   const int msgr;     /* cost of an MSGR instruction.  */
   const int msr;      /* cost of an MSR instruction.  */
   const int mult_df;  /* cost of multiplication in DFmode.  */
+  const int mxbr;
   /* square root */
+  const int sqxbr;    /* cost of square root in TFmode.  */
   const int sqdbr;    /* cost of square root in DFmode.  */
   const int sqebr;    /* cost of square root in SFmode.  */
   /* multiply and add */
   const int madbr;    /* cost of multiply and add in DFmode.  */
   const int maebr;    /* cost of multiply and add in SFmode.  */
   /* division */
+  const int dxbr;
+  const int dxr;
   const int ddbr;
   const int ddr;
   const int debr;
@@ -107,10 +111,14 @@ struct processor_costs z900_cost =
   COSTS_N_INSNS (10),    /* MSGR  */
   COSTS_N_INSNS (4),     /* MSR   */
   COSTS_N_INSNS (7),     /* multiplication in DFmode */
+  COSTS_N_INSNS (13),    /* MXBR */
+  COSTS_N_INSNS (136),   /* SQXBR */
   COSTS_N_INSNS (44),    /* SQDBR */
   COSTS_N_INSNS (35),    /* SQEBR */
   COSTS_N_INSNS (18),    /* MADBR */
   COSTS_N_INSNS (13),    /* MAEBR */
+  COSTS_N_INSNS (134),   /* DXBR */
+  COSTS_N_INSNS (135),   /* DXR */
   COSTS_N_INSNS (30),    /* DDBR */
   COSTS_N_INSNS (30),    /* DDR  */
   COSTS_N_INSNS (27),    /* DEBR */
@@ -138,10 +146,14 @@ struct processor_costs z990_cost =
   COSTS_N_INSNS (4),     /* MSGR  */
   COSTS_N_INSNS (4),     /* MSR   */
   COSTS_N_INSNS (1),     /* multiplication in DFmode */
+  COSTS_N_INSNS (28),    /* MXBR */
+  COSTS_N_INSNS (130),   /* SQXBR */
   COSTS_N_INSNS (66),    /* SQDBR */
   COSTS_N_INSNS (38),    /* SQEBR */
   COSTS_N_INSNS (1),     /* MADBR */
   COSTS_N_INSNS (1),     /* MAEBR */
+  COSTS_N_INSNS (60),    /* DXBR */
+  COSTS_N_INSNS (72),    /* DXR */
   COSTS_N_INSNS (40),    /* DDBR */
   COSTS_N_INSNS (44),    /* DDR  */
   COSTS_N_INSNS (26),    /* DDBR */
@@ -169,10 +181,14 @@ struct processor_costs z9_109_cost =
   COSTS_N_INSNS (4),     /* MSGR  */
   COSTS_N_INSNS (4),     /* MSR   */
   COSTS_N_INSNS (1),     /* multiplication in DFmode */
+  COSTS_N_INSNS (28),    /* MXBR */
+  COSTS_N_INSNS (130),   /* SQXBR */
   COSTS_N_INSNS (66),    /* SQDBR */
   COSTS_N_INSNS (38),    /* SQEBR */
   COSTS_N_INSNS (1),     /* MADBR */
   COSTS_N_INSNS (1),     /* MAEBR */
+  COSTS_N_INSNS (60),    /* DXBR */
+  COSTS_N_INSNS (72),    /* DXR */
   COSTS_N_INSNS (40),    /* DDBR */
   COSTS_N_INSNS (37),    /* DDR  */
   COSTS_N_INSNS (26),    /* DDBR */
@@ -279,6 +295,9 @@ struct machine_function GTY(())
   /* True if we may need to perform branch splitting.  */
   bool split_branches_pending_p;
 
+  /* True during final stage of literal pool processing.  */
+  bool decomposed_literal_pool_addresses_ok_p;
+
   /* Some local-dynamic TLS symbol name.  */
   const char *some_ld_name;
 
@@ -311,6 +330,19 @@ struct machine_function GTY(())
         CONST_OK_FOR_CONSTRAINT_P((x), 'O', "Op")
 #define CONST_OK_FOR_On(x) \
         CONST_OK_FOR_CONSTRAINT_P((x), 'O', "On")
+
+#define REGNO_PAIR_OK(REGNO, MODE)                               \
+  (HARD_REGNO_NREGS ((REGNO), (MODE)) == 1 || !((REGNO) & 1))
+
+/* Return true if the back end supports mode MODE.  */
+static bool
+s390_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
+}
 
 /* Set the has_landing_pad_p flag in struct machine_function to VALUE.  */
 
@@ -1396,6 +1428,11 @@ override_options (void)
     }
   else if (s390_stack_guard)
     error ("-mstack-guard implies use of -mstack-size"); 
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -1593,7 +1630,9 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (GET_CODE (base) != REG || GET_MODE (base) != Pmode)
+      if (!REG_P (base) 
+	  || (GET_MODE (base) != SImode 
+	      && GET_MODE (base) != Pmode))
 	return false;
 
       if (REGNO (base) == STACK_POINTER_REGNUM
@@ -1639,7 +1678,9 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (GET_CODE (indx) != REG || GET_MODE (indx) != Pmode)
+      if (!REG_P (indx) 
+	  || (GET_MODE (indx) != SImode
+	      && GET_MODE (indx) != Pmode))
 	return false;
 
       if (REGNO (indx) == STACK_POINTER_REGNUM
@@ -1705,7 +1746,9 @@ s390_decompose_address (rtx addr, struct s390_address *out)
         }
 
       /* Accept chunkified literal pool symbol references.  */
-      else if (GET_CODE (disp) == MINUS
+      else if (cfun && cfun->machine
+	       && cfun->machine->decomposed_literal_pool_addresses_ok_p
+	       && GET_CODE (disp) == MINUS
                && GET_CODE (XEXP (disp, 0)) == LABEL_REF
                && GET_CODE (XEXP (disp, 1)) == LABEL_REF)
         {
@@ -2032,8 +2075,10 @@ s390_const_ok_for_constraint_p (HOST_WIDE_INT value,
 	    || s390_single_part (GEN_INT (value), DImode, SImode, 0) == 1;
 	  
 	case 'n':
-	  return value == -1
-	    || s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1;
+	  return 
+	    (value == -1
+	     || s390_single_part (GEN_INT (value), DImode, SImode, -1) == 1)
+	    && value != -((HOST_WIDE_INT)1 << 32);
 	  
 	default:
 	  gcc_unreachable ();
@@ -2154,6 +2199,9 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 	case DFmode:
 	  *total = s390_cost->mult_df;
 	  break;
+	case TFmode:
+	  *total = s390_cost->mxbr;
+	  break;
 	default:
 	  return false;
 	}
@@ -2204,13 +2252,22 @@ s390_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  else /* TARGET_IBM_FLOAT */
 	    *total = s390_cost->ddr;
 	}
+      else if (GET_MODE (x) == TFmode)
+	{
+	  if (TARGET_IEEE_FLOAT)
+	    *total = s390_cost->dxbr;
+	  else /* TARGET_IBM_FLOAT */
+	    *total = s390_cost->dxr;
+	}
       return false;
 
     case SQRT:
       if (GET_MODE (x) == SFmode)
 	*total = s390_cost->sqebr;
-      else /* DFmode */
+      else if (GET_MODE (x) == DFmode)
 	*total = s390_cost->sqdbr;
+      else /* TFmode */
+	*total = s390_cost->sqxbr;
       return false;
 
     case SIGN_EXTEND:
@@ -2565,6 +2622,15 @@ s390_secondary_input_reload_class (enum reg_class class,
   if (s390_plus_operand (in, mode))
     return ADDR_REGS;
 
+  if (reg_classes_intersect_p (FP_REGS, class)
+      && mode == TFmode
+      && GET_CODE (in) == MEM
+      && GET_CODE (XEXP (in, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (in, 0), 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (in, 0), 1))
+			 + GET_MODE_SIZE (mode) - 1))
+    return ADDR_REGS;
+
   if (reg_classes_intersect_p (CC_REGS, class))
     return GENERAL_REGS;
 
@@ -2581,12 +2647,21 @@ enum reg_class
 s390_secondary_output_reload_class (enum reg_class class,
 				    enum machine_mode mode, rtx out)
 {
-  if ((TARGET_64BIT ? mode == TImode
+  if ((TARGET_64BIT ? (mode == TImode || mode == TFmode)
                     : (mode == DImode || mode == DFmode))
       && reg_classes_intersect_p (GENERAL_REGS, class)
       && GET_CODE (out) == MEM
       && GET_CODE (XEXP (out, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (out, 0), 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (out, 0), 1)) == CONST_INT
+      && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (out, 0), 1))
+			 + GET_MODE_SIZE (mode) - 1))
+    return ADDR_REGS;
+
+  if (reg_classes_intersect_p (FP_REGS, class)
+      && mode == TFmode
+      && GET_CODE (out) == MEM
+      && GET_CODE (XEXP (out, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (out, 0), 1)) == CONST_INT
       && !DISP_IN_RANGE (INTVAL (XEXP (XEXP (out, 0), 1))
 			 + GET_MODE_SIZE (mode) - 1))
@@ -2622,8 +2697,8 @@ s390_expand_plus_operand (rtx target, rtx src,
 
   /* If the address is already strictly valid, there's nothing to do.  */
   if (!s390_decompose_address (src, &ad)
-      || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
-      || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
+      || (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
+      || (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx))))
     {
       /* Otherwise, one of the operands cannot be an address register;
          we reload its value into the scratch register.  */
@@ -2671,19 +2746,24 @@ legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 
   if (strict)
     {
-      if (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
+      if (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
 	return false;
-      if (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx))
+
+      if (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx)))
 	return false;
     }
   else
     {
-      if (ad.base && !REG_OK_FOR_BASE_NONSTRICT_P (ad.base))
+      if (ad.base 
+	  && !(REGNO (ad.base) >= FIRST_PSEUDO_REGISTER
+	       || REGNO_REG_CLASS (REGNO (ad.base)) == ADDR_REGS))
 	return false;
-      if (ad.indx && !REG_OK_FOR_INDEX_NONSTRICT_P (ad.indx))
-	return false;
+      
+      if (ad.indx
+	  && !(REGNO (ad.indx) >= FIRST_PSEUDO_REGISTER
+	       || REGNO_REG_CLASS (REGNO (ad.indx)) == ADDR_REGS))
+	  return false;
     }
-
   return true;
 }
 
@@ -2714,9 +2794,9 @@ preferred_la_operand_p (rtx op1, rtx op2)
 
   if (!s390_decompose_address (op1, &addr))
     return false;
-  if (addr.base && !REG_OK_FOR_BASE_STRICT_P (addr.base))
+  if (addr.base && !REGNO_OK_FOR_BASE_P (REGNO (addr.base)))
     return false;
-  if (addr.indx && !REG_OK_FOR_INDEX_STRICT_P (addr.indx))
+  if (addr.indx && !REGNO_OK_FOR_INDEX_P (REGNO (addr.indx)))
     return false;
 
   if (!TARGET_64BIT && !addr.pointer)
@@ -2769,6 +2849,8 @@ legitimize_pic_address (rtx orig, rtx reg)
   rtx addr = orig;
   rtx new = orig;
   rtx base;
+
+  gcc_assert (!TLS_SYMBOLIC_CONST (addr));
 
   if (GET_CODE (addr) == LABEL_REF
       || (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (addr)))
@@ -2922,6 +3004,10 @@ legitimize_pic_address (rtx orig, rtx reg)
       if (GET_CODE (addr) == PLUS)
 	{
 	  rtx op0 = XEXP (addr, 0), op1 = XEXP (addr, 1);
+
+	  gcc_assert (!TLS_SYMBOLIC_CONST (op0));
+	  gcc_assert (!TLS_SYMBOLIC_CONST (op1));
+
 	  /* Check first to see if this is a constant offset
              from a local symbol reference.  */
 	  if ((GET_CODE (op0) == LABEL_REF
@@ -3293,6 +3379,12 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
       if (legitimate_address_p (mode, x, FALSE))
 	return x;
+    }
+  else if (GET_CODE (x) == PLUS
+	   && (TLS_SYMBOLIC_CONST (XEXP (x, 0)) 
+	       || TLS_SYMBOLIC_CONST (XEXP (x, 1))))
+    {
+      return x;
     }
   else if (flag_pic)
     {
@@ -4030,6 +4122,7 @@ init_alignment_context (struct alignment_context *ac, rtx mem,
       /* Generate MEM.  */
       ac->memsi = gen_rtx_MEM (SImode, align);
       MEM_VOLATILE_P (ac->memsi) = MEM_VOLATILE_P (mem);
+      set_mem_alias_set (ac->memsi, ALIAS_SET_MEMORY_BARRIER);
       set_mem_align (ac->memsi, GET_MODE_BITSIZE (SImode));
 
       /* Calculate shiftcount.  */
@@ -4241,6 +4334,21 @@ s390_output_dwarf_dtprel (FILE *file, int size, rtx x)
   fputs ("@DTPOFF", file);
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+s390_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize various UNSPEC sequences
    and turn them back into a direct symbol reference.  */
@@ -4416,8 +4524,8 @@ print_operand_address (FILE *file, rtx addr)
   struct s390_address ad;
 
   if (!s390_decompose_address (addr, &ad)
-      || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
-      || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
+      || (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
+      || (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx))))
     output_operand_lossage ("cannot decompose address");
 
   if (ad.disp)
@@ -4501,7 +4609,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
         if (ad.disp)
@@ -4519,7 +4627,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
         if (ad.base)
@@ -4537,7 +4645,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
 	if (ad.disp)
@@ -5163,12 +5271,12 @@ replace_ltrel_base (rtx *x)
 /* We keep a list of constants which we have to add to internal
    constant tables in the middle of large functions.  */
 
-#define NR_C_MODES 7
+#define NR_C_MODES 11
 enum machine_mode constant_modes[NR_C_MODES] =
 {
-  TImode,
-  DFmode, DImode,
-  SFmode, SImode,
+  TFmode, TImode, TDmode,
+  DFmode, DImode, DDmode,
+  SFmode, SImode, SDmode,
   HImode,
   QImode
 };
@@ -6111,6 +6219,7 @@ s390_output_pool_entry (rtx exp, enum machine_mode mode, unsigned int align)
   switch (GET_MODE_CLASS (mode))
     {
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
       gcc_assert (GET_CODE (exp) == CONST_DOUBLE);
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, exp);
@@ -6660,6 +6769,54 @@ s390_update_frame_layout (void)
     regs_ever_live[REGNO (cfun->machine->base_reg)] = 1;
 }
 
+/* Return true if it is legal to put a value with MODE into REGNO.  */
+
+bool
+s390_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
+{
+  switch (REGNO_REG_CLASS (regno))
+    {
+    case FP_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (mode == SImode || mode == DImode)
+	    return true;
+
+	  if (FLOAT_MODE_P (mode) && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
+	    return true;
+	}
+      break;
+    case ADDR_REGS:
+      if (FRAME_REGNO_P (regno) && mode == Pmode)
+	return true;
+
+      /* fallthrough */
+    case GENERAL_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (TARGET_64BIT 
+	      || (mode != TFmode && mode != TCmode && mode != TDmode))
+	    return true;
+	}	  
+      break;
+    case CC_REGS:
+      if (GET_MODE_CLASS (mode) == MODE_CC)
+	return true;
+      break;
+    case ACCESS_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (mode == SImode || mode == Pmode)
+	    return true;
+	}
+      break;
+    default:
+      return false;
+    }
+  
+  return false;
+}
+
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
 
 bool
@@ -6673,6 +6830,27 @@ s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
       return false;
 
   return true;
+}
+
+/* Maximum number of registers to represent a value of mode MODE
+   in a register of class CLASS.  */
+
+bool
+s390_class_max_nregs (enum reg_class class, enum machine_mode mode)
+{
+  switch (class)
+    {
+    case FP_REGS:
+      if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+	return 2 * ((GET_MODE_SIZE (mode) / 2 + 8 - 1) / 8);
+      else
+	return (GET_MODE_SIZE (mode) + 8 - 1) / 8;
+    case ACCESS_REGS:
+      return (GET_MODE_SIZE (mode) + 4 - 1) / 4;
+    default:
+      break;
+    }
+  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
 /* Return true if register FROM can be eliminated via register TO.  */
@@ -7436,7 +7614,7 @@ s390_function_arg_float (enum machine_mode mode, tree type)
 
   /* No type info available for some library calls ...  */
   if (!type)
-    return mode == SFmode || mode == DFmode;
+    return mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode;
 
   /* The ABI says that record types with a single member are treated
      just like that member would be.  */
@@ -7478,7 +7656,7 @@ s390_function_arg_integer (enum machine_mode mode, tree type)
   /* No type info available for some library calls ...  */
   if (!type)
     return GET_MODE_CLASS (mode) == MODE_INT
-	   || (TARGET_SOFT_FLOAT &&  GET_MODE_CLASS (mode) == MODE_FLOAT);
+	   || (TARGET_SOFT_FLOAT &&  SCALAR_FLOAT_MODE_P (mode));
 
   /* We accept small integral (and similar) types.  */
   if (INTEGRAL_TYPE_P (type)
@@ -7640,11 +7818,10 @@ s390_function_value (tree type, enum machine_mode mode)
       mode = promote_mode (type, TYPE_MODE (type), &unsignedp, 1);
     }
 
-  gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
-               || GET_MODE_CLASS (mode) == MODE_FLOAT);
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_INT || SCALAR_FLOAT_MODE_P (mode));
   gcc_assert (GET_MODE_SIZE (mode) <= 8);
 
-  if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (TARGET_HARD_FLOAT && SCALAR_FLOAT_MODE_P (mode))
     return gen_rtx_REG (mode, 16);
   else
     return gen_rtx_REG (mode, 2);
@@ -8934,6 +9111,8 @@ s390_reorg (void)
      machine_dependent_reorg might confuse insn length counts.  */
   split_all_insns_noflow ();
 
+  /* From here on decomposed literal pool addresses must be accepted.  */
+  cfun->machine->decomposed_literal_pool_addresses_ok_p = true;
 
   /* Install the main literal pool and the associated base
      register load insns.
@@ -9130,6 +9309,14 @@ s390_reorg (void)
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL s390_output_dwarf_dtprel
 #endif
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE s390_mangle_fundamental_type
+#endif
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P s390_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

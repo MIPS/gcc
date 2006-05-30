@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist output contibuted by Paul Thomas
 
@@ -302,7 +302,8 @@ calculate_G_format (st_parameter_dt *dtp, const fnode *f,
   /* In case of the two data magnitude ranges,
      generate E editing, Ew.d[Ee].  */
   exp_d = calculate_exp (d);
-  if ((m > 0.0 && m < 0.1 - 0.05 / exp_d) || (m >= exp_d - 0.5 ))
+  if ((m > 0.0 && m < 0.1 - 0.05 / exp_d) || (m >= exp_d - 0.5 ) ||
+      ((m == 0.0) && !(compile_options.allow_std & GFC_STD_F2003)))
     {
       newf->format = FMT_E;
       newf->u.real.w = w;
@@ -375,8 +376,15 @@ calculate_G_format (st_parameter_dt *dtp, const fnode *f,
 static void
 output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 {
+#if defined(HAVE_GFC_REAL_16) && __LDBL_DIG__ > 18
+# define MIN_FIELD_WIDTH 46
+#else
+# define MIN_FIELD_WIDTH 31
+#endif
+#define STR(x) STR1(x)
+#define STR1(x) #x
   /* This must be large enough to accurately hold any value.  */
-  char buffer[32];
+  char buffer[MIN_FIELD_WIDTH+1];
   char *out;
   char *digits;
   int e;
@@ -412,8 +420,8 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
     internal_error (&dtp->common, "Unspecified precision");
 
   /* Use sprintf to print the number in the format +D.DDDDe+ddd
-     For an N digit exponent, this gives us (32-6)-N digits after the
-     decimal point, plus another one before the decimal point.  */
+     For an N digit exponent, this gives us (MIN_FIELD_WIDTH-5)-N digits
+     after the decimal point, plus another one before the decimal point.  */
   sign = calculate_sign (dtp, value < 0.0);
   if (value < 0)
     value = -value;
@@ -438,7 +446,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
       || ((ft == FMT_D || ft == FMT_E) && dtp->u.p.scale_factor != 0))
     {
       /* Always convert at full precision to avoid double rounding.  */
-      ndigits = 27 - edigits;
+      ndigits = MIN_FIELD_WIDTH - 4 - edigits;
     }
   else
     {
@@ -448,8 +456,8 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	ndigits = d + 1;
       else
 	ndigits = d;
-      if (ndigits > 27 - edigits)
-	ndigits = 27 - edigits;
+      if (ndigits > MIN_FIELD_WIDTH - 4 - edigits)
+	ndigits = MIN_FIELD_WIDTH - 4 - edigits;
     }
 
   /* #   The result will always contain a decimal point, even if no
@@ -459,7 +467,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
    *
    * +   A sign (+ or -) always be placed before a number
    *
-   * 31  minimum field width
+   * MIN_FIELD_WIDTH  minimum field width
    *
    * *   (ndigits-1) is used as the precision
    *
@@ -468,11 +476,11 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
    *   equal to the precision. The exponent always contains at least two
    *   digits; if the value is zero, the exponent is 00.
    */
-  sprintf (buffer, "%+-#31.*" GFC_REAL_LARGEST_FORMAT "e",
-           ndigits - 1, value);
+  sprintf (buffer, "%+-#" STR(MIN_FIELD_WIDTH) ".*"
+	   GFC_REAL_LARGEST_FORMAT "e", ndigits - 1, value);
 
   /* Check the resulting string has punctuation in the correct places.  */
-  if (buffer[2] != '.' || buffer[ndigits + 2] != 'e')
+  if (d != 0 && (buffer[2] != '.' || buffer[ndigits + 2] != 'e'))
       internal_error (&dtp->common, "printf is broken");
 
   /* Read the exponent back in.  */
@@ -776,7 +784,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 	  edigits--;
 	}
 #if HAVE_SNPRINTF
-      snprintf (buffer, 32, "%+0*d", edigits, e);
+      snprintf (buffer, sizeof (buffer), "%+0*d", edigits, e);
 #else
       sprintf (buffer, "%+0*d", edigits, e);
 #endif
@@ -789,6 +797,9 @@ output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
       memset( out , ' ' , nblanks );
       dtp->u.p.no_leading_blank = 0;
     }
+#undef STR
+#undef STR1
+#undef MIN_FIELD_WIDTH
 }
 
 
@@ -1351,7 +1362,7 @@ write_character (st_parameter_dt *dtp, const char *source, int length)
 
 /* Output a real number with default format.
    This is 1PG14.7E2 for REAL(4), 1PG23.15E3 for REAL(8),
-   1PG24.15E4 for REAL(10) and 1PG40.31E4 for REAL(16).  */
+   1PG28.19E4 for REAL(10) and 1PG43.34E4 for REAL(16).  */
 
 static void
 write_real (st_parameter_dt *dtp, const char *source, int length)
@@ -1373,13 +1384,13 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
       f.u.real.e = 3;
       break;
     case 10:
-      f.u.real.w = 24;
-      f.u.real.d = 15;
+      f.u.real.w = 28;
+      f.u.real.d = 19;
       f.u.real.e = 4;
       break;
     case 16:
-      f.u.real.w = 40;
-      f.u.real.d = 31;
+      f.u.real.w = 43;
+      f.u.real.d = 34;
       f.u.real.e = 4;
       break;
     default:

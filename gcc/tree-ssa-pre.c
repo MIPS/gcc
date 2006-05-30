@@ -53,6 +53,11 @@ Boston, MA 02110-1301, USA.  */
       we can repair later on.
    3. We can do back-substitution or smarter value numbering to catch
       commutative expressions split up over multiple statements.
+   4. ANTIC_SAFE_LOADS could be a lot smarter than it is now.
+      Right now, it is simply calculating loads that occur before
+      any store in a block, instead of loads that occur before
+      stores that affect them.  This is relatively more expensive, and
+      it's not clear how much more it will buy us.
 */   
 
 /* For ease of terminology, "expression node" in the below refers to
@@ -258,6 +263,11 @@ typedef struct bb_value_sets
   bitmap rvuse_out;
   bitmap rvuse_gen;
   bitmap rvuse_kill;
+
+  /* For actually occurring loads, as long as they occur before all the
+     other stores in the block, we know they are antic at the top of
+     the block, regardless of RVUSE_KILL.  */
+  value_set_t antic_safe_loads;
 } *bb_value_sets_t;
 
 #define EXP_GEN(BB)	((bb_value_sets_t) ((BB)->aux))->exp_gen
@@ -270,6 +280,7 @@ typedef struct bb_value_sets
 #define RVUSE_KILL(BB)   ((bb_value_sets_t) ((BB)->aux))->rvuse_kill
 #define RVUSE_OUT(BB)    ((bb_value_sets_t) ((BB)->aux))->rvuse_out
 #define NEW_SETS(BB)	((bb_value_sets_t) ((BB)->aux))->new_sets
+#define ANTIC_SAFE_LOADS(BB) ((bb_value_sets_t) ((BB)->aux))->antic_safe_loads
 
 /* This structure is used to keep track of statistics on what
    optimization PRE was able to perform.  */
@@ -302,6 +313,7 @@ static bitmap_set_t bitmap_set_new (void);
 static value_set_t set_new  (bool);
 static bool is_undefined_value (tree);
 static tree create_expression_by_pieces (basic_block, tree, tree);
+static tree find_or_generate_expression (basic_block, tree, tree);
 
 
 /* We can add and remove elements and entries to and from sets
@@ -701,7 +713,7 @@ set_contains_value (value_set_t set, tree val)
   if (is_gimple_min_invariant (val))
     return true;
   
-  if (set->length == 0)
+  if (!set || set->length == 0)
     return false;
   
   return value_exists_in_set_bitmap (set, val);
@@ -1102,6 +1114,18 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 		tree newval;
 		if (oldval)
 		  {
+		    /* This may seem like a weird place for this
+		       check, but it's actually the easiest place to
+		       do it.  We can't do it lower on in the
+		       recursion because it's valid for pieces of a
+		       component ref to be of AGGREGATE_TYPE, as long
+		       as the outermost one is not.
+		       To avoid *that* case, we have a check for
+		       AGGREGATE_TYPE_P in insert_aux.  However, that
+		       check will *not* catch this case because here
+		       it occurs in the argument list.  */
+		    if (AGGREGATE_TYPE_P (TREE_TYPE (oldval)))
+		      return NULL;
 		    newval = phi_translate (find_leader (set, oldval),
 					    set, pred, phiblock);
 		    if (newval == NULL)
@@ -1153,31 +1177,78 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 
     case tcc_reference:
       {
-	tree oldop1 = TREE_OPERAND (expr, 0);
-	tree newop1;
+	tree oldop0 = TREE_OPERAND (expr, 0);
+	tree oldop1 = NULL;
+	tree newop0;
+	tree newop1 = NULL;
+	tree oldop2 = NULL;
+	tree newop2 = NULL;
+	tree oldop3 = NULL;
+	tree newop3 = NULL;
 	tree newexpr;
 	VEC (tree, gc) * oldvuses = NULL;
 	VEC (tree, gc) * newvuses = NULL;
 
-	if (TREE_CODE (expr) != INDIRECT_REF)
+	if (TREE_CODE (expr) != INDIRECT_REF
+	    && TREE_CODE (expr) != COMPONENT_REF
+	    && TREE_CODE (expr) != ARRAY_REF)
 	  return NULL;
 
-	newop1 = phi_translate (find_leader (set, oldop1),
+	newop0 = phi_translate (find_leader (set, oldop0),
 				set, pred, phiblock);
-	if (newop1 == NULL)
+	if (newop0 == NULL)
 	  return NULL;
+	
+	if (TREE_CODE (expr) == ARRAY_REF)
+	  {
+	    oldop1 = TREE_OPERAND (expr, 1);
+	    newop1 = phi_translate (find_leader (set, oldop1),
+				    set, pred, phiblock);
+	
+	    if (newop1 == NULL)
+	      return NULL;
+	    oldop2 = TREE_OPERAND (expr, 2);
+	    if (oldop2)
+	      {
+		newop2 = phi_translate (find_leader (set, oldop2),
+					set, pred, phiblock);
+	    
+		if (newop2 == NULL)
+		  return NULL;
+	      }
+	    oldop3 = TREE_OPERAND (expr, 3);
+	    if (oldop3)
+	      {
+		newop3 = phi_translate (find_leader (set, oldop3),
+					set, pred, phiblock);
+		
+		if (newop3 == NULL)
+		  return NULL;
+	      }
+	  }
 
 	oldvuses = VALUE_HANDLE_VUSES (get_value_handle (expr));
 	if (oldvuses)
 	  newvuses = translate_vuses_through_block (oldvuses, pred);
-
-	if (newop1 != oldop1 || newvuses != oldvuses)
+	
+	if (newop0 != oldop0 || newvuses != oldvuses
+	    || newop1 != oldop1 
+	    || newop2 != oldop2 
+	    || newop3 != oldop3)
 	  {
 	    tree t;
 
 	    newexpr = pool_alloc (reference_node_pool);
 	    memcpy (newexpr, expr, tree_size (expr));
-	    TREE_OPERAND (newexpr, 0) = get_value_handle (newop1);
+	    TREE_OPERAND (newexpr, 0) = get_value_handle (newop0);
+	    if (TREE_CODE (expr) == ARRAY_REF)
+	      {
+		TREE_OPERAND (newexpr, 1) = get_value_handle (newop1);
+		if (newop2)
+		  TREE_OPERAND (newexpr, 2) = get_value_handle (newop2);
+		if (newop3)
+		  TREE_OPERAND (newexpr, 3) = get_value_handle (newop3);
+	      }
 
 	    t = fully_constant_expression (newexpr);
 
@@ -1434,12 +1505,11 @@ vuses_dies_in_block_x (VEC (tree, gc) *vuses, basic_block block)
 
   for (i = 0; VEC_iterate (tree, vuses, i, vuse); i++)
     {
-      /* Any places where this is too conservative, are  places
+      /* Any places where this is too conservative, are places
 	 where we created a new version and shouldn't have.  */
 
       if (!bitmap_bit_p (RVUSE_IN (block), SSA_NAME_VERSION (vuse))
-	  || bitmap_bit_p (RVUSE_KILL (block), SSA_NAME_VERSION
-			   (vuse)))
+	  || bitmap_bit_p (RVUSE_KILL (block), SSA_NAME_VERSION (vuse)))
 	return true;
     }
   return false;
@@ -1500,18 +1570,39 @@ valid_in_set (value_set_t set, tree expr, basic_block block)
       
     case tcc_reference:
       {
-	if (TREE_CODE (expr) == INDIRECT_REF)
+	if (TREE_CODE (expr) == INDIRECT_REF 
+	    || TREE_CODE (expr) == COMPONENT_REF
+            || TREE_CODE (expr) == ARRAY_REF)
 	  {
 	    tree op0 = TREE_OPERAND (expr, 0);
-	    if (is_gimple_min_invariant (op0)
-		|| TREE_CODE (op0) == VALUE_HANDLE)
+	    gcc_assert (is_gimple_min_invariant (op0)
+			|| TREE_CODE (op0) == VALUE_HANDLE);
+	    if (!set_contains_value (set, op0))
+	      return false;
+	    if (TREE_CODE (expr) == ARRAY_REF)
 	      {
-		bool retval = set_contains_value (set, op0);
-		if (retval)
-		  return !vuses_dies_in_block_x (VALUE_HANDLE_VUSES (vh),
-						 block);
-		return false;
-	      }
+		tree op1 = TREE_OPERAND (expr, 1);
+		tree op2 = TREE_OPERAND (expr, 2);
+		tree op3 = TREE_OPERAND (expr, 3);
+		gcc_assert (is_gimple_min_invariant (op1)
+		            || TREE_CODE (op1) == VALUE_HANDLE);
+		if (!set_contains_value (set, op1))
+		  return false;
+		gcc_assert (!op2 || is_gimple_min_invariant (op2)
+		            || TREE_CODE (op2) == VALUE_HANDLE);
+		if (op2
+		    && !set_contains_value (set, op2))
+		  return false;
+		gcc_assert (!op3 || is_gimple_min_invariant (op3)
+		            || TREE_CODE (op3) == VALUE_HANDLE);
+		if (op3
+		    && !set_contains_value (set, op3))
+		  return false;
+	    }
+	  return set_contains_value (ANTIC_SAFE_LOADS (block),
+				     vh)
+	    || !vuses_dies_in_block_x (VALUE_HANDLE_VUSES (vh),
+				       block);
 	  }
       }
       return false;
@@ -1648,7 +1739,12 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
     {
       if (ANTIC_OUT)
 	print_value_set (dump_file, ANTIC_OUT, "ANTIC_OUT", block->index);
+
+      if (ANTIC_SAFE_LOADS (block))
+	print_value_set (dump_file, ANTIC_SAFE_LOADS (block), 
+			 "ANTIC_SAFE_LOADS", block->index);
       print_value_set (dump_file, ANTIC_IN (block), "ANTIC_IN", block->index);
+
       if (S)
 	print_value_set (dump_file, S, "S", block->index);
     }
@@ -1802,16 +1898,37 @@ compute_vuse_representatives (void)
   VEC_free (tree, heap, phis);
 }
 
-/* Compute reaching vuses.  This is a small bit of iterative dataflow
-   to determine what virtual uses reach what blocks.  Because we can't
-   generate overlapping virtual uses, and virtual uses *do* actually
-   die, this ends up being faster in most cases than continually
-   walking the virtual use/def chains to determine whether we are
-   inside a block where a given virtual is still available to be
-   used.  */
+/* Compute reaching vuses and antic safe loads.  RVUSE computation is
+   is a small bit of iterative dataflow to determine what virtual uses
+   reach what blocks.  Because we can't generate overlapping virtual
+   uses, and virtual uses *do* actually die, this ends up being faster
+   in most cases than continually walking the virtual use/def chains
+   to determine whether we are inside a block where a given virtual is
+   still available to be used.  
+
+   ANTIC_SAFE_LOADS are those loads that actually occur before any kill to
+   their vuses in the block,and thus, are safe at the top of the
+   block.  
+
+   An example:
+
+   <block begin>
+   b = *a
+   *a = 9
+   <block end>
+   
+   b = *a is an antic safe load because it still safe to consider it
+   ANTIC at the top of the block.
+
+   We currently compute a conservative approximation to
+   ANTIC_SAFE_LOADS.  We compute those loads that occur before *any*
+   stores in the block.  This is not because it is difficult to
+   compute the precise answer, but because it is expensive.  More
+   testing is necessary to determine whether it is worth computing the
+   precise answer.  */
 
 static void
-compute_rvuse (void)
+compute_rvuse_and_antic_safe (void)
 {
 
   size_t i;
@@ -1819,7 +1936,10 @@ compute_rvuse (void)
   basic_block bb;
   int *postorder;
   bool changed = true;
+  unsigned int *first_store_uid;
 
+  first_store_uid = xcalloc (n_basic_blocks, sizeof (unsigned int));
+  
   compute_vuse_representatives ();
 
   FOR_ALL_BB (bb)
@@ -1828,8 +1948,8 @@ compute_rvuse (void)
       RVUSE_GEN (bb) = BITMAP_ALLOC (&grand_bitmap_obstack);
       RVUSE_KILL (bb) = BITMAP_ALLOC (&grand_bitmap_obstack);
       RVUSE_OUT (bb) = BITMAP_ALLOC (&grand_bitmap_obstack);
+      ANTIC_SAFE_LOADS (bb) = NULL;
     }
-
 
   /* Mark live on entry */
   for (i = 0; i < num_ssa_names; i++)
@@ -1853,10 +1973,18 @@ compute_rvuse (void)
       def_operand_p defp;
       use_operand_p usep;
 
-
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
+	  
+	  if (first_store_uid[bb->index] == 0 
+	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VMAYDEF 
+				     | SSA_OP_VMUSTDEF | SSA_OP_VMUSTKILL))
+	    {
+	      first_store_uid[bb->index] = stmt_ann (stmt)->uid;
+	    }
+	  
+
 	  FOR_EACH_SSA_USE_OPERAND (usep, stmt, iter, SSA_OP_VIRTUAL_KILLS
 				    | SSA_OP_VMAYUSE)
 	    {
@@ -1907,7 +2035,7 @@ compute_rvuse (void)
      RVUSE_IN[BB] = Union of RVUSE_OUT of predecessors.
      RVUSE_OUT[BB] = RVUSE_GEN[BB] U (RVUSE_IN[BB] - RVUSE_KILL[BB])
   */
-  postorder = xmalloc (sizeof (int) * (n_basic_blocks - NUM_FIXED_BLOCKS));
+  postorder = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
   pre_and_rev_post_order_compute (NULL, postorder, false);
 
   changed = true;
@@ -1949,6 +2077,40 @@ compute_rvuse (void)
 	  dump_bitmap_of_names (dump_file, RVUSE_OUT (bb));
 	}
     }
+
+  FOR_EACH_BB (bb)
+    {      
+      value_set_node_t node;
+      if (bitmap_empty_p (RVUSE_KILL (bb)))
+	continue;
+      
+      for (node = EXP_GEN (bb)->head; node; node = node->next)
+	{
+	  if (REFERENCE_CLASS_P (node->expr))
+	    {
+	      tree vh = get_value_handle (node->expr);
+	      tree maybe = bitmap_find_leader (AVAIL_OUT (bb), vh);
+	      
+	      if (maybe)
+		{
+		  tree def = SSA_NAME_DEF_STMT (maybe);
+
+		  if (bb_for_stmt (def) != bb)
+		    continue;
+		  
+		  if (TREE_CODE (def) == PHI_NODE
+		      || stmt_ann (def)->uid < first_store_uid[bb->index])
+		    {
+		      if (ANTIC_SAFE_LOADS (bb) == NULL)
+			ANTIC_SAFE_LOADS (bb) = set_new (true);
+		      value_insert_into_set (ANTIC_SAFE_LOADS (bb), 
+					     node->expr);
+		    }
+		}
+	    }
+	}
+    }
+  free (first_store_uid);
 }
 
 /* Return true if we can value number the call in STMT.  This is true
@@ -1990,7 +2152,9 @@ can_PRE_operation (tree op)
     || BINARY_CLASS_P (op)
     || COMPARISON_CLASS_P (op)
     || TREE_CODE (op) == INDIRECT_REF
-    || TREE_CODE (op) == CALL_EXPR;
+    || TREE_CODE (op) == COMPONENT_REF
+    || TREE_CODE (op) == CALL_EXPR
+    || TREE_CODE (op) == ARRAY_REF;
 }
 
 
@@ -2004,6 +2168,92 @@ static VEC(tree,heap) *inserted_exprs;
    to see which expressions need to be put into GC'able memory  */
 static VEC(tree, heap) *need_creation;
 
+/* For COMPONENT_REF's and ARRAY_REF's, we can't have any intermediates for the
+   COMPONENT_REF or INDIRECT_REF or ARRAY_REF portion, because we'd end up with
+   trying to rename aggregates into ssa form directly, which is a no
+   no.
+
+   Thus, this routine doesn't create temporaries, it just builds a
+   single access expression for the array, calling
+   find_or_generate_expression to build the innermost pieces.
+   
+   This function is a subroutine of create_expression_by_pieces, and
+   should not be called on it's own unless you really know what you
+   are doing.
+*/
+static tree
+create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
+{
+  tree genop = expr;
+  tree folded;
+
+  if (TREE_CODE (genop) == VALUE_HANDLE)
+    {
+      tree found = bitmap_find_leader (AVAIL_OUT (block), expr);
+      if (found)
+	return found;
+    }
+  
+  if (TREE_CODE (genop) == VALUE_HANDLE)
+    genop = VALUE_HANDLE_EXPR_SET (expr)->head->expr;
+
+  switch TREE_CODE (genop)
+    {
+    case ARRAY_REF:
+      {
+	tree op0;
+	tree op1, op2, op3;
+	op0 = create_component_ref_by_pieces (block, 
+					      TREE_OPERAND (genop, 0),
+					      stmts);
+	op1 = TREE_OPERAND (genop, 1);
+	if (TREE_CODE (op1) == VALUE_HANDLE)
+	  op1 = find_or_generate_expression (block, op1, stmts);
+	op2 = TREE_OPERAND (genop, 2);
+	if (op2 && TREE_CODE (op2) == VALUE_HANDLE)
+	  op2 = find_or_generate_expression (block, op2, stmts);
+	op3 = TREE_OPERAND (genop, 3);
+	if (op3 && TREE_CODE (op3) == VALUE_HANDLE)
+	  op3 = find_or_generate_expression (block, op3, stmts);
+	folded = build4 (ARRAY_REF, TREE_TYPE (genop), op0, op1, 
+			      op2, op3);
+	return folded;
+      }
+    case COMPONENT_REF:
+      {
+	tree op0;
+	tree op1;
+	op0 = create_component_ref_by_pieces (block, 
+					      TREE_OPERAND (genop, 0),
+					      stmts);
+	op1 = VALUE_HANDLE_EXPR_SET (TREE_OPERAND (genop, 1))->head->expr;
+	folded = fold_build3 (COMPONENT_REF, TREE_TYPE (genop), op0, op1, 
+			      NULL_TREE);
+	return folded;
+      }
+      break;
+    case INDIRECT_REF:
+      {
+	tree op1 = TREE_OPERAND (genop, 0);
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	
+	folded = fold_build1 (TREE_CODE (genop), TREE_TYPE (genop),
+			      genop1);
+	return folded;
+      }
+      break;
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+    case SSA_NAME:
+    case STRING_CST:
+      return genop;
+    default:
+      gcc_unreachable ();      
+    }
+
+  return NULL_TREE;
+}
 
 /* Find a leader for an expression, or generate one using
    create_expression_by_pieces if it's ANTIC but
@@ -2092,13 +2342,20 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       }
       break;
     case tcc_reference:
-      gcc_assert (TREE_CODE (expr) == INDIRECT_REF);
       {
-	tree op1 = TREE_OPERAND (expr, 0);
-	tree genop1 = find_or_generate_expression (block, op1, stmts);
-
-	folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr),
-			      genop1);
+	if (TREE_CODE (expr) == COMPONENT_REF
+	    || TREE_CODE (expr) == ARRAY_REF)
+	  {
+	    folded = create_component_ref_by_pieces (block, expr, stmts);
+	  }
+	else
+	  {
+	    tree op1 = TREE_OPERAND (expr, 0);
+	    tree genop1 = find_or_generate_expression (block, op1, stmts);
+	    
+	    folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr),
+				  genop1);
+	  }
 	break;
       }
       
@@ -2165,7 +2422,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     }
 
   temp = pretemp;
-  add_referenced_tmp_var (temp);
+  add_referenced_var (temp);
 
   if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
@@ -2308,7 +2565,7 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
     }
 
   temp = prephitemp;
-  add_referenced_tmp_var (temp);
+  add_referenced_var (temp);
 
   if (TREE_CODE (type) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (temp) = 1;
@@ -2403,7 +2660,8 @@ insert_aux (basic_block block)
 		   node;
 		   node = node->next)
 		{
-		  if (can_PRE_operation (node->expr))
+		  if (can_PRE_operation (node->expr)
+		      && !AGGREGATE_TYPE_P (TREE_TYPE (node->expr)))
 		    {
 		      tree *avail;
 		      tree val;
@@ -2680,15 +2938,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
       if (op == NULL_TREE)
 	continue;
 
-      /* If OP is a constant that has overflowed, do not value number
-	 this expression.  */
-      if (CONSTANT_CLASS_P (op)
-	  && TREE_OVERFLOW (op))
-	{
-	  pool_free (pool, vexpr);
-	  return NULL;
-	}
-
       /* Recursively value-numberize reference ops and tree lists.  */
       if (REFERENCE_CLASS_P (op))
 	{
@@ -2745,6 +2994,10 @@ insert_extra_phis (basic_block block, basic_block dom)
 
       FOR_EACH_EDGE (e, ei, block->preds)
 	{
+	  /* We cannot handle abnormal incoming edges correctly.  */
+	  if (e->flags & EDGE_ABNORMAL)
+	    return;
+
 	  if (first)
 	    {
 	      bitmap_set_copy (tempset, AVAIL_OUT (e->src));
@@ -2768,6 +3021,9 @@ insert_extra_phis (basic_block block, basic_block dom)
 	      tree val = get_value_handle (name);
 	      tree temp;
 
+	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name))
+		continue;
+
 	      if (!mergephitemp
 		  || TREE_TYPE (name) != TREE_TYPE (mergephitemp))
 		{
@@ -2784,7 +3040,7 @@ insert_extra_phis (basic_block block, basic_block dom)
 		  fprintf (dump_file, " to merge available but not dominating values ");
 		}
 
-	      add_referenced_tmp_var (temp);
+	      add_referenced_var (temp);
 	      temp = create_phi_node (temp, block);
 	      NECESSARY (temp) = 0; 
 	      VEC_safe_push (tree, heap, inserted_exprs, temp);
@@ -3032,24 +3288,63 @@ realify_fake_stores (void)
 	  tree newstmt;
 
 	  /* Mark the temp variable as referenced */
-	  add_referenced_tmp_var (SSA_NAME_VAR (TREE_OPERAND (stmt, 0)));
+	  add_referenced_var (SSA_NAME_VAR (TREE_OPERAND (stmt, 0)));
 
-	  /* Put the new statement in GC memory, fix up the annotation
-	     and SSA_NAME_DEF_STMT on it, and then put it in place of
-	     the old statement in the IR stream.  */
-	  newstmt = unshare_expr (stmt);
-	  SSA_NAME_DEF_STMT (TREE_OPERAND (newstmt, 0)) = newstmt;
-
-	  newstmt->common.ann = stmt->common.ann;
-
+	  /* Put the new statement in GC memory, fix up the 
+	     SSA_NAME_DEF_STMT on it, and then put it in place of
+	     the old statement before the store in the IR stream
+	     as a plain ssa name copy.  */
 	  bsi = bsi_for_stmt (stmt);
-	  bsi_replace (&bsi, newstmt, true);
+	  bsi_prev (&bsi);
+	  newstmt = build2 (MODIFY_EXPR, void_type_node,
+			    TREE_OPERAND (stmt, 0),
+			    TREE_OPERAND (bsi_stmt (bsi), 1));
+	  SSA_NAME_DEF_STMT (TREE_OPERAND (newstmt, 0)) = newstmt;
+	  bsi_insert_before (&bsi, newstmt, BSI_SAME_STMT);
+	  bsi = bsi_for_stmt (stmt);
+	  bsi_remove (&bsi, true);
 	}
       else
 	release_defs (stmt);
     }
 }
 
+/* Tree-combine a value number expression *EXPR_P that does a type
+   conversion with the value number expression of its operand.
+   Returns true, if *EXPR_P simplifies to a value number or
+   gimple min-invariant expression different from EXPR_P and
+   sets *EXPR_P to the simplified expression value number.
+   Otherwise returns false and does not change *EXPR_P.  */
+
+static bool
+try_combine_conversion (tree *expr_p)
+{
+  tree expr = *expr_p;
+  tree t;
+
+  if (!((TREE_CODE (expr) == NOP_EXPR
+	 || TREE_CODE (expr) == CONVERT_EXPR)
+	&& TREE_CODE (TREE_OPERAND (expr, 0)) == VALUE_HANDLE
+	&& !VALUE_HANDLE_VUSES (TREE_OPERAND (expr, 0))))
+    return false;
+
+  t = fold_unary (TREE_CODE (expr), TREE_TYPE (expr),
+		  VALUE_HANDLE_EXPR_SET (TREE_OPERAND (expr, 0))->head->expr);
+
+  /* Disallow value expressions we have no value number for already, as
+     we would miss a leader for it here.  */
+  if (t
+      && !(TREE_CODE (t) == VALUE_HANDLE
+	   || is_gimple_min_invariant (t)))
+    t = vn_lookup (t, NULL);
+
+  if (t && t != expr)
+    {
+      *expr_p = t;
+      return true;
+    }
+  return false;
+}
 
 /* Compute the AVAIL set for all basic blocks.
 
@@ -3068,7 +3363,6 @@ compute_avail (void)
   basic_block *worklist;
   size_t sp = 0;
   tree param;
-
   /* For arguments with default definitions, we pretend they are
      defined in the entry block.  */
   for (param = DECL_ARGUMENTS (current_function_decl);
@@ -3113,6 +3407,7 @@ compute_avail (void)
       block_stmt_iterator bsi;
       tree stmt, phi;
       basic_block dom;
+      unsigned int stmt_uid = 1;
 
       /* Pick a block from the worklist.  */
       block = worklist[--sp];
@@ -3144,6 +3439,8 @@ compute_avail (void)
 
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
+	  
+	  ann->uid = stmt_uid++;
 
 	  /* For regular value numbering, we are only interested in
 	     assignments of the form X_i = EXPR, where EXPR represents
@@ -3172,9 +3469,19 @@ compute_avail (void)
 		  tree newt = create_value_expr_from (rhs, block, stmt);
 		  if (newt)
 		    {
-		      add_to_sets (lhs, newt, stmt, TMP_GEN (block),
-				   AVAIL_OUT (block));
-		      value_insert_into_set (EXP_GEN (block), newt);
+		      /* If we can combine a conversion expression
+			 with the expression for its operand just
+			 record the value number for it.  */
+		      if (try_combine_conversion (&newt))
+			vn_add (lhs, newt);
+		      else
+			{
+			  tree val = vn_lookup_or_add (newt, stmt);
+			  vn_add (lhs, val);
+			  value_insert_into_set (EXP_GEN (block), newt);
+			}
+		      bitmap_insert_into_set (TMP_GEN (block), lhs);
+		      bitmap_value_insert_into_set (AVAIL_OUT (block), lhs);
 		      continue;
 		    }
 		}
@@ -3433,7 +3740,7 @@ init_pre (bool do_fre)
 
   vn_init ();
   if (!do_fre)
-    current_loops = loop_optimizer_init (dump_file);
+    current_loops = loop_optimizer_init (LOOPS_NORMAL);
 
   connect_infinite_loops_to_exit ();
   memset (&pre_stats, 0, sizeof (pre_stats));
@@ -3548,7 +3855,7 @@ fini_pre (bool do_fre)
     }
   if (!do_fre && current_loops)
     {
-      loop_optimizer_finalize (current_loops, dump_file);
+      loop_optimizer_finalize (current_loops);
       current_loops = NULL;
     }
 }
@@ -3588,8 +3895,8 @@ execute_pre (bool do_fre)
      computing ANTIC, either, even though it's plenty fast.  */
   if (!do_fre && n_basic_blocks < 4000)
     {
-      vuse_names = xcalloc (num_ssa_names, sizeof (bitmap));
-      compute_rvuse ();
+      vuse_names = XCNEWVEC (bitmap, num_ssa_names);
+      compute_rvuse_and_antic_safe ();
       compute_antic ();
       insert ();
       free (vuse_names);
@@ -3621,10 +3928,11 @@ execute_pre (bool do_fre)
 
 /* Gate and execute functions for PRE.  */
 
-static void
+static unsigned int
 do_pre (void)
 {
   execute_pre (false);
+  return 0;
 }
 
 static bool
@@ -3647,7 +3955,7 @@ struct tree_opt_pass pass_pre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa | TODO_dump_func | TODO_ggc_collect 
+  TODO_update_ssa_only_virtuals | TODO_dump_func | TODO_ggc_collect 
   | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
 };
@@ -3655,10 +3963,11 @@ struct tree_opt_pass pass_pre =
 
 /* Gate and execute functions for FRE.  */
 
-static void
+static unsigned int
 execute_fre (void)
 {
   execute_pre (true);
+  return 0;
 }
 
 static bool

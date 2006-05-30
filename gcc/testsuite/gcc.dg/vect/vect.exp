@@ -1,4 +1,4 @@
-# Copyright (C) 1997, 2004 Free Software Foundation, Inc.
+# Copyright (C) 1997, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,7 +52,8 @@ if [istarget "powerpc*-*-*"] {
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
     set dg-do-what-default run
-} elseif [istarget "mipsisa64*-*-*"] {
+} elseif { [istarget "mipsisa64*-*-*"]
+	   && [check_effective_target_mpaired_single] } {
     lappend DEFAULT_VECTCFLAGS "-mpaired-single"
     set dg-do-what-default run
 } elseif [istarget "sparc*-*-*"] {
@@ -78,7 +79,7 @@ dg-init
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/nodump-*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
-lappend DEFAULT_VECTCFLAGS "-ftree-vectorizer-verbose=4" "-fdump-tree-vect-stats"
+lappend DEFAULT_VECTCFLAGS "-fdump-tree-vect-details"
 
 # Main loop.
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/pr*.\[cS\]]]  \
@@ -96,11 +97,23 @@ lappend DEFAULT_VECTCFLAGS "-ffast-math"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
+# -fwrapv tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fwrapv"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/wrapv-vect*.\[cS\]]]  \
+        "" $DEFAULT_VECTCFLAGS
+
 # -ftrapv tests
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-ftrapv"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/trapv-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
+
+# -fdump-tree-dceloop-details tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fdump-tree-dceloop-details"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/dump-tree-dceloop-*.\[cS\]]]  \
+        "" $DEFAULT_VECTCFLAGS
 
 # With -Os
 lappend DEFAULT_VECTCFLAGS "-Os"

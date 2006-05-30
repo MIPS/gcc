@@ -271,9 +271,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* GCSE global vars.  */
 
-/* -dG dump file.  */
-static FILE *gcse_file;
-
 /* Note whether or not we should run jump optimization after gcse.  We
    want to do this for two cases.
 
@@ -281,13 +278,6 @@ static FILE *gcse_file;
 
     * If we added any labels via edge splitting.  */
 static int run_jump_opt_after_gcse;
-
-/* Bitmaps are normally not included in debugging dumps.
-   However it's useful to be able to print them from GDB.
-   We could create special functions for this, but it's simpler to
-   just allow passing stderr to the dump_foo fns.  Since stderr can
-   be a macro, we store a copy here.  */
-static FILE *debug_stderr;
 
 /* An obstack for our working variables.  */
 static struct obstack gcse_obstack;
@@ -661,7 +651,7 @@ static bool is_too_expensive (const char *);
    change is mode.  */
 
 static int
-gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
+gcse_main (rtx f ATTRIBUTE_UNUSED)
 {
   int changed, pass;
   /* Bytes used at start of pass.  */
@@ -679,16 +669,12 @@ gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
   /* Assume that we do not need to run jump optimizations after gcse.  */
   run_jump_opt_after_gcse = 0;
 
-  /* For calling dump_foo fns from gdb.  */
-  debug_stderr = stderr;
-  gcse_file = file;
-
   /* Identify the basic block information for this function, including
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
-  if (file)
-    dump_flow_info (file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   /* Return if there's nothing to do, or it is too expensive.  */
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
@@ -720,8 +706,8 @@ gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
   while (changed && pass < MAX_GCSE_PASSES)
     {
       changed = 0;
-      if (file)
-	fprintf (file, "GCSE pass %d\n\n", pass + 1);
+      if (dump_file)
+	fprintf (dump_file, "GCSE pass %d\n\n", pass + 1);
 
       /* Initialize bytes_used to the space for the pred/succ lists,
 	 and the reg_set_table data.  */
@@ -786,10 +772,10 @@ gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
 	  timevar_pop (TV_HOIST);
 	}
 
-      if (file)
+      if (dump_file)
 	{
-	  fprintf (file, "\n");
-	  fflush (file);
+	  fprintf (dump_file, "\n");
+	  fflush (dump_file);
 	}
 
       obstack_free (&gcse_obstack, gcse_obstack_bottom);
@@ -807,11 +793,11 @@ gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
   timevar_pop (TV_CPROP2);
   free_gcse_mem ();
 
-  if (file)
+  if (dump_file)
     {
-      fprintf (file, "GCSE of %s: %d basic blocks, ",
+      fprintf (dump_file, "GCSE of %s: %d basic blocks, ",
 	       current_function_name (), n_basic_blocks);
-      fprintf (file, "%d pass%s, %d bytes\n\n",
+      fprintf (dump_file, "%d pass%s, %d bytes\n\n",
 	       pass, pass > 1 ? "es" : "", max_pass_bytes);
     }
 
@@ -1184,6 +1170,14 @@ static basic_block current_bb;
 static int
 want_to_gcse_p (rtx x)
 {
+#ifdef STACK_REGS
+  /* On register stack architectures, don't GCSE constants from the
+     constant pool, as the benefits are often swamped by the overhead
+     of shuffling the register stack between basic blocks.  */
+  if (IS_STACK_MODE (GET_MODE (x)))
+    x = avoid_constant_pool_reference (x);
+#endif
+
   switch (GET_CODE (x))
     {
     case REG:
@@ -2666,9 +2660,9 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  if (note != 0)
+  /* If there is already a REG_EQUAL note, update the expression in it
+     with our replacement.  */
+  if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
@@ -2695,7 +2689,7 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      We don't allow that. Remove that note. This code ought
      not to happen, because previous code ought to synthesize
      reg-reg move, but be on the safe side.  */
-  if (note && REG_P (XEXP (note, 0)))
+  if (note && REG_NOTE_KIND (note) == REG_EQUAL && REG_P (XEXP (note, 0)))
     remove_note (insn, note);
 
   return success;
@@ -2861,13 +2855,13 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
   run_jump_opt_after_gcse = 1;
 
   global_const_prop_count++;
-  if (gcse_file != NULL)
+  if (dump_file != NULL)
     {
-      fprintf (gcse_file,
+      fprintf (dump_file,
 	       "GLOBAL CONST-PROP: Replacing reg %d in jump_insn %d with constant ",
 	       REGNO (from), INSN_UID (jump));
-      print_rtl (gcse_file, src);
-      fprintf (gcse_file, "\n");
+      print_rtl (dump_file, src);
+      fprintf (dump_file, "\n");
     }
   purge_dead_edges (bb);
 
@@ -2966,12 +2960,12 @@ cprop_insn (rtx insn, int alter_jumps)
 	    {
 	      changed = 1;
 	      global_const_prop_count++;
-	      if (gcse_file != NULL)
+	      if (dump_file != NULL)
 		{
-		  fprintf (gcse_file, "GLOBAL CONST-PROP: Replacing reg %d in ", regno);
-		  fprintf (gcse_file, "insn %d with constant ", INSN_UID (insn));
-		  print_rtl (gcse_file, src);
-		  fprintf (gcse_file, "\n");
+		  fprintf (dump_file, "GLOBAL CONST-PROP: Replacing reg %d in ", regno);
+		  fprintf (dump_file, "insn %d with constant ", INSN_UID (insn));
+		  print_rtl (dump_file, src);
+		  fprintf (dump_file, "\n");
 		}
 	      if (INSN_DELETED_P (insn))
 		return 1;
@@ -2985,11 +2979,11 @@ cprop_insn (rtx insn, int alter_jumps)
 	    {
 	      changed = 1;
 	      global_copy_prop_count++;
-	      if (gcse_file != NULL)
+	      if (dump_file != NULL)
 		{
-		  fprintf (gcse_file, "GLOBAL COPY-PROP: Replacing reg %d in insn %d",
+		  fprintf (dump_file, "GLOBAL COPY-PROP: Replacing reg %d in insn %d",
 			   regno, INSN_UID (insn));
-		  fprintf (gcse_file, " with reg %d\n", REGNO (src));
+		  fprintf (dump_file, " with reg %d\n", REGNO (src));
 		}
 
 	      /* The original insn setting reg_used may or may not now be
@@ -3102,14 +3096,14 @@ do_local_cprop (rtx x, rtx insn, bool alter_jumps, rtx *libcall_sp)
 	  adjusted = adjust_libcall_notes (x, newcnst, insn, libcall_sp);
 	  gcc_assert (adjusted);
 	  
-	  if (gcse_file != NULL)
+	  if (dump_file != NULL)
 	    {
-	      fprintf (gcse_file, "LOCAL CONST-PROP: Replacing reg %d in ",
+	      fprintf (dump_file, "LOCAL CONST-PROP: Replacing reg %d in ",
 		       REGNO (x));
-	      fprintf (gcse_file, "insn %d with constant ",
+	      fprintf (dump_file, "insn %d with constant ",
 		       INSN_UID (insn));
-	      print_rtl (gcse_file, newcnst);
-	      fprintf (gcse_file, "\n");
+	      print_rtl (dump_file, newcnst);
+	      fprintf (dump_file, "\n");
 	    }
 	  local_const_prop_count++;
 	  return true;
@@ -3117,12 +3111,12 @@ do_local_cprop (rtx x, rtx insn, bool alter_jumps, rtx *libcall_sp)
       else if (newreg && newreg != x && try_replace_reg (x, newreg, insn))
 	{
 	  adjust_libcall_notes (x, newreg, insn, libcall_sp);
-	  if (gcse_file != NULL)
+	  if (dump_file != NULL)
 	    {
-	      fprintf (gcse_file,
+	      fprintf (dump_file,
 		       "LOCAL COPY-PROP: Replacing reg %d in insn %d",
 		       REGNO (x), INSN_UID (insn));
-	      fprintf (gcse_file, " with reg %d\n", REGNO (newreg));
+	      fprintf (dump_file, " with reg %d\n", REGNO (newreg));
 	    }
 	  local_copy_prop_count++;
 	  return true;
@@ -3259,8 +3253,8 @@ cprop (int alter_jumps)
   /* Note we start at block 1.  */
   if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
     {
-      if (gcse_file != NULL)
-	fprintf (gcse_file, "\n");
+      if (dump_file != NULL)
+	fprintf (dump_file, "\n");
       return 0;
     }
 
@@ -3284,8 +3278,8 @@ cprop (int alter_jumps)
 	  }
     }
 
-  if (gcse_file != NULL)
-    fprintf (gcse_file, "\n");
+  if (dump_file != NULL)
+    fprintf (dump_file, "\n");
 
   return changed;
 }
@@ -3374,19 +3368,19 @@ find_implicit_sets (void)
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
 					     XEXP (cond, 1));
 		implicit_sets[dest->index] = new;
-		if (gcse_file)
+		if (dump_file)
 		  {
-		    fprintf(gcse_file, "Implicit set of reg %d in ",
+		    fprintf(dump_file, "Implicit set of reg %d in ",
 			    REGNO (XEXP (cond, 0)));
-		    fprintf(gcse_file, "basic block %d\n", dest->index);
+		    fprintf(dump_file, "basic block %d\n", dest->index);
 		  }
 		count++;
 	      }
 	  }
       }
 
-  if (gcse_file)
-    fprintf (gcse_file, "Found %d implicit sets\n", count);
+  if (dump_file)
+    fprintf (dump_file, "Found %d implicit sets\n", count);
 }
 
 /* Perform one copy/constant propagation pass.
@@ -3405,7 +3399,7 @@ one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
   local_cprop_pass (cprop_jumps);
 
   /* Determine implicit sets.  */
-  implicit_sets = xcalloc (last_basic_block, sizeof (rtx));
+  implicit_sets = XCNEWVEC (rtx, last_basic_block);
   find_implicit_sets ();
 
   alloc_hash_table (max_cuid, &set_hash_table, 1);
@@ -3415,8 +3409,8 @@ one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
   free (implicit_sets);
   implicit_sets = NULL;
 
-  if (gcse_file)
-    dump_hash_table (gcse_file, "SET", &set_hash_table);
+  if (dump_file)
+    dump_hash_table (dump_file, "SET", &set_hash_table);
   if (set_hash_table.n_elems > 0)
     {
       alloc_cprop_mem (last_basic_block, set_hash_table.n_elems);
@@ -3429,13 +3423,13 @@ one_cprop_pass (int pass, bool cprop_jumps, bool bypass_jumps)
 
   free_hash_table (&set_hash_table);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
+      fprintf (dump_file, "CPROP of %s, pass %d: %d bytes needed, ",
 	       current_function_name (), pass, bytes_used);
-      fprintf (gcse_file, "%d local const props, %d local copy props, ",
+      fprintf (dump_file, "%d local const props, %d local copy props, ",
 	       local_const_prop_count, local_copy_prop_count);
-      fprintf (gcse_file, "%d global const props, %d global copy props\n\n",
+      fprintf (dump_file, "%d global const props, %d global copy props\n\n",
 	       global_const_prop_count, global_copy_prop_count);
     }
   /* Global analysis may get into infinite loops for unreachable blocks.  */
@@ -3651,13 +3645,13 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 		    insert_insn_on_edge (copy_insn (pat), e);
 		}
 
-	      if (gcse_file != NULL)
+	      if (dump_file != NULL)
 		{
-		  fprintf (gcse_file, "JUMP-BYPASS: Proved reg %d "
+		  fprintf (dump_file, "JUMP-BYPASS: Proved reg %d "
 				      "in jump_insn %d equals constant ",
 			   regno, INSN_UID (jump));
-		  print_rtl (gcse_file, SET_SRC (set->expr));
-		  fprintf (gcse_file, "\nBypass edge from %d->%d to %d\n",
+		  print_rtl (dump_file, SET_SRC (set->expr));
+		  fprintf (dump_file, "\nBypass edge from %d->%d to %d\n",
 			   e->src->index, old_dest->index, dest->index);
 		}
 	      change = 1;
@@ -3862,7 +3856,7 @@ compute_pre_data (void)
       sbitmap_not (ae_kill[bb->index], ae_kill[bb->index]);
     }
 
-  edge_list = pre_edge_lcm (gcse_file, expr_hash_table.n_elems, transp, comp, antloc,
+  edge_list = pre_edge_lcm (expr_hash_table.n_elems, transp, comp, antloc,
 			    ae_kill, &pre_insert_map, &pre_delete_map);
   sbitmap_vector_free (antloc);
   antloc = NULL;
@@ -3936,7 +3930,7 @@ static int
 pre_expr_reaches_here_p (basic_block occr_bb, struct expr *expr, basic_block bb)
 {
   int rval;
-  char *visited = xcalloc (last_basic_block, 1);
+  char *visited = XCNEWVEC (char, last_basic_block);
 
   rval = pre_expr_reaches_here_p_work (occr_bb, expr, bb, visited);
 
@@ -4105,11 +4099,11 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   gcse_create_count++;
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "PRE/HOIST: end of bb %d, insn %d, ",
+      fprintf (dump_file, "PRE/HOIST: end of bb %d, insn %d, ",
 	       bb->index, INSN_UID (new_insn));
-      fprintf (gcse_file, "copying expression %d to reg %d\n",
+      fprintf (dump_file, "copying expression %d to reg %d\n",
 	       expr->bitmap_index, regno);
     }
 }
@@ -4174,12 +4168,12 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 			    insert_insn_on_edge (insn, eg);
 			  }
 
-			if (gcse_file)
+			if (dump_file)
 			  {
-			    fprintf (gcse_file, "PRE/HOIST: edge (%d,%d), ",
+			    fprintf (dump_file, "PRE/HOIST: edge (%d,%d), ",
 				     bb->index,
 				     INDEX_EDGE_SUCC_BB (edge_list, e)->index);
-			    fprintf (gcse_file, "copy expression %d\n",
+			    fprintf (dump_file, "copy expression %d\n",
 				     expr->bitmap_index);
 			  }
 
@@ -4300,8 +4294,8 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
 
   gcse_create_count++;
 
-  if (gcse_file)
-    fprintf (gcse_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "PRE: bb %d, insn %d, copy expression %d in insn %d to reg %d\n",
 	      BLOCK_NUM (insn), INSN_UID (new_insn), indx,
 	      INSN_UID (insn), regno);
@@ -4453,12 +4447,12 @@ pre_delete (void)
 		changed = 1;
 		gcse_subst_count++;
 
-		if (gcse_file)
+		if (dump_file)
 		  {
-		    fprintf (gcse_file,
+		    fprintf (dump_file,
 			     "PRE: redundant insn %d (expression %d) in ",
 			       INSN_UID (insn), indx);
-		    fprintf (gcse_file, "bb %d, reaching reg is %d\n",
+		    fprintf (dump_file, "bb %d, reaching reg is %d\n",
 			     bb->index, REGNO (expr->reaching_reg));
 		  }
 	      }
@@ -4499,7 +4493,7 @@ pre_gcse (void)
   /* Compute a mapping from expression number (`bitmap_index') to
      hash table entry.  */
 
-  index_map = xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
+  index_map = XCNEWVEC (struct expr *, expr_hash_table.n_elems);
   for (i = 0; i < expr_hash_table.size; i++)
     for (expr = expr_hash_table.table[i]; expr != NULL; expr = expr->next_same_hash)
       index_map[expr->bitmap_index] = expr;
@@ -4550,8 +4544,8 @@ one_pre_gcse_pass (int pass)
 
   compute_hash_table (&expr_hash_table);
   trim_ld_motion_mems ();
-  if (gcse_file)
-    dump_hash_table (gcse_file, "Expression", &expr_hash_table);
+  if (dump_file)
+    dump_hash_table (dump_file, "Expression", &expr_hash_table);
 
   if (expr_hash_table.n_elems > 0)
     {
@@ -4566,11 +4560,11 @@ one_pre_gcse_pass (int pass)
   remove_fake_exit_edges ();
   free_hash_table (&expr_hash_table);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "\nPRE GCSE of %s, pass %d: %d bytes needed, ",
+      fprintf (dump_file, "\nPRE GCSE of %s, pass %d: %d bytes needed, ",
 	       current_function_name (), pass, bytes_used);
-      fprintf (gcse_file, "%d substs, %d insns created\n",
+      fprintf (dump_file, "%d substs, %d insns created\n",
 	       gcse_subst_count, gcse_create_count);
     }
 
@@ -4581,9 +4575,6 @@ one_pre_gcse_pass (int pass)
    If notes are added to an insn which references a CODE_LABEL, the
    LABEL_NUSES count is incremented.  We have to add REG_LABEL notes,
    because the following loop optimization pass requires them.  */
-
-/* ??? This is very similar to the loop.c add_label_notes function.  We
-   could probably share code here.  */
 
 /* ??? If there was a jump optimization pass after gcse and before loop,
    then we would not need to do this here, because jump would add the
@@ -4749,8 +4740,8 @@ compute_code_hoist_vbeinout (void)
       passes++;
     }
 
-  if (gcse_file)
-    fprintf (gcse_file, "hoisting vbeinout computation: %d passes\n", passes);
+  if (dump_file)
+    fprintf (dump_file, "hoisting vbeinout computation: %d passes\n", passes);
 }
 
 /* Top level routine to do the dataflow analysis needed by code hoisting.  */
@@ -4762,8 +4753,8 @@ compute_code_hoist_data (void)
   compute_transpout ();
   compute_code_hoist_vbeinout ();
   calculate_dominance_info (CDI_DOMINATORS);
-  if (gcse_file)
-    fprintf (gcse_file, "\n");
+  if (dump_file)
+    fprintf (dump_file, "\n");
 }
 
 /* Determine if the expression identified by EXPR_INDEX would
@@ -4790,7 +4781,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
   if (visited == NULL)
     {
       visited_allocated_locally = 1;
-      visited = xcalloc (last_basic_block, 1);
+      visited = XCNEWVEC (char, last_basic_block);
     }
 
   FOR_EACH_EDGE (pred, ei, bb->preds)
@@ -4842,7 +4833,7 @@ hoist_code (void)
   /* Compute a mapping from expression number (`bitmap_index') to
      hash table entry.  */
 
-  index_map = xcalloc (expr_hash_table.n_elems, sizeof (struct expr *));
+  index_map = XCNEWVEC (struct expr *, expr_hash_table.n_elems);
   for (i = 0; i < expr_hash_table.size; i++)
     for (expr = expr_hash_table.table[i]; expr != NULL; expr = expr->next_same_hash)
       index_map[expr->bitmap_index] = expr;
@@ -4995,8 +4986,8 @@ one_code_hoisting_pass (void)
 
   alloc_hash_table (max_cuid, &expr_hash_table, 0);
   compute_hash_table (&expr_hash_table);
-  if (gcse_file)
-    dump_hash_table (gcse_file, "Code Hosting Expressions", &expr_hash_table);
+  if (dump_file)
+    dump_hash_table (dump_file, "Code Hosting Expressions", &expr_hash_table);
 
   if (expr_hash_table.n_elems > 0)
     {
@@ -5071,7 +5062,7 @@ ldst_entry (rtx x)
   if (*slot)
     return (struct ls_expr *)*slot;
 
-  ptr = xmalloc (sizeof (struct ls_expr));
+  ptr = XNEW (struct ls_expr);
 
   ptr->next         = pre_ldst_mems;
   ptr->expr         = NULL;
@@ -5389,8 +5380,8 @@ trim_ld_motion_mems (void)
     }
 
   /* Show the world what we've found.  */
-  if (gcse_file && pre_ldst_mems != NULL)
-    print_ldst_list (gcse_file);
+  if (dump_file && pre_ldst_mems != NULL)
+    print_ldst_list (dump_file);
 }
 
 /* This routine will take an expression which we are replacing with
@@ -5429,13 +5420,13 @@ update_ld_motion_stores (struct expr * expr)
 	  if (expr->reaching_reg == src)
 	    continue;
 
-	  if (gcse_file)
+	  if (dump_file)
 	    {
-	      fprintf (gcse_file, "PRE:  store updated with reaching reg ");
-	      print_rtl (gcse_file, expr->reaching_reg);
-	      fprintf (gcse_file, ":\n	");
-	      print_inline_rtx (gcse_file, insn, 8);
-	      fprintf (gcse_file, "\n");
+	      fprintf (dump_file, "PRE:  store updated with reaching reg ");
+	      print_rtl (dump_file, expr->reaching_reg);
+	      fprintf (dump_file, ":\n	");
+	      print_inline_rtx (dump_file, insn, 8);
+	      fprintf (dump_file, "\n");
 	    }
 
 	  copy = gen_move_insn ( reg, copy_rtx (SET_SRC (pat)));
@@ -5664,6 +5655,14 @@ find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
   if (find_reg_note (insn, REG_EH_REGION, NULL_RTX))
     return;
 
+  /* Make sure that the SET_SRC of this store insns can be assigned to
+     a register, or we will fail later on in replace_store_insn, which
+     assumes that we can do this.  But sometimes the target machine has
+     oddities like MEM read-modify-write instruction.  See for example
+     PR24257.  */
+  if (!can_assign_to_reg_p (SET_SRC (set)))
+    return;
+
   ptr = ldst_entry (dest);
   if (!ptr->pattern_regs)
     ptr->pattern_regs = extract_mentioned_regs (dest);
@@ -5744,8 +5743,8 @@ compute_store_table (void)
   pre_ldst_mems = 0;
   pre_ldst_table = htab_create (13, pre_ldst_expr_hash,
 				pre_ldst_expr_eq, NULL);
-  last_set_in = xcalloc (max_gcse_regno, sizeof (int));
-  already_set = xmalloc (sizeof (int) * max_gcse_regno);
+  last_set_in = XCNEWVEC (int, max_gcse_regno);
+  already_set = XNEWVEC (int, max_gcse_regno);
 
   /* Find all the stores we care about.  */
   FOR_EACH_BB (bb)
@@ -5840,10 +5839,10 @@ compute_store_table (void)
 
   ret = enumerate_ldsts ();
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "ST_avail and ST_antic (shown under loads..)\n");
-      print_ldst_list (gcse_file);
+      fprintf (dump_file, "ST_avail and ST_antic (shown under loads..)\n");
+      print_ldst_list (dump_file);
     }
 
   free (last_set_in);
@@ -6065,8 +6064,8 @@ build_store_vectors (void)
 	  if (TEST_BIT (ae_gen[bb->index], ptr->index))
 	    {
 	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
-	      if (gcse_file)
-		fprintf (gcse_file, "Removing redundant store:\n");
+	      if (dump_file)
+		fprintf (dump_file, "Removing redundant store:\n");
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
 	      continue;
 	    }
@@ -6086,7 +6085,7 @@ build_store_vectors (void)
 
   transp = sbitmap_vector_alloc (last_basic_block, num_stores);
   sbitmap_vector_zero (transp, last_basic_block);
-  regs_set_in_block = xmalloc (sizeof (int) * max_gcse_regno);
+  regs_set_in_block = XNEWVEC (int, max_gcse_regno);
 
   FOR_EACH_BB (bb)
     {
@@ -6111,12 +6110,12 @@ build_store_vectors (void)
 
   free (regs_set_in_block);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      dump_sbitmap_vector (gcse_file, "st_antloc", "", st_antloc, last_basic_block);
-      dump_sbitmap_vector (gcse_file, "st_kill", "", ae_kill, last_basic_block);
-      dump_sbitmap_vector (gcse_file, "Transpt", "", transp, last_basic_block);
-      dump_sbitmap_vector (gcse_file, "st_avloc", "", ae_gen, last_basic_block);
+      dump_sbitmap_vector (dump_file, "st_antloc", "", st_antloc, last_basic_block);
+      dump_sbitmap_vector (dump_file, "st_kill", "", ae_kill, last_basic_block);
+      dump_sbitmap_vector (dump_file, "Transpt", "", transp, last_basic_block);
+      dump_sbitmap_vector (dump_file, "st_avloc", "", ae_gen, last_basic_block);
     }
 }
 
@@ -6143,12 +6142,12 @@ insert_insn_start_bb (rtx insn, basic_block bb)
 
   insn = emit_insn_after_noloc (insn, prev);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "STORE_MOTION  insert store at start of BB %d:\n",
+      fprintf (dump_file, "STORE_MOTION  insert store at start of BB %d:\n",
 	       bb->index);
-      print_inline_rtx (gcse_file, insn, 6);
-      fprintf (gcse_file, "\n");
+      print_inline_rtx (dump_file, insn, 6);
+      fprintf (dump_file, "\n");
     }
 }
 
@@ -6208,12 +6207,12 @@ insert_store (struct ls_expr * expr, edge e)
 
   insert_insn_on_edge (insn, e);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "STORE_MOTION  insert insn on edge (%d, %d):\n",
+      fprintf (dump_file, "STORE_MOTION  insert insn on edge (%d, %d):\n",
 	       e->src->index, e->dest->index);
-      print_inline_rtx (gcse_file, insn, 6);
-      fprintf (gcse_file, "\n");
+      print_inline_rtx (dump_file, insn, 6);
+      fprintf (dump_file, "\n");
     }
 
   return 1;
@@ -6234,7 +6233,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
 
-  stack = xmalloc (sizeof (edge_iterator) * n_basic_blocks);
+  stack = XNEWVEC (edge_iterator, n_basic_blocks);
   sp = 0;
   ei = ei_start (bb->succs);
 
@@ -6283,8 +6282,8 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	    if (!note || !expr_equiv_p (XEXP (note, 0), mem))
 	      continue;
 
-	    if (gcse_file)
-	      fprintf (gcse_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
+	    if (dump_file)
+	      fprintf (dump_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
 		       INSN_UID (insn));
 	    remove_note (insn, note);
 	  }
@@ -6314,14 +6313,14 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
   insn = gen_move_insn (reg, SET_SRC (single_set (del)));
   insn = emit_insn_after (insn, del);
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file,
+      fprintf (dump_file,
 	       "STORE_MOTION  delete insn in BB %d:\n      ", bb->index);
-      print_inline_rtx (gcse_file, del, 6);
-      fprintf (gcse_file, "\nSTORE MOTION  replaced with insn:\n      ");
-      print_inline_rtx (gcse_file, insn, 6);
-      fprintf (gcse_file, "\n");
+      print_inline_rtx (dump_file, del, 6);
+      fprintf (dump_file, "\nSTORE MOTION  replaced with insn:\n      ");
+      print_inline_rtx (dump_file, insn, 6);
+      fprintf (dump_file, "\n");
     }
 
   for (ptr = ANTIC_STORE_LIST (smexpr); ptr; ptr = XEXP (ptr, 1))
@@ -6367,8 +6366,8 @@ replace_store_insn (rtx reg, rtx del, basic_block bb, struct ls_expr *smexpr)
 	if (!note || !expr_equiv_p (XEXP (note, 0), mem))
 	  continue;
 
-	if (gcse_file)
-	  fprintf (gcse_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
+	if (dump_file)
+	  fprintf (dump_file, "STORE_MOTION  drop REG_EQUAL note at insn %d:\n",
 		   INSN_UID (insn));
 	remove_note (insn, note);
       }
@@ -6439,10 +6438,10 @@ store_motion (void)
   struct ls_expr * ptr;
   int update_flow = 0;
 
-  if (gcse_file)
+  if (dump_file)
     {
-      fprintf (gcse_file, "before store motion\n");
-      print_rtl (gcse_file, get_insns ());
+      fprintf (dump_file, "before store motion\n");
+      print_rtl (dump_file, get_insns ());
     }
 
   init_alias_analysis ();
@@ -6463,7 +6462,7 @@ store_motion (void)
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
 
-  edge_list = pre_edge_rev_lcm (gcse_file, num_stores, transp, ae_gen,
+  edge_list = pre_edge_rev_lcm (num_stores, transp, ae_gen,
 				st_antloc, ae_kill, &pre_insert_map,
 				&pre_delete_map);
 
@@ -6479,8 +6478,8 @@ store_motion (void)
 
       if (x >= 0)
 	{
-	  if (gcse_file != NULL)
-	    fprintf (gcse_file,
+	  if (dump_file != NULL)
+	    fprintf (dump_file,
 		     "Can't replace store %d: abnormal edge from %d to %d\n",
 		     ptr->index, INDEX_EDGE (edge_list, x)->src->index,
 		     INDEX_EDGE (edge_list, x)->dest->index);
@@ -6511,7 +6510,7 @@ store_motion (void)
 /* Entry point for jump bypassing optimization pass.  */
 
 static int
-bypass_jumps (FILE *file)
+bypass_jumps (void)
 {
   int changed;
 
@@ -6520,16 +6519,12 @@ bypass_jumps (FILE *file)
   if (current_function_calls_setjmp)
     return 0;
 
-  /* For calling dump_foo fns from gdb.  */
-  debug_stderr = stderr;
-  gcse_file = file;
-
   /* Identify the basic block information for this function, including
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
-  if (file)
-    dump_flow_info (file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   /* Return if there's nothing to do, or it is too expensive.  */
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
@@ -6559,11 +6554,11 @@ bypass_jumps (FILE *file)
   changed = one_cprop_pass (MAX_GCSE_PASSES + 2, true, true);
   free_gcse_mem ();
 
-  if (file)
+  if (dump_file)
     {
-      fprintf (file, "BYPASS of %s: %d basic blocks, ",
+      fprintf (dump_file, "BYPASS of %s: %d basic blocks, ",
 	       current_function_name (), n_basic_blocks);
-      fprintf (file, "%d bytes\n\n", bytes_used);
+      fprintf (dump_file, "%d bytes\n\n", bytes_used);
     }
 
   obstack_free (&gcse_obstack, NULL);
@@ -6623,18 +6618,19 @@ gate_handle_jump_bypass (void)
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
-static void
+static unsigned int
 rest_of_handle_jump_bypass (void)
 {
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
 
-  if (bypass_jumps (dump_file))
+  if (bypass_jumps ())
     {
       rebuild_jump_labels (get_insns ());
       cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_jump_bypass =
@@ -6663,13 +6659,13 @@ gate_handle_gcse (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_gcse (void)
 {
   int save_csb, save_cfj;
   int tem2 = 0, tem;
 
-  tem = gcse_main (get_insns (), dump_file);
+  tem = gcse_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
@@ -6683,7 +6679,7 @@ rest_of_handle_gcse (void)
     {
       timevar_push (TV_CSE);
       reg_scan (get_insns (), max_reg_num ());
-      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
+      tem2 = cse_main (get_insns (), max_reg_num ());
       purge_all_dead_edges ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
@@ -6697,12 +6693,13 @@ rest_of_handle_gcse (void)
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
 
   flag_cse_skip_blocks = save_csb;
   flag_cse_follow_jumps = save_cfj;
+  return 0;
 }
 
 struct tree_opt_pass pass_gcse =

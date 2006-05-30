@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,14 +105,13 @@ static int cost_table_initialized;
 #define COST_TABLE(I)  cost_table_[(unsigned HOST_WIDE_INT) ((I) + 1)]
 
 static int n_occurrences (int, const char *);
-static bool decl_conflicts_with_clobbers_p (tree, const HARD_REG_SET);
+static bool tree_conflicts_with_clobbers_p (tree, HARD_REG_SET *);
 static void expand_nl_goto_receiver (void);
 static bool check_operand_nalternatives (tree, tree);
 static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (void);
 static void expand_value_return (rtx);
-static void do_jump_if_equal (rtx, rtx, rtx, int);
 static int estimate_case_costs (case_node_ptr);
 static bool lshift_cheap_p (void);
 static int case_bit_test_cmp (const void *, const void *);
@@ -182,7 +181,7 @@ emit_jump (rtx label)
 void
 expand_computed_goto (tree exp)
 {
-  rtx x = expand_expr (exp, NULL_RTX, VOIDmode, 0);
+  rtx x = expand_normal (exp);
 
   x = convert_memory_address (Pmode, x);
 
@@ -558,49 +557,66 @@ parse_input_constraint (const char **constraint_p, int input_num,
   return true;
 }
 
-/* Return true iff there's an overlap between REGS and DECL, where DECL
-   can be an asm-declared register.  */
+/* Return DECL iff there's an overlap between *REGS and DECL, where DECL
+   can be an asm-declared register.  Called via walk_tree.  */
 
-bool
-decl_overlaps_hard_reg_set_p (tree decl, const HARD_REG_SET regs)
+static tree
+decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			      void *data)
 {
-  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
-      && DECL_REGISTER (decl)
-      && REG_P (DECL_RTL (decl))
-      && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
+  tree decl = *declp;
+  const HARD_REG_SET *regs = data;
+
+  if (TREE_CODE (decl) == VAR_DECL)
     {
-      rtx reg = DECL_RTL (decl);
-      unsigned int regno;
+      if (DECL_HARD_REGISTER (decl)
+	  && REG_P (DECL_RTL (decl))
+	  && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
+	{
+	  rtx reg = DECL_RTL (decl);
+	  unsigned int regno;
 
-      for (regno = REGNO (reg);
-	   regno < (REGNO (reg)
-		    + hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
-	   regno++)
-	if (TEST_HARD_REG_BIT (regs, regno))
-	  return true;
+	  for (regno = REGNO (reg);
+	       regno < (REGNO (reg)
+			+ hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
+	       regno++)
+	    if (TEST_HARD_REG_BIT (*regs, regno))
+	      return decl;
+	}
+      walk_subtrees = 0;
     }
-
-  return false;
+  else if (TYPE_P (decl) || TREE_CODE (decl) == PARM_DECL)
+    walk_subtrees = 0;
+  return NULL_TREE;
 }
 
+/* If there is an overlap between *REGS and DECL, return the first overlap
+   found.  */
+tree
+tree_overlaps_hard_reg_set (tree decl, HARD_REG_SET *regs)
+{
+  return walk_tree (&decl, decl_overlaps_hard_reg_set_p, regs, NULL);
+}
 
 /* Check for overlap between registers marked in CLOBBERED_REGS and
-   anything inappropriate in DECL.  Emit error and return TRUE for error,
-   FALSE for ok.  */
+   anything inappropriate in T.  Emit error and return the register
+   variable definition for error, NULL_TREE for ok.  */
 
 static bool
-decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
+tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
 {
   /* Conflicts between asm-declared register variables and the clobber
      list are not allowed.  */
-  if (decl_overlaps_hard_reg_set_p (decl, clobbered_regs))
+  tree overlap = tree_overlaps_hard_reg_set (t, clobbered_regs);
+
+  if (overlap)
     {
       error ("asm-specifier for variable %qs conflicts with asm clobber list",
-	     IDENTIFIER_POINTER (DECL_NAME (decl)));
+	     IDENTIFIER_POINTER (DECL_NAME (overlap)));
 
       /* Reset registerness to stop multiple errors emitted for a single
 	 variable.  */
-      DECL_REGISTER (decl) = 0;
+      DECL_REGISTER (overlap) = 0;
       return true;
     }
 
@@ -677,7 +693,11 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   CLEAR_HARD_REG_SET (clobbered_regs);
   for (tail = clobbers; tail; tail = TREE_CHAIN (tail))
     {
-      const char *regname = TREE_STRING_POINTER (TREE_VALUE (tail));
+      const char *regname;
+
+      if (TREE_VALUE (tail) == error_mark_node)
+	return;
+      regname = TREE_STRING_POINTER (TREE_VALUE (tail));
 
       i = decode_reg_name (regname);
       if (i >= 0 || i == -4)
@@ -827,7 +847,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  inout_opnum[ninout++] = i;
 	}
 
-      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
 	clobber_conflict_found = 1;
     }
 
@@ -923,7 +943,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
 			     ggc_strdup (constraints[i + noutputs]));
 
-      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
 	clobber_conflict_found = 1;
     }
 
@@ -1354,8 +1374,7 @@ expand_expr_stmt (tree exp)
 
 	  /* Compare the value with itself to reference it.  */
 	  emit_cmp_and_jump_insns (value, value, EQ,
-				   expand_expr (TYPE_SIZE (type),
-						NULL_RTX, VOIDmode, 0),
+				   expand_normal (TYPE_SIZE (type)),
 				   BLKmode, 0, lab);
 	  emit_label (lab);
 	}
@@ -1547,7 +1566,7 @@ expand_return (tree retval)
   /* If function wants no value, give it none.  */
   if (TREE_CODE (TREE_TYPE (TREE_TYPE (current_function_decl))) == VOID_TYPE)
     {
-      expand_expr (retval, NULL_RTX, VOIDmode, 0);
+      expand_normal (retval);
       expand_null_return ();
       return;
     }
@@ -1594,7 +1613,7 @@ expand_return (tree retval)
 	= MIN (TYPE_ALIGN (TREE_TYPE (retval_rhs)), BITS_PER_WORD);
       rtx *result_pseudos = alloca (sizeof (rtx) * n_regs);
       rtx result_reg, src = NULL_RTX, dst = NULL_RTX;
-      rtx result_val = expand_expr (retval_rhs, NULL_RTX, VOIDmode, 0);
+      rtx result_val = expand_normal (retval_rhs);
       enum machine_mode tmpmode, result_reg_mode;
 
       if (bytes == 0)
@@ -1939,7 +1958,7 @@ expand_decl (tree decl)
 
       /* Compute the variable's size, in bytes.  This will expand any
 	 needed SAVE_EXPRs for the first time.  */
-      size = expand_expr (DECL_SIZE_UNIT (decl), NULL_RTX, VOIDmode, 0);
+      size = expand_normal (DECL_SIZE_UNIT (decl));
       free_temp_slots ();
 
       /* Allocate space on the stack for the variable.  Note that
@@ -2170,7 +2189,11 @@ case_bit_test_cmp (const void *p1, const void *p2)
   const struct case_bit_test *d1 = p1;
   const struct case_bit_test *d2 = p2;
 
-  return d2->bits - d1->bits;
+  if (d2->bits != d1->bits)
+    return d2->bits - d1->bits;
+
+  /* Stabilize the sort.  */
+  return CODE_LABEL_NUMBER (d2->label) - CODE_LABEL_NUMBER (d1->label);
 }
 
 /*  Expand a switch statement by a short sequence of bit-wise
@@ -2235,11 +2258,11 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
   index_expr = fold_build2 (MINUS_EXPR, index_type,
 			    fold_convert (index_type, index_expr),
 			    fold_convert (index_type, minval));
-  index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
+  index = expand_normal (index_expr);
   do_pending_stack_adjust ();
 
   mode = TYPE_MODE (index_type);
-  expr = expand_expr (range, NULL_RTX, VOIDmode, 0);
+  expr = expand_normal (range);
   emit_cmp_and_jump_insns (index, expr, GTU, NULL_RTX, mode, 1,
 			   default_label);
 
@@ -2267,7 +2290,7 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
 #define HAVE_tablejump 0
 #endif
 
-/* Terminate a case (Pascal) or switch (C) statement
+/* Terminate a case (Pascal/Ada) or switch (C) statement
    in which ORIG_INDEX is the expression to be tested.
    If ORIG_TYPE is not NULL, it is the original ORIG_INDEX
    type as given in the source before any compiler conversions.
@@ -2329,26 +2352,24 @@ expand_case (tree exp)
 
       for (i = TREE_VEC_LENGTH (vec) - 1; --i >= 0; )
 	{
+	  tree low, high;
 	  elt = TREE_VEC_ELT (vec, i);
-	  gcc_assert (CASE_LOW (elt));
-	  case_list = add_case_node (case_list, index_type,
-				     CASE_LOW (elt), CASE_HIGH (elt),
+
+	  low = CASE_LOW (elt);
+	  gcc_assert (low);
+	  high = CASE_HIGH (elt);
+
+	  /* Discard empty ranges.  */
+	  if (high && INT_CST_LT (high, low))
+	    continue;
+
+	  case_list = add_case_node (case_list, index_type, low, high,
 				     CASE_LABEL (elt));
 	}
 
 
-      /* Make sure start points to something that won't need any
-	 transformation before the end of this function.  */
-      start = get_last_insn ();
-      if (! NOTE_P (start))
-	{
-	  emit_note (NOTE_INSN_DELETED);
-	  start = get_last_insn ();
-	}
-
+      before_case = start = get_last_insn ();
       default_label = label_rtx (default_label_decl);
-
-      before_case = get_last_insn ();
 
       /* Get upper and lower bounds of case values.  */
 
@@ -2445,7 +2466,7 @@ expand_case (tree exp)
 		  only go this way.  */
 	       || (!HAVE_casesi && !HAVE_tablejump))
 	{
-	  index = expand_expr (index_expr, NULL_RTX, VOIDmode, 0);
+	  index = expand_normal (index_expr);
 
 	  /* If the index is a short or char that we do not have
 	     an insn to handle comparisons directly, convert it to
@@ -2568,21 +2589,14 @@ expand_case (tree exp)
   free_temp_slots ();
 }
 
-/* Generate code to jump to LABEL if OP1 and OP2 are equal.  */
+/* Generate code to jump to LABEL if OP0 and OP1 are equal in mode MODE.  */
 
 static void
-do_jump_if_equal (rtx op1, rtx op2, rtx label, int unsignedp)
+do_jump_if_equal (enum machine_mode mode, rtx op0, rtx op1, rtx label,
+		  int unsignedp)
 {
-  if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
-    {
-      if (op1 == op2)
-	emit_jump (label);
-    }
-  else
-    emit_cmp_and_jump_insns (op1, op2, EQ, NULL_RTX,
-			     (GET_MODE (op1) == VOIDmode
-			     ? GET_MODE (op2) : GET_MODE (op1)),
-			     unsignedp, label);
+  do_compare_rtx_and_jump (op0, op1, EQ, unsignedp, mode,
+			   NULL_RTX, NULL_RTX, label);
 }
 
 /* Not all case values are encountered equally.  This function
@@ -2924,6 +2938,10 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
   enum machine_mode mode = GET_MODE (index);
   enum machine_mode imode = TYPE_MODE (index_type);
 
+  /* Handle indices detected as constant during RTL expansion.  */
+  if (mode == VOIDmode)
+    mode = imode;
+
   /* See if our parents have already tested everything for us.
      If they have, emit an unconditional jump for this node.  */
   if (node_is_bounded (node, index_type))
@@ -2934,10 +2952,9 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
       /* Node is single valued.  First see if the index expression matches
 	 this node and then check our children, if any.  */
 
-      do_jump_if_equal (index,
+      do_jump_if_equal (mode, index,
 			convert_modes (mode, imode,
-				       expand_expr (node->low, NULL_RTX,
-						    VOIDmode, 0),
+				       expand_normal (node->low),
 				       unsignedp),
 			label_rtx (node->code_label), unsignedp);
 
@@ -2954,8 +2971,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (node->right->code_label));
@@ -2967,8 +2983,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       LT, NULL_RTX, mode, unsignedp,
 				       label_rtx (node->left->code_label));
@@ -2990,22 +3005,18 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      /* See if the value matches what the right hand side
 		 wants.  */
-	      do_jump_if_equal (index,
+	      do_jump_if_equal (mode, index,
 				convert_modes (mode, imode,
-					       expand_expr (node->right->low,
-							    NULL_RTX,
-							    VOIDmode, 0),
+					       expand_normal (node->right->low),
 					       unsignedp),
 				label_rtx (node->right->code_label),
 				unsignedp);
 
 	      /* See if the value matches what the left hand side
 		 wants.  */
-	      do_jump_if_equal (index,
+	      do_jump_if_equal (mode, index,
 				convert_modes (mode, imode,
-					       expand_expr (node->left->low,
-							    NULL_RTX,
-							    VOIDmode, 0),
+					       expand_normal (node->left->low),
 					       unsignedp),
 				label_rtx (node->left->code_label),
 				unsignedp);
@@ -3022,8 +3033,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (test_label));
@@ -3058,8 +3068,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		  emit_cmp_and_jump_insns (index,
 					   convert_modes
 					   (mode, imode,
-					    expand_expr (node->high, NULL_RTX,
-							 VOIDmode, 0),
+					    expand_normal (node->high),
 					    unsignedp),
 					   LT, NULL_RTX, mode, unsignedp,
 					   default_label);
@@ -3071,11 +3080,10 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	    /* We cannot process node->right normally
 	       since we haven't ruled out the numbers less than
 	       this node's value.  So handle node->right explicitly.  */
-	    do_jump_if_equal (index,
+	    do_jump_if_equal (mode, index,
 			      convert_modes
 			      (mode, imode,
-			       expand_expr (node->right->low, NULL_RTX,
-					    VOIDmode, 0),
+			       expand_normal (node->right->low),
 			       unsignedp),
 			      label_rtx (node->right->code_label), unsignedp);
 	}
@@ -3091,8 +3099,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		  emit_cmp_and_jump_insns (index,
 					   convert_modes
 					   (mode, imode,
-					    expand_expr (node->high, NULL_RTX,
-							 VOIDmode, 0),
+					    expand_normal (node->high),
 					    unsignedp),
 					   GT, NULL_RTX, mode, unsignedp,
 					   default_label);
@@ -3104,11 +3111,10 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	    /* We cannot process node->left normally
 	       since we haven't ruled out the numbers less than
 	       this node's value.  So handle node->left explicitly.  */
-	    do_jump_if_equal (index,
+	    do_jump_if_equal (mode, index,
 			      convert_modes
 			      (mode, imode,
-			       expand_expr (node->left->low, NULL_RTX,
-					    VOIDmode, 0),
+			       expand_normal (node->left->low),
 			       unsignedp),
 			      label_rtx (node->left->code_label), unsignedp);
 	}
@@ -3134,8 +3140,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	    emit_cmp_and_jump_insns (index,
 				     convert_modes
 				     (mode, imode,
-				      expand_expr (node->high, NULL_RTX,
-						   VOIDmode, 0),
+				      expand_normal (node->high),
 				      unsignedp),
 				     GT, NULL_RTX, mode, unsignedp,
 				     label_rtx (node->right->code_label));
@@ -3148,8 +3153,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       GT, NULL_RTX, mode, unsignedp,
 				       label_rtx (test_label));
@@ -3160,8 +3164,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
-				    expand_expr (node->low, NULL_RTX,
-						 VOIDmode, 0),
+				    expand_normal (node->low),
 				    unsignedp),
 				   GE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
@@ -3191,8 +3194,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->low, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->low),
 					unsignedp),
 				       LT, NULL_RTX, mode, unsignedp,
 				       default_label);
@@ -3203,8 +3205,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
-				    expand_expr (node->high, NULL_RTX,
-						 VOIDmode, 0),
+				    expand_normal (node->high),
 				    unsignedp),
 				   LE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
@@ -3221,8 +3222,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       GT, NULL_RTX, mode, unsignedp,
 				       default_label);
@@ -3233,8 +3233,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	  emit_cmp_and_jump_insns (index,
 				   convert_modes
 				   (mode, imode,
-				    expand_expr (node->low, NULL_RTX,
-						 VOIDmode, 0),
+				    expand_normal (node->low),
 				    unsignedp),
 				   GE, NULL_RTX, mode, unsignedp,
 				   label_rtx (node->code_label));
@@ -3255,8 +3254,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->high, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->high),
 					unsignedp),
 				       GT, NULL_RTX, mode, unsignedp,
 				       default_label);
@@ -3267,8 +3265,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	      emit_cmp_and_jump_insns (index,
 				       convert_modes
 				       (mode, imode,
-					expand_expr (node->low, NULL_RTX,
-						     VOIDmode, 0),
+					expand_normal (node->low),
 					unsignedp),
 				       LT, NULL_RTX, mode, unsignedp,
 				       default_label);
@@ -3283,13 +3280,13 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      /* Instead of doing two branches, emit one unsigned branch for
 		 (index-low) > (high-low).  */
-	      low_rtx = expand_expr (low, NULL_RTX, mode, 0);
+	      low_rtx = expand_expr (low, NULL_RTX, mode, EXPAND_NORMAL);
 	      new_index = expand_simple_binop (mode, MINUS, index, low_rtx,
 					       NULL_RTX, unsignedp,
 					       OPTAB_WIDEN);
 	      new_bound = expand_expr (fold_build2 (MINUS_EXPR, type,
 						    high, low),
-				       NULL_RTX, mode, 0);
+				       NULL_RTX, mode, EXPAND_NORMAL);
 
 	      emit_cmp_and_jump_insns (new_index, new_bound, GT, NULL_RTX,
 				       mode, 1, default_label);

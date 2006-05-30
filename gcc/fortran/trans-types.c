@@ -1,5 +1,6 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1720,7 +1721,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	     this code was bad, except that it would give incorrect results.
 
 	     Contained procedures could pass by value as these are never
-	     used without an explicit interface, and connot be passed as
+	     used without an explicit interface, and cannot be passed as
 	     actual parameters for a dummy procedure.  */
 	  if (arg->ts.type == BT_CHARACTER)
             nstr++;

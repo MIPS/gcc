@@ -172,7 +172,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
     return;
 
   /* One more slot for a terminating null.  */
-  new_argv = xmalloc ((new_argc + 1) * sizeof(char *));
+  new_argv = XNEWVEC (const char *, new_argc + 1);
 
   new_argv[0] = argv[0];
   j = 1;
@@ -208,9 +208,3 @@ int lang_specific_pre_link (void)
 
 /* Number of extra output files that lang_specific_pre_link may generate.  */
 int lang_specific_extra_outfiles = 0;  /* Not used for cpp.  */
-
-/* Table of language-specific spec functions.  */
-const struct spec_function lang_specific_spec_functions[] =
-{
-  { 0, 0 }
-};

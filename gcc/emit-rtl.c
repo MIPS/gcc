@@ -1,6 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -164,7 +165,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define last_location (cfun->emit->x_last_location)
 #define first_label_num (cfun->emit->x_first_label_num)
 
-static rtx make_jump_insn_raw (rtx);
 static rtx make_call_insn_raw (rtx);
 static rtx find_line_note (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
@@ -445,64 +445,28 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
   rtx value;
   unsigned int i;
 
+  /* There are the following cases (note that there are no modes with
+     HOST_BITS_PER_WIDE_INT < GET_MODE_BITSIZE (mode) < 2 * HOST_BITS_PER_WIDE_INT):
+
+     1) If GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT, then we use
+	gen_int_mode.
+     2) GET_MODE_BITSIZE (mode) == 2 * HOST_BITS_PER_WIDE_INT, but the value of
+	the integer fits into HOST_WIDE_INT anyway (i.e., i1 consists only
+	from copies of the sign bit, and sign of i0 and i1 are the same),  then 
+	we return a CONST_INT for i0.
+     3) Otherwise, we create a CONST_DOUBLE for i0 and i1.  */
   if (mode != VOIDmode)
     {
-      int width;
-      
       gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
 		  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT
 		  /* We can get a 0 for an error mark.  */
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT);
 
-      /* We clear out all bits that don't belong in MODE, unless they and
-	 our sign bit are all one.  So we get either a reasonable negative
-	 value or a reasonable unsigned value for this mode.  */
-      width = GET_MODE_BITSIZE (mode);
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && ((i0 & ((HOST_WIDE_INT) (-1) << (width - 1)))
-	      != ((HOST_WIDE_INT) (-1) << (width - 1))))
-	i0 &= ((HOST_WIDE_INT) 1 << width) - 1, i1 = 0;
-      else if (width == HOST_BITS_PER_WIDE_INT
-	       && ! (i1 == ~0 && i0 < 0))
-	i1 = 0;
-      else
-	/* We should be able to represent this value as a constant.  */
-	gcc_assert (width <= 2 * HOST_BITS_PER_WIDE_INT);
+      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	return gen_int_mode (i0, mode);
 
-      /* If this would be an entire word for the target, but is not for
-	 the host, then sign-extend on the host so that the number will
-	 look the same way on the host that it would on the target.
-
-	 For example, when building a 64 bit alpha hosted 32 bit sparc
-	 targeted compiler, then we want the 32 bit unsigned value -1 to be
-	 represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-	 The latter confuses the sparc backend.  */
-
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && (i0 & ((HOST_WIDE_INT) 1 << (width - 1))))
-	i0 |= ((HOST_WIDE_INT) (-1) << width);
-
-      /* If MODE fits within HOST_BITS_PER_WIDE_INT, always use a
-	 CONST_INT.
-
-	 ??? Strictly speaking, this is wrong if we create a CONST_INT for
-	 a large unsigned constant with the size of MODE being
-	 HOST_BITS_PER_WIDE_INT and later try to interpret that constant
-	 in a wider mode.  In that case we will mis-interpret it as a
-	 negative number.
-
-	 Unfortunately, the only alternative is to make a CONST_DOUBLE for
-	 any constant in any mode if it is an unsigned constant larger
-	 than the maximum signed integer in an int on the host.  However,
-	 doing this will break everyone that always expects to see a
-	 CONST_INT for SImode and smaller.
-
-	 We have always been making CONST_INTs in this case, so nothing
-	 new is being broken.  */
-
-      if (width <= HOST_BITS_PER_WIDE_INT)
-	i1 = (i0 < 0) ? ~(HOST_WIDE_INT) 0 : 0;
+      gcc_assert (GET_MODE_BITSIZE (mode) == 2 * HOST_BITS_PER_WIDE_INT);
     }
 
   /* If this integer fits in one word, return a CONST_INT.  */
@@ -1633,8 +1597,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
-				     size_binop (MULT_EXPR, convert (sizetype,
-								     index),
+				     size_binop (MULT_EXPR,
+						 fold_convert (sizetype,
+							       index),
 						 unit_size),
 				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
@@ -2179,10 +2144,11 @@ unshare_all_rtl_again (rtx insn)
   unshare_all_rtl_1 (cfun->decl, insn);
 }
 
-void
+unsigned int
 unshare_all_rtl (void)
 {
   unshare_all_rtl_1 (current_function_decl, get_insns ());
+  return 0;
 }
 
 struct tree_opt_pass pass_unshare_all_rtl =
@@ -2468,11 +2434,7 @@ repeat:
 
   if (RTX_FLAG (x, used))
     {
-      rtx copy;
-
-      copy = rtx_alloc (code);
-      memcpy (copy, x, RTX_SIZE (code));
-      x = copy;
+      x = shallow_copy_rtx (x);
       copied = 1;
     }
   RTX_FLAG (x, used) = 1;
@@ -2812,7 +2774,7 @@ get_max_uid (void)
 /* Renumber instructions so that no instruction UIDs are wasted.  */
 
 void
-renumber_insns (FILE *stream)
+renumber_insns (void)
 {
   rtx insn;
 
@@ -2829,8 +2791,8 @@ renumber_insns (FILE *stream)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (stream)
-	fprintf (stream, "Renumbering insn %d to %d\n",
+      if (dump_file)
+	fprintf (dump_file, "Renumbering insn %d to %d\n",
 		 INSN_UID (insn), cur_insn_uid);
       INSN_UID (insn) = cur_insn_uid++;
     }
@@ -3344,7 +3306,7 @@ make_insn_raw (rtx pattern)
 
 /* Like `make_insn_raw' but make a JUMP_INSN instead of an insn.  */
 
-static rtx
+rtx
 make_jump_insn_raw (rtx pattern)
 {
   rtx insn;
@@ -3716,79 +3678,6 @@ find_line_note (rtx insn)
 
   return insn;
 }
-
-/* Remove unnecessary notes from the instruction stream.  */
-
-void
-remove_unnecessary_notes (void)
-{
-  rtx eh_stack = NULL_RTX;
-  rtx insn;
-  rtx next;
-  rtx tmp;
-
-  /* We must not remove the first instruction in the function because
-     the compiler depends on the first instruction being a note.  */
-  for (insn = NEXT_INSN (get_insns ()); insn; insn = next)
-    {
-      /* Remember what's next.  */
-      next = NEXT_INSN (insn);
-
-      /* We're only interested in notes.  */
-      if (!NOTE_P (insn))
-	continue;
-
-      switch (NOTE_LINE_NUMBER (insn))
-	{
-	case NOTE_INSN_DELETED:
-	  remove_insn (insn);
-	  break;
-
-	case NOTE_INSN_EH_REGION_BEG:
-	  eh_stack = alloc_INSN_LIST (insn, eh_stack);
-	  break;
-
-	case NOTE_INSN_EH_REGION_END:
-	  /* Too many end notes.  */
-	  gcc_assert (eh_stack);
-	  /* Mismatched nesting.  */
-	  gcc_assert (NOTE_EH_HANDLER (XEXP (eh_stack, 0))
-		      == NOTE_EH_HANDLER (insn));
-	  tmp = eh_stack;
-	  eh_stack = XEXP (eh_stack, 1);
-	  free_INSN_LIST_node (tmp);
-	  break;
-
-	case NOTE_INSN_BLOCK_BEG:
-	case NOTE_INSN_BLOCK_END:
-          /* BLOCK_END and BLOCK_BEG notes only exist in the `final' pass.  */
-          gcc_unreachable ();
-
-	default:
-	  break;
-	}
-    }
-
-  /* Too many EH_REGION_BEG notes.  */
-  gcc_assert (!eh_stack);
-}
-
-struct tree_opt_pass pass_remove_unnecessary_notes =
-{
-  "eunotes",                            /* name */ 
-  NULL,					/* gate */
-  remove_unnecessary_notes,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,					/* tv_id */ 
-  0,					/* properties_required */
-  0,                                    /* properties_provided */
-  0,					/* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0                                     /* letter */ 
-};
 
 
 /* Emit insn(s) of given code and pattern
@@ -4890,7 +4779,7 @@ in_sequence_p (void)
 
 /* Put the various virtual registers into REGNO_REG_RTX.  */
 
-void
+static void
 init_virtual_regs (struct emit_status *es)
 {
   rtx *ptr = es->x_regno_reg_rtx;
@@ -4903,8 +4792,8 @@ init_virtual_regs (struct emit_status *es)
 
 
 /* Used by copy_insn_1 to avoid copying SCRATCHes more than once.  */
-static rtx copy_insn_scratch_in[MAX_RECOG_OPERANDS*2];
-static rtx copy_insn_scratch_out[MAX_RECOG_OPERANDS*2];
+static rtx copy_insn_scratch_in[MAX_RECOG_OPERANDS];
+static rtx copy_insn_scratch_out[MAX_RECOG_OPERANDS];
 static int copy_insn_n_scratches;
 
 /* When an insn is being copied by copy_insn_1, this is nonzero if we have
@@ -4979,13 +4868,11 @@ copy_insn_1 (rtx orig)
       break;
     }
 
-  copy = rtx_alloc (code);
-
-  /* Copy the various flags, and other information.  We assume that
-     all fields need copying, and then clear the fields that should
+  /* Copy the various flags, fields, and other information.  We assume
+     that all fields need copying, and then clear the fields that should
      not be copied.  That is the sensible default behavior, and forces
      us to explicitly document why we are *not* copying a flag.  */
-  memcpy (copy, orig, RTX_HDR_SIZE);
+  copy = shallow_copy_rtx (orig);
 
   /* We do not copy the USED flag, which is used as a mark bit during
      walks over the RTL.  */
@@ -5002,48 +4889,45 @@ copy_insn_1 (rtx orig)
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
-    {
-      copy->u.fld[i] = orig->u.fld[i];
-      switch (*format_ptr++)
-	{
-	case 'e':
-	  if (XEXP (orig, i) != NULL)
-	    XEXP (copy, i) = copy_insn_1 (XEXP (orig, i));
-	  break;
+    switch (*format_ptr++)
+      {
+      case 'e':
+	if (XEXP (orig, i) != NULL)
+	  XEXP (copy, i) = copy_insn_1 (XEXP (orig, i));
+	break;
 
-	case 'E':
-	case 'V':
-	  if (XVEC (orig, i) == orig_asm_constraints_vector)
-	    XVEC (copy, i) = copy_asm_constraints_vector;
-	  else if (XVEC (orig, i) == orig_asm_operands_vector)
-	    XVEC (copy, i) = copy_asm_operands_vector;
-	  else if (XVEC (orig, i) != NULL)
-	    {
-	      XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
-	      for (j = 0; j < XVECLEN (copy, i); j++)
-		XVECEXP (copy, i, j) = copy_insn_1 (XVECEXP (orig, i, j));
-	    }
-	  break;
+      case 'E':
+      case 'V':
+	if (XVEC (orig, i) == orig_asm_constraints_vector)
+	  XVEC (copy, i) = copy_asm_constraints_vector;
+	else if (XVEC (orig, i) == orig_asm_operands_vector)
+	  XVEC (copy, i) = copy_asm_operands_vector;
+	else if (XVEC (orig, i) != NULL)
+	  {
+	    XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
+	    for (j = 0; j < XVECLEN (copy, i); j++)
+	      XVECEXP (copy, i, j) = copy_insn_1 (XVECEXP (orig, i, j));
+	  }
+	break;
 
-	case 't':
-	case 'w':
-	case 'i':
-	case 's':
-	case 'S':
-	case 'u':
-	case '0':
-	  /* These are left unchanged.  */
-	  break;
+      case 't':
+      case 'w':
+      case 'i':
+      case 's':
+      case 'S':
+      case 'u':
+      case '0':
+	/* These are left unchanged.  */
+	break;
 
-	default:
-	  gcc_unreachable ();
-	}
-    }
+      default:
+	gcc_unreachable ();
+      }
 
   if (code == SCRATCH)
     {
       i = copy_insn_n_scratches++;
-      gcc_assert (i < MAX_RECOG_OPERANDS*2);
+      gcc_assert (i < MAX_RECOG_OPERANDS);
       copy_insn_scratch_in[i] = orig;
       copy_insn_scratch_out[i] = copy;
     }

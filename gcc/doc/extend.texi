@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000,
-@c 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -2207,6 +2207,20 @@ SSE registers instead of on the stack.  Functions that take a
 variable number of arguments will continue to pass all of their
 floating point arguments on the stack.
 
+@item force_align_arg_pointer
+@cindex @code{force_align_arg_pointer} attribute
+On the Intel x86, the @code{force_align_arg_pointer} attribute may be
+applied to individual function definitions, generating an alternate
+prologue and epilogue that realigns the runtime stack.  This supports
+mixing legacy codes that run with a 4-byte aligned stack with modern
+codes that keep a 16-byte stack for SSE compatibility.  The alternate
+prologue and epilogue are slower and bigger than the regular ones, and
+the alternate prologue requires a scratch register; this lowers the
+number of registers available if used in conjunction with the
+@code{regparm} attribute.  The @code{force_align_arg_pointer}
+attribute is incompatible with nested functions; this is considered a
+hard error.
+
 @item returns_twice
 @cindex @code{returns_twice} attribute
 The @code{returns_twice} attribute tells the compiler that a function may
@@ -2329,8 +2343,9 @@ inline assembly.
 
 @item visibility ("@var{visibility_type}")
 @cindex @code{visibility} attribute
-The @code{visibility} attribute on ELF targets causes the declaration
-to be emitted with default, hidden, protected or internal visibility.
+This attribute affects the linkage of the declaration to which it is attached.
+There are four supported @var{visibility_type} values: default,
+hidden, protected or internal visibility.
 
 @smallexample
 void __attribute__ ((visibility ("protected")))
@@ -2338,40 +2353,75 @@ f () @{ /* @r{Do something.} */; @}
 int i __attribute__ ((visibility ("hidden")));
 @end smallexample
 
-See the ELF gABI for complete details, but the short story is:
+The possible values of @var{visibility_type} correspond to the
+visibility settings in the ELF gABI.
 
 @table @dfn
 @c keep this list of visibilities in alphabetical order.
 
 @item default
-Default visibility is the normal case for ELF@.  This value is
-available for the visibility attribute to override other options
-that may change the assumed visibility of symbols.
+Default visibility is the normal case for the object file format.
+This value is available for the visibility attribute to override other
+options that may change the assumed visibility of entities.
+
+On ELF, default visibility means that the declaration is visible to other
+modules and, in shared libraries, means that the declared entity may be
+overridden.
+
+On Darwin, default visibility means that the declaration is visible to
+other modules.
+
+Default visibility corresponds to ``external linkage'' in the language.
 
 @item hidden
-Hidden visibility indicates that the symbol will not be placed into
-the dynamic symbol table, so no other @dfn{module} (executable or
-shared library) can reference it directly.
+Hidden visibility indicates that the entity declared will have a new
+form of linkage, which we'll call ``hidden linkage''.  Two
+declarations of an object with hidden linkage refer to the same object
+if they are in the same shared object.
 
 @item internal
 Internal visibility is like hidden visibility, but with additional
-processor specific semantics.  Unless otherwise specified by the psABI,
-GCC defines internal visibility to mean that the function is @emph{never}
-called from another module.  Note that hidden symbols, while they cannot
-be referenced directly by other modules, can be referenced indirectly via
-function pointers.  By indicating that a symbol cannot be called from
-outside the module, GCC may for instance omit the load of a PIC register
-since it is known that the calling function loaded the correct value.
+processor specific semantics.  Unless otherwise specified by the
+psABI, GCC defines internal visibility to mean that a function is
+@emph{never} called from another module.  Compare this with hidden
+functions which, while they cannot be referenced directly by other
+modules, can be referenced indirectly via function pointers.  By
+indicating that a function cannot be called from outside the module,
+GCC may for instance omit the load of a PIC register since it is known
+that the calling function loaded the correct value.
 
 @item protected
-Protected visibility indicates that the symbol will be placed in the
-dynamic symbol table, but that references within the defining module
-will bind to the local symbol.  That is, the symbol cannot be overridden
-by another module.
+Protected visibility is like default visibility except that it
+indicates that references within the defining module will bind to the
+definition in that module.  That is, the declared entity cannot be
+overridden by another module.
 
 @end table
 
-Not all ELF targets support this attribute.
+All visibilities are supported on many, but not all, ELF targets
+(supported when the assembler supports the @samp{.visibility}
+pseudo-op).  Default visibility is supported everywhere.  Hidden
+visibility is supported on Darwin targets.
+
+The visibility attribute should be applied only to declarations which
+would otherwise have external linkage.  The attribute should be applied
+consistently, so that the same entity should not be declared with
+different settings of the attribute.
+
+In C++, the visibility attribute applies to types as well as functions
+and objects, because in C++ types have linkage.  There are some bugs
+in the C++ support for this flag, for example a template which has a
+hidden type as a parameter is not properly hidden.
+@c bugzilla 26612
+
+In C++, you can mark member functions and static member variables of a
+class with the visibility attribute.  This is useful if if you know a
+particular method or static member variable should only be used from
+one shared object; then you can mark it hidden while the rest of the
+class has default visibility.  Care must be taken to avoid breaking
+the One Definition Rule; for example, it is not useful to mark a
+method which is defined inside a class definition as hidden without
+marking the whole class as hidden.
 
 @item warn_unused_result
 @cindex @code{warn_unused_result} attribute
@@ -3329,9 +3379,10 @@ alignment.  See your linker documentation for further information.
 
 @item packed
 This attribute, attached to @code{struct} or @code{union} type
-definition, specifies that each member of the structure or union is
-placed to minimize the memory required.  When attached to an @code{enum}
-definition, it indicates that the smallest integral type should be used.
+definition, specifies that each member (other than zero-width bitfields)
+of the structure or union is placed to minimize the memory required.  When
+attached to an @code{enum} definition, it indicates that the smallest
+integral type should be used.
 
 @opindex fshort-enums
 Specifying this attribute for @code{struct} and @code{union} types is
@@ -5733,8 +5784,9 @@ is at the least significant bit of the significand.  The number is
 truncated to fit the significand field provided.  The significand is
 forced to be a quiet NaN@.
 
-This function, if given a string literal, is evaluated early enough
-that it is considered a compile-time constant.
+This function, if given a string literal all of which would have been
+consumed by strtol, is evaluated early enough that it is considered a
+compile-time constant.
 @end deftypefn
 
 @deftypefn {Built-in Function} _Decimal32 __builtin_nand32 (const char *str)
@@ -9290,6 +9342,7 @@ for further explanation.
 * Symbol-Renaming Pragmas::
 * Structure-Packing Pragmas::
 * Weak Pragmas::
+* Diagnostic Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -9488,10 +9541,10 @@ way of knowing that that happened.)
 @subsection Structure-Packing Pragmas
 
 For compatibility with Win32, GCC supports a set of @code{#pragma}
-directives which change the maximum alignment of members of structures,
-unions, and classes subsequently defined.  The @var{n} value below always
-is required to be a small power of two and specifies the new alignment
-in bytes.
+directives which change the maximum alignment of members of structures
+(other than zero-width bitfields), unions, and classes subsequently
+defined.  The @var{n} value below always is required to be a small power
+of two and specifies the new alignment in bytes.
 
 @enumerate
 @item @code{#pragma pack(@var{n})} simply sets the new alignment.
@@ -9528,6 +9581,51 @@ either its first use or its definition.  It is not an error for
 This pragma declares @var{symbol1} to be a weak alias of @var{symbol2}.
 It is an error if @var{symbol2} is not defined in the current
 translation unit.
+@end table
+
+@node Diagnostic Pragmas
+@subsection Diagnostic Pragmas
+
+GCC allows the user to selectively enable or disable certain types of
+diagnostics, and change the kind of the diagnostic.  For example, a
+project's policy might require that all sources compile with
+@option{-Werror} but certain files might have exceptions allowing
+specific types of warnings.  Or, a project might selectively enable
+diagnostics and treat them as errors depending on which preprocessor
+macros are defined.
+
+@table @code
+@item #pragma GCC diagnostic @var{kind} @var{option}
+@cindex pragma, diagnostic
+
+Modifies the disposition of a diagnostic.  Note that not all
+diagnostics are modifyiable; at the moment only warnings (normally
+controlled by @samp{-W...}) can be controlled, and not all of them.
+Use @option{-fdiagnostics-show-option} to determine which diagnostics
+are controllable and which option controls them.
+
+@var{kind} is @samp{error} to treat this diagnostic as an error,
+@samp{warning} to treat it like a warning (even if @option{-Werror} is
+in effect), or @samp{ignored} if the diagnostic is to be ignored.
+@var{option} is a double quoted string which matches the command line
+option.
+
+@example
+#pragma GCC diagnostic warning "-Wformat"
+#pragma GCC diagnostic error "-Walways-true"
+#pragma GCC diagnostic ignored "-Walways-true"
+@end example
+
+Note that these pragmas override any command line options.  Also,
+while it is syntactically valid to put these pragmas anywhere in your
+sources, the only supported location for them is before any data or
+functions are defined.  Doing otherwise may result in unpredictable
+results depending on how the optimizer manages your sources.  If the
+same option is listed multiple times, the last one specified is the
+one that is in effect.  This pragma is not intended to be a general
+purpose replacement for command line options, but for implementing
+strict control over project policies.
+
 @end table
 
 @node Unnamed Fields
@@ -9864,7 +9962,7 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
-* Strong Using::      Strong using-directives for namespace composition.
+* Namespace Association:: Strong using-directives for namespace association.
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -10402,28 +10500,32 @@ interface table mechanism, instead of regular virtual table dispatch.
 
 @end table
 
-See also @xref{Strong Using}.
+See also @xref{Namespace Association}.
 
-@node Strong Using
-@section Strong Using
+@node Namespace Association
+@section Namespace Association
 
 @strong{Caution:} The semantics of this extension are not fully
 defined.  Users should refrain from using this extension as its
 semantics may change subtly over time.  It is possible that this
-extension wil be removed in future versions of G++.
+extension will be removed in future versions of G++.
 
 A using-directive with @code{__attribute ((strong))} is stronger
 than a normal using-directive in two ways:
 
 @itemize @bullet
 @item
-Templates from the used namespace can be specialized as though they were members of the using namespace.
+Templates from the used namespace can be specialized and explicitly
+instantiated as though they were members of the using namespace.
 
 @item
 The using namespace is considered an associated namespace of all
 templates in the used namespace for purposes of argument-dependent
 name lookup.
 @end itemize
+
+The used namespace must be nested within the using namespace so that
+normal unqualified lookup works properly.
 
 This is useful for composing a namespace transparently from
 implementation namespaces.  For example:

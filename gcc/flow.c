@@ -1,6 +1,7 @@
 /* Data flow analysis for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -181,7 +182,7 @@ int max_regno;
 
 /* Indexed by n, giving various register information */
 
-varray_type reg_n_info;
+VEC(reg_info_p,heap) *reg_n_info;
 
 /* Regset of regs live when calls to `setjmp'-like functions happen.  */
 /* ??? Does this exist only for the setjmp-clobbered warning message?  */
@@ -353,7 +354,7 @@ first_insn_after_basic_block_note (basic_block block)
    FLAGS is a set of PROP_* flags to be used in accumulating flow info.  */
 
 void
-life_analysis (FILE *file, int flags)
+life_analysis (int flags)
 {
 #ifdef ELIMINABLE_REGS
   int i;
@@ -436,8 +437,8 @@ life_analysis (FILE *file, int flags)
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     end_alias_analysis ();
 
-  if (file)
-    dump_flow_info (file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   /* Removing dead insns should have made jumptables really dead.  */
   delete_dead_jumptables ();
@@ -577,7 +578,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   ndead = 0;
 
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
-    reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+    reg_deaths = XCNEWVEC (int, max_regno);
 
   timevar_push ((extent == UPDATE_LIFE_LOCAL || blocks)
 		? TV_LIFE_UPDATE : TV_LIFE);
@@ -814,8 +815,10 @@ delete_noop_moves (void)
 	    }
 	}
     }
+
   if (nnoops && dump_file)
-    fprintf (dump_file, "deleted %i noop moves", nnoops);
+    fprintf (dump_file, "deleted %i noop moves\n", nnoops);
+
   return nnoops;
 }
 
@@ -1058,12 +1061,12 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       SET_REGNO_REG_SET (invalidated_by_call, i);
 
   /* Allocate space for the sets of local properties.  */
-  local_sets = xcalloc (last_basic_block, sizeof (regset));
-  cond_local_sets = xcalloc (last_basic_block, sizeof (regset));
+  local_sets = XCNEWVEC (bitmap, last_basic_block);
+  cond_local_sets = XCNEWVEC (bitmap, last_basic_block);
 
   /* Create a worklist.  Allocate an extra slot for the `head == tail'
      style test for an empty queue doesn't work with a full queue.  */
-  queue = xmalloc ((n_basic_blocks + 1) * sizeof (*queue));
+  queue = XNEWVEC (basic_block, n_basic_blocks + 1);
   qtail = queue;
   qhead = qend = queue + n_basic_blocks;
 
@@ -1088,7 +1091,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	}
     }
 
-  block_accesses = xcalloc (last_basic_block, sizeof (int));
+  block_accesses = XCNEWVEC (int, last_basic_block);
   
   /* We clean aux when we remove the initially-enqueued bbs, but we
      don't enqueue ENTRY and EXIT initially, so clean them upfront and
@@ -1393,6 +1396,9 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  basic_block pb = e->src;
+
+	  gcc_assert ((e->flags & EDGE_FAKE) == 0);
+
 	  if (pb->aux == NULL)
 	    {
 	      *qtail++ = pb;
@@ -1494,7 +1500,7 @@ find_regno_partial (rtx *ptr, void *data)
    registers whose value is unknown, and may contain some kind of sticky
    bits we don't want.  */
 
-int
+static int
 initialize_uninitialized_subregs (void)
 {
   rtx insn;
@@ -1572,7 +1578,7 @@ allocate_reg_life_data (void)
 
   max_regno = max_reg_num ();
   gcc_assert (!reg_deaths);
-  reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+  reg_deaths = XCNEWVEC (int, max_regno);
 
   /* Recalculate the register space, in case it has grown.  Old style
      vector oriented regsets would set regset_{size,bytes} here also.  */
@@ -1938,7 +1944,7 @@ struct propagate_block_info *
 init_propagate_block_info (basic_block bb, regset live, regset local_set,
 			   regset cond_local_set, int flags)
 {
-  struct propagate_block_info *pbi = xmalloc (sizeof (*pbi));
+  struct propagate_block_info *pbi = XNEW (struct propagate_block_info);
 
   pbi->bb = bb;
   pbi->reg_live = live;
@@ -1951,7 +1957,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   pbi->insn_num = 0;
 
   if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-    pbi->reg_next_use = xcalloc (max_reg_num (), sizeof (rtx));
+    pbi->reg_next_use = XCNEWVEC (rtx, max_reg_num ());
   else
     pbi->reg_next_use = NULL;
 
@@ -2041,7 +2047,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		  struct reg_cond_life_info *rcli;
 		  rtx cond;
 
-		  rcli = xmalloc (sizeof (*rcli));
+		  rcli = XNEW (struct reg_cond_life_info);
 
 		  if (REGNO_REG_SET_P (bb_true->il.rtl->global_live_at_start,
 				       i))
@@ -3056,7 +3062,7 @@ mark_regno_cond_dead (struct propagate_block_info *pbi, int regno, rtx cond)
 	  /* The register was unconditionally live previously.
 	     Record the current condition as the condition under
 	     which it is dead.  */
-	  rcli = xmalloc (sizeof (*rcli));
+	  rcli = XNEW (struct reg_cond_life_info);
 	  rcli->condition = cond;
 	  rcli->stores = cond;
 	  rcli->orig_condition = const0_rtx;
@@ -3856,7 +3862,7 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
 	    {
 	      /* The register was not previously live at all.  Record
 		 the condition under which it is still dead.  */
-	      rcli = xmalloc (sizeof (*rcli));
+	      rcli = XNEW (struct reg_cond_life_info);
 	      rcli->condition = not_reg_cond (cond);
 	      rcli->stores = const0_rtx;
 	      rcli->orig_condition = const0_rtx;
@@ -4403,7 +4409,7 @@ debug_regset (regset r)
    It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
    possibly other information which is used by the register allocators.  */
 
-void
+static unsigned int
 recompute_reg_usage (void)
 {
   allocate_reg_life_data ();
@@ -4414,7 +4420,8 @@ recompute_reg_usage (void)
   update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
+  return 0;
 }
 
 struct tree_opt_pass pass_recompute_reg_usage =
@@ -4602,10 +4609,11 @@ gate_remove_death_notes (void)
   return flag_profile_values;
 }
 
-static void
+static unsigned int
 rest_of_handle_remove_death_notes (void)
 {
   count_or_remove_death_notes (NULL, 1);
+  return 0;
 }
 
 struct tree_opt_pass pass_remove_death_notes =
@@ -4626,12 +4634,12 @@ struct tree_opt_pass pass_remove_death_notes =
 };
 
 /* Perform life analysis.  */
-static void
+static unsigned int
 rest_of_handle_life (void)
 {
   regclass_init ();
 
-  life_analysis (dump_file, PROP_FINAL);
+  life_analysis (PROP_FINAL);
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
                  | (flag_thread_jumps ? CLEANUP_THREADING : 0));
@@ -4655,6 +4663,7 @@ rest_of_handle_life (void)
     }
 
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_life =
@@ -4675,7 +4684,7 @@ struct tree_opt_pass pass_life =
   'f'                                   /* letter */
 };
 
-static void
+static unsigned int
 rest_of_handle_flow2 (void)
 {
   /* If optimizing, then go ahead and split insns now.  */
@@ -4697,6 +4706,7 @@ rest_of_handle_flow2 (void)
   thread_prologue_and_epilogue_insns (get_insns ());
   epilogue_completed = 1;
   flow2_completed = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_flow2 =

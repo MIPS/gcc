@@ -1,3 +1,296 @@
+2006-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* javaop.h (int16, int32, int64): Define to exactly 16 (resp. 32, 64)
+	bit wide type.
+	(jword): Define to uint64 on 64-bit arches.
+	* jcf-dump.c (print_constant): Cast JPOOL_UINT to long.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, except.c, expr.c, java-gimplify.c: Fix comment
+	typos.
+
+2006-05-26  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (java_push_constant_from_pool): Handle 'ldc class'.
+	* verify-glue.c (vfy_class_type): New function.
+	* verify-impl.c (check_constant): Allow 'ldc class'.
+	* verify.h (vfy_class_type): Declare.
+
+2006-05-25  Andrew Haley  <aph@redhat.com>
+
+	PR java/27756
+	* decl.c (maybe_pushlevels): When variable ranges are non-nested
+	update all lifetimes, not just the first one.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h: Fixed flag documentation.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27729:
+	* jcf.h (ACC_INVISIBLE): Changed value.
+
+2006-05-24  Andrew Haley  <aph@redhat.com>
+
+	PR java/27754
+	* decl.c (java_add_stmt): Use a STATEMENT_LIST rather than a
+	COMPOUND_EXPR.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lang.opt (femit-class-file): Remove VarExists.
+
+2006-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (verify_instructions_0) <op_return>: Special case
+	for Object.<init>.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in ($(GCJ)$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (java/decl.o): Add dependency on $(TARGET_H).
+	(java/expr.o): Replace target.h with $(TARGET_H).
+	(java/parse.o): Likewise.
+
+2006-05-10  Andrew Haley  <aph@redhat.com>
+
+	* class.c (emit_indirect_register_classes): Fix comment.
+
+2006-05-04  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (uses_jv_markobj_p): Declare.
+	* class.c (uses_jv_markobj_p): Removed.
+	* boehm.c (PROCEDURE_OBJECT_DESCRIPTOR): New define.
+	(get_boehm_type_descriptor): Use it.
+	(uses_jv_markobj_p): Moved from class.c.  Return bool.
+
+2006-05-04  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.def (THIS_EXPR): Now a tcc_expression.
+
+2006-05-04  Andrew Haley  <aph@redhat.com>
+
+	* class.c (make_field_value): Always build_address_of fdecl if
+	there is an initializer.
+
+2006-05-03  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/27352
+	* expr.c (maybe_rewrite_invocation): New function.
+	(rewrite_arglist_getclass): Likewise.
+	(rules): New.
+	(expand_invoke): Call maybe_rewrite_invocation.
+	* parse.y (patch_invoke): Likewise.
+	* java-tree.h: (maybe_rewrite_invocation): New function.
+
+2006-04-21  Andrew Haley  <aph@redhat.com>
+
+	* lang.c (java_init): Handle flag_indirect_classes.
+	* jvgenmain.c: Use "class$$" instead of "class$".
+	* mangle.c (java_mangle_decl): Accept RECORD_TYPEs sw well as
+	DECLs.
+	(mangle_class_field): Special case "class$$" as well as "class$".
+	* constants.c (build_ref_from_constant_pool): If
+	flag_indirect_classes, generate a ref into the heap.
+	* decl.c (constants_field_decl_node,
+	constants_data_field_decl_node): New.
+	* class.c (build_static_class_ref): New.
+	(build_classdollar_field): Factor out from build_class_ref().
+	(make_field_value): Handle static fields in heap.
+	(make_class_data): Make sure we get a static ref to class.
+	Make class initializer const if flag_indirect_classes.
+	(register_class): Build a class_ref for initialization if
+	flag_indirect_classes.
+	(emit_indirect_register_classes): New.
+
+2006-04-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* expr.c, gjavah.c: Fix comment typos.
+
+2006-04-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* expr.c (build_field_ref): Don't check the field offset if
+	flag_syntax_only.
+
+2006-03-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* lang.c (java_attribute_table): New.
+	(LANG_HOOKS_ATTRIBUTE_TABLE): Define.
+	* expr.c (build_field_ref): Add a null pointer check for all
+	fields of offset > 4k.  Don't do so for accesses via the this
+	pointer, which we know can never be null.
+	* class.c (build_java_method_type): Mark arg 1 of all nonstatic
+	methods nonnull.
+
+2006-03-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* parse.y (java_reorder_fields): Reset superclass field's size as
+	well.
+
+2006-03-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26390:
+	* parse.y (find_most_specific_methods_list): Added 'class'
+	argument.
+	(lookup_method_invoke): Updated.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_bytecode_insns): Use qualifying type for
+	non-static method calls.
+
+2006-03-15  David Daney  <ddaney@avtrex.com>
+
+	* java-tree.h : Moved comment for TYPE_DOT_CLASS adjacent to its
+	declaration.
+
+2006-03-15  David Daney  <ddaney@avtrex.com>
+
+	* lang.opt (-freduced-reflection): New option.
+	* lang.c (java_post_options): Generate an error if
+	-freduced-reflection used with -fjni or -findirect-dispatch.
+	* java-tree.h (flag_reduced_reflection): Declare new variable.
+	* boehm.c (get_boehm_type_descriptor): Indicate all pointers
+	if bitmap overflows and flag_reduced_reflection set.
+	* class.c (uses_jv_markobj_p): New function.
+	(make_class_data): Moved generation of vtable to before
+	reflection data, generate less reflection data if
+	flag_reduced_reflection set.
+	* gcj.texi: Document -freduced-reflection.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26638:
+	* class.c (get_interface_method_index): Don't put <clinit> into
+	interface table.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (analyze_clinit_body): Ignore empty statements.
+
+2006-03-08  David Daney  <ddaney@avtrex.com>
+
+	* gcj.texi: Document -static-libgcj option.
+
+2006-02-20  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Set input_location from
+	current_class.
+
+2006-02-15  Andrew Haley  <aph@redhat.com>
+
+	* class.c (GEN_TABLE): Don't pushdecl *_SYMS_DECL here.
+	(make_class_data): pushdecl_top_level TYPE_OTABLE_SYMS_DECL,
+	TYPE_ATABLE_SYMS_DECL, TYPE_ITABLE_SYMS_DECL here.
+
+2006-02-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/26192
+	* expr.c (expand_invoke): Allow methods in arrays to be resolved
+	in their superclass.
+
+	* typeck.c (build_java_array_type): Generate TYPE_STUB_DECLs for
+	array types.
+	
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/22578:
+	* check-init.c (check_init): Handle VIEW_CONVERT_EXPR.
+	* builtins.c (convert_real): New function.
+	(java_builtins): Handle Float.intBitsToFloat,
+	Float.floatToRawIntBits, Double.longBitsToDouble,
+	Double.doubleToRawLongBits.
+
+2006-02-07  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_invoke): (BC mode.)  If we find a method in a
+	class other than the one in which we expected to find it, ignore
+	the result.
+
+	PR java/25535
+	* constants.c (build_constants_constructor): move initializer into
+	first halfword on a 64-bit big-endian machine.
+ 
+2006-02-04  Tom Tromey  <tromey@redhat.com>
+
+	PR java/25676:
+	* builtins.c (max_builtin): Skip floating point 'max'.
+	(min_builtin): Skip floating point 'min'.
+	(check_for_builtin): Never return NULL_TREE.
+
+2006-02-04  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26097:
+	* expr.c (push_type): Avoid side effect in gcc_assert.
+
+2006-02-04  Roger Sayle  <roger@eyesopen.com>
+
+	* decl.c (java_init_decl_processing): Create char_type_node as a
+	regular INTEGER_TYPE node.
+	(push_promoted_type): Preserve TYPE_STRING_FLAG on types.
+	* typeck.c (convert): No longer check for CHAR_TYPEs but instead
+	test for char_type_node and promoted_char_type_node as special
+	instances of INTEGER_TYPE tree codes.
+	(promote_type,build_java_signature): Likewise.
+	* jcf-write.c (adjust_typed_op): Likewise.
+	* mangle.c (mangle_type): Likewise.
+	* parse.y (do_unary_numeric_promotion): No longer handle CHAR_TYPE.
+	* parse.h (JINTEGRAL_TYPE_P): Likewise.
+
+2006-02-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* expr.c (java_stack_swap): Revert gcc_assert patch.
+
+2006-02-03  Ben Elliston  <bje@au.ibm.com>
+
+	* java-gimplify.c: Use gcc_assert and gcc_unreachable throughout.
+	* typeck.c: Likewise.
+	* verify-impl.c: Likewise.
+	* class.c: Likewise.
+	* decl.c: Likewise.
+	* jcf-parse.c: Likewise.
+	* constants.c: Likewise.
+	* check-init.c: Likewise.
+	* jcf-write.c: Likewise.
+	* verify-glue.c: Likewise.
+	* mangle.c: Likewise.
+	* expr.c: Likewise.
+	* lang.c: Likewise.
+	* boehm.c: Likewise.
+
+2006-02-01  Jan Hubicka  <jh@suse.cz>
+
+	* decl.c (end_java_method): Kill hack disabling unit-at-a-time.
+	* lang.c (java_init_options): Set no_unit_at_a_time_default.
+
+2006-01-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/21428
+	* parse.y: (source_start_java_method): Mark DECL_ARTIFICIAL("this").
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* jv-scan.c (version), jcf-dump.c (version), gjavah.c (version):
+	Update copyright notice dates.
+
+2006-01-16  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* jvspec.c (lang_specific_spec_functions): Remove.
+
 2006-01-06  Tom Tromey  <tromey@redhat.com>
 
 	* gcj.texi (Arrays): Added more documentation for

@@ -1,5 +1,6 @@
 /* gtkcheckboxpeer.c -- Native implementation of GtkCheckboxPeer
-   Copyright (C) 1998, 1999, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2003, 2004, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,6 +42,7 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 
 static jmethodID postItemEventID;
+static GtkWidget *combobox_get_widget (GtkWidget *widget);
 
 void
 cp_gtk_checkbox_init_jni (void)
@@ -52,7 +54,7 @@ cp_gtk_checkbox_init_jni (void)
 
   postItemEventID = (*cp_gtk_gdk_env())->GetMethodID (cp_gtk_gdk_env(), gtkcheckboxpeer,
                                                "postItemEvent", 
-                                               "(Ljava/lang/Object;I)V");
+                                               "(Ljava/lang/Object;Z)V");
 }
 
 static void item_toggled_cb (GtkToggleButton *item, jobject peer);
@@ -62,26 +64,35 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_create
   (JNIEnv *env, jobject obj, jobject group)
 {
   GtkWidget *button;
+  GtkWidget *eventbox;
 
   gdk_threads_enter ();
 
   NSA_SET_GLOBAL_REF (env, obj);
-
+  eventbox = gtk_event_box_new ();
+  
   if (group == NULL)
+  {
     button = gtk_check_button_new_with_label ("");
+    gtk_container_add (GTK_CONTAINER (eventbox), button);
+    gtk_widget_show (button); 
+  }
   else
     {
       void *native_group = NSA_GET_PTR (env, group);
       button = gtk_radio_button_new_with_label_from_widget (native_group, "");
+      gtk_container_add (GTK_CONTAINER (eventbox), button);
+      gtk_widget_show (button); 
+      
       if (native_group == NULL)
-	{
-	  /* Set the native group so we can use the correct value the
-	     next time around.  FIXME: this doesn't work!  */
-	  NSA_SET_PTR (env, group, button);
-	}
+	  {
+	    /* Set the native group so we can use the correct value the
+	       next time around.  FIXME: this doesn't work!  */
+	    NSA_SET_PTR (env, group, button);
+	  }
     }
 
-  NSA_SET_PTR (env, obj, button);
+  NSA_SET_PTR (env, obj, eventbox);
 
   gdk_threads_leave ();
 }
@@ -92,18 +103,20 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_connectSignals
 {
   void *ptr = NULL;
   jobject *gref = NULL;
+  GtkWidget *bin;
 
   gdk_threads_enter ();
 
   ptr = NSA_GET_PTR (env, obj);
   gref = NSA_GET_GLOBAL_REF (env, obj);
+  bin = combobox_get_widget (GTK_WIDGET (ptr));
 
   /* Checkbox signals */
-  g_signal_connect (G_OBJECT (ptr), "toggled",
+  g_signal_connect (G_OBJECT (bin), "toggled",
                     G_CALLBACK (item_toggled_cb), *gref);
 
   /* Component signals */
-  cp_gtk_component_connect_signals (G_OBJECT (ptr), gref);
+  cp_gtk_component_connect_signals (G_OBJECT (bin), gref);
 
   gdk_threads_leave ();
 }
@@ -114,16 +127,18 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeSetCheckboxGroup
 {
   GtkRadioButton *button;
   void *native_group, *ptr;
+  GtkWidget *bin;
 
   gdk_threads_enter ();
 
   ptr = NSA_GET_PTR (env, obj);
-
+  bin = combobox_get_widget (GTK_WIDGET (ptr));
+  
   /* FIXME: we can't yet switch between a checkbutton and a
      radiobutton.  However, AWT requires this.  For now we just
      crash.  */
 
-  button = GTK_RADIO_BUTTON (ptr);
+  button = GTK_RADIO_BUTTON (bin);
 
   native_group = NSA_GET_PTR (env, group);
   if (native_group == NULL)
@@ -151,12 +166,14 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkToggleButtonSetActive
   (JNIEnv *env, jobject obj, jboolean is_active)
 {
   void *ptr;
+  GtkWidget *bin;
 
   gdk_threads_enter ();
 
   ptr = NSA_GET_PTR (env, obj);
-
-  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ptr), is_active);
+  bin = combobox_get_widget (GTK_WIDGET (ptr));
+  
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (bin), is_active);
 
   gdk_threads_leave ();
 }
@@ -175,7 +192,7 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkWidgetModifyFont
 
   ptr = NSA_GET_PTR (env, obj);
 
-  button = GTK_WIDGET (ptr);
+  button = combobox_get_widget (GTK_WIDGET (ptr));
   label = gtk_bin_get_child (GTK_BIN(button));
 
   if (!label)
@@ -216,7 +233,7 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkButtonSetLabel
 
   c_label = (*env)->GetStringUTFChars (env, label, NULL);
 
-  label_widget = gtk_bin_get_child (GTK_BIN (ptr));
+  label_widget = gtk_bin_get_child (GTK_BIN (combobox_get_widget (GTK_WIDGET (ptr))));
   gtk_label_set_text (GTK_LABEL (label_widget), c_label);
 
   (*env)->ReleaseStringUTFChars (env, label, c_label);
@@ -230,7 +247,17 @@ item_toggled_cb (GtkToggleButton *item, jobject peer)
   (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
                                 postItemEventID,
                                 peer,
-                                item->active ?
-                                (jint) AWT_ITEM_SELECTED :
-                                (jint) AWT_ITEM_DESELECTED);
+                                item->active);
 }
+
+static GtkWidget *
+combobox_get_widget (GtkWidget *widget)
+{
+  GtkWidget *wid;
+
+  g_assert (GTK_IS_EVENT_BOX (widget));
+  wid = gtk_bin_get_child (GTK_BIN(widget));
+
+  return wid;
+}
+

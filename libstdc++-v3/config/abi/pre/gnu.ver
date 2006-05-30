@@ -1,6 +1,6 @@
 ## Linker script for GNU versioning (GNU ld 2.13.91+ only.)
 ##
-## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
@@ -90,7 +90,10 @@ GLIBCXX_3.4 {
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
 #     std::[A-Zm-r]*;
-      std::[A-Zm-n]*;
+      std::[A-Zm]*;
+      std::n[^u]*;
+      std::nu[^m]*;
+      std::num[^e]*;
       std::[p-r]*;
       std::ostrstream*;
       std::out_of_range*;
@@ -116,7 +119,10 @@ GLIBCXX_3.4 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
+      __gnu_debug::_Safe_iterator_base*;
+      __gnu_debug::_Safe_sequence_base*;
+      __gnu_debug::_Error_formatter*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -254,7 +260,7 @@ GLIBCXX_3.4 {
     _ZNSi[0-9][a-h]*;
     _ZNSi[0-9][j-z]*;
     _ZNSi6ignoreE[il][il];
-    _ZNSirsE*;
+    _ZNSirsE*[^g];
 
     # std::basic_istream<wchar_t>
     _ZNSt13basic_istreamIwSt11char_traitsIwEEC*;
@@ -263,7 +269,7 @@ GLIBCXX_3.4 {
     _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][a-h]*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][j-z]*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreE[il][ijlm];
-    _ZNSt13basic_istreamIwSt11char_traitsIwEErsE*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEErsE*[^g];
 
     # std::istream operators and extractors
     _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;
@@ -281,7 +287,7 @@ GLIBCXX_3.4 {
     _ZNKSo6sentrycvbEv;
     _ZNSo8_M_write*;
     _ZNSo[0-9][a-z]*;
-    _ZNSolsE*;
+    _ZNSolsE*[^g];
 
     # std::basic_ostream<wchar_t>
     _ZNSt13basic_ostreamIwSt11char_traitsIwEEC*;
@@ -294,7 +300,7 @@ GLIBCXX_3.4 {
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE5writeEPKw*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE6sentry*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE8_M_write*;
-    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE*[^g];
 
     # std::ostream operators and inserters
     _ZSt4end[ls]I[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
@@ -321,7 +327,7 @@ GLIBCXX_3.4 {
     _ZNSt8ios_base4InitD*;
 
     # bool std::has_facet 
-    _ZSt9has_facet*;
+    _ZSt9has_facetIS*;
 
     # std::num_get
     _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
@@ -334,6 +340,9 @@ GLIBCXX_3.4 {
 
     # std::money_put
     _ZNKSt9money_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+
+    # std::numeric_limits
+    _ZNSt14numeric_limitsI[^g]*;
 
     # std::_Rb_tree
     _ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base;
@@ -362,7 +371,7 @@ GLIBCXX_3.4 {
     _ZNSt12__basic_fileIcED*;
 
     # std::__convert_to_v
-    _ZSt14__convert_to_v*;
+    _ZSt14__convert_to_vI[^g]*;
 
     # __gnu_cxx::stdio_sync_filebuf
     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
@@ -372,26 +381,12 @@ GLIBCXX_3.4 {
     _ZN9__gnu_cxx12__atomic_add*;
     _ZN9__gnu_cxx18__exchange_and_add*;
 
-    # __gnu_debug
-    _ZN10__gnu_norm15_List_node_base4hookEPS0_;
-    _ZN10__gnu_norm15_List_node_base4swapERS0_S1_;
+    # debug mode
+    _ZN10__gnu_norm15_List_node_base4hook*;
+    _ZN10__gnu_norm15_List_node_base4swap*;
     _ZN10__gnu_norm15_List_node_base6unhookEv;
     _ZN10__gnu_norm15_List_node_base7reverseEv;
-    _ZN10__gnu_norm15_List_node_base8transferEPS0_S1_;
-    _ZN11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
-    _ZN11__gnu_debug19_Safe_iterator_base9_M_detachEv;
-    _ZNK11__gnu_debug19_Safe_iterator_base11_M_singularEv;
-    _ZNK11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
-    _ZN11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
-    _ZN11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
-    _ZN11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
-    _ZN11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
-    _ZNK11__gnu_debug16_Error_formatter8_M_errorEv;
-    _ZNK11__gnu_debug16_Error_formatter10_M_messageENS_13_Debug_msg_idE;
-    _ZNK11__gnu_debug16_Error_formatter10_Parameter14_M_print_fieldEPKS0_PKc;
-    _ZNK11__gnu_debug16_Error_formatter10_Parameter20_M_print_descriptionEPKS0_;
-    _ZNK11__gnu_debug16_Error_formatter13_M_print_wordEPKc;
-    _ZNK11__gnu_debug16_Error_formatter15_M_print_stringEPKc;
+    _ZN10__gnu_norm15_List_node_base8transfer*;
 
     # operator new(size_t)
     _Znw[jm];
@@ -455,7 +450,8 @@ GLIBCXX_3.4 {
     _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # function-scope static objects requires a guard variable.
-    _ZGVNSt*;
+    _ZGVNSt[^1]*;
+    _ZGVNSt1[^7]*;
 
     # virtual function thunks
     _ZThn8_NS*;
@@ -641,32 +637,30 @@ GLIBCXX_3.4.7 {
 
     _ZNSt6locale5_Impl16_M_install_cacheEPKNS_5facetE[jm];
 
-    _ZNSt10__gnu_norm15_List_node_base4hookEPS0_;
-    _ZNSt10__gnu_norm15_List_node_base4swapERS0_S1_;
-    _ZNSt10__gnu_norm15_List_node_base6unhookEv;
-    _ZNSt10__gnu_norm15_List_node_base7reverseEv;
-    _ZNSt10__gnu_norm15_List_node_base8transferEPS0_S1_;
-    _ZNKSt11__gnu_debug16_Error_formatter8_M_errorEv;
-    _ZNKSt11__gnu_debug16_Error_formatter10_M_messageENS_13_Debug_msg_idE;
-    _ZNKSt11__gnu_debug16_Error_formatter10_Parameter14_M_print_fieldEPKS0_PKc;
-    _ZNKSt11__gnu_debug16_Error_formatter10_Parameter20_M_print_descriptionEPKS0_;
-    _ZNKSt11__gnu_debug16_Error_formatter13_M_print_wordEPKc;
-    _ZNKSt11__gnu_debug16_Error_formatter15_M_print_stringEPKc;
-    _ZNKSt11__gnu_debug19_Safe_iterator_base11_M_singularEv;
-    _ZNKSt11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
-    _ZNSt11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
-    _ZNSt11__gnu_debug19_Safe_iterator_base9_M_detachEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
-
-    _ZNSo9_M_insertI*;
-    _ZNSt13basic_ostreamIwSt11char_traitsIwEE9_M_insertI*;
-    _ZNSi10_M_extractI*;
-    _ZNSt13basic_istreamIwSt11char_traitsIwEE10_M_extractI*;
-
 } GLIBCXX_3.4.6;
+
+GLIBCXX_3.4.8 {
+
+    _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EElPSt15basic_streambuf*;
+
+} GLIBCXX_3.4.7;
+
+GLIBCXX_3.4.9 {
+
+    _ZNSt6__norm15_List_node_base4hook*;
+    _ZNSt6__norm15_List_node_base4swap*;
+    _ZNSt6__norm15_List_node_base6unhookEv;
+    _ZNSt6__norm15_List_node_base7reverseEv;
+    _ZNSt6__norm15_List_node_base8transfer*;
+
+    _ZNSo9_M_insertI[^g]*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE9_M_insertI[^g]*;
+    _ZNSi10_M_extractI[^g]*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE10_M_extractI[^g]*;
+
+    _ZSt21__copy_streambufs_eofI[cw]St11char_traitsI[cw]EE[il]PSt15basic_streambuf*;
+} GLIBCXX_3.4.8;
+
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {
@@ -740,9 +734,9 @@ CXXABI_1.3 {
     _ZTVN10__cxxabiv121__vmi_class_type_infoE;
 
     # typeinfo structure (and some names)
-    _ZTI[a-z];
-    _ZTIP[a-z];
-    _ZTIPK[a-z];
+    _ZTI[a-fh-z];
+    _ZTIP[a-fh-z];
+    _ZTIPK[a-fh-z];
     _ZTIN10__cxxabiv117__array_type_infoE;
     _ZTIN10__cxxabiv117__class_type_infoE;
     _ZTIN10__cxxabiv116__enum_type_infoE;
@@ -755,9 +749,9 @@ CXXABI_1.3 {
     _ZTIN10__cxxabiv121__vmi_class_type_infoE;
 
     # typeinfo name
-    _ZTS[a-z];
-    _ZTSP[a-z];
-    _ZTSPK[a-z];
+    _ZTS[a-fh-z];
+    _ZTSP[a-fh-z];
+    _ZTSPK[a-fh-z];
     _ZTSN10__cxxabiv117__array_type_infoE;
     _ZTSN10__cxxabiv117__class_type_infoE;
     _ZTSN10__cxxabiv116__enum_type_infoE;

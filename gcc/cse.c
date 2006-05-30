@@ -867,8 +867,7 @@ init_cse_reg_info (unsigned int nregs)
       /* Reallocate the table with NEW_SIZE entries.  */
       if (cse_reg_info_table)
 	free (cse_reg_info_table);
-      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
-				     * new_size);
+      cse_reg_info_table = XNEWVEC (struct cse_reg_info, new_size);
       cse_reg_info_table_size = new_size;
       cse_reg_info_table_first_uninitialized = 0;
     }
@@ -1511,7 +1510,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    elt = xmalloc (sizeof (struct table_elt));
+    elt = XNEW (struct table_elt);
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -2729,17 +2728,10 @@ static void
 validate_canon_reg (rtx *xloc, rtx insn)
 {
   rtx new = canon_reg (*xloc, insn);
-  int insn_code;
 
   /* If replacing pseudo with hard reg or vice versa, ensure the
      insn remains valid.  Likewise if the insn has MATCH_DUPs.  */
-  if (insn != 0 && new != 0
-      && REG_P (new) && REG_P (*xloc)
-      && (((REGNO (new) < FIRST_PSEUDO_REGISTER)
-	   != (REGNO (*xloc) < FIRST_PSEUDO_REGISTER))
-	  || GET_MODE (new) != GET_MODE (*xloc)
-	  || (insn_code = recog_memoized (insn)) < 0
-	  || insn_data[insn_code].n_dups > 0))
+  if (insn != 0 && new != 0)
     validate_change (insn, xloc, new, 1);
   else
     *xloc = new;
@@ -2749,8 +2741,7 @@ validate_canon_reg (rtx *xloc, rtx insn)
    replace each register reference inside it
    with the "oldest" equivalent register.
 
-   If INSN is nonzero and we are replacing a pseudo with a hard register
-   or vice versa, validate_change is used to ensure that INSN remains valid
+   If INSN is nonzero validate_change is used to ensure that INSN remains valid
    after we make our substitution.  The calls are made with IN_GROUP nonzero
    so apply_change_group must be called upon the outermost return from this
    function (unless INSN is zero).  The result of apply_change_group can
@@ -3982,6 +3973,57 @@ fold_rtx (rtx x, rtx insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
+	      if (const_arg1 != NULL)
+		{
+		  rtx cheapest_simplification;
+		  int cheapest_cost;
+		  rtx simp_result;
+		  struct table_elt *p;
+
+		  /* See if we can find an equivalent of folded_arg0
+		     that gets us a cheaper expression, possibly a
+		     constant through simplifications.  */
+		  p = lookup (folded_arg0, SAFE_HASH (folded_arg0, mode_arg0),
+			      mode_arg0);
+		  
+		  if (p != NULL)
+		    {
+		      cheapest_simplification = x;
+		      cheapest_cost = COST (x);
+
+		      for (p = p->first_same_value; p != NULL; p = p->next_same_value)
+			{
+			  int cost;
+
+			  /* If the entry isn't valid, skip it.  */
+			  if (! exp_equiv_p (p->exp, p->exp, 1, false))
+			    continue;
+
+			  /* Try to simplify using this equivalence.  */
+			  simp_result
+			    = simplify_relational_operation (code, mode,
+							     mode_arg0,
+							     p->exp,
+							     const_arg1);
+
+			  if (simp_result == NULL)
+			    continue;
+
+			  cost = COST (simp_result);
+			  if (cost < cheapest_cost)
+			    {
+			      cheapest_cost = cost;
+			      cheapest_simplification = simp_result;
+			    }
+			}
+
+		      /* If we have a cheaper expression now, use that
+			 and try folding it further, from the top.  */
+		      if (cheapest_simplification != x)
+			return fold_rtx (cheapest_simplification, insn);
+		    }
+		}
+
 	      /* Some addresses are known to be nonzero.  We don't know
 		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
@@ -4893,17 +4935,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       rtx dest = SET_DEST (sets[i].rtl);
       rtx src = SET_SRC (sets[i].rtl);
       rtx new = canon_reg (src, insn);
-      int insn_code;
 
       sets[i].orig_src = src;
-      if ((REG_P (new) && REG_P (src)
-	   && ((REGNO (new) < FIRST_PSEUDO_REGISTER)
-	       != (REGNO (src) < FIRST_PSEUDO_REGISTER)))
-	  || (insn_code = recog_memoized (insn)) < 0
-	  || insn_data[insn_code].n_dups > 0)
-	validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
-      else
-	SET_SRC (sets[i].rtl) = new;
+      validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
 
       if (GET_CODE (dest) == ZERO_EXTRACT)
 	{
@@ -6646,7 +6680,6 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
 	{
 	  for (q = PREV_INSN (JUMP_LABEL (p)); q; q = PREV_INSN (q))
 	    if ((!NOTE_P (q)
-		 || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END
 		 || (PREV_INSN (q) && CALL_P (PREV_INSN (q))
 		     && find_reg_note (PREV_INSN (q), REG_SETJMP, NULL)))
 		&& (!LABEL_P (q) || LABEL_NUSES (q) != 0))
@@ -6753,7 +6786,7 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
    in conditional jump instructions.  */
 
 int
-cse_main (rtx f, int nregs, FILE *file)
+cse_main (rtx f, int nregs)
 {
   struct cse_basic_block_data val;
   rtx insn = f;
@@ -6761,8 +6794,7 @@ cse_main (rtx f, int nregs, FILE *file)
 
   init_cse_reg_info (nregs);
 
-  val.path = xmalloc (sizeof (struct branch_path)
-		      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 
   cse_jumps_altered = 0;
   recorded_label_ref = 0;
@@ -6774,12 +6806,12 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
+  reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Find the largest uid.  */
 
   max_uid = get_max_uid ();
-  uid_cuid = xcalloc (max_uid + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, max_uid + 1);
 
   /* Compute the mapping from uids to cuids.
      CUIDs are numbers assigned to insns, like uids,
@@ -6820,8 +6852,8 @@ cse_main (rtx f, int nregs, FILE *file)
       cse_basic_block_end = val.high_cuid;
       max_qty = val.nsets * 2;
 
-      if (file)
-	fprintf (file, ";; Processing block from %d to %d, %d sets.\n",
+      if (dump_file)
+	fprintf (dump_file, ";; Processing block from %d to %d, %d sets.\n",
 		 INSN_UID (insn), val.last ? INSN_UID (val.last) : 0,
 		 val.nsets);
 
@@ -6884,7 +6916,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
   int no_conflict = 0;
 
   /* Allocate the space needed by qty_table.  */
-  qty_table = xmalloc (max_qty * sizeof (struct qty_table_elem));
+  qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
 
@@ -7047,8 +7079,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	     following branches in this case.  */
 	  to_usage = 0;
 	  val.path_size = 0;
-	  val.path = xmalloc (sizeof (struct branch_path)
-			      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+	  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 	  cse_end_of_basic_block (insn, &val, 0, 0);
 	  free (val.path);
 
@@ -7351,7 +7382,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  counts = xcalloc (nreg, sizeof (int));
+  counts = XCNEWVEC (int, nreg);
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       count_reg_usage (insn, counts, NULL_RTX, 1);
@@ -7676,7 +7707,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 /* If we have a fixed condition code register (or two), walk through
    the instructions and try to eliminate duplicate assignments.  */
 
-void
+static void
 cse_condition_code_reg (void)
 {
   unsigned int cc_regno_1;
@@ -7790,17 +7821,17 @@ gate_handle_cse (void)
   return optimize > 0;
 }
 
-static void
+static unsigned int
 rest_of_handle_cse (void)
 {
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   reg_scan (get_insns (), max_reg_num ());
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges ())
@@ -7816,7 +7847,8 @@ rest_of_handle_cse (void)
     delete_dead_jumptables ();
 
   if (tem || optimize > 1)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+  return 0;
 }
 
 struct tree_opt_pass pass_cse =
@@ -7845,15 +7877,15 @@ gate_handle_cse2 (void)
 }
 
 /* Run second CSE pass after loop optimizations.  */
-static void
+static unsigned int
 rest_of_handle_cse2 (void)
 {
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -7874,6 +7906,7 @@ rest_of_handle_cse2 (void)
     }
   reg_scan (get_insns (), max_reg_num ());
   cse_not_expected = 1;
+  return 0;
 }
 
 

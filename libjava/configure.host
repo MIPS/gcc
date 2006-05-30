@@ -28,8 +28,6 @@
 #			pthread_self calls by caching thread IDs in a hashtable
 #   can_unwind_signal   Set to "yes" if the EH unwinder supports throwing
 #			from a signal handler.
-#   disable_dladdr      Set to "yes" if dladdr should not be used
-#                       (i.e it is broken).
 #   fallback_backtrace_h  Header to use for fallback backtrace implementation
 #			  (only for targets that don't support DWARF2 unwind)
 #   descriptor_h	Header to use for looking past function descriptors
@@ -44,7 +42,6 @@ enable_hash_synchronization_default=no
 sysdeps_dir=generic
 slow_pthread_self=
 can_unwind_signal=no
-disable_dladdr=
 fallback_backtrace_h=sysdep/generic/backtrace.h
 
 case "${target_optspace}:${host}" in
@@ -118,7 +115,7 @@ case "${host}" in
 	libgcj_flags="${libgcj_flags} -fomit-frame-pointer"
 	libgcj_cxxflags=
 	libgcj_cflags=
-	DIVIDESPEC=-f%{m32:no-}use-divide-subroutine
+	DIVIDESPEC=-fno-use-divide-subroutine
 	enable_hash_synchronization_default=yes
 	slow_pthread_self=yes
 	libgcj_interpreter=yes
@@ -130,7 +127,7 @@ case "${host}" in
 	enable_hash_synchronization_default=yes
 	IEEESPEC=-mieee
 	;;
-  hppa-*)
+  hppa*-*)
 	sysdeps_dir=pa
 	libgcj_interpreter=yes
 	enable_hash_synchronization_default=yes
@@ -251,7 +248,6 @@ EOF
 	case "${host}" in
 	    mipsel*-linux* | mipsisa32el*-linux*)
 		enable_hash_synchronization_default=yes
-		disable_dladdr=yes
 	    ;;
 	esac
 	;;
@@ -264,6 +260,7 @@ EOF
 	slow_pthread_self=
 	;;
   *-mingw*)
+        libgcj_flags="${libgcj_flags} -fno-omit-frame-pointer"
   	# FIXME: win32_exception_handler( ) in win32.cc does not do the
 	# right stuff yet w.r.t. SEH. Live with the following for now.
 	can_unwind_signal=no
@@ -275,6 +272,11 @@ EOF
 	# disable hash synchronization for now.
 	enable_hash_synchronization_default=no
 	slow_pthread_self=
+	;;
+  hppa*-hp-hpux11.*)
+	slow_pthread_self=no
+	can_unwind_signal=yes
+	DIVIDESPEC=-fuse-divide-subroutine
 	;;
 esac
 
@@ -289,6 +291,14 @@ esac
 case "${host}" in
   ia64-*)
 	descriptor_h=sysdep/descriptor-y.h
+	;;
+
+  hppa*64*-*-hpux*)
+	descriptor_h=sysdep/pa/descriptor-pa64-hpux.h
+	;;
+
+  hppa*-*-hpux*)
+	descriptor_h=sysdep/pa/descriptor-pa32-hpux.h
 	;;
 
   hppa*-*)

@@ -272,8 +272,9 @@ extern int get_pool_size (void);
 extern rtx peephole (rtx);
 #endif
 
-/* Write all the constants in the constant pool.  */
-extern void output_constant_pool (const char *, tree);
+extern void output_shared_constant_pool (void);
+
+extern void output_object_blocks (void);
 
 /* Return nonzero if VALUE is a valid constant-valued expression
    for use in initializing a static variable; one that can be an
@@ -400,8 +401,22 @@ extern void no_asm_to_stream (FILE *);
 #define SECTION_TLS	 0x40000	/* contains thread-local storage */
 #define SECTION_NOTYPE	 0x80000	/* don't output @progbits */
 #define SECTION_DECLARED 0x100000	/* section has been used */
-#define SECTION_NAMED	 0x200000	/* section has a name */
-#define SECTION_MACH_DEP 0x400000	/* subsequent bits reserved for target */
+#define SECTION_STYLE_MASK 0x600000	/* bits used for SECTION_STYLE */
+#define SECTION_COMMON   0x800000	/* contains common data */
+#define SECTION_MACH_DEP 0x1000000	/* subsequent bits reserved for target */
+
+/* This SECTION_STYLE is used for unnamed sections that we can switch
+   to using a special assembler directive.  */
+#define SECTION_UNNAMED	 0x000000
+
+/* This SECTION_STYLE is used for named sections that we can switch
+   to using a general section directive.  */
+#define SECTION_NAMED	 0x200000
+
+/* This SECTION_STYLE is used for sections that we cannot switch to at
+   all.  The choice of section is implied by the directive that we use
+   to declare the object.  */
+#define SECTION_NOSWITCH 0x400000
 
 /* A helper function for default_elf_select_section and
    default_elf_unique_section.  Categorizes the DECL.  */
@@ -446,7 +461,7 @@ struct section_common GTY(()) {
   unsigned int flags;
 };
 
-/* Information that is provided by named sections.  */
+/* Information about a SECTION_NAMED section.  */
 struct named_section GTY(()) {
   struct section_common common;
 
@@ -462,7 +477,7 @@ struct named_section GTY(()) {
    section.  The argument provides callback-specific data.  */
 typedef void (*unnamed_section_callback) (const void *);
 
-/* Information that is provided by unnamed sections.  */
+/* Information about a SECTION_UNNAMED section.  */
 struct unnamed_section GTY(()) {
   struct section_common common;
 
@@ -475,13 +490,40 @@ struct unnamed_section GTY(()) {
   section *next;
 };
 
+/* A callback that writes the assembly code for a decl in a
+   SECTION_NOSWITCH section.  DECL is the decl that should be assembled
+   and NAME is the name of its SYMBOL_REF.  SIZE is the size of the decl
+   in bytes and ROUNDED is that size rounded up to the next
+   BIGGEST_ALIGNMENT / BITS_PER_UNIT boundary.
+
+   Return true if the callback used DECL_ALIGN to set the object's
+   alignment.  A false return value implies that we are relying
+   on the rounded size to align the decl.  */
+typedef bool (*noswitch_section_callback) (tree decl, const char *name,
+					   unsigned HOST_WIDE_INT size,
+					   unsigned HOST_WIDE_INT rounded);
+
+/* Information about a SECTION_NOSWITCH section.  */
+struct noswitch_section GTY(()) {
+  struct section_common common;
+
+  /* The callback used to assemble decls in this section.  */
+  noswitch_section_callback GTY ((skip)) callback;
+};
+
 /* Information about a section, which may be named or unnamed.  */
-union section GTY ((desc ("(%h).common.flags & SECTION_NAMED")))
+union section GTY ((desc ("SECTION_STYLE (&(%h))")))
 {
   struct section_common GTY ((skip)) common;
   struct named_section GTY ((tag ("SECTION_NAMED"))) named;
-  struct unnamed_section GTY ((tag ("0"))) unnamed;
+  struct unnamed_section GTY ((tag ("SECTION_UNNAMED"))) unnamed;
+  struct noswitch_section GTY ((tag ("SECTION_NOSWITCH"))) noswitch;
 };
+
+/* Return the style of section SECT.  */
+#define SECTION_STYLE(SECT) ((SECT)->common.flags & SECTION_STYLE_MASK)
+
+struct object_block;
 
 /* Special well-known sections.  */
 extern GTY(()) section *text_section;
@@ -494,6 +536,10 @@ extern GTY(()) section *bss_section;
 extern GTY(()) section *sbss_section;
 extern GTY(()) section *exception_section;
 extern GTY(()) section *eh_frame_section;
+extern GTY(()) section *tls_comm_section;
+extern GTY(()) section *comm_section;
+extern GTY(()) section *lcomm_section;
+extern GTY(()) section *bss_noswitch_section;
 
 extern GTY(()) section *in_section;
 extern GTY(()) bool in_cold_section_p;
@@ -502,6 +548,9 @@ extern section *get_unnamed_section (unsigned int, void (*) (const void *),
 				     const void *);
 extern section *get_section (const char *, unsigned int, tree);
 extern section *get_named_section (tree, const char *, int);
+extern void place_block_symbol (rtx);
+extern rtx get_section_anchor (struct object_block *, HOST_WIDE_INT,
+			       enum tls_model);
 extern section *mergeable_constant_section (enum machine_mode,
 					    unsigned HOST_WIDE_INT,
 					    unsigned int);
@@ -516,6 +565,7 @@ extern void output_section_asm_op (const void *);
 extern unsigned int default_section_type_flags (tree, const char *, int);
 extern unsigned int default_section_type_flags_1 (tree, const char *, int, int);
 
+extern bool have_global_bss_p (void);
 extern void default_no_named_section (const char *, unsigned int, tree);
 extern void default_elf_asm_named_section (const char *, unsigned int, tree);
 extern enum section_category categorize_decl_for_section (tree, int, int);
@@ -546,6 +596,8 @@ extern section *default_elf_select_rtx_section (enum machine_mode, rtx,
 						unsigned HOST_WIDE_INT);
 extern void default_encode_section_info (tree, rtx, int);
 extern const char *default_strip_name_encoding (const char *);
+extern void default_asm_output_anchor (rtx);
+extern bool default_use_anchors_for_symbol_p (rtx);
 extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);

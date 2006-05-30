@@ -23,7 +23,7 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-common, foo.install-man,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi,
 # foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
@@ -38,10 +38,10 @@
 
 #
 # Define the names for selecting Objective-C++ in LANGUAGES.
-OBJ-C++ obj-c++: cc1objplus$(exeext)
+obj-c++: cc1objplus$(exeext)
 
 # Tell GNU make to ignore these if they exist.
-.PHONY: Obj-c++ obj-C++
+.PHONY: obj-c++
 
 # Use maximal warnings for this front end.  Also, make ObjC and C++
 # headers accessible.
@@ -75,7 +75,7 @@ objcp/objcp-lang.o : objcp/objcp-lang.c \
 objcp/objcp-decl.o : objcp/objcp-decl.c \
    $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
    toplev.h $(GGC_H) c-pragma.h input.h flags.h output.h objc/objc-act.h \
-   objcp/objcp-decl.h tree-gimple.h $(EXPR_H)
+   objcp/objcp-decl.h tree-gimple.h $(EXPR_H) $(TARGET_H)
 
 # The following must be an explicit rule; please keep in sync with the implicit
 # one in Makefile.in.
@@ -96,6 +96,9 @@ obj-c++.all.cross:
 obj-c++.start.encap:
 obj-c++.rest.encap:
 obj-c++.info:
+obj-c++.install-info:
+obj-c++.dvi:
+obj-c++.html:
 obj-c++.srcinfo:
 obj-c++.srcextra:
 obj-c++.man:

@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -7,12 +7,12 @@
 ; the terms of the GNU General Public License as published by the Free
 ; Software Foundation; either version 2, or (at your option) any later
 ; version.
-; 
+;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
 ; WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 ; for more details.
-; 
+;
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING.  If not, write to the Free
 ; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
@@ -166,7 +166,7 @@ C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
 Wdiv-by-zero
-C ObjC Var(warn_div_by_zero) Init(1)
+C ObjC C++ Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero
 
 Weffc++
@@ -311,6 +311,10 @@ Wold-style-definition
 C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
 
+Woverlength-strings
+C ObjC C++ ObjC++ Var(warn_overlength_strings) Init(-1)
+Warn if a string is longer than the maximum portable length specified by the standard
+
 Woverloaded-virtual
 C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
@@ -416,11 +420,11 @@ C ObjC C++ ObjC++
 Do not warn about using variadic macros when -pedantic
 
 Wwrite-strings
-C ObjC C++ ObjC++
-Give strings the type \"array of char\"
+C ObjC C++ ObjC++ Var(warn_write_strings)
+In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
 
 Wpointer-sign
-C ObjC Var(warn_pointer_sign) Init(1)
+C ObjC Var(warn_pointer_sign) Init(-1)
 Warn when a pointer differs in signedness in an assignment
 
 ansi
@@ -464,10 +468,6 @@ Allow the arguments of the '?' operator to have different types
 fconserve-space
 C++ ObjC++
 Reduce the size of object files
-
-fconst-strings
-C++ ObjC++
-Make string literals \"const char[]\" not \"char[]\"
 
 fconstant-string-class=
 ObjC ObjC++ Joined
@@ -617,6 +617,10 @@ fobjc-sjlj-exceptions
 ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
 
+fopenmp
+C ObjC C++ ObjC++ Var(flag_openmp)
+Enable OpenMP
+
 foperator-names
 C++ ObjC++
 Recognize C++ kewords like \"compl\" and \"xor\"
@@ -687,7 +691,7 @@ C ObjC C++ ObjC++ Joined RejectNegative UInteger
 -ftabstop=<number>	Distance between tab stops for column reporting
 
 ftemplate-depth-
-C++ ObjC++ Joined RejectNegative UInteger 
+C++ ObjC++ Joined RejectNegative UInteger
 -ftemplate-depth-<number>	Specify maximum template instantiation depth
 
 fthis-is-variable
@@ -708,6 +712,10 @@ Make \"char\" unsigned by default
 fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
+
+fuse-cxa-get-exception-ptr
+C++ ObjC++
+Use __cxa_get_exception_ptr in exception handling
 
 fvisibility-inlines-hidden
 C++ ObjC++
@@ -752,6 +760,10 @@ C ObjC C++ ObjC++ Joined Separate
 imacros
 C ObjC C++ ObjC++ Joined Separate
 -imacros <file>	Accept definition of macros in <file>
+
+imultilib
+C ObjC C++ ObjC++ Joined Separate
+-imultilib <dir> Set <dir> to be the multilib include subdirectory
 
 include
 C ObjC C++ ObjC++ Joined Separate

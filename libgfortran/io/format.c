@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -662,8 +662,17 @@ parse_format_list (st_parameter_dt *dtp)
       t = format_lex (fmt);
       if (t != FMT_POSINT)
 	{
-	  fmt->error = posint_required;
-	  goto finished;
+	  if (notification_std(GFC_STD_GNU) == ERROR)
+	    {
+	      fmt->error = posint_required;
+	      goto finished;
+	    }
+	  else
+	    {
+	      fmt->saved_token = t;
+	      fmt->value = 1;	/* Default width */
+	      notify_std(GFC_STD_GNU, posint_required);
+	    }
 	}
 
       get_fnode (fmt, &head, &tail, FMT_L);
@@ -716,8 +725,16 @@ parse_format_list (st_parameter_dt *dtp)
       t = format_lex (fmt);
       if (t != FMT_PERIOD)
 	{
-	  fmt->error = period_required;
-	  goto finished;
+	  /* We treat a missing decimal descriptor as 0.  Note: This is only
+	     allowed if -std=legacy, otherwise an error occurs.  */
+	  if (compile_options.warn_std != 0)
+	    {
+	      fmt->error = period_required;
+	      goto finished;
+	    }
+	  fmt->saved_token = t;
+	  tail->u.real.d = 0;
+	  break;
 	}
 
       t = format_lex (fmt);
@@ -1050,7 +1067,7 @@ next_format0 (fnode * f)
 /* next_format()-- Return the next format node.  If the format list
  * ends up being exhausted, we do reversion.  Reversion is only
  * allowed if the we've seen a data descriptor since the
- * initialization or the last reversion.  We return NULL if the there
+ * initialization or the last reversion.  We return NULL if there
  * are no more data descriptors to return (which is an error
  * condition). */
 

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -123,19 +123,6 @@ get_base_type (tree type)
 
   return type;
 }
-
-/* Likewise, but only return types known to the Ada source.  */
-tree
-get_ada_base_type (tree type)
-{
-  while (TREE_TYPE (type)
-	 && (TREE_CODE (type) == INTEGER_TYPE
-	     || TREE_CODE (type) == REAL_TYPE)
-	 && !TYPE_EXTRA_SUBTYPE_P (type))
-    type = TREE_TYPE (type);
-
-  return type;
-}
 
 /* EXP is a GCC tree representing an address.  See if we can find how
    strictly the object at that address is aligned.   Return that alignment
@@ -232,8 +219,13 @@ find_common_type (tree t1, tree t2)
   else if (TYPE_MODE (t2) != BLKmode)
     return t2;
 
-  /* Otherwise, return the type that has a constant size.  */
-  if (TREE_CONSTANT (TYPE_SIZE (t1)))
+  /* If both types have constant size, use the smaller one.  Keep returning
+     T1 if we have a tie, to be consistent with the other cases.  */
+  if (TREE_CONSTANT (TYPE_SIZE (t1)) && TREE_CONSTANT (TYPE_SIZE (t2)))
+    return tree_int_cst_lt (TYPE_SIZE (t2), TYPE_SIZE (t1)) ? t2 : t1;
+
+  /* Otherwise, if either type has a constant size, use it.  */
+  else if (TREE_CONSTANT (TYPE_SIZE (t1)))
     return t1;
   else if (TREE_CONSTANT (TYPE_SIZE (t2)))
     return t2;
@@ -1617,7 +1609,8 @@ build_simple_component_ref (tree record_variable, tree component,
 
       for (new_field = TYPE_FIELDS (record_type); new_field;
 	   new_field = TREE_CHAIN (new_field))
-	if (DECL_ORIGINAL_FIELD (new_field) == field
+	if (field == new_field
+	    || DECL_ORIGINAL_FIELD (new_field) == field
 	    || new_field == DECL_ORIGINAL_FIELD (field)
 	    || (DECL_ORIGINAL_FIELD (field)
 		&& (DECL_ORIGINAL_FIELD (field)

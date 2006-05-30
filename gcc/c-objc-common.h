@@ -134,4 +134,10 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR c_gimplify_expr
 
+#undef LANG_HOOKS_OMP_PREDETERMINED_SHARING
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING c_omp_predetermined_sharing
+
+#undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
+#define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P c_vla_unspec_p
+
 #endif /* GCC_C_OBJC_COMMON */

@@ -1,3 +1,73 @@
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.am: Add install-html target. 
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* include/Makefile.in: Regenerate.
+
+2006-03-07  Andrew Haley  <aph@redhat.com>
+
+	* dyn_load.c (GC_has_static_roots): Declare.
+	(GC_register_dynlib_callback): Call GC_has_static_roots.
+
+2006-04-11  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* darwin_stop_world.c (GC_push_all_stacks, GC_stop_world,
+	GC_start_world): Call vm_deallocate to free act_list. Fix from
+	Bruce Mitchener.
+
+2006-03-24  Andreas Tobler  <a.tobler@schweiz.ch>
+	John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* configure.ac (THREADS): Add REENTRANT for *-*-hpux11*.
+	Warn about POSIX threads not being supported for *-*-hpux10*.
+	* configure: Regenerate.
+
+2006-02-09  Tom Tromey  <tromey@redhat.com>
+
+	* pthread_support.c: Conditionally include dlfcn.h.
+
+2006-02-06  Jakub Jelinek  <jakub@redhat.com>
+	    Anthony Green  <green@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* include/gc_ext_config.h.in: Added GC_PTHREAD_SYM_VERSION.
+	* include/gc_config.h.in: Rebuilt.
+	* include/gc_pthread_redirects.h (pthread_create): Conditionally
+	define.
+	* pthread_support.c (pthread_create_): New global.
+	(constr): New function.
+	(pthread_create): Conditionally renamed.
+	* configure: Rebuilt.
+	* configure.ac (GC_PTHREAD_SYM_VERSION): Define.
+
+2006-02-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/private/gc_locks.h (GC_test_and_set <POWERPC>): Don't
+	use broken 64-bit version.
+
+2006-01-25  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* darwin_stop_world.c: Change inline asm instruction to ld as ldz
+	is wrong.
+
+	* Makefile.am (asm_libgcjgc_sources): Rename to asm_libgcjgc_sources.
+	* Makefile.in: Regenerate.
+
+2006-01-25  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/private/gcconfig.h: Revert to GC 6.6 version, removing
+	all local changes.
+
+2006-01-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Import Boehm GC version 6.6.
+
+2006-01-24  David Ayers  <d.ayers@inode.at>
+
+	PR libobjc/13946
+	* include/gc.h: Fix prototype declarations for bootstrap.
+
 2005-11-01  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* include/private/gc_priv.h: Increase MAX_ROOT_SETS to 1024.

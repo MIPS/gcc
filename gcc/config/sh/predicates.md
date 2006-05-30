@@ -216,9 +216,10 @@
   (and (match_code "and,ior,xor")
        (match_test "GET_MODE (op) == mode")))
 
-;; TODO: Add a comment here.
+;; Return 1 of OP is an address suitable for a cache manipulation operation.
+;; MODE has the meaning as in address_operand.
 
-(define_predicate "cache_address_operand"
+(define_special_predicate "cache_address_operand"
   (match_code "plus,reg")
 {
   if (GET_CODE (op) == PLUS)
@@ -614,7 +615,7 @@
 ;; the constant zero like a general register.
 
 (define_predicate "sh_register_operand"
-  (match_code "reg,subreg,const_int")
+  (match_code "reg,subreg,const_int,const_double")
 {
   if (op == CONST0_RTX (mode) && TARGET_SHMEDIA)
     return 1;
@@ -624,7 +625,7 @@
 ;; TODO: Add a comment here.
 
 (define_predicate "sh_rep_vec"
-  (match_code "const_vector")
+  (match_code "const_vector,parallel")
 {
   int i;
   rtx x, y;
@@ -749,9 +750,9 @@
   return extend_reg_operand (op, mode);
 })
 
-;; TODO: Add a comment here.
+;; Return 1 of OP is an address suitable for an unaligned access instruction.
 
-(define_predicate "ua_address_operand"
+(define_special_predicate "ua_address_operand"
   (match_code "subreg,reg,plus")
 {
   if (GET_CODE (op) == PLUS

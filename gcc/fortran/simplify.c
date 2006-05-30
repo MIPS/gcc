@@ -72,7 +72,7 @@ static int ascii_table[256] = {
   '\b', '\t', '\n', '\v', '\0', '\r', '\0', '\0',
   '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
   '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
-  ' ', '!', '\'', '#', '$', '%', '&', '\'',
+  ' ', '!', '"', '#', '$', '%', '&', '\'',
   '(', ')', '*', '+', ',', '-', '.', '/',
   '0', '1', '2', '3', '4', '5', '6', '7',
   '8', '9', ':', ';', '<', '=', '>', '?',
@@ -1930,14 +1930,24 @@ gfc_simplify_len (gfc_expr * e)
 {
   gfc_expr *result;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    return NULL;
+  if (e->expr_type == EXPR_CONSTANT)
+    {
+      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				    &e->where);
+      mpz_set_si (result->value.integer, e->value.character.length);
+      return range_check (result, "LEN");
+    }
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&e->where);
-
-  mpz_set_si (result->value.integer, e->value.character.length);
-  return range_check (result, "LEN");
+  if (e->ts.cl != NULL && e->ts.cl->length != NULL
+      && e->ts.cl->length->expr_type == EXPR_CONSTANT)
+    {
+      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				    &e->where);
+      mpz_set (result->value.integer, e->ts.cl->length->value.integer);
+      return range_check (result, "LEN");
+    }
+  
+  return NULL;
 }
 
 
@@ -2528,16 +2538,14 @@ gfc_simplify_null (gfc_expr * mold)
 {
   gfc_expr *result;
 
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_NULL;
-
   if (mold == NULL)
-    result->ts.type = BT_UNKNOWN;
-  else
     {
-      result->ts = mold->ts;
-      result->where = mold->where;
+      result = gfc_get_expr ();
+      result->ts.type = BT_UNKNOWN;
     }
+  else
+    result = gfc_copy_expr (mold);
+  result->expr_type = EXPR_NULL;
 
   return result;
 }
@@ -3761,7 +3769,7 @@ gfc_simplify_verify (gfc_expr * s, gfc_expr * set, gfc_expr * b)
     {
       if (lenset == 0)
 	{
-	  mpz_set_ui (result->value.integer, len);
+	  mpz_set_ui (result->value.integer, 1);
 	  return result;
 	}
 
@@ -3775,7 +3783,7 @@ gfc_simplify_verify (gfc_expr * s, gfc_expr * set, gfc_expr * b)
     {
       if (lenset == 0)
 	{
-	  mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, len);
 	  return result;
 	}
       for (index = len; index > 0; index --)

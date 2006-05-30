@@ -62,6 +62,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "obstack.h"
 #include "timevar.h"
+#include "tree-pass.h"
 #include "ggc.h"
 #include "hashtab.h"
 #include "alloc-pool.h"
@@ -467,13 +468,73 @@ check_bb_profile (basic_block bb, FILE * file)
     }
 }
 
+/* Emit basic block information for BB.  HEADER is true if the user wants
+   the generic information and the predecessors, FOOTER is true if they want
+   the successors.  FLAGS is the dump flags of interest; TDF_DETAILS emit
+   global register liveness information.  PREFIX is put in front of every
+   line.  The output is emitted to FILE.  */
 void
-dump_flow_info (FILE *file)
+dump_bb_info (basic_block bb, bool header, bool footer, int flags,
+	      const char *prefix, FILE *file)
+{
+  edge e;
+  edge_iterator ei;
+
+  if (header)
+    {
+      fprintf (file, "\n%sBasic block %d ", prefix, bb->index);
+      if (bb->prev_bb)
+        fprintf (file, ", prev %d", bb->prev_bb->index);
+      if (bb->next_bb)
+        fprintf (file, ", next %d", bb->next_bb->index);
+      fprintf (file, ", loop_depth %d, count ", bb->loop_depth);
+      fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
+      fprintf (file, ", freq %i", bb->frequency);
+      if (maybe_hot_bb_p (bb))
+	fprintf (file, ", maybe hot");
+      if (probably_never_executed_bb_p (bb))
+	fprintf (file, ", probably never executed");
+      fprintf (file, ".\n");
+
+      fprintf (file, "%sPredecessors: ", prefix);
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	dump_edge_info (file, e, 0);
+   }
+
+  if (footer)
+    {
+      fprintf (file, "\n%sSuccessors: ", prefix);
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	dump_edge_info (file, e, 1);
+   }
+
+  if ((flags & TDF_DETAILS)
+      && (bb->flags & BB_RTL))
+    {
+      if (bb->il.rtl->global_live_at_start && header)
+	{
+	  fprintf (file, "\n%sRegisters live at start:", prefix);
+	  dump_regset (bb->il.rtl->global_live_at_start, file);
+	}
+
+      if (bb->il.rtl->global_live_at_end && footer)
+	{
+	  fprintf (file, "\n%sRegisters live at end:", prefix);
+	  dump_regset (bb->il.rtl->global_live_at_end, file);
+	}
+   }
+
+  putc ('\n', file);
+}
+
+void
+dump_flow_info (FILE *file, int flags)
 {
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
-  if (reg_n_info && !reload_completed)
+  if (reg_n_info && !reload_completed
+      && (flags & TDF_DETAILS) != 0)
     {
       unsigned int i, max = max_reg_num ();
       fprintf (file, "%d registers.\n", max);
@@ -524,45 +585,7 @@ dump_flow_info (FILE *file)
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
     {
-      edge e;
-      edge_iterator ei;
-
-      fprintf (file, "\nBasic block %d ", bb->index);
-      fprintf (file, "prev %d, next %d, ",
-	       bb->prev_bb->index, bb->next_bb->index);
-      fprintf (file, "loop_depth %d, count ", bb->loop_depth);
-      fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
-      fprintf (file, ", freq %i", bb->frequency);
-      if (maybe_hot_bb_p (bb))
-	fprintf (file, ", maybe hot");
-      if (probably_never_executed_bb_p (bb))
-	fprintf (file, ", probably never executed");
-      fprintf (file, ".\n");
-
-      fprintf (file, "Predecessors: ");
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	dump_edge_info (file, e, 0);
-
-      fprintf (file, "\nSuccessors: ");
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	dump_edge_info (file, e, 1);
-
-      if (bb->flags & BB_RTL)
-	{
-	  if (bb->il.rtl->global_live_at_start)
-	    {
-	      fprintf (file, "\nRegisters live at start:");
-	      dump_regset (bb->il.rtl->global_live_at_start, file);
-	    }
-
-	  if (bb->il.rtl->global_live_at_end)
-	    {
-	      fprintf (file, "\nRegisters live at end:");
-	      dump_regset (bb->il.rtl->global_live_at_end, file);
-	    }
-	}
-
-      putc ('\n', file);
+      dump_bb_info (bb, true, true, flags, "", file);
       check_bb_profile (bb, file);
     }
 
@@ -572,7 +595,7 @@ dump_flow_info (FILE *file)
 void
 debug_flow_info (void)
 {
-  dump_flow_info (stderr);
+  dump_flow_info (stderr, TDF_DETAILS);
 }
 
 void
@@ -660,7 +683,7 @@ alloc_aux_for_blocks (int size)
   else
     /* Check whether AUX data are still allocated.  */
     gcc_assert (!first_block_aux_obj);
-  
+
   first_block_aux_obj = obstack_alloc (&block_aux_obstack, 0);
   if (size)
     {
@@ -838,7 +861,7 @@ brief_dump_cfg (FILE *file)
 
 /* An edge originally destinating BB of FREQUENCY and COUNT has been proved to
    leave the block by TAKEN_EDGE.  Update profile of BB such that edge E can be
-   redirected to destination of TAKEN_EDGE. 
+   redirected to destination of TAKEN_EDGE.
 
    This function may leave the profile inconsistent in the case TAKEN_EDGE
    frequency or count is believed to be lower than FREQUENCY or COUNT
@@ -949,8 +972,8 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
    function but considerably slower.  */
 void
-scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
-			         gcov_type den)
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
+				 gcov_type den)
 {
   int i;
   edge e;

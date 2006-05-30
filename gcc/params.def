@@ -47,7 +47,14 @@ DEFPARAM (PARAM_SALIAS_MAX_IMPLICIT_FIELDS,
 	  "salias-max-implicit-fields",
 	  "The maximum number of fields in a structure variable without direct structure accesses that GCC will attempt to track separately",
 	  5, 0, 0)
-   
+
+/* The maximum number of array elements structure aliasing will decompose
+   an array for.  The default is 4.  */
+DEFPARAM (PARAM_SALIAS_MAX_ARRAY_ELEMENTS,
+	  "salias-max-array-elements",
+	  "The maximum number of elements in an array for wich we track its elements separately",
+	  4, 0, 0)
+
 /* The maximum structure size at which the scalar replacement of
    aggregates (SRA) pass will perform block copies.  The default
    value, 0, implies that GCC will select the most appropriate size
@@ -384,7 +391,7 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "The maximum length of path considered in cse",
 	 10, 0, 0)
 DEFPARAM(PARAM_MAX_CSE_INSNS,
-	 "max-flow-memory-locations",
+	 "max-cse-insns",
 	 "The maximum instructions CSE process before flushing",
 	 1000, 0, 0)
 
@@ -492,15 +499,20 @@ DEFPARAM(PARAM_MIN_SPEC_PROB,
          "The minimum probability of reaching a source block for interblock speculative scheduling",
          40, 0, 0)
 
-DEFPARAM(PARAM_MAX_CODE_GROWTH,
-	 "treegion-max-code-growth",
-	 "Maximal code growth caused by (treegion) tail duplication (in percent)",
-	 100, 0, 0)
+DEFPARAM(PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS,
+         "max-sched-extend-regions-iters",
+         "The maximum number of iterations through CFG to extend regions",
+         2, 0, 0)
 
-DEFPARAM(PARAM_ICSE_THRESHOLD,
-	 "treegion-icse-threshold",
-	 "Treegion tail duplication instantaneous code size efficiency threshold - should be between 268 (0.268) for more duplication and 577 (0.577) for less duplication",
-	 577, 0, 0)
+DEFPARAM(PARAM_MAX_SCHED_INSN_CONFLICT_DELAY,
+         "max-sched-insn-conflict-delay",
+         "The maximum conflict delay for an insn to be considered for speculative motion",
+         3, 1, 10)
+
+DEFPARAM(PARAM_SCHED_SPEC_PROB_CUTOFF,
+         "sched-spec-prob-cutoff",
+         "The minimal probability of speculation success (in percents), so that speculative insn will be scheduled.",
+         40, 0, 100)
 
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
@@ -561,7 +573,21 @@ DEFPARAM (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS,
 	  "max-jump-thread-duplication-stmts",
           "Maximum number of statements allowed in a block that needs to be duplicated when threading jumps",
 	  15, 0, 0)
-   
+
+/* This is the maximum number of fields a variable may have before the pointer analysis machinery
+   will stop trying to treat it in a field-sensitive manner.  
+   There are programs out there with thousands of fields per structure, and handling them
+   field-sensitively is not worth the cost.  */
+DEFPARAM (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE,
+          "max-fields-for-field-sensitive",
+	  "Maximum number of fields in a structure before pointer analysis treats the structure as a single variable",
+	  100, 0, 0)
+
+DEFPARAM(PARAM_MAX_SCHED_READY_INSNS,
+	 "max-sched-ready-insns",
+	 "The maximum number of instructions ready to be issued to be considered by the scheduler during the first scheduling pass",
+	 100, 0, 0)
+
 /*
 Local variables:
 mode:c

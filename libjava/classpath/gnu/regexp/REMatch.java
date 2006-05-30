@@ -1,5 +1,5 @@
 /* gnu/regexp/REMatch.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -49,6 +49,7 @@ import java.io.Serializable;
  */
 public final class REMatch implements Serializable, Cloneable {
     private String matchedText;
+    private CharIndexed matchedCharIndexed;
 
     // These variables are package scope for fast access within the engine
     int eflags; // execution flags this match was made using
@@ -64,16 +65,28 @@ public final class REMatch implements Serializable, Cloneable {
 
     // Package scope; used by RE.
     int index; // used while matching to mark current match position in input
+    // start1[i] is set when the i-th subexp starts. And start1[i] is copied
+    // to start[i] when the i-th subexp ends.  So start[i] keeps the previously
+    // assigned value while the i-th subexp is being processed. This makes
+    // backreference to the i-th subexp within the i-th subexp possible.
     int[] start; // start positions (relative to offset) for each (sub)exp.
+    int[] start1; // start positions (relative to offset) for each (sub)exp.
     int[] end;   // end positions for the same
-    REMatch next; // other possibility (to avoid having to use arrays)
+    // start[i] == -1 or end[i] == -1 means that the start/end position is void.
+    // start[i] == p or end[i] == p where p < 0 and p != -1 means that
+    // the actual start/end position is (p+1). Start/end positions may
+    // become negative when the subexpression is in a RETokenLookBehind.
+    boolean empty; // empty string matched. This flag is used only within
+		   // RETokenRepeated.
+
+    BacktrackStack backtrackStack;
 
     public Object clone() {
 	try {
 	    REMatch copy = (REMatch) super.clone();
-	    copy.next = null;
 
 	    copy.start = (int[]) start.clone();
+	    copy.start1 = (int[]) start1.clone();
 	    copy.end = (int[]) end.clone();
 
 	    return copy;
@@ -84,14 +97,15 @@ public final class REMatch implements Serializable, Cloneable {
 
     void assignFrom(REMatch other) {
 	start = other.start;
+	start1 = other.start1;
 	end = other.end;
 	index = other.index;
-	// need to deep clone?
-	next = other.next;
+	backtrackStack = other.backtrackStack;
     }
 
     REMatch(int subs, int anchor, int eflags) {
 	start = new int[subs+1];
+	start1 = new int[subs+1];
 	end = new int[subs+1];
 	this.anchor = anchor;
 	this.eflags = eflags;
@@ -105,6 +119,7 @@ public final class REMatch implements Serializable, Cloneable {
 	for (i = 0; i < end[0]; i++)
 	    sb.append(text.charAt(i));
 	matchedText = sb.toString();
+	matchedCharIndexed = text;
 	for (i = 0; i < start.length; i++) {
 	    // If any subexpressions didn't terminate, they don't count
 	    // TODO check if this code ever gets hit
@@ -113,7 +128,7 @@ public final class REMatch implements Serializable, Cloneable {
 		end[i] = -1;
 	    }
 	}
-	next = null; // cut off alternates
+	backtrackStack = null;
     }
     
     /** Clears the current match and moves the offset to the new index. */
@@ -121,9 +136,9 @@ public final class REMatch implements Serializable, Cloneable {
 	offset = index;
 	this.index = 0;
 	for (int i = 0; i < start.length; i++) {
-	    start[i] = end[i] = -1;
+	    start[i] = start1[i] = end[i] = -1;
 	}
-	next = null; // cut off alternates
+	backtrackStack = null;
     }
     
     /**
@@ -177,8 +192,22 @@ public final class REMatch implements Serializable, Cloneable {
      * @param sub Index of the subexpression.
      */
     public String toString(int sub) {
-	if ((sub >= start.length) || (start[sub] == -1)) return "";
-	return (matchedText.substring(start[sub],end[sub]));
+	if ((sub >= start.length) || sub < 0)
+	    throw new IndexOutOfBoundsException("No group " + sub);
+	if (start[sub] == -1) return null;
+	if (start[sub] >= 0 && end[sub] <= matchedText.length())
+	    return (matchedText.substring(start[sub],end[sub]));
+	else {
+	// This case occurs with RETokenLookAhead or RETokenLookBehind.
+	    StringBuffer sb = new StringBuffer();
+	    int s = start[sub];
+	    int e = end[sub];
+	    if (s < 0) s += 1;
+	    if (e < 0) e += 1;
+	    for (int i = start[0] + s; i < start[0] + e; i++)
+	        sb.append(matchedCharIndexed.charAt(i));
+	    return sb.toString();
+	}
     }
     
     /** 
@@ -192,7 +221,8 @@ public final class REMatch implements Serializable, Cloneable {
     public int getSubStartIndex(int sub) {
 	if (sub >= start.length) return -1;
 	int x = start[sub];
-	return (x == -1) ? x : offset + x;
+	return (x == -1) ? x :
+	       (x >= 0) ? offset + x : offset + x + 1;
     }
     
     /** 
@@ -206,7 +236,8 @@ public final class REMatch implements Serializable, Cloneable {
     public int getStartIndex(int sub) {
 	if (sub >= start.length) return -1;
 	int x = start[sub];
-	return (x == -1) ? x : offset + x;
+	return (x == -1) ? x :
+	       (x >= 0) ? offset + x : offset + x + 1;
     }
   
     /** 
@@ -220,7 +251,8 @@ public final class REMatch implements Serializable, Cloneable {
     public int getSubEndIndex(int sub) {
 	if (sub >= start.length) return -1;
 	int x = end[sub];
-	return (x == -1) ? x : offset + x;
+	return (x == -1) ? x :
+	       (x >= 0) ? offset + x : offset + x + 1;
     }
     
     /** 
@@ -233,7 +265,8 @@ public final class REMatch implements Serializable, Cloneable {
     public int getEndIndex(int sub) {
 	if (sub >= start.length) return -1;
 	int x = end[sub];
-	return (x == -1) ? x : offset + x;
+	return (x == -1) ? x :
+	       (x >= 0) ? offset + x : offset + x + 1;
     }
     
     /**
@@ -242,6 +275,8 @@ public final class REMatch implements Serializable, Cloneable {
      * <code>$0</code> through <code>$9</code>.  <code>$0</code> matches
      * the full substring matched; <code>$<i>n</i></code> matches
      * subexpression number <i>n</i>.
+     * <code>$10, $11, ...</code> may match the 10th, 11th, ... subexpressions
+     * if such subexpressions exist.
      *
      * @param input A string consisting of literals and <code>$<i>n</i></code> tokens.
      */
@@ -252,6 +287,16 @@ public final class REMatch implements Serializable, Cloneable {
 	for (pos = 0; pos < input.length()-1; pos++) {
 	    if ((input.charAt(pos) == '$') && (Character.isDigit(input.charAt(pos+1)))) {
 		int val = Character.digit(input.charAt(++pos),10);
+		int pos1 = pos + 1;
+		while (pos1 < input.length() &&
+		       Character.isDigit(input.charAt(pos1))) {
+		    int val1 = val*10 + Character.digit(input.charAt(pos1),10);
+		    if (val1 >= start.length) break;
+		    pos1++;
+		    val = val1;
+		}
+		pos = pos1 - 1;
+
 		if (val < start.length) {
 		    output.append(toString(val));
 		} 
@@ -260,4 +305,20 @@ public final class REMatch implements Serializable, Cloneable {
 	if (pos < input.length()) output.append(input.charAt(pos));
 	return output.toString();
     }
+
+/*  The following are used for debugging purpose
+    static String d(REMatch m) {
+	if (m == null) return "null";
+        else return "[" + m.index + "]";
+    }
+
+    String substringUptoIndex(CharIndexed input) {
+	StringBuffer sb = new StringBuffer();
+	for (int i = 0; i < index; i++) {
+	    sb.append(input.charAt(i));
+	}
+	return sb.toString();
+    }
+*/
+
 }

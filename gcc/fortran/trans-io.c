@@ -227,6 +227,14 @@ gfc_build_io_library_fndecls (void)
   pad_size += 32 * TREE_INT_CST_LOW (TYPE_SIZE_UNIT (integer_type_node));
   pad_idx = build_index_type (build_int_cst (NULL_TREE, pad_size));
   types[IOPARM_type_pad] = build_array_type (char_type_node, pad_idx);
+
+  /* pad actually contains pointers and integers so it needs to have an
+     alignment that is at least as large as the needed alignment for those
+     types.  See the st_parameter_dt structure in libgfortran/io/io.h for
+     what really goes into this space.  */
+  TYPE_ALIGN (types[IOPARM_type_pad]) = MAX (TYPE_ALIGN (pchar_type_node),
+		     TYPE_ALIGN (gfc_get_int_type (gfc_max_integer_kind)));
+
   gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
@@ -532,8 +540,8 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
       msg =
         gfc_build_cstring_const ("Assigned label is not a format label");
       tmp = GFC_DECL_STRING_LEN (se.expr);
-      tmp = build2 (LE_EXPR, boolean_type_node,
-		    tmp, convert (TREE_TYPE (tmp), integer_minus_one_node));
+      tmp = fold_build2 (LT_EXPR, boolean_type_node,
+			 tmp, build_int_cst (TREE_TYPE (tmp), 0));
       gfc_trans_runtime_check (tmp, msg, &se.pre);
       gfc_add_modify_expr (&se.pre, io,
 		 fold_convert (TREE_TYPE (io), GFC_DECL_ASSIGN_ADDR (se.expr)));
@@ -599,7 +607,7 @@ set_internal_unit (stmtblock_t * block, tree var, gfc_expr * e)
     }
 
   /* Character array.  */
-  else if (e->symtree && (e->symtree->n.sym->as->rank > 0))
+  else if (e->rank > 0)
     {
       se.ss = gfc_walk_expr (e);
 

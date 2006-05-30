@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -272,6 +272,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   __verify_grouping(const char* __grouping, size_t __grouping_size,
 		    const string& __grouping_tmp);
 
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
+
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -338,93 +340,146 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       string __found_grouping;
       if (__lc->_M_use_grouping)
 	__found_grouping.reserve(32);
-      const char_type* __q;
       const char_type* __lit_zero = __lit + __num_base::_S_izero;
-      while (!__testeof)
-        {
-	  // According to 22.2.2.1.2, p8-9, first look for thousands_sep
-	  // and decimal_point.
-          if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
-	    {
-	      if (!__found_dec && !__found_sci)
-		{
-		  // NB: Thousands separator at the beginning of a string
-		  // is a no-no, as is two consecutive thousands separators.
-		  if (__sep_pos)
-		    {
-		      __found_grouping += static_cast<char>(__sep_pos);
-		      __sep_pos = 0;
-		    }
-		  else
-		    {
-		      // NB: __convert_to_v will not assign __v and will
-		      // set the failbit.
-		      __xtrc.clear();
-		      break;
-		    }
-		}
-	      else
-		break;
-            }
-	  else if (__c == __lc->_M_decimal_point)
-	    {
-	      if (!__found_dec && !__found_sci)
-		{
-		  // If no grouping chars are seen, no grouping check
-		  // is applied. Therefore __found_grouping is adjusted
-		  // only if decimal_point comes after some thousands_sep.
-		  if (__found_grouping.size())
-		    __found_grouping += static_cast<char>(__sep_pos);
-		  __xtrc += '.';
-		  __found_dec = true;
-		}
-	      else
-		break;
-	    }
-          else if ((__q = __traits_type::find(__lit_zero, 10, __c)))
-	    {
-	      __xtrc += __num_base::_S_atoms_in[__q - __lit];
-	      __found_mantissa = true;
-	      ++__sep_pos;
-	    }
-	  else if ((__c == __lit[__num_base::_S_ie] 
-		    || __c == __lit[__num_base::_S_iE])
-		   && !__found_sci && __found_mantissa)
-	    {
-	      // Scientific notation.
-	      if (__found_grouping.size() && !__found_dec)
-		__found_grouping += static_cast<char>(__sep_pos);
-	      __xtrc += 'e';
-	      __found_sci = true;
 
-	      // Remove optional plus or minus sign, if they exist.
-	      if (++__beg != __end)
-		{
-		  __c = *__beg;
-		  const bool __plus = __c == __lit[__num_base::_S_iplus];
-		  if ((__plus || __c == __lit[__num_base::_S_iminus])
-		      && !(__lc->_M_use_grouping
-			   && __c == __lc->_M_thousands_sep)
-		      && !(__c == __lc->_M_decimal_point))
-		    __xtrc += __plus ? '+' : '-';
-		  else
-		    continue;
-		}
-	      else
-		{
-		  __testeof = true;
+      if (!__lc->_M_allocated)
+	// "C" locale
+	while (!__testeof)
+	  {
+	    const int __digit = _M_find(__lit_zero, 10, __c);
+	    if (__digit != -1)
+	      {
+		__xtrc += '0' + __digit;
+		__found_mantissa = true;
+	      }
+	    else if (__c == __lc->_M_decimal_point
+		     && !__found_dec && !__found_sci)
+	      {
+		__xtrc += '.';
+		__found_dec = true;
+	      }
+	    else if ((__c == __lit[__num_base::_S_ie] 
+		      || __c == __lit[__num_base::_S_iE])
+		     && !__found_sci && __found_mantissa)
+	      {
+		// Scientific notation.
+		__xtrc += 'e';
+		__found_sci = true;
+		
+		// Remove optional plus or minus sign, if they exist.
+		if (++__beg != __end)
+		  {
+		    __c = *__beg;
+		    const bool __plus = __c == __lit[__num_base::_S_iplus];
+		    if (__plus || __c == __lit[__num_base::_S_iminus])
+		      __xtrc += __plus ? '+' : '-';
+		    else
+		      continue;
+		  }
+		else
+		  {
+		    __testeof = true;
+		    break;
+		  }
+	      }
+	    else
+	      break;
+
+	    if (++__beg != __end)
+	      __c = *__beg;
+	    else
+	      __testeof = true;
+	  }
+      else
+	while (!__testeof)
+	  {
+	    // According to 22.2.2.1.2, p8-9, first look for thousands_sep
+	    // and decimal_point.
+	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
+	      {
+		if (!__found_dec && !__found_sci)
+		  {
+		    // NB: Thousands separator at the beginning of a string
+		    // is a no-no, as is two consecutive thousands separators.
+		    if (__sep_pos)
+		      {
+			__found_grouping += static_cast<char>(__sep_pos);
+			__sep_pos = 0;
+		      }
+		    else
+		      {
+			// NB: __convert_to_v will not assign __v and will
+			// set the failbit.
+			__xtrc.clear();
+			break;
+		      }
+		  }
+		else
 		  break;
-		}
-	    }
-	  else
-	    // Not a valid input item.
-	    break;
-
-	  if (++__beg != __end)
-	    __c = *__beg;
-	  else
-	    __testeof = true;
-        }
+	      }
+	    else if (__c == __lc->_M_decimal_point)
+	      {
+		if (!__found_dec && !__found_sci)
+		  {
+		    // If no grouping chars are seen, no grouping check
+		    // is applied. Therefore __found_grouping is adjusted
+		    // only if decimal_point comes after some thousands_sep.
+		    if (__found_grouping.size())
+		      __found_grouping += static_cast<char>(__sep_pos);
+		    __xtrc += '.';
+		    __found_dec = true;
+		  }
+		else
+		  break;
+	      }
+	    else
+	      {
+		const char_type* __q =
+		  __traits_type::find(__lit_zero, 10, __c);
+		if (__q)
+		  {
+		    __xtrc += '0' + (__q - __lit_zero);
+		    __found_mantissa = true;
+		    ++__sep_pos;
+		  }
+		else if ((__c == __lit[__num_base::_S_ie] 
+			  || __c == __lit[__num_base::_S_iE])
+			 && !__found_sci && __found_mantissa)
+		  {
+		    // Scientific notation.
+		    if (__found_grouping.size() && !__found_dec)
+		      __found_grouping += static_cast<char>(__sep_pos);
+		    __xtrc += 'e';
+		    __found_sci = true;
+		    
+		    // Remove optional plus or minus sign, if they exist.
+		    if (++__beg != __end)
+		      {
+			__c = *__beg;
+			const bool __plus = __c == __lit[__num_base::_S_iplus];
+			if ((__plus || __c == __lit[__num_base::_S_iminus])
+			    && !(__lc->_M_use_grouping
+				 && __c == __lc->_M_thousands_sep)
+			    && !(__c == __lc->_M_decimal_point))
+		      __xtrc += __plus ? '+' : '-';
+			else
+			  continue;
+		      }
+		    else
+		      {
+			__testeof = true;
+			break;
+		      }
+		  }
+		else
+		  break;
+	      }
+	    
+	    if (++__beg != __end)
+	      __c = *__beg;
+	    else
+	      __testeof = true;
+	  }
 
       // Digit grouping is checked. If grouping and found_grouping don't
       // match, then get very very upset, and set failbit.
@@ -446,6 +501,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return __beg;
     }
 
+_GLIBCXX_END_LDBL_NAMESPACE
+
   template<typename _ValueT>
     struct __to_unsigned_type
     { typedef _ValueT __type; };
@@ -459,6 +516,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     struct __to_unsigned_type<long long>
     { typedef unsigned long long __type; };
 #endif
+
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _InIter>
     template<typename _ValueT>
@@ -563,54 +622,81 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  -numeric_limits<_ValueT>::min() : numeric_limits<_ValueT>::max();
 	const __unsigned_type __smax = __max / __base;
 	__unsigned_type __result = 0;
-	const char_type* __q;
+	int __digit = 0;
 	const char_type* __lit_zero = __lit + __num_base::_S_izero;
-	while (!__testeof)
-	  {
-	    // According to 22.2.2.1.2, p8-9, first look for thousands_sep
-	    // and decimal_point.
-	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
-	      {
-		// NB: Thousands separator at the beginning of a string
-		// is a no-no, as is two consecutive thousands separators.
-		if (__sep_pos)
-		  {
-		    __found_grouping += static_cast<char>(__sep_pos);
-		    __sep_pos = 0;
-		  }
-		else
-		  {
-		    __testfail = true;
-		    break;
-		  }
-	      }
-	    else if (__c == __lc->_M_decimal_point)
-	      break;
-	    else if ((__q = __traits_type::find(__lit_zero, __len, __c)))
-	      {
-		int __digit = __q - __lit_zero;
-		if (__digit > 15)
-		  __digit -= 6;
-		if (__result > __smax)
-		  __testfail = true;
-		else
-		  {
-		    __result *= __base;
-		    __testfail |= __result > __max - __digit;
-		    __result += __digit;
-		    ++__sep_pos;
-		  }
-	      }
-	    else
-	      // Not a valid input item.	      
-	      break;
-	    
-	    if (++__beg != __end)
-	      __c = *__beg;
-	    else
-	      __testeof = true;
-	  }
 
+	if (!__lc->_M_allocated)
+	  // "C" locale
+	  while (!__testeof)
+	    {
+	      __digit = _M_find(__lit_zero, __len, __c);
+	      if (__digit == -1)
+		break;
+	      
+	      if (__result > __smax)
+		__testfail = true;
+	      else
+		{
+		  __result *= __base;
+		  __testfail |= __result > __max - __digit;
+		  __result += __digit;
+		  ++__sep_pos;
+		}
+	      
+	      if (++__beg != __end)
+		__c = *__beg;
+	      else
+		__testeof = true;
+	    }
+	else
+	  while (!__testeof)
+	    {
+	      // According to 22.2.2.1.2, p8-9, first look for thousands_sep
+	      // and decimal_point.
+	      if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep)
+		{
+		  // NB: Thousands separator at the beginning of a string
+		  // is a no-no, as is two consecutive thousands separators.
+		  if (__sep_pos)
+		    {
+		      __found_grouping += static_cast<char>(__sep_pos);
+		      __sep_pos = 0;
+		    }
+		  else
+		    {
+		      __testfail = true;
+		      break;
+		    }
+		}
+	      else if (__c == __lc->_M_decimal_point)
+		break;
+	      else
+		{
+		  const char_type* __q =
+		    __traits_type::find(__lit_zero, __len, __c);
+		  if (!__q)
+		    break;
+		  
+		  __digit = __q - __lit_zero;
+		  if (__digit > 15)
+		    __digit -= 6;
+		  if (__result > __smax)
+		    __testfail = true;
+		  else
+		    {
+		      __result *= __base;
+		      __testfail |= __result > __max - __digit;
+		      __result += __digit;
+		      ++__sep_pos;
+		    }
+		}
+	      
+	      if (++__beg != __end)
+		__c = *__beg;
+	      else
+		__testeof = true;
+	    }
+	
 	// Digit grouping is checked. If grouping and found_grouping don't
 	// match, then get very very upset, and set failbit.
 	if (__found_grouping.size())
@@ -772,6 +858,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return __beg;
     }
 
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    __do_get(iter_type __beg, iter_type __end, ios_base& __io,
+	     ios_base::iostate& __err, double& __v) const
+    {
+      string __xtrc;
+      __xtrc.reserve(32);
+      __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_get_c_locale());
+      return __beg;
+    }
+#endif
+
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -821,6 +922,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 						  __w, __len, true);
       __len = static_cast<int>(__w);
     }
+
+_GLIBCXX_END_LDBL_NAMESPACE
 
   // Forwarding functions to peel signed from unsigned integer types and
   // either cast or compute the absolute value for the former, depending
@@ -910,6 +1013,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
       return __bufend - __buf;
     }
+
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _OutIter>
     void
@@ -1233,6 +1338,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     do_put(iter_type __s, ios_base& __io, char_type __fill, double __v) const
     { return _M_insert_float(__s, __io, __fill, char(), __v); }
 
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    num_put<_CharT, _OutIter>::
+    __do_put(iter_type __s, ios_base& __io, char_type __fill, double __v) const
+    { return _M_insert_float(__s, __io, __fill, char(), __v); }
+#endif
+
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
@@ -1474,6 +1587,23 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	return __beg;
       }
 
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _InIter>
+    _InIter
+    money_get<_CharT, _InIter>::
+    __do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io,
+	     ios_base::iostate& __err, double& __units) const
+    {
+      string __str;
+      if (__intl)
+	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
+      else
+	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
+      return __beg;
+    }
+#endif
+
   template<typename _CharT, typename _InIter>
     _InIter
     money_get<_CharT, _InIter>::
@@ -1678,7 +1808,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	__io.width(0);
 	return __s;    
       }
-  
+
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    money_put<_CharT, _OutIter>::
+    __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	     double __units) const
+    {
+      return this->do_put(__s, __intl, __io, __fill, (long double) __units);
+    }
+#endif
+
   template<typename _CharT, typename _OutIter>
     _OutIter
     money_put<_CharT, _OutIter>::
@@ -1726,6 +1867,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     { return __intl ? _M_insert<true>(__s, __io, __fill, __digits)
 	            : _M_insert<false>(__s, __io, __fill, __digits); }
 
+_GLIBCXX_END_LDBL_NAMESPACE
 
   // NB: Not especially useful. Without an ios_base object or some
   // kind of locale reference, we are left clawing at the air where
@@ -2511,12 +2653,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template class moneypunct<char, true>;
   extern template class moneypunct_byname<char, false>;
   extern template class moneypunct_byname<char, true>;
-  extern template class money_get<char>;
-  extern template class money_put<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<char>;
   extern template class numpunct<char>;
   extern template class numpunct_byname<char>;
-  extern template class num_get<char>;
-  extern template class num_put<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<char>;
   extern template class __timepunct<char>;
   extern template class time_put<char>;
   extern template class time_put_byname<char>;
@@ -2638,12 +2780,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template class moneypunct<wchar_t, true>;
   extern template class moneypunct_byname<wchar_t, false>;
   extern template class moneypunct_byname<wchar_t, true>;
-  extern template class money_get<wchar_t>;
-  extern template class money_put<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<wchar_t>;
   extern template class numpunct<wchar_t>;
   extern template class numpunct_byname<wchar_t>;
-  extern template class num_get<wchar_t>;
-  extern template class num_put<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<wchar_t>;
   extern template class __timepunct<wchar_t>;
   extern template class time_put<wchar_t>;
   extern template class time_put_byname<wchar_t>;

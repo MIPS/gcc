@@ -1,5 +1,5 @@
 /* GtkImage.java
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -123,41 +123,50 @@ public class GtkImage extends Image
 
   /**
    * Returns a copy of the pixel data as a java array.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native int[] getPixels();
 
   /**
    * Sets the pixel data from a java array.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native void setPixels(int[] pixels);
 
   /**
    * Loads an image using gdk-pixbuf from a file.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native boolean loadPixbuf(String name);
 
   /**
    * Loads an image using gdk-pixbuf from data.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native boolean loadImageFromData(byte[] data);
 
   /**
    * Allocates a Gtk Pixbuf or pixmap
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native void createPixmap();
 
   /**
    * Frees the above.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native void freePixmap();
 
   /**
    * Sets the pixmap to scaled copy of src image. hints are rendering hints.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native void createScaledPixmap(GtkImage src, int hints);
 
   /**
    * Draws the image, optionally scaled and composited.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
+   * Also acquires global gdk lock for drawing.
    */
   private native void drawPixelsScaled (GdkGraphics gc, 
 					int bg_red, int bg_green, int bg_blue, 
@@ -166,6 +175,8 @@ public class GtkImage extends Image
 
   /**
    * Draws the image, optionally scaled flipped and composited.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
+   * Also acquires global gdk lock for drawing.
    */
   private native void drawPixelsScaledFlipped (GdkGraphics gc, 
 					       int bg_red, int bg_green, 
@@ -219,12 +230,21 @@ public class GtkImage extends Image
     File f = new File(filename);
     try
       {
-	if (loadPixbuf(f.getCanonicalPath()) != true)
-	  throw new IllegalArgumentException("Couldn't load image: "+filename);
+	String path = f.getCanonicalPath();
+	synchronized(GdkPixbufDecoder.pixbufLock)
+	  {
+	    if (loadPixbuf(f.getCanonicalPath()) != true)
+	      throw new IllegalArgumentException("Couldn't load image: "
+						 + filename);
+	  }
       } 
     catch(IOException e)
       {
-	  throw new IllegalArgumentException("Couldn't load image: "+filename);
+	IllegalArgumentException iae;
+	iae = new IllegalArgumentException("Couldn't load image: "
+					   + filename);
+	iae.initCause(e);
+	throw iae;
       }
 
     isLoaded = true;
@@ -241,8 +261,11 @@ public class GtkImage extends Image
    */
   public GtkImage (byte[] data)
   {
-    if (loadImageFromData (data) != true)
-      throw new IllegalArgumentException ("Couldn't load image.");
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	if (loadImageFromData (data) != true)
+	  throw new IllegalArgumentException ("Couldn't load image.");
+      }
 
     isLoaded = true;
     observers = null;
@@ -277,8 +300,12 @@ public class GtkImage extends Image
       {
 	throw new IllegalArgumentException ("Couldn't load image.");
       }
-    if (loadImageFromData (baos.toByteArray()) != true)
-      throw new IllegalArgumentException ("Couldn't load image.");
+    byte[] array = baos.toByteArray();
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	if (loadImageFromData(array) != true)
+	  throw new IllegalArgumentException ("Couldn't load image.");
+      }
 
     isLoaded = true;
     observers = null;
@@ -296,7 +323,10 @@ public class GtkImage extends Image
     isLoaded = true;
     observers = null;
     offScreen = true;
-    createPixmap();
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	createPixmap();
+      }
   }
 
   /**
@@ -312,7 +342,10 @@ public class GtkImage extends Image
     offScreen = false;
 
     // Use the GDK scaling method.
-    createScaledPixmap(src, hints);
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	createScaledPixmap(src, hints);
+      }
   }
 
   /**
@@ -322,15 +355,37 @@ public class GtkImage extends Image
   GtkImage (Pointer pixbuf)
   {
     pixmap = pixbuf;
-    createFromPixbuf();
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	createFromPixbuf();
+      }
     isLoaded = true;
     observers = null;
     offScreen = false;
     props = new Hashtable();
   }
 
+  // The singleton GtkImage that is returned on errors by GtkToolkit.
+  private static GtkImage errorImage;
+
+  /**
+   * Returns an empty GtkImage with the errorLoading flag set.
+   * Called from GtkToolKit when some error occured, but an image needs
+   * to be returned anyway.
+   */
+  static synchronized GtkImage getErrorImage()
+  {
+    if (errorImage == null)
+      {
+	errorImage = new GtkImage();
+	errorImage.errorLoading = true;
+      }
+    return errorImage;
+  }
+
   /**
    * Native helper function for constructor that takes a pixbuf Pointer.
+   * Should be called with the GdkPixbufDecoder.pixbufLock held.
    */
   private native void createFromPixbuf();
 
@@ -352,8 +407,11 @@ public class GtkImage extends Image
 
     isLoaded = true;
     deliver();
-    createPixmap();
-    setPixels(pixels);
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	createPixmap();
+	setPixels(pixels);
+      }
   }
 
   // java.awt.Image methods ////////////////////////////////////////////////
@@ -390,7 +448,13 @@ public class GtkImage extends Image
   {
     if (!isLoaded)
       return null;
-    return new MemoryImageSource(width, height, nativeModel, getPixels(), 
+
+    int[] pixels;
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	pixels = getPixels();
+      }
+    return new MemoryImageSource(width, height, nativeModel, pixels, 
 				 0, width);
   }
 
@@ -436,7 +500,10 @@ public class GtkImage extends Image
       {
 	observers = new Vector();
 	isLoaded = false;
-	freePixmap();
+	synchronized(GdkPixbufDecoder.pixbufLock)
+	  {
+	    freePixmap();
+	  }
 	source.startProduction(new GtkImageConsumer(this, source));
       }
   }
@@ -444,7 +511,12 @@ public class GtkImage extends Image
   public void finalize()
   {
     if (isLoaded)
-      freePixmap();
+      {
+	synchronized(GdkPixbufDecoder.pixbufLock)
+	  {
+	    freePixmap();
+	  }
+      }
   }
 
   /**
@@ -511,23 +583,29 @@ public class GtkImage extends Image
 	srcHeight = height - srcY;
       }
 
+    if ( this.width <= 0 || this.height <= 0 )
+      return true;
+
     if ( srcWidth <= 0 || srcHeight <= 0 || dstWidth <= 0 || dstHeight <= 0)
       return true;
 
-    if(bgcolor != null)
-      drawPixelsScaledFlipped (g, bgcolor.getRed (), bgcolor.getGreen (), 
-			       bgcolor.getBlue (), 
-			       flipX, flipY,
-			       srcX, srcY,
-			       srcWidth, srcHeight,
-			       dstX,  dstY,
-			       dstWidth, dstHeight,
-			       true);
-    else
-      drawPixelsScaledFlipped (g, 0, 0, 0, flipX, flipY,
-			       srcX, srcY, srcWidth, srcHeight,
-			       dstX,  dstY, dstWidth, dstHeight,
-			       false);
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	if(bgcolor != null)
+	  drawPixelsScaledFlipped (g, bgcolor.getRed (), bgcolor.getGreen (), 
+				   bgcolor.getBlue (), 
+				   flipX, flipY,
+				   srcX, srcY,
+				   srcWidth, srcHeight,
+				   dstX,  dstY,
+				   dstWidth, dstHeight,
+				   true);
+	else
+	  drawPixelsScaledFlipped (g, 0, 0, 0, flipX, flipY,
+				   srcX, srcY, srcWidth, srcHeight,
+				   dstX,  dstY, dstWidth, dstHeight,
+				   false);
+      }
     return true;
   }
 
@@ -541,11 +619,17 @@ public class GtkImage extends Image
     if (addObserver(observer))
       return false;
 
-    if(bgcolor != null)
-      drawPixelsScaled(g, bgcolor.getRed (), bgcolor.getGreen (), 
-		       bgcolor.getBlue (), x, y, width, height, true);
-    else
-      drawPixelsScaled(g, 0, 0, 0, x, y, width, height, false);
+    if ( this.width <= 0 || this.height <= 0 )
+      return true;
+
+    synchronized(GdkPixbufDecoder.pixbufLock)
+      {
+	if(bgcolor != null)
+	  drawPixelsScaled(g, bgcolor.getRed (), bgcolor.getGreen (), 
+			   bgcolor.getBlue (), x, y, width, height, true);
+	else
+	  drawPixelsScaled(g, 0, 0, 0, x, y, width, height, false);
+      }
 
     return true;
   }

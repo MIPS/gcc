@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -62,6 +62,7 @@ typedef struct stream
   try (*truncate) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
+  try (*set) (struct stream *, int, size_t);
 }
 stream;
 
@@ -81,6 +82,8 @@ stream;
 #define struncate(s) ((s)->truncate)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
+
+#define sset(s, c, n) ((s)->set)(s, c, n)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -207,7 +210,7 @@ typedef enum
 unit_mode;
 
 typedef enum
-{ CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
 unit_convert;
 
 #define CHARACTER1(name) \
@@ -368,7 +371,9 @@ typedef struct st_parameter_dt
 	  void (*transfer) (struct st_parameter_dt *, bt, void *, int,
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
-	  int item_count; /* Item number in a formatted data transfer.  */
+	  /* Item number in a formatted data transfer.  Also used in namelist
+	       read_logical as an index into line_buffer.  */
+	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
 	  enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
@@ -406,7 +411,13 @@ typedef struct st_parameter_dt
 	     character string is being read so don't use commas to shorten a
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
-	  /* 19 unused bits.  */
+          /* A namelist specific flag used to enable reading input from 
+	     line_buffer for logical reads.  */
+	  unsigned line_buffer_enabled : 1;
+	  /* An internal unit specific flag used to identify that the associated
+	     unit is internal.  */
+	  unsigned unit_is_internal : 1;
+	  /* 17 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -421,16 +432,27 @@ typedef struct st_parameter_dt
 	  struct format_data *fmt;
 	  jmp_buf *eof_jump;
 	  namelist_info *ionml;
-
+	  /* A flag used to identify when a non-standard expanded namelist read
+	     has occurred.  */
+	  int expanded_read;
 	  /* Storage area for values except for strings.  Must be large
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+	  gfc_offset size_used;
 	} p;
-      char pad[16 * sizeof (char *) + 34 * sizeof (int)];
+      /* This pad size must be equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
+	 must be smaller or equal to this array.  */
+      char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
+
+/* Ensure st_parameter_dt's u.pad is bigger or equal to u.p.  */
+extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
+				  >= sizeof (((st_parameter_dt *) 0)->u.p)
+				  ? 1 : -1];
 
 #undef CHARACTER1
 #undef CHARACTER2
@@ -682,6 +704,12 @@ internal_proto(unit_lock);
 extern int close_unit (gfc_unit *);
 internal_proto(close_unit);
 
+extern gfc_unit *get_internal_unit (st_parameter_dt *);
+internal_proto(get_internal_unit);
+
+extern void free_internal_unit (st_parameter_dt *);
+internal_proto(free_internal_unit);
+
 extern int is_internal_unit (st_parameter_dt *);
 internal_proto(is_internal_unit);
 
@@ -692,7 +720,7 @@ extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
 extern gfc_unit *find_or_create_unit (int);
-internal_proto(find_unit);
+internal_proto(find_or_create_unit);
 
 extern gfc_unit *get_unit (st_parameter_dt *, int);
 internal_proto(get_unit);
@@ -734,6 +762,9 @@ internal_proto(type_name);
 
 extern void *read_block (st_parameter_dt *, int *);
 internal_proto(read_block);
+
+extern char *read_sf (st_parameter_dt *, int *, int);
+internal_proto(read_sf);
 
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
@@ -840,6 +871,9 @@ internal_proto(list_formatted_write);
 extern try notify_std (int, const char *);
 internal_proto(notify_std);
 
+extern notification notification_std(int);
+internal_proto(notification_std);
+
 /* size_from_kind.c */
 extern size_t size_from_real_kind (int);
 internal_proto(size_from_real_kind);
@@ -884,3 +918,8 @@ dec_waiting_unlocked (gfc_unit *u)
 }
 
 #endif
+
+/* ../runtime/environ.c  This is here because we return unit_convert.  */
+
+unit_convert get_unformatted_convert (int);
+internal_proto(get_unformatted_convert);

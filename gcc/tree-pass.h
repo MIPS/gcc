@@ -30,6 +30,7 @@ Boston, MA 02110-1301, USA.  */
 enum tree_dump_index
 {
   TDI_none,			/* No dump */
+  TDI_cgraph,                   /* dump function call graph.  */
   TDI_tu,			/* dump the whole translation unit.  */
   TDI_class,			/* dump class hierarchy.  */
   TDI_original,			/* dump each function before optimizing it */
@@ -43,7 +44,6 @@ enum tree_dump_index
   TDI_rtl_all,                  /* enable all the RTL dumps.  */
   TDI_ipa_all,                  /* enable all the IPA dumps.  */
 
-  TDI_cgraph,                   /* dump function call graph.  */
   TDI_end
 };
 
@@ -97,8 +97,9 @@ struct tree_opt_pass
   bool (*gate) (void);
 
   /* This is the code to run.  If null, then there should be sub-passes
-     otherwise this pass does nothing.  */
-  void (*execute) (void);
+     otherwise this pass does nothing.  The return value contains
+     TODOs to execute in addition to those in TODO_flags_finish.   */
+  unsigned int (*execute) (void);
 
   /* A list of sub-passes to run, dependent on gate predicate.  */
   struct tree_opt_pass *sub;
@@ -149,9 +150,12 @@ struct dump_file_info
 #define PROP_no_crit_edges      (1 << 7)
 #define PROP_rtl		(1 << 8)
 #define PROP_alias		(1 << 9)
+#define PROP_gimple_lomp	(1 << 10)	/* lowered OpenMP directives */
+#define PROP_smt_usage          (1 << 11)       /* which SMT's are
+						   used alone.  */
 
 #define PROP_trees \
-  (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
+  (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
 
 /* To-do flags.  */
 #define TODO_dump_func			(1 << 0)
@@ -205,6 +209,14 @@ struct dump_file_info
    the memory footprint for VAR_DECLs.  */
 #define TODO_remove_unused_locals	(1 << 11)
 
+/* Internally used for the first in a sequence of passes.  It is set
+   for the passes that are handed to register_dump_files.  */
+#define TODO_set_props			(1 << 12)
+
+/* Set by passes that may make SMT's that were previously never used
+   in statements, used.  */
+#define TODO_update_smt_usage           (1 << 13)
+
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\
@@ -240,10 +252,12 @@ extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_loop_prefetch;
 extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_tree_loop_done;
 extern struct tree_opt_pass pass_ch;
 extern struct tree_opt_pass pass_ccp;
+extern struct tree_opt_pass pass_phi_only_cprop;
 extern struct tree_opt_pass pass_build_ssa;
 extern struct tree_opt_pass pass_del_ssa;
 extern struct tree_opt_pass pass_dominator;
@@ -259,6 +273,8 @@ extern struct tree_opt_pass pass_lower_complex_O0;
 extern struct tree_opt_pass pass_lower_complex;
 extern struct tree_opt_pass pass_lower_vector;
 extern struct tree_opt_pass pass_lower_vector_ssa;
+extern struct tree_opt_pass pass_lower_omp;
+extern struct tree_opt_pass pass_expand_omp;
 extern struct tree_opt_pass pass_object_sizes;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;
@@ -280,7 +296,6 @@ extern struct tree_opt_pass pass_sink_code;
 extern struct tree_opt_pass pass_fre;
 extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_copy_prop;
-extern struct tree_opt_pass pass_phi_only_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
 extern struct tree_opt_pass pass_store_copy_prop;
 extern struct tree_opt_pass pass_vrp;
@@ -289,6 +304,7 @@ extern struct tree_opt_pass pass_uncprop;
 extern struct tree_opt_pass pass_return_slot;
 extern struct tree_opt_pass pass_reassoc;
 extern struct tree_opt_pass pass_rebuild_cgraph_edges;
+extern struct tree_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
 extern struct tree_opt_pass pass_ipa_cp;
@@ -307,7 +323,6 @@ extern struct tree_opt_pass pass_free_datastructures;
 extern struct tree_opt_pass pass_init_datastructures;
 extern struct tree_opt_pass pass_fixup_cfg;
 
-extern struct tree_opt_pass pass_remove_unnecessary_notes;
 extern struct tree_opt_pass pass_init_function;
 extern struct tree_opt_pass pass_jump;
 extern struct tree_opt_pass pass_insn_locators_initialize;
@@ -318,9 +333,7 @@ extern struct tree_opt_pass pass_instantiate_virtual_regs;
 extern struct tree_opt_pass pass_jump2;
 extern struct tree_opt_pass pass_cse;
 extern struct tree_opt_pass pass_gcse;
-extern struct tree_opt_pass pass_loop_optimize;
 extern struct tree_opt_pass pass_jump_bypass;
-extern struct tree_opt_pass pass_cfg;
 extern struct tree_opt_pass pass_profiling;
 extern struct tree_opt_pass pass_rtl_ifcvt;
 extern struct tree_opt_pass pass_tracer;
@@ -343,10 +356,10 @@ extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;
 extern struct tree_opt_pass pass_mode_switching;
+extern struct tree_opt_pass pass_see;
 extern struct tree_opt_pass pass_recompute_reg_usage;
 extern struct tree_opt_pass pass_sms;
 extern struct tree_opt_pass pass_sched;
-extern struct tree_opt_pass pass_sched_treegions;
 extern struct tree_opt_pass pass_local_alloc;
 extern struct tree_opt_pass pass_global_alloc;
 extern struct tree_opt_pass pass_postreload;
@@ -380,6 +393,7 @@ extern struct tree_opt_pass pass_convert_to_eh_region_ranges;
 extern struct tree_opt_pass pass_shorten_branches;
 extern struct tree_opt_pass pass_set_nothrow_function_flags;
 extern struct tree_opt_pass pass_final;
+extern struct tree_opt_pass pass_rtl_seqabstr;
 
 /* The root of the compilation pass tree, once constructed.  */
 extern struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;

@@ -478,7 +478,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
    Remove now useless prediction entries.  */
 
 static void
-combine_predictions_for_bb (FILE *file, basic_block bb)
+combine_predictions_for_bb (basic_block bb)
 {
   int best_probability = PROB_EVEN;
   int best_predictor = END_PREDICTORS;
@@ -512,14 +512,14 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
       if (!bb->count)
 	set_even_probabilities (bb);
       bb->predictions = NULL;
-      if (file)
-	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
+      if (dump_file)
+	fprintf (dump_file, "%i edges in bb %i predicted to even probabilities\n",
 		 nedges, bb->index);
       return;
     }
 
-  if (file)
-    fprintf (file, "Predictions for bb %i\n", bb->index);
+  if (dump_file)
+    fprintf (dump_file, "Predictions for bb %i\n", bb->index);
 
   /* We implement "first match" heuristics and use probability guessed
      by predictor with smallest index.  */
@@ -556,18 +556,18 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     first_match = true;
 
   if (!found)
-    dump_prediction (file, PRED_NO_PREDICTION, combined_probability, bb, true);
+    dump_prediction (dump_file, PRED_NO_PREDICTION, combined_probability, bb, true);
   else
     {
-      dump_prediction (file, PRED_DS_THEORY, combined_probability, bb,
+      dump_prediction (dump_file, PRED_DS_THEORY, combined_probability, bb,
 		       !first_match);
-      dump_prediction (file, PRED_FIRST_MATCH, best_probability, bb,
+      dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability, bb,
 		       first_match);
     }
 
   if (first_match)
     combined_probability = best_probability;
-  dump_prediction (file, PRED_COMBINED, combined_probability, bb, true);
+  dump_prediction (dump_file, PRED_COMBINED, combined_probability, bb, true);
 
   for (pred = bb->predictions; pred; pred = pred->ep_next)
     {
@@ -576,7 +576,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 
       if (pred->ep_edge != EDGE_SUCC (bb, 0))
 	probability = REG_BR_PROB_BASE - probability;
-      dump_prediction (file, predictor, probability, bb,
+      dump_prediction (dump_file, predictor, probability, bb,
 		       !first_match || best_predictor == predictor);
     }
   bb->predictions = NULL;
@@ -824,85 +824,6 @@ bb_estimate_probability_locally (basic_block bb)
       default:
 	break;
       }
-}
-
-/* Statically estimate the probability that a branch will be taken and produce
-   estimated profile.  When profile feedback is present never executed portions
-   of function gets estimated.  */
-
-void
-estimate_probability (struct loops *loops_info)
-{
-  basic_block bb;
-
-  connect_infinite_loops_to_exit ();
-  calculate_dominance_info (CDI_DOMINATORS);
-  calculate_dominance_info (CDI_POST_DOMINATORS);
-
-  predict_loops (loops_info, true);
-
-  iv_analysis_done ();
-
-  /* Attempt to predict conditional jumps using a number of heuristics.  */
-  FOR_EACH_BB (bb)
-    {
-      rtx last_insn = BB_END (bb);
-      edge e;
-      edge_iterator ei;
-
-      if (! can_predict_insn_p (last_insn))
-	continue;
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	{
-	  /* Predict early returns to be probable, as we've already taken
-	     care for error returns and other are often used for fast paths
-	     trought function.  */
-	  if ((e->dest == EXIT_BLOCK_PTR
-	       || (single_succ_p (e->dest)
-		   && single_succ (e->dest) == EXIT_BLOCK_PTR))
-	       && !predicted_by_p (bb, PRED_NULL_RETURN)
-	       && !predicted_by_p (bb, PRED_CONST_RETURN)
-	       && !predicted_by_p (bb, PRED_NEGATIVE_RETURN)
-	       && !last_basic_block_p (e->dest))
-	    predict_edge_def (e, PRED_EARLY_RETURN, TAKEN);
-
-	  /* Look for block we are guarding (i.e. we dominate it,
-	     but it doesn't postdominate us).  */
-	  if (e->dest != EXIT_BLOCK_PTR && e->dest != bb
-	      && dominated_by_p (CDI_DOMINATORS, e->dest, e->src)
-	      && !dominated_by_p (CDI_POST_DOMINATORS, e->src, e->dest))
-	    {
-	      rtx insn;
-
-	      /* The call heuristic claims that a guarded function call
-		 is improbable.  This is because such calls are often used
-		 to signal exceptional situations such as printing error
-		 messages.  */
-	      for (insn = BB_HEAD (e->dest); insn != NEXT_INSN (BB_END (e->dest));
-		   insn = NEXT_INSN (insn))
-		if (CALL_P (insn)
-		    /* Constant and pure calls are hardly used to signalize
-		       something exceptional.  */
-		    && ! CONST_OR_PURE_CALL_P (insn))
-		  {
-		    predict_edge_def (e, PRED_CALL, NOT_TAKEN);
-		    break;
-		  }
-	    }
-	}
-      bb_estimate_probability_locally (bb);
-    }
-
-  /* Attach the combined probability to each conditional jump.  */
-  FOR_EACH_BB (bb)
-    combine_predictions_for_insn (BB_END (bb), bb);
-
-  remove_fake_edges ();
-  estimate_bb_frequencies (loops_info);
-  free_dominance_info (CDI_POST_DOMINATORS);
-  if (profile_status == PROFILE_ABSENT)
-    profile_status = PROFILE_GUESSED;
 }
 
 /* Set edge->probability for each successor edge of BB.  */
@@ -1270,7 +1191,7 @@ tree_bb_level_predictions (void)
   basic_block bb;
   int *heads;
 
-  heads = xmalloc (sizeof (int) * last_basic_block);
+  heads = XNEWVEC (int, last_basic_block);
   memset (heads, ENTRY_BLOCK, sizeof (int) * last_basic_block);
   heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
@@ -1308,7 +1229,7 @@ call_expr:;
 }
 
 /* Predict branch probabilities and estimate profile of the tree CFG.  */
-static void
+static unsigned int
 tree_estimate_probability (void)
 {
   basic_block bb;
@@ -1337,7 +1258,7 @@ tree_estimate_probability (void)
 	{
 	  /* Predict early returns to be probable, as we've already taken
 	     care for error returns and other cases are often used for
-	     fast paths trought function.  */
+	     fast paths through function.  */
 	  if (e->dest == EXIT_BLOCK_PTR
 	      && TREE_CODE (last_stmt (bb)) == RETURN_EXPR
 	      && !single_pred_p (bb))
@@ -1385,10 +1306,9 @@ tree_estimate_probability (void)
       tree_predict_by_opcode (bb);
     }
   FOR_EACH_BB (bb)
-    combine_predictions_for_bb (dump_file, bb);
+    combine_predictions_for_bb (bb);
 
-  if (!flag_loop_optimize)
-    strip_builtin_expect ();
+  strip_builtin_expect ();
   estimate_bb_frequencies (&loops_info);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
@@ -1397,6 +1317,7 @@ tree_estimate_probability (void)
     dump_tree_cfg (dump_file, dump_flags);
   if (profile_status == PROFILE_ABSENT)
     profile_status = PROFILE_GUESSED;
+  return 0;
 }
 
 /* __builtin_expect dropped tokens into the insn stream describing expected

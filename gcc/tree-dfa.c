@@ -65,19 +65,10 @@ struct dfa_stats_d
 };
 
 
-/* State information for find_vars_r.  */
-struct walk_state
-{
-  /* Hash table used to avoid adding the same variable more than once.  */
-  htab_t vars_found;
-};
-
-
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static tree find_vars_r (tree *, int *, void *);
-static void add_referenced_var (tree, struct walk_state *);
 
 
 /* Global declarations.  */
@@ -103,26 +94,20 @@ htab_t default_defs;
    various attributes for each variable used by alias analysis and the
    optimizer.  */
 
-static void
+static unsigned int
 find_referenced_vars (void)
 {
-  htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
-  struct walk_state walk_state;
-
-  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-  memset (&walk_state, 0, sizeof (walk_state));
-  walk_state.vars_found = vars_found;
 
   FOR_EACH_BB (bb)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	tree *stmt_p = bsi_stmt_ptr (si);
-	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
+	walk_tree (stmt_p, find_vars_r, NULL, NULL);
       }
 
-  htab_delete (vars_found);
+  return 0;
 }
 
 struct tree_opt_pass pass_referenced_vars =
@@ -242,7 +227,7 @@ make_rename_temp (tree type, const char *prefix)
 
   if (referenced_vars)
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 
@@ -344,14 +329,14 @@ dump_variable (FILE *file, tree var)
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
-  if (ann && ann->type_mem_tag)
+  if (ann && ann->symbol_mem_tag)
     {
-      fprintf (file, ", type memory tag: ");
-      print_generic_expr (file, ann->type_mem_tag, dump_flags);
+      fprintf (file, ", symbol memory tag: ");
+      print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
     }
 
-  if (ann && ann->is_alias_tag)
-    fprintf (file, ", is an alias tag");
+  if (ann && ann->is_aliased)
+    fprintf (file, ", is aliased");
 
   if (TREE_ADDRESSABLE (var))
     fprintf (file, ", is addressable");
@@ -363,7 +348,35 @@ dump_variable (FILE *file, tree var)
     fprintf (file, ", is volatile");
 
   if (is_call_clobbered (var))
-    fprintf (file, ", call clobbered");
+    {
+      fprintf (file, ", call clobbered");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  var_ann_t va = var_ann (var);
+	  unsigned int escape_mask = va->escape_mask;
+	  
+	  fprintf (file, " (");
+	  if (escape_mask & ESCAPE_STORED_IN_GLOBAL)
+	    fprintf (file, ", stored in global");
+	  if (escape_mask & ESCAPE_TO_ASM)
+	    fprintf (file, ", goes through ASM");
+	  if (escape_mask & ESCAPE_TO_CALL)
+	    fprintf (file, ", passed to call");
+	  if (escape_mask & ESCAPE_BAD_CAST)
+	    fprintf (file, ", bad cast");
+	  if (escape_mask & ESCAPE_TO_RETURN)
+	    fprintf (file, ", returned from func");
+	  if (escape_mask & ESCAPE_TO_PURE_CONST)
+	    fprintf (file, ", passed to pure/const");
+	  if (escape_mask & ESCAPE_IS_GLOBAL)
+	    fprintf (file, ", is global var");
+	  if (escape_mask & ESCAPE_IS_PARM)
+	    fprintf (file, ", is incoming pointer");
+	  if (escape_mask & ESCAPE_UNKNOWN)
+	    fprintf (file, ", unknown escape");
+	  fprintf (file, " )");
+	}
+    }
 
   if (default_def (var))
     {
@@ -578,14 +591,12 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
    the function.  */
 
 static tree
-find_vars_r (tree *tp, int *walk_subtrees, void *data)
+find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
-  struct walk_state *walk_state = (struct walk_state *) data;
-
   /* If T is a regular variable that the optimizers are interested
      in, add it to the list of variables.  */
   if (SSA_VAR_P (*tp))
-    add_referenced_var (*tp, walk_state);
+    add_referenced_var (*tp);
 
   /* Type, _DECL and constant nodes have no interesting children.
      Ignore them.  */
@@ -595,19 +606,20 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Lookup VAR in the referenced_vars hashtable and return true if it is
+   present.  */
 
-/* Lookup UID in the referenced_vars hashtable and return the associated
-   variable or NULL if it is not there.  */
-
-tree 
-referenced_var_lookup_if_exists (unsigned int uid)
+static inline bool
+referenced_var_p (tree var)
 {
   struct int_tree_map *h, in;
-  in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+  in.uid = DECL_UID (var);
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, 
+						   &in, 
+						   in.uid);
   if (h)
-    return h->to;
-  return NULL_TREE;
+    return h->to != NULL_TREE;
+  return false;
 }
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
@@ -637,6 +649,9 @@ referenced_var_insert (unsigned int uid, tree to)
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  /* This assert can only trigger if a variable with the same UID has been 
+     inserted already.  */
+  gcc_assert ((*(struct int_tree_map **)loc) == NULL);
   *(struct int_tree_map **)  loc = h;
 }
 
@@ -690,44 +705,28 @@ set_default_def (tree var, tree def)
     }
 }
 
-/* Add VAR to the list of dereferenced variables.
+/* Add VAR to the list of referenced variables if it isn't already there.  */
 
-   WALK_STATE contains a hash table used to avoid adding the same
-      variable more than once. Note that this function assumes that
-      VAR is a valid SSA variable.  If WALK_STATE is NULL, no
-      duplicate checking is done.  */
-
-static void
-add_referenced_var (tree var, struct walk_state *walk_state)
+void
+add_referenced_var (tree var)
 {
-  void **slot;
   var_ann_t v_ann;
 
   v_ann = get_var_ann (var);
-
-  if (walk_state)
-    slot = htab_find_slot (walk_state->vars_found, (void *) var, INSERT);
-  else
-    slot = NULL;
-
-  if (slot == NULL || *slot == NULL)
+  gcc_assert (DECL_P (var));
+  
+  if (!referenced_var_p (var))
     {
       /* This is the first time we find this variable, add it to the
          REFERENCED_VARS array and annotate it with attributes that are
 	 intrinsic to the variable.  */
-      if (slot)
-	*slot = (void *) var;
       
       referenced_var_insert (DECL_UID (var), var);
-
-      /* Global variables are always call-clobbered.  */
-      if (is_global_var (var))
-	mark_call_clobbered (var);
-
+      
       /* Tag's don't have DECL_INITIAL.  */
       if (MTAG_P (var))
 	return;
-      
+
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  */
@@ -739,7 +738,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	     variables because it cannot be propagated by the
 	     optimizers.  */
 	  && (TREE_CONSTANT (var) || TREE_READONLY (var)))
-      	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
+      	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
     }
 }
 
@@ -766,19 +765,6 @@ get_virtual_var (tree var)
 
   return var;
 }
-
-/* Add a temporary variable to REFERENCED_VARS.  This is similar to
-   add_referenced_var, but is used by passes that need to add new temps to
-   the REFERENCED_VARS array after the program has been scanned for
-   variables.  The variable will just receive a new UID and be added
-   to the REFERENCED_VARS array without checking for duplicates.  */
-
-void
-add_referenced_tmp_var (tree var)
-{
-  add_referenced_var (var, NULL);
-}
-
 
 /* Mark all the non-SSA variables found in STMT's operands to be
    processed by update_ssa.  */
@@ -857,7 +843,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
 
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 
@@ -889,6 +875,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   HOST_WIDE_INT maxsize = -1;
   tree size_tree = NULL_TREE;
   tree bit_offset = bitsize_zero_node;
+  bool seen_variable_array_ref = false;
 
   gcc_assert (!SSA_VAR_P (exp));
 
@@ -980,6 +967,11 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 				    fold_convert (bitsizetype, index),
 				    bitsize_unit_node);
 		bit_offset = size_binop (PLUS_EXPR, bit_offset, index);
+
+		/* An array ref with a constant index up in the structure
+		   hierarchy will constrain the size of any variable array ref
+		   lower in the access hierarchy.  */
+		seen_variable_array_ref = false;
 	      }
 	    else
 	      {
@@ -995,6 +987,10 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 		  }
 		else
 		  maxsize = -1;
+
+		/* Remember that we have seen an array ref with a variable
+		   index.  */
+		seen_variable_array_ref = true;
 	      }
 	  }
 	  break;
@@ -1018,6 +1014,21 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       exp = TREE_OPERAND (exp, 0);
     }
  done:
+
+  /* We need to deal with variable arrays ending structures such as
+       struct { int length; int a[1]; } x;           x.a[d]
+       struct { struct { int a; int b; } a[1]; } x;  x.a[d].a
+       struct { struct { int a[1]; } a[1]; } x;      x.a[0][d], x.a[d][0]
+     where we do not know maxsize for variable index accesses to
+     the array.  The simplest way to conservatively deal with this
+     is to punt in the case that offset + maxsize reaches the
+     base type boundary.  */
+  if (seen_variable_array_ref
+      && maxsize != -1
+      && host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
+      && TREE_INT_CST_LOW (bit_offset) + maxsize
+	 == TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp))))
+    maxsize = -1;
 
   /* ???  Due to negative offsets in ARRAY_REF we can end up with
      negative bit_offset here.  We might want to store a zero offset

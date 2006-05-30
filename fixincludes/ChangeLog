@@ -1,3 +1,37 @@
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Add dvi info html and install-html to .PHONY
+	Add install-html target.
+
+2006-05-16  Mike Stump  <mrs@apple.com>
+
+	* configure.ac: Add -Wno-overlength-strings.
+	* configure: Regenerate.
+
+2006-05-14  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* README: Fix typo.
+
+2006-02-18  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/26189
+	* inclhack.def (hpux_spu_info): New.
+	* fixincl.x: Regenerate
+
+2006-01-31  Marcin Dalecki  <martin@dalecki.de>
+
+	* configure.ac: Check for asprintf, basename, vasprintf.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2006-01-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/15642
+	* inclhack.def (AAB_darwin7_9_long_double_funcs [replace]): Define
+	__APPLE_CC_ as 1345.
+	(broken_nan): New.
+	* fixincl.x: Regenerate.
+
 2005-11-24  Bruce Korb  <bkorb@gnu.org>
 
 	* fixincl.c(write_replacement) "here strings" in AutoGen often/generally

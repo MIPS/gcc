@@ -841,9 +841,6 @@ final class XmlParser
       {
         inputEncoding = encodingName;
       }
-    handler.xmlDecl(version, encodingName, docIsStandalone,
-                    inputEncoding);
-    
     return encodingName;
   }
 
@@ -2185,6 +2182,7 @@ loop:
                   {
                     nest++;
                   }
+                break;
               case ']':
                 if (tryRead("]>"))
                   {

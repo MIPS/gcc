@@ -1,5 +1,5 @@
 /* gnu/regexp/RETokenRange.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -43,23 +43,54 @@ final class RETokenRange extends REToken {
 
   RETokenRange(int subIndex, char lo, char hi, boolean ins) {
     super(subIndex);
-    this.lo = (insens = ins) ? Character.toLowerCase(lo) : lo;
-    this.hi = ins ? Character.toLowerCase(hi) : hi;
+    insens = ins;
+    this.lo = lo;
+    this.hi = hi;
   }
 
   int getMinimumLength() {
     return 1;
   }
 
-    boolean match(CharIndexed input, REMatch mymatch) {
+  int getMaximumLength() {
+    return 1;
+  }
+
+    REMatch matchThis(CharIndexed input, REMatch mymatch) {
 	char c = input.charAt(mymatch.index);
-	if (c == CharIndexed.OUT_OF_BOUNDS) return false;
-	if (insens) c = Character.toLowerCase(c);
-	if ((c >= lo) && (c <= hi)) {
+	if (matchOneChar(c)) {
 	    ++mymatch.index;
-	    return next(input, mymatch);
+	    return mymatch;
 	}
-	return false;
+	return null;
+    }
+
+    boolean matchOneChar(char c) {
+	if (c == CharIndexed.OUT_OF_BOUNDS) return false;
+	boolean matches = (c >= lo) && (c <= hi);
+	if (! matches && insens) {
+	  char c1 = toLowerCase(c, unicodeAware);
+	  matches = (c1 >= lo) && (c1 <= hi);
+	  if (!matches) {
+	    c1 = toUpperCase(c, unicodeAware);
+	    matches = (c1 >= lo) && (c1 <= hi);
+	  }
+	}
+	return matches;
+    }
+
+    boolean returnsFixedLengthMatches() { return true; }
+
+    int findFixedLengthMatches(CharIndexed input, REMatch mymatch, int max) {
+        int index = mymatch.index;
+	int numRepeats = 0;
+	while (true) {
+	    if (numRepeats >= max) break;
+	    char ch = input.charAt(index++);
+	    if (! matchOneChar(ch)) break;
+	    numRepeats++;
+	}
+        return numRepeats;
     }
     
   void dump(StringBuffer os) {

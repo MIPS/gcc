@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -93,11 +93,7 @@ extern const struct processor_costs *ix86_cost;
 /* configure can arrange to make this 2, to force a 486.  */
 
 #ifndef TARGET_CPU_DEFAULT
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_k8
-#else
-#define TARGET_CPU_DEFAULT 0
-#endif
+#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_generic
 #endif
 
 #ifndef TARGET_FPMATH_DEFAULT
@@ -140,6 +136,9 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+#define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
+#define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
+#define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -163,6 +162,8 @@ extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
 extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
+extern const int x86_use_incdec;
+extern const int x86_pad_returns;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -217,6 +218,8 @@ extern int x86_prefetch_sse;
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
 #define TARGET_USE_BT (x86_use_bt & TUNEMASK)
+#define TARGET_USE_INCDEC (x86_use_incdec & TUNEMASK)
+#define TARGET_PAD_RETURNS (x86_pad_returns & TUNEMASK)
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
@@ -225,6 +228,8 @@ extern int x86_prefetch_sse;
 			     && (ix86_fpmath & FPMATH_387))
 
 #define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
+#define TARGET_GNU2_TLS (ix86_tls_dialect == TLS_DIALECT_GNU2)
+#define TARGET_ANY_GNU_TLS (TARGET_GNU_TLS || TARGET_GNU2_TLS)
 #define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
 
 #define TARGET_CMPXCHG (x86_cmpxchg & (1 << ix86_arch))
@@ -268,6 +273,14 @@ extern int x86_prefetch_sse;
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
   optimization_options ((LEVEL), (SIZE))
 
+/* -march=native handling only makes sense with a native compiler.  */
+#ifndef CROSS_COMPILE
+/* In driver-i386.c.  */
+extern const char *host_detect_local_cpu (int argc, const char **argv);
+#define EXTRA_SPEC_FUNCTIONS \
+  { "local_cpu_detect", host_detect_local_cpu },
+#endif
+
 /* Support for configure-time defaults of some command line options.  */
 #define OPTION_DEFAULT_SPECS \
   {"arch", "%{!march=*:-march=%(VALUE)}"}, \
@@ -277,7 +290,7 @@ extern int x86_prefetch_sse;
 /* Specs for the compiler proper */
 
 #ifndef CC1_CPU_SPEC
-#define CC1_CPU_SPEC "\
+#define CC1_CPU_SPEC_1 "\
 %{!mtune*: \
 %{m386:mtune=i386 \
 %n`-m386' is deprecated. Use `-march=i386' or `-mtune=i386' instead.\n} \
@@ -294,6 +307,14 @@ extern int x86_prefetch_sse;
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
 %n`-mno-intel-syntax' is deprecated. Use `-masm=att' instead.\n}"
+
+#ifdef CROSS_COMPILE
+#define CC1_CPU_SPEC CC1_CPU_SPEC_1
+#else
+#define CC1_CPU_SPEC CC1_CPU_SPEC_1 \
+"%{march=native:%<march=native %:local_cpu_detect(arch)} \
+%{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
+#endif
 #endif
 
 /* Target CPU builtins.  */
@@ -462,12 +483,14 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_pentium_m 14
 #define TARGET_CPU_DEFAULT_prescott 15
 #define TARGET_CPU_DEFAULT_nocona 16
+#define TARGET_CPU_DEFAULT_generic 17
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
 				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona"}
+				  "pentium-m", "prescott", "nocona", \
+				  "generic"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -660,7 +683,9 @@ extern int x86_prefetch_sse;
 
 #define STACK_REGS
 #define IS_STACK_MODE(MODE)					\
-  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode)	\
+  (((MODE) == SFmode && (!TARGET_SSE || !TARGET_SSE_MATH))	\
+   || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
+   || (MODE) == XFmode)
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1187,92 +1212,6 @@ enum reg_class
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
-/* Unused letters:
-    B                 TU W   
-          h jk          vw  z
-*/
-
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_LETTER(C)	\
-  ((C) == 'r' ? GENERAL_REGS :					\
-   (C) == 'R' ? LEGACY_REGS :					\
-   (C) == 'q' ? TARGET_64BIT ? GENERAL_REGS : Q_REGS :		\
-   (C) == 'Q' ? Q_REGS :					\
-   (C) == 'f' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FLOAT_REGS					\
-		 : NO_REGS) :					\
-   (C) == 't' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FP_TOP_REG					\
-		 : NO_REGS) :					\
-   (C) == 'u' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FP_SECOND_REG				\
-		 : NO_REGS) :					\
-   (C) == 'a' ? AREG :						\
-   (C) == 'b' ? BREG :						\
-   (C) == 'c' ? CREG :						\
-   (C) == 'd' ? DREG :						\
-   (C) == 'x' ? TARGET_SSE ? SSE_REGS : NO_REGS :		\
-   (C) == 'Y' ? TARGET_SSE2? SSE_REGS : NO_REGS :		\
-   (C) == 'y' ? TARGET_MMX ? MMX_REGS : NO_REGS :		\
-   (C) == 'A' ? AD_REGS :					\
-   (C) == 'D' ? DIREG :						\
-   (C) == 'S' ? SIREG :						\
-   (C) == 'l' ? INDEX_REGS :					\
-   NO_REGS)
-
-/* The letters I, J, K, L, M, N, and O in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C.
-
-   I is for non-DImode shifts.
-   J is for DImode shifts.
-   K is for signed imm8 operands.
-   L is for andsi as zero-extending move.
-   M is for shifts that can be executed by the "lea" opcode.
-   N is for immediate operands for out/in instructions (0-255)
-   O is for TImode shifts.
-   */
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)				\
-  ((C) == 'I' ? (VALUE) >= 0 && (VALUE) <= 31			\
-   : (C) == 'J' ? (VALUE) >= 0 && (VALUE) <= 63			\
-   : (C) == 'K' ? (VALUE) >= -128 && (VALUE) <= 127		\
-   : (C) == 'L' ? (VALUE) == 0xff || (VALUE) == 0xffff		\
-   : (C) == 'M' ? (VALUE) >= 0 && (VALUE) <= 3			\
-   : (C) == 'N' ? (VALUE) >= 0 && (VALUE) <= 255		\
-   : (C) == 'O' ? (VALUE) >= 0 && (VALUE) <= 127		\
-   : 0)
-
-/* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself.  We allow constants even if
-   TARGET_387 isn't set, because the stack register converter may need to
-   load 0.0 into the function value register.  */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  \
-  ((C) == 'G' ? standard_80387_constant_p (VALUE) \
-   : 0)
-
-/* A C expression that defines the optional machine-dependent
-   constraint letters that can be used to segregate specific types of
-   operands, usually memory references, for the target machine.  Any
-   letter that is not elsewhere defined and not matched by
-   `REG_CLASS_FROM_LETTER' may be used.  Normally this macro will not
-   be defined.
-
-   If it is required for a particular target machine, it should
-   return 1 if VALUE corresponds to the operand type represented by
-   the constraint letter C.  If C is not defined as an extra
-   constraint, the value returned should be 0 regardless of VALUE.  */
-
-#define EXTRA_CONSTRAINT(VALUE, D)					\
-  ((D) == 'e' ? x86_64_immediate_operand (VALUE, VOIDmode)		\
-   : (D) == 'Z' ? x86_64_zext_immediate_operand (VALUE, VOIDmode)	\
-   : (D) == 'C' ? standard_sse_constant_p (VALUE)			\
-   : 0)
-
 /* Place additional restrictions on the register class to use when it
    is necessary to be able to hold a value of mode MODE in a reload
    register for which class CLASS would ordinarily be used.  */
@@ -1298,6 +1237,12 @@ enum reg_class
 
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
    ix86_preferred_reload_class ((X), (CLASS))
+
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+
+#define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS) \
+   ix86_preferred_output_reload_class ((X), (CLASS))
 
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */
@@ -2117,6 +2062,8 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+  PROCESSOR_GENERIC32,
+  PROCESSOR_GENERIC64,
   PROCESSOR_max
 };
 
@@ -2134,6 +2081,7 @@ extern enum fpmath_unit ix86_fpmath;
 enum tls_dialect
 {
   TLS_DIALECT_GNU,
+  TLS_DIALECT_GNU2,
   TLS_DIALECT_SUN
 };
 
@@ -2275,11 +2223,30 @@ struct machine_function GTY(())
   /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE has been computed
      for.  */
   int use_fast_prologue_epilogue_nregs;
+  /* If true, the current function needs the default PIC register, not
+     an alternate register (on x86) and must not use the red zone (on
+     x86_64), even if it's a leaf function.  We don't want the
+     function to be regarded as non-leaf because TLS calls need not
+     affect register allocation.  This flag is set when a TLS call
+     instruction is expanded within a function, and never reset, even
+     if all such instructions are optimized away.  Use the
+     ix86_current_function_calls_tls_descriptor macro for a better
+     approximation.  */
+  int tls_descriptor_call_expanded_p;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
+#define ix86_tls_descriptor_calls_expanded_in_cfun \
+  (cfun->machine->tls_descriptor_call_expanded_p)
+/* Since tls_descriptor_call_expanded is not cleared, even if all TLS
+   calls are optimized away, we try to detect cases in which it was
+   optimized away.  Since such instructions (use (reg REG_SP)), we can
+   verify whether there's any such instruction live by testing that
+   REG_SP is live.  */
+#define ix86_current_function_calls_tls_descriptor \
+  (ix86_tls_descriptor_calls_expanded_in_cfun && regs_ever_live[SP_REG])
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

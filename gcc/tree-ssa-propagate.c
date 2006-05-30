@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -632,7 +632,8 @@ set_rhs (tree *stmt_p, tree expr)
       *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
       (*stmt_p)->common.ann = (tree_ann_t) ann;
 
-      if (TREE_SIDE_EFFECTS (expr))
+      if (in_ssa_p
+	  && TREE_SIDE_EFFECTS (expr))
 	{
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
 	     replacement.  */
@@ -1124,14 +1125,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  /* If we have range information, see if we can fold
 	     predicate expressions.  */
 	  if (use_ranges_p)
-	    {
-	      did_replace = fold_predicate_in (stmt);
-
-	      /* Some statements may be simplified using ranges.  For
-		 example, division may be replaced by shifts, modulo
-		 replaced with bitwise and, etc.  */
-	      simplify_stmt_using_ranges (stmt);
-	    }
+	    did_replace = fold_predicate_in (stmt);
 
 	  if (prop_value)
 	    {
@@ -1178,6 +1172,16 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		  fprintf (dump_file, "\n");
 		}
 	    }
+
+	  /* Some statements may be simplified using ranges.  For
+	     example, division may be replaced by shifts, modulo
+	     replaced with bitwise and, etc.   Do this after 
+	     substituting constants, folding, etc so that we're
+	     presented with a fully propagated, canonicalized
+	     statement.  */
+	  if (use_ranges_p)
+	    simplify_stmt_using_ranges (stmt);
+
 	}
     }
 

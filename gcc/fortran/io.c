@@ -1,6 +1,6 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -28,8 +28,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "parse.h"
 
 gfc_st_label format_asterisk =
-  { -1, ST_LABEL_FORMAT, ST_LABEL_FORMAT, NULL, 0,
-    {NULL, NULL}, NULL, NULL};
+  {0, NULL, NULL, -1, ST_LABEL_FORMAT, ST_LABEL_FORMAT, NULL,
+   0, {NULL, NULL}};
 
 typedef struct
 {
@@ -413,7 +413,6 @@ static try
 check_format (void)
 {
   const char *posint_required	  = _("Positive width required");
-  const char *period_required	  = _("Period required");
   const char *nonneg_required	  = _("Nonnegative width required");
   const char *unexpected_element  = _("Unexpected element");
   const char *unexpected_end	  = _("Unexpected end of format string");
@@ -569,8 +568,26 @@ data_desc:
       if (t == FMT_POSINT)
 	break;
 
-      error = posint_required;
-      goto syntax;
+      switch (gfc_notification_std (GFC_STD_GNU))
+	{
+	  case WARNING:
+	    gfc_warning
+	      ("Extension: Missing positive width after L descriptor at %C");
+	    saved_token = t;
+	    break;
+
+	  case ERROR:
+	    error = posint_required;
+	    goto syntax;
+
+	  case SILENT:
+	    saved_token = t;
+	    break;
+
+	  default:
+	    gcc_unreachable ();
+	}
+      break;
 
     case FMT_A:
       t = format_lex ();
@@ -592,8 +609,13 @@ data_desc:
       u = format_lex ();
       if (u != FMT_PERIOD)
 	{
-	  error = period_required;
-	  goto syntax;
+	  /* Warn if -std=legacy, otherwise error.  */
+	  if (gfc_option.warn_std != 0)
+	    gfc_error_now ("Period required in format specifier at %C");
+	  else
+	    gfc_warning ("Period required in format specifier at %C");
+	  saved_token = u;
+	  break;
 	}
 
       u = format_lex ();
@@ -635,8 +657,13 @@ data_desc:
       t = format_lex ();
       if (t != FMT_PERIOD)
 	{
-	  error = period_required;
-	  goto syntax;
+	  /* Warn if -std=legacy, otherwise error.  */
+          if (gfc_option.warn_std != 0)
+	    gfc_error_now ("Period required in format specifier at %C");
+	  else
+	    gfc_warning ("Period required in format specifier at %C");
+	  saved_token = t;
+	  break;
 	}
 
       t = format_lex ();
@@ -971,6 +998,10 @@ match_ltag (const io_tag * tag, gfc_st_label ** label)
       gfc_error ("Duplicate %s label specification at %C", tag->name);
       return MATCH_ERROR;
     }
+
+  if (m == MATCH_YES 
+      && gfc_reference_st_label (*label, ST_LABEL_TARGET) == FAILURE)
+    return MATCH_ERROR;
 
   return m;
 }
@@ -2295,30 +2326,34 @@ if (condition) \
 
   if (dt->advance)
     {
-      const char * advance;
       int not_yes, not_no;
       expr = dt->advance;
-      advance = expr->value.character.string;
 
       io_constraint (dt->format_label == &format_asterisk,
 		     "List directed format(*) is not allowed with a "
 		     "ADVANCE=specifier at %L.", &expr->where);
 
-      not_no = strncasecmp (advance, "no", 2) != 0;
-      not_yes = strncasecmp (advance, "yes", 2) != 0;
+      if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_CHARACTER)
+	{
+	  const char * advance = expr->value.character.string;
+	  not_no = strncasecmp (advance, "no", 2) != 0;
+	  not_yes = strncasecmp (advance, "yes", 2) != 0;
+	}
+      else
+	{
+	  not_no = 0;
+	  not_yes = 0;
+	}
 
-      io_constraint (expr->expr_type == EXPR_CONSTANT
-		       && not_no && not_yes,
+      io_constraint (not_no && not_yes,
 		     "ADVANCE=specifier at %L must have value = "
 		     "YES or NO.", &expr->where);
 
-      io_constraint (dt->size && expr->expr_type == EXPR_CONSTANT
-		       && not_no && k == M_READ,
+      io_constraint (dt->size && not_no && k == M_READ,
 		     "SIZE tag at %L requires an ADVANCE = 'NO'",
 		     &dt->size->where);
 
-      io_constraint (dt->eor && expr->expr_type == EXPR_CONSTANT 
-		       && not_no && k == M_READ,
+      io_constraint (dt->eor && not_no && k == M_READ,
 		     "EOR tag at %L requires an ADVANCE = 'NO'",
 		     &dt->eor_where);      
     }
@@ -2397,6 +2432,12 @@ match_io (io_kind k)
       comma_flag = 1;
       dt->io_unit = default_unit (k);
       goto get_io_list;
+    }
+  else
+    {
+      /* Error for constructs like print (1,*).   */
+      if (k == M_PRINT)
+	goto  syntax;
     }
 
   /* Match a control list */

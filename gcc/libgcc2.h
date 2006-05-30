@@ -117,8 +117,12 @@ extern short int __get_eh_table_version (struct exception_descriptor *);
 #endif
 #endif
 
-#ifndef MIN_UNITS_PER_WORD
-#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+/* FIXME: This #ifdef probably should be removed, ie. enable the test
+   for mips too.  */
+#ifdef __powerpc__
+#define IS_IBM_EXTENDED(SIZE) (SIZE == 106)
+#else
+#define IS_IBM_EXTENDED(SIZE) 0
 #endif
 
 /* In the first part of this file, we are interfacing to calls generated
@@ -193,7 +197,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
    turns out that no platform would define COMPAT_DIMODE_TRAPPING_ARITHMETIC
    if it existed.  */
 
-#if MIN_UNITS_PER_WORD > 4
+#if LIBGCC2_UNITS_PER_WORD == 8
 #define W_TYPE_SIZE (8 * BITS_PER_UNIT)
 #define Wtype	DItype
 #define UWtype	UDItype
@@ -204,8 +208,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define __NW(a,b)	__ ## a ## di ## b
 #define __NDW(a,b)	__ ## a ## ti ## b
 #define COMPAT_SIMODE_TRAPPING_ARITHMETIC
-#elif MIN_UNITS_PER_WORD > 2 \
-      || (MIN_UNITS_PER_WORD > 1 && LONG_LONG_TYPE_SIZE > 32)
+#elif LIBGCC2_UNITS_PER_WORD == 4
 #define W_TYPE_SIZE (4 * BITS_PER_UNIT)
 #define Wtype	SItype
 #define UWtype	USItype
@@ -215,7 +218,7 @@ typedef int word_type __attribute__ ((mode (__word__)));
 #define UDWtype	UDItype
 #define __NW(a,b)	__ ## a ## si ## b
 #define __NDW(a,b)	__ ## a ## di ## b
-#elif MIN_UNITS_PER_WORD > 1
+#elif LIBGCC2_UNITS_PER_WORD == 2
 #define W_TYPE_SIZE (2 * BITS_PER_UNIT)
 #define Wtype	HItype
 #define UWtype	UHItype
@@ -426,7 +429,7 @@ extern const UQItype __popcount_tab[256];
 /* Defined for L_clz.  Exported here because some targets may want to use
    it for their own versions of the __clz builtins.  It contains the bit
    position of the first set bit for the numbers 0 - 255.  This avoids the
-   need for a seperate table for the __ctz builtins.  */
+   need for a separate table for the __ctz builtins.  */
 extern const UQItype __clz_tab[256];
 
 #include "longlong.h"

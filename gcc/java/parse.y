@@ -1,6 +1,6 @@
 /* Source code parsing and tree node generation for the GNU compiler
    for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
@@ -134,7 +134,7 @@ static tree resolve_no_layout (tree, tree);
 static int invocation_mode (tree, int);
 static tree find_applicable_accessible_methods_list (int, tree, tree, tree);
 static void search_applicable_methods_list (int, tree, tree, tree, tree *, tree *);
-static tree find_most_specific_methods_list (tree);
+static tree find_most_specific_methods_list (tree, tree);
 static int argument_types_convertible (tree, tree);
 static tree patch_invoke (tree, tree, tree);
 static int maybe_use_access_method (int, tree *, tree *);
@@ -7571,6 +7571,9 @@ source_start_java_method (tree fndecl)
 	  DECL_FINAL (parm_decl) = 1;
 	}
 
+      if (name == this_identifier_node)
+	DECL_ARTIFICIAL (parm_decl) = 1;
+
       BLOCK_CHAIN_DECL (parm_decl);
     }
   tem = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (current_function_decl));
@@ -7767,6 +7770,10 @@ java_reorder_fields (void)
 	if (!DECL_NAME (TYPE_FIELDS (current_class)))
 	  {
 	    tree fields = TYPE_FIELDS (current_class);
+	    /* This works around a problem where on some platforms,
+	       the field might be given its size incorrectly.  */
+	    DECL_SIZE (fields) = NULL_TREE;
+	    DECL_SIZE_UNIT (fields) = NULL_TREE;
 	    TREE_CHAIN (fields) = nreverse (TREE_CHAIN (fields));
 	    TYPE_SIZE (current_class) = NULL_TREE;
 	  }
@@ -8003,7 +8010,8 @@ maybe_generate_pre_expand_clinit (tree class_type)
 }
 
 /* Analyzes a method body and look for something that isn't a
-   MODIFY_EXPR with a constant value.  */
+   MODIFY_EXPR with a constant value.  Return true if <clinit> is
+   needed, false otherwise.  */
 
 static int
 analyze_clinit_body (tree this_class, tree bbody)
@@ -8041,6 +8049,11 @@ analyze_clinit_body (tree this_class, tree bbody)
 	return (! TREE_CONSTANT (TREE_OPERAND (bbody, 1))
 		|| ! DECL_INITIAL (TREE_OPERAND (bbody, 0))
 		|| DECL_CONTEXT (TREE_OPERAND (bbody, 0)) != this_class);
+
+      case NOP_EXPR:
+	/* We might see an empty statement here, which is
+	   ignorable.  */
+	return ! IS_EMPTY_STMT (bbody);
 
       default:
 	return 1;
@@ -11053,6 +11066,7 @@ patch_invoke (tree patch, tree method, tree args)
 	case INVOKE_STATIC:
 	  {
 	    tree signature = build_java_signature (TREE_TYPE (method));
+	    maybe_rewrite_invocation (&method, &args, &signature);
 	    func = build_known_method_ref (method, TREE_TYPE (method),
 					   DECL_CONTEXT (method),
 					   signature, args);
@@ -11240,7 +11254,7 @@ lookup_method_invoke (int lc, tree cl, tree class, tree name, tree arg_list)
   /* Find all candidates and then refine the list, searching for the
      most specific method. */
   list = find_applicable_accessible_methods_list (lc, class, name, atl);
-  list = find_most_specific_methods_list (list);
+  list = find_most_specific_methods_list (list, class);
   if (list && !TREE_CHAIN (list))
     return TREE_VALUE (list);
 
@@ -11432,7 +11446,7 @@ search_applicable_methods_list (int lc, tree method, tree name, tree arglist,
 /* 15.11.2.2 Choose the Most Specific Method */
 
 static tree
-find_most_specific_methods_list (tree list)
+find_most_specific_methods_list (tree list, tree class)
 {
   int max = 0;
   int abstract, candidates;
@@ -11455,8 +11469,23 @@ find_most_specific_methods_list (tree list)
 	  /* Compare arguments and location where methods where declared */
 	  if (argument_types_convertible (method_v, current_v))
 	    {
+	      /* We have a rather odd special case here.  The front
+		 end doesn't properly implement inheritance, so we
+		 work around it here.  The idea is, if we are
+		 comparing a method declared in a class to one
+		 declared in an interface, and the invocation's
+		 qualifying class is a class (and not an interface),
+		 then we consider the method's class to be the
+		 qualifying class of the invocation.  This lets us
+		 fake the result of ordinary inheritance.  */
+	      tree context_v = DECL_CONTEXT (current_v);
+	      if (TYPE_INTERFACE_P (DECL_CONTEXT (method_v))
+		  && ! TYPE_INTERFACE_P (context_v)
+		  && ! TYPE_INTERFACE_P (class))
+		context_v = class;
+
 	      if (valid_method_invocation_conversion_p
-		  (DECL_CONTEXT (method_v), DECL_CONTEXT (current_v)))
+		  (DECL_CONTEXT (method_v), context_v))
 		{
 		  int v = (DECL_SPECIFIC_COUNT (current_v) += 1);
 		  max = (v > max ? v : max);
@@ -13328,8 +13357,7 @@ static tree
 do_unary_numeric_promotion (tree arg)
 {
   tree type = TREE_TYPE (arg);
-  if ((TREE_CODE (type) == INTEGER_TYPE && TYPE_PRECISION (type) < 32)
-      || TREE_CODE (type) == CHAR_TYPE)
+  if (TREE_CODE (type) == INTEGER_TYPE && TYPE_PRECISION (type) < 32)
     arg = convert (int_type_node, arg);
   return arg;
 }

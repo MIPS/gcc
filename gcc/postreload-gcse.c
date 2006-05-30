@@ -224,7 +224,7 @@ alloc_mem (void)
   rtx insn;
 
   /* Find the largest UID and create a mapping from UIDs to CUIDs.  */
-  uid_cuid = xcalloc (get_max_uid () + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, get_max_uid () + 1);
   i = 1;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
@@ -1318,7 +1318,7 @@ delete_redundant_insns (void)
 /* Main entry point of the GCSE after reload - clean some redundant loads
    due to spilling.  */
 
-void
+static void
 gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
 {
 
@@ -1365,12 +1365,13 @@ gate_handle_gcse2 (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_gcse2 (void)
 {
   gcse_after_reload_main (get_insns ());
   rebuild_jump_labels (get_insns ());
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  return 0;
 }
 
 struct tree_opt_pass pass_gcse2 =

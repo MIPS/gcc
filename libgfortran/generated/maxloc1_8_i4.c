@@ -132,7 +132,7 @@ maxloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 
   GFC_INTEGER_4 maxval;
   maxval = -GFC_INTEGER_4_HUGE;
-  result = 1;
+  result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -140,7 +140,7 @@ maxloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src > maxval)
+  if (*src > maxval || !result)
     {
       maxval = *src;
       result = (GFC_INTEGER_8)n + 1;
@@ -299,7 +299,7 @@ mmaxloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 
   GFC_INTEGER_4 maxval;
   maxval = -GFC_INTEGER_4_HUGE;
-  result = 1;
+  result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -307,7 +307,7 @@ mmaxloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && *src > maxval)
+  if (*msrc && (*src > maxval || !result))
     {
       maxval = *src;
       result = (GFC_INTEGER_8)n + 1;
@@ -348,6 +348,60 @@ mmaxloc1_8_i4 (gfc_array_i8 * const restrict retarray,
             }
         }
     }
+}
+
+
+extern void smaxloc1_8_i4 (gfc_array_i8 * const restrict, 
+	gfc_array_i4 * const restrict, const index_type * const restrict,
+	GFC_LOGICAL_4 *);
+export_proto(smaxloc1_8_i4);
+
+void
+smaxloc1_8_i4 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i4 * const restrict array, 
+	const index_type * const restrict pdim, 
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type n;
+  index_type dstride;
+  GFC_INTEGER_8 *dest;
+
+  if (*mask)
+    {
+      maxloc1_8_i4 (retarray, array, pdim);
+      return;
+    }
+    rank = GFC_DESCRIPTOR_RANK (array);
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_8) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+    dstride = retarray->dim[0].stride;
+    dest = retarray->data;
+
+    for (n = 0; n < rank; n++)
+      dest[n * dstride] = 0 ;
 }
 
 #endif

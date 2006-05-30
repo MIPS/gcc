@@ -56,6 +56,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
+#include "bitmap.h"
 
 /* True if X is an unspec wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -273,10 +274,10 @@ static bool mips_symbolic_address_p (enum mips_symbol_type, enum machine_mode);
 static bool mips_classify_address (struct mips_address_info *, rtx,
 				   enum machine_mode, int);
 static bool mips_cannot_force_const_mem (rtx);
+static bool mips_use_blocks_for_constant_p (enum machine_mode, rtx);
 static int mips_symbol_insns (enum mips_symbol_type);
 static bool mips16_unextended_reference_p (enum machine_mode mode, rtx, rtx);
 static rtx mips_force_temporary (rtx, rtx);
-static rtx mips_split_symbol (rtx, rtx);
 static rtx mips_unspec_offset_high (rtx, rtx, rtx, enum mips_symbol_type);
 static rtx mips_add_offset (rtx, rtx, HOST_WIDE_INT);
 static unsigned int mips_build_shift (struct mips_integer_op *, HOST_WIDE_INT);
@@ -284,7 +285,6 @@ static unsigned int mips_build_lower (struct mips_integer_op *,
 				      unsigned HOST_WIDE_INT);
 static unsigned int mips_build_integer (struct mips_integer_op *,
 					unsigned HOST_WIDE_INT);
-static void mips_move_integer (rtx, unsigned HOST_WIDE_INT);
 static void mips_legitimize_const_move (enum machine_mode, rtx, rtx);
 static int m16_check_op (rtx, int, int, int);
 static bool mips_rtx_costs (rtx, int, int, int *);
@@ -332,6 +332,7 @@ static section *mips_select_rtx_section (enum machine_mode, rtx,
 					 unsigned HOST_WIDE_INT);
 static section *mips_function_rodata_section (tree);
 static bool mips_in_small_data_p (tree);
+static bool mips_use_anchors_for_symbol_p (rtx);
 static int mips_fpr_return_fields (tree, tree *);
 static bool mips_return_in_msb (tree);
 static rtx mips_return_fpr_pair (enum machine_mode mode,
@@ -407,6 +408,8 @@ static rtx mips_expand_builtin_compare (enum mips_builtin_type,
 					rtx, tree);
 static rtx mips_expand_builtin_bposge (enum mips_builtin_type, rtx);
 static void mips_encode_section_info (tree, rtx, int);
+static void mips_extra_live_on_entry (bitmap);
+static int mips_mode_rep_extended (enum machine_mode, enum machine_mode);
 
 /* Structure to be filled in by compute_frame_size with register
    save masks, and offsets for the current function.  */
@@ -626,7 +629,7 @@ static GTY (()) int mips_output_filename_first_time = 1;
 
 /* mips_split_p[X] is true if symbols of type X can be split by
    mips_split_symbol().  */
-static bool mips_split_p[NUM_SYMBOL_TYPES];
+bool mips_split_p[NUM_SYMBOL_TYPES];
 
 /* mips_lo_relocs[X] is the relocation to use when a symbol of type X
    appears in a LO_SUM.  It can be null if such LO_SUMs aren't valid or
@@ -687,9 +690,6 @@ const enum reg_class mips_regno_to_class[] =
   DSP_ACC_REGS,	DSP_ACC_REGS,	ALL_REGS,	ALL_REGS,
   ALL_REGS,	ALL_REGS,	ALL_REGS,	ALL_REGS
 };
-
-/* Map register constraint character to register class.  */
-enum reg_class mips_char_to_class[256];
 
 /* Table of machine dependent attributes.  */
 const struct attribute_spec mips_attribute_table[] =
@@ -1140,6 +1140,9 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES mips_arg_partial_bytes
 
+#undef TARGET_MODE_REP_EXTENDED
+#define TARGET_MODE_REP_EXTENDED mips_mode_rep_extended
+
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
 
@@ -1160,6 +1163,18 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE mips_attribute_table
 
+#undef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY mips_extra_live_on_entry
+
+#undef TARGET_MIN_ANCHOR_OFFSET
+#define TARGET_MIN_ANCHOR_OFFSET -32768
+#undef TARGET_MAX_ANCHOR_OFFSET
+#define TARGET_MAX_ANCHOR_OFFSET 32767
+#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P mips_use_blocks_for_constant_p
+#undef TARGET_USE_ANCHORS_FOR_SYMBOL_P
+#define TARGET_USE_ANCHORS_FOR_SYMBOL_P mips_use_anchors_for_symbol_p
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Classify symbol X, which must be a SYMBOL_REF or a LABEL_REF.  */
@@ -1171,7 +1186,7 @@ mips_classify_symbol (rtx x)
     {
       if (TARGET_MIPS16)
 	return SYMBOL_CONSTANT_POOL;
-      if (TARGET_ABICALLS)
+      if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
 	return SYMBOL_GOT_LOCAL;
       return SYMBOL_GENERAL;
     }
@@ -1186,13 +1201,8 @@ mips_classify_symbol (rtx x)
       if (TARGET_MIPS16)
 	return SYMBOL_CONSTANT_POOL;
 
-      if (TARGET_ABICALLS)
-	return SYMBOL_GOT_LOCAL;
-
       if (GET_MODE_SIZE (get_pool_mode (x)) <= mips_section_threshold)
 	return SYMBOL_SMALL_DATA;
-
-      return SYMBOL_GENERAL;
     }
 
   if (SYMBOL_REF_SMALL_P (x))
@@ -1201,32 +1211,43 @@ mips_classify_symbol (rtx x)
   if (TARGET_ABICALLS)
     {
       if (SYMBOL_REF_DECL (x) == 0)
-	return SYMBOL_REF_LOCAL_P (x) ? SYMBOL_GOT_LOCAL : SYMBOL_GOT_GLOBAL;
+	{
+	  if (!SYMBOL_REF_LOCAL_P (x))
+	    return SYMBOL_GOT_GLOBAL;
+	}
+      else
+	{
+	  /* Don't use GOT accesses for locally-binding symbols if
+	     TARGET_ABSOLUTE_ABICALLS.  Otherwise, there are three
+	     cases to consider:
 
-      /* There are three cases to consider:
+		- o32 PIC (either with or without explicit relocs)
+		- n32/n64 PIC without explicit relocs
+		- n32/n64 PIC with explicit relocs
 
-            - o32 PIC (either with or without explicit relocs)
-            - n32/n64 PIC without explicit relocs
-            - n32/n64 PIC with explicit relocs
+	     In the first case, both local and global accesses will use an
+	     R_MIPS_GOT16 relocation.  We must correctly predict which of
+	     the two semantics (local or global) the assembler and linker
+	     will apply.  The choice doesn't depend on the symbol's
+	     visibility, so we deliberately ignore decl_visibility and
+	     binds_local_p here.
 
-         In the first case, both local and global accesses will use an
-         R_MIPS_GOT16 relocation.  We must correctly predict which of
-         the two semantics (local or global) the assembler and linker
-         will apply.  The choice doesn't depend on the symbol's
-         visibility, so we deliberately ignore decl_visibility and
-         binds_local_p here.
+	     In the second case, the assembler will not use R_MIPS_GOT16
+	     relocations, but it chooses between local and global accesses
+	     in the same way as for o32 PIC.
 
-         In the second case, the assembler will not use R_MIPS_GOT16
-         relocations, but it chooses between local and global accesses
-         in the same way as for o32 PIC.
+	     In the third case we have more freedom since both forms of
+	     access will work for any kind of symbol.  However, there seems
+	     little point in doing things differently.  */
+	  if (DECL_P (SYMBOL_REF_DECL (x))
+	      && TREE_PUBLIC (SYMBOL_REF_DECL (x))
+	      && !(TARGET_ABSOLUTE_ABICALLS
+		   && targetm.binds_local_p (SYMBOL_REF_DECL (x))))
+	    return SYMBOL_GOT_GLOBAL;
+	}
 
-         In the third case we have more freedom since both forms of
-         access will work for any kind of symbol.  However, there seems
-         little point in doing things differently.  */
-      if (DECL_P (SYMBOL_REF_DECL (x)) && TREE_PUBLIC (SYMBOL_REF_DECL (x)))
-	return SYMBOL_GOT_GLOBAL;
-
-      return SYMBOL_GOT_LOCAL;
+      if (!TARGET_ABSOLUTE_ABICALLS)
+	return SYMBOL_GOT_LOCAL;
     }
 
   return SYMBOL_GENERAL;
@@ -1254,7 +1275,7 @@ mips_split_const (rtx x, rtx *base, HOST_WIDE_INT *offset)
 
 
 /* Return true if SYMBOL is a SYMBOL_REF and OFFSET + SYMBOL points
-   to the same object as SYMBOL.  */
+   to the same object as SYMBOL, or to the same object_block.  */
 
 static bool
 mips_offset_within_object_p (rtx symbol, HOST_WIDE_INT offset)
@@ -1270,6 +1291,13 @@ mips_offset_within_object_p (rtx symbol, HOST_WIDE_INT offset)
   if (SYMBOL_REF_DECL (symbol) != 0
       && offset >= 0
       && offset < int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (symbol))))
+    return true;
+
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol)
+      && SYMBOL_REF_BLOCK (symbol)
+      && SYMBOL_REF_BLOCK_OFFSET (symbol) >= 0
+      && ((unsigned HOST_WIDE_INT) offset + SYMBOL_REF_BLOCK_OFFSET (symbol)
+	  < (unsigned HOST_WIDE_INT) SYMBOL_REF_BLOCK (symbol)->size))
     return true;
 
   return false;
@@ -1355,17 +1383,6 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 }
 
 
-/* Return true if X is a symbolic constant whose value is not split
-   into separate relocations.  */
-
-bool
-mips_atomic_symbolic_constant_p (rtx x)
-{
-  enum mips_symbol_type type;
-  return mips_symbolic_constant_p (x, &type) && !mips_split_p[type];
-}
-
-
 /* This function is used to implement REG_MODE_OK_FOR_BASE_P.  */
 
 int
@@ -1446,18 +1463,16 @@ mips_symbolic_address_p (enum mips_symbol_type symbol_type,
       /* The address will have to be loaded from the GOT first.  */
       return false;
 
-    case SYMBOL_TLSGD:
-    case SYMBOL_TLSLDM:
-    case SYMBOL_DTPREL:
-    case SYMBOL_TPREL:
-    case SYMBOL_GOTTPREL:
-    case SYMBOL_TLS:
-      return false;
-
     case SYMBOL_GOTOFF_PAGE:
     case SYMBOL_GOTOFF_GLOBAL:
     case SYMBOL_GOTOFF_CALL:
     case SYMBOL_GOTOFF_LOADGP:
+    case SYMBOL_TLS:
+    case SYMBOL_TLSGD:
+    case SYMBOL_TLSLDM:
+    case SYMBOL_DTPREL:
+    case SYMBOL_GOTTPREL:
+    case SYMBOL_TPREL:
     case SYMBOL_64_HIGH:
     case SYMBOL_64_MID:
     case SYMBOL_64_LOW:
@@ -1540,10 +1555,42 @@ mips_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
 static bool
 mips_cannot_force_const_mem (rtx x)
 {
-  if (! TARGET_HAVE_TLS)
-    return false;
+  rtx base;
+  HOST_WIDE_INT offset;
 
-  return for_each_rtx (&x, &mips_tls_symbol_ref_1, 0);
+  if (!TARGET_MIPS16)
+    {
+      /* As an optimization, reject constants that mips_legitimize_move
+	 can expand inline.
+
+	 Suppose we have a multi-instruction sequence that loads constant C
+	 into register R.  If R does not get allocated a hard register, and
+	 R is used in an operand that allows both registers and memory
+	 references, reload will consider forcing C into memory and using
+	 one of the instruction's memory alternatives.  Returning false
+	 here will force it to use an input reload instead.  */
+      if (GET_CODE (x) == CONST_INT)
+	return true;
+
+      mips_split_const (x, &base, &offset);
+      if (symbolic_operand (base, VOIDmode) && SMALL_OPERAND (offset))
+	return true;
+    }
+
+  if (TARGET_HAVE_TLS && for_each_rtx (&x, &mips_tls_symbol_ref_1, 0))
+    return true;
+
+  return false;
+}
+
+/* Implement TARGET_USE_BLOCKS_FOR_CONSTANT_P.  MIPS16 uses per-function
+   constant pools, but normal-mode code doesn't need to.  */
+
+static bool
+mips_use_blocks_for_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+				rtx x ATTRIBUTE_UNUSED)
+{
+  return !TARGET_MIPS16;
 }
 
 /* Return the number of instructions needed to load a symbol of the
@@ -1843,7 +1890,7 @@ mips_force_temporary (rtx dest, rtx value)
 /* Return a LO_SUM expression for ADDR.  TEMP is as for mips_force_temporary
    and is used to load the high part into a register.  */
 
-static rtx
+rtx
 mips_split_symbol (rtx temp, rtx addr)
 {
   rtx high;
@@ -2173,10 +2220,10 @@ mips_build_integer (struct mips_integer_op *codes,
 }
 
 
-/* Move VALUE into register DEST.  */
+/* Load VALUE into DEST, using TEMP as a temporary register if need be.  */
 
-static void
-mips_move_integer (rtx dest, unsigned HOST_WIDE_INT value)
+void
+mips_move_integer (rtx dest, rtx temp, unsigned HOST_WIDE_INT value)
 {
   struct mips_integer_op codes[MIPS_MAX_INTEGER_OPS];
   enum machine_mode mode;
@@ -2192,7 +2239,10 @@ mips_move_integer (rtx dest, unsigned HOST_WIDE_INT value)
   for (i = 1; i < cost; i++)
     {
       if (no_new_pseudos)
-	emit_move_insn (dest, x), x = dest;
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, temp, x));
+	  x = temp;
+	}
       else
 	x = force_reg (mode, x);
       x = gen_rtx_fmt_ee (codes[i].code, mode, x, GEN_INT (codes[i].value));
@@ -2211,30 +2261,24 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
 {
   rtx base;
   HOST_WIDE_INT offset;
-  enum mips_symbol_type symbol_type;
 
-  /* Split moves of big integers into smaller pieces.  In mips16 code,
-     it's better to force the constant into memory instead.  */
-  if (GET_CODE (src) == CONST_INT && !TARGET_MIPS16)
+  /* Split moves of big integers into smaller pieces.  */
+  if (splittable_const_int_operand (src, mode))
     {
-      mips_move_integer (dest, INTVAL (src));
+      mips_move_integer (dest, dest, INTVAL (src));
+      return;
+    }
+
+  /* Split moves of symbolic constants into high/low pairs.  */
+  if (splittable_symbolic_operand (src, mode))
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, dest, mips_split_symbol (dest, src)));
       return;
     }
 
   if (mips_tls_operand_p (src))
     {
       emit_move_insn (dest, mips_legitimize_tls_address (src));
-      return;
-    }
-
-  /* See if the symbol can be split.  For mips16, this is often worse than
-     forcing it in the constant pool since it needs the single-register form
-     of addiu or daddiu.  */
-  if (!TARGET_MIPS16
-      && mips_symbolic_constant_p (src, &symbol_type)
-      && mips_split_p[symbol_type])
-    {
-      emit_move_insn (dest, mips_split_symbol (dest, src));
       return;
     }
 
@@ -3072,6 +3116,27 @@ mips_zero_if_equal (rtx cmp0, rtx cmp1)
 		       cmp0, cmp1, 0, 0, OPTAB_DIRECT);
 }
 
+/* Convert *CODE into a code that can be used in a floating-point
+   scc instruction (c.<cond>.<fmt>).  Return true if the values of
+   the condition code registers will be inverted, with 0 indicating
+   that the condition holds.  */
+
+static bool
+mips_reverse_fp_cond_p (enum rtx_code *code)
+{
+  switch (*code)
+    {
+    case NE:
+    case LTGT:
+    case ORDERED:
+      *code = reverse_condition_maybe_unordered (*code);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Convert a comparison into something that can be used in a branch or
    conditional move.  cmp_operands[0] and cmp_operands[1] are the values
    being compared and *CODE is the code used to compare them.
@@ -3129,20 +3194,8 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 
 	 Set CMP_CODE to the code of the comparison instruction and
 	 *CODE to the code that the branch or move should use.  */
-      switch (*code)
-	{
-	case NE:
-	case LTGT:
-	case ORDERED:
-	  cmp_code = reverse_condition_maybe_unordered (*code);
-	  *code = EQ;
-	  break;
-
-	default:
-	  cmp_code = *code;
-	  *code = NE;
-	  break;
-	}
+      cmp_code = *code;
+      *code = mips_reverse_fp_cond_p (&cmp_code) ? EQ : NE;
       *op0 = (ISA_HAS_8CC
 	      ? gen_reg_rtx (CCmode)
 	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
@@ -3181,15 +3234,35 @@ mips_emit_scc (enum rtx_code code, rtx target)
 void
 gen_conditional_branch (rtx *operands, enum rtx_code code)
 {
-  rtx op0, op1, target;
+  rtx op0, op1, condition;
 
   mips_emit_compare (&code, &op0, &op1, TARGET_MIPS16);
-  target = gen_rtx_IF_THEN_ELSE (VOIDmode,
-				 gen_rtx_fmt_ee (code, GET_MODE (op0),
-						 op0, op1),
-				 gen_rtx_LABEL_REF (VOIDmode, operands[0]),
-				 pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, target));
+  condition = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
+  emit_jump_insn (gen_condjump (condition, operands[0]));
+}
+
+/* Implement:
+
+   (set temp (COND:CCV2 CMP_OP0 CMP_OP1))
+   (set DEST (unspec [TRUE_SRC FALSE_SRC temp] UNSPEC_MOVE_TF_PS))  */
+
+void
+mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
+		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
+{
+  rtx cmp_result;
+  bool reversed_p;
+
+  reversed_p = mips_reverse_fp_cond_p (&cond);
+  cmp_result = gen_reg_rtx (CCV2mode);
+  emit_insn (gen_scc_ps (cmp_result,
+			 gen_rtx_fmt_ee (cond, VOIDmode, cmp_op0, cmp_op1)));
+  if (reversed_p)
+    emit_insn (gen_mips_cond_move_tf_ps (dest, false_src, true_src,
+					 cmp_result));
+  else
+    emit_insn (gen_mips_cond_move_tf_ps (dest, true_src, false_src,
+					 cmp_result));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array
@@ -4721,15 +4794,18 @@ override_options (void)
       target_flags &= ~MASK_ABICALLS;
     }
 
-  /* -fpic (-KPIC) is the default when TARGET_ABICALLS is defined.  We need
-     to set flag_pic so that the LEGITIMATE_PIC_OPERAND_P macro will work.  */
-  /* ??? -non_shared turns off pic code generation, but this is not
-     implemented.  */
   if (TARGET_ABICALLS)
     {
+      /* We need to set flag_pic for executables as well as DSOs
+	 because we may reference symbols that are not defined in
+	 the final executable.  (MIPS does not use things like
+	 copy relocs, for example.)
+
+	 Also, there is a body of code that uses __PIC__ to distinguish
+	 between -mabicalls and -mno-abicalls code.  */
       flag_pic = 1;
       if (mips_section_threshold > 0)
-	warning (0, "-G is incompatible with PIC code which is the default");
+	warning (0, "%<-G%> is incompatible with %<-mabicalls%>");
     }
 
   /* mips_split_addresses is a half-way house between explicit
@@ -4835,27 +4911,6 @@ override_options (void)
   mips_print_operand_punct['$'] = 1;
   mips_print_operand_punct['+'] = 1;
   mips_print_operand_punct['~'] = 1;
-
-  mips_char_to_class['d'] = TARGET_MIPS16 ? M16_REGS : GR_REGS;
-  mips_char_to_class['t'] = T_REG;
-  mips_char_to_class['f'] = (TARGET_HARD_FLOAT ? FP_REGS : NO_REGS);
-  mips_char_to_class['h'] = HI_REG;
-  mips_char_to_class['l'] = LO_REG;
-  mips_char_to_class['x'] = MD_REGS;
-  mips_char_to_class['b'] = ALL_REGS;
-  mips_char_to_class['c'] = (TARGET_ABICALLS ? PIC_FN_ADDR_REG :
-			     TARGET_MIPS16 ? M16_NA_REGS :
-			     GR_REGS);
-  mips_char_to_class['e'] = LEA_REGS;
-  mips_char_to_class['j'] = PIC_FN_ADDR_REG;
-  mips_char_to_class['v'] = V1_REG;
-  mips_char_to_class['y'] = GR_REGS;
-  mips_char_to_class['z'] = ST_REGS;
-  mips_char_to_class['B'] = COP0_REGS;
-  mips_char_to_class['C'] = COP2_REGS;
-  mips_char_to_class['D'] = COP3_REGS;
-  mips_char_to_class['A'] = DSP_ACC_REGS;
-  mips_char_to_class['a'] = ACC_REGS;
 
   /* Set up array to map GCC register number to debug register number.
      Ignore the special purpose register numbers.  */
@@ -5786,7 +5841,6 @@ mips_file_start (void)
 
   /* Generate the pseudo ops that System V.4 wants.  */
   if (TARGET_ABICALLS)
-    /* ??? but do not want this (or want pic0) if -non-shared? */
     fprintf (asm_out_file, "\t.abicalls\n");
 
   if (TARGET_MIPS16)
@@ -6482,22 +6536,55 @@ mips_output_cplocal (void)
     output_asm_insn (".cplocal %+", 0);
 }
 
+/* Return the style of GP load sequence that is being used for the
+   current function.  */
+
+enum mips_loadgp_style
+mips_current_loadgp_style (void)
+{
+  if (!TARGET_ABICALLS || cfun->machine->global_pointer == 0)
+    return LOADGP_NONE;
+
+  if (TARGET_ABSOLUTE_ABICALLS)
+    return LOADGP_ABSOLUTE;
+
+  return TARGET_NEWABI ? LOADGP_NEWABI : LOADGP_OLDABI;
+}
+
+/* The __gnu_local_gp symbol.  */
+
+static GTY(()) rtx mips_gnu_local_gp;
+
 /* If we're generating n32 or n64 abicalls, emit instructions
    to set up the global pointer.  */
 
 static void
 mips_emit_loadgp (void)
 {
-  if (TARGET_ABICALLS && TARGET_NEWABI && cfun->machine->global_pointer > 0)
-    {
-      rtx addr, offset, incoming_address;
+  rtx addr, offset, incoming_address;
 
+  switch (mips_current_loadgp_style ())
+    {
+    case LOADGP_ABSOLUTE:
+      if (mips_gnu_local_gp == NULL)
+	{
+	  mips_gnu_local_gp = gen_rtx_SYMBOL_REF (Pmode, "__gnu_local_gp");
+	  SYMBOL_REF_FLAGS (mips_gnu_local_gp) |= SYMBOL_FLAG_LOCAL;
+	}
+      emit_insn (gen_loadgp_noshared (mips_gnu_local_gp));
+      break;
+
+    case LOADGP_NEWABI:
       addr = XEXP (DECL_RTL (current_function_decl), 0);
       offset = mips_unspec_address (addr, SYMBOL_GOTOFF_LOADGP);
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
       emit_insn (gen_loadgp (offset, incoming_address));
       if (!TARGET_EXPLICIT_RELOCS)
 	emit_insn (gen_loadgp_blockage ());
+      break;
+
+    default:
+      break;
     }
 }
 
@@ -6577,7 +6664,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	 HIGHEST_GP_SAVED == *FRAMEREG + FRAMESIZE + GPOFFSET => can find saved regs.  */
     }
 
-  if (TARGET_ABICALLS && !TARGET_NEWABI && cfun->machine->global_pointer > 0)
+  if (mips_current_loadgp_style () == LOADGP_OLDABI)
     {
       /* Handle the initialization of $gp for SVR4 PIC.  */
       if (!cfun->machine->all_noreorder_p)
@@ -6764,11 +6851,11 @@ mips_expand_prologue (void)
 					     stack_pointer_rtx)) = 1;
     }
 
+  mips_emit_loadgp ();
+
   /* If generating o32/o64 abicalls, save $gp on the stack.  */
   if (TARGET_ABICALLS && !TARGET_NEWABI && !current_function_is_leaf)
     emit_insn (gen_cprestore (GEN_INT (current_function_outgoing_args_size)));
-
-  mips_emit_loadgp ();
 
   /* If we are profiling, make sure no instructions are scheduled before
      the call to mcount.  */
@@ -7227,6 +7314,25 @@ mips_in_small_data_p (tree decl)
 
   size = int_size_in_bytes (TREE_TYPE (decl));
   return (size > 0 && size <= mips_section_threshold);
+}
+
+/* Implement TARGET_USE_ANCHORS_FOR_SYMBOL_P.  We don't want to use
+   anchors for small data: the GP register acts as an anchor in that
+   case.  We also don't want to use them for PC-relative accesses,
+   where the PC acts as an anchor.  */
+
+static bool
+mips_use_anchors_for_symbol_p (rtx symbol)
+{
+  switch (mips_classify_symbol (symbol))
+    {
+    case SYMBOL_CONSTANT_POOL:
+    case SYMBOL_SMALL_DATA:
+      return false;
+
+    default:
+      return true;
+    }
 }
 
 /* See whether VALTYPE is a record whose fields should be returned in
@@ -8914,7 +9020,7 @@ mips_reorg (void)
   else if (TARGET_EXPLICIT_RELOCS)
     {
       if (mips_flag_delayed_branch)
-	dbr_schedule (get_insns (), dump_file);
+	dbr_schedule (get_insns ());
       mips_avoid_hazards ();
       if (TUNE_MIPS4130 && TARGET_VR4130_ALIGN)
 	vr4130_align_insns ();
@@ -9143,217 +9249,126 @@ mips_output_load_label (void)
     }
 }
 
+/* Return the assembly code for INSN, which has the operands given by
+   OPERANDS, and which branches to OPERANDS[1] if some condition is true.
+   BRANCH_IF_TRUE is the asm template that should be used if OPERANDS[1]
+   is in range of a direct branch.  BRANCH_IF_FALSE is an inverted
+   version of BRANCH_IF_TRUE.  */
 
-/* Output assembly instructions to peform a conditional branch.
-
-   INSN is the branch instruction.  OPERANDS[0] is the condition.
-   OPERANDS[1] is the target of the branch.  OPERANDS[2] is the target
-   of the first operand to the condition.  If TWO_OPERANDS_P is
-   nonzero the comparison takes two operands; OPERANDS[3] will be the
-   second operand.
-
-   If INVERTED_P is nonzero we are to branch if the condition does
-   not hold.  If FLOAT_P is nonzero this is a floating-point comparison.
-
-   LENGTH is the length (in bytes) of the sequence we are to generate.
-   That tells us whether to generate a simple conditional branch, or a
-   reversed conditional branch around a `jr' instruction.  */
 const char *
-mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
-				int float_p, int inverted_p, int length)
+mips_output_conditional_branch (rtx insn, rtx *operands,
+				const char *branch_if_true,
+				const char *branch_if_false)
 {
-  static char buffer[200];
-  /* The kind of comparison we are doing.  */
-  enum rtx_code code = GET_CODE (operands[0]);
-  /* Nonzero if the opcode for the comparison needs a `z' indicating
-     that it is a comparison against zero.  */
-  int need_z_p;
-  /* A string to use in the assembly output to represent the first
-     operand.  */
-  const char *op1 = "%z2";
-  /* A string to use in the assembly output to represent the second
-     operand.  Use the hard-wired zero register if there's no second
-     operand.  */
-  const char *op2 = (two_operands_p ? ",%z3" : ",%.");
-  /* The operand-printing string for the comparison.  */
-  const char *const comp = (float_p ? "%F0" : "%C0");
-  /* The operand-printing string for the inverted comparison.  */
-  const char *const inverted_comp = (float_p ? "%W0" : "%N0");
+  unsigned int length;
+  rtx taken, not_taken;
 
-  /* The MIPS processors (for levels of the ISA at least two), have
-     "likely" variants of each branch instruction.  These instructions
-     annul the instruction in the delay slot if the branch is not
-     taken.  */
-  mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
-
-  if (!two_operands_p)
+  length = get_attr_length (insn);
+  if (length <= 8)
     {
-      /* To compute whether than A > B, for example, we normally
-	 subtract B from A and then look at the sign bit.  But, if we
-	 are doing an unsigned comparison, and B is zero, we don't
-	 have to do the subtraction.  Instead, we can just check to
-	 see if A is nonzero.  Thus, we change the CODE here to
-	 reflect the simpler comparison operation.  */
-      switch (code)
-	{
-	case GTU:
-	  code = NE;
-	  break;
-
-	case LEU:
-	  code = EQ;
-	  break;
-
-	case GEU:
-	  /* A condition which will always be true.  */
-	  code = EQ;
-	  op1 = "%.";
-	  break;
-
-	case LTU:
-	  /* A condition which will always be false.  */
-	  code = NE;
-	  op1 = "%.";
-	  break;
-
-	default:
-	  /* Not a special case.  */
-	  break;
-	}
+      /* Just a simple conditional branch.  */
+      mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
+      return branch_if_true;
     }
 
-  /* Relative comparisons are always done against zero.  But
-     equality comparisons are done between two operands, and therefore
-     do not require a `z' in the assembly language output.  */
-  need_z_p = (!float_p && code != EQ && code != NE);
-  /* For comparisons against zero, the zero is not provided
-     explicitly.  */
-  if (need_z_p)
-    op2 = "";
+  /* Generate a reversed branch around a direct jump.  This fallback does
+     not use branch-likely instructions.  */
+  mips_branch_likely = false;
+  not_taken = gen_label_rtx ();
+  taken = operands[1];
 
-  /* Begin by terminating the buffer.  That way we can always use
-     strcat to add to it.  */
-  buffer[0] = '\0';
+  /* Generate the reversed branch to NOT_TAKEN.  */
+  operands[1] = not_taken;
+  output_asm_insn (branch_if_false, operands);
 
-  switch (length)
+  /* If INSN has a delay slot, we must provide delay slots for both the
+     branch to NOT_TAKEN and the conditional jump.  We must also ensure
+     that INSN's delay slot is executed in the appropriate cases.  */
+  if (final_sequence)
     {
-    case 4:
-    case 8:
-      /* Just a simple conditional branch.  */
-      if (float_p)
-	sprintf (buffer, "%%*b%s%%?\t%%Z2%%1%%/",
-		 inverted_p ? inverted_comp : comp);
+      /* This first delay slot will always be executed, so use INSN's
+	 delay slot if is not annulled.  */
+      if (!INSN_ANNULLED_BRANCH_P (insn))
+	{
+	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+			   asm_out_file, optimize, 1, NULL);
+	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	}
       else
-	sprintf (buffer, "%%*b%s%s%%?\t%s%s,%%1%%/",
-		 inverted_p ? inverted_comp : comp,
-		 need_z_p ? "z" : "",
-		 op1,
-		 op2);
-      return buffer;
+	output_asm_insn ("nop", 0);
+      fprintf (asm_out_file, "\n");
+    }
 
-    case 12:
-    case 16:
-    case 24:
-    case 28:
-      {
-	/* Generate a reversed conditional branch around ` j'
-	   instruction:
+  /* Output the unconditional branch to TAKEN.  */
+  if (length <= 16)
+    output_asm_insn ("j\t%0%/", &taken);
+  else
+    {
+      output_asm_insn (mips_output_load_label (), &taken);
+      output_asm_insn ("jr\t%@%]%/", 0);
+    }
 
-		.set noreorder
-		.set nomacro
-		bc    l
-		delay_slot or #nop
-		j     target
-		#nop
-	     l:
-		.set macro
-		.set reorder
+  /* Now deal with its delay slot; see above.  */
+  if (final_sequence)
+    {
+      /* This delay slot will only be executed if the branch is taken.
+	 Use INSN's delay slot if is annulled.  */
+      if (INSN_ANNULLED_BRANCH_P (insn))
+	{
+	  final_scan_insn (XVECEXP (final_sequence, 0, 1),
+			   asm_out_file, optimize, 1, NULL);
+	  INSN_DELETED_P (XVECEXP (final_sequence, 0, 1)) = 1;
+	}
+      else
+	output_asm_insn ("nop", 0);
+      fprintf (asm_out_file, "\n");
+    }
 
-	   If the original branch was a likely branch, the delay slot
-	   must be executed only if the branch is taken, so generate:
+  /* Output NOT_TAKEN.  */
+  (*targetm.asm_out.internal_label) (asm_out_file, "L",
+				     CODE_LABEL_NUMBER (not_taken));
+  return "";
+}
 
-		.set noreorder
-		.set nomacro
-		bc    l
-		#nop
-		j     target
-		delay slot or #nop
-	     l:
-		.set macro
-		.set reorder
+/* Return the assembly code for INSN, which branches to OPERANDS[1]
+   if some ordered condition is true.  The condition is given by
+   OPERANDS[0] if !INVERTED_P, otherwise it is the inverse of
+   OPERANDS[0].  OPERANDS[2] is the comparison's first operand;
+   its second is always zero.  */
 
-	   When generating PIC, instead of:
+const char *
+mips_output_order_conditional_branch (rtx insn, rtx *operands, bool inverted_p)
+{
+  const char *branch[2];
 
-	        j     target
+  /* Make BRANCH[1] branch to OPERANDS[1] when the condition is true.
+     Make BRANCH[0] branch on the inverse condition.  */
+  switch (GET_CODE (operands[0]))
+    {
+      /* These cases are equivalent to comparisons against zero.  */
+    case LEU:
+      inverted_p = !inverted_p;
+      /* Fall through.  */
+    case GTU:
+      branch[!inverted_p] = MIPS_BRANCH ("bne", "%2,%.,%1");
+      branch[inverted_p] = MIPS_BRANCH ("beq", "%2,%.,%1");
+      break;
 
-	   we emit:
-
-	        .set noat
-	        la    $at, target
-		jr    $at
-		.set at
-	*/
-
-        rtx orig_target;
-	rtx target = gen_label_rtx ();
-
-        orig_target = operands[1];
-        operands[1] = target;
-	/* Generate the reversed comparison.  This takes four
-	   bytes.  */
-	if (float_p)
-	  sprintf (buffer, "%%*b%s\t%%Z2%%1",
-		   inverted_p ? comp : inverted_comp);
-	else
-	  sprintf (buffer, "%%*b%s%s\t%s%s,%%1",
-		   inverted_p ? comp : inverted_comp,
-		   need_z_p ? "z" : "",
-		   op1,
-		   op2);
-        output_asm_insn (buffer, operands);
-
-        if (length != 16 && length != 28 && ! mips_branch_likely)
-          {
-            /* Output delay slot instruction.  */
-            rtx insn = final_sequence;
-            final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 1, NULL);
-            INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
-          }
-	else
-	  output_asm_insn ("%#", 0);
-
-	if (length <= 16)
-	  output_asm_insn ("j\t%0", &orig_target);
-	else
-	  {
-	    output_asm_insn (mips_output_load_label (), &orig_target);
-	    output_asm_insn ("jr\t%@%]", 0);
-	  }
-
-        if (length != 16 && length != 28 && mips_branch_likely)
-          {
-            /* Output delay slot instruction.  */
-            rtx insn = final_sequence;
-            final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 1, NULL);
-            INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
-          }
-	else
-	  output_asm_insn ("%#", 0);
-
-        (*targetm.asm_out.internal_label) (asm_out_file, "L",
-                                   CODE_LABEL_NUMBER (target));
-
-        return "";
-      }
+      /* These cases are always true or always false.  */
+    case LTU:
+      inverted_p = !inverted_p;
+      /* Fall through.  */
+    case GEU:
+      branch[!inverted_p] = MIPS_BRANCH ("beq", "%.,%.,%1");
+      branch[inverted_p] = MIPS_BRANCH ("bne", "%.,%.,%1");
+      break;
 
     default:
-      gcc_unreachable ();
+      branch[!inverted_p] = MIPS_BRANCH ("b%C0z", "%2,%1");
+      branch[inverted_p] = MIPS_BRANCH ("b%N0z", "%2,%1");
+      break;
     }
-
-  /* NOTREACHED */
-  return 0;
+  return mips_output_conditional_branch (insn, operands, branch[1], branch[0]);
 }
 
 /* Used to output div or ddiv instruction DIVISION, which has the operands
@@ -10201,7 +10216,7 @@ mips_prepare_builtin_arg (enum insn_code icode,
   rtx value;
   enum machine_mode mode;
 
-  value = expand_expr (TREE_VALUE (*arglist), NULL_RTX, VOIDmode, 0);
+  value = expand_normal (TREE_VALUE (*arglist));
   mode = insn_data[icode].operand[op].mode;
   if (!insn_data[icode].operand[op].predicate (value, mode))
     {
@@ -10607,6 +10622,34 @@ mips_expand_builtin_movtf (enum mips_builtin_type type,
   return target;
 }
 
+/* Move VALUE_IF_TRUE into TARGET if CONDITION is true; move VALUE_IF_FALSE
+   into TARGET otherwise.  Return TARGET.  */
+
+static rtx
+mips_builtin_branch_and_move (rtx condition, rtx target,
+			      rtx value_if_true, rtx value_if_false)
+{
+  rtx true_label, done_label;
+
+  true_label = gen_label_rtx ();
+  done_label = gen_label_rtx ();
+
+  /* First assume that CONDITION is false.  */
+  emit_move_insn (target, value_if_false);
+
+  /* Branch to TRUE_LABEL if CONDITION is true and DONE_LABEL otherwise.  */
+  emit_jump_insn (gen_condjump (condition, true_label));
+  emit_jump_insn (gen_jump (done_label));
+  emit_barrier ();
+
+  /* Fix TARGET if CONDITION is true.  */
+  emit_label (true_label);
+  emit_move_insn (target, value_if_true);
+
+  emit_label (done_label);
+  return target;
+}
+
 /* Expand a comparison builtin of type BUILTIN_TYPE.  ICODE is the code
    of the comparison instruction and COND is the condition it should test.
    ARGLIST is the list of function arguments and TARGET, if nonnull,
@@ -10617,10 +10660,8 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
 			     enum insn_code icode, enum mips_fp_condition cond,
 			     rtx target, tree arglist)
 {
-  rtx label1, label2, if_then_else;
-  rtx pat, cmp_result, ops[MAX_RECOG_OPERANDS];
-  rtx target_if_equal, target_if_unequal;
-  int cmp_value, i;
+  rtx offset, condition, cmp_result, ops[MAX_RECOG_OPERANDS];
+  int i;
 
   if (target == 0 || GET_MODE (target) != SImode)
     target = gen_reg_rtx (SImode);
@@ -10633,12 +10674,12 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
   switch (insn_data[icode].n_operands)
     {
     case 4:
-      pat = GEN_FCN (icode) (cmp_result, ops[1], ops[2], GEN_INT (cond));
+      emit_insn (GEN_FCN (icode) (cmp_result, ops[1], ops[2], GEN_INT (cond)));
       break;
 
     case 6:
-      pat = GEN_FCN (icode) (cmp_result, ops[1], ops[2],
-			     ops[3], ops[4], GEN_INT (cond));
+      emit_insn (GEN_FCN (icode) (cmp_result, ops[1], ops[2],
+				  ops[3], ops[4], GEN_INT (cond)));
       break;
 
     default:
@@ -10647,71 +10688,35 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
 
   /* If the comparison sets more than one register, we define the result
      to be 0 if all registers are false and -1 if all registers are true.
-     The value of the complete result is indeterminate otherwise.  It is
-     possible to test individual registers using SUBREGs.
-
-     Set up CMP_RESULT, CMP_VALUE, TARGET_IF_EQUAL and TARGET_IF_UNEQUAL so
-     that the result should be TARGET_IF_EQUAL if (EQ CMP_RESULT CMP_VALUE)
-     and TARGET_IF_UNEQUAL otherwise.  */
-  if (builtin_type == MIPS_BUILTIN_CMP_ALL)
+     The value of the complete result is indeterminate otherwise.  */
+  switch (builtin_type)
     {
-      cmp_value = -1;
-      target_if_equal = const1_rtx;
-      target_if_unequal = const0_rtx;
+    case MIPS_BUILTIN_CMP_ALL:
+      condition = gen_rtx_NE (VOIDmode, cmp_result, constm1_rtx);
+      return mips_builtin_branch_and_move (condition, target,
+					   const0_rtx, const1_rtx);
+
+    case MIPS_BUILTIN_CMP_UPPER:
+    case MIPS_BUILTIN_CMP_LOWER:
+      offset = GEN_INT (builtin_type == MIPS_BUILTIN_CMP_UPPER);
+      condition = gen_single_cc (cmp_result, offset);
+      return mips_builtin_branch_and_move (condition, target,
+					   const1_rtx, const0_rtx);
+
+    default:
+      condition = gen_rtx_NE (VOIDmode, cmp_result, const0_rtx);
+      return mips_builtin_branch_and_move (condition, target,
+					   const1_rtx, const0_rtx);
     }
-  else
-    {
-      cmp_value = 0;
-      target_if_equal = const0_rtx;
-      target_if_unequal = const1_rtx;
-      if (builtin_type == MIPS_BUILTIN_CMP_UPPER)
-	cmp_result = simplify_gen_subreg (CCmode, cmp_result, CCV2mode, 4);
-      else if (builtin_type == MIPS_BUILTIN_CMP_LOWER)
-	cmp_result = simplify_gen_subreg (CCmode, cmp_result, CCV2mode, 0);
-    }
-
-  /* First assume that CMP_RESULT == CMP_VALUE.  */
-  emit_move_insn (target, target_if_equal);
-
-  /* Branch to LABEL1 if CMP_RESULT != CMP_VALUE.  */
-  emit_insn (pat);
-  label1 = gen_label_rtx ();
-  label2 = gen_label_rtx ();
-  if_then_else
-    = gen_rtx_IF_THEN_ELSE (VOIDmode,
-			    gen_rtx_fmt_ee (NE, GET_MODE (cmp_result),
-					    cmp_result, GEN_INT (cmp_value)),
-			    gen_rtx_LABEL_REF (VOIDmode, label1), pc_rtx);
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, if_then_else));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-			       gen_rtx_LABEL_REF (VOIDmode, label2)));
-  emit_barrier ();
-  emit_label (label1);
-
-  /* Fix TARGET for CMP_RESULT != CMP_VALUE.  */
-  emit_move_insn (target, target_if_unequal);
-  emit_label (label2);
-
-  return target;
 }
 
 /* Expand a bposge builtin of type BUILTIN_TYPE.  TARGET, if nonnull,
-   suggests a good place to put the boolean result.
-
-   The sequence we want is
-
-	li	target, 0
-	bposge*	label1
-	j	label2
-   label1:
-	li 	target, 1
-   label2:  */
+   suggests a good place to put the boolean result.  */
 
 static rtx
 mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
 {
-  rtx label1, label2, if_then_else;
-  rtx cmp_result;
+  rtx condition, cmp_result;
   int cmp_value;
 
   if (target == 0 || GET_MODE (target) != SImode)
@@ -10724,29 +10729,9 @@ mips_expand_builtin_bposge (enum mips_builtin_type builtin_type, rtx target)
   else
     gcc_assert (0);
 
-  /* Move 0 to target */
-  emit_move_insn (target, const0_rtx);
-
-  /* Generate two labels */
-  label1 = gen_label_rtx ();
-  label2 = gen_label_rtx ();
-
-  /* Generate if_then_else */
-  if_then_else
-    = gen_rtx_IF_THEN_ELSE (VOIDmode,
-			    gen_rtx_fmt_ee (GE, CCDSPmode,
-					    cmp_result, GEN_INT (cmp_value)),
-			    gen_rtx_LABEL_REF (VOIDmode, label1), pc_rtx);
-
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, if_then_else));
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
-                               gen_rtx_LABEL_REF (VOIDmode, label2)));
-  emit_barrier ();
-  emit_label (label1);
-  emit_move_insn (target, const1_rtx);
-  emit_label (label2);
-
-  return target;
+  condition = gen_rtx_GE (VOIDmode, cmp_result, GEN_INT (cmp_value));
+  return mips_builtin_branch_and_move (condition, target,
+				       const1_rtx, const0_rtx);
 }
 
 /* Set SYMBOL_REF_FLAGS for the SYMBOL_REF inside RTL, which belongs to DECL.
@@ -10763,6 +10748,27 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
       rtx symbol = XEXP (rtl, 0);
       SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LONG_CALL;
     }
+}
+
+/* Implement TARGET_EXTRA_LIVE_ON_ENTRY.  PIC_FUNCTION_ADDR_REGNUM is live
+   on entry to a function when generating -mshared abicalls code.  */
+
+static void
+mips_extra_live_on_entry (bitmap regs)
+{
+  if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
+    bitmap_set_bit (regs, PIC_FUNCTION_ADDR_REGNUM);
+}
+
+/* SImode values are represented as sign-extended to DImode.  */
+
+int
+mips_mode_rep_extended (enum machine_mode mode, enum machine_mode mode_rep)
+{
+  if (TARGET_64BIT && mode == SImode && mode_rep == DImode)
+    return SIGN_EXTEND;
+
+  return UNKNOWN;
 }
 
 #include "gt-mips.h"

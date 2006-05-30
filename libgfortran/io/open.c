@@ -146,7 +146,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Cannot change RECL parameter in OPEN statement");
 
-  if (flags->action != ACTION_UNSPECIFIED && u->flags.access != flags->access)
+  if (flags->action != ACTION_UNSPECIFIED && u->flags.action != flags->action)
     generate_error (&opp->common, ERROR_BAD_OPTION,
 		    "Cannot change ACTION parameter in OPEN statement");
 
@@ -399,7 +399,26 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
     u->recl = opp->recl_in;
   else
-    u->recl = max_offset;
+    {
+      switch (compile_options.record_marker)
+	{
+	case 0:
+	  u->recl = max_offset;
+	  break;
+
+	case sizeof (GFC_INTEGER_4):
+	  u->recl = GFC_INTEGER_4_HUGE;
+	  break;
+
+	case sizeof (GFC_INTEGER_8):
+	  u->recl = max_offset;
+	  break;
+
+	default:
+	  runtime_error ("Illegal value for record marker");
+	  break;
+	}
+    }
 
   /* If the file is direct access, calculate the maximum record number
      via a division now instead of letting the multiplication overflow
@@ -502,6 +521,7 @@ st_open (st_parameter_open *opp)
   unit_flags flags;
   gfc_unit *u = NULL;
   GFC_INTEGER_4 cf = opp->common.flags;
+  unit_convert conv;
  
   library_start (&opp->common);
 
@@ -539,35 +559,44 @@ st_open (st_parameter_open *opp)
     find_option (&opp->common, opp->status, opp->status_len,
 		 status_opt, "Bad STATUS parameter in OPEN statement");
 
-  if (cf & IOPARM_OPEN_HAS_CONVERT)
+  /* First, we check wether the convert flag has been set via environment
+     variable.  This overrides the convert tag in the open statement.  */
+
+  conv = get_unformatted_convert (opp->common.unit);
+
+  if (conv == CONVERT_NONE)
     {
-      unit_convert conv;
-      conv = find_option (&opp->common, opp->convert, opp->convert_len,
-			  convert_opt, "Bad CONVERT parameter in OPEN statement");
-      /* We use l8_to_l4_offset, which is 0 on little-endian machines
- 	 and 1 on big-endian machines.  */
-      switch (conv)
- 	{
- 	case CONVERT_NATIVE:
- 	case CONVERT_SWAP:
- 	  break;
-	  
- 	case CONVERT_BIG:
- 	  conv = l8_to_l4_offset ? CONVERT_NATIVE : CONVERT_SWAP;
- 	  break;
-	  
- 	case CONVERT_LITTLE:
- 	  conv = l8_to_l4_offset ? CONVERT_SWAP : CONVERT_NATIVE;
- 	  break;
- 
- 	default:
- 	  internal_error (&opp->common,	"Illegal value for CONVERT");
- 	  break;
- 	}
-      flags.convert = conv;
+      /* Nothing has been set by environment variable, check the convert tag.  */
+      if (cf & IOPARM_OPEN_HAS_CONVERT)
+	conv = find_option (&opp->common, opp->convert, opp->convert_len,
+			    convert_opt,
+			    "Bad CONVERT parameter in OPEN statement");
+      else
+	conv = compile_options.convert;
     }
-  else
-    flags.convert = CONVERT_NATIVE;
+  
+  /* We use l8_to_l4_offset, which is 0 on little-endian machines
+     and 1 on big-endian machines.  */
+  switch (conv)
+    {
+    case CONVERT_NATIVE:
+    case CONVERT_SWAP:
+      break;
+      
+    case CONVERT_BIG:
+      conv = l8_to_l4_offset ? CONVERT_NATIVE : CONVERT_SWAP;
+      break;
+      
+    case CONVERT_LITTLE:
+      conv = l8_to_l4_offset ? CONVERT_SWAP : CONVERT_NATIVE;
+      break;
+      
+    default:
+      internal_error (&opp->common, "Illegal value for CONVERT");
+      break;
+    }
+
+  flags.convert = conv;
 
   if (opp->common.unit < 0)
     generate_error (&opp->common, ERROR_BAD_OPTION,

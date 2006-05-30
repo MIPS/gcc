@@ -1,6 +1,6 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,7 +36,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "vec.h"
 #include "target.h"
-
+#include "diagnostic.h"
+#include "opts.h"
 
 #define GCC_BAD(gmsgid) \
   do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
@@ -45,8 +46,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 typedef struct align_stack GTY(())
 {
-  int                  alignment;
-  tree                 id;
+  int		       alignment;
+  tree		       id;
   struct align_stack * prev;
 } align_stack;
 
@@ -57,8 +58,8 @@ static void handle_pragma_pack (cpp_reader *);
 
 #ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 /* If we have a "global" #pragma pack(<n>) in effect when the first
-   #pragma pack(push,<n>) is encountered, this stores the value of 
-   maximum_field_alignment in effect.  When the final pop_alignment() 
+   #pragma pack(push,<n>) is encountered, this stores the value of
+   maximum_field_alignment in effect.  When the final pop_alignment()
    happens, we restore the value to this, not to a value of 0 for
    maximum_field_alignment.  Value is in bits.  */
 static int default_alignment;
@@ -78,15 +79,15 @@ push_alignment (int alignment, tree id)
   entry = GGC_NEW (align_stack);
 
   entry->alignment  = alignment;
-  entry->id         = id;
-  entry->prev       = alignment_stack;
-       
-  /* The current value of maximum_field_alignment is not necessarily 
-     0 since there may be a #pragma pack(<n>) in effect; remember it 
+  entry->id	    = id;
+  entry->prev	    = alignment_stack;
+
+  /* The current value of maximum_field_alignment is not necessarily
+     0 since there may be a #pragma pack(<n>) in effect; remember it
      so that we can restore it after the final #pragma pop().  */
   if (alignment_stack == NULL)
     default_alignment = maximum_field_alignment;
- 
+
   alignment_stack = entry;
 
   maximum_field_alignment = alignment;
@@ -97,7 +98,7 @@ static void
 pop_alignment (tree id)
 {
   align_stack * entry;
-      
+
   if (alignment_stack == NULL)
     GCC_BAD ("#pragma pack (pop) encountered without matching #pragma pack (push)");
 
@@ -133,7 +134,7 @@ pop_alignment (tree id)
 
 /* #pragma pack ()
    #pragma pack (N)
-   
+
    #pragma pack (push)
    #pragma pack (push, N)
    #pragma pack (push, ID)
@@ -235,7 +236,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     {
     case set:   SET_GLOBAL_ALIGNMENT (align);  break;
     case push:  push_alignment (align, id);    break;
-    case pop:   pop_alignment (id);            break;
+    case pop:   pop_alignment (id);	       break;
     }
 }
 #endif  /* HANDLE_PRAGMA_PACK */
@@ -262,7 +263,7 @@ apply_pragma_weak (tree decl, tree value)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     warning (OPT_Wpragmas, "applying #pragma weak %q+D after first use "
-             "results in unspecified behavior", decl);
+	     "results in unspecified behavior", decl);
 
   declare_weak (decl);
 }
@@ -467,7 +468,7 @@ add_to_renaming_pragma_list (tree oldname, tree newname)
 		 "conflict with previous #pragma redefine_extname");
       return;
     }
-  
+
   pending_redefine_extname
     = tree_cons (oldname, newname, pending_redefine_extname);
 }
@@ -544,7 +545,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 	*p = TREE_CHAIN (t);
 
 	/* If we already have an asmname, #pragma redefine_extname is
- 	   ignored (with a warning if it conflicts).  */
+	   ignored (with a warning if it conflicts).  */
 	if (asmname)
 	  {
 	    if (strcmp (TREE_STRING_POINTER (asmname),
@@ -572,7 +573,7 @@ maybe_apply_renaming_pragma (tree decl, tree asmname)
 
       const char *id = IDENTIFIER_POINTER (DECL_NAME (decl));
       size_t ilen = IDENTIFIER_LENGTH (DECL_NAME (decl));
-	
+
       char *newname = (char *) alloca (plen + ilen + 1);
 
       memcpy (newname,        prefix, plen);
@@ -592,9 +593,42 @@ static void handle_pragma_visibility (cpp_reader *);
 typedef enum symbol_visibility visibility;
 DEF_VEC_I (visibility);
 DEF_VEC_ALLOC_I (visibility, heap);
+static VEC (visibility, heap) *visstack;
+
+/* Push the visibility indicated by STR onto the top of the #pragma
+   visibility stack.  */
+
+void
+push_visibility (const char *str)
+{
+  VEC_safe_push (visibility, heap, visstack,
+		 default_visibility);
+  if (!strcmp (str, "default"))
+    default_visibility = VISIBILITY_DEFAULT;
+  else if (!strcmp (str, "internal"))
+    default_visibility = VISIBILITY_INTERNAL;
+  else if (!strcmp (str, "hidden"))
+    default_visibility = VISIBILITY_HIDDEN;
+  else if (!strcmp (str, "protected"))
+    default_visibility = VISIBILITY_PROTECTED;
+  else
+    GCC_BAD ("#pragma GCC visibility push() must specify default, internal, hidden or protected");
+  visibility_options.inpragma = 1;
+}
+
+/* Pop a level of the #pragma visibility stack.  */
+
+void
+pop_visibility (void)
+{
+  default_visibility = VEC_pop (visibility, visstack);
+  visibility_options.inpragma
+    = VEC_length (visibility, visstack) != 0;
+}
 
 /* Sets the default visibility for symbols to something other than that
    specified on the command line.  */
+
 static void
 handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 {
@@ -602,71 +636,92 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
   tree x;
   enum cpp_ttype token;
   enum { bad, push, pop } action = bad;
-  static VEC (visibility, heap) *visstack;
- 
+
   token = pragma_lex (&x);
   if (token == CPP_NAME)
     {
       const char *op = IDENTIFIER_POINTER (x);
       if (!strcmp (op, "push"))
-        action = push;
+	action = push;
       else if (!strcmp (op, "pop"))
-        action = pop;
+	action = pop;
     }
   if (bad == action)
     GCC_BAD ("#pragma GCC visibility must be followed by push or pop");
   else
     {
       if (pop == action)
-        {
-          if (!VEC_length (visibility, visstack))
-            {
-              GCC_BAD ("no matching push for %<#pragma GCC visibility pop%>");
-            }
-          else
-            {
-	      default_visibility = VEC_pop (visibility, visstack);
-	      visibility_options.inpragma
-		= VEC_length (visibility, visstack) != 0;
-            }
-        }
+	{
+	  if (!VEC_length (visibility, visstack))
+	    GCC_BAD ("no matching push for %<#pragma GCC visibility pop%>");
+	  else
+	    pop_visibility ();
+	}
       else
-        {
-          if (pragma_lex (&x) != CPP_OPEN_PAREN)
-            GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
-          token = pragma_lex (&x);
-          if (token != CPP_NAME)
-            {
-              GCC_BAD ("malformed #pragma GCC visibility push");
-            }
-          else
-            {
-              const char *str = IDENTIFIER_POINTER (x);
-	      VEC_safe_push (visibility, heap, visstack,
-			     default_visibility);
-              if (!strcmp (str, "default"))
-                default_visibility = VISIBILITY_DEFAULT;
-              else if (!strcmp (str, "internal"))
-                default_visibility = VISIBILITY_INTERNAL;
-              else if (!strcmp (str, "hidden"))
-                default_visibility = VISIBILITY_HIDDEN;  
-              else if (!strcmp (str, "protected"))
-                default_visibility = VISIBILITY_PROTECTED;
-              else
-                {
-                  GCC_BAD ("#pragma GCC visibility push() must specify default, internal, hidden or protected");
-                }
-              visibility_options.inpragma = 1;
-            }
-          if (pragma_lex (&x) != CPP_CLOSE_PAREN)
-            GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
-        }
+	{
+	  if (pragma_lex (&x) != CPP_OPEN_PAREN)
+	    GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
+	  token = pragma_lex (&x);
+	  if (token != CPP_NAME)
+	    GCC_BAD ("malformed #pragma GCC visibility push");
+	  else
+	    push_visibility (IDENTIFIER_POINTER (x));
+	  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+	    GCC_BAD ("missing %<(%> after %<#pragma GCC visibility push%> - ignored");
+	}
     }
   if (pragma_lex (&x) != CPP_EOF)
     warning (OPT_Wpragmas, "junk at end of %<#pragma GCC visibility%>");
 }
 
 #endif
+
+static void
+handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
+{
+  const char *kind_string, *option_string;
+  unsigned int option_index;
+  enum cpp_ttype token;
+  diagnostic_t kind;
+  tree x;
+
+  if (cfun)
+    {
+      error ("#pragma GCC diagnostic not allowed inside functions");
+      return;
+    }
+
+  token = pragma_lex (&x);
+  if (token != CPP_NAME)
+    GCC_BAD ("missing [error|warning|ignored] after %<#pragma GCC diagnostic%>");
+  kind_string = IDENTIFIER_POINTER (x);
+  if (strcmp (kind_string, "error") == 0)
+    kind = DK_ERROR;
+  else if (strcmp (kind_string, "warning") == 0)
+    kind = DK_WARNING;
+  else if (strcmp (kind_string, "ignored") == 0)
+    kind = DK_IGNORED;
+  else
+    GCC_BAD ("expected [error|warning|ignored] after %<#pragma GCC diagnostic%>");
+
+  token = pragma_lex (&x);
+  if (token != CPP_STRING)
+    GCC_BAD ("missing option after %<#pragma GCC diagnostic%> kind");
+  option_string = TREE_STRING_POINTER (x);
+  for (option_index = 0; option_index < cl_options_count; option_index++)
+    if (strcmp (cl_options[option_index].opt_text, option_string) == 0)
+      {
+	/* This overrides -Werror, for example.  */
+	diagnostic_classify_diagnostic (global_dc, option_index, kind);
+	/* This makes sure the option is enabled, like -Wfoo would do.  */
+	if (cl_options[option_index].var_type == CLVC_BOOLEAN
+	    && cl_options[option_index].flag_var
+	    && kind != DK_IGNORED)
+	    *(int *) cl_options[option_index].flag_var = 1;
+	return;
+      }
+  GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
+}
 
 /* A vector of registered pragma callbacks.  */
 
@@ -724,6 +779,32 @@ c_invoke_pragma_handler (unsigned int id)
 void
 init_pragma (void)
 {
+  if (flag_openmp && !flag_preprocess_only)
+    {
+      struct omp_pragma_def { const char *name; unsigned int id; };
+      static const struct omp_pragma_def omp_pragmas[] = {
+	{ "atomic", PRAGMA_OMP_ATOMIC },
+	{ "barrier", PRAGMA_OMP_BARRIER },
+	{ "critical", PRAGMA_OMP_CRITICAL },
+	{ "flush", PRAGMA_OMP_FLUSH },
+	{ "for", PRAGMA_OMP_FOR },
+	{ "master", PRAGMA_OMP_MASTER },
+	{ "ordered", PRAGMA_OMP_ORDERED },
+	{ "parallel", PRAGMA_OMP_PARALLEL },
+	{ "section", PRAGMA_OMP_SECTION },
+	{ "sections", PRAGMA_OMP_SECTIONS },
+	{ "single", PRAGMA_OMP_SINGLE },
+	{ "threadprivate", PRAGMA_OMP_THREADPRIVATE }
+      };
+
+      const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+      int i;
+
+      for (i = 0; i < n_omp_pragmas; ++i)
+	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
+				      omp_pragmas[i].id, true, true);
+    }
+
   cpp_register_deferred_pragma (parse_in, "GCC", "pch_preprocess",
 				PRAGMA_GCC_PCH_PREPROCESS, false, false);
 
@@ -741,7 +822,9 @@ init_pragma (void)
   c_register_pragma ("GCC", "visibility", handle_pragma_visibility);
 #endif
 
-  c_register_pragma (0, "redefine_extname", handle_pragma_redefine_extname);
+  c_register_pragma ("GCC", "diagnostic", handle_pragma_diagnostic);
+
+  c_register_pragma_with_expansion (0, "redefine_extname", handle_pragma_redefine_extname);
   c_register_pragma (0, "extern_prefix", handle_pragma_extern_prefix);
 
 #ifdef REGISTER_TARGET_PRAGMAS

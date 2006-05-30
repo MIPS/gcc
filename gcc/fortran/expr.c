@@ -782,6 +782,7 @@ simplify_intrinsic_op (gfc_expr * p, int type)
   switch (p->value.op.operator)
     {
     case INTRINSIC_UPLUS:
+    case INTRINSIC_PARENTHESES:
       result = gfc_uplus (op1);
       break;
 
@@ -1343,6 +1344,9 @@ check_intrinsic_op (gfc_expr * e, try (*check_function) (gfc_expr *))
 
       break;
 
+    case INTRINSIC_PARENTHESES:
+      break;
+
     default:
       gfc_error ("Only intrinsic operators can be used in expression at %L",
 		 &e->where);
@@ -1632,7 +1636,7 @@ external_spec_function (gfc_expr * e)
       return FAILURE;
     }
 
-  if (!f->attr.pure)
+  if (!f->attr.pure && !f->attr.elemental)
     {
       gfc_error ("Specification function '%s' at %L must be PURE", f->name,
 		 &e->where);
@@ -1821,7 +1825,7 @@ gfc_check_conformance (const char *optype_msgid,
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("%s at %L has different shape on dimension %d (%d/%d)",
+	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
 		     _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
@@ -1859,6 +1863,50 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       return FAILURE;
     }
 
+/* 12.5.2.2, Note 12.26: The result variable is very similar to any other
+   variable local to a function subprogram.  Its existence begins when
+   execution of the function is initiated and ends when execution of the
+   function is terminated.....
+   Therefore, the left hand side is no longer a varaiable, when it is:*/
+  if (sym->attr.flavor == FL_PROCEDURE
+	&& sym->attr.proc != PROC_ST_FUNCTION
+	&& !sym->attr.external)
+    {
+      bool bad_proc;
+      bad_proc = false;
+
+      /* (i) Use associated; */
+      if (sym->attr.use_assoc)
+	bad_proc = true;
+
+      /* (ii) The assignment is in the main program; or  */
+      if (gfc_current_ns->proc_name->attr.is_main_program)
+	bad_proc = true;
+
+      /* (iii) A module or internal procedure....  */
+      if ((gfc_current_ns->proc_name->attr.proc == PROC_INTERNAL
+	     || gfc_current_ns->proc_name->attr.proc == PROC_MODULE)
+	  && gfc_current_ns->parent
+	  && (!(gfc_current_ns->parent->proc_name->attr.function
+		  || gfc_current_ns->parent->proc_name->attr.subroutine)
+	      || gfc_current_ns->parent->proc_name->attr.is_main_program))
+	{
+	  /* .... that is not a function.... */ 
+	  if (!gfc_current_ns->proc_name->attr.function)
+	    bad_proc = true;
+
+	  /* .... or is not an entry and has a different name.  */
+	  if (!sym->attr.entry && sym->name != gfc_current_ns->proc_name->name)
+	    bad_proc = true;
+	}
+
+      if (bad_proc)
+	{
+	  gfc_error ("'%s' at %L is not a VALUE", sym->name, &lvalue->where);
+	  return FAILURE;
+	}
+    }
+
   if (rvalue->rank != 0 && lvalue->rank != rvalue->rank)
     {
       gfc_error ("Incompatible ranks %d and %d in assignment at %L",
@@ -1882,7 +1930,7 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 
    if (sym->attr.cray_pointee
        && lvalue->ref != NULL
-       && lvalue->ref->u.ar.type != AR_ELEMENT
+       && lvalue->ref->u.ar.type == AR_FULL
        && lvalue->ref->u.ar.as->cp_was_assumed)
      {
        gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
@@ -1944,6 +1992,15 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
       return FAILURE;
     }
 
+  if (lvalue->symtree->n.sym->attr.flavor == FL_PROCEDURE
+	&& lvalue->symtree->n.sym->attr.use_assoc)
+    {
+      gfc_error ("'%s' in the pointer assignment at %L cannot be an "
+		 "l-value since it is a procedure",
+		 lvalue->symtree->n.sym->name, &lvalue->where);
+      return FAILURE;
+    }
+
   attr = gfc_variable_attr (lvalue, NULL);
   if (!attr.pointer)
     {
@@ -1963,7 +2020,7 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
   /* If rvalue is a NULL() or NULLIFY, we're done. Otherwise the type,
      kind, etc for lvalue and rvalue must match, and rvalue must be a
      pure variable if we're in a pure function.  */
-  if (rvalue->expr_type == EXPR_NULL)
+  if (rvalue->expr_type == EXPR_NULL && rvalue->ts.type == BT_UNKNOWN)
     return SUCCESS;
 
   if (!gfc_compare_types (&lvalue->ts, &rvalue->ts))
@@ -1980,6 +2037,27 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
       return FAILURE;
     }
 
+  if (lvalue->rank != rvalue->rank)
+    {
+      gfc_error ("Different ranks in pointer assignment at %L",
+		  &lvalue->where);
+      return FAILURE;
+    }
+
+  /* Now punt if we are dealing with a NULLIFY(X) or X = NULL(X).  */
+  if (rvalue->expr_type == EXPR_NULL)
+    return SUCCESS;
+
+  if (lvalue->ts.type == BT_CHARACTER
+	&& lvalue->ts.cl->length && rvalue->ts.cl->length
+	&& abs (gfc_dep_compare_expr (lvalue->ts.cl->length,
+				      rvalue->ts.cl->length)) == 1)
+    {
+      gfc_error ("Different character lengths in pointer "
+		 "assignment at %L", &lvalue->where);
+      return FAILURE;
+    }
+
   attr = gfc_expr_attr (rvalue);
   if (!attr.target && !attr.pointer)
     {
@@ -1992,13 +2070,6 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
     {
       gfc_error ("Bad target in pointer assignment in PURE "
 		 "procedure at %L", &rvalue->where);
-    }
-
-  if (lvalue->rank != rvalue->rank)
-    {
-      gfc_error ("Unequal ranks %d and %d in pointer assignment at %L", 
-		 lvalue->rank, rvalue->rank, &rvalue->where);
-      return FAILURE;
     }
 
   if (gfc_has_vector_index (rvalue))

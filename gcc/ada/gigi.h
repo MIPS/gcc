@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2006 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -63,7 +63,7 @@ extern void init_dummy_type (void);
    DEFINITION is nonzero if this call is intended for a definition.  This is
    used for separate compilation where it necessary to know whether an
    external declaration or a definition should be created if the GCC equivalent
-   was not created previously.  The value of 1 is normally used for a non-zero
+   was not created previously.  The value of 1 is normally used for a nonzero
    DEFINITION, but a value of 2 is used in special circumstances, defined in
    the code.  */
 extern tree gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr,
@@ -406,7 +406,7 @@ extern GTY(()) tree static_dtors;
 /* Routines expected by the gcc back-end. They must have exactly the same
    prototype and names as below.  */
 
-/* Returns non-zero if we are currently in the global binding level       */
+/* Returns nonzero if we are currently in the global binding level.  */
 extern int global_bindings_p (void);
 
 /* Enter and exit a new binding level. */
@@ -671,14 +671,15 @@ extern tree gnat_truthvalue_conversion (tree expr);
 /* Return the base type of TYPE.  */
 extern tree get_base_type (tree type);
 
-/* Likewise, but only return types known at Ada source.  */
-extern tree get_ada_base_type (tree type);
-
 /* EXP is a GCC tree representing an address.  See if we can find how
    strictly the object at that address is aligned.   Return that alignment
    strictly the object at that address is aligned.   Return that alignment
    in bits.  If we don't know anything about the alignment, return 0.  */
 extern unsigned int known_alignment (tree exp);
+
+/* Return true if VALUE is a multiple of FACTOR. FACTOR must be a power
+   of 2. */
+extern bool value_factor_p (tree value, HOST_WIDE_INT factor);
 
 /* Make a binary operation of kind OP_CODE.  RESULT_TYPE is the type
    desired for the result.  Usually the operation is to be performed

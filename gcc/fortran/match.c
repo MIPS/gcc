@@ -1,6 +1,6 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -58,6 +58,7 @@ mstring intrinsic_operators[] = {
     minit (".gt.", INTRINSIC_GT),
     minit (">", INTRINSIC_GT),
     minit (".not.", INTRINSIC_NOT),
+    minit ("parens", INTRINSIC_PARENTHESES),
     minit (NULL, INTRINSIC_NONE)
 };
 
@@ -138,7 +139,8 @@ gfc_match_eos (void)
 
 /* Match a literal integer on the input, setting the value on
    MATCH_YES.  Literal ints occur in kind-parameters as well as
-   old-style character length specifications.  */
+   old-style character length specifications.  If cnt is non-NULL it
+   will be set to the number of digits.  */
 
 match
 gfc_match_small_literal_int (int *value, int *cnt)
@@ -151,7 +153,8 @@ gfc_match_small_literal_int (int *value, int *cnt)
 
   gfc_gobble_whitespace ();
   c = gfc_next_char ();
-  *cnt = 0;
+  if (cnt)
+    *cnt = 0;
 
   if (!ISDIGIT (c))
     {
@@ -183,7 +186,8 @@ gfc_match_small_literal_int (int *value, int *cnt)
   gfc_current_locus = old_loc;
 
   *value = i;
-  *cnt = j;
+  if (cnt)
+    *cnt = j;
   return MATCH_YES;
 }
 
@@ -1337,7 +1341,7 @@ cleanup:
 static match
 match_exit_cycle (gfc_statement st, gfc_exec_op op)
 {
-  gfc_state_data *p;
+  gfc_state_data *p, *o;
   gfc_symbol *sym;
   match m;
 
@@ -1364,9 +1368,11 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
 
   /* Find the loop mentioned specified by the label (or lack of a
      label).  */
-  for (p = gfc_state_stack; p; p = p->previous)
+  for (o = NULL, p = gfc_state_stack; p; p = p->previous)
     if (p->state == COMP_DO && (sym == NULL || sym == p->sym))
       break;
+    else if (o == NULL && p->state == COMP_OMP_STRUCTURED_BLOCK)
+      o = p;
 
   if (p == NULL)
     {
@@ -1377,6 +1383,25 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
 	gfc_error ("%s statement at %C is not within loop '%s'",
 		   gfc_ascii_statement (st), sym->name);
 
+      return MATCH_ERROR;
+    }
+
+  if (o != NULL)
+    {
+      gfc_error ("%s statement at %C leaving OpenMP structured block",
+		 gfc_ascii_statement (st));
+      return MATCH_ERROR;
+    }
+  else if (st == ST_EXIT
+	   && p->previous != NULL
+	   && p->previous->state == COMP_OMP_STRUCTURED_BLOCK
+	   && (p->previous->head->op == EXEC_OMP_DO
+	       || p->previous->head->op == EXEC_OMP_PARALLEL_DO))
+    {
+      gcc_assert (p->previous->head->next != NULL);
+      gcc_assert (p->previous->head->next->op == EXEC_DO
+		  || p->previous->head->next->op == EXEC_DO_WHILE);
+      gfc_error ("EXIT statement at %C terminating !$OMP DO loop");
       return MATCH_ERROR;
     }
 
@@ -1887,7 +1912,7 @@ syntax:
   gfc_syntax_error (ST_NULLIFY);
 
 cleanup:
-  gfc_free_statements (tail);
+  gfc_free_statements (new_st.next);
   return MATCH_ERROR;
 }
 
@@ -2247,6 +2272,7 @@ gfc_match_common (void)
   gfc_array_spec *as;
   gfc_equiv * e1, * e2;
   match m;
+  gfc_gsymbol *gsym;
 
   old_blank_common = gfc_current_ns->blank_common.head;
   if (old_blank_common)
@@ -2262,6 +2288,23 @@ gfc_match_common (void)
       m = match_common_name (name);
       if (m == MATCH_ERROR)
 	goto cleanup;
+
+      gsym = gfc_get_gsymbol (name);
+      if (gsym->type != GSYM_UNKNOWN && gsym->type != GSYM_COMMON)
+	{
+	  gfc_error ("Symbol '%s' at %C is already an external symbol that is not COMMON",
+		     sym->name);
+	  goto cleanup;
+	}
+
+      if (gsym->type == GSYM_UNKNOWN)
+	{
+	  gsym->type = GSYM_COMMON;
+	  gsym->where = gfc_current_locus;
+	  gsym->defined = 1;
+	}
+
+      gsym->used = 1;
 
       if (name[0] == '\0')
 	{
@@ -2546,6 +2589,7 @@ gfc_match_namelist (void)
 
 	  nl = gfc_get_namelist ();
 	  nl->sym = sym;
+	  sym->refs++;
 
 	  if (group_name->namelist == NULL)
 	    group_name->namelist = group_name->namelist_tail = nl;
@@ -2980,6 +3024,11 @@ match_case_eos (void)
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
 
+  /* If the case construct doesn't have a case-construct-name, we
+     should have matched the EOS.  */
+  if (!gfc_current_block ())
+    return MATCH_ERROR;
+
   gfc_gobble_whitespace ();
 
   m = gfc_match_name (name);
@@ -3326,6 +3375,9 @@ match_forall_iterator (gfc_forall_iterator ** result)
 	goto cleanup;
     }
 
+  /* Mark the iteration variable's symbol as used as a FORALL index.  */
+  iter->var->symtree->n.sym->forall_index = true;
+
   *result = iter;
   return MATCH_YES;
 
@@ -3346,12 +3398,13 @@ static match
 match_forall_header (gfc_forall_iterator ** phead, gfc_expr ** mask)
 {
   gfc_forall_iterator *head, *tail, *new;
+  gfc_expr *msk;
   match m;
 
   gfc_gobble_whitespace ();
 
   head = tail = NULL;
-  *mask = NULL;
+  msk = NULL;
 
   if (gfc_match_char ('(') != MATCH_YES)
     return MATCH_NO;
@@ -3372,6 +3425,7 @@ match_forall_header (gfc_forall_iterator ** phead, gfc_expr ** mask)
       m = match_forall_iterator (&new);
       if (m == MATCH_ERROR)
 	goto cleanup;
+
       if (m == MATCH_YES)
 	{
 	  tail->next = new;
@@ -3381,7 +3435,7 @@ match_forall_header (gfc_forall_iterator ** phead, gfc_expr ** mask)
 
       /* Have to have a mask expression */
 
-      m = gfc_match_expr (mask);
+      m = gfc_match_expr (&msk);
       if (m == MATCH_NO)
 	goto syntax;
       if (m == MATCH_ERROR)
@@ -3394,13 +3448,14 @@ match_forall_header (gfc_forall_iterator ** phead, gfc_expr ** mask)
     goto syntax;
 
   *phead = head;
+  *mask = msk;
   return MATCH_YES;
 
 syntax:
   gfc_syntax_error (ST_FORALL);
 
 cleanup:
-  gfc_free_expr (*mask);
+  gfc_free_expr (msk);
   gfc_free_forall_iterator (head);
 
   return MATCH_ERROR;

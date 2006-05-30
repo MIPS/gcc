@@ -97,7 +97,7 @@ struct lookup_base_data_s
 static tree
 dfs_lookup_base (tree binfo, void *data_)
 {
-  struct lookup_base_data_s *data = data_;
+  struct lookup_base_data_s *data = (struct lookup_base_data_s *) data_;
 
   if (SAME_BINFO_TYPE_P (BINFO_TYPE (binfo), data->base))
     {
@@ -306,7 +306,7 @@ struct dcast_data_s
 static tree
 dfs_dcast_hint_pre (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth++;
@@ -334,7 +334,7 @@ dfs_dcast_hint_pre (tree binfo, void *data_)
 static tree
 dfs_dcast_hint_post (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth--;
@@ -1479,7 +1479,8 @@ adjust_result_of_qualified_name_lookup (tree decl,
 					tree qualifying_scope,
 					tree context_class)
 {
-  if (context_class && CLASS_TYPE_P (qualifying_scope)
+  if (context_class && context_class != error_mark_node
+      && CLASS_TYPE_P (qualifying_scope)
       && DERIVED_FROM_P (qualifying_scope, context_class)
       && BASELINK_P (decl))
     {
@@ -2042,6 +2043,10 @@ maybe_suppress_debug_info (tree t)
   /* We might have set this earlier in cp_finish_decl.  */
   TYPE_DECL_SUPPRESS_DEBUG (TYPE_MAIN_DECL (t)) = 0;
 
+  /* Always emit the information for each class every time. */
+  if (flag_emit_class_debug_always)
+    return;
+
   /* If we already know how we're handling this class, handle debug info
      the same way.  */
   if (CLASSTYPE_INTERFACE_KNOWN (t))
@@ -2355,7 +2360,7 @@ lookup_conversions_r (tree binfo,
     {
       parent_tpl_convs = tree_cons (binfo, my_tpl_convs, parent_tpl_convs);
       if (virtual_depth)
-	TREE_STATIC (parent_convs) = 1;
+	TREE_STATIC (parent_tpl_convs) = 1;
     }
 
   child_convs = other_convs;

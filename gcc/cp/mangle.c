@@ -1,7 +1,7 @@
 /* Name mangling for the 3.0 C++ ABI.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
-   Written by Alex Samuel <sameul@codesourcery.com>
+   Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
 
@@ -2526,7 +2526,7 @@ static inline const char *
 finish_mangling (const bool warn)
 {
   if (warn_abi && warn && G.need_abi_warning)
-    warning (0, "the mangled name of %qD will change in a future "
+    warning (OPT_Wabi, "the mangled name of %qD will change in a future "
 	     "version of GCC",
 	     G.entity);
 

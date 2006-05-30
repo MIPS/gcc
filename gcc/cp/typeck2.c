@@ -145,7 +145,8 @@ struct pending_abstract_type GTY((chain_next ("%h.next")))
 static hashval_t
 pat_calc_hash (const void* val)
 {
-  const struct pending_abstract_type* pat = val;
+  const struct pending_abstract_type *pat =
+     (const struct pending_abstract_type *) val;
   return (hashval_t) TYPE_UID (pat->type);
 }
 
@@ -156,7 +157,8 @@ pat_calc_hash (const void* val)
 static int
 pat_compare (const void* val1, const void* val2)
 {
-  const struct pending_abstract_type* pat1 = val1;
+  const struct pending_abstract_type *pat1 =
+     (const struct pending_abstract_type *) val1;
   tree type2 = (tree)val2;
 
   return (pat1->type == type2);
@@ -270,7 +272,7 @@ abstract_virtuals_error (tree decl, tree type)
 		    ? DECL_SOURCE_LOCATION (decl)
 		    : input_location);
 
-      pat->next = *slot;
+      pat->next = (struct pending_abstract_type *) *slot;
       *slot = pat;
 
       return 0;
@@ -375,7 +377,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
       if (!decl)
-	p_msg ("invalid use of undefined type %q#T", type);
+	p_msg ("invalid use of incomplete type %q#T", type);
       if (!TYPE_TEMPLATE_INFO (type))
 	p_msg ("forward declaration of %q+#T", type);
       else
@@ -402,6 +404,10 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
 
     case TEMPLATE_TYPE_PARM:
       p_msg ("invalid use of template type parameter");
+      break;
+
+    case TYPENAME_TYPE:
+      p_msg ("invalid use of dependent type %qT", type);
       break;
 
     case UNKNOWN_TYPE:
@@ -500,7 +506,7 @@ split_nonconstant_init_1 (tree dest, tree init)
 		sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
 			      NULL_TREE);
 
-	      code = build2 (MODIFY_EXPR, inner_type, sub, value);
+	      code = build2 (INIT_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
 	      add_stmt (code);
 	      continue;
@@ -1194,8 +1200,6 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  datum = decay_conversion (datum);
-
   if (datum == error_mark_node || component == error_mark_node)
     return error_mark_node;
 
@@ -1212,7 +1216,7 @@ build_m_component_ref (tree datum, tree component)
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer %qE to %qE, which is of "
-	     "non-aggregate type %qT",
+	     "non-class type %qT",
 	     component, datum, objtype);
       return error_mark_node;
     }

@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -383,7 +385,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
      *
      * @return Whether the thumb should keep scrolling.
      */
-    public boolean shouldScroll(int direction)
+    boolean shouldScroll(int direction)
     {
       int value;
       if (scrollbar.getOrientation() == HORIZONTAL)
@@ -653,19 +655,17 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 
     if (scrollbar.getOrientation() == SwingConstants.HORIZONTAL)
       {
-	width += incrButton.getPreferredSize().getWidth();
-	width += decrButton.getPreferredSize().getWidth();
-
-	width += (scrollbar.getMaximum() - scrollbar.getMinimum());
-	height = UIManager.getInt("ScrollBar.width");
+        width += incrButton.getPreferredSize().getWidth();
+        width += decrButton.getPreferredSize().getWidth();
+        width += 16;
+        height = UIManager.getInt("ScrollBar.width");
       }
     else
       {
-	height += incrButton.getPreferredSize().getHeight();
-	height += decrButton.getPreferredSize().getHeight();
-
-	height += (scrollbar.getMaximum() - scrollbar.getMinimum());
-	width = UIManager.getInt("ScrollBar.width");
+        height += incrButton.getPreferredSize().getHeight();
+        height += decrButton.getPreferredSize().getHeight();
+        height += 16;
+        width = UIManager.getInt("ScrollBar.width");
       }
 
     Insets insets = scrollbar.getInsets();
@@ -721,18 +721,6 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    */
   protected void installComponents()
   {
-    if (incrButton != null)
-      scrollbar.add(incrButton);
-    if (decrButton != null)
-      scrollbar.add(decrButton);
-  }
-
-  /**
-   * This method installs the defaults for the scrollbar specified by the
-   * Basic Look and Feel.
-   */
-  protected void installDefaults()
-  {
     int orientation = scrollbar.getOrientation();
     switch (orientation)
       {
@@ -746,6 +734,18 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
         break;
       }
 
+    if (incrButton != null)
+      scrollbar.add(incrButton);
+    if (decrButton != null)
+      scrollbar.add(decrButton);
+  }
+
+  /**
+   * This method installs the defaults for the scrollbar specified by the
+   * Basic Look and Feel.
+   */
+  protected void installDefaults()
+  {
     LookAndFeel.installColors(scrollbar, "ScrollBar.background",
                               "ScrollBar.foreground");
     LookAndFeel.installBorder(scrollbar, "ScrollBar.border");
@@ -765,6 +765,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    * This method installs the keyboard actions for the scrollbar.
    */
   protected void installKeyboardActions()
+    throws NotImplementedException
   {
     // FIXME: implement.
   }
@@ -1143,6 +1144,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    * during install.
    */
   protected void uninstallKeyboardActions()
+    throws NotImplementedException
   {
     // FIXME: implement.
   }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught and Janne Blomqvist
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -104,21 +104,71 @@ static void
 unformatted_backspace (st_parameter_filepos *fpp, gfc_unit *u)
 {
   gfc_offset m, new;
-  int length;
+  GFC_INTEGER_4 m4;
+  GFC_INTEGER_8 m8;
+  int length, length_read;
   char *p;
 
-  length = sizeof (gfc_offset);
+  if (compile_options.record_marker == 0)
+    length = sizeof (gfc_offset);
+  else
+    length = compile_options.record_marker;
 
-  p = salloc_r_at (u->s, &length,
+  length_read = length;
+
+  p = salloc_r_at (u->s, &length_read,
 		   file_position (u->s) - length);
-  if (p == NULL)
+  if (p == NULL || length_read != length)
     goto io_error;
 
   /* Only CONVERT_NATIVE and CONVERT_SWAP are valid here.  */
   if (u->flags.convert == CONVERT_NATIVE)
-    memcpy (&m, p, sizeof (gfc_offset));
+    {
+      switch (compile_options.record_marker)
+	{
+	case 0:
+	  memcpy (&m, p, sizeof(gfc_offset));
+	  break;
+
+	case sizeof(GFC_INTEGER_4):
+	  memcpy (&m4, p, sizeof (m4));
+	  m = m4;
+	  break;
+
+	case sizeof(GFC_INTEGER_8):
+	  memcpy (&m8, p, sizeof (m8));
+	  m = m8;
+	  break;
+
+	default:
+	  runtime_error ("Illegal value for record marker");
+	  break;
+	}
+    }
   else
-    reverse_memcpy (&m, p, sizeof (gfc_offset));
+    {
+      switch (compile_options.record_marker)
+	{
+	case 0:
+	  reverse_memcpy (&m, p, sizeof(gfc_offset));
+	  break;
+
+	case sizeof(GFC_INTEGER_4):
+	  reverse_memcpy (&m4, p, sizeof (m4));
+	  m = m4;
+	  break;
+
+	case sizeof(GFC_INTEGER_8):
+	  reverse_memcpy (&m8, p, sizeof (m8));
+	  m = m8;
+	  break;
+
+	default:
+	  runtime_error ("Illegal value for record marker");
+	  break;
+	}
+
+    }
 
   if ((new = file_position (u->s) - m - 2*length) < 0)
     new = 0;
@@ -161,7 +211,11 @@ st_backspace (st_parameter_filepos *fpp)
   /* Check for special cases involving the ENDFILE record first.  */
 
   if (u->endfile == AFTER_ENDFILE)
-    u->endfile = AT_ENDFILE;
+    {
+      u->endfile = AT_ENDFILE;
+      flush (u->s);
+      struncate (u->s);
+    }
   else
     {
       if (file_position (u->s) == 0)
@@ -242,15 +296,14 @@ st_rewind (st_parameter_filepos *fpp)
 			"Cannot REWIND a file opened for DIRECT access");
       else
 	{
-	  /* If we have been writing to the file, the last written record
-	     is the last record in the file, so truncate the file now.
-	     Reset to read mode so two consecutive rewind statements do not
-	     delete the file contents.  Flush buffer when switching mode.  */
-          if (u->mode == WRITING)
-	    {
-	      flush (u->s);
-	      struncate (u->s);
-	    }
+	  /* Flush the buffers.  If we have been writing to the file, the last
+	       written record is the last record in the file, so truncate the
+	       file now.  Reset to read mode so two consecutive rewind
+	       statements do not delete the file contents.  */
+	  flush (u->s);
+	  if (u->mode == WRITING)
+	    struncate (u->s);
+
 	  u->mode = READING;
 	  u->last_record = 0;
 	  if (sseek (u->s, 0) == FAILURE)
@@ -259,6 +312,7 @@ st_rewind (st_parameter_filepos *fpp)
 	  u->endfile = NO_ENDFILE;
 	  u->current_record = 0;
 	  u->bytes_left = 0;
+	  u->read_bad = 0;
 	  test_endfile (u);
 	}
       /* Update position for INQUIRE.  */

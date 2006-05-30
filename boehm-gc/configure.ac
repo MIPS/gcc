@@ -36,7 +36,7 @@ ACX_NONCANONICAL_TARGET
 mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
 AC_SUBST(mkinstalldirs)
 
-AM_INIT_AUTOMAKE(gc, 6.3, no-define)
+AM_INIT_AUTOMAKE(gc, 6.6, no-define)
 
 # The autoconf 2.5x version of the no-executables hack.
 GCC_NO_EXECUTABLES
@@ -140,8 +140,8 @@ case "$THREADS" in
 	AC_DEFINE(GC_AIX_THREADS,1,[support AIX threads])
 	AC_DEFINE(_REENTRANT,1)
 	;;
-     *-*-hpux*)
-	AC_MSG_WARN("Only HP/UX 11 threads are supported.")
+     *-*-hpux11*)
+	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
 	AC_DEFINE(GC_HPUX_THREADS,1,[enables support for HP/UX 11 pthreads])
 	AC_DEFINE(_POSIX_C_SOURCE,199506L,[POSIX version of C Source])
 	if test "${enable_parallel_mark}" = yes; then
@@ -149,6 +149,11 @@ case "$THREADS" in
 	fi
 	AC_DEFINE(THREAD_LOCAL_ALLOC,1)
 	THREADLIBS="-lpthread -lrt"
+	# HPUX needs REENTRANT for the _r calls.
+	AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads])
+	;;
+     *-*-hpux10*)
+	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
 	;;
      *-*-freebsd*)
 	AC_MSG_WARN("FreeBSD does not yet fully support threads with Boehm GC.")
@@ -449,6 +454,25 @@ AC_ARG_ENABLE(gc-debug,
 if test "${gc_use_mmap}" = "yes"; then
   AC_DEFINE(USE_MMAP, 1, [use MMAP instead of sbrk to get new memory])
 fi
+
+symver=
+case "$target" in
+  *-*-linux* )
+    cat > conftest.c <<EOF
+#include <pthread.h>
+void *tf (void *arg) { (void) arg; return NULL; }
+int main (void) { pthread_t th; pthread_create (&th, NULL, tf, NULL); return 0; }
+EOF
+    if $CC $CFLAGS -pthread -o conftest conftest.c > /dev/null 2>&1; then
+      symver=`readelf -s conftest 2> /dev/null | sed -n '/UND pthread_create@/{s/^.*@//;s/ .*$//;p;q}'`
+    fi
+    rm -f conftest conftest.c
+    ;;
+esac
+if test -n "$symver"; then
+  AC_DEFINE_UNQUOTED(GC_PTHREAD_SYM_VERSION, "$symver", [symbol version of pthread_create])
+fi
+
 
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then

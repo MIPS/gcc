@@ -157,9 +157,9 @@ struct undo_replace_buff_elem
 
 
   
-partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
-void free_partial_schedule (partial_schedule_ptr);
-void reset_partial_schedule (partial_schedule_ptr, int new_ii);
+static partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
+static void free_partial_schedule (partial_schedule_ptr);
+static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
 static int kernel_number_of_cycles (rtx first_insn, rtx last_insn);
 static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
@@ -181,13 +181,9 @@ static bool ps_unschedule_node (partial_schedule_ptr, ddg_node_ptr );
 
 static int issue_rate;
 
-/* For printing statistics.  */
-static FILE *stats_file;
-
 static int sms_order_nodes (ddg_ptr, int, int * result);
 static void set_node_sched_params (ddg_ptr);
-static partial_schedule_ptr sms_schedule_by_order (ddg_ptr, int, int,
-						   int *, FILE*);
+static partial_schedule_ptr sms_schedule_by_order (ddg_ptr, int, int, int *);
 static void permute_partial_schedule (partial_schedule_ptr ps, rtx last);
 static void generate_prolog_epilog (partial_schedule_ptr ,struct loop * loop, rtx);
 static void duplicate_insns_of_cycles (partial_schedule_ptr ps,
@@ -241,12 +237,6 @@ sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
   return tmp;
 }
 
-static int
-contributes_to_priority (rtx next, rtx insn)
-{
-  return BLOCK_NUM (next) == BLOCK_NUM (insn);
-}
-
 static void
 compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 			       regset cond_exec ATTRIBUTE_UNUSED,
@@ -263,11 +253,17 @@ static struct sched_info sms_sched_info =
   NULL,
   NULL,
   sms_print_insn,
-  contributes_to_priority,
+  NULL,
   compute_jump_reg_dependencies,
   NULL, NULL,
   NULL, NULL,
-  0, 0, 0
+  0, 0, 0,
+
+  NULL, NULL, NULL, NULL, NULL,
+#ifdef ENABLE_CHECKING
+  NULL,
+#endif
+  0
 };
 
 
@@ -316,7 +312,7 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
   if (! pre_header)
     return NULL_RTX;
 
-  get_block_head_tail (pre_header->index, &head, &tail);
+  get_ebb_head_tail (pre_header, pre_header, &head, &tail);
 
   for (insn = tail; insn != PREV_INSN (head); insn = PREV_INSN (insn))
     if (INSN_P (insn) && single_set (insn) &&
@@ -374,11 +370,11 @@ set_node_sched_params (ddg_ptr g)
 }
 
 static void
-print_node_sched_params (FILE * dump_file, int num_nodes)
+print_node_sched_params (FILE * file, int num_nodes)
 {
   int i;
 
-  if (! dump_file)
+  if (! file)
     return;
   for (i = 0; i < num_nodes; i++)
     {
@@ -386,14 +382,14 @@ print_node_sched_params (FILE * dump_file, int num_nodes)
       rtx reg_move = nsp->first_reg_move;
       int j;
 
-      fprintf (dump_file, "Node %d:\n", i);
-      fprintf (dump_file, " asap = %d:\n", nsp->asap);
-      fprintf (dump_file, " time = %d:\n", nsp->time);
-      fprintf (dump_file, " nreg_moves = %d:\n", nsp->nreg_moves);
+      fprintf (file, "Node %d:\n", i);
+      fprintf (file, " asap = %d:\n", nsp->asap);
+      fprintf (file, " time = %d:\n", nsp->time);
+      fprintf (file, " nreg_moves = %d:\n", nsp->nreg_moves);
       for (j = 0; j < nsp->nreg_moves; j++)
 	{
-	  fprintf (dump_file, " reg_move = ");
-	  print_rtl_single (dump_file, reg_move);
+	  fprintf (file, " reg_move = ");
+	  print_rtl_single (file, reg_move);
 	  reg_move = PREV_INSN (reg_move);
 	}
     }
@@ -535,6 +531,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 
 	  prev_reg = new_reg;
 	}
+      sbitmap_vector_free (uses_of_defs);
     }
   return reg_move_replaces;
 }
@@ -795,7 +792,7 @@ loop_single_full_bb_p (struct loop *loop)
 
       /* Make sure that basic blocks other than the header
          have only notes labels or jumps.  */
-      get_block_head_tail (bbs[i]->index, &head, &tail);
+      get_ebb_head_tail (bbs[i], bbs[i], &head, &tail);
       for (; head != NEXT_INSN (tail); head = NEXT_INSN (head))
         {
           if (NOTE_P (head) || LABEL_P (head)
@@ -824,7 +821,7 @@ loop_single_full_bb_p (struct loop *loop)
 /* Return true if the loop is in its canonical form and false if not.
    i.e. SIMPLE_SMS_LOOP_P and have one preheader block, and single exit.  */
 static bool
-loop_canon_p (struct loop *loop, FILE *dump_file)
+loop_canon_p (struct loop *loop)
 {
 
   if (loop->inner || ! loop->outer)
@@ -841,7 +838,7 @@ loop_canon_p (struct loop *loop, FILE *dump_file)
 	    {
 	      expanded_location xloc;
 	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (stats_file, " %s %d (file, line)\n",
+	      fprintf (dump_file, " %s %d (file, line)\n",
 		       xloc.file, xloc.line);
 	    }
 	}
@@ -859,7 +856,7 @@ loop_canon_p (struct loop *loop, FILE *dump_file)
 	    {
 	      expanded_location xloc;
   	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (stats_file, " %s %d (file, line)\n",
+	      fprintf (dump_file, " %s %d (file, line)\n",
 		       xloc.file, xloc.line);
 	    }
 	}
@@ -894,48 +891,10 @@ canon_loop (struct loop *loop)
     }
 }
 
-/* Build the loop information without loop
-   canonization, the loop canonization will
-   be performed if the loop is SMSable.  */
-static struct loops *
-build_loops_structure (FILE *dumpfile)
-{
-  struct loops *loops = xcalloc (1, sizeof (struct loops));
-
-  /* Find the loops.  */
-
-  if (flow_loops_find (loops) <= 1)
-    {
-      /* No loops.  */
-      flow_loops_free (loops);
-      free (loops);
-
-      return NULL;
-    }
-
-  /* Not going to update these.  */
-  free (loops->cfg.rc_order);
-  loops->cfg.rc_order = NULL;
-  free (loops->cfg.dfs_order);
-  loops->cfg.dfs_order = NULL;
-
-  create_preheaders (loops, CP_SIMPLE_PREHEADERS);
-  mark_single_exit_loops (loops);
-  /* Dump loops.  */
-  flow_loops_dump (loops, dumpfile, NULL, 1);
-
-#ifdef ENABLE_CHECKING
-  verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (loops);
-#endif
-
-  return loops;
-}
-
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
-void
-sms_schedule (FILE *dump_file)
+static void
+sms_schedule (void)
 {
   static int passes = 0;
   rtx insn;
@@ -953,11 +912,10 @@ sms_schedule (FILE *dump_file)
   edge latch_edge;
   gcov_type trip_count = 0;
 
-  if (! (loops = build_loops_structure (dump_file)))
+  loops = loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
+  if (!loops)
     return;  /* There is no loops to schedule.  */
-
-
-  stats_file = dump_file;
 
   /* Initialize issue_rate.  */
   if (targetm.sched.issue_rate)
@@ -973,18 +931,21 @@ sms_schedule (FILE *dump_file)
 
   /* Initialize the scheduler.  */
   current_sched_info = &sms_sched_info;
-  sched_init (NULL);
+  sched_init ();
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
-  df_rd_add_problem (df);
-  df_ru_add_problem (df);
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
+  df_rd_add_problem (df, 0);
+  df_ru_add_problem (df, 0);
   df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
   df_analyze (df);
 
+  if (dump_file)
+    df_dump (df, dump_file);
+
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
-  g_arr = xcalloc (loops->num, sizeof (ddg_ptr));
+  g_arr = XCNEWVEC (ddg_ptr, loops->num);
 
 
   /* Build DDGs for all the relevant loops and hold them in G_ARR
@@ -1004,7 +965,7 @@ sms_schedule (FILE *dump_file)
           break;
         }
 
-      if (! loop_canon_p (loop, dump_file))
+      if (! loop_canon_p (loop))
         continue;
 
       if (! loop_single_full_bb_p (loop))
@@ -1012,7 +973,7 @@ sms_schedule (FILE *dump_file)
 
       bb = loop->header;
 
-      get_block_head_tail (bb->index, &head, &tail);
+      get_ebb_head_tail (bb, bb, &head, &tail);
       latch_edge = loop_latch_edge (loop);
       gcc_assert (loop->single_exit);
       if (loop->single_exit->count)
@@ -1023,7 +984,7 @@ sms_schedule (FILE *dump_file)
       if ( latch_edge->count
           && (latch_edge->count < loop->single_exit->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
 	{
-	  if (stats_file)
+	  if (dump_file)
 	    {
 	      rtx line_note = find_line_note (tail);
 
@@ -1031,24 +992,24 @@ sms_schedule (FILE *dump_file)
 		{
 		  expanded_location xloc;
 		  NOTE_EXPANDED_LOCATION (xloc, line_note);
-		  fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+		  fprintf (dump_file, "SMS bb %s %d (file, line)\n",
 			   xloc.file, xloc.line);
 		}
-	      fprintf (stats_file, "SMS single-bb-loop\n");
+	      fprintf (dump_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
-	      	  fprintf (stats_file, "SMS loop-count ");
-	      	  fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+	      	  fprintf (dump_file, "SMS loop-count ");
+	      	  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 	             	   (HOST_WIDEST_INT) bb->count);
-	      	  fprintf (stats_file, "\n");
-                  fprintf (stats_file, "SMS trip-count ");
-                  fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+	      	  fprintf (dump_file, "\n");
+                  fprintf (dump_file, "SMS trip-count ");
+                  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
                            (HOST_WIDEST_INT) trip_count);
-                  fprintf (stats_file, "\n");
-	      	  fprintf (stats_file, "SMS profile-sum-max ");
-	      	  fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+                  fprintf (dump_file, "\n");
+	      	  fprintf (dump_file, "SMS profile-sum-max ");
+	      	  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 	          	   (HOST_WIDEST_INT) profile_info->sum_max);
-	      	  fprintf (stats_file, "\n");
+	      	  fprintf (dump_file, "\n");
 	    	}
 	    }
           continue;
@@ -1068,15 +1029,15 @@ sms_schedule (FILE *dump_file)
 
       if (insn != NEXT_INSN (tail))
 	{
-	  if (stats_file)
+	  if (dump_file)
 	    {
 	      if (CALL_P (insn))
-		fprintf (stats_file, "SMS loop-with-call\n");
+		fprintf (dump_file, "SMS loop-with-call\n");
 	      else if (BARRIER_P (insn))
-		fprintf (stats_file, "SMS loop-with-barrier\n");
+		fprintf (dump_file, "SMS loop-with-barrier\n");
 	      else
-		fprintf (stats_file, "SMS loop-with-not-single-set\n");
-	      print_rtl_single (stats_file, insn);
+		fprintf (dump_file, "SMS loop-with-not-single-set\n");
+	      print_rtl_single (dump_file, insn);
 	    }
 
 	  continue;
@@ -1084,8 +1045,8 @@ sms_schedule (FILE *dump_file)
 
       if (! (g = create_ddg (bb, df, 0)))
         {
-          if (stats_file)
-	    fprintf (stats_file, "SMS doloop\n");
+          if (dump_file)
+	    fprintf (dump_file, "SMS doloop\n");
 	  continue;
         }
 
@@ -1114,14 +1075,14 @@ sms_schedule (FILE *dump_file)
       if (dump_file)
 	print_ddg (dump_file, g);
 
-      get_block_head_tail (loop->header->index, &head, &tail);
+      get_ebb_head_tail (loop->header, loop->header, &head, &tail);
 
       latch_edge = loop_latch_edge (loop);
       gcc_assert (loop->single_exit);
       if (loop->single_exit->count)
 	trip_count = latch_edge->count / loop->single_exit->count;
 
-      if (stats_file)
+      if (dump_file)
 	{
 	  rtx line_note = find_line_note (tail);
 
@@ -1129,25 +1090,25 @@ sms_schedule (FILE *dump_file)
 	    {
 	      expanded_location xloc;
 	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (stats_file, "SMS bb %s %d (file, line)\n",
+	      fprintf (dump_file, "SMS bb %s %d (file, line)\n",
 		       xloc.file, xloc.line);
 	    }
-	  fprintf (stats_file, "SMS single-bb-loop\n");
+	  fprintf (dump_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
-	      fprintf (stats_file, "SMS loop-count ");
-	      fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+	      fprintf (dump_file, "SMS loop-count ");
+	      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 	               (HOST_WIDEST_INT) bb->count);
-	      fprintf (stats_file, "\n");
-	      fprintf (stats_file, "SMS profile-sum-max ");
-	      fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+	      fprintf (dump_file, "\n");
+	      fprintf (dump_file, "SMS profile-sum-max ");
+	      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 	               (HOST_WIDEST_INT) profile_info->sum_max);
-	      fprintf (stats_file, "\n");
+	      fprintf (dump_file, "\n");
 	    }
-	  fprintf (stats_file, "SMS doloop\n");
-	  fprintf (stats_file, "SMS built-ddg %d\n", g->num_nodes);
-          fprintf (stats_file, "SMS num-loads %d\n", g->num_loads);
-          fprintf (stats_file, "SMS num-stores %d\n", g->num_stores);
+	  fprintf (dump_file, "SMS doloop\n");
+	  fprintf (dump_file, "SMS built-ddg %d\n", g->num_nodes);
+          fprintf (dump_file, "SMS num-loads %d\n", g->num_loads);
+          fprintf (dump_file, "SMS num-stores %d\n", g->num_stores);
 	}
 
 
@@ -1164,30 +1125,30 @@ sms_schedule (FILE *dump_file)
 	}
       gcc_assert (count_reg);
 
-      if (stats_file && count_init)
+      if (dump_file && count_init)
         {
-          fprintf (stats_file, "SMS const-doloop ");
-          fprintf (stats_file, HOST_WIDEST_INT_PRINT_DEC,
+          fprintf (dump_file, "SMS const-doloop ");
+          fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
 		     loop_count);
-          fprintf (stats_file, "\n");
+          fprintf (dump_file, "\n");
         }
 
-      node_order = (int *) xmalloc (sizeof (int) * g->num_nodes);
+      node_order = XNEWVEC (int, g->num_nodes);
 
       mii = 1; /* Need to pass some estimate of mii.  */
       rec_mii = sms_order_nodes (g, mii, node_order);
       mii = MAX (res_MII (g), rec_mii);
       maxii = (calculate_maxii (g) * SMS_MAX_II_FACTOR) / 100;
 
-      if (stats_file)
-	fprintf (stats_file, "SMS iis %d %d %d (rec_mii, mii, maxii)\n",
+      if (dump_file)
+	fprintf (dump_file, "SMS iis %d %d %d (rec_mii, mii, maxii)\n",
 		 rec_mii, mii, maxii);
 
       /* After sms_order_nodes and before sms_schedule_by_order, to copy over
 	 ASAP.  */
       set_node_sched_params (g);
 
-      ps = sms_schedule_by_order (g, mii, maxii, node_order, dump_file);
+      ps = sms_schedule_by_order (g, mii, maxii, node_order);
 
       if (ps)
 	stage_count = PS_STAGE_COUNT (ps);
@@ -1215,13 +1176,13 @@ sms_schedule (FILE *dump_file)
 	  int new_cycles;
 	  struct undo_replace_buff_elem *reg_move_replaces;
 
-	  if (stats_file)
+	  if (dump_file)
 	    {
-	      fprintf (stats_file,
+	      fprintf (dump_file,
 		       "SMS succeeded %d %d (with ii, sc)\n", ps->ii,
 		       stage_count);
-	      print_partial_schedule (ps, stats_file);
-	      fprintf (stats_file,
+	      print_partial_schedule (ps, dump_file);
+	      fprintf (dump_file,
 		       "SMS Branch (%d) will later be scheduled at cycle %d.\n",
 		       g->closing_branch->cuid, PS_MIN_CYCLE (ps) - 1);
 	    }
@@ -1302,9 +1263,11 @@ sms_schedule (FILE *dump_file)
       free_ddg (g);
     }
 
+  free (g_arr);
+
   /* Release scheduler data, needed until now because of DFA.  */
   sched_finish ();
-  loop_optimizer_finalize (loops, dump_file);
+  loop_optimizer_finalize (loops);
 }
 
 /* The SMS scheduling algorithm itself
@@ -1518,7 +1481,7 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 /* This function implements the scheduling algorithm for SMS according to the
    above algorithm.  */
 static partial_schedule_ptr
-sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *dump_file)
+sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 {
   int ii = mii;
   int i, c, success;
@@ -1650,6 +1613,9 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order, FILE *du
     } /* While try_again_with_larger_ii.  */
 
   sbitmap_free (sched_nodes);
+  sbitmap_free (must_precede);
+  sbitmap_free (must_follow);
+  sbitmap_free (tobe_scheduled);
 
   if (ii >= maxii)
     {
@@ -2033,11 +1999,11 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
    modulo scheduling.  */
 
 /* Create a partial schedule and allocate a memory to hold II rows.  */
-partial_schedule_ptr
+
+static partial_schedule_ptr
 create_partial_schedule (int ii, ddg_ptr g, int history)
 {
-  partial_schedule_ptr ps = (partial_schedule_ptr)
-			     xmalloc (sizeof (struct partial_schedule));
+  partial_schedule_ptr ps = XNEW (struct partial_schedule);
   ps->rows = (ps_insn_ptr *) xcalloc (ii, sizeof (ps_insn_ptr));
   ps->ii = ii;
   ps->history = history;
@@ -2069,7 +2035,8 @@ free_ps_insns (partial_schedule_ptr ps)
 }
 
 /* Free all the memory allocated to the partial schedule.  */
-void
+
+static void
 free_partial_schedule (partial_schedule_ptr ps)
 {
   if (!ps)
@@ -2081,7 +2048,8 @@ free_partial_schedule (partial_schedule_ptr ps)
 
 /* Clear the rows array with its PS_INSNs, and create a new one with
    NEW_II rows.  */
-void
+
+static void
 reset_partial_schedule (partial_schedule_ptr ps, int new_ii)
 {
   if (!ps)
@@ -2122,7 +2090,7 @@ print_partial_schedule (partial_schedule_ptr ps, FILE *dump)
 static ps_insn_ptr
 create_ps_insn (ddg_node_ptr node, int rest_count, int cycle)
 {
-  ps_insn_ptr ps_i = xmalloc (sizeof (struct ps_insn));
+  ps_insn_ptr ps_i = XNEW (struct ps_insn);
 
   ps_i->node = node;
   ps_i->next_in_row = NULL;
@@ -2535,7 +2503,7 @@ gate_handle_sms (void)
 
 /* Run instruction scheduler.  */
 /* Perform SMS module scheduling.  */
-static void
+static unsigned int
 rest_of_handle_sms (void)
 {
 #ifdef INSN_SCHEDULING
@@ -2545,7 +2513,7 @@ rest_of_handle_sms (void)
   no_new_pseudos = 0;
   /* Collect loop information to be used in SMS.  */
   cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
-  sms_schedule (dump_file);
+  sms_schedule ();
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
@@ -2565,6 +2533,7 @@ rest_of_handle_sms (void)
   cfg_layout_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 #endif /* INSN_SCHEDULING */
+  return 0;
 }
 
 struct tree_opt_pass pass_sms =
@@ -2579,7 +2548,7 @@ struct tree_opt_pass pass_sms =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_start */
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'm'                                   /* letter */

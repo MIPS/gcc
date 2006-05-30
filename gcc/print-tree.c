@@ -50,7 +50,7 @@ static struct bucket **table;
 void
 debug_tree (tree node)
 {
-  table = xcalloc (HASH_SIZE, sizeof (struct bucket *));
+  table = XCNEWVEC (struct bucket *, HASH_SIZE);
   print_node (stderr, "", node, 0);
   free (table);
   table = 0;
@@ -209,7 +209,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       }
 
   /* Add this node to the table.  */
-  b = xmalloc (sizeof (struct bucket));
+  b = XNEW (struct bucket);
   b->node = node;
   b->next = table[hash];
   table[hash] = b;
@@ -458,6 +458,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  print_node (file, "offset", DECL_FIELD_OFFSET (node), indent + 4);
 	  print_node (file, "bit offset", DECL_FIELD_BIT_OFFSET (node),
 		      indent + 4);
+	  if (DECL_BIT_FIELD_TYPE (node))
+	    print_node (file, "bit_field_type", DECL_BIT_FIELD_TYPE (node),
+			indent + 4);
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
@@ -506,6 +509,19 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		   (void *) DECL_STRUCT_FUNCTION (node));
 	}
 
+      if ((TREE_CODE (node) == VAR_DECL || TREE_CODE (node) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (node))
+	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
+
+      if (TREE_CODE (node) == STRUCT_FIELD_TAG)
+	{
+	  fprintf (file, " sft size " HOST_WIDE_INT_PRINT_DEC, 
+		   SFT_SIZE (node));
+	  fprintf (file, " sft offset " HOST_WIDE_INT_PRINT_DEC,
+		   SFT_OFFSET (node));
+	  print_node_brief (file, "parent var", SFT_PARENT_VAR (node), 
+			    indent + 4);
+	}
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -806,8 +822,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fprintf (file, " in-free-list");
 
 	  if (SSA_NAME_PTR_INFO (node)
-	      || SSA_NAME_VALUE (node)
-	      || SSA_NAME_AUX (node))
+	      || SSA_NAME_VALUE (node))
 	    {
 	      indent_to (file, indent + 3);
 	      if (SSA_NAME_PTR_INFO (node))
@@ -816,8 +831,20 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      if (SSA_NAME_VALUE (node))
 		fprintf (file, " value %p",
 			 (void *) SSA_NAME_VALUE (node));
-	      if (SSA_NAME_AUX (node))
-		fprintf (file, " aux %p", SSA_NAME_AUX (node));
+	    }
+	  break;
+
+	case OMP_CLAUSE:
+	    {
+	      int i;
+	      fprintf (file, " %s",
+		       omp_clause_code_name[OMP_CLAUSE_CODE (node)]);
+	      for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (node)]; i++)
+		{
+		  indent_to (file, indent + 4);
+		  fprintf (file, "op %d:", i);
+		  print_node_brief (file, "", OMP_CLAUSE_OPERAND (node, i), 0);
+		}
 	    }
 	  break;
 

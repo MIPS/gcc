@@ -1,5 +1,7 @@
 /* { dg-do compile } */ 
 /* { dg-options "-O2 -fdump-tree-alias-vops" } */
+/* malloc doesn't take a long */
+/* { dg-xfail-if "" { "m32c-*-*" } { "*" } { "" } } */
 struct a
 {
   int length;
@@ -22,3 +24,4 @@ void f(void)
 /* { dg-final { cleanup-tree-dump "alias3" } } */
 /* { dg-final { cleanup-tree-dump "alias4" } } */
 /* { dg-final { cleanup-tree-dump "alias5" } } */
+/* { dg-final { cleanup-tree-dump "alias6" } } */

@@ -1,4 +1,26 @@
-2006-02-05  Paolo Bonzini  <bonzini@gnu.org>
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Add install-html target. Add install-html to .PHONY
+
+2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	* macro.c (_cpp_builtin_macro_text): Handle BT_TIMESTAMP.
+	* files.c (_cpp_get_file_stat): New function.
+	* include/cpplib.h (builtin_type): Add BT_TIMESTAMP.
+	* init.c (builtin_array): Add support for __TIMESTAMP__/BT_TIMESTAMP.
+	* internal.h (_cpp_get_file_stat): Prototype.
+	(struct cpp_buffer): Add timestamp.
+
+2006-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/25717
+	* init.c (cpp_init_builtins): If __STDC__ will not change value
+	between system headers and other sources, define it as a normal
+	macro rather than a builtin.
+	* macro.c (_cpp_builtin_macro_text) <case BT_STDC>: Only check
+	cpp_in_system_header condition.
+
+2006-01-05  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.in: Use -MMD instead of -MD.
 

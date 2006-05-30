@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing.table;
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -67,6 +69,11 @@ import javax.swing.event.TableColumnModelEvent;
 import javax.swing.event.TableColumnModelListener;
 import javax.swing.plaf.TableHeaderUI;
 
+/**
+ * Represents the table header. The header displays the column header values,
+ * is always visible event if the rest of the table scrolls up and down and
+ * supports column reordering and resizing with mouse.
+ */
 public class JTableHeader extends JComponent
   implements TableColumnModelListener, Accessible
 {
@@ -75,238 +82,287 @@ public class JTableHeader extends JComponent
     protected class AccessibleJTableHeaderEntry extends AccessibleContext
       implements Accessible, AccessibleComponent
     {
-      public AccessibleJTableHeaderEntry(int c, JTableHeader p, JTable t) 
+      public AccessibleJTableHeaderEntry(int c, JTableHeader p, JTable t)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void addFocusListener(FocusListener l)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void addPropertyChangeListener(PropertyChangeListener l)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public boolean contains(Point p)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleAction getAccessibleAction()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Accessible getAccessibleAt(Point p)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Accessible getAccessibleChild(int i)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public int getAccessibleChildrenCount()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleComponent getAccessibleComponent()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleContext getAccessibleContext()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public String getAccessibleDescription()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public int getAccessibleIndexInParent()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public String getAccessibleName()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleRole getAccessibleRole()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleSelection getAccessibleSelection()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleStateSet getAccessibleStateSet()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleText getAccessibleText()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public AccessibleValue getAccessibleValue()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Color getBackground()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Rectangle getBounds()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Cursor getCursor()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Font getFont()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public FontMetrics getFontMetrics(Font f)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Color getForeground()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Locale getLocale()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Point getLocation()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Point getLocationOnScreen()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public Dimension getSize()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public boolean isEnabled()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public boolean isFocusTraversable()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public boolean isShowing()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public boolean isVisible()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void removeFocusListener(FocusListener l)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void removePropertyChangeListener(PropertyChangeListener l)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void requestFocus()
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setAccessibleDescription(String s)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setAccessibleName(String s)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setBackground(Color c)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setBounds(Rectangle r)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setCursor(Cursor c)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setEnabled(boolean b)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setFont(Font f)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setForeground(Color c)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setLocation(Point p)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setSize(Dimension d)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
       
       public void setVisible(boolean b)
+        throws NotImplementedException
       {
         throw new Error("not implemented");
       }
     };
   }
-
+  
+  /**
+   * Use serialVersionUid for interoperability.
+   */
   private static final long serialVersionUID = 5144633983372967710L;
 
   /**
@@ -409,9 +465,10 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #draggedColumn} property.
+   * Get the column that is currently being dragged. This is used when
+   * handling the column reordering with mouse.
    *
-   * @return The current value of the property
+   * @return the column being dragged, null if none.
    */
   public TableColumn getDraggedColumn()
   {
@@ -429,29 +486,34 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #reorderingAllowed} property.
+   * Check if it is possible to reorder the table columns by dragging column
+   * header with mouse. The table reordering is enabled by default, but can be
+   * disabled with {@link #setReorderingAllowed(boolean)}.
    *
-   * @return The current value of the property
-   */
+   * @return true if reordering is allowed, false otherwise.
+   */ 
   public boolean getReorderingAllowed()
   {
     return reorderingAllowed;
   }
 
   /**
-   * Get the value of the {@link #resizingAllowed} property.
+   * Check if it is possible to resize the table columns by dragging the column
+   * boundary in the table header with mouse. The resizing is enabled
+   * by default, but can be disabled with {@link #setResizingAllowed(boolean)}.
    *
-   * @return The current value of the property
-   */
+   * @return true if resizing is allowed, false otherwise.
+   */ 
   public boolean getResizingAllowed()
   {
     return resizingAllowed;
   }
 
   /**
-   * Get the value of the {@link #resizingColumn} property.
+   * Get the column that is currently being resized. This is used when
+   * handling the column resizing with mouse.
    *
-   * @return The current value of the property
+   * @return the column being currently resized, null if none.
    */
   public TableColumn getResizingColumn()
   {
@@ -459,9 +521,9 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #table} property.
+   * Get the table, having this header.
    *
-   * @return The current value of the property
+   * @return the table, having this header.
    */
   public JTable getTable()
   {
@@ -501,13 +563,15 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Set the value of the {@link #draggedColumn} property.
+   * Set the column that is currently being dragged. This is used when
+   * dragging the column with mouse. Setting to null will stop the 
+   * dragging session immediately.
    *
-   * @param d The new value of the property
+   * @param draggingIt the column being currently dragged, null if none.
    */ 
-  public void setDraggedColumn(TableColumn d)
+  public void setDraggedColumn(TableColumn draggingIt)
   {
-    draggedColumn = d;
+    draggedColumn = draggingIt;
   }
 
   /**
@@ -531,33 +595,39 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Set the value of the {@link #reorderingAllowed} property.
+   * Set the table ability to reorder columns by dragging column header
+   * with mouse. The table reordering is enabled by default, but can be
+   * disabled with this method.
    *
-   * @param r The new value of the property
+   * @param allowed true if reordering is allowed, false otherwise.
    */ 
-  public void setReorderingAllowed(boolean r)
+  public void setReorderingAllowed(boolean allowed)
   {
-    reorderingAllowed = r;
+    reorderingAllowed = allowed;
   }
 
   /**
-   * Set the value of the {@link #resizingAllowed} property.
+   * Set the table ability to resize columns by dragging the column
+   * boundary in the table header with mouse. The resizing is enabled
+   * by default, but can be disabled using this method.
    *
-   * @param r The new value of the property
+   * @param allowed true if resizing is allowed, false otherwise.
    */ 
-  public void setResizingAllowed(boolean r)
+  public void setResizingAllowed(boolean allowed)
   {
-    resizingAllowed = r;
+    resizingAllowed = allowed;
   }
 
   /**
-   * Set the value of the {@link #resizingColumn} property.
+   * The the column that is currently being resized. This property is used
+   * when handling table resizing with mouse. Setting to null would stop
+   * the resizing session immediately.
    *
-   * @param r The new value of the property
+   * @param resizingIt the column being currently resized
    */ 
-  public void setResizingColumn(TableColumn r)
+  public void setResizingColumn(TableColumn resizingIt)
   {
-    resizingColumn = r;
+    resizingColumn = resizingIt;
   }
 
   /**
@@ -609,7 +679,14 @@ public class JTableHeader extends JComponent
   {
     this.cellRenderer = cellRenderer;
   }
-
+  
+  /**
+   * Get the rectangle, occupied by the header of the given column.
+   * 
+   * @param column the column, for that the header area is requested.
+   * 
+   * @return the column header area.
+   */
   public Rectangle getHeaderRect(int column)
   {
     Rectangle r = getTable().getCellRect(-1, column, false);

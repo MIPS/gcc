@@ -74,7 +74,6 @@ extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
 extern int asm_operand_ok (rtx, const char *);
 extern int validate_change (rtx, rtx *, rtx, int);
-extern int validate_change_maybe_volatile (rtx, rtx *, rtx);
 extern int insn_invalid_p (rtx);
 extern int verify_changes (int);
 extern void confirm_change_group (void);
@@ -85,10 +84,10 @@ extern int constrain_operands (int);
 extern int constrain_operands_cached (int);
 extern int memory_address_p (enum machine_mode, rtx);
 extern int strict_memory_address_p (enum machine_mode, rtx);
-extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
+extern bool validate_simplify_insn (rtx insn);
 extern int num_changes_pending (void);
 #ifdef HAVE_cc0
 extern int next_insn_tests_no_inequality (rtx);
@@ -119,7 +118,6 @@ extern int peep2_reg_dead_p (int, rtx);
 extern rtx peep2_find_free_register (int, int, const char *,
 				     enum machine_mode, HARD_REG_SET *);
 #endif
-extern void peephole2_optimize (FILE *);
 extern rtx peephole2_insns (rtx, rtx, int *);
 
 extern int store_data_bypass_p (rtx, rtx);

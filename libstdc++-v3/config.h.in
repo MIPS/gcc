@@ -69,6 +69,9 @@
 /* Define to 1 if you have the `fabsl' function. */
 #undef HAVE_FABSL
 
+/* Define to 1 if you have the <fenv.h> header file. */
+#undef HAVE_FENV_H
+
 /* Define to 1 if you have the `finite' function. */
 #undef HAVE_FINITE
 
@@ -282,6 +285,9 @@
 
 /* Define to 1 if you have the `sqrtl' function. */
 #undef HAVE_SQRTL
+
+/* Define to 1 if you have the <stdbool.h> header file. */
+#undef HAVE_STDBOOL_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -649,6 +655,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define if atomic builtins are provided for this platform. */
+#undef _GLIBCXX_ATOMIC_BUILTINS
+
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
 
@@ -657,6 +666,9 @@
 
 /* Define to 1 if a full hosted library is built, or 0 if freestanding. */
 #undef _GLIBCXX_HOSTED
+
+/* Define if compatibility should be provided for -mlong-double-64. */
+#undef _GLIBCXX_LONG_DOUBLE_COMPAT
 
 /* Define if ptrdiff_t is int. */
 #undef _GLIBCXX_PTRDIFF_T_IS_INT
@@ -691,9 +703,34 @@
    functions to be present. */
 #undef _GLIBCXX_USE_C99_COMPLEX
 
+/* Define if C99 functions in <complex.h> should be used in <tr1/complex>.
+   Using compiler builtins for these functions requires corresponding C99
+   library functions to be present. */
+#undef _GLIBCXX_USE_C99_COMPLEX_TR1
+
+/* Define if C99 functions in <ctype.h> should be imported in <tr1/cctype> in
+   namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_CTYPE_TR1
+
+/* Define if C99 functions in <fenv.h> should be imported in <tr1/cfenv> in
+   namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_FENV_TR1
+
+/* Define if C99 functions in <inttypes.h> should be imported in
+   <tr1/cinttypes> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_INTTYPES_TR1
+
 /* Define if C99 functions or macros in <math.h> should be imported in <cmath>
    in namespace std. */
 #undef _GLIBCXX_USE_C99_MATH
+
+/* Define if C99 functions or macros in <math.h> should be imported in
+   <tr1/cmath> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_MATH_TR1
+
+/* Define if C99 types in <stdint.h> should be imported in <tr1/cstdint> in
+   namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_STDINT_TR1
 
 /* Define if iconv and related functions exist and are usable. */
 #undef _GLIBCXX_USE_ICONV

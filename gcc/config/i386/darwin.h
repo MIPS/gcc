@@ -111,6 +111,8 @@ extern void darwin_x86_file_end (void);
 #define ASM_LONG "\t.long\t"
 /* Darwin as doesn't do ".quad".  */
 
+#define SUBTARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
+
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
  do { if ((LOG) != 0)			\
@@ -150,3 +152,74 @@ extern void darwin_x86_file_end (void);
 	}								\
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)
+
+/* Darwin uses the standard DWARF register numbers but the default
+   register numbers for STABS.  Fortunately for 64-bit code the
+   default and the standard are the same.  */
+#undef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(n) 					\
+  (TARGET_64BIT ? dbx64_register_map[n]				\
+   : write_symbols == DWARF2_DEBUG ? svr4_dbx_register_map[n]	\
+   : dbx_register_map[n])
+
+/* Unfortunately, the 32-bit EH information also doesn't use the standard
+   DWARF register numbers.  */
+#define DWARF2_FRAME_REG_OUT(n, for_eh)					\
+  (! (for_eh) || write_symbols != DWARF2_DEBUG || TARGET_64BIT ? (n)	\
+   : (n) == 5 ? 4							\
+   : (n) == 4 ? 5							\
+   : (n) >= 11 && (n) <= 18 ? (n) + 1					\
+   : (n))
+
+/* Attempt to turn on execute permission for the stack.  This may be
+    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    if the target machine can change execute permissions on a page).
+
+    There is no way to query the execute permission of the stack, so
+    we always issue the mprotect() call.
+
+    Note that we go out of our way to use namespace-non-invasive calls
+    here.  Unfortunately, there is no libc-internal name for mprotect().
+
+    Also note that no errors should be emitted by this code; it is
+    considered dangerous for library calls to send messages to
+    stdout/stderr.  */
+
+#define ENABLE_EXECUTE_STACK                                            \
+extern void __enable_execute_stack (void *);                            \
+void                                                                    \
+__enable_execute_stack (void *addr)                                     \
+{                                                                       \
+   extern int mprotect (void *, size_t, int);                           \
+   extern int __sysctl (int *, unsigned int, void *, size_t *,          \
+                       void *, size_t);                                 \
+                                                                        \
+   static int size;                                                     \
+   static long mask;                                                    \
+                                                                        \
+   char *page, *end;                                                    \
+                                                                        \
+   if (size == 0)                                                       \
+     {                                                                  \
+       int mib[2];                                                      \
+       size_t len;                                                      \
+                                                                        \
+       mib[0] = 6; /* CTL_HW */                                         \
+       mib[1] = 7; /* HW_PAGESIZE */                                    \
+       len = sizeof (size);                                             \
+       (void) __sysctl (mib, 2, &size, &len, NULL, 0);                  \
+       mask = ~((long) size - 1);                                       \
+     }                                                                  \
+                                                                        \
+   page = (char *) (((long) addr) & mask);                              \
+   end  = (char *) ((((long) (addr + TRAMPOLINE_SIZE)) & mask) + size); \
+                                                                        \
+   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
+   (void) mprotect (page, end - page, 7);                               \
+}
+
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS() DARWIN_REGISTER_TARGET_PRAGMAS()
+
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES darwin_set_default_type_attributes

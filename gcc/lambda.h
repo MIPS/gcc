@@ -1,5 +1,5 @@
 /* Lambda matrix and vector interface.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -143,7 +143,6 @@ lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix)
 struct loop;
 struct loops;
 bool perfect_nest_p (struct loop *);
-bool lambda_transform_legal_p (lambda_trans_matrix, int, varray_type);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
 #define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
@@ -200,8 +199,7 @@ void print_lambda_body_vector (FILE *, lambda_body_vector);
 lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loops *,
 						 struct loop *,
 						 VEC(tree,heap) **,
-						 VEC(tree,heap) **,
-						 bool);
+						 VEC(tree,heap) **);
 void lambda_loopnest_to_gcc_loopnest (struct loop *,
 				      VEC(tree,heap) *, VEC(tree,heap) *,
 				      lambda_loopnest, lambda_trans_matrix);
@@ -378,6 +376,44 @@ print_lambda_vector (FILE * outfile, lambda_vector vector, int n)
   for (i = 0; i < n; i++)
     fprintf (outfile, "%3d ", vector[i]);
   fprintf (outfile, "\n");
+}
+
+/* Compute the greatest common divisor of two numbers using
+   Euclid's algorithm.  */
+
+static inline int 
+gcd (int a, int b)
+{
+  int x, y, z;
+
+  x = abs (a);
+  y = abs (b);
+
+  while (x > 0)
+    {
+      z = y % x;
+      y = x;
+      x = z;
+    }
+
+  return y;
+}
+
+/* Compute the greatest common divisor of a VECTOR of SIZE numbers.  */
+
+static inline int
+lambda_vector_gcd (lambda_vector vector, int size)
+{
+  int i;
+  int gcd1 = 0;
+
+  if (size > 0)
+    {
+      gcd1 = vector[0];
+      for (i = 1; i < size; i++)
+	gcd1 = gcd (gcd1, vector[i]);
+    }
+  return gcd1;
 }
 
 /* Returns true when the vector V is lexicographically positive, in

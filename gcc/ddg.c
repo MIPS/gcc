@@ -225,7 +225,7 @@ static void
 add_deps_for_def (ddg_ptr g, struct df *df, struct df_ref *rd)
 {
   int regno = DF_REF_REGNO (rd);
-  struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (df, g->bb);
+  struct df_ru_bb_info *bb_info = DF_RU_BB_INFO (df, g->bb);
   struct df_link *r_use;
   int use_before_def = false;
   rtx def_insn = DF_REF_INSN (rd);
@@ -338,7 +338,7 @@ build_inter_loop_deps (ddg_ptr g, struct df *df)
 
       /* We are interested in uses of this BB.  */
       if (BLOCK_FOR_INSN (use->insn) == g->bb)
-      	add_deps_for_use (g, df,use);
+      	add_deps_for_use (g, df, use);
     }
 }
 
@@ -382,7 +382,7 @@ build_intra_loop_deps (ddg_ptr g)
   init_deps (&tmp_deps);
 
   /* Do the intra-block data dependence analysis for the given block.  */
-  get_block_head_tail (g->bb->index, &head, &tail);
+  get_ebb_head_tail (g->bb, g->bb, &head, &tail);
   sched_analyze (&tmp_deps, head, tail);
 
   /* Build intra-loop data dependencies using the scheduler dependency
@@ -401,8 +401,7 @@ build_intra_loop_deps (ddg_ptr g)
 	  if (!src_node)
 	    continue;
 
-      	  add_forward_dependence (XEXP (link, 0), dest_node->insn,
-				  REG_NOTE_KIND (link));
+      	  add_forw_dep (dest_node->insn, link);
 	  create_ddg_dependence (g, src_node, dest_node,
 				 INSN_DEPEND (src_node->insn));
 	}
@@ -546,7 +545,7 @@ free_ddg (ddg_ptr g)
 }
 
 void
-print_ddg_edge (FILE *dump_file, ddg_edge_ptr e)
+print_ddg_edge (FILE *file, ddg_edge_ptr e)
 {
   char dep_c;
 
@@ -561,13 +560,13 @@ print_ddg_edge (FILE *dump_file, ddg_edge_ptr e)
       dep_c = 'T';
   }
 
-  fprintf (dump_file, " [%d -(%c,%d,%d)-> %d] ", INSN_UID (e->src->insn),
+  fprintf (file, " [%d -(%c,%d,%d)-> %d] ", INSN_UID (e->src->insn),
 	   dep_c, e->latency, e->distance, INSN_UID (e->dest->insn));
 }
 
 /* Print the DDG nodes with there in/out edges to the dump file.  */
 void
-print_ddg (FILE *dump_file, ddg_ptr g)
+print_ddg (FILE *file, ddg_ptr g)
 {
   int i;
 
@@ -575,34 +574,34 @@ print_ddg (FILE *dump_file, ddg_ptr g)
     {
       ddg_edge_ptr e;
 
-      print_rtl_single (dump_file, g->nodes[i].insn);
-      fprintf (dump_file, "OUT ARCS: ");
+      print_rtl_single (file, g->nodes[i].insn);
+      fprintf (file, "OUT ARCS: ");
       for (e = g->nodes[i].out; e; e = e->next_out)
-	print_ddg_edge (dump_file, e);
+	print_ddg_edge (file, e);
 
-      fprintf (dump_file, "\nIN ARCS: ");
+      fprintf (file, "\nIN ARCS: ");
       for (e = g->nodes[i].in; e; e = e->next_in)
-	print_ddg_edge (dump_file, e);
+	print_ddg_edge (file, e);
 
-      fprintf (dump_file, "\n");
+      fprintf (file, "\n");
     }
 }
 
 /* Print the given DDG in VCG format.  */
 void
-vcg_print_ddg (FILE *dump_file, ddg_ptr g)
+vcg_print_ddg (FILE *file, ddg_ptr g)
 {
   int src_cuid;
 
-  fprintf (dump_file, "graph: {\n");
+  fprintf (file, "graph: {\n");
   for (src_cuid = 0; src_cuid < g->num_nodes; src_cuid++)
     {
       ddg_edge_ptr e;
       int src_uid = INSN_UID (g->nodes[src_cuid].insn);
 
-      fprintf (dump_file, "node: {title: \"%d_%d\" info1: \"", src_cuid, src_uid);
-      print_rtl_single (dump_file, g->nodes[src_cuid].insn);
-      fprintf (dump_file, "\"}\n");
+      fprintf (file, "node: {title: \"%d_%d\" info1: \"", src_cuid, src_uid);
+      print_rtl_single (file, g->nodes[src_cuid].insn);
+      fprintf (file, "\"}\n");
       for (e = g->nodes[src_cuid].out; e; e = e->next_out)
 	{
 	  int dst_uid = INSN_UID (e->dest->insn);
@@ -610,16 +609,16 @@ vcg_print_ddg (FILE *dump_file, ddg_ptr g)
 
 	  /* Give the backarcs a different color.  */
 	  if (e->distance > 0)
-	    fprintf (dump_file, "backedge: {color: red ");
+	    fprintf (file, "backedge: {color: red ");
 	  else
-	    fprintf (dump_file, "edge: { ");
+	    fprintf (file, "edge: { ");
 
-	  fprintf (dump_file, "sourcename: \"%d_%d\" ", src_cuid, src_uid);
-	  fprintf (dump_file, "targetname: \"%d_%d\" ", dst_cuid, dst_uid);
-	  fprintf (dump_file, "label: \"%d_%d\"}\n", e->latency, e->distance);
+	  fprintf (file, "sourcename: \"%d_%d\" ", src_cuid, src_uid);
+	  fprintf (file, "targetname: \"%d_%d\" ", dst_cuid, dst_uid);
+	  fprintf (file, "label: \"%d_%d\"}\n", e->latency, e->distance);
 	}
     }
-  fprintf (dump_file, "}\n");
+  fprintf (file, "}\n");
 }
 
 /* Create an edge and initialize it with given values.  */

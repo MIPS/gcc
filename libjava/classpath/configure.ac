@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.20-pre],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.91],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -33,10 +33,30 @@ esac
 CLASSPATH_MODULE="${cp_module} -version-info ${LIBVERSION} -no-undefined"
 AC_SUBST(CLASSPATH_MODULE)
 
+CLASSPATH_CONVENIENCE="-no-undefined"
+AC_SUBST(CLASSPATH_CONVENIENCE)
+
 AC_PREREQ(2.59)
 AM_INIT_AUTOMAKE([1.9.0 gnu std-options tar-ustar])
 AC_CONFIG_HEADERS([include/config.h])
 AC_PREFIX_DEFAULT(/usr/local/classpath)
+
+dnl GCC LOCAL
+GCC_NO_EXECUTABLES
+
+dnl -----------------------------------------------------------
+dnl Enable collections.jar (disabled by default)
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([collections],
+              [AS_HELP_STRING(--enable-collections,create collections.jar [default=no])],
+              [case x"${enableval}" in
+                xyes) COMPILE_COLLECTIONS=yes; COLLECTIONS_PREFIX="\"gnu/java/util/collections\"" ;;
+                xno) COMPILE_COLLECTIONS=no ;;
+		x) COMPILE_COLLECTIONS=yes; COLLECTIONS_PREFIX="\"gnu/java/util/collections\"" ;;
+                *) COMPILE_COLLECTIONS=yes; COLLECTIONS_PREFIX="\"${enableval}\"" ;;
+              esac],
+              [COMPILE_COLLECTIONS=no])
+AM_CONDITIONAL(CREATE_COLLECTIONS, test "x${COMPILE_COLLECTIONS}" = xyes)
 
 dnl -----------------------------------------------------------
 dnl Enable JNI libraries (enabled by default)
@@ -185,13 +205,13 @@ dnl -----------------------------------------------------------
 AC_ARG_WITH([native-libdir],
 	    [AS_HELP_STRING(--with-native-libdir,sets the installation directore for native libraries [default='${libdir}/${PACKAGE}'])],
 	    [
-	     nativelibdir=${withval}
+	     nativeexeclibdir=${withval}
 	    ],
 	    [
-	     nativelibdir='${libdir}/${PACKAGE}'
+	     nativeexeclibdir='${libdir}/${PACKAGE}'
 	    ])
 
-AC_SUBST(nativelibdir)
+AC_SUBST(nativeexeclibdir)
 
 dnl -----------------------------------------------------------
 dnl Sets the Java library installation dir.
@@ -227,9 +247,6 @@ dnl -----------------------------------------------------------
 dnl Checks for programs.
 dnl -----------------------------------------------------------
 
-dnl GCC LOCAL
-GCC_NO_EXECUTABLES
-
 dnl Initialize libtool
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
@@ -237,6 +254,14 @@ dnl AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
+
+if test "x${COMPILE_COLLECTIONS}" = xyes; then
+  AC_PATH_PROG(PERL, [perl])
+  AC_SUBST(PERL)
+  AC_SUBST(COLLECTIONS_PREFIX)
+  AC_CONFIG_FILES([lib/mkcollections.pl])
+  AC_CONFIG_COMMANDS([mkcollections.pl],[chmod 755 lib/mkcollections.pl])
+fi
 
 if test "x${COMPILE_JNI}" = xyes; then
   AC_HEADER_STDC
@@ -274,7 +299,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  localtime_r \
 		  strerror_r \
                   fcntl \
-		  mmap munmap mincore msync madvise getpagesize sysconf])
+		  mmap munmap mincore msync madvise getpagesize sysconf \
+		  ])
 
   AC_HEADER_TIME
   AC_STRUCT_TM
@@ -358,19 +384,22 @@ if test "x${COMPILE_JNI}" = xyes; then
       PKG_CHECK_MODULES(CAIRO, cairo >= 0.5.0)
     fi
 
+    PKG_CHECK_MODULES(FREETYPE2, freetype2)
     PKG_CHECK_MODULES(PANGOFT2, pangoft2)
-  
+
     AC_SUBST(GTK_CFLAGS)
     AC_SUBST(GTK_LIBS)
     AC_SUBST(CAIRO_LIBS)
     AC_SUBST(CAIRO_CFLAGS)
+    AC_SUBST(FREETYPE2_LIBS)
+    AC_SUBST(FREETYPE2_CFLAGS)
     AC_SUBST(PANGOFT2_LIBS)
     AC_SUBST(PANGOFT2_CFLAGS)
   fi
 
   dnl Check for AWT related Qt4
   if test "x${COMPILE_QT_PEER}" = xyes; then
-    PKG_CHECK_MODULES(QT, QtGui >= 4.0.1, HAVE_QT4="yes", HAVE_QT4="no")
+    PKG_CHECK_MODULES(QT, QtCore QtGui >= 4.1.0, HAVE_QT4="yes", HAVE_QT4="no")
     if test "x$HAVE_QT4" = "xyes"; then
       dnl Check needed because in some cases the QtGui includedir
       dnl doesn't contain the subsystem dir.
@@ -560,6 +589,59 @@ AC_ARG_ENABLE([portable-native-sync],
               esac],
               [])
 
+AX_CREATE_STDINT_H([include/config-int.h])
+
+dnl -----------------------------------------------------------------------
+dnl                    Support for using a prebuilt class library
+dnl -----------------------------------------------------------------------
+AC_ARG_WITH([glibj_zip],
+            AS_HELP_STRING([--with-glibj-zip=ABS.PATH],
+                           [use prebuilt glibj.zip class library]))
+
+case "$with_glibj_zip" in
+"")
+        use_glibj_zip=false
+        ;;
+"no" )
+        use_glibj_zip=false
+        ;;
+"yes")
+        AC_MSG_ERROR([Please suply an absolute path to a prebuilt glibj.zip])
+        ;;
+*)
+        use_glibj_zip=true
+        PATH_TO_GLIBJ_ZIP=$with_glibj_zip
+	;;
+esac;
+
+AM_CONDITIONAL(USE_PREBUILT_GLIBJ_ZIP, test x$use_glibj_zip = xtrue)
+AC_SUBST(PATH_TO_GLIBJ_ZIP)
+
+
+dnl -----------------------------------------------------------
+dnl Check if local socket support should be included.
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([local-sockets],
+              [AS_HELP_STRING(--enable-local-sockets,enables local (AF_LOCAL) socket API [default: no])],
+              [case "${enableval}" in
+                yes)
+                  ENABLE_LOCAL_SOCKETS=yes
+                  ;;
+                *)
+                  ENABLE_LOCAL_SOCKETS=no
+                  ;;
+               esac],
+              [])
+if test "x$ENABLE_LOCAL_SOCKETS" = "xyes"
+then
+  AC_CHECK_HEADER([sys/un.h])
+  AC_CHECK_FUNCS([read write bind listen accept shutdown], [],
+                 AC_MSG_ERROR([networking support not available]))
+  AC_DEFINE(ENABLE_LOCAL_SOCKETS, [1], [Define to enable support for local sockets.])
+fi
+AM_CONDITIONAL(ENABLE_LOCAL_SOCKETS, test "x$ENABLE_LOCAL_SOCKETS" = "xyes")
+
+
 dnl -----------------------------------------------------------
 dnl output files
 dnl -----------------------------------------------------------
@@ -569,6 +651,7 @@ doc/api/Makefile
 external/Makefile
 external/sax/Makefile
 external/w3c_dom/Makefile
+external/relaxngDatatype/Makefile
 gnu/classpath/Configuration.java
 include/Makefile
 native/Makefile
@@ -595,6 +678,9 @@ scripts/classpath.spec
 lib/Makefile
 lib/gen-classlist.sh
 lib/copy-vmresources.sh
+tools/Makefile
+tools/jarsigner.sh
+tools/keytool.sh
 examples/Makefile
 examples/Makefile.jawt])
 AC_CONFIG_COMMANDS([gen-classlist],[chmod 755 lib/gen-classlist.sh])

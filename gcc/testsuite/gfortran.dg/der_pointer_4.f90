@@ -7,5 +7,7 @@ module crash
     integer :: i = 0
     type (foo), pointer :: next
   end type foo
-  type (foo) :: bar
+  type (foo), save :: bar
 end module crash
+
+! { dg-final { cleanup-modules "crash" } }

@@ -1,5 +1,6 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -308,8 +309,6 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tree tmp;
   tree args;
 
-  cond = fold (cond);
-
   if (integer_zerop (cond))
     return;
 
@@ -341,9 +340,11 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   else
     {
       /* Tell the compiler that this isn't likely.  */
+      cond = fold_convert (long_integer_type_node, cond);
       tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, integer_zero_node);
+      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
       cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
+      cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
@@ -360,9 +361,6 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
 
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
-
-  if (TREE_CODE (expr) != STATEMENT_LIST)
-    expr = fold (expr);
 
   if (block->head)
     {
@@ -496,7 +494,11 @@ gfc_trans_code (gfc_code * code)
 	  break;
 
 	case EXEC_CALL:
-	  res = gfc_trans_call (code);
+	  res = gfc_trans_call (code, false);
+	  break;
+
+	case EXEC_ASSIGN_CALL:
+	  res = gfc_trans_call (code, true);
 	  break;
 
 	case EXEC_RETURN:
@@ -585,6 +587,23 @@ gfc_trans_code (gfc_code * code)
 
 	case EXEC_DT_END:
 	  res = gfc_trans_dt_end (code);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  res = gfc_trans_omp_directive (code);
 	  break;
 
 	default:

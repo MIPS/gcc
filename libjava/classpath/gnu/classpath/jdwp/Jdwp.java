@@ -1,5 +1,5 @@
 /* Jdwp.java -- Virtual machine to JDWP back-end programming interface
-   Copyright (C) 2005 Free Software Foundation
+   Copyright (C) 2005, 2006 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -42,7 +42,7 @@ package gnu.classpath.jdwp;
 import gnu.classpath.jdwp.event.Event;
 import gnu.classpath.jdwp.event.EventManager;
 import gnu.classpath.jdwp.event.EventRequest;
-import gnu.classpath.jdwp.id.ThreadId;
+import gnu.classpath.jdwp.exception.JdwpException;
 import gnu.classpath.jdwp.processor.PacketProcessor;
 import gnu.classpath.jdwp.transport.ITransport;
 import gnu.classpath.jdwp.transport.JdwpConnection;
@@ -80,9 +80,6 @@ public class Jdwp
   // (-Xrunjdwp:..suspend=<boolean>)
   private static final String _PROPERTY_SUSPEND = "suspend";
 
-  // User's main application thread
-  private Thread _mainThread;
-
   // Connection to debugger
   private JdwpConnection _connection;
 
@@ -112,6 +109,16 @@ public class Jdwp
   }
 
   /**
+   * Get the thread group used by JDWP threads
+   * 
+   * @return the thread group
+   */
+  public ThreadGroup getJdwpThreadGroup()
+  {
+    return _group;
+  }
+  
+  /**
    * Should the virtual machine suspend on startup?
    */
   public static boolean suspendOnStartup ()
@@ -131,11 +138,9 @@ public class Jdwp
    * Configures the back-end
    *
    * @param configArgs  a string of configury options
-   * @param mainThread  the main application thread
    */
-  public void configure (String configArgs, Thread mainThread)
+  public void configure (String configArgs)
   {
-    _mainThread = mainThread;
     _processConfigury (configArgs);
   }
 
@@ -158,7 +163,7 @@ public class Jdwp
 	{
 	  AccessController.doPrivileged (_packetProcessor);
 	}
-      });
+      }, "packet processor");
     _ppThread.start ();
   }
 
@@ -206,7 +211,20 @@ public class Jdwp
 	EventManager em = EventManager.getDefault ();
 	EventRequest request = em.getEventRequest (event);
 	if (request != null)
-	  sendEvent (request, event);
+	  {
+	    try
+	      {
+		System.out.println ("Jdwp.notify: sending event " + event);
+		sendEvent (request, event);
+		jdwp._enforceSuspendPolicy (request.getSuspendPolicy ());
+	      }
+	    catch (Exception e)
+	      {
+		/* Really not much we can do. For now, just print out
+		   a warning to the user. */
+		System.out.println ("Jdwp.notify: caught exception: " + e);
+	      }
+	  }
       }
   }
   
@@ -217,32 +235,25 @@ public class Jdwp
    *
    * @param  request  the debugger request for the event
    * @param  event    the event to send
+   * @throws IOException if a communications failure occurs
    */
   public static void sendEvent (EventRequest request, Event event)
+      throws IOException
   {
     Jdwp jdwp = getDefault ();
     if (jdwp != null)
       {
-	try
+	// !! May need to implement send queue?
+	synchronized (jdwp._connection)
 	  {
-	    // !! May need to implement send queue?
-	    synchronized (jdwp._connection)
-	      {
-		jdwp._connection.sendEvent (request, event);
-	      }
-	    
-	    // Follow suspend policy
-	    jdwp._enforceSuspendPolicy (request.getSuspendPolicy ());
-	  }
-	catch (IOException ie)
-	  {
-	    System.out.println ("Jdwp.notify: caught exception: " + ie);
+	    jdwp._connection.sendEvent (request, event);
 	  }
       }
   }
 
   // Helper function to enforce suspend policies on event notification
   private void _enforceSuspendPolicy (byte suspendPolicy)
+    throws JdwpException
   {
     switch (suspendPolicy)
       {
@@ -251,7 +262,7 @@ public class Jdwp
 	break;
 
       case EventRequest.SUSPEND_THREAD:
-	VMVirtualMachine.suspendThread (this);
+	VMVirtualMachine.suspendThread (Thread.currentThread ());
 	break;
 
       case EventRequest.SUSPEND_ALL:
@@ -265,17 +276,6 @@ public class Jdwp
     try
       {
 	_doInitialization ();
-
-	_mainThread.start ();
-
-	_mainThread.join ();
-      }
-    catch (InterruptedException ie)
-      {
-	/* Shutting down. If we're in server mode, we should
-	   prepare for a new connection. Otherwise, we should
-	   simply exit. */
-	// FIXME
       }
     catch (Throwable t)
       {

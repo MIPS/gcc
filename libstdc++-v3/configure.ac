@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:7:0
+libtool_VERSION=6:9:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -101,9 +101,9 @@ GLIBCXX_ENABLE_CSTDIO
 GLIBCXX_ENABLE_CLOCALE
 GLIBCXX_ENABLE_ALLOCATOR
 GLIBCXX_ENABLE_CHEADERS($c_model)  dnl c_model from configure.host
-GLIBCXX_ENABLE_C99([yes])
 GLIBCXX_ENABLE_LONG_LONG([yes])
 GLIBCXX_ENABLE_WCHAR_T([yes])
+GLIBCXX_ENABLE_C99([yes])
 GLIBCXX_ENABLE_CONCEPT_CHECKS([no])
 GLIBCXX_ENABLE_DEBUG_FLAGS(["-g3 -O0"])
 GLIBCXX_ENABLE_DEBUG([no])
@@ -156,6 +156,9 @@ if $GLIBCXX_IS_NATIVE; then
 
   # For LFS support.
   GLIBCXX_CHECK_LFS
+
+  # For C99 support to TR1.
+  GLIBCXX_CHECK_C99_TR1
 
   # For TLS support.
   GCC_CHECK_TLS
@@ -281,6 +284,25 @@ fi
 # This depends on GLIBCXX CHECK_LINKER_FEATURES, but without it assumes no.
 GLIBCXX_ENABLE_SYMVERS([yes])
 
+ac_ldbl_compat=no
+case "$target" in
+  powerpc*-*-*gnu* | \
+  sparc*-*-linux* | \
+  s390*-*-linux* | \
+  alpha*-*-linux*)
+  AC_TRY_COMPILE(, [
+#if !defined __LONG_DOUBLE_128__ || (defined(__sparc__) && defined(__arch64__))
+#error no need for long double compatibility
+#endif
+  ], [ac_ldbl_compat=yes], [ac_ldbl_compat=no])
+  if test "$ac_ldbl_compat" = yes; then
+    AC_DEFINE([_GLIBCXX_LONG_DOUBLE_COMPAT],1,
+	      [Define if compatibility should be provided for -mlong-double-64.])
+    port_specific_symbol_files="\$(top_srcdir)/config/os/gnu-linux/ldbl-extra.ver"
+  fi
+esac
+GLIBCXX_CONDITIONAL(GLIBCXX_LDBL_COMPAT, test $ac_ldbl_compat = yes)
+
 # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
 GLIBCXX_CONFIGURE_TESTSUITE
 
@@ -295,6 +317,12 @@ AC_SUBST(ATOMIC_WORD_SRCDIR)
 AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
+
+# Atomic builtins can be inlined in bits/atomicity.h.
+if test $atomicity_dir = cpu/generic/atomic_builtins ; then
+  AC_DEFINE([_GLIBCXX_ATOMIC_BUILTINS], 1,
+            [Define if atomic builtins are provided for this platform.])
+fi
 
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)

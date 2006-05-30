@@ -1065,6 +1065,26 @@ symbol_rank (gfc_symbol * sym)
 
 
 /* Given a symbol of a formal argument list and an expression, if the
+   formal argument is allocatable, check that the actual argument is
+   allocatable. Returns nonzero if compatible, zero if not compatible.  */
+
+static int
+compare_allocatable (gfc_symbol * formal, gfc_expr * actual)
+{
+  symbol_attribute attr;
+
+  if (formal->attr.allocatable)
+    {
+      attr = gfc_expr_attr (actual);
+      if (!attr.allocatable)
+	return 0;
+    }
+
+  return 1;
+}
+
+
+/* Given a symbol of a formal argument list and an expression, if the
    formal argument is a pointer, see if the actual argument is a
    pointer. Returns nonzero if compatible, zero if not compatible.  */
 
@@ -1158,6 +1178,7 @@ compare_actual_formal (gfc_actual_arglist ** ap,
   gfc_actual_arglist **new, *a, *actual, temp;
   gfc_formal_arglist *f;
   int i, n, na;
+  bool rank_check;
 
   actual = *ap;
 
@@ -1240,8 +1261,14 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	  return 0;
 	}
 
+      rank_check = where != NULL
+		     && !is_elemental
+		     && f->sym->as
+		     && (f->sym->as->type == AS_ASSUMED_SHAPE
+			   || f->sym->as->type == AS_DEFERRED);
+
       if (!compare_parameter
-	  (f->sym, a->expr, ranks_must_agree, is_elemental))
+	  (f->sym, a->expr, ranks_must_agree || rank_check, is_elemental))
 	{
 	  if (where)
 	    gfc_error ("Type/rank mismatch in argument '%s' at %L",
@@ -1272,6 +1299,25 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 		       f->sym->name, &a->expr->where);
 	  return 0;
 	}
+
+      if (a->expr->expr_type != EXPR_NULL
+	  && compare_allocatable (f->sym, a->expr) == 0)
+	{
+	  if (where)
+	    gfc_error ("Actual argument for '%s' must be ALLOCATABLE at %L",
+		       f->sym->name, &a->expr->where);
+	  return 0;
+	}
+
+      /* Check intent = OUT/INOUT for definable actual argument.  */
+      if (a->expr->expr_type != EXPR_VARIABLE
+	     && (f->sym->attr.intent == INTENT_OUT
+		   || f->sym->attr.intent == INTENT_INOUT))
+	{
+	  gfc_error ("Actual argument at %L must be definable to "
+		     "match dummy INTENT = OUT/INOUT", &a->expr->where);
+          return 0;
+        }
 
     match:
       if (a == actual)
@@ -1553,6 +1599,7 @@ check_intents (gfc_formal_arglist * f, gfc_actual_arglist * a)
 void
 gfc_procedure_use (gfc_symbol * sym, gfc_actual_arglist ** ap, locus * where)
 {
+
   /* Warn about calls with an implicit interface.  */
   if (gfc_option.warn_implicit_interface
       && sym->attr.if_source == IFSRC_UNKNOWN)
@@ -1561,7 +1608,7 @@ gfc_procedure_use (gfc_symbol * sym, gfc_actual_arglist ** ap, locus * where)
 
   if (sym->attr.if_source == IFSRC_UNKNOWN
       || !compare_actual_formal (ap, sym->formal, 0,
-			         sym->attr.elemental, where))
+				 sym->attr.elemental, where))
     return;
 
   check_intents (sym->formal, *ap);
@@ -1780,18 +1827,11 @@ gfc_extend_assign (gfc_code * c, gfc_namespace * ns)
     }
 
   /* Replace the assignment with the call.  */
-  c->op = EXEC_CALL;
+  c->op = EXEC_ASSIGN_CALL;
   c->symtree = find_sym_in_symtree (sym);
   c->expr = NULL;
   c->expr2 = NULL;
   c->ext.actual = actual;
-
-  if (gfc_pure (NULL) && !gfc_pure (sym))
-    {
-      gfc_error ("Subroutine '%s' called in lieu of assignment at %L must be "
-		 "PURE", sym->name, &c->loc);
-      return FAILURE;
-    }
 
   return SUCCESS;
 }

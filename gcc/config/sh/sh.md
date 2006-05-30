@@ -1094,6 +1094,8 @@
   "(HARD_REGNO_NREGS (REGNO (operands[0]), GET_MODE (operands[2]))
     <= HARD_REGNO_NREGS (REGNO (operands[0]), GET_MODE (operands[0])))
    && peep2_reg_dead_p (3, operands[0]) && peep2_reg_dead_p (3, operands[2])
+   && ! FIND_REG_INC_NOTE (peep2_next_insn (2), operands[0])
+   && ! FIND_REG_INC_NOTE (peep2_next_insn (2), operands[2])
    && ! reg_overlap_mentioned_p (operands[0], operands[3])
    && ! reg_overlap_mentioned_p (operands[2], operands[0])
    && ! reg_overlap_mentioned_p (operands[0], operands[1])
@@ -1180,19 +1182,72 @@
   DONE;
 }")
 
+(define_insn "*movsicc_t_false"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,r")
+	(if_then_else (eq (reg:SI T_REG) (const_int 0))
+		      (match_operand:SI 1 "general_movsrc_operand" "r,I08")
+		      (match_operand:SI 2 "arith_reg_operand" "0,0")))]
+  "TARGET_PRETEND_CMOVE
+   && (arith_reg_operand (operands[1], SImode)
+       || (immediate_operand (operands[1], SImode)
+	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+  "bt 0f\;mov %1,%0\\n0:"
+  [(set_attr "type" "mt_group,arith") ;; poor approximation
+   (set_attr "length" "4")])
+
+(define_insn "*movsicc_t_true"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,r")
+	(if_then_else (ne (reg:SI T_REG) (const_int 0))
+		      (match_operand:SI 1 "general_movsrc_operand" "r,I08")
+		      (match_operand:SI 2 "arith_reg_operand" "0,0")))]
+  "TARGET_PRETEND_CMOVE
+   && (arith_reg_operand (operands[1], SImode)
+       || (immediate_operand (operands[1], SImode)
+	   && CONST_OK_FOR_I08 (INTVAL (operands[1]))))"
+  "bf 0f\;mov %1,%0\\n0:"
+  [(set_attr "type" "mt_group,arith") ;; poor approximation
+   (set_attr "length" "4")])
+
 (define_expand "movsicc"
-  [(set (match_operand:SI 0 "register_operand" "")
+  [(set (match_operand:SI 0 "arith_reg_dest" "")
 	(if_then_else:SI (match_operand 1 "comparison_operator" "")
-			 (match_operand:SI 2 "register_operand" "")
-			 (match_operand:SI 3 "register_operand" "")))]
-  "TARGET_SHMEDIA"
+			 (match_operand:SI 2 "arith_reg_or_0_operand" "")
+			 (match_operand:SI 3 "arith_reg_operand" "")))]
+  "TARGET_SHMEDIA || TARGET_PRETEND_CMOVE"
   "
 {
   if ((GET_CODE (operands[1]) == EQ || GET_CODE (operands[1]) == NE)
       && GET_MODE (sh_compare_op0) == SImode
+      && (TARGET_SHMEDIA
+	  || (REG_P (sh_compare_op0) && REGNO (sh_compare_op0) == T_REG))
       && sh_compare_op1 == const0_rtx)
     operands[1] = gen_rtx_fmt_ee (GET_CODE (operands[1]), VOIDmode,
 				  sh_compare_op0, sh_compare_op1);
+  else if (TARGET_PRETEND_CMOVE)
+    {
+      enum rtx_code code = GET_CODE (operands[1]);
+      enum rtx_code new_code = code;
+      rtx tmp;
+
+      if (! currently_expanding_to_rtl)
+	FAIL;
+      switch (code)
+	{
+	case LT: case LE: case LEU: case LTU:
+	  if (GET_MODE_CLASS (GET_MODE (sh_compare_op0)) != MODE_INT)
+	    break;
+	case NE:
+	  new_code = reverse_condition (code);
+	  break;
+	case EQ: case GT: case GE: case GEU: case GTU:
+	  break;
+	default:
+	  FAIL;
+	}
+      tmp = prepare_scc_operands (new_code);
+      operands[1] = gen_rtx_fmt_ee (new_code == code ? NE : EQ, VOIDmode,
+				    tmp, const0_rtx);
+    }
   else
     {
       rtx tmp;
@@ -1739,6 +1794,21 @@
   [(set_attr "type" "sfunc")
    (set_attr "needs_delay_slot" "yes")])
 
+(define_insn "udivsi3_i4_int"
+  [(set (match_operand:SI 0 "register_operand" "=z")
+	(udiv:SI (reg:SI R4_REG) (reg:SI R5_REG)))
+   (clobber (reg:SI T_REG))
+   (clobber (reg:SI R1_REG))
+   (clobber (reg:SI PR_REG))
+   (clobber (reg:SI MACH_REG))
+   (clobber (reg:SI MACL_REG))
+   (use (match_operand:SI 1 "arith_reg_operand" "r"))]
+  "TARGET_SH1"
+  "jsr	@%1%#"
+  [(set_attr "type" "sfunc")
+   (set_attr "needs_delay_slot" "yes")])
+
+
 (define_expand "udivsi3"
   [(set (match_dup 3) (symbol_ref:SI "__udivsi3"))
    (set (reg:SI R4_REG) (match_operand:SI 1 "general_operand" ""))
@@ -1757,7 +1827,12 @@
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
-  if (TARGET_HARD_SH4 && TARGET_SH2E)
+  if (TARGET_DIVIDE_CALL_TABLE)
+    {
+      function_symbol (operands[3], \"__udivsi3_i4i\", SFUNC_GOT);
+      last = gen_udivsi3_i4_int (operands[0], operands[3]);
+    }
+  else if (TARGET_DIVIDE_CALL_FP)
     {
       function_symbol (operands[3], \"__udivsi3_i4\", SFUNC_STATIC);
       if (TARGET_FPU_SINGLE)
@@ -1975,6 +2050,20 @@
   [(set_attr "type" "sfunc")
    (set_attr "needs_delay_slot" "yes")])
 
+(define_insn "divsi3_i4_int"
+  [(set (match_operand:SI 0 "register_operand" "=z")
+	(div:SI (reg:SI R4_REG) (reg:SI R5_REG)))
+   (clobber (reg:SI T_REG))
+   (clobber (reg:SI PR_REG))
+   (clobber (reg:SI R1_REG))
+   (clobber (reg:SI MACH_REG))
+   (clobber (reg:SI MACL_REG))
+   (use (match_operand:SI 1 "arith_reg_operand" "r"))]
+  "TARGET_SH1"
+  "jsr	@%1%#"
+  [(set_attr "type" "sfunc")
+   (set_attr "needs_delay_slot" "yes")])
+
 (define_expand "divsi3"
   [(set (match_dup 3) (symbol_ref:SI "__sdivsi3"))
    (set (reg:SI R4_REG) (match_operand:SI 1 "general_operand" ""))
@@ -1995,7 +2084,12 @@
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
-  if (TARGET_HARD_SH4 && TARGET_SH2E)
+  if (TARGET_DIVIDE_CALL_TABLE)
+    {
+      function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_GOT);
+      last = gen_divsi3_i4_int (operands[0], operands[3]);
+    }
+  else if (TARGET_DIVIDE_CALL_FP)
     {
       function_symbol (operands[3], sh_divsi3_libfunc, SFUNC_STATIC);
       if (TARGET_FPU_SINGLE)
@@ -8781,10 +8875,20 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SH1 && ! (TARGET_SHCOMPACT
 		    && (current_function_args_info.call_cookie
 			& CALL_COOKIE_RET_TRAMP (1)))
-   && reload_completed"
+   && reload_completed
+   && lookup_attribute (\"trap_exit\",
+			DECL_ATTRIBUTES (current_function_decl)) == NULL_TREE"
   "%@	%#"
   [(set_attr "type" "return")
    (set_attr "needs_delay_slot" "yes")])
+
+;; trapa has no delay slot.
+(define_insn "*return_trapa"
+  [(return)]
+  "TARGET_SH1 && !TARGET_SHCOMPACT
+   && reload_completed"
+  "%@"
+  [(set_attr "type" "return")])
 
 (define_expand "shcompact_return_tramp"
   [(return)]
@@ -11209,15 +11313,12 @@ mov.l\\t1f,r0\\n\\
 
 ;; Switch to a new stack with its address in sp_switch (a SYMBOL_REF).  */
 (define_insn "sp_switch_1"
-  [(const_int 1)]
+  [(const_int 1) (match_operand:SI 0 "symbol_ref_operand" "s")]
   "TARGET_SH1"
   "*
 {
-  rtx xoperands[1];
-
-  xoperands[0] = sp_switch;
-  output_asm_insn (\"mov.l r0,@-r15\;mov.l %0,r0\", xoperands);
-  output_asm_insn (\"mov.l @r0,r0\;mov.l r15,@-r0\", xoperands);
+  output_asm_insn (\"mov.l r0,@-r15\;mov.l %0,r0\", operands);
+  output_asm_insn (\"mov.l @r0,r0\;mov.l r15,@-r0\", operands);
   return \"mov r0,r15\";
 }"
   [(set_attr "length" "10")])

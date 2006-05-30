@@ -358,6 +358,12 @@
         calculating an incorrect number of characters to write.
     </dd>
 
+    <dt><a href="lwg-defects.html#169">169</a>:
+        <em>Bad efficiency of overflow() mandated</em>
+    </dt>
+    <dd>Grow efficiently the internal array object.
+    </dd>
+
     <dt><a href="lwg-defects.html#171">171</a>:
         <em>Strange seekpos() semantics due to joint position</em>
     </dt>
@@ -411,6 +417,13 @@
     </dt>
     <dd>The declaration of <code>reverse_iterator</code> lists a default constructor.
         However, no specification is given what this constructor should do.
+    </dd>
+
+    <dt><a href="lwg-defects.html#241">241</a>:
+        <em>Does unique_copy() require CopyConstructible and Assignable?</em>
+    </dt>
+    <dd>Add an helper for forward_iterator/output_iterator, fix the existing
+        one for input_iterator/output_iterator not to rely on Assignability.
     </dd>
 
     <dt><a href="lwg-defects.html#243">243</a>:
@@ -529,6 +542,13 @@
     <dd>Implement Option 3, as per N1599.
     </dd>
 
+    <dt><a href="lwg-defects.html#432">432</a>:
+        <em>432. stringbuf::overflow() makes only one write position
+	    available</em>
+    </dt>
+    <dd>Implement the resolution, beyond DR 169.
+    </dd>
+
     <dt><a href="lwg-defects.html#434">434</a>:
         <em>bitset::to_string() hard to use</em>
     </dt>
@@ -541,11 +561,25 @@
     <dd>Don't fail if the next pointer is null and newoff is zero.
     </dd>
 
+    <dt><a href="lwg-defects.html#455">455</a>:
+        <em>cerr::tie() and wcerr::tie() are overspecified</em>
+    </dt>
+    <dd>Initialize cerr tied to cout and wcerr tied to wcout.
+    </dd>
+
     <dt><a href="lwg-defects.html#464">464</a>:
         <em>Suggestion for new member functions in standard containers</em>
     </dt>
     <dd>Add <code>data()</code> to <code>std::vector</code> and
         <code>at(const key_type&amp;)</code> to <code>std::map</code>.
+    </dd>
+
+    <dt><a href="lwg-active.html#538">538</a>:
+        <em>DR 538. 241 again: Does unique_copy() require CopyConstructible
+	    and Assignable?</em>
+    </dt>
+    <dd>In case of input_iterator/output_iterator rely on Assignability of
+        input_iterator' value_type.
     </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:

@@ -1,10 +1,12 @@
 # Process this file with autoconf to produce a configure script, like so:
-# aclocal && autoconf && autoheader && automake
+# 
+# aclocal -I .. -I ../config && autoconf && autoheader && automake
 
 AC_PREREQ(2.59)
 AC_INIT(libssp, 1.0)
 AC_CONFIG_SRCDIR(ssp.c)
 AC_CANONICAL_SYSTEM
+ACX_NONCANONICAL_TARGET
 
 AM_INIT_AUTOMAKE
 
@@ -75,7 +77,7 @@ FOO_1.0 {
 };
 EOF
 save_LDFLAGS="$LDFLAGS"
-LDFLAGS="$LDFLAGS -shared -Wl,--version-script,./conftest.map"
+LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
 AC_TRY_LINK([int foo;],[],[ssp_use_symver=yes],[ssp_use_symver=no])
 LDFLAGS="$save_LDFLAGS"
 AC_MSG_RESULT($ssp_use_symver)

@@ -58,7 +58,7 @@ static void lower_return_expr (tree_stmt_iterator *, struct lower_data *);
 
 /* Lowers the body of current_function_decl.  */
 
-static void
+static unsigned int
 lower_function_body (void)
 {
   struct lower_data data;
@@ -69,12 +69,11 @@ lower_function_body (void)
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
+  memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
-
-  data.return_statements = NULL_TREE;
 
   *body_p = alloc_stmt_list ();
   i = tsi_start (*body_p);
@@ -119,6 +118,7 @@ lower_function_body (void)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
   clear_block_marks (data.block);
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_cf = 
@@ -132,7 +132,7 @@ struct tree_opt_pass pass_lower_cf =
   0,					/* tv_id */
   PROP_gimple_any,			/* properties_required */
   PROP_gimple_lcf,			/* properties_provided */
-  PROP_gimple_any,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
@@ -151,6 +151,25 @@ lower_stmt_body (tree expr, struct lower_data *data)
   for (tsi = tsi_start (expr); !tsi_end_p (tsi); )
     lower_stmt (&tsi, data);
 }
+
+
+/* Lower the OpenMP directive statement pointed by TSI.  DATA is
+   passed through the recursion.  */
+
+static void
+lower_omp_directive (tree_stmt_iterator *tsi, struct lower_data *data)
+{
+  tree stmt;
+  
+  stmt = tsi_stmt (*tsi);
+
+  lower_stmt_body (OMP_BODY (stmt), data);
+  tsi_link_before (tsi, stmt, TSI_SAME_STMT);
+  tsi_link_before (tsi, OMP_BODY (stmt), TSI_SAME_STMT);
+  OMP_BODY (stmt) = NULL_TREE;
+  tsi_delink (tsi);
+}
+
 
 /* Lowers statement TSI.  DATA is passed through the recursion.  */
 
@@ -193,14 +212,22 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SECTION:
+    case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       break;
 
+    case OMP_PARALLEL:
+      lower_omp_directive (tsi, data);
+      return;
+
     default:
-#ifdef ENABLE_CHECKING
-      print_node_brief (stderr, "", stmt, 0);
-      internal_error ("unexpected node");
-#endif
-    case COMPOUND_EXPR:
       gcc_unreachable ();
     }
 
@@ -509,11 +536,16 @@ lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 }
 
 
-/* Record the variables in VARS.  */
+/* Record the variables in VARS into function FN.  */
 
 void
-record_vars (tree vars)
+record_vars_into (tree vars, tree fn)
 {
+  struct function *saved_cfun = cfun;
+
+  if (fn != current_function_decl)
+    cfun = DECL_STRUCT_FUNCTION (fn);
+
   for (; vars; vars = TREE_CHAIN (vars))
     {
       tree var = vars;
@@ -522,6 +554,7 @@ record_vars (tree vars)
          we don't need to care about.  */
       if (TREE_CODE (var) != VAR_DECL)
 	continue;
+
       /* Nothing to do in this case.  */
       if (DECL_EXTERNAL (var))
 	continue;
@@ -530,6 +563,18 @@ record_vars (tree vars)
       cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
 					     cfun->unexpanded_var_list);
     }
+
+  if (fn != current_function_decl)
+    cfun = saved_cfun;
+}
+
+
+/* Record the variables in VARS into current_function_decl.  */
+
+void
+record_vars (tree vars)
+{
+  record_vars_into (vars, current_function_decl);
 }
 
 
@@ -563,10 +608,11 @@ mark_blocks_with_used_vars (tree block)
 
 /* Mark the used attribute on blocks correctly.  */
   
-static void
+static unsigned int
 mark_used_blocks (void)
 {  
   mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
+  return 0;
 }
 
 

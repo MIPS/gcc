@@ -1,6 +1,7 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1049,7 +1050,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = xmalloc (sizeof *current_file);
+  current_file = XNEW (struct dbx_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -1158,7 +1159,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = xmalloc (sizeof *n);
+  struct dbx_file *n = XNEW (struct dbx_file);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -1909,23 +1910,6 @@ dbxout_type (tree type, int full)
       stabstr_C (';');
       stabstr_D (int_size_in_bytes (type));
       stabstr_S (";0;");
-      break;
-
-    case CHAR_TYPE:
-      if (use_gnu_debug_info_extensions)
-	{
-	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
-	  stabstr_S (";-20;");
-	}
-      else
-	{
-	  /* Output the type `char' as a subrange of itself.
-	     That is what pcc seems to do.  */
-	  stabstr_C ('r');
-	  dbxout_type_index (char_type_node);
-	  stabstr_S (TYPE_UNSIGNED (type) ? ";0;255;" : ";0;127;");
-	}
       break;
 
     case BOOLEAN_TYPE:

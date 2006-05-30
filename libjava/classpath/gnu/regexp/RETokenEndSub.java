@@ -1,5 +1,5 @@
 /* gnu/regexp/RETokenEndSub.java
-   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,13 +41,26 @@ final class RETokenEndSub extends REToken {
     RETokenEndSub(int subIndex) {
 	super(subIndex);
     }
-    
-    boolean match(CharIndexed input, REMatch mymatch) {
-	mymatch.end[subIndex] = mymatch.index;
-	return next(input, mymatch);
+
+    int getMaximumLength() {
+      return 0;
     }
     
+    REMatch matchThis(CharIndexed input, REMatch mymatch) {
+	mymatch.start[subIndex] = mymatch.start1[subIndex];
+	mymatch.end[subIndex] = mymatch.index;
+	return mymatch;
+    }
+
+    REMatch findMatch(CharIndexed input, REMatch mymatch) {
+	mymatch.start[subIndex] = mymatch.start1[subIndex];
+	mymatch.end[subIndex] = mymatch.index;
+	return super.findMatch(input, mymatch);
+    }
+
     void dump(StringBuffer os) {
 	// handled by RE
+	// But add something for debugging.
+	os.append("(?#RETokenEndSub subIndex=" + subIndex + ")");
     }
 }

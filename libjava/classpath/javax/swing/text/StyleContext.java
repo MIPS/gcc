@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -48,6 +50,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.EventListener;
+import java.util.HashSet;
 import java.util.Hashtable;
 
 import javax.swing.event.ChangeEvent;
@@ -362,16 +365,15 @@ public class StyleContext
 	
     public boolean isEqual(AttributeSet attr)
     {
-      return attr != null 
-        && attr.containsAttributes(this)
-        && this.containsAttributes(attr);
+      return getAttributeCount() == attr.getAttributeCount()
+             && this.containsAttributes(attr);
     }
 	
     public String toString()
     {
       StringBuffer sb = new StringBuffer();
       sb.append("[StyleContext.SmallattributeSet:");
-      for (int i = 0; i < attrs.length; ++i)
+      for (int i = 0; i < attrs.length - 1; ++i)
         {
           sb.append(" (");
           sb.append(attrs[i].toString());
@@ -407,7 +409,12 @@ public class StyleContext
 
   static StyleContext defaultStyleContext = new StyleContext();
   static final int compressionThreshold = 9;
-  
+
+  /**
+   * These attribute keys are handled specially in serialization.
+   */
+  private static HashSet staticAttributeKeys = new HashSet();
+
   EventListenerList listenerList;
   Hashtable styleTable;
   
@@ -706,36 +713,53 @@ public class StyleContext
   // have left incomplete; I'm not sure I understand the intent properly.
 
   public static Object getStaticAttribute(Object key)
+    throws NotImplementedException
   {
     throw new InternalError("not implemented");
   }
   
   public static Object getStaticAttributeKey(Object key)
+    throws NotImplementedException
   {
     throw new InternalError("not implemented");
   }
 
   public static void readAttributeSet(ObjectInputStream in, MutableAttributeSet a)
-    throws ClassNotFoundException, IOException
+    throws ClassNotFoundException, IOException, NotImplementedException
   {
     throw new InternalError("not implemented");
   }
   
   public static void writeAttributeSet(ObjectOutputStream out, AttributeSet a)
-    throws IOException
+    throws IOException, NotImplementedException
   {
     throw new InternalError("not implemented");
   }
 
   public void readAttributes(ObjectInputStream in, MutableAttributeSet a)
-    throws ClassNotFoundException, IOException 
+    throws ClassNotFoundException, IOException, NotImplementedException 
   {
     throw new InternalError("not implemented");
   }
 
   public void writeAttributes(ObjectOutputStream out, AttributeSet a)
-    throws IOException
+    throws IOException, NotImplementedException
   {
     throw new InternalError("not implemented");
+  }
+
+  /**
+   * Registers an attribute key as a well-known keys. When an attribute with
+   * such a key is written to a stream,, a special syntax is used so that it
+   * can be recognized when it is read back in. All attribute keys defined
+   * in <code>StyleContext</code> are registered as static keys. If you define
+   * additional attribute keys that you want to exist as nonreplicated objects,
+   * then you should register them using this method.
+   *
+   * @param key the key to register as static attribute key
+   */
+  public static void registerStaticAttributeKey(Object key)
+  {
+    staticAttributeKeys.add(key);
   }
 }

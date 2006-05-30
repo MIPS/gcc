@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
@@ -1016,7 +1016,12 @@ enum reg_class
    beginning of any function, before the prologue.  The top of the frame is
    defined to be the value of the stack pointer in the previous frame, just
    before the call instruction.  */
-#define INCOMING_FRAME_SP_OFFSET 0
+/* The CFA is past the red zone, not at the entry-point stack
+   pointer.  */
+#define INCOMING_FRAME_SP_OFFSET STACK_POINTER_OFFSET
+
+/* We shorten debug info by using CFA-16 as DW_AT_frame_base.  */
+#define CFA_FRAME_BASE_OFFSET(FUNDECL) (-INCOMING_FRAME_SP_OFFSET)
 
 
 /* Register That Address the Stack Frame.  */
@@ -1867,6 +1872,12 @@ do {									\
 
 #define DWARF2_DEBUGGING_INFO 1
 
+/* We do not want call-frame info to be output, since debuggers are
+   supposed to use the target unwind info.  Leave this undefined it
+   TARGET_UNWIND_INFO might ever be false.  */
+
+#define DWARF2_FRAME_INFO 0
+
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DWARF2_ASM)
 
 /* Use tags for debug info labels, so that they don't break instruction
@@ -1880,12 +1891,12 @@ do {									\
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
    proper relocations for them.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
-  do {							\
-    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
-    fputs ("@secrel(", FILE);				\
-    assemble_name (FILE, LABEL);			\
-    fputc (')', FILE);					\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+  do {								\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);			\
+    fputs ("@secrel(", FILE);					\
+    assemble_name (FILE, LABEL);				\
+    fputc (')', FILE);						\
   } while (0)
 
 /* Emit a PC-relative relocation.  */

@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -216,10 +216,10 @@ finish_optimization_passes (void)
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      dump_file = dump_begin (pass_branch_prob.static_pass_number, NULL);
+      dump_file = dump_begin (pass_profile.static_pass_number, NULL);
       end_branch_prob ();
       if (dump_file)
-	dump_end (pass_branch_prob.static_pass_number, dump_file);
+	dump_end (pass_profile.static_pass_number, dump_file);
     }
 
   if (optimize > 0)
@@ -304,10 +304,12 @@ struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
    enabled or not.  */
 
 static void
-register_one_dump_file (struct tree_opt_pass *pass, bool ipa, int n)
+register_one_dump_file (struct tree_opt_pass *pass, bool ipa, int properties)
 {
   char *dot_name, *flag_name, *glob_name;
+  const char *prefix;
   char num[10];
+  int flags;
 
   /* See below in next_pass_1.  */
   num[0] = '\0';
@@ -317,52 +319,34 @@ register_one_dump_file (struct tree_opt_pass *pass, bool ipa, int n)
 
   dot_name = concat (".", pass->name, num, NULL);
   if (ipa)
-    {
-      flag_name = concat ("ipa-", pass->name, num, NULL);
-      glob_name = concat ("ipa-", pass->name, NULL);
-      /* First IPA dump is cgraph that is dumped via separate channels.  */
-      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
-                                                TDF_IPA, n + 1, 0);
-    }
-  else if (pass->properties_provided & PROP_trees)
-    {
-      flag_name = concat ("tree-", pass->name, num, NULL);
-      glob_name = concat ("tree-", pass->name, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
-                                                TDF_TREE, n + TDI_tree_all, 0);
-    }
+    prefix = "ipa-", flags = TDF_IPA;
+  else if (properties & PROP_trees)
+    prefix = "tree-", flags = TDF_TREE;
   else
-    {
-      flag_name = concat ("rtl-", pass->name, num, NULL);
-      glob_name = concat ("rtl-", pass->name, NULL);
-      pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
-                                                TDF_RTL, n, pass->letter);
-    }
+    prefix = "rtl-", flags = TDF_RTL;
+
+  flag_name = concat (prefix, pass->name, num, NULL);
+  glob_name = concat (prefix, pass->name, NULL);
+  pass->static_pass_number = dump_register (dot_name, flag_name, glob_name,
+                                            flags, pass->letter);
 }
 
+/* Recursive worker function for register_dump_files.  */
+
 static int 
-register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
+register_dump_files_1 (struct tree_opt_pass *pass, bool ipa, int properties)
 {
-  static int n = 0;
   do
     {
-      int new_properties;
-      int pass_number;
+      int new_properties = (properties | pass->properties_provided)
+			   & ~pass->properties_destroyed;
 
-      pass->properties_required = properties;
-      new_properties =
-        (properties | pass->properties_provided) & ~pass->properties_destroyed;
-
-      /* Reset the counter when we reach RTL-based passes.  */
-      if ((new_properties ^ pass->properties_required) & PROP_rtl)
-        n = 0;
-
-      pass_number = n;
       if (pass->name)
-        n++;
+        register_one_dump_file (pass, ipa, new_properties);
 
       if (pass->sub)
-        new_properties = register_dump_files (pass->sub, false, new_properties);
+        new_properties = register_dump_files_1 (pass->sub, false,
+						new_properties);
 
       /* If we have a gate, combine the properties that we could have with
          and without the pass being examined.  */
@@ -371,15 +355,24 @@ register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
       else
         properties = new_properties;
 
-      pass->properties_provided = properties;
-      if (pass->name)
-        register_one_dump_file (pass, ipa, pass_number);
-
       pass = pass->next;
     }
   while (pass);
 
   return properties;
+}
+
+/* Register the dump files for the pipeline starting at PASS.  IPA is
+   true if the pass is inter-procedural, and PROPERTIES reflects the
+   properties that are guaranteed to be available at the beginning of
+   the pipeline.  */
+
+static void 
+register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
+{
+  pass->properties_required |= properties;
+  pass->todo_flags_start |= TODO_set_props;
+  register_dump_files_1 (pass, ipa, properties);
 }
 
 /* Add a pass to the pass list. Duplicate the pass if it's already
@@ -388,7 +381,6 @@ register_dump_files (struct tree_opt_pass *pass, bool ipa, int properties)
 static struct tree_opt_pass **
 next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
 {
-
   /* A nonzero static_pass_number indicates that the
      pass is already in the list.  */
   if (pass->static_pass_number)
@@ -455,6 +447,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_type_escape);
+  NEXT_PASS (pass_ipa_pta);
   *p = NULL;
 
   /* All passes needed to lower the function into shape optimizers can
@@ -462,6 +455,7 @@ init_optimization_passes (void)
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
@@ -480,6 +474,7 @@ init_optimization_passes (void)
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
   NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
@@ -492,6 +487,7 @@ init_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_reset_cc_flags);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
@@ -505,16 +501,17 @@ init_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dce);
-  NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -531,11 +528,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dce);
@@ -558,13 +556,15 @@ init_optimization_passes (void)
   NEXT_PASS (pass_tree_loop);
   NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_reassoc);
+  NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_cd_dce);
 
@@ -606,6 +606,7 @@ init_optimization_passes (void)
      vectorizer creates alias relations that are not supported by
      pass_may_alias.  */
   NEXT_PASS (pass_complete_unroll);
+  NEXT_PASS (pass_loop_prefetch);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_tree_loop_done);
   *p = NULL;
@@ -625,7 +626,6 @@ init_optimization_passes (void)
   *p = NULL;
   
   p = &pass_rest_of_compilation.sub;
-  NEXT_PASS (pass_remove_unnecessary_notes);
   NEXT_PASS (pass_init_function);
   NEXT_PASS (pass_jump);
   NEXT_PASS (pass_insn_locators_initialize);
@@ -636,10 +636,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_jump2);
   NEXT_PASS (pass_cse);
   NEXT_PASS (pass_gcse);
-  NEXT_PASS (pass_loop_optimize);
   NEXT_PASS (pass_jump_bypass);
-  NEXT_PASS (pass_cfg);
-  NEXT_PASS (pass_branch_prob);
   NEXT_PASS (pass_rtl_ifcvt);
   NEXT_PASS (pass_tracer);
   /* Perform loop optimizations.  It might be better to do them a bit
@@ -655,10 +652,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
+  NEXT_PASS (pass_see);
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
-  NEXT_PASS (pass_sched_treegions);
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
   NEXT_PASS (pass_postreload);
@@ -668,6 +665,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_postreload_cse);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_flow2);
+  NEXT_PASS (pass_rtl_seqabstr);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
   NEXT_PASS (pass_if_after_reload);
@@ -696,24 +694,37 @@ init_optimization_passes (void)
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
-  register_dump_files (all_ipa_passes, true, PROP_gimple_leh | PROP_cfg);
+  register_dump_files (all_ipa_passes, true,
+		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
+		       | PROP_cfg);
   register_dump_files (all_lowering_passes, false, PROP_gimple_any);
-  register_dump_files (all_passes, false, PROP_gimple_leh | PROP_cfg);
+  register_dump_files (all_passes, false,
+		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
+		       | PROP_cfg);
 }
 
 static unsigned int last_verified;
-static void
-execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
-{
-  int properties 
-    = use_required ? pass->properties_required : pass->properties_provided;
+static unsigned int curr_properties;
 
+static void
+execute_todo (unsigned int flags)
+{
 #if defined ENABLE_CHECKING
   if (need_ssa_update_p ())
     gcc_assert (flags & TODO_update_ssa_any);
 #endif
 
-  /* Always cleanup the CFG before doing anything else.  */
+  if (curr_properties & PROP_ssa)
+    flags |= TODO_verify_ssa;
+  flags &= ~last_verified;
+  if (!flags)
+    return;
+  
+  /* Always recalculate SMT usage before doing anything else.  */
+  if (flags & TODO_update_smt_usage)
+    recalculate_used_alone ();
+
+  /* Always cleanup the CFG before trying to update SSA .  */
   if (flags & TODO_cleanup_cfg)
     {
       if (current_loops)
@@ -735,6 +746,7 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
     {
       unsigned update_flags = flags & TODO_update_ssa_any;
       update_ssa (update_flags);
+      last_verified &= ~TODO_verify_ssa;
     }
 
   if (flags & TODO_remove_unused_locals)
@@ -743,19 +755,23 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
   if ((flags & TODO_dump_func)
       && dump_file && current_function_decl)
     {
-      if (properties & PROP_trees)
+      if (curr_properties & PROP_trees)
         dump_function_to_file (current_function_decl,
                                dump_file, dump_flags);
-      else if (properties & PROP_cfg)
+      else
 	{
-	  print_rtl_with_bb (dump_file, get_insns ());
+	  if (dump_flags & TDF_SLIM)
+	    print_rtl_slim_with_bb (dump_file, get_insns (), dump_flags);
+	  else if ((curr_properties & PROP_cfg) && (dump_flags & TDF_BLOCKS))
+	    print_rtl_with_bb (dump_file, get_insns ());
+          else
+	    print_rtl (dump_file, get_insns ());
 
-	  if (graph_dump_format != no_graph
+	  if (curr_properties & PROP_cfg
+	      && graph_dump_format != no_graph
 	      && (dump_flags & TDF_GRAPH))
 	    print_rtl_graph_with_bb (dump_file_name, get_insns ());
 	}
-      else
-        print_rtl (dump_file, get_insns ());
 
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
@@ -776,8 +792,7 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
     }
 
 #if defined ENABLE_CHECKING
-  if ((pass->properties_required & PROP_ssa)
-      && !(pass->properties_destroyed & PROP_ssa))
+  if (flags & TODO_verify_ssa)
     verify_ssa (true);
   if (flags & TODO_verify_flow)
     verify_flow_info ();
@@ -786,30 +801,40 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
 #endif
+
+  last_verified = flags & TODO_verify_all;
 }
 
 static bool
 execute_one_pass (struct tree_opt_pass *pass)
 {
-  unsigned int todo; 
+  bool initializing_dump;
+  unsigned int todo_after = 0;
 
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
     return false;
 
+  if (pass->todo_flags_start & TODO_set_props)
+    curr_properties = pass->properties_required;
+
   /* Note that the folders should only create gimple expressions.
      This is a hack until the new folder is ready.  */
-  in_gimple_form = (pass->properties_provided & PROP_trees) != 0;
+  in_gimple_form = (curr_properties & PROP_trees) != 0;
 
   /* Run pre-pass verification.  */
-  todo = pass->todo_flags_start & ~last_verified;
-  if (todo)
-    execute_todo (pass, todo, true);
+  execute_todo (pass->todo_flags_start);
+
+  gcc_assert ((curr_properties & pass->properties_required)
+	      == pass->properties_required);
+
+  if (pass->properties_destroyed & PROP_smt_usage)
+    updating_used_alone = true;
 
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
     {
-      bool initializing_dump = !dump_initialized_p (pass->static_pass_number);
+      initializing_dump = !dump_initialized_p (pass->static_pass_number);
       dump_file_name = get_dump_file_name (pass->static_pass_number);
       dump_file = dump_begin (pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
@@ -825,18 +850,9 @@ execute_one_pass (struct tree_opt_pass *pass)
 	     ? " (unlikely executed)"
 	     : "");
 	}
-
-      if (initializing_dump
-	  && dump_file
-	  && graph_dump_format != no_graph
-	  && (pass->properties_provided & (PROP_cfg | PROP_rtl))
-	      == (PROP_cfg | PROP_rtl))
-	{
-	  get_dump_file_info (pass->static_pass_number)->flags |= TDF_GRAPH;
-	  dump_flags |= TDF_GRAPH;
-	  clean_graph_dump_file (dump_file_name);
-	}
     }
+  else
+    initializing_dump = false;
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
@@ -844,17 +860,30 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* Do it!  */
   if (pass->execute)
-    pass->execute ();
+    {
+      todo_after = pass->execute ();
+      last_verified = 0;
+    }
 
   /* Stop timevar.  */
   if (pass->tv_id)
     timevar_pop (pass->tv_id);
 
+  curr_properties = (curr_properties | pass->properties_provided)
+		    & ~pass->properties_destroyed;
+
+  if (initializing_dump
+      && dump_file
+      && graph_dump_format != no_graph
+      && (curr_properties & (PROP_cfg | PROP_rtl)) == (PROP_cfg | PROP_rtl))
+    {
+      get_dump_file_info (pass->static_pass_number)->flags |= TDF_GRAPH;
+      dump_flags |= TDF_GRAPH;
+      clean_graph_dump_file (dump_file_name);
+    }
+
   /* Run post-pass cleanup and verification.  */
-  todo = pass->todo_flags_finish;
-  last_verified = todo & TODO_verify_all;
-  if (todo)
-    execute_todo (pass, todo, false);
+  execute_todo (todo_after | pass->todo_flags_finish);
 
   /* Flush and close dump file.  */
   if (dump_file_name)
@@ -867,6 +896,9 @@ execute_one_pass (struct tree_opt_pass *pass)
       dump_end (pass->static_pass_number, dump_file);
       dump_file = NULL;
     }
+
+  if (pass->properties_destroyed & PROP_smt_usage)
+    updating_used_alone = false;
 
   return true;
 }

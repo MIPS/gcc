@@ -140,7 +140,11 @@ typedef struct micro_operation_def
     HOST_WIDE_INT adjust;
   } u;
 
-  /* The instruction which the micro operation is in.  */
+  /* The instruction which the micro operation is in, for MO_USE,
+     MO_USE_NO_VAR, MO_CALL and MO_ADJUST, or the subsequent
+     instruction or note in the original flow (before any var-tracking
+     notes are inserted, to simplify emission of notes), for MO_SET
+     and MO_CLOBBER.  */
   rtx insn;
 } micro_operation;
 
@@ -291,9 +295,11 @@ static void vars_clear (htab_t);
 static variable unshare_variable (dataflow_set *set, variable var);
 static int vars_copy_1 (void **, void *);
 static void vars_copy (htab_t, htab_t);
+static void var_reg_set (dataflow_set *, rtx);
 static void var_reg_delete_and_set (dataflow_set *, rtx);
 static void var_reg_delete (dataflow_set *, rtx);
 static void var_regno_delete (dataflow_set *, int);
+static void var_mem_set (dataflow_set *, rtx);
 static void var_mem_delete_and_set (dataflow_set *, rtx);
 static void var_mem_delete (dataflow_set *, rtx);
 
@@ -498,7 +504,7 @@ vt_stack_adjustments (void)
   VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = INCOMING_FRAME_SP_OFFSET;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   /* Push the first edge on to the stack.  */
@@ -792,6 +798,19 @@ vars_copy (htab_t dst, htab_t src)
   htab_traverse (src, vars_copy_1, dst);
 }
 
+/* Set the register to contain REG_EXPR (LOC), REG_OFFSET (LOC).  */
+
+static void
+var_reg_set (dataflow_set *set, rtx loc)
+{
+  tree decl = REG_EXPR (loc);
+  HOST_WIDE_INT offset = REG_OFFSET (loc);
+
+  if (set->regs[REGNO (loc)] == NULL)
+    attrs_list_insert (&set->regs[REGNO (loc)], decl, offset, loc);
+  set_variable_part (set, loc, decl, offset);
+}
+
 /* Delete current content of register LOC in dataflow set SET
    and set the register to contain REG_EXPR (LOC), REG_OFFSET (LOC).  */
 
@@ -819,9 +838,7 @@ var_reg_delete_and_set (dataflow_set *set, rtx loc)
 	  nextp = &node->next;
 	}
     }
-  if (set->regs[REGNO (loc)] == NULL)
-    attrs_list_insert (&set->regs[REGNO (loc)], decl, offset, loc);
-  set_variable_part (set, loc, decl, offset);
+  var_reg_set (set, loc);
 }
 
 /* Delete current content of register LOC in dataflow set SET.  */
@@ -858,6 +875,19 @@ var_regno_delete (dataflow_set *set, int regno)
   *reg = NULL;
 }
 
+/* Set the location part of variable MEM_EXPR (LOC) in dataflow set
+   SET to LOC.
+   Adjust the address first if it is stack pointer based.  */
+
+static void
+var_mem_set (dataflow_set *set, rtx loc)
+{
+  tree decl = MEM_EXPR (loc);
+  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+
+  set_variable_part (set, loc, decl, offset);
+}
+
 /* Delete and set the location part of variable MEM_EXPR (LOC)
    in dataflow set SET to LOC.
    Adjust the address first if it is stack pointer based.  */
@@ -865,10 +895,7 @@ var_regno_delete (dataflow_set *set, int regno)
 static void
 var_mem_delete_and_set (dataflow_set *set, rtx loc)
 {
-  tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
-
-  set_variable_part (set, loc, decl, offset);
+  var_mem_set (set, loc);
 }
 
 /* Delete the location part LOC from dataflow set SET.
@@ -1070,7 +1097,7 @@ variable_union (void **slot, void *data)
 	  dst_l = 0;
 	  for (node = dst->var_part[j].loc_chain; node; node = node->next)
 	    dst_l++;
-	  vui = xcalloc (src_l + dst_l, sizeof (struct variable_union_info));
+	  vui = XCNEWVEC (struct variable_union_info, src_l + dst_l);
 
 	  /* Fill in the locations from DST.  */
 	  for (node = dst->var_part[j].loc_chain, jj = 0; node;
@@ -1547,7 +1574,7 @@ add_stores (rtx loc, rtx expr, void *insn)
 		   && track_expr_p (REG_EXPR (loc)))
 		  ? MO_SET : MO_CLOBBER);
       mo->u.loc = loc;
-      mo->insn = (rtx) insn;
+      mo->insn = NEXT_INSN ((rtx) insn);
     }
   else if (MEM_P (loc)
 	   && MEM_EXPR (loc)
@@ -1558,7 +1585,7 @@ add_stores (rtx loc, rtx expr, void *insn)
 
       mo->type = GET_CODE (expr) == CLOBBER ? MO_CLOBBER : MO_SET;
       mo->u.loc = loc;
-      mo->insn = (rtx) insn;
+      mo->insn = NEXT_INSN ((rtx) insn);
     }
 }
 
@@ -1589,6 +1616,16 @@ compute_bb_dataflow (basic_block bb)
 	    break;
 
 	  case MO_USE:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+
+	      if (GET_CODE (loc) == REG)
+		var_reg_set (out, loc);
+	      else if (GET_CODE (loc) == MEM)
+		var_mem_set (out, loc);
+	    }
+	    break;
+
 	  case MO_SET:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
@@ -1638,8 +1675,8 @@ vt_find_locations (void)
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
-  rc_order = xmalloc ((n_basic_blocks - NUM_FIXED_BLOCKS) * sizeof (int));
-  bb_order = xmalloc (last_basic_block * sizeof (int));
+  rc_order = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  bb_order = XNEWVEC (int, last_basic_block);
   pre_and_rev_post_order_compute (NULL, rc_order, false);
   for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_order[rc_order[i]] = i;
@@ -2356,6 +2393,18 @@ emit_notes_in_bb (basic_block bb)
 	    break;
 
 	  case MO_USE:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+
+	      if (GET_CODE (loc) == REG)
+		var_reg_set (&set, loc);
+	      else
+		var_mem_set (&set, loc);
+
+	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	    }
+	    break;
+
 	  case MO_SET:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
@@ -2365,10 +2414,7 @@ emit_notes_in_bb (basic_block bb)
 	      else
 		var_mem_delete_and_set (&set, loc);
 
-	      if (VTI (bb)->mos[i].type == MO_USE)
-		emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
-	      else
-		emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	      emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
 	    }
 	    break;
 
@@ -2383,9 +2429,9 @@ emit_notes_in_bb (basic_block bb)
 		var_mem_delete (&set, loc);
 
 	      if (VTI (bb)->mos[i].type == MO_USE_NO_VAR)
-		emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
-	      else
 		emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	      else
+		emit_notes_for_changes (insn, EMIT_NOTE_BEFORE_INSN);
 	    }
 	    break;
 
@@ -2546,8 +2592,7 @@ vt_initialize (void)
 	}
 
       /* Add the micro-operations to the array.  */
-      VTI (bb)->mos = xmalloc (VTI (bb)->n_mos
-			       * sizeof (struct micro_operation_def));
+      VTI (bb)->mos = XNEWVEC (micro_operation, VTI (bb)->n_mos);
       VTI (bb)->n_mos = 0;
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
@@ -2599,15 +2644,18 @@ vt_initialize (void)
 		}
 
 	      n1 = VTI (bb)->n_mos;
+	      /* This will record NEXT_INSN (insn), such that we can
+		 insert notes before it without worrying about any
+		 notes that MO_USEs might emit after the insn.  */
 	      note_stores (PATTERN (insn), add_stores, insn);
 	      n2 = VTI (bb)->n_mos - 1;
 
-	      /* Order the MO_SETs to be before MO_CLOBBERs.  */
+	      /* Order the MO_CLOBBERs to be before MO_SETs.  */
 	      while (n1 < n2)
 		{
-		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_SET)
+		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_CLOBBER)
 		    n1++;
-		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_CLOBBER)
+		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_SET)
 		    n2--;
 		  if (n1 < n2)
 		    {
@@ -2677,11 +2725,11 @@ vt_finalize (void)
 
 /* The entry point to variable tracking pass.  */
 
-void
+unsigned int
 variable_tracking_main (void)
 {
   if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
-    return;
+    return 0;
 
   mark_dfs_back_edges ();
   vt_initialize ();
@@ -2690,20 +2738,21 @@ variable_tracking_main (void)
       if (!vt_stack_adjustments ())
 	{
 	  vt_finalize ();
-	  return;
+	  return 0;
 	}
     }
 
   vt_find_locations ();
   vt_emit_notes ();
 
-  if (dump_file)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_dataflow_sets ();
-      dump_flow_info (dump_file);
+      dump_flow_info (dump_file, dump_flags);
     }
 
   vt_finalize ();
+  return 0;
 }
 
 static bool

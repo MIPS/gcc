@@ -48,7 +48,7 @@ import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Shape;
-import java.awt.SystemColor;
+import java.awt.Toolkit;
 import java.awt.image.ImageObserver;
 import java.text.AttributedCharacterIterator;
 
@@ -81,18 +81,23 @@ public class GdkGraphics extends Graphics
   native void initStateUnlocked (GtkComponentPeer component);
   native void initState (int width, int height);
   native void initFromImage (GtkImage image);
-  native void copyState (GdkGraphics g);
+  native void nativeCopyState (GdkGraphics g);
+
+  /**
+   * A cached instance that is used by {@link #create} in order to avoid
+   * massive allocation of graphics contexts.
+   */
+  GdkGraphics cached = null;
+
+  /**
+   * A link to the parent context. This is used in {@link #dispose} to put
+   * this graphics context into the cache.
+   */
+  GdkGraphics parent = null;
 
   GdkGraphics (GdkGraphics g)
   {
-    color = g.color;
-    xorColor = g.xorColor;
-    font = g.font;
-    if (font == null)
-      font = new Font ("Dialog", Font.PLAIN, 12);
-    clip = new Rectangle (g.clip);
-    component = g.component;
-
+    parent = g;
     copyState (g);
   }
 
@@ -162,18 +167,62 @@ public class GdkGraphics extends Graphics
   public native void copyArea(int x, int y, int width, int height, 
 			      int dx, int dy);
 
-  public Graphics create ()
+  /**
+   * Creates a copy of this GdkGraphics instance. This implementation can
+   * reuse a cached instance to avoid massive instantiation of Graphics objects
+   * during painting.
+   *
+   * @return a copy of this graphics context
+   */
+  public Graphics create()
   {
-    return new GdkGraphics (this);
+    GdkGraphics copy = cached;
+    if (copy == null)
+      copy = new GdkGraphics(this);
+    else
+      {
+        copy.copyState(this);
+        cached = null;
+      }
+    return copy;
   }
 
-  public native void dispose();
+  public native void nativeDispose();
+
+  /**
+   * Disposes this graphics object. This puts this graphics context into the
+   * cache of its parent graphics if there is one.
+   */
+  public void dispose()
+  {
+    if (parent != null)
+      {
+        parent.cached = this;
+        parent = null;
+      }
+    else
+      nativeDispose();
+  }
+
+  /**
+   * This is called when this object gets finalized by the garbage collector.
+   * In addition to {@link Graphics#finalize()} this calls nativeDispose() to
+   * make sure the native resources are freed before the graphics context is
+   * thrown away.
+   */
+  public void finalize()
+  {
+    super.finalize();
+    nativeDispose();
+  }
 
   public boolean drawImage (Image img, int x, int y, 
 			    Color bgcolor, ImageObserver observer)
   {
-    return drawImage(img, x, y, img.getWidth(null), img.getHeight(null),
-		     bgcolor, observer);
+    if (img != null)
+      return drawImage(img, x, y, img.getWidth(null), img.getHeight(null),
+                       bgcolor, observer);
+    return false;
   }
 
   public boolean drawImage (Image img, int x, int y, ImageObserver observer)
@@ -181,16 +230,19 @@ public class GdkGraphics extends Graphics
     return drawImage (img, x, y, null, observer);
   }
 
-  public boolean drawImage (Image img, int x, int y, int width, int height, 
-			    Color bgcolor, ImageObserver observer)
+  public boolean drawImage(Image img, int x, int y, int width, int height,
+                           Color bgcolor, ImageObserver observer)
   {
-    if (img instanceof GtkImage)
-      return ((GtkImage)img).drawImage (this, x, y, width, height, 
-					bgcolor, observer);
-    else
-      return (new GtkImage(img.getSource())).drawImage (this, x, y, 
-							width, height, 
-							bgcolor, observer);
+    if (img != null)
+      {
+        if (img instanceof GtkImage)
+          return ((GtkImage) img).drawImage(this, x, y, width, height, bgcolor,
+                                            observer);
+        return (new GtkImage(img.getSource())).drawImage(this, x, y, width,
+                                                         height, bgcolor,
+                                                         observer);
+      }
+    return false;
   }
 
   public boolean drawImage (Image img, int x, int y, int width, int height, 
@@ -203,14 +255,16 @@ public class GdkGraphics extends Graphics
 			    int sx1, int sy1, int sx2, int sy2, 
 			    Color bgcolor, ImageObserver observer)
   {
-    if (img instanceof GtkImage)
-      return ((GtkImage)img).drawImage(this, dx1, dy1, dx2, dy2, 
-				       sx1, sy1, sx2, sy2, bgcolor, observer);
-    else
-      return (new GtkImage(img.getSource())).drawImage(this, dx1, dy1, 
-						       dx2, dy2, 
-						       sx1, sy1, sx2, sy2, 
-						       bgcolor, observer);
+    if (img != null)
+      {
+        if (img instanceof GtkImage)
+          return ((GtkImage) img).drawImage(this, dx1, dy1, dx2, dy2, sx1, sy1,
+                                            sx2, sy2, bgcolor, observer);
+        return (new GtkImage(img.getSource())).drawImage(this, dx1, dy1, dx2,
+                                                         dy2, sx1, sy1, sx2,
+                                                         sy2, bgcolor, observer);
+      }
+    return false;
   }
 
   public boolean drawImage (Image img, int dx1, int dy1, int dx2, int dy2, 
@@ -248,9 +302,8 @@ public class GdkGraphics extends Graphics
   public void drawString (String str, int x, int y)
   {
     drawString(getFontPeer(), str, x, y);
-  }
+  }  
   
-
   public void drawString (AttributedCharacterIterator ci, int x, int y)
   {
     throw new Error ("not implemented");
@@ -328,7 +381,9 @@ public class GdkGraphics extends Graphics
 
   public FontMetrics getFontMetrics (Font font)
   {
-    return new GdkFontMetrics (font);
+    // Get the font metrics through GtkToolkit to take advantage of
+    // the metrics cache.
+    return Toolkit.getDefaultToolkit().getFontMetrics (font);
   }
 
   native void setClipRectangle (int x, int y, int width, int height);
@@ -418,5 +473,24 @@ public class GdkGraphics extends Graphics
     clip.y -= y;
 
     translateNative (x, y);
+  }
+
+  /**
+   * Copies over the state of another GdkGraphics to this instance. This is
+   * used by the {@link #GdkGraphics(GdkGraphics)} constructor and the
+   * {@link #create()} method.
+   *
+   * @param g the GdkGraphics object to copy the state from
+   */
+  private void copyState(GdkGraphics g)
+  {
+    color = g.color;
+    xorColor = g.xorColor;
+    font = g.font;
+    if (font == null)
+      font = new Font ("Dialog", Font.PLAIN, 12);
+    clip = new Rectangle (g.clip);
+    component = g.component;
+    nativeCopyState(g);
   }
 }

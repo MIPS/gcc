@@ -381,6 +381,32 @@
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
+;; An expander for generating an scc operation.
+(define_expand "scc_ps"
+  [(set (match_operand:CCV2 0)
+	(unspec:CCV2 [(match_operand 1)] UNSPEC_SCC))])
+
+(define_insn "s<code>_ps"
+  [(set (match_operand:CCV2 0 "register_operand" "=z")
+	(unspec:CCV2
+	   [(fcond (match_operand:V2SF 1 "register_operand" "f")
+		   (match_operand:V2SF 2 "register_operand" "f"))]
+	   UNSPEC_SCC))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+  "c.<fcond>.ps\t%0,%1,%2"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
+
+(define_insn "s<code>_ps"
+  [(set (match_operand:CCV2 0 "register_operand" "=z")
+	(unspec:CCV2
+	   [(swapped_fcond (match_operand:V2SF 1 "register_operand" "f")
+			   (match_operand:V2SF 2 "register_operand" "f"))]
+	   UNSPEC_SCC))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+  "c.<swapped_fcond>.ps\t%0,%2,%1"
+  [(set_attr "type" "fcmp")
+   (set_attr "mode" "FPSW")])
 
 ;----------------------------------------------------------------------------
 ; Floating Point Branch Instructions.
@@ -389,8 +415,8 @@
 ; Branch on Any of Four Floating Point Condition Codes True
 (define_insn "bc1any4t"
   [(set (pc)
-	(if_then_else (ne:CCV4 (match_operand:CCV4 0 "register_operand" "z")
-			       (const_int 0))
+	(if_then_else (ne (match_operand:CCV4 0 "register_operand" "z")
+			  (const_int 0))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   "TARGET_MIPS3D"
@@ -401,8 +427,8 @@
 ; Branch on Any of Four Floating Point Condition Codes False
 (define_insn "bc1any4f"
   [(set (pc)
-	(if_then_else (ne:CCV4 (match_operand:CCV4 0 "register_operand" "z")
-			       (const_int -1))
+	(if_then_else (ne (match_operand:CCV4 0 "register_operand" "z")
+			  (const_int -1))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   "TARGET_MIPS3D"
@@ -413,8 +439,8 @@
 ; Branch on Any of Two Floating Point Condition Codes True
 (define_insn "bc1any2t"
   [(set (pc)
-	(if_then_else (ne:CCV2 (match_operand:CCV2 0 "register_operand" "z")
-			       (const_int 0))
+	(if_then_else (ne (match_operand:CCV2 0 "register_operand" "z")
+			  (const_int 0))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   "TARGET_MIPS3D"
@@ -425,12 +451,65 @@
 ; Branch on Any of Two Floating Point Condition Codes False
 (define_insn "bc1any2f"
   [(set (pc)
-	(if_then_else (ne:CCV2 (match_operand:CCV2 0 "register_operand" "z")
-			       (const_int -1))
+	(if_then_else (ne (match_operand:CCV2 0 "register_operand" "z")
+			  (const_int -1))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   "TARGET_MIPS3D"
   "%*bc1any2f\t%0,%1%/"
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
+
+; Used to access one register in a CCV2 pair.  Operand 0 is the register
+; pair and operand 1 is the index of the register we want (a CONST_INT).
+(define_expand "single_cc"
+  [(ne (unspec:CC [(match_operand 0) (match_operand 1)] UNSPEC_SINGLE_CC)
+       (const_int 0))])
+
+; This is a normal floating-point branch pattern, but rather than check
+; a single CCmode register, it checks one register in a CCV2 pair.
+; Operand 2 is the register pair and operand 3 is the index of the
+; register we want.
+(define_insn "*branch_upper_lower"
+  [(set (pc)
+        (if_then_else
+	 (match_operator 0 "equality_operator"
+	    [(unspec:CC [(match_operand:CCV2 2 "register_operand" "z")
+			 (match_operand 3 "const_int_operand")]
+			UNSPEC_SINGLE_CC)
+	     (const_int 0)])
+	 (label_ref (match_operand 1 "" ""))
+	 (pc)))]
+  "TARGET_HARD_FLOAT"
+{
+  operands[2]
+    = gen_rtx_REG (CCmode, REGNO (operands[2]) + INTVAL (operands[3]));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%F0", "%2,%1"),
+					 MIPS_BRANCH ("b%W0", "%2,%1"));
+}
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
+
+; As above, but with the sense of the condition reversed.
+(define_insn "*branch_upper_lower_inverted"
+  [(set (pc)
+        (if_then_else
+	 (match_operator 0 "equality_operator"
+	    [(unspec:CC [(match_operand:CCV2 2 "register_operand" "z")
+			 (match_operand 3 "const_int_operand")]
+			UNSPEC_SINGLE_CC)
+	     (const_int 0)])
+	 (pc)
+	 (label_ref (match_operand 1 "" ""))))]
+  "TARGET_HARD_FLOAT"
+{
+  operands[2]
+    = gen_rtx_REG (CCmode, REGNO (operands[2]) + INTVAL (operands[3]));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%W0", "%2,%1"),
+					 MIPS_BRANCH ("b%F0", "%2,%1"));
+}
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
@@ -475,3 +554,40 @@
   "recip2.<fmt>\t%0,%1,%2"
   [(set_attr "type" "frdiv2")
    (set_attr "mode" "<UNITMODE>")])
+
+(define_expand "vcondv2sf"
+  [(set (match_operand:V2SF 0 "register_operand")
+	(if_then_else:V2SF
+	  (match_operator 3 ""
+	    [(match_operand:V2SF 4 "register_operand")
+	     (match_operand:V2SF 5 "register_operand")])
+	  (match_operand:V2SF 1 "register_operand")
+	  (match_operand:V2SF 2 "register_operand")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  mips_expand_vcondv2sf (operands[0], operands[1], operands[2],
+			 GET_CODE (operands[3]), operands[4], operands[5]);
+  DONE;
+})
+
+(define_expand "sminv2sf3"
+  [(set (match_operand:V2SF 0 "register_operand")
+	(smin:V2SF (match_operand:V2SF 1 "register_operand")
+		   (match_operand:V2SF 2 "register_operand")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  mips_expand_vcondv2sf (operands[0], operands[1], operands[2],
+			 LE, operands[1], operands[2]);
+  DONE;
+})
+
+(define_expand "smaxv2sf3"
+  [(set (match_operand:V2SF 0 "register_operand")
+	(smax:V2SF (match_operand:V2SF 1 "register_operand")
+		   (match_operand:V2SF 2 "register_operand")))]
+  "TARGET_PAIRED_SINGLE_FLOAT"
+{
+  mips_expand_vcondv2sf (operands[0], operands[1], operands[2],
+			 LE, operands[2], operands[1]);
+  DONE;
+})

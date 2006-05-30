@@ -26,6 +26,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 # autoconf2.13's target_alias
 target_noncanonical = @target_noncanonical@
 
+# This is required by TL_AC_GXX_INCLUDE_DIR.
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 ##
 ## What gets installed, and where.
 ##
@@ -64,8 +67,6 @@ secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
-## Where the standard .db file is found.
-dbexecdir = $(libdir)/gcj-$(gcc_version)
 ## Name of the default .db.
 db_name = classmap.db
 ## Compiler specific component of the .db file
@@ -89,7 +90,6 @@ bin_SCRIPTS = addr2name.awk
 ##
 
 GCJH = @GCJH@
-ZIP = @ZIP@
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -154,6 +154,7 @@ LIBFFIINCS = @LIBFFIINCS@
 AM_CPPFLAGS = -I$(top_srcdir) \
 	-Iinclude -I$(top_srcdir)/include \
 	-I$(top_srcdir)/classpath/include \
+	-Iclasspath/include \
 	-I$(top_srcdir)/classpath/native/fdlibm \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
@@ -303,34 +304,18 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
-## Build property files into the library.
-property_files = \
-classpath/resource/org/ietf/jgss/MessagesBundle.properties \
-classpath/resource/java/util/iso4217.properties	\
-classpath/resource/gnu/java/awt/peer/gtk/font.properties \
-classpath/resource/gnu/regexp/MessagesBundle_it.properties \
-classpath/resource/gnu/regexp/MessagesBundle_fr.properties \
-classpath/resource/gnu/regexp/MessagesBundle.properties	\
-classpath/resource/META-INF/services/org.xml.sax.driver	\
-classpath/resource/META-INF/services/javax.xml.parsers.SAXParserFactory	\
-classpath/resource/META-INF/services/javax.xml.parsers.DocumentBuilderFactory \
-classpath/resource/META-INF/services/javax.xml.parsers.TransformerFactory
-
+## Note that property_files is defined in sources.am.
 propertyo_files = $(patsubst classpath/resource/%,%,$(addsuffix .lo,$(property_files)))
 
 $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
-libgcj-$(gcc_version).jar:
-	jardir=`dirname $(ZIP)`; \
-	jardir=`cd $$jardir && pwd`; \
-	jarname=`basename $(ZIP)`; \
-	cd classpath/lib; $$jardir/$$jarname -cfM \
+libgcj-$(gcc_version).jar: classpath/lib/compile-classes
+	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
 
-CLEANFILES = libgcj-$(gcc_version).jar \
-	$(all_java_deps_files) $(all_java_filelist_files)
+CLEANFILES = libgcj-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 
 mostlyclean-local:
@@ -562,7 +547,7 @@ install-data-local:
 ## FIXME: the obvious approach using lib_DATA doesn't work with
 ## automake 1.4.
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in classpath.security libgcj.security; do \
+	@for f in libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
@@ -786,6 +771,7 @@ gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
+gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
 gnu/java/lang/natMainThread.cc \
@@ -823,7 +809,7 @@ java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
-java/nio/channels/natChannels.cc \
+java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
@@ -865,20 +851,41 @@ gnu/gcj/xlib/natXUnmapEvent.cc
 src.zip:
 	-rm -f src.zip
 	here=`pwd`; \
-	( ( cd $(srcdir); \
+	( \
+	  ( cd $(srcdir)/classpath; \
 	  find java gnu javax org -name '*.java' -print | \
 	  while read file; do \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
 ## Gross but easy.
 	    echo "x-C" | sed -e 's/^.//'; \
-	    echo $(srcdir); \
+	    echo $(srcdir)/classpath; \
 	    echo $$file; \
 	  done ); \
 ## Now the build tree.
-	  find gnu java -name '*.java' -print) | \
-## Many of the above circumlocutions are because ZIP will most likely
-## be a relative path to fastjar.
-	$(ZIP) -cfM@ $$here/src.zip
+	  ( cd classpath; \
+	    find gnu java -name '*.java' -print | \
+	    while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo `pwd`; \
+	    echo $$file; \
+	  done ); \
+	) | \
+## Many of the above circumlocutions were because ZIP used to be a
+## relative path to fastjar.  It didn't seem worthwhile to change the
+## code when we moved to an external jar.
+	$(JAR) -cfM@ $$here/src.zip
+## Override GNU Classpath sources with libgcj replacements.
+	here=`pwd`; \
+	( \
+	  ( cd $(srcdir); \
+	  find gnu java -name '*.java' -print | \
+	  while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo $(srcdir); \
+	    echo $$file; \
+	  done ); \
+	) | \
+	$(JAR) -ufM@ $$here/src.zip
 
 ## We use a variable for this in case the user wants to override it.
 sourcesdir = $(jardir)
@@ -974,6 +981,10 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
+
+# No install-html support yet.
+.PHONY: install-html
+install-html:
 
 # Multilib support variables.
 MULTISRCTOP =

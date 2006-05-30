@@ -1,5 +1,5 @@
 /* gnu/regexp/CharIndexed.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1998-2001, 2004, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -81,4 +81,36 @@ public interface CharIndexed {
      * position at a valid position in the input.
      */
     boolean isValid();
+
+    /**
+     * Returns another CharIndexed containing length characters to the left
+     * of the given index. The given length is an expected maximum and
+     * the returned CharIndexed may not necessarily contain so many characters.
+     */
+    CharIndexed lookBehind(int index, int length);
+
+    /**
+     * Returns the effective length of this CharIndexed
+     */
+    int length();
+
+    /**
+     * Sets the REMatch last found on this input.
+     */
+    void setLastMatch(REMatch match);
+
+    /**
+     * Returns the REMatch last found on this input.
+     */
+    REMatch getLastMatch();
+
+    /**
+     * Returns the anchor.
+     */
+    int getAnchor();
+
+    /**
+     * Sets the anchor.
+     */
+    void setAnchor(int anchor);
 }

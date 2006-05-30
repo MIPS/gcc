@@ -75,13 +75,14 @@ public class JOptionPane extends JComponent implements Accessible
     }
 
     /**
-     * DOCUMENT ME!
+     * Returns the accessible role of this object, which is always
+     * {@link AccessibleRole#OPTION_PANE}.
      *
-     * @return DOCUMENT ME!
+     * @return the accessible role of this object
      */
     public AccessibleRole getAccessibleRole()
     {
-      return null;
+      return AccessibleRole.OPTION_PANE;
     }
   }
 
@@ -197,7 +198,7 @@ public class JOptionPane extends JComponent implements Accessible
   public static final String WANTS_INPUT_PROPERTY = "wantsInput";
 
   /** The value returned when the inputValue is uninitialized. */
-  public static Object UNINITIALIZED_VALUE = "uninitializedValue";
+  public static final Object UNINITIALIZED_VALUE = "uninitializedValue";
 
   /** The icon displayed in the dialog/internal frame. */
   protected Icon icon;
@@ -236,7 +237,7 @@ public class JOptionPane extends JComponent implements Accessible
   protected boolean wantsInput;
 
   /** The common frame used when no parent is provided. */
-  private static Frame privFrame = SwingUtilities.getOwnerFrame();
+  private static Frame privFrame = (Frame) SwingUtilities.getOwnerFrame(null);
 
   /**
    * Creates a new JOptionPane object using a message of "JOptionPane
@@ -1475,7 +1476,6 @@ public class JOptionPane extends JComponent implements Accessible
   public void updateUI()
   {
     setUI((OptionPaneUI) UIManager.getUI(this));
-    invalidate();
   }
 
   /**

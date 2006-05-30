@@ -167,11 +167,11 @@ mark_dfs_back_edges (void)
   bool found = false;
 
   /* Allocate the preorder and postorder number arrays.  */
-  pre = xcalloc (last_basic_block, sizeof (int));
-  post = xcalloc (last_basic_block, sizeof (int));
+  pre = XCNEWVEC (int, last_basic_block);
+  post = XCNEWVEC (int, last_basic_block);
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -282,7 +282,7 @@ find_unreachable_blocks (void)
   edge_iterator ei;
   basic_block *tos, *worklist, bb;
 
-  tos = worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  tos = worklist = XNEWVEC (basic_block, n_basic_blocks);
 
   /* Clear all the reachability flags.  */
 
@@ -356,10 +356,10 @@ create_edge_list (void)
       num_edges += EDGE_COUNT (bb->succs);
     }
 
-  elist = xmalloc (sizeof (struct edge_list));
+  elist = XNEW (struct edge_list);
   elist->num_blocks = block_count;
   elist->num_edges = num_edges;
-  elist->index_to_edge = xmalloc (sizeof (edge) * num_edges);
+  elist->index_to_edge = XNEWVEC (edge, num_edges);
 
   num_edges = 0;
 
@@ -660,7 +660,7 @@ post_order_compute (int *post_order, bool include_entry_exit)
     post_order[post_order_num++] = EXIT_BLOCK;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -738,7 +738,7 @@ pre_and_rev_post_order_compute (int *pre_order, int *rev_post_order,
   sbitmap visited;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   if (include_entry_exit)
@@ -862,7 +862,7 @@ static void
 flow_dfs_compute_reverse_init (depth_first_search_ds data)
 {
   /* Allocate stack for back-tracking up CFG.  */
-  data->stack = xmalloc (n_basic_blocks * sizeof (basic_block));
+  data->stack = XNEWVEC (basic_block, n_basic_blocks);
   data->sp = 0;
 
   /* Allocate bitmap to track nodes that have been visited.  */
@@ -972,7 +972,7 @@ dfs_enumerate_from (basic_block bb, int reverse,
       v_size = size;
     }
 
-  st = xcalloc (rslt_max, sizeof (basic_block));
+  st = XCNEWVEC (basic_block, rslt_max);
   rslt[tv++] = st[sp++] = bb;
   MARK_VISITED (bb);
   while (sp)
@@ -981,23 +981,23 @@ dfs_enumerate_from (basic_block bb, int reverse,
       edge_iterator ei;
       lbb = st[--sp];
       if (reverse)
-        {
+	{
 	  FOR_EACH_EDGE (e, ei, lbb->preds)
 	    if (!VISITED_P (e->src) && predicate (e->src, data))
 	      {
-	        gcc_assert (tv != rslt_max);
-	        rslt[tv++] = st[sp++] = e->src;
-	        MARK_VISITED (e->src);
+		gcc_assert (tv != rslt_max);
+		rslt[tv++] = st[sp++] = e->src;
+		MARK_VISITED (e->src);
 	      }
-        }
+	}
       else
-        {
+	{
 	  FOR_EACH_EDGE (e, ei, lbb->succs)
 	    if (!VISITED_P (e->dest) && predicate (e->dest, data))
 	      {
-	        gcc_assert (tv != rslt_max);
-	        rslt[tv++] = st[sp++] = e->dest;
-	        MARK_VISITED (e->dest);
+		gcc_assert (tv != rslt_max);
+		rslt[tv++] = st[sp++] = e->dest;
+		MARK_VISITED (e->dest);
 	      }
 	}
     }
@@ -1012,24 +1012,24 @@ dfs_enumerate_from (basic_block bb, int reverse,
 
 
 /* Compute dominance frontiers, ala Harvey, Ferrante, et al.
-   
+
    This algorithm can be found in Timothy Harvey's PhD thesis, at
    http://www.cs.rice.edu/~harv/dissertation.pdf in the section on iterative
    dominance algorithms.
 
    First, we identify each join point, j (any node with more than one
-   incoming edge is a join point). 
+   incoming edge is a join point).
 
    We then examine each predecessor, p, of j and walk up the dominator tree
-   starting at p. 
-   
+   starting at p.
+
    We stop the walk when we reach j's immediate dominator - j is in the
    dominance frontier of each of  the nodes in the walk, except for j's
    immediate dominator. Intuitively, all of the rest of j's dominators are
    shared by j's predecessors as well.
    Since they dominate j, they will not have j in their dominance frontiers.
 
-   The number of nodes touched by this algorithm is equal to the size 
+   The number of nodes touched by this algorithm is equal to the size
    of the dominance frontiers, no more, no less.
 */
 
@@ -1050,11 +1050,11 @@ compute_dominance_frontiers_1 (bitmap *frontiers)
 	      basic_block domsb;
 	      if (runner == ENTRY_BLOCK_PTR)
 		continue;
-	      
+
 	      domsb = get_immediate_dominator (CDI_DOMINATORS, b);
 	      while (runner != domsb)
 		{
-		  bitmap_set_bit (frontiers[runner->index], 
+		  bitmap_set_bit (frontiers[runner->index],
 				  b->index);
 		  runner = get_immediate_dominator (CDI_DOMINATORS,
 						    runner);
@@ -1062,8 +1062,8 @@ compute_dominance_frontiers_1 (bitmap *frontiers)
 	    }
 	}
     }
-}	      
-  
+}
+
 
 void
 compute_dominance_frontiers (bitmap *frontiers)
