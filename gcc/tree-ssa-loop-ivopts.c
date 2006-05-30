@@ -2526,7 +2526,7 @@ tree_int_cst_sign_bit (tree t)
 /* If we can prove that TOP = cst * BOT for some constant cst in TYPE,
    return cst.  Otherwise return NULL_TREE.  */
 
-static tree
+tree
 constant_multiple_of (tree type, tree top, tree bot)
 {
   tree res, mby, p0, p1;

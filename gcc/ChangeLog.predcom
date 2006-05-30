@@ -2,3 +2,25 @@
 
 	Branch created.
 
+2006-05-30  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-im.c (get_lsm_tmp_name): Add version to the name.
+	Export.
+	(schedule_sm): Pass 0 as version to get_lsm_tmp_name.
+	* tree-ssa-loop-niter.c (nonzero_p): Export.
+	* tree.h (nonzero_p): Declare.
+	* tree-pass.h (pass_predcom): Declare.
+	* tree-ssa-loop-ivopts.c (constant_multiple_of): Export.
+	* timevar.def (TV_PREDCOM): New.
+	* tree-ssa-loop.c (pass_predcom, run_tree_predictive_commoning,
+	gate_tree_predictive_commoning): New.
+	* tree-data-ref.c (free_data_ref): New.
+	(create_data_ref): Fail when scev_not_known is encountered.
+	(find_data_references_in_loop): Find references in dominance order.
+	(free_data_refs): Use free_data_ref.
+	* tree-predcom.c: New file.
+	* common.opt (fpredictive-commoning): New.
+	* tree-flow.h (tree_predictive_commoning, get_lsm_tmp_name,
+	constant_multiple_of): Declare.
+	* Makefile.in (tree-predcom.o): Add.
+	* passes.c (init_optimization_passes): Add pass_predcom.

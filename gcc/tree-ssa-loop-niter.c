@@ -70,7 +70,7 @@ zero_p (tree arg)
 /* Returns true if ARG a nonzero constant.  Unlike integer_nonzerop, it does
    not care about overflow flags.  */
 
-static bool
+bool
 nonzero_p (tree arg)
 {
   if (!arg)

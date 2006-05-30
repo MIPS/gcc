@@ -1,0 +1,3 @@
+	2006-05-25  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/predcom-1.c: New test.

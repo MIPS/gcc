@@ -131,6 +131,7 @@ static struct data_reference * init_data_ref (tree, tree, tree, tree, bool,
 static bool subscript_dependence_tester_1 (struct data_dependence_relation *,
 					   struct data_reference *,
 					   struct data_reference *);
+static void free_data_ref (data_reference_p);
 
 /* Determine if PTR and DECL may alias, the result is put in ALIASED.
    Return FALSE if there is no symbol memory tag for PTR.  */
@@ -1954,11 +1955,23 @@ create_data_ref (tree memref, tree stmt, bool is_read)
 
       /* Update access function.  */
       access_fn = DR_ACCESS_FN (dr, 0);
+      if (automatically_generated_chrec_p (access_fn))
+	{
+	  free_data_ref (dr);
+	  return NULL;
+	}
+
       new_step = size_binop (TRUNC_DIV_EXPR,  
 			     fold_convert (ssizetype, step), type_size);
 
       init_cond = chrec_convert (chrec_type (access_fn), init_cond, stmt);
       new_step = chrec_convert (chrec_type (access_fn), new_step, stmt);
+      if (automatically_generated_chrec_p (init_cond)
+	  || automatically_generated_chrec_p (new_step))
+	{
+	  free_data_ref (dr);
+	  return NULL;
+	}
       access_fn = chrec_replace_initial_condition (access_fn, init_cond);
       access_fn = reset_evolution_in_loop (loop->num, access_fn, new_step);
 
@@ -4001,7 +4014,7 @@ find_data_references_in_loop (struct loop *loop,
   block_stmt_iterator bsi;
   struct data_reference *dr;
 
-  bbs = get_loop_body (loop);
+  bbs = get_loop_body_in_dom_order (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -4031,28 +4044,26 @@ find_data_references_in_loop (struct loop *loop,
 		tree opnd0 = TREE_OPERAND (stmt, 0);
 		tree opnd1 = TREE_OPERAND (stmt, 1);
 		
-		if (TREE_CODE (opnd0) == ARRAY_REF 
-		    || TREE_CODE (opnd0) == INDIRECT_REF
-                    || TREE_CODE (opnd0) == COMPONENT_REF)
-		  {
-		    dr = create_data_ref (opnd0, stmt, false);
-		    if (dr) 
-		      {
-			VEC_safe_push (data_reference_p, heap, *datarefs, dr);
-			one_inserted = true;
-		      }
-		  }
-
 		if (TREE_CODE (opnd1) == ARRAY_REF 
 		    || TREE_CODE (opnd1) == INDIRECT_REF
 		    || TREE_CODE (opnd1) == COMPONENT_REF)
 		  {
 		    dr = create_data_ref (opnd1, stmt, true);
-		    if (dr) 
-		      {
-			VEC_safe_push (data_reference_p, heap, *datarefs, dr);
-			one_inserted = true;
-		      }
+		    if (!dr)
+		      goto insert_dont_know_node;
+		    VEC_safe_push (data_reference_p, heap, *datarefs, dr);
+		    one_inserted = true;
+		  }
+
+		if (TREE_CODE (opnd0) == ARRAY_REF 
+		    || TREE_CODE (opnd0) == INDIRECT_REF
+                    || TREE_CODE (opnd0) == COMPONENT_REF)
+		  {
+		    dr = create_data_ref (opnd0, stmt, false);
+		    if (!dr) 
+		      goto insert_dont_know_node;
+		    VEC_safe_push (data_reference_p, heap, *datarefs, dr);
+		    one_inserted = true;
 		  }
 
 		if (!one_inserted)
@@ -4364,6 +4375,19 @@ free_dependence_relations (VEC (ddr_p, heap) *dependence_relations)
   VEC_free (ddr_p, heap, dependence_relations);
 }
 
+/* Free the memory used by the data reference DR.  */
+
+static void
+free_data_ref (data_reference_p dr)
+{
+  if (DR_TYPE(dr) == ARRAY_REF_TYPE)
+    VEC_free (tree, heap, dr->object_info.access_fns);
+  else
+    VEC_free (tree, heap, dr->first_location.access_fns);
+
+  free (dr);
+}
+
 /* Free the memory used by the data references from DATAREFS.  */
 
 void
@@ -4373,14 +4397,7 @@ free_data_refs (VEC (data_reference_p, heap) *datarefs)
   struct data_reference *dr;
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
-    {
-      if (DR_TYPE(dr) == ARRAY_REF_TYPE)
-	VEC_free (tree, heap, (dr)->object_info.access_fns);
-      else
-	VEC_free (tree, heap, (dr)->first_location.access_fns);
-
-      free (dr);
-    }
+    free_data_ref (dr);
   VEC_free (data_reference_p, heap, datarefs);
 }
 

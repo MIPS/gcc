@@ -676,6 +676,10 @@ fpie
 Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
 
+fpredictive-commoning
+Common Report Var(flag_predictive_commoning) Init(1)
+Run predictive commoning optimization.
+
 fprefetch-loop-arrays
 Common Report Var(flag_prefetch_loop_arrays)
 Generate prefetch instructions, if available, for arrays in loops

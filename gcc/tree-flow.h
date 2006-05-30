@@ -803,6 +803,7 @@ void tree_unroll_loops_completely (struct loops *, bool);
 void tree_ssa_prefetch_arrays (struct loops *);
 void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
+void tree_predictive_commoning (struct loops *);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -864,6 +865,7 @@ enum move_pos
     MOVE_POSSIBLE		/* Unlimited movement.  */
   };
 extern enum move_pos movement_possibility (tree);
+char *get_lsm_tmp_name (tree, unsigned);
 
 /* The reasons a variable may escape a function.  */
 enum escape_type 
@@ -937,6 +939,7 @@ extern void linear_transform_loops (struct loops *);
 bool expr_invariant_in_loop_p (struct loop *, tree);
 bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
+tree constant_multiple_of (tree, tree, tree);
 
 /* In tree-ssa-threadupdate.c.  */
 extern bool thread_through_all_blocks (void);
