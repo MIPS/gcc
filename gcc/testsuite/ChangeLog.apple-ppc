@@ -1,3 +1,8 @@
+2006-05-30  Mike Stump  <mrs@apple.com>
+
+	* g++.apple/asm-block-52.C: Add.
+	* gcc.apple/asm-block-52.c: Add.
+
 2006-05-18  Mike Stump  <mrs@apple.com>
 
 	Radar 4501833

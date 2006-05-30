@@ -7123,6 +7123,20 @@ iasm_stmt (tree expr, tree args, int lineno)
   iasm_set_constraints (iasm_num_constraints (inputs, outputs), inputs, outputs);
 
   iasm_extra_clobbers (opcodename, &clobbers);
+#ifdef TARGET_386
+  if (num_args == 1
+      && (strcasecmp ("mulw", new_opcode) == 0
+	  || strcasecmp ("imulw", new_opcode) == 0
+	  || strcasecmp ("divw", new_opcode) == 0
+	  || strcasecmp ("idivw", new_opcode) == 0
+	  || strcasecmp ("mull", new_opcode) == 0
+	  || strcasecmp ("imull", new_opcode) == 0
+	  || strcasecmp ("divl", new_opcode) == 0
+	  || strcasecmp ("idivl", new_opcode) == 0))
+    clobbers = tree_cons (NULL_TREE,
+			  build_string (3, "edx"),
+			  clobbers);
+#endif
 
   /* Treat as volatile always.  */
   stmt = build_stmt (ASM_EXPR, sexpr, outputs, inputs, clobbers, uses);

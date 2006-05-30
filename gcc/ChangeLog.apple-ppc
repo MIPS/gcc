@@ -1,3 +1,8 @@
+2006-05-30  Mike Stump  <mrs@apple.com>
+
+	Rarar 4527214
+	* c-common.c (iasm_stmt): Fix clobbers for mul/imul/div/idiv.
+
 2006-05-18  Mike Stump  <mrs@apple.com>
 
 	Radar 4501833
