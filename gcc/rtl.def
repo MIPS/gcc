@@ -383,10 +383,10 @@ DEF_RTL_EXPR(SUBREG, "subreg", "ei", RTX_EXTRA)
 
 DEF_RTL_EXPR(STRICT_LOW_PART, "strict_low_part", "e", RTX_EXTRA)
 
-/* (CONCAT a b) represents the virtual concatenation of a and b
-   to make a value that has as many bits as a and b put together.
-   This is used for complex values.  Normally it appears only
-   in DECL_RTLs and during RTL generation, but not in the insn chain.  */
+/* (CONCAT a b) represents the virtual concatenation of a and b to make a
+   value that has as many bits as a and b put together.  This is used for,
+   among other things, complex values.  Normally it appears only in DECL_RTLs
+   and during RTL generation, but not in the insn chain.  */
 DEF_RTL_EXPR(CONCAT, "concat", "ee", RTX_OBJ)
 
 /* A memory location; operand is the address.  The second operand is the
@@ -411,6 +411,13 @@ DEF_RTL_EXPR(SYMBOL_REF, "symbol_ref", "s00", RTX_CONST_OBJ)
    results; but instructions that look at the condition code
    pretend to be looking at the entire value and comparing it.  */
 DEF_RTL_EXPR(CC0, "cc0", "", RTX_OBJ)
+
+/* (CONCATN [a1 a2 .. an]) represents the virtual concatenation of all
+   An to make a value.  This is an extension of the CONCAT to larger 
+   numbers of components.  This is used for decomposing large values
+   into register sized components.  Like CONCAT, it should not appear
+   in the insn chain.  */
+DEF_RTL_EXPR (CONCATN, "concatn", "E", RTX_OBJ)
 
 /* ----------------------------------------------------------------------
    Expressions for operators in an rtl pattern

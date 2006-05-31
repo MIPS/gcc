@@ -2132,7 +2132,10 @@ check_hard_regno_for_a (allocno_t a, int hard_regno,
     return false;
   if (ALLOCNO_CALL_CROSS_P (a))
     {
-      COPY_HARD_REG_SET (prohibited_hard_regs, call_used_reg_set);
+      if (flag_ipra)
+	COPY_HARD_REG_SET (prohibited_hard_regs, ALLOCNO_CLOBBERED_REGS (a));
+      else
+	COPY_HARD_REG_SET (prohibited_hard_regs, call_used_reg_set);
       IOR_HARD_REG_SET (prohibited_hard_regs, ALLOCNO_HARD_REG_CONFLICTS (a));
     }
   else
@@ -2520,7 +2523,12 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
  ok:
 #endif
   if (ALLOCNO_CALL_CROSS_P (a))
-    COPY_HARD_REG_SET (prohibited_hard_regs, call_used_reg_set);
+    {
+      if (flag_ipra)
+	COPY_HARD_REG_SET (prohibited_hard_regs, ALLOCNO_CLOBBERED_REGS (a));
+      else
+	COPY_HARD_REG_SET (prohibited_hard_regs, call_used_reg_set);
+    }
   else
     CLEAR_HARD_REG_SET (prohibited_hard_regs);
   IOR_COMPL_HARD_REG_SET (prohibited_hard_regs, possible_regs);

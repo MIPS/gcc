@@ -342,6 +342,11 @@ struct allocno_common
 
   /* Frequency of calls which given allocno intersects.  */
   int call_freq;
+  /* The following member is defined if the allocno intersects a call.
+     Hard registers which can not used for given allocno because they
+     might be clobbered by calls inside of hard allocno live
+     range.  */
+  HARD_REG_SET clobbered_regs;
 
   /* Allocno attributes should be logged.  */
   struct allocno_change change;
@@ -484,6 +489,7 @@ union allocno_node
 #define ALLOCNO_HARD_REG_CONFLICTS(A) ((A)->common.hard_reg_conflicts)
 #define ALLOCNO_CALL_CROSS_P(A) ((A)->common.call_cross_p)
 #define ALLOCNO_CALL_FREQ(A) ((A)->common.call_freq)
+#define ALLOCNO_CLOBBERED_REGS(A) ((A)->common.clobbered_regs)
 #define ALLOCNO_CHANGE(A) ((A)->common.change)
 #define ALLOCNO_HARD_REGNO(A) ((A)->common.change.hard_regno)
 #define ALLOCNO_HARD_REGSET(A) ((A)->common.change.hard_regset)
@@ -728,6 +734,7 @@ struct can
   int slotno;
   /* Frequency of calls which given can intersects.  */
   int call_freq;
+
   /* True if an allocno of the can lives through a call.  */
   bool call_p;
   /* True value means than the can was not removed from the
@@ -738,8 +745,6 @@ struct can
   /* True value means that the can is global one, in other words it
      lives in more one BB.  */
   bool global_p;
-  /* True if we already spilled the can during local allocation.  */  
-  bool spill_p;
   /* True if hard register or memory has been assigned to the can.  */
   bool assigned_p;
   /* Mode of allocnos belonging to the can.  */
@@ -774,7 +779,6 @@ struct can
 #define CAN_CALL_P(C) ((C)->call_p)
 #define CAN_IN_GRAPH_P(C) ((C)->in_graph_p)
 #define CAN_GLOBAL_P(C) ((C)->global_p)
-#define CAN_SPILL_P(C) ((C)->spill_p)
 #define CAN_ASSIGNED_P(C) ((C)->assigned_p)
 #define CAN_MODE(C) ((C)->mode)
 #define CAN_COPIES(C) ((C)->can_copies)

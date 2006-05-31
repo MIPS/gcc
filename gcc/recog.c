@@ -2971,7 +2971,10 @@ peep2_find_free_register (int from, int to, const char *class_str,
       if (success)
 	{
 	  for (j = hard_regno_nregs[regno][mode] - 1; j >= 0; j--)
-	    SET_HARD_REG_BIT (*reg_set, regno + j);
+	    {
+	      regs_ever_live [regno + j] = 1;
+	      SET_HARD_REG_BIT (*reg_set, regno + j);
+	    }
 
 	  /* Start the next search with the next register.  */
 	  if (++raw_regno >= FIRST_PSEUDO_REGISTER)

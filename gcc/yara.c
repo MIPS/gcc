@@ -45,6 +45,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "integrate.h"
 #include "yara-int.h"
+#include "cgraph.h"
+#include "function.h"
 
 FILE *yara_dump_file;
 int yara_max_uid; /* before the allocation */
@@ -419,6 +421,7 @@ yara (FILE *f)
   yara_dump_file = f;
   gcc_obstack_init (&yara_obstack);
   bitmap_obstack_initialize (&yara_bitmap_obstack);
+  CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
   yara_ir_init ();
   yara_trans_init ();
   yara_insn_init ();

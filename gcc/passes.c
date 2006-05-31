@@ -632,6 +632,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_unshare_all_rtl);
   NEXT_PASS (pass_instantiate_virtual_regs);
   NEXT_PASS (pass_jump2);
+  NEXT_PASS (pass_lower_subreg);
   NEXT_PASS (pass_cse);
   NEXT_PASS (pass_gcse);
   NEXT_PASS (pass_jump_bypass);

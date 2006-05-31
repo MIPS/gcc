@@ -409,7 +409,7 @@ save_call_clobbered_regs (void)
 	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
 	    {
 	      unsigned regno;
-	      HARD_REG_SET hard_regs_to_save;
+	      HARD_REG_SET hard_regs_to_save, used_regs;
 	      reg_set_iterator rsi;
 
 	      /* Use the register life information in CHAIN to compute which
@@ -459,7 +459,8 @@ save_call_clobbered_regs (void)
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, hard_regs_saved);
-	      AND_HARD_REG_SET (hard_regs_to_save, call_used_reg_set);
+	      get_call_invalidated_used_regs (insn, &used_regs, false);
+	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 		if (TEST_HARD_REG_BIT (hard_regs_to_save, regno))

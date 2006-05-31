@@ -751,7 +751,7 @@ RECOG_H = recog.h
 ALIAS_H = alias.h
 EMIT_RTL_H = emit-rtl.h
 FLAGS_H = flags.h options.h
-FUNCTION_H = function.h $(TREE_H)
+FUNCTION_H = function.h $(TREE_H) hard-reg-set.h
 EXPR_H = expr.h insn-config.h $(FUNCTION_H) $(RTL_H) $(FLAGS_H) $(TREE_H) $(MACHMODE_H) $(EMIT_RTL_H)
 OPTABS_H = optabs.h insn-codes.h
 REGS_H = regs.h varray.h $(MACHMODE_H) $(OBSTACK_H) $(BASIC_BLOCK_H) $(FUNCTION_H)
@@ -997,7 +997,8 @@ OBJS-common = \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o rtl-factoring.o		   \
- yara.o yara-ir.o yara-trans.o yara-insn.o yara-color.o yara-final.o
+ yara.o yara-ir.o yara-trans.o yara-insn.o yara-color.o yara-final.o       \
+ lower-subreg.o
 
 
 OBJS-md = $(out_object_file)
@@ -2166,7 +2167,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(OPTABS_H) libfuncs.h $(REGS_H) hard-reg-set.h insn-config.h $(RECOG_H) \
    output.h toplev.h except.h $(HASHTAB_H) $(GGC_H) $(TM_P_H) langhooks.h \
    gt-function.h $(TARGET_H) $(BASIC_BLOCK_H) $(INTEGRATE_H) $(PREDICT_H) \
-   tree-pass.h
+   tree-pass.h $(CGRAPH_H)
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(FUNCTION_H) insn-config.h hard-reg-set.h $(EXPR_H) \
    libfuncs.h except.h $(RECOG_H) toplev.h output.h $(GGC_H) $(TM_P_H) \
@@ -2507,12 +2508,13 @@ yara.o: yara.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(OBSTACK_H) $(HASHTAB_H) errors.h \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) \
    $(CFGLOOP_H) yara.h yara-int.h $(TIMEVAR_H) tree-pass.h output.h \
-   integrate.h $(GGC_H)
+   integrate.h $(FUNCTION_H) $(CGRAPH_H) $(GGC_H)
 yara-ir.o: yara-ir.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(RTL_H) $(TREE_H) insn-codes.h insn-config.h \
    $(OPTABS_H) $(RECOG_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) $(HASHTAB_H) \
-   errors.h $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) langhooks.h\
-   $(CFGLOOP_H) yara.h yara-int.h $(GGC_H) gt-yara-ir.h
+   errors.h $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) langhooks.h \
+   $(CFGLOOP_H) yara.h yara-int.h $(FUNCTION_H) $(CGRAPH_H) $(GGC_H) \
+   gt-yara-ir.h
 yara-trans.o: yara-trans.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(RTL_H) insn-codes.h insn-config.h $(OPTABS_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(HASHTAB_H) errors.h \
@@ -2627,6 +2629,8 @@ hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
+lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(MACHMODE_H) $(RTL_H) bitmap.h
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \

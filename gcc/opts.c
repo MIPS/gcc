@@ -564,6 +564,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
       flag_ipa_type_escape = 1;
+      flag_ipra = 1;
+      flag_lower_subreg = 1;
       flag_rerun_cse_after_loop = 1;
       flag_caller_saves = 1;
       flag_peephole2 = 1;

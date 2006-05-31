@@ -1404,10 +1404,12 @@ simplify_using_assignment (rtx insn, rtx *expr, regset altered)
   if (CALL_P (insn))
     {
       int i;
+      HARD_REG_SET clobbered_regs;
 
       /* Kill all call clobbered registers.  */
+      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	if (TEST_HARD_REG_BIT (clobbered_regs, i))
 	  SET_REGNO_REG_SET (altered, i);
     }
 

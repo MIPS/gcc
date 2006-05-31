@@ -331,6 +331,7 @@ extern struct tree_opt_pass pass_initial_value_sets;
 extern struct tree_opt_pass pass_unshare_all_rtl;
 extern struct tree_opt_pass pass_instantiate_virtual_regs;
 extern struct tree_opt_pass pass_jump2;
+extern struct tree_opt_pass pass_lower_subreg;
 extern struct tree_opt_pass pass_cse;
 extern struct tree_opt_pass pass_gcse;
 extern struct tree_opt_pass pass_jump_bypass;

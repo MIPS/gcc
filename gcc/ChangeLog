@@ -1,3 +1,113 @@
+2006-05-31  Vladimir Makarov  <vmakarov@redhat.com>,
+	    Richard Henderson  <rth@redhat.com>
+
+	* cgraph.c (cgraph_create_node): Initialize function_used_regs.
+
+	* cgraph.h (cgraph_node): Add new member function_used_regs.
+	
+	* regrename.c (copyprop_hardreg_forward_1): Use
+	get_call_invalidated_used_regs.
+
+	* postreload-gcse.c (record_opr_changes,
+	reg_set_between_after_reload_p, reg_used_between_after_reload_p):
+	Ditto.
+
+	* postreload.c (reload_combine, reload_cse_move2add): Ditto.
+
+	* rtlanal.c (reg_set_p): Ditto.
+
+	* flow.c (propagate_one_insn): Ditto.
+
+	* df-scan.c (df_insn_refs_record): Ditto.
+
+	* caller-save.c (save_call_clobbered_regs): Ditto.
+
+	* gcse.c (compute_hash_table_work, compute_store_table): Ditto.
+	
+	* cselib.c (cselib_process_insn): Ditto.
+	
+	* loop-iv.c (simplify_using_assignment): Ditto.
+
+	* sched-deps.c (sched_analyze): Ditto.
+
+	* combine.c (record_dead_and_set_regs): Ditto.
+	
+	* resource.c (mark_set_resources, mark_target_live_regs): Ditto.
+
+	* var-tracking.c (compute_bb_dataflow, emit_notes_in_bb): Ditto.
+	
+	* cse.c (invalidate_for_call): Ditto.  Add parameter.
+	(cse_insn, invalidate_skipped_block): Pass the insn for
+	invalidate_for_call.
+
+	* tree-pass.h (pass_lower_subreg): New external definition.
+
+	* final.c (rest_of_handle_final): Set up call_used_regs for the
+	cgraph node.
+
+	* toplev.h (flag_lower_subreg, flag_ipra): New external
+	definitions.
+
+	* rtl.def (CONCATN): New rtl expression.
+
+	* dwarf2out.c (concatn_loc_descriptor): New function.
+	(loc_descriptor): Process CONCATN.
+
+	* opts.c (flag_ipra, flag_lower_subreg):  Set up for -O2.
+
+	* timevar.def (TV_LOWER_SUBREG): New definition.
+
+	* recog.c (peep2_find_free_register): Set up regs_ever_live.
+
+	* yara-int.h (allocno_common):  Add new member clobbered_regs.
+	(ALLOCNO_CLOBBERED_REGS): New macro.
+	(can): Remove member spill_p.
+	(CAN_SPILL_P): Remove.
+
+	* function.c (get_call, get_call_invalidated_used_regs): New
+	functions.
+
+	* function.h (emit_status):  Add new member call_used_regs.
+	(get_call_invalidated_used_regs): New external definition.
+	
+	* yara-color.c (allocated_reg_p): New array.
+	(choose_global_hard_reg): Modify cost for cans crossing functions
+	and saved cans.
+	(pop_globals_from_stack): Initialize allocated_reg_p.
+	(assign_global_can_allocnos): Use ALLOCNO_CLOBBERED_REGS.
+
+	* emit-rtl.c (gen_reg_rtx_offset): New function.
+	(gen_lowpart_common): Process CONCATN.
+
+	* simplify-rtx.c (simplify_subreg): Process CONCATN.
+
+	* common.opt (fipra, flower-subreg): New options.
+
+	* yara.c (yara): Reset call_used_regs.
+
+	* rtl.h (gen_reg_rtx_offset): New external definition.
+
+	* yara-trans.c (check_hard_regno_for_a, assign_one_allocno): Use
+	ALLOCNO_CLOBBERED_REGS.
+	
+	* yara-ir.c (setup_reg_class_nregs): Use CLASS_MAX_NREGS.
+	(create_allocno): Clear ALLOCNO_CLOBBERED_REGS.
+	(print_allocno): Print ALLOCNO_CLOBBERED_REGS..
+	(curr_call_used_function_regs): New static variable.
+	(set_call_info): Update curr_call_used_function_regs.
+	(build_insn_allocno_conflicts): Use
+	get_call_invalidated_used_regs.
+	(create_can, print_can): Remove CAN_SPILL_P.
+
+	* Makefile.in (OBJS-common): Add lower-subreg.o.
+	(lower-subreg.o): New entry.
+	(function.o): Add cgraph.h.
+	(yara.o, yara-ir.o): Add cgraph.h and function.h.
+
+	* passes.c (pass_lower_subreg):  Add new pass.
+
+	* lower-subreg.c: New file.
+	
 2006-05-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-int.h (HAVE_ANY_SECONDARY_MOVES): Remove.

@@ -917,9 +917,11 @@ reload_combine (void)
       if (CALL_P (insn))
 	{
 	  rtx link;
+	  HARD_REG_SET used_regs;
 
+	  get_call_invalidated_used_regs (insn, &used_regs, false);
 	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	    if (call_used_regs[r])
+	    if (TEST_HARD_REG_BIT (used_regs, r))
 	      {
 		reg_state[r].use_index = RELOAD_COMBINE_MAX_USES;
 		reg_state[r].store_ruid = reload_combine_ruid;
@@ -1411,9 +1413,12 @@ reload_cse_move2add (rtx first)
 	 unknown values.  */
       if (CALL_P (insn))
 	{
+	  HARD_REG_SET used_regs;
+
+	  get_call_invalidated_used_regs (insn, &used_regs, false);
 	  for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
 	    {
-	      if (call_used_regs[i])
+	      if (TEST_HARD_REG_BIT (used_regs, i))
 		/* Reset the information about this register.  */
 		reg_set_luid[i] = 0;
 	    }

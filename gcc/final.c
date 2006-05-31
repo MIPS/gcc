@@ -3902,9 +3902,40 @@ debug_free_queue (void)
 static unsigned int
 rest_of_handle_final (void)
 {
+  int i;
   rtx x;
   const char *fnname;
+  struct cgraph_node *node;
 
+  gcc_assert (cfun->decl != NULL);
+  node = cgraph_node (cfun->decl);
+  if (node != NULL)
+    {
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (fixed_regs [i])
+	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
+	else if (call_used_regs [i]
+		 && (regs_ever_live [i]
+#ifdef STACK_REGS
+		     || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
+#endif
+		     ))
+	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
+      COPY_HARD_REG_SET (node->function_used_regs, cfun->emit->call_used_regs);
+      if (dump_file != NULL)
+	{
+	  GO_IF_HARD_REG_EQUAL (cfun->emit->call_used_regs,
+				call_used_reg_set, ok);
+	  fprintf (dump_file, "unused unsaved registers: ");
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    if (TEST_HARD_REG_BIT (call_used_reg_set, i)
+		&& ! TEST_HARD_REG_BIT (cfun->emit->call_used_regs, i))
+	      fprintf (dump_file, "%s ", reg_names [i]);
+	  fprintf (dump_file, "\n");
+	ok:
+	  ;
+	}
+    }
   /* Get the function's name, as described by its RTL.  This may be
      different from the DECL_NAME name used in the source file.  */
 

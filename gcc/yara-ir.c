@@ -47,6 +47,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "langhooks.h"
 #include "yara-int.h"
+#include "cgraph.h"
+#include "function.h"
 
 struct loops yara_loops;
 struct yara_loop_tree_node *yara_loop_tree_root;
@@ -259,25 +261,12 @@ int reg_class_nregs [N_REG_CLASSES] [MAX_MACHINE_MODE];
 static void
 setup_reg_class_nregs (void)
 {
-  int i, m, old, hard_regno;
+  int m;
   enum reg_class cl;
 
-  memset (reg_class_nregs, 0, sizeof (reg_class_nregs));
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     for (m = 0; m < MAX_MACHINE_MODE; m++)
-      {
-	for (i = 0; i < (int) class_hard_regs_num [cl]; i++)
-	  {
-	    hard_regno = class_hard_regs [cl] [i];
-	    old = reg_class_nregs [cl] [m];
-	    reg_class_nregs [cl] [m]
-	      = HARD_REGNO_NREGS (hard_regno, (enum machine_mode) m);
-	    if (old != 0 && old != reg_class_nregs [cl] [m])
-	      break;
-	  }
-	if (i < (int) class_hard_regs_num [cl])
-	  reg_class_nregs [cl] [m] = -1;
-      }
+      reg_class_nregs [cl] [m] = CLASS_MAX_NREGS (cl, m);
 }
 
 /* ??? implement better class SImode instead of HImode for QImode.  */
@@ -780,12 +769,12 @@ contains_eliminable_reg (rtx x)
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      if (fmt[i] == 'e')
+      if (fmt [i] == 'e')
 	{
 	  if (contains_eliminable_reg (XEXP (x, i)))
 	    return true;
 	}
-      else if (fmt[i] == 'E')
+      else if (fmt [i] == 'E')
 	{
 	  int j;
 
@@ -1450,6 +1439,7 @@ create_allocno (enum allocno_type type, int regno, enum machine_mode mode)
 #endif
   ALLOCNO_CALL_CROSS_P (a) = false;
   ALLOCNO_CALL_FREQ (a) = 0;
+  CLEAR_HARD_REG_SET (ALLOCNO_CLOBBERED_REGS (a));
   return a;
 }
 
@@ -1596,6 +1586,11 @@ print_allocno (FILE *f, allocno_t a)
     fprintf (f, ", + %d", ALLOCNO_MEMORY_SLOT_OFFSET (a));
   if (ALLOCNO_USE_EQUIV_CONST_P (a))
     fprintf (f, ",\nequiv const ");
+  if (ALLOCNO_CALL_CROSS_P (a))
+    {
+      fprintf (f, "\n Call clobbered regs:");
+      print_hard_reg_set (f, ALLOCNO_CLOBBERED_REGS (a));
+    }
   fprintf (f, "\n Hard reg conflicts:");
   print_hard_reg_set (f, ALLOCNO_HARD_REG_CONFLICTS (a));
   fprintf (f, "\n Allocno conflicts:");
@@ -3113,6 +3108,10 @@ process_non_operand_hard_regs (rtx *loc, bool output_p)
     }
 }
 
+/* Unsaved registers invalidated by function whose call is currently
+   being processed.  */
+static HARD_REG_SET curr_call_used_function_regs;
+
 /* The function sets up call_p and increment call_freq for allocno
    LIVE_A living through call insn given by DATA.  The function is
    called by generic traverse function process_live_allocnos.  */
@@ -3124,6 +3123,8 @@ set_call_info (allocno_t live_a, void *data,
 
   ALLOCNO_CALL_CROSS_P (live_a) = true;
   ALLOCNO_CALL_FREQ (live_a) += BLOCK_FOR_INSN (insn)->frequency;
+  IOR_HARD_REG_SET (ALLOCNO_CLOBBERED_REGS (live_a),
+		    curr_call_used_function_regs);
 }
 
 /* The function sets up hard registers conflicting with allocno
@@ -3320,7 +3321,13 @@ build_insn_allocno_conflicts (rtx insn, op_set_t single_reg_op_set)
       mark_hard_reg_death (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)));
 
   if (CALL_P (insn))
-    process_live_allocnos (set_call_info, insn);
+    {
+      get_call_invalidated_used_regs (insn, &curr_call_used_function_regs,
+				      false);
+      IOR_HARD_REG_SET (cfun->emit->call_used_regs,
+			curr_call_used_function_regs);
+      process_live_allocnos (set_call_info, insn);
+    }
 
   /* Set up allocnos:  */
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
@@ -4837,7 +4844,6 @@ create_can (void)
   CAN_CALL_FREQ (can) = 0;
   CAN_CALL_P (can) = false;
   CAN_GLOBAL_P (can) = false || (YARA_PARAMS & YARA_NO_LOCAL_CAN) == 0;
-  CAN_SPILL_P (can) = false;
   CAN_MODE (can) = VOIDmode;
   CAN_HARD_REG_COSTS (can) = NULL;
   CAN_COPIES (can) = NULL;
@@ -5712,14 +5718,14 @@ print_can (FILE *f, can_t can)
   allocno_t a, *can_allocnos;
 
   fprintf
-    (f, "%scan#%d (%s %s(%d,%d) freq %d (call %d) r%d m%d %s%s%sconfl %d) allocnos:\n  ",
+    (f, "%scan#%d (%s %s(%d,%d) freq %d (call %d) r%d m%d %s%sconfl %d) allocnos:\n  ",
      (CAN_GLOBAL_P (can) ? "g" : ""), CAN_NUM (can),
      GET_MODE_NAME (CAN_MODE (can)), reg_class_names [CAN_COVER_CLASS (can)],
      CAN_COVER_CLASS_COST (can), CAN_MEMORY_COST (can),
      CAN_FREQ (can), CAN_CALL_FREQ (can), CAN_HARD_REGNO (can),
      CAN_SLOTNO (can),
      (CAN_CALL_P (can) ? "call " : ""), (CAN_IN_GRAPH_P (can) ? "in " : ""),
-     (CAN_SPILL_P (can) ? "spill " : ""), CAN_LEFT_CONFLICTS_NUM (can));
+     CAN_LEFT_CONFLICTS_NUM (can));
   can_allocnos = CAN_ALLOCNOS (can);
   for (i = 0; (a = can_allocnos [i]) != NULL; i++)
     {

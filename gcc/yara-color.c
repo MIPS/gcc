@@ -1868,6 +1868,10 @@ static can_t *saved_conflict_cans;
 static bitmap conflict_can_bitmap;
 static bitmap biased_can_bitmap;
 
+/* Array whose element value is true if the corresponding hard
+   register already allocated for a can.  */
+static bool allocated_reg_p [FIRST_PSEUDO_REGISTER];
+
 /* Function choosing a hard register for CAN.  */
 static bool
 choose_global_hard_reg (can_t can)
@@ -1903,6 +1907,34 @@ choose_global_hard_reg (can_t can)
   best_hard_regno = -1;
   GO_IF_HARD_REG_SUBSET (reg_class_contents [cover_class], conflicting_regs,
 			 fail);
+  if (flag_ipra && call_p)
+    {
+      int freq;
+      allocno_t a, *can_allocnos;
+      HARD_REG_SET clobbered_regs;
+      
+      can_allocnos = CAN_ALLOCNOS (can);
+      for (i = 0; (a = can_allocnos [i]) != NULL; i++)
+	if (ALLOCNO_CALL_CROSS_P (a))
+	  {
+	    freq = ALLOCNO_CALL_FREQ (a);
+	    COPY_HARD_REG_SET (clobbered_regs,
+			       ALLOCNO_CLOBBERED_REGS (a));
+	    for (j = (int) class_hard_regs_num [cover_class] - 1;
+		 j >= 0;
+		 j--)
+	      {
+		hard_regno = class_hard_regs [cover_class] [j];
+		if (TEST_HARD_REG_BIT (clobbered_regs, hard_regno))
+		  {
+		    class = REGNO_REG_CLASS (hard_regno);
+		    costs [j]
+		      += freq * (memory_move_cost [mode] [class] [0]
+				 + memory_move_cost [mode] [class] [1]);
+		  }
+	      }
+	  }
+    }
   min_cost = INT_MAX;
   for (i = 0; i < class_size; i++)
     {
@@ -1910,7 +1942,7 @@ choose_global_hard_reg (can_t can)
       if (hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs))
 	{
 	  cost = costs [i];
-	  if (call_p
+	  if (! flag_ipra && call_p
 	      && ! hard_reg_not_in_set_p (hard_regno, mode, call_used_reg_set))
 	    {
 	      /* ??? If only part is call clobbered.  */
@@ -1918,6 +1950,16 @@ choose_global_hard_reg (can_t can)
 	      cost += (CAN_CALL_FREQ (can)
 		       * (memory_move_cost [mode] [class] [0]
 			  + memory_move_cost [mode] [class] [1]));
+	    }
+	  if (! allocated_reg_p [hard_regno]
+	      && hard_reg_not_in_set_p (hard_regno, mode, call_used_reg_set))
+	    /* We need to save/restore the register in
+	       epilogue/prologue.  Therefore we increase the cost.  */
+	    {
+	      /* ??? If only part is call clobbered.  */
+	      class = REGNO_REG_CLASS (hard_regno);
+	      cost += (memory_move_cost [mode] [class] [0]
+		       + memory_move_cost [mode] [class] [1]);
 	    }
 	  if (min_cost > cost)
 	    {
@@ -1961,6 +2003,7 @@ choose_global_hard_reg (can_t can)
 				[best_hard_regno] [mode]);
 	    }
 	}
+      allocated_reg_p [best_hard_regno] = true;
     }
   return best_hard_regno >= 0;
 }
@@ -2214,7 +2257,8 @@ push_globals_to_stack (void)
 	    }
 	  delete_can_from_bucket (can, bucket_ptr);
 	  if (yara_dump_file != NULL)
-	    fprintf (yara_dump_file, "Pushing %d (potential spill)\n", CAN_NUM (can));
+	    fprintf (yara_dump_file, "Pushing %d (potential spill)\n",
+		     CAN_NUM (can));
 	}
       CAN_IN_GRAPH_P (can) = false;
       VARRAY_PUSH_GENERIC_PTR (global_stack_varray, can);
@@ -2265,6 +2309,7 @@ pop_globals_from_stack (void)
   int stack_size;
   enum reg_class cover_class;
 
+  memset (allocated_reg_p, 0, sizeof (allocated_reg_p));
   for (;;)
     {
       stack_size = VARRAY_ACTIVE_SIZE (global_stack_varray);
@@ -2480,7 +2525,9 @@ assign_global_can_allocnos (void)
 	    if (hard_regno < 0
 		|| (ALLOCNO_CALL_CROSS_P (a)
 		    && ! hard_reg_not_in_set_p (hard_regno, CAN_MODE (can),
-						call_used_reg_set)))
+						flag_ipra
+						? ALLOCNO_CLOBBERED_REGS (a)
+						: call_used_reg_set)))
 	      {
 		equiv_const = (ALLOCNO_REGNO (a) >= 0
 			       ? reg_equiv_constant [ALLOCNO_REGNO (a)]
