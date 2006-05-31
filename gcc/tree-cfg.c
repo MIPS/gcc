@@ -3096,31 +3096,6 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 	     Tree specific functions for CFG manipulation
 ---------------------------------------------------------------------------*/
 
-/* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
-
-static void
-reinstall_phi_args (edge new_edge, edge old_edge)
-{
-  tree var, phi;
-
-  if (!PENDING_STMT (old_edge))
-    return;
-
-  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
-       var && phi;
-       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
-    {
-      tree result = TREE_PURPOSE (var);
-      tree arg = TREE_VALUE (var);
-
-      gcc_assert (result == PHI_RESULT (phi));
-
-      add_phi_arg (phi, arg, new_edge);
-    }
-
-  PENDING_STMT (old_edge) = NULL;
-}
-
 /* Returns the basic block after that the new basic block created
    by splitting edge EDGE_IN should be placed.  Tries to keep the new block
    near its "logical" location.  This is of most help to humans looking

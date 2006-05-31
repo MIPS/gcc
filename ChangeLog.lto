@@ -7,3 +7,8 @@
 	* gcc/c-decl.c (store_parm_decls): Likewise.
 	* gcc/tree.h: Update the prototype for get_pending_sizes and
 	put_pending_sizes.
+
+	* gcc/tree-cfg.c (reinstall_phi_args): Move to ...
+	* gcc/tree-ssa.c: ... here.
+	(flush_pending_stmts): Use reinstall_phi_args.
+	* gcc/tree-flow.h: Add a prototype for reinstall_phi_args.

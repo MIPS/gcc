@@ -76,26 +76,34 @@ ssa_redirect_edge (edge e, basic_block dest)
   return e;
 }
 
+/* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
+
+void
+reinstall_phi_args (edge new_edge, edge old_edge)
+{
+  tree var, phi;
+
+  if (!PENDING_STMT (old_edge))
+    return;
+
+  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
+       var && phi;
+       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
+    {
+      tree arg = TREE_VALUE (var);
+      add_phi_arg (phi, arg, new_edge);
+    }
+
+  PENDING_STMT (old_edge) = NULL;
+}
+
 /* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
    E->dest.  */
 
 void
 flush_pending_stmts (edge e)
 {
-  tree phi, arg;
-
-  if (!PENDING_STMT (e))
-    return;
-
-  for (phi = phi_nodes (e->dest), arg = PENDING_STMT (e);
-       phi;
-       phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
-    {
-      tree def = TREE_VALUE (arg);
-      add_phi_arg (phi, def, e);
-    }
-
-  PENDING_STMT (e) = NULL;
+  reinstall_phi_args (e, e);
 }
 
 /* Return true if SSA_NAME is malformed and mark it visited.

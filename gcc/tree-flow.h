@@ -689,6 +689,7 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
 extern edge ssa_redirect_edge (edge, basic_block);
+extern void reinstall_phi_args (edge, edge);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
