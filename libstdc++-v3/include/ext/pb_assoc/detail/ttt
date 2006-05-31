@@ -1,0 +1,6 @@
+rm ./cc_hash_assoc_cntnr/.svn
+rm ./cc_ht_map_/.svn
+rm ./eq_fn/.svn
+rm ./gp_hash_assoc_cntnr/.svn
+rm ./gp_ht_map_/.svn
+rm ./hash_fn/.svn
