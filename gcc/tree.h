@@ -3870,9 +3870,9 @@ extern tree size_diffop (tree, tree);
 
 extern tree round_up (tree, int);
 extern tree round_down (tree, int);
-extern tree get_pending_sizes (void);
+extern VEC(tree,gc) *get_pending_sizes (void);
 extern void put_pending_size (tree);
-extern void put_pending_sizes (tree);
+extern void put_pending_sizes (VEC(tree,gc) *);
 
 /* Type for sizes of data-type.  */
 
