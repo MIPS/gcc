@@ -12,3 +12,6 @@
 	* gcc/tree-ssa.c: ... here.
 	(flush_pending_stmts): Use reinstall_phi_args.
 	* gcc/tree-flow.h: Add a prototype for reinstall_phi_args.
+
+	* gcc/coverage.c (build_ctr_info_value): Call
+	build_constructor instead of build_constructor_from_list.

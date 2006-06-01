@@ -706,15 +706,15 @@ build_ctr_info_type (void)
 static tree
 build_ctr_info_value (unsigned int counter, tree type)
 {
-  tree value = NULL_TREE;
   tree fields = TYPE_FIELDS (type);
   tree fn;
+  VEC(constructor_elt,gc) *v = NULL;
+  constructor_elt *elt;
 
   /* counters */
-  value = tree_cons (fields,
-		     build_int_cstu (get_gcov_unsigned_t (),
-				     prg_n_ctrs[counter]),
-		     value);
+  elt = VEC_safe_push (constructor_elt, gc, v, NULL);
+  elt->index = fields;
+  elt->value = build_int_cstu (get_gcov_unsigned_t (), prg_n_ctrs[counter]);
   fields = TREE_CHAIN (fields);
 
   if (prg_n_ctrs[counter])
@@ -732,13 +732,17 @@ build_ctr_info_value (unsigned int counter, tree type)
       DECL_SIZE_UNIT (tree_ctr_tables[counter]) = TYPE_SIZE_UNIT (array_type);
       assemble_variable (tree_ctr_tables[counter], 0, 0, 0);
 
-      value = tree_cons (fields,
-			 build1 (ADDR_EXPR, TREE_TYPE (fields), 
-					    tree_ctr_tables[counter]),
-			 value);
+      elt = VEC_safe_push (constructor_elt, gc, v, NULL);
+      elt->index = fields;
+      elt->value = build1 (ADDR_EXPR, TREE_TYPE (fields),
+			   tree_ctr_tables[counter]);
     }
   else
-    value = tree_cons (fields, null_pointer_node, value);
+    {
+      elt = VEC_safe_push (constructor_elt, gc, v, NULL);
+      elt->index = fields;
+      elt->value = null_pointer_node;
+    }
   fields = TREE_CHAIN (fields);
 
   fn = build_decl (FUNCTION_DECL,
@@ -748,14 +752,11 @@ build_ctr_info_value (unsigned int counter, tree type)
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   TREE_NOTHROW (fn) = 1;
-  value = tree_cons (fields,
-		     build1 (ADDR_EXPR, TREE_TYPE (fields), fn),
-		     value);
+  elt = VEC_safe_push (constructor_elt, gc, v, NULL);
+  elt->index = fields;
+  elt->value = build1 (ADDR_EXPR, TREE_TYPE (fields), fn);
 
-  /* FIXME: use build_constructor directly.  */
-  value = build_constructor_from_list (type, nreverse (value));
-
-  return value;
+  return build_constructor (type, v);
 }
 
 /* Creates the gcov_info RECORD_TYPE and initializer for it. Returns a
