@@ -49,6 +49,23 @@ struct lang_hooks_for_tree_inlining
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
+/* Lang hooks for performing various optimizations that depend on
+   language-specific things. Such optimizations include:
+
+   data structure reorganization (see struct-reorg.c)  */
+
+struct lang_hooks_for_optimizations
+{
+  tree (*build_field_reference) (tree, tree);
+  tree (*build_pointer_ref) (tree, const char *);
+  tree (*build_array_ref) (tree, tree);
+  tree (*lookup_field) (tree, tree);
+  tree (*build_data_struct) (void *, char *, tree);
+  tree (*sizeof_type) (tree, bool, int);
+  tree (*decl_attributes) (tree *, tree, int);
+  void (*structure_reorg_optimization) (void);
+};
+
 struct lang_hooks_for_callgraph
 {
   /* The node passed is a language-specific tree node.  If its contents
@@ -429,6 +446,8 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  struct lang_hooks_for_optimizations optimize;
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

@@ -274,6 +274,64 @@ lhd_types_compatible_p (tree x, tree y)
   return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
+tree
+lhd_optimize_build_field_reference (tree t1 ATTRIBUTE_UNUSED, 
+				    tree t2 ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_build_array_ref (tree t1 ATTRIBUTE_UNUSED,
+			      tree t2 ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_decl_attributes (tree *t1 ATTRIBUTE_UNUSED,
+			      tree  t2 ATTRIBUTE_UNUSED,
+			      int i ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_build_pointer_ref (tree t ATTRIBUTE_UNUSED,
+				const char *c ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_lookup_field (tree t1 ATTRIBUTE_UNUSED,
+			   tree t2 ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_build_data_struct (void *type_info ATTRIBUTE_UNUSED,
+				char *name ATTRIBUTE_UNUSED,
+				tree t ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+tree
+lhd_optimize_sizeof_type (tree t ATTRIBUTE_UNUSED, 
+			  bool is_sizeof ATTRIBUTE_UNUSED, 
+			  int i ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+void
+lhd_optimize_structure_reorg_optimization (void)
+{
+  return;
+}
+
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
    after handling common cases, but before walking code-specific
    sub-trees.  If this hook is overridden for a language, it should

@@ -527,6 +527,36 @@ DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
 	  "The upper bound for sharing integer constants",
 	  256, 2, 2)
 
+DEFPARAM(PARAM_COLD_FIELD_RATIO,
+	"cold-field-ratio",
+	"Defines the ratio of the field count to the hotest field count to consider the field cold (as a percent)",
+	5, 5, 5)
+
+DEFPARAM(PARAM_COLD_STRUCTURE_RATIO,
+	"cold-structure-ratio",
+	"Defines the ratio of the structure count to the hotest structure count to consider the structure cold (as a percent)",
+	10, 10, 10)
+
+DEFPARAM(PARAM_STRUCT_REORG_CACHE_LINE_SIZE,
+	"struct-reorg-cache-line-size",
+	"The cache line size of the machine to consider when performing structure reorganization optimization",
+	32, 32, 32)
+
+DEFPARAM(PARAM_STRUCT_REORG_DYNAMIC_THRESHOLD,
+	"struct-reorg-dynamic-threshold",
+	"The cache line size of the machine to consider when performing structure reorganization optimization",
+	3, 3, 3)
+
+DEFPARAM(PARAM_STRUCT_REORG_DISTANCE_THRESHOLD,
+	"struct-reorg-distance-threshold",
+	"The maximum number of accessed memory bytes on the trace between two field accesses to still consider\
+	 the access in CPG calculation",
+	120, 120, 120) 
+DEFPARAM(PARAM_STRUCT_REORG_CACHE_MISS_PENALTY,
+	 "struct-reorg-cache-miss-penalty",
+	 "The cache miss penalty to be considered while doing data structure reorganization",
+	 20, 20, 20)
+
 /* Incremental SSA updates for virtual operands may be very slow if
    there is a large number of mappings to process.  In those cases, it
    is faster to rewrite the virtual symbols from scratch as if they

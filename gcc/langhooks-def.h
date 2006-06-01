@@ -85,6 +85,16 @@ extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
+/* Declarations of default optimization hooks.  */
+
+extern tree lhd_optimize_build_field_reference (tree, tree);
+extern tree lhd_optimize_build_pointer_ref (tree, const char *);
+extern tree lhd_optimize_build_array_ref (tree, tree);
+extern tree lhd_optimize_lookup_field (tree, tree);
+extern tree lhd_optimize_build_data_struct (void *, char *, tree);
+extern tree lhd_optimize_sizeof_type (tree, bool, int);
+extern tree lhd_optimize_decl_attributes (tree *, tree, int);
+extern void lhd_optimize_structure_reorg_optimization (void);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
@@ -164,6 +174,29 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
   lhd_tree_inlining_end_inlining
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   lhd_tree_inlining_convert_parm_for_inlining
+
+/* Optimization hooks.  */
+#define LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT lhd_optimize_build_data_struct
+#define LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF lhd_optimize_build_pointer_ref
+#define LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF lhd_optimize_build_array_ref
+#define LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE lhd_optimize_sizeof_type
+#define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES lhd_optimize_decl_attributes
+#define LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD lhd_optimize_lookup_field
+#define LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE        \
+  lhd_optimize_build_field_reference
+#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION \
+  lhd_optimize_structure_reorg_optimization
+
+#define LANG_HOOKS_OPTIMIZE_INITIALIZER {     \
+  LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE,  \
+  LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF,      \
+  LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF,        \
+  LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD,           \
+  LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT,      \
+  LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE,            \
+  LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES,        \
+  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION \
+}
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
@@ -323,6 +356,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
+  LANG_HOOKS_OPTIMIZE_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \

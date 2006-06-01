@@ -167,6 +167,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "output.h"
 
+extern void debug_tree_ssa (void);
+
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
@@ -569,8 +571,8 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 	    walk_tree (&TREE_OPERAND (call, 1),
 		       record_reference, node, visited_nodes);
 	    if (TREE_CODE (stmt) == MODIFY_EXPR)
-	      walk_tree (&TREE_OPERAND (stmt, 0),
-			 record_reference, node, visited_nodes);
+		walk_tree (&TREE_OPERAND (stmt, 0),
+			   record_reference, node, visited_nodes);
 	  }
 	else 
 	  walk_tree (bsi_stmt_ptr (bsi), record_reference, node, visited_nodes);
@@ -1414,7 +1416,87 @@ cgraph_optimize (void)
       fprintf (cgraph_dump_file, "Marked ");
       dump_cgraph (cgraph_dump_file);
     }
+
   ipa_passes ();
+
+
+  if (flag_reorg_structs)
+    {
+      /* This is temporary check. We are checking that struct reorg 
+	 optimization receives correct ssa form for each function in cgraph.  */
+      {
+	bool debug_mode = true;
+	struct cgraph_node *node;
+
+	cfun = NULL;
+	bitmap_obstack_initialize (NULL);
+
+	for (node = cgraph_nodes; node; node = node->next)
+	  if (node->analyzed)
+	    {
+	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	      current_function_decl = node->decl;
+	      if (in_ssa_p)
+		{
+		  if (debug_mode)
+		    debug_tree_ssa ();
+		  verify_ssa (true);
+		  fprintf (stderr, "\nverify_ssa () is finished\n"); 		  
+		}
+	      
+	      else
+		fprintf (stderr, "\nfunction %s is in NOT ssa\n", 
+			 cgraph_node_name (node));
+
+	      free_dominance_info (CDI_DOMINATORS);
+	      free_dominance_info (CDI_POST_DOMINATORS);
+	      current_function_decl = NULL;
+	      pop_cfun ();
+	    }
+	bitmap_obstack_release (NULL);
+      }
+
+
+      lang_hooks.optimize.structure_reorg_optimization ();
+
+      /* This is temporary check. We are checking that struct reorg 
+	 optimization receives correct ssa form for each function in cgraph.  */
+      {
+	bool debug_mode = true;
+	struct cgraph_node *node;
+
+	cfun = NULL;
+	bitmap_obstack_initialize (NULL);
+
+	for (node = cgraph_nodes; node; node = node->next)
+	  if (node->analyzed)
+	    {
+	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	      current_function_decl = node->decl;
+	      if (in_ssa_p)
+		{
+		  if (debug_mode)
+		    debug_tree_ssa ();
+		  fprintf (stderr, "\nfunction %s is in ssa\n", 
+			   cgraph_node_name (node));
+		  verify_ssa (true);
+		  fprintf (stderr, "\nverify_ssa () is finished\n"); 		  
+		}
+	      
+	      else
+		fprintf (stderr, "\nfunction %s is in NOT ssa\n", 
+			 cgraph_node_name (node));
+
+	      free_dominance_info (CDI_DOMINATORS);
+	      free_dominance_info (CDI_POST_DOMINATORS);
+	      current_function_decl = NULL;
+	      pop_cfun ();
+	    }
+	bitmap_obstack_release (NULL);
+      }
+
+    }
+
   /* This pass remove bodies of extern inline functions we never inlined.
      Do this later so other IPA passes see what is really going on.  */
   cgraph_remove_unreachable_nodes (false, dump_file);

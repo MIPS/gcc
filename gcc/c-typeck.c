@@ -82,7 +82,6 @@ static int comp_target_types (tree, tree);
 static int function_types_compatible_p (tree, tree);
 static int type_lists_compatible_p (tree, tree);
 static tree decl_constant_value_for_broken_optimization (tree);
-static tree lookup_field (tree, tree);
 static tree convert_arguments (tree, tree, tree, tree);
 static tree pointer_diff (tree, tree);
 static tree convert_for_assignment (tree, tree, enum impl_conv, tree, tree,
@@ -1645,7 +1644,7 @@ default_conversion (tree exp)
    the component is embedded within (nested) anonymous structures or
    unions, the list steps down the chain to the component.  */
 
-static tree
+tree
 lookup_field (tree decl, tree component)
 {
   tree type = TREE_TYPE (decl);

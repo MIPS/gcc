@@ -1133,7 +1133,7 @@ check_call (tree call_expr)
 	  tree type = 
 	    get_canon_type (TREE_TYPE (TREE_VALUE (operand)), false, false);
 	  mark_interesting_type (type, EXPOSED_PARAMETER);
-    }
+	}
 	  
       if (callee_t) 
 	{

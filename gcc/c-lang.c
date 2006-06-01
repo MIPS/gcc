@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "c-objc-common.h"
 #include "c-pragma.h"
+#include "cgraph.h"
 
 enum c_language_kind c_language = clk_c;
 
@@ -45,8 +46,25 @@ enum c_language_kind c_language = clk_c;
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
 
+#undef  LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE
+#define LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE build_component_ref
+#undef  LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF
+#define LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF build_indirect_ref
+#undef  LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD 
+#define LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD lookup_field
+#undef  LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT
+#define LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT build_basic_struct
+#undef  LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF
+#define LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF build_array_ref
+#undef  LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE
+#define LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE c_sizeof_or_alignof_type
+#undef  LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES
+#define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES decl_attributes
+#undef  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION
+#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION reorg_structs
+
 /* Each front end provides its own lang hook initializer.  */
-const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
+const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER; 
 
 /* Tree code classes.  */
 

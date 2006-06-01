@@ -977,6 +977,10 @@ common_handle_option (size_t scode, const char *arg, int value,
       flag_random_seed = arg;
       break;
 
+    case OPT_freorg_structs:
+      flag_reorg_structs = true;
+      break;
+
     case OPT_fsched_verbose_:
 #ifdef INSN_SCHEDULING
       fix_sched_param ("verbose", arg);
