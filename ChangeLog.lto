@@ -1,3 +1,8 @@
+2006-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-vect-transform.c (vect_get_vec_def_for_operand): Call
+	build_constructor instead of build_constructor_from_list.
+
 2006-05-31  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/stor-layout.c (pending_sizes): Change the type to

@@ -513,6 +513,8 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
     /* Case 2: operand is defined outside the loop - loop invariant.  */
     case vect_invariant_def:
       {
+	VEC(constructor_elt,gc) *v;
+	
 	if (scalar_def) 
 	  *scalar_def = def;
 
@@ -520,13 +522,15 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
         if (vect_print_dump_info (REPORT_DETAILS))
           fprintf (vect_dump, "Create vector_inv.");
 
-        for (i = nunits - 1; i >= 0; --i)
-          {
-            t = tree_cons (NULL_TREE, def, t);
-          }
+	v = VEC_alloc (constructor_elt, gc, nunits);
+	for (i = 0; i < nunits; i++)
+	  {
+	    constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
+	    elt->index = NULL_TREE;
+	    elt->value = def;
+	  }
 
-	/* FIXME: use build_constructor directly.  */
-        vec_inv = build_constructor_from_list (vectype, t);
+        vec_inv = build_constructor (vectype, v);
         return vect_init_vector (stmt, vec_inv);
       }
 
