@@ -1,5 +1,11 @@
 2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
 
+	* gcc/builtins.c (expand_builtin_return_addr): Always use
+	hard_frame_pointer_rtx and prevent frame pointer elimination
+	if INITIAL_FRAME_ADDRESS_RTX isn't set.
+
+2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
+
 	* gcc/tree.h: Declare folding_initializer.
 	* gcc/builtins.c (fold_builtin_constant_p): Give definite answer
 	if folding inside an initializer.
