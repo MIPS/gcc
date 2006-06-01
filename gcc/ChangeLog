@@ -1,3 +1,8 @@
+2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Makefile.in (lower-subreg.o): Add TM_H dependency.
+	(gt-yara-ir.h): New rule with the rest of the gt-* files.
+	  
 2006-05-31  Vladimir Makarov  <vmakarov@redhat.com>,
 	    Richard Henderson  <rth@redhat.com>
 

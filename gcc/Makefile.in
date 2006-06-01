@@ -2630,7 +2630,7 @@ pretty-print.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h $(PRETTY_PRINT_H) \
    $(TREE_H)
 errors.o : errors.c $(CONFIG_H) $(SYSTEM_H) errors.h $(BCONFIG_H)
 lower-subreg.o : lower-subreg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(MACHMODE_H) $(RTL_H) bitmap.h
+   $(MACHMODE_H) $(RTL_H) bitmap.h $(TM_H)
 
 $(out_object_file): $(out_file) $(CONFIG_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h insn-config.h conditions.h \
@@ -2894,7 +2894,8 @@ gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
 gt-tree-ssa-structalias.h \
-gt-stringpool.h gt-targhooks.h gt-omp-low.h gt-yara-trans.h : s-gtype ; @true
+gt-stringpool.h gt-targhooks.h gt-omp-low.h \
+gt-yara-ir.h gt-yara-trans.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
  echo "\"$(gtyp)\", " >> tmp-gtyp.h
