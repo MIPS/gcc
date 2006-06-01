@@ -1,0 +1,409 @@
+2006-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/20020720-1.x: XFAIL for
+	PowerPC -msoft-float.
+	* gcc/testsuite/gcc.dg/980827-1.c: Skip for PowerPC -msoft-float.
+
+2006-04-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	MIPS.
+
+2006-04-22  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-01-24  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp (dg-skip-if): New.
+
+2006-04-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/arm-vfp1.c: Also skip for -tiwmmxt.
+
+2006-04-22  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_override_options): Error on iWMMXt and
+	hardware floating point.
+	* gcc/testsuite/gcc.dg/arm-vfp1.c: Skip on iWMMXt cpus.
+
+2006-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_legitimate_index_p): Allow mode ==
+	SImode as well as VALID_IWMMXT_REG_MODE if TARGET_REALLY_IWMMXT.
+	* gcc/config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Restrict
+	offsets in iWMMXt case.
+	* gcc/testsuite/gcc.c-torture/compile/20060421-1.c: New testcase.
+
+2006-04-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/arm/arm.md: Provide a big-endian version of the
+	(zero_extend:SI (subreg:QI ...)) splitter.
+
+2006-04-19  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/arm/arm.md (insv): Use gen_int_mode in more places.
+
+2006-02-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/gcc.c (license_me_flag): New variable.
+	(no_license): New variable.
+	(process_command): Handle -flicense-me.  Initialize no_licence.
+	(main): Check licenses.
+	* gcc/config.gcc: Define TARGET_FLEXLM for *-wrs-linux* targets.
+
+2006-01-31  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-08-08  Josh Conner  <jconner@apple.com>
+
+	PR rtl-optimization/23241
+	* combine.c (simplify_comparison): Fix error in determining
+	whether to lift a subreg from comparison.
+	* gcc.dg/char-compare.c: New test.
+
+2006-01-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/c-incpath.c (dir_separator_str): New.
+	(add_standard_paths): Use it instead of hardcoding "/".
+	* gcc/testsuite/lib/target-supports.exp
+	(check_profiling_available): Check for -muclibc.
+	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Likewise.
+
+2006-01-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/wchar_t-1.c,
+	gcc/testsuite/gcc.dg/wint_t-1.c,
+	gcc/testsuite/gcc.dg/tls/alias-1.c,
+	gcc/testsuite/gcc.dg/tls/opt-2.c,
+	libstdc++-v3/testsuite/27_io/basic_istream/extractors_arithmetic/char/09.cc,
+	libstdc++-v3/testsuite/27_io/basic_ostream/inserters_arithmetic/char/6.cc:
+	XFAIL where appropriate for targets supporting uClibc.
+
+2006-01-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/cppdefault.h (struct default_include): Add multilib flag.
+	* gcc/cppdefault.c (cpp_include_defaults): Set it.
+	* gcc/c.opt (-imultilib): New option.
+	* gcc/c-opts.c (imultilib): New.
+	(c_common_handle_option): Handle -imultilib.
+	(c_common_post_options): Likewise.
+	* gcc/c-incpath.c (add_standard_paths, register_include_chains):
+	Likewise.
+	* gcc/c-incpath.h (register_include_chains): Add extra parameter.
+	* gcc/gcc.c (do_spec_1): Generate -imultilib option.
+	* libstdc++-v3/include/Makefile.am: Install host-specific headers
+	in multilib subdirectory.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+
+2006-01-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/builtins-config.h (HAVE_C99_RUNTIME): Don't
+	define if __UCLIBC__ is defined.
+
+2006-01-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/arm.h (ARM_FLAG_UCLIBC, TARGET_UCLIBC): New.
+	* gcc/config/arm/linux-elf.h (SUBTARGET_SWITCHES): Use
+	ARM_FLAG_UCLIBC.
+	(TARGET_C99_FUNCTIONS): Define in terms of TARGET_UCLIBC.
+	* gcc/config/mips/mips.h (MASK_UCLIBC, TARGET_UCLIBC): New.
+	* gcc/config/mips/linux.h (SUBTARGET_TARGET_SWITCHES): Use
+	MASK_UCLIBC.
+	(TARGET_C99_FUNCTIONS): Define in terms of TARGET_UCLIBC.
+
+2005-12-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config.gcc (powerpc-wrs-linux-gnu): Use rs6000/wrs-linux.h
+	* gcc/config/arm/t-wrs-linux (EXTRA_MULTILIB_PARTS): Add
+	crtbeginT.o.
+	* gcc/config/mips/t-wrs-linux, gcc/config/mips/wrs-linux.h: Add
+	hard-float multilibs.
+	* gcc/config/rs6000/wrs-linux.h: New.
+
+2005-12-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* libstdc++-v3/crossconfig.m4: Use link tests for *-*-linux*.
+	* libstdc++-v3/configure: Regenerate.
+	* libstdc++-v3/include/ext/new_allocator.h (allocate): Throw
+	std::bad_alloc when n > max_size().  Backported from patch by
+	Paolo Carlini.
+
+2005-12-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: Remove.
+	* gcc/testsuite/gcc.dg/special/gcsec-1.c: Don't XFAIL execution.
+	* gcc/testsuite/gcc.dg/cleanup-8.c,
+	gcc/testsuite/gcc.dg/cleanup-9.c,
+	gcc/testsuite/gcc.dg/cleanup-10.c,
+	gcc/testsuite/gcc.dg/cleanup-11.c: XFAIL on powerpc-wrs-linux-gnu.
+
+2005-12-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Build multiple uClibc multilibs.
+	* gcc/config/mips/linux.h (SUBTARGET_TARGET_SWITCHES, LINK_SPEC):
+	Add -muclibc option.
+	* gcc/config/mips/t-wrs-linux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Build uClibc multilibs.
+	* gcc/config/mips/wrs-linux.h (MULTILIB_DEFAULTS): Don't create
+	explicit -meb multilib.
+	(SYSROOT_HEADERS_SUFFIX_SPEC, SYSROOT_SUFFIX_SPEC): Support uClibc
+	multilibs.
+
+2005-12-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Allow multiple
+	uClibc multilibs.
+
+2005-12-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* libstdc++-v3/crossconfig.m4: Don't define HAVE_FINITEF for
+	uClibc.
+	* libstdc++-v3/configure: Regenerate.
+
+2005-12-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* libstdc++-v3/config/os/uclibc/ctype_noninline.h,
+	libstdc++-v3/config/os/uclibc/ctype_base.h,
+	libstdc++-v3/config/os/uclibc/os_defines.h,
+	libstdc++-v3/config/os/uclibc/ctype_inline.h: New files.  From
+	buildroot.
+	* libstdc++-v3/configure.host: Use os/uclibc for uClibc.
+	* libstdc++-v3/acinclude.m4: Test for uClibc.
+	* libstdc++-v3/configure, libstdc++-v3/aclocal.m4: Regenerate.
+
+2005-12-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS): Also build
+	-muclibc multilib.
+	(MULTILIB_DIRNAMES): Define.
+
+2005-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/arm/lib1funcs.asm (div0) [L_dvmd_lnx]: Call raise instead
+	of making syscalls.
+	* gcc/config/arm/linux-eabi.h (CLEAR_INSN_CACHE): Define.  Set r7 also.
+
+2005-12-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config/arm/linux-elf.h (SUBTARGET_SWITCHES): Add -muclibc.
+	(LINUX_TARGET_LINK_SWITCH): Use uClibc dynamic loader if -muclibc.
+	* gcc/config/arm/wrs-linux.h (SYSROOT_HEADERS_SUFFIX_SPEC): New
+	macro.
+	(SYSROOT_SUFFIX_SPEC): Add support for -muclibc.
+
+2005-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/eh/forced1.C,
+	gcc/testsuite/g++.dg/eh/forced2.C,
+	gcc/testsuite/g++.dg/eh/forced3.C,
+	gcc/testsuite/g++.dg/eh/forced4.C: XFAIL and expect excess errors
+	on arm-wrs-linux-gnueabi.
+	* gcc/testsuite/g++.old-deja/g++.abi/ptrflags.C: Expect excess
+	errors on mips-wrs-linux-gnu.
+	* gcc/testsuite/g++.old-deja/g++.eh/catchptr1.C: XFAIL execution
+	on mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New files.  XFAIL
+	execution on i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.c-torture/execute/va-arg-25.x: XFAIL execution
+	on i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/20020103-1.c: XFAIL scan-assembler-not on
+	powerpc-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/builtins-18.c: Expect excess errors on
+	mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/Wunreachable-1.c: Test for and XFAIL bogus
+	message on arm-wrs-linux-gnueabi.
+	* gcc/testsuite/gcc.dg/cleanup-8.c,
+	gcc/testsuite/gcc.dg/cleanup-9.c: XFAIL execution on
+	i586-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/ppc-sdata-1.c: Backport
+	<http://gcc.gnu.org/ml/gcc-patches/2004-10/msg01263.html>.
+	* gcc/testsuite/gcc.dg/special/gcsec-1.c: XFAIL on *-wrs-linux*.
+	Expect excess errors on mips-wrs-linux-gnu.
+	* gcc/testsuite/gcc.dg/special/mips-abi.exp: Do not test -mabi=64.
+	* gcc/testsuite/gcc.dg/torture/pr19683-1.c: XFAIL on
+	mips-wrs-linux-gnu.
+	* libstdc++-v3/testsuite/26_numerics/c99_classification_macros_c.cc:
+	XFAIL on *-*-linux*, not *-*-linux-gnu.
+
+2005-09-09  Paul Brook  <paul@codesourcery.com>
+
+	* libiberty/pex-win32.c (argv_to_cmdline): Fix escaping of
+	backslash characters.
+
+2005-08-09  Mark Mitchell  <mark@codesourcery.com>
+
+	As posted at http://gcc.gnu.org/ml/gcc-patches/2005-07/msg01945.html
+	2005-07-28  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+	2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+	* src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* libsupc++/Makefile.am (LLDFLAGS): New variable.
+	(CXXLINK): Use it.
+	* src/Makefile.in: Regenerated.
+	* libsupc++/Makefile.in: Likewise.
+	
+2005-08-05  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/loop.c (combine_movables): Require the modes to be the same.
+	(move_movables): Remove handling of cases where the replacement
+	had a different mode to the original.
+	* gcc/testsuite/gcc.c-torture/compile/pr23233-1.c: New test.
+
+2005-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-07-29  Mark Mitchell  <mark@codesourcery.com>
+	PR bootstrap/23131
+	* configure.ac (SYSTEM_HEADER_DIR): Avoid setting to empty
+	string. 
+	* configure: Regenerated.
+	
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+	* Makefile.tpl (EXTRA_TARGET_FLAGS): Set LDFLAGS=LDFLAGS_FOR_TARGET.
+	* Makefile.def (flags_to_pass): Add LDFLAGS_FOR_TARGET. 
+	* Makefile.in: Regenerated.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/mt-linux (CXXFLAGS): Include SYSROOT_CFLAGS_FOR_TARGET.
+
+2005-07-27  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+	* Makefile.tpl (SYSROOT_CFLAGS_FOR_TARGET): New variable.
+	(CFLAGS_FOR_TARGET): Use it.
+	(CXXFLAGS_FOR_TARGET): Likewise.
+	* Makefile.in: Regenerated.
+	* configure.in (--with-build-sysroot): New option.
+	* configure: Regenerated.
+
+	2005-07-25  Mark Mitchell  <mark@codesourcery.com>
+	* gcc.c (option_map): Add --sysroot.
+	(process_command): Handle --sysroot.
+	(display_help): Document it.
+	* doc/cppopts.tex (-isysroot): Document.
+	* doc/invoke.texi (--sysroot): Document.
+	* doc/install.texi (--with-build-sysroot): Document.
+
+	* Makefile.in (inhibit_libc): New variable.
+	(INHIBIT_LIBC_CFLAGS): Likewise.
+	(LIBGCC2_CFLAGS): Include
+	$(INHIBIT_LIBC_CFLAGS).
+	(CRTSTUFF_CFLAGS): Include $(INHIBIT_LIBC_CFLAGS).
+	($(T)crtbegin.o): Do not use @inhibit_libc@.
+	($(T)crtend.o): Likewise.
+	($(T)crtbeginS.o): Do not use @inhibit_libc@.
+	($(T)crtendS.o): Likewise.
+	($(T)crtbeginT.o): Do not use @inhibit_libc@.
+	($(T)crtendT.o): Likewise.
+	(stmp-fixinc): Do not complain about missing headers if
+	inhibit_libc.
+	* configure.ac (inhibit_libc): Set it to true/false.
+	(--with-build-sysroot): New option.  Use it to set
+	SYSTEM_HEADER_DIR. 
+	* configure: Regenerated.
+
+	2005-07-26  Mark Mitchell  <mark@codesourcery.com>
+	* doc/install.texi (--with-build-sysroot): Fix grammatical error.
+	Clarify use of "build" in name.
+
+2005-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config.gcc (powerpc-wrs-linux-gnu): Add 64-bit support.
+	* gcc/config/rs6000/linux64.h: Remove stray #endif.
+
+2005-07-07  Paul Brook  <paul@codesourcery.com>
+
+	Issue #347
+	* config/arm/arm.c (arm_pad_arg_upward): Compare return value of
+	DEFAULT_FUNCTION_ARG_PADDING to upward.
+
+2005-06-14  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/mips/linux.h (MD_FALLBACK_REGISTER_OFFSET): Define.
+	(MD_FALLBACK_FRAME_STATE_FOR): Use it. 
+	
+2005-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2005-01-25  Daniel Jacobowitz  <dan@codesourcery.com>
+	* config/mips/linux.h (LIB_SPEC): Remove -rpath-link.
+	* config/mips/linux64.h (LIB_SPEC): Likewise.
+
+	Backport:
+	2005-03-13  Daniel Jacobowitz  <dan@codesourcery.com>
+	            Joseph S. Myers  <joseph@codesourcery.com>
+	* configure.ac: Check for MIPS TLS.
+	* configure: Regenerated.
+	* config/mips/mips-protos.h (enum mips_symbol_type): Add
+	SYMBOL_TLS, SYMBOL_TLSGD, SYMBOL_TLSLDM, SYMBOL_DTPREL,
+	SYMBOL_GOTTPREL, and SYMBOL_TPREL.
+	* config/mips/mips.c (mips_regno_to_class): Handle V1_REG.
+	(TARGET_HAVE_TLS, TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	(mips_classify_symbol, mips_symbolic_constant_p)
+	(mips_symbolic_address_p, mips_symbol_insns): Handle TLS symbols.
+	(mips_tls_operand_p, mips_call_tls_get_addr)
+	(mips_legitimize_tls_address, mips_cannot_force_const_mem)
+	(mips_tls_symbol_ref_1): New functions.
+	(mips_legitimize_address, mips_legitimize_const_move): Call
+	mips_legitimize_tls_address.
+	(override_options): Handle V1_REG and TLS symbols.  Disable TLS
+	for MIPS16.
+	* config/mips/mips.h (enum reg_class, REG_CLASS_NAMES)
+	(REG_CLASS_CONTENTS, GR_REG_CLASS_P): Include V1_REG.
+	(mips_char_to_class): Document V1_REG.
+	(HAVE_AS_TLS): Provide default.
+	* config/mips/mips.md (UNSPEC_TLS_LDM, UNSPEC_TLS_GET_TP): New
+	constants.
+	(load_got<mode>): Renamed from *load_got<mode>.  Allow when
+	!TARGET_ABICALLS.
+	(tls_get_tp_<mode>): New instruction.
+	
+2005-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	Merge to merge-csl-arm-csl_3_4_3-linux-2.
+	
+2005-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/config.gcc (i[34567]86-wrs-linux*): Build a bi-arch
+	compiler.
+	* gcc/config/i386/x86-64.h (ASM_SPEC): Explicitly pass --64 to the
+	assembler in 64-bit mode.
+
+2005-05-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR 18655
+	* dwarf2out.c (output_call_frame_info): Use DWARF2_FRAME_REG_OUT
+	before outputting DWARF_FRAME_RETURN_COLUMN.
+
+2005-03-30  Mark Mitchell <mark@codesourcery.com>
+
+	Merge to merge-csl-arm-csl_3_4_3-linux-1.
+	
+2005-03-23  Mark Mitchell <mark@codesourcery.com>
+
+	Backport from mainline:
+	2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Improve handling
+	of compilers not in the build directory.
+	(libstdc++_wchar_t): New variable.
+	(libstdc++_threads): Likewise.
+	(libstdc++_test_objs): Likewise.
+	(v3_target_compile): Use libstdc++_test_objs.
+	(v3-list-tests): Remove.
+	(listdc++_build_support): New function.
+	* testsuite/libstdc++-dg/normal.exp: Rework to dynamically
+	generate list of tests.
+
+2005-01-31  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty/pex-unix.c (pexecute): Set last_pipe_input to -1 at
+	the end of the pipeline.

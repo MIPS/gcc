@@ -1,0 +1,358 @@
+2005-05-20  Julian Brown  <julian@codesourcery.com>
+
+	* Merge from 3.4.4 release.
+
+2005-05-16  Julian Brown  <julian@codesourcery.com>
+
+	* libiberty/pex-win32.c (maybe_duplicate_handle): New function.
+	(pexec): Don't call DuplicateHandle if GetStdHandle returns NULL.
+
+2005-05-15  Zack Weinberg  <zack@codesourcery.com>
+
+	Merge from mainline:
+	2005-03-18  Alexandre Oliva  <aoliva@redhat.com>
+	* gcc_update (silent): Unset instead of initializing to null.
+
+	2005-03-18  Andreas Schwab  <schwab@suse.de>
+	* gcc_update (apply_patch): Properly quote $1.
+
+	2005-03-18  Zack Weinberg  <zack@codesourcery.com>
+	* gcc_update: Add --silent option.
+
+2005-04-08  Paul Brook  <paul@codesourcery.com>
+
+	* libiberty/pex-win32.c: Include stdio.h.
+
+2005-03-23  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc/config.gcc: Add arm-wrs-linux-gnu.
+	* gcc/config/arm/t-wrs-linux: New file.
+	* gcc/config/arm/wrs-linux.h: Likewise.
+
+2005-01-20  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define.
+	(DTORS_SECTION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
+2004-12-30  Paul Brook  <paul@codesourcery.com>
+
+	Merge from GCC 3.4.3 release.
+
+2004-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/libsupc++/eh_arm.cc (__cxa_begin_cleanup): Add exception
+	to list.
+	(cxa_end_cleanup): Call __gnu_end_cleanup.
+	(__gnu_end_cleanup): New function.
+	* libstdc++/libsupc++/unwind-cxx.h (struct __cxa_exception): Add
+	field for propagating exception stack.
+	(struct __cxa_exception): Add propagatingExceptions.
+
+2004-12-15  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* libstdc++-v3/config/linker-map.gnu: Add ARM EABI symbols.
+
+2004-12-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* libstdc++-v3/config/abi/arm-linux-gnu/baseline_symbols.txt,
+	libstdc++-v3/config/abi/i386-linux-gnu/baseline_symbols.txt,
+	libstdc++-v3/config/abi/m68k-linux-gnu/baseline_symbols.txt,
+	libstdc++-v3/config/abi/powerpc-linux-gnu/baseline_symbols.txt,
+	libstdc++-v3/config/abi/s390-linux-gnu/baseline_symbols.txt,
+	libstdc++-v3/config/abi/x86_64-linux-gnu/32/baseline_symbols.txt,
+	libstdc++-v3/config/os/tpf/ctype_base.h,
+	libstdc++-v3/config/os/tpf/ctype_inline.h,
+	libstdc++-v3/config/os/tpf/ctype_noninline.h,
+	libstdc++-v3/config/os/tpf/os_defines.h,
+	libstdc++-v3/testsuite/20_util/auto_ptr/1.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/2.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/3.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/3946.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/4.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/5.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/6.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/7.cc,
+	libstdc++-v3/testsuite/20_util/auto_ptr/assign_neg.cc,
+	libstdc++-v3/testsuite/20_util/pair/1.cc,
+	libstdc++-v3/testsuite/20_util/pair/2.cc,
+	libstdc++-v3/testsuite/20_util/pair/3.cc,
+	libstdc++-v3/testsuite/20_util/pair/4.cc,
+	libstdc++-v3/testsuite/23_containers/bitset/ext/15361.cc,
+	libstdc++-v3/testsuite/23_containers/deque/modifiers/swap.cc,
+	libstdc++-v3/testsuite/23_containers/map/modifiers/swap.cc,
+	libstdc++-v3/testsuite/23_containers/multimap/modifiers/swap.cc,
+	libstdc++-v3/testsuite/23_containers/multiset/modifiers/swap.cc,
+	libstdc++-v3/testsuite/23_containers/set/modifiers/swap.cc,
+	libstdc++-v3/testsuite/27_io/basic_ios/imbue/14072.cc,
+	libstdc++-v3/testsuite/ext/rope/1.cc,
+	libstdc++-v3/testsuite/ext/rope/2.cc,
+	libstdc++-v3/testsuite/ext/rope/3.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/insert.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/insert_insert.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/list_sort_search.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/map_mt_find.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/map_thread.cc,
+	libstdc++-v3/testsuite/performance/20_util/allocator/producer_consumer.cc,
+	libstdc++-v3/testsuite/performance/21_strings/string_append.cc,
+	libstdc++-v3/testsuite/performance/21_strings/string_cons_input_iterator.cc,
+	libstdc++-v3/testsuite/performance/22_locale/is_wchar_t.cc,
+	libstdc++-v3/testsuite/performance/22_locale/narrow_widen_char.cc,
+	libstdc++-v3/testsuite/performance/22_locale/narrow_widen_wchar_t.cc,
+	libstdc++-v3/testsuite/performance/22_locale/wchar_t_in.cc,
+	libstdc++-v3/testsuite/performance/22_locale/wchar_t_length.cc,
+	libstdc++-v3/testsuite/performance/22_locale/wchar_t_out.cc,
+	libstdc++-v3/testsuite/performance/23_containers/container_benchmark.cc,
+	libstdc++-v3/testsuite/performance/23_containers/list_create_fill_sort.cc,
+	libstdc++-v3/testsuite/performance/23_containers/map_create_fill.cc,
+	libstdc++-v3/testsuite/performance/26_numerics/complex_norm.cc,
+	libstdc++-v3/testsuite/performance/27_io/cout_insert_int.cc,
+	libstdc++-v3/testsuite/performance/27_io/filebuf_copy.cc,
+	libstdc++-v3/testsuite/performance/27_io/filebuf_sputc.cc,
+	libstdc++-v3/testsuite/performance/27_io/filebuf_sputn_unbuf.cc,
+	libstdc++-v3/testsuite/performance/27_io/fmtflags_manipulators.cc,
+	libstdc++-v3/testsuite/performance/27_io/fstream_seek_write.cc,
+	libstdc++-v3/testsuite/performance/27_io/ifstream_extract_float.cc,
+	libstdc++-v3/testsuite/performance/27_io/ifstream_extract_int.cc,
+	libstdc++-v3/testsuite/performance/27_io/ifstream_getline.cc,
+	libstdc++-v3/testsuite/performance/27_io/ofstream_insert_float.cc,
+	libstdc++-v3/testsuite/performance/27_io/ofstream_insert_int.cc,
+	libstdc++-v3/testsuite/performance/27_io/stringbuf_overflow.cc: Merge
+	from GCC 3.4.2.
+
+2004-11-16  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/libsupc++/eh_arm.cc: Include cxxabi.h.
+	(__cxa_type_match): Update prototype.  Change return values.
+	* libstdc++/libsupc++/eh_call.cc (__cxa_call_unexpected): Pass extra
+	argument to __cxa_type_match.
+	* libstdc++/libsupc++/eh_personality.cc (get_adjusted_ptr): Ditto.
+	* libstdc++/libsupc++/unwind-cxx.h (__cxa_type_match_result): Declare.
+	(__cxa_type_match): Update prototype.
+
+2004-10-05  Phil Edwards  <phil@codesourcery.com>
+
+	* gcc/aclocal.m4 (_gcc_COMPUTE_GAS_VERSION):  Handle leading
+	whitespace in binutils files (copy from trunk).
+	* gcc/configure.ac (assembler check):  Always assign to gcc_cv_as.
+	(linker check):  Handle leading whitespace in binutils files (copy
+	from trunk).  Always assign to gcc_cv_ld.
+	* gcc/configure:  Regenerated.
+
+2004-09-30  Paul Brook  <paul@codesourcery.com>
+
+	Merge from GCC 3.4.2 release.
+
+2004-09-29  Paul Brook  <paul@codesourcery.com>
+
+	* acinclude.m4: Check for __cxa_end_cleanup.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* libsupc++/eh_arm.cc: Only compile for arm EABI targets.
+	(__cxa_end_cleanup): Declare ((naked)) to avoid messing with the
+	stack.
+
+2004-09-24  Paul Brook  <paul@codesourcery.com>
+
+libstdc++-v3/testsuite
+	* 27_io/basic_filebuf/sgetn/char/1-in.cc: XFAIL more arm simulator
+	targets.
+	* 27_io/basic_filebuf/sgetn/char/1-io.cc: Ditto.
+	* 27_io/basic_filebuf/sgetn/char/2-in.cc: Ditto.
+	* 27_io/basic_filebuf/sgetn/char/2-io.cc: Ditto.
+	* 27_io/basic_istream/readsome/char/6746-2.cc: Ditto.
+	* ext/stdio_filebuf/char/10063-2.cc: Ditto.
+	* ext/stdio_filebuf/char/10063-3.cc: Ditto.
+
+2004-09-22  Paul Brook  <paul@codesourcery.com>
+
+libstdc++-v3/
+	Add support for ARM EABI unwinding library.
+	* libsupc++/Makefile.am (sources): Add eh_arm.cc and eh_call.cc.
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/eh_arm.cc: New file.
+	* libsupc++/eh_call.cc: New file.
+	* libsupc++/eh_catch.cc (__cxa_begin_catch): Call _Unwind_Complete.
+	Use __is_gxx_exception_class.
+	(__cxa_end_catch): Use __is_gxx_exception_class.
+	* libsupc++/eh_personality.cc (NO_SIZE_OF_ENCODED_VALUE): Define if
+	using ARM EABI unwinder.
+	(_throw_typet): Declare.
+	(check_exception_spec, get_ttype_entry, get_adjusted_ptr): Add
+	ARM EABI implementations.
+	(CONTINUE_UNWINDING): Define.
+	(PERSONALITY_FUNCTION): Use CONTINUE_UNWINDING and
+	__cxa_call_terminate.  Add Support for ARM EABI.  Including changes
+	to function prototype, initialization code, exception object format,
+	and calling __cxa_begin_cleanup.
+	(__cxa_call_unexpected): Disable on arm systems.
+	* libsupc++/eh_throw.cc (__cxa_throw): Use __GXX_INIT_EXCEPTION_CLASS.
+	(__cxa_rethrow): Use __is_gxx_exception_class.  Always call
+	_Unwind_RaiseException on ARM EABI targets.
+	* libsupc++/unwind-cxx.h (__cxa_call_terminate): Declare.
+	(__cxa_type_match, __cxa_begin_cleanup, __cxa_end_cleanup): Declare.
+	(__is_gxx_exception_class, __GXX_INIT_EXCEPTION_CLASS): Define.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/cpu/arm/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* config/cpu/generic/cxxabi_tweaks.h (__cxa_cdtor_return_type):
+	Define.
+	* libsupc++/cxxabi.h (__cxa_cdtor_return_type): New type.
+	(__cxa_vec_new): Use it.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	* libsupc++/vec.cc (__cxa_vec_new): Likewise.
+	(__cxa_vec_new2): Likewise.
+	(__cxa_vec_new3): Likewise.
+	(__cxa_vec_cdtor): Likewise.
+	(__cxa_vec_cctor): Likeiwse.
+	(__cxa_vec_dtor): Likewise.
+	(__cxa_vec_cleanup): Likewise.
+	(__cxa_vec_delete2): Likewise.
+	(__cxa_vec_delete3): Likewise.
+	(__aeabi_vec_ctor_nocookie_nodtor): New function.
+	(__aeabi_vec_ctor_cookie_nodtor): Likewise.
+	(__aeabi_vec_cctor_nocookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie_noctor): Likewise.
+	(__aeabi_vec_new_nocookie): Likewise.
+	(__aeabi_vec_new_cookie_nodtor): Likewise.
+	(__aeabi_vec_new_cookie): Likewise.
+	(__aeabi_vec_dtor): Likewise.
+	(__aeabi_vec_dtor_cookie): Likewise.
+	(__aeabi_vec_delete): Likewise.
+	(__aeabi_vec_delete3): Likewise.
+	(__aeabi_vec_delete3_nodtor): Likewise.
+	(__aeabi_atexit): Likewise.
+
+2004-09-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/typeinfo: Honor
+	_GXX_MERGED_TYPEINFO_NAMES if already defined.
+
+2004-08-16  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-08-03  Mark Mitchell  <mark@codesourcery.com>
+	* configure.in (arm*-*-symbianelf*): Add ${libgcj} and
+	target-libiberty to noconfigdirs.
+	* configure: Regenerate.
+
+	2004-08-02  Mark Mitchell  <mark@codesourcery.com>
+	* Makefile.am (hosted_source): Add libmath and testsuite.
+	(SUBDIRS): Remove them.
+	* acinclude.m4: (GLIBCXX_ENABLED_HOSTED): Default to freestanding
+	on arm*-*-symbianelf*.
+	* crossconfig.m4: Add arm*-*-symbianelf* support.
+	* include/c_std/std/std_cstdlib.h (stdlib.h): Do not include it
+	when freestanding.  Do not bring names into std:: namespace with
+	"using" when freestanding.  Declare required functions and macros
+	when freestanding.
+	* libsupc++/Makefile.am (c_sources): Do not include cp-demangle.c
+	when freestanding.
+	* libsupc++/del_op.cc: Declare "free" only when freestanding.
+	* libsupc++/eh_alloc.cc (cstring): Include it only when hosted.
+	(malloc): Declare when freestanding.
+	(free): Likewise.
+	(memset): Likewise.
+	(__cxa_allocate_exception): Call malloc, not std::malloc.  Likewise
+	for memset.
+	(__cxa_free_exception): Likewise for free.
+	* libsupc++/new_op.cc: Declare "malloc" when freestanding.
+	* libsupc++/pure.cc (writestr): Define to nothing when
+	freestanding.
+	* libsupc++/vterminate.cc: Do not define anything when
+	freestanding.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Likewise.
+	* configure: Likewise.
+	* include/Makefile.in: Likewise.
+	* libmath/Makefile.in: Likewise.
+	* libsupc++/Makefile.in: Likewise.
+	* po/Makefile.in: Likewise.
+	* src/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2004-08-12  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++/config/cpu/arm/cxxabi_tweaks.h: Define
+	__cxa_vec_ctor_return and _GLIBCXX_CXA_VEC_CTOR_RETURN.
+	* libstdc++/config/cpu/generic/cxxabi_tweaks.h: Ditto.
+	* libstdc++/libsupc++/cxxabi.h (__cxa_vec_ctor, __cxa_vec_cctor): Use
+	__cxa_vec_ctor_return.
+	* libstdc++/libsupc++/vec.cc (__cxa_vec_ctor, __cxa_vec_cctor): Ditto.
+	Use _GLIBCXX_CXA_VEC_CTOR_RETURN.
+
+2004-08-03  Richard Earnshaw <rearnsha@arm.com>
+
+	* contrib/gcc_update: gcc/config/arm/arm-tune.md -> arm-cores.def
+	gentune.sh.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* include/libiberty.h (pmkpipe): New function.
+	(pexec): Likewise.
+	(pexec_set_program_name): Likewise.
+	(WIFSIGNALED): Define.
+	(WTERMSIG): Likewise.
+	(WIFEXITED): Likewise.
+	(WEXITSTATUS): Likewise.
+	(WSTOPSIG): Likewise.
+	(WCOREDUMP): Likewise.
+
+2004-02-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* libibery/make-relative-prefix.c (make_relative_prefix): Do not throw
+	out the last component of PROG_DIRS if it is a directory name.
+
+2004-01-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-win32.c (pexec): Close duplicated handles in parent
+	after spawning child.  Return a process HANDLE, not a process
+	identifier.
+	(pwait): Expect a process HANDLE, not a process identifier.
+
+2003-12-23  Zack Weinberg  <zack@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/pex-common.c (STDERR_FILE_NO): Define.
+	* libiberty/pex-win32.c: Rework extensively.
+	* libiberty/pex-unix.c: Likewise.
+
+2004-07-03  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/configure.ac: Set ABI_TWEAKS_SRCDIR.
+	* libstdc++-v3/configure.host: Set abi_tweaks_dir.  Check for
+	atomicity.h when setting atomicity_dir.  Override type_cpu for
+	arm based targets.
+	* libstdc++-v3/include/Makefile.am (host_headers): Add cxxabi_tweaks.h.
+	* libstdc++-v3/libsupc++/cxxabi.h: Include bits/cxxabi.h. Don't
+	declare __guard.
+	* libstdc++-v3/libsupc++/guard.cc: Use definitions from
+	cxxabi_tweaks.h.
+	* libstdc++-v3/libsupc++/vec.cc: Ditto.
+	* libstdc++-v3/config/cpu/arm/cxxabi_tweaks.h: New file.
+	* libstdc++-v3/config/cpu/generic/cxxabi_tweaks.h: New file.
+	* libstdc++-v3/*/Makefile.in: Regenerate.
+	* libstdc++-v3/configure: Regenerate.
+
+2004-06-29  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/vec.cc (__cxa_vec_new2, __cxa_vec_new3):
+	Store the element size in the cookie.
+
+2004-06-25  Paul Brook  <paul@codesourcery.com>
+
+	* libstdc++-v3/libsupc++/cxxabi.h: Define __ARM_EABI__
+	(__guard): Use it.
+	* libstdc++-v3/libsupc++/guard.h (__cxa_guard_acquire)
+	(__cxa_guard_release): Ditto.

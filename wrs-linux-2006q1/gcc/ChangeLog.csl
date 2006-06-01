@@ -1,0 +1,162 @@
+2005-09-15  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_load_tp): Copy result to pseudo.
+	* config/arm/arm.h (CLASS_LIKELY_SPILLED_P): Return 1 for RETURN_REG.
+	* config/arm/arm.md (load_tp_soft): Set conds attr.
+
+2005-09-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/gcc.dg/torture/pr19683-1.c: Remove XFAIL.
+
+2005-09-15  Richard Sandiford  <richard@codesourcery.com>
+
+	* reload1.c (inherit_piecemeal_p): New function.
+	(emit_reload_insns): When reloading a group of hard registers, use
+	inherit_piecemeal_p to decide whether the values of individual hard
+	registers can be inherited.
+	* testsuite/gcc.dg/torture/mips-hilo-2.c: New test.
+
+2005-08-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* hwint.h (HOST_WIDE_INT_PRINT): Use HOST_LONG_LONG_FORMAT.
+
+	Backport:
+	2004-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* hwint.h (HOST_LONG_LONG_FORMAT): New macro.  Use it throughout.
+	* config/i386/xm-mingw32.h (HOST_LONG_LONG_FORMAT): Define.
+
+2005-08-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/wrs-linux.h (CC1_SPEC, SUBTARGET_EXTRA_ASM_SPEC,
+	SUBTARGET_EXTRA_LINK_SPEC): Change -tiwmmxt to little-endian.
+	(SUBTARGET_EXTRA_LINK_SPEC): Add initial space.
+
+2005-08-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* cp/decl2.c (import_export_vtable): Also mark decl as used with
+	mark_referenced.
+
+2005-03-25  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport from 3.4 branch:
+	* gcc.dg/altivec-1.c: Pass -mcpu=7400 along with -maltivec.
+	* gcc.dg/altivec-2.c: Likewise.
+	* gcc.dg/altivec-3.c: Likewise.
+	* gcc.dg/altivec-4.c: Likewise.
+	* gcc.dg/altivec-5.c: Likewise.
+	* gcc.dg/altivec-6.c: Likewise.
+	* gcc.dg/altivec-7.c: Likewise.
+	* gcc.dg/altivec-8.c: Likewise.
+	* gcc.dg/altivec-9.c: Likewise.
+	* gcc.dg/altivec-10.c: Likewise.
+	* gcc.dg/altivec-11.c: Likewise.
+	* gcc.dg/altivec-12.c: Likewise.
+	* gcc.dg/altivec-13.c: Likewise.
+	* gcc.dg/altivec-14.c: Likewise.
+	* gcc.dg/altivec-15.c: Likewise.
+	* gcc.dg/altivec-16.c: Likewise.
+	* gcc.dg/altivec-17.c: Likewise.
+	* g++.dg/ext/altivec-1.C: Likewise.
+	* g++.dg/ext/altivec-2.C: Likewise.
+	* g++.dg/ext/altivec-3.C: Likewise.
+	* g++.dg/ext/altivec-4.C: Likewise.
+	* g++.dg/ext/altivec-5.C: Likewise.
+	* g++.dg/ext/altivec-6.C: Likewise.
+	* g++.dg/ext/altivec-7.C: Likewise.
+	* g++.dg/ext/altivec-8.C: Likewise.
+	* g++.dg/ext/altivec-9.C: Likewise.
+	* g++.dg/ext/altivec-10.C: Likewise.
+	* g++.dg/ext/altivec-11.C: Likewise.
+	* g++.dg/ext/altivec-12.C: Likewise.
+
+2005-01-31  Mark Mitchell <mark@codesourcery.com>
+
+	* gcc.c (main): Use set_spec.
+
+2005-01-27  Mark Mitchell <mark@codesourcery.com>
+
+	* config.gcc (powerpc-wrs-linux-gnu): Add 64-bit support.
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Define
+	only in libgcc and when inhibit_libc is not defined.
+	
+2005-01-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Update.
+	* config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Simplify.
+	(SYSROOT_SUFFIX_LINK_SPEC): Remove.
+	* config/mips/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Simplify.
+	(SYSROOT_SUFFIX_LINK_SPEC): Remove.
+
+2005-01-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.c (SYSROOT_SPEC): New macro.
+	(sysroot_spec): New variable.
+	(static_specs): Add sysroot_spec.
+	(main): Pass --sysroot to the linker. 
+	
+	Revert:
+	2005-01-16  Mark Mitchell  <mark@codesourcery.com>
+	* gcc.c (init_spec): Handle SYSROOT_SUFFIX_LINK_SPEC.
+
+	Revert:
+	2005-01-24  Mark Mitchell  <mark@codesourcery.com>
+	* config.gcc (arm-wrs-linux-gnu): Use wrs-linux.h and t-wrs-linux.
+	(i?86-wrs-linux-gnu): Likewise.
+	(mips-wrs-linux-gnu): Likewise.
+	(powerpc-wrs-linux-gnu): Likewise.
+	* config/t-wrs-linux: New file.
+	* config/wrs-linux.h: Likewise.
+
+2005-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (arm-wrs-linux-gnu): Use wrs-linux.h and t-wrs-linux.
+	(i?86-wrs-linux-gnu): Likewise.
+	(mips-wrs-linux-gnu): Likewise.
+	(powerpc-wrs-linux-gnu): Likewise.
+	* config/t-wrs-linux: New file.
+	* config/wrs-linux.h: Likewise.
+	* config/arm/wrs-linux.h: Adjust location of GLIBC.
+	* config/mips/wrs-linux.h: Likewise.
+
+2005-01-20  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_compute_func_type): Use TREE_NOTHROW, not
+	current_function_nothrow.
+	* config/arm/unwind-arm.c (__gnu_Unwind_Find_exidx): Declare.
+	(EIT_comparator): Remove.
+	(search_EIT_table): New function.
+	(get_eit_entry): Use __gnu_Unwind_Find_exidx.
+
+2005-01-20  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.h (ARM_DTORS_SECTION_ASM_OP): Define. 
+	(DTORS_SECION_ASM_OP): Conditionalize on TARGET_AAPCS_BASED.
+
+2005-01-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/rs6000/rs6000.h (TARGET_SPE_ABI): Make it dynamic.
+	(TARGET_SPE): Likeiwse.
+	(TARGET_E500): Likewise.
+	(TARGET_ISEL): Likewise.
+	(TARGET_FPRS): Likewise.
+
+2005-01-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/gcc/config.gcc (mips-wrs-linux-gnu): New triplet.
+	* config/mips/wrs-linux.h: New file.
+	* config/mips/t-wrs-linux: New file.
+	* config/mips/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Define
+	only in libgcc and when inhibit_libc is not defined.
+	* gcc.c (init_spec): Handle SYSROOT_SUFFIX_LINK_SPEC.
+
+2004-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* config.gcc (powerpc-wrs-linux-gnu): Set target_cpu_default.
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Do not define
+	when inhibit_libc is set.
+
+2004-11-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* config/i386/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Do not define
+	when inhibit_libc is set.
+
