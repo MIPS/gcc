@@ -228,6 +228,11 @@ static int use_pipes;
 
 static int license_me_flag;
 
+/* WRS LOCAL
+   True if the -p option should be passed to the get_feature command.  */
+
+static int feature_proxy_flag = 1;
+
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -3569,6 +3574,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
       else if (strcmp (argv[i], "-flicense-me") == 0)
 	license_me_flag = 1;  /* WRS LOCAL */
+      else if (strcmp (argv[i], "-ffeature-proxy") == 0)
+	feature_proxy_flag = 1;  /* WRS LOCAL */
+      else if (strcmp (argv[i], "-fno-feature-proxy") == 0)
+	feature_proxy_flag = 0;  /* WRS LOCAL */
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -3924,6 +3933,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       else if (! strcmp (argv[i], "-fhelp"))
 	;
       else if (! strcmp (argv[i], "-flicense-me"))
+	;
+      else if (! strcmp (argv[i], "-ffeature-proxy"))
+	;
+      else if (! strcmp (argv[i], "-fno-feature-proxy"))
 	;
       else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
 	{
@@ -6465,19 +6478,23 @@ main (int argc, const char **argv)
 		     must remain separate from the GPL, and this method
 		     of doing so is explicitly blessed by the FSF's GPL
 		     FAQ.  */
-		  const char *argv[9];
+		  const char *argv[10];
+		  const char **p;
 		  char *ptr;
 		  char *err_fmt, *err_arg;
 
-		  argv[0] = "get_feature";
-		  argv[1] = "-co";
-		  argv[2] = xstrdup (DEFAULT_TARGET_MACHINE);
-		  argv[3] = "-v";
-		  argv[4] = "3.3";
-		  argv[5] = "gnu";
-		  argv[6] = infiles[i].language;
-		  argv[7] = (license_me_flag ? "-flicense-me" : "");
-		  argv[8] = 0;
+		  p = argv;
+		  *p++ = "get_feature";
+		  if (feature_proxy_flag)
+		    *p++ = "-p";
+		  *p++ = "-co";
+		  *p++ = xstrdup (DEFAULT_TARGET_MACHINE);
+		  *p++ = "-v";
+		  *p++ = "3.3";
+		  *p++ = "gnu";
+		  *p++ = infiles[i].language;
+		  *p++ = (license_me_flag ? "-flicense-me" : "");
+		  *p++ = 0;
 
 		  ptr = find_a_file (&exec_prefixes, argv[0], X_OK, 0);
 
