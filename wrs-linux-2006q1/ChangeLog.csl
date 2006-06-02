@@ -1,3 +1,9 @@
+2006-06-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/gcc.c (feature_proxy_flag): New variable.
+	(process_command): Handle -ffeature-proxy and -fno-feature-proxy.
+	(main): Add "-p" if -ffeature-proxy.
+
 2006-05-03  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/gcc.c-torture/execute/20020720-1.x: XFAIL for
