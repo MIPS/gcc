@@ -189,13 +189,20 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 	tree pretty_function_name_decl_node;
 	tree c99_function_name_decl_node;
 
-  Stack of nested function name VAR_DECLs.
-
-	tree saved_function_name_decls;
-
 */
 
 tree c_global_trees[CTI_MAX];
+
+typedef struct saved_function_name_decl_d GTY(()) {
+  tree decl;
+  tree stmts;
+} saved_function_name_decl;
+
+DEF_VEC_O(saved_function_name_decl);
+DEF_VEC_ALLOC_O(saved_function_name_decl,gc);
+
+/* Stack of nested function name VAR_DECLs.  */
+VEC(saved_function_name_decl,gc) *saved_function_name_decls;
 
 /* Switches common to the C front ends.  */
 
@@ -670,10 +677,16 @@ start_fname_decls (void)
 	}
     }
   if (saved || saved_function_name_decls)
-    /* Normally they'll have been NULL, so only push if we've got a
-       stack, or they are non-NULL.  */
-    saved_function_name_decls = tree_cons (saved, NULL_TREE,
-					   saved_function_name_decls);
+    {
+      saved_function_name_decl *sfnd;
+
+      /* Normally they'll have been NULL, so only push if we've got a
+	 stack, or they are non-NULL.  */
+      sfnd = VEC_safe_push (saved_function_name_decl, gc,
+			    saved_function_name_decls, NULL);
+      sfnd->decl = saved;
+      sfnd->stmts = NULL_TREE;
+    }
 }
 
 /* Finish up the current bindings, adding them into the current function's
@@ -686,10 +699,16 @@ finish_fname_decls (void)
 {
   unsigned ix;
   tree stmts = NULL_TREE;
-  tree stack = saved_function_name_decls;
+  saved_function_name_decl *p;
 
-  for (; stack && TREE_VALUE (stack); stack = TREE_CHAIN (stack))
-    append_to_statement_list (TREE_VALUE (stack), &stmts);
+  while (!VEC_empty (saved_function_name_decl, saved_function_name_decls))
+    {
+      p = VEC_last (saved_function_name_decl, saved_function_name_decls);
+      if (p->stmts == NULL_TREE)
+	break;
+      append_to_statement_list (p->stmts, &stmts);
+      VEC_pop (saved_function_name_decl, saved_function_name_decls);
+    }
 
   if (stmts)
     {
@@ -705,21 +724,26 @@ finish_fname_decls (void)
   for (ix = 0; fname_vars[ix].decl; ix++)
     *fname_vars[ix].decl = NULL_TREE;
 
-  if (stack)
+  if (!VEC_empty (saved_function_name_decl, saved_function_name_decls))
     {
       /* We had saved values, restore them.  */
       tree saved;
 
-      for (saved = TREE_PURPOSE (stack); saved; saved = TREE_CHAIN (saved))
+      for (saved = VEC_last (saved_function_name_decl,
+			     saved_function_name_decls)->decl;
+	   saved;
+	   saved = TREE_CHAIN (saved))
 	{
 	  tree decl = TREE_PURPOSE (saved);
 	  unsigned ix = TREE_INT_CST_LOW (TREE_VALUE (saved));
 
 	  *fname_vars[ix].decl = decl;
 	}
-      stack = TREE_CHAIN (stack);
+      VEC_pop (saved_function_name_decl, saved_function_name_decls);
     }
-  saved_function_name_decls = stack;
+
+  if (VEC_empty (saved_function_name_decl, saved_function_name_decls))
+    saved_function_name_decls = NULL;
 }
 
 /* Return the text name of the current function, suitably prettified
@@ -822,8 +846,13 @@ fname_decl (unsigned int rid, tree id)
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       stmts = pop_stmt_list (stmts);
       if (!IS_EMPTY_STMT (stmts))
-	saved_function_name_decls
-	  = tree_cons (decl, stmts, saved_function_name_decls);
+	{
+	  saved_function_name_decl *sfnd;
+	  sfnd = VEC_safe_push (saved_function_name_decl, gc,
+				saved_function_name_decls, NULL);
+	  sfnd->decl = decl;
+	  sfnd->stmts = stmts;
+	}
       *fname_vars[ix].decl = decl;
       input_location = saved_location;
     }

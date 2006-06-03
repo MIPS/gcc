@@ -155,7 +155,6 @@ enum c_tree_index
     CTI_FUNCTION_NAME_DECL,
     CTI_PRETTY_FUNCTION_NAME_DECL,
     CTI_C99_FUNCTION_NAME_DECL,
-    CTI_SAVED_FUNCTION_NAME_DECLS,
 
     CTI_VOID_ZERO,
 
@@ -200,7 +199,6 @@ struct c_common_identifier GTY(())
 #define function_name_decl_node		c_global_trees[CTI_FUNCTION_NAME_DECL]
 #define pretty_function_name_decl_node	c_global_trees[CTI_PRETTY_FUNCTION_NAME_DECL]
 #define c99_function_name_decl_node		c_global_trees[CTI_C99_FUNCTION_NAME_DECL]
-#define saved_function_name_decls	c_global_trees[CTI_SAVED_FUNCTION_NAME_DECLS]
 
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]

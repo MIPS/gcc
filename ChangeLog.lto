@@ -1,3 +1,14 @@
+2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* c-common.c (saved_function_name_decl_d,
+	saved_function_name_decl): New.
+	(saved_function_name_decls): Change the type to
+	VEC(saved_function_name_decl,gc) *.
+	(start_fname_decls, finish_fname_decls, fname_decl): Adjust
+	the uses of saved_function_name_decls.
+	* c-common.h (CTI_SAVED_FUNCTION_NAME_DECLS,
+	saved_function_name_decls): Remove.
+
 2006-06-01  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree-vect-transform.c (vect_get_vec_def_for_operand):
