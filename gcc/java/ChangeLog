@@ -1,5 +1,24 @@
 2006-06-04  Tom Tromey  <tromey@redhat.com>
 
+	* jcf-io.c (find_class): Set source_ok to 0.
+	* jcf-parse.c (jcf_parse): Disable gnu.gcj.gcj-compiled warning.
+	(parse_class_file): Don't call java_mark_class_local.
+	(java_parse_file): Skip .java files.  Call java_mark_class_local
+	before lowering any code.
+	(parse_zip_file_entries): Don't call duplicate_class_warning
+	here.
+	(process_zip_dir): ... call it here.
+	* class.c (add_field): Don't mark field external if it is being
+	compiled into this object.
+	(make_class_data): Handle situation where class_dtable_decl is
+	created before Class is compiled.
+	(is_compiled_class): Don't assume files in zip are compiled into
+	this object.
+	(layout_class_method): Don't mark method external if it is being
+	compiled into this object.
+
+2006-06-04  Tom Tromey  <tromey@redhat.com>
+
 	* jcf-path.c (jcf_path_compute): New function.
 	* jcf.h (jcf_path_compute): Declare.
 

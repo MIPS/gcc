@@ -793,9 +793,9 @@ add_field (tree class, tree name, tree field_type, int flags)
       /* Always make field externally visible.  This is required so
 	 that native methods can always access the field.  */
       TREE_PUBLIC (field) = 1;
-      /* Considered external until we know what classes are being
-	 compiled into this object file.  */
-      DECL_EXTERNAL (field) = 1;
+      /* Considered external unless we are compiling it into this
+	 object file.  */
+      DECL_EXTERNAL (field) = (is_compiled_class (class) != 2);
     }
 
   return field;
@@ -1650,15 +1650,28 @@ make_class_data (tree type)
     {
       tree dtable = get_dispatch_table (type, this_class_addr);
       uses_jv_markobj = uses_jv_markobj_p (dtable);
-      dtable_decl = build_dtable_decl (type);
-      DECL_INITIAL (dtable_decl) = dtable;
-      TREE_STATIC (dtable_decl) = 1;
-      DECL_ARTIFICIAL (dtable_decl) = 1;
-      DECL_IGNORED_P (dtable_decl) = 1;
+      if (type == class_type_node && class_dtable_decl != NULL_TREE)
+	{
+	  /* We've already created some other class, and consequently
+	     we made class_dtable_decl.  Now we just want to fill it
+	     in.  */
+	  dtable_decl = class_dtable_decl;
+	}
+      else
+	{
+	  dtable_decl = build_dtable_decl (type);
+	  TREE_STATIC (dtable_decl) = 1;
+	  DECL_ARTIFICIAL (dtable_decl) = 1;
+	  DECL_IGNORED_P (dtable_decl) = 1;
+	}
+
       TREE_PUBLIC (dtable_decl) = 1;
+      DECL_INITIAL (dtable_decl) = dtable;
       if (! flag_indirect_classes)
 	rest_of_decl_compilation (dtable_decl, 1, 0);
-      if (type == class_type_node)
+      /* Maybe we're compiling Class as the first class.  If so, set
+	 class_dtable_decl to the decl we just made.  */
+      if (type == class_type_node && class_dtable_decl == NULL_TREE)
 	class_dtable_decl = dtable_decl;
     }
 
@@ -1776,8 +1789,10 @@ make_class_data (tree type)
       DECL_ARTIFICIAL (class_dtable_decl) = 1;
       DECL_IGNORED_P (class_dtable_decl) = 1;
       if (is_compiled_class (class_type_node) != 2)
-	DECL_EXTERNAL (class_dtable_decl) = 1;
-      rest_of_decl_compilation (class_dtable_decl, 1, 0);
+	{
+	  DECL_EXTERNAL (class_dtable_decl) = 1;
+	  rest_of_decl_compilation (class_dtable_decl, 1, 0);
+	}
     }
 
   super = CLASSTYPE_SUPER (type);
@@ -2059,11 +2074,9 @@ is_compiled_class (tree class)
     return 1;
   if (TYPE_ARRAY_P (class))
     return 0;
-  if (class == current_class)
-    return 2;
 
   seen_in_zip = (TYPE_JCF (class) && JCF_SEEN_IN_ZIP (TYPE_JCF (class)));
-  if (CLASS_FROM_CURRENTLY_COMPILED_P (class) || seen_in_zip)
+  if (CLASS_FROM_CURRENTLY_COMPILED_P (class))
     {
       /* The class was seen in the current ZIP file and will be
 	 available as a compiled class in the future but may not have
@@ -2443,9 +2456,10 @@ layout_class_method (tree this_class, tree super_class,
   tree method_name = DECL_NAME (method_decl);
 
   TREE_PUBLIC (method_decl) = 1;
-  /* Considered external until we know what classes are being
-     compiled into this object file.  */
-  DECL_EXTERNAL (method_decl) = 1;
+  /* Considered external unless it is being compiled into this object
+     file.  */
+  DECL_EXTERNAL (method_decl) = ((is_compiled_class (this_class) != 2)
+				 || METHOD_NATIVE (method_decl));
 
   if (ID_INIT_P (method_name))
     {

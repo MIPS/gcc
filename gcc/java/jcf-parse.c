@@ -1,5 +1,5 @@
 /* Parser for Java(TM) .class files.
-   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -804,9 +804,12 @@ jcf_parse (JCF* jcf)
       /* If we don't have the right archive, emit a verbose warning.
 	 If we're generating bytecode, emit the warning only if
 	 -fforce-classes-archive-check was specified. */
+#if 0
+      /* ECJ HACK: ignore this.  */
       if (!jcf->right_zip
 	  && (!flag_emit_class_files || flag_force_classes_archive_check))
 	fatal_error ("the %<java.lang.Object%> that was found in %qs didn't have the special zero-length %<gnu.gcj.gcj-compiled%> attribute.  This generally means that your classpath is incorrectly set.  Use %<info gcj \"Input Options\"%> to see the info page describing how to set the classpath", jcf->filename);
+#endif
     }
   else
     all_class_list = tree_cons (NULL_TREE,
@@ -856,8 +859,6 @@ parse_class_file (void)
   (*debug_hooks->start_source_file) (input_line, input_filename);
 
   gen_indirect_dispatch_tables (current_class);
-
-  java_mark_class_local (current_class);
 
   for (method = TYPE_METHODS (current_class);
        method != NULL_TREE; method = TREE_CHAIN (method))
@@ -1151,7 +1152,12 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  next++;
 	}
 
-      if (list[0]) 
+      /* Exclude .java files.  */
+      if (strlen (list) > 5 && ! strcmp (list + strlen (list) - 5, ".java"))
+	{
+	  /* Nothing. */
+	}
+      else if (list[0]) 
 	{
 	  node = get_identifier (list);
 
@@ -1293,6 +1299,13 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
       parse_source_file_3 ();
     }
 
+  /* Do this before lowering any code.  */
+  for (node = current_file_list; node; node = TREE_CHAIN (node))
+    {
+      if (CLASS_FILE_P (node))
+	java_mark_class_local (TREE_TYPE (node));
+    }
+
   for (node = current_file_list; node; node = TREE_CHAIN (node))
     {
       input_location = DECL_SOURCE_LOCATION (node);
@@ -1409,15 +1422,6 @@ parse_zip_file_entries (void)
 	    current_jcf = TYPE_JCF (class);
 	    output_class = current_class = class;
 
-	    if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
-	      {
-	        /* We've already compiled this class.  */
-		duplicate_class_warning (current_jcf->filename);
-		break;
-	      }
-	    
-	    CLASS_FROM_CURRENTLY_COMPILED_P (current_class) = 1;
-
 	    /* This is a dummy class, and now we're compiling it for
 	       real.  */
 	    gcc_assert (! TYPE_DUMMY (class));
@@ -1531,6 +1535,16 @@ process_zip_dir (FILE *finput)
       file_name [zdir->filename_length] = '\0';
 
       class = lookup_class (get_identifier (class_name));
+
+      if (CLASS_FROM_CURRENTLY_COMPILED_P (class))
+	{
+	  /* We've already compiled this class.  */
+	  duplicate_class_warning (file_name);
+	  continue;
+	}
+      /* This function is only called when processing a zip file seen
+	 on the command line.  */
+      CLASS_FROM_CURRENTLY_COMPILED_P (class) = 1;
 
       jcf->read_state  = finput;
       jcf->filbuf      = jcf_filbuf_from_stdio;
