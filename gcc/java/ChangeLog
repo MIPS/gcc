@@ -1,5 +1,15 @@
 2006-06-04  Tom Tromey  <tromey@redhat.com>
 
+	* lang.opt (-fsaw-java-file, -fsource, -ftarget): New options.
+	* jvspec.c (jvgenmain_spec): Remove -fsaw-java-file, -fsource,
+	and -ftarget.
+	(lang_specific_driver): Removed dead code.  Add -fsaw-java-file
+	when needed.  Handle classpath-setting.
+	* Make-lang.in ($(GCJ)$(exeext)): Link in jcf-path.o.
+	* lang-specs.h: Rewrote.
+
+2006-06-04  Tom Tromey  <tromey@redhat.com>
+
 	* jcf-io.c (find_class): Set source_ok to 0.
 	* jcf-parse.c (jcf_parse): Disable gnu.gcj.gcj-compiled warning.
 	(parse_class_file): Don't call java_mark_class_local.

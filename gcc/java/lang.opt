@@ -138,6 +138,9 @@ ffilelist-file
 Java Var(flag_filelist_file)
 Input file is a file with a list of filenames to compile
 
+fsaw-java-file
+Java Undocumented RejectNegative
+
 fforce-classes-archive-check
 Java Var(flag_force_classes_archive_check)
 Always check for non gcj generated classes archives
@@ -187,6 +190,14 @@ Call a library routine to do integer divisions
 fbootstrap-classes
 Java Var(flag_bootstrap_classes)
 Generated should be loaded by bootstrap loader
+
+fsource=
+Java Joined
+Set the source language version
+
+ftarget=
+Java Joined
+Set the target VM version
 
 version
 Java
