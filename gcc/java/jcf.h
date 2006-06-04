@@ -304,6 +304,7 @@ extern void jcf_path_seal (int);
 extern void *jcf_path_start (void);
 extern void *jcf_path_next (void *);
 extern char *jcf_path_name (void *);
+extern char *jcf_path_compute (const char *);
 extern int jcf_path_is_zipfile (void *);
 extern int jcf_path_is_system (void *);
 extern int jcf_path_max_len (void);

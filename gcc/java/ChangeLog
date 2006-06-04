@@ -1,3 +1,8 @@
+2006-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-path.c (jcf_path_compute): New function.
+	* jcf.h (jcf_path_compute): Declare.
+
 2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gcj.texi (Extensions): Document the new gcj-dbtool-based
