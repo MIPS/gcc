@@ -2802,7 +2802,7 @@ arm_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 /* Encode the current state of the #pragma [no_]long_calls.  */
 typedef enum
 {
-  OFF,		/* No #pramgma [no_]long_calls is in effect.  */
+  OFF,		/* No #pragma [no_]long_calls is in effect.  */
   LONG,		/* #pragma long_calls is in effect.  */
   SHORT		/* #pragma no_long_calls is in effect.  */
 } arm_pragma_enum;
@@ -11013,11 +11013,19 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'S':
       {
 	HOST_WIDE_INT val;
-	const char * shift = shift_op (x, &val);
+	const char *shift;
+
+	if (!shift_operator (x, SImode))
+	  {
+	    output_operand_lossage ("invalid shift operand");
+	    break;
+	  }
+
+	shift = shift_op (x, &val);
 
 	if (shift)
 	  {
-	    fprintf (stream, ", %s ", shift_op (x, &val));
+	    fprintf (stream, ", %s ", shift);
 	    if (val == -1)
 	      arm_print_operand (stream, XEXP (x, 1), 0);
 	    else

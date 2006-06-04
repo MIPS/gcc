@@ -454,6 +454,14 @@ proc check_effective_target_fpic { } {
     return 0
 }
 
+# Return true if the target supports -mpaired-single (as used on MIPS).
+
+proc check_effective_target_mpaired_single { } {
+    return [check_no_compiler_messages mpaired_single object {
+	void foo (void) { }
+    } "-mpaired-single"]
+}
+
 # Return true if iconv is supported on the target. In particular IBM1047.
 
 proc check_iconv_available { test_what } {
@@ -1741,6 +1749,7 @@ proc is-effective-target { arg } {
 	  "vmx_hw"         { set selected [check_vmx_hw_available] }
 	  "named_sections" { set selected [check_named_sections_available] }
 	  "gc_sections"    { set selected [check_gc_sections_available] }
+	  "cxa_atexit"     { set selected [check_cxa_atexit_available] }
 	  default          { error "unknown effective target keyword `$arg'" }
 	}
     }
@@ -1759,6 +1768,7 @@ proc is-effective-target-keyword { arg } {
 	  "vmx_hw"         { return 1 }
 	  "named_sections" { return 1 }
 	  "gc_sections"    { return 1 }
+	  "cxa_atexit"     { return 1 }
 	  default          { return 0 }
 	}
     }

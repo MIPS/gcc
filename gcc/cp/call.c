@@ -426,11 +426,14 @@ null_ptr_cst_p (tree t)
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
   t = integral_constant_value (t);
-  if (t == null_node
-      || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t))
-	  && integer_zerop (t)
-	  && !TREE_CONSTANT_OVERFLOW (t)))
+  if (t == null_node)
     return true;
+  if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t))
+    {
+      STRIP_NOPS (t);
+      if (!TREE_CONSTANT_OVERFLOW (t))
+	return true;
+    }
   return false;
 }
 
@@ -2701,6 +2704,8 @@ resolve_args (tree args)
 	  error ("invalid use of void expression");
 	  return error_mark_node;
 	}
+      else if (invalid_nonstatic_memfn_p (arg))
+	return error_mark_node;
     }
   return args;
 }
@@ -3518,16 +3523,18 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
   /* We can't use result_type below, as fold might have returned a
      throw_expr.  */
 
-  /* Expand both sides into the same slot, hopefully the target of the
-     ?: expression.  We used to check for TARGET_EXPRs here, but now we
-     sometimes wrap them in NOP_EXPRs so the test would fail.  */
-  if (!lvalue_p && CLASS_TYPE_P (TREE_TYPE (result)))
-    result = get_target_expr (result);
-
-  /* If this expression is an rvalue, but might be mistaken for an
-     lvalue, we must add a NON_LVALUE_EXPR.  */
-  if (!lvalue_p && real_lvalue_p (result))
-    result = rvalue (result);
+  if (!lvalue_p)
+    {
+      /* Expand both sides into the same slot, hopefully the target of
+	 the ?: expression.  We used to check for TARGET_EXPRs here,
+	 but now we sometimes wrap them in NOP_EXPRs so the test would
+	 fail.  */
+      if (CLASS_TYPE_P (TREE_TYPE (result)))
+	result = get_target_expr (result);
+      /* If this expression is an rvalue, but might be mistaken for an
+	 lvalue, we must add a NON_LVALUE_EXPR.  */
+      result = rvalue (result);
+    }
 
   return result;
 }
@@ -4328,6 +4335,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   switch (convs->kind)
     {
     case ck_rvalue:
+      expr = convert_bitfield_to_declared_type (expr);
       if (! IS_AGGR_TYPE (totype))
 	return expr;
       /* Else fall through.  */
@@ -6381,6 +6389,14 @@ perform_implicit_conversion (tree type, tree expr)
     {
       error ("could not convert %qE to %qT", expr, type);
       expr = error_mark_node;
+    }
+  else if (processing_template_decl)
+    {
+      /* In a template, we are only concerned about determining the
+	 type of non-dependent expressions, so we do not have to
+	 perform the actual conversion.  */
+      if (TREE_TYPE (expr) != type)
+	expr = build_nop (type, expr);
     }
   else
     expr = convert_like (conv, expr);

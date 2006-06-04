@@ -1,3 +1,18 @@
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename htmldir to gcc_htmldir.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in (gtreelang$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (treelang/treetree.o): Add dependency on
+	$(TARGET_H).
+
 2006-04-22  Matthias Klose  <doko@debian.org>
 
 	* Make-lang.in (treelang.check): Don't set and pass TRANSFORM.

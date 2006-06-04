@@ -1,3 +1,256 @@
+2006-06-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* trans.c (gfc_msg_bounds, gfc_msg_fault, gfc_msg_wrong_return):
+	Add strings for common runtime error messages.
+	(gfc_trans_runtime_check): Add a locus argument, use a string
+	and not a string tree for the message.
+	* trans.h (gfc_trans_runtime_check): Change prototype accordingly.
+	(gfc_msg_bounds, gfc_msg_fault, gfc_msg_wrong_return): Add proto.
+	* trans-const.c (gfc_strconst_bounds, gfc_strconst_fault,
+	gfc_strconst_wrong_return, gfc_strconst_current_filename): Remove.
+	(gfc_init_constants): Likewise.
+	* trans-const.h: Likewise.
+	* trans-decl.c (gfc_build_builtin_function_decls): Call to
+	_gfortran_runtime_error has only one argument, the message string.
+	* trans-array.h (gfc_conv_array_ref): Add a symbol argument and a
+	locus.
+	* trans-array.c (gfc_trans_array_bound_check): Build precise
+	error messages.
+	(gfc_conv_array_ref): Use the new symbol argument and the locus
+	to build more precise error messages.
+	(gfc_conv_ss_startstride): More precise error messages.
+	* trans-expr.c (gfc_conv_variable): Give symbol reference and
+	locus to gfc_conv_array_ref.
+	(gfc_conv_function_call): Use the new prototype for
+	gfc_trans_runtime_check.
+	* trans-stmt.c (gfc_trans_goto): Build more precise error message.
+	* trans-io.c (set_string): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Use new prototype
+	for gfc_trans_runtime_check.
+
+2006-06-01  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27715
+	* arith.c:  Cast the characters from the strings to unsigned
+	char to avoid values less than 0 for extended ASCII.
+
+2006-06-01  Per Bothner  <bothner@bothner.com>
+
+	* data.c (gfc_assign_data_value): Handle USE_MAPPED_LOCATION.
+	* scanner.c (gfc_gobble_whitespace): Likewise.
+
+2006-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25098
+	PR fortran/25147
+	* interface.c (compare_parameter): Return 1 if the actual arg
+	is external and the formal is a procedure.
+	(compare_actual_formal): If the actual argument is a variable
+	and the formal a procedure, this an error.  If a gsymbol exists
+	for a procedure of the same name, this is not yet resolved and
+	the error is cleared.
+
+	* trans-intrinsic.c (gfc_conv_associated): Make provision for
+	zero array length or zero string length contingent on presence
+	of target, for consistency with standard.
+
+2006-05-30  Asher Langton  <langton2@llnl.gov>
+
+	* symbol.c (check_conflict): Allow external, function, and
+	subroutine attributes with Cray pointees.
+	* trans-expr.c (gfc_conv_function_val): Translate Cray pointees
+	that point to procedures.
+	* gfortran.texi: Document new feature.
+
+2006-05-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/27634
+	* io.c (check_format): Add error for missing period in format
+	specifier unless -std=legacy.
+	* gfortran.texi: Add description of expanded namelist read and
+	missing period in format extensions.
+
+2006-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/19777
+	* trans-array.c (gfc_conv_array_ref): Perform out-of-bounds
+	checking for assumed-size arrrays for all but the last dimension.
+
+2006-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* invoke.texi: Change -fpackderived into -fpack-derived.
+
+2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* options.c, primary.c, resolve.c, trans-common.c: Fix typos
+	in error messages.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* check.c, expr.c, resolve.c, trans-common.c,
+	trans-intrinsic.c, trans-stmt.c, trans-types.c: Fix comment typos.
+
+2006-05-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/19777
+	* trans-array.c (gfc_conv_array_ref): Don't perform out-of-bounds
+	checking for assumed-size arrrays.
+
+2006-05-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-intrinsic.c (gfc_conv_associated): If pointer in first
+	arguments has zero array length of zero string length, return
+	false.
+
+2006-05-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27524
+	* trans-array.c (gfc_trans_dummy_array_bias): Don't use stride as
+	a temporary variable when -fbounds-check is enabled, since its
+	value will be needed later.
+
+2006-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23151
+	* io.c (match_io):  print (1,*) is an error.
+
+2006-05-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/27709
+	* resolve.c (find_array_spec): Add gfc_symbol, derived, and
+	use to track repeated component references.
+
+	PR fortran/27155
+	PR fortran/27449
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer): Use
+	se->string_length throughout and use memcpy to populate the
+	expression returned to the scalarizer.
+	(gfc_size_in_bytes): New function.
+
+2006-05-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/27613
+	* primary.c (gfc_match_rvalue): Test if symbol represents a
+	direct recursive function reference.  Error if array valued,
+	go to function0 otherwise.
+
+2006-05-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25746
+	* interface.c (gfc_extend_assign): Use new EXEC_ASSIGN_CALL.
+	* gfortran.h : Put EXEC_ASSIGN_CALL in enum.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): New function.
+	(gfc_trans_call): Call it.  Add new boolian argument to flag
+	need for dependency checking. Assert intent OUT and IN for arg1
+	and arg2.
+	(gfc_trans_forall_1): Use new code EXEC_ASSIGN_CALL.
+	trans-stmt.h : Modify prototype of gfc_trans_call.
+	trans.c (gfc_trans_code): Add call for EXEC_ASSIGN_CALL.
+	st.c (gfc_free_statement): Free actual for EXEC_ASSIGN_CALL.
+	* dependency.c (gfc_check_fncall_dependency): Don't check other
+	against itself.
+
+	PR fortran/25090
+	* resolve.c : Remove resolving_index_expr.
+	(entry_parameter): Remove.
+	(gfc_resolve_expr, resolve_charlen, resolve_fl_variable): Lift
+	calls to entry_parameter and references to resolving_index_expr.
+
+	PR fortran/27584
+	* check.c (gfc_check_associated): Replace NULL assert with an
+	error message, since it is possible to generate bad code that
+	has us fall through to here..
+
+	PR fortran/19015
+	* iresolve.c (maxloc, minloc): If DIM is not present, pass the
+	rank of ARRAY as the shape of the result.  Otherwise, pass the
+	shape of ARRAY, less the dimension DIM.
+	(maxval, minval): The same, when DIM is present, otherwise no
+	change.
+
+2006-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/27662
+	* trans-array.c (gfc_conv_expr_descriptor): Don't zero the
+	first stride to indicate a temporary.
+	* trans-expr.c (gfc_conv_function_call): Likewise.
+
+2006-05-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/27552
+	* dump-parse-tree.c (gfc_show_expr): Deal with Hollerith constants.
+	* data.c (create_character_intializer): Set from_H flag if character is
+	initialized by Hollerith constant.
+
+2006-05-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26551
+	* resolve.c (resolve_call, resolve_function): Issue an error
+	if a function or subroutine call is recursive but the function or
+	subroutine wasn't declared as such.
+
+2006-05-07  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26551
+	* gfortran.dg/recursive_check_1.f: New test.
+
+
+2006-05-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27320
+	* dump-parse-tree.c (gfc_show_code_node): Try harder to find the
+	called procedure name.
+
+2006-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27415
+	* trans-openmp.c (gfc_trans_omp_parallel_do,
+	gfc_trans_omp_parallel_sections, gfc_trans_omp_parallel_workshare): Set
+	OMP_PARALLEL_COMBINED flag.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in (GFORTRAN_D_OBJS): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25090
+	* resolve.c: Static resolving_index_expr initialized.
+	(entry_parameter): New function to emit errors for variables
+	that are not entry parameters.
+	(gfc_resolve_expr): Call entry_parameter, when resolving
+	variables, if the namespace has entries and resolving_index_expr
+	is set.
+	(resolve_charlen): Set resolving_index_expr before the call to
+	resolve_index_expr and reset it afterwards.
+	(resolve_fl_variable): The same before and after the call to
+	is_non_constant_shape_array, which ultimately makes a call to
+	gfc_resolve_expr.
+
+	PR fortran/25082
+	* resolve.c (resolve_code): Add error condition that the return
+	expression must be scalar.
+
+	PR fortran/27411
+	* matchexp.c (gfc_get_parentheses): New function.
+	(match_primary): Remove inline code and call above.
+	* gfortran.h: Provide prototype for gfc_get_parentheses.
+	* resolve.c (resolve_array_ref): Call the above, when start is a
+	derived type variable array reference.
+
+2006-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/27446
+	* trans-openmp.c (gfc_trans_omp_array_reduction): Ensure
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE} are set to BIND_EXPR.
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (fortran/options.o): Depend on $(TARGET_H).
+
 2006-05-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/27553
@@ -161,7 +414,7 @@
 	result, is also automatic character length.  If so, process
 	the character length.
 
-	PR fortran/18803
+	PR fortran/18003
 	PR fortran/25669
 	PR fortran/26834
 	* trans_intrinsic.c (gfc_walk_intrinsic_bound): Set

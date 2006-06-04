@@ -49,6 +49,9 @@
 ;     B
 ;     c (i0..i3,m0..m3) CIRCREGS
 ;     C (CC)            CCREGS
+;     t  (lt0,lt1)
+;     k  (lc0,lc1)
+;     l  (lb0,lb1)
 ;
 
 ;; Define constants for hard registers.
@@ -109,7 +112,14 @@
    (REG_SEQSTAT 41)
    (REG_USP 42)
 
-   (REG_ARGP 43)])
+   (REG_ARGP 43)
+
+   (REG_LT0 44)
+   (REG_LT1 45)
+   (REG_LC0 46)
+   (REG_LC1 47)
+   (REG_LB0 48)
+   (REG_LB1 49)])
 
 ;; Constants used in UNSPECs and UNSPEC_VOLATILEs.
 
@@ -122,12 +132,16 @@
    (UNSPEC_PUSH_MULTIPLE 5)
    ;; Multiply or MAC with extra CONST_INT operand specifying the macflag
    (UNSPEC_MUL_WITH_FLAG 6)
-   (UNSPEC_MAC_WITH_FLAG 7)])
+   (UNSPEC_MAC_WITH_FLAG 7)
+   (UNSPEC_MOVE_FDPIC 8)
+   (UNSPEC_FUNCDESC_GOT17M4 9)
+   (UNSPEC_LSETUP_END 10)])
 
 (define_constants
   [(UNSPEC_VOLATILE_EH_RETURN 0)
    (UNSPEC_VOLATILE_CSYNC 1)
-   (UNSPEC_VOLATILE_SSYNC 2)])
+   (UNSPEC_VOLATILE_SSYNC 2)
+   (UNSPEC_VOLATILE_LOAD_FUNCDESC 3)])
 
 (define_constants
   [(MACFLAG_NONE 0)
@@ -240,6 +254,12 @@
 
 	(const_int 2)))
 
+
+;; Classify the insns into those that are one instruction and those that
+;; are more than one in sequence.
+(define_attr "seq_insns" "single,multi"
+  (const_string "single"))
+
 ;; Conditional moves
 
 (define_expand "movsicc"
@@ -265,7 +285,8 @@
     if cc %0 =%2; /* movsicc-1b */
     if !cc %0 =%1; if cc %0=%2; /* movsicc-1 */"
   [(set_attr "length" "2,2,4")
-   (set_attr "type" "move")])
+   (set_attr "type" "move")
+   (set_attr "seq_insns" "*,*,multi")])
 
 (define_insn "*movsicc_insn2"
   [(set (match_operand:SI 0 "register_operand" "=da,da,da")
@@ -280,7 +301,8 @@
    if cc %0 =%1; /* movsicc-2a */
    if cc %0 =%1; if !cc %0=%2; /* movsicc-1 */"
   [(set_attr "length" "2,2,4")
-   (set_attr "type" "move")])
+   (set_attr "type" "move")
+   (set_attr "seq_insns" "*,*,multi")])
 
 ;; Insns to load HIGH and LO_SUM
 
@@ -373,7 +395,8 @@
    %0 = CC;
    R0 = R0 | R0; CC = AC0;"
   [(set_attr "type" "move,mvi,mcld,mcst,compare,compare,alu0")
-   (set_attr "length" "2,2,*,*,2,2,4")])
+   (set_attr "length" "2,2,*,*,2,2,4")
+   (set_attr "seq_insns" "*,*,*,*,*,*,multi")])
 
 (define_insn "movpdi"
   [(set (match_operand:PDI 0 "nonimmediate_operand" "=e,<,e")
@@ -383,7 +406,8 @@
    %0 = %1;
    %0 = %x1; %0 = %w1;
    %w0 = %1; %x0 = %1;"
-  [(set_attr "type" "move,mcst,mcld")])
+  [(set_attr "type" "move,mcst,mcld")
+   (set_attr "seq_insns" "*,multi,multi")])
 
 (define_insn "load_accumulator"
   [(set (match_operand:PDI 0 "register_operand" "=e")
@@ -426,12 +450,14 @@
 ;; The first alternative is used to make reload choose a limited register
 ;; class when faced with a movsi_insn that had its input operand replaced
 ;; with a PLUS.  We generally require fewer secondary reloads this way.
-(define_insn "*movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=da,x*y,da,x,x,x,da,mr")
-        (match_operand:SI 1 "general_operand" "da,x*y,xKs7,xKsh,xKuh,ix,mr,da"))]
 
+(define_insn "*movsi_insn"
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=da,x*y,*k,da,da,x,x,x,da,mr")
+	(match_operand:SI 1 "general_operand" "da,x*y,da,*k,xKs7,xKsh,xKuh,ix,mr,da"))]
   "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
-  "@
+ "@
+   %0 = %1;
+   %0 = %1;
    %0 = %1;
    %0 = %1;
    %0 = %1 (X);
@@ -440,8 +466,8 @@
    #
    %0 = %1;
    %0 = %1;"
-  [(set_attr "type" "move,move,mvi,mvi,mvi,*,mcld,mcst")
-   (set_attr "length" "2,2,2,4,4,*,*,*")])
+  [(set_attr "type" "move,move,move,move,mvi,mvi,mvi,*,mcld,mcst")
+   (set_attr "length" "2,2,2,2,2,4,4,*,*,*")])
 
 (define_insn_and_split "*movv2hi_insn"
   [(set (match_operand:V2HI 0 "nonimmediate_operand" "=da,da,d,dm")
@@ -773,7 +799,8 @@
 			(match_operand:DI 2 "register_operand" "d")))]
   ""
   "%0 = %1 <op> %2;\\n\\t%H0 = %H1 <op> %H2;"
-  [(set_attr "length" "4")])
+  [(set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*<optab>di_zesidi_di"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -782,7 +809,8 @@
 			(match_operand:DI 1 "register_operand" "d")))]
   ""
   "%0 = %1 <op>  %2;\\n\\t%H0 = <high_result>;"
-  [(set_attr "length" "4")])
+  [(set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*<optab>di_sesdi_di"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -792,7 +820,8 @@
    (clobber (match_scratch:SI 3 "=&d"))]
   ""
   "%0 = %1 <op> %2;\\n\\t%3 = %2;\\n\\t%3 >>>= 31;\\n\\t%H0 = %H1 <op> %3;"
-  [(set_attr "length" "8")])
+  [(set_attr "length" "8")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "negdi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -801,14 +830,16 @@
    (clobber (reg:CC REG_CC))]
   ""
   "%2 = 0; %2 = %2 - %1; cc = ac0; cc = !cc; %2 = cc;\\n\\t%0 = -%1; %H0 = -%H1; %H0 = %H0 - %2;"
-  [(set_attr "length" "16")])
+  [(set_attr "length" "16")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "one_cmpldi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
         (not:DI (match_operand:DI 1 "register_operand" "d")))]
   ""
   "%0 = ~%1;\\n\\t%H0 = ~%H1;"
-  [(set_attr "length" "4")])
+  [(set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 ;; DImode zero and sign extend patterns
 
@@ -830,14 +861,16 @@
         (zero_extend:DI (match_operand:QI 1 "register_operand" "d")))]
   ""
   "%0 = %T1 (Z);\\n\\t%H0 = 0;"
-  [(set_attr "length" "4")])
+  [(set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "zero_extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
         (zero_extend:DI (match_operand:HI 1 "register_operand" "d")))]
   ""
   "%0 = %h1 (Z);\\n\\t%H0 = 0;"
-  [(set_attr "length" "4")])
+  [(set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn_and_split "extendsidi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -893,7 +926,8 @@
    %0 += %2; cc = ac0; %3 = cc; %H0 = %H0 + %3;
    %0 = %0 + %2; cc = ac0; %3 = cc; %H0 = %H0 + %H2; %H0 = %H0 + %3;"
   [(set_attr "type" "alu0")
-   (set_attr "length" "10,8,10")])
+   (set_attr "length" "10,8,10")
+   (set_attr "seq_insns" "multi,multi,multi")])
 
 (define_insn "subdi3"
   [(set (match_operand:DI 0 "register_operand" "=&d")
@@ -902,7 +936,8 @@
    (clobber (reg:CC 34))]
   ""
   "%0 = %1-%2;\\n\\tcc = ac0;\\n\\t%H0 = %H1-%H2;\\n\\tif cc jump 1f;\\n\\t%H0 += -1;\\n\\t1:"
-  [(set_attr "length" "10")])
+  [(set_attr "length" "10")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*subdi_di_zesidi"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -913,7 +948,8 @@
    (clobber (reg:CC 34))]
   ""
   "%0 = %1 - %2;\\n\\tcc = ac0;\\n\\tcc = ! cc;\\n\\t%3 = cc;\\n\\t%H0 = %H1 - %3;"
-  [(set_attr "length" "10")])
+  [(set_attr "length" "10")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*subdi_zesidi_di"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -924,7 +960,8 @@
    (clobber (reg:CC 34))]
   ""
   "%0 = %2 - %1;\\n\\tcc = ac0;\\n\\tcc = ! cc;\\n\\t%3 = cc;\\n\\t%3 = -%3;\\n\\t%H0 = %3 - %H1"
-  [(set_attr "length" "12")])
+  [(set_attr "length" "12")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*subdi_di_sesidi"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -935,7 +972,8 @@
    (clobber (reg:CC 34))]
   ""
   "%0 = %1 - %2;\\n\\tcc = ac0;\\n\\t%3 = %2;\\n\\t%3 >>>= 31;\\n\\t%H0 = %H1 - %3;\\n\\tif cc jump 1f;\\n\\t%H0 += -1;\\n\\t1:"
-  [(set_attr "length" "14")])
+  [(set_attr "length" "14")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "*subdi_sesidi_di"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -946,7 +984,8 @@
    (clobber (reg:CC 34))]
   ""
   "%0 = %2 - %1;\\n\\tcc = ac0;\\n\\t%3 = %2;\\n\\t%3 >>>= 31;\\n\\t%H0 = %3 - %H1;\\n\\tif cc jump 1f;\\n\\t%H0 += -1;\\n\\t1:"
-  [(set_attr "length" "14")])
+  [(set_attr "length" "14")
+   (set_attr "seq_insns" "multi")])
 
 ;; Combined shift/add instructions
 
@@ -1493,7 +1532,103 @@
   "jump (%0);"
   [(set_attr "type" "misc")])
 
+;;  Hardware loop
+
+; operand 0 is the loop count pseudo register
+; operand 1 is the number of loop iterations or 0 if it is unknown
+; operand 2 is the maximum number of loop iterations
+; operand 3 is the number of levels of enclosed loops
+; operand 4 is the label to jump to at the top of the loop
+(define_expand "doloop_end"
+  [(parallel [(set (pc) (if_then_else
+			  (ne (match_operand:SI 0 "" "")
+			      (const_int 1))
+			  (label_ref (match_operand 4 "" ""))
+			  (pc)))
+	      (set (match_dup 0)
+		   (plus:SI (match_dup 0)
+			    (const_int -1)))
+	      (unspec [(const_int 0)] UNSPEC_LSETUP_END)
+	      (clobber (match_scratch:SI 5 ""))])]
+  ""
+  {bfin_hardware_loop ();})
+
+(define_insn "loop_end"
+  [(set (pc)
+	(if_then_else (ne (match_operand:SI 0 "nonimmediate_operand" "+a*d,*b*h*f,m")
+			  (const_int 1))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))
+   (set (match_dup 0)
+	(plus (match_dup 0)
+	      (const_int -1)))
+   (unspec [(const_int 0)] UNSPEC_LSETUP_END)
+   (clobber (match_scratch:SI 2 "=X,&r,&r"))]
+  ""
+  "@
+   /* loop end %0 %l1 */
+   #
+   #"
+  [(set_attr "length" "6,10,14")])
+
+(define_split
+  [(set (pc)
+	(if_then_else (ne (match_operand:SI 0 "nondp_reg_or_memory_operand" "")
+			  (const_int 1))
+		      (label_ref (match_operand 1 "" ""))
+		      (pc)))
+   (set (match_dup 0)
+	(plus (match_dup 0)
+	      (const_int -1)))
+   (unspec [(const_int 0)] UNSPEC_LSETUP_END)
+   (clobber (match_scratch:SI 2 "=&r"))]
+  "reload_completed"
+  [(set (match_dup 2) (match_dup 0))
+   (set (match_dup 2) (plus:SI (match_dup 2) (const_int -1)))
+   (set (match_dup 0) (match_dup 2))
+   (set (reg:BI REG_CC) (eq:BI (match_dup 2) (const_int 0)))
+   (set (pc)
+	(if_then_else (eq (reg:BI REG_CC)
+			  (const_int 0))
+		      (label_ref (match_dup 1))
+		      (pc)))]
+  "")
+
+(define_insn "lsetup_with_autoinit"
+  [(set (match_operand:SI 0 "lt_register_operand" "=t")
+	(label_ref (match_operand 1 "" "")))
+   (set (match_operand:SI 2 "lb_register_operand" "=l")
+	(label_ref (match_operand 3 "" "")))
+   (set (match_operand:SI 4 "lc_register_operand" "=k")
+	(match_operand:SI 5 "register_operand" "a"))]
+  ""
+  "LSETUP (%1, %3) %4 = %5;"
+  [(set_attr "length" "4")])
+
+(define_insn "lsetup_without_autoinit"
+  [(set (match_operand:SI 0 "lt_register_operand" "=t")
+	(label_ref (match_operand 1 "" "")))
+   (set (match_operand:SI 2 "lb_register_operand" "=l")
+	(label_ref (match_operand 3 "" "")))
+   (use (match_operand:SI 4 "lc_register_operand" "k"))]
+  ""
+  "LSETUP (%1, %3) %4;"
+  [(set_attr "length" "4")])
+
 ;;  Call instructions..
+
+;; The explicit MEM inside the UNSPEC prevents the compiler from moving
+;; the load before a branch after a NULL test, or before a store that
+;; initializes a function descriptor.
+
+(define_insn_and_split "load_funcdescsi"
+  [(set (match_operand:SI 0 "register_operand" "=a")
+	(unspec_volatile:SI [(mem:SI (match_operand:SI 1 "address_operand" "p"))]
+			    UNSPEC_VOLATILE_LOAD_FUNCDESC))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 0) (mem:SI (match_dup 1)))])
 
 (define_expand "call"
   [(parallel [(call (match_operand:SI 0 "" "")
@@ -1538,6 +1673,102 @@
   bfin_expand_call (operands[0], operands[1], operands[2], operands[3], 1);
   DONE;
 })
+
+(define_insn "*call_symbol_fdpic"
+  [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" "Q"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand:SI 2 "register_operand" "Z"))
+   (use (match_operand 3 "" ""))]
+  "! SIBLING_CALL_P (insn)
+   && GET_CODE (operands[0]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[0], INTVAL (operands[3]))"
+  "call %0;"
+  [(set_attr "type" "call")
+   (set_attr "length" "4")])
+
+(define_insn "*sibcall_symbol_fdpic"
+  [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" "Q"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand:SI 2 "register_operand" "Z"))
+   (use (match_operand 3 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)
+   && GET_CODE (operands[0]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[0], INTVAL (operands[3]))"
+  "jump.l %0;"
+  [(set_attr "type" "br")
+   (set_attr "length" "4")])
+
+(define_insn "*call_value_symbol_fdpic"
+  [(set (match_operand 0 "register_operand" "=d")
+        (call (mem:SI (match_operand:SI 1 "symbol_ref_operand" "Q"))
+	      (match_operand 2 "general_operand" "g")))
+   (use (match_operand:SI 3 "register_operand" "Z"))
+   (use (match_operand 4 "" ""))]
+  "! SIBLING_CALL_P (insn)
+   && GET_CODE (operands[1]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[1], INTVAL (operands[4]))"
+  "call %1;"
+  [(set_attr "type" "call")
+   (set_attr "length" "4")])
+
+(define_insn "*sibcall_value_symbol_fdpic"
+  [(set (match_operand 0 "register_operand" "=d")
+         (call (mem:SI (match_operand:SI 1 "symbol_ref_operand" "Q"))
+	       (match_operand 2 "general_operand" "g")))
+   (use (match_operand:SI 3 "register_operand" "Z"))
+   (use (match_operand 4 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)
+   && GET_CODE (operands[1]) == SYMBOL_REF
+   && !bfin_longcall_p (operands[1], INTVAL (operands[4]))"
+  "jump.l %1;"
+  [(set_attr "type" "br")
+   (set_attr "length" "4")])
+
+(define_insn "*call_insn_fdpic"
+  [(call (mem:SI (match_operand:SI 0 "register_no_elim_operand" "Y"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand:SI 2 "register_operand" "Z"))
+   (use (match_operand 3 "" ""))]
+  "! SIBLING_CALL_P (insn)"
+  "call (%0);"
+  [(set_attr "type" "call")
+   (set_attr "length" "2")])
+
+(define_insn "*sibcall_insn_fdpic"
+  [(call (mem:SI (match_operand:SI 0 "register_no_elim_operand" "Y"))
+	 (match_operand 1 "general_operand" "g"))
+   (use (match_operand:SI 2 "register_operand" "Z"))
+   (use (match_operand 3 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)"
+  "jump (%0);"
+  [(set_attr "type" "br")
+   (set_attr "length" "2")])
+
+(define_insn "*call_value_insn_fdpic"
+  [(set (match_operand 0 "register_operand" "=d")
+        (call (mem:SI (match_operand:SI 1 "register_no_elim_operand" "Y"))
+	      (match_operand 2 "general_operand" "g")))
+   (use (match_operand:SI 3 "register_operand" "Z"))
+   (use (match_operand 4 "" ""))]
+  "! SIBLING_CALL_P (insn)"
+  "call (%1);"
+  [(set_attr "type" "call")
+   (set_attr "length" "2")])
+
+(define_insn "*sibcall_value_insn_fdpic"
+  [(set (match_operand 0 "register_operand" "=d")
+         (call (mem:SI (match_operand:SI 1 "register_no_elim_operand" "Y"))
+	       (match_operand 2 "general_operand" "g")))
+   (use (match_operand:SI 3 "register_operand" "Z"))
+   (use (match_operand 4 "" ""))
+   (return)]
+  "SIBLING_CALL_P (insn)"
+  "jump (%1);"
+  [(set_attr "type" "br")
+   (set_attr "length" "2")])
 
 (define_insn "*call_symbol"
   [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" "Q"))
@@ -1648,11 +1879,15 @@
    (set (mem:BLK (match_dup 3))
 	(mem:BLK (match_dup 4)))
    (use (match_dup 2))
-   (clobber (match_scratch:HI 5 "=&d"))]
+   (clobber (match_scratch:HI 5 "=&d"))
+   (clobber (reg:SI REG_LT1))
+   (clobber (reg:SI REG_LC1))
+   (clobber (reg:SI REG_LB1))]
   ""
   "%5 = [%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || [%3++] = %5 || %5 = [%4++]; [%3++] = %5;"
   [(set_attr "type" "misc")
-   (set_attr "length" "16")])
+   (set_attr "length" "16")
+   (set_attr "seq_insns" "multi")])
 
 (define_insn "rep_movhi"
   [(set (match_operand:SI 0 "register_operand" "=&a")
@@ -1667,11 +1902,15 @@
    (set (mem:BLK (match_dup 3))
 	(mem:BLK (match_dup 4)))
    (use (match_dup 2))
-   (clobber (match_scratch:HI 5 "=&d"))]
+   (clobber (match_scratch:HI 5 "=&d"))
+   (clobber (reg:SI REG_LT1))
+   (clobber (reg:SI REG_LC1))
+   (clobber (reg:SI REG_LB1))]
   ""
   "%h5 = W[%4++]; lsetup (1f, 1f) LC1 = %2; 1: MNOP || W [%3++] = %5 || %h5 = W [%4++]; W [%3++] = %5;"
   [(set_attr "type" "misc")
-   (set_attr "length" "16")])
+   (set_attr "length" "16")
+   (set_attr "seq_insns" "multi")])
 
 (define_expand "movmemsi"
   [(match_operand:BLK 0 "general_operand" "")
@@ -2203,7 +2442,8 @@
   ""
   "if !cc jump 4 (bp); excpt 3;"
   [(set_attr "type" "misc")
-   (set_attr "length" "4")])
+   (set_attr "length" "4")
+   (set_attr "seq_insns" "multi")])
 
 ;;; Vector instructions
 

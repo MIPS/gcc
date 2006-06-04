@@ -1426,10 +1426,14 @@ is_bitfield_expr_with_lowered_type (tree exp)
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
-   function-to-pointer conversions.
+   function-to-pointer conversions.  In addition, manifest constants
+   are replaced by their values, and bitfield references are converted
+   to their declared types.
 
-   In addition, manifest constants are replaced by their values, and
-   bitfield references are converted to their declared types.  */
+   Although the returned value is being used as an rvalue, this
+   function does not wrap the returned expression in a
+   NON_LVALUE_EXPR; the caller is expected to be mindful of the fact
+   that the return value is no longer an lvalue.  */
 
 tree
 decay_conversion (tree exp)
@@ -1448,6 +1452,8 @@ decay_conversion (tree exp)
     }
 
   exp = decl_constant_value (exp);
+  if (error_operand_p (exp))
+    return error_mark_node;
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Leave such NOP_EXPRs, since RHS is being used in non-lvalue context.  */
@@ -1498,22 +1504,52 @@ decay_conversion (tree exp)
       adr = build_unary_op (ADDR_EXPR, exp, 1);
       return cp_convert (ptrtype, adr);
     }
+  
+  /* If a bitfield is used in a context where integral promotion
+     applies, then the caller is expected to have used
+     default_conversion.  That function promotes bitfields correctly
+     before calling this function.  At this point, if we have a
+     bitfield referenced, we may assume that is not subject to
+     promotion, and that, therefore, the type of the resulting rvalue
+     is the declared type of the bitfield.  */
+  exp = convert_bitfield_to_declared_type (exp);
 
-  /* [basic.lval]: Class rvalues can have cv-qualified types; non-class
-     rvalues always have cv-unqualified types.  */
-  if (! CLASS_TYPE_P (type))
-    exp = cp_convert (TYPE_MAIN_VARIANT (type), exp);
+  /* We do not call rvalue() here because we do not want to wrap EXP
+     in a NON_LVALUE_EXPR.  */
+
+  /* [basic.lval]
+
+     Non-class rvalues always have cv-unqualified types.  */
+  type = TREE_TYPE (exp);
+  if (!CLASS_TYPE_P (type) && cp_type_quals (type))
+    exp = build_nop (TYPE_MAIN_VARIANT (type), exp);
 
   return exp;
 }
 
+/* Perform prepatory conversions, as part of the "usual arithmetic
+   conversions".  In particular, as per [expr]:
+
+     Whenever an lvalue expression appears as an operand of an
+     operator that expects the rvalue for that operand, the
+     lvalue-to-rvalue, array-to-pointer, or function-to-pointer
+     standard conversions are applied to convert the expression to an
+     rvalue.
+
+   In addition, we perform integral promotions here, as those are
+   applied to both operands to a binary operator before determining
+   what additional conversions should apply.  */
+
 tree
 default_conversion (tree exp)
 {
-  exp = decay_conversion (exp);
-
+  /* Perform the integral promotions first so that bitfield
+     expressions (which may promote to "int", even if the bitfield is
+     declared "unsigned") are promoted correctly.  */  
   if (INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
     exp = perform_integral_promotions (exp);
+  /* Perform the other conversions.  */
+  exp = decay_conversion (exp);
 
   return exp;
 }
@@ -4209,6 +4245,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	     and the created OFFSET_REF.  */
 	  tree base = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg, 0)));
 	  tree fn = get_first_fn (TREE_OPERAND (arg, 1));
+	  mark_used (fn);
 
 	  if (! flag_ms_extensions)
 	    {
@@ -4288,9 +4325,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       if (TREE_CODE (argtype) != FUNCTION_TYPE
 	  && TREE_CODE (argtype) != METHOD_TYPE
 	  && TREE_CODE (arg) != OFFSET_REF
-	  /* Permit users to take the address of a compound-literal
-	     with sufficient simple elements.  */
-	  && !(COMPOUND_LITERAL_P (arg) && TREE_STATIC (arg))
 	  && !lvalue_or_else (arg, lv_addressof))
 	return error_mark_node;
 
@@ -4307,24 +4341,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return val;
 	}
 
-      /* If the user has taken the address of the compound literal,
-	 create a variable to contain the value of the literal and
-	 then return the address of that variable.  */
-      if (COMPOUND_LITERAL_P (arg))
-	{
-	  tree var;
-	  gcc_assert (TREE_STATIC (arg));
-	  var = create_temporary_var (TREE_TYPE (arg));
-	  TREE_STATIC (var) = 1;
-	  set_compound_literal_name (var); 
-	  initialize_artificial_var (var, arg);
-	  arg = pushdecl (var);
-	  /* Since each compound literal is unique, pushdecl should
-	     never find a pre-existing variable with the same
-	     name.  */
-	  gcc_assert (arg == var);
-	}
-      
       if (TREE_CODE (arg) != COMPONENT_REF)
 	{
 	  val = build_address (arg);
@@ -5466,7 +5482,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   bool plain_assign = (modifycode == NOP_EXPR);
 
   /* Avoid duplicate error messages from operands that had errors.  */
-  if (lhs == error_mark_node || rhs == error_mark_node)
+  if (error_operand_p (lhs) || error_operand_p (rhs))
     return error_mark_node;
 
   /* Handle control structure constructs used as "lvalues".  */

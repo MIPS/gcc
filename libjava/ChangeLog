@@ -1,3 +1,248 @@
+2006-06-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* scripts/jar.in: Ensure return with argument has non-empty argument.
+
+2006-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac (ZIP, UNZIP): New programs.
+	(JAR): Fall back to bash script.  Generate it.
+	(BASH_JAR): New conditional.
+	* Makefile.am (bin_SCRIPTS): New.
+	* scripts/jar.in: New file.
+
+2006-06-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/java/lang/MainThread (run): Revert exception chaining change.
+
+2006-05-31  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* prims.cc (_Jv_RunMain): Use JvNewStringUTF for command-line class
+	name, not Latin1.
+	* gnu/java/lang/MainThread.java (run): Allow file separator char to
+	be used in place of '.' as class-name separator. Don't chain
+	ClassNotFoundException.
+
+2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/lang/VMClassLoader.java (initialize): Set default library
+	control to LIB_NEVER.
+
+2006-05-31  Alan Modra  <amodra@bigpond.net.au>
+
+	* stacktrace.cc (_Jv_StackTrace::UpdateNCodeMap): Don't add
+	interpreted classes.
+
+2006-05-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Do not skip
+	gnu-java-awt-peer-gtk.lo.
+	Include gnu/java/awt/peer/gtk Java objects in libgcj.so.  Use C++
+	ABI for gnu/java/awt/peer/gtk package.
+	* gnu/classpath/natSystemProperties.cc (PrependVersionedLibdir):
+	New function.
+	(insertSystemProperties): Only set java.ext.dirs if it is not
+	already defined.  Prepend GCJ_VERSIONED_LIBDIR to module search
+	path where necessary.
+	* configure.ac (GTK_AWT): Remove automake conditional.
+	Do not add gnu/java/awt/peer/gtk to standard.omit.
+	* include/jvm.h (_Jv_PrependVersionedLibdir): New function
+	declaration.
+	* gij.cc (main): Prepend LD_LIBRARY_PATH with GCJ_VERSIONED_LIBDIR
+	and re-exec self.
+	* Makefile.am (AM_CXXFLAGS): Define GCJ_VERSIONED_LIBDIR and
+	PATH_SEPARATOR macros.
+	Remove lib-gnu-java-awt-peer-gtk.la and libgcjawt.la build logic.
+	* prims.cc (_Jv_PrependVersionedLibdir): New function.
+
+2006-05-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/lang/natThread.cc (countStackFrames): Do not throw
+	UnsupportedOperationException.
+	(resume): Likewise.
+	(stop): Likewise.
+	(suspend): Likewise.
+
+2006-05-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+        * configure.ac: Add sys/rw_lock.h to AC_CHECK_HEADERS.
+        * configure: Rebuilt.
+        * include/config.h.in: Likewise.
+	* include/posix.h: If HAVE_SYS_RW_LOCK_H is defined, include
+	<sys/rw_lock.h>.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27024:
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/java/net/DefaultContentHandlerFactory.java: Removed.
+	* java/net/URLConnection.java: Removed.
+
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.am: Add install-html target. Add install-html to .PHONY
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2006-05-24  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.lang/stacktrace.java: New file.
+	* testsuite/libjava.lang/stacktrace.out: Likewise.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl: Accept -verbose command-line option.
+	(is_verbose): New global.
+	(verbose): Use it.
+	(classify_source_file): Don't special case '.' for 'package'
+	type.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27729:
+	* java/lang/reflect/natField.cc (getAddr): Added parens.
+	* java/lang/reflect/natConstructor.cc (getModifiersInternal):
+	Renamed.  Don't mask flags.
+	* java/lang/reflect/Constructor.java (CONSTRUCTOR_MODIFIERS): New
+	constant.
+	(getModifiersInternal): Renamed.
+	(getModifiers): Rewrote.
+	(isSynthetic, isVarArgs): New methods.
+	(hashCode): Rewrote.
+	(addTypeParameters, toGenericString): New methods.
+	(getTypeParameters): Rewrote.
+	(getSignature): New method.
+	(getGenericParameterTypes, getGenericExceptionTypes): Likewise.
+	* java/lang/reflect/natMethod.cc (getModifiersInternal):
+	Renamed.  Don't mask flags.
+	* java/lang/reflect/natField.cc (getModifiersInternal): Renamed.
+	Don't mask flags.
+	* java/lang/reflect/Modifier.java (BRIDGE, VARARGS, SYNTHETIC,
+	ENUM): New constants.
+	(INVISIBLE): Changed value.
+	* java/lang/reflect/Method.java: Mostly merged with Classpath.
+	(getModifiersInternal): Renamed.
+	(getModifiers): Rewrote.
+	(isBridge, isSynthetic, isVarArgs): New methods.
+	(toGenericString): Likewise.
+	(getTypeParameters): Likewise.
+	(getSignature): Likewise.
+	(getGenericExceptionTypes, getGenericParameterTypes,
+	getGenericReturnType): Likewise.
+	(METHOD_MODIFIERS): New constant.
+	* java/lang/reflect/Field.java: Mostly merged with Classpath.
+	Added javadoc everywhere.
+	(getModifiersInternal): Renamed.
+	(getModifiers, isSynthetic, isEnumConstant): Rewrote.
+	(toGenericString): New method.
+	(getGenericType, getSignature): Likewise.
+	(FIELD_MODIFIERS): New constant.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27731:
+	* java/lang/natMath.cc (cbrt, cosh, expm1, hypot, log1p, sinh,
+	tanh): New methods.
+	* java/lang/Math.java (cbrt, cosh, expm1, hypot, log1p, sinh,
+	tanh): Declare.
+
+2006-05-22  Mark Wielaard  <mark@klomp.org>
+
+	* HACKING: Update GNU Classpath import instructions.
+
+2006-05-21  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/lang/natClass.cc (_Jv_FindMethodInCache): Mark klass, name and
+	signature as MAYBE_UNUSED for HAVE_TLS == 0.
+	(_Jv_AddMethodToCache): Mark klass and method as MAYBE_UNUSED for
+	HAVE_TLS == 0.
+
+2006-05-20  Andreas Tobler  <a.tobler@schweiz.ch>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* configure.ac: Add the POSIX thread libs to the HP-UX PA
+	configuration. Add signal specification for HP-UX PA.
+	* configure: Rebuilt.
+	* configure.host: Add defaults for the HP-UX PA architecture.
+	Add descriptor files for HP-UX PA 32-bit and 64-bit.
+	* include/hppa-signal.h: New file.
+	* include/posix.h: Add shared library suffix for HP-UX.
+	* sysdep/pa/descriptor-pa32-hpux.h: New file.
+	* sysdep/pa/descriptor-pa64-hpux.h: Likewise.
+
+2006-05-19  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* ChangeLog: Correct incorrect GNU Classpath version in the
+	entry for the latest import.
+
+2006-05-18  Tom Tromey  <tromey@redhat.com>
+
+	* source.am, Makefile.in: Rebuilt.
+	* Makefile.am (property_files): Removed.
+	* scripts/makemake.tcl (properties_map): New global.
+	(properties_files): Likewise.
+	(emit_property_files): New proc.
+	(scan_packages): Scan META-INF.
+	Print property_files variable.  Scan classpath/resource.
+
+2006-05-18  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.special/special.exp (gcj_special_pr21115):
+	Renamed.
+	(gcj_write_and_byte_compile): New proc.
+	(gcj_special_lazy_illegal_access): Likewise.
+
+2006-05-18  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.91
+	* scripts/makemake.tcl: LocaleData.java moved to gnu/java/locale.
+
+	* sources.am: Regenerated.
+	* gcj/javaprims.h: Regenerated.
+	* Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
+	* gnu/java/lang/VMInstrumentationImpl.java: New override.
+	* gnu/java/net/local/LocalSocketImpl.java: Likewise.
+	* gnu/classpath/jdwp/VMMethod.java: Likewise.
+	* gnu/classpath/jdwp/VMVirtualMachine.java: Update to latest
+	interface.
+	* java/lang/Thread.java: Add UncaughtExceptionHandler.
+	* java/lang/reflect/Method.java: Implements GenericDeclaration and
+	isSynthetic(),
+	* java/lang/reflect/Field.java: Likewise.
+	* java/lang/reflect/Constructor.java
+	* java/lang/Class.java: Implements Type, GenericDeclaration,
+	getSimpleName() and getEnclosing*() methods.
+	* java/lang/Class.h: Add new public methods.
+	* java/lang/Math.java: Add signum(), ulp() and log10().
+	* java/lang/natMath.cc (log10): New function.
+	* java/security/VMSecureRandom.java: New override.
+	* java/util/logging/Logger.java: Updated to latest classpath
+	version.
+	* java/util/logging/LogManager.java: New override.
+
+2006-05-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/27352
+	* java/lang/Class.java (getClassLoaderInternal): New method.
+	(forName (String, Class)): Use getClassLoaderInternal.
+	(getPackage): Likewise.
+	(getResource): Likewise.
+	(getResourceAsStream): Likewise.
+	(desiredAssertionStatus): Likewise.
+
+2006-05-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* stacktrace.cc (StackTrace::FillInFrameInfo): Use
+	UNWRAP_FUNCTION_DESCRIPTOR to compare frame->start_ip against the
+	klass->methods[j].ncode.
+
 2006-05-13  Tom Tromey  <tromey@redhat.com>
 
 	* sources.am, Makefile.in: Rebuilt.
@@ -91,7 +336,7 @@
 	* testsuite/libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Add check for
 	HP-UX and add appropriate extension for shared libraries, sl.
 	(gcj_jni_test_one): Likewise.
-	
+
 	* testsuite/lib/libjava.exp (libjava_find_lib): Add sl to the shared
 	library extensions.
 

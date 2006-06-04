@@ -40,10 +40,6 @@ if XLIB_AWT
 toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
 
-if GTK_AWT
-toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-gtk.la libgcjawt.la
-endif
-
 if QT_AWT
 toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-qt.la
 endif
@@ -89,7 +85,9 @@ bin_SCRIPTS = addr2name.awk
 ## Compilers and compilation flags.
 ##
 
-GCJH = @GCJH@
+if BASH_JAR
+bin_SCRIPTS += scripts/jar
+endif
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -128,6 +126,8 @@ AM_CXXFLAGS = \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
+	-DGCJ_VERSIONED_LIBDIR="\"$(libdir)/gcj-$(gcc_version)\"" \
+	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
 	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\""
@@ -247,33 +247,6 @@ $(db_name): gcj-dbtool$(EXEEXT)
 ## not available.
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
 
-## For the peer library, DEPENDENCIES need to come before OBJECTS so
-## that JNI headers are built before JNI C files.
-$(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
-
-lib_gnu_java_awt_peer_gtk_la_SOURCES =
-lib_gnu_java_awt_peer_gtk_la_LIBADD = \
-	gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	$(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-## The mysterious backslash in the grep pattern is consumed by make.
-lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
-lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
-
-libgcjawt_la_SOURCES = classpath/native/jawt/jawt.c
-libgcjawt_la_CFLAGS = -I$(srcdir)/classpath/native/jni/classpath \
-	$(PEDANTIC_CFLAGS) $(X_CFLAGS)
-## See jv_convert_LDADD.
-libgcjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
-libgcjawt_la_LDFLAGS = \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
-	$(LIBGCJ_LD_SYMBOLIC)
-libgcjawt_la_LINK = $(LIBLINK)
-
 lib_gnu_java_awt_peer_qt_la_SOURCES =
 lib_gnu_java_awt_peer_qt_la_LIBADD = \
 	gnu-java-awt-peer-qt.lo \
@@ -304,19 +277,7 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 
-## Build property files into the library.
-property_files = \
-classpath/resource/org/ietf/jgss/MessagesBundle.properties \
-classpath/resource/java/util/iso4217.properties	\
-classpath/resource/gnu/java/awt/peer/gtk/font.properties \
-classpath/resource/gnu/regexp/MessagesBundle_it.properties \
-classpath/resource/gnu/regexp/MessagesBundle_fr.properties \
-classpath/resource/gnu/regexp/MessagesBundle.properties	\
-classpath/resource/META-INF/services/org.xml.sax.driver	\
-classpath/resource/META-INF/services/javax.xml.parsers.SAXParserFactory	\
-classpath/resource/META-INF/services/javax.xml.parsers.DocumentBuilderFactory \
-classpath/resource/META-INF/services/javax.xml.parsers.TransformerFactory
-
+## Note that property_files is defined in sources.am.
 propertyo_files = $(patsubst classpath/resource/%,%,$(addsuffix .lo,$(property_files)))
 
 $(propertyo_files): %.lo: classpath/resource/%
@@ -993,6 +954,10 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 
 MAKEOVERRIDES=
+
+# No install-html support yet.
+.PHONY: install-html
+install-html:
 
 # Multilib support variables.
 MULTISRCTOP =

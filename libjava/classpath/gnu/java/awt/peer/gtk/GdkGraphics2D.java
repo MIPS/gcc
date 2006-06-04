@@ -104,8 +104,7 @@ public class GdkGraphics2D extends Graphics2D
       throw new Error("Graphics2D not implemented. "
 		      + "Cairo was not found or disabled at configure time");
 
-    if (Configuration.INIT_LOAD_LIBRARY)
-      System.loadLibrary("gtkpeer");
+    System.loadLibrary("gtkpeer");
 
     initStaticState();
   }
@@ -1229,7 +1228,10 @@ public class GdkGraphics2D extends Graphics2D
     drawPixels(pixels, r.getWidth(), r.getHeight(), r.getWidth(), i2u);
 
     updateBufferedImage();
-
+    
+    // Cairo seems loosing the current color.
+    setColor(fg);
+    
     return true;
   }
 

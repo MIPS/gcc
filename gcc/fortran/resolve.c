@@ -1377,6 +1377,30 @@ resolve_function (gfc_expr * expr)
 	}
     }
 
+  /* Functions without the RECURSIVE attribution are not allowed to
+   * call themselves.  */
+  if (expr->value.function.esym && !expr->value.function.esym->attr.recursive)
+    {
+      gfc_symbol *esym, *proc;
+      esym = expr->value.function.esym;
+      proc = gfc_current_ns->proc_name;
+      if (esym == proc)
+      {
+        gfc_error ("Function '%s' at %L cannot call itself, as it is not "
+                   "RECURSIVE", name, &expr->where);
+        t = FAILURE;
+      }
+
+      if (esym->attr.entry && esym->ns->entries && proc->ns->entries
+          && esym->ns->entries->sym == proc->ns->entries->sym)
+      {
+        gfc_error ("Call to ENTRY '%s' at %L is recursive, but function "
+                   "'%s' is not declared as RECURSIVE",
+                   esym->name, &expr->where, esym->ns->entries->sym->name);
+        t = FAILURE;
+      }
+    }
+
   /* Character lengths of use associated functions may contains references to
      symbols not referenced from the current program unit otherwise.  Make sure
      those symbols are marked as referenced.  */
@@ -1625,6 +1649,30 @@ resolve_call (gfc_code * c)
 	&& !c->symtree->n.sym->attr.contained
 	&& !c->symtree->n.sym->attr.use_assoc)
     resolve_global_procedure (c->symtree->n.sym, &c->loc, 1);
+
+  /* Subroutines without the RECURSIVE attribution are not allowed to
+   * call themselves.  */
+  if (c->symtree && c->symtree->n.sym && !c->symtree->n.sym->attr.recursive)
+    {
+      gfc_symbol *csym, *proc;
+      csym = c->symtree->n.sym;
+      proc = gfc_current_ns->proc_name;
+      if (csym == proc)
+      {
+        gfc_error ("SUBROUTINE '%s' at %L cannot call itself, as it is not "
+                   "RECURSIVE", csym->name, &c->loc);
+        t = FAILURE;
+      }
+
+      if (csym->attr.entry && csym->ns->entries && proc->ns->entries
+          && csym->ns->entries->sym == proc->ns->entries->sym)
+      {
+        gfc_error ("Call to ENTRY '%s' at %L is recursive, but subroutine "
+                   "'%s' is not declared as RECURSIVE",
+                   csym->name, &c->loc, csym->ns->entries->sym->name);
+        t = FAILURE;
+      }
+    }
 
   /* Switch off assumed size checking and do this again for certain kinds
      of procedure, once the procedure itself is resolved.  */
@@ -2237,9 +2285,11 @@ find_array_spec (gfc_expr * e)
 {
   gfc_array_spec *as;
   gfc_component *c;
+  gfc_symbol *derived;
   gfc_ref *ref;
 
   as = e->symtree->n.sym->as;
+  derived = NULL;
 
   for (ref = e->ref; ref; ref = ref->next)
     switch (ref->type)
@@ -2253,9 +2303,19 @@ find_array_spec (gfc_expr * e)
 	break;
 
       case REF_COMPONENT:
-	for (c = e->symtree->n.sym->ts.derived->components; c; c = c->next)
+	if (derived == NULL)
+	  derived = e->symtree->n.sym->ts.derived;
+
+	c = derived->components;
+
+	for (; c; c = c->next)
 	  if (c == ref->u.c.component)
-	    break;
+	    {
+	      /* Track the sequence of component references.  */
+	      if (c->ts.type == BT_DERIVED)
+		derived = c->ts.derived;
+	      break;
+	    }
 
 	if (c == NULL)
 	  gfc_internal_error ("find_array_spec(): Component not found");
@@ -2284,6 +2344,7 @@ static try
 resolve_array_ref (gfc_array_ref * ar)
 {
   int i, check_scalar;
+  gfc_expr *e;
 
   for (i = 0; i < ar->dimen; i++)
     {
@@ -2296,8 +2357,10 @@ resolve_array_ref (gfc_array_ref * ar)
       if (gfc_resolve_index (ar->stride[i], check_scalar) == FAILURE)
 	return FAILURE;
 
+      e = ar->start[i];
+
       if (ar->dimen_type[i] == DIMEN_UNKNOWN)
-	switch (ar->start[i]->rank)
+	switch (e->rank)
 	  {
 	  case 0:
 	    ar->dimen_type[i] = DIMEN_ELEMENT;
@@ -2305,11 +2368,14 @@ resolve_array_ref (gfc_array_ref * ar)
 
 	  case 1:
 	    ar->dimen_type[i] = DIMEN_VECTOR;
+	    if (e->expr_type == EXPR_VARIABLE
+		   && e->symtree->n.sym->ts.type == BT_DERIVED)
+	      ar->start[i] = gfc_get_parentheses (e);
 	    break;
 
 	  default:
 	    gfc_error ("Array index at %L is an array of rank %d",
-		       &ar->c_where[i], ar->start[i]->rank);
+		       &ar->c_where[i], e->rank);
 	    return FAILURE;
 	  }
     }
@@ -3926,7 +3992,7 @@ gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
               break;
 
             default:
-              gfc_error("expresion reference type error at %L", &expr->where);
+              gfc_error("expression reference type error at %L", &expr->where);
             }
           tmp = tmp->next;
         }
@@ -4345,9 +4411,10 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	  break;
 
 	case EXEC_RETURN:
-	  if (code->expr != NULL && code->expr->ts.type != BT_INTEGER)
-	    gfc_error ("Alternate RETURN statement at %L requires an INTEGER "
-		       "return specifier", &code->expr->where);
+	  if (code->expr != NULL
+		&& (code->expr->ts.type != BT_INTEGER || code->expr->rank))
+	    gfc_error ("Alternate RETURN statement at %L requires a SCALAR-"
+		       "INTEGER return specifier", &code->expr->where);
 	  break;
 
 	case EXEC_ASSIGN:
@@ -4879,7 +4946,7 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
     }
 
-  /* An external symbol may not have an intializer because it is taken to be
+  /* An external symbol may not have an initializer because it is taken to be
      a procedure.  */
   if (sym->attr.external && sym->value)
     {

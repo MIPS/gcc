@@ -147,6 +147,7 @@ static lambda_lattice lambda_lattice_new (int, int);
 static lambda_lattice lambda_lattice_compute_base (lambda_loopnest);
 
 static tree find_induction_var_from_exit_cond (struct loop *);
+static bool can_convert_to_perfect_nest (struct loop *);
 
 /* Create a new lambda body vector.  */
 
@@ -622,7 +623,7 @@ compute_nest_using_fourier_motzkin (int size,
    4. Multiply the composed transformation matrix times the matrix form of the
    loop.
    5. Transform the newly created matrix (from step 4) back into a loop nest
-   using fourier motzkin elimination to figure out the bounds.  */
+   using Fourier-Motzkin elimination to figure out the bounds.  */
 
 static lambda_loopnest
 lambda_compute_auxillary_space (lambda_loopnest nest,
@@ -741,7 +742,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   lambda_matrix_add_mc (B, 1, B1, -1, B1, size, invariants);
 
   /* Now compute the auxiliary space bounds by first inverting U, multiplying
-     it by A1, then performing fourier motzkin.  */
+     it by A1, then performing Fourier-Motzkin.  */
 
   invertedtrans = lambda_matrix_new (depth, depth);
 
@@ -1457,14 +1458,13 @@ DEF_VEC_ALLOC_P(lambda_loop,heap);
 
 lambda_loopnest
 gcc_loopnest_to_lambda_loopnest (struct loops *currloops,
-				 struct loop * loop_nest,
+				 struct loop *loop_nest,
 				 VEC(tree,heap) **inductionvars,
-				 VEC(tree,heap) **invariants,
-				 bool need_perfect_nest)
+				 VEC(tree,heap) **invariants)
 {
   lambda_loopnest ret = NULL;
-  struct loop *temp;
-  int depth = 0;
+  struct loop *temp = loop_nest;
+  int depth = depth_of_nest (loop_nest);
   size_t i;
   VEC(lambda_loop,heap) *loops = NULL;
   VEC(tree,heap) *uboundvars = NULL;
@@ -1472,9 +1472,11 @@ gcc_loopnest_to_lambda_loopnest (struct loops *currloops,
   VEC(int,heap) *steps = NULL;
   lambda_loop newloop;
   tree inductionvar = NULL;
-  
-  depth = depth_of_nest (loop_nest);
-  temp = loop_nest;
+  bool perfect_nest = perfect_nest_p (loop_nest);
+
+  if (!perfect_nest && !can_convert_to_perfect_nest (loop_nest))
+    goto fail;
+
   while (temp)
     {
       newloop = gcc_loop_to_lambda_loop (temp, depth, invariants,
@@ -1482,12 +1484,14 @@ gcc_loopnest_to_lambda_loopnest (struct loops *currloops,
 					 &lboundvars, &uboundvars,
 					 &steps);
       if (!newloop)
-	return NULL;
+	goto fail;
+
       VEC_safe_push (tree, heap, *inductionvars, inductionvar);
       VEC_safe_push (lambda_loop, heap, loops, newloop);
       temp = temp->inner;
     }
-  if (need_perfect_nest)
+
+  if (!perfect_nest)
     {
       if (!perfect_nestify (currloops, loop_nest, 
 			    lboundvars, uboundvars, steps, *inductionvars))
@@ -1501,9 +1505,12 @@ gcc_loopnest_to_lambda_loopnest (struct loops *currloops,
 	fprintf (dump_file,
 		 "Successfully converted loop nest to perfect loop nest.\n");
     }
+
   ret = lambda_loopnest_new (depth, 2 * depth);
+
   for (i = 0; VEC_iterate (lambda_loop, loops, i, newloop); i++)
     LN_LOOPS (ret)[i] = newloop;
+
  fail:
   VEC_free (lambda_loop, heap, loops);
   VEC_free (tree, heap, uboundvars);
@@ -1532,7 +1539,7 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
   /* Create a statement list and a linear expression temporary.  */
   stmts = alloc_stmt_list ();
   resvar = create_tmp_var (type, "lbvtmp");
-  add_referenced_tmp_var (resvar);
+  add_referenced_var (resvar);
 
   /* Start at 0.  */
   stmt = build2 (MODIFY_EXPR, void_type_node, resvar, integer_zero_node);
@@ -1619,7 +1626,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
   /* Create a statement list and a linear expression temporary.  */
   stmts = alloc_stmt_list ();
   resvar = create_tmp_var (type, "lletmp");
-  add_referenced_tmp_var (resvar);
+  add_referenced_var (resvar);
 
   /* Build up the linear expressions, and put the variable representing the
      result in the results array.  */
@@ -1839,7 +1846,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       /* First, build the new induction variable temporary  */
 
       ivvar = create_tmp_var (type, "lnivtmp");
-      add_referenced_tmp_var (ivvar);
+      add_referenced_var (ivvar);
 
       VEC_safe_push (tree, heap, new_ivs, ivvar);
 
@@ -2110,35 +2117,18 @@ replace_uses_equiv_to_x_with_y (struct loop *loop, tree stmt, tree x,
     {
       tree use = USE_FROM_PTR (use_p);
       tree step = NULL_TREE;
-      tree access_fn = NULL_TREE;
-      
-      
-      access_fn = instantiate_parameters
-	(loop, analyze_scalar_evolution (loop, use));
-      if (access_fn != NULL_TREE && access_fn != chrec_dont_know)
-	step = evolution_part_in_loop_num (access_fn, loop->num);
+      tree scev = instantiate_parameters (loop,
+					  analyze_scalar_evolution (loop, use));
+
+      if (scev != NULL_TREE && scev != chrec_dont_know)
+	step = evolution_part_in_loop_num (scev, loop->num);
+
       if ((step && step != chrec_dont_know 
 	   && TREE_CODE (step) == INTEGER_CST
 	   && int_cst_value (step) == xstep)
 	  || USE_FROM_PTR (use_p) == x)
 	SET_USE (use_p, y);
     }
-}
-
-/* Return TRUE if STMT uses tree OP in it's uses.  */
-
-static bool
-stmt_uses_op (tree stmt, tree op)
-{
-  ssa_op_iter iter;
-  tree use;
-
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
-    {
-      if (use == op)
-	return true;
-    }
-  return false;
 }
 
 /* Return true if STMT is an exit PHI for LOOP */
@@ -2210,14 +2200,12 @@ can_put_after_inner_loop (struct loop *loop, tree stmt)
 
 
 
-/* Return TRUE if LOOP is an imperfect nest that we can convert to a perfect
-   one.  LOOPIVS is a vector of induction variables, one per loop.  
-   ATM, we only handle imperfect nests of depth 2, where all of the statements
-   occur after the inner loop.  */
+/* Return TRUE if LOOP is an imperfect nest that we can convert to a
+   perfect one.  At the moment, we only handle imperfect nests of
+   depth 2, where all of the statements occur after the inner loop.  */
 
 static bool
-can_convert_to_perfect_nest (struct loop *loop,
-			     VEC(tree,heap) *loopivs)
+can_convert_to_perfect_nest (struct loop *loop)
 {
   basic_block *bbs;
   tree exit_condition, phi;
@@ -2237,19 +2225,13 @@ can_convert_to_perfect_nest (struct loop *loop,
 	{
 	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
 	    { 
-	      size_t j;
 	      tree stmt = bsi_stmt (bsi);
-	      tree iv;
-	      
+
 	      if (stmt == exit_condition
 		  || not_interesting_stmt (stmt)
 		  || stmt_is_bumper_for_loop (loop, stmt))
 		continue;
-	      /* If the statement uses inner loop ivs, we == screwed.  */
-	      for (j = 1; VEC_iterate (tree, loopivs, j, iv); j++)
-		if (stmt_uses_op (stmt, iv))
-		  goto fail;
-	      
+
 	      /* If this is a scalar operation that can be put back
 	         into the inner loop, or after the inner loop, through
 		 copying, then do so. This works on the theory that
@@ -2258,10 +2240,65 @@ can_convert_to_perfect_nest (struct loop *loop,
 		 win we get from rearranging the memory walk
 		 the loop is doing so that it has better
 		 cache behavior.  */
-	      if (TREE_CODE (stmt) == MODIFY_EXPR
-		  && (can_put_in_inner_loop (loop->inner, stmt)
-		      || can_put_after_inner_loop (loop, stmt)))
-		continue;
+	      if (TREE_CODE (stmt) == MODIFY_EXPR)
+		{
+		  use_operand_p use_a, use_b;
+		  imm_use_iterator imm_iter;
+		  ssa_op_iter op_iter, op_iter1;
+		  tree op0 = TREE_OPERAND (stmt, 0);
+		  tree scev = instantiate_parameters
+		    (loop, analyze_scalar_evolution (loop, op0));
+
+		  /* If the IV is simple, it can be duplicated.  */
+		  if (!automatically_generated_chrec_p (scev))
+		    {
+		      tree step = evolution_part_in_loop_num (scev, loop->num);
+		      if (step && step != chrec_dont_know 
+			  && TREE_CODE (step) == INTEGER_CST)
+			continue;
+		    }
+
+		  /* The statement should not define a variable used
+		     in the inner loop.  */
+		  if (TREE_CODE (op0) == SSA_NAME)
+		    FOR_EACH_IMM_USE_FAST (use_a, imm_iter, op0)
+		      if (bb_for_stmt (USE_STMT (use_a))->loop_father
+			  == loop->inner)
+			goto fail;
+
+		  FOR_EACH_SSA_USE_OPERAND (use_a, stmt, op_iter, SSA_OP_USE)
+		    {
+		      tree node, op = USE_FROM_PTR (use_a);
+
+		      /* The variables should not be used in both loops.  */
+		      FOR_EACH_IMM_USE_FAST (use_b, imm_iter, op)
+		      if (bb_for_stmt (USE_STMT (use_b))->loop_father
+			  == loop->inner)
+			goto fail;
+
+		      /* The statement should not use the value of a
+			 scalar that was modified in the loop.  */
+		      node = SSA_NAME_DEF_STMT (op);
+		      if (TREE_CODE (node) == PHI_NODE)
+			FOR_EACH_PHI_ARG (use_b, node, op_iter1, SSA_OP_USE)
+			  {
+			    tree arg = USE_FROM_PTR (use_b);
+
+			    if (TREE_CODE (arg) == SSA_NAME)
+			      {
+				tree arg_stmt = SSA_NAME_DEF_STMT (arg);
+
+				if (bb_for_stmt (arg_stmt)->loop_father
+				    == loop->inner)
+				  goto fail;
+			      }
+			  }
+		    }
+
+		  if (can_put_in_inner_loop (loop->inner, stmt)
+		      || can_put_after_inner_loop (loop, stmt))
+		    continue;
+		}
 
 	      /* Otherwise, if the bb of a statement we care about isn't
 		 dominated by the header of the inner loop, then we can't
@@ -2351,14 +2388,10 @@ perfect_nestify (struct loops *loops,
   tree stmt;
   tree oldivvar, ivvar, ivvarinced;
   VEC(tree,heap) *phis = NULL;
-
-  if (!can_convert_to_perfect_nest (loop, loopivs))
-    return false;
-
-  /* Create the new loop */
-
+  
+  /* Create the new loop.  */
   olddest = loop->single_exit->dest;
-  preheaderbb =  loop_split_edge_with (loop->single_exit, NULL);
+  preheaderbb = loop_split_edge_with (loop->single_exit, NULL);
   headerbb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
   
   /* Push the exit phi nodes that we are moving.  */
@@ -2424,7 +2457,7 @@ perfect_nestify (struct loops *loops,
   /* Create the new iv.  */
   oldivvar = VEC_index (tree, loopivs, 0);
   ivvar = create_tmp_var (TREE_TYPE (oldivvar), "perfectiv");
-  add_referenced_tmp_var (ivvar);
+  add_referenced_var (ivvar);
   standard_iv_increment_position (newloop, &bsi, &insert_after);
   create_iv (VEC_index (tree, lbounds, 0),
 	     build_int_cst (TREE_TYPE (oldivvar), VEC_index (int, steps, 0)),
@@ -2435,7 +2468,7 @@ perfect_nestify (struct loops *loops,
 
   exit_condition = get_loop_exit_condition (newloop);
   uboundvar = create_tmp_var (integer_type_node, "uboundvar");
-  add_referenced_tmp_var (uboundvar);
+  add_referenced_var (uboundvar);
   stmt = build2 (MODIFY_EXPR, void_type_node, uboundvar, 
 		 VEC_index (tree, ubounds, 0));
   uboundvar = make_ssa_name (uboundvar, stmt);
@@ -2473,48 +2506,22 @@ perfect_nestify (struct loops *loops,
 
 	  if (dominated_by_p (CDI_DOMINATORS, loop->inner->header, bbs[i]))
 	    {
-	      for (bsi = bsi_last (bbs[i]); !bsi_end_p (bsi);)
+	      block_stmt_iterator header_bsi 
+		= bsi_after_labels (loop->inner->header);
+
+	      for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi);)
 		{ 
-		  use_operand_p use_p;
-		  imm_use_iterator imm_iter;
-		  tree imm_stmt;
 		  tree stmt = bsi_stmt (bsi);
 
 		  if (stmt == exit_condition
 		      || not_interesting_stmt (stmt)
 		      || stmt_is_bumper_for_loop (loop, stmt))
 		    {
-		      if (!bsi_end_p (bsi))
-			bsi_prev (&bsi);
+		      bsi_next (&bsi);
 		      continue;
 		    }
-		  
-		  /* Make copies of this statement to put it back next
-		     to its uses. */
-		  FOR_EACH_IMM_USE_STMT (imm_stmt, imm_iter, 
-					 TREE_OPERAND (stmt, 0))
-		    {
-		      if (!exit_phi_for_loop_p (loop->inner, imm_stmt))
-			{
-			  block_stmt_iterator tobsi;
-			  tree newname;
-			  tree newstmt;
-			 
-			  newstmt  = unshare_expr (stmt);
-			  tobsi = bsi_after_labels (bb_for_stmt (imm_stmt));
-			  newname = TREE_OPERAND (newstmt, 0);
-			  newname = SSA_NAME_VAR (newname);
-			  newname = make_ssa_name (newname, newstmt);
-			  TREE_OPERAND (newstmt, 0) = newname;
-			  FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
-			    SET_USE (use_p, newname);
-			  bsi_insert_before (&tobsi, newstmt, BSI_SAME_STMT);
-			  update_stmt (newstmt);
-			  update_stmt (imm_stmt);
-			} 
-		    }
-		  if (!bsi_end_p (bsi))
-		    bsi_prev (&bsi);			  
+
+		  bsi_move_before (&bsi, &header_bsi);
 		}
 	    }
 	  else
@@ -2535,10 +2542,9 @@ perfect_nestify (struct loops *loops,
 		      continue;
 		    }
 		  
-		  replace_uses_equiv_to_x_with_y (loop, stmt, 
-						  oldivvar,  
-						  VEC_index (int, steps, 0),
-						  ivvar);
+		  replace_uses_equiv_to_x_with_y 
+		    (loop, stmt, oldivvar, VEC_index (int, steps, 0), ivvar);
+
 		  bsi_move_before (&bsi, &tobsi);
 		  
 		  /* If the statement has any virtual operands, they may

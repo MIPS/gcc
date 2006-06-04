@@ -1,3 +1,73 @@
+2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Extensions): Document the new gcj-dbtool-based
+	classname-to-library resolution mechanism.
+	Declare the old gnu.gcj.runtime.VMClassLoader.library_control
+	mechanism deprecated.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.runtime.VMClassLoader.library_control's new default.
+
+2006-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* javaop.h (int16, int32, int64): Define to exactly 16 (resp. 32, 64)
+	bit wide type.
+	(jword): Define to uint64 on 64-bit arches.
+	* jcf-dump.c (print_constant): Cast JPOOL_UINT to long.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, except.c, expr.c, java-gimplify.c: Fix comment
+	typos.
+
+2006-05-26  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (java_push_constant_from_pool): Handle 'ldc class'.
+	* verify-glue.c (vfy_class_type): New function.
+	* verify-impl.c (check_constant): Allow 'ldc class'.
+	* verify.h (vfy_class_type): Declare.
+
+2006-05-25  Andrew Haley  <aph@redhat.com>
+
+	PR java/27756
+	* decl.c (maybe_pushlevels): When variable ranges are non-nested
+	update all lifetimes, not just the first one.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h: Fixed flag documentation.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27729:
+	* jcf.h (ACC_INVISIBLE): Changed value.
+
+2006-05-24  Andrew Haley  <aph@redhat.com>
+
+	PR java/27754
+	* decl.c (java_add_stmt): Use a STATEMENT_LIST rather than a
+	COMPOUND_EXPR.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lang.opt (femit-class-file): Remove VarExists.
+
+2006-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (verify_instructions_0) <op_return>: Special case
+	for Object.<init>.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in ($(GCJ)$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (java/decl.o): Add dependency on $(TARGET_H).
+	(java/expr.o): Replace target.h with $(TARGET_H).
+	(java/parse.o): Likewise.
+
 2006-05-10  Andrew Haley  <aph@redhat.com>
 
 	* class.c (emit_indirect_register_classes): Fix comment.

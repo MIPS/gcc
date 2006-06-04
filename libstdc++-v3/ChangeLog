@@ -1,3 +1,96 @@
+2006-06-04  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/27867
+	* include/bits/valarray_before.h (struct _BinClos<_Oper, _ValArray,
+	_ValArray, _Tp, _Tp>): Fix value_type typedef.
+	* testsuite/26_numerics/valarray/27867.cc: New.
+
+2006-05-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24692
+	* include/bits/atomicity.h (__exchange_and_add_multi,
+	__atomic_add_multi): New, depending on _GLIBCXX_ATOMIC_BUILTINS,
+	inline the atomic builtins.
+	(__exchange_and_add_dispatch, __atomic_add_dispatch): Adjust.
+	* configure.ac: Define _GLIBCXX_ATOMIC_BUILTINS when the atomic
+	builtins are available.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+
+2006-05-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.host: If the CPU provides atomic builtins select
+	generic/atomic_builtins/atomicity.h.
+	* config/cpu/generic/atomic_builtins/atomicity.h: Add.
+	* config/cpu/powerpc/atomicity.h: Remove.
+	* config/cpu/ia64/atomicity.h: Likewise.
+	* config/cpu/alpha/atomicity.h: Likewise.
+	* config/cpu/s390/atomicity.h: Likewise.
+
+2006-05-26  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.am: Add install-html target. Add install-html to .PHONY
+	* Makefile.in: Regenerate.
+
+2006-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24704
+	* include/bits/atomicity.h (__exchange_and_add_single,
+	__atomic_add_single): New, single thread versions of the atomic
+	functions.
+	(__exchange_and_add_dispatch, __atomic_add_dispatch): New,
+	depending on __GTHREADS and __gthread_active_p() dispatch either
+	to the above or to the existing atomic functions.
+	* include/ext/pool_allocator.h: Update callers.
+	* include/ext/rc_string_base.h: Likewise.
+	* include/bits/locale_classes.h: Likewise.
+	* include/bits/basic_string.h: Likewise.
+	* include/bits/ios_base.h: Likewise.
+	* include/tr1/boost_shared_ptr.h: Likewise.
+	* src/ios.cc: Likewise.
+	* src/locale.cc: Likewise.
+	* src/ios_init.cc: Likewise.
+
+2006-05-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/testsuite_shared.cc: Fix --enable-threads=single build.
+
+2006-05-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/objects/wchar_t/9661-1.cc: Avoid leaking the
+	semaphores if a VERIFY fails.
+	* testsuite/27_io/objects/wchar_t/7.cc: Likewise.
+	* testsuite/27_io/objects/char/9661-1.cc: Likewise.
+	* testsuite/27_io/objects/char/7.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/seekoff/char/26777.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/wchar_t/14975-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/char/13171-2.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/close/char/4879.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/close/char/9964.cc: Likewise.
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+
+2006-05-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable (hashtable<>::m_find): Remove; update callers.
+
+	* include/tr1/hashtable (map_base<>::operator[]): Move out of line.
+
+	* include/tr1/hashtable (hashtable<>::m_insert(const value_type&,
+	std::tr1::false_type)): Avoid memory leak risk for new_node.
+
+2006-05-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable (hashtable<>::m_find, m_insert_bucket): Add.
+	(hashtable<>::find, m_insert(const value_type&, std::tr1::true_type),
+	map_base<>::operator[]): Use the above.
+	* testsuite/performance/23_containers/insert/unordered_map_array.cc:
+	New.	
+
+	* include/tr1/hashtable (hashtable<>::find_node,
+	insert(const value_type&, ...), erase_node): Rename to m_*, adjust
+	callers.
+	* include/tr1/hashtable: Minor cosmetic changes.
+
 2006-05-13  Peter Doerfler  <gcc@pdoerfler.com>
 
 	* include/tr1/hashtable (identity<>::operator(),

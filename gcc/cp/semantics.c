@@ -261,6 +261,21 @@ pop_to_parent_deferring_access_checks (void)
     }
 }
 
+/* Perform the access checks in CHECKS.  The TREE_PURPOSE of each node
+   is the BINFO indicating the qualifying scope used to access the
+   DECL node stored in the TREE_VALUE of the node.  */
+
+void
+perform_access_checks (tree checks)
+{
+  while (checks)
+    {
+      enforce_access (TREE_PURPOSE (checks),
+		      TREE_VALUE (checks));
+      checks = TREE_CHAIN (checks);
+    }
+}
+
 /* Perform the deferred access checks.
 
    After performing the checks, we still have to keep the list
@@ -280,14 +295,7 @@ pop_to_parent_deferring_access_checks (void)
 void
 perform_deferred_access_checks (void)
 {
-  tree deferred_check;
-
-  for (deferred_check = get_deferred_access_checks ();
-       deferred_check;
-       deferred_check = TREE_CHAIN (deferred_check))
-    /* Check access.  */
-    enforce_access (TREE_PURPOSE (deferred_check),
-		    TREE_VALUE (deferred_check));
+  perform_access_checks (get_deferred_access_checks ());
 }
 
 /* Defer checking the accessibility of DECL, when looked up in
@@ -967,12 +975,18 @@ begin_try_block (void)
   return r;
 }
 
-/* Likewise, for a function-try-block.  */
+/* Likewise, for a function-try-block.  The block returned in
+   *COMPOUND_STMT is an artificial outer scope, containing the
+   function-try-block.  */
 
 tree
-begin_function_try_block (void)
+begin_function_try_block (tree *compound_stmt)
 {
-  tree r = begin_try_block ();
+  tree r;
+  /* This outer scope does not exist in the C++ standard, but we need
+     a place to put __FUNCTION__ and similar variables.  */
+  *compound_stmt = begin_compound_stmt (0);
+  r = begin_try_block ();
   FN_TRY_BLOCK_P (r) = 1;
   return r;
 }
@@ -1026,13 +1040,16 @@ finish_handler_sequence (tree try_block)
   check_handlers (TRY_HANDLERS (try_block));
 }
 
-/* Likewise, for a function-try-block.  */
+/* Finish the handler-seq for a function-try-block, given by
+   TRY_BLOCK.  COMPOUND_STMT is the outer block created by
+   begin_function_try_block.  */
 
 void
-finish_function_handler_sequence (tree try_block)
+finish_function_handler_sequence (tree try_block, tree compound_stmt)
 {
   in_function_try_handler = 0;
   finish_handler_sequence (try_block);
+  finish_compound_stmt (compound_stmt);
 }
 
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
@@ -1072,7 +1089,6 @@ finish_handler_parms (tree decl, tree handler)
     }
   else
     type = expand_start_catch_block (decl);
-
   HANDLER_TYPE (handler) = type;
   if (!processing_template_decl && type)
     mark_used (eh_type_info (type));
@@ -2002,32 +2018,43 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 tree
 finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 {
+  tree var;
   tree compound_literal;
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
   if (processing_template_decl)
-    TREE_TYPE (compound_literal) = type;
-  else
     {
-      /* Check the initialization.  */
-      compound_literal = reshape_init (type, compound_literal);
-      compound_literal = digest_init (type, compound_literal);
-      /* If the TYPE was an array type with an unknown bound, then we can
-	 figure out the dimension now.  For example, something like:
-
-	   `(int []) { 2, 3 }'
-
-	 implies that the array has two elements.  */
-      if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	cp_complete_array_type (&TREE_TYPE (compound_literal),
-				compound_literal, 1);
+      TREE_TYPE (compound_literal) = type;
+      /* Mark the expression as a compound literal.  */
+      TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+      return compound_literal;
     }
 
-  /* Mark it as a compound-literal.  */
-  TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
-
-  return compound_literal;
+  /* Create a temporary variable to represent the compound literal.  */
+  var = create_temporary_var (type);
+  if (!current_function_decl)
+    {
+      /* If this compound-literal appears outside of a function, then
+	 the corresponding variable has static storage duration, just
+	 like the variable in whose initializer it appears.  */  
+      TREE_STATIC (var) = 1;
+      /* The variable has internal linkage, since there is no need to
+	 reference it from another translation unit.  */
+      TREE_PUBLIC (var) = 0;
+      /* It must have a name, so that the name mangler can mangle it.  */
+      DECL_NAME (var) = make_anon_name ();
+    }
+  /* We must call pushdecl, since the gimplifier complains if the
+     variable hase been declared via a BIND_EXPR.  */
+  pushdecl (var);
+  /* Initialize the variable as we would any other variable with a
+     brace-enclosed initializer.  */
+  cp_finish_decl (var, compound_literal, 
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE,
+		  LOOKUP_ONLYCONVERTING);
+  return var;
 }
 
 /* Return the declaration for the function-name variable indicated by

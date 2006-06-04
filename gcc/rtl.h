@@ -1978,6 +1978,12 @@ extern int epilogue_completed;
 
 extern int reload_in_progress;
 
+#ifdef STACK_REGS
+/* Nonzero after end of regstack pass.
+   Set to 1 or 0 by reg-stack.c.  */
+extern int regstack_completed;
+#endif
+
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
    output indirect addresses.  If cse is to follow, we reject
@@ -2109,9 +2115,6 @@ extern void print_rtl (FILE *, rtx);
 extern void print_simple_rtl (FILE *, rtx);
 extern int print_rtl_single (FILE *, rtx);
 extern void print_inline_rtx (FILE *, rtx, int);
-
-/* In loop.c */
-extern void init_loop (void);
 
 /* In bt-load.c */
 extern void branch_target_load_optimize (bool);

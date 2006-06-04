@@ -98,6 +98,7 @@ static struct alias_stats_d alias_stats;
 
 /* Local functions.  */
 static void compute_flow_insensitive_aliasing (struct alias_info *);
+static void finalize_ref_all_pointers (struct alias_info *);
 static void dump_alias_stats (FILE *);
 static bool may_alias_p (tree, HOST_WIDE_INT, tree, HOST_WIDE_INT, bool);
 static tree create_memory_tag (tree type, bool is_type_tag);
@@ -692,6 +693,12 @@ compute_may_aliases (void)
      aliasing precision.  */
   maybe_create_global_var (ai);
 
+  /* If the program contains ref-all pointers, finalize may-alias information
+     for them.  This pass needs to be run after call-clobbering information
+     has been computed.  */
+  if (ai->ref_all_symbol_mem_tag)
+    finalize_ref_all_pointers (ai);
+
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -1156,6 +1163,10 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
       tree tag = var_ann (p_map->var)->symbol_mem_tag;
       var_ann_t tag_ann = var_ann (tag);
 
+      /* Call-clobbering information is not finalized yet at this point.  */
+      if (PTR_IS_REF_ALL (p_map->var))
+	continue;
+
       p_map->total_alias_vops = 0;
       p_map->may_aliases = BITMAP_ALLOC (&alias_obstack);
 
@@ -1246,11 +1257,17 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
       tree tag1 = var_ann (p_map1->var)->symbol_mem_tag;
       bitmap may_aliases1 = p_map1->may_aliases;
 
+      if (PTR_IS_REF_ALL (p_map1->var))
+	continue;
+
       for (j = i + 1; j < ai->num_pointers; j++)
 	{
 	  struct alias_map_d *p_map2 = ai->pointers[j];
 	  tree tag2 = var_ann (p_map2->var)->symbol_mem_tag;
 	  bitmap may_aliases2 = p_map2->may_aliases;
+
+	  if (PTR_IS_REF_ALL (p_map2->var))
+	    continue;
 
 	  /* If the pointers may not point to each other, do nothing.  */
 	  if (!may_alias_p (p_map1->var, p_map1->set, tag2, p_map2->set, true))
@@ -1286,6 +1303,47 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
     fprintf (dump_file, "\n%s: Total number of aliased vops: %ld\n",
 	     get_name (current_function_decl),
 	     ai->total_alias_vops);
+}
+
+
+/* Finalize may-alias information for ref-all pointers.  Traverse all
+   the addressable variables found in setup_pointers_and_addressables.
+
+   If flow-sensitive alias analysis has attached a name memory tag to
+   a ref-all pointer, we will use it for the dereferences because that
+   will have more precise aliasing information.  But if there is no
+   name tag, we will use a special symbol tag that aliases all the
+   call-clobbered addressable variables.  */
+
+static void
+finalize_ref_all_pointers (struct alias_info *ai)
+{
+  size_t i;
+
+  if (global_var)
+    add_may_alias (ai->ref_all_symbol_mem_tag, global_var);
+  else
+    {
+      /* First add the real call-clobbered variables.  */
+      for (i = 0; i < ai->num_addressable_vars; i++)
+	{
+	  tree var = ai->addressable_vars[i]->var;
+	  if (is_call_clobbered (var))
+	    add_may_alias (ai->ref_all_symbol_mem_tag, var);
+        }
+
+      /* Then add the call-clobbered pointer memory tags.  See
+	 compute_flow_insensitive_aliasing for the rationale.  */
+      for (i = 0; i < ai->num_pointers; i++)
+	{
+	  tree ptr = ai->pointers[i]->var, tag;
+	  if (PTR_IS_REF_ALL (ptr))
+	    continue;
+	  tag = var_ann (ptr)->symbol_mem_tag;
+	  if (is_call_clobbered (tag))
+	    add_may_alias (ai->ref_all_symbol_mem_tag, tag);
+	}
+    }
 }
 
 
@@ -2060,15 +2118,24 @@ is_escape_site (tree stmt, struct alias_info *ai)
       if (lhs == NULL_TREE)
 	return ESCAPE_UNKNOWN;
 
-      /* If the RHS is a conversion between a pointer and an integer, the
-	 pointer escapes since we can't track the integer.  */
-      if ((TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
-	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == CONVERT_EXPR
-	   || TREE_CODE (TREE_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
-	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND
-					(TREE_OPERAND (stmt, 1), 0)))
-	  && !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
-	return ESCAPE_BAD_CAST;
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
+	  || TREE_CODE (TREE_OPERAND (stmt, 1)) == CONVERT_EXPR
+	  || TREE_CODE (TREE_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
+	{
+	  tree from = TREE_TYPE (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0));
+	  tree to = TREE_TYPE (TREE_OPERAND (stmt, 1));
+
+	  /* If the RHS is a conversion between a pointer and an integer, the
+	     pointer escapes since we can't track the integer.  */
+	  if (POINTER_TYPE_P (from) && !POINTER_TYPE_P (to))
+	    return ESCAPE_BAD_CAST;
+
+	  /* Same if the RHS is a conversion between a regular pointer and a
+	     ref-all pointer since we can't track the SMT of the former.  */
+	  if (POINTER_TYPE_P (from) && !TYPE_REF_CAN_ALIAS_ALL (from)
+	      && POINTER_TYPE_P (to) && TYPE_REF_CAN_ALIAS_ALL (to))
+	    return ESCAPE_BAD_CAST;
+	}
 
       /* If the LHS is an SSA name, it can't possibly represent a non-local
 	 memory store.  */
@@ -2141,7 +2208,7 @@ create_memory_tag (tree type, bool is_type_tag)
   ann->symbol_mem_tag = NULL_TREE;
 
   /* Add the tag to the symbol table.  */
-  add_referenced_tmp_var (tag);
+  add_referenced_var (tag);
 
   return tag;
 }
@@ -2179,6 +2246,14 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   tree tag;
   tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
   HOST_WIDE_INT tag_set = get_alias_set (tag_type);
+
+  /* We use a unique memory tag for all the ref-all pointers.  */
+  if (PTR_IS_REF_ALL (ptr))
+    {
+      if (!ai->ref_all_symbol_mem_tag)
+	ai->ref_all_symbol_mem_tag = create_memory_tag (void_type_node, true);
+      return ai->ref_all_symbol_mem_tag;
+    }
 
   /* To avoid creating unnecessary memory tags, only create one memory tag
      per alias set class.  Note that it may be tempting to group
@@ -2253,7 +2328,7 @@ create_global_var (void)
 
   create_var_ann (global_var);
   mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
-  add_referenced_tmp_var (global_var);
+  add_referenced_var (global_var);
   mark_sym_for_renaming (global_var);
 }
 
@@ -2612,93 +2687,6 @@ is_aliased_with (tree tag, tree sym)
 }
 
 
-/* Add VAR to the list of may-aliases of PTR's symbol tag.  If PTR
-   doesn't already have a symbol tag, create one.  */
-
-void
-add_type_alias (tree ptr, tree var)
-{
-  VEC(tree, gc) *aliases;
-  tree tag, al;
-  var_ann_t ann = var_ann (ptr);
-  subvar_t svars;
-  VEC (tree, heap) *varvec = NULL;  
-  unsigned i;
-
-  if (ann->symbol_mem_tag == NULL_TREE)
-    {
-      tree q = NULL_TREE;
-      tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
-      HOST_WIDE_INT tag_set = get_alias_set (tag_type);
-      safe_referenced_var_iterator rvi;
-
-      /* PTR doesn't have a symbol tag, create a new one and add VAR to
-	 the new tag's alias set.
-
-	 FIXME, This is slower than necessary.  We need to determine
-	 whether there is another pointer Q with the same alias set as
-	 PTR.  This could be sped up by having symbol tags associated
-	 with types.  */
-      FOR_EACH_REFERENCED_VAR_SAFE (q, varvec, rvi)
-	{
-	  if (POINTER_TYPE_P (TREE_TYPE (q))
-	      && tag_set == get_alias_set (TREE_TYPE (TREE_TYPE (q))))
-	    {
-	      /* Found another pointer Q with the same alias set as
-		 the PTR's pointed-to type.  If Q has a symbol tag, use
-		 it.  Otherwise, create a new memory tag for PTR.  */
-	      var_ann_t ann1 = var_ann (q);
-	      if (ann1->symbol_mem_tag)
-		ann->symbol_mem_tag = ann1->symbol_mem_tag;
-	      else
-		ann->symbol_mem_tag = create_memory_tag (tag_type, true);
-	      goto found_tag;
-	    }
-	}
-
-      /* Couldn't find any other pointer with a symbol tag we could use.
-	 Create a new memory tag for PTR.  */
-      ann->symbol_mem_tag = create_memory_tag (tag_type, true);
-    }
-
-found_tag:
-  /* If VAR is not already PTR's symbol tag, add it to the may-alias set
-     for PTR's symbol tag.  */
-  gcc_assert (!MTAG_P (var));
-  tag = ann->symbol_mem_tag;
-
-  /* If VAR has subvars, add the subvars to the tag instead of the
-     actual var.  */
-  if (var_can_have_subvars (var)
-      && (svars = get_subvars_for_var (var)))
-    {
-      subvar_t sv;      
-      for (sv = svars; sv; sv = sv->next)
-	add_may_alias (tag, sv->var);
-    }
-  else
-    add_may_alias (tag, var);
-
-  /* TAG and its set of aliases need to be marked for renaming.  */
-  mark_sym_for_renaming (tag);
-  if ((aliases = var_ann (tag)->may_aliases) != NULL)
-    {
-      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
-	mark_sym_for_renaming (al);
-    }
-
-  /* If we had grouped aliases, VAR may have aliases of its own.  Mark
-     them for renaming as well.  Other statements referencing the
-     aliases of VAR will need to be updated.  */
-  if ((aliases = var_ann (var)->may_aliases) != NULL)
-    {
-      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
-	mark_sym_for_renaming (al);
-    }
-  VEC_free (tree, heap, varvec);
-}
-
-
 /* Create a new symbol tag for PTR.  Construct the may-alias list of this type
    tag so that it has the aliasing of VAR. 
 
@@ -2900,7 +2888,7 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   /* Add the new variable to REFERENCED_VARS.  */
   ann = get_var_ann (subvar);
   ann->symbol_mem_tag = NULL;  	
-  add_referenced_tmp_var (subvar);
+  add_referenced_var (subvar);
   SFT_PARENT_VAR (subvar) = var;
   SFT_OFFSET (subvar) = offset;
   SFT_SIZE (subvar) = size;

@@ -397,7 +397,10 @@ NATIVE_SYSTEM_HEADER_DIR = /usr/include
 CROSS_SYSTEM_HEADER_DIR = @CROSS_SYSTEM_HEADER_DIR@
 
 # autoconf sets SYSTEM_HEADER_DIR to one of the above.
-SYSTEM_HEADER_DIR = @SYSTEM_HEADER_DIR@
+# Purge it of unneccessary internal relative paths
+# to directories that might not exist yet.
+# The sed idiom for this is to repeat the search-and-replace until it doesn't match, using :a ... ta.
+SYSTEM_HEADER_DIR = `echo @SYSTEM_HEADER_DIR@ | sed -e :a -e "s,[^/]*/\.\.\/,," -e ta`
 
 # Control whether to run fixproto and fixincludes.
 STMP_FIXPROTO = @STMP_FIXPROTO@
@@ -947,6 +950,9 @@ C_TARGET_OBJS=@c_target_objs@
 # Target specific, C++ specific object file
 CXX_TARGET_OBJS=@cxx_target_objs@
 
+# Object files for gcc driver.
+GCC_OBJS = gcc.o opts-common.o gcc-options.o
+
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
@@ -988,7 +994,7 @@ OBJS-common = \
  haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
- mode-switching.o modulo-sched.o optabs.o options.o opts.o	   \
+ mode-switching.o modulo-sched.o optabs.o options.o opts.o opts-common.o \
  params.o postreload.o postreload-gcse.o predict.o			   \
  insn-preds.o insn-automata.o pointer-set.o 			   	   \
  print-rtl.o print-tree.o profile.o value-prof.o var-tracking.o		   \
@@ -1292,18 +1298,18 @@ libbackend.a: $(OBJS@onestep@)
 # We call this executable `xgcc' rather than `gcc'
 # to avoid confusion if the current directory is in the path
 # and CC is `gcc'.  It is renamed to `gcc' when it is installed.
-xgcc$(exeext): gcc.o gccspec.o version.o intl.o prefix.o \
+xgcc$(exeext): $(GCC_OBJS) gccspec.o version.o intl.o prefix.o \
    version.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ gcc.o gccspec.o intl.o \
-	  prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) gccspec.o \
+	  intl.o prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # cpp is to cpp0 as gcc is to cc1.
 # The only difference from xgcc is that it's linked with cppspec.o
 # instead of gccspec.o.
-cpp$(exeext): gcc.o cppspec.o version.o intl.o prefix.o \
+cpp$(exeext): $(GCC_OBJS) cppspec.o version.o intl.o prefix.o \
    version.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ gcc.o cppspec.o intl.o \
-	  prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCC_OBJS) cppspec.o \
+	  intl.o prefix.o version.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # Create links to binutils, especially for in-tree builds, to make -B.
 # use them.  We need hard links so that directories can be shuffled
@@ -1412,6 +1418,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) specs \
 	LIB2ADDEHSTATIC='$(LIB2ADDEHSTATIC)' \
 	LIB2ADDEHSHARED='$(LIB2ADDEHSHARED)' \
 	LIB2ADDEHDEP='$(LIB2ADDEHDEP)' \
+	LIB2_SIDITI_CONV_FUNCS='$(LIB2_SIDITI_CONV_FUNCS)' \
 	LIBUNWIND='$(LIBUNWIND)' \
 	LIBUNWINDDEP='$(LIBUNWINDDEP)' \
 	SHLIBUNWIND_LINK='$(SHLIBUNWIND_LINK)' \
@@ -1700,7 +1707,7 @@ DRIVER_DEFINES = \
 
 gcc.o: gcc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) intl.h multilib.h \
     Makefile $(lang_specs_files) specs.h prefix.h $(GCC_H) $(FLAGS_H) \
-    configargs.h $(OBSTACK_H)
+    configargs.h $(OBSTACK_H) opts.h
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
@@ -1750,6 +1757,9 @@ s-options-h: optionlist $(srcdir)/opt-functions.awk $(srcdir)/opth-gen.awk
 	$(STAMP) $@
 
 options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl.h
+
+gcc-options.o: options.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opts.h intl.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(OUTPUT_OPTION) -DGCC_DRIVER options.c
 
 dumpvers: dumpvers.c
 
@@ -2117,6 +2127,8 @@ opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(RTL_H) \
    output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h $(TARGET_H) \
    $(FLAGS_H) $(PARAMS_H) tree-pass.h
+opts-common.o : opts-common.c opts.h $(CONFIG_H) $(SYSTEM_H) \
+   coretypes.h intl.h
 targhooks.o : targhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(EXPR_H) $(TM_H) $(RTL_H) $(TM_P_H) $(FUNCTION_H) output.h toplev.h \
    $(MACHMODE_H) $(TARGET_DEF_H) $(TARGET_H) $(GGC_H) gt-targhooks.h
@@ -3203,13 +3215,16 @@ s-macro_list : $(GCC_PASSES)
 ../$(build_subdir)/fixincludes/fixincl: ; @ :
 
 # Build fixed copies of system files.
+# Abort if no system headers available, unless building a crosscompiler.
+# FIXME: abort unless building --without-headers would be more accurate and less ugly
 stmp-fixinc: gsyslimits.h macro_list \
   $(build_objdir)/fixincludes/fixincl \
   $(build_objdir)/fixincludes/fixinc.sh
 	@if ! $(inhibit_libc) && test ! -d ${SYSTEM_HEADER_DIR}; then \
 	  echo The directory that should contain system headers does not exist: >&2 ; \
 	  echo "  ${SYSTEM_HEADER_DIR}" >&2 ; \
-	  if test "x${SYSTEM_HEADER_DIR}" = "x${gcc_tooldir}/sys-include"; \
+	  tooldir_sysinc=`echo "${gcc_tooldir}/sys-include" | sed -e :a -e "s,[^/]*/\.\.\/,," -e ta`; \
+	  if test "x${SYSTEM_HEADER_DIR}" = "x$${tooldir_sysinc}"; \
 	  then sleep 1; else exit 1; fi; \
 	fi
 	rm -rf include; mkdir include
@@ -4618,7 +4633,7 @@ risky-stage4: stage4
 XGETTEXT = @XGETTEXT@
 GMSGFMT = @GMSGFMT@
 MSGMERGE = msgmerge
-CATALOGS = @CATALOGS@
+CATALOGS = $(patsubst %,po/%,@CATALOGS@)
 
 .PHONY: build- install- build-po install-po update-po
 

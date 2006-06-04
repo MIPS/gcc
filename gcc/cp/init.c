@@ -1142,26 +1142,6 @@ build_aggr_init (tree exp, tree init, int flags)
   return stmt_expr;
 }
 
-/* Like build_aggr_init, but not just for aggregates.  */
-
-tree
-build_init (tree decl, tree init, int flags)
-{
-  tree expr;
-
-  if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-    expr = build_aggr_init (decl, init, flags);
-  else if (CLASS_TYPE_P (TREE_TYPE (decl)))
-    expr = build_special_member_call (decl, complete_ctor_identifier,
-				      build_tree_list (NULL_TREE, init),
-				      TREE_TYPE (decl),
-				      LOOKUP_NORMAL|flags);
-  else
-    expr = build2 (INIT_EXPR, TREE_TYPE (decl), decl, init);
-
-  return expr;
-}
-
 static void
 expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags)
 {
@@ -1446,7 +1426,7 @@ build_offset_ref (tree type, tree member, bool address_p)
 	    }
 	  error ("invalid use of non-static member function %qD",
 		 TREE_OPERAND (member, 1));
-	  return member;
+	  return error_mark_node;
 	}
       else if (TREE_CODE (member) == FIELD_DECL)
 	{
@@ -2057,7 +2037,7 @@ build_new_1 (tree placement, tree type, tree nelts, tree init,
   rval = build_nop (pointer_type, rval);
 
   /* A new-expression is never an lvalue.  */
-  rval = rvalue (rval);
+  gcc_assert (!lvalue_p (rval));
 
   return rval;
 }
@@ -2108,9 +2088,22 @@ build_new (tree placement, tree type, tree nelts, tree init,
     {
       if (!build_expr_type_conversion (WANT_INT | WANT_ENUM, nelts, false))
 	pedwarn ("size in array new must have integral type");
-      nelts = save_expr (cp_convert (sizetype, nelts));
-      if (nelts == integer_zero_node)
-	warning (0, "zero size array reserves no space");
+      nelts = cp_save_expr (cp_convert (sizetype, nelts));
+      /* It is valid to allocate a zero-element array:
+
+	   [expr.new]
+
+	   When the value of the expression in a direct-new-declarator
+	   is zero, the allocation function is called to allocate an
+	   array with no elements.  The pointer returned by the
+	   new-expression is non-null.  [Note: If the library allocation
+	   function is called, the pointer returned is distinct from the
+	   pointer to any other object.]  
+
+	 However, that is not generally useful, so we issue a
+	 warning.  */
+      if (integer_zerop (nelts))
+	warning (0, "allocating zero-element array");
     }
 
   /* ``A reference cannot be created by the new operator.  A reference

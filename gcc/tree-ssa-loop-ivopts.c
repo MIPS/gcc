@@ -678,7 +678,7 @@ idx_contains_abnormal_ssa_name_p (tree base, tree *index,
 /* Returns true if EXPR contains a ssa name that occurs in an
    abnormal phi node.  */
 
-static bool
+bool
 contains_abnormal_ssa_name_p (tree expr)
 {
   enum tree_code code;
@@ -1338,7 +1338,7 @@ idx_find_step (tree base, tree *idx, void *data)
 {
   struct ifs_ivopts_data *dta = data;
   struct iv *iv;
-  tree step, iv_step, lbound, off;
+  tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
   if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF
@@ -1394,12 +1394,11 @@ idx_find_step (tree base, tree *idx, void *data)
     /* The step for pointer arithmetics already is 1 byte.  */
     step = build_int_cst (sizetype, 1);
 
-  /* FIXME: convert_step should not be used outside chrec_convert: fix
-     this by calling chrec_convert.  */
-  iv_step = convert_step (dta->ivopts_data->current_loop,
-			  sizetype, iv->base, iv->step, dta->stmt);
-
-  if (!iv_step)
+  iv_base = iv->base;
+  iv_step = iv->step;
+  if (!convert_affine_scev (dta->ivopts_data->current_loop,
+			    sizetype, &iv_base, &iv_step, dta->stmt,
+			    false))
     {
       /* The index might wrap.  */
       return false;
@@ -5123,7 +5122,7 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
     }
  
   gimple_add_tmp_var (cand->var_before);
-  add_referenced_tmp_var (cand->var_before);
+  add_referenced_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
 

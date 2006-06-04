@@ -73,6 +73,7 @@ struct gimplify_omp_ctx
   location_t location;
   enum omp_clause_default_kind default_kind;
   bool is_parallel;
+  bool is_combined_parallel;
 };
 
 struct gimplify_ctx
@@ -259,7 +260,7 @@ splay_tree_compare_decl_uid (splay_tree_key xa, splay_tree_key xb)
 /* Create a new omp construct that deals with variable remapping.  */
 
 static struct gimplify_omp_ctx *
-new_omp_context (bool is_parallel)
+new_omp_context (bool is_parallel, bool is_combined_parallel)
 {
   struct gimplify_omp_ctx *c;
 
@@ -269,6 +270,7 @@ new_omp_context (bool is_parallel)
   c->privatized_types = pointer_set_create ();
   c->location = input_location;
   c->is_parallel = is_parallel;
+  c->is_combined_parallel = is_combined_parallel;
   c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
 
   return c;
@@ -1214,10 +1216,12 @@ gimplify_decl_expr (tree *stmt_p)
 	    walk_tree (&init, force_labels_r, NULL, NULL);
 	}
 
-      /* This decl isn't mentioned in the enclosing block, so add it to the
-	 list of temps.  FIXME it seems a bit of a kludge to say that
-	 anonymous artificial vars aren't pushed, but everything else is.  */
-      if (DECL_ARTIFICIAL (decl) && DECL_NAME (decl) == NULL_TREE)
+      /* Some front ends do not explicitly declare all anonymous
+	 artificial variables.  We compensate here by declaring the
+	 variables, though it would be better if the front ends would
+	 explicitly declare them.  */
+      if (!DECL_SEEN_IN_BIND_EXPR_P (decl)
+	  && DECL_ARTIFICIAL (decl) && DECL_NAME (decl) == NULL_TREE)
 	gimple_add_tmp_var (decl);
     }
 
@@ -4452,6 +4456,18 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
 	  else
 	    return false;
 	}
+      else if ((n->value & GOVD_EXPLICIT) != 0
+	       && (ctx == gimplify_omp_ctxp
+		   || (ctx->is_combined_parallel
+		       && gimplify_omp_ctxp->outer_context == ctx)))
+	{
+	  if ((n->value & GOVD_FIRSTPRIVATE) != 0)
+	    error ("iteration variable %qs should not be firstprivate",
+		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+	  else if ((n->value & GOVD_REDUCTION) != 0)
+	    error ("iteration variable %qs should not be reduction",
+		   IDENTIFIER_POINTER (DECL_NAME (decl)));
+	}
       return true;
     }
 
@@ -4467,12 +4483,13 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
    and previous omp contexts.  */
 
 static void
-gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel)
+gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
+			   bool in_combined_parallel)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c;
 
-  ctx = new_omp_context (in_parallel);
+  ctx = new_omp_context (in_parallel, in_combined_parallel);
   outer_ctx = ctx->outer_context;
 
   while ((c = *list_p) != NULL)
@@ -4717,7 +4734,8 @@ gimplify_omp_parallel (tree *expr_p, tree *pre_p)
 {
   tree expr = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p, true);
+  gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p, true,
+			     OMP_PARALLEL_COMBINED (expr));
 
   push_gimplify_context ();
 
@@ -4743,14 +4761,13 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
   for_stmt = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false);
+  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false, false);
 
   t = OMP_FOR_INIT (for_stmt);
   gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
   decl = TREE_OPERAND (t, 0);
   gcc_assert (DECL_P (decl));
   gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
-  gcc_assert (!TYPE_UNSIGNED (TREE_TYPE (decl)));
 
   /* Make sure the iteration variable is private.  */
   if (omp_is_private (gimplify_omp_ctxp, decl))
@@ -4826,7 +4843,7 @@ gimplify_omp_workshare (tree *expr_p, tree *pre_p)
 {
   tree stmt = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false);
+  gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
   gimplify_to_stmt_list (&OMP_BODY (stmt));
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
 
@@ -6213,7 +6230,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   if (referenced_vars)
     {
       for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
-	add_referenced_tmp_var (t);
+	add_referenced_var (t);
     }
 
   pop_gimplify_context (NULL);

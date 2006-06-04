@@ -2023,7 +2023,7 @@ build_class_init (tree clas, tree expr)
 
 
 /* Rewrite expensive calls that require stack unwinding at runtime to
-   cheaper alternatives.  The logic here performs thse
+   cheaper alternatives.  The logic here performs these
    transformations:
 
    java.lang.Class.forName("foo") -> java.lang.Class.forName("foo", class$)
@@ -3116,6 +3116,12 @@ java_push_constant_from_pool (JCF *jcf, int index)
       index = alloc_name_constant (CONSTANT_String, name);
       c = build_ref_from_constant_pool (index);
       c = convert (promote_type (string_type_node), c);
+    }
+  else if (JPOOL_TAG (jcf, index) == CONSTANT_Class
+	   || JPOOL_TAG (jcf, index) == CONSTANT_ResolvedClass)
+    {
+      tree record = get_class_constant (jcf, index);
+      c = build_class_ref (record);
     }
   else
     c = get_constant (jcf, index);

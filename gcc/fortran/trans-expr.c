@@ -472,7 +472,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      && ref->next == NULL && (se->descriptor_only))
 	    return;
 
-	  gfc_conv_array_ref (se, &ref->u.ar);
+	  gfc_conv_array_ref (se, &ref->u.ar, sym, &expr->where);
 	  /* Return a pointer to an element.  */
 	  break;
 
@@ -1191,6 +1191,9 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 	sym->backend_decl = gfc_get_extern_function_decl (sym);
 
       tmp = sym->backend_decl;
+      if (sym->attr.cray_pointee)
+	tmp = convert (build_pointer_type (TREE_TYPE (tmp)),
+		       gfc_get_symbol_decl (sym->cp_pointer));
       if (!POINTER_TYPE_P (TREE_TYPE (tmp)))
 	{
 	  gcc_assert (TREE_CODE (tmp) == FUNCTION_DECL);
@@ -2038,11 +2041,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
 				       false, !sym->attr.pointer, callee_alloc);
 
-	  /* Zero the first stride to indicate a temporary.  */
-	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
-	  gfc_add_modify_expr (&se->pre, tmp,
-			       convert (TREE_TYPE (tmp), integer_zero_node));
-
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
 	  tmp = build_fold_addr_expr (tmp);
@@ -2155,7 +2153,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = fold_build2 (NE_EXPR, boolean_type_node,
 				     tmp, info->data);
-		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
+		  gfc_trans_runtime_check (tmp, gfc_msg_fault, &se->pre, NULL);
 		}
 	      se->expr = info->descriptor;
 	      /* Bundle in the string length.  */

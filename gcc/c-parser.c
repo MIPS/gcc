@@ -2148,6 +2148,7 @@ c_parser_typeof_specifier (c_parser *parser)
     }
   else
     {
+      bool was_vm;
       struct c_expr expr = c_parser_expression (parser);
       skip_evaluation--;
       in_typeof--;
@@ -2155,7 +2156,13 @@ c_parser_typeof_specifier (c_parser *parser)
 	  && DECL_C_BIT_FIELD (TREE_OPERAND (expr.value, 1)))
 	error ("%<typeof%> applied to a bit-field");
       ret.spec = TREE_TYPE (expr.value);
-      pop_maybe_used (variably_modified_type_p (ret.spec, NULL_TREE));
+      was_vm = variably_modified_type_p (ret.spec, NULL_TREE);
+      /* This should be returned with the type so that when the type
+	 is evaluated, this can be evaluated.  For now, we avoid
+	 evaluation when the context might.  */
+      if (!skip_evaluation && was_vm)
+	c_finish_expr_stmt (expr.value);
+      pop_maybe_used (was_vm);
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return ret;
@@ -2222,7 +2229,7 @@ c_parser_typeof_specifier (c_parser *parser)
 			 parameter-type-list[opt] )
 
    direct-abstract-declarator:
-     direct-abstract-declarator[opt] ( parameter-forward-declarations 
+     direct-abstract-declarator[opt] ( parameter-forward-declarations
 				       parameter-type-list[opt] )
 
    parameter-forward-declarations:
@@ -2451,6 +2458,8 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 	}
       declarator = build_array_declarator (dimen, quals_attrs, static_seen,
 					   star_seen);
+      if (declarator == NULL)
+	return NULL;
       inner = set_array_declarator_inner (declarator, inner, !id_present);
       return c_parser_direct_declarator_inner (parser, id_present, inner);
     }
@@ -2513,6 +2522,7 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 	  ret->tags = 0;
 	  ret->types = list;
 	  ret->others = 0;
+	  ret->had_vla_unspec = 0;
 	  c_parser_consume_token (parser);
 	  pop_scope ();
 	  return ret;
@@ -2554,6 +2564,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->tags = 0;
       ret->types = 0;
       ret->others = 0;
+      ret->had_vla_unspec = 0;
       c_parser_consume_token (parser);
       return ret;
     }
@@ -2563,6 +2574,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->parms = 0;
       ret->tags = 0;
       ret->others = 0;
+      ret->had_vla_unspec = 0;
       /* Suppress -Wold-style-definition for this case.  */
       ret->types = error_mark_node;
       error ("ISO C requires a named argument before %<...%>");
@@ -2613,6 +2625,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	      ret->tags = 0;
 	      ret->types = 0;
 	      ret->others = 0;
+	      ret->had_vla_unspec = 0;
 	      return ret;
 	    }
 	}
@@ -2638,6 +2651,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 		  ret->tags = 0;
 		  ret->types = 0;
 		  ret->others = 0;
+		  ret->had_vla_unspec = 0;
 		  return ret;
 		}
 	    }
@@ -4868,6 +4882,12 @@ c_parser_sizeof_expression (c_parser *parser)
       /* sizeof ( type-name ).  */
       skip_evaluation--;
       in_sizeof--;
+      if (type_name->declarator->kind == cdk_array
+	  && type_name->declarator->u.array.vla_unspec_p)
+	{
+	  /* C99 6.7.5.2p4 */
+	  error ("%<[*]%> not allowed in other than a declaration");
+	}
       return c_expr_sizeof_type (type_name);
     }
   else
@@ -7651,6 +7671,7 @@ c_parser_omp_parallel (c_parser *parser)
       if (stmt)
 	OMP_FOR_CLAUSES (stmt) = ws_clause;
       stmt = c_finish_omp_parallel (par_clause, block);
+      OMP_PARALLEL_COMBINED (stmt) = 1;
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
@@ -7660,6 +7681,7 @@ c_parser_omp_parallel (c_parser *parser)
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
       stmt = c_finish_omp_parallel (par_clause, block);
+      OMP_PARALLEL_COMBINED (stmt) = 1;
       break;
 
     default:

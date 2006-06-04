@@ -1,3 +1,13 @@
+2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Add dvi info html and install-html to .PHONY
+	Add install-html target.
+
+2006-05-16  Mike Stump  <mrs@apple.com>
+
+	* configure.ac: Add -Wno-overlength-strings.
+	* configure: Regenerate.
+
 2006-05-14  Bernhard Fischer  <aldot@gcc.gnu.org>
 
 	* README: Fix typo.

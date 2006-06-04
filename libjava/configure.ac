@@ -116,9 +116,18 @@ AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
-AC_CHECK_PROGS(JAR, [jar fastjar], false)
-if test "$JAR" = false; then
-  AC_MSG_ERROR(jar program not found)
+AC_PROG_AWK
+AC_CHECK_PROGS([JAR], [jar fastjar], no)
+AC_PATH_PROG([ZIP], [zip], no)
+AC_PATH_PROG([UNZIP], [unzip], unzip)
+AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
+if test "$ZIP" = no; then
+  if test "$JAR" = no; then
+    AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
+  fi
+else
+  # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
+  JAR=`pwd`/scripts/jar
 fi
 
 AC_PROG_INSTALL
@@ -227,7 +236,6 @@ for peer in $peerlibs ; do
 done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
-AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
 AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 
 # Create standard.omit based on decisions we just made.
@@ -235,9 +243,6 @@ cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then
    echo gnu/awt/xlib >> standard.omit
    echo gnu/gcj/xlib >> standard.omit
-fi
-if test "$use_gtk_awt" != yes; then
-   echo gnu/java/awt/peer/gtk >> standard.omit
 fi
 if test "$use_qt_awt" != yes; then
    echo gnu/java/awt/peer/qt >> standard.omit
@@ -805,7 +810,7 @@ case "$THREADS" in
 	THREADLDFLAGS=-pthread
 	THREADSPEC=-lpthread
 	;;
-     alpha*-dec-osf*)
+     alpha*-dec-osf* | hppa*-hp-hpux*)
 	THREADCXXFLAGS=-pthread
 	# boehm-gc needs some functions from librt, so link that too.
 	THREADLIBS='-lpthread -lrt'
@@ -1276,7 +1281,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h])
+		  dirent.h sys/rw_lock.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1371,6 +1376,9 @@ case "${host}" in
  hppa*-*-linux*)
     SIGNAL_HANDLER=include/pa-signal.h
     ;;
+ hppa*-hp-hpux*)
+    SIGNAL_HANDLER=include/hppa-signal.h
+    ;;
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
@@ -1458,6 +1466,8 @@ gcj/Makefile
 include/Makefile
 testsuite/Makefile
 ])
+
+AC_CONFIG_FILES([scripts/jar], [chmod +x scripts/jar])
 
 AC_CONFIG_COMMANDS([default],
 [# Only add multilib support code if we just rebuilt top-level Makefile.
