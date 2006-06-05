@@ -1,5 +1,18 @@
 2006-06-04  Tom Tromey  <tromey@redhat.com>
 
+	* sources.am, Makefile.in: Rebuilt.
+	* Makefile.am (gcj_dbtool_LDADD): Add
+	gnu-gcj-tools-gcj_dbtool.lo.
+	(gcj_dbtool_SOURCES): Updated.
+	(EXTRA_libgcj_la_SOURCES): New macro.
+	* scripts/makemake.tcl (emit_package_rule): Compile class files
+	from the package.
+	(gcj_dbtool/Main.java, Class.java, Object.java): Removed
+	package_map settings.
+	(emit_package_rule): Special case gnu.gcj.tools.gcj_dbtool.
+
+2006-06-04  Tom Tromey  <tromey@redhat.com>
+
 	* java/lang/Class.java (getClassLoaderInternal): Now native.
 
 2006-06-03  Paolo Bonzini  <bonzini@gnu.org>

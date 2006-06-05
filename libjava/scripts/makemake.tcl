@@ -60,15 +60,6 @@ set package_map(org/omg) bc
 set package_map(gnu/CORBA) bc
 set package_map(gnu/javax/rmi) bc
 
-# This is handled specially by the Makefile.
-# We still want it byte-compiled so it isn't in the .omit file.
-set package_map(gnu/gcj/tools/gcj_dbtool/Main.java) ignore
-
-# These are handled specially.  If we list Class.java with other files
-# in java.lang, we hit a compiler bug.
-set package_map(java/lang/Class.java) ignore
-set package_map(java/lang/Object.java) ignore
-
 # More special cases.  These end up in their own library.
 # Note that if we BC-compile AWT we must update these as well.
 set package_map(gnu/gcj/xlib) package
@@ -280,17 +271,14 @@ proc emit_package_rule {package} {
   # A rule to make the phony file we are going to compile.
   puts "$lname: \$($varname)"
   puts "\t@\$(mkinstalldirs) \$(dir \$@)"
-  puts "\t@for file in \$($varname); do \\"
-  puts "\t  if test -f \$(srcdir)/\$\$file; then \\"
-  puts "\t    echo \$(srcdir)/\$\$file; \\"
-  puts "\t  else echo \$\$file; fi; \\"
-  puts "\tdone > $lname"
+  puts "\techo classpath/lib/$package/*.class > $lname"
   puts ""
   puts "-include $dname"
   puts ""
   puts ""
 
-  if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"} {
+  if {$pkgname != "gnu/gcj/xlib" && $pkgname != "gnu/awt/xlib"
+      && $pkgname != "gnu/gcj/tools/gcj_dbtool"} {
     lappend package_files $lname
   }
 }

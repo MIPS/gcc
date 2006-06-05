@@ -180,7 +180,6 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
-	java/lang/Class.java java/lang/Object.java \
 	$(nat_source_files)
 
 if USING_BOEHMGC
@@ -235,6 +234,11 @@ libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	$(all_packages_source_files:.list=.lo) \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
+
+## A hack to make sure the various gcj-related macros, like
+## LTGCJCOMPILE, are defined by automake.  This is never actually
+## compiled.
+EXTRA_libgcj_la_SOURCES = java/lang/Object.java
 
 
 ## The .db file.  This rule is only used for native builds, so it is
@@ -671,7 +675,6 @@ jv_convert_LDADD = -L$(here)/.libs libgcj.la
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
 
 gcj_dbtool_SOURCES = \
-gnu/gcj/tools/gcj_dbtool/Main.java \
 gnu/gcj/tools/gcj_dbtool/natMain.cc
 
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
@@ -687,7 +690,7 @@ gcj_dbtool_LINK = $(GCJLINK)
 ## searched before the build-tree ones, and we'd get errors because of
 ## different libraries with the same SONAME from picky linkers such as
 ## Solaris'.  FIXME: should be _libs on some systems.
-gcj_dbtool_LDADD = -L$(here)/.libs libgcj.la
+gcj_dbtool_LDADD = gnu/gcj/tools/gcj_dbtool.lo -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 gcj_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
