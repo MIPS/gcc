@@ -23,4 +23,4 @@ int g4(int, long;); /* { dg-error "just a forward declaration" "no parms" { xfai
 /* Invalid uses.  */
 int h1(int a; int b); /* { dg-error "just a forward declaration" } */
 int h2(int; int b); /* { dg-error "just a forward declaration" } */
-int h3(int a; long a); /* { dg-error "conflicting types|previous definition|just a forward declaration" } */
+int h3(int a; long a); /* { dg-error "conflicting types|previous declaration|just a forward declaration" } */

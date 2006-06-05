@@ -10,6 +10,13 @@
 	(maybe_apply_pragma_weak, maybe_apply_pending_pragma_weaks,
 	handle_pragma_weak): Update the uses of pending_weaks.
 
+	* gcc/tree.h (DECL_ARG_TYPE): Use parm_decl.arg_type.
+	(tree_parm_decl): Add arg_type.
+	* gcc/testsuite/gcc.dg/Wshadow-1.c,
+	gcc/testsuite/gcc.dg/decl-4.c,
+	gcc/testsuite/gcc.dg/parm-forwdecl-1.c: Look for "declaration"
+	instead of "definition".
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,

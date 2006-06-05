@@ -2724,7 +2724,7 @@ struct tree_const_decl GTY(())
 
 /* For a PARM_DECL, records the data type used to pass the argument,
    which may be different from the type seen in the program.  */
-#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->decl_common.initial)
+#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->parm_decl.arg_type)
 
 /* For PARM_DECL, holds an RTL for the stack slot or register
    where the data was actually passed.  */
@@ -2733,6 +2733,7 @@ struct tree_const_decl GTY(())
 struct tree_parm_decl GTY(())
 {
   struct tree_decl_with_rtl common;
+  tree arg_type;
   rtx incoming_rtl;  
 };
 
