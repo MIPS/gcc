@@ -1669,7 +1669,7 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
 
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
-static GTY(()) tree registered_builtin_types;
+static GTY(()) VEC(tree,gc) *registered_builtin_types;
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
@@ -1679,6 +1679,7 @@ tree
 c_common_type_for_mode (enum machine_mode mode, int unsignedp)
 {
   tree t;
+  int i;
 
   if (mode == TYPE_MODE (integer_type_node))
     return unsignedp ? unsigned_type_node : integer_type_node;
@@ -1773,9 +1774,11 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (dfloat128_type_node))
     return dfloat128_type_node;
 
-  for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
-    if (TYPE_MODE (TREE_VALUE (t)) == mode)
-      return TREE_VALUE (t);
+  for (i = VEC_length (tree, registered_builtin_types);
+       VEC_iterate (tree, registered_builtin_types, i, t);
+       i--)
+    if (TYPE_MODE (t) == mode)
+      return t;
 
   return 0;
 }
@@ -1942,7 +1945,7 @@ c_register_builtin_type (tree type, const char* name)
     TYPE_NAME (type) = decl;
   pushdecl (decl);
 
-  registered_builtin_types = tree_cons (0, type, registered_builtin_types);
+  VEC_safe_push (tree, gc, registered_builtin_types, type);
 }
 
 

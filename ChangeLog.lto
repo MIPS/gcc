@@ -1,3 +1,10 @@
+2006-06-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/c-common.c (registered_builtin_types): Change the type
+	to VEC(tree,gc) *.
+	(c_common_type_for_mode, c_register_builtin_type): Update the
+	uses of registered_builtin_types.
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,
