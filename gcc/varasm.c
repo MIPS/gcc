@@ -4493,7 +4493,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 
 /* This TREE_LIST contains any weak symbol declarations waiting
    to be emitted.  */
-static GTY(()) tree weak_decls;
+static GTY(()) VEC(tree,gc) *weak_decls;
 
 /* Mark DECL as weak.  */
 
@@ -4518,13 +4518,15 @@ merge_weak (tree newdecl, tree olddecl)
     {
       if (DECL_WEAK (newdecl) && SUPPORTS_WEAK)
         {
-          tree *pwd;
+	  tree wd;
+	  int i;
+
           /* We put the NEWDECL on the weak_decls list at some point
              and OLDDECL as well.  Keep just OLDDECL on the list.  */
-	  for (pwd = &weak_decls; *pwd; pwd = &TREE_CHAIN (*pwd))
-	    if (TREE_VALUE (*pwd) == newdecl)
+	  for (i = 0; VEC_iterate (tree, weak_decls, i, wd); i++)
+	    if (wd == newdecl)
 	      {
-	        *pwd = TREE_CHAIN (*pwd);
+		VEC_unordered_remove (tree, weak_decls, i);
 		break;
 	      }
         }
@@ -4555,14 +4557,17 @@ merge_weak (tree newdecl, tree olddecl)
 
       if (SUPPORTS_WEAK)
 	{
+	  int i;
+
 	  /* We put the NEWDECL on the weak_decls list at some point.
 	     Replace it with the OLDDECL.  */
-	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
-	    if (TREE_VALUE (wd) == newdecl)
+	  for (i = 0; VEC_iterate (tree, weak_decls, i, wd); i++)
+	    if (wd == newdecl)
 	      {
-		TREE_VALUE (wd) = olddecl;
+		VEC_replace (tree, weak_decls, i, olddecl);
 		break;
 	      }
+
 	  /* We may not find the entry on the list.  If NEWDECL is a
 	     weak alias, then we will have already called
 	     globalize_decl to remove the entry; in that case, we do
@@ -4590,7 +4595,7 @@ declare_weak (tree decl)
   else if (SUPPORTS_WEAK)
     {
       if (! DECL_WEAK (decl))
-	weak_decls = tree_cons (NULL, decl, weak_decls);
+	VEC_safe_push (tree, gc, weak_decls, decl);
     }
   else
     warning (0, "weak declaration of %q+D not supported", decl);
@@ -4642,6 +4647,7 @@ void
 weak_finish (void)
 {
   tree t;
+  int i;
 
   for (t = weakref_targets; t; t = TREE_CHAIN (t))
     {
@@ -4687,13 +4693,12 @@ weak_finish (void)
 	/* Remove the alias and the target from the pending weak list
 	   so that we do not emit any .weak directives for the former,
 	   nor multiple .weak directives for the latter.  */
-	for (p = &weak_decls; (t2 = *p) ; )
+	for (i = 0; VEC_iterate (tree, weak_decls, i, t2);)
 	  {
-	    if (TREE_VALUE (t2) == alias_decl
-		|| target == DECL_ASSEMBLER_NAME (TREE_VALUE (t2)))
-	      *p = TREE_CHAIN (t2);
+	    if (t2 == alias_decl || target == DECL_ASSEMBLER_NAME (t2))
+	      VEC_unordered_remove (tree, weak_decls, i);
 	    else
-	      p = &TREE_CHAIN (t2);
+	      i++;
 	  }
 
 	/* Remove other weakrefs to the same target, to speed things up.  */
@@ -4707,12 +4712,8 @@ weak_finish (void)
       }
     }
 
-  for (t = weak_decls; t; t = TREE_CHAIN (t))
-    {
-      tree decl = TREE_VALUE (t);
-
-      weak_finish_1 (decl);
-    }
+  for (i = 0; VEC_iterate (tree, weak_decls, i, t); i++)
+    weak_finish_1 (t);
 }
 
 /* Emit the assembly bits to indicate that DECL is globally visible.  */
@@ -4726,6 +4727,7 @@ globalize_decl (tree decl)
   if (DECL_WEAK (decl))
     {
       tree *p, t;
+      int i;
 
 #ifdef ASM_WEAKEN_DECL
       ASM_WEAKEN_DECL (asm_out_file, decl, name, 0);
@@ -4735,12 +4737,12 @@ globalize_decl (tree decl)
 
       /* Remove this function from the pending weak list so that
 	 we do not emit multiple .weak directives for it.  */
-      for (p = &weak_decls; (t = *p) ; )
+      for (i = 0; VEC_iterate (tree, weak_decls, i, t);)
 	{
-	  if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
-	    *p = TREE_CHAIN (t);
+	  if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (t))
+	    VEC_unordered_remove (tree, weak_decls, i);
 	  else
-	    p = &TREE_CHAIN (t);
+	    i++;
 	}
 
 	/* Remove weakrefs to the same target from the pending weakref

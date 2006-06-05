@@ -23,6 +23,10 @@
 	* gcc/coverage.c (build_gcov_info): Call build_constructor
 	instead of build_constructor_from_list.
 
+	* gcc/varasm.c (weak_decls): Change the type to VEC(tree,gc) *.
+	(merge_weak, declare_weak, weak_finish, globalize_decl):
+	Adjust uses of weak_decls.
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,
