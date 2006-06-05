@@ -5,6 +5,11 @@
 	(c_common_type_for_mode, c_register_builtin_type): Update the
 	uses of registered_builtin_types.
 
+	* gcc/c-pragma.c (pending_weak_d, pending_weak): New.
+	(pending_weaks): Change the type to VEC((pending_weak,gc) *.
+	(maybe_apply_pragma_weak, maybe_apply_pending_pragma_weaks,
+	handle_pragma_weak): Update the uses of pending_weaks.
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,
