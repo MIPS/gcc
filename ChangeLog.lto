@@ -20,6 +20,9 @@
 	* gcc/coverage.c (build_fn_info_value): Call build_constructor
 	instead of build_constructor_from_list.
 
+	* gcc/coverage.c (build_gcov_info): Call build_constructor
+	instead of build_constructor_from_list.
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,
