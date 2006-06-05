@@ -17,6 +17,9 @@
 	gcc/testsuite/gcc.dg/parm-forwdecl-1.c: Look for "declaration"
 	instead of "definition".
 
+	* gcc/coverage.c (build_fn_info_value): Call build_constructor
+	instead of build_constructor_from_list.
+
 2006-06-03  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.c (saved_function_name_decl_d,
