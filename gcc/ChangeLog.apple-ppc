@@ -1,3 +1,11 @@
+2006-06-05  Roger Sayle  <roger@eyesopen.com>
+	Stuart Hastings  <stuart@apple.com>
+
+	Radar 4561329
+	PR middle-end/26557
+	* stmt.c (emit_case_nodes): Handle the case where the index is a
+	CONST_INT, where the comparison mode is specified by the index type.
+
 2006-05-30  Mike Stump  <mrs@apple.com>
 
 	Rarar 4527214

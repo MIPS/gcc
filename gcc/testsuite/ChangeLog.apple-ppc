@@ -1,3 +1,10 @@
+2006-06-05  Roger Sayle  <roger@eyesopen.com>
+	Stuart Hastings  <stuart@apple.com>
+
+	Radar 4561329
+	PR middle-end/26557
+	* gcc.c-torture/compile/switch-1.c: New test case.
+
 2006-05-30  Mike Stump  <mrs@apple.com>
 
 	* g++.apple/asm-block-52.C: Add.
