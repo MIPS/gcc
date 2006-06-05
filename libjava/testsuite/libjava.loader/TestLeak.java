@@ -3,7 +3,7 @@ import java.lang.reflect.*;
 
 public class TestLeak
 {
-  class MyLoader extends URLClassLoader
+  static class MyLoader extends URLClassLoader
   {
     public MyLoader (URL urls[])
     {

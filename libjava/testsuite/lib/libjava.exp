@@ -371,6 +371,9 @@ proc libjava_arguments {{mode compile}} {
 	[join [list . $srcdir/$subdir $objdir $libgcj_jar] $sep]
     verbose "CLASSPATH is $env(CLASSPATH)"
 
+    # Disable all warnings, as ecj is rather chatty.
+    lappend args "additional_flags=-w"
+
     if {$mode == "link"} {
 	global wrapper_file wrap_compile_flags
 	lappend args "additional_flags=$wrap_compile_flags"

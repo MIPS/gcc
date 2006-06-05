@@ -1,3 +1,14 @@
+2006-06-05  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.loader/TestLeak.java (MyLoader): Now static.
+	* testsuite/libjava.jacks/jacks.exp (gcj_jacks_write): Use -w.
+	* testsuite/lib/libjava.exp (libjava_arguments): Add -w.
+	* testsuite/libjava.compile/G19990210_2.java: Removed.
+	* testsuite/libjava.compile/PR208.java: Removed.
+	* testsuite/libjava.compile/PR208.xfail: Removed.
+	* testsuite/libjava.compile/support/Case.java: Removed.
+	* testsuite/libjava.compile/Case.java: Removed.
+
 2006-06-04  Tom Tromey  <tromey@redhat.com>
 
 	* sources.am, Makefile.in: Rebuilt.

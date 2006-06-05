@@ -28,7 +28,7 @@ proc gcj_jacks_write {filename} {
   set gcjl [split $GCJ_UNDER_TEST]
   set gcj_cmd [lindex $gcjl 0]
   set rest [join [lreplace $gcjl 0 0]]
-  append rest " -C"
+  append rest " -C -w"
 
   set fd [open $filename w]
   puts $fd "set JAVAC $gcj_cmd"
