@@ -1,3 +1,8 @@
+2006-06-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/t-linux64 (tp-bit.c): Append to tp-bit.c, not
+	dp-bit.c.
+
 2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
 
 	* gcc/builtins.c (expand_builtin_return_addr): Always use
