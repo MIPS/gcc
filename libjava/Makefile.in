@@ -6996,7 +6996,7 @@ gcj_dbtool_LDFLAGS = --main=gnu.gcj.tools.gcj_dbtool.Main \
 
 gcj_dbtool_LINK = $(GCJLINK)
 gcj_dbtool_LDADD = gnu/gcj/tools/gcj_dbtool.lo -L$(here)/.libs libgcj.la
-gcj_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
+gcj_dbtool_DEPENDENCIES = gnu/gcj/tools/gcj_dbtool.lo libgcj.la libgcj.spec
 gij_SOURCES = 
 gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
