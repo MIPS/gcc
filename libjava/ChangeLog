@@ -1,3 +1,9 @@
+2006-06-06  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (nat_headers): Don't list Main.h.
+	(generic_header_files): Likewise.
+
 2006-06-05  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.loader/TestLeak.java (MyLoader): Now static.

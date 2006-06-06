@@ -341,8 +341,7 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(filter-out $(omitted_headers),$(ordinary_header_files) $(xlib_nat_headers)) \
-	gnu/gcj/tools/gcj_dbtool/Main.h
+generic_header_files = $(filter-out $(omitted_headers),$(ordinary_header_files) $(xlib_nat_headers))
 
 $(generic_header_files): %.h: classpath/lib/%.class
 	name=`echo $< | sed -e 's/\.class$$//' -e 's,classpath/lib/,,'`; \
@@ -362,8 +361,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
 	$(PLATFORM_INNER_NAT_HDRS)
 
-nat_headers = $(ordinary_header_files) $(inner_nat_headers) \
-	gnu/gcj/tools/gcj_dbtool/Main.h
+nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
 
 xlib_nat_headers = $(gnu_awt_xlib_header_files) $(gnu_gcj_xlib_header_files)
