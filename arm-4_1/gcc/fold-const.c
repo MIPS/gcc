@@ -59,6 +59,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "md5.h"
 
+/* Non-zero if we are folding constants inside an initializer; zero
+   otherwise.  */
+int folding_initializer = 0;
+
 /* The following constants represent a bit based encoding of GCC's
    comparison operators.  This encoding simplifies transformations
    on relational comparison operators, such as AND and OR.  */
@@ -10072,8 +10076,10 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
           && integer_zerop (TREE_OPERAND (arg0, 1))
           && integer_zerop (op2)
           && (tem = sign_bit_p (TREE_OPERAND (arg0, 0), arg1)))
-        return fold_convert (type, fold_build2 (BIT_AND_EXPR,
-						TREE_TYPE (tem), tem, arg1));
+        return fold_convert (type,
+			     fold_build2 (BIT_AND_EXPR,
+					  TREE_TYPE (tem), tem,
+					  fold_convert (TREE_TYPE (tem), arg1)));
 
       /* (A >> N) & 1 ? (1 << N) : 0 is simply A & (1 << N).  A & 1 was
 	 already handled above.  */
@@ -10616,16 +10622,19 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
   int saved_trapping_math = flag_trapping_math;\
   int saved_rounding_math = flag_rounding_math;\
   int saved_trapv = flag_trapv;\
+  int saved_folding_initializer = folding_initializer;\
   flag_signaling_nans = 0;\
   flag_trapping_math = 0;\
   flag_rounding_math = 0;\
-  flag_trapv = 0
+  flag_trapv = 0;\
+  folding_initializer = 1;
 
 #define END_FOLD_INIT \
   flag_signaling_nans = saved_signaling_nans;\
   flag_trapping_math = saved_trapping_math;\
   flag_rounding_math = saved_rounding_math;\
-  flag_trapv = saved_trapv
+  flag_trapv = saved_trapv;\
+  folding_initializer = saved_folding_initializer;
 
 tree
 fold_build1_initializer (enum tree_code code, tree type, tree op)

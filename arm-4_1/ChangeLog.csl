@@ -1,3 +1,56 @@
+2006-06-06  Paul Brook  <paul@codesourcery.com>
+
+	Merge from branches/csl/sourcerygxx-4_1
+
+	2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
+	* gcc/builtins.c (expand_builtin_return_addr): Always use
+	hard_frame_pointer_rtx and prevent frame pointer elimination
+	if INITIAL_FRAME_ADDRESS_RTX isn't set.
+
+	2006-06-01  Mark Shinwell  <shinwell@codesourcery.com>
+	* gcc/tree.h: Declare folding_initializer.
+	* gcc/builtins.c (fold_builtin_constant_p): Give definite answer
+	if folding inside an initializer.
+	* gcc/fold-const.c: Define folding_initializer.
+	(START_FOLD_INIT): Save and then set folding_initializer.
+	(END_FOLD_INIT): Restore folding_initializer.
+	* gcc/testsuite/gcc.c-torture/compile/builtin_constant_p.c:
+	New test.
+
+	2006-05-31  Carlos O'Donell  <carlos@codesourcery.com>
+	Backport from mainline:
+	2006-05-31  Richard Earnshaw  <richard.earnshaw@arm.com>
+	PR target/27829
+	* gcc/config/arm/arm.c (arm_print_operand case 'S'): Validate 
+	that the operand is a shift operand before calling shift_op.  
+	Avoid redundant call of	shift_op.
+
+	2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
+	Backport from mainline:
+	2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+	PR tree-optimization/26622.
+	* gcc/fold-const.c (fold_ternary) <COND_EXPR>: Call fold_convert
+	on arg1.
+
+	PR tree-optimization/26622.
+	* gcc/testsuite/gcc.c-torture/compile/pr26622.c: New.
+
+	2006-05-19  Nathan Sidwell  <nathan@codesourcery.com>
+	* libiberty/make-relative-prefix.c (split_directories): Add
+	ignore_final arg.
+	(make_relative_prefix): Keep the final path component if it was a
+	directory.  Adjust calls to split_directories.
+
+	2006-05-20  Richard Sandiford  <richard@codesourcery.com>
+	Merge from mainline:
+	gcc/
+	2006-05-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/linux-unwind.h: Include <asm/unistd.h>
+	(mips_fallback_frame_state): Use syscall numbers to determine
+	the appropriate li instruction for the current ABI.  Only use
+	__NR_sigreturn for o32.
+
 2006-05-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* Merge from csl/sourcerygxx-4_1 version 113722
