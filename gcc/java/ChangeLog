@@ -1,3 +1,8 @@
+2006-06-06  Tom Tromey  <tromey@redhat.com>
+
+	* lang-specs.h <jc1>: Add .jar file to command line if
+	-fsaw-java-file.  Also, remove -ffilelist-file in this case.
+
 2006-06-05  Tom Tromey  <tromey@redhat.com>
 
 	* jcf-dump.c (print_access_flags): Handle varargs, bridge,
