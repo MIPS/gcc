@@ -649,15 +649,16 @@ remove_forwarder_block_with_phi (basic_block bb)
 
 	  if (TREE_CODE (def) == SSA_NAME)
 	    {
-	      tree var;
+	      tree pending = PENDING_STMT (e);
+	      int i = 0;
 
 	      /* If DEF is one of the results of PHI nodes removed during
 		 redirection, replace it with the PHI argument that used
 		 to be on E.  */
-	      for (var = PENDING_STMT (e); var; var = TREE_CHAIN (var))
+	      for (i = 0; i < TREE_VEC_LENGTH (pending); i += 2)
 		{
-		  tree old_arg = TREE_PURPOSE (var);
-		  tree new_arg = TREE_VALUE (var);
+		  tree old_arg = TREE_VEC_ELT (pending, i);
+		  tree new_arg = TREE_VEC_ELT (pending, i + 1);
 
 		  if (def == old_arg)
 		    {

@@ -48,30 +48,44 @@ Boston, MA 02110-1301, USA.  */
 
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
-   The list of removed arguments is stored in PENDING_STMT (e).  */
+   The list of removed arguments is stored in PENDING_STMT (e) as a
+   TREE_VEC with PHI_RESULT in the even elements and PHI_ARG_DEF in
+   the odd elements.  */
 
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  tree phi;
-  tree list = NULL, *last = &list;
-  tree src, dst, node;
+  tree phi, pending = NULL_TREE;
+  unsigned int num_phis = 0;
+  unsigned int i;
+  bool empty = true;
 
-  /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
-	continue;
+      if (PHI_ARG_DEF (phi, e->dest_idx))
+	empty = false;
+      num_phis++;
+    }
 
-      src = PHI_ARG_DEF (phi, e->dest_idx);
-      dst = PHI_RESULT (phi);
-      node = build_tree_list (dst, src);
-      *last = node;
-      last = &TREE_CHAIN (node);
+  if (!empty)
+    {
+      pending = make_tree_vec (num_phis * 2);
+
+      /* Remove the appropriate PHI arguments in E's destination block.  */
+      for (phi = phi_nodes (e->dest), i = 0;
+	   phi;
+	   phi = PHI_CHAIN (phi), i += 2)
+	{
+	  if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
+	    continue;
+
+	  TREE_VEC_ELT (pending, i) = PHI_RESULT (phi);
+	  TREE_VEC_ELT (pending, i + 1) = PHI_ARG_DEF (phi, e->dest_idx);
+	}
     }
 
   e = redirect_edge_succ_nodup (e, dest);
-  PENDING_STMT (e) = list;
+  PENDING_STMT (e) = pending;
 
   return e;
 }
@@ -81,16 +95,17 @@ ssa_redirect_edge (edge e, basic_block dest)
 void
 reinstall_phi_args (edge new_edge, edge old_edge)
 {
-  tree var, phi;
+  tree pending = PENDING_STMT (old_edge), phi;
+  unsigned int i;
 
-  if (!PENDING_STMT (old_edge))
+  if (!pending)
     return;
 
-  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
-       var && phi;
-       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
+  for (phi = phi_nodes (new_edge->dest), i = 0;
+       phi;
+       phi = PHI_CHAIN (phi), i += 2)
     {
-      tree arg = TREE_VALUE (var);
+      tree arg = TREE_VEC_ELT (pending, i + 1);
       add_phi_arg (phi, arg, new_edge);
     }
 

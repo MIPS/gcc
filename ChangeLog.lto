@@ -1,3 +1,11 @@
+2006-06-06  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/tree-ssa.c (ssa_redirect_edge): Store TREE_VEC in
+	PENDING_STMT.
+	(reinstall_phi_args): Adjust the uses of PENDING_STMT.
+	* gcc/tree-cfgcleanup.c (remove_forwarder_block_with_phi):
+	Likewise.
+
 2006-06-05  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-common.c (registered_builtin_types): Change the type
