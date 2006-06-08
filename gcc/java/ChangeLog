@@ -1,3 +1,55 @@
+2006-06-08  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Pass NULL_TREE as SPECIAL arg to
+	get_symbol_table_index().
+	(maybe_rewrite_invocation): Set SPECIAL if we need to access a
+	private method.
+	(build_known_method_ref): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(get_symbol_table_index): Put SPECIAL in the TREE_PURPOSE field of
+	the method list.
+	(build_invokevirtual): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(expand_invoke): New variable: special.
+	Pass it to maybe_rewrite_invocation().
+	Pass it to build_known_method_ref().
+	* class.c (build_symbol_entry): Add new arg: special.  Use it to
+	build the symbol table conbstructor.
+	(emit_symbol_table): Extract SPECIAL from the method list and pass
+	it to build_symbol_entry().
+	* parse.y (patch_invoke): Call maybe_rewrite_invocation() and set
+	special accordingly.
+
+2006-06-06  David Daney  <ddaney@avtrex.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.NameFinder.show_raw and
+	gnu.gcj.runtime.NameFinder.remove_unknown.
+
+2006-06-06  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (print_access_flags): Handle varargs, bridge,
+	synthetic, enum, annotation.
+	* jcf.h (ACC_BRIDGE): New macro.
+	(ACC_VARARGS): Likewise.
+	(ACC_SYNTHETIC): Likewise.
+	(ACC_ENUM): Likewise.
+	(ACC_ANNOTATION): Likewise.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to htmldir to build_htmldir to avoid
+	installing during build.
+
+2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Extensions): Document the new gcj-dbtool-based
+	classname-to-library resolution mechanism.
+	Declare the old gnu.gcj.runtime.VMClassLoader.library_control
+	mechanism deprecated.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.runtime.VMClassLoader.library_control's new default.
+
 2006-05-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* javaop.h (int16, int32, int64): Define to exactly 16 (resp. 32, 64)

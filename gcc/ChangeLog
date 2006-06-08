@@ -1,3 +1,351 @@
+2006-06-08  Roger Sayle  <roger@eyesopen.com>
+
+	* tree-ssa-dom.c (record_conditions): Only record "unordered"
+	conditions from floating point comparisons.
+
+2006-06-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/27733
+	* expmed.c (struct alg_hash_entry): Fix type of field T
+	to match synth_mult argument.
+	(NUM_ALG_HASH_ENTRIES): Make it bigger for 64-bit HOST_WIDE_INT.
+
+2006-06-08  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR target/27863
+	* haifa-sched.c (unlink_other_notes, unlink_line_notes): Update basic
+	block boundaries.
+
+2006-06-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27116
+	* fold-const.c (negate_expr_p): We can negate BIT_NOT_EXPR
+	only, if overflow is defined and not trapping.
+	(negate_expr): Likewise.
+
+2006-06-07  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27872
+	* tree-ssa-loop-manip.c (tree_unroll_loop): Set EDGE_IRREDUCIBLE_LOOP
+	flag on the new exit edge of the unrolled loop.
+
+2006-06-07  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/26449
+	* loop-invariant.c (move_invariant_reg): Fail if force_operand fails.
+
+2006-06-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR middle-end/27793
+	* tree-dfa.c (referenced_vars_dup_list): New.  List of duplicate 
+	referenced_variables with matching DECL_UID's.
+	(find_referenced_vars): Make sure duplicate list is empty to start.
+	(referenced_var_p): Remove.
+	(referenced_var_check_and_insert): Renamed from referenced_var_insert.  
+	Check if var is in the list, and add if needed.  Update the duplicate
+	list if a different var is in the list with the same DECL_UID.
+	(add_referenced_var): Call routine to check and insert.
+	* tree-ssa.c (delete_tree_ssa): Clear var_ann's on duplicates.
+	* tree-flow.h (referenced_vars_dup_list): External declaration.
+
+2006-06-07  Fred Fish  <fnf@specifix.com>
+
+	* config/mips/t-elf (MULTILIB_MATCHES): Combine two entries
+	into single entry.
+
+2006-06-07  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/27390
+	* reg-stack.c (subst_stack_regs_pat): Reorder resetting of
+	the imaginary and real parts of a clobbered register.
+	Emit insn to set the imaginary part.
+
+2006-06-06  Peter Lemieszewski  <lemie@us.ibm.com>
+
+	* config/s390/t-tpf (LIB2ADDEH): Include unwind-dw2-fde-glibc.c
+	in lieu of unwind-dw2-fde.c.
+
+2006-06-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* config/i386/mingw32.h (GOMP_SELF_SPECS): Define.
+
+2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27842
+	* config/rs6000/altivec.md (UNSPEC_VSLW): Remove.
+	("altivec_vspltisw_v4sf", "altivec_vslw_v4sf"): Remove.
+	("mulv4sf3", "absv4sf3", "negv4sf3"): Adapt users to use
+	V4SImode temporaries and operations instead.
+
+2006-06-06  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/mips/t-linux64 (tp-bit.c): Append to tp-bit.c, not
+	dp-bit.c.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Makefile.in: Rename to htmldir to build_htmldir to avoid
+	installing during build.
+
+2006-06-06  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* params.def (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS): Change default
+	value to 0.
+	* doc/invoke.texi (max-sched-extend-regions-iters): Document.
+	* config/ia64/ia64.c (params.h): New header.
+	(ia64_optimization_options): New function to adjust parameters.
+	* config/ia64/ia64-protos.h (ia64_optimization_options): New prototype.
+	* config/ia64/ia64.h (OPTIMIZATION_OPTIONS): New macro.
+	* config/ia64/t-ia64 (ia64.o): Add dependence from params.h .
+
+2006-06-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* stor-layout.c (debug_rli): Fix a typo in a debug message.
+
+2006-06-05  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/27051
+	* config/ia64/ia64.c (ia64_select_rtx_section): Check TARGET_NO_SDATA.
+
+2006-06-05  Dorit Nuzman  <dorit@il.ibm.com>
+	    Victor Kaplansky  <victork@il.ibm.com>
+
+        PR tree-optimization/26360
+        * tree-vectorizer.c (destroy_loop_vec_info): Remove (dead) pattern
+        stmts.
+
+2006-06-04  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/27382
+	* c-common.c (c_common_truthvalue_conversion): Explicitly check
+	for LABEL_DECL before calling DECL_WEAK.
+
+	PR c/27150
+	* c-typeck.c (build_binary_op): Likewise, explicitly check for
+	LABEL_DECL and PARM_DECL.
+
+2006-06-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/25161
+	PR c/27020
+	* c-decl.c (grokdeclarator): Disallow variably modified types at
+	file scope.  Avoid marking shared array type of constant size as
+	VLA.
+
+2006-06-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* c-common.c (fold_offsetof_1): Handle static members.
+
+2006-06-04 Eric Christopher <echristo@apple.com>
+
+	* stor-layout.c (start_record_layout): Initialize remaining_in_alignment.
+	(debug_rli): Output value for remaining_in_alignment.
+	(update_alignment_for_field): Unconditionalize
+	ms_bitfield_layout_p code. Handle non-bitfield fields. Remove
+	extra alignment code.
+	(place_field): Don't realign if ms_bitfield_layout_p. Unconditionalize
+	ms_bitfield_layout_p code. Rewrite handling of structure fields.
+	* tree.h (record_layout_info_s): Remove prev_packed.
+	* doc/extend.texi (ms_struct): Add documentation of format.
+
+2006-06-04  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* tree.h: Declare folding_initializer.
+	* builtins.c (fold_builtin_constant_p): Give definite answer
+	if folding inside an initializer.
+	* fold-const.c: Define folding_initializer.
+	(START_FOLD_INIT): Save and then set folding_initializer.
+	(END_FOLD_INIT): Restore folding_initializer.
+
+2006-06-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27039
+	* fold-const.c (fold_comparison): Handle pointer comparison
+	again for all comparison codes.  Compare offsets in signed
+	size type.
+	(fold_binary): Move code from here.
+
+2006-06-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26223
+	* config/i386/i386.c (construct_container): Split static issued_error
+	flag into issued_sse_arg_error, issued_sse_ret_error and
+	issued_x87_ret_error.  Issue a daignostic if the x86-64 ABI
+	requires the use of x87 registers and the user explicitly
+	specified the -mno-80387 command line option.
+
+2006-06-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/rs6000/host-darwin.c (sigaltstack): Protect prototype with
+	HAVE_DECL_SIGALTSTACK.
+	(MC_FLD): New.
+	(segv_handler): Use MC_FLD.
+	* configure.ac: Check for a sigaltstack declaration.
+	Compute HAS_MCONTEXT_T_UNDERSCORES on Darwin.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2006-06-03  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR other/27850
+	* Makefile.in (stmp-fixinc): Fix typo.
+
+2006-06-02  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (fold_unary) <CONJ_EXPR>: Ensure folded expressions
+	are type correct.  Clean-up.
+	<REALPART_EXPR>: Likewise.  Optimize creal(~z) as creal(z).
+	<IMAGPART_EXPR>: Likewise.  Optimize cimag(~z) as -cimag(z).
+
+2006-06-01  DJ Delorie  <dj@redhat.com>
+
+	* config/v850/v850.h (ASM_OUTPUT_ADDR_DIFF_ELT): Disabled the
+	shift, as we've disabled the "switch" insn that needs it.
+
+2006-06-01  Per Bothner  <bothner@bothner.com>
+
+	Suppress extra '#1 <built-in> or '#1 <command line>' on -dD output.
+	* c-opts.c (finish_options): Use internal line 0 for <command-line>.
+	* c-ppoutput.c (cb_define): Don't increment line 0.
+
+2006-06-01  Pete Steinmetz  <steinmtz@us.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type power6.
+	* config.gcc: Add cpu_type power6.
+	* config/rs6000/rs6000.c (rs6000_override_options): Alias power6
+	to power5+ with Altivec.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add power6.
+
+2006-05-30  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (SET_ASM_OP): Define.
+
+2006-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/bfin/bfin.c: Fix comment typos.
+
+2006-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR 25453
+	* doc/install.texi: Document --enable-bootstrap and
+	--disable-bootstrap.
+
+2006-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* doc/install.texi: Document that InfoZIP can replace jar.
+
+2006-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	* config/i386/i386.c (ix86_expand_fp_absneg_operator): When SSE
+	isn't available, directly generate the simpler x87 patterns without
+	the (use (const_int 0)).
+	* config/i386/i386.md (*negsf2_1): Enable pre-reload if the SSE
+	implementation isn't available.
+	(*negdf2_1): Likewise.
+	(*negxf2_1): XF mode negation is always done using the x87.
+	(*abssf2_1, *absdf2_1, *absxf2_1): Likewise^3 for fabs.
+
+2006-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	* builtins.c (fold_builtin_cabs): Delete prototype.  Require an
+	additional FNDECL argument.  Optimize cabs(-z) and cabs(~z) as
+	cabs(z).
+	(fold_builtin_decl) <BUILT_IN_CABS>: Update fold_builtin_cabs call.
+
+2006-05-31  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin-protos.h (bfin_hardware_loop): Declare.
+	* config/bfin/bfin.c (basic-block.h): Include.
+	(struct machine_function): New.
+	(bfin_init_machine_status): New.
+	(override_options): Initialize init_machine_status.
+	(bfin_hardware_loop): New.
+	(MAX_LOOP_DEPTH, MAX_LOOP_LENGTH): Define.
+	(DEF_VEC_P (loop_info)): New.
+	(DEF_VEC_ALLOC_P (loop_info,heap)): New.
+	(struct loop_info): New.
+	(loop_info): New typedef.
+	(struct loop_work): New.
+	(loop_work): New typedef.
+	(DEF_VEC_O (loop_work)): New.
+	(DEF_VEC_ALLOC_O (loop_work,heap)): New.
+	(bfin_dump_loops): New.
+	(bfin_bb_in_loop): New.
+	(bfin_scan_loop): New.
+	(bfin_optimize_loop): New.
+	(bfin_reorg_loops): New.
+	(bfin_reorg): Use bfin_reorg_loops.
+	* config/bfin/bfin.h (FIRST_PSEUDO_REGISTER): Adjust for adding
+	loop registers.
+	(I_REGNO_P): Simplify.
+	(DP_REGNO_P, DPREG_P): New macros.
+	(REGISTER_NAMES, FIXED_REGISTERS, CALL_USED_REGISTERS,
+	REG_ALLOC_ORDER): Add LT0, LT1, LC0, LC1, LB0, LB1.
+	(enum reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS):
+	Add LT_REGS, LC_REGS, LB_REGS.
+	(REG_CLASS_FROM_LETTER): Add 't' for LT_REGS, 'k' for LC_REGS,
+	'l' for LB_REGS.
+	(REGNO_REG_CLASS): Deal with loop registers.
+	* config/bfin/bfin.md: Add comment for 't', 'k', 'l' constraint
+	letters.
+	(REG_LT0, REG_LT1, REG_LC0, REG_LC1, REG_LB0, REG_LB1):
+	New constants for loop registers.
+	(UNSPEC_LSETUP_END): New.
+	(seq_insns): New define_attr. Set it for appropriate insns.
+	(movsi_insn): Add alternatives for move from/to
+	loop count registers.
+	(doloop_end): New define_expand.
+	(loop_end): New define_insn.
+	(define_split for bad doloop_end): New.
+	(lsetup_with_autoinit): New define_insn.
+	(lsetup_without_autoinit): New define_insn.
+	(rep_movsi, rep_movhi): Clobber LT1, LC1, LB1.
+	* config/bfin/predicates.md (lc_register_operand): New.
+	(lt_register_operand): New.
+	(lb_register_operand): New.
+	(nondp_register_operand): New.
+	(nondp_reg_or_memory_operand): New.
+	* doc/md.texi: Document Blackfin new 't', 'k', 'l' constraint letters.
+
+2006-05-31  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (bfin_delegitimize_address): New.
+	(TARGET_DELEGITIMIZE_ADDRESS): Define.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (CATALOGS): Add po/ prefix.
+	* configure: Regenerated.
+
+2006-05-31  Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	PR target/27829
+	* arm.c (arm_print_operand case 'S'): Validate that the operand is
+	a shift operand before calling shift_op.  Avoid redundant call of
+	shift_op.
+
+2006-05-30  Naveen.H.S  <naveenh@kpitcummins.com>
+	    DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_expand_insv): Check that the value
+	we're inserting is a singlt-bit constant.
+
+2006-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_binary_operation_1) <LSHIFTRT>: Cast
+	width to HOST_WIDE_INT to avoid comparison warnings on some targets.
+
+2006-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/23452
+	* fold-const.c (fold_mult_zconjz): New subroutine of fold_binary,
+	to optimize z * conj(z) as realpart(z)^2 + imagpart(z)^2.
+	(fold_binary) <MULT_EXPR>: Call fold_mult_zconjz for integral
+	complex values and with -ffast-math for FP complex values.
+
 2006-05-30  Kazu Hirata  <kazu@codesourcery.com>
 
 	* c-common.h: Remove the prototype for yyparse.
@@ -188,7 +536,7 @@
 
 	PR c++/20103
 	* gimplify.c (gimplify_decl_expr): Do not call gimple_add_tmp_var
-	for anonymous variables explicitly declared by front ends. 
+	for anonymous variables explicitly declared by front ends.
 
 2006-05-25  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -246,11 +594,11 @@
 	* df-core.c: Added to header comments.
 	* df.h (df_ru_bb_info, df_rd_bb_info, df_lr_bb_info,
 	df_ur_bb_info, df_urec_bb_info): Added comments.
-	* df-problems (df_ref_bitmap, ru, rd, lr, ur, 
+	* df-problems (df_ref_bitmap, ru, rd, lr, ur,
 	urec, ri problems): Fixed header comments.
-	(df_ru_transfer_function): Fixed in-out set dyslexia when copying 
+	(df_ru_transfer_function): Fixed in-out set dyslexia when copying
 	code from df_rd_transfer_function.
-	
+
 2006-05-23  Richard Sandiford  <richard@codesourcery.com>
 
 	* libgcc2.c (LIBGCC2_MAX_UNITS_PER_WORD): New macro.
@@ -274,7 +622,7 @@
 2006-05-23  Andrew MacLeod  <amacleod@redhat.com>
 
 	PR c++/26757
-	* tree-ssa-loop-im.c (determine_invariantness_stmt): Use 
+	* tree-ssa-loop-im.c (determine_invariantness_stmt): Use
 	add_referenced_var instead of add_referenced_tmp_var.
 	* tree-complex.c (create_one_component_var): Use add_referenced_var.
 	* tree-ssa-loop-manip.c (create_iv, tree_unroll_loop): Use
@@ -298,23 +646,23 @@
 	isn't already in the hash table.
 	(add_referenced_tmp_var): Remove.
 	(find_new_referenced_vars_1): Use add_referenced_var.
-	* tree-ssa-pre.c (create_expression_by_pieces, 
+	* tree-ssa-pre.c (create_expression_by_pieces,
 	insert_into_preds_of_block, insert_extra_phis, realify_fake_stores):
 	Use add_referenced_var.
 	* tree-vect-patterns.c (vect_pattern_recog_1): Use add_referenced_var.
 	* lambda-code.c (lbv_to_gcc_expression, lle_to_gcc_expression,
-	lambda_loopnest_to_gcc_loopnest, perfect_nestify): Use 
+	lambda_loopnest_to_gcc_loopnest, perfect_nestify): Use
 	add_referenced_var.
 	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref,
 	vect_create_data_ref_ptr, vect_create_destination_var,
-	vect_init_vector, vect_build_loop_niters, 
+	vect_init_vector, vect_build_loop_niters,
 	vect_generate_tmps_on_preheader, vect_update_ivs_after_vectorizer,
 	vect_gen_niters_for_prolog_loop, vect_create_cond_for_align_checks):
 	Use add_referenced_var.
 	* tree-outof-ssa.c (create_temp): Use add_referenced_var.
 	* tree-flow.h (add_referenced_tmp_var): Remove prototype
 	(add_referenced_var): Add prototype.
-	* tree-ssa-structalias.c (get_constraint_for, 
+	* tree-ssa-structalias.c (get_constraint_for,
 	intra_create_variable_infos): Use add_referenced_var.
 
 2006-05-23  Alexandre Oliva  <aoliva@redhat.com>
@@ -346,9 +694,9 @@
 	to gen set.
 	(df_ru_bb_local_compute): Reversed statements and removed bogus
 	comment explaining why they should be in wrong order.
-	(df_ru_dump, df_rd_dump): Enhanced debug info.     
+	(df_ru_dump, df_rd_dump): Enhanced debug info.
 	* modulo-sched.c (sms_schedule, tree_opt_pass pass_sms): Enhanced
-	debug info.       
+	debug info.
 	* ddg.c (add_deps_for_def): Converted use of reaching defs to
 	reaching uses and fixed space problem.
 
@@ -389,11 +737,11 @@
 
 	* config/avr/avr.c (avr_mcu_types): Add support for attiny261,
 	attiny461, attiny861, attiny25, attiny45, attiny85, attiny24,
-	attiny44, attiny84, at90pwm2, at90pwm3, atmega165p, atmega169p, 
-	atmega164p, atmega324p, atmega644p, atmega644, atmega329, 
-	atmega3290, atmega649, atmega6490, atmega406, atmega640, 
-	atmega1280, atmega1281, at90can32, at90can64, at90usb646, 
-	at90usb647, at90usb1286 and at90usb1287 devices.  
+	attiny44, attiny84, at90pwm2, at90pwm3, atmega165p, atmega169p,
+	atmega164p, atmega324p, atmega644p, atmega644, atmega329,
+	atmega3290, atmega649, atmega6490, atmega406, atmega640,
+	atmega1280, atmega1281, at90can32, at90can64, at90usb646,
+	at90usb647, at90usb1286 and at90usb1287 devices.
 	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
 	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
 
@@ -519,7 +867,7 @@
 	(df_ref_record_1): Changed DF_REF_CLOBBER into DF_REF_MUST_CLOBBER
 	and set DF_REF_PARTIAL.
 	(df_defs_record): Changed DF_REF_CLOBBER into DF_REF_MUST_CLOBBER.
-	(df_uses_record): Added DF_REF_PARTIAL for subreg. 
+	(df_uses_record): Added DF_REF_PARTIAL for subreg.
 	(df_scan_add_problem): Added flags parameter.
 	(df_ref_create_structure): Changed switching structure.
 	(df_bb_refs_record): Fixed case where duplicate artificial refs
@@ -530,8 +878,8 @@
 	(df_record_exit_block_uses, df_insn_refs_record): Changed location of flags.
 	(df_set_state): Removed function.
 	(df_grow_reg_info, df_reg_chain_unlink, df_ref_remove,
-	df_insn_create_insn_record, df_insn_refs_delete, 
-	df_ref_create_structure): Formatting changes.  
+	df_insn_create_insn_record, df_insn_refs_delete,
+	df_ref_create_structure): Formatting changes.
 	* df-core.c (df_mvs_dump, df_set_flags, df_clear_flags,
 	df_delete_basic_block): New function.
 	(df_init): Changed location of flags.
@@ -545,7 +893,7 @@
 	(df_prune_to_subcfg): Made public.
 	(df_analyze_problem): Added blocks_to_init parameter and made
 	public.
-	(df_ref_record, df_bb_refs_record, df_mark_reg, 
+	(df_ref_record, df_bb_refs_record, df_mark_reg,
 	 df_record_exit_block_uses): Whitespace changes.
 	(df_dump): Whitespace changes.
 	* df.h: Some reordering to remove forward references.
@@ -638,7 +986,7 @@
 	* dwarf2out.c (dwarf2_name): Use the dwarf_name	language hook.
 	* ada/misc.c (gnat_dwarf_name): New function.
 	(LANG_HOOKS_DWARF_NAME): Define to gnat_dwarf_name.
-	
+
 2006-05-19  Richard Sandiford  <richard@codesourcery.com>
 
 	* libgcc2.c (MIN_UNITS_PER_WORD): Move default definition from
@@ -915,7 +1263,7 @@
 
 2006-05-15  Per Bothner  <per@bothner.com>
 
-	* tree.c: (last_annotated_node): Use sources_locus typedef.
+	* tree.c: (last_annotated_node): Use source_locus typedef.
 	This permits bootstrapping with --enable-mapped-location.
 
 2006-05-15  Zdenek Dvorak <dvorakz@suse.cz>

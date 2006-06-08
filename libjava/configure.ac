@@ -116,9 +116,18 @@ AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
-AC_CHECK_PROGS(JAR, [jar fastjar], false)
-if test "$JAR" = false; then
-  AC_MSG_ERROR(jar program not found)
+AC_PROG_AWK
+AC_CHECK_PROGS([JAR], [jar fastjar], no)
+AC_PATH_PROG([ZIP], [zip], no)
+AC_PATH_PROG([UNZIP], [unzip], unzip)
+AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
+if test "$ZIP" = no; then
+  if test "$JAR" = no; then
+    AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
+  fi
+else
+  # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
+  JAR=`pwd`/scripts/jar
 fi
 
 AC_PROG_INSTALL
@@ -227,20 +236,12 @@ for peer in $peerlibs ; do
 done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
-AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
-AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then
    echo gnu/awt/xlib >> standard.omit
    echo gnu/gcj/xlib >> standard.omit
-fi
-if test "$use_gtk_awt" != yes; then
-   echo gnu/java/awt/peer/gtk >> standard.omit
-fi
-if test "$use_qt_awt" != yes; then
-   echo gnu/java/awt/peer/qt >> standard.omit
 fi
 
 if test -z "${with_multisubdir}"; then
@@ -892,7 +893,7 @@ if test "x${with_newlib}" = "xyes"; then
 else
    AC_CHECK_FUNCS([strerror ioctl select fstat open fsync sleep opendir \
                    gmtime_r localtime_r readdir_r getpwuid_r getcwd \
-		   access stat mkdir rename rmdir unlink realpath utime chmod \
+		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
 		   fork execvp pipe sigaction ftruncate mmap])
@@ -1461,6 +1462,8 @@ gcj/Makefile
 include/Makefile
 testsuite/Makefile
 ])
+
+AC_CONFIG_FILES([scripts/jar], [chmod +x scripts/jar])
 
 AC_CONFIG_COMMANDS([default],
 [# Only add multilib support code if we just rebuilt top-level Makefile.

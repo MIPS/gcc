@@ -1,3 +1,88 @@
+2006-06-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* cp-tree.h (finish_offsetof): Add prototype.
+	* semantics.c (finish_offsetof): New function.
+	* parser.c (cp_parser_builtin_offsetof): Call it instead of
+	fold_offsetof.
+	* pt.c (tsubst_copy_and_build): Likewise.
+
+2006-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27177
+	* call.c (standard_conversion): Require that the derived type be
+	complete when performing a derived-to-base conversion.
+
+2006-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27819
+	* decl.c (cp_finish_decl): Process initializers for static data
+	members with non-dependent initializers, even in templates.
+
+	PR c++/27722
+	* decl.c (maybe_deduce_size_from_array_init): If the declaration
+	is erroneous, give it an erroneous type.
+	(layout_var_decl): If the type is erroneous, give up.
+	(check_initializer): Likewise.
+
+	PR c++/27807
+	* cp-tree.h (TYPE_OBJ_P): New macro.
+	(TYPE_PTROB_P): Use it.
+	(TYPE_REF_OBJ_P): Likewise.
+	* semantics.c (finish_compound_literal): Do not permit compound
+	literals of non-object types.
+
+	PR c++/27806
+	* typeck.c (original_type): Robustify.
+
+2006-06-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27804
+	* init.c (constant_value_1): Return decl instead of error_mark_node
+	for invalid initializers.
+
+2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/27592
+	* rtti.c (build_dynamic_cast_1): Call c_common_truthvalue_conversion
+	on operand of the COND_EXPR for the null pointer check.
+
+2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/26740
+	* typeck.c (build_unary_op): Mark the function as being used.
+
+2006-06-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/26660
+	* parser.c (cp_parser_initial_pragma): Read one more token for
+	caller after reading PCH file in.
+
+2006-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27801
+	* call.c (perform_implicit_conversion): Do not actually perform
+	conversions in templates.
+
+	PR c++/26496
+	* call.c (resolve_args): Check for invalid uses of bound
+	non-static member functions.
+	* init.c (build_offset_ref): Return error_mark_node for errors.
+
+	PR c++/27385
+	* decl.c (reshape_init): Robustify.
+	(reshape_init_array_1): Likewise.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27808
+	* parser.c (cp_parser_decl_specifier_seq): Issue errors about
+	"friend" specifiers that do not appear in class scopes.
+
+	PR c++/27803
+	* class.c (check_bitfield_decl): Ensure that all bitfields have
+	integral type.
+
 2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
 
 	* pt.c (convert_nontype_argument): Fix a typo in an error
@@ -107,7 +192,7 @@
 	(cp_parser_pure_specifier): Likewise.
 
 	PR c++/26068
-	* parser.c (cp_parser_set_storage_class): Check for 
+	* parser.c (cp_parser_set_storage_class): Check for
 	invalid uses of storage classes on unbraced linkage
 	specifications.
 	(cp_parser_decl_specifier_seq): Pass keywords, not storage classes,
@@ -142,7 +227,7 @@
 	(cp_parser_explicit_specialization): Adjust call to
 	cp_parser_single_declaration.
 	(cp_parser_init_declarator): Perform template-parameter access
-	checks. 
+	checks.
 	(cp_parser_parameter_declaration): Do not defer checks for
 	template parameter default arguments.
 	(cp_parser_template_declaration_after_export): Gather access
@@ -328,11 +413,11 @@
 	type.
 	(build_modify_expr): Remove spurious conversions.
 	* class.c (layout_class_type): Modify the type of bitfields to
-	indicate a limited range. 
+	indicate a limited range.
 	* call.c (standard_conversion): Adjust the type of bitfield
 	expressions used in an rvalue context.
 	(build_conditional_expr): Likewise.
-	
+
 2006-04-22  Kazu Hirata  <kazu@codesourcery.com>
 
 	* decl.c: Fix comment typos.

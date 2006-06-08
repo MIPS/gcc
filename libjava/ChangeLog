@@ -1,3 +1,116 @@
+2006-06-07  Andrew Haley  <aph@redhat.com>
+
+	* include/jvm.h (_Jv_Linker::maybe_adjust_signature): New.
+	(_Jv_Linker::uaddr): New.
+	* link.cc (resolve_pool_entry): Call search_method_in_superclasses
+	instead of an open-coded loop around search_method_in_class.
+	(search_method_in_class): Add a new arg, check_perms.
+	(search_method_in_superclasses): New.
+	(link_symbol_table): Call maybe_adjust_signature() to extract the
+	least significnt bit of the signature pointer.  Do this three
+	times, for instace method calls, static methods, and interfaces.
+	Call search_method_in_superclasses() instead of
+	_Jv_LookupDeclaredMethod.
+	(typedef uaddr): Delete.
+	
+2006-06-07  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Do not skip
+	gnu-java-awt-peer-qt.lo.
+	* configure.ac (QT_AWT): Remove conditional.
+	Do not add gnu/java/awt/peer/qt to standard.omit.
+	* classpath/native/jni/qt-peer/Makefile.am: Install libqtpeer.so
+	in GCJ's versioned library directory.
+	* classpath/gnu/java/awt/peer/qt/QtToolkit.java (initToolkit):
+	Load libqtpeer.so unconditionally.
+	* gij.cc (main): Do not re-exec gij.
+	* Makefile.am: Remove lib-gnu-java-awt-peer-qt.lo build logic.
+	(gij_LDFLAGS): Point -rpath at GCJ's versioned library directory
+	when linking gij.
+
+2006-06-06  David Daney  <ddaney@avtrex.com>
+
+	* gnu/gcj/runtime/NameFinder.java (show_raw): New field.
+	(showRaw): New method.
+	* stacktrace.cc : Include gnu/gcj/runtime/StringBuffer.h.
+	(getLineNumberForFrame): Show IP offset in trace if line number
+	not available and show_raw true.
+
+2006-06-06  Gary Benson  <gbenson@redhat.com>
+
+	* java/io/natFilePosix.cc (getCanonicalPath): Rewritten.
+	* configure.ac: Remove realpath check and add checks for
+	lstat and readlink.
+	* configure: Rebuilt.
+	* include/config.h.in: Likewise.
+	* java/io/File.java: Javadoc fix.
+
+2006-06-05  Andreas Schwab  <schwab@suse.de>
+
+	PR libgcj/27860
+	* link.cc: Check for closure support in libffi with FFI_CLOSURES.
+
+2006-06-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27892:
+	* gij.cc (main): Use putenv.
+
+2006-06-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* scripts/jar.in: Ensure return with argument has non-empty argument.
+
+2006-06-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac (ZIP, UNZIP): New programs.
+	(JAR): Fall back to bash script.  Generate it.
+	(BASH_JAR): New conditional.
+	* Makefile.am (bin_SCRIPTS): New.
+	* scripts/jar.in: New file.
+
+2006-06-01  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/java/lang/MainThread (run): Revert exception chaining change.
+
+2006-05-31  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* prims.cc (_Jv_RunMain): Use JvNewStringUTF for command-line class
+	name, not Latin1.
+	* gnu/java/lang/MainThread.java (run): Allow file separator char to
+	be used in place of '.' as class-name separator. Don't chain
+	ClassNotFoundException.
+
+2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* java/lang/VMClassLoader.java (initialize): Set default library
+	control to LIB_NEVER.
+
+2006-05-31  Alan Modra  <amodra@bigpond.net.au>
+
+	* stacktrace.cc (_Jv_StackTrace::UpdateNCodeMap): Don't add
+	interpreted classes.
+
+2006-05-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* scripts/makemake.tcl (emit_bc_rule): Do not skip
+	gnu-java-awt-peer-gtk.lo.
+	Include gnu/java/awt/peer/gtk Java objects in libgcj.so.  Use C++
+	ABI for gnu/java/awt/peer/gtk package.
+	* gnu/classpath/natSystemProperties.cc (PrependVersionedLibdir):
+	New function.
+	(insertSystemProperties): Only set java.ext.dirs if it is not
+	already defined.  Prepend GCJ_VERSIONED_LIBDIR to module search
+	path where necessary.
+	* configure.ac (GTK_AWT): Remove automake conditional.
+	Do not add gnu/java/awt/peer/gtk to standard.omit.
+	* include/jvm.h (_Jv_PrependVersionedLibdir): New function
+	declaration.
+	* gij.cc (main): Prepend LD_LIBRARY_PATH with GCJ_VERSIONED_LIBDIR
+	and re-exec self.
+	* Makefile.am (AM_CXXFLAGS): Define GCJ_VERSIONED_LIBDIR and
+	PATH_SEPARATOR macros.
+	Remove lib-gnu-java-awt-peer-gtk.la and libgcjawt.la build logic.
+	* prims.cc (_Jv_PrependVersionedLibdir): New function.
+
 2006-05-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* java/lang/natThread.cc (countStackFrames): Do not throw

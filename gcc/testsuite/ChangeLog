@@ -1,3 +1,228 @@
+2006-06-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27116
+	* gcc.dg/torture/pr27116.c: New testcase.
+	* gcc.dg/pr15785-1.c: Remove test for invalid transformation.
+
+2006-06-07  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/26449
+	* gcc.dg/pr26449.c: New test.
+
+2006-06-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: Test member functions.
+
+2006-06-07  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/pr27095.c: Improve scanning.
+
+2006-06-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/23091
+	* gfortran.dg/saved_automatic_1.f90: New test.
+
+	PR fortran/24168
+	* gfortran.dg/array_simplify_1.f90: New test.
+
+	PR fortran/25090
+	* gfortran.dg/entry_dummy_ref_1.f90: New test.
+
+	PR fortran/25058
+	* gfortran.dg/entry_dummy_ref_2.f90: New test.
+
+2006-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27177
+	* g++.dg/expr/cast7.C: New test.
+
+2006-06-06  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/gcc-dg.exp (gcc-dg-test-1): Detect and report ICE.
+	* lib/gcc-defs.exp (tool_check_compile): Ditto.
+	* lib/fortran-torture.exp (fortran-torture-compile,
+	fortran-torture-execute): Ditto.
+
+2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27842
+	* gcc.dg/vmx/pr27842.c: New test.
+
+2006-06-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/27895
+	* gfortran.dg/bounds_check_3.f90: New test.
+
+2006-06-05  Mike Stump  <mrs@apple.com>
+
+	* objc.dg/objc-fast-4.m: Skip for ppc64.
+
+2006-06-05  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/27705
+	* gcc.dg/sibcall-7.c: Do not run on ia64-*-* platforms.
+
+2006-06-05  Dorit Nuzman  <dorit@il.ibm.com>
+            Victor Kaplansky  <victork@il.ibm.com>
+	    
+	PR tree-optimizations/26360
+	* gcc.dg/vect/vect.exp: Compile tests prefixed with "no-tree-dce"
+	with -fno-tree-dce.
+	* gcc.dg/vect/no-tree-dce-pr26360.c: New test.
+
+2006-06-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/14067
+	* gfortran.dg/data_char_1.f90: Add messages for truncated
+	strings.
+
+	PR fortran/16943
+	* gfortran.dg/func_decl_2.f90: New test.
+
+	PR fortran/20839
+	* gfortran.dg/do_2.f90: New test.
+
+	PR fortran/27655
+	* gfortran.dg/associated_3.f90: New test.
+
+2006-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27819
+	* g++.dg/template/static25.C: New test.
+
+	PR c++/27722
+	* g++.dg/init/array21.C: New test.
+
+	PR c++/27807
+	* g++.dg/ext/complit7.C: New test.
+	
+	PR c++/27806
+	* g++.dg/parse/ptrmem5.C: New test.
+
+2006-06-04  Roger Sayle  <roger@eyesopen.com>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/27150
+	PR middle-end/27382
+	* gcc.dg/pr27150-1.c: New testcase.
+	* gcc.dg/pr27382-1.c: New testcase.
+	* gcc.dg/pr27382-2.c: New testcase.
+
+2006-06-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/25161
+	PR c/27020
+	* gcc.dg/array-10.c: New test.
+
+2006-06-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27804
+	* g++.dg/init/const4.C: New test.
+	* g++.dg/init/member1.C: Add error-marker.
+	* g++.dg/other/fold1.C: Adjust error-marker.
+
+2006-06-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: New test.
+
+2006-06-04 Eric Christopher <echristo@apple.com>
+
+	* gcc.dg/attr-ms_struct-1.c: New.
+
+2006-06-04  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc.c-torture/compile/builtin_constant_p.c: New test.
+
+2006-06-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27039
+	* gcc.dg/tree-ssa/loop-17.c: New testcase.
+
+2006-06-03  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26223
+	* gcc.target/i386/amd64-abi-2.c: New test case.
+
+2006-06-02  Eric Christopher  <echristo@apple.com>
+
+	* gcc.c-torture/compile/20000804-1.c: Skip if i?86-darwin.
+	* gcc.target/i386/20020523-1.c: Skip if darwin.
+	* gcc.target/i386/asm-3.c: Ditto.
+	* gcc.target/i386/20011119-1.c: Ditto.
+	* gcc.target/i386/clobbers.c: Remove pic part of test.
+
+2006-06-02  Steve Ellcey  <sje@cup.hp.com>
+
+	* g++.old-deja/g++.other/init5.C: XFAIL if cxa-atexit is false.
+	* g++.old-deja/g++.other/init19.C: Ditto.
+	* g++.old-deja/g++.other/init18.C: Ditto, plus change _Exit to _exit
+	and add other platforms as expected failures.
+
+2006-06-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* lib/target-supports.exp (is-effective-target): Add cxa_atexit.
+	(is-effective-target-keyword): Ditto.
+
+2006-06-01  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27715
+	* gfortran.dg/extended_char_comparison_1.f:  New test.
+
+2006-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25098
+	* gfortran.dg/dummy_procedure_1.f90: New test.
+
+	PR fortran/25147
+	* gfortran.dg/dummy_procedure_2.f90: New test.
+
+	* gfortran.dg/associated_2.f90: Correct to make consistent with
+	standard.
+
+2006-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.target/i386/387-11.c: New test case.
+
+2006-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27801
+	* g++.dg/template/cond6.C: New test.
+
+	PR c++/26496
+	* g++.dg/template/crash51.C: New test.
+	* g++.old-deja/g++.mike/net36.C: Tweak error markers.
+
+	PR c++/27385
+	* g++.dg/init/array20.C: New test.
+
+2006-05-31  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/builtins-54.c: New test case.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26433
+	* g++.dg/template/fntry1.C: Add dg-do link.
+
+	PR c++/27808
+	* g++.dg/parse/friend6.C: New test.
+
+2006-05-30  Asher Langton  <langton2@llnl.gov>
+
+	* gfortran.dg/cray_pointers_7.f90: New test.
+
+2006-05-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/23452
+	* gcc.dg/fold-mulconj-1.c: New test case.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27803
+	* g++.dg/parse/bitfield1.C: New test.
+
 2006-05-30  Roger Sayle  <roger@eyesopen.com>
 
 	* gcc.target/ppc-eq0-1.c: New test case.
@@ -116,7 +341,7 @@
 	PR c++/20103
 	* g++.dg/ext/complit6.C: New test.
 	* g++.dg/ext/complit3.C: Adjust error markers.
-	* g++.dg/init/const3.C: New test. 	
+	* g++.dg/init/const3.C: New test.
 
 2006-05-25  Richard Guenther  <rguenther@suse.de>
 
