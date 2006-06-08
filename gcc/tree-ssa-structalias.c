@@ -4072,7 +4072,12 @@ intra_create_variable_infos (void)
 	    {
 	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)), 
 					    "PARM_NOALIAS");
-	      DECL_EXTERNAL (heapvar) = 1;
+	      /* This hack is here so that we do not have to mark HEAPVAR as
+		 external (which would cause us to make it alias with
+		 everything in create_variable_info_for, thus completely
+		 beating its purpose), but still not consider it to be
+		 gimple_reg.  */
+	      TREE_THIS_VOLATILE (heapvar) = 1;
 	      if (referenced_vars)
 		add_referenced_var (heapvar);
 	      heapvar_insert (t, heapvar);

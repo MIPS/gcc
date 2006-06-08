@@ -1,3 +1,54 @@
+2006-06-07  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* double-int.c (double_int_zext, double_int_sext): Fix.
+	(double_int_div, double_int_sdiv, double_int_udiv): Return also
+	remainder.
+	* double-int.h (double_int_div, double_int_sdiv, double_int_udiv):
+	Declaration changed.
+	* tree-ssa-loop-ivopts.c: Include tree-affine.h.
+	(aff_combination_const, aff_combination_elt, aff_combination_scale,
+	aff_combination_add_elt, aff_combination_add, tree_to_aff_combination,
+	add_elt_to_tree, unshare_aff_combination, aff_combination_to_tree):
+	Moved to tree-affine.c.
+	(get_computation_aff): Use tree-affine.h and double_ints.
+	* tree-ssa-address.c: Include tree-affine.h.
+	(add_to_parts, most_expensive_mult_to_index, addr_to_parts,
+	create_mem_ref): Use tree-affine.h and double_ints.
+	* tree-data-ref.c (get_ptr_tag): New function.
+	(ptr_decl_may_alias_p, ptr_ptr_may_alias_p, object_analysis): Use
+	get_ptr_tag.  Handle subvars.
+	(find_data_references_in_loop): Handle simple var references correctly.
+	* tree-affine.c: New file.
+	* tree-affine.h: New file.
+	* tree-predcom.c: Include tree-affine.h.
+	(struct dref): Change offset to double_int.
+	(struct component): Add always_executed field.
+	(dump_dref, determine_offset, suitable_component_p, order_drefs,
+	determine_roots_comp, ref_at_iteration): Use tree-affine and double_int.
+	(last_always_executed_block, replace_name_by_name): New functions.
+	(split_data_refs_to_components): Determine references that are always
+	executed.
+	(replace_ref_with): Use replace_name_by_name.
+	(initialize_root_vars): Do not handle load motion variables
+	initialization.
+	(initialize_root): Pass loop to replace_ref_with.
+	(initialize_root_vars_lm): New function.
+	(execute_load_motion): Use initialize_root_vars_lm.
+	(execute_pred_commoning_comp): Record new variables.  Pass loop to
+	replace_ref_with.
+	(execute_pred_commoning_comp): Record new variables.
+	(base_names_in_chain_on, eliminate_temp_copies): New functions.
+	(tree_predictive_commoning_loop): Use eliminate_temp_copies.
+	* tree-flow.h (MAX_AFF_ELTS, struct affine_tree_combination): Moved to
+	tree-affine.h.
+	* Makefile.in (tree-affine.o): Add.
+	(tree-ssa-loop-ivopts.o, tree-predcom.o, tree-ssa-address.o): Add
+	tree-affine.h dependency.
+	* tree-ssa-structalias.c (intra_create_variable_infos): Prevent
+	PARM_NOALIAS variables from aliasing everything.
+	* passes.c (init_optimization_passes): Add pass_dominator before
+	loop optimizations.
+
 2006-05-25  Zdenek Dvorak <dvorakz@suse.cz>
 
 	Branch created.

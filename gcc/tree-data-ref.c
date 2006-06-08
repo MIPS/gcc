@@ -133,6 +133,22 @@ static bool subscript_dependence_tester_1 (struct data_dependence_relation *,
 					   struct data_reference *);
 static void free_data_ref (data_reference_p);
 
+/* Returns tag for PTR (a ssa name).  */
+
+static tree
+get_ptr_tag (tree ptr)
+{
+  tree tag = NULL_TREE;
+
+  gcc_assert (TREE_CODE (ptr) == SSA_NAME);
+  if (SSA_NAME_PTR_INFO (ptr))
+    tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
+  if (!tag)
+    tag = var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
+
+  return tag;
+}
+
 /* Determine if PTR and DECL may alias, the result is put in ALIASED.
    Return FALSE if there is no symbol memory tag for PTR.  */
 
@@ -145,39 +161,78 @@ ptr_decl_may_alias_p (tree ptr, tree decl,
    
   gcc_assert (TREE_CODE (ptr) == SSA_NAME && DECL_P (decl));
 
-  tag = get_var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
+  tag = get_ptr_tag (ptr);
   if (!tag)
     tag = DR_MEMTAG (ptr_dr);
   if (!tag)
     return false;
+ 
+  *aliased = 0;
+  *aliased |= is_aliased_with (tag, decl);
+  if (var_can_have_subvars (decl))
+    {
+      subvar_t sv;
   
-  *aliased = is_aliased_with (tag, decl);      
+      for (sv = get_subvars_for_var (decl); sv; sv = sv->next)
+	*aliased |= is_aliased_with (tag, sv->var);
+    }
   return true;
 }
-
 
 /* Determine if two pointers may alias, the result is put in ALIASED.
    Return FALSE if there is no symbol memory tag for one of the pointers.  */
 
 static bool
-ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b, 
+ptr_ptr_may_alias_p (tree ptr_a, tree ptr_b,
 		     struct data_reference *dra, 
 		     struct data_reference *drb, 
 		     bool *aliased)
 {  
   tree tag_a, tag_b;
+  VEC(tree,gc) *al1, *al2;
+  bitmap bal1, bal2;
+  unsigned i;
+  tree t;
 
-  tag_a = get_var_ann (SSA_NAME_VAR (ptr_a))->symbol_mem_tag;
+  tag_a = get_ptr_tag (ptr_a);
   if (!tag_a)
     tag_a = DR_MEMTAG (dra);
   if (!tag_a)
     return false;
-  tag_b = get_var_ann (SSA_NAME_VAR (ptr_b))->symbol_mem_tag;
+
+  tag_b = get_ptr_tag (ptr_b);
   if (!tag_b)
     tag_b = DR_MEMTAG (drb);
   if (!tag_b)
     return false;
-  *aliased = (tag_a == tag_b);
+
+  if (tag_a == tag_b)
+    {
+      *aliased = true;
+      return true;
+    }
+
+  bal1 = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (bal1, DECL_UID (tag_a));
+  al1 = var_ann (tag_a)->may_aliases;
+  if (al1)
+    {
+      for (i = 0; VEC_iterate (tree, al1, i, t); i++)
+	bitmap_set_bit (bal1, DECL_UID (t));
+    }
+
+  bal2 = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (bal2, DECL_UID (tag_b));
+  al2 = var_ann (tag_b)->may_aliases;
+  if (al2)
+    {
+      for (i = 0; VEC_iterate (tree, al2, i, t); i++)
+	bitmap_set_bit (bal2, DECL_UID (t));
+    }
+  *aliased = bitmap_intersect_p (bal1, bal2);
+
+  BITMAP_FREE (bal1);
+  BITMAP_FREE (bal2);
   return true;
 }
 
@@ -237,8 +292,8 @@ record_ptr_differ_p (struct data_reference *dra,
 	       && !aliased))
 	  || (TREE_CODE (base_b) == INDIRECT_REF
 	      && (ptr_ptr_may_alias_p (TREE_OPERAND (base_a, 0), 
-				       TREE_OPERAND (base_b, 0), dra, drb, 
-				       &aliased)
+				       TREE_OPERAND (base_b, 0),
+				       dra, drb, &aliased)
 		  && !aliased))))
     return true;
   else
@@ -1749,10 +1804,9 @@ object_analysis (tree memref, tree stmt, bool is_read,
       switch (TREE_CODE (base_address))
 	{
 	case SSA_NAME:
-	  *memtag = get_var_ann (SSA_NAME_VAR (base_address))->symbol_mem_tag;
-	  if (!(*memtag) && TREE_CODE (TREE_OPERAND (memref, 0)) == SSA_NAME)
-	    *memtag = get_var_ann (
-		      SSA_NAME_VAR (TREE_OPERAND (memref, 0)))->symbol_mem_tag;
+	  *memtag = get_ptr_tag (base_address);
+	  if (!*memtag && TREE_CODE (TREE_OPERAND (memref, 0)) == SSA_NAME)
+	    *memtag = get_ptr_tag (TREE_OPERAND (memref, 0));
 	  break;
 	case ADDR_EXPR:
 	  *memtag = TREE_OPERAND (base_address, 0);
@@ -4054,6 +4108,10 @@ find_data_references_in_loop (struct loop *loop,
 		    VEC_safe_push (data_reference_p, heap, *datarefs, dr);
 		    one_inserted = true;
 		  }
+		else if (handled_component_p (opnd1)
+			 || (SSA_VAR_P (opnd1)
+			     && TREE_CODE (opnd1) != SSA_NAME))
+		  goto insert_dont_know_node;
 
 		if (TREE_CODE (opnd0) == ARRAY_REF 
 		    || TREE_CODE (opnd0) == INDIRECT_REF
@@ -4065,6 +4123,8 @@ find_data_references_in_loop (struct loop *loop,
 		    VEC_safe_push (data_reference_p, heap, *datarefs, dr);
 		    one_inserted = true;
 		  }
+		else if (TREE_CODE (opnd0) != SSA_NAME)
+		  goto insert_dont_know_node;
 
 		if (!one_inserted)
 		  goto insert_dont_know_node;

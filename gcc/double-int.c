@@ -72,8 +72,8 @@ double_int_zext (double_int cst, unsigned prec)
   double_int mask = double_int_mask (prec);
   double_int r;
 
-  r.low = cst.low & ~mask.low;
-  r.high = cst.high & ~mask.high;
+  r.low = cst.low & mask.low;
+  r.high = cst.high & mask.high;
 
   return r;
 }
@@ -96,13 +96,13 @@ double_int_sext (double_int cst, unsigned prec)
     }
   if (((snum >> (prec - 1)) & 1) == 1)
     {
-      r.low = cst.low | mask.low;
-      r.high = cst.high | mask.high;
+      r.low = cst.low | ~mask.low;
+      r.high = cst.high | ~mask.high;
     }
   else
     {
-      r.low = cst.low & ~mask.low;
-      r.high = cst.high & ~mask.high;
+      r.low = cst.low & mask.low;
+      r.high = cst.high & mask.high;
     } 
 
   return r;
@@ -203,10 +203,12 @@ double_int_neg (double_int a)
 
 /* Returns A / B (computed as unsigned depending on UNS, and rounded as
    specified by CODE).  CODE is enum tree_code in fact, but double_int.h
-   must be included before tree.h.  */
+   must be included before tree.h.  If MOD is not NULL, the remainder after
+   the division is stored to it.  */
 
 double_int
-double_int_div (double_int a, double_int b, bool uns, unsigned code)
+double_int_div (double_int a, double_int b, bool uns, unsigned code,
+		double_int *mod)
 {
   unsigned HOST_WIDE_INT rem_lo;
   HOST_WIDE_INT rem_hi;
@@ -214,23 +216,28 @@ double_int_div (double_int a, double_int b, bool uns, unsigned code)
 
   div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
 			&ret.low, &ret.high, &rem_lo, &rem_hi);
+  if (mod)
+    {
+      mod->high = rem_hi;
+      mod->low = rem_lo;
+    }
   return ret;
 }
 
 /* The same as double_int_div with UNS = false.  */
 
 double_int
-double_int_sdiv (double_int a, double_int b, unsigned code)
+double_int_sdiv (double_int a, double_int b, unsigned code, double_int *mod)
 {
-  return double_int_div (a, b, false, code);
+  return double_int_div (a, b, false, code, mod);
 }
 
 /* The same as double_int_div with UNS = true.  */
 
 double_int
-double_int_udiv (double_int a, double_int b, unsigned code)
+double_int_udiv (double_int a, double_int b, unsigned code, double_int *mod)
 {
-  return double_int_div (a, b, true, code);
+  return double_int_div (a, b, true, code, mod);
 }
 
 /* Constructs tree in type TYPE from with value given by CST.  */

@@ -107,13 +107,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    5) Factor F for unrolling is determined as the smallest common multiple of
       (N + 1) for each root reference (N for references for that we avoided
       creating RN).  If F and the loop is small enough, loop is unrolled F
-      times.  In the original algorithm, the stores to RN (R0) in the copies
-      of the loop body are periodically replaced with R0, R1, ... (R1, R2, ...),
-      so that they can be coalesced and the copies can be eliminated.  We tried
-      this (replacing the base variables of the ssa names), but it turned out
-      to be useless:  after dom, the base variables we create are almost always
-      lost and replaced with other temporaries.  Fortunately, out-of-ssa
-      coalescing manages to create the code without assignments anyway.
+      times.  The stores to RN (R0) in the copies of the loop body are
+      periodically replaced with R0, R1, ... (R1, R2, ...), so that they can
+      be coalesced and the copies can be eliminated.  In order to prevent
+      copy propagation and other optimizations from messing up with these
+      SSA names and making the life ranges overlap, we set
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI for them (which is a bit hacky).
       In our case, F = 2 and the (main loop of the) result is
 
       for (i = 0; i < ...; i += 2)
@@ -176,6 +175,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "diagnostic.h"
 #include "tree-pass.h"
+#include "tree-affine.h"
 
 /* The maximum number of iterations between the considered memory
    references.  */
@@ -203,7 +203,7 @@ typedef struct dref
   bool has_max_use_after;
 
   /* Number of iterations offset from the first reference in the component.  */
-  HOST_WIDE_INT offset;
+  double_int offset;
 
   /* Number of the reference in a component, in dominance ordering.  */
   unsigned pos;
@@ -237,6 +237,10 @@ struct component
   /* What we know about the step of the references in the component.  */
   enum ref_step_type comp_step;
 
+  /* True if all the memory references in the component are always executed
+     when the loop is entered.  */
+  bool always_executed;
+
   struct component *next;
 };
 
@@ -256,7 +260,9 @@ dump_dref (FILE *file, dref *ref)
 	   DR_IS_READ (ref->ref) ? "" : ", write",
 	   is_root ? ", root" : "");
 
-  fprintf (file, "    offset %d\n", (int) ref->offset);
+  fprintf (file, "    offset ");
+  dump_double_int (file, ref->offset, false);
+  fprintf (file, "\n");
 
   if (ref->chain)
     fprintf (file, "    chain %d distance %d\n", ref->chain->pos,
@@ -466,15 +472,16 @@ suitable_reference_p (struct loop *loop, tree a, enum ref_step_type *ref_step)
    returns true.  Both A and B are assumed to satisfy suitable_reference_p.  */
 
 static bool
-determine_offset (struct loop *loop, tree a, tree b, HOST_WIDE_INT *off)
+determine_offset (struct loop *loop, tree a, tree b, double_int *off)
 {
   enum tree_code code;
   affine_iv iva, ivb;
-  tree type, diff, mult;
-  HOST_WIDE_INT aoff;
+  tree type;
+  aff_tree diff, baseb, step;
+  double_int aoff;
   bool ok;
 
-  *off = 0;
+  *off = double_int_zero;
 
   if (TREE_TYPE (a) != TREE_TYPE (b))
     return false;
@@ -548,18 +555,36 @@ determine_offset (struct loop *loop, tree a, tree b, HOST_WIDE_INT *off)
     return false;
 
   type = TREE_TYPE (iva.base);
-  diff = fold_build2 (MINUS_EXPR, type,
-		      iva.base, fold_convert (type, ivb.base));
-  mult = constant_multiple_of (type, diff, iva.step);
-  if (!mult || !cst_and_fits_in_hwi (mult))
-    return false;
-  aoff = int_cst_value (mult);
+  tree_to_aff_combination_expand (iva.base, type, &diff);
+  tree_to_aff_combination_expand (ivb.base, type, &baseb);
+  aff_combination_scale (&baseb, double_int_minus_one);
+  aff_combination_add (&diff, &baseb);
 
-  if (*off != 0 && *off != aoff)
+  tree_to_aff_combination_expand (iva.step, type, &step);
+  if (!aff_combination_constant_multiple_p (&diff, &step, &aoff))
+    return false;
+
+  if (!double_int_zero_p (*off) && !double_int_equal_p (*off, aoff))
     return false;
 
   *off = aoff;
   return true;
+}
+
+/* Returns the last basic block in LOOP for that we are sure that
+   it is executed whenever the loop is entered.  */
+
+static basic_block
+last_always_executed_block (struct loop *loop)
+{
+  unsigned i, n_exits;
+  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  basic_block last = loop->latch;
+
+  for (i = 0; i < n_exits; i++)
+    last = nearest_common_dominator (CDI_DOMINATORS, last, exits[i]->src);
+
+  return last;
 }
 
 /* Splits dependence graph on DATAREFS described by DEPENDS to components.  */
@@ -578,6 +603,7 @@ split_data_refs_to_components (struct loop *loop,
   struct data_dependence_relation *ddr;
   struct component *comp_list = NULL, *comp;
   dref dataref;
+  basic_block last_always_executed = last_always_executed_block (loop);
  
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
@@ -609,7 +635,7 @@ split_data_refs_to_components (struct loop *loop,
 
   for (i = 0; VEC_iterate (ddr_p, depends, i, ddr); i++)
     {
-      HOST_WIDE_INT dummy_off;
+      double_int dummy_off;
 
       if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
 	continue;
@@ -633,7 +659,7 @@ split_data_refs_to_components (struct loop *loop,
       merge_comps (comp_father, comp_size, ia, ib);
     }
 
-  dataref.offset = 0;
+  dataref.offset = double_int_zero;
   dataref.chain = NULL;
   dataref.distance = 0;
   dataref.has_max_use_after = false;
@@ -653,9 +679,13 @@ split_data_refs_to_components (struct loop *loop,
 	{
 	  comp = XCNEW (struct component);
 	  comp->refs = VEC_alloc (dref, heap, comp_size[ca]);
+	  comp->always_executed = true;
 	  comps[ca] = comp;
 	}
 
+      if (!dominated_by_p (CDI_DOMINATORS, last_always_executed,
+			   bb_for_stmt (DR_STMT (dr))))
+	comp->always_executed = false;
       dataref.ref = dr;
       dataref.pos = VEC_length (dref, comp->refs);
       VEC_quick_push (dref, comp->refs, &dataref);
@@ -708,7 +738,7 @@ suitable_component_p (struct loop *loop, struct component *comp)
   ref = DR_REF (a->ref);
   ok = suitable_reference_p (loop, ref, &comp->comp_step);
   gcc_assert (ok);
-  a->offset = 0;
+  a->offset = double_int_zero;
 
   for (i = 1; VEC_iterate (dref, comp->refs, i, a); i++)
     {
@@ -767,11 +797,10 @@ order_drefs (const void *a, const void *b)
 {
   const dref *da = a;
   const dref *db = b;
+  int offcmp = double_int_scmp (da->offset, db->offset);
 
-  if (da->offset < db->offset)
-    return -1;
-  if (da->offset > db->offset)
-    return 1;
+  if (offcmp != 0)
+    return offcmp;
 
   return da->pos - db->pos;
 }
@@ -781,7 +810,8 @@ order_drefs (const void *a, const void *b)
 static void
 determine_roots_comp (struct component *comp)
 {
-  unsigned i, dist;
+  unsigned i;
+  double_int dist;
   dref *a, *root;
 
   /* Invariants are handled specially.  */
@@ -800,13 +830,14 @@ determine_roots_comp (struct component *comp)
 	  continue;
 	}
 
-      gcc_assert (root->offset <= a->offset);
-      if (root->offset + MAX_DISTANCE <= a->offset)
+      gcc_assert (double_int_scmp (root->offset, a->offset) <= 0);
+      dist = double_int_add (a->offset, double_int_neg (root->offset));
+      if (double_int_ucmp (uhwi_to_double_int (MAX_DISTANCE), dist) <= 0)
 	continue;
 
-      dist = a->offset - root->offset;
+      gcc_assert (double_int_fits_in_uhwi_p (dist));
       a->chain = root;
-      a->distance = a->offset - root->offset;
+      a->distance = double_int_to_uhwi (dist);
 
       if (a->distance >= root->distance)
 	{
@@ -830,12 +861,43 @@ determine_roots (struct component *comps)
     determine_roots_comp (comp);
 }
 
+/* Replaces all uses and the definition of TO_REPLACE with REPLACE_BY.
+   Returns false if this is not possible.  Also prevents replacement
+   of ssa names outside of LOOP.  */
+
+static bool
+replace_name_by_name (struct loop *loop, tree to_replace, tree replace_by)
+{
+  tree stmt;
+
+  if (TREE_CODE (to_replace) != SSA_NAME)
+    return false;
+
+  stmt = SSA_NAME_DEF_STMT (to_replace);
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+  gcc_assert (TREE_OPERAND (stmt, 0) == to_replace);
+
+  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
+    return false;
+
+  if (!may_propagate_copy (to_replace, replace_by))
+    return false;
+
+  replace_uses_by (to_replace, replace_by);
+  TREE_OPERAND (stmt, 0) = replace_by;
+  SSA_NAME_DEF_STMT (replace_by) = stmt;
+  update_stmt (stmt);
+
+  return true;
+}
+
 /* Replace reference OLD in statement STMT with NEW.  If SET is true,
    NEW is instead initialized to the value of the reference in
-   the statement.  */
+   the statement.  LOOP is the loop in that the replacement occurs.  */
 
 static void
-replace_ref_with (tree stmt, tree old, tree new, bool set)
+replace_ref_with (struct loop *loop, tree stmt, tree old, tree new, bool set)
 {
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
@@ -843,7 +905,6 @@ replace_ref_with (tree stmt, tree old, tree new, bool set)
 
   if (set)
     {
-      block_stmt_iterator bsi = bsi_for_stmt (stmt);
       tree new_stmt, rhs;
 
       if (TREE_OPERAND (stmt, 0) == old)
@@ -854,9 +915,15 @@ replace_ref_with (tree stmt, tree old, tree new, bool set)
 	  rhs = TREE_OPERAND (stmt, 0);
 	}
 
-      new_stmt = build2 (MODIFY_EXPR, void_type_node, new, unshare_expr (rhs));
-      bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
-      SSA_NAME_DEF_STMT (new) = new_stmt;
+      /* If possible, just replace the ssa name of RHS with the new temporary
+	 variable.  Otherwise, load the value in a new statement.  */
+      if (!replace_name_by_name (loop, rhs, new))
+	{
+	  block_stmt_iterator bsi = bsi_for_stmt (stmt);
+	  new_stmt = build2 (MODIFY_EXPR, void_type_node, new, unshare_expr (rhs));
+	  bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
+	  SSA_NAME_DEF_STMT (new) = new_stmt;
+	}
     }
   else if (TREE_OPERAND (stmt, 1) == old)
     {
@@ -870,7 +937,7 @@ replace_ref_with (tree stmt, tree old, tree new, bool set)
 /* Specializes REF for the ITER-th iteration (ITER may be negative).  */
 
 static void
-ref_at_iteration (struct loop *loop, tree ref, HOST_WIDE_INT iter)
+ref_at_iteration (struct loop *loop, tree ref, int iter)
 {
   tree *idx, type, val;
   affine_iv iv;
@@ -898,36 +965,39 @@ ref_at_iteration (struct loop *loop, tree ref, HOST_WIDE_INT iter)
   val = fold_build2 (MULT_EXPR, type, iv.step,
 		     build_int_cst_type (type, iter));
   val = fold_build2 (PLUS_EXPR, type, iv.base, val);
-  *idx = val;
+  *idx = unshare_expr (val);
 }
 
 /* Initializes variables r0 .. rN for ROOT and prepares phi nodes and
    initialization on entry to LOOP.  The ssa names for variables are
    stored to VARS.  If REUSE_FIRST is true, R0 a RN share a common variable.
    Returns false if the initialization cannot be performed because one of
-   the loads might trap, false otherwise.  */
+   the loads might trap, false otherwise.  CHECK_TRAPPING is true if we should
+   verify that the memory references do not trap.  Uids of the newly created
+   temporary variables are marked in TMP_VARS.  */
 
 static bool
 initialize_root_vars (struct loop *loop, dref *root, unsigned n,
-		      bool reuse_first, VEC(tree, heap) **vars)
+		      bool reuse_first, VEC(tree, heap) **vars,
+		      bool check_trapping, bitmap tmp_vars)
 {
   unsigned i;
-  /* N == 0 is the special case for load motion without any stores in the
-     loop.  We still need to load the value in the beginning, but we do not
-     need to create any phi nodes.  */
-  unsigned ninit = n == 0 ? 1 : n;
   tree ref = DR_REF (root->ref), init, var, next, stmts;
   tree phi;
   edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
-  VEC(tree,heap) *inits = VEC_alloc (tree, heap, ninit);
+  VEC(tree,heap) *inits = VEC_alloc (tree, heap, n);
+
+  /* If N == 0, then all the references are within the single iteration.  And
+     since this is an nonempty chain, reuse_first cannot be true.  */
+  gcc_assert (n > 0 || !reuse_first);
 
   /* Find the initializers for the variables, and check that they cannot
      trap.  */
-  for (i = 0; i < ninit; i++)
+  for (i = 0; i < n; i++)
     {
       init = unshare_expr (ref);
       ref_at_iteration (loop, init, (int) i - n);
-      if (tree_could_trap_p (init))
+      if (check_trapping && tree_could_trap_p (init))
 	{
 	  VEC_free (tree, heap, inits);
 	  return false;
@@ -940,6 +1010,7 @@ initialize_root_vars (struct loop *loop, dref *root, unsigned n,
     {
       var = create_tmp_var (TREE_TYPE (ref), get_lsm_tmp_name (ref, i));
       add_referenced_var (var);
+      bitmap_set_bit (tmp_vars, DECL_UID (var));
       VEC_quick_push (tree, *vars, var);
     }
   if (reuse_first)
@@ -948,36 +1019,20 @@ initialize_root_vars (struct loop *loop, dref *root, unsigned n,
   for (i = 0; VEC_iterate (tree, *vars, i, var); i++)
     VEC_replace (tree, *vars, i, make_ssa_name (var, NULL_TREE));
 
-  if (n == 0)
+  for (i = 0; i < n; i++)
     {
-      /* Pure load motion, just initialize the variable.  */
-      var = VEC_index (tree, *vars, 0);
-      init = VEC_index (tree, inits, 0);
-      init = force_gimple_operand (init, &stmts, false, NULL_TREE);
+      var = VEC_index (tree, *vars, i);
+      next = VEC_index (tree, *vars, i + 1);
+      init = VEC_index (tree, inits, i);
+
+      init = force_gimple_operand (init, &stmts, true, NULL_TREE);
       if (stmts)
 	bsi_insert_on_edge_immediate_loop (entry, stmts);
 
-      init = build2 (MODIFY_EXPR, void_type_node, var, init);
-      SSA_NAME_DEF_STMT (var) = init;
-      bsi_insert_on_edge_immediate_loop (entry, init);
-    }
-  else
-    {
-      for (i = 0; i < n; i++)
-	{
-	  var = VEC_index (tree, *vars, i);
-	  next = VEC_index (tree, *vars, i + 1);
-	  init = VEC_index (tree, inits, i);
-
-	  init = force_gimple_operand (init, &stmts, true, NULL_TREE);
-	  if (stmts)
-	    bsi_insert_on_edge_immediate_loop (entry, stmts);
-
-	  phi = create_phi_node (var, loop->header);
-	  SSA_NAME_DEF_STMT (var) = phi;
-	  add_phi_arg (phi, init, entry);
-	  add_phi_arg (phi, next, latch);
-	}
+      phi = create_phi_node (var, loop->header);
+      SSA_NAME_DEF_STMT (var) = phi;
+      add_phi_arg (phi, init, entry);
+      add_phi_arg (phi, next, latch);
     }
 
   VEC_free (tree, heap, inits);
@@ -985,27 +1040,93 @@ initialize_root_vars (struct loop *loop, dref *root, unsigned n,
 }
 
 /* Create the variables and initialization statement for ROOT.  Return
-   the suggested unroll factor.  */
+   the suggested unroll factor.  CHECK_TRAPPING is true if we should
+   verify that the memory references do not trap.  Uids of the newly
+   created temporary variables are marked in TMP_VARS.  */
 
 static unsigned
-initialize_root (struct loop *loop, dref *root)
+initialize_root (struct loop *loop, dref *root, bool check_trapping,
+		 bitmap tmp_vars)
 {
   unsigned n = root->distance;
 
   if (!initialize_root_vars (loop, root, root->distance - 1,
-			     !root->has_max_use_after, &root->vars))
+			     !root->has_max_use_after, &root->vars,
+			     check_trapping, tmp_vars))
     return 1;
 
-  replace_ref_with (DR_STMT (root->ref), DR_REF (root->ref),
+  replace_ref_with (loop, DR_STMT (root->ref), DR_REF (root->ref),
 		    VEC_index (tree, root->vars, n - 1), true);
 
   return root->has_max_use_after ? n : n - 1;
 }
 
-/* Execute load motion for references in COMP.  */
+/* Initializes a variable for load motion for ROOT and prepares phi nodes and
+   initialization on entry to LOOP if necessary.  The ssa name for the variable
+   is stored in VARS.  If WRITTEN is true, also a phi node to copy its value
+   around the loop is created.  Returns false if the initialization cannot be
+   performed because one of the loads might trap, false otherwise.
+   CHECK_TRAPPING is true if we should verify that the memory references do not
+   trap.  Uid of the newly created temporary variable is marked in TMP_VARS.  */
+
+static bool
+initialize_root_vars_lm (struct loop *loop, dref *root, bool written,
+			 VEC(tree, heap) **vars, bool check_trapping,
+			 bitmap tmp_vars)
+{
+  unsigned i;
+  tree ref = DR_REF (root->ref), init, var, next, stmts;
+  tree phi;
+  edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
+
+  /* Find the initializer for the variable, and check that it cannot
+     trap.  */
+  init = unshare_expr (ref);
+  ref_at_iteration (loop, init, 0);
+  if (check_trapping && tree_could_trap_p (init))
+    return false;
+
+  *vars = VEC_alloc (tree, heap, written ? 2 : 1);
+  var = create_tmp_var (TREE_TYPE (ref), get_lsm_tmp_name (ref, 0));
+  add_referenced_var (var);
+  bitmap_set_bit (tmp_vars, DECL_UID (var));
+  VEC_quick_push (tree, *vars, var);
+  if (written)
+    VEC_quick_push (tree, *vars, VEC_index (tree, *vars, 0));
+  
+  for (i = 0; VEC_iterate (tree, *vars, i, var); i++)
+    VEC_replace (tree, *vars, i, make_ssa_name (var, NULL_TREE));
+
+  var = VEC_index (tree, *vars, 0);
+      
+  init = force_gimple_operand (init, &stmts, written, NULL_TREE);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (entry, stmts);
+
+  if (written)
+    {
+      next = VEC_index (tree, *vars, 1);
+      phi = create_phi_node (var, loop->header);
+      SSA_NAME_DEF_STMT (var) = phi;
+      add_phi_arg (phi, init, entry);
+      add_phi_arg (phi, next, latch);
+    }
+  else
+    {
+      init = build2 (MODIFY_EXPR, void_type_node, var, init);
+      SSA_NAME_DEF_STMT (var) = init;
+      bsi_insert_on_edge_immediate_loop (entry, init);
+    }
+
+  return true;
+}
+
+/* Execute load motion for references in COMP.  Uids of the newly created
+   temporary variables are marked in TMP_VARS.  */
 
 static void
-execute_load_motion (struct loop *loop, struct component *comp)
+execute_load_motion (struct loop *loop, struct component *comp,
+		     bitmap tmp_vars)
 {
   VEC (tree, heap) *vars;
   dref *a;
@@ -1016,10 +1137,13 @@ execute_load_motion (struct loop *loop, struct component *comp)
   for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
     if (!DR_IS_READ (a->ref))
       n_writes++;
+  /* If there are no reads in the loop, there is nothing to do.  */
+  if (n_writes == VEC_length (dref, comp->refs))
+    return;
 
   a = VEC_index (dref, comp->refs, 0);
-  if (!initialize_root_vars (loop, a, n_writes > 0 ? 1 : 0,
-			     n_writes > 0, &vars))
+  if (!initialize_root_vars_lm (loop, a, n_writes > 0, &vars,
+				!comp->always_executed, tmp_vars))
     return;
 
   ridx = 0;
@@ -1041,7 +1165,7 @@ execute_load_motion (struct loop *loop, struct component *comp)
 	    ridx = 1;
 	}
 	  
-      replace_ref_with (DR_STMT (a->ref), DR_REF (a->ref),
+      replace_ref_with (loop, DR_STMT (a->ref), DR_REF (a->ref),
 			VEC_index (tree, vars, ridx),
 			!DR_IS_READ (a->ref));
     }
@@ -1050,10 +1174,12 @@ execute_load_motion (struct loop *loop, struct component *comp)
 }
 
 /* Perform the predictive commoning optimization for a component COMP.
-   Returns the suggested unroll factor.  */
+   Returns the suggested unroll factor.  Uids of the newly created temporary
+   variables are marked in TMP_VARS.*/
 
 static unsigned
-execute_pred_commoning_comp (struct loop *loop, struct component *comp)
+execute_pred_commoning_comp (struct loop *loop, struct component *comp,
+			     bitmap tmp_vars)
 {
   unsigned i, n, factor = 1, af, nf;
   dref *a, *root;
@@ -1073,7 +1199,8 @@ execute_pred_commoning_comp (struct loop *loop, struct component *comp)
 
       if (!root)
 	{
-	  af = initialize_root (loop, a);
+	  af = initialize_root (loop, a, !comp->always_executed,
+				tmp_vars);
       	  nf = af * factor / gcd (af, factor);
 	  if (nf <= max)
 	    factor = nf;
@@ -1085,7 +1212,7 @@ execute_pred_commoning_comp (struct loop *loop, struct component *comp)
 
       gcc_assert (DR_IS_READ (a->ref));
       n = root->distance - 1;
-      replace_ref_with (DR_STMT (a->ref), DR_REF (a->ref),
+      replace_ref_with (loop, DR_STMT (a->ref), DR_REF (a->ref),
 			VEC_index (tree, root->vars, n - a->distance),
 			false);
     }
@@ -1094,10 +1221,12 @@ execute_pred_commoning_comp (struct loop *loop, struct component *comp)
 }
 
 /* Perform the predictive commoning optimization for COMPS.  Returns
-   the suggested unroll factor.  */
+   the suggested unroll factor.  Uids of the newly created temporary
+   variables are marked in TMP_VARS.  */
 
 static unsigned
-execute_pred_commoning (struct loop *loop, struct component *comps)
+execute_pred_commoning (struct loop *loop, struct component *comps,
+			bitmap tmp_vars)
 {
   struct component *comp;
   unsigned factor = 1, af, nfactor;
@@ -1106,10 +1235,10 @@ execute_pred_commoning (struct loop *loop, struct component *comps)
   for (comp = comps; comp; comp = comp->next)
     {
       if (comp->comp_step == RS_INVARIANT)
-	execute_load_motion (loop, comp);
+	execute_load_motion (loop, comp, tmp_vars);
       else
 	{
-	  af = execute_pred_commoning_comp (loop, comp);
+	  af = execute_pred_commoning_comp (loop, comp, tmp_vars);
 	  nfactor = factor * af / gcd (factor, af);
 	  if (nfactor <= max)
 	    factor = nfactor;
@@ -1156,6 +1285,83 @@ should_unroll_loop_p (struct loop *loop, unsigned factor,
   return true;
 }
 
+/* Base NAME and all the names in the chain of phi nodes that use it
+   on variable VAR.  The phi nodes are recognized by being in the copies of
+   the header of the LOOP.  */
+
+static void
+base_names_in_chain_on (struct loop *loop, tree name, tree var)
+{
+  tree stmt, phi;
+  imm_use_iterator iter;
+  edge e;
+
+  SSA_NAME_VAR (name) = var;
+  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name) = 1;
+
+  while (1)
+    {
+      phi = NULL;
+      FOR_EACH_IMM_USE_STMT (stmt, iter, name)
+	{
+	  if (TREE_CODE (stmt) == PHI_NODE
+	      && flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
+	    {
+	      phi = stmt;
+	      BREAK_FROM_IMM_USE_STMT (iter);
+	    }
+	}
+      if (!phi)
+	return;
+
+      if (bb_for_stmt (phi) == loop->header)
+	e = loop_latch_edge (loop);
+      else
+	e = single_pred_edge (bb_for_stmt (stmt));
+
+      name = PHI_RESULT (phi);
+      SSA_NAME_VAR (name) = var;
+
+      /* Prevent copy propagation for this SSA name, so that we keep using one
+	 variable for it, and avoid copies in loop latch.  */
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name) = 1;
+    }
+}
+
+/* Given an unrolled LOOP after predictive commoning, remove the
+   register copies arising from phi nodes by changing the base
+   variables of SSA names.  TMP_VARS is the set of the temporary variables
+   for those we want to perform this.  */
+
+static void
+eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
+{
+  edge e;
+  tree phi, name, use, var, stmt;
+
+  e = loop_latch_edge (loop);
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    {
+      name = PHI_RESULT (phi);
+      var = SSA_NAME_VAR (name);
+      if (!bitmap_bit_p (tmp_vars, DECL_UID (var)))
+	continue;
+      use = PHI_ARG_DEF_FROM_EDGE (phi, e);
+      gcc_assert (TREE_CODE (use) == SSA_NAME);
+
+      /* Base all the ssa names in the ud and du chain of NAME on VAR.  */
+      stmt = SSA_NAME_DEF_STMT (use);
+      while (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  gcc_assert (single_pred_p (bb_for_stmt (stmt)));
+	  use = PHI_ARG_DEF (stmt, 0);
+	  stmt = SSA_NAME_DEF_STMT (use);
+	}
+
+      base_names_in_chain_on (loop, use, var);
+    }
+}
+
 /* Performs predictive commoning for LOOP.  Returns true if LOOP was
    unrolled.  */
 
@@ -1168,10 +1374,13 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   unsigned unroll_factor;
   struct tree_niter_desc desc;
   bool unrolled = false;
+  bitmap tmp_vars;
 
   datarefs = VEC_alloc (data_reference_p, heap, 10);
   dependences = VEC_alloc (ddr_p, heap, 10);
   compute_data_dependences_for_loop (loop, true, &datarefs, &dependences);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_data_dependence_relations (dump_file, dependences);
 
   components = split_data_refs_to_components (loop, datarefs, dependences);
   free_dependence_relations (dependences);
@@ -1187,6 +1396,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
       dump_components (dump_file, components);
     }
   components = filter_suitable_components (loop, components);
+  tmp_vars = BITMAP_ALLOC (NULL);
   determine_roots (components);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1194,19 +1404,22 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
       fprintf (dump_file, "Before commoning:\n\n");
       dump_components (dump_file, components);
     }
-  unroll_factor = execute_pred_commoning (loop, components);
+  unroll_factor = execute_pred_commoning (loop, components, tmp_vars);
 
   if (should_unroll_loop_p (loop, unroll_factor, &desc))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
       update_ssa (TODO_update_ssa_only_virtuals);
+      scev_reset ();
       tree_unroll_loop (loops, loop, unroll_factor, single_dom_exit (loop), &desc);
+      eliminate_temp_copies (loop, tmp_vars);
       unrolled = true;
     }
 
   release_components (components);
   free_data_refs (datarefs);
+  BITMAP_FREE (tmp_vars);
   return unrolled;
 }
 
