@@ -1,3 +1,38 @@
+2006-06-09  David Daney  <ddaney@avtrex.com>
+
+	* doc/install.texi: Add binutils version recommendation for mips-*-*.
+
+2006-06-09  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload.c (find_reloads): Unset force_reload for 'X' constraint.
+
+2006-06-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26998
+	* tree-vrp.c (extract_range_from_unary_expr): For NEGATE_EXPR
+	of signed types, only TYPE_MIN_VALUE is special, but for both,
+	minimum and maximum value.  Likewise VR_ANTI_RANGE is special
+	in this case, as is -fwrapv.
+
+2006-06-08  Mike Stump  <mrs@apple.com>
+
+	PR target/26427
+	* config/darwin.c (darwin_asm_output_anchor): Disable
+	-fsection-anchors on darwin for now.
+	* config/darwin.h (TARGET_ASM_OUTPUT_ANCHOR): Likewise.
+	* rs6000/rs6000.c (optimization_options): Likewise.
+
+2006-06-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* config/i386/i386.c (classify_argument): Skip fields with invalid
+	types in unions.
+
+2006-06-08  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cse.c (flush_hash_table): Use VOIDmode to invalidate a REG.
+	(cse_insn): Likewise for the stack_pointer_rtx.
+
 2006-06-08  Roger Sayle  <roger@eyesopen.com>
 
 	* tree-ssa-dom.c (record_conditions): Only record "unordered"

@@ -1,3 +1,18 @@
+2006-06-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27958
+	* trans-expr.c (gfc_conv_substring): If the substring start is
+	greater than its end, the length of the substring is zero, and
+	not negative.
+	(gfc_trans_string_copy): Don't generate a call to
+	_gfortran_copy_string when destination length is zero.
+
+2006-06-08  Asher Langton  <langton2@llnl.gov>
+	
+	PR fortran/27786
+	* trans-array.c (gfc_conv_array_ref): Eliminate bounds checking
+	for assumed-size Cray pointees.
+
 2006-06-08  Steven G. Kargl  <kargls@comcat.net>
 
 	* intrinsic.c (add_subroutine):  Make make_noreturn() conditional on

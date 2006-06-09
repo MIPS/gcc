@@ -1,3 +1,32 @@
+2006-06-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26998
+	* gcc.dg/torture/pr26998.c: New testcase.
+	* gcc.dg/tree-ssa/vrp29.c: New testcase.
+
+2006-06-08  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/pr27095.c: Account for stubs.
+
+	PR target/26427
+	* gcc.dg/pr26427.c: Test to ensure that -fsection-anchors doesn't
+	produce bad code on darwin.
+
+2006-06-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27958
+	* gcc/testsuite/gfortran.dg/substr_2.f: New test.
+
+2006-06-08  Asher Langton  <langton2@llnl.gov>
+	
+	PR fortran/27786
+	* cray_pointers_2.f90: Add -fbounds-check compile flag.
+	
+2006-06-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* gcc.dg/union-3.c: New test.
+
 2006-06-08  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/27116
