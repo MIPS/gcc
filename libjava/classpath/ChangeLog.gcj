@@ -1,3 +1,7 @@
+2006-06-09  Tom Tromey  <tromey@redhat.com>
+
+	* lib/Makefile.gcj (GCJF): Added -g and -ftarget=1.5.
+
 2006-05-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* native/jni/gtk-peer/Makefile.am (gcc_version): New variable.
