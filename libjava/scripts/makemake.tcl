@@ -268,10 +268,17 @@ proc emit_package_rule {package} {
   set lname $base.list
   set dname $base.deps
 
+  # A special case due to an apparent compiler bug.
+  if {$pkgname == "java/lang"} {
+    set omit "| tr ' ' '\\n' | fgrep -v Object.class | fgrep -v Class.class "
+  } else {
+    set omit ""
+  }
+
   # A rule to make the phony file we are going to compile.
   puts "$lname: \$($varname)"
   puts "\t@\$(mkinstalldirs) \$(dir \$@)"
-  puts "\techo classpath/lib/$package/*.class > $lname"
+  puts "\techo classpath/lib/$package/*.class $omit> $lname"
   puts ""
   puts "-include $dname"
   puts ""

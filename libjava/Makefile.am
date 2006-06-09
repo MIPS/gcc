@@ -226,6 +226,8 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version`
 libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
+	java/lang/Object.lo \
+	java/lang/Class.lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
@@ -323,6 +325,12 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 
 %.lo: %.list
 	$(LTGCJCOMPILE) -c -o $@ -MT $@ -MD -MP -MF $(basename $@).deps @$<
+
+java/lang/Object.lo: classpath/lib/java/lang/Object.class
+	$(LTGCJCOMPILE) -c -o $@ $<
+
+java/lang/Class.lo: classpath/lib/java/lang/Class.class
+	$(LTGCJCOMPILE) -c -o $@ $<
 
 ## ################################################################
 

@@ -764,6 +764,8 @@ libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(THREADLIBS) \
 
 libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
+	java/lang/Object.lo \
+	java/lang/Class.lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
@@ -8711,6 +8713,12 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 %.lo: %.list
 	$(LTGCJCOMPILE) -c -o $@ -MT $@ -MD -MP -MF $(basename $@).deps @$<
 
+java/lang/Object.lo: classpath/lib/java/lang/Object.class
+	$(LTGCJCOMPILE) -c -o $@ $<
+
+java/lang/Class.lo: classpath/lib/java/lang/Class.class
+	$(LTGCJCOMPILE) -c -o $@ $<
+
 gnu-CORBA.lo: $(gnu_CORBA_source_files)
 	@find classpath/lib/gnu/CORBA -name '*.class' > gnu-CORBA.list
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-CORBA.lo @gnu-CORBA.list
@@ -9587,7 +9595,7 @@ java/io.list: $(java_io_source_files)
 
 java/lang.list: $(java_lang_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/java/lang/*.class > java/lang.list
+	echo classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class > java/lang.list
 
 -include java/lang.deps
 

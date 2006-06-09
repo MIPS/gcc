@@ -1,3 +1,12 @@
+2006-06-08  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* Makefile.am (libgcj_la_LIBADD): Add Object.lo and Class.lo.
+	(java/lang/Object.lo): New target.
+	(java/lang/Class.lo): Likewise.
+	* scripts/makemake.tcl (emit_package_rule): Add special case for
+	Object and Class.
+
 2006-06-06  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.
