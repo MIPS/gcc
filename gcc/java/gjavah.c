@@ -1130,7 +1130,10 @@ decompile_method (FILE *out, JCF *jcf, int code_len)
   if ((method_access & ACC_SYNCHRONIZED))
     return;
 
-  if (code_len == 5
+  /* The first case is 'return field'; but we only want to do this for
+     non-static methods.  */
+  if (! (method_access & ACC_STATIC)
+      && code_len == 5
       && codes[0] == OPCODE_aload_0
       && codes[1] == OPCODE_getfield
       && (codes[4] == OPCODE_areturn
