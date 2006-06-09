@@ -5627,10 +5627,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      while (TREE_CHAIN (params))
-	params = TREE_CHAIN (params);
-
-      if (VOID_TYPE_P (TREE_VALUE (params)))
+      if (VOID_TYPE_P (TREE_VALUE (tree_last (params))))
 	{
 	  warning (OPT_Wattributes,
 		   "%qE attribute only applies to variadic functions", name);

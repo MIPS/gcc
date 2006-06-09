@@ -1,3 +1,8 @@
+2006-06-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	* c-common.c (handle_sentinel_attribute): Use tree_last
+	instead of rolling one on our own.
+
 2006-06-06  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree-ssa.c (ssa_redirect_edge): Store TREE_VEC in
