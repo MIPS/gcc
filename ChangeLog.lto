@@ -1,7 +1,15 @@
 2006-06-09  Kazu Hirata  <kazu@codesourcery.com>
 
-	* c-common.c (handle_sentinel_attribute): Use tree_last
+	* gcc/c-common.c (handle_sentinel_attribute): Use tree_last
 	instead of rolling one on our own.
+
+	* gcc/tree.c (stdarg_p): New.
+	* gcc/tree.h: Add a prototype for stdarg_p.
+	* gcc/builtins.c (fold_builtin_next_arg): Call stdarg_p.
+	* gcc/config/i386/i386.c (ix86_return_pops_args,
+	ix86_setup_incoming_varargs): Likewise.
+	* gcc/dwarf2out.c (gen_subprogram_die): Likewise.
+	* gcc/function.c (allocate_struct_function): Likewise.
 
 2006-06-06  Kazu Hirata  <kazu@codesourcery.com>
 

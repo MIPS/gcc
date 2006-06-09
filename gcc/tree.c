@@ -7573,4 +7573,15 @@ empty_body_p (tree stmt)
   return true;
 }
 
+/* Return whether function type FNTYPE was declared with an ellipsis
+   (e.g., uses <stdarg.h>).  */
+
+bool
+stdarg_p (tree fntype)
+{
+  return (TYPE_ARG_TYPES (fntype) != 0
+	  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	      != void_type_node));
+}
+
 #include "gt-tree.h"

@@ -9524,9 +9524,7 @@ fold_builtin_next_arg (tree arglist)
 {
   tree fntype = TREE_TYPE (current_function_decl);
 
-  if (TYPE_ARG_TYPES (fntype) == 0
-      || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	  == void_type_node))
+  if (!stdarg_p (fntype))
     {
       error ("%<va_start%> used in function with fixed args");
       return true;

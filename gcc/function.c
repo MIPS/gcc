@@ -3865,11 +3865,7 @@ allocate_struct_function (tree fndecl)
 
   current_function_returns_pointer = POINTER_TYPE_P (TREE_TYPE (result));
 
-  current_function_stdarg
-    = (fntype
-       && TYPE_ARG_TYPES (fntype) != 0
-       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   != void_type_node));
+  current_function_stdarg = fntype && stdarg_p (fntype);
 
   /* Assume all registers in stdarg functions need to be saved.  */
   cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;

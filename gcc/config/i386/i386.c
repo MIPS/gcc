@@ -2623,10 +2623,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
         || lookup_attribute ("fastcall", TYPE_ATTRIBUTES (funtype)))
       rtd = 1;
 
-    if (rtd
-        && (TYPE_ARG_TYPES (funtype) == NULL_TREE
-	    || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (funtype)))
-		== void_type_node)))
+    if (rtd && !stdarg_p (funtype))
       return size;
   }
 
@@ -4041,7 +4038,6 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   rtx nsse_reg;
   int set;
   tree fntype;
-  int stdarg_p;
   int i;
 
   if (!TARGET_64BIT)
@@ -4056,14 +4052,11 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   cfun->stack_alignment_needed = 128;
 
   fntype = TREE_TYPE (current_function_decl);
-  stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
-	      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-		  != void_type_node));
 
   /* For varargs, we do not want to skip the dummy va_dcl argument.
      For stdargs, we do want to skip the last named argument.  */
   next_cum = *cum;
-  if (stdarg_p)
+  if (stdarg_p (fntype))
     function_arg_advance (&next_cum, mode, type, 1);
 
   if (!no_rtl)
