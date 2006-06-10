@@ -5129,23 +5129,18 @@ build_function_type (tree value_type, tree arg_types)
 tree
 build_function_type_list (tree return_type, ...)
 {
-  tree t, args, last;
+  tree t, args, *args_p = &args;
   va_list p;
 
   va_start (p, return_type);
 
-  t = va_arg (p, tree);
-  for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
-    args = tree_cons (NULL_TREE, t, args);
-
-  if (args == NULL_TREE)
-    args = void_list_node;
-  else
+  for (t = va_arg (p, tree); t != NULL_TREE; t = va_arg (p, tree))
     {
-      last = args;
-      args = nreverse (args);
-      TREE_CHAIN (last) = void_list_node;
+      *args_p = build_tree_list (NULL_TREE, t);
+      args_p = &TREE_CHAIN (*args_p);
     }
+
+  *args_p = void_list_node;
   args = build_function_type (return_type, args);
 
   va_end (p);

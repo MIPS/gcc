@@ -3,6 +3,9 @@
 	* gcc/c-common.c (sync_resolve_params): Remove an effectively
 	write-only variable.
 
+	* gcc/tree.c (build_function_type_list): Simplify by building
+	the type list in the forward order in the first run.
+
 2006-06-09  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-common.c (handle_sentinel_attribute): Use tree_last
