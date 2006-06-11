@@ -1,6 +1,6 @@
 2006-06-11  Kazu Hirata  <kazu@codesourcery.com>
 
-	* tree-mudflap.c (build_function_type_0,
+	* gcc/tree-mudflap.c (build_function_type_0,
 	build_function_type_1, build_function_type_3,
 	build_function_type_4): Remove.
 	(mudflap_init): Use build_function_type_list.
