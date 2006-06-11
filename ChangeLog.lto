@@ -1,3 +1,10 @@
+2006-06-11  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-mudflap.c (build_function_type_0,
+	build_function_type_1, build_function_type_3,
+	build_function_type_4): Remove.
+	(mudflap_init): Use build_function_type_list.
+
 2006-06-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-common.c (sync_resolve_params): Remove an effectively
