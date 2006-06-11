@@ -2693,7 +2693,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 		      tree fndecl)
 {
   static CUMULATIVE_ARGS zero_cum;
-  tree param, next_param;
 
   if (TARGET_DEBUG_ARG)
     {
@@ -2743,27 +2742,20 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
      are no variable arguments.  If there are variable arguments, then
      we won't pass anything in registers in 32-bit mode. */
 
-  if (cum->nregs || cum->mmx_nregs || cum->sse_nregs)
+  if ((cum->nregs || cum->mmx_nregs || cum->sse_nregs)
+      && fntype && stdarg_p (fntype))
     {
-      for (param = (fntype) ? TYPE_ARG_TYPES (fntype) : 0;
-	   param != 0; param = next_param)
+      if (!TARGET_64BIT)
 	{
-	  next_param = TREE_CHAIN (param);
-	  if (next_param == 0 && TREE_VALUE (param) != void_type_node)
-	    {
-	      if (!TARGET_64BIT)
-		{
-		  cum->nregs = 0;
-		  cum->sse_nregs = 0;
-		  cum->mmx_nregs = 0;
-		  cum->warn_sse = 0;
-		  cum->warn_mmx = 0;
-		  cum->fastcall = 0;
-		  cum->float_in_sse = 0;
-		}
-	      cum->maybe_vaarg = true;
-	    }
+	  cum->nregs = 0;
+	  cum->sse_nregs = 0;
+	  cum->mmx_nregs = 0;
+	  cum->warn_sse = 0;
+	  cum->warn_mmx = 0;
+	  cum->fastcall = 0;
+	  cum->float_in_sse = 0;
 	}
+      cum->maybe_vaarg = true;
     }
   if ((!fntype && !libname)
       || (fntype && !TYPE_ARG_TYPES (fntype)))

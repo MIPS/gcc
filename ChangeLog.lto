@@ -5,6 +5,9 @@
 	build_function_type_4): Remove.
 	(mudflap_init): Use build_function_type_list.
 
+	* gcc/config/gcc/i386.c (init_cumulative_args): Simplify using
+	stdarg_p.
+
 2006-06-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-common.c (sync_resolve_params): Remove an effectively
