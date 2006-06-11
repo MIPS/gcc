@@ -8,6 +8,9 @@
 	* gcc/config/gcc/i386.c (init_cumulative_args): Simplify using
 	stdarg_p.
 
+	* gcc/config/gcc/i386.c (init_cumulative_args): Simplify using
+	tree_last.
+
 2006-06-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-common.c (sync_resolve_params): Remove an effectively
