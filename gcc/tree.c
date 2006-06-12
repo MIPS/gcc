@@ -3136,7 +3136,7 @@ build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 
 #if 1 /* ! defined(USE_MAPPED_LOCATION) */
 /* ??? gengtype doesn't handle conditionals */
-static GTY(()) location_t *last_annotated_node;
+static GTY(()) source_locus last_annotated_node;
 #endif
 
 #ifdef USE_MAPPED_LOCATION
@@ -5629,19 +5629,14 @@ variably_modified_type_p (tree type, tree fn)
   if (type == error_mark_node)
     return false;
 
-  /* If TYPE itself has variable size, it is variably modified.
-
-     We do not yet have a representation of the C99 '[*]' syntax.
-     When a representation is chosen, this function should be modified
-     to test for that case as well.  */
+  /* If TYPE itself has variable size, it is variably modified.  */
   RETURN_TRUE_IF_VAR (TYPE_SIZE (type));
-  RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT(type));
+  RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT (type));
 
   switch (TREE_CODE (type))
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-    case ARRAY_TYPE:
     case VECTOR_TYPE:
       if (variably_modified_type_p (TREE_TYPE (type), fn))
 	return true;
@@ -5674,7 +5669,7 @@ variably_modified_type_p (tree type, tree fn)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* We can't see if any of the field are variably-modified by the
+      /* We can't see if any of the fields are variably-modified by the
 	 definition we normally use, since that would produce infinite
 	 recursion via pointers.  */
       /* This is variably modified if some field's type is.  */
@@ -5689,6 +5684,13 @@ variably_modified_type_p (tree type, tree fn)
 	      RETURN_TRUE_IF_VAR (DECL_QUALIFIER (t));
 	  }
 	break;
+
+    case ARRAY_TYPE:
+      /* Do not call ourselves to avoid infinite recursion.  This is
+	 variably modified if the element type is.  */
+      RETURN_TRUE_IF_VAR (TYPE_SIZE (TREE_TYPE (type)));
+      RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      break;
 
     default:
       break;
@@ -6990,7 +6992,7 @@ tree
 unsigned_type_for (tree type)
 {
   if (POINTER_TYPE_P (type))
-    return size_type_node;
+    return lang_hooks.types.unsigned_type (size_type_node);
   return lang_hooks.types.unsigned_type (type);
 }
 
@@ -6999,6 +7001,8 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return lang_hooks.types.signed_type (size_type_node);
   return lang_hooks.types.signed_type (type);
 }
 

@@ -72,7 +72,7 @@ static int ascii_table[256] = {
   '\b', '\t', '\n', '\v', '\0', '\r', '\0', '\0',
   '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
   '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
-  ' ', '!', '\'', '#', '$', '%', '&', '\'',
+  ' ', '!', '"', '#', '$', '%', '&', '\'',
   '(', ')', '*', '+', ',', '-', '.', '/',
   '0', '1', '2', '3', '4', '5', '6', '7',
   '8', '9', ':', ';', '<', '=', '>', '?',
@@ -1930,14 +1930,24 @@ gfc_simplify_len (gfc_expr * e)
 {
   gfc_expr *result;
 
-  if (e->expr_type != EXPR_CONSTANT)
-    return NULL;
+  if (e->expr_type == EXPR_CONSTANT)
+    {
+      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				    &e->where);
+      mpz_set_si (result->value.integer, e->value.character.length);
+      return range_check (result, "LEN");
+    }
 
-  result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
-				&e->where);
-
-  mpz_set_si (result->value.integer, e->value.character.length);
-  return range_check (result, "LEN");
+  if (e->ts.cl != NULL && e->ts.cl->length != NULL
+      && e->ts.cl->length->expr_type == EXPR_CONSTANT)
+    {
+      result = gfc_constant_result (BT_INTEGER, gfc_default_integer_kind,
+				    &e->where);
+      mpz_set (result->value.integer, e->ts.cl->length->value.integer);
+      return range_check (result, "LEN");
+    }
+  
+  return NULL;
 }
 
 

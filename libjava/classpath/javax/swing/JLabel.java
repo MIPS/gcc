@@ -1,5 +1,5 @@
 /* JLabel.java --
-   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006,  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.swing;
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.Image;
@@ -48,6 +50,7 @@ import java.awt.event.KeyEvent;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleExtendedComponent;
+import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleText;
 import javax.swing.plaf.LabelUI;
 import javax.swing.text.AttributeSet;
@@ -60,22 +63,49 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
 {
 
   /**
-   * Accessibility support for JLabel.
+   * Provides the accessibility features for the <code>JLabel</code>
+   * component.
    */
   protected class AccessibleJLabel
     extends JComponent.AccessibleJComponent
     implements AccessibleText, AccessibleExtendedComponent
   {
+    
     /**
-     * Returns the selected text. This is an empty string since JLabels
+     * Returns the accessible name.
+     * 
+     * @return The accessible name.
+     */
+    public String getAccessibleName()
+    {
+      if (accessibleName != null)
+        return accessibleName;
+      if (text != null)
+        return text;
+      else
+        return super.getAccessibleName();
+    }
+    
+    /**
+     * Returns the accessible role for the <code>JLabel</code> component.
+     *
+     * @return {@link AccessibleRole#LABEL}.
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.LABEL;
+    }
+    
+    /**
+     * Returns the selected text. This is null since JLabels
      * are not selectable.
      *
-     * @return the selected text
+     * @return <code>null</code> because JLabels cannot have selected text
      */
     public String getSelectedText()
     {
-      // We return "" here since JLabel's text is not selectable.
-      return "";
+      // We return null here since JLabel's text is not selectable.
+      return null;
     }
 
     /**
@@ -85,8 +115,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      */
     public int getSelectionStart()
     {
-      // TODO: Figure out what should be returned here, because JLabels don't
-      // allow selection. I guess -1 for now.
+      // JLabel don't have selected text, so we return -1 here.
       return -1;
     }
 
@@ -97,8 +126,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      */
     public int getSelectionEnd()
     {
-      // TODO: Figure out what should be returned here, because JLabels don't
-      // allow selection. I guess -1 for now.
+      // JLabel don't have selected text, so we return -1 here.
       return -1;
     }
 
@@ -115,6 +143,8 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      */
     public AttributeSet getCharacterAttribute(int index)
     {
+      // FIXME: Return null here for simple labels, and query the HTML
+      // view for HTML labels.
       return new SimpleAttributeSet();
     }
 
@@ -259,6 +289,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      */
     public int getCharCount()
     {
+      // FIXME: Query HTML view for HTML labels.
       return text.length();
     }
 
@@ -271,6 +302,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      * @return the bounding box of the character at the specified index
      */
     public Rectangle getCharacterBounds(int index)
+      throws NotImplementedException
     {
       // FIXME: Implement this correctly.
       return new Rectangle();
@@ -286,14 +318,16 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
      *         point
      */
     public int getIndexAtPoint(Point point)
+      throws NotImplementedException
     {
       // FIXME: Implement this correctly.
       return 0;
     }
   }
 
-  /** DOCUMENT ME! */
   private static final long serialVersionUID = 5496508283662221534L;
+
+  static final String LABEL_PROPERTY = "labeledBy";
 
   /**
    * The Component the label will give focus to when its mnemonic is
@@ -337,7 +371,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
    */
   public JLabel()
   {
-    this(null, null, LEADING);
+    this("", null, LEADING);
   }
 
   /**
@@ -348,7 +382,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
    */
   public JLabel(Icon image)
   {
-    this(null, image, CENTER);
+    this("", image, CENTER);
   }
 
   /**
@@ -361,7 +395,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
    */
   public JLabel(Icon image, int horizontalAlignment)
   {
-    this(null, image, horizontalAlignment);
+    this("", image, horizontalAlignment);
   }
 
   /**
@@ -445,14 +479,42 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
   }
 
   /**
-   * This method is used primarily for debugging purposes and returns a string
-   * that can be used to represent this label.
+   * Returns a string describing the attributes for the <code>JLabel</code>
+   * component, for use in debugging.  The return value is guaranteed to be 
+   * non-<code>null</code>, but the format of the string may vary between
+   * implementations.
    *
-   * @return A string to represent this label.
+   * @return A string describing the attributes of the <code>JLabel</code>.
    */
   protected String paramString()
   {
-    return "JLabel";
+    StringBuffer sb = new StringBuffer(super.paramString());
+    sb.append(",defaultIcon=");
+    if (icon != null)
+      sb.append(icon);
+    sb.append(",disabledIcon=");
+    if (disabledIcon != null)
+      sb.append(disabledIcon);
+    sb.append(",horizontalAlignment=");
+    sb.append(SwingUtilities.convertHorizontalAlignmentCodeToString(
+        horizontalAlignment));
+    sb.append(",horizontalTextPosition=");
+    sb.append(SwingUtilities.convertHorizontalAlignmentCodeToString(
+        horizontalTextPosition));
+    sb.append(",iconTextGap=").append(iconTextGap);
+    sb.append(",labelFor=");
+    if (labelFor != null)
+      sb.append(labelFor);
+    sb.append(",text=");
+    if (text != null)
+      sb.append(text);
+    sb.append(",verticalAlignment=");
+    sb.append(SwingUtilities.convertVerticalAlignmentCodeToString(
+        verticalAlignment));
+    sb.append(",verticalTextPosition=");
+    sb.append(SwingUtilities.convertVerticalAlignmentCodeToString(
+        verticalTextPosition));
+    return sb.toString();
   }
 
   /**
@@ -510,6 +572,7 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
 	Icon oldIcon = icon;
 	icon = newIcon;
 	firePropertyChange("icon", oldIcon, newIcon);
+	repaint();
       }
   }
 
@@ -860,9 +923,25 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
   {
     if (c != labelFor)
       {
-	Component oldLabelFor = labelFor;
-	labelFor = c;
-	firePropertyChange("labelFor", oldLabelFor, labelFor);
+        Component oldLabelFor = labelFor;
+        labelFor = c;
+        firePropertyChange("labelFor", oldLabelFor, labelFor);
+
+        // We put the label into the client properties for the labeled
+        // component so that it can be read by the AccessibleJComponent.
+        // The other option would be to reserve a default visible field
+        // in JComponent, but since this is relatively seldomly used, it
+        // would be unnecessary waste of memory to do so.
+        if (oldLabelFor instanceof JComponent)
+          {
+            ((JComponent) oldLabelFor).putClientProperty(LABEL_PROPERTY, null);
+          }
+
+        if (labelFor instanceof JComponent)
+          {
+            ((JComponent) labelFor).putClientProperty(LABEL_PROPERTY, this);
+          }
+
       }
   }
 
@@ -879,9 +958,10 @@ public class JLabel extends JComponent implements Accessible, SwingConstants
   }
 
   /**
-   * DOCUMENT ME!
+   * Returns the object that provides accessibility features for this
+   * <code>JLabel</code> component.
    *
-   * @return The accessible context.
+   * @return The accessible context (an instance of {@link AccessibleJLabel}).
    */
   public AccessibleContext getAccessibleContext()
   {

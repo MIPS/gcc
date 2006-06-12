@@ -956,7 +956,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
   /* Zero all entries in the range allocated.  */
   memset (VEC_address (eh_region, cfun->eh->region_array)
-	  + cfun_last_region_number + 1, 0, num_regions);
+	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region));
 
   /* Locate the spot at which to insert the new tree.  */
   if (outer_region > 0)
@@ -3572,7 +3572,7 @@ switch_to_exception_section (void)
 
 
 /* Output a reference from an exception table to the type_info object TYPE.
-   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   TT_FORMAT and TT_FORMAT_SIZE describe the DWARF encoding method used for
    the value.  */
 
 static void

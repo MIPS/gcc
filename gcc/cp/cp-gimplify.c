@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -320,7 +320,7 @@ gimplify_switch_stmt (tree *stmt_p)
 /* Hook into the middle of gimplifying an OMP_FOR node.  This is required
    in order to properly gimplify CONTINUE statements.  Here we merely
    manage the continue stack; the rest of the job is performed by the
-   regular gimplifier.  */ 
+   regular gimplifier.  */
 
 static enum gimplify_status
 cp_gimplify_omp_for (tree *expr_p)
@@ -613,7 +613,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
   if (is_invisiref_parm (stmt)
       /* Don't dereference parms in a thunk, pass the references through. */
       && !(DECL_THUNK_P (current_function_decl)
-           && TREE_CODE (stmt) == PARM_DECL))
+	   && TREE_CODE (stmt) == PARM_DECL))
     {
       *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
@@ -869,4 +869,13 @@ cxx_omp_clause_dtor (tree clause, tree decl)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 1), decl, NULL);
 
   return ret;
+}
+
+/* True if OpenMP should privatize what this DECL points to rather
+   than the DECL itself.  */
+
+bool
+cxx_omp_privatize_by_reference (tree decl)
+{
+  return TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl);
 }

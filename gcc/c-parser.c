@@ -829,50 +829,6 @@ c_parser_skip_to_end_of_parameter (c_parser *parser)
   parser->error = false;
 }
 
-/* Skip tokens until we have consumed an entire block, or until we
-   have consumed a non-nested ';'.  */
-
-static void
-c_parser_skip_to_end_of_block_or_statement (c_parser *parser)
-{
-  unsigned nesting_depth = 0;
-
-  while (true)
-    {
-      c_token *token;
-
-      /* Peek at the next token.  */
-      token = c_parser_peek_token (parser);
-      /* If we've run out of tokens, stop.  */
-      if (token->type == CPP_EOF)
-	return;
-      if (token->type == CPP_PRAGMA_EOL && parser->in_pragma)
-	return;
-      /* If the next token is a ';', we have reached the end of the
-	 statement.  */
-      if (token->type == CPP_SEMICOLON && !nesting_depth)
-	{
-	  /* Consume the ';'.  */
-	  c_parser_consume_token (parser);
-	  break;
-	}
-      /* If the next token is a non-nested '}', then we have reached
-	 the end of the current block.  */
-      if (token->type == CPP_CLOSE_BRACE
-	  && (nesting_depth == 0 || --nesting_depth == 0))
-	{
-	  c_parser_consume_token (parser);
-	  break;
-	}
-      /* If it the next token is a '{', then we are entering a new
-	 block.  Consume the entire block.  */
-      if (token->type == CPP_OPEN_BRACE)
-	++nesting_depth;
-      c_parser_consume_token (parser);
-    }
-  parser->error = false;
-}
-
 /* Expect to be at the end of the pragma directive and consume an
    end of line marker.  */
 
@@ -896,6 +852,79 @@ c_parser_skip_to_pragma_eol (c_parser *parser)
 	c_parser_consume_token (parser);
       }
 
+  parser->error = false;
+}
+
+/* Skip tokens until we have consumed an entire block, or until we
+   have consumed a non-nested ';'.  */
+
+static void
+c_parser_skip_to_end_of_block_or_statement (c_parser *parser)
+{
+  unsigned nesting_depth = 0;
+  bool save_error = parser->error;
+
+  while (true)
+    {
+      c_token *token;
+
+      /* Peek at the next token.  */
+      token = c_parser_peek_token (parser);
+
+      switch (token->type)
+	{
+	case CPP_EOF:
+	  return;
+
+	case CPP_PRAGMA_EOL:
+	  if (parser->in_pragma)
+	    return;
+	  break;
+
+	case CPP_SEMICOLON:
+	  /* If the next token is a ';', we have reached the
+	     end of the statement.  */
+	  if (!nesting_depth)
+	    {
+	      /* Consume the ';'.  */
+	      c_parser_consume_token (parser);
+	      goto finished;
+	    }
+	  break;
+
+	case CPP_CLOSE_BRACE:
+	  /* If the next token is a non-nested '}', then we have
+	     reached the end of the current block.  */
+	  if (nesting_depth == 0 || --nesting_depth == 0)
+	    {
+	      c_parser_consume_token (parser);
+	      goto finished;
+	    }
+	  break;
+
+	case CPP_OPEN_BRACE:
+	  /* If it the next token is a '{', then we are entering a new
+	     block.  Consume the entire block.  */
+	  ++nesting_depth;
+	  break;
+
+	case CPP_PRAGMA:
+	  /* If we see a pragma, consume the whole thing at once.  We
+	     have some safeguards against consuming pragmas willy-nilly.
+	     Normally, we'd expect to be here with parser->error set,
+	     which disables these safeguards.  But it's possible to get
+	     here for secondary error recovery, after parser->error has
+	     been cleared.  */
+	  c_parser_consume_pragma (parser);
+	  c_parser_skip_to_pragma_eol (parser);
+	  parser->error = save_error;
+	  continue;
+	}
+
+      c_parser_consume_token (parser);
+    }
+
+ finished:
   parser->error = false;
 }
 
@@ -2119,6 +2148,7 @@ c_parser_typeof_specifier (c_parser *parser)
     }
   else
     {
+      bool was_vm;
       struct c_expr expr = c_parser_expression (parser);
       skip_evaluation--;
       in_typeof--;
@@ -2126,7 +2156,13 @@ c_parser_typeof_specifier (c_parser *parser)
 	  && DECL_C_BIT_FIELD (TREE_OPERAND (expr.value, 1)))
 	error ("%<typeof%> applied to a bit-field");
       ret.spec = TREE_TYPE (expr.value);
-      pop_maybe_used (variably_modified_type_p (ret.spec, NULL_TREE));
+      was_vm = variably_modified_type_p (ret.spec, NULL_TREE);
+      /* This should be returned with the type so that when the type
+	 is evaluated, this can be evaluated.  For now, we avoid
+	 evaluation when the context might.  */
+      if (!skip_evaluation && was_vm)
+	c_finish_expr_stmt (expr.value);
+      pop_maybe_used (was_vm);
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return ret;
@@ -2193,7 +2229,7 @@ c_parser_typeof_specifier (c_parser *parser)
 			 parameter-type-list[opt] )
 
    direct-abstract-declarator:
-     direct-abstract-declarator[opt] ( parameter-forward-declarations 
+     direct-abstract-declarator[opt] ( parameter-forward-declarations
 				       parameter-type-list[opt] )
 
    parameter-forward-declarations:
@@ -2422,6 +2458,8 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 	}
       declarator = build_array_declarator (dimen, quals_attrs, static_seen,
 					   star_seen);
+      if (declarator == NULL)
+	return NULL;
       inner = set_array_declarator_inner (declarator, inner, !id_present);
       return c_parser_direct_declarator_inner (parser, id_present, inner);
     }
@@ -2484,6 +2522,7 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 	  ret->tags = 0;
 	  ret->types = list;
 	  ret->others = 0;
+	  ret->had_vla_unspec = 0;
 	  c_parser_consume_token (parser);
 	  pop_scope ();
 	  return ret;
@@ -2525,6 +2564,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->tags = 0;
       ret->types = 0;
       ret->others = 0;
+      ret->had_vla_unspec = 0;
       c_parser_consume_token (parser);
       return ret;
     }
@@ -2534,6 +2574,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->parms = 0;
       ret->tags = 0;
       ret->others = 0;
+      ret->had_vla_unspec = 0;
       /* Suppress -Wold-style-definition for this case.  */
       ret->types = error_mark_node;
       error ("ISO C requires a named argument before %<...%>");
@@ -2584,6 +2625,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	      ret->tags = 0;
 	      ret->types = 0;
 	      ret->others = 0;
+	      ret->had_vla_unspec = 0;
 	      return ret;
 	    }
 	}
@@ -2609,6 +2651,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 		  ret->tags = 0;
 		  ret->types = 0;
 		  ret->others = 0;
+		  ret->had_vla_unspec = 0;
 		  return ret;
 		}
 	    }
@@ -4662,8 +4705,7 @@ c_parser_cast_expression (c_parser *parser, struct c_expr *after)
 	}
 
       /* Save casted types in the function's used types hash table.  */
-      if (debug_info_level > DINFO_LEVEL_NONE)
-	used_types_insert (type_name->specs->type, cfun);
+      used_types_insert (type_name->specs->type);
 
       if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
 	return c_parser_postfix_expression_after_paren_type (parser,
@@ -4840,6 +4882,12 @@ c_parser_sizeof_expression (c_parser *parser)
       /* sizeof ( type-name ).  */
       skip_evaluation--;
       in_sizeof--;
+      if (type_name->declarator->kind == cdk_array
+	  && type_name->declarator->u.array.vla_unspec_p)
+	{
+	  /* C99 6.7.5.2p4 */
+	  error ("%<[*]%> not allowed in other than a declaration");
+	}
       return c_expr_sizeof_type (type_name);
     }
   else
@@ -7379,7 +7427,7 @@ c_parser_omp_for_loop (c_parser *parser)
 
   /* Only bother calling c_finish_omp_for if we havn't already generated
      an error from the initialization parsing.  */
-  if (decl != NULL)
+  if (decl != NULL && decl != error_mark_node && init != error_mark_node)
     return c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
   return NULL;
 
@@ -7623,6 +7671,7 @@ c_parser_omp_parallel (c_parser *parser)
       if (stmt)
 	OMP_FOR_CLAUSES (stmt) = ws_clause;
       stmt = c_finish_omp_parallel (par_clause, block);
+      OMP_PARALLEL_COMBINED (stmt) = 1;
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:
@@ -7632,6 +7681,7 @@ c_parser_omp_parallel (c_parser *parser)
       if (stmt)
 	OMP_SECTIONS_CLAUSES (stmt) = ws_clause;
       stmt = c_finish_omp_parallel (par_clause, block);
+      OMP_PARALLEL_COMBINED (stmt) = 1;
       break;
 
     default:

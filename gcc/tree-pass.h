@@ -363,6 +363,7 @@ extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;
 extern struct tree_opt_pass pass_mode_switching;
+extern struct tree_opt_pass pass_see;
 extern struct tree_opt_pass pass_sms;
 extern struct tree_opt_pass pass_sched;
 extern struct tree_opt_pass pass_local_alloc;

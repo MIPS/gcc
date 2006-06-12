@@ -652,6 +652,7 @@ read_logical (st_parameter_dt *dtp, int length)
   dtp->u.p.item_count = 0;
   dtp->u.p.line_buffer_enabled = 0;
   set_integer ((int *) dtp->u.p.value, v, length);
+  free_line (dtp);
 
   return;
 
@@ -689,25 +690,27 @@ read_logical (st_parameter_dt *dtp, int length)
 
  bad_logical:
 
+  free_line (dtp);
+
   if (nml_bad_return (dtp, c))
     return;
 
   eat_line (dtp);
   free_saved (dtp);
-  if (dtp->u.p.line_buffer != NULL)
-    free_mem (dtp->u.p.line_buffer);
   st_sprintf (message, "Bad logical value while reading item %d",
 	      dtp->u.p.item_count);
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
   return;
 
  logical_done:
-  
+
   dtp->u.p.item_count = 0;
   dtp->u.p.line_buffer_enabled = 0;
   dtp->u.p.saved_type = BT_LOGICAL;
   dtp->u.p.saved_length = length;
   set_integer ((int *) dtp->u.p.value, v, length);
+  free_saved (dtp);
+  free_line (dtp);
 }
 
 
@@ -1657,7 +1660,11 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
   int indx;
   int neg;
   int null_flag;
+  int is_array_section;
   char c;
+
+  is_array_section = 0;
+  dtp->u.p.expanded_read = 0;
 
   /* The next character in the stream should be the '('.  */
 
@@ -1697,6 +1704,7 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	      switch (c)
 		{
 		case ':':
+                  is_array_section = 1;
 		  break;
 
 		case ',': case ')':
@@ -1772,7 +1780,14 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	      if (indx == 0)
 		{
 		  memcpy (&ls[dim].start, dtp->u.p.value, sizeof(ssize_t));
-		  ls[dim].end = ls[dim].start;
+
+		  /*  If -std=f95/2003 or an array section is specified,
+		      do not allow excess data to be processed.  */
+                  if (is_array_section == 1
+		      || compile_options.allow_std < GFC_STD_GNU)
+		    ls[dim].end = ls[dim].start;
+		  else
+		    dtp->u.p.expanded_read = 1;
 		}
 	      break;
 	    }
@@ -2109,6 +2124,10 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	    strcpy (obj_name, nl->var_name);
 	    strcat (obj_name, "%");
 
+	    /* If reading a derived type, disable the expanded read warning
+	       since a single object can have multiple reads.  */
+	    dtp->u.p.expanded_read = 0;
+
 	    /* Now loop over the components. Update the component pointer
 	       with the return value from nml_write_obj.  This loop jumps
 	       past nested derived types by testing if the potential
@@ -2154,11 +2173,16 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 
       *pprev_nl = nl;
       if (dtp->u.p.nml_read_error)
-	return SUCCESS;
+	{
+	  dtp->u.p.expanded_read = 0;
+	  return SUCCESS;
+	}
 
       if (dtp->u.p.saved_type == GFC_DTYPE_UNKNOWN)
-	goto incr_idx;
-
+	{
+	  dtp->u.p.expanded_read = 0;
+	  goto incr_idx;
+	}
 
       /* Note the switch from GFC_DTYPE_type to BT_type at this point.
 	 This comes about because the read functions return BT_types.  */
@@ -2179,14 +2203,27 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	  memcpy (pdata, dtp->u.p.saved_string, m);
 	  if (m < dlen)
 	    memset ((void*)( pdata + m ), ' ', dlen - m);
-	break;
+	  break;
 
 	default:
 	  break;
       }
 
-      /* Break out of loop if scalar.  */
+      /* Warn if a non-standard expanded read occurs. A single read of a
+	 single object is acceptable.  If a second read occurs, issue a warning
+	 and set the flag to zero to prevent further warnings.  */
+      if (dtp->u.p.expanded_read == 2)
+	{
+	  notify_std (GFC_STD_GNU, "Non-standard expanded namelist read.");
+	  dtp->u.p.expanded_read = 0;
+	}
 
+      /* If the expanded read warning flag is set, increment it,
+	 indicating that a single read has occured.  */
+      if (dtp->u.p.expanded_read >= 1)
+	dtp->u.p.expanded_read++;
+
+      /* Break out of loop if scalar.  */
       if (!nl->var_rank)
 	break;
 
@@ -2497,6 +2534,7 @@ namelist_read (st_parameter_dt *dtp)
 
   dtp->u.p.namelist_mode = 1;
   dtp->u.p.input_complete = 0;
+  dtp->u.p.expanded_read = 0;
 
   dtp->u.p.eof_jump = &eof_jump;
   if (setjmp (eof_jump))

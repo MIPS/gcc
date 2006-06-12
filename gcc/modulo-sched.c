@@ -944,6 +944,9 @@ sms_schedule (void)
   if (dump_file)
     df_dump (df, dump_file);
 
+  if (dump_file)
+    df_dump (df, dump_file);
+
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
   g_arr = XCNEWVEC (ddg_ptr, loops->num);

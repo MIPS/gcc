@@ -2132,6 +2132,12 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
       if (op0 == TREE_OPERAND (chrec, 0))
 	return chrec;
 
+      /* If we used chrec_convert_aggressive, we can no longer assume that
+	 signed chrecs do not overflow, as chrec_convert does, so avoid
+         calling it in that case.  */
+      if (flags & FOLD_CONVERSIONS)
+	return fold_convert (TREE_TYPE (chrec), op0);
+
       return chrec_convert (TREE_TYPE (chrec), op0, NULL_TREE);
 
     case SCEV_NOT_KNOWN:
@@ -2802,7 +2808,11 @@ scev_const_prop (void)
 	  def = analyze_scalar_evolution_in_loop (ex_loop, loop, def, NULL);
 	  def = compute_overall_effect_of_inner_loop (ex_loop, def);
 	  if (!tree_does_not_contain_chrecs (def)
-	      || chrec_contains_symbols_defined_in_loop (def, ex_loop->num))
+	      || chrec_contains_symbols_defined_in_loop (def, ex_loop->num)
+	      /* Moving the computation from the loop may prolong life range
+		 of some ssa names, which may cause problems if they appear
+		 on abnormal edges.  */
+	      || contains_abnormal_ssa_name_p (def))
 	    continue;
 
 	  /* Eliminate the phi node and replace it by a computation outside

@@ -224,7 +224,8 @@ add_sym (const char *name, int elemental, int actual_ok ATTRIBUTE_UNUSED,
 
   /* First check that the intrinsic belongs to the selected standard.
      If not, don't add it to the symbol list.  */
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   switch (sizing)
@@ -782,7 +783,8 @@ make_generic (const char *name, gfc_generic_isym_id generic_id, int standard)
 {
   gfc_intrinsic_sym *g;
 
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   if (sizing != SZ_NOTHING)
@@ -824,7 +826,8 @@ make_alias (const char *name, int standard)
 
   /* First check that the intrinsic belongs to the selected standard.
      If not, don't add it to the symbol list.  */
-  if (!(gfc_option.allow_std & standard))
+  if (!(gfc_option.allow_std & standard)
+      && gfc_option.flag_all_intrinsics == 0)
     return;
 
   switch (sizing)
@@ -2229,7 +2232,8 @@ add_subroutines (void)
 
   add_sym_0s ("abort", 1, GFC_STD_GNU, NULL);
 
-  make_noreturn();
+  if ((gfc_option.allow_std & GFC_STD_GNU) || gfc_option.flag_all_intrinsics)
+    make_noreturn();
 
   add_sym_1s ("cpu_time", 0, 1, BT_UNKNOWN, 0, GFC_STD_F95,
 	      gfc_check_cpu_time, NULL, gfc_resolve_cpu_time,
@@ -2335,7 +2339,8 @@ add_subroutines (void)
              gfc_check_exit, NULL, gfc_resolve_exit,
 	      c, BT_INTEGER, di, OPTIONAL);
 
-  make_noreturn();
+  if ((gfc_option.allow_std & GFC_STD_GNU) || gfc_option.flag_all_intrinsics)
+    make_noreturn();
 
   add_sym_3s ("fgetc", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_fgetputc_sub, NULL, gfc_resolve_fgetc_sub,

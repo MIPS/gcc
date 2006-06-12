@@ -274,10 +274,12 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public boolean dispatchKeyEvent (KeyEvent e)
   {
-    Component focusOwner = getGlobalPermanentFocusOwner ();
-
+    Component focusOwner = getFocusOwner();
+    if (focusOwner == null)
+      focusOwner = getFocusedWindow();
+    
     if (focusOwner != null)
-      redispatchEvent(focusOwner, e);
+      redispatchEvent(focusOwner, e);      
 
     // Loop through all registered KeyEventPostProcessors, giving
     // each a chance to process this event.
@@ -294,7 +296,7 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
     // MenuShortcut.
     if (postProcessKeyEvent (e))
       return true;
-
+    
     // Always return true.
     return true;
   }
@@ -478,59 +480,25 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void focusPreviousComponent (Component comp)
   {
-    Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
-    Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
-    FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
-
-    Component previous = policy.getComponentBefore (focusCycleRoot, focusComp);
-    if (previous != null)
-      previous.requestFocusInWindow ();
+    if (comp != null)
+      comp.transferFocusBackward();
   }
 
   public void focusNextComponent (Component comp)
   {
-    Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
-    Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
-    FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
-
-    Component next = policy.getComponentAfter (focusCycleRoot, focusComp);
-    if (next != null)
-      next.requestFocusInWindow ();
+    if (comp != null)
+      comp.transferFocus();
   }
 
   public void upFocusCycle (Component comp)
   {
-    Component focusComp = (comp == null) ? getGlobalFocusOwner () : comp;
-    Container focusCycleRoot = focusComp.getFocusCycleRootAncestor ();
-
-    if (focusCycleRoot instanceof Window)
-      {
-        FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
-        Component defaultComponent = policy.getDefaultComponent (focusCycleRoot);
-        if (defaultComponent != null)
-          defaultComponent.requestFocusInWindow ();
-      }
-    else
-      {
-        Container parentFocusCycleRoot = focusCycleRoot.getFocusCycleRootAncestor ();
-
-        focusCycleRoot.requestFocusInWindow ();
-        setGlobalCurrentFocusCycleRoot (parentFocusCycleRoot);
-      }
+    if (comp != null)
+      comp.transferFocusUpCycle();
   }
 
   public void downFocusCycle (Container cont)
   {
-    if (cont == null)
-      return;
-
-    if (cont.isFocusCycleRoot (cont))
-      {
-        FocusTraversalPolicy policy = cont.getFocusTraversalPolicy ();
-        Component defaultComponent = policy.getDefaultComponent (cont);
-        if (defaultComponent != null)
-          defaultComponent.requestFocusInWindow ();        
-        setGlobalCurrentFocusCycleRoot (cont);
-      }
+    if (cont != null)
+      cont.transferFocusDownCycle();
   }
 } // class DefaultKeyboardFocusManager

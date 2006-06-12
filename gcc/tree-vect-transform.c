@@ -153,14 +153,14 @@ vect_create_addr_base_for_vector_ref (tree stmt,
   /* Create base_offset */
   base_offset = size_binop (PLUS_EXPR, base_offset, init);
   dest = create_tmp_var (TREE_TYPE (base_offset), "base_off");
-  add_referenced_tmp_var (dest);
+  add_referenced_var (dest);
   base_offset = force_gimple_operand (base_offset, &new_stmt, false, dest);  
   append_to_statement_list_force (new_stmt, new_stmt_list);
 
   if (offset)
     {
       tree tmp = create_tmp_var (TREE_TYPE (base_offset), "offset");
-      add_referenced_tmp_var (tmp);
+      add_referenced_var (tmp);
       offset = fold_build2 (MULT_EXPR, TREE_TYPE (offset), offset,
 			    DR_STEP (dr));
       base_offset = fold_build2 (PLUS_EXPR, TREE_TYPE (base_offset),
@@ -176,7 +176,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
   /* addr_expr = addr_base */
   addr_expr = vect_get_new_vect_var (scalar_ptr_type, vect_pointer_var,
                                      get_name (base_name));
-  add_referenced_tmp_var (addr_expr);
+  add_referenced_var (addr_expr);
   vec_stmt = build2 (MODIFY_EXPR, void_type_node, addr_expr, addr_base);
   new_temp = make_ssa_name (addr_expr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
@@ -291,7 +291,7 @@ vect_create_data_ref_ptr (tree stmt,
   vect_ptr_type = build_pointer_type (vectype);
   vect_ptr = vect_get_new_vect_var (vect_ptr_type, vect_pointer_var,
                                     get_name (base_name));
-  add_referenced_tmp_var (vect_ptr);
+  add_referenced_var (vect_ptr);
   
   
   /** (2) Add aliasing information to the new vector-pointer:
@@ -389,7 +389,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
   if (!new_name)
     new_name = "var_";
   vec_dest = vect_get_new_vect_var (type, vect_simple_var, new_name);
-  add_referenced_tmp_var (vec_dest);
+  add_referenced_var (vec_dest);
 
   return vec_dest;
 }
@@ -416,7 +416,7 @@ vect_init_vector (tree stmt, tree vector_var)
   basic_block new_bb;
  
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
-  add_referenced_tmp_var (new_var); 
+  add_referenced_var (new_var); 
  
   init_stmt = build2 (MODIFY_EXPR, vectype, new_var, vector_var);
   new_temp = make_ssa_name (new_var, init_stmt);
@@ -791,6 +791,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   bool extract_scalar_result;
   tree reduction_op;
   tree orig_stmt;
+  tree use_stmt;
   tree operation = TREE_OPERAND (stmt, 1);
   int op_type;
   
@@ -1082,8 +1083,9 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   gcc_assert (exit_phi);
   /* Replace the uses:  */
   orig_name = PHI_RESULT (exit_phi);
-  FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, orig_name)
-    SET_USE (use_p, new_temp);
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, orig_name)
+    FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+      SET_USE (use_p, new_temp);
 } 
 
 
@@ -2115,6 +2117,11 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   then_clause = TREE_OPERAND (op, 1);
   else_clause = TREE_OPERAND (op, 2);
 
+  /* We do not handle two different vector types for the condition
+     and the values.  */
+  if (TREE_TYPE (TREE_OPERAND (cond_expr, 0)) != TREE_TYPE (vectype))
+    return false;
+
   if (!vect_is_simple_cond (cond_expr, loop_vinfo))
     return false;
 
@@ -2284,7 +2291,7 @@ vect_build_loop_niters (loop_vec_info loop_vinfo)
   tree ni = unshare_expr (LOOP_VINFO_NITERS (loop_vinfo));
 
   var = create_tmp_var (TREE_TYPE (ni), "niters");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   ni_name = force_gimple_operand (ni, &stmt, false, var);
 
   pe = loop_preheader_edge (loop);
@@ -2335,7 +2342,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   /* Create: ratio = ni >> log2(vf) */
 
   var = create_tmp_var (TREE_TYPE (ni), "bnd");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   ratio_name = make_ssa_name (var, NULL_TREE);
   stmt = build2 (MODIFY_EXPR, void_type_node, ratio_name,
 	   build2 (RSHIFT_EXPR, TREE_TYPE (ni_name), ni_name, log_vf));
@@ -2348,7 +2355,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   /* Create: ratio_mult_vf = ratio << log2 (vf).  */
 
   var = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   ratio_mult_vf_name = make_ssa_name (var, NULL_TREE);
   stmt = build2 (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
 	   build2 (LSHIFT_EXPR, TREE_TYPE (ratio_name), ratio_name, log_vf));
@@ -2549,7 +2556,7 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 		       niters, step_expr), init_expr);
 
       var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
-      add_referenced_tmp_var (var);
+      add_referenced_var (var);
 
       ni_name = force_gimple_operand (ni, &stmt, false, var);
       
@@ -2725,7 +2732,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
     }
 
   var = create_tmp_var (niters_type, "prolog_loop_niters");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   iters_name = force_gimple_operand (iters, &stmt, false, var);
 
   /* Insert stmt on loop preheader edge.  */
@@ -2898,7 +2905,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 
       sprintf (tmp_name, "%s%d", "addr2int", i);
       addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
-      add_referenced_tmp_var (addr_tmp);
+      add_referenced_var (addr_tmp);
       addr_tmp_name = make_ssa_name (addr_tmp, NULL_TREE);
       addr_stmt = fold_convert (int_ptrsize_type, addr_base);
       addr_stmt = build2 (MODIFY_EXPR, void_type_node,
@@ -2913,7 +2920,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
           /* create: or_tmp = or_tmp | addr_tmp */
           sprintf (tmp_name, "%s%d", "orptrs", i);
           or_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
-          add_referenced_tmp_var (or_tmp);
+          add_referenced_var (or_tmp);
           new_or_tmp_name = make_ssa_name (or_tmp, NULL_TREE);
           or_stmt = build2 (MODIFY_EXPR, void_type_node, new_or_tmp_name,
                             build2 (BIT_IOR_EXPR, int_ptrsize_type,
@@ -2932,7 +2939,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 
   /* create: and_tmp = or_tmp & mask  */
   and_tmp = create_tmp_var (int_ptrsize_type, "andmask" );
-  add_referenced_tmp_var (and_tmp);
+  add_referenced_var (and_tmp);
   and_tmp_name = make_ssa_name (and_tmp, NULL_TREE);
 
   and_stmt = build2 (MODIFY_EXPR, void_type_node,
@@ -3029,7 +3036,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
       bsi_insert_before (&cond_exp_bsi, cond_expr_stmt_list, BSI_SAME_STMT);
     }
 
-  /* CHECKME: we wouldn't need this if we calles update_ssa once
+  /* CHECKME: we wouldn't need this if we called update_ssa once
      for all loops.  */
   bitmap_zero (vect_vnames_to_rename);
 

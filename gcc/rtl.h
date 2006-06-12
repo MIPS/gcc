@@ -2118,9 +2118,6 @@ extern void print_simple_rtl (FILE *, rtx);
 extern int print_rtl_single (FILE *, rtx);
 extern void print_inline_rtx (FILE *, rtx, int);
 
-/* In loop.c */
-extern void init_loop (void);
-
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (void);
 extern int prologue_epilogue_contains (rtx);

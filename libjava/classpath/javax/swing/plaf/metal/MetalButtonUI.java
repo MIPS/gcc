@@ -39,15 +39,19 @@ exception statement from your version. */
 package javax.swing.plaf.metal;
 
 import java.awt.Color;
+import java.awt.Container;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 
 import javax.swing.AbstractButton;
+import javax.swing.ButtonModel;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.UIResource;
@@ -120,7 +124,8 @@ public class MetalButtonUI
    * 
    * @return A new instance of <code>MetalButtonUI</code>.
    */
-  public static ComponentUI createUI(JComponent c) {
+  public static ComponentUI createUI(JComponent c) 
+  {
     return new MetalButtonUI();
   }
 
@@ -160,8 +165,8 @@ public class MetalButtonUI
   }    
 
   /**
-   * Paints the background of the button to indicate that it is in the "pressed"
-   * state.
+   * Paints the background of the button to indicate that it is in the
+   * "pressed" state.
    * 
    * @param g  the graphics context.
    * @param b  the button.
@@ -186,7 +191,8 @@ public class MetalButtonUI
    * @param iconRect  the icon bounds.
    */
   protected void paintFocus(Graphics g, AbstractButton b, Rectangle viewRect,
-          Rectangle textRect, Rectangle iconRect) {
+          Rectangle textRect, Rectangle iconRect) 
+  {
     if (b.isEnabled() && b.hasFocus() && b.isFocusPainted())
     {
       Color savedColor = g.getColor();
@@ -234,15 +240,63 @@ public class MetalButtonUI
   public void update(Graphics g, JComponent c)
   {
     AbstractButton b = (AbstractButton) c;
-    if (b.isOpaque() && UIManager.get(getPropertyPrefix() + "gradient") != null
-        && !b.getModel().isPressed() && b.isEnabled())
-      {
-        MetalUtils.paintGradient(g, 0, 0, c.getWidth(), c.getHeight(),
-                                 SwingConstants.VERTICAL,
-                                 getPropertyPrefix() + "gradient");
-        paint(g, c);
-      }
+    if (b.isContentAreaFilled()
+        && (UIManager.get(getPropertyPrefix() + "gradient") != null)
+        && b.isEnabled()
+        && (b.getBackground() instanceof UIResource))
+      updateWidthGradient(g, b, b.getParent());
     else
       super.update(g, c);
   }
+  
+  private void updateWidthGradient(Graphics g, AbstractButton b, Container parent)
+  {
+    ButtonModel m = b.getModel();
+    String gradientPropertyName = getPropertyPrefix() + "gradient";
+
+    // Gradient painting behavior depends on whether the button is part of a
+    // JToolBar.
+    if (parent instanceof JToolBar)
+      {
+        if (! m.isPressed() && ! m.isArmed())
+          {
+            if (m.isRollover())
+              {
+                // Paint the gradient when the mouse cursor hovers over the
+                // button but is not pressed down.
+                MetalUtils.paintGradient(g, 0, 0, b.getWidth(), b.getHeight(),
+                                         SwingConstants.VERTICAL,
+                                         gradientPropertyName);
+              }
+            else
+              {
+                // If mouse does not hover over the button let the JToolBar
+                // paint itself at the location where the button is (the button
+                // is transparent).
+                
+                // There where cases where the button was not repainted and
+                // therefore showed its old state. With this statement it does
+                // not happen.
+                b.repaint();
+                
+                Rectangle area = new Rectangle();
+                SwingUtilities.calculateInnerArea(b, area);
+                SwingUtilities.convertRectangle(b, area, b.getParent());
+                b.getParent().repaint(area.x, area.y, area.width, area.height);
+              }
+          }
+        
+      }
+    else if (! m.isPressed() && ! m.isArmed())
+      {
+        // When the button is not part of a JToolBar just paint itself with a
+        // gradient and everything is fine.
+        MetalUtils.paintGradient(g, 0, 0, b.getWidth(), b.getHeight(),
+                                 SwingConstants.VERTICAL,
+                                 gradientPropertyName);
+      }
+    
+    paint(g, b);
+  }
+  
 }

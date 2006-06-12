@@ -80,6 +80,9 @@ Boston, MA 02110-1301, USA.  */
 #undef	DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
+/* True if pragma ms_struct is in effect.  */
+extern GTY(()) int darwin_ms_struct;
+
 /* This table intercepts weirdo options whose names would interfere
    with normal driver conventions, and either translates them into
    standardly-named options, or adds a 'Z' so that they can get to
@@ -439,7 +442,7 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_USES_WEAK_UNWIND_INFO 1
 
 /* We need to use a nonlocal label for the start of an EH frame: the
-   Darwin linker requires that a coalesced section start with a label. 
+   Darwin linker requires that a coalesced section start with a label.
    Unfortunately, it also requires that 'debug' sections don't contain
    labels.  */
 #undef FRAME_BEGIN_LABEL
@@ -809,8 +812,6 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
-#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
-
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
 
@@ -830,6 +831,7 @@ enum machopic_addr_class {
     c_register_pragma (0, "options", darwin_pragma_options);	\
     c_register_pragma (0, "segment", darwin_pragma_ignore);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    c_register_pragma (0, "ms_struct", darwin_pragma_ms_struct); \
   } while (0)
 
 #undef ASM_APP_ON
@@ -848,6 +850,7 @@ void add_framework_path (char *);
 #define TARGET_POSIX_IO
 
 /* All new versions of Darwin have C99 functions.  */
+
 #define TARGET_C99_FUNCTIONS 1
 
 #define WINT_TYPE "int"
@@ -855,7 +858,20 @@ void add_framework_path (char *);
 /* Every program on darwin links against libSystem which contains the pthread
    routines, so there's no need to explicitly call out when doing threaded
    work.  */
+
 #undef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS ""
+
+/* Darwin can't support anchors until we can cope with the adjustments
+   to size that ASM_DECLARE_OBJECT_NAME and ASM_DECLARE_CONSTANT_NAME
+   when outputting members of an anchor block and the linker can be
+   taught to keep them together or we find some other suitable
+   code-gen technique.  */
+
+#if 0
+#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
+#else
+#define TARGET_ASM_OUTPUT_ANCHOR NULL
+#endif
 
 #endif /* CONFIG_DARWIN_H */

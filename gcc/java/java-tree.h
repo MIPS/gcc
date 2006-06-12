@@ -1,6 +1,6 @@
 /* Definitions for parsing and type checking for the GNU compiler for
    the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -78,7 +78,7 @@ struct JCF;
    2: CLASS_PARSED_P (in RECORD_TYPE).
    3: CLASS_FROM_SOURCE_P (in RECORD_TYPE).
    4: CLASS_P (in RECORD_TYPE).
-   5: CLASS_FROM_CURRENTLY_COMPILED_SOURCE_P (in RECORD_TYPE)
+   5: CLASS_FROM_CURRENTLY_COMPILED_P (in RECORD_TYPE)
    6: CLASS_BEING_LAIDOUT (in RECORD_TYPE)
 
    Usage of DECL_LANG_FLAG_?:
@@ -1241,10 +1241,11 @@ extern tree check_for_builtin (tree, tree);
 extern void initialize_builtins (void);
 
 extern tree lookup_name (tree);
-extern tree build_known_method_ref (tree, tree, tree, tree, tree);
+extern void maybe_rewrite_invocation (tree *, tree *, tree *, tree *);
+extern tree build_known_method_ref (tree, tree, tree, tree, tree, tree);
 extern tree build_class_init (tree, tree);
 extern int attach_init_test_initialization_flags (void **, void *);
-extern tree build_invokevirtual (tree, tree);
+extern tree build_invokevirtual (tree, tree, tree);
 extern tree build_invokeinterface (tree, tree);
 extern tree build_jni_stub (tree);
 extern tree invoke_build_dtable (int, tree);
@@ -1357,6 +1358,7 @@ extern void java_debug_context (void);
 extern void safe_layout_class (tree);
 
 extern tree get_boehm_type_descriptor (tree);
+extern bool uses_jv_markobj_p (tree);
 extern bool class_has_finalize_method (tree);
 extern void java_check_methods (tree);
 extern void init_jcf_parse (void);
@@ -1391,7 +1393,7 @@ extern void register_exception_range(struct eh_range *, int, int);
 extern void finish_method (tree);
 extern void java_expand_body (tree);
 
-extern int get_symbol_table_index (tree, tree *);
+extern int get_symbol_table_index (tree, tree, tree *);
 
 extern tree make_catch_class_record (tree, tree);
 extern tree emit_catch_table (tree);

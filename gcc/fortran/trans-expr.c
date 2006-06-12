@@ -275,6 +275,8 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
 		     build_int_cst (gfc_charlen_type_node, 1),
 		     start.expr);
   tmp = fold_build2 (PLUS_EXPR, gfc_charlen_type_node, end.expr, tmp);
+  tmp = fold_build2 (MAX_EXPR, gfc_charlen_type_node, tmp,
+		     build_int_cst (gfc_charlen_type_node, 0));
   se->string_length = tmp;
 }
 
@@ -359,6 +361,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       if ((se->expr == parent_decl && return_value)
 	   || (sym->ns && sym->ns->proc_name
+	       && parent_decl
 	       && sym->ns->proc_name->backend_decl == parent_decl
 	       && (alternate_entry || entry_master)))
 	parent_flag = 1;
@@ -472,7 +475,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      && ref->next == NULL && (se->descriptor_only))
 	    return;
 
-	  gfc_conv_array_ref (se, &ref->u.ar);
+	  gfc_conv_array_ref (se, &ref->u.ar, sym, &expr->where);
 	  /* Return a pointer to an element.  */
 	  break;
 
@@ -1191,6 +1194,9 @@ gfc_conv_function_val (gfc_se * se, gfc_symbol * sym)
 	sym->backend_decl = gfc_get_extern_function_decl (sym);
 
       tmp = sym->backend_decl;
+      if (sym->attr.cray_pointee)
+	tmp = convert (build_pointer_type (TREE_TYPE (tmp)),
+		       gfc_get_symbol_decl (sym->cp_pointer));
       if (!POINTER_TYPE_P (TREE_TYPE (tmp)))
 	{
 	  gcc_assert (TREE_CODE (tmp) == FUNCTION_DECL);
@@ -2038,11 +2044,6 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
 				       false, !sym->attr.pointer, callee_alloc);
 
-	  /* Zero the first stride to indicate a temporary.  */
-	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
-	  gfc_add_modify_expr (&se->pre, tmp,
-			       convert (TREE_TYPE (tmp), integer_zero_node));
-
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
 	  tmp = build_fold_addr_expr (tmp);
@@ -2155,7 +2156,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  tmp = gfc_conv_descriptor_data_get (info->descriptor);
 		  tmp = fold_build2 (NE_EXPR, boolean_type_node,
 				     tmp, info->data);
-		  gfc_trans_runtime_check (tmp, gfc_strconst_fault, &se->pre);
+		  gfc_trans_runtime_check (tmp, gfc_msg_fault, &se->pre, NULL);
 		}
 	      se->expr = info->descriptor;
 	      /* Bundle in the string length.  */
@@ -2198,6 +2199,7 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlen, tree dest,
   tree tmp;
   tree dsc;
   tree ssc;
+  tree cond;
 
   /* Deal with single character specially.  */
   dsc = gfc_to_single_character (dlen, dest);
@@ -2208,12 +2210,16 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlen, tree dest,
       return;
     }
 
+  cond = fold_build2 (GT_EXPR, boolean_type_node, dlen,
+		      build_int_cst (gfc_charlen_type_node, 0));
+
   tmp = NULL_TREE;
   tmp = gfc_chainon_list (tmp, dlen);
   tmp = gfc_chainon_list (tmp, dest);
   tmp = gfc_chainon_list (tmp, slen);
   tmp = gfc_chainon_list (tmp, src);
   tmp = build_function_call_expr (gfor_fndecl_copy_string, tmp);
+  tmp = fold_build3 (COND_EXPR, void_type_node, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (block, tmp);
 }
 

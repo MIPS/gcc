@@ -1,0 +1,12 @@
+// PR c++/27601
+// Origin: Patrik Hägglund  <patrik.hagglund@bredband.net>
+// { dg-do compile }
+
+struct bar {
+  static int foo;
+  static int baz();
+};
+
+int a = __builtin_offsetof(bar, foo);  // { dg-error "static data member" }
+int b = __builtin_offsetof(bar, baz);  // { dg-error "member function" }
+int c = __builtin_offsetof(bar, ~bar);  // { dg-error "member function" }

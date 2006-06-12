@@ -510,7 +510,7 @@ struct df_ru_bb_info
      sparse_kill, each register gets a slot and a 1 in this bitvector
      means that all of the uses of that register are killed.  This is
      a very useful efficiency hack in that it keeps from having push
-     around big groups of 1s.  This is implemened by the
+     around big groups of 1s.  This is implemented by the
      bitmap_clear_range call.  */
 
   bitmap kill;
@@ -675,6 +675,25 @@ extern bool df_has_eh_preds (basic_block);
 extern void df_reorganize_refs (struct df_ref_info *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
+
+
+/* web */
+
+/* This entry is allocated for each reference in the insn stream.  */
+struct web_entry
+{
+  /* Pointer to the parent in the union/find tree.  */
+  struct web_entry *pred;
+  /* Newly assigned register to the entry.  Set only for roots.  */
+  rtx reg;
+  void* extra_info;
+};
+
+extern struct web_entry *unionfind_root (struct web_entry *);
+extern bool unionfind_union (struct web_entry *, struct web_entry *);
+extern void union_defs (struct df *, struct df_ref *,
+                        struct web_entry *, struct web_entry *,
+			bool (*fun) (struct web_entry *, struct web_entry *));
 
 
 #endif /* GCC_DF_H */

@@ -1633,6 +1633,10 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
   rtx insn;
   int luid = 0;
   struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
+  bitmap artificial_uses_at_bottom = NULL;
+
+  if (dflow->flags & DF_HARD_REGS)
+    artificial_uses_at_bottom = BITMAP_ALLOC (NULL);
 
   /* Need to make sure that there is a record in the basic block info. */  
   if (!bb_info)
@@ -1754,7 +1758,7 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
       /* Before reload, there are a few registers that must be forced
 	 live everywhere -- which might not already be the case for
 	 blocks within infinite loops.  */
-      if (! reload_completed)
+      if (!reload_completed)
 	{
 	  /* Any reference to any pseudo before reload is a potential
 	     reference of the frame pointer.  */

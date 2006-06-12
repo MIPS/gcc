@@ -53,6 +53,9 @@ libdir = @libdir@
 includedir = @includedir@
 oldincludedir = @oldincludedir@
 infodir = @infodir@
+datarootdir = @datarootdir@
+docdir = @docdir@
+htmldir = @htmldir@
 mandir = @mandir@
 man1dir = $(mandir)/man1
 man2dir = $(mandir)/man2
@@ -532,7 +535,7 @@ do-[+make_target+]:
 
 # Here are the targets which correspond to the do-X targets.
 
-.PHONY: info installcheck dvi html install-info
+.PHONY: info installcheck dvi html install-info install-html
 .PHONY: clean distclean mostlyclean maintainer-clean realclean
 .PHONY: local-clean local-distclean local-maintainer-clean
 info: do-info
@@ -549,6 +552,8 @@ install-info: do-install-info dir.info
 	if [ -f dir.info ] ; then \
 	  $(INSTALL_DATA) dir.info $(DESTDIR)$(infodir)/dir.info ; \
 	else true ; fi
+
+install-html: do-install-html
 
 local-clean:
 	-rm -f *.a TEMP errs core *.o *~ \#* TAGS *.E *.log
@@ -715,14 +720,12 @@ TAGS: do-TAGS
 [+ DEFINE configure +]
 .PHONY: configure-[+prefix+][+module+] maybe-configure-[+prefix+][+module+]
 maybe-configure-[+prefix+][+module+]:
+@if gcc-bootstrap
+configure-[+prefix+][+module+]: stage_current
+@endif gcc-bootstrap
 @if [+prefix+][+module+]
 maybe-configure-[+prefix+][+module+]: configure-[+prefix+][+module+]
-configure-[+prefix+][+module+]: [+ IF bootstrap +]
-@endif [+prefix+][+module+]
-@if [+prefix+][+module+]-bootstrap
-	@if test -f stage_last; then $(unstage); else $(MAKE) stage1-start; fi
-@endif [+prefix+][+module+]-bootstrap
-@if [+prefix+][+module+][+ ELSE bootstrap +]
+configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	@: $(MAKE); $(unstage)[+ ENDIF bootstrap +]
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -806,16 +809,14 @@ configure-stage[+id+]-[+prefix+][+module+]:
 [+ DEFINE all +]
 .PHONY: all-[+prefix+][+module+] maybe-all-[+prefix+][+module+]
 maybe-all-[+prefix+][+module+]:
+@if gcc-bootstrap
+all-[+prefix+][+module+]: stage_current
+@endif gcc-bootstrap
 @if [+prefix+][+module+]
 TARGET-[+prefix+][+module+]=[+
   IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
 maybe-all-[+prefix+][+module+]: all-[+prefix+][+module+]
-all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +]
-@endif [+prefix+][+module+]
-@if [+prefix+][+module+]-bootstrap
-	@if test -f stage_last; then $(unstage); else $(MAKE) stage1-start; fi
-@endif [+prefix+][+module+]-bootstrap
-@if [+prefix+][+module+][+ ELSE bootstrap +]
+all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +][+ ELSE +]
 	@: $(MAKE); $(unstage)[+ ENDIF bootstrap +]
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -1254,7 +1255,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 	CFLAGS="$(BOOT_CFLAGS)" \
 	LIBCFLAGS="$(BOOT_CFLAGS)" \
 	LDFLAGS="$(BOOT_LDFLAGS)" \
-	ADAC="\$$(CC)"
+	"`echo 'ADAFLAGS=$(BOOT_ADAFLAGS)' | sed -e s'/[^=][^=]*=$$/XFOO=/'`"
 
 # For stage 1:
 # * We force-disable intermodule optimizations, even if
@@ -1423,14 +1424,19 @@ do-distclean: distclean-stage1
 # not work as a dependency, just as the minimum necessary to avoid errors.
 stage_last:
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage1-bubble
-@endif gcc-bootstrap
+
+# Same as unstage, but not phony and defaulting to stage1-start.  We place
+# it in the dependency so that for example `make -j3 all-gcc' works.
+stage_current:
+	@if test -f stage_last; then $(unstage); else $(MAKE) stage1-start; fi
 
 .PHONY: restrap
 restrap:
 	@: $(MAKE); $(stage)
 	rm -rf stage1-$(TARGET_SUBDIR) [+ FOR bootstrap-stage +][+ IF prev
-	  +]stage[+id+] [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
+	  +]stage[+id+]-* [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+@endif gcc-bootstrap
 
 # --------------------------------------
 # Dependencies between different modules

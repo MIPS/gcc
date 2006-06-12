@@ -643,6 +643,86 @@ stmt_after_increment (struct loop *loop, struct iv_cand *cand, tree stmt)
     }
 }
 
+/* Returns true if EXP is a ssa name that occurs in an abnormal phi node.  */
+
+static bool
+abnormal_ssa_name_p (tree exp)
+{
+  if (!exp)
+    return false;
+
+  if (TREE_CODE (exp) != SSA_NAME)
+    return false;
+
+  return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (exp) != 0;
+}
+
+/* Returns false if BASE or INDEX contains a ssa name that occurs in an
+   abnormal phi node.  Callback for for_each_index.  */
+
+static bool
+idx_contains_abnormal_ssa_name_p (tree base, tree *index,
+				  void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (base) == ARRAY_REF)
+    {
+      if (abnormal_ssa_name_p (TREE_OPERAND (base, 2)))
+	return false;
+      if (abnormal_ssa_name_p (TREE_OPERAND (base, 3)))
+	return false;
+    }
+
+  return !abnormal_ssa_name_p (*index);
+}
+
+/* Returns true if EXPR contains a ssa name that occurs in an
+   abnormal phi node.  */
+
+bool
+contains_abnormal_ssa_name_p (tree expr)
+{
+  enum tree_code code;
+  enum tree_code_class class;
+
+  if (!expr)
+    return false;
+
+  code = TREE_CODE (expr);
+  class = TREE_CODE_CLASS (code);
+
+  if (code == SSA_NAME)
+    return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
+
+  if (code == INTEGER_CST
+      || is_gimple_min_invariant (expr))
+    return false;
+
+  if (code == ADDR_EXPR)
+    return !for_each_index (&TREE_OPERAND (expr, 0),
+			    idx_contains_abnormal_ssa_name_p,
+			    NULL);
+
+  switch (class)
+    {
+    case tcc_binary:
+    case tcc_comparison:
+      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 1)))
+	return true;
+
+      /* Fallthru.  */
+    case tcc_unary:
+      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 0)))
+	return true;
+
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return false;
+}
+
 /* Element of the table in that we cache the numbers of iterations obtained
    from exits of the loop.  */
 
@@ -651,11 +731,9 @@ struct nfe_cache_elt
   /* The edge for that the number of iterations is cached.  */
   edge exit;
 
-  /* True if the # of iterations was successfully determined.  */
-  bool valid_p;
-
-  /* Description of # of iterations.  */
-  struct tree_niter_desc niter;
+  /* Number of iterations corresponding to this exit, or NULL if it cannot be
+     determined.  */
+  tree niter;
 };
 
 /* Hash function for nfe_cache_elt E.  */
@@ -678,13 +756,14 @@ nfe_eq (const void *e1, const void *e2)
   return elt1->exit == e2;
 }
 
-/*  Returns structure describing number of iterations determined from
+/*  Returns tree describing number of iterations determined from
     EXIT of DATA->current_loop, or NULL if something goes wrong.  */
 
-static struct tree_niter_desc *
+static tree
 niter_for_exit (struct ivopts_data *data, edge exit)
 {
   struct nfe_cache_elt *nfe_desc;
+  struct tree_niter_desc desc;
   PTR *slot;
 
   slot = htab_find_slot_with_hash (data->niters, exit,
@@ -695,25 +774,31 @@ niter_for_exit (struct ivopts_data *data, edge exit)
     {
       nfe_desc = xmalloc (sizeof (struct nfe_cache_elt));
       nfe_desc->exit = exit;
-      nfe_desc->valid_p = number_of_iterations_exit (data->current_loop,
-						     exit, &nfe_desc->niter,
-						     true);
-      *slot = nfe_desc;
+
+      /* Try to determine number of iterations.  We must know it
+	 unconditionally (i.e., without possibility of # of iterations
+	 being zero).  Also, we cannot safely work with ssa names that
+	 appear in phi nodes on abnormal edges, so that we do not create
+	 overlapping life ranges for them (PR 27283).  */
+      if (number_of_iterations_exit (data->current_loop,
+				     exit, &desc, true)
+	  && zero_p (desc.may_be_zero)
+     	  && !contains_abnormal_ssa_name_p (desc.niter))
+	nfe_desc->niter = desc.niter;
+      else
+	nfe_desc->niter = NULL_TREE;
     }
   else
     nfe_desc = *slot;
 
-  if (!nfe_desc->valid_p)
-    return NULL;
-
-  return &nfe_desc->niter;
+  return nfe_desc->niter;
 }
 
-/* Returns structure describing number of iterations determined from
+/* Returns tree describing number of iterations determined from
    single dominating exit of DATA->current_loop, or NULL if something
    goes wrong.  */
 
-static struct tree_niter_desc *
+static tree
 niter_for_single_dom_exit (struct ivopts_data *data)
 {
   edge exit = single_dom_exit (data->current_loop);
@@ -869,86 +954,6 @@ determine_biv_step (tree phi)
   return (zero_p (iv.step) ? NULL_TREE : iv.step);
 }
 
-/* Returns true if EXP is a ssa name that occurs in an abnormal phi node.  */
-
-static bool
-abnormal_ssa_name_p (tree exp)
-{
-  if (!exp)
-    return false;
-
-  if (TREE_CODE (exp) != SSA_NAME)
-    return false;
-
-  return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (exp) != 0;
-}
-
-/* Returns false if BASE or INDEX contains a ssa name that occurs in an
-   abnormal phi node.  Callback for for_each_index.  */
-
-static bool
-idx_contains_abnormal_ssa_name_p (tree base, tree *index,
-				  void *data ATTRIBUTE_UNUSED)
-{
-  if (TREE_CODE (base) == ARRAY_REF)
-    {
-      if (abnormal_ssa_name_p (TREE_OPERAND (base, 2)))
-	return false;
-      if (abnormal_ssa_name_p (TREE_OPERAND (base, 3)))
-	return false;
-    }
-
-  return !abnormal_ssa_name_p (*index);
-}
-
-/* Returns true if EXPR contains a ssa name that occurs in an
-   abnormal phi node.  */
-
-static bool
-contains_abnormal_ssa_name_p (tree expr)
-{
-  enum tree_code code;
-  enum tree_code_class class;
-
-  if (!expr)
-    return false;
-
-  code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
-
-  if (code == SSA_NAME)
-    return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
-
-  if (code == INTEGER_CST
-      || is_gimple_min_invariant (expr))
-    return false;
-
-  if (code == ADDR_EXPR)
-    return !for_each_index (&TREE_OPERAND (expr, 0),
-			    idx_contains_abnormal_ssa_name_p,
-			    NULL);
-
-  switch (class)
-    {
-    case tcc_binary:
-    case tcc_comparison:
-      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 1)))
-	return true;
-
-      /* Fallthru.  */
-    case tcc_unary:
-      if (contains_abnormal_ssa_name_p (TREE_OPERAND (expr, 0)))
-	return true;
-
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
-
-  return false;
-}
-
 /* Finds basic ivs.  */
 
 static bool
@@ -1102,20 +1107,13 @@ find_induction_variables (struct ivopts_data *data)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      struct tree_niter_desc *niter;
-
-      niter = niter_for_single_dom_exit (data);
+      tree niter = niter_for_single_dom_exit (data);
 
       if (niter)
 	{
 	  fprintf (dump_file, "  number of iterations ");
-	  print_generic_expr (dump_file, niter->niter, TDF_SLIM);
-	  fprintf (dump_file, "\n");
-
-    	  fprintf (dump_file, "  may be zero if ");
-    	  print_generic_expr (dump_file, niter->may_be_zero, TDF_SLIM);
-    	  fprintf (dump_file, "\n");
-    	  fprintf (dump_file, "\n");
+	  print_generic_expr (dump_file, niter, TDF_SLIM);
+	  fprintf (dump_file, "\n\n");
     	};
  
       fprintf (dump_file, "Induction variables:\n\n");
@@ -1340,7 +1338,7 @@ idx_find_step (tree base, tree *idx, void *data)
 {
   struct ifs_ivopts_data *dta = data;
   struct iv *iv;
-  tree step, iv_step, lbound, off;
+  tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
   if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF
@@ -1376,6 +1374,9 @@ idx_find_step (tree base, tree *idx, void *data)
   if (!iv)
     return false;
 
+  /* XXX  We produce for a base of *D42 with iv->base being &x[0]
+	  *&x[0], which is not folded and does not trigger the
+	  ARRAY_REF path below.  */
   *idx = iv->base;
 
   if (!iv->step)
@@ -1393,12 +1394,11 @@ idx_find_step (tree base, tree *idx, void *data)
     /* The step for pointer arithmetics already is 1 byte.  */
     step = build_int_cst (sizetype, 1);
 
-  /* FIXME: convert_step should not be used outside chrec_convert: fix
-     this by calling chrec_convert.  */
-  iv_step = convert_step (dta->ivopts_data->current_loop,
-			  sizetype, iv->base, iv->step, dta->stmt);
-
-  if (!iv_step)
+  iv_base = iv->base;
+  iv_step = iv->step;
+  if (!convert_affine_scev (dta->ivopts_data->current_loop,
+			    sizetype, &iv_base, &iv_step, dta->stmt,
+			    false))
     {
       /* The index might wrap.  */
       return false;
@@ -1547,6 +1547,17 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
       gcc_assert (TREE_CODE (base) != MISALIGNED_INDIRECT_REF);
 
       base = build_fold_addr_expr (base);
+
+      /* Substituting bases of IVs into the base expression might
+	 have caused folding opportunities.  */
+      if (TREE_CODE (base) == ADDR_EXPR)
+	{
+	  tree *ref = &TREE_OPERAND (base, 0);
+	  while (handled_component_p (*ref))
+	    ref = &TREE_OPERAND (*ref, 0);
+	  if (TREE_CODE (*ref) == INDIRECT_REF)
+	    *ref = fold_indirect_ref (*ref);
+	}
     }
 
   civ = alloc_iv (base, step);
@@ -3940,7 +3951,6 @@ may_eliminate_iv (struct ivopts_data *data,
 {
   basic_block ex_bb;
   edge exit;
-  struct tree_niter_desc *niter;
   tree nit, nit_type;
   tree wider_type, period, per_type;
   struct loop *loop = data->current_loop;
@@ -3963,12 +3973,10 @@ may_eliminate_iv (struct ivopts_data *data,
   if (flow_bb_inside_loop_p (loop, exit->dest))
     return false;
 
-  niter = niter_for_exit (data, exit);
-  if (!niter
-      || !zero_p (niter->may_be_zero))
+  nit = niter_for_exit (data, exit);
+  if (!nit)
     return false;
 
-  nit = niter->niter;
   nit_type = TREE_TYPE (nit);
 
   /* Determine whether we may use the variable to test whether niter iterations
@@ -5114,7 +5122,7 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
     }
  
   gimple_add_tmp_var (cand->var_before);
-  add_referenced_tmp_var (cand->var_before);
+  add_referenced_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
 
@@ -5453,112 +5461,6 @@ rewrite_use_compare (struct ivopts_data *data,
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   *op_p = op;
-}
-
-/* Ensure that operand *OP_P may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
-{
-  basic_block def_bb;
-  struct loop *def_loop;
-  tree phi, use;
-
-  use = USE_FROM_PTR (op_p);
-  if (TREE_CODE (use) != SSA_NAME)
-    return;
-
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
-  if (!def_bb)
-    return;
-
-  def_loop = def_bb->loop_father;
-  if (flow_bb_inside_loop_p (def_loop, exit->dest))
-    return;
-
-  /* Try finding a phi node that copies the value out of the loop.  */
-  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
-    if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
-      break;
-
-  if (!phi)
-    {
-      /* Create such a phi node.  */
-      tree new_name = duplicate_ssa_name (use, NULL);
-
-      phi = create_phi_node (new_name, exit->dest);
-      SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (phi, use, exit);
-    }
-
-  SET_USE (op_p, PHI_RESULT (phi));
-}
-
-/* Ensure that operands of STMT may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form (edge exit, tree stmt)
-{
-  ssa_op_iter iter;
-  use_operand_p use_p;
-
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-    protect_loop_closed_ssa_form_use (exit, use_p);
-}
-
-/* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
-   so that they are emitted on the correct place, and so that the loop closed
-   ssa form is preserved.  */
-
-void
-compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
-{
-  tree_stmt_iterator tsi;
-  block_stmt_iterator bsi;
-  tree phi, stmt, def, next;
-
-  if (!single_pred_p (exit->dest))
-    split_loop_exit_edge (exit);
-
-  /* Ensure there is label in exit->dest, so that we can
-     insert after it.  */
-  tree_block_label (exit->dest);
-  bsi = bsi_after_labels (exit->dest);
-
-  if (TREE_CODE (stmts) == STATEMENT_LIST)
-    {
-      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-        {
-	  tree stmt = tsi_stmt (tsi);
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	  protect_loop_closed_ssa_form (exit, stmt);
-	}
-    }
-  else
-    {
-      bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      protect_loop_closed_ssa_form (exit, stmts);
-    }
-
-  if (!op)
-    return;
-
-  for (phi = phi_nodes (exit->dest); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-
-      if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
-	{
-	  def = PHI_RESULT (phi);
-	  remove_statement (phi, false);
-	  stmt = build2 (MODIFY_EXPR, TREE_TYPE (op),
-			def, op);
-	  SSA_NAME_DEF_STMT (def) = stmt;
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	}
-    }
 }
 
 /* Rewrites USE using candidate CAND.  */

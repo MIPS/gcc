@@ -301,7 +301,7 @@ powerpc*-*-*)
 	extra_headers="ppc-asm.h altivec.h spe.h"
 	need_64bit_hwint=yes
 	case x$with_cpu in
-	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[345]|xrs64a)
+	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[3456]|xrs64a)
 		cpu_is_64bit=yes
 		;;
 	esac
@@ -931,6 +931,7 @@ hppa[12]*-*-hpux10*)
 	fi
 	use_collect2=yes
 	use_fixproto=yes
+	gas=yes
 	;;
 hppa*64*-*-hpux11*)
 	target_cpu_default="MASK_PA_11|MASK_PA_20"
@@ -938,16 +939,9 @@ hppa*64*-*-hpux11*)
 	then
 		target_cpu_default="${target_cpu_default}|MASK_GNU_LD"
 	fi
-	if test x$gas = xyes
-	then
-		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h \
-			 pa/pa64-regs.h pa/pa-hpux.h pa/pa-hpux1010.h \
-			 pa/pa-hpux11.h"
-	else
-		tm_file="pa/pa64-start.h ${tm_file} dbxelf.h pa/elf.h \
-			 pa/pa64-regs.h pa/pa-hpux.h pa/pa-hpux1010.h \
-			 pa/pa-hpux11.h"
-	fi
+	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h \
+		 pa/pa64-regs.h pa/pa-hpux.h pa/pa-hpux1010.h \
+		 pa/pa-hpux11.h"
 	case ${target} in
 	*-*-hpux11.[1-9]*)
 		tm_file="${tm_file} pa/pa-hpux1111.h pa/pa-64.h pa/pa64-hpux.h"
@@ -974,6 +968,7 @@ hppa*64*-*-hpux11*)
 		thread_file=posix 
 		;;
 	esac
+	gas=yes
 	;;
 hppa[12]*-*-hpux11*)
 	case ${target} in
@@ -1003,6 +998,7 @@ hppa[12]*-*-hpux11*)
 		;;
 	esac
 	use_collect2=yes
+	gas=yes
 	;;
 i[34567]86-*-darwin*)
 	# All the configuration is presently done generically.
@@ -2812,7 +2808,7 @@ case "${target}" in
 				eval "with_$which=405"
 				;;
 			"" | common \
-			| power | power[2345] | powerpc | powerpc64 \
+			| power | power[23456] | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
 			| 601 | 602 | 603 | 603e | ec603e | 604 \

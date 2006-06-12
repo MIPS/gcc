@@ -157,6 +157,21 @@ public class BasicFileChooserUI extends FileChooserUI
               closeDialog();
             }
         }
+      else
+        {
+          File f = new File(filechooser.getCurrentDirectory(), getFileName());
+          if (filechooser.isTraversable(f))
+            {
+              filechooser.setCurrentDirectory(f);
+              filechooser.rescanCurrentDirectory();
+            }
+          else
+            {
+              filechooser.setSelectedFile(f);
+              filechooser.approveSelection();
+              closeDialog();
+            }
+        }
     }
   }
 
@@ -350,10 +365,10 @@ public class BasicFileChooserUI extends FileChooserUI
   {
 
     /** DOCUMENT ME! */
-    private Object lastSelected = null;
+    private Object lastSelected;
 
     /** DOCUMENT ME! */
-    private JList list = null;
+    private JList list;
 
     /**
      * Creates a new DoubleClickListener object.
@@ -1046,9 +1061,7 @@ public class BasicFileChooserUI extends FileChooserUI
    */
   public String getFileName()
   {
-    // FIXME: I'm thinking that this method just provides access to the
-    // text value in the JTextField component...but not sure yet
-    return null;  //filename;
+    return entry.getText();
   }
 
   /**

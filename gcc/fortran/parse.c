@@ -439,6 +439,7 @@ next_free (void)
 	  if (!gfc_is_whitespace (c))
 	    gfc_error_now ("Non-numeric character in statement label at %C");
 
+	  return ST_NONE;
 	}
       else
 	{
@@ -624,6 +625,7 @@ next_statement (void)
       if (gfc_at_eol ())
 	{
 	  if (gfc_option.warn_line_truncation
+	      && gfc_current_locus.lb
 	      && gfc_current_locus.lb->truncated)
 	    gfc_warning_now ("Line truncated at %C");
 
@@ -1291,7 +1293,7 @@ accept_statement (gfc_statement st)
 static void
 reject_statement (void)
 {
-
+  gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
   undo_new_statement ();
@@ -2280,6 +2282,15 @@ loop:
       break;
 
     case ST_IMPLIED_ENDDO:
+     /* If the do-stmt of this DO construct has a do-construct-name,
+	the corresponding end-do must be an end-do-stmt (with a matching
+	name, but in that case we must have seen ST_ENDDO first).
+	We only complain about this in pedantic mode.  */
+     if (gfc_current_block () != NULL)
+	gfc_error_now
+	  ("named block DO at %L requires matching ENDDO name",
+	   &gfc_current_block()->declared_at);
+
       break;
 
     default:

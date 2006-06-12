@@ -50,6 +50,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #include "vecprim.h"
 
+#if 0
+#define REG_DEAD_DEBUGGING
+#endif
+
 #define DF_SPARSE_THRESHOLD 32
 
 static bitmap seen_in_block = NULL;
@@ -316,7 +320,7 @@ df_unset_seen (void)
    sparse_invalidated_by call both play this game.  */
 
 /* Private data used to compute the solution for this problem.  These
-   data structures are not accessable outside of this module.  */
+   data structures are not accessible outside of this module.  */
 struct df_ru_problem_data
 {
 
@@ -856,7 +860,7 @@ df_ru_add_problem (struct df *df, int flags)
    here for the defs.  */
 
 /* Private data used to compute the solution for this problem.  These
-   data structures are not accessable outside of this module.  */
+   data structures are not accessible outside of this module.  */
 struct df_rd_problem_data
 {
   /* If the number of defs for regnum N is less than
@@ -2273,7 +2277,7 @@ df_ur_add_problem (struct df *df, int flags)
    ----------------------------------------------------------------------------*/
 
 /* Private data used to compute the solution for this problem.  These
-   data structures are not accessable outside of this module.  */
+   data structures are not accessible outside of this module.  */
 struct df_urec_problem_data
 {
   bool earlyclobbers_found;     /* True if any instruction contains an
@@ -3968,7 +3972,7 @@ static struct df_problem problem_RI =
   df_ri_dump,                 /* Debugging.  */
 
   /* Technically this is only dependent on the live registers problem
-     but it will produce infomation if built one of uninitialized
+     but it will produce information if built one of uninitialized
      register problems (UR, UREC) is also run.  */
   df_lr_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */

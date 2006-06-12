@@ -1092,6 +1092,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	case FLOAT_TRUNCATE:
 	case SS_TRUNCATE:
 	case US_TRUNCATE:
+	case SS_NEG:
 	  return 0;
 
 	default:
@@ -1470,6 +1471,11 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
     return tem;
   return simplify_binary_operation_1 (code, mode, op0, op1, trueop0, trueop1);
 }
+
+/* Subroutine of simplify_binary_operation.  Simplify a binary operation
+   CODE with result mode MODE, operating on OP0 and OP1.  If OP0 and/or
+   OP1 are constant pool references, TRUEOP0 and TRUEOP1 represent the
+   actual constants.  */
 
 static rtx
 simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
@@ -1906,12 +1912,12 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	return simplify_gen_binary (ASHIFT, mode, op0, GEN_INT (val));
 
       /* Likewise for multipliers wider than a word.  */
-      else if (GET_CODE (trueop1) == CONST_DOUBLE
-	       && (GET_MODE (trueop1) == VOIDmode
-		   || GET_MODE_CLASS (GET_MODE (trueop1)) == MODE_INT)
-	       && GET_MODE (op0) == mode
-	       && CONST_DOUBLE_LOW (trueop1) == 0
-	       && (val = exact_log2 (CONST_DOUBLE_HIGH (trueop1))) >= 0)
+      if (GET_CODE (trueop1) == CONST_DOUBLE
+	  && (GET_MODE (trueop1) == VOIDmode
+	      || GET_MODE_CLASS (GET_MODE (trueop1)) == MODE_INT)
+	  && GET_MODE (op0) == mode
+	  && CONST_DOUBLE_LOW (trueop1) == 0
+	  && (val = exact_log2 (CONST_DOUBLE_HIGH (trueop1))) >= 0)
 	return simplify_gen_binary (ASHIFT, mode, op0,
 				    GEN_INT (val + HOST_BITS_PER_WIDE_INT));
 
@@ -1926,9 +1932,26 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  if (REAL_VALUES_EQUAL (d, dconst2))
 	    return simplify_gen_binary (PLUS, mode, op0, copy_rtx (op0));
 
-	  if (REAL_VALUES_EQUAL (d, dconstm1))
+	  if (!HONOR_SNANS (mode)
+	      && REAL_VALUES_EQUAL (d, dconstm1))
 	    return simplify_gen_unary (NEG, mode, op0, mode);
 	}
+
+      /* Optimize -x * -x as x * x.  */
+      if (FLOAT_MODE_P (mode)
+	  && GET_CODE (op0) == NEG
+	  && GET_CODE (op1) == NEG
+	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
+	  && !side_effects_p (XEXP (op0, 0)))
+	return simplify_gen_binary (MULT, mode, XEXP (op0, 0), XEXP (op1, 0));
+
+      /* Likewise, optimize abs(x) * abs(x) as x * x.  */
+      if (SCALAR_FLOAT_MODE_P (mode)
+	  && GET_CODE (op0) == ABS
+	  && GET_CODE (op1) == ABS
+	  && rtx_equal_p (XEXP (op0, 0), XEXP (op1, 0))
+	  && !side_effects_p (XEXP (op0, 0)))
+	return simplify_gen_binary (MULT, mode, XEXP (op0, 0), XEXP (op1, 0));
 
       /* Reassociate multiplication, but for floating point MULTs
 	 only when the user specifies unsafe math optimizations.  */
@@ -2413,20 +2436,45 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case ROTATERT:
     case ROTATE:
     case ASHIFTRT:
+      if (trueop1 == CONST0_RTX (mode))
+	return op0;
+      if (trueop0 == CONST0_RTX (mode) && ! side_effects_p (op1))
+	return op0;
       /* Rotating ~0 always results in ~0.  */
       if (GET_CODE (trueop0) == CONST_INT && width <= HOST_BITS_PER_WIDE_INT
 	  && (unsigned HOST_WIDE_INT) INTVAL (trueop0) == GET_MODE_MASK (mode)
 	  && ! side_effects_p (op1))
 	return op0;
-
-      /* Fall through....  */
+      break;
 
     case ASHIFT:
+    case SS_ASHIFT:
+      if (trueop1 == CONST0_RTX (mode))
+	return op0;
+      if (trueop0 == CONST0_RTX (mode) && ! side_effects_p (op1))
+	return op0;
+      break;
+
     case LSHIFTRT:
       if (trueop1 == CONST0_RTX (mode))
 	return op0;
       if (trueop0 == CONST0_RTX (mode) && ! side_effects_p (op1))
 	return op0;
+      /* Optimize (lshiftrt (clz X) C) as (eq X 0).  */
+      if (GET_CODE (op0) == CLZ
+	  && GET_CODE (trueop1) == CONST_INT
+	  && STORE_FLAG_VALUE == 1
+	  && INTVAL (trueop1) < (HOST_WIDE_INT)width)
+	{
+	  enum machine_mode imode = GET_MODE (XEXP (op0, 0));
+	  unsigned HOST_WIDE_INT zero_val = 0;
+
+	  if (CLZ_DEFINED_VALUE_AT_ZERO (imode, zero_val)
+	      && zero_val == GET_MODE_BITSIZE (imode)
+	      && INTVAL (trueop1) == exact_log2 (zero_val))
+	    return simplify_gen_relational (EQ, mode, imode,
+					    XEXP (op0, 0), const0_rtx);
+	}
       break;
 
     case SMIN:
@@ -3110,6 +3158,7 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 	case US_PLUS:
 	case SS_MINUS:
 	case US_MINUS:
+	case SS_ASHIFT:
 	  /* ??? There are simplifications that can be done.  */
 	  return 0;
 	  
@@ -3601,18 +3650,21 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
     return simplify_gen_relational (code, mode, cmp_mode,
 				    XEXP (op0, 0), XEXP (op0, 1));
 
-  /* (eq/ne (xor x y) x) simplifies to (eq/ne x 0).  */
+  /* (eq/ne (xor x y) x) simplifies to (eq/ne y 0).  */
   if ((code == EQ || code == NE)
       && op0code == XOR
       && rtx_equal_p (XEXP (op0, 0), op1)
-      && !side_effects_p (XEXP (op0, 1)))
-    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
-  /* Likewise (eq/ne (xor x y) y) simplifies to (eq/ne y 0).  */
+      && !side_effects_p (XEXP (op0, 0)))
+    return simplify_gen_relational (code, mode, cmp_mode,
+				    XEXP (op0, 1), const0_rtx);
+
+  /* Likewise (eq/ne (xor x y) y) simplifies to (eq/ne x 0).  */
   if ((code == EQ || code == NE)
       && op0code == XOR
       && rtx_equal_p (XEXP (op0, 1), op1)
-      && !side_effects_p (XEXP (op0, 0)))
-    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
+      && !side_effects_p (XEXP (op0, 1)))
+    return simplify_gen_relational (code, mode, cmp_mode,
+				    XEXP (op0, 0), const0_rtx);
 
   /* (eq/ne (xor x C1) C2) simplifies to (eq/ne x (C1^C2)).  */
   if ((code == EQ || code == NE)
@@ -4546,7 +4598,22 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
 	  || ! HARD_REGNO_MODE_OK (regno, innermode))
 	{
-	  rtx x = gen_rtx_REG_offset (op, outermode, final_regno, byte);
+	  rtx x;
+	  int final_offset = byte;
+
+	  /* Adjust offset for paradoxical subregs.  */
+	  if (byte == 0
+	      && GET_MODE_SIZE (innermode) < GET_MODE_SIZE (outermode))
+	    {
+	      int difference = (GET_MODE_SIZE (innermode)
+				- GET_MODE_SIZE (outermode));
+	      if (WORDS_BIG_ENDIAN)
+		final_offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
+	      if (BYTES_BIG_ENDIAN)
+		final_offset += difference % UNITS_PER_WORD;
+	    }
+
+	  x = gen_rtx_REG_offset (op, outermode, final_regno, final_offset);
 
 	  /* Propagate original regno.  We don't have any way to specify
 	     the offset inside original regno, so do so only for lowpart.

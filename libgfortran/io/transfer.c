@@ -272,6 +272,13 @@ read_block (st_parameter_dt *dtp, int *length)
 	    }
 	}
 
+      if (dtp->u.p.current_unit->bytes_left == 0)
+	{
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	  generate_error (&dtp->common, ERROR_END, NULL);
+	  return NULL;
+	}
+
       *length = dtp->u.p.current_unit->bytes_left;
     }
 
@@ -326,6 +333,13 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 	      generate_error (&dtp->common, ERROR_EOR, NULL);
 	      return;
 	    }
+	}
+
+      if (dtp->u.p.current_unit->bytes_left == 0)
+	{
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	  generate_error (&dtp->common, ERROR_END, NULL);
+	  return;
 	}
 
       *nbytes = dtp->u.p.current_unit->bytes_left;
@@ -670,7 +684,13 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
       f = next_format (dtp);
       if (f == NULL)
-	return;	      /* No data descriptors left (already raised).  */
+	{
+	  /* No data descriptors left.  */
+	  if (n > 0)
+	    generate_error (&dtp->common, ERROR_FORMAT,
+		"Insufficient data descriptors in format after reversion");
+	  return;
+	}
 
       /* Now discharge T, TR and X movements to the right.  This is delayed
 	 until a data producing format to suppress trailing spaces.  */

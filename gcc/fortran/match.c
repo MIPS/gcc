@@ -2293,7 +2293,7 @@ gfc_match_common (void)
       if (gsym->type != GSYM_UNKNOWN && gsym->type != GSYM_COMMON)
 	{
 	  gfc_error ("Symbol '%s' at %C is already an external symbol that is not COMMON",
-		     sym->name);
+		     name);
 	  goto cleanup;
 	}
 
@@ -3023,6 +3023,11 @@ match_case_eos (void)
 
   if (gfc_match_eos () == MATCH_YES)
     return MATCH_YES;
+
+  /* If the case construct doesn't have a case-construct-name, we
+     should have matched the EOS.  */
+  if (!gfc_current_block ())
+    return MATCH_ERROR;
 
   gfc_gobble_whitespace ();
 

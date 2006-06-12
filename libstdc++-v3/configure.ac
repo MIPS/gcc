@@ -160,6 +160,9 @@ if $GLIBCXX_IS_NATIVE; then
   # For C99 support to TR1.
   GLIBCXX_CHECK_C99_TR1
 
+  # For dev/random and dev/urandom for TR1.
+  GLIBCXX_CHECK_RANDOM_TR1
+
   # For TLS support.
   GCC_CHECK_TLS
 
@@ -317,6 +320,12 @@ AC_SUBST(ATOMIC_WORD_SRCDIR)
 AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
+
+# Atomic builtins can be inlined in bits/atomicity.h.
+if test $atomicity_dir = cpu/generic/atomic_builtins ; then
+  AC_DEFINE([_GLIBCXX_ATOMIC_BUILTINS], 1,
+            [Define if atomic builtins are provided for this platform.])
+fi
 
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)

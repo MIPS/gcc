@@ -869,6 +869,8 @@ simplify_intrinsic_op (gfc_expr * p, int type)
       return FAILURE;
     }
 
+  result->rank = p->rank;
+  result->where = p->where;
   gfc_replace_expr (p, result);
 
   return SUCCESS;
@@ -1879,7 +1881,7 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
       if (sym->attr.use_assoc)
 	bad_proc = true;
 
-      /* (ii) The assignement is in the main program; or  */
+      /* (ii) The assignment is in the main program; or  */
       if (gfc_current_ns->proc_name->attr.is_main_program)
 	bad_proc = true;
 

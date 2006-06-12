@@ -406,6 +406,10 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
       p_msg ("invalid use of template type parameter");
       break;
 
+    case TYPENAME_TYPE:
+      p_msg ("invalid use of dependent type %qT", type);
+      break;
+
     case UNKNOWN_TYPE:
       if (value && TREE_CODE (value) == COMPONENT_REF)
 	goto bad_member;
@@ -835,7 +839,7 @@ process_init_constructor_array (tree type, tree init)
 	     add anything to the CONSTRUCTOR.  */
 	  break;
 
-	flags |= picflag_from_initializer (next);    
+	flags |= picflag_from_initializer (next);
 	CONSTRUCTOR_APPEND_ELT (v, size_int (i), next);
       }
 
@@ -890,7 +894,7 @@ process_init_constructor_record (tree type, tree init)
 	      gcc_assert (TREE_CODE (ce->index) == FIELD_DECL
 			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
 	      if (ce->index != field
-	          && ce->index != DECL_NAME (field))
+		  && ce->index != DECL_NAME (field))
 		sorry ("non-trivial designated initializers not supported");
 	    }
 
@@ -1017,7 +1021,7 @@ process_init_constructor_union (tree type, tree init)
    After the execution, the initializer will have TREE_CONSTANT if all elts are
    constant, and TREE_STATIC set if, in addition, all elts are simple enough
    constants that the assembler and linker can compute them.
-   
+
    The function returns the initializer itself, or error_mark_node in case
    of error.  */
 
@@ -1196,8 +1200,6 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  datum = decay_conversion (datum);
-
   if (datum == error_mark_node || component == error_mark_node)
     return error_mark_node;
 
@@ -1214,7 +1216,7 @@ build_m_component_ref (tree datum, tree component)
   if (! IS_AGGR_TYPE (objtype))
     {
       error ("cannot apply member pointer %qE to %qE, which is of "
-	     "non-aggregate type %qT",
+	     "non-class type %qT",
 	     component, datum, objtype);
       return error_mark_node;
     }

@@ -74,6 +74,9 @@ details.  */
 // Execution engine for compiled code.
 _Jv_CompiledEngine _Jv_soleCompiledEngine;
 
+// Execution engine for code compiled with -findirect-classes
+_Jv_IndirectCompiledEngine _Jv_soleIndirectCompiledEngine;
+
 // We allocate a single OutOfMemoryError exception which we keep
 // around for use if we run out of memory.
 static java::lang::OutOfMemoryError *no_memory;
@@ -762,6 +765,11 @@ _Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
 jobject
 _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 {
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if (_Jv_IsPhantomClass(array_type))
+    throw new java::lang::NoClassDefFoundError(array_type->getName());
+
   va_list args;
   jint sizes[dimensions];
   va_start (args, dimensions);
@@ -1516,7 +1524,7 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
       if (klass)
 	main_thread = new MainThread (klass, arg_vec);
       else
-	main_thread = new MainThread (JvNewStringLatin1 (name),
+	main_thread = new MainThread (JvNewStringUTF (name),
 				      arg_vec, is_jar);
     }
   catch (java::lang::Throwable *t)
@@ -1714,4 +1722,46 @@ _Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
 	  || (((flags & Modifier::PRIVATE) == 0)
 	      && _Jv_ClassNameSamePackage (self_klass->name,
 					   other_klass->name)));
+}
+
+// Prepend GCJ_VERSIONED_LIBDIR to a module search path stored in a C
+// char array, if the path is not already prefixed by
+// GCJ_VERSIONED_LIBDIR.  Return a newly JvMalloc'd char buffer.  The
+// result should be freed using JvFree.
+char*
+_Jv_PrependVersionedLibdir (char* libpath)
+{
+  char* retval = 0;
+
+  if (libpath && libpath[0] != '\0')
+    {
+      if (! strncmp (libpath,
+                     GCJ_VERSIONED_LIBDIR,
+                     sizeof (GCJ_VERSIONED_LIBDIR) - 1))
+        {
+          // LD_LIBRARY_PATH is already prefixed with
+          // GCJ_VERSIONED_LIBDIR.
+          retval = (char*) _Jv_Malloc (strlen (libpath) + 1);
+          strcpy (retval, libpath);
+        }
+      else
+        {
+          // LD_LIBRARY_PATH is not prefixed with
+          // GCJ_VERSIONED_LIBDIR.
+          jsize total = (sizeof (GCJ_VERSIONED_LIBDIR) - 1)
+            + (sizeof (PATH_SEPARATOR) - 1) + strlen (libpath) + 1;
+          retval = (char*) _Jv_Malloc (total);
+          strcpy (retval, GCJ_VERSIONED_LIBDIR);
+          strcat (retval, PATH_SEPARATOR);
+          strcat (retval, libpath);
+        }
+    }
+  else
+    {
+      // LD_LIBRARY_PATH was not specified or is empty.
+      retval = (char*) _Jv_Malloc (sizeof (GCJ_VERSIONED_LIBDIR));
+      strcpy (retval, GCJ_VERSIONED_LIBDIR);
+    }
+
+  return retval;
 }

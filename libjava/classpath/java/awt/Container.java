@@ -388,10 +388,6 @@ public class Container extends Component
         ContainerListener[] listeners = getContainerListeners();
         for (int i = 0; i < listeners.length; i++)
           listeners[i].componentAdded(ce);
-
-        // Repaint this container.
-        repaint(comp.getX(), comp.getY(), comp.getWidth(),
-                comp.getHeight());
       }
   }
 
@@ -461,8 +457,44 @@ public class Container extends Component
   {
     synchronized (getTreeLock ())
       {
-        while (ncomponents > 0)
-          remove(0);
+        // In order to allow the same bad tricks to be used as in RI
+        // this code has to stay exactly that way: In a real-life app
+        // a Container subclass implemented its own vector for
+        // subcomponents, supplied additional addXYZ() methods
+        // and overrode remove(int) and removeAll (the latter calling
+        // super.removeAll() ).
+        // By doing it this way, user code cannot prevent the correct
+        // removal of components.
+        for ( int index = 0; index < ncomponents; index++)
+          {
+            Component r = component[index];
+
+            ComponentListener[] list = r.getComponentListeners();
+            for (int j = 0; j < list.length; j++)
+              r.removeComponentListener(list[j]);
+            
+            r.removeNotify();
+
+            if (layoutMgr != null)
+              layoutMgr.removeLayoutComponent(r);
+
+            r.parent = null;
+
+            if (isShowing ())
+              {
+                // Post event to notify of removing the component.
+                ContainerEvent ce
+                  = new ContainerEvent(this,
+                                       ContainerEvent.COMPONENT_REMOVED,
+                                       r);
+                
+                getToolkit().getSystemEventQueue().postEvent(ce);
+              }
+            }
+          
+          invalidate();
+        
+          ncomponents = 0;
       }
   }
 
@@ -968,6 +1000,13 @@ public class Container extends Component
    * child component claims the point, the container itself is returned,
    * unless the point does not exist within this container, in which
    * case <code>null</code> is returned.
+   * 
+   * When components overlap, the first component is returned. The component
+   * that is closest to (x, y), containing that location, is returned. 
+   * Heavyweight components take precedence of lightweight components.
+   * 
+   * This function does not ignore invisible components. If there is an invisible
+   * component at (x,y), it will be returned.
    *
    * @param x The X coordinate of the point.
    * @param y The Y coordinate of the point.
@@ -987,7 +1026,14 @@ public class Container extends Component
    * child component claims the point, the container itself is returned,
    * unless the point does not exist within this container, in which
    * case <code>null</code> is returned.
-   *
+   * 
+   * When components overlap, the first component is returned. The component
+   * that is closest to (x, y), containing that location, is returned. 
+   * Heavyweight components take precedence of lightweight components.
+   * 
+   * This function does not ignore invisible components. If there is an invisible
+   * component at (x,y), it will be returned.
+   * 
    * @param x The x position of the point to return the component at.
    * @param y The y position of the point to return the component at.
    *
@@ -1002,17 +1048,28 @@ public class Container extends Component
       {
         if (!contains (x, y))
           return null;
+        
+        // First find the component closest to (x,y) that is a heavyweight.
         for (int i = 0; i < ncomponents; ++i)
           {
-            // Ignore invisible children...
-            if (!component[i].isVisible ())
-              continue;
-
-            int x2 = x - component[i].x;
-            int y2 = y - component[i].y;
-            if (component[i].contains (x2, y2))
-              return component[i];
+            Component comp = component[i];
+            int x2 = x - comp.x;
+            int y2 = y - comp.y;
+            if (comp.contains (x2, y2) && !comp.isLightweight())
+              return comp;
           }
+        
+        // if a heavyweight component is not found, look for a lightweight
+        // closest to (x,y).
+        for (int i = 0; i < ncomponents; ++i)
+          {
+            Component comp = component[i];
+            int x2 = x - comp.x;
+            int y2 = y - comp.y;
+            if (comp.contains (x2, y2) && comp.isLightweight())
+              return comp;
+          }
+        
         return this;
       }
   }
@@ -1025,6 +1082,13 @@ public class Container extends Component
    * unless the point does not exist within this container, in which
    * case <code>null</code> is returned.
    *
+   * The top-most child component is returned in the case where components overlap.
+   * This is determined by finding the component closest to (x,y) and contains 
+   * that location. Heavyweight components take precedence of lightweight components.
+   * 
+   * This function does not ignore invisible components. If there is an invisible
+   * component at (x,y), it will be returned.
+   * 
    * @param p The point to return the component at.
    * @return The component containing the specified point, or <code>null</code>
    * if there is no such point.
@@ -1034,6 +1098,22 @@ public class Container extends Component
     return getComponentAt (p.x, p.y);
   }
 
+  /**
+   * Locates the visible child component that contains the specified position. 
+   * The top-most child component is returned in the case where there is overlap
+   * in the components. If the containing child component is a Container,
+   * this method will continue searching for the deepest nested child 
+   * component. Components which are not visible are ignored during the search.
+   * 
+   * findComponentAt differs from getComponentAt, because it recursively 
+   * searches a Container's children.
+   * 
+   * @param x - x coordinate
+   * @param y - y coordinate
+   * @return null if the component does not contain the position. 
+   * If there is no child component at the requested point and the point is 
+   * within the bounds of the container the container itself is returned.
+   */
   public Component findComponentAt(int x, int y)
   {
     synchronized (getTreeLock ())
@@ -1067,53 +1147,20 @@ public class Container extends Component
   }
   
   /**
-   * Finds the visible child component that contains the specified position.
-   * The top-most child is returned in the case where there is overlap.
-   * If the top-most child is transparent and has no MouseListeners attached,
-   * we discard it and return the next top-most component containing the
-   * specified position.
-   * @param x the x coordinate
-   * @param y the y coordinate
-   * @return null if the <code>this</code> does not contain the position,
-   * otherwise the top-most component (out of this container itself and 
-   * its descendants) meeting the criteria above.
+   * Locates the visible child component that contains the specified position. 
+   * The top-most child component is returned in the case where there is overlap
+   * in the components. If the containing child component is a Container,
+   * this method will continue searching for the deepest nested child 
+   * component. Components which are not visible are ignored during the search.
+   * 
+   * findComponentAt differs from getComponentAt, because it recursively 
+   * searches a Container's children.
+   * 
+   * @param p - the component's location
+   * @return null if the component does not contain the position. 
+   * If there is no child component at the requested point and the point is 
+   * within the bounds of the container the container itself is returned.
    */
-  Component findComponentForMouseEventAt(int x, int y)
-  {
-    synchronized (getTreeLock())
-      {
-        if (!contains(x, y))
-          return null;
-          
-        for (int i = 0; i < ncomponents; ++i)
-          {
-            // Ignore invisible children...
-            if (!component[i].isVisible())
-              continue;
-
-            int x2 = x - component[i].x;
-            int y2 = y - component[i].y;
-            // We don't do the contains() check right away because
-            // findComponentAt would redundantly do it first thing.
-            if (component[i] instanceof Container)
-              {
-                Container k = (Container) component[i];
-                Component r = k.findComponentForMouseEventAt(x2, y2);
-                if (r != null)
-                  return r;
-              }
-            else if (component[i].contains(x2, y2))
-              return component[i];
-          }
-
-        //don't return transparent components with no MouseListeners
-        if (getMouseListeners().length == 0
-            && getMouseMotionListeners().length == 0)
-          return null;
-        return this;
-      }
-  }
-
   public Component findComponentAt(Point p)
   {
     return findComponentAt(p.x, p.y);
@@ -1454,7 +1501,7 @@ public class Container extends Component
       {
         Container ancestor = getFocusCycleRootAncestor ();
 
-	if (ancestor != this)
+	if (ancestor != this && ancestor !=  null)
 	  return ancestor.getFocusTraversalPolicy ();
 	else
 	  {
@@ -1524,9 +1571,16 @@ public class Container extends Component
    */
   public void transferFocusDownCycle ()
   {
-    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
-
-    manager.downFocusCycle (this);
+    if (isFocusCycleRoot())
+      {
+        KeyboardFocusManager fm =
+          KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        fm.setGlobalCurrentFocusCycleRoot(this);
+        FocusTraversalPolicy policy = getFocusTraversalPolicy();
+        Component defaultComponent = policy.getDefaultComponent(this);
+        if (defaultComponent != null)
+          defaultComponent.requestFocus();
+      }
   }
 
   /**
