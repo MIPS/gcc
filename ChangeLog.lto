@@ -3,6 +3,9 @@
 	* gcc/c-decl.c (store_parm_decls_oldstyle): Simplify the
 	construction of a linked list.
 
+	* gcc/c-format.c (handle_format_attribute): Simplify using
+	list_length.
+
 2006-06-11  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree-mudflap.c (build_function_type_0,

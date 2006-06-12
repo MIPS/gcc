@@ -2713,23 +2713,16 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       if (!check_format_string (argument, info.format_num, flags,
 				no_add_attrs))
 	return NULL_TREE;
-
-      if (info.first_arg_num != 0)
+      
+      /* Verify that first_arg_num points to the last arg, the ...  */
+      if (info.first_arg_num != 0
+	  && (1 + (unsigned HOST_WIDE_INT) list_length (argument)
+	      != info.first_arg_num))
 	{
-	  unsigned HOST_WIDE_INT arg_num = 1;
-
-	  /* Verify that first_arg_num points to the last arg,
-	     the ...  */
-	  while (argument)
-	    arg_num++, argument = TREE_CHAIN (argument);
-
-	  if (arg_num != info.first_arg_num)
-	    {
-	      if (!(flags & (int) ATTR_FLAG_BUILT_IN))
-		error ("args to be formatted is not %<...%>");
-	      *no_add_attrs = true;
-	      return NULL_TREE;
-	    }
+	  if (!(flags & (int) ATTR_FLAG_BUILT_IN))
+	    error ("args to be formatted is not %<...%>");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
 	}
     }
 
