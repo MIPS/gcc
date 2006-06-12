@@ -1,3 +1,8 @@
+2006-06-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/c-decl.c (store_parm_decls_oldstyle): Simplify the
+	construction of a linked list.
+
 2006-06-11  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree-mudflap.c (build_function_type_0,

@@ -6432,22 +6432,14 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
   else
     {
-      tree actual = 0, last = 0, type;
+      tree actual, *p = &actual;
 
       for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
 	{
-	  type = tree_cons (NULL_TREE, DECL_ARG_TYPE (parm), NULL_TREE);
-	  if (last)
-	    TREE_CHAIN (last) = type;
-	  else
-	    actual = type;
-	  last = type;
+	  *p = build_tree_list (NULL_TREE, DECL_ARG_TYPE (parm));
+	  p = &TREE_CHAIN (*p);
 	}
-      type = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
-      if (last)
-	TREE_CHAIN (last) = type;
-      else
-	actual = type;
+      *p = build_tree_list (NULL_TREE, void_type_node);
 
       /* We are going to assign a new value for the TYPE_ACTUAL_ARG_TYPES
 	 of the type of this function, but we need to avoid having this
