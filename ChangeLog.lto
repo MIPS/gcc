@@ -1,3 +1,11 @@
+2006-06-12  Mark Mitchell  <mark@codesourcery.com>
+	    Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/testsuite/g++.dg/parse/ctor6.C,
+	gcc/testsuite/g++.dg/parse/defarg11.C,
+	gcc/testsuite/g++.dg/template/friend42.C,
+	gcc/testsuite/g++.dg/template/spec30.C: New.
+
 2006-06-12  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (store_parm_decls_oldstyle): Simplify the
