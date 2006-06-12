@@ -68,7 +68,7 @@ static void dump_type_suffix (tree, int);
 static void dump_function_name (tree, int);
 static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
-static void dump_parameters (tree, int);
+static void dump_parameters (tree, tree, int);
 static void dump_exception_spec (tree, int);
 static void dump_template_argument (tree, int);
 static void dump_template_argument_list (tree, int);
@@ -264,7 +264,7 @@ dump_type (tree t, int flags)
 
     case TREE_LIST:
       /* A list of function parms.  */
-      dump_parameters (t, flags);
+      dump_parameters (t, NULL_TREE, flags);
       break;
 
     case IDENTIFIER_NODE:
@@ -606,7 +606,7 @@ dump_type_suffix (tree t, int flags)
 
 	/* Function pointers don't have default args.  Not in standard C++,
 	   anyway; they may in g++, but we'll just pretend otherwise.  */
-	dump_parameters (arg, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
+	dump_parameters (arg, NULL_TREE, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  pp_cxx_cv_qualifier_seq
@@ -982,6 +982,7 @@ dump_function_decl (tree t, int flags)
 {
   tree fntype;
   tree parmtypes;
+  tree parmdecls;
   tree cname = NULL_TREE;
   tree template_args = NULL_TREE;
   tree template_parms = NULL_TREE;
@@ -1006,6 +1007,7 @@ dump_function_decl (tree t, int flags)
 
   fntype = TREE_TYPE (t);
   parmtypes = FUNCTION_FIRST_USER_PARMTYPE (t);
+  parmdecls = FUNCTION_FIRST_USER_PARM (t);
 
   if (DECL_CLASS_SCOPE_P (t))
     cname = DECL_CONTEXT (t);
@@ -1040,7 +1042,7 @@ dump_function_decl (tree t, int flags)
 
   if (!(flags & TFF_NO_FUNCTION_ARGUMENTS))
     {
-      dump_parameters (parmtypes, flags);
+      dump_parameters (parmtypes, parmdecls, flags);
 
       if (TREE_CODE (fntype) == METHOD_TYPE)
 	{
@@ -1076,7 +1078,7 @@ dump_function_decl (tree t, int flags)
    already been removed.  */
 
 static void
-dump_parameters (tree parmtypes, int flags)
+dump_parameters (tree parmtypes, tree parmdecls, int flags)
 {
   int first;
 
@@ -1095,13 +1097,17 @@ dump_parameters (tree parmtypes, int flags)
 	}
       dump_type (TREE_VALUE (parmtypes), flags);
 
-      if ((flags & TFF_FUNCTION_DEFAULT_ARGUMENTS) && TREE_PURPOSE (parmtypes))
+      if ((flags & TFF_FUNCTION_DEFAULT_ARGUMENTS)
+	  && parmdecls
+	  && DECL_INITIAL (parmdecls))
 	{
 	  pp_cxx_whitespace (cxx_pp);
 	  pp_equal (cxx_pp);
 	  pp_cxx_whitespace (cxx_pp);
-	  dump_expr (TREE_PURPOSE (parmtypes), flags | TFF_EXPR_IN_PARENS);
+	  dump_expr (DECL_INITIAL (parmdecls), flags | TFF_EXPR_IN_PARENS);
 	}
+      if (parmdecls)
+	parmdecls = TREE_CHAIN (parmdecls);
     }
 
   pp_cxx_right_paren (cxx_pp);

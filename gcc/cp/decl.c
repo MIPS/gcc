@@ -1095,6 +1095,25 @@ check_redeclaration_exception_specification (tree new_decl,
     }
 }
 
+/* Merge default arguments for OLD_FN and NEW_FN.  When this routine
+   returns, both functions will have the same default arguments.  */
+
+static void
+merge_default_arguments (tree old_fn, tree new_fn)
+{
+  tree oldparm, newparm;
+
+  for (oldparm = DECL_ARGUMENTS (old_fn),
+	 newparm = DECL_ARGUMENTS (new_fn);
+       oldparm && newparm;
+       oldparm = TREE_CHAIN (oldparm),
+	 newparm = TREE_CHAIN (newparm))
+    if (DECL_INITIAL (oldparm) && !DECL_INITIAL (newparm))
+      DECL_INITIAL (newparm) = DECL_INITIAL (oldparm);
+    else
+      DECL_INITIAL (oldparm) = DECL_INITIAL (newparm);
+}
+
 /* If NEWDECL is a redeclaration of OLDDECL, merge the declarations.
    If the redeclaration is invalid, a diagnostic is issued, and the
    error_mark_node is returned.  Otherwise, OLDDECL is returned.
@@ -1476,19 +1495,19 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	;
       else if (TREE_CODE (olddecl) == FUNCTION_DECL)
 	{
-	  tree t1 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
-	  tree t2 = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
+	  tree t1 = DECL_ARGUMENTS (olddecl);
+	  tree t2 = DECL_ARGUMENTS (newdecl);
 	  int i = 1;
 
 	  if (TREE_CODE (TREE_TYPE (newdecl)) == METHOD_TYPE)
 	    t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2);
 
-	  for (; t1 && t1 != void_list_node;
+	  for (; t1 && t2;
 	       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2), i++)
-	    if (TREE_PURPOSE (t1) && TREE_PURPOSE (t2))
+	    if (DECL_INITIAL (t1) && DECL_INITIAL (t2))
 	      {
-		if (1 == simple_cst_equal (TREE_PURPOSE (t1),
-					   TREE_PURPOSE (t2)))
+		if (1 == simple_cst_equal (DECL_INITIAL (t1),
+					   DECL_INITIAL (t2)))
 		  {
 		    pedwarn ("default argument given for parameter %d of %q#D",
 			     i, newdecl);
@@ -1601,6 +1620,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    |= DECL_INLINE (new_result);
 	  DECL_DECLARED_INLINE_P (old_result)
 	    |= DECL_DECLARED_INLINE_P (new_result);
+	  merge_default_arguments (old_result, new_result);
 	  check_redeclaration_exception_specification (newdecl, olddecl);
 	}
 
@@ -1659,7 +1679,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Do this after calling `merge_types' so that default
 	 parameters don't confuse us.  */
       else if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	check_redeclaration_exception_specification (newdecl, olddecl);
+	{
+	  merge_default_arguments (olddecl, newdecl);
+	  check_redeclaration_exception_specification (newdecl, olddecl);
+	}
       TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = newtype;
 
       /* Lay the type out, unless already done.  */
@@ -2021,6 +2044,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  || (TREE_CODE (olddecl) == VAR_DECL
 	      && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl);
+
+  {
+    tree clone;
+    FOR_EACH_CLONE (clone, olddecl)
+      update_cloned_parms (clone, newdecl, false);
+  }
 
   /* The NEWDECL will no longer be needed.  Because every out-of-class
      declaration of a member results in a call to duplicate_decls,
@@ -5929,9 +5958,9 @@ grokfndecl (tree ctype,
 		      || TREE_CODE (fns) == OVERLOAD);
 	  DECL_TEMPLATE_INFO (decl) = tree_cons (fns, args, NULL_TREE);
 
-	  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); t; t = TREE_CHAIN (t))
-	    if (TREE_PURPOSE (t)
-		&& TREE_CODE (TREE_PURPOSE (t)) == DEFAULT_ARG)
+	  for (t = DECL_ARGUMENTS (decl); t; t = TREE_CHAIN (t))
+	    if (DECL_INITIAL (t)
+		&& TREE_CODE (DECL_INITIAL (t)) == DEFAULT_ARG)
 	    {
 	      error ("default arguments are not allowed in declaration "
 		     "of friend template specialization %qD",
@@ -8234,12 +8263,13 @@ grokdeclarator (const cp_declarator *declarator,
 		   any subsequent parameters have default arguments.
 		   Ignore any compiler-added parms.  */
 		tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (decl);
+		tree parm_decls = FUNCTION_FIRST_USER_PARM (decl);
 
 		if (arg_types == void_list_node
 		    || (arg_types
 			&& TREE_CHAIN (arg_types)
 			&& TREE_CHAIN (arg_types) != void_list_node
-			&& !TREE_PURPOSE (TREE_CHAIN (arg_types))))
+			&& !DECL_INITIAL (TREE_CHAIN (parm_decls))))
 		  DECL_NONCONVERTING_P (decl) = 1;
 	      }
 	  }
@@ -8781,7 +8811,8 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 
       TREE_CHAIN (decl) = decls;
       decls = decl;
-      result = tree_cons (init, type, result);
+      DECL_INITIAL (decl) = init;
+      result = tree_cons (NULL_TREE, type, result);
     }
   decls = nreverse (decls);
   result = nreverse (result);
@@ -8814,7 +8845,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 int
 copy_fn_p (tree d)
 {
-  tree args;
+  tree args, parm_decls;
   tree arg_type;
   int result = 1;
 
@@ -8832,6 +8863,7 @@ copy_fn_p (tree d)
     return 0;
 
   args = FUNCTION_FIRST_USER_PARMTYPE (d);
+  parm_decls = FUNCTION_FIRST_USER_PARM (d);
   if (!args)
     return 0;
 
@@ -8854,8 +8886,11 @@ copy_fn_p (tree d)
     return 0;
 
   args = TREE_CHAIN (args);
+  if (parm_decls)
+    parm_decls = TREE_CHAIN (parm_decls);
 
-  if (args && args != void_list_node && !TREE_PURPOSE (args))
+  if (args && args != void_list_node
+      && parm_decls && !DECL_INITIAL (parm_decls))
     /* There are more non-optional args.  */
     return 0;
 
@@ -8891,7 +8926,7 @@ void grok_special_member_properties (tree decl)
 	  if (ctor > 1)
 	    TYPE_HAS_CONST_INIT_REF (class_type) = 1;
 	}
-      else if (sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (decl)))
+      else if (sufficient_parms_p (FUNCTION_FIRST_USER_PARM (decl)))
 	TYPE_HAS_DEFAULT_CONSTRUCTOR (class_type) = 1;
     }
   else if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
@@ -9071,6 +9106,8 @@ grok_op_properties (tree decl, bool complain)
     TREE_TYPE (decl) = coerce_delete_type (TREE_TYPE (decl));
   else
     {
+      tree parm_decls;
+
       /* An operator function must either be a non-static member function
 	 or have at least one parameter of a class, a reference to a class,
 	 an enumeration, or a reference to an enumeration.  13.4.0.6 */
@@ -9301,11 +9338,12 @@ grok_op_properties (tree decl, bool complain)
 	warning (OPT_Weffc__, "%qD should return by value", decl);
 
       /* [over.oper]/8 */
-      for (; argtypes && argtypes != void_list_node;
-	  argtypes = TREE_CHAIN (argtypes))
-	if (TREE_PURPOSE (argtypes))
+      for (parm_decls = DECL_ARGUMENTS (decl);
+	   parm_decls;
+	   parm_decls = TREE_CHAIN (parm_decls))
+	if (DECL_INITIAL (parm_decls))
 	  {
-	    TREE_PURPOSE (argtypes) = NULL_TREE;
+	    DECL_INITIAL (parm_decls) = NULL_TREE;
 	    if (operator_code == POSTINCREMENT_EXPR
 		|| operator_code == POSTDECREMENT_EXPR)
 	      {
@@ -10293,12 +10331,6 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
     warning (0, "inline function %q+D given attribute noinline", decl1);
-
-  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
-    /* This is a constructor, we must ensure that any default args
-       introduced by this definition are propagated to the clones
-       now. The clones are used directly in overload resolution.  */
-    adjust_clone_args (decl1);
 
   /* Sometimes we don't notice that a function is a static member, and
      build a METHOD_TYPE for it.  Fix that up now.  */

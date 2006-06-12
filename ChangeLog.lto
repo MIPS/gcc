@@ -6,6 +6,68 @@
 	gcc/testsuite/g++.dg/template/friend42.C,
 	gcc/testsuite/g++.dg/template/spec30.C: New.
 
+	Put default arguments in DECL_INITIAL of a PARM_DECL instead
+	of TREE_PURPOSE of a type.
+	* gcc/cp/call.c (sufficient_parms_p): Take a list of
+	PARM_DECLs instead of a list of types.
+	(add_function_candidate): Adjust the call to
+	sufficient_parms_p.
+	(add_conv_candidate): Set viable to 0 if parameters are still
+	left after the "for"loop.
+	sufficient_parms_p.
+	(build_over_call): Use DECL_INITIAL instead of TREE_PURPOSE
+	for default arguments.
+	* gcc/cp/class.c (build_clone): Push PARM_DECLs with
+	DEFAULT_ARG to DEFARG_INSTANTIATIONS.
+	(adjust_clone_args): Remove.
+	* gcc/cp/cp-gimplify.c (cxx_omp_clause_apply_fn): Use
+	DECL_INITIAL instead of TREE_PURPOSE for default arguments.
+	* gcc/cp/cp-tree.h (FUNCTION_FIRST_USER_PARM): Use
+	DECL_TEMPLATE_RESULT if NODE is a function template.
+	Remove the prototype for adjust_clone_args.
+	Add a prototype for update_cloned_parms.
+	* gcc/cp/decl.c (merge_default_arguments): New.
+	(duplicate_decls): Use DECL_INITIAL instead of TREE_PURPOSE
+	for default arguments.  Call merge_default_arguments.  Call
+	update_cloned_parms.
+	(grokfndecl): Use DECL_INITIAL instead of TREE_PURPOSE for
+	default arguments.
+	(grokparms): Put a default argument in DECL_INITIAL instead of
+	TREE_PURPOSE of a type.
+	(copy_fn_p, grok_op_properties): Use DECL_INITIAL instead of
+	TREE_PURPOSE for default arguments.
+	(start_preparsed_function): Don't call adjust_clone_args.
+	* gcc/cp/decl2.c (Use DECL_INITIAL instead of TREE_PURPOSE for
+	default arguments.
+	* gcc/cp/error.c (dump_type, dump_type_suffix,
+	dump_function_decl): Adjust the call dump_parameters.
+	(dump_parameters): Take parmdecls as an additional parameter.
+	Use DECL_INITIAL instead of TREE_PURPOSE for default
+	arguments.
+	* gcc/cp/method.c (locate_ctor): Adjust the call to
+	sufficient_parms_p.
+	(locate_copy): Adjust the call to sufficient_parms_p.
+	* gcc/cp/optimize.c (update_cloned_parms): New.
+	(maybe_clone_body): Call update_cloned_parms.
+	* gcc/cp/parser.c (cp_parser_save_default_args,
+	cp_parser_late_parsing_default_args): Use DECL_INITIAL instead
+	of TREE_PURPOSE for default arguments.
+	* gcc/cp/pt.c (copy_default_args_to_explicit_spec_1): Remove.
+	(copy_default_args_to_explicit_spec): Copy default arguments.
+	(check_explicit_specialization, tsubst_default_arguments,
+	tsubst_decl): Use DECL_INITIAL instead of TREE_PURPOSE for
+	default arguments.
+	(tsubst_arg_types): Don't touch DEFARG_INSTANTIATIONS.
+	(fn_type_unification, unify): Adjust the call to
+	type_unification_real.
+	(type_unification_real): Take fn as an additional parameter.
+	Use DECL_INITIAL instead of TREE_PURPOSE for default
+	arguments.
+	* gcc/cp/typeck.c (commonparms): Don't merge default
+	arguments.
+	(convert_arguments): Use DECL_INITIAL instead of TREE_PURPOSE
+	for default arguments.
+
 2006-06-12  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (store_parm_decls_oldstyle): Simplify the

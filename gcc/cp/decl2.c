@@ -3215,17 +3215,18 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 void
 check_default_args (tree x)
 {
-  tree arg = TYPE_ARG_TYPES (TREE_TYPE (x));
+  tree arg = DECL_ARGUMENTS (DECL_FUNCTION_TEMPLATE_P (x)
+			     ? DECL_TEMPLATE_RESULT (x) : x);
   bool saw_def = false;
   int i = 0 - (TREE_CODE (TREE_TYPE (x)) == METHOD_TYPE);
   for (; arg && arg != void_list_node; arg = TREE_CHAIN (arg), ++i)
     {
-      if (TREE_PURPOSE (arg))
+      if (DECL_INITIAL (arg))
 	saw_def = true;
       else if (saw_def)
 	{
 	  error ("default argument missing for parameter %P of %q+#D", i, x);
-	  TREE_PURPOSE (arg) = error_mark_node;
+	  DECL_INITIAL (arg) = error_mark_node;
 	}
     }
 }

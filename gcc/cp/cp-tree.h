@@ -930,8 +930,11 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   skip_artificial_parms_for ((NODE), TYPE_ARG_TYPES (TREE_TYPE (NODE)))
 
 /* Similarly, but for DECL_ARGUMENTS.  */
-#define FUNCTION_FIRST_USER_PARM(NODE) \
-  skip_artificial_parms_for ((NODE), DECL_ARGUMENTS (NODE))
+#define FUNCTION_FIRST_USER_PARM(NODE)						\
+  skip_artificial_parms_for ((NODE),						\
+			     DECL_ARGUMENTS (DECL_FUNCTION_TEMPLATE_P (NODE)	\
+					     ? DECL_TEMPLATE_RESULT (NODE)	\
+					     : (NODE)))
 
 #define PROMOTES_TO_AGGR_TYPE(NODE, CODE)	\
   (((CODE) == TREE_CODE (NODE)			\
@@ -3795,7 +3798,6 @@ extern tree build_expr_type_conversion		(int, tree, bool);
 extern tree type_promotes_to			(tree);
 extern tree perform_qualification_conversions	(tree, tree);
 extern void clone_function_decl			(tree, int);
-extern void adjust_clone_args			(tree);
 
 /* decl.c */
 extern tree poplevel				(int, int, int);
@@ -4020,6 +4022,7 @@ extern tree make_alias_for			(tree, tree);
 
 /* In optimize.c */
 extern bool maybe_clone_body			(tree);
+extern void update_cloned_parms			(tree, tree, bool);
 
 /* in pt.c */
 extern void check_template_shadow		(tree);

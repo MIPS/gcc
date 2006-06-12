@@ -3805,6 +3805,14 @@ build_clone (tree fn, tree name)
 
       for (parms = DECL_ARGUMENTS (clone); parms; parms = TREE_CHAIN (parms))
 	{
+	  tree initial = DECL_INITIAL (parms);
+
+	  /* Add PARMS to DEFARG_INSTANTIATIONS of its DECL_INITIAL if
+	     late parsing is required.  */
+	  if (initial && TREE_CODE (initial) == DEFAULT_ARG)
+	    VEC_safe_push (tree, gc,
+			   DEFARG_INSTANTIATIONS (initial), parms);
+
 	  DECL_CONTEXT (parms) = clone;
 	  cxx_dup_lang_specific_decl (parms);
 	}
@@ -3889,79 +3897,6 @@ clone_function_decl (tree fn, int update_method_vec_p)
 
   /* Note that this is an abstract function that is never emitted.  */
   DECL_ABSTRACT (fn) = 1;
-}
-
-/* DECL is an in charge constructor, which is being defined. This will
-   have had an in class declaration, from whence clones were
-   declared. An out-of-class definition can specify additional default
-   arguments. As it is the clones that are involved in overload
-   resolution, we must propagate the information from the DECL to its
-   clones.  */
-
-void
-adjust_clone_args (tree decl)
-{
-  tree clone;
-
-  for (clone = TREE_CHAIN (decl); clone && DECL_CLONED_FUNCTION (clone);
-       clone = TREE_CHAIN (clone))
-    {
-      tree orig_clone_parms = TYPE_ARG_TYPES (TREE_TYPE (clone));
-      tree orig_decl_parms = TYPE_ARG_TYPES (TREE_TYPE (decl));
-      tree decl_parms, clone_parms;
-
-      clone_parms = orig_clone_parms;
-
-      /* Skip the 'this' parameter.  */
-      orig_clone_parms = TREE_CHAIN (orig_clone_parms);
-      orig_decl_parms = TREE_CHAIN (orig_decl_parms);
-
-      if (DECL_HAS_IN_CHARGE_PARM_P (decl))
-	orig_decl_parms = TREE_CHAIN (orig_decl_parms);
-      if (DECL_HAS_VTT_PARM_P (decl))
-	orig_decl_parms = TREE_CHAIN (orig_decl_parms);
-
-      clone_parms = orig_clone_parms;
-      if (DECL_HAS_VTT_PARM_P (clone))
-	clone_parms = TREE_CHAIN (clone_parms);
-
-      for (decl_parms = orig_decl_parms; decl_parms;
-	   decl_parms = TREE_CHAIN (decl_parms),
-	     clone_parms = TREE_CHAIN (clone_parms))
-	{
-	  gcc_assert (same_type_p (TREE_TYPE (decl_parms),
-				   TREE_TYPE (clone_parms)));
-
-	  if (TREE_PURPOSE (decl_parms) && !TREE_PURPOSE (clone_parms))
-	    {
-	      /* A default parameter has been added. Adjust the
-		 clone's parameters.  */
-	      tree exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
-	      tree basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
-	      tree type;
-
-	      clone_parms = orig_decl_parms;
-
-	      if (DECL_HAS_VTT_PARM_P (clone))
-		{
-		  clone_parms = tree_cons (TREE_PURPOSE (orig_clone_parms),
-					   TREE_VALUE (orig_clone_parms),
-					   clone_parms);
-		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
-		}
-	      type = build_method_type_directly (basetype,
-						 TREE_TYPE (TREE_TYPE (clone)),
-						 clone_parms);
-	      if (exceptions)
-		type = build_exception_variant (type, exceptions);
-	      TREE_TYPE (clone) = type;
-
-	      clone_parms = NULL_TREE;
-	      break;
-	    }
-	}
-      gcc_assert (!clone_parms);
-    }
 }
 
 /* For each of the constructors and destructors in T, create an

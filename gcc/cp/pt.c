@@ -111,7 +111,7 @@ static tree add_to_template_args (tree, tree);
 static tree add_outermost_template_args (tree, tree);
 static bool check_instantiated_args (tree, tree, tsubst_flags_t);
 static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*);
-static int  type_unification_real (tree, tree, tree, tree,
+static int  type_unification_real (tree, tree, tree, tree, tree,
 				   int, unification_kind_t, int);
 static void note_template_header (int);
 static tree convert_nontype_argument_function (tree, tree);
@@ -154,7 +154,6 @@ static tree determine_specialization (tree, tree, tree *, int, int);
 static int template_args_equal (tree, tree);
 static void tsubst_default_arguments (tree);
 static tree for_each_template_parm_r (tree *, int *, void *);
-static tree copy_default_args_to_explicit_spec_1 (tree, tree);
 static void copy_default_args_to_explicit_spec (tree);
 static int invalid_nontype_parm_type_p (tree, tsubst_flags_t);
 static int eq_local_specializations (const void *, const void *);
@@ -1596,33 +1595,6 @@ determine_specialization (tree template_id,
   return TREE_VALUE (templates);
 }
 
-/* Returns a chain of parameter types, exactly like the SPEC_TYPES,
-   but with the default argument values filled in from those in the
-   TMPL_TYPES.  */
-
-static tree
-copy_default_args_to_explicit_spec_1 (tree spec_types,
-				      tree tmpl_types)
-{
-  tree new_spec_types;
-
-  if (!spec_types)
-    return NULL_TREE;
-
-  if (spec_types == void_list_node)
-    return void_list_node;
-
-  /* Substitute into the rest of the list.  */
-  new_spec_types =
-    copy_default_args_to_explicit_spec_1 (TREE_CHAIN (spec_types),
-					  TREE_CHAIN (tmpl_types));
-
-  /* Add the default argument for this parameter.  */
-  return hash_tree_cons (TREE_PURPOSE (tmpl_types),
-			 TREE_VALUE (spec_types),
-			 new_spec_types);
-}
-
 /* DECL is an explicit specialization.  Replicate default arguments
    from the template it specializes.  (That way, code like:
 
@@ -1638,80 +1610,16 @@ static void
 copy_default_args_to_explicit_spec (tree decl)
 {
   tree tmpl;
-  tree spec_types;
-  tree tmpl_types;
-  tree new_spec_types;
-  tree old_type;
-  tree new_type;
-  tree t;
-  tree object_type = NULL_TREE;
-  tree in_charge = NULL_TREE;
-  tree vtt = NULL_TREE;
+  tree tmpl_fn;
+  tree from, to;
 
   /* See if there's anything we need to do.  */
   tmpl = DECL_TI_TEMPLATE (decl);
-  tmpl_types = TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (tmpl)));
-  for (t = tmpl_types; t; t = TREE_CHAIN (t))
-    if (TREE_PURPOSE (t))
-      break;
-  if (!t)
-    return;
-
-  old_type = TREE_TYPE (decl);
-  spec_types = TYPE_ARG_TYPES (old_type);
-
-  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-    {
-      /* Remove the this pointer, but remember the object's type for
-	 CV quals.  */
-      object_type = TREE_TYPE (TREE_VALUE (spec_types));
-      spec_types = TREE_CHAIN (spec_types);
-      tmpl_types = TREE_CHAIN (tmpl_types);
-
-      if (DECL_HAS_IN_CHARGE_PARM_P (decl))
-	{
-	  /* DECL may contain more parameters than TMPL due to the extra
-	     in-charge parameter in constructors and destructors.  */
-	  in_charge = spec_types;
-	  spec_types = TREE_CHAIN (spec_types);
-	}
-      if (DECL_HAS_VTT_PARM_P (decl))
-	{
-	  vtt = spec_types;
-	  spec_types = TREE_CHAIN (spec_types);
-	}
-    }
-
-  /* Compute the merged default arguments.  */
-  new_spec_types =
-    copy_default_args_to_explicit_spec_1 (spec_types, tmpl_types);
-
-  /* Compute the new FUNCTION_TYPE.  */
-  if (object_type)
-    {
-      if (vtt)
-	new_spec_types = hash_tree_cons (TREE_PURPOSE (vtt),
-					 TREE_VALUE (vtt),
-					 new_spec_types);
-
-      if (in_charge)
-	/* Put the in-charge parameter back.  */
-	new_spec_types = hash_tree_cons (TREE_PURPOSE (in_charge),
-					 TREE_VALUE (in_charge),
-					 new_spec_types);
-
-      new_type = build_method_type_directly (object_type,
-					     TREE_TYPE (old_type),
-					     new_spec_types);
-    }
-  else
-    new_type = build_function_type (TREE_TYPE (old_type),
-				    new_spec_types);
-  new_type = cp_build_type_attribute_variant (new_type,
-					      TYPE_ATTRIBUTES (old_type));
-  new_type = build_exception_variant (new_type,
-				      TYPE_RAISES_EXCEPTIONS (old_type));
-  TREE_TYPE (decl) = new_type;
+  tmpl_fn = DECL_TEMPLATE_RESULT (tmpl);
+  for (from = DECL_ARGUMENTS (tmpl_fn), to = DECL_ARGUMENTS (decl);
+       from && to;
+       from = TREE_CHAIN (from), to = TREE_CHAIN (to))
+    DECL_INITIAL (to) = DECL_INITIAL (from);
 }
 
 /* Check to see if the function just declared, as indicated in
@@ -1875,9 +1783,9 @@ check_explicit_specialization (tree declarator,
 
   if (specialization || member_specialization)
     {
-      tree t = TYPE_ARG_TYPES (TREE_TYPE (decl));
+      tree t = DECL_ARGUMENTS (decl);
       for (; t; t = TREE_CHAIN (t))
-	if (TREE_PURPOSE (t))
+	if (DECL_INITIAL (t))
 	  {
 	    pedwarn
 	      ("default argument specified in explicit specialization");
@@ -6188,6 +6096,7 @@ static void
 tsubst_default_arguments (tree fn)
 {
   tree arg;
+  tree type;
   tree tmpl_args;
 
   tmpl_args = DECL_TI_ARGS (fn);
@@ -6197,13 +6106,13 @@ tsubst_default_arguments (tree fn)
   if (uses_template_parms (tmpl_args))
     return;
 
-  for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
-       arg;
-       arg = TREE_CHAIN (arg))
-    if (TREE_PURPOSE (arg))
-      TREE_PURPOSE (arg) = tsubst_default_argument (fn,
-						    TREE_VALUE (arg),
-						    TREE_PURPOSE (arg));
+  for (type = TYPE_ARG_TYPES (TREE_TYPE (fn)), arg = DECL_ARGUMENTS (fn);
+       type && arg;
+       type = TREE_CHAIN (type), arg = TREE_CHAIN (arg))
+    if (DECL_INITIAL (arg))
+      DECL_INITIAL (arg) = tsubst_default_argument (fn,
+						    TREE_VALUE (type),
+						    DECL_INITIAL (arg));
 }
 
 /* Substitute the ARGS into the T, which is a _DECL.  Return the
@@ -6573,18 +6482,26 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
     case PARM_DECL:
       {
-	tree type;
+	tree type, initial;
 
 	r = copy_node (t);
 	if (DECL_TEMPLATE_PARM_P (t))
 	  SET_DECL_TEMPLATE_PARM_P (r);
+
+	/* Add PARMS to DEFARG_INSTANTIATIONS of its DECL_INITIAL if
+	   late parsing is required.  */
+	initial = DECL_INITIAL (r);
+	if (initial && TREE_CODE (initial) == DEFAULT_ARG)
+	  VEC_safe_push (tree, gc,
+			 DEFARG_INSTANTIATIONS (initial), r);
+
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	type = type_decays_to (type);
 	TREE_TYPE (r) = type;
 	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
-	if (DECL_INITIAL (r))
+	if (DECL_TEMPLATE_PARM_P (r) && DECL_INITIAL (r))
 	  {
 	    if (TREE_CODE (DECL_INITIAL (r)) != TEMPLATE_PARM_INDEX)
 	      DECL_INITIAL (r) = TREE_TYPE (r);
@@ -6781,7 +6698,6 @@ tsubst_arg_types (tree arg_types,
 {
   tree remaining_arg_types;
   tree type;
-  tree default_arg;
   tree result = NULL_TREE;
 
   if (!arg_types || arg_types == void_list_node)
@@ -6810,22 +6726,7 @@ tsubst_arg_types (tree arg_types,
      top-level qualifiers as required.  */
   type = TYPE_MAIN_VARIANT (type_decays_to (type));
 
-  /* We do not substitute into default arguments here.  The standard
-     mandates that they be instantiated only when needed, which is
-     done in build_over_call.  */
-  default_arg = TREE_PURPOSE (arg_types);
-
-  if (default_arg && TREE_CODE (default_arg) == DEFAULT_ARG)
-    {
-      /* We've instantiated a template before its default arguments
-	 have been parsed.  This can happen for a nested template
-	 class, and is not an error unless we require the default
-	 argument in a call of this function.  */
-      result = tree_cons (default_arg, type, remaining_arg_types);
-      VEC_safe_push (tree, gc, DEFARG_INSTANTIATIONS (default_arg), result);
-    }
-  else
-    result = hash_tree_cons (default_arg, type, remaining_arg_types);
+  result = hash_tree_cons (NULL_TREE, type, remaining_arg_types);
 
   return result;
 }
@@ -9415,7 +9316,7 @@ fn_type_unification (tree fn,
      because the standard doesn't seem to explicitly prohibit it.  Our
      callers must be ready to deal with unification failures in any
      event.  */
-  result = type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn),
+  result = type_unification_real (fn, DECL_INNERMOST_TEMPLATE_PARMS (fn),
 				  targs, parms, args, /*subr=*/0,
 				  strict, flags);
 
@@ -9528,7 +9429,8 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
    template). */
 
 static int
-type_unification_real (tree tparms,
+type_unification_real (tree fn,
+		       tree tparms,
 		       tree targs,
 		       tree xparms,
 		       tree xargs,
@@ -9542,11 +9444,27 @@ type_unification_real (tree tparms,
   int sub_strict;
   int saw_undeduced = 0;
   tree parms, args;
+  tree xparmdecls, parmdecls;
 
   gcc_assert (TREE_CODE (tparms) == TREE_VEC);
   gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_LIST);
   gcc_assert (!xargs || TREE_CODE (xargs) == TREE_LIST);
   gcc_assert (ntparms > 0);
+
+  if (fn)
+    {
+      if (DECL_FUNCTION_TEMPLATE_P (fn))
+	fn = DECL_TEMPLATE_RESULT (fn);
+      gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+
+      xparmdecls = DECL_ARGUMENTS (fn);
+
+      /* Never do unification on the 'this' parameter.  */
+      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	xparmdecls = TREE_CHAIN (xparmdecls);
+    }
+  else
+    xparmdecls = NULL_TREE;
 
   switch (strict)
     {
@@ -9570,6 +9488,7 @@ type_unification_real (tree tparms,
  again:
   parms = xparms;
   args = xargs;
+  parmdecls = xparmdecls;
 
   while (parms && parms != void_list_node
 	 && args && args != void_list_node)
@@ -9578,6 +9497,8 @@ type_unification_real (tree tparms,
       parms = TREE_CHAIN (parms);
       arg = TREE_VALUE (args);
       args = TREE_CHAIN (args);
+      if (parmdecls)
+	parmdecls = TREE_CHAIN (parmdecls);
 
       if (arg == error_mark_node)
 	return 1;
@@ -9648,7 +9569,7 @@ type_unification_real (tree tparms,
     return 1;
   /* Fail if parms are left and they don't have default values.  */
   if (parms && parms != void_list_node
-      && TREE_PURPOSE (parms) == NULL_TREE)
+      && parmdecls && DECL_INITIAL (parmdecls) == NULL_TREE)
     return 1;
 
   if (!subr)
@@ -10505,7 +10426,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (unify (tparms, targs, TREE_TYPE (parm),
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
-      return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
+      return type_unification_real (NULL, tparms, targs, TYPE_ARG_TYPES (parm),
 				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
 				    LOOKUP_NORMAL);
 

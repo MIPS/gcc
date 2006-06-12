@@ -15921,10 +15921,10 @@ cp_parser_save_default_args (cp_parser* parser, tree decl)
 {
   tree probe;
 
-  for (probe = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  for (probe = DECL_ARGUMENTS (decl);
        probe;
        probe = TREE_CHAIN (probe))
-    if (TREE_PURPOSE (probe))
+    if (DECL_INITIAL (probe))
       {
 	TREE_PURPOSE (parser->unparsed_functions_queues)
 	  = tree_cons (current_class_type, decl,
@@ -15942,6 +15942,7 @@ static void
 cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
 {
   bool saved_local_variables_forbidden_p;
+  tree type;
   tree parm;
 
   /* While we're parsing the default args, we might (due to the
@@ -15956,12 +15957,12 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
   saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
   parser->local_variables_forbidden_p = true;
 
-  for (parm = TYPE_ARG_TYPES (TREE_TYPE (fn));
-       parm;
-       parm = TREE_CHAIN (parm))
+  for (type = TYPE_ARG_TYPES (TREE_TYPE (fn)), parm = DECL_ARGUMENTS (fn);
+       type && parm;
+       type = TREE_CHAIN (type), parm = TREE_CHAIN (parm))
     {
       cp_token_cache *tokens;
-      tree default_arg = TREE_PURPOSE (parm);
+      tree default_arg = DECL_INITIAL (parm);
       tree parsed_arg;
       VEC(tree,gc) *insts;
       tree copy;
@@ -15984,14 +15985,14 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       parsed_arg = cp_parser_assignment_expression (parser, /*cast_p=*/false);
 
       if (!processing_template_decl)
-	parsed_arg = check_default_argument (TREE_VALUE (parm), parsed_arg);
+	parsed_arg = check_default_argument (TREE_VALUE (type), parsed_arg);
       
-      TREE_PURPOSE (parm) = parsed_arg;
+      DECL_INITIAL (parm) = parsed_arg;
 
       /* Update any instantiations we've already created.  */
       for (insts = DEFARG_INSTANTIATIONS (default_arg), ix = 0;
 	   VEC_iterate (tree, insts, ix, copy); ix++)
-	TREE_PURPOSE (copy) = parsed_arg;
+	DECL_INITIAL (copy) = parsed_arg;
 
       /* If the token stream has not been completely used up, then
 	 there was extra junk after the end of the default

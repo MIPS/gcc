@@ -71,6 +71,40 @@ update_cloned_parm (tree parm, tree cloned_parm, bool first)
   TREE_TYPE (cloned_parm) = TREE_TYPE (parm);
 }
 
+/* Update the PARM_DECLs associated with the CLONE to match the
+   function from which it was cloned.  */
+
+void
+update_cloned_parms (tree clone, tree fn, bool first)
+{
+  tree parm, clone_parm;
+
+  /* Adjust the parameter names and locations.  */
+  parm = DECL_ARGUMENTS (fn);
+  clone_parm = DECL_ARGUMENTS (clone);
+  /* Update the `this' parameter, which is always first.  */
+  update_cloned_parm (parm, clone_parm, first);
+  parm = TREE_CHAIN (parm);
+  clone_parm = TREE_CHAIN (clone_parm);
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+    parm = TREE_CHAIN (parm);
+  if (DECL_HAS_VTT_PARM_P (fn))
+    parm = TREE_CHAIN (parm);
+  if (DECL_HAS_VTT_PARM_P (clone))
+    clone_parm = TREE_CHAIN (clone_parm);
+  for (; parm;
+       parm = TREE_CHAIN (parm), clone_parm = TREE_CHAIN (clone_parm))
+    {
+      if (DECL_INITIAL (parm) && !DECL_INITIAL (clone_parm))
+	DECL_INITIAL (clone_parm) = DECL_INITIAL (parm);
+      else
+	DECL_INITIAL (parm) = DECL_INITIAL (clone_parm);
+
+      /* Update this parameter.  */
+      update_cloned_parm (parm, clone_parm, first);
+    }
+}
+
 /* FN is a function that has a complete body.  Clone the body as
    necessary.  Returns nonzero if there's no longer any need to
    process the main body.  */
@@ -115,23 +149,7 @@ maybe_clone_body (tree fn)
       DECL_VISIBILITY (clone) = DECL_VISIBILITY (fn);
       DECL_VISIBILITY_SPECIFIED (clone) = DECL_VISIBILITY_SPECIFIED (fn);
 
-      /* Adjust the parameter names and locations.  */
-      parm = DECL_ARGUMENTS (fn);
-      clone_parm = DECL_ARGUMENTS (clone);
-      /* Update the `this' parameter, which is always first.  */
-      update_cloned_parm (parm, clone_parm, first);
-      parm = TREE_CHAIN (parm);
-      clone_parm = TREE_CHAIN (clone_parm);
-      if (DECL_HAS_IN_CHARGE_PARM_P (fn))
-	parm = TREE_CHAIN (parm);
-      if (DECL_HAS_VTT_PARM_P (fn))
-	parm = TREE_CHAIN (parm);
-      if (DECL_HAS_VTT_PARM_P (clone))
-	clone_parm = TREE_CHAIN (clone_parm);
-      for (; parm;
-	   parm = TREE_CHAIN (parm), clone_parm = TREE_CHAIN (clone_parm))
-	/* Update this parameter.  */
-	update_cloned_parm (parm, clone_parm, first);
+      update_cloned_parms (clone, fn, first);
 
       /* Start processing the function.  */
       start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);

@@ -437,15 +437,14 @@ null_ptr_cst_p (tree t)
   return false;
 }
 
-/* Returns nonzero if PARMLIST consists of only default parms and/or
-   ellipsis.  */
+/* Returns true iff PARM (a PARM_DECL) and all following parameters
+   have default arguments.  */
 
 bool
-sufficient_parms_p (tree parmlist)
+sufficient_parms_p (tree parm)
 {
-  for (; parmlist && parmlist != void_list_node;
-       parmlist = TREE_CHAIN (parmlist))
-    if (!TREE_PURPOSE (parmlist))
+  for (; parm; parm = TREE_CHAIN (parm))
+    if (!DECL_INITIAL (parm))
       return false;
   return true;
 }
@@ -1313,9 +1312,10 @@ add_function_candidate (struct z_candidate **candidates,
 			int flags)
 {
   tree parmlist = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  tree decllist = DECL_ARGUMENTS (fn);
   int i, len;
   conversion **convs;
-  tree parmnode, argnode;
+  tree parmnode, argnode, declnode;
   tree orig_arglist;
   int viable = 1;
 
@@ -1329,6 +1329,7 @@ add_function_candidate (struct z_candidate **candidates,
   if (DECL_CONSTRUCTOR_P (fn))
     {
       parmlist = skip_artificial_parms_for (fn, parmlist);
+      decllist = skip_artificial_parms_for (fn, decllist);
       orig_arglist = arglist;
       arglist = skip_artificial_parms_for (fn, arglist);
     }
@@ -1346,18 +1347,21 @@ add_function_candidate (struct z_candidate **candidates,
      us to produce an ill-formed template instantiation.  */
 
   parmnode = parmlist;
+  declnode = decllist;
   for (i = 0; i < len; ++i)
     {
       if (parmnode == NULL_TREE || parmnode == void_list_node)
 	break;
       parmnode = TREE_CHAIN (parmnode);
+      if (declnode)
+	declnode = TREE_CHAIN (declnode);
     }
 
   if (i < len && parmnode)
     viable = 0;
 
   /* Make sure there are default args for the rest of the parms.  */
-  else if (!sufficient_parms_p (parmnode))
+  else if (!sufficient_parms_p (declnode))
     viable = 0;
 
   if (! viable)
@@ -1509,7 +1513,7 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
   if (i < len)
     viable = 0;
 
-  if (!sufficient_parms_p (parmnode))
+  if (parmnode && parmnode != void_list_node)
     viable = 0;
 
   return add_candidate (candidates, totype, arglist, len, convs,
@@ -4686,6 +4690,7 @@ build_over_call (struct z_candidate *cand, int flags)
   conversion *conv;
   tree converted_args = NULL_TREE;
   tree parm = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  tree decl = DECL_ARGUMENTS (fn);
   tree arg, val;
   int i = 0;
   int is_method = 0;
@@ -4761,6 +4766,7 @@ build_over_call (struct z_candidate *cand, int flags)
       converted_args = tree_cons (NULL_TREE, TREE_VALUE (arg), converted_args);
       arg = TREE_CHAIN (arg);
       parm = TREE_CHAIN (parm);
+      decl = TREE_CHAIN (decl);
       /* We should never try to call the abstract constructor.  */
       gcc_assert (!DECL_HAS_IN_CHARGE_PARM_P (fn));
 
@@ -4770,6 +4776,7 @@ build_over_call (struct z_candidate *cand, int flags)
 	    (NULL_TREE, TREE_VALUE (arg), converted_args);
 	  arg = TREE_CHAIN (arg);
 	  parm = TREE_CHAIN (parm);
+	  decl = TREE_CHAIN (decl);
 	}
     }
   /* Bypass access control for 'this' parameter.  */
@@ -4814,6 +4821,7 @@ build_over_call (struct z_candidate *cand, int flags)
       converted_args = tree_cons (NULL_TREE, converted_arg, converted_args);
       parm = TREE_CHAIN (parm);
       arg = TREE_CHAIN (arg);
+      decl = TREE_CHAIN (decl);
       ++i;
       is_method = 1;
     }
@@ -4829,14 +4837,17 @@ build_over_call (struct z_candidate *cand, int flags)
 
       val = convert_for_arg_passing (type, val);
       converted_args = tree_cons (NULL_TREE, val, converted_args);
+      if (decl)
+	decl = TREE_CHAIN (decl);
     }
 
   /* Default arguments */
-  for (; parm && parm != void_list_node; parm = TREE_CHAIN (parm), i++)
+  for (; parm && parm != void_list_node;
+       parm = TREE_CHAIN (parm), decl = TREE_CHAIN (decl), i++)
     converted_args
       = tree_cons (NULL_TREE,
 		   convert_default_arg (TREE_VALUE (parm),
-					TREE_PURPOSE (parm),
+					DECL_INITIAL (decl),
 					fn, i - is_method),
 		   converted_args);
 

@@ -885,11 +885,7 @@ locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
   for (fns = CLASSTYPE_CONSTRUCTORS (type); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
-      tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
-
-      parms = skip_artificial_parms_for (fn, parms);
-
-      if (sufficient_parms_p (parms))
+      if (sufficient_parms_p (FUNCTION_FIRST_USER_PARM (fn)))
 	return fn;
     }
   gcc_unreachable ();
@@ -935,6 +931,8 @@ locate_copy (tree type, void *client_)
     {
       tree fn = OVL_CURRENT (fns);
       tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
+      tree decls = DECL_ARGUMENTS (DECL_FUNCTION_TEMPLATE_P (fn)
+				   ? DECL_TEMPLATE_RESULT (fn) : fn);
       tree src_type;
       int excess;
       int quals;
@@ -942,10 +940,11 @@ locate_copy (tree type, void *client_)
       parms = skip_artificial_parms_for (fn, parms);
       if (!parms)
 	continue;
+      decls = skip_artificial_parms_for (fn, decls);
       src_type = non_reference (TREE_VALUE (parms));
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
-      if (!sufficient_parms_p (TREE_CHAIN (parms)))
+      if (!sufficient_parms_p (TREE_CHAIN (decls)))
 	continue;
       quals = cp_type_quals (src_type);
       if (client->quals & ~quals)

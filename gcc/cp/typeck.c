@@ -190,25 +190,6 @@ commonparms (tree p1, tree p2)
   for (i = 0; p1;
        p1 = TREE_CHAIN (p1), p2 = TREE_CHAIN (p2), n = TREE_CHAIN (n), i++)
     {
-      if (TREE_PURPOSE (p1) && !TREE_PURPOSE (p2))
-	{
-	  TREE_PURPOSE (n) = TREE_PURPOSE (p1);
-	  any_change = 1;
-	}
-      else if (! TREE_PURPOSE (p1))
-	{
-	  if (TREE_PURPOSE (p2))
-	    {
-	      TREE_PURPOSE (n) = TREE_PURPOSE (p2);
-	      any_change = 1;
-	    }
-	}
-      else
-	{
-	  if (1 != simple_cst_equal (TREE_PURPOSE (p1), TREE_PURPOSE (p2)))
-	    any_change = 1;
-	  TREE_PURPOSE (n) = TREE_PURPOSE (p2);
-	}
       if (TREE_VALUE (p1) != TREE_VALUE (p2))
 	{
 	  any_change = 1;
@@ -2711,6 +2692,7 @@ build_function_call (tree function, tree params)
 static tree
 convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 {
+  tree parm = NULL_TREE;
   tree typetail, valtail;
   tree result = NULL_TREE;
   const char *called_thing = 0;
@@ -2721,6 +2703,8 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 
   if (fndecl)
     {
+      parm = DECL_ARGUMENTS (fndecl);
+
       if (TREE_CODE (TREE_TYPE (fndecl)) == METHOD_TYPE)
 	{
 	  if (DECL_NAME (fndecl) == NULL_TREE
@@ -2820,19 +2804,22 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 
       if (typetail)
 	typetail = TREE_CHAIN (typetail);
+      if (parm)
+	parm = TREE_CHAIN (parm);
     }
 
   if (typetail != 0 && typetail != void_list_node)
     {
       /* See if there are default arguments that can be used.  */
-      if (TREE_PURPOSE (typetail)
-	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
+      if (parm
+	  && DECL_INITIAL (parm)
+	  && TREE_CODE (DECL_INITIAL (parm)) != DEFAULT_ARG)
 	{
 	  for (; typetail != void_list_node; ++i)
 	    {
 	      tree parmval
 		= convert_default_arg (TREE_VALUE (typetail),
-				       TREE_PURPOSE (typetail),
+				       DECL_INITIAL (parm),
 				       fndecl, i);
 
 	      if (parmval == error_mark_node)
@@ -2840,8 +2827,11 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 
 	      result = tree_cons (0, parmval, result);
 	      typetail = TREE_CHAIN (typetail);
+	      parm = TREE_CHAIN (parm);
 	      /* ends with `...'.  */
 	      if (typetail == NULL_TREE)
+		break;
+	      if (parm == NULL_TREE)
 		break;
 	    }
 	}
