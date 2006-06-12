@@ -498,11 +498,16 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
   symbol_attribute attr;
   int i;
   try t;
+  locus *where;
+
+  where = &pointer->where;
 
   if (pointer->expr_type == EXPR_VARIABLE)
     attr = gfc_variable_attr (pointer, NULL);
   else if (pointer->expr_type == EXPR_FUNCTION)
     attr = pointer->symtree->n.sym->attr;
+  else if (pointer->expr_type == EXPR_NULL)
+    goto null_arg;
   else
     gcc_assert (0); /* Pointer must be a variable or a function.  */
 
@@ -518,20 +523,21 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
   if (target == NULL)
     return SUCCESS;
 
+  where = &target->where;
   if (target->expr_type == EXPR_NULL)
-    {
-      gfc_error ("NULL pointer at %L is not permitted as actual argument "
-                 "of '%s' intrinsic function",
-                 &target->where, gfc_current_intrinsic);
-      return FAILURE;
-    }
+    goto null_arg;
 
   if (target->expr_type == EXPR_VARIABLE)
     attr = gfc_variable_attr (target, NULL);
   else if (target->expr_type == EXPR_FUNCTION)
     attr = target->symtree->n.sym->attr;
   else
-    gcc_assert (0); /* Target must be a variable or a function.  */
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must be a pointer "
+		 "or target VARIABLE or FUNCTION", gfc_current_intrinsic_arg[1],
+		 gfc_current_intrinsic, &target->where);
+      return FAILURE;
+    }
 
   if (!attr.pointer && !attr.target)
     {
@@ -559,6 +565,13 @@ gfc_check_associated (gfc_expr * pointer, gfc_expr * target)
           }
     }
   return t;
+
+null_arg:
+
+  gfc_error ("NULL pointer at %L is not permitted as actual argument "
+	     "of '%s' intrinsic function", where, gfc_current_intrinsic);
+  return FAILURE;
+
 }
 
 

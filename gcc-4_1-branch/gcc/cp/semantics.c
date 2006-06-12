@@ -978,12 +978,18 @@ begin_try_block (void)
   return r;
 }
 
-/* Likewise, for a function-try-block.  */
+/* Likewise, for a function-try-block.  The block returned in
+   *COMPOUND_STMT is an artificial outer scope, containing the
+   function-try-block.  */
 
 tree
-begin_function_try_block (void)
+begin_function_try_block (tree *compound_stmt)
 {
-  tree r = begin_try_block ();
+  tree r;
+  /* This outer scope does not exist in the C++ standard, but we need
+     a place to put __FUNCTION__ and similar variables.  */
+  *compound_stmt = begin_compound_stmt (0);
+  r = begin_try_block ();
   FN_TRY_BLOCK_P (r) = 1;
   return r;
 }
@@ -1037,13 +1043,16 @@ finish_handler_sequence (tree try_block)
   check_handlers (TRY_HANDLERS (try_block));
 }
 
-/* Likewise, for a function-try-block.  */
+/* Finish the handler-seq for a function-try-block, given by
+   TRY_BLOCK.  COMPOUND_STMT is the outer block created by
+   begin_function_try_block.  */
 
 void
-finish_function_handler_sequence (tree try_block)
+finish_function_handler_sequence (tree try_block, tree compound_stmt)
 {
   in_function_try_handler = 0;
   finish_handler_sequence (try_block);
+  finish_compound_stmt (compound_stmt);
 }
 
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
@@ -2016,6 +2025,12 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 {
   tree compound_literal;
 
+  if (!TYPE_OBJ_P (type))
+    {
+      error ("compound literal of non-object type %qT", type);
+      return error_mark_node;
+    }
+
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
   if (processing_template_decl)
@@ -2859,6 +2874,23 @@ finish_typeof (tree expr)
     }
 
   return type;
+}
+
+/* Perform C++-specific checks for __builtin_offsetof before calling
+   fold_offsetof.  */
+
+tree
+finish_offsetof (tree expr)
+{
+  if (TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
+      || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
+      || TREE_CODE (TREE_TYPE (expr)) == UNKNOWN_TYPE)
+    {
+      error ("cannot apply %<offsetof%> to member function %qD",
+	     TREE_OPERAND (expr, 1));
+      return error_mark_node;
+    }
+  return fold_offsetof (expr);
 }
 
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs

@@ -1,3 +1,201 @@
+2006-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24558
+	PR fortran/20877
+	PR fortran/25047
+	* decl.c (get_proc_name): Add new argument to flag that a
+	module function entry is being treated. If true, correct
+	error condition, add symtree to module namespace and add
+	a module procedure.
+	(gfc_match_function_decl, gfc_match_entry,
+	gfc_match_subroutine): Use the new argument in calls to
+	get_proc_name.
+	* resolve.c (resolve_entries): ENTRY symbol reference to
+	to master entry namespace if a module function.
+	* trans-decl.c (gfc_create_module_variable): Return if
+	the symbol is an entry.
+
+	PR fortran/23091
+	* resolve.c (resolve_fl_variable): Error if an automatic
+	object has the SAVE attribute.
+
+	PR fortran/24168
+	* expr.c (simplify_intrinsic_op): Transfer the rank and
+	the locus to the simplified expression.
+
+	PR fortran/25090
+	PR fortran/25058
+	* gfortran.h : Add int entry_id to gfc_symbol.
+	* resolve.c : Add static variables current_entry_id and
+	specification_expr.
+	(resolve_variable): During code resolution, check if a
+	reference to a dummy variable in an executable expression
+	is preceded by its appearance as a parameter in an entry.
+	Likewise check its specification expressions.
+	(resolve_code): Update current_entry_id on EXEC_ENTRY.
+	(resolve_charlen, resolve_fl_variable): Set and reset
+	specifiaction_expr.
+	(is_non_constant_shape_array): Do not return on detection
+	of a variable but continue to resolve all the expressions.
+	(resolve_codes): set current_entry_id to an out of range
+	value.
+
+2006-06-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/27897
+	* match.c (gfc_match_common):  Fix code typo.  Remove
+	sym->name, since sym is NULL, and replace with name.
+
+2006-06-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/14067
+	* data.c (create_character_intializer): Add warning message
+	for truncated string.
+
+	PR fortran/16943
+	* symbol.c : Include flags.h.
+	(gfc_add_type): If a procedure and types are the same do not
+	throw an error unless standard is less than gnu or pedantic.
+
+	PR fortran/20839
+	* parse.c (parse_do_block): Error if named block do construct
+	does not have a named enddo.
+
+	PR fortran/27655
+	* check.c (gfc_check_associated): Pick up EXPR_NULL for pointer
+	as well as target and put error return at end of function.
+
+2006-06-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/19777
+	* trans-array.c (gfc_conv_array_ref): Don't perform out-of-bounds
+	checking for assumed-size arrrays.
+
+2006-06-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27524
+	* trans-array.c (gfc_trans_dummy_array_bias): Don't use stride as
+	a temporary variable when -fbounds-check is enabled, since its
+	value will be needed later.
+
+2006-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25098
+	PR fortran/25147
+	* interface.c (compare_parameter): Return 1 if the actual arg
+	is external and the formal is a procedure.
+	(compare_actual_formal): If the actual argument is a variable
+	and the formal a procedure, this an error.  If a gsymbol exists
+	for a procedure of the same name, this is not yet resolved and
+	the error is cleared.
+
+	* trans-intrinsic.c (gfc_conv_associated): Make provision for
+	zero array length or zero string length contingent on presence
+	of target, for consistency with standard.
+
+2006-05-31  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23151
+	Backport from mainline.
+	* io.c (match_io):  print (1,*) is an error.
+
+2006-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/27662
+	Backport from mainline
+	2006-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+	* trans-array.c (gfc_conv_expr_descriptor): Don't zero the
+	first stride to indicate a temporary.
+	* trans-expr.c (gfc_conv_function_call): Likewise.
+
+2005-05-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27470
+	Backport from trunk.
+	* trans-array.c(gfc_array_allocate):  If ref->next exists
+	that is if there is a statement like ALLOCATE(foo%bar(2)),
+	F95 rules require that bar should be a pointer.
+
+2006-05-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25082
+	* resolve.c (resolve_code): Add error condition that the return
+	expression must be scalar.
+
+	PR fortran/27411
+	* matchexp.c (gfc_get_parentheses): New function.
+	(match_primary): Remove inline code and call above.
+	* gfortran.h: Provide prototype for gfc_get_parentheses.
+	* resolve.c (resolve_array_ref): Call the above, when start is a
+	derived type variable array reference.
+
+	PR fortran/27613
+	* primary.c (gfc_match_rvalue): Test if symbol represents a
+	direct recursive function reference.  Error if array valued,
+	go to function0 otherwise.
+
+	PR fortran/25746
+	* interface.c (gfc_extend_assign): Use new EXEC_ASSIGN_CALL.
+	* gfortran.h : Put EXEC_ASSIGN_CALL in enum.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): New function.
+	(gfc_trans_call): Call it.  Add new boolian argument to flag
+	need for dependency checking. Assert intent OUT and IN for arg1
+	and arg2.
+	(gfc_trans_forall_1): Use new code EXEC_ASSIGN_CALL.
+	trans-stmt.h : Modify prototype of gfc_trans_call.
+	trans.c (gfc_trans_code): Add call for EXEC_ASSIGN_CALL.
+	st.c (gfc_free_statement): Free actual for EXEC_ASSIGN_CALL.
+	* dependency.c (gfc_check_fncall_dependency): Don't check other
+	against itself.
+
+	PR fortran/27584
+	* check.c (gfc_check_associated): Replace NULL assert with an
+	error message, since it is possible to generate bad code that
+	has us fall through to here..
+
+	PR fortran/19015
+	* iresolve.c (maxloc, minloc): If DIM is not present, pass the
+	rank of ARRAY as the shape of the result.  Otherwise, pass the
+	shape of ARRAY, less the dimension DIM.
+	(maxval, minval): The same, when DIM is present, otherwise no
+	change.
+
+	PR fortran/27709
+	* resolve.c (find_array_spec): Add gfc_symbol, derived, and
+	use to track repeated component references.
+
+	PR fortran/27155
+	PR fortran/27449
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer): Use
+	se->string_length throughout and use memcpy to populate the
+	expression returned to the scalarizer.
+	(gfc_size_in_bytes): New function.
+
+	* trans-intrinsic.c (gfc_conv_associated): If pointer in first
+	arguments has zero array length of zero string length, return
+	false.
+
+2006-05-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+	    Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/27552
+	* dump-parse-tree.c (gfc_show_expr): Deal with Hollerith constants.
+	* data.c (create_character_intializer): Set from_H flag if character is
+	initialized by Hollerith constant.
+
+2006-05-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27320
+	* dump-parse-tree.c (gfc_show_code_node): Try harder to find the
+	called procedure name.
+
+2006-05-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26551
+	* resolve.c (resolve_call, resolve_function): Issue an error
+	if a function or subroutine call is recursive but the function or
+	subroutine wasn't declared as such.
+
 2006-05-24  Release Manager
 
 	* GCC 4.1.1 released.
@@ -128,7 +326,7 @@
 	but not here in 4.1 because the trees have diverged too much.
 	Manifestly correct, so applied anyway.
 
-	PR fortran/18803
+	PR fortran/18003
 	PR fortran/25669
 	PR fortran/26834
 	* trans_intrinsic.c (gfc_walk_intrinsic_bound): Set

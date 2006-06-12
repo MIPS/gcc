@@ -185,12 +185,20 @@ create_character_intializer (gfc_expr * init, gfc_typespec * ts,
   /* Copy the initial value.  */
   len = rvalue->value.character.length;
   if (len > end - start)
-    len = end - start;
+    {
+      len = end - start;
+      gfc_warning_now ("initialization string truncated to match variable "
+		       "at %L", &rvalue->where);
+    }
+
   memcpy (&dest[start], rvalue->value.character.string, len);
 
   /* Pad with spaces.  Substrings will already be blanked.  */
   if (len < end - start && ref == NULL)
     memset (&dest[start + len], ' ', end - (start + len));
+
+  if (rvalue->ts.type == BT_HOLLERITH)
+    init->from_H = 1;
 
   return init;
 }

@@ -8548,7 +8548,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	return NULL_TREE;
 
       /* Turn (a OP c1) OP c2 into a OP (c1+c2).  */
-      if (TREE_CODE (arg0) == code && host_integerp (arg1, false)
+      if (TREE_CODE (op0) == code && host_integerp (arg1, false)
 	  && TREE_INT_CST_LOW (arg1) < TYPE_PRECISION (type)
 	  && host_integerp (TREE_OPERAND (arg0, 1), false)
 	  && TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1)) < TYPE_PRECISION (type))
@@ -10073,8 +10073,10 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
           && integer_zerop (TREE_OPERAND (arg0, 1))
           && integer_zerop (op2)
           && (tem = sign_bit_p (TREE_OPERAND (arg0, 0), arg1)))
-        return fold_convert (type, fold_build2 (BIT_AND_EXPR,
-						TREE_TYPE (tem), tem, arg1));
+        return fold_convert (type,
+			     fold_build2 (BIT_AND_EXPR,
+					  TREE_TYPE (tem), tem,
+					  fold_convert (TREE_TYPE (tem), arg1)));
 
       /* (A >> N) & 1 ? (1 << N) : 0 is simply A & (1 << N).  A & 1 was
 	 already handled above.  */

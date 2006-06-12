@@ -1944,7 +1944,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
       gfc_conv_expr_type (&indexse, ar->start[n], gfc_array_index_type);
       gfc_add_block_to_block (&se->pre, &indexse.pre);
 
-      if (flag_bounds_check)
+      if (flag_bounds_check &&
+	  (ar->as->type != AS_ASSUMED_SIZE || n < ar->dimen - 1))
 	{
 	  /* Check array bounds.  */
 	  tree cond;
@@ -3064,9 +3065,20 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree pstat)
   gfc_expr **upper;
   gfc_ref *ref;
   int allocatable_array;
+  int must_be_pointer;
 
   ref = expr->ref;
 
+  /* In Fortran 95, components can only contain pointers, so that,
+     in ALLOCATE (foo%bar(2)), bar must be a pointer component.
+     We test this by checking for ref->next.
+     An implementation of TR 15581 would need to change this.  */
+
+  if (ref)
+    must_be_pointer = ref->next != NULL;
+  else
+    must_be_pointer = 0;
+  
   /* Find the last reference in the chain.  */
   while (ref && ref->next != NULL)
     {
@@ -3109,7 +3121,10 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree pstat)
   tmp = gfc_conv_descriptor_data_addr (se->expr);
   pointer = gfc_evaluate_now (tmp, &se->pre);
 
-  allocatable_array = expr->symtree->n.sym->attr.allocatable;
+  if (must_be_pointer)
+    allocatable_array = 0;
+  else
+    allocatable_array = expr->symtree->n.sym->attr.allocatable;
 
   if (TYPE_PRECISION (gfc_array_index_type) == 32)
     {
@@ -3546,7 +3561,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   tree dumdesc;
   tree tmp;
   tree stmt;
-  tree stride;
+  tree stride, stride2;
   tree stmt_packed;
   tree stmt_unpacked;
   tree partial;
@@ -3693,9 +3708,9 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 				 ubound, lbound);
-              stride = build2 (MINUS_EXPR, gfc_array_index_type,
+              stride2 = build2 (MINUS_EXPR, gfc_array_index_type,
 			       dubound, dlbound);
-              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride);
+              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride2);
 	      gfc_trans_runtime_check (tmp, gfc_strconst_bounds, &block);
 	    }
 	}
@@ -4090,10 +4105,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       /* Finish the copying loops.  */
       gfc_trans_scalarizing_loops (&loop, &block);
 
-      /* Set the first stride component to zero to indicate a temporary.  */
       desc = loop.temp_ss->data.info.descriptor;
-      tmp = gfc_conv_descriptor_stride (desc, gfc_rank_cst[0]);
-      gfc_add_modify_expr (&loop.pre, tmp, gfc_index_zero_node);
 
       gcc_assert (is_gimple_lvalue (desc));
     }

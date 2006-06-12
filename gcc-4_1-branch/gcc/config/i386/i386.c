@@ -3186,6 +3186,11 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     tree type, int in_return, int nintregs, int nsseregs,
 		     const int *intreg, int sse_regno)
 {
+  /* The following variables hold the static issued_error state.  */
+  static bool issued_sse_arg_error;
+  static bool issued_sse_ret_error;
+  static bool issued_x87_ret_error;
+
   enum machine_mode tmpmode;
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
@@ -3224,17 +3229,37 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
      some less clueful developer tries to use floating-point anyway.  */
   if (needed_sseregs && !TARGET_SSE)
     {
-      static bool issued_error;
-      if (!issued_error)
+      if (in_return)
 	{
-	  issued_error = true;
-	  if (in_return)
-	    error ("SSE register return with SSE disabled");
-	  else
-	    error ("SSE register argument with SSE disabled");
+	  if (!issued_sse_ret_error)
+	    {
+	      error ("SSE register return with SSE disabled");
+	      issued_sse_ret_error = true;
+	    }
+	}
+      else if (!issued_sse_arg_error)
+	{
+	  error ("SSE register argument with SSE disabled");
+	  issued_sse_arg_error = true;
 	}
       return NULL;
     }
+
+  /* Likewise, error if the ABI requires us to return values in the
+     x87 registers and the user specified -mno-80387.  */
+  if (!TARGET_80387 && in_return)
+    for (i = 0; i < n; i++)
+      if (class[i] == X86_64_X87_CLASS
+	  || class[i] == X86_64_X87UP_CLASS
+	  || class[i] == X86_64_COMPLEX_X87_CLASS)
+	{
+	  if (!issued_x87_ret_error)
+	    {
+	      error ("x87 register return with x87 disabled");
+	      issued_x87_ret_error = true;
+	    }
+	  return NULL;
+	}
 
   /* First construct simple cases.  Avoid SCmode, since we want to use
      single register to pass this type.  */
@@ -6869,7 +6894,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      assemble_name (file, XSTR (x, 0));
+      output_addr_const (file, x);
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
@@ -11316,6 +11341,8 @@ ix86_expand_int_vcond (rtx operands[])
      tricks to turn this into a signed comparison against 0.  */
   if (code == GTU)
     {
+      cop0 = force_reg (mode, cop0);
+
       switch (mode)
 	{
 	case V4SImode:

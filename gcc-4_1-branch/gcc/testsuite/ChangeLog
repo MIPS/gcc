@@ -1,3 +1,261 @@
+2006-06-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24558
+	* gfortran.dg/entry_6.f90: New test.
+
+	PR fortran/20877
+	PR fortran/25047
+	* gfortran.dg/entry_7.f90: New test.
+
+	PR fortran/23091
+	* gfortran.dg/saved_automatic_1.f90: New test.
+
+	PR fortran/24168
+	* gfortran.dg/array_simplify_1.f90: New test.
+
+	PR fortran/25090
+	* gfortran.dg/entry_dummy_ref_1.f90: New test.
+
+	PR fortran/25058
+	* gfortran.dg/entry_dummy_ref_2.f90: New test.
+
+2006-06-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: Test member functions.
+
+2006-06-07  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/27790
+	* gcc.target/i386/pr27790.c: New test.
+
+2006-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27177
+	* g++.dg/expr/cast7.C: New test.
+
+2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27842
+	* gcc.dg/vmx/pr27842.c: New test.
+
+2006-06-05  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26223
+	* gcc.target/i386/amd64-abi-2.c: New test case.
+
+2006-06-05  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+	2006-04-23  David Edelsohn  <edelsohn@gnu.org>
+	* g++.dg/opt/pr15551.C: Include cstdio.
+	(main): Use remove instead of unlink.
+
+2006-06-05  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/27705
+	* gcc.dg/sibcall-7.c: Do not run on ia64-*-* platforms.
+
+2006-06-05  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/25161
+	PR c/27020
+	* gcc.dg/array-10.c: New test.
+
+2006-06-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/14067
+	* gfortran.dg/data_char_1.f90: Add messages for truncated
+	strings.
+
+	PR fortran/16943
+	* gfortran.dg/func_decl_2.f90: New test.
+
+	PR fortran/20839
+	* gfortran.dg/do_2.f90: New test.
+
+	PR fortran/27655
+	* gfortran.dg/associated_3.f90: New test.
+
+2006-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27819
+	* g++.dg/template/static25.C: New test.
+
+	PR c++/27722
+	* g++.dg/init/array21.C: New test.
+
+	PR c++/27807
+	* g++.dg/ext/complit7.C: New test.
+	
+	PR c++/27806
+	* g++.dg/parse/ptrmem5.C: New test.
+
+2006-06-04  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: New test.
+
+2006-06-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	Backport from mainline:
+	2006-05-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+	* gfortran.dg/large_real_kind_form_io_2.f90: UnXFAIL on SPARC/Solaris.
+
+	2006-05-05  Steve Ellcey  <sje@cup.hp.com>
+	* gfortran.dg/large_real_kind_form_io_2.f90: Use nearest.
+
+2006-06-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/19777
+	* gfortran.dg/bounds_check_2.f: New test.
+
+2006-06-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27524
+	* gfortran.dg/bounds_check_1.f90: New test.
+
+2006-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25098
+	* gfortran.dg/dummy_procedure_1.f90: New test.
+
+	PR fortran/25147
+	* gfortran.dg/dummy_procedure_2.f90: New test.
+
+	* gfortran.dg/associated_2.f90: Correct to make consistent with
+	standard.
+
+2006-05-31  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23151
+	Backport from mainline.
+	* gfortran.dg/inquire_9.f90:  Fix illegal print syntax.
+	* gfortran.dg/print_parentheses_1.f:  New test.
+	* gfortran.dg/print_parentheses_2.f90:  New test.
+
+2006-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27801
+	* g++.dg/template/cond6.C: New test.
+
+	PR c++/26496
+	* g++.dg/template/crash51.C: New test.
+	* g++.old-deja/g++.mike/net36.C: Tweak error markers.
+
+	PR c++/27385
+	* g++.dg/init/array20.C: New test.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26433
+	* g++.dg/template/fntry1.C: New test.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26068
+	* g++.dg/opt/pr17697-3.C: Remove invalid extern specifier.
+	* g++.dg/parse/linkage1.C: New test.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20173
+	* g++.dg/template/error21.C: New test.
+
+2006-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/27662
+	Backport from mainline
+	2006-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+	* gfortran.dg/temporary_1.f90: New file.
+
+2006-05-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/27718
+	* gcc.dg/sizeof-1.c: New test.
+
+2006-05-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27757
+	* gfortran.dg/direct_io_5.f90: New test.
+
+2006-05-29  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27713
+	* g++.dg/template/new6.C: New test.
+
+	PR c++/27447
+	* g++.dg/other/ptrmem7.C: New test.
+
+	PR c++/27716
+	* g++.dg/other/assign1.C: New test.
+
+	PR c++/27451
+	* g++.dg/ext/asm9.C: New test.
+
+	PR c/26818
+	* gcc.dg/struct-incompl-1.c: New test.
+
+2006-05-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/24459
+	* gfortran.dg/namelist_24.f90: New test.
+
+2005-05-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27470
+	Backport from trunk.
+	* gfortran.dg/multiple_allocation_2.f90:  New test case.
+
+2006-05-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25082
+	* gfortran.dg/scalar_return_1.f90: New test.
+
+	PR fortran/27411
+	* gfortran.dg/derived_comp_array_ref_1.f90: New test.
+
+	PR fortran/25746
+	* gfortran.dg/elemental_subroutine_3.f90: New test.
+
+	PR fortran/27584
+	* gfortran.dg/associated_target_1.f90: New test.
+
+	PR fortran/19015
+	* gfortran.dg/maxloc_shape_1.f90: New test.
+
+	PR fortran/27613
+	* gfortran.dg/recursive_reference_1.f90: New test.
+
+	PR fortran/27709
+	* gfortran.dg/spec_expr_4.f90: New test.
+
+	PR fortran/27155
+	* gfortran.dg/transfer_array_intrinsic_4.f90: New test.
+
+	* gfortran.dg/associated_2.f90: New test.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/26622.
+	* gcc.c-torture/compile/pr26622.c: New.
+
+2006-05-27  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26551
+	* gfortran.dg/recursive_check_1.f: New test.
+	* gfortran.dg/recursive_check_2.f90: New test.
+
+2006-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/27758
+	* gcc.dg/pr27758.c: New test.
+
+2006-05-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27743
+	* gcc.dg/torture/pr27743.c: New testcase.
+
 2006-05-24  Release Manager
 
 	* GCC 4.1.1 released.
