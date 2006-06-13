@@ -3834,7 +3834,8 @@ build_clone (tree fn, tree name)
       DECL_TEMPLATE_RESULT (clone)
 	= build_clone (DECL_TEMPLATE_RESULT (clone), name);
       result = DECL_TEMPLATE_RESULT (clone);
-      DECL_TEMPLATE_INFO (result) = copy_node (DECL_TEMPLATE_INFO (result));
+      DECL_TEMPLATE_INFO (result)
+	= copy_template_info (DECL_TEMPLATE_INFO (result));
       DECL_TI_TEMPLATE (result) = clone;
     }
   else if (pch_file)

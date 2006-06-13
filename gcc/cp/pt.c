@@ -2016,7 +2016,7 @@ check_explicit_specialization (tree declarator,
 	    }
 
 	  /* Set up the DECL_TEMPLATE_INFO for DECL.  */
-	  DECL_TEMPLATE_INFO (decl) = tree_cons (tmpl, targs, NULL_TREE);
+	  DECL_TEMPLATE_INFO (decl) = build_template_info (tmpl, targs);
 
 	  /* Inherit default function arguments from the template
 	     DECL is specializing.  */
@@ -2844,7 +2844,7 @@ push_template_decl_real (tree decl, bool is_friend)
 {
   tree tmpl;
   tree args;
-  tree info;
+  struct template_info *info;
   tree ctx;
   int primary;
   int is_partial;
@@ -2978,7 +2978,7 @@ push_template_decl_real (tree decl, bool is_friend)
 		 class.  */
 	      SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
 	      DECL_TEMPLATE_INFO (tmpl) = DECL_TEMPLATE_INFO (decl);
-	      DECL_TEMPLATE_INFO (decl) = NULL_TREE;
+	      DECL_TEMPLATE_INFO (decl) = NULL;
 	    }
 	}
     }
@@ -3029,8 +3029,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	  TREE_TYPE (new_tmpl) = TREE_TYPE (decl);
 	  DECL_TI_TEMPLATE (decl) = new_tmpl;
 	  SET_DECL_TEMPLATE_SPECIALIZATION (new_tmpl);
-	  DECL_TEMPLATE_INFO (new_tmpl)
-	    = tree_cons (tmpl, args, NULL_TREE);
+	  DECL_TEMPLATE_INFO (new_tmpl) = build_template_info (tmpl, args);
 
 	  register_specialization (new_tmpl,
 				   most_general_template (tmpl),
@@ -3121,7 +3120,7 @@ push_template_decl_real (tree decl, bool is_friend)
   if (DECL_TEMPLATE_INFO (tmpl))
     args = add_outermost_template_args (DECL_TI_ARGS (tmpl), args);
 
-  info = tree_cons (tmpl, args, NULL_TREE);
+  info = build_template_info (tmpl, args);
 
   if (DECL_IMPLICIT_TYPEDEF_P (decl))
     {
@@ -4130,9 +4129,9 @@ classtype_mangled_name (tree t)
 static void
 add_pending_template (tree d)
 {
-  tree ti = (TYPE_P (d)
-	     ? CLASSTYPE_TEMPLATE_INFO (d)
-	     : DECL_TEMPLATE_INFO (d));
+  struct template_info *ti = (TYPE_P (d)
+			      ? CLASSTYPE_TEMPLATE_INFO (d)
+			      : DECL_TEMPLATE_INFO (d));
   tree pt;
   int level;
 
@@ -4646,7 +4645,7 @@ lookup_template_class (tree d1,
 	    }
 	}
 
-      SET_TYPE_TEMPLATE_INFO (t, tree_cons (found, arglist, NULL_TREE));
+      SET_TYPE_TEMPLATE_INFO (t, build_template_info (found, arglist));
       DECL_TEMPLATE_INSTANTIATIONS (template)
 	= tree_cons (arglist, t,
 		     DECL_TEMPLATE_INSTANTIATIONS (template));
@@ -4708,7 +4707,7 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
     case ENUMERAL_TYPE:
       if (!TYPE_TEMPLATE_INFO (t))
 	*walk_subtrees = 0;
-      else if (for_each_template_parm (TREE_VALUE (TYPE_TEMPLATE_INFO (t)),
+      else if (for_each_template_parm (TYPE_TI_ARGS (t),
 				       fn, data, pfd->visited))
 	return error_mark_node;
       break;
@@ -5111,8 +5110,8 @@ tsubst_friend_function (tree decl, tree args)
   if (DECL_NAMESPACE_SCOPE_P (new_friend))
     {
       tree old_decl;
-      tree new_friend_template_info;
-      tree new_friend_result_template_info;
+      struct template_info *new_friend_template_info;
+      struct template_info *new_friend_result_template_info;
       tree ns;
       int  new_friend_is_defn;
 
@@ -5133,7 +5132,7 @@ tsubst_friend_function (tree decl, tree args)
 	    = DECL_TEMPLATE_INFO (DECL_TEMPLATE_RESULT (new_friend));
 	}
       else
-	new_friend_result_template_info = NULL_TREE;
+	new_friend_result_template_info = NULL;
 
       /* Inside pushdecl_namespace_level, we will push into the
 	 current namespace. However, the friend function should go
@@ -5351,7 +5350,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 	 the new type because that is supposed to be the corresponding
 	 template decl, i.e., TMPL.  */
       DECL_USE_TEMPLATE (tmpl) = 0;
-      DECL_TEMPLATE_INFO (tmpl) = NULL_TREE;
+      DECL_TEMPLATE_INFO (tmpl) = NULL;
       CLASSTYPE_USE_TEMPLATE (TREE_TYPE (tmpl)) = 0;
       CLASSTYPE_TI_ARGS (TREE_TYPE (tmpl))
 	= INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (TREE_TYPE (tmpl)));
@@ -6201,7 +6200,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	gcc_assert (DECL_LANG_SPECIFIC (r) != 0);
 	TREE_CHAIN (r) = NULL_TREE;
 
-	DECL_TEMPLATE_INFO (r) = build_tree_list (t, args);
+	DECL_TEMPLATE_INFO (r) = build_template_info (t, args);
 
 	if (TREE_CODE (decl) == TYPE_DECL)
 	  {
@@ -6268,7 +6267,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	int parms_depth;
 
 	/* Nobody should be tsubst'ing into non-template functions.  */
-	gcc_assert (DECL_TEMPLATE_INFO (t) != NULL_TREE);
+	gcc_assert (DECL_TEMPLATE_INFO (t) != NULL);
 
 	if (TREE_CODE (DECL_TI_TEMPLATE (t)) == TEMPLATE_DECL)
 	  {
@@ -6424,8 +6423,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	   GEN_TMPL is NULL.  */
 	if (gen_tmpl)
 	  {
-	    DECL_TEMPLATE_INFO (r)
-	      = tree_cons (gen_tmpl, argvec, NULL_TREE);
+	    DECL_TEMPLATE_INFO (r) = build_template_info (gen_tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	    register_specialization (r, gen_tmpl, argvec, false);
 
@@ -6446,7 +6444,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      tsubst_default_arguments (r);
 	  }
 	else
-	  DECL_TEMPLATE_INFO (r) = NULL_TREE;
+	  DECL_TEMPLATE_INFO (r) = NULL;
 
 	/* Copy the list of befriending classes.  */
 	for (friends = &DECL_BEFRIENDING_CLASSES (r);
@@ -6667,7 +6665,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_EXTERNAL (r) = 1;
 
 	    register_specialization (r, gen_tmpl, argvec, false);
-	    DECL_TEMPLATE_INFO (r) = tree_cons (tmpl, argvec, NULL_TREE);
+	    DECL_TEMPLATE_INFO (r) = build_template_info (tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	  }
 	else
@@ -7072,7 +7070,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		      return error_mark_node;
 
 		    TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (r)
-		      = tree_cons (TYPE_TI_TEMPLATE (t), argvec, NULL_TREE);
+		      = build_template_info (TYPE_TI_TEMPLATE (t), argvec);
 		  }
 	      }
 	    break;
@@ -12910,6 +12908,30 @@ build_non_dependent_args (tree args)
 			  build_non_dependent_expr (TREE_VALUE (a)),
 			  new_args);
   return nreverse (new_args);
+}
+
+/* Return a new template_info for TEMPL (a TEMPLATE_DECL) and ARGS (the
+   arguments to the template). */
+
+struct template_info *
+build_template_info (tree templ, tree args)
+{
+  struct template_info *info = GGC_NEW (struct template_info);
+  info->template = templ;
+  info->arguments = args;
+  info->pending_template = 0;
+  return info;
+}
+
+/* Create and return a new template_info object that is a copy of OLD. */
+struct template_info *
+copy_template_info (struct template_info *old)
+{
+  struct template_info *info = GGC_NEW (struct template_info);
+  info->template = old->template;
+  info->arguments = old->arguments;
+  info->pending_template = old->pending_template;
+  return info;
 }
 
 #include "gt-cp-pt.h"

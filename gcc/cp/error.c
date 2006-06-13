@@ -75,7 +75,7 @@ static void dump_template_argument_list (tree, int);
 static void dump_template_parameter (tree, int);
 static void dump_template_bindings (tree, tree);
 static void dump_scope (tree, int);
-static void dump_template_parms (tree, int, int);
+static void dump_template_parms (struct template_info *, int, int);
 
 static const char *function_category (tree);
 static void maybe_print_instantiation_context (diagnostic_context *);
@@ -1198,7 +1198,7 @@ dump_function_name (tree t, int flags)
    decoration.  */
 
 static void
-dump_template_parms (tree info, int primary, int flags)
+dump_template_parms (struct template_info *info, int primary, int flags)
 {
   tree args = info ? TI_ARGS (info) : NULL_TREE;
 

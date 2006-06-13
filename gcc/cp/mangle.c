@@ -163,7 +163,7 @@ integer_type_codes[itk_none] =
   'y'   /* itk_unsigned_long_long */
 };
 
-static int decl_is_template_id (const tree, tree* const);
+static int decl_is_template_id (const tree, struct template_info ** const);
 
 /* Functions for handling substitutions.  */
 
@@ -303,7 +303,7 @@ restore_partially_mangled_name (void)
    Otherwise return zero.  */
 
 static int
-decl_is_template_id (const tree decl, tree* const template_info)
+decl_is_template_id (const tree decl, struct template_info ** const template_info)
 {
   if (TREE_CODE (decl) == TYPE_DECL)
     {
@@ -807,7 +807,7 @@ write_name (tree decl, const int ignore_local_scope)
       || DECL_NAMESPACE_STD_P (context)
       || (ignore_local_scope && TREE_CODE (context) == FUNCTION_DECL))
     {
-      tree template_info;
+      struct template_info *template_info;
       /* Is this a template instance?  */
       if (decl_is_template_id (decl, &template_info))
 	{
@@ -911,7 +911,7 @@ write_unscoped_template_name (const tree decl)
 static void
 write_nested_name (const tree decl)
 {
-  tree template_info;
+  struct template_info *template_info;
 
   MANGLE_TRACE_TREE ("nested-name", decl);
 
@@ -954,7 +954,7 @@ write_prefix (const tree node)
 {
   tree decl;
   /* Non-NULL if NODE represents a template-id.  */
-  tree template_info = NULL;
+  struct template_info *template_info = NULL;
 
   MANGLE_TRACE_TREE ("prefix", node);
 
@@ -1020,7 +1020,7 @@ write_template_prefix (const tree node)
   tree decl = DECL_P (node) ? node : TYPE_NAME (node);
   tree type = DECL_P (node) ? TREE_TYPE (node) : node;
   tree context = CP_DECL_CONTEXT (decl);
-  tree template_info;
+  struct template_info *template_info;
   tree template;
   tree substitution;
 

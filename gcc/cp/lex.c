@@ -760,10 +760,20 @@ copy_lang_type (tree node)
   if (! TYPE_LANG_SPECIFIC (node))
     return;
 
-  if (TYPE_LANG_SPECIFIC (node)->u.h.is_lang_type_class)
-    size = sizeof (struct lang_type);
-  else
-    size = sizeof (struct lang_type_ptrmem);
+  switch (TYPE_LANG_SPECIFIC (node)->u.h.type_tag)
+    {
+    case LANG_TYPE_IS_ENUM:
+      size = sizeof (struct lang_type_enum);
+      break;
+    case LANG_TYPE_IS_PTRMEM:
+      size = sizeof (struct lang_type_ptrmem);
+      break;
+    case LANG_TYPE_IS_CLASS:
+      size = sizeof (struct lang_type);
+      break;
+    default:
+      gcc_unreachable ();
+    }
   lt = GGC_NEWVAR (struct lang_type, size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
@@ -798,7 +808,7 @@ cxx_make_type (enum tree_code code)
       struct lang_type *pi = GGC_CNEW (struct lang_type);
 
       TYPE_LANG_SPECIFIC (t) = pi;
-      pi->u.c.h.is_lang_type_class = 1;
+      pi->u.c.h.type_tag = LANG_TYPE_IS_CLASS;
 
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int)lang_type] += 1;

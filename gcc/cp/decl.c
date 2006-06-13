@@ -5956,7 +5956,7 @@ grokfndecl (tree ctype,
 	    }
 	  gcc_assert (TREE_CODE (fns) == IDENTIFIER_NODE
 		      || TREE_CODE (fns) == OVERLOAD);
-	  DECL_TEMPLATE_INFO (decl) = tree_cons (fns, args, NULL_TREE);
+	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args);
 
 	  for (t = DECL_ARGUMENTS (decl); t; t = TREE_CHAIN (t))
 	    if (DECL_INITIAL (t)
@@ -7940,15 +7940,17 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (TYPE_NAME (t) == oldname)
 	      TYPE_NAME (t) = decl;
 
-	  if (TYPE_LANG_SPECIFIC (type))
-	    TYPE_WAS_ANONYMOUS (type) = 1;
-
-	  /* If this is a typedef within a template class, the nested
-	     type is a (non-primary) template.  The name for the
-	     template needs updating as well.  */
-	  if (TYPE_LANG_SPECIFIC (type) && CLASSTYPE_TEMPLATE_INFO (type))
-	    DECL_NAME (CLASSTYPE_TI_TEMPLATE (type))
-	      = TYPE_IDENTIFIER (type);
+	  if (TYPE_LANG_SPECIFIC (type)
+	      && (TYPE_LANG_SPECIFIC (type)->u.h.type_tag == LANG_TYPE_IS_CLASS))
+	    {
+	      TYPE_WAS_ANONYMOUS (type) = 1;
+	      /* If this is a typedef within a template class, the nested
+		 type is a (non-primary) template.  The name for the
+		 template needs updating as well.  */
+	      if (CLASSTYPE_TEMPLATE_INFO (type))
+		DECL_NAME (CLASSTYPE_TI_TEMPLATE (type))
+		  = TYPE_IDENTIFIER (type);
+	    }
 
 	  /* FIXME remangle member functions; member functions of a
 	     type with external linkage have external linkage.  */

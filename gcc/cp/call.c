@@ -410,7 +410,7 @@ struct z_candidate {
      the `this' pointer must correspond to the most derived class
      indicated by the CONVERSION_PATH.  */
   tree conversion_path;
-  tree template_decl;
+  struct template_info *template_decl;
   candidate_warning *warnings;
   z_candidate *next;
 };
@@ -2280,7 +2280,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
        for this will point at template <class T> template <> S<T>::f(int),
        so that we can find the definition.  For the purposes of
        overload resolution, however, we want the original TMPL.  */
-    cand->template_decl = tree_cons (tmpl, targs, NULL_TREE);
+    cand->template_decl = build_template_info (tmpl, targs);
   else
     cand->template_decl = DECL_TEMPLATE_INFO (fn);
 

@@ -123,7 +123,6 @@ struct diagnostic_context;
      At present, only the six low-order bits are used.
 
    TYPE_LANG_SLOT_1
-     For an ENUMERAL_TYPE, this is ENUM_TEMPLATE_INFO.
      For a FUNCTION_TYPE or METHOD_TYPE, this is TYPE_RAISES_EXCEPTIONS
 
   BINFO_VIRTUALS
@@ -969,12 +968,22 @@ typedef tree_pair_s *tree_pair_p;
 DEF_VEC_O (tree_pair_s);
 DEF_VEC_ALLOC_O (tree_pair_s,gc);
 
+/* Enum to identify specialized lang_type structs. */
+
+enum lang_type_tag
+{
+  LANG_TYPE_IS_CLASS,
+  LANG_TYPE_IS_ENUM,
+  LANG_TYPE_IS_PTRMEM
+};
+
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
    are put in this structure to save space.  */
+
 struct lang_type_header GTY(())
 {
-  BOOL_BITFIELD is_lang_type_class : 1;
+  ENUM_BITFIELD(lang_type_tag) type_tag: 2;
 
   BOOL_BITFIELD has_type_conversion : 1;
   BOOL_BITFIELD has_init_ref : 1;
@@ -982,8 +991,6 @@ struct lang_type_header GTY(())
   BOOL_BITFIELD const_needs_init : 1;
   BOOL_BITFIELD ref_needs_init : 1;
   BOOL_BITFIELD has_const_assign_ref : 1;
-
-  BOOL_BITFIELD spare : 1;
 };
 
 /* This structure provides additional information above and beyond
@@ -1065,12 +1072,18 @@ struct lang_type_class GTY(())
   VEC(tree,gc) * GTY((reorder ("resort_type_method_vec"))) methods;
   tree key_method;
   tree decl_list;
-  tree template_info;
+  struct template_info *template_info;
   tree befriending_classes;
   /* In a RECORD_TYPE, information specific to Objective-C++, such
      as a list of adopted protocols or a pointer to a corresponding
      @interface.  See objc/objc-act.h for details.  */
   tree objc_info;
+};
+
+struct lang_type_enum GTY(())
+{
+  struct lang_type_header h;
+  struct template_info *template_info;
 };
 
 struct lang_type_ptrmem GTY(())
@@ -1084,28 +1097,36 @@ struct lang_type GTY(())
   union lang_type_u
   {
     struct lang_type_header GTY((skip (""))) h;
-    struct lang_type_class  GTY((tag ("1"))) c;
-    struct lang_type_ptrmem GTY((tag ("0"))) ptrmem;
-  } GTY((desc ("%h.h.is_lang_type_class"))) u;
+    struct lang_type_class  GTY((tag ("LANG_TYPE_IS_CLASS"))) c;
+    struct lang_type_enum   GTY((tag ("LANG_TYPE_IS_ENUM"))) e;
+    struct lang_type_ptrmem GTY((tag ("LANG_TYPE_IS_PTRMEM"))) ptrmem;
+  } GTY((desc ("%h.h.type_tag"))) u;
 };
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define LANG_TYPE_CLASS_CHECK(NODE) __extension__		\
 ({  struct lang_type *lt = TYPE_LANG_SPECIFIC (NODE);		\
-    if (! lt->u.h.is_lang_type_class)				\
+    if (lt->u.h.type_tag != LANG_TYPE_IS_CLASS)			\
       lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
     &lt->u.c; })
 
+#define LANG_TYPE_ENUM_CHECK(NODE) __extension__		\
+({  struct lang_type *lt = TYPE_LANG_SPECIFIC (NODE);		\
+    if (lt->u.h.type_tag != LANG_TYPE_IS_ENUM)			\
+      lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
+    &lt->u.e; })
+
 #define LANG_TYPE_PTRMEM_CHECK(NODE) __extension__		\
 ({  struct lang_type *lt = TYPE_LANG_SPECIFIC (NODE);		\
-    if (lt->u.h.is_lang_type_class)				\
+    if (lt->u.h.type_tag != LANG_TYPE_IS_PTRMEM)		\
       lang_check_failed (__FILE__, __LINE__, __FUNCTION__);	\
     &lt->u.ptrmem; })
 
 #else
 
 #define LANG_TYPE_CLASS_CHECK(NODE) (&TYPE_LANG_SPECIFIC (NODE)->u.c)
+#define LANG_TYPE_ENUM_CHECK(NODE) (&TYPE_LANG_SPECIFIC (NODE)->u.e)
 #define LANG_TYPE_PTRMEM_CHECK(NODE) (&TYPE_LANG_SPECIFIC (NODE)->u.ptrmem)
 
 #endif /* ENABLE_TREE_CHECKING */
@@ -1530,15 +1551,16 @@ struct lang_decl_flags GTY(())
 
   union lang_decl_u {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
-       THUNK_ALIAS.
-       In a FUNCTION_DECL for which DECL_THUNK_P does not hold,
+       THUNK_ALIAS. */
+    tree GTY ((tag ("0"))) alias;
+    /* In a FUNCTION_DECL for which DECL_THUNK_P does not hold,
        VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this is
        DECL_TEMPLATE_INFO.  */
-    tree GTY ((tag ("0"))) template_info;
+    struct template_info * GTY ((tag ("2"))) template_info;
 
     /* In a NAMESPACE_DECL, this is NAMESPACE_LEVEL.  */
     struct cp_binding_level * GTY ((tag ("1"))) level;
-  } GTY ((desc ("%1.u1sel"))) u;
+  } GTY ((desc ("(%1.u1sel ? 1 : (%1.thunk_p ? 0 : 2))"))) u;
 
   union lang_decl_u2 {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -2090,10 +2112,9 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
 /* If non-NULL for a VAR_DECL, FUNCTION_DECL, TYPE_DECL or
    TEMPLATE_DECL, the entity is a template specialization.  In that
-   case, DECL_TEMPLATE_INFO is a TREE_LIST, whose TREE_PURPOSE is the
-   TEMPLATE_DECL of which this entity is a specialization.  The TREE_
-   TREE_VALUE is the template arguments used to specialize the
-   template.  
+   case, DECL_TEMPLATE_INFO is a struct template_info encapsulating the
+   TEMPLATE_DECL of which this entity is a specialization and the
+   template arguments used to specialize the template.  
 
    In general, DECL_TEMPLATE_INFO is non-NULL only if
    DECL_USE_TEMPLATE is nonzero.  However, for friends, we sometimes
@@ -2123,9 +2144,26 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* Template information for an ENUMERAL_TYPE.  Although an enumeration may
    not be a primary template, it may be declared within the scope of a
    primary template and the enumeration constants may depend on
-   non-type template parameters.  */
+   non-type template parameters.
+
+   TYPE_LANG_SPECIFIC for ENUMERAL_TYPEs is allocated lazily, only when
+   ENUM_TEMPLATE_INFO is set.
+*/
 #define ENUM_TEMPLATE_INFO(NODE) \
-  (TYPE_LANG_SLOT_1 (ENUMERAL_TYPE_CHECK (NODE)))
+  (TYPE_LANG_SPECIFIC (ENUMERAL_TYPE_CHECK (NODE))	\
+   ? LANG_TYPE_ENUM_CHECK (NODE)->template_info		\
+   : (struct template_info *) NULL)
+
+#define SET_ENUM_TEMPLATE_INFO(NODE, VAL) \
+  do {									\
+    if (TYPE_LANG_SPECIFIC (NODE) == NULL)				\
+      {									\
+	TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR				\
+	 (struct lang_type, sizeof (struct lang_type_enum));		\
+	TYPE_LANG_SPECIFIC (NODE)->u.e.h.type_tag = LANG_TYPE_IS_ENUM; \
+      }									\
+    TYPE_LANG_SPECIFIC (NODE)->u.e.template_info = (VAL);		\
+  } while (0)
 
 /* Template information for a template template parameter.  */
 #define TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO(NODE) \
@@ -2140,18 +2178,34 @@ extern void decl_shadowed_for_var_insert (tree, tree);
     ? TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE) :	\
     (TYPE_LANG_SPECIFIC (NODE)				\
      ? CLASSTYPE_TEMPLATE_INFO (NODE)			\
-     : NULL_TREE)))
+     : (struct template_info *) NULL)))
 
 /* Set the template information for an ENUMERAL_, RECORD_, or
    UNION_TYPE to VAL.  */
 #define SET_TYPE_TEMPLATE_INFO(NODE, VAL)	\
-  (TREE_CODE (NODE) == ENUMERAL_TYPE		\
-   ? (ENUM_TEMPLATE_INFO (NODE) = (VAL))	\
-   : (CLASSTYPE_TEMPLATE_INFO (NODE) = (VAL)))
+  do {									\
+    if (TREE_CODE (NODE) == ENUMERAL_TYPE)				\
+      SET_ENUM_TEMPLATE_INFO(NODE, VAL);				\
+    else								\
+      CLASSTYPE_TEMPLATE_INFO (NODE) = (VAL);				\
+  } while (0)
 
-#define TI_TEMPLATE(NODE) (TREE_PURPOSE (NODE))
-#define TI_ARGS(NODE) (TREE_VALUE (NODE))
-#define TI_PENDING_TEMPLATE_FLAG(NODE) TREE_LANG_FLAG_1 (NODE)
+/* Representation of template information. */
+
+struct template_info GTY(())
+{
+  /* The TEMPLATE_DECL of which this entity is a specialization.  */
+  tree template;
+  /* The arguments that were used to instantiate the template.  */
+  tree arguments;
+  /* True if this specialization needs to be instantiated, but we have
+     deferred the instantiation until end-of-file.  */
+  bool pending_template;
+};
+
+#define TI_TEMPLATE(NODE) ((NODE)->template)
+#define TI_ARGS(NODE) ((NODE)->arguments)
+#define TI_PENDING_TEMPLATE_FLAG(NODE) ((NODE)->pending_template)
 
 /* We use TREE_VECs to hold template arguments.  If there is only one
    level of template arguments, then the TREE_VEC contains the
@@ -2586,7 +2640,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
       {									\
 	TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR				\
 	 (struct lang_type, sizeof (struct lang_type_ptrmem));		\
-	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;	\
+	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.type_tag = LANG_TYPE_IS_PTRMEM; \
       }									\
     TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);		\
   } while (0)
@@ -2957,7 +3011,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
 /* A thunk which is equivalent to another thunk.  */
 #define THUNK_ALIAS(DECL) \
-  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.template_info)
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.alias)
 
 /* For thunk NODE, this is the FUNCTION_DECL thunked to.  It is
    possible for the target to be a thunk too.  */
@@ -4087,6 +4141,8 @@ extern tree resolve_typename_type		(tree, bool);
 extern tree template_for_substitution		(tree);
 extern tree build_non_dependent_expr		(tree);
 extern tree build_non_dependent_args		(tree);
+extern struct template_info *build_template_info (tree, tree);
+extern struct template_info *copy_template_info	(struct template_info *);
 extern bool reregister_specialization		(tree, tree, tree);
 extern tree fold_non_dependent_expr		(tree);
 

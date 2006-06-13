@@ -1,3 +1,49 @@
+2006-06-13  Sandra Loosemore <sandra@codesourcery.com>
+
+	* gcc/cp/cp-tree.h (TYPE_LANG_SLOT_1): No longer used for
+	ENUM_TEMPLATE_INFO, since template info is no longer a tree type.
+	(enum lang_type_tag): New.
+	(struct lang_type_header): Change is_lang_type_class -> type_tag;
+	updated all references.
+	(struct lang_type_class): Use struct template_info * here.
+	(struct lang_type_enum): New.
+	(struct lang_type): Add struct lang_type_enum to union.
+	(LANG_TYPE_ENUM_CHECK): New.
+	(struct lang_decl_flags): Split alias from template_info; update
+	all references.
+	(ENUM_TEMPLATE_INFO): Rewrite for new location of enum info.
+	(SET_ENUM_TEMPLATE_INFO): New, for lazy allocation of lang_type.
+	(SET_TYPE_TEMPLATE_INFO): Rewrite for new location of enum info.
+	(struct template_info): New.
+	(TI_TEMPLATE, TI_ARGS, TI_PENDING_TEMPLATE_FLAG): Use
+	struct template_info * here.
+	(build_template_info, copy_template_info): Declare new functions.
+	* gcc/cp/class.c (build_clone): Change copy_node -> copy_template_info.
+	* gcc/cp/decl.c (grokfndecl): Change tree_cons -> build_template_info.
+	(grokdeclarator): Do not assume TYPE_LANG_SPECIFIC always
+	represents a class.
+	* gcc/cp/call.c (struct z_candidate): Use struct template_info * here.
+	(add_template_candidate_real): Change tree_cons -> build_template_info.
+	* gcc/cp/error.c (dump_template_parms): Use struct template_info *.
+	* gcc/cp/tree.c (bind_template_template_parm): Change tree_cons ->
+	build_template_info.
+	* gcc/cp/mangle.c (decl_is_template_id): Use struct template_info *
+	here; update all callers.
+	* gcc/cp/pt.c (check_explicit_specialization): Change tree_cons ->
+	build_template_info.
+	(push_template_decl_real): Use struct template_info * here; change
+	tree_cons -> build_template_info.
+	(classtype_mangled_name): Use struct template_info * here.
+	(lookup_template_class): Change tree_cons -> build_template_info.
+	(for_each_template_parm_r): Change TREE_VALUE -> TI_ARGS.
+	(tsubst_friend_function): Use struct template_info * here.
+	(tsubst_friend_class): Use struct template_info * here.
+	(tsubst_decl): Use struct template_info * here; change build_tree_list
+	-> build_template_info, tree_cons -> build_template_info.
+	(tsubst): Change tree_cons -> build_template_info.
+	(build_template_info, copy_template_info): New.
+	* gcc/cp/lex.c (copy_lang_type): Make it know about lang_type_enum. 
+
 2006-06-12  Mark Mitchell  <mark@codesourcery.com>
 	    Kazu Hirata  <kazu@codesourcery.com>
 
