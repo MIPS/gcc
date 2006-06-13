@@ -1,3 +1,27 @@
+2006-06-13  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-predcom.c (struct dref): Split part to ...
+	(struct chain): New.
+	(enum chain_type): New.
+	(struct component): Removed always_executed field.
+	(dump_dref): Only dump the fields that stay in struct dref.
+	(release_component): Do not free variables.
+	(split_data_refs_to_components): Only handle fields of struct dref.
+	(determine_roots_comp, determine_roots): Split components to chains.
+	(replace_name_by_name): Removed.
+	(replace_ref_with): Always create a new statement for initializing the
+	temporary variable.
+	(release_chain, release_chains, dump_chain, dump_chains,
+	add_ref_to_chain, make_invariant_chain, make_rooted_chain,
+	nontrivial_chain_p): New functions.
+	(initialize_root, execute_load_motion, execute_pred_commoning):
+	Work with chains instead of components.
+	(execute_pred_commoning_comp): Renamed to ...
+	(execute_pred_commoning_chain): ... this.  Work with chains instead of
+	components.
+	(tree_predictive_commoning_loop): Split components to chains and
+	perform the transformations on chains.
+
 2006-06-07  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* double-int.c (double_int_zext, double_int_sext): Fix.

@@ -58,6 +58,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
       c) the distance of the indices must be a small multiple of the step
       We are then able to compute the difference of the references (# of
       iterations before they point to the same place as the first of them).
+      Also, in case there are writes in the loop, we split the groups into
+      smaller chains (this keeps the number of registers we need the same,
+      but makes the chains shorter, and thus requires lower unrolling factor
+      in order to get rid of the copies on the loop latch).
+      
       In our example,
 
       a[i]{read,+0}, a[i+1]{read,-1}, a[i+2]{write,-2}
@@ -77,9 +82,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
       a[i] --> (*) 2, a[i+1] --> (*) 1, a[i+2] (*)
       b[10] --> (*) 1, b[10] (*)
 
-   4) For each root reference R, let N be maximum distance of a reference
-      reusing its value.  Variables R0 upto RN are created, together
-      with phi nodes that transfer values from R1 .. RN to R0 .. R(N-1).
+   4) For each root reference (end of the chain) R, let N be maximum distance
+      of a reference reusing its value.  Variables R0 upto RN are created,
+      together with phi nodes that transfer values from R1 .. RN to
+      R0 .. R(N-1).
       Initial values are loaded to R0..R(N-1) (in case not all references
       must necessarily be accessed and they may trap, we may fail here;
       TODO sometimes, the loads could be guarded by a check for the number
@@ -189,28 +195,67 @@ typedef struct dref
   /* The reference itself.  */
   struct data_reference *ref;
 
-  /* The reference whose value we reuse, and distance to it.  For roots,
-     distance is the maximum distance from reference using its value to
-     it + 1.  */
-  struct dref *chain;
+  /* Next reference in chain.  */
+  struct dref *next;
+
+  /* Distance of the reference from the root of the chain (in number of
+     iterations of the loop).  */
   unsigned distance;
-
-  /* For roots, the variables used to copy the value throughout iterations.  */
-  VEC(tree,heap) *vars;
-
-  /* For roots, true if it has an use with the maximal distance that comes
-     after it in loop.  */
-  bool has_max_use_after;
 
   /* Number of iterations offset from the first reference in the component.  */
   double_int offset;
 
   /* Number of the reference in a component, in dominance ordering.  */
   unsigned pos;
+
+  /* True if all the memory reference is always executed when the loop is
+     entered.  */
+  unsigned always_executed : 1;
 } dref;
 
 DEF_VEC_O (dref);
 DEF_VEC_ALLOC_O (dref, heap);
+
+/* Type of the chain of the references.  */
+
+enum chain_type
+{
+  /* The addresses of the references in the chain are constant.  */
+  CT_INVARIANT,
+
+  /* There are only loads in the chain.  */
+  CT_LOAD,
+
+  /* Root of the chain is store, the rest are loads.  */
+  CT_STORE_LOAD
+};
+
+/* Chains of data references.  */
+
+typedef struct chain
+{
+  /* Type of the chain.  */
+  enum chain_type type;
+
+  /* Root and the last element of the chain.  */
+  dref *root, *last;
+
+  /* The maximum distance of the reference in the chain from the root.  */
+  unsigned length;
+
+  /* The variables used to copy the value throughout iterations.  */
+  VEC(tree,heap) *vars;
+
+  /* True if there is a use of a variable with the maximal distance
+     that comes after the root in the loop.  */
+  unsigned has_max_use_after : 1;
+
+  /* True if all the memory references in the chain are always executed.  */
+  unsigned all_always_executed : 1;
+} *chain_p;
+
+DEF_VEC_P (chain_p);
+DEF_VEC_ALLOC_P (chain_p, heap);
 
 /* Describes the knowledge about the step of the memory references in
    the component.  */
@@ -237,10 +282,7 @@ struct component
   /* What we know about the step of the references in the component.  */
   enum ref_step_type comp_step;
 
-  /* True if all the memory references in the component are always executed
-     when the loop is entered.  */
-  bool always_executed;
-
+  /* Next component in the list.  */
   struct component *next;
 };
 
@@ -250,39 +292,84 @@ extern void dump_dref (FILE *, dref *);
 void
 dump_dref (FILE *file, dref *ref)
 {
-  bool is_root = (!ref->chain && ref->distance);
-  unsigned i;
-  tree var;
-
-  fprintf (file, "  ");
+  fprintf (file, "    ");
   print_generic_expr (dump_file, DR_REF (ref->ref), TDF_SLIM);
-  fprintf (file, " (id %d%s%s)\n", ref->pos,
-	   DR_IS_READ (ref->ref) ? "" : ", write",
-	   is_root ? ", root" : "");
+  fprintf (file, " (id %u%s)\n", ref->pos,
+	   DR_IS_READ (ref->ref) ? "" : ", write");
 
-  fprintf (file, "    offset ");
+  fprintf (file, "      offset ");
   dump_double_int (file, ref->offset, false);
   fprintf (file, "\n");
 
-  if (ref->chain)
-    fprintf (file, "    chain %d distance %d\n", ref->chain->pos,
-	     ref->distance);
+  if (ref->next)
+    fprintf (file, "      next %u\n", ref->next->pos);
+  fprintf (file, "      distance %u\n", ref->distance);
+}
 
-  if (is_root)
+/* Dumps CHAIN to FILE.  */
+
+extern void dump_chain (FILE *, chain_p);
+void
+dump_chain (FILE *file, chain_p chain)
+{
+  dref *a;
+  const char *chain_type;
+  unsigned i;
+  tree var;
+
+  switch (chain->type)
     {
-      fprintf (file, "    max distance %d%s\n", (int) ref->distance,
-	       ref->has_max_use_after ? "" : ", may reuse first");
-      if (ref->vars)
-	{
-	  fprintf (file, "    vars");
-	  for (i = 0; VEC_iterate (tree, ref->vars, i, var); i++)
-	    {
-	      fprintf (file, " ");
-	      print_generic_expr (dump_file, var, TDF_SLIM);
-	    }
-	  fprintf (file, "\n");
-	}
+    case CT_INVARIANT:
+      chain_type = "Load motion";
+      break;
+
+    case CT_LOAD:
+      chain_type = "Loads-only";
+      break;
+
+    case CT_STORE_LOAD:
+      chain_type = "Store-loads";
+      break;
+
+    default:
+      gcc_unreachable ();
     }
+
+  fprintf (file, "%s chain:\n", chain_type);
+  if (chain->type != CT_INVARIANT)
+    fprintf (file, "  max distance %u%s\n", chain->length,
+	     chain->has_max_use_after ? "" : ", may reuse first");
+
+  if (chain->vars)
+    {
+      fprintf (file, "  vars");
+      for (i = 0; VEC_iterate (tree, chain->vars, i, var); i++)
+	{
+	  fprintf (file, " ");
+	  print_generic_expr (dump_file, var, TDF_SLIM);
+	}
+      fprintf (file, "\n");
+    }
+
+  fprintf (file, "  references:\n");
+  for (a = chain->root; a; a = a->next)
+    dump_dref (file, a);
+
+
+  fprintf (file, "\n");
+}
+
+/* Dumps CHAINS to FILE.  */
+
+extern void dump_chains (FILE *, VEC (chain_p, heap) *);
+void
+dump_chains (FILE *file, VEC (chain_p, heap) *chains)
+{
+  chain_p chain;
+  unsigned i;
+
+  for (i = 0; VEC_iterate (chain_p, chains, i, chain); i++)
+    dump_chain (file, chain);
 }
 
 /* Dumps COMP to FILE.  */
@@ -313,18 +400,37 @@ dump_components (FILE *file, struct component *comps)
     dump_component (file, comp);
 }
 
+/* Frees a chain CHAIN.  */
+
+static void
+release_chain (chain_p chain)
+{
+  if (chain == NULL)
+    return;
+
+  if (chain->vars)
+    VEC_free (tree, heap, chain->vars);
+  free (chain);
+}
+
+/* Frees CHAINS.  */
+
+static void
+release_chains (VEC (chain_p, heap) *chains)
+{
+  unsigned i;
+  chain_p chain;
+
+  for (i = 0; VEC_iterate (chain_p, chains, i, chain); i++)
+    release_chain (chain);
+  VEC_free (chain_p, heap, chains);
+}
+
 /* Frees a component COMP.  */
 
 static void
 release_component (struct component *comp)
 {
-  unsigned i;
-  dref *a;
-
-  for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
-    if (a->vars)
-      VEC_free (tree, heap, a->vars);
-
   VEC_free (dref, heap, comp->refs);
   free (comp);
 }
@@ -660,10 +766,8 @@ split_data_refs_to_components (struct loop *loop,
     }
 
   dataref.offset = double_int_zero;
-  dataref.chain = NULL;
+  dataref.next = NULL;
   dataref.distance = 0;
-  dataref.has_max_use_after = false;
-  dataref.vars = NULL;
 
   comps = XCNEWVEC (struct component *, n);
   bad = component_of (comp_father, n);
@@ -679,17 +783,17 @@ split_data_refs_to_components (struct loop *loop,
 	{
 	  comp = XCNEW (struct component);
 	  comp->refs = VEC_alloc (dref, heap, comp_size[ca]);
-	  comp->always_executed = true;
 	  comps[ca] = comp;
 	}
 
-      if (!dominated_by_p (CDI_DOMINATORS, last_always_executed,
-			   bb_for_stmt (DR_STMT (dr))))
-	comp->always_executed = false;
+      dataref.always_executed
+	      = dominated_by_p (CDI_DOMINATORS, last_always_executed,
+				bb_for_stmt (DR_STMT (dr)));
       dataref.ref = dr;
       dataref.pos = VEC_length (dref, comp->refs);
       VEC_quick_push (dref, comp->refs, &dataref);
     }
+
   for (i = 0; i < n; i++)
     {
       comp = comps[i];
@@ -805,133 +909,202 @@ order_drefs (const void *a, const void *b)
   return da->pos - db->pos;
 }
 
-/* Find roots of the values and determine distances in the component COMP.  */
+/* Adds REF to the chain CHAIN.  */
 
 static void
-determine_roots_comp (struct component *comp)
+add_ref_to_chain (chain_p chain, dref *ref)
+{
+  dref *root = chain->root;
+  double_int dist;
+
+  gcc_assert (double_int_scmp (root->offset, ref->offset) <= 0);
+  dist = double_int_add (ref->offset, double_int_neg (root->offset));
+  if (double_int_ucmp (uhwi_to_double_int (MAX_DISTANCE), dist) <= 0)
+    return;
+
+  gcc_assert (double_int_fits_in_uhwi_p (dist));
+
+  chain->last->next = ref;
+  chain->last = ref;
+  ref->next = NULL;
+  ref->distance = double_int_to_uhwi (dist);
+
+  if (ref->distance >= chain->length)
+    {
+      chain->length = ref->distance;
+      chain->has_max_use_after = false;
+    }
+
+  if (ref->distance == chain->length
+      && ref->pos > root->pos)
+    chain->has_max_use_after = true;
+
+  chain->all_always_executed &= ref->always_executed;
+}
+
+/* Returns the chain for invariant component COMP.  */
+
+static chain_p
+make_invariant_chain (struct component *comp)
+{
+  chain_p chain = XCNEW (struct chain);
+  unsigned i;
+  dref *ref;
+
+  chain->type = CT_INVARIANT;
+
+  ref = VEC_index (dref, comp->refs, 0);
+  chain->root = ref;
+  chain->last = ref;
+  chain->all_always_executed = ref->always_executed;
+
+  for (i = 1; VEC_iterate (dref, comp->refs, i, ref); i++)
+    {
+      chain->last->next = ref;
+      chain->last = ref;
+      chain->all_always_executed &= ref->always_executed;
+    }
+  chain->last->next = NULL;
+
+  return chain;
+}
+
+/* Make a new chain rooted at REF.  */
+
+static chain_p
+make_rooted_chain (dref *ref)
+{
+  chain_p chain = XCNEW (struct chain);
+
+  chain->type = DR_IS_READ (ref->ref) ? CT_LOAD : CT_STORE_LOAD;
+
+  chain->root = ref;
+  chain->last = ref;
+  chain->all_always_executed = ref->always_executed;
+
+  ref->distance = 0;
+  ref->next = NULL;
+
+  return chain;
+}
+
+/* Returns true if CHAIN is not trivial.  */
+
+static bool
+nontrivial_chain_p (chain_p chain)
+{
+  return chain != NULL && chain->root->next != NULL;
+}
+
+/* Find roots of the values and determine distances in the component COMP.
+   The references are redistributed into CHAINS.  */
+
+static void
+determine_roots_comp (struct component *comp,
+		      VEC (chain_p, heap) **chains)
 {
   unsigned i;
-  double_int dist;
-  dref *a, *root;
+  dref *a;
+  chain_p chain = NULL;
 
   /* Invariants are handled specially.  */
   if (comp->comp_step == RS_INVARIANT)
-    return;
+    {
+      chain = make_invariant_chain (comp);
+      VEC_safe_push (chain_p, heap, *chains, chain);
+      return;
+    }
 
   qsort (VEC_address (dref, comp->refs), VEC_length (dref, comp->refs),
 	 sizeof (dref), order_drefs);
 
-  root = VEC_index (dref, comp->refs, 0);
-  for (i = 1; VEC_iterate (dref, comp->refs, i, a); i++)
+  for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
     {
-      if (!DR_IS_READ (a->ref))
+      if (!chain || !DR_IS_READ (a->ref))
 	{
-	  root = a;
+	  if (nontrivial_chain_p (chain))
+	    VEC_safe_push (chain_p, heap, *chains, chain);
+	  else
+	    release_chain (chain);
+	  chain = make_rooted_chain (a);
 	  continue;
 	}
 
-      gcc_assert (double_int_scmp (root->offset, a->offset) <= 0);
-      dist = double_int_add (a->offset, double_int_neg (root->offset));
-      if (double_int_ucmp (uhwi_to_double_int (MAX_DISTANCE), dist) <= 0)
-	continue;
-
-      gcc_assert (double_int_fits_in_uhwi_p (dist));
-      a->chain = root;
-      a->distance = double_int_to_uhwi (dist);
-
-      if (a->distance >= root->distance)
-	{
-	  root->distance = a->distance + 1;
-	  root->has_max_use_after = false;
-	}
-      if (a->distance == root->distance - 1
-	  && a->pos > root->pos)
-	root->has_max_use_after = true;
+      add_ref_to_chain (chain, a);
     }
+	  
+  if (nontrivial_chain_p (chain))
+    VEC_safe_push (chain_p, heap, *chains, chain);
+  else
+    release_chain (chain);
 }
 
-/* Find roots of the values and determine distances in components COMPS.  */
+/* Find roots of the values and determine distances in components COMPS, and
+   separates the references to CHAINS.  */
 
 static void
-determine_roots (struct component *comps)
+determine_roots (struct component *comps, VEC (chain_p, heap) **chains)
 {
   struct component *comp;
 
   for (comp = comps; comp; comp = comp->next)
-    determine_roots_comp (comp);
+    determine_roots_comp (comp, chains);
 }
 
-/* Replaces all uses and the definition of TO_REPLACE with REPLACE_BY.
-   Returns false if this is not possible.  Also prevents replacement
-   of ssa names outside of LOOP.  */
-
-static bool
-replace_name_by_name (struct loop *loop, tree to_replace, tree replace_by)
-{
-  tree stmt;
-
-  if (TREE_CODE (to_replace) != SSA_NAME)
-    return false;
-
-  stmt = SSA_NAME_DEF_STMT (to_replace);
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
-    return false;
-  gcc_assert (TREE_OPERAND (stmt, 0) == to_replace);
-
-  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
-    return false;
-
-  if (!may_propagate_copy (to_replace, replace_by))
-    return false;
-
-  replace_uses_by (to_replace, replace_by);
-  TREE_OPERAND (stmt, 0) = replace_by;
-  SSA_NAME_DEF_STMT (replace_by) = stmt;
-  update_stmt (stmt);
-
-  return true;
-}
-
-/* Replace reference OLD in statement STMT with NEW.  If SET is true,
-   NEW is instead initialized to the value of the reference in
-   the statement.  LOOP is the loop in that the replacement occurs.  */
+/* Replace reference OLD in statement STMT with temporary variable
+   NEW.  If SET is true, NEW is instead initialized to the value of
+   the reference in the statement.  */
 
 static void
-replace_ref_with (struct loop *loop, tree stmt, tree old, tree new, bool set)
+replace_ref_with (tree stmt, tree old, tree new, bool set)
 {
+  tree val, new_stmt;
+  block_stmt_iterator bsi;
+
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
-  if (set)
+  /* If we do not need to initialize NEW, just replace the use of OLD.  */
+  if (!set)
     {
-      tree new_stmt, rhs;
-
-      if (TREE_OPERAND (stmt, 0) == old)
-	rhs = TREE_OPERAND (stmt, 1);
-      else
-	{
-	  gcc_assert (TREE_OPERAND (stmt, 1) == old);
-	  rhs = TREE_OPERAND (stmt, 0);
-	}
-
-      /* If possible, just replace the ssa name of RHS with the new temporary
-	 variable.  Otherwise, load the value in a new statement.  */
-      if (!replace_name_by_name (loop, rhs, new))
-	{
-	  block_stmt_iterator bsi = bsi_for_stmt (stmt);
-	  new_stmt = build2 (MODIFY_EXPR, void_type_node, new, unshare_expr (rhs));
-	  bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
-	  SSA_NAME_DEF_STMT (new) = new_stmt;
-	}
-    }
-  else if (TREE_OPERAND (stmt, 1) == old)
-    {
+      gcc_assert (TREE_OPERAND (stmt, 1) == old);
       TREE_OPERAND (stmt, 1) = new;
       update_stmt (stmt);
+      return;
+    }
+
+  bsi = bsi_for_stmt (stmt);
+  if (TREE_OPERAND (stmt, 0) == old)
+    {
+      val = TREE_OPERAND (stmt, 1);
+
+      /* OLD = VAL
+
+	 is transformed to
+
+	 OLD = VAL
+	 NEW = VAL
+
+	 (since the reference is of gimple_reg type, VAL is either gimple
+	 invariant or ssa name).  */
     }
   else
-    gcc_unreachable ();
+    {
+      gcc_assert (TREE_OPERAND (stmt, 1) == old);
+      val = TREE_OPERAND (stmt, 0);
+
+      /* VAL = OLD
+
+	 is transformed to
+
+	 VAL = OLD
+	 NEW = VAL  */
+    }
+
+  new_stmt = build2 (MODIFY_EXPR, void_type_node, new, unshare_expr (val));
+  bsi_insert_after (&bsi, new_stmt, BSI_NEW_STMT);
+  SSA_NAME_DEF_STMT (new) = new_stmt;
 }
 
 /* Specializes REF for the ITER-th iteration (ITER may be negative).  */
@@ -1039,26 +1212,26 @@ initialize_root_vars (struct loop *loop, dref *root, unsigned n,
   return true;
 }
 
-/* Create the variables and initialization statement for ROOT.  Return
-   the suggested unroll factor.  CHECK_TRAPPING is true if we should
-   verify that the memory references do not trap.  Uids of the newly
-   created temporary variables are marked in TMP_VARS.  */
+/* Create the variables and initialization statement for root of chain
+   CHAIN.  Return the suggested unroll factor.  Uids of
+   the newly created temporary variables are marked in TMP_VARS.  */
 
 static unsigned
-initialize_root (struct loop *loop, dref *root, bool check_trapping,
-		 bitmap tmp_vars)
+initialize_root (struct loop *loop, chain_p chain, bitmap tmp_vars)
 {
-  unsigned n = root->distance;
+  dref *root = chain->root;
+  unsigned n = chain->length;
 
-  if (!initialize_root_vars (loop, root, root->distance - 1,
-			     !root->has_max_use_after, &root->vars,
-			     check_trapping, tmp_vars))
+  if (!initialize_root_vars (loop, root, chain->length,
+			     !chain->has_max_use_after, &chain->vars,
+			     !chain->all_always_executed,
+			     tmp_vars))
     return 1;
 
-  replace_ref_with (loop, DR_STMT (root->ref), DR_REF (root->ref),
-		    VEC_index (tree, root->vars, n - 1), true);
+  replace_ref_with (DR_STMT (root->ref), DR_REF (root->ref),
+		    VEC_index (tree, chain->vars, n), true);
 
-  return root->has_max_use_after ? n : n - 1;
+  return chain->has_max_use_after ? n + 1 : n;
 }
 
 /* Initializes a variable for load motion for ROOT and prepares phi nodes and
@@ -1121,33 +1294,37 @@ initialize_root_vars_lm (struct loop *loop, dref *root, bool written,
   return true;
 }
 
-/* Execute load motion for references in COMP.  Uids of the newly created
-   temporary variables are marked in TMP_VARS.  */
+/* Execute load motion for references in chain CHAIN.  Uids of the newly
+   created temporary variables are marked in TMP_VARS.  */
 
 static void
-execute_load_motion (struct loop *loop, struct component *comp,
-		     bitmap tmp_vars)
+execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
 {
   VEC (tree, heap) *vars;
   dref *a;
-  unsigned i, n_writes = 0, ridx;
+  unsigned n_writes = 0, n_reads = 0, ridx;
   tree var;
   ssa_op_iter iter;
- 
-  for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
-    if (!DR_IS_READ (a->ref))
-      n_writes++;
+
+  gcc_assert (chain->type == CT_INVARIANT);
+  for (a = chain->root; a; a = a->next)
+    {
+      if (!DR_IS_READ (a->ref))
+	n_writes++;
+      else
+	n_reads++;
+    }
+  
   /* If there are no reads in the loop, there is nothing to do.  */
-  if (n_writes == VEC_length (dref, comp->refs))
+  if (n_reads == 0)
     return;
 
-  a = VEC_index (dref, comp->refs, 0);
-  if (!initialize_root_vars_lm (loop, a, n_writes > 0, &vars,
-				!comp->always_executed, tmp_vars))
+  if (!initialize_root_vars_lm (loop, chain->root, n_writes > 0, &vars,
+				!chain->all_always_executed, tmp_vars))
     return;
 
   ridx = 0;
-  for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
+  for (a = chain->root; a; a = a->next)
     {
       FOR_EACH_SSA_TREE_OPERAND (var, DR_STMT (a->ref), iter, SSA_OP_ALL_VIRTUALS)
 	mark_sym_for_renaming (SSA_NAME_VAR (var));
@@ -1165,7 +1342,7 @@ execute_load_motion (struct loop *loop, struct component *comp,
 	    ridx = 1;
 	}
 	  
-      replace_ref_with (loop, DR_STMT (a->ref), DR_REF (a->ref),
+      replace_ref_with (DR_STMT (a->ref), DR_REF (a->ref),
 			VEC_index (tree, vars, ridx),
 			!DR_IS_READ (a->ref));
     }
@@ -1173,72 +1350,63 @@ execute_load_motion (struct loop *loop, struct component *comp,
   VEC_free (tree, heap, vars);
 }
 
-/* Perform the predictive commoning optimization for a component COMP.
+/* Perform the predictive commoning optimization for a chain CHAIN.
    Returns the suggested unroll factor.  Uids of the newly created temporary
    variables are marked in TMP_VARS.*/
 
 static unsigned
-execute_pred_commoning_comp (struct loop *loop, struct component *comp,
+execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 			     bitmap tmp_vars)
 {
-  unsigned i, n, factor = 1, af, nf;
+  unsigned factor;
   dref *a, *root;
-  unsigned max = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
   tree var;
   ssa_op_iter iter;
 
-  for (i = 0; VEC_iterate (dref, comp->refs, i, a); i++)
+  root = chain->root;
+  FOR_EACH_SSA_TREE_OPERAND (var, DR_STMT (root->ref), iter, SSA_OP_ALL_VIRTUALS)
     {
-      root = a->chain;
+      mark_sym_for_renaming (SSA_NAME_VAR (var));
+    }
 
-      if (!root && !a->distance)
-	continue;
+  factor = initialize_root (loop, chain, tmp_vars);
+  if (!chain->vars)
+    return 1;
 
-      FOR_EACH_SSA_TREE_OPERAND (var, DR_STMT (a->ref), iter, SSA_OP_ALL_VIRTUALS)
-	mark_sym_for_renaming (SSA_NAME_VAR (var));
-
-      if (!root)
-	{
-	  af = initialize_root (loop, a, !comp->always_executed,
-				tmp_vars);
-      	  nf = af * factor / gcd (af, factor);
-	  if (nf <= max)
-	    factor = nf;
-	  continue;
-	}
-
-      if (!root->vars)
-	continue;
-
+  for (a = root->next; a; a = a->next)
+    {
       gcc_assert (DR_IS_READ (a->ref));
-      n = root->distance - 1;
-      replace_ref_with (loop, DR_STMT (a->ref), DR_REF (a->ref),
-			VEC_index (tree, root->vars, n - a->distance),
-			false);
+  
+      FOR_EACH_SSA_TREE_OPERAND (var, DR_STMT (a->ref), iter, SSA_OP_ALL_VIRTUALS)
+	{
+	  mark_sym_for_renaming (SSA_NAME_VAR (var));
+	}
+      var = VEC_index (tree, chain->vars, chain->length - a->distance);
+      replace_ref_with (DR_STMT (a->ref), DR_REF (a->ref), var, false);
     }
 
   return factor;
 }
 
-/* Perform the predictive commoning optimization for COMPS.  Returns
+/* Perform the predictive commoning optimization for CHAINS.  Returns
    the suggested unroll factor.  Uids of the newly created temporary
    variables are marked in TMP_VARS.  */
 
 static unsigned
-execute_pred_commoning (struct loop *loop, struct component *comps,
+execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
 			bitmap tmp_vars)
 {
-  struct component *comp;
-  unsigned factor = 1, af, nfactor;
+  chain_p chain;
+  unsigned factor = 1, af, nfactor, i;
   unsigned max = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
 
-  for (comp = comps; comp; comp = comp->next)
+  for (i = 0; VEC_iterate (chain_p, chains, i, chain); i++)
     {
-      if (comp->comp_step == RS_INVARIANT)
-	execute_load_motion (loop, comp, tmp_vars);
+      if (chain->type == CT_INVARIANT)
+	execute_load_motion (loop, chain, tmp_vars);
       else
 	{
-	  af = execute_pred_commoning_comp (loop, comp, tmp_vars);
+	  af = execute_pred_commoning_chain (loop, chain, tmp_vars);
 	  nfactor = factor * af / gcd (factor, af);
 	  if (nfactor <= max)
 	    factor = nfactor;
@@ -1371,6 +1539,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   VEC (data_reference_p, heap) *datarefs;
   VEC (ddr_p, heap) *dependences;
   struct component *components;
+  VEC (chain_p, heap) *chains = NULL;
   unsigned unroll_factor;
   struct tree_niter_desc desc;
   bool unrolled = false;
@@ -1397,14 +1566,14 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
     }
   components = filter_suitable_components (loop, components);
   tmp_vars = BITMAP_ALLOC (NULL);
-  determine_roots (components);
+  determine_roots (components, &chains);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Before commoning:\n\n");
-      dump_components (dump_file, components);
+      dump_chains (dump_file, chains);
     }
-  unroll_factor = execute_pred_commoning (loop, components, tmp_vars);
+  unroll_factor = execute_pred_commoning (loop, chains, tmp_vars);
 
   if (should_unroll_loop_p (loop, unroll_factor, &desc))
     {
@@ -1418,6 +1587,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
     }
 
   release_components (components);
+  release_chains (chains);
   free_data_refs (datarefs);
   BITMAP_FREE (tmp_vars);
   return unrolled;
