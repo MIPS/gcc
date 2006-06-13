@@ -2074,6 +2074,10 @@ is_compiled_class (tree class)
     return 1;
   if (TYPE_ARRAY_P (class))
     return 0;
+  /* We have to check this explicitly to avoid trying to load a class
+     that we're currently parsing.  */
+  if (class == current_class)
+    return 2;
 
   seen_in_zip = (TYPE_JCF (class) && JCF_SEEN_IN_ZIP (TYPE_JCF (class)));
   if (CLASS_FROM_CURRENTLY_COMPILED_P (class))
