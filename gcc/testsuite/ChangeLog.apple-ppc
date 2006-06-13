@@ -1,3 +1,20 @@
+2006-06-13  Matthew Sachs  <msachs@apple.com>
+
+	Radar 4085016
+	Backport from mainline:
+	2006-06-13  Matthew Sachs  <msachs@apple.com>
+
+	* lib/target-supports-dg.exp (check-flags): Include TOOL_OPTIONS in
+	the list of compiler flags; this causes those flags to be checked
+	for things like dg-skip-if.
+
+	2005-03-04  Matthew Sachs  <msachs@apple.com>
+
+	* gcc.exp (gcc_target_compile): Put braces around
+	additional_flags=$TOOL_OPTIONS; allows for whitespace in $TOOL_OPTIONS.
+	* objc.exp (objc_target_compile): Likewise.
+	* treelang.exp (treelang_target_compile): Likewise.
+
 2006-06-05  Roger Sayle  <roger@eyesopen.com>
 	Stuart Hastings  <stuart@apple.com>
 
