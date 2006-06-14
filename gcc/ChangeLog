@@ -1,3 +1,10 @@
+2006-06-14  Chad Rosier  <mcrosier@ncsu.edu>
+
+        * common.opt (flag_sched1_use_treegions) : Add -fsched1-use-treegions.
+        * doc/invoke.text: Document -fsched1-use-treegions.
+        * sched-rgn.c (find_trgns): Define find natural treegions for scheduling.
+        (init_regions): Add find_trgns option.
+
 2006-06-14  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	PR middle-end/27959
