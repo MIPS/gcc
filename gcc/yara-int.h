@@ -68,6 +68,11 @@ extern int *reg_max_ref_size, *reg_max_ref_align;
 /* ??? */
 extern int equiv_memory_num, *reg_equiv_memory_index;
 
+/* An element of the following array is true if the equivalence is set
+   by moving value to the corresponding register and the value is not
+   changed.  */
+extern bool *reg_equiv_set_p;
+
 /* Element N is the list of insns that initialized reg N from its
    equivalent constant or memory slot.  */
 extern rtx *reg_equiv_init;

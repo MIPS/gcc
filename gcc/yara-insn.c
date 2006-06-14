@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cfgloop.h"
 #include "errors.h"
 #include "params.h"
+#include "toplev.h"
 #include "yara-int.h"
 
 
@@ -415,7 +416,7 @@ setup_possible_alternatives (bool strict_p)
 
 
 static enum reg_class
-limit_insn_allocno_class (allocno_t a, enum reg_class class)
+limit_insn_allocno_class (allocno_t a ATTRIBUTE_UNUSED, enum reg_class class)
 {
 #ifdef LIMIT_RELOAD_CLASS
   rtx x = *INSN_ALLOCNO_LOC (a);

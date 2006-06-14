@@ -2514,7 +2514,7 @@ yara-ir.o: yara-ir.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(OPTABS_H) $(RECOG_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) $(HASHTAB_H) \
    errors.h $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) langhooks.h \
    $(CFGLOOP_H) yara.h yara-int.h $(FUNCTION_H) $(CGRAPH_H) $(GGC_H) \
-   gt-yara-ir.h
+   output.h gt-yara-ir.h
 yara-trans.o: yara-trans.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(RTL_H) insn-codes.h insn-config.h $(OPTABS_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(HASHTAB_H) errors.h \
@@ -2533,7 +2533,7 @@ yara-insn.o: yara-insn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 yara-final.o: yara-final.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(RTL_H) insn-codes.h $(OPTABS_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \
-   $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) \
+   $(EXPR_H) $(BASIC_BLOCK_H) toplev.h output.h $(TM_P_H) \
    $(CFGLOOP_H) yara.h yara-int.h
 regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h timevar.h tree-pass.h \

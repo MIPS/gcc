@@ -43,6 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "errors.h"
 #include "ggc.h"
 #include "params.h"
+#include "toplev.h"
 #include "yara-int.h"
 
 /* Round a value to the lowest integer less than it that is a multiple of
@@ -119,6 +120,7 @@ static int find_hard_reg_for_mode (enum reg_class, enum machine_mode,
 static bool allocate_copy_secondary_memory (bool, copy_t, int, enum reg_class,
 					    enum reg_class, enum machine_mode);
 #endif
+static bool allocno_change_mode_ok_p (allocno_t, allocno_t);
 static bool assign_copy_interm_equiv_const_hard_reg (copy_t);
 static void unassign_copy_interm_equiv_const_hard_reg (copy_t);
 static bool assign_copy (copy_t);
@@ -866,7 +868,7 @@ get_copy_loc (copy_t cp, bool src_p, enum machine_mode *mode,
 	{
 	  if (ALLOCNO_TYPE (a) == INSN_ALLOCNO
 	      && GET_MODE_SIZE (*mode) < GET_MODE_SIZE (amode)
-	      && (!src_p || COPY_SUBST_SRC_HARD_REGNO (cp) < 0))
+	      && (! src_p || COPY_SUBST_SRC_HARD_REGNO (cp) < 0))
 	    /* Paradoxical */
 	    *hard_regno = (a_hard_regno
 			   - (int) subreg_regno_offset (a_hard_regno, *mode,
@@ -993,7 +995,7 @@ allocate_allocno_memory_slot (allocno_t a)
 
       SKIP_TO_SUBREG (x, *INSN_ALLOCNO_LOC (a));
       if (GET_CODE (x) == SUBREG)
-	ALLOCNO_MEMORY_SLOT_OFFSET (a) += SUBREG_BYTE (x);
+	ALLOCNO_MEMORY_SLOT_OFFSET (a) = SUBREG_BYTE (x);
     }
   if (slot->mem == NULL_RTX)
     register_memory_slot_usage (slot, align);
@@ -1099,6 +1101,7 @@ void
 compact_stack (void)
 {
   int i, j, n, slot_no;
+  unsigned int k;
   can_t can;
   int *vec;
   int start, align;
@@ -1143,12 +1146,12 @@ compact_stack (void)
 	      && conflict_slot->mem == NULL_RTX)
 	    reserve_stack_memory (conflict_slot->start, conflict_slot->size);
 #ifdef SECONDARY_MEMORY_NEEDED
-      EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, j, bi)
+      EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, k, bi)
 	{
-	  if (can_copy_conflict_p (can, copies [j]))
+	  if (can_copy_conflict_p (can, copies [k]))
 	    {
-	      yara_assert (COPY_CHANGE_ADDR (copies [j]) != NULL);
-	      conflict_slot = COPY_MEMORY_SLOT (copies [j]);
+	      yara_assert (COPY_CHANGE_ADDR (copies [k]) != NULL);
+	      conflict_slot = COPY_MEMORY_SLOT (copies [k]);
 	      yara_assert (conflict_slot != NULL
 			   && conflict_slot->mem == NULL_RTX);
 	      reserve_stack_memory (conflict_slot->start, conflict_slot->size);
@@ -1166,9 +1169,9 @@ compact_stack (void)
 #ifdef SECONDARY_MEMORY_NEEDED
   /* Try to move slots used for secondary memory closer to the stack
      start.  */
-  EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, k, bi)
     {
-      cp = copies [i];
+      cp = copies [k];
       slot = COPY_MEMORY_SLOT (cp);
       free_all_stack_memory ();
       align = get_stack_align (COPY_MEMORY_MODE (cp)) / BITS_PER_UNIT;
@@ -1716,6 +1719,37 @@ unassign_copy_interm_equiv_const_hard_reg (copy_t cp)
   yara_assert (ALLOCNO_USE_EQUIV_CONST_P (src));
 }
 
+/* The following function returns TRUE if moving SRC to DST is not
+   prohibited with the point of changing mode when a subregister is
+   involved.  */
+static bool
+allocno_change_mode_ok_p (allocno_t src, allocno_t dst)
+{
+  allocno_t insn_a, another_a;
+  rtx op, x;
+  int hard_regno;
+
+  if (((insn_a = dst) != NULL && ALLOCNO_TYPE (dst) == INSN_ALLOCNO)
+      || ((insn_a = src) != NULL && ALLOCNO_TYPE (src) == INSN_ALLOCNO))
+    {
+      op = *INSN_ALLOCNO_LOC (insn_a);
+      if (GET_CODE (op) == SUBREG)
+	{
+	  SKIP_TO_REG (x, op);
+	  another_a = (src == insn_a ? dst : src);
+	  if (REG_P (x) &&
+	      ((another_a != NULL
+		&& (hard_regno = ALLOCNO_HARD_REGNO (another_a)) >= 0)
+	       || (another_a == NULL
+		   && (hard_regno = ALLOCNO_REGNO (insn_a)) >= 0))
+	      && CANNOT_CHANGE_MODE_CLASS (GET_MODE (x), GET_MODE (op),
+					   REGNO_REG_CLASS (hard_regno)))
+	    return false;
+	}
+    }
+  return true;
+}
+
 static bool
 assign_copy (copy_t cp)
 {
@@ -1729,6 +1763,8 @@ assign_copy (copy_t cp)
   in_p = false;
   a = COPY_SRC (cp);
   a2 = COPY_DST (cp);
+  if (! allocno_change_mode_ok_p (a, a2))
+    return false;
   if (a != NULL && ALLOCNO_USE_EQUIV_CONST_P (a)
       && ! assign_copy_interm_equiv_const_hard_reg (cp))
     return false;
@@ -2175,6 +2211,10 @@ check_hard_regno_for_a (allocno_t a, int hard_regno,
 			  INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (conflict_a));
       if (check_p
 	  && regno == ALLOCNO_REGNO (conflict_a)
+	  && (ALLOCNO_TYPE (a) != INSN_ALLOCNO
+	      || ALLOCNO_TYPE (conflict_a) != INSN_ALLOCNO
+	      || (! INSN_ALLOCNO_EARLY_CLOBBER (a)
+		  && ! INSN_ALLOCNO_EARLY_CLOBBER (conflict_a)))
 	  && (conflict_hard_regno = ALLOCNO_HARD_REGNO (conflict_a)) >= 0)
 	{
 	  conflict_reg_hard_regno

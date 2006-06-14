@@ -1,3 +1,84 @@
+2006-06-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/rs6000/rs6000.h (YARA_COVER_CLASSES): New macro.
+
+	* config/i386/i386.h (TARGET_WOODCREST,
+	TARGET_CPU_DEFAULT_woodcrest): New macros.
+	(TARGET_CPU_CPP_BUILTINS): Add __tune_woodcrest__, __woodcrest,
+	and __woodcrest__.
+	(TARGET_CPU_DEFAULT_generic): Change the value.
+	(TARGET_CPU_DEFAULT_NAMES): Add woodcrest.
+	(CONDITIONAL_REGISTER_USAGE): Make mmx register fixed if there is
+	no explicit -mmmx.
+	(processor_type): Add PROCESSOR_WOODCREST.
+
+	* config/i386/i386.c (pentium4_cost): Fix cost of moving SSE
+	register.
+	(woodcrest_cost): New structure.
+	(m_WOODCREST): New macro.
+	(x86_movx, x86_unroll_strlen, x86_cmove, x86_deep_branch,
+	x86_use_sahf, x86_use_simode_fiop, x86_sub_esp_4, x86_sub_esp_8,
+	x86_add_esp_8, x86_integer_DFmode_moves,
+	x86_accumulate_outgoing_args, x86_prologue_using_move,
+	x86_epilogue_using_move, x86_arch_always_fancy_math_387,
+	x86_sse_partial_reg_dependency, x86_sse_load0_by_pxor,
+	x86_rep_movl_optimal, x86_ext_80387_constants,
+	x86_four_jump_limit): Add m_WOODCREST.
+	(processor_target_table, processor_alias_table): Add entries for
+	woodcrest.
+	
+	* Makefile.in (yara-final.o, yara-ir.o): Add dependence on
+	output.h.
+
+	* lower-subreg.c (rest_of_handle_lower_subreg):  Call reg_scan.
+
+	* common.opt (frematerialize): Switch off it by default.
+
+	* function.c (get_call_invalidated_used_regs): Check that decl is
+	a function.
+
+	* reload1.c (reload): Set up cfun->emit->call_used_regs.
+
+	* yara-int.h (reg_equiv_set_p):  New external definitions.
+
+	* yara-insn.c (limit_insn_allocno_class): Mark may be unused
+	parameter.
+
+	* yara-color.c (temp_hard_reg_set): New global variable.
+	(setup_reg_subclasses): Use the variable.  Don't consider fixed
+	registers.
+	(setup_closure_classes): Check moves between all register
+	sub-classes.  Prefer bigger cover classes.
+	(set_up_cover_classes): New function.
+	(setup_class_translate): Don't consider fixed registers.
+	(find_reg_class_closure): Add call of set_up_cover_classes.
+	(setup_cover_classes_and_reg_costs): Check that can_memory_cost
+	and can_class_cost is defined.
+	(set_up_can_through, choose_can_to_split, reduce_reg_pressure):
+	Use unsigned when it is necessary.
+
+	* yara-final.c (unnecessary_copy_p): Ignore copy to restore an
+	equivalent memory.
+	(initiate_locations): Increase size of mem_locs.
+	
+	* yara-trans.c: Add header toplev.h.
+	(allocno_change_mode_ok_p): New function.
+	(assign_copy): Call the function.
+	(allocate_allocno_memory_slot): Set up correct memory slot offset.
+	(compact_stack): Use unsinged where it is necessary.
+	(check_hard_regno_for_a): Check early clobber for identical regnos
+	too.
+
+	* yara-ir.c: Add header output.h.
+	(reg_equiv_set_p): New external variable.
+	(scan_insn_for_reg_equivs): Switch off code for putting constant
+	into memory.  Set up reg_equiv_set_p.
+	(initiate_equivs, finish_equivs): Allocate/free reg_equiv_set_p.
+	(create_conflict): Check early clobber for identical regnos too.
+	(create_insn_allocno): Update reg_equiv_set_p.
+	(build_insn_allocno_conflicts): Removing code for killing hard
+	register allocno.
+	
 2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* Makefile.in (lower-subreg.o): Add TM_H dependency.

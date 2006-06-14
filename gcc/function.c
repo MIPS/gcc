@@ -5633,6 +5633,8 @@ get_call_invalidated_used_regs (rtx insn, HARD_REG_SET *regs, bool clobbered_p)
       x = XEXP (x, 0);
       if (GET_CODE (x) == SYMBOL_REF)
 	decl = SYMBOL_REF_DECL (x);
+      if (decl != NULL && TREE_CODE (decl) != FUNCTION_DECL)
+	decl = NULL;
     }
   node = decl == NULL ? NULL : cgraph_node (decl);
   if (! flag_ipra || node == NULL

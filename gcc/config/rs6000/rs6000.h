@@ -1029,6 +1029,23 @@ enum reg_class
   { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
 }
 
+/* The following macro defines cover classes for Yet Another Register
+   Allocator. Cover classes is a set of non-intersected register
+   classes covering all hard registers used for register allocation
+   purpose.  Any move between two registers of a cover class should be
+   cheaper than load or store of the registers.  Usually you don't need
+   to define the macro because YARA finds cover classes by itself but
+   in some complicated cases it can fail.  In this case you should
+   define the macro.  The macro value is array of register classes
+   with LIM_REG_CLASSES used as the end marker.  */
+
+#define YARA_COVER_CLASSES						     \
+{									     \
+  GENERAL_REGS, FLOAT_REGS, ALTIVEC_REGS, VRSAVE_REGS, VSCR_REGS,	     \
+  SPE_ACC_REGS, SPEFSCR_REGS, MQ_REGS, LINK_REGS, CTR_REGS,		     \
+  CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
+}
+
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression

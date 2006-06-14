@@ -649,7 +649,11 @@ gate_lower_subreg (void)
 static unsigned int
 rest_of_handle_lower_subreg (void)
 {
+  int max_reg_num_before = max_reg_num ();
+
   decompose_multiword_subregs ();
+  if (max_reg_num_before != max_reg_num ())
+    reg_scan (get_insns (), max_reg_num ());
   return 0;
 }
 

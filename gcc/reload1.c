@@ -1151,14 +1151,21 @@ reload (rtx first, int global)
      are no longer useful or accurate.  Strip and regenerate REG_INC notes
      that may have been moved around.  */
 
+  CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       {
 	rtx *pnote;
 
 	if (CALL_P (insn))
-	  replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
-			      VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
+	  {
+	    HARD_REG_SET used_function_regs;
+
+	    get_call_invalidated_used_regs (insn, &used_function_regs, false);
+	    IOR_HARD_REG_SET (cfun->emit->call_used_regs, used_function_regs);
+	    replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
+				VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
+	  }
 
 	if ((GET_CODE (PATTERN (insn)) == USE
 	     /* We mark with QImode USEs introduced by reload itself.  */

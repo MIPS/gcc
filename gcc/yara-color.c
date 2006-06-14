@@ -65,14 +65,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    consideration).  */
 static enum reg_class alloc_reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
+static HARD_REG_SET temp_hard_reg_set;
+
 /* The function initializes the tables of subclasses of each reg
    class.  */
-
 static void
 setup_reg_subclasses (void)
 {
   int i, j;
-  HARD_REG_SET temp_set1, temp_set2;
 
   for (i = 0; i < N_REG_CLASSES; i++)
     for (j = 0; j < N_REG_CLASSES; j++)
@@ -83,14 +83,20 @@ setup_reg_subclasses (void)
       if (i == (int) NO_REGS)
 	continue;
 
-      COPY_HARD_REG_SET (temp_set1, reg_class_contents [i]);
+      COPY_HARD_REG_SET (temp_hard_reg_set, reg_class_contents [i]);
+      AND_COMPL_HARD_REG_SET (temp_hard_reg_set, fixed_reg_set);
+      GO_IF_HARD_REG_EQUAL (temp_hard_reg_set, zero_hard_reg_set, cont);
+      goto ok;
+    cont:
+      continue;
+    ok:
       for (j = 0; j < N_REG_CLASSES; j++)
 	if (i != j)
 	  {
 	    enum reg_class *p;
-	    
-	    COPY_HARD_REG_SET (temp_set2, reg_class_contents [j]);
-	    GO_IF_HARD_REG_SUBSET (temp_set1, temp_set2, subclass);
+
+	    GO_IF_HARD_REG_SUBSET (reg_class_contents [i],
+				   reg_class_contents [j], subclass);
 	    continue;
 	  subclass:
 	    p = &alloc_reg_class_subclasses [j] [0];
@@ -99,6 +105,11 @@ setup_reg_subclasses (void)
 	  }
     }
 }
+
+static int final_reg_class_cover_size;
+static enum reg_class final_reg_class_cover [N_REG_CLASSES];
+
+#ifndef YARA_COVER_CLASSES
 
 /* The following is true if moving any hard register of the class into
    any hard register of the same class is cheaper than load or store
@@ -114,7 +125,7 @@ static void
 setup_closure_classes (void)
 {
   enum machine_mode mode;
-  enum reg_class cl, *sub_cl_ptr;
+  enum reg_class cl, *sub_cl_ptr, *sub_cl_ptr1;
   int cost, min_cost;
 
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -126,14 +137,24 @@ setup_closure_classes (void)
 	{
 	  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	    if (mode != VOIDmode && mode != BLKmode
-		&& contains_reg_of_mode [*sub_cl_ptr] [mode]
-		&& contains_reg_of_mode [cl] [mode])
+		&& contains_reg_of_mode [*sub_cl_ptr] [mode])
 	      {
 		min_cost = memory_move_cost [mode] [*sub_cl_ptr] [0];
 		cost = memory_move_cost [mode] [*sub_cl_ptr] [1];
 		if (cost < min_cost)
 		  min_cost = cost;
-		if (min_cost < move_cost [mode] [cl] [cl])
+		for (sub_cl_ptr1 = &alloc_reg_class_subclasses [cl] [0];
+		     *sub_cl_ptr1 != LIM_REG_CLASSES;
+		     sub_cl_ptr1++)
+		  if (*sub_cl_ptr != *sub_cl_ptr1
+		      && contains_reg_of_mode [*sub_cl_ptr1] [mode]
+		      && ((min_cost
+			   < move_cost [mode] [*sub_cl_ptr] [*sub_cl_ptr1])
+			  || (min_cost
+			      < move_cost [mode] [*sub_cl_ptr1]
+			                  [*sub_cl_ptr])))
+		    break;
+		if (*sub_cl_ptr1 != LIM_REG_CLASSES)
 		  break;
 	      }
 	  if (mode < MAX_MACHINE_MODE)
@@ -149,7 +170,15 @@ setup_closure_classes (void)
 	for (sub_cl_ptr = &alloc_reg_class_subclasses [cl] [0];
 	     *sub_cl_ptr != LIM_REG_CLASSES;
 	     sub_cl_ptr++)
-	  class_closure_p [*sub_cl_ptr] = false;
+	  {
+	    /* We prefer bigger class as cover class when taking
+	       fixed registers into account.  */
+	    GO_IF_HARD_REG_SUBSET (reg_class_contents [cl],
+				   reg_class_contents [*sub_cl_ptr], skip);
+	    class_closure_p [*sub_cl_ptr] = false;
+	  skip:
+	    ;
+	  }
       }
   closure_classes_size = 0;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
@@ -157,12 +186,9 @@ setup_closure_classes (void)
       closure_classes [closure_classes_size++] = cl;
 }      
 
-
-static int reg_class_cover_size, final_reg_class_cover_size;
+static int reg_class_cover_size;
 static enum reg_class reg_class_cover [N_REG_CLASSES];
-static enum reg_class final_reg_class_cover [N_REG_CLASSES];
 static HARD_REG_SET reg_class_cover_set;
-static HARD_REG_SET temp_hard_reg_set;
 
 static bool
 extend_reg_class_cover (void)
@@ -212,6 +238,32 @@ extend_reg_class_cover (void)
   return true;
 }
 
+#else
+
+static void
+set_up_cover_classes (void)
+{
+  int i, j;
+  enum reg_class cl;
+  static enum reg_class classes [] = YARA_COVER_CLASSES;
+
+  final_reg_class_cover_size = 0;
+  for (i = 0; (cl = classes [i]) != LIM_REG_CLASSES; i++)
+    {
+      for (j = 0; j < i; j++)
+	if (reg_classes_intersect_p (cl, classes [j]))
+	  gcc_unreachable ();
+      COPY_HARD_REG_SET (temp_hard_reg_set, reg_class_contents [cl]);
+      AND_COMPL_HARD_REG_SET (temp_hard_reg_set, fixed_reg_set);
+      GO_IF_HARD_REG_EQUAL (temp_hard_reg_set, zero_hard_reg_set, cont);
+      final_reg_class_cover [final_reg_class_cover_size++] = cl;
+    cont:
+      ;
+    }
+}
+
+#endif
+
 static enum reg_class class_translate [N_REG_CLASSES];
 
 static void
@@ -234,11 +286,10 @@ setup_class_translate (void)
 #ifdef ENABLE_YARA_CHECKING
 	  else
 	    {
-	      HARD_REG_SET temp_set;
-	      
-	      COPY_HARD_REG_SET (temp_set, reg_class_contents [*cl_ptr]);
-	      AND_COMPL_HARD_REG_SET (temp_set, fixed_reg_set);
-	      GO_IF_HARD_REG_SUBSET (temp_set, zero_hard_reg_set, ok);
+	      COPY_HARD_REG_SET (temp_hard_reg_set,
+				 reg_class_contents [*cl_ptr]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_reg_set, fixed_reg_set);
+	      GO_IF_HARD_REG_SUBSET (temp_hard_reg_set, zero_hard_reg_set, ok);
 	      gcc_unreachable ();
 	    ok:
 	      ;
@@ -273,15 +324,21 @@ debug_class_cover (void)
 static void
 find_reg_class_closure (void)
 {
-  bool ok_p;
-
   setup_reg_subclasses ();
-  setup_closure_classes ();
-  final_reg_class_cover_size = N_REG_CLASSES;
-  reg_class_cover_size = 0;
-  CLEAR_HARD_REG_SET (reg_class_cover_set);
-  ok_p = extend_reg_class_cover ();
-  yara_assert (ok_p);
+#ifdef YARA_COVER_CLASSES
+  set_up_cover_classes ();
+#else
+  {
+    bool ok_p;
+    
+    setup_closure_classes ();
+    final_reg_class_cover_size = N_REG_CLASSES;
+    reg_class_cover_size = 0;
+    CLEAR_HARD_REG_SET (reg_class_cover_set);
+    ok_p = extend_reg_class_cover ();
+    yara_assert (ok_p);
+  }
+#endif
   setup_class_translate ();
 }
 
@@ -1082,14 +1139,14 @@ setup_cover_classes_and_reg_costs (void)
 		  {
 		    if (min_alt_memory_cost [op_num] == INT_MAX)
 		      can_memory_cost [can_num] = INT_MAX;
-		    else
+		    else if (can_memory_cost [can_num] != INT_MAX)
 		      can_memory_cost [can_num]
 			+= min_alt_memory_cost [op_num] * freq;
 		    costs = &can_class_cost [can_num * N_REG_CLASSES];
 		    for (i = 0; (cl = classes [i]) != NO_REGS; i++)
 		      if (min_alt_class_cost [op_num] [cl] == INT_MAX)
 			costs [cl] = INT_MAX;
-		      else
+		      else if (costs [cl] != INT_MAX)
 			costs [cl] += min_alt_class_cost [op_num] [cl] * freq;
 		  }
 		else if (INSN_ALLOCNO_TYPE (a) == BASE_REG
@@ -1225,7 +1282,8 @@ set_up_can_through (struct yara_loop_tree_node *node)
 {
   bitmap_iterator bi;
   bitmap can_through, regno_refs;
-  int i, regno;
+  unsigned int i;
+  int regno;
   allocno_t a;
   can_t can;
 
@@ -1301,8 +1359,8 @@ die_allocno (allocno_t a)
 static void
 calculate_reg_pressure (void)
 {
-  int i, j, class_num;
-  unsigned uid;
+  int i, class_num;
+  unsigned int uid, j;
   rtx insn, bound;
   allocno_t a;
   copy_t before_copies, after_copies, cp;
@@ -1413,14 +1471,15 @@ choose_can_to_split (struct yara_loop_tree_node *subloop)
   bitmap_iterator bi;
   bitmap can_through;
   int max_subloops_num, i, best_num;
+  unsigned int j;
   can_t best, can;
   
   can_through = subloop->can_through;
   max_subloops_num = 0;
   best = NULL;
-  EXECUTE_IF_SET_IN_BITMAP (can_through, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (can_through, 0, j, bi)
     {
-      can = cans [i];
+      can = cans [j];
       if (CAN_COVER_CLASS (can) == curr_reg_pressure_class)
 	process_can_to_choose_split_can (can, &max_subloops_num, &best);
     }
@@ -1690,7 +1749,8 @@ reduce_reg_pressure_inside_loop (struct yara_loop_tree_node *loop)
 static void
 reduce_reg_pressure (void)
 {
-  int class_num, i;
+  int class_num;
+  unsigned int i;
   can_t can;
   bitmap_iterator bi;
 

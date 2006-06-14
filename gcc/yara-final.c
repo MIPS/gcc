@@ -103,6 +103,10 @@ unnecessary_copy_p (copy_t cp)
     }
   else if (ALLOCNO_USE_EQUIV_CONST_P (dst))
     return true;
+  else if (ALLOCNO_MEMORY_SLOT (dst) != NULL
+	   && ALLOCNO_MEMORY_SLOT (dst)->mem != NULL_RTX
+	   && reg_equiv_set_p [ALLOCNO_REGNO (dst)])
+    return true;
   else if (ALLOCNO_MEMORY_SLOT (src) != NULL
 	   && ALLOCNO_MEMORY_SLOT (dst) != NULL)
     {
@@ -618,9 +622,9 @@ initiate_locations (void)
      "location conflicts");
   memset (reg_locs, 0, sizeof (reg_locs));
   mem_locs = yara_allocate (sizeof (struct loc *)
-			    * (slot_memory_size + equiv_memory_num));
+			    * (slot_memory_size + equiv_memory_num + 16));
   memset (mem_locs, 0,
-	  sizeof (struct loc *) * (slot_memory_size + equiv_memory_num));
+	  sizeof (struct loc *) * (slot_memory_size + equiv_memory_num + 16));
   max_mem_loc_len = -1;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     reg_locs [i] = NULL;
@@ -2883,7 +2887,7 @@ modify_insn (rtx insn, bool non_operand_p)
 	  else if (INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a))
 	    ;
 	  else
-	      *loc = copy_rtx (*INSN_ALLOCNO_LOC (origin));
+	    *loc = copy_rtx (*INSN_ALLOCNO_LOC (origin));
 	}
       else if (ALLOCNO_USE_EQUIV_CONST_P (a))
 	{

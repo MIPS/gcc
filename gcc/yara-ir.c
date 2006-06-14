@@ -44,11 +44,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hashtab.h"
 #include "errors.h"
 #include "ggc.h"
+#include "output.h"
 #include "params.h"
 #include "langhooks.h"
-#include "yara-int.h"
 #include "cgraph.h"
 #include "function.h"
+#include "yara-int.h"
 
 struct loops yara_loops;
 struct yara_loop_tree_node *yara_loop_tree_root;
@@ -56,6 +57,7 @@ struct yara_loop_tree_node *yara_bb_nodes;
 struct yara_loop_tree_node *yara_loop_nodes;
 int *reg_max_ref_size, *reg_max_ref_align;
 int equiv_memory_num, *reg_equiv_memory_index;
+bool *reg_equiv_set_p;
 #if 0
 rtx *reg_equiv_init;
 #endif
@@ -1167,7 +1169,7 @@ scan_insn_for_reg_equivs (rtx insn)
   rtx set = single_set (insn);
   bool eliminable_invariant_p;
   eliminable_invariant_p = false;
-  if (set != 0 && REG_P (SET_DEST (set)))
+  if (set != NULL_RTX && REG_P (SET_DEST (set)))
     {
       rtx note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
 
@@ -1226,6 +1228,7 @@ scan_insn_for_reg_equivs (rtx insn)
 		      if (flag_rematerialize)
 			reg_equiv_constant [i] = x;
 		    }
+#if 0
 		  else
 		    {
 		      bool set_p = reg_equiv_memory_loc [i] == NULL;
@@ -1237,19 +1240,23 @@ scan_insn_for_reg_equivs (rtx insn)
 		      if (set_p)
 			reg_equiv_memory_index [i] = equiv_memory_num++;
 		    }
+#endif
 		}
 	      else
 		return false;
 	      
-#if 0
 	      /* If this register is being made equivalent to a MEM
 		 and the MEM is not SET_SRC, the equivalencing insn is
 		 one with the MEM as a SET_DEST and it occurs later.
 		 So don't mark this insn now.  */
 	      if (! MEM_P (x) || rtx_equal_p (SET_SRC (set), x))
-		reg_equiv_init [i]
-		  = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv_init [i]);
+		{
+		  reg_equiv_set_p [i] = true;
+#if 0
+		  reg_equiv_init [i]
+		    = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv_init [i]);
 #endif
+		}
 	    }
 	}
     }
@@ -1278,6 +1285,8 @@ initiate_equivs (void)
   memset (reg_equiv_constant, 0, max_regno * sizeof (rtx));
   reg_equiv_mem = yara_allocate (max_regno * sizeof (rtx));
   memset (reg_equiv_mem, 0, max_regno * sizeof (rtx));
+  reg_equiv_set_p = yara_allocate (max_regno * sizeof (bool));
+  memset (reg_equiv_set_p, 0, max_regno * sizeof (bool));
 #if 0
   reg_equiv_init = yara_allocate (max_regno * sizeof (rtx));
   memset (reg_equiv_init, 0, max_regno * sizeof (rtx));
@@ -1311,6 +1320,7 @@ finish_equivs (void)
   yara_free (reg_max_ref_align);
   yara_free (reg_max_ref_size);
   yara_free (reg_equiv_address);
+  yara_free (reg_equiv_set_p);
 #if 0
   yara_free (reg_equiv_init);
 #endif
@@ -1930,6 +1940,8 @@ create_conflict (allocno_t a1, allocno_t a2)
 	   && ALLOCNO_TYPE (a2) != INSN_ALLOCNO)
 	  || (ALLOCNO_TYPE (a1) == INSN_ALLOCNO
 	      && ALLOCNO_TYPE (a2) == INSN_ALLOCNO
+	      && ! INSN_ALLOCNO_EARLY_CLOBBER (a1)
+	      && ! INSN_ALLOCNO_EARLY_CLOBBER (a2)
 	      && rtx_equal_p (*INSN_ALLOCNO_LOC (a1), *INSN_ALLOCNO_LOC (a2))
 	      && (HARD_REGISTER_NUM_P (regno1)
 		  || ! mode_multi_reg_p [ALLOCNO_MODE (a1)]))
@@ -2203,7 +2215,7 @@ create_insn_allocno (enum op_type op_mode, int type, int regno,
 		     allocno_t addr_output_allocno)
 {
   allocno_t a;
-  rtx x;
+  rtx x, set;
 
   yara_assert ((type != BASE_REG && type != INDEX_REG) || op_mode != OP_OUT);
   a = create_allocno (INSN_ALLOCNO, regno, mode);
@@ -2214,6 +2226,21 @@ create_insn_allocno (enum op_type op_mode, int type, int regno,
     if (GET_CODE (x) == SUBREG
 	&& GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (mode))
       mode = GET_MODE (*container_loc);
+  if (op_mode != OP_IN && regno >= 0
+      && reg_equiv_memory_loc [regno] != NULL_RTX
+      && ! HARD_REGISTER_NUM_P (regno)
+      && reg_equiv_set_p [regno])
+    {
+      if ((set = single_set (insn)) == NULL_RTX)
+	reg_equiv_set_p [regno] = false;
+      else
+	{
+	  yara_assert (REG_P (SET_DEST (set))
+		       && REGNO (SET_DEST (set)) == regno)
+	    if (! rtx_equal_p (SET_SRC (set), reg_equiv_memory_loc [regno]))
+	      reg_equiv_set_p [regno] = false;
+	}
+    }
   INSN_ALLOCNO_BIGGEST_MODE (a) = mode;
   INSN_ALLOCNO_OP_MODE (a) = op_mode;
   INSN_ALLOCNO_TYPE (a) = type;
@@ -3288,8 +3315,6 @@ build_insn_allocno_conflicts (rtx insn, op_set_t single_reg_op_set)
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
     if (INSN_ALLOCNO_OP_MODE (a) == OP_IN)
       {
-	int regno;
-
 	if (INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (a) != NULL)
 	  /* It is an address in an output operand so we can not kill
 	     it now.  */
@@ -3299,19 +3324,6 @@ build_insn_allocno_conflicts (rtx insn, op_set_t single_reg_op_set)
 	    yara_assert (find_post_insn_allocno_copy (a, insn) == NULL);
             mark_allocno_death (a);
           }
-	/* Although it may be a bit conservative to change live hard
-	   regs here.  It should be better to do it in the
-	   corresponding copy before the insn but the hard register
-	   could be used twice in the insn and another copy might be
-	   between the two copies for the hard register.  */
-	if ((regno = ALLOCNO_REGNO (a)) >= 0 && HARD_REGISTER_NUM_P (regno))
-	  {
-	    /* We assume that there are no hard registers in
-	       subregisters.  If it is not true we could use
-	       get_allocation_mode result as the mode.  */
-	    yara_assert (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG);
-	    mark_hard_reg_death (regno, ALLOCNO_MODE (a));
-	  }
       }
   
   /* Death hard regs without allocnos: */
@@ -3360,7 +3372,7 @@ build_insn_allocno_conflicts (rtx insn, op_set_t single_reg_op_set)
 	  (hard_regno >= FIRST_STACK_REG && hard_regno <= LAST_STACK_REG)
 #endif
 	  )
-	mark_hard_reg_live (hard_regno, GET_MODE (output_insn_hard_regs [i]));
+ 	mark_hard_reg_live (hard_regno, GET_MODE (output_insn_hard_regs [i]));
     }
 
   /* Unused allocnos: */
