@@ -1,3 +1,18 @@
+2006-06-14  Victor Kaplansky   <victork@il.ibm.com>
+
+	* gcc/tree-scalar-evolution.c (number_of_iterations_in_loop):
+	changed to be wrapper of number_of_iterations_in_loop_1
+	(number_of_iterations_in_loop_1): New. Same as previous
+	number_of_iterations_in_loop, but takes new argument may_be_zero.
+	* gcc/tree-scalar-evolution.h (number_of_iterations_in_loop_1): New
+	prototype.
+	* gcc/tree-ssa-loop-ivopts.c (expr_invariant_in_loop_p): return true
+	for DECL expressions.
+	* gcc/tree-vect-analyze.c (vect_get_loop_niters): call to
+	number_of_iterations_in_loop_1 instead of number_of_iterations_in_loop.
+	* gcc/passes.c (init_optimization_passes): call to dce before
+	vectorizer.
+
 2006-05-28  Victor Kaplansky   <victork@il.ibm.com>
 	    Vladimir Yanovsky  <yanov@il.ibm.com>
 

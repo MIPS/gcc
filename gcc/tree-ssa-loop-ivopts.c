@@ -1372,6 +1372,9 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   if (is_gimple_min_invariant (expr))
     return true;
 
+  if (DECL_P (expr))
+    return true;
+
   if (TREE_CODE (expr) == SSA_NAME)
     {
       def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (expr));
