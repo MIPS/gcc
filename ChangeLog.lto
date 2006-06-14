@@ -1,3 +1,7 @@
+2006-06-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/cp-tree.h (FUNCTION_ARG_CHAIN): Remove.
+
 2006-06-13  Sandra Loosemore <sandra@codesourcery.com>
 
 	* gcc/cp/cp-tree.h (TYPE_LANG_SLOT_1): No longer used for

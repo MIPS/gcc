@@ -920,9 +920,6 @@ enum languages { lang_c, lang_cplusplus, lang_java };
   ((cp_type_quals (NODE) & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE))	\
    == TYPE_QUAL_CONST)
 
-#define FUNCTION_ARG_CHAIN(NODE) \
-  TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (NODE)))
-
 /* Given a FUNCTION_DECL, returns the first TREE_LIST out of TYPE_ARG_TYPES
    which refers to a user-written parameter.  */
 #define FUNCTION_FIRST_USER_PARMTYPE(NODE) \
