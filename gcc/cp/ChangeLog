@@ -1,3 +1,36 @@
+2006-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27793
+	* cp-tree.h (cxx_int_tree_map): New struct.
+	(struct language_function): Add extern_decl_map field.
+	* name-lookup.c (pushdecl_maybe_friend): Add x -> t mapping
+	to cp_function_chain->extern_decl_map hash table instead of
+	copying over DECL_UID.
+	* cp-gimplify.c (cxx_int_tree_map_eq, cxx_int_tree_map_hash): New
+	functions.
+	(cp_genericize_r): Remap DECL_EXTERN local decls using
+	cp_function_chain->extern_decl_map hash table.
+	* decl.c (finish_function): Clear extern_decl_map.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* semantics.c (finish_offsetof): Handle pseudo-destructors.
+
+	PR c++/27933
+	* name-lookup.c (lookup_qualified_name): Always return error_mark_node
+	if lookup fails.
+
+	PR c++/27951
+	* decl2.c (finish_anon_union): Return early if build_anon_union_vars
+	fails.
+
+2006-06-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/21210
+	* typeck2.c (build_functional_cast): Use cp_convert to construct
+	non-aggregate initializers instead of the user-level build_c_cast.
+
 2006-06-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/27601

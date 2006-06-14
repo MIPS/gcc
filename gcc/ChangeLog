@@ -1,3 +1,156 @@
+2006-06-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR middle-end/27959
+	* reload1.c (reload): Remove registers returned by update_eliminables
+	from used_spill_regs.
+
+2006-06-13  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/muldiv.md (mulpsi3): Expect arbitrary constants.
+
+2006-06-13  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.in: Define HTMLS_BUILD, HTMLS_INSTALL,
+	html__strip_dir, html__mkdir_p. Enhance install-html target.
+	* configure.ac: AC_SUBST datarootdir, docdir and htmldir. 
+	* configure: Regenerate.
+
+2006-06-13  Fariborz Jahanian <fjahanian@apple.com>
+
+	* fold-const.c (fold_cond_expr_with_comparison): Check for 
+	Objective-C++ as language in deciding COND_EXPR transformation.
+
+2006-06-06  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/28014:
+	* config/sh/t-sh (LIB1ASMFUNCS): Add _udiv_qrnnd16
+	* config/sh/sh.c (print_operand): Add !SHMEDIA functionality to 'M'.
+	* config/sh/lib1funcs.h (SL, SL1): Define.
+	* config/sh/lib1funcs.asm (__udiv_qrnnd16): New hidden function.
+	* longlong.h (__sh__): Define umul_ppmm, udiv_qrnnd and sub_ddmmss.
+	* config/sh/t-sh ($(T)unwind-dw2-Os-4-200.o): New rule.
+	(OBJS_Os_4_200): New variable.
+	($(T)libgcc-Os-4-200.a): Use it.
+	* sh.md (udivsi3): For TARGET_DIVIDE_CALL_TABLE, avoid function call
+	when dividing 1 and/or by 0.
+
+2006-06-13  Roger Sayle  <roger@eyesopen.com>
+
+	* configure.ac (HAS_MCONTEXT_T_UNDERSCORES): Include <sys/signal.h>
+	before <ucontext.h> to define sigset_t required by <sys/ucontext.h>.
+	* configure: Regenerate.
+
+2006-06-13  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (bfin_reorg_loops): Only call recog_memoized ()
+	for real instruction.
+
+2006-06-13  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR middle-end/26807
+	* haifa-sched.c (check_cfg): Handle special case.
+
+2006-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/26754
+	* gimplify.c (declare_tmp_vars): Rename into declare_vars.
+	Add debug_info parameter.  Chain the vars to the BLOCK instead
+	of the BIND_EXPR if debug info are requested for them.
+	(pop_gimplify_context): Adjust for above change.
+	(gimple_add_tmp_var): Likewise.
+	* tree-gimple.h (declare_tmp_vars): Rename into declare_vars.
+	Add bool parameter.
+	* tree-nested.c (convert_nonlocal_reference): Adjust for above change.
+	(convert_local_reference): Likewise.
+	(get_local_debug_decl): Set DECL_IGNORED_P on the original variable.
+	(finalize_nesting_tree_1): Request that debug info be emitted
+	for debug_var_chain.
+
+2006-06-13  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* haifa-sched.c (unlink_other_notes, unlink_line_notes): Fix the patch
+	for PR target/27863.
+
+2006-06-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27536
+	* except.c (output_ttype): Expand type with EXPAND_INITIALIZER.
+
+2006-06-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27830
+	* tree-inline.c (copy_body_r): For copying the operand
+	of an ADDR_EXPR make sure to fold &* afterwards.
+
+2006-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_expr): Treat VIEW_CONVERT_EXPR like other
+	lvalues in the fb_none case with side-effects.
+
+2006-06-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-flow.h: Remove the prototype for
+	compute_phi_arg_on_exit.
+	* tree-ssa-loop-ivopts.c (protect_loop_closed_ssa_form_use,
+	protect_loop_closed_ssa_form, compute_phi_arg_on_exit):
+	Remove.
+
+2006-06-12  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* builtins.c (expand_builtin_return_addr): Only use
+	frame_pointer_rtx when count == 0 and we are expanding
+	__builtin_return_address.
+
+2006-06-12  Fred Fish  <fnf@specifix.com>
+
+	* config/mips/mips.c (mips_file_start): Create special section
+	".gcc_compiled_longXX" for o64 ABI as well as EABI.
+
+2006-06-11  Eric Christopher  <echristo@apple.com>
+
+	PR middle-end/27948
+	* stor-layout.c (place_field): Remove check for
+	remaining_in_alignment when aligning at the end of a run.
+
+2006-06-11  Eric Christopher  <echristo@apple.com>
+
+	PR 27542
+	* doc/extend.texi (Structure-Packing Pragmas): Document ms_struct
+	pragma.
+
+2006-06-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27858
+	Revert incorrect fix for PR target/27158
+	2006-05-08  Roger Sayle  <roger@eyesopen.com>
+	* reload.c (find_reloads_toplev): Only return the simplified SUBREG
+	of a reg_equiv_constant if the result is a legitimate constant.
+
+2006-06-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27158
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): New function to
+	extract a CONST_VECTOR element and interpret it as an integer.
+	(vspltis_constant): Use const_vector_elt_as_int instead of the
+	macro CONST_VECTOR_ELT in order to handle FP vector modes.
+	* config/rs6000/predicates.md (easy_vector_const): Consider
+	floating point ALTIVEC_VECTOR_MODEs via easy_altivec_constant.
+
+2006-06-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR middle-end/27942
+	* stor-layout.c (update_alignment_for_field): Don't add extra
+	alignment for packed non-bitfield fields in ms_bitfield_layout_p
+	code.
+
+2006-06-09  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/mips/t-rtems: Add EL/EB multilib variants.
+
+2006-06-09  Mike Stump  <mrs@apple.com>
+
+	* c-typeck.c (c_begin_vm_scope): Fix file_scope processing.
+
 2006-06-09  David Daney  <ddaney@avtrex.com>
 
 	* doc/install.texi: Add binutils version recommendation for mips-*-*.
@@ -72,11 +225,11 @@
 2006-06-07  Andrew MacLeod  <amacleod@redhat.com>
 
 	PR middle-end/27793
-	* tree-dfa.c (referenced_vars_dup_list): New.  List of duplicate 
+	* tree-dfa.c (referenced_vars_dup_list): New.  List of duplicate
 	referenced_variables with matching DECL_UID's.
 	(find_referenced_vars): Make sure duplicate list is empty to start.
 	(referenced_var_p): Remove.
-	(referenced_var_check_and_insert): Renamed from referenced_var_insert.  
+	(referenced_var_check_and_insert): Renamed from referenced_var_insert.
 	Check if var is in the list, and add if needed.  Update the duplicate
 	list if a different var is in the list with the same DECL_UID.
 	(add_referenced_var): Call routine to check and insert.
@@ -9775,7 +9928,7 @@
 
 2006-01-20  DJ Delorie  <dj@redhat.com>
 
-	* varasm.c (initialize_constant_valid_p): Allow pointers
+	* varasm.c (initializer_constant_valid_p): Allow pointers
 	initialized from integer constants of lesser precision.
 	(output_constant): Allow non-int-sized pointer modes to be
 	initialized from integer constants.

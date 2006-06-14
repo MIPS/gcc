@@ -1,3 +1,100 @@
+2006-06-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR middle-end/27959
+	* gcc.dg/pr27959.c: New testcase.
+
+2006-06-13  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/28014:
+	* g++.dg/eh/div.C: New test.
+
+2006-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/27894
+	* g++.dg/tree-ssa/pr26757.C: New test.
+	* g++.dg/tree-ssa/pr27894.C: New test.
+
+2006-06-13  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* gcc.c-torture/compile/20060609-1.c: New test.
+	
+	PR target/27863
+	* gcc.c-torture/compile/pr27863.c: New test.
+
+2006-06-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27830
+	* g++.dg/tree-ssa/pr27830.C: New testcase.
+
+2006-06-13  Matthew Sachs  <msachs@apple.com>
+
+	* lib/target-supports-dg.exp (check-flags): Include TOOL_OPTIONS in
+	the list of compiler flags; this causes those flags to be checked
+	for things like dg-skip-if.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: Add test for pseudo-destructors.
+
+2006-06-12  Mark Mitchell  <mark@codesourcery.com>
+	    Kazu Hirata  <kazu@codesourcery.com>
+
+	* g++.dg/parse/ctor6.C, g++.dg/parse/defarg11.C,
+	g++.dg/template/friend42.C, g++.dg/template/spec30.C: New.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27933
+	* g++.dg/lookup/using15.C: New test.
+
+	PR c++/27951
+	* g++.dg/other/anon4.C: New test.
+
+2006-06-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/21210
+	* g++.dg/init/complex1.C: New test case.
+
+2006-06-11  Eric Christopher  <echristo@apple.com>
+
+	PR middle-end/27948
+	* gcc.dg/bf-ms-layout.c: Run on darwin.
+	* gcc.dg/bf-no-ms-layout: Ditto.
+	* gcc.dg/attr-ms_struct-2.c: New.
+	* gcc.dg/bf-ms-layout-2.c: Ditto.
+
+2006-06-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/attr-ms_struct-packed1.c: New.
+
+2006-06-09  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/vla-7.c: Add.
+
+2006-06-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24558
+	* gfortran.dg/entry_6.f90: New test.
+
+	PR fortran/20877
+	PR fortran/25047
+	* gfortran.dg/entry_7.f90: New test.
+
+2006-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/27747
+	* gcc.dg/cpp/_Pragma6.c: New test.
+
+	PR c++/27748
+	* g++.dg/cpp/_Pragma1.C: New test.
+
+	PR preprocessor/27746
+	* gcc.dg/gomp/macro-3.c: New test.
+	* gcc.dg/gomp/macro-4.c: New test.
+	* g++.dg/gomp/macro-3.C: New test.
+	* g++.dg/gomp/macro-4.C: New test.
+
 2006-06-09  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/26998
@@ -18,10 +115,10 @@
 	* gcc/testsuite/gfortran.dg/substr_2.f: New test.
 
 2006-06-08  Asher Langton  <langton2@llnl.gov>
-	
+
 	PR fortran/27786
 	* cray_pointers_2.f90: Add -fbounds-check compile flag.
-	
+
 2006-06-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR target/27421
@@ -94,7 +191,7 @@
 
 2006-06-05  Dorit Nuzman  <dorit@il.ibm.com>
             Victor Kaplansky  <victork@il.ibm.com>
-	    
+
 	PR tree-optimizations/26360
 	* gcc.dg/vect/vect.exp: Compile tests prefixed with "no-tree-dce"
 	with -fno-tree-dce.
@@ -125,7 +222,7 @@
 
 	PR c++/27807
 	* g++.dg/ext/complit7.C: New test.
-	
+
 	PR c++/27806
 	* g++.dg/parse/ptrmem5.C: New test.
 

@@ -44,6 +44,7 @@
 #include <iosfwd>
 #include <limits>
 #include <tr1/type_traits>
+#include <fstream>
 
 namespace std
 {
@@ -558,8 +559,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const mersenne_twister& __x)
         {
 	  std::copy(__x._M_x, __x._M_x + state_size,
@@ -578,8 +579,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   mersenne_twister& __x)
         {
 	  for (int __i = 0; __i < state_size; ++__i)
@@ -767,8 +768,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const subtract_with_carry& __x)
         {
 	  std::copy(__x._M_x, __x._M_x + long_lag,
@@ -787,8 +788,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   subtract_with_carry& __x)
         {
 	  for (int __i = 0; __i < long_lag; ++__i)
@@ -959,8 +960,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const discard_block& __x)
         { return __os << __x._M_b << " " << __x._M_n; }
 
@@ -975,8 +976,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   discard_block& __x)
         { return __is >> __x._M_b >> __x._M_n; }
 
@@ -1127,8 +1128,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const xor_combine& __x)
         { return __os << __x.base1() << " " << __x.base1(); }
 
@@ -1143,8 +1144,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   xor_combine& __x)
         { return __is >> __x._M_b1 >> __x._M_b2; }
 
@@ -1157,27 +1158,90 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
   /**
    * A standard interface to a platform-specific non-deterministic random number
    * generator (if any are available).
-   *
-   * @todo The underlying interface is system-specific and needs to be factored
-   * into the generated configury mechs.  For example, the use of "/dev/random"
-   * under a Linux OS would be appropriate.
    */
   class random_device
   {
   public:
     // types
     typedef unsigned int result_type;
-    
+
     // constructors, destructors and member functions
-    explicit random_device(const std::string& __token = "unimplemented");
-    result_type min() const;
-    result_type max() const;
-    double entropy() const;
-    result_type operator()();
+
+#ifdef _GLIBCXX_USE_RANDOM_TR1
+
+    explicit
+    random_device(const std::string& __token = "/dev/urandom")
+    {
+      if ((__token != "/dev/urandom" && __token != "/dev/random")
+	  || !_M_filebuf.open(__token.c_str(),
+			      std::ios_base::in | std::ios_base::binary))
+	std::__throw_runtime_error(__N("random_device::"
+				       "random_device(const std::string&)"));
+    }
+
+    ~random_device()
+    { _M_filebuf.close(); }
+
+#else
+
+    explicit
+    random_device(const std::string& __token = "rand")
+    : _M_mt(_M_strtoul(__token)) { }
+
+  private:
+    static unsigned long
+    _M_strtoul(const std::string& __str)
+    {
+      unsigned long __ret = 5489UL;
+      if (__str != "rand")
+	{
+	  const char* __nptr = __str.c_str();
+	  char* __endptr;
+	  __ret = std::strtoul(__nptr, &__endptr, 0);
+	  if (*__nptr == '\0' || *__endptr != '\0')
+	    std::__throw_runtime_error(__N("random_device::_M_strtoul"
+					   "(const std::string&)"));
+	}
+      return __ret;
+    }
+
+  public:
+
+#endif
+
+    result_type
+    min() const
+    { return std::numeric_limits<result_type>::min(); }
+
+    result_type
+    max() const
+    { return std::numeric_limits<result_type>::max(); }
+
+    double
+    entropy() const
+    { return 0.0; }
+
+    result_type
+    operator()()
+    {
+#ifdef _GLIBCXX_USE_RANDOM_TR1
+      result_type __ret;
+      _M_filebuf.sgetn(reinterpret_cast<char*>(&__ret), sizeof(result_type));
+      return __ret;
+#else
+      return _M_mt();
+#endif
+    }
 
   private:
     random_device(const random_device&);
     void operator=(const random_device&);
+
+#ifdef _GLIBCXX_USE_RANDOM_TR1
+    std::filebuf _M_filebuf;
+#else
+    mt19937      _M_mt;
+#endif
   };
 
   /* @} */ // group tr1_random_generators
@@ -1273,8 +1337,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const uniform_int& __x)
         { return __os << __x._M_min << " " << __x._M_max; }
 
@@ -1288,8 +1352,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * @returns The input stream with @p __u extracted or in an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is, uniform_int& __u)
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is, uniform_int& __u)
         { return __is >> __u._M_min >> __u._M_max; }
 
     private:
@@ -1376,8 +1440,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
      * an error state.
      */
     template<typename _CharT, typename _Traits>
-      friend basic_ostream<_CharT, _Traits>&
-      operator<<(basic_ostream<_CharT, _Traits>& __os,
+      friend std::basic_ostream<_CharT, _Traits>&
+      operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		 const bernoulli_distribution& __x)
       { return __os << __x.p(); }
 
@@ -1391,8 +1455,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
      * @returns The input stream with @p __u extracted or in an error state.
      */
     template<typename _CharT, typename _Traits>
-      friend basic_istream<_CharT, _Traits>&
-      operator>>(basic_istream<_CharT, _Traits>& __is,
+      friend std::basic_istream<_CharT, _Traits>&
+      operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		 bernoulli_distribution& __u)
       { return __is >> __u._M_p; }
 
@@ -1466,8 +1530,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const geometric_distribution& __x)
         { return __os << __x.p(); }
 
@@ -1481,8 +1545,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * @returns The input stream with @p __u extracted or in an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   geometric_distribution& __u)
         {
 	  __is >> __u._M_p;
@@ -1553,8 +1617,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const uniform_real& __x)
         { return __os << __x.min() << " " << __x.max(); }
 
@@ -1568,9 +1632,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * @returns The input stream with @p __u extracted or in an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
-		 uniform_real& __u)
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
+		   uniform_real& __u)
         { return __is >> __u._M_min >> __u._M_max; }
 
     protected:
@@ -1642,8 +1706,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_ostream<_CharT, _Traits>&
-        operator<<(basic_ostream<_CharT, _Traits>& __os,
+        friend std::basic_ostream<_CharT, _Traits>&
+        operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const exponential_distribution& __x)
         { return __os << __x.lambda(); }
 
@@ -1657,8 +1721,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * @returns The input stream with @p __u extracted or in an error state.
        */
       template<typename _CharT, typename _Traits>
-        friend basic_istream<_CharT, _Traits>&
-        operator>>(basic_istream<_CharT, _Traits>& __is,
+        friend std::basic_istream<_CharT, _Traits>&
+        operator>>(std::basic_istream<_CharT, _Traits>& __is,
 		   exponential_distribution& __u)
         { return __is >> __u._M_lambda; }
 

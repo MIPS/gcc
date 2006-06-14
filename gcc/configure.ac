@@ -817,6 +817,10 @@ AC_ARG_ENABLE(languages,
 esac],
 [enable_languages=c])
 
+# Used by documentation targets
+AC_SUBST(datarootdir)
+AC_SUBST(docdir)
+AC_SUBST(htmldir)
 
 # -------------------------
 # Checks for other programs
@@ -1348,6 +1352,7 @@ case ${host} in
     AC_CACHE_CHECK([whether mcontext_t fields have underscores],
       gcc_cv_mcontext_underscores,
       AC_COMPILE_IFELSE([
+#include <sys/signal.h>
 #include <ucontext.h>
 int main() { mcontext_t m; if (m->ss.srr0) return 0; return 0; }
 ],
