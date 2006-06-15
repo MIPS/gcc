@@ -636,3 +636,9 @@ post_options (cpp_reader *pfile)
       CPP_OPTION (pfile, warn_trigraphs) = 0;
     }
 }
+
+size_t
+cpp_reader_size(void)
+{
+  return sizeof(cpp_reader);
+}

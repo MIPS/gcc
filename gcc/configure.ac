@@ -3248,9 +3248,12 @@ fi
 
 # Find out what GC implementation we want, or may, use.
 AC_ARG_WITH(gc,
-[  --with-gc={page,zone}   choose the garbage collection mechanism to use
+[  --with-gc={boehm,page,zone}   choose the garbage collection mechanism to use
                           with the compiler],
 [case "$withval" in
+  boehm)
+    GGC=ggc-$withval
+    ;;
   page)
     GGC=ggc-$withval
     ;;

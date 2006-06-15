@@ -37,6 +37,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "symtab.h"
 #include "cpplib.h"
 
+#include <gc.h>
+
+/* The stringpool contains 2^ORDER entries.  */
+#define ORDER 14
+
 /* The "" allocated string.  */
 const char empty_string[] = "";
 
@@ -52,6 +57,7 @@ static struct obstack string_stack;
 
 static hashnode alloc_node (hash_table *);
 static int mark_ident (struct cpp_reader *, hashnode, const void *);
+static void ggc_register_stringpool_roots (void);
 
 static void *
 stringpool_ggc_alloc (size_t x)
@@ -64,10 +70,13 @@ void
 init_stringpool (void)
 {
   /* Create with 16K (2^14) entries.  */
-  ident_hash = ht_create (14);
+  ident_hash = ht_create (ORDER);
+
   ident_hash->alloc_node = alloc_node;
   ident_hash->alloc_subobject = stringpool_ggc_alloc;
   gcc_obstack_init (&string_stack);
+
+  ggc_register_stringpool_roots();
 }
 
 /* Allocate a hash node.  */
@@ -172,6 +181,15 @@ void
 ggc_mark_stringpool (void)
 {
   ht_forall (ident_hash, mark_ident, NULL);
+}
+
+/* Register the stringpool entries as GGC roots. TODO: why these are handled
+   specially? */
+void
+ggc_register_stringpool_roots (void)
+{
+  GC_add_roots(ident_hash->entries,
+	       ident_hash->entries + sizeof(hashnode) * (1 << ORDER));
 }
 
 /* Strings are _not_ GCed, but this routine exists so that a separate

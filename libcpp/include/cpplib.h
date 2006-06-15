@@ -620,6 +620,8 @@ struct cpp_hashnode GTY(())
 extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
 				      struct line_maps *);
 
+size_t cpp_reader_size(void);
+
 /* Call this to change the selected language standard (e.g. because of
    command line options).  */
 extern void cpp_set_lang (cpp_reader *, enum c_lang);

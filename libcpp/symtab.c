@@ -113,7 +113,7 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
   table->searches++;
 
   node = table->entries[index];
- 
+
   if (node != NULL)
     {
       if (node->hash_value == hash

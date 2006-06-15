@@ -1,6 +1,6 @@
 /* memory allocation routines with error checking.
    Copyright 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
-   
+
 This file is part of the libiberty library.
 Libiberty is free software; you can redistribute it and/or
 modify it under the terms of the GNU Library General Public
@@ -13,8 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
-License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+License along with libiberty; see the file COPYING.LIB.  If not,
+write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 /*
@@ -135,7 +135,7 @@ xmalloc_failed (size_t size)
 	   (unsigned long) size);
 #endif /* HAVE_SBRK */
   xexit (1);
-}  
+}
 
 PTR
 xmalloc (size_t size)

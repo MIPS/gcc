@@ -664,6 +664,7 @@ all:
 
 all-build: maybe-all-build-libiberty
 all-build: maybe-all-build-bison
+all-build: maybe-all-build-boehm-gc
 all-build: maybe-all-build-byacc
 all-build: maybe-all-build-flex
 all-build: maybe-all-build-m4
@@ -2449,6 +2450,54 @@ all-build-bison: configure-build-bison
 	(cd $(BUILD_SUBDIR)/bison && \
 	  $(MAKE)   $(TARGET-build-bison))
 @endif build-bison
+
+
+
+
+
+.PHONY: configure-build-boehm-gc maybe-configure-build-boehm-gc
+maybe-configure-build-boehm-gc:
+@if build-boehm-gc
+maybe-configure-build-boehm-gc: configure-build-boehm-gc
+configure-build-boehm-gc: 
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(BUILD_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/boehm-gc ; \
+	$(BUILD_EXPORTS) \
+	echo Configuring in $(BUILD_SUBDIR)/boehm-gc; \
+	cd "$(BUILD_SUBDIR)/boehm-gc" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(BUILD_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	rm -f no-such-file || : ; \
+	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	  $(BUILD_CONFIGARGS) $${srcdiroption}  \
+	  || exit 1
+@endif build-boehm-gc
+
+
+
+
+
+.PHONY: all-build-boehm-gc maybe-all-build-boehm-gc
+maybe-all-build-boehm-gc:
+@if build-boehm-gc
+TARGET-build-boehm-gc=all
+maybe-all-build-boehm-gc: all-build-boehm-gc
+all-build-boehm-gc: configure-build-boehm-gc
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(BUILD_EXPORTS) \
+	(cd $(BUILD_SUBDIR)/boehm-gc && \
+	  $(MAKE)   $(TARGET-build-boehm-gc))
+@endif build-boehm-gc
 
 
 

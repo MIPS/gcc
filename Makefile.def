@@ -26,6 +26,7 @@ AutoGen definitions Makefile.tpl;
 
 build_modules= { module= libiberty; };
 build_modules= { module= bison; };
+build_modules= { module= boehm-gc; };
 build_modules= { module= byacc; };
 build_modules= { module= flex; };
 build_modules= { module= m4; };
