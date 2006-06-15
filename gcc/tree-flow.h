@@ -618,6 +618,7 @@ extern void cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
+extern const char *op_symbol_code (enum tree_code);
 
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
@@ -848,6 +849,7 @@ bool can_unroll_loop_p (struct loop *loop, unsigned factor,
 void tree_unroll_loop (struct loops *, struct loop *, unsigned,
 		       edge, struct tree_niter_desc *);
 bool contains_abnormal_ssa_name_p (tree);
+bool stmt_dominates_stmt_p (tree, tree);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);

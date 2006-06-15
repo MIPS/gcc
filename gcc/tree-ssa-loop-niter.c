@@ -744,10 +744,27 @@ expand_simple_operations (tree expr)
     return expr;
 
   stmt = SSA_NAME_DEF_STMT (expr);
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    e = TREE_OPERAND (stmt, 1);
+  else if (TREE_CODE (stmt) == PHI_NODE
+	   && PHI_NUM_ARGS (stmt) == 1)
+    {
+      e = PHI_ARG_DEF (stmt, 0);
+
+      /* Do not pass through loop exit phi nodes.  */
+      if (current_loops && TREE_CODE (e) == SSA_NAME)
+	{
+	  basic_block def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (e));
+	  basic_block phi_bb = bb_for_stmt (stmt);
+
+	  if (def_bb
+	      && flow_loop_nested_p (phi_bb->loop_father, def_bb->loop_father))
+	    return expr;
+	}
+    }
+  else
     return expr;
 
-  e = TREE_OPERAND (stmt, 1);
   if (/* Casts are simple.  */
       TREE_CODE (e) != NOP_EXPR
       && TREE_CODE (e) != CONVERT_EXPR
@@ -1709,7 +1726,7 @@ estimate_numbers_of_iterations (struct loops *loops)
 
 /* Returns true if statement S1 dominates statement S2.  */
 
-static bool
+bool
 stmt_dominates_stmt_p (tree s1, tree s2)
 {
   basic_block bb1 = bb_for_stmt (s1), bb2 = bb_for_stmt (s2);

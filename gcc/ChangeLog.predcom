@@ -1,3 +1,39 @@
+2006-06-15  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (expand_simple_operations): Handle phi nodes with
+	single argument.
+	(stmt_dominates_stmt_p): Export.
+	* tree-pretty-print.c (op_symbol_1): Renamed to ...
+	(op_symbol_code): ... this.  Exported.
+	(dump_omp_clause, op_symbol): Use op_symbol_code instead of
+	op_symbol_1.
+	* tree-predcom.c (typedef struct dref): Removed next field.  Added stmt
+	field.
+	(dref): Changed to pointer.
+	(enum chain_type): Added CT_COMBINATION.
+	(struct chain): Removed root and last fields.  Added fields for
+	combinations, and refs and inits arrays.
+	(dump_dref, dump_chain): Dump the changed structures.
+	(dump_component, split_data_refs_to_components, suitable_component_p,
+	order_drefs, add_ref_to_chain, make_invariant_chain, make_rooted_chain,
+	make_rooted_chain, determine_roots_comp, execute_load_motion): Changed
+	because dref is now pointer.
+	(get_chain_root, get_init_expr, mark_virtual_ops_for_renaming): New
+	functions.
+	(release_chain): Free the drefs.
+	(replace_ref_with): Do not take old reference as argument.
+	(ref_at_iteration): Use expand_simple_operations.
+	(initialize_root_vars, initialize_root): Do not create the
+	initializers.  Handle combinations.
+	(initialize_root_vars_lm): Do not create the initializers.
+	(execute_pred_commoning_chain):  Handle combinations.
+	(chain_can_be_combined_p, find_use_stmt, combinable_refs_p,
+	stmt_combining_refs, combine_chains, try_combine_chains,
+	prepare_initializers_chain, prepare_initializers): New functions.
+	(tree_predictive_commoning_loop): Use prepare_initializers and
+	try_combine_chains.
+	* tree-flow.h (op_symbol_code, stmt_dominates_stmt_p): Declare.
+
 2006-06-13  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-predcom.c (struct dref): Split part to ...
