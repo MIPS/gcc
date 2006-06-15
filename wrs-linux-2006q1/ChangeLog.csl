@@ -1,3 +1,11 @@
+2006-06-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Add tarm920t.
+	(MULTILIB_EXCEPTIONS): New.
+	* gcc/config/arm/wrs-linux.h (CC1_SPEC, SYSROOT_SUFFIX_SPEC):
+	Add -tarm920t support.
+
 2006-06-02  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/gcc.c (feature_proxy_flag): New variable.

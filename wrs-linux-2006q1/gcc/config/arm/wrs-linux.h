@@ -29,7 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #define CC1_SPEC "				\
  %{tarm926ej-s:	-mcpu=arm926ej-s ;		\
    tiwmmxt:     -mcpu=iwmmxt ;			\
-   txscale:     -mcpu=xscale -mbig-endian }	\
+   txscale:     -mcpu=xscale -mbig-endian ;	\
+   tarm920t:    -mcpu=arm920t }			\
  %{profile:-p}"
 
 /* Since the ARM926EJ-S is the default processor, we do not need to
@@ -64,5 +65,6 @@ Boston, MA 02111-1307, USA.  */
                txscale:/uclibc/txscale ;	\
                :/uclibc} ;			\
      tiwmmxt:/tiwmmxt ;				\
-     txscale:/txscale}"
+     txscale:/txscale ;				\
+     tarm920t:/tarm920t}"
 
