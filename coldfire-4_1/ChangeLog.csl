@@ -1,3 +1,13 @@
+2006-06-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (PCC_STATIC_STRUCT_RETURN): Don't define here.
+	* config/m68k/m68kemb.h (PCC_STATIC_STRUCT_RETURN): Don't undefine
+	here ...
+	* config/m68k/m68kelf.h (PCC_STATIC_STRUCT_RETURN): ... or here ...
+	* config/m68k/netbsd-elf.h (PCC_STATIC_STRUCT_RETURN): ... or here.
+	* /config/m68k/openbsd.h (PCC_STATIC_STRUCT_RETURN): Define here.
+	
 2006-06-16  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
