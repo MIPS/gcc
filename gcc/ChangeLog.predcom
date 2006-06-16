@@ -1,3 +1,17 @@
+2006-06-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-manip.c (determine_exit_conditions): Return a single
+	step instead of the step of the unrolled loop.
+	(tree_unroll_loop): Split into ...
+	(tree_unroll_loop_prepare, tree_unroll_loop_finish): ... new functions.
+	* tree-predcom.c (initialize_root, execute_pred_commoning_chain,
+	execute_pred_commoning): Do not compute unroll factor.
+	(determine_unroll_factor): New function.
+	(tree_predictive_commoning_loop): Use tree_unroll_loop_prepare and
+	tree_unroll_loop_finish.
+	* tree-flow.h (tree_unroll_loop_prepare, tree_unroll_loop_finish):
+	Declare.
+
 2006-06-15  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-ssa-loop-niter.c (expand_simple_operations): Handle phi nodes with

@@ -1279,22 +1279,20 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
 }
 
 /* Create the variables and initialization statement for root of chain
-   CHAIN.  Return the suggested unroll factor.  Uids of
-   the newly created temporary variables are marked in TMP_VARS.  */
+   CHAIN.  Uids of the newly created temporary variables are marked
+   in TMP_VARS.  */
 
-static unsigned
+static void
 initialize_root (struct loop *loop, chain_p chain, bitmap tmp_vars)
 {
   dref root = get_chain_root (chain);
-  unsigned n = chain->length;
   bool in_lhs = (chain->type == CT_STORE_LOAD
 		 || chain->type == CT_COMBINATION);
 
   initialize_root_vars (loop, chain, tmp_vars);
   replace_ref_with (root->stmt,
-		    VEC_index (tree, chain->vars, n), true, in_lhs);
-
-  return chain->has_max_use_after ? n + 1 : n;
+		    VEC_index (tree, chain->vars, chain->length),
+		    true, in_lhs);
 }
 
 /* Initializes a variable for load motion for ROOT and prepares phi nodes and
@@ -1416,14 +1414,13 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
 }
 
 /* Perform the predictive commoning optimization for a chain CHAIN.
-   Returns the suggested unroll factor.  Uids of the newly created temporary
-   variables are marked in TMP_VARS.*/
+   Uids of the newly created temporary variables are marked in TMP_VARS.*/
 
-static unsigned
+static void
 execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 			     bitmap tmp_vars)
 {
-  unsigned factor, i;
+  unsigned i;
   dref a, root;
   tree var;
 
@@ -1438,7 +1435,6 @@ execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 	  mark_virtual_ops_for_renaming (a->stmt);
 	  bsi_remove (&bsi, true);
 	}
-      factor = 1;
     }
   else
     {
@@ -1448,7 +1444,7 @@ execute_pred_commoning_chain (struct loop *loop, chain_p chain,
       root = get_chain_root (chain);
       mark_virtual_ops_for_renaming (root->stmt);
 
-      factor = initialize_root (loop, chain, tmp_vars);
+      initialize_root (loop, chain, tmp_vars);
       for (i = 1; VEC_iterate (dref, chain->refs, i, a); i++)
 	{
 	  mark_virtual_ops_for_renaming (a->stmt);
@@ -1456,17 +1452,14 @@ execute_pred_commoning_chain (struct loop *loop, chain_p chain,
 	  replace_ref_with (a->stmt, var, false, false);
 	}
     }
-
-  return factor;
 }
 
-/* Perform the predictive commoning optimization for CHAINS.  Returns
-   the suggested unroll factor.  Uids of the newly created temporary
-   variables are marked in TMP_VARS.  */
+/* Determines the unroll factor necessary to remove as many temporary variable
+   copies as possible.  CHAINS is the list of chains that will be
+   optimized.  */
 
 static unsigned
-execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
-			bitmap tmp_vars)
+determine_unroll_factor (VEC (chain_p, heap) *chains)
 {
   chain_p chain;
   unsigned factor = 1, af, nfactor, i;
@@ -1474,18 +1467,40 @@ execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
 
   for (i = 0; VEC_iterate (chain_p, chains, i, chain); i++)
     {
-      if (chain->type == CT_INVARIANT)
-	execute_load_motion (loop, chain, tmp_vars);
-      else
-	{
-	  af = execute_pred_commoning_chain (loop, chain, tmp_vars);
-	  nfactor = factor * af / gcd (factor, af);
-	  if (nfactor <= max)
-	    factor = nfactor;
-	}
+      if (chain->type == CT_INVARIANT || chain->combined)
+	continue;
+
+      /* The best unroll factor for this chain is equal to the number of
+	 temporary variables that we create for it.  */
+      af = chain->length;
+      if (chain->has_max_use_after)
+	af++;
+
+      nfactor = factor * af / gcd (factor, af);
+      if (nfactor <= max)
+	factor = nfactor;
     }
 
   return factor;
+}
+
+/* Perform the predictive commoning optimization for CHAINS.
+   Uids of the newly created temporary variables are marked in TMP_VARS.  */
+
+static void
+execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
+			bitmap tmp_vars)
+{
+  chain_p chain;
+  unsigned i;
+
+  for (i = 0; VEC_iterate (chain_p, chains, i, chain); i++)
+    {
+      if (chain->type == CT_INVARIANT)
+	execute_load_motion (loop, chain, tmp_vars);
+      else
+	execute_pred_commoning_chain (loop, chain, tmp_vars);
+    }
 }
 
 /* Returns true if we can and should unroll LOOP FACTOR times.  Number
@@ -1866,7 +1881,8 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   VEC (chain_p, heap) *chains = NULL;
   unsigned unroll_factor;
   struct tree_niter_desc desc;
-  bool unrolled = false;
+  bool unroll;
+  edge exit;
   bitmap tmp_vars;
 
   /* Find the data references and split them into components according to their
@@ -1908,24 +1924,34 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
       dump_chains (dump_file, chains);
     }
 
-  /* Execute the predictive commoning transformations, and unroll the loop
-     if necessary.  */
-  unroll_factor = execute_pred_commoning (loop, chains, tmp_vars);
-  if (should_unroll_loop_p (loop, unroll_factor, &desc))
+  /* Determine the unroll factor, and if the loop should be unrolled, ensure
+     that its number of iterations is divisible by the factor.  */
+  unroll_factor = determine_unroll_factor (chains);
+  unroll = should_unroll_loop_p (loop, unroll_factor, &desc);
+  exit = single_dom_exit (loop);
+
+  if (unroll)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
+      tree_unroll_loop_prepare (loops, loop, unroll_factor, &exit, &desc);
+    }
+
+  /* Execute the predictive commoning transformations, and possibly unroll the
+     loop.  */
+  execute_pred_commoning (loop, chains, tmp_vars);
+  if (unroll)
+    {
       update_ssa (TODO_update_ssa_only_virtuals);
       scev_reset ();
-      tree_unroll_loop (loops, loop, unroll_factor, single_dom_exit (loop), &desc);
+      tree_unroll_loop_finish (loops, loop, unroll_factor, exit);
       eliminate_temp_copies (loop, tmp_vars);
-      unrolled = true;
     }
 
   release_chains (chains);
   free_data_refs (datarefs);
   BITMAP_FREE (tmp_vars);
-  return unrolled;
+  return unroll;
 }
 
 /* Runs predictive commoning over LOOPS.  */

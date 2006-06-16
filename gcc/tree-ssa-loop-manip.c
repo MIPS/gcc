@@ -683,7 +683,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
   tree step = desc->control.step;
   tree bound = desc->bound;
   tree type = TREE_TYPE (base);
-  tree bigstep, delta;
+  tree delta;
   tree min = lower_bound_in_type (type, type);
   tree max = upper_bound_in_type (type, type);
   enum tree_code cmp = desc->cmp;
@@ -730,9 +730,8 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
 			invert_truthvalue (desc->may_be_zero),
 			cond);
 
-  bigstep = fold_build2 (MULT_EXPR, type, step,
-			 build_int_cst_type (type, factor));
-  delta = fold_build2 (MINUS_EXPR, type, bigstep, step);
+  delta = fold_build2 (MULT_EXPR, type, step,
+		       build_int_cst_type (type, factor - 1));
   if (cmp == LT_EXPR)
     assum = fold_build2 (GE_EXPR, boolean_type_node,
 			 bound,
@@ -769,18 +768,32 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
     bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
 
   *exit_base = base;
-  *exit_step = bigstep;
+  *exit_step = step;
   *exit_cmp = cmp;
   *exit_bound = bound;
 }
 
-/* Unroll LOOP FACTOR times.  LOOPS is the loops tree.  DESC describes
-   number of iterations of LOOP.  EXIT is the exit of the loop to that
-   DESC corresponds.
-   
-   If N is number of iterations of the loop and MAY_BE_ZERO is the condition
-   under that loop exits in the first iteration even if N != 0,
-   
+/* Splits LOOP into two.  The exit condition of the original loop is changed
+   to imply that if it is satisfied, there are at least FACTOR more iterations
+   remaining, the remaining iterations are performed in the newly created
+   loop.  Current number of iterations is stored in DESC.  EXIT is the exit of
+   the loop to that DESC corresponds (it must dominate loop latch).
+   LOOPS is the tree of loops.  The new exit of the main loop is stored to
+   *EXIT.
+
+   This function should be used in conjunction with tree_unroll_loop_finish,
+   in case where we want to perform some transformation on the unrolled loop,
+   but not on the loop that executes the iterations of the loop that remain
+   after the main loop is unrolled:
+
+   tree_unroll_loop_prepare (loops, loop, factor, exit, desc);
+   transformation (loop);
+   tree_unroll_loop_finish (loops, loop, factor);
+
+   The exact transformation performed by this function:  If N is the number of
+   iterations and MAY_BE_ZERO is the condition under that loop exits in
+   the first iteration even if N != 0,
+ 
    while (1)
      {
        x = phi (init, next);
@@ -791,24 +804,19 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
        post;
      }
 
-   becomes (with possibly the exit conditions formulated a bit differently,
-   avoiding the need to create a new iv):
-   
+   becomes (with possibly the exit condition formulated a bit differently,
+   avoiding the need to create a new iv)
+
    if (MAY_BE_ZERO || N < FACTOR)
      goto rest;
 
-   do
+   while (1)
      {
        x = phi (init, next);
 
        pre;
        post;
-       pre;
-       post;
-       ...
-       pre;
-       post;
-       N -= FACTOR;
+       N--;
        
      } while (N >= FACTOR);
 
@@ -823,11 +831,13 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
        if (st)
          break;
        post;
-     } */
+     }
+ */
 
 void
-tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
-		  edge exit, struct tree_niter_desc *desc)
+tree_unroll_loop_prepare (struct loops *loops, struct loop *loop,
+			  unsigned factor, edge *exit,
+			  struct tree_niter_desc *desc)
 {
   tree dont_exit, exit_if, ctr_before, ctr_after;
   tree enter_main_cond, exit_base, exit_step, exit_bound;
@@ -836,12 +846,10 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
   struct loop *new_loop;
   basic_block rest, exit_bb;
   edge old_entry, new_entry, old_latch, precond_edge, new_exit;
-  edge nonexit, new_nonexit;
+  edge new_nonexit;
   block_stmt_iterator bsi;
   use_operand_p op;
-  bool ok;
   unsigned est_niter;
-  sbitmap wont_exit;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
@@ -852,32 +860,14 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
   gcc_assert (new_loop != NULL);
   update_ssa (TODO_update_ssa);
 
-  /* Unroll the loop and remove the old exits.  */
-  dont_exit = ((exit->flags & EDGE_TRUE_VALUE)
+  /* Remove the old exit of the main loop.  */
+  dont_exit = (((*exit)->flags & EDGE_TRUE_VALUE)
 	       ? boolean_false_node
 	       : boolean_true_node);
-  if (exit == EDGE_SUCC (exit->src, 0))
-    nonexit = EDGE_SUCC (exit->src, 1);
-  else
-    nonexit = EDGE_SUCC (exit->src, 0);
-  nonexit->probability = REG_BR_PROB_BASE;
-  exit->probability = 0;
-  nonexit->count += exit->count;
-  exit->count = 0;
-  exit_if = last_stmt (exit->src);
+  exit_if = last_stmt ((*exit)->src);
   COND_EXPR_COND (exit_if) = dont_exit;
-  update_stmt (exit_if);
-      
-  wont_exit = sbitmap_alloc (factor);
-  sbitmap_ones (wont_exit);
-  ok = tree_duplicate_loop_to_header_edge
-	  (loop, loop_latch_edge (loop), loops, factor - 1,
-	   wont_exit, NULL, NULL, NULL, DLTHE_FLAG_UPDATE_FREQ);
-  free (wont_exit);
-  gcc_assert (ok);
-  update_ssa (TODO_update_ssa);
 
-  /* Prepare the cfg and update the phi nodes.  */
+  /* Create the new exit and update the phi nodes.  */
   rest = loop_preheader_edge (new_loop)->src;
   precond_edge = single_pred_edge (rest);
   loop_split_edge_with (loop_latch_edge (loop), NULL);
@@ -939,8 +929,97 @@ tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
 			   tree_block_label (rest));
   bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
 
+  *exit = new_exit;
+}
+
+/* Finish the unrolling of the LOOP prepared by tree_unroll_loop_prepare,
+   FACTOR times.  LOOPS is the tree of loops.  EXIT is the exit of the
+   loop.
+ 
+   The main loop of the result of tree_unroll_loop_prepare becomes
+ 
+   while (1)
+     {
+       x = phi (init, next);
+
+       pre;
+       post;
+       pre;
+       post;
+       ...
+       pre;
+       post;
+       N -= FACTOR;
+       
+     } while (N >= FACTOR);
+
+   In case you do some transformation of the loop between these calls,
+   you must make sure that it does not make this unrolling incorrect
+   (a different number of iterations may now be executed in the body
+   of the main loop).
+ */
+
+void
+tree_unroll_loop_finish (struct loops *loops, struct loop *loop,
+			 unsigned factor, edge exit)
+{
+  unsigned i, n_to_remove = 0;
+  edge *to_remove = XNEWVEC (edge, factor);
+  tree dont_exit, exit_if;
+  edge aexit, nonexit;
+  sbitmap wont_exit;
+  bool ok;
+  
+  /* Unroll the loop and remove the exits except for the one in the
+     last iteration.  */
+
+  wont_exit = sbitmap_alloc (factor);
+  sbitmap_ones (wont_exit);
+  RESET_BIT (wont_exit, factor - 1);
+  ok = tree_duplicate_loop_to_header_edge
+	  (loop, loop_latch_edge (loop), loops, factor - 1,
+	   wont_exit, exit, to_remove, &n_to_remove, DLTHE_FLAG_UPDATE_FREQ);
+  sbitmap_free (wont_exit);
+  gcc_assert (ok);
+
+  for (i = 0; i < n_to_remove; i++)
+    {
+      aexit = to_remove[i];
+      dont_exit = ((aexit->flags & EDGE_TRUE_VALUE)
+		   ? boolean_false_node
+		   : boolean_true_node);
+      if (aexit == EDGE_SUCC (aexit->src, 0))
+	nonexit = EDGE_SUCC (aexit->src, 1);
+      else
+	nonexit = EDGE_SUCC (aexit->src, 0);
+      nonexit->probability = REG_BR_PROB_BASE;
+      aexit->probability = 0;
+      nonexit->count += exit->count;
+      aexit->count = 0;
+
+      exit_if = last_stmt (exit->src);
+      COND_EXPR_COND (exit_if) = dont_exit;
+      update_stmt (exit_if);
+    }
+  
+  free (to_remove);
+
+  update_ssa (TODO_update_ssa);
   verify_flow_info ();
   verify_dominators (CDI_DOMINATORS);
   verify_loop_structure (loops);
   verify_loop_closed_ssa ();
+}
+
+/* Unroll LOOP FACTOR times.  LOOPS is the loops tree.  DESC describes
+   number of iterations of LOOP.  EXIT is the exit of the loop to that
+   DESC corresponds.  The effect is composition of tree_unroll_loop_prepare
+   and tree_unroll_loop_finish.  */
+
+void
+tree_unroll_loop (struct loops *loops, struct loop *loop, unsigned factor,
+		  edge exit, struct tree_niter_desc *desc)
+{
+  tree_unroll_loop_prepare (loops, loop, factor, &exit, desc);
+  tree_unroll_loop_finish (loops, loop, factor, exit);
 }
