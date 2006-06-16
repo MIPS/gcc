@@ -361,12 +361,6 @@ while (0)
 #define BIGGEST_ALIGNMENT 64
 
 
-/* For m68k SVR4, structures are returned using the reentrant
-   technique.  */
-
-#undef PCC_STATIC_STRUCT_RETURN
-
-
 /* The svr4 ABI for the m68k says that records and unions are returned
    in memory.  */
 

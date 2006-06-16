@@ -579,8 +579,6 @@ extern enum reg_class regno_reg_class[];
    XXX This macro is m68k specific and used only for m68kemb.h.  */
 #define NEEDS_UNTYPED_CALL 0
 
-#define PCC_STATIC_STRUCT_RETURN
-
 /* On the m68k, all arguments are usually pushed on the stack.  */
 #define FUNCTION_ARG_REGNO_P(N) 0
 
