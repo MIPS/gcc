@@ -1,3 +1,35 @@
+2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/predicates.md (call_operand): Define.
+	* config/m68k/m68k.md (call): Remove SYMBOL_REF_FLAG handilng.
+	Call m68k_legitimize_call_address.  Replace the separate flag_pic
+	and !flag_pic define_insns with a unified pattern.  Make the
+	target operand match the address inside the MEM rather than
+	the MEM itself.  Provide two alternatives, one for direct jumps
+	and one for indirect jumps.  Use output_call.
+	(call_value): Likewise, but copy operand 1 to operand 0 before
+	invoking output_call.
+	* config/m68k/m68k-protos.h (m68k_output_pic_call): Delete.
+	(output_call): Declare.
+	(m68k_legitimize_call_address): Declare.
+	* config/m68k/m68k.c (m68k_symbolic_call): New variable.
+	(m68k_symbolic_jump): Likewise.
+	(override_options): Initialize m68k_symbolic_call and
+	m68k_symbolic_jump.  Only set function_no_cse for PIC
+	if symbolic calls and jumps are supported.
+	(m68k_output_pic_call): Delete.
+	(m68k_legitimize_call_address): New function.
+	(m68k_legitimate_address_p): Remove SYMBOL_REF_FLAG handling.
+	(output_call): New function.
+	(m68k_output_mi_thunk): Change operand 0 of the call from a
+	memory reference to an address.  Use mips_symbolic_jump if
+	non-null, otherwise load the address from the GOT.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Add a 'W' constraint.
+	Remove superfluous brackets.
+	(m68k_symbolic_call): Declare.
+	(m68k_symbolic_jump): Declare.
+
 2006-05-25  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k-cores.def: Add 52235 & 5225 cores.

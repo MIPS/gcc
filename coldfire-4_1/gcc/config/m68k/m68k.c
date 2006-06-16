@@ -241,6 +241,12 @@ int m68k_bitfield = 0;
 /* Nonzero if hardware divide is supported.  */
 int m68k_cf_hwdiv = 0;
 
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+const char *m68k_symbolic_call;
+const char *m68k_symbolic_jump;
+
 /* Bit values used by m68k-cores.def to identify processor capabilities.  */
 #define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
 #define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
@@ -630,13 +636,37 @@ override_options (void)
   if (TARGET_PCREL && flag_pic == 0)
     flag_pic = 1;
 
-  /* Turn off function cse if we are doing PIC.  We always want function call
-     to be done as `bsr foo@PLTPC', so it will force the assembler to create
-     the PLT entry for `foo'. Doing function cse will cause the address of
-     `foo' to be loaded into a register, which is exactly what we want to
-     avoid when we are doing PIC on svr4 m68k.  */
-  if (flag_pic)
-    flag_no_function_cse = 1;
+  if (!flag_pic)
+    {
+      m68k_symbolic_call = "jsr (%a0)";
+      m68k_symbolic_jump = "jmp (%a0)";
+    }
+  else if (TARGET_ID_SHARED_LIBRARY)
+    /* All addresses must be loaded from the GOT.  */
+    ;
+  else if (m68k_arch_68020 || m68k_arch_isab)
+    {
+      if (TARGET_PCREL)
+	{
+	  m68k_symbolic_call = "bsr.l %a0";
+	  m68k_symbolic_jump = "bra.l %a0";
+	}
+      else
+	{
+#if defined(USE_GAS)
+	  m68k_symbolic_call = "bsr.l %a0@PLTPC";
+	  m68k_symbolic_jump = "bra.l %a0@PLTPC";
+#else
+	  m68k_symbolic_call = "bsr %a0@PLTPC";
+	  m68k_symbolic_jump = "bra %a0@PLTPC";
+#endif
+	}
+      /* Turn off function cse if we are doing PIC.  We always want
+	 function call to be done as `bsr foo@PLTPC'.  */
+      /* ??? It's traditional to do this for -mpcrel too, but it isn't
+	 clear how intentional that is.  */
+      flag_no_function_cse = 1;
+    }
 
   SUBTARGET_OVERRIDE_OPTIONS;
 }
@@ -1439,33 +1469,18 @@ flags_in_68881 (void)
   return cc_status.flags & CC_IN_68881;
 }
 
-/* Output a BSR instruction suitable for PIC code.  */
-void
-m68k_output_pic_call(rtx dest)
+/* Convert X to a legitimate function call memory reference and return the
+   result.  */
+
+rtx
+m68k_legitimize_call_address (rtx x)
 {
-  const char *out;
-
-  if (!(GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == SYMBOL_REF))
-    out = "jsr %0";
-      /* We output a BSR instruction if we're building for a target that
-         supports long branches.  Otherwise we generate one of two sequences:
-         a shorter one that uses a GOT entry or a longer one that doesn't.
-         We use the -Os command-line flag to decide which to generate.
-         Both sequences take the same time to execute on the ColdFire.  */
-  else if (TARGET_PCREL)
-    out = "bsr.l %o0";
-  else if (m68k_arch_68020 || m68k_arch_isab)
-#if defined(USE_GAS)
-    out = "bsr.l %0@PLTPC";
-#else
-    out = "bsr %0@PLTPC";
-#endif
-  else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-    out = "move.l %0@GOT(%%a5), %%a1\n\tjsr (%%a1)";
-  else
-    out = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
-
-  output_asm_insn(out, &dest);
+  gcc_assert (MEM_P (x));
+  if (REG_P (XEXP (x, 0)))
+    return x;
+  if (CONSTANT_P (XEXP (x, 0)) && m68k_symbolic_call != NULL)
+    return x;
+  return replace_equiv_address (x, force_reg (Pmode, XEXP (x, 0)));
 }
 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
@@ -1855,8 +1870,6 @@ int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
       if (flag_pic)
 	{
 	  if (!symbolic_operand (x, VOIDmode))
-	    return 1;
-	  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
 	    return 1;
 	  return strict && TARGET_PCREL;
 	}
@@ -3969,6 +3982,20 @@ output_xorsi3 (rtx *operands)
   return "eor%.l %2,%0";
 }
 
+/* Return the instruction that should be used for a call to address X,
+   which is known to be in operand 0.  */
+
+const char *
+output_call (rtx x)
+{
+  if (symbolic_operand (x, VOIDmode))
+    return m68k_symbolic_call;
+  else if (REG_P (x))
+    return "jsr (%0)";
+  else
+    return "jsr %a0";
+}
+
 #ifdef M68K_TARGET_COFF
 
 /* Output assembly to switch to section NAME with attribute FLAGS.  */
@@ -4032,40 +4059,15 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		 delta);
 
   xops[0] = DECL_RTL (function);
+  gcc_assert (MEM_P (xops[0])
+	      && symbolic_operand (XEXP (xops[0], 0), VOIDmode));
+  xops[0] = XEXP (xops[0], 0);
 
-  /* Logic taken from call patterns in m68k.md.  */
-  if (flag_pic)
-    {
-      if (TARGET_PCREL)
-	fmt = "bra.l %o0";
-      else if ((flag_pic == 1) || m68k_arch_68020 || m68k_arch_isab)
-	{
-	  if (MOTOROLA)
-#if defined(USE_GAS)
-	    fmt = "bra.l %0@PLTPC";
-#else
-	    fmt = "bra %0@PLTPC";
-#endif
-	  else /* !MOTOROLA */
-#ifdef USE_GAS
-	    fmt = "bra.l %0";
-#else
-	    fmt = "jra %0,a1";
-#endif
-	}
-      else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-        fmt = "move.l %0@GOT(%%a5), %%a1\n\tjmp (%%a1)";
-      else
-        fmt = "lea %0-.-8,%%a1\n\tjmp 0(%%pc,%%a1)";
-    }
-  else
-    {
-#if MOTOROLA && !defined (USE_GAS)
-      fmt = "jmp %0";
-#else
-      fmt = "jra %0";
-#endif
-    }
+  fmt = m68k_symbolic_jump;
+  if (m68k_symbolic_jump == NULL)
+    /* Thunks do not use the static chain register.  Use it as a
+       temporary register here.  */
+    fmt = "move.l %a0@GOT(%%a5), %%a0\n\tjmp (%%a0)";
 
   output_asm_insn (fmt, xops);
 }

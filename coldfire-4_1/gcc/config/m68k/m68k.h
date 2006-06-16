@@ -490,7 +490,8 @@ extern enum reg_class regno_reg_class[];
 /* `Q' means address register indirect addressing mode.
    `S' is for operands that satisfy 'm' when -mpcrel is in effect.
    `T' is for operands that satisfy 's' when -mpcrel is not in effect.
-   `U' is for register offset addressing.  */
+   `U' is for register offset addressing.
+   `W' is for constants that satisfy call_operand.  */
 #define EXTRA_CONSTRAINT(OP,CODE)			\
   (((CODE) == 'S')					\
    ? (TARGET_PCREL					\
@@ -499,17 +500,17 @@ extern enum reg_class regno_reg_class[];
 	  || GET_CODE (XEXP (OP, 0)) == LABEL_REF	\
 	  || GET_CODE (XEXP (OP, 0)) == CONST))		\
    : 							\
-  (((CODE) == 'T')					\
+   ((CODE) == 'T')					\
    ? ( !TARGET_PCREL 					\
       && (GET_CODE (OP) == SYMBOL_REF			\
 	  || GET_CODE (OP) == LABEL_REF			\
 	  || GET_CODE (OP) == CONST))			\
    :							\
-  (((CODE) == 'Q')					\
+   ((CODE) == 'Q')					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == REG)		\
    :							\
-  (((CODE) == 'U')					\
+   ((CODE) == 'U')					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == PLUS		\
       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
@@ -517,7 +518,9 @@ extern enum reg_class regno_reg_class[];
       && INTVAL (XEXP (XEXP (OP, 0), 1)) < 0x8000	\
       && INTVAL (XEXP (XEXP (OP, 0), 1)) >= -0x8000)	\
    :							\
-   0))))
+   ((CODE) == 'W')					\
+   ? CONSTANT_P (OP) && call_operand (OP, VOIDmode)	\
+   : 0)
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS) \
   m68k_preferred_reload_class (X, CLASS)
@@ -1161,3 +1164,9 @@ extern int m68k_bitfield;
 
 /* Nonzero if hardware divide is supported.  */
 extern int m68k_cf_hwdiv;
+
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+extern const char *m68k_symbolic_call;
+extern const char *m68k_symbolic_jump;
