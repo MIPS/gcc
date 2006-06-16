@@ -1,6 +1,13 @@
 2006-06-16  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.h (ASM_PREFERRED_EH_DATA_FORMAT): Don't use
+	indirect or pc-relative references to code or globals if either
+	TARGET_SEP_DATA or TARGET_ID_SHARED_LIBRARY is in effect.
+
+2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/lb1sf68.asm (PICCALL): Use an lea and pc-relative
 	jump sequence for ISA A and ISA A+.
 	(PICJUMP): Likewise.
