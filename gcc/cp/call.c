@@ -4043,15 +4043,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* On the first pass, check the rest of the arguments.  */
 	  if (pass == 0)
 	    {
-	      tree a = argtypes;
-	      while (a && t)
-		{
-		  if (!same_type_p (TREE_VALUE (a), TREE_VALUE (t)))
-		    break;
-		  a = TREE_CHAIN (a);
-		  t = TREE_CHAIN (t);
-		}
-	      if (!a && !t)
+	      if (compparms (argtypes, t))
 		break;
 	    }
 	  /* On the second pass, the second argument must be

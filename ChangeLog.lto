@@ -1,3 +1,7 @@
+2006-06-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/call.c (build_op_delete_call): Use compparms.
+
 2006-06-14  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/cp-tree.h (FUNCTION_ARG_CHAIN): Remove.
