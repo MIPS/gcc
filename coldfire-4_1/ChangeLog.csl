@@ -1,6 +1,13 @@
 2006-06-16  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/lb1sf68.asm (PICCALL): Use an lea and pc-relative
+	jump sequence for ISA A and ISA A+.
+	(PICJUMP): Likewise.
+
+2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/predicates.md (call_operand): Define.
 	* config/m68k/m68k.md (call): Remove SYMBOL_REF_FLAG handilng.
 	Call m68k_legitimize_call_address.  Replace the separate flag_pic
