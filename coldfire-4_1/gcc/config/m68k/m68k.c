@@ -620,11 +620,8 @@ override_options (void)
    * -fpic but it hasn't been tested properly.
    */
   if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
-    {
-      if ((flags & FL_PCREL_16))
-	error ("-msep-data or -mid-shared-library are not currently supported on selected cpu because they require -fPIC");
-      flag_pic = 2;
-    }
+    flag_pic = 2;
+
   /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
      error if the target does not support them.  */
   if (TARGET_PCREL && (flags & FL_PCREL_16) && flag_pic == 2)

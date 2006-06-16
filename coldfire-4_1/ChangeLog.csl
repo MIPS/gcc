@@ -1,6 +1,12 @@
 2006-06-16  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (override_options): Don't check FL_PCREL_16
+	for -msep-data and -mid-shared-library.
+
+2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.h (ASM_PREFERRED_EH_DATA_FORMAT): Don't use
 	indirect or pc-relative references to code or globals if either
 	TARGET_SEP_DATA or TARGET_ID_SHARED_LIBRARY is in effect.
