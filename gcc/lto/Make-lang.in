@@ -26,7 +26,7 @@
 # The name of the LTO compiler.
 LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
-LTO_OBJS = lto/lto-lang.o
+LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o
 
 ########################################################################
 # Rules
@@ -68,12 +68,15 @@ lto.stagefeedback:
 
 $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(LTO_OBJS) $(BACKEND) $(LIBS)
+		$(LTO_OBJS) $(BACKEND) $(LIBS) -lelf
 
 ########################################################################
 # Dependencies
 ########################################################################
 
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
-	$(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
-	lto/lto-tree.h gtype-lto.h
+	flags.h $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
+	$(TM_H) lto/lto-tree.h lto/lto.h gtype-lto.h
+lto/lto.o: lto/lto.c $(CONFIG_H) opts.h $(SYSTEM_H) lto/lto.h
+lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H)\
+	toplev.h lto/lto.h

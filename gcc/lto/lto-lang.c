@@ -22,11 +22,14 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "flags.h"
+#include "tm.h"
 #include "tree.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "debug.h"
 #include "lto-tree.h"
+#include "lto.h"
 
 /* Tables of information about tree codes.  */
 
@@ -113,12 +116,6 @@ lto_getdecls (void)
   gcc_unreachable ();
 }
 
-static void
-lto_write_globals (void)
-{
-  gcc_unreachable ();
-}
-
 static tree
 lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
 		      tree type ATTRIBUTE_UNUSED,
@@ -128,6 +125,27 @@ lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
 		      tree attrs ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
+}
+
+/* Perform LTO-specific initialization.  */
+
+static bool
+lto_init (void)
+{
+  /* Create the basic integer types.  */
+  build_common_tree_nodes (flag_signed_char, 
+			   /*signed_sizetype=*/false);
+  /* Tell the middle end what type to use for the size of objects.  */
+  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
+    set_sizetype (unsigned_type_node);
+  else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
+    set_sizetype (long_unsigned_type_node);
+  else
+    gcc_unreachable();
+  /* Create other basic types.  */
+  build_common_tree_nodes_2 (/*short_double=*/false);
+
+  return true;
 }
 
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
@@ -145,9 +163,13 @@ lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
 #undef LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS lto_getdecls
 #undef LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS lto_write_globals
+#define LANG_HOOKS_WRITE_GLOBALS lhd_do_nothing
 #undef LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION lto_builtin_function
+#undef LANG_HOOKS_INIT
+#define LANG_HOOKS_INIT lto_init
+#undef LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE lto_main
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
