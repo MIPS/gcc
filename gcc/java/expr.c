@@ -305,7 +305,7 @@ push_value (tree value)
      whether or not the result is used.  If the value ends up on the
      quick stack and is then popped, this won't happen -- so we flush
      the quick stack.  */
-  if (TREE_SIDE_EFFECTS (value))
+  if (TREE_SIDE_EFFECTS (value) || TREE_CODE (value) == COMPONENT_REF)
     flush_quick_stack ();
 }
 

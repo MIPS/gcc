@@ -1,5 +1,10 @@
 2006-06-19  Tom Tromey  <tromey@redhat.com>
 
+	* expr.c (push_value): Also flush quick stack if value is a
+	component_ref.
+
+2006-06-19  Tom Tromey  <tromey@redhat.com>
+
 	* expr.c (push_value): Flush quick stack if value has side
 	effects.
 
