@@ -834,6 +834,9 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
      }
  */
 
+/* Probability in % that the unrolled loop is entered.  Just a guess.  */
+#define PROB_UNROLLED_LOOP_ENTERED 90
+
 void
 tree_unroll_loop_prepare (struct loops *loops, struct loop *loop,
 			  unsigned factor, edge *exit,
@@ -849,14 +852,26 @@ tree_unroll_loop_prepare (struct loops *loops, struct loop *loop,
   edge new_nonexit;
   block_stmt_iterator bsi;
   use_operand_p op;
-  unsigned est_niter;
+  unsigned est_niter, prob_entry, scale_unrolled, scale_rest;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
 			     &enter_main_cond, &exit_base, &exit_step,
 			     &exit_cmp, &exit_bound);
 
-  new_loop = loop_version (loops, loop, enter_main_cond, NULL, true);
+  /* Let us assume that the unrolled loop is quite likely to be entered.  */
+  if (nonzero_p (enter_main_cond))
+    prob_entry = REG_BR_PROB_BASE;
+  else
+    prob_entry = PROB_UNROLLED_LOOP_ENTERED * REG_BR_PROB_BASE / 100;
+
+  /* Getting the profile right is nontrivial.  These values should at least
+     keep it consistent, and somewhat close to correct.  */
+  scale_unrolled = prob_entry;
+  scale_rest = REG_BR_PROB_BASE;
+
+  new_loop = loop_version (loops, loop, enter_main_cond, NULL,
+			   prob_entry, scale_unrolled, scale_rest, true);
   gcc_assert (new_loop != NULL);
   update_ssa (TODO_update_ssa);
 
@@ -994,10 +1009,10 @@ tree_unroll_loop_finish (struct loops *loops, struct loop *loop,
 	nonexit = EDGE_SUCC (aexit->src, 0);
       nonexit->probability = REG_BR_PROB_BASE;
       aexit->probability = 0;
-      nonexit->count += exit->count;
+      nonexit->count += aexit->count;
       aexit->count = 0;
 
-      exit_if = last_stmt (exit->src);
+      exit_if = last_stmt (aexit->src);
       COND_EXPR_COND (exit_if) = dont_exit;
       update_stmt (exit_if);
     }

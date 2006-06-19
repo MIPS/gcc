@@ -1,5 +1,34 @@
 2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
 
+	Merge from the killloop_branch:
+
+	* cfgloop.h (loopify, loop_version): Declaration changed.
+	* cfgloopmanip.c (loopify, lv_adjust_loop_entry_edge,
+	loop_version): Enable to specify how the frequencies
+	should be scaled.
+	* loop-unswitch.c (unswitch_loop): Specify how the frequencies should
+	be scaled.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_loop): Ditto.
+	* tree-ssa-loop-manip.c (tree_unroll_loop_prepare): Ditto.
+	* tree-vect-transform.c (vect_transform_loop): Ditto.
+
+	* tree-ssa-loop-ivopts.c (AVG_LOOP_NITER): Use
+	expected_loop_iterations.
+	(BEFORE_LOOP_COST): New macro.
+	(extract_cond_operands): New function.
+	(find_interesting_uses_cond, rewrite_use_compare): Use
+	extract_cond_operands.
+	(get_address_cost): Do not limit offset to at most 20 bits.
+	(determine_use_iv_cost_condition): Use extract_cond_operands.
+	Choose better from keeping original iv and iv elimination.
+	(determine_iv_cost): Use BEFORE_LOOP_COST.
+
+	* tree-ssa-loop-manip.c (tree_unroll_loop_finish): Fix removal
+	of exits from the main loop body.
+
+2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
+
 	* tree-predcom.c (dump_dref): Fix spacing of the dump.
 	(remove_stmt, may_reassociate_p, find_associative_operation_root,
 	find_common_use_stmt, remove_name_from_operation,
