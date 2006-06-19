@@ -328,7 +328,7 @@ dump_dref (FILE *file, dref ref)
   else
     {
       fprintf (file, "    combination ref\n");
-      fprintf (file, "      in statement");
+      fprintf (file, "      in statement ");
       print_generic_expr (dump_file, ref->stmt, TDF_SLIM);
       fprintf (file, "\n");
       fprintf (file, "      distance %u\n", ref->distance);
@@ -1413,6 +1413,36 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
   VEC_free (tree, heap, vars);
 }
 
+/* Remove statement STMT, as well as the chain of assignments in that it is
+   used.  */
+
+static void
+remove_stmt (tree stmt)
+{
+  tree next, name;
+  use_operand_p dummy;
+  bool cont;
+
+  while (1)
+    {
+      block_stmt_iterator bsi = bsi_for_stmt (stmt);
+
+      name = TREE_OPERAND (stmt, 0);
+      gcc_assert (TREE_CODE (name) == SSA_NAME);
+
+      cont = single_imm_use (name, &dummy, &next);
+      mark_virtual_ops_for_renaming (stmt);
+      bsi_remove (&bsi, true);
+
+      if (!cont
+	  || TREE_CODE (next) != MODIFY_EXPR
+	  || TREE_OPERAND (next, 1) != name)
+	return;
+
+      stmt = next;
+    }
+}
+
 /* Perform the predictive commoning optimization for a chain CHAIN.
    Uids of the newly created temporary variables are marked in TMP_VARS.*/
 
@@ -1429,12 +1459,7 @@ execute_pred_commoning_chain (struct loop *loop, chain_p chain,
       /* For combined chains, just remove the statements that are used to
 	 compute the values of the expression (except for the root one).  */
       for (i = 1; VEC_iterate (dref, chain->refs, i, a); i++)
-	{
-	  block_stmt_iterator bsi = bsi_for_stmt (a->stmt);
-
-	  mark_virtual_ops_for_renaming (a->stmt);
-	  bsi_remove (&bsi, true);
-	}
+	remove_stmt (a->stmt);
     }
   else
     {
@@ -1626,30 +1651,123 @@ chain_can_be_combined_p (chain_p chain)
 	  && (chain->type == CT_LOAD || chain->type == CT_COMBINATION));
 }
 
-/* Returns the modify statement that uses NAME.  TODO -- for associative and
-   comutative operations, we should return root of the tree formed by the same
-   operation, and perform reassociation later.  */
+/* Returns the modify statement that uses NAME.  Skips over assignment
+   statements, NAME is replaced with the actual name used in the returned
+   statement.  */
 
 static tree
 find_use_stmt (tree *name)
 {
-  tree stmt, rhs;
+  tree stmt, rhs, lhs;
   use_operand_p dummy;
 
-  if (!single_imm_use (*name, &dummy, &stmt))
-    return NULL_TREE;
+  /* Skip over assignments.  */
+  while (1)
+    {
+      if (!single_imm_use (*name, &dummy, &stmt))
+	return NULL_TREE;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR
-      || TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
-    return NULL_TREE;
+      if (TREE_CODE (stmt) != MODIFY_EXPR)
+	return NULL_TREE;
 
-  rhs = TREE_OPERAND (stmt, 1);
+      lhs = TREE_OPERAND (stmt, 0);
+      if (TREE_CODE (lhs) != SSA_NAME)
+	return NULL_TREE;
+
+      rhs = TREE_OPERAND (stmt, 1);
+      if (rhs != *name)
+	break;
+
+      *name = lhs;
+    }
+
   if (!EXPR_P (rhs)
       || REFERENCE_CLASS_P (rhs)
       || TREE_CODE_LENGTH (TREE_CODE (rhs)) != 2)
     return NULL_TREE;
 
   return stmt;
+}
+
+/* Returns true if we may perform reassociation for operation CODE in TYPE.  */
+
+static bool
+may_reassociate_p (tree type, enum tree_code code)
+{
+  if (FLOAT_TYPE_P (type)
+      && !flag_unsafe_math_optimizations)
+    return false;
+
+  return (commutative_tree_code (code)
+	  && associative_tree_code (code));
+}
+
+/* If the operation used in STMT is associative and commutative, go through the
+   tree of the same operations and returns its root.  Distance to the root
+   is stored in DISTANCE.  */
+
+static tree
+find_associative_operation_root (tree stmt, unsigned *distance)
+{
+  tree rhs = TREE_OPERAND (stmt, 1), lhs, next;
+  enum tree_code code = TREE_CODE (rhs);
+  unsigned dist = 0;
+
+  if (!may_reassociate_p (TREE_TYPE (rhs), code))
+    return NULL_TREE;
+
+  while (1)
+    {
+      lhs = TREE_OPERAND (stmt, 0);
+      gcc_assert (TREE_CODE (lhs) == SSA_NAME);
+
+      next = find_use_stmt (&lhs);
+      if (!next)
+	break;
+
+      rhs = TREE_OPERAND (next, 1);
+      if (TREE_CODE (rhs) != code)
+	break;
+
+      stmt = next;
+      dist++;
+    }
+
+  if (distance)
+    *distance = dist;
+  return stmt;
+}
+
+/* Returns the common statement in that NAME1 and NAME2 have a use.  If there
+   is no such statement, returns NULL_TREE.  In case the operation used on
+   NAME1 and NAME2 is associative and comutative, returns the root of the
+   tree formed by this operation instead of the statement that uses NAME1 or
+   NAME2.  */
+
+static tree
+find_common_use_stmt (tree *name1, tree *name2)
+{
+  tree stmt1, stmt2;
+
+  stmt1 = find_use_stmt (name1);
+  if (!stmt1)
+    return NULL_TREE;
+
+  stmt2 = find_use_stmt (name2);
+  if (!stmt2)
+    return NULL_TREE;
+
+  if (stmt1 == stmt2)
+    return stmt1;
+
+  stmt1 = find_associative_operation_root (stmt1, NULL);
+  if (!stmt1)
+    return NULL_TREE;
+  stmt2 = find_associative_operation_root (stmt2, NULL);
+  if (!stmt2)
+    return NULL_TREE;
+
+  return (stmt1 == stmt2 ? stmt1 : NULL_TREE);
 }
 
 /* Checks whether R1 and R2 are combined together using CODE, with the result
@@ -1663,7 +1781,7 @@ combinable_refs_p (dref r1, dref r2,
   enum tree_code acode;
   bool aswap;
   tree atype;
-  tree name1, name2, use_stmt1, use_stmt2, rhs;
+  tree name1, name2, stmt, rhs;
 
   gcc_assert (TREE_CODE (r1->stmt) == MODIFY_EXPR);
   gcc_assert (TREE_CODE (r2->stmt) == MODIFY_EXPR);
@@ -1673,15 +1791,12 @@ combinable_refs_p (dref r1, dref r2,
   gcc_assert (TREE_CODE (name1) == SSA_NAME);
   gcc_assert (TREE_CODE (name2) == SSA_NAME);
 
-  use_stmt1 = find_use_stmt (&name1);
-  use_stmt2 = find_use_stmt (&name2);
+  stmt = find_common_use_stmt (&name1, &name2);
 
-  if (!use_stmt1 || !use_stmt2 || use_stmt1 != use_stmt2)
+  if (!stmt)
     return false;
 
-  rhs = TREE_OPERAND (use_stmt1, 1);
-  gcc_assert (TREE_OPERAND (rhs, 0) == name1 || TREE_OPERAND (rhs, 1) == name1);
-  gcc_assert (TREE_OPERAND (rhs, 1) == name2 || TREE_OPERAND (rhs, 0) == name2);
+  rhs = TREE_OPERAND (stmt, 1);
   acode = TREE_CODE (rhs);
   aswap = (!commutative_tree_code (acode)
 	   && TREE_OPERAND (rhs, 0) != name1);
@@ -1700,19 +1815,125 @@ combinable_refs_p (dref r1, dref r2,
 	  && *rslt_type == atype);
 }
 
-/* Returns the statement that combines references R1 and R2.  TODO -- perform
-   reassociation.  */
+/* Remove OP from the operation on rhs of STMT, and replace STMT with
+   an assignment of the remaining operand.  */
+
+static void
+remove_name_from_operation (tree stmt, tree op)
+{
+  tree *rhs;
+
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+
+  rhs = &TREE_OPERAND (stmt, 1);
+  if (TREE_OPERAND (*rhs, 0) == op)
+    *rhs = TREE_OPERAND (*rhs, 1);
+  else if (TREE_OPERAND (*rhs, 1) == op)
+    *rhs = TREE_OPERAND (*rhs, 0);
+  else
+    gcc_unreachable ();
+  update_stmt (stmt);
+}
+
+/* Reassociates the expression in that NAME1 and NAME2 are used so that they
+   are combined in a single statement, and returns this statement.  */
+
+static tree
+reassociate_to_the_same_stmt (tree name1, tree name2)
+{
+  tree stmt1, stmt2, root1, root2, r1, r2, s1, s2;
+  tree new_stmt, tmp_stmt, new_name, tmp_name, var;
+  unsigned dist1, dist2;
+  enum tree_code code;
+  tree type = TREE_TYPE (name1);
+  block_stmt_iterator bsi;
+
+  stmt1 = find_use_stmt (&name1);
+  stmt2 = find_use_stmt (&name2);
+  root1 = find_associative_operation_root (stmt1, &dist1);
+  root2 = find_associative_operation_root (stmt2, &dist2);
+  code = TREE_CODE (TREE_OPERAND (stmt1, 1));
+
+  gcc_assert (root1 && root2 && root1 == root2
+	      && code == TREE_CODE (TREE_OPERAND (stmt2, 1)));
+
+  /* Find the root of the nearest expression in that both NAME1 and NAME2
+     are used.  */
+  r1 = name1;
+  s1 = stmt1;
+  r2 = name2;
+  s2 = stmt2;
+
+  while (dist1 > dist2)
+    {
+      s1 = find_use_stmt (&r1);
+      r1 = TREE_OPERAND (s1, 0);
+      dist1--;
+    }
+  while (dist2 > dist1)
+    {
+      s2 = find_use_stmt (&r2);
+      r2 = TREE_OPERAND (s2, 0);
+      dist2--;
+    }
+
+  while (s1 != s2)
+    {
+      s1 = find_use_stmt (&r1);
+      r1 = TREE_OPERAND (s1, 0);
+      s2 = find_use_stmt (&r2);
+      r2 = TREE_OPERAND (s2, 0);
+    }
+
+  /* Remove NAME1 and NAME2 from the statements in that they are used
+     currently.  */
+  remove_name_from_operation (stmt1, name1);
+  remove_name_from_operation (stmt2, name2);
+
+  /* Insert the new statement combining NAME1 and NAME2 before S1, and
+     combine it with the rhs of S1.  */
+  var = create_tmp_var (type, "predreastmp");
+  add_referenced_var (var);
+  new_name = make_ssa_name (var, NULL_TREE);
+  new_stmt = fold_build2 (MODIFY_EXPR, void_type_node, new_name,
+			  fold_build2 (code, type, name1, name2));
+  SSA_NAME_DEF_STMT (new_name) = new_stmt;
+
+  var = create_tmp_var (type, "predreastmp");
+  add_referenced_var (var);
+  tmp_name = make_ssa_name (var, NULL_TREE);
+  tmp_stmt = fold_build2 (MODIFY_EXPR, void_type_node, tmp_name,
+			  TREE_OPERAND (s1, 1));
+  SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;
+
+  TREE_OPERAND (s1, 1) = fold_build2 (code, type, new_name, tmp_name);
+  update_stmt (s1);
+
+  bsi = bsi_for_stmt (s1);
+  bsi_insert_before (&bsi, new_stmt, BSI_SAME_STMT);
+  bsi_insert_before (&bsi, tmp_stmt, BSI_SAME_STMT);
+
+  return new_stmt;
+}
+
+/* Returns the statement that combines references R1 and R2.  In case R1
+   and R2 are not used in the same statement, but they are used with an
+   associative and commutative operation in the same expression, reassociate
+   the expression so that they are used in the same statement.  */
 
 static tree
 stmt_combining_refs (dref r1, dref r2)
 {
   tree stmt1, stmt2;
+  tree name1 = TREE_OPERAND (r1->stmt, 0);
+  tree name2 = TREE_OPERAND (r2->stmt, 0);
 
-  stmt1 = find_use_stmt (&TREE_OPERAND (r1->stmt, 0));
-  stmt2 = find_use_stmt (&TREE_OPERAND (r2->stmt, 0));
-  gcc_assert (stmt1 == stmt2);
+  stmt1 = find_use_stmt (&name1);
+  stmt2 = find_use_stmt (&name2);
+  if (stmt1 == stmt2)
+    return stmt1;
 
-  return stmt1;
+  return reassociate_to_the_same_stmt (name1, name2);
 }
 
 /* Tries to combine chains CH1 and CH2 together.  If this succeeds, the
@@ -1805,6 +2026,8 @@ try_combine_chains (VEC (chain_p, heap) **chains)
   while (!VEC_empty (chain_p, worklist))
     {
       ch1 = VEC_pop (chain_p, worklist);
+      if (!chain_can_be_combined_p (ch1))
+	continue;
 
       for (j = 0; VEC_iterate (chain_p, *chains, j, ch2); j++)
 	{
@@ -1927,6 +2150,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   /* Determine the unroll factor, and if the loop should be unrolled, ensure
      that its number of iterations is divisible by the factor.  */
   unroll_factor = determine_unroll_factor (chains);
+  scev_reset ();
   unroll = should_unroll_loop_p (loop, unroll_factor, &desc);
   exit = single_dom_exit (loop);
 
@@ -1943,7 +2167,6 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   if (unroll)
     {
       update_ssa (TODO_update_ssa_only_virtuals);
-      scev_reset ();
       tree_unroll_loop_finish (loops, loop, unroll_factor, exit);
       eliminate_temp_copies (loop, tmp_vars);
     }

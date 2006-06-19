@@ -1,3 +1,7 @@
+2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/predcom-5.c: New test.
+
 2006-06-16  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/predcom-1.c: Test also loops with nonconstant

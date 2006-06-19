@@ -1,3 +1,17 @@
+2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-predcom.c (dump_dref): Fix spacing of the dump.
+	(remove_stmt, may_reassociate_p, find_associative_operation_root,
+	find_common_use_stmt, remove_name_from_operation,
+	reassociate_to_the_same_stmt): New functions.
+	(execute_pred_commoning_chain): Use remove_stmt.
+	(find_use_stmt): Skip over assignments.
+	(combinable_refs_p): Use find_common_use_stmt.
+	(stmt_combining_refs): Use reassociate_to_the_same_stmt.
+	(try_combine_chains): Only combine combinable chains.
+	(tree_predictive_commoning_loop): Reset scev before
+	should_unroll_loop_p.
+
 2006-06-16  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-ssa-loop-manip.c (determine_exit_conditions): Return a single
@@ -123,10 +137,6 @@
 	* passes.c (init_optimization_passes): Add pass_dominator before
 	loop optimizations.
 
-2006-05-25  Zdenek Dvorak <dvorakz@suse.cz>
-
-	Branch created.
-
 2006-05-30  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-ssa-loop-im.c (get_lsm_tmp_name): Add version to the name.
@@ -149,3 +159,8 @@
 	constant_multiple_of): Declare.
 	* Makefile.in (tree-predcom.o): Add.
 	* passes.c (init_optimization_passes): Add pass_predcom.
+
+2006-05-25  Zdenek Dvorak <dvorakz@suse.cz>
+
+	Branch created.
+
