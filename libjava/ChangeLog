@@ -1,5 +1,10 @@
 2006-06-19  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/lib/libjava.exp (test_libjava): Don't compile via
+	bytecode.  Run BC compilations from source.
+
+2006-06-19  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.lang/TestProxy.java: Don't use wildcard
 	imports for java.lang.reflect.
 
