@@ -1,3 +1,58 @@
+2006-06-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27802
+	* reg-stack.c (subst_stack_regs): Handle noreturn function calls
+	that (would) return their results in stack registers.
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27830
+	* tree-inline.c (copy_body_r): For copying the operand
+	of an ADDR_EXPR make sure to fold &* afterwards.
+
+2006-06-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27858
+	Revert incorrect fix for PR target/27158
+	2006-05-11  Roger Sayle  <roger@eyesopen.com>
+	* reload.c (find_reloads_toplev): Only return the simplified SUBREG
+	of a reg_equiv_constant if the result is a legitimate constant.
+
+2006-06-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27158
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): New function to
+	extract a CONST_VECTOR element and interpret it as an integer.
+	(vspltis_constant): Use const_vector_elt_as_int instead of the
+	macro CONST_VECTOR_ELT in order to handle FP vector modes.
+	* config/rs6000/predicates.md (easy_vector_const): Consider
+	floating point ALTIVEC_VECTOR_MODEs via easy_altivec_constant.
+
+2006-06-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR middle-end/27959
+	* reload1.c (reload): Remove registers returned by update_eliminables
+	from used_spill_regs.
+
+2005-06-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	PR bootstrap/22541
+	From Dan Kegel <dank@kegel.com>:
+	* Makefile.in: Strip "dir/../" combinations from SYSTEM_INCLUDE_DIR.
+
+2006-06-13  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR middle-end/27733
+        * expmed.c (struct alg_hash_entry): Fix type of field T
+        to match synth_mult argument.
+        (NUM_ALG_HASH_ENTRIES): Make it bigger for 64-bit HOST_WIDE_INT.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* config/i386/i386.c (classify_argument): Skip fields with invalid
+	types in unions.
+
 2006-06-09  Ralf Corsepius  <ralf.corsepius@rtems.org>
 
 	* config/mips/t-rtems: Add EL/EB multilib variants.

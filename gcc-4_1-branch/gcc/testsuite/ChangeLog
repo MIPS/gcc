@@ -1,3 +1,84 @@
+2006-06-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27802
+	* gcc.dg/pr27802-1.c: New test case.
+
+2006-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27884
+	* g++.dg/parse/linkage2.C: New test
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27830
+	* g++.dg/tree-ssa/pr27830.C: New testcase.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27689
+	* g++.dg/template/ttp18.C: New test.
+	* g++.dg/template/ttp19.C: Likewise.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27666
+	* g++.dg/expr/cond9.C: New test.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27665
+	* g++.dg/template/crash52.C: New test.
+
+2006-06-15  Asher Langton  <langton2@llnl.gov>
+	
+	PR fortran/27786
+	* cray_pointers_2.f90: Add -fbounds-check compile flag.
+	
+2006-06-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/pr27842.c: Remove dg-do directive; use default.
+	* gcc.dg/vmx/pr27006.c: Ditto.
+
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27648
+	* g++.dg/ext/attrib22.C: New test.
+
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26559
+	* g++.dg/template/builtin1.C: New test.
+
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27227
+	* g++.dg/lookup/linkage1.C: New test.
+	* g++.dg/lookup/linkage2.C: Likewise.
+
+2006-06-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR middle-end/27959
+	* gcc.dg/pr27959.c: New testcase.
+
+2006-06-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/21210
+	* g++.dg/init/complex1.C: New test case.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* g++.dg/ext/offsetof1.C: Add test for pseudo-destructors.
+
+	PR target/27421
+	* gcc.dg/union-3.c: New test.
+
+	PR c++/27933
+	* g++.dg/lookup/using15.C: New test.
+
+	PR c++/27951
+	* g++.dg/other/anon4.C: New test.
+
 2006-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/27747
