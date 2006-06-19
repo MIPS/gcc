@@ -253,7 +253,7 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	    && fsym->attr.intent == INTENT_OUT
 	    && arg->next->expr
 	    && arg->next->expr->expr_type ==  EXPR_VARIABLE
-	    && gfc_check_dependency (e, arg->next->expr, NULL, 0))
+	    && gfc_check_dependency (e, arg->next->expr, 0))
 	{
 	  /* Make a local loopinfo for the temporary creation, so that
 	     none of the other ss->info's have to be renormalized.  */
