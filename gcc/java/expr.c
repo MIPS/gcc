@@ -301,6 +301,12 @@ push_value (tree value)
       TREE_CHAIN (node) = quick_stack;
       quick_stack = node;
     }
+  /* If the value has a side effect, then we need to evaluate it
+     whether or not the result is used.  If the value ends up on the
+     quick stack and is then popped, this won't happen -- so we flush
+     the quick stack.  */
+  if (TREE_SIDE_EFFECTS (value))
+    flush_quick_stack ();
 }
 
 /* Pop a type from the type stack.

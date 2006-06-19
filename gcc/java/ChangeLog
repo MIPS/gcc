@@ -1,3 +1,8 @@
+2006-06-19  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (push_value): Flush quick stack if value has side
+	effects.
+
 2006-06-13  Tom Tromey  <tromey@redhat.com>
 
 	* class.c (is_compiled_class): Explicitly check for current
