@@ -983,9 +983,9 @@ find_trgns (void)
   int idx, node, head, tail;
   edge_iterator current_ei, *ei_list;
 
-  sbitmap zero_bitmap; /* Zero bitmap used to check for empty queue */
-  sbitmap in_treegion; /* Track if block is assigned to a treegion */
-  sbitmap saplings;    /* Saplings queue */
+  sbitmap zero_bitmap; /* Zero bitmap used to check for empty queue.  */
+  sbitmap in_treegion; /* Track if block is assigned to a treegion.  */
+  sbitmap saplings;    /* Saplings queue.  */
   int too_large_failure;
 
   mark_dfs_back_edges ();
@@ -995,35 +995,35 @@ find_trgns (void)
   zero_bitmap = sbitmap_alloc (last_basic_block);
   sbitmap_zero (zero_bitmap);
 
-  /* Check if basic block has been assigned to a treegion */
+  /* Check if basic block has been assigned to a treegion.  */
   in_treegion = sbitmap_alloc (last_basic_block);
   sbitmap_zero (in_treegion);
 
-  /* List of basic blocks which form roots of new treegions */
+  /* List of basic blocks which form roots of new treegions.  */
   saplings = sbitmap_alloc (last_basic_block);
   sbitmap_zero (saplings);
 
-  /* Treegion formation begins with basic block after the ENTRY_BLOCK */
+  /* Treegion formation begins with basic block after the ENTRY_BLOCK.  */
   node = single_succ (ENTRY_BLOCK_PTR)->index;
   SET_BIT (saplings, node);
 
   idx = nr_regions = 0;
 
-  /* While more saplings (treegion roots) */
+  /* While more saplings (treegion roots).  */
   while (!sbitmap_equal (saplings, zero_bitmap))
     {
-      /* Get a sapling to start a new treegion */
+      /* Get a sapling to start a new treegion.  */
       node = sbitmap_first_set_bit (saplings);
       gcc_assert (node != ENTRY_BLOCK && node != EXIT_BLOCK);
       RESET_BIT (saplings, node);
 
-      /* Make a new empty treegion */
+      /* Make a new empty treegion.  */
       num_bbs = num_insns = 0;
 
-      /* Set num_bbs == 1 and calculate num_insns */
+      /* Set num_bbs == 1 and calculate num_insns.  */
       too_large (node, &num_bbs, &num_insns);
 
-      /* Set node as root of treegion */
+      /* Set node as root of treegion.  */
       rgn_bb_table[idx] = node;
       RGN_NR_BLOCKS (nr_regions) = num_bbs;
       RGN_BLOCKS (nr_regions) = idx++;
@@ -1033,7 +1033,7 @@ find_trgns (void)
       BLOCK_TO_BB (node) = num_bbs - 1;
       SET_BIT (in_treegion, node);
 
-      /* BFS traversal to build treegion */
+      /* BFS traversal to build treegion.  */
       head = tail = 0;
       if (EDGE_COUNT (BASIC_BLOCK (node)->succs) > 0)
 	 ei_list[tail++] = ei_start (BASIC_BLOCK(node)->succs);
@@ -1045,21 +1045,22 @@ find_trgns (void)
 	  while (!ei_end_p (current_ei))
 	    {
 	      
-	      /* Clear the aux pointer. */
+	      /* Clear the aux pointer.  */
 	      ei_edge (current_ei)->aux = NULL;
 
-	      if (/* Don't traverse backedges */
-		  (ei_edge (current_ei)->flags & EDGE_DFS_BACK) ||
-		  /* Skip Exit block */
-		  (ei_edge (current_ei)->dest == EXIT_BLOCK_PTR) ||
-		  /* Skip if already in treegion */
-		  (TEST_BIT (in_treegion, ei_edge (current_ei)->dest->index)))
+	      if (/* Don't traverse backedges.  */
+		  (ei_edge (current_ei)->flags & EDGE_DFS_BACK)
+		  /* Skip Exit block.  */
+		  || (ei_edge (current_ei)->dest == EXIT_BLOCK_PTR)
+		  /* Skip if already in treegion.  */
+		  || (TEST_BIT (in_treegion, 
+				ei_edge (current_ei)->dest->index)))
 		{
 		  ei_next (&current_ei);
 		  continue;
 		}
 	      
-	      /* If a merge points then add to sapling list */
+	      /* If a merge points then add to sapling list.  */
 	      if (EDGE_COUNT (ei_edge (current_ei)->dest->preds) > 1)
 		{
 		  SET_BIT (saplings, ei_edge (current_ei)->dest->index);
@@ -1067,11 +1068,11 @@ find_trgns (void)
 		  continue;
 		}
 
-	      /* Check to make sure the region isn't too large */
+	      /* Check to make sure the region isn't too large.  */
 	      too_large_failure = 
 		too_large (ei_edge (current_ei)->dest->index, &num_bbs, &num_insns);
 
-	      /* If too large then add to saplings list */
+	      /* If too large then add to saplings list.  */
 	      if (too_large_failure)
 		{
 		  SET_BIT (saplings, ei_edge (current_ei)->dest->index);
@@ -1079,14 +1080,14 @@ find_trgns (void)
 		  continue;
 		}
 	      
-	      /* Move successor node into treegion */
+	      /* Move successor node into treegion.  */
 	      rgn_bb_table[idx++] = ei_edge (current_ei)->dest->index;
 	      RGN_NR_BLOCKS (nr_regions) = num_bbs;
 	      CONTAINING_RGN (ei_edge (current_ei)->dest->index) = nr_regions;
 	      BLOCK_TO_BB (ei_edge (current_ei)->dest->index) = num_bbs - 1;
 	      SET_BIT (in_treegion, ei_edge (current_ei)->dest->index);
 
-	      /* Add successor to BFS edge list */
+	      /* Add successor to BFS edge list.  */
 	      if (EDGE_COUNT (ei_edge (current_ei)->dest->succs) > 0)
 		ei_list[tail++] = ei_start (ei_edge (current_ei)->dest->succs);
 
