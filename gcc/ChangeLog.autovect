@@ -1,3 +1,11 @@
+2006-06-20  Victor Kaplansky   <victork@il.ibm.com>
+
+	* gcc/tree-scalar-evolution.c: Revert last commit.
+	* gcc/tree-scalar-evolution.h: Same.
+	* gcc/tree-ssa-loop-ivopts.c: Same.
+	* gcc/tree-vect-analyze.c: Same
+	* gcc/passes.c: Same.
+
 2006-06-14  Victor Kaplansky   <victork@il.ibm.com>
 
 	* gcc/tree-scalar-evolution.c (number_of_iterations_in_loop):

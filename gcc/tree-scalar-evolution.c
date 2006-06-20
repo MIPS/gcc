@@ -2245,14 +2245,10 @@ resolve_mixers (struct loop *loop, tree chrec)
    When we evaluate the function at the point 5, i.e. the value of the
    variable 'b' after 5 iterations in the loop, we have EF (5) = 48,
    and EF (6) = 53.  In this case the value of 'b' on exit is '53' and
-   the loop body has been executed 6 times.
-   
-   When MAY_BE_ZERO is true, we are less conservative and
-   return an expression for the number of iterrations even if sometimes
-   the loop will not be executed at all */
+   the loop body has been executed 6 times.  */
 
 tree 
-number_of_iterations_in_loop_1 (struct loop *loop, bool may_be_zero)
+number_of_iterations_in_loop (struct loop *loop)
 {
   tree res, type;
   edge exit;
@@ -2278,23 +2274,13 @@ number_of_iterations_in_loop_1 (struct loop *loop, bool may_be_zero)
   type = TREE_TYPE (niter_desc.niter);
   if (integer_nonzerop (niter_desc.may_be_zero))
     res = build_int_cst (type, 0);
-  else if (may_be_zero || integer_zerop (niter_desc.may_be_zero))
+  else if (integer_zerop (niter_desc.may_be_zero))
     res = niter_desc.niter;
   else
     res = chrec_dont_know;
 
 end:
   return set_nb_iterations_in_loop (loop, res);
-}
-
-/* A wrapper arround previous function to keep conservative behaviour
-   number of interations analysis */
-
-tree 
-number_of_iterations_in_loop (struct loop *loop)
-{
-  return
-    number_of_iterations_in_loop_1 (loop, /* may_be_zero */ false);
 }
 
 /* One of the drivers for testing the scalar evolutions analysis.
