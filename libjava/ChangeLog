@@ -1,3 +1,7 @@
+2006-06-20  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/Where.xfail: Now 'no-link'.
+
 2006-06-19  Tom Tromey  <tromey@redhat.com>
 
 	* gnu/java/lang/natMainThread.cc (call_main): Link main class.
