@@ -1,5 +1,17 @@
 2006-06-20  Richard Sandiford  <richard@codesourcery.com>
 
+	Backport from mainline:
+
+	gcc/
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* combine.c (replaced_rhs_value): New variable.
+	(combine_instructions): Set it.
+	(distribute_notes): When distributing a note in replaced_rhs_insn,
+	check whether the value was used in replaced_rhs_value.
+
+2006-06-20  Richard Sandiford  <richard@codesourcery.com>
+
 	gcc/
 	* postreload.c (reload_combine): Fix calculation of index_regs set.
 
