@@ -1,3 +1,174 @@
+2006-06-20  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27331
+	* tree-data-ref.c (free_data_ref): New function.
+	(create_data_ref): Fail if the data reference has unknown access
+	function.
+	(free_data_refs): Use free_data_ref.
+
+2006-06-19  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/28075
+	* tree-inline.c (setup_one_parameter): Strip useless
+	type conversion before adding it to the IR.
+	(declare_return_variable): Likewise.
+
+2006-06-19  Martin Michlmayr  <tbm@cyrius.com>
+
+	PR c/27149
+	* c-common.c (c_common_truthvalue_conversion): Fix grammar in warning.
+
+2006-06-19  Mike Stump  <mrs@apple.com>
+
+	* tree.c (variably_modified_type_p): VM arguments don't make the
+	type a VM type.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (try_combine_conversion): Strip useless
+	type conversions after folding.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	* ggc-page.c (extra_order_size_tab): Add entries with
+	size of struct function and basic_block.
+	(size_lookup): Extend to cover sizes up to 511.
+	(ggc_alloc_stat): Adjust user.
+	(ggc_pch_count_object): Likewise.
+	(ggc_pch_alloc_object): Likewise.
+	(ggc_pch_write_object): Likewise.
+
+2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (implies_ge_p): New function.
+	(derive_constant_upper_bound): Handle OP0 - CST in unsigned types
+	correctly.
+
+2006-06-19  Denis Chertykov  <denisc@overta.ru>
+
+	* config/avr/libgcc.S : Correct my wrong previous commit.
+
+2006-06-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27861
+	* expmed.c (expand_shift): On SHIFT_COUNT_TRUNCATED targets, we may
+	have stripped a SUBREG from the shift count, so we may need to
+	convert_to_mode back to the type's mode before calling make_tree.
+	Use new_amount instead of amount to avoid expanding a tree twice.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28045
+	* fold-const.c (operand_equal_p): Check if the argument types
+	have the same precision before stripping NOPs.
+
+2006-06-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/27341
+	* tree-cfg.c (gimplify_val): Call mark_new_vars_to_rename on the
+	statement we get.
+	* tree-complex.c (pass_lower_complex): Update SMT usage.	
+
+2006-06-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("doloop_si64", "doloop_si31", "doloop_di"): 
+	Add a new alternative to the constraint strings. Add move of
+	operand 1 to 3 to the splitter definition.
+	("doloop_si_long"): Second contraint alternative removed.
+
+2006-06-08  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (avr_have_movw_lpmx_p): Declare.
+	(TARGET_CPU_CPP_BUILTINS): Add __AVR_HAVE_MOVW__ and 
+	__AVR_HAVE_LPMX__.
+	(AVR_HAVE_MOVW) Define.
+	(ASSEMBLER_DIALECT): Use AVR_HAVE_MOVW.
+	(ASM_SPEC): Add avr25.
+	(LINK_SPEC): Add avr25.
+	* config/avr/avr.c (avr_have_movw_lpmx_p): Add.
+	(base_arch_s): Add new member 'have_movw_lpmx'.
+	(avr_arch_types): Init 'have_movw_lpmx'.
+	(avr_mcu_types): Add 'avr25'. Move attiny13, attiny2313, attiny24,
+	attiny44, attiny84, attiny25, attiny45, attiny85, attiny261,
+	attiny461, attiny861 and at86rf401 in 'avr25' arhitecture.
+	(avr_override_options): Init 'avr_have_movw_lpmx_p'.
+	(output_movhi, output_movsisf, ashlsi3_out, avr_rtx_costs): Use 
+	AVR_HAVE_MOVW.
+	(avr_file_start): Do not output '.arh' derective.
+	* config/avr/libgcc.S (mov_l): Use __AVR_HAVE_MOVW__.
+	(__do_copy_data): Use __AVR_HAVE_LPMX__.
+	* config/avr/avr.md (mcu_enhanced): Delete.
+	(mcu_have_movw): Define.
+	(negsi2, extendhisi2, zero_extendhisi2): Use 'mcu_have_movw'.
+	(call_insn, call_value_insn): Use 'call_insn' and __AVR_HAVE_MOVW__.
+	* config/avr/t-avr(MULTILIB_OPTIONS, MULTILIB_DIRNAMES): Add avr25.
+	(MULTILIB_MATCHES): Add attiny13, attiny2313, attiny24, attiny44,
+	attiny84, attiny25, attiny45, attiny85, attiny261, attiny461, 
+	attiny861 and at86rf401 devices.
+
+2006-06-18  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (MAX_LOOP_LENGTH): Define to be 2042 instead
+	of 4096.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* doc/cpp.texi, doc/cppinternals.texi, doc/gcc.texi,
+	doc/gccint.texi, doc/install.texi (@dircategory): Use
+	"Software development" instead of "Programming", following
+	the Free Software Directory.
+
+2006-06-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/i386/i386.c (legitimate_tls_address)
+	<TARGET_GNU2_TLS>: Add tp after DTPOFF.
+	* config/i386/i386.md (*tls_dynamic_gnu2_combine_32): Adjust.
+	(*tls_dynamic_gnu2_combine_64): Likewise.
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27116
+	* fold-const.c (negate_expr_p): Do not introduce undefined
+	overflow in negating INTEGER_CSTs.
+	(fold_negate_expr): Rename from negate_expr.  Revert last
+	change for folding BIT_NOT_EXPR.  Change semantics to
+	return NULL_TREE for non-simplified negations.  Do not
+	strip type conversions and unify type handling.
+	(negate_expr): New function, wrap around fold_negate_expr
+	but ensure building a tree always.  Strip type conversions
+	here, fold to result type.
+	(fold_unary): Use fold_negate_expr for folding NEGATE_EXPR.
+
+2006-06-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27802
+	* reg-stack.c (subst_stack_regs): Handle noreturn function calls
+	that (would) return their results in stack registers.
+
+2006-06-16  Michael Matz  <matz@suse.de>
+	Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_truthop): Only return new tree node if
+	we canonicalized something.
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* function.h (enum function_frequency): Move declaration
+	out of struct function.
+	(struct function): Move bool fields and the enum to the bitfield
+	section.  Reorder elements to avoid padding.  Remove unused
+	fields left over from the RTL inliner removal.
+	* function.c (free_after_compilation): Do not zero removed fields.
+	* Makefile.in (ipa-reference.o): Add $(FUNCTION_H) dependency.
+	(ipa-type-escape.o): Likewise.
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	* cgraph.h (struct cgraph_local_info): Turn bool elements
+	into a bitfield.
+	(struct cgraph_node): Likewise.
+	(struct cgraph_varpool_node): Likewise.
+
 2006-06-15  Richard Guenther  <rguenther@suse.de>
 
 	* fold-const.c (fold_truth_not_expr): Rename from

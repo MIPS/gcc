@@ -1,3 +1,35 @@
+2006-06-19  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/PR27908.out: New.
+	* testsuite/libjava.lang/PR27908.java: New.
+
+2006-06-19  Keith Seitz  <keiths@redhat.com>
+
+	* include/posix-threads.h (_Jv_ThreadDebugSuspend): Declare.
+	(_Jv_ThreadDebugResume): Declare.
+	(_Jv_ThreadDebugSuspendCount): Declare.
+	* posix-threads.cc (_Jv_ThreadDebugSuspend): New function.
+	(_Jv_ThreadDebugSuspendCount): New function.
+	(_Jv_ThreadDebugResume): New function.
+
+	* include/win32-threads.h (_Jv_ThreadDebugSuspend): Declare.
+	(_Jv_ThreadDebugResume): Declare.
+	(_Jv_ThreadDebugSuspendCount): Declare.
+	* win32-threads.cc (_Jv_ThreadDebugSuspend): New function.
+	(_Jv_ThreadDebugSuspendCount): New function.
+	(_Jv_ThreadDebugResume): New function.
+	
+
+2006-06-16  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Don't
+	copy the whole Class instance from the initializer: instead, copy
+	everything but the first word (the vtable pointer).
+	Change prototype to (const char* class_initializer).
+	(_Jv_RegisterNewClasses): Change prototype to (const char**).
+	* java/lang/Class.h (_Jv_RegisterNewClasses): Change prototype to
+	(const char**).
+
 2006-06-15  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* classpath/Makefile.am: Do not recurse into tools directory.

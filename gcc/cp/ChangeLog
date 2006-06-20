@@ -1,3 +1,53 @@
+2006-06-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28052
+	* init.c (push_base_cleanups): Skip members with invalid types.
+	* typeck.c (build_class_member_access_expr): Robustify.
+
+2006-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (instantiate_template): Fix typo in comment.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	* parser.c (CP_LEXER_BUFFER_SIZE): Adjust to assure near
+	power-of-two token vector size.
+
+2006-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28016
+	* decl.c (cp_finsh_decl): Do not emit uninstantiated static data
+	members.
+
+	PR c++/27979
+	* call.c (standard_conversion): Strip cv-qualifiers from bitfield
+	types.
+
+	PR c++/27884
+	* decl.c (have_extern_spec): Remove.
+	(start_decl): Do not check have_extern_spec.
+	(start_function): Likewise.
+	* cp-tree.h (have_extern_spec): Remove.
+	* parser.c (cp_parser_linkage_specification): Don't set
+	have_extern_spec.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_parameter_declaration): Do not treat parameters as
+	within the scope of an unbraced linkage specification.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27689
+	* cp-tree.h (CLASSTYPE_SPECIALIZATION_OF_PRIMARY_TEMPLATE_P): New
+	macro.
+	* pt.c (unify): Use it.
+
+	PR c++/27666
+	* call.c (build_conditional_expr): Robustify.
+
+	PR c++/27640
+	* pt.c (instantiate_template): Set processing_template_decl to
+	zero while performing substitutions.
+
 2006-06-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/27665

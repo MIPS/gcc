@@ -1,3 +1,84 @@
+2006-06-20  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* libsupc++/eh_arm.cc (__cxa_begin_cleanup): Always return 'true'.
+
+2006-06-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (xor_combine<>::operator<<): Fix typo.
+	
+	* include/tr1/random (bernoulli_distribution::min(),
+	bernoulli_distribution::max(), geometric_distribution<>::min(),
+	geometric_distribution<>::max()): Remove.
+
+	* include/tr1/random (geometric_distribution<>::operator()):
+	Simplify formula.
+
+	* include/tr1/random: Minor cosmetic changes.
+
+	* testsuite/tr1/5_numerical_facilities/random/discard_block/
+	operators/equal.cc: New.
+	* testsuite/tr1/5_numerical_facilities/random/discard_block/
+	operators/not_equal.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/discard_block/
+	operators/serialize.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/xor_combine/
+	operators/equal.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/xor_combine/
+	operators/not_equal.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/xor_combine/
+	operators/serialize.cc: Likewise.
+
+2006-06-17  Ami Tavory  <atavory@gmail.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/util/rng/twister_rand_gen.cc: Adapt to simply use
+	tr1::mt19937.
+	* testsuite/util/rng/twister_rand_gen.hpp: Likewise.
+
+2006-06-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (uniform_real<>::uniform_real(_RealType,
+	_RealType)): Implement.
+	(uniform_real<>::min()): Likewise.
+	(uniform_real<>::max()): Likewise.
+	(uniform_real<>::reset()): Likewise.
+
+	* include/tr1/random (class uniform_real<>): Minor cosmetic tweaks.
+
+2006-06-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (time_get<>::_M_extract_via_format):
+	Ignore the value of the __err argument.
+	(time_get<>::do_get_weekday): Likewise.
+	(time_get<>::do_get_monthname): Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/5.cc: New.
+	* testsuite/22_locale/time_get/get_year/char/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/5.cc: Likewise.
+
+2006-06-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/detail/type_utils.hpp (numeric_traits): Add,
+	const expression interface to std::numeric_limits::min and max
+	functions.
+	* include/ext/pb_ds/trie_policy.hpp (string_trie_e_access_traits):
+	Use it.
+
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Format.
+	* include/ext/pb_ds/detail/pat_trie_/internal_node.hpp: Same.
+
+2006-06-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random.tcc (mersenne_twister<>::operator()()):
+	Reload the last position of the _M_x vector too.
+
 2006-06-15  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/tr1/random (class xor_combine): Fix result_type typedef.

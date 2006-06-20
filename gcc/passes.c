@@ -251,7 +251,7 @@ gate_rest_of_compilation (void)
 {
   /* Early return if there were errors.  We can run afoul of our
      consistency checks, and there's not really much point in fixing them.  */
-  return !(rtl_dump_and_exit || flag_syntax_only || errorcount || sorrycount);
+  return !(rtl_dump_and_exit || flag_no_rtl || flag_syntax_only || errorcount || sorrycount);
 }
 
 struct tree_opt_pass pass_rest_of_compilation =
@@ -617,15 +617,20 @@ init_optimization_passes (void)
   *p = NULL;
 
   p = &pass_loop2.sub;
+if (!flag_no_rtl)
+{
   NEXT_PASS (pass_rtl_loop_init);
   NEXT_PASS (pass_rtl_move_loop_invariants);
   NEXT_PASS (pass_rtl_unswitch);
   NEXT_PASS (pass_rtl_unroll_and_peel_loops);
   NEXT_PASS (pass_rtl_doloop);
   NEXT_PASS (pass_rtl_loop_done);
+}
   *p = NULL;
   
   p = &pass_rest_of_compilation.sub;
+if (!flag_no_rtl)
+{
   NEXT_PASS (pass_init_function);
   NEXT_PASS (pass_jump);
   NEXT_PASS (pass_insn_locators_initialize);
@@ -659,9 +664,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
   NEXT_PASS (pass_postreload);
+}
   *p = NULL;
 
   p = &pass_postreload.sub;
+if (!flag_no_rtl)
+{
   NEXT_PASS (pass_postreload_cse);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_flow2);
@@ -689,6 +697,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_shorten_branches);
   NEXT_PASS (pass_set_nothrow_function_flags);
   NEXT_PASS (pass_final);
+}
   *p = NULL;
 
 #undef NEXT_PASS
@@ -850,6 +859,8 @@ execute_one_pass (struct tree_opt_pass *pass)
 	     ? " (unlikely executed)"
 	     : "");
 	}
+      if (flag_no_rtl && pass->name)
+	fprintf (stderr, " - %s\n", pass->name);
     }
   else
     initializing_dump = false;

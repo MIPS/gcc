@@ -1,3 +1,116 @@
+2006-06-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28052
+	* g++.dg/other/bitfield2.C: New test.
+
+2006-06-20  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27331
+	* gcc.dg/pr27331.c: New test.
+
+2006-06-20  James A. Morrison  <phython@gcc.gnu.org>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/18692
+	* lib/gnat.exp: New file.
+	* lib/gnat-dg.exp: Likewise.
+	* gnat.dg: New directory.
+	* gnat.dg/dg.exp: New driver.
+	* gnat.dg/specs: New directory.
+	* gnat.dg/specs/specs.exp: New driver.
+	* gnat.dg/style: New directory.
+	* gnat.dg/style/style.exp: New driver.
+
+2006-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16206
+	* gfortran.dg/array_initializer_1.f90: New test.
+
+	PR fortran/28005
+	* gfortran.dg/matmul_3.f90: New test.
+
+2006-06-19  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/28075
+	* gcc.dg/tree-ssa/inline-1.c: New test.
+
+2006-06-19  Anatoly Sokolov  <aesok@post.ru>
+
+	* gcc.dg/pr18241-1.c: Use __SIZE_TYPE__ instead of unsigned long
+	in malloc prototype; remove XFAIL.
+	* gcc.dg/pr18241-2.c: Ditto.
+	* gcc.dg/20050321-1.c: Use __SIZE_TYPE__ instead of unsigned long
+	in memset prototype; remove XFAIL.
+	* gcc.dg/tree-ssa/pr23382.c: Ditto.
+
+2006-06-19  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/vla-8.c: Add.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27090
+	* g++.dg/tree-ssa/pr27090.C: New testcase.
+
+2006-06-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27861
+	* gcc.dg/pr27861-1.c: New test case.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28045
+	* gcc.dg/torture/pr28045.c: New testcase.
+
+2006-06-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26801
+	* gfortran.dg/associated_4.f90: New test.
+
+2006-06-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/19310
+	PR fortran/19904
+	* gfortran.dg/real_const_3.f90: New test.
+
+2006-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28016
+	* g++.dg/template/static26.C: New test.
+
+	PR c++/27979
+	* g++.dg/expr/bitfield2.C: New test. 
+
+	PR c++/27884
+	* g++.dg/parse/linkage2.C: New test.
+
+2006-06-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27116
+	* gcc.dg/pr15785-1.c: Revert last change.
+	* gcc.dg/torture/pr27116-2.c: New testcase.
+
+2006-06-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27802
+	* gcc.dg/pr27802-1.c: New test case.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27689
+	* g++.dg/template/ttp18.C: New test.
+	* g++.dg/template/ttp19.C: Likewise.
+
+	PR c++/27666
+	* g++.dg/expr/cond9.C: New test.
+
+	PR c++/27640
+	* g++.dg/template/ctor7.C: New test.
+
+2006-06-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/vmx/pr27842.c: Remove dg-do directive; use default.
+
 2006-06-16  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/27781

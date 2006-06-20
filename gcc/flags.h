@@ -138,6 +138,9 @@ extern int flag_short_enums;
 
 extern int flag_pcc_struct_return;
 
+/* Supress RTL generation.  */
+extern int flag_no_rtl;
+
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex multiply and divide.  */
