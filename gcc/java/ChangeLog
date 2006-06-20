@@ -1,3 +1,7 @@
+2006-06-20  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (push_value): Always flush quick stack.
+
 2006-06-19  Tom Tromey  <tromey@redhat.com>
 
 	* expr.c (push_value): Also flush quick stack if value is a

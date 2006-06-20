@@ -304,9 +304,10 @@ push_value (tree value)
   /* If the value has a side effect, then we need to evaluate it
      whether or not the result is used.  If the value ends up on the
      quick stack and is then popped, this won't happen -- so we flush
-     the quick stack.  */
-  if (TREE_SIDE_EFFECTS (value) || TREE_CODE (value) == COMPONENT_REF)
-    flush_quick_stack ();
+     the quick stack.  It is safest to simply always flush, though,
+     since TREE_SIDE_EFFECTS doesn't capture COMPONENT_REF, and for
+     the latter we may need to strip conversions.  */
+  flush_quick_stack ();
 }
 
 /* Pop a type from the type stack.
