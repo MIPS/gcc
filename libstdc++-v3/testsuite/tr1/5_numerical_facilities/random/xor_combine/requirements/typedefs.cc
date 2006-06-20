@@ -32,9 +32,9 @@ test01()
 
   typedef xor_combine
     <
-    subtract_with_carry<long, (1 << 24), 10, 24>, 1,
-    linear_congruential<unsigned long, 16807, 0, 2147483647>, 2
+    minstd_rand, 1,
+    mt19937, 2
     > test_type;
-  
+
   typedef test_type::result_type result_type;
 }

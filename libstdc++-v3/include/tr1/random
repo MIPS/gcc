@@ -825,7 +825,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     class discard_block
     {
       // __glibcxx_class_requires(typename base_type::result_type,
-      //                          ArithmeticTypeConcept);
+      //                          ArithmeticTypeConcept)
 
     public:
       /** The type of the underlying generator engine. */
@@ -840,7 +840,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       /**
        * Constructs a default %discard_block engine.
        *
-       * The underlying engine is default constrcuted as well.
+       * The underlying engine is default constructed as well.
        */
       discard_block()
       : _M_n(0) { }
@@ -851,8 +851,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * Copies an existing base class random number geenerator.
        * @param rng An existing (base class) engine object.
        */
-      explicit discard_block(const base_type& __rng)
-      : _M_b(__rng) , _M_n(0) { }
+      explicit
+      discard_block(const base_type& __rng)
+      : _M_b(__rng), _M_n(0) { }
 
       /**
        * Seed constructs a %discard_block engine.
@@ -860,7 +861,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * Constructs the underlying generator engine seeded with @p __s.
        * @param __s A seed value for the base class engine.
        */
-      explicit discard_block(unsigned long __s)
+      explicit
+      discard_block(unsigned long __s)
       : _M_b(__s), _M_n(0) { }
 
       /**
@@ -991,7 +993,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * James's luxury-level-3 integer adaptation of Luescher's generator.
    */
   typedef discard_block<
-    subtract_with_carry<int, (1<<24), 10, 24>,
+    subtract_with_carry<int, (1 << 24), 10, 24>,
       223,
       24
       > ranlux3;
@@ -1000,7 +1002,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * James's luxury-level-4 integer adaptation of Luescher's generator.
    */
   typedef discard_block<
-    subtract_with_carry<int, (1<<24), 10, 24>,
+    subtract_with_carry<int, (1 << 24), 10, 24>,
       389,
       24
       > ranlux4;
@@ -1015,21 +1017,25 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     class xor_combine
     {
       // __glibcxx_class_requires(typename _UniformRandomNumberGenerator1::
-      //                          result_type, ArithmeticTypeConcept);
+      //                          result_type, ArithmeticTypeConcept)
       // __glibcxx_class_requires(typename _UniformRandomNumberGenerator2::
-      //                          result_type, ArithmeticTypeConcept);
+      //                          result_type, ArithmeticTypeConcept)
 
     public:
       /** The type of the the first underlying generator engine. */
-      typedef _UniformRandomNumberGenerator1 base1_type;
+      typedef _UniformRandomNumberGenerator1   base1_type;
       /** The type of the the second underlying generator engine. */
-      typedef _UniformRandomNumberGenerator2 base2_type;
+      typedef _UniformRandomNumberGenerator2   base2_type;
+
+    private:
+      typedef typename base1_type::result_type _Result_type1;
+      typedef typename base2_type::result_type _Result_type2;
+
+    public:
       /** The type of the generated random value. */
       typedef typename _Private::_Select<
-	(sizeof(base1_type) > sizeof(base2_type)),
-	base1_type,
-	base2_type
-	>::_Type result_type;
+	(sizeof(_Result_type1) > sizeof(_Result_type2)),
+	_Result_type1, _Result_type2>::_Type result_type;
 
       // parameter values
       static const int shift1 = __s1;
@@ -1131,7 +1137,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
         friend std::basic_ostream<_CharT, _Traits>&
         operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const xor_combine& __x)
-        { return __os << __x.base1() << " " << __x.base1(); }
+        { return __os << __x.base1() << " " << __x.base2(); }
 
       /**
        * Extracts the current state of a %xor_combine random number
@@ -1185,7 +1191,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 #else
 
     explicit
-    random_device(const std::string& __token = "rand")
+    random_device(const std::string& __token = "mt19937")
     : _M_mt(_M_strtoul(__token)) { }
 
   private:
@@ -1193,7 +1199,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     _M_strtoul(const std::string& __str)
     {
       unsigned long __ret = 5489UL;
-      if (__str != "rand")
+      if (__str != "mt19937")
 	{
 	  const char* __nptr = __str.c_str();
 	  char* __endptr;
@@ -1340,7 +1346,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
         friend std::basic_ostream<_CharT, _Traits>&
         operator<<(std::basic_ostream<_CharT, _Traits>& __os,
 		   const uniform_int& __x)
-        { return __os << __x._M_min << " " << __x._M_max; }
+        { return __os << __x.min() << " " << __x.max(); }
 
       /**
        * Extracts a %unform_int random number distribution
@@ -1394,20 +1400,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     double
     p() const
     { return _M_p; }
-
-    /**
-     * Gets the inclusive lower bound of the distribution range.
-     */
-    result_type
-    min() const
-    { return false; }
-
-    /**
-     * Gets the inclusive upper bound of the distribution range.
-     */
-    result_type
-    max() const
-    { return true; }
 
     /**
      * Resets the distribution state.
@@ -1496,28 +1488,13 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       p() const
       { return _M_p; }
 
-      /**
-       * Gets the inclusive lower bound of the distribution range.
-       */
-      result_type
-      min() const;
-
-      /**
-       * Gets the inclusive upper bound of the distribution range.
-       */
-      result_type
-      max() const;
-
       void
       reset() { }
 
       template<class _UniformRandomNumberGenerator>
         result_type
         operator()(_UniformRandomNumberGenerator& __urng)
-        {
-	  return result_type(std::floor(std::log(_RealType(1.0) - __urng())
-					/ _M_log_p)) + result_type(1);
-	}
+        { return result_type(std::ceil(std::log(__urng()) / _M_log_p)); }
 
       /**
        * Inserts a %geometric_distribution random number distribution
@@ -1591,20 +1568,27 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        */
       explicit
       uniform_real(_RealType __min = _RealType(0),
-		   _RealType __max = _RealType(1));
+		   _RealType __max = _RealType(1))
+      : _M_min(__min), _M_max(__max)
+      {
+	_GLIBCXX_DEBUG_ASSERT(_M_min <= _M_max);
+      }
 
       result_type
-      min() const;
+      min() const
+      { return _M_min; }
 
       result_type
-      max() const;
+      max() const
+      { return _M_max; }
 
-      void reset();
+      void
+      reset() { }
 
       template<class _UniformRandomNumberGenerator>
         result_type
         operator()(_UniformRandomNumberGenerator& __urng)
-        { return (__urng() * (max() - min())) + min(); }
+        { return (__urng() * (_M_max - _M_min)) + _M_min; }
 
       /**
        * Inserts a %uniform_real random number distribution @p __x into the
