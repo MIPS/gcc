@@ -713,7 +713,8 @@ reload_combine (void)
   /* Work out the set of all index registers.  */
   CLEAR_HARD_REG_SET (index_regs);
   for (i = 0; i < NUM_MACHINE_MODES; i++)
-    IOR_HARD_REG_SET (index_regs, MODE_INDEX_REG_CLASS (i));
+    IOR_HARD_REG_SET (index_regs,
+		      reg_class_contents[MODE_INDEX_REG_CLASS (i)]);
 
   /* To avoid wasting too much time later searching for an index register,
      determine the minimum and maximum index register numbers.  */
