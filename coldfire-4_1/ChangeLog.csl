@@ -1,3 +1,10 @@
+2006-06-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Use -lm for link tests in
+	GCC_TRY_COMPILE_OR_LINK.  Fall back to compile-only tests if
+	-lm is not available.
+	* libstdc++-v3/configure: Regenerate.
+
 2006-06-20  Richard Sandiford  <richard@codesourcery.com>
 
 	Backport from mainline:

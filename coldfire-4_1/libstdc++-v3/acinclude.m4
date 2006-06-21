@@ -806,10 +806,21 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
 
-  # Use -fno-exceptions to that the C driver can link these tests without
-  # hitting undefined references to personality routines.
   ac_save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -fno-exceptions"
+  ac_save_LIBS="$LIBS"
+  ac_save_gcc_no_link="$gcc_no_link"
+
+  if test x$gcc_no_link != xyes; then
+    # Use -fno-exceptions to that the C driver can link these tests without
+    # hitting undefined references to personality routines.
+    CXXFLAGS="$CXXFLAGS -fno-exceptions"
+    AC_CHECK_LIB(m, sin, [
+      LIBS="$LIBS -lm"
+    ], [
+      # Use the default compile-only tests in GCC_TRY_COMPILE_OR_LINK
+      gcc_no_link=yes
+    ])
+  fi
 
   # Check for the existence of <math.h> functions used if C99 is enabled.
   AC_MSG_CHECKING([for ISO C99 support in <math.h>])
@@ -1063,6 +1074,8 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
     <complex.h>, <stdio.h>, and <stdlib.h> can be used or exposed.])
   fi
 
+  gcc_no_link="$ac_save_gcc_no_link"
+  LIBS="$ac_save_LIBS"
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
   fi	
