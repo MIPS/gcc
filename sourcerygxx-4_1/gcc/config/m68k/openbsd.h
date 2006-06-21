@@ -74,6 +74,13 @@ Boston, MA 02110-1301, USA.  */
 
 /* Stack & calling: aggregate returns.  */
 
+/* Define PCC_STATIC_STRUCT_RETURN if the convention on the target machine
+   is to use the nonreentrant technique for returning structure and union
+   values, as commonly implemented by the AT&T Portable C Compiler
+   (PCC).  */
+/*FIXME:This is quite possibly wrong, and disagrees with gdb. */
+#define PCC_STATIC_STRUCT_RETURN 1
+
 /* Don't default to pcc-struct-return, because gcc is the only compiler, and
    we want to retain compatibility with older gcc versions.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0

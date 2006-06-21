@@ -32,76 +32,173 @@ Boston, MA 02110-1301, USA.  */
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
 #endif
 
-/* Note that some other tm.h files include this one and then override
-   many of the definitions that relate to assembler syntax.  */
+/* Handle --with-cpu, --with-float default options from configure script.  */
+#define OPTION_DEFAULT_SPECS						\
+  { "cpu",   "%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
+%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
+%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
+%{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },		\
+  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:%{!no-m68881:\
+-m%(VALUE)-float}}}}" },
 
-#define TARGET_CPU_CPP_BUILTINS()		\
-  do						\
-    {						\
-      builtin_define ("__m68k__");		\
-      builtin_define_std ("mc68000");		\
-      if (TARGET_68040_ONLY)			\
-	{					\
-	  if (TARGET_68060)			\
-	    builtin_define_std ("mc68060");	\
-	  else					\
-	    builtin_define_std ("mc68040");	\
-	}					\
-      else if (TARGET_68060) /* -m68020-60 */	\
-	{					\
-	  builtin_define_std ("mc68060");	\
-	  builtin_define_std ("mc68040");	\
-	  builtin_define_std ("mc68030");	\
-	  builtin_define_std ("mc68020");	\
-	}					\
-      else if (TARGET_68040) /* -m68020-40 */	\
-	{					\
-	  builtin_define_std ("mc68040");	\
-	  builtin_define_std ("mc68030");	\
-	  builtin_define_std ("mc68020");	\
-	}					\
-      else if (TARGET_68030)			\
-	builtin_define_std ("mc68030");		\
-      else if (TARGET_68020)			\
-	builtin_define_std ("mc68020");		\
-      if (TARGET_68881)				\
-	builtin_define ("__HAVE_68881__");	\
-      if (TARGET_CPU32)				\
-	{					\
-	  builtin_define_std ("mc68332");	\
-	  builtin_define_std ("mcpu32");	\
-	}					\
-      if (TARGET_COLDFIRE)			\
-	builtin_define ("__mcoldfire__");	\
-      if (TARGET_5200)				\
-	builtin_define ("__mcf5200__");		\
-      if (TARGET_528x)				\
-	{					\
-	  builtin_define ("__mcf528x__");	\
-	  builtin_define ("__mcf5200__");	\
-	}					\
-      if (TARGET_CFV3)				\
-	{					\
-	  builtin_define ("__mcf5300__");	\
-	  builtin_define ("__mcf5307__");	\
-	}					\
-      if (TARGET_CFV4)				\
-	{					\
-	  builtin_define ("__mcf5400__");	\
-	  builtin_define ("__mcf5407__");	\
-	}					\
-      if (TARGET_CF_HWDIV)			\
-	builtin_define ("__mcfhwdiv__");	\
-      if (flag_pic)				\
-	{					\
-	  builtin_define ("__pic__");		\
-	  if (flag_pic > 1)			\
-	    builtin_define ("__PIC__");		\
-	}					\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
-    }						\
-  while (0)
+#ifndef TARGET_DEFAULT
+#define TARGET_DEFAULT 0
+#endif
+
+
+#ifndef ASM_CPU_DEFAULT_SPEC
+#define ASM_CPU_DEFAULT_SPEC ""
+#endif
+
+/* This macro defines names of additional specifications to put in the specs
+   that can be used in various specifications like CC1_SPEC.  Its definition
+   is an initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   specification name, and a string constant that used by the GCC driver
+   program.
+
+   Do not define this macro if it does not need to do anything.  */
+
+#define EXTRA_SPECS					\
+  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
+  SUBTARGET_EXTRA_SPECS
+
+#define CPP_SUBTARGET_SPEC ""
+#define SUBTARGET_EXTRA_SPECS
+
+/* Note that some other tm.h files include this one and then override
+   many of the definitions that relate to assembler syntax.  FIXME:We
+   no longer set the mc68030 #define, it never made any difference to
+   code generation.  */
+
+#define TARGET_CPU_CPP_BUILTINS()					     \
+  do									     \
+    {									     \
+      cpp_define (pfile, "__m68k__");					     \
+      builtin_define_std ("mc68000");					     \
+      if (m68k_arch_68020)						     \
+        {								     \
+          builtin_define_std ("mc68020");				     \
+          if (TUNE_68040)						     \
+	    builtin_define_std ("mc68040");				     \
+          if (TUNE_68060)						     \
+	    {								     \
+	      builtin_define_std ("mc68040");				     \
+	      builtin_define_std ("mc68060");				     \
+	    }								     \
+        }								     \
+									     \
+      if (m68k_arch_68040)						     \
+        {								     \
+          builtin_define_std ("mc68040");				     \
+          if (TUNE_68060) 						     \
+	    builtin_define_std ("mc68060");				     \
+        }								     \
+									     \
+      if (m68k_arch_68060)						     \
+        builtin_define_std ("mc68060");					     \
+									     \
+      if (TARGET_68881)							     \
+        cpp_define (pfile, "__HAVE_68881__");				     \
+									     \
+      if (m68k_cpu == cpu32 || m68k_cpu == m68332 || TUNE_CPU32)	     \
+        {								     \
+          builtin_define_std ("mc68332");				     \
+          builtin_define_std ("mcpu32");				     \
+        }								     \
+									     \
+      if (m68k_arch_coldfire)						     \
+        {								     \
+          cpp_define (pfile, "__mcoldfire__");				     \
+									     \
+          if (!m68k_arch_isaaplus && !m68k_arch_isab && !m68k_arch_isac)     \
+	    {								     \
+	      /* ISA_A: legacy define.  */				     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+	      cpp_define (pfile, "__mcfisaa__");			     \
+    	    }								     \
+          else if (m68k_arch_isaaplus)					     \
+	    {								     \
+	      /* ISA_A+: legacy define.  */				     \
+	      cpp_define (pfile, "__mcf528x__");			     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+	      cpp_define (pfile, "__mcfisaaplus__");			     \
+	    }								     \
+          else if (m68k_arch_isab)					     \
+	    {								     \
+	      /* ISA_B: 5307, 5407 handled specially. __mcfisaX__ or 	     \
+		 __mcfvX__   should be used in new code.  */		     \
+	      switch (m68k_cpu)						     \
+	        {							     \
+	        case mcf5307:						     \
+	          cpp_define (pfile, "__mcf5300__");			     \
+	          cpp_define (pfile, "__mcf5307__");			     \
+	          break;						     \
+									     \
+	        case mcf5407:						     \
+	          cpp_define (pfile, "__mcf5400__");			     \
+	          cpp_define (pfile, "__mcf5407__");			     \
+	          break;						     \
+									     \
+	        default:						     \
+	          ;							     \
+	        }							     \
+	      cpp_define (pfile, "__mcfisab__");			     \
+	    }								     \
+          else if (m68k_arch_isac)					     \
+    	    cpp_define (pfile, "__mcfisac__");				     \
+									     \
+          /* Handle options to allow selecting different user code for	     \
+	     tuning purposes.  */					     \
+          switch (m68k_tune)						     \
+	    {								     \
+	    case ucfv2:							     \
+	      cpp_define (pfile, "__mcfv2__");				     \
+	      break;							     \
+									     \
+    	    case ucfv3:							     \
+	      cpp_define (pfile, "__mcfv3__");				     \
+	      break;							     \
+									     \
+	    case ucfv4:							     \
+	      cpp_define (pfile, "__mcfv4__");				     \
+	      break;							     \
+									     \
+	    case ucfv4e:						     \
+	      cpp_define (pfile, "__mcfv4e__");				     \
+	      /* More legacy flags: these aren't correct, strictly	     \
+		 speaking.  */						     \
+	      cpp_define (pfile, "__mcf5400__");			     \
+	      cpp_define (pfile, "__mcf5407__");			     \
+	      break;							     \
+									     \
+	    case ucfv5:							     \
+	      cpp_define (pfile, "__mcfv5__");				     \
+	      break;							     \
+									     \
+	    default:							     \
+    	      ;								     \
+	    }								     \
+        }								     \
+									     \
+      if (TARGET_COLDFIRE_FPU)						     \
+        cpp_define (pfile, "__mcffpu__");				     \
+									     \
+      if (m68k_cf_hwdiv)						     \
+        cpp_define (pfile, "__mcfhwdiv__");				     \
+									     \
+      if (flag_pic)							     \
+        {								     \
+          cpp_define (pfile, "__pic__");				     \
+          if (flag_pic > 1)						     \
+    	    cpp_define (pfile, "__PIC__");				     \
+        }								     \
+  									     \
+      cpp_assert (pfile, "cpu=m68k");					     \
+      cpp_assert (pfile, "machine=m68k");				     \
+   }									     \
+ while (0)
 
 /* Classify the groups of pseudo-ops used to assemble QI, HI and SI
    quantities.  */
@@ -113,13 +210,18 @@ Boston, MA 02110-1301, USA.  */
 /* Set the default.  */
 #define INT_OP_GROUP INT_OP_DOT_WORD
 
-/* Compile for a CPU32.  A 68020 without bitfields is a good
-   heuristic for a CPU32.  */
-#define TARGET_CPU32	(TARGET_68020 && !TARGET_BITFIELD)
+/* FIXME: Use non-TARGET name.  */
+#define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 
-/* Is the target a ColdFire?  */
-#define MASK_COLDFIRE	(MASK_5200 | MASK_528x | MASK_CFV3 | MASK_CFV4)
-#define TARGET_COLDFIRE	((target_flags & MASK_COLDFIRE) != 0)
+/* FIXME: Use non-TARGET name.  */
+#define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
+
+#define TARGET_HARD_FLOAT	(m68k_fpu != FPUTYPE_NONE)
+/* Size (in bytes) of FPU registers.  */
+#define TARGET_FP_REG_SIZE	(m68k_arch_coldfire ? 8 : 12)
+
+/* FIXME: Remove, use m68k_bitfield instead.  */
+#define TARGET_BITFIELD		(m68k_bitfield)
 
 #define OVERRIDE_OPTIONS   override_options()
 
@@ -128,12 +230,22 @@ Boston, MA 02110-1301, USA.  */
 
 /* target machine storage layout */
 
-#define LONG_DOUBLE_TYPE_SIZE 80
+/* For Coldfire, sizeof (long double) is 64 bits.  */
+
+#define LONG_DOUBLE_TYPE_SIZE (m68k_arch_coldfire ? 64 : 80)
+
+/* We need to know the size of long double at compile-time in libgcc2.  */
+
+#ifdef __mcoldfire__
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#else
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
+#endif
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
    instructions, we get proper intermediate rounding, otherwise we
    get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD ((TARGET_68040_ONLY || ! TARGET_68881) ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD ((m68k_arch_68040 || ! TARGET_68881) ? 0 : 2)
 
 #define BITS_BIG_ENDIAN 1
 #define BYTES_BIG_ENDIAN 1
@@ -145,6 +257,8 @@ Boston, MA 02110-1301, USA.  */
 #define STACK_BOUNDARY 16
 #define FUNCTION_BOUNDARY 16
 #define EMPTY_FIELD_BOUNDARY 16
+/* Coldfire strongly prefers a 32-bit aligned stack.  */
+#define PREFERRED_STACK_BOUNDARY (m68k_arch_coldfire ? 32 : 16)
 
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16 bit
@@ -235,7 +349,7 @@ Boston, MA 02110-1301, USA.  */
 {								\
   int i;							\
   HARD_REG_SET x;						\
-  if (! TARGET_68881)						\
+  if (!TARGET_HARD_FLOAT)					\
     {								\
       COPY_HARD_REG_SET (x, reg_class_contents[(int)FP_REGS]);	\
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)		\
@@ -260,15 +374,14 @@ Boston, MA 02110-1301, USA.  */
 #define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
   m68k_hard_regno_rename_ok (OLD_REG, NEW_REG)
 
-/* Value is true if hard register REGNO can hold a value of machine-mode MODE.
-   On the 68000, the cpu registers can hold any mode except bytes in
-   address registers, the 68881 registers can hold only SFmode or DFmode.  */
-
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   m68k_regno_mode_ok ((REGNO), (MODE))
 
+#define SECONDARY_RELOAD_CLASS(CLASS, MODE, X) \
+  m68k_secondary_reload_class (CLASS, MODE, X)
+
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
-  (! TARGET_68881					\
+  (! TARGET_HARD_FLOAT					\
    || ((GET_MODE_CLASS (MODE1) == MODE_FLOAT		\
 	|| GET_MODE_CLASS (MODE1) == MODE_COMPLEX_FLOAT)	\
        == (GET_MODE_CLASS (MODE2) == MODE_FLOAT		\
@@ -331,7 +444,8 @@ enum reg_class {
 
 extern enum reg_class regno_reg_class[];
 #define REGNO_REG_CLASS(REGNO) (regno_reg_class[(REGNO)])
-#define INDEX_REG_CLASS GENERAL_REGS
+#define MODE_INDEX_REG_CLASS(MODE) \
+  (MODE_OK_FOR_INDEX_P (MODE) ? GENERAL_REGS : NO_REGS)
 #define BASE_REG_CLASS ADDR_REGS
 
 /* We do a trick here to modify the effective constraints on the
@@ -342,8 +456,8 @@ extern enum reg_class regno_reg_class[];
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'a' ? ADDR_REGS :			\
    ((C) == 'd' ? DATA_REGS :			\
-    ((C) == 'f' ? (TARGET_68881 ? FP_REGS :	\
-		   NO_REGS) :			\
+    ((C) == 'f' ? (TARGET_HARD_FLOAT ?		\
+		   FP_REGS : NO_REGS) :		\
      NO_REGS)))
 
 /* For the m68k, `I' is used for the range 1 to 8
@@ -354,7 +468,8 @@ extern enum reg_class regno_reg_class[];
    `M' is for numbers that moveq+notb can't handle.
    'N' is for range 24 to 31, rotatert:SI 8 to 1 expressed as rotate.
    'O' is for 16 (for rotate using swap).
-   'P' is for range 8 to 15, rotatert:HI 8 to 1 expressed as rotate.  */
+   'P' is for range 8 to 15, rotatert:HI 8 to 1 expressed as rotate.
+   'R' is for numbers that mov3q can handle.  */
 #define CONST_OK_FOR_LETTER_P(VALUE, C) \
   ((C) == 'I' ? (VALUE) > 0 && (VALUE) <= 8 : \
    (C) == 'J' ? (VALUE) >= -0x8000 && (VALUE) <= 0x7FFF : \
@@ -363,7 +478,8 @@ extern enum reg_class regno_reg_class[];
    (C) == 'M' ? (VALUE) < -0x100 || (VALUE) >= 0x100 : \
    (C) == 'N' ? (VALUE) >= 24 && (VALUE) <= 31 : \
    (C) == 'O' ? (VALUE) == 16 : \
-   (C) == 'P' ? (VALUE) >= 8 && (VALUE) <= 15 : 0)
+   (C) == 'P' ? (VALUE) >= 8 && (VALUE) <= 15 : \
+   (C) == 'R' ? (VALUE) == -1 || ((VALUE) >= 1 && (VALUE) <= 7) : 0)
 
 /* "G" defines all of the floating constants that are *NOT* 68881
    constants.  This is so 68881 constants get reloaded and the
@@ -374,7 +490,8 @@ extern enum reg_class regno_reg_class[];
 /* `Q' means address register indirect addressing mode.
    `S' is for operands that satisfy 'm' when -mpcrel is in effect.
    `T' is for operands that satisfy 's' when -mpcrel is not in effect.
-   `U' is for register offset addressing.  */
+   `U' is for register offset addressing.
+   `W' is for constants that satisfy call_operand.  */
 #define EXTRA_CONSTRAINT(OP,CODE)			\
   (((CODE) == 'S')					\
    ? (TARGET_PCREL					\
@@ -383,17 +500,17 @@ extern enum reg_class regno_reg_class[];
 	  || GET_CODE (XEXP (OP, 0)) == LABEL_REF	\
 	  || GET_CODE (XEXP (OP, 0)) == CONST))		\
    : 							\
-  (((CODE) == 'T')					\
+   ((CODE) == 'T')					\
    ? ( !TARGET_PCREL 					\
       && (GET_CODE (OP) == SYMBOL_REF			\
 	  || GET_CODE (OP) == LABEL_REF			\
 	  || GET_CODE (OP) == CONST))			\
    :							\
-  (((CODE) == 'Q')					\
+   ((CODE) == 'Q')					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == REG)		\
    :							\
-  (((CODE) == 'U')					\
+   ((CODE) == 'U')					\
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == PLUS		\
       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
@@ -401,36 +518,12 @@ extern enum reg_class regno_reg_class[];
       && INTVAL (XEXP (XEXP (OP, 0), 1)) < 0x8000	\
       && INTVAL (XEXP (XEXP (OP, 0), 1)) >= -0x8000)	\
    :							\
-   0))))
+   ((CODE) == 'W')					\
+   ? CONSTANT_P (OP) && call_operand (OP, VOIDmode)	\
+   : 0)
 
-/* On the m68k, use a data reg if possible when the
-   value is a constant in the range where moveq could be used
-   and we ensure that QImodes are reloaded into data regs.  */
-#define PREFERRED_RELOAD_CLASS(X,CLASS)  \
-  ((GET_CODE (X) == CONST_INT			\
-    && (unsigned) (INTVAL (X) + 0x80) < 0x100	\
-    && (CLASS) != ADDR_REGS)			\
-   ? DATA_REGS					\
-   : (GET_MODE (X) == QImode && (CLASS) != ADDR_REGS) \
-   ? DATA_REGS					\
-   : (GET_CODE (X) == CONST_DOUBLE					\
-      && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)			\
-   ? (TARGET_68881 && (CLASS == FP_REGS || CLASS == DATA_OR_FP_REGS)	\
-      ? FP_REGS : NO_REGS)						\
-   : (TARGET_PCREL				\
-      && (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == CONST \
-	  || GET_CODE (X) == LABEL_REF))	\
-   ? ADDR_REGS					\
-   : (CLASS))
-
-/* Force QImode output reloads from subregs to be allocated to data regs,
-   since QImode stores from address regs are not supported.  We make the
-   assumption that if the class is not ADDR_REGS, then it must be a superset
-   of DATA_REGS.  */
-#define LIMIT_RELOAD_CLASS(MODE, CLASS) \
-  (((MODE) == QImode && (CLASS) != ADDR_REGS)	\
-   ? DATA_REGS					\
-   : (CLASS))
+#define PREFERRED_RELOAD_CLASS(X,CLASS) \
+  m68k_preferred_reload_class (X, CLASS)
 
 /* On the m68k, this is the size of MODE in words,
    except in the FP regs, where a single reg is always enough.  */
@@ -452,7 +545,7 @@ extern enum reg_class regno_reg_class[];
 
 /* On the 680x0, sp@- in a byte insn really pushes a word.
    On the ColdFire, sp@- in a byte insn pushes just a byte.  */
-#define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
+#define PUSH_ROUNDING(BYTES) (m68k_arch_coldfire ? BYTES : ((BYTES) + 1) & ~1)
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
@@ -485,8 +578,6 @@ extern enum reg_class regno_reg_class[];
    more than one register.
    XXX This macro is m68k specific and used only for m68kemb.h.  */
 #define NEEDS_UNTYPED_CALL 0
-
-#define PCC_STATIC_STRUCT_RETURN
 
 /* On the m68k, all arguments are usually pushed on the stack.  */
 #define FUNCTION_ARG_REGNO_P(N) 0
@@ -604,10 +695,15 @@ __transfer_from_trampoline ()					\
 #define HAVE_POST_INCREMENT 1
 #define HAVE_PRE_DECREMENT 1
 
+/* Return true if addresses of mode MODE can have an index register.  */
+#define MODE_OK_FOR_INDEX_P(MODE) \
+  (!TARGET_COLDFIRE_FPU || GET_MODE_CLASS (MODE) != MODE_FLOAT)
+
 /* Macros to check register numbers against specific register classes.  */
 
-#define REGNO_OK_FOR_INDEX_P(REGNO) \
-((REGNO) < 16 || (unsigned) reg_renumber[REGNO] < 16)
+#define REGNO_MODE_OK_FOR_INDEX_P(REGNO, MODE) \
+(MODE_OK_FOR_INDEX_P (MODE) \
+ && ((REGNO) < 16 || (unsigned) reg_renumber[REGNO] < 16))
 #define REGNO_OK_FOR_BASE_P(REGNO) \
 (((REGNO) ^ 010) < 8 || (unsigned) (reg_renumber[REGNO] ^ 010) < 8)
 #define REGNO_OK_FOR_DATA_P(REGNO) \
@@ -634,145 +730,63 @@ __transfer_from_trampoline ()					\
 /* 1 if X is an address register  */
 #define ADDRESS_REG_P(X) (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
 
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#define CONSTANT_ADDRESS_P(X)   \
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
-   || GET_CODE (X) == HIGH)
+#define CONSTANT_ADDRESS_P(X)						\
+  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
+    || GET_CODE (X) == HIGH)						\
+   && LEGITIMATE_CONSTANT_P (X))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) (GET_MODE (X) != XFmode)
+#define LEGITIMATE_CONSTANT_P(X)				\
+  (GET_MODE (X) != XFmode					\
+   && !(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P			\
+	&& constant_may_be_outside_section_p (X, NULL, NULL)))
 
-#ifndef REG_OK_STRICT
-#define PCREL_GENERAL_OPERAND_OK 0
-#else
-#define PCREL_GENERAL_OPERAND_OK (TARGET_PCREL)
-#endif
-
-#define LEGITIMATE_PIC_OPERAND_P(X)	\
-  (! symbolic_operand (X, VOIDmode)				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))	\
-   || PCREL_GENERAL_OPERAND_OK)
+#define LEGITIMATE_PIC_OPERAND_P(X) \
+  (TARGET_PCREL || !symbolic_operand (X, VOIDmode))
 
 #ifndef REG_OK_STRICT
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X) ((REGNO (X) ^ 020) >= 8)
+#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
+  (MODE_OK_FOR_INDEX_P (MODE) && (REGNO (X) ^ 020) >= 8)
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
 
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+  do									\
+    {									\
+      if (m68k_legitimate_address_p (MODE, X, 0))			\
+        goto ADDR;							\
+    }									\
+  while (0)
+
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
+#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
+  REGNO_MODE_OK_FOR_INDEX_P (REGNO (X), MODE)
+
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#endif
-
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   When generating PIC, an address involving a SYMBOL_REF is legitimate
-   if and only if it is the sum of pic_offset_table_rtx and the SYMBOL_REF.
-   We use LEGITIMATE_PIC_OPERAND_P to throw out the illegitimate addresses,
-   and we explicitly check for the sum of pic_offset_table_rtx and a SYMBOL_REF.
-
-   Likewise for a LABEL_REF when generating PIC.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
-
-/* Allow SUBREG everywhere we allow REG.  This results in better code.  It
-   also makes function inlining work when inline functions are called with
-   arguments that are SUBREGs.  */
-
-#define LEGITIMATE_BASE_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))	\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
-
-#define INDIRECTABLE_1_ADDRESS_P(X)  \
-  ((CONSTANT_ADDRESS_P (X) && (!flag_pic || LEGITIMATE_PIC_OPERAND_P (X))) \
-   || LEGITIMATE_BASE_REG_P (X)						\
-   || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0)))				\
-   || (GET_CODE (X) == PLUS						\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0))				\
-       && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       && (TARGET_68020							\
-	   || ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))	\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)		\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == LABEL_REF))
-
-#define GO_IF_NONINDEXED_ADDRESS(X, ADDR)  \
-{ if (INDIRECTABLE_1_ADDRESS_P (X)) goto ADDR; }
-
-/* Only labels on dispatch tables are valid for indexing from.  */
-#define GO_IF_INDEXABLE_BASE(X, ADDR)				\
-{ rtx temp;							\
-  if (GET_CODE (X) == LABEL_REF					\
-      && (temp = next_nonnote_insn (XEXP (X, 0))) != 0		\
-      && GET_CODE (temp) == JUMP_INSN				\
-      && (GET_CODE (PATTERN (temp)) == ADDR_VEC			\
-	  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))	\
-    goto ADDR;							\
-  if (LEGITIMATE_BASE_REG_P (X)) goto ADDR; }
-
-#define GO_IF_INDEXING(X, ADDR)	\
-{ if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 0)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 1), ADDR); }			\
-  if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 1)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 0), ADDR); } }
-
-#define GO_IF_INDEXED_ADDRESS(X, ADDR)	 \
-{ GO_IF_INDEXING (X, ADDR);						\
-  if (GET_CODE (X) == PLUS)						\
-    { if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 0); GO_IF_INDEXING (go_temp, ADDR); }	\
-      if (GET_CODE (XEXP (X, 0)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
-
-/* ColdFire/5200 does not allow HImode index registers.  */
-#define LEGITIMATE_INDEX_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (! TARGET_COLDFIRE					\
-       && GET_CODE (X) == SIGN_EXTEND			\
-       && GET_CODE (XEXP (X, 0)) == REG			\
-       && GET_MODE (XEXP (X, 0)) == HImode		\
-       && REG_OK_FOR_INDEX_P (XEXP (X, 0)))		\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_INDEX_P (SUBREG_REG (X))))
-
-#define LEGITIMATE_INDEX_P(X)   \
-   (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((TARGET_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
-	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
-	&& (INTVAL (XEXP (X, 1)) == 2			\
-	    || INTVAL (XEXP (X, 1)) == 4		\
-	    || (INTVAL (XEXP (X, 1)) == 8 && !TARGET_COLDFIRE))))
-
-/* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-{ GO_IF_NONINDEXED_ADDRESS (X, ADDR);					\
-  GO_IF_INDEXED_ADDRESS (X, ADDR);					\
-  if (flag_pic && MODE == CASE_VECTOR_MODE && GET_CODE (X) == PLUS	\
-      && LEGITIMATE_INDEX_P (XEXP (X, 0))				\
-      && GET_CODE (XEXP (X, 1)) == LABEL_REF)				\
-    goto ADDR; }
+  do									\
+    {									\
+      if (m68k_legitimate_address_p (MODE, X, 1))			\
+        goto ADDR;							\
+    }									\
+  while (0)
+#endif
 
 /* Don't call memory_address_noforce for the address to fetch
    the switch offset.  This address is ok as it stands (see above),
@@ -794,7 +808,9 @@ __transfer_from_trampoline ()					\
 	{ COPY_ONCE (X); XEXP (X, 1) = force_operand (XEXP (X, 1), 0);}	\
       if (ch && GET_CODE (XEXP (X, 1)) == REG				\
 	  && GET_CODE (XEXP (X, 0)) == REG)				\
-	goto WIN;							\
+	{ if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (MODE) == MODE_FLOAT) \
+	    { COPY_ONCE (X); X = force_operand (X, 0);}			\
+	  goto WIN; }							\
       if (ch) { GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN); }		\
       if (GET_CODE (XEXP (X, 0)) == REG					\
 	       || (GET_CODE (XEXP (X, 0)) == SIGN_EXTEND		\
@@ -805,6 +821,9 @@ __transfer_from_trampoline ()					\
 	  emit_move_insn (temp, val);					\
 	  COPY_ONCE (X);						\
 	  XEXP (X, 1) = temp;						\
+	  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (MODE) == MODE_FLOAT \
+	      && GET_CODE (XEXP (X, 0)) == REG)				\
+	    X = force_operand (X, 0);					\
 	  goto WIN; }							\
       else if (GET_CODE (XEXP (X, 1)) == REG				\
 	       || (GET_CODE (XEXP (X, 1)) == SIGN_EXTEND		\
@@ -815,6 +834,9 @@ __transfer_from_trampoline ()					\
 	  emit_move_insn (temp, val);					\
 	  COPY_ONCE (X);						\
 	  XEXP (X, 0) = temp;						\
+	  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (MODE) == MODE_FLOAT \
+	      && GET_CODE (XEXP (X, 1)) == REG)				\
+	    X = force_operand (X, 0);					\
 	  goto WIN; }}}
 
 /* On the 68000, only predecrement and postincrement address depend thus
@@ -830,6 +852,10 @@ __transfer_from_trampoline ()					\
 #define SLOW_BYTE_ACCESS 0
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
+
+/* The ColdFire FF1 instruction returns 32 for zero. */
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  \
+	((VALUE) = 32, 1)
 
 #define STORE_FLAG_VALUE (-1)
 
@@ -870,6 +896,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define LOCAL_LABEL_PREFIX ""
 #define USER_LABEL_PREFIX "_"
 #define IMMEDIATE_PREFIX "#"
+#define TARGET_ASM_FILE_START_APP_OFF true
 
 #define REGISTER_NAMES \
 {REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
@@ -912,6 +939,9 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    Instead use the identity mapping.  */
 #define DWARF_FRAME_REGNUM(REG) REG
 
+/* Return address column */
+#define DWARF_FRAME_RETURN_COLUMN 25
+
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
@@ -927,9 +957,33 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
-   true if the symbol may be affected by dynamic relocations.  */
+   true if the symbol may be affected by dynamic relocations.
+
+   TARGET_ID_SHARED_LIBRARY and TARGET_SEP_DATA are designed to support
+   a read-only text segment without imposing a fixed gap between the
+   text and data segments.  As a result, the text segment cannot refer
+   to anything in the data segment, even in PC-relative form.  Because
+   .eh_frame refers to both code and data, it follows that .eh_frame
+   must be in the data segment itself, and that the offset between
+   .eh_frame and code will not be a link-time constant.
+
+   In theory, we could create a read-only .eh_frame by using DW_EH_PE_pcrel
+   | DW_EH_PE_indirect for all code references.  However, gcc currently
+   handles indirect references using a per-TU constant pool.  This means
+   that if a function and its eh_frame are removed by the linker, the
+   eh_frame's indirect references to the removed function will not be
+   removed, leading to an unresolved symbol error.
+
+   It isn't clear that any -msep-data or -mid-shared-library target
+   would benefit from a read-only .eh_frame anyway.  In particular,
+   no known target that supports these options has a feature like
+   PT_GNU_RELRO.  Without any such feature to motivate them, indirect
+   references would be unnecessary bloat, so we simply use an absolute
+   pointer for code and global references.  We still use pc-relative
+   references to data, as this avoids a relocation.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL)			   \
-  (flag_pic								   \
+  (flag_pic && !((TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)		   \
+		 && ((GLOBAL) || (CODE)))				   \
    ? ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4 \
    : DW_EH_PE_absptr)
 
@@ -1039,6 +1093,102 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+/* CPU/architecture selection bits.  */
+
+enum uarch_type
+{
+  u68000,
+  u68010,
+  u68020,
+  u68040,
+  u68060,
+  ucpu32,
+  ucfv2,
+  ucfv3,
+  ucfv4,
+  ucfv4e,
+  ucfv5,
+  unk_arch
+};
+
+enum processor_type
+{
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+  IDENT,
+#include "m68k-cores.def"
+#undef M68K_CORE
+  unk_proc
+};
+
+/* Used by config.gcc to identify the compiled-in CPU.  */
+enum target_cpus
+{
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+  TARGET_CPU_##IDENT,
+#include "m68k-cores.def"
+#undef M68K_CORE
+  TARGET_CPU_invalid
+};
+
+enum fpu_type
+{
+  FPUTYPE_NONE,
+  FPUTYPE_68881,
+  FPUTYPE_COLDFIRE
+};
+
+#define TUNE_68000	(m68k_tune == u68000)
+#define TUNE_68020	(m68k_tune == u68020)
+#define TUNE_68040	(m68k_tune == u68040)
+#define TUNE_68060	(m68k_tune == u68060)
+#define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
+#define TUNE_CPU32	(m68k_tune == ucpu32)
+#define TUNE_CFV2	(m68k_tune == ucfv2)
+#define TUNE_CFV3	(m68k_tune == ucfv3)
+#define TUNE_CFV4	(m68k_tune == ucfv4)
+
 /* Variables in m68k.c */
 extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;
+
+/* Which CPU we are generating code for.  */
+extern enum processor_type m68k_cpu;
+
+/* Nonzero if 68020 instructions are supported.  */
+extern int m68k_arch_68020;
+
+/* Nonzero if 68040 instructions are supported.  */
+extern int m68k_arch_68040;
+
+/* Nonzero if 68060 instructions are supported.  */
+extern int m68k_arch_68060;
+
+/* Nonzero if this is a ColdFire processor.  */
+extern int m68k_arch_coldfire;
+
+/* Nonzero if ISA_A+ instructions are supported.  */
+extern int m68k_arch_isaaplus;
+
+/* Nonzero if ISA_B instructions are supported.  */
+extern int m68k_arch_isab;
+
+/* Nonzero if ISA_C instructions are supported.  */
+extern int m68k_arch_isac;
+
+/* Which microarchitecture to tune for.  */
+extern enum uarch_type m68k_tune;
+
+/* Which FPU to use.  */
+extern enum fpu_type m68k_fpu;
+
+/* Nonzero if hardware bitfield instructions are supported.  */
+extern int m68k_bitfield;
+
+/* Nonzero if hardware divide is supported.  */
+extern int m68k_cf_hwdiv;
+
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+extern const char *m68k_symbolic_call;
+extern const char *m68k_symbolic_jump;

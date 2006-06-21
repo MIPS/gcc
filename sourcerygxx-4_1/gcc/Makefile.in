@@ -2067,7 +2067,7 @@ print-rtl.o : print-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(BCONFIG_H)
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h \
    $(RTL_H) hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h \
-   $(FLAGS_H) $(REGS_H) output.h $(TARGET_H) function.h
+   $(FLAGS_H) $(REGS_H) output.h $(TARGET_H) function.h $(TREE_H)
 
 varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(RTL_H) $(FLAGS_H) function.h $(EXPR_H) hard-reg-set.h $(REGS_H) \

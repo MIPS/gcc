@@ -67,7 +67,7 @@ Boston, MA 02110-1301, USA.  */
 
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_COLDFIRE)				\
+    if (m68k_arch_coldfire)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -104,16 +104,6 @@ do {								\
     embedded '$' characters.  */
 
 #undef NO_DOLLAR_IN_LABEL
-
-/* Define PCC_STATIC_STRUCT_RETURN if the convention on the target machine
-   is to use the nonreentrant technique for returning structure and union
-   values, as commonly implemented by the AT&T Portable C Compiler (PCC).
-   When defined, the gcc option -fpcc-struct-return can be used to cause
-   this form to be generated.  When undefined, the option does nothing.
-   For m68k SVR4, the convention is to use a reentrant technique compatible
-   with the gcc default, so override the definition of this macro in m68k.h */
-
-#undef PCC_STATIC_STRUCT_RETURN
 
 /* Local common symbols are declared to the assembler with ".lcomm" rather
    than ".bss", so override the definition in svr4.h */

@@ -39,7 +39,7 @@ extern const char *output_addsi3 (rtx *);
 extern const char *output_andsi3 (rtx *);
 extern const char *output_iorsi3 (rtx *);
 extern const char *output_xorsi3 (rtx *);
-extern void m68k_output_pic_call (rtx dest);
+extern const char *output_call (rtx);
 extern void output_dbcc_and_branch (rtx *);
 extern int floating_exact_log2 (rtx);
 extern bool strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn, rtx target);
@@ -49,14 +49,22 @@ extern int standard_68881_constant_p (rtx);
 extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void notice_update_cc (rtx, rtx);
+extern int m68k_legitimate_address_p (enum machine_mode, rtx, int);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int valid_dbcc_comparison_p_2 (rtx, enum machine_mode);
+extern rtx m68k_libcall_value (enum machine_mode);
+extern rtx m68k_function_value (tree, tree);
+extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 
 #endif /* RTX_CODE */
 
 extern bool m68k_regno_mode_ok (int, enum machine_mode);
+extern enum reg_class m68k_secondary_reload_class (enum reg_class,
+						   enum machine_mode, rtx);
+extern enum reg_class m68k_preferred_reload_class (rtx, enum reg_class);
 extern int flags_in_68881 (void);
 extern bool use_return_insn (void);
 extern void override_options (void);
 extern void init_68881_table (void);
+extern rtx m68k_legitimize_call_address (rtx x);
 extern int m68k_hard_regno_rename_ok(unsigned int, unsigned int);

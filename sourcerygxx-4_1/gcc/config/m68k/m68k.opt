@@ -20,24 +20,28 @@
 ; 02110-1301, USA.
 
 m5200
-Target RejectNegative Mask(5200)
+Target RejectNegative
 Generate code for a 520X
 
 m5206e
-Target RejectNegative Mask(CF_HWDIV)
+Target RejectNegative
 Generate code for a 5206e
 
 m528x
-Target RejectNegative Mask(528x)
+Target RejectNegative
 Generate code for a 528x
 
 m5307
-Target RejectNegative Mask(CFV3)
+Target RejectNegative
 Generate code for a 5307
 
 m5407
-Target RejectNegative Mask(CFV4)
+Target RejectNegative
 Generate code for a 5407
+
+mcfv4e
+Target RejectNegative
+Generate code for a ColdFire v4e
 
 m68000
 Target RejectNegative
@@ -80,16 +84,12 @@ m68851
 Target
 Generate code for a 68851
 
-m68881
-Target RejectNegative Mask(68881)
-Generate code that uses 68881 floating-point instructions
-
 malign-int
 Target Report Mask(ALIGN_INT)
 Align variables on a 32-bit boundary
 
 mbitfield
-Target Report RejectNegative Mask(BITFIELD)
+Target Report Var(m68k_flag_bitfield) Init(-1)
 Use the bit-field instructions
 
 mc68000
@@ -109,7 +109,7 @@ Target Report Mask(ID_SHARED_LIBRARY)
 Enable ID based shared library
 
 mnobitfield
-Target RejectNegative InverseMask(BITFIELD)
+Target RejectNegative Var(m68k_flag_bitfield, 0)
 Do not use the bit-field instructions
 
 mnortd
@@ -125,7 +125,7 @@ Target Report Mask(PCREL)
 Generate pc-relative code
 
 mrtd
-Target Report RejectNegative Mask(RTD)
+Target Report Mask(RTD)
 Use different calling convention using 'rtd'
 
 msep-data
@@ -137,13 +137,37 @@ Target RejectNegative Joined UInteger
 ID of shared library to build
 
 mshort
-Target Report RejectNegative Mask(SHORT)
+Target Report Mask(SHORT)
 Consider type 'int' to be 16 bits wide
 
+mhard-float
+Target RejectNegative Var(m68k_flag_hardfloat) Init(-1)
+Generate code which uses hardware floating point instructions
+
+m68881
+Target RejectNegative Var(m68k_flag_hardfloat)
+Generate code that uses 68881 floating-point instructions
+
 msoft-float
-Target RejectNegative InverseMask(68881)
+Target RejectNegative Var(m68k_flag_hardfloat, 0)
 Generate code with library calls for floating point
 
 mstrict-align
 Target Report Mask(STRICT_ALIGNMENT)
 Do not use unaligned memory references
+
+mcpu=
+Target RejectNegative Joined
+Specify the target CPU
+
+march=
+Target RejectNegative Joined
+Specify the name of the target architecture
+
+mtune=
+Target RejectNegative Joined
+Tune for the specified target CPU or architecture
+
+mdiv
+Target Report Var(m68k_flag_hwdiv) Init(-1)
+Use hardware division instructions on ColdFire

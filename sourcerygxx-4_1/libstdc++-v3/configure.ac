@@ -303,7 +303,7 @@ case "$target" in
   LIBSUPCXX_PRONLY=yes;;
   *);;
 esac
-AM_CONDITIONAL(LIBSUPCXX_PRONLY, test $LIBSUPCXX_PRONLY = yes)
+AM_CONDITIONAL(LIBSUPCXX_PRONLY, test x$LIBSUPCXX_PRONLY = xyes)
 
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)

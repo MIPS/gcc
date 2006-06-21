@@ -120,11 +120,21 @@ Boston, MA 02110-1301, USA.  */
 	/* Common for -mid-shared-libary and -msep-data */
 
 	.macro PICCALL addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jsr	pc@(a0)
+#else
 	bsr	\addr
+#endif
 	.endm
 
 	.macro PICJUMP addr
+#if defined (__mcoldfire__) && !defined (__mcfisab__)
+	lea	\addr-.-8,a0
+	jmp	pc@(a0)
+#else
 	bra	\addr
+#endif
 	.endm
 
 # if defined(__ID_SHARED_LIBRARY__)
@@ -1671,16 +1681,16 @@ Lmuldf$b$0:
 #ifndef __mcoldfire__
 	exg	d2,d0		| put b (==0) into d0-d1
 	exg	d3,d1		| and a (with sign bit cleared) into d2-d3
+	movel	a0,d0		| set result sign
 #else
-	movel	d2,d7
-	movel	d0,d2
-	movel	d7,d0
-	movel	d3,d7
+	movel	d0,d2		| put a into d2-d3
 	movel	d1,d3
-	movel	d7,d1
+	movel	a0,d0		| put result zero into d0-d1
+	movq	IMM(0),d1
 #endif
 	bra	1f
 Lmuldf$a$0:
+	movel	a0,d0		| set result sign
 	movel	a6@(16),d2	| put b into d2-d3 again
 	movel	a6@(20),d3	|
 	bclr	IMM (31),d2	| clear sign bit
@@ -1958,7 +1968,7 @@ Ldivdf$inop:
 Ldivdf$a$0:
 | If a is zero check to see whether b is zero also. In that case return
 | NaN; then check if b is NaN, and return NaN also in that case. Else
-| return zero.
+| return a properly signed zero.
 	moveq	IMM (DIVIDE),d5
 	bclr	IMM (31),d2	|
 	movel	d2,d4		| 
@@ -1969,8 +1979,8 @@ Ldivdf$a$0:
 	blt	1f		|
 	tstl	d3		|
 	bne	Ld$inop		|
-1:	movel	IMM (0),d0	| else return zero
-	movel	d0,d1		| 
+1:	movel	a0,d0		| else return signed zero
+	moveq	IMM(0),d1	| 
 	PICLEA	SYM (_fpCCR),a0	| clear exception flags
 	movew	IMM (0),a0@	|
 #ifndef __mcoldfire__
@@ -2344,7 +2354,7 @@ Lcmpdf$b$nf:
 
 Lcmpd$inop:
 	movl	a6@(24),d0
-	movew	IMM (INEXACT_RESULT+INVALID_OPERATION),d7
+	moveq	IMM (INEXACT_RESULT+INVALID_OPERATION),d7
 	moveq	IMM (DOUBLE_FLOAT),d6
 	PICJUMP	$_exception_handler
 
@@ -3230,7 +3240,6 @@ Lmulsf$inf:
 | or NaN, in which case we return NaN.
 Lmulsf$b$0:
 | Here d1 (==b) is zero.
-	movel	d1,d0		| put b into d0 (just a zero)
 	movel	a6@(8),d1	| get a again to check for non-finiteness
 	bra	1f
 Lmulsf$a$0:
@@ -3238,7 +3247,8 @@ Lmulsf$a$0:
 1:	bclr	IMM (31),d1	| clear sign bit 
 	cmpl	IMM (INFINITY),d1 | and check for a large exponent
 	bge	Lf$inop		| if b is +/-INFINITY or NaN return NaN
-	PICLEA	SYM (_fpCCR),a0	| else return zero
+	movel	d7,d0		| else return signed zero
+	PICLEA	SYM (_fpCCR),a0	|
 	movew	IMM (0),a0@	| 
 #ifndef __mcoldfire__
 	moveml	sp@+,d2-d7	| 
@@ -3432,12 +3442,12 @@ Ldivsf$a$0:
 	moveq	IMM (DIVIDE),d5
 | If a is zero check to see whether b is zero also. In that case return
 | NaN; then check if b is NaN, and return NaN also in that case. Else
-| return zero.
+| return a properly signed zero.
 	andl	IMM (0x7fffffff),d1	| clear sign bit and test b
 	beq	Lf$inop			| if b is also zero return NaN
 	cmpl	IMM (INFINITY),d1	| check for NaN
 	bhi	Lf$inop			| 
-	movel	IMM (0),d0		| else return zero
+	movel	d7,d0			| else return signed zero
 	PICLEA	SYM (_fpCCR),a0		|
 	movew	IMM (0),a0@		|
 #ifndef __mcoldfire__
@@ -3746,7 +3756,7 @@ Lcmpsf$b$0:
 
 Lcmpf$inop:
 	movl	a6@(16),d0
-	movew	IMM (INEXACT_RESULT+INVALID_OPERATION),d7
+	moveq	IMM (INEXACT_RESULT+INVALID_OPERATION),d7
 	moveq	IMM (SINGLE_FLOAT),d6
 	PICJUMP	$_exception_handler
 

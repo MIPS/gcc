@@ -1,3 +1,1200 @@
+2006-06-21  Richard Sandiford  <richard@codesourcery.com>
+
+	Merge from csl/coldfire-4_1 branch:
+
+	2006-06-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Use -lm for link tests in
+	GCC_TRY_COMPILE_OR_LINK.  Fall back to compile-only tests if
+	-lm is not available.
+	* libstdc++-v3/configure: Regenerate.
+
+	2006-06-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	gcc/
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* combine.c (replaced_rhs_value): New variable.
+	(combine_instructions): Set it.
+	(distribute_notes): When distributing a note in replaced_rhs_insn,
+	check whether the value was used in replaced_rhs_value.
+
+	2006-06-20  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* postreload.c (reload_combine): Fix calculation of index_regs set.
+
+	2006-06-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (PCC_STATIC_STRUCT_RETURN): Don't define here.
+	* config/m68k/m68kemb.h (PCC_STATIC_STRUCT_RETURN): Don't undefine
+	here ...
+	* config/m68k/m68kelf.h (PCC_STATIC_STRUCT_RETURN): ... or here ...
+	* config/m68k/netbsd-elf.h (PCC_STATIC_STRUCT_RETURN): ... or here.
+	* /config/m68k/openbsd.h (PCC_STATIC_STRUCT_RETURN): Define here.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/print-sysroot-suffix.sh: Rewrite to be more flexible.
+	Take the sysroot, MULTILIB_MATCHES and MULTILIB_OPTIONS as arguments.
+	* config/m68k/t-mlib-matches (sysroot-suffix.h): Update accordingly.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Don't check FL_PCREL_16
+	for -msep-data and -mid-shared-library.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (ASM_PREFERRED_EH_DATA_FORMAT): Don't use
+	indirect or pc-relative references to code or globals if either
+	TARGET_SEP_DATA or TARGET_ID_SHARED_LIBRARY is in effect.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/lb1sf68.asm (PICCALL): Use an lea and pc-relative
+	jump sequence for ISA A and ISA A+.
+	(PICJUMP): Likewise.
+
+	2006-06-16  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/predicates.md (call_operand): Define.
+	* config/m68k/m68k.md (call): Remove SYMBOL_REF_FLAG handilng.
+	Call m68k_legitimize_call_address.  Replace the separate flag_pic
+	and !flag_pic define_insns with a unified pattern.  Make the
+	target operand match the address inside the MEM rather than
+	the MEM itself.  Provide two alternatives, one for direct jumps
+	and one for indirect jumps.  Use output_call.
+	(call_value): Likewise, but copy operand 1 to operand 0 before
+	invoking output_call.
+	* config/m68k/m68k-protos.h (m68k_output_pic_call): Delete.
+	(output_call): Declare.
+	(m68k_legitimize_call_address): Declare.
+	* config/m68k/m68k.c (m68k_symbolic_call): New variable.
+	(m68k_symbolic_jump): Likewise.
+	(override_options): Initialize m68k_symbolic_call and
+	m68k_symbolic_jump.  Only set function_no_cse for PIC
+	if symbolic calls and jumps are supported.
+	(m68k_output_pic_call): Delete.
+	(m68k_legitimize_call_address): New function.
+	(m68k_legitimate_address_p): Remove SYMBOL_REF_FLAG handling.
+	(output_call): New function.
+	(m68k_output_mi_thunk): Change operand 0 of the call from a
+	memory reference to an address.  Use mips_symbolic_jump if
+	non-null, otherwise load the address from the GOT.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINT): Add a 'W' constraint.
+	Remove superfluous brackets.
+	(m68k_symbolic_call): Declare.
+	(m68k_symbolic_jump): Declare.
+
+	2006-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Add 52235 & 5225 cores.
+	* gcc/doc/invoke.texi (M680x0 Options): Add 52235 & 5225.
+
+	2006-05-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libiberty/make-relative-prefix.c (split_directories): Add
+	ignore_final arg.
+	(make_relative_prefix): Keep the final path component if it was a
+	directory.  Adjust calls to split_directories.
+
+	2006-05-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (movdf_cf_hard): Use output_move_double for
+	GPR<-GPR moves.
+
+	2006-05-12  Sandra Loosemore <sandra@codesourcery.com>
+
+        * gcc/config/m68k/m68k.md ("clzsi2"):  Define for ColdFire
+        architectures that support ff1 instruction.
+        * gcc/config/m68k/m68k.h (CLZ_DEFINED_VALUE_AT_ZERO): Ditto.
+        * gcc/longlong.h (count_leading_zeros, COUNT_LEADING_ZEROS_0): Ditto.
+
+	2006-05-11  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Fix the lea
+	instruction that restores the stack pointer from the frame pointer.
+
+	2006-05-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_CPU_DEFAULT_SPEC): Undefine it
+	before setting it.
+
+	2006-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in (TOPLEVEL_CONFIGURE_ARGS): Protect args with active
+	characters.
+	(baseargs): Simplify protection, use ac_arg temp name, correct $
+	to $$ conversion.
+	* configure: Rebuilt.
+
+	2006-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
+	storing in baseargs.
+	* configure: Regenerated.
+	* gcc/configure.ac: Add --with-versuffix and --with-bugurl.
+	* gcc/version.c (VERSUFFIX): Remove.
+	(bug_report_url): Do not hard-code initializer.
+	* gcc/Makefile.in (VERSUFFIX_s): Define.
+	(BUGURL_s): Likewise.
+	(version.o): Define VERSUFFIX and BUGURL.
+	* gcc/doc/install.texi: Document them.
+	* gcc/configure: Regenerated.
+
+	2006-04-28  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/linux.h (MD_UNWIND_SUPPORT): Define.
+	* config/m68k/linux-unwind.h: New file.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_tls): Use
+	${tool}_target_compile instead of target_compile.
+	(check_effective_target_tls_runtime): Likewise.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/m68k-fp-1.c: Use -mcpu=547x instead of -mcpu=m5485.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_coldfire_fpu):
+	New procedure.
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: XFAIL for
+	Coldfire GNU/Linux.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* combine.c (replaced_rhs_insn): New variable.
+	(combine_instructions): Set replaced_rhs_insn when trying to replace
+	a SET_SRC with a REG_EQUAL note.
+	(distribute_notes): Use replaced_rhs_insn when determining the live
+	range of a REG_DEAD register.
+
+	gcc/testsute
+	* gcc.c-torture/compile/pr25514.c: New test.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-protos.h (m68k_secondary_reload_class): Declare.
+	(m68k_preferred_reload_class): Declare.
+	* config/m68k/m68k.c (m68k_regno_mode_ok): Don't prevent address
+	registers from storing bytes.  Fix formatting.
+	(m68k_secondary_reload_class): New function.
+	(m68k_preferred_reload_class): Likewise.
+	* config/m68k/m68k.h (HARD_REGNO_MODE_OK): Remove duplicated comment.
+	(SECONDARY_RELOAD_CLASS): Define.
+	(PREFERRED_RELOAD_CLASS): Use m68k_preferred_reload_class.
+	(LIMIT_RELOAD_CLASS): Delete.
+
+	gcc/testsuite/
+	* gcc.c-torture/compile/m68k-byte-addr.c: New test.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k-*-linux*): Add to tmake_file instead of
+	replacing it.  Don't include m68k/t-crtstuff.  Don't include
+	m68k/t-slibgcc-elf-ver.
+	* config/m68k/linux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Delete.
+	* config/m68k/uclinux.h (SYSROOT_HEADERS_SUFFIX_SPEC): Remove undef.
+	* config/m68k/t-linux (MULTILIB_OPTIONS): Delete.
+	(MULTILIB_DIRNAMES): Delete.
+	(MULTILIB_EXCEPTIONS): Delete.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	(LIBGCC): Delete.
+	(INSTALL_LIBGCC): Delete.
+	(EXTRA_MULTILIB_PARTS): Override.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcffpu__
+	when using the Coldfire FPU.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Restrict the -fPIC error
+	to -mpcrel.
+	(m68k_output_function_prologue): Use a (d8,%pc,Xi) lea to load the
+	PIC register on Coldfire targets.
+	(m68k_output_pic_call): Use bsr.l for ISA B too.
+	(print_operand_address): Only use GOT displacement lengths for
+	m68k_arch_68020.
+	(m68k_output_mi_thunk): Use bra.l for ISA B too.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_save_reg): Save the PIC register in
+	functions that need a constant pool.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_save_reg): Save the PIC register in
+	functions that call eh_return.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* real.c (encode_ieee_single): Use canonical_nan_lsbs_set instead
+	of qnan_msb_set to determine the lower bits of a canonical
+	NaN significand.
+	(encode_ieee_double): Likewise.
+	(encode_ieee_quad): Likewise.
+	(ieee_single_format): Initialize canonical_nan_lsbs_set.
+	(mips_single_format): Likewise.
+	(ieee_double_format): Likewise.
+	(mips_double_format): Likewise.
+	(ieee_extended_motorola_format): Likewise.
+	(ieee_extended_intel_96_format): Likewise.
+	(ieee_extended_intel_128_format): Likewise.
+	(ieee_extended_intel_96_round_53_format): Likewise.
+	(ibm_extended_format): Likewise.
+	(mips_extended_format): Likewise.
+	(ieee_quad_format): Likewise.
+	(mips_quad_format): Likewise.
+	(vax_f_format): Likewise.
+	(vax_d_format): Likewise.
+	(vax_g_format): Likewise.
+	(i370_single_format): Likewise.
+	(i370_double_format): Likewise.
+	(c4x_single_format): Likewise.
+	(c4x_extended_format): Likewise.
+	(real_internal_format): Likewise.
+	(coldfire_single_format): New real_format.
+	(coldfire_double_format): Likewise.
+	* real.h (real_format): Add a canonical_nan_lsbs_set field.
+	(coldfire_single_format): Declare.
+	(coldfire_double_format): Likewise.
+	* config/pdp11/pdp11.c (pdp11_f_format): Initialize
+	canonical_nan_lsbs_set.
+	(pdp11_d_format): Likewise.
+	* config/m68k/m68k.c (override_options): Override REAL_FORMAT_MODE
+	if TARGET_COLDFIRE_CPU.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (cmpsi): Remove PIC handling.
+	(movsi): Remove predicates.  Use LEGITIMATE_PIC_OPERAND_P.
+	* config/m68k/m68k.h (LEGITIMATE_PIC_OPERAND_P): Define.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Use a stack-
+	based restore sequence for big frames on Coldfire if we need to
+	use a movem or fmovem instruction.  Fix formatting.  Use proper
+	MOTOROLA syntax for Coldfire fmoves from %fp + offset.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_prologue): Fix handling
+	of %sp-based CFA offsets on Coldfire.
+
+	2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-cores.def (68000, 68010): Remove FL_PCREL_16
+	from these isa_00 entries.
+	(68020, 68030): Remove FL_BITFIELD from these isa_20 entries.
+	(68040): Remove FL_BITFIELD and FL_68881 from this isa_40 entry.
+	(68060): Likewise this isa_60 entry.
+	(5202, 5204, 5206, 5206e, 5249, 5250, 5272, 5307): Remove FL_PCREL16
+	from these isa_a entries.
+	(5207, 5208, 5211, 5212, 5213, 5214, 5216, 523x, 5270, 5271, 5274)
+	(5275, 528x, 532x): Likewise these isa_aplus entries.
+	* config/m68k/m68k.c (FL_FOR_isa_00): Include FL_PCREL_16.
+	(FL_FOR_isa_20): Include FL_BITFIELD.
+	(FL_FOR_isa_40): Include FL_FOR_isa_20 instead of FL_ISA_68020.
+	Include FL_68881.
+	(FL_FOR_isa_60): Include FL_FOR_isa_40 instead of FL_ISA_68020
+	and FL_ISA_68040.
+	(FL_FOR_isa_a): Include FL_PCREL_16.
+	(FL_FOR_isa_aplus): Include FL_FOR_isa_a instead of FL_COLDFIRE
+	and FL_ISA_A.
+	(FL_FOR_isa_b): Likewise.
+	(FL_FOR_isa_c): Include FL_FOR_isa_b instead of FL_COLDFIRE,
+	FL_ISA_A, FL_ISA_B and FL_CF_HWDIV.
+	(m68k_isa): Add isa_cpu32.
+	(all_architectures): Use FL_FOR_isa_* macros.  In so doing,
+	fix the isab entry so that it includes FL_ISA_A and FL_PCREL_16.
+	Likewise include these flags and FL_ISA_B in the isac entry.
+	(all_tunings): Use FL_FOR_isa_* macros, and in so doing, add
+	the FL_ISA_A and FL_PCREL_16 flags to the cfv4 and cf4ve entries.
+
+	2006-04-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_missing_uclibc_feature): Make test
+	produce an error unless the required condition is known not to hold.
+	(check_effective_target_uclibc): New procedure.
+	(check_effective_target_uclibc_lax_strtofp): Likewise.
+	(check_effective_target_uclibc_dummy_wcsftime): Likewise.
+
+	libstdc++-v3/testsuite/
+	* 22_locale/time_put/put/wchar_t/1.cc: XFAIL if uclibc_dummy_wcsftime.
+	* 22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/10.cc: Likewise.
+	* 22_locale/num_get/get/wchar_t/2.cc: XFAIL if uclibc_lax_strtofp.
+	* 22_locale/num_get/get/char/2.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/09.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/09.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/wchar_t/6.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/char/6.cc: Likewise.
+	* 26_numerics/cmath/c99_classification_macros_c++.cc: XFAIL
+	for uClibc.
+	* 26_numerics/cmath/c99_classification_macros_c.cc: Likewise.
+
+	2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/regrename.c (scan_rtx_address): Use REG_MODE_OK_FOR_INDEX_P
+	instead of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead
+	of INDEX_REG_CLASS.
+	(replace_oldest_value_addr): Likewise.
+	* gcc/doc/tm.texi (MODE_BASE_REG_CLASS): Clarify what a VOIDmode
+	argument means.
+	(REGNO_MODE_OK_FOR_BASE_P): Likewise.
+	(REG_MODE_OK_FOR_BASE_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Document.
+	(REGNO_MODE_OK_FOR_INDEX_P): Likewise.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	* gcc/defaults.h (REGNO_MODE_OK_FOR_INDEX_P): Provide default.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Likewise.
+	* gcc/postreload.c (reload_combine): Compute the set of index
+	registers that can be used for at least one mode.  Use that set
+	instead of INDEX_REG_CLASS.
+	* gcc/reload.c (find_reloads): Use operand_mode[i] as the argument
+	to MODE_BASE_REG_CLASS.
+	(find_reloads_address): Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.  Check MODE_INDEX_REG_CLASS (mode) as well
+	as double_reg_address_ok.
+	(find_reload_address_1): Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use REGNO_MODE_OK_FOR_INDEX_P instead
+	of REGNO_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/recog.c (preprocess_constraints): Pass recog_data.operand_mode[i]
+	as the argument to BASE_REG_CLASS.
+	* gcc/regclass.c (record_operand_costs): Pass the mode of the
+	addressed data to record_address_regs.
+	(scan_one_insn): Likewise.  Also pass the mode of the memory reference
+	to MODE_BASE_REG_CLASS.
+	(record_reg_classes): Pass the operand mode to MODE_BASE_REG_CLASS.
+	(record_address_regs): Add a mode argument.  Update recursive calls.
+	Pass the mode argument to REG_MODE_OK_FOR_REG_BASE_P and
+	MODE_BASE_REG_REG_CLASS.  Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/config/m68k/m68k.md (tst<mode>_cf): Use "m" instead of "<Q>U".
+	(cmp<mode>_cf): Likewise.
+	(movsf_cf_hard): Likewise.
+	(movdf_cf_hard): Likewise.
+	(extendsfdf2_cf): Likewise.
+	(truncdfsf2_cf): Likewise.
+	(floatsi<mode>2_cf): Likewise.
+	(ftrunc<mode>2_cf): Likewise.
+	(add<mode>3_cf): Likewise.
+	(sub<mode>3_cf): Likewise.
+	(fmul<mode>3_cf): Likewise.
+	(div<mode>3_cf): Likewise.
+	(neg<mode>2_cf): Likewise.
+	(sqrt<mode>2_cf): Likewise.
+	(abs<mode>2_cf): Likewise.
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address):
+	Delete.
+	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT): Add a mode
+	argument.  Use REGNO_MODE_OK_FOR_INDEX_P.  Test MODE_OK_FOR_INDEX_P.
+	(LEGITIMATE_INDEX_REG_P): Add a mode argument.  Update calls to
+	REG_OK_FOR_INDEX_STRICT.
+	(LEGITIMATE_INDEX_P): Add a mode argument.  Update calls to
+	LEGITIMATE_INDEX_REG_P.
+	(m68k_legitimate_address_p): Update calls to LEGITIMATE_INDEX_P.
+	(m68k_legitimize_reload_address): Delete.
+	* gcc/config/m68k/m68k.h (INDEX_REG_CLASS): Delete in favor of...
+	(MODE_INDEX_REG_CLASS): ...this new macro.
+	(MODE_OK_FOR_INDEX_P): New macro.
+	(REGNO_OK_FOR_INDEX_P): Delete in favor of...
+	(REGNO_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(REG_OK_FOR_INDEX_P): Delete in favor of...
+	(REG_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(LEGITIMIZE_RELOAD_ADDRESS): Delete.
+	* gcc/reload1.c (maybe_fix_stack_asms): Pass operand_mode[i]
+	to MODE_BASE_REG_CLASS.
+
+	2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c: Include
+	<sys/types.h>.  Use __UCLIBC__ rather than __uClinux__ to guard
+	the definition of vsnprintf.
+
+	2006-04-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (PREFERRED_STACK_BOUNDARY): Define to 32
+	for Coldfire targets.
+
+	2006-04-01  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Reinstate defintion.
+	(END_SPEC): Likewise.
+	(LINK_SPEC): Make -elf2flt the default.
+
+	2006-03-31  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/no-executables.m4 (GCC_TRY_COMPILE_OR_LINK): New function.
+	* libstdc++-v3/aclocal.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.
+	* libstdc++-v3/libmath/Makefile.in: Regenerate.
+	* libstdc++-v3/configure: Regenerate.
+	* libstdc++-v3/Makefile.in: Regenerate.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+	* libstdc++-v3/src/Makefile.in: Regenerate.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerate.
+	* libstdc++-v3/testsuite/Makefile.in: Regenerate.
+	* libstdc++-v3/acinclude.m4: Regenerate.
+	* libstdc++-v3/po/Makefile.in: Regenerate.
+
+	2006-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
+	filename. 
+	(open): Likewise.
+	(stat): Likewise.
+	(access): Likewise.
+
+	2006-03-30  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty/configure.ac: Add cygpath for mingw hosts.
+	* libiberty.configure: Rebuilt.
+	* libiberty/Makefile.in: Add cygpath.
+	* libiberty/cygpath.c: New.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/configure.ac: Allow $tm_file to contain names of the form ./*.
+	Look for them in the build directory rather than $srcdir/config.
+	* gcc/configure: Regenerate.
+	* gcc/config.gcc (tm_file): Update commentary.
+	(m68k-*-uclinux*): Add ./sysroot-suffix.h to tm_file.
+	* gcc/config/m68k/print-sysroot-suffix.sh: New file.
+	* gcc/config/m68k/t-mlib-matches (sysroot-suffix.h): New rule.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Remove -mcpu=5206.
+	(MULTILIB_DIRNAMES): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Just undefine; don't redefine.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Reorder includes to match
+	m68k-*-linux.  Include linux.h and m68k/linux.h.  Include linux.opt
+	and define UCLIBC_DEFAULT.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Delete.
+	(ENDFILE_SPEC): Delete.
+	(HAS_INIT_SECTION): Delete.
+	(TARGET_OS_CPP_BUILTINS): Use LINUX_TARGET_OS_CPP_BUILTINS.
+	(CPLUSPLUS_CPP_SPEC): Delete.
+	(TARGET_ASM_FILE_START_APP_OFF): Delete.
+	(MULTILIB_DEFAULTS): Undefine before redefining.
+	(SYSROOT_SUFFIX_SPEC): Likewise.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Likewise.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_missing_uclibc_feature):
+	New procedure.
+	(check_gc_sections_available): Return false if ldflags includes
+	-elf2flt.
+	(check_profiling_available): Return false for m68k-*-uclinux.
+	(check_effective_target_wchar): New procedure.
+	* gcc/testsuite/gcc.dg/wint_t-1.c: Require { target wchar }.
+	* gcc/testsuite/gcc.dg/wchar_t-1.c: Likewise.
+
+	2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add some whitespace.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Add deprecated
+	cpu selectors to inhibit default.
+
+	* gcc/config/m68k/uclinux.h (SYSROOT_SUFFIX_SPEC): Add 532x.
+
+	* gcc/config/m68k/m68k-cores.def (532x, 537x): Use 532x multilib.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Remove m68k
+	options.  Add mcpu=532x.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Add mcpu=532x
+	(MULTILIB_DIRNAMES): Likewise.
+
+	* gcc/gcc.c (LINK_COMMAND_SPEC): Place T* options before
+	endfile_spec.
+	* gcc/doc/invoke.texi (M680x0 Options): Revert previous change.
+	* gcc/config/m68kenb.h (LIB_SPEC): Revert previous change.
+	* gcc/config/m68k.opt (mboard, mbsp): Revert previous change.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testuite/lib/target-supports.exp (check_no_compiler_messages):
+	New procedure.
+	(check_visibility_available): Use it.
+	(check_effective_target_default_packed): Likewise.
+	(check_effective_target_pcc_bitfield_type_matters): Likewise.
+	(check_effective_target_freorder): Likewise.
+	(check_effective_target_fpic): Likewise.
+	(check_named_sections_available): Likewise.
+	(check_effective_target_ilp32): Likewise.
+	(check_effective_target_lp64): Likewise.
+
+	2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c (vsnprintf):
+	Don't define for uClinux targets.
+	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Restrict the
+	test *-linux* rather than *linux* targets.
+	* gcc/testsuite/g++.dg/init/array15.C: Don't run on m68k-uclinux.
+	* gcc/testsuite/g++.dg/init/array16.C: Likewise.
+
+	2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/gcc.c (do_spec_1): <case '*'> Don't append space here.
+	(process_marked_switches): Put a space between each marked switch.
+	(process_brace_body): Put a space between each live switch.
+	(give_switch): Don't append space here.
+	* gcc/config/m68k/m68kemb.h (LIB_SPEC): Add BSP lib and linker
+	script here.  Group with LIBGCC spec.
+	* gcc/config/m68k/m68k.opt (mboard, mbsp): New switches.
+	* gcc/config/m68k/m68020-elf.h (LIB_SPEC): Do not define here.
+	* gcc/doc/invoke.texi (M680x0 Options): Document new switches.
+
+	2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (DWARF_FRAME_RETURN_COLUMN): Define.
+	* gcc/config/m68k/m68k.c (m68k_output_function_prologue): Output
+	dwarf to allow unwinding from interrupt_handlers.
+
+	2006-03-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-linux*): Add default --with-cpu.
+	* gcc/config/m68k/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): Fix thinko
+	in previous change.
+	* gcc/testsuite/gcc.dg/m68k-pic-1.c: New.
+
+	2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libstdc++-v3/config/cpu/m68k/atomicity.h (__exchange_and_add): Add
+	coldfire fragments.
+
+	* gcc/config/gcc (m68k-*-linux*): Add t-linux.
+	(m68k/t-rtems): Reorder include files.
+	* gcc/config/m68k/linux.h (TARGET_DEFAULT): Do not define.
+	(TARGET_CPU_DEFAULT, ASM_CPU_DEFAULT_SPEC): Default to 68040.
+	(STRICT_ALIGNMENT): Do not define here.
+	(ASM_SPEC): Define earlier.
+	(TARGET_OS_CPP_BUILTINS): Do not define mc68000 or mc68020 here.
+	(CPP_SPEC): Simplify.
+	(FUNCTION_VALUE_REGNO_P): fp0 is only a return on 68k, not
+	coldfire.
+	(TARGET_ASM_FILE_START_APP_OFF): Undef.
+	(MULTILB_DEFAULTS, SYSROOT_SUFFIX_SPEC,
+	SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+	* gcc/config/m68k/m68k-none.h (TARGET_DEFAULT, ASM_CPU_DEFAULT,
+	OPTION_DEFAULT_SPECS): Do not process here, move to m68k.h.
+	(EXTRA_SPECS, CPP_SUBTARGET_SPEC, SUBTARGET_EXTRA_SPECS):
+	Likewise.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS, TARGET_DEFAULT,
+	ASM_CPU_DEFAULT_SPEC, EXTRA_SPECS, CPP_SUBTARGET_SPECS,
+	SUBTARGET_EXTRA_SPECS): Moved here from m68k-none.h.
+	* gcc/config/m68k/t-linux: New.
+	* gcc/config/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): fp0 is not a
+	return reg on coldfire.
+
+	* gcc/config/m68k/t-mlib-matches (MULTILIB_MATCHES): m5206e is
+	equivalent to isaa.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add 5211.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Inhibit all 68k multilibs.  Allow
+	m547x/soft-float.
+
+	* gcc/config/m68k/m68k.md (cmpsi): Split symbol+const for Coldfire.
+
+	2006-03-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (CPLUSPLUS_CPP_SPEC): Override and
+	define _GNU_SOURCE.
+
+	2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/doc/tm.texi (TARGET_USE_COMDAT_GROUPS): Document.
+	* gcc/target.h (use_comdat_groups): New hook.
+	* gcc/crtstuff.c (USE_PT_GNU_EH_FRAME): Don't define if
+	OBJECT_FORMAT_FLAT.
+	* gcc/varasm.c (default_function_rodata_section): Test the
+	use_comdat_groups target hok instead of HAVE_COMDAT_GROUP.
+	(default_elf_asm_named_section): Likewise.
+	(default_unique_section): Likewise.
+	* gcc/target-def.h (TARGET_USE_COMDAT_GROUPS): Define if undefined.
+	(TARGET_INITIALIZER): Include it.
+	* gcc/config.gcc (m68k-*-uclinux*): Add flat.h to tm_defines.
+	Remove t-crtstuff from tmake_file.
+	* gcc/config/flat.h: New file.
+	* gcc/config/m68k/t-uclinux (EXTRA_MULTILIB_PARTS): Define.
+	* gcc/config/m68k/uclinux.h (EH_FRAME_IN_DATA_SECTION): Delete.
+
+	2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Move definition outside !REG_OK_STRICT block.
+
+	2006-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Don't
+	override here.
+	* gcc/config/m68k/m68k.h (TARGET_ASM_FILE_START_APP_OFF): Define.
+	* gcc/config/m68k/uclinux.h (TARGET_ASM_FILE_START_APP_OFF): Override.
+	(M68K_NO_ASM_FILE_START_APP_OFF): Delete.
+
+	2006-03-21  Richard Sandiford  <richard@codesourcery.com>
+		    Nathan Sidwell <nathan@codesourcery.com>
+
+	* gcc/rtlanal.c: Include tree.h.
+	(offset_within_block_p): New function, taken from
+	mips_offset_within_object_p.
+	(constant_may_be_outside_section_p): Likewise.
+	* gcc/rtl.h (offset_within_section_p): New function.
+	(constant_may_be_outside_section_p): Likewise.
+	* gcc/Makefile.in (rtlanal.o): Depend on $(TREE_H).
+	* gcc/config/m68k/m68k.md (movsi): Split possbily out-of-section
+	constants if M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	* gcc/config/m68k/m68k.c (TARGET_CANNOT_FORCE_CONST_MEM): Override.
+	(m68k_cannot_force_const_mem): New function.
+	* gcc/config/m68k/m68k.h (CONSTANT_ADDRESS_P): Check
+	LEGITIMATE_CONSTANT_P.
+	(LEGITIMATE_CONSTANT_P): Reject possibly out-of-section constants if
+	M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P): New macro.
+	* gcc/config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Override.
+	* gcc/config/mips/mips.c (mips_offset_within_object_p): Delete.
+	(mips_symbolic_constant_p): Use offset_within_section_p.
+
+	2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Set with_cpu to 5206 by default.
+	* gcc/config/m68k/m68k-cores.def (5211, 5212, 5213): Use the -mcpu=5211
+	multilibs instead of the -mcpu=5207 ones.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Restrict to coldfire
+	cores.
+	(MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Override default.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Define.
+	(SYSROOT_SUFFIX_SPEC): Define.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+
+	2006-03-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-protos.h (m68k_out_of_object_offset): New.
+	* gcc/config/m68k/m68k.c (m68k_out_of_object_offset): New.
+	(m68k_legitimate_address_p): Check out of object offset.
+	* gcc/config/m68k/m68k.md (movsi): Split if out of object offset.
+	* gcc/config/m68k/predicates.md (general_src_operand): Check out of
+	object offset.
+	* gcc/config/m68k/uclinux.h (M68K_NO_OUT_OF_OBJECT_OFFSETS): Declare.
+	
+	* gcc/config/m68k/m68k.c (m68k_output_function_epilogue): Prevent
+	compilation warning.
+
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address): Declare.
+	* gcc/config/m68k/m68k.c (m68k_legitimize_reload_address): New.
+	* gcc/config/m68k/m68k.h (LEGITIMIZE_RELOAD_ADDRESS): New.
+	* gcc/testsuite/gcc.dg/m68k-fp-1.c: New.
+	
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimiate_address_p): Declare.
+	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT,
+	REG_OK_FOR_BASE_STRICT, LEGITIMATE_BASE_REG_P,
+	LEGTIMATE_INDEX_REG_P): Copied & adjusted from m68k.h.
+	(m68k_legitimate_address_p): New, converted from
+	GO_IF_LEGITIMATE_ADDRESS.
+	* gcc/config/m68k/m68k.hh (PCREL_GENERAL_OPERAND_OK,
+	LEGTIMIATE_PIC_OPERAND_P): Remove.
+	(GO_IF_LEGITIMATE_ADDRESS): Call m68k_legitimate_address_p.
+	(LEGTIMIATE_BASE_REG_P, INDIRECTABLE_1_ADDRESS_P,
+	GO_IF_NONINDEXED_ADDRESS, GO_IF_INDEXABLE_BASE, GO_IF_INDEXING,
+	GO_IF_INDEXED_ADDRESS, LEGTIMIATE_INDEX_REG_P, LEGITIMATE_INDEX_P,
+	GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS): Remove.
+
+	2006-03-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/fpgnulib.c (__truncdfsf2): Implement round to
+	nearest even, fix denormal rounding overflow.
+
+	2006-03-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libstdc++-v2/configure.ac (LIBSUPCXX_PRONLY): Protect against unset
+	environment variable.
+	* libstdc++-v3/configure: Rebuilt.
+
+	* gcc/config.gcc (m68k-*-uclinux*): Include t-crtstuff.
+	* gcc/config/m68k/t-uclinux (MULITLIB_EXCEPTIONS): Disable
+	mid-shared-library & msep-data on coldfire chips without 32bit PC
+	rel addressing.
+	(EXTRA_MULTILIB_PARTS): Don't define here.
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Protect
+	with M68K_NO_ASM_FUILE_START_APP_OFF.
+	(override_options): Avoid signed/unsigned warning. Give more
+	informative error message when TARGET_SEP_DATA or
+	TARGET_ID_SHARED_LIBRARY are unsupported.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Define here.
+	(ENDFILE_SPEC): Likewise.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP): Don't define.
+	(TARGET_OS_CP_BUILTINS): Remove duplicared mc68000 #define.
+	(M68K_NO_ASM_FILE_START_APP_OFF): New.
+
+	2006-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Pass -mno-float for
+	soft-float.
+
+	2006-03-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Detect -mtune
+	usage to set multiple 68k core #defines.
+
+	2006-03-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Set FL_PCREL_16 as appropriate.
+	* gcc/config/m68k/m68k.c (FL_NOPIC): Remove.
+	(FL_PCREL_16): Define.
+	(all_architectures): Set FL_PCREL_16 as appropriate.
+	(all_tunings): Likewise.
+	(override_options): Replace 68k specific FL_NOPIC test with general
+	FL_PCREL_16 one.
+
+	2006-02-26  Nathan Sidwell  <nathan@potter.codesourcery.com>
+
+	* libstdc++-v3/testsuite/lib/libstdc++.exp (check_v3_target_fileio,
+	check_v3_target_time): New.
+	* libstdc++-v3/testsuite/lib/dg-options.exp (dg-require-fileio,
+	dg-require-time): New.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-3.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/12048-4.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_sync_filebuf/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-1.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-2.cc: Use it.
+	* libstdc++-v3/testsuite/ext/stdio_filebuf/char/10063-3.cc: Use it.
+	* libstdc++-v3/testsuite/22_locale/time_put/put/char/12439_1.cc: Use it.
+	* libstdc++-v3/testsuite/22_locale/time_put/put/char/12439_3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ofstream/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ofstream/cons/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/10.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/objects/char/12048-5.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/get/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/ignore/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/ignore/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/getline/char/5.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/seekg/char/sstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/seekg/char/fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/readsome/char/6746-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/extractors_other/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/sstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/tellg/char/fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_istream/extractors_character/char/4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/inserters_other/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/tellp/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ostream/seekp/char/2346-fstream.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ifstream/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_ifstream/cons/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputbackc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/3-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/11543.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekoff/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/in_avail/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/in_avail/char/9701-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/12875-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/setbuf/char/12875-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sbumpc/char/9825.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/is_open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputc/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/open/char/3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/2-unbuf.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9988.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9182-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/overflow/char/9169.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/snextc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sgetc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/close/char/4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/10096.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sungetc/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/12790-3.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-1.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-2.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/12790-4.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-in.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/seekpos/char/3-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/1-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/1-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/2-io.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/2-out.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sputn/char/9339.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/pbackfail/char/9761.cc: Use it.
+	* libstdc++-v3/testsuite/27_io/basic_filebuf/sync/char/9182-1.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/10.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/11.cc: Use it.
+	* libstdc++-v3/testsuite/21_strings/basic_string/inserters_extractors/char/5.cc: Use it.
+
+	2006-02-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/doc/invoke.text (M680x0 Options): Update.
+	* gcc/config/m68k/m68k.opt (mdiv): Rename from mhwdiv, to match
+	assembler.
+	(musp): Remove.
+	(mbitfield, mrtd, mshort): Allow negated.
+	* gcc/config/m68k/m68k.c (m68k_cf_usp): Remove.
+	(all_architectures): isaa defaults to HWDIV and 5206e. isaa+
+	defaults to HWDIV.
+	(override_options): Remove m68k_cf_usp setting.
+	* gcc/config/m68k/m68k.h (m68k_cf_usp): Remove.
+
+	* gcc/config/m68k/m68k-cores.def: Add 5202, 5204, 5250.
+
+	* gcc/config/m68k/m68k.h (TARGET_COLDFIRE): Remove, use
+	m68k_arch_coldfire directly.  Update all users.
+	* gcc/config/m68k/m68k.c: Update all users.
+	* gcc/config/m68k/m58k.md: Update all users.
+	* gcc/config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Update.
+
+	2006-02-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_cpu_cpp_builtins): Move to ...
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): ... here.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Remove.
+
+	2005-02-21  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (fpu_impl, fpu_select): Remove.
+	(m68k_handle_option): Remove msoft-float, mhard-float, m68881 handling
+	from here.
+	(override_options): Handle default CPU setting. Handle bitfield, hwdiv,
+	usp options. Use FL_NOPIC.
+	* gcc/config/m68k/m68k.h (TARGET_BITFIELD): Define to m68k_bitfield,
+	temporarily.
+	(target_cpus): New enumeration of CPU identifiers, TARGET_CPU_<core>.
+	* gcc/config/m68k/m68k-none.h: Remove old TARGET_CPU_DEFAULT handling.
+	(OPTION_DEFAULT_SPECS): Define macro for handling default CPU/float.
+	(EXTRA_SPECS): Remove CC1_CPU_DEFAULT_SPEC.
+	* gcc/config/m68k/m68k.opt (mbitfield): Use m68k_flag_bitfield.
+	(mnobitfield): Likewise.
+	(mhwdiv, musp): Fix options.
+	(m68881, msoft-float, mhard-float): Use m68k_flag_hardfloat.
+	(mfpu): Remove.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_EXCEPTIONS): Add msoft-float,
+	mhard-float.
+	* gcc/config.gcc (m68k*-linux*): Rename to...
+	(m68k*-*): Implement --with-cpu, --with-float. Remove old
+	compile-time CPU selection options.
+
+	2006-02-16  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-aout*): Use t-mlib-matches file.
+	(m68k-*-coff*): Likewise.
+	(m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Likewise.
+	(m68k-*-uclinux*): Likewise.
+	(m68k-*-linux*): Likewise.
+	(m68k-*-rtems*): Likewise.
+	* gcc/config/m68k/t-rtems: Use -mcpu= options for multilibs.
+	* gcc/config/m68k/t-m68kelf: Likewise.
+	* gcc/config/m68k/t-m68kbare: Likewise.
+	* gcc/config/m68k/t-uclinux: Likewise.
+	* gcc/config/m68k/m68k-cores.def: Add multilib field. Add missing HWDIV
+	flag to various cores. Replace 5280, 5281, 5282 with 528x.
+	* gcc/config/m68k/t-mlib-matches: Find canonical multilib for
+	CPU/arch settings.
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add -mcpu/-march options.
+	* gcc/config/m68k/m68k.c (all_cores): Ignore new multilib field in
+	m68k-cores.def.
+	(m68k_handle_option): Use 528x instead of 5280.
+	(override_options): Don't set CPU/arch if tuning option only is given.
+	* gcc/config/m68k/m68k.h (processor_type): Ignore new multilib field in
+	m68k-cores.def.
+
+	2006-02-13  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Implement 'R'
+	constraint for immediates which can be handled by mov3q.
+
+	2006-02-10  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md: Replace uses of TARGET_68020, TARGET_68040,
+	TARGET_68060, TARGET_68040_ONLY, TARGET_CPU32, TARGET_CFV4 with
+	TUNE_68000, TUNE_68020, TUNE_68040, TUNE_CFV4, m68k_arch_68020,
+	m68k_arch_68040, m68k_arch_68060, m68k_arch_isab as appropriate,
+	throughout.
+	* gcc/config/m68k/linux.h (MASK_68881): Change spelling to MASK_HARDFP.
+	* gcc/config/m68k/m68k-cores.def (68020-40, 68020-60): Remove CPU
+	names.
+	(68332, cpu32): Use cpu32 as microarchitecture.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Add prototype.
+	* gcc/config/m68k/m68k-none.h (MASK_68881): Change spelling to
+	MASK_HARDFP. Use -mhard-float instead of -m68881.
+	* gcc/config/m68k/m68k.opt (-m5200, -m5206e, -m528x, -m5307, -m5407)
+	(-mcfv4e, -m68881): Don't use target flags to handle legacy options.
+	(-mhard-float): Add option to enable ColdFire FPU or 68881 depending
+	on context.
+	(-msoft-float): Negation of above.
+	(-mhwdiv): Enable/disable ColdFire hardware divide instructions
+	(unimplemented).
+	* gcc/config/m68k/m68k.c (m68k_cpu, m68k_arch_68020, m68k_arch_68040)
+	(m68k_arch_68060, m68k_arch_coldfire, m68k_arch_isaaplus)
+	(m68k_arch_isab, m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield)
+	(m68k_cf_hwdiv, m68k_cf_usp): New variables describing target
+	capabilities.
+	(FL_FOR_isa_40, FL_FOR_isa_60): Alter definitions.
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60): Remove.
+	(m68k_isa): Remove isa_20_40 and isa_20_60.
+	(all_cores): Alter last entry.
+	(all_architectures): Reformat. Update various fields. Remove 68020-40
+	and 68020-60. Remove cfvX entries.
+	(all_tunings): New array. Describe different tuning options.
+	(m68k_select): Tune for microarch not CPU.
+	(MASK_ALL_CPU_BITS): Remove.
+	(m68k_handle_option): Handle legacy options using new CPU/tuning
+	selection code. Add support for -mhard-float and fix support for
+	-msoft-float, -m68881.
+	(override_options): Add tuning support. Remove legacy target flag
+	support.
+	(m68k_cpu_cpp_builtins): New function (from TARGET_CPU_CPP_BUILTINS
+	in m68k.h). Handle legacy defines, and support new __mcfisaX__ and
+	__mcfvX__ defines to be used in new code.
+	(m68k_output_function_prologue): Use TUNE_* macros and m68k_arch_*
+	predicates.
+	(m68k_output_function_epilogue): Likewise.
+	(m68k_output_pic_call): Likewise.
+	(output_scc_di): Likewise.
+	(const_method): Likewise.
+	(m68k_rtx_costs): Likewise.
+	(output_move_simode_const): Likewise.
+	(output_move_himode): Likewise.
+	(output_move_qimode): Likewise.
+	(output_move_stricthi): Likewise.
+	(output_move_strictqi): Likewise.
+	(output_addsi3): Likewise.
+	(standard_68881_constant_p): Likewise.
+	(print_operand): Likewise.
+	(m68k_output_mi_thunk): Likewise.
+	* gcc/config/m68k/netbsd-elf.h (MASK_68881): Spell MASK_HARDFP.
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Implement as
+	function call to m68k_cpu_cpp_builtins.
+	(TARGET_CPU32): Remove.
+	(TARGET_COLDFIRE): Define as m68k_arch_coldfire.
+	(TARGET_COLDFIRE_FPU, TARGET_68881, TARGET_HARD_FLOAT): Define in terms
+	of m68k_fpu.
+	(TARGET_FLT_EVAL_METHOD): Use m68k_arch_68040.
+	(CONST_OK_FOR_LETTER_P): Add 'R' constraint.
+	(INDIRECTABLE_1_ADDRESS_P, GO_IF_INDEXED_ADDRESS, LEGITIMATE_INDEX_P):
+	Use m68k_arch_68020.
+	(uarch_type): Remove u68030, ucfv2m. Add ucpu32.
+	(TUNE_68000, TUNE_68020, TUNE_68040, TUNE_68060, TUNE_68040_60)
+	(TUNE_CPU32, TUNE_CFV2, TUNE_CFV3, TUNE_CFV4): Add tuning macros.
+	(m68k_cpu, m68k_arch_68020, m68k_arch_68040, m68k_arch_68060)
+	(m68k_arch_coldfire, m68k_arch_isaaplus, m68k_arch_isab)
+	(m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield, m68k_cf_hwdiv)
+	(m68k_cf_usp): Declare extern variables describing target capabilities.
+
+	2006-02-01  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm (__divsf3, __divdf3, __mulsf3,
+	__muldf3): Return a correctly signed zero.
+
+	2006-01-31  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
+	2006-01-30  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: New file. Define various 68k/ColdFire
+	cores.
+	* gcc/config/m68k/m68k.opt (-mcpu, -march, -mtune, -mfpu): New
+	options.
+	* gcc/config/m68k/m68k.c (FL_NOPIC, FL_BITFIELD, FL_68881, FL_COLDFIRE)
+	(FL_CF_HWDIV, FL_CF_MAC, FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP)
+	(FL_CF_FPU, FL_ISA_68000, FL_ISA_68020, FL_ISA_68040, FL_ISA_68060)
+	(FL_ISA_A, FL_ISA_APLUS, FL_ISA_B, FL_ISA_C): Define flags for
+	m68k-cores.def.
+	(FL_FOR_isa_00, FL_FOR_isa_20, FL_FOR_isa_40, FL_FOR_isa_60)
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60, FL_FOR_isa_a, FL_FOR_isa_aplus)
+	(FL_FOR_isa_b, FL_FOR_isa_c): Define base flags for ISAs.
+	(m68k_isa): New enumerated type for instruction-set architectures.
+	(processors): New type for processors.
+	(all_cores): New array. All m68k cores, read from m68k-cores.def.
+	(all_architectures): New array. All m68k architectures.
+	(m68k_cpu_select): New type for selecting cpu/arch.
+	(m68k_select): New array for selecting cpu/arch/tuning.
+	(fpu_impl): New type for floating-point units.
+	(fpu_select): New array for selecting FPU.
+	(M68K_OPT_SET_TUNE, M68K_OPT_SET_ARCH, M68K_OPT_SET_CPU): New defines
+	for indices into m68k_select array.
+	(m68k_handle_option): Handle -mcpu=, -march=, -mtune=.
+	(override_options): Handle new -mcpu, -march options. Translate to old
+	target flags.
+	* gcc/config/m68k/m68k.h (uarch_type): New enumeration for
+	microarchitecture types.
+	(processor_type): New enumeration for processor core identifications.
+	(fpu_type): New enumeration for FPU types.
+
+	2006-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* version.c: Mark as CodeSourcery build.
+
+	2006-01-23  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-23  Kazu Hirata  <kazu@codesourcery.com>
+	PR testsuite/25590
+	* gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+	2006-01-23  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/netbsd-elf.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Make
+	64-bit on Coldfire.
+	* gcc/config/m68k/m68k.h (LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Likewise. 
+
+	2006-01-22  Paul Brook  <paul@codesourcery.com>
+		Peter Barada  <peter@the-baradas.com>
+
+	* gcc/config/m68k/m68k.md: Add Coldfire FPU support.
+	Define FP mode macro and associated attributes.
+	Use it for float mode patterns.
+	* gcc/config/m68k/linux.h (FUNCTION_VALUE): Use m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k-protos.h (m68k_libcall_value): Add prototype.
+	(m68k_function_value): Ditto.
+	(emit_move_sequence): Ditto.
+	* gcc/config/m68k/m68kemb.h (LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add mcfv4e.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add mcfv4e.
+	(MULTILIB_EXCEPTIONS): Ditto.
+	* gcc/config/m68k/m68k.opt: Add mcfv4e.
+	* gcc/config/m68k/m68k.c (m68k_handle_option): Handle OPT_mcfv4e.
+	(m68k_compute_frame_layout): Include space for ColdFire FPU regs.
+	(m68k_output_function_prologue): Save ColdFire FPU registers.
+	(m68k_output_function_epilogue): Restore ColdFire FPU registers.
+	(force_mode, fp_reg_operand, emit_move_sequence): New functions.
+	(m68k_regno_mode_ok): Don't allow types larget than 8 bytes in
+	ColdFire FPU registers.
+	(m68k_libcall_value, m68k_function_value): New functions.
+	* gcc/config/m68k/netbsd-elf.h (FUNCTION_VALUE): Use
+	m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcfv4e__.
+	(MASK_COLDFIRE): Add MASK_CFV4E.
+	(TARGET_COLDFIRE_FPU, TARGET_HARD_FLOAT, TARGET_FP_REG_SIZE): New.
+	(MODES_TIEABLE_P): Use TARGET_HARD_FLOAT.
+	(REG_CLASS_FROM_LETTER, PREFERRED_RELOAD_CLASS): Ditto.
+	(GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS): Define.
+	(GO_IF_LEGITIMATE_ADDRESS): Use it.
+	(LEGITIMIZE_ADDRESS): Handle ColdFire FPU addresses.
+	* gcc/doc/invoke.tex: Document -mcfv4e on m68k.
+
 2006-06-21  Mark Mitchell  <mark@codesourcery.com>
 
 	libstdc++/

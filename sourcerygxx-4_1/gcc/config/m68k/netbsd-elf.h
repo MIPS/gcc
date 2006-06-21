@@ -45,7 +45,8 @@ Boston, MA 02110-1301, USA.  */
   ((TARGET_68020 || TARGET_68040 || TARGET_68040_ONLY || \
     TARGET_68060) ? 80 : 64)
 
-#ifdef __mc68010__
+#undef LIBGCC2_LONG_DOUBLE_TYPE_SIZE
+#if defined(__mc68010__) || defined(__mcoldfire__)
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #else
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
@@ -80,7 +81,7 @@ Boston, MA 02110-1301, USA.  */
 #endif
 
 
-#if TARGET_DEFAULT & MASK_68881
+#if TARGET_DEFAULT & MASK_HARDFP
 #define CPP_FPU_SPEC "%{!msoft-float:-D__HAVE_68881__ -D__HAVE_FPU__}"
 #else
 #define CPP_FPU_SPEC "%{m68881:-D__HAVE_68881__ -D__HAVE_FPU__}"
@@ -186,7 +187,7 @@ while (0)
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_RETURN_CASE_JUMP				\
   do {							\
-    if (TARGET_COLDFIRE)				\
+    if (m68k_arch_coldfire)				\
       {							\
 	if (ADDRESS_REG_P (operands[0]))		\
 	  return "jmp %%pc@(2,%0:l)";			\
@@ -307,11 +308,7 @@ while (0)
 
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  (TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_68881			\
-   ? gen_rtx_REG (TYPE_MODE (VALTYPE), 16)				\
-   : (POINTER_TYPE_P (VALTYPE)						\
-      ? gen_rtx_REG (TYPE_MODE (VALTYPE), 8)				\
-      : gen_rtx_REG (TYPE_MODE (VALTYPE), 0)))
+  m68k_function_value (VALTYPE, FUNC)
 
 
 /* For compatibility with the large body of existing code which does
@@ -339,10 +336,7 @@ while (0)
 
 #undef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)						\
-  ((((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode)		\
-    && TARGET_68881)							\
-   ? gen_rtx_REG (MODE, 16)						\
-   : gen_rtx_REG (MODE, 0))
+  m68k_libcall_value (MODE)
 
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.
@@ -365,12 +359,6 @@ while (0)
 
 #undef BIGGEST_ALIGNMENT
 #define BIGGEST_ALIGNMENT 64
-
-
-/* For m68k SVR4, structures are returned using the reentrant
-   technique.  */
-
-#undef PCC_STATIC_STRUCT_RETURN
 
 
 /* The svr4 ABI for the m68k says that records and unions are returned

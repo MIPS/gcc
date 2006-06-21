@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "regs.h"
 #include "function.h"
+#include "tree.h"
 
 /* Forward declarations */
 static int global_reg_mentioned_p_1 (rtx *, void *);
@@ -473,6 +474,54 @@ get_related_value (rtx x)
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return XEXP (x, 0);
   return 0;
+}
+
+/* Return true if SYMBOL is a SYMBOL_REF and if SYMBOL + OFFSET is known
+   to point to somewhere within the same object or object_block as SYMBOL.  */
+
+bool
+offset_within_block_p (rtx symbol, HOST_WIDE_INT offset)
+{
+  if (GET_CODE (symbol) != SYMBOL_REF)
+    return false;
+
+  if (CONSTANT_POOL_ADDRESS_P (symbol)
+      && offset >= 0
+      && offset < (int) GET_MODE_SIZE (get_pool_mode (symbol)))
+    return true;
+
+  if (SYMBOL_REF_DECL (symbol) != 0
+      && offset >= 0
+      && offset < int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (symbol))))
+    return true;
+
+  return false;
+}
+
+/* Return true if X is a constant of the form SYMBOL + X and if that
+   address might be outside SYMBOL's section.  When returning true,
+   store SYMBOL in *BASE if BASE is nonnull; likewise store X in
+   *OFFSET if OFFSET is nonnull.  */
+
+bool
+constant_may_be_outside_section_p (rtx x, rtx *base, rtx *offset)
+{
+  if (GET_CODE (x) == CONST)
+    {
+      x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS
+	  && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && !offset_within_block_p (XEXP (x, 0), INTVAL (XEXP (x, 1))))
+	{
+	  if (base)
+	    *base = XEXP (x, 0);
+	  if (offset)
+	    *offset = XEXP (x, 1);
+	  return true;
+	}
+    }
+  return false;
 }
 
 /* A subroutine of global_reg_mentioned_p, returns 1 if *LOC mentions

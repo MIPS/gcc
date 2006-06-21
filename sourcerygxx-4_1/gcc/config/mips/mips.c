@@ -1253,29 +1253,6 @@ mips_split_const (rtx x, rtx *base, HOST_WIDE_INT *offset)
 }
 
 
-/* Return true if SYMBOL is a SYMBOL_REF and OFFSET + SYMBOL points
-   to the same object as SYMBOL.  */
-
-static bool
-mips_offset_within_object_p (rtx symbol, HOST_WIDE_INT offset)
-{
-  if (GET_CODE (symbol) != SYMBOL_REF)
-    return false;
-
-  if (CONSTANT_POOL_ADDRESS_P (symbol)
-      && offset >= 0
-      && offset < (int) GET_MODE_SIZE (get_pool_mode (symbol)))
-    return true;
-
-  if (SYMBOL_REF_DECL (symbol) != 0
-      && offset >= 0
-      && offset < int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (symbol))))
-    return true;
-
-  return false;
-}
-
-
 /* Return true if X is a symbolic constant that can be calculated in
    the same way as a bare symbol.  If it is, store the type of the
    symbol in *SYMBOL_TYPE.  */
@@ -1313,7 +1290,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 	 sign-extended.  In this case we can't allow an arbitrary offset
 	 in case the 32-bit value X + OFFSET has a different sign from X.  */
       if (Pmode == DImode && !ABI_HAS_64BIT_SYMBOLS)
-	return mips_offset_within_object_p (x, offset);
+	return offset_within_block_p (x, offset);
 
       /* In other cases the relocations can handle any offset.  */
       return true;
@@ -1329,9 +1306,9 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_type *symbol_type)
 
     case SYMBOL_SMALL_DATA:
       /* Make sure that the offset refers to something within the
-	 underlying object.  This should guarantee that the final
+	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
-      return mips_offset_within_object_p (x, offset);
+      return offset_within_block_p (x, offset);
 
     case SYMBOL_GOT_LOCAL:
     case SYMBOL_GOTOFF_PAGE:

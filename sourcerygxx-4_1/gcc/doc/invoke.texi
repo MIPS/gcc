@@ -566,11 +566,16 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mcpu=@var{cpu} -msim -memregs=@var{number}}
 
 @emph{M680x0 Options}
-@gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
--m68060  -mcpu32  -m5200  -m68881  -mbitfield  -mc68000  -mc68020   @gol
--mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
--malign-int  -mstrict-align  -msep-data  -mno-sep-data @gol
--mshared-library-id=n  -mid-shared-library  -mno-id-shared-library}
+@gccoptlist{-march=@var{arch} -mcpu=@var{cpu} -mtune=@var{tune} @gol
+-m68000 -m68020 -m68020-40 -m68020-60 -m68030 -m68040 @gol
+-m68060 -m68302 -m68332 -m68851 -mcpu32 -mc68000 -mc68020
+-m5200 -m5206e -m528x -m5307 -m5407 -mcfv4e @gol
+-m68881 -mc68000  -mc68020 -mhard-float -msoft-float @gol
+-mbitfield -mno-bitfield -mnobitfield -mdiv -mno-div @gol
+-mshort -mno-short -mnoshort @gol
+-mstrict-align -mno-strict-align -malign-int -mno-align-int @gol
+-mrtd -mno-rtd -mnortd -mpcrel -mno-pcrel -msep-data -mno-sep-data @gol
+-mid-shared-library -mno-id-shared-library -mshared-library-id=@var{n}}
 
 @emph{M68hc1x Options}
 @gccoptlist{-m6811  -m6812  -m68hc11  -m68hc12   -m68hcs12 @gol
@@ -9794,18 +9799,60 @@ Indicates that there is no OS function for flushing the cache.
 @subsection M680x0 Options
 @cindex M680x0 options
 
-These are the @samp{-m} options defined for the 68000 series.  The default
-values for these options depends on which style of 68000 was selected when
-the compiler was configured; the defaults for the most common choices are
-given below.
+The M680x0 options also cover ColdFire targets.  These are the
+@samp{-m} options defined for the 68000 series.  The default values
+for these options depends on which style of 68000 was selected when
+the compiler was configured; the defaults for the most common choices
+are given below.
 
 @table @gcctabopt
+@item -march=@var{arch}
+@opindex march
+Generate code for a specific M680x0 or Coldfire architecture.  This
+determines the instruction set that can be targetted.  It can be used
+in conjunction, with or instead of the @option{-mcpu} option.
+Permissible values to select M680x0 architectures are: @samp{68000},
+@samp{68010}, @samp{68020}, @samp{68030}, @samp{68040}, @samp{68060},
+@samp{cpu32}.  Coldfire architectures are selected by ISA name, and
+permissible values are: @samp{isaa}, @samp{isaaplus}, @samp{isab} or
+@samp{isac}.  Various other options (such as @option{-mdiv}) can be
+used to enable or disable specific instruction set features.  By
+default these architectures will include hardware divide.  If you want
+to generate code that will run on a family of similar processors you
+should use the @option{march=} option, together with the
+@option{-mtune=} option, if you want to optimize for one particular
+cpu or micro architecture.
+
+@item -mcpu=@var{cpu}
+@opindex mcpu
+Generate code for a specific M680x0 or Coldfire processor.  You
+usually want to provide either an @option{-mcpu=} or @option{-march=}
+option, but not both.  If you give both, the @option{-mcpu=} will be
+used.  M680x0 cpus are: @samp{68000}, @samp{68010}, @samp{68020},
+@samp{68030}, @samp{68040}, @samp{68060}, @samp{68302}, @samp{68332}
+and @samp{cpu32}.  Coldfire cpus are: @samp{5202}, @samp{5204}
+@samp{5206}, @samp{5206e}, @samp{5207}, @samp{5208}, @samp{5211},
+@samp{5212}, @samp{5213}, @samp{5214}, @samp{5216}, @samp{52235},
+@samp{5225}, @samp{523x}, @samp{5249}, @samp{5250}, @samp{5270},
+@samp{5271}, @samp{5272}, @samp{5274}, @samp{5275}, @samp{528x},
+@samp{5307}, @samp{532x}, @samp{537x}, @samp{5407}, @samp{547x} and
+@samp{548x}.
+
+@item -mtune=@var{tune}
+@opindex mtune
+This option selects a particular micro architecture to tune for.
+M680x0 micro architectures are: @samp{68000}, @samp{68010},
+@samp{68020}, @samp{68030}, @samp{68040}, @samp{68060} and
+@samp{cpu32}. Coldfire micro architectures are @samp{cfv2},
+@samp{cfv3}, @samp{cfv4} and @samp{cfv4e}.
+
 @item -m68000
 @itemx -mc68000
 @opindex m68000
 @opindex mc68000
 Generate output for a 68000.  This is the default
-when the compiler is configured for 68000-based systems.
+when the compiler is configured for 68000-based systems.  It is
+equivalent to @option{mcpu=68000}.
 
 Use this option for microcontrollers with a 68000 or EC000 core,
 including the 68008, 68302, 68306, 68307, 68322, 68328 and 68356.
@@ -9815,23 +9862,38 @@ including the 68008, 68302, 68306, 68307, 68322, 68328 and 68356.
 @opindex m68020
 @opindex mc68020
 Generate output for a 68020.  This is the default
-when the compiler is configured for 68020-based systems.
+when the compiler is configured for 68020-based systems. It is
+equivalent to @option{mcpu=68020}.
 
-@item -m68881
-@opindex m68881
-Generate output containing 68881 instructions for floating point.
-This is the default for most 68020 systems unless @option{--nfp} was
-specified when the compiler was configured.
+@item -m68020-40
+@opindex m68020-40
+Generate output which can run on the 68020, but tuned for a 68040.
+Instructions added to the 68040 will not be generated.  Nor will 68881
+instructions that are emulated on the 68040.  This results in code
+which can run relatively efficiently on either a 68020/68881 or a
+68030 or a 68040.  This is equivalent to @option{-mcpu=68020}
+@option{-mtune=68040}.
+
+@item -m68020-60
+@opindex m68020-60
+Generate output which can run on the 68020, but tuned for a 68060.
+Instructions added to the 68060 will not be generated.  Nor will 68881
+instructions that are emulated on the 68060.  This results in code
+which can run relatively efficiently on either a 68020/68881 or a
+68030 or a 68040.  This is equivalent to @option{-mcpu=68020}
+@option{-mtune=68060}.
 
 @item -m68030
 @opindex m68030
 Generate output for a 68030.  This is the default when the compiler is
-configured for 68030-based systems.
+configured for 68030-based systems.  It is equivalent to
+@option{-mcpu=68030}.
 
 @item -m68040
 @opindex m68040
 Generate output for a 68040.  This is the default when the compiler is
-configured for 68040-based systems.
+configured for 68040-based systems. It is equivalent to
+@option{-mcpu=68040}.
 
 This option inhibits the use of 68881/68882 instructions that have to be
 emulated by software on the 68040.  Use this option if your 68040 does not
@@ -9840,16 +9902,31 @@ have code to emulate those instructions.
 @item -m68060
 @opindex m68060
 Generate output for a 68060.  This is the default when the compiler is
-configured for 68060-based systems.
+configured for 68060-based systems.  It is equivalent to
+@option{-mcpu=68060}.
 
 This option inhibits the use of 68020 and 68881/68882 instructions that
 have to be emulated by software on the 68060.  Use this option if your 68060
 does not have code to emulate those instructions.
 
+@item -m68302
+@opindex m68302
+Generate code for a 68302.  This is equivalent to @option{-mcpu=68302}.
+
+@item -m68332
+@opindex m68332
+Generate code for a 68332.  This is equivalent to @option{-mcpu=68332}.
+
+@item -m68851
+@opindex m68851
+This option is ignored, for backwards compatibility, as it has no
+meaning for compiler code generation.
+
 @item -mcpu32
 @opindex mcpu32
 Generate output for a CPU32.  This is the default
-when the compiler is configured for CPU32-based systems.
+when the compiler is configured for CPU32-based systems. It is
+equivalent to @option{-mcpu=cpu32}.
 
 Use this option for microcontrollers with a
 CPU32 or CPU32+ core, including the 68330, 68331, 68332, 68333, 68334,
@@ -9857,56 +9934,120 @@ CPU32 or CPU32+ core, including the 68330, 68331, 68332, 68333, 68334,
 
 @item -m5200
 @opindex m5200
-Generate output for a 520X ``coldfire'' family cpu.  This is the default
-when the compiler is configured for 520X-based systems.
+Generate output for a 52XX ColdFire family cpu.  This is the default
+when the compiler is configured for 520X-based systems.  It is
+equivalent to @option{-march=isaa} @option{-mno-div} @option{-mtune=cfv2}.
 
 Use this option for microcontroller with a 5200 core, including
 the MCF5202, MCF5203, MCF5204 and MCF5202.
 
+@item -m5206e
+@opindex m5206e
+Generate code for the 5206e ColdFire cpu.  It is equivalent to
+@option{-mcpu=5206e}.
 
-@item -m68020-40
-@opindex m68020-40
-Generate output for a 68040, without using any of the new instructions.
-This results in code which can run relatively efficiently on either a
-68020/68881 or a 68030 or a 68040.  The generated code does use the
-68881 instructions that are emulated on the 68040.
+@item -m528x
+@opindex m528x
+Generate code for the 528x ColdFire cpu.  It is equivalent to
+@option{-mcpu=528x}.
 
-@item -m68020-60
-@opindex m68020-60
-Generate output for a 68060, without using any of the new instructions.
-This results in code which can run relatively efficiently on either a
-68020/68881 or a 68030 or a 68040.  The generated code does use the
-68881 instructions that are emulated on the 68060.
+@item -m5307
+@opindex m5307
+Generate code for the 5307 ColdFire cpu.  It is equivalent to
+@option{-mcpu=5307}.
+
+@item -m5407
+@opindex m5407
+Generate code for the 5407 ColdFire cpu.  It is equivalent to
+@option{-mcpu=5407}.
+
+@item -mcfv4e
+@opindex mcfv4e
+Generate output for a ColdFire V4e family cpu (e.g.@: 547x/548x).
+This includes use of hardware floating point instructions. It is
+equivalent to @option{-march=isab} @option{-mhard-float}
+@option{-mtune=cfv4e}.
+
+@item -m68881
+@opindex m68881
+Generate output containing 68881 instructions for floating point.
+This is the default for most 68020 systems unless
+@option{--with-float=soft} was specified when the compiler was
+configured.  It is equivalent to @option{-mhard-float} on M680x0
+targets.
+
+@item -mhard-float
+@opindex mhard-float
+Generate code using floating point instructions.  This is the default
+when targeting processors that have floating point instructions.
 
 @item -msoft-float
 @opindex msoft-float
 Generate output containing library calls for floating point.
-@strong{Warning:} the requisite libraries are not available for all m68k
-targets.  Normally the facilities of the machine's usual C compiler are
-used, but this can't be done directly in cross-compilation.  You must
-make your own arrangements to provide suitable library functions for
-cross-compilation.  The embedded targets @samp{m68k-*-aout} and
-@samp{m68k-*-coff} do provide software floating point support.
+
+@item -mbitfield
+@itemx -mno-bitfield
+@itemx -mnobitfield
+@opindex mbitfield
+@opindex mno-bitfield
+@opindex mnobitfield
+Selects whether M680x0 bitfield instructions should be
+generated. Bitfield instructions are normally only generated when
+targeting the 68020 or higher architecture.  @option{-mnobitfield} is an
+alternate spelling kept for backwards compatibility.
+
+@item -mdiv
+@item -mno-div
+@opindex mdiv
+@opindex mno-div
+Selects whether ColdFire hardware divide (& remainder) instructions
+are generated.  This is the default for all ColdFire architecture
+variants, but not for those ColdFire cpus that do not have hardware
+divide support (5206 for example).
 
 @item -mshort
+@itemx -mno-short
+@itemx -mnoshort
 @opindex mshort
+@opindex mno-short
+@opindex mnoshort
+Selects whether type @code{int} should be 16 bits wide (like
+@code{short int}), or 32 bits wide (like @code{long int}).  The
+default is for @code{int} to be a 32 bit type.
+@option{-mnoshort} is alternate spelling kept for backwards compatibility.
 Consider type @code{int} to be 16 bits wide, like @code{short int}.
 Additionally, parameters passed on the stack are also aligned to a
 16-bit boundary even on targets whose API mandates promotion to 32-bit.
 
-@item -mnobitfield
-@opindex mnobitfield
-Do not use the bit-field instructions.  The @option{-m68000}, @option{-mcpu32}
-and @option{-m5200} options imply @w{@option{-mnobitfield}}.
+@item -malign-int
+@itemx -mno-align-int
+@opindex malign-int
+@opindex mno-align-int
+Control whether GCC aligns @code{int}, @code{long}, @code{long long},
+@code{float}, @code{double}, and @code{long double} variables on a 32-bit
+boundary (@option{-malign-int}) or a 16-bit boundary (@option{-mno-align-int}).
+Aligning variables on 32-bit boundaries produces code that runs somewhat
+faster on processors with 32-bit busses at the expense of more
+memory.  The default is @option{-mno-align-int}.
 
-@item -mbitfield
-@opindex mbitfield
-Do use the bit-field instructions.  The @option{-m68020} option implies
-@option{-mbitfield}.  This is the default if you use a configuration
-designed for a 68020.
+@strong{Warning:} if you use the @option{-malign-int} switch, GCC will
+align structures containing the above types differently than
+most published application binary interface specifications for the m68k.
+
+@item -mstrict-align
+@itemx -mno-strict-align
+@opindex mstrict-align
+@opindex mno-strict-align
+Control whether unaligned memory references will be handled by
+the system, or whether they must be handled by the compiler
+itself. The default is @option{-mno-strict-align}
 
 @item -mrtd
+@itemx -mno-rtd
+@itemx -mnortd
 @opindex mrtd
+@opindex mno-rtd
+@opindex mnortd
 Use a different function-calling convention, in which functions
 that take a fixed number of arguments return with the @code{rtd}
 instruction, which pops their arguments while returning.  This
@@ -9927,58 +10068,41 @@ function with too many arguments.  (Normally, extra arguments are
 harmlessly ignored.)
 
 The @code{rtd} instruction is supported by the 68010, 68020, 68030,
-68040, 68060 and CPU32 processors, but not by the 68000 or 5200.
-
-@item -malign-int
-@itemx -mno-align-int
-@opindex malign-int
-@opindex mno-align-int
-Control whether GCC aligns @code{int}, @code{long}, @code{long long},
-@code{float}, @code{double}, and @code{long double} variables on a 32-bit
-boundary (@option{-malign-int}) or a 16-bit boundary (@option{-mno-align-int}).
-Aligning variables on 32-bit boundaries produces code that runs somewhat
-faster on processors with 32-bit busses at the expense of more memory.
-
-@strong{Warning:} if you use the @option{-malign-int} switch, GCC will
-align structures containing the above types  differently than
-most published application binary interface specifications for the m68k.
+68040, 68060 and CPU32 processors, but not by the 68000 or ColdFire.
 
 @item -mpcrel
+@item -mno-pcrel
 @opindex mpcrel
+@opindex mno-pcrel
 Use the pc-relative addressing mode of the 68000 directly, instead of
 using a global offset table.  At present, this option implies @option{-fpic},
 allowing at most a 16-bit offset for pc-relative addressing.  @option{-fPIC} is
-not presently supported with @option{-mpcrel}, though this could be supported for
-68020 and higher processors.
-
-@item -mno-strict-align
-@itemx -mstrict-align
-@opindex mno-strict-align
-@opindex mstrict-align
-Do not (do) assume that unaligned memory references will be handled by
-the system.
+not presently supported with @option{-mpcrel}, though this could be
+supported for 68020 and higher processors.
 
 @item -msep-data
-Generate code that allows the data segment to be located in a different
-area of memory from the text segment.  This allows for execute in place in
-an environment without virtual memory management.  This option implies
-@option{-fPIC}.
-
-@item -mno-sep-data
-Generate code that assumes that the data segment follows the text segment.
-This is the default.
+@itemx -mno-sep-data
+@opindex msep-data
+@opindex mno-sep-data
+Generate code that allows the data segment to be located in a
+different area of memory from the text segment.  This allows for
+execute in place in an environment without virtual memory management.
+This option implies @option{-fPIC}.  The default is
+@option{-mno-sep-data}, which assumes that the data segment follows
+the text segment.  This is the default.
 
 @item -mid-shared-library
+@itemx -mno-id-shared-library
+@opindex mid-shared-library
+@opindex mno-id-shared-library
 Generate code that supports shared libraries via the library ID method.
 This allows for execute in place and shared libraries in an environment
-without virtual memory management.  This option implies @option{-fPIC}.
-
-@item -mno-id-shared-library
-Generate code that doesn't assume ID based shared libraries are being used.
-This is the default.
+without virtual memory management.  This option implies
+@option{-fPIC}.  The default is @option{-mno-id-shared-library}, which
+does not assume that ID based shared libraries are being used.
 
 @item -mshared-library-id=n
-Specified the identification number of the ID based shared library being
+Specify the identification number of the ID based shared library being
 compiled.  Specifying a value of 0 will generate more compact code, specifying
 other values will force the allocation of that number to the current
 library but is no more space or time efficient than omitting this option.

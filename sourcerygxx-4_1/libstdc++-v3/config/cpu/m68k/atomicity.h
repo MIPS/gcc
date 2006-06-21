@@ -88,8 +88,20 @@ namespace __gnu_cxx
   {
     _Atomic_word __result;
     
-    // bset with no immediate addressing (not SMP-safe)
-#if defined(__mcf5200__) || defined(__mcf5300__)
+#if defined(__mcfv4e__)
+    // use subq to determine if gone negative; if not, then add back
+    // in and loop
+    for (char carry = 0; !carry;)
+      {
+	__asm__ __volatile__("subql #1,%1; scs %0"
+			     : "=d" (carry),
+			     "+m" (_Atomicity_lock<0>::_S_atomicity_lock));
+	if (!carry)
+	  __asm__ __volatile__("addql #1,%0"
+			       : "+m" (_Atomicity_lock<0>::_S_atomicity_lock));
+      }
+#elif defined(__mcf5200__) || defined(__mcf5300__)
+     // bset with no immediate addressing (not SMP-safe)
     __asm__ __volatile__("1: bset.b #7,%0@\n\tjbne 1b"
 			 : /* no outputs */
 			 : "a"(&_Atomicity_lock<0>::_S_atomicity_lock)
@@ -115,8 +127,14 @@ namespace __gnu_cxx
     __result = *__mem;
     *__mem = __result + __val;
     
+#if defined(__mcfv4e__)
+    // Have to add back in since it may be negative at *this* moment
+    __asm__ __volatile__ ("addql #1,%0"
+			  : "+m" (_Atomicity_lock<0>::_S_atomicity_lock));
+#else
     _Atomicity_lock<0>::_S_atomicity_lock = 0;
-    
+#endif
+ 
     return __result;
   }
   

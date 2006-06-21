@@ -691,7 +691,8 @@ proper position among the other output files.  */
    doesn't handle -static.  */
 /* We want %{T*} after %{L*} and %D so that it can be used to specify linker
    scripts which exist in user specified directories, or in standard
-   directories.  */
+   directories.  It needs to come before endfile_spec, incase it cause
+   code to be emitted to the various ctor/dtor sections.  */
 #ifndef LINK_COMMAND_SPEC
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
@@ -700,7 +701,7 @@ proper position among the other output files.  */
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
+    %{T*} %{!A:%{!nostdlib:%{!nostartfiles:%E}}}}}}}}}"
 #endif
 
 #ifndef LINK_LIBGCC_SPEC
@@ -5182,7 +5183,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    if (soft_matched_part)
 	      {
 		do_spec_1 (soft_matched_part, 1, NULL);
-		do_spec_1 (" ", 0, NULL);
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like
@@ -5532,12 +5532,16 @@ static inline void
 process_marked_switches (void)
 {
   int i;
+  int first = 1;
 
   for (i = 0; i < n_switches; i++)
     if (switches[i].ordering == 1)
       {
+	if (!first)
+	  do_spec_1 (" ", 0, NULL);
 	switches[i].ordering = 0;
 	give_switch (i, 0);
+	first = 0;
       }
 }
 
@@ -5755,17 +5759,21 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
 	     variant part of the switch.  */
 	  unsigned int hard_match_len = end_atom - atom;
 	  int i;
+	  int first = 1;
 
 	  for (i = 0; i < n_switches; i++)
 	    if (!strncmp (switches[i].part1, atom, hard_match_len)
 		&& check_live_switch (i, hard_match_len))
 	      {
+		if (!first)
+		  do_spec_1 (" ", 0, NULL);
 		if (do_spec_1 (string, 0,
 			       &switches[i].part1[hard_match_len]) < 0)
 		  return 0;
 		/* Pass any arguments this switch has.  */
 		give_switch (i, 1);
 		suffix_subst = NULL;
+		first = 0;
 	      }
 	}
     }
@@ -5900,7 +5908,6 @@ give_switch (int switchnum, int omit_first_word)
 	}
     }
 
-  do_spec_1 (" ", 0, NULL);
   switches[switchnum].validated = 1;
 }
 

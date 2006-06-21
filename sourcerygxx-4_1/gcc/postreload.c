@@ -702,18 +702,24 @@ reload_combine (void)
   unsigned int r;
   int last_label_ruid;
   int min_labelno, n_labels;
-  HARD_REG_SET ever_live_at_start, *label_live;
+  HARD_REG_SET ever_live_at_start, *label_live, index_regs;
 
   /* If reg+reg can be used in offsetable memory addresses, the main chunk of
      reload has already used it where appropriate, so there is no use in
      trying to generate it now.  */
-  if (double_reg_address_ok && INDEX_REG_CLASS != NO_REGS)
+  if (double_reg_address_ok)
     return;
+
+  /* Work out the set of all index registers.  */
+  CLEAR_HARD_REG_SET (index_regs);
+  for (i = 0; i < NUM_MACHINE_MODES; i++)
+    IOR_HARD_REG_SET (index_regs,
+		      reg_class_contents[MODE_INDEX_REG_CLASS (i)]);
 
   /* To avoid wasting too much time later searching for an index register,
      determine the minimum and maximum index register numbers.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-    if (TEST_HARD_REG_BIT (reg_class_contents[INDEX_REG_CLASS], r))
+    if (TEST_HARD_REG_BIT (index_regs, r))
       {
 	if (first_index_reg == -1)
 	  first_index_reg = r;
@@ -822,9 +828,8 @@ reload_combine (void)
 	     substitute uses of REG (typically in MEMs) with.
 	     First check REG and BASE for being index registers;
 	     we can use them even if they are not dead.  */
-	  if (TEST_HARD_REG_BIT (reg_class_contents[INDEX_REG_CLASS], regno)
-	      || TEST_HARD_REG_BIT (reg_class_contents[INDEX_REG_CLASS],
-				    REGNO (base)))
+	  if (TEST_HARD_REG_BIT (index_regs, regno)
+	      || TEST_HARD_REG_BIT (index_regs, REGNO (base)))
 	    {
 	      const_reg = reg;
 	      reg_sum = plus;
@@ -837,8 +842,7 @@ reload_combine (void)
 		 two registers.  */
 	      for (i = first_index_reg; i <= last_index_reg; i++)
 		{
-		  if (TEST_HARD_REG_BIT (reg_class_contents[INDEX_REG_CLASS],
-					 i)
+		  if (TEST_HARD_REG_BIT (index_regs, i)
 		      && reg_state[i].use_index == RELOAD_COMBINE_MAX_USES
 		      && reg_state[i].store_ruid <= reg_state[regno].use_ruid
 		      && hard_regno_nregs[i][GET_MODE (reg)] == 1)

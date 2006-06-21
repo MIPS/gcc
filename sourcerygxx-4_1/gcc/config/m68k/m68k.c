@@ -122,6 +122,7 @@ static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static int const_int_cost (rtx);
 static bool m68k_rtx_costs (rtx, int, int, int *);
+static bool m68k_cannot_force_const_mem (rtx);
 
 
 /* Specify the identification number of the library being built */
@@ -172,9 +173,6 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
-#undef TARGET_ASM_FILE_START_APP_OFF
-#define TARGET_ASM_FILE_START_APP_OFF true
-
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_STRICT_ALIGNMENT)
 #undef TARGET_HANDLE_OPTION
@@ -192,6 +190,9 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX m68k_struct_value_rtx
 
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM m68k_cannot_force_const_mem
+
 static const struct attribute_spec m68k_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
@@ -201,12 +202,177 @@ static const struct attribute_spec m68k_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* These bits are controlled by all CPU selection options.  Many options
-   also control MASK_68881, but some (notably -m68020) leave it alone.  */
 
-#define MASK_ALL_CPU_BITS \
-  (MASK_COLDFIRE | MASK_CF_HWDIV | MASK_68060 | MASK_68040 \
-   | MASK_68040_ONLY | MASK_68030 | MASK_68020 | MASK_BITFIELD)
+/* Predicates for use in m68k.md etc.  */
+
+/* Which CPU we are generating code for.  */
+enum processor_type m68k_cpu = unk_proc;
+
+/* Nonzero if 68020 instructions are supported.  */
+int m68k_arch_68020 = 0;
+
+/* Nonzero if 68040 instructions are supported.  */
+int m68k_arch_68040 = 0;
+
+/* Nonzero if 68060 instructions are supported.  */
+int m68k_arch_68060 = 0;
+
+/* Nonzero if this is a ColdFire processor.  */
+int m68k_arch_coldfire = 0;
+
+/* Nonzero if ISA_A+ instructions are supported.  */
+int m68k_arch_isaaplus = 0;
+
+/* Nonzero if ISA_B instructions are supported.  */
+int m68k_arch_isab = 0;
+
+/* Nonzero if ISA_C instructions are supported.  */
+int m68k_arch_isac = 0;
+
+/* Which microarchitecture to tune for.  */
+enum uarch_type m68k_tune = unk_arch;
+
+/* Which FPU to use.  */
+enum fpu_type m68k_fpu = FPUTYPE_NONE;
+
+/* Nonzero if hardware bitfield instructions are supported.  */
+int m68k_bitfield = 0;
+
+/* Nonzero if hardware divide is supported.  */
+int m68k_cf_hwdiv = 0;
+
+/* Asm templates for calling or jumping to an arbitrary symbolic address,
+   or NULL if such calls or jumps are not supported.  The address is held
+   in operand 0.  */
+const char *m68k_symbolic_call;
+const char *m68k_symbolic_jump;
+
+/* Bit values used by m68k-cores.def to identify processor capabilities.  */
+#define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
+#define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
+#define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
+#define FL_COLDFIRE  (1 << 3)    /* ColdFire processor.  */
+#define FL_CF_HWDIV  (1 << 4)    /* ColdFire hardware divide supported.  */
+#define FL_CF_MAC    (1 << 5)    /* ColdFire MAC unit supported.  */
+#define FL_CF_EMAC   (1 << 6)    /* ColdFire eMAC unit supported.  */
+#define FL_CF_EMAC_B (1 << 7)    /* ColdFire eMAC-B unit supported.  */
+#define FL_CF_USP    (1 << 8)    /* ColdFire User Stack Pointer supported.  */
+#define FL_CF_FPU    (1 << 9)    /* ColdFire FPU supported.  */
+#define FL_ISA_68000 (1 << 10)
+#define FL_ISA_68020 (1 << 11)
+#define FL_ISA_68040 (1 << 12)
+#define FL_ISA_68060 (1 << 13)
+#define FL_ISA_A     (1 << 14)
+#define FL_ISA_APLUS (1 << 15)
+#define FL_ISA_B     (1 << 16)
+#define FL_ISA_C     (1 << 17)
+
+/* Base flags for 68k ISAs.  */
+#define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
+#define FL_FOR_isa_20    (FL_ISA_68020 | FL_BITFIELD)
+#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
+#define FL_FOR_isa_60    (FL_FOR_isa_40 | FL_ISA_68060)
+#define FL_FOR_isa_cpu32 (FL_ISA_68020)
+
+/* Base flags for ColdFire ISAs.  */
+#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A | FL_PCREL_16)
+#define FL_FOR_isa_aplus (FL_FOR_isa_a | FL_ISA_APLUS | FL_CF_USP)
+/* Note ISA_B doesn't necessarily include USP (user stack pointer) support.  */
+#define FL_FOR_isa_b     (FL_FOR_isa_a | FL_ISA_B | FL_CF_HWDIV)
+#define FL_FOR_isa_c     (FL_FOR_isa_b | FL_ISA_C | FL_CF_USP)
+
+enum m68k_isa
+{
+  /* Traditional 68000 instruction sets.  */
+  isa_00,
+  isa_20,
+  isa_40,
+  isa_60,
+  isa_cpu32,
+  /* ColdFire instruction set variants.  */
+  isa_a,
+  isa_aplus,
+  isa_b,
+  isa_c,
+  isa_max
+};
+
+struct processors
+{
+  const char *const name;
+  enum processor_type core;
+  enum uarch_type microarch;
+  enum m68k_isa isa;
+  const unsigned long flags;
+};
+
+static const struct processors all_cores[] =
+{
+  /* m68k cores.  */
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+  { NAME, IDENT, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
+#include "m68k-cores.def"
+#undef M68K_CORE
+  { NULL, unk_proc, unk_arch, isa_max, 0 }
+};
+
+/* Note that arch settings specify the minimum set of flags to enable running
+   on any CPU implementing that architecture. This may be non-optimal in many
+   cases.  */
+
+static const struct processors all_architectures[] =
+{
+  { "68000",    m68000,   u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68010",    m68010,   u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68020",    m68020,   u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68030",    m68030,   u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68040",    m68040,   u68040,   isa_40,    FL_FOR_isa_40 },
+  { "68060",    m68060,   u68060,   isa_60,    FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
+  { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_FOR_isa_a | FL_CF_HWDIV },
+  { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_FOR_isa_aplus
+					       | FL_CF_HWDIV },
+  { "isab",     mcf5407,  ucfv4,    isa_b,     FL_FOR_isa_b },
+  { "isac",     unk_proc, ucfv4,    isa_c,     FL_FOR_isa_c | FL_CF_FPU
+					       | FL_CF_EMAC },
+  { NULL,       unk_proc, unk_arch, isa_max,   0 }
+};
+
+static const struct processors all_tunings[] =
+{
+  { "68000",    m68000,   u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,   u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68020",    m68020,   u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68030",    m68030,   u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68040",    m68040,   u68040,   isa_40,  FL_FOR_isa_40 },
+  { "68060",    m68060,   u68060,   isa_60,  FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
+  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_FOR_isa_a },
+  { "cfv3",     mcf5307,  ucfv3,    isa_a,   FL_FOR_isa_a | FL_CF_HWDIV },
+  { "cfv4",     mcf5407,  ucfv4,    isa_b,   FL_FOR_isa_b },
+  { "cfv4e",    mcf547x,  ucfv4e,   isa_b,   FL_FOR_isa_b | FL_CF_USP
+					     | FL_CF_EMAC | FL_CF_FPU },
+  { NULL,       unk_proc, unk_arch, isa_max, 0 }
+};
+
+struct m68k_cpu_select
+{
+  const char *              string;
+  const char *              name;
+  const struct processors * processors;
+};
+
+static struct m68k_cpu_select m68k_select[] =
+{
+  { NULL, "-mtune=", all_tunings },
+  { NULL, "-march=", all_architectures },
+  { NULL, "-mcpu=",  all_cores }
+};
+
+/* Defines representing indices into the above table.  */
+#define M68K_OPT_SET_TUNE 0
+#define M68K_OPT_SET_ARCH 1
+#define M68K_OPT_SET_CPU 2
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -215,78 +381,81 @@ m68k_handle_option (size_t code, const char *arg, int value)
 {
   switch (code)
     {
+    case OPT_march_:
+      m68k_select[M68K_OPT_SET_ARCH].string = arg;
+      return true;
+
+    case OPT_mcpu_:
+      m68k_select[M68K_OPT_SET_CPU].string = arg;
+      return true;
+
+    case OPT_mtune_:
+      m68k_select[M68K_OPT_SET_TUNE].string = arg;
+      return true;
+
     case OPT_m5200:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_5200;
+      m68k_select[M68K_OPT_SET_CPU].string = "5206";
       return true;
 
     case OPT_m5206e:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_5200 | MASK_CF_HWDIV;
+      m68k_select[M68K_OPT_SET_CPU].string = "5206e";
       return true;
 
     case OPT_m528x:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_528x | MASK_CF_HWDIV;
+      m68k_select[M68K_OPT_SET_CPU].string = "528x";
       return true;
 
     case OPT_m5307:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_CFV3 | MASK_CF_HWDIV;
+      m68k_select[M68K_OPT_SET_CPU].string = "5307";
       return true;
 
     case OPT_m5407:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_CFV4 | MASK_CF_HWDIV;
+      m68k_select[M68K_OPT_SET_CPU].string = "5407";
+      return true;
+
+    case OPT_mcfv4e:
+      m68k_select[M68K_OPT_SET_CPU].string = "547x";
       return true;
 
     case OPT_m68000:
     case OPT_mc68000:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      m68k_select[M68K_OPT_SET_CPU].string = "68000";
       return true;
 
     case OPT_m68020:
     case OPT_mc68020:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= MASK_68020 | MASK_BITFIELD;
+      m68k_select[M68K_OPT_SET_CPU].string = "68020";
       return true;
 
     case OPT_m68020_40:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= MASK_BITFIELD | MASK_68881 | MASK_68020 | MASK_68040;
+      m68k_select[M68K_OPT_SET_CPU].string = "68020";
+      m68k_select[M68K_OPT_SET_TUNE].string = "68040";
       return true;
 
     case OPT_m68020_60:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= (MASK_BITFIELD | MASK_68881 | MASK_68020
-		       | MASK_68040 | MASK_68060);
+      m68k_select[M68K_OPT_SET_CPU].string = "68020";
+      m68k_select[M68K_OPT_SET_TUNE].string = "68060";
       return true;
 
     case OPT_m68030:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= MASK_68020 | MASK_68030 | MASK_BITFIELD;
+      m68k_select[M68K_OPT_SET_CPU].string = "68030";
       return true;
 
     case OPT_m68040:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= (MASK_68020 | MASK_68881 | MASK_BITFIELD
-		       | MASK_68040_ONLY | MASK_68040);
+      m68k_select[M68K_OPT_SET_CPU].string = "68040";
       return true;
 
     case OPT_m68060:
-      target_flags &= ~MASK_ALL_CPU_BITS;
-      target_flags |= (MASK_68020 | MASK_68881 | MASK_BITFIELD
-		       | MASK_68040_ONLY | MASK_68060);
+      m68k_select[M68K_OPT_SET_CPU].string = "68060";
       return true;
 
     case OPT_m68302:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
+      m68k_select[M68K_OPT_SET_CPU].string = "68302";
       return true;
 
     case OPT_m68332:
     case OPT_mcpu32:
-      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
-      target_flags |= MASK_68020;
+      m68k_select[M68K_OPT_SET_CPU].string = "68332";
       return true;
 
     case OPT_mshared_library_id_:
@@ -314,6 +483,132 @@ m68k_handle_option (size_t code, const char *arg, int value)
 void
 override_options (void)
 {
+  unsigned int i;
+  enum processor_type target_cpu = unk_proc;
+  enum uarch_type uarch = unk_arch;
+  unsigned long flags = 0;
+  int tuning = -1;
+
+  /* User can choose:
+       -mcpu=
+       -march=
+       -mtune=
+     -mcpu should override -march. Tune should not affect CPU/arch, but should
+     tweak costs, etc., unless no other CPU/arch is specified, in which case
+     it should pick sensible defaults for them.
+     -march (without -mcpu) should enable code to run on any processor
+     implementing that architecture, without requiring any extensions.
+  */
+
+  for (i = 0; i < ARRAY_SIZE (m68k_select); i++)
+    {
+      struct m68k_cpu_select * ptr = m68k_select + i;
+
+      if (ptr->string != NULL && ptr->string[0] != '\0')
+        {
+	  const struct processors * sel;
+	  
+	  for (sel = ptr->processors; sel->name != NULL; sel++)
+	    if (strcmp (ptr->string, sel->name) == 0)
+	      {
+		if (i != M68K_OPT_SET_TUNE)
+		  {
+		    /* FIXME: We complain if the arch provides a flag that the
+		       CPU doesn't. This might not be sufficient.  */
+		    if ((flags != 0 && (flags & ~sel->flags))
+		        || (uarch != unk_arch && uarch != sel->microarch))
+		      warning (0, "switch -mcpu=%s conflicts with -march= "
+			       "switch", ptr->string);
+		    flags = sel->flags;
+		    uarch = sel->microarch;
+		    target_cpu = sel->core;
+		  }
+		else
+		  tuning = sel - ptr->processors;
+
+		break;
+	      }
+
+	  if (sel->name == NULL)
+	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
+	}
+    }
+
+  if (flags == 0)
+    {
+      unsigned int defaultcpu = TARGET_CPU_DEFAULT;
+
+      if (defaultcpu == TARGET_CPU_invalid)
+	{
+#ifdef SUBTARGET_CPU_DEFAULT
+          defaultcpu = SUBTARGET_CPU_DEFAULT;
+#endif
+	  if (defaultcpu == TARGET_CPU_invalid)
+	    defaultcpu = m68020;
+	}
+      flags = all_cores[defaultcpu].flags;
+      uarch = all_cores[defaultcpu].microarch;
+      target_cpu = all_cores[defaultcpu].core;
+    }
+
+  /* Override tuning. This should never alter the ISA used.  */
+  if (tuning != -1)
+    uarch = all_tunings[tuning].microarch;
+
+  /* This should be set by now.  */
+  gcc_assert (flags != 0);
+
+  gcc_assert ((flags & FL_68881) == 0 || (flags & FL_CF_FPU) == 0);
+
+  if ((flags & FL_COLDFIRE) && (flags & FL_68881))
+    error ("can't use 68881 with a ColdFire CPU");
+
+  if (!(flags & FL_COLDFIRE) && (flags & FL_CF_FPU))
+    error ("can't use ColdFire FPU with non-ColdFire CPU");
+
+  /* Default FPU setting: can be overridden below.  */
+  m68k_fpu = (flags & FL_68881) ? FPUTYPE_68881
+	   : (flags & FL_CF_FPU) ? FPUTYPE_COLDFIRE
+	   : FPUTYPE_NONE;
+
+  /* Set tuning to uarch selected above.  */
+  m68k_tune = uarch;
+  /* Likewise for CPU.  */
+  m68k_cpu = target_cpu;
+
+  m68k_arch_68020 = flags & FL_ISA_68020;
+  m68k_arch_68040 = flags & FL_ISA_68040;
+  m68k_arch_68060 = flags & FL_ISA_68060;
+  m68k_arch_coldfire = flags & FL_COLDFIRE;
+  m68k_arch_isaaplus = flags & FL_ISA_APLUS;
+  m68k_arch_isab = flags & FL_ISA_B;
+  m68k_arch_isac = flags & FL_ISA_C;
+  m68k_bitfield = (m68k_flag_bitfield != -1) ? m68k_flag_bitfield
+                                             : (flags & FL_BITFIELD) != 0;
+  m68k_cf_hwdiv = (m68k_flag_hwdiv != -1) ? m68k_flag_hwdiv
+                                          : (flags & FL_CF_HWDIV) != 0;
+
+  /* Allow overriding of FPU selection on command-line.  */ 
+  switch (m68k_flag_hardfloat)
+    {
+    case 0:
+      m68k_fpu = FPUTYPE_NONE;
+      break;
+
+    case 1:
+      m68k_fpu = (flags & FL_COLDFIRE) ? FPUTYPE_COLDFIRE : FPUTYPE_68881;
+      break;
+
+    default:
+      ;
+    }
+
+  if (TARGET_COLDFIRE_FPU)
+    {
+      REAL_MODE_FORMAT (SFmode) = &coldfire_single_format;
+      REAL_MODE_FORMAT (DFmode) = &coldfire_double_format;
+    }
+
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */
@@ -327,10 +622,10 @@ override_options (void)
   if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
     flag_pic = 2;
 
-  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
-     until the 68020.  */
-  if (!TARGET_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
-    error ("-fPIC is not currently supported on the 68000 or 68010");
+  /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
+     error if the target does not support them.  */
+  if (TARGET_PCREL && (flags & FL_PCREL_16) && flag_pic == 2)
+    error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
@@ -338,16 +633,41 @@ override_options (void)
   if (TARGET_PCREL && flag_pic == 0)
     flag_pic = 1;
 
-  /* Turn off function cse if we are doing PIC.  We always want function call
-     to be done as `bsr foo@PLTPC', so it will force the assembler to create
-     the PLT entry for `foo'. Doing function cse will cause the address of
-     `foo' to be loaded into a register, which is exactly what we want to
-     avoid when we are doing PIC on svr4 m68k.  */
-  if (flag_pic)
-    flag_no_function_cse = 1;
+  if (!flag_pic)
+    {
+      m68k_symbolic_call = "jsr (%a0)";
+      m68k_symbolic_jump = "jmp (%a0)";
+    }
+  else if (TARGET_ID_SHARED_LIBRARY)
+    /* All addresses must be loaded from the GOT.  */
+    ;
+  else if (m68k_arch_68020 || m68k_arch_isab)
+    {
+      if (TARGET_PCREL)
+	{
+	  m68k_symbolic_call = "bsr.l %a0";
+	  m68k_symbolic_jump = "bra.l %a0";
+	}
+      else
+	{
+#if defined(USE_GAS)
+	  m68k_symbolic_call = "bsr.l %a0@PLTPC";
+	  m68k_symbolic_jump = "bra.l %a0@PLTPC";
+#else
+	  m68k_symbolic_call = "bsr %a0@PLTPC";
+	  m68k_symbolic_jump = "bra %a0@PLTPC";
+#endif
+	}
+      /* Turn off function cse if we are doing PIC.  We always want
+	 function call to be done as `bsr foo@PLTPC'.  */
+      /* ??? It's traditional to do this for -mpcrel too, but it isn't
+	 clear how intentional that is.  */
+      flag_no_function_cse = 1;
+    }
 
   SUBTARGET_OVERRIDE_OPTIONS;
 }
+
 
 /* Return nonzero if FUNC is an interrupt function as specified by the
    "interrupt_handler" attribute.  */
@@ -411,7 +731,7 @@ m68k_compute_frame_layout (void)
 
   current_frame.foffset = 0;
   mask = rmask = saved = 0;
-  if (TARGET_68881 /* || TARGET_CFV4E */)
+  if (TARGET_HARD_FLOAT)
     {
       for (regno = 16; regno < 24; regno++)
 	if (m68k_save_reg (regno, interrupt_handler))
@@ -420,7 +740,7 @@ m68k_compute_frame_layout (void)
 	    rmask |= 1 << (23 - regno);
 	    saved++;
 	  }
-      current_frame.foffset = saved * 12 /* (TARGET_CFV4E ? 8 : 12) */;
+      current_frame.foffset = saved * TARGET_FP_REG_SIZE;
       current_frame.offset += current_frame.foffset;
     }
   current_frame.fpu_no = saved;
@@ -467,7 +787,17 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
   if (flag_pic && regno == PIC_OFFSET_TABLE_REGNUM)
     {
+      /* We need to restore the PIC register on exceptional returns.  */
+      if (current_function_calls_eh_return)
+	return true;
       if (current_function_uses_pic_offset_table)
+	return true;
+      /* Reload may introduce constant pool references into a function
+	 that thitherto didn't need a PIC register.  Note that the test
+	 above will not catch that case because we will only set
+	 current_function_uses_pic_offset_table when emitting
+	 the address reloads.  */
+      if (current_function_uses_const_pool)
 	return true;
       if (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)
 	return true;
@@ -525,6 +855,23 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 
   m68k_compute_frame_layout();
 
+  if (dwarf2out_do_frame ()
+      && m68k_interrupt_function_p (current_function_decl))
+    {
+      /* On entry to an isr the stack will be
+	   sp@4:pc
+	   sp@0:(event info << 16) | sr
+	 This is 4 more words than normal.  Emit dwarf information so
+	 we can unwind out of an ISR. */
+      char *l = (char *) dwarf2out_cfi_label ();
+
+      cfa_offset += 8 - INCOMING_FRAME_SP_OFFSET;
+      dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
+      /* I'm not sure what register number to use for the status
+         register.  */
+      dwarf2out_reg_save (l, DWARF_FRAME_RETURN_COLUMN, -cfa_offset + 4);
+    }
+
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
   if (current_function_limit_stack
@@ -534,12 +881,17 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 
   /* On ColdFire add register save into initial stack frame setup, if possible.  */
   fsize_with_regs = current_frame.size;
-  if (TARGET_COLDFIRE && current_frame.reg_no > 2)
-    fsize_with_regs += current_frame.reg_no * 4;
+  if (m68k_arch_coldfire)
+    {
+      if (current_frame.reg_no > 2)
+	fsize_with_regs += current_frame.reg_no * 4;
+      if (current_frame.fpu_no)
+	fsize_with_regs += current_frame.fpu_no * 8;
+    }
 
   if (frame_pointer_needed)
     {
-      if (current_frame.size == 0 && TARGET_68040)
+      if (current_frame.size == 0 && TUNE_68040)
 	/* on the 68040, pea + move is faster than link.w 0 */
 	fprintf (stream, MOTOROLA ?
 			   "\tpea (%s)\n\tmove.l %s,%s\n" :
@@ -550,7 +902,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       else if (fsize_with_regs < 0x8000)
 	asm_fprintf (stream, "\tlink" ASM_DOTW " %s,%I%wd\n",
 		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
-      else if (TARGET_68020)
+      else if (m68k_arch_68020)  /* FIXME: ISA vs. optimization?  */
 	asm_fprintf (stream, "\tlink" ASM_DOTL " %s,%I%wd\n",
 		     M68K_REGNAME(FRAME_POINTER_REGNUM), -fsize_with_regs);
       else
@@ -565,21 +917,21 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	{
 	  if (fsize_with_regs <= 8)
 	    {
-	      if (!TARGET_COLDFIRE)
+	      if (!m68k_arch_coldfire)
 		asm_fprintf (stream, "\tsubq" ASM_DOT "w %I%wd,%Rsp\n",
 		             fsize_with_regs);
 	      else
 		asm_fprintf (stream, "\tsubq" ASM_DOT "l %I%wd,%Rsp\n",
 		             fsize_with_regs);
 	    }
-	  else if (fsize_with_regs <= 16 && TARGET_CPU32)
+	  else if (fsize_with_regs <= 16 && TUNE_CPU32)
 	    /* On the CPU32 it is faster to use two subqw instructions to
 	       subtract a small integer (8 < N <= 16) to a register.  */
 	    asm_fprintf (stream,
 			 "\tsubq" ASM_DOT "w %I8,%Rsp\n"
 			 "\tsubq" ASM_DOT "w %I%wd,%Rsp\n",
 			 fsize_with_regs - 8);
-	  else if (TARGET_68040)
+	  else if (TUNE_68040)
 	    /* Adding negative number is faster on the 68040.  */
 	    asm_fprintf (stream, "\tadd" ASM_DOT "w %I%wd,%Rsp\n",
 			 -fsize_with_regs);
@@ -607,29 +959,54 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else
 	{
+	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM,
+			     cfa_offset + fsize_with_regs);
 	  cfa_offset += current_frame.size;
-	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
 	}
     }
 
   if (current_frame.fpu_mask)
     {
-      asm_fprintf (stream, MOTOROLA ?
-			     "\tfmovm %I0x%x,-(%Rsp)\n" :
-			     "\tfmovem %I0x%x,%Rsp@-\n",
-		   current_frame.fpu_mask);
+      if (TARGET_68881)
+	{
+	  asm_fprintf (stream, MOTOROLA ?
+				 "\tfmovm %I0x%x,-(%Rsp)\n" :
+				 "\tfmovem %I0x%x,%Rsp@-\n",
+		       current_frame.fpu_mask);
+	}
+      else
+	{
+	  int offset;
+
+	  /* stack already has registers in it.  Find the offset from
+	     the bottom of stack to where the FP registers go */
+	  if (current_frame.reg_no <= 2)
+	    offset = 0;
+	  else
+	    offset = current_frame.reg_no * 4;
+	  if (offset)
+	    asm_fprintf (stream,
+			 "\tfmovem %I0x%x,%d(%Rsp)\n",
+			 current_frame.fpu_rev_mask,
+			 offset);
+	  else
+	    asm_fprintf (stream,
+			 "\tfmovem %I0x%x,(%Rsp)\n",
+			 current_frame.fpu_rev_mask);
+	}
 
       if (dwarf2out_do_frame ())
 	{
 	  char *l = (char *) dwarf2out_cfi_label ();
 	  int n_regs, regno;
 
-	  cfa_offset += current_frame.fpu_no * 12;
-	  if (! frame_pointer_needed)
+	  cfa_offset += current_frame.fpu_no * TARGET_FP_REG_SIZE;
+	  if (TARGET_68881 && !frame_pointer_needed)
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 16, n_regs = 0; regno < 24; regno++)
 	    if (current_frame.fpu_mask & (1 << (regno - 16)))
-	      dwarf2out_reg_save (l, regno, -cfa_offset + n_regs++ * 12);
+	      dwarf2out_reg_save (l, regno, -cfa_offset
+					    + n_regs++ * TARGET_FP_REG_SIZE);
 	}
     }
 
@@ -673,7 +1050,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     }
   else if (current_frame.reg_rev_mask)
     {
-      if (TARGET_COLDFIRE)
+      if (m68k_arch_coldfire)
 	/* The ColdFire does not support the predecrement form of the
 	   MOVEM instruction, so we must adjust the stack pointer and
 	   then use the plain address register indirect mode.
@@ -695,7 +1072,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  int n_regs, regno;
 
 	  cfa_offset += current_frame.reg_no * 4;
-	  if (! frame_pointer_needed)
+	  if (!m68k_arch_coldfire && !frame_pointer_needed)
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 0, n_regs = 0; regno < 16; regno++)
 	    if (current_frame.reg_mask & (1 << regno))
@@ -716,8 +1093,26 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       else
 	{
 	  if (MOTOROLA)
-	    asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
-			 M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+	    {
+	      if (m68k_arch_coldfire)
+		{
+		  /* Load the full 32-bit PC-relative offset of
+		     _GLOBAL_OFFSET_TABLE_ into the PIC register,
+		     then use it to calculate the absolute value.
+		     The offset and "lea" operation word together
+		     occupy 6 bytes.  */
+		  asm_fprintf (stream, "\tmove.l %I%U%s@GOTPC, %s\n",
+			       "_GLOBAL_OFFSET_TABLE_",
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+		  asm_fprintf (stream, "\tlea (-6, %Rpc, %s), %s\n",
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+		}
+	      else
+		asm_fprintf (stream, "\t%Olea (%Rpc, %U%s@GOTPC), %s\n",
+			     "_GLOBAL_OFFSET_TABLE_",
+			     M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+	    }
 	  else
 	    {
 	      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
@@ -794,20 +1189,37 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
      after restoring registers. When the frame pointer isn't used,
      we can merge movem adjustment into frame unlinking
      made immediately after it.  */
-  if (TARGET_COLDFIRE && restore_from_sp && (current_frame.reg_no > 2))
-    fsize_with_regs += current_frame.reg_no * 4;
+  if (m68k_arch_coldfire && restore_from_sp)
+    {
+      if (current_frame.reg_no > 2)
+	fsize_with_regs += current_frame.reg_no * 4;
+      if (current_frame.fpu_no)
+	fsize_with_regs += current_frame.fpu_no * 8;
+    }
 
   if (current_frame.offset + fsize >= 0x8000
       && ! restore_from_sp
       && (current_frame.reg_mask || current_frame.fpu_mask))
     {
-      /* Because the ColdFire doesn't support moveml with
-         complex address modes we make an extra correction here.  */
-      if (TARGET_COLDFIRE)
-        fsize += current_frame.offset;
-
-      asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
-      fsize = 0, big = true;
+      if (m68k_arch_coldfire
+	  && (current_frame.reg_no > 2 || current_frame.fpu_mask))
+	{
+	  /* Because ColdFire doesn't support moveml with the (d8,Ax,Xi)
+	     addressing mode, we're as well using a normal stack-based
+	     restore.  */
+	  asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n",
+		       -(current_frame.offset + fsize));
+	  asm_fprintf (stream, MOTOROLA ?
+				 "\tlea 0(%s,%Ra1.l),%Rsp\n" :
+			         "\tlea %s@(0,%Ra1:l),%Rsp\n",
+		       M68K_REGNAME(FRAME_POINTER_REGNUM));
+	  restore_from_sp = true;
+	}
+      else
+	{
+	  asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
+	  fsize = 0, big = true;
+	}
     }
   if (current_frame.reg_no <= 2)
     {
@@ -859,22 +1271,13 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
   else if (current_frame.reg_mask)
     {
       /* The ColdFire requires special handling due to its limited moveml insn.  */
-      if (TARGET_COLDFIRE)
+      if (m68k_arch_coldfire)
         {
-          if (big)
-            {
-              asm_fprintf (stream, "\tadd" ASM_DOT "l %s,%Ra1\n",
-			   M68K_REGNAME(FRAME_POINTER_REGNUM));
-              asm_fprintf (stream, MOTOROLA ?
-				     "\tmovm.l (%Ra1),%I0x%x\n" :
-				     "\tmoveml %Ra1@,%I0x%x\n",
-			   current_frame.reg_mask);
-	     }
-	   else if (restore_from_sp)
-	     asm_fprintf (stream, MOTOROLA ?
-				    "\tmovm.l (%Rsp),%I0x%x\n" :
-				    "\tmoveml %Rsp@,%I0x%x\n",
-			  current_frame.reg_mask);
+	  if (restore_from_sp)
+	    asm_fprintf (stream, MOTOROLA ?
+				   "\tmovm.l (%Rsp),%I0x%x\n" :
+				   "\tmoveml %Rsp@,%I0x%x\n",
+			 current_frame.reg_mask);
           else
             {
 	      if (MOTOROLA)
@@ -889,7 +1292,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 			     current_frame.reg_mask);
 	    }
         }
-      else /* !TARGET_COLDFIRE */
+      else /* !m68k_arch_coldfire */
 	{
 	  if (big)
 	    {
@@ -943,17 +1346,37 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else if (restore_from_sp)
 	{
-	  if (MOTOROLA)
-	    asm_fprintf (stream, "\tfmovm (%Rsp)+,%I0x%x\n",
-			 current_frame.fpu_rev_mask);
+	  if (m68k_arch_coldfire)
+	    {
+	      int offset;
+
+	      /* stack already has registers in it.  Find the offset from
+		 the bottom of stack to where the FP registers go */
+	      if (current_frame.reg_no <= 2)
+		offset = 0;
+	      else
+		offset = current_frame.reg_no * 4;
+	      if (offset)
+		asm_fprintf (stream,
+			     "\tfmovem %Rsp@(%wd), %I0x%x\n",
+			     (HOST_WIDE_INT) offset,
+			     current_frame.fpu_rev_mask);
+	      else
+		asm_fprintf (stream,
+			     "\tfmovem %Rsp@, %I0x%x\n",
+			     current_frame.fpu_rev_mask);
+	    }
 	  else
-	    asm_fprintf (stream, "\tfmovem %Rsp@+,%I0x%x\n",
+	    asm_fprintf (stream, MOTOROLA ?
+			 "\tfmovm (%Rsp)+,%I0x%x\n" :
+			 "\tfmovem %Rsp@+,%I0x%x\n",
 			 current_frame.fpu_rev_mask);
 	}
       else
 	{
 	  if (MOTOROLA)
-	    asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
+	    asm_fprintf (stream, "\t%s -%wd(%s),%I0x%x\n",
+			 m68k_arch_coldfire ? "fmovem" : "fmovm",
 			 current_frame.foffset + fsize,
 			 M68K_REGNAME(FRAME_POINTER_REGNUM),
 			 current_frame.fpu_rev_mask);
@@ -970,14 +1393,14 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     {
       if (fsize_with_regs <= 8)
 	{
-	  if (!TARGET_COLDFIRE)
+	  if (!m68k_arch_coldfire)
 	    asm_fprintf (stream, "\taddq" ASM_DOT "w %I%wd,%Rsp\n",
 			 fsize_with_regs);
 	  else
 	    asm_fprintf (stream, "\taddq" ASM_DOT "l %I%wd,%Rsp\n",
 			 fsize_with_regs);
 	}
-      else if (fsize_with_regs <= 16 && TARGET_CPU32)
+      else if (fsize_with_regs <= 16 && TUNE_CPU32)
 	{
 	  /* On the CPU32 it is faster to use two addqw instructions to
 	     add a small integer (8 < N <= 16) to a register.  */
@@ -987,7 +1410,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else if (fsize_with_regs < 0x8000)
 	{
-	  if (TARGET_68040)
+	  if (TUNE_68040)
 	    asm_fprintf (stream, "\tadd" ASM_DOT "w %I%wd,%Rsp\n",
 			 fsize_with_regs);
 	  else
@@ -1043,33 +1466,18 @@ flags_in_68881 (void)
   return cc_status.flags & CC_IN_68881;
 }
 
-/* Output a BSR instruction suitable for PIC code.  */
-void
-m68k_output_pic_call(rtx dest)
+/* Convert X to a legitimate function call memory reference and return the
+   result.  */
+
+rtx
+m68k_legitimize_call_address (rtx x)
 {
-  const char *out;
-
-  if (!(GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == SYMBOL_REF))
-    out = "jsr %0";
-      /* We output a BSR instruction if we're building for a target that
-         supports long branches.  Otherwise we generate one of two sequences:
-         a shorter one that uses a GOT entry or a longer one that doesn't.
-         We use the -Os command-line flag to decide which to generate.
-         Both sequences take the same time to execute on the ColdFire.  */
-  else if (TARGET_PCREL)
-    out = "bsr.l %o0";
-  else if (TARGET_68020)
-#if defined(USE_GAS)
-    out = "bsr.l %0@PLTPC";
-#else
-    out = "bsr %0@PLTPC";
-#endif
-  else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-    out = "move.l %0@GOT(%%a5), %%a1\n\tjsr (%%a1)";
-  else
-    out = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
-
-  output_asm_insn(out, &dest);
+  gcc_assert (MEM_P (x));
+  if (REG_P (XEXP (x, 0)))
+    return x;
+  if (CONSTANT_P (XEXP (x, 0)) && m68k_symbolic_call != NULL)
+    return x;
+  return replace_equiv_address (x, force_reg (Pmode, XEXP (x, 0)));
 }
 
 /* Output a dbCC; jCC sequence.  Note we do not handle the 
@@ -1219,7 +1627,7 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
     }
   else
     {
-      if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[0]))
+      if (m68k_arch_68020 || m68k_arch_coldfire || ! ADDRESS_REG_P (loperands[0]))
 	output_asm_insn ("tst%.l %0", loperands);
       else
 	{
@@ -1228,7 +1636,7 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
 
       output_asm_insn (MOTOROLA ? "jbne %l4" : "jne %l4", loperands);
 
-      if (TARGET_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[1]))
+      if (m68k_arch_68020 || m68k_arch_coldfire || ! ADDRESS_REG_P (loperands[1]))
 	output_asm_insn ("tst%.l %1", loperands);
       else
 	output_asm_insn ("cmp%.w #0,%1", loperands);
@@ -1371,6 +1779,152 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
   return "btst %0,%1";
 }
 
+/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+   that is a valid memory address for an instruction.
+   The MODE argument is the machine mode for the MEM expression
+   that wants to use this address.
+
+   When generating PIC, an address involving a SYMBOL_REF is legitimate
+   if and only if it is the sum of pic_offset_table_rtx and the SYMBOL_REF.
+   We use LEGITIMATE_PIC_OPERAND_P to throw out the illegitimate addresses,
+   and we explicitly check for the sum of pic_offset_table_rtx and a SYMBOL_REF.
+
+   Likewise for a LABEL_REF when generating PIC.
+
+   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
+
+/* Nonzero if X is a reg that can be used as an index.  When non-strict we
+   allow pseudos, otherwise only a hard reg will do. */
+#define REG_OK_FOR_INDEX_STRICT(X, MODE, STRICT) \
+  (STRICT ? REGNO_MODE_OK_FOR_INDEX_P (REGNO (X), MODE) \
+   : MODE_OK_FOR_INDEX_P (MODE) && (REGNO (X) ^ 16) >= 8)
+
+/* Nonzero if X is a reg that can be used as a base reg. When non-strict we
+   allow pseudos, otherwise only a hard reg will do. */
+#define REG_OK_FOR_BASE_STRICT(X, STRICT) \
+  (STRICT ? REGNO_OK_FOR_BASE_P (REGNO (X)) : (REGNO (X) & ~23) != 0)
+
+/* Allow SUBREG everywhere we allow REG.  This results in better code.  It
+   also makes function inlining work when inline functions are called with
+   arguments that are SUBREGs.  */
+
+#define LEGITIMATE_BASE_REG_P(X, STRICT)   \
+  ((GET_CODE (X) == REG && REG_OK_FOR_BASE_STRICT (X, STRICT))	\
+   || (GET_CODE (X) == SUBREG				\
+       && GET_CODE (SUBREG_REG (X)) == REG		\
+       && REG_OK_FOR_BASE_STRICT (SUBREG_REG (X), STRICT)))
+
+/* ColdFire/5200 does not allow HImode index registers.  */
+#define LEGITIMATE_INDEX_REG_P(X, MODE, STRICT)   \
+  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_STRICT (X, MODE, STRICT))	\
+   || (! m68k_arch_coldfire						\
+       && GET_CODE (X) == SIGN_EXTEND					\
+       && GET_CODE (XEXP (X, 0)) == REG					\
+       && GET_MODE (XEXP (X, 0)) == HImode				\
+       && REG_OK_FOR_INDEX_STRICT (XEXP (X, 0), MODE, STRICT))		\
+   || (GET_CODE (X) == SUBREG						\
+       && GET_CODE (SUBREG_REG (X)) == REG				\
+       && REG_OK_FOR_INDEX_STRICT (SUBREG_REG (X), MODE, STRICT)))
+
+#define LEGITIMATE_INDEX_P(X, MODE, STRICT)   \
+   (LEGITIMATE_INDEX_REG_P (X, MODE, STRICT)				\
+    || ((m68k_arch_68020 || m68k_arch_coldfire) && GET_CODE (X) == MULT \
+	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0), MODE, STRICT)		\
+	&& GET_CODE (XEXP (X, 1)) == CONST_INT				\
+	&& (INTVAL (XEXP (X, 1)) == 2					\
+	    || INTVAL (XEXP (X, 1)) == 4				\
+	    || (INTVAL (XEXP (X, 1)) == 8				\
+		&& (TARGET_COLDFIRE_FPU || !m68k_arch_coldfire)))))
+
+int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+{
+  rtx arg0, arg1;
+
+  arg0 = x;
+  switch (GET_CODE (x))
+    {
+    case PLUS:
+      arg1 = XEXP (arg0, 1);
+      if (GET_CODE (arg1) != CONST_INT)
+	break;
+      if ((unsigned HOST_WIDE_INT)INTVAL (arg1) + 0x8000 >= 0x10000)
+	 break;
+      /* FALLTHROUGH */
+    case PRE_DEC:
+    case POST_INC:
+      arg0 = XEXP (arg0, 0);
+    default:
+      if (LEGITIMATE_BASE_REG_P (arg0, strict))
+	return 1;
+    }
+
+  if (TARGET_COLDFIRE_FPU && (GET_MODE_CLASS (mode) == MODE_FLOAT))
+    /* Coldfire FPU only accepts addressing modes 2-5 */
+    return 0;
+
+  if (CONSTANT_ADDRESS_P (x))
+    {
+      if (flag_pic)
+	{
+	  if (!symbolic_operand (x, VOIDmode))
+	    return 1;
+	  return strict && TARGET_PCREL;
+	}
+
+     return 1;
+    }
+
+  if (GET_CODE (x) == PLUS)
+    {
+      arg0 = XEXP (x, 0);
+      arg1 = XEXP (x, 1);
+
+      if (arg0 == pic_offset_table_rtx)
+	return GET_CODE (arg1) == SYMBOL_REF || GET_CODE (arg1) == LABEL_REF;
+
+      if (GET_CODE (arg1) == CONST_INT && GET_CODE (arg0) == PLUS
+	  && (m68k_arch_68020 || (unsigned) INTVAL (arg1) + 0x80 < 0x100))
+	{
+	  arg1 = XEXP (arg0, 1);
+	  arg0 = XEXP (arg0, 0);
+	}
+
+      /* FIXME:There is probably some redundancy in the following
+	 conditionals.  */
+      if (LEGITIMATE_INDEX_P (arg0, mode, strict))
+	{
+	  rtx temp;
+	  if (GET_CODE (arg1) == LABEL_REF
+	      && (temp = next_nonnote_insn (XEXP (arg1, 0))) != 0
+	      && GET_CODE (temp) == JUMP_INSN
+	      && (GET_CODE (PATTERN (temp)) == ADDR_VEC
+		  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))
+	    return 1;
+	  if (LEGITIMATE_BASE_REG_P (arg1, strict))
+	    return 1;
+	}
+      if (LEGITIMATE_INDEX_P (arg1, mode, strict))
+	{
+	  rtx temp;
+	  if (GET_CODE (arg0) == LABEL_REF
+	      && (temp = next_nonnote_insn (XEXP (arg0, 0))) != 0
+	      && GET_CODE (temp) == JUMP_INSN
+	      && (GET_CODE (PATTERN (temp)) == ADDR_VEC
+		  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))
+	    return 1;
+	  if (LEGITIMATE_BASE_REG_P (arg0, strict))
+	    return 1;
+	}
+
+      /* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
+      if (flag_pic && mode == CASE_VECTOR_MODE
+	  && LEGITIMATE_INDEX_P (arg0, mode, strict)
+	  && GET_CODE (arg1) == LABEL_REF)
+	return 1;
+    }
+  return 0;
+}
+
 /* Legitimize PIC addresses.  If the address is already
    position-independent, we return ORIG.  Newly generated
    position-independent addresses go to REG.  If we need more
@@ -1475,7 +2029,7 @@ const_method (rtx constant)
 
   /* The ColdFire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either.  */
-  if (!TARGET_COLDFIRE) 
+  if (!m68k_arch_coldfire) 
     {
       /* if -256 < N < 256 but N is not in range for a moveq
 	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg.  */
@@ -1494,7 +2048,7 @@ const_method (rtx constant)
   if (USE_MOVQ ((u >> 16) | (u << 16)))
     return SWAP;
 
-  if (TARGET_CFV4)
+  if (m68k_arch_isab)
     {
       /* Try using MVZ/MVS with an immediate value to load constants.  */
       if (i >= 0 && i <= 65535)
@@ -1565,10 +2119,13 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
        for add and the time for shift, taking away a little more because
        sometimes move insns are needed.  */
     /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
-#define MULL_COST (TARGET_68060 ? 2 : TARGET_68040 ? 5 : (TARGET_COLDFIRE && !TARGET_5200) ? 3 : TARGET_COLDFIRE ? 10 : 13)
-#define MULW_COST (TARGET_68060 ? 2 : TARGET_68040 ? 3 : TARGET_68020 ? 8 : \
-			(TARGET_COLDFIRE && !TARGET_5200) ? 2 : 5)
-#define DIVW_COST (TARGET_68020 ? 27 : TARGET_CF_HWDIV ? 11 : 12)
+#define MULL_COST (TUNE_68060 ? 2 : TUNE_68040 ? 5 : \
+  (m68k_arch_coldfire && !TUNE_CFV2) ? 3 :	m68k_arch_coldfire ? 10 : 13)
+
+#define MULW_COST (TUNE_68060 ? 2 :TUNE_68040 ? 3 : \
+  TUNE_68020 ? 8 : (m68k_arch_coldfire && !TUNE_CFV2) ? 2 : 5)
+
+#define DIVW_COST (TUNE_68020 ? 27 : m68k_cf_hwdiv ? 11 : 12)
 
     case PLUS:
       /* An lea costs about three times as much as a simple add.  */
@@ -1582,7 +2139,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      || INTVAL (XEXP (XEXP (x, 0), 1)) == 8))
 	{
 	    /* lea an@(dx:l:i),am */
-	    *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 2 : 3);
+	    *total = COSTS_N_INSNS (m68k_arch_coldfire ? 2 : 3);
 	    return true;
 	}
       return false;
@@ -1590,12 +2147,12 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
-      if (TARGET_68060)
+      if (TUNE_68060)
 	{
           *total = COSTS_N_INSNS(1);
 	  return true;
 	}
-      if (! TARGET_68020 && ! TARGET_COLDFIRE)
+      if (!TUNE_68020 && ! m68k_arch_coldfire)
         {
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {
@@ -1620,7 +2177,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && !(INTVAL (XEXP (x, 1)) > 0
 	       && INTVAL (XEXP (x, 1)) <= 8))
 	{
-	  *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 1 : 3);	 /* lsr #i,dn */
+	  *total = COSTS_N_INSNS (m68k_arch_coldfire ? 1 : 3);	 /* lsr #i,dn */
 	  return true;
 	}
       return false;
@@ -1642,7 +2199,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
     case UMOD:
       if (GET_MODE (x) == QImode || GET_MODE (x) == HImode)
         *total = COSTS_N_INSNS (DIVW_COST);	/* div.w */
-      else if (TARGET_CF_HWDIV)
+      else if (m68k_cf_hwdiv)
         *total = COSTS_N_INSNS (18);
       else
 	*total = COSTS_N_INSNS (43);		/* div.l */
@@ -1699,7 +2256,7 @@ valid_mov3q_const (rtx constant)
 {
   int i;
 
-  if (TARGET_CFV4 && GET_CODE (constant) == CONST_INT)
+  if (m68k_arch_isab && GET_CODE (constant) == CONST_INT)
     {
       i = INTVAL (constant);
       if ((i == -1) || (i >= 1 && i <= 7))
@@ -1717,7 +2274,7 @@ output_move_simode_const (rtx *operands)
 	  || GET_CODE (operands[0]) == MEM)
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
@@ -1776,7 +2333,7 @@ output_move_himode (rtx *operands)
 	      || GET_CODE (operands[0]) == MEM)
 	  /* clr insns on 68000 read before writing.
 	     This isn't so on the 68010, but we have no TARGET_68010.  */
-	  && ((TARGET_68020 || TARGET_COLDFIRE)
+	  && ((m68k_arch_68020 || m68k_arch_coldfire)
 	      || !(GET_CODE (operands[0]) == MEM
 		   && MEM_VOLATILE_P (operands[0]))))
 	return "clr%.w %0";
@@ -1828,17 +2385,17 @@ output_move_qimode (rtx *operands)
 		&& GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
 		&& XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
 		&& ! ADDRESS_REG_P (operands[1])
-		&& ! TARGET_COLDFIRE));
+		&& ! m68k_arch_coldfire));
 
   /* clr and st insns on 68000 read before writing.
      This isn't so on the 68010, but we have no TARGET_68010.  */
   if (!ADDRESS_REG_P (operands[0])
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     {
       if (operands[1] == const0_rtx)
 	return "clr%.b %0";
-      if ((!TARGET_COLDFIRE || DATA_REG_P (operands[0]))
+      if ((!m68k_arch_coldfire || DATA_REG_P (operands[0]))
 	  && GET_CODE (operands[1]) == CONST_INT
 	  && (INTVAL (operands[1]) & 255) == 255)
 	{
@@ -1870,7 +2427,7 @@ output_move_stricthi (rtx *operands)
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.w %0";
   return "move%.w %1,%0";
@@ -1882,7 +2439,7 @@ output_move_strictqi (rtx *operands)
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
          This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((TARGET_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
           || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.b %0";
   return "move%.b %1,%0";
@@ -2246,6 +2803,192 @@ output_move_double (rtx *operands)
   return "";
 }
 
+
+/* Ensure mode of ORIG, a REG rtx, is MODE.  Returns either ORIG or a
+   new rtx with the correct mode.  */
+
+static rtx
+force_mode (enum machine_mode mode, rtx orig)
+{
+  if (mode == GET_MODE (orig))
+    return orig;
+
+  if (REGNO (orig) >= FIRST_PSEUDO_REGISTER)
+    abort ();
+
+  return gen_rtx_REG (mode, REGNO (orig));
+}
+
+static int
+fp_reg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return reg_renumber && FP_REG_P (op);
+}
+
+/* Emit insns to move operands[1] into operands[0].
+
+   Return 1 if we have written out everything that needs to be done to
+   do the move.  Otherwise, return 0 and the caller will emit the move
+   normally.
+
+   Note SCRATCH_REG may not be in the proper mode depending on how it
+   will be used.  This routine is resposible for creating a new copy
+   of SCRATCH_REG in the proper mode.  */
+
+int
+emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
+{
+  register rtx operand0 = operands[0];
+  register rtx operand1 = operands[1];
+  register rtx tem;
+
+  if (scratch_reg
+      && reload_in_progress && GET_CODE (operand0) == REG
+      && REGNO (operand0) >= FIRST_PSEUDO_REGISTER)
+    operand0 = reg_equiv_mem[REGNO (operand0)];
+  else if (scratch_reg
+	   && reload_in_progress && GET_CODE (operand0) == SUBREG
+	   && GET_CODE (SUBREG_REG (operand0)) == REG
+	   && REGNO (SUBREG_REG (operand0)) >= FIRST_PSEUDO_REGISTER)
+    {
+     /* We must not alter SUBREG_BYTE (operand0) since that would confuse
+	the code which tracks sets/uses for delete_output_reload.  */
+      rtx temp = gen_rtx_SUBREG (GET_MODE (operand0),
+				 reg_equiv_mem [REGNO (SUBREG_REG (operand0))],
+				 SUBREG_BYTE (operand0));
+      operand0 = alter_subreg (&temp);
+    }
+
+  if (scratch_reg
+      && reload_in_progress && GET_CODE (operand1) == REG
+      && REGNO (operand1) >= FIRST_PSEUDO_REGISTER)
+    operand1 = reg_equiv_mem[REGNO (operand1)];
+  else if (scratch_reg
+	   && reload_in_progress && GET_CODE (operand1) == SUBREG
+	   && GET_CODE (SUBREG_REG (operand1)) == REG
+	   && REGNO (SUBREG_REG (operand1)) >= FIRST_PSEUDO_REGISTER)
+    {
+     /* We must not alter SUBREG_BYTE (operand0) since that would confuse
+	the code which tracks sets/uses for delete_output_reload.  */
+      rtx temp = gen_rtx_SUBREG (GET_MODE (operand1),
+				 reg_equiv_mem [REGNO (SUBREG_REG (operand1))],
+				 SUBREG_BYTE (operand1));
+      operand1 = alter_subreg (&temp);
+    }
+
+  if (scratch_reg && reload_in_progress && GET_CODE (operand0) == MEM
+      && ((tem = find_replacement (&XEXP (operand0, 0)))
+	  != XEXP (operand0, 0)))
+    operand0 = gen_rtx_MEM (GET_MODE (operand0), tem);
+  if (scratch_reg && reload_in_progress && GET_CODE (operand1) == MEM
+      && ((tem = find_replacement (&XEXP (operand1, 0)))
+	  != XEXP (operand1, 0)))
+    operand1 = gen_rtx_MEM (GET_MODE (operand1), tem);
+
+  /* Handle secondary reloads for loads/stores of FP registers where
+     the address is symbolic by using the scratch register */
+  if (fp_reg_operand (operand0, mode)
+      && ((GET_CODE (operand1) == MEM
+	   && ! memory_address_p (DFmode, XEXP (operand1, 0)))
+	  || ((GET_CODE (operand1) == SUBREG
+	       && GET_CODE (XEXP (operand1, 0)) == MEM
+	       && !memory_address_p (DFmode, XEXP (XEXP (operand1, 0), 0)))))
+      && scratch_reg)
+    {
+      if (GET_CODE (operand1) == SUBREG)
+	operand1 = XEXP (operand1, 0);
+
+      /* SCRATCH_REG will hold an address.  We want
+	 it in SImode regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = force_mode (SImode, scratch_reg);
+
+      /* D might not fit in 14 bits either; for such cases load D into
+	 scratch reg.  */
+      if (!memory_address_p (Pmode, XEXP (operand1, 0)))
+	{
+	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));
+	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand1, 0)),
+						       Pmode,
+						       XEXP (XEXP (operand1, 0), 0),
+						       scratch_reg));
+	}
+      else
+	emit_move_insn (scratch_reg, XEXP (operand1, 0));
+      emit_insn (gen_rtx_SET (VOIDmode, operand0,
+			      gen_rtx_MEM (mode, scratch_reg)));
+      return 1;
+    }
+  else if (fp_reg_operand (operand1, mode)
+	   && ((GET_CODE (operand0) == MEM
+		&& ! memory_address_p (DFmode, XEXP (operand0, 0)))
+	       || ((GET_CODE (operand0) == SUBREG)
+		   && GET_CODE (XEXP (operand0, 0)) == MEM
+		   && !memory_address_p (DFmode, XEXP (XEXP (operand0, 0), 0))))
+	   && scratch_reg)
+    {
+      if (GET_CODE (operand0) == SUBREG)
+	operand0 = XEXP (operand0, 0);
+
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in SIMODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = force_mode (SImode, scratch_reg);
+
+      /* D might not fit in 14 bits either; for such cases load D into
+	 scratch reg.  */
+      if (!memory_address_p (Pmode, XEXP (operand0, 0)))
+	{
+	  emit_move_insn (scratch_reg, XEXP (XEXP (operand0, 0), 1));
+	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand0,
+								        0)),
+						       Pmode,
+						       XEXP (XEXP (operand0, 0),
+								   0),
+						       scratch_reg));
+	}
+      else
+	emit_move_insn (scratch_reg, XEXP (operand0, 0));
+      emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_MEM (mode, scratch_reg),
+			      operand1));
+      return 1;
+    }
+  /* Handle secondary reloads for loads of FP registers from constant
+     expressions by forcing the constant into memory.
+
+     use scratch_reg to hold the address of the memory location.
+
+     The proper fix is to change PREFERRED_RELOAD_CLASS to return
+     NO_REGS when presented with a const_int and an register class
+     containing only FP registers.  Doing so unfortunately creates
+     more problems than it solves.   Fix this for 2.5.  */
+  else if (fp_reg_operand (operand0, mode)
+	   && CONSTANT_P (operand1)
+	   && scratch_reg)
+    {
+      rtx xoperands[2];
+
+      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
+	 it in SIMODE regardless of what mode it was originally given
+	 to us.  */
+      scratch_reg = force_mode (SImode, scratch_reg);
+
+      /* Force the constant into memory and put the address of the
+	 memory location into scratch_reg.  */
+      xoperands[0] = scratch_reg;
+      xoperands[1] = XEXP (force_const_mem (mode, operand1), 0);
+      emit_insn (gen_rtx_SET (mode, scratch_reg, xoperands[1]));
+
+      /* Now load the destination register.  */
+      emit_insn (gen_rtx_SET (mode, operand0,
+			      gen_rtx_MEM (mode, scratch_reg)));
+      return 1;
+    }
+
+  /* Now have insn-emit do whatever it normally does.  */
+  return 0;
+}
+
 /* Return a REG that occurs in ADDR with coefficient 1.
    ADDR can be effectively incremented by incrementing REG.  */
 
@@ -2307,7 +3050,7 @@ output_addsi3 (rtx *operands)
       /* On the CPU32 it is faster to use two addql instructions to
 	 add a small integer (8 < N <= 16) to a register.
 	 Likewise for subql.  */
-      if (TARGET_CPU32 && REG_P (operands[0]))
+      if (TUNE_CPU32 && REG_P (operands[0]))
 	{
 	  if (INTVAL (operands[2]) > 8
 	      && INTVAL (operands[2]) <= 16)
@@ -2326,7 +3069,7 @@ output_addsi3 (rtx *operands)
 	  && INTVAL (operands[2]) >= -0x8000
 	  && INTVAL (operands[2]) < 0x8000)
 	{
-	  if (TARGET_68040)
+	  if (TUNE_68040)
 	    return "add%.w %2,%0";
 	  else
 	    return MOTOROLA ? "lea (%c2,%0),%0" : "lea %0@(%c2),%0";
@@ -2534,7 +3277,7 @@ standard_68881_constant_p (rtx x)
 
   /* fmovecr must be emulated on the 68040 and 68060, so it shouldn't be
      used at all on those chips.  */
-  if (TARGET_68040 || TARGET_68060)
+  if (TUNE_68040_60)
     return 0;
 
   if (! inited_68881_table)
@@ -2649,12 +3392,12 @@ print_operand (FILE *file, rtx op, int letter)
     asm_fprintf (file, "%Rfpcr");
   else if (letter == '$')
     {
-      if (TARGET_68040_ONLY)
+      if (m68k_arch_68040)
 	fprintf (file, "s");
     }
   else if (letter == '&')
     {
-      if (TARGET_68040_ONLY)
+      if (m68k_arch_68040)
 	fprintf (file, "d");
     }
   else if (letter == '/')
@@ -2679,7 +3422,7 @@ print_operand (FILE *file, rtx op, int letter)
   else if (GET_CODE (op) == MEM)
     {
       output_address (XEXP (op, 0));
-      if (letter == 'd' && ! TARGET_68020
+      if (letter == 'd' && ! m68k_arch_68020
 	  && CONSTANT_ADDRESS_P (XEXP (op, 0))
 	  && !(GET_CODE (XEXP (op, 0)) == CONST_INT
 	       && INTVAL (XEXP (op, 0)) < 0x8000
@@ -2918,7 +3661,7 @@ print_operand_address (FILE *file, rtx addr)
 	            if (flag_pic && (breg == pic_offset_table_rtx))
 		      {
 			fprintf (file, "@GOT");
-			if (flag_pic == 1)
+			if (flag_pic == 1 && m68k_arch_68020)
 			  fprintf (file, ".w");
 		      }
 		  }
@@ -2932,7 +3675,7 @@ print_operand_address (FILE *file, rtx addr)
 		if (addr != 0)
 		  {
 		    output_addr_const (file, addr);
-		    if (breg == pic_offset_table_rtx)
+		    if (breg == pic_offset_table_rtx && m68k_arch_68020)
 		      switch (flag_pic)
 		        {
 		        case 1:
@@ -3133,7 +3876,7 @@ output_andsi3 (rtx *operands)
       && (INTVAL (operands[2]) | 0xffff) == -1
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3173,7 +3916,7 @@ output_iorsi3 (rtx *operands)
       && INTVAL (operands[2]) >> 16 == 0
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3208,7 +3951,7 @@ output_xorsi3 (rtx *operands)
   if (GET_CODE (operands[2]) == CONST_INT
       && INTVAL (operands[2]) >> 16 == 0
       && (offsettable_memref_p (operands[0]) || DATA_REG_P (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (! DATA_REG_P (operands[0]))
 	operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3234,6 +3977,20 @@ output_xorsi3 (rtx *operands)
       return "bchg %1,%0";
     }
   return "eor%.l %2,%0";
+}
+
+/* Return the instruction that should be used for a call to address X,
+   which is known to be in operand 0.  */
+
+const char *
+output_call (rtx x)
+{
+  if (symbolic_operand (x, VOIDmode))
+    return m68k_symbolic_call;
+  else if (REG_P (x))
+    return "jsr (%0)";
+  else
+    return "jsr %a0";
 }
 
 #ifdef M68K_TARGET_COFF
@@ -3275,7 +4032,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 			 "\tsubq.l %I%d,4(%Rsp)\n" :
 			 "\tsubql %I%d,%Rsp@(4)\n",
 		 (int) -delta);
-  else if (TARGET_COLDFIRE)
+  else if (m68k_arch_coldfire)
     {
       /* ColdFire can't add/sub a constant to memory unless it is in
 	 the range of addq/subq.  So load the value into %d0 and
@@ -3299,40 +4056,15 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 		 delta);
 
   xops[0] = DECL_RTL (function);
+  gcc_assert (MEM_P (xops[0])
+	      && symbolic_operand (XEXP (xops[0], 0), VOIDmode));
+  xops[0] = XEXP (xops[0], 0);
 
-  /* Logic taken from call patterns in m68k.md.  */
-  if (flag_pic)
-    {
-      if (TARGET_PCREL)
-	fmt = "bra.l %o0";
-      else if ((flag_pic == 1) || TARGET_68020)
-	{
-	  if (MOTOROLA)
-#if defined(USE_GAS)
-	    fmt = "bra.l %0@PLTPC";
-#else
-	    fmt = "bra %0@PLTPC";
-#endif
-	  else /* !MOTOROLA */
-#ifdef USE_GAS
-	    fmt = "bra.l %0";
-#else
-	    fmt = "jra %0,a1";
-#endif
-	}
-      else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
-        fmt = "move.l %0@GOT(%%a5), %%a1\n\tjmp (%%a1)";
-      else
-        fmt = "lea %0-.-8,%%a1\n\tjmp 0(%%pc,%%a1)";
-    }
-  else
-    {
-#if MOTOROLA && !defined (USE_GAS)
-      fmt = "jmp %0";
-#else
-      fmt = "jra %0";
-#endif
-    }
+  fmt = m68k_symbolic_jump;
+  if (m68k_symbolic_jump == NULL)
+    /* Thunks do not use the static chain register.  Use it as a
+       temporary register here.  */
+    fmt = "move.l %a0@GOT(%%a5), %%a0\n\tjmp (%%a0)";
 
   output_asm_insn (fmt, xops);
 }
@@ -3363,35 +4095,147 @@ m68k_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
   return 1;
 }
 
-/* Value is true if hard register REGNO can hold a value of machine-mode MODE.
-   On the 68000, the cpu registers can hold any mode except bytes in address
-   registers, but the 68881 registers can hold only SFmode or DFmode.  */
+/* Value is true if hard register REGNO can hold a value of machine-mode
+   MODE.  On the 68000, we let the cpu registers can hold any mode, but
+   restrict the 68881 registers to floating-point modes.  */
+
 bool
 m68k_regno_mode_ok (int regno, enum machine_mode mode)
 {
   if (regno < 8)
     {
-	/* Data Registers, can hold aggregate if fits in.  */
-	if (regno + GET_MODE_SIZE (mode) / 4 <= 8)
-	  return true;
+      /* Data Registers, can hold aggregate if fits in.  */
+      if (regno + GET_MODE_SIZE (mode) / 4 <= 8)
+	return true;
     }
   else if (regno < 16)
     {
-	/* Address Registers, can't hold bytes, can hold aggregate if
-	   fits in.  */
-	if (GET_MODE_SIZE (mode) == 1)
-	  return false;
-	if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
-	  return true;
+      if (regno + GET_MODE_SIZE (mode) / 4 <= 16)
+	return true;
     }
   else if (regno < 24)
     {
       /* FPU registers, hold float or complex float of long double or
-	   smaller.  */
-	if ((GET_MODE_CLASS (mode) == MODE_FLOAT
-	     || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
-	    && GET_MODE_UNIT_SIZE (mode) <= 12)
-	  return true;
+	 smaller.  */
+      if ((GET_MODE_CLASS (mode) == MODE_FLOAT
+	   || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+	  && GET_MODE_UNIT_SIZE (mode) <= TARGET_FP_REG_SIZE)
+	return true;
     }
   return false;
+}
+
+/* Implement SECONDARY_RELOAD_CLASS.  */
+
+enum reg_class
+m68k_secondary_reload_class (enum reg_class rclass,
+			     enum machine_mode mode, rtx x)
+{
+  int regno;
+
+  regno = true_regnum (x);
+
+  /* If one operand of a movqi is an address register, the other
+     operand must be a general register or constant.  Other types
+     of operand must be reloaded through a data register.  */
+  if (GET_MODE_SIZE (mode) == 1
+      && reg_classes_intersect_p (rclass, ADDR_REGS)
+      && !((regno >= 0 && regno < 16) || CONSTANT_P (x)))
+    return DATA_REGS;
+
+  /* PC-relative addresses must be loaded into an address register first.  */
+  if (TARGET_PCREL
+      && !reg_class_subset_p (rclass, ADDR_REGS)
+      && symbolic_operand (x, VOIDmode))
+    return ADDR_REGS;
+
+  return NO_REGS;
+}
+
+/* Implement PREFERRED_RELOAD_CLASS.  */
+
+enum reg_class
+m68k_preferred_reload_class (rtx x, enum reg_class rclass)
+{
+  enum reg_class secondary_class;
+
+  /* If RCLASS might need a secondary reload, try restricting it to
+     a class that doesn't.  */
+  secondary_class = m68k_secondary_reload_class (rclass, GET_MODE (x), x);
+  if (secondary_class != NO_REGS
+      && reg_class_subset_p (secondary_class, rclass))
+    return secondary_class;
+
+  /* Prefer to use moveq for in-range constants.  */
+  if (GET_CODE (x) == CONST_INT
+      && reg_class_subset_p (DATA_REGS, rclass)
+      && (unsigned) (INTVAL (x) + 0x80) < 0x100)
+    return DATA_REGS;
+
+  /* ??? Do we really need this now?  */
+  if (GET_CODE (x) == CONST_DOUBLE
+      && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+    {
+      if (TARGET_HARD_FLOAT && reg_class_subset_p (FP_REGS, rclass))
+	return FP_REGS;
+      
+      return NO_REGS;
+    }
+
+  return rclass;
+}
+
+/* Return floating point values in a 68881 register.  This makes 68881 code
+   a little bit faster.  It also makes -msoft-float code incompatible with
+   hard-float code, so people have to be careful not to mix the two.
+   For ColdFire it was decided the ABI incopmatibility is undesirable.
+   If there is need for a hard-float ABI it is probably worth doing it
+   properly and also passing function arguments in FP registers.  */
+rtx
+m68k_libcall_value (enum machine_mode mode)
+{
+  switch (mode) {
+  case SFmode:
+  case DFmode:
+  case XFmode:
+    if (TARGET_68881)
+      return gen_rtx_REG (mode, 16);
+    break;
+  default:
+    break;
+  }
+  return gen_rtx_REG (mode, 0);
+}
+
+rtx
+m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+{
+  enum machine_mode mode;
+
+  mode = TYPE_MODE (valtype);
+  switch (mode) {
+  case SFmode:
+  case DFmode:
+  case XFmode:
+    if (TARGET_68881)
+      return gen_rtx_REG (mode, 16);
+    break;
+  default:
+    break;
+  }
+
+  /* If the function returns a pointer, push that into %a0 */
+  if (POINTER_TYPE_P (valtype))
+    return gen_rtx_REG (mode, 8);
+  else
+    return gen_rtx_REG (mode, 0);
+}
+
+/* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
+
+static bool
+m68k_cannot_force_const_mem (rtx x)
+{
+  return (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
+	  && constant_may_be_outside_section_p (x, NULL, NULL));
 }

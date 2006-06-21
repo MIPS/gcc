@@ -1373,7 +1373,7 @@ maybe_fix_stack_asms (void)
 
 		case 'p':
 		  cls = (int) reg_class_subunion[cls]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		    [(int) MODE_BASE_REG_CLASS (operand_mode[i])];
 		  break;
 
 		case 'g':
@@ -1384,7 +1384,7 @@ maybe_fix_stack_asms (void)
 		default:
 		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    cls = (int) reg_class_subunion[cls]
-		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) MODE_BASE_REG_CLASS (operand_mode[i])];
 		  else
 		    cls = (int) reg_class_subunion[cls]
 		      [(int) REG_CLASS_FROM_CONSTRAINT (c, p)];

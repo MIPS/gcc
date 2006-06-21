@@ -2205,7 +2205,7 @@ preprocess_constraints (void)
 		case 'p':
 		  op_alt[j].is_address = 1;
 		  op_alt[j].cl = reg_class_subunion[(int) op_alt[j].cl]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		    [(int) MODE_BASE_REG_CLASS (recog_data.operand_mode[i])];
 		  break;
 
 		case 'g':
@@ -2222,11 +2222,14 @@ preprocess_constraints (void)
 		    }
 		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    {
+		      enum machine_mode mode;
+
+		      mode = recog_data.operand_mode[i];
 		      op_alt[j].is_address = 1;
 		      op_alt[j].cl
 			= (reg_class_subunion
 			   [(int) op_alt[j].cl]
-			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
+			   [(int) MODE_BASE_REG_CLASS (mode)]);
 		      break;
 		    }
 

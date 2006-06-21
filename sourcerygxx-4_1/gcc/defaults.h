@@ -620,6 +620,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define REG_MODE_OK_FOR_BASE_P(REG, MODE) REG_OK_FOR_BASE_P (REG)
 #endif
 
+#ifndef REGNO_MODE_OK_FOR_INDEX_P
+#define REGNO_MODE_OK_FOR_INDEX_P(REGNO, MODE) REGNO_OK_FOR_INDEX_P (REGNO)
+#endif
+
+#ifndef REG_MODE_OK_FOR_INDEX_P
+#define REG_MODE_OK_FOR_INDEX_P(REG, MODE) REG_OK_FOR_INDEX_P (REG)
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
@@ -631,6 +639,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    is a register.  By default, assume that a base register is acceptable.  */
 #ifndef MODE_BASE_REG_REG_CLASS
 #define MODE_BASE_REG_REG_CLASS(MODE) MODE_BASE_REG_CLASS(MODE)
+#endif
+
+#ifndef MODE_INDEX_REG_CLASS
+#define MODE_INDEX_REG_CLASS(MODE) INDEX_REG_CLASS
 #endif
 
 #ifndef REGNO_MODE_OK_FOR_REG_BASE_P
