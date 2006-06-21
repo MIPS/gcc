@@ -1,5 +1,10 @@
 2006-06-21  Tom Tromey  <tromey@redhat.com>
 
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties):
+	Set java.class.version to 49.
+
+2006-06-21  Tom Tromey  <tromey@redhat.com>
+
 	* link.cc (resolve_pool_entry): Initialize field's declaring
 	class, not its qualifying class.
 
