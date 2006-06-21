@@ -367,8 +367,9 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
         if (owner->state == JV_STATE_PHANTOM)
           throw new java::lang::NoClassDefFoundError(owner->getName());
 
-	if (owner != klass)
-	  _Jv_InitClass (owner);
+	// We don't initialize 'owner', but we do make sure that its
+	// fields exist.
+	wait_for_state (owner, JV_STATE_PREPARED);
 
 	_Jv_ushort name_index, type_index;
 	_Jv_loadIndexes (&pool->data[name_and_type_index],
@@ -383,8 +384,9 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 					   &found_class,
 					   field_name,
 					   field_type_name);
-	if (owner != found_class)
-	  _Jv_InitClass (found_class);
+	// Initialize the field's declaring class, not its qualifying
+	// class.
+	_Jv_InitClass (found_class);
 	pool->data[index].field = the_field;
 	pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
       }

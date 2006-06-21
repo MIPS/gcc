@@ -1,5 +1,10 @@
 2006-06-21  Tom Tromey  <tromey@redhat.com>
 
+	* link.cc (resolve_pool_entry): Initialize field's declaring
+	class, not its qualifying class.
+
+2006-06-21  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.jacks/jacks.xfail: Updated for ecj.
 
 2006-06-20  Tom Tromey  <tromey@redhat.com>
