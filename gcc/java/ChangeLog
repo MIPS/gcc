@@ -1,3 +1,9 @@
+2006-06-21  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28089:
+	* expr.c (expand_java_field_op): Initialize field's declaring
+	class.
+
 2006-06-20  Tom Tromey  <tromey@redhat.com>
 
 	* expr.c (push_value): Always flush quick stack.

@@ -2804,9 +2804,11 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
-  if (is_static
-      && ! flag_indirect_dispatch)
-    field_ref = build_class_init (self_type, field_ref);
+  if (is_static && ! flag_indirect_dispatch)
+    {
+      /* Initialize the declaring class of the field.  */
+      field_ref = build_class_init (DECL_CONTEXT (field_ref), field_ref);
+    }
   if (is_putting)
     {
       flush_quick_stack ();
