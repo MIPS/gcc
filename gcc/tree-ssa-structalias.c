@@ -2167,9 +2167,6 @@ alias_get_name (tree decl)
     return res;
 
   res = "NULL";
-  if (!dump_file)
-    return res;
-
   if (TREE_CODE (decl) == SSA_NAME)
     {
       num_printed = asprintf (&temp, "%s_%u", 
@@ -3990,21 +3987,16 @@ create_variable_info_for (tree decl, const char *name)
 	   i--)
 	{
 	  varinfo_t newvi;
-	  const char *newname = "NULL";
+	  const char *newname;
 	  char *tempname;
 
 	  newindex = VEC_length (varinfo_t, varmap);
-	  if (dump_file)
-	    {
-	      if (fo->decl)
-	        asprintf (&tempname, "%s.%s",
-			  vi->name, alias_get_name (fo->decl));
-	      else
-	        asprintf (&tempname, "%s." HOST_WIDE_INT_PRINT_DEC,
-			  vi->name, fo->offset);
-	      newname = ggc_strdup (tempname);
-	      free (tempname);
-	    }
+	  if (fo->decl)
+	    asprintf (&tempname, "%s.%s", vi->name, alias_get_name (fo->decl));
+	  else
+	    asprintf (&tempname, "%s." HOST_WIDE_INT_PRINT_DEC, vi->name, fo->offset);
+	  newname = ggc_strdup (tempname);
+	  free (tempname);
 	  newvi = new_var_info (decl, newindex, newname, newindex);
 	  newvi->offset = fo->offset;
 	  newvi->size = TREE_INT_CST_LOW (fo->size);

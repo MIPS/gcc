@@ -218,20 +218,11 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
 
 // Create a class on the heap from an initializer struct.
 jclass
-_Jv_NewClassFromInitializer (const char *class_initializer)
+_Jv_NewClassFromInitializer (const jclass class_initializer)
 {
-  /* We create an instance of java::lang::Class and copy all of its
-     fields except the first word (the vtable pointer) from
-     CLASS_INITIALIZER.  This first word is pre-initialized by
-     _Jv_AllocObj, and we don't want to overwrite it.  */
-
-  jclass new_class
-    = (jclass)_Jv_AllocObj (sizeof (java::lang::Class),
-			    &java::lang::Class::class$);
-  const char *src = class_initializer + sizeof (void*);
-  char *dst = (char*)new_class + sizeof (void*);
-  size_t len = sizeof (*new_class) - sizeof (void*);
-  memcpy (dst, src, len);
+  jclass new_class = (jclass)_Jv_AllocObj (sizeof *new_class,
+					   &java::lang::Class::class$);  
+  memcpy ((void*)new_class, (void*)class_initializer, sizeof *new_class);
 
   new_class->engine = &_Jv_soleIndirectCompiledEngine;
 
@@ -249,13 +240,13 @@ _Jv_NewClassFromInitializer (const char *class_initializer)
 // heap) and we write the address of the new class into the address
 // pointed to by the second word.
 void
-_Jv_RegisterNewClasses (char **classes)
+_Jv_RegisterNewClasses (void **classes)
 {
   _Jv_InitGC ();
 
-  const char *initializer;
+  jclass initializer;
 
-  while ((initializer = *classes++))
+  while ((initializer = (jclass)*classes++))
     {
       jclass *class_ptr = (jclass *)*classes++;
       *class_ptr = _Jv_NewClassFromInitializer (initializer);

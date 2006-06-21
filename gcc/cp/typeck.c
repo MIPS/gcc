@@ -1723,7 +1723,7 @@ build_class_member_access_expr (tree object, tree member,
   tree member_scope;
   tree result = NULL_TREE;
 
-  if (error_operand_p (object) || error_operand_p (member))
+  if (object == error_mark_node || member == error_mark_node)
     return error_mark_node;
 
   gcc_assert (DECL_P (member) || BASELINK_P (member));
@@ -5707,15 +5707,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
       /* Allow array assignment in compiler-generated code.  */
       if (! DECL_ARTIFICIAL (current_function_decl))
-	{
-          /* This routine is used for both initialization and assignment.
-             Make sure the diagnostic message differentiates the context.  */
-          if (modifycode == INIT_EXPR)
-            error ("array used as initializer");
-          else
-            error ("invalid array assignment");
-	  return error_mark_node;
-	}
+	pedwarn ("ISO C++ forbids assignment of arrays");
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
 		   ? 1 + (modifycode != INIT_EXPR): 0;

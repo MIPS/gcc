@@ -56,31 +56,31 @@ struct cgraph_local_info GTY(())
 
   /* Set when function function is visible in current compilation unit only
      and its address is never taken.  */
-  unsigned local : 1;
+  bool local;
 
   /* Set when function is visible by other units.  */
-  unsigned externally_visible : 1;
+  bool externally_visible;
 
   /* Set once it has been finalized so we consider it to be output.  */
-  unsigned finalized : 1;
+  bool finalized;
 
   /* False when there something makes inlining impossible (such as va_arg).  */
-  unsigned inlinable : 1;
+  bool inlinable;
 
   /* True when function should be inlined independently on its size.  */
-  unsigned disregard_inline_limits : 1;
+  bool disregard_inline_limits;
 
   /* True when the function has been originally extern inline, but it is
      redefined now.  */
-  unsigned redefined_extern_inline : 1;
+  bool redefined_extern_inline;
 
   /* True if statics_read_for_function and
      statics_written_for_function contain valid data.  */
-  unsigned for_functions_valid : 1;
+  bool for_functions_valid;
 
   /* True if the function is going to be emitted in some other translation
      unit, referenced from vtable.  */
-  unsigned vtable_method : 1;
+  bool vtable_method;
 };
 
 /* Information about the function that needs to be computed globally
@@ -146,24 +146,23 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   int uid;
   /* Ordering of all cgraph nodes.  */
   int order;
-
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
-  unsigned needed : 1;
+  bool needed;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
-  unsigned reachable : 1;
+  bool reachable;
   /* Set once the function is lowered (i.e. its CFG is built).  */
-  unsigned lowered : 1;
+  bool lowered;
   /* Set once the function has been instantiated and its callee
      lists created.  */
-  unsigned analyzed : 1;
+  bool analyzed;
   /* Set when function is scheduled to be assembled.  */
-  unsigned output : 1;
+  bool output;
   /* Set when function is visible by other units.  */
-  unsigned externally_visible : 1;
+  bool externally_visible;
   /* Set for aliases once they got through assemble_alias.  */
-  unsigned alias : 1;
+  bool alias;
 
   /* In non-unit-at-a-time mode the function body of inline candidates is saved
      into clone before compiling so the function in original form can be
@@ -210,21 +209,21 @@ struct cgraph_varpool_node GTY(())
 
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
-  unsigned needed : 1;
+  bool needed;
   /* Needed variables might become dead by optimization.  This flag
      forces the variable to be output even if it appears dead otherwise.  */
-  unsigned force_output : 1;
+  bool force_output;
   /* Set once the variable has been instantiated and its callee
      lists created.  */
-  unsigned analyzed : 1;
+  bool analyzed;
   /* Set once it has been finalized so we consider it to be output.  */
-  unsigned finalized : 1;
+  bool finalized;
   /* Set when variable is scheduled to be assembled.  */
-  unsigned output : 1;
+  bool output;
   /* Set when function is visible by other units.  */
-  unsigned externally_visible : 1;
+  bool externally_visible;
   /* Set for aliases once they got through assemble_alias.  */
-  unsigned alias : 1;
+  bool alias;
 };
 
 /* Every top level asm statement is put into a cgraph_asm_node.  */

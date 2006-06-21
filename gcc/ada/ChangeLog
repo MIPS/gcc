@@ -1,15 +1,3 @@
-2006-06-20  James A. Morrison  <phython@gcc.gnu.org>
-            Eric Botcazou  <ebotcazou@adacore.com>
-
-	PR ada/18692
-	* Make-lang.in: Add check-gnat to lang_checks.  Rename existing
-	check-gnat into check-acats.
-
-2006-06-17  Karl Berry  <karl@gnu.org>
-
-        * gnat-style.texi (@dircategory): Use "Software development"
-	instead of "Programming", following the Free Software Directory.
-
 2006-06-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR ada/27944

@@ -205,7 +205,7 @@ static void cp_parser_initial_pragma
   (cp_token *);
 
 /* Manifest constants.  */
-#define CP_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (cp_token))
+#define CP_LEXER_BUFFER_SIZE 10000
 #define CP_SAVED_TOKEN_STACK 5
 
 /* A token type for keywords, as opposed to ordinary identifiers.  */
@@ -3374,12 +3374,12 @@ cp_parser_unqualified_id (cp_parser* parser,
 	qualifying_scope = parser->qualifying_scope;
 
 	/* If the name is of the form "X::~X" it's OK.  */
-	token = cp_lexer_peek_token (parser->lexer);
 	if (scope && TYPE_P (scope)
-	    && token->type == CPP_NAME
+	    && cp_lexer_next_token_is (parser->lexer, CPP_NAME)
 	    && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
 		== CPP_OPEN_PAREN)
-	    && constructor_name_p (token->value, scope))
+	    && (cp_lexer_peek_token (parser->lexer)->value
+		== TYPE_IDENTIFIER (scope)))
 	  {
 	    cp_lexer_consume_token (parser->lexer);
 	    return build_nt (BIT_NOT_EXPR, scope);
@@ -3550,6 +3550,20 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
   cp_token_position start = 0;
   cp_token *token;
 
+  /* If the next token corresponds to a nested name specifier, there
+     is no need to reparse it.  However, if CHECK_DEPENDENCY_P is
+     false, it may have been true before, in which case something
+     like `A<X>::B<Y>::C' may have resulted in a nested-name-specifier
+     of `A<X>::', where it should now be `A<X>::B<Y>::'.  So, when
+     CHECK_DEPENDENCY_P is false, we have to fall through into the
+     main loop.  */
+  if (check_dependency_p
+      && cp_lexer_next_token_is (parser->lexer, CPP_NESTED_NAME_SPECIFIER))
+    {
+      cp_parser_pre_parsed_nested_name_specifier (parser);
+      return parser->scope;
+    }
+
   /* Remember where the nested-name-specifier starts.  */
   if (cp_parser_uncommitted_to_tentative_parse_p (parser))
     {
@@ -3649,8 +3663,6 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	     class-or-namespace-name.  */
 	  parser->scope = old_scope;
 	  parser->qualifying_scope = saved_qualifying_scope;
-	  if (cp_parser_uncommitted_to_tentative_parse_p (parser))
-	    break;
 	  /* If the next token is an identifier, and the one after
 	     that is a `::', then any valid interpretation would have
 	     found a class-or-namespace-name.  */
@@ -7732,7 +7744,9 @@ cp_parser_linkage_specification (cp_parser* parser)
       saved_in_unbraced_linkage_specification_p
 	= parser->in_unbraced_linkage_specification_p;
       parser->in_unbraced_linkage_specification_p = true;
+      have_extern_spec = true;
       cp_parser_declaration (parser);
+      have_extern_spec = false;
       parser->in_unbraced_linkage_specification_p
 	= saved_in_unbraced_linkage_specification_p;
     }
@@ -8783,19 +8797,10 @@ cp_parser_template_id (cp_parser *parser,
     template_id = build_min_nt (TEMPLATE_ID_EXPR, template, arguments);
   else if (DECL_CLASS_TEMPLATE_P (template)
 	   || DECL_TEMPLATE_TEMPLATE_PARM_P (template))
-    {
-      bool entering_scope;
-      /* In "template <typename T> ... A<T>::", A<T> is the abstract A
-	 template (rather than some instantiation thereof) only if
-	 is not nested within some other construct.  For example, in
-	 "template <typename T> void f(T) { A<T>::", A<T> is just an
-	 instantiation of A.  */
-      entering_scope = (template_parm_scope_p ()
-			&& cp_lexer_next_token_is (parser->lexer,
-						   CPP_SCOPE));
-      template_id
-	= finish_template_type (template, arguments, entering_scope);
-    }
+    template_id
+      = finish_template_type (template, arguments,
+			      cp_lexer_next_token_is (parser->lexer,
+						      CPP_SCOPE));
   else
     {
       /* If it's not a class-template or a template-template, it should be
@@ -11061,7 +11066,10 @@ cp_parser_init_declarator (cp_parser* parser,
   if (!member_p)
     {
       if (parser->in_unbraced_linkage_specification_p)
-	decl_specifiers->storage_class = sc_extern;
+	{
+	  decl_specifiers->storage_class = sc_extern;
+	  have_extern_spec = false;
+	}
       decl = start_decl (declarator, decl_specifiers,
 			 is_initialized, attributes, prefix_attributes,
 			 &pushed_scope);
@@ -11275,7 +11283,7 @@ cp_parser_declarator (cp_parser* parser,
 						member_p);
     }
 
-  if (attributes && declarator && declarator != cp_error_declarator)
+  if (attributes && declarator != cp_error_declarator)
     declarator->attributes = attributes;
 
   return declarator;
@@ -12114,16 +12122,9 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 {
   cp_parameter_declarator *parameters = NULL;
   cp_parameter_declarator **tail = &parameters;
-  bool saved_in_unbraced_linkage_specification_p;
 
   /* Assume all will go well.  */
   *is_error = false;
-  /* The special considerations that apply to a function within an
-     unbraced linkage specifications do not apply to the parameters
-     to the function.  */
-  saved_in_unbraced_linkage_specification_p 
-    = parser->in_unbraced_linkage_specification_p;
-  parser->in_unbraced_linkage_specification_p = false;
 
   /* Look for more parameters.  */
   while (true)
@@ -12201,9 +12202,6 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 	  break;
 	}
     }
-
-  parser->in_unbraced_linkage_specification_p
-    = saved_in_unbraced_linkage_specification_p;
 
   return parameters;
 }

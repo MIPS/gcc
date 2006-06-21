@@ -30,7 +30,7 @@ query=$1
 
 case ${query} in
     --install-includes)
-      INCLUDES="-I${SRC_DIR}/testsuite/util"
+      INCLUDES="-I${SRC_DIR}/testsuite"
       echo ${INCLUDES}
       ;;
     --build-includes)

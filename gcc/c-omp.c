@@ -82,18 +82,15 @@ c_finish_omp_barrier (void)
 
 
 /* Complete a #pragma omp atomic construct.  The expression to be 
-   implemented atomically is LHS code= RHS.  The value returned is
-   either error_mark_node (if the construct was erroneous) or an
-   OMP_ATOMIC node which should be added to the current statement tree
-   with add_stmt.  */
+   implemented atomically is LHS code= RHS.  */
 
-tree
+void
 c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
   tree x, type, addr;
 
   if (lhs == error_mark_node || rhs == error_mark_node)
-    return error_mark_node;
+    return;
 
   /* ??? According to one reading of the OpenMP spec, complex type are
      supported, but there are no atomic stores for any architecture.
@@ -105,7 +102,7 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
       && !SCALAR_FLOAT_TYPE_P (type))
     {
       error ("invalid expression type for %<#pragma omp atomic%>");
-      return error_mark_node;
+      return;
     }
 
   /* ??? Validate that rhs does not overlap lhs.  */
@@ -114,7 +111,7 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
      via indirection.  */
   addr = build_unary_op (ADDR_EXPR, lhs, 0);
   if (addr == error_mark_node)
-    return error_mark_node;
+    return;
   addr = save_expr (addr);
   lhs = build_indirect_ref (addr, NULL);
 
@@ -123,12 +120,12 @@ c_finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
      to do this, and then take it apart again.  */
   x = build_modify_expr (lhs, code, rhs);
   if (x == error_mark_node)
-    return error_mark_node;
+    return;
   gcc_assert (TREE_CODE (x) == MODIFY_EXPR);  
   rhs = TREE_OPERAND (x, 1);
 
   /* Punt the actual generation of atomic operations to common code.  */
-  return build2 (OMP_ATOMIC, void_type_node, addr, rhs);
+  add_stmt (build2 (OMP_ATOMIC, void_type_node, addr, rhs));
 }
 
 

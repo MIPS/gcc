@@ -92,7 +92,7 @@ Free Documentation License}''.
 @ifinfo
 @insertcopying
 @end ifinfo
-@dircategory Software development
+@dircategory Programming
 @direntry
 * gccinstall: (gccinstall).    Installing the GNU Compiler Collection.
 @end direntry

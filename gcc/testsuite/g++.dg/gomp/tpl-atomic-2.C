@@ -17,10 +17,11 @@ template<typename T> void f2(float *f)
 }
 
 // Here the rhs is dependent, but not type dependent.
+// ??? Fails.  See the comment in finish_omp_atomic.
 template<typename T> void f3(float *f)
 {
   #pragma omp atomic
-  *f |= sizeof (T);	// { dg-error "invalid|evaluation" }
+  *f |= sizeof (T);	// { dg-error "invalid|evaluation" "" { xfail *-*-* } }
 }
 
 // And the converse, no error here because we're never fed a T.

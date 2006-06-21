@@ -113,7 +113,7 @@ __cxa_begin_cleanup(_Unwind_Exception* ue_header)
       globals->propagatingExceptions = header;
     }
 
-  return true;
+  return !native;
 }
 
 // Do the work for __cxa_end_cleanup.  Returns the currently propagating

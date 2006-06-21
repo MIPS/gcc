@@ -379,36 +379,12 @@ gfc_check_real_range (mpfr_t p, int kind)
   mpfr_init (q);
   mpfr_abs (q, p, GFC_RND_MODE);
 
-  if (mpfr_inf_p (p))
-    {
-      if (gfc_option.flag_range_check == 0)
-        retval = ARITH_OK;
-      else
-        retval = ARITH_OVERFLOW;
-    }
-  else if (mpfr_nan_p (p))
-    {
-      if (gfc_option.flag_range_check == 0)
-        retval = ARITH_OK;
-      else
-        retval = ARITH_NAN;
-    }
-  else if (mpfr_sgn (q) == 0)
+  if (mpfr_sgn (q) == 0)
     retval = ARITH_OK;
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
-    {
-      if (gfc_option.flag_range_check == 0)
-        retval = ARITH_OK;
-      else
-        retval = ARITH_OVERFLOW;
-    }
+    retval = ARITH_OVERFLOW;
   else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
-    {
-      if (gfc_option.flag_range_check == 0)
-        retval = ARITH_OK;
-      else
-        retval = ARITH_UNDERFLOW;
-    }
+    retval = ARITH_UNDERFLOW;
   else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
     {
       /* MPFR operates on a numbers with a given precision and enormous
@@ -588,29 +564,19 @@ gfc_range_check (gfc_expr * e)
     case BT_REAL:
       rc = gfc_check_real_range (e->value.real, e->ts.kind);
       if (rc == ARITH_UNDERFLOW)
-	mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
-      if (rc == ARITH_OVERFLOW)
-	mpfr_set_inf (e->value.real, mpfr_sgn (e->value.real));
-      if (rc == ARITH_NAN)
-	mpfr_set_nan (e->value.real);
+        mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
       break;
 
     case BT_COMPLEX:
       rc = gfc_check_real_range (e->value.complex.r, e->ts.kind);
       if (rc == ARITH_UNDERFLOW)
-	mpfr_set_ui (e->value.complex.r, 0, GFC_RND_MODE);
-      if (rc == ARITH_OVERFLOW)
-	mpfr_set_inf (e->value.complex.r, mpfr_sgn (e->value.complex.r));
-      if (rc == ARITH_NAN)
-	mpfr_set_nan (e->value.complex.r);
-
-      rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
-      if (rc == ARITH_UNDERFLOW)
-	mpfr_set_ui (e->value.complex.i, 0, GFC_RND_MODE);
-      if (rc == ARITH_OVERFLOW)
-	mpfr_set_inf (e->value.complex.i, mpfr_sgn (e->value.complex.i));
-      if (rc == ARITH_NAN)
-	mpfr_set_nan (e->value.complex.i);
+        mpfr_set_ui (e->value.complex.r, 0, GFC_RND_MODE);
+      if (rc == ARITH_OK || rc == ARITH_UNDERFLOW)
+        {
+          rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
+          if (rc == ARITH_UNDERFLOW)
+            mpfr_set_ui (e->value.complex.i, 0, GFC_RND_MODE);
+        }
 
       break;
 
@@ -847,8 +813,8 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
       break;
 
     case BT_REAL:
-      if (mpfr_sgn (op2->value.real) == 0
-	  && gfc_option.flag_range_check == 1)
+      /* FIXME: MPFR correctly generates NaN.  This may not be needed.  */
+      if (mpfr_sgn (op2->value.real) == 0)
 	{
 	  rc = ARITH_DIV0;
 	  break;
@@ -859,9 +825,9 @@ gfc_arith_divide (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
       break;
 
     case BT_COMPLEX:
+      /* FIXME: MPFR correctly generates NaN.  This may not be needed.  */
       if (mpfr_sgn (op2->value.complex.r) == 0
-	  && mpfr_sgn (op2->value.complex.i) == 0
-	  && gfc_option.flag_range_check == 1)
+	  && mpfr_sgn (op2->value.complex.i) == 0)
 	{
 	  rc = ARITH_DIV0;
 	  break;

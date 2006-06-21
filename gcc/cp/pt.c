@@ -8546,7 +8546,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	tree op0, op1;
 	op0 = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl);
 	op1 = tsubst_expr (TREE_OPERAND (t, 1), args, complain, in_decl);
-	finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
+	if (OMP_ATOMIC_DEPENDENT_P (t))
+	  c_finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
+	else
+	  add_stmt (build2 (OMP_ATOMIC, void_type_node, op0, op1));
       }
       break;
 
@@ -9233,7 +9236,6 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   tree fndecl;
   tree gen_tmpl;
   tree spec;
-  HOST_WIDE_INT saved_processing_template_decl;
 
   if (tmpl == error_mark_node)
     return error_mark_node;
@@ -9293,18 +9295,9 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
      deferring all checks until we have the FUNCTION_DECL.  */
   push_deferring_access_checks (dk_deferred);
 
-  /* Although PROCESSING_TEMPLATE_DECL may be true at this point
-     (because, for example, we have encountered a non-dependent
-     function call in the body of a template function and must now
-     determine which of several overloaded functions will be called),
-     within the instantiation itself we are not processing a
-     template.  */  
-  saved_processing_template_decl = processing_template_decl;
-  processing_template_decl = 0;
-  /* Substitute template parameters to obtain the specialization.  */
+  /* Substitute template parameters.  */
   fndecl = tsubst (DECL_TEMPLATE_RESULT (gen_tmpl),
 		   targ_ptr, complain, gen_tmpl);
-  processing_template_decl = saved_processing_template_decl;
   if (fndecl == error_mark_node)
     return error_mark_node;
 
@@ -10167,7 +10160,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	  /* ARG must be constructed from a template class or a template
 	     template parameter.  */
 	  if (TREE_CODE (arg) != BOUND_TEMPLATE_TEMPLATE_PARM
-	      && !CLASSTYPE_SPECIALIZATION_OF_PRIMARY_TEMPLATE_P (arg))
+	      && (TREE_CODE (arg) != RECORD_TYPE || !CLASSTYPE_TEMPLATE_INFO (arg)))
 	    return 1;
 
 	  {
@@ -12480,8 +12473,7 @@ dependent_scope_ref_p (tree expression, bool criterion (tree))
 }
 
 /* Returns TRUE if the EXPRESSION is value-dependent, in the sense of
-   [temp.dep.constexpr].  EXPRESSION is already known to be a constant
-   expression.  */
+   [temp.dep.constexpr] */
 
 bool
 value_dependent_expression_p (tree expression)
@@ -12572,10 +12564,32 @@ value_dependent_expression_p (tree expression)
 	      || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
 
     case CALL_EXPR:
-      /* A CALL_EXPR may appear in a constant expression if it is a
-	 call to a builtin function, e.g., __builtin_constant_p.  All
-	 such calls are value-dependent.  */
-      return true;
+      /* A CALL_EXPR is value-dependent if any argument is
+	 value-dependent.  Why do we have to handle CALL_EXPRs in this
+	 function at all?  First, some function calls, those for which
+	 value_dependent_expression_p is true, man appear in constant
+	 expressions.  Second, there appear to be bugs which result in
+	 other CALL_EXPRs reaching this point. */
+      {
+	tree function = TREE_OPERAND (expression, 0);
+	tree args = TREE_OPERAND (expression, 1);
+
+	if (value_dependent_expression_p (function))
+	  return true;
+
+	if (! args)
+	  return false;
+
+	if (TREE_CODE (args) == TREE_LIST)
+	  {
+	    for (; args; args = TREE_CHAIN (args))
+	      if (value_dependent_expression_p (TREE_VALUE (args)))
+		return true;
+	    return false;
+	  }
+
+	return value_dependent_expression_p (args);
+      }
 
     default:
       /* A constant expression is value-dependent if any subexpression is

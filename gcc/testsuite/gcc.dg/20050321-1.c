@@ -3,7 +3,9 @@
 
 /* { dg-do compile } */
 /* { dg-options "-O2 -fmodulo-sched" } */
-extern void * malloc (__SIZE_TYPE__);
+/* malloc doesn't take a long. */
+/* { dg-xfail-if "" { "m32c-*-*" } { "*" } { "" } } */
+extern void * malloc (long);
 
 struct s {
     int k;
