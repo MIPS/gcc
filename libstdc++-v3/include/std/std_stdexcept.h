@@ -43,65 +43,9 @@
 
 #include <exception>
 #include <string>
-#include <bits/atomicity.h>
+#include <bits/exception_string.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  /** Reference-counted "mini-string" for internal use in the std exception
-   *  classes, needed due to the no-throw requirements for copy-constructor
-   *  and assignment operator, not fulfilled by sso_string.  */
-  class __exception_string
-  {
-    struct _Rep
-    {
-      size_t	    _M_size;
-      _Atomic_word  _M_refcount;
-
-      void
-      _M_destroy() throw();
-
-      void
-      _M_dispose() throw()
-      {
-	if (__gnu_cxx::__exchange_and_add(&_M_refcount, -1) <= 0)
-	  _M_destroy();
-      }
-
-      char*
-      _M_refdata() throw()
-      { return reinterpret_cast<char*>(this + 1); }
-
-      char*
-      _M_refcopy() throw()
-      {
-	__gnu_cxx::__atomic_add(&_M_refcount, 1);
-	return _M_refdata();
-      }
-    };
-
-    char* _M_data;
-
-    _Rep*
-    _M_rep() const throw()
-    { return &((reinterpret_cast<_Rep*>(_M_data))[-1]); }
-
-  public:
-    __exception_string(const __exception_string& __ex_str)
-    : _M_data(__ex_str._M_rep()->_M_refcopy()) { }
-
-    __exception_string(const string& __str);
-
-    ~__exception_string()
-    { _M_rep()->_M_dispose(); }
-
-    __exception_string&
-    operator=(const __exception_string& __ex_str);
-
-    const char*
-    c_str() const
-    { return _M_data; }
-  };
-
 
   /** Logic errors represent problems in the internal logic of a program;
    *  in theory, these are preventable, and even detectable before the

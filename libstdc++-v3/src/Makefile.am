@@ -132,6 +132,7 @@ sources = \
 	ctype.cc \
 	debug.cc \
 	debug_list.cc \
+	exception_string.cc \
 	functexcept.cc \
 	globals_locale.cc \
 	globals_io.cc \

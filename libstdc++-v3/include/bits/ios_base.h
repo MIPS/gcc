@@ -45,6 +45,7 @@
 #include <bits/atomicity.h>
 #include <bits/localefwd.h>
 #include <bits/locale_classes.h>
+#include <bits/exception_string.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -217,7 +218,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       what() const throw();
 
     private:
-      string _M_msg;
+      __exception_string _M_msg;
     };
 
     // 27.4.2.1.2  Type ios_base::fmtflags

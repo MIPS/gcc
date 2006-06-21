@@ -105,6 +105,7 @@ bits_headers = \
 	${bits_srcdir}/concurrence.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
+	${bits_srcdir}/exception_string.h \
 	${bits_srcdir}/fstream.tcc \
 	${bits_srcdir}/functexcept.h \
 	${bits_srcdir}/gslice.h \

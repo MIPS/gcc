@@ -37,43 +37,6 @@
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
-  void
-  __exception_string::_Rep::
-  _M_destroy() throw()
-  {
-    allocator<char>().deallocate(reinterpret_cast<char*>(this),
-				 sizeof(_Rep) + _M_size);
-  }
-
-  __exception_string::
-  __exception_string(const string& __str)
-  {
-    const size_t __size = __str.size() + 1;
-
-    void* __place = allocator<char>().allocate(sizeof(_Rep) + __size);
-    _Rep* __r = new (__place) _Rep;
-
-    memcpy(__r->_M_refdata(), __str.c_str(), __size);
-    __r->_M_size = __size;
-    __r->_M_refcount = 0;
-
-    _M_data = __r->_M_refdata();
-  }
-
-  __exception_string&
-  __exception_string::
-  operator=(const __exception_string& __ex_str)
-  {
-    if (_M_rep() != __ex_str._M_rep())
-      {
-	char* __tmp = __ex_str._M_rep()->_M_refcopy();
-	_M_rep()->_M_dispose();
-	_M_data = __tmp;
-      }
-    return *this;
-  }
-
-
   logic_error::logic_error(const string& __arg) 
   : exception(), _M_msg(__arg) { }
 

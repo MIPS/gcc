@@ -1,3 +1,20 @@
+2006-06-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_stdexcept.h: Move __exception_string...
+	* include/bits/exception_string.h: ... here, new file.
+	* src/stdexcept.cc: Move __exception_string out of line
+	definitions...
+	* src/exception_string.cc: ... here, new file.
+	* include/bits/ios_base.h (class ios_base::failure): Use
+	__exception_string.
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust dg-error
+	line number.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+	* src/Makefile.am: Update.
+	* include/Makefile.am: Likewise.
+	* src/Makefile.in: Regenerate.
+	* include/Makefile.am: Likewise.
+
 2006-04-12  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/std/std_stdexcept.h (class __exception_string): Add.
