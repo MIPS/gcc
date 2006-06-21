@@ -1,3 +1,7 @@
+2006-06-21  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Updated for ecj.
+
 2006-06-20  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.compile/Where.xfail: Now 'no-link'.
