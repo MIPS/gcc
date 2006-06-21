@@ -1,3 +1,10 @@
+2006-06-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/mips.c (function_arg): Where one part of a
+	complex argument is in registers and the other part in the stack,
+	return a REG not a PARALLEL.
+	* gcc/testsuite/gcc.c-torture/execute/complex-7.c: New.
+
 2006-06-21  Richard Sandiford  <richard@codesourcery.com>
 
 	Merge from csl/coldfire-4_1 branch:
