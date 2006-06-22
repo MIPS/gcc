@@ -87,12 +87,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    when the type is defined, and is therefore part of the type.  If
    you need both gc'd and heap allocated versions, you still must have
    *exactly* one definition of the common non-memory managed base vector.
-   
+
    If you need to directly manipulate a vector, then the 'address'
    accessor will return the address of the start of the vector.  Also
    the 'space' predicate will tell you whether there is spare capacity
    in the vector.  You will not normally need to use these two functions.
-   
+
    Vector types are defined using a DEF_VEC_{O,P,I}(TYPEDEF) macro, to
    get the non-memory allocation version, and then a
    DEF_VEC_ALLOC_{O,P,I}(TYPEDEF,ALLOC) macro to get memory managed

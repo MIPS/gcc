@@ -23,6 +23,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 #include "cpplib.h"
 #include "internal.h"
 
+#include <assert.h>
+
 /* Character set handling for C-family languages.
 
    Terminological note: In what follows, "charset" or "character set"
@@ -1317,6 +1319,8 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
 
   for (i = 0; i < count; i++)
     {
+      assert (from[i].len != 0);
+
       p = from[i].text;
       if (*p == 'L') p++;
       p++; /* Skip leading quote.  */

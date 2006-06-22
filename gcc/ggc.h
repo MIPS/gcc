@@ -314,4 +314,14 @@ extern void *ggc_alloc_zone_stat (size_t, struct alloc_zone * MEM_STAT_DECL);
 
 #endif
 
+/* Stringpool root information */
+typedef struct ggc_stringpool_roots {
+  void *start;
+  void *one_after_finish;
+} ggc_stringpool_roots;
+
+extern ggc_stringpool_roots ggc_register_stringpool_roots (void);
+extern void ggc_unregister_stringpool_roots (ggc_stringpool_roots roots);
+extern int ggc_stringpool_moved_p (ggc_stringpool_roots roots);
+
 #endif

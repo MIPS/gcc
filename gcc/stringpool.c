@@ -57,12 +57,11 @@ static struct obstack string_stack;
 
 static hashnode alloc_node (hash_table *);
 static int mark_ident (struct cpp_reader *, hashnode, const void *);
-static void ggc_register_stringpool_roots (void);
 
 static void *
 stringpool_ggc_alloc (size_t x)
 {
-  return ggc_alloc (x);
+  return ggc_alloc (x); /* TODO: specialized alloc for no pointers inside? */
 }
 
 /* Initialize the string pool.  */
@@ -183,13 +182,32 @@ ggc_mark_stringpool (void)
   ht_forall (ident_hash, mark_ident, NULL);
 }
 
-/* Register the stringpool entries as GGC roots. TODO: why these are handled
-   specially? */
-void
+/* Register the stringpool entries as GGC roots.  In contrast to all other
+   roots, that are static, stringpool may increase and move around in memory.
+   So it's handled specially. */
+ggc_stringpool_roots
 ggc_register_stringpool_roots (void)
 {
-  GC_add_roots(ident_hash->entries,
-	       ident_hash->entries + sizeof(hashnode) * (1 << ORDER));
+  ggc_stringpool_roots result;
+  result.start = ident_hash->entries;
+  result.one_after_finish = ident_hash->entries + ident_hash->nslots;
+
+  GC_add_roots (result.start, result.one_after_finish);
+
+  return result;
+}
+
+void
+ggc_unregister_stringpool_roots (ggc_stringpool_roots roots)
+{
+  GC_remove_roots (roots.start, roots.one_after_finish);
+}
+
+int
+ggc_stringpool_moved_p (ggc_stringpool_roots roots)
+{
+  return (roots.start != ident_hash->entries)
+    || (roots.one_after_finish != ident_hash->entries + ident_hash->nslots);
 }
 
 /* Strings are _not_ GCed, but this routine exists so that a separate

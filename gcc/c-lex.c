@@ -453,6 +453,8 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 
     case CPP_STRING:
     case CPP_WSTRING:
+      gcc_assert (tok->val.str.len != 0);
+
       if (!c_lex_return_raw_strings)
 	{
 	  type = lex_string (tok, value, false);
@@ -460,7 +462,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	}
       *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
       break;
-      
+
     case CPP_PRAGMA:
       *value = build_int_cst (NULL, tok->val.pragma);
       break;
@@ -723,6 +725,8 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
      for the common case of just one string.  */
   cpp_string str = tok->val.str;
   cpp_string *strs = &str;
+
+  gcc_assert (str.len != 0);
 
   if (tok->type == CPP_WSTRING)
     wide = true;

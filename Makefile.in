@@ -559,6 +559,7 @@ configure-host:  \
     maybe-configure-opcodes \
     maybe-configure-binutils \
     maybe-configure-bison \
+    maybe-configure-boehm-gc \
     maybe-configure-byacc \
     maybe-configure-bzip2 \
     maybe-configure-dejagnu \
@@ -664,7 +665,6 @@ all:
 
 all-build: maybe-all-build-libiberty
 all-build: maybe-all-build-bison
-all-build: maybe-all-build-boehm-gc
 all-build: maybe-all-build-byacc
 all-build: maybe-all-build-flex
 all-build: maybe-all-build-m4
@@ -687,6 +687,9 @@ all-host: maybe-all-opcodes
 all-host: maybe-all-binutils
 @endif binutils-no-bootstrap
 all-host: maybe-all-bison
+@if boehm-gc-no-bootstrap
+all-host: maybe-all-boehm-gc
+@endif boehm-gc-no-bootstrap
 all-host: maybe-all-byacc
 all-host: maybe-all-bzip2
 all-host: maybe-all-dejagnu
@@ -811,6 +814,7 @@ info-host: maybe-info-bfd
 info-host: maybe-info-opcodes
 info-host: maybe-info-binutils
 info-host: maybe-info-bison
+info-host: maybe-info-boehm-gc
 info-host: maybe-info-byacc
 info-host: maybe-info-bzip2
 info-host: maybe-info-dejagnu
@@ -914,6 +918,7 @@ dvi-host: maybe-dvi-bfd
 dvi-host: maybe-dvi-opcodes
 dvi-host: maybe-dvi-binutils
 dvi-host: maybe-dvi-bison
+dvi-host: maybe-dvi-boehm-gc
 dvi-host: maybe-dvi-byacc
 dvi-host: maybe-dvi-bzip2
 dvi-host: maybe-dvi-dejagnu
@@ -1017,6 +1022,7 @@ html-host: maybe-html-bfd
 html-host: maybe-html-opcodes
 html-host: maybe-html-binutils
 html-host: maybe-html-bison
+html-host: maybe-html-boehm-gc
 html-host: maybe-html-byacc
 html-host: maybe-html-bzip2
 html-host: maybe-html-dejagnu
@@ -1120,6 +1126,7 @@ TAGS-host: maybe-TAGS-bfd
 TAGS-host: maybe-TAGS-opcodes
 TAGS-host: maybe-TAGS-binutils
 TAGS-host: maybe-TAGS-bison
+TAGS-host: maybe-TAGS-boehm-gc
 TAGS-host: maybe-TAGS-byacc
 TAGS-host: maybe-TAGS-bzip2
 TAGS-host: maybe-TAGS-dejagnu
@@ -1223,6 +1230,7 @@ install-info-host: maybe-install-info-bfd
 install-info-host: maybe-install-info-opcodes
 install-info-host: maybe-install-info-binutils
 install-info-host: maybe-install-info-bison
+install-info-host: maybe-install-info-boehm-gc
 install-info-host: maybe-install-info-byacc
 install-info-host: maybe-install-info-bzip2
 install-info-host: maybe-install-info-dejagnu
@@ -1326,6 +1334,7 @@ install-html-host: maybe-install-html-bfd
 install-html-host: maybe-install-html-opcodes
 install-html-host: maybe-install-html-binutils
 install-html-host: maybe-install-html-bison
+install-html-host: maybe-install-html-boehm-gc
 install-html-host: maybe-install-html-byacc
 install-html-host: maybe-install-html-bzip2
 install-html-host: maybe-install-html-dejagnu
@@ -1429,6 +1438,7 @@ installcheck-host: maybe-installcheck-bfd
 installcheck-host: maybe-installcheck-opcodes
 installcheck-host: maybe-installcheck-binutils
 installcheck-host: maybe-installcheck-bison
+installcheck-host: maybe-installcheck-boehm-gc
 installcheck-host: maybe-installcheck-byacc
 installcheck-host: maybe-installcheck-bzip2
 installcheck-host: maybe-installcheck-dejagnu
@@ -1532,6 +1542,7 @@ mostlyclean-host: maybe-mostlyclean-bfd
 mostlyclean-host: maybe-mostlyclean-opcodes
 mostlyclean-host: maybe-mostlyclean-binutils
 mostlyclean-host: maybe-mostlyclean-bison
+mostlyclean-host: maybe-mostlyclean-boehm-gc
 mostlyclean-host: maybe-mostlyclean-byacc
 mostlyclean-host: maybe-mostlyclean-bzip2
 mostlyclean-host: maybe-mostlyclean-dejagnu
@@ -1635,6 +1646,7 @@ clean-host: maybe-clean-bfd
 clean-host: maybe-clean-opcodes
 clean-host: maybe-clean-binutils
 clean-host: maybe-clean-bison
+clean-host: maybe-clean-boehm-gc
 clean-host: maybe-clean-byacc
 clean-host: maybe-clean-bzip2
 clean-host: maybe-clean-dejagnu
@@ -1738,6 +1750,7 @@ distclean-host: maybe-distclean-bfd
 distclean-host: maybe-distclean-opcodes
 distclean-host: maybe-distclean-binutils
 distclean-host: maybe-distclean-bison
+distclean-host: maybe-distclean-boehm-gc
 distclean-host: maybe-distclean-byacc
 distclean-host: maybe-distclean-bzip2
 distclean-host: maybe-distclean-dejagnu
@@ -1841,6 +1854,7 @@ maintainer-clean-host: maybe-maintainer-clean-bfd
 maintainer-clean-host: maybe-maintainer-clean-opcodes
 maintainer-clean-host: maybe-maintainer-clean-binutils
 maintainer-clean-host: maybe-maintainer-clean-bison
+maintainer-clean-host: maybe-maintainer-clean-boehm-gc
 maintainer-clean-host: maybe-maintainer-clean-byacc
 maintainer-clean-host: maybe-maintainer-clean-bzip2
 maintainer-clean-host: maybe-maintainer-clean-dejagnu
@@ -1999,6 +2013,7 @@ check-host:  \
     maybe-check-opcodes \
     maybe-check-binutils \
     maybe-check-bison \
+    maybe-check-boehm-gc \
     maybe-check-byacc \
     maybe-check-bzip2 \
     maybe-check-dejagnu \
@@ -2129,6 +2144,7 @@ install-host-nogcc:  \
     maybe-install-opcodes \
     maybe-install-binutils \
     maybe-install-bison \
+    maybe-install-boehm-gc \
     maybe-install-byacc \
     maybe-install-bzip2 \
     maybe-install-dejagnu \
@@ -2199,6 +2215,7 @@ install-host:  \
     maybe-install-opcodes \
     maybe-install-binutils \
     maybe-install-bison \
+    maybe-install-boehm-gc \
     maybe-install-byacc \
     maybe-install-bzip2 \
     maybe-install-dejagnu \
@@ -2450,54 +2467,6 @@ all-build-bison: configure-build-bison
 	(cd $(BUILD_SUBDIR)/bison && \
 	  $(MAKE)   $(TARGET-build-bison))
 @endif build-bison
-
-
-
-
-
-.PHONY: configure-build-boehm-gc maybe-configure-build-boehm-gc
-maybe-configure-build-boehm-gc:
-@if build-boehm-gc
-maybe-configure-build-boehm-gc: configure-build-boehm-gc
-configure-build-boehm-gc: 
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	test ! -f $(BUILD_SUBDIR)/boehm-gc/Makefile || exit 0; \
-	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/boehm-gc ; \
-	$(BUILD_EXPORTS) \
-	echo Configuring in $(BUILD_SUBDIR)/boehm-gc; \
-	cd "$(BUILD_SUBDIR)/boehm-gc" || exit 1; \
-	case $(srcdir) in \
-	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(BUILD_SUBDIR)/boehm-gc/ | \
-		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
-	esac; \
-	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
-	libsrcdir="$$s/boehm-gc"; \
-	rm -f no-such-file || : ; \
-	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-	  $(BUILD_CONFIGARGS) $${srcdiroption}  \
-	  || exit 1
-@endif build-boehm-gc
-
-
-
-
-
-.PHONY: all-build-boehm-gc maybe-all-build-boehm-gc
-maybe-all-build-boehm-gc:
-@if build-boehm-gc
-TARGET-build-boehm-gc=all
-maybe-all-build-boehm-gc: all-build-boehm-gc
-all-build-boehm-gc: configure-build-boehm-gc
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(BUILD_EXPORTS) \
-	(cd $(BUILD_SUBDIR)/boehm-gc && \
-	  $(MAKE)   $(TARGET-build-boehm-gc))
-@endif build-boehm-gc
 
 
 
@@ -6746,6 +6715,712 @@ maintainer-clean-bison:
 	  || exit 1
 
 @endif bison
+
+
+
+.PHONY: configure-boehm-gc maybe-configure-boehm-gc
+maybe-configure-boehm-gc:
+@if gcc-bootstrap
+configure-boehm-gc: stage_current
+@endif gcc-bootstrap
+@if boehm-gc
+maybe-configure-boehm-gc: configure-boehm-gc
+configure-boehm-gc: 
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	$(HOST_EXPORTS) \
+	echo Configuring in $(HOST_SUBDIR)/boehm-gc; \
+	cd "$(HOST_SUBDIR)/boehm-gc" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption}  \
+	  || exit 1
+@endif boehm-gc
+
+
+
+.PHONY: configure-stage1-boehm-gc maybe-configure-stage1-boehm-gc
+maybe-configure-stage1-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stage1-boehm-gc: configure-stage1-boehm-gc
+configure-stage1-boehm-gc:
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	echo Configuring stage 1 in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  --disable-intermodule 	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)" 
+@endif boehm-gc-bootstrap
+
+.PHONY: configure-stage2-boehm-gc maybe-configure-stage2-boehm-gc
+maybe-configure-stage2-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stage2-boehm-gc: configure-stage2-boehm-gc
+configure-stage2-boehm-gc:
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 2 in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  @stage2_werror_flag@ 
+@endif boehm-gc-bootstrap
+
+.PHONY: configure-stage3-boehm-gc maybe-configure-stage3-boehm-gc
+maybe-configure-stage3-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stage3-boehm-gc: configure-stage3-boehm-gc
+configure-stage3-boehm-gc:
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 3 in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  @stage2_werror_flag@ 
+@endif boehm-gc-bootstrap
+
+.PHONY: configure-stage4-boehm-gc maybe-configure-stage4-boehm-gc
+maybe-configure-stage4-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stage4-boehm-gc: configure-stage4-boehm-gc
+configure-stage4-boehm-gc:
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage 4 in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  @stage2_werror_flag@ 
+@endif boehm-gc-bootstrap
+
+.PHONY: configure-stageprofile-boehm-gc maybe-configure-stageprofile-boehm-gc
+maybe-configure-stageprofile-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stageprofile-boehm-gc: configure-stageprofile-boehm-gc
+configure-stageprofile-boehm-gc:
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage profile in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  @stage2_werror_flag@ 
+@endif boehm-gc-bootstrap
+
+.PHONY: configure-stagefeedback-boehm-gc maybe-configure-stagefeedback-boehm-gc
+maybe-configure-stagefeedback-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-configure-stagefeedback-boehm-gc: configure-stagefeedback-boehm-gc
+configure-stagefeedback-boehm-gc:
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/boehm-gc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	echo Configuring stage feedback in $(HOST_SUBDIR)/boehm-gc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/boehm-gc ; \
+	cd $(HOST_SUBDIR)/boehm-gc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/boehm-gc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/boehm-gc"; \
+	libsrcdir="$$s/boehm-gc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) $${srcdiroption} \
+	  @stage2_werror_flag@ 
+@endif boehm-gc-bootstrap
+
+
+
+
+
+.PHONY: all-boehm-gc maybe-all-boehm-gc
+maybe-all-boehm-gc:
+@if gcc-bootstrap
+all-boehm-gc: stage_current
+@endif gcc-bootstrap
+@if boehm-gc
+TARGET-boehm-gc=all
+maybe-all-boehm-gc: all-boehm-gc
+all-boehm-gc: configure-boehm-gc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(FLAGS_TO_PASS)  $(TARGET-boehm-gc))
+@endif boehm-gc
+
+
+
+.PHONY: all-stage1-boehm-gc maybe-all-stage1-boehm-gc
+.PHONY: clean-stage1-boehm-gc maybe-clean-stage1-boehm-gc
+maybe-all-stage1-boehm-gc:
+maybe-clean-stage1-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stage1-boehm-gc: all-stage1-boehm-gc
+all-stage1: all-stage1-boehm-gc
+TARGET-stage1-boehm-gc = $(TARGET-boehm-gc)
+all-stage1-boehm-gc: configure-stage1-boehm-gc
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  CFLAGS="$(STAGE1_CFLAGS)" LIBCFLAGS="$(STAGE1_CFLAGS)"  \
+		$(TARGET-stage1-boehm-gc)
+
+maybe-clean-stage1-boehm-gc: clean-stage1-boehm-gc
+clean-stage1: clean-stage1-boehm-gc
+clean-stage1-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stage1-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stage1 ] || $(MAKE) stage1-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		CFLAGS="$(STAGE1_CFLAGS)" LIBCFLAGS="$(STAGE1_CFLAGS)"  clean
+@endif boehm-gc-bootstrap
+
+
+.PHONY: all-stage2-boehm-gc maybe-all-stage2-boehm-gc
+.PHONY: clean-stage2-boehm-gc maybe-clean-stage2-boehm-gc
+maybe-all-stage2-boehm-gc:
+maybe-clean-stage2-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stage2-boehm-gc: all-stage2-boehm-gc
+all-stage2: all-stage2-boehm-gc
+TARGET-stage2-boehm-gc = $(TARGET-boehm-gc)
+all-stage2-boehm-gc: configure-stage2-boehm-gc
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage2-boehm-gc)
+
+maybe-clean-stage2-boehm-gc: clean-stage2-boehm-gc
+clean-stage2: clean-stage2-boehm-gc
+clean-stage2-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stage2-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stage2 ] || $(MAKE) stage2-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif boehm-gc-bootstrap
+
+
+.PHONY: all-stage3-boehm-gc maybe-all-stage3-boehm-gc
+.PHONY: clean-stage3-boehm-gc maybe-clean-stage3-boehm-gc
+maybe-all-stage3-boehm-gc:
+maybe-clean-stage3-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stage3-boehm-gc: all-stage3-boehm-gc
+all-stage3: all-stage3-boehm-gc
+TARGET-stage3-boehm-gc = $(TARGET-boehm-gc)
+all-stage3-boehm-gc: configure-stage3-boehm-gc
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage3-boehm-gc)
+
+maybe-clean-stage3-boehm-gc: clean-stage3-boehm-gc
+clean-stage3: clean-stage3-boehm-gc
+clean-stage3-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stage3-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stage3 ] || $(MAKE) stage3-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif boehm-gc-bootstrap
+
+
+.PHONY: all-stage4-boehm-gc maybe-all-stage4-boehm-gc
+.PHONY: clean-stage4-boehm-gc maybe-clean-stage4-boehm-gc
+maybe-all-stage4-boehm-gc:
+maybe-clean-stage4-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stage4-boehm-gc: all-stage4-boehm-gc
+all-stage4: all-stage4-boehm-gc
+TARGET-stage4-boehm-gc = $(TARGET-boehm-gc)
+all-stage4-boehm-gc: configure-stage4-boehm-gc
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS)   \
+		$(TARGET-stage4-boehm-gc)
+
+maybe-clean-stage4-boehm-gc: clean-stage4-boehm-gc
+clean-stage4: clean-stage4-boehm-gc
+clean-stage4-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stage4-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stage4 ] || $(MAKE) stage4-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		  clean
+@endif boehm-gc-bootstrap
+
+
+.PHONY: all-stageprofile-boehm-gc maybe-all-stageprofile-boehm-gc
+.PHONY: clean-stageprofile-boehm-gc maybe-clean-stageprofile-boehm-gc
+maybe-all-stageprofile-boehm-gc:
+maybe-clean-stageprofile-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stageprofile-boehm-gc: all-stageprofile-boehm-gc
+all-stageprofile: all-stageprofile-boehm-gc
+TARGET-stageprofile-boehm-gc = $(TARGET-boehm-gc)
+all-stageprofile-boehm-gc: configure-stageprofile-boehm-gc
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS) CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"  \
+		$(TARGET-stageprofile-boehm-gc)
+
+maybe-clean-stageprofile-boehm-gc: clean-stageprofile-boehm-gc
+clean-stageprofile: clean-stageprofile-boehm-gc
+clean-stageprofile-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stageprofile-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		CFLAGS="$(BOOT_CFLAGS) -fprofile-generate"  clean
+@endif boehm-gc-bootstrap
+
+
+.PHONY: all-stagefeedback-boehm-gc maybe-all-stagefeedback-boehm-gc
+.PHONY: clean-stagefeedback-boehm-gc maybe-clean-stagefeedback-boehm-gc
+maybe-all-stagefeedback-boehm-gc:
+maybe-clean-stagefeedback-boehm-gc:
+@if boehm-gc-bootstrap
+maybe-all-stagefeedback-boehm-gc: all-stagefeedback-boehm-gc
+all-stagefeedback: all-stagefeedback-boehm-gc
+TARGET-stagefeedback-boehm-gc = $(TARGET-boehm-gc)
+all-stagefeedback-boehm-gc: configure-stagefeedback-boehm-gc
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS) $(POSTSTAGE1_FLAGS_TO_PASS) CFLAGS="$(BOOT_CFLAGS) -fprofile-use"  \
+		$(TARGET-stagefeedback-boehm-gc)
+
+maybe-clean-stagefeedback-boehm-gc: clean-stagefeedback-boehm-gc
+clean-stagefeedback: clean-stagefeedback-boehm-gc
+clean-stagefeedback-boehm-gc:
+	@[ -f $(HOST_SUBDIR)/boehm-gc/Makefile ] || [ -f $(HOST_SUBDIR)/stagefeedback-boehm-gc/Makefile ] \
+	  || exit 0 ; \
+	[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start; \
+	cd $(HOST_SUBDIR)/boehm-gc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		CFLAGS="$(BOOT_CFLAGS) -fprofile-use"  clean
+@endif boehm-gc-bootstrap
+
+
+
+
+
+.PHONY: check-boehm-gc maybe-check-boehm-gc
+maybe-check-boehm-gc:
+@if boehm-gc
+maybe-check-boehm-gc: check-boehm-gc
+
+check-boehm-gc:
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(FLAGS_TO_PASS)  check)
+
+@endif boehm-gc
+
+.PHONY: install-boehm-gc maybe-install-boehm-gc
+maybe-install-boehm-gc:
+@if boehm-gc
+maybe-install-boehm-gc: install-boehm-gc
+
+install-boehm-gc: installdirs
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(FLAGS_TO_PASS)  install)
+
+@endif boehm-gc
+
+# Other targets (info, dvi, etc.)
+
+.PHONY: maybe-info-boehm-gc info-boehm-gc
+maybe-info-boehm-gc:
+@if boehm-gc
+maybe-info-boehm-gc: info-boehm-gc
+
+info-boehm-gc: \
+    configure-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing info in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          info) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-dvi-boehm-gc dvi-boehm-gc
+maybe-dvi-boehm-gc:
+@if boehm-gc
+maybe-dvi-boehm-gc: dvi-boehm-gc
+
+dvi-boehm-gc: \
+    configure-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing dvi in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          dvi) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-html-boehm-gc html-boehm-gc
+maybe-html-boehm-gc:
+@if boehm-gc
+maybe-html-boehm-gc: html-boehm-gc
+
+html-boehm-gc: \
+    configure-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          html) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-TAGS-boehm-gc TAGS-boehm-gc
+maybe-TAGS-boehm-gc:
+@if boehm-gc
+maybe-TAGS-boehm-gc: TAGS-boehm-gc
+
+TAGS-boehm-gc: \
+    configure-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing TAGS in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          TAGS) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-install-info-boehm-gc install-info-boehm-gc
+maybe-install-info-boehm-gc:
+@if boehm-gc
+maybe-install-info-boehm-gc: install-info-boehm-gc
+
+install-info-boehm-gc: \
+    configure-boehm-gc \
+    info-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-info in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          install-info) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-install-html-boehm-gc install-html-boehm-gc
+maybe-install-html-boehm-gc:
+@if boehm-gc
+maybe-install-html-boehm-gc: install-html-boehm-gc
+
+install-html-boehm-gc: \
+    configure-boehm-gc \
+    html-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-html in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          install-html) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-installcheck-boehm-gc installcheck-boehm-gc
+maybe-installcheck-boehm-gc:
+@if boehm-gc
+maybe-installcheck-boehm-gc: installcheck-boehm-gc
+
+installcheck-boehm-gc: \
+    configure-boehm-gc 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing installcheck in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          installcheck) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-mostlyclean-boehm-gc mostlyclean-boehm-gc
+maybe-mostlyclean-boehm-gc:
+@if boehm-gc
+maybe-mostlyclean-boehm-gc: mostlyclean-boehm-gc
+
+mostlyclean-boehm-gc: 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing mostlyclean in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          mostlyclean) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-clean-boehm-gc clean-boehm-gc
+maybe-clean-boehm-gc:
+@if boehm-gc
+maybe-clean-boehm-gc: clean-boehm-gc
+
+clean-boehm-gc: 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing clean in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          clean) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-distclean-boehm-gc distclean-boehm-gc
+maybe-distclean-boehm-gc:
+@if boehm-gc
+maybe-distclean-boehm-gc: distclean-boehm-gc
+
+distclean-boehm-gc: 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing distclean in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          distclean) \
+	  || exit 1
+
+@endif boehm-gc
+
+.PHONY: maybe-maintainer-clean-boehm-gc maintainer-clean-boehm-gc
+maybe-maintainer-clean-boehm-gc:
+@if boehm-gc
+maybe-maintainer-clean-boehm-gc: maintainer-clean-boehm-gc
+
+maintainer-clean-boehm-gc: 
+	@[ -f ./boehm-gc/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) ; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing maintainer-clean in boehm-gc" ; \
+	(cd $(HOST_SUBDIR)/boehm-gc && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" \
+	          maintainer-clean) \
+	  || exit 1
+
+@endif boehm-gc
 
 
 
@@ -39313,6 +39988,11 @@ stage1-start::
 	  mkdir stage1-binutils; \
 	mv stage1-binutils binutils 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stage1-boehm-gc ] || \
+	  mkdir stage1-boehm-gc; \
+	mv stage1-boehm-gc boehm-gc 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stage1-gas ] || \
 	  mkdir stage1-gas; \
@@ -39373,6 +40053,11 @@ stage1-end::
 	  cd $(HOST_SUBDIR); mv binutils stage1-binutils  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stage1-boehm-gc  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stage1-gas  ; \
@@ -39478,6 +40163,12 @@ stage2-start::
 	mv stage2-binutils binutils  ; \
 	mv stage1-binutils prev-binutils || test -f stage1-lean 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stage2-boehm-gc ] || \
+	  mkdir stage2-boehm-gc; \
+	mv stage2-boehm-gc boehm-gc  ; \
+	mv stage1-boehm-gc prev-boehm-gc || test -f stage1-lean 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stage2-gas ] || \
 	  mkdir stage2-gas; \
@@ -39550,6 +40241,12 @@ stage2-end::
 	  mv prev-binutils stage1-binutils ; :  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stage2-boehm-gc ; \
+	  mv prev-boehm-gc stage1-boehm-gc ; :  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stage2-gas ; \
@@ -39685,6 +40382,12 @@ stage3-start::
 	mv stage3-binutils binutils  ; \
 	mv stage2-binutils prev-binutils || test -f stage2-lean 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stage3-boehm-gc ] || \
+	  mkdir stage3-boehm-gc; \
+	mv stage3-boehm-gc boehm-gc  ; \
+	mv stage2-boehm-gc prev-boehm-gc || test -f stage2-lean 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stage3-gas ] || \
 	  mkdir stage3-gas; \
@@ -39757,6 +40460,12 @@ stage3-end::
 	  mv prev-binutils stage2-binutils ; :  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stage3-boehm-gc ; \
+	  mv prev-boehm-gc stage2-boehm-gc ; :  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stage3-gas ; \
@@ -39938,6 +40647,12 @@ stage4-start::
 	mv stage4-binutils binutils  ; \
 	mv stage3-binutils prev-binutils || test -f stage3-lean 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stage4-boehm-gc ] || \
+	  mkdir stage4-boehm-gc; \
+	mv stage4-boehm-gc boehm-gc  ; \
+	mv stage3-boehm-gc prev-boehm-gc || test -f stage3-lean 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stage4-gas ] || \
 	  mkdir stage4-gas; \
@@ -40010,6 +40725,12 @@ stage4-end::
 	  mv prev-binutils stage3-binutils ; :  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stage4-boehm-gc ; \
+	  mv prev-boehm-gc stage3-boehm-gc ; :  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stage4-gas ; \
@@ -40188,6 +40909,12 @@ stageprofile-start::
 	mv stageprofile-binutils binutils  ; \
 	mv stage1-binutils prev-binutils || test -f stage1-lean 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stageprofile-boehm-gc ] || \
+	  mkdir stageprofile-boehm-gc; \
+	mv stageprofile-boehm-gc boehm-gc  ; \
+	mv stage1-boehm-gc prev-boehm-gc || test -f stage1-lean 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stageprofile-gas ] || \
 	  mkdir stageprofile-gas; \
@@ -40260,6 +40987,12 @@ stageprofile-end::
 	  mv prev-binutils stage1-binutils ; :  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stageprofile-boehm-gc ; \
+	  mv prev-boehm-gc stage1-boehm-gc ; :  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stageprofile-gas ; \
@@ -40374,6 +41107,12 @@ stagefeedback-start::
 	mv stagefeedback-binutils binutils  ; \
 	mv stageprofile-binutils prev-binutils || test -f stageprofile-lean 
 @endif binutils
+@if boehm-gc
+	@cd $(HOST_SUBDIR); [ -d stagefeedback-boehm-gc ] || \
+	  mkdir stagefeedback-boehm-gc; \
+	mv stagefeedback-boehm-gc boehm-gc  ; \
+	mv stageprofile-boehm-gc prev-boehm-gc || test -f stageprofile-lean 
+@endif boehm-gc
 @if gas
 	@cd $(HOST_SUBDIR); [ -d stagefeedback-gas ] || \
 	  mkdir stagefeedback-gas; \
@@ -40446,6 +41185,12 @@ stagefeedback-end::
 	  mv prev-binutils stageprofile-binutils ; :  ; \
 	fi
 @endif binutils
+@if boehm-gc
+	@if test -d $(HOST_SUBDIR)/boehm-gc ; then \
+	  cd $(HOST_SUBDIR); mv boehm-gc stagefeedback-boehm-gc ; \
+	  mv prev-boehm-gc stageprofile-boehm-gc ; :  ; \
+	fi
+@endif boehm-gc
 @if gas
 	@if test -d $(HOST_SUBDIR)/gas ; then \
 	  cd $(HOST_SUBDIR); mv gas stagefeedback-gas ; \
@@ -40744,6 +41489,7 @@ all-stage3-gcc: all-stage3-libiberty
 all-stage4-gcc: all-stage4-libiberty
 all-stageprofile-gcc: all-stageprofile-libiberty
 all-stagefeedback-gcc: all-stagefeedback-libiberty
+all-gcc: all-boehms-gc
 all-gcc: maybe-all-intl
 
 all-stage1-gcc: maybe-all-stage1-intl
@@ -41211,6 +41957,7 @@ all-target-winsup: maybe-all-target-libtermcap
 all-prebootstrap: maybe-all-bfd
 all-prebootstrap: maybe-all-opcodes
 all-prebootstrap: maybe-all-binutils
+all-prebootstrap: maybe-all-boehm-gc
 all-prebootstrap: maybe-all-gas
 all-prebootstrap: maybe-all-intl
 all-prebootstrap: maybe-all-ld

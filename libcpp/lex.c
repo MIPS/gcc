@@ -1317,7 +1317,7 @@ cpp_spell_token (cpp_reader *pfile, const cpp_token *token,
 	{
 	  size_t i;
 	  const unsigned char * name = NODE_NAME (token->val.node);
-	  
+
 	  for (i = 0; i < NODE_LEN (token->val.node); i++)
 	    if (name[i] & ~0x7F)
 	      {

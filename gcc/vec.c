@@ -34,7 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "toplev.h"
 
-struct vec_prefix 
+struct vec_prefix
 {
   unsigned num;
   unsigned alloc;
@@ -60,10 +60,10 @@ calculate_allocation (const struct vec_prefix *pfx, int reserve)
     /* If there's no prefix, and we've not requested anything, then we
        will create a NULL vector.  */
     return 0;
-  
+
   /* We must have run out of room.  */
   gcc_assert (alloc - num < (unsigned)(reserve < 0 ? -reserve : reserve));
-  
+
   if (reserve < 0)
     /* Exact size.  */
     alloc = num + -reserve;
@@ -78,7 +78,7 @@ calculate_allocation (const struct vec_prefix *pfx, int reserve)
       else
 	/* Grow slower when large.  */
 	alloc = (alloc * 3 / 2);
-      
+
       /* If this is still too small, set it to the right size. */
       if (alloc < num + reserve)
 	alloc = num + reserve;
@@ -108,15 +108,15 @@ vec_gc_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
 {
   struct vec_prefix *pfx = vec;
   unsigned alloc = alloc = calculate_allocation (pfx, reserve);
-  
+
   if (!alloc)
     return NULL;
-  
+
   vec = ggc_realloc_stat (vec, vec_offset + alloc * elt_size PASS_MEM_STAT);
   ((struct vec_prefix *)vec)->alloc = alloc;
   if (!pfx)
     ((struct vec_prefix *)vec)->num = 0;
-  
+
   return vec;
 }
 
@@ -141,12 +141,12 @@ vec_heap_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
 
   if (!alloc)
     return NULL;
-  
+
   vec = xrealloc (vec, vec_offset + alloc * elt_size);
   ((struct vec_prefix *)vec)->alloc = alloc;
   if (!pfx)
     ((struct vec_prefix *)vec)->num = 0;
-  
+
   return vec;
 }
 
