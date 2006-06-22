@@ -99,21 +99,21 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
       Everything is put to SSA form.
 
       As a small improvement, if R0 is dead after the root (i.e., all uses of
-      the value with the maximum distance dominate it), we can avoid creating
-      RN and use R0 instead.
+      the value with the maximum distance dominate the root), we can avoid
+      creating RN and use R0 instead of it.
 
-   On our example, we get (only the parts concerning a and b are shown):
-   for (i = 0; i < 100; i++)
-     {
-       f = phi (a[0], s);
-       s = phi (a[1], f);
-       x = phi (b[10], x);
+      In our example, we get (only the parts concerning a and b are shown):
+      for (i = 0; i < 100; i++)
+	{
+	  f = phi (a[0], s);
+	  s = phi (a[1], f);
+	  x = phi (b[10], x);
 
-       f = f + s;
-       a[i+2] = f;
-       x = x + i;
-       b[10] = x;
-     }
+	  f = f + s;
+	  a[i+2] = f;
+	  x = x + i;
+	  b[10] = x;
+	}
 
    6) Factor F for unrolling is determined as the smallest common multiple of
       (N + 1) for each root reference (N for references for that we avoided
@@ -327,7 +327,10 @@ dump_dref (FILE *file, dref ref)
     }
   else
     {
-      fprintf (file, "    combination ref\n");
+      if (TREE_CODE (ref->stmt) == PHI_NODE)
+	fprintf (file, "    looparound ref\n");
+      else
+	fprintf (file, "    combination ref\n");
       fprintf (file, "      in statement ");
       print_generic_expr (dump_file, ref->stmt, TDF_SLIM);
       fprintf (file, "\n");
@@ -635,22 +638,19 @@ suitable_reference_p (struct loop *loop, tree a, enum ref_step_type *ref_step)
   return suitable_reference_p_1 (loop, a, ref_step);
 }
 
-/* Determines number of iterations of LOOP before B refers to exactly the
-   same location as A and stores it to OFF.  If A and B do not have the same
-   step, they never meet, or anything else fails, returns false, otherwise
-   returns true.  Both A and B are assumed to satisfy suitable_reference_p.  */
+/* Verifies that A and B are references that look the same way, and splits each
+   of them to the base part (BASEA, BASEB) and indices (IDXA, IDXB).  */
 
 static bool
-determine_offset (struct loop *loop, tree a, tree b, double_int *off)
+split_references (tree a, tree b,
+		  tree *basea, tree *baseb, tree *idxa, tree *idxb)
 {
   enum tree_code code;
-  affine_iv iva, ivb;
-  tree type;
-  aff_tree diff, baseb, step;
-  double_int aoff;
-  bool ok;
 
-  *off = double_int_zero;
+  *basea = NULL_TREE;
+  *baseb = NULL_TREE;
+  *idxa = NULL_TREE;
+  *idxb = NULL_TREE;
 
   if (TREE_TYPE (a) != TREE_TYPE (b))
     return false;
@@ -661,10 +661,8 @@ determine_offset (struct loop *loop, tree a, tree b, double_int *off)
       if (code != TREE_CODE (b))
 	return false;
 
-      if (!determine_offset (loop, TREE_OPERAND (a, 0),
-			     TREE_OPERAND (b, 0), off))
-	return false;
-
+      *basea = TREE_OPERAND (a, 0);
+      *baseb = TREE_OPERAND (b, 0);
       switch (code)
 	{
 	case ARRAY_RANGE_REF:
@@ -693,11 +691,11 @@ determine_offset (struct loop *loop, tree a, tree b, double_int *off)
 	  if (!operand_eq_p (TREE_OPERAND (a, 2), TREE_OPERAND (b, 2)))
 	    return false;
 
-	  a = TREE_OPERAND (a, 1);
-	  b = TREE_OPERAND (b, 1);
-	  break;
+	  *idxa = TREE_OPERAND (a, 1);
+	  *idxb = TREE_OPERAND (b, 1);
+	  return true;
 
-	default:
+    	default:
 	  gcc_unreachable ();
 	}
     }
@@ -705,15 +703,43 @@ determine_offset (struct loop *loop, tree a, tree b, double_int *off)
     return operand_equal_p (a, b, 0);
   else if (TREE_CODE (a) == INDIRECT_REF && TREE_CODE (b) == INDIRECT_REF)
     {
-      a = TREE_OPERAND (a, 0);
-      b = TREE_OPERAND (b, 0);
+      *idxa = TREE_OPERAND (a, 0);
+      *idxb = TREE_OPERAND (b, 0);
+      return true;
     }
   else
     return false;
+}
 
-  /* Check whether a and b are indices with the same step.  */
-  ok = (simple_iv (loop, first_stmt (loop->header), a, &iva, true)
-	&& simple_iv (loop, first_stmt (loop->header), b, &ivb, true));
+/* Determines number of iterations of LOOP before B refers to exactly the
+   same location as A and stores it to OFF.  If A and B do not have the same
+   step, they never meet, or anything else fails, returns false, otherwise
+   returns true.  Both A and B are assumed to satisfy suitable_reference_p.  */
+
+static bool
+determine_offset (struct loop *loop, tree a, tree b, double_int *off)
+{
+  affine_iv iva, ivb;
+  tree type;
+  aff_tree diff, baseb, step;
+  double_int aoff;
+  bool ok;
+  tree bsa, bsb, idxa, idxb;
+
+  *off = double_int_zero;
+
+  if (!split_references (a, b, &bsa, &bsb, &idxa, &idxb))
+    return false;
+
+  if (bsa && !determine_offset (loop, bsa, bsb, off))
+    return false;
+
+  if (!idxa)
+    return true;
+
+  /* Check whether idxa and idxb are indices with the same step.  */
+  ok = (simple_iv (loop, first_stmt (loop->header), idxa, &iva, true)
+	&& simple_iv (loop, first_stmt (loop->header), idxb, &ivb, true));
   gcc_assert (ok);
 
   if (!operand_eq_p (iva.step, ivb.step))
@@ -1059,11 +1085,171 @@ nontrivial_chain_p (chain_p chain)
   return chain != NULL && VEC_length (dref, chain->refs) > 1;
 }
 
-/* Find roots of the values and determine distances in the component COMP.
-   The references are redistributed into CHAINS.  */
+/* Returns the ssa name that contains the value of REF, or NULL_TREE if there
+   is no such name.  */
+
+static tree
+name_for_ref (dref ref)
+{
+  tree name;
+
+  if (TREE_CODE (ref->stmt) == MODIFY_EXPR)
+    {
+      if (!ref->ref || DR_IS_READ (ref->ref))
+	name = TREE_OPERAND (ref->stmt, 0);
+      else
+	name = TREE_OPERAND (ref->stmt, 1);
+    }
+  else
+    name = PHI_RESULT (ref->stmt);
+
+  return (TREE_CODE (name) == SSA_NAME ? name : NULL_TREE);
+}
+
+/* Returns true if REF is a valid initializer for ROOT with given DISTANCE (in
+   iterations of LOOP).  */
+
+static bool
+valid_initializer_p (struct loop *loop, tree ref, unsigned distance, tree root)
+{
+  tree idx, idxr;
+  tree bs, bsr, type;
+  bool ok;
+  affine_iv ivr;
+  aff_tree diff, base, step;
+  double_int off;
+
+  if (!split_references (ref, root, &bs, &bsr, &idx, &idxr))
+    return false;
+
+  if (bs && !valid_initializer_p (loop, bs, distance, bsr))
+    return false;
+
+  if (!idx)
+    return true;
+
+  ok = simple_iv (loop, first_stmt (loop->header), idxr, &ivr, true);
+  gcc_assert (ok);
+
+  if (zero_p (ivr.step))
+    return operand_equal_p (ivr.base, idx, 0);
+
+  /* Verify that this index of REF is equal to the root's index at
+     -DISTANCE-th iteration.  */
+  type = TREE_TYPE (ivr.base);
+  tree_to_aff_combination_expand (ivr.base, type, &diff);
+  tree_to_aff_combination_expand (idx, type, &base);
+  aff_combination_scale (&base, double_int_minus_one);
+  aff_combination_add (&diff, &base);
+
+  tree_to_aff_combination_expand (ivr.step, type, &step);
+  if (!aff_combination_constant_multiple_p (&diff, &step, &off))
+    return false;
+
+  if (!double_int_equal_p (off, uhwi_to_double_int (distance)))
+    return false;
+
+  return true;
+}
+
+/* Finds looparound phi node of LOOP that copies the value of REF, and if its
+   initial value is correct (equal to initial value of REF shifted by one
+   iteration), returns the phi node.  Otherwise, NULL_TREE is returned.  ROOT
+   is the root of the current chain.  */
+
+static tree
+find_looparound_phi (struct loop *loop, dref ref, dref root)
+{
+  tree name, phi, init, init_stmt, init_ref;
+  edge latch = loop_latch_edge (loop);
+
+  if (TREE_CODE (ref->stmt) == MODIFY_EXPR)
+    {
+      if (DR_IS_READ (ref->ref))
+	name = TREE_OPERAND (ref->stmt, 0);
+      else
+	name = TREE_OPERAND (ref->stmt, 1);
+    }
+  else
+    name = PHI_RESULT (ref->stmt);
+  if (!name)
+    return NULL_TREE;
+
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    if (PHI_ARG_DEF_FROM_EDGE (phi, latch) == name)
+      break;
+
+  if (!phi)
+    return NULL_TREE;
+
+  init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
+  if (TREE_CODE (init) != SSA_NAME)
+    return NULL_TREE;
+  init_stmt = SSA_NAME_DEF_STMT (init);
+  if (TREE_CODE (init_stmt) != MODIFY_EXPR)
+    return NULL_TREE;
+  gcc_assert (TREE_OPERAND (init_stmt, 0) == init);
+
+  init_ref = TREE_OPERAND (init_stmt, 1);
+  if (!valid_initializer_p (loop, init_ref, ref->distance + 1, DR_REF (root->ref)))
+    return NULL_TREE;
+
+  return phi;
+}
+
+/* Adds a reference for the looparound copy of REF in PHI to CHAIN.  */
 
 static void
-determine_roots_comp (struct component *comp,
+insert_looparound_copy (chain_p chain, dref ref, tree phi)
+{
+  dref nw = XCNEW (struct dref), aref;
+  unsigned i;
+
+  nw->stmt = phi;
+  nw->distance = ref->distance + 1;
+  nw->always_executed = 1;
+
+  for (i = 0; VEC_iterate (dref, chain->refs, i, aref); i++)
+    if (aref->distance >= nw->distance)
+      break;
+  VEC_safe_insert (dref, heap, chain->refs, i, nw);
+
+  if (nw->distance > chain->length)
+    {
+      chain->length = nw->distance;
+      chain->has_max_use_after = false;
+    }
+}
+
+/* For references in CHAIN that are copied around the LOOP (created previously
+   by PRE, or by user), add the results of such copies to the chain.  This
+   enables us to remove the copies by unrolling, and may need less registers
+   (also, it may allow us to combine chains together).  */
+
+static void
+add_looparound_copies (struct loop *loop, chain_p chain)
+{
+  unsigned i;
+  dref ref, root = get_chain_root (chain);
+  tree phi;
+
+  for (i = 0; VEC_iterate (dref, chain->refs, i, ref); i++)
+    {
+      phi = find_looparound_phi (loop, ref, root);
+      if (!phi)
+	continue;
+
+      insert_looparound_copy (chain, ref, phi);
+    }
+}
+
+/* Find roots of the values and determine distances in the component COMP.
+   The references are redistributed into CHAINS.  LOOP is the current
+   loop.  */
+
+static void
+determine_roots_comp (struct loop *loop,
+		      struct component *comp,
 		      VEC (chain_p, heap) **chains)
 {
   unsigned i;
@@ -1095,23 +1281,27 @@ determine_roots_comp (struct component *comp,
 
       add_ref_to_chain (chain, a);
     }
-	  
+
   if (nontrivial_chain_p (chain))
-    VEC_safe_push (chain_p, heap, *chains, chain);
+    {
+      add_looparound_copies (loop, chain);
+      VEC_safe_push (chain_p, heap, *chains, chain);
+    }
   else
     release_chain (chain);
 }
 
 /* Find roots of the values and determine distances in components COMPS, and
-   separates the references to CHAINS.  */
+   separates the references to CHAINS.  LOOP is the current loop.  */
 
 static void
-determine_roots (struct component *comps, VEC (chain_p, heap) **chains)
+determine_roots (struct loop *loop,
+		 struct component *comps, VEC (chain_p, heap) **chains)
 {
   struct component *comp;
 
   for (comp = comps; comp; comp = comp->next)
-    determine_roots_comp (comp, chains);
+    determine_roots_comp (loop, comp, chains);
 }
 
 /* Replace the reference in statement STMT with temporary variable
@@ -1125,6 +1315,23 @@ replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
   tree val, new_stmt;
   block_stmt_iterator bsi;
 
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      gcc_assert (!in_lhs && !set);
+
+      val = PHI_RESULT (stmt);
+      SET_PHI_RESULT (stmt, NULL_TREE);
+      bsi = bsi_after_labels (bb_for_stmt (stmt));
+      remove_phi_node (stmt, NULL_TREE);
+
+      /* Turn the phi node into MODIFY_EXPR.  */
+      new_stmt = build2 (MODIFY_EXPR, void_type_node,
+			 val, new);
+      SSA_NAME_DEF_STMT (val) = new_stmt;
+      bsi_insert_before (&bsi, new_stmt, BSI_NEW_STMT);
+      return;
+    }
+      
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
@@ -1357,6 +1564,9 @@ mark_virtual_ops_for_renaming (tree stmt)
   ssa_op_iter iter;
   tree var;
 
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
+
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
     {
       mark_sym_for_renaming (SSA_NAME_VAR (var));
@@ -1423,14 +1633,31 @@ remove_stmt (tree stmt)
   use_operand_p dummy;
   bool cont;
 
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      name = PHI_RESULT (stmt);
+      cont = single_imm_use (name, &dummy, &next);
+      remove_phi_node (stmt, NULL_TREE);
+
+      if (!cont
+	  || TREE_CODE (next) != MODIFY_EXPR
+	  || TREE_OPERAND (next, 1) != name)
+	return;
+
+      stmt = next;
+    }
+
   while (1)
     {
-      block_stmt_iterator bsi = bsi_for_stmt (stmt);
+      block_stmt_iterator bsi;
+    
+      bsi = bsi_for_stmt (stmt);
 
       name = TREE_OPERAND (stmt, 0);
       gcc_assert (TREE_CODE (name) == SSA_NAME);
 
       cont = single_imm_use (name, &dummy, &next);
+
       mark_virtual_ops_for_renaming (stmt);
       bsi_remove (&bsi, true);
 
@@ -1783,13 +2010,9 @@ combinable_refs_p (dref r1, dref r2,
   tree atype;
   tree name1, name2, stmt, rhs;
 
-  gcc_assert (TREE_CODE (r1->stmt) == MODIFY_EXPR);
-  gcc_assert (TREE_CODE (r2->stmt) == MODIFY_EXPR);
-  name1 = TREE_OPERAND (r1->stmt, 0);
-  name2 = TREE_OPERAND (r2->stmt, 0);
-
-  gcc_assert (TREE_CODE (name1) == SSA_NAME);
-  gcc_assert (TREE_CODE (name2) == SSA_NAME);
+  name1 = name_for_ref (r1);
+  name2 = name_for_ref (r2);
+  gcc_assert (name1 != NULL_TREE && name2 != NULL_TREE);
 
   stmt = find_common_use_stmt (&name1, &name2);
 
@@ -2053,18 +2276,37 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
 {
   unsigned i, n = (chain->type == CT_INVARIANT) ? 1 : chain->length;
   tree init, ref = DR_REF (get_chain_root (chain)->ref);
+  dref laref;
+  edge entry = loop_preheader_edge (loop);
 
   /* Find the initializers for the variables, and check that they cannot
      trap.  */
   chain->inits = VEC_alloc (tree, heap, n);
+  for (i = 0; i < n; i++)
+    VEC_quick_push (tree, chain->inits, NULL_TREE);
+
+  /* If we have replaced some looparound phi nodes, use their initializers
+     instead of creating our own.  */
+  for (i = 0; VEC_iterate (dref, chain->refs, i, laref); i++)
+    {
+      if (TREE_CODE (laref->stmt) != PHI_NODE)
+	continue;
+
+      gcc_assert (laref->distance > 0);
+      VEC_replace (tree, chain->inits, n - laref->distance,
+		   PHI_ARG_DEF_FROM_EDGE (laref->stmt, entry));
+    }
 
   for (i = 0; i < n; i++)
     {
+      if (VEC_index (tree, chain->inits, i) != NULL_TREE)
+	continue;
+
       init = unshare_expr (ref);
       ref_at_iteration (loop, init, (int) i - n);
       if (!chain->all_always_executed && tree_could_trap_p (init))
 	return false;
-      VEC_quick_push (tree, chain->inits, init);
+      VEC_replace (tree, chain->inits, i, init);
     }
 
   return true;
@@ -2134,7 +2376,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   components = filter_suitable_components (loop, components);
 
   tmp_vars = BITMAP_ALLOC (NULL);
-  determine_roots (components, &chains);
+  determine_roots (loop, components, &chains);
   release_components (components);
   prepare_initializers (loop, chains);
 

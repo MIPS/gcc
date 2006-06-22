@@ -1,3 +1,14 @@
+2006-06-22  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-predcom.c (dump_dref, determine_roots_comp, determine_roots,
+	replace_ref_with, mark_virtual_ops_for_renaming, remove_stmt,
+	combinable_refs_p, prepare_initializers_chain,
+	tree_predictive_commoning_loop): Handle looparound data copies.
+	(split_references, name_for_ref, valid_initializer_p,
+	find_looparound_phi, insert_looparound_copy, add_looparound_copies):
+	New functions.
+	(determine_offset): Use split_references.
+
 2006-06-19  Zdenek Dvorak <dvorakz@suse.cz>
 
 	Merge from the killloop_branch:
