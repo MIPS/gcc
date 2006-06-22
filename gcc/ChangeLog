@@ -1,3 +1,10 @@
+2006-06-22  Chad Rosier  <mcrosier@ncsu.edu>
+
+        * common.opt (flag_sched1_use_treegions) : Add -fsched1-use-treegions.
+        * doc/invoke.text: Document -fsched1-use-treegions.
+        * sched-rgn.c (find_trgns): New static function.
+        * sched-rgn.c (init_regions): Handle find_trgns option.
+	
 2006-06-21  DJ Delorie  <dj@redhat.com>
 
 	* config/m32c/muldiv.md (mulhisi3_i): Only use registers for dest

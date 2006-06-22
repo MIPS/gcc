@@ -333,7 +333,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
--fsched2-use-superblocks @gol
+-fsched1-use-treegion -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
 -fstack-protector  -fstack-protector-all @gol
@@ -4992,6 +4992,17 @@ Define how many insn groups (cycles) will be examined for a dependency
 on a stalled insn that is candidate for premature removal from the queue
 of stalled insns.  Has an effect only during the second scheduling pass,
 and only if @option{-fsched-stalled-insns} is used and its value is not zero.
+
+@item -fsched1-use-treegions
+@opindex fsched1-use-treegions
+When scheduling before register allocation, do use the treegion scheduling
+algorithm.  Treegion scheduling allows motion across basic block boundaries
+resulting on faster schedules.  This option is experimental, as not all machine
+descriptions used by GCC model the CPU closely enough to avoid unreliable
+results from the algorithm.
+
+This only makes sense when scheduling before register allocation, i.e.@: with
+@option{-fschedule-insns} or at @option{-O2} or higher.
 
 @item -fsched2-use-superblocks
 @opindex fsched2-use-superblocks
