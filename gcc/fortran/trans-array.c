@@ -575,13 +575,20 @@ tree
 gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 			     gfc_loopinfo * loop, gfc_ss_info * info,
 			     tree eltype, bool dynamic, bool dealloc,
-			     bool callee_alloc)
+			     bool callee_alloc, bool function)
 {
   tree type;
   tree desc;
   tree tmp;
   tree size;
   tree nelem;
+  tree cond;
+  tree or_expr;
+  tree thencase;
+  tree elsecase;
+  tree var;
+  stmtblock_t thenblock;
+  stmtblock_t elseblock;
   int n;
   int dim;
 
@@ -633,6 +640,8 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
      size = size * sizeof(element);
   */
 
+  or_expr = NULL_TREE;
+
   for (n = 0; n < info->dimen; n++)
     {
       if (loop->to[n] == NULL_TREE)
@@ -660,17 +669,55 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
       tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 			 loop->to[n], gfc_index_one_node);
 
+      if (function)
+	{
+	  /* Check wether the size for this dimension is negative.  */
+	  cond = fold_build2 (LE_EXPR, boolean_type_node, tmp,
+			  gfc_index_zero_node);
+
+	  cond = gfc_evaluate_now (cond, pre);
+
+	  if (n == 0)
+	    or_expr = cond;
+	  else
+	    or_expr = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, or_expr, cond);
+	}
       size = fold_build2 (MULT_EXPR, gfc_array_index_type, size, tmp);
       size = gfc_evaluate_now (size, pre);
     }
 
   /* Get the size of the array.  */
-  nelem = size;
+
   if (size && !callee_alloc)
-    size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
-			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+    {
+      if (function)
+	{
+	  var = gfc_create_var (TREE_TYPE (size), "size");
+	  gfc_start_block (&thenblock);
+	  gfc_add_modify_expr (&thenblock, var, gfc_index_zero_node);
+	  thencase = gfc_finish_block (&thenblock);
+
+	  gfc_start_block (&elseblock);
+	  gfc_add_modify_expr (&elseblock, var, size);
+	  elsecase = gfc_finish_block (&elseblock);
+	  
+	  tmp = gfc_evaluate_now (or_expr, pre);
+	  tmp = build3_v (COND_EXPR, tmp, thencase, elsecase);
+	  gfc_add_expr_to_block (pre, tmp);
+	  nelem = var;
+	  size = var;
+	}
+      else
+	  nelem = size;
+
+      size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
+			  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+    }
   else
-    size = NULL_TREE;
+    {
+      nelem = size;
+      size = NULL_TREE;
+    }
 
   gfc_trans_allocate_array_storage (pre, post, info, size, nelem, dynamic,
 			            dealloc);
@@ -1421,7 +1468,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
     }
 
   gfc_trans_create_temp_array (&loop->pre, &loop->post, loop, &ss->data.info,
-			       type, dynamic, true, false);
+			       type, dynamic, true, false, false);
 
   desc = ss->data.info.descriptor;
   offset = gfc_index_zero_node;
@@ -2477,9 +2524,10 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
   if (flag_bounds_check)
     {
       stmtblock_t block;
-      tree bound;
+      tree lbound, ubound;
       tree end;
       tree size[GFC_MAX_DIMENSIONS];
+      tree stride_pos, stride_neg, non_zerosized, tmp2;
       gfc_ss_info *info;
       char *msg;
       int dim;
@@ -2504,25 +2552,93 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	      dim = info->dim[n];
 	      if (info->ref->u.ar.dimen_type[dim] != DIMEN_RANGE)
 		continue;
+	      if (n == info->ref->u.ar.dimen - 1
+		  && (info->ref->u.ar.as->type == AS_ASSUMED_SIZE
+		      || info->ref->u.ar.as->cp_was_assumed))
+		continue;
 
 	      desc = ss->data.info.descriptor;
 
-	      /* Check lower bound.  */
-	      bound = gfc_conv_array_lbound (desc, dim);
-	      tmp = info->start[n];
-	      tmp = fold_build2 (LT_EXPR, boolean_type_node, tmp, bound);
-	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
-			" exceeded", gfc_msg_bounds, n+1,
+	      /* This is the run-time equivalent of resolve.c's
+	         check_dimension().  The logical is more readable there
+	         than it is here, with all the trees.  */
+	      lbound = gfc_conv_array_lbound (desc, dim);
+	      ubound = gfc_conv_array_ubound (desc, dim);
+	      end = gfc_conv_section_upper_bound (ss, n, &block);
+
+	      /* Zero stride is not allowed.  */
+	      tmp = fold_build2 (EQ_EXPR, boolean_type_node, info->stride[n],
+				 gfc_index_zero_node);
+	      asprintf (&msg, "Zero stride is not allowed, for dimension %d "
+			"of array '%s'", info->dim[n]+1,
 			ss->expr->symtree->name);
 	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
 	      gfc_free (msg);
 
-	      /* Check the upper bound.  */
-	      bound = gfc_conv_array_ubound (desc, dim);
-	      end = gfc_conv_section_upper_bound (ss, n, &block);
-	      tmp = fold_build2 (GT_EXPR, boolean_type_node, end, bound);
+	      /* non_zerosized is true when the selected range is not
+	         empty.  */
+	      stride_pos = fold_build2 (GT_EXPR, boolean_type_node,
+					info->stride[n], gfc_index_zero_node);
+	      tmp = fold_build2 (LE_EXPR, boolean_type_node, info->start[n],
+				 end);
+	      stride_pos = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+					stride_pos, tmp);
+
+	      stride_neg = fold_build2 (LT_EXPR, boolean_type_node,
+					info->stride[n], gfc_index_zero_node);
+	      tmp = fold_build2 (GE_EXPR, boolean_type_node, info->start[n],
+				 end);
+	      stride_neg = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+					stride_neg, tmp);
+	      non_zerosized = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
+					   stride_pos, stride_neg);
+
+	      /* Check the start of the range against the lower and upper
+		 bounds of the array, if the range is not empty.  */
+	      tmp = fold_build2 (LT_EXPR, boolean_type_node, info->start[n],
+				 lbound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      tmp = fold_build2 (GT_EXPR, boolean_type_node, info->start[n],
+				 ubound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
 	      asprintf (&msg, "%s, upper bound of dimension %d of array '%s'"
-			" exceeded", gfc_msg_bounds, n+1,
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      /* Compute the last element of the range, which is not
+		 necessarily "end" (think 0:5:3, which doesn't contain 5)
+		 and check it against both lower and upper bounds.  */
+	      tmp2 = fold_build2 (MINUS_EXPR, gfc_array_index_type, end,
+				  info->start[n]);
+	      tmp2 = fold_build2 (TRUNC_MOD_EXPR, gfc_array_index_type, tmp2,
+				  info->stride[n]);
+	      tmp2 = fold_build2 (MINUS_EXPR, gfc_array_index_type, end,
+				  tmp2);
+
+	      tmp = fold_build2 (LT_EXPR, boolean_type_node, tmp2, lbound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      tmp = fold_build2 (GT_EXPR, boolean_type_node, tmp2, ubound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, upper bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
 			ss->expr->symtree->name);
 	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
 	      gfc_free (msg);
@@ -2539,7 +2655,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 		  tmp =
 		    fold_build2 (NE_EXPR, boolean_type_node, tmp, size[n]);
 		  asprintf (&msg, "%s, size mismatch for dimension %d "
-			    "of array '%s'", gfc_msg_bounds, n+1,
+			    "of array '%s'", gfc_msg_bounds, info->dim[n]+1,
 			    ss->expr->symtree->name);
 		  gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
 		  gfc_free (msg);
@@ -2890,7 +3006,7 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
       loop->temp_ss->data.info.dimen = n;
       gfc_trans_create_temp_array (&loop->pre, &loop->post, loop,
 				   &loop->temp_ss->data.info, tmp, false, true,
-				   false);
+				   false, false);
     }
 
   for (n = 0; n < loop->temp_dim; n++)

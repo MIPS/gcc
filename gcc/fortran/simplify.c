@@ -95,10 +95,29 @@ static int xascii_table[256];
 static gfc_expr *
 range_check (gfc_expr * result, const char *name)
 {
-  if (gfc_range_check (result) == ARITH_OK)
-    return result;
 
-  gfc_error ("Result of %s overflows its kind at %L", name, &result->where);
+  switch (gfc_range_check (result))
+    {
+      case ARITH_OK:
+	return result;
+ 
+      case ARITH_OVERFLOW:
+	gfc_error ("Result of %s overflows its kind at %L", name, &result->where);
+	break;
+
+      case ARITH_UNDERFLOW:
+	gfc_error ("Result of %s underflows its kind at %L", name, &result->where);
+	break;
+
+      case ARITH_NAN:
+	gfc_error ("Result of %s is NaN at %L", name, &result->where);
+	break;
+
+      default:
+	gfc_error ("Result of %s gives range error for its kind at %L", name, &result->where);
+	break;
+    }
+
   gfc_free_expr (result);
   return &gfc_bad_expr;
 }
@@ -3011,6 +3030,7 @@ gfc_simplify_rrspacing (gfc_expr * x)
   mpfr_init (absv);
   mpfr_init (frac);
   mpfr_init (pow2);
+  mpfr_init (exp);
 
   mpfr_abs (absv, x->value.real, GFC_RND_MODE);
   mpfr_log2 (log2, absv, GFC_RND_MODE);
@@ -3027,6 +3047,7 @@ gfc_simplify_rrspacing (gfc_expr * x)
   mpfr_clear (absv);
   mpfr_clear (frac);
   mpfr_clear (pow2);
+  mpfr_clear (exp);
 
   return range_check (result, "RRSPACING");
 }
@@ -3692,6 +3713,19 @@ gfc_simplify_tiny (gfc_expr * e)
   mpfr_set (result->value.real, gfc_real_kinds[i].tiny, GFC_RND_MODE);
 
   return result;
+}
+
+
+gfc_expr *
+gfc_simplify_transfer (gfc_expr * source, gfc_expr *mold, gfc_expr * size)
+{
+
+  /* Reference mold and size to suppress warning.  */
+  if (gfc_init_expr && (mold || size))
+    gfc_error ("TRANSFER intrinsic not implemented for initialization at %L",
+	       &source->where);
+
+  return NULL;
 }
 
 

@@ -763,10 +763,6 @@ fsched-verbose=
 Common RejectNegative Joined
 -fsched-verbose=<number>	Set the verbosity level of the scheduler
 
-fsched1-use-treegions
-Common Report Var(flag_sched1_use_treegions)
-If scheduling pre reload, do treegion scheduling
-
 fsched2-use-superblocks
 Common Report Var(flag_sched2_use_superblocks)
 If scheduling post reload, do superblock scheduling
