@@ -929,6 +929,53 @@ free_large_page (struct large_page_entry *entry)
   free (entry);
 }
 
+/* Resize a block of memory, possibly re-allocating it.  */
+void *
+ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
+{
+  void *r;
+  size_t old_size;
+
+  if (x == NULL)
+    return ggc_alloc_stat (size PASS_MEM_STAT);
+
+  old_size = ggc_get_size (x);
+
+  if (size <= old_size)
+    {
+      /* Mark the unwanted memory as unaccessible.  We also need to make
+	 the "new" size accessible, since ggc_get_size returns the size of
+	 the pool, not the size of the individually allocated object, the
+	 size which was previously made accessible.  Unfortunately, we
+	 don't know that previously allocated size.  Without that
+	 knowledge we have to lose some initialization-tracking for the
+	 old parts of the object.  An alternative is to mark the whole
+	 old_size as reachable, but that would lose tracking of writes
+	 after the end of the object (by small offsets).  Discard the
+	 handle to avoid handle leak.  */
+      VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS ((char *) x + size,
+						old_size - size));
+      VALGRIND_DISCARD (VALGRIND_MAKE_READABLE (x, size));
+      return x;
+    }
+
+  r = ggc_alloc_stat (size PASS_MEM_STAT);
+
+  /* Since ggc_get_size returns the size of the pool, not the size of the
+     individually allocated object, we'd access parts of the old object
+     that were marked invalid with the memcpy below.  We lose a bit of the
+     initialization-tracking since some of it may be uninitialized.  */
+  VALGRIND_DISCARD (VALGRIND_MAKE_READABLE (x, old_size));
+
+  memcpy (r, x, old_size);
+
+  /* The old object is not supposed to be used anymore.  */
+  ggc_free (x);
+
+  return r;
+}
+
+
 /* Release the free page cache to the system.  */
 
 static void
