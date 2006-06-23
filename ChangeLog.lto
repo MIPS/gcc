@@ -1,3 +1,9 @@
+2006-06-23  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/method.c (num_artificial_parms_for): New.
+	* gcc/cp/cp-tree.h: Add a prototype for
+	num_artificial_parms_for.
+
 2006-06-16  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_op_delete_call): Use compparms.

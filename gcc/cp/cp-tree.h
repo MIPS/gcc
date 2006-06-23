@@ -4069,6 +4069,7 @@ extern void synthesize_method			(tree);
 extern tree lazily_declare_fn			(special_function_kind,
 						 tree);
 extern tree skip_artificial_parms_for		(tree, tree);
+extern int num_artificial_parms_for		(tree);
 extern tree make_alias_for			(tree, tree);
 
 /* In optimize.c */

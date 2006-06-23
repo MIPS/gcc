@@ -1180,4 +1180,24 @@ skip_artificial_parms_for (tree fn, tree list)
   return list;
 }
 
+/* Given a FUNCTION_DECL FN and a chain LIST, return the number of
+   artificial parms in FN.  */
+
+int
+num_artificial_parms_for (tree fn)
+{
+  int count = 0;
+
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+    count++;
+  else
+    return 0;
+
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+    count++;
+  if (DECL_HAS_VTT_PARM_P (fn))
+    count++;
+  return count;
+}
+
 #include "gt-cp-method.h"
