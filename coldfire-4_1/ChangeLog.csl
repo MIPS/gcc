@@ -1,5 +1,14 @@
 2006-06-23  Richard Sandiford  <richard@codesourcery.com>
 
+	gcc/testsuite/
+	* gcc.c-torture/execute/loop-2f.x: Extend XFAIL to m68k-ilnux.
+	* gcc.c-torture/execute/loop-2g.x: Likewise.
+	* gcc.dg/tree-ssa/20040204-1.c: Don't XFAIL for m68k*-*-*.
+	* gcc.dg/compat/vector-defs.h (v16sf): Define to be the same
+	v4sf on uClinux targets.
+
+2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
 	gcc/
 	* config/m68k/m68k.c (override_options): Remove unneeded brackets
 	from the !flag_pic settings of m68k_symbolic_call and
