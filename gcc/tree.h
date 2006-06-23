@@ -3911,6 +3911,15 @@ extern tree nreverse (tree);
 
 extern int list_length (tree);
 
+/* Return the number of elements in PARMTYPES, a list of parameter
+   types.  */
+
+extern int num_parm_types (tree);
+
+/* Return the Nth element of PARMTYPES, a list of parameter types.  */
+
+extern tree nth_parm_type (tree, int);
+
 /* Returns the number of FIELD_DECLs in a type.  */
 
 extern int fields_length (tree);

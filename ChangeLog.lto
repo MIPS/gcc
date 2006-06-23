@@ -19,6 +19,9 @@
 	elements to be skipped.
 	* gcc/cp/cp-tree.h: Update the prototype for compparms.
 
+	* gcc/tree.c (num_parm_types, nth_parm_type): New.
+	* gcc/tree.h: Add prototypes for the two new functions.
+
 2006-06-16  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_op_delete_call): Use compparms.

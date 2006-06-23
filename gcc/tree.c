@@ -1563,6 +1563,30 @@ list_length (tree t)
   return len;
 }
 
+/* Return the number of elements in PARMTYPES, a list of parameter
+   types.  */
+
+int
+num_parm_types (tree parmtypes)
+{
+  return list_length (parmtypes);
+}
+
+/* Return the Nth element of PARMTYPES, a list of parameter types.  */
+
+tree
+nth_parm_type (tree parmtypes, int n)
+{
+  while (n--)
+    {
+      gcc_assert (parmtypes);
+      parmtypes = TREE_CHAIN (parmtypes);
+    }
+
+  gcc_assert (parmtypes);
+  return TREE_VALUE (parmtypes);
+}
+
 /* Returns the number of FIELD_DECLs in TYPE.  */
 
 int
