@@ -616,7 +616,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 
 	  if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
 			   TREE_TYPE (TREE_TYPE (fndecl)))
-	      && compparms (p1, p2)
+	      && compparms (p1, 0, p2, 0)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))

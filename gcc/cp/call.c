@@ -778,8 +778,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 
       if (!DERIVED_FROM_P (fbase, tbase)
 	  || !same_type_p (TREE_TYPE (fromfn), TREE_TYPE (tofn))
-	  || !compparms (TREE_CHAIN (TYPE_ARG_TYPES (fromfn)),
-			 TREE_CHAIN (TYPE_ARG_TYPES (tofn)))
+	  || !compparms (TYPE_ARG_TYPES (fromfn), 1,
+			 TYPE_ARG_TYPES (tofn), 1)
 	  || cp_type_quals (fbase) != cp_type_quals (tbase))
 	return NULL;
 
@@ -4043,7 +4043,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* On the first pass, check the rest of the arguments.  */
 	  if (pass == 0)
 	    {
-	      if (compparms (argtypes, t))
+	      if (compparms (argtypes, 0, t, 0))
 		break;
 	    }
 	  /* On the second pass, the second argument must be

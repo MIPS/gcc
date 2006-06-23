@@ -993,6 +993,8 @@ add_method (tree type, tree method, tree using_decl)
 	  tree method_type;
 	  tree parms1;
 	  tree parms2;
+	  int skip1 = 0;
+	  int skip2 = 0;
 
 	  if (TREE_CODE (fn) != TREE_CODE (method))
 	    continue;
@@ -1031,11 +1033,11 @@ add_method (tree type, tree method, tree using_decl)
 	    continue;
 
 	  if (! DECL_STATIC_FUNCTION_P (fn))
-	    parms1 = TREE_CHAIN (parms1);
+	    skip1++;
 	  if (! DECL_STATIC_FUNCTION_P (method))
-	    parms2 = TREE_CHAIN (parms2);
+	    skip2++;
 
-	  if (compparms (parms1, parms2)
+	  if (compparms (parms1, skip1, parms2, skip2)
 	      && (!DECL_CONV_FN_P (fn)
 		  || same_type_p (TREE_TYPE (fn_type),
 				  TREE_TYPE (method_type))))
@@ -1782,7 +1784,7 @@ same_signature_p (tree fndecl, tree base_fndecl)
       base_types = TYPE_ARG_TYPES (TREE_TYPE (base_fndecl));
       if ((TYPE_QUALS (TREE_TYPE (TREE_VALUE (base_types)))
 	   == TYPE_QUALS (TREE_TYPE (TREE_VALUE (types))))
-	  && compparms (TREE_CHAIN (base_types), TREE_CHAIN (types)))
+	  && compparms (base_types, 1, types, 1))
 	return 1;
     }
   return 0;

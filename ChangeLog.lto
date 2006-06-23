@@ -4,6 +4,21 @@
 	* gcc/cp/cp-tree.h: Add a prototype for
 	num_artificial_parms_for.
 
+	* gcc/cp/call.c (standard_conversion, build_op_delete_call):
+	Update the calls to compparms.
+	* gcc/cp/class.c (add_method, same_signature_p): Likewise.
+	* gcc/cp/decl.c (decls_match, duplicate_decls): Likewise.
+	* gcc/cp/decl2.c (check_classfn): Likewise.
+	* gcc/cp/name-lookup.c (push_overloaded_decl,
+	do_nonmember_using_decl): Likewise.
+	* gcc/cp/pt.c (is_specialization_of_friend,
+	determine_specialization): Likewise.
+	* gcc/cp/search.c (look_for_overrides_here): Likewise.
+	* gcc/cp/typeck.c (comptypes): Likewise.
+	(compparms): Add two parameters to specify the number of
+	elements to be skipped.
+	* gcc/cp/cp-tree.h: Update the prototype for compparms.
+
 2006-06-16  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_op_delete_call): Use compparms.

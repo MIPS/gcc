@@ -1946,7 +1946,7 @@ look_for_overrides_here (tree type, tree fndecl)
 	    {
 	      tree btypes = TYPE_ARG_TYPES (TREE_TYPE (fn));
 	      tree dtypes = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
-	      if (compparms (TREE_CHAIN (btypes), dtypes))
+	      if (compparms (btypes, 1, dtypes, 0))
 		return fn;
 	    }
 	  else if (same_signature_p (fndecl, fn))

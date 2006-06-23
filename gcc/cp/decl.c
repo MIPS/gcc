@@ -974,7 +974,7 @@ decls_match (tree newdecl, tree olddecl)
 	    }
 #endif
 	  else
-	    types_match = compparms (p1, p2);
+	    types_match = compparms (p1, 0, p2, 0);
 	}
       else
 	types_match = 0;
@@ -1238,7 +1238,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 			&& TYPE_NAME (TREE_TYPE (t))
 			&& DECL_NAME (TYPE_NAME (TREE_TYPE (t)))
 			   == get_identifier ("FILE")
-			&& compparms (TREE_CHAIN (t1), TREE_CHAIN (t2)))
+			&& compparms (t1, 1, t2, 1))
 		      {
 			tree oldargs = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
 
@@ -1256,8 +1256,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	  else if ((DECL_EXTERN_C_P (newdecl)
 		    && DECL_EXTERN_C_P (olddecl))
-		   || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-				 TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
+		   || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)), 0,
+				 TYPE_ARG_TYPES (TREE_TYPE (olddecl)), 0))
 	    {
 	      /* A near match; override the builtin.  */
 
@@ -1363,8 +1363,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	  else if (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == FUNCTION_DECL
 		   && TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == FUNCTION_DECL
-		   && compparms (TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl))),
-				 TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (newdecl))))
+		   && compparms (TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl))), 0,
+				 TYPE_ARG_TYPES (TREE_TYPE (DECL_TEMPLATE_RESULT (newdecl))), 0)
 		   && comp_template_parms (DECL_TEMPLATE_PARMS (newdecl),
 					   DECL_TEMPLATE_PARMS (olddecl))
 		   /* Template functions can be disambiguated by
@@ -1385,8 +1385,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		     newdecl);
 	      error ("previous declaration %q+#D here", olddecl);
 	    }
-	  else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-			      TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
+	  else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)), 0,
+			      TYPE_ARG_TYPES (TREE_TYPE (olddecl)), 0))
 	    {
 	      error ("new declaration %q#D", newdecl);
 	      error ("ambiguates old declaration %q+#D", olddecl);

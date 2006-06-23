@@ -1026,7 +1026,7 @@ comptypes (tree t1, tree t2, int strict)
     case FUNCTION_TYPE:
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
-      if (!compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2)))
+      if (!compparms (TYPE_ARG_TYPES (t1), 0, TYPE_ARG_TYPES (t2), 0))
 	return false;
       break;
 
@@ -1186,9 +1186,15 @@ common_base_type (tree tt1, tree tt2)
    element by element.  */
 
 bool
-compparms (tree parms1, tree parms2)
+compparms (tree parms1, int skip1, tree parms2, int skip2)
 {
   tree t1, t2;
+
+  while (skip1--)
+    parms1 = TREE_CHAIN (parms1);
+
+  while (skip2--)
+    parms2 = TREE_CHAIN (parms2);
 
   /* An unspecified parmlist matches any specified parmlist
      whose argument types don't need default promotions.  */

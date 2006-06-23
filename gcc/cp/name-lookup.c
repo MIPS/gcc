@@ -1903,8 +1903,8 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 
 	      if (TREE_CODE (tmp) == OVERLOAD && OVL_USED (tmp)
 		  && !(flags & PUSH_USING)
-		  && compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
-				TYPE_ARG_TYPES (TREE_TYPE (decl)))
+		  && compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)), 0,
+				TYPE_ARG_TYPES (TREE_TYPE (decl)), 0)
 		  && ! decls_match (fn, decl))
 		error ("%q#D conflicts with previous using declaration %q#D",
 		       decl, fn);
@@ -2106,8 +2106,8 @@ do_nonmember_using_decl (tree scope, tree name, tree oldval, tree oldtype,
 		break;
 	      else if (OVL_USED (tmp1))
 		continue; /* this is a using decl */
-	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
-				  TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
+	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)), 0,
+				  TYPE_ARG_TYPES (TREE_TYPE (old_fn)), 0))
 		{
 		  gcc_assert (!DECL_ANTICIPATED (old_fn)
 			      || DECL_HIDDEN_FRIEND_P (old_fn));

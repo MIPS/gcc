@@ -4405,7 +4405,7 @@ extern tree complete_type_or_else		(tree, tree);
 extern int type_unknown_p			(tree);
 extern bool comp_except_specs			(tree, tree, bool);
 extern bool comptypes				(tree, tree, int);
-extern bool compparms				(tree, tree);
+extern bool compparms				(tree, int, tree, int);
 extern int comp_cv_qualification		(tree, tree);
 extern int comp_cv_qual_signature		(tree, tree);
 extern tree cxx_sizeof_or_alignof_expr		(tree, enum tree_code);

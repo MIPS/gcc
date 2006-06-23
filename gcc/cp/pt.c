@@ -1028,7 +1028,9 @@ is_specialization_of_friend (tree decl, tree friend)
 	  tree friend_type;
 	  tree decl_type;
 	  tree friend_args_type;
+	  int friend_args_type_skip = 0;
 	  tree decl_args_type;
+	  int decl_args_type_skip = 0;
 
 	  /* Make sure that both DECL and FRIEND are templates or
 	     non-templates.  */
@@ -1066,11 +1068,12 @@ is_specialization_of_friend (tree decl, tree friend)
 	  friend_args_type = TYPE_ARG_TYPES (friend_type);
 	  decl_args_type = TYPE_ARG_TYPES (decl_type);
 	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (friend))
-	    friend_args_type = TREE_CHAIN (friend_args_type);
+	    friend_args_type_skip++;
 	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-	    decl_args_type = TREE_CHAIN (decl_args_type);
+	    decl_args_type_skip++;
 
-	  return compparms (decl_args_type, friend_args_type);
+	  return compparms (decl_args_type, decl_args_type_skip,
+			    friend_args_type, friend_args_type_skip);
 	}
       else
 	{
@@ -1507,8 +1510,8 @@ determine_specialization (tree template_id,
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
 	    decl_arg_types = TREE_CHAIN (decl_arg_types);
 
-	  if (compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
-			 decl_arg_types))
+	  if (compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)), 0,
+			 decl_arg_types, 0))
 	    /* They match!  */
 	    candidates = tree_cons (NULL_TREE, fn, candidates);
 	}
