@@ -251,14 +251,17 @@ reserve_stack_memory (int start, int size)
   int begin, bound;
 
   yara_assert (start >= 0 && size > 0);
-#ifdef FRAME_GROWS_DOWNWARD
-  begin = start - size + 1;
-  yara_assert (begin >= 0);
-  bound = start + 1;
-#else
-  begin = start;
-  bound = start + size;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      begin = start - size + 1;
+      yara_assert (begin >= 0);
+      bound = start + 1;
+    }
+  else
+    {
+      begin = start;
+      bound = start + size;
+    }
   if (bound >= memory_stack_sbitmap_size)
     {
       memory_stack_sbitmap_size = bound + bound / 2;
@@ -279,32 +282,35 @@ find_free_stack_memory (int size, int align)
 
   yara_assert (size > 0 && align > 0);
   start = 0;
-#ifdef FRAME_GROWS_DOWNWARD
-  EXECUTE_IF_SET_IN_SBITMAP (memory_stack_sbitmap, 0, k, sbi)
+  if (FRAME_GROWS_DOWNWARD)
     {
-      start = CEIL_ROUND (k, (unsigned) (align));
-      for (j = 0;
-	   (cont_p = j < size && j + start < memory_stack_sbitmap_size);
-	   j++)
-	if (! TEST_BIT (memory_stack_sbitmap, j + start))
-	  break;
-      if (! cont_p)
-	return start + size - 1;
+      EXECUTE_IF_SET_IN_SBITMAP (memory_stack_sbitmap, 0, k, sbi)
+	{
+	  start = CEIL_ROUND (k, (unsigned) (align));
+	  for (j = 0;
+	       (cont_p = j < size && j + start < memory_stack_sbitmap_size);
+	       j++)
+	    if (! TEST_BIT (memory_stack_sbitmap, j + start))
+	      break;
+	  if (! cont_p)
+	    return start + size - 1;
+	}
+      start += size - 1;
     }
-  start += size - 1;
-#else
-  EXECUTE_IF_SET_IN_SBITMAP (memory_stack_sbitmap, 0, k, sbi)
+  else
     {
-      start = CEIL_ROUND (k, (unsigned) align);
-      for (j = 0;
-	   cont_p = j < size && j + start < memory_stack_sbitmap_size;
-	   j++)
-	if (! TEST_BIT (memory_stack_sbitmap, j + start))
-	  break;
-      if (! cont_p)
-	return start;
+      EXECUTE_IF_SET_IN_SBITMAP (memory_stack_sbitmap, 0, k, sbi)
+	{
+	  start = CEIL_ROUND (k, (unsigned) align);
+	  for (j = 0;
+	       (cont_p = j < size && j + start < memory_stack_sbitmap_size);
+	       j++)
+	    if (! TEST_BIT (memory_stack_sbitmap, j + start))
+	      break;
+	  if (! cont_p)
+	    return start;
+	}
     }
-#endif
   return start;
 }
 
@@ -565,15 +571,18 @@ get_stack_memory_start_frame_offset (void)
   if ((unsigned) align * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
     align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
   
-#ifdef FRAME_GROWS_DOWNWARD
-  /* We assume that the simulated stack is properly aligned.  It means
-     that the first byte after the cell is aligned too.  */
-  size = CEIL_ROUND (slot_memory_size, (unsigned) align);
-  offset = cfun->x_frame_offset - size;
-#else
-  size = slot_memory_size;
-  offset = cfun->x_frame_offset;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      /* We assume that the simulated stack is properly aligned.  It means
+	 that the first byte after the cell is aligned too.  */
+      size = CEIL_ROUND (slot_memory_size, (unsigned) align);
+      offset = cfun->x_frame_offset - size;
+    }
+  else
+    {
+      size = slot_memory_size;
+      offset = cfun->x_frame_offset;
+    }
 
   /* Calculate how many bytes the start of local variables is off from
      stack alignment.  */
@@ -581,17 +590,19 @@ get_stack_memory_start_frame_offset (void)
   frame_off = STARTING_FRAME_OFFSET % frame_alignment;
   frame_phase = frame_off ? frame_alignment - frame_off : 0;
 
-#ifdef FRAME_GROWS_DOWNWARD
-  offset = (FLOOR_ROUND (offset - frame_phase,
-			 (unsigned HOST_WIDE_INT) align) + frame_phase);
-#else
-  offset = (CEIL_ROUND (offset - frame_phase,
-			(unsigned HOST_WIDE_INT) align) + frame_phase);
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      offset = (FLOOR_ROUND (offset - frame_phase,
+			     (unsigned HOST_WIDE_INT) align) + frame_phase);
+    }
+  else
+    {
+      offset = (CEIL_ROUND (offset - frame_phase,
+			    (unsigned HOST_WIDE_INT) align) + frame_phase);
+    }
 
-#ifdef FRAME_GROWS_DOWNWARD
-  offset += size - 1;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    offset += size - 1;
 
   /* ??? trunc_int_for_mode */
   return offset + STARTING_FRAME_OFFSET;
@@ -651,13 +662,16 @@ static void
 register_slot_start_change (int new, struct memory_slot *slot)
 {
   log_memory_slot (slot);
-#ifdef FRAME_GROWS_DOWNWARD
-  remove_memory_slot_end (slot->start);
-  add_memory_slot_end (new);
-#else
-  remove_memory_slot_end (slot->start + slot->size - 1);
-  add_memory_slot_end (new + slot->size - 1);
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      remove_memory_slot_end (slot->start);
+      add_memory_slot_end (new);
+    }
+  else
+    {
+      remove_memory_slot_end (slot->start + slot->size - 1);
+      add_memory_slot_end (new + slot->size - 1);
+    }
 }
 
 void
@@ -680,11 +694,10 @@ register_memory_slot_usage (struct memory_slot *slot, int align)
   if (slot->allocnos_num == 0)
     {
       yara_assert (slot->size > 0);
-#ifdef FRAME_GROWS_DOWNWARD
-      add_memory_slot_end (slot->start);
-#else
-      add_memory_slot_end (slot->start + slot->size - 1);
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	add_memory_slot_end (slot->start);
+      else
+	add_memory_slot_end (slot->start + slot->size - 1);
     }
   increase_align_count (align);
   slot->allocnos_num++;
@@ -698,11 +711,10 @@ unregister_memory_slot_usage (struct memory_slot *slot, int align)
   decrease_align_count (align);
   if (slot->allocnos_num == 0)
     {
-#ifdef FRAME_GROWS_DOWNWARD
-      remove_memory_slot_end (slot->start);
-#else
-      remove_memory_slot_end (slot->start + slot->size - 1);
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	remove_memory_slot_end (slot->start);
+      else
+	remove_memory_slot_end (slot->start + slot->size - 1);
       free_memory_slot_structure (slot);
     }
 }
@@ -1110,6 +1122,8 @@ compact_stack (void)
   struct memory_slot *slot, *conflict_slot;
   bitmap_iterator bi;
   varray_type slot_memory_can_varray;
+  sbitmap reallocated_can_sbitmap;
+  bool safe_p = (YARA_PARAMS & YARA_AGGRESSIVE_STACK_COMPACTION) == 0;
 
   /* Sort cans to consider more higher cost can moves first.  */
   VARRAY_GENERIC_PTR_NOGC_INIT (slot_memory_can_varray,
@@ -1128,6 +1142,8 @@ compact_stack (void)
     qsort (&VARRAY_GENERIC_PTR (slot_memory_can_varray, 0),
 	   VARRAY_ACTIVE_SIZE (slot_memory_can_varray),
 	   sizeof (can_t), can_compare);
+  reallocated_can_sbitmap = sbitmap_alloc (cans_num);
+  sbitmap_zero (reallocated_can_sbitmap);
   /* Try to move can slots to closer stack start.  */
   for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (slot_memory_can_varray); i++)
     {
@@ -1143,28 +1159,33 @@ compact_stack (void)
       if (vec != NULL)
 	for (j = 0; (n = vec [j]) >= 0; j++)
 	  if ((conflict_slot = can_memory_slots [n]) != NULL
-	      && conflict_slot->mem == NULL_RTX)
+	      && conflict_slot->mem == NULL_RTX
+	      && (safe_p || TEST_BIT (reallocated_can_sbitmap, n)))
 	    reserve_stack_memory (conflict_slot->start, conflict_slot->size);
 #ifdef SECONDARY_MEMORY_NEEDED
-      EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, k, bi)
-	{
-	  if (can_copy_conflict_p (can, copies [k]))
-	    {
-	      yara_assert (COPY_CHANGE_ADDR (copies [k]) != NULL);
-	      conflict_slot = COPY_MEMORY_SLOT (copies [k]);
-	      yara_assert (conflict_slot != NULL
-			   && conflict_slot->mem == NULL_RTX);
-	      reserve_stack_memory (conflict_slot->start, conflict_slot->size);
-	    }
-	}
+      if (safe_p)
+	EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, k, bi)
+	  {
+	    if (can_copy_conflict_p (can, copies [k]))
+	      {
+		yara_assert (COPY_CHANGE_ADDR (copies [k]) != NULL);
+		conflict_slot = COPY_MEMORY_SLOT (copies [k]);
+		yara_assert (conflict_slot != NULL
+			     && conflict_slot->mem == NULL_RTX);
+		reserve_stack_memory (conflict_slot->start,
+				      conflict_slot->size);
+	      }
+	  }
 #endif
       start = find_free_stack_memory (slot->size, align);
       yara_assert (slot->start >= start);
+      SET_BIT (reallocated_can_sbitmap, CAN_NUM (can));
       if (start == slot->start)
 	continue;
       register_slot_start_change (start, slot);
       slot->start = start;
     }
+  sbitmap_free (reallocated_can_sbitmap);
   VARRAY_FREE (slot_memory_can_varray);
 #ifdef SECONDARY_MEMORY_NEEDED
   /* Try to move slots used for secondary memory closer to the stack
@@ -1344,22 +1365,20 @@ get_temp_stack_memory_slot_rtx (enum machine_mode mode, HOST_WIDE_INT disp,
       mem = temp_stack_disp_mem [mode];
       offset = (frame_stack_pointer_offset + disp
 		- rounded_slot_memory_size ());
-#ifdef FRAME_GROWS_DOWNWARD
-      offset += get_stack_memory_start_frame_offset () - size + 2;
-#else
-      offset += size - get_stack_memory_start_frame_offset ();
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	offset += get_stack_memory_start_frame_offset () - size + 2;
+      else
+	offset += size - get_stack_memory_start_frame_offset ();
     }
   else
     {
       mem = temp_hard_frame_disp_mem [mode];
       offset = (get_stack_memory_start_frame_offset ()
 		+ frame_hard_frame_pointer_offset);
-#ifdef FRAME_GROWS_DOWNWARD
-      offset -= disp;
-#else
-      offset += disp;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	offset -= disp;
+      else
+	offset += disp;
     }
   XEXP (XEXP (mem, 0), 1) = get_temp_const_int (disp);
   return mem;
@@ -2829,13 +2848,16 @@ memory_slot_intersected (struct memory_slot *slot1, struct memory_slot *slot2)
   if (slot1 == NULL || slot2 == NULL
       || slot1->mem != NULL_RTX || slot2->mem != NULL_RTX)
     return false;
-#ifdef FRAME_GROWS_DOWNWARD
-  start1 = slot1->start - slot1->size + 1;
-  start2 = slot2->start - slot2->size + 1;
-#else
-  start1 = slot1->start;
-  start2 = slot2->start;
-#endif
+  if (FRAME_GROWS_DOWNWARD)
+    {
+      start1 = slot1->start - slot1->size + 1;
+      start2 = slot2->start - slot2->size + 1;
+    }
+  else
+    {
+      start1 = slot1->start;
+      start2 = slot2->start;
+    }
   if (start1 <= start2)
     return start2 < start1 + slot1->size;
   else
@@ -3137,7 +3159,7 @@ check_elimination_in_addr (int change, int subst_regno, HOST_WIDE_INT addition,
 	  ? GET_MODE (*container_loc) : VOIDmode);
   for (elim = reg_eliminate [*base_p ? base_regno : index_regno];
        elim != NULL;
-       elim = elim->next)
+       elim = elim->from_next)
     {
       offset = elim->offset + addition;
       if (elim->to == STACK_POINTER_REGNUM)
@@ -3282,7 +3304,9 @@ eliminate_reg (allocno_t a)
 	  
 	  yara_assert (XEXP (*container_loc, 0) == *INSN_ALLOCNO_LOC (a));
 	  temp_const_int = XEXP (*container_loc, 1);
-	  for (elim = reg_eliminate [regno]; elim != NULL; elim = elim->next)
+	  for (elim = reg_eliminate [regno];
+	       elim != NULL;
+	       elim = elim->from_next)
 	    {
 	      offset = elim->offset;
 	      if (elim->to == STACK_POINTER_REGNUM)
@@ -3696,13 +3720,16 @@ undo_memory_slot_change (struct memory_slot_log_entry *sl)
 
   if (sl->start != slot->start)
     {
-#ifdef FRAME_GROWS_DOWNWARD
-      remove_memory_slot_end (slot->start);
-      add_memory_slot_end (sl->start);
-#else
-      remove_memory_slot_end (slot->start + slot->size - 1);
-      add_memory_slot_end (sl->start + slot->size - 1);
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	{
+	  remove_memory_slot_end (slot->start);
+	  add_memory_slot_end (sl->start);
+	}
+      else
+	{
+	  remove_memory_slot_end (slot->start + slot->size - 1);
+	  add_memory_slot_end (sl->start + slot->size - 1);
+	}
       slot->start = sl->start;
     }
 }
@@ -3848,13 +3875,13 @@ check_hard_regno_memory_on_constraint (allocno_t a, bool use_equiv_const_p,
   ALLOCNO_USE_EQUIV_CONST_P (a) = saved_use_equiv_const_p;
   ALLOCNO_HARD_REGNO (a) = saved_hard_regno;
   ALLOCNO_MEMORY_SLOT (a) = saved_memory_slot;
+  SET_ALT_SET (temp_alt_set);
   for (curr_a = insn_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))];
        curr_a != NULL;
        curr_a = INSN_ALLOCNO_NEXT (curr_a))
     if (INSN_ALLOCNO_TYPE (curr_a) >= OPERAND_BASE)
       {
-	COPY_ALT_SET (temp_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (curr_a));
-	AND_ALT_SET (temp_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (a));
+	AND_ALT_SET (temp_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (curr_a));
 	if (EQ_ALT_SET (temp_alt_set, ZERO_ALT_SET))
 	  break;
       }

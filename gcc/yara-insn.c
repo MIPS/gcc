@@ -765,7 +765,11 @@ assign_constraint (allocno_t a, const char *p)
 		     && hard_reg_in_set_p (get_allocno_hard_regno
 					   (a, ALLOCNO_REGNO (a)),
 					   ALLOCNO_MODE (a),
-					   reg_class_contents [cl]))
+					   reg_class_contents [cl])
+		     && hard_reg_not_in_set_p (get_allocno_hard_regno
+					       (a, ALLOCNO_REGNO (a)),
+					       ALLOCNO_MODE (a),
+					       ALLOCNO_HARD_REG_CONFLICTS (a)))
 	      {
 		yara_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
 			     || INSN_ALLOCNO_ORIGINAL_P (a));

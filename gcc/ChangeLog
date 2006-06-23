@@ -1,3 +1,45 @@
+2006-06-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-int.h (YARA_AGGRESSIVE_STACK_COMPACTION): New macro.
+	(get_duplication_allocno): New external function definition.
+
+	* yara-ir.c (get_duplication_allocno): Make it external.
+	(get_move): Check that cans are from different partition sets.
+	(make_aggressive_coalescing): Don't coalesce allocnos with
+	equivalent locations.
+	
+	* yara-insn.c (assign_constraint): Check hard register conflicts
+	for hard register allocnos.
+
+	* yara-color.c (update_min_op_costs): Take
+	CANNOT_CHANGE_MODE_CLASS into account.
+	(setup_cover_classes_and_reg_costs): Check undefined costs.
+	(decrease_hard_reg_cost): New function.
+	(add_move_costs): Use the new function.  Take hard registers in
+	insns other than moves.
+
+	* yara-final.c (get_eliminate_subst_rtx): Change type of the
+	offset.
+	(get_slot_start): Check value of FRAME_GROWS_DOWNWARD not the
+	definition.
+	(get_allocno_memory_slot_rtx): Ditto.  Fix the calculation of
+	displacement relative to the stack pointer.
+	(emit_plus_assign): New function.
+	(emit_copy): Use it.
+	(add_copy_list): Put copies after jump insn on the CFG edges.
+
+	* yara-trans.c (reserve_stack_memory): Check value of
+	FRAME_GROWS_DOWNWARD not the definition.
+	(find_free_stack_memory, get_stack_memory_start_frame_offset,
+	register_slot_start_change, register_memory_slot_usage,
+	get_temp_stack_memory_slot_rtx, memory_slot_intersected,
+	undo_memory_slot_change): Ditto.
+	(compact_stack): Add code for full stack slots rearrangement.
+	(check_elimination_in_addr, eliminate_reg): Browse elimination
+	chain only for given register.
+	(check_hard_regno_memory_on_constraint): Check possible
+	alternatives for all operands.
+	
 2006-06-14  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/rs6000/rs6000.h (YARA_COVER_CLASSES): New macro.

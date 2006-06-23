@@ -402,11 +402,12 @@ static void
 update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 {
   int op_num, cost, i;
-  bool equiv_const_p;
+  bool equiv_const_p, check_mode_change_p;
   enum reg_class cl, *classes;
   enum machine_mode mode;
   enum op_type op_mode;
   can_t can;
+  rtx op, reg;
 
   yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   yara_assert (class != NO_REGS || mem_p);
@@ -444,6 +445,13 @@ update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
   yara_assert (cost >= 0);
   if (cost < min_op_memory_cost [op_num])
     min_op_memory_cost [op_num] = cost;
+  reg = op = *INSN_ALLOCNO_LOC (a);
+  check_mode_change_p = false;
+  if (GET_CODE (op) == SUBREG)
+    {
+      SKIP_TO_REG (reg, op);
+      check_mode_change_p = REG_P (reg);
+    }
   for (i = 0; (cl = classes [i]) != NO_REGS; i++)
     {
       if (mem_p)
@@ -451,6 +459,9 @@ update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 		 ? memory_move_cost [mode] [cl] [0] : 0)
 		+ (op_mode == OP_OUT || op_mode == OP_INOUT
 		   ? memory_move_cost [mode] [cl] [1] : 0));
+      else if (check_mode_change_p
+	       && CANNOT_CHANGE_MODE_CLASS (GET_MODE (reg), GET_MODE (op), cl))
+	continue;
       else
 	{
 	  cost = 0;
@@ -1164,16 +1175,16 @@ setup_cover_classes_and_reg_costs (void)
 			  * freq);
 		    costs = &can_class_cost [can_num * N_REG_CLASSES];
 		    for (i = 0; (cl1 = classes [i]) != NO_REGS; i++)
-		      {
-			/* ??? Tables to speed up.  */
-			if ((op_mode == OP_IN || op_mode == OP_INOUT)
-			    && ! class_subset_p [cl1] [cl])
-			  costs [cl1]
-			    += register_move_cost [mode] [cl1] [cl] * freq;
-			if ((op_mode == OP_OUT || op_mode == OP_INOUT)
-			    && ! class_subset_p [cl] [cl1])
-			  costs [cl1]
-			    += register_move_cost [mode] [cl] [cl1] * freq;
+		      if (costs [cl1] != INT_MAX)
+			{
+			  if ((op_mode == OP_IN || op_mode == OP_INOUT)
+			      && ! class_subset_p [cl1] [cl])
+			    costs [cl1]
+			      += register_move_cost [mode] [cl1] [cl] * freq;
+			  if ((op_mode == OP_OUT || op_mode == OP_INOUT)
+			      && ! class_subset_p [cl] [cl1])
+			    costs [cl1]
+			      += register_move_cost [mode] [cl] [cl1] * freq;
 		      }
 		  }
 	      }	
@@ -1821,18 +1832,53 @@ add_can_copies (can_t dst_can, can_t src_can, int freq)
   CAN_COPIES (dst_can)->tied_can_copy = CAN_COPIES (src_can);
 }
 
+/* The following function decreases cost of HARD_REGNO for can of
+   allocno A by cost of move to hard register (if to_p) or move from
+   the hard register multiplied by FREQ.  */
+
+static void
+decrease_hard_reg_cost (allocno_t a, int hard_regno, int freq, bool to_p)
+{
+  int i;
+  enum machine_mode mode;
+  enum reg_class class, cover_class;
+  can_t can;
+
+  can = ALLOCNO_CAN (a);
+  if (can == NULL)
+    return;
+  cover_class = CAN_COVER_CLASS (can);
+  if (can == NULL
+      || ! TEST_HARD_REG_BIT (reg_class_contents [cover_class],
+			      hard_regno))
+    return;
+  yara_assert (cover_class != NO_REGS);
+  mode = CAN_MODE (can);
+  class = REGNO_REG_CLASS (hard_regno);
+  if (TEST_HARD_REG_BIT (no_alloc_regs, hard_regno))
+    return;
+  i = class_hard_reg_index [cover_class] [hard_regno];
+  CAN_HARD_REG_COSTS (can) [i]
+    -= freq * (to_p
+	       ? register_move_cost [mode] [class] [cover_class]
+	       : register_move_cost [mode] [cover_class] [class]);
+}
+
+/* To make a better subsequent hard register choice the function
+   stores information about move insns between cans and changes hard
+   register costs of cans which probably get the same hard register as
+   an explicit hard register in a RTL insn usually because of
+   constraints of two-address insn architecture.  */
 static void
 add_move_costs (void)
 {
-  int freq, i, hard_regno;
+  int i, freq, hard_regno;
   rtx insn, bound, set, dst, src;
   basic_block bb;
   allocno_t a, src_a, dst_a;
   copy_t cp;
-  can_t can, src_can, dst_can;
+  can_t src_can, dst_can;
   bool to_p;
-  enum machine_mode mode;
-  enum reg_class class, cover_class;
 
   if (flag_relief)
     {
@@ -1883,25 +1929,7 @@ add_move_costs (void)
 		  }
 		else
 		  continue;
-		can = ALLOCNO_CAN (a);
-		if (can == NULL)
-		  continue;
-		cover_class = CAN_COVER_CLASS (can);
-		if (can == NULL
-		    || ! TEST_HARD_REG_BIT (reg_class_contents [cover_class],
-					    hard_regno))
-		  continue;
-		yara_assert (cover_class != NO_REGS);
-		mode = CAN_MODE (can);
-		class = REGNO_REG_CLASS (hard_regno);
-		if (TEST_HARD_REG_BIT (no_alloc_regs, hard_regno))
-		  continue;
-		i = class_hard_reg_index [cover_class] [hard_regno];
-		CAN_HARD_REG_COSTS (can) [i]
-		  -= freq
-		     * (to_p
-			? register_move_cost [mode] [class] [cover_class]
-			: register_move_cost [mode] [cover_class] [class]);
+		decrease_hard_reg_cost (a, hard_regno, freq, to_p);
 	      }
 	    else
 	      {
@@ -1911,6 +1939,45 @@ add_move_costs (void)
 		dst_can = ALLOCNO_CAN (dst_a);
 		add_can_copies (dst_can, src_can, freq);
 	      }
+	  }
+	else
+	  {
+	    allocno_t src, dst;
+	    int src_regno, dst_regno;
+
+	    for (src = insn_allocnos [INSN_UID (insn)];
+		 src != NULL;
+		 src = INSN_ALLOCNO_NEXT (src))
+	      /* How to handle SUBREGs???  */
+	      if (INSN_ALLOCNO_OP_MODE (src) == OP_IN
+		  && REG_P (*INSN_ALLOCNO_LOC (src))
+		  && find_reg_note (insn, REG_DEAD,
+				    *INSN_ALLOCNO_LOC (src)) != NULL_RTX
+		  && (dst = get_duplication_allocno (src, true)) != NULL
+		  && REG_P (*INSN_ALLOCNO_LOC (dst))
+		  && ALLOCNO_MODE (src) == ALLOCNO_MODE (dst))
+		{
+		  src_regno = ALLOCNO_REGNO (src);
+		  dst_regno = ALLOCNO_REGNO (dst);
+		  if (! HARD_REGISTER_NUM_P (src_regno)
+		      && ! HARD_REGISTER_NUM_P (dst_regno))
+		    continue;
+		  if (! HARD_REGISTER_NUM_P (dst_regno))
+		    {
+		      to_p = true;
+		      a = dst;
+		      hard_regno = ALLOCNO_REGNO (src);
+		    }
+		  else if (! HARD_REGISTER_NUM_P (src_regno))
+		    {
+		      to_p = false;
+		      a = src;
+		      hard_regno = ALLOCNO_REGNO (dst);
+		    }
+		  else
+		    continue;
+		  decrease_hard_reg_cost (a, hard_regno, freq, to_p);
+		}
 	  }
     }
 }

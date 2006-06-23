@@ -5337,7 +5337,7 @@ struct move_info
   int freq;
 };
 
-static allocno_t
+allocno_t
 get_duplication_allocno (allocno_t a, bool commutative_p)
 {
   int op_num, curr_alt, c, original;
@@ -5392,6 +5392,7 @@ get_move (allocno_t src, allocno_t dst, int freq)
 
   first = union_first [ALLOCNO_NUM (src)];
   second = union_first [ALLOCNO_NUM (dst)];
+  yara_assert (first != second);
   if (ALLOCNO_NUM (first) > ALLOCNO_NUM (second))
     {
       temp = first;
@@ -5541,6 +5542,11 @@ make_aggressive_coalescing (void)
 		     intermediate register.  Even if we fix that I
 		     believe it will not generate a better code.  */
 		  continue;
+		/* Don't coalesce allocnos with equivalent
+		   locations. */
+		if (reg_equiv_memory_loc [ALLOCNO_REGNO (src)]
+		    || reg_equiv_memory_loc [ALLOCNO_REGNO (dst)])
+		  continue;
 		move = get_move (src, dst, BLOCK_FOR_INSN (insn)->frequency);
 		VARRAY_PUSH_GENERIC_PTR (move_varray, move);
 		VARRAY_PUSH_RTX (move_insn_varray, insn);
@@ -5559,8 +5565,15 @@ make_aggressive_coalescing (void)
 		      && (dst = get_duplication_allocno (src, true)) != NULL
 		      && REG_P (*INSN_ALLOCNO_LOC (dst))
 		      && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst))
-		      && ALLOCNO_MODE (src) == ALLOCNO_MODE (dst))
+		      && ALLOCNO_MODE (src) == ALLOCNO_MODE (dst)
+		      && (union_first [ALLOCNO_NUM (src)]
+			  != union_first [ALLOCNO_NUM (dst)]))
 		    {
+		      /* Don't coalesce allocnos with equivalent
+			 locations. */
+		      if (reg_equiv_memory_loc [ALLOCNO_REGNO (src)]
+			  || reg_equiv_memory_loc [ALLOCNO_REGNO (dst)])
+			continue;
 		      move = get_move (src, dst,
 				       BLOCK_FOR_INSN (insn)->frequency);
 		      VARRAY_PUSH_GENERIC_PTR (move_varray, move);

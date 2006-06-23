@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define YARA_NO_FREQ_BUCKET_ORDER 1024
 #define YARA_NREGS_BUCKET_ORDER 2048
 #define YARA_BB_RELIEF 4096
+#define YARA_AGGRESSIVE_STACK_COMPACTION 8192
 
 
 #ifdef ENABLE_CHECKING
@@ -906,6 +907,7 @@ extern allocno_t insn_allocno (rtx, rtx);
 extern can_t create_can (void);
 extern void setup_can_call_info (can_t);
 extern int can_freq (can_t);
+extern allocno_t get_duplication_allocno (allocno_t, bool);
 extern void print_can (FILE *, can_t);
 extern void debug_can (can_t);
 extern void print_cans (FILE *);

@@ -57,7 +57,8 @@ static bool emit_secondary_memory_mode_move (rtx, rtx, copy_t,
 					     enum machine_mode);
 static void emit_secondary_memory_move (rtx, rtx, copy_t, enum machine_mode,
 					enum machine_mode, bool);
-static rtx get_eliminate_subst_rtx (rtx *, int, int, int);
+static rtx get_eliminate_subst_rtx (rtx *, int, int, HOST_WIDE_INT);
+static void emit_plus_assign (int, allocno_t, rtx, HOST_WIDE_INT);
 static void emit_copy (copy_t);
 static rtx copy_insns (rtx);
 static void emit_insns_at_bb_start (rtx, basic_block);
@@ -521,11 +522,10 @@ get_slot_start (struct memory_slot *slot, int offset)
 {
   if (slot->mem == NULL_RTX)
     {
-#ifdef FRAME_GROWS_DOWNWARD
-      return slot->start + offset - slot->size + 1;
-#else
-      return slot->start + offset;
-#endif
+      if (FRAME_GROWS_DOWNWARD)
+	return slot->start + offset - slot->size + 1;
+      else
+	return slot->start + offset;
     }
   else
     {
@@ -1673,27 +1673,49 @@ get_allocno_memory_slot_rtx (struct memory_slot *memory_slot, int offset,
     {
       HOST_WIDE_INT disp;
 
-#ifdef FRAME_GROWS_DOWNWARD
-      if (stack_frame_pointer_can_be_eliminated_p
-	  && obligatory_stack_frame_pointer_elimination_p)
-	disp = (frame_stack_pointer_offset
-		+ final_stack_memory_start_frame_offset
-		+ memory_slot->start - memory_slot->size + 2
-		- final_rounded_slot_memory_size);
+      if (FRAME_GROWS_DOWNWARD)
+	{
+	  if (stack_frame_pointer_can_be_eliminated_p
+	      && obligatory_stack_frame_pointer_elimination_p)
+	    {
+	      /* Prefer slot arragement with smaller displacement for
+		 slots with smaller start (because they have higher
+		 prioirity).  */
+	      if (final_stack_memory_start_frame_offset
+		  + frame_stack_pointer_offset <= 1)
+		disp = (final_stack_memory_start_frame_offset
+			+ frame_stack_pointer_offset - memory_slot->start);
+	      else
+		disp = (final_stack_memory_start_frame_offset
+			+ frame_stack_pointer_offset + memory_slot->start
+			- memory_slot->size
+			- final_rounded_slot_memory_size + 2);
+	    }
+	  else
+	    disp = (final_stack_memory_start_frame_offset
+		    + frame_hard_frame_pointer_offset - memory_slot->start);
+	}
       else
-	disp = (final_stack_memory_start_frame_offset
-		+ frame_hard_frame_pointer_offset - memory_slot->start);
-#else
-      if (stack_frame_pointer_can_be_eliminated_p
-	  && obligatory_stack_frame_pointer_elimination_p)
-	disp = (frame_stack_pointer_offset
-		- final_stack_memory_start_frame_offset
-		+ memory_slot->start + memory_slot->size
-		- final_rounded_slot_memory_size);
-      else
-	disp = (final_stack_memory_start_frame_offset
-		+ frame_hard_frame_pointer_offset + memory_slot->start);
-#endif
+	{
+	  if (stack_frame_pointer_can_be_eliminated_p
+	      && obligatory_stack_frame_pointer_elimination_p)
+	    {
+	      /* Prefer slot arragement with smaller displacement for
+		 slots with smaller start (because they have higher
+		 prioirity).  */
+	      if (final_stack_memory_start_frame_offset
+		  + frame_stack_pointer_offset >= -1)
+		disp = (final_stack_memory_start_frame_offset
+			+ frame_stack_pointer_offset + memory_slot->start);
+	      else
+		disp = (final_stack_memory_start_frame_offset
+			+ frame_stack_pointer_offset - memory_slot->start
+			- memory_slot->size + final_rounded_slot_memory_size);
+	    }
+	  else
+	    disp = (final_stack_memory_start_frame_offset
+		    + frame_hard_frame_pointer_offset + memory_slot->start);
+	}
       mem = gen_rtx_MEM (mode,
 			 gen_rtx_PLUS
 			 (Pmode,
@@ -1883,7 +1905,7 @@ emit_secondary_memory_move (rtx dst_rtx, rtx src_rtx, copy_t cp,
 
 
 static rtx
-get_eliminate_subst_rtx (rtx *loc, int from, int to, int offset)
+get_eliminate_subst_rtx (rtx *loc, int from, int to, HOST_WIDE_INT offset)
 {
   int base_regno, index_regno;
   HOST_WIDE_INT scale;
@@ -1983,6 +2005,30 @@ get_eliminate_subst_rtx (rtx *loc, int from, int to, int offset)
     }
 }
 
+/* The following function emits correct code assigning hard register
+   value (value of SRC_REG_RTX) plus OFFSET to hard register DST_REGNO
+   which denotes allocno DST.  */
+
+static void
+emit_plus_assign (int dst_regno, allocno_t dst, rtx src_reg_rtx,
+		  HOST_WIDE_INT offset)
+{
+  rtx last = get_last_insn ();
+  rtx dst_reg_rtx, offset_rtx;
+  
+  dst_reg_rtx = gen_allocno_reg_rtx (Pmode, dst_regno, dst);
+  offset_rtx = gen_rtx_CONST_INT (VOIDmode, offset);
+  emit_move (dst_reg_rtx, gen_rtx_PLUS (Pmode, src_reg_rtx, offset_rtx));
+  if (check_insns_added_since (last))
+    return;
+  delete_insns_since (last);
+  emit_move (dst_reg_rtx, offset_rtx);
+  emit_move (dst_reg_rtx, gen_rtx_PLUS (Pmode, dst_reg_rtx, src_reg_rtx));
+  if (check_insns_added_since (last))
+    return;
+  gcc_unreachable ();
+}
+
 static void
 emit_copy (copy_t cp)
 {
@@ -2035,10 +2081,9 @@ emit_copy (copy_t cp)
 	  if (hard_regno < 0)
 	    {
 	      yara_assert (interm_elimination_regno >= 0);
-	      src_rtx = gen_rtx_PLUS (Pmode, elimination_subst_reg,
-				      gen_rtx_CONST_INT (VOIDmode, offset));
-	      dst_rtx
-		= gen_allocno_reg_rtx (Pmode, interm_elimination_regno, dst);
+	      emit_plus_assign (interm_elimination_regno, dst,
+				elimination_subst_reg, offset);
+	      return;
 	    }
 	  else if (interm_elimination_regno < 0)
 	    {
@@ -2052,17 +2097,14 @@ emit_copy (copy_t cp)
 	    }
 	  else if (hard_regno == interm_elimination_regno && regno >= 0)
 	    {
-	      src_rtx = gen_rtx_PLUS (Pmode, elimination_subst_reg,
-				      gen_rtx_CONST_INT (VOIDmode, offset));
-	      dst_rtx = gen_allocno_reg_rtx (Pmode, hard_regno, dst);
+	      emit_plus_assign (hard_regno, dst,
+				elimination_subst_reg, offset);
+	      return;
 	    }
 	  else
 	    {
-	      src_rtx = gen_rtx_PLUS (Pmode, elimination_subst_reg,
-				      gen_rtx_CONST_INT (VOIDmode, offset));
-	      dst_rtx
-		= gen_allocno_reg_rtx (Pmode, interm_elimination_regno, dst);
-	      emit_move (dst_rtx, src_rtx);
+	      emit_plus_assign (interm_elimination_regno, dst,
+				elimination_subst_reg, offset);
 	      dst_rtx = gen_allocno_reg_rtx (Pmode, hard_regno, dst);
 	      if (regno >= 0)
 		src_rtx
@@ -2320,7 +2362,9 @@ add_copy_list (copy_t cp)
   p = COPY_POINT (cp);
   pt = p.point_type;
   jmp = (pt == AT_BB_END && control_flow_insn_p (BB_END (p.u.bb))
-	 ? BB_END (p.u.bb) : NULL_RTX);
+	 ? BB_END (p.u.bb)
+	 : pt == AFTER_INSN && control_flow_insn_p (p.u.insn)
+	 ? p.u.insn : NULL_RTX);
   before_jump_p = true;
   start_sequence ();
 #ifdef ENABLE_YARA_CHECKING
@@ -2354,7 +2398,13 @@ add_copy_list (copy_t cp)
       break;
       
     case AFTER_INSN:
-      emit_insn_after (insns, p.u.insn);
+      if (jmp == NULL_RTX)
+	emit_insn_after (insns, p.u.insn);
+      else
+	{
+	  gcc_assert (! before_jump_p);
+	  emit_insns_at_bb_end (insns, BLOCK_FOR_INSN (jmp), jmp, false);
+	}
       break;
       
     case AT_BB_START:
