@@ -1,5 +1,5 @@
 import java.net.*;
-import java.lang.reflect.*;
+import java.lang.reflect.Proxy;
 
 public class TestLeak
 {
