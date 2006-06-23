@@ -69,7 +69,7 @@ public class CompoundName implements Name, Cloneable, Serializable
     initializeSyntax ();
   }
 
-  protected CompoundName (Enumeration comps, Properties syntax)
+  protected CompoundName (Enumeration<String> comps, Properties syntax)
   {
     elts = new Vector ();
     mySyntax = syntax;
@@ -285,7 +285,7 @@ public class CompoundName implements Name, Cloneable, Serializable
     return (String) elts.get (posn);
   }
 
-  public Enumeration getAll ()
+  public Enumeration<String> getAll ()
   {
     return elts.elements ();
   }

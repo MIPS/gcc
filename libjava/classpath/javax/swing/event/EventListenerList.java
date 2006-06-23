@@ -136,7 +136,7 @@ public class EventListenerList
    *
    * @throws NullPointerException if <code>t</code> is <code>null</code>.
    */
-  public void add(Class t, EventListener listener)
+  public <T extends EventListener> void add(Class<T> t, T listener)
   {
     int oldLength;
     Object[] newList;
@@ -175,7 +175,7 @@ public class EventListenerList
    * <code>t</code>. Thus, subclasses of <code>t</code> will not be
    * counted.
    */
-  public int getListenerCount(Class t)
+  public int getListenerCount(Class<?> t)
   {
     int result = 0;
     for (int i = 0; i < listenerList.length; i += 2)
@@ -220,7 +220,7 @@ public class EventListenerList
    *
    * @since 1.3
    */
-  public EventListener[] getListeners(Class c)
+  public <T extends EventListener> T[] getListeners(Class<T> c)
   {
     int count, f;
     EventListener[] result;
@@ -232,7 +232,7 @@ public class EventListenerList
       if (listenerList[i] == c)
         result[f++] = (EventListener) listenerList[i + 1];
     
-    return result;
+    return (T[]) result;
   }
 
 
@@ -249,7 +249,7 @@ public class EventListenerList
    *
    * @throws NullPointerException if <code>t</code> is <code>null</code>.
    */
-  public void remove(Class t, EventListener listener)
+  public <T extends EventListener> void remove(Class<T> t, T listener)
   {
     Object[] oldList, newList;
     int oldLength;

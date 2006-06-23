@@ -52,9 +52,9 @@ public class InitialContext implements Context
 {
   protected Context defaultInitCtx;
   protected boolean gotDefault = false;
-  protected Hashtable myProps;
+  protected Hashtable<Object, Object> myProps;
   
-  public InitialContext (Hashtable environment)
+  public InitialContext (Hashtable<?, ?> environment)
     throws NamingException
   {
     init (environment);
@@ -74,7 +74,7 @@ public class InitialContext implements Context
   }
  
   /** @since 1.3 */
-  protected void init (Hashtable environment)
+  protected void init (Hashtable<?, ?> environment)
     throws NamingException
   {
     // FIXME: Is this enough?
@@ -293,22 +293,26 @@ public class InitialContext implements Context
     getURLOrDefaultInitCtx (oldName).rename (oldName, newName);
   }
 
-  public NamingEnumeration list (Name name) throws NamingException
+  public NamingEnumeration<NameClassPair> list (Name name)
+    throws NamingException
   {
     return getURLOrDefaultInitCtx (name).list (name);
   }
 
-  public NamingEnumeration list (String name) throws NamingException
+  public NamingEnumeration<NameClassPair> list (String name)
+    throws NamingException
   {
     return getURLOrDefaultInitCtx (name).list (name);
   }
 
-  public NamingEnumeration listBindings (Name name) throws NamingException
+  public NamingEnumeration<Binding> listBindings (Name name)
+   throws NamingException
   {
     return getURLOrDefaultInitCtx (name).listBindings (name);
   }
 
-  public NamingEnumeration listBindings (String name) throws NamingException
+  public NamingEnumeration<Binding> listBindings (String name)
+    throws NamingException
   {
     return getURLOrDefaultInitCtx (name).listBindings (name);
   }
@@ -375,7 +379,7 @@ public class InitialContext implements Context
     return myProps.remove (propName);
   }
 
-  public Hashtable getEnvironment () throws NamingException
+  public Hashtable<?, ?> getEnvironment () throws NamingException
   {
     return myProps;
   }

@@ -1198,7 +1198,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "TabbedPane.tabAreaBackground", getControl(),
       "TabbedPane.tabAreaInsets", new InsetsUIResource(4, 2, 0, 6),
       "TabbedPane.tabInsets", new InsetsUIResource(0, 9, 1, 9),
-      
+
       "Table.background", getWindowBackground(),
       "Table.focusCellBackground", getWindowBackground(),
       "Table.focusCellForeground", getControlTextColor(),

@@ -124,11 +124,13 @@ public interface Context
   void rename (Name oldName, Name newName) throws NamingException;
   void rename (String oldName, String newName) throws NamingException;
 
-  NamingEnumeration list (Name name) throws NamingException;
-  NamingEnumeration list (String name) throws NamingException;
+  NamingEnumeration<NameClassPair> list (Name name) throws NamingException;
+  NamingEnumeration<NameClassPair> list (String name) throws NamingException;
 
-  NamingEnumeration listBindings (Name name) throws NamingException;
-  NamingEnumeration listBindings (String name) throws NamingException;
+  NamingEnumeration<Binding> listBindings (Name name) 
+    throws NamingException;
+  NamingEnumeration<Binding> listBindings (String name) 
+    throws NamingException;
 
   void destroySubcontext (Name name) throws NamingException;
   void destroySubcontext (String name) throws NamingException;
@@ -151,7 +153,7 @@ public interface Context
 
   Object removeFromEnvironment (String propName) throws NamingException;
 
-  Hashtable getEnvironment () throws NamingException;
+  Hashtable<?, ?> getEnvironment () throws NamingException;
 
   void close () throws NamingException;
 

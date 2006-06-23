@@ -2234,7 +2234,7 @@ public class JTable
    * 
    * @return the editor, suitable for editing this data type
    */
-  public TableCellEditor getDefaultEditor(Class columnClass)
+  public TableCellEditor getDefaultEditor(Class<?> columnClass)
   {
     if (defaultEditorsByColumnClass.containsKey(columnClass))
       return (TableCellEditor) defaultEditorsByColumnClass.get(columnClass);
@@ -2246,7 +2246,7 @@ public class JTable
         return r;
       }
   }
-  
+
   /**
    * Get the cell renderer for rendering the given cell.
    * 
@@ -2264,7 +2264,7 @@ public class JTable
       }
     return renderer;
   }
-  
+
   /**
    * Set default renderer for rendering the given data type.
    * 
@@ -2272,11 +2272,11 @@ public class JTable
    *          rendered.
    * @param rend the renderer that will rend this data type
    */
-  public void setDefaultRenderer(Class columnClass, TableCellRenderer rend)
+  public void setDefaultRenderer(Class<?> columnClass, TableCellRenderer rend)
   {
     defaultRenderersByColumnClass.put(columnClass, rend);
   }
-  
+
   /**
    * Get the default renderer for rendering the given data type.
    * 
@@ -2284,7 +2284,7 @@ public class JTable
    * 
    * @return the appropriate defauld renderer for rendering that data type.
    */
-  public TableCellRenderer getDefaultRenderer(Class columnClass)
+  public TableCellRenderer getDefaultRenderer(Class<?> columnClass)
   {
     if (defaultRenderersByColumnClass.containsKey(columnClass))
       return (TableCellRenderer) defaultRenderersByColumnClass.get(columnClass);
@@ -3357,7 +3357,7 @@ public class JTable
   {
     setUI((TableUI) UIManager.getUI(this));
   }
-  
+
   /**
    * Get the class (datatype) of the column. The cells are rendered and edited
    * differently, depending from they data type.
@@ -3367,7 +3367,7 @@ public class JTable
    * @return the class, defining data type of that column (String.class for
    * String, Boolean.class for boolean and so on).
    */
-  public Class getColumnClass(int column)
+  public Class<?> getColumnClass(int column)
   {
     return getModel().getColumnClass(convertColumnIndexToModel(column));
   }
@@ -3388,7 +3388,7 @@ public class JTable
     int modelColumn = columnModel.getColumn(column).getModelIndex();
     return dataModel.getColumnName(modelColumn);
   }
-  
+
   /**
    * Get the column, currently being edited
    * 
@@ -3398,7 +3398,7 @@ public class JTable
   {
     return editingColumn;
   }
-  
+
   /**
    * Set the column, currently being edited
    * 
@@ -3418,7 +3418,7 @@ public class JTable
   {
     return editingRow;
   }
-  
+
   /**
    * Set the row currently being edited.
    * 
@@ -3449,7 +3449,7 @@ public class JTable
   {
     return editorComp != null;
   }
-  
+
   /**
    * Set the default editor for the given column class (column data type).
    * By default, String is handled by text field and Boolean is handled by
@@ -3460,7 +3460,7 @@ public class JTable
    * 
    * @see TableModel#getColumnClass(int)
    */
-  public void setDefaultEditor(Class columnClass, TableCellEditor editor)
+  public void setDefaultEditor(Class<?> columnClass, TableCellEditor editor)
   {
     if (editor != null)
       defaultEditorsByColumnClass.put(columnClass, editor);

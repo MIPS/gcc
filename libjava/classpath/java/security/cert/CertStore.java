@@ -52,7 +52,7 @@ import java.util.Collection;
  * A CertStore is a read-only repository for certificates and
  * certificate revocation lists.
  *
- * @since JDK 1.4
+ * @since 1.4
  */
 public class CertStore
 {
@@ -268,7 +268,7 @@ public class CertStore
    * @return The collection of certificates.
    * @throws CertStoreException If the certificates cannot be retrieved.
    */
-  public final Collection getCertificates(CertSelector selector)
+  public final Collection<? extends Certificate> getCertificates(CertSelector selector)
     throws CertStoreException
   {
     return storeSpi.engineGetCertificates(selector);
@@ -286,7 +286,7 @@ public class CertStore
    * @return The collection of certificate revocation lists.
    * @throws CertStoreException If the CRLs cannot be retrieved.
    */
-  public final Collection getCRLs(CRLSelector selector)
+  public final Collection<? extends CRL> getCRLs(CRLSelector selector)
     throws CertStoreException
   {
     return storeSpi.engineGetCRLs(selector);

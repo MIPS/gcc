@@ -56,7 +56,7 @@ import java.util.List;
  *
  * @author Mark Benvenuto
  * @author Casey Marshall
- * @since JDK 1.2
+ * @since 1.2
  * @status Fully compatible with JDK 1.4.
  */
 public class CertificateFactory
@@ -249,7 +249,7 @@ public class CertificateFactory
    * @throws CertificateException If an error occurs decoding the
    *   certificates.
    */
-  public final Collection generateCertificates(InputStream inStream)
+  public final Collection<? extends Certificate> generateCertificates(InputStream inStream)
     throws CertificateException
   {
     return certFacSpi.engineGenerateCertificates(inStream);
@@ -291,7 +291,7 @@ public class CertificateFactory
    *    InputStream data.
    * @throws CRLException If an error occurs decoding the CRLs.
    */
-  public final Collection generateCRLs(InputStream inStream)
+  public final Collection<? extends CRL> generateCRLs(InputStream inStream)
     throws CRLException
   {
     return certFacSpi.engineGenerateCRLs( inStream );
@@ -338,7 +338,7 @@ public class CertificateFactory
    * @throws CertificateException If an error occurs generating the
    *   CertPath.
    */
-  public final CertPath generateCertPath(List certificates)
+  public final CertPath generateCertPath(List<? extends Certificate> certificates)
     throws CertificateException
   {
     return certFacSpi.engineGenerateCertPath(certificates);
@@ -351,7 +351,7 @@ public class CertificateFactory
    *
    * @return The Iterator of supported encodings.
    */
-  public final Iterator getCertPathEncodings()
+  public final Iterator<String> getCertPathEncodings()
   {
     return certFacSpi.engineGetCertPathEncodings();
   }

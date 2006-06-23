@@ -340,7 +340,7 @@ public abstract class AbstractLayoutCache
    * 
    * @return Enumeration
    */
-  public abstract Enumeration getVisiblePathsFrom(TreePath path);
+  public abstract Enumeration<TreePath> getVisiblePathsFrom(TreePath path);
 
   /**
    * getVisibleChildCount

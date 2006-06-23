@@ -115,7 +115,7 @@ public class StyleContext
       listenerList.remove(ChangeListener.class, l);
     }
       
-    public EventListener[] getListeners(Class listenerType)
+    public <T extends EventListener> T[] getListeners(Class<T> listenerType)
     {
       return listenerList.getListeners(listenerType);
     }
@@ -171,7 +171,7 @@ public class StyleContext
       return attributes.getAttributeCount();
     }
 
-    public Enumeration getAttributeNames()
+    public Enumeration<?> getAttributeNames()
     {
       return attributes.getAttributeNames();
     }
@@ -198,7 +198,7 @@ public class StyleContext
       fireStateChanged();
     }
 
-    public void removeAttributes(Enumeration names)
+    public void removeAttributes(Enumeration<?> names)
     {
       attributes = StyleContext.this.removeAttributes(attributes, names);
       fireStateChanged();
@@ -326,7 +326,7 @@ public class StyleContext
       return attrs.length / 2;
     }
 
-    public Enumeration getAttributeNames()
+    public Enumeration<?> getAttributeNames()
     {      
       return new Enumeration() 
         {
@@ -486,7 +486,7 @@ public class StyleContext
    * Get the names of the style. The returned enumeration always
    * contains at least one member, the default style.
    */
-  public Enumeration getStyleNames()
+  public Enumeration<?> getStyleNames()
   {
     return styleTable.keys();
   }
@@ -681,7 +681,7 @@ public class StyleContext
     return removeAttributes(old, attributes.getAttributeNames());
   }
 
-  public AttributeSet removeAttributes(AttributeSet old, Enumeration names)
+  public AttributeSet removeAttributes(AttributeSet old, Enumeration<?> names)
   {
     if (old instanceof MutableAttributeSet)
       {

@@ -132,7 +132,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
   private final String mimeType;
   
   // The representation class for this flavor
-  private final Class representationClass;
+  private final Class<?> representationClass;
   
   // The human readable name of this flavor
   private String humanPresentableName;
@@ -153,8 +153,8 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @exception ClassNotFoundException If the class cannot be loaded.
    */
-  protected static final Class tryToLoadClass(String className,
-                                             ClassLoader classLoader)
+  protected static final Class<?> tryToLoadClass(String className,
+						 ClassLoader classLoader)
     throws ClassNotFoundException
   {
     // Bootstrap
@@ -320,7 +320,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
   /**
    * Private constructor.
    */
-  private DataFlavor(Class representationClass,
+  private DataFlavor(Class<?> representationClass,
                     String mimeType,
                     String humanPresentableName)
   {
@@ -342,7 +342,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    * @param representationClass The representation class for this object.
    * @param humanPresentableName The display name of the object.
    */
-  public DataFlavor(Class representationClass, String humanPresentableName)
+  public DataFlavor(Class<?> representationClass, String humanPresentableName)
   {
     this(representationClass,
          "application/x-java-serialized-object"
@@ -433,7 +433,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @return The representation class for this flavor.
    */
-  public Class getRepresentationClass()
+  public Class<?> getRepresentationClass()
   {
     return(representationClass);
   }
@@ -824,7 +824,7 @@ public class DataFlavor implements java.io.Externalizable, Cloneable
    *
    * @since 1.3
    */
-  public final Class getDefaultRepresentationClass()
+  public final Class<?> getDefaultRepresentationClass()
   {
     return java.io.InputStream.class;
   }

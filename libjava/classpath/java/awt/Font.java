@@ -44,6 +44,7 @@ import gnu.java.awt.peer.ClasspathFontPeer;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
 import java.awt.font.LineMetrics;
+import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
@@ -342,7 +343,7 @@ public class Font implements Serializable
       this.name = peer.getName(this);
   }
 
-  public Font(Map attrs)
+  public Font(Map<? extends AttributedCharacterIterator.Attribute, ?> attrs)
   {
     this(null, attrs);
   }
@@ -760,7 +761,7 @@ public class Font implements Serializable
    *
    * @since 1.2
    */
-  public Font deriveFont(Map attributes)
+  public Font deriveFont(Map<? extends AttributedCharacterIterator.Attribute, ?> attributes)
   {
     return peer.deriveFont(this, attributes);
   }
@@ -774,7 +775,7 @@ public class Font implements Serializable
    * @see java.text.AttributedCharacterIterator.Attribute
    * @see java.awt.font.TextAttribute
    */
-  public Map getAttributes()
+  public Map<TextAttribute, ?> getAttributes()
   {
     return peer.getAttributes(this);
   }
@@ -853,7 +854,7 @@ public class Font implements Serializable
    *
    * @see java.awt.font.TextAttribute  
    */
-  public static Font getFont(Map attributes)
+  public static Font getFont(Map<? extends AttributedCharacterIterator.Attribute, ?> attributes)
   {
     return getFontFromToolkit(null, attributes);
   }

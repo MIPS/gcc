@@ -50,6 +50,7 @@ import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.util.Hashtable;
 
+
 /**
  * An <code>ObjectOutputStream</code> can be used to write objects
  * as well as primitive data in a platform-independent manner to an
@@ -115,6 +116,11 @@ import java.util.Hashtable;
  * @see java.io.Externalizable
  * @see java.io.ObjectInputStream
  * @see java.io.Serializable
+ * @author Tom Tromey (tromey@redhat.com)
+ * @author Jeroen Frijters (jeroen@frijters.net)
+ * @author Guilhem Lavaux (guilhem@kaffe.org)
+ * @author Michael Koch (konqueror@gmx.de)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  */
 public class ObjectOutputStream extends OutputStream
   implements ObjectOutput, ObjectStreamConstants
@@ -140,7 +146,7 @@ public class ObjectOutputStream extends OutputStream
     replacementEnabled = false;
     isSerializing = false;
     nextOID = baseWireHandle;
-    OIDLookupTable = new Hashtable();
+    OIDLookupTable = new Hashtable<ObjectIdentityWrapper,Integer>();
     protocolVersion = defaultProtocolVersion;
     useSubclassMethod = false;
     writeStreamHeader();
@@ -253,7 +259,17 @@ public class ObjectOutputStream extends OutputStream
 	    ObjectStreamClass osc = ObjectStreamClass.lookupForClassObject(clazz);
 	    if (osc == null)
 	      throw new NotSerializableException(clazz.getName());
-	    
+
+	    if (osc.isEnum())
+	      {
+		/* TC_ENUM classDesc newHandle enumConstantName */
+		realOutput.writeByte(TC_ENUM);
+		writeObject(osc);
+		assignNewHandle(obj);
+		writeObject(((Enum) obj).name());
+		break;
+	      }
+
 	    if ((replacementEnabled || obj instanceof Serializable)
 		&& ! replaceDone)
 	      {
@@ -432,7 +448,10 @@ public class ObjectOutputStream extends OutputStream
       {
         realOutput.writeByte(TC_CLASSDESC);
         realOutput.writeUTF(osc.getName());
-        realOutput.writeLong(osc.getSerialVersionUID());
+	if (osc.isEnum())
+	  realOutput.writeLong(0L);
+	else
+	  realOutput.writeLong(osc.getSerialVersionUID());
         assignNewHandle(osc);
 
         int flags = osc.getFlags();
@@ -591,11 +610,11 @@ public class ObjectOutputStream extends OutputStream
    *
    * @see ObjectInputStream#resolveClass(java.io.ObjectStreamClass)
    */
-  protected void annotateClass(Class cl) throws IOException
+  protected void annotateClass(Class<?> cl) throws IOException
   {
   }
 
-  protected void annotateProxyClass(Class cl) throws IOException
+  protected void annotateProxyClass(Class<?> cl) throws IOException
   {
   }
 
@@ -1563,7 +1582,7 @@ public class ObjectOutputStream extends OutputStream
   private boolean replacementEnabled;
   private boolean isSerializing;
   private int nextOID;
-  private Hashtable OIDLookupTable;
+  private Hashtable<ObjectIdentityWrapper,Integer> OIDLookupTable;
   private int protocolVersion;
   private boolean useSubclassMethod;
   private SetAccessibleAction setAccessible = new SetAccessibleAction();

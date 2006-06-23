@@ -52,6 +52,7 @@ import java.util.Set;
  * information via the <code>AttributedCharacterIterator</code> interface.
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @since 1.2
  */
 public class AttributedString
 {
@@ -116,7 +117,8 @@ public class AttributedString
    * @param str The <code>String</code> to be attributed.
    * @param attributes The attribute list.
    */
-  public AttributedString(String str, Map attributes)
+  public AttributedString(String str,
+                          Map<? extends AttributedCharacterIterator.Attribute, ?> attributes)
   {
     this(str);
 
@@ -300,7 +302,8 @@ public class AttributedString
    *         <code>null</code>.
    * @throws IllegalArgumentException if the subrange is not valid.
    */
-  public void addAttributes(Map attributes, int begin_index, int end_index)
+  public void addAttributes(Map<? extends AttributedCharacterIterator.Attribute, ?> attributes,
+                            int begin_index, int end_index)
   {
     if (attributes == null)
       throw new NullPointerException("null attribute");

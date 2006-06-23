@@ -68,7 +68,7 @@ public class DragGestureEvent extends EventObject
   private final int action;
 
   public DragGestureEvent(DragGestureRecognizer dgr, int action, Point origin,
-                          List events)
+                          List<? extends InputEvent> events)
   {
     super(dgr);
     if (origin == null || events == null)
@@ -93,7 +93,7 @@ public class DragGestureEvent extends EventObject
   {
     return origin;
   }
-  public Iterator iterator()
+  public Iterator<InputEvent> iterator()
   {
     return null;
   }

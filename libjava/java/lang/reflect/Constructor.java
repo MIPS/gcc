@@ -75,7 +75,7 @@ import gnu.java.lang.reflect.MethodSignatureParser;
  * @since 1.1
  * @status updated to 1.4
  */
-public final class Constructor extends AccessibleObject
+public final class Constructor<T> extends AccessibleObject
   implements Member, GenericDeclaration
 {
   private static final int CONSTRUCTOR_MODIFIERS
@@ -92,7 +92,7 @@ public final class Constructor extends AccessibleObject
    * Gets the class that declared this constructor.
    * @return the class that declared this member
    */
-  public Class getDeclaringClass()
+  public Class<T> getDeclaringClass ()
   {
     return declaringClass;
   }
@@ -320,8 +320,7 @@ public final class Constructor extends AccessibleObject
    *         specification, version 3.
    * @since 1.5
    */
-  /* FIXME[GENERICS]: Add <Constructor<T>> */
-  public TypeVariable[] getTypeParameters()
+  public TypeVariable<Constructor<T>>[] getTypeParameters()
   {
     String sig = getSignature();
     if (sig == null)
@@ -386,7 +385,7 @@ public final class Constructor extends AccessibleObject
   private native void getType ();
 
   // Declaring class.
-  private Class declaringClass;
+  private Class<T> declaringClass;
 
   // Exception types.
   private Class[] exception_types;

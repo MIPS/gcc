@@ -861,6 +861,7 @@ gnu/CORBA/DynAn/gnuDynValue.java \
 classpath/gnu/CORBA/DynAn/gnuDynValueBox.java \
 classpath/gnu/CORBA/DynAnySeqHolder.java \
 classpath/gnu/CORBA/EmptyExceptionHolder.java \
+classpath/gnu/CORBA/Focused_ORB.java \
 classpath/gnu/CORBA/ForwardRequestHelper.java \
 classpath/gnu/CORBA/GIOP/CancelHeader.java \
 classpath/gnu/CORBA/GIOP/CharSets_OSF.java \
@@ -964,6 +965,7 @@ classpath/gnu/CORBA/gnuNamedValue.java \
 classpath/gnu/CORBA/gnuRequest.java \
 classpath/gnu/CORBA/gnuValueHolder.java \
 classpath/gnu/CORBA/interfaces/SocketFactory.java \
+classpath/gnu/CORBA/interfaces/gnuSocketFactory.java \
 classpath/gnu/CORBA/typecodes/AliasTypeCode.java \
 classpath/gnu/CORBA/typecodes/ArrayTypeCode.java \
 classpath/gnu/CORBA/typecodes/FixedTypeCode.java \
@@ -1005,6 +1007,7 @@ gnu_classpath_source_files = \
 classpath/gnu/classpath/ByteArray.java \
 classpath/gnu/classpath/Configuration.java \
 classpath/gnu/classpath/NotImplementedException.java \
+classpath/gnu/classpath/ObjectPool.java \
 classpath/gnu/classpath/Pointer.java \
 classpath/gnu/classpath/Pointer32.java \
 classpath/gnu/classpath/Pointer64.java \
@@ -1672,6 +1675,7 @@ classpath/gnu/java/net/BASE64.java \
 classpath/gnu/java/net/CRLFInputStream.java \
 classpath/gnu/java/net/CRLFOutputStream.java \
 classpath/gnu/java/net/DefaultContentHandlerFactory.java \
+classpath/gnu/java/net/DefaultProxySelector.java \
 classpath/gnu/java/net/EmptyX509TrustManager.java \
 classpath/gnu/java/net/GetLocalHostAction.java \
 classpath/gnu/java/net/HeaderFieldHelper.java \
@@ -3775,6 +3779,7 @@ classpath/java/lang/Cloneable.java \
 classpath/java/lang/Comparable.java \
 classpath/java/lang/Compiler.java \
 java/lang/ConcreteProcess.java \
+classpath/java/lang/Deprecated.java \
 classpath/java/lang/Double.java \
 classpath/java/lang/Enum.java \
 classpath/java/lang/EnumConstantNotPresentException.java \
@@ -3811,8 +3816,10 @@ classpath/java/lang/Number.java \
 classpath/java/lang/NumberFormatException.java \
 java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
+classpath/java/lang/Override.java \
 java/lang/Package.java \
 classpath/java/lang/Process.java \
+java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
 classpath/java/lang/Runnable.java \
 java/lang/Runtime.java \
@@ -3828,6 +3835,7 @@ java/lang/String.java \
 java/lang/StringBuffer.java \
 java/lang/StringBuilder.java \
 classpath/java/lang/StringIndexOutOfBoundsException.java \
+classpath/java/lang/SuppressWarnings.java \
 java/lang/System.java \
 java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
@@ -3853,7 +3861,14 @@ java_lang_header_files = $(filter-out java/lang/Object.h java/lang/Class.h,$(pat
 java_lang_annotation_source_files = \
 classpath/java/lang/annotation/Annotation.java \
 classpath/java/lang/annotation/AnnotationFormatError.java \
-classpath/java/lang/annotation/AnnotationTypeMismatchException.java
+classpath/java/lang/annotation/AnnotationTypeMismatchException.java \
+classpath/java/lang/annotation/Documented.java \
+classpath/java/lang/annotation/ElementType.java \
+classpath/java/lang/annotation/IncompleteAnnotationException.java \
+classpath/java/lang/annotation/Inherited.java \
+classpath/java/lang/annotation/Retention.java \
+classpath/java/lang/annotation/RetentionPolicy.java \
+classpath/java/lang/annotation/Target.java
 
 java_lang_annotation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_annotation_source_files)))
 java_lang_instrument_source_files = \
@@ -3899,7 +3914,9 @@ classpath/java/lang/reflect/WildcardType.java
 java_lang_reflect_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_reflect_source_files)))
 java_math_source_files = \
 classpath/java/math/BigDecimal.java \
-classpath/java/math/BigInteger.java
+classpath/java/math/BigInteger.java \
+classpath/java/math/MathContext.java \
+classpath/java/math/RoundingMode.java
 
 java_math_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_math_source_files)))
 java_net_source_files = \
@@ -3928,6 +3945,8 @@ classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
+classpath/java/net/Proxy.java \
+classpath/java/net/ProxySelector.java \
 classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
@@ -4356,6 +4375,7 @@ java_util_source_files = \
 classpath/java/util/AbstractCollection.java \
 classpath/java/util/AbstractList.java \
 classpath/java/util/AbstractMap.java \
+classpath/java/util/AbstractQueue.java \
 classpath/java/util/AbstractSequentialList.java \
 classpath/java/util/AbstractSet.java \
 classpath/java/util/ArrayList.java \
@@ -4369,16 +4389,31 @@ classpath/java/util/ConcurrentModificationException.java \
 java/util/Currency.java \
 classpath/java/util/Date.java \
 classpath/java/util/Dictionary.java \
+classpath/java/util/DuplicateFormatFlagsException.java \
 classpath/java/util/EmptyStackException.java \
+classpath/java/util/EnumMap.java \
+classpath/java/util/EnumSet.java \
 classpath/java/util/Enumeration.java \
 classpath/java/util/EventListener.java \
 classpath/java/util/EventListenerProxy.java \
 classpath/java/util/EventObject.java \
+classpath/java/util/FormatFlagsConversionMismatchException.java \
+classpath/java/util/Formattable.java \
+classpath/java/util/FormattableFlags.java \
+classpath/java/util/Formatter.java \
+classpath/java/util/FormatterClosedException.java \
 java/util/GregorianCalendar.java \
 classpath/java/util/HashMap.java \
 classpath/java/util/HashSet.java \
 classpath/java/util/Hashtable.java \
 classpath/java/util/IdentityHashMap.java \
+classpath/java/util/IllegalFormatCodePointException.java \
+classpath/java/util/IllegalFormatConversionException.java \
+classpath/java/util/IllegalFormatException.java \
+classpath/java/util/IllegalFormatFlagsException.java \
+classpath/java/util/IllegalFormatPrecisionException.java \
+classpath/java/util/IllegalFormatWidthException.java \
+classpath/java/util/InputMismatchException.java \
 classpath/java/util/InvalidPropertiesFormatException.java \
 classpath/java/util/Iterator.java \
 classpath/java/util/LinkedHashMap.java \
@@ -4389,14 +4424,18 @@ classpath/java/util/ListIterator.java \
 classpath/java/util/ListResourceBundle.java \
 java/util/Locale.java \
 classpath/java/util/Map.java \
+classpath/java/util/MissingFormatArgumentException.java \
+classpath/java/util/MissingFormatWidthException.java \
 classpath/java/util/MissingResourceException.java \
 classpath/java/util/NoSuchElementException.java \
 classpath/java/util/Observable.java \
 classpath/java/util/Observer.java \
+classpath/java/util/PriorityQueue.java \
 classpath/java/util/Properties.java \
 classpath/java/util/PropertyPermission.java \
 classpath/java/util/PropertyPermissionCollection.java \
 classpath/java/util/PropertyResourceBundle.java \
+classpath/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
 java/util/ResourceBundle.java \
@@ -4412,6 +4451,8 @@ classpath/java/util/TimerTask.java \
 classpath/java/util/TooManyListenersException.java \
 classpath/java/util/TreeMap.java \
 classpath/java/util/TreeSet.java \
+classpath/java/util/UnknownFormatConversionException.java \
+classpath/java/util/UnknownFormatFlagsException.java \
 java/util/VMTimeZone.java \
 classpath/java/util/Vector.java \
 classpath/java/util/WeakHashMap.java
@@ -5883,6 +5924,8 @@ classpath/org/omg/CORBA/PrincipalHolder.java \
 classpath/org/omg/CORBA/REBIND.java \
 classpath/org/omg/CORBA/RepositoryIdHelper.java \
 classpath/org/omg/CORBA/Request.java \
+classpath/org/omg/CORBA/SendingContext/RunTimeOperations.java \
+classpath/org/omg/CORBA/SendingContext/Runtime.java \
 classpath/org/omg/CORBA/ServerRequest.java \
 classpath/org/omg/CORBA/ServiceDetail.java \
 classpath/org/omg/CORBA/ServiceDetailHelper.java \
@@ -6955,7 +6998,8 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(filter-out $(omitted_headers),$(ordinary_header_files) $(xlib_nat_headers))
+generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
+MYGCJH = gcjh1
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
 	java/nio/DirectByteBufferImpl$$ReadWrite.h \
@@ -10102,140 +10146,8 @@ org-xml.lo: $(org_xml_source_files)
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-xml.lo @org-xml.list
 	@rm -f org-xml.list
 
-$(generic_header_files): %.h: classpath/lib/%.class
-	name=`echo $< | sed -e 's/\.class$$//' -e 's,classpath/lib/,,'`; \
-	$(mkinstalldirs) `dirname $$name`; \
-	$(GCJH) -d . -classpath '' -bootclasspath classpath/lib $$name
-
-java/lang/ClassLoader.h: classpath/lib/java/lang/ClassLoader.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-		-prepend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-prepend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
-		-friend 'jclass (::_Jv_FindClass) (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-friend 'void ::_Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
-		java/lang/ClassLoader
-
-java/lang/Thread.h: classpath/lib/java/lang/Thread.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-		-prepend 'class _Jv_JNIEnv;' \
-		-prepend '#define _JV_NOT_OWNER 1' \
-		-prepend '#define _JV_INTERRUPTED 2' \
-		-prepend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
-		-prepend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-prepend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
-		-prepend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
-		-prepend 'java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
-		-prepend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
-		-prepend 'jint _Jv_DetachCurrentThread ();' \
-		-friend '_Jv_JNIEnv * ::_Jv_GetCurrentJNIEnv ();' \
-		-friend 'void ::_Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-friend 'void ::_Jv_ThreadRun (java::lang::Thread* thread);' \
-		-friend 'jint (::_Jv_AttachCurrentThread) (java::lang::Thread* thread);' \
-		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'jint (::_Jv_DetachCurrentThread) ();' \
-		java/lang/Thread
-
-java/lang/String.h: classpath/lib/java/lang/String.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jchar* _Jv_GetStringChars (jstring str);' \
-	    -prepend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
-	    -prepend 'jstring* _Jv_StringGetSlot (jstring);' \
-	    -prepend 'jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const* str);' \
-	    -prepend 'jstring _Jv_NewStringLatin1 (const char*, jsize);' \
-	    -prepend 'jstring _Jv_AllocString (jsize);' \
-	    -friend 'jchar* ::_Jv_GetStringChars (jstring str);' \
-	    -friend 'jstring* ::_Jv_StringFindSlot (jchar*, jint, jint);' \
-	    -friend 'jstring* ::_Jv_StringGetSlot (jstring);' \
-	    -friend 'jstring (::_Jv_NewStringUtf8Const) (_Jv_Utf8Const* str);' \
-	    -friend 'jstring (::_Jv_NewStringLatin1) (const char*, jsize);' \
-	    -friend 'jstring (::_Jv_AllocString) (jsize);' \
-	    java/lang/String
-
-java/lang/reflect/Constructor.h: classpath/lib/java/lang/reflect/Constructor.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'jmethodID (::_Jv_FromReflectedConstructor) (java::lang::reflect::Constructor *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    java/lang/reflect/Constructor
-
-java/lang/reflect/Field.h: classpath/lib/java/lang/reflect/Field.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
-	    -friend 'jfieldID (::_Jv_FromReflectedField) (java::lang::reflect::Field *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedField) (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    java/lang/reflect/Field
-
-java/lang/reflect/Method.h: classpath/lib/java/lang/reflect/Method.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'jmethodID (::_Jv_FromReflectedMethod) (java::lang::reflect::Method *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    -friend 'class java::io::ObjectInputStream;' \
-	    java/lang/reflect/Method
-
-java/lang/reflect/Proxy.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    java/lang/reflect/Proxy
-
-java/lang/reflect/Proxy$$ProxyData.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/reflect/Proxy$$ProxyData'
-
-java/lang/reflect/Proxy$$ProxyType.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/reflect/Proxy$$ProxyType'
-
-gnu/gcj/runtime/ExtensionClassLoader.h: classpath/lib/gnu/gcj/runtime/ExtensionClassLoader.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -friend 'class ::java::lang::ClassLoader;' \
-	    gnu/gcj/runtime/ExtensionClassLoader
-
-java/io/ObjectInputStream$$GetField.h: classpath/lib/java/io/ObjectInputStream.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/io/ObjectInputStream$$GetField'
-
-java/io/ObjectOutputStream$$PutField.h: classpath/lib/java/io/ObjectOutputStream.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/io/ObjectOutputStream$$PutField'
-
-java/nio/DirectByteBufferImpl$$ReadWrite.h: classpath/lib/java/nio/DirectByteBufferImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/DirectByteBufferImpl$$ReadWrite'
-
-java/nio/channels/Pipe$$SinkChannel.h: classpath/lib/java/nio/channels/Pipe.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/channels/Pipe$$SinkChannel'
-
-java/nio/channels/Pipe$$SourceChannel.h: classpath/lib/java/nio/channels/Pipe.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/channels/Pipe$$SourceChannel'
-
-gnu/java/net/PlainSocketImpl$$SocketInputStream.h: classpath/lib/gnu/java/net/PlainSocketImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/net/PlainSocketImpl$$SocketInputStream'
-
-gnu/java/net/PlainSocketImpl$$SocketOutputStream.h: classpath/lib/gnu/java/net/PlainSocketImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/net/PlainSocketImpl$$SocketOutputStream'
-
-gnu/java/nio/PipeImpl$$SinkChannelImpl.h: classpath/lib/gnu/java/nio/PipeImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/nio/PipeImpl$$SinkChannelImpl'
-
-gnu/java/nio/PipeImpl$$SourceChannelImpl.h: classpath/lib/gnu/java/nio/PipeImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/nio/PipeImpl$$SourceChannelImpl'
-
-java/lang/ConcreteProcess$$ProcessManager.h: classpath/lib/java/lang/ConcreteProcess.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/ConcreteProcess$$ProcessManager'
+$(generic_header_files):
+	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
 
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:

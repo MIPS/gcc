@@ -503,7 +503,7 @@ paramString()
    *
    * @since 1.3
    */
-  public EventListener[] getListeners (Class listenerType)
+  public <T extends EventListener> T[] getListeners (Class<T> listenerType)
   {
     if (listenerType == ActionListener.class)
       return AWTEventMulticaster.getListeners (action_listeners, listenerType);

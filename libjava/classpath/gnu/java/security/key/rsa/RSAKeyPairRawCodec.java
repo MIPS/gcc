@@ -50,7 +50,7 @@ import java.security.PublicKey;
  * <p>An object that implements the {@link IKeyPairCodec} interface for the
  * <i>Raw</i> format to use with RSA keypairs.</p>
  *
- * @version $Revision: 1.1 $
+ * @version $Revision: 1.1.4.1 $
  */
 public class RSAKeyPairRawCodec implements IKeyPairCodec
 {

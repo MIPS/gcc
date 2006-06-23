@@ -608,11 +608,11 @@ paramString()
    *
    * @since 1.3
    */
-  public EventListener[] getListeners (Class listenerType)
+  public <T extends EventListener> T[] getListeners (Class<T> listenerType)
   {
     if (listenerType == ItemListener.class)
       return AWTEventMulticaster.getListeners (item_listeners, listenerType);
-    
+
     return super.getListeners (listenerType);
   }
 

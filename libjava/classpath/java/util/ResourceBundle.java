@@ -447,7 +447,7 @@ public abstract class ResourceBundle
    *
    * @return an enumeration of the keys
    */
-  public abstract Enumeration getKeys();
+  public abstract Enumeration<String> getKeys();
 
   /**
    * Tries to load a class or a property file with the specified name.

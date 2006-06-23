@@ -41,9 +41,11 @@ subdir = tools
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/jarsigner.sh.in $(srcdir)/keytool.sh.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../../libtool.m4 \
-	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
-	$(top_srcdir)/m4/acinclude.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
+	$(top_srcdir)/../../config/lead-dot.m4 \
+	$(top_srcdir)/../../config/no-executables.m4 \
+	$(top_srcdir)/../../libtool.m4 $(top_srcdir)/m4/acattribute.m4 \
+	$(top_srcdir)/m4/accross.m4 $(top_srcdir)/m4/acinclude.m4 \
 	$(top_srcdir)/m4/ax_create_stdint_h.m4 \
 	$(top_srcdir)/m4/iconv.m4 $(top_srcdir)/m4/lib-ld.m4 \
 	$(top_srcdir)/m4/lib-link.m4 $(top_srcdir)/m4/lib-prefix.m4 \
@@ -271,12 +273,10 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
 GLIBJ_CLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
-@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@JCOMPILER = $(ECJ) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
-@FOUND_GCJX_TRUE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
-@FOUND_GCJ_FALSE@@FOUND_JIKES_TRUE@JCOMPILER = $(JIKES) $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(GLIBJ_CLASSPATH):.
+@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
 
 # Setup the compiler to use the GNU Classpath library we just build
-@FOUND_GCJ_TRUE@JCOMPILER = $(GCJ) -encoding UTF-8 --bootclasspath $(GLIBJ_CLASSPATH) --classpath . -C
+@FOUND_GCJX_TRUE@JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
 
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*.java $(srcdir)/gnu/classpath/tools/*/*.java $(srcdir)/gnu/classpath/tools/*/*/*.java
@@ -500,7 +500,7 @@ uninstall-am: uninstall-TOOLSDATA uninstall-info-am
 	mostlyclean-libtool pdf pdf-am ps ps-am uninstall \
 	uninstall-TOOLSDATA uninstall-am uninstall-info-am
 
-@FOUND_ECJ_FALSE@@FOUND_GCJX_FALSE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@error dunno how to setup the JCOMPILER and compile
+@FOUND_ECJ_FALSE@@FOUND_GCJX_FALSE@error dunno how to setup the JCOMPILER and compile
 
 # Make sure everything is included in the distribution.
 dist-hook:

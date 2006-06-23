@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package javax.naming.spi;
 
+import javax.naming.Context;
 import javax.naming.Name;
 import javax.naming.NamingException;
  
@@ -48,8 +49,10 @@ import javax.naming.NamingException;
 
 public interface Resolver
 {
-  ResolveResult resolveToClass(Name name, Class contextType)
+  ResolveResult resolveToClass(Name name, 
+                               Class<? extends Context> contextType)
     throws NamingException;
-  ResolveResult resolveToClass(String name, Class contextType)
+  ResolveResult resolveToClass(String name,
+                               Class<? extends Context> contextType)
     throws NamingException;
 }

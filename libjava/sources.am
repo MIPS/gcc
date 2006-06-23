@@ -50,6 +50,7 @@ gnu/CORBA/DynAn/gnuDynValue.java \
 classpath/gnu/CORBA/DynAn/gnuDynValueBox.java \
 classpath/gnu/CORBA/DynAnySeqHolder.java \
 classpath/gnu/CORBA/EmptyExceptionHolder.java \
+classpath/gnu/CORBA/Focused_ORB.java \
 classpath/gnu/CORBA/ForwardRequestHelper.java \
 classpath/gnu/CORBA/GIOP/CancelHeader.java \
 classpath/gnu/CORBA/GIOP/CharSets_OSF.java \
@@ -153,6 +154,7 @@ classpath/gnu/CORBA/gnuNamedValue.java \
 classpath/gnu/CORBA/gnuRequest.java \
 classpath/gnu/CORBA/gnuValueHolder.java \
 classpath/gnu/CORBA/interfaces/SocketFactory.java \
+classpath/gnu/CORBA/interfaces/gnuSocketFactory.java \
 classpath/gnu/CORBA/typecodes/AliasTypeCode.java \
 classpath/gnu/CORBA/typecodes/ArrayTypeCode.java \
 classpath/gnu/CORBA/typecodes/FixedTypeCode.java \
@@ -223,6 +225,7 @@ gnu_classpath_source_files = \
 classpath/gnu/classpath/ByteArray.java \
 classpath/gnu/classpath/Configuration.java \
 classpath/gnu/classpath/NotImplementedException.java \
+classpath/gnu/classpath/ObjectPool.java \
 classpath/gnu/classpath/Pointer.java \
 classpath/gnu/classpath/Pointer32.java \
 classpath/gnu/classpath/Pointer64.java \
@@ -1150,6 +1153,7 @@ classpath/gnu/java/net/BASE64.java \
 classpath/gnu/java/net/CRLFInputStream.java \
 classpath/gnu/java/net/CRLFOutputStream.java \
 classpath/gnu/java/net/DefaultContentHandlerFactory.java \
+classpath/gnu/java/net/DefaultProxySelector.java \
 classpath/gnu/java/net/EmptyX509TrustManager.java \
 classpath/gnu/java/net/GetLocalHostAction.java \
 classpath/gnu/java/net/HeaderFieldHelper.java \
@@ -4116,6 +4120,7 @@ classpath/java/lang/Cloneable.java \
 classpath/java/lang/Comparable.java \
 classpath/java/lang/Compiler.java \
 java/lang/ConcreteProcess.java \
+classpath/java/lang/Deprecated.java \
 classpath/java/lang/Double.java \
 classpath/java/lang/Enum.java \
 classpath/java/lang/EnumConstantNotPresentException.java \
@@ -4152,8 +4157,10 @@ classpath/java/lang/Number.java \
 classpath/java/lang/NumberFormatException.java \
 java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
+classpath/java/lang/Override.java \
 java/lang/Package.java \
 classpath/java/lang/Process.java \
+java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
 classpath/java/lang/Runnable.java \
 java/lang/Runtime.java \
@@ -4169,6 +4176,7 @@ java/lang/String.java \
 java/lang/StringBuffer.java \
 java/lang/StringBuilder.java \
 classpath/java/lang/StringIndexOutOfBoundsException.java \
+classpath/java/lang/SuppressWarnings.java \
 java/lang/System.java \
 java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
@@ -4202,7 +4210,14 @@ java/lang.list: $(java_lang_source_files)
 java_lang_annotation_source_files = \
 classpath/java/lang/annotation/Annotation.java \
 classpath/java/lang/annotation/AnnotationFormatError.java \
-classpath/java/lang/annotation/AnnotationTypeMismatchException.java
+classpath/java/lang/annotation/AnnotationTypeMismatchException.java \
+classpath/java/lang/annotation/Documented.java \
+classpath/java/lang/annotation/ElementType.java \
+classpath/java/lang/annotation/IncompleteAnnotationException.java \
+classpath/java/lang/annotation/Inherited.java \
+classpath/java/lang/annotation/Retention.java \
+classpath/java/lang/annotation/RetentionPolicy.java \
+classpath/java/lang/annotation/Target.java
 
 java_lang_annotation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_annotation_source_files)))
 
@@ -4280,7 +4295,9 @@ java/lang/reflect.list: $(java_lang_reflect_source_files)
 
 java_math_source_files = \
 classpath/java/math/BigDecimal.java \
-classpath/java/math/BigInteger.java
+classpath/java/math/BigInteger.java \
+classpath/java/math/MathContext.java \
+classpath/java/math/RoundingMode.java
 
 java_math_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_math_source_files)))
 
@@ -4317,6 +4334,8 @@ classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
+classpath/java/net/Proxy.java \
+classpath/java/net/ProxySelector.java \
 classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
@@ -4889,6 +4908,7 @@ java_util_source_files = \
 classpath/java/util/AbstractCollection.java \
 classpath/java/util/AbstractList.java \
 classpath/java/util/AbstractMap.java \
+classpath/java/util/AbstractQueue.java \
 classpath/java/util/AbstractSequentialList.java \
 classpath/java/util/AbstractSet.java \
 classpath/java/util/ArrayList.java \
@@ -4902,16 +4922,31 @@ classpath/java/util/ConcurrentModificationException.java \
 java/util/Currency.java \
 classpath/java/util/Date.java \
 classpath/java/util/Dictionary.java \
+classpath/java/util/DuplicateFormatFlagsException.java \
 classpath/java/util/EmptyStackException.java \
+classpath/java/util/EnumMap.java \
+classpath/java/util/EnumSet.java \
 classpath/java/util/Enumeration.java \
 classpath/java/util/EventListener.java \
 classpath/java/util/EventListenerProxy.java \
 classpath/java/util/EventObject.java \
+classpath/java/util/FormatFlagsConversionMismatchException.java \
+classpath/java/util/Formattable.java \
+classpath/java/util/FormattableFlags.java \
+classpath/java/util/Formatter.java \
+classpath/java/util/FormatterClosedException.java \
 java/util/GregorianCalendar.java \
 classpath/java/util/HashMap.java \
 classpath/java/util/HashSet.java \
 classpath/java/util/Hashtable.java \
 classpath/java/util/IdentityHashMap.java \
+classpath/java/util/IllegalFormatCodePointException.java \
+classpath/java/util/IllegalFormatConversionException.java \
+classpath/java/util/IllegalFormatException.java \
+classpath/java/util/IllegalFormatFlagsException.java \
+classpath/java/util/IllegalFormatPrecisionException.java \
+classpath/java/util/IllegalFormatWidthException.java \
+classpath/java/util/InputMismatchException.java \
 classpath/java/util/InvalidPropertiesFormatException.java \
 classpath/java/util/Iterator.java \
 classpath/java/util/LinkedHashMap.java \
@@ -4922,14 +4957,18 @@ classpath/java/util/ListIterator.java \
 classpath/java/util/ListResourceBundle.java \
 java/util/Locale.java \
 classpath/java/util/Map.java \
+classpath/java/util/MissingFormatArgumentException.java \
+classpath/java/util/MissingFormatWidthException.java \
 classpath/java/util/MissingResourceException.java \
 classpath/java/util/NoSuchElementException.java \
 classpath/java/util/Observable.java \
 classpath/java/util/Observer.java \
+classpath/java/util/PriorityQueue.java \
 classpath/java/util/Properties.java \
 classpath/java/util/PropertyPermission.java \
 classpath/java/util/PropertyPermissionCollection.java \
 classpath/java/util/PropertyResourceBundle.java \
+classpath/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
 java/util/ResourceBundle.java \
@@ -4945,6 +4984,8 @@ classpath/java/util/TimerTask.java \
 classpath/java/util/TooManyListenersException.java \
 classpath/java/util/TreeMap.java \
 classpath/java/util/TreeSet.java \
+classpath/java/util/UnknownFormatConversionException.java \
+classpath/java/util/UnknownFormatFlagsException.java \
 java/util/VMTimeZone.java \
 classpath/java/util/Vector.java \
 classpath/java/util/WeakHashMap.java
@@ -6871,6 +6912,8 @@ classpath/org/omg/CORBA/PrincipalHolder.java \
 classpath/org/omg/CORBA/REBIND.java \
 classpath/org/omg/CORBA/RepositoryIdHelper.java \
 classpath/org/omg/CORBA/Request.java \
+classpath/org/omg/CORBA/SendingContext/RunTimeOperations.java \
+classpath/org/omg/CORBA/SendingContext/Runtime.java \
 classpath/org/omg/CORBA/ServerRequest.java \
 classpath/org/omg/CORBA/ServiceDetail.java \
 classpath/org/omg/CORBA/ServiceDetailHelper.java \

@@ -1,6 +1,6 @@
 /* ObjectStreamClass.java -- Class used to write class information
    about serialized objects.
-   Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -61,6 +61,13 @@ import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.Vector;
 
+/**
+ * @author Tom Tromey (tromey@redhat.com)
+ * @author Jeroen Frijters (jeroen@frijters.net)
+ * @author Guilhem Lavaux (guilhem@kaffe.org)
+ * @author Michael Koch (konqueror@gmx.de)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
+ */
 public class ObjectStreamClass implements Serializable
 {
   static final ObjectStreamField[] INVALID_FIELDS = new ObjectStreamField[0];
@@ -80,7 +87,7 @@ public class ObjectStreamClass implements Serializable
    *
    * @see java.io.Serializable
    */
-  public static ObjectStreamClass lookup(Class cl)
+  public static ObjectStreamClass lookup(Class<?> cl)
   {
     if (cl == null)
       return null;
@@ -132,7 +139,7 @@ public class ObjectStreamClass implements Serializable
    *
    * @see java.io.ObjectInputStream
    */
-  public Class forClass()
+  public Class<?> forClass()
   {
     return clazz;
   }
@@ -219,6 +226,12 @@ public class ObjectStreamClass implements Serializable
     return (flags & ObjectStreamConstants.SC_EXTERNALIZABLE) != 0;
   }
 
+  // Returns true iff the class that this ObjectStreamClass represents
+  // implements Externalizable.
+  boolean isEnum()
+  {
+    return (flags & ObjectStreamConstants.SC_ENUM) != 0;
+  }
 
   // Returns the <code>ObjectStreamClass</code> that represents the
   // class that is the superclass of the class this
@@ -234,7 +247,7 @@ public class ObjectStreamClass implements Serializable
   // classes of CLAZZ and CLAZZ itself in order from most super to
   // CLAZZ.  ObjectStreamClass[0] is the highest superclass of CLAZZ
   // that is serializable.
-  static ObjectStreamClass[] getObjectStreamClasses(Class clazz)
+  static ObjectStreamClass[] getObjectStreamClasses(Class<?> clazz)
   {
     ObjectStreamClass osc = ObjectStreamClass.lookup(clazz);
 
@@ -242,7 +255,7 @@ public class ObjectStreamClass implements Serializable
       return new ObjectStreamClass[0];
     else
       {
-	Vector oscs = new Vector();
+	Vector<ObjectStreamClass> oscs = new Vector<ObjectStreamClass>();
 
 	while (osc != null)
 	  {
@@ -587,6 +600,9 @@ outer:
 
     if (writeObjectMethod != null)
       flags |= ObjectStreamConstants.SC_WRITE_METHOD;
+
+    if (cl.isEnum() || cl == Enum.class)
+      flags |= ObjectStreamConstants.SC_ENUM;
   }
 
 
@@ -596,7 +612,7 @@ outer:
   {
     SetAccessibleAction setAccessible = new SetAccessibleAction();
 
-    if (!isSerializable() || isExternalizable())
+    if (!isSerializable() || isExternalizable() || isEnum())
       {
 	fields = NO_FIELDS;
 	return;
@@ -939,7 +955,8 @@ outer:
 
   public static final ObjectStreamField[] NO_FIELDS = {};
 
-  private static Hashtable classLookupTable = new Hashtable();
+  private static Hashtable<Class,ObjectStreamClass> classLookupTable
+    = new Hashtable<Class,ObjectStreamClass>();
   private static final NullOutputStream nullOutputStream = new NullOutputStream();
   private static final Comparator interfaceComparator = new InterfaceComparator();
   private static final Comparator memberComparator = new MemberComparator();
@@ -947,7 +964,7 @@ outer:
     Class[] writeMethodArgTypes = { java.io.ObjectOutputStream.class };
 
   private ObjectStreamClass superClass;
-  private Class clazz;
+  private Class<?> clazz;
   private String name;
   private long uid;
   private byte flags;

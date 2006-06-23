@@ -1,5 +1,39 @@
 2006-06-23  Tom Tromey  <tromey@redhat.com>
 
+	Merged in classpath-generics.
+	* sources.am, Makefile.in: Rebuilt.
+	* Makefile.am (generic_header_files): Don't filter out omitted
+	headers.
+	(generic_header_files): Rewrote.
+	(MYGCJH): New variable.
+	Removed all .h rules.
+	* headers.txt: New file.
+	* java/io/PrintStream.java (PrintStream): Implement Appendable.
+	* java/lang/Class.java: Genericized.
+	(getEnumConstants): New method.
+	(isEnum): Likewise.
+	(isSynthetic): Likewise.
+	(isAnnotation): Likewise.
+	* java/lang/reflect/Constructor.java (getDeclaringClass,
+	getTypeParameters, declaringClass): Genericized.
+	* java/lang/reflect/Method.java (invoke): Now varargs.
+	* java/lang/ref/Reference.java (Reference): Imported genericized
+	version from Classpath.
+	(get): Now native.
+	* java/lang/ref/natReference.cc (get): New method.
+	* java/lang/ProcessBuilder.java: New file.
+	* java/lang/System.java (environmentMap): New field.
+	(clearProperty): New method.
+	(getenv): Likewise.
+	(EnvironmentCollection): New class.
+	(EnvironmentMap): Likewise.
+	(EnvironmentSet): Likewise.
+	* java/lang/StringBuilder.java (StringBuilder): Implements
+	Appendable.
+	* gnu/classpath/SystemProperties.java (remove): New method.
+
+2006-06-23  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.loader/TestLeak.java: Don't use wildcard
 	import for java.lang.reflect.
 

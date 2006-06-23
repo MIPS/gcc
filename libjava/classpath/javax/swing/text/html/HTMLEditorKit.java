@@ -1166,4 +1166,5 @@ public class HTMLEditorKit
   {
     styleSheet = s;
   }
+
 }

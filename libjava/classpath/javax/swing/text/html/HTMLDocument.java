@@ -561,7 +561,7 @@ public class HTMLDocument extends DefaultStyledDocument
     /** Holds the current character attribute set **/
     protected MutableAttributeSet charAttr = new SimpleAttributeSet();
     
-    protected Vector parseBuffer = new Vector();
+    protected Vector<ElementSpec> parseBuffer = new Vector<ElementSpec>();
     
     /** A stack for character attribute sets **/
     Stack charAttrStack = new Stack();

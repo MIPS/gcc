@@ -187,8 +187,8 @@ public class DragSource implements Serializable
     protected void unregisterListeners() { }
   }
 
-  public DragGestureRecognizer
-    createDragGestureRecognizer(Class recognizer, Component c, int actions,
+  public <T extends DragGestureRecognizer> T
+    createDragGestureRecognizer(Class<T> recognizer, Component c, int actions,
                                 DragGestureListener dgl)
   {
     DragGestureRecognizer dgr;
@@ -199,7 +199,7 @@ public class DragSource implements Serializable
     if (dgr == null)
       dgr = new NoDragGestureRecognizer(this, c, actions, dgl);
 
-    return dgr;
+    return (T) dgr;
   }
 
   public DragGestureRecognizer
@@ -262,17 +262,17 @@ public class DragSource implements Serializable
   /**
    * @since 1.4
    */
-  public EventListener[] getListeners (Class listenerType)
+  public <T extends EventListener> T[] getListeners (Class<T> listenerType)
   {
     if (listenerType == DragSourceListener.class)
       return DnDEventMulticaster.getListeners (dragSourceListener,
-                                               listenerType);
+					       listenerType);
 
     if (listenerType == DragSourceMotionListener.class)
       return DnDEventMulticaster.getListeners (dragSourceMotionListener,
-                                               listenerType);
+					       listenerType);
 
     // Return an empty EventListener array.
-    return new EventListener [0];
+    return (T[]) new EventListener [0];
   }
 } // class DragSource

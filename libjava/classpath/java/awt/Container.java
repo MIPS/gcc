@@ -68,10 +68,11 @@ import javax.accessibility.Accessible;
  *
  * @author original author unknown
  * @author Eric Blake (ebb9@email.byu.edu)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  *
  * @since 1.0
  *
- * @status still missing 1.4 support
+ * @status still missing 1.4 support, some generics from 1.5
  */
 public class Container extends Component
 {
@@ -891,10 +892,10 @@ public class Container extends Component
    * 
    * @since 1.3
    */
-  public EventListener[] getListeners(Class listenerType)
+  public <T extends EventListener> T[] getListeners(Class<T> listenerType)
   {
     if (listenerType == ContainerListener.class)
-      return getContainerListeners();
+      return (T[]) getContainerListeners();
     return super.getListeners(listenerType);
   }
 
@@ -1248,7 +1249,8 @@ public class Container extends Component
    *
    * @since 1.4
    */
-  public void setFocusTraversalKeys(int id, Set keystrokes)
+  public void setFocusTraversalKeys(int id,
+				    Set<? extends AWTKeyStroke> keystrokes)
   {
     if (id != KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS &&
         id != KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS &&
@@ -1336,7 +1338,8 @@ public class Container extends Component
     if (focusTraversalKeys == null)
       focusTraversalKeys = new Set[4];
 
-    keystrokes = Collections.unmodifiableSet (new HashSet (keystrokes));
+    keystrokes =
+      Collections.unmodifiableSet(new HashSet<AWTKeyStroke>(keystrokes));
     firePropertyChange (name, focusTraversalKeys[id], keystrokes);
 
     focusTraversalKeys[id] = keystrokes;
@@ -1354,7 +1357,7 @@ public class Container extends Component
    *
    * @since 1.4
    */
-  public Set getFocusTraversalKeys (int id)
+  public Set<AWTKeyStroke> getFocusTraversalKeys (int id)
   {
     if (id != KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS &&
         id != KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS &&

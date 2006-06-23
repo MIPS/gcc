@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package java.security;
 
+import java.util.WeakHashMap;
+
 /**
  * A Secure Class Loader for loading classes with additional 
  * support for specifying code source and permissions when
@@ -48,7 +50,8 @@ package java.security;
  */
 public class SecureClassLoader extends ClassLoader
 {
-  java.util.WeakHashMap protectionDomainCache = new java.util.WeakHashMap();
+  WeakHashMap<CodeSource, ProtectionDomain> protectionDomainCache
+    = new WeakHashMap<CodeSource, ProtectionDomain>();
 
   protected SecureClassLoader(ClassLoader parent)
   {
@@ -79,7 +82,7 @@ public class SecureClassLoader extends ClassLoader
    *
    * @exception ClassFormatError if the byte array is not in proper classfile format.
    */
-  protected final Class defineClass(String name, byte[] b, int off, int len,
+  protected final Class<?> defineClass(String name, byte[] b, int off, int len,
 				    CodeSource cs)
   {
     if (cs != null)

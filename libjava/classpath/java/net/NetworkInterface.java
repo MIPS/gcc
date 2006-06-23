@@ -59,7 +59,7 @@ import java.util.Vector;
 public final class NetworkInterface
 {
   private String name;
-  private Vector inetAddresses;
+  private Vector<InetAddress> inetAddresses;
 
   NetworkInterface(String name, InetAddress address)
   {
@@ -97,19 +97,19 @@ public final class NetworkInterface
    *
    * @return An enumeration of all addresses.
    */
-  public Enumeration getInetAddresses()
+  public Enumeration<InetAddress> getInetAddresses()
   {
     SecurityManager s = System.getSecurityManager();
 
     if (s == null)
       return inetAddresses.elements();
 
-    Vector tmpInetAddresses = new Vector(1, 1);
+    Vector<InetAddress> tmpInetAddresses = new Vector<InetAddress>(1, 1);
 
-    for (Enumeration addresses = inetAddresses.elements();
+    for (Enumeration<InetAddress> addresses = inetAddresses.elements();
          addresses.hasMoreElements();)
       {
-	InetAddress addr = (InetAddress) addresses.nextElement();
+	InetAddress addr = addresses.nextElement();
 	try
 	  {
 	    s.checkConnect(addr.getHostAddress(), 58000);
@@ -231,9 +231,11 @@ public final class NetworkInterface
    * 
    * @exception SocketException If an error occurs
    */
-  public static Enumeration getNetworkInterfaces() throws SocketException
+  public static Enumeration<NetworkInterface> getNetworkInterfaces()
+    throws SocketException
   {
-    Vector networkInterfaces = VMNetworkInterface.getInterfaces();
+    Vector<NetworkInterface> networkInterfaces =
+      VMNetworkInterface.getInterfaces();
 
     if (networkInterfaces.isEmpty())
       return null;

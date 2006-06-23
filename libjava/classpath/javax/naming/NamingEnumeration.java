@@ -40,9 +40,9 @@ package javax.naming;
 
 import java.util.Enumeration;
 
-public interface NamingEnumeration extends Enumeration
+public interface NamingEnumeration<T> extends Enumeration<T>
 {
   void close() throws NamingException;
   boolean hasMore() throws NamingException;
-  Object next() throws NamingException;
+  T next() throws NamingException;
 }

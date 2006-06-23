@@ -44,6 +44,6 @@ import javax.naming.NamingException;
 
 public interface InitialContextFactoryBuilder
 {
-  InitialContextFactory createInitialContextFactory (Hashtable environment)
+  InitialContextFactory createInitialContextFactory (Hashtable<?, ?> environment)
     throws NamingException;
 }

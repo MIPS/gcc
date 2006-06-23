@@ -135,11 +135,12 @@ public class ImageFilter implements ImageConsumer, Cloneable
      *
      * @param props the list of properties associated with this image 
      */
-    public void setProperties(Hashtable props)
+    public void setProperties(Hashtable<?,?> props)
     {
-	props.put("filters", "ImageFilter");
-	if (consumer != null)
-	  consumer.setProperties(props);
+      Hashtable<Object,Object> props2 = (Hashtable<Object,Object>) props;
+      props2.put("filters", "ImageFilter");
+      if (consumer != null)
+	consumer.setProperties(props);
     }
 
     /**

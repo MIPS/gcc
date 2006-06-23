@@ -46,6 +46,6 @@ import javax.naming.Name;
 public interface ObjectFactory
 {
   Object getObjectInstance (Object obj, Name name, Context nameCtx,
-                            Hashtable environment)
+                            Hashtable<?, ?> environment)
     throws Exception;
 }

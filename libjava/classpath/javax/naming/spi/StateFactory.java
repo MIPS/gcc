@@ -51,5 +51,5 @@ import javax.naming.NamingException;
 public interface StateFactory
 {
   Object getStateToBind(Object obj, Name name, Context nameCtx,
-  			       Hashtable environment) throws NamingException;
+  			       Hashtable<?, ?> environment) throws NamingException;
 }

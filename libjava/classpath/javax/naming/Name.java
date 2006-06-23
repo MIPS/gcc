@@ -60,7 +60,7 @@ import java.util.Enumeration;
  * @author Anthony Green (green@redhat.com)
  * @author Mark Wielaard (mark@klomp.org)
  */
-public interface Name extends Cloneable, Serializable, Comparable
+public interface Name extends Cloneable, Serializable, Comparable<Object>
 {
   long serialVersionUID = -3617482732056931635L;
 
@@ -80,7 +80,7 @@ public interface Name extends Cloneable, Serializable, Comparable
    * Returns a non-null (but possibly empty) <code>Enumeration</code> of the
    * components of the <code>Name</code> as <code>String</code>s.
    */
-  Enumeration getAll();
+  Enumeration<String> getAll();
 
   /**
    * Gets the component at the given index.

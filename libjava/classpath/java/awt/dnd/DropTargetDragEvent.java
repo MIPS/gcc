@@ -107,7 +107,7 @@ public class DropTargetDragEvent extends DropTargetEvent
     return context.getCurrentDataFlavors ();
   }
   
-  public List getCurrentDataFlavorsAsList ()
+  public List<DataFlavor> getCurrentDataFlavorsAsList ()
   {
     return context.getCurrentDataFlavorsAsList ();
   }

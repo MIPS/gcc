@@ -1,3 +1,7 @@
+2006-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* Imported Classpath generics 0.91, presesrving local changes.
+
 2006-06-09  Tom Tromey  <tromey@redhat.com>
 
 	* lib/Makefile.gcj (GCJF): Added -g and -ftarget=1.5.

@@ -71,7 +71,7 @@ public class NamingManager
     return icfb != null;
   }
   
-  public static Context getInitialContext (Hashtable environment)
+  public static Context getInitialContext (Hashtable<?, ?> environment)
     throws NamingException
   {
     InitialContextFactory icf = null;
@@ -117,7 +117,7 @@ public class NamingManager
 				Name name,
 				Context nameCtx,
 				String scheme,
-				Hashtable environment) 
+				Hashtable<?, ?> environment) 
     throws NamingException
   {
     String prefixes = null;
@@ -184,7 +184,7 @@ public class NamingManager
   }
 
   public static Context getURLContext (String scheme,
-				       Hashtable environment) 
+				       Hashtable<?, ?> environment) 
        throws NamingException
   {
     return getURLContext (null, null, null, scheme, environment);
@@ -221,7 +221,7 @@ public class NamingManager
   public static Object getObjectInstance (Object refInfo,
 					  Name name,
 					  Context nameCtx,
-					  Hashtable environment)
+					  Hashtable<?, ?> environment)
     throws Exception
   {
     ObjectFactory factory = null;
@@ -353,7 +353,7 @@ public class NamingManager
   }
 
   public static Object getStateToBind (Object obj, Name name,
-				       Context nameCtx, Hashtable environment)
+				       Context nameCtx, Hashtable<?, ?> environment)
     throws NamingException
   {
     StringTokenizer tokens = getPlusPath (Context.STATE_FACTORIES,

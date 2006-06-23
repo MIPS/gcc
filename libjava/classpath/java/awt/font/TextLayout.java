@@ -88,7 +88,7 @@ public final class TextLayout implements Cloneable
     peer = tk.getClasspathTextLayoutPeer(as, frc);
   }
 
-  public TextLayout (String string, Map attributes, FontRenderContext frc)  
+  public TextLayout (String string, Map<? extends AttributedCharacterIterator.Attribute,?> attributes, FontRenderContext frc)  
   {
     AttributedString as = new AttributedString (string, attributes);
     ClasspathToolkit tk = (ClasspathToolkit)(Toolkit.getDefaultToolkit ());

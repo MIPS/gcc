@@ -87,7 +87,7 @@ public abstract class TextAction extends AbstractAction
    */
   public static final Action[] augmentList(Action[] list1, Action[] list2)
   {
-    HashSet actionSet = new HashSet();
+    HashSet<Action> actionSet = new HashSet<Action>();
 
     for (int i = 0; i < list1.length; ++i)
       actionSet.add(list1[i]);
@@ -95,8 +95,8 @@ public abstract class TextAction extends AbstractAction
     for (int i = 0; i < list2.length; ++i)
       actionSet.add(list2[i]);
 
-    ArrayList list = new ArrayList(actionSet);
-    return (Action[]) list.toArray(new Action[actionSet.size()]);
+    ArrayList<Action> list = new ArrayList<Action>(actionSet);
+    return list.toArray(new Action[actionSet.size()]);
   }
 
   /**

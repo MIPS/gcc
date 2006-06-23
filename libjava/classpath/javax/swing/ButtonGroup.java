@@ -69,7 +69,7 @@ public class ButtonGroup implements Serializable
   private static final long serialVersionUID = 4259076101881721375L;
 
   /** The buttons added to this button group. */
-  protected Vector buttons = new Vector();
+  protected Vector<AbstractButton> buttons = new Vector<AbstractButton>();
 
   /** The currently selected button model. */
   ButtonModel sel;
@@ -115,7 +115,7 @@ public class ButtonGroup implements Serializable
    *
    * @return <code>Enumeration</code> over all added buttons
    */
-  public Enumeration getElements()
+  public Enumeration<AbstractButton> getElements()
   {
     return buttons.elements();
   }

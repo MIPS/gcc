@@ -116,9 +116,9 @@ public abstract class Graphics2D extends Graphics
 
   public abstract Object getRenderingHint(RenderingHints.Key hintKey);
   
-  public abstract void setRenderingHints(Map hints);
+  public abstract void setRenderingHints(Map<?,?> hints);
 
-  public abstract void addRenderingHints(Map hints);
+  public abstract void addRenderingHints(Map<?,?> hints);
 
   public abstract RenderingHints getRenderingHints();
 

@@ -49,6 +49,6 @@ import javax.naming.NamingException;
 public interface ObjectFactoryBuilder
 {
   ObjectFactory createObjectFactory(Object obj,
-  					   Hashtable environment)
+  					   Hashtable<?, ?> environment)
 					   throws NamingException;
 }

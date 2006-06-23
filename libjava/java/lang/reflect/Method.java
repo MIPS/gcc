@@ -309,7 +309,7 @@ public final class Method
    * @throws ExceptionInInitializerError if accessing a static method triggered
    *         class initialization, which then failed
    */
-  public native Object invoke (Object obj, Object[] args)
+  public native Object invoke (Object obj, Object... args)
     throws IllegalAccessException, IllegalArgumentException,
     InvocationTargetException;
 

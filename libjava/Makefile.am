@@ -349,12 +349,12 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 	java/lang/reflect/Field.h java/lang/reflect/Method.h \
 	java/lang/reflect/Proxy.h gnu/gcj/runtime/ExtensionClassLoader.h
 
-generic_header_files = $(filter-out $(omitted_headers),$(ordinary_header_files) $(xlib_nat_headers))
+generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
 
-$(generic_header_files): %.h: classpath/lib/%.class
-	name=`echo $< | sed -e 's/\.class$$//' -e 's,classpath/lib/,,'`; \
-	$(mkinstalldirs) `dirname $$name`; \
-	$(GCJH) -d . -classpath '' -bootclasspath classpath/lib $$name
+MYGCJH = gcjh1
+
+$(generic_header_files):
+	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
@@ -373,137 +373,6 @@ nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
 
 xlib_nat_headers = $(gnu_awt_xlib_header_files) $(gnu_gcj_xlib_header_files)
-
-java/lang/ClassLoader.h: classpath/lib/java/lang/ClassLoader.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-		-prepend 'jclass _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-prepend 'void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
-		-friend 'jclass (::_Jv_FindClass) (_Jv_Utf8Const *name, java::lang::ClassLoader *loader);' \
-		-friend 'void ::_Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, bool is_jar);' \
-		java/lang/ClassLoader
-
-java/lang/Thread.h: classpath/lib/java/lang/Thread.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-		-prepend 'class _Jv_JNIEnv;' \
-		-prepend '#define _JV_NOT_OWNER 1' \
-		-prepend '#define _JV_INTERRUPTED 2' \
-		-prepend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
-		-prepend 'void _Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-prepend 'void _Jv_ThreadRun (java::lang::Thread* thread);' \
-		-prepend 'jint _Jv_AttachCurrentThread(java::lang::Thread* thread);' \
-		-prepend 'java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
-		-prepend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
-		-prepend 'jint _Jv_DetachCurrentThread ();' \
-		-friend '_Jv_JNIEnv * ::_Jv_GetCurrentJNIEnv ();' \
-		-friend 'void ::_Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
-		-friend 'void ::_Jv_ThreadRun (java::lang::Thread* thread);' \
-		-friend 'jint (::_Jv_AttachCurrentThread) (java::lang::Thread* thread);' \
-		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
-		-friend 'jint (::_Jv_DetachCurrentThread) ();' \
-		java/lang/Thread
-
-java/lang/String.h: classpath/lib/java/lang/String.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jchar* _Jv_GetStringChars (jstring str);' \
-	    -prepend 'jstring* _Jv_StringFindSlot (jchar*, jint, jint);' \
-	    -prepend 'jstring* _Jv_StringGetSlot (jstring);' \
-	    -prepend 'jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const* str);' \
-	    -prepend 'jstring _Jv_NewStringLatin1 (const char*, jsize);' \
-	    -prepend 'jstring _Jv_AllocString (jsize);' \
-	    -friend 'jchar* ::_Jv_GetStringChars (jstring str);' \
-	    -friend 'jstring* ::_Jv_StringFindSlot (jchar*, jint, jint);' \
-	    -friend 'jstring* ::_Jv_StringGetSlot (jstring);' \
-	    -friend 'jstring (::_Jv_NewStringUtf8Const) (_Jv_Utf8Const* str);' \
-	    -friend 'jstring (::_Jv_NewStringLatin1) (const char*, jsize);' \
-	    -friend 'jstring (::_Jv_AllocString) (jsize);' \
-	    java/lang/String
-
-java/lang/reflect/Constructor.h: classpath/lib/java/lang/reflect/Constructor.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jmethodID _Jv_FromReflectedConstructor (java::lang::reflect::Constructor *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'jmethodID (::_Jv_FromReflectedConstructor) (java::lang::reflect::Constructor *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    java/lang/reflect/Constructor
-
-java/lang/reflect/Field.h: classpath/lib/java/lang/reflect/Field.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jfieldID _Jv_FromReflectedField (java::lang::reflect::Field *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedField (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
-	    -friend 'jfieldID (::_Jv_FromReflectedField) (java::lang::reflect::Field *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedField) (_Jv_JNIEnv*, jclass, jfieldID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    java/lang/reflect/Field
-
-java/lang/reflect/Method.h: classpath/lib/java/lang/reflect/Method.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -prepend 'jmethodID _Jv_FromReflectedMethod (java::lang::reflect::Method *);' \
-	    -prepend 'jobject _Jv_JNI_ToReflectedMethod (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'jmethodID (::_Jv_FromReflectedMethod) (java::lang::reflect::Method *);' \
-	    -friend 'jobject (::_Jv_JNI_ToReflectedMethod) (_Jv_JNIEnv *, jclass, jmethodID, jboolean);' \
-	    -friend 'class java::lang::Class;' \
-	    -friend 'class java::io::ObjectInputStream;' \
-	    java/lang/reflect/Method
-
-java/lang/reflect/Proxy.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    java/lang/reflect/Proxy
-
-java/lang/reflect/Proxy$$ProxyData.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/reflect/Proxy$$ProxyData'
-
-java/lang/reflect/Proxy$$ProxyType.h: classpath/lib/java/lang/reflect/Proxy.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/reflect/Proxy$$ProxyType'
-
-gnu/gcj/runtime/ExtensionClassLoader.h: classpath/lib/gnu/gcj/runtime/ExtensionClassLoader.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	    -friend 'class ::java::lang::ClassLoader;' \
-	    gnu/gcj/runtime/ExtensionClassLoader
-
-java/io/ObjectInputStream$$GetField.h: classpath/lib/java/io/ObjectInputStream.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/io/ObjectInputStream$$GetField'
-
-java/io/ObjectOutputStream$$PutField.h: classpath/lib/java/io/ObjectOutputStream.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/io/ObjectOutputStream$$PutField'
-
-java/nio/DirectByteBufferImpl$$ReadWrite.h: classpath/lib/java/nio/DirectByteBufferImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/DirectByteBufferImpl$$ReadWrite'
-
-java/nio/channels/Pipe$$SinkChannel.h: classpath/lib/java/nio/channels/Pipe.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/channels/Pipe$$SinkChannel'
-
-java/nio/channels/Pipe$$SourceChannel.h: classpath/lib/java/nio/channels/Pipe.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/nio/channels/Pipe$$SourceChannel'
-
-gnu/java/net/PlainSocketImpl$$SocketInputStream.h: classpath/lib/gnu/java/net/PlainSocketImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/net/PlainSocketImpl$$SocketInputStream'
-
-gnu/java/net/PlainSocketImpl$$SocketOutputStream.h: classpath/lib/gnu/java/net/PlainSocketImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/net/PlainSocketImpl$$SocketOutputStream'
-
-gnu/java/nio/PipeImpl$$SinkChannelImpl.h: classpath/lib/gnu/java/nio/PipeImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/nio/PipeImpl$$SinkChannelImpl'
-
-gnu/java/nio/PipeImpl$$SourceChannelImpl.h: classpath/lib/gnu/java/nio/PipeImpl.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'gnu/java/nio/PipeImpl$$SourceChannelImpl'
-
-## Only used by PosixProcess.java
-java/lang/ConcreteProcess$$ProcessManager.h: classpath/lib/java/lang/ConcreteProcess.class
-	$(GCJH) -classpath '' -bootclasspath classpath/lib \
-	'java/lang/ConcreteProcess$$ProcessManager'
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h

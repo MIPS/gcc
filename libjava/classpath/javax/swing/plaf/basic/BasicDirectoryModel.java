@@ -118,7 +118,7 @@ public class BasicDirectoryModel extends AbstractListModel
    *
    * @return DOCUMENT ME!
    */
-  public Vector getDirectories()
+  public Vector<File> getDirectories()
   {
     Vector tmp = new Vector();
     for (int i = 0; i < directories; i++)
@@ -148,7 +148,7 @@ public class BasicDirectoryModel extends AbstractListModel
    *
    * @return DOCUMENT ME!
    */
-  public Vector getFiles()
+  public Vector<File> getFiles()
   {
     Vector tmp = new Vector();
     for (int i = directories; i < getSize(); i++)
@@ -270,7 +270,7 @@ public class BasicDirectoryModel extends AbstractListModel
    *
    * @param v DOCUMENT ME!
    */
-  protected void sort(Vector v)
+  protected void sort(Vector<? extends File> v)
   {
     Collections.sort(v, comparator);
     Enumeration e = Collections.enumeration(v);

@@ -1,5 +1,5 @@
 /* DropTargetContext.java --
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -48,6 +48,7 @@ import java.util.List;
 
 /**
  * @author Michael Koch (konqueror@gmx.de)
+ * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
  * @since 1.2
  */
 public class DropTargetContext implements Serializable
@@ -158,7 +159,7 @@ public class DropTargetContext implements Serializable
     return null;
   }
 
-  protected List getCurrentDataFlavorsAsList ()
+  protected List<DataFlavor> getCurrentDataFlavorsAsList ()
   {
     return Arrays.asList (getCurrentDataFlavors ());
   }
