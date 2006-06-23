@@ -42,8 +42,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
       %{fdisable-assertions*}						\
       %{fencoding*} %{ffilelist-file}					\
       %{foutput-class-dir*} %{g*}					\
-      %{fsource*} %{!fsource*:-fsource=1.4}				\
-      %{ftarget*} %{!ftarget*:-ftarget=1.4}				\
+      %{fsource*} %{!fsource*:-fsource=1.5}				\
+      %{ftarget*} %{!femit-class-files|!ftarget*:-ftarget=1.5}		\
       %{!findirect-dispatch:-fzip-dependency=%U.zip}			\
       %{!fsyntax-only:-fzip-target=%U.jar}}\n				\
     %{.class|.zip|.jar|!fsyntax-only:jc1				\

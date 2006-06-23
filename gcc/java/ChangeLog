@@ -1,3 +1,10 @@
+2006-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* lang-specs.h: Default -fsource and -ftarget to 1.5.  If
+	emitting class files, always use 1.5.
+	* gcj.texi (Input Options): Document -fsource.
+	(Code Generation): Document -ftarget.
+
 2006-06-21  Tom Tromey  <tromey@redhat.com>
 
 	PR java/28089:

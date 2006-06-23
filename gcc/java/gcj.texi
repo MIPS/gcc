@@ -305,6 +305,10 @@ behavior in this particular case.)
 This forces the compiler to always check for the special zero length
 attribute @code{gnu.gcj.gcj-compiled} in @code{java.lang.Object} and
 issue an error if it isn't found.
+
+@item -fsource=@var{VERSION}
+This option is used to choose the source version accepted by
+@command{gcj}.  The default is @samp{1.5}.
 @end table
 
 @node Encodings
@@ -456,6 +460,11 @@ protocol handler as @samp{core:/@var{resource-name}}.  Note that
 instance, it could be used in a call to @code{ResourceBundle.getBundle}.
 The actual file name to be compiled this way must be specified
 separately.
+
+@item -ftarget=@var{VERSION}
+This can be used with @option{-C} to choose the version of bytecode
+emitted by @command{gcj}.  The default is @samp{1.5}.  When not
+generating bytecode, this option has no effect.
 
 @item -d @var{directory}
 When used with @code{-C}, this causes all generated @file{.class} files
