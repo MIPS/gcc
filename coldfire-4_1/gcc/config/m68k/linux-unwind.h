@@ -39,11 +39,7 @@ struct sigframe_footer {
 };
 
 struct rt_sigframe_footer {
-#ifndef __mcoldfire__
   char retcode[8];
-#else
-  char retcode[16];
-#endif
   struct siginfo info;
   struct ucontext uc;
 };
@@ -82,9 +78,7 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
     }
   /* Coldfire uses the sequence:
 
-	moveq #__NR_rt_sigreturn, %d0	(70xx)
-	and.l #0xff,%d0			(0280 0000 00ff)
-	0000				(0000)
+	move.l #__NR_rt_sigreturn, %d0	(203c xxxx xxxx)
 	trap #0				(4e40)
 
      Others use:
@@ -94,12 +88,10 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
 	trap #0				(4e40)
   */
 #ifdef __mcoldfire__
-  else if (pc[0] == (0x7000 | __NR_rt_sigreturn)
-	   && pc[1] == 0x0280
-	   && pc[2] == 0x0000
-	   && pc[3] == 0x00ff
-	   && pc[4] == 0x0000
-	   && pc[5] == 0x4e40)
+  else if (pc[0] == 0x203c
+	   && pc[1] == 0x0000
+	   && pc[2] == __NR_rt_sigreturn
+	   && pc[3] == 0x4e40)
 #else
   else if (pc[0] == (0x7000 | __NR_rt_sigreturn)
 	   && pc[1] == 0x4600
@@ -125,11 +117,11 @@ m68k_fallback_frame_state (struct _Unwind_Context *context,
       fs->regs.reg[25].loc.offset = base + R_PC * 4;
       fs->retaddr_column = 25;
 
-      base = (_Unwind_Ptr) mc->fpregs.f_fpregs - new_cfa;
       for (i = 0; i < 8; i++)
 	{
+	  base = (_Unwind_Ptr) &mc->fpregs.f_fpregs[i] - new_cfa;
 	  fs->regs.reg[i + 16].how = REG_SAVED_OFFSET;
-	  fs->regs.reg[i + 16].loc.offset = base + i * 8;
+	  fs->regs.reg[i + 16].loc.offset = base;
 	}
       return _URC_NO_REASON;
     }
