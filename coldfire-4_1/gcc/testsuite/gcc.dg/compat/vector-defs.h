@@ -25,7 +25,12 @@ typedef di __attribute__((vector_size (16))) v2di;
 
 typedef sf __attribute__((vector_size (8))) v2sf;
 typedef sf __attribute__((vector_size (16))) v4sf;
+#if defined (__uClinux__)
+/* The maximum achievable alignment on uClinux is usually 16 bytes.  */
+typedef sf __attribute__((vector_size (16))) v16sf;
+#else
 typedef sf __attribute__((vector_size (64))) v16sf;
+#endif
 
 typedef df __attribute__((vector_size (16))) v2df;
 
@@ -46,7 +51,12 @@ typedef int __attribute__((mode(V2DI))) v2di;
 
 typedef float __attribute__((mode(V2SF))) v2sf;
 typedef float __attribute__((mode(V4SF))) v4sf;
+#if defined (__uClinux__)
+/* The maximum achievable alignment on uClinux is usually 16 bytes.  */
+typedef float __attribute__((mode(V4SF))) v16sf;
+#else
 typedef float __attribute__((mode(V16SF))) v16sf;
+#endif
 
 typedef float __attribute__((mode(V2DF))) v2df;
 

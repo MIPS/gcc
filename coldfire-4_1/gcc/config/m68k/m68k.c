@@ -635,8 +635,8 @@ override_options (void)
 
   if (!flag_pic)
     {
-      m68k_symbolic_call = "jsr (%a0)";
-      m68k_symbolic_jump = "jmp (%a0)";
+      m68k_symbolic_call = "jsr %a0";
+      m68k_symbolic_jump = "jmp %a0";
     }
   else if (TARGET_ID_SHARED_LIBRARY)
     /* All addresses must be loaded from the GOT.  */
@@ -651,11 +651,11 @@ override_options (void)
       else
 	{
 #if defined(USE_GAS)
-	  m68k_symbolic_call = "bsr.l %a0@PLTPC";
-	  m68k_symbolic_jump = "bra.l %a0@PLTPC";
+	  m68k_symbolic_call = "bsr.l %p0";
+	  m68k_symbolic_jump = "bra.l %p0";
 #else
-	  m68k_symbolic_call = "bsr %a0@PLTPC";
-	  m68k_symbolic_jump = "bra %a0@PLTPC";
+	  m68k_symbolic_call = "bsr %p0";
+	  m68k_symbolic_jump = "bra %p0";
 #endif
 	}
       /* Turn off function cse if we are doing PIC.  We always want
@@ -3369,7 +3369,8 @@ floating_exact_log2 (rtx x)
        print_operand_address--used only for SYMBOL_REFs under TARGET_PCREL)
    'x' for float insn (print a CONST_DOUBLE as a float rather than in hex),
        or print pair of registers as rx:ry.
-
+   'p' print an address with @PLTPC attached, but only if the operand
+       is not locally-bound.
    */
 
 void
@@ -3409,6 +3410,12 @@ print_operand (FILE *file, rtx op, int letter)
 		  && GET_CODE (XEXP (op, 0)) == SYMBOL_REF
 		  && TARGET_PCREL);
       output_addr_const (file, XEXP (op, 0));
+    }
+  else if (letter == 'p')
+    {
+      output_addr_const (file, op);
+      if (!(GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (op)))
+	fprintf (file, "@PLTPC");
     }
   else if (GET_CODE (op) == REG)
     {

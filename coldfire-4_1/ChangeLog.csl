@@ -1,5 +1,14 @@
 2006-06-23  Richard Sandiford  <richard@codesourcery.com>
 
+	gcc/
+	* config/m68k/m68k.c (override_options): Remove unneeded brackets
+	from the !flag_pic settings of m68k_symbolic_call and
+	m68k_symbolic_jump.  Use %p0 instead of %a0@PLTPC.
+	(print_operand): Add a 'p' operand code.
+
+2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/linux-unwind.h (rt_sigframe_footer): Remove special
 	case for __mcoldfire__.
 	(m68k_fallback_frame_state): Update coldfire code for new kernel
