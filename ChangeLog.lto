@@ -22,6 +22,9 @@
 	* gcc/tree.c (num_parm_types, nth_parm_type): New.
 	* gcc/tree.h: Add prototypes for the two new functions.
 
+	* gcc/cp/call.c (add_template_candidate_real): Stop using
+	TREE_CHAIN on TYPE_ARG_TYPES.
+
 2006-06-16  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_op_delete_call): Use compparms.

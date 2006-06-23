@@ -2248,9 +2248,11 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
      have that form.  */
   if (DECL_CONSTRUCTOR_P (fn) && list_length (arglist) == 2)
     {
-      tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (fn);
-      if (arg_types && same_type_p (TYPE_MAIN_VARIANT (TREE_VALUE (arg_types)),
-				    ctype))
+      tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+      int skip = num_artificial_parms_for (fn);
+      if (skip < num_parm_types (arg_types)
+	  && same_type_p (TYPE_MAIN_VARIANT (nth_parm_type (arg_types, skip)),
+			  ctype))
 	return NULL;
     }
 
