@@ -3,6 +3,9 @@
 	* gcc/cp/name-lookup.c (arg_assoc_args): Use num_parm_types
 	and nth_parm_type.
 
+	* gcc/cp/pt.c (dependent_type_p_r): Use num_parm_types and
+	nth_parm_type.
+
 2006-06-23  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/method.c (num_artificial_parms_for): New.

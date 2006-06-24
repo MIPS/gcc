@@ -12232,13 +12232,15 @@ dependent_type_p_r (tree type)
 	   || TREE_CODE (type) == METHOD_TYPE)
     {
       tree arg_type;
+      int len;
+      int i;
 
       if (dependent_type_p (TREE_TYPE (type)))
 	return true;
-      for (arg_type = TYPE_ARG_TYPES (type);
-	   arg_type;
-	   arg_type = TREE_CHAIN (arg_type))
-	if (dependent_type_p (TREE_VALUE (arg_type)))
+      arg_type = TYPE_ARG_TYPES (type);
+      len = num_parm_types (arg_type);
+      for (i = 0; i < len; i++)
+	if (dependent_type_p (nth_parm_type (arg_type, i)))
 	  return true;
       return false;
     }
