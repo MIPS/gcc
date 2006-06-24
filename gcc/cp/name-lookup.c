@@ -4544,8 +4544,11 @@ arg_assoc_type (struct arg_lookup *k, tree type)
 static bool
 arg_assoc_args (struct arg_lookup *k, tree args)
 {
-  for (; args; args = TREE_CHAIN (args))
-    if (arg_assoc (k, TREE_VALUE (args)))
+  int len = num_parm_types (args);
+  int i;
+
+  for (i = 0; i < len; i++)
+    if (arg_assoc (k, nth_parm_type (args, i)))
       return true;
   return false;
 }
