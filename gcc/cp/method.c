@@ -931,17 +931,19 @@ locate_copy (tree type, void *client_)
     {
       tree fn = OVL_CURRENT (fns);
       tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
+      int len = num_parm_types (parms);
       tree decls = DECL_ARGUMENTS (DECL_FUNCTION_TEMPLATE_P (fn)
 				   ? DECL_TEMPLATE_RESULT (fn) : fn);
       tree src_type;
       int excess;
       int quals;
+      int skip = 0;
 
-      parms = skip_artificial_parms_for (fn, parms);
-      if (!parms)
+      skip = num_artificial_parms_for (fn);
+      if (skip >= len)
 	continue;
       decls = skip_artificial_parms_for (fn, decls);
-      src_type = non_reference (TREE_VALUE (parms));
+      src_type = non_reference (nth_parm_type (parms, skip));
       if (!same_type_ignoring_top_level_qualifiers_p (src_type, type))
 	continue;
       if (!sufficient_parms_p (TREE_CHAIN (decls)))
