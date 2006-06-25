@@ -2906,12 +2906,11 @@ build_operator_new_call (tree fnname, tree args,
 	   tree arg_types;
 
 	   arg_types = TYPE_ARG_TYPES (TREE_TYPE (cand->fn));
-	   /* Skip the size_t parameter.  */
-	   arg_types = TREE_CHAIN (arg_types);
-	   /* Check the remaining parameters (if any).  */
-	   if (arg_types
-	       && TREE_CHAIN (arg_types) == void_list_node
-	       && same_type_p (TREE_VALUE (arg_types),
+	   /* Check the parameters (if any) after the size_t
+	      parameter.  */
+	   if (num_parm_types (arg_types) == 3
+	       && nth_parm_type (arg_types, 2) == void_type_node
+	       && same_type_p (nth_parm_type (arg_types, 1),
 			       ptr_type_node))
 	     use_cookie = false;
 	 }
