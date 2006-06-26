@@ -1184,7 +1184,7 @@ pp_cxx_ptr_operator (cxx_pretty_printer *pp, tree t)
 static inline tree
 pp_cxx_implicit_parameter_type (tree mf)
 {
-  return TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (mf))));
+  return TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (TREE_TYPE (mf)), 0));
 }
 
 /*
