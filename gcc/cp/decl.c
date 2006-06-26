@@ -7988,11 +7988,13 @@ grokdeclarator (const cp_declarator *declarator,
   if (type == typedef_type && TREE_CODE (type) == FUNCTION_TYPE)
     {
       tree decls = NULL_TREE;
-      tree args;
+      tree parm_types = TYPE_ARG_TYPES (type);
+      int len = num_parm_types (parm_types);
+      int i;
 
-      for (args = TYPE_ARG_TYPES (type); args; args = TREE_CHAIN (args))
+      for (i = 0; i < len; i++)
 	{
-	  tree decl = cp_build_parm_decl (NULL_TREE, TREE_VALUE (args));
+	  tree decl = cp_build_parm_decl (NULL_TREE, nth_parm_type (parm_types, i));
 
 	  TREE_CHAIN (decl) = decls;
 	  decls = decl;

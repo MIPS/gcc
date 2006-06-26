@@ -17,6 +17,9 @@
 	* gcc/cp/decl2.c (check_java_method): Use num_parm_types and
 	nth_parm_type in check_java_method.
 
+	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types and
+	nth_parm_type.
+
 2006-06-25  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_operator_new_call): Use num_parm_types
