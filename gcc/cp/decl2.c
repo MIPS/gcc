@@ -506,7 +506,9 @@ check_java_method (tree method)
 {
   bool jerr = false;
   tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (method));
+  int i = 0;
   tree ret_type = TREE_TYPE (TREE_TYPE (method));
+  int parm_types_len = num_parm_types (arg_types);
 
   if (!acceptable_java_type (ret_type))
     {
@@ -515,15 +517,15 @@ check_java_method (tree method)
       jerr = true;
     }
 
-  arg_types = TREE_CHAIN (arg_types);
+  i++;
   if (DECL_HAS_IN_CHARGE_PARM_P (method))
-    arg_types = TREE_CHAIN (arg_types);
+    i++;
   if (DECL_HAS_VTT_PARM_P (method))
-    arg_types = TREE_CHAIN (arg_types);
+    i++;
 
-  for (; arg_types != NULL_TREE; arg_types = TREE_CHAIN (arg_types))
+  for (; i < parm_types_len; i++)
     {
-      tree type = TREE_VALUE (arg_types);
+      tree type = nth_parm_type (arg_types, i);
       if (!acceptable_java_type (type))
 	{
 	  error ("Java method %qD has non-Java parameter type %qT",
