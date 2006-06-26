@@ -132,6 +132,10 @@ lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
 static bool
 lto_init (void)
 {
+  /* Always operate in unit-at-time mode so that we can defer
+     decisions about what to output.  */
+  flag_unit_at_a_time = 1;
+
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, 
 			   /*signed_sizetype=*/false);
