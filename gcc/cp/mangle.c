@@ -1831,7 +1831,7 @@ write_function_type (const tree type)
     {
       /* The first parameter must be a POINTER_TYPE pointing to the
 	 `this' parameter.  */
-      tree this_type = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type)));
+      tree this_type = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (type), 0));
       write_CV_qualifiers_for_type (this_type);
     }
 

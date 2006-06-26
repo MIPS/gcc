@@ -20,6 +20,8 @@
 	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/mangle.c (write_function_type): Use nth_parm_type.
+
 2006-06-25  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_operator_new_call): Use num_parm_types
