@@ -1,3 +1,7 @@
+2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
+
 2006-06-25  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_operator_new_call): Use num_parm_types

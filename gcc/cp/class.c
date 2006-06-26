@@ -1782,8 +1782,8 @@ same_signature_p (tree fndecl, tree base_fndecl)
       tree types, base_types;
       types = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
       base_types = TYPE_ARG_TYPES (TREE_TYPE (base_fndecl));
-      if ((TYPE_QUALS (TREE_TYPE (TREE_VALUE (base_types)))
-	   == TYPE_QUALS (TREE_TYPE (TREE_VALUE (types))))
+      if ((TYPE_QUALS (TREE_TYPE (nth_parm_type (base_types, 0)))
+	   == TYPE_QUALS (TREE_TYPE (nth_parm_type (types, 0))))
 	  && compparms (base_types, 1, types, 1))
 	return 1;
     }
