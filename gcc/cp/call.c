@@ -3974,6 +3974,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
   tree fn = NULL_TREE;
   tree fns, fnname, argtypes, args, type;
   int pass;
+  int skip = 0;
 
   if (addr == error_mark_node)
     return error_mark_node;
@@ -4008,7 +4009,8 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
       /* Get the parameter types for the allocation function that is
 	 being called.  */
       gcc_assert (alloc_fn != NULL_TREE);
-      argtypes = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (alloc_fn)));
+      argtypes = TYPE_ARG_TYPES (TREE_TYPE (alloc_fn));
+      skip++;
       /* Also the second argument.  */
       args = TREE_CHAIN (TREE_OPERAND (placement, 1));
     }
@@ -4040,18 +4042,18 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  t = TYPE_ARG_TYPES (TREE_TYPE (OVL_CURRENT (fn)));
 	  if (!same_type_p (TREE_VALUE (t), ptr_type_node))
 	    continue;
-	  t = TREE_CHAIN (t);
 	  /* On the first pass, check the rest of the arguments.  */
 	  if (pass == 0)
 	    {
-	      if (compparms (argtypes, 0, t, 0))
+	      if (compparms (argtypes, skip, t, 1))
 		break;
 	    }
 	  /* On the second pass, the second argument must be
 	     "size_t".  */
 	  else if (pass == 1
-		   && same_type_p (TREE_VALUE (t), sizetype)
-		   && TREE_CHAIN (t) == void_list_node)
+		   && num_parm_types (t) == 3
+		   && same_type_p (nth_parm_type (t, 1), sizetype)
+		   && nth_parm_type (t, 2) == void_type_node)
 	    break;
 	}
 
