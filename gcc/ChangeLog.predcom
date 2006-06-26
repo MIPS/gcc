@@ -1,3 +1,15 @@
+2006-06-26  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-predcom.c (looparound_phis): New variable.
+	(dump_dref, dump_chain): Dump to file, not to dump_file.
+	(add_looparound_copies): Mark looparound phi nodes.
+	(single_nonlooparound_use): New function.
+	(remove_stmt, find_use_stmt): Use single_nonlooparound_use.
+	(stmt_combining_refs): Use name_for_ref.
+	(tree_predictive_commoning_loop): Initialize looparound_phis.
+	* passes.c (init_optimization_passes): Add dce before loop
+	optimizations.
+
 2006-06-22  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-predcom.c (dump_dref, determine_roots_comp, determine_roots,

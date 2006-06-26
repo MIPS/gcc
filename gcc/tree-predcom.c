@@ -306,6 +306,10 @@ struct component
   struct component *next;
 };
 
+/* Bitmap of ssa names defined by looparound phi nodes covered by chains.  */
+
+static bitmap looparound_phis;
+
 /* Dumps data reference REF to FILE.  */
 
 extern void dump_dref (FILE *, dref);
@@ -315,7 +319,7 @@ dump_dref (FILE *file, dref ref)
   if (ref->ref)
     {
       fprintf (file, "    ");
-      print_generic_expr (dump_file, DR_REF (ref->ref), TDF_SLIM);
+      print_generic_expr (file, DR_REF (ref->ref), TDF_SLIM);
       fprintf (file, " (id %u%s)\n", ref->pos,
 	       DR_IS_READ (ref->ref) ? "" : ", write");
 
@@ -332,7 +336,7 @@ dump_dref (FILE *file, dref ref)
       else
 	fprintf (file, "    combination ref\n");
       fprintf (file, "      in statement ");
-      print_generic_expr (dump_file, ref->stmt, TDF_SLIM);
+      print_generic_expr (file, ref->stmt, TDF_SLIM);
       fprintf (file, "\n");
       fprintf (file, "      distance %u\n", ref->distance);
     }
@@ -383,7 +387,7 @@ dump_chain (FILE *file, chain_p chain)
       fprintf (file, "  equal to %p %s %p in type ",
 	       (void *) chain->ch1, op_symbol_code (chain->operator),
 	       (void *) chain->ch2);
-      print_generic_expr (dump_file, chain->rslt_type, TDF_SLIM);
+      print_generic_expr (file, chain->rslt_type, TDF_SLIM);
       fprintf (file, "\n");
     }
 
@@ -393,7 +397,7 @@ dump_chain (FILE *file, chain_p chain)
       for (i = 0; VEC_iterate (tree, chain->vars, i, var); i++)
 	{
 	  fprintf (file, " ");
-	  print_generic_expr (dump_file, var, TDF_SLIM);
+	  print_generic_expr (file, var, TDF_SLIM);
 	}
       fprintf (file, "\n");
     }
@@ -404,7 +408,7 @@ dump_chain (FILE *file, chain_p chain)
       for (i = 0; VEC_iterate (tree, chain->inits, i, var); i++)
 	{
 	  fprintf (file, " ");
-	  print_generic_expr (dump_file, var, TDF_SLIM);
+	  print_generic_expr (file, var, TDF_SLIM);
 	}
       fprintf (file, "\n");
     }
@@ -1239,6 +1243,7 @@ add_looparound_copies (struct loop *loop, chain_p chain)
       if (!phi)
 	continue;
 
+      bitmap_set_bit (looparound_phis, SSA_NAME_VERSION (PHI_RESULT (phi)));
       insert_looparound_copy (chain, ref, phi);
     }
 }
@@ -1623,6 +1628,40 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
   VEC_free (tree, heap, vars);
 }
 
+/* Returns the single statement in that NAME is used, excepting
+   the looparound phi nodes contained in one of the chains.  If there is no
+   such statement, or more statements, NULL_TREE is returned.  */
+
+static tree
+single_nonlooparound_use (tree name)
+{
+  use_operand_p use;
+  imm_use_iterator it;
+  tree stmt, ret = NULL_TREE;
+
+  FOR_EACH_IMM_USE_FAST (use, it, name)
+    {
+      stmt = USE_STMT (use);
+
+      if (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  /* Ignore uses in looparound phi nodes.  Uses in other phi nodes
+	     could not be processed anyway, so just fail for them.  */
+	  if (bitmap_bit_p (looparound_phis,
+			    SSA_NAME_VERSION (PHI_RESULT (stmt))))
+	    continue;
+
+	  return NULL_TREE;
+	}
+      else if (ret != NULL_TREE)
+	return NULL_TREE;
+      else
+	ret = stmt;
+    }
+
+  return ret;
+}
+
 /* Remove statement STMT, as well as the chain of assignments in that it is
    used.  */
 
@@ -1630,16 +1669,14 @@ static void
 remove_stmt (tree stmt)
 {
   tree next, name;
-  use_operand_p dummy;
-  bool cont;
 
   if (TREE_CODE (stmt) == PHI_NODE)
     {
       name = PHI_RESULT (stmt);
-      cont = single_imm_use (name, &dummy, &next);
+      next = single_nonlooparound_use (name);
       remove_phi_node (stmt, NULL_TREE);
 
-      if (!cont
+      if (!next
 	  || TREE_CODE (next) != MODIFY_EXPR
 	  || TREE_OPERAND (next, 1) != name)
 	return;
@@ -1656,12 +1693,12 @@ remove_stmt (tree stmt)
       name = TREE_OPERAND (stmt, 0);
       gcc_assert (TREE_CODE (name) == SSA_NAME);
 
-      cont = single_imm_use (name, &dummy, &next);
+      next = single_nonlooparound_use (name);
 
       mark_virtual_ops_for_renaming (stmt);
       bsi_remove (&bsi, true);
 
-      if (!cont
+      if (!next
 	  || TREE_CODE (next) != MODIFY_EXPR
 	  || TREE_OPERAND (next, 1) != name)
 	return;
@@ -1886,12 +1923,12 @@ static tree
 find_use_stmt (tree *name)
 {
   tree stmt, rhs, lhs;
-  use_operand_p dummy;
 
   /* Skip over assignments.  */
   while (1)
     {
-      if (!single_imm_use (*name, &dummy, &stmt))
+      stmt = single_nonlooparound_use (*name);
+      if (!stmt)
 	return NULL_TREE;
 
       if (TREE_CODE (stmt) != MODIFY_EXPR)
@@ -2148,8 +2185,8 @@ static tree
 stmt_combining_refs (dref r1, dref r2)
 {
   tree stmt1, stmt2;
-  tree name1 = TREE_OPERAND (r1->stmt, 0);
-  tree name2 = TREE_OPERAND (r2->stmt, 0);
+  tree name1 = name_for_ref (r1);
+  tree name2 = name_for_ref (r2);
 
   stmt1 = find_use_stmt (&name1);
   stmt2 = find_use_stmt (&name2);
@@ -2376,6 +2413,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   components = filter_suitable_components (loop, components);
 
   tmp_vars = BITMAP_ALLOC (NULL);
+  looparound_phis = BITMAP_ALLOC (NULL);
   determine_roots (loop, components, &chains);
   release_components (components);
   prepare_initializers (loop, chains);
@@ -2416,6 +2454,7 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   release_chains (chains);
   free_data_refs (datarefs);
   BITMAP_FREE (tmp_vars);
+  BITMAP_FREE (looparound_phis);
   return unroll;
 }
 
