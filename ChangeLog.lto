@@ -8,6 +8,9 @@
 	* gcc/cp/call.c (build_op_delete_call): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_direct_abstract_declarator):
+	Use nth_parm_type.
+
 2006-06-25  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_operator_new_call): Use num_parm_types

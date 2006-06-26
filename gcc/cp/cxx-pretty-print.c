@@ -1430,7 +1430,7 @@ pp_cxx_direct_abstract_declarator (cxx_pretty_printer *pp, tree t)
 	{
 	  pp_base (pp)->padding = pp_before;
 	  pp_cxx_cv_qualifier_seq
-	    (pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
+	    (pp, TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (t), 0)));
 	}
       pp_cxx_exception_specification (pp, t);
       break;
