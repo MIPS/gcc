@@ -3972,20 +3972,22 @@ type_requires_array_cookie (tree type)
   for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
     {
       tree fn;
-      tree second_parm;
+      tree parm_types;
 
       /* Select the current function.  */
       fn = OVL_CURRENT (fns);
       /* See if this function is a one-argument delete function.  If
 	 it is, then it will be the usual deallocation function.  */
-      second_parm = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn)));
-      if (second_parm == void_list_node)
+      parm_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+      if (num_parm_types (parm_types) == 2
+	  && nth_parm_type (parm_types, 1) == void_type_node)
 	return false;
       /* Otherwise, if we have a two-argument function and the second
 	 argument is `size_t', it will be the usual deallocation
 	 function -- unless there is one-argument function, too.  */
-      if (TREE_CHAIN (second_parm) == void_list_node
-	  && same_type_p (TREE_VALUE (second_parm), sizetype))
+      if (num_parm_types (parm_types) == 3
+	  && nth_parm_type (parm_types, 2) == void_type_node
+	  && same_type_p (nth_parm_type (parm_types, 1), sizetype))
 	has_two_argument_delete_p = true;
     }
 
