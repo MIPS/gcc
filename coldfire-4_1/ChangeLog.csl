@@ -1,3 +1,9 @@
+2006-06-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/compat/vector-defs.h: Revert previous change.
+	* gcc.dg/compat/struct-layout-1.h (v16sf): Define to v4sf on uClinux.
+
 2006-06-23  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/testsuite/
