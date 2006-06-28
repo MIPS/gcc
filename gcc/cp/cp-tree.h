@@ -1878,17 +1878,17 @@ struct lang_decl GTY(())
 
 /* Nonzero for FUNCTION_DECL means that this member function
    has `this' as const X *const.  */
-#define DECL_CONST_MEMFUNC_P(NODE)					 \
-  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)				 \
-   && CP_TYPE_CONST_P (TREE_TYPE (TREE_VALUE				 \
-				  (TYPE_ARG_TYPES (TREE_TYPE (NODE))))))
+#define DECL_CONST_MEMFUNC_P(NODE)						\
+  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)					\
+   && CP_TYPE_CONST_P (TREE_TYPE (nth_parm_type					\
+				  (TYPE_ARG_TYPES (TREE_TYPE (NODE)), 0))))
 
 /* Nonzero for FUNCTION_DECL means that this member function
    has `this' as volatile X *const.  */
-#define DECL_VOLATILE_MEMFUNC_P(NODE)					 \
-  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)				 \
-   && CP_TYPE_VOLATILE_P (TREE_TYPE (TREE_VALUE				 \
-				  (TYPE_ARG_TYPES (TREE_TYPE (NODE))))))
+#define DECL_VOLATILE_MEMFUNC_P(NODE)						\
+  (DECL_NONSTATIC_MEMBER_FUNCTION_P (NODE)					\
+   && CP_TYPE_VOLATILE_P (TREE_TYPE (nth_parm_type				\
+				  (TYPE_ARG_TYPES (TREE_TYPE (NODE)), 0))))
 
 /* Nonzero for a DECL means that this member is a non-static member.  */
 #define DECL_NONSTATIC_MEMBER_P(NODE)		\

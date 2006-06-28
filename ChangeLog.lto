@@ -2,6 +2,9 @@
 
 	* gcc/cp/call.c (standard_conversion): Use nth_parm_type.
 
+	* gcc/cp/cp-tree.h (DECL_CONST_MEMFUNC_P,
+	DECL_VOLATILE_MEMFUNC_P): Use nth_parm_type.
+
 2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
