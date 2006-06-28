@@ -1188,28 +1188,24 @@ common_base_type (tree tt1, tree tt2)
 bool
 compparms (tree parms1, int skip1, tree parms2, int skip2)
 {
-  tree t1, t2;
+  int len1 = num_parm_types (parms1);
+  int len2 = num_parm_types (parms2);
 
-  while (skip1--)
-    parms1 = TREE_CHAIN (parms1);
+  gcc_assert (skip1 <= len1);
+  gcc_assert (skip2 <= len2);
 
-  while (skip2--)
-    parms2 = TREE_CHAIN (parms2);
+  /* If one parmlist is shorter than the other, they fail to
+     match.  */
+  if (len1 - skip1 != len2 - skip2)
+    return false;
 
   /* An unspecified parmlist matches any specified parmlist
      whose argument types don't need default promotions.  */
+  for (; skip1 < len1; skip1++, skip2++)
+    if (!same_type_p (nth_parm_type (parms1, skip1),
+		      nth_parm_type (parms2, skip2)))
+      return false;
 
-  for (t1 = parms1, t2 = parms2;
-       t1 || t2;
-       t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
-    {
-      /* If one parmlist is shorter than the other,
-	 they fail to match.  */
-      if (!t1 || !t2)
-	return false;
-      if (!same_type_p (TREE_VALUE (t1), TREE_VALUE (t2)))
-	return false;
-    }
   return true;
 }
 

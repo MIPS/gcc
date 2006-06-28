@@ -11,6 +11,9 @@
 	* gcc/cp/pt.c (tsubst_default_arguments): Use num_parm_types and
 	nth_parm_type in tsubst_default_arguments.
 
+	* gcc/cp/typeck.c (compparms): Use num_parm_types and
+	nth_parm_type in compparms.
+
 2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
