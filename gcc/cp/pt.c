@@ -4735,10 +4735,12 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 	 instantiated, they don't contain template parameters, so
 	 there's no point in looking at them then, either.  */
       {
-	tree parm;
+	tree parm = TYPE_ARG_TYPES (t);
+	int len = num_parm_types (parm);
+	int i;
 
-	for (parm = TYPE_ARG_TYPES (t); parm; parm = TREE_CHAIN (parm))
-	  if (for_each_template_parm (TREE_VALUE (parm), fn, data,
+	for (i = 0; i < len; i++)
+	  if (for_each_template_parm (nth_parm_type (parm, i), fn, data,
 				      pfd->visited))
 	    return error_mark_node;
 

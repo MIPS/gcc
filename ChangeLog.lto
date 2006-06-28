@@ -5,6 +5,9 @@
 	* gcc/cp/cp-tree.h (DECL_CONST_MEMFUNC_P,
 	DECL_VOLATILE_MEMFUNC_P): Use nth_parm_type.
 
+	* gcc/cp/pt.c (for_each_template_parm_r): Use num_parm_types and
+	nth_parm_type.
+
 2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
