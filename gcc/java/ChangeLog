@@ -1,3 +1,24 @@
+2006-06-27  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-reader.c (get_attribute): Handle EnclosingMethod,
+	Signature, LocalVariableTypeTable, annotation attributes.
+	* jcf-dump.c (HANDLE_ENCLOSINGMETHOD_ATTRIBUTE): New macro.
+	(HANDLE_SIGNATURE_ATTRIBUTE): Likewise.
+	(HANDLE_START_FIELD): Mention 'descriptor', not 'signature'.
+	(HANDLE_METHOD): Likewise.
+	(HANDLE_LOCALVARIABLETYPETABLE_ATTRIBUTE): New macro.
+	(print_annotation): New function.
+	(print_element_value): Likewise.
+	(indent): Likewise.
+	(HANDLE_RUNTIMEVISIBLEANNOTATIONS_ATTRIBUTE): New macro.
+	(HANDLE_RUNTIMEINVISIBLEANNOTATIONS_ATTRIBUTE): Likewise.
+	(print_parameter_annotations): New function.
+	(HANDLE_RUNTIMEVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE): New macro.
+	(HANDLE_RUNTIMEINVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE):
+	Likewise.
+	(HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE): Likewise.
+	(print_annotations): New function.
+
 2006-06-23  Tom Tromey  <tromey@redhat.com>
 
 	* lang-specs.h: Default -fsource and -ftarget to 1.5.  If

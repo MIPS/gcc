@@ -1,7 +1,7 @@
 /* This file read a Java(TM) .class file.
    It is not stand-alone:  It depends on tons of macros, and the
    intent is you #include this file after you've defined the macros.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -199,6 +199,14 @@ get_attribute (JCF *jcf)
     }
   else
 #endif
+#ifdef HANDLE_LOCALVARIABLETYPETABLE_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("LocalVariableTypeTable"))
+    {
+      uint16 count = JCF_readu2 (jcf);
+      HANDLE_LOCALVARIABLETYPETABLE_ATTRIBUTE (count);
+    }
+  else
+#endif
 #ifdef HANDLE_INNERCLASSES_ATTRIBUTE
   if (MATCH_ATTRIBUTE ("InnerClasses"))
     {
@@ -232,6 +240,55 @@ get_attribute (JCF *jcf)
   if (MATCH_ATTRIBUTE ("SourceDebugExtension")) /* JSR 45 */
     {
       HANDLE_SOURCEDEBUGEXTENSION_ATTRIBUTE (attribute_length);
+    }
+  else
+#endif
+#ifdef HANDLE_ENCLOSINGMETHOD_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("EnclosingMethod"))
+    {
+      HANDLE_ENCLOSINGMETHOD_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_SIGNATURE_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("Signature"))
+    {
+      HANDLE_SIGNATURE_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_RUNTIMEVISIBLEANNOTATIONS_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("RuntimeVisibleAnnotations"))
+    {
+      HANDLE_RUNTIMEVISIBLEANNOTATIONS_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_RUNTIMEINVISIBLEANNOTATIONS_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("RuntimeInvisibleAnnotations"))
+    {
+      HANDLE_RUNTIMEINVISIBLEANNOTATIONS_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_RUNTIMEVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("RuntimeVisibleParameterAnnotations"))
+    {
+      HANDLE_RUNTIMEVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_RUNTIMEINVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("RuntimeInvisibleParameterAnnotations"))
+    {
+      HANDLE_RUNTIMEINVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE ();
+    }
+  else
+#endif
+#ifdef HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE
+  if (MATCH_ATTRIBUTE ("AnnotationDefault"))
+    {
+      HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE ();
     }
   else
 #endif
