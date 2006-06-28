@@ -1381,8 +1381,7 @@ add_function_candidate (struct z_candidate **candidates,
       conversion *t;
       int is_this;
 
-      if (parmnode == void_list_node)
-	break;
+      gcc_assert (parmnode != void_list_node);
 
       is_this = (i == 0 && DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
 		 && ! DECL_CONSTRUCTOR_P (fn));

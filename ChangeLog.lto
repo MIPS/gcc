@@ -14,6 +14,9 @@
 	* gcc/cp/typeck.c (compparms): Use num_parm_types and
 	nth_parm_type in compparms.
 
+	* gcc/cp/call.c (add_function_candidate): Turn a redundant check
+	into a gcc_assert.
+
 2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
