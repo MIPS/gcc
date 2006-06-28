@@ -6102,6 +6102,8 @@ tsubst_default_arguments (tree fn)
   tree arg;
   tree type;
   tree tmpl_args;
+  int len;
+  int i;
 
   tmpl_args = DECL_TI_ARGS (fn);
 
@@ -6110,12 +6112,14 @@ tsubst_default_arguments (tree fn)
   if (uses_template_parms (tmpl_args))
     return;
 
-  for (type = TYPE_ARG_TYPES (TREE_TYPE (fn)), arg = DECL_ARGUMENTS (fn);
-       type && arg;
-       type = TREE_CHAIN (type), arg = TREE_CHAIN (arg))
+  type = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  len = num_parm_types (type);
+  for (i = 0, arg = DECL_ARGUMENTS (fn);
+       i < len && arg;
+       i++, arg = TREE_CHAIN (arg))
     if (DECL_INITIAL (arg))
       DECL_INITIAL (arg) = tsubst_default_argument (fn,
-						    TREE_VALUE (type),
+						    nth_parm_type (type, i),
 						    DECL_INITIAL (arg));
 }
 

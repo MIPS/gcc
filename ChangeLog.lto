@@ -8,6 +8,9 @@
 	* gcc/cp/pt.c (for_each_template_parm_r): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/pt.c (tsubst_default_arguments): Use num_parm_types and
+	nth_parm_type in tsubst_default_arguments.
+
 2006-06-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/class.c (same_signature_p): Use nth_parm_type.
