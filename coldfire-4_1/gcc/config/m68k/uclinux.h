@@ -33,7 +33,7 @@ Boston, MA 02110-1301, USA.  */
    profiling, or libg.a.  */
 #undef LIB_SPEC
 #define LIB_SPEC \
-"%{mid-shared-library:-R libc.gdb%s} -lc"
+"%{mid-shared-library:%{!static-libc:-R libc.gdb%s}} -lc"
 
 /* Default to using -elf2flt with no options.  */
 #undef LINK_SPEC
