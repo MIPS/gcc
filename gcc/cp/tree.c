@@ -1112,12 +1112,19 @@ no_linkage_check (tree t, bool relaxed_p)
       /* Fall through.  */
     case FUNCTION_TYPE:
       {
-	tree parm;
-	for (parm = TYPE_ARG_TYPES (t);
-	     parm && parm != void_list_node;
-	     parm = TREE_CHAIN (parm))
+	tree parm_types = TYPE_ARG_TYPES (t);
+	int len = num_parm_types (parm_types);
+	int i;
+
+	if (len
+	    && nth_parm_type (parm_types, len - 1) == void_type_node)
+	  len--;
+
+	for (i = 0; i < len; i++)
 	  {
-	    r = no_linkage_check (TREE_VALUE (parm), relaxed_p);
+	    tree type = nth_parm_type (parm_types, i);
+
+	    r = no_linkage_check (type, relaxed_p);
 	    if (r)
 	      return r;
 	  }
