@@ -10426,8 +10426,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (TREE_CODE (parm) == METHOD_TYPE
 	  && (!check_cv_quals_for_unify
 	      (UNIFY_ALLOW_NONE,
-	       TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (arg))),
-	       TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (parm))))))
+	       TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (arg), 0)),
+	       TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (parm), 0)))))
 	return 1;
 
       if (unify (tparms, targs, TREE_TYPE (parm),
@@ -10464,7 +10464,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	     implicit object parameter and place them on the function
 	     type to be restored later. */
 	  cv_quals =
-	    cp_type_quals(TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (method_type))));
+	    cp_type_quals(TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (method_type), 0)));
 	  fntype = build_qualified_type (fntype, cv_quals);
 	  return unify (tparms, targs, TREE_TYPE (parm), fntype, strict);
 	}

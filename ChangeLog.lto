@@ -1,3 +1,7 @@
+2006-06-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/pt.c (unify): Use nth_parm_type.
+
 2006-06-28  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (standard_conversion): Use nth_parm_type.
