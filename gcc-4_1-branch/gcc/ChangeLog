@@ -1,3 +1,45 @@
+2006-06-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/28151
+	* fold-const.c (const_binop): Be prepared for self returning zero.
+	Simplify code handling complex values.
+
+2006-06-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28045
+	* fold-const.c (operand_equal_p): Check if the argument types
+	have the same precision before stripping NOPs.
+
+2006-06-21  Richard Henderson  <rth@redhat.com>
+
+        PR target/26347
+        PR target/27082
+        * config/alpha/predicates.md (small_symbolic_operand): Deny weak
+        symbols.
+        (global_symbolic_operand): Allow weak symbols, even if local_p.
+
+2006-06-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27781
+	* Makefile.in (ipa-pure-const.o): Add $(TARGET_H) dependency.
+	* ipa-pure-const.c (target.h): Include.
+	(analyze_function): Do not analyze functions that do not
+	bind locally.
+
+2006-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* varasm.c (mergeable_string_section): Check for embedded NULs and
+	NUL termination in the first int_size_in_bytes (TREE_TYPE (decl))
+	rather than TREE_STRING_LENGTH bytes.
+
+2006-06-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27861
+	* expmed.c (expand_shift): On SHIFT_COUNT_TRUNCATED targets, we may
+	have stripped a SUBREG from the shift count, so we may need to
+	convert_to_mode back to the type's mode before calling make_tree.
+	Use new_amount instead of amount to avoid expanding a tree twice.
+
 2006-06-18  Roger Sayle  <roger@eyesopen.com>
 
 	PR middle-end/27802
@@ -196,7 +238,7 @@
 2006-05-22  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/install.texi (Configuration): Remove reference to CrossGCC
-	FAQ which was hijacked.
+	FAQ which was gone.
 	(Building): Ditto.
 
 2006-05-17  H.J. Lu  <hongjiu.lu@intel.com>

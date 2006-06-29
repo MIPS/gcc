@@ -1,3 +1,24 @@
+2006-06-25  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/27821
+	* decl.c (grokdeclarator): Return error_mark_node on
+	invalid uses of the scope resolution operator.
+	
+2006-06-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28112
+	* parser.c (cp_parser_attribute_list): Skip attributes with invalid
+	arguments.  Fix comment.
+
+2006-06-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28110
+	* pt.c (unify) <case TEMPLATE_PARM_INDEX>: Check for invalid
+	parameters.
+
+	PR c++/28109
+	* rtti.c (get_tinfo_decl_dynamic): Robustify.
+
 2006-06-16  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/27884

@@ -1,3 +1,108 @@
+2006-06-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/19310
+	PR fortran/19904
+	* gfortran.dg/real_const_3.f90: New test.
+
+2006-06-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20867
+	* gfortran.dg/stfunc_3.f90: New test.
+
+	PR fortran/25056
+	* gfortran.dg/impure_actual_1.f90: New test.
+
+	PR fortran/20874
+	* gfortran.dg/elemental_result_1.f90: New test.
+
+	PR fortran/25073
+	* gfortran.dg/select_7.f90: New test.
+
+	PR fortran/27554
+	* intrinsic_actual_1.f: New test.
+
+	PR fortran/22038
+	PR fortran/28119
+	* gfortran.dg/forall_4.f90: New test.
+
+	PR fortran/25072
+	* gfortran.dg/forall_5.f90: New test.
+
+2006-06-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20060625-1.c: New test.
+
+2006-06-25  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/27821
+	* g++.dg/template/error22.C: New test.
+	
+2006-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28118
+	* gfortran.dg/actual_array_substr_1.f90: New test.
+
+2006-06-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28112
+	* g++.dg/ext/attrib23.C: New test.
+
+2006-06-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28045
+	* gcc.dg/torture/pr28045.c: New testcase.
+
+2006-06-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/16206
+	* gfortran.dg/array_initializer_1.f90: New test.
+
+2006-06-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28110
+	* g++.dg/template/crash53.C: New test.
+
+	PR c++/28109
+	* g++.dg/rtti/incomplete1.C: New test.
+
+2006-06-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* gfortran.dg/rrspacing_1.f90:  New test.
+
+2006-06-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27781
+	* gcc.dg/tree-ssa/pr27781.c: New testcase.
+
+2006-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/merge-all-constants-1.c: New test.
+
+2006-06-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27861
+	* gcc.dg/pr27861-1.c: New test case.
+
+2006-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27958
+	* gcc/testsuite/gfortran.dg/substr_2.f: New test.
+
+2006-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27895
+	* gfortran.dg/bounds_check_3.f90: New test.
+
+2006-06-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27715
+	* gfortran.dg/extended_char_comparison_1.f:  New test.
+
+2006-06-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27784
+	* gfortran.dg/string_null_compare_1.f:  New test case.
+
 2006-06-18  Roger Sayle  <roger@eyesopen.com>
 
 	PR middle-end/27802

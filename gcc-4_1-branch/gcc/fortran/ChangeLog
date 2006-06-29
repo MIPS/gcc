@@ -1,3 +1,162 @@
+2006-06-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/19310
+	PR fortran/19904
+	* arith.c (gfc_range_check): Return ARITH_OK if -fno-range-check. Add
+	return of ARITH_NAN, ARITH_UNDERFLOW, and ARITH_OVERFLOW.
+	(gfc_arith_divide): If -fno-range-check allow mpfr to divide by zero.
+	* gfortran.h (gfc_option_t): Add new flag.
+	* invoke.texi: Document new flag.
+	* lang.opt: Add option -frange-check.
+	* options.c (gfc_init_options): Initialize new flag.
+	(gfc_handle_options): Set flag if invoked.
+	* simplify.c (range_check): Add error messages for
+	overflow, underflow, and other errors.
+	* trans-const.c (gfc_conv_mpfr_to_tree): Build NaN and Inf from mpfr
+	result.
+
+2006-06-25  Paul Thomas  <pault@gcc.gnu.org>
+ 
+	PR fortran/25056
+	* interface.c (compare_actual_formal): Signal an error if the formal
+	argument is a pure procedure and the actual is not pure.
+
+	PR fortran/27554
+	* resolve.c (resolve_actual_arglist): If the type of procedure
+	passed as an actual argument is not already declared, see if it is
+	an intrinsic.
+
+	PR fortran/25073
+	* resolve.c (resolve_select): Use bits 1 and 2 of a new int to
+	keep track of  the appearance of constant logical case expressions.
+	Signal an error is either value appears more than once.
+
+	PR fortran/20874
+	* resolve.c (resolve_fl_procedure): Signal an error if an elemental
+	function is not scalar valued.
+
+	PR fortran/20867
+	* match.c (recursive_stmt_fcn): Perform implicit typing of variables.
+
+	PR fortran/22038
+	* match.c (match_forall_iterator): Mark new variables as
+	FL_UNKNOWN if the match fails.
+
+	PR fortran/28119
+	* match.c (gfc_match_forall): Remove extraneous call to
+	gfc_match_eos.
+
+	PR fortran/25072
+	* resolve.c (resolve_code, resolve_function): Rework
+	forall_flag scheme so that it is set and has a value of
+	2, when the code->expr (ie. the forall mask) is resolved.
+	This is used to change "block" to "mask" in the non-PURE
+	error message.
+
+2006-06-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28118
+	* trans-array.c (gfc_conv_expr_descriptor): When building temp,
+	use the substring reference to calculate the length if the
+	expression does not have a charlen.
+
+2006-06-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25049
+	PR fortran/25050
+	* check.c (non_init_transformational): New function.
+	(find_substring_ref): New function to signal use of disallowed
+	transformational intrinsic in an initialization expression.
+	(gfc_check_all_any): Call previous if initialization expr.
+	(gfc_check_count): The same.
+	(gfc_check_cshift): The same.
+	(gfc_check_dot_product): The same.
+	(gfc_check_eoshift): The same.
+	(gfc_check_minloc_maxloc): The same.
+	(gfc_check_minval_maxval): The same.
+	(gfc_check_gfc_check_product_sum): The same.
+	(gfc_check_pack): The same.
+	(gfc_check_spread): The same.
+	(gfc_check_transpose): The same.
+	(gfc_check_unpack): The same.
+
+	PR fortran/18769
+	*intrinsic.c (add_functions): Add gfc_simplify_transfer.
+	*intrinsic.h : Add prototype for gfc_simplify_transfer.
+	*simplify.c (gfc_simplify_transfer) : New function to act as
+	placeholder for eventual implementation.  Emit error for now.
+
+	PR fortran/16206
+	* expr.c (find_array_element): Eliminate condition on length of
+	offset. Add bounds checking. Rearrange exit. Return try and
+	put gfc_constructor result as an argument.
+	(find_array_section): New function.
+	(find_substring_ref): New function.
+	(simplify_const_ref): Add calls to previous.
+	(simplify_parameter_variable): Return on NULL expr.
+	(gfc_simplify_expr): Only call gfc_expand_constructor for full
+	arrays.
+
+	PR fortran/20876
+	* match.c (gfc_match_forall): Add missing locus to gfc_code.
+
+2006-06-21  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_rrspacing): Initialize and clear mpfr_t
+	variable.
+
+2006-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27958
+	* trans-expr.c (gfc_conv_substring): If the substring start is
+	greater than its end, the length of the substring is zero, and
+	not negative.
+	(gfc_trans_string_copy): Don't generate a call to
+	_gfortran_copy_string when destination length is zero.
+
+2006-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/27895
+	* resolve.c (compute_last_value_for_triplet): New function.
+	(check_dimension): Correctly handle zero-sized array sections.
+	Add checking on last element of array sections.
+
+2006-06-20  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* trans.c (gfc_msg_bounds, gfc_msg_fault, gfc_msg_wrong_return):
+	Add strings for common runtime error messages.
+	(gfc_trans_runtime_check): Add a locus argument, use a string
+	and not a string tree for the message.
+	* trans.h (gfc_trans_runtime_check): Change prototype accordingly.
+	(gfc_msg_bounds, gfc_msg_fault, gfc_msg_wrong_return): Add proto.
+	* trans-const.c (gfc_strconst_bounds, gfc_strconst_fault,
+	gfc_strconst_wrong_return, gfc_strconst_current_filename): Remove.
+	(gfc_init_constants): Likewise.
+	* trans-const.h: Likewise.
+	* trans-decl.c (gfc_build_builtin_function_decls): Call to
+	_gfortran_runtime_error has only one argument, the message string.
+	* trans-array.h (gfc_conv_array_ref): Add a symbol argument and a
+	locus.
+	* trans-array.c (gfc_trans_array_bound_check): Build precise
+	error messages.
+	(gfc_conv_array_ref): Use the new symbol argument and the locus
+	to build more precise error messages.
+	(gfc_conv_ss_startstride): More precise error messages.
+	* trans-expr.c (gfc_conv_variable): Give symbol reference and
+	locus to gfc_conv_array_ref.
+	(gfc_conv_function_call): Use the new prototype for
+	gfc_trans_runtime_check.
+	* trans-stmt.c (gfc_trans_goto): Build more precise error message.
+	* trans-io.c (set_string): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Use new prototype
+	for gfc_trans_runtime_check.
+
+2006-06-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27715
+	* arith.c:  Cast the characters from the strings to unsigned
+	char to avoid values less than 0 for extended ASCII.
+
 2006-06-15  Asher Langton  <langton2@llnl.gov>
 	
 	PR fortran/27786

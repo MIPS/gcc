@@ -14573,6 +14573,8 @@ cp_parser_attribute_list (cp_parser* parser)
       if (token->type == CPP_NAME
 	  || token->type == CPP_KEYWORD)
 	{
+	  tree arguments = NULL_TREE;
+
 	  /* Consume the token.  */
 	  token = cp_lexer_consume_token (parser->lexer);
 
@@ -14586,18 +14588,19 @@ cp_parser_attribute_list (cp_parser* parser)
 	  /* If it's an `(', then parse the attribute arguments.  */
 	  if (token->type == CPP_OPEN_PAREN)
 	    {
-	      tree arguments;
-
-	      arguments = (cp_parser_parenthesized_expression_list
-			   (parser, true, /*cast_p=*/false,
-			    /*non_constant_p=*/NULL));
-	      /* Save the identifier and arguments away.  */
+	      arguments = cp_parser_parenthesized_expression_list
+			  (parser, true, /*cast_p=*/false,
+			   /*non_constant_p=*/NULL);
+	      /* Save the arguments away.  */
 	      TREE_VALUE (attribute) = arguments;
 	    }
 
-	  /* Add this attribute to the list.  */
-	  TREE_CHAIN (attribute) = attribute_list;
-	  attribute_list = attribute;
+	  if (arguments != error_mark_node)
+	    {
+	      /* Add this attribute to the list.  */
+	      TREE_CHAIN (attribute) = attribute_list;
+	      attribute_list = attribute;
+	    }
 
 	  token = cp_lexer_peek_token (parser->lexer);
 	}
