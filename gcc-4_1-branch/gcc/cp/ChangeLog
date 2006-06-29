@@ -1,3 +1,10 @@
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26559
+	* pt.c (tsubst_expr): Use finish_omp_atomic.
+	* semantics.c (finish_omp_atomic): Rework to use standard
+	paradigms for handling non-dependent expressions.
+
 2006-06-25  Lee Millward  <lee.millward@gmail.com>
 
 	PR c++/27821

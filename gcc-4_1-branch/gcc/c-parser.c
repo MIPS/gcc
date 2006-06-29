@@ -7175,6 +7175,7 @@ static void
 c_parser_omp_atomic (c_parser *parser)
 {
   tree lhs, rhs;
+  tree stmt;
   enum tree_code code;
 
   c_parser_skip_to_pragma_eol (parser);
@@ -7241,7 +7242,9 @@ c_parser_omp_atomic (c_parser *parser)
       rhs = c_parser_expression (parser).value;
       break;
     }
-  c_finish_omp_atomic (code, lhs, rhs);
+  stmt = c_finish_omp_atomic (code, lhs, rhs);
+  if (stmt != error_mark_node)
+    add_stmt (stmt);
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
 

@@ -8579,10 +8579,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	tree op0, op1;
 	op0 = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl);
 	op1 = tsubst_expr (TREE_OPERAND (t, 1), args, complain, in_decl);
-	if (OMP_ATOMIC_DEPENDENT_P (t))
-	  c_finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
-	else
-	  add_stmt (build2 (OMP_ATOMIC, void_type_node, op0, op1));
+	finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
       }
       break;
 

@@ -1,3 +1,8 @@
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26559
+	* g++.dg/gomp/tpl-atomic-2.C: Remove XFAIL.
+
 2006-06-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/19310
