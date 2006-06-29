@@ -5,6 +5,9 @@
 	* gcc/cp/tree.c (no_linkage_check): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/parser.c (cp_parser_late_parsing_default_args): Use
+	num_parm_types and nth_parm_type.
+
 2006-06-28  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (standard_conversion): Use nth_parm_type.

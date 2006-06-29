@@ -15942,8 +15942,10 @@ static void
 cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
 {
   bool saved_local_variables_forbidden_p;
-  tree type;
   tree parm;
+  tree parm_types;
+  int len;
+  int i;
 
   /* While we're parsing the default args, we might (due to the
      statement expression extension) encounter more classes.  We want
@@ -15957,9 +15959,11 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
   saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
   parser->local_variables_forbidden_p = true;
 
-  for (type = TYPE_ARG_TYPES (TREE_TYPE (fn)), parm = DECL_ARGUMENTS (fn);
-       type && parm;
-       type = TREE_CHAIN (type), parm = TREE_CHAIN (parm))
+  parm_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  len = num_parm_types (parm_types);
+  for (i = 0, parm = DECL_ARGUMENTS (fn);
+       i < len && parm;
+       i++, parm = TREE_CHAIN (parm))
     {
       cp_token_cache *tokens;
       tree default_arg = DECL_INITIAL (parm);
@@ -15985,7 +15989,7 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       parsed_arg = cp_parser_assignment_expression (parser, /*cast_p=*/false);
 
       if (!processing_template_decl)
-	parsed_arg = check_default_argument (TREE_VALUE (type), parsed_arg);
+	parsed_arg = check_default_argument (nth_parm_type (parm_types, i), parsed_arg);
       
       DECL_INITIAL (parm) = parsed_arg;
 
