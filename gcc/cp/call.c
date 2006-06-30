@@ -4688,6 +4688,8 @@ build_over_call (struct z_candidate *cand, int flags)
   tree arg, val;
   int i = 0;
   int is_method = 0;
+  int skip = 0;
+  int parmlen;
 
   /* In a template, there is no need to perform all of the work that
      is normally done.  We are only interested in the type of the call
@@ -4759,7 +4761,7 @@ build_over_call (struct z_candidate *cand, int flags)
     {
       converted_args = tree_cons (NULL_TREE, TREE_VALUE (arg), converted_args);
       arg = TREE_CHAIN (arg);
-      parm = TREE_CHAIN (parm);
+      skip++;
       decl = TREE_CHAIN (decl);
       /* We should never try to call the abstract constructor.  */
       gcc_assert (!DECL_HAS_IN_CHARGE_PARM_P (fn));
@@ -4769,14 +4771,14 @@ build_over_call (struct z_candidate *cand, int flags)
 	  converted_args = tree_cons
 	    (NULL_TREE, TREE_VALUE (arg), converted_args);
 	  arg = TREE_CHAIN (arg);
-	  parm = TREE_CHAIN (parm);
+	  skip++;
 	  decl = TREE_CHAIN (decl);
 	}
     }
   /* Bypass access control for 'this' parameter.  */
   else if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE)
     {
-      tree parmtype = TREE_VALUE (parm);
+      tree parmtype = nth_parm_type (parm, skip);
       tree argtype = TREE_TYPE (TREE_VALUE (arg));
       tree converted_arg;
       tree base_binfo;
@@ -4813,17 +4815,17 @@ build_over_call (struct z_candidate *cand, int flags)
 				       base_binfo, 1);
 
       converted_args = tree_cons (NULL_TREE, converted_arg, converted_args);
-      parm = TREE_CHAIN (parm);
+      skip++;
       arg = TREE_CHAIN (arg);
       decl = TREE_CHAIN (decl);
       ++i;
       is_method = 1;
     }
 
-  for (; arg && parm;
-       parm = TREE_CHAIN (parm), arg = TREE_CHAIN (arg), ++i)
+  parmlen = num_parm_types (parm);
+  for (; arg && skip < parmlen; arg = TREE_CHAIN (arg), ++i, skip++)
     {
-      tree type = TREE_VALUE (parm);
+      tree type = nth_parm_type (parm, skip);
 
       conv = convs[i];
       val = convert_like_with_context
@@ -4836,14 +4838,20 @@ build_over_call (struct z_candidate *cand, int flags)
     }
 
   /* Default arguments */
-  for (; parm && parm != void_list_node;
-       parm = TREE_CHAIN (parm), decl = TREE_CHAIN (decl), i++)
-    converted_args
-      = tree_cons (NULL_TREE,
-		   convert_default_arg (TREE_VALUE (parm),
-					DECL_INITIAL (decl),
-					fn, i - is_method),
-		   converted_args);
+  for (; skip < parmlen; decl = TREE_CHAIN (decl), i++, skip++)
+    {
+      tree type = nth_parm_type (parm, skip);
+
+      if (type == void_type_node)
+	break;
+
+      converted_args
+	= tree_cons (NULL_TREE,
+		     convert_default_arg (type,
+					  DECL_INITIAL (decl),
+					  fn, i - is_method),
+		     converted_args);
+    }
 
   /* Ellipsis */
   for (; arg; arg = TREE_CHAIN (arg))
