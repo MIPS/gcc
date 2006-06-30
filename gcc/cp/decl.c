@@ -9016,7 +9016,6 @@ void
 grok_op_properties (tree decl, bool complain)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
-  tree argtype;
   int methodp = (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE);
   tree name = DECL_NAME (decl);
   enum tree_code operator_code;
@@ -9025,11 +9024,14 @@ grok_op_properties (tree decl, bool complain)
   tree class_type;
 
   /* Count the number of arguments and check for ellipsis.  */
-  for (argtype = argtypes, arity = 0;
-       argtype && argtype != void_list_node;
-       argtype = TREE_CHAIN (argtype))
-    ++arity;
-  ellipsis_p = !argtype;
+  arity = num_parm_types (argtypes);
+  if (arity && nth_parm_type (argtypes, arity - 1) == void_type_node)
+    {
+      arity--;
+      ellipsis_p = false;
+    }
+  else
+    ellipsis_p = true;
 
   class_type = DECL_CONTEXT (decl);
   if (class_type && !CLASS_TYPE_P (class_type))
@@ -9128,7 +9130,7 @@ grok_op_properties (tree decl, bool complain)
 	    }
 	  else
 	    {
-	      tree p;
+	      int i;
 
 	      if (DECL_STATIC_FUNCTION_P (decl))
 		{
@@ -9137,9 +9139,9 @@ grok_op_properties (tree decl, bool complain)
 		  return;
 		}
 
-	      for (p = argtypes; p && p != void_list_node; p = TREE_CHAIN (p))
+	      for (i = 0; i < arity; i++)
 		{
-		  tree arg = non_reference (TREE_VALUE (p));
+		  tree arg = non_reference (nth_parm_type (argtypes, i));
 		  if (arg == error_mark_node)
 		    return;
 
@@ -9150,7 +9152,7 @@ grok_op_properties (tree decl, bool complain)
 		    break;
 		}
 
-	      if (!p || p == void_list_node)
+	      if (i == arity)
 		{
 		  if (!complain)
 		    return;
@@ -9253,7 +9255,7 @@ grok_op_properties (tree decl, bool complain)
 	      if ((operator_code == POSTINCREMENT_EXPR
 		   || operator_code == POSTDECREMENT_EXPR)
 		  && ! processing_template_decl
-		  && ! same_type_p (TREE_VALUE (TREE_CHAIN (argtypes)), integer_type_node))
+		  && ! same_type_p (nth_parm_type (argtypes, 1), integer_type_node))
 		{
 		  if (methodp)
 		    error ("postfix %qD must take %<int%> as its argument",
@@ -9279,7 +9281,7 @@ grok_op_properties (tree decl, bool complain)
 		  || operator_code == PREINCREMENT_EXPR
 		  || operator_code == PREDECREMENT_EXPR))
 	    {
-	      tree arg = TREE_VALUE (argtypes);
+	      tree arg = nth_parm_type (argtypes, 0);
 	      tree ret = TREE_TYPE (TREE_TYPE (decl));
 	      if (methodp || TREE_CODE (arg) == REFERENCE_TYPE)
 		arg = TREE_TYPE (arg);

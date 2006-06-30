@@ -3,6 +3,9 @@
 	* gcc/cp/call.c (build_over_call): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/decl.c (grok_op_properties): Use num_parm_types and
+	nth_parm_type.
+
 2006-06-29  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/pt.c (unify): Use nth_parm_type.
