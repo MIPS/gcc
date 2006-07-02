@@ -8,6 +8,9 @@
 
 	* gcc/cp/class.c (add_method): Use nth_parm_type.
 
+	* gcc/cp/pt.c (push_template_decl_real): Use num_parm_types and
+	nth_parm_type in push_template_decl_real.
+
 2006-06-30  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_over_call): Use num_parm_types and

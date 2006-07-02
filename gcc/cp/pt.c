@@ -2907,20 +2907,26 @@ push_template_decl_real (tree decl, bool is_friend)
 	      error ("destructor %qD declared as member template", decl);
 	      return error_mark_node;
 	    }
-	  if (NEW_DELETE_OPNAME_P (DECL_NAME (decl))
-	      && (!TYPE_ARG_TYPES (TREE_TYPE (decl))
-		  || TYPE_ARG_TYPES (TREE_TYPE (decl)) == void_list_node
-		  || !TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl)))
-		  || (TREE_CHAIN (TYPE_ARG_TYPES ((TREE_TYPE (decl))))
-		      == void_list_node)))
+	  if (NEW_DELETE_OPNAME_P (DECL_NAME (decl)))
 	    {
-	      /* [basic.stc.dynamic.allocation]
+	      tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	      int parm_types_len = num_parm_types (parm_types);
 
-		 An allocation function can be a function
-		 template. ... Template allocation functions shall
-		 have two or more parameters.  */
-	      error ("invalid template declaration of %qD", decl);
-	      return error_mark_node;
+	      if (parm_types_len == 0
+		  || (parm_types_len == 1
+		      && nth_parm_type (parm_types, 0) == void_type_node)
+		  || parm_types_len == 1
+		  || (parm_types_len == 2
+		      && nth_parm_type (parm_types, 1) == void_type_node))
+		{
+		  /* [basic.stc.dynamic.allocation]
+
+		     An allocation function can be a function
+		     template. ... Template allocation functions shall
+		     have two or more parameters.  */
+		  error ("invalid template declaration of %qD", decl);
+		  return error_mark_node;
+		}
 	    }
 	}
       else if (DECL_IMPLICIT_TYPEDEF_P (decl)
