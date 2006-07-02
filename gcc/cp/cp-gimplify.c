@@ -714,15 +714,19 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 {
   tree defparm, parm, decl;
   int i;
+  int skip = 0;
+  int defparmlen;
 
   if (fn == NULL)
     return NULL;
 
-  defparm = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn)));
+  defparm = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  skip++;
+  defparmlen = num_parm_types (defparm);
   decl = TREE_CHAIN (DECL_ARGUMENTS (fn));
   if (arg2)
     {
-      defparm = TREE_CHAIN (defparm);
+      skip++;
       decl = TREE_CHAIN (decl);
     }
 
@@ -773,10 +777,10 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	t = tree_cons (NULL, p2, t);
       /* Handle default arguments.  */
       i = 1 + (arg2 != NULL);
-      for (parm = defparm;
-	   parm != void_list_node;
-	   parm = TREE_CHAIN (parm), decl = TREE_CHAIN (decl))
-	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
+      for (;
+	   (parm = nth_parm_type (defparm, skip)) != void_type_node;
+	   decl = TREE_CHAIN (decl), skip++)
+	t = tree_cons (NULL, convert_default_arg (parm,
 						  DECL_INITIAL (decl),
 						  fn, i++), t);
       t = build_call (fn, nreverse (t));
@@ -808,10 +812,10 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	t = tree_cons (NULL, build_fold_addr_expr (arg2), t);
       /* Handle default arguments.  */
       i = 1 + (arg2 != NULL);
-      for (parm = defparm;
-	   parm != void_list_node;
-	   parm = TREE_CHAIN (parm), decl = TREE_CHAIN (decl))
-	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
+      for (;
+	   (parm = nth_parm_type (defparm, skip)) != void_type_node;
+	   decl = TREE_CHAIN (decl), skip++)
+	t = tree_cons (NULL, convert_default_arg (parm,
 						  DECL_INITIAL (decl),
 						  fn, i++), t);
       return build_call (fn, nreverse (t));
