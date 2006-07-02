@@ -6,6 +6,8 @@
 	* gcc/cp/mangle.c (write_method_parms): Use num_parm_types and
 	nth_parm_type in write_method_parms.
 
+	* gcc/cp/class.c (add_method): Use nth_parm_type.
+
 2006-06-30  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_over_call): Use num_parm_types and

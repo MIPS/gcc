@@ -1019,8 +1019,8 @@ add_method (tree type, tree method, tree using_decl)
 	     coming from the using class in overload resolution.  */
 	  if (! DECL_STATIC_FUNCTION_P (fn)
 	      && ! DECL_STATIC_FUNCTION_P (method)
-	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
-		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
+	      && (TYPE_QUALS (TREE_TYPE (nth_parm_type (parms1, 0)))
+		  != TYPE_QUALS (TREE_TYPE (nth_parm_type (parms2, 0)))))
 	    continue;
 
 	  /* For templates, the return type and template parameters
