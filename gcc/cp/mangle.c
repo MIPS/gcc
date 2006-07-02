@@ -1907,8 +1907,10 @@ write_bare_function_type (const tree type, const int include_return_type_p,
 static void
 write_method_parms (tree parm_types, const int method_p, const tree decl)
 {
-  tree first_parm_type;
   tree parm_decl = decl ? DECL_ARGUMENTS (decl) : NULL_TREE;
+  int len = num_parm_types (parm_types);
+  int skip = 0;
+  int i;
 
   /* Assume this parameter type list is variable-length.  If it ends
      with a void type, then it's not.  */
@@ -1923,33 +1925,31 @@ write_method_parms (tree parm_types, const int method_p, const tree decl)
      the VTT parameters for constructors and destructors.  */
   if (method_p)
     {
-      parm_types = TREE_CHAIN (parm_types);
+      skip++;
       parm_decl = parm_decl ? TREE_CHAIN (parm_decl) : NULL_TREE;
 
       while (parm_decl && DECL_ARTIFICIAL (parm_decl))
 	{
-	  parm_types = TREE_CHAIN (parm_types);
+	  skip++;
 	  parm_decl = TREE_CHAIN (parm_decl);
 	}
     }
 
-  for (first_parm_type = parm_types;
-       parm_types;
-       parm_types = TREE_CHAIN (parm_types))
+  for (i = skip; i < len; i++)
     {
-      tree parm = TREE_VALUE (parm_types);
+      tree parm = nth_parm_type (parm_types, i);
       if (parm == void_type_node)
 	{
 	  /* "Empty parameter lists, whether declared as () or
 	     conventionally as (void), are encoded with a void parameter
 	     (v)."  */
-	  if (parm_types == first_parm_type)
+	  if (i == skip)
 	    write_type (parm);
 	  /* If the parm list is terminated with a void type, it's
 	     fixed-length.  */
 	  varargs_p = 0;
 	  /* A void type better be the last one.  */
-	  gcc_assert (TREE_CHAIN (parm_types) == NULL);
+	  gcc_assert (i == len - 1);
 	}
       else
 	write_type (parm);

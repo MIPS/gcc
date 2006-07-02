@@ -3,6 +3,9 @@
 	* gcc/cp/cp-gimplify.c (cxx_omp_clause_apply_fn): Use
 	num_parm_types and nth_parm_type.
 
+	* gcc/cp/mangle.c (write_method_parms): Use num_parm_types and
+	nth_parm_type in write_method_parms.
+
 2006-06-30  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/call.c (build_over_call): Use num_parm_types and
