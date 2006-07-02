@@ -5549,8 +5549,10 @@ extract_mentioned_regs_helper (rtx x, rtx accum)
 
     case PRE_DEC:
     case PRE_INC:
+    case PRE_MODIFY:
     case POST_DEC:
     case POST_INC:
+    case POST_MODIFY:
       /* We do not run this function with arguments having side effects.  */
       gcc_unreachable ();
 

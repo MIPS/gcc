@@ -985,8 +985,8 @@ OBJS-common = \
  tree-ssa-loop-ivcanon.o tree-ssa-propagate.o tree-ssa-address.o	   \
  tree-ssa-math-opts.o							   \
  tree-ssa-loop-ivopts.o tree-if-conv.o tree-ssa-loop-unswitch.o		   \
- alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
- cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
+ alias.o auto-inc-dec.o bb-reorder.o bitmap.o builtins.o caller-save.o     \
+ calls.o cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o	   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o coverage.o cse.o cselib.o 	   \
  dbxout.o ddg.o tree-ssa-loop-ch.o loop-invariant.o tree-ssa-loop-im.o	   \
@@ -2414,6 +2414,10 @@ loop-doloop.o : loop-doloop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(FLAGS_H) $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) \
    toplev.h $(CFGLOOP_H) output.h $(PARAMS_H) $(TARGET_H)
 alloc-pool.o : alloc-pool.c $(CONFIG_H) $(SYSTEM_H) alloc-pool.h $(HASHTAB_H)
+auto-inc-dec.o : auto-inc-dec.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_H) $(RTL_H) $(TM_P_H) hard-reg-set.h $(BASIC_BLOCK_H) insn-config.h \
+   $(REGS_H) $(FLAGS_H) output.h $(FUNCTION_H) except.h toplev.h $(RECOG_H) \
+   $(EXPR_H) $(TIMEVAR_H) tree-pass.h $(DF_H) 
 flow.o : flow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) insn-config.h $(BASIC_BLOCK_H) $(REGS_H) \
    hard-reg-set.h output.h toplev.h $(RECOG_H) $(FUNCTION_H) except.h \

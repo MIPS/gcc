@@ -5151,9 +5151,9 @@ thread_prologue_and_epilogue_insns (void)
      x86-64 this shows up as failues in g++ excepion handling and is
      extremely difficult to debug because the problem is with the way
      that that the g++ library is compiled and this library was not
-     designed for modular testing.  All of the test cases that when
-     dce is added here fail in the gcc library, not in the test
-     case.  */
+     designed for modular testing.  All of the test cases that fail
+     because of running dce here fail in the g++ library, not in the
+     test case.  */
   df_lr_add_problem (prologue_epilogue_df, 0);
   df_analyze (prologue_epilogue_df);
 

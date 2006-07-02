@@ -827,11 +827,19 @@ enum update_life_extent
 #define PROP_POST_REGSTACK	4096	/* We run after reg-stack and need
 					   to preserve REG_DEAD notes for
 					   stack regs.  */
+#if 1
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#else
+#define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
+				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE \
+				 | PROP_ALLOW_CFG_CHANGES \
+				 | PROP_SCAN_DEAD_STORES)
+#endif
 #define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
 				 | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE \

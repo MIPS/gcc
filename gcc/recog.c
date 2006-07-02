@@ -1659,7 +1659,7 @@ asm_operand_ok (rtx op, const char *constraint)
 	  break;
 
 	case '<':
-	  /* ??? Before flow, auto inc/dec insns are not supposed to exist,
+	  /* ??? Before auto-inc-dec, auto inc/dec insns are not supposed to exist,
 	     excepting those that expand_call created.  Further, on some
 	     machines which do not have generalized auto inc/dec, an inc/dec
 	     is not a memory_operand.

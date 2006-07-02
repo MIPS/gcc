@@ -339,10 +339,10 @@ global_alloc (void)
   max_regno = max_reg_num ();
   compact_blocks ();
 
-  if (dump_file)
-    df_dump (ra_df, dump_file);
   max_allocno = 0;
   df_analyze (ra_df);
+  if (dump_file)
+    df_dump (ra_df, dump_file);
 
 #if 0
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -816,6 +816,13 @@ global_conflicts (void)
 
 	      note_stores (PATTERN (insn), mark_reg_clobber, NULL);
 
+#ifdef AUTO_INC_DEC
+	      /* Auto-increment instructions clobber the base
+		 register.  */
+	      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+		if (REG_NOTE_KIND (link) == REG_INC)
+		  mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
+#endif
 	      /* Mark any registers dead after INSN as dead now.  */
 
 	      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -828,12 +835,6 @@ global_conflicts (void)
 		 the registers that are set.  */
 
 	      note_stores (PATTERN (insn), mark_reg_store, NULL);
-
-#ifdef AUTO_INC_DEC
-	      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-		if (REG_NOTE_KIND (link) == REG_INC)
-		  mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
-#endif
 
 	      /* If INSN has multiple outputs, then any reg that dies here
 		 and is used inside of an output

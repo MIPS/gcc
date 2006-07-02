@@ -1545,6 +1545,8 @@ typedef struct rs6000_args
 
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
+#define HAVE_PRE_MODIFY_DISP 1
+#define HAVE_PRE_MODIFY_REG 1
 
 /* Macros to check register numbers against specific register classes.  */
 

@@ -467,7 +467,7 @@ dce_process_block (basic_block bb, bool redo_out)
   for (def = df_get_artificial_defs (dce_df, bb_index); 
        def; def = def->next_ref)
     if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
   for (use = df_get_artificial_uses (dce_df, bb_index); 
@@ -537,7 +537,7 @@ dce_process_block (basic_block bb, bool redo_out)
 	for (def = DF_INSN_GET (dce_df, insn)->defs; def; def = def->next_ref)
 	  {
 	    unsigned int regno = DF_REF_REGNO (def);
-	    if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	      bitmap_clear_bit (local_live, regno);
 	  }
 	if (marked_insn_p (insn))
@@ -551,7 +551,7 @@ dce_process_block (basic_block bb, bool redo_out)
   
   for (def = df_get_artificial_defs (dce_df, bb_index); def; def = def->next_ref)
     if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
 #ifdef EH_USES

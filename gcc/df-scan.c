@@ -87,7 +87,8 @@ static void df_ref_record (struct dataflow *, rtx, rtx *,
 			   enum df_ref_flags, bool record_live);
 static void df_def_record_1 (struct dataflow *, rtx, basic_block, rtx,
 			     enum df_ref_flags, bool record_live);
-static void df_defs_record (struct dataflow *, rtx, basic_block, rtx);
+static void df_defs_record (struct dataflow *, rtx, basic_block, rtx,
+			    enum df_ref_flags);
 static void df_uses_record (struct dataflow *, rtx *, enum df_ref_type,
 			    basic_block, rtx, enum df_ref_flags);
 
@@ -1256,7 +1257,8 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
 /* Process all the registers defined in the pattern rtx, X.  */
 
 static void
-df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
+df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn,
+		enum df_ref_flags flags)
 {
   RTX_CODE code = GET_CODE (x);
 
@@ -1264,11 +1266,13 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
     {
       /* Mark the single def within the pattern.  */
       df_def_record_1 (dflow, x, bb, insn, 
-		       code == CLOBBER ? DF_REF_MUST_CLOBBER : 0, true);
+		       code == CLOBBER ? DF_REF_MUST_CLOBBER | flags : flags, 
+		       true);
     }
   else if (code == COND_EXEC)
     {
-      df_defs_record  (dflow, COND_EXEC_CODE (x), bb, insn);
+      df_defs_record  (dflow, COND_EXEC_CODE (x), bb, insn, 
+		       DF_REF_CONDITIONAL);
     }
   else if (code == PARALLEL)
     {
@@ -1276,7 +1280,8 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
 
       /* Mark the multiple defs within the pattern.  */
       for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	 df_defs_record (dflow, XVECEXP (x, 0, i), bb, insn);
+	 df_defs_record (dflow, XVECEXP (x, 0, i), bb, insn,
+			 flags);
     }
 }
 
@@ -1528,7 +1533,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	DF_INSN_CONTAINS_ASM (df, insn) = true;
       
       /* Record register defs.  */
-      df_defs_record (dflow, PATTERN (insn), bb, insn);
+      df_defs_record (dflow, PATTERN (insn), bb, insn, 0);
 
       if (dflow->flags & DF_EQUIV_NOTES)
 	for (note = REG_NOTES (insn); note;
@@ -1560,7 +1565,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 				bb, insn, 0);
               else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 		{
-		  df_defs_record (dflow, XEXP (note, 0), bb, insn);
+		  df_defs_record (dflow, XEXP (note, 0), bb, insn, 0);
 		  if (REG_P (XEXP (XEXP (note, 0), 0)))
 		    {
 		      rtx reg = XEXP (XEXP (note, 0), 0);
@@ -1623,6 +1628,27 @@ df_has_eh_preds (basic_block bb)
     }
   return false;
 }
+
+
+/* Recompute the luids for the insns in BB.  */
+
+void
+df_recompute_luids (struct df *df, basic_block bb)
+{
+  rtx insn;
+  int luid = 0;
+
+  /* Scan the block an insn at a time from beginning to end.  */
+  FOR_BB_INSNS (bb, insn)
+    {
+      if (INSN_P (insn))
+	{
+	  DF_INSN_LUID (df, insn) = luid++;
+	}
+      DF_INSN_LUID (df, insn) = luid;
+    }
+}
+
 
 /* Record all the refs within the basic block BB.  */
 

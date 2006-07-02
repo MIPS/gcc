@@ -514,7 +514,8 @@ df_finish1 (struct df *df)
 
 
 /* Hybrid search algorithm from "Implementation Techniques for
-   Efficient Data-Flow Analysis of Large Programs".  */
+   Efficient Data-Flow Analysis of Large Programs" 
+   by  Darren C. Atkinson, William G. Griswold.  */
 
 static void
 df_hybrid_search_forward (basic_block bb, 

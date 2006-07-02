@@ -473,7 +473,7 @@ df_ru_bb_local_compute_process_def (struct dataflow *dflow,
       if ((top_flag == (DF_REF_FLAGS (def) & DF_REF_AT_TOP))
 	  /* If the def is to only part of the reg, it is as if it did
 	     not happen, since some of the bits may get thru.  */
-	  && (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
 	{
 	  unsigned int regno = DF_REF_REGNO (def);
 	  unsigned int begin = DF_REG_USE_GET (df, regno)->begin;
@@ -1029,8 +1029,8 @@ df_rd_bb_local_compute_process_def (struct dataflow *dflow,
 	      if ((!bitmap_bit_p (seen_in_insn, regno))
 		  /* If the def is to only part of the reg, it does
 		     not kill the other defs that reach here.  */
-		  && (!((DF_REF_FLAGS (def) & DF_REF_PARTIAL)
-			 || (DF_REF_FLAGS (def) & DF_REF_MAY_CLOBBER))))
+		  && (!(DF_REF_FLAGS (def) & 
+			(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))))
 		{
 		  if (n_defs > DF_SPARSE_THRESHOLD)
 		    {
@@ -1478,7 +1478,7 @@ df_lr_bb_local_compute (struct dataflow *dflow,
   /* Process the registers set in an exception handler.  */
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
     if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       {
 	unsigned int dregno = DF_REF_REGNO (def);
 	bitmap_set_bit (bb_info->def, dregno);
@@ -1515,7 +1515,7 @@ df_lr_bb_local_compute (struct dataflow *dflow,
 		    {
 		      /* If the def is to only part of the reg, it does
 			 not kill the other defs that reach here.  */
-		      if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+		      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 			{
 			  bitmap_set_bit (bb_info->def, dregno);
 			  bitmap_clear_bit (bb_info->use, dregno);
@@ -1524,7 +1524,7 @@ df_lr_bb_local_compute (struct dataflow *dflow,
 		}
 	      else
 		/* This is the return value.  */
-		if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+		if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		  {
 		    bitmap_set_bit (bb_info->def, dregno);
 		    bitmap_clear_bit (bb_info->use, dregno);
@@ -1548,7 +1548,7 @@ df_lr_bb_local_compute (struct dataflow *dflow,
 		}
 	      /* If the def is to only part of the reg, it does
 		     not kill the other defs that reach here.  */
-	      if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
 		  bitmap_set_bit (bb_info->def, dregno);
 		  bitmap_clear_bit (bb_info->use, dregno);
@@ -1564,7 +1564,7 @@ df_lr_bb_local_compute (struct dataflow *dflow,
   /* Process the registers set in an exception handler.  */
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
     if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       {
 	unsigned int dregno = DF_REF_REGNO (def);
 	bitmap_set_bit (bb_info->def, dregno);
@@ -1762,7 +1762,7 @@ df_lr_simulate_artificial_refs_at_end (struct df *df, basic_block bb,
   bitmap_copy (live, DF_UPWARD_LIVE_OUT (df, bb));
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
     if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
+	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
       bitmap_clear_bit (live, DF_REF_REGNO (def));
   
   for (use = df_get_artificial_uses (df, bb_index); use; use = use->next_ref)
@@ -1801,13 +1801,13 @@ df_lr_simulate_one_insn (struct df *df, basic_block bb,
 		{
 		  /* If the def is to only part of the reg, it does
 		     not kill the other defs that reach here.  */
-		  if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		    bitmap_clear_bit (live, dregno);
 		}
 	    }
 	  else
 	    /* This is the return value.  */
-	    if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	      bitmap_clear_bit (live, dregno);
 	}
     }
@@ -1819,7 +1819,7 @@ df_lr_simulate_one_insn (struct df *df, basic_block bb,
   
 	  /* If the def is to only part of the reg, it does
 	     not kill the other defs that reach here.  */
-	  if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	    bitmap_clear_bit (live, dregno);
 	}
     }
@@ -2035,7 +2035,7 @@ df_ur_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
 		  /* Only must clobbers for the entire reg destroy the
 		     value.  */
 		  if ((DF_REF_FLAGS (def) & DF_REF_MUST_CLOBBER)
-		      && (!DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+		      && (!DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		    bitmap_set_bit (bb_info->kill, regno);
 		}
 	      else
@@ -3108,7 +3108,7 @@ df_chain_create_bb (struct dataflow *dflow,
     if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
       {
 	unsigned int dregno = DF_REF_REGNO (def);
-	if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	  bitmap_clear_range (cpy, 
 			      DF_REG_DEF_GET (df, dregno)->begin, 
 			      DF_REG_DEF_GET (df, dregno)->n_refs);
@@ -3135,7 +3135,7 @@ df_chain_create_bb (struct dataflow *dflow,
       for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
-	  if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	    bitmap_clear_range (cpy, 
 				DF_REG_DEF_GET (df, dregno)->begin, 
 				DF_REG_DEF_GET (df, dregno)->n_refs);
@@ -3590,7 +3590,7 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
 	     the end of the block to the live length.  */
 	  if (bitmap_bit_p (local_processed, dregno))
 	    {
-	      if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		bitmap_clear_bit (local_live, dregno);
 	    }
 	  else
@@ -3630,8 +3630,8 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
   if (!(DF_REF_FLAGS (def) & (DF_REF_MUST_CLOBBER + DF_REF_MAY_CLOBBER)))
     bitmap_set_bit (do_not_gen, dregno);
   
-  /* Kill this register if it is not a subreg store.  */
-  if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+  /* Kill this register if it is not a subreg store or conditional store.  */
+  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
     bitmap_clear_bit (live, dregno);
 }
 

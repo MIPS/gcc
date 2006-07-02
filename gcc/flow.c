@@ -119,10 +119,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	- pre/post modify transformation
 */
 
-#if 0
-#include <execinfo.h>
-#include <stdio.h>
-#endif
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -1351,11 +1347,10 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		{
 		  struct reg_cond_life_info *rcli;
 		  rtx cond;
-		  bool true_in;
 
 		  rcli = XNEW (struct reg_cond_life_info);
 
-		  if (REGNO_REG_SET_P (df_get_live_in (rtl_df, bb_true) i))
+		  if (REGNO_REG_SET_P (df_get_live_in (rtl_df, bb_true), i))
 		    cond = cond_false;
 		  else
 		    cond = cond_true;
@@ -2843,6 +2838,7 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
      auto-inc, so update the status.  First, record that this insn
      has an implicit side effect.  */
 
+  gcc_unreachable ();
   REG_NOTES (insn) = alloc_EXPR_LIST (REG_INC, incr_reg, REG_NOTES (insn));
 
   /* Modify the old increment-insn to simply copy
@@ -3583,6 +3579,7 @@ try_pre_increment (rtx insn, rtx reg, HOST_WIDE_INT amount)
 					Pmode, reg), 0))
     return 0;
 
+  gcc_unreachable ();
   /* Record that this insn now has an implicit side effect on X.  */
   REG_NOTES (insn) = alloc_EXPR_LIST (REG_INC, reg, REG_NOTES (insn));
   return 1;

@@ -1338,23 +1338,26 @@ do {						\
    offset within that block.  */
 #define SYMBOL_REF_BLOCK_OFFSET(RTX) (BLOCK_SYMBOL_CHECK (RTX)->offset)
 
+/* Indicate whether the machine has any sort of auto increment addressing.
+   If not, we can avoid checking for REG_INC notes.  */
+
+#if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) \
+     || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT) \
+     || defined (HAVE_PRE_MODIFY_DISP) || defined (HAVE_PRE_MODIFY_DISP) \
+     || defined (HAVE_PRE_MODIFY_REG) || defined (HAVE_POST_MODIFY_REG))
+#define AUTO_INC_DEC
+#endif
+
 /* Define a macro to look for REG_INC notes,
    but save time on machines where they never exist.  */
 
-#if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT))
+#ifdef AUTO_INC_DEC
 #define FIND_REG_INC_NOTE(INSN, REG)			\
   ((REG) != NULL_RTX && REG_P ((REG))			\
    ? find_regno_note ((INSN), REG_INC, REGNO (REG))	\
    : find_reg_note ((INSN), REG_INC, (REG)))
 #else
 #define FIND_REG_INC_NOTE(INSN, REG) 0
-#endif
-
-/* Indicate whether the machine has any sort of auto increment addressing.
-   If not, we can avoid checking for REG_INC notes.  */
-
-#if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT))
-#define AUTO_INC_DEC
 #endif
 
 #ifndef HAVE_PRE_INCREMENT

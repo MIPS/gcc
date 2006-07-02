@@ -117,7 +117,11 @@ enum df_ref_flags
 
     /* This flag is set if this ref is a partial use or def of the
        associated register.  */
-    DF_REF_PARTIAL = 256
+    DF_REF_PARTIAL = 256,
+    
+    /* This flag is set if this ref occurs inside of a conditional
+       execution instruction.  */
+    DF_REF_CONDITIONAL = 512
   };
 
 
@@ -672,6 +676,7 @@ extern void df_bb_refs_delete (struct dataflow *, int);
 extern void df_refs_delete (struct dataflow *, bitmap);
 extern void df_insn_refs_record (struct dataflow *, basic_block, rtx);
 extern bool df_has_eh_preds (basic_block);
+extern void df_recompute_luids (struct df *, basic_block);
 extern void df_reorganize_refs (struct df_ref_info *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);

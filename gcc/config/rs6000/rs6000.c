@@ -3549,6 +3549,23 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
+  if (GET_CODE (x) == PRE_MODIFY
+      && mode != TImode
+      && mode != TFmode
+      && ((TARGET_HARD_FLOAT && TARGET_FPRS)
+	  || TARGET_POWERPC64
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && !ALTIVEC_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
+      && TARGET_UPDATE
+      && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
+      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
+	  || legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict))
+      && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
+    return 1;
   if (legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
   return 0;
@@ -3583,6 +3600,7 @@ rs6000_mode_dependent_address (rtx addr)
 
     case PRE_INC:
     case PRE_DEC:
+    case PRE_MODIFY:
       return TARGET_UPDATE;
 
     default:
@@ -10413,6 +10431,9 @@ print_operand (FILE *file, rtx x, int code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
 					   UNITS_PER_WORD));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1),
+					   UNITS_PER_WORD));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode,
 						     UNITS_PER_WORD),
@@ -10613,7 +10634,8 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `u' if this has an auto-increment or auto-decrement.  */
       if (GET_CODE (x) == MEM
 	  && (GET_CODE (XEXP (x, 0)) == PRE_INC
-	      || GET_CODE (XEXP (x, 0)) == PRE_DEC))
+	      || GET_CODE (XEXP (x, 0)) == PRE_DEC
+	      || GET_CODE (XEXP (x, 0)) == PRE_MODIFY))
 	putc ('u', file);
       return;
 
@@ -10700,7 +10722,9 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'X':
       if (GET_CODE (x) == MEM
-	  && legitimate_indexed_address_p (XEXP (x, 0), 0))
+	  && (legitimate_indexed_address_p (XEXP (x, 0), 0)
+	      || (GET_CODE (XEXP (x, 0)) == PRE_MODIFY
+		  && legitimate_indexed_address_p (XEXP (XEXP (x, 0), 1), 0))))
 	putc ('x', file);
       return;
 
@@ -10713,6 +10737,8 @@ print_operand (FILE *file, rtx x, int code)
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1), 8));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 8), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
@@ -10760,6 +10786,8 @@ print_operand (FILE *file, rtx x, int code)
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1), 12));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 12), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
@@ -10836,6 +10864,8 @@ print_operand (FILE *file, rtx x, int code)
 	  else if (GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    fprintf (file, "%d(%s)", - GET_MODE_SIZE (GET_MODE (x)),
 		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (XEXP (XEXP (x, 0), 1));
 	  else
 	    output_address (XEXP (x, 0));
 	}
