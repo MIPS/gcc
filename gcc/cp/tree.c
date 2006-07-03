@@ -1630,10 +1630,8 @@ int
 varargs_function_p (tree function)
 {
   tree parm = TYPE_ARG_TYPES (TREE_TYPE (function));
-  for (; parm; parm = TREE_CHAIN (parm))
-    if (TREE_VALUE (parm) == void_type_node)
-      return 0;
-  return 1;
+  int len = num_parm_types (parm);
+  return (!len || nth_parm_type (parm, len - 1) != void_type_node);
 }
 
 /* Returns 1 if decl is a member of a class.  */
