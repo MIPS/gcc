@@ -684,7 +684,7 @@ merge_types (tree t1, tree t2)
       {
 	/* Get this value the long way, since TYPE_METHOD_BASETYPE
 	   is just the main variant of this.  */
-	tree basetype = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t2)));
+	tree basetype = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (t2), 0));
 	tree raises = TYPE_RAISES_EXCEPTIONS (t1);
 	tree t3;
 
