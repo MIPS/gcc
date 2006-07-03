@@ -1238,7 +1238,7 @@ pp_cxx_parameter_declaration_clause (cxx_pretty_printer *pp, tree t)
 	  pp_cxx_whitespace (pp);
 	  pp_equal (pp);
 	  pp_cxx_whitespace (pp);
-	  pp_cxx_assignment_expression (pp, TREE_PURPOSE (types));
+	  pp_cxx_assignment_expression (pp, DECL_INITIAL (args));
 	}
     }
   pp_cxx_right_paren (pp);

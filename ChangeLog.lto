@@ -11,6 +11,9 @@
 	* gcc/cp/typeck.c (convert_arguments): Use num_parm_types and
 	nth_parm_type in convert_arguments.
 
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_parameter_declaration_clause):
+	Use DECL_INITIAL instead of TREE_PURPOSE.
+
 2006-07-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/cp-gimplify.c (cxx_omp_clause_apply_fn): Use
