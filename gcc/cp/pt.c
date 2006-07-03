@@ -1385,6 +1385,7 @@ determine_specialization (tree template_id,
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	{
 	  tree decl_arg_types;
+	  int decl_parm_types_skip = 0;
 	  tree fn_arg_types;
 
 	  /* DECL might be a specialization of FN.  */
@@ -1393,7 +1394,7 @@ determine_specialization (tree template_id,
 	  decl_arg_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
 	  if (DECL_STATIC_FUNCTION_P (fn)
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-	    decl_arg_types = TREE_CHAIN (decl_arg_types);
+	    decl_parm_types_skip++;
 
 	  /* Check that the number of function parameters matches.
 	     For example,
@@ -1403,15 +1404,17 @@ determine_specialization (tree template_id,
 	     by get_bindings below.  */
 
 	  fn_arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
-	  if (list_length (fn_arg_types) != list_length (decl_arg_types))
+	  if (num_parm_types (fn_arg_types)
+	      != num_parm_types (decl_arg_types) - decl_parm_types_skip)
 	    continue;
 
 	  /* For a non-static member function, we need to make sure that
 	     the const qualification is the same. This can be done by
 	     checking the 'this' in the argument list.  */
 	  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
-	      && !same_type_p (TREE_VALUE (fn_arg_types),
-			       TREE_VALUE (decl_arg_types)))
+	      && !same_type_p (nth_parm_type (fn_arg_types, 0),
+			       nth_parm_type (decl_arg_types,
+					      decl_parm_types_skip)))
 	    continue;
 
 	  /* In case of explicit specialization, we need to check if
@@ -1482,6 +1485,7 @@ determine_specialization (tree template_id,
       else
 	{
 	  tree decl_arg_types;
+	  int decl_parm_types_skip = 0;
 
 	  /* This is an ordinary member function.  However, since
 	     we're here, we can assume it's enclosing class is a
@@ -1508,10 +1512,10 @@ determine_specialization (tree template_id,
 	  decl_arg_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
 	  if (DECL_STATIC_FUNCTION_P (fn)
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
-	    decl_arg_types = TREE_CHAIN (decl_arg_types);
+	    decl_parm_types_skip++;
 
 	  if (compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)), 0,
-			 decl_arg_types, 0))
+			 decl_arg_types, decl_parm_types_skip))
 	    /* They match!  */
 	    candidates = tree_cons (NULL_TREE, fn, candidates);
 	}
