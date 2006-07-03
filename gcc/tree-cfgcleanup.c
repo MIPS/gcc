@@ -399,6 +399,18 @@ remove_forwarder_block (basic_block bb, basic_block **worklist)
 	}
     }
 
+  /* Check to make sure that we can remove a forwarder block for eh edges.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      /* This check is too strong, we should also be checking eh regions
+         but this is much harder.  */
+      if (e->flags & EDGE_EH)
+        {
+	  if (!single_pred_p (dest))
+	    return false;
+	}
+    }
+ 
   /* Redirect the edges.  */
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
