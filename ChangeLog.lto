@@ -8,6 +8,9 @@
 
 	* gcc/cp/typeck.c (merge_types): Use nth_parm_type.
 
+	* gcc/cp/typeck.c (convert_arguments): Use num_parm_types and
+	nth_parm_type in convert_arguments.
+
 2006-07-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/cp-gimplify.c (cxx_omp_clause_apply_fn): Use

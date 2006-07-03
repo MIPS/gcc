@@ -2675,7 +2675,7 @@ build_function_call (tree function, tree params)
 }
 
 /* Convert the actual parameter expressions in the list VALUES
-   to the types in the list TYPELIST.
+   to the types in the PARM_TYPES.
    If parmdecls is exhausted, or when an element has NULL as its type,
    perform the default conversions.
 
@@ -2692,12 +2692,13 @@ build_function_call (tree function, tree params)
    default arguments, if such were specified.  Do so here.  */
 
 static tree
-convert_arguments (tree typelist, tree values, tree fndecl, int flags)
+convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 {
   tree parm = NULL_TREE;
-  tree typetail, valtail;
+  tree valtail;
   tree result = NULL_TREE;
   const char *called_thing = 0;
+  int parm_types_len = num_parm_types (parm_types);
   int i = 0;
 
   /* Argument passing is always copy-initialization.  */
@@ -2719,11 +2720,11 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	called_thing = "function";
     }
 
-  for (valtail = values, typetail = typelist;
+  for (valtail = values;
        valtail;
        valtail = TREE_CHAIN (valtail), i++)
     {
-      tree type = typetail ? TREE_VALUE (typetail) : 0;
+      tree type = i < parm_types_len ? nth_parm_type (parm_types, i) : 0;
       tree val = TREE_VALUE (valtail);
 
       if (val == error_mark_node || type == error_mark_node)
@@ -2804,23 +2805,29 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 	  result = tree_cons (NULL_TREE, val, result);
 	}
 
-      if (typetail)
-	typetail = TREE_CHAIN (typetail);
       if (parm)
 	parm = TREE_CHAIN (parm);
     }
 
-  if (typetail != 0 && typetail != void_list_node)
+  if (i < parm_types_len
+      && nth_parm_type (parm_types, i) != void_type_node)
     {
       /* See if there are default arguments that can be used.  */
       if (parm
 	  && DECL_INITIAL (parm)
 	  && TREE_CODE (DECL_INITIAL (parm)) != DEFAULT_ARG)
 	{
-	  for (; typetail != void_list_node; ++i)
+	  if (nth_parm_type (parm_types, parm_types_len - 1)
+	      == void_type_node)
+	    parm_types_len--;
+
+	  for (; i < parm_types_len; ++i)
 	    {
-	      tree parmval
-		= convert_default_arg (TREE_VALUE (typetail),
+	      tree type = nth_parm_type (parm_types, i);
+	      tree parmval;
+
+	      parmval
+		= convert_default_arg (type,
 				       DECL_INITIAL (parm),
 				       fndecl, i);
 
@@ -2828,11 +2835,8 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
 		return error_mark_node;
 
 	      result = tree_cons (0, parmval, result);
-	      typetail = TREE_CHAIN (typetail);
 	      parm = TREE_CHAIN (parm);
 	      /* ends with `...'.  */
-	      if (typetail == NULL_TREE)
-		break;
 	      if (parm == NULL_TREE)
 		break;
 	    }
