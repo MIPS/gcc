@@ -595,6 +595,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	   fndecls; fndecls = OVL_NEXT (fndecls))
 	{
 	  tree p1, p2;
+	  int skip1 = 0;
 
 	  fndecl = OVL_CURRENT (fndecls);
 	  p1 = TYPE_ARG_TYPES (TREE_TYPE (function));
@@ -609,7 +610,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      static.  */
 	  if (DECL_STATIC_FUNCTION_P (fndecl)
 	      && TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE)
-	    p1 = TREE_CHAIN (p1);
+	    skip1++;
 
 	  /* A member template definition only matches a member template
 	     declaration.  */
@@ -618,7 +619,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 
 	  if (same_type_p (TREE_TYPE (TREE_TYPE (function)),
 			   TREE_TYPE (TREE_TYPE (fndecl)))
-	      && compparms (p1, 0, p2, 0)
+	      && compparms (p1, skip1, p2, 0)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))
