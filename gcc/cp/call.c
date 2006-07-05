@@ -4039,7 +4039,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 
 	  /* The first argument must be "void *".  */
 	  t = TYPE_ARG_TYPES (TREE_TYPE (OVL_CURRENT (fn)));
-	  if (!same_type_p (TREE_VALUE (t), ptr_type_node))
+	  if (!same_type_p (nth_parm_type (t, 0), ptr_type_node))
 	    continue;
 	  /* On the first pass, check the rest of the arguments.  */
 	  if (pass == 0)
