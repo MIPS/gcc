@@ -101,7 +101,11 @@ static VEC(tree,heap) *avail_exprs_stack;
    expressions are removed from AVAIL_EXPRS.  Else we may change the
    hash code for an expression and be unable to find/remove it from
    AVAIL_EXPRS.  */
-static VEC(tree,heap) *stmts_to_rescan;
+typedef tree *tree_p;
+DEF_VEC_P(tree_p);
+DEF_VEC_ALLOC_P(tree_p,heap);
+
+static VEC(tree_p,heap) *stmts_to_rescan;
 
 /* Structure for entries in the expression hash table.
 
@@ -248,7 +252,7 @@ tree_ssa_dominator_optimize (void)
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
   avail_exprs_stack = VEC_alloc (tree, heap, 20);
   const_and_copies_stack = VEC_alloc (tree, heap, 20);
-  stmts_to_rescan = VEC_alloc (tree, heap, 20);
+  stmts_to_rescan = VEC_alloc (tree_p, heap, 20);
   need_eh_cleanup = BITMAP_ALLOC (NULL);
 
   /* Setup callbacks for the generic dominator tree walker.  */
@@ -357,7 +361,7 @@ tree_ssa_dominator_optimize (void)
   
   VEC_free (tree, heap, avail_exprs_stack);
   VEC_free (tree, heap, const_and_copies_stack);
-  VEC_free (tree, heap, stmts_to_rescan);
+  VEC_free (tree_p, heap, stmts_to_rescan);
   return 0;
 }
 
@@ -378,7 +382,7 @@ struct tree_opt_pass pass_dominator =
   TV_TREE_SSA_DOMINATOR_OPTS,		/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func
     | TODO_update_ssa
@@ -699,16 +703,17 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
   /* If we queued any statements to rescan in this block, then
      go ahead and rescan them now.  */
-  while (VEC_length (tree, stmts_to_rescan) > 0)
+  while (VEC_length (tree_p, stmts_to_rescan) > 0)
     {
-      tree stmt = VEC_last (tree, stmts_to_rescan);
+      tree *stmt_p = VEC_last (tree_p, stmts_to_rescan);
+      tree stmt = *stmt_p;
       basic_block stmt_bb = bb_for_stmt (stmt);
 
       if (stmt_bb != bb)
 	break;
 
-      VEC_pop (tree, stmts_to_rescan);
-      mark_new_vars_to_rename (stmt);
+      VEC_pop (tree_p, stmts_to_rescan);
+      pop_stmt_changes (stmt_p);
     }
 }
 
@@ -1530,9 +1535,7 @@ eliminate_redundant_computations (tree stmt)
    Detect and record those equivalences.  */
 
 static void
-record_equivalences_from_stmt (tree stmt,
-			       int may_optimize_p,
-			       stmt_ann_t ann)
+record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
 {
   tree lhs = TREE_OPERAND (stmt, 0);
   enum tree_code lhs_code = TREE_CODE (lhs);
@@ -1561,6 +1564,7 @@ record_equivalences_from_stmt (tree stmt,
      vops and recording the result in the available expression table,
      we may be able to expose more redundant loads.  */
   if (!ann->has_volatile_ops
+      && stmt_references_memory_p (stmt)
       && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
 	  || is_gimple_min_invariant (TREE_OPERAND (stmt, 1)))
       && !is_gimple_reg (lhs))
@@ -1766,6 +1770,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
+  push_stmt_changes (bsi_stmt_ptr (si));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1826,9 +1831,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Record any additional equivalences created by this statement.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
-    record_equivalences_from_stmt (stmt,
-				   may_optimize_p,
-				   ann);
+    record_equivalences_from_stmt (stmt, may_optimize_p, ann);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
      where it goes.  If that is the case, then mark the CFG as altered.
@@ -1855,7 +1858,6 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
      Ultimately I suspect we're going to need to change the interface
      into the SSA_NAME manager.  */
-
   if (ann->modified)
     {
       tree val = NULL;
@@ -1879,7 +1881,20 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 
   if (may_have_exposed_new_symbols)
-    VEC_safe_push (tree, heap, stmts_to_rescan, bsi_stmt (si));
+    {
+      /* Queue the statement to be re-scanned after all the
+	 AVAIL_EXPRS have been processed.  The change buffer stack for
+	 all the pushed statements will be processed when this queue
+	 is emptied.  */
+      VEC_safe_push (tree_p, heap, stmts_to_rescan, bsi_stmt_ptr (si));
+    }
+  else
+    {
+      /* Otherwise, just pop the recently pushed change buffer.  If
+	 not, the STMTS_TO_RESCAN queue will get out of synch with the
+	 change buffer stack.  */
+      pop_stmt_changes (bsi_stmt_ptr (si));
+    }
 }
 
 /* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
@@ -2154,6 +2169,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	      fprintf (dump_file, "\n");
 	    }
 
+	  push_stmt_changes (&use_stmt);
+
 	  /* Propagate the RHS into this use of the LHS.  */
 	  FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 	    propagate_value (use_p, rhs);
@@ -2188,6 +2205,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 		  tree result = get_lhs_or_phi_result (use_stmt);
 		  bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
 		}
+
+	      pop_stmt_changes (&use_stmt);
 	      continue;
 	    }
 
@@ -2196,11 +2215,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     we may expose new operands, expose dead EH edges,
 	     etc.  */
 	  fold_stmt_inplace (use_stmt);
-
-	  /* Sometimes propagation can expose new operands to the
-	     renamer.  Note this will call update_stmt at the 
-	     appropriate time.  */
-	  mark_new_vars_to_rename (use_stmt);
+	  pop_stmt_changes (&use_stmt);
 
 	  /* Dump details.  */
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2488,7 +2503,7 @@ struct tree_opt_pass pass_phi_only_cprop =
   TV_TREE_PHI_CPROP,                    /* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,     /* properties_required */
   0,                                    /* properties_provided */
-  PROP_smt_usage,                       /* properties_destroyed */
+  0,                       		/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_cleanup_cfg | TODO_dump_func 
     | TODO_ggc_collect | TODO_verify_ssa

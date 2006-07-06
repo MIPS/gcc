@@ -550,7 +550,7 @@ propagate_necessity (struct edge_list *el)
 	}
     }
 }
-
+
 
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
@@ -637,9 +637,6 @@ static void
 remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
   tree t = bsi_stmt (*i);
-  def_operand_p def_p;
-
-  ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -714,15 +711,11 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
     }
   
-  FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, SSA_OP_VIRTUAL_DEFS)
-    {
-      tree def = DEF_FROM_PTR (def_p);
-      mark_sym_for_renaming (SSA_NAME_VAR (def));
-    }
   bsi_remove (i, true);  
   release_defs (t); 
 }
-
+
+
 /* Print out removed statement statistics.  */
 
 static void

@@ -1263,6 +1263,9 @@ replace_uses_by (tree name, tree val)
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, name)
     {
+      if (TREE_CODE (stmt) != PHI_NODE)
+	push_stmt_changes (&stmt);
+
       FOR_EACH_IMM_USE_ON_STMT (use, imm_iter)
         {
 	  replace_exp (use, val);
@@ -1280,17 +1283,21 @@ replace_uses_by (tree name, tree val)
 		}
 	    }
 	}
+
       if (TREE_CODE (stmt) != PHI_NODE)
 	{
 	  tree rhs;
 
 	  fold_stmt_inplace (stmt);
+
+	  /* FIXME.  This should go in pop_stmt_changes.  */
 	  rhs = get_rhs (stmt);
 	  if (TREE_CODE (rhs) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr (rhs);
 
 	  maybe_clean_or_replace_eh_stmt (stmt, stmt);
-	  mark_new_vars_to_rename (stmt);
+
+	  pop_stmt_changes (&stmt);
 	}
     }
 

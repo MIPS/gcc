@@ -795,7 +795,8 @@ tree_ssa_dse (void)
 static bool
 gate_dse (void)
 {
-  return flag_tree_dse != 0;
+  return false;
+  /*return flag_tree_dse != 0;*/
 }
 
 struct tree_opt_pass pass_dse = {

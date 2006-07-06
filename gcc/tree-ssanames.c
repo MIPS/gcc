@@ -304,6 +304,7 @@ release_defs (tree stmt)
 void
 replace_ssa_name_symbol (tree ssa_name, tree sym)
 {
+  gcc_assert (sym != mem_var && SSA_NAME_VAR (ssa_name) != mem_var);
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }

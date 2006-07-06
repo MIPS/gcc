@@ -506,7 +506,9 @@ static bool
 check_all_va_list_escapes (struct stdarg_info *si)
 {
   basic_block bb;
+  bitmap loads, stores;
 
+  loads = stores = NULL;
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
@@ -518,8 +520,26 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
-	      if (! bitmap_bit_p (si->va_list_escape_vars,
-				  DECL_UID (SSA_NAME_VAR (use))))
+	      tree sym = SSA_NAME_VAR (use);
+
+	      if (sym == mem_var)
+		{
+		  if (loads == NULL)
+		    {
+		      loads = BITMAP_ALLOC (NULL);
+		      stores = BITMAP_ALLOC (NULL);
+		    }
+		  else
+		    {
+		      bitmap_clear (loads);
+		      bitmap_clear (stores);
+		    }
+
+		  get_loads_and_stores (stmt, loads, stores);
+		  if (!bitmap_intersect_p (si->va_list_escape_vars, loads))
+		    continue;
+		}
+	      else if (!bitmap_bit_p (si->va_list_escape_vars, DECL_UID (sym)))
 		continue;
 
 	      if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -581,11 +601,16 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		  print_generic_expr (dump_file, stmt, dump_flags);
 		  fputc ('\n', dump_file);
 		}
+
+	      BITMAP_FREE (loads);
+	      BITMAP_FREE (stores);
 	      return true;
 	    }
 	}
     }
 
+  BITMAP_FREE (loads);
+  BITMAP_FREE (stores);
   return false;
 }
 

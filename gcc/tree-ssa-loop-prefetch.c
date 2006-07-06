@@ -46,6 +46,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "params.h"
 #include "langhooks.h"
 
+#undef SSA_NAME_VAR
+#define SSA_NAME_VAR(NODE)	__extension__ ({ extern tree mem_var; const tree __t = SSA_NAME_CHECK (NODE)->ssa_name.var; gcc_assert (__t != mem_var); __t; })
+
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
 

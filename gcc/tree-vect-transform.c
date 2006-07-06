@@ -1669,6 +1669,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   ssa_op_iter iter;
   tree def, def_stmt;
   enum vect_def_type dt;
+  bitmap loads, stores;
 
   /* Is vectorizable store? */
 
@@ -1733,14 +1734,15 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   copy_virtual_operands (*vec_stmt, stmt);
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VDEF)
-    {
-      SSA_NAME_DEF_STMT (def) = *vec_stmt;
+    SSA_NAME_DEF_STMT (def) = *vec_stmt;
 
-      /* If this virtual def has a use outside the loop and a loop peel is 
-	 performed then the def may be renamed by the peel.  Mark it for 
-	 renaming so the later use will also be renamed.  */
-      mark_sym_for_renaming (SSA_NAME_VAR (def));
-    }
+  loads = BITMAP_ALLOC (NULL);
+  stores = BITMAP_ALLOC (NULL);
+  get_loads_and_stores (stmt, loads, stores);
+  mark_set_for_renaming (loads);
+  mark_set_for_renaming (stores);
+  BITMAP_FREE (loads);
+  BITMAP_FREE (stores);
 
   return true;
 }

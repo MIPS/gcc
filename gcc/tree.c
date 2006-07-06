@@ -6878,8 +6878,10 @@ is_global_var (tree t)
 bool
 needs_to_live_in_memory (tree t)
 {
-  return (TREE_ADDRESSABLE (t)
-	  || is_global_var (t)
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
+  return (may_be_aliased (t)
 	  || (TREE_CODE (t) == RESULT_DECL
 	      && aggregate_value_p (t, current_function_decl)));
 }

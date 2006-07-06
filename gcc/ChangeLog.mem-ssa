@@ -1,3 +1,207 @@
+2006-07-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.h (SSA_OPERAND_MEMORY_SIZE): Increase buffer size.
+	(get_loads_and_stores): Declare.
+	(push_stmt_changes): Declare.
+	(pop_stmt_changes): Declare.
+	(enum):
+	* doc/tree-ssa.texi: Update documentation for virtual operands
+	and the use of push_stmt_changes/pop_stmt_changes.
+	* doc/invoke.texi: Remove documentation for params
+	global-var-threshold and max-aliased-vops.
+	* tree-into-ssa.c (stale_ssa_names): New local variable.
+	(struct mem_syms_map_d): Declare.
+	(mem_syms_map_t): Declare.
+	(mem_syms_tbl): New local variable.
+	(set_livein_block): Check for empty def blocks set.
+	(symbol_marked_for_renaming): Remove superfluous DECL_P assert.
+	(add_new_name_mapping): Do not add .MEM to the set of virtual names.
+	(mem_syms_hash): New.
+	(mem_syms_eq): New.
+	(mem_syms_free): New.
+	(syms_referenced_by): New.
+	(mark_def_sites): Process memory symbols loaded/stored separately.
+	(register_new_def): Use BLOCK_DEFS_STACK directly.  Update callers.
+	Deal with mismatched symbols when SYM is not a GIMPLE register.
+	(rewrite_initialize_block): Assert that we are not dealing
+	with .MEM.
+	(get_reaching_def): For non-GIMPLE registers use .MEM's
+	default definition when necessary.
+	(rewrite_memory_stmt): New.
+	(rewrite_stmt): Call it when dealing with memory statements.
+	(rewrite_finalize_block): Take the symbol for virtual
+	SSA_NAMEs from the next slot in the stack.
+	(dump_defs_stack): New.
+	(debug_defs_stack): New.
+	(dump_currdefs): New.
+	(debug_currdefs): New.
+	(dump_tree_ssa): Call dump_def_blocks, dump_defs_stack and
+	dump_currdefs.
+	(debug_def_blocks_r): Also show PHI_BLOCKS.
+	(dump_def_blocks): New.
+	(debug_def_blocks): Call it.
+	(maybe_replace_use): Do not handle memory symbols.
+	(maybe_register_def): Likewise.
+	(name_marked_for_release_p): New.
+	(mark_ssa_name_stale): New.
+	(stale_ssa_name_p): New.
+	(preserve_needed_names_in_vops): New.
+	(rewrite_update_stmt_vops): New.
+	(register_new_vdef_name): New.
+	(rewrite_update_memory_stmt): New.
+	(rewrite_update_stmt): Call it.
+	(rewrite_update_phi_arguments): Use the LHS of the PHI node
+	when the argument is a memory symbol.
+	(rewrite_blocks): Move code to delete DEF_BLOCKS to
+	fini_ssa_renamer.
+	(mark_def_site_blocks): Move DEF_BLOCKS and current def
+	initialization to init_ssa_renamer.
+	(init_ssa_renamer): New.
+	(fini_ssa_renamer): New.
+	(rewrite_into_ssa): Call them.
+	(prepare_block_for_update): Call syms_referenced_by to process
+	memory symbols in the statement.
+	(dump_update_ssa): Show SSA names made stale by renaming
+	process.
+	(init_update_ssa): Initialize STALE_SSA_NAMES.
+	(delete_update_ssa): Free STALE_SSA_NAMES.
+	Call fini_ssa_renamer.
+	(mark_sym_for_renaming): Reject .MEM.
+	Add temporary workaround when marking symbols with sub-vars.
+	(mark_set_for_renaming): Likewise.
+	(release_ssa_name_after_update_ssa): Call init_update_ssa if
+	needed.
+	(replace_stale_ssa_names): New.
+	(update_ssa): Call init_ssa_renamer.
+	Call replace_stale_ssa_names if needed.
+	* tree-ssa-loop-im.c (rewrite_mem_refs): Call
+	get_loads_and_stores to gather memory symbols from a statement.
+	(gather_mem_refs_stmt): Likewise.
+	* tree-complex.c (update_all_vops): Remove.
+	(expand_complex_move): Call mark_symbols_for_renaming.
+	* tree-pretty-print.c (dump_generic_node): Show (D) for
+	default SSA names.
+	(dump_vops): Show all VUSE/VDEF operands in one line.
+	* tree.c (is_global_var): Call may_be_aliased.
+	* tree.h (struct tree_memory_tag): Remove field is_used_alone.
+	Update all users.
+	(SMT_USED_ALONE): Remove.  Update all users.
+	* tree-pass.h (PROP_smt_usage): Remove.  Update all users.
+	* params.h (GLOBAL_VAR_THRESHOLD): Remove.  Update all users.
+	(MAX_ALIASED_VOPS): Remove.  Update all users.
+	* tree-ssa-dse.c (gate_dse): Temporarily disable.
+
+	* tree-stdarg.c (check_all_va_list_escapes): Call
+	get_loads_and_stores to gather memory symbols from the
+	statement.
+	* tree-ssa-dom.c (stmts_to_rescan): Change to stack of
+	'tree *' instead of 'tree'.  Update all users.
+	* tree-nrv.c (execute_return_slot_opt): Use
+	get_loads_and_stores to gather memory symbols referenced.
+	* tree-ssa-alias.c (struct alias_map_d): Remove field
+	grouped_p.  Update all users.
+	(updating_used_alone): Remove.  Update all users.
+	(lhs_may_store_to): Remove.  Update all users.
+	(recalculate_used_alone): Remove.  Update all users.
+	(total_alias_vops_cmp): Remove.  Update all users.
+	(group_aliases_into): Remove.  Update all users.
+	(group_aliases): Remove.  Update all users.
+	(maybe_create_global_var): Create only if there are no global
+	variables and a mix of pure and non-pure function call sites.
+	(compute_may_aliases): Remove stale documentation.
+	(replace_may_alias): Remove.  Update all users.
+	(may_be_aliased): Call is_global_var.
+	* tree-dfa.c (mark_symbols_for_renaming): Rename from
+	mark_new_vars_to_rename.  Update all users.
+	Call get_loads_and_stores to gather memory symbols.
+	(find_new_referenced_vars):
+	* tree-ssa-pre.c (gate_pre): Temporarily disable.
+	* tree-sra.c (sra_replace): Mark virtual SSA names to be
+	released after update_ssa.
+	* tree-ssa-copy.c (may_propagate_copy): Handle .MEM.
+	(merge_alias_info): Likewise.
+	* tree-ssa.c (verify_ssa_name):
+	(verify_ssa): Only check VDEFs if aliases have been computed
+	and the statement has no volatile operands.
+	(create_mem_var): New.
+	(delete_tree_ssa): Tidy.
+	* tree-vect-transform.c (vectorizable_store): Call
+	get_loads_and_stores to gather memory symbols.
+	* tree-flow.h (struct var_ann_d): Remove fields in_vuse_list
+	and in_vdef_list.
+	(mem_var): Declare.
+	(register_new_def): Remove.
+	(recalculate_used_alone): Remove.
+	(updating_used_alone): Remove.
+	* tree-ssa-structalias.c (update_alias_info): Use
+	get_loads_and_stores to gather memory symbols.
+	* params.def (PARAM_GLOBAL_VAR_THRESHOLD): Remove.
+	(PARAM_MAX_ALIASED_VOPS): Remove.
+	* tree-ssanames.c (replace_ssa_name_symbol): Assert that we
+	are not trying to replace .MEM.
+	* tree-ssa-operands.c (mem_var): Declare.
+	(opf_implicit): Rename from opf_non_specific.  Update all
+	users.
+	(opf_def): Rename from opf_is_def.
+	(opf_use): Rename from opf_none.
+	(loaded_syms): New local variable.
+	(stored_syms): New local variable.
+	(struct scb_d): Declare.
+	(scb_t): Define.
+	(scb_stack): New local variable.
+	(gathering_loads_stores): New.
+	(init_ssa_operands): Initialize scb_stack.
+	(fini_ssa_operands): Free scb_stack.
+	(truncate_ssa_stmt_operands): New.
+	(ssa_operand_alloc): Assert that size fits in
+	SSA_OPERAND_MEMORY_SIZE.
+	(realloc_vdef): Terminate operand linked list.
+	(realloc_vuse): Likewise.
+	(finalize_ssa_vdef_ops): Do not handle more than one VDEF.
+	(finalize_ssa_vuse_ops): Likewise.
+	(finalize_ssa_vuses): Do not look for superfluous VUSE
+	operands.
+	(append_vdef): Do not add more than a single VDEF.
+	(append_vuse): Likewise.
+	(add_virtual_operand): Remove.  Update all users.
+	(add_virtual_operator): New.
+	(add_mem_symbol): New.
+	(add_mem_symbols_in_decl): New.
+	(get_mem_symbols_in_tag): New.
+	(get_mem_symbols_in_indirect_ref): Rename from
+	get_indirect_ref_operands.  Move tag processing code to
+	get_mem_symbols_in_tag.
+	(get_mem_symbols_in_aggregate): New.
+	(get_mem_symbols_in_tmr): New.
+	(add_call_clobbered_mem_symbols): Rename from
+	add_call_clobber_ops.
+	(add_call_read_mem_symbols): Rename from add_call_read_ops.
+	(get_call_expr_operands): Call add_call_clobbered_mem_symbols
+	and add_call_read_mem_symbols.
+	(get_asm_expr_operands): Call add_mem_symbols_in_decl when
+	gathering loads and stores.
+	Only add a single VDEF/VUSE when not gathering loads/stores.
+	(get_aggregate_operands): Extract from get_expr_operands.
+	Call get_mem_symbols_in_aggregate when gathering loads/stores.
+	(get_expr_operands) <case ADDR_EXPR>: Return early if
+	gathering loads/stores.
+	<case STRUCT_FIELD_TAG>: Remove.
+	<case SYMBOL_MEMORY_TAG>: Remove.
+	<case NAME_MEMORY_TAG>: Remove.
+	<case VAR_DECL>: Do not handle sub-variables.
+	(update_stmt_operands): Assert that we are not gathering loads
+	and stores.
+	(copy_virtual_operands): Do not look for more than one
+	VDEF/VUSE.
+	(create_ssa_artficial_load_stmt): Likewise.
+	(dump_loads_and_stores): New.
+	(debug_loads_and_stores): New.
+	(get_loads_and_stores_for_phi): New.
+	(get_loads_and_stores): New.
+	(push_stmt_changes): New.
+	(mark_difference_for_renaming): New.
+	(pop_stmt_changes): New.
+
 2006-05-29  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2006-05-29 (@114205).

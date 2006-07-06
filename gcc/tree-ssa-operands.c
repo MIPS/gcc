@@ -75,14 +75,53 @@ Boston, MA 02110-1301, USA.  */
   vector for VUSE, then the new vector will also be modified such that 
   it contains 'a_5' rather than 'a'.  */
 
+
+/* Structure storing statistics on how many call clobbers we have, and
+   how many where avoided.  */
+
+static struct 
+{
+  /* Number of call-clobbered ops we attempt to add to calls in
+     add_call_clobbered_mem_symbols.  */
+  unsigned int clobbered_vars;
+
+  /* Number of write-clobbers (VDEFs) avoided by using
+     not_written information.  */
+  unsigned int static_write_clobbers_avoided;
+
+  /* Number of reads (VUSEs) avoided by using not_read information.  */
+  unsigned int static_read_clobbers_avoided;
+  
+  /* Number of write-clobbers avoided because the variable can't escape to
+     this call.  */
+  unsigned int unescapable_clobbers_avoided;
+
+  /* Number of read-only uses we attempt to add to calls in
+     add_call_read_mem_symbols.  */
+  unsigned int readonly_clobbers;
+
+  /* Number of read-only uses we avoid using not_read information.  */
+  unsigned int static_readonly_clobbers_avoided;
+} clobber_stats;
+  
+
+/* MEM is an artificial symbol representing memory references.  Any
+   symbol for which for which is_gimple_reg returns false is
+   considered "memory".  SSA renaming will build factored use-def and
+   def-def chains over MEM, joining all versions that access
+   conflicting regions of memory (be it due to aliasing, or
+   overlapping references to the same aggregate object, or side-effect
+   references to call-clobbered symbols at call-sites).  */
+tree mem_var;
+
 /* Flags to describe operand properties in helpers.  */
 
 /* By default, operands are loaded.  */
-#define opf_none	0
+#define opf_use		0
 
 /* Operand is the target of an assignment expression or a 
    call-clobbered variable.  */
-#define opf_is_def 	(1 << 0)
+#define opf_def 	(1 << 0)
 
 /* No virtual operands should be created in the expression.  This is used
    when traversing ADDR_EXPR nodes which have different semantics than
@@ -92,10 +131,10 @@ Boston, MA 02110-1301, USA.  */
    VUSE for 'b'.  */
 #define opf_no_vops 	(1 << 2)
 
-/* Operand is a "non-specific" kill for call-clobbers and such.  This
-   is used to distinguish "reset the world" events from explicit
-   MODIFY_EXPRs.  */
-#define opf_non_specific  (1 << 3)
+/* Operand is an implicit reference.  This is used to distinguish
+   explicit assignments in the form of MODIFY_EXPRs from clobbering
+   sites like function calls or ASM_EXPRs.  */
+#define opf_implicit	(1 << 3)
 
 /* Array for building all the def operands.  */
 static VEC(tree,heap) *build_defs;
@@ -121,6 +160,59 @@ static def_optype_p free_defs = NULL;
 static use_optype_p free_uses = NULL;
 static vuse_optype_p free_vuses = NULL;
 static vdef_optype_p free_vdefs = NULL;
+
+/* Sets of symbols loaded and stored by a statement.  These sets are
+   only used when the operand scanner is called via get_loads_and_stores.  */
+static bitmap loaded_syms = NULL;
+static bitmap stored_syms = NULL;
+
+/* Statement change buffer.  Data structure used to record state
+   information for statements.  This is used to determine what needs
+   to be done in order to update the SSA web after a statement is
+   modified by a pass.  If STMT is a statement that has just been
+   created, or needs to be folded via fold_stmt, or anything that
+   changes its physical structure then the pass should:
+
+   1- Call push_stmt_changes (&stmt) to record the current state of
+      STMT before any modifications are made.
+
+   2- Make all appropriate modifications to the statement.
+
+   3- Call pop_stmt_changes (&stmt) to find new symbols that
+      need to be put in SSA form, SSA name mappings for names that
+      have disappeared, recompute invariantness for address
+      expressions, cleanup EH information, etc.  */
+
+struct scb_d
+{
+  /* Pointer to the statement being modified.  */
+  tree *stmt_p;
+
+  /* If the statement references memory these are the sets of symbols
+     loaded and stored by the statement.  */
+  bitmap loads;
+  bitmap stores;
+};
+
+typedef struct scb_d *scb_t;
+DEF_VEC_P(scb_t);
+DEF_VEC_ALLOC_P(scb_t,heap);
+
+/* Stack of statement change buffers (SCB).  Every call to
+   push_stmt_changes pushes a new buffer onto the stack.  Calls to
+   pop_stmt_changes pop a buffer off of the stack and compute the set
+   of changes for the popped statement.  */
+static VEC(scb_t,heap) *scb_stack;
+
+
+/* Return true if the parser should just gather symbols loaded/stored
+   by the statement instead of scanning for operands.  */
+
+static inline bool
+gathering_loads_stores (void)
+{
+  return loaded_syms || stored_syms;
+}
 
 
 /* Return the DECL_UID of the base variable of T.  */
@@ -195,35 +287,6 @@ ssa_operands_active (void)
 }
 
 
-/* Structure storing statistics on how many call clobbers we have, and
-   how many where avoided.  */
-
-static struct 
-{
-  /* Number of call-clobbered ops we attempt to add to calls in
-     add_call_clobber_ops.  */
-  unsigned int clobbered_vars;
-
-  /* Number of write-clobbers (VDEFs) avoided by using not_written
-     information.  */
-  unsigned int static_write_clobbers_avoided;
-
-  /* Number of reads (VUSEs) avoided by using not_read information.  */
-  unsigned int static_read_clobbers_avoided;
-  
-  /* Number of write-clobbers avoided because the variable can't escape to
-     this call.  */
-  unsigned int unescapable_clobbers_avoided;
-
-  /* Number of read-only uses we attempt to add to calls in
-     add_call_read_ops.  */
-  unsigned int readonly_clobbers;
-
-  /* Number of read-only uses we avoid using not_read information.  */
-  unsigned int static_readonly_clobbers_avoided;
-} clobber_stats;
-  
-
 /* Initialize the operand cache routines.  */
 
 void
@@ -233,11 +296,11 @@ init_ssa_operands (void)
   build_uses = VEC_alloc (tree, heap, 10);
   build_vuses = VEC_alloc (tree, heap, 25);
   build_vdefs = VEC_alloc (tree, heap, 25);
+  scb_stack = VEC_alloc (scb_t, heap, 20);
 
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
   ops_active = true;
-  memset (&clobber_stats, 0, sizeof (clobber_stats));
 }
 
 
@@ -255,6 +318,12 @@ fini_ssa_operands (void)
   free_uses = NULL;
   free_vuses = NULL;
   free_vdefs = NULL;
+
+  /* The change buffer stack had better be empty.  */
+  gcc_assert (VEC_length (scb_t, scb_stack) == 0);
+  VEC_free (scb_t, heap, scb_stack);
+  scb_stack = NULL;
+
   while ((ptr = operand_memory) != NULL)
     {
       operand_memory = operand_memory->next;
@@ -262,22 +331,18 @@ fini_ssa_operands (void)
     }
 
   ops_active = false;
-  
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      fprintf (dump_file, "Original clobbered vars:%d\n",
-	       clobber_stats.clobbered_vars);
-      fprintf (dump_file, "Static write clobbers avoided:%d\n",
-	       clobber_stats.static_write_clobbers_avoided);
-      fprintf (dump_file, "Static read clobbers avoided:%d\n",
-	       clobber_stats.static_read_clobbers_avoided);
-      fprintf (dump_file, "Unescapable clobbers avoided:%d\n",
-	       clobber_stats.unescapable_clobbers_avoided);
-      fprintf (dump_file, "Original read-only clobbers:%d\n",
-	       clobber_stats.readonly_clobbers);
-      fprintf (dump_file, "Static read-only clobbers avoided:%d\n",
-	       clobber_stats.static_readonly_clobbers_avoided);
-    }
+}
+
+
+/* Reset the operand cache arrays.  */
+
+static void
+truncate_ssa_stmt_operands (void)
+{
+  VEC_truncate (tree, build_defs, 0);
+  VEC_truncate (tree, build_uses, 0);
+  VEC_truncate (tree, build_vdefs, 0);
+  VEC_truncate (tree, build_vuses, 0);
 }
 
 
@@ -287,6 +352,9 @@ static inline void *
 ssa_operand_alloc (unsigned size)
 {
   char *ptr;
+
+  gcc_assert (size <= SSA_OPERAND_MEMORY_SIZE);
+
   if (operand_memory_index + size >= SSA_OPERAND_MEMORY_SIZE)
     {
       struct ssa_operand_memory_d *ptr;
@@ -533,6 +601,7 @@ realloc_vdef (struct vdef_optype_d *ptr, int num_elem)
   /* its growing. Allocate a new one and replace the old one.  */
   tmp = ptr;;
   ret = add_vdef_op (stmt, val, num_elem, &ptr);
+  ret->next = NULL;
   ptr = tmp;
 
   lim = VUSE_VECT_NUM_ELEM (ptr->usev);
@@ -592,6 +661,7 @@ realloc_vuse (struct vuse_optype_d *ptr, int num_elem)
   /* its growing. Allocate a new one and reaplce the old one.  */
   tmp = ptr;
   ret = add_vuse_op (stmt, val, num_elem, &ptr);
+  ret->next = NULL;
   ptr = tmp;
 
   lim = VUSE_VECT_NUM_ELEM (ptr->usev);
@@ -778,104 +848,66 @@ finalize_ssa_uses (tree stmt)
 static inline void
 finalize_ssa_vdef_ops (tree stmt)
 {
-  int x;
-  unsigned new_i;
-  struct vdef_optype_d new_list;
-  vdef_optype_p old_ops, ptr, last;
-  tree act;
-  unsigned old_base, new_base;
-
-  new_list.next = NULL;
-  last = &new_list;
+  vdef_optype_p old_ops;
 
   old_ops = VDEF_OPS (stmt);
 
-  new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_vdefs))
+  if (old_ops)
     {
-      act = VEC_index (tree, build_vdefs, new_i);
-      new_base = get_name_decl (act);
-      old_base = get_name_decl (VDEF_RESULT (old_ops));
+      int x;
 
-      if (old_base == new_base)
-        {
-	  /* if variables are the same, reuse this node.  */
-	  MOVE_HEAD_AFTER (old_ops, last);
-	  for (x = 0; x < VUSE_VECT_NUM_ELEM (last->usev); x++)
-	    set_virtual_use_link (VDEF_OP_PTR (last, x), stmt);
-	  new_i++;
-	}
-      else if (old_base < new_base)
+      if (VEC_length (tree, build_vdefs) == 0)
 	{
-	  /* if old is less than new, old goes to the free list.  */
+	  /* The statement used to have a VDEF but it doesn't
+	     anymore.  Unlink the operands in the RHS.  */
+	  gcc_assert (old_ops->next == NULL);
 	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
 	    delink_imm_use (VDEF_OP_PTR (old_ops, x));
-	  MOVE_HEAD_TO_FREELIST (old_ops, vdef);
+
+	  /* The SSA name on the LHS is not needed anymore, release it
+	     so the SSA updater can consider it a stale name and
+	     ignore it when rewriting VOPS.  */
+	  release_ssa_name_after_update_ssa (VDEF_RESULT (old_ops));
+
+	  old_ops->next = free_vdefs;
+	  free_vdefs = old_ops;
+	  VDEF_OPS (stmt) = NULL;
 	}
       else
 	{
-	  /* This is a new operand.  */
-	  add_vdef_op (stmt, act, 1, &last);
-	  new_i++;
+	  /* Make sure all the immediate use links are still correct.  */
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
+	    set_virtual_use_link (VDEF_OP_PTR (old_ops, x), stmt);
 	}
     }
-
-  /* If there is anything remaining in the build_vdefs list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_vdefs); new_i++)
-    add_vdef_op (stmt, VEC_index (tree, build_vdefs, new_i), 1, &last);
-
-  last->next = NULL;
-
-  /* If there is anything in the old list, free it.  */
-  if (old_ops)
+  else if (old_ops == NULL && VEC_length (tree, build_vdefs) > 0)
     {
-      for (ptr = old_ops; ptr; ptr = ptr->next)
-	for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
-	  delink_imm_use (VDEF_OP_PTR (ptr, x));
-      old_ops->next = free_vdefs;
-      free_vdefs = old_ops;
+      /* This is the first time the statement gets a VDEF,
+	 instantiate it.  */
+      tree op;
+      struct vdef_optype_d new_list;
+      vdef_optype_p last;
+
+      gcc_assert (VEC_length (tree, build_vdefs) == 1);
+
+      new_list.next = NULL;
+      last = &new_list;
+      op = VEC_index (tree, build_vdefs, 0);
+      add_vdef_op (stmt, op, 1, &last);
+      last->next = NULL;
+
+      /* Now set the stmt's operands.  */
+      VDEF_OPS (stmt) = new_list.next;
     }
-
-  /* Now set the stmt's operands.  */
-  VDEF_OPS (stmt) = new_list.next;
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x = 0;
-    for (ptr = VDEF_OPS (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == VEC_length (tree, build_vdefs));
-  }
-#endif
 }
+
 
 static void
 finalize_ssa_vdefs (tree stmt)
 {
   finalize_ssa_vdef_ops (stmt);
-}
-                                                                               
-
-/* Clear the in_list bits and empty the build array for VDEFs.  */
-
-static inline void
-cleanup_vdefs (void)
-{
-  unsigned x, num;
-  num = VEC_length (tree, build_vdefs);
-
-  for (x = 0; x < num; x++)
-    {
-      tree t = VEC_index (tree, build_vdefs, x);
-      if (TREE_CODE (t) != SSA_NAME)
-	{
-	  var_ann_t ann = var_ann (t);
-	  ann->in_vdef_list = 0;
-	}
-    }
   VEC_truncate (tree, build_vdefs, 0);
-}                                                                             
+}
 
 
 /* Takes elements from build_vuses and turns them into vuse operands of
@@ -884,145 +916,63 @@ cleanup_vdefs (void)
 static inline void
 finalize_ssa_vuse_ops (tree stmt)
 {
-  int x;
-  unsigned new_i;
-  struct vuse_optype_d new_list;
-  vuse_optype_p old_ops, ptr, last;
-  tree act;
-  unsigned old_base, new_base;
-
-  new_list.next = NULL;
-  last = &new_list;
+  vuse_optype_p old_ops;
 
   old_ops = VUSE_OPS (stmt);
 
-  new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_vuses))
+  if (old_ops)
     {
-      act = VEC_index (tree, build_vuses, new_i);
-      new_base = get_name_decl (act);
-      old_base = get_name_decl (VUSE_OP (old_ops, 0));
+      int x;
 
-      if (old_base == new_base)
-        {
-	  /* if variables are the same, reuse this node.  */
-	  MOVE_HEAD_AFTER (old_ops, last);
-	  for (x = 0; x < VUSE_VECT_NUM_ELEM (last->usev); x++)
-	    set_virtual_use_link (VUSE_OP_PTR (last, x), stmt);
-	  new_i++;
-	}
-      else if (old_base < new_base)
+      if (VEC_length (tree, build_vuses) == 0)
 	{
-	  /* if old is less than new, old goes to the free list.  */
+	  /* The statement used to have a VDEF but it doesn't
+	     anymore.  Unlink the operands in the RHS.  */
+	  gcc_assert (old_ops->next == NULL);
 	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
 	    delink_imm_use (VUSE_OP_PTR (old_ops, x));
-	  MOVE_HEAD_TO_FREELIST (old_ops, vuse);
+
+	  old_ops->next = free_vuses;
+	  free_vuses = old_ops;
+	  VUSE_OPS (stmt) = NULL;
 	}
       else
 	{
-	  /* This is a new operand.  */
-	  add_vuse_op (stmt, act, 1, &last);
-	  new_i++;
+	  /* Make sure all the immediate use links are still correct.  */
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
+	    set_virtual_use_link (VUSE_OP_PTR (old_ops, x), stmt);
 	}
     }
-
-  /* If there is anything remaining in the build_vuses list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_vuses); new_i++)
-    add_vuse_op (stmt, VEC_index (tree, build_vuses, new_i), 1, &last);
-
-  last->next = NULL;
-
-  /* If there is anything in the old list, free it.  */
-  if (old_ops)
+  else if (VEC_length (tree, build_vuses) > 0)
     {
-      for (ptr = old_ops; ptr; ptr = ptr->next)
-	for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
-	  delink_imm_use (VUSE_OP_PTR (ptr, x));
-      old_ops->next = free_vuses;
-      free_vuses = old_ops;
+      /* This is the first time the statement gets a VUSE,
+	 instantiate it.  */
+      tree op;
+      struct vuse_optype_d new_list;
+      vuse_optype_p last;
+
+      gcc_assert (VEC_length (tree, build_vuses) == 1);
+
+      new_list.next = NULL;
+      last = &new_list;
+      op = VEC_index (tree, build_vuses, 0);
+      add_vuse_op (stmt, op, 1, &last);
+      last->next = NULL;
+
+      /* Now set STMT's operands.  */
+      VUSE_OPS (stmt) = new_list.next;
     }
-
-  /* Now set the stmt's operands.  */
-  VUSE_OPS (stmt) = new_list.next;
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x = 0;
-    for (ptr = VUSE_OPS (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == VEC_length (tree, build_vuses));
-  }
-#endif
 }
                                                                               
-/* Return a new VUSE operand vector, comparing to OLD_OPS_P.  */
+
+/* Return a new VUSE operand vector for STMT.  */
                                                                               
 static void
 finalize_ssa_vuses (tree stmt)
 {
-  unsigned num, num_vdefs;
-  unsigned vuse_index;
-
-  /* Remove superfluous VUSE operands.  If the statement already has a
-     VDEF operation for a variable 'a', then a VUSE for 'a' is
-     not needed because VDEFs imply a VUSE of the variable.  For
-     instance, suppose that variable 'a' is aliased:
-
-	      # VUSE <a_2>
-	      # a_3 = VDEF <a_2>
-	      a = a + 1;
-
-     The VUSE <a_2> is superfluous because it is implied by the
-     VDEF operation.  */
-  num = VEC_length (tree, build_vuses);
-  num_vdefs = VEC_length (tree, build_vdefs);
-
-  if (num > 0 && num_vdefs > 0)
-    {
-      for (vuse_index = 0; vuse_index < VEC_length (tree, build_vuses); )
-        {
-	  tree vuse;
-	  vuse = VEC_index (tree, build_vuses, vuse_index);
-	  if (TREE_CODE (vuse) != SSA_NAME)
-	    {
-	      var_ann_t ann = var_ann (vuse);
-	      ann->in_vuse_list = 0;
-	      if (ann->in_vdef_list)
-	        {
-		  VEC_ordered_remove (tree, build_vuses, vuse_index);
-		  continue;
-		}
-	    }
-	  vuse_index++;
-	}
-    }
-  else
-    {
-      /* Clear out the in_list bits.  */
-      for (vuse_index = 0;
-	  vuse_index < VEC_length (tree, build_vuses);
-	  vuse_index++)
-	{
-	  tree t = VEC_index (tree, build_vuses, vuse_index);
-	  if (TREE_CODE (t) != SSA_NAME)
-	    {
-	      var_ann_t ann = var_ann (t);
-	      ann->in_vuse_list = 0;
-	    }
-	}
-    }
-
   finalize_ssa_vuse_ops (stmt);
-
-  /* The VDEF build vector wasn't cleaned up because we needed it.  */
-  cleanup_vdefs ();
-                                                                              
-  /* Free the VUSEs build vector.  */
   VEC_truncate (tree, build_vuses, 0);
-
 }
-
 
 /* Finalize all the build vectors, fill the new ones into INFO.  */
                                                                               
@@ -1066,41 +1016,48 @@ append_use (tree *use_p)
 }
 
 
-/* Add a new virtual def for variable VAR to the build array.  */
+/* Add a new VDEF operator for .MEM to the build array.  */
 
 static inline void
-append_vdef (tree var)
+append_vdef (void)
 {
-  if (TREE_CODE (var) != SSA_NAME)
-    {
-      var_ann_t ann = get_var_ann (var);
+  /* We only ever need one VDEF operator.  FIXME.  build_vdefs
+     should not be a vector anymore.  */
+  if (VEC_length (tree, build_vdefs) == 1)
+    return;
 
-      /* Don't allow duplicate entries.  */
-      if (ann->in_vdef_list)
-	return;
-      ann->in_vdef_list = 1;
-    }
-
-  VEC_safe_push (tree, heap, build_vdefs, (tree)var);
+  VEC_safe_push (tree, heap, build_vdefs, mem_var);
 }
 
 
-/* Add VAR to the list of virtual uses.  */
+/* Add a new VUSE operator for .MEM to the build array.  */
 
 static inline void
-append_vuse (tree var)
+append_vuse (void)
 {
-  /* Don't allow duplicate entries.  */
-  if (TREE_CODE (var) != SSA_NAME)
-    {
-      var_ann_t ann = get_var_ann (var);
+  /* We only need one VUSE operator.  FIXME, build_vuses should not be
+     a vector anymore.  */
+  if (VEC_length (tree, build_vuses) == 1)
+    return;
 
-      if (ann->in_vuse_list || ann->in_vdef_list)
-        return;
-      ann->in_vuse_list = 1;
-    }
+  VEC_safe_push (tree, heap, build_vuses, mem_var);
+}
 
-  VEC_safe_push (tree, heap, build_vuses, (tree)var);
+
+/* Add a virtual operator for .MEM according to value of FLAGS.  */
+
+static inline void
+add_virtual_operator (int flags)
+{
+  /* If we are inside an ADDR_EXPR, then VAR is not being referenced
+     but used to compute address arithmetic.  */
+  if (flags & opf_no_vops)
+    return;
+
+  if (flags & opf_def)
+    append_vdef ();
+  else
+    append_vuse ();
 }
 
 
@@ -1255,130 +1212,411 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
 }
 
 
-/* Add VAR to the virtual operands array.  FLAGS is as in
-   get_expr_operands.  FULL_REF is a tree that contains the entire
-   pointer dereference expression, if available, or NULL otherwise.
-   OFFSET and SIZE come from the memory access expression that
-   generated this virtual operand.  FOR_CLOBBER is true is this is
-   adding a virtual operand for a call clobber.  */
+/* Add VAR to STORED_SYMS or LOADED_SYMS depending on the value of
+   FLAGS.  */
 
-static void 
-add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
-		     tree full_ref, HOST_WIDE_INT offset,
-		     HOST_WIDE_INT size, bool for_clobber)
+static inline void
+add_mem_symbol (tree decl, int flags)
+{
+  unsigned uid;
+
+  /* GIMPLE registers should not be added as memory symbols.  */
+  gcc_assert (!is_gimple_reg (decl));
+
+  /* If the variable cannot be modified and this is an implicit store
+     operation, change it into a load.  This happens when read-only
+     variables are marked call-clobbered and/or aliased to writable
+     variables.  So we only check that this only happens on
+     non-specific stores.
+
+     Note that if this is an explicit store (i.e. associated with a
+     MODIFY_EXPR), then we can't suppress it, lest we run into
+     validation problems.  This can happen when programs cast away
+     const, leaving us with a store to read-only memory.  If the
+     statement is actually executed at runtime, then the program is
+     ill formed.  If the statement is not executed then all is well.
+     At the very least, we cannot ICE.  */
+  if ((flags & opf_implicit) && unmodifiable_var_p (decl))
+    flags &= ~opf_def;
+
+  uid = DECL_UID (decl);
+  if (flags & opf_def)
+    bitmap_set_bit (stored_syms, uid);
+  else
+    bitmap_set_bit (loaded_syms, uid);
+}
+
+
+/* Add memory symbols associated with variable DECL to LOADED_SYMS or
+   STORED_SYMS according to FLAGS.  If DECL has sub-variables, then
+   its sub-variables are added.  Otherwise, DECL is added.  FLAGS is
+   as in get_expr_operands.  */
+
+static void
+add_mem_symbols_in_decl (tree decl, int flags)
+{
+  subvar_t svars;
+
+  /* GIMPLE registers should not be added as memory symbols.  */
+  gcc_assert (!is_gimple_reg (decl));
+
+  /* If DECL has sub-variables, add them instead of DECL.  */
+  if (var_can_have_subvars (decl) && (svars = get_subvars_for_var (decl)))
+    {
+      subvar_t sv;
+      for (sv = svars; sv; sv = sv->next)
+	add_mem_symbol (sv->var, flags);
+    }
+  else
+    add_mem_symbol (decl, flags);
+}
+
+
+/* Get memory symbols associated with memory tag TAG.  FLAGS, FULL_REF,
+   OFFSET and SIZE are as in get_mem_symbols_in_indirect_ref.  */
+
+static void
+get_mem_symbols_in_tag (tree tag, int flags, tree full_ref,
+			HOST_WIDE_INT offset, HOST_WIDE_INT size)
 {
   VEC(tree,gc) *aliases;
-  tree sym;
+  tree sym, alias;
+  unsigned i;
   var_ann_t v_ann;
+  bool added_symbols_p;
   
-  sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
+  sym = (TREE_CODE (tag) == SSA_NAME ? SSA_NAME_VAR (tag) : tag);
   v_ann = var_ann (sym);
   
-  /* Mark statements with volatile operands.  Optimizers should back
-     off from statements having volatile operands.  */
-  if (TREE_THIS_VOLATILE (sym) && s_ann)
-    s_ann->has_volatile_ops = true;
-
-  /* If the variable cannot be modified and this is a VDEF change
-     it into a VUSE.  This happens when read-only variables are marked
-     call-clobbered and/or aliased to writable variables.  So we only
-     check that this only happens on non-specific stores.
-
-     Note that if this is a specific store, i.e. associated with a
-     modify_expr, then we can't suppress the VDEF, lest we run
-     into validation problems.
-
-     This can happen when programs cast away const, leaving us with a
-     store to read-only memory.  If the statement is actually executed
-     at runtime, then the program is ill formed.  If the statement is
-     not executed then all is well.  At the very least, we cannot ICE.  */
-  if ((flags & opf_non_specific) && unmodifiable_var_p (var))
-    flags &= ~opf_is_def;
-  
-  /* The variable is not a GIMPLE register.  Add it (or its aliases) to
-     virtual operands, unless the caller has specifically requested
-     not to add virtual operands (used when adding operands inside an
-     ADDR_EXPR expression).  */
-  if (flags & opf_no_vops)
-    return;
-  
   aliases = v_ann->may_aliases;
-  if (aliases == NULL)
+
+  added_symbols_p = false;
+  if (aliases)
     {
-      /* The variable is not aliased or it is an alias tag.  */
-      if (flags & opf_is_def)
-	append_vdef (var);
-      else
-	append_vuse (var);
+      /* If the tag has aliases, add all the aliases that may be
+	 affected by FULL_REF.  */
+      for (i = 0; VEC_iterate (tree, aliases, i, alias); i++)
+	if (access_can_touch_variable (full_ref, alias, offset, size))
+	  {
+	    add_mem_symbol (alias, flags);
+	    added_symbols_p = true;
+	  }
+    }
+
+  /* If no symbols were added, we need to add the tag itself to avoid
+     missing dependencies in cases where no symbols are involved in
+     aliasing (e.g., when two pointers point to the same
+     heap-allocated structure).  */
+  if (!added_symbols_p)
+    add_mem_symbol (sym, flags);
+}
+
+
+/* Get memory symbols referenced by the *INDIRECT_REF node EXPR.
+
+   FLAGS is as in get_expr_operands.
+
+   FULL_REF contains the full pointer dereference expression, if
+      available.  NULL otherwise.
+
+   OFFSET and SIZE are the location of the access inside the
+      dereferenced pointer, if known.  Otherwise, OFFSET should be 0
+      and SIZE should be -1.  */
+
+static void
+get_mem_symbols_in_indirect_ref (tree expr, int flags, tree full_ref,
+				 HOST_WIDE_INT offset, HOST_WIDE_INT size)
+{
+  struct ptr_info_def *pi = NULL;
+  tree *pptr = &TREE_OPERAND (expr, 0);
+  tree ptr = *pptr;
+
+  /* If we don't have aliasing information, do nothing.  */
+  if (!aliases_computed_p)
+    return;
+
+  /* No symbols referenced if PTR is not a variable.  */
+  if (!SSA_VAR_P (ptr))
+    return;
+
+  if (TREE_CODE (ptr) == SSA_NAME
+      && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
+      && pi->name_mem_tag)
+    {
+      /* If PTR has flow-sensitive points-to information, use it.  */
+      get_mem_symbols_in_tag (pi->name_mem_tag, flags, full_ref, offset, size);
     }
   else
     {
-      unsigned i;
-      tree al;
-      
-      /* The variable is aliased.  Add its aliases to the virtual
-	 operands.  */
-      gcc_assert (VEC_length (tree, aliases) != 0);
-      
-      if (flags & opf_is_def)
+      var_ann_t ann;
+
+      /* If PTR is not an SSA_NAME or it doesn't have a name
+	 tag, use its symbol memory tag.  */
+      if (TREE_CODE (ptr) == SSA_NAME)
+	ptr = SSA_NAME_VAR (ptr);
+
+      /* If alias information has not been computed for PTR, it may
+	 not yet have a memory tag (e.g., when folding builtins new
+	 pointers get instantiated which force an alias pass).  */
+      ann = var_ann (ptr);
+      if (ann->symbol_mem_tag)
+	get_mem_symbols_in_tag (ann->symbol_mem_tag, flags, full_ref, offset,
+	                        size);
+    }
+}
+
+
+/* Add symbols referenced by an aggregate type.  */
+
+static void
+get_mem_symbols_in_aggregate (tree expr, int flags)
+{
+  tree ref;
+  HOST_WIDE_INT offset, size, maxsize;
+
+  ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
+  if (SSA_VAR_P (ref))
+    {
+      bool added_symbols_p = false;
+
+      if (get_subvars_for_var (ref))
 	{
-	  
-	  bool none_added = true;
+	  subvar_t svars, sv;
 
-	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	  svars = get_subvars_for_var (ref);
+	  for (sv = svars; sv; sv = sv->next)
+	    if (overlap_subvar (offset, maxsize, sv->var, NULL))
+	      {
+		added_symbols_p = true;
+		add_mem_symbol (sv->var, flags);
+	      }
+	}
+
+      /* If no symbols were added, we need to add REF itself to avoid
+	 missing dependencies when EXPR does not reference any of the
+	 sub-variables we computed for REF.  */
+      if (!added_symbols_p)
+	add_mem_symbol (ref, flags);
+    }
+  else if (TREE_CODE (ref) == INDIRECT_REF)
+    get_mem_symbols_in_indirect_ref (ref, flags, expr, offset, maxsize);
+}
+
+
+/* Get memory symbols accessed by TARGET_MEM_REF EXPR in statement
+   STMT.  FLAGS is as in get_expr_operands.  */
+
+static void
+get_mem_symbols_in_tmr (tree expr, int flags)
+{
+  tree tag;
+
+  tag = TMR_TAG (expr);
+  if (!tag)
+    return;
+
+  if (MTAG_P (tag))
+    get_mem_symbols_in_tag (tag, flags, NULL_TREE, 0, -1);
+  else if (DECL_P (tag))
+    add_mem_symbol (tag, flags);
+  else
+    get_mem_symbols_in_aggregate (tag, flags);
+}
+
+
+/* Helper for get_call_expr_operands.  When gathering memory symbols,
+   add all the call-clobbered symbols that may be modified by a call
+   to function CALLEE to the set STORED_SYMS.  CALL_FLAGS are the
+   flags for the CALL_EXPR site.
+   
+   If we are scanning for regular operands, add a VDEF operator if any
+   call-clobbered symbol may be modified by CALLEE and add a VUSE
+   operator if any call-clobbered symbol may be read by CALLEE.  */
+
+static void
+add_call_clobbered_mem_symbols (tree callee, int call_flags)
+{
+  unsigned u;
+  bitmap_iterator bi;
+  bitmap not_read_b, not_written_b;
+  bool added_symbols_p, add_vdef_p, add_vuse_p;
+  
+  /* Get info for local and module level statics.  There is a bit
+     set for each static if the call being processed does not read
+     or write that variable.  */
+  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
+  not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
+  /* Check which call-clobbered variables may be modified by a call to
+     CALLEE.  Add those affected to STORED_SYMS.  */
+  added_symbols_p = false;
+  add_vdef_p = false;
+  add_vuse_p = false;
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+    {
+      tree real_var, var;
+      unsigned int escape_mask;
+      bool not_read, not_written;
+
+      /* If we have already decided to add both a VDEF and a VUSE,
+	 there is no point in examining any more call-clobbered
+	 symbols.  */
+      if (add_vdef_p && add_vuse_p)
+	break;
+
+      var = referenced_var_lookup (u);
+      escape_mask = var_ann (var)->escape_mask;
+
+      /* Not read and not written are computed on regular vars, not
+	 subvars, so look at the parent var if this is an SFT. */
+      real_var = var;
+      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+	real_var = SFT_PARENT_VAR (var);
+
+      gcc_assert (!unmodifiable_var_p (var));
+
+      clobber_stats.clobbered_vars++;
+
+      /* See if this variable is really clobbered by a call to CALLEE.  */
+
+      /* Trivial case: Things escaping only to pure/const are not
+	 clobbered by non-pure-const, and only read by pure/const. */
+      if (escape_mask == ESCAPE_TO_PURE_CONST)
+	{
+	  if (call_flags & (ECF_CONST | ECF_PURE))
 	    {
-	      if (!access_can_touch_variable (full_ref, al, offset, size))
-		continue;
-	      
-	      none_added = false;
-	      append_vdef (al);
-	    }
+	      if (gathering_loads_stores ())
+		{
+		  added_symbols_p = true;
+		  add_mem_symbols_in_decl (var, opf_use);
+		}
+	      else
+		add_vuse_p = true;
 
-	  /* If the variable is also an alias tag, add a virtual
-	     operand for it, otherwise we will miss representing
-	     references to the members of the variable's alias set.	     
-	     This fixes the bug in gcc.c-torture/execute/20020503-1.c.
-	     
-	     It is also necessary to add bare defs on clobbers for
-	     SMT's, so that bare SMT uses caused by pruning all the
-	     aliases will link up properly with calls.   In order to
-	     keep the number of these bare defs we add down to the
-	     minimum necessary, we keep track of which SMT's were used
-	     alone in statement vdefs or VUSEs.  */
-	  if (v_ann->is_aliased
-	      || none_added
-	      || (TREE_CODE (var) == SYMBOL_MEMORY_TAG
-		  && for_clobber
-		  && SMT_USED_ALONE (var)))
+	      clobber_stats.unescapable_clobbers_avoided++;
+	      continue;
+	    }
+	  else
 	    {
-	      /* Every bare SMT def we add should have SMT_USED_ALONE
-		 set on it, or else we will get the wrong answer on
-		 clobbers.  */
-	      if (none_added
-		  && !updating_used_alone && aliases_computed_p
-		  && TREE_CODE (var) == SYMBOL_MEMORY_TAG)
-		gcc_assert (SMT_USED_ALONE (var));
-
-	      append_vdef (var);
+	      clobber_stats.unescapable_clobbers_avoided++;
+	      continue;
 	    }
+	}
+
+      /* Analysis on static globals may have determined that the
+	 variable is never written to nor read from by any function.
+	 Use that, if possible.  */
+      not_read = not_read_b
+	         ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
+	         : false;
+
+      not_written = not_written_b
+	            ? bitmap_bit_p (not_written_b, DECL_UID (real_var))
+		    : false;
+
+      if (not_written)
+	{
+	  clobber_stats.static_write_clobbers_avoided++;
+	  if (!not_read)
+	    {
+	      if (gathering_loads_stores ())
+		{
+		  added_symbols_p = true;
+		  add_mem_symbols_in_decl (var, opf_use);
+		}
+	      else
+		add_vuse_p = true;
+	    }
+	  else
+	    clobber_stats.static_read_clobbers_avoided++;
 	}
       else
 	{
-	  bool none_added = true;
-	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	  if (gathering_loads_stores ())
 	    {
-	      if (!access_can_touch_variable (full_ref, al, offset, size))
-		continue;
-	      none_added = false;
-	      append_vuse (al);
+	      added_symbols_p = true;
+	      add_mem_symbols_in_decl (var, opf_def | opf_implicit);
 	    }
-
-	  /* Similarly, append a virtual uses for VAR itself, when
-	     it is an alias tag.  */
-	  if (v_ann->is_aliased || none_added)
-	    append_vuse (var);
+	  else
+	    add_vdef_p = true;
 	}
     }
+
+  if (add_vdef_p)
+    add_virtual_operator (opf_def);
+
+  if (add_vuse_p)
+    add_virtual_operator (opf_use);
+}
+
+
+/* Helper for get_call_expr_operands.  When gathering memory symbols,
+   add all the call-clobbered symbols that may be read by a call to
+   function CALLEE to the set LOADED_SYMS.
+
+   If we are scanning for regular operands, add a VUSE operator if any
+   call-clobbered symbol may be read by CALLEE.  */
+
+static void
+add_call_read_mem_symbols (tree callee)
+{
+  unsigned u;
+  bitmap_iterator bi;
+  bitmap not_read_b;
+  bool added_symbols_p;
+
+  /* Get info for local and module level statics.  There is a bit
+     set for each static if the call being processed does not read
+     or write that variable.  */
+  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
+
+  /* Check which call-clobbered variables may be read by a call to
+     CALLEE.  Add those to LOADED_SYMS.  */
+  added_symbols_p = false;
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+    {
+      tree real_var, var;
+      bool not_read;
+      var_ann_t ann;
+
+      clobber_stats.readonly_clobbers++;
+
+      var = referenced_var (u);
+      ann = var_ann (var);
+
+      /* Not read and not written are computed on regular vars, not
+	 subvars, so look at the parent var if this is an SFT. */
+      real_var = var;
+      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+	real_var = SFT_PARENT_VAR (var);
+
+      not_read = not_read_b
+	         ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
+	         : false;
+
+      if (not_read)
+	{
+	  clobber_stats.static_readonly_clobbers_avoided++;
+	  continue;
+	}
+
+      if (gathering_loads_stores ())
+	{
+	  added_symbols_p = true;
+	  add_mem_symbols_in_decl (var, opf_use);
+	}
+      else
+	{
+	  /* If we have already decided to add a VUSE, there is no
+	     point in examining any more call-clobbered symbols.  */
+	  add_virtual_operator (opf_use);
+	  return;
+	}
+    }
+
+  /* Similarly to the logic in add_call_clobbered_mem_symbols, add a
+     load of .MEM if no symbols have been added.  */
+  if (gathering_loads_stores () && !added_symbols_p)
+    add_mem_symbol (mem_var, opf_use);
 }
 
 
@@ -1390,37 +1628,40 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 static void
 add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 {
-  bool is_real_op;
   tree var, sym;
   var_ann_t v_ann;
 
+  gcc_assert (SSA_VAR_P (*var_p) && s_ann);
+
   var = *var_p;
-  gcc_assert (SSA_VAR_P (var));
-
-  is_real_op = is_gimple_reg (var);
-
-  /* If this is a real operand, the operand is either an SSA name or a 
-     decl.  Virtual operands may only be decls.  */
-  gcc_assert (is_real_op || DECL_P (var));
-
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
 
-  /* Mark statements with volatile operands.  Optimizers should back
-     off from statements having volatile operands.  */
-  if (TREE_THIS_VOLATILE (sym) && s_ann)
+  /* Mark statements with volatile operands.  */
+  if (TREE_THIS_VOLATILE (sym))
     s_ann->has_volatile_ops = true;
 
-  if (is_real_op)
+  if (is_gimple_reg (sym))
     {
       /* The variable is a GIMPLE register.  Add it to real operands.  */
-      if (flags & opf_is_def)
+      if (flags & opf_def)
 	append_def (var_p);
       else
 	append_use (var_p);
     }
   else
-    add_virtual_operand (var, s_ann, flags, NULL_TREE, 0, -1, false);
+    {
+      /* .MEM should not be found in the code.  */
+      gcc_assert (var != mem_var);
+
+      /* When gathering loads and stores, look for the symbols
+	 associated with VAR, otherwise add the virtual operator
+	 indicated by FLAGS.  */
+      if (gathering_loads_stores ())
+	add_mem_symbols_in_decl (var, flags);
+      else
+	add_virtual_operator (flags);
+    }
 }
 
 
@@ -1436,63 +1677,49 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
       have it, or NULL otherwise.
 
    OFFSET and SIZE are the location of the access inside the
-      dereferenced pointer, if known.
-
-   RECURSE_ON_BASE should be set to true if we want to continue
-      calling get_expr_operands on the base pointer, and false if
-      something else will do it for us.  */
+      dereferenced pointer, if known.  */
 
 static void
-get_indirect_ref_operands (tree stmt, tree expr, int flags,
-			   tree full_ref,
-			   HOST_WIDE_INT offset, HOST_WIDE_INT size,
-			   bool recurse_on_base)
+get_indirect_ref_operands (tree stmt, tree expr, int flags)
 {
   tree *pptr = &TREE_OPERAND (expr, 0);
   tree ptr = *pptr;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
+  /* If the dereference is volatile, mark the statement accordingly.  */
+  if (TREE_THIS_VOLATILE (expr))
+    s_ann->has_volatile_ops = true;
+
+  /* When gathering memory symbols, there is no need to keep analyzing
+     the rest of the expression.  */
+  if (gathering_loads_stores ())
+    {
+      get_mem_symbols_in_indirect_ref (expr, flags, NULL_TREE, 0, -1);
+      return;
+    }
+
   if (SSA_VAR_P (ptr))
     {
-      struct ptr_info_def *pi = NULL;
-
-      /* If PTR has flow-sensitive points-to information, use it.  */
-      if (TREE_CODE (ptr) == SSA_NAME
-	  && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
-	  && pi->name_mem_tag)
+      /* Only add a reference to .MEM if we have alias information
+	 available.  Otherwise, the SSA renamer will try to access the
+	 aliased symbols associated with this pointer dereference and
+	 find nothing.  */
+      if (aliases_computed_p)
 	{
-	  /* PTR has its own memory tag.  Use it.  */
-	  add_virtual_operand (pi->name_mem_tag, s_ann, flags,
-			       full_ref, offset, size, false);
-	}
-      else
-	{
-	  /* If PTR is not an SSA_NAME or it doesn't have a name
-	     tag, use its symbol memory tag.  */
-	  var_ann_t v_ann;
+	  tree tag;
 
-	  /* If we are emitting debugging dumps, display a warning if
-	     PTR is an SSA_NAME with no flow-sensitive alias
-	     information.  That means that we may need to compute
-	     aliasing again.  */
-	  if (dump_file
-	      && TREE_CODE (ptr) == SSA_NAME
-	      && pi == NULL)
+	  if (TREE_CODE (ptr) == SSA_NAME
+	      && SSA_NAME_PTR_INFO (ptr)
+	      && SSA_NAME_PTR_INFO (ptr)->name_mem_tag)
+	    tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
+	  else
 	    {
-	      fprintf (dump_file,
-		  "NOTE: no flow-sensitive alias info for ");
-	      print_generic_expr (dump_file, ptr, dump_flags);
-	      fprintf (dump_file, " in ");
-	      print_generic_stmt (dump_file, stmt, dump_flags);
+	      tree sym = DECL_P (ptr) ? ptr : SSA_NAME_VAR (ptr);
+	      tag = var_ann (sym)->symbol_mem_tag;
 	    }
 
-	  if (TREE_CODE (ptr) == SSA_NAME)
-	    ptr = SSA_NAME_VAR (ptr);
-	  v_ann = var_ann (ptr);
-
-	  if (v_ann->symbol_mem_tag)
-	    add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
-				 full_ref, offset, size, false);
+	  if (tag)
+	    add_virtual_operator (flags);
 	}
     }
   else if (TREE_CODE (ptr) == INTEGER_CST)
@@ -1506,13 +1733,13 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
     }
   else
     {
-      /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
+      /* OK, this isn't even is_gimple_min_invariant.  Something's
+	 broke.  */
       gcc_unreachable ();
     }
 
-  /* If requested, add a USE operand for the base pointer.  */
-  if (recurse_on_base)
-    get_expr_operands (stmt, pptr, opf_none);
+  /* Recurse to get to the base pointer and add it as a USEd operand.  */
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
 }
 
 
@@ -1521,14 +1748,19 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 static void
 get_tmr_operands (tree stmt, tree expr, int flags)
 {
-  tree tag = TMR_TAG (expr), ref;
-  HOST_WIDE_INT offset, size, maxsize;
-  subvar_t svars, sv;
-  stmt_ann_t s_ann = stmt_ann (stmt);
+  tree tag;
+
+  /* When gathering memory symbols, there is no need to keep analyzing
+     the rest of the expression.  */
+  if (gathering_loads_stores ())
+    {
+      get_mem_symbols_in_tmr (expr, flags);
+      return;
+    }
 
   /* First record the real operands.  */
-  get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
-  get_expr_operands (stmt, &TMR_INDEX (expr), opf_none);
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
 
   if (TMR_SYMBOL (expr))
     {
@@ -1536,6 +1768,7 @@ get_tmr_operands (tree stmt, tree expr, int flags)
       add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
     }
 
+  tag = TMR_TAG (expr);
   if (!tag)
     {
       /* Something weird, so ensure that we will be careful.  */
@@ -1543,157 +1776,7 @@ get_tmr_operands (tree stmt, tree expr, int flags)
       return;
     }
 
-  if (DECL_P (tag))
-    {
-      get_expr_operands (stmt, &tag, flags);
-      return;
-    }
-
-  ref = get_ref_base_and_extent (tag, &offset, &size, &maxsize);
-  gcc_assert (ref != NULL_TREE);
-  svars = get_subvars_for_var (ref);
-  for (sv = svars; sv; sv = sv->next)
-    {
-      bool exact;		
-      if (overlap_subvar (offset, maxsize, sv->var, &exact))
-	add_stmt_operand (&sv->var, s_ann, flags);
-    }
-}
-
-
-/* Add clobbering definitions for .GLOBAL_VAR or for each of the call
-   clobbered variables in the function.  */
-
-static void
-add_call_clobber_ops (tree stmt, tree callee)
-{
-  unsigned u;
-  bitmap_iterator bi;
-  stmt_ann_t s_ann = stmt_ann (stmt);
-  bitmap not_read_b, not_written_b;
-  
-  /* Functions that are not const, pure or never return may clobber
-     call-clobbered variables.  */
-  if (s_ann)
-    s_ann->makes_clobbering_call = true;
-
-  /* If we created .GLOBAL_VAR earlier, just use it.  See compute_may_aliases 
-     for the heuristic used to decide whether to create .GLOBAL_VAR or not.  */
-  if (global_var)
-    {
-      add_stmt_operand (&global_var, s_ann, opf_is_def);
-      return;
-    }
-
-  /* Get info for local and module level statics.  There is a bit
-     set for each static if the call being processed does not read
-     or write that variable.  */
-  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
-  not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
-  /* Add a VDEF operand for every call clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
-    {
-      tree var = referenced_var_lookup (u);
-      unsigned int escape_mask = var_ann (var)->escape_mask;
-      tree real_var = var;
-      bool not_read;
-      bool not_written;
-      
-      /* Not read and not written are computed on regular vars, not
-	 subvars, so look at the parent var if this is an SFT. */
-      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
-	real_var = SFT_PARENT_VAR (var);
-
-      not_read = not_read_b ? bitmap_bit_p (not_read_b, 
-					    DECL_UID (real_var)) : false;
-      not_written = not_written_b ? bitmap_bit_p (not_written_b, 
-						  DECL_UID (real_var)) : false;
-      gcc_assert (!unmodifiable_var_p (var));
-      
-      clobber_stats.clobbered_vars++;
-
-      /* See if this variable is really clobbered by this function.  */
-
-      /* Trivial case: Things escaping only to pure/const are not
-	 clobbered by non-pure-const, and only read by pure/const. */
-      if ((escape_mask & ~(ESCAPE_TO_PURE_CONST)) == 0)
-	{
-	  tree call = get_call_expr_in (stmt);
-	  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
-	    {
-	      add_stmt_operand (&var, s_ann, opf_none);
-	      clobber_stats.unescapable_clobbers_avoided++;
-	      continue;
-	    }
-	  else
-	    {
-	      clobber_stats.unescapable_clobbers_avoided++;
-	      continue;
-	    }
-	}
-            
-      if (not_written)
-	{
-	  clobber_stats.static_write_clobbers_avoided++;
-	  if (!not_read)
-	    add_stmt_operand (&var, s_ann, opf_none);
-	  else
-	    clobber_stats.static_read_clobbers_avoided++;
-	}
-      else
-	add_virtual_operand (var, s_ann, opf_is_def, NULL, 0, -1, true);
-    }
-}
-
-
-/* Add VUSE operands for .GLOBAL_VAR or all call clobbered variables in the
-   function.  */
-
-static void
-add_call_read_ops (tree stmt, tree callee)
-{
-  unsigned u;
-  bitmap_iterator bi;
-  stmt_ann_t s_ann = stmt_ann (stmt);
-  bitmap not_read_b;
-
-  /* if the function is not pure, it may reference memory.  Add
-     a VUSE for .GLOBAL_VAR if it has been created.  See add_referenced_var
-     for the heuristic used to decide whether to create .GLOBAL_VAR.  */
-  if (global_var)
-    {
-      add_stmt_operand (&global_var, s_ann, opf_none);
-      return;
-    }
-  
-  not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
-
-  /* Add a VUSE for each call-clobbered variable.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
-    {
-      tree var = referenced_var (u);
-      tree real_var = var;
-      bool not_read;
-      
-      clobber_stats.readonly_clobbers++;
-
-      /* Not read and not written are computed on regular vars, not
-	 subvars, so look at the parent var if this is an SFT. */
-
-      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
-	real_var = SFT_PARENT_VAR (var);
-
-      not_read = not_read_b ? bitmap_bit_p (not_read_b, DECL_UID (real_var))
-	                    : false;
-      
-      if (not_read)
-	{
-	  clobber_stats.static_readonly_clobbers_avoided++;
-	  continue;
-	}
-            
-      add_stmt_operand (&var, s_ann, opf_none | opf_non_specific);
-    }
+  add_virtual_operator (flags);
 }
 
 
@@ -1705,37 +1788,29 @@ get_call_expr_operands (tree stmt, tree expr)
   tree op;
   int call_flags = call_expr_flags (expr);
 
-  /* If aliases have been computed already, add VDEF or V_USE
-     operands for all the symbols that have been found to be
-     call-clobbered.
-     
-     Note that if aliases have not been computed, the global effects
-     of calls will not be included in the SSA web. This is fine
-     because no optimizer should run before aliases have been
-     computed.  By not bothering with virtual operands for CALL_EXPRs
-     we avoid adding superfluous virtual operands, which can be a
-     significant compile time sink (See PR 15855).  */
-  if (aliases_computed_p
-      && !bitmap_empty_p (call_clobbered_vars)
-      && !(call_flags & ECF_NOVOPS))
+  if (!bitmap_empty_p (call_clobbered_vars) && !(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
       if (TREE_SIDE_EFFECTS (expr)
 	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt, get_callee_fndecl (expr));
+	add_call_clobbered_mem_symbols (get_callee_fndecl (expr), call_flags);
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt, get_callee_fndecl (expr));
+	add_call_read_mem_symbols (get_callee_fndecl (expr));
     }
 
   /* Find uses in the called function.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
+  if (!gathering_loads_stores ())
+    {
+      /* There may not be memory symbols in these operands, so we only
+	 traverse them when scanning for real operands.  */
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+    }
 
   for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-    get_expr_operands (stmt, &TREE_VALUE (op), opf_none);
-
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+    get_expr_operands (stmt, &TREE_VALUE (op), opf_use);
 }
 
 
@@ -1744,16 +1819,19 @@ get_call_expr_operands (tree stmt, tree expr)
 static void
 get_asm_expr_operands (tree stmt)
 {
-  stmt_ann_t s_ann = stmt_ann (stmt);
-  int noutputs = list_length (ASM_OUTPUTS (stmt));
-  const char **oconstraints
-    = (const char **) alloca ((noutputs) * sizeof (const char *));
-  int i;
-  tree link;
+  stmt_ann_t s_ann;
+  int i, noutputs;
+  const char **oconstraints;
   const char *constraint;
-  bool allows_mem, allows_reg, is_inout;
+  bool allows_mem, allows_reg, is_inout, add_vdef_p, add_vuse_p;
+  tree link;
 
-  for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
+  s_ann = stmt_ann (stmt);
+  noutputs = list_length (ASM_OUTPUTS (stmt));
+  oconstraints = (const char **) alloca ((noutputs) * sizeof (const char *));
+
+  /* Gather all output operands.  */
+  for (i = 0, link = ASM_OUTPUTS (stmt); link; i++, link = TREE_CHAIN (link))
     {
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
       oconstraints[i] = constraint;
@@ -1772,14 +1850,15 @@ get_asm_expr_operands (tree stmt)
 	    add_to_addressable_set (t, &s_ann->addresses_taken);
 	}
 
-      get_expr_operands (stmt, &TREE_VALUE (link), opf_is_def);
+      get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
     }
 
+  /* Gather all input operands.  */
   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
     {
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
-      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
-			      oconstraints, &allows_mem, &allows_reg);
+      parse_input_constraint (&constraint, 0, 0, noutputs, 0, oconstraints,
+	                      &allows_mem, &allows_reg);
 
       /* Memory operands are addressable.  Note that STMT needs the
 	 address of this operand.  */
@@ -1793,45 +1872,69 @@ get_asm_expr_operands (tree stmt)
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
     }
 
-
-  /* Clobber memory for asm ("" : : : "memory");  */
+  /* Clobber all memory and addressable symbols for asm ("" : : : "memory");  */
+  add_vdef_p = false;
+  add_vuse_p = false;
   for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
     if (strcmp (TREE_STRING_POINTER (TREE_VALUE (link)), "memory") == 0)
       {
 	unsigned i;
 	bitmap_iterator bi;
 
-	/* Clobber all call-clobbered variables (or .GLOBAL_VAR if we
-	   decided to group them).  */
-	if (global_var)
-	  add_stmt_operand (&global_var, s_ann, opf_is_def);
-	else
-	  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
-	    {
-	      tree var = referenced_var (i);
-	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
-	    }
+	EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+	  {
+	    tree var;
 
-	/* Now clobber all addressables.  */
+	    /* Don't bother checking any more variables if we have
+	       decided to add both a VDEF and a VUSE operator already.  */
+	    if (add_vdef_p && add_vuse_p)
+	      break;
+
+	    var = referenced_var (i);
+
+	    if (gathering_loads_stores ())
+	      add_mem_symbols_in_decl (var, opf_def | opf_implicit);
+	    else if (unmodifiable_var_p (var))
+	      add_vuse_p = true;
+	    else
+	      add_vdef_p = true;
+	  }
+
 	EXECUTE_IF_SET_IN_BITMAP (addressable_vars, 0, i, bi)
-	    {
-	      tree var = referenced_var (i);
+	  {
+	    tree var;
 
-	      /* Subvars are explicitly represented in this list, so
-		 we don't need the original to be added to the clobber
-		 ops, but the original *will* be in this list because 
-		 we keep the addressability of the original
-		 variable up-to-date so we don't screw up the rest of
-		 the backend.  */
-	      if (var_can_have_subvars (var)
-		  && get_subvars_for_var (var) != NULL)
-		continue;		
+	    /* Don't bother checking any more variables if we have
+	       decided to add both a VDEF and a VUSE operator already.  */
+	    if (add_vdef_p && add_vuse_p)
+	      break;
 
-	      add_stmt_operand (&var, s_ann, opf_is_def | opf_non_specific);
-	    }
+	    var = referenced_var (i);
 
+	    /* Subvars are explicitly represented in this list, so we
+	       don't need the original to be added to the clobber ops,
+	       but the original *will* be in this list because we keep
+	       the addressability of the original variable up-to-date
+	       to avoid confusing the back-end.  */
+	    if (var_can_have_subvars (var)
+		&& get_subvars_for_var (var) != NULL)
+	      continue;		
+
+	    if (gathering_loads_stores ())
+	      add_mem_symbols_in_decl (var, opf_def | opf_implicit);
+	    else if (unmodifiable_var_p (var))
+	      add_vuse_p = true;
+	    else
+	      add_vdef_p = true;
+	  }
 	break;
       }
+
+  if (add_vdef_p)
+    add_virtual_operator (opf_def);
+
+  if (add_vuse_p)
+    add_virtual_operator (opf_use);
 }
 
 
@@ -1841,9 +1944,9 @@ static void
 get_modify_expr_operands (tree stmt, tree expr)
 {
   /* First get operands from the RHS.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
 
-  /* For the LHS, use a regular definition (OPF_IS_DEF) for GIMPLE
+  /* For the LHS, use a regular definition (opf_def) for GIMPLE
      registers.  If the LHS is a store to memory, we will need
      a preserving definition (VDEF).
 
@@ -1854,7 +1957,49 @@ get_modify_expr_operands (tree stmt, tree expr)
 
      We used to distinguish between preserving and killing definitions.
      We always emit preserving definitions now.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def);
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_def);
+}
+
+
+/* Scan operands in EXPR, a reference to an aggregate type (arrays,
+   structures and complex).  STMT is the statement holding EXPR.
+   FLAGS is as in get_expr_operands.  */
+
+static void
+get_aggregate_operands (tree stmt, tree expr, int flags)
+{
+  enum tree_code code = TREE_CODE (expr);
+  stmt_ann_t s_ann = stmt_ann (stmt);
+
+  /* If the reference is volatile, mark the statement accordingly.  */
+  if (TREE_THIS_VOLATILE (expr))
+    s_ann->has_volatile_ops = true;
+
+  /* When gathering memory symbols, there is no need to keep analyzing
+     the rest of the expression.  */
+  if (gathering_loads_stores ())
+    {
+      get_mem_symbols_in_aggregate (expr, flags);
+      return;
+    }
+
+  /* References to aggregates are references to the virtual variable
+     representing the aggregate.  If the aggregate is a
+     non-addressable stack variable, the virtual variable will be the
+     base symbol for the reference.  Otherwise, addressable and global
+     variables are represented with the artificial symbol MEM.  */
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+
+  if (code == COMPONENT_REF)
+    {
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+    }
+  else if (code == ARRAY_REF || code == ARRAY_RANGE_REF)
+    {
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_use);
+    }
 }
 
 
@@ -1895,38 +2040,19 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	 not really accessed.  The only operands that we should find
 	 here are ARRAY_REF indices which will always be real operands
 	 (GIMPLE does not allow non-registers as array indices).  */
+      if (gathering_loads_stores ())
+	return;
+
       flags |= opf_no_vops;
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
     case SSA_NAME:
-    case STRUCT_FIELD_TAG:
-    case SYMBOL_MEMORY_TAG:
-    case NAME_MEMORY_TAG:
-     add_stmt_operand (expr_p, s_ann, flags);
-     return;
-
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
-      {
-	subvar_t svars;
-	
-	/* Add the subvars for a variable, if it has subvars, to DEFS
-	   or USES.  Otherwise, add the variable itself.  Whether it
-	   goes to USES or DEFS depends on the operand flags.  */
-	if (var_can_have_subvars (expr)
-	    && (svars = get_subvars_for_var (expr)))
-	  {
-	    subvar_t sv;
-	    for (sv = svars; sv; sv = sv->next)
-	      add_stmt_operand (&sv->var, s_ann, flags);
-	  }
-	else
-	  add_stmt_operand (expr_p, s_ann, flags);
-
-	return;
-      }
+      add_stmt_operand (expr_p, s_ann, flags);
+      return;
 
     case MISALIGNED_INDIRECT_REF:
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
@@ -1934,7 +2060,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
     case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
-      get_indirect_ref_operands (stmt, expr, flags, NULL_TREE, 0, -1, true);
+      get_indirect_ref_operands (stmt, expr, flags);
       return;
 
     case TARGET_MEM_REF:
@@ -1946,69 +2072,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      {
-	tree ref;
-	HOST_WIDE_INT offset, size, maxsize;
-	bool none = true;
-
-	/* This component reference becomes an access to all of the
-	   subvariables it can touch, if we can determine that, but
-	   *NOT* the real one.  If we can't determine which fields we
-	   could touch, the recursion will eventually get to a
-	   variable and add *all* of its subvars, or whatever is the
-	   minimum correct subset.  */
-	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
-	if (SSA_VAR_P (ref) && get_subvars_for_var (ref))
-	  {
-	    subvar_t sv;
-	    subvar_t svars = get_subvars_for_var (ref);
-
-	    for (sv = svars; sv; sv = sv->next)
-	      {
-		bool exact;		
-
-		if (overlap_subvar (offset, maxsize, sv->var, &exact))
-		  {
-		    none = false;
-		    add_stmt_operand (&sv->var, s_ann, flags);
-		  }
-	      }
-
-	    if (!none)
-	      flags |= opf_no_vops;
-	  }
-	else if (TREE_CODE (ref) == INDIRECT_REF)
-	  {
-	    get_indirect_ref_operands (stmt, ref, flags, expr, offset,
-		                       maxsize, false);
-	    flags |= opf_no_vops;
-	  }
-
-	/* Even if we found subvars above we need to ensure to see
-	   immediate uses for d in s.a[d].  In case of s.a having
-	   a subvar or we would miss it otherwise.  */
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-	
-	if (code == COMPONENT_REF)
-	  {
-	    if (s_ann && TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
-	      s_ann->has_volatile_ops = true; 
-	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
-	  }
-	else if (code == ARRAY_REF || code == ARRAY_RANGE_REF)
-	  {
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
-	  }
-
-	return;
-      }
+      get_aggregate_operands (stmt, expr, flags);
+      return;
 
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
@@ -2018,9 +2088,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
       return;
 
     case MODIFY_EXPR:
@@ -2037,7 +2107,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	for (idx = 0;
 	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
 	     idx++)
-	  get_expr_operands (stmt, &ce->value, opf_none);
+	  get_expr_operands (stmt, &ce->value, opf_use);
 
 	return;
       }
@@ -2124,11 +2194,11 @@ parse_ssa_operands (tree stmt)
       break;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none);
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_use);
       break;
 
     case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none);
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_use);
       break;
 
     case ASM_EXPR:
@@ -2136,15 +2206,15 @@ parse_ssa_operands (tree stmt)
       break;
 
     case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_use);
       break;
 
     case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none);
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_use);
       break;
 
     case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none);
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_use);
       break;
 
     case BIND_EXPR:
@@ -2163,7 +2233,7 @@ parse_ssa_operands (tree stmt)
 	 will fail in add_stmt_operand.  This default will handle
 	 statements like empty statements, or CALL_EXPRs that may
 	 appear on the RHS of a statement or as statements themselves.  */
-      get_expr_operands (stmt, &stmt, opf_none);
+      get_expr_operands (stmt, &stmt, opf_use);
       break;
     }
 }
@@ -2220,6 +2290,9 @@ update_stmt_operands (tree stmt)
 
   gcc_assert (ann->modified);
 
+  /* This cannot be called from get_loads_and_stores.  */
+  gcc_assert (!gathering_loads_stores ());
+
   timevar_push (TV_TREE_OPS);
 
   build_ssa_operands (stmt);
@@ -2237,49 +2310,39 @@ void
 copy_virtual_operands (tree dest, tree src)
 {
   tree t;
-  ssa_op_iter iter, old_iter;
-  use_operand_p use_p;
-  vuse_vec_p u3, u4;
-  def_operand_p def_p, d2;
+  unsigned int n;
+  ssa_op_iter iter;
 
-  build_ssa_operands (dest);
-
-  /* Copy all the virtual fields.  */
-  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VUSE)
-    append_vuse (t);
-  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VDEF)
-    append_vdef (t);
-
-  if (VEC_length (tree, build_vuses) == 0
-      && VEC_length (tree, build_vdefs) == 0)
-    return;
-
-  /* Now commit the virtual operands to this stmt.  */
-  finalize_ssa_vdefs (dest);
-  finalize_ssa_vuses (dest);
-
-  /* Finally, set the field to the same values as then originals.  */
-  t = op_iter_init_tree (&old_iter, src, SSA_OP_VUSE);
-  FOR_EACH_SSA_USE_OPERAND (use_p, dest, iter, SSA_OP_VUSE)
+  n = NUM_SSA_OPERANDS (src, SSA_OP_VUSE);
+  if (n > 0)
     {
-      gcc_assert (!op_iter_done (&old_iter));
-      SET_USE (use_p, t);
-      t = op_iter_next_tree (&old_iter);
+      int x = 0;
+      struct vuse_optype_d vuse;
+      vuse_optype_p vuse_p = &vuse;
+      vuse_p = add_vuse_op (dest, NULL, n, &vuse_p);
+      vuse_p->next = NULL;
+      FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VUSE)
+	SET_USE (VUSE_OP_PTR (vuse_p, x++), t);
+      VUSE_OPS (dest) = vuse.next;
     }
-  gcc_assert (op_iter_done (&old_iter));
+  else
+    VUSE_OPS (dest) = NULL;
 
-  op_iter_init_vdef (&old_iter, src, &u3, &d2);
-  FOR_EACH_SSA_VDEF_OPERAND (def_p, u4, dest, iter)
+  n = NUM_SSA_OPERANDS (src, SSA_OP_VMAYUSE);
+  if (n > 0)
     {
-      gcc_assert (!op_iter_done (&old_iter));
-      gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
-      gcc_assert (VUSE_VECT_NUM_ELEM (*u4) == 1);
-      SET_USE (VUSE_ELEMENT_PTR_NC (*u4, 0), VUSE_ELEMENT_VAR (*u3, 0));
-      SET_DEF (def_p, DEF_FROM_PTR (d2));
-      op_iter_next_vdef (&u3, &d2, &old_iter);
+      int x = 0;
+      struct vdef_optype_d vuse;
+      vdef_optype_p vuse_p = &vuse;
+      vuse_p = add_vdef_op (dest, NULL, n, &vuse_p);
+      vuse_p->next = NULL;
+      FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMAYUSE)
+	SET_USE (VDEF_OP_PTR (vuse_p, x++), t);
+      SET_DEF (VDEF_RESULT_PTR (vuse_p), VDEF_RESULT (VDEF_OPS (src)));
+      VDEF_OPS (dest) = vuse.next;
     }
-  gcc_assert (op_iter_done (&old_iter));
-
+  else
+    VDEF_OPS (dest) = NULL;
 }
 
 
@@ -2292,49 +2355,34 @@ copy_virtual_operands (tree dest, tree src)
 void
 create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
 {
-  stmt_ann_t ann;
   tree op;
   ssa_op_iter iter;
   use_operand_p use_p;
-  unsigned x;
+  vdef_optype_p vdefs;
+  vuse_optype_p vuses;
 
-  ann = get_stmt_ann (new_stmt);
+  get_stmt_ann (new_stmt);
 
-  /* Process the stmt looking for operands.  */
+  /* Process NEW_STMT looking for operands.  */
   start_ssa_stmt_operands ();
   parse_ssa_operands (new_stmt);
-
-  for (x = 0; x < VEC_length (tree, build_vuses); x++)
-    {
-      tree t = VEC_index (tree, build_vuses, x);
-      if (TREE_CODE (t) != SSA_NAME)
-	{
-	  var_ann_t ann = var_ann (t);
-	  ann->in_vuse_list = 0;
-	}
-    }
-   
-  for (x = 0; x < VEC_length (tree, build_vdefs); x++)
-    {
-      tree t = VEC_index (tree, build_vdefs, x);
-      if (TREE_CODE (t) != SSA_NAME)
-	{
-	  var_ann_t ann = var_ann (t);
-	  ann->in_vdef_list = 0;
-	}
-    }
 
   /* Remove any virtual operands that were found.  */
   VEC_truncate (tree, build_vdefs, 0);
   VEC_truncate (tree, build_vuses, 0);
 
-  /* For each VDEF on the original statement, we want to create a
-     VUSE of the VDEF result on the new statement.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VDEF)
-    append_vuse (op);
-    
-  /* Now build the operands for this new stmt.  */
+  /* Create a VUSE for the LHS of the VDEF operator in the original
+     statement (OLD_STMT).  */
+  vdefs = VDEF_OPS (old_stmt);
+  gcc_assert (vdefs && vdefs->next == NULL);
+
+  /* Add a VUSE operator for NEW_STMT and set its operand to the LHS
+     of the old VDEF.  */
+  append_vuse ();
   finalize_ssa_stmt_operands (new_stmt);
+  op = VDEF_RESULT (vdefs);
+  vuses = VUSE_OPS (new_stmt);
+  SET_USE (VUSE_OP_PTR (vuses, 0), op);
 
   /* All uses in this fake stmt must not be in the immediate use lists.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
@@ -2576,6 +2624,293 @@ void
 debug_immediate_uses_for (tree var)
 {
   dump_immediate_uses_for (stderr, var);
+}
+
+void debug_loads_and_stores (tree);
+void dump_loads_and_stores (FILE *, tree, bitmap, bitmap);
+
+
+/* Dump symbols loaded and stored by STMT to FILE.  If LOADS and
+   STORES are given, the statement is not scanned.  */
+
+void
+dump_loads_and_stores (FILE *file, tree stmt, bitmap loads, bitmap stores)
+{
+  unsigned i;
+  bitmap_iterator bi;
+  bool free_memory_p = false;
+
+  if (loads == NULL && stores == NULL)
+    {
+      loads = BITMAP_ALLOC (NULL);
+      stores = BITMAP_ALLOC (NULL);
+      get_loads_and_stores (stmt, loads, stores);
+      free_memory_p = true;
+    }
+
+  fprintf (file, "\n\n");
+  print_generic_stmt (file, stmt, TDF_VOPS);
+  fprintf (file, "\tLOADS:  { ");
+  EXECUTE_IF_SET_IN_BITMAP (loads, 0, i, bi)
+    {
+      print_generic_expr (file, referenced_var (i), 0);
+      fprintf (file, " ");
+    }
+  fprintf (file, "}\n");
+
+  fprintf (file, "\tSTORES: { ");
+  EXECUTE_IF_SET_IN_BITMAP (stores, 0, i, bi)
+    {
+      print_generic_expr (file, referenced_var (i), 0);
+      fprintf (file, " ");
+    }
+  fprintf (file, "}\n");
+
+  if (free_memory_p)
+    {
+      BITMAP_FREE (loads);
+      BITMAP_FREE (stores);
+    }
+}
+
+
+/* Dump symbols loaded and stored by STMT to stderr.  */
+
+void
+debug_loads_and_stores (tree stmt)
+{
+  dump_loads_and_stores (stderr, stmt, NULL, NULL);
+}
+
+
+/* Collect all the symbols loaded and stored by the arguments of PHI
+   node PHI.  Store the sets in LOADS and STORES respectively.  */
+
+static void
+get_loads_and_stores_for_phi (tree phi, bitmap loads, bitmap stores)
+{
+  int i;
+  tree lhs = PHI_RESULT (phi);
+
+  gcc_assert (!is_gimple_reg (lhs));
+
+  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+    {
+      tree sym, arg;
+
+      arg = PHI_ARG_DEF (phi, i);
+
+      /* Avoid infinite recursion.  */
+      if (arg == lhs)
+	continue;
+
+      sym = SSA_NAME_VAR (arg);
+
+      if (sym == mem_var)
+	{
+	  /* Recurse for an memory factored SSA name.  */
+	  get_loads_and_stores (SSA_NAME_DEF_STMT (arg), loads, stores);
+	}
+      else
+	{
+	  /* Otherwise, this PHI node will both load and store the
+	     underlying symbol for ARG.  */
+	  bitmap_set_bit (loads, DECL_UID (sym));
+	  bitmap_set_bit (stores, DECL_UID (sym));
+	}
+    }
+}
+
+
+
+
+/* Add to LOADED the set of symbols loaded by STMT and add to STORED
+   the set of symbols stored by STMT.  Both sets must be allocated by
+   the caller.  FIXME, should allow for either set to be NULL.  */
+
+void
+get_loads_and_stores (tree stmt, bitmap loads, bitmap stores)
+{
+  gcc_assert (loads && stores);
+  memset (&clobber_stats, 0, sizeof (clobber_stats));
+
+  if (TREE_CODE (stmt) != PHI_NODE)
+    {
+      gcc_assert (stmt_references_memory_p (stmt));
+
+      /* Point the internal loaded/stored sets to the ones provided.  */
+      loaded_syms = loads;
+      stored_syms = stores;
+
+      /* Parse the statement.  We don't really care for its operands, so
+	 there's no need to initialize anything.  If any operand was added
+	 to the cache, it is discarded.  */
+      parse_ssa_operands (stmt);
+      truncate_ssa_stmt_operands ();
+
+      /* We don't need the symbol sets anymore.  */
+      loaded_syms = NULL;
+      stored_syms = NULL;
+    }
+  else
+    {
+      /* PHI nodes need special treatment.  A PHI node loads/stores
+	 all the symbols loaded/stored by its arguments.  */
+      get_loads_and_stores_for_phi (stmt, loads, stores);
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_loads_and_stores (dump_file, stmt, loads, stores);
+
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      fprintf (dump_file, "Original clobbered vars:           %d\n",
+	       clobber_stats.clobbered_vars);
+      fprintf (dump_file, "Static write clobbers avoided:     %d\n",
+	       clobber_stats.static_write_clobbers_avoided);
+      fprintf (dump_file, "Static read clobbers avoided:      %d\n",
+	       clobber_stats.static_read_clobbers_avoided);
+      fprintf (dump_file, "Unescapable clobbers avoided:      %d\n",
+	       clobber_stats.unescapable_clobbers_avoided);
+      fprintf (dump_file, "Original read-only clobbers:       %d\n",
+	       clobber_stats.readonly_clobbers);
+      fprintf (dump_file, "Static read-only clobbers avoided: %d\n",
+	       clobber_stats.static_readonly_clobbers_avoided);
+    }
+}
+
+
+/* Create a new change buffer for the statement pointed by STMT_P and
+   push the buffer into SCB_STACK.  Each change buffer
+   records state information needed to determine what changed in the
+   statement.  Mainly, this keeps track of symbols that may need to be
+   put into SSA form, SSA name replacements and other information
+   needed to keep the SSA form up to date.  */
+
+void
+push_stmt_changes (tree *stmt_p)
+{
+  tree stmt;
+  scb_t buf;
+  
+  stmt = *stmt_p;
+
+  /* It makes no sense to keep track of PHI nodes.  */
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
+
+  buf = xmalloc (sizeof *buf);
+  memset (buf, 0, sizeof *buf);
+
+  buf->stmt_p = stmt_p;
+
+  if (stmt_references_memory_p (stmt))
+    {
+      buf->loads = BITMAP_ALLOC (NULL);
+      buf->stores = BITMAP_ALLOC (NULL);
+      get_loads_and_stores (stmt, buf->loads, buf->stores);
+    }
+
+  VEC_safe_push (scb_t, heap, scb_stack, buf);
+}
+
+
+/* Given two sets S1 and S2, mark the symbols in S1 U S2 for renaming
+   if S1 != S2.  Sets S1 and S2 may be overwritten by this function.  */
+
+static void
+mark_difference_for_renaming (bitmap s1, bitmap s2)
+{
+  bitmap tmp = NULL;
+
+  if (s1 == NULL && s2 == NULL)
+    return;
+
+  if (s1 && s2 == NULL)
+    tmp = s1;
+  else if (s1 == NULL && s2)
+    tmp = s2;
+  else if (!bitmap_equal_p (s1, s2))
+    {
+      tmp = s1;
+      bitmap_ior_into (tmp, s2);
+    }
+
+  if (tmp)
+    mark_set_for_renaming (tmp);
+}
+
+
+/* Pop the top SCB from SCB_STACK and act on the differences between
+   what was recorded by push_stmt_changes and the current state of
+   the statement.  */
+
+void
+pop_stmt_changes (tree *stmt_p)
+{
+  tree op, stmt;
+  ssa_op_iter iter;
+  bitmap loads, stores;
+  scb_t buf;
+
+  stmt = *stmt_p;
+
+  /* It makes no sense to keep track of PHI nodes.  */
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
+
+  buf = VEC_pop (scb_t, scb_stack);
+  gcc_assert (stmt_p == buf->stmt_p);
+
+  /* Force an operand re-scan on the statement and mark any newly
+     exposed variables.  */
+  update_stmt (stmt);
+
+  /* Determine whether any memory symbols need to be renamed.  If the
+     sets of loads and stores are different after the statement is
+     modified, then the affected symbols need to be renamed.  */
+  loads = stores = NULL;
+  if (stmt_references_memory_p (stmt))
+    {
+      loads = BITMAP_ALLOC (NULL);
+      stores = BITMAP_ALLOC (NULL);
+      get_loads_and_stores (stmt, loads, stores);
+    }
+
+  /* If LOADS is different from BUF->LOADS, the affected
+     symbols need to be marked for renaming.  */
+  mark_difference_for_renaming (loads, buf->loads);
+
+  /* Similarly for STORES And BUF->STORES.  */
+  mark_difference_for_renaming (stores, buf->stores);
+
+  /* Mark all the GIMPLE register operands for renaming.  */
+  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
+    if (DECL_P (op))
+      mark_sym_for_renaming (op);
+
+  /* FIXME, need to add more finalizers here.  Cleanup EH info,
+     recompute invariants for address expressions, add
+     SSA replacement mappings, etc.  For instance, given
+     testsuite/gcc.c-torture/compile/pr16808.c, we fold a statement of
+     the form:
+
+	  # SMT.4_20 = VDEF <SMT.4_16>
+	  D.1576_11 = 1.0e+0;
+
+     So, the VDEF will disappear, but instead of marking SMT.4 for
+     renaming it would be far more efficient to establish a
+     replacement mapping that would replace every reference of
+     SMT.4_20 with SMT.4_16.  */
+
+  /* Free memory used by the buffer.  */
+  BITMAP_FREE (buf->loads);
+  BITMAP_FREE (buf->stores);
+  buf->stmt_p = NULL;
+  free (buf);
+
+  BITMAP_FREE (loads);
+  BITMAP_FREE (stores);
 }
 
 #include "gt-tree-ssa-operands.h"

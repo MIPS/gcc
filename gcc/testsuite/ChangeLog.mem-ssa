@@ -1,3 +1,10 @@
+2006-07-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/pr23382.c: Update for mem-ssa
+	patterns.
+	* gcc.dg/tree-ssa/20040302-1.c: Remove use of --param 
+	global-var-threshold.
+
 2006-05-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gcc.dg/tree-ssa/complex-5.c: New.

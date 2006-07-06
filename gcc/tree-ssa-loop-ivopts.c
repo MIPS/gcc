@@ -5572,9 +5572,10 @@ compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
 /* Rewrites USE using candidate CAND.  */
 
 static void
-rewrite_use (struct ivopts_data *data,
-	     struct iv_use *use, struct iv_cand *cand)
+rewrite_use (struct ivopts_data *data, struct iv_use *use, struct iv_cand *cand)
 {
+  push_stmt_changes (&use->stmt);
+
   switch (use->type)
     {
       case USE_NONLINEAR_EXPR:
@@ -5592,7 +5593,8 @@ rewrite_use (struct ivopts_data *data,
       default:
 	gcc_unreachable ();
     }
-  mark_new_vars_to_rename (use->stmt);
+
+  pop_stmt_changes (&use->stmt);
 }
 
 /* Rewrite the uses using the selected induction variables.  */

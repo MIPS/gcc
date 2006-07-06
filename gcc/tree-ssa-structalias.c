@@ -3141,7 +3141,8 @@ update_alias_info (tree stmt, struct alias_info *ai)
 
   /* Update reference counter for definitions to any
      potentially aliased variable.  This is used in the alias
-     grouping heuristics.  */
+     grouping heuristics.  FIXME, not needed anymore?  There are no
+     more alias grouping heuristics.  */
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
     {
       tree var = SSA_NAME_VAR (op);
@@ -3153,10 +3154,14 @@ update_alias_info (tree stmt, struct alias_info *ai)
     }
   
   /* Mark variables in VDEF operands as being written to.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+  if (stmt_references_memory_p (stmt))
     {
-      tree var = DECL_P (op) ? op : SSA_NAME_VAR (op);
-      bitmap_set_bit (ai->written_vars, DECL_UID (var));
+      bitmap loads = BITMAP_ALLOC (NULL);
+      bitmap stores = BITMAP_ALLOC (NULL);
+      get_loads_and_stores (stmt, loads, stores);
+      bitmap_ior_into (ai->written_vars, stores);
+      BITMAP_FREE (loads);
+      BITMAP_FREE (stores);
     }
 }
 

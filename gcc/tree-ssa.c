@@ -742,7 +742,7 @@ verify_ssa (bool check_modified_stmt)
 
 	  if (check_modified_stmt && stmt_modified_p (stmt))
 	    {
-	      error ("stmt (%p) marked modified after optimization pass : ",
+	      error ("stmt (%p) marked modified after optimization pass: ",
 		     (void *)stmt);
 	      print_generic_stmt (stderr, stmt, TDF_VOPS);
 	      goto err;
@@ -757,7 +757,9 @@ verify_ssa (bool check_modified_stmt)
 	      base_address = get_base_address (lhs);
 
 	      if (base_address
+		  && aliases_computed_p
 		  && SSA_VAR_P (base_address)
+		  && !stmt_ann (stmt)->has_volatile_ops
 		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
 		{
 		  error ("statement makes a memory store, but has no VDEFS");
@@ -821,6 +823,27 @@ int_tree_map_hash (const void *item)
 }
 
 
+/* Create .MEM, an artificial variable to represent load and store
+   operations to "memory".  This includes: global variables, pointer
+   dereferences and aliased variables (i.e., anything for which
+   is_gimple_reg returns false).  */
+
+static void
+create_mem_var (void)
+{
+  mem_var = build_decl (VAR_DECL, get_identifier (".MEM"), void_type_node);
+  DECL_ARTIFICIAL (mem_var) = 1;
+  TREE_READONLY (mem_var) = 0;
+  DECL_EXTERNAL (mem_var) = 1;
+  TREE_STATIC (mem_var) = 1;
+  TREE_USED (mem_var) = 1;
+  DECL_CONTEXT (mem_var) = NULL_TREE;
+  TREE_THIS_VOLATILE (mem_var) = 0;
+  TREE_ADDRESSABLE (mem_var) = 0;
+  create_var_ann (mem_var);
+}
+
+
 /* Initialize global DFA and SSA structures.  */
 
 void
@@ -834,7 +857,8 @@ init_tree_ssa (void)
   init_alias_heapvars ();
   init_ssanames ();
   init_phinodes ();
-  global_var = NULL_TREE;
+  if (mem_var == NULL_TREE)
+    create_mem_var ();
   aliases_computed_p = false;
 }
 
@@ -883,21 +907,22 @@ delete_tree_ssa (void)
       ggc_free (var->common.ann);
       var->common.ann = NULL;
     }
+
   htab_delete (referenced_vars);
   referenced_vars = NULL;
 
   fini_ssanames ();
   fini_phinodes ();
 
-  global_var = NULL_TREE;
-  
   htab_delete (default_defs);
+  default_defs = NULL;
+
   BITMAP_FREE (call_clobbered_vars);
-  call_clobbered_vars = NULL;
   BITMAP_FREE (addressable_vars);
-  addressable_vars = NULL;
+
   modified_noreturn_calls = NULL;
   aliases_computed_p = false;
+
   delete_alias_heapvars ();
   gcc_assert (!need_ssa_update_p ());
 }
@@ -1006,7 +1031,8 @@ tree_ssa_useless_type_conversion (tree expr)
   return false;
 }
 
-/* Returns true if statement STMT may read memory.  */
+
+/* Returns true if statement STMT may access memory.  */
 
 bool
 stmt_references_memory_p (tree stmt)
@@ -1018,6 +1044,7 @@ stmt_references_memory_p (tree stmt)
 
   return (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
 }
+
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
@@ -1305,4 +1332,3 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,                                    /* todo_flags_finish */
   0				        /* letter */
 };
-	  

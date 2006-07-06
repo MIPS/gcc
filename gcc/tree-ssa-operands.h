@@ -104,7 +104,7 @@ struct vuse_optype_d
 typedef struct vuse_optype_d *vuse_optype_p;
                                                                               
 
-#define SSA_OPERAND_MEMORY_SIZE		(2048 - sizeof (void *))
+#define SSA_OPERAND_MEMORY_SIZE		(102400 - sizeof (void *))
                                                                               
 struct ssa_operand_memory_d GTY((chain_next("%h.next")))
 {
@@ -192,6 +192,9 @@ extern void debug_immediate_uses_for (tree var);
 extern bool ssa_operands_active (void);
 
 extern void add_to_addressable_set (tree, bitmap *);
+extern void get_loads_and_stores (tree, bitmap, bitmap);
+extern void push_stmt_changes (tree *);
+extern void pop_stmt_changes (tree *);
 
 enum ssa_op_iter_type {
   ssa_op_iter_none = 0,
@@ -200,6 +203,7 @@ enum ssa_op_iter_type {
   ssa_op_iter_def,
   ssa_op_iter_vdef
 };
+
 /* This structure is used in the operand iterator loops.  It contains the 
    items required to determine which operand is retrieved next.  During
    optimization, this structure is scalarized, and any unused fields are 

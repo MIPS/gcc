@@ -1418,11 +1418,15 @@ struct tree_opt_pass pass_ccp =
   TV_TREE_CCP,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+  TODO_cleanup_cfg
+    | TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1456,12 +1460,15 @@ struct tree_opt_pass pass_store_ccp =
   TV_TREE_STORE_CCP,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa
+  TODO_dump_func
+    | TODO_update_ssa
+    | TODO_ggc_collect
+    | TODO_verify_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
+    | TODO_verify_stmts
+    | TODO_update_smt_usage,		/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2474,7 +2481,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
       tree new_stmt = tsi_stmt (ti);
       find_new_referenced_vars (tsi_stmt_ptr (ti));
       bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
-      mark_new_vars_to_rename (bsi_stmt (*si_p));
+      mark_symbols_for_renaming (new_stmt);
       bsi_next (si_p);
     }
 
@@ -2536,17 +2543,20 @@ execute_fold_all_builtins (void)
 	      print_generic_stmt (dump_file, *stmtp, dump_flags);
 	    }
 
+	  push_stmt_changes (stmtp);
+
 	  if (!set_rhs (stmtp, result))
 	    {
 	      result = convert_to_gimple_builtin (&i, result);
 	      if (result)
 		{
 		  bool ok = set_rhs (stmtp, result);
-		  
 		  gcc_assert (ok);
 		}
 	    }
-	  mark_new_vars_to_rename (*stmtp);
+
+	  pop_stmt_changes (stmtp);
+
 	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
 	      && tree_purge_dead_eh_edges (bb))
 	    cfg_changed = true;

@@ -260,31 +260,33 @@ execute_return_slot_opt (void)
 	      && (call = TREE_OPERAND (stmt, 1),
 		  TREE_CODE (call) == CALL_EXPR)
 	      && !CALL_EXPR_RETURN_SLOT_OPT (call)
+	      && stmt_references_memory_p (stmt)
 	      && aggregate_value_p (call, call))
 	    {
-	      def_operand_p def_p;
-	      ssa_op_iter op_iter;
+	      bitmap loads, stores;
+	      unsigned i;
+	      bitmap_iterator bi;
 
 	      /* We determine whether or not the LHS address escapes by
 		 asking whether it is call clobbered.  When the LHS isn't a
 		 simple decl, we need to check the VDEFs, so it's simplest
-		 to just loop through all the DEFs.  */
-	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
-		{
-		  tree def = DEF_FROM_PTR (def_p);
-		  if (TREE_CODE (def) == SSA_NAME)
-		    def = SSA_NAME_VAR (def);
-		  if (is_call_clobbered (def))
-		    goto unsafe;
-		}
+		 to just loop through all the stored symbols.  */
+	      loads = BITMAP_ALLOC (NULL);
+	      stores = BITMAP_ALLOC (NULL);
+	      get_loads_and_stores (stmt, loads, stores);
+	      EXECUTE_IF_SET_IN_BITMAP (stores, 0, i, bi)
+		if (is_call_clobbered (referenced_var (i)))
+		  goto unsafe;
 
 	      /* No defs are call clobbered, so the optimization is safe.  */
 	      CALL_EXPR_RETURN_SLOT_OPT (call) = 1;
+
 	      /* This is too late to mark the target addressable like we do
 		 in gimplify_modify_expr_rhs, but that's OK; anything that
 		 wasn't already addressable was handled there.  */
-
-	      unsafe:;
+	      unsafe:
+	      BITMAP_FREE (stores);
+	      BITMAP_FREE (loads);
 	    }
 	}
     }

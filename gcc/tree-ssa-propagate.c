@@ -1115,6 +1115,9 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
 	    continue;
 
+	  /* Record the state of the statement before replacements.  */
+	  push_stmt_changes (bsi_stmt_ptr (i));
+
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
 	  did_replace = false;
@@ -1150,10 +1153,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt (i);
 
-	      /* If we folded a builtin function, we'll likely
-		 need to rename VDEFs.  */
-	      mark_new_vars_to_rename (stmt);
-
               /* If we cleaned up EH information from the statement,
                  remove EH edges.  */
 	      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
@@ -1182,6 +1181,8 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  if (use_ranges_p)
 	    simplify_stmt_using_ranges (stmt);
 
+	  /* Determine what needs to be done to update the SSA form.  */
+	  pop_stmt_changes (bsi_stmt_ptr (i));
 	}
     }
 

@@ -1633,6 +1633,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
 	pp_string (buffer, "(ab)");
+      else if (node == default_def (SSA_NAME_VAR (node)))
+	pp_string (buffer, "(D)");
       break;
 
     case WITH_SIZE_EXPR:
@@ -2573,37 +2575,52 @@ newline_and_indent (pretty_printer *buffer, int spc)
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
-  tree use;
-  use_operand_p use_p;
-  def_operand_p def_p;
-  ssa_op_iter iter;
-  vuse_vec_p vv;
+  struct vdef_optype_d *vdefs;
+  struct vuse_optype_d *vuses;
+  size_t i, n;
 
   if (!ssa_operands_active ())
     return;
 
-  FOR_EACH_SSA_VDEF_OPERAND (def_p, vv, stmt, iter)
+  vuses = VUSE_OPS (stmt);
+  while (vuses)
     {
-      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
-      use_p = VUSE_ELEMENT_PTR (*vv, 0);
-      pp_string (buffer, "#   ");
-      dump_generic_node (buffer, DEF_FROM_PTR (def_p),
-                         spc + 2, flags, false);
-      pp_string (buffer, " = VDEF <");
-      dump_generic_node (buffer, USE_FROM_PTR (use_p),
-                         spc + 2, flags, false);
-      pp_string (buffer, ">;");
+      pp_string (buffer, "# VUSE <");
+
+      n = VUSE_NUM (vuses);
+      for (i = 0; i < n; i++)
+	{
+	  dump_generic_node (buffer, VUSE_OP (vuses, i), spc + 2, flags, false);
+	  if (i < n - 1)
+	    pp_string (buffer, ", ");
+	}
+
+      pp_string (buffer, ">");
       newline_and_indent (buffer, spc);
+      vuses = vuses->next;
     }
 
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VUSE)
+  vdefs = VDEF_OPS (stmt);
+  while (vdefs)
     {
-      pp_string (buffer, "#   VUSE <");
-      dump_generic_node (buffer, use, spc + 2, flags, false);
-      pp_string (buffer, ">;");
+      pp_string (buffer, "# ");
+      dump_generic_node (buffer, VDEF_RESULT (vdefs), spc + 2, flags, false);
+      pp_string (buffer, " = VDEF <");
+
+      n = VDEF_NUM (vdefs);
+      for (i = 0; i < n; i++)
+	{
+	  dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, flags, 0);
+	  if (i < n - 1)
+	    pp_string (buffer, ", ");
+	}
+
+      pp_string (buffer, ">");
       newline_and_indent (buffer, spc);
+      vdefs = vdefs->next;
     }
 }
+
 
 /* Dumps basic block BB to FILE with details described by FLAGS and
    indented by INDENT spaces.  */

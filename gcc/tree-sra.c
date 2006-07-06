@@ -1451,20 +1451,12 @@ decide_instantiations (void)
 /* Mark all the variables in VDEF operands for STMT for
    renaming. This becomes necessary when we modify all of a non-scalar.  */
 
-static void
+static inline void
 mark_all_v_defs_1 (tree stmt)
 {
-  tree sym;
-  ssa_op_iter iter;
-
   update_stmt_if_modified (stmt);
-
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (sym) == SSA_NAME)
-	sym = SSA_NAME_VAR (sym);
-      mark_sym_for_renaming (sym);
-    }
+  if (stmt_references_memory_p (stmt))
+    mark_symbols_for_renaming (stmt);
 }
 
 
@@ -1483,6 +1475,7 @@ mark_all_v_defs (tree list)
 	mark_all_v_defs_1 (tsi_stmt (i));
     }
 }
+
 
 /* Mark every replacement under ELT with TREE_NO_WARNING.  */
 
@@ -1831,6 +1824,15 @@ sra_insert_after (block_stmt_iterator *bsi, tree list)
 static void
 sra_replace (block_stmt_iterator *bsi, tree list)
 {
+  tree op, stmt;
+  ssa_op_iter iter;
+
+  stmt = bsi_stmt (*bsi);
+
+  /* None of the virtual SSA names defined in STMT are needed anymore.  */
+  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VDEF)
+    release_ssa_name_after_update_ssa (op);
+
   sra_insert_before (bsi, list);
   bsi_remove (bsi, false);
   if (bsi_end_p (*bsi))
@@ -2232,10 +2234,11 @@ struct tree_opt_pass pass_sra =
   TV_TREE_SRA,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_smt_usage,		        /* properties_destroyed */
+  0,		        		/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func /* todo_flags_finish */
+  TODO_dump_func
   | TODO_update_ssa
-  | TODO_ggc_collect | TODO_verify_ssa,
+  | TODO_ggc_collect
+  | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };

@@ -706,21 +706,6 @@ update_phi_components (basic_block bb)
       }
 }
 
-/* Mark each virtual op in STMT for ssa update.  */
-
-static void
-update_all_vops (tree stmt)
-{
-  ssa_op_iter iter;
-  tree sym;
-
-  FOR_EACH_SSA_TREE_OPERAND (sym, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (sym) == SSA_NAME)
-	sym = SSA_NAME_VAR (sym);
-      mark_sym_for_renaming (sym);
-    }
-}
 
 /* Expand a complex move to scalars.  */
 
@@ -759,7 +744,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	}
       else
 	{
-	  update_all_vops (bsi_stmt (*bsi));
+	  mark_symbols_for_renaming (bsi_stmt (*bsi));
 	  r = extract_component (bsi, rhs, 0, true);
 	  i = extract_component (bsi, rhs, 1, true);
 	  update_complex_assignment (bsi, r, i);
@@ -794,8 +779,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  TREE_OPERAND (stmt, 0) = lhs;
 	}
 
-      update_all_vops (stmt);
-      update_stmt (stmt);
+      mark_symbols_for_renaming (stmt);
     }
 }
 

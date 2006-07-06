@@ -1863,8 +1863,14 @@ compute_vuse_representatives (void)
 	    }
 	  FOR_EACH_PHI_ARG (usep, phi, iter, SSA_OP_ALL_USES)
 	    {
+	      bitmap usebitmap;
+
 	      tree use = USE_FROM_PTR (usep);
-	      bitmap usebitmap = get_representative (vuse_names,
+
+	      if (is_gimple_min_invariant (use))
+		continue;
+
+	      usebitmap = get_representative (vuse_names,
 						     SSA_NAME_VERSION (use));
 	      if (usebitmap != NULL)
 		{
@@ -2405,7 +2411,6 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  vn_add (forcedname, val);
 	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
 	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
-	  mark_new_vars_to_rename (stmt);
 	}
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
@@ -2433,7 +2438,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   tsi = tsi_last (stmts);
   tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
   VEC_safe_push (tree, heap, inserted_exprs, newexpr);
-  mark_new_vars_to_rename (newexpr);
+
+  /* All the symbols in NEWEXPR should be put into SSA form.  */
+  mark_symbols_for_renaming (newexpr);
 
   /* Add a value handle to the temporary.
      The value may already exist in either NEW_SETS, or AVAIL_OUT, because
@@ -2515,29 +2522,6 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
 
       if (can_PRE_operation (eprime))
 	{
-#ifdef ENABLE_CHECKING
-	  tree vh;
-
-	  /* eprime may be an invariant.  */
-	  vh = TREE_CODE (eprime) == VALUE_HANDLE 
-	    ? eprime
-	    : get_value_handle (eprime);
-
-	  /* ensure that the virtual uses we need reach our block.  */
-	  if (TREE_CODE (vh) == VALUE_HANDLE)
-	    {
-	      int i;
-	      tree vuse;
-	      for (i = 0;
-		   VEC_iterate (tree, VALUE_HANDLE_VUSES (vh), i, vuse);
-		   i++)
-		{
-		  size_t id = SSA_NAME_VERSION (vuse);
-		  gcc_assert (bitmap_bit_p (RVUSE_OUT (bprime), id)
-			      || IS_EMPTY_STMT (SSA_NAME_DEF_STMT (vuse)));
-		}
-	    }
-#endif
 	  builtexpr = create_expression_by_pieces (bprime,
 						   eprime,
 						   stmts);
@@ -3936,7 +3920,8 @@ do_pre (void)
 static bool
 gate_pre (void)
 {
-  return flag_tree_pre != 0;
+  return false;
+  /*return flag_tree_pre != 0;*/
 }
 
 struct tree_opt_pass pass_pre =

@@ -176,32 +176,29 @@ struct var_ann_d GTY(())
      states.  */
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
-  /* Used during operand processing to determine if this variable is already 
-     in the vuse list.  */
-  unsigned in_vuse_list : 1;
-
-  /* Used during operand processing to determine if this variable is already 
-     in the vdef list.  */
-  unsigned in_vdef_list : 1;
-
-  /* An artificial variable representing the memory location pointed-to by
-     all the pointer symbols that flow-insensitive alias analysis
-     (mostly type-based) considers to be aliased.  If the variable is
-     not a pointer or if it is never dereferenced, this must be NULL.  */
+  /* If this variable is a pointer P that has been dereferenced, this
+     field is an artificial variable that represents the memory
+     location *P.  Every other pointer Q that is type-compatible with
+     P will also have the same memory tag.  If the variable is not a
+     pointer or if it is never dereferenced, this must be NULL.
+     FIXME, do we really need this here?  How much slower would it be
+     to convert to hash table?  */
   tree symbol_mem_tag;
 
-  /* Variables that may alias this variable.  */
+  /* Variables that may alias this variable.  This may only be set on
+     memory tags (NAME_MEMORY_TAG or TYPE_MEMORY_TAG).  FIXME, move to
+     struct tree_memory_tag.  */
   VEC(tree, gc) *may_aliases;
 
   /* Used when going out of SSA form to indicate which partition this
-     variable represents storage for.  */
+     variable represents storage for.  FIXME, remove.  */
   unsigned partition;
 
-  /* Used by the root-var object in tree-ssa-live.[ch].  */
+  /* Used by the root-var object in tree-ssa-live.[ch].  FIXME, remove.  */
   unsigned root_index;
 
   /* During into-ssa and the dominator optimizer, this field holds the
-     current version of this variable (an SSA_NAME).  */
+     current version of this variable (an SSA_NAME).  FIXME, remove.  */
   tree current_def;
   
   /* If this variable is a structure, this fields holds a list of
@@ -433,7 +430,12 @@ extern GTY(()) VEC(tree,gc) *ssa_names;
 #define num_ssa_names (VEC_length (tree, ssa_names))
 #define ssa_name(i) (VEC_index (tree, ssa_names, (i)))
 
-/* Artificial variable used to model the effects of function calls.  */
+/* Artificial variable to represent references to memory (i.e., non
+   gimple registers).  */
+extern GTY(()) tree mem_var;
+
+/* Artificial variable used to model the effects of function calls
+   when no other global symbols are referenced in the function.  */
 extern GTY(()) tree global_var;
 
 /* Call clobbered variables in the function.  If bit I is set, then
@@ -634,7 +636,7 @@ extern void dump_subvars_for (FILE *, tree);
 extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
-extern void mark_new_vars_to_rename (tree);
+extern void mark_symbols_for_renaming (tree);
 extern void find_new_referenced_vars (tree *);
 
 extern tree make_rename_temp (tree, const char *);
@@ -693,7 +695,6 @@ extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
-extern void register_new_def (tree, VEC(tree,heap) **);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
 
@@ -705,7 +706,7 @@ tree create_new_def_for (tree, tree, def_operand_p);
 bool need_ssa_update_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);
-void release_ssa_name_after_update_ssa (tree name);
+void release_ssa_name_after_update_ssa (tree);
 void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 void mark_sym_for_renaming (tree);
@@ -866,21 +867,22 @@ extern enum move_pos movement_possibility (tree);
 
 /* The reasons a variable may escape a function.  */
 enum escape_type 
-  {
-    NO_ESCAPE = 0, /* Doesn't escape.  */
-    ESCAPE_STORED_IN_GLOBAL = 1 << 1,
-    ESCAPE_TO_ASM = 1 << 2,  /* Passed by address to an assembly
-				statement.  */
-    ESCAPE_TO_CALL = 1 << 3,  /* Escapes to a function call.  */
-    ESCAPE_BAD_CAST = 1 << 4, /* Cast from pointer to integer */
-    ESCAPE_TO_RETURN = 1 << 5, /* Returned from function.  */
-    ESCAPE_TO_PURE_CONST = 1 << 6, /* Escapes to a pure or constant
-				      function call.  */
-    ESCAPE_IS_GLOBAL = 1 << 7,  /* Is a global variable.  */
-    ESCAPE_IS_PARM = 1 << 8, /* Is an incoming function parameter.  */
-    ESCAPE_UNKNOWN = 1 << 9 /* We believe it escapes for some reason
-			       not enumerated above.  */
-  };
+{
+  NO_ESCAPE = 0,			/* Doesn't escape.  */
+  ESCAPE_STORED_IN_GLOBAL = 1 << 1,
+  ESCAPE_TO_ASM = 1 << 2,		/* Passed by address to an assembly
+					   statement.  */
+  ESCAPE_TO_CALL = 1 << 3,		/* Escapes to a function call.  */
+  ESCAPE_BAD_CAST = 1 << 4,		/* Cast from pointer to integer */
+  ESCAPE_TO_RETURN = 1 << 5,		/* Returned from function.  */
+  ESCAPE_TO_PURE_CONST = 1 << 6,	/* Escapes to a pure or constant
+					   function call.  */
+  ESCAPE_IS_GLOBAL = 1 << 7,		/* Is a global variable.  */
+  ESCAPE_IS_PARM = 1 << 8,		/* Is an incoming function argument.  */
+  ESCAPE_UNKNOWN = 1 << 9		/* We believe it escapes for
+					   some reason not enumerated
+					   above.  */
+};
 
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (tree);
@@ -1020,6 +1022,4 @@ void delete_alias_heapvars (void);
 
 void swap_tree_operands (tree, tree *, tree *);
 
-extern void recalculate_used_alone (void);
-extern bool updating_used_alone;
 #endif /* _TREE_FLOW_H  */
