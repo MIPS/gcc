@@ -1,3 +1,19 @@
+2006-07-07  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/cgraphunit.c (cgraph_create_edges, update_call_expr): Convert
+	to use new abstract CALL_EXPR accessors, iterators, and constructors.
+	* gcc/dojump.c (do_jump): Likewise.
+	* gcc/expr.c (emit_block_move_via_libcall): Likewise.
+	(clear_storage_via_libcall): Likewise.
+	(expand_expr_real_1): Likewise.
+	* gcc/c-pretty-print.c (pp_c_postfix_expression): Likewise.
+	* gcc/calls.c (alloca_call_p, call_expr_flags): Likewise.
+	* gcc/coverage.c (create_coverage): Likewise.
+	* gcc/c-omp.c (c_finish_omp_barrier, c_finish_omp_flush): Likewise.
+	* gcc/c-common.c (verify_tree): Likewise.
+	(check_function_arguments_recurse): Likewise.
+	* gcc/convert.c (convert_to_real, convert_to_integer): Likewise.
+
 2006-07-07  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (add_conv_candidate): Use num_parm_types and

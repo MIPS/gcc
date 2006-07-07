@@ -569,11 +569,15 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 
 	if (call && (decl = get_callee_fndecl (call)))
 	  {
+	    call_expr_arg_iterator iter;
+	    tree arg;
+
 	    cgraph_create_edge (node, cgraph_node (decl), stmt,
 				bb->count,
 				bb->loop_depth);
-	    walk_tree (&TREE_OPERAND (call, 1),
-		       record_reference, node, visited_nodes);
+	    for (arg = first_call_expr_arg (call, &iter); arg;
+		 arg = next_call_expr_arg (&iter))
+	      walk_tree (&arg, record_reference, node, visited_nodes);
 	    if (TREE_CODE (stmt) == MODIFY_EXPR)
 	      walk_tree (&TREE_OPERAND (stmt, 0),
 			 record_reference, node, visited_nodes);
@@ -1572,7 +1576,7 @@ update_call_expr (struct cgraph_node *new_version)
   for (e = new_version->callers; e; e = e->next_caller)
     /* Update the call expr on the edges
        to call the new version.  */
-    TREE_OPERAND (TREE_OPERAND (get_call_expr_in (e->call_stmt), 0), 0) = new_version->decl;
+    TREE_OPERAND (CALL_EXPR_FN (get_call_expr_in (e->call_stmt)), 0) = new_version->decl;
 }
 
 
