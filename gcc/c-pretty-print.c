@@ -1276,8 +1276,7 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
 	tree arg;
 	pp_postfix_expression (pp, CALL_EXPR_FN (e));
 	pp_c_left_paren (pp);
-	for (arg = first_call_expr_arg (e, &iter); arg;
-	     arg = next_call_expr_arg (&iter))
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, e)
 	  {
 	    pp_expression (pp, arg);
 	    if (more_call_expr_args_p (&iter))

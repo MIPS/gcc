@@ -575,8 +575,7 @@ cgraph_create_edges (struct cgraph_node *node, tree body)
 	    cgraph_create_edge (node, cgraph_node (decl), stmt,
 				bb->count,
 				bb->loop_depth);
-	    for (arg = first_call_expr_arg (call, &iter); arg;
-		 arg = next_call_expr_arg (&iter))
+	    FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
 	      walk_tree (&arg, record_reference, node, visited_nodes);
 	    if (TREE_CODE (stmt) == MODIFY_EXPR)
 	      walk_tree (&TREE_OPERAND (stmt, 0),

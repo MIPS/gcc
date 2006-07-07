@@ -5623,8 +5623,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       tree arg;
       call_expr_arg_iterator iter;
 
-      for (arg = first_call_expr_arg (exp, &iter); arg;
-	   arg = next_call_expr_arg (&iter))
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	if (TREE_THIS_VOLATILE (arg))
 	  {
 	    volatilep = true;
@@ -5633,8 +5632,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       if (! volatilep)
 	{
-	  for (arg = first_call_expr_arg (exp, &iter); arg;
-	       arg = next_call_expr_arg (&iter))
+	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	    expand_expr (arg, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	  return const0_rtx;
 	}

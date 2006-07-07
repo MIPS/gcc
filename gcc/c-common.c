@@ -1421,8 +1421,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	tree arg;
 	tmp_before = tmp_nosp = 0; 
 	verify_tree (CALL_EXPR_FN (x), &tmp_before, &tmp_nosp, NULL_TREE);
-	for (arg = first_call_expr_arg (x, &iter); arg;
-	     arg = next_call_expr_arg (&iter))
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, x)
 	  {
 	    tmp_list2 = tmp_list3 = 0;
 	    verify_tree (arg, &tmp_list2, &tmp_list3, NULL_TREE);

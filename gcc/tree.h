@@ -1541,12 +1541,16 @@ struct tree_constructor GTY(())
 #define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
 #define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))
 
-
 typedef struct call_expr_arg_iterator_d GTY (())
 {
   tree tail;
 } call_expr_arg_iterator;
 
+/* Iterate through each argument ARG of CALL_EXPR CALL, using variable ITER
+   (of type call_expr_arg_iterator) to hold the iteration state.  */
+#define FOR_EACH_CALL_EXPR_ARG(arg, iter, call)			\
+  for ((arg) = first_call_expr_arg ((call), &(iter)); (arg);	\
+       (arg) = next_call_expr_arg (&(iter)))
 
 /* OpenMP directive and clause accessors.  */
 

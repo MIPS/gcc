@@ -1,5 +1,15 @@
 2006-07-07  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree.h (FOR_EACH_CALL_EXPR_ARG):  Define new macro for
+	iterating over argument lists.
+
+	* gcc/builtins.c (expand_builtin): Use FOR_EACH_CALL_EXPR_ARG.
+	* gcc/cgraphunit.c (cgraph_create_edges): Likewise.
+	* gcc/c-pretty-print.c (pp_c_postfix_expression): Likewise.
+	* gcc/c-common.c (verify_tree): Likewise.
+
+2006-07-07  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/cgraphunit.c (cgraph_create_edges, update_call_expr): Convert
 	to use new abstract CALL_EXPR accessors, iterators, and constructors.
 	* gcc/dojump.c (do_jump): Likewise.
