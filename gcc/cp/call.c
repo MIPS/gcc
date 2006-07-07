@@ -1312,12 +1312,14 @@ add_function_candidate (struct z_candidate **candidates,
 			int flags)
 {
   tree parmlist = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  int parm_types_len = num_parm_types (parmlist);
   tree decllist = DECL_ARGUMENTS (fn);
   int i, len;
   conversion **convs;
-  tree parmnode, argnode, declnode;
+  tree argnode, declnode;
   tree orig_arglist;
   int viable = 1;
+  int skip = 0;
 
   /* At this point we should not see any functions which haven't been
      explicitly declared, except for friend functions which will have
@@ -1328,7 +1330,7 @@ add_function_candidate (struct z_candidate **candidates,
      considered in overload resolution.  */
   if (DECL_CONSTRUCTOR_P (fn))
     {
-      parmlist = skip_artificial_parms_for (fn, parmlist);
+      skip = num_artificial_parms_for (fn);
       decllist = skip_artificial_parms_for (fn, decllist);
       orig_arglist = arglist;
       arglist = skip_artificial_parms_for (fn, arglist);
@@ -1346,32 +1348,34 @@ add_function_candidate (struct z_candidate **candidates,
      We need to check this first; otherwise, checking the ICSes might cause
      us to produce an ill-formed template instantiation.  */
 
-  parmnode = parmlist;
-  declnode = decllist;
-  for (i = 0; i < len; ++i)
+  /* If PARMLIST ends with void_type_node and is shorter than the
+     argument list, then this candidate function is not viable because
+     we have too many arguments.  */
+  if (skip < parm_types_len
+      && nth_parm_type (parmlist, parm_types_len - 1) == void_type_node
+      && parm_types_len - skip - 1 < len)
     {
-      if (parmnode == NULL_TREE || parmnode == void_list_node)
-	break;
-      parmnode = TREE_CHAIN (parmnode);
-      if (declnode)
-	declnode = TREE_CHAIN (declnode);
+      viable = 0;
+      goto out;
     }
 
-  if (i < len && parmnode)
-    viable = 0;
+  /* Skip those PARM_DECLs for which we have explicit arguments.  */
+  declnode = decllist;
+  i = (len < parm_types_len - skip) ? len : parm_types_len - skip;
+  while (i-- && declnode)
+    declnode = TREE_CHAIN (declnode);
 
   /* Make sure there are default args for the rest of the parms.  */
-  else if (!sufficient_parms_p (declnode))
-    viable = 0;
-
-  if (! viable)
-    goto out;
+  if (!sufficient_parms_p (declnode))
+    {
+      viable = 0;
+      goto out;
+    }
 
   /* Second, for F to be a viable function, there shall exist for each
      argument an implicit conversion sequence that converts that argument
      to the corresponding parameter of F.  */
 
-  parmnode = parmlist;
   argnode = arglist;
 
   for (i = 0; i < len; ++i)
@@ -1381,14 +1385,14 @@ add_function_candidate (struct z_candidate **candidates,
       conversion *t;
       int is_this;
 
-      gcc_assert (parmnode != void_list_node);
-
       is_this = (i == 0 && DECL_NONSTATIC_MEMBER_FUNCTION_P (fn)
 		 && ! DECL_CONSTRUCTOR_P (fn));
 
-      if (parmnode)
+      if (skip + i < parm_types_len)
 	{
-	  tree parmtype = TREE_VALUE (parmnode);
+	  tree parmtype = nth_parm_type (parmlist, skip + i);
+
+	  gcc_assert (parmtype != void_type_node);
 
 	  /* The type of the implicit object parameter ('this') for
 	     overload resolution is not always the same as for the
@@ -1429,8 +1433,6 @@ add_function_candidate (struct z_candidate **candidates,
       if (t->bad_p)
 	viable = -1;
 
-      if (parmnode)
-	parmnode = TREE_CHAIN (parmnode);
       argnode = TREE_CHAIN (argnode);
     }
 
