@@ -89,6 +89,11 @@ static location_t file_start_location;
 /* The Java archive that provides main_class;  the main input file. */
 static GTY(()) struct JCF * main_jcf;
 
+/* The number of source files passd to us by -fsource-filename and an
+   array of pointers to each name.  Used by find_sourcefile().  */
+static int num_files = 0;
+static char **filenames;
+
 static struct ZipFile *localToFile;
 
 /* Declarations of some functions used here.  */
@@ -124,6 +129,181 @@ handle_deprecated (void)
     }
 }
 
+
+
+/* Reverse a string.  */
+static char *
+reverse (const char *s)
+{
+  if (s == NULL)
+    return NULL;
+  else
+    {
+      int len = strlen (s);
+      char *d = xmalloc (len + 1);
+      const char *sp;
+      char *dp;
+      
+      d[len] = 0;
+      for (dp = &d[0], sp = &s[len-1]; sp >= s; dp++, sp--)
+	*dp = *sp;
+
+      return d;
+    }
+}
+
+/* Compare two strings for qsort().  */
+static int
+cmpstringp (const void *p1, const void *p2)
+{
+  /* The arguments to this function are "pointers to
+     pointers to char", but strcmp() arguments are "pointers
+     to char", hence the following cast plus dereference */
+
+  return strcmp(*(char **) p1, *(char **) p2);
+}
+
+/* Create an array of strings, one for each source file that we've
+   seen.  fsource_filename can either be the name of a single .java
+   file or a file that contains a list of filenames separated by
+   newlines.  */
+void 
+java_read_sourcefilenames (const char *fsource_filename)
+{
+  if (fsource_filename 
+      && filenames == 0
+      && strlen (fsource_filename) > strlen (".java")
+      && strcmp ((fsource_filename 
+		  + strlen (fsource_filename)
+		  - strlen (".java")),
+		 ".java") != 0)
+    {
+      // fsource_filename isn't a .java file but a list of filenames
+      // separated by newlines
+      FILE *finput = fopen (fsource_filename, "r");
+      int len = 0;
+      int longest_line = 0;
+
+      gcc_assert (finput);
+
+      /* Find out how many files there are, and how long the filenames are.  */
+      while (! feof (finput))
+	{
+	  int ch = getc (finput);
+	  if (ch == '\n')
+	    {
+	      num_files++;
+	      if (len > longest_line)
+		longest_line = len;
+	      len = 0;
+	      continue;
+	    }
+	  if (ch == EOF)
+	    break;
+	  len++;
+	}
+
+      rewind (finput);
+
+      /* Read the filenames.  Put a pointer to each filename into the
+	 array FILENAMES.  */
+      {
+	char *linebuf = alloca (longest_line + 1);
+	int i = 0;
+	int charpos;
+
+	filenames = xmalloc (num_files * sizeof (char*));
+
+	charpos = 0;
+	for (;;)
+	  {
+	    int ch = getc (finput);
+	    if (ch == EOF)
+	      break;
+	    if (ch == '\n')
+	      {
+		linebuf[charpos] = 0;
+		gcc_assert (i < num_files);		
+		/* ???  Perhaps we should use lrealpath() here.  Doing
+		   so would tidy up things like /../ but the rest of
+		   gcc seems to assume relative pathnames, not
+		   absolute pathnames.  */
+/* 		realname = lrealpath (linebuf); */
+		filenames[i++] = reverse (linebuf);
+		charpos = 0;
+		continue;
+	      }
+	    gcc_assert (charpos < longest_line);
+	    linebuf[charpos++] = ch;
+	  }
+
+	if (num_files > 1)
+	  qsort (filenames, num_files, sizeof (char *), cmpstringp);
+      }
+      fclose (finput);
+    }
+  else
+    {
+      filenames = xmalloc (sizeof (char*));      
+      filenames[0] = reverse (fsource_filename);
+      num_files = 1;
+    }
+}
+
+/* Given a relative pathname such as foo/bar.java, attempt to find a
+   longer pathname with the same suffix.  
+
+   This is a best guess heuristic; with some weird class hierarcies we
+   may fail to pick the correct source file.  For example, if we have
+   the filenames foo/bar.java and also foo/foo/bar.java, we do not
+   have enough information to know which one is the right match for
+   foo/bar.java.  */
+
+static const char *
+find_sourcefile (const char *name)
+{
+  int i = 0, j = num_files-1;
+  char *found = NULL;
+  
+  if (filenames)
+    {
+      char *revname = reverse (name);
+
+      do
+	{
+	  int k = (i+j) / 2;
+	  int cmp = strncmp (revname, filenames[k], strlen (revname));
+	  if (cmp == 0)
+	    {
+	      /*  OK, so we found one.  But is it a unique match?  */
+	      if ((k > i
+		   && strncmp (revname, filenames[k-1], strlen (revname)) == 0)
+		  || (k < j
+		      && (strncmp (revname, filenames[k+1], strlen (revname)) 
+			  == 0)))
+		;
+	      else
+		found = filenames[k];
+	      break;
+	    }
+	  if (cmp > 0)
+	    i = k+1;
+	  else
+	    j = k-1;
+	}
+      while (i <= j);
+
+      free (revname);
+    }
+
+  if (found && strlen (found) > strlen (name))
+    return reverse (found);
+  else
+    return name;
+}
+
+
+
 /* Handle "SourceFile" attribute. */
 
 static void
@@ -144,6 +324,10 @@ set_source_filename (JCF *jcf, int index)
 	      || old_filename[old_len - new_len - 1] == '\\'))
 	{
 #ifndef USE_MAPPED_LOCATION
+	  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+	    // if we're generating code for this class, try to find
+	    // its full pathname
+	    input_filename = find_sourcefile (input_filename);
 	  DECL_SOURCE_LOCATION (TYPE_NAME (current_class)) = input_location;
 	  file_start_location = input_location;
 #endif
@@ -177,6 +361,10 @@ set_source_filename (JCF *jcf, int index)
 	}
     }
       
+  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
+    // if we're generating code for this class, try to find its full
+    // pathname
+    sfname = find_sourcefile (sfname);
 #ifdef USE_MAPPED_LOCATION
   line_table.maps[line_table.used-1].to_file = sfname;
 #else

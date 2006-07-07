@@ -1405,6 +1405,9 @@ extern int in_same_package (tree, tree);
 extern tree builtin_function (const char *, tree, int, enum built_in_class,
 			      const char *, tree);
 
+extern void java_read_sourcefilenames (const char *fsource_filename);
+
+
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 
 /* Access flags etc for a method (a FUNCTION_DECL): */
