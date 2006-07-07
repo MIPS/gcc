@@ -1456,16 +1456,17 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
 {
   tree totype = TREE_TYPE (TREE_TYPE (fn));
   int i, len, viable, flags;
-  tree parmlist, parmnode, argnode;
+  tree parmlist, argnode;
   conversion **convs;
+  int parm_types_len;
 
   for (parmlist = totype; TREE_CODE (parmlist) != FUNCTION_TYPE; )
     parmlist = TREE_TYPE (parmlist);
   parmlist = TYPE_ARG_TYPES (parmlist);
+  parm_types_len = num_parm_types (parmlist);
 
   len = list_length (arglist) + 1;
   convs = alloc_conversions (len);
-  parmnode = parmlist;
   argnode = arglist;
   viable = 1;
   flags = LOOKUP_NORMAL;
@@ -1483,10 +1484,11 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
       if (i == 0)
 	t = implicit_conversion (totype, argtype, arg, /*c_cast_p=*/false,
 				 flags);
-      else if (parmnode == void_list_node)
+      else if (i + 1 == parm_types_len
+	       && nth_parm_type (parmlist, i) == void_type_node)
 	break;
-      else if (parmnode)
-	t = implicit_conversion (TREE_VALUE (parmnode), argtype, arg,
+      else if (i < parm_types_len)
+	t = implicit_conversion (nth_parm_type (parmlist, i), argtype, arg,
 				 /*c_cast_p=*/false, flags);
       else
 	{
@@ -1504,15 +1506,14 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
       if (i == 0)
 	continue;
 
-      if (parmnode)
-	parmnode = TREE_CHAIN (parmnode);
       argnode = TREE_CHAIN (argnode);
     }
 
   if (i < len)
     viable = 0;
 
-  if (parmnode && parmnode != void_list_node)
+  if (i < parm_types_len
+      && nth_parm_type (parmlist, i) != void_type_node)
     viable = 0;
 
   return add_candidate (candidates, totype, arglist, len, convs,
