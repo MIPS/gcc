@@ -1,3 +1,9 @@
+2006-07-06  Tom Tromey  <tromey@redhat.com>
+
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (JAVAC): Define when FOUND_GCJ is true.
+	(compile-classes): Remove special case for gcj.
+
 2006-06-23  Tom Tromey  <tromey@redhat.com>
 
 	* Imported Classpath generics 0.91, presesrving local changes.
