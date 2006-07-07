@@ -1222,37 +1222,43 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    {
 	      /* Deal with fileptr_type_node.  FILE type is not known
 		 at the time we create the builtins.  */
-	      tree t1, t2;
+	      tree t1 = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
+	      tree t2 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+	      int len1 = num_parm_types (t1);
+	      int len2 = num_parm_types (t2);
 
-	      for (t1 = TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-		   t2 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
-		   t1 || t2;
-		   t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
-		if (!t1 || !t2)
-		  break;
-		else if (TREE_VALUE (t2) == fileptr_type_node)
-		  {
-		    tree t = TREE_VALUE (t1);
+	      if (len1 == len2)
+		{
+		  int i;
 
-		    if (TREE_CODE (t) == POINTER_TYPE
-			&& TYPE_NAME (TREE_TYPE (t))
-			&& DECL_NAME (TYPE_NAME (TREE_TYPE (t)))
-			   == get_identifier ("FILE")
-			&& compparms (t1, 1, t2, 1))
-		      {
-			tree oldargs = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+		  for (i = 0; i < len1; i++)
+		    {
+ 		      tree parm1 = nth_parm_type (t1, i);
+ 		      tree parm2 = nth_parm_type (t2, i);
 
-			TYPE_ARG_TYPES (TREE_TYPE (olddecl))
-			  = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
-			types_match = decls_match (newdecl, olddecl);
-			if (types_match)
-			  return duplicate_decls (newdecl, olddecl,
-						  newdecl_is_friend);
-			TYPE_ARG_TYPES (TREE_TYPE (olddecl)) = oldargs;
-		      }
-		  }
-		else if (! same_type_p (TREE_VALUE (t1), TREE_VALUE (t2)))
-		  break;
+		      if (parm2 == fileptr_type_node)
+			{
+			  if (TREE_CODE (parm1) == POINTER_TYPE
+			      && TYPE_NAME (TREE_TYPE (parm1))
+			      && DECL_NAME (TYPE_NAME (TREE_TYPE (parm1)))
+			      == get_identifier ("FILE")
+			      && compparms (t1, i + 1, t2, i + 1))
+			    {
+			      tree oldargs = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+
+			      TYPE_ARG_TYPES (TREE_TYPE (olddecl))
+				= TYPE_ARG_TYPES (TREE_TYPE (newdecl));
+			      types_match = decls_match (newdecl, olddecl);
+			      if (types_match)
+				return duplicate_decls (newdecl, olddecl,
+							newdecl_is_friend);
+			      TYPE_ARG_TYPES (TREE_TYPE (olddecl)) = oldargs;
+			    }
+			}
+		      else if (! same_type_p (parm1, parm2))
+			break;
+		    }
+		}
 	    }
 	  else if ((DECL_EXTERN_C_P (newdecl)
 		    && DECL_EXTERN_C_P (olddecl))
