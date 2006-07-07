@@ -11153,11 +11153,7 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
       return NULL_TREE;
 
     case CALL_EXPR:
-      /* Check for a built-in function.  */
-      if (TREE_CODE (op0) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (op0, 0)) == FUNCTION_DECL
-	  && DECL_BUILT_IN (TREE_OPERAND (op0, 0)))
-	return fold_builtin (TREE_OPERAND (op0, 0), op1, false);
+      /* Handled separately for now.  */
       return NULL_TREE;
 
     case BIT_FIELD_REF:
@@ -11233,6 +11229,13 @@ fold (tree expr)
 	  tem = fold_binary (code, type, op0, op1);
 	  return tem ? tem : expr;
 	case 3:
+	  /* FIXME:  CALL_EXPRs won't be ternary expressions any more
+	     after representation change is implemented.  */
+	  if (code == CALL_EXPR)
+	    {
+	      tem = fold_call_expr (expr, false);
+	      return tem ? tem : expr;
+	    }
 	  op0 = TREE_OPERAND (t, 0);
 	  op1 = TREE_OPERAND (t, 1);
 	  op2 = TREE_OPERAND (t, 2);
@@ -11587,10 +11590,17 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
   md5_finish_ctx (&ctx, checksum_before_op2);
   htab_empty (ht);
 #endif
-  
-  tem = fold_ternary (code, type, op0, op1, op2);
-  if (!tem)
-    tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
+
+  /* FIXME: This is only temporary, since CALL_EXPRs won't be constructed
+     with fold_build3 after representation conversion is complete.  */
+  if (code != CALL_EXPR)
+    {
+      tem = fold_ternary (code, type, op0, op1, op2);
+      if (!tem)
+	tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
+    }
+  else
+    tem = fold_build_call_expr (type, op0, op1, op2);
       
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);

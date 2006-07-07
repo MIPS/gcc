@@ -1533,6 +1533,21 @@ struct tree_constructor GTY(())
 #define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
+/* CALL_EXPR accessors.  */
+#define CALL_EXPR_FN(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 0)
+#define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 2)
+#define CALL_EXPR_ARGS(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 1)
+#define CALL_EXPR_ARG0(NODE) TREE_VALUE (CALL_EXPR_ARGS (NODE))
+#define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
+#define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))
+
+
+typedef struct call_expr_arg_iterator_d GTY (())
+{
+  tree tail;
+} call_expr_arg_iterator;
+
+
 /* OpenMP directive and clause accessors.  */
 
 #define OMP_BODY(NODE) \
@@ -4135,6 +4150,13 @@ extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (tree, tree);
 extern bool empty_body_p (tree);
 extern bool stdarg_p (tree);
+extern void init_call_expr_arg_iterator (tree, call_expr_arg_iterator *);
+extern tree first_call_expr_arg (tree, call_expr_arg_iterator *);
+extern tree next_call_expr_arg (call_expr_arg_iterator *);
+extern bool more_call_expr_args_p (const call_expr_arg_iterator *);
+extern int call_expr_nargs (tree);
+extern tree call_expr_arg (tree, int);
+
 
 /* In stmt.c */
 
@@ -4241,19 +4263,21 @@ extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 extern bool tree_expr_nonzero_p (tree);
 
 /* In builtins.c */
-extern tree fold_builtin (tree, tree, bool);
-extern tree fold_builtin_fputs (tree, bool, bool, tree);
-extern tree fold_builtin_strcpy (tree, tree, tree);
-extern tree fold_builtin_strncpy (tree, tree, tree);
-extern tree fold_builtin_memory_chk (tree, tree, tree, bool,
+extern tree fold_call_expr (tree, bool);
+extern tree fold_builtin_fputs (tree, tree, bool, bool, tree);
+extern tree fold_builtin_strcpy (tree, tree, tree, tree);
+extern tree fold_builtin_strncpy (tree, tree, tree, tree, tree);
+extern tree fold_builtin_memory_chk (tree, tree, tree, tree, tree, tree, bool,
 				     enum built_in_function);
-extern tree fold_builtin_stxcpy_chk (tree, tree, tree, bool,
+extern tree fold_builtin_stxcpy_chk (tree, tree, tree, tree, tree, bool,
 				     enum built_in_function);
-extern tree fold_builtin_strncpy_chk (tree, tree);
+extern tree fold_builtin_strncpy_chk (tree, tree, tree, tree, tree);
 extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
-extern bool fold_builtin_next_arg (tree);
+extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
+extern tree fold_build_call_expr (tree, tree, tree, tree);
+extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
 extern tree c_strlen (tree, int);

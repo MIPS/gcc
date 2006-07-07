@@ -1005,7 +1005,7 @@ compute_object_sizes (void)
 	    continue;
 
 	  init_object_sizes ();
-	  result = fold_builtin (callee, TREE_OPERAND (call, 1), false);
+	  result = fold_call_expr (call, false);
 	  if (!result)
 	    {
 	      tree arglist = TREE_OPERAND (call, 1);

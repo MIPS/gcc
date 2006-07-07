@@ -1,3 +1,183 @@
+2006-07-06  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.c (init_call_expr_arg_iterator): Define.
+	(first_call_expr_arg): Define.
+	(next_call_expr_arg): Define.
+	(more_call_expr_args_p): Define.
+	(call_expr_nargs): Define.
+	(call_expr_arg): Define.
+	* gcc/tree.h (CALL_EXPR_FN, CALL_EXPR_STATIC_CHAIN, CALL_EXPR_ARGS):
+	Define.
+	(CALL_EXPR_ARG0, CALL_EXPR_ARG1, CALL_EXPR_ARG2): Define.
+	(call_expr_arg_iterator): Declare.
+	(init_call_expr_arg_iterator): Declare.
+	(first_call_expr_arg): Declare.
+	(next_call_expr_arg): Declare.
+	(more_call_expr_args_p): Declare.
+	(call_expr_nargs): Declare.
+	(call_expr_arg): Declare.
+	(fold_call_expr): Declare new function replacing fold_builtin.
+	(fold_builtin_next_arg): Add bool argument.
+	(fold_build_call_expr): Declare.
+	(build_call_expr): Declare.
+	* gcc/builtins.c: Doc fixes throughout.  Clean up to use NULL_RTX
+	or NULL_TREE instead of constant 0 where appropriate.
+	(expand_builtin_setjmp): Change interfaces to all the
+	expand_builtin_foo functions pass the whole CALL_EXPR instead
+	of just its arglist, while the fold_builtin_foo functions get the
+	individual arguments instead.  Use the new argument accessors.
+	Update all callers.  
+	(expand_builtin_nonlocal_goto): Likewise.
+	(expand_builtin_prefetch): Likewise.
+	(expand_builtin_classify_type): Likewise.
+	(expand_errno_check): Likewise.
+	(expand_builtin_mathfn): Likewise.
+	(expand_builtin_mathfn_2): Likewise.
+	(expand_builtin_mathfn_3): Likewise.
+	(expand_builtin_sincos): Likewise.
+	(expand_builtin_int_roundingfn): Likewise.
+	(expand_builtin_pow): Likewise.
+	(expand_builtin_powi): Likewise.
+	(expand_builtin_strstr): Likewise.
+	(expand_builtin_strchr): Likewise.
+	(expand_builtin_strrchr): Likewise.
+	(expand_builtin_strpbrk): Likewise.
+	(expand_builtin_memcpy): Likewise.
+	(expand_builtin_mempcpy): Likewise.
+	(expand_builtin_memmove): Likewise, plus split off new helper 
+	function expand_builtin_memmove_args.
+	(expand_builtin_bcopy): Likewise.
+	(expand_builtin_strcpy): Likewise, plus split off new helper
+	function expand_builtin_strcpy_args.
+	(expand_builtin_stpcpy): Likewise.
+	(expand_builtin_strncpy): Likewise.
+	(expand_builtin_memset): Likewise, plus split off new helper
+	function expand_builtin_memset_args.
+	(expand_builtin_bzero): Likewise.
+	(expand_builtin_memcmp): Likewise.
+	(expand_builtin_strcmp): Likewise.
+	(expand_builtin_strncmp): Likewise.
+	(expand_builtin_strcat): Likewise.
+	(expand_builtin_strncat): Likewise.
+	(expand_builtin_strspn): Likewise.
+	(expand_builtin_strcspn): Likewise.
+	(expand_builtin_args_info): Likewise.
+	(expand_builtin_va_start): Likewise.
+	(expand_builtin_va_end): Likewise.
+	(expand_builtin_va_copy): Likewise.
+	(expand_builtin_frame_address): Likewise.
+	(expand_builtin_alloca): Likewise.
+	(expand_builtin_unop): Likewise.
+	(expand_builtin_fputs): Likewise.
+	(expand_builtin_expect): Likewise.
+	(expand_builtin_expect_jump): Likewise.
+	(expand_builtin_fabs): Likewise.
+	(expand_builtin_copysign): Likewise.
+	(expand_builtin_printf): Likewise.
+	(expand_builtin_fprintf): Likewise.
+	(expand_builtin_sprintf): Likewise.
+	(expand_builtin_init_trampoline): Likewise.
+	(expand_builtin_adjust_trampoline): Likewise.
+	(expand_builtin_signbit): Likewise.
+	(expand_builtin_fork_or_exec): Likewise.
+	(expand_builtin_sync_operation): Likewise.
+	(expand_builtin_compare_and_swap): Likewise.
+	(expand_builtin_lock_test_and_set): Likewise.
+	(expand_builtin_lock_release): Likewise.
+	(expand_builtin): Likewise.
+	(builtin_mathfn_code): Likewise.
+	(fold_builtin_constant_p): Likewise.
+	(fold_builtin_expect): Likewise.
+	(fold_builtin_classify_type): Likewise.
+	(fold_builtin_strlen): Likewise.
+	(fold_builtin_nan): Likewise.
+	(fold_trunc_transparent_mathfn): Likewise.
+	(fold_fixed_mathfn): Likewise.
+	(fold_builtin_cabs): Likewise.
+	(fold_builtin_sqrt): Likewise.
+	(fold_builtin_cbrt): Likewise.
+	(fold_builtin_sin): Likewise.
+	(fold_builtin_cos): Likewise.
+	(fold_builtin_tan): Likewise.
+	(fold_builtin_atan): Likewise.
+	(fold_builtin_trunc): Likewise.
+	(fold_builtin_floor): Likewise.
+	(fold_builtin_ceil): Likewise.
+	(fold_builtin_round): Likewise.
+	(fold_builtin_int_roundingfn): Likewise.
+	(fold_builtin_bitop): Likewise.
+	(fold_builtin_logarithm): Likewise.
+	(fold_builtin_pow): Likewise.
+	(fold_builtin_powi): Likewise.
+	(fold_builtin_exponent): Likewise.
+	(fold_builtin_memcpy): Likewise.
+	(fold_builtin_mempcpy): Likewise.
+	(fold_builtin_memmove): Likewise.
+	(fold_builtin_strcpy): Likewise.
+	(fold_builtin_strncpy): Likewise.
+	(fold_builtin_memcmp): Likewise.
+	(fold_builtin_strcmp): Likewise.
+	(fold_builtin_strncmp): Likewise.
+	(fold_builtin_signbit): Likewise.
+	(fold_builtin_copysign): Likewise.
+	(fold_builtin_isascii): Likewise.
+	(fold_builtin_toascii): Likewise.
+	(fold_builtin_isdigit): Likewise.
+	(fold_builtin_fabs): Likewise.
+	(fold_builtin_abs): Likewise.
+	(fold_builtin_classify): Likewise.
+	(fold_builtin_unordered_cmp): Likewise.
+	(fold_builtin_1): Likewise.  Split into new functions
+	fold_builtin_n, fold_builtin_0, fold_builtin_1, fold_builtin_2,
+	fold_builtin_3, fold_builtin_4, and fold_builtin_varargs, to dispatch
+	based on the number of arguments.
+	(fold_call_expr): New function replacing fold_builtin.
+	(fold_build_call_expr): New function.
+	(build_call_expr): New function.
+	(rewrite_call_expr): New function.
+	(validate_arg): New function.
+	(validate_arglist): Rewrite to use new interfaces, as above.  Change
+	return type from int to bool to reflect usage.
+	(fold_builtin_strstr): Likewise.
+	(fold_builtin_strchr): Likewise.
+	(fold_builtin_strrchr): Likewise.
+	(fold_builtin_strpbrk): Likewise.
+	(fold_builtin_strcat): Likewise.
+	(fold_builtin_strncat): Likewise.
+	(fold_builtin_strspn): Likewise.
+	(fold_builtin_strcspn): Likewise.
+	(fold_builtin_fputs): Likewise.
+	(fold_builtin_next_arg): Likewise.  Also fix destructive
+	modification of argument list, which seems like a Bad Idea.
+	(fold_builtin_sprintf): Likewise.
+	(expand_builtin_object_size): Likewise.
+	(expand_builtin_memory_chk): Likewise.
+	(maybe_emit_chk_warning): Likewise.
+	(maybe_emit_sprintf_chk_warning): Likewise.
+	(fold_builtin_object_size): Likewise.
+	(fold_builtin_memory_chk): Likewise.
+	(fold_builtin_stxcpy_chk): Likewise.
+	(fold_builtin_strncpy_chk): Likewise.
+	(fold_builtin_strcat_chk): Likewise.
+	(fold_builtin_strncat_chk): Likewise.
+	(fold_builtin_sprintf_chk): Likewise.
+	(fold_builtin_snprintf_chk): Likewise.
+	(fold_builtin_printf): Likewise.
+	(fold_builtin_fprintf): Likewise.
+	* gcc/fold-const.c (fold_ternary): Remove call to fold_builtin....
+	(fold): ...and replace it with a call to fold_call_expr here.
+	(fold_build3_stat): Use fold_build_call_expr to fold and construct
+	CALL_EXPRs.
+	* gcc/tree-ssa-ccp.c (ccp_fold): Use new arglist primitives and
+	update calls to the various fold_builtin_foo functions to reflect
+	their new interfaces.
+	(ccp_fold_builtin): Likewise.
+	* gcc/gimplify.c (gimplify_call_expr): Likewise.
+	* gcc/except.c (expand_builtin_eh_return_data_regno): Change
+	arguments to match other expand_builtin_foo functions.
+	* gcc/tree-object-size.c (compute_object_sizes): Replace call to
+	fold_builtin with fold_call_expr.
+
 2006-07-05  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/pc/call.c (build_op_delete_call): Use nth_parm_type.

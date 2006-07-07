@@ -935,7 +935,6 @@ ccp_fold (tree stmt)
       if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
 	  tree *orig, var;
-	  tree fndecl, arglist;
 	  size_t i = 0;
 	  ssa_op_iter iter;
 	  use_operand_p var_p;
@@ -947,9 +946,7 @@ ccp_fold (tree stmt)
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL, const_val);
-	  fndecl = get_callee_fndecl (rhs);
-	  arglist = TREE_OPERAND (rhs, 1);
-	  retval = fold_builtin (fndecl, arglist, false);
+	  retval = fold_call_expr (rhs, false);
 
 	  /* Restore operands to their original form.  */
 	  i = 0;
@@ -2169,18 +2166,18 @@ static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
   tree result, val[3];
-  tree callee, arglist, a;
+  tree callee, a;
   int arg_mask, i, type;
   bitmap visited;
   bool ignore;
+  call_expr_arg_iterator iter;
+  int nargs;
 
   ignore = TREE_CODE (stmt) != MODIFY_EXPR;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  callee = get_callee_fndecl (fn);
-  arglist = TREE_OPERAND (fn, 1);
-  result = fold_builtin (callee, arglist, ignore);
+  result = fold_call_expr (fn, ignore);
   if (result)
     {
       if (ignore)
@@ -2189,12 +2186,14 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Ignore MD builtins.  */
+  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  if (!arglist)
+  nargs = call_expr_nargs (fn);
+  if (nargs == 0)
     return NULL_TREE;
 
   /* Limit the work only for builtins we know how to simplify.  */
@@ -2237,15 +2236,17 @@ ccp_fold_builtin (tree stmt, tree fn)
   visited = BITMAP_ALLOC (NULL);
 
   memset (val, 0, sizeof (val));
-  for (i = 0, a = arglist;
-       arg_mask;
-       i++, arg_mask >>= 1, a = TREE_CHAIN (a))
-    if (arg_mask & 1)
-      {
-	bitmap_clear (visited);
-	if (!get_maxval_strlen (TREE_VALUE (a), &val[i], visited, type))
-	  val[i] = NULL_TREE;
-      }
+  init_call_expr_arg_iterator (fn, &iter);
+  for (i = 0; arg_mask; i++, arg_mask >>= 1)
+    {
+      a = next_call_expr_arg (&iter);
+      if (arg_mask & 1)
+	{
+	  bitmap_clear (visited);
+	  if (!get_maxval_strlen (a, &val[i], visited, type))
+	    val[i] = NULL_TREE;
+	}
+    }
 
   BITMAP_FREE (visited);
 
@@ -2267,23 +2268,32 @@ ccp_fold_builtin (tree stmt, tree fn)
       break;
 
     case BUILT_IN_STRCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strcpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 2)
+	result = fold_builtin_strcpy (callee,
+				      CALL_EXPR_ARG0 (fn),
+				      CALL_EXPR_ARG1 (fn),
+				      val[1]);
       break;
 
     case BUILT_IN_STRNCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strncpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 3)
+	result = fold_builtin_strncpy (callee,
+				       CALL_EXPR_ARG0 (fn),
+				       CALL_EXPR_ARG1 (fn),
+				       CALL_EXPR_ARG2 (fn),
+				       val[1]);
       break;
 
     case BUILT_IN_FPUTS:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG0 (fn),
+				   CALL_EXPR_ARG1 (fn),
 				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG0 (fn),
+				   CALL_EXPR_ARG1 (fn),
 				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
 				   val[0]);
       break;
@@ -2293,26 +2303,39 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_memory_chk (callee, arglist, val[2], ignore,
+	result = fold_builtin_memory_chk (callee,
+					  CALL_EXPR_ARG0 (fn),
+					  CALL_EXPR_ARG1 (fn),
+					  CALL_EXPR_ARG2 (fn),
+					  call_expr_arg (fn, 3),
+					  val[2], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRCPY_CHK:
     case BUILT_IN_STPCPY_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_stxcpy_chk (callee, arglist, val[1], ignore,
+	result = fold_builtin_stxcpy_chk (callee,
+					  CALL_EXPR_ARG0 (fn),
+					  CALL_EXPR_ARG1 (fn),
+					  CALL_EXPR_ARG2 (fn),
+					  val[1], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRNCPY_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_strncpy_chk (arglist, val[2]);
+	result = fold_builtin_strncpy_chk (CALL_EXPR_ARG0 (fn),
+					   CALL_EXPR_ARG1 (fn),
+					   CALL_EXPR_ARG2 (fn),
+					   call_expr_arg (fn, 3),
+					   val[2]);
       break;
 
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_snprintf_chk (arglist, val[1],
+	result = fold_builtin_snprintf_chk (fn, val[1],
 					    DECL_FUNCTION_CODE (callee));
       break;
 

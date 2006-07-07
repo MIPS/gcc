@@ -1987,8 +1987,7 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   decl = get_callee_fndecl (*expr_p);
   if (decl && DECL_BUILT_IN (decl))
     {
-      tree arglist = TREE_OPERAND (*expr_p, 1);
-      tree new = fold_builtin (decl, arglist, !want_value);
+      tree new = fold_call_expr (*expr_p, !want_value);
 
       if (new && new != *expr_p)
 	{
@@ -2002,21 +2001,21 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
         {
-	  if (!arglist || !TREE_CHAIN (arglist))
+	  if (call_expr_nargs (*expr_p) < 2)
 	    {
 	      error ("too few arguments to function %<va_start%>");
 	      *expr_p = build_empty_stmt ();
 	      return GS_OK;
 	    }
 	  
-	  if (fold_builtin_next_arg (TREE_CHAIN (arglist)))
+	  if (fold_builtin_next_arg (*expr_p, true))
 	    {
 	      *expr_p = build_empty_stmt ();
 	      return GS_OK;
 	    }
 	  /* Avoid gimplifying the second argument to va_start, which needs
 	     to be the plain PARM_DECL.  */
-	  return gimplify_arg (&TREE_VALUE (TREE_OPERAND (*expr_p, 1)), pre_p);
+	  return gimplify_arg (&CALL_EXPR_ARG0 (*expr_p), pre_p);
 	}
     }
 
@@ -2044,20 +2043,15 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   /* Try this again in case gimplification exposed something.  */
   if (ret != GS_ERROR)
     {
-      decl = get_callee_fndecl (*expr_p);
-      if (decl && DECL_BUILT_IN (decl))
-	{
-	  tree arglist = TREE_OPERAND (*expr_p, 1);
-	  tree new = fold_builtin (decl, arglist, !want_value);
+      tree new = fold_call_expr (*expr_p, !want_value);
 
-	  if (new && new != *expr_p)
-	    {
-	      /* There was a transformation of this call which computes the
-		 same value, but in a more efficient way.  Return and try
-		 again.  */
-	      *expr_p = new;
-	      return GS_OK;
-	    }
+      if (new && new != *expr_p)
+	{
+	  /* There was a transformation of this call which computes the
+	     same value, but in a more efficient way.  Return and try
+	     again.  */
+	  *expr_p = new;
+	  return GS_OK;
 	}
     }
 

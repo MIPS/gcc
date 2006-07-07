@@ -7603,4 +7603,79 @@ stdarg_p (tree fntype)
 	      != void_type_node));
 }
 
+/* Initialize the abstract argument list iterator object ITER with the argument
+   list from CALL_EXPR node EXP.  */
+
+void
+init_call_expr_arg_iterator (tree exp, call_expr_arg_iterator *iter)
+{
+  iter->tail =  CALL_EXPR_ARGS (exp);
+}
+
+/* Initialize the abstract argument list iterator object ITER, then advance
+   past and return the first argument.  Useful in for expressions, e.g.
+     for (arg = first_call_expr_arg (exp, &iter); arg;
+          arg = next_call_expr_arg (&iter))   */
+
+tree
+first_call_expr_arg (tree exp, call_expr_arg_iterator *iter)
+{
+  init_call_expr_arg_iterator (exp, iter);
+  return next_call_expr_arg (iter);
+}
+
+/* Return the next argument from abstract argument list iterator object ITER,
+   and advance its state.  Return NULL_TREE if there are no more arguments.  */
+
+tree
+next_call_expr_arg (call_expr_arg_iterator *iter)
+{
+  tree result;
+  if (iter->tail == NULL_TREE)
+    return NULL_TREE;
+  result = TREE_VALUE (iter->tail);
+  iter->tail = TREE_CHAIN (iter->tail);
+  return result;
+}
+
+/* Test whether there are more arguments in abstract argument list iterator
+   ITER, without changing its state.  */
+
+bool
+more_call_expr_args_p (const call_expr_arg_iterator *iter)
+{
+  return (iter->tail != NULL_TREE);
+}
+
+/* Count the number of arguments passed in CALL_EXPR node EXP.  */
+
+int
+call_expr_nargs (tree exp)
+{
+  call_expr_arg_iterator iter;
+  int i = 0;
+  tree arg;
+  for (arg = first_call_expr_arg (exp, &iter); arg;
+       arg = next_call_expr_arg (&iter))
+    i++;
+  return i;
+}
+
+/* Return the Nth (zero-based) argument from CALL_EXPR node EXP.  Returns
+   NULL if there aren't that many arguments.  */
+
+tree
+call_expr_arg (tree exp, int n)
+{
+  call_expr_arg_iterator iter;
+  tree t = NULL;
+  int i;
+  for (i = 0, t = first_call_expr_arg (exp, &iter);
+       (i < n) && t;
+       i++, t = next_call_expr_arg (&iter))
+    ;
+  return t;
+}
+
+
 #include "gt-tree.h"
