@@ -1,3 +1,10 @@
+2006-07-05  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* dbxout.c (dbxout_begin_prologue): Emit LFBB label at function start.
+	(dbxout_function_end): Use local label LFBB.
+	(dbxout_source_line): Likewise. 
+	(dbxout_block): Likewise.
+
 2006-06-21  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/mips/mips.c (function_arg): Where one part of a

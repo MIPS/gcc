@@ -904,6 +904,7 @@ static void
 dbxout_function_end (tree decl)
 {
   char lscope_label_name[100];
+  int lscope_labelno = scope_labelno++;
 
   /* The Lscope label must be emitted even if we aren't doing anything
      else; dbxout_block needs it.  */
@@ -912,9 +913,8 @@ dbxout_function_end (tree decl)
   /* Convert Lscope into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
      labels.  */
-  ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", scope_labelno);
-  targetm.asm_out.internal_label (asm_out_file, "Lscope", scope_labelno);
-  scope_labelno++;
+  ASM_GENERATE_INTERNAL_LABEL (lscope_label_name, "Lscope", lscope_labelno);
+  targetm.asm_out.internal_label (asm_out_file, "Lscope", lscope_labelno);
 
   /* The N_FUN tag at the end of the function is a GNU extension,
      which may be undesirable, and is unnecessary if we do not have
@@ -941,10 +941,11 @@ dbxout_function_end (tree decl)
     }
   else
     {
+      char begin_label[20];
+      /* Reference current function start using LFBB.  */
+      ASM_GENERATE_INTERNAL_LABEL (begin_label, "LFBB", lscope_labelno);
       dbxout_begin_empty_stabs (N_FUN);
-      dbxout_stab_value_label_diff (lscope_label_name,
-				    XSTR (XEXP (DECL_RTL (current_function_decl), 
-						0), 0));
+      dbxout_stab_value_label_diff (lscope_label_name, begin_label);
     }
 				
 #endif
@@ -1240,7 +1241,8 @@ dbxout_source_file (const char *filename)
     }
 }
 
-/* Output N_BNSYM and line number symbol entry.  */
+/* Output N_BNSYM, line number symbol entry, and local symbol at 
+   function scope.  */
 
 static void
 dbxout_begin_prologue (unsigned int lineno, const char *filename)
@@ -1252,6 +1254,10 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
     dbxout_stabd (N_BNSYM, 0);
 
   dbxout_source_line (lineno, filename);
+  /* Output function begin block at function scope, referenced 
+     by dbxout_block, dbxout_source_line and dbxout_function_end.  */
+  emit_pending_bincls_if_required ();
+  targetm.asm_out.internal_label (asm_out_file, "LFBB", scope_labelno);
 }
 
 /* Output a line number symbol entry for source file FILENAME and line
@@ -1267,11 +1273,12 @@ dbxout_source_line (unsigned int lineno, const char *filename)
 #else
   if (DBX_LINES_FUNCTION_RELATIVE)
     {
-      rtx begin_label = XEXP (DECL_RTL (current_function_decl), 0);
+      char begin_label[20];
       dbxout_begin_stabn_sline (lineno);
+      /* Reference current function start using LFBB.  */
+      ASM_GENERATE_INTERNAL_LABEL (begin_label, "LFBB", scope_labelno); 
       dbxout_stab_value_internal_label_diff ("LM", &dbxout_source_line_counter,
-					     XSTR (begin_label, 0));
-
+					     begin_label);
     }
   else
     dbxout_stabd (N_SLINE, lineno);
@@ -3328,8 +3335,9 @@ dbx_output_rbrac (const char *label,
 static void
 dbxout_block (tree block, int depth, tree args)
 {
-  const char *begin_label
-    = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+  char begin_label[20];
+  /* Reference current function start using LFBB.  */
+  ASM_GENERATE_INTERNAL_LABEL (begin_label, "LFBB", scope_labelno);
 
   while (block)
     {
@@ -3358,7 +3366,7 @@ dbxout_block (tree block, int depth, tree args)
 
 	      if (depth == 0)
 		/* The outermost block doesn't get LBB labels; use
-		   the function symbol.  */
+		   the LFBB local symbol emitted by dbxout_begin_prologue.  */
 		scope_start = begin_label;
 	      else
 		{
