@@ -47,7 +47,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
       %{!findirect-dispatch:-fzip-dependency=%U.zip}			\
       %{!fsyntax-only:-fzip-target=%U.jar}}\n				\
     %{.class|.zip|.jar|!fsyntax-only:jc1				\
-      %{.java|fsaw-java-file:%U.jar %<ffilelist-file}			\
+      %{.java|fsaw-java-file:%U.jar -fsource-filename=%i %<ffilelist-file} \
       %{.class|.zip|.jar|ffilelist-file|fcompile-resource*:%i}		\
       %(jc1) %(cc1_options) %{I*} %{!findirect-dispatch:-I%U.zip}	\
       %(invoke_as)}",

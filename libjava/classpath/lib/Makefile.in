@@ -278,10 +278,11 @@ compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$
 @FOUND_GCJ_FALSE@@FOUND_JIKES_TRUE@JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-@FOUND_GCJ_TRUE@JAVAC = exit 1
+@FOUND_GCJ_TRUE@JAVAC = $(GCJ) -C -bootclasspath '' --classpath $(compile_classpath) -d . @classes
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 @CREATE_COLLECTIONS_TRUE@COLLECTIONS = collections.jar
 @BUILD_CLASS_FILES_TRUE@noinst_DATA = genclasses compile-classes resources
+# endif
 EXTRA_DIST = standard.omit mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \
 	glibj.zip classes.1 classes.2 \
@@ -541,15 +542,21 @@ genclasses: gen-classlist.sh standard.omit $(top_builddir)/gnu/java/locale/Local
 
 $(JAVA_DEPEND): genclasses
 
-@FOUND_GCJ_TRUE@compile-classes: classes $(JAVA_SRCS) Makefile
-@FOUND_GCJ_TRUE@	$(MAKE) -f $(srcdir)/Makefile.gcj \
-@FOUND_GCJ_TRUE@	  GCJ='$(GCJ)' \
-@FOUND_GCJ_TRUE@	  compile_classpath='$(top_builddir):$(compile_classpath)' \
-@FOUND_GCJ_TRUE@	  top_srcdir=$(top_srcdir)
-@FOUND_GCJ_TRUE@	touch compile-classes
-@FOUND_GCJ_FALSE@compile-classes: classes $(JAVA_SRCS) Makefile
-@FOUND_GCJ_FALSE@	$(JAVAC)
-@FOUND_GCJ_FALSE@	touch compile-classes
+# if FOUND_GCJ
+# ## When building with gcj, we do a recursive make.  We split this rule
+# ## out specially, rather than simply defining JAVAC, so that GNU make
+# ## will see the recursive make invocation and still allow parallel
+# ## builds.
+# compile-classes: classes $(JAVA_SRCS) Makefile
+# 	$(MAKE) -f $(srcdir)/Makefile.gcj \
+# 	  GCJ='$(GCJ)' \
+# 	  compile_classpath='$(top_builddir):$(compile_classpath)' \
+# 	  top_srcdir=$(top_srcdir)
+# 	touch compile-classes
+# else
+compile-classes: classes $(JAVA_SRCS) Makefile
+	$(JAVAC)
+	touch compile-classes
 
 clean-local:
 	-rm -rf gnu

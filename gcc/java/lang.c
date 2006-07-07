@@ -343,6 +343,10 @@ java_handle_option (size_t scode, const char *arg, int value)
       v_flag = 1;
       break;
       
+    case OPT_fsource_filename_:
+      java_read_sourcefilenames (arg);
+      break;
+      
     default:
       if (cl_options[code].flags & CL_Java)
 	break;

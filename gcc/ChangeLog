@@ -1,3 +1,10 @@
+2006-07-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-cfgcleanup.c (remove_forwarder_block): Check if we
+	have an eh edge coming into the forwarder that there is only
+	one predecessor for the destination.
+	http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00048.html
+
 2006-06-04  Mark Shinwell  <shinwell@codesourcery.com>
 
 	* tree.h: Declare folding_initializer.

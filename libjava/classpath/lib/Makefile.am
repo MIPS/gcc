@@ -18,7 +18,7 @@ compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$
 if FOUND_GCJ
 ## This should never be used when gcj is the compiler.
 ## See the compile-classes target.
-JAVAC = exit 1
+JAVAC = $(GCJ) -C -bootclasspath '' --classpath $(compile_classpath) -d . @classes
 else
 if FOUND_JIKES
 JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
@@ -150,22 +150,22 @@ endif # REGEN_PARSER
 
 $(JAVA_DEPEND): genclasses
 
-if FOUND_GCJ
-## When building with gcj, we do a recursive make.  We split this rule
-## out specially, rather than simply defining JAVAC, so that GNU make
-## will see the recursive make invocation and still allow parallel
-## builds.
-compile-classes: classes $(JAVA_SRCS) Makefile
-	$(MAKE) -f $(srcdir)/Makefile.gcj \
-	  GCJ='$(GCJ)' \
-	  compile_classpath='$(top_builddir):$(compile_classpath)' \
-	  top_srcdir=$(top_srcdir)
-	touch compile-classes
-else
+# if FOUND_GCJ
+# ## When building with gcj, we do a recursive make.  We split this rule
+# ## out specially, rather than simply defining JAVAC, so that GNU make
+# ## will see the recursive make invocation and still allow parallel
+# ## builds.
+# compile-classes: classes $(JAVA_SRCS) Makefile
+# 	$(MAKE) -f $(srcdir)/Makefile.gcj \
+# 	  GCJ='$(GCJ)' \
+# 	  compile_classpath='$(top_builddir):$(compile_classpath)' \
+# 	  top_srcdir=$(top_srcdir)
+# 	touch compile-classes
+# else
 compile-classes: classes $(JAVA_SRCS) Makefile
 	$(JAVAC)
 	touch compile-classes
-endif
+# endif
 
 EXTRA_DIST = standard.omit mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \
