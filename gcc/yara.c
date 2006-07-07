@@ -53,9 +53,7 @@ int yara_max_uid; /* before the allocation */
 unsigned char mode_inner_mode [NUM_MACHINE_MODES];
 
 /* The following array is a map hard regs X modes -> number registers
-   for store value of given mode starting with given hard regs.  An
-   element is defined only if the corresponding value of
-   HARD_REGNO_MODE_OK is true.  */
+   for store value of given mode starting with given hard regs.  */
 HARD_REG_SET reg_mode_hard_regset [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
 int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [N_REG_CLASSES];
@@ -94,13 +92,12 @@ set_reg_mode_hard_regset (void)
     for (hard_regno = 0; hard_regno < FIRST_PSEUDO_REGISTER; hard_regno++)
       {
 	CLEAR_HARD_REG_SET (reg_mode_hard_regset [hard_regno] [m]);
-	if (HARD_REGNO_MODE_OK (hard_regno, m))
-	  for (i = hard_regno_nregs [hard_regno] [m] - 1; i >= 0; i--)
-	    {
-	      yara_assert (hard_regno + i < FIRST_PSEUDO_REGISTER);
-	      SET_HARD_REG_BIT (reg_mode_hard_regset [hard_regno] [m],
-				hard_regno + i);
-	    }
+	for (i = hard_regno_nregs [hard_regno] [m] - 1; i >= 0; i--)
+	  {
+	    yara_assert (hard_regno + i < FIRST_PSEUDO_REGISTER);
+	    SET_HARD_REG_BIT (reg_mode_hard_regset [hard_regno] [m],
+			      hard_regno + i);
+	  }
       }
 }
 
@@ -475,6 +472,9 @@ rest_of_handle_yara (void)
     update_equiv_regs ();
   /* We need an acurate live analysis before the allocation.  */
   life_analysis (PROP_DEATH_NOTES | PROP_LOG_LINKS | PROP_REG_INFO);
+
+  if ((YARA_PARAMS & YARA_NO_ACCURATE_LIVE_INFO) == 0)
+    make_accurate_live_analysis ();
 
   yara (dump_file);
   if (YARA_PARAMS & YARA_CLEAN_AFTER)

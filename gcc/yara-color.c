@@ -1716,7 +1716,9 @@ reduce_loop_reg_pressure (struct yara_loop_tree_node *loop)
   VARRAY_POP_ALL (high_reg_pressure_subloops);
   for (subloop = loop->inner; subloop; subloop = subloop->next)
     if (reg_pressure_excess (subloop) > 0
-	&& ((YARA_PARAMS & YARA_BB_RELIEF) || subloop->loop != NULL))
+	&& (subloop->loop != NULL || (YARA_PARAMS & YARA_BB_RELIEF)
+	    || ((YARA_PARAMS & YARA_FREQ_LIVE_RANGE_SPLITTING)
+		&& subloop->bb->frequency >= YARA_SPLIT_FREQ)))
       VARRAY_PUSH_GENERIC_PTR (high_reg_pressure_subloops, subloop);
   for (;;)
     {

@@ -321,7 +321,6 @@ static void set_up_bb_rts_numbers (void);
 static int rpost_cmp (const void *, const void *);
 static void calculate_reg_pav (void);
 static void modify_reg_pav (void);
-static void make_accurate_live_analysis (void);
 
 
 
@@ -2475,7 +2474,7 @@ modify_reg_pav (void)
    only if it is initialized on a path from CFG entry to the
    program point.  */
 
-static void
+void
 make_accurate_live_analysis (void)
 {
   basic_block bb;

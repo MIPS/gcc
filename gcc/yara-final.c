@@ -225,11 +225,21 @@ process_allocno_locs (allocno_t dst, allocno_t src, copy_t cp, rtx insn)
 	       src_hard_regno, hard_regno_nregs [src_hard_regno] [cp_mode]);
 	  else
 	    {
-	      for (i = hard_regno_nregs [dst_hard_regno] [cp_mode] - 1;
-		   i >= 0;
-		   i--)
-		(*process_reg_reg_loc_copy_func)
-		  (dst_hard_regno + i, 1, src_hard_regno + i, 1);
+	      nregs = hard_regno_nregs [dst_hard_regno] [cp_mode];
+	      /* Check sync order in case if the source and
+		 destination registers are intersected.  */
+	      if (dst_hard_regno < src_hard_regno)
+		{
+		  for (i = 0; i < nregs; i++)
+		    (*process_reg_reg_loc_copy_func)
+		      (dst_hard_regno + i, 1, src_hard_regno + i, 1);
+		}
+	      else
+		{
+		  for (i = nregs - 1; i >= 0; i--)
+		    (*process_reg_reg_loc_copy_func)
+		      (dst_hard_regno + i, 1, src_hard_regno + i, 1);
+		}
 	    }
 	}
       else if (dst_memory_slot != NULL)

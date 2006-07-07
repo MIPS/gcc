@@ -588,10 +588,10 @@ DEFPARAM (PARAM_YARA_PARAMS,
 	  "Mask to switch off/one internal YARA passes",
 	  0, 0, 0)
 
-DEFPARAM (PARAM_YARA_SPLIT_THRESHOLD,
-	  "yara-split-thershold",
-	  "The min conflicting regs/the reg (in freq) to start split the reg live range",
-	  5, 0, 0)
+DEFPARAM (PARAM_YARA_SPLIT_FREQ,
+	  "yara-split-freq",
+	  "The min frequency to start split the reg live range",
+	  1000, 0, 0)
 
 /*
 Local variables:

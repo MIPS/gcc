@@ -2918,7 +2918,7 @@ set_allocno_conflict (allocno_t live_a, void *data, int local_live_index)
 static void
 mark_allocno_live (allocno_t a, bool no_map_change_p)
 {
-  int i, regno;
+  int i, regno, last;
 
   i = find_local_live_allocno (a);
 
@@ -2931,6 +2931,17 @@ mark_allocno_live (allocno_t a, bool no_map_change_p)
          alive more one time (after one insn and before the next
          insn.  */
       IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), live_hard_regs);
+
+      /* Don't do a hard regno conflicting with itself.  */
+      if ((regno = ALLOCNO_REGNO (a)) >= 0 && HARD_REGISTER_NUM_P (regno))
+        {
+	  yara_assert
+	    (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+	     && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG);
+	  last = regno + hard_regno_nregs [regno] [ALLOCNO_MODE (a)];
+	  for (; regno < last; regno++)
+	    CLEAR_HARD_REG_BIT (ALLOCNO_HARD_REG_CONFLICTS (a), regno);
+	}
 
       VARRAY_PUSH_GENERIC_PTR (local_live_allocnos, a);
     }
@@ -3948,7 +3959,9 @@ create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
   point.u.bb = bb_node->bb;
   live_through_abnormal_p = (live_through_abnormal != NULL
 			     && bitmap_bit_p (live_through_abnormal, regno));
-  if (! bitmap_bit_p (bb_node->regno_refs, regno) || live_through_abnormal_p)
+  if ((YARA_PARAMS & YARA_FREQ_LIVE_RANGE_SPLITTING) == 0
+      && (! bitmap_bit_p (bb_node->regno_refs, regno)
+	  || live_through_abnormal_p))
     {
       if ((outside_a = bb_node->father->regno_allocno_map [regno]) == NULL)
 	{
@@ -3975,12 +3988,15 @@ create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
 	outside_a = bb_node->father->regno_allocno_map [regno]
 	  = create_region_allocno (regno, bb_node->father, NULL_RTX);
       if (bitmap_bit_p (bb_node->regno_refs, regno)
-	  || bitmap_bit_p (bb_node->father->regno_refs, regno))
+	  || bitmap_bit_p (bb_node->father->regno_refs, regno)
+	  || ((YARA_PARAMS & YARA_FREQ_LIVE_RANGE_SPLITTING)
+	      && bb_node->bb->frequency >= YARA_SPLIT_FREQ))
 	a = bb_node->regno_allocno_map [regno]
 	  = create_region_allocno (regno, bb_node, NULL_RTX);
       else
 	{
-	  gcc_unreachable ();
+	  yara_assert ((YARA_PARAMS & YARA_FREQ_LIVE_RANGE_SPLITTING) == 0
+		       || bb_node->freq < YARA_SPLIT_FREQ);
 	  a = outside_a;
 	  bb_node->regno_allocno_map [regno] = a;
 	}

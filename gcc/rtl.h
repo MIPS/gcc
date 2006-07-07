@@ -2157,6 +2157,7 @@ extern void dump_global_regs (FILE *);
 extern void retry_global_alloc (int, HARD_REG_SET);
 #endif
 extern void build_insn_chain (rtx);
+extern void make_accurate_live_analysis (void);
 
 /* In regclass.c */
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);

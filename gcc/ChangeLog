@@ -1,3 +1,33 @@
+2006-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* params.h (YARA_SPLIT_THRESHOLD): Remove.
+	(YARA_SPLIT_FREQ): New macro.
+
+	* params.def (PARAM_YARA_SPLIT_THRESHOLD): Remove.
+	(PARAM_YARA_SPLIT_FREQ): New parameter.
+	
+	* rtl.h (make_accurate_live_analysis): New external definition.
+	
+	* global.c (make_accurate_live_analysis): Make it external.
+
+	* yara-int.h (YARA_FREQ_LIVE_RANGE_SPLITTING,
+	YARA_NO_ACCURATE_LIVE_INFO): New macros.
+	
+	* yara.c (set_reg_mode_hard_regset): Don't check
+	HARD_REGNO_MODE_OK.
+	(rest_of_handle_yara): Call make_accurate_live_analysis.
+	
+	* yara-color.c (reduce_loop_reg_pressure): Use YARA_SPLIT_FREQ.
+	
+	* yara-final.c (process_allocno_locs): Use the right order for
+	intersected registers.
+
+	* yara-ir.c (mark_allocno_live): Clear hard reg conflicts for a
+	hard regno allocno.
+	(create_bb_allocno): Use YARA_SPLIT_FREQ for creating allocno.
+	
+	* yara-trans.c (choose_cp_mode): Checks nregs instead of size.
+
 2006-06-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-int.h (YARA_AGGRESSIVE_STACK_COMPACTION): New macro.

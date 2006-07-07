@@ -741,23 +741,17 @@ choose_cp_mode (int hard_regno,
 		enum machine_mode smode, enum machine_mode rmode)
 {
   enum machine_mode mode;
+  int nregs;
 
   if (GET_MODE_SIZE (rmode) < GET_MODE_SIZE (smode))
     {
       if (! HARD_REGNO_MODE_OK (hard_regno, rmode))
 	{
-	  for (mode = mode_inner_mode [smode];
-	       mode != VOIDmode
-		 && GET_MODE_SIZE (mode) != GET_MODE_SIZE (rmode);
-	       mode = mode_inner_mode [mode])
-	    ;
-	  if (mode != VOIDmode)
-	    {
-	      if (HARD_REGNO_MODE_OK (hard_regno, mode))
-		rmode = mode;
-	      else if (HARD_REGNO_MODE_OK (hard_regno, smode))
-		rmode = smode; /* try bigger mode */
-	    }
+	  nregs = hard_regno_nregs [hard_regno] [rmode];
+	  for (mode = smode; mode != VOIDmode; mode = mode_inner_mode [mode])
+	    if (hard_regno_nregs [hard_regno] [mode] == nregs
+		&& HARD_REGNO_MODE_OK (hard_regno, mode))
+	      return mode;
 	}
       return rmode;
     }
@@ -765,18 +759,11 @@ choose_cp_mode (int hard_regno,
     {
       if (! HARD_REGNO_MODE_OK (hard_regno, smode))
 	{
-	  for (mode = rmode;
-	       mode != VOIDmode
-		 && GET_MODE_SIZE (mode) != GET_MODE_SIZE (smode);
-	       mode = mode_inner_mode [mode])
-	    ;
-	  if (mode != VOIDmode)
-	    {
-	      if (HARD_REGNO_MODE_OK (hard_regno, mode))
-		smode = mode;
-	      else if (HARD_REGNO_MODE_OK (hard_regno, rmode))
-		smode = rmode; /* try bigger mode */
-	    }
+	  nregs = hard_regno_nregs [hard_regno] [smode];
+	  for (mode = rmode; mode != VOIDmode; mode = mode_inner_mode [mode])
+	    if (hard_regno_nregs [hard_regno] [mode] == nregs
+		&& HARD_REGNO_MODE_OK (hard_regno, mode))
+	      return mode;
 	}
       return smode;
     }
