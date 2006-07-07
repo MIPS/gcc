@@ -1,5 +1,11 @@
 2006-07-07  Andrew Haley  <aph@redhat.com>
 
+        * jcf-parse.c (set_source_filename): Don't check for
+	CLASS_FROM_CURRENTLY_COMPILED_P.
+        Remove // comments.
+
+2006-07-07  Andrew Haley  <aph@redhat.com>
+
 	* java-tree.h (java_read_sourcefilenames): Declare.
 	* lang.c (java_handle_option): Call java_read_sourcefilenames().
 	* lang.opt (fsource-filename): New opt.

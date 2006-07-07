@@ -1,3 +1,8 @@
+2006-07-07  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am: Use -fsource-filename when compiling libgcj.
+	* Makefile.in: Regenerate.
+
 2006-06-23  Tom Tromey  <tromey@redhat.com>
 
 	Merged in classpath-generics.

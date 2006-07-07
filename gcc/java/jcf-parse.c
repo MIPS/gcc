@@ -178,8 +178,8 @@ java_read_sourcefilenames (const char *fsource_filename)
 		  - strlen (".java")),
 		 ".java") != 0)
     {
-      // fsource_filename isn't a .java file but a list of filenames
-      // separated by newlines
+/*       fsource_filename isn't a .java file but a list of filenames
+       separated by newlines */
       FILE *finput = fopen (fsource_filename, "r");
       int len = 0;
       int longest_line = 0;
@@ -324,10 +324,7 @@ set_source_filename (JCF *jcf, int index)
 	      || old_filename[old_len - new_len - 1] == '\\'))
 	{
 #ifndef USE_MAPPED_LOCATION
-	  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
-	    // if we're generating code for this class, try to find
-	    // its full pathname
-	    input_filename = find_sourcefile (input_filename);
+	  input_filename = find_sourcefile (input_filename);
 	  DECL_SOURCE_LOCATION (TYPE_NAME (current_class)) = input_location;
 	  file_start_location = input_location;
 #endif
@@ -361,10 +358,7 @@ set_source_filename (JCF *jcf, int index)
 	}
     }
       
-  if (CLASS_FROM_CURRENTLY_COMPILED_P (current_class))
-    // if we're generating code for this class, try to find its full
-    // pathname
-    sfname = find_sourcefile (sfname);
+  sfname = find_sourcefile (sfname);
 #ifdef USE_MAPPED_LOCATION
   line_table.maps[line_table.used-1].to_file = sfname;
 #else
