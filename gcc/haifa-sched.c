@@ -1243,11 +1243,24 @@ unlink_other_notes (rtx insn, rtx tail)
   while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
       /* Delete the note from its current position.  */
       if (prev)
 	NEXT_INSN (prev) = next;
       if (next)
 	PREV_INSN (next) = prev;
+
+      if (bb)
+        {
+          /* Basic block can begin with either LABEL or
+             NOTE_INSN_BASIC_BLOCK.  */
+          gcc_assert (BB_HEAD (bb) != insn);
+
+          /* Check if we are removing last insn in the BB.  */
+          if (BB_END (bb) == insn)
+            BB_END (bb) = prev;
+        }
 
       /* See sched_analyze to see how these are handled.  */
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
@@ -1273,17 +1286,30 @@ unlink_line_notes (rtx insn, rtx tail)
 {
   rtx prev = PREV_INSN (insn);
 
-  while (insn != tail && NOTE_P (insn))
+  while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
 
       if (write_symbols != NO_DEBUG && NOTE_LINE_NUMBER (insn) > 0)
 	{
+          basic_block bb = BLOCK_FOR_INSN (insn);
+
 	  /* Delete the note from its current position.  */
 	  if (prev)
 	    NEXT_INSN (prev) = next;
 	  if (next)
 	    PREV_INSN (next) = prev;
+
+          if (bb)
+            {
+              /* Basic block can begin with either LABEL or
+                 NOTE_INSN_BASIC_BLOCK.  */
+              gcc_assert (BB_HEAD (bb) != insn);
+
+              /* Check if we are removing last insn in the BB.  */
+              if (BB_END (bb) == insn)
+                BB_END (bb) = prev;
+            }
 
 	  /* Record line-number notes so they can be reused.  */
 	  LINE_NOTE (insn) = insn;
@@ -4647,8 +4673,13 @@ check_cfg (rtx head, rtx tail)
 		    gcc_assert (EDGE_COUNT (bb->succs) == 1
 				&& BARRIER_P (NEXT_INSN (head)));
 		  else if (any_condjump_p (head))
-		    gcc_assert (EDGE_COUNT (bb->succs) > 1
-				&& !BARRIER_P (NEXT_INSN (head)));
+		    gcc_assert (/* Usual case.  */
+                                (EDGE_COUNT (bb->succs) > 1
+                                 && !BARRIER_P (NEXT_INSN (head)))
+                                /* Or jump to the next instruction.  */
+                                || (EDGE_COUNT (bb->succs) == 1
+                                    && (BB_HEAD (EDGE_I (bb->succs, 0)->dest)
+                                        == JUMP_LABEL (head))));
 		}
 	      if (BB_END (bb) == head)
 		{

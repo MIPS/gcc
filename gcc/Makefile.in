@@ -149,7 +149,7 @@ BOOT_LANGUAGES = c @all_boot_languages@
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
-CFLAGS = -g
+CFLAGS = @CFLAGS@
 LDFLAGS = @LDFLAGS@
 STAGE1_CFLAGS = -g @stage1_cflags@
 STAGE1_CHECKING = -DENABLE_CHECKING -DENABLE_ASSERT_CHECKING
@@ -509,8 +509,12 @@ man7dir = $(mandir)/man7
 # Dir for temp files.
 tmpdir = /tmp
 
+datarootdir = @datarootdir@
+docdir = @docdir@
+# Directory in which to build HTML
+build_htmldir = $(objdir)/HTML/gcc-$(version)
 # Directory in which to put HTML
-htmldir = $(objdir)/HTML/gcc-$(version)
+htmldir = @htmldir@
 
 # Whether we were configured with NLS.
 USE_NLS = @USE_NLS@
@@ -850,7 +854,7 @@ LDEXP_LIB = @LDEXP_LIB@
 # even if we are cross-building GCC.
 BUILD_LIBS = $(BUILD_LIBIBERTY)
 
-BUILD_RTL = build/rtl.o build/read-rtl.o build/ggc-none.o \
+BUILD_RTL = build/rtl.o build/read-rtl.o build/ggc-none.o build/vec.o \
 	    build/min-insn-modes.o build/gensupport.o build/print-rtl.o
 BUILD_ERRORS = build/errors.o
 
@@ -2302,15 +2306,19 @@ ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
 ipa-reference.o : ipa-reference.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_REFERENCE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
-   $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h $(DIAGNOSTIC_H)  
+   $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h \
+   $(DIAGNOSTIC_H) $(FUNCTION_H) 
+
 ipa-pure-const.o : ipa-pure-const.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
-   pointer-set.h $(GGC_H) $(IPA_UTILS_H) $(C_COMMON_H) \
+   pointer-set.h $(GGC_H) $(IPA_UTILS_H) $(C_COMMON_H) $(TARGET_H) \
    $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h $(DIAGNOSTIC_H)  
 ipa-type-escape.o : ipa-type-escape.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_TYPE_ESCAPE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
-   $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h $(DIAGNOSTIC_H)  
+   $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h \
+   $(DIAGNOSTIC_H) $(FUNCTION_H) 
+
 coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
    $(FUNCTION_H) toplev.h $(GGC_H) langhooks.h $(COVERAGE_H) gt-coverage.h \
@@ -2948,6 +2956,11 @@ build/gencondmd.o : build/gencondmd.c $(BCONFIG_H) $(SYSTEM_H)		\
   coretypes.h $(GTM_H) insn-constants.h $(RTL_H) $(TM_P_H)		\
   $(FUNCTION_H) $(REGS_H) $(RECOG_H) $(REAL_H) output.h $(FLAGS_H)	\
   $(RESOURCE_H) toplev.h reload.h except.h tm-constrs.h
+# This pulls in tm-pred.h which contains inline functions wrapping up
+# predicates from the back-end so those functions must be discarded.
+# No big deal since gencondmd.c is a dummy file for non-GCC compilers.
+build/gencondmd.o : \
+  BUILD_CFLAGS := $(filter-out -fkeep-inline-functions, $(BUILD_CFLAGS))
 
 # ...these are the programs themselves.
 build/genattr.o : genattr.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
@@ -3012,10 +3025,7 @@ genprogmd = attr attrtab automata codes conditions config constants emit \
 	    extract flags mddeps opinit output peep preds recog
 $(genprogmd:%=build/gen%$(build_exeext)): $(BUILD_RTL) $(BUILD_ERRORS)
 
-# These programs need files over and above what they get from the above list.
-build/genextract$(build_exeext) : build/vec.o
-
-build/genautomata$(build_exeext) : build/vec.o
+# These programs need libs over and above what they get from the above list.
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
 
 # These programs are not linked with the MD reader.
@@ -3224,7 +3234,7 @@ stmp-fixinc: gsyslimits.h macro_list \
 	  echo The directory that should contain system headers does not exist: >&2 ; \
 	  echo "  ${SYSTEM_HEADER_DIR}" >&2 ; \
 	  tooldir_sysinc=`echo "${gcc_tooldir}/sys-include" | sed -e :a -e "s,[^/]*/\.\.\/,," -e ta`; \
-	  if test "x${SYSTEM_HEADER_DIR}" = "x${tooldir_sysinc}"; \
+	  if test "x${SYSTEM_HEADER_DIR}" = "x$${tooldir_sysinc}"; \
 	  then sleep 1; else exit 1; fi; \
 	fi
 	rm -rf include; mkdir include
@@ -3409,10 +3419,10 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
-$(htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
-$(htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
-$(htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
-$(htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
+$(build_htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
+$(build_htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
+$(build_htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
+$(build_htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
 
 dvi:: doc/gcc.dvi doc/gccint.dvi doc/gccinstall.dvi doc/cpp.dvi \
       doc/cppinternals.dvi lang.dvi
@@ -3424,17 +3434,28 @@ doc/%.dvi: %.texi
 doc/gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 	$(TEXI2DVI) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
 
-html:: $(htmldir)/cpp/index.html $(htmldir)/gcc/index.html \
-       $(htmldir)/gccinstall/index.html $(htmldir)/gccint/index.html \
-       $(htmldir)/cppinternals/index.html lang.html
+# List the directories or single hmtl files which are installed by
+# install-html. The lang.html file triggers language fragments to build
+# html documentation. Installing language fragment documentation is not
+# yet supported.
+HTMLS_INSTALL=$(build_htmldir)/cpp $(build_htmldir)/gcc \
+       $(build_htmldir)/gccinstall $(build_htmldir)/gccint \
+       $(build_htmldir)/cppinternals
 
-$(htmldir)/%/index.html: %.texi
+# List the html file targets.
+HTMLS_BUILD=$(build_htmldir)/cpp/index.html $(build_htmldir)/gcc/index.html \
+       $(build_htmldir)/gccinstall/index.html $(build_htmldir)/gccint/index.html \
+       $(build_htmldir)/cppinternals/index.html lang.html
+
+html:: $(HTMLS_BUILD)
+
+$(build_htmldir)/%/index.html: %.texi
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
 
 # Duplicate entry to handle renaming of gccinstall
-$(htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
+$(build_htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
 	$(mkinstalldirs) $(@D)
 	echo rm -f $(@D)/*
 	$(TEXI2HTML) -I $(abs_docdir) -I $(abs_docdir)/include -o $(@D) $<
@@ -3726,6 +3747,26 @@ $(DESTDIR)$(infodir)/%.info: doc/%.info installdirs
 	    install-info --dir-file=$(DESTDIR)$(infodir)/dir $@; \
 	  else true; fi; \
 	else true; fi;
+
+html__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
+html__mkdir_p = mkdir -p --
+ 
+install-html: $(HTMLS_BUILD)
+	@$(NORMAL_INSTALL)
+	test -z "$(htmldir)" || $(html__mkdir_p) "$(DESTDIR)$(htmldir)"
+	@list='$(HTMLS_INSTALL)'; for p in $$list; do \
+	  if test -f "$$p" || test -d "$$p"; then d=""; else d="$(srcdir)/"; fi; \
+	  f=$(html__strip_dir) \
+	  if test -d "$$d$$p"; then \
+	    echo " $(html__mkdir_p) '$(DESTDIR)$(htmldir)/$$f'"; \
+	    $(html__mkdir_p) "$(DESTDIR)$(htmldir)/$$f" || exit 1; \
+	    echo " $(INSTALL_DATA) '$$d$$p'/* '$(DESTDIR)$(htmldir)/$$f'"; \
+	    $(INSTALL_DATA) "$$d$$p"/* "$(DESTDIR)$(htmldir)/$$f"; \
+	  else \
+	    echo " $(INSTALL_DATA) '$$d$$p' '$(DESTDIR)$(htmldir)/$$f'"; \
+	    $(INSTALL_DATA) "$$d$$p" "$(DESTDIR)$(htmldir)/$$f"; \
+	  fi; \
+	done
 
 # Install the man pages.
 install-man: lang.install-man \
@@ -4633,7 +4674,7 @@ risky-stage4: stage4
 XGETTEXT = @XGETTEXT@
 GMSGFMT = @GMSGFMT@
 MSGMERGE = msgmerge
-CATALOGS = @CATALOGS@
+CATALOGS = $(patsubst %,po/%,@CATALOGS@)
 
 .PHONY: build- install- build-po install-po update-po
 

@@ -42,20 +42,20 @@ host_triplet = @host@
 target_triplet = @target@
 @TESTSUBDIR_TRUE@am__append_1 = testsuite
 @XLIB_AWT_TRUE@am__append_2 = lib-gnu-awt-xlib.la
-@GTK_AWT_TRUE@am__append_3 = lib-gnu-java-awt-peer-gtk.la libgcjawt.la
-@QT_AWT_TRUE@am__append_4 = lib-gnu-java-awt-peer-qt.la
 @NATIVE_TRUE@bin_PROGRAMS = jv-convert$(EXEEXT) gij$(EXEEXT) \
 @NATIVE_TRUE@	grmic$(EXEEXT) grmiregistry$(EXEEXT) \
-@NATIVE_TRUE@	gcj-dbtool$(EXEEXT)
-@USING_GCC_TRUE@am__append_5 = $(WARNINGS)
-@USING_BOEHMGC_TRUE@am__append_6 = boehm.cc
-@USING_NOGC_TRUE@am__append_7 = nogc.cc
-@USING_POSIX_PLATFORM_TRUE@am__append_8 = posix.cc
-@USING_WIN32_PLATFORM_TRUE@am__append_9 = win32.cc
-@USING_DARWIN_CRT_TRUE@am__append_10 = darwin.cc
-@USING_POSIX_THREADS_TRUE@am__append_11 = posix-threads.cc
-@USING_WIN32_THREADS_TRUE@am__append_12 = win32-threads.cc
-@USING_NO_THREADS_TRUE@am__append_13 = no-threads.cc
+@NATIVE_TRUE@	gcj-dbtool$(EXEEXT) gappletviewer$(EXEEXT) \
+@NATIVE_TRUE@	gjarsigner$(EXEEXT) gkeytool$(EXEEXT)
+@BASH_JAR_TRUE@am__append_3 = scripts/jar
+@USING_GCC_TRUE@am__append_4 = $(WARNINGS)
+@USING_BOEHMGC_TRUE@am__append_5 = boehm.cc
+@USING_NOGC_TRUE@am__append_6 = nogc.cc
+@USING_POSIX_PLATFORM_TRUE@am__append_7 = posix.cc
+@USING_WIN32_PLATFORM_TRUE@am__append_8 = win32.cc
+@USING_DARWIN_CRT_TRUE@am__append_9 = darwin.cc
+@USING_POSIX_THREADS_TRUE@am__append_10 = posix-threads.cc
+@USING_WIN32_THREADS_TRUE@am__append_11 = win32-threads.cc
+@USING_NO_THREADS_TRUE@am__append_12 = no-threads.cc
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../config.guess $(srcdir)/../config.sub \
 	$(srcdir)/../depcomp $(srcdir)/../install-sh \
@@ -63,11 +63,11 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../mkinstalldirs $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/libgcj-test.spec.in \
 	$(srcdir)/libgcj.pc.in $(srcdir)/libgcj.spec.in \
-	$(srcdir)/sources.am $(top_srcdir)/configure COPYING ChangeLog \
-	NEWS THANKS
+	$(srcdir)/sources.am $(top_srcdir)/configure \
+	$(top_srcdir)/scripts/jar.in COPYING ChangeLog NEWS THANKS
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@noinst_PROGRAMS =  \
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@	gen-from-JIS$(EXEEXT)
-@XLIB_AWT_TRUE@am__append_14 = $(xlib_nat_headers)
+@XLIB_AWT_TRUE@am__append_13 = $(xlib_nat_headers)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
@@ -91,7 +91,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 CONFIG_HEADER = $(top_builddir)/include/config.h \
 	$(top_builddir)/gcj/libgcj-config.h
 CONFIG_CLEAN_FILES = libgcj.pc libgcj.spec libgcj-test.spec \
-	java/io/natFile.cc java/lang/ConcreteProcess.java \
+	scripts/jar java/io/natFile.cc java/lang/ConcreteProcess.java \
 	java/lang/natConcreteProcess.cc java/net/natInetAddress.cc \
 	java/net/natVMNetworkInterface.cc \
 	gnu/java/net/natPlainSocketImpl.cc \
@@ -105,12 +105,14 @@ am__vpath_adj = case $$p in \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" \
+am__installdirs = "$(DESTDIR)$(dbexecdir)" \
+	"$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" \
 	"$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" \
 	"$(DESTDIR)$(toolexecmainlibdir)"
+dbexecLTLIBRARIES_INSTALL = $(INSTALL)
 toolexeclibLTLIBRARIES_INSTALL = $(INSTALL)
-LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
+LTLIBRARIES = $(dbexec_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 am__dirstamp = $(am__leading_dot)dirstamp
 am__objects_1 = gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo \
 	gnu/gcj/xlib/lib_gnu_awt_xlib_la-natColormap.lo \
@@ -135,18 +137,10 @@ am__objects_1 = gnu/gcj/xlib/lib_gnu_awt_xlib_la-natClip.lo \
 am_lib_gnu_awt_xlib_la_OBJECTS = $(am__objects_1)
 lib_gnu_awt_xlib_la_OBJECTS = $(am_lib_gnu_awt_xlib_la_OBJECTS)
 @XLIB_AWT_TRUE@am_lib_gnu_awt_xlib_la_rpath = -rpath $(toolexeclibdir)
-am__DEPENDENCIES_1 =
-am_lib_gnu_java_awt_peer_gtk_la_OBJECTS =
-lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
-	$(am_lib_gnu_java_awt_peer_gtk_la_OBJECTS)
-@GTK_AWT_TRUE@am_lib_gnu_java_awt_peer_gtk_la_rpath = -rpath \
-@GTK_AWT_TRUE@	$(toolexeclibdir)
-am_lib_gnu_java_awt_peer_qt_la_OBJECTS =
-lib_gnu_java_awt_peer_qt_la_OBJECTS =  \
-	$(am_lib_gnu_java_awt_peer_qt_la_OBJECTS)
-@QT_AWT_TRUE@am_lib_gnu_java_awt_peer_qt_la_rpath = -rpath \
-@QT_AWT_TRUE@	$(toolexeclibdir)
-am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
+libgcj_tools_la_LIBADD =
+am_libgcj_tools_la_OBJECTS = classpath/tools/libgcj_tools_la-tools.lo
+libgcj_tools_la_OBJECTS = $(am_libgcj_tools_la_OBJECTS)
+am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/classpath/debug.lo gnu/classpath/jdwp.lo \
 	gnu/classpath/jdwp/event.lo \
 	gnu/classpath/jdwp/event/filters.lo \
@@ -157,9 +151,10 @@ am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/gcj/util.lo gnu/java/awt.lo gnu/java/awt/color.lo \
 	gnu/java/awt/font.lo gnu/java/awt/font/opentype.lo \
 	gnu/java/awt/font/opentype/truetype.lo gnu/java/awt/image.lo \
-	gnu/java/awt/java2d.lo gnu/java/awt/peer.lo gnu/java/io.lo \
-	gnu/java/lang.lo gnu/java/lang/reflect.lo gnu/java/locale.lo \
-	gnu/java/math.lo gnu/java/net.lo gnu/java/net/local.lo \
+	gnu/java/awt/java2d.lo gnu/java/awt/peer.lo \
+	gnu/java/awt/print.lo gnu/java/io.lo gnu/java/lang.lo \
+	gnu/java/lang/reflect.lo gnu/java/locale.lo gnu/java/math.lo \
+	gnu/java/net.lo gnu/java/net/local.lo \
 	gnu/java/net/protocol/core.lo gnu/java/net/protocol/file.lo \
 	gnu/java/net/protocol/ftp.lo gnu/java/net/protocol/gcjlib.lo \
 	gnu/java/net/protocol/http.lo gnu/java/net/protocol/https.lo \
@@ -201,7 +196,7 @@ am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/javax/print/ipp/attribute/supported.lo \
 	gnu/javax/security/auth.lo gnu/javax/security/auth/callback.lo \
 	gnu/javax/security/auth/login.lo gnu/javax/swing/plaf/gnu.lo \
-	gnu/javax/swing/plaf/metal.lo \
+	gnu/javax/swing/plaf/metal.lo gnu/javax/swing/text/html.lo \
 	gnu/javax/swing/text/html/parser.lo \
 	gnu/javax/swing/text/html/parser/models.lo \
 	gnu/javax/swing/text/html/parser/support.lo \
@@ -246,12 +241,14 @@ am__DEPENDENCIES_2 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	javax/swing/text/rtf.lo javax/swing/tree.lo \
 	javax/swing/undo.lo javax/transaction.lo \
 	javax/transaction/xa.lo org/ietf/jgss.lo
-am__DEPENDENCIES_3 = gnu-CORBA.lo gnu-java-awt-peer-swing.lo \
+am__DEPENDENCIES_2 = gnu-CORBA.lo gnu-java-awt-peer-gtk.lo \
+	gnu-java-awt-peer-qt.lo gnu-java-awt-peer-swing.lo \
 	gnu-java-beans.lo gnu-javax-rmi.lo gnu-javax-sound-midi.lo \
 	gnu-xml.lo javax-imageio.lo javax-rmi.lo javax-xml.lo \
 	org-omg.lo org-relaxng.lo org-w3c.lo org-xml.lo
-am__DEPENDENCIES_4 = $(patsubst classpath/resource/%,%,$(addsuffix \
+am__DEPENDENCIES_3 = $(patsubst classpath/resource/%,%,$(addsuffix \
 	.lo,$(property_files)))
+am__DEPENDENCIES_4 =
 am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc \
 	stacktrace.cc link.cc defineclass.cc interpret.cc verify.cc \
 	java/lang/Class.java java/lang/Object.java \
@@ -350,14 +347,14 @@ am_libgcj_la_OBJECTS = prims.lo jni.lo exception.lo stacktrace.lo \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8) \
 	$(am__objects_9) $(am__objects_10)
 libgcj_la_OBJECTS = $(am_libgcj_la_OBJECTS)
-libgcjawt_la_DEPENDENCIES = lib-gnu-java-awt-peer-gtk.la
-am_libgcjawt_la_OBJECTS = classpath/native/jawt/libgcjawt_la-jawt.lo
-libgcjawt_la_OBJECTS = $(am_libgcjawt_la_OBJECTS)
-@GTK_AWT_TRUE@am_libgcjawt_la_rpath = -rpath $(toolexeclibdir)
 am_libgij_la_OBJECTS = gij.lo
 libgij_la_OBJECTS = $(am_libgij_la_OBJECTS)
+am_libjvm_la_OBJECTS = jni-libjvm.lo
+libjvm_la_OBJECTS = $(am_libjvm_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
+am_gappletviewer_OBJECTS =
+gappletviewer_OBJECTS = $(am_gappletviewer_OBJECTS)
 am_gcj_dbtool_OBJECTS = gnu/gcj/tools/gcj_dbtool/Main.$(OBJEXT) \
 	gnu/gcj/tools/gcj_dbtool/natMain.$(OBJEXT)
 gcj_dbtool_OBJECTS = $(am_gcj_dbtool_OBJECTS)
@@ -369,6 +366,10 @@ gen_from_JIS_OBJECTS = $(am_gen_from_JIS_OBJECTS)
 gen_from_JIS_LDADD = $(LDADD)
 am_gij_OBJECTS =
 gij_OBJECTS = $(am_gij_OBJECTS)
+am_gjarsigner_OBJECTS =
+gjarsigner_OBJECTS = $(am_gjarsigner_OBJECTS)
+am_gkeytool_OBJECTS =
+gkeytool_OBJECTS = $(am_gkeytool_OBJECTS)
 am_grmic_OBJECTS =
 grmic_OBJECTS = $(am_grmic_OBJECTS)
 am_grmiregistry_OBJECTS =
@@ -400,19 +401,19 @@ GCJCOMPILE = $(GCJ) $(AM_GCJFLAGS) $(GCJFLAGS)
 LTGCJCOMPILE = $(LIBTOOL) --mode=compile $(GCJ) $(AM_GCJFLAGS) \
 	$(GCJFLAGS)
 GCJLD = $(GCJ)
-SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
-	$(lib_gnu_java_awt_peer_gtk_la_SOURCES) \
-	$(lib_gnu_java_awt_peer_qt_la_SOURCES) $(libgcj_la_SOURCES) \
-	$(libgcjawt_la_SOURCES) $(libgij_la_SOURCES) \
-	$(gcj_dbtool_SOURCES) $(gen_from_JIS_SOURCES) $(gij_SOURCES) \
-	$(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES)
+SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) $(libgcj_tools_la_SOURCES) \
+	$(libgcj_la_SOURCES) $(libgij_la_SOURCES) $(libjvm_la_SOURCES) \
+	$(gappletviewer_SOURCES) $(gcj_dbtool_SOURCES) \
+	$(gen_from_JIS_SOURCES) $(gij_SOURCES) $(gjarsigner_SOURCES) \
+	$(gkeytool_SOURCES) $(grmic_SOURCES) $(grmiregistry_SOURCES) \
+	$(jv_convert_SOURCES)
 DIST_SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
-	$(lib_gnu_java_awt_peer_gtk_la_SOURCES) \
-	$(lib_gnu_java_awt_peer_qt_la_SOURCES) \
-	$(am__libgcj_la_SOURCES_DIST) $(libgcjawt_la_SOURCES) \
-	$(libgij_la_SOURCES) $(gcj_dbtool_SOURCES) \
+	$(libgcj_tools_la_SOURCES) $(am__libgcj_la_SOURCES_DIST) \
+	$(libgij_la_SOURCES) $(libjvm_la_SOURCES) \
+	$(gappletviewer_SOURCES) $(gcj_dbtool_SOURCES) \
 	$(am__gen_from_JIS_SOURCES_DIST) $(gij_SOURCES) \
-	$(grmic_SOURCES) $(grmiregistry_SOURCES) $(jv_convert_SOURCES)
+	$(gjarsigner_SOURCES) $(gkeytool_SOURCES) $(grmic_SOURCES) \
+	$(grmiregistry_SOURCES) $(jv_convert_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -451,8 +452,8 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
-CAIRO_CFLAGS = @CAIRO_CFLAGS@
-CAIRO_LIBS = @CAIRO_LIBS@
+BASH_JAR_FALSE = @BASH_JAR_FALSE@
+BASH_JAR_TRUE = @BASH_JAR_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -488,10 +489,6 @@ GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
-GTK_AWT_FALSE = @GTK_AWT_FALSE@
-GTK_AWT_TRUE = @GTK_AWT_TRUE@
-GTK_CAIRO_FALSE = @GTK_CAIRO_FALSE@
-GTK_CAIRO_TRUE = @GTK_CAIRO_TRUE@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
@@ -544,14 +541,10 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
-PANGOFT2_CFLAGS = @PANGOFT2_CFLAGS@
-PANGOFT2_LIBS = @PANGOFT2_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
 PLATFORM_INNER_NAT_HDRS = @PLATFORM_INNER_NAT_HDRS@
-QT_AWT_FALSE = @QT_AWT_FALSE@
-QT_AWT_TRUE = @QT_AWT_TRUE@
 RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -567,7 +560,9 @@ THREADINCS = @THREADINCS@
 THREADLDFLAGS = @THREADLDFLAGS@
 THREADLIBS = @THREADLIBS@
 THREADSPEC = @THREADSPEC@
+THREADSTARTFILESPEC = @THREADSTARTFILESPEC@
 TOOLKIT = @TOOLKIT@
+UNZIP = @UNZIP@
 USING_BOEHMGC_FALSE = @USING_BOEHMGC_FALSE@
 USING_BOEHMGC_TRUE = @USING_BOEHMGC_TRUE@
 USING_DARWIN_CRT_FALSE = @USING_DARWIN_CRT_FALSE@
@@ -594,6 +589,7 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZINCS = @ZINCS@
+ZIP = @ZIP@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
@@ -683,13 +679,14 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 
 # This is required by TL_AC_GXX_INCLUDE_DIR.
 libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la $(am__append_2) \
-	$(am__append_3) $(am__append_4)
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la libgcj-tools.la \
+	$(am__append_2)
 toolexecmainlib_DATA = libgcj.spec
+dbexec_LTLIBRARIES = libjvm.la
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 jardir = $(datadir)/java
-jar_DATA = libgcj-$(gcc_version).jar
+jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 @JAVA_HOME_SET_FALSE@JAVA_HOME_DIR = $(prefix)
 @JAVA_HOME_SET_TRUE@JAVA_HOME_DIR = $(JAVA_HOME)
 @JAVA_HOME_SET_FALSE@BOOT_CLASS_PATH_DIR = $(jardir)/$(jar_DATA)
@@ -699,7 +696,7 @@ propdir = $(libdir)
 db_name = classmap.db
 db_pathtail = gcj-$(gcc_version)/$(db_name)
 @NATIVE_TRUE@dbexec_DATA = $(db_name)
-bin_SCRIPTS = addr2name.awk
+bin_SCRIPTS = addr2name.awk $(am__append_3)
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -725,6 +722,8 @@ AM_CXXFLAGS = \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
+	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
+	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
 	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\""
@@ -735,7 +734,7 @@ AM_GCJFLAGS = \
 	--encoding=UTF-8 \
 	-Wno-deprecated -fbootstrap-classes
 
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_5)
+AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_4)
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -759,10 +758,10 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc link.cc \
 	defineclass.cc interpret.cc verify.cc java/lang/Class.java \
-	java/lang/Object.java $(nat_source_files) $(am__append_6) \
-	$(am__append_7) $(am__append_8) $(am__append_9) \
-	$(am__append_10) $(am__append_11) $(am__append_12) \
-	$(am__append_13)
+	java/lang/Object.java $(nat_source_files) $(am__append_5) \
+	$(am__append_6) $(am__append_7) $(am__append_8) \
+	$(am__append_9) $(am__append_10) $(am__append_11) \
+	$(am__append_12)
 nat_files = $(nat_source_files:.cc=.lo)
 xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 
@@ -784,43 +783,19 @@ libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 
 libgcj_la_LINK = $(LIBLINK)
-lib_gnu_java_awt_peer_gtk_la_SOURCES = 
-lib_gnu_java_awt_peer_gtk_la_LIBADD = \
-	gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	$(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
+libgcj_tools_la_SOURCES = classpath/tools/tools.jar
+libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
+libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
+ -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	libgcj-$(gcc_version).jar libgcj.la libgcj.spec
+libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
+libgcj_tools_la_LINK = $(LIBLINK)
+libjvm_la_SOURCES = jni-libjvm.cc
+libjvm_la_DEPENDENCIES = libgcj.la libgcj.spec
+libjvm_la_LIBADD = -L$(here)/.libs libgcj.la
+libjvm_la_LDFLAGS = \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
-lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
-
-lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
-libgcjawt_la_SOURCES = classpath/native/jawt/jawt.c
-libgcjawt_la_CFLAGS = -I$(srcdir)/classpath/native/jni/classpath \
-	$(PEDANTIC_CFLAGS) $(X_CFLAGS)
-
-libgcjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
-libgcjawt_la_LDFLAGS = \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
-	$(LIBGCJ_LD_SYMBOLIC)
-
-libgcjawt_la_LINK = $(LIBLINK)
-lib_gnu_java_awt_peer_qt_la_SOURCES = 
-lib_gnu_java_awt_peer_qt_la_LIBADD = \
-	gnu-java-awt-peer-qt.lo \
-	classpath/native/jni/qt-peer/libqtpeer.la
-
-lib_gnu_java_awt_peer_qt_la_DEPENDENCIES = gnu-java-awt-peer-qt.lo \
-	classpath/native/jni/qt-peer/libqtpeer.la \
-	libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-
-lib_gnu_java_awt_peer_qt_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
-
-lib_gnu_java_awt_peer_qt_la_LINK = $(LIBLINK)
 lib_gnu_awt_xlib_la_SOURCES = $(xlib_nat_source_files)
 lib_gnu_awt_xlib_la_LIBADD = gnu/awt/xlib.lo gnu/gcj/xlib.lo
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
@@ -840,7 +815,7 @@ lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
 
 lib_gnu_awt_xlib_la_LINK = $(LIBLINK)
 propertyo_files = $(patsubst classpath/resource/%,%,$(addsuffix .lo,$(property_files)))
-CLEANFILES = libgcj-$(gcc_version).jar
+CLEANFILES = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 SUFFIXES = .class .java .h .properties .list
 gnu_CORBA_source_files = \
@@ -1310,12 +1285,14 @@ gnu_java_awt_java2d_source_files = \
 classpath/gnu/java/awt/java2d/AbstractGraphics2D.java \
 classpath/gnu/java/awt/java2d/AlphaCompositeContext.java \
 classpath/gnu/java/awt/java2d/CubicSegment.java \
+classpath/gnu/java/awt/java2d/ImagePaint.java \
 classpath/gnu/java/awt/java2d/LineSegment.java \
 classpath/gnu/java/awt/java2d/PolyEdge.java \
 classpath/gnu/java/awt/java2d/PolyEdgeComparator.java \
 classpath/gnu/java/awt/java2d/QuadSegment.java \
 classpath/gnu/java/awt/java2d/RasterGraphics.java \
-classpath/gnu/java/awt/java2d/Segment.java
+classpath/gnu/java/awt/java2d/Segment.java \
+classpath/gnu/java/awt/java2d/TexturePaintContext.java
 
 gnu_java_awt_java2d_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_java2d_source_files)))
 gnu_java_awt_peer_source_files = \
@@ -1326,13 +1303,17 @@ classpath/gnu/java/awt/peer/GLightweightPeer.java
 
 gnu_java_awt_peer_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_peer_source_files)))
 gnu_java_awt_peer_gtk_source_files = \
+classpath/gnu/java/awt/peer/gtk/BufferedImageGraphics.java \
+classpath/gnu/java/awt/peer/gtk/CairoGraphics2D.java \
+classpath/gnu/java/awt/peer/gtk/CairoSurface.java \
+classpath/gnu/java/awt/peer/gtk/CairoSurfaceGraphics.java \
+classpath/gnu/java/awt/peer/gtk/ComponentGraphics.java \
+classpath/gnu/java/awt/peer/gtk/ComponentGraphicsCopy.java \
+classpath/gnu/java/awt/peer/gtk/FreetypeGlyphVector.java \
 classpath/gnu/java/awt/peer/gtk/GThreadMutex.java \
 classpath/gnu/java/awt/peer/gtk/GThreadNativeMethodRunner.java \
 classpath/gnu/java/awt/peer/gtk/GdkFontMetrics.java \
 classpath/gnu/java/awt/peer/gtk/GdkFontPeer.java \
-classpath/gnu/java/awt/peer/gtk/GdkGlyphVector.java \
-classpath/gnu/java/awt/peer/gtk/GdkGraphics.java \
-classpath/gnu/java/awt/peer/gtk/GdkGraphics2D.java \
 classpath/gnu/java/awt/peer/gtk/GdkGraphicsConfiguration.java \
 classpath/gnu/java/awt/peer/gtk/GdkGraphicsEnvironment.java \
 classpath/gnu/java/awt/peer/gtk/GdkPixbufDecoder.java \
@@ -1372,7 +1353,8 @@ classpath/gnu/java/awt/peer/gtk/GtkTextAreaPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkTextFieldPeer.java \
 classpath/gnu/java/awt/peer/gtk/GtkToolkit.java \
 classpath/gnu/java/awt/peer/gtk/GtkVolatileImage.java \
-classpath/gnu/java/awt/peer/gtk/GtkWindowPeer.java
+classpath/gnu/java/awt/peer/gtk/GtkWindowPeer.java \
+classpath/gnu/java/awt/peer/gtk/VolatileImageGraphics.java
 
 gnu_java_awt_peer_qt_source_files = \
 classpath/gnu/java/awt/peer/qt/MainQtThread.java \
@@ -1435,6 +1417,13 @@ classpath/gnu/java/awt/peer/swing/SwingTextFieldPeer.java \
 classpath/gnu/java/awt/peer/swing/SwingToolkit.java \
 classpath/gnu/java/awt/peer/swing/SwingWindowPeer.java
 
+gnu_java_awt_print_source_files = \
+classpath/gnu/java/awt/print/JavaPrinterGraphics.java \
+classpath/gnu/java/awt/print/JavaPrinterJob.java \
+classpath/gnu/java/awt/print/PostScriptGraphics2D.java \
+classpath/gnu/java/awt/print/SpooledDocument.java
+
+gnu_java_awt_print_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_print_source_files)))
 gnu_java_beans_source_files = \
 classpath/gnu/java/beans/BeanInfoEmbryo.java \
 classpath/gnu/java/beans/DefaultExceptionListener.java \
@@ -1702,6 +1691,7 @@ classpath/gnu/java/net/DefaultContentHandlerFactory.java \
 classpath/gnu/java/net/EmptyX509TrustManager.java \
 classpath/gnu/java/net/GetLocalHostAction.java \
 classpath/gnu/java/net/HeaderFieldHelper.java \
+classpath/gnu/java/net/IndexListParser.java \
 classpath/gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
@@ -2772,8 +2762,15 @@ gnu_javax_swing_plaf_metal_source_files = \
 classpath/gnu/javax/swing/plaf/metal/CustomizableTheme.java
 
 gnu_javax_swing_plaf_metal_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_plaf_metal_source_files)))
+gnu_javax_swing_text_html_source_files = \
+classpath/gnu/javax/swing/text/html/CharacterAttributeTranslator.java \
+classpath/gnu/javax/swing/text/html/CombinedAttributes.java \
+classpath/gnu/javax/swing/text/html/ImageViewIconFactory.java
+
+gnu_javax_swing_text_html_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_javax_swing_text_html_source_files)))
 gnu_javax_swing_text_html_parser_source_files = \
 classpath/gnu/javax/swing/text/html/parser/HTML_401F.java \
+classpath/gnu/javax/swing/text/html/parser/SmallHtmlAttributeSet.java \
 classpath/gnu/javax/swing/text/html/parser/gnuDTD.java \
 classpath/gnu/javax/swing/text/html/parser/htmlAttributeSet.java \
 classpath/gnu/javax/swing/text/html/parser/htmlValidator.java
@@ -5407,7 +5404,8 @@ classpath/javax/swing/plaf/basic/BasicToolTipUI.java \
 classpath/javax/swing/plaf/basic/BasicTreeUI.java \
 classpath/javax/swing/plaf/basic/BasicViewportUI.java \
 classpath/javax/swing/plaf/basic/ComboPopup.java \
-classpath/javax/swing/plaf/basic/DefaultMenuLayout.java
+classpath/javax/swing/plaf/basic/DefaultMenuLayout.java \
+classpath/javax/swing/plaf/basic/SharedUIDefaults.java
 
 javax_swing_plaf_basic_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_swing_plaf_basic_source_files)))
 javax_swing_plaf_metal_source_files = \
@@ -5585,8 +5583,10 @@ classpath/javax/swing/text/html/HTMLDocument.java \
 classpath/javax/swing/text/html/HTMLEditorKit.java \
 classpath/javax/swing/text/html/HTMLFrameHyperlinkEvent.java \
 classpath/javax/swing/text/html/HTMLTableView.java \
+classpath/javax/swing/text/html/ImageView.java \
 classpath/javax/swing/text/html/InlineView.java \
 classpath/javax/swing/text/html/ListView.java \
+classpath/javax/swing/text/html/MinimalHTMLWriter.java \
 classpath/javax/swing/text/html/NullView.java \
 classpath/javax/swing/text/html/ObjectView.java \
 classpath/javax/swing/text/html/Option.java \
@@ -6530,6 +6530,7 @@ all_packages_source_files = \
   gnu/java/awt/image.list \
   gnu/java/awt/java2d.list \
   gnu/java/awt/peer.list \
+  gnu/java/awt/print.list \
   gnu/java/io.list \
   gnu/java/lang.list \
   gnu/java/lang/reflect.list \
@@ -6617,6 +6618,7 @@ all_packages_source_files = \
   gnu/javax/security/auth/login.list \
   gnu/javax/swing/plaf/gnu.list \
   gnu/javax/swing/plaf/metal.list \
+  gnu/javax/swing/text/html.list \
   gnu/javax/swing/text/html/parser.list \
   gnu/javax/swing/text/html/parser/models.list \
   gnu/javax/swing/text/html/parser/support.list \
@@ -6747,6 +6749,7 @@ ordinary_header_files = \
   $(gnu_java_awt_image_header_files) \
   $(gnu_java_awt_java2d_header_files) \
   $(gnu_java_awt_peer_header_files) \
+  $(gnu_java_awt_print_header_files) \
   $(gnu_java_io_header_files) \
   $(gnu_java_lang_header_files) \
   $(gnu_java_lang_reflect_header_files) \
@@ -6834,6 +6837,7 @@ ordinary_header_files = \
   $(gnu_javax_security_auth_login_header_files) \
   $(gnu_javax_swing_plaf_gnu_header_files) \
   $(gnu_javax_swing_plaf_metal_header_files) \
+  $(gnu_javax_swing_text_html_header_files) \
   $(gnu_javax_swing_text_html_parser_header_files) \
   $(gnu_javax_swing_text_html_parser_models_header_files) \
   $(gnu_javax_swing_text_html_parser_support_header_files) \
@@ -6940,6 +6944,8 @@ ordinary_header_files = \
 
 bc_objects = \
   gnu-CORBA.lo \
+  gnu-java-awt-peer-gtk.lo \
+  gnu-java-awt-peer-qt.lo \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
   gnu-javax-rmi.lo \
@@ -6954,8 +6960,14 @@ bc_objects = \
   org-xml.lo
 
 property_files = \
-  classpath/resource/gnu/classpath/tools/jarsigner/MessageBundle.properties \
-  classpath/resource/gnu/classpath/tools/keytool/MessageBundle.properties \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle.properties \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle_de.properties \
+  classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
+  classpath/resource/gnu/classpath/tools/jar/messages.properties \
+  classpath/resource/gnu/classpath/tools/jarsigner/messages.properties \
+  classpath/resource/gnu/classpath/tools/keytool/messages.properties \
+  classpath/resource/gnu/classpath/tools/native2ascii/messages.properties \
+  classpath/resource/gnu/classpath/tools/serialver/messages.properties \
   classpath/resource/gnu/java/awt/peer/gtk/font.properties \
   classpath/resource/gnu/javax/print/PrinterDialog.properties \
   classpath/resource/gnu/javax/print/PrinterDialog_de.properties \
@@ -7028,7 +7040,9 @@ gcj_dbtool_LINK = $(GCJLINK)
 gcj_dbtool_LDADD = -L$(here)/.libs libgcj.la
 gcj_dbtool_DEPENDENCIES = libgcj.la libgcj.spec
 gij_SOURCES = 
-gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gij_LDFLAGS = -rpath $(libdir)/gcj-$(gcc_version) -rpath $(toolexeclibdir) \
+	-shared-libgcc $(THREADLDFLAGS)
+
 gij_LINK = $(GCJLINK)
 gij_LDADD = -L$(here)/.libs libgij.la
 gij_DEPENDENCIES = libgij.la
@@ -7046,6 +7060,27 @@ grmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 grmiregistry_LINK = $(GCJLINK)
 grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+gappletviewer_SOURCES = 
+gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+
+gappletviewer_LINK = $(GCJLINK)
+gappletviewer_LDADD = -L$(here)/.libs libgcj-tools.la
+gappletviewer_DEPENDENCIES = libgcj-tools.la
+gjarsigner_SOURCES = 
+gjarsigner_LDFLAGS = --main=gnu.classpath.tools.jarsigner.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+
+gjarsigner_LINK = $(GCJLINK)
+gjarsigner_LDADD = -L$(here)/.libs libgcj-tools.la
+gjarsigner_DEPENDENCIES = libgcj-tools.la
+gkeytool_SOURCES = 
+gkeytool_LDFLAGS = --main=gnu.classpath.tools.keytool.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+
+gkeytool_LINK = $(GCJLINK)
+gkeytool_LDADD = -L$(here)/.libs libgcj-tools.la
+gkeytool_DEPENDENCIES = libgcj-tools.la
 nat_source_files = \
 gnu/classpath/natSystemProperties.cc \
 gnu/gcj/natCore.cc \
@@ -7131,7 +7166,7 @@ gnu/gcj/xlib/natXImage.cc \
 gnu/gcj/xlib/natXUnmapEvent.cc
 
 sourcesdir = $(jardir)
-headers_to_make = $(nat_headers) $(am__append_14)
+headers_to_make = $(nat_headers) $(am__append_13)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -7188,7 +7223,7 @@ MULTICLEAN = true
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .class .java .h .properties .list .c .cc .lo .o .obj
+.SUFFIXES: .class .java .h .properties .list .c .cc .jar .lo .o .obj
 am--refresh:
 	@:
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/sources.am $(am__configure_deps)
@@ -7228,6 +7263,35 @@ libgcj.spec: $(top_builddir)/config.status $(srcdir)/libgcj.spec.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 libgcj-test.spec: $(top_builddir)/config.status $(srcdir)/libgcj-test.spec.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
+scripts/jar: $(top_builddir)/config.status $(top_srcdir)/scripts/jar.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+install-dbexecLTLIBRARIES: $(dbexec_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	test -z "$(dbexecdir)" || $(mkdir_p) "$(DESTDIR)$(dbexecdir)"
+	@list='$(dbexec_LTLIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    f=$(am__strip_dir) \
+	    echo " $(LIBTOOL) --mode=install $(dbexecLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) '$$p' '$(DESTDIR)$(dbexecdir)/$$f'"; \
+	    $(LIBTOOL) --mode=install $(dbexecLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) "$$p" "$(DESTDIR)$(dbexecdir)/$$f"; \
+	  else :; fi; \
+	done
+
+uninstall-dbexecLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	@set -x; list='$(dbexec_LTLIBRARIES)'; for p in $$list; do \
+	  p=$(am__strip_dir) \
+	  echo " $(LIBTOOL) --mode=uninstall rm -f '$(DESTDIR)$(dbexecdir)/$$p'"; \
+	  $(LIBTOOL) --mode=uninstall rm -f "$(DESTDIR)$(dbexecdir)/$$p"; \
+	done
+
+clean-dbexecLTLIBRARIES:
+	-test -z "$(dbexec_LTLIBRARIES)" || rm -f $(dbexec_LTLIBRARIES)
+	@list='$(dbexec_LTLIBRARIES)'; for p in $$list; do \
+	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
+	  test "$$dir" != "$$p" || dir=.; \
+	  echo "rm -f \"$${dir}/so_locations\""; \
+	  rm -f "$${dir}/so_locations"; \
+	done
 install-toolexeclibLTLIBRARIES: $(toolexeclib_LTLIBRARIES)
 	@$(NORMAL_INSTALL)
 	test -z "$(toolexeclibdir)" || $(mkdir_p) "$(DESTDIR)$(toolexeclibdir)"
@@ -7321,10 +7385,17 @@ gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo:  \
 gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo:  \
 	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-lib-gnu-java-awt-peer-gtk.la: $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES) 
-	$(lib_gnu_java_awt_peer_gtk_la_LINK) $(am_lib_gnu_java_awt_peer_gtk_la_rpath) $(lib_gnu_java_awt_peer_gtk_la_LDFLAGS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_LIBADD) $(LIBS)
-lib-gnu-java-awt-peer-qt.la: $(lib_gnu_java_awt_peer_qt_la_OBJECTS) $(lib_gnu_java_awt_peer_qt_la_DEPENDENCIES) 
-	$(lib_gnu_java_awt_peer_qt_la_LINK) $(am_lib_gnu_java_awt_peer_qt_la_rpath) $(lib_gnu_java_awt_peer_qt_la_LDFLAGS) $(lib_gnu_java_awt_peer_qt_la_OBJECTS) $(lib_gnu_java_awt_peer_qt_la_LIBADD) $(LIBS)
+classpath/tools/$(am__dirstamp):
+	@$(mkdir_p) classpath/tools
+	@: > classpath/tools/$(am__dirstamp)
+classpath/tools/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) classpath/tools/$(DEPDIR)
+	@: > classpath/tools/$(DEPDIR)/$(am__dirstamp)
+classpath/tools/libgcj_tools_la-tools.lo:  \
+	classpath/tools/$(am__dirstamp) \
+	classpath/tools/$(DEPDIR)/$(am__dirstamp)
+libgcj-tools.la: $(libgcj_tools_la_OBJECTS) $(libgcj_tools_la_DEPENDENCIES) 
+	$(libgcj_tools_la_LINK) -rpath $(toolexeclibdir) $(libgcj_tools_la_LDFLAGS) $(libgcj_tools_la_OBJECTS) $(libgcj_tools_la_LIBADD) $(LIBS)
 java/lang/$(am__dirstamp):
 	@$(mkdir_p) java/lang
 	@: > java/lang/$(am__dirstamp)
@@ -7592,19 +7663,10 @@ java/util/zip/natInflater.lo: java/util/zip/$(am__dirstamp) \
 	java/util/zip/$(DEPDIR)/$(am__dirstamp)
 libgcj.la: $(libgcj_la_OBJECTS) $(libgcj_la_DEPENDENCIES) 
 	$(libgcj_la_LINK) -rpath $(toolexeclibdir) $(libgcj_la_LDFLAGS) $(libgcj_la_OBJECTS) $(libgcj_la_LIBADD) $(LIBS)
-classpath/native/jawt/$(am__dirstamp):
-	@$(mkdir_p) classpath/native/jawt
-	@: > classpath/native/jawt/$(am__dirstamp)
-classpath/native/jawt/$(DEPDIR)/$(am__dirstamp):
-	@$(mkdir_p) classpath/native/jawt/$(DEPDIR)
-	@: > classpath/native/jawt/$(DEPDIR)/$(am__dirstamp)
-classpath/native/jawt/libgcjawt_la-jawt.lo:  \
-	classpath/native/jawt/$(am__dirstamp) \
-	classpath/native/jawt/$(DEPDIR)/$(am__dirstamp)
-libgcjawt.la: $(libgcjawt_la_OBJECTS) $(libgcjawt_la_DEPENDENCIES) 
-	$(libgcjawt_la_LINK) $(am_libgcjawt_la_rpath) $(libgcjawt_la_LDFLAGS) $(libgcjawt_la_OBJECTS) $(libgcjawt_la_LIBADD) $(LIBS)
 libgij.la: $(libgij_la_OBJECTS) $(libgij_la_DEPENDENCIES) 
 	$(CXXLINK) -rpath $(toolexeclibdir) $(libgij_la_LDFLAGS) $(libgij_la_OBJECTS) $(libgij_la_LIBADD) $(LIBS)
+libjvm.la: $(libjvm_la_OBJECTS) $(libjvm_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(dbexecdir) $(libjvm_la_LDFLAGS) $(libjvm_la_OBJECTS) $(libjvm_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -7640,6 +7702,9 @@ clean-noinstPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+gappletviewer$(EXEEXT): $(gappletviewer_OBJECTS) $(gappletviewer_DEPENDENCIES) 
+	@rm -f gappletviewer$(EXEEXT)
+	$(gappletviewer_LINK) $(gappletviewer_LDFLAGS) $(gappletviewer_OBJECTS) $(gappletviewer_LDADD) $(LIBS)
 gnu/gcj/tools/gcj_dbtool/$(am__dirstamp):
 	@$(mkdir_p) gnu/gcj/tools/gcj_dbtool
 	@: > gnu/gcj/tools/gcj_dbtool/$(am__dirstamp)
@@ -7666,6 +7731,12 @@ gen-from-JIS$(EXEEXT): $(gen_from_JIS_OBJECTS) $(gen_from_JIS_DEPENDENCIES)
 gij$(EXEEXT): $(gij_OBJECTS) $(gij_DEPENDENCIES) 
 	@rm -f gij$(EXEEXT)
 	$(gij_LINK) $(gij_LDFLAGS) $(gij_OBJECTS) $(gij_LDADD) $(LIBS)
+gjarsigner$(EXEEXT): $(gjarsigner_OBJECTS) $(gjarsigner_DEPENDENCIES) 
+	@rm -f gjarsigner$(EXEEXT)
+	$(gjarsigner_LINK) $(gjarsigner_LDFLAGS) $(gjarsigner_OBJECTS) $(gjarsigner_LDADD) $(LIBS)
+gkeytool$(EXEEXT): $(gkeytool_OBJECTS) $(gkeytool_DEPENDENCIES) 
+	@rm -f gkeytool$(EXEEXT)
+	$(gkeytool_LINK) $(gkeytool_LDFLAGS) $(gkeytool_OBJECTS) $(gkeytool_LDADD) $(LIBS)
 grmic$(EXEEXT): $(grmic_OBJECTS) $(grmic_DEPENDENCIES) 
 	@rm -f grmic$(EXEEXT)
 	$(grmic_LINK) $(grmic_LDFLAGS) $(grmic_OBJECTS) $(grmic_LDADD) $(LIBS)
@@ -7697,8 +7768,8 @@ uninstall-binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f classpath/native/jawt/libgcjawt_la-jawt.$(OBJEXT)
-	-rm -f classpath/native/jawt/libgcjawt_la-jawt.lo
+	-rm -f classpath/tools/libgcj_tools_la-tools.$(OBJEXT)
+	-rm -f classpath/tools/libgcj_tools_la-tools.lo
 	-rm -f gnu/classpath/natSystemProperties.$(OBJEXT)
 	-rm -f gnu/classpath/natSystemProperties.lo
 	-rm -f gnu/gcj/convert/JIS0208_to_Unicode.$(OBJEXT)
@@ -7877,6 +7948,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exception.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gij.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interpret.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jni-libjvm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jni.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/link.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/no-threads.Plo@am__quote@
@@ -7888,7 +7960,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/win32-threads.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/win32.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@classpath/native/jawt/$(DEPDIR)/libgcjawt_la-jawt.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@classpath/tools/$(DEPDIR)/libgcj_tools_la-tools.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natSystemProperties.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/$(DEPDIR)/natCore.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/JIS0208_to_Unicode.Plo@am__quote@
@@ -7999,13 +8071,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-classpath/native/jawt/libgcjawt_la-jawt.lo: classpath/native/jawt/jawt.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgcjawt_la_CFLAGS) $(CFLAGS) -MT classpath/native/jawt/libgcjawt_la-jawt.lo -MD -MP -MF "classpath/native/jawt/$(DEPDIR)/libgcjawt_la-jawt.Tpo" -c -o classpath/native/jawt/libgcjawt_la-jawt.lo `test -f 'classpath/native/jawt/jawt.c' || echo '$(srcdir)/'`classpath/native/jawt/jawt.c; \
-@am__fastdepCC_TRUE@	then mv -f "classpath/native/jawt/$(DEPDIR)/libgcjawt_la-jawt.Tpo" "classpath/native/jawt/$(DEPDIR)/libgcjawt_la-jawt.Plo"; else rm -f "classpath/native/jawt/$(DEPDIR)/libgcjawt_la-jawt.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='classpath/native/jawt/jawt.c' object='classpath/native/jawt/libgcjawt_la-jawt.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgcjawt_la_CFLAGS) $(CFLAGS) -c -o classpath/native/jawt/libgcjawt_la-jawt.lo `test -f 'classpath/native/jawt/jawt.c' || echo '$(srcdir)/'`classpath/native/jawt/jawt.c
 
 .cc.o:
 @am__fastdepCXX_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
@@ -8171,6 +8236,37 @@ gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo: gnu/gcj/xlib/natXUnmapEvent.
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(lib_gnu_awt_xlib_la_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo `test -f 'gnu/gcj/xlib/natXUnmapEvent.cc' || echo '$(srcdir)/'`gnu/gcj/xlib/natXUnmapEvent.cc
 
+.jar.o:
+@am__fastdepGCJ_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
+@am__fastdepGCJ_TRUE@	if $(GCJCOMPILE) -MT $@ -MD -MP -MF "$$depbase.Tpo" -c -o $@ $<; \
+@am__fastdepGCJ_TRUE@	then mv -f "$$depbase.Tpo" "$$depbase.Po"; else rm -f "$$depbase.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(GCJCOMPILE) -c -o $@ $<
+
+.jar.obj:
+@am__fastdepGCJ_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`; \
+@am__fastdepGCJ_TRUE@	if $(GCJCOMPILE) -MT $@ -MD -MP -MF "$$depbase.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+@am__fastdepGCJ_TRUE@	then mv -f "$$depbase.Tpo" "$$depbase.Po"; else rm -f "$$depbase.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(GCJCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+.jar.lo:
+@am__fastdepGCJ_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`; \
+@am__fastdepGCJ_TRUE@	if $(LTGCJCOMPILE) -MT $@ -MD -MP -MF "$$depbase.Tpo" -c -o $@ $<; \
+@am__fastdepGCJ_TRUE@	then mv -f "$$depbase.Tpo" "$$depbase.Plo"; else rm -f "$$depbase.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(LTGCJCOMPILE) -c -o $@ $<
+
+classpath/tools/libgcj_tools_la-tools.lo: classpath/tools/tools.jar
+@am__fastdepGCJ_TRUE@	if $(LIBTOOL) --mode=compile $(GCJ) $(libgcj_tools_la_GCJFLAGS) $(GCJFLAGS) -MT classpath/tools/libgcj_tools_la-tools.lo -MD -MP -MF "classpath/tools/$(DEPDIR)/libgcj_tools_la-tools.Tpo" -c -o classpath/tools/libgcj_tools_la-tools.lo `test -f 'classpath/tools/tools.jar' || echo '$(srcdir)/'`classpath/tools/tools.jar; \
+@am__fastdepGCJ_TRUE@	then mv -f "classpath/tools/$(DEPDIR)/libgcj_tools_la-tools.Tpo" "classpath/tools/$(DEPDIR)/libgcj_tools_la-tools.Plo"; else rm -f "classpath/tools/$(DEPDIR)/libgcj_tools_la-tools.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	source='classpath/tools/tools.jar' object='classpath/tools/libgcj_tools_la-tools.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepGCJ_FALSE@	DEPDIR=$(DEPDIR) $(GCJDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepGCJ_FALSE@	$(LIBTOOL) --mode=compile $(GCJ) $(libgcj_tools_la_GCJFLAGS) $(GCJFLAGS) -c -o classpath/tools/libgcj_tools_la-tools.lo `test -f 'classpath/tools/tools.jar' || echo '$(srcdir)/'`classpath/tools/tools.jar
+
 .java.o:
 @am__fastdepGCJ_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`; \
 @am__fastdepGCJ_TRUE@	if $(GCJCOMPILE) -MT $@ -MD -MP -MF "$$depbase.Tpo" -c -o $@ $<; \
@@ -8200,7 +8296,7 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-	-rm -rf classpath/native/jawt/.libs classpath/native/jawt/_libs
+	-rm -rf classpath/tools/.libs classpath/tools/_libs
 	-rm -rf gnu/classpath/.libs gnu/classpath/_libs
 	-rm -rf gnu/gcj/.libs gnu/gcj/_libs
 	-rm -rf gnu/gcj/convert/.libs gnu/gcj/convert/_libs
@@ -8432,7 +8528,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config
+	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config $(distdir)/scripts
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -8576,7 +8672,7 @@ check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
+	for dir in "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-recursive
@@ -8600,8 +8696,8 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
-	-rm -f classpath/native/jawt/$(DEPDIR)/$(am__dirstamp)
-	-rm -f classpath/native/jawt/$(am__dirstamp)
+	-rm -f classpath/tools/$(DEPDIR)/$(am__dirstamp)
+	-rm -f classpath/tools/$(am__dirstamp)
 	-rm -f gnu/classpath/$(DEPDIR)/$(am__dirstamp)
 	-rm -f gnu/classpath/$(am__dirstamp)
 	-rm -f gnu/gcj/$(DEPDIR)/$(am__dirstamp)
@@ -8657,13 +8753,13 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-binPROGRAMS clean-generic clean-libtool \
-	clean-noinstPROGRAMS clean-toolexeclibLTLIBRARIES \
-	mostlyclean-am
+clean-am: clean-binPROGRAMS clean-dbexecLTLIBRARIES clean-generic \
+	clean-libtool clean-noinstPROGRAMS \
+	clean-toolexeclibLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) classpath/native/jawt/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) classpath/tools/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-local distclean-tags
@@ -8682,8 +8778,8 @@ install-data-am: install-data-local install-jarDATA \
 	install-pkgconfigDATA
 
 install-exec-am: install-binPROGRAMS install-binSCRIPTS \
-	install-dbexecDATA install-toolexeclibLTLIBRARIES \
-	install-toolexecmainlibDATA
+	install-dbexecDATA install-dbexecLTLIBRARIES \
+	install-toolexeclibLTLIBRARIES install-toolexecmainlibDATA
 
 install-info: install-info-recursive
 
@@ -8694,7 +8790,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) classpath/native/jawt/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) classpath/tools/$(DEPDIR) gnu/classpath/$(DEPDIR) gnu/gcj/$(DEPDIR) gnu/gcj/convert/$(DEPDIR) gnu/gcj/io/$(DEPDIR) gnu/gcj/runtime/$(DEPDIR) gnu/gcj/tools/gcj_dbtool/$(DEPDIR) gnu/gcj/util/$(DEPDIR) gnu/gcj/xlib/$(DEPDIR) gnu/java/lang/$(DEPDIR) gnu/java/net/$(DEPDIR) gnu/java/net/protocol/core/$(DEPDIR) gnu/java/nio/$(DEPDIR) gnu/java/nio/channels/$(DEPDIR) java/io/$(DEPDIR) java/lang/$(DEPDIR) java/lang/ref/$(DEPDIR) java/lang/reflect/$(DEPDIR) java/net/$(DEPDIR) java/nio/$(DEPDIR) java/nio/channels/$(DEPDIR) java/text/$(DEPDIR) java/util/$(DEPDIR) java/util/logging/$(DEPDIR) java/util/zip/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -8712,43 +8808,42 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-dbexecDATA uninstall-info-am uninstall-jarDATA \
-	uninstall-pkgconfigDATA uninstall-toolexeclibLTLIBRARIES \
-	uninstall-toolexecmainlibDATA
+	uninstall-dbexecDATA uninstall-dbexecLTLIBRARIES \
+	uninstall-info-am uninstall-jarDATA uninstall-pkgconfigDATA \
+	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
-	check-am clean clean-binPROGRAMS clean-generic clean-libtool \
-	clean-noinstPROGRAMS clean-recursive \
-	clean-toolexeclibLTLIBRARIES ctags ctags-recursive dist \
-	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
-	distcheck distclean distclean-compile distclean-generic \
-	distclean-libtool distclean-local distclean-recursive \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-binSCRIPTS install-data \
-	install-data-am install-data-local install-dbexecDATA \
-	install-exec install-exec-am install-info install-info-am \
-	install-jarDATA install-man install-pkgconfigDATA \
-	install-strip install-toolexeclibLTLIBRARIES \
-	install-toolexecmainlibDATA installcheck installcheck-am \
-	installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic maintainer-clean-recursive \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool mostlyclean-local mostlyclean-recursive \
-	pdf pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
-	uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-dbexecDATA uninstall-info-am uninstall-jarDATA \
-	uninstall-pkgconfigDATA uninstall-toolexeclibLTLIBRARIES \
-	uninstall-toolexecmainlibDATA
+	check-am clean clean-binPROGRAMS clean-dbexecLTLIBRARIES \
+	clean-generic clean-libtool clean-noinstPROGRAMS \
+	clean-recursive clean-toolexeclibLTLIBRARIES ctags \
+	ctags-recursive dist dist-all dist-bzip2 dist-gzip dist-shar \
+	dist-tarZ dist-zip distcheck distclean distclean-compile \
+	distclean-generic distclean-libtool distclean-local \
+	distclean-recursive distclean-tags distcleancheck distdir \
+	distuninstallcheck dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-binSCRIPTS \
+	install-data install-data-am install-data-local \
+	install-dbexecDATA install-dbexecLTLIBRARIES install-exec \
+	install-exec-am install-info install-info-am install-jarDATA \
+	install-man install-pkgconfigDATA install-strip \
+	install-toolexeclibLTLIBRARIES install-toolexecmainlibDATA \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic \
+	maintainer-clean-recursive mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool mostlyclean-local \
+	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
+	uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-dbexecDATA \
+	uninstall-dbexecLTLIBRARIES uninstall-info-am \
+	uninstall-jarDATA uninstall-pkgconfigDATA \
+	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
 
 
 $(db_name): gcj-dbtool$(EXEEXT)
 	@rm -f $(db_name)
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
-
-$(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 
 $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
@@ -8757,6 +8852,9 @@ $(propertyo_files): %.lo: classpath/resource/%
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
+
+libgcj-tools-$(gcc_version).jar: classpath/tools/tools.jar
+	cp $< $@
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
@@ -9066,6 +9164,16 @@ gnu-java-awt-peer-swing.lo: $(gnu_java_awt_peer_swing_source_files)
 	@find classpath/lib/gnu/java/awt/peer/swing -name '*.class' > gnu-java-awt-peer-swing.list
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
 	@rm -f gnu-java-awt-peer-swing.list
+
+gnu/java/awt/print.list: $(gnu_java_awt_print_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_java_awt_print_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/java/awt/print.list
+
+-include gnu/java/awt/print.deps
 
 gnu-java-beans.lo: $(gnu_java_beans_source_files)
 	@find classpath/lib/gnu/java/beans -name '*.class' > gnu-java-beans.list
@@ -9951,6 +10059,16 @@ gnu/javax/swing/plaf/metal.list: $(gnu_javax_swing_plaf_metal_source_files)
 	done > gnu/javax/swing/plaf/metal.list
 
 -include gnu/javax/swing/plaf/metal.deps
+
+gnu/javax/swing/text/html.list: $(gnu_javax_swing_text_html_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	@for file in $(gnu_javax_swing_text_html_source_files); do \
+	  if test -f $(srcdir)/$$file; then \
+	    echo $(srcdir)/$$file; \
+	  else echo $$file; fi; \
+	done > gnu/javax/swing/text/html.list
+
+-include gnu/javax/swing/text/html.deps
 
 gnu/javax/swing/text/html/parser.list: $(gnu_javax_swing_text_html_parser_source_files)
 	@$(mkinstalldirs) $(dir $@)
@@ -11301,6 +11419,7 @@ create-headers: $(headers_to_make)
 
 $(libgcj_la_OBJECTS) $(gcj_dbtool_OBJECTS) $(xlib_nat_files): headers.stamp
 $(libgij_la_OBJECTS): headers.stamp
+$(libjvm_la_OBJECTS): headers.stamp
 
 # No install-html support yet.
 .PHONY: install-html

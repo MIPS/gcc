@@ -3459,18 +3459,16 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   /* If #pragma weak was used, mark the decl weak now.  */
   maybe_apply_pragma_weak (decl);
 
-  /* If this is a variable definition, determine its ELF visibility.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && TREE_STATIC (decl)
-      && !DECL_EXTERNAL (decl))
-    c_determine_visibility (decl);
-
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
      If not, it will get done when the type is completed.  */
 
   if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
+      /* Determine the ELF visibility.  */
+      if (TREE_PUBLIC (decl))
+	c_determine_visibility (decl);
+
       /* This is a no-op in c-lang.c or something real in objc-act.c.  */
       if (c_dialect_objc ())
 	objc_check_decl (decl);
@@ -3936,6 +3934,14 @@ grokdeclarator (const struct c_declarator *declarator,
   if (declspecs->deprecated_p && deprecated_state != DEPRECATED_SUPPRESS)
     warn_deprecated_use (declspecs->type);
 
+  if ((decl_context == NORMAL || decl_context == FIELD)
+      && current_scope == file_scope
+      && variably_modified_type_p (type, NULL_TREE))
+    {
+      error ("variably modified %qs at file scope", name);
+      type = integer_type_node;
+    }
+
   typedef_type = type;
   size_varies = C_TYPE_VARIABLE_SIZE (type);
 
@@ -4206,6 +4212,12 @@ grokdeclarator (const struct c_declarator *declarator,
 			size = integer_one_node;
 		      }
 		  }
+		else if ((decl_context == NORMAL || decl_context == FIELD)
+			 && current_scope == file_scope)
+		  {
+		    error ("variably modified %qs at file scope", name);
+		    size = integer_one_node;
+		  }
 		else
 		  {
 		    /* Make sure the array size remains visibly
@@ -4304,7 +4316,12 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (type != error_mark_node)
 	      {
 		if (size_varies)
-		  C_TYPE_VARIABLE_SIZE (type) = 1;
+		  {
+		    if (size && TREE_CODE (size) == INTEGER_CST)
+		      type
+			= build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+		    C_TYPE_VARIABLE_SIZE (type) = 1;
+		  }
 
 		/* The GCC extension for zero-length arrays differs from
 		   ISO flexible array members in that sizeof yields
@@ -5557,8 +5574,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
     {
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
       TYPE_LANG_SPECIFIC (x) = TYPE_LANG_SPECIFIC (t);
-      TYPE_ALIGN (x) = TYPE_ALIGN (t);
-      TYPE_USER_ALIGN (x) = TYPE_USER_ALIGN (t);
       C_TYPE_FIELDS_READONLY (x) = C_TYPE_FIELDS_READONLY (t);
       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);

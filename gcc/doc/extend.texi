@@ -33,7 +33,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Conditionals::        Omitting the middle operand of a @samp{?:} expression.
 * Long Long::		Double-word integers---@code{long long int}.
 * Complex::             Data types for complex numbers.
-* Decimal Float::	Decimal Floating Point. 
+* Decimal Float::	Decimal Floating Point.
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
@@ -2409,10 +2409,10 @@ consistently, so that the same entity should not be declared with
 different settings of the attribute.
 
 In C++, the visibility attribute applies to types as well as functions
-and objects, because in C++ types have linkage.  There are some bugs
-in the C++ support for this flag, for example a template which has a
-hidden type as a parameter is not properly hidden.
-@c bugzilla 26612
+and objects, because in C++ types have linkage.  A class must not have
+greater visibility than its non-static data member types and bases,
+and class members default to the visibility of their class.  Also, a
+declaration must not have greater visibility than its type.
 
 In C++, you can mark member functions and static member variables of a
 class with the visibility attribute.  This is useful if if you know a
@@ -2422,6 +2422,17 @@ class has default visibility.  Care must be taken to avoid breaking
 the One Definition Rule; for example, it is not useful to mark a
 method which is defined inside a class definition as hidden without
 marking the whole class as hidden.
+
+A C++ namespace declaration can also have the visibility attribute.
+This attribute applies only to the particular namespace body, not to
+other definitions of the same namespace; it is equivalent to using
+@samp{#pragma GCC visibility} before and after the namespace
+definition (@pxref{Visibility Pragmas}).
+
+In C++, if a template argument has limited visibility, this
+restriction is implicitly propagated to the template instantiation.
+Otherwise, template instantiations and specializations default to the
+visibility of their template.
 
 @item warn_unused_result
 @cindex @code{warn_unused_result} attribute
@@ -2604,10 +2615,7 @@ does not arise there.
 An attribute specifier list may appear as part of a @code{struct},
 @code{union} or @code{enum} specifier.  It may go either immediately
 after the @code{struct}, @code{union} or @code{enum} keyword, or after
-the closing brace.  It is ignored if the content of the structure, union
-or enumerated type is not defined in the specifier in which the
-attribute specifier list is used---that is, in usages such as
-@code{struct __attribute__((foo)) bar} with no following opening brace.
+the closing brace.  The former syntax is preferred.
 Where attribute specifiers follow the closing brace, they are considered
 to relate to the structure, union or enumerated type defined, not to any
 enclosing declaration the type specifier appears in, and the type
@@ -3189,7 +3197,7 @@ attribute can also be applied to global C++ objects that are initialized
 by a constructor.  In this case, the static initialization and destruction
 code for the object is emitted in each translation defining the object,
 but the calls to the constructor and destructor are protected by a
-link-once guard variable. 
+link-once guard variable.
 
 The @code{selectany} attribute is only available on Microsoft Windows
 targets.  You can use @code{__declspec (selectany)} as a synonym for
@@ -3246,6 +3254,117 @@ either format.
 
 Currently @option{-m[no-]ms-bitfields} is provided for the Microsoft Windows X86
 compilers to match the native Microsoft compiler.
+
+The Microsoft structure layout algorithm is fairly simple with the exception
+of the bitfield packing:
+
+The padding and alignment of members of structures and whether a bit field
+can straddle a storage-unit boundary
+
+@enumerate
+@item Structure members are stored sequentially in the order in which they are
+declared: the first member has the lowest memory address and the last member
+the highest.
+
+@item Every data object has an alignment-requirement. The alignment-requirement
+for all data except structures, unions, and arrays is either the size of the
+object or the current packing size (specified with either the aligned attribute
+or the pack pragma), whichever is less. For structures,  unions, and arrays,
+the alignment-requirement is the largest alignment-requirement of its members.
+Every object is allocated an offset so that:
+
+offset %  alignment-requirement == 0
+
+@item Adjacent bit fields are packed into the same 1-, 2-, or 4-byte allocation
+unit if the integral types are the same size and if the next bit field fits
+into the current allocation unit without crossing the boundary imposed by the
+common alignment requirements of the bit fields.
+@end enumerate
+
+Handling of zero-length bitfields:
+
+MSVC interprets zero-length bitfields in the following ways:
+
+@enumerate
+@item If a zero-length bitfield is inserted between two bitfields that would
+normally be coalesced, the bitfields will not be coalesced.
+
+For example:
+
+@smallexample
+struct
+ @{
+   unsigned long bf_1 : 12;
+   unsigned long : 0;
+   unsigned long bf_2 : 12;
+ @} t1;
+@end smallexample
+
+The size of @code{t1} would be 8 bytes with the zero-length bitfield.  If the
+zero-length bitfield were removed, @code{t1}'s size would be 4 bytes.
+
+@item If a zero-length bitfield is inserted after a bitfield, @code{foo}, and the
+alignment of the zero-length bitfield is greater than the member that follows it,
+@code{bar}, @code{bar} will be aligned as the type of the zero-length bitfield.
+
+For example:
+
+@smallexample
+struct
+ @{
+   char foo : 4;
+   short : 0;
+   char bar;
+ @} t2;
+
+struct
+ @{
+   char foo : 4;
+   short : 0;
+   double bar;
+ @} t3;
+@end smallexample
+
+For @code{t2}, @code{bar} will be placed at offset 2, rather than offset 1.
+Accordingly, the size of @code{t2} will be 4.  For @code{t3}, the zero-length
+bitfield will not affect the alignment of @code{bar} or, as a result, the size
+of the structure.
+
+Taking this into account, it is important to note the following:
+
+@enumerate
+@item If a zero-length bitfield follows a normal bitfield, the type of the
+zero-length bitfield may affect the alignment of the structure as whole. For
+example, @code{t2} has a size of 4 bytes, since the zero-length bitfield follows a
+normal bitfield, and is of type short.
+
+@item Even if a zero-length bitfield is not followed by a normal bitfield, it may
+still affect the alignment of the structure:
+
+@smallexample
+struct
+ @{
+   char foo : 6;
+   long : 0;
+ @} t4;
+@end smallexample
+
+Here, @code{t4} will take up 4 bytes.
+@end enumerate
+
+@item Zero-length bitfields following non-bitfield members are ignored:
+
+@smallexample
+struct
+ @{
+   char foo;
+   long : 0;
+   char bar;
+ @} t5;
+@end smallexample
+
+Here, @code{t5} will take up 2 bytes.
+@end enumerate
 @end table
 
 @subsection Xstormy16 Variable Attributes
@@ -3271,13 +3390,14 @@ placed in either the @code{.bss_below100} section or the
 @cindex type attributes
 
 The keyword @code{__attribute__} allows you to specify special
-attributes of @code{struct} and @code{union} types when you define such
-types.  This keyword is followed by an attribute specification inside
-double parentheses.  Six attributes are currently defined for types:
-@code{aligned}, @code{packed}, @code{transparent_union}, @code{unused},
-@code{deprecated} and @code{may_alias}.  Other attributes are defined for
-functions (@pxref{Function Attributes}) and for variables
-(@pxref{Variable Attributes}).
+attributes of @code{struct} and @code{union} types when you define
+such types.  This keyword is followed by an attribute specification
+inside double parentheses.  Seven attributes are currently defined for
+types: @code{aligned}, @code{packed}, @code{transparent_union},
+@code{unused}, @code{deprecated}, @code{visibility}, and
+@code{may_alias}.  Other attributes are defined for functions
+(@pxref{Function Attributes}) and for variables (@pxref{Variable
+Attributes}).
 
 You may also specify any one of these attributes with @samp{__}
 preceding and following its keyword.  This allows you to use these
@@ -3285,14 +3405,13 @@ attributes in header files without being concerned about a possible
 macro of the same name.  For example, you may use @code{__aligned__}
 instead of @code{aligned}.
 
-You may specify the @code{aligned} and @code{transparent_union}
-attributes either in a @code{typedef} declaration or just past the
-closing curly brace of a complete enum, struct or union type
-@emph{definition} and the @code{packed} attribute only past the closing
-brace of a definition.
+You may specify type attributes either in a @code{typedef} declaration
+or in an enum, struct or union type declaration or definition.
 
-You may also specify attributes between the enum, struct or union
-tag and the name of the type rather than after the closing brace.
+For an enum, struct or union type, you may specify attributes either
+between the enum, struct or union tag and the name of the type, or
+just past the closing curly brace of the @emph{definition}.  The
+former syntax is preferred.
 
 @xref{Attribute Syntax}, for details of the exact syntax for using
 attributes.
@@ -3540,6 +3659,13 @@ If you replaced @code{short_a} with @code{short} in the variable
 declaration, the above program would abort when compiled with
 @option{-fstrict-aliasing}, which is on by default at @option{-O2} or
 above in recent GCC versions.
+
+@item visibility
+
+In C++, attribute visibility (@pxref{Function Attributes}) can also be
+applied to class, struct, union and enum types.  Unlike other type
+attributes, the attribute must appear between the initial keyword and
+the name of the type; it cannot appear after the body of the type.
 
 @subsection ARM Type Attributes
 
@@ -4820,7 +4946,7 @@ These builtins perform an atomic compare and swap.  That is, if the current
 value of @code{*@var{ptr}} is @var{oldval}, then write @var{newval} into
 @code{*@var{ptr}}.
 
-The ``bool'' version returns true if the comparison is successful and 
+The ``bool'' version returns true if the comparison is successful and
 @var{newval} was written.  The ``val'' version returns the contents
 of @code{*@var{ptr}} before the operation.
 
@@ -4844,7 +4970,7 @@ is implementation defined.
 This builtin is not a full barrier, but rather an @dfn{acquire barrier}.
 This means that references after the builtin cannot move to (or be
 speculated to) before the builtin, but previous memory stores may not
-be globally visible yet, and previous memory loads may not yet be 
+be globally visible yet, and previous memory loads may not yet be
 satisfied.
 
 @item void __sync_lock_release (@var{type} *ptr, ...)
@@ -9343,6 +9469,7 @@ for further explanation.
 * Structure-Packing Pragmas::
 * Weak Pragmas::
 * Diagnostic Pragmas::
+* Visibility Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -9561,6 +9688,17 @@ multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @code{#pragma pack(pop)}.
 @end enumerate
 
+Some targets, e.g. i386 and powerpc, support the @code{ms_struct}
+@code{#pragma} which lays out a structure as the documented
+@code{__attribute__ ((ms_struct))}.
+@enumerate
+@item @code{#pragma ms_struct on} turns on the layout for structures
+declared.
+@item @code{#pragma ms_struct off} turns off the layout for structures
+declared.
+@item @code{#pragma ms_struct reset} goes back to the default layout.
+@end enumerate
+
 @node Weak Pragmas
 @subsection Weak Pragmas
 
@@ -9573,7 +9711,7 @@ aliases.
 @cindex pragma, weak
 This pragma declares @var{symbol} to be weak, as if the declaration
 had the attribute of the same name.  The pragma may appear before
-or after the declaration of @var{symbol}, but must appear before 
+or after the declaration of @var{symbol}, but must appear before
 either its first use or its definition.  It is not an error for
 @var{symbol} to never be defined at all.
 
@@ -9625,6 +9763,26 @@ same option is listed multiple times, the last one specified is the
 one that is in effect.  This pragma is not intended to be a general
 purpose replacement for command line options, but for implementing
 strict control over project policies.
+
+@end table
+
+@node Visibility Pragmas
+@subsection Visibility Pragmas
+
+@table @code
+@item #pragma GCC visibility push(@var{visibility})
+@itemx #pragma GCC visibility pop
+@cindex pragma, visibility
+
+This pragma allows the user to set the visibility for multiple
+declarations without having to give each a visibility attribute
+@xref{Function Attributes}, for more information about visibility and
+the attribute syntax.
+
+In C++, @samp{#pragma GCC visibility} affects only namespace-scope
+declarations.  Class members and template specializations are not
+affected; if you want to override the visibility for a particular
+member or instantiation, you must use an attribute.
 
 @end table
 

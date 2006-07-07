@@ -674,6 +674,7 @@ dnl
 dnl Assumes cross_compiling bits already done, and with_cross_host in
 dnl particular.
 dnl
+dnl This logic must match gcc/configure.ac's setting of gcc_gxx_include_dir.
 AC_DEFUN([GLIBCXX_EXPORT_INSTALL_INFO], [
   glibcxx_toolexecdir=no
   glibcxx_toolexeclibdir=no
@@ -705,7 +706,13 @@ AC_DEFUN([GLIBCXX_EXPORT_INSTALL_INFO], [
 
   # Default case for install directory for include files.
   if test $version_specific_libs = no && test $gxx_include_dir = no; then
-    gxx_include_dir='${prefix}/include/c++/${gcc_version}'
+    gxx_include_dir='include/c++/${gcc_version}'
+    if test -n "$with_cross_host" && 
+       test x"$with_cross_host" != x"no"; then	
+      gxx_include_dir='${prefix}/${target_alias}/'"$gxx_include_dir"
+    else
+      gxx_include_dir='${prefix}/'"$gxx_include_dir"
+    fi
   fi
 
   # Version-specific runtime libs processing.
@@ -1268,6 +1275,32 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
   AC_LANG_RESTORE
 ])
 
+dnl
+dnl Check whether "dev/random" and "dev/urandom" are available for the
+dnl random_device of "TR1" (Chapter 5.1, "Random number generation").
+dnl
+AC_DEFUN([GLIBCXX_CHECK_RANDOM_TR1], [
+
+  AC_MSG_CHECKING([for "dev/random" and "dev/urandom" for TR1 random_device])
+  AC_CACHE_VAL(ac_random_tr1, [
+  AC_TRY_RUN([#include <stdio.h>
+	      int main()
+	      {
+                return !(fopen("/dev/random", "r")
+                         && fopen("/dev/urandom", "r"));
+	      }	      
+	     ],
+             [ac_random_tr1=yes], [ac_random_tr1=no],
+	     [ac_random_tr1=no])
+  ])
+  AC_MSG_RESULT($ac_random_tr1)
+  if test x"$ac_random_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_RANDOM_TR1, 1,
+              [Define if dev/random and dev/urandom are available for
+	       the random_device of TR1 (Chapter 5.1).])
+  fi
+
+])
 
 dnl
 dnl Check for what type of C headers to use.

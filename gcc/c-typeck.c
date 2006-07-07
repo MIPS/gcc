@@ -596,6 +596,29 @@ c_common_type (tree t1, tree t2)
   gcc_assert (code2 == VECTOR_TYPE || code2 == COMPLEX_TYPE
 	      || code2 == REAL_TYPE || code2 == INTEGER_TYPE);
 
+  /* When one operand is a decimal float type, the other operand cannot be
+     a generic float type or a complex type.  We also disallow vector types
+     here.  */
+  if ((DECIMAL_FLOAT_TYPE_P (t1) || DECIMAL_FLOAT_TYPE_P (t2))
+      && !(DECIMAL_FLOAT_TYPE_P (t1) && DECIMAL_FLOAT_TYPE_P (t2)))
+    {
+      if (code1 == VECTOR_TYPE || code2 == VECTOR_TYPE)
+	{
+	  error ("can%'t mix operands of decimal float and vector types");
+	  return error_mark_node;
+	}
+      if (code1 == COMPLEX_TYPE || code2 == COMPLEX_TYPE)
+	{
+	  error ("can%'t mix operands of decimal float and complex types");
+	  return error_mark_node;
+	}
+      if (code1 == REAL_TYPE && code2 == REAL_TYPE)
+	{
+	  error ("can%'t mix operands of decimal float and other float types");
+	  return error_mark_node;
+	}
+    }
+
   /* If one type is a vector type, return that type.  (How the usual
      arithmetic conversions apply to the vector types extension is not
      precisely specified.)  */
@@ -2153,7 +2176,8 @@ c_expr_sizeof_type (struct c_type_name *t)
   type = groktypename (t);
   ret.value = c_sizeof (type);
   ret.original_code = ERROR_MARK;
-  pop_maybe_used (C_TYPE_VARIABLE_SIZE (type));
+  pop_maybe_used (type != error_mark_node
+		  ? C_TYPE_VARIABLE_SIZE (type) : false);
   return ret;
 }
 
@@ -7549,6 +7573,11 @@ c_begin_vm_scope (unsigned int scope)
   struct c_label_list *glist;
 
   gcc_assert (scope > 0);
+
+  /* At file_scope, we don't have to do any processing.  */
+  if (label_context_stack_vm == NULL)
+    return;
+
   if (c_switch_stack && !c_switch_stack->blocked_vm)
     c_switch_stack->blocked_vm = scope;
   for (glist = label_context_stack_vm->labels_used;
@@ -7995,7 +8024,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
 	      && DECL_P (TREE_OPERAND (op0, 0))
-	      && !DECL_WEAK (TREE_OPERAND (op0, 0)))
+	      && (TREE_CODE (TREE_OPERAND (op0, 0)) == PARM_DECL
+		  || TREE_CODE (TREE_OPERAND (op0, 0)) == LABEL_DECL
+		  || !DECL_WEAK (TREE_OPERAND (op0, 0))))
 	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op0, 0));
 	  result_type = type0;
@@ -8004,7 +8035,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR
 	      && DECL_P (TREE_OPERAND (op1, 0))
-	      && !DECL_WEAK (TREE_OPERAND (op1, 0)))
+	      && (TREE_CODE (TREE_OPERAND (op1, 0)) == PARM_DECL
+		  || TREE_CODE (TREE_OPERAND (op1, 0)) == LABEL_DECL
+		  || !DECL_WEAK (TREE_OPERAND (op1, 0))))
 	    warning (OPT_Walways_true, "the address of %qD will never be NULL",
 		     TREE_OPERAND (op1, 0));
 	  result_type = type1;

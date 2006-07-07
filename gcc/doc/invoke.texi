@@ -166,7 +166,7 @@ in the following sections.
 @xref{C Dialect Options,,Options Controlling C Dialect}.
 @gccoptlist{-ansi  -std=@var{standard}  -aux-info @var{filename} @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
--fhosted  -ffreestanding  -fms-extensions @gol
+-fhosted  -ffreestanding -fopenmp -fms-extensions @gol
 -trigraphs  -no-integrated-cpp  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch @gol
 -fsigned-bitfields  -fsigned-char @gol
@@ -779,7 +779,7 @@ See S/390 and zSeries Options.
 -fargument-noalias-global  -fargument-noalias-anything
 -fleading-underscore  -ftls-model=@var{model} @gol
 -ftrapv  -fwrapv  -fbounds-check @gol
--fvisibility  -fopenmp}
+-fvisibility}
 @end table
 
 @menu
@@ -1089,15 +1089,14 @@ with the name @command{gcc}).
 
 @findex g++
 @findex c++
-However, C++ programs often require class libraries as well as a
-compiler that understands the C++ language---and under some
-circumstances, you might want to compile programs or header files from
-standard input, or otherwise without a suffix that flags them as C++
-programs.  You might also like to precompile a C header file with a
-@samp{.h} extension to be used in C++ compilations.  @command{g++} is a
-program that calls GCC with the default language set to C++, and
-automatically specifies linking against the C++ library.  On many
-systems, @command{g++} is also installed with the name @command{c++}.
+However, the use of @command{gcc} does not add the C++ library.
+@command{g++} is a program that calls GCC and treats @samp{.c},
+@samp{.h} and @samp{.i} files as C++ source files instead of C source
+files unless @option{-x} is used, and automatically specifies linking
+against the C++ library.  This is also useful when precompiling a C
+header file with a @samp{.h} extension for use in C++ compilations.
+On many systems, @command{g++} is also installed with the name
+@command{c++}.
 
 @cindex invoking @command{g++}
 When you compile C++ programs, you may specify many of the same
@@ -1303,6 +1302,14 @@ This is equivalent to @option{-fno-hosted}.
 
 @xref{Standards,,Language Standards Supported by GCC}, for details of
 freestanding and hosted environments.
+
+@item -fopenmp
+@opindex fopenmp
+@cindex openmp parallel
+Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
+@code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
+compiler generates parallel code according to the OpenMP Application
+Program Interface v2.5 @w{@uref{http://www.openmp.org/}}.
 
 @item -fms-extensions
 @opindex fms-extensions
@@ -1611,16 +1618,10 @@ when used within the DSO@.  Enabling this option can have a dramatic effect
 on load and link times of a DSO as it massively reduces the size of the
 dynamic export table when the library makes heavy use of templates.
 
-The behavior of this switch is not quite the same as marking the
-methods as hidden directly.  Normally if there is a class with default
-visibility which has a hidden method, the effect of this is that the
-method must be defined in only one shared object.  This switch does
-not have this restriction.
-
 You may mark a method as having a visibility explicitly to negate the
 effect of the switch for that method.  For example, if you do want to
-compare pointers to a particular inline method, you might mark it as
-having default visibility.
+compare pointers to a particular inline method, or the method has
+local static data, you might mark it as having default visibility.
 
 @item -fno-weak
 @opindex fno-weak
@@ -6165,13 +6166,13 @@ register.  Increasing values mean more aggressive optimization, making the
 compile time increase with probably slightly better performance.  The default
 value is 100.
 
-@item max-cselib-memory-location
+@item max-cselib-memory-locations
 The maximum number of memory locations cselib should take into acount.
 Increasing values mean more aggressive optimization, making the compile time
 increase with probably slightly better performance.  The default value is 500.
 
-@item max-flow-memory-location
-Similar as @option{max-cselib-memory-location} but for dataflow liveness.
+@item max-flow-memory-locations
+Similar as @option{max-cselib-memory-locations} but for dataflow liveness.
 The default value is 100.
 
 @item reorder-blocks-duplicate
@@ -6209,7 +6210,7 @@ for interblock speculative scheduling.  The default value is 40.
 The maximum number of iterations through CFG to extend regions.
 0 - disable region extension,
 N - do at most N iterations.
-The default value is 2.
+The default value is 0.
 
 @item max-sched-insn-conflict-delay
 The maximum conflict delay for an insn to be considered for speculative motion.
@@ -11270,7 +11271,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
 @samp{860}, @samp{970}, @samp{8540}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
-@samp{power4}, @samp{power5}, @samp{power5+},
+@samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6},
 @samp{common}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
@@ -13482,16 +13483,22 @@ expecting to be compiled with visibility other than the default.  You
 may need to explicitly say @samp{#pragma GCC visibility push(default)}
 before including any such headers.
 
+@samp{extern} declarations are not affected by @samp{-fvisibility}, so
+a lot of code can be recompiled with @samp{-fvisibility=hidden} with
+no modifications.  However, this means that calls to @samp{extern}
+functions with no explicit visibility will use the PLT, so it is more
+effective to use @samp{__attribute ((visibility))} and/or
+@samp{#pragma GCC visibility} to tell the compiler which @samp{extern}
+declarations should be treated as hidden.
+
+Note that @samp{-fvisibility} does affect C++ vague linkage
+entities. This means that, for instance, an exception class that will
+be thrown between DSOs must be explicitly marked with default
+visibility so that the @samp{type_info} nodes will be unified between
+the DSOs.
+
 An overview of these techniques, their benefits and how to use them
 is at @w{@uref{http://gcc.gnu.org/wiki/Visibility}}.
-
-@item -fopenmp
-@opindex fopenmp
-@cindex openmp parallel
-Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
-@code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
-compiler generates parallel code according to the OpenMP Application
-Program Interface v2.5 @w{@uref{http://www.openmp.org/}}.
 
 @end table
 

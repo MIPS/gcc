@@ -1,3 +1,376 @@
+2006-07-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28279
+	* decl2.c (finish_static_data_member_decl): Don't assert
+	TREE_PUBLIC.
+
+2006-07-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13983
+	PR c++/17519
+	* class.c (check_field_decls): Check TYPE_PACKED after
+	stripping array types.
+	(finish_struct_bits): Don't copy TYPE_SIZE here.
+
+	PR c++/18681
+	* friend.c (is_friend): Fix DR 45 implementation.
+
+2006-07-05  Richard Guenther  <rguenther@suse.de>
+	Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	PR c++/27084
+	* cp-objcp-common.c (cxx_types_compatible_p): Ignore
+	top level qualifiers for pointer type comparisons.
+
+2006-07-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28215
+	* method.c (make_thunk): Unset DECL_USE_TEMPLATE and 
+	DECL_TEMPLATE_INFO.
+
+2006-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/26577
+	* call.c (build_new_method_call): Force evaluation of the 
+	instance pointer, not the object.
+
+2006-06-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl2.c: Fix a comment typo.
+
+2006-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/18698
+	* decl2.c (grokfield): Only try to treat the decl as an access 
+	declaration if the scope is a class.
+
+2006-06-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/26905
+	PR c++/26612
+	PR c++/27000
+	PR c++/26984
+	PR c++/19134
+	* decl2.c (determine_visibility): Overhaul.
+	(determine_visibility_from_class): Likewise.
+	(min_vis_r, type_visibility, constrain_visibility): New fns.
+	(constrain_visibility_for_template): Likewise.
+	(constrain_class_visibility): Likewise.
+	* decl.c (cp_finish_decl): Call determine_visibility for function
+	decls, too.
+	* name-lookup.c (pushtag): Call determine_visibility.
+	* decl.c (duplicate_decls): Don't copy visibility from template to
+	specialization.
+	* pt.c (check_explicit_specialization): Likewise.
+	(lookup_template_class, tsubst_decl): Call determine_visibility.
+	* class.c (finish_struct_1): Call constrain_class_visibility.
+
+	PR c++/26905
+	PR c++/21675
+	PR c++/17470
+	* parser.c (cp_parser_explicit_instantiation): Pass the attributes
+	to grokdeclarator.
+	(cp_parser_type_specifier): Allow 'enum __attribute ((...)) E'.
+	(cp_parser_enum_specifier): Likewise.
+	(cp_parser_elaborated_type_specifier): Apply attributes if this
+	declares only the class.
+	(cp_parser_class_specifier): Apply leading attributes immediately.
+	* semantics.c (begin_class_definition): Add attributes parameter,
+	apply them to the type.
+
+	PR c++/21581
+	PR c++/25915
+	* tree.c (decl_anon_ns_mem_p): New function.
+	* cp-tree.h: Declare it.
+	* decl2.c (determine_visibility): Make anonymous namespace
+	members static.
+	(min_vis_r, constrain_visibility): Likewise.
+	* rtti.c (create_pseudo_type_info): Set TREE_PUBLIC on
+	pseudo-types.
+	* decl.c (cxx_init_decl_processing): Set TREE_PUBLIC on
+	global_namespace.
+	* name-lookup.c (push_namespace_with_attribs): Don't set TREE_PUBLIC
+	on anonymous namespaces.
+
+2006-06-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27424
+	* pt.c (convert_template_argument): Pass all template arguments 
+	on to coerce_template_template_parms.
+
+2006-06-25  Lee Millward  <lee.millward@gmail.com>
+	    Mark Mitchell <mark@codesuorcery.com>
+
+	PR c++/28054
+	* decl2.c (grokbitfied): Remove check for grokdeclarator
+	returning NULL_TREE, instead check for error_mark_node
+	to indicate failure.
+	* decl.c (grokdeclarator): Adjust block comment.
+	
+2006-06-25  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/28051
+	* mangle.c (mangle_conv_op_name_for_type): Check for
+	invalid types.
+	* name-lookup.c (push_class_level_binding): Robustify.
+	(do_class_using_decl): Return early if name is error_mark_node.
+	
+2006-06-23  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28114
+	* name-lookup.c (pushtag): Return if we have error_mark_node.
+
+2006-06-23  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/27019
+	* typeck2.c (process_init_constructor_array): Set ce->value on errors.
+
+2006-06-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28112
+	* parser.c (cp_parser_attribute_list): Skip attributes with invalid
+	arguments.  Fix comment.
+
+	PR c++/11468
+	* init.c (build_new_1): Handle error_mark_nodes returned by
+	build_java_class_ref.
+	(build_java_class_ref): Do not abort compilation, but return
+	error_mark_node.  Improve error message.  Fix indentation.
+
+2006-06-23  Danny Smith   <dannysmith@users.sourceforge.net>
+
+	PR target/27789
+	* decl.c (start_decl): Check that dllimports are not initialized.
+
+2006-06-22  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/27805
+	* typeck2.c (build_m_component_ref): Use error_operand_p.
+
+	PR c++/27821
+	* decl.c (grokdeclarator): Return error_mark_node on
+	invalid uses of the scope resolution operator.
+	
+2006-06-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28111
+	* pt.c (determine_specialization): Check for invalid decls.
+
+	PR c++/28110
+	* pt.c (unify) <case TEMPLATE_PARM_INDEX>: Check for invalid
+	parameters.
+
+	PR c++/28109
+	* rtti.c (get_tinfo_decl_dynamic): Robustify.
+
+2006-06-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28052
+	* init.c (push_base_cleanups): Skip members with invalid types.
+	* typeck.c (build_class_member_access_expr): Robustify.
+
+2006-06-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (instantiate_template): Fix typo in comment.
+
+2006-06-19  Richard Guenther  <rguenther@suse.de>
+
+	* parser.c (CP_LEXER_BUFFER_SIZE): Adjust to assure near
+	power-of-two token vector size.
+
+2006-06-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28016
+	* decl.c (cp_finsh_decl): Do not emit uninstantiated static data
+	members.
+
+	PR c++/27979
+	* call.c (standard_conversion): Strip cv-qualifiers from bitfield
+	types.
+
+	PR c++/27884
+	* decl.c (have_extern_spec): Remove.
+	(start_decl): Do not check have_extern_spec.
+	(start_function): Likewise.
+	* cp-tree.h (have_extern_spec): Remove.
+	* parser.c (cp_parser_linkage_specification): Don't set
+	have_extern_spec.
+	(cp_parser_init_declarator): Likewise.
+	(cp_parser_parameter_declaration): Do not treat parameters as
+	within the scope of an unbraced linkage specification.
+
+2006-06-15  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27689
+	* cp-tree.h (CLASSTYPE_SPECIALIZATION_OF_PRIMARY_TEMPLATE_P): New
+	macro.
+	* pt.c (unify): Use it.
+
+	PR c++/27666
+	* call.c (build_conditional_expr): Robustify.
+
+	PR c++/27640
+	* pt.c (instantiate_template): Set processing_template_decl to
+	zero while performing substitutions.
+
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27665
+	* parser.c (cp_parser_unqualified_id): Use constructor_name_p to
+	identify destructors.
+	(cp_parser_nested_name_specifier_opt): Remove invalid
+	optimization.
+	(cp_parser_template_id): Refine heuristic for determining whether
+	we are entering a scope.
+
+	PR c++/27648
+	* parser.c (cp_parser_declarator): Robustify.
+
+	PR c++/26559
+	* pt.c (tsubst_expr): Use finish_omp_atomic.
+	(value_dependent_expression_p): All CALL_EXPRs are dependent.
+	* semantics.c (finish_omp_atomic): Rework to use standard
+	paradigms for handling non-dependent expressions.
+
+2006-06-14  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* typeck.c (build_modify_expr): Tidy diagnostic message.
+
+2006-06-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28018
+	* typeck.c (build_modify_expr): Disallow array assignment.
+
+2006-06-14  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.def: Fix typo.
+
+2006-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27227
+	* decl.c (decls_match): Allow an extern "C" variable declarations
+	from different namespaces to match.
+	(duplicate_decls): Disallow redeclaring a variable with a
+	different linkage specification.
+
+2006-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27793
+	* cp-tree.h (cxx_int_tree_map): New struct.
+	(struct language_function): Add extern_decl_map field.
+	* name-lookup.c (pushdecl_maybe_friend): Add x -> t mapping
+	to cp_function_chain->extern_decl_map hash table instead of
+	copying over DECL_UID.
+	* cp-gimplify.c (cxx_int_tree_map_eq, cxx_int_tree_map_hash): New
+	functions.
+	(cp_genericize_r): Remap DECL_EXTERN local decls using
+	cp_function_chain->extern_decl_map hash table.
+	* decl.c (finish_function): Clear extern_decl_map.
+
+2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* semantics.c (finish_offsetof): Handle pseudo-destructors.
+
+	PR c++/27933
+	* name-lookup.c (lookup_qualified_name): Always return error_mark_node
+	if lookup fails.
+
+	PR c++/27951
+	* decl2.c (finish_anon_union): Return early if build_anon_union_vars
+	fails.
+
+2006-06-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/21210
+	* typeck2.c (build_functional_cast): Use cp_convert to construct
+	non-aggregate initializers instead of the user-level build_c_cast.
+
+2006-06-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27601
+	* cp-tree.h (finish_offsetof): Add prototype.
+	* semantics.c (finish_offsetof): New function.
+	* parser.c (cp_parser_builtin_offsetof): Call it instead of
+	fold_offsetof.
+	* pt.c (tsubst_copy_and_build): Likewise.
+
+2006-06-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27177
+	* call.c (standard_conversion): Require that the derived type be
+	complete when performing a derived-to-base conversion.
+
+2006-06-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27819
+	* decl.c (cp_finish_decl): Process initializers for static data
+	members with non-dependent initializers, even in templates.
+
+	PR c++/27722
+	* decl.c (maybe_deduce_size_from_array_init): If the declaration
+	is erroneous, give it an erroneous type.
+	(layout_var_decl): If the type is erroneous, give up.
+	(check_initializer): Likewise.
+
+	PR c++/27807
+	* cp-tree.h (TYPE_OBJ_P): New macro.
+	(TYPE_PTROB_P): Use it.
+	(TYPE_REF_OBJ_P): Likewise.
+	* semantics.c (finish_compound_literal): Do not permit compound
+	literals of non-object types.
+
+	PR c++/27806
+	* typeck.c (original_type): Robustify.
+
+2006-06-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27804
+	* init.c (constant_value_1): Return decl instead of error_mark_node
+	for invalid initializers.
+
+2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/27592
+	* rtti.c (build_dynamic_cast_1): Call c_common_truthvalue_conversion
+	on operand of the COND_EXPR for the null pointer check.
+
+2006-06-01  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/26740
+	* typeck.c (build_unary_op): Mark the function as being used.
+
+2006-06-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/26660
+	* parser.c (cp_parser_initial_pragma): Read one more token for
+	caller after reading PCH file in.
+
+2006-05-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27801
+	* call.c (perform_implicit_conversion): Do not actually perform
+	conversions in templates.
+
+	PR c++/26496
+	* call.c (resolve_args): Check for invalid uses of bound
+	non-static member functions.
+	* init.c (build_offset_ref): Return error_mark_node for errors.
+
+	PR c++/27385
+	* decl.c (reshape_init): Robustify.
+	(reshape_init_array_1): Likewise.
+
+2006-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27808
+	* parser.c (cp_parser_decl_specifier_seq): Issue errors about
+	"friend" specifiers that do not appear in class scopes.
+
+	PR c++/27803
+	* class.c (check_bitfield_decl): Ensure that all bitfields have
+	integral type.
+
 2006-05-29  Kazu Hirata  <kazu@codesourcery.com>
 
 	* pt.c (convert_nontype_argument): Fix a typo in an error
@@ -107,7 +480,7 @@
 	(cp_parser_pure_specifier): Likewise.
 
 	PR c++/26068
-	* parser.c (cp_parser_set_storage_class): Check for 
+	* parser.c (cp_parser_set_storage_class): Check for
 	invalid uses of storage classes on unbraced linkage
 	specifications.
 	(cp_parser_decl_specifier_seq): Pass keywords, not storage classes,
@@ -142,7 +515,7 @@
 	(cp_parser_explicit_specialization): Adjust call to
 	cp_parser_single_declaration.
 	(cp_parser_init_declarator): Perform template-parameter access
-	checks. 
+	checks.
 	(cp_parser_parameter_declaration): Do not defer checks for
 	template parameter default arguments.
 	(cp_parser_template_declaration_after_export): Gather access
@@ -328,11 +701,11 @@
 	type.
 	(build_modify_expr): Remove spurious conversions.
 	* class.c (layout_class_type): Modify the type of bitfields to
-	indicate a limited range. 
+	indicate a limited range.
 	* call.c (standard_conversion): Adjust the type of bitfield
 	expressions used in an rvalue context.
 	(build_conditional_expr): Likewise.
-	
+
 2006-04-22  Kazu Hirata  <kazu@codesourcery.com>
 
 	* decl.c: Fix comment typos.

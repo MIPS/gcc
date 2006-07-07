@@ -1,3 +1,37 @@
+2006-06-21  Keith Seitz  <keiths@redhat.com>
+
+	* pthread_stop_world.c (GC_suspend_handler): Redirect to suspension
+	routine if signal is received and thread is flagged SUSPENDED.
+	(suspend_self): New function.
+	(GC_suspend_thread): New function.
+	(GC_resume_thread): New function.
+	* include/gc.h (GC_suspend_thread): Declare.
+	(GC_resumet_thread): Declare.
+	* include/private/pthread_support.h (SUSPENDED): New GC_thread
+	flag.
+
+2006-06-20  Ranjit Mathew  <rmathew@gcc.gnu.org>
+	
+	Backport Windows 9x/ME VirtualQuery() fix from GC 6.7.
+	* os_dep.c (GC_wnt): Define.
+	(GC_init_win32): Set GC_wnt.
+	* dyn_load.c (GC_register_dynamic_libraries): Consider MEM_PRIVATE
+	sections also on Windows 9x/ME.
+
+2006-06-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Define HAS_PPC_THREAD_STATE_R0,
+	HAS_PPC_THREAD_STATE___R0, HAS_PPC_THREAD_STATE64_R0,
+	HAS_PPC_THREAD_STATE64___R0, HAS_I386_THREAD_STATE_EAX,
+	HAS_I386_THREAD_STATE___EAX.
+	* configure: Regenerate.
+	* include/gc_config.h.in: Regenerate.
+	* darwin_stop_world.c (PPC_RED_ZONE_SIZE): Use standard Darwin
+	macro names to determine value.
+	(THREAD_STATE): New.
+	(THREAD_FLD): New.
+	(GC_push_all_stacks): Use THREAD_STATE and THREAD_FLD in both versions.
+
 2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Makefile.am: Add install-html target. 

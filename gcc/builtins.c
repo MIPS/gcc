@@ -146,7 +146,6 @@ static tree fold_trunc_transparent_mathfn (tree, tree);
 static bool readonly_data_expr (tree);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_cabs (tree, tree);
 static tree fold_builtin_sqrt (tree, tree);
 static tree fold_builtin_cbrt (tree, tree);
 static tree fold_builtin_pow (tree, tree, tree);
@@ -510,12 +509,16 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
 #else
   rtx tem;
 
-  /* For a zero count, we don't care what frame address we return, so frame
-     pointer elimination is OK, and using the soft frame pointer is OK.
-     For a nonzero count, we require a stable offset from the current frame
-     pointer to the previous one, so we must use the hard frame pointer, and
+  /* For a zero count with __builtin_return_address, we don't care what
+     frame address we return, because target-specific definitions will
+     override us.  Therefore frame pointer elimination is OK, and using
+     the soft frame pointer is OK.
+
+     For a non-zero count, or a zero count with __builtin_frame_address,
+     we require a stable offset from the current frame pointer to the
+     previous one, so we must use the hard frame pointer, and
      we must disable frame pointer elimination.  */
-  if (count == 0)
+  if (count == 0 && fndecl_code == BUILT_IN_RETURN_ADDRESS)
     tem = frame_pointer_rtx;
   else
     {
@@ -6496,7 +6499,8 @@ fold_builtin_constant_p (tree arglist)
   if (TREE_SIDE_EFFECTS (arglist)
       || AGGREGATE_TYPE_P (TREE_TYPE (arglist))
       || POINTER_TYPE_P (TREE_TYPE (arglist))
-      || cfun == 0)
+      || cfun == 0
+      || folding_initializer)
     return integer_zero_node;
 
   return 0;
@@ -6772,11 +6776,12 @@ fold_fixed_mathfn (tree fndecl, tree arglist)
 }
 
 /* Fold function call to builtin cabs, cabsf or cabsl.  ARGLIST
-   is the argument list and TYPE is the return type.  Return
-   NULL_TREE if no if no simplification can be made.  */
+   is the argument list, TYPE is the return type and FNDECL is the
+   original function DECL.  Return NULL_TREE if no if no simplification
+   can be made.  */
 
 static tree
-fold_builtin_cabs (tree arglist, tree type)
+fold_builtin_cabs (tree arglist, tree type, tree fndecl)
 {
   tree arg;
 
@@ -6816,6 +6821,14 @@ fold_builtin_cabs (tree arglist, tree type)
   if (TREE_CODE (arg) == COMPLEX_EXPR
       && real_zerop (TREE_OPERAND (arg, 1)))
     return fold_build1 (ABS_EXPR, type, TREE_OPERAND (arg, 0));
+
+  /* Optimize cabs(-z) and cabs(conj(z)) as cabs(z).  */
+  if (TREE_CODE (arg) == NEGATE_EXPR
+      || TREE_CODE (arg) == CONJ_EXPR)
+    {
+      tree arglist = build_tree_list (NULL_TREE, TREE_OPERAND (arg, 0));
+      return build_function_call_expr (fndecl, arglist);
+    }
 
   /* Don't do this when optimizing for size.  */
   if (flag_unsafe_math_optimizations
@@ -8648,7 +8661,7 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
       break;
 
     CASE_FLT_FN (BUILT_IN_CABS):
-      return fold_builtin_cabs (arglist, type);
+      return fold_builtin_cabs (arglist, type, fndecl);
 
     CASE_FLT_FN (BUILT_IN_SQRT):
       return fold_builtin_sqrt (arglist, type);

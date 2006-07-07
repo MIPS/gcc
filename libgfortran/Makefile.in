@@ -122,15 +122,16 @@ am__objects_16 = matmul_i4.lo matmul_i8.lo matmul_i16.lo matmul_r4.lo \
 	matmul_c8.lo matmul_c10.lo matmul_c16.lo
 am__objects_17 = matmul_l4.lo matmul_l8.lo matmul_l16.lo
 am__objects_18 = transpose_i4.lo transpose_i8.lo transpose_i16.lo \
-	transpose_r10.lo transpose_r16.lo transpose_c4.lo \
-	transpose_c8.lo transpose_c10.lo transpose_c16.lo
+	transpose_r4.lo transpose_r8.lo transpose_r10.lo \
+	transpose_r16.lo transpose_c4.lo transpose_c8.lo \
+	transpose_c10.lo transpose_c16.lo
 am__objects_19 = shape_i4.lo shape_i8.lo shape_i16.lo
 am__objects_20 = eoshift1_4.lo eoshift1_8.lo eoshift1_16.lo
 am__objects_21 = eoshift3_4.lo eoshift3_8.lo eoshift3_16.lo
 am__objects_22 = cshift1_4.lo cshift1_8.lo cshift1_16.lo
 am__objects_23 = reshape_i4.lo reshape_i8.lo reshape_i16.lo \
-	reshape_r10.lo reshape_r16.lo reshape_c4.lo reshape_c8.lo \
-	reshape_c10.lo reshape_c16.lo
+	reshape_r4.lo reshape_r8.lo reshape_r10.lo reshape_r16.lo \
+	reshape_c4.lo reshape_c8.lo reshape_c10.lo reshape_c16.lo
 am__objects_24 = in_pack_i4.lo in_pack_i8.lo in_pack_i16.lo \
 	in_pack_c4.lo in_pack_c8.lo in_pack_c10.lo in_pack_c16.lo
 am__objects_25 = in_unpack_i4.lo in_unpack_i8.lo in_unpack_i16.lo \
@@ -204,7 +205,8 @@ am__objects_36 = _sign_i4.lo _sign_i8.lo _sign_i16.lo _sign_r4.lo \
 	_sign_r8.lo _sign_r10.lo _sign_r16.lo _dim_i4.lo _dim_i8.lo \
 	_dim_i16.lo _dim_r4.lo _dim_r8.lo _dim_r10.lo _dim_r16.lo \
 	_atan2_r4.lo _atan2_r8.lo _atan2_r10.lo _atan2_r16.lo \
-	_mod_i4.lo _mod_i8.lo _mod_i16.lo _mod_r4.lo _mod_r8.lo
+	_mod_i4.lo _mod_i8.lo _mod_i16.lo _mod_r4.lo _mod_r8.lo \
+	_mod_r10.lo _mod_r16.lo
 am__objects_37 = $(am__objects_35) $(am__objects_36) dprod_r8.lo \
 	f2c_specifics.lo
 am_libgfortran_la_OBJECTS = $(am__objects_1) $(am__objects_31) \
@@ -659,6 +661,8 @@ i_transpose_c = \
 generated/transpose_i4.c \
 generated/transpose_i8.c \
 generated/transpose_i16.c \
+generated/transpose_r4.c \
+generated/transpose_r8.c \
 generated/transpose_r10.c \
 generated/transpose_r16.c \
 generated/transpose_c4.c \
@@ -675,6 +679,8 @@ i_reshape_c = \
 generated/reshape_i4.c \
 generated/reshape_i8.c \
 generated/reshape_i16.c \
+generated/reshape_r4.c \
+generated/reshape_r8.c \
 generated/reshape_r10.c \
 generated/reshape_r16.c \
 generated/reshape_c4.c \
@@ -915,12 +921,10 @@ generated/_mod_i4.F90 \
 generated/_mod_i8.F90 \
 generated/_mod_i16.F90 \
 generated/_mod_r4.F90 \
-generated/_mod_r8.F90
+generated/_mod_r8.F90 \
+generated/_mod_r10.F90 \
+generated/_mod_r16.F90
 
-# There are commented out due to a bug in the way the front-end
-# handles MOD
-#generated/_mod_r10.F90
-#generated/_mod_r16.F90
 gfor_specific_src = \
 $(gfor_built_specific_src) \
 $(gfor_built_specific2_src) \
@@ -1392,6 +1396,12 @@ _mod_r4.lo: generated/_mod_r4.F90
 
 _mod_r8.lo: generated/_mod_r8.F90
 	$(LIBTOOL) --mode=compile $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) -c -o _mod_r8.lo `test -f 'generated/_mod_r8.F90' || echo '$(srcdir)/'`generated/_mod_r8.F90
+
+_mod_r10.lo: generated/_mod_r10.F90
+	$(LIBTOOL) --mode=compile $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) -c -o _mod_r10.lo `test -f 'generated/_mod_r10.F90' || echo '$(srcdir)/'`generated/_mod_r10.F90
+
+_mod_r16.lo: generated/_mod_r16.F90
+	$(LIBTOOL) --mode=compile $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) -c -o _mod_r16.lo `test -f 'generated/_mod_r16.F90' || echo '$(srcdir)/'`generated/_mod_r16.F90
 
 f2c_specifics.lo: intrinsics/f2c_specifics.F90
 	$(LIBTOOL) --mode=compile $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS) -c -o f2c_specifics.lo `test -f 'intrinsics/f2c_specifics.F90' || echo '$(srcdir)/'`intrinsics/f2c_specifics.F90
@@ -1933,6 +1943,12 @@ transpose_i8.lo: generated/transpose_i8.c
 transpose_i16.lo: generated/transpose_i16.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transpose_i16.lo `test -f 'generated/transpose_i16.c' || echo '$(srcdir)/'`generated/transpose_i16.c
 
+transpose_r4.lo: generated/transpose_r4.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transpose_r4.lo `test -f 'generated/transpose_r4.c' || echo '$(srcdir)/'`generated/transpose_r4.c
+
+transpose_r8.lo: generated/transpose_r8.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transpose_r8.lo `test -f 'generated/transpose_r8.c' || echo '$(srcdir)/'`generated/transpose_r8.c
+
 transpose_r10.lo: generated/transpose_r10.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o transpose_r10.lo `test -f 'generated/transpose_r10.c' || echo '$(srcdir)/'`generated/transpose_r10.c
 
@@ -1995,6 +2011,12 @@ reshape_i8.lo: generated/reshape_i8.c
 
 reshape_i16.lo: generated/reshape_i16.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_i16.lo `test -f 'generated/reshape_i16.c' || echo '$(srcdir)/'`generated/reshape_i16.c
+
+reshape_r4.lo: generated/reshape_r4.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_r4.lo `test -f 'generated/reshape_r4.c' || echo '$(srcdir)/'`generated/reshape_r4.c
+
+reshape_r8.lo: generated/reshape_r8.c
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_r8.lo `test -f 'generated/reshape_r8.c' || echo '$(srcdir)/'`generated/reshape_r8.c
 
 reshape_r10.lo: generated/reshape_r10.c
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reshape_r10.lo `test -f 'generated/reshape_r10.c' || echo '$(srcdir)/'`generated/reshape_r10.c

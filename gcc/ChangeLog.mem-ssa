@@ -1,3 +1,7 @@
+2006-07-07  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2006-07-06 (@115232).
+
 2006-07-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-operands.h (SSA_OPERAND_MEMORY_SIZE): Increase buffer size.

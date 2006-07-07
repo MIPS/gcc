@@ -107,7 +107,7 @@ extern const enum tree_code_class tree_code_type[];
   (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
    || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
    || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG)
-        
+
 
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
 
@@ -293,7 +293,7 @@ enum omp_clause_code
   /* OpenMP clause: reduction (operator:variable_list).
      OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
      Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
-     Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var 
+     Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
                 into the shared one.
      Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
                 placeholder used in OMP_CLAUSE_REDUCTION_MERGE.  */
@@ -773,7 +773,7 @@ enum tree_node_structure_enum {
     &__t->exp.operands[__i]; }))
 
 extern void tree_contains_struct_check_failed (const tree,
-					       const enum tree_node_structure_enum,				     
+					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
   ATTRIBUTE_NORETURN;
 
@@ -966,6 +966,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
         || TREE_CODE (TYPE) == VECTOR_TYPE)	\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
+/* Nonzero if TYPE represents a decimal floating-point type.  */
+#define DECIMAL_FLOAT_TYPE_P(TYPE)		\
+  (SCALAR_FLOAT_TYPE_P (TYPE)			\
+   && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
+
 /* Nonzero if TYPE represents an aggregate (multi-component) type.
    Keep these checks in ascending code order.  */
 
@@ -1062,7 +1067,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
 #define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.public_flag)
 
-/* In a VAR_DECL or FUNCTION_DECL,
+/* In a VAR_DECL, FUNCTION_DECL, NAMESPACE_DECL or TYPE_DECL,
    nonzero means name is to be accessible from outside this module.
    In an IDENTIFIER_NODE, nonzero means an external declaration
    accessible from outside this module was previously seen
@@ -1160,7 +1165,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
-   was used.  
+   was used.
    In a BLOCK, this means that the block contains variables that are used.  */
 #define TREE_USED(NODE) ((NODE)->common.used_flag)
 
@@ -1730,10 +1735,10 @@ struct tree_ssa_name GTY(())
 
 /* In a PHI_NODE node.  */
 
-/* These 2 macros should be considered off limits for use by developers.  If 
-   you wish to access the use or def fields of a PHI_NODE in the SSA 
-   optimizers, use the accessor macros found in tree-ssa-operands.h.  
-   These two macros are to be used only by those accessor macros, and other 
+/* These 2 macros should be considered off limits for use by developers.  If
+   you wish to access the use or def fields of a PHI_NODE in the SSA
+   optimizers, use the accessor macros found in tree-ssa-operands.h.
+   These two macros are to be used only by those accessor macros, and other
    select places where we *absolutely* must take the address of the tree.  */
 
 #define PHI_RESULT_TREE(NODE)		PHI_NODE_CHECK (NODE)->phi.result
@@ -2259,9 +2264,9 @@ struct tree_binfo GTY (())
 enum symbol_visibility
 {
   VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
+  VISIBILITY_PROTECTED,
   VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
+  VISIBILITY_INTERNAL
 };
 #endif
 
@@ -2310,7 +2315,7 @@ struct tree_decl_minimal GTY(())
 /* When computing aliasing information, we represent the memory pointed-to
    by pointers with artificial variables called "memory tags" (MT).  There
    are two kinds of tags, namely symbol and name:
-   
+
    Symbol tags (SMT) are used in flow-insensitive alias analysis, they
    represent all the pointed-to locations and variables pointed-to by
    the same pointer symbol.  Usually, this set is computed using
@@ -2341,10 +2346,10 @@ struct tree_memory_tag GTY(())
 struct tree_struct_field_tag GTY(())
 {
   struct tree_memory_tag common;
-  
+
   /* Parent variable.  */
   tree parent_var;
- 
+
   /* Offset inside structure.  */
   unsigned HOST_WIDE_INT offset;
 
@@ -2385,7 +2390,7 @@ struct tree_struct_field_tag GTY(())
    values for parameters are encoded in the type of the function,
    not in the PARM_DECL slot.
    For a FIELD_DECL, this is used for enumeration values and the C
-   frontend uses it for temporarily storing bitwidth of bitfields. 
+   frontend uses it for temporarily storing bitwidth of bitfields.
 
    ??? Need to figure out some way to check this isn't a PARM_DECL.  */
 #define DECL_INITIAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.initial)
@@ -2418,7 +2423,7 @@ struct tree_struct_field_tag GTY(())
   (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
 /* Nonzero for a given ..._DECL node means that the name of this node should
-   be ignored for symbolic debug purposes.  */ 
+   be ignored for symbolic debug purposes.  */
 #define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -2494,7 +2499,7 @@ struct tree_struct_field_tag GTY(())
    This indicates compiler tools that this decl needs to be preserved.  */
 #define DECL_PRESERVE_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.preserve_flag
- 
+
 /* For function local variables of COMPLEX type, indicates that the
    variable is not aliased, and that all modifications to the variable
    have been adjusted so that they are killing assignments.  Thus the
@@ -2533,24 +2538,24 @@ struct tree_decl_common GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned lang_flag_7 : 1;
- 
+
   /* In LABEL_DECL, this is DECL_ERROR_ISSUED.
      In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
   unsigned decl_flag_0 : 1;
   /* In FIELD_DECL, this is DECL_PACKED.  */
   unsigned decl_flag_1 : 1;
   /* In FIELD_DECL, this is DECL_BIT_FIELD
-     In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL. 
-     In TYPE_DECL, this is TYPE_DECL_SUPRESS_DEBUG.  */  
-  unsigned decl_flag_2 : 1;  
+     In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
+     In TYPE_DECL, this is TYPE_DECL_SUPRESS_DEBUG.  */
+  unsigned decl_flag_2 : 1;
   /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
      In VAR_DECL and PARM_DECL, this is DECL_HAS_VALUE_EXPR.  */
-  unsigned decl_flag_3 : 1;  
-  /* Logically, these two would go in a theoretical base shared by var and 
+  unsigned decl_flag_3 : 1;
+  /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
   unsigned gimple_reg_flag : 1;
   unsigned call_clobbered_flag : 1;
-  
+
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
        DECL_FUNCTION_CODE.  */
@@ -2570,8 +2575,8 @@ struct tree_decl_common GTY(())
   tree initial;
   tree attributes;
   tree abstract_origin;
-  
-  HOST_WIDE_INT pointer_alias_set; 
+
+  HOST_WIDE_INT pointer_alias_set;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_decl *lang_specific;
 };
@@ -2586,7 +2591,7 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_flag_3)
 #define DECL_VALUE_EXPR(NODE) \
-  (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE))) 
+  (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE)))
 #define SET_DECL_VALUE_EXPR(NODE, VAL)			\
   (decl_value_expr_insert (DECL_WRTL_CHECK (NODE), VAL))
 
@@ -2675,12 +2680,12 @@ struct tree_field_decl GTY(())
 {
   struct tree_decl_common common;
 
-  tree offset;	
-  tree bit_field_type;	
+  tree offset;
+  tree bit_field_type;
   tree qualifier;
   tree bit_offset;
   tree fcontext;
- 
+
 };
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
@@ -2697,7 +2702,7 @@ struct tree_label_decl GTY(())
 {
   struct tree_decl_with_rtl common;
   /* Java's verifier has some need to store information about labels,
-     and was using fields that no longer exist on labels.  
+     and was using fields that no longer exist on labels.
      Once the verifier doesn't need these anymore, they should be removed.  */
   tree java_field_1;
   tree java_field_2;
@@ -2727,7 +2732,7 @@ struct tree_const_decl GTY(())
 struct tree_parm_decl GTY(())
 {
   struct tree_decl_with_rtl common;
-  rtx incoming_rtl;  
+  rtx incoming_rtl;
 };
 
 
@@ -2787,7 +2792,7 @@ extern void decl_restrict_base_insert (tree, tree);
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 
-/* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME. 
+/* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
    This is true of all DECL nodes except FIELD_DECL.  */
 #define HAS_DECL_ASSEMBLER_NAME_P(NODE) \
   (CODE_CONTAINS_STRUCT (TREE_CODE (NODE), TS_DECL_WITH_VIS))
@@ -2837,19 +2842,19 @@ struct tree_decl_with_vis GTY(())
  struct tree_decl_with_rtl common;
  tree assembler_name;
  tree section_name;
-  
+
  /* Belong to VAR_DECL exclusively.  */
  unsigned defer_output:1;
  unsigned hard_register:1;
  unsigned thread_local:1;
- unsigned common_flag:1; 
+ unsigned common_flag:1;
  unsigned in_text_section : 1;
  unsigned gimple_formal_temp : 1;
- unsigned dllimport_flag : 1; 
+ unsigned dllimport_flag : 1;
  unsigned based_on_restrict_p : 1;
  /* Used by C++.  Might become a generic decl flag.  */
  unsigned shadowed_for_var_p : 1;
- 
+
  /* Don't belong to VAR_DECL exclusively.  */
  unsigned in_system_header_flag : 1;
  unsigned weak_flag:1;
@@ -2930,7 +2935,7 @@ struct tree_var_decl GTY(())
    is the FUNCTION_DECL which this FUNCTION_DECL will replace as a virtual
    function.  When the class is laid out, this pointer is changed
    to an INTEGER_CST node which is suitable for use as an index
-   into the virtual function table.  
+   into the virtual function table.
    C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
 #define DECL_VINDEX(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
 
@@ -2941,9 +2946,9 @@ struct tree_decl_non_common GTY(())
   /* C++ uses this in namespaces.  */
   tree saved_tree;
   /* C++ uses this in templates.  */
-  tree arguments;	
+  tree arguments;
   /* Almost all FE's use this.  */
-  tree result; 
+  tree result;
   /* C++ uses this in namespaces.  */
   tree vindex;
 };
@@ -3042,7 +3047,7 @@ struct tree_decl_non_common GTY(())
 struct tree_function_decl GTY(())
 {
   struct tree_decl_non_common common;
-  
+
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
   unsigned uninlinable : 1;
@@ -3051,7 +3056,7 @@ struct tree_function_decl GTY(())
   unsigned returns_twice_flag : 1;
   unsigned malloc_flag : 1;
   unsigned pure_flag : 1;
-  
+
   unsigned declared_inline_flag : 1;
   unsigned regdecl_flag : 1;
   unsigned inline_flag : 1;
@@ -3171,7 +3176,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
-  struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft; 
+  struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
 };
 
@@ -3527,7 +3532,7 @@ extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);
-extern tree build_fn_decl (const char *, tree); 
+extern tree build_fn_decl (const char *, tree);
 #define build_decl(c,t,q) build_decl_stat (c,t,q MEM_STAT_INFO)
 extern tree build_block (tree, tree, tree, tree);
 #ifndef USE_MAPPED_LOCATION
@@ -3565,6 +3570,7 @@ extern tree build_complex_type (tree);
 extern tree build_resx (int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
+extern bool range_in_array_bounds_p (tree);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (tree, tree);
@@ -3769,9 +3775,6 @@ typedef struct record_layout_info_s
   tree pending_statics;
   /* Bits remaining in the current alignment group */
   int remaining_in_alignment;
-  /* True if prev_field was packed and we haven't found any non-packed
-     fields that we have put in the same alignment group.  */
-  int prev_packed;
   /* True if we've seen a packed field that didn't have normal
      alignment anyway.  */
   int packed_maybe_necessary;
@@ -3830,6 +3833,7 @@ extern tree expr_last (tree);
 extern tree expr_only (tree);
 extern tree size_in_bytes (tree);
 extern HOST_WIDE_INT int_size_in_bytes (tree);
+extern HOST_WIDE_INT max_int_size_in_bytes (tree);
 extern tree bit_position (tree);
 extern HOST_WIDE_INT int_bit_position (tree);
 extern tree byte_position (tree);
@@ -4136,6 +4140,10 @@ extern void using_eh_for_cleanups (void);
 
 /* In fold-const.c */
 
+/* Non-zero if we are folding constants inside an initializer; zero
+   otherwise.  */
+extern int folding_initializer;
+
 /* Fold constants as much as possible in an expression.
    Returns the simplified expression.
    Acts only on the top level of the expression;
@@ -4201,6 +4209,7 @@ extern int operand_equal_p (tree, tree, unsigned int);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
+extern tree fold_truth_not_expr (tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);

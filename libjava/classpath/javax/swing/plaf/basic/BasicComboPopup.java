@@ -38,8 +38,6 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
-import gnu.classpath.NotImplementedException;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -294,9 +292,8 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
    * This method uninstalls keyboard actions installed by the UI.
    */
   protected void uninstallKeyboardActions()
-    throws NotImplementedException
   {
-    // FIXME: Need to implement
+    // Nothing to do here.
   }
 
   /**
@@ -559,12 +556,11 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   }
 
   /**
-   * DOCUMENT ME!
+   * Installs the keyboard actions.
    */
   protected void installKeyboardActions()
-    throws NotImplementedException
   {
-    // FIXME: Need to implement
+    // Nothing to do here
   }
 
   /**
@@ -681,7 +677,7 @@ public class BasicComboPopup extends JPopupMenu implements ComboPopup
   {
     Point point = SwingUtilities.convertPoint((Component) e.getSource(),
                                               e.getPoint(), list);
-    MouseEvent newEvent= new MouseEvent((Component) e.getSource(),
+    MouseEvent newEvent = new MouseEvent((Component) e.getSource(),
                                         e.getID(), e.getWhen(),
                                         e.getModifiers(), point.x, point.y,
                                         e.getModifiers(),

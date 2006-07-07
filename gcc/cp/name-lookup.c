@@ -670,14 +670,28 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      if (decls_match (x, t))
 		/* The standard only says that the local extern
 		   inherits linkage from the previous decl; in
-		   particular, default args are not shared.  We must
-		   also tell cgraph to treat these decls as the same,
-		   or we may neglect to emit an "unused" static - we
-		   do this by making the DECL_UIDs equal, which should
-		   be viewed as a kludge.  FIXME.  */
+		   particular, default args are not shared.  Add
+		   the decl into a hash table to make sure only
+		   the previous decl in this case is seen by the
+		   middle end.  */
 		{
+		  struct cxx_int_tree_map *h;
+		  void **loc;
+
 		  TREE_PUBLIC (x) = TREE_PUBLIC (t);
-		  DECL_UID (x) = DECL_UID (t);
+
+		  if (cp_function_chain->extern_decl_map == NULL)
+		    cp_function_chain->extern_decl_map
+		      = htab_create_ggc (20, cxx_int_tree_map_hash,
+					 cxx_int_tree_map_eq, NULL);
+
+		  h = GGC_NEW (struct cxx_int_tree_map);
+		  h->uid = DECL_UID (x);
+		  h->to = t;
+		  loc = htab_find_slot_with_hash
+			  (cp_function_chain->extern_decl_map, h,
+			   h->uid, INSERT);
+		  *(struct cxx_int_tree_map **) loc = h;
 		}
 	    }
 	  else if (TREE_CODE (t) == PARM_DECL)
@@ -1100,11 +1114,11 @@ check_for_out_of_scope_variable (tree decl)
   if (!(TREE_CODE (decl) == VAR_DECL && DECL_DEAD_FOR_LOCAL (decl)))
     return decl;
 
-  shadowed = DECL_HAS_SHADOWED_FOR_VAR_P (decl) 
+  shadowed = DECL_HAS_SHADOWED_FOR_VAR_P (decl)
     ? DECL_SHADOWED_FOR_VAR (decl) : NULL_TREE ;
   while (shadowed != NULL_TREE && TREE_CODE (shadowed) == VAR_DECL
 	 && DECL_DEAD_FOR_LOCAL (shadowed))
-    shadowed = DECL_HAS_SHADOWED_FOR_VAR_P (shadowed) 
+    shadowed = DECL_HAS_SHADOWED_FOR_VAR_P (shadowed)
       ? DECL_SHADOWED_FOR_VAR (shadowed) : NULL_TREE;
   if (!shadowed)
     shadowed = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (decl));
@@ -2595,6 +2609,9 @@ push_class_level_binding (tree name, tree x)
   if (!class_binding_level)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
+  if (name == error_mark_node)
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
+
   /* Check for invalid member names.  */
   gcc_assert (TYPE_BEING_DEFINED (current_class_type));
   /* We could have been passed a tree list if this is an ambiguous
@@ -2749,6 +2766,9 @@ do_class_using_decl (tree scope, tree name)
   tree base_binfo;
   int i;
 
+  if (name == error_mark_node)
+    return NULL_TREE;
+
   if (!scope || !TYPE_P (scope))
     {
       error ("using-declaration for non-member at class scope");
@@ -2774,14 +2794,14 @@ do_class_using_decl (tree scope, tree name)
     }
 
   scope_dependent_p = dependent_type_p (scope);
-  name_dependent_p = (scope_dependent_p 
+  name_dependent_p = (scope_dependent_p
 		      || (IDENTIFIER_TYPENAME_P (name)
 			  && dependent_type_p (TREE_TYPE (name))));
 
   bases_dependent_p = false;
   if (processing_template_decl)
     for (binfo = TYPE_BINFO (current_class_type), i = 0;
-	 BINFO_BASE_ITERATE (binfo, i, base_binfo); 
+	 BINFO_BASE_ITERATE (binfo, i, base_binfo);
 	 i++)
       if (dependent_type_p (TREE_TYPE (base_binfo)))
 	{
@@ -2794,8 +2814,8 @@ do_class_using_decl (tree scope, tree name)
   /* From [namespace.udecl]:
 
        A using-declaration used as a member-declaration shall refer to a
-       member of a base class of the class being defined.  
-     
+       member of a base class of the class being defined.
+
      In general, we cannot check this constraint in a template because
      we do not know the entire set of base classes of the current
      class type.  However, if all of the base classes are
@@ -2817,7 +2837,7 @@ do_class_using_decl (tree scope, tree name)
 	  decl = lookup_member (binfo, name, 0, false);
 	  if (!decl)
 	    {
-	      error ("no members matching %<%T::%D%> in %q#T", scope, name, 
+	      error ("no members matching %<%T::%D%> in %q#T", scope, name,
 		     scope);
 	      return NULL_TREE;
 	    }
@@ -3019,7 +3039,12 @@ push_namespace_with_attribs (tree name, tree attributes)
       /* Make a new namespace, binding the name to it.  */
       d = build_lang_decl (NAMESPACE_DECL, name, void_type_node);
       DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
-      TREE_PUBLIC (d) = 1;
+      /* The name of this namespace is not visible to other translation
+	 units if it is an anonymous namespace or member thereof.  */
+      if (anon || decl_anon_ns_mem_p (current_namespace))
+	TREE_PUBLIC (d) = 0;
+      else
+	TREE_PUBLIC (d) = 1;
       pushdecl (d);
       if (anon)
 	{
@@ -3066,15 +3091,6 @@ push_namespace_with_attribs (tree name, tree attributes)
       push_visibility (TREE_STRING_POINTER (x));
       goto found;
     }
-#if 0
-  if (anon)
-    {
-      /* Anonymous namespaces default to hidden visibility.  This might
-	 change once we implement export.  */
-      current_binding_level->has_visibility = 1;
-      push_visibility ("hidden");
-    }
-#endif
  found:
 #endif
 
@@ -3713,6 +3729,7 @@ tree
 lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
 {
   int flags = 0;
+  tree t = NULL_TREE;
 
   if (TREE_CODE (scope) == NAMESPACE_DECL)
     {
@@ -3722,17 +3739,14 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
       if (qualified_lookup_using_namespace (name, scope, &binding, flags))
-	return select_decl (&binding, flags);
+	t = select_decl (&binding, flags);
     }
   else if (is_aggr_type (scope, complain))
-    {
-      tree t;
-      t = lookup_member (scope, name, 2, is_type_p);
-      if (t)
-	return t;
-    }
+    t = lookup_member (scope, name, 2, is_type_p);
 
-  return error_mark_node;
+  if (!t)
+    return error_mark_node;
+  return t;
 }
 
 /* Subroutine of unqualified_namespace_lookup:
@@ -4796,7 +4810,7 @@ pushtag (tree name, tree type, tag_scope scope)
     b = b->level_chain;
 
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-  
+
   /* Do C++ gratuitous typedefing.  */
   if (IDENTIFIER_TYPE_VALUE (name) != type)
     {
@@ -4807,7 +4821,7 @@ pushtag (tree name, tree type, tag_scope scope)
       if (! context)
 	{
 	  tree cs = current_scope ();
-	  
+
 	  if (scope == ts_current)
 	    context = cs;
 	  else if (cs != NULL_TREE && TYPE_P (cs))
@@ -4844,7 +4858,7 @@ pushtag (tree name, tree type, tag_scope scope)
 	(type, scope == ts_within_enclosing_non_class, b);
       if (decl == error_mark_node)
 	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
-	  
+
       if (! in_class)
 	set_identifier_type_value_with_scope (name, tdef, b);
 
@@ -4860,7 +4874,11 @@ pushtag (tree name, tree type, tag_scope scope)
 	    pushdecl_class_level (decl);
 	}
       else if (b->kind != sk_template_parms)
-	decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	{
+	  decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	  if (decl == error_mark_node)
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
+	}
 
       TYPE_CONTEXT (type) = DECL_CONTEXT (decl);
 
@@ -4879,11 +4897,11 @@ pushtag (tree name, tree type, tag_scope scope)
     {
       maybe_add_class_template_decl_list (current_class_type,
 					  type, /*friend_p=*/0);
-      
+
       if (CLASSTYPE_NESTED_UTDS (current_class_type) == NULL)
 	CLASSTYPE_NESTED_UTDS (current_class_type)
 	  = binding_table_new (SCOPE_DEFAULT_HT_SIZE);
-      
+
       binding_table_insert
 	(CLASSTYPE_NESTED_UTDS (current_class_type), name, type);
     }
@@ -4891,6 +4909,10 @@ pushtag (tree name, tree type, tag_scope scope)
   decl = TYPE_NAME (type);
   gcc_assert (TREE_CODE (decl) == TYPE_DECL);
   TYPE_STUB_DECL (type) = decl;
+
+  /* Set type visibility now if this is a forward declaration.  */
+  TREE_PUBLIC (decl) = 1;
+  determine_visibility (decl);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, type);
 }

@@ -3128,7 +3128,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   PENDING_STMT (old_edge) = NULL;
 }
 
-/* Returns the basic block after that the new basic block created
+/* Returns the basic block after which the new basic block created
    by splitting edge EDGE_IN should be placed.  Tries to keep the new block
    near its "logical" location.  This is of most help to humans looking
    at debugging dumps.  */
@@ -5591,6 +5591,8 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
   TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
 
   bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+  if (in_ssa_p)
+    mark_symbols_for_renaming (new_stmt);
 
   return t;
 }

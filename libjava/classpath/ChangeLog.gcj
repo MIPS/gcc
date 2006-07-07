@@ -1,3 +1,46 @@
+2006-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28024:
+	* aclocal.m4, configure: Rebuilt.
+	* m4/acinclude.m4 (REGEN_WITH_JAY): Use backquote, not $(...).
+	* configure.ac (QT_INCLUDE_DIR): Use backquote, not $(...).
+
+2006-06-09  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/23863:
+	* native/fdlibm/dtoa.c (_dtoa): Free contents of _Jv_reent when
+	finished.
+	* native/fdlibm/mprec.c: New version from newlib.  Commented out
+	some includes.  Added <assert.h>.
+	(_reent, _Bigint): New defines.
+	(_REENT_CHECK_MP, _REENT_MP_FREELIST, _REENT_MP_P5S): Likewise.
+	(__ULong, __Long): New types.
+	(_calloc_r): New function.
+	(Balloc): Dynamically add new _freelist entries as needed.
+	* native/fdlibm/mprec.h (struct _Jv_Bigint): Don't use
+	MAX_BIGNUMS to size _x[].
+	(struct _Jv_reent): _freelist now a _Jv_Bigint**.  Removed
+	_allocation_map, num.  Added _max_k.
+
+2006-05-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* native/jni/gtk-peer/Makefile.am (gcc_version): New variable.
+	(gcjversionedlibdir): Likewise.
+	(libgtkpeer_la_LDFLAGS): Likewise.
+	Install libgtkpeer.so in GCJ versioned library directory.
+	* native/jawt/Makefile.am (gcc_version): New variable.
+	(gcjversionedlibdir): Likewise.
+	(libjawt_la_LDFLAGS): Likewise.
+	Rename libjawtgnu.so libjawt.so.  Install libjawt.so in GCJ
+	versioned library directory.
+	* gnu/java/awt/peer/gtk/GdkFontPeer.java (static): Call
+	System.loadLibrary unconditionally.
+	* gnu/java/awt/peer/gtk/GdkPixbufDecoder.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkGraphics2D.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkGraphics.java: Likewise.
+	* gnu/java/awt/peer/gtk/GtkToolkit.java: Likewise.
+	* gnu/java/awt/peer/gtk/GdkTextLayout.java: Likewise.
+
 2006-05-19  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* include/config-int.h: Delete, it is a generated file.

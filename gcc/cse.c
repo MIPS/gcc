@@ -1724,7 +1724,7 @@ flush_hash_table (void)
 	/* Note that invalidate can remove elements
 	   after P in the current hash chain.  */
 	if (REG_P (p->exp))
-	  invalidate (p->exp, p->mode);
+	  invalidate (p->exp, VOIDmode);
 	else
 	  remove_from_table (p, i);
       }
@@ -2728,17 +2728,10 @@ static void
 validate_canon_reg (rtx *xloc, rtx insn)
 {
   rtx new = canon_reg (*xloc, insn);
-  int insn_code;
 
   /* If replacing pseudo with hard reg or vice versa, ensure the
      insn remains valid.  Likewise if the insn has MATCH_DUPs.  */
-  if (insn != 0 && new != 0
-      && REG_P (new) && REG_P (*xloc)
-      && (((REGNO (new) < FIRST_PSEUDO_REGISTER)
-	   != (REGNO (*xloc) < FIRST_PSEUDO_REGISTER))
-	  || GET_MODE (new) != GET_MODE (*xloc)
-	  || (insn_code = recog_memoized (insn)) < 0
-	  || insn_data[insn_code].n_dups > 0))
+  if (insn != 0 && new != 0)
     validate_change (insn, xloc, new, 1);
   else
     *xloc = new;
@@ -2748,8 +2741,7 @@ validate_canon_reg (rtx *xloc, rtx insn)
    replace each register reference inside it
    with the "oldest" equivalent register.
 
-   If INSN is nonzero and we are replacing a pseudo with a hard register
-   or vice versa, validate_change is used to ensure that INSN remains valid
+   If INSN is nonzero validate_change is used to ensure that INSN remains valid
    after we make our substitution.  The calls are made with IN_GROUP nonzero
    so apply_change_group must be called upon the outermost return from this
    function (unless INSN is zero).  The result of apply_change_group can
@@ -4943,17 +4935,9 @@ cse_insn (rtx insn, rtx libcall_insn)
       rtx dest = SET_DEST (sets[i].rtl);
       rtx src = SET_SRC (sets[i].rtl);
       rtx new = canon_reg (src, insn);
-      int insn_code;
 
       sets[i].orig_src = src;
-      if ((REG_P (new) && REG_P (src)
-	   && ((REGNO (new) < FIRST_PSEUDO_REGISTER)
-	       != (REGNO (src) < FIRST_PSEUDO_REGISTER)))
-	  || (insn_code = recog_memoized (insn)) < 0
-	  || insn_data[insn_code].n_dups > 0)
-	validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
-      else
-	SET_SRC (sets[i].rtl) = new;
+      validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
 
       if (GET_CODE (dest) == ZERO_EXTRACT)
 	{
@@ -5739,7 +5723,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  rtx addr = XEXP (dest, 0);
 	  if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC
 	      && XEXP (addr, 0) == stack_pointer_rtx)
-	    invalidate (stack_pointer_rtx, Pmode);
+	    invalidate (stack_pointer_rtx, VOIDmode);
 #endif
 	  dest = fold_rtx (dest, insn);
 	}

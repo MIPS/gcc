@@ -1574,14 +1574,10 @@ gfc_resolve_reshape (gfc_expr * f, gfc_expr * source, gfc_expr * shape,
     case 8:
     case 10:
     case 16:
-      if (source->ts.type == BT_COMPLEX)
+      if (source->ts.type == BT_COMPLEX || source->ts.type == BT_REAL)
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%c%d"),
-			  gfc_type_letter (BT_COMPLEX), source->ts.kind);
-      else if (source->ts.type == BT_REAL && (kind == 10 || kind == 16))
-	f->value.function.name =
-	  gfc_get_string (PREFIX("reshape_%c%d"),
-			  gfc_type_letter (BT_REAL), source->ts.kind);
+			  gfc_type_letter (source->ts.type), source->ts.kind);
       else
 	f->value.function.name =
 	  gfc_get_string (PREFIX("reshape_%d"), source->ts.kind);
@@ -2025,8 +2021,6 @@ gfc_resolve_transfer (gfc_expr * f, gfc_expr * source ATTRIBUTE_UNUSED,
 void
 gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
 {
-  int kind;
-
   f->ts = matrix->ts;
   f->rank = 2;
   if (matrix->shape)
@@ -2036,9 +2030,7 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
       mpz_init_set (f->shape[1], matrix->shape[0]);
     }
 
-  kind = matrix->ts.kind;
-
-  switch (kind)
+  switch (matrix->ts.kind)
     {
     case 4:
     case 8:
@@ -2046,30 +2038,20 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
     case 16:
       switch (matrix->ts.type)
         {
+        case BT_REAL:
         case BT_COMPLEX:
           f->value.function.name =
-            gfc_get_string (PREFIX("transpose_c%d"), kind);
+            gfc_get_string (PREFIX("transpose_%c%d"),
+			    gfc_type_letter (matrix->ts.type),
+			    matrix->ts.kind);
           break;
-
-        case BT_REAL:
-	  /* There is no kind=10 integer type and on 32-bit targets
-	     there is usually no kind=16 integer type.  We need to
-	     call the real version.  */
-	  if (kind == 10 || kind == 16)
-	    {
-	      f->value.function.name =
-		gfc_get_string (PREFIX("transpose_r%d"), kind);
-	      break;
-	    }
-
-	  /* Fall through */
 
         case BT_INTEGER:
         case BT_LOGICAL:
 	  /* Use the integer routines for real and logical cases.  This
 	     assumes they all have the same alignment requirements.  */
           f->value.function.name =
-            gfc_get_string (PREFIX("transpose_i%d"), kind);
+            gfc_get_string (PREFIX("transpose_i%d"), matrix->ts.kind);
           break;
 
         default:
@@ -2237,7 +2219,7 @@ gfc_resolve_alarm_sub (gfc_code * c)
 }
 
 void
-gfc_resolve_cpu_time (gfc_code * c ATTRIBUTE_UNUSED)
+gfc_resolve_cpu_time (gfc_code * c)
 {
   const char *name;
 
@@ -2261,7 +2243,7 @@ gfc_resolve_mvbits (gfc_code * c)
 
 
 void
-gfc_resolve_random_number (gfc_code * c ATTRIBUTE_UNUSED)
+gfc_resolve_random_number (gfc_code * c)
 {
   const char *name;
   int kind;
@@ -2349,6 +2331,26 @@ gfc_resolve_etime_sub (gfc_code * c)
 
   name = gfc_get_string (PREFIX("etime_sub"));
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
+}
+
+
+/* G77 compatibility subroutines itime() and idate().  */
+
+void
+gfc_resolve_itime (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("itime_i%d"),
+				       gfc_default_integer_kind));
+}
+
+
+void
+gfc_resolve_idate (gfc_code * c)
+{
+  c->resolved_sym = gfc_get_intrinsic_sub_symbol
+		      (gfc_get_string (PREFIX("idate_i%d"),
+				       gfc_default_integer_kind));
 }
 
 

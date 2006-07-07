@@ -1466,6 +1466,36 @@ may_be_unaligned_p (tree ref)
   return false;
 }
 
+/* Return true if EXPR may be non-addressable.   */
+
+static bool
+may_be_nonaddressable_p (tree expr)
+{
+  switch (TREE_CODE (expr))
+    {
+    case COMPONENT_REF:
+      return DECL_NONADDRESSABLE_P (TREE_OPERAND (expr, 1))
+	     || may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      return may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
+
+    case VIEW_CONVERT_EXPR:
+      /* This kind of view-conversions may wrap non-addressable objects
+	 and make them look addressable.  After some processing the
+	 non-addressability may be uncovered again, causing ADDR_EXPRs
+	 of inappropriate objects to be built.  */
+      return AGGREGATE_TYPE_P (TREE_TYPE (expr))
+	     && !AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+
+    default:
+      break;
+    }
+
+  return false;
+}
+
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
@@ -1482,9 +1512,10 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
-  if (TREE_CODE (base) == BIT_FIELD_REF
-      || (TREE_CODE (base) == COMPONENT_REF
-	  && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1))))
+  if (TREE_CODE (base) == BIT_FIELD_REF)
+    goto fail;
+
+  if (may_be_nonaddressable_p (base))
     goto fail;
 
   if (STRICT_ALIGNMENT
@@ -5461,112 +5492,6 @@ rewrite_use_compare (struct ivopts_data *data,
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   *op_p = op;
-}
-
-/* Ensure that operand *OP_P may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
-{
-  basic_block def_bb;
-  struct loop *def_loop;
-  tree phi, use;
-
-  use = USE_FROM_PTR (op_p);
-  if (TREE_CODE (use) != SSA_NAME)
-    return;
-
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
-  if (!def_bb)
-    return;
-
-  def_loop = def_bb->loop_father;
-  if (flow_bb_inside_loop_p (def_loop, exit->dest))
-    return;
-
-  /* Try finding a phi node that copies the value out of the loop.  */
-  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
-    if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
-      break;
-
-  if (!phi)
-    {
-      /* Create such a phi node.  */
-      tree new_name = duplicate_ssa_name (use, NULL);
-
-      phi = create_phi_node (new_name, exit->dest);
-      SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (phi, use, exit);
-    }
-
-  SET_USE (op_p, PHI_RESULT (phi));
-}
-
-/* Ensure that operands of STMT may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form (edge exit, tree stmt)
-{
-  ssa_op_iter iter;
-  use_operand_p use_p;
-
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-    protect_loop_closed_ssa_form_use (exit, use_p);
-}
-
-/* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
-   so that they are emitted on the correct place, and so that the loop closed
-   ssa form is preserved.  */
-
-void
-compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
-{
-  tree_stmt_iterator tsi;
-  block_stmt_iterator bsi;
-  tree phi, stmt, def, next;
-
-  if (!single_pred_p (exit->dest))
-    split_loop_exit_edge (exit);
-
-  /* Ensure there is label in exit->dest, so that we can
-     insert after it.  */
-  tree_block_label (exit->dest);
-  bsi = bsi_after_labels (exit->dest);
-
-  if (TREE_CODE (stmts) == STATEMENT_LIST)
-    {
-      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-        {
-	  tree stmt = tsi_stmt (tsi);
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	  protect_loop_closed_ssa_form (exit, stmt);
-	}
-    }
-  else
-    {
-      bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      protect_loop_closed_ssa_form (exit, stmts);
-    }
-
-  if (!op)
-    return;
-
-  for (phi = phi_nodes (exit->dest); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-
-      if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
-	{
-	  def = PHI_RESULT (phi);
-	  remove_statement (phi, false);
-	  stmt = build2 (MODIFY_EXPR, TREE_TYPE (op),
-			def, op);
-	  SSA_NAME_DEF_STMT (def) = stmt;
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	}
-    }
 }
 
 /* Rewrites USE using candidate CAND.  */

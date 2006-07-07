@@ -825,7 +825,7 @@ debug_binfo (tree elem)
    the type of the result expression, if known, or NULL_TREE if the
    resulting expression is type-dependent.  If TEMPLATE_P is true,
    NAME is known to be a template because the user explicitly used the
-   "template" keyword after the "::".   
+   "template" keyword after the "::".
 
    All SCOPE_REFs should be built by use of this function.  */
 
@@ -1382,6 +1382,30 @@ decl_namespace_context (tree decl)
 	decl = CP_DECL_CONTEXT (TYPE_MAIN_DECL (decl));
       else
 	decl = CP_DECL_CONTEXT (decl);
+    }
+}
+
+/* Returns true if decl is within an anonymous namespace, however deeply
+   nested, or false otherwise.  */
+
+bool
+decl_anon_ns_mem_p (tree decl)
+{
+  while (1)
+    {
+      if (decl == NULL_TREE)
+	return false;
+      if (TREE_CODE (decl) == NAMESPACE_DECL
+	  && DECL_NAME (decl) == NULL_TREE)
+	return true;
+      /* Classes and namespaces inside anonymous namespaces have
+         TREE_PUBLIC == 0, so we can shortcut the search.  */
+      else if (TYPE_P (decl))
+	return (TREE_PUBLIC (TYPE_NAME (decl)) == 0);
+      else if (TREE_CODE (decl) == NAMESPACE_DECL)
+	return (TREE_PUBLIC (decl) == 0);
+      else
+	decl = DECL_CONTEXT (decl);
     }
 }
 
@@ -2170,8 +2194,8 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
-  
-  /* Linkage of a CONST_DECL depends on the linkage of the enumeration 
+
+  /* Linkage of a CONST_DECL depends on the linkage of the enumeration
      type.  */
   if (TREE_CODE (decl) == CONST_DECL)
     return decl_linkage (TYPE_NAME (TREE_TYPE (decl)));
@@ -2181,7 +2205,8 @@ decl_linkage (tree decl)
      template instantiations have internal linkage (in the object
      file), but the symbols should still be treated as having external
      linkage from the point of view of the language.  */
-  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
+  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl)
+      && DECL_COMDAT (decl))
     return lk_external;
 
   /* Things in local scope do not have linkage, if they don't have

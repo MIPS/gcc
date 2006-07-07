@@ -33,26 +33,20 @@ libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
 ## What gets installed, and where.
 ##
 
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la libgcj-tools.la
 toolexecmainlib_DATA = libgcj.spec
 
 if XLIB_AWT
 toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
 
-if GTK_AWT
-toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-gtk.la libgcjawt.la
-endif
-
-if QT_AWT
-toolexeclib_LTLIBRARIES += lib-gnu-java-awt-peer-qt.la
-endif
+dbexec_LTLIBRARIES = libjvm.la
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
-jar_DATA = libgcj-$(gcc_version).jar
+jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 
 if JAVA_HOME_SET
 JAVA_HOME_DIR = $(JAVA_HOME)
@@ -74,7 +68,8 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
+bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
+	gappletviewer gjarsigner gkeytool
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -89,7 +84,9 @@ bin_SCRIPTS = addr2name.awk
 ## Compilers and compilation flags.
 ##
 
-GCJH = @GCJH@
+if BASH_JAR
+bin_SCRIPTS += scripts/jar
+endif
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -128,6 +125,8 @@ AM_CXXFLAGS = \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
+	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
+	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
 	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\""
@@ -236,6 +235,21 @@ libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
 
+libgcj_tools_la_SOURCES = classpath/tools/tools.jar
+libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
+libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
+ -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
+libgcj_tools_la_LINK = $(LIBLINK)
+
+## libjvm.so
+libjvm_la_SOURCES = jni-libjvm.cc
+libjvm_la_DEPENDENCIES = libgcj.la libgcj.spec
+## See jv_convert_LDADD.
+libjvm_la_LIBADD = -L$(here)/.libs libgcj.la
+## The mysterious backslash in the grep pattern is consumed by make.
+libjvm_la_LDFLAGS = \
+        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
 ## The .db file.  This rule is only used for native builds, so it is
 ## safe to invoke gcj-dbtool.
@@ -246,45 +260,6 @@ $(db_name): gcj-dbtool$(EXEEXT)
 ## empty file.  This is simpler than trying to discover when mmap is
 ## not available.
 	./gcj-dbtool -n $(db_name) || touch $(db_name)
-
-## For the peer library, DEPENDENCIES need to come before OBJECTS so
-## that JNI headers are built before JNI C files.
-$(lib_gnu_java_awt_peer_gtk_la_OBJECTS): $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
-
-lib_gnu_java_awt_peer_gtk_la_SOURCES =
-lib_gnu_java_awt_peer_gtk_la_LIBADD = \
-	gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	$(GTK_LIBS) $(GLIB_LIBS) $(LIBART_LIBS) $(CAIRO_LIBS) $(PANGOFT2_LIBS)
-lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = gnu-java-awt-peer-gtk.lo \
-	classpath/native/jni/gtk-peer/libgtkpeer.la \
-	libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-## The mysterious backslash in the grep pattern is consumed by make.
-lib_gnu_java_awt_peer_gtk_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
-lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
-
-libgcjawt_la_SOURCES = classpath/native/jawt/jawt.c
-libgcjawt_la_CFLAGS = -I$(srcdir)/classpath/native/jni/classpath \
-	$(PEDANTIC_CFLAGS) $(X_CFLAGS)
-## See jv_convert_LDADD.
-libgcjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
-libgcjawt_la_LDFLAGS = \
-	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
-	$(LIBGCJ_LD_SYMBOLIC)
-libgcjawt_la_LINK = $(LIBLINK)
-
-lib_gnu_java_awt_peer_qt_la_SOURCES =
-lib_gnu_java_awt_peer_qt_la_LIBADD = \
-	gnu-java-awt-peer-qt.lo \
-	classpath/native/jni/qt-peer/libqtpeer.la
-lib_gnu_java_awt_peer_qt_la_DEPENDENCIES = gnu-java-awt-peer-qt.lo \
-	classpath/native/jni/qt-peer/libqtpeer.la \
-	libgcj-$(gcc_version).jar libgcj.la libgcj.spec
-## The mysterious backslash in the grep pattern is consumed by make.
-lib_gnu_java_awt_peer_qt_la_LDFLAGS = \
-        -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC) $(X_LIBS) -lXtst
-lib_gnu_java_awt_peer_qt_la_LINK = $(LIBLINK)
 
 lib_gnu_awt_xlib_la_SOURCES = $(xlib_nat_source_files)
 lib_gnu_awt_xlib_la_LIBADD = gnu/awt/xlib.lo gnu/gcj/xlib.lo
@@ -315,7 +290,10 @@ libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
 
-CLEANFILES = libgcj-$(gcc_version).jar
+libgcj-tools-$(gcc_version).jar: classpath/tools/tools.jar
+	cp $< $@
+
+CLEANFILES = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 
 mostlyclean-local:
@@ -723,7 +701,8 @@ gij_SOURCES =
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
-gij_LDFLAGS = -rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gij_LDFLAGS = -rpath $(libdir)/gcj-$(gcc_version) -rpath $(toolexeclibdir) \
+	-shared-libgcc $(THREADLDFLAGS)
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gij_LDADD = -L$(here)/.libs libgij.la
@@ -752,6 +731,39 @@ grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+
+## This is a dummy definition.
+gappletviewer_SOURCES =
+gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gappletviewer_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gappletviewer_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gappletviewer_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gjarsigner_SOURCES =
+gjarsigner_LDFLAGS = --main=gnu.classpath.tools.jarsigner.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gjarsigner_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjarsigner_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gjarsigner_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gkeytool_SOURCES =
+gkeytool_LDFLAGS = --main=gnu.classpath.tools.keytool.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gkeytool_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gkeytool_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gkeytool_DEPENDENCIES = libgcj-tools.la
 
 ## ################################################################
 
@@ -929,6 +941,7 @@ create-headers: $(headers_to_make)
 
 $(libgcj_la_OBJECTS) $(gcj_dbtool_OBJECTS) $(xlib_nat_files): headers.stamp
 $(libgij_la_OBJECTS): headers.stamp
+$(libjvm_la_OBJECTS): headers.stamp
 
 ## ################################################################
 

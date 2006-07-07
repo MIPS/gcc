@@ -1,3 +1,117 @@
+2006-07-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/date_and_time.c (itime0,idate0,itime_i4,itime_i8,
+	idate_i4,idate_i8): New functions.
+
+2006-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27704
+	* runtime/error.c (notify_std): Pass common flags into function. Use
+	flags to show locus of error or warning.
+	* libgfortran.h: Add enum try.  Add prototype for notify_std.
+	* io/open.c (edit_modes): Allow status="old" and add extension to
+	allow status="scratch"
+	*io/list_read.c (nml_read_obj): Update call to notify_std.
+	*io/io.h: Remove enum try and prototype for notify_std.
+	*io/transfer.c (read_sf): Update call to notify_std.
+	*io/format.c (parse_format_list): Update call to notify_std.
+
+2006-06-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/io.h: Move proto for unit_to_fd...
+	* libgfortran.h: ...here.
+
+2006-06-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/ierrno.c: Don't include "io/io.h".
+	* intrinsics/sleep.c: Likewise.
+	* intrinsics/perror.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* intrinsics/kill.c: Likewise.
+	* intrinsics/time.c: Likewise.
+	* intrinsics/fnum.c: Likewise.
+	* intrinsics/rename.c: Likewise.
+	* intrinsics/symlnk.c: Likewise.
+	* intrinsics/chdir.c: Likewise.
+	* intrinsics/link.c: Likewise.
+	* intrinsics/random.c: Don't include "io/io.h". Include	<gthr.h>.
+	* intrinsics/rand.c: Likewise.
+
+2006-06-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28094
+	* Makefile.am: Add _mod_r10.F90 and _mod_r16.F90.
+	* Makefile.in: Regenerate.
+	* generated/_mod_r10.F90: New file.
+	* generated/_mod_r16.F90: New file.
+
+2006-06-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/26769
+	* Makefile.am: Add r4 and r8 versions of reshape and transpose.
+	* Makefile.in: Regenerate.
+	* generated/reshape_r4.c: New file.
+	* generated/reshape_r8.c: New file.
+	* generated/transpose_r4.c: New file.
+	* generated/transpose_r8.c: New file.
+
+2006-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28005
+	* m4/matmul.m4: aystride = 1 does not uniquely detect the
+	presence of a temporary transpose; an array element in the
+	first dimension produces the same signature.  Detect this
+	using the rank of a and add specific code.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-06-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgomp/27254
+	* io/unit.c (get_internal_unit): Initialize and lock thread mutex
+	for internal units.
+
+2006-06-06  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* m4/in_pack.m4: Add TODO comment about detecting temporaries,
+	remove test for stride 0, update copyright year.
+	* m4/transpose.m4: Remove test for stride 0, update copyright
+	year.
+	* m4/iforeach.m4: Likewise.
+	* m4/shape.m4: Likewise.
+	* m4/in_unpack.m4: Likewise.
+	* m4/reshape.m4: Likewise.
+	* m4/ifunction.m4: Likewise.
+	* m4/matmul.m4: Likewise.
+	* m4/matmull.m4: Likewise.
+	* intrinsics/etime.c: Likewise.
+	* intrinsics/transpose_generic.c: Likewise.
+	* intrinsics/spread_generic.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* intrinsics/reshape_generic.c: Likewise.
+	* intrinsics/random.c: Likewise.
+	* generated/*: Regenerated from above changed m4 files.
+	
+2006-05-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27757
+	* io/unix.c (fd_seek): Set active to zero.
+
+2006-05-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27634
+	* io/format.c (parse_format_list): Allow missing period in format only
+	if -std=legacy.
+
 2006-05-28  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	* intrinsics/string_intrinsics.c (compare_string):

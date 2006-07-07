@@ -598,22 +598,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
-/* Lookup VAR in the referenced_vars hashtable and return true if it is
-   present.  */
-
-static inline bool
-referenced_var_p (tree var)
-{
-  struct int_tree_map *h, in;
-  in.uid = DECL_UID (var);
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, 
-						   &in, 
-						   in.uid);
-  if (h)
-    return h->to != NULL_TREE;
-  return false;
-}
-
 /* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
 
@@ -629,22 +613,34 @@ referenced_var_lookup (unsigned int uid)
   return NULL_TREE;
 }
 
-/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+/* Check if TO is in the referenced_vars hash table and insert it if not.  
+   Return true if it required insertion.  */
 
-static void
-referenced_var_insert (unsigned int uid, tree to)
+static bool
+referenced_var_check_and_insert (tree to)
 { 
-  struct int_tree_map *h;
+  struct int_tree_map *h, in;
   void **loc;
+  unsigned int uid = DECL_UID (to);
+
+  in.uid = uid;
+  in.to = to;
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+
+  if (h)
+    {
+      /* DECL_UID has already been entered in the table.  Verify that it is
+	 the same entry as TO.  See PR 27793.  */
+      gcc_assert (h->to == to);
+      return false;
+    }
 
   h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
-  /* This assert can only trigger if a variable with the same UID has been 
-     inserted already.  */
-  gcc_assert ((*(struct int_tree_map **)loc) == NULL);
   *(struct int_tree_map **)  loc = h;
+  return true;
 }
 
 /* Lookup VAR UID in the default_defs hashtable and return the associated
@@ -707,13 +703,11 @@ add_referenced_var (tree var)
   v_ann = get_var_ann (var);
   gcc_assert (DECL_P (var));
   
-  if (!referenced_var_p (var))
+  /* Insert VAR into the referenced_vars has table if it isn't present.  */
+  if (referenced_var_check_and_insert (var))
     {
-      /* This is the first time we find this variable, add it to the
-         REFERENCED_VARS array and annotate it with attributes that are
-	 intrinsic to the variable.  */
-      
-      referenced_var_insert (DECL_UID (var), var);
+      /* This is the first time we found this variable, annotate it with
+	 attributes that are intrinsic to the variable.  */
       
       /* Tag's don't have DECL_INITIAL.  */
       if (MTAG_P (var))
