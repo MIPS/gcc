@@ -8272,13 +8272,15 @@ grokdeclarator (const cp_declarator *declarator,
 		   parameter if there is at least one parameter, and
 		   any subsequent parameters have default arguments.
 		   Ignore any compiler-added parms.  */
-		tree arg_types = FUNCTION_FIRST_USER_PARMTYPE (decl);
+		tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
 		tree parm_decls = FUNCTION_FIRST_USER_PARM (decl);
+		int skip = num_artificial_parms_for (decl);
+		int len = num_parm_types (arg_types);
 
-		if (arg_types == void_list_node
-		    || (arg_types
-			&& TREE_CHAIN (arg_types)
-			&& TREE_CHAIN (arg_types) != void_list_node
+		if ((skip + 1 == len
+		     && nth_parm_type (arg_types, skip) == void_type_node)
+		    || (skip + 1 < len
+			&& nth_parm_type (arg_types, skip + 1) != void_type_node
 			&& !DECL_INITIAL (TREE_CHAIN (parm_decls))))
 		  DECL_NONCONVERTING_P (decl) = 1;
 	      }

@@ -1,3 +1,8 @@
+2006-07-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types,
+	nth_parm_type, and num_artificial_parms_for in grokdeclarator.
+
 2006-07-08  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree.c (call_expr_argp): New function that returns a pointer
