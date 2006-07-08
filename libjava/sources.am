@@ -967,6 +967,20 @@ gnu/java/lang.list: $(gnu_java_lang_source_files)
 -include gnu/java/lang.deps
 
 
+gnu_java_lang_management_source_files = \
+classpath/gnu/java/lang/management/OperatingSystemMXBeanImpl.java \
+classpath/gnu/java/lang/management/RuntimeMXBeanImpl.java \
+gnu/java/lang/management/VMRuntimeMXBeanImpl.java
+
+gnu_java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_management_source_files)))
+
+gnu/java/lang/management.list: $(gnu_java_lang_management_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/gnu/java/lang/management/*.class > gnu/java/lang/management.list
+
+-include gnu/java/lang/management.deps
+
+
 gnu_java_lang_reflect_source_files = \
 classpath/gnu/java/lang/reflect/ClassSignatureParser.java \
 classpath/gnu/java/lang/reflect/FieldSignatureParser.java \
@@ -4242,6 +4256,21 @@ java/lang/instrument.list: $(java_lang_instrument_source_files)
 	echo classpath/lib/java/lang/instrument/*.class > java/lang/instrument.list
 
 -include java/lang/instrument.deps
+
+
+java_lang_management_source_files = \
+classpath/java/lang/management/ManagementFactory.java \
+classpath/java/lang/management/ManagementPermission.java \
+classpath/java/lang/management/OperatingSystemMXBean.java \
+classpath/java/lang/management/RuntimeMXBean.java
+
+java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_management_source_files)))
+
+java/lang/management.list: $(java_lang_management_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/management/*.class > java/lang/management.list
+
+-include java/lang/management.deps
 
 
 java_lang_ref_source_files = \
@@ -7559,6 +7588,7 @@ all_packages_source_files = \
   gnu/java/awt/peer.list \
   gnu/java/io.list \
   gnu/java/lang.list \
+  gnu/java/lang/management.list \
   gnu/java/lang/reflect.list \
   gnu/java/locale.list \
   gnu/java/math.list \
@@ -7671,6 +7701,7 @@ all_packages_source_files = \
   java/lang.list \
   java/lang/annotation.list \
   java/lang/instrument.list \
+  java/lang/management.list \
   java/lang/ref.list \
   java/lang/reflect.list \
   java/math.list \
@@ -7777,6 +7808,7 @@ ordinary_header_files = \
   $(gnu_java_awt_peer_header_files) \
   $(gnu_java_io_header_files) \
   $(gnu_java_lang_header_files) \
+  $(gnu_java_lang_management_header_files) \
   $(gnu_java_lang_reflect_header_files) \
   $(gnu_java_locale_header_files) \
   $(gnu_java_math_header_files) \
@@ -7889,6 +7921,7 @@ ordinary_header_files = \
   $(java_lang_header_files) \
   $(java_lang_annotation_header_files) \
   $(java_lang_instrument_header_files) \
+  $(java_lang_management_header_files) \
   $(java_lang_ref_header_files) \
   $(java_lang_reflect_header_files) \
   $(java_math_header_files) \

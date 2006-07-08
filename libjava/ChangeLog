@@ -1,3 +1,17 @@
+2006-07-07  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/java/lang/management/VMRuntimeMXBeanImpl.java,
+	* gnu/java/lang/management/natVMRuntimeMXBeanImpl.cc:
+	New files.
+	* include/jvm.h:
+	Add new variables used in prims.cc.
+	* Makefile.am:
+	Add natVMRuntimeMXBeanImpl.cc.
+	* prims.cc:
+	(_Jv_CreateJavaVM): Retain start time and input
+	arguments.
+	
 2006-07-07  Andrew Haley  <aph@redhat.com>
 
 	* Makefile.am: Use -fsource-filename when compiling libgcj.

@@ -626,6 +626,7 @@ gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
 gnu/java/lang/natMainThread.cc \
+gnu/java/lang/management/natVMRuntimeMXBeanImpl.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \
