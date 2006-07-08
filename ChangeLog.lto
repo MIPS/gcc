@@ -1,3 +1,52 @@
+2006-07-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.c (call_expr_argp): New function that returns a pointer
+	to the Nth argument, rather than its value.  I'm expecting this
+	function to go away again once the low-level conversion of
+	CALL_EXPR representation is in place; it only exists to support....
+	* gcc/tree.h (CALL_EXPR_ARG): New macro to access the Nth argument as
+	an lvalue.
+
+	* gcc/fold-const.c (negate_expr_p): Use new abstract CALL_EXPR
+	accessors, constructors, and iterators.
+	(negate_expr): Likewise.
+	(operand_equal_p): Likewise.
+	(fold_mathfn_compare): Likewise.
+	(fold_binary): Likewise.
+	(tree_expr_nonnegative_p): Likewise.
+	* gcc/gimplify.c (build_stack_save_restore): Likewise.
+	(gimplify_decl_expr): Likewise.
+	(gimplify_call_expr): Likewise.
+	(gimplify_cond_expr): Likewise.
+	(gimplify_modify_expr_to_memcpy): Likewise.
+	(gimplify_modify_expr_to_memset): Likewise.
+	(gimplify_variable_sized_compare): Likewise.
+	(gimplify_omp_atomic_fetch_op): Likewise.
+	(gimplify_omp_atomic_pipeline): Likewise.
+	(gimplify_omp_atomic_mutex): Likewise.
+	(gimplify_function_tree): Likewise.
+	* gcc/ipa-cp.c (ipcp_update_callgraph): Likewise.
+	* gcc/ipa-prop.c (ipa_callsite_compute_count): Likewise.
+	(ipa_callsite_compute_param): Likewise.
+	* gcc/ipa-pure-const.c (check_call): Likewise.
+	* gcc/ipa-reference.c (check_call): Likewise.
+	* gcc/function.c (gimplify_parameters): Likewise.
+	* gcc/ipa-type-escape.c (check_call): Likewise.
+	* gcc/omp-low.c (build_omp_barrier): Likewise.
+	(lower_rec_input_clauses): Likewise.
+	(lower_reduction_clauses): Likewise.
+	(expand_parallel_call): Likewise.
+	(maybe_catch_exception): Likewise.
+	(expand_omp_for_generic): Likewise.
+	(expand_omp_for_static_nochunk): Likewise.
+	(expand_omp_for_static_chunk): Likewise.
+	(expand_omp_sections): Likewise.
+	(lower_omp_single_simple): Likewise.
+	(lower_omp_single_copy): Likewise.
+	(lower_omp_master): Likewise.
+	(lower_omp_ordered): Likewise.
+	(lower_omp_critical): Likewise.
+
 2006-07-07  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree.h (FOR_EACH_CALL_EXPR_ARG):  Define new macro for

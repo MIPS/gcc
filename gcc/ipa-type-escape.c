@@ -1016,20 +1016,14 @@ static bool
 check_call (tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
-  tree operand_list = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
-  tree argument;
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
+  call_expr_arg_iterator iter;
 
-  for (operand = operand_list;
-       operand != NULL_TREE;
-       operand = TREE_CHAIN (operand))
-    {
-      tree argument = TREE_VALUE (operand);
-      check_rhs_var (argument);
-    }
+  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
+    check_rhs_var (operand);
   
   if (callee_t)
     {
@@ -1042,17 +1036,16 @@ check_call (tree call_expr)
 	 parameters.  */
       if (TYPE_ARG_TYPES (TREE_TYPE (callee_t)))
 	{
-	  operand = operand_list;
-	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t)),
+		 operand = first_call_expr_arg (call_expr, &iter);
 	       arg_type && TREE_VALUE (arg_type) != void_type_node;
-	       arg_type = TREE_CHAIN (arg_type))
+	       arg_type = TREE_CHAIN (arg_type),
+		 operand = next_call_expr_arg (&iter))
 	    {
 	      if (operand)
 		{
-		  argument = TREE_VALUE (operand);
 		  last_arg_type = TREE_VALUE(arg_type);
-		  check_cast (last_arg_type, argument);
-		  operand = TREE_CHAIN (operand);
+		  check_cast (last_arg_type, operand);
 		}
 	      else 
 		/* The code reaches here for some unfortunate
@@ -1066,17 +1059,16 @@ check_call (tree call_expr)
 	  /* FIXME - According to Geoff Keating, we should never
 	     have to do this; the front ends should always process
 	     the arg list from the TYPE_ARG_LIST. */
-	  operand = operand_list;
-	  for (arg_type = DECL_ARGUMENTS (callee_t); 
+	  for (arg_type = DECL_ARGUMENTS (callee_t),
+		 operand = first_call_expr_arg (call_expr, &iter);
 	       arg_type;
-	       arg_type = TREE_CHAIN (arg_type))
+	       arg_type = TREE_CHAIN (arg_type),
+		 operand = next_call_expr_arg (&iter))
 	    {
 	      if (operand)
 		{
-		  argument = TREE_VALUE (operand);
 		  last_arg_type = TREE_TYPE(arg_type);
-		  check_cast (last_arg_type, argument);
-		  operand = TREE_CHAIN (operand);
+		  check_cast (last_arg_type, operand);
 		} 
 	      else 
 		/* The code reaches here for some unfortunate
@@ -1091,11 +1083,10 @@ check_call (tree call_expr)
       arg_type = last_arg_type;
       for (;
 	   operand != NULL_TREE;
-	   operand = TREE_CHAIN (operand))
+	   operand = next_call_expr_arg (&iter))
 	{
-	  argument = TREE_VALUE (operand);
 	  if (arg_type)
-	    check_cast (arg_type, argument);
+	    check_cast (arg_type, operand);
 	  else 
 	    {
 	      /* The code reaches here for some unfortunate
@@ -1103,7 +1094,7 @@ check_call (tree call_expr)
 		 argument types.  Most of these functions have
 		 been marked as having their parameters not
 		 escape, but for the rest, the type is doomed.  */
-	      tree type = get_canon_type (TREE_TYPE (argument), false, false);
+	      tree type = get_canon_type (TREE_TYPE (operand), false, false);
 	      mark_interesting_type (type, FULL_ESCAPE);
 	    }
 	}
@@ -1119,12 +1110,9 @@ check_call (tree call_expr)
     {
       /* If this is a direct call to an external function, mark all of
 	 the parameter and return types.  */
-      for (operand = operand_list;
-	   operand != NULL_TREE;
-	   operand = TREE_CHAIN (operand))
+      FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
 	{
-	  tree type = 
-	    get_canon_type (TREE_TYPE (TREE_VALUE (operand)), false, false);
+	  tree type = get_canon_type (TREE_TYPE (operand), false, false);
 	  mark_interesting_type (type, EXPOSED_PARAMETER);
     }
 	  

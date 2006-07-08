@@ -7677,5 +7677,23 @@ call_expr_arg (tree exp, int n)
   return t;
 }
 
+/* Return a pointer to the Nth (zero-based) argument from CALL_EXPR node EXP.
+   Returns NULL if there aren't that many arguments.  */
+
+tree *
+call_expr_argp (tree exp, int n)
+{
+  tree t = CALL_EXPR_ARGS (exp);
+  int i;
+  for (i = 0; i < n; i++)
+    {
+      if (!t)
+	return NULL;
+      t = TREE_CHAIN (t);
+    }
+  if (t)
+    return &(TREE_VALUE (t));
+  return NULL;
+}
 
 #include "gt-tree.h"

@@ -1540,6 +1540,7 @@ struct tree_constructor GTY(())
 #define CALL_EXPR_ARG0(NODE) TREE_VALUE (CALL_EXPR_ARGS (NODE))
 #define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
 #define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))
+#define CALL_EXPR_ARG(NODE, I) (*call_expr_argp ((NODE), (I)))
 
 typedef struct call_expr_arg_iterator_d GTY (())
 {
@@ -4160,6 +4161,7 @@ extern tree next_call_expr_arg (call_expr_arg_iterator *);
 extern bool more_call_expr_args_p (const call_expr_arg_iterator *);
 extern int call_expr_nargs (tree);
 extern tree call_expr_arg (tree, int);
+extern tree *call_expr_argp (tree, int);
 
 
 /* In stmt.c */
