@@ -384,9 +384,10 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
   if (c != '\r' && c != '\n') fputc('\n', out); }
 
 #define HANDLE_ENCLOSINGMETHOD_ATTRIBUTE()				\
-{ COMMON_HANDLE_ATTRIBUTE(jcf, attribute_name, attribute_length);	\
-  uint16 class_index = JCF_readu2 (jcf);				\
-  uint16 method_index = JCF_readu2 (jcf);				\
+  { uint16 class_index, method_index;					\
+  COMMON_HANDLE_ATTRIBUTE(jcf, attribute_name, attribute_length);	\
+  class_index = JCF_readu2 (jcf);					\
+  method_index = JCF_readu2 (jcf);					\
   fprintf (out, "\n  Class: ");						\
   print_constant_terse_with_index (out, jcf, class_index, CONSTANT_Class); \
   fprintf (out, "\n  Method: ");					\
@@ -397,8 +398,9 @@ utf8_equal_string (JCF *jcf, int index, const char * value)
 
 #define HANDLE_SIGNATURE_ATTRIBUTE()					\
 {									\
+  uint16 signature;							\
   COMMON_HANDLE_ATTRIBUTE(jcf, attribute_name, attribute_length);	\
-  uint16 signature = JCF_readu2 (jcf);					\
+  signature = JCF_readu2 (jcf);						\
   fprintf (out, "\n  Value: ");						\
   print_constant_terse_with_index (out, jcf, signature, CONSTANT_Utf8);	\
   fputc ('\n', out);							\
