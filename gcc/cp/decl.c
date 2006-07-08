@@ -8857,9 +8857,11 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
 int
 copy_fn_p (tree d)
 {
-  tree args, parm_decls;
+  tree parm_types, parm_decls;
   tree arg_type;
   int result = 1;
+  int skip;
+  int len;
 
   if (!DECL_FUNCTION_MEMBER_P (d))
     /* Non-members are invalid.  We complained, but kept the declaration.  */
@@ -8874,12 +8876,14 @@ copy_fn_p (tree d)
        accept those as copy functions.  */
     return 0;
 
-  args = FUNCTION_FIRST_USER_PARMTYPE (d);
+  parm_types = TYPE_ARG_TYPES (TREE_TYPE (d));
+  len = num_parm_types (parm_types);
+  skip = num_artificial_parms_for (d);
   parm_decls = FUNCTION_FIRST_USER_PARM (d);
-  if (!args)
+  if (skip >= len)
     return 0;
 
-  arg_type = TREE_VALUE (args);
+  arg_type = nth_parm_type (parm_types, skip);
   if (arg_type == error_mark_node)
     return 0;
 
@@ -8897,11 +8901,12 @@ copy_fn_p (tree d)
   else
     return 0;
 
-  args = TREE_CHAIN (args);
+  skip++;
   if (parm_decls)
     parm_decls = TREE_CHAIN (parm_decls);
 
-  if (args && args != void_list_node
+  if (skip < len
+      && nth_parm_type (parm_types, len - 1) != void_type_node
       && parm_decls && !DECL_INITIAL (parm_decls))
     /* There are more non-optional args.  */
     return 0;

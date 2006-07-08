@@ -1,7 +1,10 @@
 2006-07-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types,
-	nth_parm_type, and num_artificial_parms_for in grokdeclarator.
+	nth_parm_type, and num_artificial_parms_for.
+
+	* gcc/cp/decl.c (grokparms): Use num_parm_types,
+	num_artificial_parms_for, and nth_parm_type.
 
 2006-07-08  Sandra Loosemore  <sandra@codesourcery.com>
 
