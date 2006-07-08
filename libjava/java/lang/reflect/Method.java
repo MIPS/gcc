@@ -12,6 +12,7 @@ package java.lang.reflect;
 
 import gnu.gcj.RawData;
 import gnu.java.lang.reflect.MethodSignatureParser;
+import java.lang.annotation.Annotation;
 
 /**
  * The Method class represents a member method of a class. It also allows
@@ -132,7 +133,7 @@ public final class Method
    * Gets the return type of this method.
    * @return the type of this method
    */
-  public Class getReturnType ()
+  public Class<?> getReturnType ()
   {
     if (return_type == null)
       getType();
@@ -145,11 +146,11 @@ public final class Method
    *
    * @return a list of the types of the method's parameters
    */
-  public Class[] getParameterTypes ()
+  public Class<?>[] getParameterTypes ()
   {
     if (parameter_types == null)
       getType();
-    return (Class[]) parameter_types.clone();
+    return (Class<?>[]) parameter_types.clone();
   }
 
   /**
@@ -159,11 +160,11 @@ public final class Method
    *
    * @return a list of the types in the method's throws clause
    */
-  public Class[] getExceptionTypes ()
+  public Class<?>[] getExceptionTypes ()
   {
     if (exception_types == null)
       getType();
-    return (Class[]) exception_types.clone();
+    return (Class<?>[]) exception_types.clone();
   }
 
   /**
@@ -325,8 +326,7 @@ public final class Method
    *         specification, version 3.
    * @since 1.5
    */
-  /* FIXME[GENERICS]: Should be TypeVariable<Method>[] */
-  public TypeVariable[] getTypeParameters()
+  public TypeVariable<Method>[] getTypeParameters()
   {
     String sig = getSignature();
     if (sig == null)
@@ -339,11 +339,7 @@ public final class Method
    * Return the String in the Signature attribute for this method. If there
    * is no Signature attribute, return null.
    */
-  private String getSignature()
-  {
-    // FIXME: libgcj doesn't record this information yet.
-    return null;
-  }
+  private native String getSignature();
 
   /**
    * Returns an array of <code>Type</code> objects that represents
@@ -404,6 +400,40 @@ public final class Method
     MethodSignatureParser p = new MethodSignatureParser(this, sig);
     return p.getGenericReturnType();
   }
+
+  /**
+   * If this method is an annotation method, returns the default
+   * value for the method.  If there is no default value, or if the
+   * method is not a member of an annotation type, returns null.
+   * Primitive types are wrapped.
+   *
+   * @throws TypeNotPresentException if the method returns a Class,
+   * and the class cannot be found
+   *
+   * @since 1.5
+   */
+  public native Object getDefaultValue();
+
+  public Annotation[] getDeclaredAnnotations()
+  {
+    Annotation[] result = getDeclaredAnnotationsInternal();
+    if (result == null)
+      result = new Annotation[0];
+    return result;
+  }
+
+  public Annotation[][] getParameterAnnotations()
+  {
+    // FIXME: should check that we have the right number
+    // of parameters ...?
+    Annotation[][] result = getParameterAnnotationsInternal();
+    if (result == null)
+      result = new Annotation[0][0];
+    return result;
+  }
+
+  private native Annotation[] getDeclaredAnnotationsInternal();
+  private native Annotation[][] getParameterAnnotationsInternal();
 
   private native void getType ();
 

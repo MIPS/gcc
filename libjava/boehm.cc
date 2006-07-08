@@ -167,6 +167,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (GC_PTR) c->aux_info;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+      p = (GC_PTR) c->reflection_data;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
     }
   else
     {

@@ -40,6 +40,8 @@ details.  */
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
+#include <java/io/DataOutputStream.h>
+#include <java/io/ByteArrayOutputStream.h>
 
 using namespace gcj;
 
@@ -87,6 +89,10 @@ struct _Jv_ClassReader
 
   bool verify;
 
+  // original input data.
+  jbyteArray input_data;
+  jint input_offset;
+
   // input data.
   unsigned char     *bytes;
   int                len;
@@ -111,6 +117,10 @@ struct _Jv_ClassReader
   // True if this is a 1.5 class file.
   bool             is_15;
 
+  // Buffer holding extra reflection data.
+  ::java::io::ByteArrayOutputStream *reflection_data;
+  ::java::io::DataOutputStream *data_stream;
+
 
   /* check that the given number of input bytes are available */
   inline void check (int num)
@@ -126,7 +136,7 @@ struct _Jv_ClassReader
     pos += num;
   }
   
-  /* read an unsignend 1-byte unit */
+  /* read an unsigned 1-byte unit */
   inline static jint get1u (unsigned char* bytes)
   {
     return bytes[0];
@@ -226,6 +236,16 @@ struct _Jv_ClassReader
       throw_class_format_error ("erroneous type descriptor");
   }
 
+  ::java::io::DataOutputStream *get_reflection_stream ()
+  {
+    if (reflection_data == NULL)
+      {
+	reflection_data = new ::java::io::ByteArrayOutputStream();
+	data_stream = new ::java::io::DataOutputStream(reflection_data);
+      }
+    return data_stream;
+  }
+
   _Jv_ClassReader (jclass klass, jbyteArray data, jint offset, jint length,
 		   java::security::ProtectionDomain *pd,
 		   _Jv_Utf8Const **name_result)
@@ -234,6 +254,8 @@ struct _Jv_ClassReader
       throw_internal_error ("arguments to _Jv_DefineClass");
 
     verify = true;
+    input_data = data;
+    input_offset = offset;
     bytes  = (unsigned char*) (elements (data)+offset);
     len    = length;
     pos    = 0;
@@ -241,6 +263,8 @@ struct _Jv_ClassReader
 
     def    = klass;
     found_name = name_result;
+    reflection_data = NULL;
+    data_stream = NULL;
 
     def->size_in_bytes = -1;
     def->vtable_method_count = -1;
@@ -259,6 +283,16 @@ struct _Jv_ClassReader
   void read_one_code_attribute (int method);
   void read_one_field_attribute (int field);
   void throw_class_format_error (const char *msg);
+
+  void handleEnclosingMethod(int);
+  void handleGenericSignature(jv_attr_type, unsigned short, int);
+  void handleAnnotationElement();
+  void handleAnnotation();
+  void handleAnnotations();
+  void handleMemberAnnotations(jv_attr_type, int, int);
+  void handleAnnotationDefault(int, int);
+  void handleParameterAnnotations(int, int);
+  void finish_reflection_data ();
 
   /** check an utf8 entry, without creating a Utf8Const object */
   bool is_attribute_name (int index, const char *name);
@@ -377,11 +411,236 @@ _Jv_ClassReader::parse ()
   if (pos != len)
     throw_class_format_error ("unused data before end of file");
 
+  finish_reflection_data ();
+
   // Tell everyone we're done.
   def->state = JV_STATE_READ;
   if (gcj::verbose_class_flag)
     _Jv_Linker::print_class_loaded (def);
   def->notifyAll ();
+}
+
+void
+_Jv_ClassReader::finish_reflection_data ()
+{
+  if (data_stream == NULL)
+    return;
+  data_stream->writeByte(JV_DONE_ATTR);
+  data_stream->flush();
+  int nbytes = reflection_data->count;
+  unsigned char *new_bytes = (unsigned char *) _Jv_AllocBytes (nbytes);
+  memcpy (new_bytes, elements (reflection_data->buf), nbytes);
+  def->reflection_data = new_bytes;
+}
+
+void
+_Jv_ClassReader::handleEnclosingMethod (int len)
+{
+  if (len != 4)
+    throw_class_format_error ("invalid EnclosingMethod attribute");
+  // FIXME: only allow one...
+
+  int class_index = read2u();
+  check_tag (class_index, JV_CONSTANT_Class);
+  prepare_pool_entry (class_index, JV_CONSTANT_Class);
+
+  int method_index = read2u();
+  // Zero is ok and means no enclosing method.
+  if (method_index != 0)
+    {
+      check_tag (method_index, JV_CONSTANT_NameAndType);
+      prepare_pool_entry (method_index, JV_CONSTANT_NameAndType);
+    }
+
+  ::java::io::DataOutputStream *stream = get_reflection_stream ();
+  stream->writeByte(JV_CLASS_ATTR);
+  stream->writeInt(5);
+  stream->writeByte(JV_ENCLOSING_METHOD_KIND);
+  stream->writeShort(class_index);
+  stream->writeShort(method_index);
+}
+
+void
+_Jv_ClassReader::handleGenericSignature (jv_attr_type type,
+					 unsigned short index,
+					 int len)
+{
+  if (len != 2)
+    throw_class_format_error ("invalid Signature attribute");
+
+  int cpool_idx = read2u();
+  check_tag (cpool_idx, JV_CONSTANT_Utf8);
+  prepare_pool_entry (cpool_idx, JV_CONSTANT_Utf8);
+
+  ::java::io::DataOutputStream *stream = get_reflection_stream ();
+  stream->writeByte(type);
+  int attrlen = 3;
+  if (type != JV_CLASS_ATTR)
+    attrlen += 2;
+  stream->writeInt(attrlen);
+  if (type != JV_CLASS_ATTR)
+    stream->writeShort(index);
+  stream->writeByte(JV_SIGNATURE_KIND);
+  stream->writeShort(cpool_idx);
+}
+
+void
+_Jv_ClassReader::handleAnnotationElement()
+{
+  int tag = read1u();
+  switch (tag)
+    {
+    case 'B':
+    case 'C':
+    case 'S':
+    case 'Z':
+    case 'I':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_Integer);
+	prepare_pool_entry (index, JV_CONSTANT_Integer);
+      }
+      break;
+    case 'D':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_Double);
+	prepare_pool_entry (index, JV_CONSTANT_Double);
+      }
+      break;
+    case 'F':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_Float);
+	prepare_pool_entry (index, JV_CONSTANT_Float);
+      }
+      break;
+    case 'J':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_Long);
+	prepare_pool_entry (index, JV_CONSTANT_Long);
+      }
+      break;
+    case 's':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_String);
+	prepare_pool_entry (index, JV_CONSTANT_String);
+      }
+      break;
+
+    case 'e':
+      {
+	int type_name_index = read2u();
+	int const_name_index = read2u ();
+	check_tag (type_name_index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (type_name_index, JV_CONSTANT_Utf8);
+	check_tag (const_name_index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (const_name_index, JV_CONSTANT_Utf8);
+      }
+      break;
+    case 'c':
+      {
+	int index = read2u();
+	check_tag (index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (index, JV_CONSTANT_Utf8);
+      }
+      break;
+    case '@':
+      handleAnnotation();
+      break;
+    case '[':
+      {
+	int n_array_elts = read2u ();
+	for (int i = 0; i < n_array_elts; ++i)
+	  handleAnnotationElement();
+      }
+      break;
+    default:
+      throw_class_format_error ("invalid annotation element");
+    }
+}
+
+void
+_Jv_ClassReader::handleAnnotation()
+{
+  int type_index = read2u();
+  check_tag (type_index, JV_CONSTANT_Utf8);
+  prepare_pool_entry (type_index, JV_CONSTANT_Utf8);
+
+  int npairs = read2u();
+  for (int i = 0; i < npairs; ++i)
+    {
+      int name_index = read2u();
+      check_tag (name_index, JV_CONSTANT_Utf8);
+      handleAnnotationElement();
+    }
+}
+
+void
+_Jv_ClassReader::handleAnnotations()
+{
+  int num = read2u();
+  while (num--)
+    handleAnnotation();
+}
+
+void
+_Jv_ClassReader::handleMemberAnnotations(jv_attr_type member_type,
+					 int member_index,
+					 int len)
+{
+  // We're going to copy the bytes in verbatim.  But first we want to
+  // make sure the attribute is well-formed, and we want to prepare
+  // the constant pool.  So, we save our starting point.
+  int orig_pos = pos;
+
+  handleAnnotations();
+  // FIXME: check that we read all LEN bytes?
+
+  ::java::io::DataOutputStream *stream = get_reflection_stream ();
+  stream->writeByte(member_type);
+  int newLen = len + 1;
+  if (member_type != JV_CLASS_ATTR)
+    newLen += 2;
+  stream->writeInt(newLen);
+  if (member_type != JV_CLASS_ATTR)
+    stream->writeShort(member_index);
+  stream->writeByte(JV_ANNOTATIONS_KIND);
+  // Write the data as-is.
+  stream->write(input_data, input_offset + orig_pos, len);
+}
+
+void
+_Jv_ClassReader::handleAnnotationDefault(int member_index, int len)
+{
+  int orig_pos = pos;
+  handleAnnotationElement();
+
+  ::java::io::DataOutputStream *stream = get_reflection_stream ();
+  stream->writeByte(JV_METHOD_ATTR);
+  stream->writeInt(len + 3);
+  stream->writeByte(JV_ANNOTATION_DEFAULT_KIND);
+  stream->writeShort(member_index);
+  stream->write(input_data, input_offset + orig_pos, len);
+}
+
+void
+_Jv_ClassReader::handleParameterAnnotations(int member_index, int len)
+{
+  int orig_pos = pos;
+
+  int n_params = read1u();
+  for (int i = 0; i < n_params; ++i)
+    handleAnnotations();
+
+  ::java::io::DataOutputStream *stream = get_reflection_stream ();
+  stream->writeByte(JV_METHOD_ATTR);
+  stream->writeByte(len + 3);
+  stream->writeByte(JV_PARAMETER_ANNOTATIONS_KIND);
+  stream->writeShort(member_index);
+  stream->write(input_data, input_offset + orig_pos, len);
 }
 
 void _Jv_ClassReader::read_constpool ()
@@ -495,22 +754,23 @@ void _Jv_ClassReader::read_one_field_attribute (int field_index)
 	      || tags[cv] == JV_CONSTANT_Long
 	      || tags[cv] == JV_CONSTANT_Double
 	      || tags[cv] == JV_CONSTANT_String))
-	  {
-	    handleConstantValueAttribute (field_index, cv);
-	  }
-	else
-	  {
-	    throw_class_format_error ("erroneous ConstantValue attribute");
-	  }
-
-	if (length != 2) 
+	{
+	  handleConstantValueAttribute (field_index, cv);
+	}
+      else
+	{
 	  throw_class_format_error ("erroneous ConstantValue attribute");
-      }
+	}
 
-    else
-      {
-	skip (length);
-      }
+      if (length != 2) 
+	throw_class_format_error ("erroneous ConstantValue attribute");
+    }
+  else if (is_attribute_name (name, "Signature"))
+    handleGenericSignature(JV_FIELD_ATTR, field_index, length);
+  else if (is_attribute_name (name, "RuntimeVisibleAnnotations"))
+    handleMemberAnnotations(JV_FIELD_ATTR, field_index, length);
+  else
+    skip (length);
 }
 
 void _Jv_ClassReader::read_methods ()
@@ -634,7 +894,14 @@ void _Jv_ClassReader::read_one_method_attribute (int method_index)
       if ((pos - start_off) != length)
 	throw_class_format_error ("code attribute too short");
     }
-
+  else if (is_attribute_name (name, "Signature"))
+    handleGenericSignature(JV_METHOD_ATTR, method_index, length);
+  else if (is_attribute_name (name, "RuntimeVisibleAnnotations"))
+    handleMemberAnnotations(JV_METHOD_ATTR, method_index, length);
+  else if (is_attribute_name (name, "RuntimeVisibleParameterAnnotations"))
+    handleParameterAnnotations(method_index, length);
+  else if (is_attribute_name (name, "AnnotationDefault"))
+    handleAnnotationDefault(method_index, length);
   else
     {
       /* ignore unknown attributes */
@@ -684,6 +951,12 @@ void _Jv_ClassReader::read_one_class_attribute ()
       def_interp->source_file_name = _Jv_NewStringUtf8Const
 	(def->constants.data[source_index].utf8);
     }
+  else if (is_attribute_name (name, "Signature"))
+    handleGenericSignature(JV_CLASS_ATTR, 0, length);
+  else if (is_attribute_name (name, "EnclosingMethod"))
+    handleEnclosingMethod(length);
+  else if (is_attribute_name (name, "RuntimeVisibleAnnotations"))
+    handleMemberAnnotations(JV_CLASS_ATTR, 0, length);
   else
     {
       /* Currently, we ignore most class attributes.
@@ -775,6 +1048,8 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
     {
     case JV_CONSTANT_Utf8: 
       {
+	// FIXME: this is very wrong.
+
 	// If we came here, it is because some other tag needs this
 	// utf8-entry for type information!  Thus, we translate /'s to .'s in
 	// order to accomondate gcj's internal representation.

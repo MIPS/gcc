@@ -273,6 +273,9 @@ public:
   static void print_class_loaded (jclass);
   static void resolve_class_ref (jclass, jclass *);
   static void wait_for_state(jclass, int);
+  static _Jv_Method *resolve_method_entry (jclass, jclass &,
+					   int, int,
+					   bool, bool);
   static _Jv_word resolve_pool_entry (jclass, int, bool =false);
   static void resolve_field (_Jv_Field *, java::lang::ClassLoader *);
   static void verify_type_assertions (jclass);

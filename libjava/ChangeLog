@@ -1,3 +1,90 @@
+2006-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (input_data, input_offset): New fields.
+	(reflection_data, data_stream): Likewise.
+	(get_reflection_stream): New method.
+	(_Jv_ClassReader): Initialize new fields.
+	(parse): Call finish_reflection_data.
+	(finish_reflection_data): New method.
+	(handleEnclosingMethod): Likewise.
+	(handleGenericSignature): Likewise.
+	(handleAnnotationElement): Likewise.
+	(handleAnnotation): Likewise.
+	(handleAnnotations): Likewise.
+	(handleMemberAnnotations): Likewise.
+	(handleAnnotationDefault): Likewise.
+	(handleParameterAnnotations): Likewise.
+	(read_one_field_attribute): Handle new attributes.
+	(read_one_method_attribute): Likewise.
+	(read_one_class_attribute): Likewise.
+	* include/jvm.h (resolve_method_entry): New method.
+	* java/lang/Class.h (jv_attr_type, jv_attr_kind): New enums.
+	(Class): Updated for new methods.  Field, Method, Constructor now
+	friends.
+	(reflection_data): New field.
+	* java/lang/Class.java (asSubclass, cast): New methods.
+	(getEnclosingClass, getEnclosingConstructor): Now native.
+	(getEnclosingMethod): Likewise.
+	(getClassSignature): New method.
+	(getGenericInterfaces, getGenericSuperclass, getTypeParameters):
+	Likewise.
+	(Class): Implements AnnotatedElement.
+	(getAnnotation, isAnnotationPresent, getAnnotations): New methods.
+	(getDeclaredAnnotations): New method.
+	(getDeclaredAnnotationsInternal): Likewise.
+	* java/lang/reflect/natConstructor.cc (anno_a_t, anno_aa_t): New
+	typedefs.
+	(getSignature): New method.
+	(getDeclaredAnnotationsInternal): Likewise.
+	(getParameterAnnotationsInternal): Likewise.
+	* java/lang/reflect/natField.cc (anno_a_t): New typedef.
+	(getSignature): New method.
+	(getDeclaredAnnotationsInternal): Likewise.
+	* java/lang/reflect/natMethod.cc (anno_a_t, anno_aa_t): New
+	typedefs.
+	(getSignature): New method.
+	(getDefaultValue): Likewise.
+	(getDeclaredAnnotationsInternal): Likewise.
+	(getParameterAnnotationsInternal): Likewise.
+	* java/lang/reflect/Constructor.java (addTypeParameters):
+	Genericized.
+	(getSignature): Now native.
+	(getDeclaredAnnotations, getDeclaredAnnotationsInternal,
+	getParameterAnnotations, getParameterAnnotationsInternal): New
+	methods.
+	* java/lang/reflect/Field.java (getDeclaringClass, getType):
+	Genericized.
+	(getSignature): Now native.
+	(getDeclaredAnnotations, getDeclaredAnnotationsInternal): New
+	methods.
+	* java/lang/reflect/Method.java (getReturnType): Genericized.
+	(getParameterTypes, getExceptionTypes, getTypeParameters):
+	Likewise.
+	(getSignature): Now native.
+	(getDefaultValue, getDeclaredAnnotations,
+	getParameterAnnotations, getDeclaredAnnotationsInternal,
+	getParameterAnnotationsInternal): New methods.
+	* java/lang/natClass.cc (read_u1): New functions.
+	(read_u2): Likewise.
+	(read_4): New function.
+	(getReflectionSignature): New methods.
+	(getClassSignature): New method.
+	(getEnclosingMethodData): Likewise.
+	(getEnclosingClass): Likewise.
+	(getEnclosingMethod): Likewise.
+	(getEnclosingConstructor): Likewise.
+	(check_constant): New function.
+	(parseAnnotationElement): Likewise.
+	(parseAnnotation): Likewise.
+	(parseAnnotations): Likewise.
+	(parseParameterAnnotations): Likewise.
+	(getMethodDefaultValue): New method.
+	(getDeclaredAnnotations): New methods.
+	(getDeclaredAnnotationsInternal): New method.
+	* boehm.cc (_Jv_MarkObj): Mark 'reflection_data' field.
+	* link.cc (resolve_method_entry): New method.
+	(resolve_pool_entry): Use it.
+
 2006-07-07  Andrew Haley  <aph@redhat.com>
 
 	* Makefile.am: Use -fsource-filename when compiling libgcj.
