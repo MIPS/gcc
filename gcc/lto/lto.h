@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 
 typedef struct lto_file lto_file;
 typedef struct DWARF2_abbrev DWARF2_abbrev;
+typedef struct DWARF2_CompUnit DWARF2_CompUnit;
 
 /* Types */
 
@@ -46,6 +47,17 @@ typedef struct lto_fd
   bool dwarf64;
 } lto_fd;
 
+/* A file descriptor for reading from a DWARF information section. */
+typedef struct lto_info_fd
+{
+  /* The base object.  */
+  lto_fd base;
+  /* The number of compilation units in this section.  */
+  size_t num_units;
+  /* The compilation units themselves.  */
+  DWARF2_CompUnit **units;
+} lto_info_fd;
+
 /* A file descriptor for reading from a DWARF abbreviation section.  */
 typedef struct lto_abbrev_fd
 {
@@ -63,7 +75,7 @@ struct lto_file
   /* The name of the file.  */
   const char *filename;
   /* The contents of the .debug_info section.  */
-  lto_fd debug_info;
+  lto_info_fd debug_info;
   /* The contents of the .debug_abbrev section.  */
   lto_abbrev_fd debug_abbrev;
 };
