@@ -1216,23 +1216,27 @@ static void
 pp_cxx_parameter_declaration_clause (cxx_pretty_printer *pp, tree t)
 {
   tree args = TYPE_P (t) ? NULL : FUNCTION_FIRST_USER_PARM (t);
-  tree types =
-    TYPE_P (t) ? TYPE_ARG_TYPES (t) : FUNCTION_FIRST_USER_PARMTYPE (t);
+  tree types = (TYPE_P (t)
+		? TYPE_ARG_TYPES (t)
+		: TYPE_ARG_TYPES (TREE_TYPE (t)));
+  int skip = TYPE_P (t) ? 0 : num_artificial_parms_for (t);
   const bool abstract = args == NULL
     || pp_c_base (pp)->flags & pp_c_flag_abstract;
-  bool first = true;
+  int i;
 
   /* Skip artificial parameter for nonstatic member functions.  */
   if (TREE_CODE (t) == METHOD_TYPE)
-    types = TREE_CHAIN (types);
+    skip++;
 
   pp_cxx_left_paren (pp);
-  for (; args; args = TREE_CHAIN (args), types = TREE_CHAIN (types))
+  for (i = skip; args; args = TREE_CHAIN (args), i++)
     {
-      if (!first)
+      if (i != skip)
 	pp_cxx_separate_with (pp, ',');
-      first = false;
-      pp_cxx_parameter_declaration (pp, abstract ? TREE_VALUE (types) : args);
+      pp_cxx_parameter_declaration (pp,
+				    (abstract
+				     ? nth_parm_type (types, i)
+				     : args));
       if (!abstract && pp_c_base (pp)->flags & pp_cxx_flag_default_argument)
 	{
 	  pp_cxx_whitespace (pp);
