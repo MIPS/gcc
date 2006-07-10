@@ -777,8 +777,11 @@ synthesize_method (tree fndecl)
     }
   else if (DECL_CONSTRUCTOR_P (fndecl))
     {
-      tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
-      if (arg_chain != void_list_node)
+      tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+      int len = num_parm_types (parm_types);
+      int skip = num_artificial_parms_for (fndecl);
+      if (skip + 1 != len
+	  || nth_parm_type (parm_types, skip) != void_type_node)
 	do_build_copy_constructor (fndecl);
       else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
 	finish_mem_initializers (NULL_TREE);
