@@ -21,7 +21,17 @@
 
 # We want little-endian ARM 926 and big-endian IWMMXT libraries.
 MULTILIB_OPTIONS = muclibc tarm926ej-s/tiwmmxt/txscale/tarm920t
+MULTILIB_OPTIONS += mfloat-abi=softfp
 MULTILIB_DIRNAMES = uclibc tarm926ej-s tiwmmxt txscale tarm920t
-MULTILIB_EXCEPTIONS = muclibc/tarm920t
+MULTILIB_DIRNAMES += softfp
+
+MULTILIB_EXCEPTIONS = *muclibc*/*tarm920t*
+
+MULTILIB_EXCEPTIONS += *muclibc*/*mfloat-abi=softfp*
+MULTILIB_EXCEPTIONS += *tiwmmxt*/*mfloat-abi=softfp*
+MULTILIB_EXCEPTIONS += *txscale*/*mfloat-abi=softfp*
+MULTILIB_EXCEPTIONS += *tarm920t*/*mfloat-abi=softfp*
+
 # These files must be built for each multilib.
 EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
+

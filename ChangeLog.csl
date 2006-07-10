@@ -1,3 +1,10 @@
+2006-07-10  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS, MULTILIB_EXCEPTIONS,
+	MULTILIB_DIRNAMES): Add support for VFP hard-float multilib.
+	* gcc/config/arm/wrs-linux.h (SYSROOT_SUFFIX_SPEC): Add support
+	for VFP hard-float multilib.
+
 2006-06-15  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS,

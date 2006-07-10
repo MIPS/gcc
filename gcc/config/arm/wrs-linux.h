@@ -61,10 +61,7 @@ Boston, MA 02111-1307, USA.  */
 /* The various C libraries each have their own subdirectory.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC			\
-  "%{muclibc:%{tiwmmxt:/uclibc/tiwmmxt ;	\
-               txscale:/uclibc/txscale ;	\
-               :/uclibc} ;			\
-     tiwmmxt:/tiwmmxt ;				\
+  "%{muclibc:/uclibc}%{tiwmmxt:/tiwmmxt ;	\
      txscale:/txscale ;				\
-     tarm920t:/tarm920t}"
+     tarm920t:/tarm920t}%{mfloat-abi=softfp:/softfp}"
 
