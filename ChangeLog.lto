@@ -7,6 +7,11 @@
 	Use num_artificial_parms_for and nth_parm_type in
 	pp_cxx_parameter_declaration_clause.
 
+	* gcc/cp/error.c (dump_type, dump_type_suffix,
+	dump_function_decl): Adjust calls to dump_parameters.
+	(dump_parameters): Add a parameter to specify how many parameters
+	are to be skipped.
+
 2006-07-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types,

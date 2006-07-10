@@ -68,7 +68,7 @@ static void dump_type_suffix (tree, int);
 static void dump_function_name (tree, int);
 static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
-static void dump_parameters (tree, tree, int);
+static void dump_parameters (tree, int, tree, int);
 static void dump_exception_spec (tree, int);
 static void dump_template_argument (tree, int);
 static void dump_template_argument_list (tree, int);
@@ -264,7 +264,7 @@ dump_type (tree t, int flags)
 
     case TREE_LIST:
       /* A list of function parms.  */
-      dump_parameters (t, NULL_TREE, flags);
+      dump_parameters (t, 0, NULL_TREE, flags);
       break;
 
     case IDENTIFIER_NODE:
@@ -606,7 +606,7 @@ dump_type_suffix (tree t, int flags)
 
 	/* Function pointers don't have default args.  Not in standard C++,
 	   anyway; they may in g++, but we'll just pretend otherwise.  */
-	dump_parameters (arg, NULL_TREE, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
+	dump_parameters (arg, 0, NULL_TREE, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  pp_cxx_cv_qualifier_seq
@@ -1042,7 +1042,7 @@ dump_function_decl (tree t, int flags)
 
   if (!(flags & TFF_NO_FUNCTION_ARGUMENTS))
     {
-      dump_parameters (parmtypes, parmdecls, flags);
+      dump_parameters (parmtypes, 0, parmdecls, flags);
 
       if (TREE_CODE (fntype) == METHOD_TYPE)
 	{
@@ -1078,24 +1078,22 @@ dump_function_decl (tree t, int flags)
    already been removed.  */
 
 static void
-dump_parameters (tree parmtypes, tree parmdecls, int flags)
+dump_parameters (tree parmtypes, int skip, tree parmdecls, int flags)
 {
-  int first;
+  int len = num_parm_types (parmtypes);
+  int i;
 
   pp_cxx_left_paren (cxx_pp);
 
-  for (first = 1; parmtypes != void_list_node;
-       parmtypes = TREE_CHAIN (parmtypes))
+  for (i = skip; i < len; i++)
     {
-      if (!first)
+      tree parmtype = nth_parm_type (parmtypes, i);
+
+      if (parmtype == void_type_node)
+	break;
+      if (i != skip)
 	pp_separate_with_comma (cxx_pp);
-      first = 0;
-      if (!parmtypes)
-	{
-	  pp_cxx_identifier (cxx_pp, "...");
-	  break;
-	}
-      dump_type (TREE_VALUE (parmtypes), flags);
+      dump_type (parmtype, flags);
 
       if ((flags & TFF_FUNCTION_DEFAULT_ARGUMENTS)
 	  && parmdecls
@@ -1108,6 +1106,15 @@ dump_parameters (tree parmtypes, tree parmdecls, int flags)
 	}
       if (parmdecls)
 	parmdecls = TREE_CHAIN (parmdecls);
+    }
+
+  /* If we've reached the end of parmtypes without encountering
+     void_type_node, then print out an ellipsis.  */
+  if (i == len)
+    {
+      if (i != skip)
+	pp_separate_with_comma (cxx_pp);
+      pp_cxx_identifier (cxx_pp, "...");
     }
 
   pp_cxx_right_paren (cxx_pp);
