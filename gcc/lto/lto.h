@@ -109,4 +109,18 @@ extern lto_file *lto_elf_file_open (const char *filename);
 /* Close an ELF input file.  */
 extern void lto_elf_file_close (lto_file *file);
 
+/* lto-symtab.c */
+
+/* The NEW_VAR (a VAR_DECL) has just been read.  If there is an
+   existing variable with the same name, merge the declaration for
+   NEW_VAR with the previous declaration and return the previous
+   declaration.  In this case, NEW_VAR must no longer be used by the
+   caller.  All other entities referenced from NEW_VAR (including, in
+   particular, its type) must already have been merged before this
+   function is called.  If the merge fails (due to inconsistencies
+   between the declarations), an error message is issued, and
+   error_mark_node is returned.  If there is no previous declaration,
+   NEW_VAR is returned.  */
+extern tree lto_symtab_merge_var (tree new_var);
+
 #endif /* LTO_H */
