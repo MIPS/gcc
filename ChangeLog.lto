@@ -1,5 +1,13 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-nested.c (convert_nl_goto_reference): Use build_call_expr.
+	(convert_tramp_reference): Likewise.  Iterate over arguments
+	directly instead of extracting them as a TREE_LIST.
+	(convert_call_expr): Use CALL_EXPR_STATIC_CHAIN.
+	(finalize_nesting_tree_1): Use build_call_expr.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-mudflap.c (mf_build_check_statement_for):  Use
 	build_call_expr instead of build_function_call_expr.
 	(mx_register_decls): Likewise.
