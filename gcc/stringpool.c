@@ -37,8 +37,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "symtab.h"
 #include "cpplib.h"
 
-#include <gc.h>
-
 /* The stringpool contains 2^ORDER entries.  */
 #define ORDER 14
 
@@ -74,8 +72,6 @@ init_stringpool (void)
   ident_hash->alloc_node = alloc_node;
   ident_hash->alloc_subobject = stringpool_ggc_alloc;
   gcc_obstack_init (&string_stack);
-
-  ggc_register_stringpool_roots();
 }
 
 /* Allocate a hash node.  */
@@ -180,34 +176,6 @@ void
 ggc_mark_stringpool (void)
 {
   ht_forall (ident_hash, mark_ident, NULL);
-}
-
-/* Register the stringpool entries as GGC roots.  In contrast to all other
-   roots, that are static, stringpool may increase and move around in memory.
-   So it's handled specially. */
-ggc_stringpool_roots
-ggc_register_stringpool_roots (void)
-{
-  ggc_stringpool_roots result;
-  result.start = ident_hash->entries;
-  result.one_after_finish = ident_hash->entries + ident_hash->nslots;
-
-  GC_add_roots (result.start, result.one_after_finish);
-
-  return result;
-}
-
-void
-ggc_unregister_stringpool_roots (ggc_stringpool_roots roots)
-{
-  GC_remove_roots (roots.start, roots.one_after_finish);
-}
-
-int
-ggc_stringpool_moved_p (ggc_stringpool_roots roots)
-{
-  return (roots.start != ident_hash->entries)
-    || (roots.one_after_finish != ident_hash->entries + ident_hash->nslots);
 }
 
 /* Strings are _not_ GCed, but this routine exists so that a separate

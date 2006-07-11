@@ -4,15 +4,21 @@
 #include "params.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "symtab.h"
 
-#define GC_DEBUG
+/* #define GC_DEBUG */
 #include <gc.h>
+
+extern struct ht *ident_hash;
 
 static size_t get_used_heap_size(void);
 static void register_gty_roots(void);
+static void gc_warning_filter(char * msg, GC_word arg);
 
 static size_t last_allocated = 0;
 static ggc_stringpool_roots stringpool_roots;
+
+static GC_warn_proc default_warn_proc;
 
 void
 init_ggc (void)
@@ -23,6 +29,8 @@ init_ggc (void)
 
   stringpool_roots.start = NULL;
   stringpool_roots.one_after_finish = NULL;
+
+  default_warn_proc = GC_set_warn_proc(gc_warning_filter);
 }
 
 void *
@@ -50,7 +58,7 @@ ggc_collect (void)
 
   float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
 
-  if (GC_get_heap_size() < allocated_last_gc + min_expand
+  if (get_used_heap_size() < allocated_last_gc + min_expand
       && !ggc_force_collect)
     return;
 
@@ -73,7 +81,7 @@ ggc_collect (void)
 
   if (!quiet_flag)
     fprintf (stderr, "%luk}", (unsigned long) get_used_heap_size() / 1024);
-  last_allocated = GC_get_heap_size();
+  last_allocated = get_used_heap_size();
   timevar_pop (TV_GC);
 }
 
@@ -171,7 +179,11 @@ ggc_print_statistics (void)
   fprintf (stderr,
 	   "Total heap size: %lu\n", (unsigned long)GC_get_heap_size());
   fprintf (stderr,
-	   "Free bytes in the heap: %lu\n", (unsigned long)GC_get_free_bytes());
+	   "Free bytes in the heap: %lu\n",
+	   (unsigned long)GC_get_free_bytes());
+  fprintf (stderr,
+	   "Used bytes in the heap: %lu\n",
+	   (unsigned long)get_used_heap_size());
 }
 
 int
@@ -204,4 +216,39 @@ register_gty_roots(void)
       GC_add_roots((char *)rti->base, (char *)rti->base + rti->stride);
 
   /* TODO: it might be required to process gt_ggc_cache_rtab here */
+}
+
+/* Register the stringpool entries as GGC roots.  In contrast to all other
+   roots, that are static, stringpool may increase and move around in memory.
+   So it's handled specially. */
+ggc_stringpool_roots
+ggc_register_stringpool_roots (void)
+{
+  ggc_stringpool_roots result;
+  result.start = ident_hash->entries;
+  result.one_after_finish = ident_hash->entries + ident_hash->nslots;
+
+  GC_add_roots (result.start, result.one_after_finish);
+
+  return result;
+}
+
+void
+ggc_unregister_stringpool_roots (ggc_stringpool_roots roots)
+{
+  GC_remove_roots (roots.start, roots.one_after_finish);
+}
+
+int
+ggc_stringpool_moved_p (ggc_stringpool_roots roots)
+{
+  return (roots.start != ident_hash->entries)
+    || (roots.one_after_finish != ident_hash->entries + ident_hash->nslots);
+}
+
+void
+gc_warning_filter(char * msg, GC_word arg)
+{
+  if (!quiet_flag)
+    (*default_warn_proc)(msg, arg);
 }
