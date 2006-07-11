@@ -412,7 +412,7 @@ is_gimple_cast (tree t)
           || TREE_CODE (t) == FIX_ROUND_EXPR);
 }
 
-/* Return true if T is a valid op0 of a CALL_EXPR.  */
+/* Return true if T is a valid function operand of a CALL_EXPR.  */
 
 bool
 is_gimple_call_addr (tree t)

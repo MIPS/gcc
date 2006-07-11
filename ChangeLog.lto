@@ -1,5 +1,9 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-gimple.c (is_gimple_call_addr): Fix comment.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree.c (contains_placeholder_p): Use new abstract CALL_EXPR
 	accessors and argument iterators.
 	(simple_cst_equal): Likewise.
