@@ -1,5 +1,10 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-dump.c (dequeue_and_dump): dump arguments individually
+	instead of as a list.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/targhooks.c (default_external_stack_protect_fail): Use
 	build_call_expr instead of build_function_call_expr.
 	(default_hidden_stack_protect_fail): Likewise.
