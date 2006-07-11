@@ -413,7 +413,7 @@ default_external_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 }
 
 tree
@@ -446,7 +446,7 @@ default_hidden_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 #endif
 }
 
