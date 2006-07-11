@@ -1,5 +1,9 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-complex.c (expand_complex_libcall): Use build_call_expr.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-dump.c (dequeue_and_dump): dump arguments individually
 	instead of as a list.
 
