@@ -2151,7 +2151,14 @@ contains_placeholder_p (tree exp)
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 2)));
 
 	case CALL_EXPR:
-	  return CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1));
+	  {
+	    tree arg;
+	    call_expr_arg_iterator iter;
+	    FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	      if (CONTAINS_PLACEHOLDER_P (arg))
+		return 1;
+	    return 0;
+	  }
 
 	default:
 	  break;
@@ -4562,11 +4569,23 @@ simple_cst_equal (tree t1, tree t2)
       return simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     case CALL_EXPR:
-      cmp = simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
+      cmp = simple_cst_equal (CALL_EXPR_FN (t1), CALL_EXPR_FN (t2));
       if (cmp <= 0)
 	return cmp;
-      return
-	simple_cst_list_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1));
+      if (call_expr_nargs (t1) != call_expr_nargs (t2))
+	return 0;
+      {
+	tree arg1, arg2;
+	call_expr_arg_iterator iter1, iter2;
+	for (arg1 = first_call_expr_arg (t1, &iter1),
+	       arg2 = first_call_expr_arg (t2, &iter2);
+	     arg1 && arg2;
+	     arg1 = next_call_expr_arg (&iter1),
+	       arg2 = next_call_expr_arg (&iter2))
+	  if (simple_cst_equal (arg1, arg2) != 1)
+	    return 0;
+	return arg1 == arg2;
+      }
 
     case TARGET_EXPR:
       /* Special case: if either target is an unallocated VAR_DECL,
@@ -5821,7 +5840,7 @@ get_callee_fndecl (tree call)
 
   /* The first operand to the CALL is the address of the function
      called.  */
-  addr = TREE_OPERAND (call, 0);
+  addr = CALL_EXPR_FN (call);
 
   STRIP_NOPS (addr);
 

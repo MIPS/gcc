@@ -1,5 +1,12 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree.c (contains_placeholder_p): Use new abstract CALL_EXPR
+	accessors and argument iterators.
+	(simple_cst_equal): Likewise.
+	(get_callee_fndecl): Likewise.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-complex.c (expand_complex_libcall): Use build_call_expr.
 
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
