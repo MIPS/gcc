@@ -4851,7 +4851,7 @@ decl_class_context (tree decl)
     context = DECL_CONTEXT (decl);
   else
     context = TYPE_MAIN_VARIANT
-      (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
+      (TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (TREE_TYPE (decl)), 0)));
 
   if (context && !TYPE_P (context))
     context = NULL_TREE;

@@ -7,6 +7,8 @@
 
 	* gcc/c-format.c (handle_format_attribute): Use num_parm_types.
 
+	* gcc/dwarf2out.c (decl_class_context): Use nth_parm_type.
+
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree-inline.c (initialize_inlined_parameters): Pass whole
