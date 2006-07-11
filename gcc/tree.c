@@ -5770,7 +5770,7 @@ decl_function_context (tree decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VINDEX (decl))
     context
       = TYPE_MAIN_VARIANT
-	(TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
+	(TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (TREE_TYPE (decl)), 0)));
   else
     context = DECL_CONTEXT (decl);
 

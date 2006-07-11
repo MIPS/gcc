@@ -9,6 +9,8 @@
 
 	* gcc/dwarf2out.c (decl_class_context): Use nth_parm_type.
 
+	* gcc/tree.c (decl_function_context): Use nth_parm_type.
+
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree-inline.c (initialize_inlined_parameters): Pass whole
