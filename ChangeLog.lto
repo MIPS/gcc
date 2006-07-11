@@ -1,5 +1,11 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/predict.c (expr_expected_value): Use new CALL_EXPR accessors.
+	Fix obvious cut-and-paste error.
+	(strip_builtin_expect): Use new CALL_EXPR accessors.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-gimple.c (is_gimple_call_addr): Fix comment.
 
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>

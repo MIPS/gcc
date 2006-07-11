@@ -898,16 +898,14 @@ expr_expected_value (tree expr, bitmap visited)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_EXPECT)
 	{
-	  tree arglist = TREE_OPERAND (expr, 1);
 	  tree val;
 
-	  if (arglist == NULL_TREE
-	      || TREE_CHAIN (arglist) == NULL_TREE)
-	    return NULL; 
-	  val = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	  if (call_expr_nargs (expr) != 2)
+	    return NULL;
+	  val = CALL_EXPR_ARG0 (expr);
 	  if (TREE_CONSTANT (val))
 	    return val;
-	  return TREE_VALUE (TREE_CHAIN (TREE_OPERAND (expr, 1)));
+	  return CALL_EXPR_ARG1 (expr);
 	}
     }
   if (BINARY_CLASS_P (expr) || COMPARISON_CLASS_P (expr))
@@ -950,17 +948,15 @@ strip_builtin_expect (void)
 	{
 	  tree stmt = bsi_stmt (bi);
 	  tree fndecl;
-	  tree arglist;
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR
 	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR
 	      && (fndecl = get_callee_fndecl (TREE_OPERAND (stmt, 1)))
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
-	      && (arglist = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1))
-	      && TREE_CHAIN (arglist))
+	      && call_expr_nargs (TREE_OPERAND (stmt, 1)) == 2)
 	    {
-	      TREE_OPERAND (stmt, 1) = TREE_VALUE (arglist);
+	      TREE_OPERAND (stmt, 1) = CALL_EXPR_ARG0 (TREE_OPERAND (stmt, 1));
 	      update_stmt (stmt);
 	    }
 	}
