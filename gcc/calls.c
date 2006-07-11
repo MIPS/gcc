@@ -2055,7 +2055,7 @@ expand_call (tree exp, rtx target, int ignore)
 
   if (type_arg_types != 0)
     n_named_args
-      = (list_length (type_arg_types)
+      = (num_parm_types (type_arg_types)
 	 /* Count the struct value address, if it is passed as a parm.  */
 	 + structure_value_addr_parm);
   else

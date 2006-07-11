@@ -1,3 +1,7 @@
+2006-07-11  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/calls.c (expand_call): Use num_parm_types.
+
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree-inline.c (initialize_inlined_parameters): Pass whole
