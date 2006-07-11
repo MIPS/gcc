@@ -1,5 +1,12 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-inline.c (initialize_inlined_parameters): Pass whole
+	CALL_EXPR instead of arglist and static_chain.  Use new abstract 
+	accessors to extract the pieces.  Fixed callers.
+	(estimate_num_insns_1):  Use abstract CALL_EXPR iterator.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-nested.c (convert_nl_goto_reference): Use build_call_expr.
 	(convert_tramp_reference): Likewise.  Iterate over arguments
 	directly instead of extracting them as a TREE_LIST.
