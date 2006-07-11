@@ -4063,16 +4063,16 @@ find_data_references_in_loop (struct loop *loop,
 
 	    case CALL_EXPR:
 	      {
-		tree args;
+		tree arg;
+		call_expr_arg_iterator iter;
 		bool one_inserted = false;
 
-		for (args = TREE_OPERAND (stmt, 1); args; 
-		     args = TREE_CHAIN (args))
-		  if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF
-		      || TREE_CODE (TREE_VALUE (args)) == INDIRECT_REF
-		      || TREE_CODE (TREE_VALUE (args)) == COMPONENT_REF)
+		FOR_EACH_CALL_EXPR_ARG (arg, iter, stmt)
+		  if (TREE_CODE (arg) == ARRAY_REF
+		      || TREE_CODE (arg) == INDIRECT_REF
+		      || TREE_CODE (arg) == COMPONENT_REF)
 		    {
-		      dr = create_data_ref (TREE_VALUE (args), stmt, true);
+		      dr = create_data_ref (arg, stmt, true);
 		      if (dr)
 			{
 			  VEC_safe_push (data_reference_p, heap, *datarefs, dr);

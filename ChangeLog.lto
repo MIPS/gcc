@@ -1,5 +1,10 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-data-ref.c (find_data_references_in_loop): Use new
+	abstract CALL_EXPR iterators.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/predict.c (expr_expected_value): Use new CALL_EXPR accessors.
 	Fix obvious cut-and-paste error.
 	(strip_builtin_expect): Use new CALL_EXPR accessors.
