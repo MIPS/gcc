@@ -1,5 +1,13 @@
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-mudflap.c (mf_build_check_statement_for):  Use
+	build_call_expr instead of build_function_call_expr.
+	(mx_register_decls): Likewise.
+	(mudflap_register_call): Likewise.
+	(mudflap_finish_file): Likewise.
+
+2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-data-ref.c (find_data_references_in_loop): Use new
 	abstract CALL_EXPR iterators.
 
