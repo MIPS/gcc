@@ -5,6 +5,8 @@
 	* gcc/c-common.c (c_promoting_integer_type_p): Use num_parm_types
 	and nth_parm_type.
 
+	* gcc/c-format.c (handle_format_attribute): Use num_parm_types.
+
 2006-07-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree-inline.c (initialize_inlined_parameters): Pass whole

@@ -2716,7 +2716,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       
       /* Verify that first_arg_num points to the last arg, the ...  */
       if (info.first_arg_num != 0
-	  && (1 + (unsigned HOST_WIDE_INT) list_length (argument)
+	  && (1 + (unsigned HOST_WIDE_INT) num_parm_types (argument)
 	      != info.first_arg_num))
 	{
 	  if (!(flags & (int) ATTR_FLAG_BUILT_IN))
