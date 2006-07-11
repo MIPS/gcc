@@ -3581,15 +3581,17 @@ c_promoting_integer_type_p (tree t)
 int
 self_promoting_args_p (tree parms)
 {
-  tree t;
-  for (t = parms; t; t = TREE_CHAIN (t))
+  int len = num_parm_types (parms);
+  int i;
+
+  for (i = 0; i < len; i++)
     {
-      tree type = TREE_VALUE (t);
+      tree type = nth_parm_type (parms, i);
 
       if (type == error_mark_node)
 	continue;
 
-      if (TREE_CHAIN (t) == 0 && type != void_type_node)
+      if (i + 1 == len && type != void_type_node)
 	return 0;
 
       if (type == 0)
