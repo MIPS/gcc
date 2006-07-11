@@ -7617,9 +7617,10 @@ empty_body_p (tree stmt)
 bool
 stdarg_p (tree fntype)
 {
-  return (TYPE_ARG_TYPES (fntype) != 0
-	  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	      != void_type_node));
+  tree parm_types = TYPE_ARG_TYPES (fntype);
+  int len = num_parm_types (parm_types);
+  return (len
+	  && nth_parm_type (parm_types, len - 1) != void_type_node);
 }
 
 /* Initialize the abstract argument list iterator object ITER with the argument
