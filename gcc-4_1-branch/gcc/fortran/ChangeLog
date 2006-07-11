@@ -1,3 +1,89 @@
+2006-07-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/28213
+	* trans-io.c (transfer_expr): Deal with Hollerith constants used in
+	I/O list.
+
+2006-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28237
+	PR fortran/23420
+	* io.c (resolve_tag): Any integer that is not an assigned
+	variable is an error.
+
+2006-07-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28174
+	* trans-array.c (gfc_conv_expr_descriptor): When building temp,
+	ensure that the substring reference uses a new charlen.
+	* trans-expr.c (gfc_conv_aliased_arg): Add the formal intent to
+	the argument list, lift the treatment of missing string lengths
+	from the above and implement the use of the intent.
+	(gfc_conv_function_call): Add the extra argument to the call to
+	the above.
+
+	PR fortran/28167
+	* trans-array.c (get_array_ctor_var_strlen): Treat a constant
+	substring reference.
+	* array.c (gfc_resolve_character_array_constructor): Remove 
+	static attribute and add the gfc_ prefix, make use of element
+	charlens for the expression and pick up constant string lengths
+	for expressions that are not themselves constant.
+	* gfortran.h : resolve_character_array_constructor prototype
+	added.
+	* resolve.c (gfc_resolve_expr): Call resolve_character_array_
+	constructor again after expanding the constructor, to ensure
+	that the character length is passed to the expression.
+
+2006-07-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* iresolve.c (gfc_resolve_cpu_time, gfc_resolve_random_number):
+	Remove ATTRIBUTE_UNUSED for used argument.
+
+2006-07-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsic.texi: Document new intrinsics.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28094
+	* trans-intrinsic.c (gfc_conv_intrinsic_mod): Support cases where
+	there is no integer kind equal to the resulting real kind.
+	* intrinsic.c (add_functions): MODULO is not allowed as an actual
+	argument.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27965
+	* trans-array.c (gfc_conv_ss_startstride): Correct the runtime
+	conditions for bounds-checking. Check for nonzero stride.
+	Don't check the last dimension of assumed-size arrays. Fix the
+	dimension displayed in the error message.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26801
+	* trans-intrinsic.c (gfc_conv_associated): Use pre and post blocks
+	of the scalarization expression.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28081
+	* resolve.c (resolve_substring): Don't issue out-of-bounds
+	error messages when the range has zero size.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/23862
+	* lang-specs.h (f95-cpp-input): Pass -ffree-form to f951 unless
+	-ffixed-form is explicitly specified.
+
+2006-06-30  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/24748
+	* primary.c (gfc_match_rvalue): Don't call
+	match_substring for implicit non-character types.
+
 2006-06-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/19310
@@ -16,7 +102,7 @@
 	result.
 
 2006-06-25  Paul Thomas  <pault@gcc.gnu.org>
- 
+
 	PR fortran/25056
 	* interface.c (compare_actual_formal): Signal an error if the formal
 	argument is a pure procedure and the actual is not pure.

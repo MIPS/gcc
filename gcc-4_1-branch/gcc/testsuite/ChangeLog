@@ -1,3 +1,59 @@
+2006-07-11  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/28213
+	* gfortran.dg/hollerith4.f90: Test hollerith constants used in I/O
+	list.
+
+2006-07-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/27019
+	* g++.dg/ext/pr27019.C: New.
+
+2006-07-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28114
+	* g++.dg/other/pr28114.C: New.
+
+2006-07-08  Lee Millward  <lee.millward@gmail.com>
+	
+	PR c++/27820
+	* g++.dg/other/label1.C: New test.
+	
+2006-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28237
+	PR fortran/23420
+	* gfortran.dg/print_fmt_5.f90: New test.
+
+2006-07-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28174
+	* gfortran.dg/actual_array_substr_2.f90: New test.
+
+	PR fortran/28167
+	* gfortran.dg/actual_array_constructor_2.f90: New test.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28081
+	* gfortran.dg/substr_3.f: New test.
+	* gfortran.dg/equiv_2.f90: Update expected error message.
+
+2006-07-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/26801
+	* gfortran.dg/associated_4.f90: New test.
+
+2006-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27428
+	* gcc.dg/pr27428-1.c: New test case.
+
+2006-06-30  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/24748
+	* gfortran.dg/implicit_8.f90: New.
+
 2006-06-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/26559

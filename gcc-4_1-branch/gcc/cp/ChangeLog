@@ -1,3 +1,47 @@
+2006-07-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/27019
+	* typeck2.c (process_init_constructor_array): Set ce->value on errors.
+
+2006-07-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28114
+	* name-lookup.c (pushtag): Return if we have error_mark_node.
+
+2006-07-08  Lee Millward  <lee.millward@gmail.com>
+	    Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/27820
+	* decl.c (define_label): Return error_mark_node on error.
+	* semantics.c (finish_label_stmt): Don't call
+	add_stmt for invalid labels.
+	
+2006-07-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13983
+	PR c++/17519
+	* class.c (check_field_decls): Check TYPE_PACKED after
+	stripping array types.
+
+	PR c++/18681
+	* friend.c (is_friend): Fix DR 45 implementation.
+
+2006-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/26577
+	* call.c (build_new_method_call): Force evaluation of the 
+	instance pointer, not the object.
+
+	PR c++/18698
+	* decl2.c (grokfield): Only try to treat the decl as an access 
+	declaration if the scope is a class.
+
+2006-06-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27424
+	* pt.c (convert_template_argument): Pass all template arguments 
+	on to coerce_template_template_parms.
+
 2006-06-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/26559

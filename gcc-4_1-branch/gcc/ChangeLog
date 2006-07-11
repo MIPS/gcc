@@ -1,3 +1,66 @@
+2006-07-08  Matthias Klose  <doko@debian.org>
+
+	* doc/sourcebuild.texi: Fix typo.
+
+2006-07-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13983
+	PR c++/17519
+	* stor-layout.c (finish_record_layout): Copy TYPE_PACKED to variants.
+
+2006-07-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/28218
+
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Fix calls
+	to calculate and free the dominator information.
+	    
+2006-07-04  Peter O'Gorman  <peter@pogma.com>
+
+	* mklibgcc.in: chmod 644 before ranlib during install.
+
+2006-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26991
+	Backport from mainline
+	2006-02-16  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	PR rtl-optimization/25636
+	* local-alloc.c (update_equiv_regs): Lose a bogus rtx_equal_p test
+	when deciding whether an insn is an initializing insn.
+
+2006-07-04  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/28207
+	* config/rs6000/rs6000.c (function_arg_boundary): Double-word align
+	128-bit IBM long doubles for ABI_V4.
+
+2006-07-03  Pete Steinmetz  <steinmtz@us.ibm.com>
+
+	Backport from mainline
+	* doc/invoke.texi: Add cpu_type power6.
+	* config.gcc: Add cpu_type power6.
+	* config/rs6000/rs6000.c (rs6000_override_options): Alias power6
+	to power5+ with Altivec.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add power6.
+
+2006-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/27428
+	* c-lex.c (c_lex_with_flags) <CPP_N_INVALID>: Increment errorcount
+	to indicate the cpplib has issued an error message for us.
+
+2006-07-01  Martin Michlmayr  <tbm@cyrius.com>
+
+	* doc/gcov.texi (Invoking Gcov): Add a missing word.
+
+2006-06-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27768
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Add
+	may_aliases already in the tag's annotations to the bitmap.
+
 2006-06-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/26559

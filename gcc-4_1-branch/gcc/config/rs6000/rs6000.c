@@ -1159,6 +1159,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power5+", PROCESSOR_POWER5,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
+ 	 {"power6", PROCESSOR_POWER5,
+	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
+	  | MASK_FPRND},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -4402,7 +4405,12 @@ function_arg_padding (enum machine_mode mode, tree type)
    of an argument with the specified mode and type.  If it is not defined,
    PARM_BOUNDARY is used for all arguments.
 
-   V.4 wants long longs to be double word aligned.
+   V.4 wants long longs and doubles to be double word aligned.  Just
+   testing the mode size is a boneheaded way to do this as it means
+   that other types such as complex int are also double word aligned.
+   However, we're stuck with this because changing the ABI might break
+   existing library interfaces.
+
    Doubleword align SPE vectors.
    Quadword align Altivec vectors.
    Quadword align large synthetic vector types.   */
@@ -4410,7 +4418,11 @@ function_arg_padding (enum machine_mode mode, tree type)
 int
 function_arg_boundary (enum machine_mode mode, tree type)
 {
-  if (DEFAULT_ABI == ABI_V4 && GET_MODE_SIZE (mode) == 8)
+  if (DEFAULT_ABI == ABI_V4
+      && (GET_MODE_SIZE (mode) == 8
+	  || (TARGET_HARD_FLOAT
+	      && TARGET_FPRS
+	      && mode == TFmode)))
     return 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE

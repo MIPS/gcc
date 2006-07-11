@@ -2548,7 +2548,9 @@ resolve_substring (gfc_ref * ref)
 	  return FAILURE;
 	}
 
-      if (compare_bound_int (ref->u.ss.start, 1) == CMP_LT)
+      if (compare_bound_int (ref->u.ss.start, 1) == CMP_LT
+	  && (compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_EQ
+	      || compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_GT))
 	{
 	  gfc_error ("Substring start index at %L is less than one",
 		     &ref->u.ss.start->where);
@@ -2576,9 +2578,11 @@ resolve_substring (gfc_ref * ref)
 	}
 
       if (ref->u.ss.length != NULL
-	  && compare_bound (ref->u.ss.end, ref->u.ss.length->length) == CMP_GT)
+	  && compare_bound (ref->u.ss.end, ref->u.ss.length->length) == CMP_GT
+	  && (compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_EQ
+	      || compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_GT))
 	{
-	  gfc_error ("Substring end index at %L is out of bounds",
+	  gfc_error ("Substring end index at %L exceeds the string length",
 		     &ref->u.ss.start->where);
 	  return FAILURE;
 	}
@@ -2934,6 +2938,11 @@ gfc_resolve_expr (gfc_expr * e)
 	  expression_rank (e);
 	  gfc_expand_constructor (e);
 	}
+
+      /* This provides the opportunity for the length of constructors with character
+	valued function elements to propogate the string length to the expression.  */
+      if (e->ts.type == BT_CHARACTER)
+        gfc_resolve_character_array_constructor (e);
 
       break;
 
