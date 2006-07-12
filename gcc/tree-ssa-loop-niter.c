@@ -1628,13 +1628,12 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 
 	    case CALL_EXPR:
 	      {
-		tree args;
-
-		for (args = TREE_OPERAND (stmt, 1); args;
-		     args = TREE_CHAIN (args))
-		  if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF
-		      && !array_ref_contains_indirect_ref (TREE_VALUE (args)))
-		    estimate_iters_using_array (stmt, TREE_VALUE (args));
+		tree arg;
+		call_expr_arg_iterator iter;
+		FOR_EACH_CALL_EXPR_ARG (arg, iter, stmt)
+		  if (TREE_CODE (arg) == ARRAY_REF
+		      && !array_ref_contains_indirect_ref (arg))
+		    estimate_iters_using_array (stmt, arg);
 
 		break;
 	      }

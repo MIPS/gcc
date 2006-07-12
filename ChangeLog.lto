@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-loop-niter.c (infer_loop_bounds_from_undefined):  Use
+	FOR_EACH_CALL_EXPR_ARG to iterate over arguments.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-vrp.c (stmt_interesting_for_vrp, vrp_visit_stmt):  Use
 	new CALL_EXPR accessors.
 
