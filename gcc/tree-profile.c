@@ -138,7 +138,7 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
-  tree args, call, val;
+  tree call, val;
   tree start = build_int_cst_type (integer_type_node, value->hdata.intvl.int_start);
   tree steps = build_int_cst_type (unsigned_type_node, value->hdata.intvl.steps);
   
@@ -146,12 +146,8 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 				      build_addr (ref, current_function_decl),
 				      true, NULL_TREE);
   val = prepare_instrumented_value (&bsi, value);
-  args = tree_cons (NULL_TREE, ref_ptr,
-		    tree_cons (NULL_TREE, val,
-			       tree_cons (NULL_TREE, start,
-					  tree_cons (NULL_TREE, steps,
-						     NULL_TREE))));
-  call = build_function_call_expr (tree_interval_profiler_fn, args);
+  call = build_call_expr (tree_interval_profiler_fn, 4,
+			  ref_ptr, val, start, steps);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 
@@ -165,16 +161,13 @@ tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
-  tree args, call, val;
+  tree call, val;
   
   ref_ptr = force_gimple_operand_bsi (&bsi,
 				      build_addr (ref, current_function_decl),
 				      true, NULL_TREE);
   val = prepare_instrumented_value (&bsi, value);
-  args = tree_cons (NULL_TREE, ref_ptr,
-		    tree_cons (NULL_TREE, val,
-			       NULL_TREE));
-  call = build_function_call_expr (tree_pow2_profiler_fn, args);
+  call = build_call_expr (tree_pow2_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 
@@ -188,16 +181,13 @@ tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
-  tree args, call, val;
+  tree call, val;
   
   ref_ptr = force_gimple_operand_bsi (&bsi,
 				      build_addr (ref, current_function_decl),
 				      true, NULL_TREE);
   val = prepare_instrumented_value (&bsi, value);
-  args = tree_cons (NULL_TREE, ref_ptr,
-		    tree_cons (NULL_TREE, val,
-			       NULL_TREE));
-  call = build_function_call_expr (tree_one_value_profiler_fn, args);
+  call = build_call_expr (tree_one_value_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 }
 

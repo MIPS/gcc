@@ -1,5 +1,12 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-profile.c (tree_gen_interval_profiler): Use
+	build_call_expr.
+	(tree_gen_pow2_profiler): Likewise.
+	(tree_gen_one_value_profiler): Likewise.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-object-size.c (alloc_object_size):  Use build_call_expr
 	and simplify logic to avoid having to iterate over arguments.
 
