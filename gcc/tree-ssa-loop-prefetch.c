@@ -816,7 +816,7 @@ static void
 issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 {
   HOST_WIDE_INT delta;
-  tree addr, addr_base, prefetch, params, write_p;
+  tree addr, addr_base, prefetch, write_p;
   block_stmt_iterator bsi;
   unsigned n_prefetches, ap;
 
@@ -840,11 +840,8 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 
       /* Create the prefetch instruction.  */
       write_p = ref->write_p ? integer_one_node : integer_zero_node;
-      params = tree_cons (NULL_TREE, addr,
-			  tree_cons (NULL_TREE, write_p, NULL_TREE));
-				 
-      prefetch = build_function_call_expr (built_in_decls[BUILT_IN_PREFETCH],
-					   params);
+      prefetch = build_call_expr (built_in_decls[BUILT_IN_PREFETCH],
+				  2, addr, write_p);
       bsi_insert_before (&bsi, prefetch, BSI_SAME_STMT);
     }
 }

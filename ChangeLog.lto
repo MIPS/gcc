@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-loop-prefetch.c (issue_prefetch_ref): Use
+	build_call_expr.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-sra.c (sra_walk_call_expr): Use new CALL_EXPR interface
 	for iterating over arguments.
 
