@@ -1064,9 +1064,9 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	  return NULL;
 	else
 	  {
-	    tree oldop0 = TREE_OPERAND (expr, 0);
-	    tree oldarglist = TREE_OPERAND (expr, 1);
-	    tree oldop2 = TREE_OPERAND (expr, 2);
+	    tree oldop0 = CALL_EXPR_FN (expr);
+	    tree oldarglist = CALL_EXPR_ARGS (expr);
+	    tree oldop2 = CALL_EXPR_STATIC_CHAIN (expr);
 	    tree newop0;
 	    tree newarglist;
 	    tree newop2 = NULL;
@@ -1077,6 +1077,10 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	    bool listchanged = false;
 	    VEC (tree, gc) *vuses = VALUE_HANDLE_VUSES (vh);
 	    VEC (tree, gc) *tvuses;
+
+	    /* FIXME:  This section of code needs to be completely
+	       rewritten when the new representation of CALL_EXPRs is
+	       implemented.  */
 
 	    /* Call expressions are kind of weird because they have an
 	       argument list.  We don't want to value number the list
@@ -1147,9 +1151,9 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	      {
 		newexpr = (tree) pool_alloc (expression_node_pool);
 		memcpy (newexpr, expr, tree_size (expr));
-		TREE_OPERAND (newexpr, 0) = newop0 == oldop0 ? oldop0 : get_value_handle (newop0);
-		TREE_OPERAND (newexpr, 1) = listchanged ? newarglist : oldarglist;
-		TREE_OPERAND (newexpr, 2) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
+		CALL_EXPR_FN (newexpr) = newop0 == oldop0 ? oldop0 : get_value_handle (newop0);
+		CALL_EXPR_ARGS (newexpr) = listchanged ? newarglist : oldarglist;
+		CALL_EXPR_STATIC_CHAIN (newexpr) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
 		create_tree_ann (newexpr);	 
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
 		expr = newexpr;
@@ -1548,19 +1552,19 @@ valid_in_set (value_set_t set, tree expr, basic_block block)
       {
 	if (TREE_CODE (expr) == CALL_EXPR)
 	  {
-	    tree op0 = TREE_OPERAND (expr, 0);
-	    tree arglist = TREE_OPERAND (expr, 1);
-	    tree op2 = TREE_OPERAND (expr, 2);
+	    tree op0 = CALL_EXPR_FN (expr);
+	    tree op2 = CALL_EXPR_STATIC_CHAIN (expr);
+	    tree arg;
+	    call_expr_arg_iterator iter;
 
 	    /* Check the non-list operands first.  */
 	    if (!set_contains_value (set, op0)
 		|| (op2 && !set_contains_value (set, op2)))
 	      return false;
 
-	    /* Now check the operands.  */
-	    for (; arglist; arglist = TREE_CHAIN (arglist))
+	    FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
 	      {
-		if (!set_contains_value (set, TREE_VALUE (arglist)))
+		if (!set_contains_value (set, arg))
 		  return false;
 	      }
 	    return !vuses_dies_in_block_x (VALUE_HANDLE_VUSES (vh), block);
@@ -2308,37 +2312,35 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     {
     case tcc_expression:
       {
-	tree op0, op2;
-	tree arglist;
-	tree genop0, genop2;
+	tree fn, sc;
+	tree genfn, gensc;
 	tree genarglist;
-	tree walker, genwalker;
+	tree arg;
+	call_expr_arg_iterator iter;
 	
 	gcc_assert (TREE_CODE (expr) == CALL_EXPR);
-	genop2 = NULL;
+	gensc = NULL;
 	
-	op0 = TREE_OPERAND (expr, 0);
-	arglist = TREE_OPERAND (expr, 1);
-	op2 = TREE_OPERAND (expr, 2);
+	fn = CALL_EXPR_FN (expr);
+	sc = CALL_EXPR_STATIC_CHAIN (expr);
 	
-	genop0 = find_or_generate_expression (block, op0, stmts);
-	genarglist = copy_list (arglist);
-	for (walker = arglist, genwalker = genarglist;
-	     genwalker && walker;
-	     genwalker = TREE_CHAIN (genwalker), walker = TREE_CHAIN (walker))
-	  {
-	    TREE_VALUE (genwalker)
-	      = find_or_generate_expression (block, TREE_VALUE (walker),
-					     stmts);
-	  }
+	genfn = find_or_generate_expression (block, fn, stmts);
 
-	if (op2)	  
-	  genop2 = find_or_generate_expression (block, op2, stmts);
-	folded = fold_build3 (TREE_CODE (expr), TREE_TYPE (expr),
-			      genop0, genarglist, genop2);
+	/* FIXME:  It ought to be possible to do this without consing up
+	   a temporary list.  */
+	genarglist = NULL;
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
+	  {
+	    tree newarg = find_or_generate_expression (block, arg, stmts);
+	    genarglist = tree_cons (NULL_TREE, newarg, genarglist);
+	  }
+	genarglist = nreverse (genarglist);
+
+	if (sc)	  
+	  gensc = find_or_generate_expression (block, sc, stmts);
+	folded = fold_build_call_expr (TREE_TYPE (expr),
+				       genfn, genarglist, gensc);
 	break;
-	
-	
       }
       break;
     case tcc_reference:
@@ -2897,6 +2899,10 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
      general case below is because they don't have a fixed length, or
      operands, so you can't access purpose/value/chain through
      TREE_OPERAND macros.  */
+
+  /* FIXME:  This section of code needs to go away somehow when the
+     low-level representation of CALL_EXPRs is changed not to use
+     TREE_LISTs.  */
 
   if (code == TREE_LIST)
     {

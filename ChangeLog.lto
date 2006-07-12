@@ -1,5 +1,11 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-pre.c (phi_translate): Use new CALL_EXPR accessors.
+	(valid_in_set):  Likewise.
+	(create_expression_by_pieces): Likewise.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-ssa-alias.c (find_used_portions): Use new CALL_EXPR
 	accessors.
 
