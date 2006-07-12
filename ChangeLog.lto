@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-alias.c (find_used_portions): Use new CALL_EXPR
+	accessors.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-stdarg.c (execute_optimize_stdarg):  Use new CALL_EXPR
 	accessors.
 
