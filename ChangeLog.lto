@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-ccp.c (ccp_fold, fold_stmt): Use new CALL_EXPR
+	accessors and constructor.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-tailcall.c (find_tail_calls, eliminate_tail_call):  Use
 	new CALL_EXPR argument iterators.
 

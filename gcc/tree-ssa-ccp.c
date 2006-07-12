@@ -927,10 +927,9 @@ ccp_fold (tree stmt)
   /* We may be able to fold away calls to builtin functions if their
      arguments are constants.  */
   else if (code == CALL_EXPR
-	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-	   && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-	       == FUNCTION_DECL)
-	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	   && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
+	   && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)) == FUNCTION_DECL
+	   && DECL_BUILT_IN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
     {
       if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
@@ -2370,9 +2369,7 @@ fold_stmt (tree *stmt_p)
      then we may need to fold instances of *&VAR into VAR, etc.  */
   if (walk_tree (stmt_p, fold_stmt_r, &fold_stmt_r_data, NULL))
     {
-      *stmt_p
-	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
-				    NULL);
+      *stmt_p = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       return true;
     }
 
@@ -2401,7 +2398,7 @@ fold_stmt (tree *stmt_p)
 	     here where we can just smash the call operand. Also
 	     CALL_EXPR_RETURN_SLOT_OPT needs to be handled correctly and
 	     copied, fold_ternary does not have not information. */
-	  callee = TREE_OPERAND (rhs, 0);
+	  callee = CALL_EXPR_FN (rhs);
 	  if (TREE_CODE (callee) == OBJ_TYPE_REF
 	      && lang_hooks.fold_obj_type_ref
 	      && TREE_CODE (OBJ_TYPE_REF_OBJECT (callee)) == ADDR_EXPR
@@ -2419,7 +2416,7 @@ fold_stmt (tree *stmt_p)
 	      t = lang_hooks.fold_obj_type_ref (callee, t);
 	      if (t)
 		{
-		  TREE_OPERAND (rhs, 0) = t;
+		  CALL_EXPR_FN (rhs) = t;
 		  changed = true;
 		}
 	    }
