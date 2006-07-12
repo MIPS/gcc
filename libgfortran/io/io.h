@@ -46,10 +46,6 @@ typedef enum
 bt;
 
 
-typedef enum
-{ SUCCESS = 1, FAILURE }
-try;
-
 struct st_parameter_dt;
 
 typedef struct stream
@@ -682,9 +678,6 @@ internal_proto(stream_ttyname);
 extern gfc_offset stream_offset (stream *s);
 internal_proto(stream_offset);
 
-extern int unit_to_fd (int);
-internal_proto(unit_to_fd);
-
 extern int unpack_filename (char *, const char *, int);
 internal_proto(unpack_filename);
 
@@ -868,9 +861,6 @@ extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
 internal_proto(list_formatted_write);
 
 /* error.c */
-extern try notify_std (int, const char *);
-internal_proto(notify_std);
-
 extern notification notification_std(int);
 internal_proto(notification_std);
 

@@ -479,10 +479,12 @@ create_tmp_var (tree type, const char *prefix)
   tree tmp_var;
 
   /* We don't allow types that are addressable (meaning we can't make copies),
-     incomplete, or of variable size.  */
-  gcc_assert (!TREE_ADDRESSABLE (type)
-	      && COMPLETE_TYPE_P (type)
-	      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
+     or incomplete.  We also used to reject every variable size objects here,
+     but now support those for which a constant upper bound can be obtained.
+     The processing for variable sizes is performed in gimple_add_tmp_var,
+     point at which it really matters and possibly reached via paths not going
+     through this function, e.g. after direct calls to create_tmp_var_raw.  */
+  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
 
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
@@ -688,10 +690,40 @@ declare_vars (tree vars, tree scope, bool debug_info)
     }
 }
 
+/* For VAR a VAR_DECL of variable size, try to find a constant upper bound
+   for the size and adjust DECL_SIZE/DECL_SIZE_UNIT accordingly.  Abort if
+   no such upper bound can be obtained.  */
+
+static void
+force_constant_size (tree var)
+{
+  /* The only attempt we make is by querying the maximum size of objects
+     of the variable's type.  */
+
+  HOST_WIDE_INT max_size;
+
+  gcc_assert (TREE_CODE (var) == VAR_DECL);
+
+  max_size = max_int_size_in_bytes (TREE_TYPE (var));
+
+  gcc_assert (max_size >= 0);
+
+  DECL_SIZE_UNIT (var)
+    = build_int_cst (TREE_TYPE (DECL_SIZE_UNIT (var)), max_size);
+  DECL_SIZE (var)
+    = build_int_cst (TREE_TYPE (DECL_SIZE (var)), max_size * BITS_PER_UNIT);
+}
+
 void
 gimple_add_tmp_var (tree tmp)
 {
   gcc_assert (!TREE_CHAIN (tmp) && !DECL_SEEN_IN_BIND_EXPR_P (tmp));
+
+  /* Later processing assumes that the object size is constant, which might
+     not be true at this point.  Force the use of a constant upper bound in
+     this case.  */
+  if (!host_integerp (DECL_SIZE_UNIT (tmp), 1))
+    force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = current_function_decl;
   DECL_SEEN_IN_BIND_EXPR_P (tmp) = 1;
@@ -3550,6 +3582,27 @@ gimplify_variable_sized_compare (tree *expr_p)
   return GS_OK;
 }
 
+/*  Gimplify a comparison between two aggregate objects of integral scalar
+    mode as a comparison between the bitwise equivalent scalar values.  */
+
+static enum gimplify_status
+gimplify_scalar_mode_aggregate_compare (tree *expr_p)
+{
+  tree op0 = TREE_OPERAND (*expr_p, 0);
+  tree op1 = TREE_OPERAND (*expr_p, 1);
+
+  tree type = TREE_TYPE (op0);
+  tree scalar_type = lang_hooks.types.type_for_mode (TYPE_MODE (type), 1);
+
+  op0 = fold_build1 (VIEW_CONVERT_EXPR, scalar_type, op0);
+  op1 = fold_build1 (VIEW_CONVERT_EXPR, scalar_type, op1);
+
+  *expr_p
+    = fold_build2 (TREE_CODE (*expr_p), TREE_TYPE (*expr_p), op0, op1);
+
+  return GS_OK;
+}
+
 /*  Gimplify TRUTH_ANDIF_EXPR and TRUTH_ORIF_EXPR expressions.  EXPR_P
     points to the expression to gimplify.
 
@@ -5655,16 +5708,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  switch (TREE_CODE_CLASS (TREE_CODE (*expr_p)))
 	    {
 	    case tcc_comparison:
-	      /* If this is a comparison of objects of aggregate type,
-	     	 handle it specially (by converting to a call to
-	     	 memcmp).  It would be nice to only have to do this
-	     	 for variable-sized objects, but then we'd have to
-	     	 allow the same nest of reference nodes we allow for
-	     	 MODIFY_EXPR and that's too complex.  */
-	      if (!AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 1))))
-		goto expr_2;
-	      ret = gimplify_variable_sized_compare (expr_p);
-	      break;
+	      /* Handle comparison of objects of non scalar mode aggregates
+	     	 with a call to memcmp.  It would be nice to only have to do
+	     	 this for variable-sized objects, but then we'd have to allow
+	     	 the same nest of reference nodes we allow for MODIFY_EXPR and
+	     	 that's too complex.
+
+		 Compare scalar mode aggregates as scalar mode values.  Using
+		 memcmp for them would be very inefficient at best, and is
+		 plain wrong if bitfields are involved.  */
+
+	      {
+		tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
+
+		if (!AGGREGATE_TYPE_P (type))
+		  goto expr_2;
+		else if (TYPE_MODE (type) != BLKmode)
+		  ret = gimplify_scalar_mode_aggregate_compare (expr_p);
+		else
+		  ret = gimplify_variable_sized_compare (expr_p);
+
+		break;
+		}
 
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */

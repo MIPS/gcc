@@ -1061,6 +1061,12 @@ gfc_match_if (gfc_statement * if_type)
   gfc_undo_symbols ();
   gfc_current_locus = old_loc;
 
+  /* m can be MATCH_NO or MATCH_ERROR, here.  For MATCH_NO, continue to
+     call the various matchers.  For MATCH_ERROR, a mangled assignment
+     was found.  */
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
   gfc_match (" if ( %e ) ", &expr);	/* Guaranteed to match */
 
   m = gfc_match_pointer_assignment ();
@@ -2796,7 +2802,11 @@ cleanup:
 
 /* Check that a statement function is not recursive. This is done by looking
    for the statement function symbol(sym) by looking recursively through its
-   expression(e).  If a reference to sym is found, true is returned.  */
+   expression(e).  If a reference to sym is found, true is returned.  
+   12.5.4 requires that any variable of function that is implicitly typed
+   shall have that type confirmed by any subsequent type declaration.  The
+   implicit typing is conveniently done here.  */
+
 static bool
 recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 {
@@ -2830,11 +2840,17 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	    && recursive_stmt_fcn (e->symtree->n.sym->value, sym))
 	return true;
 
+      if (e->symtree->n.sym->ts.type == BT_UNKNOWN)
+	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
+
       break;
 
     case EXPR_VARIABLE:
       if (e->symtree && sym->name == e->symtree->n.sym->name)
 	return true;
+
+      if (e->symtree->n.sym->ts.type == BT_UNKNOWN)
+	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
       break;
 
     case EXPR_OP:
@@ -3386,6 +3402,13 @@ syntax:
   m = MATCH_ERROR;
 
 cleanup:
+  /* Make sure that potential internal function references in the
+     mask do not get messed up.  */
+  if (iter->var
+	&& iter->var->expr_type == EXPR_VARIABLE
+	&& iter->var->symtree->n.sym->refs == 1)
+    iter->var->symtree->n.sym->attr.flavor = FL_UNKNOWN;
+
   gfc_current_locus = where;
   gfc_free_forall_iterator (iter);
   return m;
@@ -3579,9 +3602,6 @@ gfc_match_forall (gfc_statement * st)
   c = gfc_get_code ();
   *c = new_st;
   c->loc = gfc_current_locus;
-
-  if (gfc_match_eos () != MATCH_YES)
-    goto syntax;
 
   gfc_clear_new_st ();
   new_st.op = EXEC_FORALL;

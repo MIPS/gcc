@@ -1809,7 +1809,7 @@ add_functions (void)
 
   make_generic ("mod", GFC_ISYM_MOD, GFC_STD_F77);
 
-  add_sym_2 ("modulo", 1, 1, BT_REAL, di, GFC_STD_F95,
+  add_sym_2 ("modulo", 1, 0, BT_REAL, di, GFC_STD_F95,
 	     gfc_check_a_p, gfc_simplify_modulo, gfc_resolve_modulo,
 	     a, BT_REAL, di, REQUIRED, p, BT_REAL, di, REQUIRED);
 
@@ -2241,8 +2241,16 @@ add_subroutines (void)
 
   /* More G77 compatibility garbage.  */
   add_sym_2s ("ctime", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
-	     gfc_check_ctime_sub, NULL, gfc_resolve_ctime_sub,
-	     tm, BT_INTEGER, di, REQUIRED, res, BT_CHARACTER, dc, REQUIRED);
+	      gfc_check_ctime_sub, NULL, gfc_resolve_ctime_sub,
+	      tm, BT_INTEGER, di, REQUIRED, res, BT_CHARACTER, dc, REQUIRED);
+
+  add_sym_1s ("idate", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_itime_idate, NULL, gfc_resolve_idate,
+	      vl, BT_INTEGER, 4, REQUIRED);
+
+  add_sym_1s ("itime", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
+	      gfc_check_itime_idate, NULL, gfc_resolve_itime,
+	      vl, BT_INTEGER, 4, REQUIRED);
 
   add_sym_1s ("second", 0, 1, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_second_sub, NULL, gfc_resolve_second_sub,

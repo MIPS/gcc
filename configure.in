@@ -1219,6 +1219,7 @@ if test -d ${srcdir}/gcc; then
         language=
         target_libs=
         lang_dirs=
+        subdir_requires=
         boot_language=
         build_by_default=
         need_gmp=
@@ -1251,6 +1252,21 @@ if test -d ${srcdir}/gcc; then
             add_this_lang=no
             ;;
         esac
+
+        # Disable languages that need other directories if these aren't available.
+	for i in $subdir_requires; do
+	  test -f "$srcdir/gcc/$i/config-lang.in" && continue
+	  case ,${enable_languages}, in
+            *,${language},*)
+              # Specifically requested language; tell them.
+              AC_MSG_ERROR([The gcc/$i directory contains parts of $language but is missing])
+              ;;
+            *)
+              # Silently disable.
+              add_this_lang=no
+              ;;
+          esac
+	done
 
         # Disable languages that need GMP if it isn't available.
         case ,${enable_languages},:${have_gmp}:${need_gmp} in
@@ -2395,6 +2411,21 @@ case $build in
     stage1_cflags="-g -no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
     ;;
 esac
+
+# This is aimed to mimic bootstrap with a non-GCC compiler to catch problems.
+if test "$GCC" = yes; then
+  saved_CFLAGS="$CFLAGS"
+
+  # Pass -fkeep-inline-functions for stage 1 if the GCC version supports it.
+  CFLAGS="$CFLAGS -fkeep-inline-functions"
+  AC_MSG_CHECKING([whether -fkeep-inline-functions is supported])
+  AC_TRY_COMPILE(,,
+    [AC_MSG_RESULT([yes]); stage1_cflags="$stage1_cflags -fkeep-inline-functions"],
+    [AC_MSG_RESULT([no])])
+
+  CFLAGS="$saved_CFLAGS"
+fi
+
 AC_SUBST(stage1_cflags)
 
 # Enable -Werror in bootstrap stage2 and later.

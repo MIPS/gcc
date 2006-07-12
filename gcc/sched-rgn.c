@@ -142,6 +142,7 @@ static void find_single_block_region (void);
 static void find_rgns (void);
 static void find_trgns (void);
 static void extend_rgns (int *, int *, sbitmap, int *);
+static void extend_trgns_to_sears (void);
 static bool too_large (int, int *, int *);
 
 extern void debug_live (int, int);
@@ -1162,6 +1163,149 @@ print_region_statistics (int *s1, int s1_sz, int *s2, int s2_sz)
       fprintf (sched_dump, ";; Region extension statistics: size %d: " \
 	       "was %d + %d more\n", i + 1, n1, n2 - n1);
     }
+}
+
+/* Extend treegions to Single-Entry Acyclic Regions (SEARs).  
+   Larger regions can be formed by merging two treegions if
+   all incoming predecessor edges into a (child) treegion 
+   have src basic blocks that are contained within a single
+   (parent) treegion.
+
+   This new region is referred to as a SEAR and is no longer
+   a treegion because the region now contains merge points
+   (i.e., the child treegions original root block). Tail 
+   duplication assumes the use of treegions and must 
+   therefore be done prior to calling this function.  */
+
+static void
+extend_trgns_to_sears (void)
+{
+  bool merge;
+  int child_rgn, parent_rgn; 
+  edge e;
+  edge_iterator ei;
+
+  for (child_rgn = 1; child_rgn < nr_regions; child_rgn++)
+    {
+      merge = true;
+      parent_rgn = -1;
+      
+      FOR_EACH_EDGE (e, ei, BASIC_BLOCK (rgn_bb_table[RGN_BLOCKS (child_rgn)])->preds)
+	{
+	  /* First parent treegion. Nothing to compare against.  */
+	  if(parent_rgn == -1)
+	    {
+	      parent_rgn = CONTAINING_RGN (e->src->index);
+
+	      /* Can't merge with yourself.  */
+	      if (parent_rgn == child_rgn)
+		{
+		  merge = false;
+		  break;
+		}
+	      continue;
+	    }
+	  /* Check to make sure this isn't a new parent.  */
+	  else if (parent_rgn != CONTAINING_RGN (e->src->index))
+	    {
+	      merge = false;
+	      break;
+	    }
+	}
+
+      /* If the child treegion has one unique parent then merge parent 
+	 and child treegions to form a SEAR.  */
+      if(merge)	
+	{
+	  int bb, rgn_blocks, num_insns;
+	  int parent_nr_blocks, child_nr_blocks;
+
+	  parent_nr_blocks = RGN_NR_BLOCKS (parent_rgn);
+	  child_nr_blocks = RGN_NR_BLOCKS (child_rgn);
+
+	  /* Make sure the SEAR doesn't contain too many blocks.  */
+	  if ((parent_nr_blocks + child_nr_blocks) 
+	      > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
+	    continue;
+
+	  /* Calculate num_insns between parent and child.  */
+	  num_insns = 0;
+	  rgn_blocks = RGN_BLOCKS (parent_rgn);
+	  for (bb = 0; bb < parent_nr_blocks; bb++)
+	    num_insns += 
+	      (INSN_LUID (BB_END (BASIC_BLOCK (rgn_bb_table[rgn_blocks + bb])))
+	       - INSN_LUID (BB_HEAD (BASIC_BLOCK (rgn_bb_table[rgn_blocks + bb]))));
+
+	  rgn_blocks = RGN_BLOCKS (child_rgn);
+	  for (bb = 0; bb < child_nr_blocks; bb++)
+	    num_insns += 
+	      (INSN_LUID (BB_END (BASIC_BLOCK (rgn_bb_table[rgn_blocks + bb])))
+	       - INSN_LUID (BB_HEAD (BASIC_BLOCK (rgn_bb_table[rgn_blocks + bb]))));
+
+	  /* Make sure the SEAR doesn't contain too many insns.  */
+	  if (num_insns > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS))
+	    continue;
+
+	  /* Update RGN_NR_BLOCKS, BLOCK_TO_BB, CONTAINING_RGN.  */
+	  RGN_NR_BLOCKS (parent_rgn) = parent_nr_blocks + child_nr_blocks;
+	  for (bb = 0; bb < child_nr_blocks; bb++)
+	    {
+	      int child_block = rgn_bb_table[RGN_BLOCKS (child_rgn) + bb];
+
+	      BLOCK_TO_BB (child_block) = parent_nr_blocks + bb;
+	      CONTAINING_RGN (child_block) = parent_rgn;      
+	    }
+	  
+	  /* If the child blocks are not located directly after the parent 
+	     blocks in rgn_bb_table then we need to adjust the rgn_bb_table.  */
+	  if((RGN_BLOCKS (parent_rgn) + parent_nr_blocks) != RGN_BLOCKS (child_rgn))
+	    {
+	      int idx;
+	      int *child_blocks;
+
+	      child_blocks = XNEWVEC (int, child_nr_blocks);
+	      memcpy (child_blocks, 
+		      &rgn_bb_table[RGN_BLOCKS (child_rgn)], 
+		      child_nr_blocks * sizeof (int));
+	      
+	      /* Relocate child blocks directly after parent blocks.  */
+	      idx = RGN_BLOCKS (parent_rgn) + parent_nr_blocks;
+	      memmove (&(rgn_bb_table[idx + child_nr_blocks]),
+		       &(rgn_bb_table[idx]),
+		       (RGN_BLOCKS (child_rgn) - idx) * sizeof (int));
+	      
+	      memcpy (&rgn_bb_table[idx], 
+		      child_blocks,	      
+		      child_nr_blocks * sizeof (int));
+	      
+	      free (child_blocks);
+	      
+	      /* Adjust RGN_BLOCKS for all regions */
+	      for(bb = parent_rgn + 1; bb < child_rgn; bb++)
+		RGN_BLOCKS (bb) += child_nr_blocks;
+	    }
+
+	  /* The child region has been merged.  */
+	  nr_regions--;
+	  
+	  /* Adjust the rgn_table to remove child_rgn if it's not the 
+	     last region. */
+	  if (child_rgn != nr_regions)
+	    {
+	      int rgn;
+	      memmove (&(rgn_table[child_rgn]), 
+		       &(rgn_table[child_rgn+1]), 
+		       (nr_regions - child_rgn) * sizeof (region));
+	      
+	      /* If child_rgn was not the last region we also need to update 
+		 the CONTAINING_RGN array for all later regions.  */
+	      for (rgn = parent_rgn + 1; rgn < nr_regions; rgn++)
+		for (bb = 0; bb < rgn_table[rgn].rgn_nr_blocks; bb++)
+		  CONTAINING_RGN (rgn_bb_table[rgn_table[rgn].rgn_blocks + bb]) = rgn;
+	    }
+	}
+    }    
+  return;
 }
 
 /* Extend regions.
@@ -3036,6 +3180,13 @@ init_regions (void)
     {
       /* Find treegions. */
       find_trgns ();
+
+      /* Extend treegions to SEARs.  */
+      extend_trgns_to_sears ();
+
+      if (sched_verbose >= 3)
+	debug_regions ();
+
     }
   else
     {

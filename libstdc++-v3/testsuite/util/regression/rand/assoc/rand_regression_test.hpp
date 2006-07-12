@@ -44,6 +44,9 @@
  * Contains a random-operation test.
  */
 
+#ifndef PB_DS_ASSOC_RAND_REGRESSION_TEST_HPP
+#define PB_DS_ASSOC_RAND_REGRESSION_TEST_HPP
+
 #include <iostream>
 #include <vector>
 #include <regression/rand/assoc/container_rand_regression_test.hpp>
@@ -113,19 +116,19 @@ namespace detail
     double ip = 0.6;
     double ep = 0.2; 
     double cp = 0.001;
-    double mp = 1;
+    double mp = 0.25;
     bool disp = false; // show progress
 
     try
       {
 	detail::verify_params(sd, n, m, tp, ip, ep, cp, mp, disp);
       }
-    catch(pb_ds::test::illegal_input_error&)
+    catch (pb_ds::test::illegal_input_error&)
       {
 	detail::usage(name);
 	return -1;
       }
-    catch(...)
+    catch (...)
       {
 	return -2;
       };
@@ -204,3 +207,4 @@ namespace detail
 } // namespace test
 } // namespace pb_ds
 
+#endif

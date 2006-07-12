@@ -2609,6 +2609,9 @@ push_class_level_binding (tree name, tree x)
   if (!class_binding_level)
     POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, true);
 
+  if (name == error_mark_node)
+    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, false);
+
   /* Check for invalid member names.  */
   gcc_assert (TYPE_BEING_DEFINED (current_class_type));
   /* We could have been passed a tree list if this is an ambiguous
@@ -2762,6 +2765,9 @@ do_class_using_decl (tree scope, tree name)
   tree binfo;
   tree base_binfo;
   int i;
+
+  if (name == error_mark_node)
+    return NULL_TREE;
 
   if (!scope || !TYPE_P (scope))
     {
@@ -3033,7 +3039,12 @@ push_namespace_with_attribs (tree name, tree attributes)
       /* Make a new namespace, binding the name to it.  */
       d = build_lang_decl (NAMESPACE_DECL, name, void_type_node);
       DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
-      TREE_PUBLIC (d) = 1;
+      /* The name of this namespace is not visible to other translation
+	 units if it is an anonymous namespace or member thereof.  */
+      if (anon || decl_anon_ns_mem_p (current_namespace))
+	TREE_PUBLIC (d) = 0;
+      else
+	TREE_PUBLIC (d) = 1;
       pushdecl (d);
       if (anon)
 	{
@@ -3080,15 +3091,6 @@ push_namespace_with_attribs (tree name, tree attributes)
       push_visibility (TREE_STRING_POINTER (x));
       goto found;
     }
-#if 0
-  if (anon)
-    {
-      /* Anonymous namespaces default to hidden visibility.  This might
-	 change once we implement export.  */
-      current_binding_level->has_visibility = 1;
-      push_visibility ("hidden");
-    }
-#endif
  found:
 #endif
 
@@ -4872,7 +4874,11 @@ pushtag (tree name, tree type, tag_scope scope)
 	    pushdecl_class_level (decl);
 	}
       else if (b->kind != sk_template_parms)
-	decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	{
+	  decl = pushdecl_with_scope (decl, b, /*is_friend=*/false);
+	  if (decl == error_mark_node)
+	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
+	}
 
       TYPE_CONTEXT (type) = DECL_CONTEXT (decl);
 
@@ -4903,6 +4909,10 @@ pushtag (tree name, tree type, tag_scope scope)
   decl = TYPE_NAME (type);
   gcc_assert (TREE_CODE (decl) == TYPE_DECL);
   TYPE_STUB_DECL (type) = decl;
+
+  /* Set type visibility now if this is a forward declaration.  */
+  TREE_PUBLIC (decl) = 1;
+  determine_visibility (decl);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, type);
 }

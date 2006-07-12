@@ -414,6 +414,11 @@ typedef enum
 { SILENT, WARNING, ERROR }
 notification;
 
+/* This is returned by notify_std and several io functions.  */
+typedef enum
+{ SUCCESS = 1, FAILURE }
+try;
+
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
 
@@ -492,6 +497,9 @@ internal_proto(translate_error);
 extern void generate_error (struct st_parameter_common *, int, const char *);
 internal_proto(generate_error);
 
+extern try notify_std (struct st_parameter_common *, int, const char *);
+internal_proto(notify_std);
+
 /* fpu.c */
 
 extern void set_fpu (void);
@@ -544,6 +552,9 @@ internal_proto(init_units);
 
 extern void close_units (void);
 internal_proto(close_units);
+
+extern int unit_to_fd (int);
+internal_proto(unit_to_fd);
 
 /* stop.c */
 

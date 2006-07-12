@@ -1,3 +1,213 @@
+2006-07-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/15448
+	* include/Makefile.am: Clean up pch rules.
+	* include/Makefile.in: Regenerate.
+
+2006-07-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (__int_to_char<>(_CharT*,
+	long, const _CharT*, ios_base::fmtflags), __int_to_char<>(_CharT*,
+	unsigned long, const _CharT*, ios_base::fmtflags),
+	__int_to_char<>(_CharT*, long long, const _CharT*, ios_base::fmtflags),
+	__int_to_char<>(_CharT*, unsigned long long, const _CharT*,
+	ios_base::fmtflags)): Remove.
+	(__int_to_char<>(_CharT*, _ValueT, const _CharT*, ios_base::fmtflags,
+	bool)): Adjust.
+	(num_put<>::_M_insert_int(_OutIter, ios_base&, _CharT, _ValueT)):
+	Likewise.
+
+2006-07-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (class gamma_distribution<>): Add.
+	* include/tr1/random.tcc (gamma_distribution<>::operator(),
+	operator<<(std::basic_ostream<>&, const gamma_distribution<>&)):
+	Define.
+	* testsuite/tr1/5_numerical_facilities/random/gamma_distribution/
+	requirements/typedefs.cc: New.
+
+2006-07-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/regression/trait/assoc/trait.hpp: Format.
+	* testsuite/util/regression/rand/priority_queue/
+	rand_regression_test.hpp: Same.
+	* testsuite/util/regression/rand/assoc/rand_regression_test.hpp: Same.
+	* testsuite/util/regression/rand/
+	assoc/container_rand_regression_test.hpp: Same.
+	* testsuite/util/regression/priority_queue/common_type.hpp: Same.
+	* testsuite/util/regression/assoc/common_type.hpp: Same.
+	* testsuite/util/regression/basic_type.hpp: Same.
+
+2006-07-05  Benjamin Kosnik  <bkoz@redhat.com>	
+
+	* include/Makefile.am (pch_output): New.
+	(clean-local): Use it.
+	* include/Makefile.in: Regenerate.
+
+2006-07-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (_Adaptor<>::operator()()): Cast 1 to
+	result_type.
+	(variate_generator<>::operator()(),
+	variate_generator<>::operator()(_Tp)): Inline.
+
+	* include/tr1/random: Minor cosmetic changes.
+
+2006-07-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (__rc_string_base::_S_max_size):
+	Adjust, take into account rounding in _M_create.
+	(__rc_string_base::_M_create): Add early _S_max_size check.
+
+2006-07-03  Ian Lance Taylor  <ian@airs.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/rc_string_base.h (__rc_string_base::_S_max_size):
+	Increase by a factor of two.
+	* include/ext/sso_string_base.h (__sso_string_base::_S_max_size):
+	Likewise.
+
+2006-07-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base::_M_create): Never
+	allocate a string bigger than _S_max_size.
+
+2006-06-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (pch1_input, pch1_output_builddir,
+	pch1_outputj_installdir, pch1_source): Move from pch_*.
+	(pch2_input, pch2_output_builddir,
+	pch2_output_installdir, pch2_source): Clone for ext.
+	(pch3_input, pch3_output_builddir,
+	pch3_output_installdir, pch3_source): Clone for tr1.
+	(install-pch): Same.
+	* include/Makefile.in: Regenerate.
+
+	* include/precompiled: New directory.
+	* include/stdc++.h: Move...
+	* include/precompiled/stdc++.h: ... here.		
+	* include/precompiled/stdtr1c++.h: New.
+	* include/precompiled/extc++.h: New.
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Set PCH_CXXFLAGS
+	to -include bits/stdtr1c++.h.
+
+2006-06-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3_target_compile): Set timeout to
+	600.
+
+2006-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/regression/rand/priority_queue/
+	rand_regression_test.hpp: Revert.
+
+2006-06-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/typelist.h (typelist_append): To append_typelist. 
+	(typelist): To node.
+	Enclose in namespace typelist.
+	* testsuite/util/testsuite_common_types.h: Adjust names, namespaces.
+	* testsuite/performance/23_containers/find/map.cc: Same.
+	* testsuite/performance/23_containers/create/map.cc: Same.
+	* testsuite/performance/23_containers/insert_erase/associative.cc: 
+	Same.
+	* testsuite/performance/23_containers/insert/sequence.cc: Same.
+	* testsuite/performance/23_containers/insert/associative.cc: Same.
+	* testsuite/performance/23_containers/create_from_sorted/set.cc: Same.
+	* testsuite/performance/23_containers/index/map.cc: Same.
+	* testsuite/performance/23_containers/insert_from_sorted/set.cc: Same.
+	* testsuite/performance/23_containers/create_sort/list.cc: Same.
+	* testsuite/performance/23_containers/sort_search/list.cc: Same.
+	* testsuite/performance/23_containers/producer_consumer/sequence.cc: 
+	Same.
+	* testsuite/performance/23_containers/producer_consumer/associative.cc:
+	Same.
+
+2006-06-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/ext/pb_ds/regression/trie_no_data_map_rand.cc:
+	Reduce iterations by half.
+	* testsuite/ext/pb_ds/regression/hash_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/hash_no_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/list_update_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/list_update_no_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/priority_queue_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/tree_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/tree_no_data_map_rand.cc: Same.
+	* testsuite/ext/pb_ds/regression/trie_data_map_rand.cc: Same.
+
+	* testsuite/util/regression/rand/assoc/rand_regression_test.hpp:
+	Set probability of compare from 1 to 0.25.
+	* testsuite/util/regression/rand/priority_queue/
+	rand_regression_test.hpp: Same.
+
+2006-06-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (operator<<(std::basic_ostream<>&,
+	const linear_congruential<>&), operator>>(std::basic_istream<>&,
+	linear_congruential<>&), operator<<(std::basic_ostream<>&,
+	const mersenne_twister<>&), operator>>(std::basic_istream<>&,
+	mersenne_twister<>&), operator<<(std::basic_ostream<>&,
+	const subtract_with_carry<>&), operator>>(std::basic_istream<>&,
+	subtract_with_carry<>&), operator<<(std::basic_ostream<>&,
+	const discard_block<>&), operator>>(std::basic_istream<>&,
+	discard_block<>&), operator<<(std::basic_ostream<>&,
+	const xor_combine<>&), operator>>(std::basic_istream<>&,
+	xor_combine<>&), operator<<(std::basic_ostream<>&,
+	const uniform_int<>&), operator>>(std::basic_istream<>&,
+	uniform_int<>&), operator<<(std::basic_ostream<>&,
+	const bernoulli_distribution&), operator<<(std::basic_ostream<>&,
+	const geometric_distribution<>&), operator<<(std::basic_ostream<>&,
+	const uniform_real<>&), operator>>(std::basic_istream<>&,
+	uniform_real<>&), operator<<(std::basic_ostream<>&,
+	const exponential_distribution<>&), operator<<(std::basic_ostream<>&,
+	const normal_distribution<>&), operator>>(std::basic_istream<>&,
+	normal_distribution<>&)): Redo per TR1 specs; move out of line...
+	* include/tr1/random.tcc: ... here.
+
+2006-06-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/random (class normal_distribution<>): Add.
+	* include/tr1/random.tcc (normal_distribution<>::operator()): Define.
+	
+	* include/tr1/random.tcc (struct _Max): Remove, "inline" in the
+	only user, mersenne_twister<>::max().
+
+	* include/tr1/random.tcc (struct _Shift): Move...
+	* include/tr1/random: ... here.
+
+	* include/tr1/random.tcc (linear_congruential<>::
+	linear_congruential(unsigned long), linear_congruential<>::
+	linear_congruential(_Gen&), mersenne_twister<>::max())): Move inline...
+	* include/tr1/random: ... here.
+
+	* include/tr1/random (exponential_distribution<>::
+	exponential_distribution(const result_type&)): Add missing
+	_GLIBCXX_DEBUG_ASSERT.
+
+	* testsuite/tr1/5_numerical_facilities/random/
+	exponential_distribution/requirements/typedefs.cc: New.
+	* testsuite/tr1/5_numerical_facilities/random/
+	normal_distribution/requirements/typedefs.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/
+	bernoulli_distribution/requirements/typedefs.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/random/
+	geometric_distribution/requirements/typedefs.cc: Likewise.
+
+2006-06-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/27984
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Adjust
+	testing includes.
+	* docs/html/test.html: Adjust for testsuite changes.
+	
+2006-06-22  Jonathan Lennox  <lennox@cs.columbia.edu>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_prime_size_policy_imp.hpp: Cast to size_t instead.
+
 2006-06-22  Ami Tavory  <atavory@gmail.com>
 
 	* include/ext/pb_ds/detail/resize_policy/

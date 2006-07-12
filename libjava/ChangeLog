@@ -1,3 +1,200 @@
+2006-07-07  Bryce McKinlay  <mckinlay@redhat.com>
+	    Geoffrey Keating <geoffk@apple.com>
+
+	* testsuite/libjava.lang/StackTrace2.java: Renamed from
+	StackTrace.java. Changed class name.
+	* testsuite/libjava.lang/StackTrace2.out: Renamed from
+	StackTrace.out. Updated for new class name.
+
+2006-07-07  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* sysdep/i386/backtrace.h (fallback_backtrace): Scan for a function's
+	prologue to determine its beginning.  Stop unwinding when we reach
+	JvRunMain().
+
+2006-07-07  Gary Benson  <gbenson@redhat.com>
+
+	* Makefile.am (BOOT_CLASS_PATH_DIR): Only contain libgcj.jar.
+	* Makefile.in: Regenerate.
+
+2006-07-06  Bryce McKinlay <mckinlay@redhat.com>
+
+	* stacktrace.cc (ClassForFrame): Remove commented-out code.
+	(UnwindTraceFn): Use _Unwind_GetIPInfo and adjust IP
+	only when needed.
+	(getLineNumberForFrame): Don't adjust IP here.
+	* testsuite/libjava.lang/StackTrace.java: New test case.
+	* testsuite/libjava.lang/StackTrace.out: Ditto.
+
+2006-07-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (libgcj_tools_la_GCJFLAGS): Add
+	-fno-indirect-classes.
+	* Makefile.in: Regenerate.
+	* gcj/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2006-07-06  Bryce McKinlay <mckinlay@redhat.com>
+
+	* boehm.cc (_Jv_MarkObj): Mark the next_or_version field.
+
+2006-07-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.ac (ac_configure_args): Add --with-native-libdir.
+	* configure: Regenerate.
+	* classpath/native/jni/gtk-peer/Makefile.am: Remove GCJ LOCAL
+	sections.
+	* classpath/native/jni/gtk-peer/Makefile.in: Regenerate.
+	* classpath/native/jawt/Makefile.am: Remove GCJ LOCAL sections.
+	* classpath/native/jawt/Makefile.in: Regenerate.
+	* classpath/native/plugin/Makefile.am: Remove GCJ LOCAL sections.
+	* classpath/native/plugin/Makefile.in: Regenerate.
+
+2006-07-05  Ranjit Mathew  <rmathew@gcc.gnu.org>
+            Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* libgcj.spec.in: Use THREADSTARTFILESPEC to affect the spec for
+	startfile.
+	* configure.ac: Allow targets to affect the spec for startfile
+	by specifying a THREADSTARTFILESPEC variable.  Define this for
+	the win32 threads package to include crtmt.o.
+	* configure: Regenerate.
+	* win32.cc (_CRT_MT): Remove definition.
+	(__mingwthr_key_dtor): Likewise.
+
+2006-07-04  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/lib/libjava.exp (libjava_init): Call the GCJ_UNDER_TEST with
+	the -B$specdir.
+
+	PR libgcj/28226:
+	* include/posix.h (_Jv_platform_dladdr): Remove const qualifier.
+	* include/win32.h (_Jv_platform_dladdr): Likewise.
+	* posix.cc (_Jv_platform_dladdr): Likewise.
+	* win32.cc (_Jv_platform_dladdr): Likewise.
+
+	* testsuite/lib/libjava.exp (libjava_init): Look for libgcj-$version.jar
+	instead of libgcj-*.jar.
+
+2006-07-04  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR libgcj/28244:
+	* Makefile.am (libgcj_tools_la_DEPENDENCIES): Add libgcj.la and
+	libgcj.spec.
+	* Makefile.in: Regenerate.
+
+2006-06-30  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* classpath/tools/Makefile.am: Comment out tools wrapper creation.
+	(TOOLS_ZIP): Rename tools.zip tools.jar.
+	(noinst_DATA): Do not install tools.jar.
+	* classpath/tools/Makefile.in: Regenerate.
+	* classpath/Makefile.am (SUBDIRS): Add tools.
+	(DIST_SUBDIRS): Likewise.
+	* classpath/Makefile.in: Regenerate.
+	* Makefile.am (toolexeclib_LTLIBRARIES): Add libgcj-tools.la.
+	(jar_DATA): Add libgcj-tools-$(gcc_version).jar.
+	(bin_PROGRAMS): Add gappletviewer, gjarsigner and gkeytool.
+	Add build logic for libgcj-tools.la,
+	libgcj-tools-$(gcc_version).jar and gappletviewer, gjarsigner and
+	gkeytool.
+	* Makefile.in: Regenerate.
+
+2006-06-29  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* gcj/javaprims.h (_Jv_uintptr_t): New typedef similar to uintptr_t in
+	C99.
+	* include/java-stack.h: Include stdlib.h.
+	(_Jv_AddrInfo): New structure to hold address information.
+	* include/posix.h (_Jv_platform_dladdr): Declare.
+	* include/win32.h (_Jv_platform_dladdr): Declare.
+	(backtrace): Remove declaration.
+	* posix.cc: Include dlfcn.h if available.  Include java-stack.h.
+	(_Jv_platform_dladdr): Define.
+	* win32.cc: Include string.h.  Include java-stack.h.
+	(backtrace): Remove.
+	(_Jv_platform_dladdr): Define.
+	* sysdep/i386/backtrace.h (fallback_backtrace): Check that a potential
+	frame pointer value is 32-bit word-aligned.  Use operand of the CALL
+	instruction calling the current function to find its starting address.
+	* stacktrace.cc: Do not include dlfcn.h.  Include platform.h.
+	(_Jv_StackTrace::getLineNumberForFrame): Use _Jv_platform_dladdr()
+	instead of dladdr().
+	(_Jv_StackTrace::GetStackTraceElements): Use nCodeMap even for Windows.
+	(_Jv_StackTrace::GetClassContext): Use fallback_backtrace() for
+	targets with SJLJ exceptions instead of using _Unwind_Backtrace().
+	(_Jv_StackTrace::GetFirstNonSystemClassLoader): Likewise.
+
+2006-06-27  Tom Tromey  <tromey@redhat.com>
+
+	* java/io/OutputStreamWriter.java (writeChars): Use a 'do' loop.
+	Set 'out.count' earlier.
+	(close): Call setFinished on converter.
+	(flush): Always write work buffer.
+	* java/io/PrintStream.java (writeChars): Do 'do' loop.
+	(close): Call setFinished on converter.  Write a 'flush' array.
+	* java/lang/natString.cc (getBytes): Call setFinished on
+	converter.
+	* gnu/gcj/convert/CharsetToBytesAdaptor.java (hasBytes): New
+	field.
+	(write): Set hasBytes.  Changed 'finished' logic.
+	(havePendingBytes): Rewrote.
+	(setFinished): New method.
+	* gnu/gcj/convert/UnicodeToBytes.java (setFinished): New method.
+	* testsuite/libjava.lang/RH194522.java: New file.
+	* testsuite/libjava.lang/RH194522.out: New file.
+
+2006-06-27  Marco Trudel  <mtrudel@gmx.ch>
+
+	* boehm.cc (_Jv_SuspendThread, _Jv_ResumeThread): Define
+	conditionally on GC_PTHREADS, !GC_SOLARIS_THREADS,
+	!GC_WIN32_THREADS and !GC_DARWIN_THREADS.
+
+2006-06-27  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/28178:
+	* jni.cc (_Jv_JNI_DeleteLocalRef): Ignore null argument.
+	(_Jv_JNI_DeleteGlobalRef): Likewise.
+	* testsuite/libjava.jni/PR28178.java: New file.
+	* testsuite/libjava.jni/PR28178.c: New file.
+	* testsuite/libjava.jni/PR28178.out: New file.
+
+2006-06-26  Keith Seitz  <keiths@redhat.com>
+
+	* include/posix-threads.h: Fix coding style aberrations from
+	2006-06-19 check-in.
+	* posix-threads.cc (_Jv_ThreadDebugSuspend): Ditto.
+	* include/win32-threads.h (_Jv_ThreadDebugSuspend): Ditto.
+	* win32-threads.cc (_Jv_ThreadDebugSuspend): Ditto.
+
+2006-06-26  Keith Seitz  <keiths@redhat.com>
+
+	* include/no-gc.h (_Jv_SuspendThread): Declare.
+	(_Jv_ResumeThread): Likewise.
+	* include/boehm-gc.h (_Jv_SuspendThread): Declare.
+	(_Jv_ResumeThread): Likewise.
+	* nogc.cc (_Jv_SuspendThread): New function.
+	(_Jv_ResumeThread): Likewise.
+	* boehm.cc (_Jv_SuspendThread): New function.
+	(_Jv_ResumeThread): Likewise.
+
+2006-06-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_invocation_test_one):
+	Link against -ljvm, not -lgcj.
+
+2006-06-22  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (libjvm_la_LDFLAGS): Do not set -rpath to
+	toolexeclibdir.
+	* Makefile.in: Regenerate.
+
+2006-06-22  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/reflect/natField.cc (getAddr): Allow setting of final
+	field when it is accessible.
+
 2006-06-21  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* include/win32-threads.h (_Jv_ThreadDesc_t): New typedef. 

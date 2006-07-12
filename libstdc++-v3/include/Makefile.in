@@ -978,13 +978,27 @@ thread_host_headers = \
 	${host_builddir}/gthr-tpf.h \
 	${host_builddir}/gthr-default.h
 
-pch_input = ${host_builddir}/stdc++.h
-pch_output_builddir = ${host_builddir}/stdc++.h.gch
-pch_output_installdir = ${host_installdir}/stdc++.h.gch
-pch_source = ${glibcxx_srcdir}/include/stdc++.h
+pch1_source = ${glibcxx_srcdir}/include/precompiled/stdc++.h
+pch1_output_builddir = ${host_builddir}/stdc++.h.gch
+pch1_output_installdir = ${host_installdir}/stdc++.h.gch
+pch1a_output = ${pch1_output_builddir}/O0g.gch
+pch1b_output = ${pch1_output_builddir}/O2g.gch
+pch1_output = ${pch1a_output} ${pch1b_output}
+pch2_source = ${glibcxx_srcdir}/include/precompiled/stdtr1c++.h
+pch2_output_builddir = ${host_builddir}/stdtr1c++.h.gch
+pch2_output_installdir = ${host_installdir}/stdtr1c++.h.gch
+pch2_output = ${pch2_output_builddir}/O2g.gch
+pch3_source = ${glibcxx_srcdir}/include/precompiled/extc++.h
+pch3_output_builddir = ${host_builddir}/extc++.h.gch
+pch3_output_installdir = ${host_installdir}/extc++.h.gch
+pch3_output = ${pch3_output_builddir}/O2g.gch
+pch_output = ${pch1_output} ${pch2_output} ${pch3_output}
+pch_output_dirs = \
+	${pch1_output_builddir} ${pch2_output_builddir} ${pch3_output_builddir}
+
 PCHFLAGS = -Winvalid-pch -Wno-deprecated -x c++-header $(CXXFLAGS)
 @GLIBCXX_BUILD_PCH_FALSE@pch_build = 
-@GLIBCXX_BUILD_PCH_TRUE@pch_build = ${pch_input}
+@GLIBCXX_BUILD_PCH_TRUE@pch_build = ${pch_output}
 @GLIBCXX_BUILD_PCH_FALSE@pch_install = 
 @GLIBCXX_BUILD_PCH_TRUE@pch_install = install-pch
 
@@ -1007,7 +1021,7 @@ allcreated = \
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
 
 # By adding these files here, automake will remove them for 'make clean'
-CLEANFILES = ${pch_input} ${pch_output_builddir}/*
+CLEANFILES = ${pch_output} 
 all: all-am
 
 .SUFFIXES:
@@ -1115,7 +1129,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-generic clean-libtool clean-local mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
@@ -1160,14 +1174,15 @@ ps-am:
 uninstall-am: uninstall-info-am
 
 .PHONY: all all-am all-local check check-am clean clean-generic \
-	clean-libtool distclean distclean-generic distclean-libtool \
-	distdir dvi dvi-am html html-am info info-am install \
-	install-am install-data install-data-am install-data-local \
-	install-exec install-exec-am install-info install-info-am \
-	install-man install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am uninstall uninstall-am uninstall-info-am
+	clean-libtool clean-local distclean distclean-generic \
+	distclean-libtool distdir dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am \
+	install-data-local install-exec install-exec-am install-info \
+	install-info-am install-man install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am \
+	uninstall-info-am
 
 
 # Here are the rules for building the headers
@@ -1400,14 +1415,32 @@ ${host_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcxx_thread_h} \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < ${toplevel_srcdir}/gcc/${glibcxx_thread_h} > $@
 
-# Build a precompiled C++ include, stdc++.h.gch.
-${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
-	touch ${pch_input}; \
-	if [ ! -d "${pch_output_builddir}" ]; then \
-	  mkdir -p ${pch_output_builddir}; \
+# Build two precompiled C++ includes, stdc++.h.gch/*.gch
+${pch1a_output}: ${allstamped} ${host_builddir}/c++config.h ${pch1_source}
+	if [ ! -d "${pch1_output_builddir}" ]; then \
+	  mkdir -p ${pch1_output_builddir}; \
 	fi; \
-	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O0 -g -o ${pch_output_builddir}/O0g.gch; \
-	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) ${pch_source} -O2 -g -o ${pch_output_builddir}/O2g.gch;
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O0 -g ${pch1_source} -o $@
+
+${pch1b_output}: ${allstamped} ${host_builddir}/c++config.h ${pch1_source}
+	if [ ! -d "${pch1_output_builddir}" ]; then \
+	  mkdir -p ${pch1_output_builddir}; \
+	fi; \
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch1_source} -o $@
+
+# Build a precompiled TR1 include, stdtr1c++.h.gch/O2.gch
+${pch2_output}: ${pch2_source} ${pch1_output}
+	if [ ! -d "${pch2_output_builddir}" ]; then \
+	  mkdir -p ${pch2_output_builddir}; \
+	fi; \
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch2_source} -o $@
+
+# Build a precompiled extension include, extc++.h.gch/O2.gch
+${pch3_output}: ${pch3_source} ${pch2_output}
+	if [ ! -d "${pch3_output_builddir}" ]; then \
+	  mkdir -p ${pch3_output_builddir}; \
+	fi; \
+	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch3_source} -o $@
 
 # For robustness sake (in light of junk files or in-source
 # configuration), copy from the build or source tree to the install
@@ -1504,9 +1537,16 @@ install-headers:
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
 
 install-pch:
-	$(mkinstalldirs) $(DESTDIR)${pch_output_installdir}
-	for file in ${pch_output_builddir}/*; do \
-	  $(INSTALL_DATA) $$file $(DESTDIR)${pch_output_installdir}; done
+	$(mkinstalldirs) $(DESTDIR)${pch1_output_installdir}
+	for file in ${pch1_output_builddir}/*; do \
+	  $(INSTALL_DATA) $$file $(DESTDIR)${pch1_output_installdir}; done
+	$(mkinstalldirs) $(DESTDIR)${pch2_output_installdir}
+	for file in ${pch2_output_builddir}/*; do \
+	  $(INSTALL_DATA) $$file $(DESTDIR)${pch2_output_installdir}; done
+
+# To remove directories.
+clean-local:
+	rm -rf ${pch_output_dirs}
 
 # Stop implicit '.o' make rules from ever stomping on extensionless
 # headers, in the improbable case where some foolish, crack-addled
