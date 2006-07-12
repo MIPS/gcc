@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-object-size.c (alloc_object_size):  Use build_call_expr
+	and simplify logic to avoid having to iterate over arguments.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-vect-transform.c (vectorizable_load): Use build_call_expr.
 
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
