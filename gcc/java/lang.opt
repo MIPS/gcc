@@ -81,6 +81,10 @@ fCLASSPATH=
 Java JoinedOrMissing RejectNegative
 --CLASSPATH	Deprecated; use --classpath instead
 
+faux-classpath
+Java Separate RejectNegative
+; Internal only
+
 fassert
 Java Var(flag_assert) Init(1)
 Permit the use of the assert keyword

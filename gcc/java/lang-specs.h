@@ -44,12 +44,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
       %{foutput-class-dir*} %{g*}					\
       %{fsource*} %{!fsource*:-fsource=1.5}				\
       %{ftarget*} %{!femit-class-files|!ftarget*:-ftarget=1.5}		\
-      %{!findirect-dispatch:-fzip-dependency=%U.zip}			\
-      %{!fsyntax-only:-fzip-target=%U.jar}}\n				\
+      %{!findirect-dispatch:-fzip-dependency %U.zip}			\
+      %{!fsyntax-only:-fzip-target %U.jar}}\n				\
     %{.class|.zip|.jar|!fsyntax-only:jc1				\
       %{.java|fsaw-java-file:%U.jar -fsource-filename=%i %<ffilelist-file} \
       %{.class|.zip|.jar|ffilelist-file|fcompile-resource*:%i}		\
-      %(jc1) %(cc1_options) %{I*} %{!findirect-dispatch:-I%U.zip}	\
+      %(jc1) %(cc1_options) %{I*} %{!findirect-dispatch:-faux-classpath %U.zip} \
       %(invoke_as)}",
       0, 0, 0},
 
