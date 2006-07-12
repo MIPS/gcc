@@ -1658,8 +1658,8 @@ add_call_read_ops (tree stmt, tree callee)
 static void
 get_call_expr_operands (tree stmt, tree expr)
 {
-  tree op;
   int call_flags = call_expr_flags (expr);
+  int i, nargs;
 
   /* If aliases have been computed already, add V_MAY_DEF or V_USE
      operands for all the symbols that have been found to be
@@ -1686,12 +1686,12 @@ get_call_expr_operands (tree stmt, tree expr)
     }
 
   /* Find uses in the called function.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none);
+  get_expr_operands (stmt, &CALL_EXPR_FN (expr), opf_none);
+  nargs = call_expr_nargs (expr);
+  for (i = 0; i < nargs; i++)
+    get_expr_operands (stmt, &CALL_EXPR_ARG (expr, i), opf_none);
 
-  for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-    get_expr_operands (stmt, &TREE_VALUE (op), opf_none);
-
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+  get_expr_operands (stmt, &CALL_EXPR_STATIC_CHAIN (expr), opf_none);
 }
 
 
