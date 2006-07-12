@@ -6394,6 +6394,8 @@ builtin_mathfn_code (tree t)
   tree fndecl, arg, parmlist;
   tree argtype, parmtype;
   call_expr_arg_iterator iter;
+  int len;
+  int i;
 
   if (TREE_CODE (t) != CALL_EXPR
       || TREE_CODE (CALL_EXPR_FN (t)) != ADDR_EXPR)
@@ -6407,12 +6409,13 @@ builtin_mathfn_code (tree t)
     return END_BUILTINS;
 
   parmlist = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+  len = num_parm_types (parmlist);
   init_call_expr_arg_iterator (t, &iter);
-  for (; parmlist; parmlist = TREE_CHAIN (parmlist))
+  for (i = 0; i < len; i++)
     {
       /* If a function doesn't take a variable number of arguments,
 	 the last element in the list will have type `void'.  */
-      parmtype = TREE_VALUE (parmlist);
+      parmtype = nth_parm_type (parmlist, i);
       if (VOID_TYPE_P (parmtype))
 	{
 	  if (more_call_expr_args_p (&iter))
