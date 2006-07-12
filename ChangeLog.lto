@@ -1,5 +1,9 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-vect-transform.c (vectorizable_load): Use build_call_expr.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-ssa-loop-prefetch.c (issue_prefetch_ref): Use
 	build_call_expr.
 

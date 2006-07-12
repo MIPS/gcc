@@ -1884,7 +1884,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       tree msq_init;
       tree msq, lsq;
       tree dataref_ptr;
-      tree params;
 
       /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
@@ -1919,10 +1918,9 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	{
 	  /* Create permutation mask, if required, in loop preheader.  */
 	  tree builtin_decl;
-	  params = build_tree_list (NULL_TREE, init_addr);
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-	  new_stmt = build_function_call_expr (builtin_decl, params);
+	  new_stmt = build_call_expr (builtin_decl, 1, init_addr);
 	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
