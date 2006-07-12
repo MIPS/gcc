@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-sra.c (sra_walk_call_expr): Use new CALL_EXPR interface
+	for iterating over arguments.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-ssa-pre.c (phi_translate): Use new CALL_EXPR accessors.
 	(valid_in_set):  Likewise.
 	(create_expression_by_pieces): Likewise.
