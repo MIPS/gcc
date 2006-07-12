@@ -1,5 +1,5 @@
 /* BasicToolBarUI.java --
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -75,11 +75,12 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
-import javax.swing.border.EtchedBorder;
+import javax.swing.border.CompoundBorder;
 import javax.swing.event.MouseInputListener;
 import javax.swing.plaf.ComponentUI;
 import javax.swing.plaf.ToolBarUI;
 import javax.swing.plaf.UIResource;
+import javax.swing.plaf.basic.BasicBorders.ButtonBorder;
 
 /**
  * This is the Basic Look and Feel UI class for JToolBar.
@@ -310,8 +311,19 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    */
   protected Border createNonRolloverBorder()
   {
-    return new EtchedBorder();
-  }
+    Border b = UIManager.getBorder("ToolBar.nonrolloverBorder");
+    
+    if (b == null)
+      {
+        b = new CompoundBorder(
+            new ButtonBorder(UIManager.getColor("Button.shadow"),
+                             UIManager.getColor("Button.darkShadow"),
+                             UIManager.getColor("Button.light"),
+                             UIManager.getColor("Button.highlight")),
+            BasicBorders.getMarginBorder());
+      }
+    
+    return b;  }
 
   /**
    * This method creates a new PropertyChangeListener for the JToolBar.
@@ -331,18 +343,19 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    */
   protected Border createRolloverBorder()
   {
-    return new EtchedBorder()
+    Border b = UIManager.getBorder("ToolBar.rolloverBorder");
+    
+    if (b == null)
       {
-	public void paintBorder(Component c, Graphics g, int x, int y,
-	                        int width, int height)
-	{
-	  if (c instanceof JButton)
-	    {
-	      if (((JButton) c).getModel().isRollover())
-		super.paintBorder(c, g, x, y, width, height);
-	    }
-	}
-      };
+        b = new CompoundBorder(
+            new ButtonBorder(UIManager.getColor("Button.shadow"),
+                             UIManager.getColor("Button.darkShadow"),
+                             UIManager.getColor("Button.light"),
+                             UIManager.getColor("Button.highlight")),
+            BasicBorders.getMarginBorder());
+      }
+    
+    return b;
   }
 
   /**
@@ -404,8 +417,8 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
     int w = 0;
     int h = 0;
 
-    boolean tmp = ((loc == SwingConstants.NORTH)
-                  || (loc == SwingConstants.SOUTH) || (loc == -1));
+    boolean tmp = (loc == SwingConstants.NORTH)
+                  || (loc == SwingConstants.SOUTH) || (loc == -1);
 
     cachedOrientation = toolBar.getOrientation();
     cachedBounds = toolBar.getSize();
@@ -745,6 +758,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    * @param direction The direction to give focus to.
    */
   protected void navigateFocusedComp(int direction)
+    throws NotImplementedException
   {
     // FIXME: Implement.
   }
@@ -761,6 +775,10 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
       {
 	AbstractButton b = (AbstractButton) c;
 	b.setRolloverEnabled(false);
+
+        // Save old border in hashtable.
+        borders.put(b, b.getBorder());
+        
 	b.setBorder(nonRolloverBorder);
       }
   }
@@ -772,11 +790,11 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    */
   protected void setBorderToNormal(Component c)
   {
-    if (c instanceof JButton)
+    if (c instanceof AbstractButton)
       {
-	JButton b = (JButton) c;
-	Border border = (Border) borders.get(b);
-	b.setBorder(border);
+        AbstractButton b = (AbstractButton) c;
+        b.setRolloverEnabled(true);
+        b.setBorder((Border) borders.remove(b));
       }
   }
 
@@ -787,11 +805,15 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    */
   protected void setBorderToRollover(Component c)
   {
-    if (c instanceof JButton)
+    if (c instanceof AbstractButton)
       {
-	JButton b = (JButton) c;
-	b.setRolloverEnabled(true);
-	b.setBorder(rolloverBorder);
+        AbstractButton b = (AbstractButton) c;
+        b.setRolloverEnabled(false);
+        
+        // Save old border in hashtable.
+        borders.put(b, b.getBorder());
+        
+        b.setBorder(rolloverBorder);
       }
   }
 
@@ -976,7 +998,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public void mouseClicked(MouseEvent e)
     {
-      // Don't care.
+      // Nothing to do here.
     }
 
     /**
@@ -998,7 +1020,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public void mouseEntered(MouseEvent e)
     {
-      // Don't care (yet).
+      // Nothing to do here.
     }
 
     /**
@@ -1008,7 +1030,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public void mouseExited(MouseEvent e)
     {
-      // Don't care (yet).
+      // Nothing to do here.
     }
 
     /**
@@ -1018,7 +1040,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public void mouseMoved(MouseEvent e)
     {
-      // TODO: What should be done here, if anything?
+      // Nothing to do here.
     }
 
     /**
@@ -1062,7 +1084,8 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
       isDragging = true;
 
       if (dragWindow != null)
-	dragWindow.setOffset(new Point(cachedBounds.width/2, cachedBounds.height/2));
+	dragWindow.setOffset(new Point(cachedBounds.width / 2, 
+            cachedBounds.height / 2));
 
       dragTo(e.getPoint(), origin);
     }
@@ -1180,13 +1203,17 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
     }
 
     /**
-     * FIXME: Do something.
+     * Sets the orientation of the toolbar and the
+     * drag window.
      *
-     * @param o DOCUMENT ME!
+     * @param o - the new orientation of the toolbar and drag
+     * window.
      */
     public void setOrientation(int o)
     {
-      // FIXME: implement.
+      toolBar.setOrientation(o);
+      if (dragWindow != null) 
+        dragWindow.setOrientation(o);
     }
   }
 
@@ -1307,27 +1334,27 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
     /**
      * Creates a new ToolBarFocusListener object.
      */
-    protected ToolBarFocusListener()
+    protected ToolBarFocusListener() throws NotImplementedException
     {
       // FIXME: implement.
     }
 
     /**
      * DOCUMENT ME!
-     *
+     * 
      * @param e DOCUMENT ME!
      */
-    public void focusGained(FocusEvent e)
+    public void focusGained(FocusEvent e) throws NotImplementedException
     {
       // FIXME: implement.
     }
 
     /**
      * DOCUMENT ME!
-     *
+     * 
      * @param e DOCUMENT ME!
      */
-    public void focusLost(FocusEvent e)
+    public void focusLost(FocusEvent e) throws NotImplementedException
     {
       // FIXME: implement.
     }

@@ -1,8 +1,7 @@
 # Qt AWT backend for Classpath
 #
 
-## GCJ LOCAL: don't install this library
-noinst_LTLIBRARIES = libqtpeer.la
+nativeexeclib_LTLIBRARIES = libqtpeer.la
 
 AM_LDFLAGS = @CLASSPATH_MODULE@ @QT_LIBS@
 AM_CPPFLAGS = @CLASSPATH_INCLUDES@

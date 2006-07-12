@@ -63,7 +63,7 @@ final class TypeVariableImpl extends TypeImpl implements TypeVariable
     public Type[] getBounds()
     {
         resolve(bounds);
-        return (Type[]) bounds.clone();
+        return bounds.clone();
     }
 
     public GenericDeclaration getGenericDeclaration()
@@ -142,7 +142,7 @@ final class ParameterizedTypeImpl extends TypeImpl implements ParameterizedType
 
     public Type[] getActualTypeArguments()
     {
-      return (Type[]) typeArgs.clone();
+        return typeArgs.clone();
     }
 
     public Type getRawType()

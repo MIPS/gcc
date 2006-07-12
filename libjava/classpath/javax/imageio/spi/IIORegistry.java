@@ -45,6 +45,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import gnu.javax.imageio.bmp.BMPImageReaderSpi;
+import gnu.javax.imageio.bmp.BMPImageWriterSpi;
+import gnu.javax.imageio.gif.GIFImageReaderSpi;
+
 public final class IIORegistry extends ServiceRegistry
 {
   private static final HashSet defaultCategories = new HashSet();
@@ -80,6 +84,9 @@ public final class IIORegistry extends ServiceRegistry
     super(defaultCategories.iterator());
 
     // XXX: Register built-in Spis here.
+    registerServiceProvider(new GIFImageReaderSpi()); // Register GIF decoder
+    registerServiceProvider(new BMPImageReaderSpi());
+    registerServiceProvider(new BMPImageWriterSpi());
 
     Toolkit toolkit = Toolkit.getDefaultToolkit();
     

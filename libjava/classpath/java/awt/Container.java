@@ -342,7 +342,7 @@ public class Container extends Component
 
         if (component == null)
           component = new Component[4]; // FIXME, better initial size?
-
+   
         // This isn't the most efficient implementation.  We could do less
         // copying when growing the array.  It probably doesn't matter.
         if (ncomponents >= component.length)
@@ -458,8 +458,44 @@ public class Container extends Component
   {
     synchronized (getTreeLock ())
       {
-        while (ncomponents > 0)
-          remove(0);
+        // In order to allow the same bad tricks to be used as in RI
+        // this code has to stay exactly that way: In a real-life app
+        // a Container subclass implemented its own vector for
+        // subcomponents, supplied additional addXYZ() methods
+        // and overrode remove(int) and removeAll (the latter calling
+        // super.removeAll() ).
+        // By doing it this way, user code cannot prevent the correct
+        // removal of components.
+        for ( int index = 0; index < ncomponents; index++)
+          {
+            Component r = component[index];
+
+            ComponentListener[] list = r.getComponentListeners();
+            for (int j = 0; j < list.length; j++)
+              r.removeComponentListener(list[j]);
+            
+            r.removeNotify();
+
+            if (layoutMgr != null)
+              layoutMgr.removeLayoutComponent(r);
+
+            r.parent = null;
+
+            if (isShowing ())
+              {
+                // Post event to notify of removing the component.
+                ContainerEvent ce
+                  = new ContainerEvent(this,
+                                       ContainerEvent.COMPONENT_REMOVED,
+                                       r);
+                
+                getToolkit().getSystemEventQueue().postEvent(ce);
+              }
+            }
+          
+          invalidate();
+        
+          ncomponents = 0;
       }
   }
 
@@ -482,7 +518,8 @@ public class Container extends Component
   public void setLayout(LayoutManager mgr)
   {
     layoutMgr = mgr;
-    invalidate();
+    if (valid)
+      invalidate();
   }
 
   /**
@@ -1561,7 +1598,16 @@ public class Container extends Component
   public void applyComponentOrientation (ComponentOrientation orientation)
   {
     if (orientation == null)
-      throw new NullPointerException ();
+      throw new NullPointerException();
+
+    setComponentOrientation(orientation);
+    for (int i = 0; i < ncomponents; i++)
+      {
+        if (component[i] instanceof Container)
+             ((Container) component[i]).applyComponentOrientation(orientation); 
+          else
+             component[i].setComponentOrientation(orientation);
+      }
   }
 
   public void addPropertyChangeListener (PropertyChangeListener listener)
@@ -1652,7 +1698,7 @@ public class Container extends Component
     int index = -1;
     if (component != null)
       {
-        for (int i = 0; i < component.length; i++)
+        for (int i = 0; i < ncomponents; i++)
           {
             if (component[i] == comp)
               {

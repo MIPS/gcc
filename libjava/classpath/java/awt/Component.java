@@ -70,6 +70,7 @@ import java.awt.image.ImageProducer;
 import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.LightweightPeer;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.IOException;
@@ -427,11 +428,35 @@ public abstract class Component
   Dimension minSize;
 
   /**
+   * Flag indicating whether the minimum size for the component has been set
+   * by a call to {@link #setMinimumSize(Dimension)} with a non-null value.
+   */
+  boolean minSizeSet;
+  
+  /**
+   * The maximum size for the component.
+   * @see #setMaximumSize(Dimension)
+   */
+  Dimension maxSize;
+  
+  /**
+   * A flag indicating whether the maximum size for the component has been set
+   * by a call to {@link #setMaximumSize(Dimension)} with a non-null value.
+   */
+  boolean maxSizeSet;
+  
+  /**
    * Cached information on the preferred size. Should have been transient.
    *
    * @serial ignore
    */
   Dimension prefSize;
+
+  /**
+   * Flag indicating whether the preferred size for the component has been set
+   * by a call to {@link #setPreferredSize(Dimension)} with a non-null value.
+   */
+  boolean prefSizeSet;
 
   /**
    * Set to true if an event is to be handled by this component, false if
@@ -607,16 +632,19 @@ public abstract class Component
   }
 
   /**
-   * Sets the name of this component to the specified name.
+   * Sets the name of this component to the specified name (this is a bound
+   * property with the name 'name').
    *
-   * @param name the new name of this component
+   * @param name the new name (<code>null</code> permitted).
    * @see #getName()
    * @since 1.1
    */
   public void setName(String name)
   {
     nameExplicitlySet = true;
+    String old = this.name;
     this.name = name;
+    firePropertyChange("name", old, name);
   }
 
   /**
@@ -718,7 +746,9 @@ public abstract class Component
    */
   public boolean isValid()
   {
-    return valid;
+    // Tests show that components are invalid as long as they are not showing, even after validate()
+    // has been called on them.
+    return peer != null && valid;
   }
 
   /**
@@ -903,7 +933,6 @@ public abstract class Component
         ComponentPeer currentPeer=peer;
         if (currentPeer != null)
             currentPeer.show();
-
         // The JDK repaints the component before invalidating the parent.
         // So do we.
         if (isShowing() && isLightweight())
@@ -1088,16 +1117,13 @@ public abstract class Component
    */
   public void setFont(Font newFont)
   {
-    if((newFont != null && (font == null || !font.equals(newFont)))
-       || newFont == null)
-      {
-        Font oldFont = font;
-        font = newFont;
-        if (peer != null)
-          peer.setFont(font);
-        firePropertyChange("font", oldFont, newFont);
-        invalidate();
-      }
+    Font oldFont = font;
+    font = newFont;
+    if (peer != null)
+      peer.setFont(font);
+    firePropertyChange("font", oldFont, newFont);
+    if (valid)
+      invalidate();
   }
 
   /**
@@ -1584,6 +1610,7 @@ public abstract class Component
    *
    * @return the component's preferred size
    * @see #getMinimumSize()
+   * @see #setPreferredSize(Dimension)
    * @see LayoutManager
    */
   public Dimension getPreferredSize()
@@ -1592,6 +1619,40 @@ public abstract class Component
   }
 
   /**
+   * Sets the preferred size that will be returned by 
+   * {@link #getPreferredSize()} always, and sends a 
+   * {@link PropertyChangeEvent} (with the property name 'preferredSize') to 
+   * all registered listeners.
+   * 
+   * @param size  the preferred size (<code>null</code> permitted).
+   * 
+   * @since 1.5
+   * 
+   * @see #getPreferredSize()
+   */
+  public void setPreferredSize(Dimension size)
+  {
+    Dimension old = prefSizeSet ? prefSize : null;
+    prefSize = size;
+    prefSizeSet = (size != null);
+    firePropertyChange("preferredSize", old, size);
+  }
+  
+  /**
+   * Returns <code>true</code> if the current preferred size is not 
+   * <code>null</code> and was set by a call to 
+   * {@link #setPreferredSize(Dimension)}, otherwise returns <code>false</code>.
+   * 
+   * @return A boolean.
+   * 
+   * @since 1.5
+   */
+  public boolean isPreferredSizeSet()
+  {
+    return prefSizeSet;
+  }
+  
+  /**
    * Returns the component's preferred size.
    *
    * @return the component's preferred size
@@ -1599,7 +1660,7 @@ public abstract class Component
    */
   public Dimension preferredSize()
   {
-    if (prefSize == null)
+    if (!prefSizeSet)
       {
         if (peer == null)
           prefSize = minimumSize();
@@ -1614,6 +1675,7 @@ public abstract class Component
    * 
    * @return the component's minimum size
    * @see #getPreferredSize()
+   * @see #setMinimumSize(Dimension)
    * @see LayoutManager
    */
   public Dimension getMinimumSize()
@@ -1621,6 +1683,39 @@ public abstract class Component
     return minimumSize();
   }
 
+  /**
+   * Sets the minimum size that will be returned by {@link #getMinimumSize()}
+   * always, and sends a {@link PropertyChangeEvent} (with the property name
+   * 'minimumSize') to all registered listeners.
+   * 
+   * @param size  the minimum size (<code>null</code> permitted).
+   * 
+   * @since 1.5
+   * 
+   * @see #getMinimumSize()
+   */
+  public void setMinimumSize(Dimension size)
+  {
+    Dimension old = minSizeSet ? minSize : null;
+    minSize = size;
+    minSizeSet = (size != null);
+    firePropertyChange("minimumSize", old, size);
+  }
+  
+  /**
+   * Returns <code>true</code> if the current minimum size is not 
+   * <code>null</code> and was set by a call to 
+   * {@link #setMinimumSize(Dimension)}, otherwise returns <code>false</code>.
+   * 
+   * @return A boolean.
+   * 
+   * @since 1.5
+   */
+  public boolean isMinimumSizeSet()
+  {
+    return minSizeSet;
+  }
+  
   /**
    * Returns the component's minimum size.
    *
@@ -1640,14 +1735,51 @@ public abstract class Component
    *
    * @return the component's maximum size
    * @see #getMinimumSize()
+   * @see #setMaximumSize(Dimension)
    * @see #getPreferredSize()
    * @see LayoutManager
    */
   public Dimension getMaximumSize()
   {
-    return new Dimension(Short.MAX_VALUE, Short.MAX_VALUE);
+    if (maxSizeSet)
+      return maxSize;
+    else
+      return new Dimension(Short.MAX_VALUE, Short.MAX_VALUE);
   }
 
+  /**
+   * Sets the maximum size that will be returned by {@link #getMaximumSize()}
+   * always, and sends a {@link PropertyChangeEvent} (with the property name
+   * 'maximumSize') to all registered listeners.
+   * 
+   * @param size  the maximum size (<code>null</code> permitted).
+   * 
+   * @since 1.5
+   * 
+   * @see #getMaximumSize()
+   */
+  public void setMaximumSize(Dimension size)
+  {
+    Dimension old = maxSizeSet ? maxSize : null;
+    maxSize = size;
+    maxSizeSet = (size != null);
+    firePropertyChange("maximumSize", old, size);
+  }
+
+  /**
+   * Returns <code>true</code> if the current maximum size is not 
+   * <code>null</code> and was set by a call to 
+   * {@link #setMaximumSize(Dimension)}, otherwise returns <code>false</code>.
+   * 
+   * @return A boolean.
+   * 
+   * @since 1.5
+   */
+  public boolean isMaximumSizeSet()
+  {
+    return maxSizeSet;
+  }
+  
   /**
    * Returns the preferred horizontal alignment of this component. The value
    * returned will be between {@link #LEFT_ALIGNMENT} and
@@ -1739,9 +1871,8 @@ public abstract class Component
         if (gfx == null && parent != null)
           {
             gfx = parent.getGraphics();
-            Rectangle bounds = getBounds();
-            gfx.setClip(bounds);
-            gfx.translate(bounds.x, bounds.y);
+            gfx.clipRect(getX(), getY(), getWidth(), getHeight());
+            gfx.translate(getX(), getY());
             return gfx;
           }
         gfx.setFont(font);
@@ -2067,11 +2198,9 @@ public abstract class Component
    */
   public VolatileImage createVolatileImage(int width, int height)
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -2090,11 +2219,9 @@ public abstract class Component
                                            ImageCapabilities caps)
     throws AWTException
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height, caps);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -2322,6 +2449,17 @@ public abstract class Component
     dispatchEventImpl(e);
   }
 
+  /**
+   * By default, no old mouse events should be ignored.
+   * This can be overridden by subclasses.
+   * 
+   * @return false, no mouse events are ignored.
+   */
+  static boolean ignoreOldMouseEvents()
+  {
+    return false;
+  }
+  
   /**
    * AWT 1.0 event handler.
    *
@@ -4558,7 +4696,7 @@ p   * <li>the set of backward traversal keys
                                     Object newValue)
   {
     if (changeSupport != null)
-      changeSupport.firePropertyChange(propertyName, oldValue, newValue);
+      changeSupport.firePropertyChange(propertyName, oldValue, newValue);  
   }
 
   /**
@@ -4699,14 +4837,12 @@ p   * <li>the set of backward traversal keys
    * {@link #applyComponentOrientation(ComponentOrientation)} affects the
    * entire hierarchy.
    *
-   * @param o the new orientation
-   * @throws NullPointerException if o is null
+   * @param o the new orientation (<code>null</code> is accepted)
    * @see #getComponentOrientation()
    */
   public void setComponentOrientation(ComponentOrientation o)
   {
-    if (o == null)
-      throw new NullPointerException();
+ 
     ComponentOrientation oldOrientation = orientation;
     orientation = o;
     firePropertyChange("componentOrientation", oldOrientation, o);
@@ -4715,7 +4851,7 @@ p   * <li>the set of backward traversal keys
   /**
    * Determines the text layout orientation used by this component.
    *
-   * @return the component orientation
+   * @return the component orientation (this can be <code>null</code>)
    * @see #setComponentOrientation(ComponentOrientation)
    */
   public ComponentOrientation getComponentOrientation()
@@ -4811,8 +4947,38 @@ p   * <li>the set of backward traversal keys
   {
     Object target = e.getSource ();
     Event translated = null;
+    
+    if (e instanceof WindowEvent)
+      {
+        WindowEvent we = (WindowEvent) e;
+        int id = we.id;
+        int newId = 0;
+        
+        switch (id)
+          {
+          case WindowEvent.WINDOW_DEICONIFIED:
+            newId = Event.WINDOW_DEICONIFY;
+            break;
+          case WindowEvent.WINDOW_CLOSED:
+          case WindowEvent.WINDOW_CLOSING:
+            newId = Event.WINDOW_DESTROY;
+            break;
+          case WindowEvent.WINDOW_ICONIFIED:
+            newId = Event.WINDOW_ICONIFY;
+            break;
+          case WindowEvent.WINDOW_GAINED_FOCUS:
+            newId = Event.GOT_FOCUS;
+            break;
+          case WindowEvent.WINDOW_LOST_FOCUS:
+            newId = Event.LOST_FOCUS;
+            break;
+          default:
+            return null;
+          }
 
-    if (e instanceof InputEvent)
+        translated = new Event(target, 0, newId, 0, 0, 0, 0);
+      }
+    else if (e instanceof InputEvent)
       {
         InputEvent ie = (InputEvent) e;
         long when = ie.getWhen ();
@@ -4840,7 +5006,7 @@ p   * <li>the set of backward traversal keys
         if ((mods & InputEvent.ALT_DOWN_MASK) != 0)
           oldMods |= Event.ALT_MASK;
 
-        if (e instanceof MouseEvent)
+        if (e instanceof MouseEvent && !ignoreOldMouseEvents())
           {
             if (id == MouseEvent.MOUSE_PRESSED)
               oldID = Event.MOUSE_DOWN;
@@ -5053,7 +5219,12 @@ p   * <li>the set of backward traversal keys
                     .dispatchEvent(e))
                     return;
               case MouseEvent.MOUSE_PRESSED:
-                if (isLightweight() && !e.isConsumed())
+                // A mouse click on an enabled lightweight component
+                // which has not yet been marked as consumed by any
+                // other mouse listener results in a focus traversal
+                // to that component.
+                if (isLightweight()
+                    && isEnabled() && !e.isConsumed())
                     requestFocus();
                 break;
               }

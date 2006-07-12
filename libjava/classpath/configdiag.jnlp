@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<jnlp spec="0.2 1.0"
+      codebase="http://uic.sf.net/demo/"
+      href="configdiag.jnlp">
+   <information>
+      <title>ConfigDialog</title>
+      <vendor>UICompiler project</vendor>
+      <homepage href="http://uic.sf.net/"/>
+      <description>Theme Configuration dialog</description>
+   </information>
+   <resources>
+      <j2se version="1.4+"/>
+      <jar href="graphics.jar" />
+      <jar href="uic-optional.jar" main="true" />
+   </resources>
+   <application-desc main-class="uic.themeconfig.ConfigDialog"/>
+</jnlp>
+

@@ -547,7 +547,7 @@ public abstract class Toolkit
                 return ClassLoader.getSystemClassLoader();
               }
           });
-        Class cls = cl.loadClass(toolkit_name);
+        Class cls = Class.forName(toolkit_name, true, cl);
         Object obj = cls.newInstance();
         if (!(obj instanceof Toolkit))
           throw new AWTError(toolkit_name + " is not a subclass of " +
@@ -698,6 +698,14 @@ public abstract class Toolkit
   public PrintJob getPrintJob(Frame frame, String title,
                               JobAttributes jobAttr, PageAttributes pageAttr)
   {
+    // FIXME: it is possible this check may be removed
+    // if this method, when written, always delegates to
+    // getPrintJob(Frame, String, Properties).
+    SecurityManager sm;
+    sm = System.getSecurityManager();
+    if (sm != null)
+      sm.checkPrintJobAccess();
+
     return null;
   }
 

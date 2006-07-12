@@ -103,8 +103,15 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   native void pumpBytes (byte[] bytes, int len) throws IOException;
   native void pumpDone () throws IOException;
   native void finish (boolean needsClose);
-  static native void streamImage(int[] bytes, String format, int width, int height, boolean hasAlpha, DataOutput sink);
-  
+
+  /**
+   * Converts given image to bytes.
+   * Will call the GdkPixbufWriter for each chunk.
+   */
+  static native void streamImage(int[] bytes, String format,
+                                 int width, int height,
+                                 boolean hasAlpha, GdkPixbufWriter writer);
+
   // gdk-pixbuf provids data in RGBA format
   static final ColorModel cm = new DirectColorModel (32, 0xff000000, 
                                                      0x00ff0000, 
@@ -461,7 +468,7 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
   }
 
   private static class GdkPixbufWriter
-    extends ImageWriter
+    extends ImageWriter implements Runnable
   {
     String ext;
     public GdkPixbufWriter(GdkPixbufWriterSpi ownerSpi, Object ext)
@@ -502,31 +509,123 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       int width = ras.getWidth();
       int height = ras.getHeight();
       ColorModel model = image.getColorModel();
-      int[] pixels = GdkGraphics2D.findSimpleIntegerArray (image.getColorModel(), ras);
+      int[] pixels = CairoGraphics2D.findSimpleIntegerArray (image.getColorModel(), ras);
       
       if (pixels == null)
         {
-          BufferedImage img = new BufferedImage(width, height, 
-                                                (model != null && model.hasAlpha() ? 
-                                                 BufferedImage.TYPE_INT_ARGB
-                                                 : BufferedImage.TYPE_INT_RGB));
+	  BufferedImage img;
+	  if(model != null && model.hasAlpha())
+	    img = CairoSurface.getBufferedImage(width, height);
+	  img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
           int[] pix = new int[4];
           for (int y = 0; y < height; ++y)
             for (int x = 0; x < width; ++x)
               img.setRGB(x, y, model.getRGB(ras.getPixel(x, y, pix)));
-          pixels = GdkGraphics2D.findSimpleIntegerArray (img.getColorModel(), 
+          pixels = CairoGraphics2D.findSimpleIntegerArray (img.getColorModel(), 
                                                          img.getRaster());
           model = img.getColorModel();
         }
 
+      Thread workerThread = new Thread(this, "GdkPixbufWriter");
+      workerThread.start();
       processImageStarted(1);
       synchronized(pixbufLock)
 	{
 	  streamImage(pixels, this.ext, width, height, model.hasAlpha(), 
-		      (DataOutput) this.getOutput());
+		      this);
 	}
+      synchronized(data)
+        {
+          data.add(DATADONE);
+          data.notifyAll();
+        }
+
+      while (workerThread.isAlive())
+        {
+	  try
+	    {
+	      workerThread.join();
+	    }
+	  catch (InterruptedException ioe)
+	    {
+	      // Ignored.
+	    }
+        }
+
+      if (exception != null)
+	throw exception;
+
       processImageComplete();
     }    
+
+    /**
+     * Object marking end of data from native streamImage code.
+     */
+    private static final Object DATADONE = new Object();
+
+    /**
+     * Holds the data gotten from the native streamImage code.
+     * A worker thread will pull data out.
+     * Needs to be synchronized for access.
+     * The special object DATADONE is added when all data has been delivered.
+     */
+    private ArrayList data = new ArrayList();
+
+    /**
+     * Holds any IOException thrown by the run method that needs
+     * to be rethrown by the write method.
+     */
+    private IOException exception;
+
+    /** Callback for streamImage native code. **/
+    private void write(byte[] bs)
+    {
+      synchronized(data)
+        {
+          data.add(bs);
+          data.notifyAll();
+        }
+    }
+
+    public void run()
+    {
+      boolean done = false;
+      while (!done)
+        {
+          synchronized(data)
+            {
+              while (data.isEmpty())
+                {
+                  try
+                    {
+                      data.wait();
+                    }
+                  catch (InterruptedException ie)
+                    {
+                      /* ignore */
+                    }
+                }
+
+              Object o = data.remove(0);
+              if (o == DATADONE)
+                done = true;
+              else
+                {
+                  DataOutput out = (DataOutput) getOutput();
+                  try
+                    {
+                      out.write((byte[]) o);
+                    }
+                  catch (IOException ioe)
+                    {
+                      // We are only interested in the first exception.
+                      if (exception == null)
+                        exception = ioe;
+                    }
+                }
+            }
+        }
+    }
   }
 
   private static class GdkPixbufReader 
@@ -584,9 +683,10 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       
       if (bufferedImage == null)
         {
-          bufferedImage = new BufferedImage (width, height, (model != null && model.hasAlpha() ? 
-                                                             BufferedImage.TYPE_INT_ARGB
-                                                             : BufferedImage.TYPE_INT_RGB));
+	  if(model != null && model.hasAlpha())
+	    bufferedImage = new BufferedImage (width, height, BufferedImage.TYPE_INT_ARGB);
+	  else
+	    bufferedImage = new BufferedImage (width, height, BufferedImage.TYPE_INT_RGB);
         }
 
       int pixels2[];
@@ -680,43 +780,4 @@ public class GdkPixbufDecoder extends gnu.java.awt.image.ImageDecoder
       return getBufferedImage ();
     }
   }
-
-  // remaining helper class and static method is a convenience for the Gtk
-  // peers, for loading a BufferedImage in off a disk file without going
-  // through the whole imageio system. 
-
-  public static BufferedImage createBufferedImage (String filename)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (filename));
-    return r.getBufferedImage ();
-  }
-
-  public static BufferedImage createBufferedImage (URL u)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (u));
-    return r.getBufferedImage ();
-  }
-
-  public static BufferedImage createBufferedImage (byte[] imagedata, int imageoffset,
-                                                   int imagelength)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), 
-                                             "png", // reader auto-detects, doesn't matter
-                                             new GdkPixbufDecoder (imagedata,
-                                                                   imageoffset,
-                                                                   imagelength));
-    return r.getBufferedImage ();
-  }
-  
-  public static BufferedImage createBufferedImage (ImageProducer producer)
-  {
-    GdkPixbufReader r = new GdkPixbufReader (getReaderSpi(), "png" /* ignored */, null);
-    producer.startProduction(r);
-    return r.getBufferedImage ();
-  }
-
 }

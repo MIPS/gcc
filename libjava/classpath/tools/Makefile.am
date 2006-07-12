@@ -13,9 +13,71 @@ error dunno how to setup the JCOMPILER and compile
 endif
 endif
 
+if CREATE_WRAPPERS
+bin_SCRIPTS =
+bin_PROGRAMS = gappletviewer gjarsigner gkeytool \
+	gjar gnative2ascii gserialver
+
+#if FOUND_GCJ
+#LIBJVM = -lgcj
+#else
+if FOUND_CACAO
+LIBJVM = -ljvm
+else
+LIBJVM =
+endif
+#endif
+
+AM_CPPFLAGS = -Wall \
+	-I$(top_srcdir)/include \
+	-DTOOLS_ZIP="\"$(TOOLSdir)/$(TOOLS_ZIP)\""
+
+gappletviewer_SOURCES = toolwrapper.c
+gappletviewer_CFLAGS = \
+	-DTOOLPACKAGE="\"appletviewer\"" \
+	-DTOOLNAME="\"gappletviewer\""
+gappletviewer_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+gjarsigner_SOURCES = toolwrapper.c
+gjarsigner_CFLAGS = \
+	-DTOOLPACKAGE="\"jarsigner\"" \
+	-DTOOLNAME="\"gjarsigner\""
+gjarsigner_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+gkeytool_SOURCES = toolwrapper.c
+gkeytool_CFLAGS = \
+	-DTOOLPACKAGE="\"keytool\"" \
+	-DTOOLNAME="\"gkeytool\""
+gkeytool_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+gjar_SOURCES = toolwrapper.c
+gjar_CFLAGS = \
+	-DTOOLPACKAGE="\"jar\"" \
+	-DTOOLNAME="\"gjar\""
+gjar_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+gnative2ascii_SOURCES = toolwrapper.c
+gnative2ascii_CFLAGS = \
+	-DTOOLPACKAGE="\"native2ascii\"" \
+	-DTOOLNAME="\"gnative2ascii\""
+gnative2ascii_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+gserialver_SOURCES = toolwrapper.c
+gserialver_CFLAGS = \
+	-DTOOLPACKAGE="\"serialver\"" \
+	-DTOOLNAME="\"gserialver\""
+gserialver_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+else
+bin_SCRIPTS = gappletviewer gjarsigner gkeytool \
+	gjar gnative2ascii gserialver
+bin_PROGRAMS =
+endif
+EXTRA_DIST = toolwrapper.c gappletviewer.in gjarsigner.in gkeytool.in \
+	gjar.in gnative2ascii.in gserialver.in
+
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*.java $(srcdir)/gnu/classpath/tools/*/*.java $(srcdir)/gnu/classpath/tools/*/*/*.java
-
 
 # The zip files with classes we want to produce.
 TOOLS_ZIP = tools.zip
@@ -24,7 +86,7 @@ TOOLS_ZIP = tools.zip
 BUILT_SOURCES = $(TOOLS_ZIP)
 
 # The templates that must be included into the generated zip file.
-GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav 
+GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav
 RMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/rmi/rmic/templates/*.jav
 
 TOOLS_TEMPLATES = $(GRMIC_TEMPLATES) $(RMIC_TEMPLATES)
@@ -68,11 +130,14 @@ dist-hook:
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	mkdir -p classes/gnu/classpath/tools/giop/grmic/templates
 	mkdir -p classes/gnu/classpath/tools/rmi/rmic/templates
+	mkdir -p classes/gnu/classpath/tools/appletviewer
+	mkdir -p classes/gnu/classpath/tools/jarsigner
+	mkdir -p classes/gnu/classpath/tools/keytool
 	cp $(RMIC_TEMPLATES) classes/gnu/classpath/tools/rmi/rmic/templates
-	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates	
+	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates
 	cp $(RMI_HELPS) classes/gnu/classpath/tools/rmi/
 	cp $(GIOP_HELPS) classes/gnu/classpath/tools/giop/
-	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES) 
+	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES)
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
@@ -82,3 +147,7 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
 	rm -rf $(TOOLS_ZIP) classes
+
+# FIXME: remove this when GNU Classpath includes a bootstrap VM.
+installcheck-binSCRIPTS:
+	:

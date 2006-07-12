@@ -42,11 +42,9 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/copy-vmresources.sh.in $(srcdir)/gen-classlist.sh.in \
 	$(srcdir)/mkcollections.pl.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
-	$(top_srcdir)/../../config/lead-dot.m4 \
-	$(top_srcdir)/../../config/no-executables.m4 \
-	$(top_srcdir)/../../libtool.m4 $(top_srcdir)/m4/acattribute.m4 \
-	$(top_srcdir)/m4/accross.m4 $(top_srcdir)/m4/acinclude.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../../libtool.m4 \
+	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
+	$(top_srcdir)/m4/acinclude.m4 \
 	$(top_srcdir)/m4/ax_create_stdint_h.m4 \
 	$(top_srcdir)/m4/iconv.m4 $(top_srcdir)/m4/lib-ld.m4 \
 	$(top_srcdir)/m4/lib-link.m4 $(top_srcdir)/m4/lib-prefix.m4 \
@@ -59,7 +57,15 @@ CONFIG_CLEAN_FILES = mkcollections.pl gen-classlist.sh \
 	copy-vmresources.sh
 SOURCES =
 DIST_SOURCES =
-DATA = $(noinst_DATA)
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
+am__installdirs = "$(DESTDIR)$(glibjdir)"
+glibjDATA_INSTALL = $(INSTALL_DATA)
+DATA = $(glibj_DATA) $(noinst_DATA)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
@@ -71,8 +77,6 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BUILD_CLASS_FILES_FALSE = @BUILD_CLASS_FILES_FALSE@
 BUILD_CLASS_FILES_TRUE = @BUILD_CLASS_FILES_TRUE@
-CAIRO_CFLAGS = @CAIRO_CFLAGS@
-CAIRO_LIBS = @CAIRO_LIBS@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -93,14 +97,20 @@ CREATE_CORE_JNI_LIBRARIES_FALSE = @CREATE_CORE_JNI_LIBRARIES_FALSE@
 CREATE_CORE_JNI_LIBRARIES_TRUE = @CREATE_CORE_JNI_LIBRARIES_TRUE@
 CREATE_DSSI_LIBRARIES_FALSE = @CREATE_DSSI_LIBRARIES_FALSE@
 CREATE_DSSI_LIBRARIES_TRUE = @CREATE_DSSI_LIBRARIES_TRUE@
+CREATE_GCONF_PEER_LIBRARIES_FALSE = @CREATE_GCONF_PEER_LIBRARIES_FALSE@
+CREATE_GCONF_PEER_LIBRARIES_TRUE = @CREATE_GCONF_PEER_LIBRARIES_TRUE@
 CREATE_GTK_PEER_LIBRARIES_FALSE = @CREATE_GTK_PEER_LIBRARIES_FALSE@
 CREATE_GTK_PEER_LIBRARIES_TRUE = @CREATE_GTK_PEER_LIBRARIES_TRUE@
 CREATE_JNI_HEADERS_FALSE = @CREATE_JNI_HEADERS_FALSE@
 CREATE_JNI_HEADERS_TRUE = @CREATE_JNI_HEADERS_TRUE@
 CREATE_JNI_LIBRARIES_FALSE = @CREATE_JNI_LIBRARIES_FALSE@
 CREATE_JNI_LIBRARIES_TRUE = @CREATE_JNI_LIBRARIES_TRUE@
+CREATE_PLUGIN_FALSE = @CREATE_PLUGIN_FALSE@
+CREATE_PLUGIN_TRUE = @CREATE_PLUGIN_TRUE@
 CREATE_QT_PEER_LIBRARIES_FALSE = @CREATE_QT_PEER_LIBRARIES_FALSE@
 CREATE_QT_PEER_LIBRARIES_TRUE = @CREATE_QT_PEER_LIBRARIES_TRUE@
+CREATE_WRAPPERS_FALSE = @CREATE_WRAPPERS_FALSE@
+CREATE_WRAPPERS_TRUE = @CREATE_WRAPPERS_TRUE@
 CREATE_XMLJ_LIBRARY_FALSE = @CREATE_XMLJ_LIBRARY_FALSE@
 CREATE_XMLJ_LIBRARY_TRUE = @CREATE_XMLJ_LIBRARY_TRUE@
 CXX = @CXX@
@@ -109,6 +119,7 @@ CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATE = @DATE@
+DEFAULT_PREFS_PEER = @DEFAULT_PREFS_PEER@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
@@ -123,24 +134,21 @@ EXAMPLESDIR = @EXAMPLESDIR@
 EXEEXT = @EXEEXT@
 FASTJAR = @FASTJAR@
 FIND = @FIND@
+FOUND_CACAO_FALSE = @FOUND_CACAO_FALSE@
+FOUND_CACAO_TRUE = @FOUND_CACAO_TRUE@
 FOUND_ECJ_FALSE = @FOUND_ECJ_FALSE@
 FOUND_ECJ_TRUE = @FOUND_ECJ_TRUE@
 FOUND_GCJX_FALSE = @FOUND_GCJX_FALSE@
 FOUND_GCJX_TRUE = @FOUND_GCJX_TRUE@
-FOUND_GCJ_FALSE = @FOUND_GCJ_FALSE@
-FOUND_GCJ_TRUE = @FOUND_GCJ_TRUE@
-FOUND_JIKES_FALSE = @FOUND_JIKES_FALSE@
-FOUND_JIKES_TRUE = @FOUND_JIKES_TRUE@
-FOUND_KJC_FALSE = @FOUND_KJC_FALSE@
-FOUND_KJC_TRUE = @FOUND_KJC_TRUE@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
 FREETYPE2_LIBS = @FREETYPE2_LIBS@
-GCJ = @GCJ@
 GCJX = @GCJX@
+GCONF_CFLAGS = @GCONF_CFLAGS@
+GCONF_LIBS = @GCONF_LIBS@
 GJDOC = @GJDOC@
-GTK_CAIRO_ENABLED = @GTK_CAIRO_ENABLED@
-GTK_CAIRO_FALSE = @GTK_CAIRO_FALSE@
-GTK_CAIRO_TRUE = @GTK_CAIRO_TRUE@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_LIBS = @GLIB_LIBS@
+GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 INIT_LOAD_LIBRARY = @INIT_LOAD_LIBRARY@
@@ -155,13 +163,10 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAY = @JAY@
 JAY_SKELETON = @JAY_SKELETON@
-JIKES = @JIKES@
-JIKESENCODING = @JIKESENCODING@
-JIKESWARNINGS = @JIKESWARNINGS@
-KJC = @KJC@
 LDFLAGS = @LDFLAGS@
 LIBDEBUG = @LIBDEBUG@
 LIBICONV = @LIBICONV@
+LIBMAGIC = @LIBMAGIC@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -175,6 +180,8 @@ MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
 MKDIR = @MKDIR@
 MOC = @MOC@
+MOZILLA_CFLAGS = @MOZILLA_CFLAGS@
+MOZILLA_LIBS = @MOZILLA_LIBS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -185,9 +192,11 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PANGOFT2_CFLAGS = @PANGOFT2_CFLAGS@
 PANGOFT2_LIBS = @PANGOFT2_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PATH_TO_ESCHER = @PATH_TO_ESCHER@
 PATH_TO_GLIBJ_ZIP = @PATH_TO_GLIBJ_ZIP@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
+PLUGIN_DIR = @PLUGIN_DIR@
 QT_CFLAGS = @QT_CFLAGS@
 QT_LIBS = @QT_LIBS@
 RANLIB = @RANLIB@
@@ -204,14 +213,19 @@ USER_SPECIFIED_CLASSLIB_FALSE = @USER_SPECIFIED_CLASSLIB_FALSE@
 USER_SPECIFIED_CLASSLIB_TRUE = @USER_SPECIFIED_CLASSLIB_TRUE@
 USER_SPECIFIED_JAVAH_FALSE = @USER_SPECIFIED_JAVAH_FALSE@
 USER_SPECIFIED_JAVAH_TRUE = @USER_SPECIFIED_JAVAH_TRUE@
+USE_ESCHER_FALSE = @USE_ESCHER_FALSE@
+USE_ESCHER_TRUE = @USE_ESCHER_TRUE@
 USE_PREBUILT_GLIBJ_ZIP_FALSE = @USE_PREBUILT_GLIBJ_ZIP_FALSE@
 USE_PREBUILT_GLIBJ_ZIP_TRUE = @USE_PREBUILT_GLIBJ_ZIP_TRUE@
 VERSION = @VERSION@
+VM_BINARY = @VM_BINARY@
 WARNING_CFLAGS = @WARNING_CFLAGS@
+XMKMF = @XMKMF@
 XML_CFLAGS = @XML_CFLAGS@
 XML_LIBS = @XML_LIBS@
 XSLT_CFLAGS = @XSLT_CFLAGS@
 XSLT_LIBS = @XSLT_LIBS@
+XTEST_LIBS = @XTEST_LIBS@
 X_CFLAGS = @X_CFLAGS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
@@ -219,8 +233,6 @@ X_PRE_LIBS = @X_PRE_LIBS@
 ZIP = @ZIP@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
-ac_ct_RANLIB = @ac_ct_RANLIB@
-ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__fastdepCXX_FALSE = @am__fastdepCXX_FALSE@
@@ -237,7 +249,10 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
+datarootdir = @datarootdir@
 default_toolkit = @default_toolkit@
+docdir = @docdir@
+dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 glibjdir = @glibjdir@
 host = @host@
@@ -245,18 +260,22 @@ host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
+htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 nativeexeclibdir = @nativeexeclibdir@
 oldincludedir = @oldincludedir@
+pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
+psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -267,28 +286,40 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
 JAVA_DEPEND = java.dep
-propertydirs := $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org META-INF -type d ! -name CVS -print | fgrep -v .svn)
+propertydirs := $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org META-INF -type d ! -name CVS -print)
 propertyfiles := $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org -name \*\.properties -print)
-metafiles := $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print | fgrep -v .svn)
+metafiles := $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -name \*\.in -prune -o -type f -print)
 iconfiles := $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:.:$(USER_CLASSLIB)
-@FOUND_ECJ_TRUE@@FOUND_GCJX_FALSE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JAVAC = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
-@FOUND_GCJX_TRUE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JAVAC = $(GCJX) -g -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
-@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_TRUE@JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
-@FOUND_GCJ_FALSE@@FOUND_JIKES_TRUE@JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
+#else
+#if FOUND_GCJ
+#JAVAC = exit 1
+#else
+#if FOUND_JIKES
+#JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
+#else
+#if FOUND_KJC
+### FIXME: from what I can tell, kjc does not support a -encoding option.
+#JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
+@FOUND_ECJ_FALSE@@FOUND_GCJX_TRUE@JAVAC = $(GCJX) -g -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-@FOUND_GCJ_TRUE@JAVAC = $(GCJ) -C -bootclasspath '' --classpath $(compile_classpath) -d . @classes
+@FOUND_ECJ_TRUE@JAVAC = $(ECJ) -1.5 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+#endif # FOUND_KJC
+#endif # FOUND_GCJ
+#endif # FOUND_JIKES
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 @CREATE_COLLECTIONS_TRUE@COLLECTIONS = collections.jar
+@INSTALL_GLIBJ_ZIP_TRUE@glibj_DATA = glibj.zip $(COLLECTIONS)
 @BUILD_CLASS_FILES_TRUE@noinst_DATA = genclasses compile-classes resources
-# endif
-EXTRA_DIST = standard.omit mkcollections.pl.in Makefile.gcj split-for-gcj.sh
+#endif
+EXTRA_DIST = standard.omit.in mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \
-	glibj.zip classes.1 classes.2 \
+	glibj.zip classes.1 classes.2 Makefile.deps \
 	$(top_builddir)/gnu/java/locale/LocaleData.java \
 	$(JAVA_DEPEND)
 
+DISTCLEANFILES = standard.omit
 all: all-am
 
 .SUFFIXES:
@@ -337,6 +368,23 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
+install-glibjDATA: $(glibj_DATA)
+	@$(NORMAL_INSTALL)
+	test -z "$(glibjdir)" || $(mkdir_p) "$(DESTDIR)$(glibjdir)"
+	@list='$(glibj_DATA)'; for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  f=$(am__strip_dir) \
+	  echo " $(glibjDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(glibjdir)/$$f'"; \
+	  $(glibjDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(glibjdir)/$$f"; \
+	done
+
+uninstall-glibjDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(glibj_DATA)'; for p in $$list; do \
+	  f=$(am__strip_dir) \
+	  echo " rm -f '$(DESTDIR)$(glibjdir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(glibjdir)/$$f"; \
+	done
 tags: TAGS
 TAGS:
 
@@ -378,6 +426,9 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
+	for dir in "$(DESTDIR)$(glibjdir)"; do \
+	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
+	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -399,6 +450,7 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -423,7 +475,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local
+install-data-am: install-data-local install-glibjDATA
 
 install-exec-am:
 
@@ -449,26 +501,30 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-info-am uninstall-local
+uninstall-am: uninstall-glibjDATA uninstall-info-am uninstall-local
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
 	clean-local dist-hook distclean distclean-generic \
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am \
-	install-data-local install-exec install-exec-am install-info \
-	install-info-am install-man install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am \
-	uninstall-info-am uninstall-local
+	install-data-local install-exec install-exec-am \
+	install-glibjDATA install-info install-info-am install-man \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	uninstall uninstall-am uninstall-glibjDATA uninstall-info-am \
+	uninstall-local
 
 
 sinclude $(JAVA_DEPEND)
 
 @CREATE_COLLECTIONS_TRUE@collections.jar: mkcollections.pl
 @CREATE_COLLECTIONS_TRUE@	./mkcollections.pl $(top_srcdir)
-@CREATE_COLLECTIONS_TRUE@@FOUND_GCJ_TRUE@	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
-@CREATE_COLLECTIONS_TRUE@@FOUND_GCJ_FALSE@	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+#if FOUND_GCJ
+#	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+#else
+@CREATE_COLLECTIONS_TRUE@	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+#endif
 @CREATE_COLLECTIONS_TRUE@	if test "$(FASTJAR)" != ""; then \
 @CREATE_COLLECTIONS_TRUE@	  $(FASTJAR) cf $@ $(COLLECTIONS_PREFIX); \
 @CREATE_COLLECTIONS_TRUE@	else \
@@ -481,6 +537,7 @@ sinclude $(JAVA_DEPEND)
 @INSTALL_CLASS_FILES_TRUE@	cp -R java $(DESTDIR)$(pkgdatadir)
 @INSTALL_CLASS_FILES_TRUE@	cp -R javax $(DESTDIR)$(pkgdatadir)
 @INSTALL_CLASS_FILES_TRUE@	cp -R org $(DESTDIR)$(pkgdatadir)
+@INSTALL_CLASS_FILES_TRUE@	cp -R sun $(DESTDIR)$(pkgdatadir)
 @INSTALL_CLASS_FILES_TRUE@	cp -R META-INF $(DESTDIR)$(pkgdatadir)
 
 # FIXME - should mimic doc/api/Makefile.am instead...
@@ -489,6 +546,7 @@ sinclude $(JAVA_DEPEND)
 @INSTALL_CLASS_FILES_TRUE@	rm -rf $(DESTDIR)$(pkgdatadir)/java
 @INSTALL_CLASS_FILES_TRUE@	rm -rf $(DESTDIR)$(pkgdatadir)/javax
 @INSTALL_CLASS_FILES_TRUE@	rm -rf $(DESTDIR)$(pkgdatadir)/org
+@INSTALL_CLASS_FILES_TRUE@	rm -rf $(DESTDIR)$(pkgdatadir)/sun
 @INSTALL_CLASS_FILES_TRUE@	rm -rf $(DESTDIR)$(pkgdatadir)/META-INF
 
 .PHONY: genclasses
@@ -497,26 +555,26 @@ sinclude $(JAVA_DEPEND)
 @USE_PREBUILT_GLIBJ_ZIP_TRUE@	cp $(PATH_TO_GLIBJ_ZIP) .
 
 @USE_PREBUILT_GLIBJ_ZIP_FALSE@glibj.zip: classes compile-classes resources
-@USE_PREBUILT_GLIBJ_ZIP_FALSE@	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org META-INF > /dev/null; fi
-@USE_PREBUILT_GLIBJ_ZIP_FALSE@	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org META-INF; fi
+@USE_PREBUILT_GLIBJ_ZIP_FALSE@	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org sun META-INF > /dev/null; fi
+@USE_PREBUILT_GLIBJ_ZIP_FALSE@	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org sun META-INF; fi
 
 resources: copy-vmresources.sh
 	if ! [ -e gnu ]; then mkdir gnu; fi
 	if ! [ -e gnu/java ]; then mkdir gnu/java; fi
 	if ! [ -e gnu/java/locale ]; then mkdir gnu/java/locale; fi
 	if ! [ -e gnu/javax/swing/plaf/gtk/icons ]; then mkdir -p gnu/javax/swing/plaf/gtk/icons; fi
-	list='$(propertydirs)'; for p in $$list; do \
+	@list='$(propertydirs)'; for p in $$list; do \
 	  if ! [ -e $$p ]; then mkdir $$p; fi; \
 	done
-	list='$(propertyfiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/resource/$$p $$p; \
+	@list='$(propertyfiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
-	list='$(metafiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/resource/$$p $$p; \
+	@list='$(metafiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
-	$(SHELL) ./copy-vmresources.sh
-	list='$(iconfiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/$$p $$p; \
+	@$(SHELL) ./copy-vmresources.sh
+	@list='$(iconfiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/$$p $$p; \
 	done
 	touch resources
 
@@ -542,18 +600,14 @@ genclasses: gen-classlist.sh standard.omit $(top_builddir)/gnu/java/locale/Local
 
 $(JAVA_DEPEND): genclasses
 
-# if FOUND_GCJ
-# ## When building with gcj, we do a recursive make.  We split this rule
-# ## out specially, rather than simply defining JAVAC, so that GNU make
-# ## will see the recursive make invocation and still allow parallel
-# ## builds.
-# compile-classes: classes $(JAVA_SRCS) Makefile
-# 	$(MAKE) -f $(srcdir)/Makefile.gcj \
-# 	  GCJ='$(GCJ)' \
-# 	  compile_classpath='$(top_builddir):$(compile_classpath)' \
-# 	  top_srcdir=$(top_srcdir)
-# 	touch compile-classes
-# else
+#if FOUND_GCJ
+#compile-classes: classes $(JAVA_SRCS) Makefile
+#	$(MAKE) -f $(srcdir)/Makefile.gcj \
+#	  GCJ='$(GCJ)' \
+#	  compile_classpath='$(top_builddir):$(compile_classpath)' \
+#	  top_srcdir=$(top_srcdir)
+#   	  touch compile-classes
+#else
 compile-classes: classes $(JAVA_SRCS) Makefile
 	$(JAVAC)
 	touch compile-classes
@@ -564,18 +618,19 @@ clean-local:
 	-rm -rf javax
 	-rm -rf org
 	-rm -rf com
+	-rm -rf sun
 	-rm -rf META-INF
 	-rm -rf lists
-	-rm -f Makefile.deps
 
 dist-hook:
 	mkdir -p $(distdir)
-	cp -pdfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/vm $(top_srcdir)/resource $(distdir)/..
+	cp -pdfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/sun $(top_srcdir)/vm $(top_srcdir)/resource $(distdir)/..
 # Delete not wanted files.
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name CVS -print | xargs rm -fr
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name .cvsignore -print | xargs rm -f
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm -name class-dependencies.conf -print | xargs rm -f
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm $(distdir)/../resource -name CVS -print | xargs rm -fr
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm $(distdir)/../resource -name .cvsignore -print | xargs rm -f
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm -name class-dependencies.conf -print | xargs rm -f
 	rm -f $(distdir)/../gnu/classpath/Configuration.java
+	rm -f $(distdir)/../gnu/java/security/Configuration.java
 	rm -f $(distdir)/../gnu/java/locale/LocaleData.java
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

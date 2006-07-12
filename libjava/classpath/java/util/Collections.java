@@ -1,5 +1,5 @@
 /* Collections.java -- Utility class with methods to operate on collections
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -701,7 +701,7 @@ public class Collections
 	boolean forward = true;
         while (low <= hi)
           {
-            pos = (low + hi) >> 1;
+            pos = (low + hi) >>> 1;
             if (i < pos)
 	      {
 		if (!forward)
@@ -730,7 +730,7 @@ public class Collections
       {
 	while (low <= hi)
 	  {
-	    pos = (low + hi) >> 1;
+	    pos = (low + hi) >>> 1;
 	    final int d = compare(((List<T>) l).get(pos), key, c);
 	    if (d == 0)
               return pos;
@@ -4979,7 +4979,7 @@ public class Collections
     public Set<Map.Entry<K, V>> entrySet()
     {
       if (entries == null)
-        entries = new UnmodifiableEntrySet<Map.Entry<K,V>>(m.entrySet());
+        entries = new UnmodifiableEntrySet<K,V>(m.entrySet());
       return entries;
     }
 
@@ -4989,10 +4989,91 @@ public class Collections
      *
      * @author Eric Blake (ebb9@email.byu.edu)
      */
-    private static final class UnmodifiableEntrySet<T>
-      extends UnmodifiableSet<T>
+    private static final class UnmodifiableEntrySet<K,V>
+      extends UnmodifiableSet<Map.Entry<K,V>>
       implements Serializable
     {
+      // Unmodifiable implementation of Map.Entry used as return value for
+      // UnmodifiableEntrySet accessors (iterator, toArray, toArray(Object[]))
+      private static final class UnmodifiableMapEntry<K,V>
+          implements Map.Entry<K,V>
+      {
+        private final Map.Entry<K,V> e;
+
+        private UnmodifiableMapEntry(Map.Entry<K,V> e)
+        {
+          super();
+          this.e = e;
+        }
+
+        /**
+         * Returns <code>true</code> if the object, o, is also a map entry
+         * with an identical key and value.
+         * 
+         * @param o the object to compare.
+         * @return <code>true</code> if o is an equivalent map entry.
+         */
+        public boolean equals(Object o)
+        {
+          return e.equals(o);
+        }
+
+        /**
+         * Returns the key of this map entry.
+         * 
+         * @return the key.
+         */
+        public K getKey()
+        {
+          return e.getKey();
+        }
+
+        /**
+         * Returns the value of this map entry.
+         * 
+         * @return the value.
+         */
+        public V getValue()
+        {
+          return e.getValue();
+        }
+
+        /**
+         * Computes the hash code of this map entry. The computation is
+         * described in the <code>Map</code> interface documentation.
+         * 
+         * @return the hash code of this entry.
+         * @see Map#hashCode()
+         */
+        public int hashCode()
+        {
+          return e.hashCode();
+        }
+
+        /**
+         * Blocks the alteration of the value of this map entry. This method
+         * never returns, throwing an exception instead.
+         * 
+         * @param value The new value.
+         * @throws UnsupportedOperationException as an unmodifiable map entry
+         *           does not support the <code>setValue()</code> operation.
+         */
+        public V setValue(V value)
+        {
+          throw new UnsupportedOperationException();
+        }
+
+        /**
+         * Returns a textual representation of the map entry.
+         * 
+         * @return The map entry as a <code>String</code>.
+         */
+        public String toString()
+        {
+          return e.toString();
+        }
+      }
+
       /**
        * Compatible with JDK 1.4.
        */
@@ -5002,15 +5083,15 @@ public class Collections
        * Wrap a given set.
        * @param s the set to wrap
        */
-      UnmodifiableEntrySet(Set<T> s)
+      UnmodifiableEntrySet(Set<Map.Entry<K,V>> s)
       {
         super(s);
       }
 
       // The iterator must return unmodifiable map entries.
-      public Iterator<T> iterator()
+      public Iterator<Map.Entry<K,V>> iterator()
       {
-        return new UnmodifiableIterator<T>(c.iterator())
+        return new UnmodifiableIterator<Map.Entry<K,V>>(c.iterator())
 	{
 	  /**
 	   * Obtains the next element from the underlying set of
@@ -5019,83 +5100,45 @@ public class Collections
 	   * @return the next element in the collection.
 	   * @throws NoSuchElementException if there are no more elements.
 	   */
-          public T next()
+          public Map.Entry<K,V> next()
           {
-            final Map.Entry e = (Map.Entry) super.next();
-            return (T) new Map.Entry()
-	    {
-	      /**
-	       * Returns <code>true</code> if the object, o, is also a map entry with an
-	       * identical key and value.
-	       *
-	       * @param o the object to compare.
-	       * @return <code>true</code> if o is an equivalent map entry.
-	       */
-              public boolean equals(Object o)
-              {
-                return e.equals(o);
-              }
-	      
-	      /**
-	       * Returns the key of this map entry.
-	       *
-	       * @return the key.
-	       */
-              public Object getKey()
-              {
-                return e.getKey();
-              }
-
-	      /**
-	       * Returns the value of this map entry.
-	       *
-	       * @return the value.
-	       */
-              public Object getValue()
-              {
-                return e.getValue();
-              }
-
-	      /**
-	       * Computes the hash code of this map entry.
-	       * The computation is described in the <code>Map</code>
-	       * interface documentation.
-	       *
-	       * @return the hash code of this entry.
-	       * @see Map#hashCode()
-	       */ 
-             public int hashCode()
-              {
-                return e.hashCode();
-              }
-
-	      /**
-	       * Blocks the alteration of the value of this map entry.
-	       * This method never returns, throwing an exception instead.
-	       *
-	       * @param value The new value.
-	       * @throws UnsupportedOperationException as an unmodifiable
-	       *         map entry does not support the <code>setValue()</code>
-	       *         operation.
-	       */
-              public Object setValue(Object value)
-              {
-                throw new UnsupportedOperationException();
-              }
-
-	      /**
-	       * Returns a textual representation of the map entry.
-	       *
-	       * @return The map entry as a <code>String</code>.
-	       */
-              public String toString()
-              {
-                return e.toString();
-              }
-	    };
-          }
+            final Map.Entry<K,V> e = super.next();
+	    return new UnmodifiableMapEntry<K,V>(e);
+	  }
 	};
       }
+
+      // The array returned is an array of UnmodifiableMapEntry instead of
+      // Map.Entry
+      public Map.Entry<K,V>[] toArray()
+      {
+        Map.Entry<K,V>[] mapEntryResult = (Map.Entry<K,V>[]) super.toArray();
+        UnmodifiableMapEntry<K,V> result[] = null;
+  
+        if (mapEntryResult != null)
+          {
+            result = (UnmodifiableMapEntry<K,V>[])
+	      new UnmodifiableMapEntry[mapEntryResult.length];
+            for (int i = 0; i < mapEntryResult.length; ++i)
+	      result[i] = new UnmodifiableMapEntry(mapEntryResult[i]);
+	  }
+        return result;
+      }
+  
+      // The array returned is an array of UnmodifiableMapEntry instead of
+      // Map.Entry
+      public Map.Entry<K,V>[] toArray(Map.Entry<K,V>[] array)
+      {
+        super.toArray(array);
+  
+        if (array != null)
+	  for (int i = 0; i < array.length; i++)
+	    array[i] =
+	      new UnmodifiableMapEntry<K,V>(array[i]);
+        return array;
+      }
+      
+
     } // class UnmodifiableEntrySet
 
     /**

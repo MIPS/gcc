@@ -360,7 +360,7 @@ if {[llength $argv] > 0 && [lindex $argv 0] == "-verbose"} {
 
 # Read the proper .omit files.
 read_omit_file standard.omit.in
-read_omit_file classpath/lib/standard.omit
+read_omit_file classpath/lib/standard.omit.in
 
 # Scan classpath first.
 scan_packages classpath

@@ -5,38 +5,36 @@ JAVA_DEPEND = java.dep
 ## this file and restart the make process again
 sinclude $(JAVA_DEPEND)
 
-## GCJ LOCAL: prune .svn directories
-propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org META-INF -type d ! -name CVS -print | fgrep -v .svn)
+propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org META-INF -type d ! -name CVS -print)
 propertyfiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java javax org -name \*\.properties -print)
-metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print | fgrep -v .svn)
-## END GCJ LOCAL
+metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -name \*\.in -prune -o -type f -print)
 iconfiles :=  $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
 
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:.:$(USER_CLASSLIB)
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-if FOUND_GCJ
+if FOUND_ECJ
+JAVAC = $(ECJ) -1.5 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+#else
+#if FOUND_GCJ
 ## This should never be used when gcj is the compiler.
 ## See the compile-classes target.
-JAVAC = $(GCJ) -C -bootclasspath '' --classpath $(compile_classpath) -d . @classes
-else
-if FOUND_JIKES
-JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
-else
-if FOUND_KJC
-## FIXME: from what I can tell, kjc does not support a -encoding option.
-JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
+#JAVAC = exit 1
+#else
+#if FOUND_JIKES
+#JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
+#else
+#if FOUND_KJC
+### FIXME: from what I can tell, kjc does not support a -encoding option.
+#JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
 else
 if FOUND_GCJX
 JAVAC = $(GCJX) -g -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
-else
-if FOUND_ECJ
-JAVAC = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
-endif # FOUND_ECJ
 endif # FOUND_GCJX
-endif # FOUND_KJC
-endif # FOUND_GCJ
-endif # FOUND_JIKES
+#endif # FOUND_KJC
+#endif # FOUND_GCJ
+#endif # FOUND_JIKES
+endif # FOUND_ECJ
 
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 
@@ -45,11 +43,11 @@ COLLECTIONS = collections.jar
 
 collections.jar: mkcollections.pl
 	./mkcollections.pl $(top_srcdir)
-if FOUND_GCJ
-	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
-else
+#if FOUND_GCJ
+#	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+#else
 	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
-endif
+#endif
 	if test "$(FASTJAR)" != ""; then \
 	  $(FASTJAR) cf $@ $(COLLECTIONS_PREFIX); \
 	else \
@@ -59,9 +57,7 @@ endif # CREATE_COLLECTIONS
 
 if INSTALL_GLIBJ_ZIP
 
-## GCJ LOCAL: Comment this out so we don't make an empty
-## '$(glibjdir)' in the install tree.
-## glibj_DATA = glibj.zip
+glibj_DATA = glibj.zip $(COLLECTIONS)
 
 endif # INSTALL_GLIBJ_ZIP
 
@@ -77,6 +73,7 @@ install-data-local: genclasses compile-classes
 	cp -R java $(DESTDIR)$(pkgdatadir)
 	cp -R javax $(DESTDIR)$(pkgdatadir)
 	cp -R org $(DESTDIR)$(pkgdatadir)
+	cp -R sun $(DESTDIR)$(pkgdatadir)
 	cp -R META-INF $(DESTDIR)$(pkgdatadir)
 
 # FIXME - should mimic doc/api/Makefile.am instead...
@@ -85,6 +82,7 @@ uninstall-local:
 	rm -rf $(DESTDIR)$(pkgdatadir)/java
 	rm -rf $(DESTDIR)$(pkgdatadir)/javax
 	rm -rf $(DESTDIR)$(pkgdatadir)/org
+	rm -rf $(DESTDIR)$(pkgdatadir)/sun
 	rm -rf $(DESTDIR)$(pkgdatadir)/META-INF
 
 endif # INSTALL_CLASS_FILES
@@ -99,8 +97,8 @@ glibj.zip:
 else
 
 glibj.zip: classes compile-classes resources
-	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org META-INF > /dev/null; fi
-	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org META-INF; fi
+	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org sun META-INF > /dev/null; fi
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org sun META-INF; fi
 
 endif # USE_PREBUILT_GLIBJ_ZIP
 
@@ -109,18 +107,18 @@ resources: copy-vmresources.sh
 	if ! [ -e gnu/java ]; then mkdir gnu/java; fi
 	if ! [ -e gnu/java/locale ]; then mkdir gnu/java/locale; fi
 	if ! [ -e gnu/javax/swing/plaf/gtk/icons ]; then mkdir -p gnu/javax/swing/plaf/gtk/icons; fi
-	list='$(propertydirs)'; for p in $$list; do \
+	@list='$(propertydirs)'; for p in $$list; do \
 	  if ! [ -e $$p ]; then mkdir $$p; fi; \
 	done
-	list='$(propertyfiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/resource/$$p $$p; \
+	@list='$(propertyfiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
-	list='$(metafiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/resource/$$p $$p; \
+	@list='$(metafiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/resource/$$p $$p; \
 	done
-	$(SHELL) ./copy-vmresources.sh
-	list='$(iconfiles)'; for p in $$list; do \
-	  cp -f $(top_srcdir)/$$p $$p; \
+	@$(SHELL) ./copy-vmresources.sh
+	@list='$(iconfiles)'; for p in $$list; do \
+	  cp $(top_srcdir)/$$p $$p; \
 	done
 	touch resources
 
@@ -150,28 +148,29 @@ endif # REGEN_PARSER
 
 $(JAVA_DEPEND): genclasses
 
-# if FOUND_GCJ
-# ## When building with gcj, we do a recursive make.  We split this rule
-# ## out specially, rather than simply defining JAVAC, so that GNU make
-# ## will see the recursive make invocation and still allow parallel
-# ## builds.
-# compile-classes: classes $(JAVA_SRCS) Makefile
-# 	$(MAKE) -f $(srcdir)/Makefile.gcj \
-# 	  GCJ='$(GCJ)' \
-# 	  compile_classpath='$(top_builddir):$(compile_classpath)' \
-# 	  top_srcdir=$(top_srcdir)
-# 	touch compile-classes
-# else
+#if FOUND_GCJ
+## When building with gcj, we do a recursive make.  We split this rule
+## out specially, rather than simply defining JAVAC, so that GNU make
+## will see the recursive make invocation and still allow parallel
+## builds.
+#compile-classes: classes $(JAVA_SRCS) Makefile
+#	$(MAKE) -f $(srcdir)/Makefile.gcj \
+#	  GCJ='$(GCJ)' \
+#	  compile_classpath='$(top_builddir):$(compile_classpath)' \
+#	  top_srcdir=$(top_srcdir)
+#   	  touch compile-classes
+#else
 compile-classes: classes $(JAVA_SRCS) Makefile
 	$(JAVAC)
 	touch compile-classes
-# endif
+#endif
 
-EXTRA_DIST = standard.omit mkcollections.pl.in Makefile.gcj split-for-gcj.sh
+EXTRA_DIST = standard.omit.in mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \
-	glibj.zip classes.1 classes.2 \
+	glibj.zip classes.1 classes.2 Makefile.deps \
 	$(top_builddir)/gnu/java/locale/LocaleData.java \
 	$(JAVA_DEPEND)
+DISTCLEANFILES = standard.omit
 
 clean-local:
 	-rm -rf gnu
@@ -179,16 +178,17 @@ clean-local:
 	-rm -rf javax
 	-rm -rf org
 	-rm -rf com
+	-rm -rf sun
 	-rm -rf META-INF
 	-rm -rf lists
-	-rm -f Makefile.deps
 
 dist-hook:
 	mkdir -p $(distdir)
-	cp -pdfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/vm $(top_srcdir)/resource $(distdir)/..
+	cp -pdfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/sun $(top_srcdir)/vm $(top_srcdir)/resource $(distdir)/..
 # Delete not wanted files.
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name CVS -print | xargs rm -fr
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name .cvsignore -print | xargs rm -f
-	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm -name class-dependencies.conf -print | xargs rm -f
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm $(distdir)/../resource -name CVS -print | xargs rm -fr
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm $(distdir)/../resource -name .cvsignore -print | xargs rm -f
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../sun $(distdir)/../vm -name class-dependencies.conf -print | xargs rm -f
 	rm -f $(distdir)/../gnu/classpath/Configuration.java
+	rm -f $(distdir)/../gnu/java/security/Configuration.java
 	rm -f $(distdir)/../gnu/java/locale/LocaleData.java

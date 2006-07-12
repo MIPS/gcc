@@ -39,6 +39,7 @@ exception statement from your version. */
 package javax.swing.text.html;
 
 import gnu.classpath.NotImplementedException;
+import gnu.javax.swing.text.html.CharacterAttributeTranslator;
 
 import java.io.IOException;
 import java.net.URL;
@@ -46,8 +47,7 @@ import java.util.HashMap;
 import java.util.Stack;
 import java.util.Vector;
 
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.UndoableEditEvent;
+import javax.swing.JEditorPane;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -61,9 +61,15 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.html.HTML.Tag;
 
 /**
- * TODO: Add more comments here 
+ * Represents the HTML document that is constructed by defining the text and
+ * other components (images, buttons, etc) in HTML language. This class can
+ * becomes the default document for {@link JEditorPane} after setting its
+ * content type to "text/html". HTML document also serves as an intermediate
+ * data structure when it is needed to parse HTML and then obtain the content of
+ * the certain types of tags. This class also has methods for modifying the HTML
+ * content.
  * 
- * @author Audrius Meskauskas, Lithuania (AudriusA@Bioinformatics.org)
+ * @author Audrius Meskauskas (AudriusA@Bioinformatics.org)
  * @author Anthony Balkissoon (abalkiss@redhat.com)
  * @author Lillian Angel (langel@redhat.com)
  */
@@ -128,21 +134,6 @@ public class HTMLDocument extends DefaultStyledDocument
   public StyleSheet getStyleSheet()
   {
     return styleSheet;
-  }
-  
-  /**
-   * Replaces the contents of the document with the given element
-   * specifications. This is called before insert if the loading is done
-   * in bursts. This is the only method called if loading the document
-   * entirely in one burst.
-   * 
-   * @param data - the date that replaces the content of the document
-   */
-  protected void create(DefaultStyledDocument.ElementSpec[] data)
-  {
-    // Once the super behaviour is properly implemented it should be sufficient
-    // to simply call super.create(data).
-    super.create(data);
   }
   
   /**
@@ -213,41 +204,6 @@ public class HTMLDocument extends DefaultStyledDocument
   protected Element createBranchElement(Element parent, AttributeSet a)
   {
     return new BlockElement(parent, a);
-  }
-  
-  /**
-   * Inserts new elements in bulk. This is how elements get created in the
-   * document. The parsing determines what structure is needed and creates the
-   * specification as a set of tokens that describe the edit while leaving the
-   * document free of a write-lock. This method can then be called in bursts by
-   * the reader to acquire a write-lock for a shorter duration (i.e. while the
-   * document is actually being altered). 
-   * 
-   * @param offset - the starting offset 
-   * @param data - the element data
-   * @throws BadLocationException - if the given position does not
-   * represent a valid location in the associated document.
-   */
-  protected void insert(int offset, DefaultStyledDocument.ElementSpec[] data)
-    throws BadLocationException
-  {
-    super.insert(offset, data);
-  }
-  
-  /**
-   * Updates document structure as a result of text insertion. This will happen
-   * within a write lock. This implementation simply parses the inserted content
-   * for line breaks and builds up a set of instructions for the element buffer.
-   * 
-   * @param chng - a description of the document change
-   * @param attr - the attributes
-   */
-  protected void insertUpdate(AbstractDocument.DefaultDocumentEvent chng, 
-                              AttributeSet attr)
-  {
-    // FIXME: Not implemented
-    System.out.println("insertUpdate not implemented");
-    super.insertUpdate(chng, attr);    
   }
   
   /**
@@ -414,6 +370,7 @@ public class HTMLDocument extends DefaultStyledDocument
   }
 
   public void processHTMLFrameHyperlinkEvent(HTMLFrameHyperlinkEvent event)
+  throws NotImplementedException
   {
     // TODO: Implement this properly.
   }
@@ -646,12 +603,16 @@ public class HTMLDocument extends DefaultStyledDocument
       {
         // Put the old attribute set on the stack.
         pushCharacterStyle();
-        
-        // And create the new one by adding the attributes in <code>a</code>.
-        if (a != null)
-          charAttr.addAttribute(t, a.copyAttributes());          
+
+	// Translate tag.. return if succesful.
+	if(CharacterAttributeTranslator.translateTag(charAttr, t, a))
+	  return;
+
+        // Just add the attributes in <code>a</code>.
+ 	if (a != null)
+ 	  charAttr.addAttribute(t, a.copyAttributes());          
       }
-      
+
       /**
        * Called when an end tag is seen for one of the types of tags associated
        * with this Action.
@@ -687,17 +648,25 @@ public class HTMLDocument extends DefaultStyledDocument
       } 
     }
     
-    public class HiddenAction extends TagAction
+    /**
+     * This action indicates that the content between starting and closing HTML
+     * elements (like script - /script) should not be visible. The content is
+     * still inserted and can be accessed when iterating the HTML document. The
+     * parser will only fire
+     * {@link javax.swing.text.html.HTMLEditorKit.ParserCallback#handleText} for
+     * the hidden tags, regardless from that html tags the hidden section may
+     * contain.
+     */
+    public class HiddenAction
+        extends TagAction
     {
       /**
        * This method is called when a start tag is seen for one of the types
        * of tags associated with this Action.
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("HiddenAction.start not implemented");
+        blockOpen(t, a);
       }
       
       /**
@@ -705,10 +674,8 @@ public class HTMLDocument extends DefaultStyledDocument
        * with this Action.
        */
       public void end(HTML.Tag t)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("HiddenAction.end not implemented");
+        blockClose(t);
       } 
     }
     
@@ -724,17 +691,6 @@ public class HTMLDocument extends DefaultStyledDocument
         // FIXME: Implement.
         print ("IsindexAction.start not implemented");
       }
-      
-      /**
-       * Called when an end tag is seen for one of the types of tags associated
-       * with this Action.
-       */
-      public void end(HTML.Tag t)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("IsindexAction.end not implemented");
-      } 
     }
     
     public class ParagraphAction extends BlockAction
@@ -745,7 +701,6 @@ public class HTMLDocument extends DefaultStyledDocument
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
       {
-        // FIXME: What else must be done here?
         blockOpen(t, a);
       }
       
@@ -755,7 +710,6 @@ public class HTMLDocument extends DefaultStyledDocument
        */
       public void end(HTML.Tag t)
       {
-        // FIXME: What else must be done here?
         blockClose(t);
       } 
     }
@@ -771,6 +725,7 @@ public class HTMLDocument extends DefaultStyledDocument
       {
         // FIXME: Implement.
         print ("PreAction.start not implemented");
+        super.start(t, a);
       }
       
       /**
@@ -782,32 +737,26 @@ public class HTMLDocument extends DefaultStyledDocument
       {
         // FIXME: Implement.
         print ("PreAction.end not implemented");
+        super.end(t);
       } 
     }
     
+    /**
+     * Inserts the elements that are represented by ths single tag with 
+     * attributes (only). The closing tag, even if present, mut follow
+     * immediately after the starting tag without providing any additional
+     * information. Hence the {@link TagAction#end} method need not be
+     * overridden and still does nothing.
+     */
     public class SpecialAction extends TagAction
     {
       /**
-       * This method is called when a start tag is seen for one of the types
-       * of tags associated with this Action.
+       * The functionality is delegated to {@link HTMLReader#addSpecialElement}
        */
       public void start(HTML.Tag t, MutableAttributeSet a)
-        throws NotImplementedException
       {
-        // FIXME: Implement.
-        print ("SpecialAction.start not implemented");
+        addSpecialElement(t, a);
       }
-      
-      /**
-       * Called when an end tag is seen for one of the types of tags associated
-       * with this Action.
-       */
-      public void end(HTML.Tag t)
-        throws NotImplementedException
-      {
-        // FIXME: Implement.
-        print ("SpecialAction.end not implemented");
-      }                
     }
     
     class AreaAction extends TagAction
@@ -1131,7 +1080,7 @@ public class HTMLDocument extends DefaultStyledDocument
      */
     protected void pushCharacterStyle()
     {
-      charAttrStack.push(charAttr);
+      charAttrStack.push(charAttr.copyAttributes());
     }
     
     /**
@@ -1478,10 +1427,21 @@ public class HTMLDocument extends DefaultStyledDocument
      * @param a the attribute set specifying the special content
      */
     protected void addSpecialElement(HTML.Tag t, MutableAttributeSet a)
-      throws NotImplementedException
     {
-      // FIXME: Implement
-      print ("HTMLReader.addSpecialElement not implemented yet");
+      a.addAttribute(StyleConstants.NameAttribute, t);
+      
+      // Migrate from the rather htmlAttributeSet to the faster, lighter and 
+      // unchangeable alternative implementation.
+      AttributeSet copy = a.copyAttributes();
+
+      // The two spaces are required because some special elements like HR
+      // must be broken. At least two characters are needed to break into the
+      // two parts.
+      DefaultStyledDocument.ElementSpec spec =
+        new DefaultStyledDocument.ElementSpec(copy,
+	  DefaultStyledDocument.ElementSpec.ContentType, 
+          new char[] {' ', ' '}, 0, 2 );
+      parseBuffer.add(spec);
     }
     
     void printBuffer()
@@ -1565,8 +1525,8 @@ public class HTMLDocument extends DefaultStyledDocument
    */
   public Element getElement(String attrId)
   {
-    Element root = getDefaultRootElement();
-    return getElement(root, HTML.getAttributeKey(attrId) , attrId);
+    return getElement(getDefaultRootElement(), HTML.getAttributeKey(attrId),
+                      attrId);
   }
   
   /**
@@ -1689,54 +1649,5 @@ public class HTMLDocument extends DefaultStyledDocument
       throw new IllegalStateException("Parser has not been set");
     //  FIXME: Not implemented fully, use InsertHTML* in HTMLEditorKit?
     System.out.println("insertAfterStart not implemented");
-  }
-  
-  /**
-   * This method sets the attributes associated with the paragraph containing
-   * offset. If replace is false, s is merged with existing attributes. The
-   * length argument determines how many characters are affected by the new
-   * attributes. This is often the entire paragraph.
-   * 
-   * @param offset -
-   *          the offset into the paragraph (must be at least 0)
-   * @param length -
-   *          the number of characters affected (must be at least 0)
-   * @param s -
-   *          the attributes
-   * @param replace -
-   *          whether to replace existing attributes, or merge them
-   */
-  public void setParagraphAttributes(int offset, int length, AttributeSet s,
-                                     boolean replace)
-    throws NotImplementedException
-  {
-    //  FIXME: Not implemented.
-    System.out.println("setParagraphAttributes not implemented");
-    super.setParagraphAttributes(offset, length, s, replace);
-  }
-  
-  /**
-   * This method flags a change in the document.
-   * 
-   *  @param e - the Document event
-   */
-  protected void fireChangedUpdate(DocumentEvent e)
-    throws NotImplementedException
-  {
-    //  FIXME: Not implemented.
-    System.out.println("fireChangedUpdate not implemented");
-    super.fireChangedUpdate(e);    
-  }
-
-  /**
-   * This method fires an event intended to be caught by Undo listeners. It
-   * simply calls the super version inherited from DefaultStyledDocument. With
-   * this method, an HTML editor could easily provide undo support.
-   * 
-   * @param e - the UndoableEditEvent
-   */
-  protected void fireUndoableEditUpdate(UndoableEditEvent e)
-  {
-    super.fireUndoableEditUpdate(e);
   }
 }
