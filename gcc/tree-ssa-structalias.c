@@ -3301,7 +3301,8 @@ find_func_aliases (tree origt)
       tree lhsop;
       tree rhsop;
       unsigned int varid;
-      tree arglist;
+      tree arg;
+      call_expr_arg_iterator iter;
       varinfo_t fi;
       int i = 1;
       tree decl;
@@ -3326,18 +3327,16 @@ find_func_aliases (tree origt)
 	}
       else
 	{
-	  decl = TREE_OPERAND (rhsop, 0);
+	  decl = CALL_EXPR_FN (rhsop);
 	  varid = get_id_for_tree (decl);
 	}
 
       /* Assign all the passed arguments to the appropriate incoming
 	 parameters of the function.  */
       fi = get_varinfo (varid);
-      arglist = TREE_OPERAND (rhsop, 1);
-	
-      for (;arglist; arglist = TREE_CHAIN (arglist))
+
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, rhsop)
 	{
-	  tree arg = TREE_VALUE (arglist);
 	  struct constraint_expr lhs ;
 	  struct constraint_expr *rhsp;
 

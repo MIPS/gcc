@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-ssa-structalias.c (find_func_aliases): Use new
+	CALL_EXPR accessors and iterators.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-profile.c (tree_gen_interval_profiler): Use
 	build_call_expr.
 	(tree_gen_pow2_profiler): Likewise.
