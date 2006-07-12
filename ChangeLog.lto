@@ -1,5 +1,10 @@
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/tree-tailcall.c (find_tail_calls, eliminate_tail_call):  Use
+	new CALL_EXPR argument iterators.
+
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree-pretty-print.c (dump_generic_node, print_call_name):
 	Use new CALL_EXPR accessors and iterators.
 
