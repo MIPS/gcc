@@ -1,3 +1,8 @@
+2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree-vrp.c (stmt_interesting_for_vrp, vrp_visit_stmt):  Use
+	new CALL_EXPR accessors.
+
 2006-07-12  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/builtins.c (builtin_mathfn_code): Use num_parm_types and
