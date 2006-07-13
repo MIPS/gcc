@@ -7624,8 +7624,29 @@ get_jump_table_size (rtx insn)
     {
       rtx body = PATTERN (insn);
       int elt = GET_CODE (body) == ADDR_DIFF_VEC ? 1 : 0;
+      HOST_WIDE_INT size;
+      HOST_WIDE_INT modesize;
 
-      return GET_MODE_SIZE (GET_MODE (body)) * XVECLEN (body, elt);
+      modesize = GET_MODE_SIZE (GET_MODE (body));
+      size = modesize * XVECLEN (body, elt);
+      switch (modesize)
+	{
+	case 1:
+	  /* Round up size  of TBB table to a hafword boundary.  */
+	  size = (size + 1) & ~(HOST_WIDE_INT)1;
+	  break;
+	case 2:
+	  /* No padding neccessary for TBH.  */
+	  break;
+	case 4:
+	  /* Add two bytes for alignment on Thumb.  */
+	  if (TARGET_THUMB)
+	    size += 2;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      return size;
     }
 
   return 0;
@@ -16389,6 +16410,40 @@ arm_output_shift(rtx * operands, int set_flags)
     sprintf (pattern, "mov%%%c\t%%0, %%1%%S3", c);
   output_asm_insn (pattern, operands);
   return "";
+}
+
+/* Output a Thumb-2 casesi instruction.  */
+const char *
+thumb2_output_casesi (rtx *operands)
+{
+  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+
+  gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
+
+  output_asm_insn ("cmp\t%0, %1", operands);
+  output_asm_insn ("bhi\t%l3", operands);
+  switch (GET_MODE(diff_vec))
+    {
+    case QImode:
+      return "tbb\t[%|pc, %0]";
+    case HImode:
+      return "tbh\t[%|pc, %0, lsl #1]";
+    case SImode:
+      if (flag_pic)
+	{
+	  output_asm_insn ("adr\t%4, %l2", operands);
+	  output_asm_insn ("ldr\t%5, [%4, %0, lsl #2]", operands);
+	  output_asm_insn ("add\t%4, %4, %5", operands);
+	  return "bx\t%4";
+	}
+      else
+	{
+	  output_asm_insn ("adr\t%4, %l2", operands);
+	  return "ldr\t%|pc, [%4, %0, lsl #2]";
+	}
+    default:
+      gcc_unreachable ();
+    }
 }
 
 #include "gt-arm.h"

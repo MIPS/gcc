@@ -303,20 +303,39 @@ do {					\
     {									\
       if (TARGET_ARM)							\
         fprintf ((STREAM), "\tb\t|L..%d|\n", (VALUE));			\
-      else if (TARGET_THUMB2)						\
-        fprintf ((STREAM), "\tDCD\t|L..%d| + 1 - |L..%d|\n", (VALUE), (REL)); \
-      else								\
+      else if (TARGET_THUMB1)						\
         fprintf ((STREAM), "\tDCD\t|L..%d| - |L..%d|\n", (VALUE), (REL)); \
+      else /* Thumb-2 */						\
+	{								\
+	  switch (GET_MODE(body))					\
+	    {								\
+	    case QImode: /* TBB */					\
+	      asm_fprintf (STREAM, "\tDCB\t(|L..%d| - |L..%d|)/2\n",	\
+			   VALUE, REL);					\
+	      break;							\
+	    case HImode: /* TBH */					\
+	      asm_fprintf (STREAM, "\tDCW\t|L..%d| - |L..%d|)/2\n",	\
+			   VALUE, REL);					\
+	      break;							\
+	    case SImode:						\
+	      if (flag_pic)						\
+		asm_fprintf (STREAM, "\tDCD\t|L..%d| + 1 - |L..%d|\n",	\
+			     VALUE, REL);				\
+	      else							\
+		asm_fprintf (STREAM, "\tDCD\t|L..%d| + 1\n", VALUE);	\
+	      break;							\
+	    default:							\
+	      gcc_unreachable();					\
+	    }								\
+	}								\
     }									\
   while (0)
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)			\
   do								\
     {								\
-      if (TARGET_THUMB2)					\
-	fprintf ((STREAM), "\tDCD\t|L..%d| + 1\n", (VALUE))	\
-      else							\
-	fprintf ((STREAM), "\tDCD\t|L..%d|\n", (VALUE))		\
+      gcc_assert (!TARGET_THUMB2)				\
+      fprintf ((STREAM), "\tDCD\t|L..%d|\n", (VALUE))		\
     }								\
   while (0)
 	

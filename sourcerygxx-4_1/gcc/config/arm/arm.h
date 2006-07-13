@@ -2230,6 +2230,13 @@ do {							\
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
 
+#define CASE_VECTOR_PC_RELATIVE TARGET_THUMB2
+
+#define CASE_VECTOR_SHORTEN_MODE(min, max, body)		\
+   ((min < 0 || max >= 0x2000 || !TARGET_THUMB2) ? SImode	\
+   : (max >= 0x200) ? HImode					\
+   : QImode)
+
 /* signed 'char' is most compatible, but RISC OS wants it unsigned.
    unsigned is probably best, but may break some code.  */
 #ifndef DEFAULT_SIGNED_CHAR
@@ -2388,16 +2395,28 @@ extern int making_const_table;
 	asm_fprintf (STREAM, "\tpop {%r}\n", REGNO);	\
     } while (0)
 
+/* Jump table alignment is explicit in ASM_OUTPUT_CASE_LABEL.  */
+#define ADDR_VEC_ALIGN(JUMPTABLE) 0
+
 /* This is how to output a label which precedes a jumptable.  Since
    Thumb instructions are 2 bytes, we may need explicit alignment here.  */
 #undef  ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, JUMPTABLE)	\
-  do								\
-    {								\
-      if (TARGET_THUMB)						\
-        ASM_OUTPUT_ALIGN (FILE, 2);				\
-      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);	\
-    }								\
+#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, JUMPTABLE)		\
+  do									\
+    {									\
+      if (TARGET_THUMB && GET_MODE (PATTERN (JUMPTABLE)) == SImode)	\
+        ASM_OUTPUT_ALIGN (FILE, 2);					\
+      (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
+    }									\
+  while (0)
+
+/* Make sure subsequent insns are aligned after a TBB.  */
+#define ASM_OUTPUT_CASE_END(FILE, NUM, JUMPTABLE)	\
+  do							\
+    {							\
+      if (GET_MODE (PATTERN (JUMPTABLE)) == QImode)	\
+	ASM_OUTPUT_ALIGN (FILE, 1);			\
+    }							\
   while (0)
 
 #define ARM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL) 	\

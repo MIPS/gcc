@@ -942,15 +942,39 @@
    (set_attr "neg_pool_range" "*,250")]
 )
 
-;; The table generation code will ensure the thumb address bit is set
-;; Thumb-2 does not have [pc+reg] addressing modes, so casesi is hard to
-;; implement.  TBB and TBW only have very limited offsets.
-(define_insn "*thumb2_tablejump"
-  [(set (pc) (match_operand:SI 0 "register_operand" "l*r"))
-   (use (label_ref (match_operand 1 "" "")))]
-  "TARGET_THUMB2"
-  "bx\\t%0"
-  [(set_attr "length" "2")]
+(define_insn "thumb2_casesi_internal"
+  [(parallel [(set (pc)
+	       (if_then_else
+		(leu (match_operand:SI 0 "s_register_operand" "r")
+		     (match_operand:SI 1 "arm_rhs_operand" "rI"))
+		(mem:SI (plus:SI (mult:SI (match_dup 0) (const_int 4))
+				 (label_ref (match_operand 2 "" ""))))
+		(label_ref (match_operand 3 "" ""))))
+	      (clobber (reg:CC CC_REGNUM))
+	      (clobber (match_scratch:SI 4 "=r"))
+	      (use (label_ref (match_dup 2)))])]
+  "TARGET_THUMB2 && !flag_pic"
+  "* return thumb2_output_casesi(operands);"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "16")]
+)
+
+(define_insn "thumb2_casesi_internal_pic"
+  [(parallel [(set (pc)
+	       (if_then_else
+		(leu (match_operand:SI 0 "s_register_operand" "r")
+		     (match_operand:SI 1 "arm_rhs_operand" "rI"))
+		(mem:SI (plus:SI (mult:SI (match_dup 0) (const_int 4))
+				 (label_ref (match_operand 2 "" ""))))
+		(label_ref (match_operand 3 "" ""))))
+	      (clobber (reg:CC CC_REGNUM))
+	      (clobber (match_scratch:SI 4 "=r"))
+	      (clobber (match_scratch:SI 5 "=r"))
+	      (use (label_ref (match_dup 2)))])]
+  "TARGET_THUMB2 && flag_pic"
+  "* return thumb2_output_casesi(operands);"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "20")]
 )
 
 (define_insn_and_split "thumb2_eh_return"

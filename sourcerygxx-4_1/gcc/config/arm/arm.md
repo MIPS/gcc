@@ -8177,7 +8177,7 @@
    (match_operand:SI 2 "const_int_operand" "")	; total range
    (match_operand:SI 3 "" "")			; table label
    (match_operand:SI 4 "" "")]			; Out of range label
-  "TARGET_ARM"
+  "TARGET_32BIT"
   "
   {
     rtx reg;
@@ -8193,15 +8193,28 @@
     if (!const_ok_for_arm (INTVAL (operands[2])))
       operands[2] = force_reg (SImode, operands[2]);
 
-    emit_jump_insn (gen_casesi_internal (operands[0], operands[2], operands[3],
-					 operands[4]));
+    if (TARGET_ARM)
+      {
+	emit_jump_insn (gen_arm_casesi_internal (operands[0], operands[2],
+						 operands[3], operands[4]));
+      }
+    else if (flag_pic)
+      {
+	emit_jump_insn (gen_thumb2_casesi_internal_pic (operands[0],
+	    operands[2], operands[3], operands[4]));
+      }
+    else
+      {
+	emit_jump_insn (gen_thumb2_casesi_internal (operands[0], operands[2],
+						    operands[3], operands[4]));
+      }
     DONE;
   }"
 )
 
 ;; The USE in this pattern is needed to tell flow analysis that this is
 ;; a CASESI insn.  It has no other purpose.
-(define_insn "casesi_internal"
+(define_insn "arm_casesi_internal"
   [(parallel [(set (pc)
 	       (if_then_else
 		(leu (match_operand:SI 0 "s_register_operand" "r")
@@ -10173,7 +10186,7 @@
 (define_expand "tablejump"
   [(parallel [(set (pc) (match_operand:SI 0 "register_operand" ""))
 	      (use (label_ref (match_operand 1 "" "")))])]
-  "TARGET_THUMB"
+  "TARGET_THUMB1"
   "
   if (flag_pic)
     {
