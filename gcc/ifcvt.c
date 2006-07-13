@@ -3854,7 +3854,7 @@ if_convert (void)
   bitmap modified = BITMAP_ALLOC (NULL);
   struct df * df = df_init (DF_HARD_REGS);
   struct dataflow *lr_dflow = df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;

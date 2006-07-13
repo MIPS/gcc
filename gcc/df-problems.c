@@ -152,12 +152,12 @@ df_get_live_in (struct df *df, basic_block bb)
 {
   gcc_assert (df->problems_by_index[DF_LR]);
 
-  if (df->problems_by_index[DF_UREC])
-    return DF_RA_LIVE_IN (df, bb);
-  else if (df->problems_by_index[DF_UR])
+  if (df->problems_by_index[DF_CLRUR])
     return DF_LIVE_IN (df, bb);
+  else if (df->problems_by_index[DF_UREC])
+    return DF_RA_LIVE_IN (df, bb);
   else 
-    return DF_UPWARD_LIVE_IN (df, bb);
+    return DF_LR_IN (df, bb);
 }
 
 
@@ -169,12 +169,12 @@ df_get_live_out (struct df *df, basic_block bb)
 {
   gcc_assert (df->problems_by_index[DF_LR]);
 
-  if (df->problems_by_index[DF_UREC])
-    return DF_RA_LIVE_OUT (df, bb);
-  else if (df->problems_by_index[DF_UR])
+  if (df->problems_by_index[DF_CLRUR])
     return DF_LIVE_OUT (df, bb);
+  else if (df->problems_by_index[DF_UREC])
+    return DF_RA_LIVE_OUT (df, bb);
   else 
-    return DF_UPWARD_LIVE_OUT (df, bb);
+    return DF_LR_OUT (df, bb);
 }
 
 
@@ -1759,7 +1759,7 @@ df_lr_simulate_artificial_refs_at_end (struct df *df, basic_block bb,
   struct df_ref *use;
   int bb_index = bb->index;
   
-  bitmap_copy (live, DF_UPWARD_LIVE_OUT (df, bb));
+  bitmap_copy (live, DF_LR_OUT (df, bb));
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
     if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
 	&& (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
@@ -2097,46 +2097,6 @@ df_ur_init (struct dataflow *dflow, bitmap all_blocks)
     }
 }
 
-
-/* Or in the stack regs, hard regs and early clobber regs into the the
-   ur_in sets of all of the blocks.  */
-
-static void
-df_ur_local_finalize (struct dataflow *dflow, bitmap all_blocks)
-{
-  struct df *df = dflow->df;
-  struct dataflow *lr_dflow = df->problems_by_index[DF_LR];
-  bitmap tmp = BITMAP_ALLOC (NULL);
-  bitmap_iterator bi;
-  unsigned int bb_index;
-
-  EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
-    {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, bb_index);
-      struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (lr_dflow, bb_index);
-      
-      /* No register may reach a location where it is not used.  Thus
-	 we trim the rr result to the places where it is used.  */
-      bitmap_and_into (bb_info->in, bb_lr_info->in);
-      bitmap_and_into (bb_info->out, bb_lr_info->out);
-    }
-  
-#if 0
-      /* Hard registers may still stick in the ur_out set, but not
-	 be in the ur_in set, if their only mention was in a call
-	 in this block.  This is because a call kills in the lr
-	 problem but does not kill in the ur problem.  To clean
-	 this up, we execute the transfer function on the lr_in
-	 set and then use that to knock bits out of ur_out.  */
-      bitmap_ior_and_compl (tmp, bb_info->gen, bb_lr_info->in, 
-			    bb_info->kill);
-      bitmap_and_into (bb_info->out, tmp);
-#endif
-
-  BITMAP_FREE (tmp);
-}
-
-
 /* Confluence function that ignores fake edges.  */
 
 static void
@@ -2242,7 +2202,7 @@ static struct df_problem problem_UR =
   NULL,                       /* Confluence operator 0.  */ 
   df_ur_confluence_n,         /* Confluence operator n.  */ 
   df_ur_transfer_function,    /* Transfer function.  */
-  df_ur_local_finalize,       /* Finalize function.  */
+  NULL,                       /* Finalize function.  */
   df_ur_free,                 /* Free all of the problem information.  */
   df_ur_dump,                 /* Debugging.  */
   df_lr_add_problem,          /* Dependent problem.  */
@@ -2260,6 +2220,197 @@ df_ur_add_problem (struct df *df, int flags)
   return df_add_problem (df, &problem_UR, flags);
 }
 
+
+/* Or in the stack regs, hard regs and early clobber regs into the the
+   ur_in sets of all of the blocks.  */
+
+
+/*----------------------------------------------------------------------------
+   COMBINED LIVE REGISTERS AND UNINITIALIZED REGISTERS.
+
+   The in and out sets here are the anded results of the in and out sets from the 
+   lr and ur problems.
+   ----------------------------------------------------------------------------*/
+
+/* Get basic block info.  */
+
+struct df_clrur_bb_info *
+df_clrur_get_bb_info (struct dataflow *dflow, unsigned int index)
+{
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
+  return (struct df_clrur_bb_info *) dflow->block_info[index];
+}
+
+
+/* Set basic block info.  */
+
+static void
+df_clrur_set_bb_info (struct dataflow *dflow, unsigned int index, 
+		   struct df_clrur_bb_info *bb_info)
+{
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
+  dflow->block_info[index] = bb_info;
+}
+
+
+/* Free basic block info.  */
+
+static void
+df_clrur_free_bb_info (struct dataflow *dflow, 
+		    basic_block bb ATTRIBUTE_UNUSED, 
+		    void *vbb_info)
+{
+  struct df_clrur_bb_info *bb_info = (struct df_clrur_bb_info *) vbb_info;
+  if (bb_info)
+    {
+      BITMAP_FREE (bb_info->in);
+      BITMAP_FREE (bb_info->out);
+      pool_free (dflow->block_pool, bb_info);
+    }
+}
+
+
+/* Allocate or reset bitmaps for DFLOW blocks. The solution bits are
+   not touched unless the block is new.  */
+
+static void 
+df_clrur_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
+	     bitmap all_blocks ATTRIBUTE_UNUSED)
+{
+  unsigned int bb_index;
+  bitmap_iterator bi;
+
+  if (!dflow->block_pool)
+    dflow->block_pool = create_alloc_pool ("df_clrur_block pool", 
+					   sizeof (struct df_clrur_bb_info), 100);
+
+  df_grow_bb_info (dflow);
+
+  EXECUTE_IF_SET_IN_BITMAP (blocks_to_rescan, 0, bb_index, bi)
+    {
+      struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, bb_index);
+      if (!bb_info)
+	{ 
+	  bb_info = (struct df_clrur_bb_info *) pool_alloc (dflow->block_pool);
+	  df_clrur_set_bb_info (dflow, bb_index, bb_info);
+	  bb_info->in = BITMAP_ALLOC (NULL);
+	  bb_info->out = BITMAP_ALLOC (NULL);
+	}
+    }
+}
+
+/* And the LR and UR info to produce the CLRUR info.  */
+
+static void
+df_clrur_local_finalize (struct dataflow *dflow, bitmap all_blocks)
+{
+  struct df *df = dflow->df;
+  struct dataflow *lr_dflow = df->problems_by_index[DF_LR];
+  struct dataflow *ur_dflow = df->problems_by_index[DF_UR];
+  bitmap_iterator bi;
+  unsigned int bb_index;
+
+  EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
+    {
+      struct df_ur_bb_info *bb_ur_info = df_ur_get_bb_info (ur_dflow, bb_index);
+      struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (lr_dflow, bb_index);
+      struct df_clrur_bb_info *bb_clrur_info = df_clrur_get_bb_info (dflow, bb_index);
+      
+      /* No register may reach a location where it is not used.  Thus
+	 we trim the rr result to the places where it is used.  */
+      bitmap_and (bb_clrur_info->in, bb_ur_info->in, bb_lr_info->in);
+      bitmap_and (bb_clrur_info->out, bb_ur_info->out, bb_lr_info->out);
+    }
+}
+
+/* Free all storage associated with the problem.  */
+
+static void
+df_clrur_free (struct dataflow *dflow)
+{
+  if (dflow->block_info)
+    {
+      unsigned int i;
+      
+      for (i = 0; i < dflow->block_info_size; i++)
+	{
+	  struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	    }
+	}
+      
+      free_alloc_pool (dflow->block_pool);
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
+    }
+  free (dflow);
+}
+
+
+/* Debugging info.  */
+
+static void
+df_clrur_dump (struct dataflow *dflow, FILE *file)
+{
+  basic_block bb;
+  
+  if (!dflow->block_info) 
+    return;
+
+  fprintf (file, "Combined live and undefined regs:\n");
+ 
+  FOR_ALL_BB (bb)
+    {
+      struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, bb->index);
+      df_print_bb_index (bb, file);
+      
+      if (!bb_info->in)
+	continue;
+      
+      fprintf (file, "  in  \t");
+      dump_bitmap (file, bb_info->in);
+      fprintf (file, "  out \t");
+      dump_bitmap (file, bb_info->out);
+    }
+}
+
+/* All of the information associated with every instance of the problem.  */
+
+static struct df_problem problem_CLRUR =
+{
+  DF_CLRUR,                   /* Problem id.  */
+  DF_NONE,                    /* Direction.  */
+  df_clrur_alloc,             /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
+  df_clrur_free_bb_info,      /* Free basic block info.  */
+  NULL,                       /* Local compute function.  */
+  NULL,                       /* Init the solution specific data.  */
+  NULL,                       /* Iterative solver.  */
+  NULL,                       /* Confluence operator 0.  */ 
+  NULL,                       /* Confluence operator n.  */ 
+  NULL,                       /* Transfer function.  */
+  df_clrur_local_finalize,    /* Finalize function.  */
+  df_clrur_free,              /* Free all of the problem information.  */
+  df_clrur_dump,              /* Debugging.  */
+  df_ur_add_problem,          /* Dependent problem.  */
+  0                           /* Changeable flags.  */
+};
+
+
+/* Create a new DATAFLOW instance and add it to an existing instance
+   of DF.  The returned structure is what is used to get at the
+   solution.  */
+
+struct dataflow *
+df_clrur_add_problem (struct df *df, int flags)
+{
+  return df_add_problem (df, &problem_CLRUR, flags);
+}
 
 
 /*----------------------------------------------------------------------------

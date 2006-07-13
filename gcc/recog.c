@@ -3048,7 +3048,7 @@ peephole2_optimize (void)
   struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ru_add_problem (df, 0);
   df_analyze (df);
 

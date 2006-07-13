@@ -1468,7 +1468,7 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
   if (class != NO_REGS)
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_ur_add_problem (df, 0);
+      df_clrur_add_problem (df, 0);
 
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)

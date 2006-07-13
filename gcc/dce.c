@@ -461,7 +461,7 @@ dce_process_block (basic_block bb, bool redo_out)
 	(*con_fun_n) (dflow, e);
     }
 
-  bitmap_copy (local_live, DF_UPWARD_LIVE_OUT (dce_df, bb));
+  bitmap_copy (local_live, DF_LR_OUT (dce_df, bb));
 
   /* Process the artificial defs and uses at the bottom of the block.  */
   for (def = df_get_artificial_defs (dce_df, bb_index); 
@@ -562,11 +562,11 @@ dce_process_block (basic_block bb, bool redo_out)
       bitmap_set_bit (local_live, DF_REF_REGNO (use));
 #endif
 
-  block_changed = !bitmap_equal_p (local_live, DF_UPWARD_LIVE_IN (dce_df, bb));
+  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (dce_df, bb));
   if (block_changed)
     {
-      BITMAP_FREE (DF_UPWARD_LIVE_IN (dce_df, bb));
-      DF_UPWARD_LIVE_IN (dce_df, bb) = local_live;
+      BITMAP_FREE (DF_LR_IN (dce_df, bb));
+      DF_LR_IN (dce_df, bb) = local_live;
     }
   else
     BITMAP_FREE (local_live);

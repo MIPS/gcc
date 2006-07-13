@@ -3539,8 +3539,7 @@ dbr_schedule (rtx first)
   rtx insn, next, epilogue_insn = 0;
   int i;
   struct df *df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 

@@ -195,7 +195,7 @@ regrename_optimize (void)
   char *first_obj;
   struct df * df = df_init (DF_HARD_REGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 

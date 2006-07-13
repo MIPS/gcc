@@ -1451,8 +1451,7 @@ static unsigned int
 reset_df (void)
 {
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df, 0);
-  df_ur_add_problem (rtl_df, 0);
+  df_clrur_add_problem (rtl_df, 0);
   df_ri_add_problem (rtl_df, DF_RI_LIFE);
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_LOG_LINKS);
   return 0;

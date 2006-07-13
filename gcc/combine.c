@@ -1040,8 +1040,8 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
       && REGNO (x) >= FIRST_PSEUDO_REGISTER
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
-      && ! REGNO_REG_SET_P
-         (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
+      && REGNO_REG_SET_P
+         (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
       && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
     {
       if (set == 0 || GET_CODE (set) == CLOBBER)
@@ -1066,8 +1066,8 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
 
       if (insn
 	  && reg_referenced_p (x, PATTERN (insn))
-	  && !REGNO_REG_SET_P (DF_LIVE_IN (rtl_df,
-					   BLOCK_FOR_INSN (insn)),
+	  && !REGNO_REG_SET_P (DF_LR_IN (rtl_df,
+					 BLOCK_FOR_INSN (insn)),
 			       REGNO (x)))
 	{
 	  rtx link;
@@ -8286,9 +8286,8 @@ reg_nonzero_bits_for_combine (rtx x, enum machine_mode mode,
       && (reg_stat[REGNO (x)].last_set_label == label_tick
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
-	      && ! REGNO_REG_SET_P
-	      (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
-		  REGNO (x))))
+	      && REGNO_REG_SET_P
+	      (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *nonzero &= reg_stat[REGNO (x)].last_set_nonzero_bits;
@@ -8354,9 +8353,8 @@ reg_num_sign_bit_copies_for_combine (rtx x, enum machine_mode mode,
       && (reg_stat[REGNO (x)].last_set_label == label_tick
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
-	      && ! REGNO_REG_SET_P
-	      (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
-	       REGNO (x))))
+	      && REGNO_REG_SET_P
+	      (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *result = reg_stat[REGNO (x)].last_set_sign_bit_copies;
@@ -11245,9 +11243,8 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	       live at the beginning of the function, it is always valid.  */
 	    || (! (regno >= FIRST_PSEUDO_REGISTER
 		   && REG_N_SETS (regno) == 1
-		   && (! REGNO_REG_SET_P
-		       (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb),
-			regno)))
+		   && (REGNO_REG_SET_P
+		       (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))
 		&& reg_stat[j].last_set_label > tick))
 	  {
 	    if (replace)
@@ -11356,8 +11353,8 @@ get_last_value (rtx x)
       || (reg_stat[regno].last_set_label != label_tick
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
-	      || (REGNO_REG_SET_P
-		  (DF_LIVE_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))))
+	      || ! (REGNO_REG_SET_P
+		    (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,

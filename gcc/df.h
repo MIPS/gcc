@@ -45,9 +45,10 @@ struct df_link;
 #define DF_RD    2      /* Reaching Defs. */
 #define DF_LR    3      /* Live Registers. */
 #define DF_UR    4      /* Uninitialized Registers. */
-#define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
-#define DF_CHAIN 6      /* Def-Use and/or Use-Def Chains. */
-#define DF_RI    7      /* Register Info. */
+#define DF_CLRUR 5      /* Live Registers & Uninitialized Registers */
+#define DF_UREC  6      /* Uninitialized Registers with Early Clobber. */
+#define DF_CHAIN 7      /* Def-Use and/or Use-Def Chains. */
+#define DF_RI    8      /* Register Info. */
 #define DF_LAST_PROBLEM_PLUS1 (DF_RI + 1)
 
 
@@ -393,12 +394,12 @@ struct df
 #define DF_LR_BB_INFO(DF, BB) (df_lr_get_bb_info((DF)->problems_by_index[DF_LR],(BB)->index))
 #define DF_UR_BB_INFO(DF, BB) (df_ur_get_bb_info((DF)->problems_by_index[DF_UR],(BB)->index))
 #define DF_UREC_BB_INFO(DF, BB) (df_urec_get_bb_info((DF)->problems_by_index[DF_UREC],(BB)->index))
+#define DF_CLRUR_BB_INFO(DF, BB) (df_clrur_get_bb_info((DF)->problems_by_index[DF_CLRUR],(BB)->index))
 
 /* Most transformations that wish to use live register analysis will
-   use these macros.  The DF_UPWARD_LIVE* macros are only half of the
-   solution.  */
-#define DF_LIVE_IN(DF, BB) (DF_UR_BB_INFO(DF, BB)->in) 
-#define DF_LIVE_OUT(DF, BB) (DF_UR_BB_INFO(DF, BB)->out) 
+   use these macros.  This info is the and of the lr and ur sets.  */
+#define DF_LIVE_IN(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->in) 
+#define DF_LIVE_OUT(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->out) 
 
 
 /* Live in for register allocation also takes into account several other factors.  */
@@ -408,8 +409,13 @@ struct df
 /* These macros are currently used by only reg-stack since it is not
    tolerant of uninitialized variables.  This intolerance should be
    fixed because it causes other problems.  */ 
-#define DF_UPWARD_LIVE_IN(DF, BB) (DF_LR_BB_INFO(DF, BB)->in) 
-#define DF_UPWARD_LIVE_OUT(DF, BB) (DF_LR_BB_INFO(DF, BB)->out) 
+#define DF_LR_IN(DF, BB) (DF_LR_BB_INFO(DF, BB)->in) 
+#define DF_LR_OUT(DF, BB) (DF_LR_BB_INFO(DF, BB)->out) 
+
+/* These macros are currently used by only combine which needs to know
+   what is really uninitialized.  */ 
+#define DF_UR_IN(DF, BB) (DF_UR_BB_INFO(DF, BB)->in) 
+#define DF_UR_OUT(DF, BB) (DF_UR_BB_INFO(DF, BB)->out) 
 
 
 /* Macros to access the elements within the ref structure.  */
@@ -569,6 +575,15 @@ struct df_ur_bb_info
   bitmap out;   /* At the bottom of the block.  */
 };
 
+/* Anded results of LR and UR.  */
+struct df_clrur_bb_info 
+{
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
+};
+
+
 /* Uninitialized registers.  All bitmaps are referenced by the register number.  */
 struct df_urec_bb_info 
 {
@@ -649,10 +664,12 @@ extern struct dataflow *df_rd_add_problem (struct df *, int);
 extern struct df_rd_bb_info *df_rd_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_lr_add_problem (struct df *, int);
 extern struct df_lr_bb_info *df_lr_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_ur_add_problem (struct df *, int);
 extern void df_lr_simulate_artificial_refs_at_end (struct df *, basic_block, bitmap);
 extern void df_lr_simulate_one_insn (struct df *, basic_block, rtx, bitmap);
+extern struct dataflow *df_ur_add_problem (struct df *, int);
 extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_clrur_add_problem (struct df *, int);
+extern struct df_clrur_bb_info *df_clrur_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_urec_add_problem (struct df *, int);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_chain_add_problem (struct df *, int);

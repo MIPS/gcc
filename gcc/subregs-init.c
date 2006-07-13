@@ -108,8 +108,7 @@ initialize_uninitialized_subregs (void)
   edge_iterator ei;
   struct df *df = df_init (DF_HARD_REGS);
 
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_analyze (df);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)

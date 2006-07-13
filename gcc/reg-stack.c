@@ -3094,8 +3094,7 @@ reg_to_stack (void)
     return false;
 
   df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -3121,9 +3120,9 @@ reg_to_stack (void)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_OUT (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_IN (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

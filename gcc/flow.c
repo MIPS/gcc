@@ -629,7 +629,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	  FOR_EACH_BB_REVERSE (bb)
 	    {
 	      if (prop_flags & PROP_NO_UNINITIALIZED_LL)
-		COPY_REG_SET (tmp, DF_UPWARD_LIVE_OUT (rtl_df, bb));
+		COPY_REG_SET (tmp, DF_LR_OUT (rtl_df, bb));
 	      else
 		COPY_REG_SET (tmp, df_get_live_out (rtl_df, bb));
 	      changed |= propagate_block (bb, tmp, NULL, NULL,
@@ -803,6 +803,7 @@ delete_noop_moves (void)
 		  rtx new_libcall_insn = next_real_insn (insn);
 		  rtx retval_note = find_reg_note (XEXP (note, 0),
 						   REG_RETVAL, NULL_RTX);
+continue;
 		  REG_NOTES (new_libcall_insn)
 		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
 					 REG_NOTES (new_libcall_insn));
@@ -1165,7 +1166,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 
 	  sibcall_p = SIBLING_CALL_P (insn);
 	  if (flags & PROP_NO_UNINITIALIZED_LL)
-	    live_at_end = DF_UPWARD_LIVE_IN (rtl_df, EXIT_BLOCK_PTR);
+	    live_at_end = DF_LR_IN (rtl_df, EXIT_BLOCK_PTR);
 	  else
 	    live_at_end = df_get_live_in (rtl_df, EXIT_BLOCK_PTR);
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -3885,8 +3886,7 @@ rest_of_handle_life (void)
 {
   regclass_init ();
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df, 0);
-  df_ur_add_problem (rtl_df, 0);
+  df_clrur_add_problem (rtl_df, 0);
 
   life_analysis (PROP_FINAL);
   df_finish (rtl_df);

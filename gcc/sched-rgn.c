@@ -2946,7 +2946,7 @@ schedule_insns (void)
 
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
   sched_init (df);

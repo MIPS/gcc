@@ -1,3 +1,61 @@
+2006-07-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (regrename_optimize): Changed df problem
+	initialization.
+	* sched-ebb.c (schedule_ebbs): Ditto.
+	* reorg.c (dbr_schedule): Ditto.
+	* mode-switching.c (optimize_mode_switching): Ditto.
+	* ifcvt.c (if_convert): Ditto.
+	* reorg.c (peephole2_optimize): Ditto.
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments):
+	Ditto.
+	* sched-rgn.c (schedule_insns): Ditto.
+	* rtl-factoring.c (rtl_seqabstr): Ditto.
+	* bt-load.c (branch_target_load_optimize): Ditto.
+	* subregs-init.c (initialize_uninitialized_subregs): Ditto.
+	* df-core.c (reset_df): Ditto.
+	* flow.c (update_life_info, propagate_one_insn): Renamed UPWARD_LIVE
+	to LR.
+	(rest_of_handle_life): Changed df problem
+	initialization.
+	* function.c (keep_stack_depressed): Renamed UPWARD_LIVE to LR.
+	* combine.c (set_nonzero_bits_and_sign_copies): Changed DF_LIVE_IN
+	to DF_UR_IN or DF_LR_IN.
+	(reg_nonzero_bits_for_combine,
+	reg_num_sign_bit_copies_for_combine, get_last_value): Changed
+	DF_LIVE_IN to DF_UR_IN.
+	* reg-stack.c (reg_to_stack): Changed df problem
+	initialization. Changed DF_LIVE_IN to DF_LR_IN. str
+	* struct-equiv.c (struct_equiv_init): Renamed UPWARD_LIVE
+	to LR. 
+	* dce.c (dce_process_block): Changed DF_UPWARD_LIVE_* to DF_LR_*.
+	* df.h: (DF_CLRUR) Added symbol and renamed others in block.
+	(DF_CLRUR_BB_INFO): New macro.
+	(DF_LIVE_IN, DF_LIVE_OUT): Changed to use output of clrur problem.
+	(DF_UPWARD_LIVE_IN): Renamed to DF_LR_IN.
+	(DF_UPWARD_LIVE_OUT): Renamed to DF_LR_OUT.
+	(df_clrur_bb_info): New structure.
+	(df_clrur_add_problem, df_clrur_get_bb_info): New functions.
+	* df-problems: (df_get_live_in, df_get_live_out, 
+	df_lr_simulate_artificial_refs_at_end): Reworked to
+	to be consistent with new dataflow problems and naming.
+	(df_ur_local_finalize): Deleted function.
+	(df_problem problem_UR): Removed ref to df_ur_local_finalize.
+	(df_clrur_get_bb_info, df_clrur_set_bb_info,
+	df_clrur_free_bb_info, df_clrur_alloc, df_clrur_free,
+	df_clrur_dump, df_clrur_add_problem): New functions.
+	(df_problem problem_CLRUR): New datastructure.
+	* auto-inc-dec.c (reg_next_inc_use): New Array.
+	(attempt_change): Added inc_reg parm and boolean result.  Move
+	some tests to try_merge.  Added processing for reg_next_inc_use.
+	(try_merge): Added boolean result and some test moved from
+	attempt_change and parse_add_or_inc.
+	(parse_add_or_inc): Move test to try_merge.  Improved debugging,
+	and added code to support reg_next_inc_use.  Added more
+	correctness tests.
+	(rest_of_handle_auto_inc_dec): Changed df problem initialization
+	and added code to support reg_next_inc_use.
+	
 2006-07-05  Richard Sandiford  <richard@codesourcery.com>
 
 	* passes.c (init_optimization_passes): Move the final RTL DSE pass

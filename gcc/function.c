@@ -4915,7 +4915,7 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		    (DF_UPWARD_LIVE_IN (prologue_epilogue_df, EXIT_BLOCK_PTR), regno)
+		    (DF_LR_IN (prologue_epilogue_df, EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
