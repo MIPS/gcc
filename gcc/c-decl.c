@@ -995,6 +995,8 @@ match_builtin_function_types (tree newtype, tree oldtype)
   tree newrettype, oldrettype;
   tree newargs, oldargs;
   tree trytype, tryargs;
+  int i;
+  int newlen, oldlen;
 
   /* Accept the return type of the new declaration if same modes.  */
   oldrettype = TREE_TYPE (oldtype);
@@ -1007,18 +1009,21 @@ match_builtin_function_types (tree newtype, tree oldtype)
   newargs = TYPE_ARG_TYPES (newtype);
   tryargs = newargs;
 
-  while (oldargs || newargs)
-    {
-      if (!oldargs
-	  || !newargs
-	  || !TREE_VALUE (oldargs)
-	  || !TREE_VALUE (newargs)
-	  || TYPE_MODE (TREE_VALUE (oldargs))
-	     != TYPE_MODE (TREE_VALUE (newargs)))
-	return 0;
+  oldlen = num_parm_types (oldargs);
+  newlen = num_parm_types (newargs);
 
-      oldargs = TREE_CHAIN (oldargs);
-      newargs = TREE_CHAIN (newargs);
+  if (oldlen != newlen)
+    return 0;
+
+  for (i = 0; i < oldlen; i++)
+    {
+      tree oldarg = nth_parm_type (oldargs, i);
+      tree newarg = nth_parm_type (newargs, i);
+
+      if (!oldarg
+	  || !newarg
+	  || TYPE_MODE (oldarg) != TYPE_MODE (newarg))
+	return 0;
     }
 
   trytype = build_function_type (newrettype, tryargs);
