@@ -1033,6 +1033,8 @@ diagnose_arglist_conflict (tree newdecl, tree olddecl,
 			   tree newtype, tree oldtype)
 {
   tree t;
+  int len;
+  int i;
 
   if (TREE_CODE (olddecl) != FUNCTION_DECL
       || !comptypes (TREE_TYPE (oldtype), TREE_TYPE (newtype))
@@ -1044,11 +1046,12 @@ diagnose_arglist_conflict (tree newdecl, tree olddecl,
   t = TYPE_ARG_TYPES (oldtype);
   if (t == 0)
     t = TYPE_ARG_TYPES (newtype);
-  for (; t; t = TREE_CHAIN (t))
+  len = num_parm_types (t);
+  for (i = 0; i < len; i++)
     {
-      tree type = TREE_VALUE (t);
+      tree type = nth_parm_type (t, i);
 
-      if (TREE_CHAIN (t) == 0
+      if (i + 1 == len
 	  && TYPE_MAIN_VARIANT (type) != void_type_node)
 	{
 	  inform ("a parameter list with an ellipsis can%'t match "

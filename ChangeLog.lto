@@ -1,3 +1,8 @@
+2006-07-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* c-decl.c (diagnose_arglist_conflict): Use num_parm_types and
+	nth_parm_type.
+
 2006-07-12  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree-ssa-operands.c (add_call_read_ops): Use new CALL_EXPR
