@@ -841,7 +841,6 @@ static bool
 parse_add_or_inc (rtx insn, bool before_mem)
 {
   rtx pat = single_set (insn);
-
   if (!pat)
     return false;
 
@@ -900,11 +899,6 @@ parse_add_or_inc (rtx insn, bool before_mem)
 	  inc_insn.form = before_mem ? FORM_PRE_INC : FORM_POST_INC;
 	  return true;
 	}
-      else if (inc_insn.form == FORM_PRE_ADD)
-	/* Cannot handle case where there are three separate regs
-	   before a mem ref.  Too many moves would be needed to be
-	   profitable.  */
-	return false;
       else 
 	return true;
     }
@@ -1020,7 +1014,7 @@ find_address (rtx *address_of_x)
    add of the second register.  The FIRST_TRY parameter is used to
    only allow the parameters to be reversed once.  */
 
-static void 
+static bool 
 find_inc (bool first_try)
 {
   rtx insn;
@@ -1032,7 +1026,7 @@ find_inc (bool first_try)
     {
       if (dump_file)
 	fprintf (dump_file, "mem count failure\n"); 
-      return;
+      return false;
     }
 
   if (dump_file)
@@ -1043,7 +1037,7 @@ find_inc (bool first_try)
 		       BASIC_BLOCK (BLOCK_NUM (mem_insn.insn)), 
 		       reg_next_inc_use);
   if (!insn)
-    return;
+    return false;
 
   /* Even though we know the next use is an add or inc because it came
      from the reg_next_inc_use, we must still reparse.  */
@@ -1061,9 +1055,10 @@ find_inc (bool first_try)
       if (first_try && !mem_insn.reg1_is_const)
 	{
 	  reverse_mem ();
-	  find_inc (false);
+	  return find_inc (false);
 	}
-      return;
+      else
+	return false;
     }
 
   if (dump_file)
@@ -1077,7 +1072,7 @@ find_inc (bool first_try)
     {
       if (dump_file)
 	fprintf (dump_file, "base reg replacement failure.\n");
-      return;
+      return false;
     }
 
   if (mem_insn.reg1_is_const)
@@ -1099,7 +1094,7 @@ find_inc (bool first_try)
 		    {
 		      if (dump_file)
 			fprintf (dump_file, "base reg mode failure.\n");
-		      return;
+		      return false;
 		    }
 
 		  /* We also need to make sure that the next use of
@@ -1107,7 +1102,7 @@ find_inc (bool first_try)
 		  other_insn 
 		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
 		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		    return;
+		    return false;
 		  
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
 		    reverse_inc (); 
@@ -1116,14 +1111,14 @@ find_inc (bool first_try)
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		return;
+		return false;
 	    }
 	}
       /* Both the inc/add and the mem have a constant.  Need to check
 	 that the constants are ok. */
       else if ((mem_insn.reg1_val != inc_insn.reg1_val)
 	       && (mem_insn.reg1_val != -inc_insn.reg1_val))
-	return;
+	return false;
     }
   else
     {
@@ -1138,7 +1133,7 @@ find_inc (bool first_try)
       
       /* Make sure this reg appears only once in this insn.  */
       if (count_occurrences (PATTERN (mem_insn.insn), mem_insn.reg1, 1) != 1)
-	return;
+	return false;
       
       if (inc_insn.form == FORM_POST_ADD)
 	{
@@ -1148,7 +1143,7 @@ find_inc (bool first_try)
 	    {
 	      if (dump_file)
 		fprintf (dump_file, "base reg mode failure.\n");
-	      return;
+	      return false;
 	    }
 
 	  if (rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
@@ -1159,9 +1154,10 @@ find_inc (bool first_try)
 		  if (first_try)
 		    {
 		      reverse_mem ();
-		      find_inc (false);
+		      return find_inc (false);
 		    }
-		  return;
+		  else
+		    return false;
 		}
 
 	      /* Need to check that there are no assignemnts to b
@@ -1169,7 +1165,7 @@ find_inc (bool first_try)
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		return;
+		return false;
 	      /* All ok for the next step.  */
 	    }
 	  else
@@ -1181,8 +1177,9 @@ find_inc (bool first_try)
 		{
 		  /* See comment above on find_inc (false) call.  */
 		  if (first_try)
-		    find_inc (false);
-		  return;
+		    return find_inc (false);
+		  else
+		    return false;
 		}
 	      /* To have gotten here know that.
 	       *(b + a)
@@ -1196,7 +1193,7 @@ find_inc (bool first_try)
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg0), bb, reg_next_def);
 	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		return;
+		return false;
 	    }
 
 	  /* Need to check that the next use of the add result is later than
@@ -1204,7 +1201,7 @@ find_inc (bool first_try)
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg_res), bb, reg_next_use);
 	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-	    return;
+	    return false;
 	}
       else /* FORM_POST_INC.  There is less to check here because we
 	      know that operands must line up.  */ 
@@ -1215,9 +1212,10 @@ find_inc (bool first_try)
 	      if (first_try)
 		{
 		  reverse_mem ();
-		  find_inc (false);
+		  return find_inc (false);
 		}
-	      return;
+	      else 
+		return false;
 	    }
       
 	  /* To have gotten here know that.
@@ -1231,7 +1229,7 @@ find_inc (bool first_try)
 	  other_insn 
 	    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 	  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-	    return;
+	    return false;
 	}
     }
 
@@ -1245,10 +1243,10 @@ find_inc (bool first_try)
 	 in this form, we need to make sure that there
 	 were no interveining uses of reg.  */
       if (inc_insn.insn != other_insn)
-	return;
+	return false;
     }
 
-  try_merge ();
+  return try_merge ();
 }
 
 
@@ -1256,7 +1254,7 @@ find_inc (bool first_try)
    uses in pat that could be used as an auto inc or dec.  It then
    calls FIND_INC for each one.  */
 
-static void
+static bool
 find_mem (rtx *address_of_x)
 {
   rtx x = *address_of_x;
@@ -1272,7 +1270,8 @@ find_mem (rtx *address_of_x)
       mem_insn.reg1_is_const = true;
       mem_insn.reg1_val = 0;
       mem_insn.reg1 = GEN_INT (0);
-      find_inc (true);
+      if (find_inc (true))
+	return true;
     }
   if (code == MEM && GET_CODE (XEXP (x, 0)) == PLUS
       && REG_P (XEXP (XEXP (x, 0), 0)))
@@ -1286,13 +1285,15 @@ find_mem (rtx *address_of_x)
 	  mem_insn.reg1_is_const = true;
 	  /* Match with *(reg0 + c) where c is a const. */
 	  mem_insn.reg1_val = INTVAL (reg1);
-	  find_inc (true);
+	  if (find_inc (true))
+	    return true;
 	}
       else if (REG_P (reg1))
 	{
 	  /* Match with *(reg0 + reg1).  */
 	  mem_insn.reg1_is_const = false;
-	  find_inc (true);
+	  if (find_inc (true))
+	    return true;
 	}
     }
 
@@ -1300,21 +1301,26 @@ find_mem (rtx *address_of_x)
     {
       /* If REG occurs inside a MEM used in a bit-field reference,
 	 that is unacceptable.  */
-      return;
+      return false;
     }
 
   /* Time for some deep diving.  */
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	find_mem (&XEXP (x, i));
+	{
+	  if (find_mem (&XEXP (x, i)))
+	    return true;
+	}
       else if (fmt[i] == 'E')
 	{
 	  int j;
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    find_mem (&XVECEXP (x, i, j));
+	    if (find_mem (&XVECEXP (x, i, j)))
+	      return true;
 	}
     }
+  return false;
 }
 
 
@@ -1322,17 +1328,18 @@ find_mem (rtx *address_of_x)
    references in BB.  */
 
 static void
-merge_in_block (basic_block bb)
+merge_in_block (int max_reg, basic_block bb)
 {
   rtx insn;
   rtx curr;
   struct df_ref *def;
   struct df_ref *use;
+  int success_in_block = 0;
 
   FOR_BB_INSNS_REVERSE_SAFE (bb, insn, curr)
     {
       unsigned int uid = INSN_UID (insn);
-      bool insn_is_add_or_inc = false;
+      bool insn_is_add_or_inc = true;
 
       if (!INSN_P (insn))
 	continue;	
@@ -1350,54 +1357,59 @@ merge_in_block (basic_block bb)
       if (parse_add_or_inc (insn, true))
 	{
 	  int regno = REGNO (inc_insn.reg_res);
-
-	  mem_insn.insn = get_next_ref (regno, bb, reg_next_use);
-	  if (mem_insn.insn)
+	  /* Cannot handle case where there are three separate regs
+	     before a mem ref.  Too many moves would be needed to be
+	     profitable.  */
+	  if ((inc_insn.form == FORM_PRE_INC) || inc_insn.reg1_is_const)
 	    {
-	      bool ok = true;
-	      if (!inc_insn.reg1_is_const)
+	      mem_insn.insn = get_next_ref (regno, bb, reg_next_use);
+	      if (mem_insn.insn)
 		{
-		  /* We are only here if we are going to try a
-		     HAVE_*_MODIFY_REG type transformation.  c is a
-		     reg and we must sure that the path from the
-		     inc_insn to the mem_insn.insn is both def and use
-		     clear of c because the inc insn is going to move
-		     into the mem_insn.insn.  */
-		  int luid = DF_INSN_LUID (df, mem_insn.insn);
-		  rtx other_insn 
-		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
+		  bool ok = true;
+		  if (!inc_insn.reg1_is_const)
+		    {
+		      /* We are only here if we are going to try a
+			 HAVE_*_MODIFY_REG type transformation.  c is a
+			 reg and we must sure that the path from the
+			 inc_insn to the mem_insn.insn is both def and use
+			 clear of c because the inc insn is going to move
+			 into the mem_insn.insn.  */
+		      int luid = DF_INSN_LUID (df, mem_insn.insn);
+		      rtx other_insn 
+			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
+		      
+		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+			ok = false;
+		      
+		      other_insn 
+			= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
+		      
+		      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
+			ok = false;
+		    }
 		  
-		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		    ok = false;
-		  
-		  other_insn 
-		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
-		  
-		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
-		    ok = false;
-		}
-	      
-	      if (dump_file)
-		dump_inc_insn (dump_file);
-	      
-	      if (ok && find_address (&PATTERN (mem_insn.insn)) == -1)
-		{
 		  if (dump_file)
-		    dump_mem_insn (dump_file);
-		  if (!try_merge ())
-		    insn_is_add_or_inc = true;
+		    dump_inc_insn (dump_file);
+		  
+		  if (ok && find_address (&PATTERN (mem_insn.insn)) == -1)
+		    {
+		      if (dump_file)
+			dump_mem_insn (dump_file);
+		      if (try_merge ())
+			{
+			  success_in_block++;
+			  insn_is_add_or_inc = false;
+			}
+		    }
 		}
-	      else 
-		insn_is_add_or_inc = true;
-	      
 	    }
-	  else 
-	    insn_is_add_or_inc = true;
 	}
       else
 	{
+	  insn_is_add_or_inc = false;
 	  mem_insn.insn = insn;
-	  find_mem (&PATTERN (insn));
+	  if (find_mem (&PATTERN (insn)))
+	    success_in_block++;
 	}
       
       /* Need to update next use.  */
@@ -1415,6 +1427,19 @@ merge_in_block (basic_block bb)
 	  if (insn_is_add_or_inc)
 	    reg_next_inc_use[DF_REF_REGNO (use)] = insn;
 	}  
+    }
+
+  /* If we were successful, try again.  There may have been several
+     opportunities that were interleaved.  This is rare but
+     gcc.c-torture/compile/pr17273.c actually exhibits this.  */
+  if (success_in_block)
+    {
+      /* In this case, we must clear these vectors since the trick of
+	 testing if the stale insn in the block will not work.  */
+      memset (reg_next_use, 0, max_reg * sizeof(rtx));
+      memset (reg_next_inc_use, 0, max_reg * sizeof(rtx));
+      memset (reg_next_def, 0, max_reg * sizeof(rtx));
+      merge_in_block (max_reg, bb);
     }
 }
 
@@ -1444,7 +1469,7 @@ rest_of_handle_auto_inc_dec (void)
   reg_next_inc_use = XCNEWVEC (rtx, max_reg);
   reg_next_def = XCNEWVEC (rtx, max_reg);
   FOR_EACH_BB (bb)
-    merge_in_block (bb);
+    merge_in_block (max_reg, bb);
 
   free (reg_next_use);
   free (reg_next_inc_use);

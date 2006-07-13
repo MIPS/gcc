@@ -1,3 +1,11 @@
+2006-07-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* auto-inc-dec.c (parse_add_or_inc): Moved test to merge_in_block.
+	(find_inc): Now returns success flag if transformation was made.
+	(find_mem): Ditto.
+	(merge_in_block): Restructed to loop if any merges were made.
+	Added max_reg parameter.  Added test from parse_add_or_inc.
+	
 2006-07-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regrename.c (regrename_optimize): Changed df problem
