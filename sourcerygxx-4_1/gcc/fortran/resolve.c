@@ -924,9 +924,17 @@ resolve_generic_f0 (gfc_expr * expr, gfc_symbol * sym)
 	{
 	  expr->value.function.name = s->name;
 	  expr->value.function.esym = s;
-	  expr->ts = s->ts;
+
+	  if (s->ts.type != BT_UNKNOWN)
+	    expr->ts = s->ts;
+	  else if (s->result != NULL && s->result->ts.type != BT_UNKNOWN)
+	    expr->ts = s->result->ts;
+
 	  if (s->as != NULL)
 	    expr->rank = s->as->rank;
+	  else if (s->result != NULL && s->result->as != NULL)
+	    expr->rank = s->result->as->rank;
+
 	  return MATCH_YES;
 	}
 
@@ -1177,6 +1185,7 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
   int temp;
+  int i;
 
   sym = NULL;
   if (expr->symtree)
@@ -1200,28 +1209,16 @@ resolve_function (gfc_expr * expr)
   need_full_assumed_size--;
 
   if (sym && sym->ts.type == BT_CHARACTER
-	  && sym->ts.cl && sym->ts.cl->length == NULL)
+	&& sym->ts.cl
+	&& sym->ts.cl->length == NULL
+	&& !sym->attr.dummy
+	&& !sym->attr.contained)
     {
-      if (sym->attr.if_source == IFSRC_IFBODY)
-	{
-	  /* This follows from a slightly odd requirement at 5.1.1.5 in the
-	     standard that allows assumed character length functions to be
-	     declared in interfaces but not used.  Picking up the symbol here,
-	     rather than resolve_symbol, accomplishes that.  */
-	  gfc_error ("Function '%s' can be declared in an interface to "
-		     "return CHARACTER(*) but cannot be used at %L",
-		     sym->name, &expr->where);
-	  return FAILURE;
-	}
-
       /* Internal procedures are taken care of in resolve_contained_fntype.  */
-      if (!sym->attr.dummy && !sym->attr.contained)
-	{
-	  gfc_error ("Function '%s' is declared CHARACTER(*) and cannot "
-		     "be used at %L since it is not a dummy argument",
-		     sym->name, &expr->where);
-	  return FAILURE;
-	}
+      gfc_error ("Function '%s' is declared CHARACTER(*) and cannot "
+		 "be used at %L since it is not a dummy argument",
+		 sym->name, &expr->where);
+      return FAILURE;
     }
 
 /* See if function is already resolved.  */
@@ -1277,6 +1274,12 @@ resolve_function (gfc_expr * expr)
 	  if (arg->expr != NULL && arg->expr->rank > 0)
 	    {
 	      expr->rank = arg->expr->rank;
+	      if (!expr->shape && arg->expr->shape)
+		{
+		  expr->shape = gfc_get_shape (expr->rank);
+		  for (i = 0; i < expr->rank; i++)
+		    mpz_init_set (expr->shape[i], arg->expr->shape[i]);
+	        }
 	      break;
 	    }
 	}
@@ -1321,7 +1324,7 @@ resolve_function (gfc_expr * expr)
 
   need_full_assumed_size = temp;
 
-  if (!pure_function (expr, &name))
+  if (!pure_function (expr, &name) && name)
     {
       if (forall_flag)
 	{
@@ -1615,18 +1618,33 @@ resolve_call (gfc_code * c)
       gfc_internal_error ("resolve_subroutine(): bad function type");
     }
 
+  /* Some checks of elemental subroutines.  */
   if (c->ext.actual != NULL
       && c->symtree->n.sym->attr.elemental)
     {
       gfc_actual_arglist * a;
-      /* Being elemental, the last upper bound of an assumed size array
-	 argument must be present.  */
+      gfc_expr * e;
+      e = NULL;
+
       for (a = c->ext.actual; a; a = a->next)
 	{
-	  if (a->expr != NULL
-		&& a->expr->rank > 0
-		&& resolve_assumed_size_actual (a->expr))
+	  if (a->expr == NULL || a->expr->rank == 0)
+	    continue;
+
+	 /* The last upper bound of an assumed size array argument must
+	    be present.  */
+	  if (resolve_assumed_size_actual (a->expr))
 	    return FAILURE;
+
+	  /* Array actual arguments must conform.  */
+	  if (e != NULL)
+	    {
+	      if (gfc_check_conformance ("elemental subroutine", a->expr, e)
+			== FAILURE)
+		return FAILURE;
+	    }
+	  else
+	    e = a->expr;
 	}
     }
 
@@ -2111,7 +2129,7 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
     }
 
   if (index->ts.type == BT_REAL)
-    if (gfc_notify_std (GFC_STD_GNU, "Extension: REAL array index at %L",
+    if (gfc_notify_std (GFC_STD_LEGACY, "Extension: REAL array index at %L",
 			&index->where) == FAILURE)
       return FAILURE;
 
@@ -4489,6 +4507,35 @@ resolve_charlen (gfc_charlen *cl)
 }
 
 
+/* Test for non-constant shape arrays. */
+
+static bool
+is_non_constant_shape_array (gfc_symbol *sym)
+{
+  gfc_expr *e;
+  int i;
+
+  if (sym->as != NULL)
+    {
+      /* Unfortunately, !gfc_is_compile_time_shape hits a legal case that
+	 has not been simplified; parameter array references.  Do the
+	 simplification now.  */
+      for (i = 0; i < sym->as->rank; i++)
+	{
+	  e = sym->as->lower[i];
+	  if (e && (resolve_index_expr (e) == FAILURE
+		|| !gfc_is_constant_expr (e)))
+	    return true;
+
+	  e = sym->as->upper[i];
+	  if (e && (resolve_index_expr (e) == FAILURE
+		|| !gfc_is_constant_expr (e)))
+	    return true;
+	}
+    }
+  return false;
+}
+
 /* Resolution of common features of flavors variable and procedure. */
 
 static try
@@ -4543,43 +4590,17 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     return FAILURE;
 
   /* The shape of a main program or module array needs to be constant.  */
-  if (sym->as != NULL
-	&& sym->ns->proc_name
+  if (sym->ns->proc_name
 	&& (sym->ns->proc_name->attr.flavor == FL_MODULE
 	     || sym->ns->proc_name->attr.is_main_program)
 	&& !sym->attr.use_assoc
 	&& !sym->attr.allocatable
-	&& !sym->attr.pointer)
+	&& !sym->attr.pointer
+	&& is_non_constant_shape_array (sym))
     {
-      /* Unfortunately, !gfc_is_compile_time_shape hits a legal case that
-	 has not been simplified; parameter array references.  Do the
-	 simplification now.  */
-      flag = 0;
-      for (i = 0; i < sym->as->rank; i++)
-	{
-	  e = sym->as->lower[i];
-	  if (e && (resolve_index_expr (e) == FAILURE
-		|| !gfc_is_constant_expr (e)))
-	    {
-	      flag = 1;
-	      break;
-	    }
-
-	  e = sym->as->upper[i];
-	  if (e && (resolve_index_expr (e) == FAILURE
-		|| !gfc_is_constant_expr (e)))
-	    {
-	      flag = 1;
-	      break;
-	    }
-	}
-
-      if (flag)
-	{
-	  gfc_error ("The module or main program array '%s' at %L must "
+       gfc_error ("The module or main program array '%s' at %L must "
 		     "have constant shape", sym->name, &sym->declared_at);
 	  return FAILURE;
-	}
     }
 
   if (sym->ts.type == BT_CHARACTER)
@@ -4708,9 +4729,13 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
         }
     }
 
-  /* Ensure that derived type formal arguments of a public procedure
-     are not of a private type.  */
-  if (gfc_check_access(sym->attr.access, sym->ns->default_access))
+  /* Ensure that derived type for are not of a private type.  Internal
+     module procedures are excluded by 2.2.3.3 - ie. they are not
+     externally accessible and can access all the objects accesible in
+     the host. */
+  if (!(sym->ns->parent
+	    && sym->ns->parent->proc_name->attr.flavor == FL_MODULE)
+	&& gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
       for (arg = sym->formal; arg; arg = arg->next)
 	{
@@ -4852,6 +4877,64 @@ resolve_fl_derived (gfc_symbol *sym)
 
 
 static try
+resolve_fl_namelist (gfc_symbol *sym)
+{
+  gfc_namelist *nl;
+  gfc_symbol *nlsym;
+
+  /* Reject PRIVATE objects in a PUBLIC namelist.  */
+  if (gfc_check_access(sym->attr.access, sym->ns->default_access))
+    {
+      for (nl = sym->namelist; nl; nl = nl->next)
+	{
+	  if (!nl->sym->attr.use_assoc
+		&& !(sym->ns->parent == nl->sym->ns)
+		       && !gfc_check_access(nl->sym->attr.access,
+					    nl->sym->ns->default_access))
+	    {
+	      gfc_error ("PRIVATE symbol '%s' cannot be member of "
+			 "PUBLIC namelist at %L", nl->sym->name,
+			 &sym->declared_at);
+	      return FAILURE;
+	    }
+	}
+    }
+
+    /* Reject namelist arrays that are not constant shape.  */
+    for (nl = sym->namelist; nl; nl = nl->next)
+      {
+	if (is_non_constant_shape_array (nl->sym))
+	  {
+	    gfc_error ("The array '%s' must have constant shape to be "
+		       "a NAMELIST object at %L", nl->sym->name,
+		       &sym->declared_at);
+	    return FAILURE;
+	  }
+    }
+
+  /* 14.1.2 A module or internal procedure represent local entities
+     of the same type as a namelist member and so are not allowed.
+     Note that this is sometimes caught by check_conflict so the
+     same message has been used.  */
+  for (nl = sym->namelist; nl; nl = nl->next)
+    {
+      nlsym = NULL;
+	if (sym->ns->parent && nl->sym && nl->sym->name)
+	  gfc_find_symbol (nl->sym->name, sym->ns->parent, 0, &nlsym);
+	if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
+	  {
+	    gfc_error ("PROCEDURE attribute conflicts with NAMELIST "
+		       "attribute in '%s' at %L", nlsym->name,
+		       &sym->declared_at);
+	    return FAILURE;
+	  }
+    }
+
+  return SUCCESS;
+}
+
+
+static try
 resolve_fl_parameter (gfc_symbol *sym)
 {
   /* A parameter array's shape needs to be constant.  */
@@ -4898,7 +4981,6 @@ resolve_symbol (gfc_symbol * sym)
   /* Zero if we are checking a formal namespace.  */
   static int formal_ns_flag = 1;
   int formal_ns_save, check_constant, mp_flag;
-  gfc_namelist *nl;
   gfc_symtree *symtree;
   gfc_symtree *this_symtree;
   gfc_namespace *ns;
@@ -5053,23 +5135,8 @@ resolve_symbol (gfc_symbol * sym)
       break;
 
     case FL_NAMELIST:
-      /* Reject PRIVATE objects in a PUBLIC namelist.  */
-      if (gfc_check_access(sym->attr.access, sym->ns->default_access))
-	{
-	  for (nl = sym->namelist; nl; nl = nl->next)
-	    {
-	      if (!nl->sym->attr.use_assoc
-		    &&
-		  !(sym->ns->parent == nl->sym->ns)
-		    &&
-		  !gfc_check_access(nl->sym->attr.access,
-				    nl->sym->ns->default_access))
-		gfc_error ("PRIVATE symbol '%s' cannot be member of "
-			   "PUBLIC namelist at %L", nl->sym->name,
-			   &sym->declared_at);
-	    }
-	}
-
+      if (resolve_fl_namelist (sym) == FAILURE)
+	return;
       break;
 
     case FL_PARAMETER:
@@ -5082,7 +5149,6 @@ resolve_symbol (gfc_symbol * sym)
 
       break;
     }
-
 
   /* Make sure that intrinsic exist */
   if (sym->attr.intrinsic
@@ -5915,22 +5981,83 @@ resolve_fntype (gfc_namespace * ns)
       }
 }
 
+/* 12.3.2.1.1 Defined operators.  */
 
-/* This function is called after a complete program unit has been compiled.
-   Its purpose is to examine all of the expressions associated with a program
-   unit, assign types to all intermediate expressions, make sure that all
-   assignments are to compatible types and figure out which names refer to
-   which functions or subroutines.  */
-
-void
-gfc_resolve (gfc_namespace * ns)
+static void
+gfc_resolve_uops(gfc_symtree *symtree)
 {
-  gfc_namespace *old_ns, *n;
+  gfc_interface *itr;
+  gfc_symbol *sym;
+  gfc_formal_arglist *formal;
+
+  if (symtree == NULL) 
+    return; 
+ 
+  gfc_resolve_uops (symtree->left);
+  gfc_resolve_uops (symtree->right);
+
+  for (itr = symtree->n.uop->operator; itr; itr = itr->next)
+    {
+      sym = itr->sym;
+      if (!sym->attr.function)
+	gfc_error("User operator procedure '%s' at %L must be a FUNCTION",
+		  sym->name, &sym->declared_at);
+
+      if (sym->ts.type == BT_CHARACTER
+	    && !(sym->ts.cl && sym->ts.cl->length)
+	    && !(sym->result && sym->result->ts.cl && sym->result->ts.cl->length))
+	gfc_error("User operator procedure '%s' at %L cannot be assumed character "
+		  "length", sym->name, &sym->declared_at);
+
+      formal = sym->formal;
+      if (!formal || !formal->sym)
+	{
+	  gfc_error("User operator procedure '%s' at %L must have at least "
+		    "one argument", sym->name, &sym->declared_at);
+	  continue;
+	}
+
+      if (formal->sym->attr.intent != INTENT_IN)
+	gfc_error ("First argument of operator interface at %L must be "
+		   "INTENT(IN)", &sym->declared_at);
+
+      if (formal->sym->attr.optional)
+	gfc_error ("First argument of operator interface at %L cannot be "
+		   "optional", &sym->declared_at);
+
+      formal = formal->next;
+      if (!formal || !formal->sym)
+	continue;
+
+      if (formal->sym->attr.intent != INTENT_IN)
+	gfc_error ("Second argument of operator interface at %L must be "
+		   "INTENT(IN)", &sym->declared_at);
+
+      if (formal->sym->attr.optional)
+	gfc_error ("Second argument of operator interface at %L cannot be "
+		   "optional", &sym->declared_at);
+
+      if (formal->next)
+	gfc_error ("Operator interface at %L must have, at most, two "
+		   "arguments", &sym->declared_at);
+    }
+}
+
+
+/* Examine all of the expressions associated with a program unit,
+   assign types to all intermediate expressions, make sure that all
+   assignments are to compatible types and figure out which names
+   refer to which functions or subroutines.  It doesn't check code
+   block, which is handled by resolve_code.  */
+
+static void
+resolve_types (gfc_namespace * ns)
+{
+  gfc_namespace *n;
   gfc_charlen *cl;
   gfc_data *d;
   gfc_equiv *eq;
 
-  old_ns = gfc_current_ns;
   gfc_current_ns = ns;
 
   resolve_entries (ns);
@@ -5948,7 +6075,7 @@ gfc_resolve (gfc_namespace * ns)
 		   "also be PURE", n->proc_name->name,
 		   &n->proc_name->declared_at);
 
-      gfc_resolve (n);
+      resolve_types (n);
     }
 
   forall_flag = 0;
@@ -5972,12 +6099,45 @@ gfc_resolve (gfc_namespace * ns)
   for (eq = ns->equiv; eq; eq = eq->next)
     resolve_equivalence (eq);
 
-  cs_base = NULL;
-  resolve_code (ns->code, ns);
-
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
     warn_unused_label (ns);
+
+  gfc_resolve_uops (ns->uop_root);
+}
+
+
+/* Call resolve_code recursively.  */
+
+static void
+resolve_codes (gfc_namespace * ns)
+{
+  gfc_namespace *n;
+
+  for (n = ns->contained; n; n = n->sibling)
+    resolve_codes (n);
+
+  gfc_current_ns = ns;
+  cs_base = NULL;
+  resolve_code (ns->code, ns);
+}
+
+
+/* This function is called after a complete program unit has been compiled.
+   Its purpose is to examine all of the expressions associated with a program
+   unit, assign types to all intermediate expressions, make sure that all
+   assignments are to compatible types and figure out which names refer to
+   which functions or subroutines.  */
+
+void
+gfc_resolve (gfc_namespace * ns)
+{
+  gfc_namespace *old_ns;
+
+  old_ns = gfc_current_ns;
+
+  resolve_types (ns);
+  resolve_codes (ns);
 
   gfc_current_ns = old_ns;
 }

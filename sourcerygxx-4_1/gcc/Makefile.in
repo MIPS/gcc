@@ -3037,8 +3037,8 @@ protoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) $(SYSTEM_H) \
 	  $(DRIVER_DEFINES) \
 	  $(srcdir)/protoize.c $(OUTPUT_OPTION))
 
-unprotoize.o: protoize.c $(srcdir)/../include/getopt.h \
-   $(CONFIG_H) $(SYSTEM_H) Makefile version.h
+unprotoize.o: protoize.c $(srcdir)/../include/getopt.h $(CONFIG_H) \
+    $(SYSTEM_H) coretypes.h $(TM_H) Makefile version.h cppdefault.h intl.h
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c -DUNPROTOIZE $(ALL_CFLAGS) $(ALL_CPPFLAGS) \
@@ -3933,13 +3933,19 @@ $(TESTSUITEDIR)/site.exp: site.exp
 	-rm -f $@
 	sed '/set tmpdir/ s|testsuite|$(TESTSUITEDIR)|' < site.exp > $@
 
-$(lang_checks): check-% : $(TESTSUITEDIR)/site.exp
+$(lang_checks): check-% : site.exp
+	-test -d $(TESTSUITEDIR) || mkdir $(TESTSUITEDIR)
+	test -d $(TESTSUITEDIR)/$* || mkdir $(TESTSUITEDIR)/$*
 	-(rootme=`${PWD_COMMAND}`; export rootme; \
 	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ; \
-	cd $(TESTSUITEDIR); \
+	cd $(TESTSUITEDIR)/$*; \
+	rm -f tmp-site.exp; \
+	sed '/set tmpdir/ s|testsuite|$(TESTSUITEDIR)/$*|' \
+		< ../../site.exp > tmp-site.exp; \
+	$(SHELL) $${srcdir}/../move-if-change tmp-site.exp site.exp; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
+	   TCL_LIBRARY=`cd .. ; cd $${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool $* $(RUNTESTFLAGS))
 

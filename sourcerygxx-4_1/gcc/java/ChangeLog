@@ -1,3 +1,60 @@
+2006-05-24  Release Manager
+
+	* GCC 4.1.1 released.
+
+2006-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lang.opt: Undo the last change.
+	* Make-lang.in: Likewise.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lang.opt (femit-class-file): Remove VarExists.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in ($(GCJ)$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-04-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* expr.c (build_field_ref): Don't check the field offset if
+	flag_syntax_only.
+
+2006-03-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* lang.c (java_attribute_table): New.
+	(LANG_HOOKS_ATTRIBUTE_TABLE): Define.
+	* expr.c (build_field_ref): Add a null pointer check for all
+	fields of offset > 4k.  Don't do so for accesses via the this
+	pointer, which we know can never be null.
+	* class.c (build_java_method_type): Mark arg 1 of all nonstatic
+	methods nonnull.
+
+2006-03-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* parse.y (java_reorder_fields): Reset superclass field's size as
+	well.
+
+2006-02-20  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Set input_location from
+	current_class.
+
+2006-02-15  Andrew Haley  <aph@redhat.com>
+
+	* class.c (GEN_TABLE): Don't pushdecl *_SYMS_DECL here.
+	(make_class_data): pushdecl_top_level TYPE_OTABLE_SYMS_DECL,
+	TYPE_ATABLE_SYMS_DECL, TYPE_ITABLE_SYMS_DECL here.
+
 2006-02-28  Release Manager
 
 	* GCC 4.1.0 released.

@@ -338,6 +338,7 @@ next_free (void)
 	  if (!gfc_is_whitespace (c))
 	    gfc_error_now ("Non-numeric character in statement label at %C");
 
+	  return ST_NONE;
 	}
       else
 	{
@@ -488,6 +489,7 @@ next_statement (void)
       if (gfc_at_eol ())
 	{
 	  if (gfc_option.warn_line_truncation
+	      && gfc_current_locus.lb
 	      && gfc_current_locus.lb->truncated)
 	    gfc_warning_now ("Line truncated at %C");
 
@@ -1069,7 +1071,7 @@ accept_statement (gfc_statement st)
 static void
 reject_statement (void)
 {
-
+  gfc_new_block = NULL;
   gfc_undo_symbols ();
   gfc_clear_warning ();
   undo_new_statement ();

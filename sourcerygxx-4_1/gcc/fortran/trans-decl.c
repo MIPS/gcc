@@ -78,6 +78,8 @@ tree gfor_fndecl_internal_realloc64;
 tree gfor_fndecl_internal_free;
 tree gfor_fndecl_allocate;
 tree gfor_fndecl_allocate64;
+tree gfor_fndecl_allocate_array;
+tree gfor_fndecl_allocate64_array;
 tree gfor_fndecl_deallocate;
 tree gfor_fndecl_pause_numeric;
 tree gfor_fndecl_pause_string;
@@ -88,6 +90,7 @@ tree gfor_fndecl_runtime_error;
 tree gfor_fndecl_set_fpe;
 tree gfor_fndecl_set_std;
 tree gfor_fndecl_set_convert;
+tree gfor_fndecl_set_record_marker;
 tree gfor_fndecl_ctime;
 tree gfor_fndecl_fdate;
 tree gfor_fndecl_ttynam;
@@ -815,7 +818,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   tree tmp = NULL_TREE;
   int byref;
 
-  gcc_assert (sym->attr.referenced);
+  gcc_assert (sym->attr.referenced
+               || sym->ns->proc_name->attr.if_source == IFSRC_IFBODY);
 
   if (sym->ns && sym->ns->proc_name->attr.function)
     byref = gfc_return_by_reference (sym->ns->proc_name);
@@ -2097,6 +2101,16 @@ gfc_build_builtin_function_decls (void)
 				     void_type_node, 2, ppvoid_type_node,
 				     gfc_int8_type_node);
 
+  gfor_fndecl_allocate_array =
+    gfc_build_library_function_decl (get_identifier (PREFIX("allocate_array")),
+				     void_type_node, 2, ppvoid_type_node,
+				     gfc_int4_type_node);
+
+  gfor_fndecl_allocate64_array =
+    gfc_build_library_function_decl (get_identifier (PREFIX("allocate64_array")),
+				     void_type_node, 2, ppvoid_type_node,
+				     gfc_int8_type_node);
+
   gfor_fndecl_deallocate =
     gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
 				     void_type_node, 2, ppvoid_type_node,
@@ -2152,6 +2166,10 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_set_convert =
     gfc_build_library_function_decl (get_identifier (PREFIX("set_convert")),
+				     void_type_node, 1, gfc_c_int_type_node);
+
+  gfor_fndecl_set_record_marker =
+    gfc_build_library_function_decl (get_identifier (PREFIX("set_record_marker")),
 				     void_type_node, 1, gfc_c_int_type_node);
 
   gfor_fndecl_in_pack = gfc_build_library_function_decl (
@@ -2277,6 +2295,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  fnbody = gfc_trans_dummy_array_bias (proc_sym,
 					       current_fake_result_decl,
 					       fnbody);
+
+	  /* An automatic character length, pointer array result.  */
+	  if (proc_sym->ts.type == BT_CHARACTER
+		&& TREE_CODE (proc_sym->ts.cl->backend_decl) == VAR_DECL)
+	    fnbody = gfc_trans_dummy_character (proc_sym->ts.cl, fnbody);
 	}
       else if (proc_sym->ts.type == BT_CHARACTER)
 	{
@@ -2644,6 +2667,21 @@ gfc_generate_function_code (gfc_namespace * ns)
       gfc_add_expr_to_block (&body, tmp);
     }
 
+  /* If this is the main program and an -frecord-marker option was provided,
+     add a call to set_record_marker.  */
+
+  if (sym->attr.is_main_program && gfc_option.record_marker != 0)
+    {
+      tree arglist, gfc_c_int_type_node;
+
+      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      arglist = gfc_chainon_list (NULL_TREE,
+				  build_int_cst (gfc_c_int_type_node,
+						 gfc_option.record_marker));
+      tmp = build_function_call_expr (gfor_fndecl_set_record_marker, arglist);
+      gfc_add_expr_to_block (&body, tmp);
+
+    }
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
       && sym->attr.subroutine)

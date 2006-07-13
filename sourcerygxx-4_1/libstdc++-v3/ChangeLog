@@ -1,3 +1,137 @@
+2006-05-24  Release Manager
+
+	* GCC 4.1.1 released.
+
+2006-05-14  Peter Doerfler  <gcc@pdoerfler.com>
+
+	* include/tr1/hashtable (identity<>::operator(),
+	extract1st<>::operator()): Return by const ref.
+
+2006-05-11  Paolo Carlini  <pcarlini@suse.de>
+	    Peter Doerfler  <gcc@pdoerfler.com>
+
+	* include/tr1/hashtable (hashtable_iterator<>::hashtable_iterator(),
+	hashtable_const_iterator<>::hashtable_const_iterator(),
+	node_iterator<>::node_iterator(),
+	node_const_iterator<>::node_const_iterator()): Add.
+	(node_iterator<>::node_iterator(hash_node<>*),
+	node_const_iterator<>::node_const_iterator(hash_node<>*)): Tweak,
+	remove default.
+	* testsuite/tr1/6_containers/unordered/hashtable/
+	iterators_default_constructor.c: New.
+
+2006-05-09  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (integral_constant<>::value): Define.
+	* testsuite/tr1/4_metaprogramming/helper_classes/static_definition.cc:
+	New.
+
+2006-05-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_WCHAR_T): Always check the
+	presence of wctype.h, for use in GLIBCXX_ENABLE_C99.
+	* configure: Regenerate.
+
+2006-05-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/6702 (again)
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Don't check non-C99
+	wchar_t functions...
+	(GLIBCXX_ENABLE_WCHAR_T): ... do that here.
+	* configure.ac: Adjust order of checks.
+	* configure: Regenerate.
+
+2006-04-26  Shantonu Sen  <ssen@opendarwin.org>
+
+	PR libstdc++/26513
+	* scripts/make_exports.pl: Use $ENV{NM_FOR_TARGET}, if present.
+
+2006-04-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26424
+	* include/tr1/hashtable (X<>::primes): Extend for 64-bit machines.
+	(X<>::n_primes): Adjust.
+	(prime_rehash_policy::next_bkt, bkt_for_elements, need_rehash): Adjust.
+
+2006-04-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/faq/index.html ([5.5]): Adjust to mention function
+	objects and reference_wrapper; minor tweaks.
+	* docs/html/faq/index.txt: Regenerate.
+
+2006-04-14  Douglas Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/27162
+	* include/bits/stl_algo.h (__search_n(,,,, _BinaryPredicate,
+	std::forward_iterator_tag)): Use __binary_pred, not ==.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Recognize multilib
+	directory names containing underscores.
+
+2006-03-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26777
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_seek): Check
+	the return value of _M_file.seekoff.
+	* testsuite/27_io/basic_filebuf/seekoff/char/26777.cc: New.
+
+2006-03-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (operator[]): Allow s[s.size()] in
+	debug mode, but not pedantic mode.
+
+2006-03-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR target/26532
+	* config/io/c_io_stdio.h (struct __ios_flags): Remove.
+	* include/bits/ios_base.h: Adjust consistently.
+	(ios_base::_S_local_word_size): Change to an anonymous enum.
+	* src/ios.cc: Do not define static const data of __ios_flags,
+	likewise for ios_base::_S_local_word_size.	
+	* include/bits/locale_classes.h (locale::_S_categories_size):
+	Change to an anonymous enum.
+	* src/locale.cc: Don't define.
+
+2006-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf<>::setbuf): Simply
+	clear the internal _M_string, adjust _M_sync call.
+	* include/bits/sstream.tcc (basic_stringbuf<>::_M_sync): Adjust
+	consistently for calls from setbuf.
+
+2006-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf<>::_M_sync): Move out
+	of line...
+	* include/bits/sstream.tcc: ... here.
+
+2006-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26132
+	* include/tr1/hashtable (hashtable<>::rehash): Define.
+	* testsuite/tr1/6_containers/unordered/hashtable/26132.cc: New.
+
+2006-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26526
+	* config/linker-map.gnu (__copy_streambufs, 64-bit version): Add
+	@GLIBCXX_3.4.8.
+	* configure.ac (libtool_VERSION): To 6:8:0.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.8.
+	* configure: Regenerate.
+
+2006-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/array (array<>::swap, assign): Implement.
+	* include/tr1/array (operator==, operator!=, operator<,
+	operator>, operator>=, operator<=, swap, get): Inline.
+	* testsuite/tr1/6_containers/array/requirements/member_swap.cc: New.
+	* testsuite/tr1/6_containers/array/requirements/assign.cc: Likewise.
+	* testsuite/tr1/6_containers/array/specialized_algorithms/swap.cc:
+	Likewise.
+
 2006-02-28  Release Manager
 
 	* GCC 4.1.0 released.

@@ -1543,7 +1543,7 @@ static void cp_parser_linkage_specification
 /* Declarators [gram.dcl.decl] */
 
 static tree cp_parser_init_declarator
-  (cp_parser *, cp_decl_specifier_seq *, bool, bool, int, bool *);
+  (cp_parser *, cp_decl_specifier_seq *, tree, bool, bool, int, bool *);
 static cp_declarator *cp_parser_declarator
   (cp_parser *, cp_parser_declarator_kind, int *, bool *, bool);
 static cp_declarator *cp_parser_direct_declarator
@@ -1738,8 +1738,10 @@ static tree cp_parser_function_definition_after_declarator
   (cp_parser *, bool);
 static void cp_parser_template_declaration_after_export
   (cp_parser *, bool);
+static void cp_parser_perform_template_parameter_access_checks
+  (tree);
 static tree cp_parser_single_declaration
-  (cp_parser *, bool, bool *);
+  (cp_parser *, tree, bool, bool *);
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
 static tree cp_parser_save_member_function_body
@@ -7179,6 +7181,7 @@ cp_parser_simple_declaration (cp_parser* parser,
 
       /* Parse the init-declarator.  */
       decl = cp_parser_init_declarator (parser, &decl_specifiers,
+					/*checks=*/NULL_TREE,
 					function_definition_allowed_p,
 					/*member_p=*/false,
 					declares_class_or_enum,
@@ -8481,7 +8484,9 @@ cp_parser_type_parameter (cp_parser* parser)
 	    /* Consume the `=' token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Parse the default-argument.  */
+	    push_deferring_access_checks (dk_no_deferred);
 	    default_argument = cp_parser_type_id (parser);
+	    pop_deferring_access_checks ();
 	  }
 	else
 	  default_argument = NULL_TREE;
@@ -8538,6 +8543,7 @@ cp_parser_type_parameter (cp_parser* parser)
 	    /* Consume the `='.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Parse the id-expression.  */
+	    push_deferring_access_checks (dk_no_deferred);
 	    default_argument
 	      = cp_parser_id_expression (parser,
 					 /*template_keyword_p=*/false,
@@ -8561,6 +8567,7 @@ cp_parser_type_parameter (cp_parser* parser)
 	    /* See if the default argument is valid.  */
 	    default_argument
 	      = check_template_template_default_arg (default_argument);
+	    pop_deferring_access_checks ();
 	  }
 	else
 	  default_argument = NULL_TREE;
@@ -9407,6 +9414,7 @@ cp_parser_explicit_specialization (cp_parser* parser)
   else
     /* Parse the dependent declaration.  */
     cp_parser_single_declaration (parser,
+				  /*checks=*/NULL_TREE,
 				  /*member_p=*/false,
 				  /*friend_p=*/NULL);
   /* We're done with the specialization.  */
@@ -10773,10 +10781,14 @@ cp_parser_asm_definition (cp_parser* parser)
    function-definition:
      __extension__ function-definition
 
-   The DECL_SPECIFIERS and PREFIX_ATTRIBUTES apply to this declarator.
-   Returns a representation of the entity declared.  If MEMBER_P is TRUE,
-   then this declarator appears in a class scope.  The new DECL created
-   by this declarator is returned.
+   The DECL_SPECIFIERS apply to this declarator.  Returns a
+   representation of the entity declared.  If MEMBER_P is TRUE, then
+   this declarator appears in a class scope.  The new DECL created by
+   this declarator is returned.
+
+   The CHECKS are access checks that should be performed once we know
+   what entity is being declared (and, therefore, what classes have
+   befriended it).
 
    If FUNCTION_DEFINITION_ALLOWED_P then we handle the declarator and
    for a function-definition here as well.  If the declarator is a
@@ -10790,6 +10802,7 @@ cp_parser_asm_definition (cp_parser* parser)
 static tree
 cp_parser_init_declarator (cp_parser* parser,
 			   cp_decl_specifier_seq *decl_specifiers,
+			   tree checks,
 			   bool function_definition_allowed_p,
 			   bool member_p,
 			   int declares_class_or_enum,
@@ -10804,6 +10817,10 @@ cp_parser_init_declarator (cp_parser* parser,
   tree decl = NULL_TREE;
   tree scope;
   bool is_initialized;
+  /* Only valid if IS_INITIALIZED is true.  In that case, CPP_EQ if
+     initialized with "= ..", CPP_OPEN_PAREN if initialized with
+     "(...)".  */
+  enum cpp_ttype initialization_kind;
   bool is_parenthesized_init;
   bool is_non_constant_init;
   int ctor_dtor_or_conv_p;
@@ -10918,16 +10935,24 @@ cp_parser_init_declarator (cp_parser* parser,
     }
 
   /* An `=' or an `(' indicates an initializer.  */
-  is_initialized = (token->type == CPP_EQ
-		     || token->type == CPP_OPEN_PAREN);
-  /* If the init-declarator isn't initialized and isn't followed by a
-     `,' or `;', it's not a valid init-declarator.  */
-  if (!is_initialized
-      && token->type != CPP_COMMA
-      && token->type != CPP_SEMICOLON)
+  if (token->type == CPP_EQ
+      || token->type == CPP_OPEN_PAREN)
     {
-      cp_parser_error (parser, "expected initializer");
-      return error_mark_node;
+      is_initialized = true;
+      initialization_kind = token->type;
+    }
+  else
+    {
+      /* If the init-declarator isn't initialized and isn't followed by a
+	 `,' or `;', it's not a valid init-declarator.  */
+      if (token->type != CPP_COMMA
+	  && token->type != CPP_SEMICOLON)
+	{
+	  cp_parser_error (parser, "expected initializer");
+	  return error_mark_node;
+	}
+      is_initialized = false;
+      initialization_kind = CPP_EOF;
     }
 
   /* Because start_decl has side-effects, we should only call it if we
@@ -10987,6 +11012,9 @@ cp_parser_init_declarator (cp_parser* parser,
 	  current_function_decl = decl;
 	}
 
+      /* Perform access checks for template parameters.  */
+      cp_parser_perform_template_parameter_access_checks (checks);
+
       /* Perform the access control checks for the declarator and the
 	 the decl-specifiers.  */
       perform_deferred_access_checks ();
@@ -10997,15 +11025,19 @@ cp_parser_init_declarator (cp_parser* parser,
     }
 
   /* Parse the initializer.  */
+  initializer = NULL_TREE;
+  is_parenthesized_init = false;
+  is_non_constant_init = true;
   if (is_initialized)
-    initializer = cp_parser_initializer (parser,
-					 &is_parenthesized_init,
-					 &is_non_constant_init);
-  else
     {
-      initializer = NULL_TREE;
-      is_parenthesized_init = false;
-      is_non_constant_init = true;
+      if (declarator->kind == cdk_function
+	  && declarator->declarator->kind == cdk_id
+	  && initialization_kind == CPP_EQ)
+	initializer = cp_parser_pure_specifier (parser);
+      else
+	initializer = cp_parser_initializer (parser,
+					     &is_parenthesized_init,
+					     &is_non_constant_init);
     }
 
   /* The old parser allows attributes to appear after a parenthesized
@@ -11647,17 +11679,23 @@ cp_parser_ptr_operator (cp_parser* parser,
       if (!cp_parser_error_occurred (parser)
 	  && cp_parser_require (parser, CPP_MULT, "`*'"))
 	{
-	  /* The type of which the member is a member is given by the
-	     current SCOPE.  */
-	  *type = parser->scope;
-	  /* The next name will not be qualified.  */
-	  parser->scope = NULL_TREE;
-	  parser->qualifying_scope = NULL_TREE;
-	  parser->object_scope = NULL_TREE;
 	  /* Indicate that the `*' operator was used.  */
 	  code = INDIRECT_REF;
-	  /* Look for the optional cv-qualifier-seq.  */
-	  *cv_quals = cp_parser_cv_qualifier_seq_opt (parser);
+
+	  if (TREE_CODE (parser->scope) == NAMESPACE_DECL)
+	    error ("%qD is a namespace", parser->scope);
+	  else
+	    {
+	      /* The type of which the member is a member is given by the
+		 current SCOPE.  */
+	      *type = parser->scope;
+	      /* The next name will not be qualified.  */
+	      parser->scope = NULL_TREE;
+	      parser->qualifying_scope = NULL_TREE;
+	      parser->object_scope = NULL_TREE;
+	      /* Look for the optional cv-qualifier-seq.  */
+	      *cv_quals = cp_parser_cv_qualifier_seq_opt (parser);
+	    }
 	}
       /* If that didn't work we don't have a ptr-operator.  */
       if (!cp_parser_parse_definitely (parser))
@@ -12306,10 +12344,21 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	  saved_local_variables_forbidden_p
 	    = parser->local_variables_forbidden_p;
 	  parser->local_variables_forbidden_p = true;
+	  /* The default argument expression may cause implicitly
+	     defined member functions to be synthesized, which will
+	     result in garbage collection.  We must treat this
+	     situation as if we were within the body of function so as
+	     to avoid collecting live data on the stack.  */
+	  ++function_depth;
 	  /* Parse the assignment-expression.  */
+	  if (template_parm_p)
+	    push_deferring_access_checks (dk_no_deferred);
 	  default_argument
 	    = cp_parser_assignment_expression (parser, /*cast_p=*/false);
+	  if (template_parm_p)
+	    pop_deferring_access_checks ();
 	  /* Restore saved state.  */
+	  --function_depth;
 	  parser->greater_than_is_operator_p
 	    = saved_greater_than_is_operator_p;
 	  parser->local_variables_forbidden_p
@@ -12704,15 +12753,18 @@ cp_parser_class_name (cp_parser *parser,
        standard does not seem to be definitive, but there is no other
        valid interpretation of the following `::'.  Therefore, those
        names are considered class-names.  */
-    decl = TYPE_NAME (make_typename_type (scope, decl, tag_type, tf_error));
-  else if (decl == error_mark_node
-	   || TREE_CODE (decl) != TYPE_DECL
+    {
+      decl = make_typename_type (scope, decl, tag_type, tf_error);
+      if (decl != error_mark_node)
+	decl = TYPE_NAME (decl);
+    }
+  else if (TREE_CODE (decl) != TYPE_DECL
 	   || TREE_TYPE (decl) == error_mark_node
 	   || !IS_AGGR_TYPE (TREE_TYPE (decl)))
-    {
-      cp_parser_error (parser, "expected class-name");
-      return error_mark_node;
-    }
+    decl = error_mark_node;
+
+  if (decl == error_mark_node)
+    cp_parser_error (parser, "expected class-name");
 
   return decl;
 }
@@ -13625,7 +13677,8 @@ cp_parser_member_declaration (cp_parser* parser)
 		     for a pure-specifier; otherwise, we look for a
 		     constant-initializer.  When we call `grokfield', it will
 		     perform more stringent semantics checks.  */
-		  if (declarator->kind == cdk_function)
+		  if (declarator->kind == cdk_function
+		      && declarator->declarator->kind == cdk_id)
 		    initializer = cp_parser_pure_specifier (parser);
 		  else
 		    /* Parse the initializer.  */
@@ -15279,6 +15332,7 @@ static void
 cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 {
   tree decl = NULL_TREE;
+  tree checks;
   tree parameter_list;
   bool friend_p = false;
   bool need_lang_pop;
@@ -15303,6 +15357,12 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
     }
   else
     need_lang_pop = false;
+
+  /* We cannot perform access checks on the template parameter
+     declarations until we know what is being declared, just as we
+     cannot check the decl-specifier list.  */
+  push_deferring_access_checks (dk_deferred);
+
   /* If the next token is `>', then we have an invalid
      specialization.  Rather than complain about an invalid template
      parameter, issue an error message here.  */
@@ -15320,6 +15380,12 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       parameter_list = end_template_parm_list (parameter_list);
     }
 
+  /* Get the deferred access checks from the parameter list.  These
+     will be checked once we know what is being declared, as for a
+     member template the checks must be performed in the scope of the
+     class containing the member.  */
+  checks = get_deferred_access_checks ();
+
   /* Look for the `>'.  */
   cp_parser_skip_until_found (parser, CPP_GREATER, "`>'");
   /* We just processed one more parameter list.  */
@@ -15334,11 +15400,10 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       /* There are no access checks when parsing a template, as we do not
 	 know if a specialization will be a friend.  */
       push_deferring_access_checks (dk_no_check);
-
       decl = cp_parser_single_declaration (parser,
+					   checks,
 					   member_p,
 					   &friend_p);
-
       pop_deferring_access_checks ();
 
       /* If this is a member template declaration, let the front
@@ -15356,6 +15421,8 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
     }
   /* We are done with the current parameter list.  */
   --parser->num_template_parameter_lists;
+
+  pop_deferring_access_checks ();
 
   /* Finish up.  */
   finish_template_decl (parameter_list);
@@ -15378,6 +15445,18 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 		   TREE_VALUE (parser->unparsed_functions_queues));
 }
 
+/* Perform the deferred access checks from a template-parameter-list.
+   CHECKS is a TREE_LIST of access checks, as returned by
+   get_deferred_access_checks.  */
+
+static void
+cp_parser_perform_template_parameter_access_checks (tree checks)
+{
+  ++processing_template_parmlist;
+  perform_access_checks (checks);
+  --processing_template_parmlist;
+}
+
 /* Parse a `decl-specifier-seq [opt] init-declarator [opt] ;' or
    `function-definition' sequence.  MEMBER_P is true, this declaration
    appears in a class scope.
@@ -15387,6 +15466,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 
 static tree
 cp_parser_single_declaration (cp_parser* parser,
+			      tree checks,
 			      bool member_p,
 			      bool* friend_p)
 {
@@ -15448,6 +15528,9 @@ cp_parser_single_declaration (cp_parser* parser,
 	    decl = TYPE_NAME (decl);
 	  else
 	    decl = error_mark_node;
+
+	  /* Perform access checks for template parameters.  */
+	  cp_parser_perform_template_parameter_access_checks (checks);
 	}
     }
   /* If it's not a template class, try for a template function.  If
@@ -15460,6 +15543,7 @@ cp_parser_single_declaration (cp_parser* parser,
 	  || decl_specifiers.type != error_mark_node))
     decl = cp_parser_init_declarator (parser,
 				      &decl_specifiers,
+				      checks,
 				      /*function_definition_allowed_p=*/true,
 				      member_p,
 				      declares_class_or_enum,

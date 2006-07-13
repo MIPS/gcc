@@ -26,6 +26,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 # autoconf2.13's target_alias
 target_noncanonical = @target_noncanonical@
 
+# This is required by TL_AC_GXX_INCLUDE_DIR.
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 ##
 ## What gets installed, and where.
 ##
@@ -324,7 +327,7 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
-libgcj-$(gcc_version).jar:
+libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	jardir=`dirname $(ZIP)`; \
 	jardir=`cd $$jardir && pwd`; \
 	jarname=`basename $(ZIP)`; \

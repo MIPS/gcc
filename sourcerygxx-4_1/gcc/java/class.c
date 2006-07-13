@@ -375,7 +375,6 @@ do									\
   TREE_STATIC (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;			\
   TREE_CONSTANT (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;		\
   DECL_IGNORED_P (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;		\
-  pushdecl (TYPE_## TABLE ##_SYMS_DECL (TYPE));				\
 }									\
 while (0)
 
@@ -682,7 +681,17 @@ build_java_method_type (tree fntype, tree this_class, int access_flags)
 {
   if (access_flags & ACC_STATIC)
     return fntype;
-  return build_method_type (this_class, fntype);
+  fntype = build_method_type (this_class, fntype);
+
+  /* We know that arg 1 of every nonstatic method is non-null; tell
+     the back-end so.  */
+  TYPE_ATTRIBUTES (fntype) = (tree_cons 
+			      (get_identifier ("nonnull"),
+			       tree_cons (NULL_TREE, 
+					  build_int_cst (NULL_TREE, 1),
+					  NULL_TREE),
+			       TYPE_ATTRIBUTES (fntype)));
+  return fntype;
 }
 
 tree
@@ -1821,6 +1830,7 @@ make_class_data (tree type)
     }
   else
     {
+      pushdecl_top_level (TYPE_OTABLE_SYMS_DECL (type));
       PUSH_FIELD_VALUE (cons, "otable",
 			build1 (ADDR_EXPR, otable_ptr_type, TYPE_OTABLE_DECL (type)));
       PUSH_FIELD_VALUE (cons, "otable_syms",
@@ -1836,6 +1846,7 @@ make_class_data (tree type)
     }
   else
     {
+      pushdecl_top_level (TYPE_ATABLE_SYMS_DECL (type));
       PUSH_FIELD_VALUE (cons, "atable",
 			build1 (ADDR_EXPR, atable_ptr_type, TYPE_ATABLE_DECL (type)));
       PUSH_FIELD_VALUE (cons, "atable_syms",
@@ -1851,6 +1862,7 @@ make_class_data (tree type)
     }
   else
     {
+      pushdecl_top_level (TYPE_ITABLE_SYMS_DECL (type));
       PUSH_FIELD_VALUE (cons, "itable",
 			build1 (ADDR_EXPR, itable_ptr_type, TYPE_ITABLE_DECL (type)));
       PUSH_FIELD_VALUE (cons, "itable_syms",

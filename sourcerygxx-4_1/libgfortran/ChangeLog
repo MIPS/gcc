@@ -1,3 +1,398 @@
+2006-05-24  Release Manager
+
+	* GCC 4.1.1 released.
+
+2006-05-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/26985
+	* m4/matmul.m4: Correct the condition for the memset call,
+	and remove the unneeded call to size0.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-04-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27304
+	* io/transfer.c (formatted_transfer_scalar):  Generate error if data
+	descriptors are exhausted.
+	* io/format.c (next_format0): Fix comment.
+
+2006-04-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27360
+	* io/list_read.c (read_logical):  Free line_buffer and free saved.
+
+2006-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/20257
+	* io/io.h: Add prototypes for get_internal_unit and free_internal_unit.
+	* io/unit.c (get_internal_unit): Initialize unit number, not zero.
+	(free_internal_unit): New function to consolidate freeing memory.
+	(get_unit): Initialize internal_unit_desc to NULL when unit is
+	external.
+	* io/unix.c (mem_close): Check for not NULL before freeing memory.
+	* io/transfer.c (read_block): Reset bytes_left and skip error if unit
+	is preconnected and default record length is reached.
+	(read_block_direct): Ditto.
+	(write_block): Ditto.
+	(write_buf): Ditto.
+	(data_transfer_init): Only flush if not internal unit.
+	(finalize_transfer): Ditto and delete code to free memory used by
+	internal units.
+	(st_read_done): Use new function - free_internal_unit.
+	(st_write_done): Use new function - free_internal unit.
+
+2006-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/26769
+	* Makefile.am (i_transpose_c): Add generated/transpose_r16.c.
+	(i_reshape_c): Add generated/reshape_r16.c.
+	* Makefile.in: Regenerated.
+	* generated/transpose_r16.c: Generated new file.
+	* generated/redhape_r16.c: Generated new file.
+
+2006-04-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgfortran/24685
+	* io/write.c (MIN_FIELD_WIDTH, STR, STR1): Define.
+	(output_float): Increase buffer sizes for IEEE quad and IBM extended
+	long double.
+	(write_real): Output REAL(16) as 1PG43.34E4 rather than 1PG40.31E4.
+
+2006-04-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27138
+	* io/list_read.c (eat_line): New function.
+	(parse_repeat): Use new function and free_saved.
+	(read_logical): Same.
+	(read_integer): Use new function.
+	(parse_real): Use nml_bad_return and new function.
+	(read_complex): Use new function and free_saved.
+	(read_real): Same.
+
+2006-04-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26766
+	* io/io.h: Add bit to identify associated unit as internal.
+	* io/unit.c (get_external_unit): Renamed the find_unit_1 function to
+	reflect the external unit functionality vs internal unit.
+	(get_internal_unit): New function to allocate and initialize an internal
+	unit structure.
+	(get_unit): Use get_internal_unit and get_external_unit.
+	(is_internal_unit): Revised to use new bit added in io.h.
+	* io/transfer.c (data_transfer_init): Fix line width.
+	(st_read_done): Free memory allocated for internal unit.
+	(st_write_done): Add test to only flush and truncate when not an
+	internal unit.  Free memory allocated for internal unit.
+
+2006-04-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/write.c (output_float): Update condition to not error when
+	decimal precision in format specifier is zero.
+	Backport from trunk.
+
+2006-04-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26890
+	* io/io.h: Add size_used to st_parameter_dt.
+	*io/transfer.c (data_transfer_init): Initialize size_used to zero.
+	(read_sf): Use size_used.
+	(read_block): Likewise.
+	(read_block_direct): Likewise.
+	(write_block): Likewise.
+	(write_buf): Likewise and eliminate erroneous FAILURE return.
+	(finalize_transfer): Assign value of size_used to *dtp->size.
+
+2006-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/io.h (st_parameter_dt): Revert 2005-12-10 change to
+	u.pad, fix comment.
+	(check_st_parameter_dt): New compile time assert.
+
+2006-04-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25031
+	* runtime/memory.c:  Really commit change.
+	* libgfortran.h:  Likewise.
+
+2006-04-08  Thomas Koenig  <Thomas.Koenig@online.de>
+	
+	PR fortran/25031
+	Backport from mainline
+	* runtime/memory.c:  Adjust copyright years.
+	(allocate_array):  New function.
+	(allocate64_array):  New function.
+	* libgfortran.h (error_codes):  Add ERROR_ALLOCATION.
+
+
+2006-04-01  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/26735
+	Backport from mainline
+	* io/transfer.c (data_transfer_init):  Set u_flags.convert
+	on an unopened unit if specified by environment variable
+	(via get_unformatted_convert) or by compile-time option.
+
+2006-03-31  Thomas Koenig  <Thomas.Koenig@onlien.de>
+
+	PR fortran/19303
+	Backport from mainline
+	* libgfortran.h (compile_options_t):  Add record_marker.
+	* runtime/compile_options.c (set_record_marker):
+	New function.
+	* io/open.c:  If we have four-byte record markers, use
+	GFC_INTEGER_4_HUGE as default record length.
+	* io/file_pos.c (unformatted_backspace):  Handle
+	different size record markers.
+	* io/transfer.c (us_read):  Likewise.
+	(us_write):  Likewise.
+	(next_record_r):  Likewise.
+	(write_us_marker):  Likewise.
+	(next_record_w):  Likewise.
+
+2006-03-27  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/20935
+	Backport from mainline
+	* m4/iforeach.m4:  Add SCALAR_FOREACH_FUNCTION macro.
+	* m4/ifunction.m4:  Add SCALAR_ARRAY_FUNCTION macro.
+	* m4/minloc0.m4:  Use SCALAR_FOREACH_FUNCTION.
+	* m4/minloc1.m4:  Use SCALAR_ARRAY_FUNCTION.
+	* m4/maxloc0.m4:  Use SCALAR_FOREACH_FUNCTION.
+	* m4/maxloc1.m4:  Use SCALAR_ARRAY_FUNCTION.
+	* m4/minval.m4:  Likewise.
+	* m4/maxval.m4:  Likewise.
+	* m4/product.m4:  Likewise.
+	* m4/sum.m4:  Likewise.
+	* minloc0_16_i16.c : Regenerated.
+	* minloc0_16_i4.c : Regenerated.
+	* minloc0_16_i8.c : Regenerated.
+	* minloc0_16_r10.c : Regenerated.
+	* minloc0_16_r16.c : Regenerated.
+	* minloc0_16_r4.c : Regenerated.
+	* minloc0_16_r8.c : Regenerated.
+	* minloc0_4_i16.c : Regenerated.
+	* minloc0_4_i4.c : Regenerated.
+	* minloc0_4_i8.c : Regenerated.
+	* minloc0_4_r10.c : Regenerated.
+	* minloc0_4_r16.c : Regenerated.
+	* minloc0_4_r4.c : Regenerated.
+	* minloc0_4_r8.c : Regenerated.
+	* minloc0_8_i16.c : Regenerated.
+	* minloc0_8_i4.c : Regenerated.
+	* minloc0_8_i8.c : Regenerated.
+	* minloc0_8_r10.c : Regenerated.
+	* minloc0_8_r16.c : Regenerated.
+	* minloc0_8_r4.c : Regenerated.
+	* minloc0_8_r8.c : Regenerated.
+	* minloc1_16_i16.c : Regenerated.
+	* minloc1_16_i4.c : Regenerated.
+	* minloc1_16_i8.c : Regenerated.
+	* minloc1_16_r10.c : Regenerated.
+	* minloc1_16_r16.c : Regenerated.
+	* minloc1_16_r4.c : Regenerated.
+	* minloc1_16_r8.c : Regenerated.
+	* minloc1_4_i16.c : Regenerated.
+	* minloc1_4_i4.c : Regenerated.
+	* minloc1_4_i8.c : Regenerated.
+	* minloc1_4_r10.c : Regenerated.
+	* minloc1_4_r16.c : Regenerated.
+	* minloc1_4_r4.c : Regenerated.
+	* minloc1_4_r8.c : Regenerated.
+	* minloc1_8_i16.c : Regenerated.
+	* minloc1_8_i4.c : Regenerated.
+	* minloc1_8_i8.c : Regenerated.
+	* minloc1_8_r10.c : Regenerated.
+	* minloc1_8_r16.c : Regenerated.
+	* minloc1_8_r4.c : Regenerated.
+	* minloc1_8_r8.c : Regenerated.
+	* maxloc0_16_i16.c : Regenerated.
+	* maxloc0_16_i4.c : Regenerated.
+	* maxloc0_16_i8.c : Regenerated.
+	* maxloc0_16_r10.c : Regenerated.
+	* maxloc0_16_r16.c : Regenerated.
+	* maxloc0_16_r4.c : Regenerated.
+	* maxloc0_16_r8.c : Regenerated.
+	* maxloc0_4_i16.c : Regenerated.
+	* maxloc0_4_i4.c : Regenerated.
+	* maxloc0_4_i8.c : Regenerated.
+	* maxloc0_4_r10.c : Regenerated.
+	* maxloc0_4_r16.c : Regenerated.
+	* maxloc0_4_r4.c : Regenerated.
+	* maxloc0_4_r8.c : Regenerated.
+	* maxloc0_8_i16.c : Regenerated.
+	* maxloc0_8_i4.c : Regenerated.
+	* maxloc0_8_i8.c : Regenerated.
+	* maxloc0_8_r10.c : Regenerated.
+	* maxloc0_8_r16.c : Regenerated.
+	* maxloc0_8_r4.c : Regenerated.
+	* maxloc0_8_r8.c : Regenerated.
+	* maxloc1_16_i16.c : Regenerated.
+	* maxloc1_16_i4.c : Regenerated.
+	* maxloc1_16_i8.c : Regenerated.
+	* maxloc1_16_r10.c : Regenerated.
+	* maxloc1_16_r16.c : Regenerated.
+	* maxloc1_16_r4.c : Regenerated.
+	* maxloc1_16_r8.c : Regenerated.
+	* maxloc1_4_i16.c : Regenerated.
+	* maxloc1_4_i4.c : Regenerated.
+	* maxloc1_4_i8.c : Regenerated.
+	* maxloc1_4_r10.c : Regenerated.
+	* maxloc1_4_r16.c : Regenerated.
+	* maxloc1_4_r4.c : Regenerated.
+	* maxloc1_4_r8.c : Regenerated.
+	* maxloc1_8_i16.c : Regenerated.
+	* maxloc1_8_i4.c : Regenerated.
+	* maxloc1_8_i8.c : Regenerated.
+	* maxloc1_8_r10.c : Regenerated.
+	* maxloc1_8_r16.c : Regenerated.
+	* maxloc1_8_r4.c : Regenerated.
+	* maxloc1_8_r8.c : Regenerated.
+	* maxval_i16.c : Regenerated.
+	* maxval_i4.c : Regenerated.
+	* maxval_i8.c : Regenerated.
+	* maxval_r10.c : Regenerated.
+	* maxval_r16.c : Regenerated.
+	* maxval_r4.c : Regenerated.
+	* maxval_r8.c : Regenerated.
+	* minval_i16.c : Regenerated.
+	* minval_i4.c : Regenerated.
+	* minval_i8.c : Regenerated.
+	* minval_r10.c : Regenerated.
+	* minval_r16.c : Regenerated.
+	* minval_r4.c : Regenerated.
+	* minval_r8.c : Regenerated.
+	* sum_c10.c : Regenerated.
+	* sum_c16.c : Regenerated.
+	* sum_c4.c : Regenerated.
+	* sum_c8.c : Regenerated.
+	* sum_i16.c : Regenerated.
+	* sum_i4.c : Regenerated.
+	* sum_i8.c : Regenerated.
+	* sum_r10.c : Regenerated.
+	* sum_r16.c : Regenerated.
+	* sum_r4.c : Regenerated.
+	* sum_r8.c : Regenerated.
+	* product_c10.c : Regenerated.
+	* product_c16.c : Regenerated.
+	* product_c4.c : Regenerated.
+	* product_c8.c : Regenerated.
+	* product_i16.c : Regenerated.
+	* product_i4.c : Regenerated.
+	* product_i8.c : Regenerated.
+	* product_r10.c : Regenerated.
+	* product_r16.c : Regenerated.
+	* product_r4.c : Regenerated.
+	* product_r8.c : Regenerated.
+
+2006-03-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25378
+	Backport from mainline
+	* libgfortran/m4/minloc1.m4: Set the initial position to zero and
+	modify the condition for updating it, to implement the F2003
+	requirement for all(mask).eq.false.
+	* libgfortran/m4/maxloc1.m4: The same.
+	* libgfortran/m4/iforeach.m4: The same.
+	* libgfortran/m4/minloc0.m4: The same.
+	* libgfortran/m4/maxloc0.m4: The same.
+	* libgfortran/generated/maxloc0_16_i16.c: Regenerated, together
+	with 41 others.
+	* libgfortran/generated/minloc0_16_i16.c: Regenerated, together
+	with 41 others.
+
+2006-03-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26880
+	* io/file_pos.c (st_rewind): Clear read_bad flag.
+
+2006-03-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26661
+	* io/io.h: Add read_sf so it can be used by read_x.
+	* io/transfer.c (read_sf): Pass no_error flag to read_sf.  Use it to
+	break out rather than error on EOF or EOR conditions.
+	(read_block): Update call to read_sf.
+	(read_block_direct): Ditto.
+	* io/read.c (read_x): Use the modified read_sf instead of read_block.
+
+2006-03-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26509
+	* libgfortran.h: Add ERROR_DIRECT_EOR.
+	* runtime/error.c (translate_error): Add translation for new error.
+	* io/transfer.c (write_buf): Add check for EOR when mode is 
+	direct access.
+
+2006-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26499
+	* io/file_pos (st_rewind): Flush always.
+	* io/unix.c (fd_truncate): Return SUCCESS rather than FAILURE for
+	special files like /dev/null.
+	* io/transfer.c (st_write_done): Remove broken logic that
+	prevented calling fd_truncate.
+
+2006-03-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26554
+	* io/list_read.c (read_logical): Return the value if not in namelist
+	mode.
+
+2006-03-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21303
+	* runtime/error.c (notification_std): New function.
+	* libgfortran.h (notification): New enumeration.
+	* io/io.h (notification_std): Prototype for the new function. 
+	* io/format.c (parse_format_list): Handle the case of a L format
+	descriptor without a width.
+
+2006-03-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24903
+	* m4/dotprodc.m4: Use __builtin_conj instead of assigning real
+	and imaginary parts separately.
+	* generated/dotprod_c4.c: Regenerated.
+	* generated/dotprod_c8.c: Regenerated.
+	* generated/dotprod_c10.c: Regenerated.
+	* generated/dotprod_c16.c: Regenerated.
+
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26136
+	* io/io.h: Add flag for reading from line_buffer.
+	* io/list_read.c (l_push_char): New function to save namelist
+	input when reading logicals.
+	(free_line): New function to free line_buffer memory.
+	(next_char): Added feature to read from line_buffer.
+	(read_logical): Use new functions to test for '=' after reading a
+	logical value, checking for possible variable name.
+	(namelist_read): Use free_line when all done.
+
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26464
+	* io/file_pos.c (st_backspace): Flush and truncate file
+	when in AFTER_ENDFILE condition.
+	* io/transfer.c (st_read_done): Remove flush, no longer needed.
+
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26423
+	* io/unix.c (fd_seek): Revert change from 25949.
+	(fd_read): Same.
+	(fd_write): Same.
+
 2006-02-28  Release Manager
 
 	* GCC 4.1.0 released.

@@ -1,3 +1,138 @@
+2006-05-24  Release Manager
+
+	* GCC 4.1.1 released.
+
+2004-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/27170
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Include gc.h to override
+	dlopen(). From Anthony Green.
+
+2006-04-20  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21941:
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (send): Throw
+	UnknownHostException if needed.
+	* gnu/java/net/natPlainSocketImplPosix.cc (connect): Throw
+	UnknownHostException if needed.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/nio/channels/natFileChannelPosix.cc (write): Properly
+	handle EINTR.
+
+2006-04-17  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27171:
+	* testsuite/libjava.lang/pr27171.java: New file.
+	* testsuite/libjava.lang/pr27171.out: New file.
+	* gnu/gcj/convert/Output_UTF8.java (havePendingBytes): Return
+	true if we've seen a high surrogate.
+	(write): Handle high surrogates at the end of the stream.
+	Properly emit isolated low surrogates.
+
+2006-04-13  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26522:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libsubdir): New variable.
+
+2006-04-11  NAKATA Maho  <maho@FreeBSD.org> 
+
+	PR libgcj/23829
+	* configure.ac: Link against -lpthread rather than -lc_r on
+	FreeBSD 5 and above.
+	* configure: Regenerate.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libjava.exp (libjava_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26625:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj-$(gcc_version).jar): Depend on
+	classpath/lib/compile-classes.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27024:
+	* java/net/URLConnection.java (guessContentTypeFromName):
+	Rewrote, using Classpath implementation.
+	(getFileNameMap): Likewise.
+	(guessContentTypeFromStream): Return application/octet-stream.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26990:
+	* prims.cc (_Jv_RunMain): Use exitNoChecksAccessor.
+	* gnu/java/lang/natMainThread.cc (call_main): Use
+	exitNoChecksAccessor.
+	* testsuite/libjava.lang/pr26990.out: New file.
+	* testsuite/libjava.lang/pr26990.java: New file.
+	* java/lang/Runtime.java (exitNoChecks): New method.
+	(exitNoChecksAccessor): Likewise.
+	(exit): Call exitNoChecks.
+
+2006-04-03  Archit Shah  <ashah@redhat.com>
+
+	PR java/25414
+	* gnu/java/rmi/rmic/CompilerProcess.java (computeTypicalArguments):
+	Add classpath argument.
+	* gnu/java/rmi/rmic/Compile_gcj.java (computeArguments): Adjust
+	caller.
+	* gnu/java/rmi/rmic/Compile_jikes.java (computeArguments): Likewise.
+	* gnu/java/rmi/rmic/Compile_kjc.java (computeArguments): Likewise.
+	* gnu/java/rmi/rmic/Compiler.java (getClasspath, setClasspath): New.
+	* gnu/java/rmi/rmic/RMIC.java: Set classpath for compiler, call
+	mkdirs for destination directory, correct handling of superclasses
+	and interfaces of the remote class, correct handling of exceptions
+	declared by remote methods.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* testsuite/libjava.compile/pr26042.java: New file.
+
+2006-03-23  Andrew Haley  <aph@redhat.com>
+
+	* java/net/InetAddress.java: Throw an UnknownHostException if
+	lookup fails.
+
+2006-02-16  Andrew Haley  <aph@redhat.com>
+
+	* stacktrace.cc (GetStackTraceElements): Call
+	gnu::gcj::runtime::NameFinder::removeUnknown() to determine if
+	non-Java frames should be removed from a printed stack trace.
+	Pass methodName to getLineNumberForFrame().
+	(getLineNumberForFrame): Set method_name from info.dli_sname.
+	* gnu/gcj/runtime/NameFinder.java (removeUnknown): New method.
+	(remove_unknown): New variable.
+	* include/java-stack.h (_Jv_StackTrace::getLineNumberForFrame):
+	Add methodName arg.
+
+2006-03-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/25713:
+	* java/util/zip/GZIPOutputStream.java (write(int)): Don't update
+	CRC.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24461:
+	* java/util/zip/InflaterInputStream.java (fill): Throw exception
+	if stream is truncated.
+
+2006-03-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26103:
+	* java/lang/ClassLoader.java (loadClass): Don't throw
+	StringIndexOutOfBoundsException if name is empty.
+	* java/lang/natClassLoader.cc (loadClassFromSig): Throw exception
+	if class not found.
+
 2006-02-28  Release Manager
 
 	* GCC 4.1.0 released.

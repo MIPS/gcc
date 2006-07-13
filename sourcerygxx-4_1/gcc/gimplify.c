@@ -3187,7 +3187,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 		     && needs_to_live_in_memory (*to_p))
 	      /* It's OK to use the return slot directly unless it's an NRV. */
 	      use_target = true;
-	    else if (is_gimple_reg_type (TREE_TYPE (*to_p)))
+	    else if (is_gimple_reg_type (TREE_TYPE (*to_p))
+		     || (DECL_P (*to_p) && DECL_REGISTER (*to_p)))
 	      /* Don't force regs into memory.  */
 	      use_target = false;
 	    else if (TREE_CODE (*to_p) == VAR_DECL
@@ -4577,7 +4578,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  /* Historically, the compiler has treated a bare
 	     reference to a volatile lvalue as forcing a load.  */
 	  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (*expr_p));
-	  /* Normally, we do want to create a temporary for a
+	  /* Normally, we do not want to create a temporary for a
 	     TREE_ADDRESSABLE type because such a type should not be
 	     copied by bitwise-assignment.  However, we make an
 	     exception here, as all we are doing here is ensuring that

@@ -658,6 +658,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   bool user_align;
   bool is_bitfield;
 
+  /* Do not attempt to align an ERROR_MARK node */
+  if (TREE_CODE (type) == ERROR_MARK)
+    return 0;
+
   /* Lay out the field so we know what alignment it needs.  */
   layout_decl (field, known_align);
   desired_align = DECL_ALIGN (field);
@@ -770,6 +774,12 @@ place_union_field (record_layout_info rli, tree field)
   DECL_FIELD_BIT_OFFSET (field) = bitsize_zero_node;
   SET_DECL_OFFSET_ALIGN (field, BIGGEST_ALIGNMENT);
 
+  /* If this is an ERROR_MARK return *after* having set the 
+     field at the start of the union. This helps when parsing
+     invalid fields. */
+  if (TREE_CODE (TREE_TYPE (field)) == ERROR_MARK)
+    return;
+
   /* We assume the union's size will be a multiple of a byte so we don't
      bother with BITPOS.  */
   if (TREE_CODE (rli->t) == UNION_TYPE)
@@ -861,7 +871,7 @@ place_field (record_layout_info rli, tree field)
       SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
       return;
     }
-  
+
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
   if (! integer_zerop (rli->bitpos))

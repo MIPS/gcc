@@ -3461,6 +3461,8 @@ convert_nontype_argument (tree type, tree expr)
      instantiated -- but here we need the resolved form so that we can
      convert the argument.  */
   expr = fold_non_dependent_expr (expr);
+  if (error_operand_p (expr))
+    return error_mark_node;
   expr_type = TREE_TYPE (expr);
 
   /* HACK: Due to double coercion, we can get a
@@ -6152,8 +6154,15 @@ tsubst_default_argument (tree fn, tree type, tree arg)
     }
 
   push_deferring_access_checks(dk_no_deferred);
+  /* The default argument expression may cause implicitly defined
+     member functions to be synthesized, which will result in garbage
+     collection.  We must treat this situation as if we were within
+     the body of function so as to avoid collecting live data on the
+      stack.  */
+  ++function_depth;
   arg = tsubst_expr (arg, DECL_TI_ARGS (fn),
 		     tf_error | tf_warning, NULL_TREE);
+  --function_depth;
   pop_deferring_access_checks();
 
   /* Restore the "this" pointer.  */
@@ -11111,7 +11120,7 @@ do_decl_instantiation (tree decl, tree storage)
   tree result = NULL_TREE;
   int extern_p = 0;
 
-  if (!decl)
+  if (!decl || decl == error_mark_node)
     /* An error occurred, for which grokdeclarator has already issued
        an appropriate message.  */
     return;
@@ -12651,6 +12660,8 @@ any_dependent_template_arguments_p (tree args)
 
   if (!args)
     return false;
+  if (args == error_mark_node)
+    return true;
 
   for (i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
     {

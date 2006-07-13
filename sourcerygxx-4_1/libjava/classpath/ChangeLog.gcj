@@ -1,3 +1,105 @@
+2006-04-21  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/27163:
+	* gnu/java/net/protocol/ftp/FTPConnection.java
+	(changeWorkingDirectory): Do nothing if path is empty.
+
+2006-04-21  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27231:
+	* gnu/java/net/protocol/http/HTTPURLConnection.java (connect): Handle
+	case where no '/' appears in 'location'.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/27163:
+	* gnu/java/net/protocol/ftp/ActiveModeDTP.java: Replaced with
+	latest classpath version.
+	* gnu/java/net/protocol/ftp/FTPURLConnection.java: Likewise.
+
+2006-04-11  Mark Wielaard  <mark@klomp.org>
+
+	PR 27081
+	* java/lang/StackTraceElement.java (toString): Don't add space
+	between type and source indicator.
+
+2006-04-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/zip/ZipFile.java (checkLocalHeader): Don't check name
+	length.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26625:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (compile-classes): Touch the output file.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27024:
+	* java/net/MimeTypeMapper.java (getContentTypeFor): Fall back
+        to MimeTypes.
+
+2006-04-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR classpath/27028
+	PR classpath/24752
+	* java/util/AbstractList.java (hasNext): Don't throw
+	ConcurrentModificationException. Update Javadoc.
+	(hasPrevious): Likewise.
+	(nextIndex): Likewise.
+	(previousIndex): Likewise.
+	* java/util/HashMap.java (hasNext): Likewise.
+	* java/util/Hashtable.java (hasNext): Likewise.
+	* java/util/IdentityHashMap.java (hasNext): Likewise.
+	* java/util/LinkedHashMap.java (hasNext): Likewise.
+	* java/util/LinkedList.java (nextIndex): Likewise.
+	(previousIndex): Likewise.
+	(hasNext): Likewise.
+	(hasPrevious): Likewise.
+	* java/util/TreeMap.java (hasNext): Likewise.
+	* java/util/WeakHashMap.java (hasNext): Likewise.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassNotFoundException.java: Imported from
+        Classpath.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	* lib/gen-classlist.sh.in: Correct handle generated files.
+
+2006-04-04  Mark Wielaard  <mark@klomp.org>
+
+	* lib/gen-classlist.sh.in: Use classes.tmp, not classes.2
+	as temporary file name.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	* lib/split-for-gcj.sh: Updated for multi-field format.
+	* lib/Makefile.am (CLEANFILES): Added classes.2.
+	* lib/gen-classlist.sh.in (GCJ): Removed.  Create classes.1 and
+	classes.2 using multiple fields.
+
+2006-04-03  Bernhard Rosenkraenzer  <bero@arklinux.org>
+
+	PR classpath/25924:
+	* java/awt/image/DirectColorModel.java (extractAndNormalizeSample):
+	Handle case where alpha==0.
+
+2006-03-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26706:
+	* aclocal.m4, configure: Rebuilt.
+	* configure.ac (GCC_NO_EXECUTABLES): Moved earlier.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26688:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (propertydirs): Ignore .svn directories.
+	(metafiles): Likewise.
+
 2006-02-13  Ito Kazumitsu  <kaz@maczuka.gcd.org>
 
 	Fixes bug #26166

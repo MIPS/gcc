@@ -20,6 +20,7 @@ contains
 
     real(8) :: x (1:2, *)
     real(8) :: y (0:,:)
+    real(8) :: z (2,2)
 
 ! However, this gives a warning because it is an initialization expression.
     integer :: l1 = len (ch1)     ! { dg-warning "assumed character length variable" }
@@ -36,3 +37,5 @@ contains
     real(8) :: big = huge (x)
   end subroutine foo  
 end module const
+
+! { dg-final { cleanup-modules "const" } }

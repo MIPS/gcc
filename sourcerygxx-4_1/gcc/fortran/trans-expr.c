@@ -142,6 +142,31 @@ gfc_conv_expr_present (gfc_symbol * sym)
 }
 
 
+/* Converts a missing, dummy argument into a null or zero.  */
+
+void
+gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts)
+{
+  tree present;
+  tree tmp;
+
+  present = gfc_conv_expr_present (arg->symtree->n.sym);
+  tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
+		convert (TREE_TYPE (se->expr), integer_zero_node));
+  tmp = gfc_evaluate_now (tmp, &se->pre);
+  se->expr = tmp;
+  if (ts.type == BT_CHARACTER)
+    {
+      tmp = convert (gfc_charlen_type_node, integer_zero_node);
+      tmp = build3 (COND_EXPR, gfc_charlen_type_node, present,
+		    se->string_length, tmp);
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->string_length = tmp;
+    }
+  return;
+}
+
+
 /* Get the character length of an expression, looking through gfc_refs
    if necessary.  */
 
@@ -1348,6 +1373,10 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   else if (!sym->attr.dimension || sym->attr.pointer)
     value = gfc_build_indirect_ref (se->expr);
 
+  /* For character(*), use the actual argument's descriptor.  */  
+  else if (sym->ts.type == BT_CHARACTER && !new_sym->ts.cl->length)
+    value = build_fold_indirect_ref (se->expr);
+
   /* If the argument is an array descriptor, use it to determine
      information about the actual argument's shape.  */
   else if (POINTER_TYPE_P (TREE_TYPE (se->expr))
@@ -1778,6 +1807,9 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   bool need_interface_mapping;
   gfc_typespec ts;
   gfc_charlen cl;
+  gfc_expr *e;
+  gfc_symbol *fsym;
+  stmtblock_t post;
 
   arglist = NULL_TREE;
   retargs = NULL_TREE;
@@ -1807,6 +1839,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   else
     info = NULL;
 
+  gfc_init_block (&post);
   gfc_init_interface_mapping (&mapping);
   need_interface_mapping = ((sym->ts.type == BT_CHARACTER
 				  && sym->ts.cl->length
@@ -1817,7 +1850,9 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
-      if (arg->expr == NULL)
+      e = arg->expr;
+      fsym = formal ? formal->sym : NULL;
+      if (e == NULL)
 	{
 
 	  if (se->ignore_optional)
@@ -1845,19 +1880,19 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	{
 	  /* An elemental function inside a scalarized loop.  */
           gfc_init_se (&parmse, se);
-          gfc_conv_expr_reference (&parmse, arg->expr);
+          gfc_conv_expr_reference (&parmse, e);
 	}
       else
 	{
 	  /* A scalar or transformational function.  */
 	  gfc_init_se (&parmse, NULL);
-	  argss = gfc_walk_expr (arg->expr);
+	  argss = gfc_walk_expr (e);
 
 	  if (argss == gfc_ss_terminator)
             {
-	      gfc_conv_expr_reference (&parmse, arg->expr);
-              if (formal && formal->sym->attr.pointer
-		  && arg->expr->expr_type != EXPR_NULL)
+	      gfc_conv_expr_reference (&parmse, e);
+              if (fsym && fsym->attr.pointer
+		  && e->expr_type != EXPR_NULL)
                 {
                   /* Scalar pointer dummy args require an extra level of
 		  indirection. The null pointer already contains
@@ -1875,27 +1910,34 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		 address of the array descriptor instead. Otherwise we
 		 use g77's calling convention.  */
 	      int f;
-	      f = (formal != NULL)
-		  && !formal->sym->attr.pointer
-		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
+	      f = (fsym != NULL)
+		  && !fsym->attr.pointer
+		  && fsym->as->type != AS_ASSUMED_SHAPE;
 	      f = f || !sym->attr.always_explicit;
-	      if (arg->expr->expr_type == EXPR_VARIABLE
-		    && is_aliased_array (arg->expr))
+	      if (e->expr_type == EXPR_VARIABLE
+		    && is_aliased_array (e))
 		/* The actual argument is a component reference to an
 		   array of derived types.  In this case, the argument
 		   is converted to a temporary, which is passed and then
 		   written back after the procedure call.  */
-		gfc_conv_aliased_arg (&parmse, arg->expr, f);
+		gfc_conv_aliased_arg (&parmse, e, f);
 	      else
-	        gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
+	        gfc_conv_array_parameter (&parmse, e, argss, f);
 	    } 
 	}
 
-      if (formal && need_interface_mapping)
-	gfc_add_interface_mapping (&mapping, formal->sym, &parmse);
+      /* If an optional argument is itself an optional dummy argument,
+	 check its presence and substitute a null if absent.  */
+      if (e && e->expr_type == EXPR_VARIABLE
+	    && e->symtree->n.sym->attr.optional
+	    && fsym && fsym->attr.optional)
+	gfc_conv_missing_dummy (&parmse, e, fsym->ts);
+
+      if (fsym && need_interface_mapping)
+	gfc_add_interface_mapping (&mapping, fsym, &parmse);
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
-      gfc_add_block_to_block (&se->post, &parmse.post);
+      gfc_add_block_to_block (&post, &parmse.post);
 
       /* Character strings are passed as two parameters, a length and a
          pointer.  */
@@ -2099,6 +2141,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	}
     }
+
+  /* Follow the function call with the argument post block.  */
+  if (byref)
+    gfc_add_block_to_block (&se->pre, &post);
+  else
+    gfc_add_block_to_block (&se->post, &post);
 
   return has_alternate_specifier;
 }

@@ -1,5 +1,9 @@
 2006-07-13  Paul Brook  <paul@codesourcery.com>
 
+	Merge from gcc-4_1-branch revision 114100 (gcc-4_1_1-release)
+
+2006-07-13  Paul Brook  <paul@codesourcery.com>
+
 	gcc/
 	* config/arm/thumb2.md (pic_load_dot_plus_four): Use adr instead of
 	addw.
