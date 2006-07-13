@@ -1,3 +1,9 @@
+2006-07-13  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/thumb2.md (pic_load_dot_plus_four): Use adr instead of
+	addw.
+
 2006-07-05  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* dbxout.c (dbxout_begin_prologue): Emit LFBB label at function start.

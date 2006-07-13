@@ -266,7 +266,11 @@
   assemble_align(BITS_PER_WORD);
   (*targetm.asm_out.internal_label) (asm_out_file, \"LPIC\",
 			     INTVAL (operands[1]));
-  return \"addw\\t%0, %|pc, #0\";
+  /* We use adr because some buggy gas assemble add r8, pc, #0
+     to add.w r8, pc, #0, not addw r8, pc, #0.  */
+  asm_fprintf (asm_out_file, \"\\tadr\\t%r, %LLPIC%d + 4\\n\",
+	       REGNO(operands[0]), (int)INTVAL (operands[1]));
+  return \"\";
   "
   [(set_attr "length" "6")]
 )
