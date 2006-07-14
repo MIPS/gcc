@@ -1141,3 +1141,47 @@
   "udiv%?\t%0, %1, %2"
   [(set_attr "predicable" "yes")]
 )
+
+(define_insn "*thumb2_cbz"
+  [(set (pc) (if_then_else
+	      (eq (match_operand:SI 0 "s_register_operand" "l,?r")
+		  (const_int 0))
+	      (label_ref (match_operand 1 "" ""))
+	      (pc)))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_THUMB2"
+  "*
+  if (get_attr_length (insn) == 2 && which_alternative == 0)
+    return \"cbz\\t%0, %l1\";
+  else
+    return \"cmp\\t%0, #0\;beq\\t%l1\";
+  "
+  [(set (attr "length") 
+        (if_then_else
+	    (and (ge (minus (match_dup 1) (pc)) (const_int 2))
+	         (le (minus (match_dup 1) (pc)) (const_int 128)))
+	    (const_int 2)
+	    (const_int 8)))]
+)
+
+(define_insn "*thumb2_cbnz"
+  [(set (pc) (if_then_else
+	      (ne (match_operand:SI 0 "s_register_operand" "l,?r")
+		  (const_int 0))
+	      (label_ref (match_operand 1 "" ""))
+	      (pc)))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_THUMB2"
+  "*
+  if (get_attr_length (insn) == 2 && which_alternative == 0)
+    return \"cbnz\\t%0, %l1\";
+  else
+    return \"cmp\\t%0, #0\;bne\\t%l1\";
+  "
+  [(set (attr "length") 
+        (if_then_else
+	    (and (ge (minus (match_dup 1) (pc)) (const_int 2))
+	         (le (minus (match_dup 1) (pc)) (const_int 128)))
+	    (const_int 2)
+	    (const_int 8)))]
+)
