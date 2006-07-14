@@ -1,3 +1,9 @@
+2006-07-12  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am (java/lang/Object.lo): Add -fsource-filename.
+	(java/lang/Class.lo): Likewise.
+	* Makefile.in: Regenerate.
+
 2006-07-07  Tom Tromey  <tromey@redhat.com>
 
 	* defineclass.cc (input_data, input_offset): New fields.
