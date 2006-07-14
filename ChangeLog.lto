@@ -6,6 +6,9 @@
 	* gcc/c-format.c (check_format_string): Use num_parm_types and
 	nth_parm_type in check_format_string.
 
+	* gcc/c-common.c (handle_sentinel_attribute): Use nth_parm_type
+	and num_parm_types.
+
 2006-07-13  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (diagnose_arglist_conflict): Use num_parm_types and
