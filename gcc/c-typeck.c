@@ -2308,8 +2308,9 @@ build_function_call (tree function, tree params)
 static tree
 convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 {
-  tree typetail, valtail;
+  tree valtail;
   tree result = NULL;
+  int len;
   int parmnum;
   tree selector;
 
@@ -2325,11 +2326,12 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
   /* Scan the given expressions and types, producing individual
      converted arguments and pushing them on RESULT in reverse order.  */
 
-  for (valtail = values, typetail = typelist, parmnum = 0;
+  len = num_parm_types (typelist);
+  for (valtail = values, parmnum = 0;
        valtail;
        valtail = TREE_CHAIN (valtail), parmnum++)
     {
-      tree type = typetail ? TREE_VALUE (typetail) : 0;
+      tree type = parmnum < len ? nth_parm_type (typelist, parmnum) : 0;
       tree val = TREE_VALUE (valtail);
       tree rname = function;
       int argnum = parmnum + 1;
@@ -2513,12 +2515,10 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
       else
 	/* Convert `short' and `char' to full-size `int'.  */
 	result = tree_cons (NULL_TREE, default_conversion (val), result);
-
-      if (typetail)
-	typetail = TREE_CHAIN (typetail);
     }
 
-  if (typetail != 0 && TREE_VALUE (typetail) != void_type_node)
+  if (parmnum < len
+      && nth_parm_type (typelist, parmnum) != void_type_node)
     {
       error ("too few arguments to function %qE", function);
       return error_mark_node;
