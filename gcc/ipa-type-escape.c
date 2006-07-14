@@ -704,15 +704,21 @@ check_cast (tree to_type, tree from)
 static void 
 check_function_parameter_and_return_types (tree fn, bool escapes) 
 {
+  tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
   tree arg;
   
-  if (TYPE_ARG_TYPES (TREE_TYPE (fn)))
+  if (parm_types)
     {
-      for (arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
-	   arg && TREE_VALUE (arg) != void_type_node;
-	   arg = TREE_CHAIN (arg))
+      int len = num_parm_types (parm_types);
+      int i;
+
+      if (nth_parm_type (parm_types, len - 1) == void_type_node)
+	len--;
+
+      for (i = 0; i < len; i++)
 	{
-	  tree type = get_canon_type (TREE_VALUE (arg), false, false);
+	  tree parm_type = nth_parm_type (parm_types, i);
+	  tree type = get_canon_type (parm_type, false, false);
 	  if (escapes)
 	    mark_interesting_type (type, EXPOSED_PARAMETER);
 	}
