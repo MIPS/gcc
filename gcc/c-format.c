@@ -125,19 +125,15 @@ static bool
 check_format_string (tree argument, unsigned HOST_WIDE_INT format_num,
 		     int flags, bool *no_add_attrs)
 {
-  unsigned HOST_WIDE_INT i;
+  tree parm_type = NULL_TREE;
 
-  for (i = 1; i != format_num; i++)
-    {
-      if (argument == 0)
-	break;
-      argument = TREE_CHAIN (argument);
-    }
+  if (format_num - 1
+      < (unsigned HOST_WIDE_INT) num_parm_types (argument))
+    parm_type = nth_parm_type (argument, format_num - 1);
 
-  if (!argument
-      || TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE
-      || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_VALUE (argument)))
-	  != char_type_node))
+  if (!parm_type
+      || TREE_CODE (parm_type) != POINTER_TYPE
+      || TYPE_MAIN_VARIANT (TREE_TYPE (parm_type)) != char_type_node)
     {
       if (!(flags & (int) ATTR_FLAG_BUILT_IN))
 	error ("format string argument not a string type");

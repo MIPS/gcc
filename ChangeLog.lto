@@ -3,6 +3,9 @@
 	* gcc/c-decl.c (start_function): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/c-format.c (check_format_string): Use num_parm_types and
+	nth_parm_type in check_format_string.
+
 2006-07-13  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (diagnose_arglist_conflict): Use num_parm_types and
