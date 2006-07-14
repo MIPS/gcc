@@ -1277,18 +1277,19 @@ type_lists_compatible_p (tree args1, tree args2)
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
   int val = 1;
   int newval = 0;
+  int len1 = num_parm_types (args1);
+  int len2 = num_parm_types (args2);
+  int i;
 
-  while (1)
+  if (len1 != len2)
+    return 0;
+
+  for (i = 0; i < len1; i++)
     {
       tree a1, mv1, a2, mv2;
-      if (args1 == 0 && args2 == 0)
-	return val;
-      /* If one list is shorter than the other,
-	 they fail to match.  */
-      if (args1 == 0 || args2 == 0)
-	return 0;
-      mv1 = a1 = TREE_VALUE (args1);
-      mv2 = a2 = TREE_VALUE (args2);
+
+      mv1 = a1 = nth_parm_type (args1, i);
+      mv2 = a2 = nth_parm_type (args2, i);
       if (mv1 && mv1 != error_mark_node && TREE_CODE (mv1) != ARRAY_TYPE)
 	mv1 = TYPE_MAIN_VARIANT (mv1);
       if (mv2 && mv2 != error_mark_node && TREE_CODE (mv2) != ARRAY_TYPE)
@@ -1364,10 +1365,9 @@ type_lists_compatible_p (tree args1, tree args2)
       /* comptypes said ok, but record if it said to warn.  */
       if (newval > val)
 	val = newval;
-
-      args1 = TREE_CHAIN (args1);
-      args2 = TREE_CHAIN (args2);
     }
+
+  return val;
 }
 
 /* Compute the size to increment a pointer by.  */

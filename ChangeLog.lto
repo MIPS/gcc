@@ -9,6 +9,9 @@
 	* gcc/c-common.c (handle_sentinel_attribute): Use nth_parm_type
 	and num_parm_types.
 
+	* gcc/c-typeck.c (type_lists_compatible_p): Use num_parm_types and
+	nth_parm_type.
+
 2006-07-13  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (diagnose_arglist_conflict): Use num_parm_types and
