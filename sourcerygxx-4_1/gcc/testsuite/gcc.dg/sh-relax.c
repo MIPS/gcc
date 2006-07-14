@@ -1,6 +1,7 @@
 /* Check that -mrelax works.  */
 /* { dg-do run { target sh-*-* sh?-*-* } } */
 /* { dg-options "-O1 -mrelax" } */
+/* { dg-xfail-if "" { "sh*-*-uclinux" } { "*" } { "" } } */
 
 extern void abort (void);
 extern int qwerty (int);

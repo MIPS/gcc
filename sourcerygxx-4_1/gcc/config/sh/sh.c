@@ -54,6 +54,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "cfgloop.h"
 
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM sh_cannot_force_const_mem
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -270,6 +272,7 @@ static int sh_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 			         tree, bool);
 static int sh_dwarf_calling_convention (tree);
 static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
+static bool sh_cannot_force_const_mem (rtx);
 
 
 /* Initialize the GCC target structure.  */
@@ -1151,6 +1154,8 @@ expand_block_move (rtx *operands)
 int
 prepare_move_operands (rtx operands[], enum machine_mode mode)
 {
+  rtx tmp, base, offset;
+
   if ((mode == SImode || mode == DImode)
       && flag_pic
       && ! ((mode == Pmode || mode == ptr_mode)
@@ -1300,6 +1305,17 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    emit_insn (gen_addsi3 (op1, op1, force_reg (SImode, opc)));
 	  operands[1] = op1;
 	}
+    }
+
+  if (SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
+      && constant_may_be_outside_section_p (operands[1], &base, &offset))
+    {
+      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (mode);
+      emit_move_insn (tmp, base);
+      if (!arith_operand (offset, mode))
+        offset = force_reg (mode, offset);
+      emit_insn (gen_add3_insn (operands[0], tmp, offset));
+      return 1;
     }
 
   return 0;
@@ -10710,3 +10726,13 @@ const char * osruntime = "bare";
 #endif
 
 #include "gt-sh.h"
+
+/* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
+
+static bool
+sh_cannot_force_const_mem (rtx x)
+{
+  return (SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
+	  && constant_may_be_outside_section_p (x, NULL, NULL));
+}
+

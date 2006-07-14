@@ -1,0 +1,3 @@
+# crti and crtn are provided by uClibc.
+EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o
+

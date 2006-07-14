@@ -1,3 +1,18 @@
+2006-07-14  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* testsuite/gcc.dg/sh-relax.c: XFAIL for sh*-*-uclinux.
+	* config.gcc: Add support for sh on uclinux.
+	* config/sh/sh.c: Define TARGET_CANNOT_FORCE_CONST_MEM.
+	(prepare_move_operands): Handle moves where the second operand
+	may lie outside the current section.
+	(sh_cannot_force_const_mem): New.
+	* config/sh/sh.h: Define SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P.
+	(LEGITIMATE_CONSTANT_P): Check for moves that may use an
+	out-of-section address.
+	* config/sh/t-uclinux: New.
+	* config/sh/uclinux.h: New.
+
 2006-07-13  Paul Brook  <paul@codesourcery.com>
 
 	gcc/

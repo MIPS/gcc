@@ -2229,6 +2229,10 @@ struct sh_args {
       || GENERAL_REGISTER_P ((unsigned) reg_renumber[(REGNO)])) \
    : (REGNO) == R0_REG || (unsigned) reg_renumber[(REGNO)] == R0_REG)
 
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#define SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
+
 /* Maximum number of registers that can appear in a valid memory
    address.  */
 
@@ -2241,7 +2245,7 @@ struct sh_args {
 /* Nonzero if the constant value X is a legitimate general operand.  */
 
 #define LEGITIMATE_CONSTANT_P(X) \
-  (TARGET_SHMEDIA							\
+  ((TARGET_SHMEDIA							\
    ? ((GET_MODE (X) != DFmode						\
        && GET_MODE_CLASS (GET_MODE (X)) != MODE_VECTOR_FLOAT)		\
       || (X) == CONST0_RTX (GET_MODE (X))				\
@@ -2249,7 +2253,9 @@ struct sh_args {
       || TARGET_SHMEDIA64)						\
    : (GET_CODE (X) != CONST_DOUBLE					\
       || GET_MODE (X) == DFmode || GET_MODE (X) == SFmode		\
-      || (TARGET_SH2E && (fp_zero_operand (X) || fp_one_operand (X)))))
+      || (TARGET_SH2E && (fp_zero_operand (X) || fp_one_operand (X)))))	\
+   && !(SH_OFFSETS_MUST_BE_WITHIN_SECTIONS_P				\
+	&& constant_may_be_outside_section_p (X, NULL, NULL)))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
