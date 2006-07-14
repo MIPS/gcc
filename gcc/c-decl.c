@@ -6082,30 +6082,31 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* Warn for unlikely, improbable, or stupid declarations of `main'.  */
   if (warn_main > 0 && MAIN_NAME_P (DECL_NAME (decl1)))
     {
-      tree args;
+      tree parm_types;
+      int len;
       int argct = 0;
 
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (decl1)))
 	  != integer_type_node)
 	pedwarn ("return type of %q+D is not %<int%>", decl1);
 
-      for (args = TYPE_ARG_TYPES (TREE_TYPE (decl1)); args;
-	   args = TREE_CHAIN (args))
+      parm_types = TYPE_ARG_TYPES (TREE_TYPE (decl1));
+      len = num_parm_types (parm_types);
+      for (argct = 0; argct < len; argct++)
 	{
-	  tree type = args ? TREE_VALUE (args) : 0;
+	  tree type = nth_parm_type (parm_types, argct);
 
 	  if (type == void_type_node)
 	    break;
 
-	  ++argct;
 	  switch (argct)
 	    {
-	    case 1:
+	    case 0:
 	      if (TYPE_MAIN_VARIANT (type) != integer_type_node)
 		pedwarn ("first argument of %q+D should be %<int%>", decl1);
 	      break;
 
-	    case 2:
+	    case 1:
 	      if (TREE_CODE (type) != POINTER_TYPE
 		  || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
@@ -6114,7 +6115,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 			 decl1);
 	      break;
 
-	    case 3:
+	    case 2:
 	      if (TREE_CODE (type) != POINTER_TYPE
 		  || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
 		  || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
