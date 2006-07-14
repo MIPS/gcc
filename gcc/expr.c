@@ -1244,15 +1244,21 @@ block_move_libcall_safe_for_call_parm (void)
      argument.  */
   {
     CUMULATIVE_ARGS args_so_far;
-    tree fn, arg;
+    tree fn, parm_types;
+    int arity;
+    int i;
 
     fn = emit_block_move_libcall_fn (false);
     INIT_CUMULATIVE_ARGS (args_so_far, TREE_TYPE (fn), NULL_RTX, 0, 3);
 
-    arg = TYPE_ARG_TYPES (TREE_TYPE (fn));
-    for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
+    parm_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+    /* We subtract 1 from the result of num_parm_types to skip the
+       void_type_node at the end of parm_types.  */
+    arity = num_parm_types (parm_types) - 1;
+    for (i = 0; i < arity; i++)
       {
-	enum machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
+	tree type = nth_parm_type (parm_types, i);
+	enum machine_mode mode = TYPE_MODE (type);
 	rtx tmp = FUNCTION_ARG (args_so_far, mode, NULL_TREE, 1);
 	if (!tmp || !REG_P (tmp))
 	  return false;
