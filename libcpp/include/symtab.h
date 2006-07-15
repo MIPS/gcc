@@ -19,7 +19,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 #define LIBCPP_SYMTAB_H
 
 #include "obstack.h"
+#ifndef GTY
 #define GTY(x) /* nothing */
+#endif
 
 /* This is what each hash table entry points to.  It may be embedded
    deeply within another object.  */

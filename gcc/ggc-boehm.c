@@ -1,5 +1,6 @@
 #include "config.h"
 #include "system.h"
+#include "hashtab.h"
 #include "options.h"
 #include "params.h"
 #include "timevar.h"
@@ -11,6 +12,7 @@
 
 extern struct ht *ident_hash;
 
+static int ggc_htab_register_weak_ptr(void **slot, void *info);
 static size_t get_used_heap_size(void);
 static void register_gty_roots(void);
 static void gc_warning_filter(char * msg, GC_word arg);
@@ -47,9 +49,19 @@ ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
   return result;
 }
 
+int
+ggc_htab_register_weak_ptr(void **slot, void *info ATTRIBUTE_UNUSED)
+{
+  GC_general_register_disappearing_link (slot, *slot);
+  return 1;
+}
+
 void
 ggc_collect (void)
 {
+  const struct ggc_cache_tab *const *ct;
+  const struct ggc_cache_tab *cti;
+
   /* Avoid frequent unnecessary work by skipping collection if the
      total allocations haven't expanded much since the last
      collection.  */
@@ -74,6 +86,18 @@ ggc_collect (void)
       ggc_unregister_stringpool_roots(stringpool_roots);
       stringpool_roots = ggc_register_stringpool_roots();
     }
+
+
+  /* Register hash caches as weak pointers. Boehm's GC weak pointer facility
+     will clear any weak pointers to deleted objects.  After collection hash
+     table cleanup to shrink it should be performed. */
+  for (ct = gt_ggc_cache_rtab; *ct; ct++)
+    for (cti = *ct; cti->base != NULL; cti++)
+      if (*cti->base)
+	{
+	  htab_traverse_noresize (*cti->base, ggc_htab_register_weak_ptr,
+				  (void *)cti);
+	}
 
   GC_enable();
   GC_gcollect();
@@ -211,11 +235,10 @@ register_gty_roots(void)
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
 
+  /* Register ordinary GC roots */
   for (rt = gt_ggc_rtab; *rt; rt++)
     for (rti = *rt; rti->base != NULL; rti++)
       GC_add_roots((char *)rti->base, (char *)rti->base + rti->stride);
-
-  /* TODO: it might be required to process gt_ggc_cache_rtab here */
 }
 
 /* Register the stringpool entries as GGC roots.  In contrast to all other
