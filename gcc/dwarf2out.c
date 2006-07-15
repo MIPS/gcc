@@ -11357,10 +11357,12 @@ gen_unspecified_parameters_die (tree decl_or_type, dw_die_ref context_die)
 static void
 gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 {
-  tree link;
   tree formal_type = NULL;
-  tree first_parm_type;
+  tree parm_types;
   tree arg;
+  tree type;
+  int len;
+  int i;
 
   if (TREE_CODE (function_or_method_type) == FUNCTION_DECL)
     {
@@ -11370,26 +11372,24 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
   else
     arg = NULL_TREE;
 
-  first_parm_type = TYPE_ARG_TYPES (function_or_method_type);
-
   /* Make our first pass over the list of formal parameter types and output a
      DW_TAG_formal_parameter DIE for each one.  */
-  for (link = first_parm_type; link; )
+  parm_types = TYPE_ARG_TYPES (function_or_method_type);
+  len = num_parm_types (parm_types);
+  for (i = 0; i < len; i++)
     {
       dw_die_ref parm_die;
 
-      formal_type = TREE_VALUE (link);
+      formal_type = nth_parm_type (parm_types, i);
       if (formal_type == void_type_node)
 	break;
 
       /* Output a (nameless) DIE to represent the formal parameter itself.  */
       parm_die = gen_formal_parameter_die (formal_type, context_die);
-      if ((TREE_CODE (function_or_method_type) == METHOD_TYPE
-	   && link == first_parm_type)
+      if ((TREE_CODE (function_or_method_type) == METHOD_TYPE && i == 0)
 	  || (arg && DECL_ARTIFICIAL (arg)))
 	add_AT_flag (parm_die, DW_AT_artificial, 1);
 
-      link = TREE_CHAIN (link);
       if (arg)
 	arg = TREE_CHAIN (arg);
     }
@@ -11401,10 +11401,13 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 
   /* Make our second (and final) pass over the list of formal parameter types
      and output DIEs to represent those types (as necessary).  */
-  for (link = TYPE_ARG_TYPES (function_or_method_type);
-       link && TREE_VALUE (link);
-       link = TREE_CHAIN (link))
-    gen_type_die (TREE_VALUE (link), context_die);
+  for (i = 0; i < len; i++)
+    {
+      type = nth_parm_type (parm_types, i);
+      if (type == NULL)
+	break;
+      gen_type_die (type, context_die);
+    }
 }
 
 /* We want to generate the DIE for TYPE so that we can generate the
