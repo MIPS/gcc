@@ -13,7 +13,7 @@
 	num_artificial_parms_for and nth_parm_type.
 
 	* gcc/cp/error.c (dump_type_suffix): Don't use TREE_CHAIN on
-	TYPE_ARG_TYPES in dump_type_suffix.
+	TYPE_ARG_TYPES.
 
 2006-07-14  Kazu Hirata  <kazu@codesourcery.com>
 
@@ -21,7 +21,7 @@
 	nth_parm_type.
 
 	* gcc/c-format.c (check_format_string): Use num_parm_types and
-	nth_parm_type in check_format_string.
+	nth_parm_type.
 
 	* gcc/c-common.c (handle_sentinel_attribute): Use nth_parm_type
 	and num_parm_types.
