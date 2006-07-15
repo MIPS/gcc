@@ -3,6 +3,9 @@
 	* gcc/ipa-type-escape.c (check_call): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/tree.c (type_num_arguments): Use num_parm_types and
+	nth_parm_type.
+
 2006-07-14  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (start_function): Use num_parm_types and

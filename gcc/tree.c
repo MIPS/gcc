@@ -4341,18 +4341,13 @@ type_list_equal (tree l1, tree l2)
 int
 type_num_arguments (tree type)
 {
-  int i = 0;
-  tree t;
+  tree parm_types = TYPE_ARG_TYPES (type);
+  int len = num_parm_types (parm_types);
 
-  for (t = TYPE_ARG_TYPES (type); t; t = TREE_CHAIN (t))
-    /* If the function does not take a variable number of arguments,
-       the last element in the list will have type `void'.  */
-    if (VOID_TYPE_P (TREE_VALUE (t)))
-      break;
-    else
-      ++i;
+  if (len && VOID_TYPE_P (nth_parm_type (parm_types, len - 1)))
+    len--;
 
-  return i;
+  return len;
 }
 
 /* Nonzero if integer constants T1 and T2
