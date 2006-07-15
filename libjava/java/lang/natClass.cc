@@ -56,6 +56,18 @@ details.  */
 #include <gcj/method.h>
 #include <gnu/gcj/RawData.h>
 #include <java/lang/VerifyError.h>
+#include <java/lang/InternalError.h>
+#include <java/lang/TypeNotPresentException.h>
+#include <java/lang/Byte.h>
+#include <java/lang/Short.h>
+#include <java/lang/Integer.h>
+#include <java/lang/Float.h>
+#include <java/lang/Double.h>
+#include <java/lang/Long.h>
+#include <java/lang/Character.h>
+#include <java/lang/Boolean.h>
+#include <java/lang/annotation/Annotation.h>
+#include <java/util/HashMap.h>
 
 #include <java-cpool.h>
 #include <java-interp.h>
@@ -847,6 +859,526 @@ void
 java::lang::Class::setSigners(JArray<jobject> *s)
 {
   hack_signers = s;
+}
+
+
+
+static unsigned char
+read_u1 (unsigned char *&p)
+{
+  return *p++;
+}
+
+static unsigned char
+read_u1 (unsigned char *&p, unsigned char *next)
+{
+  if (next - p < 1)
+    throw new java::lang::InternalError();
+  return *p++;
+}
+
+static unsigned int
+read_u2 (unsigned char *&p)
+{
+  unsigned int b1 = *p++;
+  unsigned int b2 = *p++;
+  return (b1 << 8) | b2;
+}
+
+static unsigned int
+read_u2 (unsigned char *&p, unsigned char *next)
+{
+  if (next - p < 2)
+    throw new java::lang::InternalError();
+  return read_u2 (p);
+}
+
+static int
+read_4 (unsigned char *&p)
+{
+  int b1 = *p++;
+  int b2 = *p++;
+  int b3 = *p++;
+  int b4 = *p++;
+  return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+}
+
+jstring
+java::lang::Class::getReflectionSignature (jint /*jv_attr_type*/ type,
+					   jint obj_index)
+{
+  // We just re-parse the bytecode for this data each time.  If
+  // necessary we can cache results, but I suspect this is not
+  // performance sensitive.
+  unsigned char *bytes = reflection_data;
+  if (bytes == NULL)
+    return NULL;
+  while (true)
+    {
+      int kind = read_u1 (bytes);
+      if (kind == JV_DONE_ATTR)
+	return NULL;
+      int len = read_4 (bytes);
+      unsigned char *next = bytes + len;
+      if (kind != type)
+	{
+	  bytes = next;
+	  continue;
+	}
+      if (type != JV_CLASS_ATTR)
+	{
+	  unsigned short index = read_u2 (bytes, next);
+	  if (index != obj_index)
+	    {
+	      bytes = next;
+	      continue;
+	    }
+	}
+      int nt = read_u1 (bytes, next);
+      if (nt != JV_SIGNATURE_KIND)
+	{
+	  bytes = next;
+	  continue;
+	}
+      unsigned int cpool_idx = read_u2 (bytes, next);
+      if (cpool_idx >= (unsigned int) constants.size
+	  || constants.tags[cpool_idx] != JV_CONSTANT_Utf8)
+	{
+	  // We just ignore errors for now.  It isn't clear what is
+	  // best to do here, as an encoding error here means a bug
+	  // either in the compiler or in defineclass.cc.
+	  return NULL;
+	}
+      return _Jv_NewStringUtf8Const (constants.data[cpool_idx].utf8);
+    }
+}
+
+jstring
+java::lang::Class::getReflectionSignature (::java::lang::reflect::Constructor *c)
+{
+  _Jv_Method *meth = _Jv_FromReflectedConstructor (c);
+  unsigned short meth_index = meth - methods;
+  return getReflectionSignature (JV_METHOD_ATTR, meth_index);
+}
+
+jstring
+java::lang::Class::getReflectionSignature (::java::lang::reflect::Method *m)
+{
+  _Jv_Method *meth = _Jv_FromReflectedMethod (m);
+  unsigned short meth_index = meth - methods;
+  return getReflectionSignature (JV_METHOD_ATTR, meth_index);
+}
+
+jstring
+java::lang::Class::getReflectionSignature (::java::lang::reflect::Field *f)
+{
+  _Jv_Field *fld = _Jv_FromReflectedField (f);
+  unsigned short fld_index = fld - fields;
+  return getReflectionSignature (JV_FIELD_ATTR, fld_index);
+}
+
+jstring
+java::lang::Class::getClassSignature()
+{
+  return getReflectionSignature (JV_CLASS_ATTR, 0);
+}
+
+jint
+java::lang::Class::getEnclosingMethodData()
+{
+  unsigned char *bytes = reflection_data;
+  if (bytes == NULL)
+    return 0;
+  while (true)
+    {
+      int kind = read_u1 (bytes);
+      if (kind == JV_DONE_ATTR)
+	return 0;
+      int len = read_4 (bytes);
+      unsigned char *next = bytes + len;
+      if (kind != JV_CLASS_ATTR)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int type = read_u1 (bytes, next);
+      if (type != JV_ENCLOSING_METHOD_KIND)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int class_index = read_u2 (bytes, next);
+      int method_index = read_u2 (bytes, next);
+      _Jv_word result;
+      _Jv_storeIndexes (&result, class_index, method_index);
+      return result.i;
+    }
+}
+
+jclass
+java::lang::Class::getEnclosingClass()
+{
+  _Jv_word indexes;
+  indexes.i = getEnclosingMethodData();
+  if (indexes.i == 0)
+    return NULL;
+  _Jv_ushort class_index, method_index;
+  _Jv_loadIndexes (&indexes, class_index, method_index);
+  return _Jv_Linker::resolve_pool_entry (this, class_index).clazz;
+}
+
+::java::lang::reflect::Method *
+java::lang::Class::getEnclosingMethod()
+{
+  _Jv_word indexes;
+  indexes.i = getEnclosingMethodData();
+  if (indexes.i == 0)
+    return NULL;
+  _Jv_ushort class_index, method_index;
+  _Jv_loadIndexes (&indexes, class_index, method_index);
+  jclass found_class;
+  _Jv_Method *method = _Jv_Linker::resolve_method_entry (this, found_class,
+							 class_index,
+							 method_index,
+							 false, false);
+  using namespace java::lang::reflect;
+  Method *rmethod = new Method ();
+  rmethod->offset = (char *) method - (char *) found_class->methods;
+  rmethod->declaringClass = found_class;
+  return rmethod;
+}
+
+::java::lang::reflect::Constructor *
+java::lang::Class::getEnclosingConstructor()
+{
+  _Jv_word indexes;
+  indexes.i = getEnclosingMethodData();
+  if (indexes.i == 0)
+    return NULL;
+  _Jv_ushort class_index, method_index;
+  _Jv_loadIndexes (&indexes, class_index, method_index);
+  jclass found_class;
+  _Jv_Method *method = _Jv_Linker::resolve_method_entry (this, found_class,
+							 class_index,
+							 method_index,
+							 false, false);
+  using namespace java::lang::reflect;
+  Constructor *cons = new Constructor ();
+  cons->offset = (char *) method - (char *) found_class->methods;
+  cons->declaringClass = this;
+  return cons;
+}
+
+static void
+check_constant(_Jv_Constants *pool, jint cpool_index, jint type)
+{
+  if (cpool_index <= 0
+      || cpool_index >= pool->size
+      || pool->tags[cpool_index] != type)
+    throw new InternalError();
+}
+
+// Forward declaration
+static ::java::lang::annotation::Annotation *
+parseAnnotation(jclass klass, _Jv_Constants *pool,
+		unsigned char *&bytes, unsigned char *last);
+
+static jobject
+parseAnnotationElement(jclass klass, _Jv_Constants *pool,
+		       unsigned char *&bytes, unsigned char *last)
+{
+  int tag = read_u1 (bytes, last);
+  jobject result;
+  switch (tag)
+    {
+    case 'B':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Integer);
+	result = Byte::valueOf (pool->data[cindex].i);
+      }
+      break;
+    case 'C':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Integer);
+	result = Character::valueOf (pool->data[cindex].i);
+      }
+      break;
+    case 'S':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Integer);
+	result = Short::valueOf (pool->data[cindex].i);
+      }
+      break;
+    case 'Z':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Integer);
+	result = Boolean::valueOf (jboolean (pool->data[cindex].i));
+      }
+      break;
+    case 'I':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Integer);
+	result = Integer::valueOf (pool->data[cindex].i);
+      }
+      break;
+    case 'D':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Double);
+	_Jv_word2 word;
+	memcpy (&word, &pool->data[cindex], 2 * sizeof (_Jv_word));
+	result = Double::valueOf (word.d);
+      }
+      break;
+    case 'F':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Float);
+	result = Float::valueOf (pool->data[cindex].f);
+      }
+      break;
+    case 'J':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Double);
+	_Jv_word2 word;
+	memcpy (&word, &pool->data[cindex], 2 * sizeof (_Jv_word));
+	result = Long::valueOf (word.l);
+      }
+      break;
+    case 's':
+      {
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_String);
+	result = _Jv_Linker::resolve_pool_entry (klass, cindex).string;
+      }
+      break;
+    case 'e':
+      {
+	// FIXME
+// 	uint16 type_name_index = JCF_readu2 (jcf);
+// 	uint16 const_name_index = JCF_readu2 (jcf);
+      }
+      break;
+    case 'c':
+      {
+	// FIXME: should be a Utf8 here!
+	int cindex = read_u2 (bytes, last);
+	check_constant (pool, cindex, JV_CONSTANT_Class);
+	try
+	  {
+	    result
+	      = _Jv_Linker::resolve_pool_entry (klass, cindex, false).clazz;
+	  }
+	catch (NoClassDefFoundError *err)
+	  {
+	    throw new TypeNotPresentException(err->getMessage(), err);
+	  }
+      }
+      break;
+    case '@':
+      result = parseAnnotation (klass, pool, bytes, last);
+      break;
+    case '[':
+      {
+	int n_array_elts = read_u2 (bytes, last);
+	jobjectArray aresult = _Jv_NewObjectArray (n_array_elts,
+						   &Object::class$, NULL);
+	jobject *elts = elements (aresult);
+	for (int i = 0; i < n_array_elts; ++i)
+	  elts[i] = parseAnnotationElement(klass, pool, bytes, last);
+	result = aresult;
+      }
+      break;
+    default:
+      throw new java::lang::InternalError();
+    }
+  return result;
+}
+
+static ::java::lang::annotation::Annotation *
+parseAnnotation(jclass klass, _Jv_Constants *pool,
+		unsigned char *&bytes, unsigned char *last)
+{
+  int type_index = read_u2 (bytes, last);
+  check_constant (pool, type_index, JV_CONSTANT_Utf8);
+  jclass anno_class = NULL; // FIXME ... and share code with 'c' case
+
+  ::java::util::HashMap *hmap = new ::java::util::HashMap();
+  int npairs = read_u2 (bytes, last);
+  for (int i = 0; i < npairs; ++i)
+    {
+      int name_index = read_u2 (bytes, last);
+      check_constant (pool, name_index, JV_CONSTANT_Utf8);
+      jstring name = _Jv_NewStringUtf8Const (pool->data[name_index].utf8);
+      jobject value = parseAnnotationElement (klass, pool, bytes, last);
+      // FIXME: any checks needed for name?
+      hmap->put(name, value);
+    }
+  // FIXME: use AnnotationInvocationHandler here.
+  // FIXME: add a static method to it for creation, that handles defaults.
+  return NULL;
+}
+
+static jobjectArray
+parseAnnotations(jclass klass, _Jv_Constants *pool,
+		 unsigned char *&bytes, unsigned char *last)
+{
+  int num = read_u2 (bytes, last);
+  jobjectArray result = _Jv_NewObjectArray (num,
+					    &::java::lang::annotation::Annotation::class$,
+					    NULL);
+  jobject *elts = elements (result);
+  for (int i = 0; i < num; ++i)
+    elts[i] = parseAnnotation(klass, pool, bytes, last);
+  return result;
+}
+
+static jobjectArray
+parseParameterAnnotations(jclass klass, _Jv_Constants *pool,
+			  unsigned char *&bytes, unsigned char *last)
+{
+  jclass anno = &::java::lang::annotation::Annotation::class$;
+  jclass annoary = _Jv_GetArrayClass (anno, anno->getClassLoaderInternal());
+
+  // FIXME: something should check the number of params versus the
+  // method
+  int n_params = read_u1 (bytes, last);
+  jobjectArray result = _Jv_NewObjectArray (n_params, annoary, NULL);
+  jobject *elts = elements (result);
+  for (int i = 0; i < n_params; ++i)
+    elts[i] = parseAnnotations(klass, pool, bytes, last);
+  return result;
+}
+
+jobject
+java::lang::Class::getMethodDefaultValue(::java::lang::reflect::Method *meth)
+{
+  // FIXME: could cache the value here...
+
+  unsigned char *bytes = reflection_data;
+  if (bytes == NULL)
+    return 0;
+
+  unsigned short meth_index = _Jv_FromReflectedMethod (meth) - methods;
+
+  while (true)
+    {
+      int kind = read_u1 (bytes);
+      if (kind == JV_DONE_ATTR)
+	return NULL;
+      int len = read_4 (bytes);
+      unsigned char *next = bytes + len;
+      if (kind != JV_METHOD_ATTR)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int type = read_u1 (bytes, next);
+      if (type != JV_ANNOTATION_DEFAULT_KIND)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int index = read_u2 (bytes, next);
+      if (meth_index != index)
+	{
+	  bytes = next;
+	  continue;
+	}
+
+      // FIXME: could cache here.  If we do then we have to clone any
+      // array result.
+      return parseAnnotationElement(this, &this->constants, bytes, next);
+    }
+}
+
+jobjectArray
+java::lang::Class::getDeclaredAnnotations(jint /* jv_attr_type */ member_type,
+					  jint member_index,
+					  jint /* jv_attr_kind */ kind_req)
+{
+  // FIXME: could cache the value here...
+
+  unsigned char *bytes = reflection_data;
+  if (bytes == NULL)
+    return 0;
+
+  while (true)
+    {
+      int type = read_u1 (bytes);
+      if (type == JV_DONE_ATTR)
+	return NULL;
+      int len = read_4 (bytes);
+      unsigned char *next = bytes + len;
+      if (type != member_type)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int kind = read_u1 (bytes, next);
+      if (kind != kind_req)
+	{
+	  bytes = next;
+	  continue;
+	}
+      if (member_type != JV_CLASS_ATTR)
+	{
+	  int index = read_u2 (bytes, next);
+	  if (member_index != index)
+	    {
+	      bytes = next;
+	      continue;
+	    }
+	}
+
+      // FIXME: could cache here.  If we do then we have to clone any
+      // array result.
+      if (kind_req == JV_PARAMETER_ANNOTATIONS_KIND)
+	return parseParameterAnnotations (this, &this->constants, bytes, next);
+      return parseAnnotations (this, &this->constants, bytes, next);
+    }
+}
+
+jobjectArray
+java::lang::Class::getDeclaredAnnotations(::java::lang::reflect::Method *meth,
+					  jboolean is_param)
+{
+  unsigned short meth_index = _Jv_FromReflectedMethod (meth) - methods;
+  return getDeclaredAnnotations(JV_METHOD_ATTR, meth_index,
+				(is_param
+				 ? JV_PARAMETER_ANNOTATIONS_KIND
+				 : JV_ANNOTATIONS_KIND));
+}
+
+jobjectArray
+java::lang::Class::getDeclaredAnnotations(::java::lang::reflect::Constructor *cons,
+					  jboolean is_param)
+{
+  unsigned short meth_index = _Jv_FromReflectedConstructor (cons) - methods;
+  return getDeclaredAnnotations(JV_METHOD_ATTR, meth_index,
+				(is_param
+				 ? JV_PARAMETER_ANNOTATIONS_KIND
+				 : JV_ANNOTATIONS_KIND));
+}
+
+jobjectArray
+java::lang::Class::getDeclaredAnnotations(::java::lang::reflect::Field *fld)
+{
+  unsigned short field_index = _Jv_FromReflectedField (fld) - fields;
+  return getDeclaredAnnotations(JV_FIELD_ATTR, field_index,
+				JV_ANNOTATIONS_KIND);
+}
+
+JArray< ::java::lang::annotation::Annotation *> *
+java::lang::Class::getDeclaredAnnotationsInternal()
+{
+  return (JArray< ::java::lang::annotation::Annotation *> *) getDeclaredAnnotations(JV_CLASS_ATTR, 0, JV_ANNOTATIONS_KIND);
 }
 
 

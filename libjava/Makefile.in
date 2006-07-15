@@ -9000,10 +9000,10 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 	$(LTGCJCOMPILE) -c -o $@ -fsource-filename=$(here)/classpath/lib/classes -MT $@ -MD -MP -MF $(basename $@).deps @$<
 
 java/lang/Object.lo: classpath/lib/java/lang/Object.class
-	$(LTGCJCOMPILE) -c -o $@ $<
+	$(LTGCJCOMPILE) -c -o $@ -fsource-filename=$(srcdir)/$(basename $@).java $<
 
 java/lang/Class.lo: classpath/lib/java/lang/Class.class
-	$(LTGCJCOMPILE) -c -o $@ $<
+	$(LTGCJCOMPILE) -c -o $@  -fsource-filename=$(srcdir)/$(basename $@).java $<
 
 gnu-CORBA.lo: $(gnu_CORBA_source_files)
 	@find classpath/lib/gnu/CORBA -name '*.class' > gnu-CORBA.list

@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.lang;
 
+import gnu.java.lang.reflect.ClassSignatureParser;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
@@ -53,6 +54,8 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.annotation.Annotation;
 
 /**
  * A Class represents a Java type.  There will never be multiple Class
@@ -83,7 +86,8 @@ import java.util.HashSet;
  * @since 1.0
  * @see ClassLoader
  */
-public final class Class<T> implements Type, GenericDeclaration, Serializable
+public final class Class<T>
+  implements Type, AnnotatedElement, GenericDeclaration, Serializable
 {
   /**
    * Class is non-instantiable from Java code; only the VM can create
@@ -932,6 +936,56 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
 
 
   /**
+   * <p>
+   * Casts this class to represent a subclass of the specified class.
+   * This method is useful for `narrowing' the type of a class so that
+   * the class object, and instances of that class, can match the contract
+   * of a more restrictive method.  For example, if this class has the
+   * static type of <code>Class&lt;Object&gt;</code>, and a dynamic type of
+   * <code>Class&lt;Rectangle&gt;</code>, then, assuming <code>Shape</code> is
+   * a superclass of <code>Rectangle</code>, this method can be used on
+   * this class with the parameter, <code>Class&lt;Shape&gt;</code>, to retain
+   * the same instance but with the type
+   * <code>Class&lt;? extends Shape&gt;</code>.
+   * </p>
+   * <p>
+   * If this class can be converted to an instance which is parameterised
+   * over a subtype of the supplied type, <code>U</code>, then this method
+   * returns an appropriately cast reference to this object.  Otherwise,
+   * a <code>ClassCastException</code> is thrown.
+   * </p>
+   * 
+   * @param klass the class object, the parameterized type (<code>U</code>) of
+   *              which should be a superclass of the parameterized type of
+   *              this instance.
+   * @return a reference to this object, appropriately cast.
+   * @throws ClassCastException if this class can not be converted to one
+   *                            which represents a subclass of the specified
+   *                            type, <code>U</code>. 
+   * @since 1.5
+   */
+  public <U> Class<? extends U> asSubclass(Class<U> klass)
+  {
+    if (! klass.isAssignableFrom(this))
+      throw new ClassCastException();
+    return (Class<? extends U>) this;
+  }
+
+  /**
+   * Returns the specified object, cast to this <code>Class</code>' type.
+   *
+   * @param obj the object to cast
+   * @throws ClassCastException  if obj is not an instance of this class
+   * @since 1.5
+   */
+  public T cast(Object obj)
+  {
+    if (obj != null && ! isInstance(obj))
+      throw new ClassCastException();
+    return (T) obj;
+  }
+
+  /**
    * Returns the enumeration constants of this class, or
    * null if this class is not an <code>Enum</code>.
    *
@@ -1039,11 +1093,7 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
    *         a top-level class.
    * @since 1.5
    */
-  public Class<?> getEnclosingClass()
-  {
-    // FIXME write real implementation
-    return null;
-  }
+  public native Class<?> getEnclosingClass();
 
   /**
    * Returns the constructor which immediately encloses this class.  If
@@ -1056,11 +1106,7 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
    *         is returned.
    * @since 1.5
    */
-  public Constructor<T> getEnclosingConstructor()
-  {
-    // FIXME write real implementation
-    return null;
-  }
+  public native Constructor<T> getEnclosingConstructor();
 
   /**
    * Returns the method which immediately encloses this class.  If
@@ -1073,10 +1119,100 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
    *         is returned.
    * @since 1.5
    */
-  public Method getEnclosingMethod()
+  public native Method getEnclosingMethod();
+
+  private native String getClassSignature();
+
+  /**
+   * <p>
+   * Returns an array of <code>Type</code> objects which represent the
+   * interfaces directly implemented by this class or extended by this
+   * interface.
+   * </p>
+   * <p>
+   * If one of the superinterfaces is a parameterized type, then the
+   * object returned for this interface reflects the actual type
+   * parameters used in the source code.  Type parameters are created
+   * using the semantics specified by the <code>ParameterizedType</code>
+   * interface, and only if an instance has not already been created.
+   * </p>
+   * <p>
+   * The order of the interfaces in the array matches the order in which
+   * the interfaces are declared.  For classes which represent an array,
+   * an array of two interfaces, <code>Cloneable</code> and
+   * <code>Serializable</code>, is always returned, with the objects in
+   * that order.  A class representing a primitive type or void always
+   * returns an array of zero size.
+   * </p>
+   *
+   * @return an array of interfaces implemented or extended by this class.
+   * @throws GenericSignatureFormatError if the generic signature of one
+   *         of the interfaces does not comply with that specified by the Java
+   *         Virtual Machine specification, 3rd edition.
+   * @throws TypeNotPresentException if any of the superinterfaces refers
+   *         to a non-existant type.
+   * @throws MalformedParameterizedTypeException if any of the interfaces
+   *         refer to a parameterized type that can not be instantiated for
+   *         some reason.
+   * @since 1.5
+   * @see java.lang.reflect.ParameterizedType
+   */
+  public Type[] getGenericInterfaces()
   {
-    // FIXME write real implementation
-    return null;
+    if (isPrimitive())
+      return new Type[0];
+
+    String sig = getClassSignature();
+    if (sig == null)
+      return getInterfaces();
+
+    ClassSignatureParser p = new ClassSignatureParser(this, sig);
+    return p.getInterfaceTypes();
+  }
+
+  /**
+   * <p>
+   * Returns a <code>Type</code> object representing the direct superclass,
+   * whether class, interface, primitive type or void, of this class.
+   * If this class is an array class, then a class instance representing
+   * the <code>Object</code> class is returned.  If this class is primitive,
+   * an interface, or a representation of either the <code>Object</code>
+   * class or void, then <code>null</code> is returned.
+   * </p>
+   * <p>
+   * If the superclass is a parameterized type, then the
+   * object returned for this interface reflects the actual type
+   * parameters used in the source code.  Type parameters are created
+   * using the semantics specified by the <code>ParameterizedType</code>
+   * interface, and only if an instance has not already been created.
+   * </p>
+   *
+   * @return the superclass of this class.
+   * @throws GenericSignatureFormatError if the generic signature of the
+   *         class does not comply with that specified by the Java
+   *         Virtual Machine specification, 3rd edition.
+   * @throws TypeNotPresentException if the superclass refers
+   *         to a non-existant type.
+   * @throws MalformedParameterizedTypeException if the superclass
+   *         refers to a parameterized type that can not be instantiated for
+   *         some reason.
+   * @since 1.5
+   * @see java.lang.reflect.ParameterizedType
+   */
+  public Type getGenericSuperclass()
+  {
+    if (isArray())
+      return Object.class;
+
+    if (isPrimitive() || isInterface() || this == Object.class)
+      return null;
+
+    String sig = getClassSignature();
+    if (sig == null)
+      return getSuperclass();
+
+    ClassSignatureParser p = new ClassSignatureParser(this, sig);
+    return p.getSuperclassType();
   }
 
   /**
@@ -1085,7 +1221,7 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
    * An array of size zero is returned if this class has no type
    * variables.
    *
-   * @return the type variables associated with this class.
+   * @return the type variables associated with this class. 
    * @throws GenericSignatureFormatError if the generic signature does
    *         not conform to the format specified in the Virtual Machine
    *         specification, version 3.
@@ -1093,7 +1229,91 @@ public final class Class<T> implements Type, GenericDeclaration, Serializable
    */
   public TypeVariable<Class<T>>[] getTypeParameters()
   {
-    // FIXME - provide real implementation.
-    return new TypeVariable[0];
+    String sig = getClassSignature();
+    if (sig == null)
+      return (TypeVariable<Class<T>>[])new TypeVariable[0];
+
+    ClassSignatureParser p = new ClassSignatureParser(this, sig);
+    return p.getTypeParameters();
   }
+
+  /**
+   * Returns this class' annotation for the specified annotation type,
+   * or <code>null</code> if no such annotation exists.
+   *
+   * @param annotationClass the type of annotation to look for.
+   * @return this class' annotation for the specified type, or
+   *         <code>null</code> if no such annotation exists.
+   * @since 1.5
+   */
+  public <A extends Annotation> A getAnnotation(Class<A> annotationClass)
+  {
+    A foundAnnotation = null;
+    Annotation[] annotations = getAnnotations();
+    for (Annotation annotation : annotations)
+      if (annotation.annotationType() == annotationClass)
+	foundAnnotation = (A) annotation;
+    return foundAnnotation;
+  }
+
+  /**
+   * Returns all annotations associated with this class.  If there are
+   * no annotations associated with this class, then a zero-length array
+   * will be returned.  The returned array may be modified by the client
+   * code, but this will have no effect on the annotation content of this
+   * class, and hence no effect on the return value of this method for
+   * future callers.
+   *
+   * @return this class' annotations.
+   * @since 1.5
+   */
+  public Annotation[] getAnnotations()
+  {
+    HashSet<Annotation> set = new HashSet<Annotation>();
+    set.addAll(Arrays.asList(getDeclaredAnnotations()));
+    Class[] interfaces = getInterfaces();
+    for (int i = 0; i < interfaces.length; i++)
+      set.addAll(Arrays.asList(interfaces[i].getAnnotations()));
+    Class<? super T> superClass = getSuperclass();
+    if (superClass != null)
+      set.addAll(Arrays.asList(superClass.getAnnotations()));
+    return set.toArray(new Annotation[set.size()]);
+  }
+
+  /**
+   * Returns all annotations directly defined by this class.  If there are
+   * no annotations associated with this class, then a zero-length array
+   * will be returned.  The returned array may be modified by the client
+   * code, but this will have no effect on the annotation content of this
+   * class, and hence no effect on the return value of this method for
+   * future callers.
+   *
+   * @return the annotations directly defined by this class.
+   * @since 1.5
+   */
+  public Annotation[] getDeclaredAnnotations()
+  {
+    Annotation[] result = getDeclaredAnnotationsInternal();
+    if (result == null)
+      result = new Annotation[0];
+    return result;
+  }
+
+  private native Annotation[] getDeclaredAnnotationsInternal();
+
+  /**
+   * Returns true if an annotation for the specified type is associated
+   * with this class.  This is primarily a short-hand for using marker
+   * annotations.
+   *
+   * @param annotationClass the type of annotation to look for.
+   * @return true if an annotation exists for the specified type.
+   * @since 1.5
+   */
+  public boolean isAnnotationPresent(Class<? extends Annotation> 
+				     annotationClass)
+  {
+    return getAnnotation(annotationClass) != null;
+  }
+
 }
