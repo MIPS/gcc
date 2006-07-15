@@ -1042,15 +1042,20 @@ check_call (tree call_expr)
 	 parameters.  */
       if (TYPE_ARG_TYPES (TREE_TYPE (callee_t)))
 	{
-	  for (arg_type = TYPE_ARG_TYPES (TREE_TYPE (callee_t)),
-		 operand = first_call_expr_arg (call_expr, &iter);
-	       arg_type && TREE_VALUE (arg_type) != void_type_node;
-	       arg_type = TREE_CHAIN (arg_type),
-		 operand = next_call_expr_arg (&iter))
+	  tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (callee_t));
+	  int len = num_parm_types (parm_types);
+	  int i;
+
+	  if (len && nth_parm_type (parm_types, len - 1) == void_type_node)
+	    len--;
+
+	  for (i = 0, operand = first_call_expr_arg (call_expr, &iter);
+	       i < len;
+	       i++, operand = next_call_expr_arg (&iter))
 	    {
 	      if (operand)
 		{
-		  last_arg_type = TREE_VALUE(arg_type);
+		  last_arg_type = nth_parm_type (parm_types, i);
 		  check_cast (last_arg_type, operand);
 		}
 	      else 
