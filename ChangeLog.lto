@@ -9,6 +9,9 @@
 	* gcc/dwarf2out.c (gen_formal_types_die): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/error.c (dump_function_decl): Use
+	num_artificial_parms_for and nth_parm_type.
+
 2006-07-14  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-decl.c (start_function): Use num_parm_types and

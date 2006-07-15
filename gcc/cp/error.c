@@ -987,6 +987,7 @@ dump_function_decl (tree t, int flags)
   tree template_args = NULL_TREE;
   tree template_parms = NULL_TREE;
   int show_return = flags & TFF_RETURN_TYPE || flags & TFF_DECL_SPECIFIERS;
+  int skip = 0;
 
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
@@ -1006,14 +1007,15 @@ dump_function_decl (tree t, int flags)
     }
 
   fntype = TREE_TYPE (t);
-  parmtypes = FUNCTION_FIRST_USER_PARMTYPE (t);
+  parmtypes = TYPE_ARG_TYPES (TREE_TYPE (t));
+  skip = num_artificial_parms_for (t);
   parmdecls = FUNCTION_FIRST_USER_PARM (t);
 
   if (DECL_CLASS_SCOPE_P (t))
     cname = DECL_CONTEXT (t);
   /* This is for partially instantiated template methods.  */
   else if (TREE_CODE (fntype) == METHOD_TYPE)
-    cname = TREE_TYPE (TREE_VALUE (parmtypes));
+    cname = TREE_TYPE (nth_parm_type (parmtypes, skip));
 
   if (!(flags & TFF_DECL_SPECIFIERS))
     /* OK */;
@@ -1042,7 +1044,7 @@ dump_function_decl (tree t, int flags)
 
   if (!(flags & TFF_NO_FUNCTION_ARGUMENTS))
     {
-      dump_parameters (parmtypes, 0, parmdecls, flags);
+      dump_parameters (parmtypes, skip, parmdecls, flags);
 
       if (TREE_CODE (fntype) == METHOD_TYPE)
 	{
