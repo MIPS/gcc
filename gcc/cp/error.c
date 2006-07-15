@@ -599,14 +599,16 @@ dump_type_suffix (tree t, int flags)
     case METHOD_TYPE:
       {
 	tree arg;
+	int skip = 0;
+
 	pp_cxx_right_paren (cxx_pp);
 	arg = TYPE_ARG_TYPES (t);
 	if (TREE_CODE (t) == METHOD_TYPE)
-	  arg = TREE_CHAIN (arg);
+	  skip++;
 
 	/* Function pointers don't have default args.  Not in standard C++,
 	   anyway; they may in g++, but we'll just pretend otherwise.  */
-	dump_parameters (arg, 0, NULL_TREE, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
+	dump_parameters (arg, skip, NULL_TREE, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  pp_cxx_cv_qualifier_seq
