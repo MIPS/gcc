@@ -868,9 +868,9 @@ BUILD_ERRORS = build/errors.o
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC) \
-	   -I$(srcdir)/../boehm-gc/include -I../build-i686-pc-cygwin/boehm-gc/include
+	   -I$(srcdir)/../boehm-gc/include -I../boehm-gc/include
 
-BOEHM = ../build-i686-pc-cygwin/boehm-gc/.libs/libgcjgc.a
+BOEHM = ../boehm-gc/.libs/libgcjgc.a
 
 .c.o:
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)

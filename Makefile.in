@@ -7137,13 +7137,7 @@ maybe-install-boehm-gc:
 @if boehm-gc
 maybe-install-boehm-gc: install-boehm-gc
 
-install-boehm-gc: installdirs
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	(cd $(HOST_SUBDIR)/boehm-gc && \
-	  $(MAKE) $(FLAGS_TO_PASS)  install)
+install-boehm-gc:
 
 @endif boehm-gc
 
@@ -41489,7 +41483,14 @@ all-stage3-gcc: all-stage3-libiberty
 all-stage4-gcc: all-stage4-libiberty
 all-stageprofile-gcc: all-stageprofile-libiberty
 all-stagefeedback-gcc: all-stagefeedback-libiberty
-all-gcc: all-boehms-gc
+all-gcc: all-boehm-gc
+
+all-stage1-gcc: all-stage1-boehm-gc
+all-stage2-gcc: all-stage2-boehm-gc
+all-stage3-gcc: all-stage3-boehm-gc
+all-stage4-gcc: all-stage4-boehm-gc
+all-stageprofile-gcc: all-stageprofile-boehm-gc
+all-stagefeedback-gcc: all-stagefeedback-boehm-gc
 all-gcc: maybe-all-intl
 
 all-stage1-gcc: maybe-all-stage1-intl

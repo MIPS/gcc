@@ -893,7 +893,7 @@ build_tools="build-texinfo build-byacc build-flex build-bison build-m4 build-fix
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber"
+host_libs="intl mmalloc libiberty boehm-gc opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -2527,7 +2527,7 @@ for dir in $configdirs $build_configdirs $target_configdirs ; do
   fi
 done
 
-# Check for Boehm's garbage collector
+# Check for Boehm's garbage collector as a target library
 # Check whether --enable-objc-gc or --disable-objc-gc was given.
 if test "${enable_objc_gc+set}" = set; then
   enableval="$enable_objc_gc"
@@ -2539,7 +2539,7 @@ esac
 fi
 
 
-# Make sure we only build Boehm's garbage collector if required.
+# Make sure we only build Boehm's garbage collector as a target library if required.
 case ,${enable_languages},:${enable_libgcj}:${enable_objc_gc} in
   *,objc,*:*:yes)
     # Keep target-boehm-gc if requested for Objective-C.
