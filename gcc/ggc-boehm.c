@@ -59,6 +59,8 @@ ggc_htab_register_weak_ptr(void **slot, void *info ATTRIBUTE_UNUSED)
 void
 ggc_collect (void)
 {
+  const struct ggc_root_tab *const *rt;
+  const struct ggc_root_tab *rti;
   const struct ggc_cache_tab *const *ct;
   const struct ggc_cache_tab *cti;
 
@@ -87,6 +89,10 @@ ggc_collect (void)
       stringpool_roots = ggc_register_stringpool_roots();
     }
 
+  /* Clear pointers with GTY "deletable" */
+  for (rt = gt_ggc_deletable_rtab; *rt; rt++)
+    for (rti = *rt; rti->base != NULL; rti++)
+      memset (rti->base, 0, rti->stride);
 
   /* Register hash caches as weak pointers. Boehm's GC weak pointer facility
      will clear any weak pointers to deleted objects.  After collection hash
