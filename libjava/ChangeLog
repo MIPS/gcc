@@ -1,3 +1,8 @@
+2006-07-16  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac (JV_API_VERSION, JV_VERSION): Claim 1.5.
+
 2006-07-12  Andrew Haley  <aph@redhat.com>
 
 	* Makefile.am (java/lang/Object.lo): Add -fsource-filename.
