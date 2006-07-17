@@ -1087,12 +1087,11 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
   oldargs = TYPE_ACTUAL_ARG_TYPES (oldtype);
   newargs = TYPE_ARG_TYPES (newtype);
-  i = 1;
 
-  for (;;)
+  for (i = 0;; i++)
     {
-      tree oldargtype = TYPE_MAIN_VARIANT (TREE_VALUE (oldargs));
-      tree newargtype = TYPE_MAIN_VARIANT (TREE_VALUE (newargs));
+      tree oldargtype = TYPE_MAIN_VARIANT (nth_parm_type (oldargs, i));
+      tree newargtype = TYPE_MAIN_VARIANT (nth_parm_type (newargs, i));
 
       if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
 	break;
@@ -1118,13 +1117,9 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 	{
 	  error ("prototype for %q+D declares argument %d"
 		 " with incompatible type",
-		 newdecl, i);
+		 newdecl, i + 1);
 	  return false;
 	}
-
-      oldargs = TREE_CHAIN (oldargs);
-      newargs = TREE_CHAIN (newargs);
-      i++;
     }
 
   /* If we get here, no errors were found, but do issue a warning
