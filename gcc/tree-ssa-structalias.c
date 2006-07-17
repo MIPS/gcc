@@ -3728,21 +3728,15 @@ make_constraint_to_anything (varinfo_t vi)
 static unsigned int
 count_num_arguments (tree decl, bool *is_varargs)
 {
-  unsigned int i = 0;
-  tree t;
+  tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  unsigned int len = num_parm_types (parm_types);
 
-  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); 
-       t;
-       t = TREE_CHAIN (t))
-    {	
-      if (TREE_VALUE (t) == void_type_node)
-	break;
-      i++;
-    }
-  
-  if (!t)
+  if (len && nth_parm_type (parm_types, len - 1) == void_type_node)
+    len--;
+  else
     *is_varargs = true;
-  return i;
+
+  return len;
 }
 
 /* Creation function node for DECL, using NAME, and return the index
