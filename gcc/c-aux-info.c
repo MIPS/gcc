@@ -111,26 +111,32 @@ static const char *
 gen_formal_list_for_type (tree fntype, formals_style style)
 {
   const char *formal_list = "";
-  tree formal_type;
+  tree parm_types;
+  tree formal_type = NULL_TREE;
+  int len;
+  int i;
 
   if (style != ansi)
     return "()";
 
-  formal_type = TYPE_ARG_TYPES (fntype);
-  while (formal_type && TREE_VALUE (formal_type) != void_type_node)
+  parm_types = TYPE_ARG_TYPES (fntype);
+  len = num_parm_types (parm_types);
+  for (i = 0; i < len; i++)
     {
       const char *this_type;
+
+      formal_type = nth_parm_type (parm_types, i);
+      if (formal_type == void_type_node)
+	break;
 
       if (*formal_list)
 	formal_list = concat (formal_list, ", ", NULL);
 
-      this_type = gen_type ("", TREE_VALUE (formal_type), ansi);
+      this_type = gen_type ("", formal_type, ansi);
       formal_list
 	= ((strlen (this_type))
 	   ? concat (formal_list, affix_data_type (this_type), NULL)
 	   : concat (formal_list, data_type, NULL));
-
-      formal_type = TREE_CHAIN (formal_type);
     }
 
   /* If we got to here, then we are trying to generate an ANSI style formal
@@ -165,8 +171,8 @@ gen_formal_list_for_type (tree fntype, formals_style style)
 
   if (!*formal_list)
     {
-      if (TYPE_ARG_TYPES (fntype))
-	/* assert (TREE_VALUE (TYPE_ARG_TYPES (fntype)) == void_type_node);  */
+      if (parm_types)
+	/* assert (nth_parm_type (parm_types, 0) == void_type_node);  */
 	formal_list = "void";
       else
 	formal_list = "/* ??? */";
@@ -176,7 +182,7 @@ gen_formal_list_for_type (tree fntype, formals_style style)
       /* If there were at least some parameters, and if the formals-types-list
 	 petered out to a NULL (i.e. without being terminated by a
 	 void_type_node) then we need to tack on an ellipsis.  */
-      if (!formal_type)
+      if (formal_type != void_type_node)
 	formal_list = concat (formal_list, ", ...", NULL);
     }
 
