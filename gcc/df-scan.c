@@ -1456,7 +1456,7 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case PRE_MODIFY:
     case POST_MODIFY:
       /* Catch the def of the register being modified.  */
-      flags |= DF_REF_READ_WRITE;
+      flags |= DF_REF_READ_WRITE | DF_REF_PRE_POST_MODIFY;
       df_ref_record (dflow, XEXP (x, 0), &XEXP (x, 0), bb, insn, 
 		     DF_REF_REG_DEF, flags, true);
 
@@ -1586,7 +1586,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	  /* The stack ptr is used (honorarily) by a CALL insn.  */
 	  df_uses_record (dflow, &regno_reg_rtx[STACK_POINTER_REGNUM],
 			  DF_REF_REG_USE, bb, insn, 
-			  0);
+			  DF_REF_CALL_STACK_USAGE);
 
 	  if (dflow->flags & DF_HARD_REGS)
 	    {

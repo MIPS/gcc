@@ -1,3 +1,68 @@
+2006-07-16  Zdenek Dvorak <dvorakz@suse.cz>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c: Fixed comments.
+	* see.c (rest_of_handle_see): Removed call to
+	update_life_info_in_dirty_blocks.
+	* tree-pass.h: (pass_clear_df, pass_reset_df): Removed.
+	* passes.c (init_optimization_passes): Ditto.
+	* cfghooks.c (split_block): Remove call to split_block_end.
+	(merge_blocks): Removed call to merge_blocks_end.
+	(duplicate_block): Removed call to duplicate_block_end.
+	* cfghooks.h (split_block_end, merge_blocks_end,
+	duplicate_block_end): Removed.
+	* cfgrtl.c (rtl_split_block_end, rtl_merge_blocks_end): Removed.
+	(rtl_create_basic_block, force_nonfallthru_and_redirect,
+	rtl_split_edge, cfg_layout_merge_blocks, cfg_layout_split_edge): 
+	Removed old calls to incremental dataflow.
+	(dump_regset_in, dump_regset_out): Removed call to dump_regset.
+	(rtl_dump_bb, print_rtl_with_bb): Rearranged dataflow printing.
+	* cfg.c (compact_blocks): Removed code to keep dataflow up to
+	date.
+	* flow.c (clear_log_links): Deleted
+	(life_analysis, init_propagate_block_info): Removed PROP_LOG_LINKS.
+	(update_life_info): Removed call to clear_log_links.
+	(mark_set_1): Removed code to build log links.
+	(clear_log_links): Deleted.
+	* df-scan.c (df_uses_record): Added code to set
+	DF_REF_PRE_POST_MODIFY.
+	(df_insn_refs_record): Added code to set DF_REF_CALL_STACK_FRAME.
+	* df-core.c (df_analyze_simple_change_some_blocks,
+	df_analyze_simple_change_one_block, df_compact_blocks,
+	df_bb_replace, reset_df, pass_reset_df, clear_df, pass_clear_df): 
+	Deleted.
+	* recog.c (peephole2_optimize): Deleted some rotted code.
+	* df.h (DF_REF_PRE_POST_MODIFY, DF_REF_CALL_STACK_USAGE): New
+	Flags.
+	(df_analyze_simple_change_some_blocks,
+	df_analyze_simple_change_one_block, df_compact_blocks,
+	df_bb_replace): Deleted.
+	* bt-load (branch_target_load_optimize): Removed call to
+	update_life_info.
+	* cfgcleanup.c (thread_jump, try_forward_edges): Deleted mode
+	parameter to thread_jump.
+	(try_optimize_cfg, cleanup_cfg): Removed CLEANUP_UPDATE_LIFE.
+	* cfglayout.c (cfg_layout_duplicate_bb_end): Deleted.
+	* combine.c (combine_instructions): Removed call to
+	update_life_info.
+	(set_nonzero_bits_and_sign_copies, reg_nonzero_bits_for_combine, 
+	reg_num_sign_bit_copies_for_combine, get_last_value_validate,
+	get_last_value, reg_dead_at_p): Changed to use local df instance.
+	(create_log_links, clear_log_links): New function.
+	(rest_of_handle_combine): Added new version of df, create and
+	destroy log links locally.
+	* bb-reorder.c (rest_of_handle_partition_blocks): Removed call to 
+	update_life_info.
+	* basic-block.h (PROP_LOG_LINKS): Removed and renumbered other
+	PROP_*.
+	(CLEANUP_UPDATE_LIFE, CLEANUP_LOG_LINKS): Removed and renumbered
+	other CLEANUP_*.
+	* tree-cfg.c (tree_cfg_hooks): Removed fields.
+	* struct-equiv.c (struct_equiv_init): Removed call to
+	update_life_in_dirty_blocks.
+	* dce.c (init_dce, end_dce, end_fast_dce): Removed code to service
+	rtl_df.
+	
 2006-07-12  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* auto-inc-dec.c (parse_add_or_inc): Moved test to merge_in_block.

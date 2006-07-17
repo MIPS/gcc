@@ -88,9 +88,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    ** Other actions of life_analysis **
 
-   life_analysis sets up the LOG_LINKS fields of insns because the
-   information needed to do so is readily available.
-
    life_analysis deletes insns whose only effect is to store a value
    that is never used.
 
@@ -115,7 +112,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    Split out from life_analysis:
 	- local property discovery
 	- global property computation
-	- log links creation
 	- pre/post modify transformation
 */
 
@@ -315,7 +311,6 @@ void debug_flow_info (void);
 static void add_to_mem_set_list (struct propagate_block_info *, rtx);
 static int invalidate_mems_from_autoinc (rtx *, void *);
 static void invalidate_mems_from_set (struct propagate_block_info *, rtx);
-static void clear_log_links (sbitmap);
 static int count_or_remove_death_notes_bb (basic_block, int);
 
 /* Return the INSN immediately following the NOTE_INSN_BASIC_BLOCK
@@ -362,7 +357,7 @@ life_analysis (int flags)
 #endif
 
   if (! optimize)
-    flags &= ~(PROP_LOG_LINKS | PROP_AUTOINC | PROP_ALLOW_CFG_CHANGES);
+    flags &= ~(PROP_AUTOINC | PROP_ALLOW_CFG_CHANGES);
 
   /* The post-reload life analysis have (on a global basis) the same
      registers live as was computed by reload itself.  elimination
@@ -662,10 +657,6 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	count_or_remove_death_notes (blocks,
 				     prop_flags & PROP_POST_REGSTACK ? -1 : 1);
     }
-
-  /* Clear log links in case we are asked to (re)compute them.  */
-  if (prop_flags & PROP_LOG_LINKS)
-    clear_log_links (blocks);
 
   if (blocks)
     {
@@ -1256,7 +1247,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   pbi->flags = flags;
   pbi->insn_num = 0;
 
-  if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
+  if (flags & PROP_AUTOINC)
     pbi->reg_next_use = XCNEWVEC (rtx, max_reg_num ());
   else
     pbi->reg_next_use = NULL;
@@ -2131,14 +2122,13 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 #endif
 
       /* Additional data to record if this is the final pass.  */
-      if (flags & (PROP_LOG_LINKS | PROP_REG_INFO
-		   | PROP_DEATH_NOTES | PROP_AUTOINC))
+      if (flags & (PROP_REG_INFO | PROP_DEATH_NOTES | PROP_AUTOINC))
 	{
 	  rtx y;
 	  int blocknum = pbi->bb->index;
 
 	  y = NULL_RTX;
-	  if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
+	  if (flags & PROP_AUTOINC)
 	    {
 	      y = pbi->reg_next_use[regno_first];
 
@@ -2184,34 +2174,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 #endif
 	    }
 
-	  if (! some_was_dead)
-	    {
-	      if (flags & PROP_LOG_LINKS)
-		{
-		  /* Make a logical link from the next following insn
-		     that uses this register, back to this insn.
-		     The following insns have already been processed.
-
-		     We don't build a LOG_LINK for hard registers containing
-		     in ASM_OPERANDs.  If these registers get replaced,
-		     we might wind up changing the semantics of the insn,
-		     even if reload can make what appear to be valid
-		     assignments later.
-
-		     We don't build a LOG_LINK for global registers to
-		     or from a function call.  We don't want to let
-		     combine think that it knows what is going on with
-		     global registers.  */
-		  if (y && (BLOCK_NUM (y) == blocknum)
-		      && (regno_first >= FIRST_PSEUDO_REGISTER
-			  || (asm_noperands (PATTERN (y)) < 0
-			      && ! ((CALL_P (insn)
-				     || CALL_P (y))
-				    && global_regs[regno_first]))))
-		    LOG_LINKS (y) = alloc_INSN_LIST (insn, LOG_LINKS (y));
-		}
-	    }
-	  else if (not_dead)
+	  if (! some_was_dead || not_dead)
 	    ;
 	  else if (! some_was_live)
 	    {
@@ -2286,7 +2249,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
     }
   else if (REG_P (reg))
     {
-      if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
+      if (flags & PROP_AUTOINC)
 	pbi->reg_next_use[regno_first] = 0;
 #if 0
       if ((flags & PROP_REG_INFO) != 0
@@ -3005,7 +2968,7 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
   for (i = regno_first; i <= regno_last; ++i)
     some_not_set |= ! REGNO_REG_SET_P (pbi->new_set, i);
 
-  if (pbi->flags & (PROP_LOG_LINKS | PROP_AUTOINC))
+  if (pbi->flags & PROP_AUTOINC)
     {
       /* Record where each reg is used, so when the reg is set we know
 	 the next insn that uses it.  */
@@ -3797,37 +3760,6 @@ count_or_remove_death_notes_bb (basic_block bb, int kill)
     }
 
   return count;
-}
-
-/* Clear LOG_LINKS fields of insns in a selected blocks or whole chain
-   if blocks is NULL.  */
-
-static void
-clear_log_links (sbitmap blocks)
-{
-  rtx insn;
-
-  if (!blocks)
-    {
-      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-	if (INSN_P (insn))
-	  free_INSN_LIST_list (&LOG_LINKS (insn));
-    }
-  else
-    {
-      unsigned int i = 0;
-      sbitmap_iterator sbi;
-
-      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
-	{
-	  basic_block bb = BASIC_BLOCK (i);
-
-	  for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
-	       insn = NEXT_INSN (insn))
-	    if (INSN_P (insn))
-	      free_INSN_LIST_list (&LOG_LINKS (insn));
-	}
-    }
 }
 
 /* Given a register bitmap, turn on the bits in a HARD_REG_SET that

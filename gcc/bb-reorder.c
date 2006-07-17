@@ -2256,8 +2256,6 @@ rest_of_handle_partition_blocks (void)
   no_new_pseudos = 0;
   partition_hot_cold_basic_blocks ();
   allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
   no_new_pseudos = 1;
   return 0;
 }

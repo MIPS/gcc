@@ -1027,7 +1027,6 @@ duplicate_insn_chain (rtx from, rtx to)
    it to cfgrtl.c since it would require also moving quite a lot of related
    code.  */
 extern basic_block cfg_layout_duplicate_bb (basic_block);
-extern void cfg_layout_duplicate_bb_end (basic_block);
 
 basic_block
 cfg_layout_duplicate_bb (basic_block bb)
@@ -1064,21 +1063,11 @@ cfg_layout_duplicate_bb (basic_block bb)
   return new_bb;
 }
 
-/* Fix up the dataflow for the new basic block.  This can only be done
-   after all of the edges have been connected.  */
-void
-cfg_layout_duplicate_bb_end (basic_block bb)
-{
-  df_analyze_simple_change_one_block (rtl_df, bb);
-}
-
 
 /* Main entry point to this module - initialize the datastructures for
    CFG layout changes.  It keeps LOOPS up-to-date if not null.
 
-   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
-   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
-   to date.  */
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  */
 
 void
 cfg_layout_initialize (unsigned int flags)

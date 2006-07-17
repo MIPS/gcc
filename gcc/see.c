@@ -3755,8 +3755,6 @@ rest_of_handle_see (void)
   no_new_pseudos = no_new_pseudos_bcp;
   
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES, 
-  				    (PROP_DEATH_NOTES));
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
 

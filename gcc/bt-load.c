@@ -1496,13 +1496,6 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
 
       free_dominance_info (CDI_DOMINATORS);
       df_finish (df);
-
-      if (!after_prologue_epilogue_gen)
-	{
-	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			    PROP_DEATH_NOTES | PROP_REG_INFO);
-	}
-
     }
 }
 

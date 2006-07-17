@@ -1,5 +1,5 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -94,7 +94,7 @@ static void clear_dead_regs (HARD_REG_SET *, enum machine_mode, rtx);
 static void merge_overlapping_regs (struct df *, basic_block, HARD_REG_SET *,
 				    struct du_chain *);
 
-/* Called through note_stores from update_life.  Find sets of registers, and
+/* Called through note_stores.  Find sets of registers, and
    record them in *DATA (which is actually a HARD_REG_SET *).  */
 
 static void

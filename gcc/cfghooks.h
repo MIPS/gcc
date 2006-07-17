@@ -54,10 +54,6 @@ struct cfg_hooks
      everything after specified instruction I.  */
   basic_block (*split_block) (basic_block b, void * i);
   
-  /* Called with the newly split block and the old block *after* the
-     edges between the two have been created.  */
-  void (*split_block_end) (basic_block a, basic_block b);
-
   /* Move block B immediately after block A.  */
   bool (*move_block_after) (basic_block b, basic_block a);
 
@@ -66,10 +62,6 @@ struct cfg_hooks
 
   /* Merge blocks A and B.  */
   void (*merge_blocks) (basic_block a, basic_block b);
-
-  /* Called on the newly merged block after the blocks and edges have
-     been merged.  */
-  void (*merge_blocks_end) (basic_block a);
 
   /* Predict edge E using PREDICTOR to given PROBABILITY.  */
   void (*predict_edge) (edge e, enum br_predictor predictor, int probability);
@@ -83,9 +75,6 @@ struct cfg_hooks
 
   /* Duplicate block A.  */
   basic_block (*duplicate_block) (basic_block a);
-
-  /* This is called after block duplication on the newly duplicated block.  */
-  basic_block (*duplicate_block_end) (basic_block a);
 
   /* Higher level functions representable by primitive operations above if
      we didn't have some oddities in RTL and Tree representations.  */

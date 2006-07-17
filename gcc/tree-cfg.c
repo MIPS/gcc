@@ -5497,16 +5497,13 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_redirect_edge_and_branch_force,/* redirect_edge_and_branch_force  */
   remove_bb,			/* delete_basic_block  */
   tree_split_block,		/* split_block  */
-  NULL,                         /* split_block_end */
   tree_move_block_after,	/* move_block_after  */
   tree_can_merge_blocks_p,	/* can_merge_blocks_p  */
   tree_merge_blocks,		/* merge_blocks  */
-  NULL,                         /* merge_blocks_end  */
   tree_predict_edge,		/* predict_edge  */
   tree_predicted_by_p,		/* predicted_by_p  */
   tree_can_duplicate_bb_p,	/* can_duplicate_block_p  */
   tree_duplicate_bb,		/* duplicate_block  */
-  NULL,		                /* duplicate_block_end  */
   tree_split_edge,		/* split_edge  */
   tree_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */

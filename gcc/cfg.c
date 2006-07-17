@@ -163,28 +163,23 @@ void
 compact_blocks (void)
 {
   int i;
+  basic_block bb;
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   
-  if (rtl_df)
-    df_compact_blocks (rtl_df);
-  else 
+  i = NUM_FIXED_BLOCKS;
+  FOR_EACH_BB (bb)
     {
-      basic_block bb;
-      
-      i = NUM_FIXED_BLOCKS;
-      FOR_EACH_BB (bb)
-	{
-	  SET_BASIC_BLOCK (i, bb);
-	  bb->index = i;
-	  i++;
-	}
-      gcc_assert (i == n_basic_blocks);
-
-      for (; i < last_basic_block; i++)
-	SET_BASIC_BLOCK (i, NULL);
+      SET_BASIC_BLOCK (i, bb);
+      bb->index = i;
+      i++;
     }
+  gcc_assert (i == n_basic_blocks);
+  
+  for (; i < last_basic_block; i++)
+    SET_BASIC_BLOCK (i, NULL);
+
   last_basic_block = n_basic_blocks;
 }
 
