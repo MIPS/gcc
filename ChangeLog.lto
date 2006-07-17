@@ -11,6 +11,9 @@
 	* gcc/tree-ssa-structalias.c (count_num_arguments): Use
 	num_parm_types and nth_parm_type.
 
+	* gcc/c-common.c (sync_resolve_params): Use num_parm_types and
+	nth_parm_type.
+
 2006-07-15  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/ipa-type-escape.c (check_call): Use num_parm_types and

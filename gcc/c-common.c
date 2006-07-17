@@ -6245,19 +6245,21 @@ sync_resolve_size (tree function, tree params)
 static bool
 sync_resolve_params (tree orig_function, tree function, tree params)
 {
-  tree arg_types = TYPE_ARG_TYPES (TREE_TYPE (function));
+  tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (function));
   tree ptype;
+  int arity = num_parm_types (parm_types) - 1;
+  int i;
 
   /* We've declared the implementation functions to use "volatile void *"
      as the pointer parameter, so we shouldn't get any complaints from the
      call to check_function_arguments what ever type the user used.  */
-  arg_types = TREE_CHAIN (arg_types);
   ptype = TREE_TYPE (TREE_TYPE (TREE_VALUE (params)));
 
   /* For the rest of the values, we need to cast these to FTYPE, so that we
      don't get warnings for passing pointer types, etc.  */
-  while (arg_types != void_list_node)
+  for (i = 1; i < arity; i++)
     {
+      tree type = nth_parm_type (parm_types, i);
       tree val;
 
       params = TREE_CHAIN (params);
@@ -6272,10 +6274,8 @@ sync_resolve_params (tree orig_function, tree function, tree params)
 	 type.  This isn't portable across the C and C++ front ends atm.  */
       val = TREE_VALUE (params);
       val = convert (ptype, val);
-      val = convert (TREE_VALUE (arg_types), val);
+      val = convert (type, val);
       TREE_VALUE (params) = val;
-
-      arg_types = TREE_CHAIN (arg_types);
     }
 
   /* The definition of these primitives is variadic, with the remaining
