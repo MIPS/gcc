@@ -5340,7 +5340,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
   for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
     {
       tree argument;
-      unsigned HOST_WIDE_INT arg_num = 0, ck_num;
+      unsigned HOST_WIDE_INT arg_num = 0;
 
       if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
 	{
@@ -5353,15 +5353,15 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
       argument = TYPE_ARG_TYPES (type);
       if (argument)
 	{
-	  for (ck_num = 1; ; ck_num++)
-	    {
-	      if (!argument || ck_num == arg_num)
-		break;
-	      argument = TREE_CHAIN (argument);
-	    }
+	  tree arg_type = NULL_TREE;
 
-	  if (!argument
-	      || TREE_CODE (TREE_VALUE (argument)) == VOID_TYPE)
+	  /* Obtain the type for ARG_NUM if it exists.  */
+	  if (arg_num - 1
+	      < (unsigned HOST_WIDE_INT) num_parm_types (argument))
+	    arg_type = nth_parm_type (argument, arg_num - 1);
+
+	  if (!arg_type
+	      || TREE_CODE (arg_type) == VOID_TYPE)
 	    {
 	      error ("nonnull argument with out-of-range operand number (argument %lu, operand %lu)",
 		     (unsigned long) attr_arg_num, (unsigned long) arg_num);
@@ -5369,7 +5369,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	      return NULL_TREE;
 	    }
 
-	  if (TREE_CODE (TREE_VALUE (argument)) != POINTER_TYPE)
+	  if (TREE_CODE (arg_type) != POINTER_TYPE)
 	    {
 	      error ("nonnull argument references non-pointer operand (argument %lu, operand %lu)",
 		   (unsigned long) attr_arg_num, (unsigned long) arg_num);
