@@ -707,8 +707,11 @@ check_classfn (tree ctype, tree function, tree template_parms)
   else if (!COMPLETE_TYPE_P (ctype))
     cxx_incomplete_type_error (function, ctype);
   else
-    error ("no %q#D member function declared in class %qT",
-	   function, ctype);
+    {
+      error ("no %q#D member function declared in class %qT",
+	     function, ctype);
+      return NULL_TREE;
+    }
 
   /* If we did not find the method in the class, add it to avoid
      spurious errors (unless the CTYPE is not yet defined, in which
@@ -880,7 +883,7 @@ grokfield (const cp_declarator *declarator,
       return void_type_node;
     }
 
-  if (asmspec_tree)
+  if (asmspec_tree && asmspec_tree != error_mark_node)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
   if (init)
