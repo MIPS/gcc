@@ -1471,7 +1471,7 @@ dbxout_type_method_1 (tree decl)
     c2 = '?';
   else /* it's a METHOD_TYPE.  */
     {
-      tree firstarg = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)));
+      tree firstarg = nth_parm_type (TYPE_ARG_TYPES (TREE_TYPE (decl)), 0);
       /* A for normal functions.
 	 B for `const' member functions.
 	 C for `volatile' member functions.
