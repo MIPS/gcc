@@ -59,17 +59,48 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.EventListenerList;
+import javax.swing.text.Position.Bias;
 
 /**
  * The default implementation of the {@link Caret} interface.
  *
- * @author orgininal author unknown
+ * @author original author unknown
  * @author Roman Kennke (roman@kennke.org)
  */
 public class DefaultCaret extends Rectangle
   implements Caret, FocusListener, MouseListener, MouseMotionListener
 {
+  
+  /** A text component in the current VM which currently has a
+   * text selection or <code>null</code>.
+   */ 
+  static JTextComponent componentWithSelection;
 
+  /** An implementation of NavigationFilter.FilterBypass which delegates
+   * to the corresponding methods of the <code>DefaultCaret</code>. 
+   * 
+   * @author Robert Schuster (robertschuster@fsfe.org)
+   */
+  class Bypass extends NavigationFilter.FilterBypass
+  {
+
+    public Caret getCaret()
+    {
+      return DefaultCaret.this;
+    }
+
+    public void moveDot(int dot, Bias bias)
+    {
+      DefaultCaret.this.moveDotImpl(dot);
+    }
+
+    public void setDot(int dot, Bias bias)
+    {
+      DefaultCaret.this.setDotImpl(dot);
+    }
+    
+  }
+  
   /**
    * Controls the blinking of the caret.
    *
@@ -185,13 +216,26 @@ public class DefaultCaret extends Rectangle
      */
     public void propertyChange(PropertyChangeEvent e)
     {
-      if (e.getPropertyName().equals("document"))
+      String name = e.getPropertyName(); 
+      
+      if (name.equals("document"))
         {
           Document oldDoc = (Document) e.getOldValue();
           oldDoc.removeDocumentListener(documentListener);
           Document newDoc = (Document) e.getNewValue();
           newDoc.addDocumentListener(documentListener);
         }
+      else if (name.equals("editable"))
+        {
+          active = (((Boolean) e.getNewValue()).booleanValue()
+                   && textComponent.isEnabled());
+        }
+      else if (name.equals("enabled"))
+        {
+          active = (((Boolean) e.getNewValue()).booleanValue()
+                   && textComponent.isEditable());
+        }
+      
     }
     
   }
@@ -250,8 +294,10 @@ public class DefaultCaret extends Rectangle
 
   /**
    * The text component in which this caret is installed.
+   * 
+   * (Package private to avoid synthetic accessor method.)
    */
-  private JTextComponent textComponent;
+  JTextComponent textComponent;
 
   /**
    * Indicates if the selection should be visible or not.
@@ -283,6 +329,12 @@ public class DefaultCaret extends Rectangle
    * package private to avoid an accessor method.
    */
   boolean visible = false;
+  
+  /** Indicates whether the text component where the caret is installed is
+   * editable and enabled. If either of these properties is <code>false</code>
+   * the caret is not drawn.
+   */ 
+  boolean active = true;
 
   /**
    * The current highlight entry.
@@ -294,11 +346,28 @@ public class DefaultCaret extends Rectangle
   private BlinkTimerListener blinkListener;
 
   /**
+   * A <code>NavigationFilter.FilterBypass</code> instance which
+   * is provided to the a <code>NavigationFilter</code> to
+   * unconditionally set or move the caret.
+   */
+  NavigationFilter.FilterBypass bypass;
+
+  /**
    * Creates a new <code>DefaultCaret</code> instance.
    */
   public DefaultCaret()
   {
     // Nothing to do here.
+  }
+  
+  /** Returns the caret's <code>NavigationFilter.FilterBypass</code> instance
+   * and creates it if it does not yet exist.
+   * 
+   * @return The caret's <code>NavigationFilter.FilterBypass</code> instance.
+   */
+  private NavigationFilter.FilterBypass getBypass()
+  {
+    return (bypass == null) ? bypass = new Bypass() : bypass;
   }
 
   /**
@@ -340,13 +409,23 @@ public class DefaultCaret extends Rectangle
   
   /**
    * Moves the caret position when the mouse is dragged over the text
-   * component, modifying the selection accordingly.
+   * component, modifying the selectiony.
+   * 
+   * <p>When the text component where the caret is installed is disabled,
+   * the selection is not change but you can still scroll the text and
+   * update the caret's location.</p>
    *
    * @param event the <code>MouseEvent</code> describing the drag operation
    */
   public void mouseDragged(MouseEvent event)
   {
-    moveCaret(event);
+    if (event.getButton() == MouseEvent.BUTTON1)
+      {
+        if (textComponent.isEnabled())
+          moveCaret(event);
+        else
+          positionCaret(event);
+      }
   }
 
   /**
@@ -377,9 +456,13 @@ public class DefaultCaret extends Rectangle
    */
   public void mouseClicked(MouseEvent event)
   {
+    // Do not modify selection if component is disabled.
+    if (!textComponent.isEnabled())
+      return;
+    
     int count = event.getClickCount();
     
-    if (count >= 2)
+    if (event.getButton() == MouseEvent.BUTTON1 && count >= 2)
       {
         int newDot = getComponent().viewToModel(event.getPoint());
         JTextComponent t = getComponent();
@@ -387,29 +470,42 @@ public class DefaultCaret extends Rectangle
         try
           {
             if (count == 3)
-              t.select(Utilities.getRowStart(t, newDot), Utilities.getRowEnd(t, newDot));
+              {
+                setDot(Utilities.getRowStart(t, newDot));
+                moveDot( Utilities.getRowEnd(t, newDot));
+              }
             else
               {
-                int nextWord = Utilities.getNextWord(t, newDot);
+                int wordStart = Utilities.getWordStart(t, newDot);
                 
                 // When the mouse points at the offset of the first character
                 // in a word Utilities().getPreviousWord will not return that
                 // word but we want to select that. We have to use
-                // Utilities.nextWord() to get it.
-                if (newDot == nextWord)
-                  t.select(nextWord, Utilities.getNextWord(t, nextWord));
+                // Utilities.getWordStart() to get it.
+                if (newDot == wordStart)
+                  {
+                    setDot(wordStart);
+                    moveDot(Utilities.getWordEnd(t, wordStart));
+                  }
                 else
                   {
+                    int nextWord = Utilities.getNextWord(t, newDot);
                     int previousWord = Utilities.getPreviousWord(t, newDot);
                     int previousWordEnd = Utilities.getWordEnd(t, previousWord);
                     
                     // If the user clicked in the space between two words,
                     // then select the space.
                     if (newDot >= previousWordEnd && newDot <= nextWord)
-                      t.select(previousWordEnd, nextWord);
+                      {
+                        setDot(previousWordEnd);
+                        moveDot(nextWord);
+                      }
                     // Otherwise select the word under the mouse pointer.
                     else
-                      t.select(previousWord, previousWordEnd);
+                      {
+                        setDot(previousWord);
+                        moveDot(previousWordEnd);
+                      }
                   }
               }
           }
@@ -417,8 +513,6 @@ public class DefaultCaret extends Rectangle
           {
             // TODO: Swallowing ok here?
           }
-        
-        dot = newDot;
       }
     
   }
@@ -455,10 +549,36 @@ public class DefaultCaret extends Rectangle
    */
   public void mousePressed(MouseEvent event)
   {
-    if (event.isShiftDown())
-      moveCaret(event);
-    else
-      positionCaret(event);
+    int button = event.getButton();
+    
+    // The implementation assumes that consuming the event makes the AWT event
+    // mechanism forget about this event instance and not transfer focus.
+    // By observing how the RI reacts the following behavior has been
+    // implemented (in regard to text components):
+    // - a left-click moves the caret
+    // - a left-click when shift is held down expands the selection
+    // - a right-click or click with any additional mouse button
+    //   on a text component is ignored
+    // - a middle-click positions the caret and pastes the clipboard
+    //   contents.
+    // - a middle-click when shift is held down is ignored
+    
+    if (button == MouseEvent.BUTTON1)
+      if (event.isShiftDown())
+        moveCaret(event);
+      else
+        positionCaret(event);
+      else if(button == MouseEvent.BUTTON2)
+        if (event.isShiftDown())
+          event.consume();
+        else
+          {
+            positionCaret(event);
+            
+            textComponent.paste();
+          }
+      else
+        event.consume();
   }
 
   /**
@@ -479,8 +599,11 @@ public class DefaultCaret extends Rectangle
    */
   public void focusGained(FocusEvent event)
   {
-    setVisible(true);    
-    updateTimerStatus();
+    if (textComponent.isEditable())
+      {
+        setVisible(true);    
+        updateTimerStatus();
+      }
   }
 
   /**
@@ -490,9 +613,10 @@ public class DefaultCaret extends Rectangle
    */
   public void focusLost(FocusEvent event)
   {
-    if (event.isTemporary() == false)
+    if (textComponent.isEditable() && event.isTemporary() == false)
       {
         setVisible(false);
+        
         // Stop the blinker, if running.
         if (blinkTimer != null && blinkTimer.isRunning())
           blinkTimer.stop();
@@ -585,6 +709,7 @@ public class DefaultCaret extends Rectangle
     textComponent.addPropertyChangeListener(propertyChangeListener);
     documentListener = new DocumentHandler();
     textComponent.getDocument().addDocumentListener(documentListener);
+    active = textComponent.isEditable() && textComponent.isEnabled();
 
     repaint();
   }
@@ -636,10 +761,13 @@ public class DefaultCaret extends Rectangle
       {
     try
       {
-        if (highlightEntry == null)
-          highlightEntry = highlighter.addHighlight(0, 0, getSelectionPainter());
-        else
+        if (highlightEntry != null)
           highlighter.changeHighlight(highlightEntry, 0, 0);
+        
+        // Free the global variable which stores the text component with an active
+        // selection.
+        if (componentWithSelection == textComponent)
+          componentWithSelection = null;
       }
     catch (BadLocationException e)
       {
@@ -675,6 +803,17 @@ public class DefaultCaret extends Rectangle
 	      highlightEntry = highlighter.addHighlight(p0, p1, getSelectionPainter());
 	    else
 	      highlighter.changeHighlight(highlightEntry, p0, p1);
+            
+            // If another component currently has a text selection clear that selection
+            // first.
+            if (componentWithSelection != null)
+              if (componentWithSelection != textComponent)
+                {
+                  Caret c = componentWithSelection.getCaret();
+                  c.setDot(c.getDot());
+                }
+            componentWithSelection = textComponent;
+            
 	  }
 	catch (BadLocationException e)
 	  {
@@ -773,10 +912,10 @@ public class DefaultCaret extends Rectangle
       }
 
     // Now draw the caret on the new position if visible.
-    if (visible)
+    if (visible && active)
       {
         g.setColor(textComponent.getCaretColor());
-        g.drawLine(rect.x, rect.y, rect.x, rect.y + rect.height);
+        g.drawLine(rect.x, rect.y, rect.x, rect.y + rect.height - 1);
       }
   }
 
@@ -888,11 +1027,23 @@ public class DefaultCaret extends Rectangle
    * Moves the <code>dot</code> location without touching the
    * <code>mark</code>. This is used when making a selection.
    *
+   * <p>If the underlying text component has a {@link NavigationFilter}
+   * installed the caret will call the corresponding method of that object.</p>
+   * 
    * @param dot the location where to move the dot
    *
    * @see #setDot(int)
    */
   public void moveDot(int dot)
+  {
+    NavigationFilter filter = textComponent.getNavigationFilter();
+    if (filter != null)
+      filter.moveDot(getBypass(), dot, Bias.Forward);
+    else
+      moveDotImpl(dot);
+  }
+  
+  void moveDotImpl(int dot)
   {
     if (dot >= 0)
       {
@@ -902,8 +1053,10 @@ public class DefaultCaret extends Rectangle
         this.dot = Math.max(this.dot, 0);
         
         handleHighlight();
-        adjustVisibility(this);
+
         appear();
+
+        adjustVisibility(this);
       }
   }
 
@@ -912,11 +1065,23 @@ public class DefaultCaret extends Rectangle
    * <code>Document</code>. This also sets the <code>mark</code> to the new
    * location.
    * 
+   * <p>If the underlying text component has a {@link NavigationFilter}
+   * installed the caret will call the corresponding method of that object.</p>
+   * 
    * @param dot
    *          the new position to be set
    * @see #moveDot(int)
    */
   public void setDot(int dot)
+  {
+    NavigationFilter filter = textComponent.getNavigationFilter();
+    if (filter != null)
+      filter.setDot(getBypass(), dot, Bias.Forward);
+    else
+      setDotImpl(dot);
+  }
+  
+  void setDotImpl(int dot)
   {
     if (dot >= 0)
       {        
@@ -927,8 +1092,10 @@ public class DefaultCaret extends Rectangle
         this.mark = this.dot;
         
         clearHighlight();
-        adjustVisibility(this);
+        
         appear();
+        
+        adjustVisibility(this);
       }
   }
   
@@ -981,7 +1148,7 @@ public class DefaultCaret extends Rectangle
    */
   public boolean isVisible()
   {
-    return visible;
+    return visible && active;
   }
 
   /**
@@ -1043,7 +1210,16 @@ public class DefaultCaret extends Rectangle
     // must set a valid value here, since otherwise the painting mechanism
     // sets a zero clip and never calls paint.
     if (height <= 0)
-      height = getComponent().getHeight();
+      try
+        {
+          height = textComponent.modelToView(dot).height;
+        }
+      catch (BadLocationException ble)
+        {
+          // Should not happen.
+          throw new InternalError("Caret location not within document range.");
+        }
+      
     repaint();
   }
 
@@ -1068,4 +1244,5 @@ public class DefaultCaret extends Rectangle
     blinkTimer = new Timer(getBlinkRate(), blinkListener);
     blinkTimer.setRepeats(true);
   }
+  
 }

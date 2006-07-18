@@ -47,12 +47,10 @@ struct lpt_decision
 
 struct nb_iter_bound
 {
-  tree bound;		/* The expression whose value is an upper bound on the
-			   number of executions of anything after ...  */
-  tree at_stmt;		/* ... this statement during one execution of loop.  */
-  tree additional;	/* A conjunction of conditions the operands of BOUND
-			   satisfy.  The additional information about the value
-			   of the bound may be derived from it.  */
+  tree bound;		/* The constant expression whose value is an upper
+			   bound on the number of executions of ...  */
+  tree at_stmt;		/* ... this statement during one execution of
+			   a loop.  */
   struct nb_iter_bound *next;
 			/* The next bound in a list.  */
 };
@@ -272,7 +270,7 @@ extern bool remove_path (struct loops *, edge);
 
    If first_special is true, the value in the first iteration is
      delta + mult * base
-     
+
    If extend = UNKNOWN, first_special must be false, delta 0, mult 1 and value is
      subreg_{mode} (base + i * step)
 

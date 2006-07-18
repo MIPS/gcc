@@ -1,23 +1,66 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
+GLIBJ_CLASSPATH='$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
+
 # Setup the compiler to use the GNU Classpath library we just build
 if FOUND_GCJ
-JCOMPILER = $(GCJ) --bootclasspath '$(top_builddir)/lib' --classpath . -C
+JCOMPILER = $(GCJ) -encoding UTF-8 --bootclasspath $(GLIBJ_CLASSPATH) --classpath . -C
 else
 if FOUND_JIKES
-JCOMPILER = $(JIKES) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(top_builddir)/lib:.
+JCOMPILER = $(JIKES) $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_GCJX
-JCOMPILER = $(GCJX) -bootclasspath '' -sourcepath '' -classpath $(top_builddir)/lib:.
+JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_ECJ
-JCOMPILER = $(ECJ) -bootclasspath '$(top_builddir)/lib' -classpath .
+JCOMPILER = $(ECJ) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
 else
 error dunno how to setup the JCOMPILER and compile
 endif
 endif
 endif
 endif
+
+if CREATE_WRAPPERS
+bin_SCRIPTS =
+bin_PROGRAMS = appletviewer jarsigner keytool
+
+if FOUND_GCJ
+LIBJVM = -lgcj
+else
+if FOUND_CACAO
+LIBJVM = -ljvm
+else
+LIBJVM =
+endif
+endif
+
+appletviewer_SOURCES = toolwrapper.c
+appletviewer_CFLAGS = -Wall \
+	-DDATA_DIR="\"$(datadir)\"" \
+	-DPACKAGE="\"$(PACKAGE)\"" \
+	-DTOOLNAME="\"appletviewer\""
+appletviewer_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+jarsigner_SOURCES = toolwrapper.c
+jarsigner_CFLAGS = -Wall \
+	-DDATA_DIR="\"$(datadir)\"" \
+	-DPACKAGE="\"$(PACKAGE)\"" \
+	-DTOOLNAME="\"jarsigner\""
+jarsigner_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+keytool_SOURCES = toolwrapper.c
+keytool_CFLAGS = -Wall \
+	-DDATA_DIR="\"$(datadir)\"" \
+	-DPACKAGE="\"$(PACKAGE)\"" \
+	-DTOOLNAME="\"keytool\""
+keytool_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+else
+bin_SCRIPTS = appletviewer jarsigner keytool
+bin_PROGRAMS =
+endif
+EXTRA_DIST = toolwrapper.c appletviewer.in jarsigner.in keytool.in
 
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*.java $(srcdir)/gnu/classpath/tools/*/*.java $(srcdir)/gnu/classpath/tools/*/*/*.java
@@ -30,7 +73,7 @@ TOOLS_ZIP = tools.zip
 BUILT_SOURCES = $(TOOLS_ZIP)
 
 # The templates that must be included into the generated zip file.
-GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav 
+GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav
 RMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/rmi/rmic/templates/*.jav
 
 TOOLS_TEMPLATES = $(GRMIC_TEMPLATES) $(RMIC_TEMPLATES)
@@ -48,36 +91,12 @@ READMES = $(srcdir)/gnu/classpath/tools/giop/README
 ALL_TOOLS_FILES = $(TOOLS_JAVA_FILES) $(TOOLS_TEMPLATES) $(TOOLS_HELPS) $(READMES)
 
 # Some architecture independent data to be installed.
-TOOLS_DATA = $(TOOLS_ZIP)
+TOOLS_DATA = $(TOOLS_ZIP) README
 
 # Where we want these data files installed.
-TOOLSdir = $(pkgdatadir)/tools
-
-# Make sure all sources and icons are also installed so users can use them.
-# (Be careful to strip off the srcdir part of the path when installing.)
-install-data-local:
-	srcdir_cnt=`echo $(srcdir) | wc -c`; \
-	for file in $(ALL_TOOLS_FILES); do \
-	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
-	  fdir=`dirname $$f`; \
-	  if test ! -d $(DESTDIR)$(pkgdatadir)/tools/$$fdir; then \
-	    echo "$(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/tools/$$fdir"; \
-	    $(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/tools/$$fdir; \
-	  fi; \
-	  echo "$(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/tools/$$f"; \
-	  $(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/tools/$$f; \
-	done
-
-uninstall-local:
-	srcdir_cnt=`echo $(srcdir) | wc -c`; \
-	for file in $(ALL_TOOLS_FILES); do \
-	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
-	  echo "rm -f $(DESTDIR)$(pkgdatadir)/tools/$$f"; \
-	  rm -f $(DESTDIR)$(pkgdatadir)/tools/$$f; \
-	done
+TOOLSdir = $(pkgdatadir)
 
 # Make sure everything is included in the distribution.
-EXTRA_DIST = Makefile.am
 dist-hook:
 	srcdir_cnt=`echo $(srcdir) | wc -c`; \
 	for file in $(ALL_TOOLS_FILES); do \
@@ -91,17 +110,21 @@ dist-hook:
 	  cp -p $$file $(distdir)/$$f; \
 	done
 
-# To generate the example zip just depend on the sources and ignore the
-# class files. Always regenerate all .class files and remove them immediatly.
-# And copy the template files we use to the classes dir so they get also included.
+# To generate the example zip just depend on the sources and ignore
+# the class files. Always regenerate all .class files and remove them
+# immediately.  And copy the template files we use to the classes dir
+# so they get also included.
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	mkdir -p classes/gnu/classpath/tools/giop/grmic/templates
 	mkdir -p classes/gnu/classpath/tools/rmi/rmic/templates
+	mkdir -p classes/gnu/classpath/tools/appletviewer
+	mkdir -p classes/gnu/classpath/tools/jarsigner
+	mkdir -p classes/gnu/classpath/tools/keytool
 	cp $(RMIC_TEMPLATES) classes/gnu/classpath/tools/rmi/rmic/templates
-	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates	
+	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates
 	cp $(RMI_HELPS) classes/gnu/classpath/tools/rmi/
 	cp $(GIOP_HELPS) classes/gnu/classpath/tools/giop/
-	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES) 
+	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES)
 	(cd classes; \
 	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
 	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
@@ -111,3 +134,7 @@ $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
 	rm -rf $(TOOLS_ZIP) classes
+
+# FIXME: remove this when GNU Classpath includes a bootstrap VM.
+installcheck-binSCRIPTS:
+	:

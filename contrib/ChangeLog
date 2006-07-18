@@ -1,3 +1,20 @@
+2006-06-05  James Lemke  <jwlemke@wasabisystems.com>
+
+	* dg-cmp-results.sh: New script for comparing DejaGNU logs.
+
+2006-06-02  Richard Earnshaw  <rearnsha@arm.com>
+	    Mike Stump  <mrs@apple.com>
+
+	* compare_tests: Handle multilibs better.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* texi2pod.pl: Correct handling of absolute @include.
+
+2006-05-02  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* texi2pod.pl: Handle -I.
+
 2006-02-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* gennews (files): Update for GCC 4.1.

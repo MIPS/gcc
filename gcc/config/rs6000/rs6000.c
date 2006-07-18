@@ -1194,6 +1194,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power5+", PROCESSOR_POWER5,
 	  POWERPC_BASE_MASK | MASK_POWERPC64 | MASK_PPC_GFXOPT
 	  | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND},
+ 	 {"power6", PROCESSOR_POWER5,
+	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_MFCRF | MASK_POPCNTB
+	  | MASK_FPRND},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1349,6 +1352,11 @@ rs6000_override_options (const char *default_cpu)
       /* Default to natural alignment, for better performance.  */
       rs6000_alignment_flags = MASK_ALIGN_NATURAL;
     }
+
+  /* Place FP constants in the constant pool instead of TOC
+     if section anchors enabled.  */
+  if (flag_section_anchors)
+    TARGET_NO_FP_IN_TOC = 1;
 
   /* Handle -mtls-size option.  */
   rs6000_parse_tls_size_option ();
@@ -1621,6 +1629,12 @@ optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 
   /* Double growth factor to counter reduced min jump length.  */
   set_param_value ("max-grow-copy-bb-insns", 16);
+
+  /* Enable section anchors by default.
+     Skip section anchors for Objective C and Objective C++
+     until front-ends fixed.  */
+  if (!TARGET_MACHO && lang_hooks.name[4] != 'O')
+    flag_section_anchors = 1;
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -2108,6 +2122,20 @@ num_insns_constant (rtx op, enum machine_mode mode)
     }
 }
 
+/* Interpret element ELT of the CONST_VECTOR OP as an integer value.
+   If the mode of OP is MODE_VECTOR_INT, this simply returns the
+   corresponding element of the vector, but for V4SFmode and V2SFmode,
+   the corresponding "float" is interpreted as an SImode integer.  */
+
+static HOST_WIDE_INT
+const_vector_elt_as_int (rtx op, unsigned int elt)
+{
+  rtx tmp = CONST_VECTOR_ELT (op, elt);
+  if (GET_MODE (op) == V4SFmode
+      || GET_MODE (op) == V2SFmode)
+    tmp = gen_lowpart (SImode, tmp);
+  return INTVAL (tmp);
+}
 
 /* Return true if OP can be synthesized with a particular vspltisb, vspltish
    or vspltisw instruction.  OP is a CONST_VECTOR.  Which instruction is used
@@ -2127,8 +2155,7 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   unsigned bitsize = GET_MODE_BITSIZE (inner);
   unsigned mask = GET_MODE_MASK (inner);
 
-  rtx last = CONST_VECTOR_ELT (op, nunits - 1);
-  HOST_WIDE_INT val = INTVAL (last);
+  HOST_WIDE_INT val = const_vector_elt_as_int (op, nunits - 1);
   HOST_WIDE_INT splat_val = val;
   HOST_WIDE_INT msb_val = val > 0 ? 0 : -1;
 
@@ -2168,7 +2195,7 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
       else
 	desired_val = msb_val;
 
-      if (desired_val != INTVAL (CONST_VECTOR_ELT (op, i)))
+      if (desired_val != const_vector_elt_as_int (op, i))
 	return false;
     }
 
@@ -3452,7 +3479,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && constant_pool_expr_p (x)
       && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
-      (x) = create_TOC_reference (x);
+      x = create_TOC_reference (x);
       *win = 1;
       return x;
     }
@@ -3522,6 +3549,23 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
+  if (GET_CODE (x) == PRE_MODIFY
+      && mode != TImode
+      && mode != TFmode
+      && ((TARGET_HARD_FLOAT && TARGET_FPRS)
+	  || TARGET_POWERPC64
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && !ALTIVEC_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
+      && TARGET_UPDATE
+      && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
+      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
+	  || legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict))
+      && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
+    return 1;
   if (legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
   return 0;
@@ -3556,6 +3600,7 @@ rs6000_mode_dependent_address (rtx addr)
 
     case PRE_INC:
     case PRE_DEC:
+    case PRE_MODIFY:
       return TARGET_UPDATE;
 
     default:
@@ -10386,6 +10431,9 @@ print_operand (FILE *file, rtx x, int code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
 					   UNITS_PER_WORD));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1),
+					   UNITS_PER_WORD));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode,
 						     UNITS_PER_WORD),
@@ -10586,7 +10634,8 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `u' if this has an auto-increment or auto-decrement.  */
       if (GET_CODE (x) == MEM
 	  && (GET_CODE (XEXP (x, 0)) == PRE_INC
-	      || GET_CODE (XEXP (x, 0)) == PRE_DEC))
+	      || GET_CODE (XEXP (x, 0)) == PRE_DEC
+	      || GET_CODE (XEXP (x, 0)) == PRE_MODIFY))
 	putc ('u', file);
       return;
 
@@ -10673,7 +10722,9 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'X':
       if (GET_CODE (x) == MEM
-	  && legitimate_indexed_address_p (XEXP (x, 0), 0))
+	  && (legitimate_indexed_address_p (XEXP (x, 0), 0)
+	      || (GET_CODE (XEXP (x, 0)) == PRE_MODIFY
+		  && legitimate_indexed_address_p (XEXP (XEXP (x, 0), 1), 0))))
 	putc ('x', file);
       return;
 
@@ -10686,6 +10737,8 @@ print_operand (FILE *file, rtx x, int code)
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1), 8));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 8), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
@@ -10733,6 +10786,8 @@ print_operand (FILE *file, rtx x, int code)
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 1), 12));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 12), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
@@ -10809,6 +10864,8 @@ print_operand (FILE *file, rtx x, int code)
 	  else if (GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    fprintf (file, "%d(%s)", - GET_MODE_SIZE (GET_MODE (x)),
 		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (XEXP (XEXP (x, 0), 1));
 	  else
 	    output_address (XEXP (x, 0));
 	}
@@ -17305,9 +17362,8 @@ rs6000_trampoline_size (void)
 void
 rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
 {
-  enum machine_mode pmode = Pmode;
   int regsize = (TARGET_32BIT) ? 4 : 8;
-  rtx ctx_reg = force_reg (pmode, cxt);
+  rtx ctx_reg = force_reg (Pmode, cxt);
 
   switch (DEFAULT_ABI)
     {
@@ -17315,15 +17371,15 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
       gcc_unreachable ();
 
 /* Macros to shorten the code expansions below.  */
-#define MEM_DEREF(addr) gen_rtx_MEM (pmode, memory_address (pmode, addr))
+#define MEM_DEREF(addr) gen_rtx_MEM (Pmode, memory_address (Pmode, addr))
 #define MEM_PLUS(addr,offset) \
-  gen_rtx_MEM (pmode, memory_address (pmode, plus_constant (addr, offset)))
+  gen_rtx_MEM (Pmode, memory_address (Pmode, plus_constant (addr, offset)))
 
     /* Under AIX, just build the 3 word function descriptor */
     case ABI_AIX:
       {
-	rtx fn_reg = gen_reg_rtx (pmode);
-	rtx toc_reg = gen_reg_rtx (pmode);
+	rtx fn_reg = gen_reg_rtx (Pmode);
+	rtx toc_reg = gen_reg_rtx (Pmode);
 	emit_move_insn (fn_reg, MEM_DEREF (fnaddr));
 	emit_move_insn (toc_reg, MEM_PLUS (fnaddr, regsize));
 	emit_move_insn (MEM_DEREF (addr), fn_reg);
@@ -17335,12 +17391,12 @@ rs6000_initialize_trampoline (rtx addr, rtx fnaddr, rtx cxt)
     /* Under V.4/eabi/darwin, __trampoline_setup does the real work.  */
     case ABI_DARWIN:
     case ABI_V4:
-      emit_library_call (gen_rtx_SYMBOL_REF (SImode, "__trampoline_setup"),
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__trampoline_setup"),
 			 FALSE, VOIDmode, 4,
-			 addr, pmode,
+			 addr, Pmode,
 			 GEN_INT (rs6000_trampoline_size ()), SImode,
-			 fnaddr, pmode,
-			 ctx_reg, pmode);
+			 fnaddr, Pmode,
+			 ctx_reg, Pmode);
       break;
     }
 
@@ -17528,6 +17584,10 @@ rs6000_set_default_type_attributes (tree type)
     TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("longcall"),
 					NULL_TREE,
 					TYPE_ATTRIBUTES (type));
+
+#if TARGET_MACHO
+  darwin_set_default_type_attributes (type);
+#endif
 }
 
 /* Return a reference suitable for calling a function with the

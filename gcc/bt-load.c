@@ -242,7 +242,7 @@ insn_sets_btr_p (rtx insn, int check_const, int *regno)
 	  && TEST_HARD_REG_BIT (all_btrs, REGNO (dest)))
 	{
 	  gcc_assert (!btr_referenced_p (src, NULL));
-	  
+
 	  if (!check_const || CONSTANT_P (src))
 	    {
 	      if (regno)
@@ -926,12 +926,12 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
       int new_block = new_bb->index;
 
       gcc_assert (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb));
-  
+
       IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[head_bb->index]);
       bitmap_set_bit (live_range, new_block);
       /* A previous btr migration could have caused a register to be
-        live just at the end of new_block which we need in full, so
-        use trs_live_at_end even if full_range is set.  */
+	live just at the end of new_block which we need in full, so
+	use trs_live_at_end even if full_range is set.  */
       IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live_at_end[new_block]);
       if (full_range)
 	IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[new_block]);
@@ -1194,7 +1194,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
       insp = BB_END (b);
       for (insp = BB_END (b); ! INSN_P (insp); insp = PREV_INSN (insp))
 	gcc_assert (insp != BB_HEAD (b));
-      
+
       if (JUMP_P (insp) || can_throw_internal (insp))
 	insp = PREV_INSN (insp);
     }
@@ -1341,6 +1341,15 @@ migrate_btr_def (btr_def def, int min_cost)
       /* Try to move the instruction that sets the target register into
 	 basic block TRY.  */
       int try_freq = basic_block_freq (try);
+      edge_iterator ei;
+      edge e;
+
+      /* If TRY has abnormal edges, skip it.  */
+      FOR_EACH_EDGE (e, ei, try->succs)
+	if (e->flags & EDGE_COMPLEX)
+	  break;
+      if (e)
+	continue;
 
       if (dump_file)
 	fprintf (dump_file, "trying block %d ...", try->index);
@@ -1459,7 +1468,7 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
   if (class != NO_REGS)
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_ur_add_problem (df, 0);
+      df_clrur_add_problem (df, 0);
 
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)
@@ -1549,7 +1558,7 @@ rest_of_handle_branch_target_load_optimize2 (void)
       && !warned)
     {
       warning (0, "branch target register load optimization is not intended "
-                  "to be run twice");
+		  "to be run twice");
 
       warned = 1;
     }
@@ -1566,7 +1575,7 @@ struct tree_opt_pass pass_branch_target_load_optimize2 =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,		                        /* tv_id */
+  0,					/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

@@ -3228,12 +3228,24 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 static unsigned long
 size_of_locs (dw_loc_descr_ref loc)
 {
+  dw_loc_descr_ref l;
   unsigned long size;
 
-  for (size = 0; loc != NULL; loc = loc->dw_loc_next)
+  /* If there are no skip or bra opcodes, don't fill in the dw_loc_addr
+     field, to avoid writing to a PCH file.  */
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
     {
-      loc->dw_loc_addr = size;
-      size += size_of_loc_descr (loc);
+      if (l->dw_loc_opc == DW_OP_skip || l->dw_loc_opc == DW_OP_bra)
+	break;
+      size += size_of_loc_descr (l);
+    }
+  if (! l)
+    return size;
+
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
+    {
+      l->dw_loc_addr = size;
+      size += size_of_loc_descr (l);
     }
 
   return size;
@@ -7220,14 +7232,12 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
     }
 }
 
-/* The DWARF2 pubname for a nested thingy looks like "A::f".  The
-   output of lang_hooks.decl_printable_name for C++ looks like
-   "A::f(int)".  Let's drop the argument list, and maybe the scope.  */
+/* Return the DWARF2/3 pubname associated with a decl.  */
 
 static const char *
 dwarf2_name (tree decl, int scope)
 {
-  return lang_hooks.decl_printable_name (decl, scope ? 1 : 0);
+  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -8465,7 +8475,13 @@ dbx_reg_number (rtx rtl)
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
-  regno = LEAF_REG_REMAP (regno);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (regno);
+    if (leaf_reg != -1)
+      regno = (unsigned) leaf_reg;
+  }
 #endif
 
   return DBX_REGISTER_NUMBER (regno);
@@ -8534,7 +8550,13 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 
   reg = REGNO (rtl);
 #ifdef LEAF_REG_REMAP
-  reg = LEAF_REG_REMAP (reg);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (reg);
+    if (leaf_reg != -1)
+      reg = (unsigned) leaf_reg;
+  }
 #endif
   gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
@@ -13830,7 +13852,18 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
   return 1;
 }
 
+#if ENABLE_ASSERT_CHECKING
+/* Verify that all marks are clear.  */
 
+static void
+verify_marks_clear (dw_die_ref die)
+{
+  dw_die_ref c;
+  
+  gcc_assert (! die->die_mark);
+  FOR_EACH_CHILD (die, c, verify_marks_clear (c));
+}
+#endif /* ENABLE_ASSERT_CHECKING */
 
 /* Clear the marks for a die and its children.
    Be cool if the mark isn't set.  */
@@ -13844,7 +13877,6 @@ prune_unmark_dies (dw_die_ref die)
     die->die_mark = 0;
   FOR_EACH_CHILD (die, c, prune_unmark_dies (c));
 }
-
 
 /* Given DIE that we're marking as used, find any other dies
    it references as attributes and mark them as used.  */
@@ -14046,10 +14078,12 @@ prune_unused_types (void)
   unsigned int i;
   limbo_die_node *node;
 
-  /* Clear all the marks.  */
-  prune_unmark_dies (comp_unit_die);
+#if ENABLE_ASSERT_CHECKING
+  /* All the marks should already be clear.  */
+  verify_marks_clear (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
-    prune_unmark_dies (node->die);
+    verify_marks_clear (node->die);
+#endif /* ENABLE_ASSERT_CHECKING */
 
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die);

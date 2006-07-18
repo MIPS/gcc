@@ -45,9 +45,10 @@ struct df_link;
 #define DF_RD    2      /* Reaching Defs. */
 #define DF_LR    3      /* Live Registers. */
 #define DF_UR    4      /* Uninitialized Registers. */
-#define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
-#define DF_CHAIN 6      /* Def-Use and/or Use-Def Chains. */
-#define DF_RI    7      /* Register Info. */
+#define DF_CLRUR 5      /* Live Registers & Uninitialized Registers */
+#define DF_UREC  6      /* Uninitialized Registers with Early Clobber. */
+#define DF_CHAIN 7      /* Def-Use and/or Use-Def Chains. */
+#define DF_RI    8      /* Register Info. */
 #define DF_LAST_PROBLEM_PLUS1 (DF_RI + 1)
 
 
@@ -94,15 +95,34 @@ enum df_ref_flags
     /* This flag is set if the use is inside a REG_EQUAL note.  */
     DF_REF_IN_NOTE = 16,
 
-    /* This flag is set if this ref is really a clobber, and not a def.  */
-    DF_REF_CLOBBER = 32,
+    /* This flag is set if this ref, generally a def, may clobber the
+       referenced register.  This is generally only set for hard
+       registers that cross a call site.  With better information
+       about calls, some of these could be changed in the future to
+       DF_REF_MUST_CLOBBER.  */
+    DF_REF_MAY_CLOBBER = 32,
+
+    /* This flag is set if this ref, generally a def, is a real
+       clobber. This is not currently set for registers live across a
+       call because that clobbering may or may not happen.  
+
+       Most of the uses of this are with sets that have a
+       GET_CODE(..)==CLOBBER.  Note that this is set even if the
+       clobber is to a subreg.  So in order to tell if the clobber
+       wipes out the entire register, it is necessary to also check
+       the DF_REF_PARTIAL flag.  */
+    DF_REF_MUST_CLOBBER = 64,
 
     /* This bit is true if this ref is part of a multiword hardreg.  */
-    DF_REF_MW_HARDREG = 64,
+    DF_REF_MW_HARDREG = 128,
 
     /* This flag is set if this ref is a partial use or def of the
        associated register.  */
-    DF_REF_PARTIAL = 128
+    DF_REF_PARTIAL = 256,
+    
+    /* This flag is set if this ref occurs inside of a conditional
+       execution instruction.  */
+    DF_REF_CONDITIONAL = 512
   };
 
 
@@ -225,7 +245,7 @@ struct dataflow
 
 /* The set of multiword hardregs used as operands to this
    instruction. These are factored into individual uses and defs but
-   the aggrigate is still needed to service the REG_DEAD and
+   the aggregate is still needed to service the REG_DEAD and
    REG_UNUSED notes.  */
 struct df_mw_hardreg
 {
@@ -374,12 +394,12 @@ struct df
 #define DF_LR_BB_INFO(DF, BB) (df_lr_get_bb_info((DF)->problems_by_index[DF_LR],(BB)->index))
 #define DF_UR_BB_INFO(DF, BB) (df_ur_get_bb_info((DF)->problems_by_index[DF_UR],(BB)->index))
 #define DF_UREC_BB_INFO(DF, BB) (df_urec_get_bb_info((DF)->problems_by_index[DF_UREC],(BB)->index))
+#define DF_CLRUR_BB_INFO(DF, BB) (df_clrur_get_bb_info((DF)->problems_by_index[DF_CLRUR],(BB)->index))
 
 /* Most transformations that wish to use live register analysis will
-   use these macros.  The DF_UPWARD_LIVE* macros are only half of the
-   solution.  */
-#define DF_LIVE_IN(DF, BB) (DF_UR_BB_INFO(DF, BB)->in) 
-#define DF_LIVE_OUT(DF, BB) (DF_UR_BB_INFO(DF, BB)->out) 
+   use these macros.  This info is the and of the lr and ur sets.  */
+#define DF_LIVE_IN(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->in) 
+#define DF_LIVE_OUT(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->out) 
 
 
 /* Live in for register allocation also takes into account several other factors.  */
@@ -389,8 +409,13 @@ struct df
 /* These macros are currently used by only reg-stack since it is not
    tolerant of uninitialized variables.  This intolerance should be
    fixed because it causes other problems.  */ 
-#define DF_UPWARD_LIVE_IN(DF, BB) (DF_LR_BB_INFO(DF, BB)->in) 
-#define DF_UPWARD_LIVE_OUT(DF, BB) (DF_LR_BB_INFO(DF, BB)->out) 
+#define DF_LR_IN(DF, BB) (DF_LR_BB_INFO(DF, BB)->in) 
+#define DF_LR_OUT(DF, BB) (DF_LR_BB_INFO(DF, BB)->out) 
+
+/* These macros are currently used by only combine which needs to know
+   what is really uninitialized.  */ 
+#define DF_UR_IN(DF, BB) (DF_UR_BB_INFO(DF, BB)->in) 
+#define DF_UR_OUT(DF, BB) (DF_UR_BB_INFO(DF, BB)->out) 
 
 
 /* Macros to access the elements within the ref structure.  */
@@ -419,7 +444,7 @@ struct df
 /* Macros to determine the reference type.  */
 
 #define DF_REF_REG_DEF_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_DEF)
-#define DF_REF_REG_USE_P(REF) ((REF) && ! DF_REF_REG_DEF_P (REF))
+#define DF_REF_REG_USE_P(REF) ((REF) && !DF_REF_REG_DEF_P (REF))
 #define DF_REF_REG_MEM_STORE_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_STORE)
 #define DF_REF_REG_MEM_LOAD_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_MEM_LOAD)
 #define DF_REF_REG_MEM_P(REF) (DF_REF_REG_MEM_STORE_P (REF) \
@@ -484,55 +509,94 @@ struct df_scan_bb_info
 };
 
 
-/* Reaching uses.  */
+/* Reaching uses.  All bitmaps are indexed by the id field of the ref
+   except sparse_kill (see below).  */
 struct df_ru_bb_info 
 {
+  /* Local sets to describe the basic blocks.  */
+  /* The kill set is the set of uses that are killed in this block.
+     However, if the number of uses for this register is greater than
+     DF_SPARSE_THRESHOLD, the sparse_kill is used instead. In
+     sparse_kill, each register gets a slot and a 1 in this bitvector
+     means that all of the uses of that register are killed.  This is
+     a very useful efficiency hack in that it keeps from having push
+     around big groups of 1s.  This is implemented by the
+     bitmap_clear_range call.  */
+
   bitmap kill;
   bitmap sparse_kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  bitmap gen;   /* The set of uses generated in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Reaching definitions.  */
+/* Reaching definitions.  All bitmaps are indexed by the id field of
+   the ref except sparse_kill (see above).  */
 struct df_rd_bb_info 
 {
-  bitmap kill;
+  /* Local sets to describe the basic blocks.  See the note in the RU
+     datastructures for kill and sparse_kill.  */
+  bitmap kill;  
   bitmap sparse_kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  bitmap gen;   /* The set of defs generated in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Live registers.  */
+/* Live registers.  All bitmaps are referenced by the register number.  */
 struct df_lr_bb_info 
 {
-  bitmap def;
-  bitmap use;
-  bitmap in;
-  bitmap out;
+  /* Local sets to describe the basic blocks.  */
+  bitmap def;   /* The set of registers set in this block.  */
+  bitmap use;   /* The set of registers used in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
-/* Uninitialized registers.  */
+/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
 struct df_ur_bb_info 
 {
-  bitmap kill;
-  bitmap gen;
-  bitmap in;
-  bitmap out;
+  /* Local sets to describe the basic blocks.  */
+  bitmap kill;  /* The set of registers unset in this block.  Calls,
+		   for instance, unset registers.  */
+  bitmap gen;   /* The set of registers set in this block.  */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
-/* Uninitialized registers.  */
+/* Anded results of LR and UR.  */
+struct df_clrur_bb_info 
+{
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
+};
+
+
+/* Uninitialized registers.  All bitmaps are referenced by the register number.  */
 struct df_urec_bb_info 
 {
-  bitmap earlyclobber;
+  /* Local sets to describe the basic blocks.  */
+  bitmap earlyclobber;  /* The set of registers that are referenced
+			   with an an early clobber mode.  */
+  /* Kill and gen are defined as in the UR problem.  */
   bitmap kill;
   bitmap gen;
-  bitmap in;
-  bitmap out;
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* At the top of the block.  */
+  bitmap out;   /* At the bottom of the block.  */
 };
 
 
@@ -549,6 +613,9 @@ extern void df_delete_basic_block (struct df *, int);
 extern void df_finish1 (struct df *);
 extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
+extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
+					  df_confluence_function_0, df_confluence_function_n,
+					  df_transfer_function, bitmap, int *, int);
 extern void df_analyze_simple_change_some_blocks (struct df *, int *, int);
 extern void df_analyze_simple_change_one_block (struct df *, basic_block);
 extern void df_compact_blocks (struct df *);
@@ -597,10 +664,12 @@ extern struct dataflow *df_rd_add_problem (struct df *, int);
 extern struct df_rd_bb_info *df_rd_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_lr_add_problem (struct df *, int);
 extern struct df_lr_bb_info *df_lr_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_ur_add_problem (struct df *, int);
 extern void df_lr_simulate_artificial_refs_at_end (struct df *, basic_block, bitmap);
 extern void df_lr_simulate_one_insn (struct df *, basic_block, rtx, bitmap);
+extern struct dataflow *df_ur_add_problem (struct df *, int);
 extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_clrur_add_problem (struct df *, int);
+extern struct df_clrur_bb_info *df_clrur_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_urec_add_problem (struct df *, int);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_chain_add_problem (struct df *, int);
@@ -624,9 +693,29 @@ extern void df_bb_refs_delete (struct dataflow *, int);
 extern void df_refs_delete (struct dataflow *, bitmap);
 extern void df_insn_refs_record (struct dataflow *, basic_block, rtx);
 extern bool df_has_eh_preds (basic_block);
+extern void df_recompute_luids (struct df *, basic_block);
 extern void df_reorganize_refs (struct df_ref_info *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
+
+
+/* web */
+
+/* This entry is allocated for each reference in the insn stream.  */
+struct web_entry
+{
+  /* Pointer to the parent in the union/find tree.  */
+  struct web_entry *pred;
+  /* Newly assigned register to the entry.  Set only for roots.  */
+  rtx reg;
+  void* extra_info;
+};
+
+extern struct web_entry *unionfind_root (struct web_entry *);
+extern bool unionfind_union (struct web_entry *, struct web_entry *);
+extern void union_defs (struct df *, struct df_ref *,
+                        struct web_entry *, struct web_entry *,
+			bool (*fun) (struct web_entry *, struct web_entry *));
 
 
 #endif /* GCC_DF_H */

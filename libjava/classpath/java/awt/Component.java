@@ -906,7 +906,7 @@ public abstract class Component
 
         // The JDK repaints the component before invalidating the parent.
         // So do we.
-        if (isShowing())
+        if (isShowing() && isLightweight())
           repaint();
         // Invalidate the parent if we have one. The component itself must
         // not be invalidated. We also avoid NullPointerException with
@@ -1075,8 +1075,6 @@ public abstract class Component
     Component p = parent;
     if (p != null)
       return p.getFont();
-    if (peer != null)
-      return peer.getGraphics().getFont();
     return null;
   }
 
@@ -2069,11 +2067,9 @@ public abstract class Component
    */
   public VolatileImage createVolatileImage(int width, int height)
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -2092,11 +2088,9 @@ public abstract class Component
                                            ImageCapabilities caps)
     throws AWTException
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height, caps);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -2314,6 +2308,10 @@ public abstract class Component
     Event oldEvent = translateEvent(e);
     if (oldEvent != null)
       postEvent (oldEvent);
+
+    // Give toolkit a chance to dispatch the event
+    // to globally registered listeners.
+    Toolkit.getDefaultToolkit().globalDispatchEvent(e);
 
     // Some subclasses in the AWT package need to override this behavior,
     // hence the use of dispatchEventImpl().
@@ -3089,6 +3087,8 @@ public abstract class Component
           mouseListener.mouseClicked(e);
         break;
         case MouseEvent.MOUSE_ENTERED:
+ 	  if( isLightweight() )
+ 	    setCursor( getCursor() );
           mouseListener.mouseEntered(e);
         break;
         case MouseEvent.MOUSE_EXITED:
@@ -3101,7 +3101,6 @@ public abstract class Component
           mouseListener.mouseReleased(e);
         break;
       }
-      e.consume();
   }
 
   /**
@@ -4079,14 +4078,9 @@ public abstract class Component
    */
   public Container getFocusCycleRootAncestor ()
   {
-    if (this instanceof Window
-	&& ((Container) this).isFocusCycleRoot ())
-      return (Container) this;
-
     Container parent = getParent ();
 
-    while (parent != null
-	   && !parent.isFocusCycleRoot ())
+    while (parent != null && !parent.isFocusCycleRoot())
       parent = parent.getParent ();
 
     return parent;
@@ -4114,9 +4108,32 @@ public abstract class Component
    */
   public void nextFocus ()
   {
-    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+    // Find the nearest valid (== showing && focusable && enabled) focus
+    // cycle root ancestor and the focused component in it.
+    Container focusRoot = getFocusCycleRootAncestor();
+    Component focusComp = this;
+    while (focusRoot != null
+           && ! (focusRoot.isShowing() && focusRoot.isFocusable()
+                 && focusRoot.isEnabled()))
+      {
+        focusComp = focusRoot;
+        focusRoot = focusComp.getFocusCycleRootAncestor();
+      }
 
-    manager.focusNextComponent (this);
+    if (focusRoot != null)
+      {
+        // First try to get the componentBefore from the policy.
+        FocusTraversalPolicy policy = focusRoot.getFocusTraversalPolicy();
+        Component nextFocus = policy.getComponentAfter(focusRoot, focusComp);
+
+        // If this fails, then ask for the defaultComponent.
+        if (nextFocus == null)
+          nextFocus = policy.getDefaultComponent(focusRoot);
+
+        // Request focus on this component, if not null.
+        if (nextFocus != null)
+          nextFocus.requestFocus();
+      }
   }
 
   /**
@@ -4128,9 +4145,32 @@ public abstract class Component
    */
   public void transferFocusBackward ()
   {
-    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+    // Find the nearest valid (== showing && focusable && enabled) focus
+    // cycle root ancestor and the focused component in it.
+    Container focusRoot = getFocusCycleRootAncestor();
+    Component focusComp = this;
+    while (focusRoot != null
+           && ! (focusRoot.isShowing() && focusRoot.isFocusable()
+                 && focusRoot.isEnabled()))
+      {
+        focusComp = focusRoot;
+        focusRoot = focusComp.getFocusCycleRootAncestor();
+      }
 
-    manager.focusPreviousComponent (this);
+    if (focusRoot != null)
+      {
+        // First try to get the componentBefore from the policy.
+        FocusTraversalPolicy policy = focusRoot.getFocusTraversalPolicy();
+        Component nextFocus = policy.getComponentBefore(focusRoot, focusComp);
+
+        // If this fails, then ask for the defaultComponent.
+        if (nextFocus == null)
+          nextFocus = policy.getDefaultComponent(focusRoot);
+
+        // Request focus on this component, if not null.
+        if (nextFocus != null)
+          nextFocus.requestFocus();
+      }
   }
 
   /**
@@ -4144,9 +4184,63 @@ public abstract class Component
    */
   public void transferFocusUpCycle ()
   {
-    KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
+    // Find the nearest focus cycle root ancestor that is itself
+    // focusable, showing and enabled.
+    Container focusCycleRoot = getFocusCycleRootAncestor();
+    while (focusCycleRoot != null &&
+           ! (focusCycleRoot.isShowing() && focusCycleRoot.isFocusable()
+              && focusCycleRoot.isEnabled()))
+      {
+        focusCycleRoot = focusCycleRoot.getFocusCycleRootAncestor();
+      }
 
-    manager.upFocusCycle (this);
+    KeyboardFocusManager fm =
+      KeyboardFocusManager.getCurrentKeyboardFocusManager();
+
+    if (focusCycleRoot != null)
+      {
+        // If we found a focus cycle root, then we make this the new
+        // focused component, and make it's focus cycle root the new
+        // global focus cycle root. If the found root has no focus cycle
+        // root ancestor itself, then the component will be both the focused
+        // component and the new global focus cycle root.
+        Container focusCycleAncestor =
+          focusCycleRoot.getFocusCycleRootAncestor();
+        Container globalFocusCycleRoot;
+        if (focusCycleAncestor == null)
+          globalFocusCycleRoot = focusCycleRoot;
+        else
+          globalFocusCycleRoot = focusCycleAncestor;
+
+        fm.setGlobalCurrentFocusCycleRoot(globalFocusCycleRoot);
+        focusCycleRoot.requestFocus();
+      }
+    else
+      {
+        // If this component has no applicable focus cycle root, we try
+        // find the nearest window and set this as the new global focus cycle
+        // root and the default focus component of this window the new focused
+        // component.
+        Container cont;
+        if (this instanceof Container)
+          cont = (Container) this;
+        else
+          cont = getParent();
+
+        while (cont != null && !(cont instanceof Window))
+          cont = cont.getParent();
+
+        if (cont != null)
+          {
+            FocusTraversalPolicy policy = cont.getFocusTraversalPolicy();
+            Component focusComp = policy.getDefaultComponent(cont);
+            if (focusComp != null)
+              {
+                fm.setGlobalCurrentFocusCycleRoot(cont);
+                focusComp.requestFocus();
+              }
+          }
+      }
   }
 
   /**
@@ -4712,8 +4806,38 @@ p   * <li>the set of backward traversal keys
   {
     Object target = e.getSource ();
     Event translated = null;
+    
+    if (e instanceof WindowEvent)
+      {
+        WindowEvent we = (WindowEvent) e;
+        int id = we.id;
+        int newId = 0;
+        
+        switch (id)
+          {
+          case WindowEvent.WINDOW_DEICONIFIED:
+            newId = Event.WINDOW_DEICONIFY;
+            break;
+          case WindowEvent.WINDOW_CLOSED:
+          case WindowEvent.WINDOW_CLOSING:
+            newId = Event.WINDOW_DESTROY;
+            break;
+          case WindowEvent.WINDOW_ICONIFIED:
+            newId = Event.WINDOW_ICONIFY;
+            break;
+          case WindowEvent.WINDOW_GAINED_FOCUS:
+            newId = Event.GOT_FOCUS;
+            break;
+          case WindowEvent.WINDOW_LOST_FOCUS:
+            newId = Event.LOST_FOCUS;
+            break;
+          default:
+            return null;
+          }
 
-    if (e instanceof InputEvent)
+        translated = new Event(target, 0, newId, 0, 0, 0, 0);
+      }
+    else if (e instanceof InputEvent)
       {
         InputEvent ie = (InputEvent) e;
         long when = ie.getWhen ();
@@ -4876,7 +5000,7 @@ p   * <li>the set of backward traversal keys
                 oldKey = Event.UP;
                 break;
               default:
-                oldKey = newKey;
+                oldKey = (int) ((KeyEvent) e).getKeyChar();
               }
 
             translated = new Event (target, when, oldID,
@@ -4922,10 +5046,6 @@ p   * <li>the set of backward traversal keys
 
   void dispatchEventImpl(AWTEvent e)
   {
-    // Give toolkit a chance to dispatch the event
-    // to globally registered listeners.
-    Toolkit.getDefaultToolkit().globalDispatchEvent(e);
-
     // This boolean tells us not to process focus events when the focus
     // opposite component is the same as the focus component.
     boolean ignoreFocus = 
@@ -4934,6 +5054,10 @@ p   * <li>the set of backward traversal keys
     
     if (eventTypeEnabled (e.id))
       {
+        if (e.id != PaintEvent.PAINT && e.id != PaintEvent.UPDATE
+            && !ignoreFocus)
+          processEvent(e);
+        
         // the trick we use to communicate between dispatch and redispatch
         // is to have KeyboardFocusManager.redispatch synchronize on the
         // object itself. we then do not redispatch to KeyboardFocusManager
@@ -4954,14 +5078,16 @@ p   * <li>the set of backward traversal keys
                     .dispatchEvent(e))
                     return;
               case MouseEvent.MOUSE_PRESSED:
-                if (isLightweight())
-                  requestFocus();
+                // A mouse click on an enabled lightweight component
+                // which has not yet been marked as consumed by any
+                // other mouse listener results in a focus traversal
+                // to that component.
+                if (isLightweight()
+                    && isEnabled() && !e.isConsumed())
+                    requestFocus();
                 break;
               }
           }
-        if (e.id != PaintEvent.PAINT && e.id != PaintEvent.UPDATE
-            && !ignoreFocus)
-          processEvent(e);
       }
 
     if (peer != null)
@@ -4978,6 +5104,15 @@ p   * <li>the set of backward traversal keys
 
     switch (type)
       {
+      case HierarchyEvent.HIERARCHY_CHANGED:
+        return (hierarchyListener != null 
+            || (eventMask & AWTEvent.HIERARCHY_EVENT_MASK) != 0);
+        
+      case HierarchyEvent.ANCESTOR_MOVED:
+      case HierarchyEvent.ANCESTOR_RESIZED:
+        return (hierarchyBoundsListener != null 
+            || (eventMask & AWTEvent.HIERARCHY_BOUNDS_EVENT_MASK) != 0);
+        
       case ComponentEvent.COMPONENT_HIDDEN:
       case ComponentEvent.COMPONENT_MOVED:
       case ComponentEvent.COMPONENT_RESIZED:
@@ -5002,6 +5137,9 @@ p   * <li>the set of backward traversal keys
       case MouseEvent.MOUSE_DRAGGED:
         return (mouseMotionListener != null
                 || (eventMask & AWTEvent.MOUSE_MOTION_EVENT_MASK) != 0);
+      case MouseEvent.MOUSE_WHEEL:
+        return (mouseWheelListener != null
+                || (eventMask & AWTEvent.MOUSE_WHEEL_EVENT_MASK) != 0);
         
       case FocusEvent.FOCUS_GAINED:
       case FocusEvent.FOCUS_LOST:
@@ -5289,7 +5427,7 @@ p   * <li>the set of backward traversal keys
      */
     public String getAccessibleName()
     {
-      return accessibleName == null ? getName() : accessibleName;
+      return accessibleName;
     }
 
     /**
@@ -5329,8 +5467,10 @@ p   * <li>the set of backward traversal keys
         s.add(AccessibleState.FOCUSABLE);
       if (isFocusOwner())
         s.add(AccessibleState.FOCUSED);
-      if (isOpaque())
-        s.add(AccessibleState.OPAQUE);
+      // Note: While the java.awt.Component has an 'opaque' property, it
+      // seems that it is not added to the accessible state set here, even
+      // if this property is true. However, it is handled for
+      // javax.swing.JComponent, so we add it there.
       if (Component.this.isShowing())
         s.add(AccessibleState.SHOWING);
       if (Component.this.isVisible())
@@ -5614,7 +5754,7 @@ p   * <li>the set of backward traversal keys
      */
     public Point getLocation()
     {
-      return Component.this.isShowing() ? Component.this.getLocation() : null;
+      return Component.this.getLocation();
     }
 
     /**
@@ -5638,7 +5778,7 @@ p   * <li>the set of backward traversal keys
      */
     public Rectangle getBounds()
     {
-      return Component.this.isShowing() ? Component.this.getBounds() : null;
+      return Component.this.getBounds();
     }
 
     /**
@@ -5661,7 +5801,7 @@ p   * <li>the set of backward traversal keys
      */
     public Dimension getSize()
     {
-      return Component.this.isShowing() ? Component.this.getSize() : null;
+      return Component.this.getSize();
     }
 
     /**

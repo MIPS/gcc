@@ -65,25 +65,18 @@ struct dfa_stats_d
 };
 
 
-/* State information for find_vars_r.  */
-struct walk_state
-{
-  /* Hash table used to avoid adding the same variable more than once.  */
-  htab_t vars_found;
-};
-
-
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
 static tree collect_dfa_stats_r (tree *, int *, void *);
 static tree find_vars_r (tree *, int *, void *);
-static void add_referenced_var (tree, struct walk_state *);
 
 
 /* Global declarations.  */
 
 /* Array of all variables referenced in the function.  */
 htab_t referenced_vars;
+/* List of referenced variables with duplicate UID's.  */
+VEC(tree,gc) *referenced_vars_dup_list;
 
 /* Default definition for this symbols.  If set for symbol, it
    means that the first reference to this variable in the function is a
@@ -106,23 +99,17 @@ htab_t default_defs;
 static unsigned int
 find_referenced_vars (void)
 {
-  htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
-  struct walk_state walk_state;
 
-  vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
-  memset (&walk_state, 0, sizeof (walk_state));
-  walk_state.vars_found = vars_found;
-
+  gcc_assert (VEC_length (tree, referenced_vars_dup_list) == 0);
   FOR_EACH_BB (bb)
     for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
       {
 	tree *stmt_p = bsi_stmt_ptr (si);
-	walk_tree (stmt_p, find_vars_r, &walk_state, NULL);
+	walk_tree (stmt_p, find_vars_r, NULL, NULL);
       }
 
-  htab_delete (vars_found);
   return 0;
 }
 
@@ -243,7 +230,7 @@ make_rename_temp (tree type, const char *prefix)
 
   if (referenced_vars)
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 
@@ -607,14 +594,12 @@ collect_dfa_stats_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
    the function.  */
 
 static tree
-find_vars_r (tree *tp, int *walk_subtrees, void *data)
+find_vars_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
-  struct walk_state *walk_state = (struct walk_state *) data;
-
   /* If T is a regular variable that the optimizers are interested
      in, add it to the list of variables.  */
   if (SSA_VAR_P (*tp))
-    add_referenced_var (*tp, walk_state);
+    add_referenced_var (*tp);
 
   /* Type, _DECL and constant nodes have no interesting children.
      Ignore them.  */
@@ -623,7 +608,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 
   return NULL_TREE;
 }
-
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */
@@ -640,19 +624,52 @@ referenced_var_lookup (unsigned int uid)
   return NULL_TREE;
 }
 
-/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+/* Check if TO is in the referenced_vars hash table and insert it if not.  
+   Return true if it required insertion.  */
 
-static void
-referenced_var_insert (unsigned int uid, tree to)
+static bool
+referenced_var_check_and_insert (tree to)
 { 
-  struct int_tree_map *h;
+  struct int_tree_map *h, in;
   void **loc;
+  unsigned int uid = DECL_UID (to);
+
+  in.uid = uid;
+  in.to = to;
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+
+  if (h)
+    {
+      unsigned u;
+      tree t = NULL_TREE;
+
+      /* DECL_UID has already been entered in the table.  Verify that it is
+	 the same entry as TO.  */
+      gcc_assert (h->to != NULL);
+      if (h->to == to)
+        return false;
+
+      /* PRs 26757 and 27793.  Maintain a list of duplicate variable pointers
+	 with the same DECL_UID.  There isn't usually very many.
+	 TODO.  Once the C++ front end doesn't create duplicate DECL UID's, this
+	 code can be removed.  */
+      for (u = 0; u < VEC_length (tree, referenced_vars_dup_list); u++)
+	{
+	  t = VEC_index (tree, referenced_vars_dup_list, u);
+	  if (t == to)
+	    break;
+	}
+      if (t != to)
+	VEC_safe_push (tree, gc, referenced_vars_dup_list, to);
+      return false;
+    }
 
   h = GGC_NEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
   *(struct int_tree_map **)  loc = h;
+  return true;
 }
 
 /* Lookup VAR UID in the default_defs hashtable and return the associated
@@ -705,35 +722,21 @@ set_default_def (tree var, tree def)
     }
 }
 
-/* Add VAR to the list of dereferenced variables.
+/* Add VAR to the list of referenced variables if it isn't already there.  */
 
-   WALK_STATE contains a hash table used to avoid adding the same
-      variable more than once. Note that this function assumes that
-      VAR is a valid SSA variable.  If WALK_STATE is NULL, no
-      duplicate checking is done.  */
-
-static void
-add_referenced_var (tree var, struct walk_state *walk_state)
+void
+add_referenced_var (tree var)
 {
-  void **slot;
   var_ann_t v_ann;
 
   v_ann = get_var_ann (var);
-
-  if (walk_state)
-    slot = htab_find_slot (walk_state->vars_found, (void *) var, INSERT);
-  else
-    slot = NULL;
-
-  if (slot == NULL || *slot == NULL)
+  gcc_assert (DECL_P (var));
+  
+  /* Insert VAR into the referenced_vars has table if it isn't present.  */
+  if (referenced_var_check_and_insert (var))
     {
-      /* This is the first time we find this variable, add it to the
-         REFERENCED_VARS array and annotate it with attributes that are
-	 intrinsic to the variable.  */
-      if (slot)
-	*slot = (void *) var;
-      
-      referenced_var_insert (DECL_UID (var), var);
+      /* This is the first time we found this variable, annotate it with
+	 attributes that are intrinsic to the variable.  */
       
       /* Tag's don't have DECL_INITIAL.  */
       if (MTAG_P (var))
@@ -750,7 +753,7 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	     variables because it cannot be propagated by the
 	     optimizers.  */
 	  && (TREE_CONSTANT (var) || TREE_READONLY (var)))
-      	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
+      	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
     }
 }
 
@@ -777,19 +780,6 @@ get_virtual_var (tree var)
 
   return var;
 }
-
-/* Add a temporary variable to REFERENCED_VARS.  This is similar to
-   add_referenced_var, but is used by passes that need to add new temps to
-   the REFERENCED_VARS array after the program has been scanned for
-   variables.  The variable will just receive a new UID and be added
-   to the REFERENCED_VARS array without checking for duplicates.  */
-
-void
-add_referenced_tmp_var (tree var)
-{
-  add_referenced_var (var, NULL);
-}
-
 
 /* Mark all the non-SSA variables found in STMT's operands to be
    processed by update_ssa.  */
@@ -868,7 +858,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
 
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     {
-      add_referenced_tmp_var (t);
+      add_referenced_var (t);
       mark_sym_for_renaming (t);
     }
 

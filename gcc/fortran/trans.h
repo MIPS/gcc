@@ -419,8 +419,11 @@ void gfc_get_backend_locus (locus *);
 extern GTY(()) tree gfc_static_ctors;
 void gfc_generate_constructors (void);
 
+/* Get the string length of an array constructor.  */
+bool get_array_ctor_strlen (gfc_constructor *, tree *);
+
 /* Generate a runtime error check.  */
-void gfc_trans_runtime_check (tree, tree, stmtblock_t *);
+void gfc_trans_runtime_check (tree, const char *, stmtblock_t *, locus *);
 
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
@@ -448,6 +451,7 @@ tree builtin_function (const char *, tree, int, enum built_in_class,
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
+tree gfc_omp_clause_default_ctor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
 struct gimplify_omp_ctx;
@@ -670,5 +674,12 @@ void gfc_finish_interface_mapping (gfc_interface_mapping *,
 				   stmtblock_t *, stmtblock_t *);
 void gfc_apply_interface_mapping (gfc_interface_mapping *,
 				  gfc_se *, gfc_expr *);
+
+
+/* Standard error messages used in all the trans-*.c files.  */
+extern char gfc_msg_bounds[];
+extern char gfc_msg_fault[];
+extern char gfc_msg_wrong_return[];
+
 
 #endif /* GFC_TRANS_H */

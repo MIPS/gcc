@@ -39,6 +39,8 @@ exception statement from your version. */
 package javax.swing.text.html;
 
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -298,6 +300,7 @@ public class HTMLEditorKit
                                       Element insertElement,
                                       String html, HTML.Tag parentTag,
                                       HTML.Tag addTag)
+        throws NotImplementedException
       {
         /*
         As its name implies, this protected method is used when HTML is inserted at a
@@ -545,6 +548,8 @@ public class HTMLEditorKit
                    || tag.equals(HTML.Tag.BLOCKQUOTE)
                    || tag.equals(HTML.Tag.PRE))
             view = new BlockView(element, View.Y_AXIS);
+          else if (tag.equals(HTML.Tag.IMG))
+            view = new ImageView(element);
           
           // FIXME: Uncomment when the views have been implemented
           else if (tag.equals(HTML.Tag.CONTENT))
@@ -555,13 +560,12 @@ public class HTMLEditorKit
             view = new HTMLTableView(element);
           else if (tag.equals(HTML.Tag.TD))
             view = new ParagraphView(element);
+            
 
           /*
           else if (tag.equals(HTML.Tag.MENU) || tag.equals(HTML.Tag.DIR)
                    || tag.equals(HTML.Tag.UL) || tag.equals(HTML.Tag.OL))
             view = new ListView(element);
-          else if (tag.equals(HTML.Tag.IMG))
-            view = new ImageView(element);
           else if (tag.equals(HTML.Tag.HR))
             view = new HRuleView(element);
           else if (tag.equals(HTML.Tag.BR))

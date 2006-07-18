@@ -1,3 +1,24 @@
+2006-06-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* configure.ac: Define HAS_PPC_THREAD_STATE_R0,
+	HAS_PPC_THREAD_STATE___R0, HAS_PPC_THREAD_STATE64_R0,
+	HAS_PPC_THREAD_STATE64___R0, HAS_I386_THREAD_STATE_EAX,
+	HAS_I386_THREAD_STATE___EAX.
+	* configure: Regenerate.
+	* include/gc_config.h.in: Regenerate.
+	* darwin_stop_world.c (PPC_RED_ZONE_SIZE): Use standard Darwin
+	macro names to determine value.
+	(THREAD_STATE): New.
+	(THREAD_FLD): New.
+	(GC_push_all_stacks): Use THREAD_STATE and THREAD_FLD in both versions.
+
+2006-05-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Makefile.am: Add install-html target. 
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* include/Makefile.in: Regenerate.
+
 2006-03-07  Andrew Haley  <aph@redhat.com>
 
 	* dyn_load.c (GC_has_static_roots): Declare.

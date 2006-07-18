@@ -1,5 +1,5 @@
 /* UIManager.java -- 
-   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006,  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -121,7 +121,8 @@ public class UIManager implements Serializable
 
   /** The installed look and feel(s). */
   static LookAndFeelInfo [] installed = {
-    new LookAndFeelInfo("Metal", "javax.swing.plaf.metal.MetalLookAndFeel")
+    new LookAndFeelInfo("Metal", "javax.swing.plaf.metal.MetalLookAndFeel"),
+    new LookAndFeelInfo("GNU", "gnu.javax.swing.plaf.gnu.GNULookAndFeel")
   };
 
   /** The installed auxiliary look and feels. */
@@ -144,18 +145,19 @@ public class UIManager implements Serializable
   static
   {
     String defaultlaf = System.getProperty("swing.defaultlaf");
-    try {
-      if (defaultlaf != null)
-        {
-          Class lafClass = Class.forName(defaultlaf);
-          LookAndFeel laf = (LookAndFeel) lafClass.newInstance();
-          setLookAndFeel(laf);
-        }
-      else
-        {
-          setLookAndFeel(new MetalLookAndFeel());
-        }
-    }
+    try 
+      {
+        if (defaultlaf != null)
+          {
+            Class lafClass = Class.forName(defaultlaf);
+            LookAndFeel laf = (LookAndFeel) lafClass.newInstance();
+            setLookAndFeel(laf);
+          }
+        else
+          {
+            setLookAndFeel(new MetalLookAndFeel());
+          }
+      }
     catch (Exception ex)
       {
         System.err.println("cannot initialize Look and Feel: " + defaultlaf);
@@ -454,7 +456,7 @@ public class UIManager implements Serializable
    */
   public static Font getFont(Object key, Locale locale)
   {
-    return (Font) get(key ,locale);
+    return (Font) get(key, locale);
   }
 
   /**
@@ -612,7 +614,10 @@ public class UIManager implements Serializable
    */
   public static void installLookAndFeel(LookAndFeelInfo info)
   {
-    // FIXME: not yet implemented
+    LookAndFeelInfo[] newInstalled = new LookAndFeelInfo[installed.length + 1];
+    System.arraycopy(installed, 0, newInstalled, 0, installed.length);
+    newInstalled[newInstalled.length - 1] = info;
+    setInstalledLookAndFeels(newInstalled);
   }
 
   /**
@@ -632,7 +637,7 @@ public class UIManager implements Serializable
    */
   public static void setInstalledLookAndFeels(UIManager.LookAndFeelInfo[] infos)
   {
-    // FIXME: not yet implemented.
+    installed = infos;
   }
   
   /**

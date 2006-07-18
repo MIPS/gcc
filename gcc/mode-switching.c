@@ -422,8 +422,7 @@ optimize_mode_switching (void)
     return 0;
 
   df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 

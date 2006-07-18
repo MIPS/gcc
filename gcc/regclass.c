@@ -2666,6 +2666,13 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
 
   return false;
 }
+#else
+static unsigned int
+init_subregs_of_mode (void)
+{
+  return 0;
+}
+
 #endif /* CANNOT_CHANGE_MODE_CLASS */
 
 static bool

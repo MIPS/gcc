@@ -190,7 +190,6 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 #endif
 
  public:
-  static void dump_object(jobject o);
 
   /* Get the line table for this method.
    * start  is the lowest index in the method
@@ -243,7 +242,6 @@ _Jv_GetFirstMethod (_Jv_InterpClass *klass)
 struct _Jv_ResolvedMethod
 {
   jint            stack_item_count;	
-  jint            vtable_index;	
   jclass          klass;
   _Jv_Method*     method;
 

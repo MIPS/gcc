@@ -1380,16 +1380,20 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		if (!note)
 		  {
 		    rtx t = *dest;
+		    if (COMPLEX_MODE_P (GET_MODE (t)))
+		      {
+			rtx u = FP_MODE_REG (REGNO (t) + 1, SFmode);
+			if (get_hard_regnum (regstack, u) == -1)
+			  {
+			    rtx pat2 = gen_rtx_CLOBBER (VOIDmode, u);
+			    rtx insn2 = emit_insn_before (pat2, insn);
+			    control_flow_insn_deleted
+			      |= move_nan_for_stack_reg (insn2, regstack, u);
+			  }
+		      }
 		    if (get_hard_regnum (regstack, t) == -1)
 		      control_flow_insn_deleted
 			|= move_nan_for_stack_reg (insn, regstack, t);
-		    if (COMPLEX_MODE_P (GET_MODE (t)))
-		      {
-			t = FP_MODE_REG (REGNO (t) + 1, DFmode);
-			if (get_hard_regnum (regstack, t) == -1)
-			  control_flow_insn_deleted
-			    |= move_nan_for_stack_reg (insn, regstack, t);
-		      }
 		  }
 	      }
 	  }
@@ -3090,8 +3094,7 @@ reg_to_stack (void)
     return false;
 
   df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -3117,9 +3120,9 @@ reg_to_stack (void)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_OUT (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_LR_IN (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }

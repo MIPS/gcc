@@ -1,5 +1,5 @@
 /* MetalLookAndFeel.java
-   Copyright (C) 2002, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -67,7 +67,7 @@ import javax.swing.plaf.basic.BasicLookAndFeel;
  * }</pre>
  */
 public class MetalLookAndFeel extends BasicLookAndFeel
-{	   
+{          
   private static final long serialVersionUID = 6680646159193457980L;
   
   /** The current theme. */
@@ -90,7 +90,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
   protected void createDefaultTheme()
   {
     if (theme == null)
-      setCurrentTheme(new DefaultMetalTheme());
+      setCurrentTheme(new OceanTheme());
   }
 
   /**
@@ -888,18 +888,16 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "CheckBox.font", new FontUIResource("Dialog", Font.BOLD, 12),
       "CheckBox.foreground", getControlTextColor(),
       "CheckBox.icon",
-      new UIDefaults.ProxyLazyValue
-          ("javax.swing.plaf.metal.MetalCheckBoxIcon"),
+      new UIDefaults.ProxyLazyValue("javax.swing.plaf.metal.MetalCheckBoxIcon"),
       "CheckBox.checkIcon",
-      new UIDefaults.ProxyLazyValue
-      ("javax.swing.plaf.metal.MetalCheckBoxIcon"),
+      new UIDefaults.ProxyLazyValue("javax.swing.plaf.metal.MetalCheckBoxIcon"),
       "Checkbox.select", getControlShadow(),
 
       "CheckBoxMenuItem.acceleratorFont", new FontUIResource("Dialog", Font.PLAIN, 10),
       "CheckBoxMenuItem.acceleratorForeground", getAcceleratorForeground(),
       "CheckBoxMenuItem.acceleratorSelectionForeground", getAcceleratorSelectedForeground(),
       "CheckBoxMenuItem.background", getMenuBackground(),
-      "CheckBoxMenuItem.borderPainted", new Boolean(true),
+      "CheckBoxMenuItem.borderPainted", Boolean.TRUE,
       "CheckBoxMenuItem.commandSound", "sounds/MenuItemCommand.wav",
       "CheckBoxMenuItem.checkIcon", MetalIconFactory.getCheckBoxMenuItemIcon(),
       "CheckBoxMenuItem.disabledForeground", getMenuDisabledForeground(),
@@ -964,7 +962,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "FileChooser.detailsViewIcon", 
           MetalIconFactory.getFileChooserDetailViewIcon(),
       "FileChooser.fileNameLabelMnemonic", new Integer(78),
-      "FileChooser.filesOfTypeLabelMnemonic",new Integer(84),
+      "FileChooser.filesOfTypeLabelMnemonic", new Integer(84),
       "FileChooser.lookInLabelMnemonic", new Integer(73),
       "FileView.computerIcon", MetalIconFactory.getTreeComputerIcon(),
       "FileView.directoryIcon", MetalIconFactory.getTreeFolderIcon(),
@@ -1204,7 +1202,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "Table.focusCellForeground", getControlTextColor(),
       "Table.foreground", getControlTextColor(),
       "Table.focusCellHighlightBorder",
-      new BorderUIResource.LineBorderUIResource(getControlShadow()),
+      new BorderUIResource.LineBorderUIResource(getFocusColor()),
       "Table.focusCellBackground", getWindowBackground(),
       "Table.gridColor", getControlDarkShadow(),
       "Table.selectionBackground", new ColorUIResource(204, 204, 255),
@@ -1273,6 +1271,8 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "ToolBar.light", getControlHighlight(),
       "ToolBar.shadow", getControlShadow(),
       "ToolBar.border", new MetalBorders.ToolBarBorder(),
+      "ToolBar.rolloverBorder", MetalBorders.getToolbarButtonBorder(),
+      "ToolBar.nonrolloverBorder", MetalBorders.getToolbarButtonBorder(),
 
       "ToolTip.background", getPrimaryControl(),
       "ToolTip.backgroundInactive", getControl(),

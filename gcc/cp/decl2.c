@@ -114,6 +114,9 @@ build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
   tree raises;
   int type_quals;
 
+  if (fntype == error_mark_node || ctype == error_mark_node)
+    return error_mark_node;
+
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
@@ -449,16 +452,9 @@ check_member_template (tree tmpl)
 	error ("invalid declaration of member template %q#D in local class",
 	       decl);
 
-      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_VIRTUAL_P (decl))
-	{
-	  /* 14.5.2.3 [temp.mem]
-
-	     A member function template shall not be virtual.  */
-	  error
-	    ("invalid use of %<virtual%> in template declaration of %q#D",
-	     decl);
-	  DECL_VIRTUAL_P (decl) = 0;
-	}
+      /* The parser rejects any use of virtual in a function template.  */
+      gcc_assert (!(TREE_CODE (decl) == FUNCTION_DECL
+		    && DECL_VIRTUAL_P (decl)));
 
       /* The debug-information generating code doesn't know what to do
 	 with member templates.  */
@@ -712,7 +708,7 @@ note_vague_linkage_var (tree var)
    The other parameters are as for cp_finish_decl.  */
 
 void
-finish_static_data_member_decl (tree decl, 
+finish_static_data_member_decl (tree decl,
 				tree init, bool init_const_expr_p,
 				tree asmspec_tree,
 				int flags)
@@ -724,9 +720,6 @@ finish_static_data_member_decl (tree decl,
   /* We cannot call pushdecl here, because that would fill in the
      TREE_CHAIN of our decl.  Instead, we modify cp_finish_decl to do
      the right thing, namely, to put this decl out straight away.  */
-  /* current_class_type can be NULL_TREE in case of error.  */
-  if (!asmspec_tree && current_class_type)
-    DECL_INITIAL (decl) = error_mark_node;
 
   if (! processing_template_decl)
     note_vague_linkage_var (decl);
@@ -760,7 +753,7 @@ finish_static_data_member_decl (tree decl,
 
 /* DECLARATOR and DECLSPECS correspond to a class member.  The other
    parameters are as for cp_finish_decl.  Return the DECL for the
-   class member declared.  */ 
+   class member declared.  */
 
 tree
 grokfield (const cp_declarator *declarator,
@@ -914,7 +907,7 @@ grokfield (const cp_declarator *declarator,
 	error ("%<asm%> specifiers are not permitted on non-static data members");
       if (DECL_INITIAL (value) == error_mark_node)
 	init = error_mark_node;
-      cp_finish_decl (value, init, /*init_const_expr_p=*/false, 
+      cp_finish_decl (value, init, /*init_const_expr_p=*/false,
 		      NULL_TREE, flags);
       DECL_INITIAL (value) = init;
       DECL_IN_AGGR_P (value) = 1;
@@ -923,10 +916,10 @@ grokfield (const cp_declarator *declarator,
     case  FUNCTION_DECL:
       if (asmspec)
 	set_user_assembler_name (value, asmspec);
-      if (!DECL_FRIEND_P (value))
-	grok_special_member_properties (value);
 
-      cp_finish_decl (value, init, /*init_const_expr_p=*/false, 
+      cp_finish_decl (value,
+		      /*init=*/NULL_TREE,
+		      /*init_const_expr_p=*/false,
 		      asmspec_tree, flags);
 
       /* Pass friends back this way.  */
@@ -1615,7 +1608,7 @@ determine_visibility (tree decl)
 	  && DECL_VISIBILITY_SPECIFIED (decl)
 	  && (!class_type || !CLASSTYPE_VISIBILITY_SPECIFIED (class_type)))
 	targetm.cxx.determine_class_data_visibility (decl);
-    }      
+    }
 }
 
 static void
@@ -2113,7 +2106,7 @@ start_objects (int method_type, int initp)
 
   /* We cannot allow these functions to be elided, even if they do not
      have external linkage.  And, there's no point in deferring
-     compilation of thes functions; they're all going to have to be
+     compilation of these functions; they're all going to have to be
      out anyhow.  */
   DECL_INLINE (current_function_decl) = 0;
   DECL_UNINLINABLE (current_function_decl) = 1;
@@ -2427,12 +2420,12 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
   if (initp)
     {
       if (init)
-        finish_expr_stmt (init);
+	finish_expr_stmt (init);
 
       /* If we're using __cxa_atexit, register a function that calls the
-         destructor for the object.  */
+	 destructor for the object.  */
       if (flag_use_cxa_atexit)
-        finish_expr_stmt (register_dtor_fn (decl));
+	finish_expr_stmt (register_dtor_fn (decl));
     }
   else
     finish_expr_stmt (build_cleanup (decl));
@@ -2505,7 +2498,7 @@ do_static_initialization_or_destruction (tree vars, bool initp)
 	 node = TREE_CHAIN (node))
       /* Do one initialization or destruction.  */
       one_static_initialization_or_destruction (TREE_VALUE (node),
-				 		TREE_PURPOSE (node), initp);
+						TREE_PURPOSE (node), initp);
 
     /* Finish up the priority if-stmt body.  */
     finish_then_clause (priority_if_stmt);
@@ -3001,7 +2994,7 @@ cp_finish_file (void)
 	     DECL_EXTERNAL appropriately, so there's no need to check
 	     again, and we do not want to clear DECL_EXTERNAL if a
 	     previous call to import_export_decl set it.
-	     
+
 	     This is done in a separate for cycle, because if some
 	     deferred function is contained in another deferred
 	     function later in deferred_fns varray,
@@ -3094,7 +3087,7 @@ cp_finish_file (void)
   else
     {
       /* If we have a ctor or this is obj-c++ and we need a static init,
-         call generate_ctor_or_dtor_function.  */
+	 call generate_ctor_or_dtor_function.  */
       if (static_ctors || (c_dialect_objc () && objc_static_init_needed_p ()))
 	generate_ctor_or_dtor_function (/*constructor_p=*/true,
 					DEFAULT_INIT_PRIORITY, &locus);
@@ -3123,7 +3116,7 @@ cp_finish_file (void)
   if (VEC_length (tree, pending_statics) != 0)
     {
       check_global_declarations (VEC_address (tree, pending_statics),
-			         VEC_length (tree, pending_statics));
+				 VEC_length (tree, pending_statics));
       emit_debug_global_declarations (VEC_address (tree, pending_statics),
 				      VEC_length (tree, pending_statics));
     }
@@ -3258,7 +3251,7 @@ mark_used (tree decl)
     }
 
   TREE_USED (decl) = 1;
-  /* If we don't need a value, then we don't need to synthesize DECL.  */ 
+  /* If we don't need a value, then we don't need to synthesize DECL.  */
   if (skip_evaluation)
     return;
   /* Normally, we can wait until instantiation-time to synthesize
@@ -3282,9 +3275,9 @@ mark_used (tree decl)
       saved_processing_template_decl = processing_template_decl;
       processing_template_decl = 0;
     }
-  
+
   if (processing_template_decl)
-    return;  
+    return;
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl)
       && !TREE_ASM_WRITTEN (decl))
@@ -3319,30 +3312,29 @@ mark_used (tree decl)
     {
       synthesize_method (decl);
       /* If we've already synthesized the method we don't need to
-	 instantiate it, so we can return right away.  */
-      return;
+	 do the instantiation test below.  */
     }
+  else if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
+	   && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
+	   && (!DECL_EXPLICIT_INSTANTIATION (decl)
+	       || (TREE_CODE (decl) == FUNCTION_DECL
+		   && DECL_INLINE (DECL_TEMPLATE_RESULT
+				   (template_for_substitution (decl))))
+	       /* We need to instantiate static data members so that there
+		  initializers are available in integral constant
+		  expressions.  */
+	       || (TREE_CODE (decl) == VAR_DECL
+		   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
+    /* If this is a function or variable that is an instance of some
+       template, we now know that we will need to actually do the
+       instantiation. We check that DECL is not an explicit
+       instantiation because that is not checked in instantiate_decl.
 
-  /* If this is a function or variable that is an instance of some
-     template, we now know that we will need to actually do the
-     instantiation. We check that DECL is not an explicit
-     instantiation because that is not checked in instantiate_decl.  */
-  if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
-      && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
-      && (!DECL_EXPLICIT_INSTANTIATION (decl)
-	  || (TREE_CODE (decl) == FUNCTION_DECL
-	      && DECL_INLINE (DECL_TEMPLATE_RESULT
-			      (template_for_substitution (decl))))
-	  /* We need to instantiate static data members so that there
-	     initializers are available in integral constant
-	     expressions.  */
-	  || (TREE_CODE (decl) == VAR_DECL
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
-    /* We put off instantiating functions in order to improve compile
+       We put off instantiating functions in order to improve compile
        times.  Maintaining a stack of active functions is expensive,
        and the inliner knows to instantiate any functions it might
-       need.  */
-    instantiate_decl (decl, /*defer_ok=*/true, 
+       need.  Therefore, we always try to defer instantiation.  */
+    instantiate_decl (decl, /*defer_ok=*/true,
 		      /*expl_inst_class_mem_p=*/false);
 
   processing_template_decl = saved_processing_template_decl;

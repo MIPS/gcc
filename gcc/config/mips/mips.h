@@ -466,6 +466,8 @@ extern const struct mips_rtx_cost_data *mips_cost;
 #endif
 #endif /* IN_LIBGCC2 */
 
+#define TARGET_LIBGCC_SDATA_SECTION ".sdata"
+
 #ifndef MULTILIB_ENDIAN_DEFAULT
 #if TARGET_ENDIAN_DEFAULT == 0
 #define MULTILIB_ENDIAN_DEFAULT "EL"
@@ -2023,31 +2025,36 @@ typedef struct mips_args {
    This code should not include a label--the label is taken care of
    automatically.  */
 
-#define TRAMPOLINE_TEMPLATE(STREAM)					 \
-{									 \
-  fprintf (STREAM, "\t.word\t0x03e00821\t\t# move   $1,$31\n");		\
+#define TRAMPOLINE_TEMPLATE(STREAM)					\
+{									\
+  if (ptr_mode == DImode)						\
+    fprintf (STREAM, "\t.word\t0x03e0082d\t\t# dmove   $1,$31\n");	\
+  else									\
+    fprintf (STREAM, "\t.word\t0x03e00821\t\t# move   $1,$31\n");	\
   fprintf (STREAM, "\t.word\t0x04110001\t\t# bgezal $0,.+8\n");		\
   fprintf (STREAM, "\t.word\t0x00000000\t\t# nop\n");			\
   if (ptr_mode == DImode)						\
     {									\
       fprintf (STREAM, "\t.word\t0xdfe30014\t\t# ld     $3,20($31)\n");	\
       fprintf (STREAM, "\t.word\t0xdfe2001c\t\t# ld     $2,28($31)\n");	\
+      fprintf (STREAM, "\t.word\t0x0060c82d\t\t# dmove  $25,$3\n");	\
     }									\
   else									\
     {									\
       fprintf (STREAM, "\t.word\t0x8fe30014\t\t# lw     $3,20($31)\n");	\
       fprintf (STREAM, "\t.word\t0x8fe20018\t\t# lw     $2,24($31)\n");	\
+      fprintf (STREAM, "\t.word\t0x0060c821\t\t# move   $25,$3\n");	\
     }									\
-  fprintf (STREAM, "\t.word\t0x0060c821\t\t# move   $25,$3 (abicalls)\n"); \
   fprintf (STREAM, "\t.word\t0x00600008\t\t# jr     $3\n");		\
-  fprintf (STREAM, "\t.word\t0x0020f821\t\t# move   $31,$1\n");		\
   if (ptr_mode == DImode)						\
     {									\
+      fprintf (STREAM, "\t.word\t0x0020f82d\t\t# dmove   $31,$1\n");	\
       fprintf (STREAM, "\t.dword\t0x00000000\t\t# <function address>\n"); \
       fprintf (STREAM, "\t.dword\t0x00000000\t\t# <static chain value>\n"); \
     }									\
   else									\
     {									\
+      fprintf (STREAM, "\t.word\t0x0020f821\t\t# move   $31,$1\n");	\
       fprintf (STREAM, "\t.word\t0x00000000\t\t# <function address>\n"); \
       fprintf (STREAM, "\t.word\t0x00000000\t\t# <static chain value>\n"); \
     }									\

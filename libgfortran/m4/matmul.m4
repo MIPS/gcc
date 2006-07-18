@@ -1,5 +1,5 @@
 `/* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -121,15 +121,6 @@ matmul_`'rtype_code (rtype * const restrict retarray,
       retarray->offset = 0;
     }
 
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
-
-  /* This prevents constifying the input arguments.  */
-  if (a->dim[0].stride == 0)
-    a->dim[0].stride = 1;
-  if (b->dim[0].stride == 0)
-    b->dim[0].stride = 1;
-
 sinclude(`matmul_asm_'rtype_code`.m4')dnl
 
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
@@ -195,8 +186,8 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       const rtype_name * restrict abase_n;
       rtype_name bbase_yn;
 
-      if (rystride == ycount)
-	memset (dest, 0, (sizeof (rtype_name) * size0((array_t *) retarray)));
+      if (rystride == xcount)
+	memset (dest, 0, (sizeof (rtype_name) * xcount * ycount));
       else
 	{
 	  for (y = 0; y < ycount; y++)

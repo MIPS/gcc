@@ -116,9 +116,18 @@ AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
-AC_CHECK_PROGS(JAR, [jar fastjar], false)
-if test "$JAR" = false; then
-  AC_MSG_ERROR(jar program not found)
+AC_PROG_AWK
+AC_CHECK_PROGS([JAR], [jar fastjar], no)
+AC_PATH_PROG([ZIP], [zip], no)
+AC_PATH_PROG([UNZIP], [unzip], unzip)
+AM_CONDITIONAL(BASH_JAR, test "$JAR" = no)
+if test "$ZIP" = no; then
+  if test "$JAR" = no; then
+    AC_MSG_ERROR([cannot find neither zip nor jar, cannot continue])
+  fi
+else
+  # InfoZIP available, use the 'guaranteed' Bourne-shell JAR to build libjava
+  JAR=`pwd`/scripts/jar
 fi
 
 AC_PROG_INSTALL
@@ -227,20 +236,12 @@ for peer in $peerlibs ; do
 done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
-AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
-AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then
    echo gnu/awt/xlib >> standard.omit
    echo gnu/gcj/xlib >> standard.omit
-fi
-if test "$use_gtk_awt" != yes; then
-   echo gnu/java/awt/peer/gtk >> standard.omit
-fi
-if test "$use_qt_awt" != yes; then
-   echo gnu/java/awt/peer/qt >> standard.omit
 fi
 
 if test -z "${with_multisubdir}"; then
@@ -329,6 +330,7 @@ ac_configure_args="$ac_configure_args --disable-core-jni"
 dnl FIXME?
 ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
+ac_configure_args="$ac_configure_args --disable-plugin"
 if test "$use_gtk_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-gtk-peer"
 fi
@@ -675,21 +677,6 @@ AC_SUBST(ZLIBTESTSPEC)
 
 AC_PATH_XTRA
 
-# determine whether to enable the cairo GTK Graphics2D backend
-AC_ARG_ENABLE(gtk-cairo,
-  AS_HELP_STRING([--enable-gtk-cairo],
-                 [build the cairo Graphics2D implementation on GTK]))
-AM_CONDITIONAL(GTK_CAIRO, test "x${enable_gtk_cairo}" = xyes)
-if test "x${enable_gtk_cairo}" = xyes
-then
-	PKG_CHECK_MODULES(CAIRO, cairo)
-	PKG_CHECK_MODULES(PANGOFT2, pangoft2)
-fi
-AC_SUBST(CAIRO_LIBS)
-AC_SUBST(CAIRO_CFLAGS)
-AC_SUBST(PANGOFT2_LIBS)
-AC_SUBST(PANGOFT2_CFLAGS)
-
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
 
@@ -805,7 +792,7 @@ case "$THREADS" in
 	THREADLDFLAGS=-pthread
 	THREADSPEC=-lpthread
 	;;
-     alpha*-dec-osf*)
+     alpha*-dec-osf* | hppa*-hp-hpux*)
 	THREADCXXFLAGS=-pthread
 	# boehm-gc needs some functions from librt, so link that too.
 	THREADLIBS='-lpthread -lrt'
@@ -892,14 +879,17 @@ if test "x${with_newlib}" = "xyes"; then
 else
    AC_CHECK_FUNCS([strerror ioctl select fstat open fsync sleep opendir \
                    gmtime_r localtime_r readdir_r getpwuid_r getcwd \
-		   access stat mkdir rename rmdir unlink realpath utime chmod \
+		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate])
+		   fork execvp pipe sigaction ftruncate mmap])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
-   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
+   AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
+   # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
    AC_CHECK_LIB(dl, dladdr, [
-       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])])
+       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])], [
+       AC_CHECK_LIB(dld, dladdr, [
+       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])])])
 
    if test x"$build" = x"$host"; then
      AC_CHECK_FILES(/proc/self/exe, [
@@ -1053,9 +1043,11 @@ else
    if test "$memcpy_found" = no; then
       AC_MSG_ERROR([memcpy is required])
    fi
-
+   # Do an additional check on dld, HP-UX for example has dlopen in libdld.sl
    AC_CHECK_LIB(dl, dlopen, [
-       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])], [
+       AC_CHECK_LIB(dld, dlopen, [
+       AC_DEFINE(HAVE_DLOPEN, 1, [Define if dlopen is available])])])
 
    # Some library-finding code we stole from Tcl.
    #--------------------------------------------------------------------
@@ -1271,7 +1263,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h])
+		  dirent.h sys/rw_lock.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1347,31 +1339,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[struct tm tim; tim.t
 
 AC_FUNC_ALLOCA
 
-dnl Check for mmap()
-# AC_FUNC_MMAP goes to far and checks for mmap fixed, we do only need mmap
-# at a mmap selected address. See
-# gnu/java/nio/channels/natFileChannelPosix.cc
-
-AC_MSG_CHECKING([for mmap])
-AC_CACHE_VAL(ac_cv_func_mmap_ok,
-    [AC_TRY_LINK(
-    changequote(<<, >>)dnl
-    <<
-#include <unistd.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-    >>,
-    changequote([, ])dnl
-    [mmap((void *)0, 0, PROT_READ, 0, 0, 0);],
-    ac_cv_func_mmap_ok=yes,
-    ac_cv_func_mmap_ok=no)] )
-AC_MSG_RESULT($ac_cv_func_mmap_ok)
-if test $ac_cv_func_mmap_ok = yes
-then
-  AC_DEFINE(HAVE_MMAP, 1, [ Define to 1 if you have a working `mmap' system call w/o fixed address ability.])
-fi
-
 AC_CHECK_PROGS(PERL, perl, false)
 
 SYSDEP_SOURCES=
@@ -1390,6 +1357,9 @@ case "${host}" in
 #    ;;
  hppa*-*-linux*)
     SIGNAL_HANDLER=include/pa-signal.h
+    ;;
+ hppa*-hp-hpux*)
+    SIGNAL_HANDLER=include/hppa-signal.h
     ;;
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
@@ -1478,6 +1448,8 @@ gcj/Makefile
 include/Makefile
 testsuite/Makefile
 ])
+
+AC_CONFIG_FILES([scripts/jar], [chmod +x scripts/jar])
 
 AC_CONFIG_COMMANDS([default],
 [# Only add multilib support code if we just rebuilt top-level Makefile.

@@ -650,6 +650,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_fwprop_addr);
   NEXT_PASS (pass_subregs_of_mode_init);
+  NEXT_PASS (pass_inc_dec);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_stack_ptr_mod);
   NEXT_PASS (pass_initialize_subregs);
@@ -663,6 +664,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
+  NEXT_PASS (pass_see);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
   /* NEXT_PASS (pass_web); */
@@ -674,10 +676,10 @@ init_optimization_passes (void)
   p = &pass_postreload.sub;
   NEXT_PASS (pass_postreload_cse);
   NEXT_PASS (pass_gcse2);
-  NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_split_after_reload);
   NEXT_PASS (pass_branch_target_load_optimize1);
   NEXT_PASS (pass_thread_prologue_and_epilogue);
+  NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_seqabstr);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);

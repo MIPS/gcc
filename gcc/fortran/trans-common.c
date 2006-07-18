@@ -84,7 +84,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    a diagonal matrix in the matrix formulation.
  
    Each segment is described by a chain of segment_info structures.  Each
-   segment_info structure describes the extents of a single varible within
+   segment_info structure describes the extents of a single variable within
    the segment.  This list is maintained in the order the elements are
    positioned withing the segment.  If two elements have the same starting
    offset the smaller will come first.  If they also have the same size their
@@ -848,7 +848,7 @@ align_segment (unsigned HOST_WIDE_INT * palign)
 	    {
 	      /* Aligning this field would misalign a previous field.  */
 	      gfc_error ("The equivalence set for variable '%s' "
-			 "declared at %L violates alignment requirents",
+			 "declared at %L violates alignment requirements",
 			 s->sym->name, &s->sym->declared_at);
 	    }
 	  offset += this_offset;
@@ -1057,9 +1057,10 @@ gfc_trans_common (gfc_namespace *ns)
   /* Translate all named common blocks.  */
   gfc_traverse_symtree (ns->common_root, named_common);
 
-  /* Commit the newly created symbols for common blocks.  */
-  gfc_commit_symbols ();
-
   /* Translate local equivalence.  */
   finish_equivalences (ns);
+
+  /* Commit the newly created symbols for common blocks and module
+     equivalences.  */
+  gfc_commit_symbols ();
 }

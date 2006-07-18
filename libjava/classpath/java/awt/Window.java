@@ -1,5 +1,5 @@
 /* Window.java --
-   Copyright (C) 1999, 2000, 2002, 2003, 2004  Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2006  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -130,33 +130,7 @@ public class Window extends Container implements Accessible
     // cycle roots.
     focusCycleRoot = true;
     setLayout(new BorderLayout());
-
-    addWindowFocusListener (new WindowAdapter ()
-      {
-        public void windowGainedFocus (WindowEvent event)
-        {
-          if (windowFocusOwner != null)
-            {
-              // FIXME: move this section and the other similar
-              // sections in Component into a separate method.
-              EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-              synchronized (eq)
-                {
-                  KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
-                  Component currentFocusOwner = manager.getGlobalPermanentFocusOwner ();
-                  if (currentFocusOwner != null)
-                    {
-                      eq.postEvent (new FocusEvent (currentFocusOwner, FocusEvent.FOCUS_LOST,
-                                                    false, windowFocusOwner));
-                      eq.postEvent (new FocusEvent (windowFocusOwner, FocusEvent.FOCUS_GAINED,
-                                                    false, currentFocusOwner));
-                    }
-                  else
-                    eq.postEvent (new FocusEvent (windowFocusOwner, FocusEvent.FOCUS_GAINED, false));
-                }
-            }
-        }
-      });
+    addWindowFocusListener();
     
     GraphicsEnvironment g = GraphicsEnvironment.getLocalGraphicsEnvironment();
     graphicsConfiguration = g.getDefaultScreenDevice().getDefaultConfiguration();
@@ -167,7 +141,68 @@ public class Window extends Container implements Accessible
     this();
     graphicsConfiguration = gc;
   }
+  
+  private void addWindowFocusListener()
+  {
+    addWindowFocusListener(new WindowAdapter()
+    {
+      public void windowGainedFocus(WindowEvent event)
+      {
+        EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+        if (windowFocusOwner != null)
+          {
+            synchronized (eq)
+              {
+                KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+                Component currentFocusOwner = manager.getGlobalPermanentFocusOwner();
+                if (currentFocusOwner != null)
+                  {
+                    eq.postEvent(new FocusEvent(currentFocusOwner,
+                                                FocusEvent.FOCUS_LOST, false,
+                                                windowFocusOwner));
+                    eq.postEvent(new FocusEvent(windowFocusOwner,
+                                                FocusEvent.FOCUS_GAINED, false,
+                                                currentFocusOwner));
+                  }
+                else
+                  eq.postEvent(new FocusEvent(windowFocusOwner,
+                                              FocusEvent.FOCUS_GAINED, false));
+              }
+          }
+        else
+          eq.postEvent(new FocusEvent(Window.this, FocusEvent.FOCUS_GAINED,
+                                      false));
+      }
 
+      public void windowLostFocus(WindowEvent event)
+      {
+        EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue();
+        if (windowFocusOwner != null)
+          {
+            synchronized (eq)
+              {
+                KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+                Component currentFocusOwner = manager.getGlobalPermanentFocusOwner();
+                if (currentFocusOwner != null)
+                  {
+                    eq.postEvent(new FocusEvent(currentFocusOwner,
+                                                FocusEvent.FOCUS_GAINED, false,
+                                                windowFocusOwner));
+                    eq.postEvent(new FocusEvent(windowFocusOwner,
+                                                FocusEvent.FOCUS_LOST, false,
+                                                currentFocusOwner));
+                  }
+                else
+                  eq.postEvent(new FocusEvent(windowFocusOwner,
+                                              FocusEvent.FOCUS_LOST, false));
+              }
+          }
+        else
+          eq.postEvent(new FocusEvent(Window.this, FocusEvent.FOCUS_LOST, false));
+      }
+    });
+  }
+  
   /**
    * Initializes a new instance of <code>Window</code> with the specified
    * parent.  The window will initially be invisible.
@@ -620,10 +655,25 @@ public class Window extends Container implements Accessible
 	    || windowStateListener != null
 	    || (eventMask & AWTEvent.WINDOW_EVENT_MASK) != 0))
       processEvent(e);
-    else if (e.id == ComponentEvent.COMPONENT_RESIZED)
-      validate ();
-    else
-      super.dispatchEventImpl(e);
+    else 
+      {
+	if (peer != null && (e.id == ComponentEvent.COMPONENT_RESIZED
+	    || e.id == ComponentEvent.COMPONENT_MOVED))
+            {
+	    Rectangle bounds = peer.getBounds();
+	    x = bounds.x;
+	    y = bounds.y;
+	    height = bounds.height;
+	    width = bounds.width;
+	    
+	    if (e.id == ComponentEvent.COMPONENT_RESIZED)
+	      {
+		invalidate();
+		validate();
+	      }
+	  }
+	super.dispatchEventImpl(e);
+      }
   }
 
   /**
@@ -1029,11 +1079,11 @@ public class Window extends Container implements Accessible
   /**
    * @since 1.2
    *
-   * @deprecated
+   * @deprecated replaced by Component.applyComponentOrientation.
    */
   public void applyResourceBundle(ResourceBundle rb)
   {
-    throw new Error ("Not implemented");
+    applyComponentOrientation(ComponentOrientation.getOrientation(rb));
   }
 
   /**
@@ -1142,6 +1192,47 @@ public class Window extends Container implements Accessible
   public void setFocusableWindowState (boolean focusableWindowState)
   {
     this.focusableWindowState = focusableWindowState;
+  }
+  
+  /**
+   * Check whether this Container is a focus cycle root.
+   * Returns always <code>true</code> as Windows are the 
+   * root of the focus cycle.
+   *
+   * @return Always <code>true</code>.
+   *
+   * @since 1.4
+   */
+  public final boolean isFocusCycleRoot()
+  {
+    return true;
+  }
+
+  /**
+   * Set whether or not this Container is the root of a focus
+   * traversal cycle. Windows are the root of the focus cycle
+   * and therefore this method does nothing.
+   * 
+   * @param focusCycleRoot ignored.
+   *
+   * @since 1.4
+   */
+  public final void setFocusCycleRoot(boolean focusCycleRoot)
+  {
+    // calls to the method are ignored
+  }
+
+  /**
+   * Returns the root container that owns the focus cycle where this
+   * component resides. Windows have no ancestors and this method
+   * returns always <code>null</code>.
+   *
+   * @return Always <code>null</code>.
+   * @since 1.4
+   */
+  public final Container getFocusCycleRootAncestor()
+  {
+    return null;
   }
 
   /**

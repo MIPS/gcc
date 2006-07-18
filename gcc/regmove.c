@@ -1047,7 +1047,7 @@ regmove_optimize (rtx f, int nregs)
   rtx copy_src, copy_dst;
   basic_block bb;
   struct df * df = df_init (DF_HARD_REGS);
-  df_ur_add_problem (df, 0);
+  df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
 
@@ -2520,7 +2520,7 @@ rest_of_handle_stack_adjustments (void)
 #endif
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_ur_add_problem (df, 0);
+      df_clrur_add_problem (df, 0);
       df_ri_add_problem (df, 0);
       df_analyze (df);
       df_finish (df);

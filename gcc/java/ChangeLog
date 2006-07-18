@@ -1,3 +1,152 @@
+2006-06-08  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.user.realname.
+
+2006-06-08  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Pass NULL_TREE as SPECIAL arg to
+	get_symbol_table_index().
+	(maybe_rewrite_invocation): Set SPECIAL if we need to access a
+	private method.
+	(build_known_method_ref): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(get_symbol_table_index): Put SPECIAL in the TREE_PURPOSE field of
+	the method list.
+	(build_invokevirtual): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(expand_invoke): New variable: special.
+	Pass it to maybe_rewrite_invocation().
+	Pass it to build_known_method_ref().
+	* class.c (build_symbol_entry): Add new arg: special.  Use it to
+	build the symbol table conbstructor.
+	(emit_symbol_table): Extract SPECIAL from the method list and pass
+	it to build_symbol_entry().
+	* parse.y (patch_invoke): Call maybe_rewrite_invocation() and set
+	special accordingly.
+
+2006-06-06  David Daney  <ddaney@avtrex.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.NameFinder.show_raw and
+	gnu.gcj.runtime.NameFinder.remove_unknown.
+
+2006-06-06  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (print_access_flags): Handle varargs, bridge,
+	synthetic, enum, annotation.
+	* jcf.h (ACC_BRIDGE): New macro.
+	(ACC_VARARGS): Likewise.
+	(ACC_SYNTHETIC): Likewise.
+	(ACC_ENUM): Likewise.
+	(ACC_ANNOTATION): Likewise.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to htmldir to build_htmldir to avoid
+	installing during build.
+
+2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Extensions): Document the new gcj-dbtool-based
+	classname-to-library resolution mechanism.
+	Declare the old gnu.gcj.runtime.VMClassLoader.library_control
+	mechanism deprecated.
+	(libgcj Runtime Properties): Document
+	gnu.gcj.runtime.VMClassLoader.library_control's new default.
+
+2006-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* javaop.h (int16, int32, int64): Define to exactly 16 (resp. 32, 64)
+	bit wide type.
+	(jword): Define to uint64 on 64-bit arches.
+	* jcf-dump.c (print_constant): Cast JPOOL_UINT to long.
+
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* class.c, except.c, expr.c, java-gimplify.c: Fix comment
+	typos.
+
+2006-05-26  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (java_push_constant_from_pool): Handle 'ldc class'.
+	* verify-glue.c (vfy_class_type): New function.
+	* verify-impl.c (check_constant): Allow 'ldc class'.
+	* verify.h (vfy_class_type): Declare.
+
+2006-05-25  Andrew Haley  <aph@redhat.com>
+
+	PR java/27756
+	* decl.c (maybe_pushlevels): When variable ranges are non-nested
+	update all lifetimes, not just the first one.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h: Fixed flag documentation.
+
+2006-05-24  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27729:
+	* jcf.h (ACC_INVISIBLE): Changed value.
+
+2006-05-24  Andrew Haley  <aph@redhat.com>
+
+	PR java/27754
+	* decl.c (java_add_stmt): Use a STATEMENT_LIST rather than a
+	COMPOUND_EXPR.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* lang.opt (femit-class-file): Remove VarExists.
+
+2006-05-16  Tom Tromey  <tromey@redhat.com>
+
+	* verify-impl.c (verify_instructions_0) <op_return>: Special case
+	for Object.<init>.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in ($(GCJ)$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
+2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Make-lang.in (java/decl.o): Add dependency on $(TARGET_H).
+	(java/expr.o): Replace target.h with $(TARGET_H).
+	(java/parse.o): Likewise.
+
+2006-05-10  Andrew Haley  <aph@redhat.com>
+
+	* class.c (emit_indirect_register_classes): Fix comment.
+
+2006-05-04  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (uses_jv_markobj_p): Declare.
+	* class.c (uses_jv_markobj_p): Removed.
+	* boehm.c (PROCEDURE_OBJECT_DESCRIPTOR): New define.
+	(get_boehm_type_descriptor): Use it.
+	(uses_jv_markobj_p): Moved from class.c.  Return bool.
+
+2006-05-04  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.def (THIS_EXPR): Now a tcc_expression.
+
+2006-05-04  Andrew Haley  <aph@redhat.com>
+
+	* class.c (make_field_value): Always build_address_of fdecl if
+	there is an initializer.
+
+2006-05-03  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/27352
+	* expr.c (maybe_rewrite_invocation): New function.
+	(rewrite_arglist_getclass): Likewise.
+	(rules): New.
+	(expand_invoke): Call maybe_rewrite_invocation.
+	* parse.y (patch_invoke): Likewise.
+	* java-tree.h: (maybe_rewrite_invocation): New function.
+
 2006-04-21  Andrew Haley  <aph@redhat.com>
 
 	* lang.c (java_init): Handle flag_indirect_classes.

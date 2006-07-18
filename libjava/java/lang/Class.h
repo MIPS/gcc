@@ -59,6 +59,14 @@ enum
   JV_STATE_NOTHING = 0,		// Set by compiler.
 
   JV_STATE_PRELOADING = 1,	// Can do _Jv_FindClass.
+
+  // There is an invariant through libgcj that a class will always be
+  // at a state greater than or equal to JV_STATE_LOADING when it is
+  // returned by a class loader to user code.  Hence, defineclass.cc
+  // installs supers before returning a class, C++-ABI-compiled
+  // classes are created with supers installed, and BC-ABI-compiled
+  // classes are linked to this state before being returned by their
+  // class loader.
   JV_STATE_LOADING = 3,		// Has super installed.
   JV_STATE_READ = 4,		// Has been completely defined.
   JV_STATE_LOADED = 5,		// Has Miranda methods defined.
@@ -88,6 +96,7 @@ struct _Jv_ArrayVTable;
 class _Jv_Linker;
 class _Jv_ExecutionEngine;
 class _Jv_CompiledEngine;
+class _Jv_IndirectCompiledEngine;
 class _Jv_InterpreterEngine;
 
 #ifdef INTERPRETER
@@ -289,6 +298,8 @@ public:
   JArray<jclass> *getClasses (void);
 
   java::lang::ClassLoader *getClassLoader (void);
+private:
+  java::lang::ClassLoader *getClassLoader (jclass caller);
 public:
   // This is an internal method that circumvents the usual security
   // checks when getting the class loader.
@@ -383,6 +394,12 @@ public:
   java::lang::Package *getPackage (void);
   jstring toString (void);
   jboolean desiredAssertionStatus (void);
+
+  JArray<java::lang::reflect::TypeVariable *> *getTypeParameters (void);
+
+  java::lang::Class *getEnclosingClass (void);
+  java::lang::reflect::Constructor *getEnclosingConstructor (void);
+  java::lang::reflect::Method *getEnclosingMethod (void);
 
   // FIXME: this probably shouldn't be public.
   jint size (void)
@@ -528,6 +545,7 @@ private:
   friend class ::_Jv_Linker;
   friend class ::_Jv_ExecutionEngine;
   friend class ::_Jv_CompiledEngine;
+  friend class ::_Jv_IndirectCompiledEngine;
   friend class ::_Jv_InterpreterEngine;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);

@@ -553,67 +553,6 @@ count_occurrences (rtx x, rtx find, int count_dest)
   return count;
 }
 
-/* Return a pointer to one of the occurrences of FIND in *PX.  */
-
-rtx *
-find_occurrence (rtx *px, rtx find)
-{
-  int i, j;
-  enum rtx_code code;
-  const char *format_ptr;
-  rtx x = *px;
-
-  if (x == find)
-    return px;
-
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case REG:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case SYMBOL_REF:
-    case CODE_LABEL:
-    case PC:
-    case CC0:
-      return NULL;
-
-    case MEM:
-      if (MEM_P (find) && rtx_equal_p (x, find))
-	return px;
-      break;
-
-    default:
-      break;
-    }
-
-  format_ptr = GET_RTX_FORMAT (code);
-
-  for (i = 0; i < GET_RTX_LENGTH (code); i++)
-    {
-      rtx *result;
-      switch (*format_ptr++)
-	{
-	case 'e':
-	  result = find_occurrence (&XEXP (x, i), find);
-	  if (result)
-	    return result;
-	  break;
-
-	case 'E':
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    {
-	      result = find_occurrence (&XVECEXP (x, i, j), find);
-	      if (result)
-	        return result;
-	    }
-	  break;
-	}
-    }
-
-  return 0;
-}
 
 /* Nonzero if register REG appears somewhere within IN.
    Also works if REG is not a register; in this case it checks
@@ -3350,7 +3289,7 @@ rtx_cost (rtx x, enum rtx_code outer_code ATTRIBUTE_UNUSED)
       total = COSTS_N_INSNS (7);
       break;
     case USE:
-      /* Used in loop.c and combine.c as a marker.  */
+      /* Used in combine.c as a marker.  */
       total = 0;
       break;
     default:

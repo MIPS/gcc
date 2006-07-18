@@ -1,3 +1,206 @@
+2006-07-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* auto-inc-dec.c (parse_add_or_inc): Moved test to merge_in_block.
+	(find_inc): Now returns success flag if transformation was made.
+	(find_mem): Ditto.
+	(merge_in_block): Restructed to loop if any merges were made.
+	Added max_reg parameter.  Added test from parse_add_or_inc.
+	
+2006-07-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (regrename_optimize): Changed df problem
+	initialization.
+	* sched-ebb.c (schedule_ebbs): Ditto.
+	* reorg.c (dbr_schedule): Ditto.
+	* mode-switching.c (optimize_mode_switching): Ditto.
+	* ifcvt.c (if_convert): Ditto.
+	* reorg.c (peephole2_optimize): Ditto.
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments):
+	Ditto.
+	* sched-rgn.c (schedule_insns): Ditto.
+	* rtl-factoring.c (rtl_seqabstr): Ditto.
+	* bt-load.c (branch_target_load_optimize): Ditto.
+	* subregs-init.c (initialize_uninitialized_subregs): Ditto.
+	* df-core.c (reset_df): Ditto.
+	* flow.c (update_life_info, propagate_one_insn): Renamed UPWARD_LIVE
+	to LR.
+	(rest_of_handle_life): Changed df problem
+	initialization.
+	* function.c (keep_stack_depressed): Renamed UPWARD_LIVE to LR.
+	* combine.c (set_nonzero_bits_and_sign_copies): Changed DF_LIVE_IN
+	to DF_UR_IN or DF_LR_IN.
+	(reg_nonzero_bits_for_combine,
+	reg_num_sign_bit_copies_for_combine, get_last_value): Changed
+	DF_LIVE_IN to DF_UR_IN.
+	* reg-stack.c (reg_to_stack): Changed df problem
+	initialization. Changed DF_LIVE_IN to DF_LR_IN. str
+	* struct-equiv.c (struct_equiv_init): Renamed UPWARD_LIVE
+	to LR. 
+	* dce.c (dce_process_block): Changed DF_UPWARD_LIVE_* to DF_LR_*.
+	* df.h: (DF_CLRUR) Added symbol and renamed others in block.
+	(DF_CLRUR_BB_INFO): New macro.
+	(DF_LIVE_IN, DF_LIVE_OUT): Changed to use output of clrur problem.
+	(DF_UPWARD_LIVE_IN): Renamed to DF_LR_IN.
+	(DF_UPWARD_LIVE_OUT): Renamed to DF_LR_OUT.
+	(df_clrur_bb_info): New structure.
+	(df_clrur_add_problem, df_clrur_get_bb_info): New functions.
+	* df-problems: (df_get_live_in, df_get_live_out, 
+	df_lr_simulate_artificial_refs_at_end): Reworked to
+	to be consistent with new dataflow problems and naming.
+	(df_ur_local_finalize): Deleted function.
+	(df_problem problem_UR): Removed ref to df_ur_local_finalize.
+	(df_clrur_get_bb_info, df_clrur_set_bb_info,
+	df_clrur_free_bb_info, df_clrur_alloc, df_clrur_free,
+	df_clrur_dump, df_clrur_add_problem): New functions.
+	(df_problem problem_CLRUR): New datastructure.
+	* auto-inc-dec.c (reg_next_inc_use): New Array.
+	(attempt_change): Added inc_reg parm and boolean result.  Move
+	some tests to try_merge.  Added processing for reg_next_inc_use.
+	(try_merge): Added boolean result and some test moved from
+	attempt_change and parse_add_or_inc.
+	(parse_add_or_inc): Move test to try_merge.  Improved debugging,
+	and added code to support reg_next_inc_use.  Added more
+	correctness tests.
+	(rest_of_handle_auto_inc_dec): Changed df problem initialization
+	and added code to support reg_next_inc_use.
+	
+2006-07-05  Richard Sandiford  <richard@codesourcery.com>
+
+	* passes.c (init_optimization_passes): Move the final RTL DSE pass
+	after thread_prologue_and_epilogue.
+
+2006-07-01  Daniel Berlin  <dberlin@dberlin.org>
+	    David Edelsohn  <edelsohn@gnu.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	tree-pass.h (pass_inc_dec): New pass variable.
+	auto-inc-dec.c: New file that contains pass to find auto-inc/dec
+	instruction combinations.
+	flow.c: Removed unused includes for execinfo.h and stdio.h.
+	(init_propagate_block_info): Fixed missing comma typo.
+	(attempt_auto_inc, try_pre_increment): Added code to abort if any
+	auto-inc/dec insns are found by this pass.
+	df-scan.c (df_defs_record): Added flags parameter.
+	(df_insn_refs_record): Added code to check for conditional def.
+	(df_recompute_luids): New function.
+	df-core.c: Fixed comment.
+	global.c (global_alloc): Moved misplaced debugging code.
+	(global_conflicts): Added patch to fix the way auto-incs are
+	accounted for in conflicts graph.
+	timevar.def (TV_AUTO_INC_DEC): New variable.
+	recog.c: Fixed comment.
+	function.c: Fixed comment.
+	df.h (DF_REF_CONDITIONAL): New flag.
+	(df_recompute_luids): New function.
+	gcse.c (extract_mentioned_regs_helper): Added PRE/POST_MODIFY
+	cases.
+	common.opt (fauto-inc-dec): New flag.
+	rtl.h (AUTO_INC_DEC): Made this symbol dependent on 
+	HAVE_(PRE/POST)_MODIFY_(REG/DISP).  Made other symbols dependent
+	on AUTO_INC_DEC rather than components that defined AUTO_INC_DEC.
+	df-problems.c (df_ru_bb_local_compute_process_def,
+	df_lr_bb_local_compute, df_lr_simulate_artificial_refs_at_end,
+	df_lr_simulate_one_insn, df_chain_create_bb,
+	df_create_unused_note): Added DF_REF_CONDITIONAL to keep
+	conditional defs from being added to kill sets.
+	dce.c (dce_process_block): Ditto.
+	Makefile.in (auto-inc-dec.c): New file.
+	basic-block.h: Preparation to get rid of PROP_AUTO_INC flag.
+	passes.c (init_optimization_passes): Added pass_inc_dec.
+	config/rs6000/rs6000.c (rs6000_legitimate_address): Added code for
+	PRE_MODIFY.
+	(rs6000_mode_dependent_address, print_operand): Added case for pre_modify.
+	config/rs6000/rs6000.h (HAVE_PRE_MODIFY_DISP,
+	HAVE_PRE_MODIFY_REG): Added flags.
+	reload1 (eliminate_regs_1, elimination_effects): Added cases for
+	PRE/POST_MODIFY.
+	
+	
+	
+2006-05-27  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* reorg.c (dbr_schedule): Fix df_ur_add_problem calls.
+
+2006-05-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_scan_free_internal, df_grow_reg_info,
+	df_reg_chain_unlink, df_ref_remove,
+	df_insn_create_insn_record, df_insn_refs_delete,
+	df_ref_create_structure, df_ref_record, df_mark_reg, 
+	df_record_entry_block_defs, df_record_exit_block_uses): 
+	Formatting fixes.
+	(df_get_artificial_defs): Spelling fixes.
+	(df_ref_record, df_def_record_1, df_uses_record): 
+	Fix the way that subregs are processed.
+	(df_defs_record, df_def_record_1, df_insn_refs_record): 
+	Split DF_REF_CLOBBER into two cases.
+	* df-core.c (df_analyze): Added comments
+	(df_simple_iterative_dataflow): New function.
+	(df_dump): Formatting fixes.
+	* df.h (DF_REF_CLOBBER): Deleted.
+	(DF_REF_MUST_CLOBBER, DF_REF_MAY_CLOBBER): New enums.
+	(df_ru_bb_info, df_rd_bb_info, df_lr_bb_info, df_ur_bb_info,
+	df_urec_bb_info): Added comments.
+	(df_simple_iterative_dataflow): New function.
+	* df-problems.c (df_print_bb_index, df_set_dead_notes_for_mw):
+	Added comments.
+	(df_ru_alloc, df_ru_local_compute, df_ru_confluence_n,
+	df_ru_free, df_ru_dump, df_rd_alloc,
+	df_rd_bb_local_compute_process_def, df_rd_bb_local_compute,
+	df_rd_local_compute, df_rd_confluence_n, df_rd_free, 
+	df_rd_dump, df_lr_bb_local_compute, df_lr_bb_local_compute, 
+	df_lr_local_compute, df_ur_alloc, df_ur_dump, df_urec_alloc,
+	df_urec_bb_local_compute, df_urec_local_compute,
+	df_urec_local_finalize, df_urec_dump, df_chain_create_bb,
+	df_create_unused_note,  df_ri_bb_compute): Formatting fixes.
+	(df_ru_bb_local_compute_process_def): Do not clear gen set.
+	(df_ru_bb_local_compute): Reorder processing insn.
+	(df_ru_transfer_function): Fixed incorrect use of bitmaps.
+	(df_ru_dump, df_rd_dump, df_chains_dump): Added debugging code.
+	(df_lr_bb_local_compute, df_lr_simulate_one_insn, 
+	df_ur_bb_local_compute, df_chain_create_bb, 
+	df_create_unused_note, df_ri_bb_compute): Split 
+	DF_REF_CLOBBER into two cases.
+	* ddg.c (add_deps_for_def): Changed to use ru info.
+	* modulo-sched.c (sms_schedule): Added debugging.
+	* dce.c (rs_dflow, df_problem reaching_stores_problem): Deleted.
+	(init_rs_dflow, calculate_reaching_stores): Move dataflow to new 
+	df function.
+
+2006-05-23  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* fwprop.c (local_ref_killed_between_p): Rearranged definition.
+
+2006-05-23  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* rtlanal.c (find_occurrence): Move to fwprop.c.
+	* rtl.h (find_occurrence): Remove prototype.
+	* fwprop.c (can_simplify_addr): Fix check for frame based addresses.
+	(should_replace_address): Update comment before this function.
+	(local_ref_killed_between_p): Don't choque on NOTEs.
+	(use_killed_between): Handle the exceptional case that a DEF does
+	not dominate one of its uses.
+	(varying_mem_p): Simplify return type.
+	(all_uses_available_at): Clean up unnecessary single_set calls.
+	(find_occurrence_callback, find_occurrence): New.
+	(subst): Rename to try_fwprop_subst.
+	(forward_propagate_subreg): Update caller.
+	(forward_propagate_and_simplify): Likewise.
+	(fwprop_init): Find loops before computing data flow info.
+	(fwprop_done): Call cleanup_cfg without CLEANUP_PRE_LOOP.  Free
+	loop tree before cleanup_cfg.
+
+2006-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regclass.c (init_subregs_of_mode): Created dummy version 
+	when CANNOT_CHANGE_MODE_CLASS is undefined.
+
+2006-05-13  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* df-core.c (df_bb_regno_last_use_find): Do not look for dataflow
+	information attached to non-INSNs such as NOTEs.
+	(df_bb_regno_first_def_find, df_bb_regno_last_def_find): Likewise.
+
 2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* haifa-sched.c (glat_size): New variable.
         (sched-init, extend_bb): Properly initialized glat_start and
@@ -648,7 +851,7 @@
 	update_df, subst, forward_propagate_subreg,
 	forward_propagate_and_simplify, forward_propagate_into, fwprop,
 	fwprop_addr): Changes to support modifications to df datastructures.
-	ddg.c (add_deps_for_def, add_deps_for_use, build_inter_loop_deps):
+	* ddg.c (add_deps_for_def, add_deps_for_use, build_inter_loop_deps):
 	Ditto.
 	* flow.c (verify_local_live_at_start, update_life_info,
 	update_life_info, initialize_uninitialized_subregs,

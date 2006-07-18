@@ -941,6 +941,12 @@ sms_schedule (void)
   df_analyze (df);
   sched_init (df);
 
+  if (dump_file)
+    df_dump (df, dump_file);
+
+  if (dump_file)
+    df_dump (df, dump_file);
+
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
   g_arr = XCNEWVEC (ddg_ptr, loops->num);
@@ -2536,7 +2542,7 @@ struct tree_opt_pass pass_sms =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_start */
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'm'                                   /* letter */

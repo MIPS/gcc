@@ -1,5 +1,5 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -224,15 +224,20 @@ typedef struct JCF GTY(()) {
 #define ACC_FINAL 0x0010
 #define ACC_SYNCHRONIZED 0x0020
 #define ACC_SUPER 0x0020
+#define ACC_BRIDGE 0x0040
 #define ACC_VOLATILE 0x0040
 #define ACC_TRANSIENT 0x0080
+#define ACC_VARARGS 0x0080
 #define ACC_NATIVE 0x0100
 #define ACC_INTERFACE 0x0200
 #define ACC_ABSTRACT 0x0400
 #define ACC_STRICT 0x0800
+#define ACC_SYNTHETIC 0x01000
+#define ACC_ANNOTATION 0x02000
+#define ACC_ENUM 0x04000
 /* "Invisible" refers to Miranda methods inserted into an abstract
-   #class.  It is also used in the runtime.  */
-#define ACC_INVISIBLE 0x1000
+   class.  It is also used in the runtime.  */
+#define ACC_INVISIBLE 0x8000
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 

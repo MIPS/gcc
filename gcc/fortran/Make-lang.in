@@ -93,7 +93,7 @@ gfortranspec.o: $(srcdir)/fortran/gfortranspec.c $(SYSTEM_H) $(TM_H) $(GCC_H) $(
 		$(INCLUDES) $(srcdir)/fortran/gfortranspec.c)
 
 # Create the compiler driver gfortran.
-GFORTRAN_D_OBJS = gcc.o gfortranspec.o version.o prefix.o intl.o
+GFORTRAN_D_OBJS = $(GCC_OBJS) gfortranspec.o version.o prefix.o intl.o
 gfortran$(exeext): $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	  $(GFORTRAN_D_OBJS) $(EXTRA_GCC_OBJS) $(LIBS)
@@ -127,7 +127,7 @@ fortran.tags: force
 
 fortran.info: doc/gfortran.info
 fortran.dvi: doc/gfortran.dvi
-fortran.html: $(htmldir)/gfortran/index.html
+fortran.html: $(build_htmldir)/gfortran/index.html
 
 F95_MANFILES = doc/gfortran.1
 
@@ -162,7 +162,7 @@ doc/gfortran.info: $(GFORTRAN_TEXI)
 doc/gfortran.dvi: $(GFORTRAN_TEXI)
 	$(TEXI2DVI) -I $(srcdir)/fortran -I $(abs_docdir)/include -o $@ $<
 
-$(htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
+$(build_htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/fortran -o $(@D) $<
@@ -297,4 +297,4 @@ fortran/trans-intrinsic.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
 fortran/dependency.o: $(GFORTRAN_TRANS_DEPS) fortran/dependency.h
 fortran/trans-common.o: $(GFORTRAN_TRANS_DEPS) $(TARGET_H) $(RTL_H)
 fortran/resolve.o: fortran/dependency.h
-
+fortran/options.o: $(TARGET_H)

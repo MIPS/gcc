@@ -529,7 +529,7 @@ extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
 extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
-extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type, 
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
 					     gcov_type);
 
 /* Structure to group all of the information to process IF-THEN and
@@ -778,7 +778,7 @@ ei_cond (edge_iterator ei, edge *p)
    an element might be removed during the traversal, otherwise
    elements will be missed.  Instead, use a for-loop like that shown
    in the following pseudo-code:
-   
+
    FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
      {
 	IF (e != taken_edge)
@@ -827,11 +827,19 @@ enum update_life_extent
 #define PROP_POST_REGSTACK	4096	/* We run after reg-stack and need
 					   to preserve REG_DEAD notes for
 					   stack regs.  */
+#if 1
 #define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
+#else
+#define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
+				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
+				 | PROP_SCAN_DEAD_CODE \
+				 | PROP_ALLOW_CFG_CHANGES \
+				 | PROP_SCAN_DEAD_STORES)
+#endif
 #define PROP_POSTRELOAD		(PROP_DEATH_NOTES  \
 				 | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE \
@@ -984,7 +992,7 @@ extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
-extern basic_block nearest_common_dominator_for_set (enum cdi_direction, 
+extern basic_block nearest_common_dominator_for_set (enum cdi_direction,
 						     bitmap);
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
@@ -1014,6 +1022,8 @@ extern void set_bb_original (basic_block, basic_block);
 extern basic_block get_bb_original (basic_block);
 extern void set_bb_copy (basic_block, basic_block);
 extern basic_block get_bb_copy (basic_block);
+
+extern rtx insert_insn_end_bb_new (rtx, basic_block);
 
 #include "cfghooks.h"
 
