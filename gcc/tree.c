@@ -1587,6 +1587,56 @@ nth_parm_type (tree parmtypes, int n)
   return TREE_VALUE (parmtypes);
 }
 
+/* Return the pointer to the Nth element of PARMTYPES, a list of
+   parameter types.  */
+
+tree *
+nth_parm_type_ptr (tree parmtypes, int n)
+{
+  while (n--)
+    {
+      gcc_assert (parmtypes);
+      parmtypes = TREE_CHAIN (parmtypes);
+    }
+
+  gcc_assert (parmtypes);
+  return &(TREE_VALUE (parmtypes));
+}
+
+/* Allocate parameter types of length LEN.  */
+
+tree
+alloc_parm_types (int len)
+{
+  tree t = NULL;
+
+  while (len--)
+    t = tree_cons (NULL, NULL, t);
+
+  return t;
+}
+
+/* Make a parameter list containing types given in V.  Return NULL if
+   V is empty.  */
+
+tree
+vec_heap2parm_types (VEC(tree,heap) *v)
+{
+  tree parm_types = NULL_TREE;
+
+  if (!VEC_empty (tree, v))
+    {
+      tree t;
+      int i;
+
+      parm_types = alloc_parm_types (VEC_length (tree, v));
+      for (i = 0; VEC_iterate (tree, v, i, t); i++)
+	*(nth_parm_type_ptr (parm_types, i)) = t;
+    }
+
+  return parm_types;
+}
+
 /* Returns the number of FIELD_DECLs in TYPE.  */
 
 int

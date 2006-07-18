@@ -4,6 +4,10 @@
 
 	* gcc/cp/cp-tree.h (FUNCTION_FIRST_USER_PARMTYPE): Remove.
 
+	* gcc/tree.c (nth_parm_type_ptr, alloc_parm_types,
+	vec_heap2parm_types): New.
+	* gcc/tree.h: Add prototypes to the new functions.
+
 2006-07-16  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-aux-info.c (gen_formal_list_for_type): Use num_parm_types

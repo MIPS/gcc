@@ -4162,6 +4162,9 @@ extern bool more_call_expr_args_p (const call_expr_arg_iterator *);
 extern int call_expr_nargs (tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
+extern tree *nth_parm_type_ptr (tree, int);
+extern tree alloc_parm_types (int);
+extern tree vec_heap2parm_types (VEC(tree,heap) *);
 
 
 /* In stmt.c */
