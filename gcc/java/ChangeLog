@@ -1,3 +1,7 @@
+2006-07-18  Tom Tromey  <tromey@redhat.com>
+
+	* lang.opt: Added missing -W options.
+
 2006-07-12  Tom Tromey  <tromey@redhat.com>
 
 	PR java/28329:
