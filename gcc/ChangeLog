@@ -1,9 +1,9 @@
-2006-07-03  Andrew Pinski  <pinskia@physics.uc.edu>
+2006-07-13  Andrew Haley  <aph@redhat.com>
 
-	* tree-cfgcleanup.c (remove_forwarder_block): Check if we
-	have an eh edge coming into the forwarder that there is only
-	one predecessor for the destination.
-	http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00048.html
+        PR tree-optimization/19505
+        * tree-cfgcleanup.c (tree_forwarder_block_p): If we have an EH
+        edge leaving this block, make sure that the destination of this
+        block has only one predecessor.
 
 2006-06-04  Mark Shinwell  <shinwell@codesourcery.com>
 
