@@ -18,7 +18,8 @@ compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$
 if FOUND_GCJ
 ## This should never be used when gcj is the compiler.
 ## See the compile-classes target.
-JAVAC = $(GCJ) -C -bootclasspath '' --classpath $(compile_classpath) -d . @classes
+## There's no point in warning, and we always want debug info.
+JAVAC = $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath '' --classpath $(compile_classpath) -d . @classes
 else
 if FOUND_JIKES
 JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
