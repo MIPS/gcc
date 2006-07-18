@@ -989,10 +989,6 @@ bool
 struct_equiv_init (int mode, struct equiv_info *info)
 {
   if ((info->x_block->flags | info->y_block->flags) & BB_DIRTY)
-    update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				      (PROP_DEATH_NOTES
-				       | ((mode & CLEANUP_POST_REGSTACK)
-					  ? PROP_POST_REGSTACK : 0)));
   if (!REG_SET_EQUAL_P (DF_LR_OUT (rtl_df, info->x_block),
 			DF_LR_OUT (rtl_df, info->y_block)))
     {

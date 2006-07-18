@@ -104,6 +104,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "df.h"
 
+static struct df *df;
+
 /* Number of attempts to combine instructions in this function.  */
 
 static int combine_attempts;
@@ -948,9 +950,7 @@ combine_instructions (rtx f, unsigned int nregs)
   clear_bb_flags ();
   new_direct_jump_p |= purge_all_dead_edges ();
   delete_noop_moves ();
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-				    | PROP_KILL_DEAD_CODE);
+
   /* Clean up.  */
   free (uid_insn_cost);
   free (reg_stat);
@@ -1041,7 +1041,7 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
       && REGNO_REG_SET_P
-         (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
+         (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))
       && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT)
     {
       if (set == 0 || GET_CODE (set) == CLOBBER)
@@ -1066,8 +1066,7 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
 
       if (insn
 	  && reg_referenced_p (x, PATTERN (insn))
-	  && !REGNO_REG_SET_P (DF_LR_IN (rtl_df,
-					 BLOCK_FOR_INSN (insn)),
+	  && !REGNO_REG_SET_P (DF_LR_IN (df, BLOCK_FOR_INSN (insn)),
 			       REGNO (x)))
 	{
 	  rtx link;
@@ -8287,7 +8286,7 @@ reg_nonzero_bits_for_combine (rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && REGNO_REG_SET_P
-	      (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
+	      (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *nonzero &= reg_stat[REGNO (x)].last_set_nonzero_bits;
@@ -8354,7 +8353,7 @@ reg_num_sign_bit_copies_for_combine (rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && REGNO_REG_SET_P
-	      (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
+	      (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), REGNO (x))))
       && INSN_CUID (reg_stat[REGNO (x)].last_set) < subst_low_cuid)
     {
       *result = reg_stat[REGNO (x)].last_set_sign_bit_copies;
@@ -11244,7 +11243,7 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	    || (! (regno >= FIRST_PSEUDO_REGISTER
 		   && REG_N_SETS (regno) == 1
 		   && (REGNO_REG_SET_P
-		       (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))
+		       (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), regno)))
 		&& reg_stat[j].last_set_label > tick))
 	  {
 	    if (replace)
@@ -11354,7 +11353,7 @@ get_last_value (rtx x)
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
 	      || ! (REGNO_REG_SET_P
-		    (DF_UR_IN (rtl_df, ENTRY_BLOCK_PTR->next_bb), regno)))))
+		    (DF_UR_IN (df, ENTRY_BLOCK_PTR->next_bb), regno)))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -11515,7 +11514,7 @@ reg_dead_at_p (rtx reg, rtx insn)
     }
 
   for (i = reg_dead_regno; i < reg_dead_endregno; i++)
-    if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, block), i))
+    if (REGNO_REG_SET_P (DF_LIVE_IN (df, block), i))
       return 0;
 
   return 1;
@@ -12589,6 +12588,109 @@ dump_combine_total_stats (FILE *file)
 }
 
 
+/* Fill in log links field for all insns.  */
+
+static void
+create_log_links (void)
+{
+  basic_block bb;
+  rtx *next_use, insn;
+  struct df_ref *def, *use;
+
+  next_use = XCNEWVEC (rtx, max_reg_num ());
+
+  /* Pass through each block from the end, recording the uses of each
+     register and establishing log links when def is encountered.
+     Note that we do not clear next_use array in order to save time,
+     so we have to test whether the use is in the same basic block as def.
+              
+     There are a few cases below when we do not consider the definition or
+     usage -- these are taken from original flow.c did. Don't ask me why it is
+     done this way; I don't know and if it works, I don't want to know.  */
+
+  FOR_EACH_BB (bb)
+    {
+      FOR_BB_INSNS_REVERSE (bb, insn)
+        {
+          if (!INSN_P (insn))
+            continue;
+
+	  /* Log links are created only once.  */
+	  gcc_assert (!LOG_LINKS (insn));
+
+          for (def = DF_INSN_GET (df, insn)->defs; def; def = def->next_ref)
+            {
+              int regno = DF_REF_REGNO (def);
+              rtx use_insn;
+
+              if (!next_use[regno])
+                continue;
+
+              /* Do not consider if it is pre/post modification in MEM.  */
+              if (DF_REF_FLAGS (def) & DF_REF_PRE_POST_MODIFY)
+                continue;
+
+              /* Do not make the log link for frame pointer.  */
+              if ((regno == FRAME_POINTER_REGNUM
+                   && (! reload_completed || frame_pointer_needed))
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+                  || (regno == HARD_FRAME_POINTER_REGNUM
+                      && (! reload_completed || frame_pointer_needed))
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+                  || (regno == ARG_POINTER_REGNUM && fixed_regs[regno])
+#endif
+                  )
+                continue;
+
+              use_insn = next_use[regno];
+              if (BLOCK_FOR_INSN (use_insn) == bb)
+                {
+                  /* flow.c claimed:
+
+                     We don't build a LOG_LINK for hard registers contained
+                     in ASM_OPERANDs.  If these registers get replaced,
+                     we might wind up changing the semantics of the insn,
+                     even if reload can make what appear to be valid
+                     assignments later.  */
+                  if (regno >= FIRST_PSEUDO_REGISTER
+                      || asm_noperands (PATTERN (use_insn)) < 0)
+                    LOG_LINKS (use_insn) =
+                      alloc_INSN_LIST (insn, LOG_LINKS (use_insn));
+                }
+              next_use[regno] = NULL_RTX;
+            }
+
+          for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
+            {
+              int regno = DF_REF_REGNO (use);
+
+              /* Do not consider the usage of the stack pointer
+		 by function call.  */
+              if (DF_REF_FLAGS (use) & DF_REF_CALL_STACK_USAGE)
+                continue;
+
+              next_use[regno] = insn;
+            }
+        }
+    }
+
+  free (next_use);
+}
+
+/* Clear LOG_LINKS fields of insns.  */
+
+static void
+clear_log_links (void)
+{
+  rtx insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      free_INSN_LIST_list (&LOG_LINKS (insn));
+}
+
+
 static bool
 gate_handle_combine (void)
 {
@@ -12599,7 +12701,15 @@ gate_handle_combine (void)
 static unsigned int
 rest_of_handle_combine (void)
 {
-  int rebuild_jump_labels_after_combine
+  int rebuild_jump_labels_after_combine;
+
+  df = df_init (DF_HARD_REGS);
+  df_clrur_add_problem (df, 0);
+  df_ri_add_problem (df, DF_RI_LIFE);
+  df_analyze (df);
+
+  create_log_links ();
+  rebuild_jump_labels_after_combine
     = combine_instructions (get_insns (), max_reg_num ());
 
   /* Combining insns may have turned an indirect jump into a
@@ -12612,8 +12722,10 @@ rest_of_handle_combine (void)
       timevar_pop (TV_JUMP);
 
       delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
     }
+  df_finish (df);
+  clear_log_links ();
   return 0;
 }
 

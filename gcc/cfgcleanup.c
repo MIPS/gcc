@@ -71,7 +71,7 @@ static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
 static bool try_optimize_cfg (int);
 static bool try_simplify_condjump (basic_block);
 static bool try_forward_edges (int, basic_block);
-static edge thread_jump (int, edge, basic_block);
+static edge thread_jump (edge, basic_block);
 static bool mark_effect (rtx, bitmap);
 static void notice_new_block (basic_block);
 static void update_forwarder_flag (basic_block);
@@ -261,7 +261,7 @@ mentions_nonequal_regs (rtx *x, void *data)
    if exist, NULL otherwise.  */
 
 static edge
-thread_jump (int mode, edge e, basic_block b)
+thread_jump (edge e, basic_block b)
 {
   rtx set1, set2, cond1, cond2, insn;
   enum rtx_code code1, code2, reversed_code2;
@@ -381,11 +381,6 @@ thread_jump (int mode, edge e, basic_block b)
   if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
     goto failed_exit;
 
-  /* In case liveness information is available, we need to prove equivalence
-     only of the live values.  */
-  if (mode & CLEANUP_UPDATE_LIFE)
-    AND_REG_SET (nonequal, DF_LIVE_OUT (rtl_df, b));
-
   EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
     goto failed_exit;
 
@@ -482,7 +477,7 @@ try_forward_edges (int mode, basic_block b)
 	     of probabilities.  */
 	  else if ((mode & CLEANUP_THREADING) && may_thread)
 	    {
-	      edge t = thread_jump (mode, e, target);
+	      edge t = thread_jump (e, target);
 	      if (t)
 		{
 		  if (!threaded_edges)
@@ -1966,7 +1961,7 @@ try_optimize_cfg (int mode)
   if (mode & CLEANUP_CROSSJUMP)
     add_noreturn_fake_exit_edges ();
 
-  if (mode & (CLEANUP_UPDATE_LIFE | CLEANUP_CROSSJUMP | CLEANUP_THREADING))
+  if (mode & (CLEANUP_CROSSJUMP | CLEANUP_THREADING))
     clear_bb_flags ();
 
   FOR_EACH_BB (bb)
@@ -2230,7 +2225,7 @@ cleanup_cfg (int mode)
       changed = true;
       /* We've possibly created trivially dead code.  Cleanup it right
 	 now to introduce more opportunities for try_optimize_cfg.  */
-      if (!(mode & (CLEANUP_NO_INSN_DEL | CLEANUP_UPDATE_LIFE))
+      if (!(mode & (CLEANUP_NO_INSN_DEL))
 	  && !reload_completed)
 	delete_trivially_dead_insns (get_insns(), max_reg_num ());
     }
@@ -2240,21 +2235,9 @@ cleanup_cfg (int mode)
   while (try_optimize_cfg (mode))
     {
       delete_unreachable_blocks (), changed = true;
-      if (mode & CLEANUP_UPDATE_LIFE)
-	{
-	  /* Cleaning up CFG introduces more opportunities for dead code
-	     removal that in turn may introduce more opportunities for
-	     cleaning up the CFG.  */
-	  if (!run_fast_dce ()
-	      && !(update_life_info_in_dirty_blocks
-		   (UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_DEATH_NOTES
-		    | (mode & CLEANUP_LOG_LINKS) ? PROP_LOG_LINKS : 0)))
-	    break;
-	}
-      else if (!(mode & CLEANUP_NO_INSN_DEL)
-	       && (mode & CLEANUP_EXPENSIVE)
-	       && !reload_completed)
+      if (!(mode & CLEANUP_NO_INSN_DEL)
+	  && (mode & CLEANUP_EXPENSIVE)
+	  && !reload_completed)
 	{
 	  if (!delete_trivially_dead_insns (get_insns(), max_reg_num ()))
 	    break;

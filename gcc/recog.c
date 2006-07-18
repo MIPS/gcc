@@ -3076,15 +3076,6 @@ peephole2_optimize (void)
 
       /* Start up propagation.  */
       df_lr_simulate_artificial_refs_at_end (df, bb, live);
-#if 0
-      COPY_REG_SET (livep, DF_LIVE_OUT (rtl_df, bb));
-      gcc_assert (bitmap_equal_p (livep, live));
-#ifdef HAVE_conditional_execution
-      pbi = init_propagate_block_info (bb, livep, NULL, NULL, 0);
-#else
-      pbi = init_propagate_block_info (bb, livep, NULL, NULL, PROP_DEATH_NOTES);
-#endif
-#endif
       bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)

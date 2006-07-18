@@ -85,7 +85,6 @@ enum df_ref_flags
        artificial one created to model always live registers, eh uses, etc.  */
     DF_REF_ARTIFICIAL = 4,
 
-
     /* If this flag is set for an artificial use or def, that ref
        logically happens at the top of the block.  If it is not set
        for an artificial use or def, that ref logically happens at the
@@ -122,7 +121,14 @@ enum df_ref_flags
     
     /* This flag is set if this ref occurs inside of a conditional
        execution instruction.  */
-    DF_REF_CONDITIONAL = 512
+    DF_REF_CONDITIONAL = 512,
+
+    /* This flag is set if this ref is inside a pre/post modify.  */
+    DF_REF_PRE_POST_MODIFY = 1024,
+
+    /* This flag is set if this ref is a usage of the stack pointer by
+       a function call.  */
+    DF_REF_CALL_STACK_USAGE = 2048
   };
 
 
@@ -616,10 +622,6 @@ extern void df_analyze (struct df *);
 extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
 					  df_confluence_function_0, df_confluence_function_n,
 					  df_transfer_function, bitmap, int *, int);
-extern void df_analyze_simple_change_some_blocks (struct df *, int *, int);
-extern void df_analyze_simple_change_one_block (struct df *, basic_block);
-extern void df_compact_blocks (struct df *);
-extern void df_bb_replace (struct df *, int, basic_block);
 extern struct df_ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);

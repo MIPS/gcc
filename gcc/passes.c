@@ -654,9 +654,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_stack_ptr_mod);
   NEXT_PASS (pass_initialize_subregs);
-  NEXT_PASS (pass_reset_df);
   NEXT_PASS (pass_combine);
-  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_if_after_combine);
   NEXT_PASS (pass_fast_rtl_dce);

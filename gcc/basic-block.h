@@ -811,14 +811,13 @@ enum update_life_extent
 /* Flags for life_analysis and update_life_info.  */
 
 #define PROP_DEATH_NOTES	1	/* Create DEAD and UNUSED notes.  */
-#define PROP_LOG_LINKS		2	/* Create LOG_LINKS.  */
-#define PROP_REG_INFO		4	/* Update regs_ever_live et al.  */
-#define PROP_KILL_DEAD_CODE	8	/* Remove dead code.  */
-#define PROP_SCAN_DEAD_CODE	16	/* Scan for dead code.  */
-#define PROP_ALLOW_CFG_CHANGES	32	/* Allow the CFG to be changed
+#define PROP_REG_INFO		2	/* Update regs_ever_live et al.  */
+#define PROP_KILL_DEAD_CODE	4	/* Remove dead code.  */
+#define PROP_SCAN_DEAD_CODE	8	/* Scan for dead code.  */
+#define PROP_ALLOW_CFG_CHANGES	16	/* Allow the CFG to be changed
 					   by dead code removal.  */
-#define PROP_AUTOINC		64	/* Create autoinc mem references.  */
-#define PROP_SCAN_DEAD_STORES	128	/* Scan for dead code.  */
+#define PROP_AUTOINC		32	/* Create autoinc mem references.  */
+#define PROP_SCAN_DEAD_STORES	64	/* Scan for dead code.  */
 #define PROP_DEAD_INSN		1024	/* Internal flag used within flow.c
 					   to flag analysis of dead insn.  */
 #define PROP_NO_UNINITIALIZED_LL 2048   /* Build log links without anding in
@@ -828,13 +827,13 @@ enum update_life_extent
 					   to preserve REG_DEAD notes for
 					   stack regs.  */
 #if 1
-#define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
+#define PROP_FINAL		(PROP_DEATH_NOTES \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE | PROP_AUTOINC \
 				 | PROP_ALLOW_CFG_CHANGES \
 				 | PROP_SCAN_DEAD_STORES)
 #else
-#define PROP_FINAL		(PROP_DEATH_NOTES | PROP_LOG_LINKS  \
+#define PROP_FINAL		(PROP_DEATH_NOTES \
 				 | PROP_REG_INFO | PROP_KILL_DEAD_CODE  \
 				 | PROP_SCAN_DEAD_CODE \
 				 | PROP_ALLOW_CFG_CHANGES \
@@ -849,23 +848,21 @@ enum update_life_extent
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
 #define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
 					   to care REG_DEAD notes.  */
-#define CLEANUP_UPDATE_LIFE	8	/* Keep life information up to date.  */
 #define CLEANUP_THREADING	16	/* Do jump threading.  */
 #define CLEANUP_NO_INSN_DEL	32	/* Do not try to delete trivially dead
 					   insns.  */
 #define CLEANUP_CFGLAYOUT	64	/* Do cleanup in cfglayout mode.  */
-#define CLEANUP_LOG_LINKS	128	/* Update log links.  */
 
 /* The following are ORed in on top of the CLEANUP* flags in calls to
    struct_equiv_block_eq.  */
-#define STRUCT_EQUIV_START	256	 /* Initializes the search range.  */
-#define STRUCT_EQUIV_RERUN	512	/* Rerun to find register use in
+#define STRUCT_EQUIV_START	128	 /* Initializes the search range.  */
+#define STRUCT_EQUIV_RERUN	256	/* Rerun to find register use in
 					   found equivalence.  */
-#define STRUCT_EQUIV_FINAL	1024	/* Make any changes necessary to get
+#define STRUCT_EQUIV_FINAL	512	/* Make any changes necessary to get
 					   actual equivalence.  */
-#define STRUCT_EQUIV_NEED_FULL_BLOCK 2048 /* struct_equiv_block_eq is required
+#define STRUCT_EQUIV_NEED_FULL_BLOCK 1024 /* struct_equiv_block_eq is required
 					     to match only full blocks  */
-#define STRUCT_EQUIV_MATCH_JUMPS 4096	/* Also include the jumps at the end of the block in the comparison.  */
+#define STRUCT_EQUIV_MATCH_JUMPS 2048	/* Also include the jumps at the end of the block in the comparison.  */
 
 extern void life_analysis (int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);

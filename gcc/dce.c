@@ -191,17 +191,9 @@ init_dce (bool fast)
     {
       if (fast)
 	{
-	  if (rtl_df)
-	    {
-	      dce_df = rtl_df;
-	      df_analyze (dce_df);
-	    }
-	  else
-	    {
-	      dce_df = df_init (DF_HARD_REGS);
-	      df_lr_add_problem (dce_df, 0);
-	      df_analyze (dce_df);
-	    }
+	  dce_df = df_init (DF_HARD_REGS);
+	  df_lr_add_problem (dce_df, 0);
+	  df_analyze (dce_df);
 	}
       else
 	{
@@ -301,13 +293,6 @@ end_dce (void)
   BITMAP_FREE (marked_libcalls);
 
   df_finish (dce_df);
-
-  /* People who call dce expect the core data flow to be updated.  */
-  if (rtl_df)
-    {
-      df_rescan_blocks (rtl_df, NULL);
-      df_analyze (rtl_df);
-    }
 }
 
 
@@ -426,11 +411,7 @@ end_fast_dce (void)
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
 
-  if (rtl_df)
-    dce_df = NULL;
-  else
-    df_finish (dce_df);
-  dce_df = NULL;
+  df_finish (dce_df);
 }
 
 

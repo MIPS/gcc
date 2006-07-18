@@ -343,8 +343,6 @@ rtl_create_basic_block (void *headp, void *endp, basic_block after)
   bb = create_basic_block_structure (head, end, NULL, after);
   bb->aux = NULL;
 
-  if (rtl_df)
-    df_analyze_simple_change_one_block (rtl_df, bb);
   return bb;
 }
 
@@ -509,30 +507,6 @@ rtl_split_block (basic_block bb, void *insnp)
   return new_bb;
 }
 
-/* Update life information for blocks NEW and OLD.  */
-
-static void
-rtl_split_block_end (basic_block newbb, basic_block oldbb)
-{
-  if (rtl_df)
-    {
-      int * block_list = alloca (2 * sizeof (int));
-      block_list[0] = newbb->index;
-      block_list[1] = oldbb->index;
-      df_analyze_simple_change_some_blocks (rtl_df, block_list, 2);
-
-#ifdef HAVE_conditional_execution
-      /* In the presence of conditional execution we are not able to update
-	 liveness precisely.  */
-      if (reload_completed)
-	{
-	  newbb->flags |= BB_DIRTY;
-	  oldbb->flags |= BB_DIRTY;
-	}
-#endif
-    }
-}
-
 /* Blocks A and B are to be merged into a single block A.  The insns
    are already contiguous.  */
 
@@ -624,13 +598,6 @@ rtl_merge_blocks (basic_block a, basic_block b)
 
   BB_END (a) = a_end;
 
-}
-
-static void
-rtl_merge_blocks_end (basic_block a)
-{
-  if (rtl_df)
-    df_analyze_simple_change_one_block (rtl_df, a);
 }
 
 /* Return true when block A and B can be merged.  */
@@ -1074,9 +1041,6 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 
 	  VEC_safe_push (edge, gc, bb->succs, e);
 	  make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
-
-	  if (rtl_df)
-	    df_analyze_simple_change_one_block (rtl_df, bb);
 	}
     }
 
@@ -1120,9 +1084,6 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       e->probability = REG_BR_PROB_BASE;
 
       new_bb = jump_block;
-      
-      if (rtl_df)
-	df_analyze_simple_change_one_block (rtl_df, jump_block);
     }
   else
     jump_block = e->src;
@@ -1296,9 +1257,6 @@ rtl_split_edge (edge edge_in)
     }
 
   make_single_succ_edge (bb, edge_in->dest, EDGE_FALLTHRU);
-
-  if (rtl_df)
-    df_analyze_simple_change_one_block (rtl_df, bb);
 
   /* For non-fallthru edges, we must adjust the predecessor's
      jump instruction to target our new block.  */
@@ -1572,13 +1530,10 @@ commit_edge_insertions_watch_calls (void)
 
 /* Print a regset at the beginning of BB to FILE.  */
 
+#if 0
 static void 
 dump_regset_in (basic_block bb, FILE * file)
 {
-  if (!rtl_df)
-    return;
-  
-  dump_regset (df_get_live_in (rtl_df, bb), file);
 }
 
 
@@ -1587,12 +1542,8 @@ dump_regset_in (basic_block bb, FILE * file)
 static void 
 dump_regset_out (basic_block bb, FILE * file)
 {
-  if (!rtl_df)
-    return;
-
-  dump_regset (df_get_live_out (rtl_df, bb), file);
 }
-
+#endif
 
 /* Print out RTL-specific basic block information (live information
    at start and end).  */
@@ -1608,6 +1559,7 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
   
+#if 0
   if (rtl_df)
     {
       fprintf (outf, ";;%s Registers live at start: ", s_indent);
@@ -1615,17 +1567,20 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
     
       putc ('\n', outf);
     }
+#endif
 
   for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
        insn = NEXT_INSN (insn))
     print_rtl_single (outf, insn);
 
+#if 0
   if (rtl_df)
     {
       fprintf (outf, ";;%s Registers live at end: ", s_indent);
       dump_regset_out (bb, outf);
       putc ('\n', outf);
     }
+#endif
 }
 
 /* Like print_rtl, but also print out live information for the start of each
@@ -1671,6 +1626,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	{
 	  int did_output;
 
+#if 0
 	  if ((bb = start[INSN_UID (tmp_rtx)]) != NULL)
 	    {
 	      fprintf (outf, ";; Start of basic block %d, registers live:",
@@ -1678,7 +1634,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 		dump_regset_in (bb, outf);
 	      putc ('\n', outf);
 	    }
-
+#endif
 	  if (in_bb_p[INSN_UID (tmp_rtx)] == NOT_IN_BB
 	      && !NOTE_P (tmp_rtx)
 	      && !BARRIER_P (tmp_rtx))
@@ -1688,6 +1644,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 
 	  did_output = print_rtl_single (outf, tmp_rtx);
 
+#if 0
 	  if ((bb = end[INSN_UID (tmp_rtx)]) != NULL)
 	    {
 	      fprintf (outf, ";; End of basic block %d, registers live:\n",
@@ -1695,7 +1652,7 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	      dump_regset_out (bb, outf);
 	      putc ('\n', outf);
 	    }
-
+#endif
 	  if (did_output)
 	    putc ('\n', outf);
 	}
@@ -2648,9 +2605,6 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
       b->il.rtl->footer = NULL;
     }
 
-  if (rtl_df)
-    df_analyze_simple_change_one_block (rtl_df, a);
-
   if (dump_file)
     fprintf (dump_file, "Merged blocks %d and %d.\n",
 	     a->index, b->index);
@@ -2668,9 +2622,6 @@ cfg_layout_split_edge (edge e)
 
   make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   redirect_edge_and_branch_force (e, new_bb);
-
-  if (rtl_df)
-    df_analyze_simple_change_one_block (rtl_df, new_bb);
 
   return new_bb;
 }
@@ -3018,16 +2969,13 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_redirect_edge_and_branch_force,
   rtl_delete_block,
   rtl_split_block,
-  rtl_split_block_end,
   rtl_move_block_after,
   rtl_can_merge_blocks,  /* can_merge_blocks_p */
   rtl_merge_blocks,
-  rtl_merge_blocks_end,
   rtl_predict_edge,
   rtl_predicted_by_p,
   NULL, /* can_duplicate_block_p */
   NULL, /* duplicate_block */
-  NULL, /* duplicate_block_end */
   rtl_split_edge,
   rtl_make_forwarder_block,
   rtl_tidy_fallthru_edge,
@@ -3054,7 +3002,6 @@ struct cfg_hooks rtl_cfg_hooks = {
    code.  */
 extern bool cfg_layout_can_duplicate_bb_p (basic_block);
 extern basic_block cfg_layout_duplicate_bb (basic_block);
-extern basic_block cfg_layout_duplicate_bb_end (basic_block);
 
 struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   "cfglayout mode",
@@ -3065,16 +3012,13 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   cfg_layout_redirect_edge_and_branch_force,
   cfg_layout_delete_block,
   cfg_layout_split_block,
-  rtl_split_block_end,
   rtl_move_block_after,
   cfg_layout_can_merge_blocks_p,
   cfg_layout_merge_blocks,
-  rtl_merge_blocks_end,
   rtl_predict_edge,
   rtl_predicted_by_p,
   cfg_layout_can_duplicate_bb_p,
   cfg_layout_duplicate_bb,
-  cfg_layout_duplicate_bb_end,
   cfg_layout_split_edge,
   rtl_make_forwarder_block,
   NULL,
