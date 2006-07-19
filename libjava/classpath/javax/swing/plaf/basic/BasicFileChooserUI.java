@@ -160,6 +160,8 @@ public class BasicFileChooserUI extends FileChooserUI
       else
         {
           File f = new File(filechooser.getCurrentDirectory(), getFileName());
+	  if ( selectedDir != null )
+	    f = selectedDir;
           if (filechooser.isTraversable(f))
             {
               filechooser.setCurrentDirectory(f);
@@ -365,10 +367,10 @@ public class BasicFileChooserUI extends FileChooserUI
   {
 
     /** DOCUMENT ME! */
-    private Object lastSelected = null;
+    private Object lastSelected;
 
     /** DOCUMENT ME! */
-    private JList list = null;
+    private JList list;
 
     /**
      * Creates a new DoubleClickListener object.
@@ -409,7 +411,7 @@ public class BasicFileChooserUI extends FileChooserUI
               closeDialog();
             }
         }
-      else
+      else // single click
         {
           String path = p.toString();
           File f = fsv.createFileObject(path);
@@ -436,10 +438,11 @@ public class BasicFileChooserUI extends FileChooserUI
             }
           lastSelected = path;
           parentPath = path.substring(0, path.lastIndexOf("/") + 1);
+	    
           if (f.isFile())
             setFileName(path.substring(path.lastIndexOf("/") + 1));
-          else if (filechooser.getFileSelectionMode() == 
-            JFileChooser.DIRECTORIES_ONLY)
+          else if (filechooser.getFileSelectionMode() != 
+		   JFileChooser.FILES_ONLY)
             setFileName(path);
         }
     }
@@ -538,7 +541,7 @@ public class BasicFileChooserUI extends FileChooserUI
     }
 
     /**
-     * DOCUMENT ME!
+     * Sets the JFileChooser to the selected file on an update
      *
      * @param e DOCUMENT ME!
      */
@@ -550,9 +553,15 @@ public class BasicFileChooserUI extends FileChooserUI
 	return;
       File file = filechooser.getFileSystemView().createFileObject(f.toString());
       if (! filechooser.isTraversable(file))
-	filechooser.setSelectedFile(file);
+	{
+	  selectedDir = null;
+	  filechooser.setSelectedFile(file);
+	}
       else
-	filechooser.setSelectedFile(null);
+	{
+	  selectedDir = file;
+	  filechooser.setSelectedFile(null);
+	}
     }
   }
 
@@ -699,10 +708,10 @@ public class BasicFileChooserUI extends FileChooserUI
   String fileDescText;
 
   /** Is a directory selected? */
-  boolean dirSelected = false;
+  boolean dirSelected;
 
   /** The current directory. */
-  File currDir = null;
+  File currDir;
 
   // FIXME: describe what is contained in the bottom panel
   /** The bottom panel. */
@@ -752,6 +761,13 @@ public class BasicFileChooserUI extends FileChooserUI
    * @see #getUpdateAction()
    */
   private UpdateAction updateAction;
+
+  /**
+   * When in FILES_ONLY, mode a directory cannot be selected, so
+   * we save a reference to any it here. This is used to enter
+   * the directory on "Open" when in that mode.
+   */
+  private File selectedDir;
   
   // -- end private --
 

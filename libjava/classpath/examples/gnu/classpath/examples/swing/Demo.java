@@ -22,6 +22,8 @@ Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 package gnu.classpath.examples.swing;
 
+import gnu.classpath.examples.java2d.JNIOverhead;
+
 import java.awt.*;
 import java.awt.event.*;
 
@@ -156,7 +158,10 @@ public class Demo
 
     examples.add(new JMenuItem(new PopupAction("NavigationFilter",
                                                NavigationFilterDemo.createDemoFactory())));
-    
+    examples.add(new JMenuItem(new PopupAction("JNI Overhead",
+                                               JNIOverhead.createDemoFactory())));
+
+
     final JMenuItem vmMenu;
     
     help.add(new JMenuItem("just play with the widgets"));
@@ -200,6 +205,8 @@ public class Demo
         boolean selected = laf.getClassName().equals(currentLaf);
         lafItem.setSelected(selected);
         lafMenu.add(lafItem);
+        
+        lafGroup.add(lafItem);
       }
 
     // Create themes menu.
@@ -543,7 +550,10 @@ public class Demo
     panel.add(new JButton(new PopupAction("Tree",
                                           TreeDemo.createDemoFactory())));
     panel.add(new JButton(new PopupAction("Theme Editor",
-                                       MetalThemeEditor.createDemoFactory())));
+                                      MetalThemeEditor.createDemoFactory())));
+    panel.add(new JButton(new PopupAction("JNI Overhead",
+                                          JNIOverhead.createDemoFactory())));
+
     JButton exitDisposer = mkDisposerButton(frame);
     panel.add(exitDisposer);
     

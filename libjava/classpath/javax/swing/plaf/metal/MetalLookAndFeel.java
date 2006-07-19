@@ -67,7 +67,7 @@ import javax.swing.plaf.basic.BasicLookAndFeel;
  * }</pre>
  */
 public class MetalLookAndFeel extends BasicLookAndFeel
-{	   
+{          
   private static final long serialVersionUID = 6680646159193457980L;
   
   /** The current theme. */
@@ -85,7 +85,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
   }
 
   /**
-   * Sets the current theme to a new instance of {@link DefaultMetalTheme}.
+   * Sets the current theme to a new instance of {@link OceanTheme}.
    */
   protected void createDefaultTheme()
   {
@@ -709,6 +709,8 @@ public class MetalLookAndFeel extends BasicLookAndFeel
    * @param theme  the theme (<code>null</code> not permitted).
    * 
    * @throws NullPointerException if <code>theme</code> is <code>null</code>.
+   * 
+   * @see #getCurrentTheme()
    */
   public static void setCurrentTheme(MetalTheme theme)
   {
@@ -888,11 +890,9 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "CheckBox.font", new FontUIResource("Dialog", Font.BOLD, 12),
       "CheckBox.foreground", getControlTextColor(),
       "CheckBox.icon",
-      new UIDefaults.ProxyLazyValue
-          ("javax.swing.plaf.metal.MetalCheckBoxIcon"),
+      new UIDefaults.ProxyLazyValue("javax.swing.plaf.metal.MetalCheckBoxIcon"),
       "CheckBox.checkIcon",
-      new UIDefaults.ProxyLazyValue
-      ("javax.swing.plaf.metal.MetalCheckBoxIcon"),
+      new UIDefaults.ProxyLazyValue("javax.swing.plaf.metal.MetalCheckBoxIcon"),
       "Checkbox.select", getControlShadow(),
 
       "CheckBoxMenuItem.acceleratorFont", new FontUIResource("Dialog", Font.PLAIN, 10),
@@ -964,7 +964,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "FileChooser.detailsViewIcon", 
           MetalIconFactory.getFileChooserDetailViewIcon(),
       "FileChooser.fileNameLabelMnemonic", new Integer(78),
-      "FileChooser.filesOfTypeLabelMnemonic",new Integer(84),
+      "FileChooser.filesOfTypeLabelMnemonic", new Integer(84),
       "FileChooser.lookInLabelMnemonic", new Integer(73),
       "FileView.computerIcon", MetalIconFactory.getTreeComputerIcon(),
       "FileView.directoryIcon", MetalIconFactory.getTreeFolderIcon(),
@@ -1245,6 +1245,7 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "TextPane.selectionBackground", getTextHighlightColor(),
       "TextPane.selectionForeground", getHighlightedTextColor(),
 
+      "TitledBorder.border", new LineBorderUIResource(getPrimaryControl(), 1),
       "TitledBorder.font", new FontUIResource("Dialog", Font.BOLD, 12),
       "TitledBorder.titleColor", getSystemTextColor(),
 
@@ -1273,6 +1274,8 @@ public class MetalLookAndFeel extends BasicLookAndFeel
       "ToolBar.light", getControlHighlight(),
       "ToolBar.shadow", getControlShadow(),
       "ToolBar.border", new MetalBorders.ToolBarBorder(),
+      "ToolBar.rolloverBorder", MetalBorders.getToolbarButtonBorder(),
+      "ToolBar.nonrolloverBorder", MetalBorders.getToolbarButtonBorder(),
 
       "ToolTip.background", getPrimaryControl(),
       "ToolTip.backgroundInactive", getControl(),
@@ -1335,12 +1338,17 @@ public class MetalLookAndFeel extends BasicLookAndFeel
   }
 
   /**
-   * Returns the current theme setting for the Metal L&amp;F.
+   * Returns the current theme for the Metal look and feel.  The default is
+   * an instance of {@link OceanTheme}.
    *
-   * @return the current theme setting for the Metal L&amp;F
+   * @return The current theme (never <code>null</code>).
+   * 
+   * @see #setCurrentTheme(MetalTheme)
    */
   public static MetalTheme getCurrentTheme()
   {
+    if (theme == null)
+      theme = new OceanTheme();
     return theme;
   }
 

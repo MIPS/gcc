@@ -216,13 +216,29 @@ public class DefaultCaret extends Rectangle
      */
     public void propertyChange(PropertyChangeEvent e)
     {
-      if (e.getPropertyName().equals("document"))
+      String name = e.getPropertyName(); 
+      
+      if (name.equals("document"))
         {
           Document oldDoc = (Document) e.getOldValue();
-          oldDoc.removeDocumentListener(documentListener);
+          if (oldDoc != null)
+            oldDoc.removeDocumentListener(documentListener);
+          
           Document newDoc = (Document) e.getNewValue();
-          newDoc.addDocumentListener(documentListener);
+          if (newDoc != null)
+            newDoc.addDocumentListener(documentListener);
         }
+      else if (name.equals("editable"))
+        {
+          active = (((Boolean) e.getNewValue()).booleanValue()
+                   && textComponent.isEnabled());
+        }
+      else if (name.equals("enabled"))
+        {
+          active = (((Boolean) e.getNewValue()).booleanValue()
+                   && textComponent.isEditable());
+        }
+      
     }
     
   }
@@ -281,8 +297,10 @@ public class DefaultCaret extends Rectangle
 
   /**
    * The text component in which this caret is installed.
+   * 
+   * (Package private to avoid synthetic accessor method.)
    */
-  private JTextComponent textComponent;
+  JTextComponent textComponent;
 
   /**
    * Indicates if the selection should be visible or not.
@@ -314,6 +332,12 @@ public class DefaultCaret extends Rectangle
    * package private to avoid an accessor method.
    */
   boolean visible = false;
+  
+  /** Indicates whether the text component where the caret is installed is
+   * editable and enabled. If either of these properties is <code>false</code>
+   * the caret is not drawn.
+   */ 
+  boolean active = true;
 
   /**
    * The current highlight entry.
@@ -388,14 +412,23 @@ public class DefaultCaret extends Rectangle
   
   /**
    * Moves the caret position when the mouse is dragged over the text
-   * component, modifying the selection accordingly.
+   * component, modifying the selectiony.
+   * 
+   * <p>When the text component where the caret is installed is disabled,
+   * the selection is not change but you can still scroll the text and
+   * update the caret's location.</p>
    *
    * @param event the <code>MouseEvent</code> describing the drag operation
    */
   public void mouseDragged(MouseEvent event)
   {
     if (event.getButton() == MouseEvent.BUTTON1)
-      moveCaret(event);
+      {
+        if (textComponent.isEnabled())
+          moveCaret(event);
+        else
+          positionCaret(event);
+      }
   }
 
   /**
@@ -426,6 +459,10 @@ public class DefaultCaret extends Rectangle
    */
   public void mouseClicked(MouseEvent event)
   {
+    // Do not modify selection if component is disabled.
+    if (!textComponent.isEnabled())
+      return;
+    
     int count = event.getClickCount();
     
     if (event.getButton() == MouseEvent.BUTTON1 && count >= 2)
@@ -523,7 +560,7 @@ public class DefaultCaret extends Rectangle
     // implemented (in regard to text components):
     // - a left-click moves the caret
     // - a left-click when shift is held down expands the selection
-    // - a right-click or click with any additionaly mouse button
+    // - a right-click or click with any additional mouse button
     //   on a text component is ignored
     // - a middle-click positions the caret and pastes the clipboard
     //   contents.
@@ -540,6 +577,7 @@ public class DefaultCaret extends Rectangle
         else
           {
             positionCaret(event);
+            
             textComponent.paste();
           }
       else
@@ -564,8 +602,11 @@ public class DefaultCaret extends Rectangle
    */
   public void focusGained(FocusEvent event)
   {
-    setVisible(true);    
-    updateTimerStatus();
+    if (textComponent.isEditable())
+      {
+        setVisible(true);    
+        updateTimerStatus();
+      }
   }
 
   /**
@@ -575,9 +616,10 @@ public class DefaultCaret extends Rectangle
    */
   public void focusLost(FocusEvent event)
   {
-    if (event.isTemporary() == false)
+    if (textComponent.isEditable() && event.isTemporary() == false)
       {
         setVisible(false);
+        
         // Stop the blinker, if running.
         if (blinkTimer != null && blinkTimer.isRunning())
           blinkTimer.stop();
@@ -669,7 +711,12 @@ public class DefaultCaret extends Rectangle
     propertyChangeListener = new PropertyChangeHandler();
     textComponent.addPropertyChangeListener(propertyChangeListener);
     documentListener = new DocumentHandler();
-    textComponent.getDocument().addDocumentListener(documentListener);
+    
+    Document doc = textComponent.getDocument();
+    if (doc != null)
+      doc.addDocumentListener(documentListener);
+    
+    active = textComponent.isEditable() && textComponent.isEnabled();
 
     repaint();
   }
@@ -872,7 +919,7 @@ public class DefaultCaret extends Rectangle
       }
 
     // Now draw the caret on the new position if visible.
-    if (visible)
+    if (visible && active)
       {
         g.setColor(textComponent.getCaretColor());
         g.drawLine(rect.x, rect.y, rect.x, rect.y + rect.height - 1);
@@ -1013,7 +1060,9 @@ public class DefaultCaret extends Rectangle
         this.dot = Math.max(this.dot, 0);
         
         handleHighlight();
+
         appear();
+
         adjustVisibility(this);
       }
   }
@@ -1050,7 +1099,9 @@ public class DefaultCaret extends Rectangle
         this.mark = this.dot;
         
         clearHighlight();
+        
         appear();
+        
         adjustVisibility(this);
       }
   }
@@ -1096,6 +1147,24 @@ public class DefaultCaret extends Rectangle
   }  
 
   /**
+   * Returns <code>true</code> if this <code>Caret</code> is blinking,
+   * and <code>false</code> if not. The returned value is independent of
+   * the visiblity of this <code>Caret</code> as returned by {@link #isVisible()}.
+   *
+   * @return <code>true</code> if this <code>Caret</code> is blinking,
+   *         and <code>false</code> if not.
+   * @see #isVisible()
+   * @since 1.5
+   */
+  public boolean isActive()
+  {
+    if (blinkTimer != null)
+      return blinkTimer.isRunning();
+
+    return false;
+  }
+
+  /**
    * Returns <code>true</code> if this <code>Caret</code> is currently visible,
    * and <code>false</code> if it is not.
    *
@@ -1104,7 +1173,7 @@ public class DefaultCaret extends Rectangle
    */
   public boolean isVisible()
   {
-    return visible;
+    return visible && active;
   }
 
   /**

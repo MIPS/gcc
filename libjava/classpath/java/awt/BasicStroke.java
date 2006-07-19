@@ -43,7 +43,6 @@ import gnu.java.awt.java2d.LineSegment;
 import gnu.java.awt.java2d.QuadSegment;
 import gnu.java.awt.java2d.Segment;
 
-import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
@@ -260,7 +259,7 @@ public class BasicStroke implements Stroke
    */
   public Shape createStrokedShape(Shape s)
   {
-    PathIterator pi = s.getPathIterator( new AffineTransform() );
+    PathIterator pi = s.getPathIterator(null);
 
     if( dash == null )
       return solidStroke( pi );
@@ -363,7 +362,7 @@ public class BasicStroke implements Stroke
    * Compares this <code>BasicStroke</code> for equality with an arbitrary 
    * object.  This method returns <code>true</code> if and only if:
    * <ul>
-   * <li><code>o</code> is an instanceof <code>BasicStroke</code>;<li>
+   * <li><code>o</code> is an instanceof <code>BasicStroke</code>;</li>
    * <li>this object has the same width, line cap style, line join style,
    * miter limit, dash array and dash phase as <code>o</code>.</li>
    * </ul>
