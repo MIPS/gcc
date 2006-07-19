@@ -894,6 +894,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
       
   *n = *old;
   n->outer = outer;
+  n->next_peer = NULL;
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
