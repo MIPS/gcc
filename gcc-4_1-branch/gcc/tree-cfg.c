@@ -3452,7 +3452,8 @@ tree_node_can_be_shared (tree t)
       || CONSTANT_CLASS_P (t)
       || is_gimple_min_invariant (t)
       || TREE_CODE (t) == SSA_NAME
-      || t == error_mark_node)
+      || t == error_mark_node
+      || TREE_CODE (t) == IDENTIFIER_NODE)
     return true;
 
   if (TREE_CODE (t) == CASE_LABEL_EXPR)

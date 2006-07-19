@@ -1,3 +1,7 @@
+2006-01-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (tree_node_can_be_shared): Handle IDENTIFIER_NODE.
+
 2006-07-18  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c/28286
