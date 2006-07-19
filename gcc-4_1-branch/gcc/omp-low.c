@@ -2447,7 +2447,7 @@ expand_omp_parallel (struct omp_region *region)
 
       si = bsi_last (entry_bb);
       gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_PARALLEL);
-      bsi_remove (&si);
+      bsi_remove (&si, true);
 
       new_bb = entry_bb;
       remove_edge (entry_succ_e);
@@ -2485,7 +2485,7 @@ expand_omp_parallel (struct omp_region *region)
 		     == OMP_PARALLEL_DATA_ARG (entry_stmt))
 		{
 		  if (TREE_OPERAND (stmt, 0) == DECL_ARGUMENTS (child_fn))
-		    bsi_remove (&si);
+		    bsi_remove (&si, true);
 		  else
 		    TREE_OPERAND (stmt, 1) = DECL_ARGUMENTS (child_fn);
 		  break;
@@ -2510,7 +2510,7 @@ expand_omp_parallel (struct omp_region *region)
       si = bsi_last (entry_bb);
       t = bsi_stmt (si);
       gcc_assert (t && TREE_CODE (t) == OMP_PARALLEL);
-      bsi_remove (&si);
+      bsi_remove (&si, true);
       e = split_block (entry_bb, t);
       entry_bb = e->dest;
       single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
@@ -2532,7 +2532,7 @@ expand_omp_parallel (struct omp_region *region)
 		      && TREE_CODE (bsi_stmt (si)) == OMP_RETURN);
 	  t = build1 (RETURN_EXPR, void_type_node, NULL);
 	  bsi_insert_after (&si, t, TSI_SAME_STMT);
-	  bsi_remove (&si);
+	  bsi_remove (&si, true);
 	}
     }
 
@@ -2627,7 +2627,7 @@ expand_omp_for_generic (struct omp_region *region,
       append_to_statement_list (t, &list);
       bsi_insert_after (&si, list, BSI_SAME_STMT);
     }
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Iteration setup for sequential loop goes in L0_BB.  */
   list = alloc_stmt_list ();
@@ -2661,7 +2661,7 @@ expand_omp_for_generic (struct omp_region *region,
   si = bsi_last (cont_bb);
   bsi_insert_after (&si, list, BSI_SAME_STMT);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_CONTINUE);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Emit code to get the next parallel iteration in L2_BB.  */
   list = alloc_stmt_list ();
@@ -2687,7 +2687,7 @@ expand_omp_for_generic (struct omp_region *region,
     t = built_in_decls[BUILT_IN_GOMP_LOOP_END];
   t = build_function_call_expr (t, NULL);
   bsi_insert_after (&si, t, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Connect the new blocks.  */
   remove_edge (single_succ_edge (entry_bb));
@@ -2821,7 +2821,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   si = bsi_last (entry_bb);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_FOR);
   bsi_insert_after (&si, list, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Setup code for sequential iteration goes in SEQ_START_BB.  */
   list = alloc_stmt_list ();
@@ -2856,7 +2856,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   si = bsi_last (cont_bb);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_CONTINUE);
   bsi_insert_after (&si, list, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Replace the OMP_RETURN with a barrier, or nothing.  */
   si = bsi_last (exit_bb);
@@ -2866,7 +2866,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       build_omp_barrier (&list);
       bsi_insert_after (&si, list, BSI_SAME_STMT);
     }
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Connect all the blocks.  */
   make_edge (seq_start_bb, body_bb, EDGE_FALLTHRU);
@@ -2986,7 +2986,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   si = bsi_last (entry_bb);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_FOR);
   bsi_insert_after (&si, list, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Iteration space partitioning goes in ITER_PART_BB.  */
   list = alloc_stmt_list ();
@@ -3042,7 +3042,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   si = bsi_last (cont_bb);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_CONTINUE);
   bsi_insert_after (&si, list, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Trip update code goes into TRIP_UPDATE_BB.  */
   list = alloc_stmt_list ();
@@ -3063,7 +3063,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
       build_omp_barrier (&list);
       bsi_insert_after (&si, list, BSI_SAME_STMT);
     }
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Connect the new blocks.  */
   remove_edge (single_succ_edge (entry_bb));
@@ -3185,7 +3185,7 @@ expand_omp_sections (struct omp_region *region)
       t = build2 (MODIFY_EXPR, void_type_node, v, t);
       bsi_insert_after (&si, t, BSI_SAME_STMT);
     }
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* The switch() statement replacing OMP_SECTIONS goes in L0_BB.  */
   si = bsi_start (l0_bb);
@@ -3214,11 +3214,11 @@ expand_omp_sections (struct omp_region *region)
       si = bsi_last (s_entry_bb);
       gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_SECTION);
       gcc_assert (i < len || OMP_SECTION_LAST (bsi_stmt (si)));
-      bsi_remove (&si);
+      bsi_remove (&si, true);
 
       si = bsi_last (s_exit_bb);
       gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_RETURN);
-      bsi_remove (&si);
+      bsi_remove (&si, true);
 
       e = single_pred_edge (s_entry_bb);
       e->flags = 0;
@@ -3247,7 +3247,7 @@ expand_omp_sections (struct omp_region *region)
   t = build_function_call_expr (t, NULL);
   t = build2 (MODIFY_EXPR, void_type_node, v, t);
   bsi_insert_after (&si, t, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Cleanup function replaces OMP_RETURN in EXIT_BB.  */
   si = bsi_last (exit_bb);
@@ -3257,7 +3257,7 @@ expand_omp_sections (struct omp_region *region)
     t = built_in_decls[BUILT_IN_GOMP_SECTIONS_END];
   t = build_function_call_expr (t, NULL);
   bsi_insert_after (&si, t, BSI_SAME_STMT);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
 
   /* Connect the new blocks.  */
   if (is_combined_parallel (region))
@@ -3297,7 +3297,7 @@ expand_omp_single (struct omp_region *region)
 		       OMP_CLAUSE_COPYPRIVATE))
     need_barrier = true;
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_SINGLE);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
   si = bsi_last (exit_bb);
@@ -3307,7 +3307,7 @@ expand_omp_single (struct omp_region *region)
       build_omp_barrier (&t);
       bsi_insert_after (&si, t, BSI_SAME_STMT);
     }
-  bsi_remove (&si);
+  bsi_remove (&si, true);
   single_succ_edge (exit_bb)->flags = EDGE_FALLTHRU;
 }
 
@@ -3330,12 +3330,12 @@ expand_omp_synch (struct omp_region *region)
 	      || TREE_CODE (bsi_stmt (si)) == OMP_MASTER
 	      || TREE_CODE (bsi_stmt (si)) == OMP_ORDERED
 	      || TREE_CODE (bsi_stmt (si)) == OMP_CRITICAL);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
   si = bsi_last (exit_bb);
   gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_RETURN);
-  bsi_remove (&si);
+  bsi_remove (&si, true);
   single_succ_edge (exit_bb)->flags = EDGE_FALLTHRU;
 }
 
