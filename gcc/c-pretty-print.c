@@ -457,25 +457,43 @@ void
 pp_c_parameter_type_list (c_pretty_printer *pp, tree t)
 {
   bool want_parm_decl = DECL_P (t) && !(pp->flags & pp_c_flag_abstract);
-  tree parms = want_parm_decl ? DECL_ARGUMENTS (t) :  TYPE_ARG_TYPES (t);
   pp_c_left_paren (pp);
-  if (parms == void_list_node)
-    pp_c_identifier (pp, "void");
-  else
+  if (want_parm_decl)
     {
+      tree parms = DECL_ARGUMENTS (t);
       bool first = true;
-      for ( ; parms && parms != void_list_node; parms = TREE_CHAIN (parms))
+      for ( ; parms; parms = TREE_CHAIN (parms))
 	{
 	  if (!first)
 	    pp_separate_with (pp, ',');
 	  first = false;
-	  pp_declaration_specifiers
-	    (pp, want_parm_decl ? parms : TREE_VALUE (parms));
-	  if (want_parm_decl)
-	    pp_declarator (pp, parms);
-	  else
-	    pp_abstract_declarator (pp, TREE_VALUE (parms));
+	  pp_declaration_specifiers (pp, parms);
+	  pp_declarator (pp, parms);
 	}
+    }
+  else
+    {
+      tree parms = TYPE_ARG_TYPES (t);
+      int len = num_parm_types (parms);
+
+      if (len == 1 && nth_parm_type (parms, 0) == void_type_node)
+	pp_c_identifier (pp, "void");
+      else
+	{
+	  int i;
+
+	  if (len && nth_parm_type (parms, len - 1) == void_type_node)
+	    len--;
+
+	  for (i = 0; i < len; i++)
+	    {
+	      tree type = nth_parm_type (parms, i);
+	      if (i != 0)
+		pp_separate_with (pp, ',');
+	      pp_declaration_specifiers (pp, type);
+	      pp_abstract_declarator (pp, type);
+	    }
+	}   
     }
   pp_c_right_paren (pp);
 }
