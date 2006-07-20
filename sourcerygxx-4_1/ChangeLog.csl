@@ -1,5 +1,15 @@
 2006-07-20  Paul Brook  <paul@codesourcery.com>
 
+	gcc/
+	* config/arm/arm.c (arm_gen_constant): Check for sets that can use
+	movw.
+	* config/arm/thumb2.md (thumb2_movsi_insn): Add movw alternative.
+	* config/arm/arm.md (arm_movsi_insn): Ditto.
+	* config/arm/vfp.md (arm_movsi_vfp): Ditto.
+	(thumb2_movsi_vfp): Ditto.
+
+2006-07-20  Paul Brook  <paul@codesourcery.com>
+
 	Backport from mainline.
 	PR 27363
 	gcc/

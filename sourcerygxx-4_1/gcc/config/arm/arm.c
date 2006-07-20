@@ -2012,6 +2012,15 @@ arm_gen_constant (enum rtx_code code, enum machine_mode mode, rtx cond,
   switch (code)
     {
     case SET:
+      /* See if we can use movw.  */
+      if (arm_arch_thumb2 && (remainder & 0xffff0000) == 0)
+	{
+	  if (generate)
+	    emit_constant_insn (cond, gen_rtx_SET (VOIDmode, target,
+						   GEN_INT (val)));
+	  return 1;
+	}
+
       /* See if we can do this by sign_extending a constant that is known
 	 to be negative.  This is a good, way of doing it, since the shift
 	 may well merge into a subsequent insn.  */

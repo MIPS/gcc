@@ -1118,15 +1118,17 @@ enum reg_class
 	J: valid indexing constants.
 	K: ~value ok in rhs argument of data operand.
 	L: -value ok in rhs argument of data operand.
-        M: 0..32, or a power of 2  (for shifts, or mult done by shift).  */
+        M: 0..32, or a power of 2  (for shifts, or mult done by shift).
+	N: 0..65535 for movw.  */
 #define CONST_OK_FOR_ARM_LETTER(VALUE, C)  		\
   ((C) == 'I' ? const_ok_for_arm (VALUE) :		\
    (C) == 'J' ? ((VALUE) < 4096 && (VALUE) > -4096) :	\
    (C) == 'K' ? (const_ok_for_arm (~(VALUE))) :		\
    (C) == 'L' ? (const_ok_for_arm (-(VALUE))) :		\
    (C) == 'M' ? (((VALUE >= 0 && VALUE <= 32))		\
-		 || (((VALUE) & ((VALUE) - 1)) == 0))	\
-   : 0)
+		 || (((VALUE) & ((VALUE) - 1)) == 0)) :	\
+   (C) == 'N' ? (arm_arch_thumb2 && ((VALUE) & 0xffff0000) == 0) : \
+   0)
 
 /* ??? This is cunrrently a copy of the arm code.  thumb2 is different.  */
 #define CONST_OK_FOR_THUMB2_LETTER(VALUE, C)  		\
@@ -1135,8 +1137,9 @@ enum reg_class
    (C) == 'K' ? (const_ok_for_arm (~(VALUE))) :		\
    (C) == 'L' ? (const_ok_for_arm (-(VALUE))) :		\
    (C) == 'M' ? (((VALUE >= 0 && VALUE <= 32))		\
-		 || (((VALUE) & ((VALUE) - 1)) == 0))	\
-   : 0)
+		 || (((VALUE) & ((VALUE) - 1)) == 0)) :	\
+   (C) == 'N' ? (((VALUE) & 0xffff0000) == 0) :		\
+   0)
 
 #define CONST_OK_FOR_THUMB1_LETTER(VAL, C)		\
   ((C) == 'I' ? (unsigned HOST_WIDE_INT) (VAL) < 256 :	\

@@ -4447,8 +4447,8 @@
 )
 
 (define_insn "*arm_movsi_insn"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r, m")
-	(match_operand:SI 1 "general_operand"      "rI,K,mi,r"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,r, m")
+	(match_operand:SI 1 "general_operand"      "rI,K,N,mi,r"))]
   "TARGET_ARM && ! TARGET_IWMMXT
    && !(TARGET_HARD_FLOAT && TARGET_VFP)
    && (   register_operand (operands[0], SImode)
@@ -4456,12 +4456,13 @@
   "@
    mov%?\\t%0, %1
    mvn%?\\t%0, #%B1
+   movw%?\\t%0, %1
    ldr%?\\t%0, %1
    str%?\\t%1, %0"
-  [(set_attr "type" "*,*,load1,store1")
+  [(set_attr "type" "*,*,*,load1,store1")
    (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,*,4096,*")
-   (set_attr "neg_pool_range" "*,*,4084,*")]
+   (set_attr "pool_range" "*,*,*,4096,*")
+   (set_attr "neg_pool_range" "*,*,*,4084,*")]
 )
 
 (define_split
