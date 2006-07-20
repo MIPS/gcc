@@ -3222,7 +3222,7 @@ check_default_args (tree x)
 			     ? DECL_TEMPLATE_RESULT (x) : x);
   bool saw_def = false;
   int i = 0 - (TREE_CODE (TREE_TYPE (x)) == METHOD_TYPE);
-  for (; arg && arg != void_list_node; arg = TREE_CHAIN (arg), ++i)
+  for (; arg; arg = TREE_CHAIN (arg), ++i)
     {
       if (DECL_INITIAL (arg))
 	saw_def = true;
