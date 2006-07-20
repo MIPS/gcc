@@ -7315,11 +7315,13 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
     case FUNCTION_TYPE:
       WALK_SUBTREE (TREE_TYPE (type));
       {
-	tree arg;
+	tree parm_types = TYPE_ARG_TYPES (type);
+	int len = num_parm_types (parm_types);
+	int i;
 
 	/* We never want to walk into default arguments.  */
-	for (arg = TYPE_ARG_TYPES (type); arg; arg = TREE_CHAIN (arg))
-	  WALK_SUBTREE (TREE_VALUE (arg));
+	for (i = 0; i < len; i++)
+	  WALK_SUBTREE (*(nth_parm_type_ptr (parm_types, i)));
       }
       break;
 
