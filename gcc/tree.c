@@ -5700,6 +5700,9 @@ bool
 variably_modified_type_p (tree type, tree fn)
 {
   tree t;
+  tree parm_types;
+  int len;
+  int i;
 
 /* Test if T is either variable (if FN is zero) or an expression containing
    a variable in FN.  */
@@ -5732,10 +5735,12 @@ variably_modified_type_p (tree type, tree fn)
       if (variably_modified_type_p (TREE_TYPE (type), fn))
 	  return true;
 
-      for (t = TYPE_ARG_TYPES (type);
-	   t && t != void_list_node;
-	   t = TREE_CHAIN (t))
-	if (variably_modified_type_p (TREE_VALUE (t), fn))
+      parm_types = TYPE_ARG_TYPES (type);
+      len = num_parm_types (parm_types);
+      if (len && nth_parm_type (parm_types, len - 1))
+	len--;
+      for (i = 0; i < len; i++)
+	if (variably_modified_type_p (nth_parm_type (parm_types, i), fn))
 	  return true;
       break;
 
