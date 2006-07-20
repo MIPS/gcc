@@ -5,6 +5,21 @@
 	2006-07-17  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	PR middle-end/28402
+	* optabs.c (expand_binop): Pass next_methods rather than methods
+	to expand_doubleword_shift.
+
+	gcc/testsuite/
+	PR middle-end/28402
+	* gcc.dg/pr28402.c: New test.
+
+2006-07-20  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+
+	2006-07-17  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	PR middle-end/28403
 	* optabs.c (expand_doubleword_shift): Wrap the call to
 	do_compare_rtx_and_jump with NO_DEFER_POP and OK_DEFER_POP.
