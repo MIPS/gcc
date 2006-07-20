@@ -9,6 +9,9 @@
 	* gcc/c-pretty-print.c (pp_c_parameter_type_list): Use
 	num_parm_types and nth_parm_type.
 
+	* gcc/calls.c (split_complex_types): Use num_parm_types,
+	nth_parm_types, and nth_parm_type_ptr.
+
 2006-07-18  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/dbxout.c (dbxout_type_method_1): Use nth_parm_type.

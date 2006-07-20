@@ -3167,45 +3167,41 @@ split_complex_values (tree values)
 static tree
 split_complex_types (tree types)
 {
-  tree p;
+  tree new_types;
+  int num_complex = 0;
+  tree type;
+  int len;
+  int i, j;
 
-  /* Before allocating memory, check for the common case of no complex.  */
-  for (p = types; p; p = TREE_CHAIN (p))
+  len = num_parm_types (types);
+  for (i = 0; i < len; i++)
     {
-      tree type = TREE_VALUE (p);
+      type = nth_parm_type (types, i);
       if (TREE_CODE (type) == COMPLEX_TYPE
 	  && targetm.calls.split_complex_arg (type))
-	goto found;
+	num_complex++;
     }
-  return types;
 
- found:
-  types = copy_list (types);
+  if (num_complex == 0)
+    return types;
 
-  for (p = types; p; p = TREE_CHAIN (p))
+  new_types = alloc_parm_types (len + num_complex);
+  for (i = j = 0; i < len; i++, j++)
     {
-      tree complex_type = TREE_VALUE (p);
+      type = nth_parm_type (types, i);
 
-      if (TREE_CODE (complex_type) == COMPLEX_TYPE
-	  && targetm.calls.split_complex_arg (complex_type))
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
 	{
-	  tree next, imag;
-
-	  /* Rewrite complex type with component type.  */
-	  TREE_VALUE (p) = TREE_TYPE (complex_type);
-	  next = TREE_CHAIN (p);
-
-	  /* Add another component type for the imaginary part.  */
-	  imag = build_tree_list (NULL_TREE, TREE_VALUE (p));
-	  TREE_CHAIN (p) = imag;
-	  TREE_CHAIN (imag) = next;
-
-	  /* Skip the newly created node.  */
-	  p = TREE_CHAIN (p);
+	  *(nth_parm_type_ptr (new_types, j)) = TREE_TYPE (type);
+	  j++;
+	  *(nth_parm_type_ptr (new_types, j)) = TREE_TYPE (type);
 	}
+      else
+	*(nth_parm_type_ptr (new_types, j)) = type;
     }
 
-  return types;
+  return new_types;
 }
 
 /* Output a library call to function FUN (a SYMBOL_REF rtx).
