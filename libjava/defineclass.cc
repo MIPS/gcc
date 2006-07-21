@@ -957,10 +957,18 @@ void _Jv_ClassReader::read_one_class_attribute ()
     handleEnclosingMethod(length);
   else if (is_attribute_name (name, "RuntimeVisibleAnnotations"))
     handleMemberAnnotations(JV_CLASS_ATTR, 0, length);
+  else if (is_attribute_name (name, "InnerClasses"))
+    {
+      ::java::io::DataOutputStream *stream = get_reflection_stream ();
+      stream->writeByte(JV_CLASS_ATTR);
+      stream->writeInt(length + 1);
+      stream->writeByte(JV_INNER_CLASSES_KIND);
+      stream->write(input_data, input_offset + pos, length);
+      skip (length);
+    }
   else
     {
-      /* Currently, we ignore most class attributes.
-         FIXME: Add inner-classes attributes support. */
+      /* Currently, we ignore most class attributes. */
      skip (length);
     }
 }

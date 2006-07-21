@@ -1,3 +1,21 @@
+2006-07-21  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/4105:
+	* java/lang/natClass.cc (findInnerClassAttribute): New method.
+	(findDeclaredClasses): Likewise.
+	(getDeclaredClasses): Implemented.
+	(getDeclaringClass): Likewise.
+	(isAnonymousClass): Likewise.
+	(isMemberClass): Likewise.
+	(check_constant): Pass message in exception.  Allow resolved
+	constants.
+	(resolve_class_constant): New function.
+	* defineclass.cc (read_one_class_attribute): Handle InnerClasses.
+	* java/lang/Class.h (isAnonymousClass, isLocalClass,
+	isMemberClass): Declare.
+	* java/lang/Class.java (getSimpleName): Implemented.
+	(isAnonymousClass, isLocalClass, isMemberClass): New methods.
+
 2006-07-16  Tom Tromey  <tromey@redhat.com>
 
 	* configure: Rebuilt.

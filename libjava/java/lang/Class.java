@@ -1081,8 +1081,22 @@ public final class Class<T>
    */
   public String getSimpleName()
   {
-    // FIXME write real implementation
-    return "";
+    StringBuffer sb = new StringBuffer();
+    Class klass = this;
+    int arrayCount = 0;
+    while (klass.isArray())
+      {
+	klass = klass.getComponentType();
+	++arrayCount;
+      }
+    if (! klass.isAnonymousClass())
+      {
+	String fullName = klass.getName();
+	sb.append(fullName, fullName.lastIndexOf(".") + 1, fullName.length());
+      }
+    while (arrayCount-- > 0)
+      sb.append("[]");
+    return sb.toString();
   }
 
   /**
@@ -1316,4 +1330,27 @@ public final class Class<T>
     return getAnnotation(annotationClass) != null;
   }
 
+  /**
+   * Returns true if this object represents an anonymous class.
+   *
+   * @return true if this object represents an anonymous class.
+   * @since 1.5
+   */
+  public native boolean isAnonymousClass();
+
+  /**
+   * Returns true if this object represents an local class.
+   *
+   * @return true if this object represents an local class.
+   * @since 1.5
+   */
+  public native boolean isLocalClass();
+
+  /**
+   * Returns true if this object represents an member class.
+   *
+   * @return true if this object represents an member class.
+   * @since 1.5
+   */
+  public native boolean isMemberClass();
 }

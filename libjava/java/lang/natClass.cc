@@ -438,25 +438,6 @@ java::lang::Class::getName (void)
 }
 
 JArray<jclass> *
-java::lang::Class::getDeclaredClasses (jboolean /*publicOnly*/)
-{
-  // Until we have inner classes, it always makes sense to return an
-  // empty array.
-  JArray<jclass> *result
-    = (JArray<jclass> *) JvNewObjectArray (0, &java::lang::Class::class$,
-					   NULL);
-  return result;
-}
-
-jclass
-java::lang::Class::getDeclaringClass (void)
-{
-  // Until we have inner classes, it makes sense to always return
-  // NULL.
-  return NULL;
-}
-
-JArray<jclass> *
 java::lang::Class::getInterfaces (void)
 {
   jobjectArray r = JvNewObjectArray (interface_count, getClass (), NULL);
@@ -1070,12 +1051,19 @@ java::lang::Class::getEnclosingConstructor()
 }
 
 static void
-check_constant(_Jv_Constants *pool, jint cpool_index, jint type)
+check_constant (_Jv_Constants *pool, jint cpool_index, jint type)
 {
-  if (cpool_index <= 0
-      || cpool_index >= pool->size
-      || pool->tags[cpool_index] != type)
-    throw new InternalError();
+  if (cpool_index <= 0 || cpool_index >= pool->size)
+    throw new InternalError(JvNewStringLatin1("invalid constant pool index"));
+  if ((pool->tags[cpool_index] & ~JV_CONSTANT_ResolvedFlag) != type)
+    {
+      ::java::lang::StringBuffer *sb = new ::java::lang::StringBuffer();
+      sb->append(JvNewStringLatin1("expected pool constant "));
+      sb->append(type);
+      sb->append(JvNewStringLatin1(" but got "));
+      sb->append(jint (pool->tags[cpool_index]));
+      throw new InternalError(sb->toString());
+    }
 }
 
 // Forward declaration
@@ -1379,6 +1367,180 @@ JArray< ::java::lang::annotation::Annotation *> *
 java::lang::Class::getDeclaredAnnotationsInternal()
 {
   return (JArray< ::java::lang::annotation::Annotation *> *) getDeclaredAnnotations(JV_CLASS_ATTR, 0, JV_ANNOTATIONS_KIND);
+}
+
+static jclass
+resolve_class_constant (jclass klass, _Jv_Constants *pool, int cpool_index)
+{
+  check_constant (pool, cpool_index, JV_CONSTANT_Class);
+  // FIXME: what is the correct thing to do with an exception here?
+  return _Jv_Linker::resolve_pool_entry (klass, cpool_index, false).clazz;
+}
+
+jint
+java::lang::Class::findInnerClassAttribute()
+{
+  unsigned char *bytes = reflection_data;
+  if (bytes == NULL)
+    return -1;
+  while (true)
+    {
+      int type = read_u1 (bytes);
+      if (type == JV_DONE_ATTR)
+	break;
+      // After the type but before the length.
+      unsigned char *save = bytes;
+      int len = read_4 (bytes);
+      unsigned char *next = bytes + len;
+      if (type != JV_CLASS_ATTR)
+	{
+	  bytes = next;
+	  continue;
+	}
+      int kind = read_u1 (bytes, next);
+      if (kind != JV_INNER_CLASSES_KIND)
+	{
+	  bytes = next;
+	  continue;
+	}
+      return save - reflection_data;
+    }
+  return -1;
+}
+
+jint
+java::lang::Class::findDeclaredClasses(JArray<jclass> *result,
+				       jboolean publicOnly,
+				       jint offset)
+{
+  unsigned char *bytes = reflection_data + offset;
+  int len = read_4 (bytes);
+  unsigned char *next = bytes + len;
+  // Skip a byte.
+  read_u1 (bytes, next);
+  int n_classes = read_u2 (bytes, next);
+  int count = 0;
+  for (int i = 0; i < n_classes; ++i)
+    {
+      int inner_class_index = read_u2 (bytes, next);
+      int outer_class_index = read_u2 (bytes, next);
+      /*int inner_name_index = */ read_u2 (bytes, next);
+      int inner_flags = read_u2 (bytes, next);
+
+      if (inner_class_index == 0 || outer_class_index == 0)
+	continue;
+      if (resolve_class_constant (this, &constants, outer_class_index) == this)
+	{
+	  jclass inner = resolve_class_constant (this, &constants,
+						 inner_class_index);
+	  if (! publicOnly
+	      || ((inner_flags
+		   & java::lang::reflect::Modifier::PUBLIC) != 0))
+	    {
+	      if (result)
+		{
+		  jclass *elts = elements (result);
+		  elts[count] = inner;
+		}
+	      ++count;
+	    }
+	}
+    }
+
+  return count;
+}
+
+JArray<jclass> *
+java::lang::Class::getDeclaredClasses (jboolean publicOnly)
+{
+  int offset = findInnerClassAttribute();
+  int count;
+  if (offset == -1)
+    {
+      // No InnerClasses attribute, so no declared classes.
+      count = 0;
+    }
+  else
+    count = findDeclaredClasses(NULL, publicOnly, offset);
+  JArray<jclass> *result
+    = (JArray<jclass> *) JvNewObjectArray (count, &java::lang::Class::class$,
+					   NULL);
+  if (count > 0)
+    findDeclaredClasses(result, publicOnly, offset);
+  return result;
+}
+
+jclass
+java::lang::Class::getDeclaringClass (void)
+{
+  int offset = findInnerClassAttribute();
+  if (offset == -1)
+    return NULL;
+
+  unsigned char *bytes = reflection_data + offset;
+  int len = read_4 (bytes);
+  unsigned char *next = bytes + len;
+  // Skip a byte.
+  read_u1 (bytes, next);
+  int n_classes = read_u2 (bytes, next);
+  for (int i = 0; i < n_classes; ++i)
+    {
+      int inner_class_index = read_u2 (bytes, next);
+      int outer_class_index = read_u2 (bytes, next);
+      /*int inner_name_index = */read_u2 (bytes, next);
+      /*int inner_flags = */read_u2 (bytes, next);
+
+      if (inner_class_index == 0 || outer_class_index == 0)
+	continue;
+      if (resolve_class_constant (this, &constants, inner_class_index) == this)
+	return resolve_class_constant (this, &constants, outer_class_index);
+    }
+
+  return NULL;
+}
+
+jboolean
+java::lang::Class::isAnonymousClass()
+{
+  int offset = findInnerClassAttribute();
+  if (offset == -1)
+    return false;
+
+  unsigned char *bytes = reflection_data + offset;
+  int len = read_4 (bytes);
+  unsigned char *next = bytes + len;
+  // Skip a byte.
+  read_u1 (bytes, next);
+  int n_classes = read_u2 (bytes, next);
+  for (int i = 0; i < n_classes; ++i)
+    {
+      int inner_class_index = read_u2 (bytes, next);
+      /*int outer_class_index = */read_u2 (bytes, next);
+      int inner_name_index = read_u2 (bytes, next);
+      /*int inner_flags = */read_u2 (bytes, next);
+
+      if (inner_class_index == 0)
+	continue;
+      if (resolve_class_constant (this, &constants, inner_class_index) == this)
+	return inner_name_index == 0;
+    }
+
+  return false;
+}
+
+jboolean
+java::lang::Class::isLocalClass()
+{
+  _Jv_word indexes;
+  indexes.i = getEnclosingMethodData();
+  return indexes.i != 0;
+}
+
+jboolean
+java::lang::Class::isMemberClass()
+{
+  // FIXME: is this correct?
+  return !isLocalClass() && getDeclaringClass() != NULL;
 }
 
 

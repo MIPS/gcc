@@ -435,6 +435,10 @@ public:
   jobjectArray getDeclaredAnnotations(::java::lang::reflect::Field *);
   JArray< ::java::lang::annotation::Annotation *> *getDeclaredAnnotationsInternal();
 
+  jboolean isAnonymousClass();
+  jboolean isLocalClass();
+  jboolean isMemberClass();
+
   // FIXME: this probably shouldn't be public.
   jint size (void)
   {
@@ -470,6 +474,9 @@ private:
     state = nstate;
     notifyAll ();
   }
+
+  jint findInnerClassAttribute();
+  jint findDeclaredClasses(JArray<jclass> *, jboolean, jint);
 
   // Friend functions implemented in natClass.cc.
   friend _Jv_Method *::_Jv_GetMethodLocal (jclass klass, _Jv_Utf8Const *name,
