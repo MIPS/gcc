@@ -957,7 +957,8 @@ decls_match (tree newdecl, tree olddecl)
 	      ))
 	    {
 	      types_match = self_promoting_args_p (p1);
-	      if (p1 == void_list_node)
+	      if (num_parm_types (p1) == 1
+		  && nth_parm_type (p1, 0) == void_type_node)
 		TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
 #ifndef NO_IMPLICIT_EXTERN_C

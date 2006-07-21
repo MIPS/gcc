@@ -1,3 +1,8 @@
+2006-07-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/decl.c (decls_match): Use num_parm_types and
+	nth_parm_type.
+
 2006-07-20  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree.c (variably_modified_type_p): Use num_parm_types and
