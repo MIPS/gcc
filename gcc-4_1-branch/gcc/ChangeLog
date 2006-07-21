@@ -1,3 +1,25 @@
+2006-07-21  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/28283
+	* expmed.c (expand_shift): Additionally check that the shift_cost
+	is not MAX_COST and that INTVAL(op1) is less than MAX_BITS_PER_WORD
+	before implementing a LSHIFT_EXPR as a sequence of additions.
+	* config/sh/sh.c (shift_costs): Return MAX_COST to inform the
+	middle-end that DImode shifts need to be synthesized by expand.
+
+2006-07-20  Richard Henderson  <rth@redhat.com>
+
+        PR 27889
+        * tree-nested.c (create_tmp_var_for): Set DECL_COMPLEX_GIMPLE_REG_P
+        if needed.
+
+2006-07-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	PR 27363
+	* cse.c (cse_insn): Add destination addresses to hash table. Check if
+	they are invalidated by this instruction.
+
 2006-07-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* except.c (duplicate_eh_regions_1): Clear next_peer.
@@ -119,12 +141,6 @@
 	PR target/28170
 	* config/rs6000/rs6000.c (insvdi_rshift_rlwimi_p): Correct shiftop
 	bounds. Simplify.
-
-2006-07-17  Richard Henderson  <rth@redhat.com>
-
-	PR 27889
-	* tree-nested.c (create_tmp_var_for): Set DECL_COMPLEX_GIMPLE_REG_P
-	if needed.
 
 2006-01-11  Diego Novillo  <dnovillo@redhat.com>
 

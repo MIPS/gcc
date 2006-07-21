@@ -1,3 +1,37 @@
+2006-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28363
+	* g++.dg/template/defarg10.C: New test.
+
+2006-07-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/27495
+	* g++.dg/other/pr27495.C: New.
+
+2006-07-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	PR 27363
+	* gcc.dg/pr27363.c: New test.
+
+2006-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28338
+	* g++.dg/init/ref13.C: New test.
+
+2006-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28337
+	* g++.dg/template/string1.C: New test.
+
+	PR c++/28048
+	* g++.dg/template/defarg9.C: New test.
+
+2006-07-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28235
+	* g++.dg/template/static27.C: New test.
+
 2005-12-12  Daniel Berlin  <dberlin@dberlin.org>
 
 	* gcc.dg/tree-ssa/ssa-pre-2.c: Update due to reassociation changes.
