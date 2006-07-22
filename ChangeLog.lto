@@ -1,5 +1,11 @@
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/objc/objc-act.c (receiver_is_class_object): Use new
+	CALL_EXPR accessors.
+	(objc_get_callee_fndecl): Likewise.
+
+2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/java/parse.y (nested_field_expanded_access_p):  Use new
 	CALL_EXPR accessors.
 	(extract_field_decl): Likewise.
