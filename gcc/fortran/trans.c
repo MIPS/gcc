@@ -307,7 +307,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   stmtblock_t block;
   tree body;
   tree tmp;
-  tree args;
+  tree arg0, arg1, arg2;
 
   if (integer_zerop (cond))
     return;
@@ -319,16 +319,10 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
 
   TREE_USED (msg) = 1;
 
-  tmp = gfc_build_addr_expr (pchar_type_node, msg);
-  args = gfc_chainon_list (NULL_TREE, tmp);
-
-  tmp = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
-  args = gfc_chainon_list (args, tmp);
-
-  tmp = build_int_cst (NULL_TREE, input_line);
-  args = gfc_chainon_list (args, tmp);
-
-  tmp = build_function_call_expr (gfor_fndecl_runtime_error, args);
+  arg0 = gfc_build_addr_expr (pchar_type_node, msg);
+  arg1 = gfc_build_addr_expr (pchar_type_node, gfc_strconst_current_filename);
+  arg2 = build_int_cst (NULL_TREE, input_line);
+  tmp = build_call_expr (gfor_fndecl_runtime_error, 3, arg0, arg1, arg2);
   gfc_add_expr_to_block (&block, tmp);
 
   body = gfc_finish_block (&block);
@@ -341,9 +335,8 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
     {
       /* Tell the compiler that this isn't likely.  */
       cond = fold_convert (long_integer_type_node, cond);
-      tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
-      cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
+      tmp = build_int_cst (long_integer_type_node, 0);
+      cond = build_call_expr (built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
       cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());

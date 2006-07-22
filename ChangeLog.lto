@@ -59,6 +59,8 @@
 	(gfc_conv_intrinsic_trim): Likewise.
 	(gfc_conv_intrinsic_iargc): Likewise.
 
+	* gcc/fortran/trans.c (gfc_trans_runtime_check): Use build_call_expr.
+
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/cp/error.c (dump_call_expr_args): New.
