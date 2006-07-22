@@ -1,3 +1,16 @@
+2006-07-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/emit-rtl.c (validate_subreg): Disable test for changing size
+	of floating mode.
+
+2006-07-10  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* gcc/config/arm/wrs-linux.h (CC1_SPEC, SUBTARGET_EXTRA_ASM_SPEC,
+	SYSROOT_SUFFIX_SPEC): Add support for iWMMXt2.
+	* gcc/config/arm/arm.c (all_architectures): Add iWMMXt2 entry.
+	* gcc/config/arm/t-wrs-linux (MULTILIB_MATCHES): New, for iWMMXt2.
+	* gcc/config/arm/arm-cores.def: New ARM_CORE entry for iWMMXt2.
+
 2006-07-10  Mark Shinwell  <shinwell@codesourcery.com>
 
 	* gcc/config/arm/t-wrs-linux (MULTILIB_OPTIONS, MULTILIB_EXCEPTIONS,

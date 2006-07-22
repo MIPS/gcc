@@ -654,8 +654,10 @@ validate_subreg (enum machine_mode omode, enum machine_mode imode,
      (subreg:SI (reg:DF) 0) isn't.  */
   else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
     {
+#if 0
       if (isize != osize)
 	return false;
+#endif
     }
 
   /* Paradoxical subregs must have offset zero.  */

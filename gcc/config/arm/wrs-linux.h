@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #define CC1_SPEC "				\
  %{tarm926ej-s:	-mcpu=arm926ej-s ;		\
    tiwmmxt:     -mcpu=iwmmxt ;			\
+   tiwmmxt2:    -mcpu=iwmmxt ;			\
    txscale:     -mcpu=xscale -mbig-endian ;	\
    tarm920t:    -mcpu=arm920t }			\
  %{profile:-p}"
@@ -49,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
    option is SUBTARGET_EXTRA_ASM_SPEC in bpabi.h.  */
 #undef SUBTARGET_EXTRA_ASM_SPEC
 #define SUBTARGET_EXTRA_ASM_SPEC \
-  "%{tiwmmxt:-mcpu=iwmmxt} %{txscale:-mcpu=xscale -EB} -meabi=4" 
+  "%{tiwmmxt2:-mcpu=iwmmxt2} %{tiwmmxt:-mcpu=iwmmxt} %{txscale:-mcpu=xscale -EB} -meabi=4" 
 
 /* Translate -tiwmmxt for the linker.  */
 #undef SUBTARGET_EXTRA_LINK_SPEC
@@ -62,6 +63,7 @@ Boston, MA 02111-1307, USA.  */
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC			\
   "%{muclibc:/uclibc}%{tiwmmxt:/tiwmmxt ;	\
+     tiwmmxt2:/tiwmmxt ;			\
      txscale:/txscale ;				\
      tarm920t:/tarm920t}%{mfloat-abi=softfp:/softfp}"
 

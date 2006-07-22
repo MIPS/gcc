@@ -32,6 +32,8 @@ MULTILIB_EXCEPTIONS += *tiwmmxt*/*mfloat-abi=softfp*
 MULTILIB_EXCEPTIONS += *txscale*/*mfloat-abi=softfp*
 MULTILIB_EXCEPTIONS += *tarm920t*/*mfloat-abi=softfp*
 
+MULTILIB_MATCHES = tiwmmxt=tiwmmxt2
+
 # These files must be built for each multilib.
 EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
 
