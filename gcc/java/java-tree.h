@@ -1793,11 +1793,11 @@ extern tree *type_map;
 
 #define CALL_THIS_CONSTRUCTOR_P(NODE)					\
   (TREE_CODE (NODE) == CALL_EXPR					\
-   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == this_identifier_node)
+   && EXPR_WFL_NODE (CALL_EXPR_FN (NODE)) == this_identifier_node)
 
 #define CALL_SUPER_CONSTRUCTOR_P(NODE)					\
   (TREE_CODE (NODE) == CALL_EXPR					\
-   && EXPR_WFL_NODE (TREE_OPERAND (NODE, 0)) == super_identifier_node)
+   && EXPR_WFL_NODE (CALL_EXPR_FN (NODE)) == super_identifier_node)
 
 /* Using a FINALLY_EXPR node */
 #define FINALLY_EXPR_LABEL(NODE) TREE_OPERAND (FINALLY_EXPR_CHECK (NODE), 0)

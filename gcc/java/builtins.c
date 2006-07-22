@@ -48,7 +48,8 @@ static tree java_build_function_call_expr (tree, tree);
 /* Functions of this type are used to inline a given call.  Such a
    function should either return an expression, if the call is to be
    inlined, or NULL_TREE if a real call should be emitted.  Arguments
-   are method return type and arguments to call.  */
+   are method return type and the original CALL_EXPR containing the
+   arguments to the call.  */
 typedef tree builtin_creator_function (tree, tree);
 
 /* Hold a char*, before initialization, or a tree, after
@@ -97,50 +98,64 @@ static GTY(()) struct builtin_record java_builtins[] =
 /* Internal functions which implement various builtin conversions.  */
 
 static tree
-max_builtin (tree method_return_type, tree method_arguments)
+max_builtin (tree method_return_type, tree orig_call)
 {
   /* MAX_EXPR does not handle -0.0 in the Java style.  */
   if (TREE_CODE (method_return_type) == REAL_TYPE)
     return NULL_TREE;
   return fold_build2 (MAX_EXPR, method_return_type,
-		      TREE_VALUE (method_arguments),
-		      TREE_VALUE (TREE_CHAIN (method_arguments)));
+		      CALL_EXPR_ARG0 (orig_call),
+		      CALL_EXPR_ARG1 (orig_call));
 }
 
 static tree
-min_builtin (tree method_return_type, tree method_arguments)
+min_builtin (tree method_return_type, tree orig_call)
 {
   /* MIN_EXPR does not handle -0.0 in the Java style.  */
   if (TREE_CODE (method_return_type) == REAL_TYPE)
     return NULL_TREE;
   return fold_build2 (MIN_EXPR, method_return_type,
-		      TREE_VALUE (method_arguments),
-		      TREE_VALUE (TREE_CHAIN (method_arguments)));
+		      CALL_EXPR_ARG0 (orig_call),
+		      CALL_EXPR_ARG1 (orig_call));
 }
 
 static tree
-abs_builtin (tree method_return_type, tree method_arguments)
+abs_builtin (tree method_return_type, tree orig_call)
 {
   return fold_build1 (ABS_EXPR, method_return_type,
-		      TREE_VALUE (method_arguments));
+		      CALL_EXPR_ARG0 (orig_call));
 }
 
-/* Mostly copied from ../builtins.c.  */
+/* Construct a new call to FN using the arguments from ORIG_CALL.  */
+
 static tree
-java_build_function_call_expr (tree fn, tree arglist)
+java_build_function_call_expr (tree fn, tree orig_call)
 {
-  tree call_expr;
-
-  call_expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-  return fold_build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fn)),
-		      call_expr, arglist, NULL_TREE);
+  switch (call_expr_nargs (orig_call))
+    {
+    case 0:
+      return build_call_expr (fn, 0);
+    case 1:
+      return build_call_expr (fn, 1, CALL_EXPR_ARG0 (orig_call));
+    case 2:
+      return build_call_expr (fn, 2,
+			      CALL_EXPR_ARG0 (orig_call),
+			      CALL_EXPR_ARG1 (orig_call));
+    case 3:
+      return build_call_expr (fn, 3,
+			      CALL_EXPR_ARG0 (orig_call),
+			      CALL_EXPR_ARG1 (orig_call),
+			      CALL_EXPR_ARG2 (orig_call));
+    default:
+      return build_function_call_expr (fn, CALL_EXPR_ARGS (orig_call));
+    }
 }
 
 static tree
-convert_real (tree method_return_type, tree method_arguments)
+convert_real (tree method_return_type, tree orig_call)
 {
   return build1 (VIEW_CONVERT_EXPR, method_return_type,
-		 TREE_VALUE (method_arguments));
+		 CALL_EXPR_ARG0 (orig_call));
 }
 
 
@@ -270,7 +285,6 @@ check_for_builtin (tree method, tree call)
   if (! flag_emit_class_files && optimize && TREE_CODE (call) == CALL_EXPR)
     {
       int i;
-      tree method_arguments = TREE_OPERAND (call, 1);
       tree method_class = DECL_NAME (TYPE_NAME (DECL_CONTEXT (method)));
       tree method_name = DECL_NAME (method);
       tree method_return_type = TREE_TYPE (TREE_TYPE (method));
@@ -285,14 +299,13 @@ check_for_builtin (tree method, tree call)
 	      if (java_builtins[i].creator != NULL)
 		{
 		  tree result
-		    = (*java_builtins[i].creator) (method_return_type,
-						   method_arguments);
+		    = (*java_builtins[i].creator) (method_return_type, call);
 		  return result == NULL_TREE ? call : result;
 		}
 	      fn = built_in_decls[java_builtins[i].builtin_code];
 	      if (fn == NULL_TREE)
 		return call;
-	      return java_build_function_call_expr (fn, method_arguments);
+	      return java_build_function_call_expr (fn, call);
 	    }
 	}
     }

@@ -1,5 +1,48 @@
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/java/parse.y (nested_field_expanded_access_p):  Use new
+	CALL_EXPR accessors.
+	(extract_field_decl): Likewise.
+	(resolve_qualified_expression_name): Likewise.
+	(patch_method_invocation): Likewise.
+	(patch_invoke): With the change in CALL_EXPR representation, it's
+	no longer possible to replace the entire argument list.  Instead,
+	create a new object, transferring the relevant status bits
+	from the old call object.
+	(java_complete_lhs): Use new CALL_EXPR accessors.
+	(complete_function_arguments):  Likewise.
+
+	* gcc/java/class.c (build_static_field_ref): Use build_call_expr.
+	(emit_indirect_register_classes): Likewise.
+	(emit_register_classes): Likewise.
+
+	* gcc/java/decl.c (finish_method): Use build_call_expr.
+
+	* gcc/java/check-init.c (check_init): Use new CALL_EXPR accessors.
+
+	* gcc/java/resource.c (write_resource_constructor): Use
+	build_call_expr.
+
+	* gcc/java/builtins.c (builtin_creator_function): Pass entire
+	CALL_EXPR as the second argument, not just the argument list.
+	(max_builtin): Extract arguments from CALL_EXPR using new accessors.
+	(min_builtin): Likewise.
+	(abs_builtin): Likewise.
+	(java_build_function_call_expr): Rewrite to use new CALL_EXPR
+	constructors.
+	(convert_real): Extract arguments from CALL_EXPR using new accessors.
+	(check_for_builtin): Pass entire CALL_EXPR as argument to creator,
+	rather than just its argument list.
+
+	* gcc/java/lang.c (java_get_callee_fndecl): Use new CALL_EXPR
+	accessors.
+
+	* gcc/java/java-tree.h (CALL_THIS_CONSTRUCTOR_P): Use new CALL_EXPR
+	accessors.
+	(CALL_SUPER_CONSTRUCTOR_P): Likewise.
+
+2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree.h (CALL_EXPR_FN, CALL_EXPR_STATIC_CHAIN, CALL_EXPR_ARGS):
 	Temporarily remove checking, since CALL_EXPR-like things in the
 	Java and C front ends with other TREE_CODEs need to use these, too.

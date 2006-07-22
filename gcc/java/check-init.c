@@ -903,14 +903,15 @@ check_init (tree exp, words before)
     case NEW_CLASS_EXPR:
     case CALL_EXPR:
       {
-	tree func = TREE_OPERAND (exp, 0);
-	tree x = TREE_OPERAND (exp, 1);
+	tree func = CALL_EXPR_FN (exp);
+	tree arg;
+	call_expr_arg_iterator iter;
 	if (TREE_CODE (func) == ADDR_EXPR)
 	  func = TREE_OPERAND (func, 0);
 	check_init (func, before);
 
-	for ( ;  x != NULL_TREE;  x = TREE_CHAIN (x))
-	  check_init (TREE_VALUE (x), before);
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	  check_init (arg, before);
 	if (func == throw_node)
 	  goto never_continues;
       }

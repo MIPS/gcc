@@ -2120,10 +2120,8 @@ finish_method (tree fndecl)
       && ! CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (fndecl))))
     {
       tree clas = DECL_CONTEXT (fndecl);
-      tree init = build3 (CALL_EXPR, void_type_node,
-			  build_address_of (soft_initclass_node),
-			  build_tree_list (NULL_TREE, build_class_ref (clas)),
-			  NULL_TREE);
+      tree init = build_call_expr (soft_initclass_node, 1, 
+				   build_class_ref (clas));
       *tp = build2 (COMPOUND_EXPR, TREE_TYPE (*tp), init, *tp);
     }
 

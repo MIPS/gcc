@@ -8482,17 +8482,16 @@ nested_field_expanded_access_p (tree node, tree *name, tree *arg_type,
      to native or bytecodes.  It's the case for function calls.  */
 
   if (flag_emit_class_files
-      && TREE_CODE (node) == CALL_EXPR
-      && NESTED_FIELD_ACCESS_IDENTIFIER_P (DECL_NAME (TREE_OPERAND (node, 0))))
+      && NESTED_FIELD_ACCESS_IDENTIFIER_P (DECL_NAME (CALL_EXPR_FN (node))))
     identified = 1;
   else if (!flag_emit_class_files)
     {
-      node = TREE_OPERAND (node, 0);
+      node = CALL_EXPR_FN (node);
 
-      if (node && TREE_OPERAND (node, 0)
-	  && TREE_CODE (TREE_OPERAND (node, 0)) == ADDR_EXPR)
+      if (node && CALL_EXPR_FN (node)
+	  && TREE_CODE (CALL_EXPR_FN (node)) == ADDR_EXPR)
 	{
-	  node = TREE_OPERAND (node, 0);
+	  node = CALL_EXPR_FN (node);
 	  if (TREE_OPERAND (node, 0)
 	      && TREE_CODE (TREE_OPERAND (node, 0)) == FUNCTION_DECL
 	      && (NESTED_FIELD_ACCESS_IDENTIFIER_P
@@ -8503,19 +8502,18 @@ nested_field_expanded_access_p (tree node, tree *name, tree *arg_type,
 
   if (identified && name && arg_type && arg)
     {
-      tree argument = TREE_OPERAND (node, 1);
-      *name = DECL_NAME (TREE_OPERAND (node, 0));
+      *name = DECL_NAME (CALL_EXPR_FN (node));
 
       /* The accessors for static fields do not take in a this$<n> argument,
          so we take the class name from the accessor's context instead.  */
-      if (argument)
+      if (call_expr_nargs (node) > 0)
         {
-          *arg_type = TREE_TYPE (TREE_TYPE (TREE_VALUE (argument)));
-          *arg = TREE_VALUE (argument);
+          *arg_type = TREE_TYPE (TREE_TYPE (CALL_EXPR_ARG0 (node)));
+          *arg = CALL_EXPR_ARG0 (node);
         }
       else
         {
-          *arg_type = DECL_CONTEXT (TREE_OPERAND (node, 0));
+          *arg_type = DECL_CONTEXT (CALL_EXPR_FN (node));
           *arg = NULL_TREE;
         }
     }
@@ -9759,8 +9757,8 @@ extract_field_decl (tree node)
 	 {
 	   tree call = TREE_OPERAND (op1, 0);
 	   if (TREE_CODE (call) == CALL_EXPR
-	       && TREE_CODE (TREE_OPERAND (call, 0)) == ADDR_EXPR
-	       && (TREE_OPERAND (TREE_OPERAND (call, 0), 0)
+	       && TREE_CODE (CALL_EXPR_FN (call)) == ADDR_EXPR
+	       && (TREE_OPERAND (CALL_EXPR_FN (call), 0)
 		   == soft_initclass_node))
 	     return TREE_OPERAND (op1, 1);
 	 }
@@ -9844,11 +9842,11 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	    CALL_USING_SUPER (qual_wfl) = 1;
 #ifdef USE_MAPPED_LOCATION
 	  location = (TREE_CODE (qual_wfl) == CALL_EXPR
-		      ? EXPR_LOCATION (TREE_OPERAND (qual_wfl, 0))
+		      ? EXPR_LOCATION (CALL_EXPR_FN (qual_wfl))
 		      : UNKNOWN_LOCATION);
 #else
 	  location = (TREE_CODE (qual_wfl) == CALL_EXPR ?
-		      EXPR_WFL_LINECOL (TREE_OPERAND (qual_wfl, 0)) : 0);
+		      EXPR_WFL_LINECOL (CALL_EXPR_FN (qual_wfl)) : 0);
 #endif
 	  *where_found = patch_method_invocation (qual_wfl, decl, type,
 						  from_super,
@@ -9889,8 +9887,8 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	    {
 	      tree arguments = NULL_TREE;
 	      if (TREE_CODE (qual_wfl) == CALL_EXPR
-		  && TREE_OPERAND (qual_wfl, 1) != NULL_TREE)
-		arguments = TREE_VALUE (TREE_OPERAND (qual_wfl, 1));
+		  && call_expr_nargs (qual_wfl) > 0)
+		arguments = CALL_EXPR_ARG0 (qual_wfl);
 	      check_thrown_exceptions (location, ret_decl, arguments);
 	    }
 
@@ -10498,16 +10496,19 @@ maybe_access_field (tree decl, tree where, tree type)
   return decl;
 }
 
-/* Build a method invocation, by patching PATCH. If non NULL
+/* Build a method invocation, by patching PATCH, which is a
+   CALL_EXPR or NEW_CLASS_EXPR. If non NULL
    and according to the situation, PRIMARY and WHERE may be
-   used. IS_STATIC is set to 1 if the invoked function is static. */
+   used. IS_STATIC is set to 1 if the invoked function is static. 
+   FIXME: This ought to be rewritten to avoid consing up temporary
+   argument lists.  */
 
 static tree
 patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 			 int *is_static, tree *ret_decl)
 {
-  tree wfl = TREE_OPERAND (patch, 0);
-  tree args = TREE_OPERAND (patch, 1);
+  tree wfl = CALL_EXPR_FN (patch);
+  tree args = CALL_EXPR_ARGS (patch);
   tree name = EXPR_WFL_NODE (wfl);
   tree list;
   int is_static_flag = 0;
@@ -10618,10 +10619,10 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 	{
 	  if (TREE_CODE (patch) == NEW_CLASS_EXPR)
 	    class_to_search = EXPR_WFL_NODE (wfl);
-	  else if (EXPR_WFL_NODE (TREE_OPERAND (patch, 0)) ==
+	  else if (EXPR_WFL_NODE (CALL_EXPR_FN (patch)) ==
 		   this_identifier_node)
 	    class_to_search = NULL_TREE;
-	  else if (EXPR_WFL_NODE (TREE_OPERAND (patch, 0)) ==
+	  else if (EXPR_WFL_NODE (CALL_EXPR_FN (patch)) ==
 		   super_identifier_node)
 	    {
 	      is_super_init = 1;
@@ -10915,7 +10916,8 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 }
 
 /* Check that we're not trying to do a static reference to a method in
-   non static method. Return 1 if it's the case, 0 otherwise. */
+   non static method.  Return 1 if it's the case, 0 otherwise.
+   NODE is a CALL_EXPR or NEW_CLASS_EXPR.  */
 
 static int
 check_for_static_method_reference (tree wfl, tree node, tree method,
@@ -11009,13 +11011,13 @@ maybe_use_access_method (int is_super_init, tree *mdecl, tree *this_arg)
 }
 
 /* Patch an invoke expression METHOD and ARGS, based on its invocation
-   mode.  */
+   mode.  PATCH is the original CALL_EXPR or NEW_CLASS_EXPR.  */
 
 static tree
 patch_invoke (tree patch, tree method, tree args)
 {
   tree dtable, func;
-  tree original_call, t, ta;
+  tree t, ta;
   tree check = NULL_TREE;
 
   /* Last step for args: convert build-in types. If we're dealing with
@@ -11086,27 +11088,27 @@ patch_invoke (tree patch, tree method, tree args)
       func = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (method)), func);
     }
 
-  TREE_TYPE (patch) = TREE_TYPE (TREE_TYPE (method));
-  TREE_OPERAND (patch, 0) = func;
-  TREE_OPERAND (patch, 1) = args;
-  patch = check_for_builtin (method, patch);
-  original_call = patch;
-
   /* We're processing a `new TYPE ()' form. New is called and its
      returned value is the first argument to the constructor. We build
      a COMPOUND_EXPR and use saved expression so that the overall NEW
      expression value is a pointer to a newly created and initialized
      class. */
-  if (TREE_CODE (original_call) == NEW_CLASS_EXPR)
+  if (TREE_CODE (patch) == NEW_CLASS_EXPR)
     {
       tree class = DECL_CONTEXT (method);
-      tree c1, saved_new, new;
+      tree saved_new, new;
       tree alloc_node;
+      tree new_patch;
 
       if (flag_emit_class_files)
 	{
-	  TREE_TYPE (patch) = build_pointer_type (class);
-	  return patch;
+	  tree new_patch = build3 (NEW_CLASS_EXPR,
+				   build_pointer_type (class),
+				   func, args, NULL_TREE);
+	  TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
+	  EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
+	  CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
+	  return new_patch;
 	}
       if (!TYPE_SIZE (class))
 	safe_layout_class (class);
@@ -11118,11 +11120,22 @@ patch_invoke (tree patch, tree method, tree args)
 		    build_tree_list (NULL_TREE, build_class_ref (class)),
 		    NULL_TREE);
       saved_new = save_expr (new);
-      c1 = build_tree_list (NULL_TREE, saved_new);
-      TREE_CHAIN (c1) = TREE_OPERAND (original_call, 1);
-      TREE_OPERAND (original_call, 1) = c1;
-      TREE_SET_CODE (original_call, CALL_EXPR);
-      patch = build2 (COMPOUND_EXPR, TREE_TYPE (new), patch, saved_new);
+      args = tree_cons (NULL_TREE, saved_new, args);
+      new_patch = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+			  func, args, NULL_TREE);
+      TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
+      EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
+      CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
+      patch = build2 (COMPOUND_EXPR, TREE_TYPE (new), new_patch, saved_new);
+    }
+  else
+    {
+      tree new_patch = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+			       func, args, NULL_TREE);
+      TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
+      EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
+      CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
+      patch = check_for_builtin (method, new_patch);
     }
 
   /* If CHECK is set, then we are building a check to see if the object
@@ -12161,10 +12174,9 @@ java_complete_lhs (tree node)
 	return error_mark_node;
       else
 	{
-	  tree decl, wfl = TREE_OPERAND (node, 0);
+	  tree decl, wfl = CALL_EXPR_FN (node);
 	  int in_this = CALL_THIS_CONSTRUCTOR_P (node);
-	  int from_super = (EXPR_WFL_NODE (TREE_OPERAND (node, 0)) ==
-                           super_identifier_node);
+	  int from_super = (EXPR_WFL_NODE (wfl) == super_identifier_node);
 	  tree arguments;
 #ifdef USE_MAPPED_LOCATION
 	  source_location location = EXPR_LOCATION (node);
@@ -12177,9 +12189,8 @@ java_complete_lhs (tree node)
 	  if (node == error_mark_node)
 	    return error_mark_node;
 
-	  if (TREE_CODE (node) == CALL_EXPR
-	      && TREE_OPERAND (node, 1) != NULL_TREE)
-	    arguments = TREE_VALUE (TREE_OPERAND (node, 1));
+	  if (TREE_CODE (node) == CALL_EXPR && call_expr_nargs (node) > 0)
+	    arguments = CALL_EXPR_ARG0 (node);
 	  else
 	    arguments = NULL_TREE;
 	  check_thrown_exceptions (location, decl, arguments);
@@ -12492,19 +12503,21 @@ java_complete_lhs (tree node)
   return node;
 }
 
-/* Complete function call's argument. Return a nonzero value is an
-   error was found.  */
+/* Complete function call's argument. NODE is a CALL_EXPR or NEW_CLASS_EXPR.
+   Return a nonzero value if an error was found.  */
 
 static int
 complete_function_arguments (tree node)
 {
   int flag = 0;
-  tree cn;
+  int i, nargs;
 
   ctxp->explicit_constructor_p += (CALL_EXPLICIT_CONSTRUCTOR_P (node) ? 1 : 0);
-  for (cn = TREE_OPERAND (node, 1); cn; cn = TREE_CHAIN (cn))
+  nargs = call_expr_nargs (node);
+  for (i = 0; i < nargs; i++)
     {
-      tree wfl = TREE_VALUE (cn), parm, temp;
+      tree wfl = CALL_EXPR_ARG (node, i);
+      tree parm, temp;
       parm = java_complete_tree (wfl);
 
       if (parm == error_mark_node)
@@ -12518,7 +12531,7 @@ complete_function_arguments (tree node)
       if ((temp = patch_string (parm)))
 	parm = temp;
 
-      TREE_VALUE (cn) = parm;
+      CALL_EXPR_ARG (node, i) = parm;
     }
   ctxp->explicit_constructor_p -= (CALL_EXPLICIT_CONSTRUCTOR_P (node) ? 1 : 0);
   return flag;
