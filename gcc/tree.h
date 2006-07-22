@@ -1533,10 +1533,15 @@ struct tree_constructor GTY(())
 #define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
-/* CALL_EXPR accessors.  */
-#define CALL_EXPR_FN(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 0)
-#define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 2)
-#define CALL_EXPR_ARGS(NODE) TREE_OPERAND_CHECK_CODE ((NODE), CALL_EXPR, 1)
+/* CALL_EXPR accessors.
+ * FIXME: Re-enable type checking.  It's temporarily disabled because
+ * CALL_EXPR-like things in the Java and C front ends also use these macros.
+ * It should check for belonging to the class of CALL_EXPR-like things
+ * instead of just CALL_EXPR.
+ */
+#define CALL_EXPR_FN(NODE) TREE_OPERAND ((NODE), 0)
+#define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND ((NODE), 2)
+#define CALL_EXPR_ARGS(NODE) TREE_OPERAND ((NODE), 1)
 #define CALL_EXPR_ARG0(NODE) TREE_VALUE (CALL_EXPR_ARGS (NODE))
 #define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
 #define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))

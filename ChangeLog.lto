@@ -1,3 +1,11 @@
+2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.h (CALL_EXPR_FN, CALL_EXPR_STATIC_CHAIN, CALL_EXPR_ARGS):
+	Temporarily remove checking, since CALL_EXPR-like things in the
+	Java and C front ends with other TREE_CODEs need to use these, too.
+	This can be fixed permanently when the representation change is
+	made and there is a new TREE_CODE_CLASS for these things.
+
 2006-07-21  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (decls_match): Use num_parm_types and
