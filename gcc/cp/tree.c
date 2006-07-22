@@ -283,7 +283,8 @@ build_cplus_new (tree type, tree init)
   if (TREE_CODE (init) != CALL_EXPR && TREE_CODE (init) != AGGR_INIT_EXPR)
     return convert (type, init);
 
-  fn = TREE_OPERAND (init, 0);
+  fn = CALL_EXPR_FN (init);
+
   is_ctor = (TREE_CODE (fn) == ADDR_EXPR
 	     && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
 	     && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0)));
@@ -304,7 +305,7 @@ build_cplus_new (tree type, tree init)
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
       rval = build3 (AGGR_INIT_EXPR, void_type_node, fn,
-		     TREE_OPERAND (init, 1), slot);
+		     CALL_EXPR_ARGS (init), slot);
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
     }
@@ -1457,9 +1458,20 @@ cp_tree_equal (tree t1, tree t2)
       return cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     case CALL_EXPR:
-      if (!cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0)))
-	return false;
-      return cp_tree_equal (TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1));
+      {
+	tree arg1, arg2;
+	call_expr_arg_iterator iter1, iter2;
+	if (!cp_tree_equal (CALL_EXPR_FN (t1), CALL_EXPR_FN (t2)))
+	  return false;
+	for (arg1 = first_call_expr_arg (t1, &iter1),
+	       arg2 = first_call_expr_arg (t2, &iter2);
+	     arg1 && arg2;
+	     arg1 = next_call_expr_arg (&iter1),
+	       arg2 = next_call_expr_arg (&iter2))
+	  if (!cp_tree_equal (arg1, arg2))
+	    return false;
+	return (arg1 || arg2);
+      }
 
     case TARGET_EXPR:
       {
@@ -2248,7 +2260,8 @@ void
 stabilize_call (tree call, tree *initp)
 {
   tree inits = NULL_TREE;
-  tree t;
+  int i;
+  int nargs = call_expr_nargs (call);
 
   if (call == error_mark_node)
     return;
@@ -2256,13 +2269,13 @@ stabilize_call (tree call, tree *initp)
   gcc_assert (TREE_CODE (call) == CALL_EXPR
 	      || TREE_CODE (call) == AGGR_INIT_EXPR);
 
-  for (t = TREE_OPERAND (call, 1); t; t = TREE_CHAIN (t))
-    if (TREE_SIDE_EFFECTS (TREE_VALUE (t)))
-      {
-	tree init;
-	TREE_VALUE (t) = stabilize_expr (TREE_VALUE (t), &init);
-	inits = add_stmt_to_compound (inits, init);
-      }
+  for (i = 0; i < nargs; i++)
+    {
+      tree init;
+      CALL_EXPR_ARG (call, i) =
+	stabilize_expr (CALL_EXPR_ARG (call, i), &init);
+      inits = add_stmt_to_compound (inits, init);
+    }
 
   *initp = inits;
 }

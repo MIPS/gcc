@@ -7881,10 +7881,12 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 NULL_TREE, NULL_TREE);
 
     case CALL_EXPR:
+      /* FIXME:  It should be possible to do this without consing up
+	 lists for the arguments.  */
       return build_nt (code,
-		       tsubst_copy (TREE_OPERAND (t, 0), args,
+		       tsubst_copy (CALL_EXPR_FN (t), args,
 				    complain, in_decl),
-		       tsubst_copy (TREE_OPERAND (t, 1), args, complain,
+		       tsubst_copy (CALL_EXPR_ARGS (t), args, complain,
 				    in_decl),
 		       NULL_TREE);
 
@@ -8759,7 +8761,7 @@ tsubst_copy_and_build (tree t,
 	bool qualified_p;
 	bool koenig_p;
 
-	function = TREE_OPERAND (t, 0);
+	function = CALL_EXPR_FN (t);
 	/* When we parsed the expression,  we determined whether or
 	   not Koenig lookup should be performed.  */
 	koenig_p = KOENIG_LOOKUP_P (t);
@@ -8790,7 +8792,7 @@ tsubst_copy_and_build (tree t,
 	      qualified_p = true;
 	  }
 
-	call_args = RECUR (TREE_OPERAND (t, 1));
+	call_args = RECUR (CALL_EXPR_ARGS (t));
 
 	/* We do not perform argument-dependent lookup if normal
 	   lookup finds a non-function, in accordance with the
@@ -12482,24 +12484,17 @@ value_dependent_expression_p (tree expression)
 	 expressions.  Second, there appear to be bugs which result in
 	 other CALL_EXPRs reaching this point. */
       {
-	tree function = TREE_OPERAND (expression, 0);
-	tree args = TREE_OPERAND (expression, 1);
+	tree function = CALL_EXPR_FN (expression);
+	tree arg;
+	call_expr_arg_iterator iter;
 
 	if (value_dependent_expression_p (function))
 	  return true;
 
-	if (! args)
-	  return false;
-
-	if (TREE_CODE (args) == TREE_LIST)
-	  {
-	    for (; args; args = TREE_CHAIN (args))
-	      if (value_dependent_expression_p (TREE_VALUE (args)))
-		return true;
-	    return false;
-	  }
-
-	return value_dependent_expression_p (args);
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, expression)
+	  if (value_dependent_expression_p (arg))
+	    return true;
+	return false;
       }
 
     default:

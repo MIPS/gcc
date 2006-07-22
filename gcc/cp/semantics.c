@@ -2904,9 +2904,9 @@ simplify_aggr_init_expr (tree *tp)
   tree aggr_init_expr = *tp;
 
   /* Form an appropriate CALL_EXPR.  */
-  tree fn = TREE_OPERAND (aggr_init_expr, 0);
-  tree args = TREE_OPERAND (aggr_init_expr, 1);
-  tree slot = TREE_OPERAND (aggr_init_expr, 2);
+  tree fn = CALL_EXPR_FN (aggr_init_expr);
+  tree args = CALL_EXPR_ARGS (aggr_init_expr);
+  tree slot = CALL_EXPR_STATIC_CHAIN (aggr_init_expr);
   tree type = TREE_TYPE (slot);
 
   tree call_expr;

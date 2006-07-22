@@ -1,5 +1,31 @@
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/cp/error.c (dump_call_expr_args): New.
+	(dump_expr): Use new CALL_EXPR accessors.  Use dump_call_expr_args
+	instead of dump_expr_list.
+
+	* gcc/cp/tree.c (build_cplus_new): Use new CALL_EXPR accessors.
+	(cp_tree_equal): Likewise.
+	(stabilize_call): Likewise.
+
+	* gcc/cp/dump.c (cp_dump_tree): Dump CALL_EXPR arguments individually
+	instead of as a list.
+
+	* gcc/cp/cp-gimplify.c (cp_gimplify_init_expr): Use new CALL_EXPR
+	accessors.
+
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_postfix_expression): Use new
+	CALL_EXPR accessors.
+
+	* gcc/cp/pt.c (tsubst_copy): Use new CALL_EXPR accessors.
+	(tsubst_copy_and_build): Likewise.
+	(value_dependent_expression_p): Likewise.
+
+	* gcc/cp/semantics.c (simplify_aggr_init_expr): Use new CALL_EXPR
+	accessors.
+
+2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/objc/objc-act.c (receiver_is_class_object): Use new
 	CALL_EXPR accessors.
 	(objc_get_callee_fndecl): Likewise.

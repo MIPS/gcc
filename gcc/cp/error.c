@@ -66,6 +66,7 @@ static void dump_aggr_type (tree, int);
 static void dump_type_prefix (tree, int);
 static void dump_type_suffix (tree, int);
 static void dump_function_name (tree, int);
+static void dump_call_expr_args (tree, int, bool);
 static void dump_expr_list (tree, int);
 static void dump_global_iord (tree);
 static void dump_parameters (tree, int, tree, int);
@@ -1264,6 +1265,30 @@ dump_template_parms (struct template_info *info, int primary, int flags)
   pp_cxx_end_template_argument_list (cxx_pp);
 }
 
+/* Print out the arguments of CALL_EXPR T as a parenthesized list using
+   flags FLAGS.  Skip over the first argument if SKIPFIRST is true.  */
+
+static void
+dump_call_expr_args (tree t, int flags, bool skipfirst)
+{
+  tree arg;
+  call_expr_arg_iterator iter;
+  
+  pp_cxx_left_paren (cxx_pp);
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, t)
+    {
+      if (skipfirst)
+	skipfirst = false;
+      else
+	{
+	  dump_expr (arg, flags | TFF_EXPR_IN_PARENS);
+	  if (more_call_expr_args_p (&iter))
+	    pp_separate_with_comma (cxx_pp);
+	}
+    }
+  pp_cxx_right_paren (cxx_pp);
+}
+
 /* Print out a list of initializers (subr of dump_expr).  */
 
 static void
@@ -1386,8 +1411,8 @@ dump_expr (tree t, int flags)
       {
 	tree fn = NULL_TREE;
 
-	if (TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
-	  fn = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
+	if (TREE_CODE (CALL_EXPR_FN (t)) == ADDR_EXPR)
+	  fn = TREE_OPERAND (CALL_EXPR_FN (t), 0);
 
 	if (fn && TREE_CODE (fn) == FUNCTION_DECL)
 	  {
@@ -1397,18 +1422,15 @@ dump_expr (tree t, int flags)
 	      dump_decl (fn, 0);
 	  }
 	else
-	  dump_expr (TREE_OPERAND (t, 0), 0);
+	  dump_expr (CALL_EXPR_FN (t), 0);
       }
-      pp_cxx_left_paren (cxx_pp);
-      if (TREE_OPERAND (t, 1))
-	dump_expr_list (TREE_CHAIN (TREE_OPERAND (t, 1)), flags);
-      pp_cxx_right_paren (cxx_pp);
+      dump_call_expr_args (t, flags, false);
       break;
 
     case CALL_EXPR:
       {
-	tree fn = TREE_OPERAND (t, 0);
-	tree args = TREE_OPERAND (t, 1);
+	tree fn = CALL_EXPR_FN (t);
+	bool skipfirst = false;
 
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);
@@ -1419,7 +1441,7 @@ dump_expr (tree t, int flags)
 
 	if (TREE_TYPE (fn) != NULL_TREE && NEXT_CODE (fn) == METHOD_TYPE)
 	  {
-	    tree ob = TREE_VALUE (args);
+	    tree ob = CALL_EXPR_ARG0 (t);
 	    if (TREE_CODE (ob) == ADDR_EXPR)
 	      {
 		dump_expr (TREE_OPERAND (ob, 0), flags | TFF_EXPR_IN_PARENS);
@@ -1431,12 +1453,10 @@ dump_expr (tree t, int flags)
 		dump_expr (ob, flags | TFF_EXPR_IN_PARENS);
 		pp_arrow (cxx_pp);
 	      }
-	    args = TREE_CHAIN (args);
+	    skipfirst = true;
 	  }
 	dump_expr (fn, flags | TFF_EXPR_IN_PARENS);
-	pp_cxx_left_paren (cxx_pp);
-	dump_expr_list (args, flags);
-	pp_cxx_right_paren (cxx_pp);
+	dump_call_expr_args (t, flags, skipfirst);
       }
       break;
 
@@ -1580,10 +1600,8 @@ dump_expr (tree t, int flags)
 	{
 	  t = TREE_OPERAND (t, 0);
 	  gcc_assert (TREE_CODE (t) == CALL_EXPR);
-	  dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
-	  pp_cxx_left_paren (cxx_pp);
-	  dump_expr_list (TREE_CHAIN (TREE_OPERAND (t, 1)), flags);
-	  pp_cxx_right_paren (cxx_pp);
+	  dump_expr (CALL_EXPR_FN (t), flags | TFF_EXPR_IN_PARENS);
+	  dump_call_expr_args (t, flags, true);
 	}
       else
 	{
