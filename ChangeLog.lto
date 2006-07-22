@@ -1,5 +1,66 @@
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/fortran/trans-expr.c (gfc_conv_power_op): Use build_call_expr.
+	(gfc_conv_string_tmp): Likewise.
+	(gfc_conv_concat_op): Likewise.
+	(gfc_build_compare_string): Likewise.
+	(gfc_trans_string_copy): Likewise.
+
+	* gcc/fortran/trans-array.c (gfc_trans_allocate_array_storage):
+	Use build_call_expr.
+	(gfc_grow_array): Likewise.
+	(gfc_trans_array_ctor_element): Likewise.
+	(gfc_trans_array_constructor_value): Likewise.
+	(gfc_array_allocate): Likewise.
+	(gfc_array_deallocate): Likewise.
+	(gfc_trans_auto_array_allocation): Likewise.
+	(gfc_trans_dummy_array_bias): Likewise.
+	(gfc_conv_array_parameter): Likewise.
+
+	* gcc/fortran/trans-openmp.c (gfc_trans_omp_barrier):
+	Use build_call_expr.
+	(gfc_trans_omp_flush): Likewise.
+
+	* gcc/fortran/trans-stmt.c (gfc_conv_elemental_dependencies):
+	Use build_call_expr.
+	(gfc_trans_pause): Likewise.
+	(gfc_trans_stop): Likewise.
+	(gfc_trans_logical_select): Likewise.
+	(gfc_do_allocate): Likewise.
+	(gfc_trans_assign_need_temp): Likewise.
+	(gfc_trans_pointer_assign_need_temp): Likewise.
+	(gfc_trans_forall_1): Likewise.
+	(gfc_trans_where_2): Likewise.
+	(gfc_trans_allocate): Likewise.
+	(gfc_trans_deallocate): Likewise.
+
+	* gcc/fortran/trans-io.c (gfc_trans_open): Use build_call_expr.
+	(gfc_trans_close): Likewise.
+	(build_filepos): Likewise.
+	(gfc_trans_inquire): Likewise.
+	(transfer_namelist_element): Likewise.
+	(build_dt): Likewise.
+	(gfc_trans_dt_end): Likewise.
+	(transfer_expr): Likewise.
+	(transfer_array_desc): Likewise.
+
+	* gcc/fortran/trans-decl.c (gfc_generate_function_code):
+	Use build_call_expr.
+	(gfc_generate_constructors): Likewise.
+
+	* gcc/fortran/trans-intrinsic.c (gfc_conv_intrinsic_ctime):
+	Use build_call_expr.
+	(gfc_conv_intrinsic_fdate): Likewise.
+	(gfc_conv_intrinsic_ttynam): Likewise.
+	(gfc_conv_intrinsic_array_transfer): Likewise.
+	(gfc_conv_associated): Likewise.
+	(call_builtin_clz): Likewise.
+	(gfc_conv_intrinsic_si_kind): Likewise.
+	(gfc_conv_intrinsic_trim): Likewise.
+	(gfc_conv_intrinsic_iargc): Likewise.
+
+2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/cp/error.c (dump_call_expr_args): New.
 	(dump_expr): Use new CALL_EXPR accessors.  Use dump_call_expr_args
 	instead of dump_expr_list.

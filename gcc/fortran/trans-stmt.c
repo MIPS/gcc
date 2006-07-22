@@ -299,9 +299,7 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  gfc_add_modify_expr (&se->pre, info->offset, offset);
 
 	  /* Copy the result back using unpack.  */
-	  tmp = gfc_chainon_list (NULL_TREE, parmse.expr);
-	  tmp = gfc_chainon_list (tmp, data);
-	  tmp = build_function_call_expr (gfor_fndecl_in_unpack, tmp);
+	  tmp = build_call_expr (gfor_fndecl_in_unpack, 2, parmse.expr, data);
 	  gfc_add_expr_to_block (&se->post, tmp);
 
 	  gfc_add_block_to_block (&se->post, &parmse.post);
@@ -470,9 +468,7 @@ gfc_trans_pause (gfc_code * code)
 {
   tree gfc_int4_type_node = gfc_get_int_type (4);
   gfc_se se;
-  tree args;
   tree tmp;
-  tree fndecl;
 
   /* Start a new block for this statement.  */
   gfc_init_se (&se, NULL);
@@ -482,18 +478,15 @@ gfc_trans_pause (gfc_code * code)
   if (code->expr == NULL)
     {
       tmp = build_int_cst (gfc_int4_type_node, code->ext.stop_code);
-      args = gfc_chainon_list (NULL_TREE, tmp);
-      fndecl = gfor_fndecl_pause_numeric;
+      tmp = build_call_expr (gfor_fndecl_pause_numeric, 1, tmp);
     }
   else
     {
       gfc_conv_expr_reference (&se, code->expr);
-      args = gfc_chainon_list (NULL_TREE, se.expr);
-      args = gfc_chainon_list (args, se.string_length);
-      fndecl = gfor_fndecl_pause_string;
+      tmp = build_call_expr (gfor_fndecl_pause_string, 2,
+			     se.expr, se.string_length);
     }
 
-  tmp = build_function_call_expr (fndecl, args);
   gfc_add_expr_to_block (&se.pre, tmp);
 
   gfc_add_block_to_block (&se.pre, &se.post);
@@ -510,9 +503,7 @@ gfc_trans_stop (gfc_code * code)
 {
   tree gfc_int4_type_node = gfc_get_int_type (4);
   gfc_se se;
-  tree args;
   tree tmp;
-  tree fndecl;
 
   /* Start a new block for this statement.  */
   gfc_init_se (&se, NULL);
@@ -522,18 +513,15 @@ gfc_trans_stop (gfc_code * code)
   if (code->expr == NULL)
     {
       tmp = build_int_cst (gfc_int4_type_node, code->ext.stop_code);
-      args = gfc_chainon_list (NULL_TREE, tmp);
-      fndecl = gfor_fndecl_stop_numeric;
+      tmp = build_call_expr (gfor_fndecl_stop_numeric, 1, tmp);
     }
   else
     {
       gfc_conv_expr_reference (&se, code->expr);
-      args = gfc_chainon_list (NULL_TREE, se.expr);
-      args = gfc_chainon_list (args, se.string_length);
-      fndecl = gfor_fndecl_stop_string;
+      tmp = build_call_expr (gfor_fndecl_stop_string, 2,
+			     se.expr, se.string_length);
     }
 
-  tmp = build_function_call_expr (fndecl, args);
   gfc_add_expr_to_block (&se.pre, tmp);
 
   gfc_add_block_to_block (&se.pre, &se.post);
@@ -1307,7 +1295,7 @@ gfc_trans_logical_select (gfc_code * code)
 static tree
 gfc_trans_character_select (gfc_code *code)
 {
-  tree init, node, end_label, tmp, type, args, *labels;
+  tree init, node, end_label, tmp, type, *labels;
   stmtblock_t block, body;
   gfc_case *cp, *d;
   gfc_code *c;
@@ -1446,25 +1434,19 @@ gfc_trans_character_select (gfc_code *code)
   DECL_INITIAL (tmp) = init;
   init = tmp;
 
-  /* Build an argument list for the library call */
+  /* Build the library call */
   init = gfc_build_addr_expr (pvoid_type_node, init);
-  args = gfc_chainon_list (NULL_TREE, init);
-
-  tmp = build_int_cst (NULL_TREE, n);
-  args = gfc_chainon_list (args, tmp);
-
   tmp = gfc_build_addr_expr (pvoid_type_node, end_label);
-  args = gfc_chainon_list (args, tmp);
 
   gfc_init_se (&se, NULL);
   gfc_conv_expr_reference (&se, code->expr);
 
-  args = gfc_chainon_list (args, se.expr);
-  args = gfc_chainon_list (args, se.string_length);
-
   gfc_add_block_to_block (&block, &se.pre);
 
-  tmp = build_function_call_expr (gfor_fndecl_select_string, args);
+  tmp = build_call_expr (gfor_fndecl_select_string, 5,
+			 init, build_int_cst (NULL_TREE, n),
+			 tmp, se.expr, se.string_length);
+			 
   tmp = build1 (GOTO_EXPR, void_type_node, tmp);
   gfc_add_expr_to_block (&block, tmp);
 
@@ -1687,7 +1669,6 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
   tree tmpvar;
   tree type;
   tree tmp;
-  tree args;
 
   if (INTEGER_CST_P (size))
     {
@@ -1710,14 +1691,13 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
       tmpvar = gfc_create_var (build_pointer_type (type), "temp");
       *pdata = convert (pvoid_type_node, tmpvar);
 
-      args = gfc_chainon_list (NULL_TREE, bytesize);
       if (gfc_index_integer_kind == 4)
 	tmp = gfor_fndecl_internal_malloc;
       else if (gfc_index_integer_kind == 8)
 	tmp = gfor_fndecl_internal_malloc64;
       else
 	gcc_unreachable ();
-      tmp = build_function_call_expr (tmp, args);
+      tmp = build_call_expr (tmp, 1, bytesize);
       tmp = convert (TREE_TYPE (tmpvar), tmp);
       gfc_add_modify_expr (pblock, tmpvar, tmp);
     }
@@ -2198,8 +2178,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
   if (ptemp1)
     {
       /* Free the temporary.  */
-      tmp = gfc_chainon_list (NULL_TREE, ptemp1);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
+      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ptemp1);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2357,8 +2336,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
   /* Free the temporary.  */
   if (ptemp1)
     {
-      tmp = gfc_chainon_list (NULL_TREE, ptemp1);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
+      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ptemp1);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2693,8 +2671,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
   if (pmask)
     {
       /* Free the temporary for the mask.  */
-      tmp = gfc_chainon_list (NULL_TREE, pmask);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
+      tmp = build_call_expr (gfor_fndecl_internal_free, 1, pmask);
       gfc_add_expr_to_block (&block, tmp);
     }
   if (maskindex)
@@ -3266,16 +3243,14 @@ gfc_trans_where_2 (gfc_code * code, tree mask, bool invert,
   /* If we allocated a pending mask array, deallocate it now.  */
   if (ppmask)
     {
-      tree args = gfc_chainon_list (NULL_TREE, ppmask);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
+      tmp = build_call_expr (gfor_fndecl_internal_free, 1, ppmask);
       gfc_add_expr_to_block (block, tmp);
     }
 
   /* If we allocated a current mask array, deallocate it now.  */
   if (pcmask)
     {
-      tree args = gfc_chainon_list (NULL_TREE, pcmask);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
+      tmp = build_call_expr (gfor_fndecl_internal_free, 1, pcmask);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -3567,10 +3542,7 @@ gfc_trans_allocate (gfc_code * code)
 	  if (expr->ts.type == BT_CHARACTER && tmp == NULL_TREE)
 	    tmp = se.string_length;
 
-	  parm = gfc_chainon_list (NULL_TREE, val);
-	  parm = gfc_chainon_list (parm, tmp);
-	  parm = gfc_chainon_list (parm, pstat);
-	  tmp = build_function_call_expr (gfor_fndecl_allocate, parm);
+	  tmp = build_call_expr (gfor_fndecl_allocate, 3, val, tmp, pstat);
 	  gfc_add_expr_to_block (&se.pre, tmp);
 
 	  if (code->expr)
@@ -3627,7 +3599,7 @@ gfc_trans_deallocate (gfc_code * code)
   gfc_se se;
   gfc_alloc *al;
   gfc_expr *expr;
-  tree apstat, astat, parm, pstat, stat, tmp, type, var;
+  tree apstat, astat, pstat, stat, tmp, type, var;
   stmtblock_t block;
 
   gfc_start_block (&block);
@@ -3675,9 +3647,7 @@ gfc_trans_deallocate (gfc_code * code)
 	  tmp = gfc_build_addr_expr (type, se.expr);
 	  gfc_add_modify_expr (&se.pre, var, tmp);
 
-	  parm = gfc_chainon_list (NULL_TREE, var);
-	  parm = gfc_chainon_list (parm, pstat);
-	  tmp = build_function_call_expr (gfor_fndecl_deallocate, parm);
+	  tmp = build_call_expr (gfor_fndecl_deallocate, 2, var, pstat);
 	}
 
       gfc_add_expr_to_block (&se.pre, tmp);

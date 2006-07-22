@@ -850,7 +850,7 @@ static tree
 gfc_trans_omp_barrier (void)
 {
   tree decl = built_in_decls [BUILT_IN_GOMP_BARRIER];
-  return build_function_call_expr (decl, NULL);
+  return build_call_expr (decl, 0);
 }
 
 static tree
@@ -1028,7 +1028,7 @@ static tree
 gfc_trans_omp_flush (void)
 {
   tree decl = built_in_decls [BUILT_IN_SYNCHRONIZE];
-  return build_function_call_expr (decl, NULL);
+  return build_call_expr (decl, 0);
 }
 
 static tree

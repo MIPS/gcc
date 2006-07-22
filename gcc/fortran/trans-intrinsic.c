@@ -160,6 +160,8 @@ real_compnt_info;
 
 
 /* Evaluate the arguments to an intrinsic function.  */
+/* FIXME: This function and its callers should be rewritten so that it's
+   not necessary to cons up a list to hold the arguments.  */
 
 static tree
 gfc_conv_intrinsic_function_args (gfc_se * se, gfc_expr * expr)
@@ -1077,8 +1079,7 @@ gfc_conv_intrinsic_ctime (gfc_se * se, gfc_expr * expr)
   /* Free the temporary afterwards, if necessary.  */
   cond = build2 (GT_EXPR, boolean_type_node, len,
 		 build_int_cst (TREE_TYPE (len), 0));
-  arglist = gfc_chainon_list (NULL_TREE, var);
-  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build_call_expr (gfor_fndecl_internal_free, 1, var);
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);
 
@@ -1113,8 +1114,7 @@ gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
   /* Free the temporary afterwards, if necessary.  */
   cond = build2 (GT_EXPR, boolean_type_node, len,
 		 build_int_cst (TREE_TYPE (len), 0));
-  arglist = gfc_chainon_list (NULL_TREE, var);
-  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build_call_expr (gfor_fndecl_internal_free, 1, var);
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);
 
@@ -1151,8 +1151,7 @@ gfc_conv_intrinsic_ttynam (gfc_se * se, gfc_expr * expr)
   /* Free the temporary afterwards, if necessary.  */
   cond = build2 (GT_EXPR, boolean_type_node, len,
 		 build_int_cst (TREE_TYPE (len), 0));
-  arglist = gfc_chainon_list (NULL_TREE, var);
-  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build_call_expr (gfor_fndecl_internal_free, 1, var);
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);
 
@@ -2545,15 +2544,13 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
 	      && arg->expr->ref->u.ar.type == AR_FULL))
 	{
 	  tmp = build_fold_addr_expr (argse.expr);
-	  tmp = gfc_chainon_list (NULL_TREE, tmp);
-	  source = build_function_call_expr (gfor_fndecl_in_pack, tmp);
+	  source = build_call_expr (gfor_fndecl_in_pack, 1, tmp);
 	  source = gfc_evaluate_now (source, &argse.pre);
 
 	  /* Free the temporary.  */
 	  gfc_start_block (&block);
 	  tmp = convert (pvoid_type_node, source);
-	  tmp = gfc_chainon_list (NULL_TREE, tmp);
-	  tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
+	  tmp = build_call_expr (gfor_fndecl_internal_free, 1, tmp);
 	  gfc_add_expr_to_block (&block, tmp);
 	  stmt = gfc_finish_block (&block);
 
@@ -2779,7 +2776,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
   gfc_se arg2se;
   tree tmp2;
   tree tmp;
-  tree args, fndecl;
+  tree fndecl;
   gfc_ss *ss1, *ss2;
 
   gfc_init_se (&arg1se, NULL);
@@ -2828,17 +2825,14 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
         {
           /* A pointer to an array, call library function _gfor_associated.  */
           gcc_assert (ss2 != gfc_ss_terminator);
-          args = NULL_TREE;
           arg1se.want_pointer = 1;
           gfc_conv_expr_descriptor (&arg1se, arg1->expr, ss1);
-          args = gfc_chainon_list (args, arg1se.expr);
           arg2se.want_pointer = 1;
           gfc_conv_expr_descriptor (&arg2se, arg2->expr, ss2);
           gfc_add_block_to_block (&se->pre, &arg2se.pre);
           gfc_add_block_to_block (&se->post, &arg2se.post);
-          args = gfc_chainon_list (args, arg2se.expr);
           fndecl = gfor_fndecl_associated;
-          se->expr = build_function_call_expr (fndecl, args);
+          se->expr = build_call_expr (fndecl, 2, arg1se.expr, arg2se.expr);
         }
      }
   se->expr = convert (gfc_typenode_for_spec (&expr->ts), se->expr);
@@ -2982,7 +2976,7 @@ prepare_arg_info (gfc_se * se, gfc_expr * expr,
 static tree
 call_builtin_clz (tree result_type, tree op0)
 {
-  tree fn, parms, call;
+  tree fn, call;
   enum machine_mode op0_mode = TYPE_MODE (TREE_TYPE (op0));
 
   if (op0_mode == TYPE_MODE (integer_type_node))
@@ -2994,8 +2988,7 @@ call_builtin_clz (tree result_type, tree op0)
   else
     gcc_unreachable ();
 
-  parms = tree_cons (NULL, op0, NULL);
-  call = build_function_call_expr (fn, parms);
+  call = build_call_expr (fn, 1, op0);
 
   return convert (result_type, call);
 }
@@ -3116,8 +3109,7 @@ gfc_conv_intrinsic_si_kind (gfc_se * se, gfc_expr * expr)
   args = gfc_conv_intrinsic_function_args (se, expr);
   args = TREE_VALUE (args);
   args = build_fold_addr_expr (args);
-  args = tree_cons (NULL_TREE, args, NULL_TREE);
-  se->expr = build_function_call_expr (gfor_fndecl_si_kind, args);
+  se->expr = build_call_expr (gfor_fndecl_si_kind, 1, args);
 }
 
 /* Generate code for SELECTED_REAL_KIND (P, R) intrinsic function.  */
@@ -3180,8 +3172,7 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
   /* Free the temporary afterwards, if necessary.  */
   cond = build2 (GT_EXPR, boolean_type_node, len,
 		 build_int_cst (TREE_TYPE (len), 0));
-  arglist = gfc_chainon_list (NULL_TREE, var);
-  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build_call_expr (gfor_fndecl_internal_free, 1, var);
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);
 
@@ -3234,7 +3225,7 @@ gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr)
 
   /* Call the library function.  This always returns an INTEGER(4).  */
   fndecl = gfor_fndecl_iargc;
-  tmp = build_function_call_expr (fndecl, NULL_TREE);
+  tmp = build_call_expr (fndecl, 0);
 
   /* Convert it to the required type.  */
   type = gfc_typenode_for_spec (&expr->ts);
