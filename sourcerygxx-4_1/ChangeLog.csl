@@ -1,3 +1,59 @@
+2006-07-22  Richard Sandiford  <richard@codesourcery.com>
+
+	Merge from csl/coldfire-4_1 branch:
+
+	2006-06-28  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/uclinux.h (LIB_SPEC): Allow -static-libc to suppress
+	the linking of the shared C library.
+
+	2006-06-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/compat/vector-defs.h: Revert previous change.
+	* gcc.dg/compat/struct-layout-1.h (v16sf): Define to v4sf on uClinux.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/loop-2f.x: Extend XFAIL to m68k-ilnux.
+	* gcc.c-torture/execute/loop-2g.x: Likewise.
+	* gcc.dg/tree-ssa/20040204-1.c: Don't XFAIL for m68k*-*-*.
+	* gcc.dg/compat/vector-defs.h (v16sf): Define to be the same
+	v4sf on uClinux targets.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (override_options): Remove unneeded brackets
+	from the !flag_pic settings of m68k_symbolic_call and
+	m68k_symbolic_jump.  Use %p0 instead of %a0@PLTPC.
+	(print_operand): Add a 'p' operand code.
+
+	2006-06-23  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/linux-unwind.h (rt_sigframe_footer): Remove special
+	case for __mcoldfire__.
+	(m68k_fallback_frame_state): Update coldfire code for new kernel
+	signal trampolines.  Index individual elements of f_fpregs.
+
+	2006-06-22  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/uclinux.h (STARTFILE_SPEC): Use Scrt1.o instead of
+	crt1.o for shared libraries.
+	(LIB_SPEC): Remove -elf2flt and -shared-lib-id 0 options.
+	(LINK_SPEC): Map -mshared-library-id=N to -shared-lib-id N.
+	Provide a default -shared-lib-id of 0.
+	(TARGET_OS_CPP_BUILTINS): Define __GXX_MERGED_TYPEINFO_NAMES=0
+	for -mid-shared-library.
+	(DRIVER_SELF_SPECS): Map unadorned PIC options to -msep-data.
+	* config/m68k/t-uclinux (MULTILIB_OPTIONS): Add -msep-data and
+	-mid-shared-library multilibs.
+	(MULTILIB_DIRNAMES): Update accordingly.
+
 2006-07-20  Paul Brook  <paul@codesourcery.com>
 
 	gcc/
