@@ -1,3 +1,22 @@
+2006-07-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28329:
+	* lang-specs.h: Pass '%U'-based options as separate arguments.
+	Use -faux-classpath.
+	* lang.c (java_handle_option): Handle OPT_faux_classpath.
+	* lang.opt (faux-classpath): New option.
+
+2006-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* class.c (make_class_data): Set value for reflection_data field.
+	* decl.c (java_init_decl_processing): Add reflection_data field.
+
+2006-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (HANDLE_ENCLOSINGMETHOD_ATTRIBUTE): Declare locals
+	earlier.
+	(HANDLE_SIGNATURE_ATTRIBUTE): Likewise.
+
 2006-07-07  Andrew Haley  <aph@redhat.com>
 
         * jcf-parse.c (set_source_filename): Don't check for

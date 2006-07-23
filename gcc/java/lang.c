@@ -1,5 +1,5 @@
 /* Java(TM) language-specific utility routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -313,6 +313,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       jcf_path_bootclasspath_arg (arg);
       break;
 
+    case OPT_faux_classpath:
     case OPT_fclasspath_:
     case OPT_fCLASSPATH_:
       jcf_path_classpath_arg (arg);

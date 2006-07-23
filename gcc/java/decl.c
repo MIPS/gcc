@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -967,6 +967,7 @@ java_init_decl_processing (void)
   PUSH_FIELD (class_type_node, field, "chain", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "aux_info", ptr_type_node);
   PUSH_FIELD (class_type_node, field, "engine", ptr_type_node);
+  PUSH_FIELD (class_type_node, field, "reflection_data", ptr_type_node);
   for (t = TYPE_FIELDS (class_type_node);  t != NULL_TREE;  t = TREE_CHAIN (t))
     FIELD_PRIVATE (t) = 1;
   push_super_field (class_type_node, object_type_node);
