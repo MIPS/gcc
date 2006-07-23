@@ -44,6 +44,7 @@ sub scan
 	while (defined ($name = $d->read))
 	{
 	    next if $name eq 'CVS';
+	    next if $name eq '.svn';
 	    next if $name eq '.';
 	    next if $name eq '..';
 	    if ($dir eq 'java'

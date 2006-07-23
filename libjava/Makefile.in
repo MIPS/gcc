@@ -246,7 +246,8 @@ am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	javax/swing/text/html.lo javax/swing/text/html/parser.lo \
 	javax/swing/text/rtf.lo javax/swing/tree.lo \
 	javax/swing/undo.lo javax/transaction.lo \
-	javax/transaction/xa.lo org/ietf/jgss.lo
+	javax/transaction/xa.lo org/ietf/jgss.lo sun/misc.lo \
+	sun/reflect.lo sun/reflect/annotation.lo sun/reflect/misc.lo
 am__DEPENDENCIES_2 = gnu-CORBA.lo gnu-java-awt-peer-gtk.lo \
 	gnu-java-awt-peer-swing.lo gnu-java-beans.lo gnu-javax-rmi.lo \
 	gnu-javax-sound-midi.lo gnu-xml.lo javax-imageio.lo \
@@ -1588,7 +1589,14 @@ classpath/gnu/java/lang/management/MemoryPoolMXBeanImpl.java \
 classpath/gnu/java/lang/management/OperatingSystemMXBeanImpl.java \
 classpath/gnu/java/lang/management/RuntimeMXBeanImpl.java \
 classpath/gnu/java/lang/management/ThreadMXBeanImpl.java \
-gnu/java/lang/management/VMRuntimeMXBeanImpl.java
+gnu/java/lang/management/VMClassLoadingMXBeanImpl.java \
+gnu/java/lang/management/VMCompilationMXBeanImpl.java \
+gnu/java/lang/management/VMGarbageCollectorMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryManagerMXBeanImpl.java \
+gnu/java/lang/management/VMMemoryPoolMXBeanImpl.java \
+gnu/java/lang/management/VMRuntimeMXBeanImpl.java \
+gnu/java/lang/management/VMThreadMXBeanImpl.java
 
 gnu_java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_management_source_files)))
 gnu_java_lang_reflect_source_files = \
@@ -1870,6 +1878,7 @@ gnu/java/nio/ServerSocketChannelSelectionKey.java \
 gnu/java/nio/SocketChannelImpl.java \
 gnu/java/nio/SocketChannelSelectionKey.java \
 classpath/gnu/java/nio/SocketChannelSelectionKeyImpl.java \
+gnu/java/nio/VMChannel.java \
 gnu/java/nio/VMPipe.java \
 gnu/java/nio/VMSelector.java
 
@@ -4031,7 +4040,8 @@ classpath/java/lang/management/MemoryUsage.java \
 classpath/java/lang/management/OperatingSystemMXBean.java \
 classpath/java/lang/management/RuntimeMXBean.java \
 classpath/java/lang/management/ThreadInfo.java \
-classpath/java/lang/management/ThreadMXBean.java
+classpath/java/lang/management/ThreadMXBean.java \
+java/lang/management/VMManagementFactory.java
 
 java_lang_management_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_management_source_files)))
 java_lang_ref_source_files = \
@@ -4122,7 +4132,8 @@ classpath/java/net/URLStreamHandler.java \
 classpath/java/net/URLStreamHandlerFactory.java \
 classpath/java/net/UnknownHostException.java \
 classpath/java/net/UnknownServiceException.java \
-java/net/VMNetworkInterface.java
+java/net/VMNetworkInterface.java \
+java/net/VMURLConnection.java
 
 java_net_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_net_source_files)))
 java_nio_source_files = \
@@ -4938,7 +4949,7 @@ classpath/javax/naming/spi/DirStateFactory.java \
 classpath/javax/naming/spi/DirectoryManager.java \
 classpath/javax/naming/spi/InitialContextFactory.java \
 classpath/javax/naming/spi/InitialContextFactoryBuilder.java \
-classpath/javax/naming/spi/NamingManager.java \
+javax/naming/spi/NamingManager.java \
 classpath/javax/naming/spi/ObjectFactory.java \
 classpath/javax/naming/spi/ObjectFactoryBuilder.java \
 classpath/javax/naming/spi/ResolveResult.java \
@@ -6709,6 +6720,22 @@ classpath/external/sax/org/xml/sax/helpers/XMLFilterImpl.java \
 classpath/external/sax/org/xml/sax/helpers/XMLReaderAdapter.java \
 classpath/external/sax/org/xml/sax/helpers/XMLReaderFactory.java
 
+sun_misc_source_files = \
+sun/misc/Unsafe.java
+
+sun_misc_header_files = $(patsubst %.java,%.h,$(sun_misc_source_files))
+sun_reflect_source_files = \
+sun/reflect/Reflection.java
+
+sun_reflect_header_files = $(patsubst %.java,%.h,$(sun_reflect_source_files))
+sun_reflect_annotation_source_files = \
+classpath/sun/reflect/annotation/AnnotationInvocationHandler.java
+
+sun_reflect_annotation_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(sun_reflect_annotation_source_files)))
+sun_reflect_misc_source_files = \
+sun/reflect/misc/ReflectUtil.java
+
+sun_reflect_misc_header_files = $(patsubst %.java,%.h,$(sun_reflect_misc_source_files))
 all_packages_source_files = \
   gnu/awt.list \
   gnu/awt/j2d.list \
@@ -6938,7 +6965,11 @@ all_packages_source_files = \
   javax/swing/undo.list \
   javax/transaction.list \
   javax/transaction/xa.list \
-  org/ietf/jgss.list
+  org/ietf/jgss.list \
+  sun/misc.list \
+  sun/reflect.list \
+  sun/reflect/annotation.list \
+  sun/reflect/misc.list
 
 ordinary_header_files = \
   $(gnu_awt_header_files) \
@@ -7170,7 +7201,11 @@ ordinary_header_files = \
   $(javax_swing_undo_header_files) \
   $(javax_transaction_header_files) \
   $(javax_transaction_xa_header_files) \
-  $(org_ietf_jgss_header_files)
+  $(org_ietf_jgss_header_files) \
+  $(sun_misc_header_files) \
+  $(sun_reflect_header_files) \
+  $(sun_reflect_annotation_header_files) \
+  $(sun_reflect_misc_header_files)
 
 bc_objects = \
   gnu-CORBA.lo \
@@ -10471,6 +10506,30 @@ org-xml.lo: $(org_xml_source_files)
 	@find classpath/lib/org/xml -name '*.class' > org-xml.list
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o org-xml.lo @org-xml.list
 	@rm -f org-xml.list
+
+sun/misc.list: $(sun_misc_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/sun/misc/*.class > sun/misc.list
+
+-include sun/misc.deps
+
+sun/reflect.list: $(sun_reflect_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/sun/reflect/*.class > sun/reflect.list
+
+-include sun/reflect.deps
+
+sun/reflect/annotation.list: $(sun_reflect_annotation_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/sun/reflect/annotation/*.class > sun/reflect/annotation.list
+
+-include sun/reflect/annotation.deps
+
+sun/reflect/misc.list: $(sun_reflect_misc_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/sun/reflect/misc/*.class > sun/reflect/misc.list
+
+-include sun/reflect/misc.deps
 
 $(generic_header_files):
 	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
