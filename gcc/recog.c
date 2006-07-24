@@ -61,7 +61,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 
 static void validate_replace_rtx_1 (rtx *, rtx, rtx, rtx);
-static rtx *find_single_use_1 (rtx, rtx *);
 static void validate_replace_src_1 (rtx *, void *);
 static rtx split_insn (rtx);
 
@@ -758,168 +757,6 @@ next_insn_tests_no_inequality (rtx insn)
 	  && ! inequality_comparisons_p (PATTERN (next)));
 }
 #endif
-
-/* This is used by find_single_use to locate an rtx that contains exactly one
-   use of DEST, which is typically either a REG or CC0.  It returns a
-   pointer to the innermost rtx expression containing DEST.  Appearances of
-   DEST that are being used to totally replace it are not counted.  */
-
-static rtx *
-find_single_use_1 (rtx dest, rtx *loc)
-{
-  rtx x = *loc;
-  enum rtx_code code = GET_CODE (x);
-  rtx *result = 0;
-  rtx *this_result;
-  int i;
-  const char *fmt;
-
-  switch (code)
-    {
-    case CONST_INT:
-    case CONST:
-    case LABEL_REF:
-    case SYMBOL_REF:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case CLOBBER:
-      return 0;
-
-    case SET:
-      /* If the destination is anything other than CC0, PC, a REG or a SUBREG
-	 of a REG that occupies all of the REG, the insn uses DEST if
-	 it is mentioned in the destination or the source.  Otherwise, we
-	 need just check the source.  */
-      if (GET_CODE (SET_DEST (x)) != CC0
-	  && GET_CODE (SET_DEST (x)) != PC
-	  && !REG_P (SET_DEST (x))
-	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
-		&& REG_P (SUBREG_REG (SET_DEST (x)))
-		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
-		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
-		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
-			 + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))))
-	break;
-
-      return find_single_use_1 (dest, &SET_SRC (x));
-
-    case MEM:
-    case SUBREG:
-      return find_single_use_1 (dest, &XEXP (x, 0));
-
-    default:
-      break;
-    }
-
-  /* If it wasn't one of the common cases above, check each expression and
-     vector of this code.  Look for a unique usage of DEST.  */
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if (dest == XEXP (x, i)
-	      || (REG_P (dest) && REG_P (XEXP (x, i))
-		  && REGNO (dest) == REGNO (XEXP (x, i))))
-	    this_result = loc;
-	  else
-	    this_result = find_single_use_1 (dest, &XEXP (x, i));
-
-	  if (result == 0)
-	    result = this_result;
-	  else if (this_result)
-	    /* Duplicate usage.  */
-	    return 0;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  int j;
-
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    {
-	      if (XVECEXP (x, i, j) == dest
-		  || (REG_P (dest)
-		      && REG_P (XVECEXP (x, i, j))
-		      && REGNO (XVECEXP (x, i, j)) == REGNO (dest)))
-		this_result = loc;
-	      else
-		this_result = find_single_use_1 (dest, &XVECEXP (x, i, j));
-
-	      if (result == 0)
-		result = this_result;
-	      else if (this_result)
-		return 0;
-	    }
-	}
-    }
-
-  return result;
-}
-
-/* See if DEST, produced in INSN, is used only a single time in the
-   sequel.  If so, return a pointer to the innermost rtx expression in which
-   it is used.
-
-   If PLOC is nonzero, *PLOC is set to the insn containing the single use.
-
-   This routine will return usually zero either before flow is called (because
-   there will be no LOG_LINKS notes) or after reload (because the REG_DEAD
-   note can't be trusted).
-
-   If DEST is cc0_rtx, we look only at the next insn.  In that case, we don't
-   care about REG_DEAD notes or LOG_LINKS.
-
-   Otherwise, we find the single use by finding an insn that has a
-   LOG_LINKS pointing at INSN and has a REG_DEAD note for DEST.  If DEST is
-   only referenced once in that insn, we know that it must be the first
-   and last insn referencing DEST.  */
-
-rtx *
-find_single_use (rtx dest, rtx insn, rtx *ploc)
-{
-  rtx next;
-  rtx *result;
-  rtx link;
-
-#ifdef HAVE_cc0
-  if (dest == cc0_rtx)
-    {
-      next = NEXT_INSN (insn);
-      if (next == 0
-	  || (!NONJUMP_INSN_P (next) && !JUMP_P (next)))
-	return 0;
-
-      result = find_single_use_1 (dest, &PATTERN (next));
-      if (result && ploc)
-	*ploc = next;
-      return result;
-    }
-#endif
-
-  if (reload_completed || reload_in_progress || !REG_P (dest))
-    return 0;
-
-  for (next = next_nonnote_insn (insn);
-       next != 0 && !LABEL_P (next);
-       next = next_nonnote_insn (next))
-    if (INSN_P (next) && dead_or_set_p (next, dest))
-      {
-	for (link = LOG_LINKS (next); link; link = XEXP (link, 1))
-	  if (XEXP (link, 0) == insn)
-	    break;
-
-	if (link)
-	  {
-	    result = find_single_use_1 (dest, &PATTERN (next));
-	    if (ploc)
-	      *ploc = next;
-	    return result;
-	  }
-      }
-
-  return 0;
-}
 
 /* Return 1 if OP is a valid general operand for machine mode MODE.
    This is either a register reference, a memory reference,
@@ -2725,7 +2562,7 @@ split_insn (rtx insn)
 
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
-void
+static void
 split_all_insns (void)
 {
   sbitmap blocks;
@@ -2796,7 +2633,7 @@ split_all_insns (void)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-unsigned int
+static unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
@@ -3062,9 +2899,6 @@ peephole2_optimize (void)
 
   FOR_EACH_BB_REVERSE (bb)
     {
-#if 0
-      struct propagate_block_info *pbi;
-#endif
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
@@ -3534,7 +3368,43 @@ struct tree_opt_pass pass_split_before_regstack =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static bool
+gate_handle_split_before_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  return optimize > 0 && flag_schedule_insns_after_reload;
+#else
+  return 0;
+#endif
+}
+
+static unsigned int
+rest_of_handle_split_before_sched2 (void)
+{
+#ifdef INSN_SCHEDULING
+  split_all_insns ();
+#endif
+  return 0;
+}
+
+struct tree_opt_pass pass_split_before_sched2 =
+{
+  "split4",                             /* name */
+  gate_handle_split_before_sched2,      /* gate */
+  rest_of_handle_split_before_sched2,   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3557,13 +3427,13 @@ gate_do_final_split (void)
 
 struct tree_opt_pass pass_split_for_shorten_branches =
 {
-  "split4",                             /* name */
+  "split5",                             /* name */
   gate_do_final_split,                  /* gate */
   split_all_insns_noflow,               /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

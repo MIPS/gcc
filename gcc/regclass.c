@@ -50,6 +50,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "tree-pass.h"
 
+/* Maximum register number used in this function, plus one.  */
+
+int max_regno;
+
 static void init_reg_sets_1 (void);
 static void init_reg_autoinc (void);
 
@@ -263,6 +267,26 @@ static int no_global_reg_vars = 0;
 
 /* Specify number of hard registers given machine mode occupy.  */
 unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
+
+/* Given a register bitmap, turn on the bits in a HARD_REG_SET that
+   correspond to the hard registers, if any, set in that map.  This
+   could be done far more efficiently by having all sorts of special-cases
+   with moving single words, but probably isn't worth the trouble.  */
+
+void
+reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
+{
+  unsigned i;
+  bitmap_iterator bi;
+
+  EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
+    {
+      if (i >= FIRST_PSEUDO_REGISTER)
+	return;
+      SET_HARD_REG_BIT (*to, i);
+    }
+}
+
 
 /* Function called only once to initialize the above data on reg usage.
    Once this is done, various switches may override.  */
@@ -907,7 +931,7 @@ reg_alternate_class (int regno)
 
 /* Initialize some global data for this pass.  */
 
-void
+static unsigned int 
 regclass_init (void)
 {
   int i;
@@ -922,7 +946,27 @@ regclass_init (void)
 
   /* No more global register variables may be declared.  */
   no_global_reg_vars = 1;
+  return 1;
 }
+
+struct tree_opt_pass pass_regclass_init =
+{
+  "regclass",                           /* name */
+  NULL,                                 /* gate */
+  regclass_init,                        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  'k'                                   /* letter */
+};
+
+
 
 /* Dump register costs.  */
 static void
@@ -2147,6 +2191,15 @@ static short *renumber;
 static size_t regno_allocated;
 static unsigned int reg_n_max;
 
+void
+allocate_reg_life_data (void)
+{
+  max_regno = max_reg_num ();
+  /* Recalculate the register space, in case it has grown.  Old style
+     vector oriented regsets would set regset_{size,bytes} here also.  */
+  allocate_reg_info (max_regno, FALSE, FALSE);
+}
+
 /* Allocate enough space to hold NUM_REGS registers for the tables used for
    reg_scan and flow_analysis that are indexed by the register number.  If
    NEW_P is nonzero, initialize all of the registers, otherwise only
@@ -2575,13 +2628,49 @@ som_eq (const void *x, const void *y)
   return a->block == b->block;
 }
 
+
+/* Call record_subregs_of_mode for all the subregs in X.  */
+
+static void 
+find_subregs_of_mode (rtx x)
+{
+  enum rtx_code code = GET_CODE (x);
+  const char * const fmt = GET_RTX_FORMAT (code);
+  int i;
+
+  if (code == SUBREG)
+    record_subregs_of_mode (x);
+    
+  /* Time for some deep diving.  */
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	find_subregs_of_mode (XEXP (x, i));
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    find_subregs_of_mode (XVECEXP (x, i, j));
+	}
+    }
+}
+
 static unsigned int
 init_subregs_of_mode (void)
 {
+  basic_block bb;
+  rtx insn;
+
   if (subregs_of_mode)
     htab_empty (subregs_of_mode);
   else
     subregs_of_mode = htab_create (100, som_hash, som_eq, free);
+
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      find_subregs_of_mode (PATTERN (insn));
+
   return 0;
 }
 

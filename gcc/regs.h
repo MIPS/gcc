@@ -138,11 +138,12 @@ extern VEC(reg_info_p,heap) *reg_n_info;
 #define REG_N_THROWING_CALLS_CROSSED(N) \
   (VEC_index (reg_info_p, reg_n_info, N)->throw_calls_crossed)
 
-/* Total number of instructions at which (REG n) is live.
-   The larger this is, the less priority (REG n) gets for
-   allocation in a hard register (in global-alloc).
-   This is set in flow.c and remains valid for the rest of the compilation
-   of the function; it is used to control register allocation.
+/* Total number of instructions at which (REG n) is live.  The larger
+   this is, the less priority (REG n) gets for allocation in a hard
+   register (in global-alloc).  This is set in df-problems.c whenever
+   register info is requested and remains valid for the rest of the
+   compilation of the function; it is used to control register
+   allocation.
 
    local-alloc.c may alter this number to change the priority.
 
@@ -199,10 +200,6 @@ extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 
 #define REGNO_LAST_UID(N) (VEC_index (reg_info_p, reg_n_info, N)->last_uid)
 
-/* List made of EXPR_LIST rtx's which gives pairs of pseudo registers
-   that have to go in the same hard reg.  */
-extern rtx regs_may_share;
-
 /* Flag set by local-alloc or global-alloc if they decide to allocate
    something in a call-clobbered register.  */
 
@@ -235,6 +232,7 @@ extern int caller_save_needed;
 #endif
 
 /* Allocate reg_n_info tables */
+extern void allocate_reg_life_data (void);
 extern void allocate_reg_info (size_t, int, int);
 
 /* Specify number of hard registers given machine mode occupy.  */

@@ -50,10 +50,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #include "vecprim.h"
 
-#if 0
-#define REG_DEAD_DEBUGGING
-#endif
-
 #define DF_SPARSE_THRESHOLD 32
 
 static bitmap seen_in_block = NULL;
@@ -3413,6 +3409,10 @@ static struct df_problem problem_CHAIN =
 };
 
 
+/* Indexed by n, giving various register information */
+
+VEC(reg_info_p,heap) *reg_n_info;
+
 /* Create a new DATAFLOW instance and add it to an existing instance
    of DF.  The returned structure is what is used to get at the
    solution.  */
@@ -3439,16 +3439,20 @@ df_chain_add_problem (struct df *df, int flags)
 struct df_ri_problem_data
 {
   bitmap setjmp_crosses;
+  bool computed;
 };
 
 
 #ifdef REG_DEAD_DEBUGGING
 static void 
-print_note (char *prefix, rtx insn, rtx note)
+print_note (const char *prefix, rtx insn, rtx note)
 {
-  fprintf (stderr, "%s %d ", prefix, INSN_UID (insn));
-  print_rtl (stderr, note);
-  fprintf (stderr, "\n");
+  if (dump_file)
+    {
+      fprintf (dump_file, "%s %d ", prefix, INSN_UID (insn));
+      print_rtl (dump_file, note);
+      fprintf (dump_file, "\n");
+    }
 }
 #endif
 
@@ -3464,16 +3468,20 @@ df_ri_alloc (struct dataflow *dflow,
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
 
+  if (!dflow->problem_data)
+    {
+      problem_data = XNEW (struct df_ri_problem_data);
+      dflow->problem_data = problem_data;
+      problem_data->setjmp_crosses = NULL;
+      problem_data->computed = false;
+    }
+
   if (dflow->flags & DF_RI_SETJMP)
     {
-      if (!dflow->problem_data)
-	{
-	  problem_data = XNEW (struct df_ri_problem_data);
-	  dflow->problem_data = problem_data;
-	  problem_data->setjmp_crosses = BITMAP_ALLOC (NULL);
-	}
-      else 
+      if (problem_data->setjmp_crosses)
 	bitmap_clear (problem_data->setjmp_crosses);
+      else 
+	problem_data->setjmp_crosses = BITMAP_ALLOC (NULL);
     }
 
   if (dflow->flags & DF_RI_LIFE)
@@ -3573,8 +3581,11 @@ df_set_unused_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   unsigned int regno = DF_REF_REGNO (regs->ref);
   
 #ifdef REG_DEAD_DEBUGGING
-  fprintf (stderr, "mw unused looking at %d\n", DF_REF_REGNO (regs->ref));
-  df_ref_debug (regs->ref, stderr);
+  if (dump_file)
+    {
+      fprintf (dump_file, "mw unused looking at %d\n", DF_REF_REGNO (regs->ref));
+      df_ref_debug (regs->ref, dump_file);
+    }
 #endif
   while (regs)
     {
@@ -3645,8 +3656,11 @@ df_set_dead_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   unsigned int regno = DF_REF_REGNO (regs->ref);
   
 #ifdef REG_DEAD_DEBUGGING
-  fprintf (stderr, "mw looking at %d\n", DF_REF_REGNO (regs->ref));
-  df_ref_debug (regs->ref, stderr);
+  if (dump_file)
+    {
+      fprintf (dump_file, "mw looking at %d\n", DF_REF_REGNO (regs->ref));
+      df_ref_debug (regs->ref, dump_file);
+    }
 #endif
   while (regs)
     {
@@ -3727,8 +3741,11 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
   unsigned int dregno = DF_REF_REGNO (def);
   
 #ifdef REG_DEAD_DEBUGGING
-  fprintf (stderr, "  regular looking at def ");
-  df_ref_debug (def, stderr);
+  if (dump_file)
+    {
+      fprintf (dump_file, "  regular looking at def ");
+      df_ref_debug (def, dump_file);
+    }
 #endif
 
   if (bitmap_bit_p (live, dregno))
@@ -3949,8 +3966,11 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	    }
 	  
 #ifdef REG_DEAD_DEBUGGING
-	  fprintf (stderr, "  regular looking at use ");
-	  df_ref_debug (use, stderr);
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "  regular looking at use ");
+	      df_ref_debug (use, dump_file);
+	    }
 #endif
 	  if (!bitmap_bit_p (live, uregno))
 	    {
@@ -4025,6 +4045,8 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
 
+  problem_data->computed = true;
+
   if (dflow->flags & DF_RI_LIFE)
     {
       local_live = BITMAP_ALLOC (NULL);
@@ -4039,8 +4061,11 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 
 
 #ifdef REG_DEAD_DEBUGGING
-  df_lr_dump (dflow->df->problems_by_index [DF_LR], stderr);
-  print_rtl_with_bb (stderr, get_insns());
+  if (dump_file)
+    {
+      df_lr_dump (dflow->df->problems_by_index [DF_LR], dump_file);
+      print_rtl_with_bb (dump_file, get_insns());
+    }
 #endif
 
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_scan, 0, bb_index, bi)
@@ -4081,10 +4106,9 @@ df_ri_free (struct dataflow *dflow)
     (struct df_ri_problem_data *) dflow->problem_data;
 
   if (dflow->flags & DF_RI_SETJMP)
-    {
-      BITMAP_FREE (problem_data->setjmp_crosses);
-      free (dflow->problem_data);
-    }
+    BITMAP_FREE (problem_data->setjmp_crosses);
+
+  free (dflow->problem_data);
   free (dflow);
 }
 
@@ -4094,12 +4118,18 @@ df_ri_free (struct dataflow *dflow)
 static void
 df_ri_dump (struct dataflow *dflow, FILE *file)
 {
-  print_rtl_with_bb (file, get_insns ());
+  struct df_ri_problem_data *problem_data =
+    (struct df_ri_problem_data *) dflow->problem_data;
 
-  if (dflow->flags & DF_RI_LIFE)
+  if (problem_data && problem_data->computed)
     {
-      fprintf (file, "Register info:\n");
-      dump_flow_info (file, -1);
+      print_rtl_with_bb (file, get_insns ());
+      
+      if (dflow->flags & DF_RI_LIFE)
+	{
+	  fprintf (file, "Register info:\n");
+	  dump_flow_info (file, -1);
+	}
     }
 }
 

@@ -295,13 +295,6 @@ struct function GTY(())
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
-  /* For flow.c.  */
-
-  /* Highest loop depth seen so far in loop analysis.  Used in flow.c
-     for the "failure strategy" when doing liveness analysis starting
-     with non-empty initial sets.  */
-  int max_loop_depth;
-
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */

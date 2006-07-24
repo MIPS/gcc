@@ -1,3 +1,86 @@
+2006-07-23  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (pass_regclass_init, pass_no_new_pseudos,
+	pass_split_before_sched2): Added.
+	(pass_life, pass_remove_death_notes): Deleted.
+	* rtlanal.c: Documentation.
+	* stack-ptr-mod.c: Ditto.
+	* cfgloop.c: Ditto.
+	* output.h: Ditto.
+	* function.c: Ditto.
+	* caller-save.c: Ditto.
+	* sched-deps.c: Ditto.
+	* jump.c: Ditto.
+	* alias.c: Ditto.
+	* calls.c: Ditto.
+	* final.c: (rest_of_no_new_pseudos, pass_no_new_pseudos): Added.
+	* cfg.c (dump_regset, debug_regset): Moved from flow.c.
+	* regs.h (regs_may_share): Deleted.
+	(allocate_reg_life_data): Added.
+	* flow.c: Deleted.
+	* global.c (reg_may_share): Deleted.
+	(global_alloc): Removed support for regs_may_share.
+	* ifcvt.c (rest_or_handel_if_conversion): Removed ref to
+	clear_reg_deaths.
+	* timevar.def (TV_FLOW): Removed.
+	* recog.c (find_single_use, find_single_use_1): Moved to combine
+	and made static.
+	(split_all_insns, split_all_insns_noflow): Made static.
+	(pass_split_before_regclass): Fixed tv_id.
+	(gate_handle_split_before_sched2,
+	rest_of_handle_split_before_sched2, pass_split_before_sched2): New.
+	(pass_split_for_shorten_branches): Renamed and fixed tv_id.
+	* recog.h (find_single_use): Removed.
+	* regmove.c (find_use_as_address): Moved from flow and made
+	static.
+	* function.h (max_loop_depth): Removed.
+	* cfgcleanup.c (delete_dead_jumptables): Moved from flow.c.
+	* subregs-init.c (initialize_uninitialized_subregs): Added call to
+	allocate_reg_life_data if new regs were added.  
+	* regclass.c (max_regno, reg_set_to_hard_reg_set, 
+	allocate_reg_life_data): Moved from flow.c.
+	(regclass_init): Now static and returns unsigned int.
+	(pass_regclass_init, find_subregs_of_mode): New.
+	(init_subregs_of_mode): Now fills the hash table.
+	* rtl.h (find_use_as_address, split_all_insns, 
+	split_all_insns_noflow, regclass_init): Deleted.
+	* combine.c (find_single_use_1, find_single_use): Moved from recog
+	and made static.
+	(delete_noop_moves): Moved from flow.c and made static.
+	(rest_of_handle_combine): Now runs dce as part of df_init.
+	* df-problems.c (reg_n_info): Moved from flow.c.
+	(df_ri_problem_data.computed): Added field.
+	(print_note, df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute, df_ri_compute): Changed
+	note printing to go to dump_file.
+	(df_ri_alloc, df_ri_compute, df_ri_free, df_ri_dump): Added
+	support for computed flag.
+	* Makefile.in: (flow.c flow.o): Removed.
+	* sched-rgn.c (check_dead_notes1, deaths_in_region): Removed. 
+	(init_regions, add_block1): Removed last of note counting code.
+	(rest_of_handle_sched2): Moved call to split_all_insns to separate
+	pass.
+	* basic_block.h (first_insn_after_basic_block_note, 
+	update_life_extent, PROP_* flags, life_analysis, update_life_info
+	update_life_info_in_dirty_blocks, count_or_remove_death_notes,
+	propagate_block, clear_reg_deaths, propagate_block_info, 
+	propagate_one_insn, init_propagate_block_info, 
+	free_propagate_block_info): Removed.
+	(CLEANUP_*): Renumbered.
+	sched_vis.c: (print_exp): Added proper printing for PRE and
+	POST_MODIFY.
+	* passes.c (init_optimization_passes): Added pass_regclass_init,
+	pass_no_new_pseudos, and pass_split_before_sched2.  Deleted
+	pass_life.
+	* struct-equiv.c (struct_equiv_init): Removed dead conditional.
+	* config/rs6000/rs6000.c (print_operand): More fixes for
+	PRE_MODIFY.
+	* config/rs6000/rs6000.md ("*movdf_hardfloat32",
+	"*movdf_softfloat32"): Ditto.
+	* cfgrtl (first_insn_after_basic_block_note): Moved from flow.c
+	and made static.	
+
+
 2006-07-16  Zdenek Dvorak <dvorakz@suse.cz>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 

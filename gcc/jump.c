@@ -1330,11 +1330,10 @@ delete_prior_computation (rtx note, rtx insn)
     }
 }
 
-/* Delete INSN and recursively delete insns that compute values used only
-   by INSN.  This uses the REG_DEAD notes computed during flow analysis.
-   If we are running before flow.c, we need do nothing since flow.c will
-   delete dead code.  We also can't know if the registers being used are
-   dead or not at this point.
+/* Delete INSN and recursively delete insns that compute values used
+   only by INSN.  This uses the REG_DEAD notes computed by df.  Later
+   dead code will delete anything that this does not.  We also can't
+   know if the registers being used are dead or not at this point.
 
    Otherwise, look at all our REG_DEAD notes.  If a previous insn does
    nothing other than set a register that dies in this insn, we can delete

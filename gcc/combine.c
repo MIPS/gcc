@@ -49,8 +49,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    we install it, delete the earlier insns, and update the data flow
    information (LOG_LINKS and REG_NOTES) for what we did.
 
-   There are a few exceptions where the dataflow information created by
-   flow.c aren't completely updated:
+   There are a few exceptions where the dataflow information isn't
+   completely updated (however this is only a local issue since it is
+   regenerated before the next pass that uses it):
 
    - reg_live_length is not updated
    - reg_n_refs is not adjusted in the rare case when a register is
@@ -466,6 +467,170 @@ static rtx gen_lowpart_or_truncate (enum machine_mode, rtx);
 static const struct rtl_hooks combine_rtl_hooks = RTL_HOOKS_INITIALIZER;
 
 
+static rtx *find_single_use_1 (rtx, rtx *);
+/* This is used by find_single_use to locate an rtx that contains exactly one
+   use of DEST, which is typically either a REG or CC0.  It returns a
+   pointer to the innermost rtx expression containing DEST.  Appearances of
+   DEST that are being used to totally replace it are not counted.  */
+
+static rtx *
+find_single_use_1 (rtx dest, rtx *loc)
+{
+  rtx x = *loc;
+  enum rtx_code code = GET_CODE (x);
+  rtx *result = 0;
+  rtx *this_result;
+  int i;
+  const char *fmt;
+
+  switch (code)
+    {
+    case CONST_INT:
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+    case CLOBBER:
+      return 0;
+
+    case SET:
+      /* If the destination is anything other than CC0, PC, a REG or a SUBREG
+	 of a REG that occupies all of the REG, the insn uses DEST if
+	 it is mentioned in the destination or the source.  Otherwise, we
+	 need just check the source.  */
+      if (GET_CODE (SET_DEST (x)) != CC0
+	  && GET_CODE (SET_DEST (x)) != PC
+	  && !REG_P (SET_DEST (x))
+	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
+		&& REG_P (SUBREG_REG (SET_DEST (x)))
+		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
+		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
+			 + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))))
+	break;
+
+      return find_single_use_1 (dest, &SET_SRC (x));
+
+    case MEM:
+    case SUBREG:
+      return find_single_use_1 (dest, &XEXP (x, 0));
+
+    default:
+      break;
+    }
+
+  /* If it wasn't one of the common cases above, check each expression and
+     vector of this code.  Look for a unique usage of DEST.  */
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (dest == XEXP (x, i)
+	      || (REG_P (dest) && REG_P (XEXP (x, i))
+		  && REGNO (dest) == REGNO (XEXP (x, i))))
+	    this_result = loc;
+	  else
+	    this_result = find_single_use_1 (dest, &XEXP (x, i));
+
+	  if (result == 0)
+	    result = this_result;
+	  else if (this_result)
+	    /* Duplicate usage.  */
+	    return 0;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    {
+	      if (XVECEXP (x, i, j) == dest
+		  || (REG_P (dest)
+		      && REG_P (XVECEXP (x, i, j))
+		      && REGNO (XVECEXP (x, i, j)) == REGNO (dest)))
+		this_result = loc;
+	      else
+		this_result = find_single_use_1 (dest, &XVECEXP (x, i, j));
+
+	      if (result == 0)
+		result = this_result;
+	      else if (this_result)
+		return 0;
+	    }
+	}
+    }
+
+  return result;
+}
+
+
+/* See if DEST, produced in INSN, is used only a single time in the
+   sequel.  If so, return a pointer to the innermost rtx expression in which
+   it is used.
+
+   If PLOC is nonzero, *PLOC is set to the insn containing the single use.
+
+   This routine will return usually zero either before flow is called (because
+   there will be no LOG_LINKS notes) or after reload (because the REG_DEAD
+   note can't be trusted).
+
+   If DEST is cc0_rtx, we look only at the next insn.  In that case, we don't
+   care about REG_DEAD notes or LOG_LINKS.
+
+   Otherwise, we find the single use by finding an insn that has a
+   LOG_LINKS pointing at INSN and has a REG_DEAD note for DEST.  If DEST is
+   only referenced once in that insn, we know that it must be the first
+   and last insn referencing DEST.  */
+
+static rtx *
+find_single_use (rtx dest, rtx insn, rtx *ploc)
+{
+  rtx next;
+  rtx *result;
+  rtx link;
+
+#ifdef HAVE_cc0
+  if (dest == cc0_rtx)
+    {
+      next = NEXT_INSN (insn);
+      if (next == 0
+	  || (!NONJUMP_INSN_P (next) && !JUMP_P (next)))
+	return 0;
+
+      result = find_single_use_1 (dest, &PATTERN (next));
+      if (result && ploc)
+	*ploc = next;
+      return result;
+    }
+#endif
+
+  if (reload_completed || reload_in_progress || !REG_P (dest))
+    return 0;
+
+  for (next = next_nonnote_insn (insn);
+       next != 0 && !LABEL_P (next);
+       next = next_nonnote_insn (next))
+    if (INSN_P (next) && dead_or_set_p (next, dest))
+      {
+	for (link = LOG_LINKS (next); link; link = XEXP (link, 1))
+	  if (XEXP (link, 0) == insn)
+	    break;
+
+	if (link)
+	  {
+	    result = find_single_use_1 (dest, &PATTERN (next));
+	    if (ploc)
+	      *ploc = next;
+	    return result;
+	  }
+      }
+
+  return 0;
+}
+
 /* Substitute NEWVAL, an rtx expression, into INTO, a place in some
    insn.  The substitution can be undone by undo_all.  If INTO is already
    set to NEWVAL, do not record this change.  Because computing NEWVAL might
@@ -685,6 +850,54 @@ combine_validate_cost (rtx i1, rtx i2, rtx i3, rtx newpat, rtx newi2pat)
 
   return true;
 }
+
+
+/* Delete any insns that copy a register to itself.  */
+
+static int
+delete_noop_moves (void)
+{
+  rtx insn, next;
+  basic_block bb;
+  int nnoops = 0;
+
+  FOR_EACH_BB (bb)
+    {
+      for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
+	{
+	  next = NEXT_INSN (insn);
+	  if (INSN_P (insn) && noop_move_p (insn))
+	    {
+	      rtx note;
+
+	      /* If we're about to remove the first insn of a libcall
+		 then move the libcall note to the next real insn and
+		 update the retval note.  */
+	      if ((note = find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+		       && XEXP (note, 0) != insn)
+		{
+		  rtx new_libcall_insn = next_real_insn (insn);
+		  rtx retval_note = find_reg_note (XEXP (note, 0),
+						   REG_RETVAL, NULL_RTX);
+continue;
+		  REG_NOTES (new_libcall_insn)
+		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
+					 REG_NOTES (new_libcall_insn));
+		  XEXP (retval_note, 0) = new_libcall_insn;
+		}
+
+	      delete_insn_and_edges (insn);
+	      nnoops++;
+	    }
+	}
+    }
+
+  if (nnoops && dump_file)
+    fprintf (dump_file, "deleted %i noop moves\n", nnoops);
+
+  return nnoops;
+}
+
 
 /* Main entry point for combiner.  F is the first insn of the function.
    NREGS is the first unused pseudo-reg number.
@@ -3911,11 +4124,11 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
       return (unique_copy && n_occurrences > 1 ? copy_rtx (to) : to);
     }
 
-  /* If X and FROM are the same register but different modes, they will
-     not have been seen as equal above.  However, flow.c will make a
-     LOG_LINKS entry for that case.  If we do nothing, we will try to
-     rerecognize our original insn and, when it succeeds, we will
-     delete the feeding insn, which is incorrect.
+  /* If X and FROM are the same register but different modes, they
+     will not have been seen as equal above.  However, df-problems.c
+     will make a LOG_LINKS entry for that case.  If we do nothing, we
+     will try to rerecognize our original insn and, when it succeeds,
+     we will delete the feeding insn, which is incorrect.
 
      So force this insn not to match in this (rare) case.  */
   if (! in_dest && code == REG && REG_P (from)
@@ -11520,8 +11733,7 @@ reg_dead_at_p (rtx reg, rtx insn)
   return 1;
 }
 
-/* Note hard registers in X that are used.  This code is similar to
-   that in flow.c, but much simpler since we don't care about pseudos.  */
+/* Note hard registers in X that are used.  */
 
 static void
 mark_used_regs_combine (rtx x)
@@ -12704,6 +12916,7 @@ rest_of_handle_combine (void)
   int rebuild_jump_labels_after_combine;
 
   df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
   df_clrur_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);

@@ -466,6 +466,26 @@ update_bb_for_insn (basic_block bb)
     }
 }
 
+/* Return the INSN immediately following the NOTE_INSN_BASIC_BLOCK
+   note associated with the BLOCK.  */
+
+static rtx
+first_insn_after_basic_block_note (basic_block block)
+{
+  rtx insn;
+
+  /* Get the first instruction in the block.  */
+  insn = BB_HEAD (block);
+
+  if (insn == NULL_RTX)
+    return NULL_RTX;
+  if (LABEL_P (insn))
+    insn = NEXT_INSN (insn);
+  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (insn));
+
+  return NEXT_INSN (insn);
+}
+
 /* Creates a new basic block just after basic block B by splitting
    everything after specified instruction I.  */
 

@@ -2368,7 +2368,7 @@ noce_process_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_i
      if it came from the ELSE block, because follows the now correct
      write that appears in the TEST block.  However, if we got insn_b from
      the TEST block, it may in fact be loading data needed for the comparison.
-     We'll let life_analysis remove the insn if it's really dead.  */
+     We'll let dead code elimination remove the insn if it's really dead.  */
   if (insn_b && else_bb)
     delete_insn (insn_b);
 
@@ -3973,7 +3973,6 @@ rest_of_handle_if_conversion (void)
     }
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  clear_reg_deaths ();
   reg_scan (get_insns (), max_reg_num ());
   return 0;
 }

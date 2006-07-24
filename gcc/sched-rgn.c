@@ -68,17 +68,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 
-/* Define when we want to do count REG_DEAD notes before and after scheduling
-   for sanity checking.  We can't do that when conditional execution is used,
-   as REG_DEAD exist only for unconditional deaths.  */
-
-#if !defined (HAVE_conditional_execution) && defined (ENABLE_CHECKING)
-#define CHECK_DEAD_NOTES 1
-#else
-#define CHECK_DEAD_NOTES 0
-#endif
-
-
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
 #define INSN_REF_COUNT(INSN)	(h_i_d[INSN_UID (INSN)].ref_count)
@@ -321,8 +310,8 @@ is_cfg_nonregular (void)
     return 1;
 
   /* If we have exception handlers, then we consider the cfg not well
-     structured.  ?!?  We should be able to handle this now that flow.c
-     computes an accurate cfg for EH.  */
+     structured.  ?!?  We should be able to handle this now that we
+     compute an accurate cfg for EH.  */
   if (current_function_has_exception_handlers ())
     return 1;
 
@@ -1941,7 +1930,6 @@ static void extend_regions (void);
 static void add_block1 (basic_block, basic_block);
 static void fix_recovery_cfg (int, int, int);
 static basic_block advance_target_bb (basic_block, rtx);
-static void check_dead_notes1 (int, sbitmap);
 #ifdef ENABLE_CHECKING
 static int region_head_or_leaf_p (basic_block, int);
 #endif
@@ -2864,18 +2852,11 @@ schedule_region (struct df *df, int rgn)
     }
 }
 
-/* Indexed by region, holds the number of death notes found in that region.
-   Used for consistency checks.  */
-static int *deaths_in_region;
-
 /* Initialize data structures for region scheduling.  */
 
 static void
 init_regions (void)
 {
-  sbitmap blocks;
-  int rgn;
-
   nr_regions = 0;
   rgn_table = 0;
   rgn_bb_table = 0;
@@ -2903,25 +2884,11 @@ init_regions (void)
 	debug_regions ();
 
       /* For now.  This will move as more and more of haifa is converted
-	 to using the cfg code in flow.c.  */
+	 to using the cfg code.  */
       free_dominance_info (CDI_DOMINATORS);
     }
   RGN_BLOCKS (nr_regions) = RGN_BLOCKS (nr_regions - 1) +
     RGN_NR_BLOCKS (nr_regions - 1);
-
-
-  if (CHECK_DEAD_NOTES)
-    {
-      blocks = sbitmap_alloc (last_basic_block);
-      deaths_in_region = XNEWVEC (int, nr_regions);
-      /* Remove all death notes from the subroutine.  */
-      for (rgn = 0; rgn < nr_regions; rgn++)
-        check_dead_notes1 (rgn, blocks);
-
-      sbitmap_free (blocks);
-    }
-  else
-    count_or_remove_death_notes (NULL, 1);
 }
 
 /* The one entry point in this file.  */
@@ -3047,17 +3014,6 @@ add_block1 (basic_block bb, basic_block after)
       nr_regions++;
       
       RGN_BLOCKS (nr_regions) = i + 1;
-
-      if (CHECK_DEAD_NOTES)
-        {
-          sbitmap blocks = sbitmap_alloc (last_basic_block);
-          deaths_in_region = xrealloc (deaths_in_region, nr_regions *
-				       sizeof (*deaths_in_region));
-
-          check_dead_notes1 (nr_regions - 1, blocks);
-      
-          sbitmap_free (blocks);
-        }
     }
   else
     { 
@@ -3104,9 +3060,6 @@ add_block1 (basic_block bb, basic_block after)
 
       for (++i; i <= nr_regions; i++)
 	RGN_BLOCKS (i)++;
-
-      /* We don't need to call check_dead_notes1 () because this new block
-	 is just a split of the old.  We don't want to count anything twice.  */
     }
 }
 
@@ -3154,20 +3107,6 @@ advance_target_bb (basic_block bb, rtx insn)
   gcc_assert (BLOCK_TO_BB (bb->index) == target_bb
 	      && BLOCK_TO_BB (bb->next_bb->index) == target_bb);
   return bb->next_bb;
-}
-
-/* Count and remove death notes in region RGN, which consists of blocks
-   with indecies in BLOCKS.  */
-static void
-check_dead_notes1 (int rgn, sbitmap blocks)
-{
-  int b;
-
-  sbitmap_zero (blocks);
-  for (b = RGN_NR_BLOCKS (rgn) - 1; b >= 0; --b)
-    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn) + b]);
-
-  deaths_in_region[rgn] = count_or_remove_death_notes (blocks, 1);
 }
 
 #ifdef ENABLE_CHECKING
@@ -3238,9 +3177,6 @@ rest_of_handle_sched2 (void)
 #ifdef INSN_SCHEDULING
   /* Do control and data sched analysis again,
      and write some more of the results to dump file.  */
-
-  split_all_insns ();
-
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     schedule_ebbs ();
   else

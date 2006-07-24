@@ -93,7 +93,6 @@ extern int num_changes_pending (void);
 extern int next_insn_tests_no_inequality (rtx);
 #endif
 extern int reg_fits_class_p (rtx, enum reg_class, int, enum machine_mode);
-extern rtx *find_single_use (rtx, rtx, rtx *);
 
 extern int offsettable_memref_p (rtx);
 extern int offsettable_nonstrict_memref_p (rtx);

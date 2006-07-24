@@ -649,11 +649,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cse2);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_fwprop_addr);
+  NEXT_PASS (pass_regclass_init);
   NEXT_PASS (pass_subregs_of_mode_init);
   NEXT_PASS (pass_inc_dec);
-  NEXT_PASS (pass_life);
   NEXT_PASS (pass_stack_ptr_mod);
   NEXT_PASS (pass_initialize_subregs);
+  NEXT_PASS (pass_no_new_pseudos);
   NEXT_PASS (pass_combine);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_if_after_combine);
@@ -688,6 +689,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_reorder_blocks);
   NEXT_PASS (pass_branch_target_load_optimize2);
   NEXT_PASS (pass_leaf_regs);
+  NEXT_PASS (pass_split_before_sched2);
   NEXT_PASS (pass_sched2);
   NEXT_PASS (pass_split_before_regstack);
   NEXT_PASS (pass_stack_regs);

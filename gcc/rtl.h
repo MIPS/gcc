@@ -740,7 +740,7 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
    -1 means this instruction has not been recognized yet.  */
 #define INSN_CODE(INSN) XINT (INSN, 6)
 
-/* Set up in flow.c; empty before then.
+/* This is only used in combine and in the schedulers.  
    Holds a chain of INSN_LIST rtx's whose first operands point at
    previous insns with direct data-flow connections to this one.
    That means that those insns set variables whose next use is in this insn.
@@ -958,10 +958,9 @@ enum label_kind
    be decremented and possibly the label can be deleted.  */
 #define JUMP_LABEL(INSN)   XCEXP (INSN, 9, JUMP_INSN)
 
-/* Once basic blocks are found in flow.c,
-   each CODE_LABEL starts a chain that goes through
-   all the LABEL_REFs that jump to that label.
-   The chain eventually winds up at the CODE_LABEL: it is circular.  */
+/* Once basic blocks are found, each CODE_LABEL starts a chain that
+   goes through all the LABEL_REFs that jump to that label.  The chain
+   eventually winds up at the CODE_LABEL: it is circular.  */
 #define LABEL_REFS(LABEL) XCEXP (LABEL, 5, CODE_LABEL)
 
 /* For a REG rtx, REGNO extracts the register number.  ORIGINAL_REGNO holds
@@ -1746,11 +1745,6 @@ extern rtx canonicalize_condition (rtx, rtx, int, rtx *, rtx, int, int);
    being made.  */
 extern rtx get_condition (rtx, rtx *, int, int);
 
-
-/* flow.c */
-
-extern rtx find_use_as_address (rtx, rtx, HOST_WIDE_INT);
-
 /* lists.c */
 
 void free_EXPR_LIST_list		(rtx *);
@@ -1784,9 +1778,6 @@ extern const char *decode_asm_operands (rtx, rtx *, rtx **, const char **,
 
 extern enum reg_class reg_preferred_class (int);
 extern enum reg_class reg_alternate_class (int);
-
-extern void split_all_insns (void);
-extern unsigned int split_all_insns_noflow (void);
 
 #define MAX_SAVED_CONST_INT 64
 extern GTY(()) rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
@@ -2088,11 +2079,14 @@ extern rtx gen_tmp_stack_mem (enum machine_mode, rtx);
 extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 
-/* In combine.c */
+/* In combine.c  */
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
+
+/* In cfgcleanup.c  */
+extern void delete_dead_jumptables (void);
 
 /* In sched-vis.c.  */
 extern void print_rtl_slim_with_bb (FILE *, rtx, int);
@@ -2137,9 +2131,10 @@ extern void emit_jump (rtx);
 extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 
-/* In flow.c */
-extern void delete_dead_jumptables (void);
+/* In cfgrtl.c */
 extern void print_rtl_with_bb (FILE *, rtx);
+
+/* In cfg.c.  */
 extern void dump_flow_info (FILE *, int);
 
 /* In expmed.c */
@@ -2168,7 +2163,6 @@ extern void init_reg_modes_once (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
-extern void regclass_init (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
 extern void fix_register (const char *, int, int);

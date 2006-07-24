@@ -150,7 +150,10 @@ initialize_uninitialized_subregs (void)
 
   df_finish (df);
   if (did_something)
-    commit_edge_insertions ();
+    {
+      commit_edge_insertions ();
+      allocate_reg_life_data ();
+    }
 }
 
 static bool

@@ -2775,9 +2775,10 @@ expand_call (tree exp, rtx target, int ignore)
 	  valreg = temp;
 	}
 
-      /* For calls to `setjmp', etc., inform flow.c it should complain
-	 if nonvolatile values are live.  For functions that cannot return,
-	 inform flow that control does not fall through.  */
+      /* For calls to `setjmp', etc., inform
+	 function.c:setjmp_warnings that it should complain if
+	 nonvolatile values are live.  For functions that cannot
+	 return, inform flow that control does not fall through.  */
 
       if ((flags & ECF_NORETURN) || pass == 0)
 	{
@@ -3786,9 +3787,10 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, & args_so_far);
 
-  /* For calls to `setjmp', etc., inform flow.c it should complain
-     if nonvolatile values are live.  For functions that cannot return,
-     inform flow that control does not fall through.  */
+  /* For calls to `setjmp', etc., inform function.c:setjmp_warnings
+     that it should complain if nonvolatile values are live.  For
+     functions that cannot return, inform flow that control does not
+     fall through.  */
 
   if (flags & ECF_NORETURN)
     {
