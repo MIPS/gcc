@@ -5,7 +5,6 @@
 	(pass_life, pass_remove_death_notes): Deleted.
 	* rtlanal.c: Documentation.
 	* stack-ptr-mod.c: Ditto.
-	* cfgloop.c: Ditto.
 	* output.h: Ditto.
 	* function.c: Ditto.
 	* caller-save.c: Ditto.
@@ -13,6 +12,8 @@
 	* jump.c: Ditto.
 	* alias.c: Ditto.
 	* calls.c: Ditto.
+	* cfgloop.c: Ditto. 
+	(establish_preds, flow_loops_find): Removed ref to cfun->max_loop_depth.
 	* final.c: (rest_of_no_new_pseudos, pass_no_new_pseudos): Added.
 	* cfg.c (dump_regset, debug_regset): Moved from flow.c.
 	* regs.h (regs_may_share): Deleted.
