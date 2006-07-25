@@ -9851,6 +9851,7 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	  *where_found = patch_method_invocation (qual_wfl, decl, type,
 						  from_super,
 						  &is_static, &ret_decl);
+	  qual_wfl = *where_found;
 	  from_super = 0;
 	  if (*where_found == error_mark_node)
 	    {
