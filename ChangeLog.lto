@@ -1,3 +1,9 @@
+2006-07-25  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/java/parse.y (resolve_qualified_expression_name): use result
+	of patch_method_invocation instead of assuming it always works
+	destructively.
+
 2006-07-21  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/fortran/trans-expr.c (gfc_conv_power_op): Use build_call_expr.
