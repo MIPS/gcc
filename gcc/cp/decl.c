@@ -7608,7 +7608,8 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (inner_declarator
 		&& inner_declarator->kind == cdk_id
 		&& inner_declarator->u.id.sfk == sfk_destructor
-		&& arg_types != void_list_node)
+		&& !(num_parm_types (arg_types) == 1
+		     && nth_parm_type (arg_types, 0) == void_type_node))
 	      {
 		error ("destructors may not have parameters");
 		arg_types = void_list_node;
