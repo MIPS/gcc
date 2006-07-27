@@ -25,9 +25,14 @@ static GC_warn_proc default_warn_proc;
 void
 init_ggc (void)
 {
+  /* Have better idea of roots before initialization, because it performs
+     blacklisting according to the current set of roots.  We miss stringpool
+     roots here, but we can get information about them only when it's way too
+     late. */
+  register_gty_roots();
+
   GC_init();
   GC_disable(); /* Do not collect on allocation */
-  register_gty_roots();
 
   stringpool_roots.start = NULL;
   stringpool_roots.one_after_finish = NULL;
