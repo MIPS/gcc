@@ -2885,7 +2885,7 @@ peephole2_optimize (void)
   struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ru_add_problem (df, 0);
   df_analyze (df);
 
@@ -3143,8 +3143,6 @@ peephole2_optimize (void)
 #endif
   if (do_rebuild_jump_labels)
     rebuild_jump_labels (get_insns ());
-
-  df_finish (df);
 }
 #endif /* HAVE_peephole2 */
 
@@ -3279,6 +3277,7 @@ struct tree_opt_pass pass_peephole2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'z'                                   /* letter */
 };

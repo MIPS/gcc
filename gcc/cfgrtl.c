@@ -1547,23 +1547,7 @@ commit_edge_insertions_watch_calls (void)
   find_many_sub_basic_blocks (blocks);
   sbitmap_free (blocks);
 }
-
-/* Print a regset at the beginning of BB to FILE.  */
 
-#if 0
-static void 
-dump_regset_in (basic_block bb, FILE * file)
-{
-}
-
-
-/* Print a regset at the end of BB to FILE.  */
-
-static void 
-dump_regset_out (basic_block bb, FILE * file)
-{
-}
-#endif
 
 /* Print out RTL-specific basic block information (live information
    at start and end).  */
@@ -1579,28 +1563,22 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
   
-#if 0
-  if (rtl_df)
+  if (df_current_instance)
     {
-      fprintf (outf, ";;%s Registers live at start: ", s_indent);
-      dump_regset_in (bb, outf);
-    
+      df_dump_top (df_current_instance, bb, outf);
       putc ('\n', outf);
     }
-#endif
 
   for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
        insn = NEXT_INSN (insn))
     print_rtl_single (outf, insn);
 
-#if 0
-  if (rtl_df)
+  if (df_current_instance)
     {
-      fprintf (outf, ";;%s Registers live at end: ", s_indent);
-      dump_regset_out (bb, outf);
+      df_dump_bottom (df_current_instance, bb, outf);
       putc ('\n', outf);
     }
-#endif
+
 }
 
 /* Like print_rtl, but also print out live information for the start of each
@@ -1610,6 +1588,7 @@ void
 print_rtl_with_bb (FILE *outf, rtx rtx_first)
 {
   rtx tmp_rtx;
+  struct df *df = df_current_instance;
 
   if (rtx_first == 0)
     fprintf (outf, "(nil)\n");
@@ -1622,6 +1601,9 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
       enum bb_state *in_bb_p = XCNEWVEC (enum bb_state, max_uid);
 
       basic_block bb;
+
+      if (df)
+	df_dump_start (df, outf);
 
       FOR_EACH_BB_REVERSE (bb)
 	{
@@ -1645,16 +1627,17 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
       for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
 	{
 	  int did_output;
-
-#if 0
+	  
 	  if ((bb = start[INSN_UID (tmp_rtx)]) != NULL)
 	    {
-	      fprintf (outf, ";; Start of basic block %d, registers live:",
-		       bb->index);
-		dump_regset_in (bb, outf);
-	      putc ('\n', outf);
+	      fprintf (outf, ";; Start of basic block %d\n", bb->index);
+	      if (df)
+		{
+		  df_dump_top (df, bb, outf);
+		  putc ('\n', outf);
+		}
 	    }
-#endif
+
 	  if (in_bb_p[INSN_UID (tmp_rtx)] == NOT_IN_BB
 	      && !NOTE_P (tmp_rtx)
 	      && !BARRIER_P (tmp_rtx))
@@ -1664,15 +1647,16 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 
 	  did_output = print_rtl_single (outf, tmp_rtx);
 
-#if 0
 	  if ((bb = end[INSN_UID (tmp_rtx)]) != NULL)
 	    {
-	      fprintf (outf, ";; End of basic block %d, registers live:\n",
-		       bb->index);
-	      dump_regset_out (bb, outf);
+	      fprintf (outf, ";; End of basic block %d\n", bb->index);
+	      if (df)
+		{
+		  df_dump_bottom (df, bb, outf);
+		  putc ('\n', outf);
+		}
 	      putc ('\n', outf);
 	    }
-#endif
 	  if (did_output)
 	    putc ('\n', outf);
 	}

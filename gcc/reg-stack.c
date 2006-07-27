@@ -3094,7 +3094,7 @@ reg_to_stack (void)
     return false;
 
   df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -3166,7 +3166,6 @@ reg_to_stack (void)
 
   convert_regs ();
 
-  df_finish (df);
   free_aux_for_blocks ();
   return true;
 }
@@ -3207,6 +3206,7 @@ struct tree_opt_pass pass_stack_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */

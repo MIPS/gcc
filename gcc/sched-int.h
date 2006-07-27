@@ -631,7 +631,7 @@ extern int set_priorities (rtx, rtx);
 
 extern void schedule_block (struct df *, basic_block *, int);
 extern void sched_init (struct df *);
-extern void sched_finish (struct df *);
+extern void sched_finish (void);
 
 extern int try_ready (rtx);
 extern void * xrecalloc (void *, size_t, size_t, size_t);

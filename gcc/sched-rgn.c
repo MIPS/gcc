@@ -2913,7 +2913,7 @@ schedule_insns (void)
 
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
   sched_init (df);
@@ -2960,7 +2960,7 @@ schedule_insns (void)
   free (block_to_bb);
   free (containing_rgn);
 
-  sched_finish (df);
+  sched_finish ();
 }
 
 /* INSN has been added to/removed from current region.  */
@@ -3198,6 +3198,7 @@ struct tree_opt_pass pass_sched =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'S'                                   /* letter */
@@ -3216,6 +3217,7 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'R'                                   /* letter */

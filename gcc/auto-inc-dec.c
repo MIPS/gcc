@@ -1458,12 +1458,10 @@ rest_of_handle_auto_inc_dec (void)
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
   df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   scan_dflow = df->problems_by_index[DF_SCAN];
   df_analyze (df);
-  if (dump_file)
-    df_dump (df, dump_file);
 
   reg_next_use = XCNEWVEC (rtx, max_reg);
   reg_next_inc_use = XCNEWVEC (rtx, max_reg);
@@ -1476,7 +1474,6 @@ rest_of_handle_auto_inc_dec (void)
   free (reg_next_def);
 
   mem_tmp = NULL;
-  df_finish (df);
 #endif
   return 0;
 }
@@ -1508,7 +1505,8 @@ struct tree_opt_pass pass_inc_dec =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | 
+  TODO_df_finish,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 

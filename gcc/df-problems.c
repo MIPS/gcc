@@ -54,7 +54,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static bitmap seen_in_block = NULL;
 static bitmap seen_in_insn = NULL;
-static void df_ri_dump (struct dataflow *, FILE *);
 
 
 /*----------------------------------------------------------------------------
@@ -148,7 +147,7 @@ df_get_live_in (struct df *df, basic_block bb)
 {
   gcc_assert (df->problems_by_index[DF_LR]);
 
-  if (df->problems_by_index[DF_CLRUR])
+  if (df->problems_by_index[DF_LIVE])
     return DF_LIVE_IN (df, bb);
   else if (df->problems_by_index[DF_UREC])
     return DF_RA_LIVE_IN (df, bb);
@@ -165,7 +164,7 @@ df_get_live_out (struct df *df, basic_block bb)
 {
   gcc_assert (df->problems_by_index[DF_LR]);
 
-  if (df->problems_by_index[DF_CLRUR])
+  if (df->problems_by_index[DF_LIVE])
     return DF_LIVE_OUT (df, bb);
   else if (df->problems_by_index[DF_UREC])
     return DF_RA_LIVE_OUT (df, bb);
@@ -762,13 +761,12 @@ df_ru_free (struct dataflow *dflow)
 /* Debugging info.  */
 
 static void
-df_ru_dump (struct dataflow *dflow, FILE *file)
+df_ru_start_dump (struct dataflow *dflow, FILE *file)
 {
-  basic_block bb;
   struct df *df = dflow->df;
   struct df_ru_problem_data *problem_data
     = (struct df_ru_problem_data *) dflow->problem_data;
-  unsigned int m = max_reg_num ();
+  unsigned int m = DF_REG_SIZE(df);
   unsigned int regno;
   
   if (!dflow->block_info) 
@@ -787,25 +785,40 @@ df_ru_dump (struct dataflow *dflow, FILE *file)
 	       DF_REG_USE_GET (df, regno)->begin, 
 	       DF_REG_USE_GET (df, regno)->n_refs);
   fprintf (file, "\n");
-
-  FOR_ALL_BB (bb)
-    {
-      struct df_ru_bb_info *bb_info = df_ru_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
-      
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
-      dump_bitmap (file, bb_info->gen);
-      fprintf (file, "  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
-      dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
-      dump_bitmap (file, bb_info->out);
-    }
 }
+
+
+/* Debugging info at top of bb.  */
+
+static void
+df_ru_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_ru_bb_info *bb_info = df_ru_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
+    return;
+  
+  fprintf (file, "ru  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
+  dump_bitmap (file, bb_info->in);
+  fprintf (file, "ru  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
+  dump_bitmap (file, bb_info->gen);
+  fprintf (file, "ru  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
+  dump_bitmap (file, bb_info->kill);
+}  
+
+
+/* Debugging info at bottom of bb.  */
+
+static void
+df_ru_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_ru_bb_info *bb_info = df_ru_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+  
+  fprintf (file, "ru  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
+  dump_bitmap (file, bb_info->out);
+}  
+
 
 /* All of the information associated with every instance of the problem.  */
 
@@ -824,7 +837,9 @@ static struct df_problem problem_RU =
   df_ru_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ru_free,                 /* Free all of the problem information.  */
-  df_ru_dump,                 /* Debugging.  */
+  df_ru_start_dump,           /* Debugging.  */
+  df_ru_top_dump,             /* Debugging start block.  */
+  df_ru_bottom_dump,          /* Debugging end block.  */
   NULL,                       /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -1290,13 +1305,12 @@ df_rd_free (struct dataflow *dflow)
 /* Debugging info.  */
 
 static void
-df_rd_dump (struct dataflow *dflow, FILE *file)
+df_rd_start_dump (struct dataflow *dflow, FILE *file)
 {
   struct df *df = dflow->df;
-  basic_block bb;
   struct df_rd_problem_data *problem_data
     = (struct df_rd_problem_data *) dflow->problem_data;
-  unsigned int m = max_reg_num ();
+  unsigned int m = DF_REG_SIZE(df);
   unsigned int regno;
   
   if (!dflow->block_info) 
@@ -1316,23 +1330,38 @@ df_rd_dump (struct dataflow *dflow, FILE *file)
 	       DF_REG_DEF_GET (df, regno)->n_refs);
   fprintf (file, "\n");
 
-  FOR_ALL_BB (bb)
-    {
-      struct df_rd_bb_info *bb_info = df_rd_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
-      
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
-      dump_bitmap (file, bb_info->gen);
-      fprintf (file, "  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
-      dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
-      dump_bitmap (file, bb_info->out);
-    }
+}
+
+
+/* Debugging info at top of bb.  */
+
+static void
+df_rd_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_rd_bb_info *bb_info = df_rd_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
+    return;
+  
+  fprintf (file, "rd  in  \t(%d)\n", (int) bitmap_count_bits (bb_info->in));
+  dump_bitmap (file, bb_info->in);
+  fprintf (file, "rd  gen \t(%d)\n", (int) bitmap_count_bits (bb_info->gen));
+  dump_bitmap (file, bb_info->gen);
+  fprintf (file, "rd  kill\t(%d)\n", (int) bitmap_count_bits (bb_info->kill));
+  dump_bitmap (file, bb_info->kill);
+}
+
+
+/* Debugging info at top of bb.  */
+
+static void
+df_rd_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_rd_bb_info *bb_info = df_rd_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+  
+  fprintf (file, "rd  out \t(%d)\n", (int) bitmap_count_bits (bb_info->out));
+  dump_bitmap (file, bb_info->out);
 }
 
 /* All of the information associated with every instance of the problem.  */
@@ -1352,7 +1381,9 @@ static struct df_problem problem_RD =
   df_rd_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_rd_free,                 /* Free all of the problem information.  */
-  df_rd_dump,                 /* Debugging.  */
+  df_rd_start_dump,           /* Debugging.  */
+  df_rd_top_dump,             /* Debugging start block.  */
+  df_rd_bottom_dump,          /* Debugging end block.  */
   NULL,                       /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -1833,35 +1864,37 @@ df_lr_simulate_one_insn (struct df *df, basic_block bb,
 }
 
 
-/* Debugging info.  */
+/* Debugging info at top of bb.  */
 
 static void
-df_lr_dump (struct dataflow *dflow, FILE *file)
+df_lr_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
 {
-  basic_block bb;
-  
-  if (!dflow->block_info) 
+  struct df_lr_bb_info *bb_info = df_lr_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
     return;
+      
+  fprintf (file, "lr  in  \t");
+  dump_bitmap (file, bb_info->in);
+  fprintf (file, "lr  use \t");
+  dump_bitmap (file, bb_info->use);
+  fprintf (file, "lr  def \t");
+  dump_bitmap (file, bb_info->def);
+}  
 
-  fprintf (file, "Live Registers:\n");
-  FOR_ALL_BB (bb)
-    {
-      struct df_lr_bb_info *bb_info = df_lr_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
-      
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t");
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  use \t");
-      dump_bitmap (file, bb_info->use);
-      fprintf (file, "  def \t");
-      dump_bitmap (file, bb_info->def);
-      fprintf (file, "  out \t");
-      dump_bitmap (file, bb_info->out);
-    }
-}
+
+/* Debugging info at bottom of bb.  */
+
+static void
+df_lr_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_lr_bb_info *bb_info = df_lr_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+  
+  fprintf (file, "lr  out \t");
+  dump_bitmap (file, bb_info->out);
+}  
+
 
 /* All of the information associated with every instance of the problem.  */
 
@@ -1880,7 +1913,9 @@ static struct df_problem problem_LR =
   df_lr_transfer_function,    /* Transfer function.  */
   df_lr_local_finalize,       /* Finalize function.  */
   df_lr_free,                 /* Free all of the problem information.  */
-  df_lr_dump,                 /* Debugging.  */
+  NULL,                       /* Debugging.  */
+  df_lr_top_dump,             /* Debugging start block.  */
+  df_lr_bottom_dump,          /* Debugging end block.  */
   NULL,                       /* Dependent problem.  */
   DF_LR_RUN_DCE               /* Can turn on or off dce running during df-analyze.  */
 };
@@ -2152,36 +2187,37 @@ df_ur_free (struct dataflow *dflow)
 }
 
 
-/* Debugging info.  */
+/* Debugging info at top of bb.  */
 
 static void
-df_ur_dump (struct dataflow *dflow, FILE *file)
+df_ur_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
 {
-  basic_block bb;
-  
-  if (!dflow->block_info) 
+  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
     return;
-
-  fprintf (file, "Undefined regs:\n");
- 
-  FOR_ALL_BB (bb)
-    {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
       
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t");
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  gen \t");
-      dump_bitmap (file, bb_info->gen);
-      fprintf (file, "  kill\t");
-      dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  out \t");
-      dump_bitmap (file, bb_info->out);
-    }
+  fprintf (file, "ur  in  \t");
+  dump_bitmap (file, bb_info->in);
+  fprintf (file, "ur  gen \t");
+  dump_bitmap (file, bb_info->gen);
+  fprintf (file, "ur  kill\t");
+  dump_bitmap (file, bb_info->kill);
 }
+
+
+/* Debugging info at bottom of bb.  */
+
+static void
+df_ur_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+      
+  fprintf (file, "ur  out \t");
+  dump_bitmap (file, bb_info->out);
+}
+
 
 /* All of the information associated with every instance of the problem.  */
 
@@ -2200,7 +2236,9 @@ static struct df_problem problem_UR =
   df_ur_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ur_free,                 /* Free all of the problem information.  */
-  df_ur_dump,                 /* Debugging.  */
+  NULL,                       /* Debugging.  */
+  df_ur_top_dump,             /* Debugging start block.  */
+  df_ur_bottom_dump,          /* Debugging end block.  */
   df_lr_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -2230,20 +2268,20 @@ df_ur_add_problem (struct df *df, int flags)
 
 /* Get basic block info.  */
 
-struct df_clrur_bb_info *
-df_clrur_get_bb_info (struct dataflow *dflow, unsigned int index)
+struct df_live_bb_info *
+df_live_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
   gcc_assert (index < dflow->block_info_size);
-  return (struct df_clrur_bb_info *) dflow->block_info[index];
+  return (struct df_live_bb_info *) dflow->block_info[index];
 }
 
 
 /* Set basic block info.  */
 
 static void
-df_clrur_set_bb_info (struct dataflow *dflow, unsigned int index, 
-		   struct df_clrur_bb_info *bb_info)
+df_live_set_bb_info (struct dataflow *dflow, unsigned int index, 
+		   struct df_live_bb_info *bb_info)
 {
   gcc_assert (dflow);
   gcc_assert (index < dflow->block_info_size);
@@ -2254,11 +2292,11 @@ df_clrur_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_clrur_free_bb_info (struct dataflow *dflow, 
-		    basic_block bb ATTRIBUTE_UNUSED, 
-		    void *vbb_info)
+df_live_free_bb_info (struct dataflow *dflow, 
+		      basic_block bb ATTRIBUTE_UNUSED, 
+		      void *vbb_info)
 {
-  struct df_clrur_bb_info *bb_info = (struct df_clrur_bb_info *) vbb_info;
+  struct df_live_bb_info *bb_info = (struct df_live_bb_info *) vbb_info;
   if (bb_info)
     {
       BITMAP_FREE (bb_info->in);
@@ -2272,35 +2310,35 @@ df_clrur_free_bb_info (struct dataflow *dflow,
    not touched unless the block is new.  */
 
 static void 
-df_clrur_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
-	     bitmap all_blocks ATTRIBUTE_UNUSED)
+df_live_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
+	       bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
 
   if (!dflow->block_pool)
-    dflow->block_pool = create_alloc_pool ("df_clrur_block pool", 
-					   sizeof (struct df_clrur_bb_info), 100);
+    dflow->block_pool = create_alloc_pool ("df_live_block pool", 
+					   sizeof (struct df_live_bb_info), 100);
 
   df_grow_bb_info (dflow);
 
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_rescan, 0, bb_index, bi)
     {
-      struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, bb_index);
+      struct df_live_bb_info *bb_info = df_live_get_bb_info (dflow, bb_index);
       if (!bb_info)
 	{ 
-	  bb_info = (struct df_clrur_bb_info *) pool_alloc (dflow->block_pool);
-	  df_clrur_set_bb_info (dflow, bb_index, bb_info);
+	  bb_info = (struct df_live_bb_info *) pool_alloc (dflow->block_pool);
+	  df_live_set_bb_info (dflow, bb_index, bb_info);
 	  bb_info->in = BITMAP_ALLOC (NULL);
 	  bb_info->out = BITMAP_ALLOC (NULL);
 	}
     }
 }
 
-/* And the LR and UR info to produce the CLRUR info.  */
+/* And the LR and UR info to produce the LIVE info.  */
 
 static void
-df_clrur_local_finalize (struct dataflow *dflow, bitmap all_blocks)
+df_live_local_finalize (struct dataflow *dflow, bitmap all_blocks)
 {
   struct df *df = dflow->df;
   struct dataflow *lr_dflow = df->problems_by_index[DF_LR];
@@ -2312,19 +2350,19 @@ df_clrur_local_finalize (struct dataflow *dflow, bitmap all_blocks)
     {
       struct df_ur_bb_info *bb_ur_info = df_ur_get_bb_info (ur_dflow, bb_index);
       struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (lr_dflow, bb_index);
-      struct df_clrur_bb_info *bb_clrur_info = df_clrur_get_bb_info (dflow, bb_index);
+      struct df_live_bb_info *bb_live_info = df_live_get_bb_info (dflow, bb_index);
       
       /* No register may reach a location where it is not used.  Thus
 	 we trim the rr result to the places where it is used.  */
-      bitmap_and (bb_clrur_info->in, bb_ur_info->in, bb_lr_info->in);
-      bitmap_and (bb_clrur_info->out, bb_ur_info->out, bb_lr_info->out);
+      bitmap_and (bb_live_info->in, bb_ur_info->in, bb_lr_info->in);
+      bitmap_and (bb_live_info->out, bb_ur_info->out, bb_lr_info->out);
     }
 }
 
 /* Free all storage associated with the problem.  */
 
 static void
-df_clrur_free (struct dataflow *dflow)
+df_live_free (struct dataflow *dflow)
 {
   if (dflow->block_info)
     {
@@ -2332,7 +2370,7 @@ df_clrur_free (struct dataflow *dflow)
       
       for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, i);
+	  struct df_live_bb_info *bb_info = df_live_get_bb_info (dflow, i);
 	  if (bb_info)
 	    {
 	      BITMAP_FREE (bb_info->in);
@@ -2348,51 +2386,54 @@ df_clrur_free (struct dataflow *dflow)
 }
 
 
-/* Debugging info.  */
+/* Debugging info at top of bb.  */
 
 static void
-df_clrur_dump (struct dataflow *dflow, FILE *file)
+df_live_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
 {
-  basic_block bb;
-  
-  if (!dflow->block_info) 
+  struct df_live_bb_info *bb_info = df_live_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
     return;
-
-  fprintf (file, "Combined live and undefined regs:\n");
- 
-  FOR_ALL_BB (bb)
-    {
-      struct df_clrur_bb_info *bb_info = df_clrur_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
-      
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t");
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  out \t");
-      dump_bitmap (file, bb_info->out);
-    }
+  
+  fprintf (file, "live  in  \t");
+  dump_bitmap (file, bb_info->in);
 }
+
+
+/* Debugging info at bottom of bb.  */
+
+static void
+df_live_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_live_bb_info *bb_info = df_live_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+  
+  fprintf (file, "live  out  \t");
+  dump_bitmap (file, bb_info->out);
+}
+
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_CLRUR =
+static struct df_problem problem_LIVE =
 {
-  DF_CLRUR,                   /* Problem id.  */
+  DF_LIVE,                    /* Problem id.  */
   DF_NONE,                    /* Direction.  */
-  df_clrur_alloc,             /* Allocate the problem specific data.  */
+  df_live_alloc,              /* Allocate the problem specific data.  */
   NULL,                       /* Reset global information.  */
-  df_clrur_free_bb_info,      /* Free basic block info.  */
+  df_live_free_bb_info,       /* Free basic block info.  */
   NULL,                       /* Local compute function.  */
   NULL,                       /* Init the solution specific data.  */
   NULL,                       /* Iterative solver.  */
   NULL,                       /* Confluence operator 0.  */ 
   NULL,                       /* Confluence operator n.  */ 
   NULL,                       /* Transfer function.  */
-  df_clrur_local_finalize,    /* Finalize function.  */
-  df_clrur_free,              /* Free all of the problem information.  */
-  df_clrur_dump,              /* Debugging.  */
+  df_live_local_finalize,     /* Finalize function.  */
+  df_live_free,               /* Free all of the problem information.  */
+  NULL,                       /* Debugging.  */
+  df_live_top_dump,           /* Debugging start block.  */
+  df_live_bottom_dump,        /* Debugging end block.  */
   df_ur_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -2403,9 +2444,9 @@ static struct df_problem problem_CLRUR =
    solution.  */
 
 struct dataflow *
-df_clrur_add_problem (struct df *df, int flags)
+df_live_add_problem (struct df *df, int flags)
 {
-  return df_add_problem (df, &problem_CLRUR, flags);
+  return df_add_problem (df, &problem_LIVE, flags);
 }
 
 
@@ -2952,38 +2993,38 @@ df_urec_free (struct dataflow *dflow)
 }
 
 
-/* Debugging info.  */
+/* Debugging info at top of bb.  */
 
 static void
-df_urec_dump (struct dataflow *dflow, FILE *file)
+df_urec_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
 {
-  basic_block bb;
-  
-  if (!dflow->block_info) 
+  struct df_urec_bb_info *bb_info = df_urec_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->in)
     return;
-
-  fprintf (file, "Undefined regs:\n");
- 
-  FOR_ALL_BB (bb)
-    {
-      struct df_urec_bb_info *bb_info = df_urec_get_bb_info (dflow, bb->index);
-      df_print_bb_index (bb, file);
       
-      if (!bb_info->in)
-	continue;
-      
-      fprintf (file, "  in  \t");
-      dump_bitmap (file, bb_info->in);
-      fprintf (file, "  gen \t");
-      dump_bitmap (file, bb_info->gen);
-      fprintf (file, "  kill\t");
-      dump_bitmap (file, bb_info->kill);
-      fprintf (file, "  ec\t");
-      dump_bitmap (file, bb_info->earlyclobber);
-      fprintf (file, "  out \t");
-      dump_bitmap (file, bb_info->out);
-    }
+  fprintf (file, "urec  in  \t");
+  dump_bitmap (file, bb_info->in);
+  fprintf (file, "urec  gen \t");
+  dump_bitmap (file, bb_info->gen);
+  fprintf (file, "urec  kill\t");
+  dump_bitmap (file, bb_info->kill);
+  fprintf (file, "urec  ec\t");
+  dump_bitmap (file, bb_info->earlyclobber);
 }
+
+
+/* Debugging info at bottom of bb.  */
+
+static void
+df_urec_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_urec_bb_info *bb_info = df_urec_get_bb_info (dflow, bb->index);
+  if (!bb_info || !bb_info->out)
+    return;
+  fprintf (file, "urec  out \t");
+  dump_bitmap (file, bb_info->out);
+}
+
 
 /* All of the information associated with every instance of the problem.  */
 
@@ -3002,7 +3043,9 @@ static struct df_problem problem_UREC =
   df_urec_transfer_function,  /* Transfer function.  */
   df_urec_local_finalize,     /* Finalize function.  */
   df_urec_free,               /* Free all of the problem information.  */
-  df_urec_dump,               /* Debugging.  */
+  NULL,                       /* Debugging.  */
+  df_urec_top_dump,           /* Debugging start block.  */
+  df_urec_bottom_dump,        /* Debugging end block.  */
   df_lr_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -3329,7 +3372,7 @@ df_chain_free (struct dataflow *dflow)
 /* Debugging info.  */
 
 static void
-df_chains_dump (struct dataflow *dflow, FILE *file)
+df_chain_start_dump (struct dataflow *dflow, FILE *file)
 {
   struct df *df = dflow->df;
   unsigned int j;
@@ -3403,7 +3446,9 @@ static struct df_problem problem_CHAIN =
   NULL,                       /* Transfer function.  */
   df_chain_finalize,          /* Finalize function.  */
   df_chain_free,              /* Free all of the problem information.  */
-  df_chains_dump,             /* Debugging.  */
+  df_chain_start_dump,        /* Debugging.  */
+  NULL,                       /* Debugging start block.  */
+  NULL,                       /* Debugging end block.  */
   df_rd_add_problem,          /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };
@@ -3439,7 +3484,6 @@ df_chain_add_problem (struct df *df, int flags)
 struct df_ri_problem_data
 {
   bitmap setjmp_crosses;
-  bool computed;
 };
 
 
@@ -3473,7 +3517,6 @@ df_ri_alloc (struct dataflow *dflow,
       problem_data = XNEW (struct df_ri_problem_data);
       dflow->problem_data = problem_data;
       problem_data->setjmp_crosses = NULL;
-      problem_data->computed = false;
     }
 
   if (dflow->flags & DF_RI_SETJMP)
@@ -4045,8 +4088,6 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
 
-  problem_data->computed = true;
-
   if (dflow->flags & DF_RI_LIFE)
     {
       local_live = BITMAP_ALLOC (NULL);
@@ -4116,20 +4157,12 @@ df_ri_free (struct dataflow *dflow)
 /* Debugging info.  */
 
 static void
-df_ri_dump (struct dataflow *dflow, FILE *file)
+df_ri_start_dump (struct dataflow *dflow, FILE *file)
 {
-  struct df_ri_problem_data *problem_data =
-    (struct df_ri_problem_data *) dflow->problem_data;
-
-  if (problem_data && problem_data->computed)
+  if (dflow->flags & DF_RI_LIFE)
     {
-      print_rtl_with_bb (file, get_insns ());
-      
-      if (dflow->flags & DF_RI_LIFE)
-	{
-	  fprintf (file, "Register info:\n");
-	  dump_flow_info (file, -1);
-	}
+      fprintf (file, "Register info:\n");
+      dump_reg_info (file);
     }
 }
 
@@ -4150,7 +4183,9 @@ static struct df_problem problem_RI =
   NULL,                       /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ri_free,                 /* Free all of the problem information.  */
-  df_ri_dump,                 /* Debugging.  */
+  df_ri_start_dump,           /* Debugging.  */
+  NULL,                       /* Debugging start block.  */
+  NULL,                       /* Debugging end block.  */
 
   /* Technically this is only dependent on the live registers problem
      but it will produce information if built one of uninitialized

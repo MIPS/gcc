@@ -534,6 +534,11 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       fprintf (file, "%sPredecessors: ", prefix);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	dump_edge_info (file, e, 0);
+
+      if ((flags & TDF_DETAILS)
+	  && (bb->flags & BB_RTL)
+	  && df_current_instance)
+	df_dump_top (df_current_instance, bb, file);
    }
 
   if (footer)
@@ -541,23 +546,70 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       fprintf (file, "\n%sSuccessors: ", prefix);
       FOR_EACH_EDGE (e, ei, bb->succs)
 	dump_edge_info (file, e, 1);
-   }
 
-  if ((flags & TDF_DETAILS)
-      && (bb->flags & BB_RTL))
-    {
-      if (rtl_df)
-	{
-	  fprintf (file, "\nRegisters live at start:");
-	  dump_regset (DF_LIVE_IN (rtl_df, bb), file);
-
-	  fprintf (file, "\nRegisters live at end:");
-	  dump_regset (DF_LIVE_OUT (rtl_df, bb), file);
-	}
+      if ((flags & TDF_DETAILS)
+	  && (bb->flags & BB_RTL)
+	  && df_current_instance)
+	df_dump_bottom (df_current_instance, bb, file);
    }
 
   putc ('\n', file);
 }
+
+/* Dump the register info to FILE.  */
+
+void 
+dump_reg_info (FILE *file)
+{
+  unsigned int i, max = max_reg_num ();
+  if (reload_completed)
+    return;
+
+  fprintf (file, "%d registers.\n", max);
+  for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
+    if (REG_N_REFS (i))
+      {
+	enum reg_class class, altclass;
+	
+	fprintf (file, "\nRegister %d used %d times across %d insns",
+		 i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
+	if (REG_BASIC_BLOCK (i) >= 0)
+	  fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
+	if (REG_N_SETS (i))
+	  fprintf (file, "; set %d time%s", REG_N_SETS (i),
+		   (REG_N_SETS (i) == 1) ? "" : "s");
+	if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
+	  fprintf (file, "; user var");
+	if (REG_N_DEATHS (i) != 1)
+	  fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
+	if (REG_N_CALLS_CROSSED (i) == 1)
+	  fprintf (file, "; crosses 1 call");
+	else if (REG_N_CALLS_CROSSED (i))
+	  fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+	if (regno_reg_rtx[i] != NULL
+	    && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
+	  fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
+	
+	class = reg_preferred_class (i);
+	altclass = reg_alternate_class (i);
+	if (class != GENERAL_REGS || altclass != ALL_REGS)
+	  {
+	    if (altclass == ALL_REGS || class == ALL_REGS)
+	      fprintf (file, "; pref %s", reg_class_names[(int) class]);
+	    else if (altclass == NO_REGS)
+	      fprintf (file, "; %s or none", reg_class_names[(int) class]);
+	    else
+	      fprintf (file, "; pref %s, else %s",
+		       reg_class_names[(int) class],
+		       reg_class_names[(int) altclass]);
+	  }
+	
+	if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
+	  fprintf (file, "; pointer");
+	fprintf (file, ".\n");
+      }
+}
+
 
 void
 dump_flow_info (FILE *file, int flags)
@@ -565,54 +617,8 @@ dump_flow_info (FILE *file, int flags)
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
-  if (reg_n_info && !reload_completed
-      && (flags & TDF_DETAILS) != 0)
-    {
-      unsigned int i, max = max_reg_num ();
-      fprintf (file, "%d registers.\n", max);
-      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
-	if (REG_N_REFS (i))
-	  {
-	    enum reg_class class, altclass;
-
-	    fprintf (file, "\nRegister %d used %d times across %d insns",
-		     i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
-	    if (REG_BASIC_BLOCK (i) >= 0)
-	      fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
-	    if (REG_N_SETS (i))
-	      fprintf (file, "; set %d time%s", REG_N_SETS (i),
-		       (REG_N_SETS (i) == 1) ? "" : "s");
-	    if (regno_reg_rtx[i] != NULL && REG_USERVAR_P (regno_reg_rtx[i]))
-	      fprintf (file, "; user var");
-	    if (REG_N_DEATHS (i) != 1)
-	      fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
-	    if (REG_N_CALLS_CROSSED (i) == 1)
-	      fprintf (file, "; crosses 1 call");
-	    else if (REG_N_CALLS_CROSSED (i))
-	      fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
-	    if (regno_reg_rtx[i] != NULL
-		&& PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
-	      fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
-
-	    class = reg_preferred_class (i);
-	    altclass = reg_alternate_class (i);
-	    if (class != GENERAL_REGS || altclass != ALL_REGS)
-	      {
-		if (altclass == ALL_REGS || class == ALL_REGS)
-		  fprintf (file, "; pref %s", reg_class_names[(int) class]);
-		else if (altclass == NO_REGS)
-		  fprintf (file, "; %s or none", reg_class_names[(int) class]);
-		else
-		  fprintf (file, "; pref %s, else %s",
-			   reg_class_names[(int) class],
-			   reg_class_names[(int) altclass]);
-	      }
-
-	    if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
-	      fprintf (file, "; pointer");
-	    fprintf (file, ".\n");
-	  }
-    }
+  if (reg_n_info && (flags & TDF_DETAILS) != 0)
+    dump_reg_info (file);
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)

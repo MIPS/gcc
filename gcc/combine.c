@@ -12917,7 +12917,7 @@ rest_of_handle_combine (void)
 
   df = df_init (DF_HARD_REGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
 
@@ -12937,7 +12937,6 @@ rest_of_handle_combine (void)
       delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE);
     }
-  df_finish (df);
   clear_log_links ();
   return 0;
 }
@@ -12956,6 +12955,7 @@ struct tree_opt_pass pass_combine =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'c'                                   /* letter */
 };

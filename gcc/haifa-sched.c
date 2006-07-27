@@ -2884,7 +2884,7 @@ sched_init (struct df *df)
 /* Free global data used during insn scheduling.  */
 
 void
-sched_finish (struct df *df)
+sched_finish (void)
 {
   free (h_i_d);
   free (curr_state);
@@ -2923,7 +2923,6 @@ sched_finish (struct df *df)
     check_cfg (0, 0);
 #endif
 
-  df_finish (df);
   current_sched_info = NULL;
 }
 

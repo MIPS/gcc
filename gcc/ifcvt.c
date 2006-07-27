@@ -3854,7 +3854,7 @@ if_convert (void)
   bitmap modified = BITMAP_ALLOC (NULL);
   struct df * df = df_init (DF_HARD_REGS);
   struct dataflow *lr_dflow = df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -3950,7 +3950,6 @@ if_convert (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-  df_finish (df);
 }
 
 static bool
@@ -3990,6 +3989,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4025,6 +4025,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
@@ -4059,6 +4060,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */

@@ -1113,7 +1113,7 @@ regmove_optimize (rtx f, int nregs)
   rtx copy_src, copy_dst;
   basic_block bb;
   struct df * df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
 
@@ -1573,7 +1573,6 @@ regmove_optimize (rtx f, int nregs)
   /* Clean up.  */
   free (regno_src_regno);
   free (regmove_bb_head);
-  df_finish (df);
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -2560,6 +2559,7 @@ struct tree_opt_pass pass_regmove =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'N'                                   /* letter */
@@ -2586,10 +2586,9 @@ rest_of_handle_stack_adjustments (void)
 #endif
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_clrur_add_problem (df, 0);
+      df_live_add_problem (df, 0);
       df_ri_add_problem (df, 0);
       df_analyze (df);
-      df_finish (df);
       combine_stack_adjustments ();
     }
   return 0;
@@ -2608,6 +2607,7 @@ struct tree_opt_pass pass_stack_adjustments =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   0                                     /* letter */

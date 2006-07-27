@@ -334,14 +334,6 @@ global_alloc (void)
 
   max_allocno = 0;
   df_analyze (ra_df);
-  if (dump_file)
-    df_dump (ra_df, dump_file);
-
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d before ra\n", i,
-	     regs_ever_live[i]);
-#endif
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
@@ -2003,6 +1995,12 @@ rest_of_handle_global_alloc (void)
       timevar_pop (TV_DUMP);
     }
 
+  /* FIXME: This appears on the surface to be wrong thing to be doing.
+     So much of the compiler is designed to check reload_completed to
+     see if it is running after reload that seems doomed to failure.
+     We should be returning a value that says that we have found
+     errors so that nothing but the cleanup passes are run
+     afterwards.  */
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
   return 0;

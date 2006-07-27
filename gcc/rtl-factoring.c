@@ -1362,7 +1362,7 @@ rtl_seqabstr (void)
   int iter;
   struct df * df = df_init (DF_HARD_REGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_analyze (df);
 
   /* Create a hash list for COLLECT_PATTERN_SEQS.  */
@@ -1395,7 +1395,6 @@ rtl_seqabstr (void)
 
   /* Cleanup hash tables.  */
   htab_delete (hash_buckets);
-  df_finish (df);
 }
 
 /* The gate function for TREE_OPT_PASS.  */
@@ -1428,6 +1427,7 @@ struct tree_opt_pass pass_rtl_seqabstr = {
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'Q'                                   /* letter */

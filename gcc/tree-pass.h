@@ -217,6 +217,11 @@ struct dump_file_info
    in statements, used.  */
 #define TODO_update_smt_usage           (1 << 13)
 
+/* Call df_finish at the end of the pass.  This is done after all of
+   the dumpers have been allowed to run so that they have access to
+   the instance before it is destroyed.  */
+#define TODO_df_finish                  (1 << 15)
+
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\

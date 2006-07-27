@@ -1468,7 +1468,7 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
   if (class != NO_REGS)
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_clrur_add_problem (df, 0);
+      df_live_add_problem (df, 0);
 
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)
@@ -1495,7 +1495,6 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
 			(after_prologue_epilogue_gen)));
 
       free_dominance_info (CDI_DOMINATORS);
-      df_finish (df);
     }
 }
 
@@ -1527,6 +1526,7 @@ struct tree_opt_pass pass_branch_target_load_optimize1 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
 };
@@ -1574,6 +1574,7 @@ struct tree_opt_pass pass_branch_target_load_optimize2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
 };

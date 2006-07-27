@@ -2135,6 +2135,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 extern void print_rtl_with_bb (FILE *, rtx);
 
 /* In cfg.c.  */
+extern void dump_reg_info (FILE *);
 extern void dump_flow_info (FILE *, int);
 
 /* In expmed.c */

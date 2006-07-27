@@ -82,6 +82,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
+#include "df.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -819,6 +820,10 @@ execute_todo (unsigned int flags)
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
 #endif
+
+  /* Now that the dumping has been done, we can get rid of the df instance.  */
+  if (flags & TODO_df_finish && df_current_instance)
+    df_finish (df_current_instance);
 
   last_verified = flags & TODO_verify_all;
 }

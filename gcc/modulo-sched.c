@@ -941,12 +941,6 @@ sms_schedule (void)
   df_analyze (df);
   sched_init (df);
 
-  if (dump_file)
-    df_dump (df, dump_file);
-
-  if (dump_file)
-    df_dump (df, dump_file);
-
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
   g_arr = XCNEWVEC (ddg_ptr, loops->num);
@@ -1266,7 +1260,7 @@ sms_schedule (void)
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
-  sched_finish (df);
+  sched_finish ();
   loop_optimizer_finalize (loops);
 }
 
@@ -2543,6 +2537,7 @@ struct tree_opt_pass pass_sms =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_dump_func,                       /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'm'                                   /* letter */
