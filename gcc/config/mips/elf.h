@@ -26,7 +26,7 @@ Boston, MA 02111-1307, USA.  */
    not defined, the default value is `BIGGEST_ALIGNMENT'.  */
 
 #undef  MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT (32768*8)
+#define MAX_OFILE_ALIGNMENT (65536*8)
 
 /* Switch into a generic section.  */
 #undef  TARGET_ASM_NAMED_SECTION
