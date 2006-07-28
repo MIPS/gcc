@@ -2,6 +2,9 @@
 
 	* gcc/cp/pt.c (tsubst_arg_types): Do not use recursion.
 
+	* gcc/c-decl.c (store_parm_decls_oldstyle): Use num_parm_types and
+	its friends.
+
 2006-07-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types and

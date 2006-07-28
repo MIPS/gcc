@@ -6354,15 +6354,22 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
   if (current_function_prototype_arg_types)
     {
-      tree type;
-      for (parm = DECL_ARGUMENTS (fndecl),
-	     type = current_function_prototype_arg_types;
-	   parm || (type && (TYPE_MAIN_VARIANT (TREE_VALUE (type))
-			     != void_type_node));
-	   parm = TREE_CHAIN (parm), type = TREE_CHAIN (type))
+      tree parm_types = current_function_prototype_arg_types;
+      int len = num_parm_types (parm_types);
+      int i;
+
+      for (parm = DECL_ARGUMENTS (fndecl), i = 0;
+	   (parm
+	    || (i <= len
+		&& (TYPE_MAIN_VARIANT (nth_parm_type (parm_types, i))
+		    != void_type_node)));
+	   parm = TREE_CHAIN (parm), i++)
 	{
+	  tree type = (i < len
+		       ? nth_parm_type (parm_types, i) : NULL_TREE);
+
 	  if (parm == 0 || type == 0
-	      || TYPE_MAIN_VARIANT (TREE_VALUE (type)) == void_type_node)
+	      || TYPE_MAIN_VARIANT (type) == void_type_node)
 	    {
 	      if (current_function_prototype_built_in)
 		warning (0, "number of arguments doesn%'t match "
@@ -6379,10 +6386,10 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	     declared for the arg.  ISO C says we take the unqualified
 	     type for parameters declared with qualified type.  */
 	  if (!comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
-			  TYPE_MAIN_VARIANT (TREE_VALUE (type))))
+			  TYPE_MAIN_VARIANT (type)))
 	    {
 	      if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
-		  == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
+		  == TYPE_MAIN_VARIANT (type))
 		{
 		  /* Adjust argument to match prototype.  E.g. a previous
 		     `int foo(float);' prototype causes
@@ -6436,14 +6443,16 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
   else
     {
-      tree actual, *p = &actual;
+      tree actual;
+      VEC(tree,heap) *v;
 
+      v = VEC_alloc (tree, heap, list_length (DECL_ARGUMENTS (fndecl)) + 1);
       for (parm = DECL_ARGUMENTS (fndecl); parm; parm = TREE_CHAIN (parm))
-	{
-	  *p = build_tree_list (NULL_TREE, DECL_ARG_TYPE (parm));
-	  p = &TREE_CHAIN (*p);
-	}
-      *p = build_tree_list (NULL_TREE, void_type_node);
+	VEC_quick_push (tree, v, DECL_ARG_TYPE (parm));
+      VEC_quick_push (tree, v, void_type_node);
+
+      actual = vec_heap2parm_types (v);
+      VEC_free (tree, heap, v);
 
       /* We are going to assign a new value for the TYPE_ACTUAL_ARG_TYPES
 	 of the type of this function, but we need to avoid having this
