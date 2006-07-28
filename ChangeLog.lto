@@ -1,3 +1,7 @@
+2006-07-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/pt.c (tsubst_arg_types): Do not use recursion.
+
 2006-07-26  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (grokdeclarator): Use num_parm_types and

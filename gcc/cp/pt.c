@@ -6713,37 +6713,40 @@ tsubst_arg_types (tree arg_types,
 		  tsubst_flags_t complain,
 		  tree in_decl)
 {
-  tree remaining_arg_types;
-  tree type;
+  int len = num_parm_types (arg_types);
+  int i;
   tree result = NULL_TREE;
 
-  if (!arg_types || arg_types == void_list_node)
-    return arg_types;
-
-  remaining_arg_types = tsubst_arg_types (TREE_CHAIN (arg_types),
-					  args, complain, in_decl);
-  if (remaining_arg_types == error_mark_node)
-    return error_mark_node;
-
-  type = tsubst (TREE_VALUE (arg_types), args, complain, in_decl);
-  if (type == error_mark_node)
-    return error_mark_node;
-  if (VOID_TYPE_P (type))
+  for (i = len - 1; i >= 0; i--)
     {
-      if (complain & tf_error)
+      tree type = nth_parm_type (arg_types, i);
+
+      if (i == len - 1 && type == void_type_node)
 	{
-	  error ("invalid parameter type %qT", type);
-	  if (in_decl)
-	    error ("in declaration %q+D", in_decl);
+	  result = void_list_node;
+	  continue;
 	}
-      return error_mark_node;
+
+      type = tsubst (type, args, complain, in_decl);
+      if (type == error_mark_node)
+	return error_mark_node;
+      if (VOID_TYPE_P (type))
+	{
+	  if (complain & tf_error)
+	    {
+	      error ("invalid parameter type %qT", type);
+	      if (in_decl)
+		error ("in declaration %q+D", in_decl);
+	    }
+	  return error_mark_node;
+	}
+
+      /* Do array-to-pointer, function-to-pointer conversion, and
+	 ignore top-level qualifiers as required.  */
+      type = TYPE_MAIN_VARIANT (type_decays_to (type));
+
+      result = hash_tree_cons (NULL_TREE, type, result);
     }
-
-  /* Do array-to-pointer, function-to-pointer conversion, and ignore
-     top-level qualifiers as required.  */
-  type = TYPE_MAIN_VARIANT (type_decays_to (type));
-
-  result = hash_tree_cons (NULL_TREE, type, remaining_arg_types);
 
   return result;
 }
