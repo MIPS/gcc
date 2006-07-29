@@ -9460,13 +9460,12 @@ type_unification_real (tree fn,
 		       unification_kind_t strict,
 		       int flags)
 {
-  tree parm, arg;
   int i;
   int ntparms = TREE_VEC_LENGTH (tparms);
   int sub_strict;
   int saw_undeduced = 0;
-  tree parms, args;
   tree xparmdecls, parmdecls;
+  int parms_len, args_len, arity;
 
   gcc_assert (TREE_CODE (tparms) == TREE_VEC);
   gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_LIST);
@@ -9508,17 +9507,38 @@ type_unification_real (tree fn,
     }
 
  again:
-  parms = xparms;
-  args = xargs;
   parmdecls = xparmdecls;
 
-  while (parms && parms != void_list_node
-	 && args && args != void_list_node)
+  parms_len = num_parm_types (xparms);
+  args_len = num_parm_types (xargs);
+
+  {
+    int parms_arity = parms_len;
+    int args_arity = args_len;
+
+    if (args_len
+	&& nth_parm_type (xargs, args_len - 1) == void_type_node)
+      args_arity--;
+
+    if (parms_len
+	&& nth_parm_type (xparms, parms_len - 1) == void_type_node)
+      {
+	parms_arity--;
+
+	/* Fail if we have more args than parms, and the parm list
+	   isn't variadic.  */
+	if (parms_arity < args_arity)
+	  return 1;
+      }
+
+    arity = parms_arity < args_arity ? parms_arity : args_arity;
+  }
+
+  for (i = 0; i < arity; i++)
     {
-      parm = TREE_VALUE (parms);
-      parms = TREE_CHAIN (parms);
-      arg = TREE_VALUE (args);
-      args = TREE_CHAIN (args);
+      tree parm = nth_parm_type (xparms, i);
+      tree arg = nth_parm_type (xargs, i);
+
       if (parmdecls)
 	parmdecls = TREE_CHAIN (parmdecls);
 
@@ -9585,13 +9605,12 @@ type_unification_real (tree fn,
       }
     }
 
-  /* Fail if we've reached the end of the parm list, and more args
-     are present, and the parm list isn't variadic.  */
-  if (args && args != void_list_node && parms == void_list_node)
-    return 1;
   /* Fail if parms are left and they don't have default values.  */
-  if (parms && parms != void_list_node
-      && parmdecls && DECL_INITIAL (parmdecls) == NULL_TREE)
+  if (i < parms_len
+      && !(i + 1 == parms_len
+	   && nth_parm_type (xparms, i) == void_type_node)
+      && parmdecls
+      && DECL_INITIAL (parmdecls) == NULL_TREE)
     return 1;
 
   if (!subr)

@@ -1,7 +1,10 @@
 2006-07-29  Kazu Hirata  <kazu@codesourcery.com>
 
-	* config/i386/i386.c (x86_this_parameter): Use num_parm_types
+	* gcc/config/i386/i386.c (x86_this_parameter): Use num_parm_types
 	and nth_parm_type in x86_this_parameter.
+
+	* gcc/cp/pt.c (type_unification_real): Use num_parm_types and
+	nth_parm_type.
 
 2006-07-28  Kazu Hirata  <kazu@codesourcery.com>
 
