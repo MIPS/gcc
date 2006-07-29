@@ -17259,10 +17259,11 @@ x86_this_parameter (tree function)
   if (ix86_function_regparm (type, function) > 0)
     {
       tree arg_types = TYPE_ARG_TYPES (type);
+      int len = num_parm_types (arg_types);
 
       /* If the function does not have a variable number of arguments,
 	 then the this parameter is in the first argument.  */
-      if (arg_types && TREE_VALUE (tree_last (arg_types)) == void_type_node)
+      if (arg_types && nth_parm_type (arg_types, len - 1) == void_type_node)
 	{
 	  int regno = 0;
 	  if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
