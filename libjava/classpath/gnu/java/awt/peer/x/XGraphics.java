@@ -39,10 +39,13 @@ exception statement from your version. */
 package gnu.java.awt.peer.x;
 
 import gnu.x11.Colormap;
+import gnu.x11.Data;
+import gnu.x11.Display;
 import gnu.x11.Drawable;
 import gnu.x11.GC;
 import gnu.x11.Pixmap;
 import gnu.x11.Point;
+import gnu.x11.image.ZPixmap;
 
 import java.awt.AWTError;
 import java.awt.Color;
@@ -53,6 +56,8 @@ import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Toolkit;
+import java.awt.Transparency;
+import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
 import java.text.AttributedCharacterIterator;
@@ -99,6 +104,11 @@ public class XGraphics
    */
   private boolean disposed = false;
 
+  // TODO: Workaround for limitation in current Escher.
+  private Pixmap.Format pixmapFormat;
+  private int imageByteOrder;
+  private int pixelByteCount;
+  
   /**
    * Creates a new XGraphics on the specified X Drawable.
    *
@@ -111,6 +121,11 @@ public class XGraphics
     translateX = 0;
     translateY = 0;
     clip = new Rectangle(0, 0, d.width, d.height);
+
+    Display display = xdrawable.display;
+    pixmapFormat = display.default_pixmap_format;
+    imageByteOrder = display.image_byte_order;
+    pixelByteCount = pixmapFormat.bits_per_pixel () / 8;
   }
 
   /**
@@ -135,7 +150,6 @@ public class XGraphics
       {
         clip.x -= x;
         clip.y -= y;
-        setClip(clip);
       }
   }
 
@@ -256,7 +270,7 @@ public class XGraphics
         computeIntersection(x, y, width, height, clip);
       }
     // Update the X clip setting.
-    setClip(clip.x, clip.y, clip.width, clip.height);
+    setXClip(clip.x, clip.y, clip.width, clip.height);
   }
 
   /**
@@ -281,9 +295,19 @@ public class XGraphics
       }
     else
       {
-        hit = clip.intersects(x, y, w, h);
+        // It's easier to determine if the rectangle lies outside the clip,
+        // so we determine that and reverse the result (if it's not completely
+        // outside, it most likely hits the clip rectangle).
+        int x2 = x + w;
+        int y2 = y + h;
+        int clipX2 = clip.x + clip.width;
+        int clipY2 = clip.y + clip.height;
+        boolean outside = (x < clip.x && x2 < clip.x)     // Left.
+                          || (x > clipX2  && x2 > clipX2) // Right.
+                          || (y < clip.y && y2 < clip.y)  // Top.
+                          || (y > clipY2 && y2 > clipY2); // Bottom.
+        hit = ! outside;
       }
-    //System.err.println("hitClip:  " + hit);
     return hit;
   }
 
@@ -293,10 +317,23 @@ public class XGraphics
       clip.setBounds(x, y, width, height);
     else
       clip = new Rectangle(x, y, width, height);
+    setXClip(clip.x, clip.y, clip.width, clip.height);
+  }
 
+  /**
+   * Sets the clip on the X server GC. The coordinates are not yet translated,
+   * this will be performed by the X server.
+   *
+   * @param x the clip, X coordinate
+   * @param y the clip, Y coordinate
+   * @param w the clip, width
+   * @param h the clip, height
+   */
+  private void setXClip(int x, int y, int w, int h)
+  {
     gnu.x11.Rectangle[] clipRects = new gnu.x11.Rectangle[] {
-                                  new gnu.x11.Rectangle(x, y, width, height) };
-    xgc.set_clip_rectangles(translateX, translateY, clipRects, GC.UN_SORTED);
+                                  new gnu.x11.Rectangle(x, y, w, h) };
+    xgc.set_clip_rectangles(translateX, translateY, clipRects, GC.YX_BANDED);
   }
 
   public Shape getClip()
@@ -308,34 +345,43 @@ public class XGraphics
   /**
    * Sets the current clip.
    *
-   * @param clip the clip to set
+   * @param c the clip to set
    */
-  public void setClip(Shape clip)
+  public void setClip(Shape c)
   {
-    if (clip != null)
+    if (c != null)
       {
         Rectangle b;
-        if (clip instanceof Rectangle)
+        if (c instanceof Rectangle)
           {
-            b = (Rectangle) clip;
+            b = (Rectangle) c;
           }
         else
           {
-            b = clip.getBounds();
+            b = c.getBounds();
           }
-        setClip(b.x, b.y, b.width, b.height);
+        clip.setBounds(b);
+        setXClip(b.x, b.y, b.width, b.height);
       }
     else
       {
-        setClip(0, 0, xdrawable.width, xdrawable.height);
+        clip.setBounds(0, 0, xdrawable.width, xdrawable.height);
+        setXClip(0, 0, xdrawable.width, xdrawable.height);
       }
   }
 
   public void copyArea(int x, int y, int width, int height, int dx, int dy)
   {
-    int srcX = x + translateX;
-    int srcY = y + translateY;
-    xdrawable.copy_area(xdrawable, xgc, srcX, srcY, width, height,
+    // Clip and translate src rectangle.
+    int srcX = Math.min(Math.max(x, clip.x), clip.x + clip.width)
+               + translateX;
+    int srcY = Math.min(Math.max(y, clip.y), clip.y + clip.height)
+               + translateY;
+    int srcWidth = Math.min(Math.max(x + width, clip.x),
+                            clip.x + clip.width) - x;
+    int srcHeight = Math.min(Math.max(y + height, clip.y),
+                            clip.y + clip.height) - y;
+    xdrawable.copy_area(xdrawable, xgc, srcX, srcY, srcWidth, srcHeight,
                         srcX + dx, srcY + dy);
   }
 
@@ -499,32 +545,51 @@ public class XGraphics
         xdrawable.copy_area(pm, xgc, 0, 0, pm.width, pm.height,
                             x + translateX, y + translateY);
       }
-//    else if (image instanceof BufferedImage)
-//      {
-//        BufferedImage bufferedImage = (BufferedImage) image;
-//        Raster raster = bufferedImage.getData();
-//        int w = bufferedImage.getWidth();
-//        int h = bufferedImage.getHeight();
-//        // Push data to X server.
-//        ZPixmap zPixmap = new ZPixmap(xdrawable.display, w, h,
-//                                      xdrawable.display.default_pixmap_format);
-//        System.err.println("data buffer length: " + zPixmap.data.length);
-//        int[] pixel = new int[4];
-//        for (int tx = 0; tx < w; tx++)
-//          {
-//            for (int ty = 0; ty < h; ty++)
-//              {
-//                pixel = raster.getPixel(tx, ty, pixel);
-////                System.err.print("r: " + pixel[0]);
-////                System.err.print(", g: " + pixel[1]);
-////                System.err.println(", b: " + pixel[2]);
-//                zPixmap.set_red(tx, ty, pixel[0]);
-//                zPixmap.set_green(tx, ty, pixel[1]);
-//                zPixmap.set_blue(tx, ty, pixel[2]);
-//              }
-//          }
-//        xdrawable.put_image(xgc, zPixmap, x, y);
-//      }
+    else if (image instanceof BufferedImage
+        && ((BufferedImage) image).getTransparency() != Transparency.OPAQUE)
+      {
+        BufferedImage bi = (BufferedImage) image;
+        int width = bi.getWidth();
+        int height = bi.getHeight();
+        Data img = xdrawable.image(x + translateX, y + translateY,
+                                   width, height, 0xFFFFFFFF, 2);
+
+        // Compute line byte count.
+        int lineBitCount = width * pixmapFormat.bits_per_pixel ();
+        int rem = lineBitCount % pixmapFormat.scanline_pad ();
+        int linePadCount = lineBitCount / pixmapFormat.scanline_pad ()
+                             + (rem == 0 ? 0 : 1);
+        int lineByteCount = linePadCount * pixmapFormat.scanline_pad () / 8;
+
+        // Composite source and destination pixel data.
+        int[] trgb = new int[3]; // The device rgb pixels.
+        for (int yy = 0; yy < height; yy++)
+          {
+            for (int xx = 0; xx < width; xx++)
+              {
+                getRGB(xx, yy, img, trgb, lineByteCount);
+                int srgb = bi.getRGB(xx, yy);
+                float alpha = ((srgb >> 24) & 0xff) / 256F;
+                float tAlpha = 1.F - alpha;
+                int red = (srgb >> 16) & 0xFF;
+                int green = (srgb >> 8) & 0xFF;
+                int blue = (srgb) & 0xFF;
+                trgb[0] = (int) (trgb[0] * tAlpha + red * alpha);
+                trgb[1] = (int) (trgb[1] * tAlpha + green * alpha);
+                trgb[2] = (int) (trgb[2] * tAlpha + blue * alpha);
+                setRGB(xx, yy, img, trgb, lineByteCount);
+              }
+          }
+
+        // Now we have the transparent image composited onto the target
+        // Image, now we only must copy it to the Drawable.
+        ZPixmap pm = new ZPixmap(xdrawable.display);
+        pm.width = width;
+        pm.height = height;
+        pm.init();
+        System.arraycopy(img.data, 32, pm.data, 0, img.data.length - 32);
+        xdrawable.put_image(xgc, pm, x + translateX, y + translateY);
+      }
     else
       {
         // Pre-render the image into an XImage.
@@ -537,6 +602,59 @@ public class XGraphics
                             x + translateX, y + translateY);
       }
     return true;
+  }
+
+  /**
+   * Helper method to work around limitation in the current Escher impl.
+   *
+   * @param x the x position
+   * @param y the y position
+   * @param img the image data
+   * @param rgb an 3-size array that holds the rgb values on method exit
+   */
+  private void getRGB(int x, int y, Data img, int[] rgb, int lineByteCount)
+  {
+    // TODO: Does this also work on non-RGB devices?
+    int i = y * lineByteCount + pixelByteCount * x;
+    if (imageByteOrder == gnu.x11.image.Image.LSB_FIRST)
+      {//if (i >= 5716-33) System.err.println("lbc: " + lineByteCount + ", " + pixelByteCount);
+        rgb[2] = img.data[32 + i];
+        rgb[1] = img.data[32 + i + 1];
+        rgb[0] = img.data[32 + i + 2];
+      }
+    else
+      {                    // MSB_FIRST
+        rgb[0] = img.data[32 + i];
+        rgb[1] = img.data[32 + i + 1];
+        rgb[2] = img.data[32 + i + 2];
+      }
+
+  }
+
+  /**
+   * Helper method to work around limitation in the current Escher impl.
+   *
+   * @param x the x position
+   * @param y the y position
+   * @param img the image data
+   * @param rgb an 3-size array that holds the rgb values on method exit
+   */
+  private void setRGB(int x, int y, Data img, int[] rgb, int lineByteCount)
+  {
+    // TODO: Does this also work on non-RGB devices?
+    int i = y * lineByteCount + pixelByteCount * x;
+    if (imageByteOrder == gnu.x11.image.Image.LSB_FIRST)
+      {
+        img.data[32 + i] = (byte) rgb[2];
+        img.data[32 + i + 1] = (byte) rgb[1];
+        img.data[32 + i + 2] = (byte) rgb[0];
+      }
+    else
+      {                    // MSB_FIRST
+        img.data[32 + i] = (byte) rgb[0];
+        img.data[32 + i + 1] = (byte) rgb[1];
+        img.data[32 + i + 2] = (byte) rgb[2];
+      }
   }
 
   public boolean drawImage(Image image, int x, int y, int width, int height,
@@ -606,10 +724,10 @@ public class XGraphics
    */
   public void dispose()
   {
-    xdrawable.display.flush();
     if (! disposed)
       {
         xgc.free();
+        xdrawable.display.flush();
         disposed = true;
       }
   }
@@ -625,18 +743,18 @@ public class XGraphics
       {
         XGraphics copy = (XGraphics) super.clone();
         copy.xgc = xgc.copy();
-
-        // Save the original clip.
         if (clip != null)
-          copy.clip = new Rectangle(clip);
+          {
+            copy.clip = new Rectangle(clip);
+            copy.setXClip(clip.x, clip.y, clip.width, clip.height);
+          }
         return copy;
       }
     catch (CloneNotSupportedException ex)
       {
-        AWTError err = new AWTError("Error while cloning XGraphics");
-        err.initCause(ex);
-        throw err;
+        assert false;
       }
+    return null;
   }
   
   /**
