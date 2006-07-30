@@ -1434,6 +1434,38 @@ get_init_expr (chain_p chain, unsigned index)
     return VEC_index (tree, chain->inits, index);
 }
 
+/* Marks all virtual operands of statement STMT for renaming.  */
+
+static void
+mark_virtual_ops_for_renaming (tree stmt)
+{
+  ssa_op_iter iter;
+  tree var;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
+
+  update_stmt (stmt);
+
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
+    {
+      if (TREE_CODE (var) == SSA_NAME)
+	var = SSA_NAME_VAR (var);
+      mark_sym_for_renaming (var);
+    }
+}
+
+/* Calls mark_virtual_ops_for_renaming for all members of LIST.  */
+
+static void
+mark_virtual_ops_for_renaming_list (tree list)
+{
+  tree_stmt_iterator tsi;
+
+  for (tsi = tsi_start (list); !tsi_end_p (tsi); tsi_next (&tsi))
+    mark_virtual_ops_for_renaming (tsi_stmt (tsi));
+}
+
 /* Creates the variables for CHAIN, as well as phi nodes for them and
    initialization on entry to LOOP.  Uids of the newly created
    temporary variables are marked in TMP_VARS.  */
@@ -1481,7 +1513,10 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
 
       init = force_gimple_operand (init, &stmts, true, NULL_TREE);
       if (stmts)
-	bsi_insert_on_edge_immediate_loop (entry, stmts);
+	{
+	  mark_virtual_ops_for_renaming_list (stmts);
+	  bsi_insert_on_edge_immediate_loop (entry, stmts);
+	}
 
       phi = create_phi_node (var, loop->header);
       SSA_NAME_DEF_STMT (var) = phi;
@@ -1543,7 +1578,10 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
       
   init = force_gimple_operand (init, &stmts, written, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate_loop (entry, stmts);
+    {
+      mark_virtual_ops_for_renaming_list (stmts);
+      bsi_insert_on_edge_immediate_loop (entry, stmts);
+    }
 
   if (written)
     {
@@ -1557,26 +1595,11 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     {
       init = build2 (MODIFY_EXPR, void_type_node, var, init);
       SSA_NAME_DEF_STMT (var) = init;
+      mark_virtual_ops_for_renaming (init);
       bsi_insert_on_edge_immediate_loop (entry, init);
     }
 }
 
-/* Marks all virtual operands of statement STMT for renaming.  */
-
-static void
-mark_virtual_ops_for_renaming (tree stmt)
-{
-  ssa_op_iter iter;
-  tree var;
-
-  if (TREE_CODE (stmt) == PHI_NODE)
-    return;
-
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      mark_sym_for_renaming (SSA_NAME_VAR (var));
-    }
-}
 
 /* Execute load motion for references in chain CHAIN.  Uids of the newly
    created temporary variables are marked in TMP_VARS.  */
@@ -1790,6 +1813,8 @@ execute_pred_commoning (struct loop *loop, VEC (chain_p, heap) *chains,
       else
 	execute_pred_commoning_chain (loop, chain, tmp_vars);
     }
+  
+  update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 /* Returns true if we can and should unroll LOOP FACTOR times.  Number
@@ -2305,6 +2330,33 @@ try_combine_chains (VEC (chain_p, heap) **chains)
     }
 }
 
+/* Sets alias information based on data reference DR for REF,
+   if necessary.  */
+
+static void
+set_alias_info (tree ref, struct data_reference *dr)
+{
+  tree var;
+  tree tag = DR_MEMTAG (dr);
+
+  gcc_assert (tag != NULL_TREE);
+
+  ref = get_base_address (ref);
+  if (!ref || !INDIRECT_REF_P (ref))
+    return;
+
+  var = SSA_NAME_VAR (TREE_OPERAND (ref, 0));
+  if (var_ann (var)->symbol_mem_tag)
+    return;
+
+  if (!MTAG_P (tag))
+    new_type_alias (var, tag);
+  else
+    var_ann (var)->symbol_mem_tag = tag;
+
+  var_ann (var)->subvars = DR_SUBVARS (dr);
+}
+
 /* Prepare initializers for CHAIN in LOOP.  Returns false if this is
    impossible because one of these initializers may trap, true otherwise.  */
 
@@ -2312,7 +2364,8 @@ static bool
 prepare_initializers_chain (struct loop *loop, chain_p chain)
 {
   unsigned i, n = (chain->type == CT_INVARIANT) ? 1 : chain->length;
-  tree init, ref = DR_REF (get_chain_root (chain)->ref);
+  struct data_reference *data_ref = get_chain_root (chain)->ref;
+  tree init, ref = DR_REF (data_ref), stmts;
   dref laref;
   edge entry = loop_preheader_edge (loop);
 
@@ -2341,8 +2394,18 @@ prepare_initializers_chain (struct loop *loop, chain_p chain)
 
       init = unshare_expr (ref);
       ref_at_iteration (loop, init, (int) i - n);
+      
       if (!chain->all_always_executed && tree_could_trap_p (init))
 	return false;
+
+      init = force_gimple_operand (init, &stmts, false, NULL_TREE);
+      if (stmts)
+	{
+	  mark_virtual_ops_for_renaming_list (stmts);
+	  bsi_insert_on_edge_immediate_loop (entry, stmts);
+	}
+      set_alias_info (init, data_ref);
+
       VEC_replace (tree, chain->inits, i, init);
     }
 
@@ -2438,6 +2501,8 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
+      
+      update_ssa (TODO_update_ssa_only_virtuals);
       tree_unroll_loop_prepare (loops, loop, unroll_factor, &exit, &desc);
     }
 
@@ -2446,7 +2511,6 @@ tree_predictive_commoning_loop (struct loops *loops, struct loop *loop)
   execute_pred_commoning (loop, chains, tmp_vars);
   if (unroll)
     {
-      update_ssa (TODO_update_ssa_only_virtuals);
       tree_unroll_loop_finish (loops, loop, unroll_factor, exit);
       eliminate_temp_copies (loop, tmp_vars);
     }

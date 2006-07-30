@@ -1,3 +1,16 @@
+2006-07-30  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-predcom.c (mark_virtual_ops_for_renaming): Update the operands
+	of the statement.
+	(mark_virtual_ops_for_renaming_list): New function.
+	(initialize_root_vars, initialize_root_vars_lm): Mark the virtual
+	operands of initializers.
+	(execute_pred_commoning, tree_predictive_commoning_loop): Update ssa
+	form.
+	(set_alias_info): New function.
+	(prepare_initializers_chain): Set up the alias info for the
+	initializers.
+
 2006-06-26  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-predcom.c (looparound_phis): New variable.
