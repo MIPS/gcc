@@ -719,7 +719,7 @@ adjust_field_tree_exp (type_p t, options_p opt ATTRIBUTE_UNUSED)
 
   flds = create_field (NULL, t, "");
   flds->opt = create_option (nodot, "length",
-			     "TREE_CODE_LENGTH (TREE_CODE ((tree) &%0))");
+			     "TREE_OPERAND_LENGTH ((tree) &%0)");
   flds->opt = create_option (flds->opt, "default", "");
 
   return new_structure ("tree_exp_subunion", 1, &lexer_line, flds, nodot);

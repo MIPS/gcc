@@ -799,7 +799,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   tree operation = TREE_OPERAND (stmt, 1);
   int op_type;
   
-  op_type = TREE_CODE_LENGTH (TREE_CODE (operation));
+  op_type = TREE_OPERAND_LENGTH (operation);
   reduction_op = TREE_OPERAND (operation, op_type-1);
   vectype = get_vectype_for_scalar_type (TREE_TYPE (reduction_op));
   mode = TYPE_MODE (vectype);
@@ -1197,7 +1197,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   operation = TREE_OPERAND (stmt, 1);
   code = TREE_CODE (operation);
-  op_type = TREE_CODE_LENGTH (code);
+  op_type = TREE_OPERAND_LENGTH (operation);
 
   if (op_type != binary_op && op_type != ternary_op)
     return false;
@@ -1520,7 +1520,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   optab = optab_for_tree_code (code, vectype);
 
   /* Support only unary or binary operations.  */
-  op_type = TREE_CODE_LENGTH (code);
+  op_type = TREE_OPERAND_LENGTH (operation);
   if (op_type != unary_op && op_type != binary_op)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -1982,7 +1982,6 @@ vectorizable_live_operation (tree stmt,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   int i;
-  enum tree_code code;
   int op_type;
   tree op;
   tree def, def_stmt;
@@ -1998,9 +1997,7 @@ vectorizable_live_operation (tree stmt,
     return false;
 
   operation = TREE_OPERAND (stmt, 1);
-  code = TREE_CODE (operation);
-
-  op_type = TREE_CODE_LENGTH (code);
+  op_type = TREE_OPERAND_LENGTH (operation);
 
   /* FORNOW: support only if all uses are invariant. This means
      that the scalar operations can remain in place, unvectorized.

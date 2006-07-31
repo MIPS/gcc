@@ -64,6 +64,8 @@ enum tree_code_class {
   tcc_binary,      /* A binary arithmetic expression.  */
   tcc_statement,   /* A statement expression, which have side effects
 		      but usually no interesting value.  */
+  tcc_vl_exp,      /* A function call or other expression with a
+		      variable-length operand vector.  */
   tcc_expression   /* Any other expression.  */
 };
 
@@ -146,6 +148,12 @@ extern const enum tree_code_class tree_code_type[];
 
 #define STATEMENT_CLASS_P(CODE)\
 	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_statement)
+
+/* Nonzero if CODE represents a function call-like expression with a
+   variable-length operand vector.  */
+
+#define VL_EXP_CLASS_P(CODE)\
+	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_vl_exp)
 
 /* Nonzero if CODE represents any other expression.  */
 
@@ -746,8 +754,8 @@ enum tree_node_structure_enum {
 #define TREE_OPERAND_CHECK(T, I) __extension__				\
 (*({const tree __t = EXPR_CHECK (T);					\
     const int __i = (I);						\
-    if (__i < 0 || __i >= TREE_CODE_LENGTH (TREE_CODE (__t)))		\
-      tree_operand_check_failed (__i, TREE_CODE (__t),			\
+    if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))				\
+      tree_operand_check_failed (__i, __t,			\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
@@ -756,8 +764,8 @@ enum tree_node_structure_enum {
     const int __i = (I);						\
     if (TREE_CODE (__t) != CODE)					\
       tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, (CODE), 0);\
-    if (__i < 0 || __i >= TREE_CODE_LENGTH (CODE))			\
-      tree_operand_check_failed (__i, (CODE),				\
+    if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))				\
+      tree_operand_check_failed (__i, __t,				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
@@ -768,7 +776,7 @@ enum tree_node_structure_enum {
     if (TREE_CODE (__t) != (CODE))					\
       tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, (CODE), 0); \
     if (__i < 0 || __i >= TREE_CODE_LENGTH ((CODE)))			\
-      tree_operand_check_failed (__i, (CODE),				\
+      tree_operand_check_failed (__i, __t,				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
@@ -797,7 +805,7 @@ extern void tree_vec_elt_check_failed (int, int, const char *,
 extern void phi_node_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
-extern void tree_operand_check_failed (int, enum tree_code,
+extern void tree_operand_check_failed (int, tree,
 				       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
 extern void omp_clause_check_failed (const tree, const char *, int,
@@ -852,6 +860,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define DECL_NON_COMMON_CHECK(T) CONTAINS_STRUCT_CHECK (T, TS_DECL_NON_COMMON)
 #define CST_CHECK(T)		TREE_CLASS_CHECK (T, tcc_constant)
 #define STMT_CHECK(T)		TREE_CLASS_CHECK (T, tcc_statement)
+#define VL_EXP_CHECK(T)		TREE_CLASS_CHECK (T, tcc_vl_exp)
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
@@ -1404,6 +1413,7 @@ struct tree_constructor GTY(())
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
 /* In ordinary expression nodes.  */
+#define TREE_OPERAND_LENGTH(NODE) TREE_CODE_LENGTH (TREE_CODE (NODE))
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
@@ -1534,14 +1544,10 @@ struct tree_constructor GTY(())
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
 /* CALL_EXPR accessors.
- * FIXME: Re-enable type checking.  It's temporarily disabled because
- * CALL_EXPR-like things in the Java and C front ends also use these macros.
- * It should check for belonging to the class of CALL_EXPR-like things
- * instead of just CALL_EXPR.
  */
-#define CALL_EXPR_FN(NODE) TREE_OPERAND ((NODE), 0)
-#define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND ((NODE), 2)
-#define CALL_EXPR_ARGS(NODE) TREE_OPERAND ((NODE), 1)
+#define CALL_EXPR_FN(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 0)
+#define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 2)
+#define CALL_EXPR_ARGS(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 1)
 #define CALL_EXPR_ARG0(NODE) TREE_VALUE (CALL_EXPR_ARGS (NODE))
 #define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
 #define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))

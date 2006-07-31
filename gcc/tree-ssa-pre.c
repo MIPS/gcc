@@ -1059,6 +1059,9 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_expression:
+      return NULL;
+
+    case tcc_vl_exp:
       {
 	if (TREE_CODE (expr) != CALL_EXPR)
 	  return NULL;
@@ -1549,6 +1552,9 @@ valid_in_set (value_set_t set, tree expr, basic_block block)
       }
       
     case tcc_expression:
+      return false;
+
+    case tcc_vl_exp:
       {
 	if (TREE_CODE (expr) == CALL_EXPR)
 	  {
@@ -2310,7 +2316,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
-    case tcc_expression:
+    case tcc_vl_exp:
       {
 	tree fn, sc;
 	tree genfn, gensc;
@@ -2868,6 +2874,7 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
 	      || TREE_CODE_CLASS (code) == tcc_comparison
 	      || TREE_CODE_CLASS (code) == tcc_reference
 	      || TREE_CODE_CLASS (code) == tcc_expression
+	      || TREE_CODE_CLASS (code) == tcc_vl_exp
 	      || TREE_CODE_CLASS (code) == tcc_exceptional
 	      || TREE_CODE_CLASS (code) == tcc_declaration);
 
@@ -2936,7 +2943,7 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
       return vexpr;
     }
 
-  for (i = 0; i < TREE_CODE_LENGTH (code); i++)
+  for (i = 0; i < TREE_OPERAND_LENGTH (expr); i++)
     {
       tree val, op;
       

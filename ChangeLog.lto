@@ -1,3 +1,97 @@
+2006-07-31  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.h (enum tree_code_class): Add tcc_vl_exp, to represent
+	CALL_EXPR and similar lang-specific constructs with a variable-length
+	operand vector.
+	(VL_EXP_CLASS_P): New.
+	(TREE_OPERAND_CHECK, TREE_OPERAND_CHECK_CODE, TREE_RTL_OPERAND_CHECK):
+	Use TREE_OPERAND_LENGTH.
+	(VL_EXP_CHECK): New.
+	(TREE_OPERAND_LENGTH): New.  This should be used in preference to
+	TREE_CODE_LENGTH except when we're explicitly dealing with objects
+	whose size is fixed by their tree code.
+	(CALL_EXPR_FN, CALL_EXPR_STATIC_CHAIN, CALL_EXPR_ARGS): Add type
+	checking with VL_EXP_CHECK.
+	* gcc/tree.def (CALL_EXPR): Change class to tcc_vl_exp.
+	* gcc/tree.c (tree_code_class_string): Add tcc_vl_exp.
+	(tree_code_size): Add case for tcc_vl_exp.
+	(tree_size): Likewise.
+	(make_node_stat): Likewise.
+	(tree_node_structure): Likewise.
+	(contains_placeholder_p): Likewise.
+	(substitute_in_expr): Likewise.
+	(substitute_placeholder_in_expr): Likewise.
+	(stabilize_reference_1): Likewise.
+	(iterative_hash_expr): Use TREE_OPERAND_LENGTH.
+	(tree_operand_check_failed): Pass tree of offending expression
+	instead of its code, and use TREE_OPERAND_LENGTH on it instead
+	of TREE_CODE_LENGTH.  Changed declaration and all callers in 
+	tree.h as well.
+	(walk_tree): Use TREE_OPERAND_LENGTH.
+
+	* gcc/tree-ssa-loop-im.c (outermost_invariant_loop_expr):
+	Add case for tcc_vl_exp and use TREE_OPERAND_LENGTH.
+	(force_move_till_expr): Likewise.
+	* gcc/tree-ssa-loop-ivopts.c (expr_invariant_in_loop_p): Likewise.
+	* gcc/tree-ssa-loop-niter.c (simplify_replace_tree): Likewise.
+	(expand_simple_operations): Likewise.
+	* gcc/tree-ssa-pre.c (phi_translate): Likewise.
+	(valid_in_set): Likewise.
+	(create_expression_by_pieces): Likewise.
+	(create_value_expr_from): Likewise.
+	* gcc/tree-ssa-structalias.c (get_constraint_for): Likewise.
+	(find_func_alises): Likewise.
+	* gcc/tree-ssa-reassoc.c (get_rank): Likewise.
+	* gcc/tree-pretty-print.c (do_niy): Likewise.
+	* gcc/gengtype.c (adjust_field_tree_exp): Likewise.
+	* gcc/optabs.c (expand_widen_pattern_expr): Likewise.
+	* gcc/expr.c (safe_from_p): Likewise.
+	* gcc/fold-const.c (operand_equal_p): Likewise.
+	(make_range): Likewise.
+	(extract_muldiv_1): Likewise.
+	* gcc/ipa-pure-const.c (scan_function): Likewise.
+	* gcc/ipa-reference.c (scan_for_static_refs): Likewise.
+	* gcc/ipa-type-escape.c (scan_for_refs): Likewise.
+	* gcc/tree-gimple.c (recalculate_side_effects): Likewise.
+	* gcc/tree-vectorizer.c (vect_is_simple_reduction): Likewise.
+	* gcc/print-tree.c (print_node): Likewise.
+	* gcc/tree-vect-transform.c (vect_create_epilog_for-reduction):
+	Likewise.
+	(vectorizable_reduction): Likewise.
+	(vectorizable_live_operation): Likewise.
+	* gcc/c-common.c (verify_tree): Likewise.
+	* gcc/stmt.c (warn_if_unused_value): Likewise.
+
+	* gcc/tree-browser.c (store_child_info): Use TREE_OPERAND_LENGTH
+	and generalize switch to loop over operands.
+	(TB_parent_eq): Likewise.
+	* gcc/tree-chrec.c (chrec_contains_symbols): Likewise.
+	(chrec_contains_undetermined): Likewise.
+	(tree_contains_chrecs): Likewise.
+	(evolution_function_is_invariant_rec_p): Likewise.
+	* gcc/tree-scalar-evolution.c (chrec_contains_symbols_defined_in_loop):
+	Likewise.
+	(instantiate_parameters_1): Assert failure for case not handled
+	by this code.
+	* gcc/c-semantics.c (build_stmt): Add assertion to trap case
+	not handled by this code.
+
+	* gcc/cp/cp-tree.def (AGGR_INIT_EXPR): Change class to tcc_vl_exp.
+	* gcc/cp/tree.c (cp_tree_equal): Add tcc_vl_exp.  Use
+	TREE_OPERAND_LENGTH instead of TREE_CODE_LENGTH.
+	* gcc/cp/mangle.c (write_expression): Likewise.
+	* gcc/cp/pt.c (value_dependent_expression_p): Likewise.
+	* gcc/cp/parse.y (find_expr_with_wfl): Likewise.
+
+	* gcc/java/java-tree.def (NEW_CLASS_EXPR): Change class to tcc_vl_exp.
+
+	* gcc/config/sparc/sparc.c (sparc_gimplify_va_arg):
+	Use build_call_expr.
+	* gcc/config/i386/i386.c (ix86_function_ok_for_sibcall):
+	Use new CALL_EXPR accessors.
+	* gcc/config/rs6000/rs6000-c.c (altivec_build_resolved_builtin):
+	Use build_call_expr.
+
 2006-07-29  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/config/i386/i386.c (x86_this_parameter): Use num_parm_types

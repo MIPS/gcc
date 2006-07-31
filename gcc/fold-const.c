@@ -2691,6 +2691,13 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
 				      TREE_OPERAND (arg1, 0), flags));
 
+	default:
+	  return 0;
+	}
+
+    case tcc_vl_exp:
+      switch (TREE_CODE (arg0))
+	{
 	case CALL_EXPR:
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
@@ -2724,8 +2731,6 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 	       then the CALL_EXPRs are equal.  */
 	    return ! (a0 || a1);
 	  }
-
-
 	default:
 	  return 0;
 	}
@@ -3773,7 +3778,7 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh)
 
       if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
 	{
-	  if (TREE_CODE_LENGTH (code) > 0)
+	  if (TREE_OPERAND_LENGTH (exp) > 0)
 	    arg0 = TREE_OPERAND (exp, 0);
 	  if (TREE_CODE_CLASS (code) == tcc_comparison
 	      || TREE_CODE_CLASS (code) == tcc_unary
@@ -3782,7 +3787,7 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh)
 	  if (TREE_CODE_CLASS (code) == tcc_binary
 	      || TREE_CODE_CLASS (code) == tcc_comparison
 	      || (TREE_CODE_CLASS (code) == tcc_expression
-		  && TREE_CODE_LENGTH (code) > 1))
+		  && TREE_OPERAND_LENGTH (exp) > 1))
 	    arg1 = TREE_OPERAND (exp, 1);
 	}
 
@@ -5395,6 +5400,7 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type)
       if ((COMPARISON_CLASS_P (op0)
 	   || UNARY_CLASS_P (op0)
 	   || BINARY_CLASS_P (op0)
+	   || VL_EXP_CLASS_P (op0)
 	   || EXPRESSION_CLASS_P (op0))
 	  /* ... and is unsigned, and its type is smaller than ctype,
 	     then we cannot pass through as widening.  */
@@ -11379,7 +11385,8 @@ recursive_label:
     case tcc_unary:
     case tcc_binary:
     case tcc_statement:
-      len = TREE_CODE_LENGTH (code);
+    case tcc_vl_exp:
+      len = TREE_OPERAND_LENGTH (expr);
       for (i = 0; i < len; ++i)
 	fold_checksum_tree (TREE_OPERAND (expr, i), ctx, ht);
       break;

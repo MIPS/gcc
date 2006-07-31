@@ -12537,9 +12537,10 @@ value_dependent_expression_p (tree expression)
 		      (TREE_OPERAND (expression, 1))));
 
 	case tcc_expression:
+	case tcc_vl_exp:
 	  {
 	    int i;
-	    for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expression)); ++i)
+	    for (i = 0; i < TREE_OPERAND_LENGTH (expression); ++i)
 	      /* In some cases, some of the operands may be missing.
 		 (For example, in the case of PREDECREMENT_EXPR, the
 		 amount to increment by may be missing.)  That doesn't

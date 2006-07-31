@@ -1261,7 +1261,14 @@ scan_for_refs (tree *tp, int *walk_subtrees, void *data)
 		look_for_casts (lhs, TREE_OPERAND (rhs, 0));
 		check_rhs_var (rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs))
+	      {
+	      case CALL_EXPR:
 		/* If this is a call to malloc, squirrel away the
 		   result so we do mark the resulting cast as being
 		   bad.  */

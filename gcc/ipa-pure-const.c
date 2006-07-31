@@ -436,7 +436,14 @@ scan_function (tree *tp,
 	      case ADDR_EXPR:
 		check_rhs_var (local, rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs)) 
+	      {
+	      case CALL_EXPR:
 		check_call (local, rhs);
 		break;
 	      default:

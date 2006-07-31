@@ -1278,6 +1278,7 @@ break_out_target_exprs (tree t)
 
 /* Similar to `build_nt', but for template definitions of dependent
    expressions  */
+/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min_nt (enum tree_code code, ...)
@@ -1303,6 +1304,7 @@ build_min_nt (enum tree_code code, ...)
 }
 
 /* Similar to `build', but for template definitions.  */
+/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min (enum tree_code code, tree tt, ...)
@@ -1333,6 +1335,7 @@ build_min (enum tree_code code, tree tt, ...)
 /* Similar to `build', but for template definitions of non-dependent
    expressions. NON_DEP is the non-dependent expression that has been
    built.  */
+/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min_non_dep (enum tree_code code, tree non_dep, ...)
@@ -1586,12 +1589,18 @@ cp_tree_equal (tree t1, tree t2)
     case tcc_binary:
     case tcc_comparison:
     case tcc_expression:
+    case tcc_vl_exp:
     case tcc_reference:
     case tcc_statement:
       {
-	int i;
+	int i, n;
 
-	for (i = 0; i < TREE_CODE_LENGTH (code1); ++i)
+	n = TREE_OPERAND_LENGTH (t1);
+	if (TREE_CODE_CLASS (code1) == tcc_vl_exp
+	    && n != TREE_OPERAND_LENGTH (t2))
+	  return false;
+
+	for (i = 0; i < n; ++i)
 	  if (!cp_tree_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i)))
 	    return false;
 

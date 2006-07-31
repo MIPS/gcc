@@ -3254,7 +3254,7 @@ find_expr_with_wfl (tree node)
 	default:
 	  code = TREE_CODE_CLASS (TREE_CODE (node));
 	  if (((code == tcc_unary) || (code == tcc_binary)
-	       || (code == tcc_expression))
+	       || (code == tcc_expression) || (code == tcc_vl_exp))
 	      && EXPR_WFL_LINECOL (node))
 	    return node;
 	  return NULL_TREE;

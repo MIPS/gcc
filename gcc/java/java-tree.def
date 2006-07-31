@@ -36,7 +36,7 @@ DEFTREECODE (NEW_ANONYMOUS_ARRAY_EXPR, "new_anonymous_array",
    There is no operand 2.  That slot is used for the
    CALL_EXPR_RTL macro (see preexpand_calls).
    The type should be the one of the created class.  */
-DEFTREECODE (NEW_CLASS_EXPR, "new_class_expr", tcc_expression, 3)
+DEFTREECODE (NEW_CLASS_EXPR, "new_class_expr", tcc_vl_exp, 3)
 
 /* Defines `this' as an expression.  */
 DEFTREECODE (THIS_EXPR, "this", tcc_expression, 0)

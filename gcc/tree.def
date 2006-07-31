@@ -526,7 +526,7 @@ DEFTREECODE (BIND_EXPR, "bind_expr", tcc_expression, 3)
    Operand 1 is the argument list, a list of expressions
    made out of a chain of TREE_LIST nodes.
    Operand 2 is the static chain argument, or NULL.  */
-DEFTREECODE (CALL_EXPR, "call_expr", tcc_expression, 3)
+DEFTREECODE (CALL_EXPR, "call_expr", tcc_vl_exp, 3)
 
 /* Specify a value to compute along with its corresponding cleanup.
    Operand 0 is the cleanup expression.

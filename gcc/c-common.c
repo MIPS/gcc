@@ -1492,7 +1492,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
       else if (IS_EXPR_CODE_CLASS (cl))
 	{
 	  int lp;
-	  int max = TREE_CODE_LENGTH (TREE_CODE (x));
+	  int max = TREE_OPERAND_LENGTH (x);
 	  for (lp = 0; lp < max; lp++)
 	    {
 	      tmp_before = tmp_nosp = 0;

@@ -687,7 +687,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
   if (!EXPR_P (expr))
     return expr;
 
-  n = TREE_CODE_LENGTH (TREE_CODE (expr));
+  n = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < n; i++)
     {
       e = TREE_OPERAND (expr, i);
@@ -723,7 +723,7 @@ expand_simple_operations (tree expr)
   code = TREE_CODE (expr);
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
     {
-      n = TREE_CODE_LENGTH (code);
+      n = TREE_OPERAND_LENGTH (expr);
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);

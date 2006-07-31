@@ -2483,6 +2483,7 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
   switch (TREE_CODE_CLASS (TREE_CODE (t)))
     {
     case tcc_expression:
+    case tcc_vl_exp:
       {
 	switch (TREE_CODE (t))
 	  {
@@ -3419,6 +3420,7 @@ find_func_aliases (tree origt)
 		  case tcc_constant:
 		  case tcc_exceptional:
 		  case tcc_expression:
+		  case tcc_vl_exp:
 		  case tcc_unary:
 		      {
 			unsigned int j;
@@ -3452,7 +3454,7 @@ find_func_aliases (tree origt)
 		     to process expressions other than simple operands
 		     (e.g. INDIRECT_REF, ADDR_EXPR, CALL_EXPR).  */
 		  default:
-		    for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (rhsop)); i++)
+		    for (i = 0; i < TREE_OPERAND_LENGTH (rhsop); i++)
 		      {
 			tree op = TREE_OPERAND (rhsop, i);
 			unsigned int j;

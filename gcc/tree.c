@@ -66,6 +66,7 @@ const char *const tree_code_class_strings[] =
   "unary",
   "binary",
   "statement",
+  "call",
   "expression",
 };
 
@@ -354,8 +355,9 @@ tree_code_size (enum tree_code code)
     case tcc_comparison:  /* a comparison expression */
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
+    case tcc_vl_exp:        /* FIXME: a function call expression */
       return (sizeof (struct tree_exp)
-	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (tree));
 
     case tcc_constant:  /* a constant */
       switch (code)
@@ -399,7 +401,7 @@ tree_code_size (enum tree_code code)
 }
 
 /* Compute the number of bytes occupied by NODE.  This routine only
-   looks at TREE_CODE, except for PHI_NODE and TREE_VEC nodes.  */
+   looks at TREE_CODE, except for those nodes that have variable sizes. */
 size_t
 tree_size (tree node)
 {
@@ -416,7 +418,7 @@ tree_size (tree node)
 
     case TREE_VEC:
       return (sizeof (struct tree_vec)
-	      + (TREE_VEC_LENGTH (node) - 1) * sizeof(char *));
+	      + (TREE_VEC_LENGTH (node) - 1) * sizeof (tree));
 
     case STRING_CST:
       return sizeof (struct tree_string) + TREE_STRING_LENGTH (node) - 1;
@@ -427,7 +429,11 @@ tree_size (tree node)
 	        * sizeof (tree));
 
     default:
-      return tree_code_size (code);
+      if (TREE_CODE_CLASS (code) == tcc_vl_exp)
+	return (sizeof (struct tree_exp)
+		+ (TREE_OPERAND_LENGTH (node) - 1) * sizeof (tree));
+      else
+	return tree_code_size (code);
     }
 }
 
@@ -470,6 +476,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
     case tcc_comparison:  /* a comparison expression */
     case tcc_unary:  /* a unary arithmetic expression */
     case tcc_binary:  /* a binary arithmetic expression */
+    case tcc_vl_exp:  /* a call expression */
       kind = e_kind;
       break;
 
@@ -2123,6 +2130,7 @@ tree_node_structure (tree t)
     case tcc_binary:
     case tcc_expression:
     case tcc_statement:
+    case tcc_vl_exp:
       return TS_EXP;
     default:  /* tcc_constant and tcc_exceptional */
       break;
@@ -2200,16 +2208,6 @@ contains_placeholder_p (tree exp)
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 2)));
 
-	case CALL_EXPR:
-	  {
-	    tree arg;
-	    call_expr_arg_iterator iter;
-	    FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
-	      if (CONTAINS_PLACEHOLDER_P (arg))
-		return 1;
-	    return 0;
-	  }
-
 	default:
 	  break;
 	}
@@ -2221,6 +2219,22 @@ contains_placeholder_p (tree exp)
 	case 2:
 	  return (CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 0))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1)));
+	default:
+	  return 0;
+	}
+
+    case tcc_vl_exp:
+      switch (code)
+	{
+	case CALL_EXPR:
+	  {
+	    tree arg;
+	    call_expr_arg_iterator iter;
+	    FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	      if (CONTAINS_PLACEHOLDER_P (arg))
+		return 1;
+	    return 0;
+	  }
 	default:
 	  return 0;
 	}
@@ -2432,6 +2446,37 @@ substitute_in_expr (tree exp, tree f, tree r)
 	  }
 	break;
 
+      case tcc_vl_exp:
+	{
+	  /* FIXME: use new CALL_EXPR constructor */
+	  tree fn = SUBSTITUTE_IN_EXPR (CALL_EXPR_FN (exp), f, r);
+	  tree sc = SUBSTITUTE_IN_EXPR (CALL_EXPR_STATIC_CHAIN (exp), f, r);
+	  tree copy = NULL_TREE;
+	  int i = 0;
+	  call_expr_arg_iterator iter;
+	  tree arg;
+
+	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	    {
+	      tree newarg = SUBSTITUTE_IN_EXPR (arg, f, r);
+	      if (newarg != arg)
+		{
+		  if (!copy)
+		    copy = build3 (code, TREE_TYPE (exp), fn, sc,
+				   copy_list (CALL_EXPR_ARGS (exp)));
+		  CALL_EXPR_ARG (copy, i) = newarg;
+		}
+	    }
+	  if (copy)
+	    new = fold (copy);
+	  else  if (fn != CALL_EXPR_FN (exp)
+		    || sc != CALL_EXPR_STATIC_CHAIN (exp))
+	    new = fold_build3 (code, TREE_TYPE (exp), fn, sc,
+			       CALL_EXPR_ARGS (exp));
+	  else
+	    return exp;
+	}
+
       default:
 	gcc_unreachable ();
       }
@@ -2463,6 +2508,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 		  : (REFERENCE_CLASS_P (elt)
 		     || UNARY_CLASS_P (elt)
 		     || BINARY_CLASS_P (elt)
+		     || VL_EXP_CLASS_P (elt)
 		     || EXPRESSION_CLASS_P (elt))
 		  ? TREE_OPERAND (elt, 0) : 0))
 	if (TYPE_MAIN_VARIANT (TREE_TYPE (elt)) == need_type)
@@ -2475,6 +2521,7 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 		  : (REFERENCE_CLASS_P (elt)
 		     || UNARY_CLASS_P (elt)
 		     || BINARY_CLASS_P (elt)
+		     || VL_EXP_CLASS_P (elt)
 		     || EXPRESSION_CLASS_P (elt))
 		  ? TREE_OPERAND (elt, 0) : 0))
 	if (POINTER_TYPE_P (TREE_TYPE (elt))
@@ -2561,6 +2608,38 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	    gcc_unreachable ();
 	  }
 	break;
+
+      case tcc_vl_exp:
+	{
+	  /* FIXME: use new CALL_EXPR constructor */
+	  tree fn = SUBSTITUTE_PLACEHOLDER_IN_EXPR (CALL_EXPR_FN (exp), obj);
+	  tree sc = SUBSTITUTE_PLACEHOLDER_IN_EXPR (CALL_EXPR_STATIC_CHAIN (exp),
+						    obj);
+	  tree copy = NULL_TREE;
+	  int i = 0;
+	  call_expr_arg_iterator iter;
+	  tree arg;
+
+	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	    {
+	      tree newarg = SUBSTITUTE_PLACEHOLDER_IN_EXPR (arg, obj);
+	      if (newarg != arg)
+		{
+		  if (!copy)
+		    copy = build3 (code, TREE_TYPE (exp), fn, sc,
+				   copy_list (CALL_EXPR_ARGS (exp)));
+		  CALL_EXPR_ARG (copy, i) = newarg;
+		}
+	    }
+	  if (copy)
+	    return fold (copy);
+	  else  if (fn != CALL_EXPR_FN (exp)
+		    || sc != CALL_EXPR_STATIC_CHAIN (exp))
+	    return fold_build3 (code, TREE_TYPE (exp), fn, sc,
+				CALL_EXPR_ARGS (exp));
+	  else
+	    return exp;
+	}
 
       default:
 	gcc_unreachable ();
@@ -2690,6 +2769,7 @@ stabilize_reference_1 (tree e)
     case tcc_statement:
     case tcc_expression:
     case tcc_reference:
+    case tcc_vl_exp:
       /* If the expression has side-effects, then encase it in a SAVE_EXPR
 	 so that it will only be evaluated once.  */
       /* The reference (r) and comparison (<) classes could be handled as
@@ -4894,7 +4974,7 @@ iterative_hash_expr (tree t, hashval_t val)
 	      val = iterative_hash_hashval_t (two, val);
 	    }
 	  else
-	    for (i = TREE_CODE_LENGTH (code) - 1; i >= 0; --i)
+	    for (i = TREE_OPERAND_LENGTH (t) - 1; i >= 0; --i)
 	      val = iterative_hash_expr (TREE_OPERAND (t, i), val);
 	}
       return val;
@@ -6316,15 +6396,16 @@ phi_node_elt_check_failed (int idx, int len, const char *file, int line,
 }
 
 /* Similar to above, except that the check is for the bounds of the operand
-   vector of an expression node.  */
+   vector of an expression node EXP.  */
 
 void
-tree_operand_check_failed (int idx, enum tree_code code, const char *file,
+tree_operand_check_failed (int idx, tree exp, const char *file,
 			   int line, const char *function)
 {
+  int code = TREE_CODE (exp);
   internal_error
     ("tree check: accessed operand %d of %s with %d operands in %s, at %s:%d",
-     idx + 1, tree_code_name[code], TREE_CODE_LENGTH (code),
+     idx + 1, tree_code_name[code], TREE_OPERAND_LENGTH (exp),
      function, trim_filename (file), line);
 }
 
@@ -7598,7 +7679,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  int i, len;
 
 	  /* Walk over all the sub-trees of this operand.  */
-	  len = TREE_CODE_LENGTH (code);
+	  len = TREE_OPERAND_LENGTH (*tp);
 
 	  /* Go through the subtrees.  We need to do this in forward order so
 	     that the scope of a FOR_EXPR is handled properly.  */

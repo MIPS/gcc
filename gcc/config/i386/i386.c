@@ -2248,7 +2248,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
     func = decl;
   else
     {
-      func = TREE_TYPE (TREE_OPERAND (exp, 0));
+      func = TREE_TYPE (CALL_EXPR_FN (exp));
       if (POINTER_TYPE_P (func))
         func = TREE_TYPE (func);
     }
@@ -2283,7 +2283,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       tree type;
 
       /* We're looking at the CALL_EXPR, we need the type of the function.  */
-      type = TREE_OPERAND (exp, 0);		/* pointer expression */
+      type = CALL_EXPR_FN (exp);		/* pointer expression */
       type = TREE_TYPE (type);			/* pointer type */
       type = TREE_TYPE (type);			/* function type */
 
