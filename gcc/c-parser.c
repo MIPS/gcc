@@ -2498,13 +2498,12 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
       && c_parser_next_token_is (parser, CPP_NAME)
       && c_parser_peek_token (parser)->id_kind == C_ID_ID)
     {
-      tree list = NULL_TREE, *nextp = &list;
+      VEC(tree,heap) *v = NULL;
+
       while (c_parser_next_token_is (parser, CPP_NAME)
 	     && c_parser_peek_token (parser)->id_kind == C_ID_ID)
 	{
-	  *nextp = build_tree_list (NULL_TREE,
-				    c_parser_peek_token (parser)->value);
-	  nextp = & TREE_CHAIN (*nextp);
+	  VEC_safe_push (tree, heap, v, c_parser_peek_token (parser)->value);
 	  c_parser_consume_token (parser);
 	  if (c_parser_next_token_is_not (parser, CPP_COMMA))
 	    break;
@@ -2520,15 +2519,17 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 	  struct c_arg_info *ret = XOBNEW (&parser_obstack, struct c_arg_info);
 	  ret->parms = 0;
 	  ret->tags = 0;
-	  ret->types = list;
+	  ret->types = vec_heap2parm_types (v);
 	  ret->others = 0;
 	  ret->had_vla_unspec = 0;
+	  VEC_free (tree, heap, v);
 	  c_parser_consume_token (parser);
 	  pop_scope ();
 	  return ret;
 	}
       else
 	{
+	  VEC_free (tree, heap, v);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	  pop_scope ();

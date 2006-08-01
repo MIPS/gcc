@@ -1,3 +1,8 @@
+2006-08-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/c-parser.c (c_parser_parms_declarator): Use
+	vec_heap2parm_types.
+
 2006-07-31  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree.h (enum tree_code_class): Add tcc_vl_exp, to represent
