@@ -537,7 +537,7 @@ schedule_ebb (struct df *df, rtx head, rtx tail)
 
 /* The one entry point in this file.  */
 
-void
+struct df *
 schedule_ebbs (void)
 {
   basic_block bb;
@@ -637,6 +637,7 @@ schedule_ebbs (void)
     rm_redundant_line_notes ();
 
   sched_finish ();
+  return df;
 }
 
 /* INSN has been added to/removed from current ebb.  */

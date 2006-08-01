@@ -1,3 +1,17 @@
+2006-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* sched-ebb.c (sched_ebbs): Now returns the df instance created.
+	* rtl.h (sched_ebbs): Ditto.
+	* recog.c (split_all_insns): Made public again so it can be called
+	from ia64.c
+	* rtl.h (split_all_insns): Ditto.
+	* df-problems.c (df_ri_compute): Removed call to non existent
+	function.
+	* config/ia64/ia64.c (emit_predicate_relation_info): Added df
+	parameter and removed rotten ref to global instance.
+	(ia64_reorg): Added local instance of df and removed calls to non
+	existent flow.c.
+
 2006-07-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regrename.c (regrename_optimize): Renamed df_clrur to df_live

@@ -2562,7 +2562,7 @@ split_insn (rtx insn)
 
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
-static void
+void
 split_all_insns (void)
 {
   sbitmap blocks;

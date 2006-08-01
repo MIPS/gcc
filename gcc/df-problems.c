@@ -4103,10 +4103,7 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 
 #ifdef REG_DEAD_DEBUGGING
   if (dump_file)
-    {
-      df_lr_dump (dflow->df->problems_by_index [DF_LR], dump_file);
-      print_rtl_with_bb (dump_file, get_insns());
-    }
+    print_rtl_with_bb (dump_file, get_insns());
 #endif
 
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_scan, 0, bb_index, bi)

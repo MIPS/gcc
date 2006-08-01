@@ -1779,6 +1779,8 @@ extern const char *decode_asm_operands (rtx, rtx *, rtx **, const char **,
 extern enum reg_class reg_preferred_class (int);
 extern enum reg_class reg_alternate_class (int);
 
+extern void split_all_insns (void);
+
 #define MAX_SAVED_CONST_INT 64
 extern GTY(()) rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
 
@@ -2098,7 +2100,7 @@ struct df;
 extern void schedule_insns (void);
 
 /* In sched-ebb.c.  */
-extern void schedule_ebbs (void);
+extern struct df *schedule_ebbs (void);
 
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
