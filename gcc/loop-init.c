@@ -257,7 +257,7 @@ rtl_move_loop_invariants (void)
 
 struct tree_opt_pass pass_rtl_move_loop_invariants =
 {
-  "loop2_invariant",                     /* name */
+  "loop2_invariant",                    /* name */
   gate_rtl_move_loop_invariants,        /* gate */
   rtl_move_loop_invariants,             /* execute */
   NULL,                                 /* sub */
@@ -267,7 +267,8 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_start */ 
+  TODO_df_finish |  /* This is shutting down the instance in loop_invariant.c  */
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
 };

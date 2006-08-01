@@ -450,8 +450,7 @@ save_call_clobbered_regs (void)
 		 during the call, but the subreg that is set isn't.  */
 	      CLEAR_HARD_REG_SET (this_insn_sets);
 	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
-	      /* Sibcalls are considered to set the return value,
-		 compare flow.c:propagate_one_insn.  */
+	      /* Sibcalls are considered to set the return value.  */
 	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
 		mark_set_regs (current_function_return_rtx, NULL_RTX,
 			       &this_insn_sets);

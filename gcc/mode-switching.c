@@ -422,7 +422,7 @@ optimize_mode_switching (void)
     return 0;
 
   df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -706,8 +706,6 @@ optimize_mode_switching (void)
   if (need_commit)
     commit_edge_insertions ();
 
-  df_finish (df);
-
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 #else
@@ -756,6 +754,7 @@ struct tree_opt_pass pass_mode_switching =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

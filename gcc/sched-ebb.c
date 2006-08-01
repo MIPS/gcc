@@ -537,7 +537,7 @@ schedule_ebb (struct df *df, rtx head, rtx tail)
 
 /* The one entry point in this file.  */
 
-void
+struct df *
 schedule_ebbs (void)
 {
   basic_block bb;
@@ -562,7 +562,7 @@ schedule_ebbs (void)
 
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
   sched_init (df);
@@ -636,7 +636,8 @@ schedule_ebbs (void)
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
 
-  sched_finish (df);
+  sched_finish ();
+  return df;
 }
 
 /* INSN has been added to/removed from current ebb.  */

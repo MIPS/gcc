@@ -102,7 +102,7 @@ int current_function_is_leaf;
 
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
-   life_analysis has run.  */
+   pass_stack_ptr_mod has run.  */
 int current_function_sp_is_unchanging;
 
 /* Nonzero if the function being compiled is a leaf function which only
@@ -5471,7 +5471,6 @@ epilogue_done:
 	}
     }
 #endif
-  df_finish (prologue_epilogue_df);
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
@@ -5713,6 +5712,7 @@ struct tree_opt_pass pass_thread_prologue_and_epilogue =
   0,                                    /* properties_destroyed */
   TODO_verify_flow,                     /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };

@@ -156,12 +156,6 @@ static int *allocno_order;
    lower-numbered pseudo reg which can share a hard reg with this pseudo
    *even if the two pseudos would otherwise appear to conflict*.  */
 
-static int *reg_may_share;
-
-/* Define the number of bits in each element of `conflicts' and what
-   type that element has.  We use the largest integer format on the
-   host machine.  */
-
 #define INT_BITS HOST_BITS_PER_WIDE_INT
 #define INT_TYPE HOST_WIDE_INT
 
@@ -334,21 +328,12 @@ global_alloc (void)
        || FRAME_POINTER_REQUIRED);
 
   size_t i;
-  rtx x;
 
   max_regno = max_reg_num ();
   compact_blocks ();
 
   max_allocno = 0;
   df_analyze (ra_df);
-  if (dump_file)
-    df_dump (ra_df, dump_file);
-
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d before ra\n", i,
-	     regs_ever_live[i]);
-#endif
 
   /* A machine may have certain hard registers that
      are safe to use only within a basic block.  */
@@ -446,19 +431,6 @@ global_alloc (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     reg_allocno[i] = -1;
 
-  /* Initialize the shared-hard-reg mapping
-     from the list of pairs that may share.  */
-  reg_may_share = XCNEWVEC (int, max_regno);
-  for (x = regs_may_share; x; x = XEXP (XEXP (x, 1), 1))
-    {
-      int r1 = REGNO (XEXP (x, 0));
-      int r2 = REGNO (XEXP (XEXP (x, 1), 0));
-      if (r1 > r2)
-	reg_may_share[r1] = r2;
-      else
-	reg_may_share[r2] = r1;
-    }
-
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     /* Note that reg_live_length[i] < 0 indicates a "constant" reg
        that we are supposed to refrain from putting in a hard reg.
@@ -469,11 +441,7 @@ global_alloc (void)
 	&& (! current_function_has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
-	if (reg_renumber[i] < 0
-	    && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
-	  reg_allocno[i] = reg_allocno[reg_may_share[i]];
-	else
-	  reg_allocno[i] = max_allocno++;
+	reg_allocno[i] = max_allocno++;
 	gcc_assert (REG_LIVE_LENGTH (i));
       }
     else
@@ -629,7 +597,6 @@ global_alloc (void)
 
   /* Clean up.  */
   free (reg_allocno);
-  free (reg_may_share);
   free (allocno);
   free (conflicts);
   free (allocnos_live);
@@ -1334,11 +1301,6 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 
       /* Yes.  Record it as the hard register of this pseudo-reg.  */
       reg_renumber[allocno[num].reg] = best_reg;
-      /* Also of any pseudo-regs that share with it.  */
-      if (reg_may_share[allocno[num].reg])
-	for (j = FIRST_PSEUDO_REGISTER; j < max_regno; j++)
-	  if (reg_allocno[j] == num)
-	    reg_renumber[j] = best_reg;
 
       /* Make a set of the hard regs being allocated.  */
       CLEAR_HARD_REG_SET (this_reg);
@@ -2033,6 +1995,12 @@ rest_of_handle_global_alloc (void)
       timevar_pop (TV_DUMP);
     }
 
+  /* FIXME: This appears on the surface to be wrong thing to be doing.
+     So much of the compiler is designed to check reload_completed to
+     see if it is running after reload that seems doomed to failure.
+     We should be returning a value that says that we have found
+     errors so that nothing but the cleanup passes are run
+     afterwards.  */
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
   return 0;

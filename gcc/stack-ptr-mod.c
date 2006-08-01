@@ -42,7 +42,7 @@ notice_stack_pointer_modification_1 (rtx x, rtx pat ATTRIBUTE_UNUSED,
 {
   if (x == stack_pointer_rtx
       /* The stack pointer is only modified indirectly as the result
-	 of a push until later in flow.  See the comments in rtl.texi
+	 of a push until later.  See the comments in rtl.texi
 	 regarding Embedded Side-Effects on Addresses.  */
       || (MEM_P (x)
 	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC

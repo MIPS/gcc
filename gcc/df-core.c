@@ -120,12 +120,17 @@ bitvectors.
 
 
 DF_DUMP can then be called to dump the information produce to some
-file.
-
+file.  This calls DF_DUMP_START, to print the information that is not
+basic block specific, and then calls DF_DUMP_TOP and DF_DUMP_BOTTOM
+for each block to print the basic specific information.  These parts
+can all be called separately as part of a larger dump function.
 
 
 DF_FINISH causes all of the datastructures to be cleaned up and freed.
-The df_instance is also freed and its pointer should be NULLed.
+The df_instance is also freed and its pointer should be NULLed.  It is
+better to make the pass manager call df_finish for you since this
+makes the instance stay alive long enough to have the dataflow printed
+by the dumpers.  
 
 
 
@@ -296,7 +301,7 @@ are write-only operations.
 #include "df.h"
 #include "tree-pass.h"
 
-static struct df *ddf = NULL;
+struct df *df_current_instance = NULL;
 struct df *ra_df = NULL;
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
@@ -320,7 +325,11 @@ df_init (int flags)
   
   /* All df instance must define the scanning problem.  */
   df_scan_add_problem (df, flags);
-  ddf = df;
+
+  /* There should not be more than one active instance of df.  */
+
+  gcc_assert (!df_current_instance);
+  df_current_instance = df;
   return df;
 }
 
@@ -347,6 +356,7 @@ df_add_problem (struct df *df, struct df_problem *problem, int flags)
   dflow->flags = flags;
   dflow->df = df;
   dflow->problem = problem;
+  dflow->computed = false;
   df->problems_in_order[df->num_problems_defined++] = dflow;
   df->problems_by_index[dflow->problem->id] = dflow;
 
@@ -505,6 +515,7 @@ df_finish1 (struct df *df)
     }
 
   free (df);
+  df_current_instance = NULL;
 }
 
 
@@ -783,6 +794,8 @@ df_analyze_problem (struct dataflow *dflow,
   /* Massage the solution.  */
   if (dflow->problem->finalize_fun)
     dflow->problem->finalize_fun (dflow, blocks_to_consider);
+
+  dflow->computed = true;
 }
 
 
@@ -1062,6 +1075,25 @@ df_reg_used (struct df *df, rtx insn, rtx reg)
 void
 df_dump (struct df *df, FILE *file)
 {
+  basic_block bb;
+  df_dump_start (df, file);
+
+  FOR_ALL_BB (bb)
+    {
+      df_print_bb_index (bb, file);
+      df_dump_top (df, bb, file);
+      df_dump_bottom (df, bb, file);
+    }
+
+  fprintf (file, "\n");
+}
+
+
+/* Dump the introductory information for each problem defined.  */
+
+void
+df_dump_start (struct df *df, FILE *file)
+{
   int i;
 
   if (!df || !file)
@@ -1073,9 +1105,61 @@ df_dump (struct df *df, FILE *file)
 	   df->def_info.bitmap_size, df->use_info.bitmap_size);
 
   for (i = 0; i < df->num_problems_defined; i++)
-    df->problems_in_order[i]->problem->dump_fun (df->problems_in_order[i], file); 
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->computed)
+	{
+	  df_dump_problem_function fun = dflow->problem->dump_start_fun;
+	  if (fun)
+	    fun(dflow, file); 
+	}
+    }
+}
 
-  fprintf (file, "\n");
+
+/* Dump the top of the block information for BB.  */ 
+
+void
+df_dump_top (struct df *df, basic_block bb, FILE *file)
+{
+  int i;
+
+  if (!df || !file)
+    return;
+
+  for (i = 0; i < df->num_problems_defined; i++)
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->computed)
+	{
+	  df_dump_bb_problem_function bbfun = dflow->problem->dump_top_fun;
+	  if (bbfun)
+	    bbfun (dflow, bb, file); 
+	}
+    }
+}
+
+
+/* Dump the bottom of the block information for BB.  */ 
+
+void
+df_dump_bottom (struct df *df, basic_block bb, FILE *file)
+{
+  int i;
+
+  if (!df || !file)
+    return;
+
+  for (i = 0; i < df->num_problems_defined; i++)
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->computed)
+	{
+	  df_dump_bb_problem_function bbfun = dflow->problem->dump_bottom_fun;
+	  if (bbfun)
+	    bbfun (dflow, bb, file); 
+	}
+    }
 }
 
 
@@ -1233,7 +1317,7 @@ df_ref_debug (struct df_ref *ref, FILE *file)
 void
 debug_df_insn (rtx insn)
 {
-  df_insn_debug (ddf, insn, true, stderr);
+  df_insn_debug (df_current_instance, insn, true, stderr);
   debug_rtx (insn);
 }
 
@@ -1241,14 +1325,14 @@ debug_df_insn (rtx insn)
 void
 debug_df_reg (rtx reg)
 {
-  df_regno_debug (ddf, REGNO (reg), stderr);
+  df_regno_debug (df_current_instance, REGNO (reg), stderr);
 }
 
 
 void
 debug_df_regno (unsigned int regno)
 {
-  df_regno_debug (ddf, regno, stderr);
+  df_regno_debug (df_current_instance, regno, stderr);
 }
 
 
@@ -1262,14 +1346,14 @@ debug_df_ref (struct df_ref *ref)
 void
 debug_df_defno (unsigned int defno)
 {
-  df_ref_debug (DF_DEFS_GET (ddf, defno), stderr);
+  df_ref_debug (DF_DEFS_GET (df_current_instance, defno), stderr);
 }
 
 
 void
 debug_df_useno (unsigned int defno)
 {
-  df_ref_debug (DF_USES_GET (ddf, defno), stderr);
+  df_ref_debug (DF_USES_GET (df_current_instance, defno), stderr);
 }
 
 

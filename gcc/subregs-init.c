@@ -108,13 +108,13 @@ initialize_uninitialized_subregs (void)
   edge_iterator ei;
   struct df *df = df_init (DF_HARD_REGS);
 
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_analyze (df);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
-      regset map = df_get_live_in (df, bb);
+      regset map = DF_LIVE_IN (df, bb);
       reg_set_iterator rsi;
 
       EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
@@ -150,7 +150,10 @@ initialize_uninitialized_subregs (void)
 
   df_finish (df);
   if (did_something)
-    commit_edge_insertions ();
+    {
+      commit_edge_insertions ();
+      allocate_reg_life_data ();
+    }
 }
 
 static bool

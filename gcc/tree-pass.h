@@ -217,6 +217,11 @@ struct dump_file_info
    in statements, used.  */
 #define TODO_update_smt_usage           (1 << 13)
 
+/* Call df_finish at the end of the pass.  This is done after all of
+   the dumpers have been allowed to run so that they have access to
+   the instance before it is destroyed.  */
+#define TODO_df_finish                  (1 << 15)
+
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\
@@ -353,9 +358,10 @@ extern struct tree_opt_pass pass_rtl_loop_done;
 
 extern struct tree_opt_pass pass_web;
 extern struct tree_opt_pass pass_cse2;
+extern struct tree_opt_pass pass_regclass_init;
 extern struct tree_opt_pass pass_subregs_of_mode_init;
 extern struct tree_opt_pass pass_inc_dec;
-extern struct tree_opt_pass pass_life;
+extern struct tree_opt_pass pass_no_new_pseudos;
 extern struct tree_opt_pass pass_stack_ptr_mod;
 extern struct tree_opt_pass pass_initialize_subregs;
 extern struct tree_opt_pass pass_combine;
@@ -373,7 +379,6 @@ extern struct tree_opt_pass pass_postreload;
 extern struct tree_opt_pass pass_clean_state;
 extern struct tree_opt_pass pass_branch_prob;
 extern struct tree_opt_pass pass_value_profile_transformations;
-extern struct tree_opt_pass pass_remove_death_notes;
 extern struct tree_opt_pass pass_postreload_cse;
 extern struct tree_opt_pass pass_gcse2;
 extern struct tree_opt_pass pass_split_after_reload;
@@ -387,6 +392,7 @@ extern struct tree_opt_pass pass_cprop_hardreg;
 extern struct tree_opt_pass pass_reorder_blocks;
 extern struct tree_opt_pass pass_branch_target_load_optimize2;
 extern struct tree_opt_pass pass_leaf_regs;
+extern struct tree_opt_pass pass_split_before_sched2;
 extern struct tree_opt_pass pass_sched2;
 extern struct tree_opt_pass pass_stack_regs;
 extern struct tree_opt_pass pass_compute_alignments;

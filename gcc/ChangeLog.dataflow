@@ -1,3 +1,226 @@
+2006-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* sched-ebb.c (sched_ebbs): Now returns the df instance created.
+	* rtl.h (sched_ebbs): Ditto.
+	* recog.c (split_all_insns): Made public again so it can be called
+	from ia64.c
+	* rtl.h (split_all_insns): Ditto.
+	* df-problems.c (df_ri_compute): Removed call to non existent
+	function.
+	* config/ia64/ia64.c (emit_predicate_relation_info): Added df
+	parameter and removed rotten ref to global instance.
+	(ia64_reorg): Added local instance of df and removed calls to non
+	existent flow.c.
+
+2006-07-26  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regrename.c (regrename_optimize): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_regrename): Added TODO_df_finish flag.
+	* sched-ebb.c (schedule_ebbs): Renamed df_clrur to df_live
+	and removed df_finish call.
+	* fwprop.c (fwprop_done): Removed df_finish call.
+	(pass_rtl_fwprop): Added TODO_df_finish flag.
+	* see.c (see_commit_changes): Removed unnecessary set to df.
+	* postreload.c (rest_of_handle_postreload): Removed df_finish call.
+	(pass_postreload_cse): Added TODO_df_finish flag.
+	* tree-pass.h (TODO_df_finish): Added.
+	* cfg.c (dump_bb_info): Added flow info to dumps
+	(dump_reg_info): New function.
+	(dump_flow_info): Moved reg info printing to dump_reg_info.
+	* auto-inc-dec.c (rest_of_handle_auto_inc_dec): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_inc_dec): Added TODO_df_finish flag.
+	* reorg.c (dbr_schedule): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_delay_slots): Added TODO_df_finish flag.
+	* df-scan.c (df_scan_alloc): Added set to dflow->computed.
+	(df_scan_dump): Renamed to df_scan_start_dump.
+	(problem_SCAN): Updated for new dumpers.
+	* haifa-sched.c (sched_finish): Removed df parameter and deleted
+	call to df_finish.
+	* df-core.c (ddf): Renamed to df_current_instance and made public.
+	(df_init): Ditto and added check to make sure only one instance of
+	df is alive at any point.
+	(df_add_problem): Initialized dflow->computed.
+	(df_analyze_problem): Set dflow->computed.
+	(df_dump): Now calls new dumpers.
+	(df_dump_start, df_dump_top, df_dump_bottom): New functions.
+	(debug_df_insn, debug_df_reg, debug_df_regno, debug_df_defno,
+	debug_df_useno): Renamed ddf to df_current_instance.
+	* mode_switching (optimize_mode_switching): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_mode_switching): Added TODO_df_finish flag.
+	* modulo-sched.c (sms_schedule): Removed calls to df_dump and df
+	parameter from sched_finish.
+	(pass_sms): Added TODO_df_finish flag.
+	* web.c (web_main): Removed call to df_dump and df_finish.
+	(pass_web): Added TODO_df_finish flag.
+	* loop-init.c (pass_rtl_move_loop_init): Added TODO_df_finish
+	flag.
+	* global.c (global_alloc): Removed call to df_dump and debugging
+	code.
+	* ifcvt.c (if_convert):  Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_rtl_ifcvt, pass_if_after_combine, pass_if_after_reload): 
+	Added TODO_df_finish flag.
+	* recog.c (peephole2_optimize): Renamed df_clrur to df_live and
+	removed df_finish call.
+	(pass_peephole2): Added TODO_df_finish flag.
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments): 
+	Renamed df_clrur to df_live and removed df_finish call.
+	(pass_regmove, pass_stack_adjustments): Added TODO_df_finish flag.
+	* function.c (epilogue_done): Removed df_finish call.
+	(pass_thread_prologue): Added TODO_df_finish flag.
+	* df.h (DF_CLRUR): Renamed to DF_LIVE.
+	(df_dump_bb_problem_function): New function type.
+	(df_problem.dump_fun): Deleted.
+	(df_problem.dump_fun_start, df_problem.dump_fun_top,
+	df_problem.dump_fun_bottom, problem_data.computed,
+	df_current_instance): New fields.
+	(DF_CLRUR_BB_INFO): Renamed to DF_LIVE_BB_INFO.
+	(df_clrur_bb_info): Renamed to df_live_bb_info.
+	(df_dump_start, df_dump_top, df_dump_bottom): New functions.
+	* rtl-factoring (rtl_seqabstr): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_rtl_seqabstr):  Added TODO_df_finish flag.
+	* bt-load (branch_target_load_optimize): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_branch_target_load_optimize1,
+	pass_branch_target_load_optimize2): Added TODO_df_finish flag.
+	* loop-invariant.c (move_loop_invariants): Removed call to
+	df_finish.
+	* subregs-init.c (initialize_uninitialized_subregs): Renamed
+	df_clrur to df_live and changed call to dg_get_live_in to
+	DF_LIVE_IN.
+	* rtl.h (dump_reg_info): New function.
+	* sched-int.h (sched_finish): Removed df parameter.
+	* combine.c (rest_of_handle_combine): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_combine): Added TODO_df_finish flag.
+	* df-problems.c (df_get_live_in, df_get_live_out): Renamed
+	DF_CLRUR to DF_LIVE.
+	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_clrur_dump, 
+	df_urec_dump, df_ri_dump): Deleted function.
+	(df_ru_start_dump, df_ru_top_dump, df_ru_bottom_dump,
+	df_rd_start_dump, df_rd_top_dump, df_rd_bottom_dump,
+	df_lr_start_dump, df_lr_top_dump, df_lr_bottom_dump,
+	df_ur_start_dump, df_ur_top_dump, df_ur_bottom_dump,
+	df_live_top_dump, df_live_bottom_dump, df_ri_start_dump,
+	df_urec_top_dump, df_urec_bottom_dump): New function.
+	(problem_RU, problem_RD, problem_LR, problem_UR, problem_UREC,
+	problem_CHAIN, problem_RI): Replaced dump functions.
+	(df_clrur_get_bb_info): Renamed to df_live_get_bb_info.
+	(df_clrur_set_bb_info): Renamed to df_live_set_bb_info.
+	(df_clrur_free_bb_info): Renamed to df_live_free_bb_info.
+	(df_clrur_alloc): Renamed to df_live_alloc.
+	(df_clrur_local_finalize): Renamed to df_live_local_finalize.
+	(df_clrur_free): Renamed to df_clrur_free.
+	(problem_CLRUR): Renamed to problem_LIVE and dump functions
+	changed.
+	(df_clrur_add_problem): Renamed to df_live_add_problem.
+	(df_chains_dump): Renamed to df_chain_start_dump.
+	(df_chain_add_problem, df_ri_alloc, df_ri_compute): Removed
+	problem_data->computed.	
+	* Makefile.in (passes.o): Added DF_H.
+	* sched-rgn.c (schedule_insns): Renamed df_clrur to df_live
+	and removed df_finish call.
+	(pass_sched, pass_sched2): Added TODO_df_finish flag.
+	* passes.c (execute_todo): Added call to df_finish for
+	TODO_df_finish flag.
+	* cfgrtl.c (dump_regset_in, dump_regset_out): Deleted.
+	(rtl_dump_bb, print_rtl_with_bb): Fixed to find and print df info.
+	* dce.c (init_dce): Removed call to df_dump.
+	(end_dce, end_fast_dce): Removed call df_finish and null out local
+	df instance variable.
+	(pass_rtl_dce, pass_fast_rtl_dce, pass_rtl_dse): Added
+	TODO_df_finish flag.
+
+
+2006-07-23  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (pass_regclass_init, pass_no_new_pseudos,
+	pass_split_before_sched2): Added.
+	(pass_life, pass_remove_death_notes): Deleted.
+	* rtlanal.c: Documentation.
+	* stack-ptr-mod.c: Ditto.
+	* output.h: Ditto.
+	* function.c: Ditto.
+	* caller-save.c: Ditto.
+	* sched-deps.c: Ditto.
+	* jump.c: Ditto.
+	* alias.c: Ditto.
+	* calls.c: Ditto.
+	* cfgloop.c: Ditto. 
+	(establish_preds, flow_loops_find): Removed ref to cfun->max_loop_depth.
+	* final.c: (rest_of_no_new_pseudos, pass_no_new_pseudos): Added.
+	* cfg.c (dump_regset, debug_regset): Moved from flow.c.
+	* regs.h (regs_may_share): Deleted.
+	(allocate_reg_life_data): Added.
+	* flow.c: Deleted.
+	* global.c (reg_may_share): Deleted.
+	(global_alloc): Removed support for regs_may_share.
+	* ifcvt.c (rest_or_handel_if_conversion): Removed ref to
+	clear_reg_deaths.
+	* timevar.def (TV_FLOW): Removed.
+	* recog.c (find_single_use, find_single_use_1): Moved to combine
+	and made static.
+	(split_all_insns, split_all_insns_noflow): Made static.
+	(pass_split_before_regclass): Fixed tv_id.
+	(gate_handle_split_before_sched2,
+	rest_of_handle_split_before_sched2, pass_split_before_sched2): New.
+	(pass_split_for_shorten_branches): Renamed and fixed tv_id.
+	* recog.h (find_single_use): Removed.
+	* regmove.c (find_use_as_address): Moved from flow and made
+	static.
+	* function.h (max_loop_depth): Removed.
+	* cfgcleanup.c (delete_dead_jumptables): Moved from flow.c.
+	* subregs-init.c (initialize_uninitialized_subregs): Added call to
+	allocate_reg_life_data if new regs were added.  
+	* regclass.c (max_regno, reg_set_to_hard_reg_set, 
+	allocate_reg_life_data): Moved from flow.c.
+	(regclass_init): Now static and returns unsigned int.
+	(pass_regclass_init, find_subregs_of_mode): New.
+	(init_subregs_of_mode): Now fills the hash table.
+	* rtl.h (find_use_as_address, split_all_insns, 
+	split_all_insns_noflow, regclass_init): Deleted.
+	* combine.c (find_single_use_1, find_single_use): Moved from recog
+	and made static.
+	(delete_noop_moves): Moved from flow.c and made static.
+	(rest_of_handle_combine): Now runs dce as part of df_init.
+	* df-problems.c (reg_n_info): Moved from flow.c.
+	(df_ri_problem_data.computed): Added field.
+	(print_note, df_set_unused_notes_for_mw, df_set_dead_notes_for_mw,
+	df_create_unused_note, df_ri_bb_compute, df_ri_compute): Changed
+	note printing to go to dump_file.
+	(df_ri_alloc, df_ri_compute, df_ri_free, df_ri_dump): Added
+	support for computed flag.
+	* Makefile.in: (flow.c flow.o): Removed.
+	* sched-rgn.c (check_dead_notes1, deaths_in_region): Removed. 
+	(init_regions, add_block1): Removed last of note counting code.
+	(rest_of_handle_sched2): Moved call to split_all_insns to separate
+	pass.
+	* basic_block.h (first_insn_after_basic_block_note, 
+	update_life_extent, PROP_* flags, life_analysis, update_life_info
+	update_life_info_in_dirty_blocks, count_or_remove_death_notes,
+	propagate_block, clear_reg_deaths, propagate_block_info, 
+	propagate_one_insn, init_propagate_block_info, 
+	free_propagate_block_info): Removed.
+	(CLEANUP_*): Renumbered.
+	sched_vis.c: (print_exp): Added proper printing for PRE and
+	POST_MODIFY.
+	* passes.c (init_optimization_passes): Added pass_regclass_init,
+	pass_no_new_pseudos, and pass_split_before_sched2.  Deleted
+	pass_life.
+	* struct-equiv.c (struct_equiv_init): Removed dead conditional.
+	* config/rs6000/rs6000.c (print_operand): More fixes for
+	PRE_MODIFY.
+	* config/rs6000/rs6000.md ("*movdf_hardfloat32",
+	"*movdf_softfloat32"): Ditto.
+	* cfgrtl (first_insn_after_basic_block_note): Moved from flow.c
+	and made static.	
+
+
 2006-07-16  Zdenek Dvorak <dvorakz@suse.cz>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 

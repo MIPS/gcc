@@ -1068,10 +1068,9 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
   reg_seen[regno] = 1;
 }
 
-/* Clear alias info for a register.  This is used if an RTL transformation
-   changes the value of a register.  This is used in flow by AUTO_INC_DEC
-   optimizations.  We don't need to clear reg_base_value, since flow only
-   changes the offset.  */
+/* Clear alias info for a register.  This is used if an RTL
+   transformation changes the value of a register.  We don't need to
+   clear reg_base_value, since flow only changes the offset.  */
 
 void
 clear_reg_alias_info (rtx reg)

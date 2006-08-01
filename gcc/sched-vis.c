@@ -331,6 +331,18 @@ print_exp (char *buf, rtx x, int verbose)
       op[0] = XEXP (x, 0);
       st[1] = "++";
       break;
+    case PRE_MODIFY:
+      st[0] = "pre ";
+      op[0] = XEXP (XEXP (x, 1), 0);
+      st[1] = "+=";
+      op[1] = XEXP (XEXP (x, 1), 1);
+      break;
+    case POST_MODIFY:
+      st[0] = "post ";
+      op[0] = XEXP (XEXP (x, 1), 0);
+      st[1] = "+=";
+      op[1] = XEXP (XEXP (x, 1), 1);
+      break;
     case CALL:
       st[0] = "call ";
       op[0] = XEXP (x, 0);

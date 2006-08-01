@@ -1319,7 +1319,6 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES);
   df_chain_add_problem (df, DF_UD_CHAIN);
  
@@ -1345,9 +1344,6 @@ move_loop_invariants (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
       free_loop_data (loops->parray[i]);
-
-  df_finish (df);
-  df = NULL;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

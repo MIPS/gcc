@@ -906,14 +906,11 @@ fwprop_init (void)
   df = df_init (DF_SUBREGS | DF_EQUIV_NOTES);
   df_chain_add_problem (df, DF_UD_CHAIN);
   df_analyze (df);
-  df_dump (df, dump_file);
 }
 
 static void
 fwprop_done (void)
 {
-  df_finish (df);
-
   if (flag_rerun_cse_after_loop && (flag_unroll_loops || flag_peel_loops))
     {
       flow_loops_free (&loops);
@@ -982,6 +979,7 @@ struct tree_opt_pass pass_rtl_fwprop =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

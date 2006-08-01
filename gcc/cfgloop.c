@@ -331,9 +331,6 @@ establish_preds (struct loop *loop)
 
   loop->depth = father->depth + 1;
 
-  /* Remember the current loop depth if it is the largest seen so far.  */
-  cfun->max_loop_depth = MAX (cfun->max_loop_depth, loop->depth);
-
   if (loop->pred)
     free (loop->pred);
   loop->pred = XNEWVEC (struct loop *, loop->depth);
@@ -602,10 +599,6 @@ flow_loops_find (struct loops *loops)
   basic_block bb;
 
   memset (loops, 0, sizeof *loops);
-
-  /* We are going to recount the maximum loop depth,
-     so throw away the last count.  */
-  cfun->max_loop_depth = 0;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */

@@ -205,8 +205,6 @@ init_dce (bool fast)
 
   marked = BITMAP_ALLOC (NULL);
   marked_libcalls = BITMAP_ALLOC (NULL);
-  if (dump_file)
-    df_dump (dce_df, dump_file);
 }
 
 
@@ -292,7 +290,9 @@ end_dce (void)
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
 
-  df_finish (dce_df);
+  /* The TODO_df_finish will really get rid of the instance, we need to 
+     clear this here so that we init_dce does the correct thing.  */
+  dce_df = NULL;
 }
 
 
@@ -394,6 +394,7 @@ struct tree_opt_pass pass_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
@@ -411,7 +412,9 @@ end_fast_dce (void)
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
 
-  df_finish (dce_df);
+  /* The TODO_df_finish will really get rid of the instance, we need to 
+     clear this here so that we init_dce does the correct thing.  */
+  dce_df = NULL;
 }
 
 
@@ -719,6 +722,7 @@ struct tree_opt_pass pass_fast_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
@@ -1647,6 +1651,7 @@ struct tree_opt_pass pass_rtl_dse =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };

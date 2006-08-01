@@ -205,7 +205,7 @@ sched_insns_conditions_mutex_p (rtx insn1, rtx insn2)
 {
   rtx cond1, cond2;
 
-  /* flow.c doesn't handle conditional lifetimes entirely correctly;
+  /* df doesn't handle conditional lifetimes entirely correctly;
      calls mess up the conditional lifetimes.  */
   if (!CALL_P (insn1) && !CALL_P (insn2))
     {

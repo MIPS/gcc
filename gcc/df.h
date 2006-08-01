@@ -43,9 +43,9 @@ struct df_link;
 #define DF_SCAN  0 
 #define DF_RU    1      /* Reaching Uses. */
 #define DF_RD    2      /* Reaching Defs. */
-#define DF_LR    3      /* Live Registers. */
-#define DF_UR    4      /* Uninitialized Registers. */
-#define DF_CLRUR 5      /* Live Registers & Uninitialized Registers */
+#define DF_LR    3      /* Live Registers backward. */
+#define DF_UR    4      /* Uninitialized Registers forwards. */
+#define DF_LIVE  5      /* Live Registers & Uninitialized Registers */
 #define DF_UREC  6      /* Uninitialized Registers with Early Clobber. */
 #define DF_CHAIN 7      /* Def-Use and/or Use-Def Chains. */
 #define DF_RI    8      /* Register Info. */
@@ -174,8 +174,11 @@ typedef void (*df_finalizer_function) (struct dataflow*, bitmap);
 /* Function to free all of the problem specific datastructures.  */
 typedef void (*df_free_function) (struct dataflow *);
 
-/* Function to dump results to FILE.  */
+/* Function to dump basic block independent results to FILE.  */
 typedef void (*df_dump_problem_function) (struct dataflow *, FILE *);
+
+/* Function to dump top or bottom of basic block results to FILE.  */
+typedef void (*df_dump_bb_problem_function) (struct dataflow *, basic_block, FILE *);
 
 /* Function to add problem a dataflow problem that must be solved
    before this problem can be solved.  */
@@ -200,7 +203,9 @@ struct df_problem {
   df_transfer_function trans_fun;
   df_finalizer_function finalize_fun;
   df_free_function free_fun;
-  df_dump_problem_function dump_fun;
+  df_dump_problem_function dump_start_fun;
+  df_dump_bb_problem_function dump_top_fun;
+  df_dump_bb_problem_function dump_bottom_fun;
   df_dependent_problem_function dependent_problem_fun;
 
   /* Flags can be changed after analysis starts.  */
@@ -245,7 +250,10 @@ struct dataflow
      basis.  The structure is generally defined privately for the
      problem.  The exception being the scanning problem where it is
      fully public.  */
-  void *problem_data;                  
+  void *problem_data;
+  
+  /* True if this problem of this instance has been initialized.  */
+  bool computed;
 };
 
 
@@ -400,12 +408,12 @@ struct df
 #define DF_LR_BB_INFO(DF, BB) (df_lr_get_bb_info((DF)->problems_by_index[DF_LR],(BB)->index))
 #define DF_UR_BB_INFO(DF, BB) (df_ur_get_bb_info((DF)->problems_by_index[DF_UR],(BB)->index))
 #define DF_UREC_BB_INFO(DF, BB) (df_urec_get_bb_info((DF)->problems_by_index[DF_UREC],(BB)->index))
-#define DF_CLRUR_BB_INFO(DF, BB) (df_clrur_get_bb_info((DF)->problems_by_index[DF_CLRUR],(BB)->index))
+#define DF_LIVE_BB_INFO(DF, BB) (df_live_get_bb_info((DF)->problems_by_index[DF_LIVE],(BB)->index))
 
 /* Most transformations that wish to use live register analysis will
    use these macros.  This info is the and of the lr and ur sets.  */
-#define DF_LIVE_IN(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->in) 
-#define DF_LIVE_OUT(DF, BB) (DF_CLRUR_BB_INFO(DF, BB)->out) 
+#define DF_LIVE_IN(DF, BB) (DF_LIVE_BB_INFO(DF, BB)->in) 
+#define DF_LIVE_OUT(DF, BB) (DF_LIVE_BB_INFO(DF, BB)->out) 
 
 
 /* Live in for register allocation also takes into account several other factors.  */
@@ -582,7 +590,7 @@ struct df_ur_bb_info
 };
 
 /* Anded results of LR and UR.  */
-struct df_clrur_bb_info 
+struct df_live_bb_info 
 {
   /* The results of the dataflow problem.  */
   bitmap in;    /* At the top of the block.  */
@@ -608,6 +616,11 @@ struct df_urec_bb_info
 
 #define df_finish(df) {df_finish1(df); df=NULL;}
 
+/* This is used for debugging and for the dumpers to find the latest
+   instance so that the df info can be added to the dumps.  This
+   should not be used by regular code.  */ 
+extern struct df *df_current_instance;
+
 /* Functions defined in df-core.c.  */
 
 extern struct df *df_init (int);
@@ -632,6 +645,9 @@ extern struct df_ref *df_find_use (struct df *, rtx, rtx);
 extern bool df_reg_used (struct df *, rtx, rtx);
 extern void df_iterative_dataflow (struct dataflow *, bitmap, bitmap, int *, int, bool);
 extern void df_dump (struct df *, FILE *);
+extern void df_dump_start (struct df *, FILE *);
+extern void df_dump_top (struct df *, basic_block, FILE *);
+extern void df_dump_bottom (struct df *, basic_block, FILE *);
 extern void df_refs_chain_dump (struct df_ref *, bool, FILE *);
 extern void df_regs_chain_dump (struct df *, struct df_ref *,  FILE *);
 extern void df_insn_debug (struct df *, rtx, bool, FILE *);
@@ -670,8 +686,8 @@ extern void df_lr_simulate_artificial_refs_at_end (struct df *, basic_block, bit
 extern void df_lr_simulate_one_insn (struct df *, basic_block, rtx, bitmap);
 extern struct dataflow *df_ur_add_problem (struct df *, int);
 extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_clrur_add_problem (struct df *, int);
-extern struct df_clrur_bb_info *df_clrur_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_live_add_problem (struct df *, int);
+extern struct df_live_bb_info *df_live_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_urec_add_problem (struct df *, int);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_chain_add_problem (struct df *, int);

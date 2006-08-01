@@ -3539,7 +3539,7 @@ dbr_schedule (rtx first)
   rtx insn, next, epilogue_insn = 0;
   int i;
   struct df *df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -3767,7 +3767,6 @@ dbr_schedule (rtx first)
       INSN_LOCATOR (XEXP (link, 0)) = 0;
   }
 
-  df_finish (df);
 #endif
 }
 #endif /* DELAY_SLOTS */
@@ -3805,6 +3804,7 @@ struct tree_opt_pass pass_delay_slots =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */

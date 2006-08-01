@@ -195,7 +195,7 @@ regrename_optimize (void)
   char *first_obj;
   struct df * df = df_init (DF_HARD_REGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, 0);
   df_analyze (df);
 
@@ -363,7 +363,6 @@ regrename_optimize (void)
     }
 
   obstack_free (&rename_obstack, NULL);
-  df_finish (df);
 
   if (dump_file)
     fputc ('\n', dump_file);
@@ -1978,6 +1977,7 @@ struct tree_opt_pass pass_regrename =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'n'                                   /* letter */
 };

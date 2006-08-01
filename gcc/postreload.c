@@ -1581,7 +1581,6 @@ rest_of_handle_postreload (void)
   if (flag_non_call_exceptions)
     purge_all_dead_edges ();
 
-  df_finish (ra_df);
   return 0;
 }
 
@@ -1598,6 +1597,7 @@ struct tree_opt_pass pass_postreload_cse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'o'                                   /* letter */
 };

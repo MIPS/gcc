@@ -2368,7 +2368,7 @@ noce_process_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_i
      if it came from the ELSE block, because follows the now correct
      write that appears in the TEST block.  However, if we got insn_b from
      the TEST block, it may in fact be loading data needed for the comparison.
-     We'll let life_analysis remove the insn if it's really dead.  */
+     We'll let dead code elimination remove the insn if it's really dead.  */
   if (insn_b && else_bb)
     delete_insn (insn_b);
 
@@ -3854,7 +3854,7 @@ if_convert (void)
   bitmap modified = BITMAP_ALLOC (NULL);
   struct df * df = df_init (DF_HARD_REGS);
   struct dataflow *lr_dflow = df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -3950,7 +3950,6 @@ if_convert (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
-  df_finish (df);
 }
 
 static bool
@@ -3973,7 +3972,6 @@ rest_of_handle_if_conversion (void)
     }
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
-  clear_reg_deaths ();
   reg_scan (get_insns (), max_reg_num ());
   return 0;
 }
@@ -3991,6 +3989,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4026,6 +4025,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
@@ -4060,6 +4060,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */

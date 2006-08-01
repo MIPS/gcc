@@ -95,6 +95,72 @@ regclass_compatible_p (int class0, int class1)
 	      && ! CLASS_LIKELY_SPILLED_P (class1)));
 }
 
+/* Find the place in the rtx X where REG is used as a memory address.
+   Return the MEM rtx that so uses it.
+   If PLUSCONST is nonzero, search instead for a memory address equivalent to
+   (plus REG (const_int PLUSCONST)).
+
+   If such an address does not appear, return 0.
+   If REG appears more than once, or is used other than in such an address,
+   return (rtx) 1.  */
+
+static rtx
+find_use_as_address (rtx x, rtx reg, HOST_WIDE_INT plusconst)
+{
+  enum rtx_code code = GET_CODE (x);
+  const char * const fmt = GET_RTX_FORMAT (code);
+  int i;
+  rtx value = 0;
+  rtx tem;
+
+  if (code == MEM && XEXP (x, 0) == reg && plusconst == 0)
+    return x;
+
+  if (code == MEM && GET_CODE (XEXP (x, 0)) == PLUS
+      && XEXP (XEXP (x, 0), 0) == reg
+      && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT
+      && INTVAL (XEXP (XEXP (x, 0), 1)) == plusconst)
+    return x;
+
+  if (code == SIGN_EXTRACT || code == ZERO_EXTRACT)
+    {
+      /* If REG occurs inside a MEM used in a bit-field reference,
+	 that is unacceptable.  */
+      if (find_use_as_address (XEXP (x, 0), reg, 0) != 0)
+	return (rtx) (size_t) 1;
+    }
+
+  if (x == reg)
+    return (rtx) (size_t) 1;
+
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  tem = find_use_as_address (XEXP (x, i), reg, plusconst);
+	  if (value == 0)
+	    value = tem;
+	  else if (tem != 0)
+	    return (rtx) (size_t) 1;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  int j;
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    {
+	      tem = find_use_as_address (XVECEXP (x, i, j), reg, plusconst);
+	      if (value == 0)
+		value = tem;
+	      else if (tem != 0)
+		return (rtx) (size_t) 1;
+	    }
+	}
+    }
+
+  return value;
+}
+
+
 /* INC_INSN is an instruction that adds INCREMENT to REG.
    Try to fold INC_INSN as a post/pre in/decrement into INSN.
    Iff INC_INSN_SET is nonzero, inc_insn has a destination different from src.
@@ -1047,7 +1113,7 @@ regmove_optimize (rtx f, int nregs)
   rtx copy_src, copy_dst;
   basic_block bb;
   struct df * df = df_init (DF_HARD_REGS);
-  df_clrur_add_problem (df, 0);
+  df_live_add_problem (df, 0);
   df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
 
@@ -1507,7 +1573,6 @@ regmove_optimize (rtx f, int nregs)
   /* Clean up.  */
   free (regno_src_regno);
   free (regmove_bb_head);
-  df_finish (df);
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -2494,6 +2559,7 @@ struct tree_opt_pass pass_regmove =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'N'                                   /* letter */
@@ -2520,10 +2586,9 @@ rest_of_handle_stack_adjustments (void)
 #endif
     {
       struct df * df = df_init (DF_HARD_REGS);
-      df_clrur_add_problem (df, 0);
+      df_live_add_problem (df, 0);
       df_ri_add_problem (df, 0);
       df_analyze (df);
-      df_finish (df);
       combine_stack_adjustments ();
     }
   return 0;
@@ -2542,6 +2607,7 @@ struct tree_opt_pass pass_stack_adjustments =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   0                                     /* letter */

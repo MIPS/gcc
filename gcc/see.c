@@ -1804,7 +1804,6 @@ see_commit_changes (void)
   /* At this point, we must free the DF object, since the number of basic blocks
      may change.  */
   df_finish (df);
-  df = NULL;
 
   /* Insert extensions on edges, according to the LCM result.  */
   did_insert = see_pre_insert_extensions (index_map);

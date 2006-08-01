@@ -228,6 +228,7 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
 
   problem_data = XNEW (struct df_scan_problem_data);
   dflow->problem_data = problem_data;
+  dflow->computed = true;
 
   problem_data->ref_pool 
     = create_alloc_pool ("df_scan_ref pool", 
@@ -295,7 +296,7 @@ df_scan_free (struct dataflow *dflow)
 }
 
 static void 
-df_scan_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUTE_UNUSED)
+df_scan_start_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUTE_UNUSED)
 {
   struct df *df = dflow->df;
   int i;
@@ -334,7 +335,9 @@ static struct df_problem problem_SCAN =
   NULL,                       /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_scan_free,               /* Free all of the problem information.  */
-  df_scan_dump,               /* Debugging.  */
+  df_scan_start_dump,         /* Debugging.  */
+  NULL,                       /* Debugging start block.  */
+  NULL,                       /* Debugging end block.  */
   NULL,                       /* Dependent problem.  */
   0                           /* Changeable flags.  */
 };

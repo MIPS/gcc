@@ -263,9 +263,6 @@ web_main (void)
   use_entry = XCNEWVEC (struct web_entry, DF_USES_SIZE (df));
   used = XCNEWVEC (char, max);
 
-  if (dump_file)
-    df_dump (df, dump_file);
-
   /* Produce the web.  */
   for (i = 0; i < DF_USES_SIZE (df); i++)
     union_defs (df, DF_USES_GET (df, i), def_entry, use_entry, unionfind_union);
@@ -285,7 +282,6 @@ web_main (void)
   free (def_entry);
   free (use_entry);
   free (used);
-  df_finish (df);
   df = NULL;
 }
 
@@ -318,6 +314,7 @@ struct tree_opt_pass pass_web =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'Z'                                   /* letter */
 };
