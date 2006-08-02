@@ -116,6 +116,8 @@ public class BasicArrowButton extends JButton implements SwingConstants
     this.shadow = shadow;
     this.darkShadow = darkShadow;
     this.highlight = highlight;
+    // Mark the button as not closing the popup, we handle this ourselves.
+    putClientProperty(BasicLookAndFeel.DONT_CANCEL_POPUP, Boolean.TRUE);
   }
 
   /**
@@ -162,8 +164,8 @@ public class BasicArrowButton extends JButton implements SwingConstants
     super.paint(g);
     Rectangle bounds = getBounds();
     int size = bounds.height / 4;
-    int x = (bounds.width - size) / 2;
-    int y = (bounds.height - size) / 2;
+    int x = bounds.x + (bounds.width - size) / 2;
+    int y = (bounds.height - size) / 4;
     ButtonModel m = getModel();
     if (m.isArmed())
       {

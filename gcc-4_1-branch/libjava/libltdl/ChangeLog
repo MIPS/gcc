@@ -1,26 +1,33 @@
-2006-05-24  Release Manager
+2006-06-05  Tom Tromey  <tromey@redhat.com>
 
-	* GCC 4.1.1 released.
+	PR gcc/27818:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Define conditionally.
 
-2006-02-28  Release Manager
+2006-04-08  Andreas Tobler  <a.tobler@schweiz.ch>
 
-	* GCC 4.1.0 released.
-
-2005-06-17  Jakub Jelinek  <jakub@redhat.com>
-
-	* acinclude.m4 (AC_LIBTOOL_SYS_DYNAMIC_LINKER): Set
-	sys_lib_dlsearch_path_spec on bi-arch linux architectures
-	for 64-bit builds.
 	* configure: Rebuilt.
 
-2005-03-09  Thomas Fitzsimmons <fitzsim@redhat.com>
+2006-04-06  Andreas Tobler  <a.tobler@schweiz.ch>
 
-	* acinclude.m4 (LTDL_SHLIB_VERSION_EXT): Add.
-	* config-h.in, configure: Rebuilt.
-	* ltdl.c (shlib_version_ext): New variable.
-	(tryall_dlopen): Uncomment access check.
-	(lt_dlopenext): Try first versioned extension (like .so.5) before
-	version-less one.
+	* acinclude.m4 (AC_LTDL_SHLIBEXT): Add GCJ LOCAL marker to indicate
+	GCJ specific stuff.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure, Makefile.in: Rebuilt.
+	* configure.ac: Use AM_MAINTAINER_MODE.
+
+2006-03-29  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Restore the situation that we don't build modules on
+	darwin.
+	* configure: Regenerated.
+
+2006-03-28  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26441:
+	* Merged libltdl 1.5.16 from vendor branch.
 
 2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
 

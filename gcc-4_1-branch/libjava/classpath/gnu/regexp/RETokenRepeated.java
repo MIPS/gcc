@@ -1,5 +1,5 @@
 /* gnu/regexp/RETokenRepeated.java
-   Copyright (C) 1998-2001, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,21 +38,27 @@ exception statement from your version. */
 
 package gnu.regexp;
 
-import java.util.Vector;
+// import java.util.Vector;
+// import java.util.Stack;
 
 final class RETokenRepeated extends REToken {
     private REToken token;
     private int min,max;
     private boolean stingy;
     private boolean possessive;
-    private boolean alwaysEmpty; // Special case of {0}
+    private int tokenFixedLength;
     
     RETokenRepeated(int subIndex, REToken token, int min, int max) {
 	super(subIndex);
 	this.token = token;
 	this.min = min;
 	this.max = max;
-	alwaysEmpty = (min == 0 && max == 0);
+	if (token.returnsFixedLengthMatches()) {
+	    tokenFixedLength = token.getMaximumLength();
+	}
+	else {
+	    tokenFixedLength = -1;
+	}
     }
 
     /** Sets the minimal matching mode to true. */
@@ -91,179 +97,314 @@ final class RETokenRepeated extends REToken {
 	return (max * tmax);
     }
 
-    boolean stopMatchingIfSatisfied = true;
+    // The comment "MUST make a clone" below means that some tests
+    // failed without doing clone(),
 
-    private static REMatch findDoables(REToken tk,
-			CharIndexed input, REMatch mymatch) {
+    private static class DoablesFinder {
+	private REToken tk;
+	private CharIndexed input;
+	private REMatch rematch;
+	private boolean findFirst;
 
-	    REMatch.REMatchList doables = new REMatch.REMatchList();
+        private DoablesFinder(REToken tk, CharIndexed input, REMatch mymatch) {
+	    this.tk = tk;
+	    this.input = input;
+	    this.rematch = (REMatch) mymatch.clone(); // MUST make a clone
+	    this.rematch.backtrackStack = new BacktrackStack();
+	    findFirst = true;
+	}
 
-	    // try next repeat at all possible positions
-	    for (REMatch current = mymatch;
-		 current != null; current = current.next) {
-		REMatch recurrent = (REMatch) current.clone();
-		int origin = recurrent.index;
-		tk = (REToken) tk.clone();
-		tk.next = tk.uncle = null;
-		if (tk.match(input, recurrent)) {
-		    if (recurrent.index == origin) recurrent.empty = true;
-		    // add all items in current to doables array
-		    doables.addTail(recurrent);
+	private REMatch find() {
+	    int origin = rematch.index;
+	    REMatch rem;
+	    if (findFirst) {
+		rem = tk.findMatch(input, rematch);
+		findFirst = false;
+	    }
+	    else {
+	        while (true) {
+		    if (rematch.backtrackStack.empty()) {
+			rem = null;
+			break;
+		    }
+		    BacktrackStack.Backtrack bt = rematch.backtrackStack.pop();
+		    rem = bt.token.backtrack(bt.input, bt.match, bt.param);
+		    if (rem != null) break;
 		}
 	    }
-	    return doables.head;
+	    if (rem == null) return null;
+	    if (rem.index == origin) rem.empty = true;
+	    rematch = rem;
+	    return (REMatch) rem.clone(); // MUST make a clone.
+	}
+
+	boolean noMore() {
+	    return rematch.backtrackStack.empty();
+	}
     }
 
-    // We do need to save every possible point, but the number of clone()
-    // invocations here is really a killer for performance on non-stingy
-    // repeat operators.  I'm open to suggestions...
+    REMatch findMatch(CharIndexed input, REMatch mymatch) {
+        if (tokenFixedLength >= 0) return findMatchFixedLength(input, mymatch);
+	BacktrackStack stack = new BacktrackStack();
+	stack.push(new StackedInfo(input, 0, mymatch, null, null));
+	return findMatch(stack);
+    }
 
-    // Hypothetical question: can you have a RE that matches 1 times,
-    // 3 times, 5 times, but not 2 times or 4 times?  Does having
-    // the subexpression back-reference operator allow that?
+    REMatch backtrack(CharIndexed input, REMatch mymatch, Object param) {
+        if (tokenFixedLength >= 0) return backtrackFixedLength(input, mymatch, param);
+	return findMatch((BacktrackStack)param);
+    }
+
+    private static class StackedInfo extends BacktrackStack.Backtrack {
+        int numRepeats;
+	int[] visited;
+        DoablesFinder finder;
+        StackedInfo(CharIndexed input, int numRepeats, REMatch match,
+	        int[] visited, DoablesFinder finder) {
+	    super(null, input, match, null);
+            this.numRepeats = numRepeats;
+	    this.visited = visited;
+            this.finder = finder;
+	}
+    }
+
+    private REMatch findMatch(BacktrackStack stack) {
+        // Avoid using recursive calls.
+	MAIN_LOOP:
+	while (true) {
+
+	if (stack.empty()) return null;
+	StackedInfo si = (StackedInfo)(stack.peek());
+	CharIndexed input = si.input;
+        int numRepeats = si.numRepeats;
+        REMatch mymatch = si.match;
+	int[] visited = si.visited;
+        DoablesFinder finder = si.finder;
+        
+	if (mymatch.backtrackStack == null)
+	  mymatch.backtrackStack = new BacktrackStack();
+	
+	if (numRepeats >= max) {
+	    stack.pop();
+	    REMatch m1 = matchRest(input, mymatch);
+	    if (m1 != null) {
+		if (! stack.empty()) {
+	            m1.backtrackStack.push(new BacktrackStack.Backtrack(
+		        this, input, mymatch, stack));
+		}
+		return m1;
+	    }
+	    if (stingy) {
+		continue MAIN_LOOP;
+	    }
+	    return null;
+	}
+
+        if (finder == null) {
+	    finder = new DoablesFinder(token, input, mymatch);
+	    si.finder = finder;
+	}
+
+        if (numRepeats < min) {
+	    while (true) {
+	        REMatch doable = finder.find();
+	        if (doable == null) {
+		    if (stack.empty()) return null;
+		    stack.pop();
+		    continue MAIN_LOOP;
+		}
+		if (finder.noMore()) stack.pop();
+		int newNumRepeats = (doable.empty ? min : numRepeats + 1);
+		stack.push(new StackedInfo(
+		    input, newNumRepeats, doable, visited, null));
+		continue MAIN_LOOP;
+	    }
+	}
+
+	if (visited == null) visited = initVisited();
+
+	if (stingy) {
+	    REMatch nextMatch = finder.find();
+	    if (nextMatch != null && !nextMatch.empty) {
+	        stack.push(new StackedInfo(
+	            input, numRepeats + 1, nextMatch, visited, null));
+	    }
+	    else {
+		stack.pop();
+	    }  	
+	    REMatch m1 = matchRest(input, mymatch);
+	    if (m1 != null) {
+		if (!stack.empty()) {
+	            m1.backtrackStack.push(new BacktrackStack.Backtrack(
+		        this, input, mymatch, stack));
+		}
+	        return m1;
+	    }
+	    else {
+		continue MAIN_LOOP;
+	    }
+	}
+
+	visited = addVisited(mymatch.index, visited);
+
+	DO_THIS:
+	do {
+
+	    boolean emptyMatchFound = false;
+
+	    DO_ONE_DOABLE:
+	    while (true) {
+
+	    REMatch doable = finder.find();
+	    if (doable == null) {
+		break DO_THIS;
+	    }
+	    if (doable.empty) emptyMatchFound = true;
+
+	    if (!emptyMatchFound) {
+		int n = doable.index;
+		if (! visitedContains(n, visited)) {
+		    visited = addVisited(n, visited);
+	        }
+		else {
+		    continue DO_ONE_DOABLE;
+		}
+	        stack.push(new StackedInfo(
+		    input, numRepeats + 1, doable, visited, null));
+	        REMatch m1 = findMatch(stack);
+		if (possessive) {
+		    return m1;
+		}
+		if (m1 != null) {
+		    m1.backtrackStack.push(new BacktrackStack.Backtrack(
+                        this, input, mymatch, stack));
+		    return m1;
+		}
+	    }
+	    else {
+	        REMatch m1 = matchRest(input, doable);
+		if (possessive) {
+		    return m1;
+		}
+	        if (m1 != null) {
+		    if (! stack.empty()) {
+		        m1.backtrackStack.push(new BacktrackStack.Backtrack(
+                            this, input, mymatch, stack));
+		    } 
+		    return m1;
+		}
+	    }
+
+	    } // DO_ONE_DOABLE
+
+	} while (false); // DO_THIS only once;
+
+	if (!stack.empty()) {
+	    stack.pop();
+        }
+	if (possessive) {
+	    stack.clear();
+	}
+	REMatch m1 = matchRest(input, mymatch);
+	if (m1 != null) {
+	    if (! stack.empty()) {
+	        m1.backtrackStack.push(new BacktrackStack.Backtrack(
+	            this, input, mymatch, stack));
+	    }
+	    return m1;
+	}
+
+	} // MAIN_LOOP
+    }
 
     boolean match(CharIndexed input, REMatch mymatch) {
-	// Possible positions for the next repeat to match at
-	REMatch newMatch = mymatch;
-
-	// {0} needs some special treatment.
-	if (alwaysEmpty) {
-	    REMatch result = matchRest(input, newMatch);
-	    if (result != null) {
-	        mymatch.assignFrom(result);
-	        return true;
-	    }
-	    else {
-	        return false;
-	    }
-	}
-
-	// number of times we've matched so far
-	int numRepeats = 0; 
-	
-	REMatch doables;
-	int lastIndex = mymatch.index;
-	boolean emptyMatchFound = false;
-
-	while (numRepeats < min) {
-	    doables = findDoables(token, input, newMatch);
-
-	    // if none of the possibilities worked out, 
-	    // it means that minimum number of repeats could not be found.
-	    if (doables == null) return false;
-	    
-	    // reassign where the next repeat can match
-	    newMatch = doables;
-	    
-	    // increment how many repeats we've successfully found
-	    ++numRepeats;
-	    
-	    if (newMatch.empty) {
-		numRepeats = min;
-		emptyMatchFound = true;
-		break;
-	    }
-	    lastIndex = newMatch.index;
-	}
-
-	Vector positions = new Vector();
-
-	while (numRepeats <= max) {
-	    // We want to check something like  
-	    //    if (stingy)
-	    // and neglect the further matching.  But experience tells
-	    // such neglection may cause incomplete matching.
-	    // For example, if we neglect the seemingly unnecessay
-	    // matching, /^(b+?|a){1,2}?c/ cannot match "bbc".
-	    // On the other hand, if we do not stop the unnecessary
-	    // matching, /(([a-c])b*?\2)*/ matches "ababbbcbc"
-	    // entirely when we wan to find only "ababb".
-	    // In order to make regression tests pass, we do as we did.
-	    if (stopMatchingIfSatisfied && stingy) {
-		REMatch results = matchRest(input, newMatch);
-		if (results != null) {
-		    mymatch.assignFrom(results);
-		    return true;
-		}
-	    }
-	    positions.add(newMatch);
-	    if (emptyMatchFound) break;
-
-	    doables = findDoables(token, input, newMatch);
-	    if (doables == null) break;
-
-	    // doables.index == lastIndex occurs either
-	    //   (1) when an empty string was the longest
-	    //       that matched this token.
-	    // or
-	    //   (2) when the same string matches this token many times.
-	    //       For example, "acbab" itself matches "a.*b" and
-	    //       its substrings "acb" and "ab" also match.
-	    //       In this case, we do not have to go further until
-	    //       numRepeats == max because the more numRepeats grows,
-	    //       the shorter the substring matching this token becomes.
-	    //       So the previous succesful match must have bee the best
-	    //       match.  But this is not necessarily the case if stingy.
-	    if (doables.index == lastIndex) {
-	        if (doables.empty) {
-		    emptyMatchFound = true;
-                }
-	        else {
-		    if (!stingy) break;
-		}
-	    }
-	    numRepeats++;
-	    newMatch = doables;
-	    lastIndex = newMatch.index;
-	}
-
-	// We're greedy, but ease off until a true match is found.
-	// At this point we've either got too many or just the right amount.
-	// See if this numRepeats works with the rest of the regexp.
-
-	REMatch.REMatchList allResults = new REMatch.REMatchList();
-
-	int posCount = positions.size();
-	int posIndex = (stingy ? 0 : posCount - 1);
-
-	while (posCount-- > 0) {
-	    REMatch m = (REMatch) positions.elementAt(posIndex);
-            if (stingy) posIndex++; else posIndex--;
-
-	    REMatch results = matchRest(input, m);
-            if (results != null) {
-	    	// Order these from longest to shortest
-		// Start by assuming longest (more repeats)
-		// If stingy the order is shortest to longest.
-		allResults.addTail(results);
-	    }
-	    else {
-		if (possessive) break;
-	    }
-	}
-
-	if (allResults.head != null) {
-	    mymatch.assignFrom(allResults.head); // does this get all?
+	REMatch m1 = findMatch(input, mymatch);
+	if (m1 != null) {
+	    mymatch.assignFrom(m1);
 	    return true;
 	}
-	// If we fall out, no matches.
+	return false;
+    }    
+
+    // Array visited is an array of character positions we have already
+    // visited. visited[0] is used to store the effective length of the
+    // array.
+    private static int[] initVisited() {
+	int[] visited = new int[32];
+	visited[0] = 0;
+	return visited;
+    }
+
+    private static boolean visitedContains(int n, int[] visited) {
+	// Experience tells that for a small array like this,
+	// simple linear search is faster than binary search.
+	for (int i = 1; i < visited[0]; i++) {
+	    if (n == visited[i]) return true;
+	}
 	return false;
     }
 
-    private REMatch matchRest(CharIndexed input, final REMatch newMatch) {
-	REMatch current, single;
-	REMatch.REMatchList doneIndex = new REMatch.REMatchList();
-	// Test all possible matches for this number of repeats
-	for (current = newMatch; current != null; current = current.next) {
-	    // clone() separates a single match from the chain
-	    single = (REMatch) current.clone();
-	    if (next(input, single)) {
-		// chain results to doneIndex
-		doneIndex.addTail(single);
-	    }
+    private static int[] addVisited(int n, int[] visited) {
+	if (visitedContains(n, visited)) return visited;
+	if (visited[0] >= visited.length - 1) {
+	    int[] newvisited = new int[visited.length + 32];
+	    System.arraycopy(visited, 0, newvisited, 0, visited.length);
+	    visited = newvisited;
 	}
-	return doneIndex.head;
+	visited[0]++;
+	visited[visited[0]] = n;
+	return visited;
     }
+
+    private REMatch matchRest(CharIndexed input, final REMatch newMatch) {
+	if (next(input, newMatch)) {
+	    return newMatch;
+	}
+	return null;
+    }
+
+    private REMatch findMatchFixedLength(CharIndexed input, REMatch mymatch) {
+	if (mymatch.backtrackStack == null)
+	  mymatch.backtrackStack = new BacktrackStack();
+        int numRepeats = token.findFixedLengthMatches(input, (REMatch)mymatch.clone(), max);
+	if (numRepeats == Integer.MAX_VALUE) numRepeats = min;
+	int count = numRepeats - min + 1;
+        if (count <= 0) return null;
+	int index = 0;
+	if (!stingy) index = mymatch.index + (tokenFixedLength * numRepeats);
+	else index = mymatch.index + (tokenFixedLength * min);
+	return findMatchFixedLength(input, mymatch, index, count);
+    }
+
+    private REMatch backtrackFixedLength(CharIndexed input, REMatch mymatch,
+    	    Object param) {
+	int[] params = (int[])param;
+        int index = params[0];
+	int count = params[1];
+	return findMatchFixedLength(input, mymatch, index, count);
+    }        
+
+    private REMatch findMatchFixedLength(CharIndexed input, REMatch mymatch,
+    	    	    int index, int count) {
+        REMatch tryMatch = (REMatch) mymatch.clone();
+	while (true) {
+	    tryMatch.index = index;
+	    REMatch m = matchRest(input, tryMatch);
+	    count--;
+	    if (stingy) index += tokenFixedLength;
+	    else index -= tokenFixedLength;
+	    if (possessive) return m;
+	    if (m != null) {
+		if (count > 0) {
+	            m.backtrackStack.push(new BacktrackStack.Backtrack(
+		        this, input, mymatch,
+			new int[] {index, count}));
+	        }
+		return m;
+	    }
+	    if (count <= 0) return null;
+	}
+    }		    
 
     void dump(StringBuffer os) {
 	os.append("(?:");

@@ -1,5 +1,5 @@
 /* URLClassLoader.java --  ClassLoader that loads classes from one or more URLs
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -39,6 +39,7 @@ exception statement from your version. */
 
 package java.net;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -46,6 +47,7 @@ import java.io.FileInputStream;
 import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.security.CodeSource;
@@ -292,9 +294,10 @@ public class URLClassLoader extends SecureClassLoader
 
     Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
 
-    public JarURLLoader(URLClassLoader classloader, URL baseURL)
+    public JarURLLoader(URLClassLoader classloader, URL baseURL,
+			URL absoluteUrl)
     {
-      super(classloader, baseURL);
+      super(classloader, baseURL, absoluteUrl);
 
       // Cache url prefix for all resources in this jar url.
       String external = baseURL.toExternalForm();
@@ -314,27 +317,51 @@ public class URLClassLoader extends SecureClassLoader
 	  
 	  jarfile =
 	    ((JarURLConnection) baseJarURL.openConnection()).getJarFile();
-	  
+          
 	  Manifest manifest;
 	  Attributes attributes;
 	  String classPathString;
 
-	  if ((manifest = jarfile.getManifest()) != null
+          this.classPath = new Vector();
+
+          // This goes through the cached jar files listed
+          // in the INDEX.LIST file. All the jars found are added
+          // to the classPath vector so they can be loaded.
+          String dir = "META-INF/INDEX.LIST";
+          if (jarfile.getEntry(dir) != null)
+            {
+              BufferedReader br = new BufferedReader(new InputStreamReader(new URL(baseJarURL,
+                                                                                   dir).openStream()));
+              String line = br.readLine();
+              while (line != null)
+                {
+                  if (line.endsWith(".jar"))
+                    {
+                      try
+                        {
+                          this.classPath.add(new URL(baseURL, line));
+                        }
+                      catch (java.net.MalformedURLException xx)
+                        {
+                          // Give up
+                        }
+                    }
+                  line = br.readLine();
+                }
+            }
+          else if ((manifest = jarfile.getManifest()) != null
 	      && (attributes = manifest.getMainAttributes()) != null
 	      && ((classPathString 
 		   = attributes.getValue(Attributes.Name.CLASS_PATH)) 
 		  != null))
-	    {
-	      this.classPath = new Vector();
-	      
+	    {	      
 	      StringTokenizer st = new StringTokenizer(classPathString, " ");
 	      while (st.hasMoreElements ()) 
 		{  
 		  String e = st.nextToken ();
 		  try
 		    {
-		      URL url = new URL(baseURL, e);
-		      this.classPath.add(url);
+		      this.classPath.add(new URL(baseURL, e));
 		    } 
 		  catch (java.net.MalformedURLException xx)
 		    {
@@ -526,10 +553,10 @@ public class URLClassLoader extends SecureClassLoader
   {
     File dir; //the file for this file url
 
-    FileURLLoader(URLClassLoader classloader, URL url)
+    FileURLLoader(URLClassLoader classloader, URL url, URL absoluteUrl)
     {
-      super(classloader, url);
-      dir = new File(baseURL.getFile());
+      super(classloader, url, absoluteUrl);
+      dir = new File(absoluteUrl.getFile());
     }
 
     /** get resource with the name "name" in the file url */
@@ -537,15 +564,79 @@ public class URLClassLoader extends SecureClassLoader
     {
       try 
  	{
- 	  File file = new File(dir, name).getCanonicalFile();
- 	  if (file.exists() && !file.isDirectory())
- 	    return new FileResource(this, file);
+          // Make sure that all components in name are valid by walking through
+          // them
+          File file = walkPathComponents(name);
+
+          if (file == null)
+            return null;
+
+          return new FileResource(this, file);
  	}
       catch (IOException e)
  	{
  	  // Fall through...
  	}
       return null;
+    }
+
+    /**
+     * Walk all path tokens and check them for validity. At no moment, we are
+     * allowed to reach a directory located "above" the root directory, stored
+     * in "dir" property. We are also not allowed to enter a non existing
+     * directory or a non directory component (plain file, symbolic link, ...).
+     * An empty or null path is valid. Pathnames components are separated by
+     * <code>File.separatorChar</code>
+     * 
+     * @param resourceFileName the name to be checked for validity.
+     * @return the canonical file pointed by the resourceFileName or null if the
+     *         walking failed
+     * @throws IOException in case of issue when creating the canonical
+     *           resulting file
+     * @see File#separatorChar
+     */
+    private File walkPathComponents(String resourceFileName) throws IOException
+    {
+      StringTokenizer stringTokenizer = new StringTokenizer(resourceFileName, File.separator);
+      File currentFile = dir;
+      int tokenCount = stringTokenizer.countTokens();
+
+      for (int i = 0; i < tokenCount - 1; i++)
+        {
+          String currentToken = stringTokenizer.nextToken();
+          
+          // If we are at the root directory and trying to go up, the walking is
+          // finished with an error
+          if ("..".equals(currentToken) && currentFile.equals(dir))
+            return null;
+          
+          currentFile = new File(currentFile, currentToken);
+
+          // If the current file doesn't exist or is not a directory, the walking is
+          // finished with an error
+          if (! (currentFile.exists() && currentFile.isDirectory()))
+            return null;
+          
+        }
+      
+      // Treat the last token differently, if it exists, because it does not need
+      // to be a directory
+      if (tokenCount > 0)
+        {
+          String currentToken = stringTokenizer.nextToken();
+          
+          if ("..".equals(currentToken) && currentFile.equals(dir))
+            return null;
+          
+          currentFile = new File(currentFile, currentToken);
+
+          // If the current file doesn't exist, the walking is
+          // finished with an error
+          if (! currentFile.exists())
+            return null;
+      }
+      
+      return currentFile.getCanonicalFile();
     }
   }
 
@@ -723,11 +814,42 @@ public class URLClassLoader extends SecureClassLoader
             String file = newUrl.getFile();
             String protocol = newUrl.getProtocol();
 
+	    // If we have a file: URL, we want to make it absolute
+	    // here, before we decide whether it is really a jar.
+	    URL absoluteURL;
+	    if ("file".equals (protocol))
+	      {
+		File dir = new File(file);
+		URL absUrl;
+		try
+		  {
+		    absoluteURL = dir.getCanonicalFile().toURL();
+		  }
+		catch (IOException ignore)
+		  {
+		    try
+		      {
+			absoluteURL = dir.getAbsoluteFile().toURL();
+		      }
+		    catch (MalformedURLException _)
+		      {
+			// This really should not happen.
+			absoluteURL = newUrl;
+		      }
+		  }
+	      }
+	    else
+	      {
+		// This doesn't hurt, and it simplifies the logic a
+		// little.
+		absoluteURL = newUrl;
+	      }
+
             // Check that it is not a directory
             if (! (file.endsWith("/") || file.endsWith(File.separator)))
-              loader = new JarURLLoader(this, newUrl);
+              loader = new JarURLLoader(this, newUrl, absoluteURL);
             else if ("file".equals(protocol))
-              loader = new FileURLLoader(this, newUrl);
+              loader = new FileURLLoader(this, newUrl, absoluteURL);
             else
               loader = new RemoteURLLoader(this, newUrl);
 

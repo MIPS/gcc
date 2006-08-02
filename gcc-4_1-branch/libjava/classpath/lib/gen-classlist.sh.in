@@ -27,7 +27,7 @@ echo "Adding java source files from srcdir '@top_srcdir@'."
 # The same, but for the external code.
 # Right now all external code is in org/.
 for dir in @top_srcdir@/external/w3c_dom \
-   @top_srcdir@/external/sax; do
+   @top_srcdir@/external/sax @top_srcdir@/external/relaxngDatatype; do
   (cd $dir
   @FIND@ org -follow -name '*.java' -print |
   sort -r | sed -e 's,/\([^/]*\)$, \1,' |
@@ -57,8 +57,8 @@ done
 # Only include generated files once.
 if test ! "${top_builddir}" -ef "@top_srcdir@"; then
   echo "Adding generated files in builddir '${top_builddir}'."
-  # Currently the only generated files are in gnu and java.
-  (cd ${top_builddir}; @FIND@ gnu java -follow -name '*.java' -print) |
+  # Currently the only generated files are in gnu.*.
+  (cd ${top_builddir}; @FIND@ gnu -follow -name '*.java' -print) |
   sort | sed -e 's,/\([^/]*\)$, \1,' |
   while read pkg file; do
      echo $pkg $top_builddir $pkg/$file

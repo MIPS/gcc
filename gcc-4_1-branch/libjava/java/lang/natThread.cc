@@ -20,7 +20,6 @@ details.  */
 #include <java/lang/Thread.h>
 #include <java/lang/ThreadGroup.h>
 #include <java/lang/IllegalArgumentException.h>
-#include <java/lang/UnsupportedOperationException.h>
 #include <java/lang/IllegalThreadStateException.h>
 #include <java/lang/InterruptedException.h>
 #include <java/lang/NullPointerException.h>
@@ -91,8 +90,10 @@ jint
 java::lang::Thread::countStackFrames (void)
 {
   // NOTE: This is deprecated in JDK 1.2.
-  throw new UnsupportedOperationException
-    (JvNewStringLatin1 ("Thread.countStackFrames unimplemented"));
+
+  // Old applets still call this method.  Rather than throwing
+  // UnsupportedOperationException we simply fail silently.
+
   return 0;
 }
 
@@ -150,8 +151,9 @@ void
 java::lang::Thread::resume (void)
 {
   checkAccess ();
-  throw new UnsupportedOperationException
-    (JvNewStringLatin1 ("Thread.resume unimplemented"));
+
+  // Old applets still call this method.  Rather than throwing
+  // UnsupportedOperationException we simply fail silently.
 }
 
 void
@@ -215,6 +217,9 @@ java::lang::Thread::finish_ ()
 
   // If a method cache was created, free it.
   _Jv_FreeMethodCache();
+
+  // Clear out thread locals.
+  locals = NULL;
 
   // Signal any threads that are waiting to join() us.
   _Jv_MutexLock (&nt->join_mutex);
@@ -332,16 +337,18 @@ void
 java::lang::Thread::stop (java::lang::Throwable *)
 {
   checkAccess ();
-  throw new UnsupportedOperationException
-    (JvNewStringLatin1 ("Thread.stop unimplemented"));
+
+  // Old applets still call this method.  Rather than throwing
+  // UnsupportedOperationException we simply fail silently.
 }
 
 void
 java::lang::Thread::suspend (void)
 {
   checkAccess ();
-  throw new UnsupportedOperationException 
-    (JvNewStringLatin1 ("Thread.suspend unimplemented"));
+
+  // Old applets still call this method.  Rather than throwing
+  // UnsupportedOperationException we simply fail silently.
 }
 
 static int nextThreadNumber = 0;
