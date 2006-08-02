@@ -1,0 +1,9 @@
+2006-08-02  Michael Matz  <matz@suse.de>
+
+	* select-insn.c: New file.
+	* tree-pass.h (pass_insn_select): Declare it.
+	* passes.c (init_optimization_passes): Call it.
+	* Makefile.in (select-insn.o): New target, add it to OBJS-common.
+
+2006-08-02  Michael Matz  <matz@suse.de>
+	* Branch "insn-select" created.
