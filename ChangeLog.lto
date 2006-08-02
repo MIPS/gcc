@@ -1,3 +1,8 @@
+2006-08-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/c-typeck.c (composite_type): Use alloc_parm_types and its
+	friends.
+
 2006-08-01  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-parser.c (c_parser_parms_declarator): Use

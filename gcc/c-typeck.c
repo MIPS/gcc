@@ -412,42 +412,41 @@ composite_type (tree t1, tree t2)
 	   doesn't die on VLAs in parameter types.  */
 	c_override_global_bindings_to_false = true;
 
-	len = list_length (p1);
-	newargs = 0;
+	len = num_parm_types (p1);
 
-	for (i = 0; i < len; i++)
-	  newargs = tree_cons (NULL_TREE, NULL_TREE, newargs);
+	newargs = alloc_parm_types (len);
 
 	n = newargs;
 
-	for (; p1;
-	     p1 = TREE_CHAIN (p1), p2 = TREE_CHAIN (p2), n = TREE_CHAIN (n))
+	for (i = 0; i < len; i++)
 	  {
 	    /* A null type means arg type is not specified.
 	       Take whatever the other function type has.  */
-	    if (TREE_VALUE (p1) == 0)
+	    if (nth_parm_type (p1, i) == 0)
 	      {
-		TREE_VALUE (n) = TREE_VALUE (p2);
+		*(nth_parm_type_ptr (newargs, i)) =
+		  nth_parm_type (p2, i);
 		goto parm_done;
 	      }
-	    if (TREE_VALUE (p2) == 0)
+	    if (nth_parm_type (p2, i) == 0)
 	      {
-		TREE_VALUE (n) = TREE_VALUE (p1);
+		*(nth_parm_type_ptr (newargs, i)) =
+		  nth_parm_type (p1, i);
 		goto parm_done;
 	      }
 
 	    /* Given  wait (union {union wait *u; int *i} *)
 	       and  wait (union wait *),
 	       prefer  union wait *  as type of parm.  */
-	    if (TREE_CODE (TREE_VALUE (p1)) == UNION_TYPE
-		&& TREE_VALUE (p1) != TREE_VALUE (p2))
+	    if (TREE_CODE (nth_parm_type (p1, i)) == UNION_TYPE
+		&& nth_parm_type (p1, i) != nth_parm_type (p2, i))
 	      {
 		tree memb;
-		tree mv2 = TREE_VALUE (p2);
+		tree mv2 = nth_parm_type (p2, i);
 		if (mv2 && mv2 != error_mark_node
 		    && TREE_CODE (mv2) != ARRAY_TYPE)
 		  mv2 = TYPE_MAIN_VARIANT (mv2);
-		for (memb = TYPE_FIELDS (TREE_VALUE (p1));
+		for (memb = TYPE_FIELDS (nth_parm_type (p1, i));
 		     memb; memb = TREE_CHAIN (memb))
 		  {
 		    tree mv3 = TREE_TYPE (memb);
@@ -456,23 +455,24 @@ composite_type (tree t1, tree t2)
 		      mv3 = TYPE_MAIN_VARIANT (mv3);
 		    if (comptypes (mv3, mv2))
 		      {
-			TREE_VALUE (n) = composite_type (TREE_TYPE (memb),
-							 TREE_VALUE (p2));
+			*(nth_parm_type_ptr (newargs, i)) =
+			  composite_type (TREE_TYPE (memb),
+					  nth_parm_type (p2, i));
 			if (pedantic)
 			  pedwarn ("function types not truly compatible in ISO C");
 			goto parm_done;
 		      }
 		  }
 	      }
-	    if (TREE_CODE (TREE_VALUE (p2)) == UNION_TYPE
-		&& TREE_VALUE (p2) != TREE_VALUE (p1))
+	    if (TREE_CODE (nth_parm_type (p2, i)) == UNION_TYPE
+		&& nth_parm_type (p2, i) != nth_parm_type (p1, i))
 	      {
 		tree memb;
-		tree mv1 = TREE_VALUE (p1);
+		tree mv1 = nth_parm_type (p1, i);
 		if (mv1 && mv1 != error_mark_node
 		    && TREE_CODE (mv1) != ARRAY_TYPE)
 		  mv1 = TYPE_MAIN_VARIANT (mv1);
-		for (memb = TYPE_FIELDS (TREE_VALUE (p2));
+		for (memb = TYPE_FIELDS (nth_parm_type (p2, i));
 		     memb; memb = TREE_CHAIN (memb))
 		  {
 		    tree mv3 = TREE_TYPE (memb);
@@ -481,15 +481,17 @@ composite_type (tree t1, tree t2)
 		      mv3 = TYPE_MAIN_VARIANT (mv3);
 		    if (comptypes (mv3, mv1))
 		      {
-			TREE_VALUE (n) = composite_type (TREE_TYPE (memb),
-							 TREE_VALUE (p1));
+			*(nth_parm_type_ptr (newargs, i)) =
+			  composite_type (TREE_TYPE (memb),
+					  nth_parm_type (p1, i));
 			if (pedantic)
 			  pedwarn ("function types not truly compatible in ISO C");
 			goto parm_done;
 		      }
 		  }
 	      }
-	    TREE_VALUE (n) = composite_type (TREE_VALUE (p1), TREE_VALUE (p2));
+	    *(nth_parm_type_ptr (newargs, i)) =
+	      composite_type (nth_parm_type (p1, i), nth_parm_type (p2, i));
 	  parm_done: ;
 	  }
 
