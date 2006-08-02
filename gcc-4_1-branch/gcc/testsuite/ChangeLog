@@ -1,3 +1,124 @@
+2006-08-02  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline
+	* lib/gcc-dg.exp (tool_load): Wrapper to support shouldfail tests.
+	(dg-test): Support shouldfail tests.
+	* lib/target-supports-dg.exp (dg-shouldfail): New.
+	* gcc.test-framework/test-framework.awk: Handle shouldfail tests.
+	* gcc.test-framework/dg-do-run-sf-exp-F.c: New test.
+	* gcc.test-framework/dg-do-run-sf-exp-P.c: New test.
+	* gcc.test-framework/dg-do-run-sft-exp-F.c: New test.
+	* gcc.test-framework/dg-do-run-sft-exp-P.c: New test.
+	* gcc.test-framework/dg-dox-run-sf-exp-XF.c: New test.
+	* gcc.test-framework/dg-dox-run-sf-exp-XP.c: New test.
+
+2006-07-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28523
+	* g++.dg/eh/cast1.C: New test.
+
+2006-07-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/28473
+	* gcc.dg/fold-convround-1.c: New test case.
+	* gcc.dg/builtins-55.c: New test case.
+
+2006-07-28  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27668
+        * g++.dg/template/crash54.C: New test.
+
+        PR c++/27962
+        * g++.dg/template/nontype16.C: New test.
+
+        * g++.dg/template/nontype5.C: Adjust error markers.
+	
+2006-07-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28339
+	* gfortran.dg/arrayio_8.f90: New test.
+
+2006-07-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* gfortran.dg/temporary_1.f90: Remove unused CLOSE.
+
+2006-07-26  Richard Sandiford  <richard@codesourcery.com>
+
+	PR middle-end/28403
+	* gcc.c-torture/execute/pr28403.c: New test.
+
+2006-07-26  Richard Sandiford  <richard@codesourcery.com>
+
+	PR middle-end/28402
+	* gcc.dg/pr28402.c: New test.
+
+2006-07-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/itime_idate_1.f: New test.
+	* gfortran.dg/itime_idate_2.f: New test.
+
+2006-07-25  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/28439
+	gfortran.dg/arithmetic_if.f90:  New test.
+
+2006-07-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27572
+	* g++.dg/other/typedef1.C: New test.
+	* g++.dg/template/typedef4.C: New test.
+	* g++.dg/template/typedef5.C: New test.
+
+2006-07-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28129
+	* gfortran.dg/bounds_check_4.f90: New test.
+
+2006-07-24  Roger Sayle  <roger@eyesopen.com>
+
+	Backport from mainline
+	* gcc.dg/fold-cond-1.c: Increase test case portability by checking
+	that "g ? 1 : h" doesn't match, instead of checking for "(g | h) != 0"
+	which may transformed to "g || h" on some platforms.
+
+2006-07-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/28238
+	* g++.dg/tree-ssa/pr28238.C: New testcase.
+
+2006-07-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27795
+	PR tree-optimization/27639
+	PR tree-optimization/26719
+	Backport from mainline
+	2006-05-24  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/pr27639.c: New test.
+	* gcc.dg/pr26719.c: New test.
+	* gcc.dg/tree-ssa/scev-cast.c: New test.
+
+2006-07-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/28029
+	* gcc.dg/vect/pr28029.c: New testcase.
+
+2006-07-24  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.dg/visibility-11.c: Enlarge test array to 1024 bytes to
+	avoid memcpy optimization.
+
+2006-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28025
+	* g++.dg/template/friend45.C: New test.
+
+2006-07-22  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/28258
+	* g++/dg/other/error11.C: New test.
+	
 2006-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/28363

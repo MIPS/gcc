@@ -1,3 +1,49 @@
+2006-07-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28523
+	* tree.c (stabilize_expr): Tweak documentation.  Add assertion.
+	(stabilize_call): Tweak documentation.
+	(stabilize_init): Only call stabilize_call for calls.
+
+2006-07-28  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27668
+        PR c++/27962
+        * pt.c (process_template_parm) Store invalid template
+        parameters as error_mark_node in the paramater list.
+        (push_inline_template_parms_recursive): Handle invalid
+        template parameters.
+        (comp_template_parms): Likewise.
+        (check_default_tmpl_args): Likewise.
+        (coerce_template_template_parms): Likewise.
+        (coerce_template_parms): Likewise.
+        (mangle_class_name_for_template): Likewise.
+        (tsubst_template_parms): Likewise.
+        * error.c (dump_template_argument_list): Likewise.
+	
+2006-07-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27572
+	* decl.c (grokdeclarator): Return error_mark_node after invalid
+	typedef.
+
+2006-07-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28025
+	* cp-tree.h (LOOKUP_HIDDEN): New macro.  Reformat comments.
+	* name-lookup.c (unqualified_namespace_lookup): There is no way to
+	have a hidden name in non-namespace scopes.
+	* pt.c (tsubst_friend_class): Look for hidden names.
+	* decl.c (lookup_and_check_tag): Fix typo in comment.
+
+	* semantics.c (finish_compound_literal): Fix typo in comment.
+
+2006-07-22  Lee Millward  <lee.millward@gmail.com>
+
+	PR c++/28258
+	* method.c (locate_copy): Check for non_reference
+	returning error_mark_node.
+	
 2006-07-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/28363
