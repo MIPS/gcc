@@ -554,7 +554,7 @@ schedule_ebbs (void)
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return;
+    return NULL;
 
   /* We need current_sched_info in init_dependency_caches, which is
      invoked via sched_init.  */

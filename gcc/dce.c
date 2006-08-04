@@ -561,7 +561,8 @@ dce_process_block (basic_block bb, bool redo_out)
 static void
 fast_dce (bool df_delete)
 {
-  int *postorder = xmalloc (sizeof (int) *last_basic_block);
+  int *postorder = df_get_postorder (dce_df);
+  int n_blocks = df_get_n_blocks (dce_df);
   int i;
   /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
@@ -574,14 +575,10 @@ fast_dce (bool df_delete)
   bitmap all_blocks = BITMAP_ALLOC (NULL);
   bool global_changed = true;
   struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
-  int n_blocks;
+
   int loop_count = 0;
 
   prescan_insns_for_dce (true);
-
-  n_blocks = post_order_compute (postorder, true);
-  if (n_blocks != n_basic_blocks)
-    delete_unreachable_blocks ();
 
   for (i = 0; i < n_blocks; i++)
     bitmap_set_bit (all_blocks, postorder[i]);
@@ -649,7 +646,6 @@ fast_dce (bool df_delete)
 
   delete_unmarked_insns (df_delete);
 
-  free (postorder);
   BITMAP_FREE (processed);
   BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);
@@ -968,8 +964,8 @@ init_rs_dflow (void)
   out_vec = XNEWVEC (bitmap, last_basic_block);
   gen_vec = XNEWVEC (bitmap, last_basic_block);
   kill_vec = XNEWVEC (bitmap, last_basic_block);
-  postorder = XNEWVEC (int, last_basic_block);
-  n_blocks = post_order_compute (postorder, true);
+  n_blocks = df_get_n_blocks (dce_df);
+  postorder = df_get_postorder (dce_df);
   iterating = BITMAP_ALLOC (NULL);
 
   num_stores = VEC_length (store_info, stores.stores);
@@ -1013,7 +1009,6 @@ end_rs_dflow (void)
   XDELETE (max_in_luid);
 
   BITMAP_FREE (iterating);
-  XDELETE (postorder);
   XDELETE (kill_vec);
   XDELETE (gen_vec);
   XDELETE (out_vec);
@@ -1637,15 +1632,53 @@ gate_dse (void)
   return optimize > 0 && flag_new_dce;
 }
 
-struct tree_opt_pass pass_rtl_dse =
+struct tree_opt_pass pass_rtl_dse1 =
 {
-  "dse",                                /* name */
+  "dse1",                               /* name */
   gate_dse,                             /* gate */
   rest_of_handle_dse,                   /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_DSE,                               /* tv_id */
+  TV_DSE1,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+struct tree_opt_pass pass_rtl_dse2 =
+{
+  "dse2",                               /* name */
+  gate_dse,                             /* gate */
+  rest_of_handle_dse,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DSE2,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+struct tree_opt_pass pass_rtl_dse3 =
+{
+  "dse3",                               /* name */
+  gate_dse,                             /* gate */
+  rest_of_handle_dse,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DSE3,                              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

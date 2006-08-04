@@ -330,6 +330,7 @@ df_init (int flags)
 
   gcc_assert (!df_current_instance);
   df_current_instance = df;
+  df->postorder = NULL;
   return df;
 }
 
@@ -508,12 +509,17 @@ df_finish1 (struct df *df)
 {
   int i;
 
+  if (!df)
+    return;
+
   for (i = 0; i < df->num_problems_defined; i++)
     {
       struct dataflow *dflow = df->problems_in_order[i];
       dflow->problem->free_fun (df->problems_in_order[i]); 
     }
 
+  if (df->postorder)
+    free (df->postorder);
   free (df);
   df_current_instance = NULL;
 }
@@ -805,19 +811,17 @@ df_analyze_problem (struct dataflow *dflow,
 void
 df_analyze (struct df *df)
 {
-  int *postorder = XNEWVEC (int, last_basic_block);
   bitmap current_all_blocks = BITMAP_ALLOC (NULL);
-  int n_blocks;
   int i;
   bool everything;
 
-  n_blocks = post_order_compute (postorder, true);
+  if (df->postorder)
+    free (df->postorder);
+  df->postorder = XNEWVEC (int, last_basic_block);
+  df->n_blocks = post_order_compute (df->postorder, true, true);
 
-  if (n_blocks != n_basic_blocks)
-    delete_unreachable_blocks ();
-
-  for (i = 0; i < n_blocks; i++)
-    bitmap_set_bit (current_all_blocks, postorder[i]);
+  for (i = 0; i < df->n_blocks; i++)
+    bitmap_set_bit (current_all_blocks, df->postorder[i]);
 
   /* No one called df_rescan_blocks, so do it.  */
   if (!df->blocks_to_scan)
@@ -831,7 +835,8 @@ df_analyze (struct df *df)
     {
       everything = false;
       bitmap_and_into (df->blocks_to_analyze, current_all_blocks);
-      n_blocks = df_prune_to_subcfg (postorder, n_blocks, df->blocks_to_analyze);
+      df->n_blocks = df_prune_to_subcfg (df->postorder, 
+					 df->n_blocks, df->blocks_to_analyze);
       BITMAP_FREE (current_all_blocks);
     }
   else
@@ -846,7 +851,7 @@ df_analyze (struct df *df)
     df_analyze_problem (df->problems_in_order[i], 
 			df->blocks_to_analyze, df->blocks_to_analyze, 
 			df->blocks_to_scan,
-			postorder, n_blocks, false);
+			df->postorder, df->n_blocks, false);
 
   if (everything)
     {
@@ -856,7 +861,25 @@ df_analyze (struct df *df)
 
   BITMAP_FREE (df->blocks_to_scan);
   df->blocks_to_scan = NULL;
-  free (postorder);
+}
+
+
+/* Return the number of basic blocks from the last call to df_analyze.  */
+
+int 
+df_get_n_blocks (struct df *df)
+{
+  gcc_assert (df->postorder);
+  return df->n_blocks;
+}
+
+
+/* Return a pointer to the array of basic blocks from the last call to df_analyze.  */
+int *
+df_get_postorder (struct df *df)
+{
+  gcc_assert (df->postorder);
+  return df->postorder;
 }
 
 static struct df_problem user_problem; 

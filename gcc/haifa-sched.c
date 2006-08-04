@@ -4271,13 +4271,10 @@ extend_bb (basic_block bb)
    If EBB is EXIT_BLOCK_PTR, then BB is recovery block.
    If EBB is NULL, then BB should be a new region.  */
 void
-add_block (struct df *df, basic_block bb, basic_block ebb)
+add_block (struct df *df ATTRIBUTE_UNUSED, basic_block bb, basic_block ebb)
 {
-  gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO
-	      && DF_LIVE_IN (df, bb) == NULL
-	      && DF_LIVE_OUT (df, bb) == NULL);
-
-  extend_bb (bb);
+  gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO);
+  extend_bb (bb); 
 
   glat_start[bb->index] = 0;
   glat_end[bb->index] = 0;

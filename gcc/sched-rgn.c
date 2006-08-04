@@ -1030,7 +1030,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
   max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
 
   order = xmalloc (last_basic_block * sizeof (*order));
-  post_order_compute (order, false);
+  post_order_compute (order, false, false);
 
   for (i = nblocks - 1; i >= 0; i--)
     {

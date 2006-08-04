@@ -645,16 +645,20 @@ connect_infinite_loops_to_exit (void)
   return;
 }
 
-/* Compute reverse top sort order.  
-   This is computing a post order numbering of the graph.  */
+/* Compute reverse top sort order.  This is computing a post order
+   numbering of the graph.  If INCLUDE_ENTRY_EXIT is true, then then
+   ENTRY_BLOCK and EXIT_BLOCK are included.  If DELETE_UNREACHABLE is
+   true, unreachable blocks are deleted.  */
 
 int
-post_order_compute (int *post_order, bool include_entry_exit)
+post_order_compute (int *post_order, bool include_entry_exit, 
+		    bool delete_unreachable)
 {
   edge_iterator *stack;
   int sp;
   int post_order_num = 0;
   sbitmap visited;
+  int count;
 
   if (include_entry_exit)
     post_order[post_order_num++] = EXIT_BLOCK;
@@ -699,7 +703,7 @@ post_order_compute (int *post_order, bool include_entry_exit)
       else
 	{
 	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR)
-	   post_order[post_order_num++] = src->index;
+	    post_order[post_order_num++] = src->index;
 
 	  if (!ei_one_before_end_p (ei))
 	    ei_next (&stack[sp - 1]);
@@ -709,7 +713,29 @@ post_order_compute (int *post_order, bool include_entry_exit)
     }
 
   if (include_entry_exit)
-    post_order[post_order_num++] = ENTRY_BLOCK;
+    {
+      post_order[post_order_num++] = ENTRY_BLOCK;
+      count = post_order_num;
+    }
+  else 
+    count = post_order_num + 2;
+  
+  /* Delete the unreachable blocks if some were found and we are
+     supposed to do it.  */
+  if (delete_unreachable && (count != n_basic_blocks))
+    {
+      basic_block b;
+      basic_block next_bb;
+      for (b = ENTRY_BLOCK_PTR->next_bb; b != EXIT_BLOCK_PTR; b = next_bb)
+	{
+	  next_bb = b->next_bb;
+	  
+	  if (!(TEST_BIT (visited, b->index)))
+	    delete_basic_block (b);
+	}
+      
+      tidy_fallthru_edges ();
+    }
 
   free (stack);
   sbitmap_free (visited);

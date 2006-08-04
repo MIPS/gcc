@@ -400,6 +400,8 @@ struct df
   bitmap eh_block_artificial_uses;
   bitmap entry_block_defs;       /* The set of hardware registers live on entry to the function.  */
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
+  int *postorder;                /* The current set of basic blocks in postorder.  */
+  int n_blocks;                  /* The number of blocks in postorder.  */
 };
 
 #define DF_SCAN_BB_INFO(DF, BB) (df_scan_get_bb_info((DF)->problems_by_index[DF_SCAN],(BB)->index))
@@ -632,6 +634,8 @@ extern void df_delete_basic_block (struct df *, int);
 extern void df_finish1 (struct df *);
 extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
+extern int df_get_n_blocks (struct df *);
+extern int *df_get_postorder (struct df *);
 extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
 					  df_confluence_function_0, df_confluence_function_n,
 					  df_transfer_function, bitmap, int *, int);

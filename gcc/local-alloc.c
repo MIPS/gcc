@@ -2529,8 +2529,6 @@ rest_of_handle_local_alloc (void)
 
       rebuild_jump_labels (get_insns ());
       purge_all_dead_edges ();
-      delete_unreachable_blocks ();
-
       timevar_pop (TV_JUMP);
     }
 

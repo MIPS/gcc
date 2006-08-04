@@ -1,3 +1,31 @@
+2006-08-04  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (pass_rtl_dse): Split into pass_rtl_dse1,
+	pass_rtl_dse2, pass_rtl_dse3.
+	* passes.c (init_optimization_passes): Ditto.  
+	* timevar.def (TV_DSE): Split into TV_DSE1, TV_DSE2, and TV_DSE3.
+	(TV_THREAD_PROLOGUE_AND_EPILOGUE): Made text shorter to improve
+	readability.
+	* df.core.c (df_init, df_finish1, df_analyze_problem, df_analyze):
+	Made postorder and instance variable of df.  
+	(df_finish1): Made tolerant of being passed NULL instance.
+	(df_get_n_blocks, df_get_postorder): New functions.
+	* cfganal (post_order_compute): Added delete_unreachable
+	parameter and code to delete unreachable blocks.
+	* local_alloc (rest_of_handle_local_alloc): Removed unnecessary
+	call to delete_unreachable_blocks.
+	* df.h (postorder, n_blocks): New instance variables.
+	(df_get_n_blocks, df_get_postorder): New functions.
+	* sched-rgn.c (extend_rgns): Added extra parameter to
+	post_order_compute.
+	* basic-block.h (post_order_compute): Ditto.
+	* dce.c (fast_dce, init_rs_dflow): Now uses postorder and n_blocks from df.
+	(pass_rtl_dse): Split into pass_rtl_dse1,
+	pass_rtl_dse2, pass_rtl_dse3.
+	* sched-ebb.c (schedule-ebbs): Added return value.
+	* haifa-sched.c (add_block): Made df parameter unused and fixed
+	incorrect assert.  
+
 2006-08-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* sched-ebb.c (sched_ebbs): Now returns the df instance created.
