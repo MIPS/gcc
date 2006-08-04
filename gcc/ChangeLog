@@ -1,3 +1,19 @@
+2006-08-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Change parms
+	to register_ssa_partition calls.
+	* tree-ssa-live.c (register_ssa_partition): Remove prototype.
+	(init_var_map, delete_var_map): remove refernces to ref_count.
+	(create_ssa_var_map): Never calculate a ref count.
+	* tree-ssa-live.h (typedef struct _var_map): Remove ref_count.
+	(SSA_VAR_MAP_REF_COUNT): Delete.
+	(create_ssa_var_map): Change Prototype to have no parameters.
+	(version_ref_count): Delete.
+	(register_ssa_partition): Remove 'is_use' paramater and don't set the
+	ref_count vector.
+	* tree-outof-ssa.c (check_replaceable): Use num_imm_uses.
+	(rewrite_out_of_ssa): Never create a ref_count in the var_map.
+
 2006-06-22  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (mix): Define.

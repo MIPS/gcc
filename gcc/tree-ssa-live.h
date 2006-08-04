@@ -44,9 +44,6 @@ typedef struct _var_map
 
   /* Original partition size.  */
   unsigned int partition_size;
-
-  /* Reference count, if required.  */
-  int *ref_count;
 } *var_map;
 
 #define VAR_ANN_PARTITION(ann) (ann->partition)
@@ -74,11 +71,9 @@ static inline tree var_to_partition_to_var (var_map, tree);
 static inline tree partition_to_var (var_map, int);
 static inline int var_to_partition (var_map, tree);
 static inline tree version_to_var (var_map, int);
-static inline int version_ref_count (var_map, tree);
-static inline void register_ssa_partition (var_map, tree, bool);
+static inline void register_ssa_partition (var_map, tree);
 
-#define SSA_VAR_MAP_REF_COUNT	 0x01
-extern var_map create_ssa_var_map (int);
+extern var_map create_ssa_var_map (void);
 
 /* Number of partitions in MAP.  */
 
@@ -88,17 +83,6 @@ num_var_partitions (var_map map)
   return map->num_partitions;
 }
 
-
-/* Return the reference count for SSA_VAR's partition in MAP.  */
-
-static inline int
-version_ref_count (var_map map, tree ssa_var)
-{
-  int version = SSA_NAME_VERSION (ssa_var);
-  gcc_assert (map->ref_count);
-  return map->ref_count[version];
-}
- 
 
 /* Given partition index I from MAP, return the variable which represents that 
    partition.  */
@@ -176,7 +160,7 @@ var_to_partition_to_var (var_map map, tree var)
    later.  */ 
 
 static inline void
-register_ssa_partition (var_map map, tree ssa_var, bool is_use)
+register_ssa_partition (var_map map, tree ssa_var)
 {
   int version;
 
@@ -185,9 +169,6 @@ register_ssa_partition (var_map map, tree ssa_var, bool is_use)
 #endif
 
   version = SSA_NAME_VERSION (ssa_var);
-  if (is_use && map->ref_count)
-    map->ref_count[version]++;
-
   if (map->partition_to_var[version] == NULL_TREE)
     map->partition_to_var[SSA_NAME_VERSION (ssa_var)] = ssa_var;
 }

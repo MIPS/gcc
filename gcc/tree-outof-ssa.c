@@ -1553,7 +1553,6 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 {
   tree var, def, basevar;
   int version;
-  var_map map = tab->map;
   ssa_op_iter iter;
   tree call_expr;
   bitmap def_vars = BITMAP_ALLOC (NULL), use_vars;
@@ -1566,7 +1565,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   if (!def)
     return false;
 
-  if (version_ref_count (map, def) != 1)
+  if (num_imm_uses (def) != 1)
     return false;
 
   /* There must be no V_MAY_DEFS or V_MUST_DEFS.  */
@@ -2507,7 +2506,6 @@ static unsigned int
 rewrite_out_of_ssa (void)
 {
   var_map map;
-  int var_flags = 0;
   int ssa_flags = 0;
 
   /* If elimination of a PHI requires inserting a copy on a backedge,
@@ -2526,11 +2524,7 @@ rewrite_out_of_ssa (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  /* We cannot allow unssa to un-gimplify trees before we instrument them.  */
-  if (flag_tree_ter && !flag_mudflap)
-    var_flags = SSA_VAR_MAP_REF_COUNT;
-
-  map = create_ssa_var_map (var_flags);
+  map = create_ssa_var_map ();
 
   if (flag_tree_combine_temps)
     ssa_flags |= SSANORM_COMBINE_TEMPS;
