@@ -112,23 +112,12 @@ Boston, MA 02110-1301, USA.  */
         {								     \
           cpp_define (pfile, "__mcoldfire__");				     \
 									     \
-          if (!m68k_arch_isaaplus && !m68k_arch_isab && !m68k_arch_isac)     \
-	    {								     \
-	      /* ISA_A: legacy define.  */				     \
-	      cpp_define (pfile, "__mcf5200__");			     \
-	      cpp_define (pfile, "__mcfisaa__");			     \
-    	    }								     \
-          else if (m68k_arch_isaaplus)					     \
-	    {								     \
-	      /* ISA_A+: legacy define.  */				     \
-	      cpp_define (pfile, "__mcf528x__");			     \
-	      cpp_define (pfile, "__mcf5200__");			     \
-	      cpp_define (pfile, "__mcfisaaplus__");			     \
-	    }								     \
+          if (m68k_arch_isac)						     \
+    	    cpp_define (pfile, "__mcfisac__");				     \
           else if (m68k_arch_isab)					     \
 	    {								     \
-	      /* ISA_B: 5307, 5407 handled specially. __mcfisaX__ or 	     \
-		 __mcfvX__   should be used in new code.  */		     \
+	      cpp_define (pfile, "__mcfisab__");			     \
+	      /* ISA_B: Legacy 5307, 5407 defines.  */			     \
 	      switch (m68k_cpu)						     \
 	        {							     \
 	        case mcf5307:						     \
@@ -144,10 +133,20 @@ Boston, MA 02110-1301, USA.  */
 	        default:						     \
 	          ;							     \
 	        }							     \
-	      cpp_define (pfile, "__mcfisab__");			     \
 	    }								     \
-          else if (m68k_arch_isac)					     \
-    	    cpp_define (pfile, "__mcfisac__");				     \
+          else if (m68k_arch_isaaplus)					     \
+	    {								     \
+	      cpp_define (pfile, "__mcfisaaplus__");			     \
+	      /* ISA_A+: legacy defines.  */				     \
+	      cpp_define (pfile, "__mcf528x__");			     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+	    }								     \
+          else 								     \
+	    {								     \
+	      cpp_define (pfile, "__mcfisaa__");			     \
+	      /* ISA_A: legacy define.  */				     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+    	    }								     \
 									     \
           /* Handle options to allow selecting different user code for	     \
 	     tuning purposes.  */					     \
