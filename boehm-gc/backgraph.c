@@ -24,7 +24,7 @@
  * a growing space leak.
  */
 
-#include "gc.h"	/* For configuration information. */
+#include "gc.h"
 
 #ifdef MAKE_BACK_GRAPH
 

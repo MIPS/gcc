@@ -63,7 +63,7 @@ typedef struct StackFrame {
 
 unsigned long FindTopOfStack(unsigned int stack_start) {
   StackFrame	*frame;
-  
+
   if (stack_start == 0) {
 # ifdef POWERPC
 #   if CPP_WORDSZ == 32
@@ -106,7 +106,13 @@ void GC_push_all_stacks() {
   GC_thread p;
   pthread_t me;
   ptr_t lo, hi;
+#if defined(POWERPC)
   THREAD_STATE state;
+#elif defined(I386)
+  i386_thread_state_t state;
+#else
+# error FIXME for non-x86 || ppc architectures
+#endif
   mach_msg_type_number_t thread_state_count = MACHINE_THREAD_STATE_COUNT;
   
   me = pthread_self();
@@ -126,39 +132,53 @@ void GC_push_all_stacks() {
 			     &thread_state_count);
 	if(r != KERN_SUCCESS) ABORT("thread_get_state failed");
 	
+#if defined(I386)
+	lo = state.esp;
+
+	GC_push_one(state.eax); 
+	GC_push_one(state.ebx); 
+	GC_push_one(state.ecx); 
+	GC_push_one(state.edx); 
+	GC_push_one(state.edi); 
+	GC_push_one(state.esi); 
+	GC_push_one(state.ebp); 
+#elif defined(POWERPC)
 	lo = (void*)(state . THREAD_FLD (r1) - PPC_RED_ZONE_SIZE);
-        
-	GC_push_one(state . THREAD_FLD (r0)); 
-	GC_push_one(state . THREAD_FLD (r2)); 
-	GC_push_one(state . THREAD_FLD (r3)); 
-	GC_push_one(state . THREAD_FLD (r4)); 
-	GC_push_one(state . THREAD_FLD (r5)); 
-	GC_push_one(state . THREAD_FLD (r6)); 
-	GC_push_one(state . THREAD_FLD (r7)); 
-	GC_push_one(state . THREAD_FLD (r8)); 
-	GC_push_one(state . THREAD_FLD (r9)); 
-	GC_push_one(state . THREAD_FLD (r10)); 
-	GC_push_one(state . THREAD_FLD (r11)); 
-	GC_push_one(state . THREAD_FLD (r12)); 
-	GC_push_one(state . THREAD_FLD (r13)); 
-	GC_push_one(state . THREAD_FLD (r14)); 
-	GC_push_one(state . THREAD_FLD (r15)); 
-	GC_push_one(state . THREAD_FLD (r16)); 
-	GC_push_one(state . THREAD_FLD (r17)); 
-	GC_push_one(state . THREAD_FLD (r18)); 
-	GC_push_one(state . THREAD_FLD (r19)); 
-	GC_push_one(state . THREAD_FLD (r20)); 
-	GC_push_one(state . THREAD_FLD (r21)); 
-	GC_push_one(state . THREAD_FLD (r22)); 
-	GC_push_one(state . THREAD_FLD (r23)); 
-	GC_push_one(state . THREAD_FLD (r24)); 
-	GC_push_one(state . THREAD_FLD (r25)); 
-	GC_push_one(state . THREAD_FLD (r26)); 
-	GC_push_one(state . THREAD_FLD (r27)); 
-	GC_push_one(state . THREAD_FLD (r28)); 
-	GC_push_one(state . THREAD_FLD (r29)); 
-	GC_push_one(state . THREAD_FLD (r30)); 
-	GC_push_one(state . THREAD_FLD (r31));
+
+	GC_push_one(state.r0); 
+	GC_push_one(state.r2); 
+	GC_push_one(state.r3); 
+	GC_push_one(state.r4); 
+	GC_push_one(state.r5); 
+	GC_push_one(state.r6); 
+	GC_push_one(state.r7); 
+	GC_push_one(state.r8); 
+	GC_push_one(state.r9); 
+	GC_push_one(state.r10); 
+	GC_push_one(state.r11); 
+	GC_push_one(state.r12); 
+	GC_push_one(state.r13); 
+	GC_push_one(state.r14); 
+	GC_push_one(state.r15); 
+	GC_push_one(state.r16); 
+	GC_push_one(state.r17); 
+	GC_push_one(state.r18); 
+	GC_push_one(state.r19); 
+	GC_push_one(state.r20); 
+	GC_push_one(state.r21); 
+	GC_push_one(state.r22); 
+	GC_push_one(state.r23); 
+	GC_push_one(state.r24); 
+	GC_push_one(state.r25); 
+	GC_push_one(state.r26); 
+	GC_push_one(state.r27); 
+	GC_push_one(state.r28); 
+	GC_push_one(state.r29); 
+	GC_push_one(state.r30); 
+	GC_push_one(state.r31);
+#else
+# error FIXME for non-x86 || ppc architectures
+#endif
       } /* p != me */
       if(p->flags & MAIN_THREAD)
 	hi = GC_stackbottom;
@@ -180,6 +200,7 @@ void GC_push_all_stacks() {
 
 void GC_push_all_stacks() {
     int i;
+	task_t my_task;
     kern_return_t r;
     mach_port_t me;
     ptr_t lo, hi;
@@ -189,7 +210,8 @@ void GC_push_all_stacks() {
     me = mach_thread_self();
     if (!GC_thr_initialized) GC_thr_init();
     
-    r = task_threads(current_task(), &act_list, &listcount);
+	my_task = current_task();
+    r = task_threads(my_task, &act_list, &listcount);
     if(r != KERN_SUCCESS) ABORT("task_threads failed");
     for(i = 0; i < listcount; i++) {
       thread_act_t thread = act_list[i];
@@ -207,38 +229,40 @@ void GC_push_all_stacks() {
 	lo = (void*)(info . THREAD_FLD (r1) - PPC_RED_ZONE_SIZE);
 	hi = (ptr_t)FindTopOfStack(info . THREAD_FLD (r1));
 
-	GC_push_one(info . THREAD_FLD (r0)); 
-	GC_push_one(info . THREAD_FLD (r2)); 
-	GC_push_one(info . THREAD_FLD (r3)); 
-	GC_push_one(info . THREAD_FLD (r4)); 
-	GC_push_one(info . THREAD_FLD (r5)); 
-	GC_push_one(info . THREAD_FLD (r6)); 
-	GC_push_one(info . THREAD_FLD (r7)); 
-	GC_push_one(info . THREAD_FLD (r8)); 
-	GC_push_one(info . THREAD_FLD (r9)); 
-	GC_push_one(info . THREAD_FLD (r10)); 
-	GC_push_one(info . THREAD_FLD (r11)); 
-	GC_push_one(info . THREAD_FLD (r12)); 
-	GC_push_one(info . THREAD_FLD (r13)); 
-	GC_push_one(info . THREAD_FLD (r14)); 
-	GC_push_one(info . THREAD_FLD (r15)); 
-	GC_push_one(info . THREAD_FLD (r16)); 
-	GC_push_one(info . THREAD_FLD (r17)); 
-	GC_push_one(info . THREAD_FLD (r18)); 
-	GC_push_one(info . THREAD_FLD (r19)); 
-	GC_push_one(info . THREAD_FLD (r20)); 
-	GC_push_one(info . THREAD_FLD (r21)); 
-	GC_push_one(info . THREAD_FLD (r22)); 
-	GC_push_one(info . THREAD_FLD (r23)); 
-	GC_push_one(info . THREAD_FLD (r24)); 
-	GC_push_one(info . THREAD_FLD (r25)); 
-	GC_push_one(info . THREAD_FLD (r26)); 
-	GC_push_one(info . THREAD_FLD (r27)); 
-	GC_push_one(info . THREAD_FLD (r28)); 
-	GC_push_one(info . THREAD_FLD (r29)); 
-	GC_push_one(info . THREAD_FLD (r30)); 
+	GC_push_one(info . THREAD_FLD (r0));
+	GC_push_one(info . THREAD_FLD (r2));
+	GC_push_one(info . THREAD_FLD (r3));
+	GC_push_one(info . THREAD_FLD (r4));
+	GC_push_one(info . THREAD_FLD (r5));
+	GC_push_one(info . THREAD_FLD (r6));
+	GC_push_one(info . THREAD_FLD (r7));
+	GC_push_one(info . THREAD_FLD (r8));
+	GC_push_one(info . THREAD_FLD (r9));
+	GC_push_one(info . THREAD_FLD (r10));
+	GC_push_one(info . THREAD_FLD (r11));
+	GC_push_one(info . THREAD_FLD (r12));
+	GC_push_one(info . THREAD_FLD (r13));
+	GC_push_one(info . THREAD_FLD (r14));
+	GC_push_one(info . THREAD_FLD (r15));
+	GC_push_one(info . THREAD_FLD (r16));
+	GC_push_one(info . THREAD_FLD (r17));
+	GC_push_one(info . THREAD_FLD (r18));
+	GC_push_one(info . THREAD_FLD (r19));
+	GC_push_one(info . THREAD_FLD (r20));
+	GC_push_one(info . THREAD_FLD (r21));
+	GC_push_one(info . THREAD_FLD (r22));
+	GC_push_one(info . THREAD_FLD (r23));
+	GC_push_one(info . THREAD_FLD (r24));
+	GC_push_one(info . THREAD_FLD (r25));
+	GC_push_one(info . THREAD_FLD (r26));
+	GC_push_one(info . THREAD_FLD (r27));
+	GC_push_one(info . THREAD_FLD (r28));
+	GC_push_one(info . THREAD_FLD (r29));
+	GC_push_one(info . THREAD_FLD (r30));
 	GC_push_one(info . THREAD_FLD (r31));
-#      else
+
+# else
+
 	/* FIXME: Remove after testing:	*/
 	WARN("This is completely untested and likely will not work\n", 0);
 	THREAD_STATE info;
@@ -250,21 +274,21 @@ void GC_push_all_stacks() {
 	lo = (void*)info . THREAD_FLD (esp);
 	hi = (ptr_t)FindTopOfStack(info . THREAD_FLD (esp));
 
-	GC_push_one(info . THREAD_FLD (eax)); 
-	GC_push_one(info . THREAD_FLD (ebx)); 
-	GC_push_one(info . THREAD_FLD (ecx)); 
-	GC_push_one(info . THREAD_FLD (edx)); 
-	GC_push_one(info . THREAD_FLD (edi)); 
-	GC_push_one(info . THREAD_FLD (esi)); 
-	/* GC_push_one(info . THREAD_FLD (ebp));  */
-	/* GC_push_one(info . THREAD_FLD (esp));  */
-	GC_push_one(info . THREAD_FLD (ss)); 
-	GC_push_one(info . THREAD_FLD (eip)); 
-	GC_push_one(info . THREAD_FLD (cs)); 
-	GC_push_one(info . THREAD_FLD (ds)); 
-	GC_push_one(info . THREAD_FLD (es)); 
-	GC_push_one(info . THREAD_FLD (fs)); 
-	GC_push_one(info . THREAD_FLD (gs)); 
+	GC_push_one(info . THREAD_FLD(eax));
+	GC_push_one(info . THREAD_FLD(ebx));
+	GC_push_one(info . THREAD_FLD(ecx));
+	GC_push_one(info . THREAD_FLD(edx));
+	GC_push_one(info . THREAD_FLD(edi));
+	GC_push_one(info . THREAD_FLD(esi));
+	/* GC_push_one(info . THREAD_FLD(ebp));  */
+	/* GC_push_one(info . THREAD_FLD(esp));  */
+	GC_push_one(info . THREAD_FLD(ss));
+	GC_push_one(info . THREAD_FLD(eip));
+	GC_push_one(info . THREAD_FLD(cs));
+	GC_push_one(info . THREAD_FLD(ds));
+	GC_push_one(info . THREAD_FLD(es));
+	GC_push_one(info . THREAD_FLD(fs));
+	GC_push_one(info . THREAD_FLD(gs));
 #      endif /* !POWERPC */
       }
 #     if DEBUG_THREADS
@@ -275,8 +299,10 @@ void GC_push_all_stacks() {
 		 );
 #     endif
       GC_push_all_stack(lo, hi); 
+	  mach_port_deallocate(my_task, thread);
     } /* for(p=GC_threads[i]...) */
-    vm_deallocate(current_task(), (vm_address_t)act_list, sizeof(thread_t) * listcount);
+    vm_deallocate(my_task, (vm_address_t)act_list, sizeof(thread_t) * listcount);
+	mach_port_deallocate(my_task, me);
 }
 #endif /* !DARWIN_DONT_PARSE_STACK */
 
@@ -370,6 +396,7 @@ int GC_suspend_thread_list(thread_act_array_t act_list, int count,
     } 
     if (!found) GC_mach_threads_count++;
   }
+  mach_port_deallocate(current_task(), my_thread);
   return changed;
 }
 
@@ -379,6 +406,7 @@ void GC_stop_world()
 {
   int i, changes;
     GC_thread p;
+	task_t my_task = current_task();
     mach_port_t my_thread = mach_thread_self();
     kern_return_t kern_result;
     thread_act_array_t act_list, prev_list;
@@ -414,13 +442,21 @@ void GC_stop_world()
       prevcount = 0;
       do {
 	int result;
-	kern_result = task_threads(current_task(), &act_list, &listcount);
+	kern_result = task_threads(my_task, &act_list, &listcount);
 	result = GC_suspend_thread_list(act_list, listcount,
 					prev_list, prevcount);
 	changes = result;
 	prev_list = act_list;
 	prevcount = listcount;
-        vm_deallocate(current_task(), (vm_address_t)act_list, sizeof(thread_t) * listcount);
+	
+	if(kern_result == KERN_SUCCESS) {
+		int i;
+		
+		for(i = 0; i < listcount; i++)
+			mach_port_deallocate(my_task, act_list[i]);
+		
+        vm_deallocate(my_task, (vm_address_t)act_list, sizeof(thread_t) * listcount);
+	}
       } while (changes);
       
  
@@ -437,12 +473,15 @@ void GC_stop_world()
     #if DEBUG_THREADS
       GC_printf1("World stopped from 0x%lx\n", my_thread);
     #endif
+	  
+	  mach_port_deallocate(my_task, my_thread);
 }
 
 /* Caller holds allocation lock, and has held it continuously since	*/
 /* the world stopped.							*/
 void GC_start_world()
 {
+  task_t my_task = current_task();
   mach_port_t my_thread = mach_thread_self();
   int i, j;
   GC_thread p;
@@ -463,7 +502,7 @@ void GC_start_world()
       }
 #   endif
 
-    kern_result = task_threads(current_task(), &act_list, &listcount);
+    kern_result = task_threads(my_task, &act_list, &listcount);
     for(i = 0; i < listcount; i++) {
       thread_act_t thread = act_list[i];
       if (thread != my_thread &&
@@ -491,8 +530,12 @@ void GC_start_world()
 	  } 
 	}
       }
+	  
+	  mach_port_deallocate(my_task, thread);
     }
-    vm_deallocate(current_task(), (vm_address_t)act_list, sizeof(thread_t) * listcount);
+    vm_deallocate(my_task, (vm_address_t)act_list, sizeof(thread_t) * listcount);
+	
+	mach_port_deallocate(my_task, my_thread);
 #   if DEBUG_THREADS
      GC_printf0("World started\n");
 #   endif

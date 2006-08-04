@@ -34,6 +34,10 @@
 # include <tchar.h>
 #endif
 
+#ifdef NONSTOP
+# include <floss.h>
+#endif
+
 # ifdef THREADS
 #   ifdef PCR
 #     include "il/PCR_IL.h"
@@ -477,7 +481,7 @@ void GC_init()
 #if defined(GC_WIN32_THREADS) && !defined(GC_PTHREADS)
     if (!GC_is_initialized) {
       BOOL (WINAPI *pfn) (LPCRITICAL_SECTION, DWORD) = NULL;
-      HMODULE hK32 = GetModuleHandle("kernel32.dll");
+      HMODULE hK32 = GetModuleHandleA("kernel32.dll");
       if (hK32)
 	  pfn = (BOOL (WINAPI *) (LPCRITICAL_SECTION, DWORD))
 		GetProcAddress (hK32,

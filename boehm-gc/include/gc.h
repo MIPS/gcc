@@ -25,14 +25,14 @@
  * Everything else is best ignored unless you encounter performance
  * problems.
  */
- 
+
 #ifndef _GC_H
 
 # define _GC_H
 
-/* 
- * As this header includes gc_config.h, preprocessor conflicts can occur with 
- * clients that include their own autoconf headers. The following #undef's 
+/*
+ * As this header includes gc_config.h, preprocessor conflicts can occur with
+ * clients that include their own autoconf headers. The following #undef's
  * work around some likely conflicts.
  */
 
@@ -248,15 +248,6 @@ GC_API int GC_dont_precollect;  /* Don't collect as part of 		*/
 				/* Interferes with blacklisting.	*/
 				/* Wizards only.			*/
 
-/* Public procedures */
-
-/* Initialize the collector.  This is only required when using thread-local
- * allocation, since unlike the regular allocation routines, GC_local_malloc
- * is not self-initializing.  If you use GC_local_malloc you should arrange
- * to call this somehow (e.g. from a constructor) before doing any allocation.
- */
-GC_API void GC_init GC_PROTO((void));
-
 GC_API unsigned long GC_time_limit;
 				/* If incremental collection is enabled, */
 				/* We try to terminate collections	 */
@@ -299,6 +290,7 @@ GC_API void GC_init GC_PROTO((void));
  */
 GC_API GC_PTR GC_malloc GC_PROTO((size_t size_in_bytes));
 GC_API GC_PTR GC_malloc_atomic GC_PROTO((size_t size_in_bytes));
+GC_API char *GC_strdup GC_PROTO((const char *str));
 GC_API GC_PTR GC_malloc_uncollectable GC_PROTO((size_t size_in_bytes));
 GC_API GC_PTR GC_malloc_stubborn GC_PROTO((size_t size_in_bytes));
 
@@ -500,7 +492,7 @@ GC_API GC_PTR GC_malloc_atomic_ignore_off_page GC_PROTO((size_t lb));
 #   define GC_RETURN_ADDR (GC_word)__return_address
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__GLIBC__)
 # include <features.h>
 # if (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 1 || __GLIBC__ > 2) \
      && !defined(__ia64__)
@@ -529,7 +521,7 @@ GC_API GC_PTR GC_malloc_atomic_ignore_off_page GC_PROTO((size_t lb));
 /* This may also be desirable if it is possible but expensive to	*/
 /* retrieve the call chain.						*/
 #if (defined(__linux__) || defined(__NetBSD__) || defined(__OpenBSD__) \
-     || defined(__FreeBSD__)) & !defined(GC_CAN_SAVE_CALL_STACKS)
+     || defined(__FreeBSD__) || defined(__DragonFly__)) & !defined(GC_CAN_SAVE_CALL_STACKS)
 # define GC_ADD_CALLER
 # if __GNUC__ >= 3 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95) 
     /* gcc knows how to retrieve return address, but we don't know */
@@ -555,6 +547,8 @@ GC_API GC_PTR GC_debug_malloc
 	GC_PROTO((size_t size_in_bytes, GC_EXTRA_PARAMS));
 GC_API GC_PTR GC_debug_malloc_atomic
 	GC_PROTO((size_t size_in_bytes, GC_EXTRA_PARAMS));
+GC_API char *GC_debug_strdup
+       GC_PROTO((const char *str, GC_EXTRA_PARAMS));
 GC_API GC_PTR GC_debug_malloc_uncollectable
 	GC_PROTO((size_t size_in_bytes, GC_EXTRA_PARAMS));
 GC_API GC_PTR GC_debug_malloc_stubborn
@@ -589,6 +583,7 @@ GC_API GC_PTR GC_debug_realloc_replacement
 # ifdef GC_DEBUG
 #   define GC_MALLOC(sz) GC_debug_malloc(sz, GC_EXTRAS)
 #   define GC_MALLOC_ATOMIC(sz) GC_debug_malloc_atomic(sz, GC_EXTRAS)
+#   define GC_STRDUP(s) GC_debug_strdup((s), GC_EXTRAS)
 #   define GC_MALLOC_UNCOLLECTABLE(sz) \
 			GC_debug_malloc_uncollectable(sz, GC_EXTRAS)
 #   define GC_MALLOC_IGNORE_OFF_PAGE(sz) \
@@ -612,6 +607,7 @@ GC_API GC_PTR GC_debug_realloc_replacement
 # else
 #   define GC_MALLOC(sz) GC_malloc(sz)
 #   define GC_MALLOC_ATOMIC(sz) GC_malloc_atomic(sz)
+#   define GC_STRDUP(s) GC_strdup(s)
 #   define GC_MALLOC_UNCOLLECTABLE(sz) GC_malloc_uncollectable(sz)
 #   define GC_MALLOC_IGNORE_OFF_PAGE(sz) \
 			GC_malloc_ignore_off_page(sz)
@@ -777,7 +773,7 @@ GC_API int GC_invoke_finalizers GC_PROTO((void));
 	/* be finalized.  Return the number of finalizers	*/
 	/* that were run.  Normally this is also called		*/
 	/* implicitly during some allocations.	If		*/
-	/* GC-finalize_on_demand is nonzero, it must be called	*/
+	/* GC_finalize_on_demand is nonzero, it must be called	*/
 	/* explicitly.						*/
 
 /* GC_set_warn_proc can be used to redirect or filter warning messages.	*/
@@ -930,7 +926,7 @@ extern void GC_thr_init GC_PROTO((void));/* Needed for Solaris/X86	*/
    first call a user-supplied routine with filename of the library and
    the address and length of the memory region.  This routine should
    return nonzero if that region should be scanned.  */
-GC_API void GC_register_has_static_roots_callback 
+GC_API void GC_register_has_static_roots_callback
   (int (*callback)(const char *, void *, size_t));
 
 
@@ -981,8 +977,14 @@ GC_API void GC_register_has_static_roots_callback
      * from the statically loaded program section.
      * This circumvents a Solaris 2.X (X<=4) linker bug.
      */
-#   define GC_INIT() { extern end, etext; \
-		       GC_noop(&end, &etext); }
+    extern int _end[], _etext[];
+#   ifdef __cplusplus
+      extern "C" void GC_noop1(GC_word);
+#   else
+      void GC_noop1();
+#   endif /* !__cplusplus */
+#   define GC_INIT() { GC_noop1((GC_word)_end); \
+		       GC_noop1((GC_word)_etext); }
 #else
 # if defined(__CYGWIN32__) || defined (_AIX)
     /*

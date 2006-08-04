@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 1994 by Xerox Corporation.  All rights reserved.
  * Copyright (c) 1996 by Silicon Graphics.  All rights reserved.
  * Copyright (c) 1998 by Fergus Henderson.  All rights reserved.
@@ -75,7 +75,8 @@
 # endif
 
 # if (defined(GC_DGUX386_THREADS) || defined(GC_OSF1_THREADS) || \
-      defined(GC_DARWIN_THREADS) || defined(GC_AIX_THREADS)) \
+      defined(GC_DARWIN_THREADS) || defined(GC_AIX_THREADS) || \
+      defined(GC_NETBSD_THREADS))			       \
       && !defined(USE_PTHREAD_SPECIFIC)
 #   define USE_PTHREAD_SPECIFIC
 # endif
@@ -128,7 +129,10 @@
 # include <sys/sysctl.h>
 #endif /* GC_DARWIN_THREADS */
 
-
+#if defined(GC_NETBSD_THREADS)
+# include <sys/param.h>
+# include <sys/sysctl.h>
+#endif	/* GC_NETBSD_THREADS */
 
 #if defined(GC_DGUX386_THREADS)
 # include <sys/dg_sys_info.h>
@@ -602,6 +606,11 @@ void GC_delete_thread(pthread_t id)
     } else {
         prev -> next = p -> next;
     }
+	
+#ifdef GC_DARWIN_THREADS
+	mach_port_deallocate(mach_task_self(), p->stop_info.mach_thread);
+#endif
+	
     GC_INTERNAL_FREE(p);
 }
 
@@ -624,6 +633,11 @@ void GC_delete_gc_thread(pthread_t id, GC_thread gc_id)
     } else {
         prev -> next = p -> next;
     }
+	
+#ifdef GC_DARWIN_THREADS
+	mach_port_deallocate(mach_task_self(), p->stop_info.mach_thread);
+#endif
+	
     GC_INTERNAL_FREE(p);
 }
 
@@ -844,6 +858,18 @@ int GC_get_nprocs()
 }
 #endif /* GC_DGUX386_THREADS */
 
+#if defined(GC_NETBSD_THREADS)
+static int get_ncpu(void)
+{
+    int mib[] = {CTL_HW,HW_NCPU};
+    int res;
+    size_t len = sizeof(res);
+
+    sysctl(mib, sizeof(mib)/sizeof(int), &res, &len, NULL, 0);
+    return res;
+}
+#endif	/* GC_NETBSD_THREADS */
+
 /* We hold the allocation lock.	*/
 void GC_thr_init()
 {
@@ -888,6 +914,9 @@ void GC_thr_init()
 #       if defined(GC_IRIX_THREADS)
 	  GC_nprocs = sysconf(_SC_NPROC_ONLN);
 	  if (GC_nprocs <= 0) GC_nprocs = 1;
+#       endif
+#       if defined(GC_NETBSD_THREADS)
+	  GC_nprocs = get_ncpu();
 #       endif
 #       if defined(GC_DARWIN_THREADS) || defined(GC_FREEBSD_THREADS)
 	  int ncpus = 1;

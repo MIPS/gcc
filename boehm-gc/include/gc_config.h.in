@@ -42,6 +42,9 @@
 /* support for Xavier Leroy's Linux threads */
 #undef GC_LINUX_THREADS
 
+/* support NetBSD threads */
+#undef GC_NETBSD_THREADS
+
 /* support for Tru64 pthreads */
 #undef GC_OSF1_THREADS
 
@@ -166,11 +169,17 @@
 /* define GC_local_malloc() & GC_local_malloc_atomic() */
 #undef THREAD_LOCAL_ALLOC
 
+/* no description */
+#undef USE_COMPILER_TLS
+
 /* use MMAP instead of sbrk to get new memory */
 #undef USE_MMAP
 
 /* POSIX version of C Source */
 #undef _POSIX_C_SOURCE
+
+/* no description */
+#undef _PTHREADS
 
 /* Required define if using POSIX threads */
 #undef _REENTRANT

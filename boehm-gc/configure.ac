@@ -1,5 +1,4 @@
-# Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
-# Copyright 2004 Nathanael Nerode
+# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -11,13 +10,18 @@
 # modified is included with the above copyright notice.
 #
 # Original author: Tom Tromey
-# Modified by Nathanael Nerode
+# Modified by: Grzegorz Jakacki <jakacki at acm dot org>
 
 dnl Process this file with autoconf to produce configure.
 
+# Initialization
+# ==============
+
 AC_PREREQ(2.59)
-AC_INIT
+AC_INIT(gc,6.8,Hans.Boehm@hp.com) 
+    ## version must conform to [0-9]+[.][0-9]+(alpha[0-9]+)?
 AC_CONFIG_SRCDIR(gcj_mlc.c)
+
 # This works around the fact that libtool configuration may change LD
 # for this particular configuration, but some shells, instead of
 # keeping the changes in LD private, export them just because LD is
@@ -35,7 +39,7 @@ ACX_NONCANONICAL_TARGET
 # This works around an automake problem.
 mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
 AC_SUBST(mkinstalldirs)
-
+ 
 AM_INIT_AUTOMAKE(gc, 6.6, no-define)
 
 # The autoconf 2.5x version of the no-executables hack.
@@ -47,6 +51,7 @@ GCC_NO_EXECUTABLES
 
 m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
+
 AC_PROG_CC
 AC_PROG_CXX
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
@@ -64,7 +69,7 @@ AC_SUBST(CCASFLAGS)
 
 AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(AR, ar)
-AC_CHECK_TOOL(RANLIB, ranlib, :)
+AC_CHECK_TOOL(RANLIB, ranlib, :)  # :)
 
 AC_PROG_INSTALL
 
@@ -151,7 +156,7 @@ case "$THREADS" in
 	THREADLIBS="-lpthread -lrt"
 	# HPUX needs REENTRANT for the _r calls.
 	AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads])
-	;;
+ 	;;
      *-*-hpux10*)
 	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
 	;;
@@ -161,6 +166,24 @@ case "$THREADS" in
 	AM_CPPFLAGS="$AM_CPPFLAGS -pthread"
 	THREADLIBS=-pthread
       	;;
+     *-*-kfreebsd*-gnu)
+	AC_DEFINE(GC_FREEBSD_THREADS)
+	INCLUDES="$INCLUDES -pthread"
+	THREADDLLIBS=-pthread
+	AC_DEFINE(_REENTRANT)
+        if test "${enable_parallel_mark}" = yes; then
+	  AC_DEFINE(PARALLEL_MARK)
+	fi
+	AC_DEFINE(THREAD_LOCAL_ALLOC)
+	AC_DEFINE(USE_COMPILER_TLS,1,[no description])
+      	;;
+     *-*-netbsd*)
+	AC_MSG_WARN("Only on NetBSD 2.0 or later.")
+	AC_DEFINE(GC_NETBSD_THREADS,1,[support NetBSD threads])
+	AC_DEFINE(_REENTRANT)
+	AC_DEFINE(_PTHREADS,1,[no description])
+	THREADDLLIBS="-lpthread -lrt"
+	;;
      *-*-solaris*)
 	AC_DEFINE(GC_SOLARIS_THREADS,1,[support for Solaris (thr_) threads])
 	AC_DEFINE(GC_SOLARIS_PTHREADS,1,[support for Solaris pthreads])
@@ -198,7 +221,7 @@ case "$THREADS" in
     ;;
  dgux386)
     THREADS=dgux386
-AC_MSG_RESULT($THREADLIBS)
+    AC_MSG_RESULT($THREADDLLIBS)
     # Use pthread GCC  switch
     THREADLIBS=-pthread
     if test "${enable_parallel_mark}" = yes; then
@@ -505,7 +528,6 @@ esac
 if test -n "$symver"; then
   AC_DEFINE_UNQUOTED(GC_PTHREAD_SYM_VERSION, "$symver", [symbol version of pthread_create])
 fi
-
 
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then
