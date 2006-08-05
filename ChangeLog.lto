@@ -1,3 +1,11 @@
+2006-08-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/decl2.c (coerce_new_type, coerce_delete_type): Don't use
+	void_list_node in equality comparisons.
+	* gcc/cp/pt.c (tsubst, tsubst_copy, tsubst_copy_asm_operands,
+	tsubst_copy_and_build): Likewise.
+	* gcc/cp/typeck.c (commonparms): Likewise.
+
 2006-08-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-typeck.c (composite_type): Use alloc_parm_types and its

@@ -7112,7 +7112,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree purpose, value, chain;
 
-	if (t == void_list_node)
+	if (t
+	    && TREE_VALUE (t) == void_type_node
+	    && TREE_CHAIN (t) == NULL_TREE)
 	  return t;
 
 	purpose = TREE_PURPOSE (t);
@@ -7942,7 +7944,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree purpose, value, chain;
 
-	if (t == void_list_node)
+	if (t
+	    && TREE_VALUE (t) == void_type_node
+	    && TREE_CHAIN (t) == NULL_TREE)
 	  return t;
 
 	purpose = TREE_PURPOSE (t);
@@ -8072,8 +8076,10 @@ tsubst_copy_asm_operands (tree t, tree args, tsubst_flags_t complain,
     return tsubst_copy_and_build (t, args, complain, in_decl,
 				  /*function_p=*/false);
 
-  if (t == void_list_node)
-    return t;
+  if (t
+      && TREE_VALUE (t) == void_type_node
+      && TREE_CHAIN (t) == NULL_TREE)
+     return t;
 
   purpose = TREE_PURPOSE (t);
   if (purpose)
@@ -8856,7 +8862,9 @@ tsubst_copy_and_build (tree t,
       {
 	tree purpose, value, chain;
 
-	if (t == void_list_node)
+	if (t
+	    && TREE_VALUE (t) == void_type_node
+	    && TREE_CHAIN (t) == NULL_TREE)
 	  return t;
 
 	purpose = TREE_PURPOSE (t);

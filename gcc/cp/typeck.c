@@ -174,7 +174,9 @@ commonparms (tree p1, tree p2)
   len = list_length (p1);
   newargs = tree_last (p1);
 
-  if (newargs == void_list_node)
+  if (newargs
+      && TREE_VALUE (newargs) == void_type_node
+      && TREE_CHAIN (newargs) == NULL_TREE)
     i = 1;
   else
     {
