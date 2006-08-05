@@ -12,6 +12,8 @@
 	* gcc/cp/decl2.c (coerce_new_type): Use num_parm_types and its
 	friends.
 
+	* gcc/typeck.c (commonparms): Use num_parm_types and its friends.
+
 2006-08-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-typeck.c (composite_type): Use alloc_parm_types and its

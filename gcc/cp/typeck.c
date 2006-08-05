@@ -167,43 +167,32 @@ type_unknown_p (tree exp)
 static tree
 commonparms (tree p1, tree p2)
 {
-  tree oldargs = p1, newargs, n;
-  int i, len;
+  tree new_parm_types;
   int any_change = 0;
+  int len = num_parm_types (p1);
+  int i;
 
-  len = list_length (p1);
-  newargs = tree_last (p1);
-
-  if (newargs
-      && TREE_VALUE (newargs) == void_type_node
-      && TREE_CHAIN (newargs) == NULL_TREE)
-    i = 1;
-  else
+  new_parm_types = alloc_parm_types (len);
+  for (i = 0; i < len; i++)
     {
-      i = 0;
-      newargs = 0;
-    }
+      tree t1 = nth_parm_type (p1, i);
+      tree t2 = nth_parm_type (p2, i);
+      tree new_type;
 
-  for (; i < len; i++)
-    newargs = tree_cons (NULL_TREE, NULL_TREE, newargs);
-
-  n = newargs;
-
-  for (i = 0; p1;
-       p1 = TREE_CHAIN (p1), p2 = TREE_CHAIN (p2), n = TREE_CHAIN (n), i++)
-    {
-      if (TREE_VALUE (p1) != TREE_VALUE (p2))
+      if (t1 != t2)
 	{
 	  any_change = 1;
-	  TREE_VALUE (n) = merge_types (TREE_VALUE (p1), TREE_VALUE (p2));
+	  new_type = merge_types (t1, t2);
 	}
       else
-	TREE_VALUE (n) = TREE_VALUE (p1);
+	new_type = t1;
+      *(nth_parm_type_ptr (new_parm_types, i)) = new_type;
     }
-  if (! any_change)
-    return oldargs;
 
-  return newargs;
+  if (!any_change)
+    return p1;
+
+  return new_parm_types;
 }
 
 /* Given a type, perhaps copied for a typedef,
