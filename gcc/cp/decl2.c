@@ -1186,7 +1186,9 @@ tree
 coerce_delete_type (tree type)
 {
   int e = 0;
-  tree args = TYPE_ARG_TYPES (type);
+  tree parm_types = TYPE_ARG_TYPES (type);
+  int len = num_parm_types (parm_types);
+  int skip = 0;
 
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
 
@@ -1196,28 +1198,38 @@ coerce_delete_type (tree type)
       error ("%<operator delete%> must return type %qT", void_type_node);
     }
 
-  if (!args
-      || (args
-	  && TREE_VALUE (args) == void_type_node
-	  && TREE_CHAIN (args) == NULL_TREE)
-      || !same_type_p (TREE_VALUE (args), ptr_type_node))
+  if (len == 0
+      || (len == 1 && nth_parm_type (parm_types, 0) == void_type_node)
+      || !same_type_p (nth_parm_type (parm_types, 0), ptr_type_node))
     {
       e = 2;
-      if (args
-	  && (TREE_VALUE (args) != void_type_node
-	      || TREE_CHAIN (args) != NULL_TREE))
-	args = TREE_CHAIN (args);
+      if (len != 0
+	  && !(len == 1
+	       && nth_parm_type (parm_types, 0) == void_type_node))
+	skip = 1;
       error ("%<operator delete%> takes type %qT as first parameter",
 	     ptr_type_node);
     }
   switch (e)
   {
     case 2:
-      args = tree_cons (NULL_TREE, ptr_type_node, args);
+      {
+	/* Prepend ptr_type_node to PARM_TYPES.  */
+	tree new_parm_types = alloc_parm_types (len - skip + 1);
+	int i;
+
+	*(nth_parm_type_ptr (new_parm_types, 0)) = ptr_type_node;
+	for (i = 0; i < len - skip; i++)
+	  {
+	    *(nth_parm_type_ptr (new_parm_types, 1 + i)) =
+	      nth_parm_type (parm_types, skip + i);
+	  }
+	parm_types = new_parm_types;
+      }
       /* Fall through.  */
     case 1:
       type = build_exception_variant
-	      (build_function_type (void_type_node, args),
+	      (build_function_type (void_type_node, parm_types),
 	       TYPE_RAISES_EXCEPTIONS (type));
       /* Fall through.  */
     default:;

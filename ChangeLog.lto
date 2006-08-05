@@ -6,6 +6,9 @@
 	tsubst_copy_and_build): Likewise.
 	* gcc/cp/typeck.c (commonparms): Likewise.
 
+	* gcc/cp/decl2.c (coerce_delete_type): Use num_parm_types and its
+	friends.
+
 2006-08-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-typeck.c (composite_type): Use alloc_parm_types and its
