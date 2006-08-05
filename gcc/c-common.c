@@ -5427,17 +5427,19 @@ static void
 check_function_sentinel (tree attrs, tree params, tree typelist)
 {
   tree attr = lookup_attribute ("sentinel", attrs);
+  int skip = 0;
+  int len = num_parm_types (typelist);
 
   if (attr)
     {
       /* Skip over the named arguments.  */
-      while (typelist && params)
-      {
-	typelist = TREE_CHAIN (typelist);
-	params = TREE_CHAIN (params);
-      }
+      while (skip < len && params)
+	{
+	  skip++;
+	  params = TREE_CHAIN (params);
+	}
 
-      if (typelist || !params)
+      if (skip < len || !params)
 	warning (OPT_Wformat,
 		 "not enough variable arguments to fit a sentinel");
       else

@@ -16,6 +16,8 @@
 
 	* gcc/c-common.c (def_fn_type): Use vec_heap2parm_types.
 
+	* gcc/c-common.c (check_function_sentinel): Use num_parm_types.
+
 2006-08-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/c-typeck.c (composite_type): Use alloc_parm_types and its
