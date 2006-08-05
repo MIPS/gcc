@@ -3097,10 +3097,12 @@ static tree builtin_types[(int) BT_LAST + 1];
 static void
 def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 {
-  tree args = NULL, t;
+  tree args, t;
   va_list list;
   int i;
+  VEC(tree,heap) *v;
 
+  v = VEC_alloc (tree, heap, n + !var);
   va_start (list, n);
   for (i = 0; i < n; ++i)
     {
@@ -3108,17 +3110,20 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
       t = builtin_types[a];
       if (t == error_mark_node)
 	goto egress;
-      args = tree_cons (NULL_TREE, t, args);
+      VEC_quick_push (tree, v, t);
     }
   va_end (list);
 
-  args = nreverse (args);
   if (!var)
-    args = chainon (args, void_list_node);
+    VEC_quick_push (tree, v, void_type_node);
 
   t = builtin_types[ret];
   if (t == error_mark_node)
     goto egress;
+
+  args = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
+
   t = build_function_type (t, args);
 
  egress:
