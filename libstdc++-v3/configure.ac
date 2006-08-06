@@ -112,7 +112,8 @@ GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
 # No surprises, no surprises...
 GLIBCXX_ENABLE_THREADS
-if test $atomicity_dir = cpu/generic ; then
+GLIBCXX_ENABLE_ATOMIC_BUILTINS
+if test $atomicity_dir = cpu/generic/atomic_mutex ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
@@ -165,6 +166,9 @@ if $GLIBCXX_IS_NATIVE; then
 
   # For TLS support.
   GCC_CHECK_TLS
+
+  # For _Unwind_GetIPInfo.
+  GCC_CHECK_UNWIND_GETIPINFO
 
   AC_LC_MESSAGES
 
@@ -282,10 +286,14 @@ else
     AC_DEFINE(HAVE_TANHL)
   fi
 
+  # Assume we have _Unwind_GetIPInfo for cross-compiles.
+  AC_DEFINE(HAVE_GETIPINFO)
+
 fi
 
 # This depends on GLIBCXX CHECK_LINKER_FEATURES, but without it assumes no.
 GLIBCXX_ENABLE_SYMVERS([yes])
+GLIBCXX_ENABLE_VISIBILITY([yes])
 
 ac_ldbl_compat=no
 case "$target" in
@@ -321,11 +329,6 @@ AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 
-# Atomic builtins can be inlined in bits/atomicity.h.
-if test $atomicity_dir = cpu/generic/atomic_builtins ; then
-  AC_DEFINE([_GLIBCXX_ATOMIC_BUILTINS], 1,
-            [Define if atomic builtins are provided for this platform.])
-fi
 
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)

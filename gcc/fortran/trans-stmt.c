@@ -270,7 +270,7 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  tmp = gfc_typenode_for_spec (&e->ts);
 	  tmp = gfc_trans_create_temp_array (&se->pre, &se->post,
 					      &tmp_loop, info, tmp,
-					      false, true, false);
+					      false, true, false, false);
 	  gfc_add_modify_expr (&se->pre, size, tmp);
 	  tmp = fold_convert (pvoid_type_node, info->data);
 	  gfc_add_modify_expr (&se->pre, data, tmp);
@@ -663,6 +663,7 @@ gfc_trans_arithmetic_if (gfc_code * code)
 
   /* Pre-evaluate COND.  */
   gfc_conv_expr_val (&se, code->expr);
+  se.expr = gfc_evaluate_now (se.expr, &se.pre);
 
   /* Build something to compare with.  */
   zero = gfc_build_const (TREE_TYPE (se.expr), integer_zero_node);
@@ -904,7 +905,7 @@ gfc_trans_do (gfc_code * code)
     }
   gfc_add_modify_expr (&block, count, tmp);
 
-  count_one = convert (TREE_TYPE (count), integer_one_node);
+  count_one = build_int_cst (TREE_TYPE (count), 1);
 
   /* Initialize the DO variable: dovar = from.  */
   gfc_add_modify_expr (&block, dovar, from);
@@ -1957,6 +1958,7 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
   gfc_loopinfo loop;
   tree size;
   int i;
+  int save_flag;
   tree tmp;
 
   *lss = gfc_walk_expr (expr1);
@@ -1989,7 +1991,10 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
       loop.array_parameter = 1;
 
       /* Calculate the bounds of the scalarization.  */
+      save_flag = flag_bounds_check;
+      flag_bounds_check = 0;
       gfc_conv_ss_startstride (&loop);
+      flag_bounds_check = save_flag;
       gfc_conv_loop_setup (&loop);
 
       /* Figure out how many elements we need.  */

@@ -90,6 +90,9 @@ case "${host}" in
  	enable_java_net_default=no
  	enable_getenv_properties_default=no
 	;;
+  mipsel-*|mips-*)
+	libgcj_interpreter=yes
+	;;
   i686-*|i586-*|i486-*|i386-*)
 	sysdeps_dir=i386
 	# With -fomit-frame-pointer -maccumulate-outgoing-args (implied),
@@ -130,7 +133,7 @@ case "${host}" in
   hppa*-*)
 	sysdeps_dir=pa
 	libgcj_interpreter=yes
-	enable_hash_synchronization_default=yes
+	enable_hash_synchronization_default=no
 	;;
   powerpc64*-*)
 	sysdeps_dir=powerpc

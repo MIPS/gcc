@@ -33,25 +33,27 @@ libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
 ## What gets installed, and where.
 ##
 
-toolexeclib_LTLIBRARIES = libgcj.la libgij.la
+toolexeclib_LTLIBRARIES = libgcj.la libgij.la libgcj-tools.la
 toolexecmainlib_DATA = libgcj.spec
 
 if XLIB_AWT
 toolexeclib_LTLIBRARIES += lib-gnu-awt-xlib.la
 endif
 
+dbexec_LTLIBRARIES = libjvm.la
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
-jar_DATA = libgcj-$(gcc_version).jar
+jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 
 if JAVA_HOME_SET
 JAVA_HOME_DIR = $(JAVA_HOME)
 BOOT_CLASS_PATH_DIR = $(JAVA_HOME)/lib/rt.jar
 else
 JAVA_HOME_DIR = $(prefix)
-BOOT_CLASS_PATH_DIR = $(jardir)/$(jar_DATA)
+BOOT_CLASS_PATH_DIR = $(jardir)/libgcj-$(gcc_version).jar
 endif
 
 ## FIXME: Using libdir violates GNU coding standards.
@@ -66,7 +68,8 @@ db_pathtail = gcj-$(gcc_version)/$(db_name)
 
 ## For now, only on native systems.  FIXME.
 if NATIVE
-bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
+bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool \
+	gappletviewer gjarsigner gkeytool
 
 ## It is convenient to actually build and install the default database
 ## when gcj-dbtool is available.
@@ -122,7 +125,7 @@ AM_CXXFLAGS = \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
 	-DGCJ_ENDORSED_DIRS="\"$(jardir)/gcj-endorsed\"" \
-	-DGCJ_VERSIONED_LIBDIR="\"$(libdir)/gcj-$(gcc_version)\"" \
+	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
 	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
@@ -174,7 +177,7 @@ libgij_la_LIBADD = -L$(here)/.libs libgcj.la
 libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
 
-libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc \
+libgcj_la_SOURCES = prims.cc jni.cc jvmti.cc exception.cc stacktrace.cc \
 	link.cc defineclass.cc interpret.cc verify.cc \
 	java/lang/Class.java java/lang/Object.java \
 	$(nat_source_files)
@@ -232,6 +235,19 @@ libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
 
+libgcj_tools_la_SOURCES = classpath/tools/tools.jar
+libgcj_tools_la_GCJFLAGS = $(AM_GCJFLAGS) -findirect-dispatch -fno-indirect-classes
+libgcj_tools_la_LDFLAGS = -rpath $(toolexeclibdir) \
+ -version-info `grep -v '^\#' $(srcdir)/libtool-version`
+libgcj_tools_la_DEPENDENCIES = libgcj.la libgcj.spec
+libgcj_tools_la_LINK = $(LIBLINK)
+
+## libjvm.so
+libjvm_la_SOURCES = jni-libjvm.cc
+libjvm_la_DEPENDENCIES = libgcj.la libgcj.spec
+## See jv_convert_LDADD.
+libjvm_la_LIBADD = -L$(here)/.libs libgcj.la
+libjvm_la_LDFLAGS = -avoid-version $(LIBGCJ_LD_SYMBOLIC)
 
 ## The .db file.  This rule is only used for native builds, so it is
 ## safe to invoke gcj-dbtool.
@@ -272,7 +288,10 @@ libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
 
-CLEANFILES = libgcj-$(gcc_version).jar
+libgcj-tools-$(gcc_version).jar: classpath/tools/tools.jar
+	cp $< $@
+
+CLEANFILES = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 
 mostlyclean-local:
@@ -359,6 +378,7 @@ java/lang/ClassLoader.h: classpath/lib/java/lang/ClassLoader.class
 java/lang/Thread.h: classpath/lib/java/lang/Thread.class
 	$(GCJH) -classpath '' -bootclasspath classpath/lib \
 		-prepend 'class _Jv_JNIEnv;' \
+		-prepend 'class _Jv_Thread_t;' \
 		-prepend '#define _JV_NOT_OWNER 1' \
 		-prepend '#define _JV_INTERRUPTED 2' \
 		-prepend '_Jv_JNIEnv * _Jv_GetCurrentJNIEnv ();' \
@@ -368,6 +388,7 @@ java/lang/Thread.h: classpath/lib/java/lang/Thread.class
 		-prepend 'java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
 		-prepend 'java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
 		-prepend 'jint _Jv_DetachCurrentThread ();' \
+	        -prepend '_Jv_Thread_t* _Jv_ThreadGetData (java::lang::Thread* thread);' \
 		-friend '_Jv_JNIEnv * ::_Jv_GetCurrentJNIEnv ();' \
 		-friend 'void ::_Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);' \
 		-friend 'void ::_Jv_ThreadRun (java::lang::Thread* thread);' \
@@ -375,6 +396,7 @@ java/lang/Thread.h: classpath/lib/java/lang/Thread.class
 		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'java::lang::Thread* ::_Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);' \
 		-friend 'jint (::_Jv_DetachCurrentThread) ();' \
+	        -friend '_Jv_Thread_t* ::_Jv_ThreadGetData (java::lang::Thread* thread);' \
 		java/lang/Thread
 
 java/lang/String.h: classpath/lib/java/lang/String.class
@@ -711,11 +733,47 @@ grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 
+## This is a dummy definition.
+gappletviewer_SOURCES =
+gappletviewer_LDFLAGS = --main=gnu.classpath.tools.appletviewer.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gappletviewer_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gappletviewer_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gappletviewer_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gjarsigner_SOURCES =
+gjarsigner_LDFLAGS = --main=gnu.classpath.tools.jarsigner.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gjarsigner_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gjarsigner_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gjarsigner_DEPENDENCIES = libgcj-tools.la
+
+## This is a dummy definition.
+gkeytool_SOURCES =
+gkeytool_LDFLAGS = --main=gnu.classpath.tools.keytool.Main \
+	-rpath $(toolexeclibdir) -shared-libgcc $(THREADLDFLAGS)
+gkeytool_LINK = $(GCJLINK)
+## See jv_convert_LDADD.
+gkeytool_LDADD = -L$(here)/.libs libgcj-tools.la
+## Depend on the spec file to make sure it is up to date before
+## linking this program.
+gkeytool_DEPENDENCIES = libgcj-tools.la
+
 ## ################################################################
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
 gnu/classpath/natSystemProperties.cc \
+gnu/classpath/jdwp/natVMFrame.cc \
+gnu/classpath/jdwp/natVMMethod.cc \
+gnu/classpath/jdwp/natVMVirtualMachine.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
@@ -769,6 +827,7 @@ java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
 java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
+java/security/natVMAccessController.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \
@@ -887,6 +946,7 @@ create-headers: $(headers_to_make)
 
 $(libgcj_la_OBJECTS) $(gcj_dbtool_OBJECTS) $(xlib_nat_files): headers.stamp
 $(libgij_la_OBJECTS): headers.stamp
+$(libjvm_la_OBJECTS): headers.stamp
 
 ## ################################################################
 

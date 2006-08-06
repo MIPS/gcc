@@ -860,7 +860,7 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
   tree test;
   tree test2;
   mpfr_t huge;
-  int n;
+  int n, ikind;
 
   arg = gfc_conv_intrinsic_function_args (se, expr);
   arg2 = TREE_VALUE (TREE_CHAIN (arg));
@@ -886,7 +886,13 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       /* Test if the value is too large to handle sensibly.  */
       gfc_set_model_kind (expr->ts.kind);
       mpfr_init (huge);
-      n = gfc_validate_kind (BT_INTEGER, expr->ts.kind, false);
+      n = gfc_validate_kind (BT_INTEGER, expr->ts.kind, true);
+      ikind = expr->ts.kind;
+      if (n < 0)
+	{
+	  n = gfc_validate_kind (BT_INTEGER, gfc_max_integer_kind, false);
+	  ikind = gfc_max_integer_kind;
+	}
       mpfr_set_z (huge, gfc_integer_kinds[n].huge, GFC_RND_MODE);
       test = gfc_conv_mpfr_to_tree (huge, expr->ts.kind);
       test2 = build2 (LT_EXPR, boolean_type_node, tmp, test);
@@ -896,7 +902,7 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       test = build2 (GT_EXPR, boolean_type_node, tmp, test);
       test2 = build2 (TRUTH_AND_EXPR, boolean_type_node, test, test2);
 
-      itype = gfc_get_int_type (expr->ts.kind);
+      itype = gfc_get_int_type (ikind);
       if (modulo)
        tmp = build_fix_expr (&se->pre, tmp, itype, FIX_FLOOR_EXPR);
       else
@@ -2104,6 +2110,22 @@ gfc_conv_intrinsic_ibits (gfc_se * se, gfc_expr * expr)
   se->expr = fold_build2 (BIT_AND_EXPR, type, tmp, mask);
 }
 
+/* RSHIFT (I, SHIFT) = I >> SHIFT
+   LSHIFT (I, SHIFT) = I << SHIFT  */
+static void
+gfc_conv_intrinsic_rlshift (gfc_se * se, gfc_expr * expr, int right_shift)
+{
+  tree arg;
+  tree arg2;
+
+  arg = gfc_conv_intrinsic_function_args (se, expr);
+  arg2 = TREE_VALUE (TREE_CHAIN (arg));
+  arg = TREE_VALUE (arg);
+
+  se->expr = fold_build2 (right_shift ? RSHIFT_EXPR : LSHIFT_EXPR,
+			  TREE_TYPE (arg), arg, arg2);
+}
+
 /* ISHFT (I, SHIFT) = (abs (shift) >= BIT_SIZE (i))
                         ? 0
 	 	        : ((shift >= 0) ? i << shift : i >> -shift)
@@ -2712,7 +2734,7 @@ gfc_conv_intrinsic_array_transfer (gfc_se * se, gfc_expr * expr)
      data field.  This is already allocated so set callee_alloc.  */
   tmp = gfc_typenode_for_spec (&expr->ts);
   gfc_trans_create_temp_array (&se->pre, &se->post, se->loop,
-			       info, tmp, false, true, false);
+			       info, tmp, false, true, false, false);
 
   /* Use memcpy to do the transfer.  */
   tmp = gfc_conv_descriptor_data_get (info->descriptor);
@@ -2840,6 +2862,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
           gfc_conv_expr_lhs (&arg1se, arg1->expr);
           tmp2 = gfc_conv_descriptor_data_get (arg1se.expr);
         }
+      gfc_add_block_to_block (&se->pre, &arg1se.pre);
+      gfc_add_block_to_block (&se->post, &arg1se.post);
       tmp = build2 (NE_EXPR, boolean_type_node, tmp2,
 		    fold_convert (TREE_TYPE (tmp2), null_pointer_node));
       se->expr = tmp;
@@ -2863,6 +2887,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
           gfc_conv_expr (&arg1se, arg1->expr);
           arg2se.want_pointer = 1;
           gfc_conv_expr (&arg2se, arg2->expr);
+	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
+	  gfc_add_block_to_block (&se->post, &arg1se.post);
           tmp = build2 (EQ_EXPR, boolean_type_node, arg1se.expr, arg2se.expr);
           se->expr = tmp;
         }
@@ -3467,6 +3493,9 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       /* Integer conversions are handled separately to make sure we get the
          correct rounding mode.  */
     case GFC_ISYM_INT:
+    case GFC_ISYM_INT2:
+    case GFC_ISYM_INT8:
+    case GFC_ISYM_LONG:
       gfc_conv_intrinsic_int (se, expr, FIX_TRUNC_EXPR);
       break;
 
@@ -3566,6 +3595,14 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_IOR:
       gfc_conv_intrinsic_bitop (se, expr, BIT_IOR_EXPR);
+      break;
+
+    case GFC_ISYM_LSHIFT:
+      gfc_conv_intrinsic_rlshift (se, expr, 0);
+      break;
+
+    case GFC_ISYM_RSHIFT:
+      gfc_conv_intrinsic_rlshift (se, expr, 1);
       break;
 
     case GFC_ISYM_ISHFT:
@@ -3703,7 +3740,9 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_loc (se, expr);
       break;
 
+    case GFC_ISYM_ACCESS:
     case GFC_ISYM_CHDIR:
+    case GFC_ISYM_CHMOD:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_FGET:
     case GFC_ISYM_FGETC:
@@ -3722,8 +3761,11 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_IRAND:
     case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
+    case GFC_ISYM_LSTAT:
     case GFC_ISYM_MALLOC:
     case GFC_ISYM_MATMUL:
+    case GFC_ISYM_MCLOCK:
+    case GFC_ISYM_MCLOCK8:
     case GFC_ISYM_RAND:
     case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:

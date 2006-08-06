@@ -632,7 +632,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	  tree bitfield_type;
 	  bitfield_type = is_bitfield_expr_with_lowered_type (expr);
 	  if (bitfield_type)
-	    from = bitfield_type;
+	    from = strip_top_quals (bitfield_type);
 	}
       conv = build_conv (ck_rvalue, from, conv);
     }
@@ -3322,12 +3322,21 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
 	  arg2_type = TREE_TYPE (arg2);
+	  /* Even if CONV2 is a valid conversion, the result of the
+	     conversion may be invalid.  For example, if ARG3 has type
+	     "volatile X", and X does not have a copy constructor
+	     accepting a "volatile X&", then even if ARG2 can be
+	     converted to X, the conversion will fail.  */
+	  if (error_operand_p (arg2))
+	    result = error_mark_node;
 	}
       else if (conv3 && (!conv3->bad_p || !conv2))
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
 	  arg3_type = TREE_TYPE (arg3);
+	  if (error_operand_p (arg3))
+	    result = error_mark_node;
 	}
 
       /* Free all the conversions we allocated.  */
@@ -5492,9 +5501,9 @@ build_new_method_call (tree instance, tree fns, tree args,
 		 none-the-less evaluated.  */
 	      if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
 		  && !is_dummy_object (instance_ptr)
-		  && TREE_SIDE_EFFECTS (instance))
+		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
-			       instance, call);
+			       instance_ptr, call);
 	    }
 	}
     }

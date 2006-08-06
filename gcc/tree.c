@@ -419,7 +419,7 @@ tree_size (tree node)
 	      + (TREE_VEC_LENGTH (node) - 1) * sizeof(char *));
 
     case STRING_CST:
-      return sizeof (struct tree_string) + TREE_STRING_LENGTH (node) - 1;
+      return TREE_STRING_LENGTH (node) + offsetof (struct tree_string, str) + 1;
 
     case OMP_CLAUSE:
       return (sizeof (struct tree_omp_clause)
@@ -1013,13 +1013,16 @@ build_constructor_single (tree type, tree index, tree value)
 {
   VEC(constructor_elt,gc) *v;
   constructor_elt *elt;
+  tree t;
 
   v = VEC_alloc (constructor_elt, gc, 1);
   elt = VEC_quick_push (constructor_elt, v, NULL);
   elt->index = index;
   elt->value = value;
 
-  return build_constructor (type, v);
+  t = build_constructor (type, v);
+  TREE_CONSTANT (t) = TREE_CONSTANT (value);
+  return t;
 }
 
 
@@ -1028,8 +1031,9 @@ build_constructor_single (tree type, tree index, tree value)
 tree
 build_constructor_from_list (tree type, tree vals)
 {
-  tree t;
+  tree t, val;
   VEC(constructor_elt,gc) *v = NULL;
+  bool constant_p = true;
 
   if (vals)
     {
@@ -1037,12 +1041,17 @@ build_constructor_from_list (tree type, tree vals)
       for (t = vals; t; t = TREE_CHAIN (t))
 	{
 	  constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
+	  val = TREE_VALUE (t);
 	  elt->index = TREE_PURPOSE (t);
-	  elt->value = TREE_VALUE (t);
+	  elt->value = val;
+	  if (!TREE_CONSTANT (val))
+	    constant_p = false;
 	}
     }
 
-  return build_constructor (type, v);
+  t = build_constructor (type, v);
+  TREE_CONSTANT (t) = constant_p;
+  return t;
 }
 
 
@@ -1111,8 +1120,9 @@ build_string (int len, const char *str)
 {
   tree s;
   size_t length;
-  
-  length = len + sizeof (struct tree_string);
+
+  /* Do not waste bytes provided by padding of struct tree_string.  */
+  length = len + offsetof (struct tree_string, str) + 1;
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int) c_kind]++;
@@ -1149,6 +1159,47 @@ build_complex (tree type, tree real, tree imag)
   TREE_CONSTANT_OVERFLOW (t)
     = TREE_CONSTANT_OVERFLOW (real) | TREE_CONSTANT_OVERFLOW (imag);
   return t;
+}
+
+/* Return a constant of arithmetic type TYPE which is the
+   multiplicative identity of the set TYPE.  */
+
+tree
+build_one_cst (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+    case INTEGER_TYPE: case ENUMERAL_TYPE: case BOOLEAN_TYPE:
+    case POINTER_TYPE: case REFERENCE_TYPE:
+    case OFFSET_TYPE:
+      return build_int_cst (type, 1);
+
+    case REAL_TYPE:
+      return build_real (type, dconst1);
+
+    case VECTOR_TYPE:
+      {
+	tree scalar, cst;
+	int i;
+
+	scalar = build_one_cst (TREE_TYPE (type));
+
+	/* Create 'vect_cst_ = {cst,cst,...,cst}'  */
+	cst = NULL_TREE;
+	for (i = TYPE_VECTOR_SUBPARTS (type); --i >= 0; )
+	  cst = tree_cons (NULL_TREE, scalar, cst);
+
+	return build_vector (type, cst);
+      }
+
+    case COMPLEX_TYPE:
+      return build_complex (type,
+			    build_one_cst (TREE_TYPE (type)),
+			    fold_convert (TREE_TYPE (type), integer_zero_node));
+
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Build a BINFO with LEN language slots.  */
@@ -1723,6 +1774,39 @@ int_size_in_bytes (tree type)
     return -1;
 
   return TREE_INT_CST_LOW (t);
+}
+
+/* Return the maximum size of TYPE (in bytes) as a wide integer
+   or return -1 if the size can vary or is larger than an integer.  */
+
+HOST_WIDE_INT
+max_int_size_in_bytes (tree type)
+{
+  HOST_WIDE_INT size = -1;
+  tree size_tree;
+
+  /* If this is an array type, check for a possible MAX_SIZE attached.  */
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      size_tree = TYPE_ARRAY_MAX_SIZE (type);
+
+      if (size_tree && host_integerp (size_tree, 1))
+	size = tree_low_cst (size_tree, 1);
+    }
+
+  /* If we still haven't been able to get a size, see if the language
+     can compute a maximum size.  */
+
+  if (size == -1)
+    {
+      size_tree = lang_hooks.types.max_size (type);
+
+      if (size_tree && host_integerp (size_tree, 1))
+	size = tree_low_cst (size_tree, 1);
+    }
+
+  return size;
 }
 
 /* Return the bit position of FIELD, in bits from the start of the record.
@@ -3090,14 +3174,6 @@ build_decl_stat (enum tree_code code, tree name, tree type MEM_STAT_DECL)
   else if (code == FUNCTION_DECL)
     DECL_MODE (t) = FUNCTION_MODE;
 
-  if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
-    {
-      /* Set default visibility to whatever the user supplied with
-	 visibility_specified depending on #pragma GCC visibility.  */
-      DECL_VISIBILITY (t) = default_visibility;
-      DECL_VISIBILITY_SPECIFIED (t) = visibility_options.inpragma;
-    }
-
   return t;
 }
 
@@ -3421,6 +3497,28 @@ lookup_attribute (const char *attr_name, tree list)
     }
 
   return NULL_TREE;
+}
+
+/* Remove any instances of attribute ATTR_NAME in LIST and return the
+   modified list.  */
+
+tree
+remove_attribute (const char *attr_name, tree list)
+{
+  tree *p;
+  size_t attr_len = strlen (attr_name);
+
+  for (p = &list; *p; )
+    {
+      tree l = *p;
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
+	*p = TREE_CHAIN (l);
+      else
+	p = &TREE_CHAIN (l);
+    }
+
+  return list;
 }
 
 /* Return an attribute list that is the union of a1 and a2.  */
@@ -5602,8 +5700,10 @@ find_var_from_fn (tree *tp, int *walk_subtrees, void *data)
 }
 
 /* Returns true if T is, contains, or refers to a type with variable
-   size.  If FN is nonzero, only return true if a modifier of the type
-   or position of FN is a variable or parameter inside FN.
+   size.  For METHOD_TYPEs and FUNCTION_TYPEs we exclude the
+   arguments, but not the return type.  If FN is nonzero, only return
+   true if a modifier of the type or position of FN is a variable or
+   parameter inside FN.
 
    This concept is more general than that of C99 'variably modified types':
    in C99, a struct type is never variably modified because a VLA may not
@@ -5644,15 +5744,9 @@ variably_modified_type_p (tree type, tree fn)
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
-      /* If TYPE is a function type, it is variably modified if any of the
-         parameters or the return type are variably modified.  */
+      /* If TYPE is a function type, it is variably modified if the
+	 return type is variably modified.  */
       if (variably_modified_type_p (TREE_TYPE (type), fn))
-	  return true;
-
-      for (t = TYPE_ARG_TYPES (type);
-	   t && t != void_list_node;
-	   t = TREE_CHAIN (t))
-	if (variably_modified_type_p (TREE_VALUE (t), fn))
 	  return true;
       break;
 
@@ -6856,6 +6950,39 @@ in_array_bounds_p (tree ref)
 
   if (tree_int_cst_lt (idx, min)
       || tree_int_cst_lt (max, idx))
+    return false;
+
+  return true;
+}
+
+/* Returns true if it is possible to prove that the range of
+   an array access REF (an ARRAY_RANGE_REF expression) falls
+   into the array bounds.  */
+
+bool
+range_in_array_bounds_p (tree ref)
+{
+  tree domain_type = TYPE_DOMAIN (TREE_TYPE (ref));
+  tree range_min, range_max, min, max;
+
+  range_min = TYPE_MIN_VALUE (domain_type);
+  range_max = TYPE_MAX_VALUE (domain_type);
+  if (!range_min
+      || !range_max
+      || TREE_CODE (range_min) != INTEGER_CST
+      || TREE_CODE (range_max) != INTEGER_CST)
+    return false;
+
+  min = array_ref_low_bound (ref);
+  max = array_ref_up_bound (ref);
+  if (!min
+      || !max
+      || TREE_CODE (min) != INTEGER_CST
+      || TREE_CODE (max) != INTEGER_CST)
+    return false;
+
+  if (tree_int_cst_lt (range_min, min)
+      || tree_int_cst_lt (max, range_max))
     return false;
 
   return true;

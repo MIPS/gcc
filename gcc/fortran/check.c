@@ -378,6 +378,18 @@ identical_dimen_shape (gfc_expr *a, int ai, gfc_expr *b, int bi)
   return ret;
 }
 
+/* Error return for transformational intrinsics not allowed in
+   initialization expressions.  */
+ 
+static try
+non_init_transformational (void)
+{
+  gfc_error ("transformational intrinsic '%s' at %L is not permitted "
+	     "in an initialization expression", gfc_current_intrinsic,
+	     gfc_current_intrinsic_where);
+  return FAILURE;
+}
+
 /***** Check functions *****/
 
 /* Check subroutine suitable for intrinsics taking a real argument and
@@ -431,6 +443,22 @@ gfc_check_achar (gfc_expr * a)
 
 
 try
+gfc_check_access_func (gfc_expr * name, gfc_expr * mode)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE
+      || scalar_check (name, 0) == FAILURE)
+    return FAILURE;
+
+
+  if (type_check (mode, 1, BT_CHARACTER) == FAILURE
+      || scalar_check (mode, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
 {
   if (logical_array_check (mask, 0) == FAILURE)
@@ -438,6 +466,9 @@ gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
 
   if (dim_check (dim, 1, 1) == FAILURE)
     return FAILURE;
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return SUCCESS;
 }
@@ -663,6 +694,41 @@ gfc_check_chdir_sub (gfc_expr * dir, gfc_expr * status)
 
 
 try
+gfc_check_chmod (gfc_expr * name, gfc_expr * mode)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (mode, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_chmod_sub (gfc_expr * name, gfc_expr * mode, gfc_expr * status)
+{
+  if (type_check (name, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (type_check (mode, 1, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  if (status == NULL)
+    return SUCCESS;
+
+  if (type_check (status, 2, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (status, 2) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_cmplx (gfc_expr * x, gfc_expr * y, gfc_expr * kind)
 {
   if (numeric_check (x, 0) == FAILURE)
@@ -724,6 +790,9 @@ gfc_check_count (gfc_expr * mask, gfc_expr * dim)
   if (dim_check (dim, 1, 1) == FAILURE)
     return FAILURE;
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -746,6 +815,9 @@ gfc_check_cshift (gfc_expr * array, gfc_expr * shift, gfc_expr * dim)
 
   if (dim_check (dim, 2, 1) == FAILURE)
     return FAILURE;
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return SUCCESS;
 }
@@ -848,6 +920,9 @@ gfc_check_dot_product (gfc_expr * vector_a, gfc_expr * vector_b)
       return FAILURE;
     }
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -882,6 +957,9 @@ gfc_check_eoshift (gfc_expr * array, gfc_expr * shift, gfc_expr * boundary,
 
   if (dim_check (dim, 1, 1) == FAILURE)
     return FAILURE;
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return SUCCESS;
 }
@@ -1167,6 +1245,16 @@ gfc_check_int (gfc_expr * x, gfc_expr * kind)
       if (scalar_check (kind, 1) == FAILURE)
 	return FAILURE;
     }
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_intconv (gfc_expr * x)
+{
+  if (numeric_check (x, 0) == FAILURE)
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -1545,6 +1633,9 @@ gfc_check_matmul (gfc_expr * matrix_a, gfc_expr * matrix_b)
       return FAILURE;
     }
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -1604,6 +1695,9 @@ gfc_check_minloc_maxloc (gfc_actual_arglist * ap)
       if (gfc_check_conformance (buffer, a, m) == FAILURE)
 	return FAILURE;
     }
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return SUCCESS;
 }
@@ -1673,6 +1767,9 @@ gfc_check_minval_maxval (gfc_actual_arglist * ap)
       || array_check (ap->expr, 0) == FAILURE)
     return FAILURE;
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return check_reduction (ap);
 }
 
@@ -1683,6 +1780,9 @@ gfc_check_product_sum (gfc_actual_arglist * ap)
   if (numeric_check (ap->expr, 0) == FAILURE
       || array_check (ap->expr, 0) == FAILURE)
     return FAILURE;
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return check_reduction (ap);
 }
@@ -1781,6 +1881,9 @@ gfc_check_pack (gfc_expr * array, gfc_expr * mask, gfc_expr * vector)
       /* TODO: More constraints here.  */
     }
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -1822,6 +1925,22 @@ gfc_check_present (gfc_expr * a)
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be of "
 		 "an OPTIONAL dummy variable", gfc_current_intrinsic_arg[0],
 		 gfc_current_intrinsic, &a->where);
+      return FAILURE;
+    }
+
+/*  13.14.82  PRESENT(A)
+......
+  Argument.  A shall be the name of an optional dummy argument that is accessible
+  in the subprogram in which the PRESENT function reference appears...  */
+
+  if (a->ref != NULL
+	&& !(a->ref->next == NULL
+	       && a->ref->type == REF_ARRAY
+	       && a->ref->u.ar.type == AR_FULL))
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must not be a sub-"
+		 "object of '%s'", gfc_current_intrinsic_arg[0],
+		 gfc_current_intrinsic, &a->where, sym->name);
       return FAILURE;
     }
 
@@ -2152,6 +2271,9 @@ gfc_check_spread (gfc_expr * source, gfc_expr * dim, gfc_expr * ncopies)
   if (scalar_check (ncopies, 2) == FAILURE)
     return FAILURE;
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -2367,6 +2489,9 @@ gfc_check_transpose (gfc_expr * matrix)
   if (rank_check (matrix, 0, 2) == FAILURE)
     return FAILURE;
 
+  if (gfc_init_expr)
+    return non_init_transformational ();
+
   return SUCCESS;
 }
 
@@ -2404,6 +2529,9 @@ gfc_check_unpack (gfc_expr * vector, gfc_expr * mask, gfc_expr * field)
 
   if (same_type_check (vector, 0, field, 2) == FAILURE)
     return FAILURE;
+
+  if (gfc_init_expr)
+    return non_init_transformational ();
 
   return SUCCESS;
 }
@@ -2979,6 +3107,59 @@ gfc_check_hostnm_sub (gfc_expr * name, gfc_expr * status)
     return FAILURE;
 
   if (type_check (status, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_itime_idate (gfc_expr * values)
+{
+  if (array_check (values, 0) == FAILURE)
+    return FAILURE;
+
+  if (rank_check (values, 0, 1) == FAILURE)
+    return FAILURE;
+
+  if (variable_check (values, 0) == FAILURE)
+    return FAILURE;
+
+  if (type_check (values, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check(values, 0, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_ltime_gmtime (gfc_expr * time, gfc_expr * values)
+{
+  if (type_check (time, 0, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check(time, 0, gfc_default_integer_kind) == FAILURE)
+    return FAILURE;
+
+  if (scalar_check (time, 0) == FAILURE)
+    return FAILURE;
+
+  if (array_check (values, 1) == FAILURE)
+    return FAILURE;
+
+  if (rank_check (values, 1, 1) == FAILURE)
+    return FAILURE;
+
+  if (variable_check (values, 1) == FAILURE)
+    return FAILURE;
+
+  if (type_check (values, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
+  if (kind_value_check(values, 1, gfc_default_integer_kind) == FAILURE)
     return FAILURE;
 
   return SUCCESS;

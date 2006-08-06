@@ -4267,16 +4267,29 @@ fold_rtx (rtx x, rtx insn)
 	      enum rtx_code associate_code;
 	      rtx new_const;
 
-	      if (y == 0
-		  || 0 == (inner_const
-			   = equiv_constant (fold_rtx (XEXP (y, 1), 0)))
-		  || GET_CODE (inner_const) != CONST_INT
-		  /* If we have compiled a statement like
-		     "if (x == (x & mask1))", and now are looking at
-		     "x & mask2", we will have a case where the first operand
-		     of Y is the same as our first operand.  Unless we detect
-		     this case, an infinite loop will result.  */
-		  || XEXP (y, 0) == folded_arg0)
+	      if (is_shift
+		  && (INTVAL (const_arg1) >= GET_MODE_BITSIZE (mode)
+		      || INTVAL (const_arg1) < 0))
+		{
+		  if (SHIFT_COUNT_TRUNCATED)
+		    const_arg1 = GEN_INT (INTVAL (const_arg1)
+					  & (GET_MODE_BITSIZE (mode) - 1));
+		  else
+		    break;
+		}
+
+	      if (y == 0)
+		break;
+	      inner_const = equiv_constant (fold_rtx (XEXP (y, 1), 0));
+	      if (!inner_const || GET_CODE (inner_const) != CONST_INT)
+		break;
+
+	      /* If we have compiled a statement like
+		 "if (x == (x & mask1))", and now are looking at
+		 "x & mask2", we will have a case where the first operand
+		 of Y is the same as our first operand.  Unless we detect
+		 this case, an infinite loop will result.  */
+	      if (XEXP (y, 0) == folded_arg0)
 		break;
 
 	      /* Don't associate these operations if they are a PLUS with the
@@ -4295,6 +4308,17 @@ fold_rtx (rtx x, rtx insn)
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
 		break;
 
+	      if (is_shift
+		  && (INTVAL (inner_const) >= GET_MODE_BITSIZE (mode)
+		      || INTVAL (inner_const) < 0))
+		{
+		  if (SHIFT_COUNT_TRUNCATED)
+		    inner_const = GEN_INT (INTVAL (inner_const)
+					   & (GET_MODE_BITSIZE (mode) - 1));
+		  else
+		    break;
+		}
+
 	      /* Compute the code used to compose the constants.  For example,
 		 A-C1-C2 is A-(C1 + C2), so if CODE == MINUS, we want PLUS.  */
 
@@ -4312,13 +4336,16 @@ fold_rtx (rtx x, rtx insn)
 		 shift on a machine that does a sign-extend as a pair
 		 of shifts.  */
 
-	      if (is_shift && GET_CODE (new_const) == CONST_INT
+	      if (is_shift
+		  && GET_CODE (new_const) == CONST_INT
 		  && INTVAL (new_const) >= GET_MODE_BITSIZE (mode))
 		{
 		  /* As an exception, we can turn an ASHIFTRT of this
 		     form into a shift of the number of bits - 1.  */
 		  if (code == ASHIFTRT)
 		    new_const = GEN_INT (GET_MODE_BITSIZE (mode) - 1);
+		  else if (!side_effects_p (XEXP (y, 0)))
+		    return CONST0_RTX (mode);
 		  else
 		    break;
 		}
@@ -4739,6 +4766,8 @@ struct set
   unsigned src_const_hash;
   /* Table entry for constant equivalent for SET_SRC, if any.  */
   struct table_elt *src_const_elt;
+  /* Table entry for the destination address.  */
+  struct table_elt *dest_addr_elt;
 };
 
 static void
@@ -5970,6 +5999,40 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 so that the destination goes into that class.  */
       sets[i].src_elt = src_eqv_elt;
 
+  /* Record destination addresses in the hash table.  This allows us to
+     check if they are invalidated by other sets.  */
+  for (i = 0; i < n_sets; i++)
+    {
+      if (sets[i].rtl)
+	{
+	  rtx x = sets[i].inner_dest;
+	  struct table_elt *elt;
+	  enum machine_mode mode;
+	  unsigned hash;
+
+	  if (MEM_P (x))
+	    {
+	      x = XEXP (x, 0);
+	      mode = GET_MODE (x);
+	      hash = HASH (x, mode);
+	      elt = lookup (x, hash, mode);
+	      if (!elt)
+		{
+		  if (insert_regs (x, NULL, 0))
+		    {
+		      rehash_using_reg (x);
+		      hash = HASH (x, mode);
+		    }
+		  elt = insert (x, NULL, hash, mode);
+		}
+
+	      sets[i].dest_addr_elt = elt;
+	    }
+	  else
+	    sets[i].dest_addr_elt = NULL;
+	}
+    }
+
   invalidate_from_clobbers (x);
 
   /* Some registers are invalidated by subroutine calls.  Memory is
@@ -6062,12 +6125,20 @@ cse_insn (rtx insn, rtx libcall_insn)
     }
 
   /* We may have just removed some of the src_elt's from the hash table.
-     So replace each one with the current head of the same class.  */
+     So replace each one with the current head of the same class.
+     Also check if destination addresses have been removed.  */
 
   for (i = 0; i < n_sets; i++)
     if (sets[i].rtl)
       {
-	if (sets[i].src_elt && sets[i].src_elt->first_same_value == 0)
+	if (sets[i].dest_addr_elt
+	    && sets[i].dest_addr_elt->first_same_value == 0)
+	  {
+	    /* The elt was removed, which means this destination is not
+	       valid after this instruction.  */
+	    sets[i].rtl = NULL_RTX;
+	  }
+	else if (sets[i].src_elt && sets[i].src_elt->first_same_value == 0)
 	  /* If elt was removed, find current head of same class,
 	     or 0 if nothing remains of that class.  */
 	  {

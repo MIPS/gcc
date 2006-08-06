@@ -1,6 +1,6 @@
 // java-stack.h - Definitions for unwinding & inspecting the call stack.
 
-/* Copyright (C) 2005  Free Software Foundation
+/* Copyright (C) 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -11,6 +11,7 @@ details.  */
 #ifndef __JV_STACKTRACE_H__
 #define __JV_STACKTRACE_H__
 
+#include <stdlib.h>
 #include <unwind.h>
 
 #include <gcj/cni.h>
@@ -123,8 +124,39 @@ public:
   static void GetCallerInfo (jclass checkClass, jclass *, _Jv_Method **);
   static JArray<jclass> *GetClassContext (jclass checkClass);
   static ClassLoader *GetFirstNonSystemClassLoader (void);
+  static JArray<jobjectArray> *GetClassMethodStack (_Jv_StackTrace *trace);
   
 };
 
+// Information about a given address.
+struct _Jv_AddrInfo
+{
+  // File name of the defining module.
+  const char *file_name;
+
+  // Base address of the loaded module.
+  void *base;
+
+  // Name of the nearest symbol.
+  const char *sym_name;
+
+  // Address of the nearest symbol.
+  void *sym_addr;
+
+  ~_Jv_AddrInfo (void)
+    {
+      // On systems with a real dladdr(), the file and symbol names given by
+      // _Jv_platform_dladdr() are not dynamically allocated.  On Windows,
+      // they are.
+
+#ifdef WIN32
+      if (file_name)
+        free ((void *)file_name);
+
+      if (sym_name)
+        free ((void *)sym_name);
+#endif /* WIN32 */
+    }
+};
 
 #endif /* __JV_STACKTRACE_H__ */

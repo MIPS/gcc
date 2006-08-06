@@ -1,3 +1,219 @@
+2006-08-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/access.c (access_func): Remove export directive.
+
+2006-08-02  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* Makefile.in:  Regenerate using automake 1.9.6.
+	* aclocal.m4:  Revert to previous version.
+
+2006-08-01  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/28452
+	* Makefile.am:  Remove normalize.c.
+	* aclocal.m4:  Regenerate using aclocal 1.9.3.
+	* Makefile.in:  Regenerate using automake 1.9.3.
+	* libgfortran.h:  #include <float.h>.
+	Define GFC_REAL_*_DIGITS and GFC_REAL_*_RADIX.
+	Remove prototypes for normalize_r4_i4 and normalize_r8_i8.
+	* intrinsics/random.c (top level): Add prototypes for
+	random_r10, arandom_r10, random_r16 and arandom_r16.
+	(rnumber_4):  New static function.
+	(rnumber_8):  New static function.
+	(rnumber_10): New static function.
+	(rnumber_16): New static function.
+	(top level):  Set to kiss_size to 12 if we have
+	REAL(KIND=16), to 8 otherwise.
+	Define KISS_DEFAULT_SEED_1, KISS_DEFAULT_SEED_2 and
+	KISS_DEFAULT_SEED_3.
+	(kiss_random_kernel):  Take argument to differentiate
+	between different random number generators.
+	(random_r4):  Add argument to call to kiss_random_kernel,
+	use rnumber_*.
+	(random_r8):  Likewise.
+	(random_r10):  New function.
+	(random_r16):  New function.
+	(arandom_r4):  Add argument to call to kiss_random_kernel,
+	use_rnumber_*.
+	(arandom_r8):  Likewise.
+	(arandom_r10):  New function.
+	(arandom_r16):  New function.
+	* intrinsics/rand.c (rand):  Use shift and mask.
+	* runtime/normalize.c:  Remove.
+
+2006-07-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* file_position.c (st_flush): Add clearer error when UNIT does not
+	exist. Add reference to standard in comment.
+
+2006-07-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* close.c (st_close): Revert previous patch and add comment.
+	* file_position.c (st_flush): Revert previous patch and add comment.
+
+2006-07-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/date_and_time.c: Add functions for GMTIME and LTIME.
+	* intrinsics/access.c: New file.
+	* intrinsics/chmod.c: New file.
+	* configure.ac: Add checks for <sys/wait.h>, access, fork,execl
+	and wait.
+	* Makefile.am: Add new files intrinsics/access.c and
+	intrinsics/chmod.c.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.in: Regenerate.
+
+2006-07-30  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* io/transfer.c (transfer_array): Remove stride0 fix.
+	
+2006-07-26  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* configure.ac: Check for function clock.
+	* Makefile.am: Compile new file intrinsics/clock.c.
+	* intrinsics/clock.c: New file.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* intrinsics/stat.c: Rename the old stat_i?_sub functions to
+	helper functions stat_i?_sub_0, and use them for both STAT and
+	LSTAT.
+
+2006-07-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28335
+	* close.c (st_close): Add error when UNIT does not exist.
+	* file_position.c (st_flush): Add error when UNIT does not exist.
+
+2006-07-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR build/26188
+	* configure: Regenerate.
+
+2006-07-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25289
+	* libgfortran.h: Add conditional definition of GFC_LARGE_IO_INT type.
+	* io/io.h (st_parameter_dt): Define rec as type GFC_LARGE_IO_INT.
+
+2006-07-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28339
+	* io/transfer.c (next_record_w): Use next_array_record result to set
+	END_FILE. (write_block): Test for END_FILE before the next write occurs.
+	* io/unit.c (get_internal_unit): Initialize iunit->endfile for internal
+	unit.
+
+2006-07-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/27919
+	* m4/dotprodc.m4: Remove.
+	* m4/dotprodl.m4: Remove.
+	* m4/dotprod.m4: Remove.
+	* generated/dotprod_*.c: Remove.
+	* Makefile.am: Remove any references to dot_product
+	implementation.
+	* Makefile.in: Regenerated.
+	
+2006-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+        * configure: Regenerate.
+
+2006-07-15  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsics/etime.c: Remove etime_
+	* libtool-version: Bump from libgfortran.so.1 to libgfortran.so.2
+
+2006-07-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28163
+	* intrinsics/string_intrinsics.c (copy_string): Remove function.
+
+2006-07-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/date_and_time.c (itime0,idate0,itime_i4,itime_i8,
+	idate_i4,idate_i8): New functions.
+
+2006-07-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27704
+	* runtime/error.c (notify_std): Pass common flags into function. Use
+	flags to show locus of error or warning.
+	* libgfortran.h: Add enum try.  Add prototype for notify_std.
+	* io/open.c (edit_modes): Allow status="old" and add extension to
+	allow status="scratch"
+	*io/list_read.c (nml_read_obj): Update call to notify_std.
+	*io/io.h: Remove enum try and prototype for notify_std.
+	*io/transfer.c (read_sf): Update call to notify_std.
+	*io/format.c (parse_format_list): Update call to notify_std.
+
+2006-06-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/io.h: Move proto for unit_to_fd...
+	* libgfortran.h: ...here.
+
+2006-06-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/ierrno.c: Don't include "io/io.h".
+	* intrinsics/sleep.c: Likewise.
+	* intrinsics/perror.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* intrinsics/kill.c: Likewise.
+	* intrinsics/time.c: Likewise.
+	* intrinsics/fnum.c: Likewise.
+	* intrinsics/rename.c: Likewise.
+	* intrinsics/symlnk.c: Likewise.
+	* intrinsics/chdir.c: Likewise.
+	* intrinsics/link.c: Likewise.
+	* intrinsics/random.c: Don't include "io/io.h". Include	<gthr.h>.
+	* intrinsics/rand.c: Likewise.
+
+2006-06-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/28094
+	* Makefile.am: Add _mod_r10.F90 and _mod_r16.F90.
+	* Makefile.in: Regenerate.
+	* generated/_mod_r10.F90: New file.
+	* generated/_mod_r16.F90: New file.
+
+2006-06-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/26769
+	* Makefile.am: Add r4 and r8 versions of reshape and transpose.
+	* Makefile.in: Regenerate.
+	* generated/reshape_r4.c: New file.
+	* generated/reshape_r8.c: New file.
+	* generated/transpose_r4.c: New file.
+	* generated/transpose_r8.c: New file.
+
+2006-06-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28005
+	* m4/matmul.m4: aystride = 1 does not uniquely detect the
+	presence of a temporary transpose; an array element in the
+	first dimension produces the same signature.  Detect this
+	using the rank of a and add specific code.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-06-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libgomp/27254
+	* io/unit.c (get_internal_unit): Initialize and lock thread mutex
+	for internal units.
+
 2006-06-06  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	* m4/in_pack.m4: Add TODO comment about detecting temporaries,

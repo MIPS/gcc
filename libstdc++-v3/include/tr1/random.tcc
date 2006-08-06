@@ -27,8 +27,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <limits>
-
 namespace std
 {
 _GLIBCXX_BEGIN_NAMESPACE(tr1)
@@ -36,7 +34,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
   /*
    * Implementation-space details.
    */
-  namespace _Private
+  namespace
   {
     // General case for x = (ax + c) mod m -- use Schrage's algorithm to avoid
     // integer overflow.
@@ -96,66 +94,38 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       __mod(_Tp __x)
       { return _Mod<_Tp, __a, __c, __m, __m == 0>::__calc(__x); }
 
-    // Like the above, for a == 1, c == 0, in terms of w.
-    template<typename _Tp, _Tp __w, bool>
-      struct _Mod_w
-      {
-	static _Tp
-	__calc(_Tp __x)
-	{ return __x % (_Tp(1) << __w); }
+    // See N1822.
+    template<typename _RealType>
+      struct _Max_digits10
+      { 
+	static const std::streamsize __value =
+	  2 + std::numeric_limits<_RealType>::digits * 3010/10000;
       };
 
-    template<typename _Tp, _Tp __w>
-      struct _Mod_w<_Tp, __w, true>
-      {
-	static _Tp
-	__calc(_Tp __x)
-	{ return __x; }
-      };
+    template<typename _ValueT>
+      struct _To_Unsigned_Type
+      { typedef _ValueT _Type; };
 
-    template<typename _Tp, _Tp __w>
-      inline _Tp
-      __mod_w(_Tp __x)
-      { return _Mod_w<_Tp, __w,
-	              __w == std::numeric_limits<_Tp>::digits>::__calc(__x); }
+    template<>
+      struct _To_Unsigned_Type<short>
+      { typedef unsigned short _Type; };
 
-    // Selector to return the maximum value possible that will fit in 
-    // @p __w bits of @p _Tp.
-    template<typename _Tp, _Tp __w, bool>
-      struct _Max_w
-      {
-	static _Tp
-	__value()
-	{ return (_Tp(1) << __w) - 1; }
-      };
+    template<>
+      struct _To_Unsigned_Type<int>
+      { typedef unsigned int _Type; };
 
-    template<typename _Tp, _Tp __w>
-      struct _Max_w<_Tp, __w, true>
-      {
-	static _Tp
-	__value()
-	{ return std::numeric_limits<_Tp>::max(); }
-      };
+    template<>
+      struct _To_Unsigned_Type<long>
+      { typedef unsigned long _Type; };
 
-  } // namespace _Private
+#ifdef _GLIBCXX_USE_LONG_LONG
+    template<>
+      struct _To_Unsigned_Type<long long>
+      { typedef unsigned long long _Type; };
+#endif
 
+  } // anonymous namespace
 
-  /**
-   * Constructs the LCR engine with integral seed @p __x0.
-   */
-  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
-    linear_congruential<_UIntType, __a, __c, __m>::
-    linear_congruential(unsigned long __x0)
-    { this->seed(__x0); }
-
-  /**
-   * Constructs the LCR engine with seed generated from @p __g.
-   */
-  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
-    template<class _Gen>
-      linear_congruential<_UIntType, __a, __c, __m>::
-      linear_congruential(_Gen& __g)
-      { this->seed(__g); }
 
   /**
    * Seeds the LCR with integral value @p __x0, adjusted so that the 
@@ -166,11 +136,11 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     linear_congruential<_UIntType, __a, __c, __m>::
     seed(unsigned long __x0)
     {
-      if ((_Private::__mod<_UIntType, 1, 0, __m>(__c) == 0)
-	  && (_Private::__mod<_UIntType, 1, 0, __m>(__x0) == 0))
-	_M_x = _Private::__mod<_UIntType, 1, 0, __m>(1);
+      if ((__mod<_UIntType, 1, 0, __m>(__c) == 0)
+	  && (__mod<_UIntType, 1, 0, __m>(__x0) == 0))
+	_M_x = __mod<_UIntType, 1, 0, __m>(1);
       else
-	_M_x = _Private::__mod<_UIntType, 1, 0, __m>(__x0);
+	_M_x = __mod<_UIntType, 1, 0, __m>(__x0);
     }
 
   /**
@@ -183,11 +153,11 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       seed(_Gen& __g, false_type)
       {
 	_UIntType __x0 = __g();
-	if ((_Private::__mod<_UIntType, 1, 0, __m>(__c) == 0)
-	    && (_Private::__mod<_UIntType, 1, 0, __m>(__x0) == 0))
-	  _M_x = _Private::__mod<_UIntType, 1, 0, __m>(1);
+	if ((__mod<_UIntType, 1, 0, __m>(__c) == 0)
+	    && (__mod<_UIntType, 1, 0, __m>(__x0) == 0))
+	  _M_x = __mod<_UIntType, 1, 0, __m>(1);
 	else
-	  _M_x = _Private::__mod<_UIntType, 1, 0, __m>(__x0);
+	  _M_x = __mod<_UIntType, 1, 0, __m>(__x0);
       }
 
   /**
@@ -202,7 +172,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     typename linear_congruential<_UIntType, __a, __c, __m>::result_type
     linear_congruential<_UIntType, __a, __c, __m>::
     min() const
-    { return (_Private::__mod<_UIntType, 1, 0, __m>(__c) == 0) ? 1 : 0; }
+    { return (__mod<_UIntType, 1, 0, __m>(__c) == 0) ? 1 : 0; }
 
   /**
    * Gets the maximum possible value of the generated range.
@@ -223,9 +193,43 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     linear_congruential<_UIntType, __a, __c, __m>::
     operator()()
     {
-      _M_x = _Private::__mod<_UIntType, __a, __c, __m>(_M_x);
+      _M_x = __mod<_UIntType, __a, __c, __m>(_M_x);
       return _M_x;
     }
+
+  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const linear_congruential<_UIntType, __a, __c, __m>& __lcr)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      __os.flags(std::ios_base::dec | std::ios_base::fixed
+		 | std::ios_base::left);
+      __os.fill(__os.widen(' '));
+
+      __os << __lcr._M_x;
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os;
+    }
+
+  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m,
+	   typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       linear_congruential<_UIntType, __a, __c, __m>& __lcr)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec);
+
+      __is >> __lcr._M_x;
+
+      __is.flags(__flags);
+      return __is;
+    } 
 
 
   template<class _UIntType, int __w, int __n, int __m, int __r,
@@ -236,7 +240,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 		     __b, __t, __c, __l>::
     seed(unsigned long __value)
     {
-      _M_x[0] = _Private::__mod_w<_UIntType, __w>(__value);
+      _M_x[0] = __mod<_UIntType, 1, 0,
+	_Shift<_UIntType, __w>::__value>(__value);
 
       for (int __i = 1; __i < state_size; ++__i)
 	{
@@ -244,7 +249,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 	  __x ^= __x >> (__w - 2);
 	  __x *= 1812433253ul;
 	  __x += __i;
-	  _M_x[__i] = _Private::__mod_w<_UIntType, __w>(__x);	  
+	  _M_x[__i] = __mod<_UIntType, 1, 0,
+	    _Shift<_UIntType, __w>::__value>(__x);	  
 	}
       _M_p = state_size;
     }
@@ -259,25 +265,10 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       seed(_Gen& __gen, false_type)
       {
 	for (int __i = 0; __i < state_size; ++__i)
-	  _M_x[__i] = _Private::__mod_w<_UIntType, __w>(__gen());
+	  _M_x[__i] = __mod<_UIntType, 1, 0,
+	    _Shift<_UIntType, __w>::__value>(__gen());
 	_M_p = state_size;
       }
-
-  template<class _UIntType, int __w, int __n, int __m, int __r,
-	   _UIntType __a, int __u, int __s,
-	   _UIntType __b, int __t, _UIntType __c, int __l>
-    typename
-    mersenne_twister<_UIntType, __w, __n, __m, __r, __a, __u, __s,
-		     __b, __t, __c, __l>::result_type
-    mersenne_twister<_UIntType, __w, __n, __m, __r, __a, __u, __s,
-		     __b, __t, __c, __l>::
-    max() const
-    {
-      using _Private::_Max_w;
-      using std::numeric_limits;
-      return _Max_w<_UIntType, __w,
-	            __w == numeric_limits<_UIntType>::digits>::__value();
-    }
 
   template<class _UIntType, int __w, int __n, int __m, int __r,
 	   _UIntType __a, int __u, int __s,
@@ -298,7 +289,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 	  for (int __k = 0; __k < (__n - __m); ++__k)
 	    {
 	      _UIntType __y = ((_M_x[__k] & __upper_mask)
-			       |(_M_x[__k + 1] & __lower_mask));
+			       | (_M_x[__k + 1] & __lower_mask));
 	      _M_x[__k] = (_M_x[__k + __m] ^ (__y >> 1)
 			   ^ ((__y & 0x01) ? __a : 0));
 	    }
@@ -311,6 +302,10 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 			   ^ ((__y & 0x01) ? __a : 0));
 	    }
 
+	  _UIntType __y = ((_M_x[__n - 1] & __upper_mask)
+			   | (_M_x[0] & __lower_mask));
+	  _M_x[__n - 1] = (_M_x[__m - 1] ^ (__y >> 1)
+			   ^ ((__y & 0x01) ? __a : 0));
 	  _M_p = 0;
 	}
 
@@ -324,51 +319,98 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return __z;
     }
 
+  template<class _UIntType, int __w, int __n, int __m, int __r,
+	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
+	   _UIntType __c, int __l,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const mersenne_twister<_UIntType, __w, __n, __m,
+	       __r, __a, __u, __s, __b, __t, __c, __l>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::dec | std::ios_base::fixed
+		 | std::ios_base::left);
+      __os.fill(__space);
+
+      for (int __i = 0; __i < __n - 1; ++__i)
+	__os << __x._M_x[__i] << __space;
+      __os << __x._M_x[__n - 1];
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os;
+    }
+
+  template<class _UIntType, int __w, int __n, int __m, int __r,
+	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
+	   _UIntType __c, int __l,
+	   typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       mersenne_twister<_UIntType, __w, __n, __m,
+	       __r, __a, __u, __s, __b, __t, __c, __l>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec | std::ios_base::skipws);
+
+      for (int __i = 0; __i < __n; ++__i)
+	__is >> __x._M_x[__i];
+
+      __is.flags(__flags);
+      return __is;
+    }
+
 
   template<typename _IntType, _IntType __m, int __s, int __r>
     void
     subtract_with_carry<_IntType, __m, __s, __r>::
     seed(unsigned long __value)
     {
+      if (__value == 0)
+	__value = 19780503;
+
       std::tr1::linear_congruential<unsigned long, 40014, 0, 2147483563>
 	__lcg(__value);
 
       for (int __i = 0; __i < long_lag; ++__i)
-	_M_x[__i] = _Private::__mod<_IntType, 1, 0, modulus>(__lcg());
+	_M_x[__i] = __mod<_IntType, 1, 0, modulus>(__lcg());
 
       _M_carry = (_M_x[long_lag - 1] == 0) ? 1 : 0;
       _M_p = 0;
     }
 
-  //
-  // This implementation differs from the tr1 spec because the tr1 spec refused
-  // to make any sense to me:  the exponent of the factor in the spec goes from
-  // 1 to (n-1), but it would only make sense to me if it went from 0 to (n-1).
-  //
-  // This algorithm is still problematic because it can overflow left right and
-  // center.
-  //
   template<typename _IntType, _IntType __m, int __s, int __r>
     template<class _Gen>
-    void
-    subtract_with_carry<_IntType, __m, __s, __r>::
-    seed(_Gen& __gen, false_type)
-    {
-      const int __n = (std::numeric_limits<_IntType>::digits + 31) / 32;
-      for (int __i = 0; __i < long_lag; ++__i)
-	{
-	  _M_x[__i] = 0;
-	  unsigned long __factor = 1;
-	  for (int __j = 0; __j < __n; ++__j)
-	    {
-	      _M_x[__i] += __gen() * __factor;
-	      __factor *= 0x80000000;
-	    }
-	  _M_x[__i] = _Private::__mod<_IntType, 1, 0, modulus>(_M_x[__i]);
-	}
-      _M_carry = (_M_x[long_lag - 1] == 0) ? 1 : 0;
-      _M_p = 0;
-    }
+      void
+      subtract_with_carry<_IntType, __m, __s, __r>::
+      seed(_Gen& __gen, false_type)
+      {
+	const int __n = (std::numeric_limits<_IntType>::digits + 31) / 32;
+
+	typedef typename _Select<(sizeof(unsigned) == 4),
+	  unsigned, unsigned long>::_Type _UInt32Type;
+
+	typedef typename _To_Unsigned_Type<_IntType>::_Type
+	  _UIntType;
+
+	for (int __i = 0; __i < long_lag; ++__i)
+	  {
+	    _UIntType __tmp = 0;
+	    _UIntType __factor = 1;
+	    for (int __j = 0; __j < __n; ++__j)
+	      {
+		__tmp += (__mod<_UInt32Type, 1, 0, 0>(__gen())
+			  * __factor);
+		__factor *= _Shift<_UIntType, 32>::__value;
+	      }
+	    _M_x[__i] = __mod<_UIntType, 1, 0, modulus>(__tmp);
+	  }
+	_M_carry = (_M_x[long_lag - 1] == 0) ? 1 : 0;
+	_M_p = 0;
+      }
 
   template<typename _IntType, _IntType __m, int __s, int __r>
     typename subtract_with_carry<_IntType, __m, __s, __r>::result_type
@@ -401,6 +443,45 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return __xi;
     }
 
+  template<typename _IntType, _IntType __m, int __s, int __r,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const subtract_with_carry<_IntType, __m, __s, __r>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::dec | std::ios_base::fixed
+		 | std::ios_base::left);
+      __os.fill(__space);
+
+      for (int __i = 0; __i < __r; ++__i)
+	__os << __x._M_x[__i] << __space;
+      __os << __x._M_carry;
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os;
+    }
+
+  template<typename _IntType, _IntType __m, int __s, int __r,
+	   typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       subtract_with_carry<_IntType, __m, __s, __r>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec | std::ios_base::skipws);
+
+      for (int __i = 0; __i < __r; ++__i)
+	__is >> __x._M_x[__i];
+      __is >> __x._M_carry;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
 
   template<class _UniformRandomNumberGenerator, int __p, int __r>
     typename discard_block<_UniformRandomNumberGenerator,
@@ -419,6 +500,386 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 	}
       ++_M_n;
       return _M_b();
+    }
+
+  template<class _UniformRandomNumberGenerator, int __p, int __r,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const discard_block<_UniformRandomNumberGenerator,
+	       __p, __r>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::dec | std::ios_base::fixed
+		 | std::ios_base::left);
+      __os.fill(__space);
+
+      __os << __x._M_b << __space << __x._M_n;
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os;
+    }
+
+  template<class _UniformRandomNumberGenerator, int __p, int __r,
+	   typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       discard_block<_UniformRandomNumberGenerator, __p, __r>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec | std::ios_base::skipws);
+
+      __is >> __x._M_b >> __x._M_n;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
+
+  template<class _UniformRandomNumberGenerator1, int __s1,
+	   class _UniformRandomNumberGenerator2, int __s2,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const xor_combine<_UniformRandomNumberGenerator1, __s1,
+	       _UniformRandomNumberGenerator2, __s2>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::dec | std::ios_base::fixed 
+		 | std::ios_base::left);
+      __os.fill(__space);
+
+      __os << __x.base1() << __space << __x.base2();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os; 
+    }
+
+  template<class _UniformRandomNumberGenerator1, int __s1,
+	   class _UniformRandomNumberGenerator2, int __s2,
+	   typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       xor_combine<_UniformRandomNumberGenerator1, __s1,
+	       _UniformRandomNumberGenerator2, __s2>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::skipws);
+
+      __is >> __x._M_b1 >> __x._M_b2;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
+
+  template<typename _IntType, typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const uniform_int<_IntType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__space);
+
+      __os << __x.min() << __space << __x.max();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      return __os;
+    }
+
+  template<typename _IntType, typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       uniform_int<_IntType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec | std::ios_base::skipws);
+
+      __is >> __x._M_min >> __x._M_max;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
+  
+  template<typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const bernoulli_distribution& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__os.widen(' '));
+      __os.precision(_Max_digits10<double>::__value);
+
+      __os << __x.p();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
+    }
+
+
+  template<typename _IntType, typename _RealType,
+	   typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const geometric_distribution<_IntType, _RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__os.widen(' '));
+      __os.precision(_Max_digits10<_RealType>::__value);
+
+      __os << __x.p();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
+    }
+
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const uniform_real<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__space);
+      __os.precision(_Max_digits10<_RealType>::__value);
+
+      __os << __x.min() << __space << __x.max();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
+    }
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       uniform_real<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::skipws);
+
+      __is >> __x._M_min >> __x._M_max;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const exponential_distribution<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__os.widen(' '));
+      __os.precision(_Max_digits10<_RealType>::__value);
+
+      __os << __x.lambda();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
+    }
+
+
+  /**
+   * Classic Box-Muller method.
+   *
+   * Reference:
+   * Box, G. E. P. and Muller, M. E. "A Note on the Generation of
+   * Random Normal Deviates." Ann. Math. Stat. 29, 610-611, 1958.
+   */
+  template<typename _RealType>
+    template<class _UniformRandomNumberGenerator>
+      typename normal_distribution<_RealType>::result_type
+      normal_distribution<_RealType>::
+      operator()(_UniformRandomNumberGenerator& __urng)
+      {
+	result_type __ret;
+
+	if (_M_saved_available)
+	  {
+	    _M_saved_available = false;
+	    __ret = _M_saved;
+	  }
+	else
+	  {
+	    result_type __x, __y, __r2;
+	    do
+	      {
+		__x = result_type(2.0) * __urng() - result_type(1.0);
+		__y = result_type(2.0) * __urng() - result_type(1.0);
+		__r2 = __x * __x + __y * __y;
+	      }
+	    while (__r2 > result_type(1.0) || __r2 == result_type(0));
+
+	    const result_type __mult = std::sqrt(-result_type(2.0)
+						 * std::log(__r2) / __r2);
+	    _M_saved = __x * __mult;
+	    _M_saved_available = true;
+	    __ret = __y * __mult;
+	  }
+
+	return __ret * _M_sigma + _M_mean;
+      }
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const normal_distribution<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      const _CharT __space = __os.widen(' ');
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__space);
+      __os.precision(_Max_digits10<_RealType>::__value);
+
+      __os << __x.mean() << __space
+	   << __x.sigma() << __space
+	   << __x._M_saved << __space
+	   << __x._M_saved_available;
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
+    }
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_istream<_CharT, _Traits>&
+    operator>>(std::basic_istream<_CharT, _Traits>& __is,
+	       normal_distribution<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __is.flags();
+      __is.flags(std::ios_base::dec | std::ios_base::skipws);
+
+      __is >> __x._M_mean >> __x._M_sigma
+	   >> __x._M_saved >> __x._M_saved_available;
+
+      __is.flags(__flags);
+      return __is;
+    }
+
+
+  /**
+   * Cheng's rejection algorithm GB for alpha >= 1 and a modification
+   * of Vaduva's rejection from Weibull algorithm due to Devroye for
+   * alpha < 1.
+   *
+   * References:
+   * Cheng, R. C. "The Generation of Gamma Random Variables with Non-integral
+   * Shape Parameter." Applied Statistics, 26, 71-75, 1977.
+   *
+   * Vaduva, I. "Computer Generation of Gamma Gandom Variables by Rejection
+   * and Composition Procedures." Math. Operationsforschung and Statistik,
+   * Series in Statistics, 8, 545-576, 1977.
+   *
+   * Devroye, L. "Non-Uniform Random Variates Generation." Springer-Verlag,
+   * New York, 1986, Sect. 3.4.
+   */
+  template<typename _RealType>
+    template<class _UniformRandomNumberGenerator>
+      typename gamma_distribution<_RealType>::result_type
+      gamma_distribution<_RealType>::
+      operator()(_UniformRandomNumberGenerator& __urng)
+      {
+	result_type __x;
+
+	if (_M_alpha >= 1)
+	  {
+	    // alpha - log(4)
+	    const result_type __b = _M_alpha
+	      - result_type(1.3862943611198906188344642429163531L);
+	    const result_type __c = _M_alpha + std::sqrt(2 * _M_alpha - 1);
+
+	    // 1 + log(9 / 2)
+	    const result_type __k = 2.5040773967762740733732583523868748L;
+
+	    result_type __z, __r;
+	    do
+	      {
+		const result_type __u = __urng();
+		const result_type __v = __urng();
+
+		const result_type __y = _M_alpha * std::log(__v / (1 - __v));
+		__x = _M_alpha * std::exp(__v);
+
+		__z = __u * __v * __v;
+		__r = __b + __c * __y - __x;
+	      }
+	    while (__r < result_type(4.5) * __z - __k
+		   && __r < std::log(__z));
+	  }
+	else
+	  {
+	    const result_type __c = 1 / _M_alpha;
+	    const result_type __d =
+	      std::pow(_M_alpha, _M_alpha / (1 - _M_alpha)) * (1 - _M_alpha);
+
+	    result_type __z, __e;
+	    do
+	      {
+		__z = -std::log(__urng());
+		__e = -std::log(__urng());
+
+		__x = std::pow(__z, __c);
+	      }
+	    while (__z + __e > __d + __x);
+	  }
+
+	return __x;
+      }
+
+  template<typename _RealType, typename _CharT, typename _Traits>
+    std::basic_ostream<_CharT, _Traits>&
+    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
+	       const gamma_distribution<_RealType>& __x)
+    {
+      const std::ios_base::fmtflags __flags = __os.flags();
+      const _CharT __fill = __os.fill();
+      const std::streamsize __precision = __os.precision();
+      __os.flags(std::ios_base::scientific | std::ios_base::left);
+      __os.fill(__os.widen(' '));
+      __os.precision(_Max_digits10<_RealType>::__value);
+
+      __os << __x.alpha();
+
+      __os.flags(__flags);
+      __os.fill(__fill);
+      __os.precision(__precision);
+      return __os;
     }
 
 _GLIBCXX_END_NAMESPACE

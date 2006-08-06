@@ -205,7 +205,7 @@ static void cp_parser_initial_pragma
   (cp_token *);
 
 /* Manifest constants.  */
-#define CP_LEXER_BUFFER_SIZE 10000
+#define CP_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (cp_token))
 #define CP_SAVED_TOKEN_STACK 5
 
 /* A token type for keywords, as opposed to ordinary identifiers.  */
@@ -1950,6 +1950,49 @@ cp_parser_simulate_error (cp_parser* parser)
   return false;
 }
 
+/* Check for repeated decl-specifiers.  */
+
+static void
+cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs)
+{
+  cp_decl_spec ds;
+
+  for (ds = ds_first; ds != ds_last; ++ds)
+    {
+      unsigned count = decl_specs->specs[(int)ds];
+      if (count < 2)
+	continue;
+      /* The "long" specifier is a special case because of "long long".  */
+      if (ds == ds_long)
+	{
+	  if (count > 2)
+	    error ("%<long long long%> is too long for GCC");
+	  else if (pedantic && !in_system_header && warn_long_long)
+	    pedwarn ("ISO C++ does not support %<long long%>");
+	}
+      else if (count > 1)
+	{
+	  static const char *const decl_spec_names[] = {
+	    "signed",
+	    "unsigned",
+	    "short",
+	    "long",
+	    "const",
+	    "volatile",
+	    "restrict",
+	    "inline",
+	    "virtual",
+	    "explicit",
+	    "friend",
+	    "typedef",
+	    "__complex",
+	    "__thread"
+	  };
+	  error ("duplicate %qs", decl_spec_names[(int)ds]);
+	}
+    }
+}
+
 /* This function is called when a type is defined.  If type
    definitions are forbidden at this point, an error message is
    issued.  */
@@ -3373,13 +3416,28 @@ cp_parser_unqualified_id (cp_parser* parser,
 	object_scope = parser->object_scope;
 	qualifying_scope = parser->qualifying_scope;
 
+	/* Check for invalid scopes.  */
+	if (scope == error_mark_node)
+	  {
+	    cp_parser_skip_to_end_of_statement (parser);
+	    return error_mark_node;
+	  }
+	if (scope && TREE_CODE (scope) == NAMESPACE_DECL)
+	  {
+	    if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+	      error ("scope %qT before %<~%> is not a class-name", scope);
+	    cp_parser_skip_to_end_of_statement (parser);
+	    return error_mark_node;
+	  }
+	gcc_assert (!scope || TYPE_P (scope));
+
 	/* If the name is of the form "X::~X" it's OK.  */
-	if (scope && TYPE_P (scope)
-	    && cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+	token = cp_lexer_peek_token (parser->lexer);
+	if (scope
+	    && token->type == CPP_NAME
 	    && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
 		== CPP_OPEN_PAREN)
-	    && (cp_lexer_peek_token (parser->lexer)->value
-		== TYPE_IDENTIFIER (scope)))
+	    && constructor_name_p (token->value, scope))
 	  {
 	    cp_lexer_consume_token (parser->lexer);
 	    return build_nt (BIT_NOT_EXPR, scope);
@@ -3457,7 +3515,7 @@ cp_parser_unqualified_id (cp_parser* parser,
 	   destructor is the same as the name of the qualifying
 	   class.  That allows us to keep parsing after running
 	   into ill-formed destructor names.  */
-	if (type_decl == error_mark_node && scope && TYPE_P (scope))
+	if (type_decl == error_mark_node && scope)
 	  return build_nt (BIT_NOT_EXPR, scope);
 	else if (type_decl == error_mark_node)
 	  return error_mark_node;
@@ -3549,20 +3607,6 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
   bool success = false;
   cp_token_position start = 0;
   cp_token *token;
-
-  /* If the next token corresponds to a nested name specifier, there
-     is no need to reparse it.  However, if CHECK_DEPENDENCY_P is
-     false, it may have been true before, in which case something
-     like `A<X>::B<Y>::C' may have resulted in a nested-name-specifier
-     of `A<X>::', where it should now be `A<X>::B<Y>::'.  So, when
-     CHECK_DEPENDENCY_P is false, we have to fall through into the
-     main loop.  */
-  if (check_dependency_p
-      && cp_lexer_next_token_is (parser->lexer, CPP_NESTED_NAME_SPECIFIER))
-    {
-      cp_parser_pre_parsed_nested_name_specifier (parser);
-      return parser->scope;
-    }
 
   /* Remember where the nested-name-specifier starts.  */
   if (cp_parser_uncommitted_to_tentative_parse_p (parser))
@@ -3663,6 +3707,8 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	     class-or-namespace-name.  */
 	  parser->scope = old_scope;
 	  parser->qualifying_scope = saved_qualifying_scope;
+	  if (cp_parser_uncommitted_to_tentative_parse_p (parser))
+	    break;
 	  /* If the next token is an identifier, and the one after
 	     that is a `::', then any valid interpretation would have
 	     found a class-or-namespace-name.  */
@@ -7388,7 +7434,6 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 			      int* declares_class_or_enum)
 {
   bool constructor_possible_p = !parser->in_declarator_p;
-  cp_decl_spec ds;
 
   /* Clear DECL_SPECS.  */
   clear_decl_specs (decl_specs);
@@ -7571,41 +7616,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
       flags |= CP_PARSER_FLAGS_OPTIONAL;
     }
 
-  /* Check for repeated decl-specifiers.  */
-  for (ds = ds_first; ds != ds_last; ++ds)
-    {
-      unsigned count = decl_specs->specs[(int)ds];
-      if (count < 2)
-	continue;
-      /* The "long" specifier is a special case because of "long long".  */
-      if (ds == ds_long)
-	{
-	  if (count > 2)
-	    error ("%<long long long%> is too long for GCC");
-	  else if (pedantic && !in_system_header && warn_long_long)
-	    pedwarn ("ISO C++ does not support %<long long%>");
-	}
-      else if (count > 1)
-	{
-	  static const char *const decl_spec_names[] = {
-	    "signed",
-	    "unsigned",
-	    "short",
-	    "long",
-	    "const",
-	    "volatile",
-	    "restrict",
-	    "inline",
-	    "virtual",
-	    "explicit",
-	    "friend",
-	    "typedef",
-	    "__complex",
-	    "__thread"
-	  };
-	  error ("duplicate %qs", decl_spec_names[(int)ds]);
-	}
-    }
+  cp_parser_check_decl_spec (decl_specs);
 
   /* Don't allow a friend specifier with a class definition.  */
   if (decl_specs->specs[(int) ds_friend] != 0
@@ -7744,9 +7755,7 @@ cp_parser_linkage_specification (cp_parser* parser)
       saved_in_unbraced_linkage_specification_p
 	= parser->in_unbraced_linkage_specification_p;
       parser->in_unbraced_linkage_specification_p = true;
-      have_extern_spec = true;
       cp_parser_declaration (parser);
-      have_extern_spec = false;
       parser->in_unbraced_linkage_specification_p
 	= saved_in_unbraced_linkage_specification_p;
     }
@@ -8797,10 +8806,19 @@ cp_parser_template_id (cp_parser *parser,
     template_id = build_min_nt (TEMPLATE_ID_EXPR, template, arguments);
   else if (DECL_CLASS_TEMPLATE_P (template)
 	   || DECL_TEMPLATE_TEMPLATE_PARM_P (template))
-    template_id
-      = finish_template_type (template, arguments,
-			      cp_lexer_next_token_is (parser->lexer,
-						      CPP_SCOPE));
+    {
+      bool entering_scope;
+      /* In "template <typename T> ... A<T>::", A<T> is the abstract A
+	 template (rather than some instantiation thereof) only if
+	 is not nested within some other construct.  For example, in
+	 "template <typename T> void f(T) { A<T>::", A<T> is just an
+	 instantiation of A.  */
+      entering_scope = (template_parm_scope_p ()
+			&& cp_lexer_next_token_is (parser->lexer,
+						   CPP_SCOPE));
+      template_id
+	= finish_template_type (template, arguments, entering_scope);
+    }
   else
     {
       /* If it's not a class-template or a template-template, it should be
@@ -9417,7 +9435,7 @@ cp_parser_explicit_instantiation (cp_parser* parser)
       if (declarator != cp_error_declarator)
 	{
 	  decl = grokdeclarator (declarator, &decl_specifiers,
-				 NORMAL, 0, NULL);
+				 NORMAL, 0, &decl_specifiers.attributes);
 	  /* Turn access control back on for names used during
 	     template instantiation.  */
 	  pop_deferring_access_checks ();
@@ -9566,22 +9584,11 @@ cp_parser_type_specifier (cp_parser* parser,
   switch (keyword)
     {
     case RID_ENUM:
-      /* 'enum' [identifier] '{' introduces an enum-specifier;
-	 'enum' <anything else> introduces an elaborated-type-specifier.  */
-      if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_OPEN_BRACE
-	  || (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME
-	      && cp_lexer_peek_nth_token (parser->lexer, 3)->type
-		 == CPP_OPEN_BRACE))
+      /* Look for the enum-specifier.  */
+      type_spec = cp_parser_enum_specifier (parser);
+      /* If that worked, we're done.  */
+      if (type_spec)
 	{
-	  if (parser->num_template_parameter_lists)
-	    {
-	      error ("template declaration of %qs", "enum");
-	      cp_parser_skip_to_end_of_block_or_statement (parser);
-	      type_spec = error_mark_node;
-	    }
-	  else
-	    type_spec = cp_parser_enum_specifier (parser);
-
 	  if (declares_class_or_enum)
 	    *declares_class_or_enum = 2;
 	  if (decl_specs)
@@ -10083,6 +10090,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 					 /*type_p=*/true,
 					 is_declaration);
   /* For everything but enumeration types, consider a template-id.  */
+  /* For an enumeration type, consider only a plain identifier.  */
   if (tag_type != enum_type)
     {
       bool template_p = false;
@@ -10114,7 +10122,6 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	type = TREE_TYPE (decl);
     }
 
-  /* For an enumeration type, consider only a plain identifier.  */
   if (!type)
     {
       identifier = cp_parser_identifier (parser);
@@ -10242,11 +10249,6 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	  else
 	    ts = ts_global;
 
-	  /* Warn about attributes. They are ignored.  */
-	  if (attributes)
-	    warning (OPT_Wattributes,
-		     "type attributes are honored only at type definition");
-
 	  template_p =
 	    (parser->num_template_parameter_lists
 	     && (cp_parser_next_token_starts_class_definition_p (parser)
@@ -10259,6 +10261,24 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	  type = xref_tag (tag_type, identifier, ts, template_p);
 	}
     }
+
+  if (type == error_mark_node)
+    return error_mark_node;
+
+  /* Allow attributes on forward declarations of classes.  */
+  if (attributes)
+    {
+      if (tag_type != enum_type && CLASSTYPE_TEMPLATE_INSTANTIATION (type)
+	  && ! processing_explicit_instantiation)
+	warning (OPT_Wattributes,
+		 "attributes ignored on template instantiation");
+      else if (is_declaration && cp_parser_declares_only_class_p (parser))
+	cplus_decl_attributes (&type, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+      else
+	warning (OPT_Wattributes,
+		 "attributes ignored on elaborated-type-specifier that is not a forward declaration");
+    }
+
   if (tag_type != enum_type)
     cp_parser_check_class_key (tag_type, type);
 
@@ -10275,15 +10295,22 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
      enum identifier [opt] { enumerator-list [opt] }
 
    GNU Extensions:
-     enum identifier [opt] { enumerator-list [opt] } attributes
+     enum attributes[opt] identifier [opt] { enumerator-list [opt] }
+       attributes[opt]
 
-   Returns an ENUM_TYPE representing the enumeration.  */
+   Returns an ENUM_TYPE representing the enumeration, or NULL_TREE
+   if the token stream isn't an enum-specifier after all.  */
 
 static tree
 cp_parser_enum_specifier (cp_parser* parser)
 {
   tree identifier;
   tree type;
+  tree attributes;
+
+  /* Parse tentatively so that we can back up if we don't find a
+     enum-specifier.  */
+  cp_parser_parse_tentatively (parser);
 
   /* Caller guarantees that the current token is 'enum', an identifier
      possibly follows, and the token after that is an opening brace.
@@ -10291,10 +10318,19 @@ cp_parser_enum_specifier (cp_parser* parser)
      the enumeration being defined.  */
   cp_lexer_consume_token (parser->lexer);
 
+  attributes = cp_parser_attributes_opt (parser);
+
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     identifier = cp_parser_identifier (parser);
   else
     identifier = make_anon_name ();
+
+  /* Look for the `{' but don't consume it yet.  */
+  if (!cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    cp_parser_simulate_error (parser);
+
+  if (!cp_parser_parse_definitely (parser))
+    return NULL_TREE;
 
   /* Issue an error message if type-definitions are forbidden here.  */
   cp_parser_check_type_definition (parser);
@@ -10306,6 +10342,12 @@ cp_parser_enum_specifier (cp_parser* parser)
 
   /* Consume the opening brace.  */
   cp_lexer_consume_token (parser->lexer);
+
+  if (type == error_mark_node)
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
 
   /* If the next token is not '}', then there are some enumerators.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
@@ -11066,10 +11108,7 @@ cp_parser_init_declarator (cp_parser* parser,
   if (!member_p)
     {
       if (parser->in_unbraced_linkage_specification_p)
-	{
-	  decl_specifiers->storage_class = sc_extern;
-	  have_extern_spec = false;
-	}
+	decl_specifiers->storage_class = sc_extern;
       decl = start_decl (declarator, decl_specifiers,
 			 is_initialized, attributes, prefix_attributes,
 			 &pushed_scope);
@@ -11283,7 +11322,7 @@ cp_parser_declarator (cp_parser* parser,
 						member_p);
     }
 
-  if (attributes && declarator != cp_error_declarator)
+  if (attributes && declarator && declarator != cp_error_declarator)
     declarator->attributes = attributes;
 
   return declarator;
@@ -12017,6 +12056,8 @@ cp_parser_type_specifier_seq (cp_parser* parser,
       if (is_condition && !is_cv_qualifier)
 	flags |= CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES;
     }
+
+  cp_parser_check_decl_spec (type_specifier_seq);
 }
 
 /* Parse a parameter-declaration-clause.
@@ -12122,9 +12163,16 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 {
   cp_parameter_declarator *parameters = NULL;
   cp_parameter_declarator **tail = &parameters;
+  bool saved_in_unbraced_linkage_specification_p;
 
   /* Assume all will go well.  */
   *is_error = false;
+  /* The special considerations that apply to a function within an
+     unbraced linkage specifications do not apply to the parameters
+     to the function.  */
+  saved_in_unbraced_linkage_specification_p 
+    = parser->in_unbraced_linkage_specification_p;
+  parser->in_unbraced_linkage_specification_p = false;
 
   /* Look for more parameters.  */
   while (true)
@@ -12202,6 +12250,9 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
 	  break;
 	}
     }
+
+  parser->in_unbraced_linkage_specification_p
+    = saved_in_unbraced_linkage_specification_p;
 
   return parameters;
 }
@@ -12915,7 +12966,7 @@ cp_parser_class_specifier (cp_parser* parser)
       scope = CP_DECL_CONTEXT (TYPE_MAIN_DECL (type));
       old_scope = push_inner_scope (scope);
     }
-  type = begin_class_definition (type);
+  type = begin_class_definition (type, attributes);
 
   if (type == error_mark_node)
     /* If the type is erroneous, skip the entire body of the class.  */
@@ -12932,10 +12983,7 @@ cp_parser_class_specifier (cp_parser* parser)
   has_trailing_semicolon = (token->type == CPP_SEMICOLON);
   /* Look for trailing attributes to apply to this class.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
-    {
-      tree sub_attr = cp_parser_attributes_opt (parser);
-      attributes = chainon (attributes, sub_attr);
-    }
+    attributes = cp_parser_attributes_opt (parser);
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
   if (nested_name_specifier_p)
@@ -14310,7 +14358,6 @@ cp_parser_handler (cp_parser* parser)
 static tree
 cp_parser_exception_declaration (cp_parser* parser)
 {
-  tree decl;
   cp_decl_specifier_seq type_specifiers;
   cp_declarator *declarator;
   const char *saved_message;
@@ -14343,16 +14390,10 @@ cp_parser_exception_declaration (cp_parser* parser)
   /* Restore the saved message.  */
   parser->type_definition_forbidden_message = saved_message;
 
-  if (type_specifiers.any_specifiers_p)
-    {
-      decl = grokdeclarator (declarator, &type_specifiers, CATCHPARM, 1, NULL);
-      if (decl == NULL_TREE)
-	error ("invalid catch parameter");
-    }
-  else
-    decl = NULL_TREE;
+  if (!type_specifiers.any_specifiers_p)
+    return error_mark_node;
 
-  return decl;
+  return grokdeclarator (declarator, &type_specifiers, CATCHPARM, 1, NULL);
 }
 
 /* Parse a throw-expression.
@@ -14612,6 +14653,8 @@ cp_parser_attribute_list (cp_parser* parser)
       if (token->type == CPP_NAME
 	  || token->type == CPP_KEYWORD)
 	{
+	  tree arguments = NULL_TREE;
+
 	  /* Consume the token.  */
 	  token = cp_lexer_consume_token (parser->lexer);
 
@@ -14625,18 +14668,19 @@ cp_parser_attribute_list (cp_parser* parser)
 	  /* If it's an `(', then parse the attribute arguments.  */
 	  if (token->type == CPP_OPEN_PAREN)
 	    {
-	      tree arguments;
-
-	      arguments = (cp_parser_parenthesized_expression_list
-			   (parser, true, /*cast_p=*/false,
-			    /*non_constant_p=*/NULL));
-	      /* Save the identifier and arguments away.  */
+	      arguments = cp_parser_parenthesized_expression_list
+			  (parser, true, /*cast_p=*/false,
+			   /*non_constant_p=*/NULL);
+	      /* Save the arguments away.  */
 	      TREE_VALUE (attribute) = arguments;
 	    }
 
-	  /* Add this attribute to the list.  */
-	  TREE_CHAIN (attribute) = attribute_list;
-	  attribute_list = attribute;
+	  if (arguments != error_mark_node)
+	    {
+	      /* Add this attribute to the list.  */
+	      TREE_CHAIN (attribute) = attribute_list;
+	      attribute_list = attribute;
+	    }
 
 	  token = cp_lexer_peek_token (parser->lexer);
 	}

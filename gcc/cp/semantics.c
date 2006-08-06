@@ -1293,6 +1293,10 @@ tree
 finish_label_stmt (tree name)
 {
   tree decl = define_label (input_location, name);
+
+  if (decl  == error_mark_node)
+    return error_mark_node;
+
   return add_stmt (build_stmt (LABEL_EXPR, decl));
 }
 
@@ -1502,9 +1506,11 @@ check_accessibility_of_qualified_id (tree decl,
        its bases.  */
     qualifying_type = currently_open_derived_class (scope);
 
-  if (qualifying_type && IS_AGGR_TYPE_CODE (TREE_CODE (qualifying_type)))
-    /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
-       or similar in a default argument value.  */
+  if (qualifying_type 
+      /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
+	 or similar in a default argument value.  */
+      && CLASS_TYPE_P (qualifying_type)
+      && !dependent_type_p (qualifying_type))
     perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
 }
 
@@ -2052,7 +2058,7 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
       DECL_NAME (var) = make_anon_name ();
     }
   /* We must call pushdecl, since the gimplifier complains if the
-     variable hase been declared via a BIND_EXPR.  */
+     variable has not been declared via a BIND_EXPR.  */
   pushdecl (var);
   /* Initialize the variable as we would any other variable with a
      brace-enclosed initializer.  */
@@ -2137,19 +2143,8 @@ check_template_template_default_arg (tree argument)
       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
     {
       if (TREE_CODE (argument) == TYPE_DECL)
-	{
-	  tree t = TREE_TYPE (argument);
-
-	  /* Try to emit a slightly smarter error message if we detect
-	     that the user is using a template instantiation.  */
-	  if (CLASSTYPE_TEMPLATE_INFO (t)
-	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
-	    error ("invalid use of type %qT as a default value for a "
-		   "template template-parameter", t);
-	  else
-	    error ("invalid use of %qD as a default value for a template "
-		   "template-parameter", argument);
-	}
+	error ("invalid use of type %qT as a default value for a template "
+	       "template-parameter", TREE_TYPE (argument));
       else
 	error ("invalid default argument for a template template parameter");
       return error_mark_node;
@@ -2161,7 +2156,7 @@ check_template_template_default_arg (tree argument)
 /* Begin a class definition, as indicated by T.  */
 
 tree
-begin_class_definition (tree t)
+begin_class_definition (tree t, tree attributes)
 {
   if (t == error_mark_node)
     return error_mark_node;
@@ -2200,6 +2195,9 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
+
+  cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+
   if (flag_pack_struct)
     {
       tree v;
@@ -2332,8 +2330,9 @@ note_decl_for_pch (tree decl)
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      || TREE_CODE (decl) == FUNCTION_DECL)
+  if ((TREE_CODE (decl) == VAR_DECL
+       || TREE_CODE (decl) == FUNCTION_DECL)
+      && !processing_template_decl)
     mangle_decl (decl);
 }
 
@@ -2590,7 +2589,10 @@ finish_id_expression (tree id_expression,
     {
       *idk = CP_ID_KIND_NONE;
       if (!processing_template_decl)
-	return DECL_INITIAL (decl);
+	{
+	  used_types_insert (TREE_TYPE (decl));
+	  return DECL_INITIAL (decl);
+	}
       return decl;
     }
   else
@@ -2887,12 +2889,19 @@ finish_typeof (tree expr)
 tree
 finish_offsetof (tree expr)
 {
+  if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
+    {
+      error ("cannot apply %<offsetof%> to destructor %<~%T%>",
+	      TREE_OPERAND (expr, 2));
+      return error_mark_node;
+    }
   if (TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
       || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
       || TREE_CODE (TREE_TYPE (expr)) == UNKNOWN_TYPE)
     {
-      error ("cannot apply %<offsetof%> to member function %qD",
-	     TREE_OPERAND (expr, 1));
+      if (TREE_CODE (expr) == COMPONENT_REF)
+	expr = TREE_OPERAND (expr, 1);
+      error ("cannot apply %<offsetof%> to member function %qD", expr);
       return error_mark_node;
     }
   return fold_offsetof (expr);
@@ -3828,24 +3837,41 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 void
 finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
-  /* If either of the operands are dependent, we can't do semantic
-     processing yet.  Stuff the values away for now.  We cheat a bit
-     and use the same tree code for this, even though the operands
-     are of totally different form, thus we need to remember which
-     statements are which, thus the lang_flag bit.  */
-  /* ??? We ought to be using type_dependent_expression_p, but the
-     invocation of build_modify_expr in c_finish_omp_atomic can result
-     in the creation of CONVERT_EXPRs, which are not handled by
-     tsubst_copy_and_build.  */
-  if (uses_template_parms (lhs) || uses_template_parms (rhs))
+  tree orig_lhs;
+  tree orig_rhs;
+  bool dependent_p;
+  tree stmt;
+
+  orig_lhs = lhs;
+  orig_rhs = rhs;
+  dependent_p = false;
+  stmt = NULL_TREE;
+
+  /* Even in a template, we can detect invalid uses of the atomic
+     pragma if neither LHS nor RHS is type-dependent.  */
+  if (processing_template_decl)
     {
-      tree stmt = build2 (OMP_ATOMIC, void_type_node, lhs, rhs);
+      dependent_p = (type_dependent_expression_p (lhs) 
+		     || type_dependent_expression_p (rhs));
+      if (!dependent_p)
+	{
+	  lhs = build_non_dependent_expr (lhs);
+	  rhs = build_non_dependent_expr (rhs);
+	}
+    }
+  if (!dependent_p)
+    {
+      stmt = c_finish_omp_atomic (code, lhs, rhs);
+      if (stmt == error_mark_node)
+	return;
+    }
+  if (processing_template_decl)
+    {
+      stmt = build2 (OMP_ATOMIC, void_type_node, orig_lhs, orig_rhs);
       OMP_ATOMIC_DEPENDENT_P (stmt) = 1;
       OMP_ATOMIC_CODE (stmt) = code;
-      add_stmt (stmt);
     }
-  else
-    c_finish_omp_atomic (code, lhs, rhs);
+  add_stmt (stmt);
 }
 
 void

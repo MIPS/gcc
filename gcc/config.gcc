@@ -1164,6 +1164,9 @@ i[34567]86-*-solaris2*)
 	else
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
+	if test x$gas = xyes; then
+		tm_file="usegas.h ${tm_file}"
+	fi
 	case ${target} in
 	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
 		tm_file="$tm_file tm-dwarf2.h"
@@ -1175,6 +1178,20 @@ i[34567]86-*-solaris2*)
 		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 		tmake_file="$tmake_file i386/t-sol2-10"
 		need_64bit_hwint=yes
+		# FIXME: -m64 for i[34567]86-*-* should be allowed just
+		# like -m32 for x86_64-*-*.
+		case X"${with_cpu}" in
+		Xgeneric|Xnocona|Xx86-64|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+			;;
+		X)
+			with_cpu=generic
+			;;
+		*)
+			echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
+			echo "generic nocona x86-64 k8 opteron athlon64 athlon-fx" 1>&2
+			exit 1
+			;;
+		esac
 		# Solaris 2.10 provides crt1.o, crti.o, crtn.o, and gcrt1.o as 
 		# part of the base system.
 		extra_parts="gmon.o crtbegin.o crtend.o"
@@ -1553,7 +1570,7 @@ mipsisa64sr71k-*-elf*)
         ;;
 mipsisa64sb1-*-elf* | mipsisa64sb1el-*-elf*)
 	tm_file="elfos.h ${tm_file} mips/elf.h"
-	tmake_file=mips/t-elf
+	tmake_file="mips/t-elf mips/t-sb1"
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=64 MIPS_CPU_STRING_DEFAULT=\\\"sb1\\\" MIPS_ABI_DEFAULT=ABI_O64"
 	use_fixproto=yes

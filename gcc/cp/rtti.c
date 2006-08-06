@@ -228,7 +228,7 @@ get_tinfo_decl_dynamic (tree exp)
   tree type;
   tree t;
 
-  if (exp == error_mark_node)
+  if (error_operand_p (exp))
     return error_mark_node;
 
   /* peel back references, so they match.  */
@@ -1155,6 +1155,10 @@ create_pseudo_type_info (int tk, const char *real_name, ...)
   ti->type = cp_build_qualified_type (pseudo_type, TYPE_QUAL_CONST);
   ti->name = get_identifier (real_name);
   ti->vtable = NULL_TREE;
+
+  /* Pretend this is public so determine_visibility doesn't give vtables
+     internal linkage.  */
+  TREE_PUBLIC (TYPE_MAIN_DECL (ti->type)) = 1;
 
   va_end (ap);
 }

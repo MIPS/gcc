@@ -1,3 +1,35 @@
+2006-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/28390
+	* testsuite/libgomp.fortran/pr28390.f: New test.
+
+2006-07-05  Eric Christopher  <echristo@apple.com>
+
+	* configure.ac: Depend addition of -pthread on host OS.
+	* configure: Regenerate.
+
+2006-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* critical.c (GOMP_critical_name_start): Fix *pptr initialization
+	when gomp_mutex_t is larger than pointer and HAVE_SYNC_BUILTINS is
+	defined.
+
+2006-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/26175
+	PR libgomp/26477
+	* configure.ac: If neither --enable-linux-futex nor
+	--disable-linux-futex is passed, determine the default by checking
+	for compiling and/or running against NPTL.  With --enable-linux-futex,
+	check if SYS_gettid and SYS_futex are defined.
+	* configure: Rebuilt.
+
+2006-06-14  Richard Henderson  <rth@redhat.com>
+
+	PR libgomp/28008
+	* env.c (initialize_env): Avoid using PTHREAD_STACK_MIN when
+	undefined.  Use GOMP_STACKSIZE not OMP_STACKSIZE for environment.
+
 2006-06-09  Richard Henderson  <rth@redhat.com>
 
 	* env.c (gomp_nthreads_var): Change to unsigned long.
@@ -132,7 +164,7 @@
 
 	PR libgomp/25936
 	* configure.tgt: Link against -lrt for sem_init on HPUX v11 systems.
- 
+
 2006-02-08  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* testsuite/lib/libgomp-dg.exp: Load scanrtl.exp library.
@@ -960,7 +992,7 @@
 	* configure.tgt (x86_64-linux): Also test CC for -m32.
 	* config/linux/x86_64/futex.h (futex_wait): Fix r10 usage.
 
-	* testsuite/lib/libgomp-dg.exp (libgomp_link_flags): Add / 
+	* testsuite/lib/libgomp-dg.exp (libgomp_link_flags): Add /
 	after $gccpath.
 
 	* Makefile.am (SUBDIRS): New.
@@ -1056,7 +1088,7 @@
 
 	* iter.c (gomp_iter_runtime_next_locked): Remove.
 	* loop.c (gomp_loop_static_start, gomp_loop_dynamic_start,
-	gomp_loop_guided_start, gomp_loop_ordered_static_start, 
+	gomp_loop_guided_start, gomp_loop_ordered_static_start,
 	gomp_loop_ordered_dynamic_start, gomp_loop_ordered_guided_start,
 	gomp_loop_static_next, gomp_loop_dynamic_next, gomp_loop_guided_next,
 	gomp_loop_ordered_static_next, gomp_loop_ordered_dynamic_next,

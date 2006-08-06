@@ -304,6 +304,7 @@ enum gfc_generic_isym_id
      the backend (eg. KIND).  */
   GFC_ISYM_NONE = 0,
   GFC_ISYM_ABS,
+  GFC_ISYM_ACCESS,
   GFC_ISYM_ACHAR,
   GFC_ISYM_ACOS,
   GFC_ISYM_ACOSH,
@@ -332,6 +333,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
   GFC_ISYM_CHDIR,
+  GFC_ISYM_CHMOD,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_COMPLEX,
@@ -377,6 +379,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
+  GFC_ISYM_INT2,
+  GFC_ISYM_INT8,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISATTY,
@@ -391,15 +395,20 @@ enum gfc_generic_isym_id
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
   GFC_ISYM_LLT,
-  GFC_ISYM_LOG,
   GFC_ISYM_LOC,
+  GFC_ISYM_LOG,
   GFC_ISYM_LOG10,
   GFC_ISYM_LOGICAL,
+  GFC_ISYM_LONG,
+  GFC_ISYM_LSHIFT,
+  GFC_ISYM_LSTAT,
   GFC_ISYM_MALLOC,
   GFC_ISYM_MATMUL,
   GFC_ISYM_MAX,
   GFC_ISYM_MAXLOC,
   GFC_ISYM_MAXVAL,
+  GFC_ISYM_MCLOCK,
+  GFC_ISYM_MCLOCK8,
   GFC_ISYM_MERGE,
   GFC_ISYM_MIN,
   GFC_ISYM_MINLOC,
@@ -418,6 +427,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
+  GFC_ISYM_RSHIFT,
   GFC_ISYM_RRSPACING,
   GFC_ISYM_SCALE,
   GFC_ISYM_SCAN,
@@ -1627,6 +1637,7 @@ typedef struct
   int flag_max_stack_var_size;
   int flag_module_access_private;
   int flag_no_backend;
+  int flag_range_check;
   int flag_pack_derived;
   int flag_repack_arrays;
   int flag_preprocessed;
@@ -1805,6 +1816,7 @@ extern int gfc_default_character_kind;
 extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
 extern int gfc_c_int_kind;
+extern int gfc_large_io_int_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
@@ -2027,6 +2039,7 @@ void gfc_simplify_iterator_var (gfc_expr *);
 try gfc_expand_constructor (gfc_expr *);
 int gfc_constant_ac (gfc_expr *);
 int gfc_expanded_ac (gfc_expr *);
+void gfc_resolve_character_array_constructor (gfc_expr *);
 try gfc_resolve_array_constructor (gfc_expr *);
 try gfc_check_constructor_type (gfc_expr *);
 try gfc_check_iter_variable (gfc_expr *);

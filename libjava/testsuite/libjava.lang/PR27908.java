@@ -1,20 +1,31 @@
 class PR27908
 {
   public static void main (String[] argv)
+    throws InterruptedException
   {
     run1 r1 = new run1();
     run2 r2 = new run2();
     run3 r3 = new run3();
 
-    new Thread (r1).start();
-    new Thread (r2).start();
-    new Thread (r3).start();
+    Thread t1, t2, t3;
+
+    (t1 = new Thread (r1)).start();
+    (t2 = new Thread (r2)).start();
+    (t3 = new Thread (r3)).start();
 
     Thread.yield();
 
     r1.stop();
     r2.stop();
     r3.stop();
+
+    Thread.sleep(5000);
+
+    if (t1.isAlive() || t2.isAlive() || t3.isAlive())
+      {
+	System.out.println ("fail");
+	System.exit(1);
+      }
   }
 
   private static class run1 implements Runnable
@@ -28,10 +39,9 @@ class PR27908
       running = true;
       while (running)
         counter++;
-      System.out.println ("run1 exits!");
     }
 
-    private void stop ()
+    void stop ()
     {
       running = false;
     }
@@ -48,10 +58,9 @@ class PR27908
       running = true;
       while (running)
         counter++;
-      System.out.println ("run2 exits!");
     }
 
-    private void stop ()
+    void stop ()
     {
       running = false;
     }
@@ -68,7 +77,6 @@ class PR27908
       running = true;
       while (running)
         counter++;
-      System.out.println ("run3 exits!");
     }
 
     void stop ()
@@ -76,5 +84,4 @@ class PR27908
       running = false;
     }
   }
-
 }

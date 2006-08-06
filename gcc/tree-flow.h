@@ -419,8 +419,6 @@ typedef struct
 
 /* Array of all variables referenced in the function.  */
 extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
-/* List of referenced variables in the function with duplicate UID's.  */
-extern VEC(tree,gc) *referenced_vars_dup_list;
 
 /* Default defs for undefined symbols. */
 extern GTY((param_is (struct int_tree_map))) htab_t default_defs;
@@ -791,6 +789,8 @@ struct tree_niter_desc
 
 /* In tree-vectorizer.c */
 void vectorize_loops (struct loops *);
+extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);

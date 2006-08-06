@@ -180,7 +180,7 @@ pop_gimplify_context (tree body)
     DECL_GIMPLE_FORMAL_TEMP_P (t) = 0;
 
   if (body)
-    declare_tmp_vars (c->temps, body);
+    declare_vars (c->temps, body, false);
   else
     record_vars (c->temps);
 
@@ -479,10 +479,12 @@ create_tmp_var (tree type, const char *prefix)
   tree tmp_var;
 
   /* We don't allow types that are addressable (meaning we can't make copies),
-     incomplete, or of variable size.  */
-  gcc_assert (!TREE_ADDRESSABLE (type)
-	      && COMPLETE_TYPE_P (type)
-	      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST);
+     or incomplete.  We also used to reject every variable size objects here,
+     but now support those for which a constant upper bound can be obtained.
+     The processing for variable sizes is performed in gimple_add_tmp_var,
+     point at which it really matters and possibly reached via paths not going
+     through this function, e.g. after direct calls to create_tmp_var_raw.  */
+  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
 
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
@@ -645,15 +647,16 @@ get_initialized_tmp_var (tree val, tree *pre_p, tree *post_p)
   return internal_get_tmp_var (val, pre_p, post_p, false);
 }
 
-/* Declares all the variables in VARS in SCOPE.  */
+/* Declares all the variables in VARS in SCOPE.  If DEBUG_INFO is
+   true, generate debug info for them; otherwise don't.  */
 
 void
-declare_tmp_vars (tree vars, tree scope)
+declare_vars (tree vars, tree scope, bool debug_info)
 {
   tree last = vars;
   if (last)
     {
-      tree temps;
+      tree temps, block;
 
       /* C99 mode puts the default 'return 0;' for main outside the outer
 	 braces.  So drill down until we find an actual scope.  */
@@ -663,15 +666,64 @@ declare_tmp_vars (tree vars, tree scope)
       gcc_assert (TREE_CODE (scope) == BIND_EXPR);
 
       temps = nreverse (last);
-      TREE_CHAIN (last) = BIND_EXPR_VARS (scope);
-      BIND_EXPR_VARS (scope) = temps;
+
+      block = BIND_EXPR_BLOCK (scope);
+      if (!block || !debug_info)
+	{
+	  TREE_CHAIN (last) = BIND_EXPR_VARS (scope);
+	  BIND_EXPR_VARS (scope) = temps;
+	}
+      else
+	{
+	  /* We need to attach the nodes both to the BIND_EXPR and to its
+	     associated BLOCK for debugging purposes.  The key point here
+	     is that the BLOCK_VARS of the BIND_EXPR_BLOCK of a BIND_EXPR
+	     is a subchain of the BIND_EXPR_VARS of the BIND_EXPR.  */
+	  if (BLOCK_VARS (block))
+	    BLOCK_VARS (block) = chainon (BLOCK_VARS (block), temps);
+	  else
+	    {
+	      BIND_EXPR_VARS (scope) = chainon (BIND_EXPR_VARS (scope), temps);
+	      BLOCK_VARS (block) = temps;
+	    }
+	}
     }
+}
+
+/* For VAR a VAR_DECL of variable size, try to find a constant upper bound
+   for the size and adjust DECL_SIZE/DECL_SIZE_UNIT accordingly.  Abort if
+   no such upper bound can be obtained.  */
+
+static void
+force_constant_size (tree var)
+{
+  /* The only attempt we make is by querying the maximum size of objects
+     of the variable's type.  */
+
+  HOST_WIDE_INT max_size;
+
+  gcc_assert (TREE_CODE (var) == VAR_DECL);
+
+  max_size = max_int_size_in_bytes (TREE_TYPE (var));
+
+  gcc_assert (max_size >= 0);
+
+  DECL_SIZE_UNIT (var)
+    = build_int_cst (TREE_TYPE (DECL_SIZE_UNIT (var)), max_size);
+  DECL_SIZE (var)
+    = build_int_cst (TREE_TYPE (DECL_SIZE (var)), max_size * BITS_PER_UNIT);
 }
 
 void
 gimple_add_tmp_var (tree tmp)
 {
   gcc_assert (!TREE_CHAIN (tmp) && !DECL_SEEN_IN_BIND_EXPR_P (tmp));
+
+  /* Later processing assumes that the object size is constant, which might
+     not be true at this point.  Force the use of a constant upper bound in
+     this case.  */
+  if (!host_integerp (DECL_SIZE_UNIT (tmp), 1))
+    force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = current_function_decl;
   DECL_SEEN_IN_BIND_EXPR_P (tmp) = 1;
@@ -694,7 +746,7 @@ gimple_add_tmp_var (tree tmp)
   else if (cfun)
     record_vars (tmp);
   else
-    declare_tmp_vars (tmp, DECL_SAVED_TREE (current_function_decl));
+    declare_vars (tmp, DECL_SAVED_TREE (current_function_decl), false);
 }
 
 /* Determines whether to assign a locus to the statement STMT.  */
@@ -2888,8 +2940,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
       {
 	struct gimplify_init_ctor_preeval_data preeval_data;
 	HOST_WIDE_INT num_type_elements, num_ctor_elements;
-	HOST_WIDE_INT num_nonzero_elements, num_nonconstant_elements;
-	bool cleared;
+	HOST_WIDE_INT num_nonzero_elements;
+	bool cleared, valid_const_initializer;
 
 	/* Aggregate types must lower constructors to initialization of
 	   individual elements.  The exception is that a CONSTRUCTOR node
@@ -2897,13 +2949,16 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	if (VEC_empty (constructor_elt, elts))
 	  break;
 
-	categorize_ctor_elements (ctor, &num_nonzero_elements,
-				  &num_nonconstant_elements,
-				  &num_ctor_elements, &cleared);
+	/* Fetch information about the constructor to direct later processing.
+	   We might want to make static versions of it in various cases, and
+	   can only do so if it known to be a valid constant initializer.  */
+	valid_const_initializer
+	  = categorize_ctor_elements (ctor, &num_nonzero_elements,
+				      &num_ctor_elements, &cleared);
 
 	/* If a const aggregate variable is being initialized, then it
 	   should never be a lose to promote the variable to be static.  */
-	if (num_nonconstant_elements == 0
+	if (valid_const_initializer
 	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
 	    && TREE_CODE (object) == VAR_DECL)
@@ -2960,7 +3015,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	   for sparse arrays, though, as it's more efficient to follow
 	   the standard CONSTRUCTOR behavior of memset followed by
 	   individual element initialization.  */
-	if (num_nonconstant_elements == 0 && !cleared)
+	if (valid_const_initializer && !cleared)
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
@@ -3526,6 +3581,27 @@ gimplify_variable_sized_compare (tree *expr_p)
   t = build_function_call_expr (t, args);
   *expr_p
     = build2 (TREE_CODE (*expr_p), TREE_TYPE (*expr_p), t, integer_zero_node);
+
+  return GS_OK;
+}
+
+/*  Gimplify a comparison between two aggregate objects of integral scalar
+    mode as a comparison between the bitwise equivalent scalar values.  */
+
+static enum gimplify_status
+gimplify_scalar_mode_aggregate_compare (tree *expr_p)
+{
+  tree op0 = TREE_OPERAND (*expr_p, 0);
+  tree op1 = TREE_OPERAND (*expr_p, 1);
+
+  tree type = TREE_TYPE (op0);
+  tree scalar_type = lang_hooks.types.type_for_mode (TYPE_MODE (type), 1);
+
+  op0 = fold_build1 (VIEW_CONVERT_EXPR, scalar_type, op0);
+  op1 = fold_build1 (VIEW_CONVERT_EXPR, scalar_type, op1);
+
+  *expr_p
+    = fold_build2 (TREE_CODE (*expr_p), TREE_TYPE (*expr_p), op0, op1);
 
   return GS_OK;
 }
@@ -5635,16 +5711,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  switch (TREE_CODE_CLASS (TREE_CODE (*expr_p)))
 	    {
 	    case tcc_comparison:
-	      /* If this is a comparison of objects of aggregate type,
-	     	 handle it specially (by converting to a call to
-	     	 memcmp).  It would be nice to only have to do this
-	     	 for variable-sized objects, but then we'd have to
-	     	 allow the same nest of reference nodes we allow for
-	     	 MODIFY_EXPR and that's too complex.  */
-	      if (!AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 1))))
-		goto expr_2;
-	      ret = gimplify_variable_sized_compare (expr_p);
-	      break;
+	      /* Handle comparison of objects of non scalar mode aggregates
+	     	 with a call to memcmp.  It would be nice to only have to do
+	     	 this for variable-sized objects, but then we'd have to allow
+	     	 the same nest of reference nodes we allow for MODIFY_EXPR and
+	     	 that's too complex.
+
+		 Compare scalar mode aggregates as scalar mode values.  Using
+		 memcmp for them would be very inefficient at best, and is
+		 plain wrong if bitfields are involved.  */
+
+	      {
+		tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
+
+		if (!AGGREGATE_TYPE_P (type))
+		  goto expr_2;
+		else if (TYPE_MODE (type) != BLKmode)
+		  ret = gimplify_scalar_mode_aggregate_compare (expr_p);
+		else
+		  ret = gimplify_variable_sized_compare (expr_p);
+
+		break;
+		}
 
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */
@@ -5718,7 +5806,9 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  switch (code)
 	    {
 	    case COMPONENT_REF:
-	    case REALPART_EXPR: case IMAGPART_EXPR:
+	    case REALPART_EXPR:
+	    case IMAGPART_EXPR:
+	    case VIEW_CONVERT_EXPR:
 	      gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			     gimple_test_f, fallback);
 	      break;

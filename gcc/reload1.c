@@ -990,6 +990,8 @@ reload (rtx first, int global)
 	HARD_REG_SET to_spill;
 	CLEAR_HARD_REG_SET (to_spill);
 	update_eliminables (&to_spill);
+	AND_COMPL_HARD_REG_SET(used_spill_regs, to_spill);
+
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	  if (TEST_HARD_REG_BIT (to_spill, i))
 	    {
@@ -7794,7 +7796,11 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
     }
   /* If IN is a simple operand, use gen_move_insn.  */
   else if (OBJECT_P (in) || GET_CODE (in) == SUBREG)
-    emit_insn (gen_move_insn (out, in));
+    {
+      tem = emit_insn (gen_move_insn (out, in));
+      /* IN may contain a LABEL_REF, if so add a REG_LABEL note.  */
+      mark_jump_label (in, tem, 0);
+    }
 
 #ifdef HAVE_reload_load_address
   else if (HAVE_reload_load_address)

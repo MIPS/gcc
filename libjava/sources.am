@@ -1295,6 +1295,7 @@ classpath/gnu/java/net/DefaultContentHandlerFactory.java \
 classpath/gnu/java/net/EmptyX509TrustManager.java \
 classpath/gnu/java/net/GetLocalHostAction.java \
 classpath/gnu/java/net/HeaderFieldHelper.java \
+classpath/gnu/java/net/IndexListParser.java \
 classpath/gnu/java/net/LineInputStream.java \
 gnu/java/net/PlainDatagramSocketImpl.java \
 gnu/java/net/PlainSocketImpl.java \
@@ -5264,7 +5265,7 @@ java/rmi/server.list: $(java_rmi_server_source_files)
 java_security_source_files = \
 classpath/java/security/AccessControlContext.java \
 classpath/java/security/AccessControlException.java \
-java/security/AccessController.java \
+classpath/java/security/AccessController.java \
 classpath/java/security/AlgorithmParameterGenerator.java \
 classpath/java/security/AlgorithmParameterGeneratorSpi.java \
 classpath/java/security/AlgorithmParameters.java \
@@ -5329,6 +5330,7 @@ classpath/java/security/SignedObject.java \
 classpath/java/security/Signer.java \
 classpath/java/security/UnrecoverableKeyException.java \
 classpath/java/security/UnresolvedPermission.java \
+java/security/VMAccessController.java \
 java/security/VMSecureRandom.java
 
 java_security_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_security_source_files)))
@@ -8846,8 +8848,14 @@ bc_objects = \
   org-xml.lo
 
 property_files = \
-  classpath/resource/gnu/classpath/tools/jarsigner/MessageBundle.properties \
-  classpath/resource/gnu/classpath/tools/keytool/MessageBundle.properties \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle.properties \
+  classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle_de.properties \
+  classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
+  classpath/resource/gnu/classpath/tools/jar/messages.properties \
+  classpath/resource/gnu/classpath/tools/jarsigner/messages.properties \
+  classpath/resource/gnu/classpath/tools/keytool/messages.properties \
+  classpath/resource/gnu/classpath/tools/native2ascii/messages.properties \
+  classpath/resource/gnu/classpath/tools/serialver/messages.properties \
   classpath/resource/gnu/java/awt/peer/gtk/font.properties \
   classpath/resource/gnu/javax/print/PrinterDialog.properties \
   classpath/resource/gnu/javax/print/PrinterDialog_de.properties \

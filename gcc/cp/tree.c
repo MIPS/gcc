@@ -1385,6 +1385,30 @@ decl_namespace_context (tree decl)
     }
 }
 
+/* Returns true if decl is within an anonymous namespace, however deeply
+   nested, or false otherwise.  */
+
+bool
+decl_anon_ns_mem_p (tree decl)
+{
+  while (1)
+    {
+      if (decl == NULL_TREE)
+	return false;
+      if (TREE_CODE (decl) == NAMESPACE_DECL
+	  && DECL_NAME (decl) == NULL_TREE)
+	return true;
+      /* Classes and namespaces inside anonymous namespaces have
+         TREE_PUBLIC == 0, so we can shortcut the search.  */
+      else if (TYPE_P (decl))
+	return (TREE_PUBLIC (TYPE_NAME (decl)) == 0);
+      else if (TREE_CODE (decl) == NAMESPACE_DECL)
+	return (TREE_PUBLIC (decl) == 0);
+      else
+	decl = DECL_CONTEXT (decl);
+    }
+}
+
 /* Return truthvalue of whether T1 is the same tree structure as T2.
    Return 1 if they are the same. Return 0 if they are different.  */
 
@@ -2171,6 +2195,9 @@ decl_linkage (tree decl)
   if (TREE_PUBLIC (decl))
     return lk_external;
 
+  if (TREE_CODE (decl) == NAMESPACE_DECL)
+    return lk_external;
+
   /* Linkage of a CONST_DECL depends on the linkage of the enumeration
      type.  */
   if (TREE_CODE (decl) == CONST_DECL)
@@ -2181,7 +2208,8 @@ decl_linkage (tree decl)
      template instantiations have internal linkage (in the object
      file), but the symbols should still be treated as having external
      linkage from the point of view of the language.  */
-  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
+  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl)
+      && DECL_COMDAT (decl))
     return lk_external;
 
   /* Things in local scope do not have linkage, if they don't have
@@ -2189,13 +2217,23 @@ decl_linkage (tree decl)
   if (decl_function_context (decl))
     return lk_none;
 
+  /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
+     are considered to have external linkage for language purposes.  DECLs
+     really meant to have internal linkage have DECL_THIS_STATIC set.  */
+  if (TREE_CODE (decl) == TYPE_DECL
+      || ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+	  && !DECL_THIS_STATIC (decl)))
+    return lk_external;
+
   /* Everything else has internal linkage.  */
   return lk_internal;
 }
 
-/* EXP is an expression that we want to pre-evaluate.  Returns via INITP an
-   expression to perform the pre-evaluation, and returns directly an
-   expression to use the precalculated result.  */
+/* EXP is an expression that we want to pre-evaluate.  Returns (in
+   *INITP) an expression that will perform the pre-evaluation.  The
+   value returned by this function is a side-effect free expression
+   equivalent to the pre-evaluated expression.  Callers must ensure
+   that *INITP is evaluated before EXP.  */
 
 tree
 stabilize_expr (tree exp, tree* initp)
@@ -2203,9 +2241,7 @@ stabilize_expr (tree exp, tree* initp)
   tree init_expr;
 
   if (!TREE_SIDE_EFFECTS (exp))
-    {
-      init_expr = NULL_TREE;
-    }
+    init_expr = NULL_TREE;
   else if (!real_lvalue_p (exp)
 	   || !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (exp)))
     {
@@ -2219,8 +2255,9 @@ stabilize_expr (tree exp, tree* initp)
       exp = TARGET_EXPR_SLOT (init_expr);
       exp = build_indirect_ref (exp, 0);
     }
-
   *initp = init_expr;
+
+  gcc_assert (!TREE_SIDE_EFFECTS (exp));
   return exp;
 }
 
@@ -2237,8 +2274,10 @@ add_stmt_to_compound (tree orig, tree new)
   return build2 (COMPOUND_EXPR, void_type_node, orig, new);
 }
 
-/* Like stabilize_expr, but for a call whose args we want to
-   pre-evaluate.  */
+/* Like stabilize_expr, but for a call whose arguments we want to
+   pre-evaluate.  CALL is modified in place to use the pre-evaluated
+   arguments, while, upon return, *INITP contains an expression to
+   compute the arguments.  */
 
 void
 stabilize_call (tree call, tree *initp)
@@ -2263,50 +2302,58 @@ stabilize_call (tree call, tree *initp)
   *initp = inits;
 }
 
-/* Like stabilize_expr, but for an initialization.  If we are initializing
-   an object of class type, we don't want to introduce an extra temporary,
-   so we look past the TARGET_EXPR and stabilize the arguments of the call
-   instead.  */
+/* Like stabilize_expr, but for an initialization.  
+
+   If the initialization is for an object of class type, this function
+   takes care not to introduce additional temporaries.
+
+   Returns TRUE iff the expression was successfully pre-evaluated,
+   i.e., if INIT is now side-effect free, except for, possible, a
+   single call to a constructor.  */
 
 bool
 stabilize_init (tree init, tree *initp)
 {
   tree t = init;
 
+  *initp = NULL_TREE;
+
   if (t == error_mark_node)
     return true;
 
   if (TREE_CODE (t) == INIT_EXPR
       && TREE_CODE (TREE_OPERAND (t, 1)) != TARGET_EXPR)
-    TREE_OPERAND (t, 1) = stabilize_expr (TREE_OPERAND (t, 1), initp);
-  else
     {
-      if (TREE_CODE (t) == INIT_EXPR)
-	t = TREE_OPERAND (t, 1);
-      if (TREE_CODE (t) == TARGET_EXPR)
-	t = TARGET_EXPR_INITIAL (t);
-      if (TREE_CODE (t) == COMPOUND_EXPR)
-	t = expr_last (t);
-      if (TREE_CODE (t) == CONSTRUCTOR
-	  && EMPTY_CONSTRUCTOR_P (t))
-	{
-	  /* Default-initialization.  */
-	  *initp = NULL_TREE;
-	  return true;
-	}
-
-      /* If the initializer is a COND_EXPR, we can't preevaluate
-	 anything.  */
-      if (TREE_CODE (t) == COND_EXPR)
-	return false;
-
-      /* The TARGET_EXPR might be initializing via bitwise copy from
-	 another variable; leave that alone.  */
-      if (TREE_SIDE_EFFECTS (t))
-	stabilize_call (t, initp);
+      TREE_OPERAND (t, 1) = stabilize_expr (TREE_OPERAND (t, 1), initp);
+      return true;
     }
 
-  return true;
+  if (TREE_CODE (t) == INIT_EXPR)
+    t = TREE_OPERAND (t, 1);
+  if (TREE_CODE (t) == TARGET_EXPR)
+    t = TARGET_EXPR_INITIAL (t);
+  if (TREE_CODE (t) == COMPOUND_EXPR)
+    t = expr_last (t);
+  if (TREE_CODE (t) == CONSTRUCTOR
+      && EMPTY_CONSTRUCTOR_P (t))
+    /* Default-initialization.  */
+    return true;
+
+  /* If the initializer is a COND_EXPR, we can't preevaluate
+     anything.  */
+  if (TREE_CODE (t) == COND_EXPR)
+    return false;
+
+  if (TREE_CODE (t) == CALL_EXPR
+      || TREE_CODE (t) == AGGR_INIT_EXPR)
+    {
+      stabilize_call (t, initp);
+      return true;
+    }
+
+  /* The initialization is being performed via a bitwise copy -- and
+     the item copied may have side effects.  */
+  return TREE_SIDE_EFFECTS (init);
 }
 
 /* Like "fold", but should be used whenever we might be processing the

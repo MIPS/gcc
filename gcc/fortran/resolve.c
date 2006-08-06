@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
 #include "dependency.h"
@@ -829,6 +830,14 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  || sym->attr.external)
 	{
 
+	  /* If a procedure is not already determined to be something else
+	     check if it is intrinsic.  */
+	  if (!sym->attr.intrinsic
+		&& !(sym->attr.external || sym->attr.use_assoc
+		       || sym->attr.if_source == IFSRC_IFBODY)
+		&& gfc_intrinsic_name (sym->name, sym->attr.subroutine))
+	    sym->attr.intrinsic = 1;
+
 	  if (sym->attr.proc == PROC_ST_FUNCTION)
 	    {
 	      gfc_error ("Statement function '%s' at %L is not allowed as an "
@@ -896,6 +905,148 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 	  e->ref->u.ar.type = AR_FULL;
 	  e->ref->u.ar.as = sym->as;
 	}
+    }
+
+  return SUCCESS;
+}
+
+
+/* Do the checks of the actual argument list that are specific to elemental
+   procedures.  If called with c == NULL, we have a function, otherwise if
+   expr == NULL, we have a subroutine.  */
+static try
+resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
+{
+  gfc_actual_arglist *arg0;
+  gfc_actual_arglist *arg;
+  gfc_symbol *esym = NULL;
+  gfc_intrinsic_sym *isym = NULL;
+  gfc_expr *e = NULL;
+  gfc_intrinsic_arg *iformal = NULL;
+  gfc_formal_arglist *eformal = NULL;
+  bool formal_optional = false;
+  bool set_by_optional = false;
+  int i;
+  int rank = 0;
+
+  /* Is this an elemental procedure?  */
+  if (expr && expr->value.function.actual != NULL)
+    {
+      if (expr->value.function.esym != NULL
+	    && expr->value.function.esym->attr.elemental)
+	{
+	  arg0 = expr->value.function.actual;
+	  esym = expr->value.function.esym;
+	}
+      else if (expr->value.function.isym != NULL
+		 && expr->value.function.isym->elemental)
+	{
+	  arg0 = expr->value.function.actual;
+	  isym = expr->value.function.isym;
+	}
+      else
+	return SUCCESS;
+    }
+  else if (c && c->ext.actual != NULL
+	     && c->symtree->n.sym->attr.elemental)
+    {
+      arg0 = c->ext.actual;
+      esym = c->symtree->n.sym;
+    }
+  else
+    return SUCCESS;
+
+  /* The rank of an elemental is the rank of its array argument(s).  */
+  for (arg = arg0; arg; arg = arg->next)
+    {
+      if (arg->expr != NULL && arg->expr->rank > 0)
+	{
+	  rank = arg->expr->rank;
+	  if (arg->expr->expr_type == EXPR_VARIABLE
+		&& arg->expr->symtree->n.sym->attr.optional)
+	    set_by_optional = true;
+
+	  /* Function specific; set the result rank and shape.  */
+	  if (expr)
+	    {
+	      expr->rank = rank;
+	      if (!expr->shape && arg->expr->shape)
+		{
+		  expr->shape = gfc_get_shape (rank);
+		  for (i = 0; i < rank; i++)
+		    mpz_init_set (expr->shape[i], arg->expr->shape[i]);
+		}
+	    }
+	  break;
+	}
+    }
+
+  /* If it is an array, it shall not be supplied as an actual argument
+     to an elemental procedure unless an array of the same rank is supplied
+     as an actual argument corresponding to a nonoptional dummy argument of
+     that elemental procedure(12.4.1.5).  */
+  formal_optional = false;
+  if (isym)
+    iformal = isym->formal;
+  else
+    eformal = esym->formal;
+
+  for (arg = arg0; arg; arg = arg->next)
+    {
+      if (eformal)
+	{
+	  if (eformal->sym && eformal->sym->attr.optional)
+	    formal_optional = true;
+	  eformal = eformal->next;
+	}
+      else if (isym && iformal)
+	{
+	  if (iformal->optional)
+	    formal_optional = true;
+	  iformal = iformal->next;
+	}
+      else if (isym)
+	formal_optional = true;
+
+      if (pedantic && arg->expr != NULL
+	    && arg->expr->expr_type == EXPR_VARIABLE
+	    && arg->expr->symtree->n.sym->attr.optional
+	    && formal_optional
+	    && arg->expr->rank
+	    && (set_by_optional || arg->expr->rank != rank)
+	    && !(isym && isym->generic_id == GFC_ISYM_CONVERSION)) 
+	{
+	  gfc_warning ("'%s' at %L is an array and OPTIONAL; IF IT IS "
+		       "MISSING, it cannot be the actual argument of an "
+		       "ELEMENTAL procedure unless there is a non-optional"
+		       "argument with the same rank (12.4.1.5)",
+		       arg->expr->symtree->n.sym->name, &arg->expr->where);
+	  return FAILURE;
+	}
+    }
+
+  for (arg = arg0; arg; arg = arg->next)
+    {
+      if (arg->expr == NULL || arg->expr->rank == 0)
+	continue;
+
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      if (resolve_assumed_size_actual (arg->expr))
+	return FAILURE;
+
+      if (expr)
+	continue;
+
+      /* Elemental subroutine array actual arguments must conform.  */
+      if (e != NULL)
+	{
+	  if (gfc_check_conformance ("elemental subroutine", arg->expr, e)
+		== FAILURE)
+	    return FAILURE;
+	}
+      else
+	e = arg->expr;
     }
 
   return SUCCESS;
@@ -1229,7 +1380,6 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
   int temp;
-  int i;
 
   sym = NULL;
   if (expr->symtree)
@@ -1305,38 +1455,9 @@ resolve_function (gfc_expr * expr)
   temp = need_full_assumed_size;
   need_full_assumed_size = 0;
 
-  if (expr->value.function.actual != NULL
-      && ((expr->value.function.esym != NULL
-	   && expr->value.function.esym->attr.elemental)
-	  || (expr->value.function.isym != NULL
-	      && expr->value.function.isym->elemental)))
-    {
-      /* The rank of an elemental is the rank of its array argument(s).  */
-      for (arg = expr->value.function.actual; arg; arg = arg->next)
-	{
-	  if (arg->expr != NULL && arg->expr->rank > 0)
-	    {
-	      expr->rank = arg->expr->rank;
-	      if (!expr->shape && arg->expr->shape)
-		{
-		  expr->shape = gfc_get_shape (expr->rank);
-		  for (i = 0; i < expr->rank; i++)
-		    mpz_init_set (expr->shape[i], arg->expr->shape[i]);
-	        }
-	      break;
-	    }
-	}
+  if (resolve_elemental_actual (expr, NULL) == FAILURE)
+    return FAILURE;
 
-      /* Being elemental, the last upper bound of an assumed size array
-	 argument must be present.  */
-      for (arg = expr->value.function.actual; arg; arg = arg->next)
-	{
-	  if (arg->expr != NULL
-		&& arg->expr->rank > 0
-		&& resolve_assumed_size_actual (arg->expr))
-	    return FAILURE;
-	}
-    }
   if (omp_workshare_flag
       && expr->value.function.esym
       && ! gfc_elemental (expr->value.function.esym))
@@ -1381,8 +1502,9 @@ resolve_function (gfc_expr * expr)
       if (forall_flag)
 	{
 	  gfc_error
-	    ("Function reference to '%s' at %L is inside a FORALL block",
-	     name, &expr->where);
+	    ("reference to non-PURE function '%s' at %L inside a "
+	     "FORALL %s", name, &expr->where, forall_flag == 2 ?
+	     "mask" : "block");
 	  t = FAILURE;
 	}
       else if (gfc_pure (NULL))
@@ -1491,7 +1613,7 @@ resolve_generic_s (gfc_code * c)
   if (m == MATCH_ERROR)
     return FAILURE;
 
-  if (sym->ns->parent != NULL)
+  if (sym->ns->parent != NULL && !sym->attr.use_assoc)
     {
       gfc_find_symbol (sym->name, sym->ns->parent, 1, &sym);
       if (sym != NULL)
@@ -1721,35 +1843,9 @@ resolve_call (gfc_code * c)
 	gfc_internal_error ("resolve_subroutine(): bad function type");
       }
 
-  /* Some checks of elemental subroutines.  */
-  if (c->ext.actual != NULL
-      && c->symtree->n.sym->attr.elemental)
-    {
-      gfc_actual_arglist * a;
-      gfc_expr * e;
-      e = NULL;
-
-      for (a = c->ext.actual; a; a = a->next)
-	{
-	  if (a->expr == NULL || a->expr->rank == 0)
-	    continue;
-
-	 /* The last upper bound of an assumed size array argument must
-	    be present.  */
-	  if (resolve_assumed_size_actual (a->expr))
-	    return FAILURE;
-
-	  /* Array actual arguments must conform.  */
-	  if (e != NULL)
-	    {
-	      if (gfc_check_conformance ("elemental subroutine", a->expr, e)
-			== FAILURE)
-		return FAILURE;
-	    }
-	  else
-	    e = a->expr;
-	}
-    }
+  /* Some checks of elemental subroutine actual arguments.  */
+  if (resolve_elemental_actual (NULL, c) == FAILURE)
+    return FAILURE;
 
   if (t == SUCCESS)
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
@@ -2542,7 +2638,9 @@ resolve_substring (gfc_ref * ref)
 	  return FAILURE;
 	}
 
-      if (compare_bound_int (ref->u.ss.start, 1) == CMP_LT)
+      if (compare_bound_int (ref->u.ss.start, 1) == CMP_LT
+	  && (compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_EQ
+	      || compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_GT))
 	{
 	  gfc_error ("Substring start index at %L is less than one",
 		     &ref->u.ss.start->where);
@@ -2570,9 +2668,11 @@ resolve_substring (gfc_ref * ref)
 	}
 
       if (ref->u.ss.length != NULL
-	  && compare_bound (ref->u.ss.end, ref->u.ss.length->length) == CMP_GT)
+	  && compare_bound (ref->u.ss.end, ref->u.ss.length->length) == CMP_GT
+	  && (compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_EQ
+	      || compare_bound (ref->u.ss.end, ref->u.ss.start) == CMP_GT))
 	{
-	  gfc_error ("Substring end index at %L is out of bounds",
+	  gfc_error ("Substring end index at %L exceeds the string length",
 		     &ref->u.ss.start->where);
 	  return FAILURE;
 	}
@@ -2928,6 +3028,11 @@ gfc_resolve_expr (gfc_expr * e)
 	  expression_rank (e);
 	  gfc_expand_constructor (e);
 	}
+
+      /* This provides the opportunity for the length of constructors with character
+	valued function elements to propogate the string length to the expression.  */
+      if (e->ts.type == BT_CHARACTER)
+        gfc_resolve_character_array_constructor (e);
 
       break;
 
@@ -3615,6 +3720,7 @@ resolve_select (gfc_code * code)
   gfc_expr *case_expr;
   gfc_case *cp, *default_case, *tail, *head;
   int seen_unreachable;
+  int seen_logical;
   int ncases;
   bt type;
   try t;
@@ -3697,6 +3803,7 @@ resolve_select (gfc_code * code)
   default_case = NULL;
   head = tail = NULL;
   ncases = 0;
+  seen_logical = 0;
 
   for (body = code->block; body; body = body->block)
     {
@@ -3747,6 +3854,21 @@ resolve_select (gfc_code * code)
 		 &cp->low->where);
 	      t = FAILURE;
 	      break;
+	    }
+
+	  if (type == BT_LOGICAL && cp->low->expr_type == EXPR_CONSTANT)
+	    {
+	      int value;
+	      value = cp->low->value.logical == 0 ? 2 : 1;
+	      if (value & seen_logical)
+		{
+		  gfc_error ("constant logical value in CASE statement "
+			     "is repeated at %L",
+			     &cp->low->where);
+		  t = FAILURE;
+		  break;
+		}
+	      seen_logical |= value;
 	    }
 
 	  if (cp->low != NULL && cp->high != NULL
@@ -4509,6 +4631,7 @@ static void
 resolve_code (gfc_code * code, gfc_namespace * ns)
 {
   int omp_workshare_save;
+  int forall_save;
   code_stack frame;
   gfc_alloc *a;
   try t;
@@ -4520,14 +4643,13 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
   for (; code; code = code->next)
     {
       frame.current = code;
+      forall_save = forall_flag;
 
       if (code->op == EXEC_FORALL)
 	{
-	  int forall_save = forall_flag;
-
 	  forall_flag = 1;
 	  gfc_resolve_forall (code, ns, forall_save);
-	  forall_flag = forall_save;
+	  forall_flag = 2;
 	}
       else if (code->block)
 	{
@@ -4563,6 +4685,8 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
 	}
 
       t = gfc_resolve_expr (code->expr);
+      forall_flag = forall_save;
+
       if (gfc_resolve_expr (code->expr2) == FAILURE)
 	t = FAILURE;
 
@@ -5174,6 +5298,16 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
     {
       gfc_error ("External object '%s' at %L may not have an initializer",
 		 sym->name, &sym->declared_at);
+      return FAILURE;
+    }
+
+  /* An elemental function is required to return a scalar 12.7.1  */
+  if (sym->attr.elemental && sym->attr.function && sym->as)
+    {
+      gfc_error ("ELEMENTAL function '%s' at %L must have a scalar "
+		 "result", sym->name, &sym->declared_at);
+      /* Reset so that the error only occurs once.  */
+      sym->attr.elemental = 0;
       return FAILURE;
     }
 
@@ -5968,12 +6102,12 @@ gfc_elemental (gfc_symbol * sym)
 /* Warn about unused labels.  */
 
 static void
-warn_unused_label (gfc_st_label * label)
+warn_unused_fortran_label (gfc_st_label * label)
 {
   if (label == NULL)
     return;
 
-  warn_unused_label (label->left);
+  warn_unused_fortran_label (label->left);
 
   if (label->defined == ST_LABEL_UNKNOWN)
     return;
@@ -5994,7 +6128,7 @@ warn_unused_label (gfc_st_label * label)
       break;
     }
 
-  warn_unused_label (label->right);
+  warn_unused_fortran_label (label->right);
 }
 
 
@@ -6517,7 +6651,7 @@ resolve_types (gfc_namespace * ns)
 
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
-    warn_unused_label (ns->st_labels);
+    warn_unused_fortran_label (ns->st_labels);
 
   gfc_resolve_uops (ns->uop_root);
     

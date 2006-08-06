@@ -797,7 +797,10 @@ process_init_constructor_array (tree type, tree init)
 	{
 	  gcc_assert (TREE_CODE (ce->index) == INTEGER_CST);
 	  if (compare_tree_int (ce->index, i) != 0)
-	    sorry ("non-trivial designated initializers not supported");
+	    {
+	      ce->value = error_mark_node;
+	      sorry ("non-trivial designated initializers not supported");
+	    }
 	}
       else
 	ce->index = size_int (i);
@@ -895,7 +898,10 @@ process_init_constructor_record (tree type, tree init)
 			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
 	      if (ce->index != field
 		  && ce->index != DECL_NAME (field))
-		sorry ("non-trivial designated initializers not supported");
+		{
+		  ce->value = error_mark_node;
+		  sorry ("non-trivial designated initializers not supported");
+		}
 	    }
 
 	  gcc_assert (ce->value);
@@ -1200,7 +1206,7 @@ build_m_component_ref (tree datum, tree component)
   tree binfo;
   tree ctype;
 
-  if (datum == error_mark_node || component == error_mark_node)
+  if (error_operand_p (datum) || error_operand_p (component))
     return error_mark_node;
 
   ptrmem_type = TREE_TYPE (component);
@@ -1299,12 +1305,11 @@ build_functional_cast (tree exp, tree parms)
 
   if (! IS_AGGR_TYPE (type))
     {
-      /* This must build a C cast.  */
       if (parms == NULL_TREE)
-	parms = integer_zero_node;
-      else
-	parms = build_x_compound_expr_from_list (parms, "functional cast");
+	return cp_convert (type, integer_zero_node);
 
+      /* This must build a C cast.  */
+      parms = build_x_compound_expr_from_list (parms, "functional cast");
       return build_c_cast (type, parms);
     }
 

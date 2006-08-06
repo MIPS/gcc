@@ -217,6 +217,13 @@ gfc_match_interface (void)
 	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
+      if (sym->attr.dummy)
+	{
+	  gfc_error ("Dummy procedure '%s' at %C cannot have a "
+		     "generic interface", sym->name);
+	  return MATCH_ERROR;
+	}
+
       current_interface.sym = gfc_new_block = sym;
       break;
 
@@ -1294,6 +1301,17 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 			   f->sym->name, &a->expr->where);
 	      return 0;
 	    }
+	}
+
+      if (f->sym->attr.flavor == FL_PROCEDURE
+	    && f->sym->attr.pure
+	    && a->expr->ts.type == BT_PROCEDURE
+	    && !a->expr->symtree->n.sym->attr.pure)
+	{
+	  if (where)
+	    gfc_error ("Expected a PURE procedure for argument '%s' at %L",
+		       f->sym->name, &a->expr->where);
+	  return 0;
 	}
 
       if (f->sym->as

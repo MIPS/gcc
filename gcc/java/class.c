@@ -785,7 +785,11 @@ add_field (tree class, tree name, tree field_type, int flags)
   if (flags & ACC_PROTECTED) FIELD_PROTECTED (field) = 1;
   if (flags & ACC_PRIVATE) FIELD_PRIVATE (field) = 1;
   if (flags & ACC_FINAL) FIELD_FINAL (field) = 1;
-  if (flags & ACC_VOLATILE) FIELD_VOLATILE (field) = 1;
+  if (flags & ACC_VOLATILE) 
+    {
+      FIELD_VOLATILE (field) = 1;
+      TREE_THIS_VOLATILE (field) = 1;
+    }
   if (flags & ACC_TRANSIENT) FIELD_TRANSIENT (field) = 1;
   if (is_static)
     {
@@ -1126,6 +1130,7 @@ build_fieldref_cache_entry (int index, tree fdecl ATTRIBUTE_UNUSED)
       TREE_PUBLIC (decl) = 0;
       DECL_EXTERNAL (decl) = 0;
       DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
       pushdecl_top_level (decl);
     }
   return decl;
@@ -1859,10 +1864,12 @@ make_class_data (tree type)
 
   START_RECORD_CONSTRUCTOR (temp, object_type_node);
   PUSH_FIELD_VALUE (temp, "vtable",
-		    build2 (PLUS_EXPR, dtable_ptr_type,
-			    build1 (ADDR_EXPR, dtable_ptr_type,
-				    class_dtable_decl),
-			    dtable_start_offset));
+		    (flag_indirect_classes 
+		     ? null_pointer_node
+		     : build2 (PLUS_EXPR, dtable_ptr_type,
+			       build1 (ADDR_EXPR, dtable_ptr_type,
+				       class_dtable_decl),
+			       dtable_start_offset)));
   if (! flag_hash_synchronization)
     PUSH_FIELD_VALUE (temp, "sync_info", null_pointer_node);
   FINISH_RECORD_CONSTRUCTOR (temp);
