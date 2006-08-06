@@ -2,6 +2,8 @@
 
 	* gcc/tree.c (build_function_type_list): Use vec_heap2parm_types.
 
+	* gcc/c-decl.c (get_parm_info): Use alloc_parm_types.
+
 2006-08-05  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl2.c (coerce_new_type, coerce_delete_type): Don't use

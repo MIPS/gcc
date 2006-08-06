@@ -4946,6 +4946,7 @@ get_parm_info (bool ellipsis)
 
   static bool explained_incomplete_types = false;
   bool gave_void_only_once_err = false;
+  VEC(tree,heap) *types_vec = NULL;
 
   arg_info->parms = 0;
   arg_info->tags = 0;
@@ -4985,7 +4986,7 @@ get_parm_info (bool ellipsis)
     }
 
   if (!ellipsis)
-    types = void_list_node;
+    VEC_safe_push (tree, heap, types_vec, void_type_node);
 
   /* Break up the bindings list into parms, tags, types, and others;
      apply sanity checks; purge the name-to-decl bindings.  */
@@ -5025,7 +5026,7 @@ get_parm_info (bool ellipsis)
 	      /* Since there is a prototype, args are passed in their
 		 declared types.  The back end may override this later.  */
 	      DECL_ARG_TYPE (decl) = type;
-	      types = tree_cons (0, type, types);
+	      VEC_safe_push (tree, heap, types_vec, type);
 	    }
 	  break;
 
@@ -5101,6 +5102,18 @@ get_parm_info (bool ellipsis)
 
       b = free_binding_and_advance (b);
     }
+
+  if (!VEC_empty (tree, types_vec))
+    {
+      int i;
+
+      types = alloc_parm_types (VEC_length (tree, types_vec));
+      for (i = 0; !VEC_empty (tree, types_vec); i++)
+	*(nth_parm_type_ptr (types, i)) = VEC_pop (tree, types_vec);;
+      VEC_free (tree, heap, types_vec);
+    }
+  else
+    types = NULL;
 
   arg_info->parms = parms;
   arg_info->tags = tags;
