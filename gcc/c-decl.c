@@ -4862,18 +4862,28 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
   if (arg_types == error_mark_node)
     return 0;  /* don't set TYPE_ARG_TYPES in this case */
 
-  else if (arg_types && TREE_CODE (TREE_VALUE (arg_types)) == IDENTIFIER_NODE)
+  else if (arg_types
+	   && TREE_CODE (nth_parm_type (arg_types, 0)) == IDENTIFIER_NODE)
     {
+      tree t = NULL, *p = &t;
+      int len = num_parm_types (arg_types);
+      int i;
+
       if (!funcdef_flag)
 	pedwarn ("parameter names (without types) in function declaration");
 
-      arg_info->parms = arg_info->types;
+      for (i = 0; i < len; i++)
+	{
+	  *p = build_tree_list (NULL_TREE, nth_parm_type (arg_types, i));
+	  p = &TREE_CHAIN (*p);
+	}
+      arg_info->parms = t;
       arg_info->types = 0;
       return 0;
     }
   else
     {
-      tree parm, type, typelt;
+      tree parm, type;
       unsigned int parmno;
 
       /* If there is a parameter of incomplete type in a definition,
@@ -4885,11 +4895,11 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 	 however the function cannot be defined or called, so
 	 warn.  */
 
-      for (parm = arg_info->parms, typelt = arg_types, parmno = 1;
+      for (parm = arg_info->parms, parmno = 0;
 	   parm;
-	   parm = TREE_CHAIN (parm), typelt = TREE_CHAIN (typelt), parmno++)
+	   parm = TREE_CHAIN (parm), parmno++)
 	{
-	  type = TREE_VALUE (typelt);
+	  type = nth_parm_type (arg_types, parmno);
 	  if (type == error_mark_node)
 	    continue;
 
@@ -4899,19 +4909,19 @@ grokparms (struct c_arg_info *arg_info, bool funcdef_flag)
 		{
 		  if (DECL_NAME (parm))
 		    error ("parameter %u (%q+D) has incomplete type",
-			   parmno, parm);
+			   parmno + 1, parm);
 		  else
 		    error ("%Jparameter %u has incomplete type",
-			   parm, parmno);
+			   parm, parmno + 1);
 
-		  TREE_VALUE (typelt) = error_mark_node;
+		  *(nth_parm_type_ptr (arg_types, parmno)) = error_mark_node;
 		  TREE_TYPE (parm) = error_mark_node;
 		}
 	      else if (VOID_TYPE_P (type))
 		{
 		  if (DECL_NAME (parm))
 		    warning (0, "parameter %u (%q+D) has void type",
-			     parmno, parm);
+			     parmno + 1, parm);
 		  else
 		    warning (0, "%Jparameter %u has void type",
 			     parm, parmno);

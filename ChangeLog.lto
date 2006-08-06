@@ -4,6 +4,9 @@
 
 	* gcc/c-decl.c (get_parm_info): Use alloc_parm_types.
 
+	* gcc/c-decl.c (grokparms): Use num_parm_types and its friends.
+	Convert arg_info->types to arg_info->parms.
+
 2006-08-05  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl2.c (coerce_new_type, coerce_delete_type): Don't use
