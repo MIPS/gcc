@@ -5297,18 +5297,20 @@ build_function_type (tree value_type, tree arg_types)
 tree
 build_function_type_list (tree return_type, ...)
 {
-  tree t, args, *args_p = &args;
+  tree t, args;
+  VEC(tree,heap) *v = NULL;
   va_list p;
 
   va_start (p, return_type);
 
   for (t = va_arg (p, tree); t != NULL_TREE; t = va_arg (p, tree))
-    {
-      *args_p = build_tree_list (NULL_TREE, t);
-      args_p = &TREE_CHAIN (*args_p);
-    }
+    VEC_safe_push (tree, heap, v, t);
 
-  *args_p = void_list_node;
+  VEC_safe_push (tree, heap, v, void_type_node);
+
+  args = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
+
   args = build_function_type (return_type, args);
 
   va_end (p);
