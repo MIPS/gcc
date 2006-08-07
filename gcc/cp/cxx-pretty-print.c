@@ -430,7 +430,7 @@ pp_cxx_postfix_expression (cxx_pretty_printer *pp, tree t)
 	else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fun))
 	  {
 	    tree object = (code == AGGR_INIT_EXPR && AGGR_INIT_VIA_CTOR_P (t)
-			   ? CALL_EXPR_STATIC_CHAIN (t)
+			   ? AGGR_INIT_EXPR_SLOT (t)
 			   : CALL_EXPR_ARG0 (t));
 
 	    while (TREE_CODE (object) == NOP_EXPR)
@@ -472,7 +472,7 @@ pp_cxx_postfix_expression (cxx_pretty_printer *pp, tree t)
       if (code == AGGR_INIT_EXPR && AGGR_INIT_VIA_CTOR_P (t))
 	{
 	  pp_cxx_separate_with (pp, ',');
-	  pp_cxx_postfix_expression (pp, CALL_EXPR_STATIC_CHAIN (t));
+	  pp_cxx_postfix_expression (pp, AGGR_INIT_EXPR_SLOT (t));
 	}
       break;
 

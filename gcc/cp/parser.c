@@ -4263,8 +4263,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p)
 			|| any_type_dependent_arguments_p (args)))
 		  {
 		    postfix_expression
-		      = build_min_nt (CALL_EXPR, postfix_expression,
-				      args, NULL_TREE);
+		      = build_min_nt_call_list (CALL_EXPR, postfix_expression,
+						args);
 		    break;
 		  }
 

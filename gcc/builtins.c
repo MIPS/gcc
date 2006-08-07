@@ -8919,18 +8919,14 @@ build_function_call_expr (tree fndecl, tree arglist)
 {
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
-  return fold_build_call_expr (TREE_TYPE (fntype), fn, arglist, NULL_TREE);
+  return fold_builtin_call_list (TREE_TYPE (fntype), fn, arglist);
 }
 
-/* Construct a function call expression with type TYPE with FN as the
-   function expression.  ARGLIST is a TREE_LIST of arguments, and
-   STATIC_CHAIN is the static chain.
-
-   FIXME:  This needs to be rewritten when the underlying CALL_EXPR
-   representation changes not to use a TREE_LIST to hold the arguments.  */
+/* Construct a CALL_EXPR with type TYPE with FN as the function expression.
+   ARGLIST is a TREE_LIST of arguments.  */
 
 tree
-fold_build_call_expr (tree type, tree fn, tree arglist, tree static_chain)
+fold_builtin_call_list (tree type, tree fn, tree arglist)
 {
   tree ret = NULL_TREE;
   if (TREE_CODE (fn) == ADDR_EXPR)
@@ -8951,7 +8947,7 @@ fold_build_call_expr (tree type, tree fn, tree arglist, tree static_chain)
 	      tree tail = arglist;
 	      tree args[MAX_ARGS_TO_FOLD_BUILTIN];
 	      int nargs;
-	      tree temp;
+	      tree exp;
 	      for (nargs = 0; nargs < MAX_ARGS_TO_FOLD_BUILTIN; nargs++)
 		{
 		  if (!tail)
@@ -8965,86 +8961,92 @@ fold_build_call_expr (tree type, tree fn, tree arglist, tree static_chain)
 		  if (ret)
 		    return ret;
 		}
-	      temp = build3 (CALL_EXPR, type, fn, arglist, static_chain);
-	      ret = fold_builtin_varargs (fndecl, temp, false);
-	      return ret ? ret : temp;
+	      exp = build_call_list (CALL_EXPR, type, fn, arglist);
+	      ret = fold_builtin_varargs (fndecl, exp, false);
+	      return ret ? ret : exp;
 	    }
 	}
     }
-  return build3 (CALL_EXPR, type, fn, arglist, static_chain);
+  return build_call_list (CALL_EXPR, type, fn, arglist);
 }
 
 /* Conveniently construct a function call expression.  FNDECL names the
    function to be called, N is the number of arguments, and the "..."
-   parameters are the argument expressions.
-
-   FIXME: This needs to be rewritten when the underlying CALL_EXPR
-   representation changes not to use a TREE_LIST to hold the arguments.  */
+   parameters are the argument expressions.  */
 
 tree
 build_call_expr (tree fndecl, int n, ...)
 {
   va_list ap;
-  int i;
-  tree arglist = NULL_TREE;
-  tree ret = NULL_TREE;
-  tree exp;
-  tree fntype;
+  tree ret;
+  tree fntype = TREE_TYPE (fndecl);
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
 
-  if (TREE_CODE (fndecl) == FUNCTION_DECL
-      && DECL_BUILT_IN (fndecl)
-      && n <= MAX_ARGS_TO_FOLD_BUILTIN
-      && DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_MD)
-    
-    {
-      /* First try the transformations that don't require consing up
-	 an arglist or exp.  */
-      tree args[MAX_ARGS_TO_FOLD_BUILTIN];
-      va_start (ap, n);
-      for (i = 0; i < n; i++)
-	args[i] = va_arg (ap, tree);
-      va_end (ap);
-      ret = fold_builtin_n (fndecl, args, n, false);
-      if (ret)
-	return ret;
-    }
-
-  /* We at least need an arglist....  */
   va_start (ap, n);
-  for (i = 0; i < n; i++)
-    {
-      tree arg = va_arg (ap, tree);
-      arglist = tree_cons (NULL_TREE, arg, arglist);
-    }
+  ret = fold_builtin_call_valist (TREE_TYPE (fntype), fn, n, ap);
   va_end (ap);
-  arglist = nreverse (arglist);
+  return ret;
+}
 
-  if (TREE_CODE (fndecl) == FUNCTION_DECL
-      && DECL_BUILT_IN (fndecl)
-      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+/* Construct a CALL_EXPR with type TYPE with FN as the function expression.
+   N arguments are passed in the va_list AP.  */
+
+tree
+fold_builtin_call_valist (tree type,
+			  tree fn,
+			  int n,
+			  va_list ap)
+{
+  tree ret = NULL_TREE;
+  int i;
+  tree exp;
+
+  if (TREE_CODE (fn) == ADDR_EXPR)
     {
-      /* FIXME: Don't use a list in this interface.  */
-      ret = targetm.fold_builtin (fndecl, arglist, false);
-      if (ret)
-	return ret;
+      tree fndecl = TREE_OPERAND (fn, 0);
+      if (TREE_CODE (fndecl) == FUNCTION_DECL
+	  && DECL_BUILT_IN (fndecl))
+	{
+	  /* FIXME: Don't use a list in this interface.  */
+	  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+	    {
+	      tree arglist = NULL_TREE;
+	      va_list ap0;
+	      va_copy (ap0, ap);
+	      for (i = 0; i < n; i++)
+		{
+		  tree arg = va_arg (ap0, tree);
+		  arglist = tree_cons (NULL_TREE, arg, arglist);
+		}
+	      va_end (ap0);
+	      arglist = nreverse (arglist);
+	      ret = targetm.fold_builtin (fndecl, arglist, false);
+	      if (ret)
+		return ret;
+	    }
+	  else if (n <= MAX_ARGS_TO_FOLD_BUILTIN)
+	    {
+	      /* First try the transformations that don't require consing up
+		 an exp.  */
+	      tree args[MAX_ARGS_TO_FOLD_BUILTIN];
+	      va_list ap0;
+	      va_copy (ap0, ap);
+	      for (i = 0; i < n; i++)
+		args[i] = va_arg (ap0, tree);
+	      va_end (ap0);
+	      ret = fold_builtin_n (fndecl, args, n, false);
+	      if (ret)
+		return ret;
+	    }
+
+	  /* If we got this far, we need to build an exp.  */
+	  exp = build_call_valist (CALL_EXPR, type, fn, n, ap);
+	  ret = fold_builtin_varargs (fndecl, exp, false);
+	  return ret ? ret : exp;
+	}
     }
 
-  /* If we got this far, we need to build an exp.  */
-  fntype = TREE_TYPE (fndecl);
-  exp = build3 (CALL_EXPR,
-		TREE_TYPE (fntype),
-		build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl),
-		arglist, NULL_TREE);
-
-  if (TREE_CODE (fndecl) == FUNCTION_DECL
-      && DECL_BUILT_IN (fndecl))
-    {
-      ret = fold_builtin_varargs (fndecl, exp, false);
-      if (ret)
-	return ret;
-    }
-
-  return exp;
+  return build_call_valist (CALL_EXPR, type, fn, n, ap);
 }
 
 /* Construct a new CALL_EXPR using the tail of the argument list of EXP

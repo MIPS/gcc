@@ -1778,7 +1778,7 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
   return true;
 }
 
-/* Generate all the code for a function call
+/* Generate all the code for a CALL_EXPR exp
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
    If the value is stored in TARGET then TARGET is returned.
@@ -1791,7 +1791,8 @@ expand_call (tree exp, rtx target, int ignore)
   static int currently_expanding_call = 0;
 
   /* List of actual parameters.  */
-  tree actparms = TREE_OPERAND (exp, 1);
+  /* FIXME: rewrite this so that it doesn't cons up a TREE_LIST.  */
+  tree actparms = CALL_EXPR_ARGS (exp);
   /* RTX for the function to be called.  */
   rtx funexp;
   /* Sequence of insns to perform a normal "call".  */
@@ -1892,8 +1893,8 @@ expand_call (tree exp, rtx target, int ignore)
   int old_stack_pointer_delta = 0;
 
   rtx call_fusage;
-  tree p = TREE_OPERAND (exp, 0);
-  tree addr = TREE_OPERAND (exp, 0);
+  tree p = CALL_EXPR_FN (exp);
+  tree addr = CALL_EXPR_FN (exp);
   int i;
   /* The alignment of the stack, in bits.  */
   unsigned HOST_WIDE_INT preferred_stack_boundary;
@@ -2542,8 +2543,8 @@ expand_call (tree exp, rtx target, int ignore)
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
 
-      if (TREE_OPERAND (exp, 2))
-	static_chain_value = expand_normal (TREE_OPERAND (exp, 2));
+      if (CALL_EXPR_STATIC_CHAIN (exp))
+	static_chain_value = expand_normal (CALL_EXPR_STATIC_CHAIN (exp));
       else
 	static_chain_value = 0;
 

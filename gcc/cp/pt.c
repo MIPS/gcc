@@ -7888,12 +7888,11 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case CALL_EXPR:
       /* FIXME:  It should be possible to do this without consing up
 	 lists for the arguments.  */
-      return build_nt (code,
-		       tsubst_copy (CALL_EXPR_FN (t), args,
-				    complain, in_decl),
-		       tsubst_copy (CALL_EXPR_ARGS (t), args, complain,
-				    in_decl),
-		       NULL_TREE);
+      return build_nt_call_list (CALL_EXPR,
+				 tsubst_copy (CALL_EXPR_FN (t), args,
+					      complain, in_decl),
+				 tsubst_copy (CALL_EXPR_ARGS (t), args,
+					      complain, in_decl));
 
     case COND_EXPR:
     case MODOP_EXPR:

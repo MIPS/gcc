@@ -2348,6 +2348,13 @@ struct template_info GTY(())
 #define AGGR_INIT_VIA_CTOR_P(NODE) \
   TREE_LANG_FLAG_0 (AGGR_INIT_EXPR_CHECK (NODE))
 
+/* Accessor for the "slot" of an AGGR_INIT_EXPR node.  It shares the
+   storage that is used for the static chain field in other tcc_vl_exp
+   nodes.  */
+
+#define AGGR_INIT_EXPR_SLOT(NODE) \
+  CALL_EXPR_STATIC_CHAIN (AGGR_INIT_EXPR_CHECK (NODE))
+
 /* The TYPE_MAIN_DECL for a class template type is a TYPE_DECL, not a
    TEMPLATE_DECL.  This macro determines whether or not a given class
    type is really a template type, as opposed to an instantiation or
@@ -4341,7 +4348,10 @@ extern cp_lvalue_kind real_lvalue_p		(tree);
 extern bool builtin_valid_in_constant_expr_p    (tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
+extern tree build_min_nt_call_list		(enum tree_code, tree, tree);
 extern tree build_min_non_dep			(enum tree_code, tree, ...);
+extern tree build_min_non_dep_call_list		(enum tree_code, tree,
+						 tree, tree);
 extern tree build_cplus_new			(tree, tree);
 extern tree get_target_expr			(tree);
 extern tree build_cplus_array_type		(tree, tree);

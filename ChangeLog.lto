@@ -1,3 +1,116 @@
+2006-08-07  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.c (substitute_in_expr, substitute_placeholder_in_expr):
+	Simplify implementation of tcc_vl_exp case.
+	(build3_stat, build_nt): Don't allow these to be used for
+	building CALL_EXPRs and other tcc_vl_exps.
+	(build_nt_call_list): New function, equivalent to build_nt for
+	tcc_vl_exps.
+	(process_call_operands): New function used as a helper by other
+	new constructors for tcc_vl_exps.
+	(build_call_list): New constructor for tcc_vl_exps.
+	(build_call_nary): Likewise.
+	(build_call_valist): Likewise.
+	(build_call_array): Likewise.
+	* gcc/tree.h (build_nt_call_list): Declare new function.
+	(build_call_list): Likewise.
+	(build_call_nary): Likewise.
+	(build_call_valist): Likewise.
+	(build_call_array): Likewise.
+	(fold_build_call_list): Likewise.
+	(fold_build_call_list_initializer): Likewise.
+	(fold_build_call_expr): Deleted, and replaced with...
+	(fold_builtin_call_list, fold_builtin_call_valist): Declare.
+	* gcc/builtins.c (fold_builtin_call_list): Replacement for
+	fold_build_call_expr.  Renamed for consistency with other new
+	CALL_EXPR constructors, and removed the static_chain argument since
+	it is never used.  Fixed all callers.
+	(build_call_expr): Split up and move much of the code into...
+	(fold_builtin_call_valist): New function.
+	* gcc/fold-const.c (fold): Add clause for tcc_vl_exp specially.  
+	Remove CALL_EXPR handling from ternary operator case.
+	(fold_build3_stat):  Don't allow this to build tcc_vl_exps.
+	(fold_build_call_list): New function replacing uses of fold_build3
+	to build CALL_EXPRs.
+	(fold_build_call_list_initializer): Likewise, replacing uses of
+	fold_build3_initializer.
+	* gcc/c-typeck.c (build_function_call): Use fold_build_call_list
+	and fold_build_call_list_initializer.
+	* gcc/calls.c (expand_call): Use new CALL_EXPR accessors.
+	* gcc/tree-ssa-pre.c (expression_node_pool): Delete, since alloc_pool
+	can't be used to manage pools of variably-sized objects.
+	(temp_call_expr_obstack): Declare.
+	(temp_copy_call_expr): New routine for creating temporary
+	tcc_vl_expr objects used in this pass.
+	(phi_translate): Rewrite the CALL_EXPR section to be independent
+	of the storage representation.  Use temp_copy_call_expr.  Don't
+	value number the arglist.
+	(valid_in_set): Clean up CALL_EXPR section a little.
+	(create_expression_by_pieces): Likewise.
+	(create_value_expr_from): Use temp_copy_call_expr.  Don't value
+	number the arglist.
+	(init_pre): Update initialization of temp memory for CALL_EXPRs.
+	(fini_pre): Update deallocation of temp memory for CALL_EXPRs.
+
+	* gcc/java/parse.y (patch_invoke): Use build_call_list/build_call_nary
+	instead of build3.
+	(build_method_invocation): Likewise.
+	(build_new_invocation): Likewise.
+	(patch_cast): Likewise.
+	(patch_newarray): Likewise.
+	(build_assertion): Likewise.
+	* gcc/java/expr.c (build_java_athrow): Likewise.
+	(build_java_throw_out_of_bounds_exception): Likewise.
+	(java_check_reference): Likewise.
+	(build_java_arraystore_check): Likewise.
+	(build_anewarray): Likewise.
+	(expand_java_multinewarray): Likewise.
+	(build_java_monitor): Likewise.
+	(java_create_object): Likewise.
+	(expand_java_NEW): Likewise.
+	(build_instanceof): Likewise.
+	(expand_java_CHECKCAST): Likewise.
+	(build_java_soft_divmod): Likewise.
+	(build_java_binop): Likewise.
+	(build_field_ref): Likewise.
+	(build_class_init): Likewise.
+	(build_invokeinterface): Likewise.
+	(expand_invoke): Likewise.
+	(build_jni_stub): Likewise.
+	(force_evaluation_order): Use new CALL_EXPR accessors.
+	* gcc/java/parse.h (BUILD_THROW): Use build_call_nary.
+	* gcc/java/java-tree.h (BUILD_MONITOR_ENTER, BUILD_MONITOR_EXIT):
+	Likewise.
+	* gcc/java/jcf-write.c (generate_bytecode_insns): Use new CALL_EXPR
+	accessors.
+
+	* gcc/cp/call.c (build_call): Use build_call_list instead of build3.
+	(build_over_call): Likewise.
+	(build_java_interface_fn_ref): Likewise.
+	(build_new_method_call): Use build_min_non_dep_call_list.
+	* gcc/cp/tree.c (build_cplus_new): Use build_call_list.
+	(build_min_nt, build_min): Can't use these for building tcc_vl_exps.
+	(build_min_nt_call_list): New function, equivalent to build_min_nt.
+	(build_min_non_dep_call_list): New function, equivalent to
+	build_min_non_dep.
+	* gcc/cp/tree.h (AGGR_INIT_EXPR_SLOT): New.
+	(build_min_nt_call_list, build_min_non_dep_call_list): Declare.
+	* gcc/cp/dump.c (cp_dump_tree): Use new AGGR_INIT_EXPR accessors.
+	* gcc/cp/cp-gimplify.c (cp_gimplify_init_expr): Likewise.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_postfix_expression): Likewise.
+	* gcc/cp/pt.c (tsubst_copy): Use build_nt_call_list.
+	* gcc/cp/semantics.c (finish_call_expr): Use build_nt_call_list
+	and build_call_list.
+	(simplify_aggr_init_expr): Use new AGGR_INIT_EXPR accessors.  Use
+	build_call_list.
+	* gcc/cp/decl2.c (build_offset_ref_call_from_tree): Use
+	build_min_nt_call_list and build_in_non_dep_call_list.
+	* gcc/cp/parser.c (cp_parser_postfix_expression): Use
+	build_min_nt_call_list.
+
+	* gcc/fortran/trans-expr.c (gfc_conv_function_call): Use
+	build_call_list.
+
 2006-08-06  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/tree.c (build_function_type_list): Use vec_heap2parm_types.

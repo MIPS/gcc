@@ -38,6 +38,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-iterator.h"
 #include "real.h"
 #include "alloc-pool.h"
+#include "obstack.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "bitmap.h"
@@ -326,10 +327,15 @@ static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
 static alloc_pool comparison_node_pool;
-static alloc_pool expression_node_pool;
 static alloc_pool list_node_pool;
 static alloc_pool modify_expr_node_pool;
 static bitmap_obstack grand_bitmap_obstack;
+
+/* We can't use allocation pools to hold temporary CALL_EXPR objects, since
+   they are not of fixed size.  Instead, use an obstack.  */
+
+static struct obstack temp_call_expr_obstack;
+
 
 /* To avoid adding 300 temporary variables when we only need one, we
    only create one temporary variable, on demand, and build ssa names
@@ -987,6 +993,19 @@ pool_copy_list (tree list)
   return head;
 }
 
+/* Make a temporary copy of a CALL_EXPR object NODE.  */
+
+static tree
+temp_copy_call_expr (tree node)
+{
+  tree new = (tree) obstack_alloc (&temp_call_expr_obstack, tree_size (node));
+  memcpy (new, node, tree_size (node));
+  /* FIXME:  Remove after CALL_EXPR representation conversion.  */
+  CALL_EXPR_ARGS (new) = pool_copy_list (CALL_EXPR_ARGS (node));
+  return new;
+}
+
+
 /* Translate the vuses in the VUSES vector backwards through phi
    nodes, so that they have the value they would have in BLOCK. */
 
@@ -1067,57 +1086,43 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	  return NULL;
 	else
 	  {
-	    tree oldop0 = CALL_EXPR_FN (expr);
-	    tree oldarglist = CALL_EXPR_ARGS (expr);
-	    tree oldop2 = CALL_EXPR_STATIC_CHAIN (expr);
-	    tree newop0;
-	    tree newarglist;
-	    tree newop2 = NULL;
-	    tree oldwalker;
-	    tree newwalker;
-	    tree newexpr;
+	    tree oldfn = CALL_EXPR_FN (expr);
+	    tree oldsc = CALL_EXPR_STATIC_CHAIN (expr);
+	    tree newfn, newsc;
+	    tree newexpr = NULL_TREE;
 	    tree vh = get_value_handle (expr);
-	    bool listchanged = false;
+	    int i, nargs;
 	    VEC (tree, gc) *vuses = VALUE_HANDLE_VUSES (vh);
 	    VEC (tree, gc) *tvuses;
 
-	    /* FIXME:  This section of code needs to be completely
-	       rewritten when the new representation of CALL_EXPRs is
-	       implemented.  */
-
-	    /* Call expressions are kind of weird because they have an
-	       argument list.  We don't want to value number the list
-	       as one value number, because that doesn't make much
-	       sense, and just breaks the support functions we call,
-	       which expect TREE_OPERAND (call_expr, 2) to be a
-	       TREE_LIST. */	      
-	    
-	    newop0 = phi_translate (find_leader (set, oldop0),
-				    set, pred, phiblock);
-	    if (newop0 == NULL)
+	    newfn = phi_translate (find_leader (set, oldfn),
+				   set, pred, phiblock);
+	    if (newfn == NULL)
 	      return NULL;
-	    if (oldop2)
+	    if (newfn != oldfn)
 	      {
-		newop2 = phi_translate (find_leader (set, oldop2),
-					set, pred, phiblock);
-		if (newop2 == NULL)
+		newexpr = temp_copy_call_expr (expr);
+		CALL_EXPR_FN (newexpr) = get_value_handle (newfn);
+	      }
+	    if (oldsc)
+	      {
+		newsc = phi_translate (find_leader (set, oldsc),
+				       set, pred, phiblock);
+		if (newsc == NULL)
 		  return NULL;
+		if (newsc != oldsc)
+		  {
+		    if (!newexpr)
+		      newexpr = temp_copy_call_expr (expr);
+		    CALL_EXPR_STATIC_CHAIN (newexpr) = get_value_handle (newsc);
+		  }
 	      }
 
-	    /* phi translate the argument list piece by piece.
-	       
-	      We could actually build the list piece by piece here,
-	      but it's likely to not be worth the memory we will save,
-	      unless you have millions of call arguments.  */
-
-	    newarglist = pool_copy_list (oldarglist);
-	    for (oldwalker = oldarglist, newwalker = newarglist;
-		 oldwalker && newwalker;
-		 oldwalker = TREE_CHAIN (oldwalker), 
-		   newwalker = TREE_CHAIN (newwalker))
+	    /* phi translate the argument list piece by piece.  */
+	    nargs = call_expr_nargs (expr);
+	    for (i = 0; i < nargs; i++)
 	      {
-		
-		tree oldval = TREE_VALUE (oldwalker);
+		tree oldval = CALL_EXPR_ARG (expr, i);
 		tree newval;
 		if (oldval)
 		  {
@@ -1139,24 +1144,19 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 		      return NULL;
 		    if (newval != oldval)
 		      {
-			listchanged = true;
-			TREE_VALUE (newwalker) = get_value_handle (newval);
+			if (!newexpr)
+			  newexpr = temp_copy_call_expr (expr);
+			CALL_EXPR_ARG (newexpr, i) = get_value_handle (newval);
 		      }
 		  }
 	      }
-	    if (listchanged)
-	      vn_lookup_or_add (newarglist, NULL);
-	    
-	    tvuses = translate_vuses_through_block (vuses, pred);
 
-	    if (listchanged || (newop0 != oldop0) || (oldop2 != newop2)
-		|| vuses != tvuses)
+	    tvuses = translate_vuses_through_block (vuses, pred);
+	    if (vuses != tvuses && ! newexpr)
+	      newexpr = temp_copy_call_expr (expr);
+
+	    if (newexpr)
 	      {
-		newexpr = (tree) pool_alloc (expression_node_pool);
-		memcpy (newexpr, expr, tree_size (expr));
-		CALL_EXPR_FN (newexpr) = newop0 == oldop0 ? oldop0 : get_value_handle (newop0);
-		CALL_EXPR_ARGS (newexpr) = listchanged ? newarglist : oldarglist;
-		CALL_EXPR_STATIC_CHAIN (newexpr) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
 		create_tree_ann (newexpr);	 
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
 		expr = newexpr;
@@ -1558,14 +1558,14 @@ valid_in_set (value_set_t set, tree expr, basic_block block)
       {
 	if (TREE_CODE (expr) == CALL_EXPR)
 	  {
-	    tree op0 = CALL_EXPR_FN (expr);
-	    tree op2 = CALL_EXPR_STATIC_CHAIN (expr);
+	    tree fn = CALL_EXPR_FN (expr);
+	    tree sc = CALL_EXPR_STATIC_CHAIN (expr);
 	    tree arg;
 	    call_expr_arg_iterator iter;
 
-	    /* Check the non-list operands first.  */
-	    if (!set_contains_value (set, op0)
-		|| (op2 && !set_contains_value (set, op2)))
+	    /* Check the non-argument operands first.  */
+	    if (!set_contains_value (set, fn)
+		|| (sc && !set_contains_value (set, sc)))
 	      return false;
 
 	    FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
@@ -2319,13 +2319,12 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_vl_exp:
       {
 	tree fn, sc;
-	tree genfn, gensc;
+	tree genfn;
 	tree genarglist;
 	tree arg;
 	call_expr_arg_iterator iter;
 	
 	gcc_assert (TREE_CODE (expr) == CALL_EXPR);
-	gensc = NULL;
 	
 	fn = CALL_EXPR_FN (expr);
 	sc = CALL_EXPR_STATIC_CHAIN (expr);
@@ -2342,10 +2341,12 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  }
 	genarglist = nreverse (genarglist);
 
-	if (sc)	  
-	  gensc = find_or_generate_expression (block, sc, stmts);
-	folded = fold_build_call_expr (TREE_TYPE (expr),
-				       genfn, genarglist, gensc);
+	folded = fold_build_call_list (TREE_CODE (expr),
+				       TREE_TYPE (expr),
+				       genfn, genarglist);
+	if (sc)
+	  CALL_EXPR_STATIC_CHAIN (folded) =
+	    find_or_generate_expression (block, sc, stmts);
 	break;
       }
       break;
@@ -2892,13 +2893,15 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
       pool = list_node_pool;
     }
   else 
-    {
-      gcc_assert (code == CALL_EXPR);
-      pool = expression_node_pool;
-    }
+    gcc_assert (code == CALL_EXPR);
 
-  vexpr = (tree) pool_alloc (pool);
-  memcpy (vexpr, expr, tree_size (expr));
+  if (code == CALL_EXPR)
+    vexpr = temp_copy_call_expr (expr);
+  else
+    {
+      vexpr = (tree) pool_alloc (pool);
+      memcpy (vexpr, expr, tree_size (expr));
+    }
   
   /* This case is only for TREE_LIST's that appear as part of
      CALL_EXPR's.  Anything else is a bug, but we can't easily verify
@@ -2907,7 +2910,7 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
      operands, so you can't access purpose/value/chain through
      TREE_OPERAND macros.  */
 
-  /* FIXME:  This section of code needs to go away somehow when the
+  /* FIXME:  This section of code should go away completely when the
      low-level representation of CALL_EXPRs is changed not to use
      TREE_LISTs.  */
 
@@ -2958,6 +2961,7 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
 	  op = tempop ? tempop : op;
 	  val = vn_lookup_or_add (op, stmt);
 	}
+      /* FIXME: Delete this clause when CALL_EXPR representation changes. */
       else if (TREE_CODE (op) == TREE_LIST)
 	{
 	  tree tempop;
@@ -2966,7 +2970,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
 	  tempop = create_value_expr_from (op, block, stmt);
 	  
 	  op = tempop ? tempop : op;
-	  vn_lookup_or_add (op, NULL);
 	  /* Unlike everywhere else, we do *not* want to replace the
 	     TREE_LIST itself with a value number, because support
 	     functions we call will blow up.  */
@@ -3789,8 +3792,6 @@ init_pre (bool do_fre)
 				       tree_code_size (NEGATE_EXPR), 30);
   reference_node_pool = create_alloc_pool ("Reference tree nodes",
 					   tree_code_size (ARRAY_REF), 30);
-  expression_node_pool = create_alloc_pool ("Expression tree nodes",
-					    tree_code_size (CALL_EXPR), 30);
   list_node_pool = create_alloc_pool ("List tree nodes",
 				      tree_code_size (TREE_LIST), 30);  
   comparison_node_pool = create_alloc_pool ("Comparison tree nodes",
@@ -3799,6 +3800,7 @@ init_pre (bool do_fre)
 					     tree_code_size (MODIFY_EXPR),
 					     30);
   modify_expr_template = NULL;
+  obstack_init (&temp_call_expr_obstack);
 
   FOR_ALL_BB (bb)
     {
@@ -3823,6 +3825,7 @@ fini_pre (bool do_fre)
   VEC_free (tree, heap, inserted_exprs);
   VEC_free (tree, heap, need_creation);
   bitmap_obstack_release (&grand_bitmap_obstack);
+  obstack_free (&temp_call_expr_obstack, NULL);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);
   free_alloc_pool (value_set_node_pool);
@@ -3830,7 +3833,6 @@ fini_pre (bool do_fre)
   free_alloc_pool (reference_node_pool);
   free_alloc_pool (unary_node_pool);
   free_alloc_pool (list_node_pool);
-  free_alloc_pool (expression_node_pool);
   free_alloc_pool (comparison_node_pool);
   free_alloc_pool (modify_expr_node_pool);
   htab_delete (phi_translate_table);

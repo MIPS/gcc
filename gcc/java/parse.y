@@ -11103,9 +11103,9 @@ patch_invoke (tree patch, tree method, tree args)
 
       if (flag_emit_class_files)
 	{
-	  tree new_patch = build3 (NEW_CLASS_EXPR,
-				   build_pointer_type (class),
-				   func, args, NULL_TREE);
+	  tree new_patch = build_call_list (NEW_CLASS_EXPR,
+					    build_pointer_type (class),
+					    func, args);
 	  TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
 	  EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
 	  CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
@@ -11116,14 +11116,13 @@ patch_invoke (tree patch, tree method, tree args)
       alloc_node =
 	(class_has_finalize_method (class) ? alloc_object_node
 		  			   : alloc_no_finalizer_node);
-      new = build3 (CALL_EXPR, promote_type (class),
-		    build_address_of (alloc_node),
-		    build_tree_list (NULL_TREE, build_class_ref (class)),
-		    NULL_TREE);
+      new = build_call_nary (CALL_EXPR, promote_type (class),
+			     build_address_of (alloc_node),
+			     1, build_class_ref (class));
       saved_new = save_expr (new);
       args = tree_cons (NULL_TREE, saved_new, args);
-      new_patch = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
-			  func, args, NULL_TREE);
+      new_patch = build_call_list (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+				   func, args);
       TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
       EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
       CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
@@ -11131,8 +11130,9 @@ patch_invoke (tree patch, tree method, tree args)
     }
   else
     {
-      tree new_patch = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
-			       func, args, NULL_TREE);
+      tree new_patch = build_call_list (CALL_EXPR,
+					TREE_TYPE (TREE_TYPE (method)),
+					func, args);
       TREE_SIDE_EFFECTS (new_patch) = TREE_SIDE_EFFECTS (patch);
       EXPR_WFL_LINECOL (new_patch) = EXPR_WFL_LINECOL (patch);
       CALL_USING_SUPER (new_patch) = CALL_USING_SUPER (patch);
@@ -12744,7 +12744,7 @@ build_this_super_qualified_invocation (int use_this, tree name, tree args,
 static tree
 build_method_invocation (tree name, tree args)
 {
-  tree call = build3 (CALL_EXPR, NULL_TREE, name, args, NULL_TREE);
+  tree call = build_call_list (CALL_EXPR, NULL_TREE, name, args);
   TREE_SIDE_EFFECTS (call) = 1;
   EXPR_WFL_LINECOL (call) = EXPR_WFL_LINECOL (name);
   return call;
@@ -12755,7 +12755,8 @@ build_method_invocation (tree name, tree args)
 static tree
 build_new_invocation (tree name, tree args)
 {
-  tree call = build3 (NEW_CLASS_EXPR, NULL_TREE, name, args, NULL_TREE);
+  tree call =
+    build_call_list (NEW_CLASS_EXPR, NULL_TREE, name, args);
   TREE_SIDE_EFFECTS (call) = 1;
   EXPR_WFL_LINECOL (call) = EXPR_WFL_LINECOL (name);
   return call;
@@ -14617,11 +14618,9 @@ patch_cast (tree node, tree wfl_op)
 	}
 
       /* The cast requires a run-time check */
-      return build3 (CALL_EXPR, promote_type (cast_type),
-		     build_address_of (soft_checkcast_node),
-		     tree_cons (NULL_TREE, build_class_ref (cast_type),
-				build_tree_list (NULL_TREE, op)),
-		     NULL_TREE);
+      return build_call_nary (CALL_EXPR, promote_type (cast_type),
+			      build_address_of (soft_checkcast_node),
+			      2, build_class_ref (cast_type), op); 
     }
 
   /* Any other casts are proven incorrect at compile time */
@@ -14813,14 +14812,13 @@ patch_newarray (tree node)
 
   /* Can't reuse what's already written in expr.c because it uses the
      JVM stack representation. Provide a build_multianewarray. FIXME */
-  return build3 (CALL_EXPR, array_type,
-		 build_address_of (soft_multianewarray_node),
-		 tree_cons (NULL_TREE,
-			    build_class_ref (TREE_TYPE (array_type)),
-			    tree_cons (NULL_TREE,
-				       build_int_cst (NULL_TREE, ndims),
-				       dims)),
-		 NULL_TREE);
+  return build_call_list (CALL_EXPR, array_type,
+			  build_address_of (soft_multianewarray_node),
+			  tree_cons (NULL_TREE,
+				     build_class_ref (TREE_TYPE (array_type)),
+				     tree_cons (NULL_TREE,
+						build_int_cst (NULL_TREE, ndims),
+						dims)));
 }
 
 /* 10.6 Array initializer.  */
@@ -15618,7 +15616,7 @@ build_assertion (
 
       /* Call CLASS.desiredAssertionStatus().  */
       id = build_wfl_node (get_identifier ("desiredAssertionStatus"));
-      call = build3 (CALL_EXPR, NULL_TREE, id, NULL_TREE, NULL_TREE);
+      call = build_call_nary (CALL_EXPR, NULL_TREE, id, 0);
       call = make_qualified_primary (classdollar, call, location);
       TREE_SIDE_EFFECTS (call) = 1;
 
@@ -15638,16 +15636,16 @@ build_assertion (
       CLASS_USES_ASSERTIONS (klass) = 1;
     }
 
-  if (value != NULL_TREE)
-    value = tree_cons (NULL_TREE, value, NULL_TREE);
-
   node = build_wfl_node (get_identifier ("java"));
   node = make_qualified_name (node, build_wfl_node (get_identifier ("lang")),
 			      location);
   node = make_qualified_name (node, build_wfl_node (get_identifier ("AssertionError")),
 			      location);
-
-  node = build3 (NEW_CLASS_EXPR, NULL_TREE, node, value, NULL_TREE);
+  if (value != NULL_TREE)
+    node = build_call_nary (NEW_CLASS_EXPR, NULL_TREE,
+			    node, 1, value);
+  else
+    node = build_call_nary (NEW_CLASS_EXPR, NULL_TREE, node, 0);
   TREE_SIDE_EFFECTS (node) = 1;
   /* It is too early to use BUILD_THROW.  */
   node = build1 (THROW_EXPR, NULL_TREE, node);

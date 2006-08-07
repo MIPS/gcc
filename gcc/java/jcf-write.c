@@ -2528,16 +2528,17 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       /* ... fall though ... */
     case CALL_EXPR:
       {
-	tree f = TREE_OPERAND (exp, 0);
-	tree x = TREE_OPERAND (exp, 1);
+	tree f = CALL_EXPR_FN (exp);
 	int save_SP = state->code_SP;
 	int nargs;
+	call_expr_arg_iterator iter;
+	tree arg;
 	if (TREE_CODE (f) == ADDR_EXPR)
 	  f = TREE_OPERAND (f, 0);
 	if (f == soft_newarray_node)
 	  {
-	    int type_code = TREE_INT_CST_LOW (TREE_VALUE (x));
-	    generate_bytecode_insns (TREE_VALUE (TREE_CHAIN (x)),
+	    int type_code = TREE_INT_CST_LOW (CALL_EXPR_ARG0 (exp));
+	    generate_bytecode_insns (CALL_EXPR_ARG1 (exp),
 				     STACK_TARGET, state);
 	    RESERVE (2);
 	    OP1 (OPCODE_newarray);
@@ -2548,14 +2549,15 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  {
 	    int ndims;
 	    int idim;
+	    int i;
 	    int index = find_class_constant (&state->cpool,
 					     TREE_TYPE (TREE_TYPE (exp)));
-	    x = TREE_CHAIN (x);  /* Skip class argument. */
-	    ndims = TREE_INT_CST_LOW (TREE_VALUE (x));
-	    for (idim = ndims;  --idim >= 0; )
+	    /* Skip class argument. */
+	    ndims = TREE_INT_CST_LOW (CALL_EXPR_ARG1 (exp));
+	    for (i = 2, idim = ndims;  --idim >= 0; i++)
 	      {
-		x = TREE_CHAIN (x);
-		generate_bytecode_insns (TREE_VALUE (x), STACK_TARGET, state);
+		arg = CALL_EXPR_ARG (exp, i);
+		generate_bytecode_insns (arg, STACK_TARGET, state);
 	      }
 	    RESERVE (4);
 	    OP1 (OPCODE_multianewarray);
@@ -2568,7 +2570,8 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  {
 	    tree cl = TYPE_ARRAY_ELEMENT (TREE_TYPE (TREE_TYPE (exp)));
 	    int index = find_class_constant (&state->cpool, TREE_TYPE (cl));
-	    generate_bytecode_insns (TREE_VALUE (x), STACK_TARGET, state);
+	    generate_bytecode_insns (CALL_EXPR_ARG0 (exp),
+				     STACK_TARGET, state);
 	    RESERVE (3);
 	    OP1 (OPCODE_anewarray);
 	    OP2 (index);
@@ -2584,16 +2587,15 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	      op = OPCODE_monitorexit;
 	    else
 	      op = OPCODE_athrow;
-	    generate_bytecode_insns (TREE_VALUE (x), STACK_TARGET, state);
+	    generate_bytecode_insns (CALL_EXPR_ARG0 (exp),
+				     STACK_TARGET, state);
 	    RESERVE (1);
 	    OP1 (op);
 	    NOTE_POP (1);
 	    break;
 	  }
-	for ( ;  x != NULL_TREE;  x = TREE_CHAIN (x))
-	  {
-	    generate_bytecode_insns (TREE_VALUE (x), STACK_TARGET, state);
-	  }
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	  generate_bytecode_insns (arg, STACK_TARGET, state);
 	nargs = state->code_SP - save_SP;
 	state->code_SP = save_SP;
 	if (f == soft_fmod_node)
@@ -2619,7 +2621,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 		&& ! METHOD_PRIVATE (f)
 		&& DECL_CONTEXT (f) != object_type_node)
 	      {
-		tree arg1 = TREE_VALUE (TREE_OPERAND (exp, 1));
+		tree arg1 = CALL_EXPR_ARG0 (exp);
 		context = TREE_TYPE (TREE_TYPE (arg1));
 	      }
 

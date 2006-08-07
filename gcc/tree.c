@@ -355,7 +355,7 @@ tree_code_size (enum tree_code code)
     case tcc_comparison:  /* a comparison expression */
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
-    case tcc_vl_exp:        /* FIXME: a function call expression */
+    case tcc_vl_exp:      /* FIXME: a function call expression */
       return (sizeof (struct tree_exp)
 	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (tree));
 
@@ -2448,31 +2448,21 @@ substitute_in_expr (tree exp, tree f, tree r)
 
       case tcc_vl_exp:
 	{
-	  /* FIXME: use new CALL_EXPR constructor */
-	  tree fn = SUBSTITUTE_IN_EXPR (CALL_EXPR_FN (exp), f, r);
-	  tree sc = SUBSTITUTE_IN_EXPR (CALL_EXPR_STATIC_CHAIN (exp), f, r);
 	  tree copy = NULL_TREE;
-	  int i = 0;
-	  call_expr_arg_iterator iter;
-	  tree arg;
-
-	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	  int i;
+	  int n = TREE_OPERAND_LENGTH (exp);
+	  for (i = 0; i < n; i++)
 	    {
-	      tree newarg = SUBSTITUTE_IN_EXPR (arg, f, r);
-	      if (newarg != arg)
+	      tree op = TREE_OPERAND (exp, i);
+	      tree newop = SUBSTITUTE_IN_EXPR (op, f, r);
+	      if (newop != op)
 		{
-		  if (!copy)
-		    copy = build3 (code, TREE_TYPE (exp), fn, sc,
-				   copy_list (CALL_EXPR_ARGS (exp)));
-		  CALL_EXPR_ARG (copy, i) = newarg;
+		  copy = copy_node (exp);
+		  TREE_OPERAND (copy, i) = newop;
 		}
 	    }
 	  if (copy)
 	    new = fold (copy);
-	  else  if (fn != CALL_EXPR_FN (exp)
-		    || sc != CALL_EXPR_STATIC_CHAIN (exp))
-	    new = fold_build3 (code, TREE_TYPE (exp), fn, sc,
-			       CALL_EXPR_ARGS (exp));
 	  else
 	    return exp;
 	}
@@ -2611,32 +2601,22 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 
       case tcc_vl_exp:
 	{
-	  /* FIXME: use new CALL_EXPR constructor */
-	  tree fn = SUBSTITUTE_PLACEHOLDER_IN_EXPR (CALL_EXPR_FN (exp), obj);
-	  tree sc = SUBSTITUTE_PLACEHOLDER_IN_EXPR (CALL_EXPR_STATIC_CHAIN (exp),
-						    obj);
 	  tree copy = NULL_TREE;
-	  int i = 0;
-	  call_expr_arg_iterator iter;
-	  tree arg;
-
-	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	  int i;
+	  int n = TREE_OPERAND_LENGTH (exp);
+	  for (i = 0; i < n; i++)
 	    {
-	      tree newarg = SUBSTITUTE_PLACEHOLDER_IN_EXPR (arg, obj);
-	      if (newarg != arg)
+	      tree op = TREE_OPERAND (exp, i);
+	      tree newop = SUBSTITUTE_PLACEHOLDER_IN_EXPR (op, obj);
+	      if (newop != op)
 		{
 		  if (!copy)
-		    copy = build3 (code, TREE_TYPE (exp), fn, sc,
-				   copy_list (CALL_EXPR_ARGS (exp)));
-		  CALL_EXPR_ARG (copy, i) = newarg;
+		    copy = copy_node (exp);
+		  TREE_OPERAND (copy, i) = newop;
 		}
 	    }
 	  if (copy)
 	    return fold (copy);
-	  else  if (fn != CALL_EXPR_FN (exp)
-		    || sc != CALL_EXPR_STATIC_CHAIN (exp))
-	    return fold_build3 (code, TREE_TYPE (exp), fn, sc,
-				CALL_EXPR_ARGS (exp));
 	  else
 	    return exp;
 	}
@@ -3078,6 +3058,7 @@ build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   tree t;
 
   gcc_assert (TREE_CODE_LENGTH (code) == 3);
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
 
   t = make_node_stat (code PASS_MEM_STAT);
   TREE_TYPE (t) = tt;
@@ -3087,26 +3068,6 @@ build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   PROCESS_ARG(0);
   PROCESS_ARG(1);
   PROCESS_ARG(2);
-
-  if (code == CALL_EXPR && !side_effects)
-    {
-      tree node;
-      int i;
-
-      /* Calls have side-effects, except those to const or
-	 pure functions.  */
-      i = call_expr_flags (t);
-      if (!(i & (ECF_CONST | ECF_PURE)))
-	side_effects = 1;
-
-      /* And even those have side-effects if their arguments do.  */
-      else for (node = arg1; node; node = TREE_CHAIN (node))
-	if (TREE_SIDE_EFFECTS (TREE_VALUE (node)))
-	  {
-	    side_effects = 1;
-	    break;
-	  }
-    }
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t)
@@ -3213,6 +3174,8 @@ build_nt (enum tree_code code, ...)
   int i;
   va_list p;
 
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
+
   va_start (p, code);
 
   t = make_node (code);
@@ -3222,6 +3185,23 @@ build_nt (enum tree_code code, ...)
     TREE_OPERAND (t, i) = va_arg (p, tree);
 
   va_end (p);
+  return t;
+}
+
+/* Similar to build_nt, but for creating a CALL_EXPR-like object with
+   ARGLIST passed as a list.  */
+
+tree
+build_nt_call_list (enum tree_code code, tree fn, tree arglist)
+{
+  tree t;
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+
+  /* FIXME: change this to use the new CALL_EXPR representation.  */
+  t = make_node (code);
+  CALL_EXPR_FN (t) = fn;
+  CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
+  CALL_EXPR_ARGS (t) = arglist;
   return t;
 }
 
@@ -7003,6 +6983,126 @@ build_omp_clause (enum omp_clause_code code)
   return t;
 }
 
+/* Set various status flags when building a tcc_vl_exp object T.  */
+
+static void
+process_call_operands (tree t)
+{
+  bool side_effects;
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+  if (!side_effects)
+    {
+      int i, n;
+      n = TREE_OPERAND_LENGTH (t);
+      for (i = 0; i < n; i++)
+	{
+	  tree op = TREE_OPERAND (t, i);
+	  if (op && TREE_SIDE_EFFECTS (op))
+	    {
+	      side_effects = 1;
+	      break;
+	    }
+	}
+    }
+  if (TREE_CODE (t) == CALL_EXPR && !side_effects)
+    {
+      int i;
+
+      /* Calls have side-effects, except those to const or
+	 pure functions.  */
+      i = call_expr_flags (t);
+      if (!(i & (ECF_CONST | ECF_PURE)))
+	side_effects = 1;
+
+      /* FIXME: This goes away after representation change is complete.  */
+      /* And even those have side-effects if their arguments do.  */
+      else
+	{
+	  tree node;
+	  call_expr_arg_iterator iter;
+	  FOR_EACH_CALL_EXPR_ARG (node, iter, t)
+	    if (TREE_SIDE_EFFECTS (node))
+	      {
+		side_effects = 1;
+		break;
+	      }
+	}
+    }
+  TREE_SIDE_EFFECTS (t) = side_effects;
+}
+
+/* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
+   indicated RETURN_TYPE and FN and a null static chain slot.
+   ARGLIST is a TREE_LIST of the arguments.  */
+
+tree
+build_call_list (enum tree_code code, tree return_type, tree fn,
+		 tree arglist)
+{
+  tree t;
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+
+  /* FIXME: change this to use the new CALL_EXPR representation.  */
+  t = make_node (code);
+  TREE_TYPE (t) = return_type;
+  CALL_EXPR_FN (t) = fn;
+  CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
+  CALL_EXPR_ARGS (t) = arglist;
+  process_call_operands (t);
+  return t;
+}
+
+/* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
+   indicated RETURN_TYPE and FN and a null static chain slot.
+   NARGS is the number of  call arguments which are specified as "..."
+   arguments.  */
+
+tree
+build_call_nary (enum tree_code code, tree return_type, tree fn,
+		 int nargs, ...)
+{
+  tree ret;
+  va_list args;
+  va_start (args, nargs);
+  ret = build_call_valist (code, return_type, fn, nargs, args);
+  va_end (args);
+  return ret;
+}
+
+/* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
+   indicated RETURN_TYPE and FN and a null static chain slot.
+   NARGS is the number of call arguments which are specified as a
+   va_list ARGS.  */
+
+tree
+build_call_valist (enum tree_code code, tree return_type, tree fn,
+		   int nargs, va_list args)
+{
+  /* FIXME: change this to use the new CALL_EXPR representation.  */
+  tree arglist = NULL_TREE;
+  int i;
+  for (i = 0; i < nargs; i++)
+    arglist = tree_cons (NULL_TREE, va_arg (args, tree), arglist);
+  return build_call_list (code, return_type, fn, nreverse (arglist));
+}
+
+/* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
+   indicated RETURN_TYPE and FN and a null static chain slot.
+   NARGS is the number of call arguments which are specified as a tree
+   array ARGS.  */
+
+tree
+build_call_array (enum tree_code code, tree return_type, tree fn,
+		  int nargs, tree *args)
+{
+  /* FIXME: change this to use the new CALL_EXPR representation.  */
+  tree arglist = NULL_TREE;
+  int i;
+  for (i = 0; i < nargs; i++)
+    arglist = tree_cons (NULL_TREE, args[i], arglist);
+  return build_call_list (code, return_type, fn, nreverse (arglist));
+}
 
 /* Returns true if it is possible to prove that the index of
    an array access REF (an ARRAY_REF expression) falls into the

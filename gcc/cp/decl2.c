@@ -3214,7 +3214,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 		  || TREE_CODE (fn) == MEMBER_REF);
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (args))
-	return build_min_nt (CALL_EXPR, fn, args, NULL_TREE);
+	return build_min_nt_call_list (CALL_EXPR, fn, args);
 
       /* Transform the arguments and add the implicit "this"
 	 parameter.  That must be done before the FN is transformed
@@ -3244,7 +3244,7 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 
   expr = build_function_call (fn, args);
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (CALL_EXPR, expr, orig_fn, orig_args, NULL_TREE);
+    return build_min_non_dep_call_list (CALL_EXPR, expr, orig_fn, orig_args);
   return expr;
 }
 

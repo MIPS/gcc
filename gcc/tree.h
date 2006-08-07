@@ -3530,6 +3530,7 @@ extern tree maybe_get_identifier (const char *);
 /* Construct various types of nodes.  */
 
 extern tree build_nt (enum tree_code, ...);
+extern tree build_nt_call_list (enum tree_code, tree, tree);
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -3574,6 +3575,11 @@ extern void annotate_with_locus (tree, location_t);
 #endif
 extern tree build_empty_stmt (void);
 extern tree build_omp_clause (enum omp_clause_code);
+
+extern tree build_call_list (enum tree_code, tree, tree, tree);
+extern tree build_call_nary (enum tree_code, tree, tree, int, ...);
+extern tree build_call_valist (enum tree_code, tree, tree, int, va_list);
+extern tree build_call_array (enum tree_code, tree, tree, int, tree*);
 
 /* Construct various nodes representing data types.  */
 
@@ -4211,9 +4217,11 @@ extern tree fold_build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
 #define fold_build2(c,t1,t2,t3) fold_build2_stat (c, t1, t2, t3 MEM_STAT_INFO)
 extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 #define fold_build3(c,t1,t2,t3,t4) fold_build3_stat (c, t1, t2, t3, t4 MEM_STAT_INFO)
+extern tree fold_build_call_list (enum tree_code, tree, tree, tree);
 extern tree fold_build1_initializer (enum tree_code, tree, tree);
 extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
+extern tree fold_build_call_list_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
@@ -4296,7 +4304,8 @@ extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
 extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
-extern tree fold_build_call_expr (tree, tree, tree, tree);
+extern tree fold_builtin_call_list (tree, tree, tree);
+extern tree fold_builtin_call_valist (tree, tree, int, va_list);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);

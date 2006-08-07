@@ -304,8 +304,9 @@ build_cplus_new (tree type, tree init)
      type, don't mess with AGGR_INIT_EXPR.  */
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
-      rval = build3 (AGGR_INIT_EXPR, void_type_node, fn,
-		     CALL_EXPR_ARGS (init), slot);
+      rval = build_call_list (AGGR_INIT_EXPR, void_type_node, fn, 
+			      CALL_EXPR_ARGS (init));
+      AGGR_INIT_EXPR_SLOT (rval) = slot;
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
     }
@@ -1278,7 +1279,6 @@ break_out_target_exprs (tree t)
 
 /* Similar to `build_nt', but for template definitions of dependent
    expressions  */
-/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min_nt (enum tree_code code, ...)
@@ -1287,6 +1287,8 @@ build_min_nt (enum tree_code code, ...)
   int length;
   int i;
   va_list p;
+
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
 
   va_start (p, code);
 
@@ -1303,8 +1305,16 @@ build_min_nt (enum tree_code code, ...)
   return t;
 }
 
+/* Similar to `build_nt_call_list', but for template definitions of
+   dependent expressions.  */
+tree
+build_min_nt_call_list (enum tree_code code, tree fn, tree arglist)
+{
+  return build_nt_call_list (code, fn, arglist);
+}
+
+
 /* Similar to `build', but for template definitions.  */
-/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min (enum tree_code code, tree tt, ...)
@@ -1313,6 +1323,8 @@ build_min (enum tree_code code, tree tt, ...)
   int length;
   int i;
   va_list p;
+
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
 
   va_start (p, tt);
 
@@ -1335,7 +1347,6 @@ build_min (enum tree_code code, tree tt, ...)
 /* Similar to `build', but for template definitions of non-dependent
    expressions. NON_DEP is the non-dependent expression that has been
    built.  */
-/* FIXME: This can't handle the new CALL_EXPR representation.  */
 
 tree
 build_min_non_dep (enum tree_code code, tree non_dep, ...)
@@ -1344,6 +1355,8 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
   int length;
   int i;
   va_list p;
+
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
 
   va_start (p, non_dep);
 
@@ -1364,6 +1377,20 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
     COMPOUND_EXPR_OVERLOADED (t) = 1;
 
   va_end (p);
+  return t;
+}
+
+/* Similar to `build_call_list', but for template definitions of non-dependent
+   expressions. NON_DEP is the non-dependent expression that has been
+   built.  */
+
+tree
+build_min_non_dep_call_list (enum tree_code code, tree non_dep,
+			     tree fn, tree arglist)
+{
+  tree t = build_nt_call_list (code, fn, arglist);
+  TREE_TYPE (t) = TREE_TYPE (non_dep);
+  TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
   return t;
 }
 

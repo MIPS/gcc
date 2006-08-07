@@ -11186,6 +11186,18 @@ fold (tree expr)
   if (kind == tcc_constant)
     return t;
 
+  /* CALL_EXPR-like objects with variable numbers of operands are
+     treated specially.  */
+  if (kind == tcc_vl_exp)
+    {
+      if (code == CALL_EXPR)
+	{
+	  tem = fold_call_expr (expr, false);
+	  return tem ? tem : expr;
+	}
+      return expr;
+    }
+
   if (IS_EXPR_CODE_CLASS (kind))
     {
       tree type = TREE_TYPE (t);
@@ -11203,13 +11215,6 @@ fold (tree expr)
 	  tem = fold_binary (code, type, op0, op1);
 	  return tem ? tem : expr;
 	case 3:
-	  /* FIXME:  CALL_EXPRs won't be ternary expressions any more
-	     after representation change is implemented.  */
-	  if (code == CALL_EXPR)
-	    {
-	      tem = fold_call_expr (expr, false);
-	      return tem ? tem : expr;
-	    }
 	  op0 = TREE_OPERAND (t, 0);
 	  op1 = TREE_OPERAND (t, 1);
 	  op2 = TREE_OPERAND (t, 2);
@@ -11566,16 +11571,10 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
   htab_empty (ht);
 #endif
 
-  /* FIXME: This is only temporary, since CALL_EXPRs won't be constructed
-     with fold_build3 after representation conversion is complete.  */
-  if (code != CALL_EXPR)
-    {
-      tem = fold_ternary (code, type, op0, op1, op2);
-      if (!tem)
-	tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
-    }
-  else
-    tem = fold_build_call_expr (type, op0, op1, op2);
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
+  tem = fold_ternary (code, type, op0, op1, op2);
+  if (!tem)
+    tem =  build3_stat (code, type, op0, op1, op2 PASS_MEM_STAT);
       
 #ifdef ENABLE_FOLD_CHECKING
   md5_init_ctx (&ctx);
@@ -11601,6 +11600,63 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
 
   if (memcmp (checksum_before_op2, checksum_after_op2, 16))
     fold_check_failed (op2, tem);
+#endif
+  return tem;
+}
+
+/* Fold a CALL_EXPR-like expression with code CODE of type TYPE with
+   operands FN and ARGLIST and a null static chain.
+   Return a folded expression if successful.  Otherwise, return a tree
+   expression with code CODE of type TYPE from the given operands as
+   constructed by build_call_list.  */
+
+tree
+fold_build_call_list (enum tree_code code, tree type,
+		      tree fn, tree arglist)
+{
+  tree tem;
+#ifdef ENABLE_FOLD_CHECKING
+  unsigned char checksum_before_fn[16],
+                checksum_before_arglist[16],
+		checksum_after_fn[16],
+		checksum_after_arglist[16];
+  struct md5_ctx ctx;
+  htab_t ht;
+
+  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (fn, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_fn);
+  htab_empty (ht);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (arglist, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_arglist);
+  htab_empty (ht);
+#endif
+
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  if (code == CALL_EXPR)
+    tem = fold_builtin_call_list (type, fn, arglist);
+  else
+    tem = build_call_list (code, type, fn, arglist);
+      
+#ifdef ENABLE_FOLD_CHECKING
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (fn, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_fn);
+  htab_empty (ht);
+
+  if (memcmp (checksum_before_fn, checksum_after_fn, 16))
+    fold_check_failed (fn, tem);
+  
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (arglist, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_arglist);
+  htab_delete (ht);
+
+  if (memcmp (checksum_before_arglist, checksum_after_arglist, 16))
+    fold_check_failed (arglist, tem);
 #endif
   return tem;
 }
@@ -11657,6 +11713,19 @@ fold_build3_initializer (enum tree_code code, tree type, tree op0, tree op1,
   START_FOLD_INIT;
 
   result = fold_build3 (code, type, op0, op1, op2);
+
+  END_FOLD_INIT;
+  return result;
+}
+
+tree
+fold_build_call_list_initializer (enum tree_code code, tree type,
+				  tree fn, tree arglist)
+{
+  tree result;
+  START_FOLD_INIT;
+
+  result = fold_build_call_list (code, type, fn, arglist);
 
   END_FOLD_INIT;
   return result;

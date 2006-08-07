@@ -413,7 +413,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (TREE_CODE (sub) == AGGR_INIT_EXPR)
     {
       gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-      CALL_EXPR_STATIC_CHAIN (sub) = to;
+      AGGR_INIT_EXPR_SLOT (sub) = to;
       *expr_p = from;
 
       /* The initialization is now a side-effect, so the container can

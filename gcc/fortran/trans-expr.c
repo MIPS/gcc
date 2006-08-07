@@ -2087,8 +2087,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
-  se->expr = build3 (CALL_EXPR, TREE_TYPE (fntype), se->expr,
-		     arglist, NULL_TREE);
+  se->expr = build_call_list (CALL_EXPR, TREE_TYPE (fntype), se->expr,
+			      arglist);
 
   /* If we have a pointer function, but we don't want a pointer, e.g.
      something like

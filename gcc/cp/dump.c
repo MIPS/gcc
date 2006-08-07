@@ -393,7 +393,7 @@ cp_dump_tree (void* dump_info, tree t)
 	tree arg;
 	call_expr_arg_iterator iter;
 	dump_int (di, "ctor", AGGR_INIT_VIA_CTOR_P (t));
-	dump_child ("fn", TREE_OPERAND (t, 0));
+	dump_child ("fn", CALL_EXPR_FN (t));
 	FOR_EACH_CALL_EXPR_ARG (arg, iter, t)
 	  {
 	    char buffer[32];
@@ -401,7 +401,7 @@ cp_dump_tree (void* dump_info, tree t)
 	    dump_child (buffer, arg);
 	    i++;
 	  }
-	dump_child ("decl", TREE_OPERAND (t, 2));
+	dump_child ("decl", AGGR_INIT_EXPR_SLOT (t));
       }
       break;
 
