@@ -1267,6 +1267,8 @@ create_function_arglist (gfc_symbol * sym)
   tree arglist, hidden_arglist;
   tree type;
   tree parm;
+  int skip = 0, hidden;
+  int len;
 
   fndecl = sym->backend_decl;
 
@@ -1275,10 +1277,11 @@ create_function_arglist (gfc_symbol * sym)
   arglist = NULL_TREE;
   hidden_arglist = NULL_TREE;
   typelist = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+  len = num_parm_types (typelist);
 
   if (sym->attr.entry_master)
     {
-      type = TREE_VALUE (typelist);
+      type = nth_parm_type (typelist, skip);
       parm = build_decl (PARM_DECL, get_identifier ("__entry"), type);
       
       DECL_CONTEXT (parm) = fndecl;
@@ -1287,17 +1290,17 @@ create_function_arglist (gfc_symbol * sym)
       gfc_finish_decl (parm, NULL_TREE);
 
       arglist = chainon (arglist, parm);
-      typelist = TREE_CHAIN (typelist);
+      skip++;
     }
 
   if (gfc_return_by_reference (sym))
     {
-      tree type = TREE_VALUE (typelist), length = NULL;
+      tree type = nth_parm_type (typelist, skip), length = NULL;
 
       if (sym->ts.type == BT_CHARACTER)
 	{
 	  /* Length of character result.  */
-	  tree len_type = TREE_VALUE (TREE_CHAIN (typelist));
+	  tree len_type = nth_parm_type (typelist, skip + 1);
 	  gcc_assert (len_type == gfc_charlen_type_node);
 
 	  length = build_decl (PARM_DECL,
@@ -1345,26 +1348,27 @@ create_function_arglist (gfc_symbol * sym)
       parm = build_decl (PARM_DECL, get_identifier ("__result"), type);
 
       DECL_CONTEXT (parm) = fndecl;
-      DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
+      DECL_ARG_TYPE (parm) = nth_parm_type (typelist, skip);
       TREE_READONLY (parm) = 1;
       DECL_ARTIFICIAL (parm) = 1;
       gfc_finish_decl (parm, NULL_TREE);
 
       arglist = chainon (arglist, parm);
-      typelist = TREE_CHAIN (typelist);
+      skip++;
 
       if (sym->ts.type == BT_CHARACTER)
 	{
 	  gfc_allocate_lang_decl (parm);
 	  arglist = chainon (arglist, length);
-	  typelist = TREE_CHAIN (typelist);
+	  skip++;
 	}
     }
 
+  hidden = skip;
   hidden_typelist = typelist;
   for (f = sym->formal; f; f = f->next)
     if (f->sym != NULL)	/* Ignore alternate returns.  */
-      hidden_typelist = TREE_CHAIN (hidden_typelist);
+      hidden++;
 
   for (f = sym->formal; f; f = f->next)
     {
@@ -1374,11 +1378,11 @@ create_function_arglist (gfc_symbol * sym)
       if (f->sym == NULL)
 	continue;
 
-      type = TREE_VALUE (typelist);
+      type = nth_parm_type (typelist, skip);
 
       if (f->sym->ts.type == BT_CHARACTER)
 	{
-	  tree len_type = TREE_VALUE (hidden_typelist);
+	  tree len_type = nth_parm_type (typelist, hidden);
 	  tree length = NULL_TREE;
 	  gcc_assert (len_type == gfc_charlen_type_node);
 
@@ -1420,7 +1424,7 @@ create_function_arglist (gfc_symbol * sym)
 		}
 	    }
 
-	  hidden_typelist = TREE_CHAIN (hidden_typelist);
+	  hidden++;
 
 	  if (f->sym->ts.cl->backend_decl == NULL
 	      || f->sym->ts.cl->backend_decl == length)
@@ -1439,7 +1443,7 @@ create_function_arglist (gfc_symbol * sym)
       /* For non-constant length array arguments, make sure they use
 	 a different type node from TYPE_ARG_TYPES type.  */
       if (f->sym->attr.dimension
-	  && type == TREE_VALUE (typelist)
+	  && type == nth_parm_type (typelist, skip)
 	  && TREE_CODE (type) == POINTER_TYPE
 	  && GFC_ARRAY_TYPE_P (type)
 	  && f->sym->as->type != AS_ASSUMED_SIZE
@@ -1456,7 +1460,7 @@ create_function_arglist (gfc_symbol * sym)
 
       /* Fill in arg stuff.  */
       DECL_CONTEXT (parm) = fndecl;
-      DECL_ARG_TYPE (parm) = TREE_VALUE (typelist);
+      DECL_ARG_TYPE (parm) = nth_parm_type (typelist, skip);
       /* All implementation args are read-only.  */
       TREE_READONLY (parm) = 1;
 
@@ -1465,13 +1469,13 @@ create_function_arglist (gfc_symbol * sym)
       f->sym->backend_decl = parm;
 
       arglist = chainon (arglist, parm);
-      typelist = TREE_CHAIN (typelist);
+      skip++;
     }
 
   /* Add the hidden string length parameters.  */
   arglist = chainon (arglist, hidden_arglist);
 
-  gcc_assert (TREE_VALUE (hidden_typelist) == void_type_node);
+  gcc_assert (nth_parm_type (hidden_typelist, hidden) == void_type_node);
   DECL_ARGUMENTS (fndecl) = arglist;
 }
 

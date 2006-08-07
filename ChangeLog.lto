@@ -3,6 +3,9 @@
 	* gcc/cp/tree.c (copy_type_arg_types_skip): New.
 	* gcc/cp/cp-tree.h: Add a prototype for copy_type_arg_types_skip.
 
+	* gcc/fortran/trans-decl.c (create_function_arglist): Use
+	num_parm_types and nth_parm_type.
+
 2006-08-07  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree.c (substitute_in_expr, substitute_placeholder_in_expr):
