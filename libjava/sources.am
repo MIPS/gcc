@@ -646,14 +646,10 @@ classpath/gnu/java/awt/dnd/peer/gtk/GtkDragSourceContextPeer.java \
 classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetContextPeer.java \
 classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetPeer.java
 
-gnu_java_awt_dnd_peer_gtk_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_dnd_peer_gtk_source_files)))
-
-gnu/java/awt/dnd/peer/gtk.list: $(gnu_java_awt_dnd_peer_gtk_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/awt/dnd/peer/gtk/*.class > gnu/java/awt/dnd/peer/gtk.list
-
--include gnu/java/awt/dnd/peer/gtk.deps
-
+gnu-java-awt-dnd-peer-gtk.lo: $(gnu_java_awt_dnd_peer_gtk_source_files)
+	@find classpath/lib/gnu/java/awt/dnd/peer/gtk -name '*.class' > gnu-java-awt-dnd-peer-gtk.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-dnd-peer-gtk.lo @gnu-java-awt-dnd-peer-gtk.list
+	@rm -f gnu-java-awt-dnd-peer-gtk.list
 
 gnu_java_awt_font_source_files = \
 classpath/gnu/java/awt/font/FontDelegate.java \
@@ -2116,14 +2112,10 @@ gnu/java/util/prefs.list: $(gnu_java_util_prefs_source_files)
 gnu_java_util_prefs_gconf_source_files = \
 classpath/gnu/java/util/prefs/gconf/GConfNativePeer.java
 
-gnu_java_util_prefs_gconf_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_util_prefs_gconf_source_files)))
-
-gnu/java/util/prefs/gconf.list: $(gnu_java_util_prefs_gconf_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/util/prefs/gconf/*.class > gnu/java/util/prefs/gconf.list
-
--include gnu/java/util/prefs/gconf.deps
-
+gnu-java-util-prefs-gconf.lo: $(gnu_java_util_prefs_gconf_source_files)
+	@find classpath/lib/gnu/java/util/prefs/gconf -name '*.class' > gnu-java-util-prefs-gconf.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-util-prefs-gconf.lo @gnu-java-util-prefs-gconf.list
+	@rm -f gnu-java-util-prefs-gconf.list
 
 gnu_java_util_regex_source_files = \
 classpath/gnu/java/util/regex/BacktrackStack.java \
@@ -7985,7 +7977,6 @@ all_packages_source_files = \
   gnu/java/awt.list \
   gnu/java/awt/color.list \
   gnu/java/awt/dnd.list \
-  gnu/java/awt/dnd/peer/gtk.list \
   gnu/java/awt/font.list \
   gnu/java/awt/font/opentype.list \
   gnu/java/awt/font/opentype/truetype.list \
@@ -8042,7 +8033,6 @@ all_packages_source_files = \
   gnu/java/util.list \
   gnu/java/util/jar.list \
   gnu/java/util/prefs.list \
-  gnu/java/util/prefs/gconf.list \
   gnu/java/util/regex.list \
   gnu/javax/crypto.list \
   gnu/javax/crypto/assembly.list \
@@ -8222,7 +8212,6 @@ ordinary_header_files = \
   $(gnu_java_awt_header_files) \
   $(gnu_java_awt_color_header_files) \
   $(gnu_java_awt_dnd_header_files) \
-  $(gnu_java_awt_dnd_peer_gtk_header_files) \
   $(gnu_java_awt_font_header_files) \
   $(gnu_java_awt_font_opentype_header_files) \
   $(gnu_java_awt_font_opentype_truetype_header_files) \
@@ -8279,7 +8268,6 @@ ordinary_header_files = \
   $(gnu_java_util_header_files) \
   $(gnu_java_util_jar_header_files) \
   $(gnu_java_util_prefs_header_files) \
-  $(gnu_java_util_prefs_gconf_header_files) \
   $(gnu_java_util_regex_header_files) \
   $(gnu_javax_crypto_header_files) \
   $(gnu_javax_crypto_assembly_header_files) \
@@ -8439,9 +8427,11 @@ ordinary_header_files = \
 
 bc_objects = \
   gnu-CORBA.lo \
+  gnu-java-awt-dnd-peer-gtk.lo \
   gnu-java-awt-peer-gtk.lo \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
+  gnu-java-util-prefs-gconf.lo \
   gnu-javax-rmi.lo \
   gnu-javax-sound-midi.lo \
   gnu-xml.lo \

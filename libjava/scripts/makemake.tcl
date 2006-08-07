@@ -49,9 +49,11 @@ set package_map(gnu/xml) bc
 set package_map(javax/imageio) bc
 set package_map(javax/xml) bc
 set package_map(gnu/java/beans) bc
+set package_map(gnu/java/awt/dnd/peer/gtk) bc
 set package_map(gnu/java/awt/peer/gtk) bc
 set package_map(gnu/java/awt/peer/qt) bc
 set package_map(gnu/java/awt/peer/x) bc
+set package_map(gnu/java/util/prefs/gconf) bc
 set package_map(gnu/javax/sound/midi) bc
 set package_map(org/xml) bc
 set package_map(org/w3c) bc

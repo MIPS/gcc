@@ -149,8 +149,8 @@ am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/classpath/jdwp/transport.lo gnu/classpath/jdwp/util.lo \
 	gnu/gcj.lo gnu/gcj/convert.lo gnu/gcj/io.lo gnu/gcj/runtime.lo \
 	gnu/gcj/util.lo gnu/java/awt.lo gnu/java/awt/color.lo \
-	gnu/java/awt/dnd.lo gnu/java/awt/dnd/peer/gtk.lo \
-	gnu/java/awt/font.lo gnu/java/awt/font/opentype.lo \
+	gnu/java/awt/dnd.lo gnu/java/awt/font.lo \
+	gnu/java/awt/font/opentype.lo \
 	gnu/java/awt/font/opentype/truetype.lo gnu/java/awt/image.lo \
 	gnu/java/awt/java2d.lo gnu/java/awt/peer.lo \
 	gnu/java/awt/print.lo gnu/java/io.lo gnu/java/lang.lo \
@@ -176,18 +176,18 @@ am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/java/security/util.lo gnu/java/security/x509.lo \
 	gnu/java/security/x509/ext.lo gnu/java/text.lo \
 	gnu/java/util.lo gnu/java/util/jar.lo gnu/java/util/prefs.lo \
-	gnu/java/util/prefs/gconf.lo gnu/java/util/regex.lo \
-	gnu/javax/crypto.lo gnu/javax/crypto/assembly.lo \
-	gnu/javax/crypto/cipher.lo gnu/javax/crypto/jce.lo \
-	gnu/javax/crypto/jce/cipher.lo gnu/javax/crypto/jce/key.lo \
-	gnu/javax/crypto/jce/keyring.lo gnu/javax/crypto/jce/mac.lo \
-	gnu/javax/crypto/jce/params.lo gnu/javax/crypto/jce/prng.lo \
-	gnu/javax/crypto/jce/sig.lo gnu/javax/crypto/jce/spec.lo \
-	gnu/javax/crypto/key.lo gnu/javax/crypto/key/dh.lo \
-	gnu/javax/crypto/key/srp6.lo gnu/javax/crypto/keyring.lo \
-	gnu/javax/crypto/mac.lo gnu/javax/crypto/mode.lo \
-	gnu/javax/crypto/pad.lo gnu/javax/crypto/prng.lo \
-	gnu/javax/crypto/sasl.lo gnu/javax/crypto/sasl/anonymous.lo \
+	gnu/java/util/regex.lo gnu/javax/crypto.lo \
+	gnu/javax/crypto/assembly.lo gnu/javax/crypto/cipher.lo \
+	gnu/javax/crypto/jce.lo gnu/javax/crypto/jce/cipher.lo \
+	gnu/javax/crypto/jce/key.lo gnu/javax/crypto/jce/keyring.lo \
+	gnu/javax/crypto/jce/mac.lo gnu/javax/crypto/jce/params.lo \
+	gnu/javax/crypto/jce/prng.lo gnu/javax/crypto/jce/sig.lo \
+	gnu/javax/crypto/jce/spec.lo gnu/javax/crypto/key.lo \
+	gnu/javax/crypto/key/dh.lo gnu/javax/crypto/key/srp6.lo \
+	gnu/javax/crypto/keyring.lo gnu/javax/crypto/mac.lo \
+	gnu/javax/crypto/mode.lo gnu/javax/crypto/pad.lo \
+	gnu/javax/crypto/prng.lo gnu/javax/crypto/sasl.lo \
+	gnu/javax/crypto/sasl/anonymous.lo \
 	gnu/javax/crypto/sasl/crammd5.lo \
 	gnu/javax/crypto/sasl/plain.lo gnu/javax/crypto/sasl/srp.lo \
 	gnu/javax/imageio/bmp.lo gnu/javax/imageio/gif.lo \
@@ -249,11 +249,12 @@ am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	javax/swing/undo.lo javax/transaction.lo \
 	javax/transaction/xa.lo org/ietf/jgss.lo sun/misc.lo \
 	sun/reflect.lo sun/reflect/annotation.lo sun/reflect/misc.lo
-am__DEPENDENCIES_2 = gnu-CORBA.lo gnu-java-awt-peer-gtk.lo \
-	gnu-java-awt-peer-swing.lo gnu-java-beans.lo gnu-javax-rmi.lo \
-	gnu-javax-sound-midi.lo gnu-xml.lo javax-imageio.lo \
-	javax-rmi.lo javax-xml.lo org-omg.lo org-relaxng.lo org-w3c.lo \
-	org-xml.lo
+am__DEPENDENCIES_2 = gnu-CORBA.lo gnu-java-awt-dnd-peer-gtk.lo \
+	gnu-java-awt-peer-gtk.lo gnu-java-awt-peer-swing.lo \
+	gnu-java-beans.lo gnu-java-util-prefs-gconf.lo \
+	gnu-javax-rmi.lo gnu-javax-sound-midi.lo gnu-xml.lo \
+	javax-imageio.lo javax-rmi.lo javax-xml.lo org-omg.lo \
+	org-relaxng.lo org-w3c.lo org-xml.lo
 am__DEPENDENCIES_3 = $(patsubst classpath/resource/%,%,$(addsuffix \
 	.lo,$(property_files)))
 am__DEPENDENCIES_4 =
@@ -1284,7 +1285,6 @@ classpath/gnu/java/awt/dnd/peer/gtk/GtkDragSourceContextPeer.java \
 classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetContextPeer.java \
 classpath/gnu/java/awt/dnd/peer/gtk/GtkDropTargetPeer.java
 
-gnu_java_awt_dnd_peer_gtk_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_dnd_peer_gtk_source_files)))
 gnu_java_awt_font_source_files = \
 classpath/gnu/java/awt/font/FontDelegate.java \
 classpath/gnu/java/awt/font/FontFactory.java \
@@ -2273,7 +2273,6 @@ gnu_java_util_prefs_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.
 gnu_java_util_prefs_gconf_source_files = \
 classpath/gnu/java/util/prefs/gconf/GConfNativePeer.java
 
-gnu_java_util_prefs_gconf_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_util_prefs_gconf_source_files)))
 gnu_java_util_regex_source_files = \
 classpath/gnu/java/util/regex/BacktrackStack.java \
 classpath/gnu/java/util/regex/CharIndexed.java \
@@ -6835,7 +6834,6 @@ all_packages_source_files = \
   gnu/java/awt.list \
   gnu/java/awt/color.list \
   gnu/java/awt/dnd.list \
-  gnu/java/awt/dnd/peer/gtk.list \
   gnu/java/awt/font.list \
   gnu/java/awt/font/opentype.list \
   gnu/java/awt/font/opentype/truetype.list \
@@ -6892,7 +6890,6 @@ all_packages_source_files = \
   gnu/java/util.list \
   gnu/java/util/jar.list \
   gnu/java/util/prefs.list \
-  gnu/java/util/prefs/gconf.list \
   gnu/java/util/regex.list \
   gnu/javax/crypto.list \
   gnu/javax/crypto/assembly.list \
@@ -7072,7 +7069,6 @@ ordinary_header_files = \
   $(gnu_java_awt_header_files) \
   $(gnu_java_awt_color_header_files) \
   $(gnu_java_awt_dnd_header_files) \
-  $(gnu_java_awt_dnd_peer_gtk_header_files) \
   $(gnu_java_awt_font_header_files) \
   $(gnu_java_awt_font_opentype_header_files) \
   $(gnu_java_awt_font_opentype_truetype_header_files) \
@@ -7129,7 +7125,6 @@ ordinary_header_files = \
   $(gnu_java_util_header_files) \
   $(gnu_java_util_jar_header_files) \
   $(gnu_java_util_prefs_header_files) \
-  $(gnu_java_util_prefs_gconf_header_files) \
   $(gnu_java_util_regex_header_files) \
   $(gnu_javax_crypto_header_files) \
   $(gnu_javax_crypto_assembly_header_files) \
@@ -7289,9 +7284,11 @@ ordinary_header_files = \
 
 bc_objects = \
   gnu-CORBA.lo \
+  gnu-java-awt-dnd-peer-gtk.lo \
   gnu-java-awt-peer-gtk.lo \
   gnu-java-awt-peer-swing.lo \
   gnu-java-beans.lo \
+  gnu-java-util-prefs-gconf.lo \
   gnu-javax-rmi.lo \
   gnu-javax-sound-midi.lo \
   gnu-xml.lo \
@@ -9262,11 +9259,10 @@ gnu/java/awt/dnd.list: $(gnu_java_awt_dnd_source_files)
 
 -include gnu/java/awt/dnd.deps
 
-gnu/java/awt/dnd/peer/gtk.list: $(gnu_java_awt_dnd_peer_gtk_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/awt/dnd/peer/gtk/*.class > gnu/java/awt/dnd/peer/gtk.list
-
--include gnu/java/awt/dnd/peer/gtk.deps
+gnu-java-awt-dnd-peer-gtk.lo: $(gnu_java_awt_dnd_peer_gtk_source_files)
+	@find classpath/lib/gnu/java/awt/dnd/peer/gtk -name '*.class' > gnu-java-awt-dnd-peer-gtk.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-dnd-peer-gtk.lo @gnu-java-awt-dnd-peer-gtk.list
+	@rm -f gnu-java-awt-dnd-peer-gtk.list
 
 gnu/java/awt/font.list: $(gnu_java_awt_font_source_files)
 	@$(mkinstalldirs) $(dir $@)
@@ -9629,11 +9625,10 @@ gnu/java/util/prefs.list: $(gnu_java_util_prefs_source_files)
 
 -include gnu/java/util/prefs.deps
 
-gnu/java/util/prefs/gconf.list: $(gnu_java_util_prefs_gconf_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/util/prefs/gconf/*.class > gnu/java/util/prefs/gconf.list
-
--include gnu/java/util/prefs/gconf.deps
+gnu-java-util-prefs-gconf.lo: $(gnu_java_util_prefs_gconf_source_files)
+	@find classpath/lib/gnu/java/util/prefs/gconf -name '*.class' > gnu-java-util-prefs-gconf.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-util-prefs-gconf.lo @gnu-java-util-prefs-gconf.list
+	@rm -f gnu-java-util-prefs-gconf.list
 
 gnu/java/util/regex.list: $(gnu_java_util_regex_source_files)
 	@$(mkinstalldirs) $(dir $@)
