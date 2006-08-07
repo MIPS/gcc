@@ -153,10 +153,10 @@ am__DEPENDENCIES_1 = gnu/awt.lo gnu/awt/j2d.lo gnu/classpath.lo \
 	gnu/java/awt/font.lo gnu/java/awt/font/opentype.lo \
 	gnu/java/awt/font/opentype/truetype.lo gnu/java/awt/image.lo \
 	gnu/java/awt/java2d.lo gnu/java/awt/peer.lo \
-	gnu/java/awt/peer/x.lo gnu/java/awt/print.lo gnu/java/io.lo \
-	gnu/java/lang.lo gnu/java/lang/management.lo \
-	gnu/java/lang/reflect.lo gnu/java/locale.lo gnu/java/math.lo \
-	gnu/java/net.lo gnu/java/net/loader.lo gnu/java/net/local.lo \
+	gnu/java/awt/print.lo gnu/java/io.lo gnu/java/lang.lo \
+	gnu/java/lang/management.lo gnu/java/lang/reflect.lo \
+	gnu/java/locale.lo gnu/java/math.lo gnu/java/net.lo \
+	gnu/java/net/loader.lo gnu/java/net/local.lo \
 	gnu/java/net/protocol/core.lo gnu/java/net/protocol/file.lo \
 	gnu/java/net/protocol/ftp.lo gnu/java/net/protocol/gcjlib.lo \
 	gnu/java/net/protocol/http.lo gnu/java/net/protocol/https.lo \
@@ -589,6 +589,8 @@ VERSION = @VERSION@
 XLIB_AWT_FALSE = @XLIB_AWT_FALSE@
 XLIB_AWT_TRUE = @XLIB_AWT_TRUE@
 XMKMF = @XMKMF@
+X_AWT_FALSE = @X_AWT_FALSE@
+X_AWT_TRUE = @X_AWT_TRUE@
 X_CFLAGS = @X_CFLAGS@
 X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
@@ -1468,7 +1470,6 @@ classpath/gnu/java/awt/peer/x/XLightweightPeer.java \
 classpath/gnu/java/awt/peer/x/XToolkit.java \
 classpath/gnu/java/awt/peer/x/XWindowPeer.java
 
-gnu_java_awt_peer_x_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_peer_x_source_files)))
 gnu_java_awt_print_source_files = \
 classpath/gnu/java/awt/print/JavaPrinterGraphics.java \
 classpath/gnu/java/awt/print/JavaPrinterJob.java \
@@ -6764,7 +6765,6 @@ all_packages_source_files = \
   gnu/java/awt/image.list \
   gnu/java/awt/java2d.list \
   gnu/java/awt/peer.list \
-  gnu/java/awt/peer/x.list \
   gnu/java/awt/print.list \
   gnu/java/io.list \
   gnu/java/lang.list \
@@ -7000,7 +7000,6 @@ ordinary_header_files = \
   $(gnu_java_awt_image_header_files) \
   $(gnu_java_awt_java2d_header_files) \
   $(gnu_java_awt_peer_header_files) \
-  $(gnu_java_awt_peer_x_header_files) \
   $(gnu_java_awt_print_header_files) \
   $(gnu_java_io_header_files) \
   $(gnu_java_lang_header_files) \
@@ -7224,7 +7223,6 @@ bc_objects = \
   org-xml.lo
 
 property_files = \
-  classpath/gnu/java/awt/peer/x/fonts.properties \
   classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle.properties \
   classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle_de.properties \
   classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
@@ -9240,11 +9238,10 @@ gnu-java-awt-peer-swing.lo: $(gnu_java_awt_peer_swing_source_files)
 	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-swing.lo @gnu-java-awt-peer-swing.list
 	@rm -f gnu-java-awt-peer-swing.list
 
-gnu/java/awt/peer/x.list: $(gnu_java_awt_peer_x_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/awt/peer/x/*.class > gnu/java/awt/peer/x.list
-
--include gnu/java/awt/peer/x.deps
+gnu-java-awt-peer-x.lo: $(gnu_java_awt_peer_x_source_files)
+	@find classpath/lib/gnu/java/awt/peer/x -name '*.class' > gnu-java-awt-peer-x.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-x.lo @gnu-java-awt-peer-x.list
+	@rm -f gnu-java-awt-peer-x.list
 
 gnu/java/awt/print.list: $(gnu_java_awt_print_source_files)
 	@$(mkinstalldirs) $(dir $@)

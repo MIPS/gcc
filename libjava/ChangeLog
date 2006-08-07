@@ -1,3 +1,22 @@
+2006-08-07  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* libjava/configure,
+	* libjava/Makefile.in:
+	Regenerated.
+	* libjava/scripts/makemake.tcl:
+	Handle the Escher peers as we handle Qt.
+	* libjava/gcj/Makefile.in:
+	Regenerated.
+	* libjava/configure.ac:
+	Handle Escher peers and disable plugin when Gtk+ is not used.
+	* libjava/sources.am:
+	Regenerated.
+	* libjava/classpath/gnu/java/awt/peer/x/fonts.properties:
+	Removed (as recently on generics branch of Classpath).
+	* libjava/include/Makefile.in,
+	* libjava/testsuite/Makefile.in:
+	Regenerated.
+	
 2006-07-23  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
 	* libjava/Makefile.in:

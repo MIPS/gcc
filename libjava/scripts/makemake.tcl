@@ -51,6 +51,7 @@ set package_map(javax/xml) bc
 set package_map(gnu/java/beans) bc
 set package_map(gnu/java/awt/peer/gtk) bc
 set package_map(gnu/java/awt/peer/qt) bc
+set package_map(gnu/java/awt/peer/x) bc
 set package_map(gnu/javax/sound/midi) bc
 set package_map(org/xml) bc
 set package_map(org/w3c) bc
@@ -249,7 +250,7 @@ proc emit_bc_rule {package} {
 
   # We skip these because they are built into their own libraries and
   # are handled specially in Makefile.am.
-  if {$loname != "gnu-java-awt-peer-qt.lo"} {
+  if {$loname != "gnu-java-awt-peer-qt.lo" && $loname != "gnu-java-awt-peer-x.lo"} {
     lappend bc_objects $loname
   }
 }

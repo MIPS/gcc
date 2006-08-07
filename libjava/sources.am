@@ -904,14 +904,10 @@ classpath/gnu/java/awt/peer/x/XLightweightPeer.java \
 classpath/gnu/java/awt/peer/x/XToolkit.java \
 classpath/gnu/java/awt/peer/x/XWindowPeer.java
 
-gnu_java_awt_peer_x_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_awt_peer_x_source_files)))
-
-gnu/java/awt/peer/x.list: $(gnu_java_awt_peer_x_source_files)
-	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/gnu/java/awt/peer/x/*.class > gnu/java/awt/peer/x.list
-
--include gnu/java/awt/peer/x.deps
-
+gnu-java-awt-peer-x.lo: $(gnu_java_awt_peer_x_source_files)
+	@find classpath/lib/gnu/java/awt/peer/x -name '*.class' > gnu-java-awt-peer-x.list
+	$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o gnu-java-awt-peer-x.lo @gnu-java-awt-peer-x.list
+	@rm -f gnu-java-awt-peer-x.list
 
 gnu_java_awt_print_source_files = \
 classpath/gnu/java/awt/print/JavaPrinterGraphics.java \
@@ -7904,7 +7900,6 @@ all_packages_source_files = \
   gnu/java/awt/image.list \
   gnu/java/awt/java2d.list \
   gnu/java/awt/peer.list \
-  gnu/java/awt/peer/x.list \
   gnu/java/awt/print.list \
   gnu/java/io.list \
   gnu/java/lang.list \
@@ -8140,7 +8135,6 @@ ordinary_header_files = \
   $(gnu_java_awt_image_header_files) \
   $(gnu_java_awt_java2d_header_files) \
   $(gnu_java_awt_peer_header_files) \
-  $(gnu_java_awt_peer_x_header_files) \
   $(gnu_java_awt_print_header_files) \
   $(gnu_java_io_header_files) \
   $(gnu_java_lang_header_files) \
@@ -8364,7 +8358,6 @@ bc_objects = \
   org-xml.lo
 
 property_files = \
-  classpath/gnu/java/awt/peer/x/fonts.properties \
   classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle.properties \
   classpath/resource/gnu/classpath/tools/appletviewer/MessagesBundle_de.properties \
   classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
