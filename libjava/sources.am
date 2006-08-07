@@ -5153,8 +5153,10 @@ java_util_source_files = \
 classpath/java/util/AbstractCollection.java \
 classpath/java/util/AbstractList.java \
 classpath/java/util/AbstractMap.java \
+classpath/external/jsr166/java/util/AbstractQueue.java \
 classpath/java/util/AbstractSequentialList.java \
 classpath/java/util/AbstractSet.java \
+classpath/external/jsr166/java/util/ArrayDeque.java \
 classpath/java/util/ArrayList.java \
 classpath/java/util/Arrays.java \
 classpath/java/util/BitSet.java \
@@ -5165,6 +5167,7 @@ classpath/java/util/Comparator.java \
 classpath/java/util/ConcurrentModificationException.java \
 java/util/Currency.java \
 classpath/java/util/Date.java \
+classpath/external/jsr166/java/util/Deque.java \
 classpath/java/util/Dictionary.java \
 classpath/java/util/DuplicateFormatFlagsException.java \
 classpath/java/util/EmptyStackException.java \
@@ -5204,6 +5207,8 @@ classpath/java/util/Map.java \
 classpath/java/util/MissingFormatArgumentException.java \
 classpath/java/util/MissingFormatWidthException.java \
 classpath/java/util/MissingResourceException.java \
+classpath/external/jsr166/java/util/NavigableMap.java \
+classpath/external/jsr166/java/util/NavigableSet.java \
 classpath/java/util/NoSuchElementException.java \
 classpath/java/util/Observable.java \
 classpath/java/util/Observer.java \
@@ -5212,6 +5217,7 @@ classpath/java/util/Properties.java \
 classpath/java/util/PropertyPermission.java \
 classpath/java/util/PropertyPermissionCollection.java \
 classpath/java/util/PropertyResourceBundle.java \
+classpath/external/jsr166/java/util/Queue.java \
 classpath/java/util/Random.java \
 classpath/java/util/RandomAccess.java \
 java/util/ResourceBundle.java \
@@ -5233,7 +5239,7 @@ java/util/VMTimeZone.java \
 classpath/java/util/Vector.java \
 classpath/java/util/WeakHashMap.java
 
-java_util_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_util_source_files)))
+java_util_header_files = $(patsubst classpath/external/jsr166/%,%,$(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_util_source_files))))
 
 java/util.list: $(java_util_source_files)
 	@$(mkinstalldirs) $(dir $@)
@@ -5243,15 +5249,101 @@ java/util.list: $(java_util_source_files)
 
 
 java_util_concurrent_source_files = \
-classpath/java/util/concurrent/CopyOnWriteArrayList.java
+classpath/external/jsr166/java/util/concurrent/AbstractExecutorService.java \
+classpath/external/jsr166/java/util/concurrent/ArrayBlockingQueue.java \
+classpath/external/jsr166/java/util/concurrent/BlockingDeque.java \
+classpath/external/jsr166/java/util/concurrent/BlockingQueue.java \
+classpath/external/jsr166/java/util/concurrent/BrokenBarrierException.java \
+classpath/external/jsr166/java/util/concurrent/Callable.java \
+classpath/external/jsr166/java/util/concurrent/CancellationException.java \
+classpath/external/jsr166/java/util/concurrent/CompletionService.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentHashMap.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentLinkedQueue.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentMap.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentNavigableMap.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentSkipListMap.java \
+classpath/external/jsr166/java/util/concurrent/ConcurrentSkipListSet.java \
+classpath/java/util/concurrent/CopyOnWriteArrayList.java \
+classpath/external/jsr166/java/util/concurrent/CopyOnWriteArraySet.java \
+classpath/external/jsr166/java/util/concurrent/CountDownLatch.java \
+classpath/external/jsr166/java/util/concurrent/CyclicBarrier.java \
+classpath/external/jsr166/java/util/concurrent/DelayQueue.java \
+classpath/external/jsr166/java/util/concurrent/Delayed.java \
+classpath/external/jsr166/java/util/concurrent/Exchanger.java \
+classpath/external/jsr166/java/util/concurrent/ExecutionException.java \
+classpath/external/jsr166/java/util/concurrent/Executor.java \
+classpath/external/jsr166/java/util/concurrent/ExecutorCompletionService.java \
+classpath/external/jsr166/java/util/concurrent/ExecutorService.java \
+classpath/external/jsr166/java/util/concurrent/Executors.java \
+classpath/external/jsr166/java/util/concurrent/Future.java \
+classpath/external/jsr166/java/util/concurrent/FutureTask.java \
+classpath/external/jsr166/java/util/concurrent/LinkedBlockingDeque.java \
+classpath/external/jsr166/java/util/concurrent/LinkedBlockingQueue.java \
+classpath/external/jsr166/java/util/concurrent/PriorityBlockingQueue.java \
+classpath/external/jsr166/java/util/concurrent/RejectedExecutionException.java \
+classpath/external/jsr166/java/util/concurrent/RejectedExecutionHandler.java \
+classpath/external/jsr166/java/util/concurrent/RunnableFuture.java \
+classpath/external/jsr166/java/util/concurrent/RunnableScheduledFuture.java \
+classpath/external/jsr166/java/util/concurrent/ScheduledExecutorService.java \
+classpath/external/jsr166/java/util/concurrent/ScheduledFuture.java \
+classpath/external/jsr166/java/util/concurrent/ScheduledThreadPoolExecutor.java \
+classpath/external/jsr166/java/util/concurrent/Semaphore.java \
+classpath/external/jsr166/java/util/concurrent/SynchronousQueue.java \
+classpath/external/jsr166/java/util/concurrent/ThreadFactory.java \
+classpath/external/jsr166/java/util/concurrent/ThreadPoolExecutor.java \
+classpath/external/jsr166/java/util/concurrent/TimeUnit.java \
+classpath/external/jsr166/java/util/concurrent/TimeoutException.java
 
-java_util_concurrent_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_util_concurrent_source_files)))
+java_util_concurrent_header_files = $(patsubst classpath/external/jsr166/%,%,$(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_util_concurrent_source_files))))
 
 java/util/concurrent.list: $(java_util_concurrent_source_files)
 	@$(mkinstalldirs) $(dir $@)
 	echo classpath/lib/java/util/concurrent/*.class > java/util/concurrent.list
 
 -include java/util/concurrent.deps
+
+
+java_util_concurrent_atomic_source_files = \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicBoolean.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicInteger.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicIntegerArray.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicIntegerFieldUpdater.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicLong.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicLongArray.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicLongFieldUpdater.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicMarkableReference.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicReference.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicReferenceArray.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java \
+classpath/external/jsr166/java/util/concurrent/atomic/AtomicStampedReference.java
+
+java_util_concurrent_atomic_header_files = $(patsubst classpath/external/jsr166/%,%,$(patsubst %.java,%.h,$(java_util_concurrent_atomic_source_files)))
+
+java/util/concurrent/atomic.list: $(java_util_concurrent_atomic_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/util/concurrent/atomic/*.class > java/util/concurrent/atomic.list
+
+-include java/util/concurrent/atomic.deps
+
+
+java_util_concurrent_locks_source_files = \
+classpath/external/jsr166/java/util/concurrent/locks/AbstractOwnableSynchronizer.java \
+classpath/external/jsr166/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java \
+classpath/external/jsr166/java/util/concurrent/locks/AbstractQueuedSynchronizer.java \
+classpath/external/jsr166/java/util/concurrent/locks/Condition.java \
+classpath/external/jsr166/java/util/concurrent/locks/Lock.java \
+classpath/external/jsr166/java/util/concurrent/locks/LockSupport.java \
+classpath/external/jsr166/java/util/concurrent/locks/ReadWriteLock.java \
+classpath/external/jsr166/java/util/concurrent/locks/ReentrantLock.java \
+classpath/external/jsr166/java/util/concurrent/locks/ReentrantReadWriteLock.java
+
+java_util_concurrent_locks_header_files = $(patsubst classpath/external/jsr166/%,%,$(patsubst %.java,%.h,$(java_util_concurrent_locks_source_files)))
+
+java/util/concurrent/locks.list: $(java_util_concurrent_locks_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/util/concurrent/locks/*.class > java/util/concurrent/locks.list
+
+-include java/util/concurrent/locks.deps
 
 
 java_util_jar_source_files = \
@@ -8046,6 +8138,8 @@ all_packages_source_files = \
   java/text.list \
   java/util.list \
   java/util/concurrent.list \
+  java/util/concurrent/atomic.list \
+  java/util/concurrent/locks.list \
   java/util/jar.list \
   java/util/logging.list \
   java/util/prefs.list \
@@ -8281,6 +8375,8 @@ ordinary_header_files = \
   $(java_text_header_files) \
   $(java_util_header_files) \
   $(java_util_concurrent_header_files) \
+  $(java_util_concurrent_atomic_header_files) \
+  $(java_util_concurrent_locks_header_files) \
   $(java_util_jar_header_files) \
   $(java_util_logging_header_files) \
   $(java_util_prefs_header_files) \

@@ -368,6 +368,7 @@ scan_packages classpath
 scan_packages classpath/external/sax
 scan_packages classpath/external/w3c_dom
 scan_packages classpath/external/relaxngDatatype
+scan_packages classpath/external/jsr166
 # Resource files.
 scan_packages classpath/resource
 # Now scan our own files; this will correctly override decisions made
