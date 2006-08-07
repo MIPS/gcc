@@ -2382,6 +2382,24 @@ fold_if_not_in_template (tree expr)
   return fold (expr);
 }
 
+/* Build a new type list by dropping the first N types from
+   PARM_TYPES.  */
+
+tree
+copy_type_arg_types_skip (tree parm_types, int n)
+{
+  int len = num_parm_types (parm_types);
+  VEC(tree,heap) *v = VEC_alloc (tree, heap, len - n);
+  int i;
+
+  for (i = 0; i < len - n; i++)
+    VEC_quick_push (tree, v, nth_parm_type (parm_types, n + i));
+
+  parm_types = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
+  return parm_types;
+}
+
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 /* Complain that some language-specific thing hanging off a tree
