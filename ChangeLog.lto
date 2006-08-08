@@ -1,5 +1,21 @@
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/config/arm/arm.c (arm_expand_binop_builtin): Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(arm_expand_unop_builtin): Likewise.
+	(arm_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+
+	* gcc/config/bfin/bfin.c (bfin_expand_binop_builtin): Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(bfin_expand_unop_builtin): Likewise.
+	(bfin_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/config/rs6000/rs6000.c (rs6000_expand_unop_builtin: Pass entire
 	CALL_EXPR instead of arglist; use new accessor macros to extract
 	the arguments.  Changed callers.
