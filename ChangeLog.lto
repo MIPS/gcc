@@ -1,5 +1,21 @@
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/config/i386/i386.c (ix86_expand_binop_builtin): Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(ix86_expand_store_builtin): Likewise.
+	(ix86_expand_unop_builtin): Likewise.
+	(ix86_expand_unop1_builtin): Likewise.
+	(ix86_expand_sse_compare): Likewise.
+	(ix86_expand_sse_comi): Likewise.
+	(ix86_expand_vec_init_builtin): Likewise.
+	(ix86_expand_vec_ext_builtin): Likewise.
+	(ix86_expand_vec_set_builtin): Likewise.
+	(ix86_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/gimplify.c (gimplify_call_expr): Use CALL_EXPR_FN.
 
 2006-08-08  Kazu Hirata  <kazu@codesourcery.com>
