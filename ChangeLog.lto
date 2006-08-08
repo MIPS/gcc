@@ -1,3 +1,7 @@
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/gimplify.c (gimplify_call_expr): Use CALL_EXPR_FN.
+
 2006-08-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/config/i386/i386.c (ix86_init_mmx_sse_builtins): Use

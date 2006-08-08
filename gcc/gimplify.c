@@ -2020,7 +2020,7 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   /* There is a sequence point before the call, so any side effects in
      the calling expression must occur before the actual call.  Force
      gimplify_expr to use an internal post queue.  */
-  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, NULL,
+  ret = gimplify_expr (&CALL_EXPR_FN (*expr_p), pre_p, NULL,
 		       is_gimple_call_addr, fb_rvalue);
 
   nargs = call_expr_nargs (*expr_p);
