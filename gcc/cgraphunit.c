@@ -1496,7 +1496,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   name = get_file_function_name_long (which_buf);
 
   decl = build_decl (FUNCTION_DECL, name,
-		     build_function_type (void_type_node, void_list_node));
+		     build_function_type_list (void_type_node, NULL_TREE));
   current_function_decl = decl;
 
   resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);

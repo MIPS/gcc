@@ -6674,15 +6674,15 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
 void
 build_common_builtin_nodes (void)
 {
-  tree tmp, ftype;
+  tree ftype;
 
   if (built_in_decls[BUILT_IN_MEMCPY] == NULL
       || built_in_decls[BUILT_IN_MEMMOVE] == NULL)
     {
-      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
-      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-      ftype = build_function_type (ptr_type_node, tmp);
+      ftype = build_function_type_list (ptr_type_node,
+					ptr_type_node,
+					const_ptr_type_node,
+					size_type_node, NULL_TREE);
 
       if (built_in_decls[BUILT_IN_MEMCPY] == NULL)
 	local_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
@@ -6694,66 +6694,66 @@ build_common_builtin_nodes (void)
 
   if (built_in_decls[BUILT_IN_MEMCMP] == NULL)
     {
-      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
-      tmp = tree_cons (NULL_TREE, const_ptr_type_node, tmp);
-      ftype = build_function_type (integer_type_node, tmp);
+      ftype = build_function_type_list (integer_type_node,
+					const_ptr_type_node,
+					const_ptr_type_node,
+					size_type_node, NULL_TREE);
       local_define_builtin ("__builtin_memcmp", ftype, BUILT_IN_MEMCMP,
 			    "memcmp", ECF_PURE | ECF_NOTHROW);
     }
 
   if (built_in_decls[BUILT_IN_MEMSET] == NULL)
     {
-      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-      tmp = tree_cons (NULL_TREE, integer_type_node, tmp);
-      tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-      ftype = build_function_type (ptr_type_node, tmp);
+      ftype = build_function_type_list (ptr_type_node,
+					ptr_type_node,
+					integer_type_node,
+					size_type_node, NULL_TREE);
       local_define_builtin ("__builtin_memset", ftype, BUILT_IN_MEMSET,
 			    "memset", ECF_NOTHROW);
     }
 
   if (built_in_decls[BUILT_IN_ALLOCA] == NULL)
     {
-      tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-      ftype = build_function_type (ptr_type_node, tmp);
+      ftype = build_function_type_list (ptr_type_node,
+					size_type_node, NULL_TREE);
       local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
 			    "alloca", ECF_NOTHROW | ECF_MALLOC);
     }
 
-  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-  ftype = build_function_type (void_type_node, tmp);
+  ftype = build_function_type_list (void_type_node,
+				    ptr_type_node,
+				    ptr_type_node,
+				    ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_init_trampoline", ftype,
 			BUILT_IN_INIT_TRAMPOLINE,
 			"__builtin_init_trampoline", ECF_NOTHROW);
 
-  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-  ftype = build_function_type (ptr_type_node, tmp);
+  ftype = build_function_type_list (ptr_type_node,
+				    ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_adjust_trampoline", ftype,
 			BUILT_IN_ADJUST_TRAMPOLINE,
 			"__builtin_adjust_trampoline",
 			ECF_CONST | ECF_NOTHROW);
 
-  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-  ftype = build_function_type (void_type_node, tmp);
+  ftype = build_function_type_list (void_type_node,
+				    ptr_type_node,
+				    ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_nonlocal_goto", ftype,
 			BUILT_IN_NONLOCAL_GOTO,
 			"__builtin_nonlocal_goto",
 			ECF_NORETURN | ECF_NOTHROW);
 
-  ftype = build_function_type (ptr_type_node, void_list_node);
+  ftype = build_function_type_list (ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 			"__builtin_stack_save", ECF_NOTHROW);
 
-  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-  ftype = build_function_type (void_type_node, tmp);
+  ftype = build_function_type_list (void_type_node,
+				    ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_stack_restore", ftype,
 			BUILT_IN_STACK_RESTORE,
 			"__builtin_stack_restore", ECF_NOTHROW);
 
-  ftype = build_function_type (void_type_node, void_list_node);
+  ftype = build_function_type_list (void_type_node, NULL_TREE);
   local_define_builtin ("__builtin_profile_func_enter", ftype,
 			BUILT_IN_PROFILE_FUNC_ENTER, "profile_func_enter", 0);
   local_define_builtin ("__builtin_profile_func_exit", ftype,
@@ -6778,11 +6778,11 @@ build_common_builtin_nodes (void)
 	  continue;
 	inner_type = TREE_TYPE (type);
 
-	tmp = tree_cons (NULL_TREE, inner_type, void_list_node);
-	tmp = tree_cons (NULL_TREE, inner_type, tmp);
-	tmp = tree_cons (NULL_TREE, inner_type, tmp);
-	tmp = tree_cons (NULL_TREE, inner_type, tmp);
-	ftype = build_function_type (type, tmp);
+	ftype = build_function_type_list (type,
+					  inner_type,
+					  inner_type,
+					  inner_type,
+					  inner_type, NULL_TREE);
 
         mcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
         dcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
