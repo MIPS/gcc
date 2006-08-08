@@ -802,18 +802,15 @@ gfc_define_builtin (const char * name,
 static void
 build_builtin_fntypes (tree * fntype, tree type)
 {
-  tree tmp;
-
   /* type (*) (type) */
-  tmp = tree_cons (NULL_TREE, type, void_list_node);
-  fntype[0] = build_function_type (type, tmp);
+  fntype[0] = build_function_type_list (type, type, NULL_TREE);
   /* type (*) (type, type) */
-  tmp = tree_cons (NULL_TREE, type, tmp);
-  fntype[1] = build_function_type (type, tmp);
-  /* type (*) (int, type) */
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, type, tmp);
-  fntype[2] = build_function_type (type, tmp);
+  fntype[1] = build_function_type_list (type,
+					type, type, NULL_TREE);
+  /* type (*) (type, int) */
+  fntype[2] = build_function_type_list (type,
+					type, integer_type_node,
+					NULL_TREE);
 }
 
 static tree
@@ -873,7 +870,6 @@ gfc_init_builtin_functions (void)
   tree func_cdouble_double;
   tree func_clongdouble_longdouble;
   tree ftype;
-  tree tmp;
   tree builtin_types[(int) BT_LAST + 1];
 
   build_builtin_fntypes (mfunc_float, float_type_node);
@@ -883,15 +879,18 @@ gfc_init_builtin_functions (void)
   build_builtin_fntypes (mfunc_cdouble, complex_double_type_node);
   build_builtin_fntypes (mfunc_clongdouble, complex_long_double_type_node);
 
-  tmp = tree_cons (NULL_TREE, complex_float_type_node, void_list_node);
-  func_cfloat_float = build_function_type (float_type_node, tmp);
+  func_cfloat_float = build_function_type_list (float_type_node,
+						complex_float_type_node,
+						NULL_TREE);
 
-  tmp = tree_cons (NULL_TREE, complex_double_type_node, void_list_node);
-  func_cdouble_double = build_function_type (double_type_node, tmp);
+  func_cdouble_double = build_function_type_list (double_type_node,
+						  complex_double_type_node,
+						  NULL_TREE);
 
-  tmp = tree_cons (NULL_TREE, complex_long_double_type_node, void_list_node);
   func_clongdouble_longdouble =
-    build_function_type (long_double_type_node, tmp);
+    build_function_type_list (long_double_type_node,
+			      complex_long_double_type_node,
+			      NULL_TREE);
 
 #include "mathbuiltins.def"
 
@@ -935,131 +934,91 @@ gfc_init_builtin_functions (void)
 
   /* Other builtin functions we use.  */
 
-  tmp = tree_cons (NULL_TREE, integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
+  ftype = build_function_type_list (integer_type_node,
+				    integer_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_clz", ftype, BUILT_IN_CLZ,
 		      "__builtin_clz", true);
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
+  ftype = build_function_type_list (integer_type_node,
+				    long_integer_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_clzl", ftype, BUILT_IN_CLZL,
 		      "__builtin_clzl", true);
 
-  tmp = tree_cons (NULL_TREE, long_long_integer_type_node, void_list_node);
-  ftype = build_function_type (integer_type_node, tmp);
+  ftype = build_function_type_list (integer_type_node,
+				    long_long_integer_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL,
 		      "__builtin_clzll", true);
 
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, long_integer_type_node, tmp);
-  ftype = build_function_type (long_integer_type_node, tmp);
+  ftype = build_function_type_list (long_integer_type_node,
+				    long_integer_type_node,
+				    long_integer_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_expect", ftype, BUILT_IN_EXPECT,
 		      "__builtin_expect", true);
 
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
   builtin_types[(int) ENUM] = VALUE;
-#define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
-  builtin_types[(int) ENUM]				\
-    = build_function_type (builtin_types[(int) RETURN],	\
-			   void_list_node);
-#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1)				\
-  builtin_types[(int) ENUM]						\
-    = build_function_type (builtin_types[(int) RETURN],			\
-			   tree_cons (NULL_TREE,			\
-				      builtin_types[(int) ARG1],	\
-				      void_list_node));
-#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2)	\
-  builtin_types[(int) ENUM]				\
-    = build_function_type				\
-      (builtin_types[(int) RETURN],			\
-       tree_cons (NULL_TREE,				\
-		  builtin_types[(int) ARG1],		\
-		  tree_cons (NULL_TREE,			\
-			     builtin_types[(int) ARG2],	\
-			     void_list_node)));
-#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3)		 \
-  builtin_types[(int) ENUM]						 \
-    = build_function_type						 \
-      (builtin_types[(int) RETURN],					 \
-       tree_cons (NULL_TREE,						 \
-		  builtin_types[(int) ARG1],				 \
-		  tree_cons (NULL_TREE,					 \
-			     builtin_types[(int) ARG2],			 \
-			     tree_cons (NULL_TREE,			 \
-					builtin_types[(int) ARG3],	 \
-					void_list_node))));
+#define DEF_FUNCTION_TYPE_0(ENUM, RETURN)			\
+  builtin_types[(int) ENUM]					\
+    = build_function_type_list (builtin_types[(int) RETURN],	\
+				NULL_TREE);
+#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1)			\
+  builtin_types[(int) ENUM]					\
+    = build_function_type_list (builtin_types[(int) RETURN],	\
+				builtin_types[(int) ARG1],	\
+				NULL_TREE);
+#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2)		\
+  builtin_types[(int) ENUM]					\
+    = build_function_type_list (builtin_types[(int) RETURN],	\
+				builtin_types[(int) ARG1],	\
+				builtin_types[(int) ARG2],	\
+				NULL_TREE);
+#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3)	\
+  builtin_types[(int) ENUM]					\
+    = build_function_type_list (builtin_types[(int) RETURN],	\
+				builtin_types[(int) ARG1],	\
+				builtin_types[(int) ARG2],	\
+				builtin_types[(int) ARG3],	\
+				NULL_TREE);
 #define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG4],	\
-					 void_list_node)))));
+    = build_function_type_list (builtin_types[(int) RETURN],		\
+				builtin_types[(int) ARG1],		\
+				builtin_types[(int) ARG2],		\
+				builtin_types[(int) ARG3],		\
+				builtin_types[(int) ARG4],		\
+				NULL_TREE);
 #define DEF_FUNCTION_TYPE_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)	\
   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG4],	\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG5],\
-					      void_list_node))))));
-#define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-			    ARG6)					\
+    = build_function_type_list (builtin_types[(int) RETURN],		\
+				builtin_types[(int) ARG1],		\
+				builtin_types[(int) ARG2],		\
+				builtin_types[(int) ARG3],		\
+				builtin_types[(int) ARG4],		\
+				builtin_types[(int) ARG5],		\
+				NULL_TREE);
+#define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4,	\
+			    ARG5, ARG6)					\
   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons					\
-			      (NULL_TREE,				\
-			       builtin_types[(int) ARG4],		\
-			       tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG5],	\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG6],\
-					      void_list_node)))))));
-#define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-			    ARG6, ARG7)					\
+    = build_function_type_list (builtin_types[(int) RETURN],		\
+				builtin_types[(int) ARG1],		\
+				builtin_types[(int) ARG2],		\
+				builtin_types[(int) ARG3],		\
+				builtin_types[(int) ARG4],		\
+				builtin_types[(int) ARG5],		\
+				builtin_types[(int) ARG6],		\
+				NULL_TREE);
+#define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4,	\
+			    ARG5, ARG6, ARG7)				\
   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons					\
-			      (NULL_TREE,				\
-			       builtin_types[(int) ARG4],		\
-			       tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG5],	\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG6],\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG6], \
-					      void_list_node))))))));
+    = build_function_type_list (builtin_types[(int) RETURN],		\
+				builtin_types[(int) ARG1],		\
+				builtin_types[(int) ARG2],		\
+				builtin_types[(int) ARG3],		\
+				builtin_types[(int) ARG4],		\
+				builtin_types[(int) ARG5],		\
+				builtin_types[(int) ARG6],		\
+				builtin_types[(int) ARG7],		\
+				NULL_TREE);
 #define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)				\
   builtin_types[(int) ENUM]						\
     = build_function_type (builtin_types[(int) RETURN], NULL_TREE);
