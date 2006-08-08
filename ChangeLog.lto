@@ -1,5 +1,36 @@
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/config/rs6000/rs6000.c (rs6000_expand_unop_builtin: Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(altivec_expand_abs_builtin): Likewise.
+	(rs6000_expand_binop_builtin): Likewise.
+	(altivec_expand_predicate_builtin): Likewise.
+	(altivec_expand_lv_builtin): Likewise.
+	(spe_expand_stv_builtin): Likewise.
+	(altivec_expand_stv_builtin): Likewise.
+	(rs6000_expand_ternop_builtin): Likewise.
+	(altivec_expand_ld_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+	(altivec_expand_st_builtin): Likewise.
+	(altivec_expand_dst_builtin): Likewise.
+	(altivec_expand_vec_init_builtin):  Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(altivec_expand_vec_set_builtin): Likewise.
+	(altivec_expand_vec_ext_builtin): Likewise.
+	(altivec_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+	(spe_expand_builtin): Likewise.
+	(spe_expand_predicate_builtin): Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(spe_expand_evsel_builtin): Likewise.
+	(rs6000_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/config/iq2000/iq2000.c (expand_one_builtin): Pass entire
 	CALL_EXPR instead of arglist; use new accessor macros to extract
 	the arguments.  Changed callers.

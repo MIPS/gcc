@@ -6634,10 +6634,10 @@ static struct builtin_description bdesc_1arg[] =
 };
 
 static rtx
-rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
+rs6000_expand_unop_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
+  tree arg0 = CALL_EXPR_ARG0 (exp);
   rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
@@ -6683,10 +6683,10 @@ rs6000_expand_unop_builtin (enum insn_code icode, tree arglist, rtx target)
 }
 
 static rtx
-altivec_expand_abs_builtin (enum insn_code icode, tree arglist, rtx target)
+altivec_expand_abs_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat, scratch1, scratch2;
-  tree arg0 = TREE_VALUE (arglist);
+  tree arg0 = CALL_EXPR_ARG0 (exp);
   rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
@@ -6715,11 +6715,11 @@ altivec_expand_abs_builtin (enum insn_code icode, tree arglist, rtx target)
 }
 
 static rtx
-rs6000_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
+rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
@@ -6789,12 +6789,12 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
 
 static rtx
 altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
-				  tree arglist, rtx target)
+				  tree exp, rtx target)
 {
   rtx pat, scratch;
-  tree cr6_form = TREE_VALUE (arglist);
-  tree arg0 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg1 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree cr6_form = CALL_EXPR_ARG0 (exp);
+  tree arg0 = CALL_EXPR_ARG1 (exp);
+  tree arg1 = CALL_EXPR_ARG2 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = SImode;
@@ -6865,11 +6865,11 @@ altivec_expand_predicate_builtin (enum insn_code icode, const char *opcode,
 }
 
 static rtx
-altivec_expand_lv_builtin (enum insn_code icode, tree arglist, rtx target)
+altivec_expand_lv_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat, addr;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = Pmode;
   enum machine_mode mode1 = Pmode;
@@ -6911,11 +6911,11 @@ altivec_expand_lv_builtin (enum insn_code icode, tree arglist, rtx target)
 }
 
 static rtx
-spe_expand_stv_builtin (enum insn_code icode, tree arglist)
+spe_expand_stv_builtin (enum insn_code icode, tree exp)
 {
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
+  tree arg2 = CALL_EXPR_ARG2 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
@@ -6944,11 +6944,11 @@ spe_expand_stv_builtin (enum insn_code icode, tree arglist)
 }
 
 static rtx
-altivec_expand_stv_builtin (enum insn_code icode, tree arglist)
+altivec_expand_stv_builtin (enum insn_code icode, tree exp)
 {
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
+  tree arg2 = CALL_EXPR_ARG2 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
@@ -6985,12 +6985,12 @@ altivec_expand_stv_builtin (enum insn_code icode, tree arglist)
 }
 
 static rtx
-rs6000_expand_ternop_builtin (enum insn_code icode, tree arglist, rtx target)
+rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
+  tree arg2 = CALL_EXPR_ARG2 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
@@ -7048,8 +7048,7 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree arglist, rtx target)
 static rtx
 altivec_expand_ld_builtin (tree exp, rtx target, bool *expandedp)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arg0;
   enum machine_mode tmode, mode0;
@@ -7077,7 +7076,7 @@ altivec_expand_ld_builtin (tree exp, rtx target, bool *expandedp)
 
   *expandedp = true;
 
-  arg0 = TREE_VALUE (arglist);
+  arg0 = CALL_EXPR_ARG0 (exp);
   op0 = expand_normal (arg0);
   tmode = insn_data[icode].operand[0].mode;
   mode0 = insn_data[icode].operand[1].mode;
@@ -7102,8 +7101,7 @@ static rtx
 altivec_expand_st_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 			   bool *expandedp)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arg0, arg1;
   enum machine_mode mode0, mode1;
@@ -7129,8 +7127,8 @@ altivec_expand_st_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       return NULL_RTX;
     }
 
-  arg0 = TREE_VALUE (arglist);
-  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  arg0 = CALL_EXPR_ARG0 (exp);
+  arg1 = CALL_EXPR_ARG1 (exp);
   op0 = expand_normal (arg0);
   op1 = expand_normal (arg1);
   mode0 = insn_data[icode].operand[0].mode;
@@ -7154,8 +7152,7 @@ static rtx
 altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 			    bool *expandedp)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   tree arg0, arg1, arg2;
   enum machine_mode mode0, mode1, mode2;
@@ -7170,9 +7167,9 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
   for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
     if (d->code == fcode)
       {
-	arg0 = TREE_VALUE (arglist);
-	arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-	arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+	arg0 = CALL_EXPR_ARG0 (exp);
+	arg1 = CALL_EXPR_ARG1 (exp);
+	arg2 = CALL_EXPR_ARG2 (exp);
 	op0 = expand_normal (arg0);
 	op1 = expand_normal (arg1);
 	op2 = expand_normal (arg2);
@@ -7212,7 +7209,7 @@ altivec_expand_dst_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 /* Expand vec_init builtin.  */
 static rtx
-altivec_expand_vec_init_builtin (tree type, tree arglist, rtx target)
+altivec_expand_vec_init_builtin (tree type, tree exp, rtx target)
 {
   enum machine_mode tmode = TYPE_MODE (type);
   enum machine_mode inner_mode = GET_MODE_INNER (tmode);
@@ -7220,14 +7217,13 @@ altivec_expand_vec_init_builtin (tree type, tree arglist, rtx target)
   rtvec v = rtvec_alloc (n_elt);
 
   gcc_assert (VECTOR_MODE_P (tmode));
-
-  for (i = 0; i < n_elt; ++i, arglist = TREE_CHAIN (arglist))
+  gcc_assert (n_elt == call_expr_nargs (exp));
+  
+  for (i = 0; i < n_elt; ++i)
     {
-      rtx x = expand_normal (TREE_VALUE (arglist));
+      rtx x = expand_normal (CALL_EXPR_ARG (exp, i));
       RTVEC_ELT (v, i) = gen_lowpart (inner_mode, x);
     }
-
-  gcc_assert (arglist == NULL);
 
   if (!target || !register_operand (target, tmode))
     target = gen_reg_rtx (tmode);
@@ -7256,16 +7252,16 @@ get_element_number (tree vec_type, tree arg)
 
 /* Expand vec_set builtin.  */
 static rtx
-altivec_expand_vec_set_builtin (tree arglist)
+altivec_expand_vec_set_builtin (tree exp)
 {
   enum machine_mode tmode, mode1;
   tree arg0, arg1, arg2;
   int elt;
   rtx op0, op1;
 
-  arg0 = TREE_VALUE (arglist);
-  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  arg0 = CALL_EXPR_ARG0 (exp);
+  arg1 = CALL_EXPR_ARG1 (exp);
+  arg2 = CALL_EXPR_ARG2 (exp);
 
   tmode = TYPE_MODE (TREE_TYPE (arg0));
   mode1 = TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0)));
@@ -7288,15 +7284,15 @@ altivec_expand_vec_set_builtin (tree arglist)
 
 /* Expand vec_ext builtin.  */
 static rtx
-altivec_expand_vec_ext_builtin (tree arglist, rtx target)
+altivec_expand_vec_ext_builtin (tree exp, rtx target)
 {
   enum machine_mode tmode, mode0;
   tree arg0, arg1;
   int elt;
   rtx op0;
 
-  arg0 = TREE_VALUE (arglist);
-  arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  arg0 = CALL_EXPR_ARG0 (exp);
+  arg1 = CALL_EXPR_ARG1 (exp);
 
   op0 = expand_normal (arg0);
   elt = get_element_number (TREE_TYPE (arg0), arg1);
@@ -7324,8 +7320,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   struct builtin_description_predicates *dp;
   size_t i;
   enum insn_code icode;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   tree arg0;
   rtx op0, pat;
   enum machine_mode tmode, mode0;
@@ -7356,15 +7351,15 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_STVX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, arglist);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvx, exp);
     case ALTIVEC_BUILTIN_STVEBX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, arglist);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvebx, exp);
     case ALTIVEC_BUILTIN_STVEHX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvehx, arglist);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvehx, exp);
     case ALTIVEC_BUILTIN_STVEWX:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvewx, arglist);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvewx, exp);
     case ALTIVEC_BUILTIN_STVXL:
-      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvxl, arglist);
+      return altivec_expand_stv_builtin (CODE_FOR_altivec_stvxl, exp);
 
     case ALTIVEC_BUILTIN_MFVSCR:
       icode = CODE_FOR_altivec_mfvscr;
@@ -7383,7 +7378,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 
     case ALTIVEC_BUILTIN_MTVSCR:
       icode = CODE_FOR_altivec_mtvscr;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG0 (exp);
       op0 = expand_normal (arg0);
       mode0 = insn_data[icode].operand[0].mode;
 
@@ -7405,7 +7400,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
 
     case ALTIVEC_BUILTIN_DSS:
       icode = CODE_FOR_altivec_dss;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG0 (exp);
       STRIP_NOPS (arg0);
       op0 = expand_normal (arg0);
       mode0 = insn_data[icode].operand[0].mode;
@@ -7431,19 +7426,19 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case ALTIVEC_BUILTIN_VEC_INIT_V8HI:
     case ALTIVEC_BUILTIN_VEC_INIT_V16QI:
     case ALTIVEC_BUILTIN_VEC_INIT_V4SF:
-      return altivec_expand_vec_init_builtin (TREE_TYPE (exp), arglist, target);
+      return altivec_expand_vec_init_builtin (TREE_TYPE (exp), exp, target);
 
     case ALTIVEC_BUILTIN_VEC_SET_V4SI:
     case ALTIVEC_BUILTIN_VEC_SET_V8HI:
     case ALTIVEC_BUILTIN_VEC_SET_V16QI:
     case ALTIVEC_BUILTIN_VEC_SET_V4SF:
-      return altivec_expand_vec_set_builtin (arglist);
+      return altivec_expand_vec_set_builtin (exp);
 
     case ALTIVEC_BUILTIN_VEC_EXT_V4SI:
     case ALTIVEC_BUILTIN_VEC_EXT_V8HI:
     case ALTIVEC_BUILTIN_VEC_EXT_V16QI:
     case ALTIVEC_BUILTIN_VEC_EXT_V4SF:
-      return altivec_expand_vec_ext_builtin (arglist, target);
+      return altivec_expand_vec_ext_builtin (exp, target);
 
     default:
       break;
@@ -7454,39 +7449,39 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   d = (struct builtin_description *) bdesc_abs;
   for (i = 0; i < ARRAY_SIZE (bdesc_abs); i++, d++)
     if (d->code == fcode)
-      return altivec_expand_abs_builtin (d->icode, arglist, target);
+      return altivec_expand_abs_builtin (d->icode, exp, target);
 
   /* Expand the AltiVec predicates.  */
   dp = (struct builtin_description_predicates *) bdesc_altivec_preds;
   for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, dp++)
     if (dp->code == fcode)
       return altivec_expand_predicate_builtin (dp->icode, dp->opcode,
-					       arglist, target);
+					       exp, target);
 
   /* LV* are funky.  We initialized them differently.  */
   switch (fcode)
     {
     case ALTIVEC_BUILTIN_LVSL:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsl,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVSR:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvsr,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVEBX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvebx,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVEHX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvehx,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVEWX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvewx,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVXL:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvxl,
-					arglist, target);
+					exp, target);
     case ALTIVEC_BUILTIN_LVX:
       return altivec_expand_lv_builtin (CODE_FOR_altivec_lvx,
-					arglist, target);
+					exp, target);
     default:
       break;
       /* Fall through.  */
@@ -7532,8 +7527,7 @@ static struct builtin_description bdesc_2arg_spe[] =
 static rtx
 spe_expand_builtin (tree exp, rtx target, bool *expandedp)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   tree arg1, arg0;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   enum insn_code icode;
@@ -7554,7 +7548,7 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
     case SPE_BUILTIN_EVSTWHO:
     case SPE_BUILTIN_EVSTWWE:
     case SPE_BUILTIN_EVSTWWO:
-      arg1 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      arg1 = CALL_EXPR_ARG2 (exp);
       if (TREE_CODE (arg1) != INTEGER_CST
 	  || TREE_INT_CST_LOW (arg1) & ~0x1f)
 	{
@@ -7571,10 +7565,10 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
     {
     case SPE_BUILTIN_EVSPLATFI:
       return rs6000_expand_unop_builtin (CODE_FOR_spe_evsplatfi,
-					 arglist, target);
+					 exp, target);
     case SPE_BUILTIN_EVSPLATI:
       return rs6000_expand_unop_builtin (CODE_FOR_spe_evsplati,
-					 arglist, target);
+					 exp, target);
     default:
       break;
     }
@@ -7582,48 +7576,48 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
   d = (struct builtin_description *) bdesc_2arg_spe;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg_spe); ++i, ++d)
     if (d->code == fcode)
-      return rs6000_expand_binop_builtin (d->icode, arglist, target);
+      return rs6000_expand_binop_builtin (d->icode, exp, target);
 
   d = (struct builtin_description *) bdesc_spe_predicates;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_predicates); ++i, ++d)
     if (d->code == fcode)
-      return spe_expand_predicate_builtin (d->icode, arglist, target);
+      return spe_expand_predicate_builtin (d->icode, exp, target);
 
   d = (struct builtin_description *) bdesc_spe_evsel;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_evsel); ++i, ++d)
     if (d->code == fcode)
-      return spe_expand_evsel_builtin (d->icode, arglist, target);
+      return spe_expand_evsel_builtin (d->icode, exp, target);
 
   switch (fcode)
     {
     case SPE_BUILTIN_EVSTDDX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstddx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstddx, exp);
     case SPE_BUILTIN_EVSTDHX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstdhx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdhx, exp);
     case SPE_BUILTIN_EVSTDWX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstdwx, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdwx, exp);
     case SPE_BUILTIN_EVSTWHEX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhex, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhex, exp);
     case SPE_BUILTIN_EVSTWHOX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhox, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhox, exp);
     case SPE_BUILTIN_EVSTWWEX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwex, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwex, exp);
     case SPE_BUILTIN_EVSTWWOX:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwox, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwox, exp);
     case SPE_BUILTIN_EVSTDD:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstdd, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdd, exp);
     case SPE_BUILTIN_EVSTDH:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstdh, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdh, exp);
     case SPE_BUILTIN_EVSTDW:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstdw, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstdw, exp);
     case SPE_BUILTIN_EVSTWHE:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhe, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwhe, exp);
     case SPE_BUILTIN_EVSTWHO:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwho, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwho, exp);
     case SPE_BUILTIN_EVSTWWE:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwe, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwe, exp);
     case SPE_BUILTIN_EVSTWWO:
-      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwo, arglist);
+      return spe_expand_stv_builtin (CODE_FOR_spe_evstwwo, exp);
     case SPE_BUILTIN_MFSPEFSCR:
       icode = CODE_FOR_spe_mfspefscr;
       tmode = insn_data[icode].operand[0].mode;
@@ -7640,7 +7634,7 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
       return target;
     case SPE_BUILTIN_MTSPEFSCR:
       icode = CODE_FOR_spe_mtspefscr;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG0 (exp);
       op0 = expand_normal (arg0);
       mode0 = insn_data[icode].operand[0].mode;
 
@@ -7663,12 +7657,12 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
 }
 
 static rtx
-spe_expand_predicate_builtin (enum insn_code icode, tree arglist, rtx target)
+spe_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat, scratch, tmp;
-  tree form = TREE_VALUE (arglist);
-  tree arg0 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg1 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  tree form = CALL_EXPR_ARG0 (exp);
+  tree arg0 = CALL_EXPR_ARG1 (exp);
+  tree arg1 = CALL_EXPR_ARG2 (exp);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
@@ -7771,13 +7765,13 @@ spe_expand_predicate_builtin (enum insn_code icode, tree arglist, rtx target)
 */
 
 static rtx
-spe_expand_evsel_builtin (enum insn_code icode, tree arglist, rtx target)
+spe_expand_evsel_builtin (enum insn_code icode, tree exp, rtx target)
 {
   rtx pat, scratch;
-  tree arg0 = TREE_VALUE (arglist);
-  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  tree arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-  tree arg3 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+  tree arg0 = CALL_EXPR_ARG0 (exp);
+  tree arg1 = CALL_EXPR_ARG1 (exp);
+  tree arg2 = CALL_EXPR_ARG2 (exp);
+  tree arg3 = CALL_EXPR_ARG (exp, 3);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
@@ -7831,8 +7825,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		       enum machine_mode mode ATTRIBUTE_UNUSED,
 		       int ignore ATTRIBUTE_UNUSED)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-  tree arglist = TREE_OPERAND (exp, 1);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
   struct builtin_description *d;
   size_t i;
@@ -7850,7 +7843,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       gcc_assert (TARGET_ALTIVEC);
 
-      arg = TREE_VALUE (arglist);
+      arg = CALL_EXPR_ARG0 (exp);
       gcc_assert (TREE_CODE (TREE_TYPE (arg)) == POINTER_TYPE);
       op = expand_expr (arg, NULL_RTX, Pmode, EXPAND_NORMAL);
       addr = memory_address (mode, op);
@@ -7900,19 +7893,19 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   d = (struct builtin_description *) bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_unop_builtin (d->icode, arglist, target);
+      return rs6000_expand_unop_builtin (d->icode, exp, target);
 
   /* Handle simple binary operations.  */
   d = (struct builtin_description *) bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_binop_builtin (d->icode, arglist, target);
+      return rs6000_expand_binop_builtin (d->icode, exp, target);
 
   /* Handle simple ternary operations.  */
   d = (struct builtin_description *) bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE  (bdesc_3arg); i++, d++)
     if (d->code == fcode)
-      return rs6000_expand_ternop_builtin (d->icode, arglist, target);
+      return rs6000_expand_ternop_builtin (d->icode, exp, target);
 
   gcc_unreachable ();
 }
