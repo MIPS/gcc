@@ -14819,7 +14819,7 @@ ix86_init_mmx_sse_builtins (void)
 				V2SI_type_node, long_long_unsigned_type_node,
 				NULL_TREE);
   tree void_ftype_void
-    = build_function_type (void_type_node, void_list_node);
+    = build_function_type_list (void_type_node, NULL_TREE);
   tree void_ftype_unsigned
     = build_function_type_list (void_type_node, unsigned_type_node, NULL_TREE);
   tree void_ftype_unsigned_unsigned
@@ -14830,7 +14830,7 @@ ix86_init_mmx_sse_builtins (void)
 				unsigned_type_node, unsigned_type_node,
 				NULL_TREE);
   tree unsigned_ftype_void
-    = build_function_type (unsigned_type_node, void_list_node);
+    = build_function_type_list (unsigned_type_node, NULL_TREE);
   tree v2si_ftype_v4sf
     = build_function_type_list (V2SI_type_node, V4SF_type_node, NULL_TREE);
   /* Loads/stores.  */

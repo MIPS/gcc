@@ -1,3 +1,8 @@
+2006-08-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/config/i386/i386.c (ix86_init_mmx_sse_builtins): Use
+	build_function_type_list instead of build_function_type.
+
 2006-08-07  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/tree.c (copy_type_arg_types_skip): New.
