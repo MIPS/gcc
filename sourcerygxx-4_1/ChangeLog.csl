@@ -1,3 +1,12 @@
+2006-08-09  Paul Brook  <paul@codesourcery.com>
+
+	PR target/16634
+	* config/arm/arm.c (use_return_insn): Return 0 for Thumb interrupt
+	functions.
+	(print_multi_reg): Add rfe argument for IRQ returns.
+	(arm_output_epilogue): Pop interrupt return address directly into PC.
+	(arm_expand_prologue): Only adjust IRQ return address in Arm mode.
+
 2006-08-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
