@@ -1,5 +1,13 @@
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/config/iq2000/iq2000.c (expand_one_builtin): Pass entire
+	CALL_EXPR instead of arglist; use new accessor macros to extract
+	the arguments.  Changed callers.
+	(iq2000_expand_builtin): Use CALL_EXPR_FN.  Use argument accessor
+	macros instead of constructing an arglist.
+
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/config/alpha/alpha.c (alpha_expand_builtin): Use new
 	CALL_EXPR accessors.
 	* gcc/config/frv/frv.c (frv_expand_builtin): Likewise.
