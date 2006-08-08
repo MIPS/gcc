@@ -1,5 +1,16 @@
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/config/alpha/alpha.c (alpha_expand_builtin): Use new
+	CALL_EXPR accessors.
+	* gcc/config/frv/frv.c (frv_expand_builtin): Likewise.
+	* gcc/config/s390/s390.c (s390_expand_builtin): Likewise.
+	* gcc/config/sparc/sparc.c (sparc_expand_builtin): Likewise.
+	* gcc/config/sh/sh.c (sh_expand_builtin): Likewise.
+	* gcc/config/mips/mips.c (mips_expand_builtin): Likewise.
+	* gcc/config/c4x/c4x.c (c4x_expand_builtin): Likewise.
+
+2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/config/i386/i386.c (ix86_expand_binop_builtin): Pass entire
 	CALL_EXPR instead of arglist; use new accessor macros to extract
 	the arguments.  Changed callers.
