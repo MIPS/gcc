@@ -5044,15 +5044,14 @@ build_java_interface_fn_ref (tree fn, tree instance)
 
   if (!java_iface_lookup_fn)
     {
-      tree endlink = build_void_list_node ();
-      tree t = tree_cons (NULL_TREE, ptr_type_node,
-			  tree_cons (NULL_TREE, ptr_type_node,
-				     tree_cons (NULL_TREE, java_int_type_node,
-						endlink)));
+      tree t = build_function_type_list (ptr_type_node,
+					 ptr_type_node,
+					 ptr_type_node,
+					 java_int_type_node,
+					 NULL_TREE);
       java_iface_lookup_fn
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
-			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+			    t, 0, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'.

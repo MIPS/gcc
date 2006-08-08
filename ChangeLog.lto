@@ -9,6 +9,18 @@
 	Likewise.
 	* gcc/tree.c (build_common_builtin_nodes): Likewise.
 
+	* gcc/cp/call.c (build_java_interface_fn_ref): Use
+	build_function_type_list instead of build_function_type.
+	* gcc/cp/decl.c (cxx_init_decl_processing, get_atexit_node,
+	start_cleanup_fn, expand_static_init): Likewise.
+	* gcc/cp/decl2.c (start_objects,
+	start_static_storage_duration_function): Likewise.
+	* gcc/cp/except.c (init_exception_processing,
+	do_get_exception_ptr, do_begin_catch, do_allocate_exception,
+	build_throw): Likewise.
+	* gcc/cp/rtti.c (throw_bad_cast, throw_bad_typeid,
+	build_dynamic_cast_1): Likewise.
+
 2006-08-07  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/tree.c (copy_type_arg_types_skip): New.

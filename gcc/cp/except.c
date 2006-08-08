@@ -65,15 +65,14 @@ init_exception_processing (void)
 
   /* void std::terminate (); */
   push_namespace (std_identifier);
-  tmp = build_function_type (void_type_node, void_list_node);
+  tmp = build_function_type_list (void_type_node, NULL_TREE);
   terminate_node = build_cp_library_fn_ptr ("terminate", tmp);
   TREE_THIS_VOLATILE (terminate_node) = 1;
   TREE_NOTHROW (terminate_node) = 1;
   pop_namespace ();
 
   /* void __cxa_call_unexpected(void *); */
-  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-  tmp = build_function_type (void_type_node, tmp);
+  tmp = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   call_unexpected_node
     = push_throw_library_fn (get_identifier ("__cxa_call_unexpected"), tmp);
 
@@ -170,8 +169,9 @@ do_get_exception_ptr (void)
   if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void* __cxa_get_exception_ptr (void *).  */
-      tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-      fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
+      tree tmp = build_function_type_list (ptr_type_node,
+					   ptr_type_node, NULL_TREE);
+      fn = push_library_fn (fn, tmp);
     }
 
   return build_function_call (fn, tree_cons (NULL_TREE, build_exc_ptr (),
@@ -190,8 +190,8 @@ do_begin_catch (void)
   if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void* __cxa_begin_catch (void *).  */
-      tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-      fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
+      tree tmp = build_function_type_list (ptr_type_node, ptr_type_node, NULL_TREE);
+      fn = push_library_fn (fn, tmp);
     }
 
   return build_function_call (fn, tree_cons (NULL_TREE, build_exc_ptr (),
@@ -532,8 +532,9 @@ do_allocate_exception (tree type)
   if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void *__cxa_allocate_exception(size_t).  */
-      tree tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-      fn = push_library_fn (fn, build_function_type (ptr_type_node, tmp));
+      tree tmp = build_function_type_list (ptr_type_node,
+					   size_type_node, NULL_TREE);
+      fn = push_library_fn (fn, tmp);
     }
 
   return build_function_call (fn, tree_cons (NULL_TREE, size_in_bytes (type),
@@ -623,8 +624,8 @@ build_throw (tree exp)
       if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void _Jv_Throw (void *).  */
-	  tree tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-	  tmp = build_function_type (ptr_type_node, tmp);
+	  tree tmp = build_function_type_list (ptr_type_node,
+					       ptr_type_node, NULL_TREE);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
       else if (really_overloaded_fn (fn))
@@ -648,9 +649,8 @@ build_throw (tree exp)
       /* The CLEANUP_TYPE is the internal type of a destructor.  */
       if (!cleanup_type)
 	{
-	  tmp = void_list_node;
-	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	  tmp = build_function_type (void_type_node, tmp);
+	  tmp = build_function_type_list (void_type_node,
+					  ptr_type_node, NULL_TREE);
 	  cleanup_type = build_pointer_type (tmp);
 	}
 
@@ -659,11 +659,10 @@ build_throw (tree exp)
 	{
 	  /* Declare void __cxa_throw (void*, void*, void (*)(void*)).  */
 	  /* ??? Second argument is supposed to be "std::type_info*".  */
-	  tmp = void_list_node;
-	  tmp = tree_cons (NULL_TREE, cleanup_type, tmp);
-	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
-	  tmp = build_function_type (void_type_node, tmp);
+	  tmp = build_function_type_list (void_type_node,
+					  ptr_type_node,
+					  ptr_type_node,
+					  cleanup_type, NULL_TREE);
 	  fn = push_throw_library_fn (fn, tmp);
 	}
 
@@ -801,8 +800,8 @@ build_throw (tree exp)
       if (!get_global_value_if_present (fn, &fn))
 	{
 	  /* Declare void __cxa_rethrow (void).  */
-	  fn = push_throw_library_fn
-	    (fn, build_function_type (void_type_node, void_list_node));
+	  tree tmp = build_function_type_list (void_type_node, NULL_TREE);;
+	  fn = push_throw_library_fn (fn, tmp);
 	}
 
       /* ??? Indicate that this function call allows exceptions of the type

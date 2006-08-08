@@ -3185,11 +3185,9 @@ cxx_init_decl_processing (void)
   vtable_index_type = ptrdiff_type_node;
 
   vtt_parm_type = build_pointer_type (const_ptr_type_node);
-  void_ftype = build_function_type (void_type_node, void_list_node);
-  void_ftype_ptr = build_function_type (void_type_node,
-					tree_cons (NULL_TREE,
-						   ptr_type_node,
-						   void_list_node));
+  void_ftype = build_function_type_list (void_type_node, NULL_TREE);
+  void_ftype_ptr = build_function_type_list (void_type_node,
+					     ptr_type_node, NULL_TREE);
   void_ftype_ptr
     = build_exception_variant (void_ftype_ptr, empty_except_spec);
 
@@ -3255,10 +3253,8 @@ cxx_init_decl_processing (void)
     pop_namespace ();
 
     ptr_ftype_sizetype
-      = build_function_type (ptr_type_node,
-			     tree_cons (NULL_TREE,
-					size_type_node,
-					void_list_node));
+      = build_function_type_list (ptr_type_node,
+				  size_type_node, NULL_TREE);
     newtype = build_exception_variant
       (ptr_ftype_sizetype, add_exception_specifier
        (NULL_TREE, bad_alloc_type_node, -1));
@@ -5347,7 +5343,6 @@ static tree
 get_atexit_node (void)
 {
   tree atexit_fndecl;
-  tree arg_types;
   tree fn_type;
   tree fn_ptr_type;
   const char *name;
@@ -5358,6 +5353,8 @@ get_atexit_node (void)
 
   if (flag_use_cxa_atexit)
     {
+      tree parm1, parm2;
+
       /* The declaration for `__cxa_atexit' is:
 
 	   int __cxa_atexit (void (*)(void *), void *, void *)
@@ -5368,23 +5365,25 @@ get_atexit_node (void)
       use_aeabi_atexit = targetm.cxx.use_aeabi_atexit ();
       /* First, build the pointer-to-function type for the first
 	 argument.  */
-      arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
-      fn_type = build_function_type (void_type_node, arg_types);
+      fn_type = build_function_type_list (void_type_node,
+					  ptr_type_node, NULL_TREE);
       fn_ptr_type = build_pointer_type (fn_type);
       /* Then, build the rest of the argument types.  */
-      arg_types = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
       if (use_aeabi_atexit)
 	{
-	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
-	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
+	  parm1 = ptr_type_node;
+	  parm2 = fn_ptr_type;
 	}
       else
 	{
-	  arg_types = tree_cons (NULL_TREE, ptr_type_node, arg_types);
-	  arg_types = tree_cons (NULL_TREE, fn_ptr_type, arg_types);
+	  parm1 = fn_ptr_type;
+	  parm2 = ptr_type_node;
 	}
       /* And the final __cxa_atexit type.  */
-      fn_type = build_function_type (integer_type_node, arg_types);
+      fn_type = build_function_type_list (integer_type_node,
+					  parm1,
+					  parm2,
+					  ptr_type_node, NULL_TREE);
       fn_ptr_type = build_pointer_type (fn_type);
       if (use_aeabi_atexit)
 	name = "__aeabi_atexit";
@@ -5399,11 +5398,11 @@ get_atexit_node (void)
 
 	 We build up the argument types and then then function type
 	 itself.  */
-      fn_type = build_function_type (void_type_node, void_list_node);
+      fn_type = build_function_type_list (void_type_node, NULL_TREE);
       fn_ptr_type = build_pointer_type (fn_type);
-      arg_types = tree_cons (NULL_TREE, fn_ptr_type, void_list_node);
       /* Build the final atexit type.  */
-      fn_type = build_function_type (integer_type_node, arg_types);
+      fn_type = build_function_type_list (integer_type_node,
+					  fn_ptr_type, NULL_TREE);
       name = "atexit";
     }
 
@@ -5441,7 +5440,6 @@ static tree
 start_cleanup_fn (void)
 {
   char name[32];
-  tree parmtypes;
   tree fntype;
   tree fndecl;
 
@@ -5450,16 +5448,15 @@ start_cleanup_fn (void)
   /* No need to mangle this.  */
   push_lang_context (lang_name_c);
 
-  /* Build the parameter-types.  */
-  parmtypes = void_list_node;
   /* Functions passed to __cxa_atexit take an additional parameter.
      We'll just ignore it.  After we implement the new calling
      convention for destructors, we can eliminate the use of
      additional cleanup functions entirely in the -fnew-abi case.  */
   if (flag_use_cxa_atexit)
-    parmtypes = tree_cons (NULL_TREE, ptr_type_node, parmtypes);
-  /* Build the function type itself.  */
-  fntype = build_function_type (void_type_node, parmtypes);
+    fntype = build_function_type_list (void_type_node,
+				       ptr_type_node, NULL_TREE);
+  else
+    fntype = build_function_type_list (void_type_node, NULL_TREE);
   /* Build the name of the function.  */
   sprintf (name, "__tcf_%d", start_cleanup_cnt++);
   /* Build the function declaration.  */
@@ -5646,11 +5643,13 @@ expand_static_init (tree decl, tree init)
 	  abort_fn = get_identifier ("__cxa_guard_abort");
 	  if (!get_global_value_if_present (acquire_fn, &acquire_fn))
 	    {
-	      tree argtypes = tree_cons (NULL_TREE, TREE_TYPE (guard_addr),
-					 void_list_node);
-	      tree vfntype = build_function_type (void_type_node, argtypes);
+	      tree parmtypes = alloc_parm_types (2);
+	      tree vfntype;
+	      *(nth_parm_type_ptr (parmtypes, 0)) = TREE_TYPE (guard_addr);
+	      *(nth_parm_type_ptr (parmtypes, 1)) = void_type_node;
+	      vfntype = build_function_type (void_type_node, parmtypes);
 	      acquire_fn = push_library_fn
-		(acquire_fn, build_function_type (integer_type_node, argtypes));
+		(acquire_fn, build_function_type (integer_type_node, parmtypes));
 	      release_fn = push_library_fn (release_fn, vfntype);
 	      abort_fn = push_library_fn (abort_fn, vfntype);
 	    }
