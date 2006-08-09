@@ -1651,6 +1651,7 @@ gfc_get_function_type (gfc_symbol * sym)
   gfc_symbol *arg;
   int nstr;
   int alternate_return;
+  VEC(tree,heap) *v = NULL;
 
   /* Make sure this symbol is a function or a subroutine.  */
   gcc_assert (sym->attr.flavor == FL_PROCEDURE);
@@ -1660,12 +1661,11 @@ gfc_get_function_type (gfc_symbol * sym)
 
   nstr = 0;
   alternate_return = 0;
-  typelist = NULL_TREE;
 
   if (sym->attr.entry_master)
     {
       /* Additional parameter for selecting an entry point.  */
-      typelist = gfc_chainon_list (typelist, gfc_array_index_type);
+      VEC_safe_push (tree, heap, v, gfc_array_index_type);
     }
 
   /* Some functions we use an extra parameter for the return value.  */
@@ -1685,9 +1685,9 @@ gfc_get_function_type (gfc_symbol * sym)
 	  || arg->ts.type == BT_CHARACTER)
 	type = build_reference_type (type);
 
-      typelist = gfc_chainon_list (typelist, type);
+      VEC_safe_push (tree, heap, v, type);
       if (arg->ts.type == BT_CHARACTER)
-	typelist = gfc_chainon_list (typelist, gfc_charlen_type_node);
+	VEC_safe_push (tree, heap, v, gfc_charlen_type_node);
     }
 
   /* Build the argument types for the function.  */
@@ -1725,7 +1725,7 @@ gfc_get_function_type (gfc_symbol * sym)
 	     actual parameters for a dummy procedure.  */
 	  if (arg->ts.type == BT_CHARACTER)
             nstr++;
-	  typelist = gfc_chainon_list (typelist, type);
+	  VEC_safe_push (tree, heap, v, type);
 	}
       else
         {
@@ -1736,9 +1736,9 @@ gfc_get_function_type (gfc_symbol * sym)
 
   /* Add hidden string length parameters.  */
   while (nstr--)
-    typelist = gfc_chainon_list (typelist, gfc_charlen_type_node);
+    VEC_safe_push (tree, heap, v, gfc_charlen_type_node);
 
-  typelist = gfc_chainon_list (typelist, void_type_node);
+  VEC_safe_push (tree, heap, v, void_type_node);
 
   if (alternate_return)
     type = integer_type_node;
@@ -1749,6 +1749,8 @@ gfc_get_function_type (gfc_symbol * sym)
   else
     type = gfc_sym_type (sym);
 
+  typelist = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
   type = build_function_type (type, typelist);
 
   return type;
