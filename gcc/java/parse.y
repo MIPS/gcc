@@ -14367,9 +14367,13 @@ patch_unaryop (tree node, tree wfl_op)
              access the field. It has been already verified that this
              field isn't final */
 	  if (flag_emit_class_files)
-	    decl = TREE_OPERAND (op, 0);
+	    /* OP is a CALL_EXPR with the decl as its function.  */
+	    decl = CALL_EXPR_FN (op);
 	  else
-	    decl = TREE_OPERAND (TREE_OPERAND (TREE_OPERAND (op, 0), 0), 0);
+	    /* OP is a CALL_EXPR with another CALL_EXPR as its function;
+	       the function of the inner CALL_EXPR is an ADDR_EXPR
+	       with the decl as its operand.  */
+	    decl = TREE_OPERAND (CALL_EXPR_FN (CALL_EXPR_FN (op)), 0);
 	  decl = DECL_FUNCTION_ACCESS_DECL (decl);
 	}
       /* We really should have a JAVA_ARRAY_EXPR to avoid this */
