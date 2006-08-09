@@ -1,5 +1,14 @@
 2006-08-09  Paul Brook  <paul@codesourcery.com>
 
+	gcc/
+	* final.c (final_scan_insn): Clear current_insn_predicate before
+	outputting inline asm.
+
+	gcc/testsuite/
+	* gcc.target/arm/cond-asm.c: New test.
+
+2006-08-09  Paul Brook  <paul@codesourcery.com>
+
 	PR target/16634
 	* config/arm/arm.c (use_return_insn): Return 0 for Thumb interrupt
 	functions.
