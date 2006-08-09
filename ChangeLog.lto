@@ -3,6 +3,9 @@
 	* gcc/tree.c (build_function_type_list): Don't allocate a
 	temporary vector.
 
+	* gcc/fortran/trans-decl.c (gfc_build_library_function_decl): Use
+	alloc_parm_types.
+
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/config/arm/arm.c (arm_expand_binop_builtin): Pass entire

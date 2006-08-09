@@ -1882,29 +1882,28 @@ tree
 gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
 {
   tree arglist;
-  tree argtype;
   tree fntype;
   tree fndecl;
   va_list p;
-  int n;
+  int len = abs (nargs);
+  int i;
 
   /* Library functions must be declared with global scope.  */
   gcc_assert (current_function_decl == NULL_TREE);
 
-  va_start (p, nargs);
-
-
   /* Create a list of the argument types.  */
-  for (arglist = NULL_TREE, n = abs (nargs); n > 0; n--)
-    {
-      argtype = va_arg (p, tree);
-      arglist = gfc_chainon_list (arglist, argtype);
-    }
+  len = abs (nargs);
+  arglist = alloc_parm_types (len + (nargs >= 0));
+
+  va_start (p, nargs);
+  for (i = 0; i < len; i++)
+    *(nth_parm_type_ptr (arglist, i)) = va_arg (p, tree);
+  va_end (p);
 
   if (nargs >= 0)
     {
       /* Terminate the list.  */
-      arglist = gfc_chainon_list (arglist, void_type_node);
+      *(nth_parm_type_ptr (arglist, len)) = void_type_node;
     }
 
   /* Build the function type and decl.  */
@@ -1914,8 +1913,6 @@ gfc_build_library_function_decl (tree name, tree rettype, int nargs, ...)
   /* Mark this decl as external.  */
   DECL_EXTERNAL (fndecl) = 1;
   TREE_PUBLIC (fndecl) = 1;
-
-  va_end (p);
 
   pushdecl (fndecl);
 
