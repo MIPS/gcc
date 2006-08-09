@@ -2,6 +2,8 @@
 
 	* gcc/cp/typeck.c (merge_types): Use nth_parm_type.
 
+	* gcc/cp/decl.c (build_this_parm): Use nth_parm_type.
+
 2006-08-09  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/builtins.c (fold_builtin_cbrt): Use CALL_EXPR_ARG0.
