@@ -6919,7 +6919,7 @@ fold_builtin_cbrt (tree arg, tree type)
 	  const REAL_VALUE_TYPE third_trunc =
 	    real_value_truncate (TYPE_MODE (type), dconstthird);
 	  arg = fold_build2 (MULT_EXPR, type,
-			     TREE_VALUE (TREE_OPERAND (arg, 1)),
+			     CALL_EXPR_ARG0 (arg),
 			     build_real (type, third_trunc));
 	  return build_call_expr (expfn, 1, arg);
 	}
