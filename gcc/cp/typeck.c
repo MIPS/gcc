@@ -650,7 +650,7 @@ merge_types (tree t1, tree t2)
 	  return cp_build_type_attribute_variant (t2, attributes);
 
 	/* Simple way if one arg fails to specify argument types.  */
-	if (p1 == NULL_TREE || TREE_VALUE (p1) == void_type_node)
+	if (p1 == NULL_TREE || nth_parm_type (p1, 0) == void_type_node)
 	  {
 	    rval = build_function_type (valtype, p2);
 	    if ((raises = TYPE_RAISES_EXCEPTIONS (t2)))
@@ -658,7 +658,7 @@ merge_types (tree t1, tree t2)
 	    return cp_build_type_attribute_variant (rval, attributes);
 	  }
 	raises = TYPE_RAISES_EXCEPTIONS (t1);
-	if (p2 == NULL_TREE || TREE_VALUE (p2) == void_type_node)
+	if (p2 == NULL_TREE || nth_parm_type (p2, 0) == void_type_node)
 	  {
 	    rval = build_function_type (valtype, p1);
 	    if (raises)
