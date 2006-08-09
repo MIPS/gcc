@@ -5277,24 +5277,27 @@ build_function_type (tree value_type, tree arg_types)
 tree
 build_function_type_list (tree return_type, ...)
 {
-  tree t, args;
-  VEC(tree,heap) *v = NULL;
+  tree t, parm_types;
   va_list p;
+  int len = 0;
+  int i;
+
+  /* Determine the length of the parameter list.  */
+  va_start (p, return_type);
+  for (t = va_arg (p, tree); t != NULL_TREE; t = va_arg (p, tree))
+    len++;
+  va_end (p);
+
+  /* We add one because we are going to append void_type_node.  */
+  parm_types = alloc_parm_types (len + 1);
 
   va_start (p, return_type);
-
-  for (t = va_arg (p, tree); t != NULL_TREE; t = va_arg (p, tree))
-    VEC_safe_push (tree, heap, v, t);
-
-  VEC_safe_push (tree, heap, v, void_type_node);
-
-  args = vec_heap2parm_types (v);
-  VEC_free (tree, heap, v);
-
-  args = build_function_type (return_type, args);
-
+  for (i = 0; i < len; i++)
+    *(nth_parm_type_ptr (parm_types, i)) = va_arg (p, tree);
+  *(nth_parm_type_ptr (parm_types, i)) = void_type_node;
   va_end (p);
-  return args;
+
+  return build_function_type (return_type, parm_types);
 }
 
 /* Build a METHOD_TYPE for a member of BASETYPE.  The RETTYPE (a TYPE)
