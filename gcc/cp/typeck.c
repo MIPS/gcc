@@ -678,14 +678,15 @@ merge_types (tree t1, tree t2)
 	tree basetype = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (t2), 0));
 	tree raises = TYPE_RAISES_EXCEPTIONS (t1);
 	tree t3;
+	tree t;
 
 	/* If this was a member function type, get back to the
 	   original type of type member function (i.e., without
 	   the class instance variable up front.  */
-	t1 = build_function_type (TREE_TYPE (t1),
-				  TREE_CHAIN (TYPE_ARG_TYPES (t1)));
-	t2 = build_function_type (TREE_TYPE (t2),
-				  TREE_CHAIN (TYPE_ARG_TYPES (t2)));
+	t = copy_type_arg_types_skip (TYPE_ARG_TYPES (t1), 1);
+	t1 = build_function_type (TREE_TYPE (t1), t);
+	t = copy_type_arg_types_skip (TYPE_ARG_TYPES (t2), 1);
+	t2 = build_function_type (TREE_TYPE (t2), t);
 	t3 = merge_types (t1, t2);
 	t3 = build_method_type_directly (basetype, TREE_TYPE (t3),
 					 TYPE_ARG_TYPES (t3));

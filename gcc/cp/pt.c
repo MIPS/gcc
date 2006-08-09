@@ -6813,7 +6813,9 @@ tsubst_function_type (tree t,
     fntype = build_function_type (return_type, arg_types);
   else
     {
-      tree r = TREE_TYPE (TREE_VALUE (arg_types));
+      tree r = TREE_TYPE (nth_parm_type (arg_types, 0));
+      tree new_parm_types;
+
       if (! IS_AGGR_TYPE (r))
 	{
 	  /* [temp.deduct]
@@ -6829,8 +6831,8 @@ tsubst_function_type (tree t,
 	  return error_mark_node;
 	}
 
-      fntype = build_method_type_directly (r, return_type,
-					   TREE_CHAIN (arg_types));
+      new_parm_types = copy_type_arg_types_skip (arg_types, 1);
+      fntype = build_method_type_directly (r, return_type, new_parm_types);
     }
   fntype = cp_build_qualified_type_real (fntype, TYPE_QUALS (t), complain);
   fntype = cp_build_type_attribute_variant (fntype, TYPE_ATTRIBUTES (t));
@@ -10485,6 +10487,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	{
 	  tree method_type;
 	  tree fntype;
+	  tree new_parm_types;
 	  cp_cv_quals cv_quals;
 
 	  /* Check top-level cv qualifiers */
@@ -10497,9 +10500,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
 	  /* Determine the type of the function we are unifying against. */
 	  method_type = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (arg));
-	  fntype =
-	    build_function_type (TREE_TYPE (method_type),
-				 TREE_CHAIN (TYPE_ARG_TYPES (method_type)));
+	  new_parm_types = copy_type_arg_types_skip (TYPE_ARG_TYPES (method_type), 1);
+	  fntype = build_function_type (TREE_TYPE (method_type), new_parm_types);
 
 	  /* Extract the cv-qualifiers of the member function from the
 	     implicit object parameter and place them on the function

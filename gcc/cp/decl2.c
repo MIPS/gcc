@@ -113,16 +113,18 @@ build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 {
   tree raises;
   int type_quals;
+  tree parm_types;
 
   if (fntype == error_mark_node || ctype == error_mark_node)
     return error_mark_node;
 
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
   ctype = cp_build_qualified_type (ctype, type_quals);
-  fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
-				       (TREE_CODE (fntype) == METHOD_TYPE
-					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
-					: TYPE_ARG_TYPES (fntype)));
+  if (TREE_CODE (fntype) == METHOD_TYPE)
+    parm_types = copy_type_arg_types_skip (TYPE_ARG_TYPES (fntype), 1);
+  else
+    parm_types = TYPE_ARG_TYPES (fntype);
+  fntype = build_method_type_directly (ctype, TREE_TYPE (fntype), parm_types);
   raises = TYPE_RAISES_EXCEPTIONS (fntype);
   if (raises)
     fntype = build_exception_variant (fntype, raises);

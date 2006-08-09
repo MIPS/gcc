@@ -9,6 +9,16 @@
 	* gcc/fortran/trans-types.c (gfc_get_function_type): Use
 	vec_heap2parm_types.
 
+	* gcc/cp/call.c (standard_conversion): Use
+	copy_type_arg_types_skip.
+	* gcc/cp/class.c (build_clone,
+	resolve_address_of_overloaded_function): Likewise.
+	* gcc/cp/decl.c (revert_static_member_fn): Likewise.
+	* gcc/cp/decl2.c (build_memfn_type): Likewise.
+	* gcc/cp/pt.c (tsubst_function_type, unify): Likewise.
+	* gcc/cp/rtti.c (get_tinfo_decl): Likewise.
+	* gcc/cp/typeck.c (merge_types): Likewise.
+
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/config/arm/arm.c (arm_expand_binop_builtin): Pass entire

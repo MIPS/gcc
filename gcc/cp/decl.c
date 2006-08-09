@@ -11449,11 +11449,11 @@ revert_static_member_fn (tree decl)
   tree function = TREE_TYPE (decl);
   tree args = TYPE_ARG_TYPES (function);
 
-  if (cp_type_quals (TREE_TYPE (TREE_VALUE (args)))
+  if (cp_type_quals (TREE_TYPE (nth_parm_type (args, 0)))
       != TYPE_UNQUALIFIED)
     error ("static member function %q#D declared with type qualifiers", decl);
 
-  args = TREE_CHAIN (args);
+  args = copy_type_arg_types_skip (args, 1);
   tmp = build_function_type (TREE_TYPE (function), args);
   tmp = build_qualified_type (tmp, cp_type_quals (function));
   tmp = build_exception_variant (tmp,

@@ -3754,18 +3754,20 @@ build_clone (tree fn, tree name)
       tree basetype;
       tree parmtypes;
       tree exceptions;
+      int skip = 0;
 
       exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
       basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
       parmtypes = TYPE_ARG_TYPES (TREE_TYPE (clone));
       /* Skip the `this' parameter.  */
-      parmtypes = TREE_CHAIN (parmtypes);
+      skip++;
       /* Skip the in-charge parameter.  */
-      parmtypes = TREE_CHAIN (parmtypes);
+      skip++;
       /* And the VTT parm, in a complete [cd]tor.  */
       if (DECL_HAS_VTT_PARM_P (fn)
 	  && ! DECL_NEEDS_VTT_PARM_P (clone))
-	parmtypes = TREE_CHAIN (parmtypes);
+	skip++;
+      parmtypes = copy_type_arg_types_skip (parmtypes, skip);
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */
       TREE_TYPE (clone)
@@ -5755,7 +5757,7 @@ resolve_address_of_overloaded_function (tree target_type,
 
       /* Never do unification on the 'this' parameter.  */
       if (TREE_CODE (target_fn_type) == METHOD_TYPE)
-	target_arg_types = TREE_CHAIN (target_arg_types);
+	target_arg_types = copy_type_arg_types_skip (target_arg_types, 1);
 
       for (fns = overload; fns; fns = OVL_NEXT (fns))
 	{

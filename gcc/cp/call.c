@@ -775,6 +775,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
       tree tofn = TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (to));
       tree fbase = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (fromfn), 0));
       tree tbase = TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (tofn), 0));
+      tree parm_types;
 
       if (!DERIVED_FROM_P (fbase, tbase)
 	  || !same_type_p (TREE_TYPE (fromfn), TREE_TYPE (tofn))
@@ -784,9 +785,9 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	return NULL;
 
       from = cp_build_qualified_type (tbase, cp_type_quals (fbase));
+      parm_types = copy_type_arg_types_skip (TYPE_ARG_TYPES (fromfn), 1);
       from = build_method_type_directly (from,
-					 TREE_TYPE (fromfn),
-					 TREE_CHAIN (TYPE_ARG_TYPES (fromfn)));
+					 TREE_TYPE (fromfn), parm_types);
       from = build_ptrmemfunc_type (build_pointer_type (from));
       conv = build_conv (ck_pmem, from, conv);
       conv->base_p = true;

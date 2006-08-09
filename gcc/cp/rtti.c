@@ -354,8 +354,10 @@ get_tinfo_decl (tree type)
     }
 
   if (TREE_CODE (type) == METHOD_TYPE)
-    type = build_function_type (TREE_TYPE (type),
-				TREE_CHAIN (TYPE_ARG_TYPES (type)));
+    {
+      tree tmp = copy_type_arg_types_skip (TYPE_ARG_TYPES (type), 1);
+      type = build_function_type (TREE_TYPE (type), tmp);
+    }
 
   /* For a class type, the variable is cached in the type node
      itself.  */
