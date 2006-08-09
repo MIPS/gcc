@@ -7,7 +7,7 @@
 	alloc_parm_types.
 
 	* gcc/fortran/trans-types.c (gfc_get_function_type): Use
-	vec_heap2parm_types in gfc_get_function_type.
+	vec_heap2parm_types.
 
 2006-08-08  Sandra Loosemore  <sandra@codesourcery.com>
 
