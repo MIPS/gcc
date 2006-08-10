@@ -760,6 +760,13 @@ GC_API int GC_general_register_disappearing_link
 	/* the object containing link.  Explicitly deallocating */
 	/* obj may or may not cause link to eventually be	*/
 	/* cleared.						*/
+typedef void (*GC_disappearing_link_callback_proc)
+       GC_PROTO((GC_PTR * dissapearing_link, GC_PTR obj, GC_PTR info));
+
+GC_API int GC_general_register_disappearing_link_callback
+       GC_PROTO((GC_PTR * /* link */, GC_PTR obj,
+		 GC_disappearing_link_callback_proc callback, GC_PTR info));
+
 GC_API int GC_unregister_disappearing_link GC_PROTO((GC_PTR * /* link */));
 	/* Returns 0 if link was not actually registered.	*/
 	/* Undoes a registration by either of the above two	*/

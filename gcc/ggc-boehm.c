@@ -13,9 +13,14 @@
 extern struct ht *ident_hash;
 
 static int ggc_htab_register_weak_ptr(void **slot, void *info);
+static int ggc_htab_unregister_weak_ptr(void **slot, void *info);
+static void ggc_htab_delete_weak_ptr(void ** slot, void * object,
+				     void * info);
 static size_t get_used_heap_size(void);
 static void register_gty_roots(void);
 static void gc_warning_filter(char * msg, GC_word arg);
+static void register_weak_pointers(void);
+static void unregister_weak_pointers(void);
 
 static size_t last_allocated = 0;
 static ggc_stringpool_roots stringpool_roots;
@@ -54,20 +59,70 @@ ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
   return result;
 }
 
-int
-ggc_htab_register_weak_ptr(void **slot, void *info ATTRIBUTE_UNUSED)
+void
+ggc_htab_delete_weak_ptr(void ** slot, void * object ATTRIBUTE_UNUSED,
+			 void * info)
 {
-  GC_general_register_disappearing_link (slot, *slot);
+  const struct ggc_cache_tab *r = (const struct ggc_cache_tab *) info;
+  htab_clear_slot (*r->base, slot);
+}
+
+int
+ggc_htab_register_weak_ptr(void **slot, void *info)
+{
+  GC_general_register_disappearing_link_callback (slot, *slot,
+						  ggc_htab_delete_weak_ptr,
+						  info);
   return 1;
 }
+
+int
+ggc_htab_unregister_weak_ptr(void **slot, void *info ATTRIBUTE_UNUSED)
+{
+  int result = GC_unregister_disappearing_link (slot);
+  gcc_assert (result != 0);
+  return 1;
+}
+
+void
+register_weak_pointers(void)
+{
+  const struct ggc_cache_tab *const *ct;
+  const struct ggc_cache_tab *cti;
+
+  /* Register hash caches as weak pointers. Boehm's GC weak pointer facility
+     will clear any weak pointers to deleted objects.  After collection hash
+     table cleanup to shrink it should be performed. */
+  for (ct = gt_ggc_cache_rtab; *ct; ct++)
+    for (cti = *ct; cti->base != NULL; cti++)
+      if (*cti->base)
+	{
+	  htab_traverse_noresize (*cti->base, ggc_htab_register_weak_ptr,
+				  (void *)cti);
+	}
+}
+
+void
+unregister_weak_pointers(void)
+{
+  const struct ggc_cache_tab *const *ct;
+  const struct ggc_cache_tab *cti;
+
+  for (ct = gt_ggc_cache_rtab; *ct; ct++)
+    for (cti = *ct; cti->base != NULL; cti++)
+      if (*cti->base)
+	{
+	  htab_traverse_noresize (*cti->base, ggc_htab_unregister_weak_ptr,
+				  (void *)cti);
+	}
+}
+
 
 void
 ggc_collect (void)
 {
   const struct ggc_root_tab *const *rt;
   const struct ggc_root_tab *rti;
-  const struct ggc_cache_tab *const *ct;
-  const struct ggc_cache_tab *cti;
 
   /* Avoid frequent unnecessary work by skipping collection if the
      total allocations haven't expanded much since the last
@@ -99,20 +154,13 @@ ggc_collect (void)
     for (rti = *rt; rti->base != NULL; rti++)
       memset (rti->base, 0, rti->stride);
 
-  /* Register hash caches as weak pointers. Boehm's GC weak pointer facility
-     will clear any weak pointers to deleted objects.  After collection hash
-     table cleanup to shrink it should be performed. */
-  for (ct = gt_ggc_cache_rtab; *ct; ct++)
-    for (cti = *ct; cti->base != NULL; cti++)
-      if (*cti->base)
-	{
-	  htab_traverse_noresize (*cti->base, ggc_htab_register_weak_ptr,
-				  (void *)cti);
-	}
+  register_weak_pointers();
 
   GC_enable();
   GC_gcollect();
   GC_disable();
+
+  unregister_weak_pointers();
 
   if (!quiet_flag)
     fprintf (stderr, "%luk}", (unsigned long) get_used_heap_size() / 1024);

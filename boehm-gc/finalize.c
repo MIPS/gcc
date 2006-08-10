@@ -31,7 +31,7 @@
 /* Type of mark procedure used for marking from finalizable object.	*/
 /* This procedure normally does not mark the object, only its		*/
 /* descendents.								*/
-typedef void finalization_mark_proc(/* ptr_t finalizable_obj_ptr */); 
+typedef void finalization_mark_proc(/* ptr_t finalizable_obj_ptr */);
 
 # define HASH3(addr,size,log_size) \
     ((((word)(addr) >> 3) ^ ((word)(addr) >> (3+(log_size)))) \
@@ -54,6 +54,11 @@ static struct disappearing_link {
 #   define dl_set_next(x,y) (x) -> prolog.next = (struct hash_chain_entry *)(y)
 
     word dl_hidden_obj;		/* Pointer to object base	*/
+                                /* What to do with the link when object
+				   disappears. If callback is NULL, will just
+				   set the link to NULL. */
+    GC_disappearing_link_callback_proc callback_on_disappear;
+    word dl_hidden_info; /* Arbitrary information for the callback */
 } **dl_head = 0;
 
 static signed_word log_dl_table_size = -1;
@@ -160,6 +165,22 @@ signed_word * log_size_ptr;
 # endif
 
 {
+  return(GC_general_register_disappearing_link_callback(link, obj, NULL, NULL));
+}
+
+# if defined(__STDC__) || defined(__cplusplus)
+    int GC_general_register_disappearing_link_callback(GC_PTR * link,
+						       GC_PTR obj,
+						       GC_disappearing_link_callback_proc callback,
+						       GC_PTR info)
+# else
+      int GC_general_register_disappearing_link_callback(link, obj, callback)
+      GC_PTR * link;
+      GC_PTR   obj;
+      GC_disappearing_link_callback_proc callback;
+      GC_PTR   info;
+# endif
+{
     struct disappearing_link *curr_dl;
     int index;
     struct disappearing_link * new_dl;
@@ -221,6 +242,8 @@ signed_word * log_size_ptr;
     }
     new_dl -> dl_hidden_obj = HIDE_POINTER(obj);
     new_dl -> dl_hidden_link = HIDE_POINTER(link);
+    new_dl -> callback_on_disappear = callback;
+    new_dl -> dl_hidden_info = HIDE_POINTER(info);
     dl_set_next(new_dl, dl_head[index]);
     dl_head[index] = new_dl;
     GC_dl_entries++;
@@ -228,7 +251,7 @@ signed_word * log_size_ptr;
         UNLOCK();
         ENABLE_SIGNALS();
 #   endif
-    return(0);
+  return 0;
 }
 
 # if defined(__STDC__) || defined(__cplusplus)
@@ -516,7 +539,7 @@ void GC_dump_finalization()
 {
     struct disappearing_link * curr_dl;
     struct finalizable_object * curr_fo;
-    ptr_t real_ptr, real_link;
+    ptr_t real_ptr, real_link, callback_proc, real_info;
     int dl_size = (log_dl_table_size == -1 ) ? 0 : (1 << log_dl_table_size);
     int fo_size = (log_fo_table_size == -1 ) ? 0 : (1 << log_fo_table_size);
     int i;
@@ -526,7 +549,10 @@ void GC_dump_finalization()
       for (curr_dl = dl_head[i]; curr_dl != 0; curr_dl = dl_next(curr_dl)) {
         real_ptr = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_obj);
         real_link = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_link);
-        GC_printf2("Object: 0x%lx, Link:0x%lx\n", real_ptr, real_link);
+	callback_proc = (ptr_t)(curr_dl -> callback_on_disappear);
+	real_info = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_info);
+        GC_printf4("Object: 0x%lx, Link:0x%lx, Callback:0x%lx, Info:0x%lx\n",
+		   real_ptr, real_link, callback_proc, real_info);
       }
     }
     GC_printf0("Finalizers:\n");
@@ -545,11 +571,12 @@ void GC_finalize()
 {
     struct disappearing_link * curr_dl, * prev_dl, * next_dl;
     struct finalizable_object * curr_fo, * prev_fo, * next_fo;
-    ptr_t real_ptr, real_link;
+    ptr_t real_ptr, real_link, real_info;
+    GC_disappearing_link_callback_proc callback_proc;
     register int i;
     int dl_size = (log_dl_table_size == -1 ) ? 0 : (1 << log_dl_table_size);
     int fo_size = (log_fo_table_size == -1 ) ? 0 : (1 << log_fo_table_size);
-    
+
   /* Make disappearing links disappear */
     for (i = 0; i < dl_size; i++) {
       curr_dl = dl_head[i];
@@ -557,8 +584,13 @@ void GC_finalize()
       while (curr_dl != 0) {
         real_ptr = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_obj);
         real_link = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_link);
+	real_info = (ptr_t)REVEAL_POINTER(curr_dl -> dl_hidden_info);
+	callback_proc = curr_dl -> callback_on_disappear;
         if (!GC_is_marked(real_ptr)) {
-            *(word *)real_link = 0;
+	    if (callback_proc == NULL)
+                *(word *)real_link = 0;
+	    else
+	        (*callback_proc)((GC_PTR)real_link, real_ptr, real_info);
             next_dl = dl_next(curr_dl);
             if (prev_dl == 0) {
                 dl_head[i] = next_dl;
