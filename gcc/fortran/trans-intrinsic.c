@@ -540,6 +540,7 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   tree *pdecl;
   gfc_typespec *ts;
   char name[GFC_MAX_SYMBOL_LEN + 3];
+  VEC(tree,heap) *v;
 
   ts = &expr->ts;
   if (ts->type == BT_REAL)
@@ -606,13 +607,15 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 		ts->kind);
     }
 
-  argtypes = NULL_TREE;
+  v = NULL;
   for (actual = expr->value.function.actual; actual; actual = actual->next)
     {
       type = gfc_typenode_for_spec (&actual->expr->ts);
-      argtypes = gfc_chainon_list (argtypes, type);
+      VEC_safe_push (tree, heap, v, type);
     }
-  argtypes = gfc_chainon_list (argtypes, void_type_node);
+  VEC_safe_push (tree, heap, v, void_type_node);
+  argtypes = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
   type = build_function_type (gfc_typenode_for_spec (ts), argtypes);
   fndecl = build_decl (FUNCTION_DECL, get_identifier (name), type);
 

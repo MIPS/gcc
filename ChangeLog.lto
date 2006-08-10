@@ -3,6 +3,9 @@
 	* gcc/cp/pt.c (tsubst_arg_types): Use alloc_parm_types and its
 	friends.
 
+	* gcc/fortran/trans-intrinsic.c (gfc_get_intrinsic_lib_fndecl):
+	Use vec_heap2parm_types.
+
 2006-08-09  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/java/parse.y (patch_unaryop): Use CALL_EXPR_FN to pick
