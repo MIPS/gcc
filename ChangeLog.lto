@@ -1,3 +1,84 @@
+2006-08-10  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/gentype.c (walk_type): Precompute array length before walking
+	array elements.
+
+	* gcc/tree.c (tree_code_size): Remove tcc_vl_exp, so that this
+	signals an error on variably-sized expressions.
+	(tree_size): Use VL_EXP_OPERAND_LENGTH instead of the more general
+	TREE_OPERAND_LENGTH.
+	(tree_operand_length): New function to implement TREE_OPERAND_LENGTH.
+	(make_node_stat): Remove tcc_vl_exp, so that this signals an error.
+	(build_nt_call_list): Rewrite to use build_vl_exp as the primitive.
+	(process_call_operands): Remove explicit loop over arguments, since
+	arguments are now ordinary operands.
+	(build_vl_exp_stat): New primitive constructor for tcc_vl_exp objects.
+	(build_call_list): Rewrite to use build_vl_exp as the primitive.
+	(build_call_valist): Likewise.
+	(build_call_array): Likewise.
+	(init_call_expr_iterator): Rewrite for new CALL_EXPR representation.
+	(next_call_expr_arg): Likewise.
+	(more_call_expr_args_p): Likewise.
+	(call_expr_nargs): Delete (this is now a macro).
+	(call_expr_arg): Delete.  Calls changed to use the lvalue macro
+	CALL_EXPR_ARG instead.
+	(call_expr_argp): Delete, since it's no longer needed by the
+	CALL_EXPR_ARG macro.
+	(call_expr_arglist): New function used to implement the
+	CALL_EXPR_ARGS macro.  
+	* gcc/tree.h (TREE_OPERAND_LENGTH): Expand to call
+	tree_operand_length instead of TREE_CODE_LENGTH, to account for
+	variably-sized expression nodes.
+	(VL_EXP_OPERAND_LENGTH): New macro.
+	(CALL_EXPR_FN): Redefine for new CALL_EXPR representation.
+	(CALL_EXPR_ARGS): Likewise.
+	(CALL_EXPR_ARG0, CALL_EXPR_ARG1, CALL_EXPR_ARG2): Likewise.
+	(CALL_EXPR_ARG): Likewise.
+	(CALL_EXPR_ARGP): New macro to point to argument array in a
+	CALL_EXPR.
+	(call_expr_arg_iterator): Change internal state to reflect new
+	CALL_EXPR representation.
+	(tree_operand_length): Declare.
+	(build_vl_exp_stat): Declare.
+	(build_vl_exp): New macro.
+	(call_expr_nargs, call_expr_arg, call_expr_argp): Delete declarations.
+	(call_expr_arglist): Declare.
+
+	* gcc/tree.def (CALL_EXPR): Document new CALL_EXPR layout.
+
+	* gcc/builtins.c (fold_call_expr): Remove unnecessary copy to local
+	array.
+	(rewrite_call_expr): Rewrite to use new build_call_array.
+	(expand_builtin_memory_chk): Change call_expr_arg to CALL_EXPR_ARG.
+	(maybe_emit_chk_warning): Likewise.
+	(maybe_emit_sprintf_chk_warning): Likewise.
+	(fold_builtin_sprintf_chk): Likewise.
+	(fold_builtin_snprintf_chk): Likewise.
+
+	* gcc/objc/objc-act.c (receiver_is_class_object): Change
+	call_expr_arg to CALL_EXPR_ARG.
+	* gcc/tree-ssa-ccp.c (ccp_fold_builtin): Likewise.
+
+	* gcc/tree-ssa-pre.c (list_node_pool):  Delete, since argument lists
+	no longer need special treatment.
+	(pool_copy_list): Likewise.
+	(temp_copy_call_expr): Delete argument list copy.
+	(create_expression_by_pieces): Rewrite to avoid building temporary
+	argument list.
+	(create_value_expr_from): Remove explicit traversal of arguments,
+	since they're now ordinary operands.
+	(init_pre, fini_pre): Remove references to list_node_pool.
+
+	* gcc/cp/cp-tree.def (AGGR_INIT_EXPR): Document new layout.
+
+	* gcc/cp/semantics.c (simplify_aggr_init_expr): Rewrite to avoid
+	building a temporary argument list.
+
+	* gcc/java/java-tree.def (NEW_CLASS_EXPR): Document new layout.
+
+	* gcc/doc/c-tree.texi (Expression trees): Document
+	new CALL_EXPR and AGGR_INIT_EXPR layout and accessors.
+
 2006-08-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/pt.c (tsubst_arg_types): Use alloc_parm_types and its
