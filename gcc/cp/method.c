@@ -977,7 +977,7 @@ static tree
 implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
-  tree parameter_types = void_list_node;
+  tree parameter_types;
   tree return_type;
   tree fn_type;
   tree raises = empty_except_spec;
@@ -1049,7 +1049,6 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       else
 	rhs_parm_type = type;
       rhs_parm_type = build_reference_type (rhs_parm_type);
-      parameter_types = tree_cons (NULL_TREE, rhs_parm_type, parameter_types);
       raises = synthesize_exception_spec (type, &locate_copy, &data);
       break;
     }
@@ -1058,6 +1057,17 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
     }
 
   /* Create the function.  */
+  if (rhs_parm_type)
+    {
+      parameter_types = alloc_parm_types (2);
+      *(nth_parm_type_ptr (parameter_types, 0)) = rhs_parm_type;
+      *(nth_parm_type_ptr (parameter_types, 1)) = void_type_node;
+    }
+  else
+    {
+      parameter_types = alloc_parm_types (1);
+      *(nth_parm_type_ptr (parameter_types, 0)) = void_type_node;
+    }
   fn_type = build_method_type_directly (type, return_type, parameter_types);
   if (raises)
     fn_type = build_exception_variant (fn_type, raises);
