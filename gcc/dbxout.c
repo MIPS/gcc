@@ -3248,11 +3248,13 @@ dbxout_reg_parms (tree parms)
 static void
 dbxout_args (tree args)
 {
-  while (args)
+  int len = num_parm_types (args);
+  int i;
+
+  for (i = 0; i < len; i++)
     {
       stabstr_C (',');
-      dbxout_type (TREE_VALUE (args), 0);
-      args = TREE_CHAIN (args);
+      dbxout_type (nth_parm_type (args, i), 0);
     }
 }
 
