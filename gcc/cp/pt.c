@@ -6715,7 +6715,7 @@ tsubst_arg_types (tree arg_types,
 {
   int len = num_parm_types (arg_types);
   int i;
-  tree result = NULL_TREE;
+  tree new_parm_types = alloc_parm_types (len);
 
   for (i = len - 1; i >= 0; i--)
     {
@@ -6723,7 +6723,7 @@ tsubst_arg_types (tree arg_types,
 
       if (i == len - 1 && type == void_type_node)
 	{
-	  result = void_list_node;
+	  *(nth_parm_type_ptr (new_parm_types, i)) = void_type_node;
 	  continue;
 	}
 
@@ -6745,10 +6745,10 @@ tsubst_arg_types (tree arg_types,
 	 ignore top-level qualifiers as required.  */
       type = TYPE_MAIN_VARIANT (type_decays_to (type));
 
-      result = hash_tree_cons (NULL_TREE, type, result);
+      *(nth_parm_type_ptr (new_parm_types, i)) = type;
     }
 
-  return result;
+  return new_parm_types;
 }
 
 /* Substitute into a FUNCTION_TYPE or METHOD_TYPE.  This routine does
