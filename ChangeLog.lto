@@ -9,6 +9,9 @@
 	* gcc/cp/dbxout.c (dbxout_args): Use num_parm_types and
 	nth_parm_type.
 
+	* gcc/cp/decl2.c (maybe_retrofit_in_chrg): Use
+	vec_heap2parm_types.
+
 2006-08-09  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/java/parse.y (patch_unaryop): Use CALL_EXPR_FN to pick

@@ -177,6 +177,9 @@ void
 maybe_retrofit_in_chrg (tree fn)
 {
   tree basetype, arg_types, parms, parm, fntype;
+  VEC(tree,heap) *v;
+  int len;
+  int i;
 
   /* If we've already add the in-charge parameter don't do it again.  */
   if (DECL_HAS_IN_CHARGE_PARM_P (fn))
@@ -194,8 +197,12 @@ maybe_retrofit_in_chrg (tree fn)
     return;
 
   arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
-  basetype = TREE_TYPE (TREE_VALUE (arg_types));
-  arg_types = TREE_CHAIN (arg_types);
+  len = num_parm_types (arg_types);
+  basetype = TREE_TYPE (nth_parm_type (arg_types, 0));
+
+  v = VEC_alloc (tree, heap, len - 1 + 1 + 1);
+  for (i = 1; i < len; i++)
+    VEC_quick_push (tree, v, nth_parm_type (arg_types, i));
 
   parms = TREE_CHAIN (DECL_ARGUMENTS (fn));
 
@@ -210,7 +217,7 @@ maybe_retrofit_in_chrg (tree fn)
       parms = parm;
 
       /* ...and then to TYPE_ARG_TYPES.  */
-      arg_types = hash_tree_chain (vtt_parm_type, arg_types);
+      VEC_quick_insert (tree, v, 0, vtt_parm_type);
 
       DECL_HAS_VTT_PARM_P (fn) = 1;
     }
@@ -219,12 +226,14 @@ maybe_retrofit_in_chrg (tree fn)
   parm = build_artificial_parm (in_charge_identifier, integer_type_node);
   TREE_CHAIN (parm) = parms;
   parms = parm;
-  arg_types = hash_tree_chain (integer_type_node, arg_types);
+  VEC_quick_insert (tree, v, 0, integer_type_node);
 
   /* Insert our new parameter(s) into the list.  */
   TREE_CHAIN (DECL_ARGUMENTS (fn)) = parms;
 
   /* And rebuild the function type.  */
+  arg_types = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
   fntype = build_method_type_directly (basetype, TREE_TYPE (TREE_TYPE (fn)),
 				       arg_types);
   if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
