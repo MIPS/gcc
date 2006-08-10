@@ -362,6 +362,7 @@ public final class System
    * <dt>gnu.java.io.encoding_scheme_alias.iso-latin-_?</dt> <dd>8859_?</dd>
    * <dt>gnu.java.io.encoding_scheme_alias.latin?</dt>       <dd>8859_?</dd>
    * <dt>gnu.java.io.encoding_scheme_alias.utf-8</dt>        <dd>UTF8</dd>
+   * <dt>gnu.javax.print.server</dt>     <dd>Hostname of external CUPS server.</dd>
    * </dl>
    *
    * @return the system properties, will never be null
@@ -548,7 +549,10 @@ public final class System
 	for (String pair : environ)
 	  {
 	    String[] parts = pair.split("=");
-	    variables.put(parts[0], parts[1]);
+	    if (parts.length == 2)
+	      variables.put(parts[0], parts[1]);
+	    else
+	      variables.put(parts[0], "");
 	  }
 	environmentMap = Collections.unmodifiableMap(variables);
       }
@@ -846,7 +850,7 @@ public final class System
    *
    * @author Andrew John Hughes (gnu_andrew@member.fsf.org)
    */
-  private static class EnvironmentMap
+  static class EnvironmentMap
     extends HashMap<String,String>
   {
     
@@ -872,7 +876,20 @@ public final class System
     {
       super();
     }
-    
+
+    /**
+     * Constructs a new <code>EnvironmentMap</code> containing
+     * the contents of the specified map.
+     *
+     * @param m the map to be added to this.
+     * @throws NullPointerException if a key or value is null.
+     * @throws ClassCastException if a key or value is not a String.
+     */    
+    EnvironmentMap(Map<String,String> m)
+    {
+      super(m);
+    }
+
     /**
      * Blocks queries containing a null key or one which is not
      * of type <code>String</code>.  All other queries
@@ -957,7 +974,32 @@ public final class System
         keys = new EnvironmentSet(super.keySet());
       return keys;
     }
-    
+
+    /**
+     * Associates the given key to the given value. If the
+     * map already contains the key, its value is replaced.
+     * The map does not accept null keys or values, or keys
+     * and values not of type {@link String}.
+     *
+     * @param key the key to map.
+     * @param value the value to be mapped.
+     * @return the previous value of the key, or null if there was no mapping
+     * @throws NullPointerException if a key or value is null.
+     * @throws ClassCastException if a key or value is not a String.
+     */
+    public String put(String key, String value)
+    {
+      if (key == null)
+	throw new NullPointerException("A new key is null.");
+      if (value == null)
+	throw new NullPointerException("A new value is null.");
+      if (!(key instanceof String))
+	throw new ClassCastException("A new key is not a String.");
+      if (!(value instanceof String))
+	throw new ClassCastException("A new value is not a String.");
+      return super.put(key, value);
+    }
+
     /**
      * Removes a key-value pair from the map.  The queried key may not
      * be null or of a type other than a <code>String</code>.

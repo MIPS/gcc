@@ -38,8 +38,10 @@ exception statement from your version. */
 package javax.swing;
 
 import java.awt.Component;
-import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.accessibility.AccessibleContext;
 
 /**
  * <p>Using this class you can easily monitor tasks where you cannot
@@ -62,6 +64,12 @@ import java.awt.event.ActionEvent;
  */
 public class ProgressMonitor
 {
+  
+  /**
+   * The accessible content for this component
+   */
+  protected AccessibleContext accessibleContext;
+  
   /**
    * parentComponent
    */
@@ -134,12 +142,12 @@ public class ProgressMonitor
    */
   public void close()
   {
-    if ( progressDialog != null )
+    if (progressDialog != null)
       {
         progressDialog.setVisible(false);
       }
 
-    if ( timer != null )
+    if (timer != null)
       {
         timer.stop();
         timer = null;
@@ -165,7 +173,7 @@ public class ProgressMonitor
     // Initializes and starts a timer with a task
     // which measures the duration and displays
     // a progress dialog if neccessary.
-    if ( timer == null && progressDialog == null )
+    if (timer == null && progressDialog == null)
       {
         timer = new Timer(25, null);
         timer.addActionListener(new TimerListener());
@@ -174,7 +182,7 @@ public class ProgressMonitor
 
     // Cancels timer and hides progress dialog if the
     // maximum value is reached.
-    if ( progressBar != null && this.progress >= progressBar.getMaximum() )
+    if (progressBar != null && this.progress >= progressBar.getMaximum())
       {
         // The reason for using progressBar.getMaximum() instead of max is that
         // we want to prevent that changes to the value have any effect after the
@@ -318,7 +326,7 @@ public class ProgressMonitor
    */
   public void setNote(String note)
   {
-    if ( noteLabel != null )
+    if (noteLabel != null)
       {
         noteLabel.setText(note);
       }
@@ -393,18 +401,18 @@ public class ProgressMonitor
     {
        long now = System.currentTimeMillis();
 
-       if ( first )
+       if (first)
        {
-         if (( now - timestamp ) > millisToDecideToPopup )
+         if ((now - timestamp) > millisToDecideToPopup)
          {
            first = false;
 
 
-           long expected = ( progress - min == 0 ) ? 
-	     ( now - timestamp ) * ( max - min ) : 
-	     ( now - timestamp ) * ( max - min ) / ( progress - min );
+           long expected = (progress - min == 0) ? 
+	     (now - timestamp) * (max - min) : 
+	     (now - timestamp) * (max - min) / (progress - min);
 
-           if ( expected > millisToPopup )
+           if (expected > millisToPopup)
            {
              createDialog();
            }
@@ -416,14 +424,14 @@ public class ProgressMonitor
            return;
          }
        }
-       else if ( progressDialog != null )
+       else if (progressDialog != null)
        {
          // The progress dialog is being displayed. We now calculate
          // whether setting the progress bar to the current progress
          // value would result in a visual difference. 
          int delta = progress - progressBar.getValue();
 
-         if ( ( delta * progressBar.getWidth() / (max - min) ) > 0 )
+         if ((delta * progressBar.getWidth() / (max - min)) > 0)
          {
            // At least one pixel would change.
            progressBar.setValue(progress);
@@ -439,5 +447,14 @@ public class ProgressMonitor
       timestamp = now;
     }
   }
-
+  
+  /**
+   * Gets the accessible context.
+   * 
+   * @return the accessible context.
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    return accessibleContext;
+  }
 }

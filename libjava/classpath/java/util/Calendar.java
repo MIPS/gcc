@@ -878,6 +878,7 @@ public abstract class Calendar
                          1, 1970, JANUARY, 1, 1, 1, 1, THURSDAY, 1, AM, 0, 0, 0,
                          0, 0, zone.getRawOffset(), 0
                        };
+    complete();
     isTimeSet = false;
     areFieldsSet = false;
     isSet[field] = false;

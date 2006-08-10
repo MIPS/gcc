@@ -10,9 +10,6 @@
 /* Define to enable support for local sockets. */
 /* #undef ENABLE_LOCAL_SOCKETS */
 
-/* defined if cairo support was built in */
-/* #undef GTK_CAIRO */
-
 /* Define to 1 if you have the `accept' function. */
 #define HAVE_ACCEPT 1
 
@@ -103,8 +100,14 @@
 /* Define to 1 if you have the `lseek' function. */
 #define HAVE_LSEEK 1
 
+/* Define to 1 if you have the `lstat' function. */
+#define HAVE_LSTAT 1
+
 /* Define to 1 if you have the `madvise' function. */
 #define HAVE_MADVISE 1
+
+/* Define to 1 if you have the <magic.h> header file. */
+#define HAVE_MAGIC_H 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -135,6 +138,9 @@
 
 /* Define to 1 if you have the `read' function. */
 #define HAVE_READ 1
+
+/* Define to 1 if you have the `readlink' function. */
+#define HAVE_READLINK 1
 
 /* Define to 1 if you have the `recvfrom' function. */
 #define HAVE_RECVFROM 1
@@ -234,6 +240,12 @@
 /* Define to 1 if you have the `write' function. */
 #define HAVE_WRITE 1
 
+/* Define to 1 if you have libXrandr. */
+#define HAVE_XRANDR 1
+
+/* Define to 1 if you have libXrender. */
+#define HAVE_XRENDER 1
+
 /* Define if the host machine stores words of multi-word integers in
    big-endian order. */
 /* #undef HOST_WORDS_BIG_ENDIAN */
@@ -251,13 +263,13 @@
 #define PACKAGE_NAME "GNU Classpath"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "GNU Classpath 0.91-generics"
+#define PACKAGE_STRING "GNU Classpath 0.92-generics"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "classpath"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.91-generics"
+#define PACKAGE_VERSION "0.92-generics"
 
 /* Define if you want to synchronize VM threads portably by default; undef
    otherwise */
@@ -279,7 +291,7 @@
 /* #undef SIZEOF_VOIDP */
 
 /* The number of bytes in type void * */
-#define SIZEOF_VOID_P 4
+#define SIZEOF_VOID_P 8
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -294,7 +306,7 @@
 /* #undef TM_IN_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "0.91-generics"
+#define VERSION "0.92-generics"
 
 /* whether byteorder is bigendian */
 /* #undef WORDS_BIGENDIAN */

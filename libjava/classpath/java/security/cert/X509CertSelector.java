@@ -696,7 +696,7 @@ public class X509CertSelector implements CertSelector, Cloneable
     if (altNames == null)
       altNames = new LinkedList();
     ArrayList l = new ArrayList(2);
-    l.add(new Integer(id));
+    l.add(Integer.valueOf(id));
     l.add(name);
     altNames.add(l);
   }
@@ -715,7 +715,7 @@ public class X509CertSelector implements CertSelector, Cloneable
     if (altNames == null)
       altNames = new LinkedList();
     ArrayList l = new ArrayList(2);
-    l.add(new Integer(id));
+    l.add(Integer.valueOf(id));
     l.add(name);
     altNames.add(l);
   }
