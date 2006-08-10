@@ -1,3 +1,7 @@
+2006-08-10  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/except.c (do_free_exception): Use alloc_parm_types.
+
 2006-08-10  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/gentype.c (walk_type): Precompute array length before walking

@@ -553,8 +553,10 @@ do_free_exception (tree ptr)
   if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_free_exception (void *).  */
-      fn = push_void_library_fn (fn, tree_cons (NULL_TREE, ptr_type_node,
-						void_list_node));
+      tree parm_types = alloc_parm_types (2);
+      *(nth_parm_type_ptr (parm_types, 0)) = ptr_type_node;
+      *(nth_parm_type_ptr (parm_types, 1)) = void_type_node;
+      fn = push_void_library_fn (fn, parm_types);
     }
 
   return build_function_call (fn, tree_cons (NULL_TREE, ptr, NULL_TREE));
