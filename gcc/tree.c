@@ -355,7 +355,6 @@ tree_code_size (enum tree_code code)
     case tcc_comparison:  /* a comparison expression */
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
-    case tcc_vl_exp:      /* FIXME: a function call expression */
       return (sizeof (struct tree_exp)
 	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (tree));
 
@@ -431,10 +430,21 @@ tree_size (tree node)
     default:
       if (TREE_CODE_CLASS (code) == tcc_vl_exp)
 	return (sizeof (struct tree_exp)
-		+ (TREE_OPERAND_LENGTH (node) - 1) * sizeof (tree));
+		+ (VL_EXP_OPERAND_LENGTH (node) - 1) * sizeof (tree));
       else
 	return tree_code_size (code);
     }
+}
+
+/* Compute the number of operands in an expression node NODE.  For 
+   tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
+   otherwise it is looked up from the node's code.  */
+int tree_operand_length (tree node)
+{
+  if (VL_EXP_CLASS_P (node))
+    return VL_EXP_OPERAND_LENGTH (node);
+  else
+    return TREE_CODE_LENGTH (TREE_CODE (node));
 }
 
 /* Return a newly allocated node of code CODE.  For decl and type
@@ -476,7 +486,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
     case tcc_comparison:  /* a comparison expression */
     case tcc_unary:  /* a unary arithmetic expression */
     case tcc_binary:  /* a binary arithmetic expression */
-    case tcc_vl_exp:  /* a call expression */
       kind = e_kind;
       break;
 
@@ -3195,13 +3204,15 @@ tree
 build_nt_call_list (enum tree_code code, tree fn, tree arglist)
 {
   tree t;
+  int i;
+
   gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
 
-  /* FIXME: change this to use the new CALL_EXPR representation.  */
-  t = make_node (code);
+  t = build_vl_exp (code, list_length (arglist) + 3);
   CALL_EXPR_FN (t) = fn;
   CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
-  CALL_EXPR_ARGS (t) = arglist;
+  for (i = 0; arglist; arglist = TREE_CHAIN (arglist), i++)
+    CALL_EXPR_ARG (t, i) = TREE_VALUE (arglist);
   return t;
 }
 
@@ -7017,23 +7028,42 @@ process_call_operands (tree t)
       i = call_expr_flags (t);
       if (!(i & (ECF_CONST | ECF_PURE)))
 	side_effects = 1;
-
-      /* FIXME: This goes away after representation change is complete.  */
-      /* And even those have side-effects if their arguments do.  */
-      else
-	{
-	  tree node;
-	  call_expr_arg_iterator iter;
-	  FOR_EACH_CALL_EXPR_ARG (node, iter, t)
-	    if (TREE_SIDE_EFFECTS (node))
-	      {
-		side_effects = 1;
-		break;
-	      }
-	}
     }
   TREE_SIDE_EFFECTS (t) = side_effects;
 }
+
+/* Build a tcc_vl_exp object with code CODE and room for LEN operands.  LEN
+   includes the implicit operand count in TREE_OPERAND 0, and so must be >= 1.
+   Except for the CODE and operand count field, other storage for the
+   object is initialized to zeros.  */
+
+tree
+build_vl_exp_stat (enum tree_code code, int len MEM_STAT_DECL)
+{
+  tree t;
+  int length = (len-1) * sizeof (tree) + sizeof (struct tree_exp);
+
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  gcc_assert (len >= 1);
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) e_kind]++;
+  tree_node_sizes[(int) e_kind] += length;
+#endif
+
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+
+  memset (t, 0, length);
+
+  TREE_SET_CODE (t, code);
+
+  /* Can't use TREE_OPERAND to store the length because if checking is
+     enabled, it will try to check the length before we store it.  :-P  */
+  t->exp.operands[0] = build_int_cst (sizetype, len);
+
+  return t;
+}
+
 
 /* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
    indicated RETURN_TYPE and FN and a null static chain slot.
@@ -7044,14 +7074,15 @@ build_call_list (enum tree_code code, tree return_type, tree fn,
 		 tree arglist)
 {
   tree t;
-  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  int i;
 
-  /* FIXME: change this to use the new CALL_EXPR representation.  */
-  t = make_node (code);
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  t = build_vl_exp (code, list_length (arglist) + 3);
   TREE_TYPE (t) = return_type;
   CALL_EXPR_FN (t) = fn;
   CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
-  CALL_EXPR_ARGS (t) = arglist;
+  for (i = 0; arglist; arglist = TREE_CHAIN (arglist), i++)
+    CALL_EXPR_ARG (t, i) = TREE_VALUE (arglist);
   process_call_operands (t);
   return t;
 }
@@ -7082,12 +7113,18 @@ tree
 build_call_valist (enum tree_code code, tree return_type, tree fn,
 		   int nargs, va_list args)
 {
-  /* FIXME: change this to use the new CALL_EXPR representation.  */
-  tree arglist = NULL_TREE;
+  tree t;
   int i;
+
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  t = build_vl_exp (code, nargs + 3);
+  TREE_TYPE (t) = return_type;
+  CALL_EXPR_FN (t) = fn;
+  CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
   for (i = 0; i < nargs; i++)
-    arglist = tree_cons (NULL_TREE, va_arg (args, tree), arglist);
-  return build_call_list (code, return_type, fn, nreverse (arglist));
+    CALL_EXPR_ARG (t, i) = va_arg (args, tree);
+  process_call_operands (t);
+  return t;
 }
 
 /* Build a CALL_EXPR-like thing of class tcc_vl_exp with code CODE and the
@@ -7099,13 +7136,20 @@ tree
 build_call_array (enum tree_code code, tree return_type, tree fn,
 		  int nargs, tree *args)
 {
-  /* FIXME: change this to use the new CALL_EXPR representation.  */
-  tree arglist = NULL_TREE;
+  tree t;
   int i;
+
+  gcc_assert (TREE_CODE_CLASS (code) == tcc_vl_exp);
+  t = build_vl_exp (code, nargs + 3);
+  TREE_TYPE (t) = return_type;
+  CALL_EXPR_FN (t) = fn;
+  CALL_EXPR_STATIC_CHAIN (t) = NULL_TREE;
   for (i = 0; i < nargs; i++)
-    arglist = tree_cons (NULL_TREE, args[i], arglist);
-  return build_call_list (code, return_type, fn, nreverse (arglist));
+    CALL_EXPR_ARG (t, i) = args[i];
+  process_call_operands (t);
+  return t;
 }
+
 
 /* Returns true if it is possible to prove that the index of
    an array access REF (an ARRAY_REF expression) falls into the
@@ -7867,7 +7911,9 @@ stdarg_p (tree fntype)
 void
 init_call_expr_arg_iterator (tree exp, call_expr_arg_iterator *iter)
 {
-  iter->tail =  CALL_EXPR_ARGS (exp);
+  iter->t = exp;
+  iter->n = call_expr_nargs (exp);
+  iter->i = 0;
 }
 
 /* Initialize the abstract argument list iterator object ITER, then advance
@@ -7889,10 +7935,10 @@ tree
 next_call_expr_arg (call_expr_arg_iterator *iter)
 {
   tree result;
-  if (iter->tail == NULL_TREE)
+  if (iter->i >= iter->n)
     return NULL_TREE;
-  result = TREE_VALUE (iter->tail);
-  iter->tail = TREE_CHAIN (iter->tail);
+  result = CALL_EXPR_ARG (iter->t, iter->i);
+  iter->i++;
   return result;
 }
 
@@ -7902,56 +7948,22 @@ next_call_expr_arg (call_expr_arg_iterator *iter)
 bool
 more_call_expr_args_p (const call_expr_arg_iterator *iter)
 {
-  return (iter->tail != NULL_TREE);
+  return (iter->i < iter->n);
 }
 
-/* Count the number of arguments passed in CALL_EXPR node EXP.  */
-
-int
-call_expr_nargs (tree exp)
-{
-  call_expr_arg_iterator iter;
-  int i = 0;
-  tree arg;
-  for (arg = first_call_expr_arg (exp, &iter); arg;
-       arg = next_call_expr_arg (&iter))
-    i++;
-  return i;
-}
-
-/* Return the Nth (zero-based) argument from CALL_EXPR node EXP.  Returns
-   NULL if there aren't that many arguments.  */
-
+/* Build and return a TREE_LIST of arguments in the CALL_EXPR exp.
+   FIXME: don't use this function.  It exists for compatibility with
+   the old representation of CALL_EXPRs where a list was used to hold the
+   arguments.  Places that currently extract the arglist from a CALL_EXPR
+   ought to be rewritten to use the CALL_EXPR itself.  */
 tree
-call_expr_arg (tree exp, int n)
+call_expr_arglist (tree exp)
 {
-  call_expr_arg_iterator iter;
-  tree t = NULL;
+  tree arglist = NULL_TREE;
   int i;
-  for (i = 0, t = first_call_expr_arg (exp, &iter);
-       (i < n) && t;
-       i++, t = next_call_expr_arg (&iter))
-    ;
-  return t;
-}
-
-/* Return a pointer to the Nth (zero-based) argument from CALL_EXPR node EXP.
-   Returns NULL if there aren't that many arguments.  */
-
-tree *
-call_expr_argp (tree exp, int n)
-{
-  tree t = CALL_EXPR_ARGS (exp);
-  int i;
-  for (i = 0; i < n; i++)
-    {
-      if (!t)
-	return NULL;
-      t = TREE_CHAIN (t);
-    }
-  if (t)
-    return &(TREE_VALUE (t));
-  return NULL;
+  for (i = call_expr_nargs (exp) - 1; i >= 0; i--)
+    arglist = tree_cons (NULL_TREE, CALL_EXPR_ARG (exp, i), arglist);
+  return arglist;
 }
 
 #include "gt-tree.h"

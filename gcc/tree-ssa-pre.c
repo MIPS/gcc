@@ -327,7 +327,6 @@ static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
 static alloc_pool comparison_node_pool;
-static alloc_pool list_node_pool;
 static alloc_pool modify_expr_node_pool;
 static bitmap_obstack grand_bitmap_obstack;
 
@@ -965,33 +964,6 @@ fully_constant_expression (tree t)
   return t;
 }
 
-/* Return a copy of a chain of nodes, chained through the TREE_CHAIN field.
-   For example, this can copy a list made of TREE_LIST nodes.  
-   Allocates the nodes in list_node_pool*/
-
-static tree
-pool_copy_list (tree list)
-{
-  tree head;
-  tree prev, next;
-
-  if (list == 0)
-    return 0;
-  head = (tree) pool_alloc (list_node_pool);
-  
-  memcpy (head, list, tree_size (list));
-  prev = head;
-  
-  next = TREE_CHAIN (list);
-  while (next)
-    {
-      TREE_CHAIN (prev) = (tree) pool_alloc (list_node_pool);
-      memcpy (TREE_CHAIN (prev), next, tree_size (next));
-      prev = TREE_CHAIN (prev);
-      next = TREE_CHAIN (next);
-    }
-  return head;
-}
 
 /* Make a temporary copy of a CALL_EXPR object NODE.  */
 
@@ -1000,8 +972,6 @@ temp_copy_call_expr (tree node)
 {
   tree new = (tree) obstack_alloc (&temp_call_expr_obstack, tree_size (node));
   memcpy (new, node, tree_size (node));
-  /* FIXME:  Remove after CALL_EXPR representation conversion.  */
-  CALL_EXPR_ARGS (new) = pool_copy_list (CALL_EXPR_ARGS (node));
   return new;
 }
 
@@ -2320,9 +2290,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       {
 	tree fn, sc;
 	tree genfn;
-	tree genarglist;
-	tree arg;
-	call_expr_arg_iterator iter;
+	int i, nargs;
+	tree *buffer;
 	
 	gcc_assert (TREE_CODE (expr) == CALL_EXPR);
 	
@@ -2331,22 +2300,22 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	
 	genfn = find_or_generate_expression (block, fn, stmts);
 
-	/* FIXME:  It ought to be possible to do this without consing up
-	   a temporary list.  */
-	genarglist = NULL;
-	FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
-	  {
-	    tree newarg = find_or_generate_expression (block, arg, stmts);
-	    genarglist = tree_cons (NULL_TREE, newarg, genarglist);
-	  }
-	genarglist = nreverse (genarglist);
+	nargs = call_expr_nargs (expr);
+	buffer = alloca (nargs * sizeof (tree));
 
-	folded = fold_build_call_list (TREE_CODE (expr),
-				       TREE_TYPE (expr),
-				       genfn, genarglist);
+	for (i = 0; i < nargs; i++)
+	  {
+	    tree arg = CALL_EXPR_ARG (expr, i);
+	    buffer[i] = find_or_generate_expression (block, arg, stmts);
+	  }
+
+	folded = build_call_array (TREE_CODE (expr),
+				   TREE_TYPE (expr),
+				   genfn, nargs, buffer);
 	if (sc)
 	  CALL_EXPR_STATIC_CHAIN (folded) =
 	    find_or_generate_expression (block, sc, stmts);
+	folded = fold (folded);
 	break;
       }
       break;
@@ -2887,11 +2856,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
     pool = binary_node_pool;
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     pool = comparison_node_pool;
-  else if (TREE_CODE_CLASS (code) == tcc_exceptional)
-    {
-      gcc_assert (code == TREE_LIST);
-      pool = list_node_pool;
-    }
   else 
     gcc_assert (code == CALL_EXPR);
 
@@ -2901,49 +2865,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
     {
       vexpr = (tree) pool_alloc (pool);
       memcpy (vexpr, expr, tree_size (expr));
-    }
-  
-  /* This case is only for TREE_LIST's that appear as part of
-     CALL_EXPR's.  Anything else is a bug, but we can't easily verify
-     this, hence this comment.  TREE_LIST is not handled by the
-     general case below is because they don't have a fixed length, or
-     operands, so you can't access purpose/value/chain through
-     TREE_OPERAND macros.  */
-
-  /* FIXME:  This section of code should go away completely when the
-     low-level representation of CALL_EXPRs is changed not to use
-     TREE_LISTs.  */
-
-  if (code == TREE_LIST)
-    {
-      tree op = NULL_TREE;
-      tree temp = NULL_TREE;
-      if (TREE_CHAIN (vexpr))
-	temp = create_value_expr_from (TREE_CHAIN (vexpr), block, stmt);      
-      TREE_CHAIN (vexpr) = temp ? temp : TREE_CHAIN (vexpr);
-      
-
-      /* Recursively value-numberize reference ops.  */
-      if (REFERENCE_CLASS_P (TREE_VALUE (vexpr)))
-	{
-	  tree tempop;
-	  op = TREE_VALUE (vexpr);
-	  tempop = create_value_expr_from (op, block, stmt);
-	  op = tempop ? tempop : op;
-	  
-	  TREE_VALUE (vexpr)  = vn_lookup_or_add (op, stmt);
-	}
-      else
-	{
-	  op = TREE_VALUE (vexpr);
-	  TREE_VALUE (vexpr) = vn_lookup_or_add (TREE_VALUE (vexpr), NULL);
-	}
-      /* This is the equivalent of inserting op into EXP_GEN like we
-	 do below */
-      if (!is_undefined_value (op))
-	value_insert_into_set (EXP_GEN (block), op);
-
-      return vexpr;
     }
 
   for (i = 0; i < TREE_OPERAND_LENGTH (expr); i++)
@@ -2960,20 +2881,6 @@ create_value_expr_from (tree expr, basic_block block, tree stmt)
 	  tree tempop = create_value_expr_from (op, block, stmt);
 	  op = tempop ? tempop : op;
 	  val = vn_lookup_or_add (op, stmt);
-	}
-      /* FIXME: Delete this clause when CALL_EXPR representation changes. */
-      else if (TREE_CODE (op) == TREE_LIST)
-	{
-	  tree tempop;
-	  
-	  gcc_assert (TREE_CODE (expr) == CALL_EXPR);
-	  tempop = create_value_expr_from (op, block, stmt);
-	  
-	  op = tempop ? tempop : op;
-	  /* Unlike everywhere else, we do *not* want to replace the
-	     TREE_LIST itself with a value number, because support
-	     functions we call will blow up.  */
-	  val = op;
 	}
       else       
 	/* Create a value handle for OP and add it to VEXPR.  */
@@ -3792,8 +3699,6 @@ init_pre (bool do_fre)
 				       tree_code_size (NEGATE_EXPR), 30);
   reference_node_pool = create_alloc_pool ("Reference tree nodes",
 					   tree_code_size (ARRAY_REF), 30);
-  list_node_pool = create_alloc_pool ("List tree nodes",
-				      tree_code_size (TREE_LIST), 30);  
   comparison_node_pool = create_alloc_pool ("Comparison tree nodes",
       					    tree_code_size (EQ_EXPR), 30);
   modify_expr_node_pool = create_alloc_pool ("MODIFY_EXPR nodes",
@@ -3832,7 +3737,6 @@ fini_pre (bool do_fre)
   free_alloc_pool (binary_node_pool);
   free_alloc_pool (reference_node_pool);
   free_alloc_pool (unary_node_pool);
-  free_alloc_pool (list_node_pool);
   free_alloc_pool (comparison_node_pool);
   free_alloc_pool (modify_expr_node_pool);
   htab_delete (phi_translate_table);

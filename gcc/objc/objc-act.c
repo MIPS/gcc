@@ -6127,7 +6127,7 @@ receiver_is_class_object (tree receiver, int self, int super)
       && TREE_TYPE (exp) == TREE_TYPE (objc_get_class_decl)
       && !strcmp (IDENTIFIER_POINTER (DECL_NAME (exp)), TAG_GETCLASS)
       /* We have a call to objc_get_class/objc_getClass!  */
-      && (arg = call_expr_arg (receiver, 0)))
+      && (arg = CALL_EXPR_ARG (receiver, 0)))
     {
       STRIP_NOPS (arg);
       if (TREE_CODE (arg) == ADDR_EXPR

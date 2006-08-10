@@ -1413,9 +1413,15 @@ struct tree_constructor GTY(())
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
 /* In ordinary expression nodes.  */
-#define TREE_OPERAND_LENGTH(NODE) TREE_CODE_LENGTH (TREE_CODE (NODE))
+#define TREE_OPERAND_LENGTH(NODE) tree_operand_length (NODE)
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+
+/* In a tcc_vl_exp node, operand 0 is an INT_CST node holding the operand
+   length.  Note that we have to bypass the use of TREE_OPERAND to access
+   that field to avoid infinite recursion in expanding the macros.  */
+#define VL_EXP_OPERAND_LENGTH(NODE) \
+  ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
@@ -1545,17 +1551,29 @@ struct tree_constructor GTY(())
 
 /* CALL_EXPR accessors.
  */
-#define CALL_EXPR_FN(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 0)
+#define CALL_EXPR_FN(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 1)
 #define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 2)
-#define CALL_EXPR_ARGS(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 1)
-#define CALL_EXPR_ARG0(NODE) TREE_VALUE (CALL_EXPR_ARGS (NODE))
-#define CALL_EXPR_ARG1(NODE) TREE_VALUE (TREE_CHAIN (CALL_EXPR_ARGS (NODE)))
-#define CALL_EXPR_ARG2(NODE) TREE_VALUE (TREE_CHAIN (TREE_CHAIN (CALL_EXPR_ARGS (NODE))))
-#define CALL_EXPR_ARG(NODE, I) (*call_expr_argp ((NODE), (I)))
+#define CALL_EXPR_ARGS(NODE) call_expr_arglist (NODE)
+#define CALL_EXPR_ARG0(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 3)
+#define CALL_EXPR_ARG1(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 4)
+#define CALL_EXPR_ARG2(NODE) TREE_OPERAND (VL_EXP_CHECK (NODE), 5)
+#define CALL_EXPR_ARG(NODE, I) TREE_OPERAND (VL_EXP_CHECK (NODE), (I)+3)
+#define call_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH(NODE) - 3)
+
+/* CALL_EXPR_ARGP returns a pointer to the argument vector for NODE.
+   We can't use &CALL_EXPR_ARG0 (NODE) because that will complain if
+   the argument count is zero when checking is enabled.  Instead, do
+   the pointer arithmetic to advance past the 3 fixed operands in a
+   CALL_EXPR.  That produces a valid pointer to just past the end of the
+   argument array, even if it's not valid to dereference it.  */
+#define CALL_EXPR_ARGP(NODE) \
+  (&(TREE_OPERAND (VL_EXP_CHECK (NODE), 0)) + 3)
 
 typedef struct call_expr_arg_iterator_d GTY (())
 {
-  tree tail;
+  tree t;	/* the call_expr */
+  int n;	/* argument count */
+  int i;	/* next argument index */
 } call_expr_arg_iterator;
 
 /* Iterate through each argument ARG of CALL_EXPR CALL, using variable ITER
@@ -3452,9 +3470,14 @@ extern tree decl_assembler_name (tree);
 extern size_t tree_size (tree);
 
 /* Compute the number of bytes occupied by a tree with code CODE.  This
-   function cannot be used for TREE_VEC or PHI_NODE codes, which are of
-   variable length.  */
+   function cannot be used for TREE_VEC, PHI_NODE, or CALL_EXPR codes,
+   which are of variable length.  */
 extern size_t tree_code_size (enum tree_code);
+
+/* Compute the number of operands in an expression node NODE.  For 
+   tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
+   otherwise it is looked up from the node's code.  */
+extern int tree_operand_length (tree);
 
 /* Lowest level primitive for allocating a node.
    The TREE_CODE is the only argument.  Contents are initialized
@@ -3575,6 +3598,9 @@ extern void annotate_with_locus (tree, location_t);
 #endif
 extern tree build_empty_stmt (void);
 extern tree build_omp_clause (enum omp_clause_code);
+
+extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
+#define build_vl_exp(c,n) build_vl_exp_stat (c,n MEM_STAT_INFO)
 
 extern tree build_call_list (enum tree_code, tree, tree, tree);
 extern tree build_call_nary (enum tree_code, tree, tree, int, ...);
@@ -4176,9 +4202,7 @@ extern void init_call_expr_arg_iterator (tree, call_expr_arg_iterator *);
 extern tree first_call_expr_arg (tree, call_expr_arg_iterator *);
 extern tree next_call_expr_arg (call_expr_arg_iterator *);
 extern bool more_call_expr_args_p (const call_expr_arg_iterator *);
-extern int call_expr_nargs (tree);
-extern tree call_expr_arg (tree, int);
-extern tree *call_expr_argp (tree, int);
+extern tree call_expr_arglist (tree);
 extern tree *nth_parm_type_ptr (tree, int);
 extern tree alloc_parm_types (int);
 extern tree vec_heap2parm_types (VEC(tree,heap) *);

@@ -30,9 +30,10 @@ DEFTREECODE (NEW_ARRAY_EXPR, "new_array_expr", tcc_expression, 3)
 DEFTREECODE (NEW_ANONYMOUS_ARRAY_EXPR, "new_anonymous_array",
 	     tcc_expression, 3)
 
-/* New class creation expression.
-   Operand 0 is the name of the class to be created
-   Operand 1 is the argument list used to select a constructor.
+/* New class creation expression.  These have a representation similar to
+   that of CALL_EXPRs.  Operand 0 is an INTEGER_CST node containing the operand
+   count, operand 1 is the name of the class to be created.  The argument
+   list used to select a constructor follows beginning with operand 3.  
    There is no operand 2.  That slot is used for the
    CALL_EXPR_RTL macro (see preexpand_calls).
    The type should be the one of the created class.  */

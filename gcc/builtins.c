@@ -8886,21 +8886,12 @@ fold_call_expr (tree exp, bool ignore)
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
 	return targetm.fold_builtin (fndecl, CALL_EXPR_ARGS (exp), ignore);
-
-
-      /* FIXME: When the CALL_EXPR representation changes to store the
-	 arguments in an array instead of in a TREE_LIST, we can just pass
-	 that array to fold_builtin_n instead of copying the arguments
-	 to a local array.  */
       else
 	{
 	  int nargs = call_expr_nargs (exp);
 	  if (nargs <= MAX_ARGS_TO_FOLD_BUILTIN)
 	    {
-	      int i;
-	      tree args[MAX_ARGS_TO_FOLD_BUILTIN];
-	      for (i = 0; i < nargs; i++)
-		args[i] = call_expr_arg (exp, i);
+	      tree *args = CALL_EXPR_ARGP (exp);
 	      ret = fold_builtin_n (fndecl, args, nargs, ignore);
 	      if (ret)
 		return ret;
@@ -9052,40 +9043,35 @@ fold_builtin_call_valist (tree type,
 /* Construct a new CALL_EXPR using the tail of the argument list of EXP
    along with N new arguments specified as the "..." parameters.  SKIP
    is the number of arguments in EXP to be omitted.  This function is used
-   to do varargs-to-varargs transformations.
-
-   FIXME: This needs to be rewritten when the underlying CALL_EXPR
-   representation changes not to use a TREE_LIST to hold the arguments.  */
+   to do varargs-to-varargs transformations.  */
 
 static tree
-rewrite_call_expr (tree exp, int skip, tree fn, int n, ...)
+rewrite_call_expr (tree exp, int skip, tree fndecl, int n, ...)
 {
-  tree arglist = CALL_EXPR_ARGS (exp);
-  int i;
-  for (i = 0; i < skip; i++)
-    arglist = TREE_CHAIN (arglist);
+  int oldnargs = call_expr_nargs (exp);
+  int nargs = oldnargs - skip + n;
+  tree fntype = TREE_TYPE (fndecl);
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
+  tree *buffer;
+
   if (n > 0)
     {
-      tree temp = NULL_TREE;
+      int i, j;
       va_list ap;
+
+      buffer = alloca (nargs * sizeof (tree));
       va_start (ap, n);
-      /* Build TEMP backwards, then destructively reverse and concatenate
-	 it onto ARGLIST.  */
       for (i = 0; i < n; i++)
-	{
-	  tree arg = va_arg (ap, tree);
-	  temp = tree_cons (NULL_TREE, arg, temp);
-	}
+	buffer[i] = va_arg (ap, tree);
       va_end (ap);
-      for (i = 0; i < n; i++)
-	{
-	  tree next = TREE_CHAIN (temp);
-	  TREE_CHAIN (temp) = arglist;
-	  arglist = temp;
-	  temp = next;
-	}
+      for (j = skip; j < oldnargs; j++, i++)
+	buffer[i] = CALL_EXPR_ARG (exp, j);
     }
-  return build_function_call_expr (fn, arglist);
+  else 
+    buffer = CALL_EXPR_ARGP (exp) + skip;
+
+  return fold (build_call_array (CALL_EXPR, TREE_TYPE (exp), fn,
+				 nargs, buffer));
 }
 
 /* Validate a single argument ARG against a tree code CODE representing
@@ -9928,7 +9914,7 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
   dest = CALL_EXPR_ARG0 (exp);
   src = CALL_EXPR_ARG1 (exp);
   len = CALL_EXPR_ARG2 (exp);
-  size = call_expr_arg (exp, 3);
+  size = CALL_EXPR_ARG (exp, 3);
 
   if (! host_integerp (size, 1))
     return NULL_RTX;
@@ -10044,18 +10030,18 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
     /* For __strcat_chk the warning will be emitted only if overflowing
        by at least strlen (dest) + 1 bytes.  */
     case BUILT_IN_STRCAT_CHK:
-      len = call_expr_arg (exp, 1);
-      size = call_expr_arg (exp, 2);
+      len = CALL_EXPR_ARG (exp, 1);
+      size = CALL_EXPR_ARG (exp, 2);
       is_strlen = 1;
       break;
     case BUILT_IN_STRNCPY_CHK:
-      len = call_expr_arg (exp, 2);
-      size = call_expr_arg (exp, 3);
+      len = CALL_EXPR_ARG (exp, 2);
+      size = CALL_EXPR_ARG (exp, 3);
       break;
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
-      len = call_expr_arg (exp, 1);
-      size = call_expr_arg (exp, 3);
+      len = CALL_EXPR_ARG (exp, 1);
+      size = CALL_EXPR_ARG (exp, 3);
       break;
     default:
       gcc_unreachable ();
@@ -10098,7 +10084,7 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
   dest = CALL_EXPR_ARG0 (exp);
   flag = CALL_EXPR_ARG1 (exp);
   size = CALL_EXPR_ARG2 (exp);
-  fmt = call_expr_arg (exp, 3);
+  fmt = CALL_EXPR_ARG (exp, 3);
 
   if (! host_integerp (size, 1) || integer_all_onesp (size))
     return;
@@ -10123,7 +10109,7 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
 
       if (nargs < 5)
 	return;
-      arg = call_expr_arg (exp, 4);
+      arg = CALL_EXPR_ARG (exp, 4);
       if (! POINTER_TYPE_P (TREE_TYPE (arg)))
 	return;
 
@@ -10523,7 +10509,7 @@ fold_builtin_sprintf_chk (tree exp, enum built_in_function fcode)
   size = CALL_EXPR_ARG2 (exp);
   if (!validate_arg (size, INTEGER_TYPE))
     return NULL_TREE;
-  fmt = call_expr_arg (exp, 3);
+  fmt = CALL_EXPR_ARG (exp, 3);
   if (!validate_arg (fmt, POINTER_TYPE))
     return NULL_TREE;
 
@@ -10554,7 +10540,7 @@ fold_builtin_sprintf_chk (tree exp, enum built_in_function fcode)
 
 	  if (nargs == 5)
 	    {
-	      arg = call_expr_arg (exp, 4);
+	      arg = CALL_EXPR_ARG (exp, 4);
 	      if (validate_arg (arg, POINTER_TYPE))
 		{
 		  len = c_strlen (arg, 1);
@@ -10607,19 +10593,19 @@ fold_builtin_snprintf_chk (tree exp, tree maxlen,
   /* Verify the required arguments in the original call.  */
   if (call_expr_nargs (exp) < 5)
     return NULL_TREE;
-  dest = call_expr_arg (exp, 0);
+  dest = CALL_EXPR_ARG (exp, 0);
   if (!validate_arg (dest, POINTER_TYPE))
     return NULL_TREE;
-  len = call_expr_arg (exp, 1);
+  len = CALL_EXPR_ARG (exp, 1);
   if (!validate_arg (len, INTEGER_TYPE))
     return NULL_TREE;
-  flag = call_expr_arg (exp, 2);
+  flag = CALL_EXPR_ARG (exp, 2);
   if (!validate_arg (flag, INTEGER_TYPE))
     return NULL_TREE;
-  size = call_expr_arg (exp, 3);
+  size = CALL_EXPR_ARG (exp, 3);
   if (!validate_arg (size, INTEGER_TYPE))
     return NULL_TREE;
-  fmt = call_expr_arg (exp, 4);
+  fmt = CALL_EXPR_ARG (exp, 4);
   if (!validate_arg (fmt, POINTER_TYPE))
     return NULL_TREE;
 

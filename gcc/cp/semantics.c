@@ -2903,10 +2903,8 @@ simplify_aggr_init_expr (tree *tp)
 {
   tree aggr_init_expr = *tp;
 
-  /* FIXME: don't cons up arglist for CALL_EXPR.  */
   /* Form an appropriate CALL_EXPR.  */
   tree fn = CALL_EXPR_FN (aggr_init_expr);
-  tree args = CALL_EXPR_ARGS (aggr_init_expr);
   tree slot = AGGR_INIT_EXPR_SLOT (aggr_init_expr);
   tree type = TREE_TYPE (slot);
 
@@ -2925,23 +2923,21 @@ simplify_aggr_init_expr (tree *tp)
       style = arg;
     }
 
+  call_expr = build_call_array (CALL_EXPR,
+				TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+				fn,
+				call_expr_nargs (aggr_init_expr),
+				CALL_EXPR_ARGP (aggr_init_expr));
+
   if (style == ctor)
     {
       /* Replace the first argument to the ctor with the address of the
 	 slot.  */
-      tree addr;
-
-      args = TREE_CHAIN (args);
       cxx_mark_addressable (slot);
-      addr = build1 (ADDR_EXPR, build_pointer_type (type), slot);
-      args = tree_cons (NULL_TREE, addr, args);
+      CALL_EXPR_ARG0 (call_expr) =
+	build1 (ADDR_EXPR, build_pointer_type (type), slot);
     }
-
-  call_expr = build_call_list (CALL_EXPR,
-			       TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-			       fn, args);
-
-  if (style == arg)
+  else if (style == arg)
     {
       /* Just mark it addressable here, and leave the rest to
 	 expand_call{,_inline}.  */

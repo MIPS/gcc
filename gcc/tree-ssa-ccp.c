@@ -2306,7 +2306,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 					  CALL_EXPR_ARG0 (fn),
 					  CALL_EXPR_ARG1 (fn),
 					  CALL_EXPR_ARG2 (fn),
-					  call_expr_arg (fn, 3),
+					  CALL_EXPR_ARG (fn, 3),
 					  val[2], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
@@ -2327,7 +2327,7 @@ ccp_fold_builtin (tree stmt, tree fn)
 	result = fold_builtin_strncpy_chk (CALL_EXPR_ARG0 (fn),
 					   CALL_EXPR_ARG1 (fn),
 					   CALL_EXPR_ARG2 (fn),
-					   call_expr_arg (fn, 3),
+					   CALL_EXPR_ARG (fn, 3),
 					   val[2]);
       break;
 
