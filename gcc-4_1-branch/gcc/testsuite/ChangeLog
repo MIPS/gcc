@@ -1,3 +1,109 @@
+2006-08-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/27827
+	* gcc.target/i386/pr27827.c: New testcase.
+
+2006-08-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28651
+	* gcc.c-torture/execute/pr28651.c: New testcase.
+
+2006-08-10  Lee Millward  <lee.millward@codesourcery.com>
+
+	Revert:
+	2006-07-28  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27668
+        * g++.dg/template/crash54.C: New test.
+
+        PR c++/27962
+        * g++.dg/template/nontype16.C: New test.
+
+        * g++.dg/template/nontype5.C: Adjust error markers
+	
+2006-08-07  Lee Millward  <lee.millward@codesourcery.com>
+
+	* g++.dg/template/crash54.C: Adjust error_markers.
+	
+2006-08-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/sparc-getcontext-1.c: Fix typo.
+
+2006-08-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28590
+	* gfortran.dg/sequence_types_1.f90: New test.
+
+2006-08-05  Steven G. Kargl <kargls@comcast.nt>
+
+	PR fortran/28548
+	* gfortran.dg/elemental_optional_args_1.f90: dg-error becomes
+	dg-warning.  Add -pedantic option.
+
+	PR fortran/27981
+	* gfortran.dg/simpleif_2.f90: New test.
+
+2006-08-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/27721
+	* gcc.dg/lvalue-4.c: New test.
+
+	PR c/28136
+	* gcc.dg/init-bad-5.c: New test.
+
+2006-08-03  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/28347
+	* g++.dg/ext/typedef-init.C: Add new test for typedef 
+	initialization inside templates. Adjust existing error markers.
+
+2006-08-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28148
+	* g++.dg/init/ptrmem3.C: New test.
+
+2006-08-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28432
+	* g++.dg/other/pr28304.C: Change expected error message.
+	* g++.dg/other/pr28432.C: New test.
+
+2006-08-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28256
+	* g++.dg/init/brace2.C: Change expected error message, add empty init.
+
+2006-08-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28250
+	* g++.dg/eh/catch4.C: New test.
+
+	PR c++/28257
+	* g++.dg/other/qual1.C: New test.
+
+	PR c++/28259
+	* g++.dg/inherit/error2.C: New test.
+
+	PR c++/28267
+	* g++.dg/other/new1.C: New test.
+
+	* g++.dg/warn/pr23075.C: Remove obsolete test.
+	* g++.old-deja/g++.brendan/crash52.C: Remove dg-warning marker.
+	* g++.old-deja/g++.jason/report.C: Remove dg-warning marker.
+
+	PR c++/27508
+	* g++.dg/parse/dtor9.C: New test.
+	* g++.dg/parse/dtor10.C: New test.
+	* g++.dg/other/error7.C: Adjust error-marker.
+
+	PR c++/28274
+	* g++.dg/other/default5.C: New test.
+
+2006-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28557
+	* g++.dg/template/conv9.C: New test.
+
 2006-08-02  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline

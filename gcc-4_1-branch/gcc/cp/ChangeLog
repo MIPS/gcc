@@ -1,3 +1,67 @@
+2006-08-10  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/28594
+	PR c++/28637
+	PR c++/28638
+	PR c++/28639
+	PR c++/28640
+	PR c++/28641
+
+	Revert
+	2006-07-28  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27668
+        PR c++/27962
+        * pt.c (process_template_parm) Store invalid template
+        parameters as error_mark_node in the paramater list.
+        (push_inline_template_parms_recursive): Handle invalid
+        template parameters.
+        (comp_template_parms): Likewise.
+        (check_default_tmpl_args): Likewise.
+        (coerce_template_template_parms): Likewise.
+        (coerce_template_parms): Likewise.
+        (mangle_class_name_for_template): Likewise.
+        (tsubst_template_parms): Likewise.
+        * error.c (dump_template_argument_list): Likewise.
+	
+2006-08-07  Lee Millward  <lee.millward@codesourcery.com>
+
+	* pt.c (coerce_template_parms): Fix misplaced parenthesis.
+	
+2006-08-03  Lee Millward  <lee.millward@codesourcery.com>
+
+       PR c++/28347
+       * decl.c (start_decl): Return error_mark_node if a
+       diagnostic was issed for an invalid typedef initialization
+	
+2006-08-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28432
+	* decl2.c (check_classfn): Remove early return.
+	* search.c (lookup_member): Return NULL with bad type.
+
+2006-08-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28256
+	* decl.c (check_initializer): Check for 1 initializer on scalar types.
+
+2006-08-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27508
+	* parser.c (cp_parser_unqualified_id): Check for invalid scopes
+	when parsing destructor names.
+
+	PR c++/28274
+	* decl.c (duplicate_decls): Call check_default_args here.
+	(start_preparsed_function): Do not call check_default_args.
+	* name-lookup.c (pushdecl_maybe_friend): Only call
+	check_default_args if duplicate_decls got bypassed.
+
+2006-08-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28557
+	* pt.c (tsubst_baselink): Substitute into BASELINK_OPTYPE.
+
 2006-07-31  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/28523
