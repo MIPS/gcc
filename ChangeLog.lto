@@ -1,5 +1,16 @@
 2006-08-11  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/calls.c (initialize_argument_information): Pass original EXP
+	and STRUCT_VALUE_ADDR_VALUE instead of a list of arguments.  Move
+	code to split complex arguments here, as part of initializing the
+	ARGS array.
+	(expand_call): Remove code that builds a list of arguments.  Simply
+	count how many implicit arguments need to be inserted to compute
+	the size of the ARGS array.
+	(split_complex_values): Delete unused function.
+
+2006-08-11  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/tree.h (call_expr_arg_iterator, FOR_EACH_CALL_EXPR_ARG):
 	Move towards bottom of file to be near other iterator declarations.
 	(tree_size, tree_code_size): Update comments.
