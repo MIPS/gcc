@@ -2,6 +2,13 @@
 
 	* gcc/cp/decl.c (grokparms): Use vec_heap2parm_types.
 
+	* gcc/cp/pt.c (type_unification_real): Clone to
+	type_unification_real_args and type_unification_real_parms.
+	(fn_type_unification): Call type_unification_real_args instead
+	of type_unification_real.
+	(unify): Call type_unification_real_parms instead of
+	type_unification_real.
+
 2006-08-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/except.c (do_free_exception): Use alloc_parm_types.

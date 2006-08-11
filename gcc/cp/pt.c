@@ -111,8 +111,10 @@ static tree add_to_template_args (tree, tree);
 static tree add_outermost_template_args (tree, tree);
 static bool check_instantiated_args (tree, tree, tsubst_flags_t);
 static int maybe_adjust_types_for_deduction (unification_kind_t, tree*, tree*);
-static int  type_unification_real (tree, tree, tree, tree, tree,
-				   int, unification_kind_t, int);
+static int  type_unification_real_args (tree, tree, tree, tree, tree,
+					int, unification_kind_t, int);
+static int  type_unification_real_parms (tree, tree, tree, tree, tree,
+					 int, unification_kind_t, int);
 static void note_template_header (int);
 static tree convert_nontype_argument_function (tree, tree);
 static tree convert_nontype_argument (tree, tree);
@@ -9347,9 +9349,9 @@ fn_type_unification (tree fn,
      because the standard doesn't seem to explicitly prohibit it.  Our
      callers must be ready to deal with unification failures in any
      event.  */
-  result = type_unification_real (fn, DECL_INNERMOST_TEMPLATE_PARMS (fn),
-				  targs, parms, args, /*subr=*/0,
-				  strict, flags);
+  result = type_unification_real_args (fn, DECL_INNERMOST_TEMPLATE_PARMS (fn),
+				       targs, parms, args, /*subr=*/0,
+				       strict, flags);
 
   if (result == 0)
     /* All is well so far.  Now, check:
@@ -9460,14 +9462,200 @@ maybe_adjust_types_for_deduction (unification_kind_t strict,
    template). */
 
 static int
-type_unification_real (tree fn,
-		       tree tparms,
-		       tree targs,
-		       tree xparms,
-		       tree xargs,
-		       int subr,
-		       unification_kind_t strict,
-		       int flags)
+type_unification_real_args (tree fn,
+			    tree tparms,
+			    tree targs,
+			    tree xparms,
+			    tree xargs,
+			    int subr,
+			    unification_kind_t strict,
+			    int flags)
+{
+  tree parm, arg;
+  int i;
+  int ntparms = TREE_VEC_LENGTH (tparms);
+  int sub_strict;
+  int saw_undeduced = 0;
+  tree parms, args;
+  tree xparmdecls, parmdecls;
+
+  gcc_assert (TREE_CODE (tparms) == TREE_VEC);
+  gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_LIST);
+  gcc_assert (!xargs || TREE_CODE (xargs) == TREE_LIST);
+  gcc_assert (ntparms > 0);
+
+  if (fn)
+    {
+      if (DECL_FUNCTION_TEMPLATE_P (fn))
+	fn = DECL_TEMPLATE_RESULT (fn);
+      gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+
+      xparmdecls = DECL_ARGUMENTS (fn);
+
+      /* Never do unification on the 'this' parameter.  */
+      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+	xparmdecls = TREE_CHAIN (xparmdecls);
+    }
+  else
+    xparmdecls = NULL_TREE;
+
+  switch (strict)
+    {
+    case DEDUCE_CALL:
+      sub_strict = (UNIFY_ALLOW_OUTER_LEVEL | UNIFY_ALLOW_MORE_CV_QUAL
+		    | UNIFY_ALLOW_DERIVED);
+      break;
+
+    case DEDUCE_CONV:
+      sub_strict = UNIFY_ALLOW_LESS_CV_QUAL;
+      break;
+
+    case DEDUCE_EXACT:
+      sub_strict = UNIFY_ALLOW_NONE;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+ again:
+  parms = xparms;
+  args = xargs;
+  parmdecls = xparmdecls;
+
+  while (parms
+	 && !(parms
+	      && TREE_VALUE (parms) == void_type_node
+	      && TREE_CHAIN (parms) == NULL_TREE)
+	 && args
+	 && !(args
+	      && TREE_VALUE (args) == void_type_node
+	      && TREE_CHAIN (args) == NULL_TREE))
+    {
+      parm = TREE_VALUE (parms);
+      parms = TREE_CHAIN (parms);
+      arg = TREE_VALUE (args);
+      args = TREE_CHAIN (args);
+      if (parmdecls)
+	parmdecls = TREE_CHAIN (parmdecls);
+
+      if (arg == error_mark_node)
+	return 1;
+      if (arg == unknown_type_node)
+	/* We can't deduce anything from this, but we might get all the
+	   template args from other function args.  */
+	continue;
+
+      /* Conversions will be performed on a function argument that
+	 corresponds with a function parameter that contains only
+	 non-deducible template parameters and explicitly specified
+	 template parameters.  */
+      if (!uses_template_parms (parm))
+	{
+	  tree type;
+
+	  if (!TYPE_P (arg))
+	    type = TREE_TYPE (arg);
+	  else
+	    type = arg;
+
+	  if (same_type_p (parm, type))
+	    continue;
+	  if (strict != DEDUCE_EXACT
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg, 
+				  flags))
+	    continue;
+	  
+	  return 1;
+	}
+
+      if (!TYPE_P (arg))
+	{
+	  gcc_assert (TREE_TYPE (arg) != NULL_TREE);
+	  if (type_unknown_p (arg))
+	    {
+	      /* [temp.deduct.type] A template-argument can be deduced from
+		 a pointer to function or pointer to member function
+		 argument if the set of overloaded functions does not
+		 contain function templates and at most one of a set of
+		 overloaded functions provides a unique match.  */
+
+	      if (resolve_overloaded_unification
+		  (tparms, targs, parm, arg, strict, sub_strict)
+		  != 0)
+		return 1;
+	      continue;
+	    }
+	  arg = TREE_TYPE (arg);
+	  if (arg == error_mark_node)
+	    return 1;
+	}
+
+      {
+	int arg_strict = sub_strict;
+
+	if (!subr)
+	  arg_strict |= maybe_adjust_types_for_deduction (strict, &parm, &arg);
+
+	if (unify (tparms, targs, parm, arg, arg_strict))
+	  return 1;
+      }
+    }
+
+  /* Fail if we've reached the end of the parm list, and more args
+     are present, and the parm list isn't variadic.  */
+  if (args
+      && !(args
+	   && TREE_VALUE (args) == void_type_node
+	   && TREE_CHAIN (args) == NULL_TREE)
+      && (parms
+	  && TREE_VALUE (parms) == void_type_node
+	  && TREE_CHAIN (parms) == NULL_TREE))
+    return 1;
+  /* Fail if parms are left and they don't have default values.  */
+  if (parms
+      && !(parms
+	   && TREE_VALUE (parms) == void_type_node
+	   && TREE_CHAIN (parms) == NULL_TREE)
+      && parmdecls && DECL_INITIAL (parmdecls) == NULL_TREE)
+    return 1;
+
+  if (!subr)
+    for (i = 0; i < ntparms; i++)
+      if (!TREE_VEC_ELT (targs, i))
+	{
+	  tree tparm = TREE_VALUE (TREE_VEC_ELT (tparms, i));
+
+	  /* If this is an undeduced nontype parameter that depends on
+	     a type parameter, try another pass; its type may have been
+	     deduced from a later argument than the one from which
+	     this parameter can be deduced.  */
+	  if (TREE_CODE (tparm) == PARM_DECL
+	      && uses_template_parms (TREE_TYPE (tparm))
+	      && !saw_undeduced++)
+	    goto again;
+
+	  return 2;
+	}
+
+  return 0;
+}
+
+/* Most parms like fn_type_unification.
+
+   If SUBR is 1, we're being called recursively (to unify the
+   arguments of a function or method parameter of a function
+   template). */
+
+static int
+type_unification_real_parms (tree fn,
+			     tree tparms,
+			     tree targs,
+			     tree xparms,
+			     tree xargs,
+			     int subr,
+			     unification_kind_t strict,
+			     int flags)
 {
   int i;
   int ntparms = TREE_VEC_LENGTH (tparms);
@@ -9643,10 +9831,12 @@ type_unification_real (tree fn,
   return 0;
 }
 
-/* Subroutine of type_unification_real.  Args are like the variables at the
+/* Subroutine of type_unification_real_args and
+   type_unificaiton_real_parms.  Args are like the variables at the
    call site.  ARG is an overloaded function (or template-id); we try
    deducing template args from each of the overloads, and if only one
-   succeeds, we go with that.  Modifies TARGS and returns 0 on success.  */
+   succeeds, we go with that.  Modifies TARGS and returns 0 on
+   success.  */
 
 static int
 resolve_overloaded_unification (tree tparms,
@@ -10464,7 +10654,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
       /* CV qualifications for methods can never be deduced, they must
   	 match exactly.  We need to check them explicitly here,
-  	 because type_unification_real treats them as any other
+  	 because type_unification_real_parms treats them as any other
   	 cvqualified parameter.  */
       if (TREE_CODE (parm) == METHOD_TYPE
 	  && (!check_cv_quals_for_unify
@@ -10476,9 +10666,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       if (unify (tparms, targs, TREE_TYPE (parm),
 		 TREE_TYPE (arg), UNIFY_ALLOW_NONE))
 	return 1;
-      return type_unification_real (NULL, tparms, targs, TYPE_ARG_TYPES (parm),
-				    TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
-				    LOOKUP_NORMAL);
+      return type_unification_real_parms (NULL, tparms, targs, TYPE_ARG_TYPES (parm),
+					  TYPE_ARG_TYPES (arg), 1, DEDUCE_EXACT,
+					  LOOKUP_NORMAL);
 
     case OFFSET_TYPE:
       /* Unify a pointer to member with a pointer to member function, which
