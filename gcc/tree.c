@@ -309,8 +309,8 @@ decl_assembler_name (tree decl)
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.
-   This function cannot be used for TREE_VEC, PHI_NODE, or STRING_CST
-   codes, which are of variable length.  */
+   This function cannot be used for nodes that have variable sizes,
+   including TREE_VEC, PHI_NODE, STRING_CST, and CALL_EXPR.  */
 size_t
 tree_code_size (enum tree_code code)
 {
@@ -7903,52 +7903,6 @@ stdarg_p (tree fntype)
   int len = num_parm_types (parm_types);
   return (len
 	  && nth_parm_type (parm_types, len - 1) != void_type_node);
-}
-
-/* Initialize the abstract argument list iterator object ITER with the argument
-   list from CALL_EXPR node EXP.  */
-
-void
-init_call_expr_arg_iterator (tree exp, call_expr_arg_iterator *iter)
-{
-  iter->t = exp;
-  iter->n = call_expr_nargs (exp);
-  iter->i = 0;
-}
-
-/* Initialize the abstract argument list iterator object ITER, then advance
-   past and return the first argument.  Useful in for expressions, e.g.
-     for (arg = first_call_expr_arg (exp, &iter); arg;
-          arg = next_call_expr_arg (&iter))   */
-
-tree
-first_call_expr_arg (tree exp, call_expr_arg_iterator *iter)
-{
-  init_call_expr_arg_iterator (exp, iter);
-  return next_call_expr_arg (iter);
-}
-
-/* Return the next argument from abstract argument list iterator object ITER,
-   and advance its state.  Return NULL_TREE if there are no more arguments.  */
-
-tree
-next_call_expr_arg (call_expr_arg_iterator *iter)
-{
-  tree result;
-  if (iter->i >= iter->n)
-    return NULL_TREE;
-  result = CALL_EXPR_ARG (iter->t, iter->i);
-  iter->i++;
-  return result;
-}
-
-/* Test whether there are more arguments in abstract argument list iterator
-   ITER, without changing its state.  */
-
-bool
-more_call_expr_args_p (const call_expr_arg_iterator *iter)
-{
-  return (iter->i < iter->n);
 }
 
 /* Build and return a TREE_LIST of arguments in the CALL_EXPR exp.

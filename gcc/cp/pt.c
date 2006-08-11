@@ -7890,13 +7890,15 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 NULL_TREE, NULL_TREE);
 
     case CALL_EXPR:
-      /* FIXME:  It should be possible to do this without consing up
-	 lists for the arguments.  */
-      return build_nt_call_list (CALL_EXPR,
-				 tsubst_copy (CALL_EXPR_FN (t), args,
-					      complain, in_decl),
-				 tsubst_copy (CALL_EXPR_ARGS (t), args,
-					      complain, in_decl));
+      {
+	int n = VL_EXP_OPERAND_LENGTH (t);
+	tree result = build_vl_exp (CALL_EXPR, n);
+	int i;
+	for (i = 0; i < n; i++)
+	  TREE_OPERAND (t, i) = tsubst_copy (TREE_OPERAND (t, i), args,
+					     complain, in_decl);
+	return result;
+      }
 
     case COND_EXPR:
     case MODOP_EXPR:
@@ -8804,6 +8806,7 @@ tsubst_copy_and_build (tree t,
 	      qualified_p = true;
 	  }
 
+	/* FIXME:  Rewrite this so as not to construct an arglist.  */
 	call_args = RECUR (CALL_EXPR_ARGS (t));
 
 	/* We do not perform argument-dependent lookup if normal

@@ -131,7 +131,8 @@ abs_builtin (tree method_return_type, tree orig_call)
 static tree
 java_build_function_call_expr (tree fn, tree orig_call)
 {
-  switch (call_expr_nargs (orig_call))
+  int nargs = call_expr_nargs (orig_call);
+  switch (nargs)
     {
     case 0:
       return build_call_expr (fn, 0);
@@ -147,7 +148,12 @@ java_build_function_call_expr (tree fn, tree orig_call)
 			      CALL_EXPR_ARG1 (orig_call),
 			      CALL_EXPR_ARG2 (orig_call));
     default:
-      return build_function_call_expr (fn, CALL_EXPR_ARGS (orig_call));
+      {
+	tree fntype = TREE_TYPE (fn);
+	fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fn);
+	return fold (build_call_array (CALL_EXPR, TREE_TYPE (fntype),
+				       fn, nargs, CALL_EXPR_ARGP (orig_call)));
+      }
     }
 }
 

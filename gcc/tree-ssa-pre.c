@@ -964,17 +964,13 @@ fully_constant_expression (tree t)
   return t;
 }
 
-
 /* Make a temporary copy of a CALL_EXPR object NODE.  */
 
 static tree
 temp_copy_call_expr (tree node)
 {
-  tree new = (tree) obstack_alloc (&temp_call_expr_obstack, tree_size (node));
-  memcpy (new, node, tree_size (node));
-  return new;
+  return (tree) obstack_copy (&temp_call_expr_obstack, node, tree_size (node));
 }
-
 
 /* Translate the vuses in the VUSES vector backwards through phi
    nodes, so that they have the value they would have in BLOCK. */

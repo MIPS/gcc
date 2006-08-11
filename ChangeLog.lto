@@ -1,3 +1,34 @@
+2006-08-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.h (call_expr_arg_iterator, FOR_EACH_CALL_EXPR_ARG):
+	Move towards bottom of file to be near other iterator declarations.
+	(tree_size, tree_code_size): Update comments.
+	(init_call_expr_arg_iterator): Change from extern to static inline.
+	(first_call_expr_arg): Likewise.
+	(next_call_expr_arg): Likewise.
+	(more_call_expr_args_p): Likewise.
+	* gcc/tree.c (tree_code_size): Update comments.
+	(init_call_expr_arg_iterator): Moved to tree.h as static inline.
+	(first_call_expr_arg): Likewise.
+	(next_call_expr_arg): Likewise.
+	(more_call_expr_args_p): Likewise.
+
+	* gcc/cp/tree.c (build_cplus_new): Use different call constructor
+	to avoid constructing a temporary arglist.
+
+	* gcc/tree-ssa-pre.c (temp_copy_call_expr): Use obstack_copy instead
+	of obstac_alloc/memcpy.
+
+	* gcc/cp/pt.c (tsubst_copy): Rewrite CALL_EXPR case to avoid
+	constructing a temporary arglist.
+	(tsubst_copy_and_subst): Add FIXME comment on another temporary
+	arglist case.
+
+	* gcc/java/builtins.c (java_build_function_call_expr): Rewrite to
+	avoid constructing a temporary argument list.
+
+	* gcc/java/java-tree.def (NEW_CLASS_EXPR): Update comments.
+
 2006-08-11  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (grokparms): Use vec_heap2parm_types.

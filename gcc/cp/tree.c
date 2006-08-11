@@ -304,8 +304,9 @@ build_cplus_new (tree type, tree init)
      type, don't mess with AGGR_INIT_EXPR.  */
   if (is_ctor || TREE_ADDRESSABLE (type))
     {
-      rval = build_call_list (AGGR_INIT_EXPR, void_type_node, fn, 
-			      CALL_EXPR_ARGS (init));
+      rval = build_call_array (AGGR_INIT_EXPR, void_type_node, fn,
+			       call_expr_nargs (init),
+			       CALL_EXPR_ARGP (init));
       AGGR_INIT_EXPR_SLOT (rval) = slot;
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;

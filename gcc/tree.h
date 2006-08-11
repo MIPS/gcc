@@ -1569,19 +1569,6 @@ struct tree_constructor GTY(())
 #define CALL_EXPR_ARGP(NODE) \
   (&(TREE_OPERAND (VL_EXP_CHECK (NODE), 0)) + 3)
 
-typedef struct call_expr_arg_iterator_d GTY (())
-{
-  tree t;	/* the call_expr */
-  int n;	/* argument count */
-  int i;	/* next argument index */
-} call_expr_arg_iterator;
-
-/* Iterate through each argument ARG of CALL_EXPR CALL, using variable ITER
-   (of type call_expr_arg_iterator) to hold the iteration state.  */
-#define FOR_EACH_CALL_EXPR_ARG(arg, iter, call)			\
-  for ((arg) = first_call_expr_arg ((call), &(iter)); (arg);	\
-       (arg) = next_call_expr_arg (&(iter)))
-
 /* OpenMP directive and clause accessors.  */
 
 #define OMP_BODY(NODE) \
@@ -3464,14 +3451,13 @@ enum ptrmemfunc_vbit_where_t
 
 extern tree decl_assembler_name (tree);
 
-/* Compute the number of bytes occupied by 'node'.  This routine only
-   looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
-
+/* Compute the number of bytes occupied by NODE.  This routine only
+   looks at TREE_CODE, except for those nodes that have variable sizes. */
 extern size_t tree_size (tree);
 
-/* Compute the number of bytes occupied by a tree with code CODE.  This
-   function cannot be used for TREE_VEC, PHI_NODE, or CALL_EXPR codes,
-   which are of variable length.  */
+/* Compute the number of bytes occupied by a tree with code CODE.
+   This function cannot be used for nodes that have variable sizes,
+   including TREE_VEC, PHI_NODE, STRING_CST, and CALL_EXPR.  */
 extern size_t tree_code_size (enum tree_code);
 
 /* Compute the number of operands in an expression node NODE.  For 
@@ -4198,10 +4184,6 @@ extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (tree, tree);
 extern bool empty_body_p (tree);
 extern bool stdarg_p (tree);
-extern void init_call_expr_arg_iterator (tree, call_expr_arg_iterator *);
-extern tree first_call_expr_arg (tree, call_expr_arg_iterator *);
-extern tree next_call_expr_arg (call_expr_arg_iterator *);
-extern bool more_call_expr_args_p (const call_expr_arg_iterator *);
 extern tree call_expr_arglist (tree);
 extern tree *nth_parm_type_ptr (tree, int);
 extern tree alloc_parm_types (int);
@@ -4651,5 +4633,66 @@ extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
 
 /* In expr.c.  */
 extern unsigned HOST_WIDE_INT highest_pow2_factor (tree);
+
+
+/* Abstract iterators for CALL_EXPRs.  These static inline definitions
+   have to go towards the end of tree.h so that union tree_node is fully
+   defined by this point.  */
+
+/* Structure containing iterator state.  */
+typedef struct call_expr_arg_iterator_d GTY (())
+{
+  tree t;	/* the call_expr */
+  int n;	/* argument count */
+  int i;	/* next argument index */
+} call_expr_arg_iterator;
+
+/* Initialize the abstract argument list iterator object ITER with the
+   arguments from CALL_EXPR node EXP.  */
+static inline void
+init_call_expr_arg_iterator (tree exp, call_expr_arg_iterator *iter)
+{
+  iter->t = exp;
+  iter->n = call_expr_nargs (exp);
+  iter->i = 0;
+}
+
+/* Return the next argument from abstract argument list iterator object ITER,
+   and advance its state.  Return NULL_TREE if there are no more arguments.  */
+static inline tree
+next_call_expr_arg (call_expr_arg_iterator *iter)
+{
+  tree result;
+  if (iter->i >= iter->n)
+    return NULL_TREE;
+  result = CALL_EXPR_ARG (iter->t, iter->i);
+  iter->i++;
+  return result;
+}
+
+/* Initialize the abstract argument list iterator object ITER, then advance
+   past and return the first argument.  Useful in for expressions, e.g.
+     for (arg = first_call_expr_arg (exp, &iter); arg;
+          arg = next_call_expr_arg (&iter))   */
+static inline tree
+first_call_expr_arg (tree exp, call_expr_arg_iterator *iter)
+{
+  init_call_expr_arg_iterator (exp, iter);
+  return next_call_expr_arg (iter);
+}
+
+/* Test whether there are more arguments in abstract argument list iterator
+   ITER, without changing its state.  */
+static inline bool
+more_call_expr_args_p (const call_expr_arg_iterator *iter)
+{
+  return (iter->i < iter->n);
+}
+
+/* Iterate through each argument ARG of CALL_EXPR CALL, using variable ITER
+   (of type call_expr_arg_iterator) to hold the iteration state.  */
+#define FOR_EACH_CALL_EXPR_ARG(arg, iter, call)			\
+  for ((arg) = first_call_expr_arg ((call), &(iter)); (arg);	\
+       (arg) = next_call_expr_arg (&(iter)))
 
 #endif  /* GCC_TREE_H  */

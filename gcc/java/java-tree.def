@@ -34,8 +34,7 @@ DEFTREECODE (NEW_ANONYMOUS_ARRAY_EXPR, "new_anonymous_array",
    that of CALL_EXPRs.  Operand 0 is an INTEGER_CST node containing the operand
    count, operand 1 is the name of the class to be created.  The argument
    list used to select a constructor follows beginning with operand 3.  
-   There is no operand 2.  That slot is used for the
-   CALL_EXPR_RTL macro (see preexpand_calls).
+   There is no operand 2.
    The type should be the one of the created class.  */
 DEFTREECODE (NEW_CLASS_EXPR, "new_class_expr", tcc_vl_exp, 3)
 
