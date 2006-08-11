@@ -1,3 +1,7 @@
+2006-08-11  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/decl.c (grokparms): Use vec_heap2parm_types.
+
 2006-08-10  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/except.c (do_free_exception): Use alloc_parm_types.

@@ -8743,6 +8743,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
   int ellipsis = !first_parm || first_parm->ellipsis_p;
   cp_parameter_declarator *parm;
   int any_error = 0;
+  VEC(tree,heap) *v = NULL;
 
   for (parm = first_parm; parm != NULL; parm = parm->next)
     {
@@ -8825,12 +8826,13 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
       TREE_CHAIN (decl) = decls;
       decls = decl;
       DECL_INITIAL (decl) = init;
-      result = tree_cons (NULL_TREE, type, result);
+      VEC_safe_push (tree, heap, v, type);
     }
   decls = nreverse (decls);
-  result = nreverse (result);
   if (!ellipsis)
-    result = chainon (result, void_list_node);
+    VEC_safe_push (tree, heap, v, void_type_node);
+  result = vec_heap2parm_types (v);
+  VEC_free (tree, heap, v);
   *parms = decls;
 
   return result;
