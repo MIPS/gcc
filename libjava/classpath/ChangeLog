@@ -1,3 +1,468 @@
+2006-08-09  Mark Wielaard  <mark@klomp.org>
+
+	* configure.ac (VERSION): Set to 0.92.
+	* NEWS: Add updates for 0.92 release.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	PR 28650
+	* javax/swing/plaf/basic/BasicMenuBarUI.java
+	(getActionMap): Store ActionMap in MenuBar.actionMap, rather
+	than Tree.actionMap.
+	* javax/swing/plaf/basic/BasicTreeUI.java
+	(action): Removed obsolete field.
+	(uninstallKeyboardActions): Removed action field handling.
+	(installKeyboardActions): Removed action field handling.
+	(createDefaultActions): Don't install removed TreeAction.
+	(TreeAction): Removed obsolete inner class.
+	(ActionListenerProxy): Removed obsolete inner class.
+	(MouseHandler.mousePressed): Request focus on JTree component
+	on mouse press.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicListUI.java
+	(MouseInputHandler.mousePressed): Request focus on list
+	component.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicTableUI.java
+	(MouseInputHandler.mousePressed): Request focus on list
+	component.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(damageRange(JTextComponent,int,int)): Call damageRange() with
+	correct biases, rather than null.
+	(damageRange(JTextComponent,int,int,Bias,Bias)): Rewritten
+	to use simpler modelToView() approach without much special
+	casing. This seems not worth the effort and actually
+	caused problems. Added locking of the document.
+	* javax/swing/text/BoxView.java
+	(requirementsValid): New field.
+	(calculateMajorAxisRequirements): Rewritten without using
+	SizeRequirements. The SizeRequirements algorithms are slightly
+	different and too inefficient.
+	(calculateMinorAxisRequirements): Rewritten without using
+	SizeRequirements. The SizeRequirements algorithms are slightly
+	different and too inefficient.
+	(getAlignment): Simply return the alignment of the cached
+	requirements.
+	(getMaximumSpan): Add insets.
+	(getMinimumSpan): Add insets.
+	(getPreferredSpan): Add insets.
+	(layoutMajorAxis): Rewritten without using
+	SizeRequirements. The SizeRequirements algorithms are slightly
+	different and too inefficient.
+	(layoutMinorAxis): Rewritten without using
+	SizeRequirements. The SizeRequirements algorithms are slightly
+	different and too inefficient.
+	(modelToView): Call setSize() rather than layout().
+	(paint): Check clip for more efficient painting.
+	(preferenceChanged): Invalidate requirements here.
+	(replace): Invalidate requirements here.
+	(updateRequirements): Update requirements only when requirements
+	are marked invalid.
+	* javax/swing/text/CompositeView.java
+	(modelToView): Added some more checks and handling of corner cases.
+	* javax/swing/text/FlowView.java
+	(calculateMinorAxisRequirements): Set aligment to 0.5 and maximum
+	span to Integer.MAX_VALUE. Limit preferredSize to minimumSize.
+	* javax/swing/text/IconView.java
+	(getAlignment): Implemented to return 1.0 for vertical alignment.
+	* javax/swing/text/ParagraphView.java
+	(Row.getMaximumSpan): Implemented to let Rows span the whole
+	ParagraphView.
+	(getAlignment): Fixed horizontal alignment and vertical alignment
+	for empty paragraphs to be 0.5.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	* javax/swing/text/View.java
+	(modelToView): Added special handling for corner case at the end
+	of the view and for multiline views.
+
+2006-08-08  Roman Kennke  <kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicTextUI.java
+	(modelToView): Read-lock the document. Set size of the
+	root view before fetching the model-to-view mapping.
+	(getViewIndex): Check of the position is inside the range and
+	return -1 if this is not the case.
+	(getViewAtPosition(int,Rectangle): Update child allocation for valid
+	view index.
+	(getViewIndexAtPosition(int)): Delegate the index search to
+	the element since we have a 1:1 mapping between elements and
+	views here.
+	* javax/swing/text/DefaultCaret.java
+	(appear): Ignore BadLocationException.
+	(paint): Ignore BadLocationException.
+	* javax/swing/text/FlowView.java
+	(changedUpdate): Also notify the layoutPool view.
+	(removeUpdate): Also notify the layoutPool view.
+	* javax/swing/text/ParagraphView.java
+	(Row.getViewIndexAtPosition): Overridden to search linearily
+	through the view instead of relying on a 1:1 model to view
+	mapping.
+	* javax/swing/text/View.java
+	(removeUpdate): Clear ElementChange object if updateChildren
+	returns false.
+	(forwardUpdate): Special handle some boundary cases.
+
+2006-08-07  Raif S. Naffah  <raif@swiftdsl.com.au>
+
+	* gnu/java/security/key/dss/DSSKey.java: Updated documentation.
+	(hasInheritedParameters): New method.
+	(equals): Updated documentation.
+	Take into consideration the outcome of hasInheritedParameters invocation.
+	(toString): Call hasInheritedParameters and adjust the result accordingly.
+	* gnu/java/security/key/dss/DSSKeyPairX509Codec.java (encodePublicKey):
+	Updated documentation.
+	Handle case of public keys with null p, q, and g MPIs.
+	(decodePublicKey): Handle case of absent or NULL p, q and g MPIs.
+
+2006-08-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23682:
+	* java/nio/channels/SelectionKey.java (attach): Now synchronized.
+	(attachment): Likewise.
+	* java/nio/channels/spi/AbstractSelectionKey.java (cancel): Now
+	synchronized.
+	(isValid): Likewise.
+	* gnu/java/nio/SelectionKeyImpl.java (impl): Now final
+	(ch): Likewise.
+	(interestOps): Synchronize.
+	(readyOps): Likewise.
+	* gnu/java/nio/SelectorImpl.java (register): Synchronize around
+	interestOps call.
+
+2006-08-07  C. Scott Marshall  <csm@gnu.org>
+
+	Fixes PR 28608.
+	* java/nio/DirectByteBufferImpl.java (duplicate): only reset if
+	the mark has been set.
+	* native/jni/java-nio/java_nio_VMDirectByteBuffer.c
+	(Java_java_nio_VMDirectByteBuffer_allocate): zero out the
+	allocated data.
+
+2006-08-07  Sven de Marothy  <sven@physto.se>
+
+	* gnu/java/awt/peer/gtk/CairoGraphics2D.java
+	(drawGlyphVector): Synchronize against font object when drawing.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_CairoGraphics2D.c
+	(nativeDrawGlyphVector): Use pango locking when drawing.
+	(install_font_peer): Use pango locking when creating the cairo face.
+
+2006-08-06  Roman Kennke  <kennke@aicas.com>
+
+	PR 28571
+	* gnu/java/awt/peer/gtk/GtkCanvasPeer.java
+	(getPreferredSize): Renamed method to preferredSize(). That's
+	the one that gets called from java.awt.*.
+	* java/awt/peer/ComponentPeer.java
+	(getPreferredSize): Added specnote about this method never
+	beeing called in the RI.
+	(getMinimumSize): Added specnote about this method never
+	beeing called in the RI.
+
+2006-08-06  Sven de Marothy  <sven@physto.se>
+
+	* gnu/java/awt/peer/gtk/ComponentGraphics.java
+	(grab, nativeGrab): New methods.
+	* include/gnu_java_awt_peer_gtk_ComponentGraphics.h
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_ComponentGraphics.c
+	(nativeGrab): New method.
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(print): Implement.
+	* java/awt/Component.java
+	(printAll): Should call peer print method. 
+
+2006-08-06  Thomas Minor  <1nocentrabidlamb@sexMagnet.com>
+
+	* java/net/URL.java (getContent(Class[])): Implement.
+
+2006-08-06  Mark Wielaard  <mark@klomp.org>
+
+	PR 28555
+	Suggested by Matthew Burgess <matthew@linuxfromscratch.org>
+	* gnu/xml/transform/ApplyTemplatesNode.java (clone): Check whether
+	withParams is null.
+	* gnu/xml/transform/ForEachNode.java (clone): Check whether
+	sortKeys is null.
+
+2006-08-06  Roman Kennke  <kennke@aicas.com>
+
+	* NEWS: Added note about the X peers.
+	* INSTALL: Added install notes about the X peers.
+
+2006-08-06  Raif S. Naffah  <raif@swiftdsl.com.au>
+	     Paul Jenner  <psj@harker.dyndns.org>
+
+	* README: Update bug, patches and cvs instructions plus new URLs of
+	various external projects.
+
+2006-08-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.ac (MOZILLA_FOUND): Fall back to
+	mozilla-firefox-plugin.
+
+2006-08-06  Mario Torre  <neugens@limasoftware.net>
+
+	Reported by Raif S. Naffah <raif@swiftdsl.com.au>
+	* native/jni/gconf-peer/GConfNativePeer.c (init_gconf_client):
+	g_type_init earlier in function to correctly initialize the
+	type system used by the backend.
+
+2006-08-05  Robert Schuster  <robertschuster@fsfe.org>
+
+	Reported by Henrik Gulbrandsen <henrik@gulbra.net>
+	Fixes PR27864.
+	* gnu/xml/dom/DomIterator.java:
+	(successor): Added if-statement.
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 27606
+	* javax/swing/plaf/basic/BasicListUI.java
+	(paintCell): Pass row index to cell renderer.
+	* javax/swing/plaf/basic/MetalFileChooserUI.java
+	(DirectoryComboBoxRenderer.indentIcon): New field.
+	(DirectoryComboBoxRenderer.DirectoryComboBoxRenderer):
+	Initialize indentIcon.
+	(DirectoryComboBoxRenderer.getListCellRendererComponent):
+	Fall back to super and removed standard functionality.
+	Handle indentation.
+	(IndentIcon): New class. Wraps and indents another icon.
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 27605
+	* javax/swing/JComboBox.java
+	(setSelectedItem): Fire ActionEvent here.
+	* javax/swing/plaf/basic/BasicDirectoryModel.java
+	(directories): Changed to type Vector.
+	(files): New field.
+	(loadThread): New field.
+	(DirectoryLoadThread): New inner class. This loads the contents
+	of directories asynchronously.
+	(getDirectories): Return cached Vector.
+	(getFiles): Return cached Vector.
+	(getSize): Return plain size of contents Vector.
+	(propertyChange): Reread directory also for DIRECTORY_CHANGED,
+	FILE_FILTER_CHANGED, FILE_HIDING_CHANGED and FILE_VIEW_CHANGED.
+	(sort): Don't store sorted list in contents. This must be done
+	asynchronously from the EventThread.
+	(validateFileCache): Rewritten for asynchronous reading
+	of directory contents.
+	* javax/swing/plaf/basic/BasicFileChooserUI.java
+	(installListeners): Install model as PropertyChangeListener.
+	(uninstallListeners): Uninstall model as PropertyChangeListener.
+	(createPropertyChangeListener): Return null just like the
+	RI.
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 27604
+	* javax/swing/plaf/basic/BasicChooserUI.java
+	(BasicFileView.getName): Fetch the real name from the
+	file chooser's FileSystemView.
+	* javax/swing/plaf/metal/MetalChooserUI.java
+	(DirectoryComboBoxRenderer.getListCellRendererComponent):
+	Set the text fetched from the JFileChooser.getName().
+	* javax/swing/FileSystemView.java
+	(createFileObject): When file is a filesystem root,
+	create a filesystem root object first.
+	(getSystemDisplayName): Return the filename. Added specnote
+	about ShellFolder class that is mentioned in the spec.
+	* javax/swing/UnixFileSystemView.java
+	(getSystemDisplayName): Implemented to return the real name
+	of a file, special handling files like '.' or '..'.
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 28562
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java
+	(PropertyChangeHandler.propertyChange): Cleanly reinstall
+	components when visual property chanegs. 
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 28562
+	* javax/swing/plaf/basic/BasicOptionPaneUI.java
+	(PropertyChangeHandler.propertyChange): Uninstall and reinstall
+	component when visual properties change.
+
+2006-08-03  Roman Kennke  <kennke@aicas.com>
+
+	PR 28534
+	* javax/swing/JTree.java
+	(JTree(TreeModel)): Set cell renderer to null.
+	* javax/swing/plaf/basic/BasicTreeUI.java
+	(setCellRenderer): Finish editing before setting the
+	cell renderer. Refresh the layout. Don't set the
+	currentCellRenderer field here (that's done in updateRenderer).
+	(updateRenderer): Handle createdRenderer field here too.
+	Set renderer to a default handler when the current renderer
+	in the JTree is null.
+
+2006-08-03  Mark Wielaard  <mark@klomp.org>
+
+	* scripts/Makefile.am (EXTRA_DIST): Add import-cacerts.sh.
+
+2006-08-03  Raif S. Naffah  <raif@swiftdsl.com.au>
+
+	* scripts/import-cacerts.sh: Batch CA certificates import script.
+
+2006-08-03  Raif S. Naffah  <raif@swiftdsl.com.au>
+
+	PR Classpath/28556
+	* gnu/java/security/key/rsa/RSAKeyPairPKCS8Codec.java
+	(encodePrivateKey): Updated documentation to clarify that RFC-2459
+	states that the parameters field of the AlgorithmIdentifier element
+	MUST be NULL if present. Amended the code to reflect the specs.
+	(decodePrivateKey): Handle case of NULL AlgorithmIdentifier.parameters.
+
+2006-08-03  Raif S. Naffah  <raif@swiftdsl.com.au>
+
+	PR Classpath/23899
+	* java/security/SecureRandom.java (next): Call nextBytes as per specs.
+
+2006-08-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* native/jawt/Makefile.am (libjawt_la_LDFLAGS): Add
+	-avoid-version.
+	* native/jni/gtk-peer/Makefile.am (libgtkpeer_la_LDFLAGS):
+	Likewise.
+	* native/jni/midi-alsa/Makefile.am (libgjsmalsa_la_LDFLAGS):
+	Likewise.
+	* native/jni/midi-dssi/Makefile.am (libgjsmdssi_la_LDFLAGS):
+	Likewise.
+
+2006-08-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* native/jni/qt-peer/Makefile.am (libqtpeer_la_LDFLAGS): Add
+	-avoid-version.
+
+2006-08-03  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* examples/gnu/classpath/examples/management/TestBeans.java:
+	New file.
+	* javax/management/MBeanAttributeInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanConstructorInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanFeatureInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanNotificationInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanOperationInfo.java:
+	(toString()): Implemented.
+	* javax/management/MBeanParameterInfo.java:
+	(toString()): Implemented.
+	* javax/management/StandardMBean.java:
+	(getMBeanInfo()): Fix attribute naming.
+
+2006-08-02  Mark Wielaard  <mark@klomp.org>
+
+	PR 28535
+	* configure.ac (gconf-peer): Check for gdk-2.0.
+	* native/jni/gconf-peer/Makefile.am
+	(AM_LDFLAGS): Use GDK_LIBS.
+	(AM_CFLAGS): Use GDK_CFLAGS.
+
+2006-07-31  Raif S. Naffah  <raif@swiftdsl.com.au>
+
+	* java/security/Provider.java: Updated copyright year.
+	Updated documentation.
+	Formatting.
+	(put): Updated documentation.
+	Added security manager check.
+	Canonicalize the key before adding its mapping.
+	(get): Override superclass implementation to use canonicalized keys.
+	(remove): Updated documentation.
+	Added security manager check.
+	Canonicalize the key before removing its mapping.
+	(clear): Updated documentation.
+	Added security manager check.
+	(toCanonicalKey): New method.
+
+2006-07-30  Matt Wringe  <mwringe@redhat.com>
+
+	* gnu/java/security/Engine.java
+	(getInstance): Ignore self referencing aliases.
+
+2006-07-30  Mark Wielaard  <mark@klomp.org>
+
+	* resource/java/security/classpath.security: Add /dev/urandom as
+	default securerandom.source.
+
+2006-07-30  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/GregorianCalendar.java (maximums): Months can have up to
+	6 weeks.
+	(nonLeniencyCheck): weeks is either 5 or 6.
+
+2006-07-29  Mark Wielaard  <mark@klomp.org>
+
+	* javax/swing/JComponent.java (paintingDoubleBuffered): Renamed
+	static field isPaintingDoubleBuffered to not have the same name
+	as a method.
+
+2006-07-29  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* gnu/java/lang/management/BeanImpl.java:
+	Extended javax.management.StandardMBean.
+	* gnu/java/lang/management/ClassLoadingMXBeanImpl.java,
+	* gnu/java/lang/management/CompilationMXBeanImpl.java,
+	* gnu/java/lang/management/GarbageCollectorMXBeanImpl.java,
+	* gnu/java/lang/management/MemoryMXBeanImpl.java,
+	* gnu/java/lang/management/MemoryManagerMXBeanImpl.java,
+	* gnu/java/lang/management/MemoryPoolMXBeanImpl.java,
+	* gnu/java/lang/management/OperatingSystemMXBeanImpl.java,
+	* gnu/java/lang/management/RuntimeMXBeanImpl.java,
+	* gnu/java/lang/management/ThreadMXBeanImpl.java:
+	Call the superclass with the appropriate class.
+	* java/lang/management/ManagementFactory.java:
+	(getOperatingSystemMXBean()): Catch exception from
+	StandardMBean.
+	(getRuntimeMXBean()): Likewise.
+	(getClassLoadingMXBean()): Likewise.
+	(getThreadMXBean()): Likewise.
+	(getMemoryMXBean()): Likewise.
+	(getCompilationMXBean()): Likewise.
+	(getMemoryPoolMXBeans()): Likewise.
+	(getMemoryManagerMXBeans()): Likewise.
+	(getGarbageCollectorMXBeans()): Likewise.
+	* javax/management/MBeanFeatureInfo.java:
+	(hashCode()): Fixed to check for null values.
+
+2006-07-29  Matt Wringe  <mwringe@redhat.com>
+
+	* gnu/java/security/Engine.java
+	(getInstance): Add case insentivity to algorithm names
+	* java/security/Provider.java
+	(put): Stop using canonical key naming
+	(remove): Likewise
+	(toCanonicalKey): Method removed
+	(get): Method removed, no longer needs to overwrite
+	parent implementation
+
+2006-07-29  Sven de Marothy  <sven@physto.se>
+
+	* java/math/BigDecimal.java
+	Adjust copyright date.
+	(divide(BigDecimal): Implement.
+	(precision): Reimplement.
+	(numDigitsInBigInteger, numDigitsInLong): Removed.
+	(toString): Get exponent from string length,
+	fix negative values with exponential form.
+	(toEngineeringString): Same as for toString.
+	(setScale): Throw ArithmeticException if scale < 0.
+
 2006-07-27  Francis Kung  <fkung@redhat.com>
 
 	* gnu/java/awt/java2d/CubicSegment.java: Added import.
