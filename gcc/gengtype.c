@@ -1545,6 +1545,8 @@ walk_type (type_p t, struct walk_type_data *d)
       use_param_num = oo->name[9] == '\0' ? 0 : oo->name[9] - '0';
     else if (strcmp (oo->name, "use_params") == 0)
       use_params_p = 1;
+    else if (strcmp (oo->name, "size_not_fixed") == 0)
+      ;
     else if (strcmp (oo->name, "desc") == 0)
       desc = oo->info;
     else if (strcmp (oo->name, "nested_ptr") == 0)
@@ -2436,7 +2438,7 @@ write_enum_defn (type_p structures, type_p param_structs)
 {
   type_p s;
 
-  oprintf (header_file, "\n/* Enumeration of types known.  */\n");
+  oprintf (header_file, "\n/* Enumeration of known types.  */\n");
   oprintf (header_file, "enum gt_types_enum {\n");
   for (s = structures; s; s = s->next)
     if (s->gc_used == GC_POINTED_TO
@@ -2450,6 +2452,7 @@ write_enum_defn (type_p structures, type_p param_structs)
 	output_mangled_typename (header_file, s);
 	oprintf (header_file, ", \n");
       }
+
   for (s = param_structs; s; s = s->next)
     if (s->gc_used == GC_POINTED_TO)
       {
@@ -2457,8 +2460,74 @@ write_enum_defn (type_p structures, type_p param_structs)
 	output_mangled_typename (header_file, s);
 	oprintf (header_file, ", \n");
       }
+
   oprintf (header_file, " gt_types_enum_last\n");
   oprintf (header_file, "};\n");
+}
+
+/* Write out a macro for typed allocations for each known struct or union.  */
+
+static void
+write_typed_alloc_defns (type_p structures)
+{
+  type_p s;
+  pair_p p;
+
+  oprintf (header_file,
+	   "\n/* Typed allocation for known structs and unions.  */\n");
+  for (s = structures; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO
+	|| (s->gc_used == GC_MAYBE_POINTED_TO && s->u.s.line.file != NULL))
+      {
+	options_p o;
+	int have_size = 0;
+	const char *type_kind;
+
+	for (o = s->u.s.opt; o; o = o->next)
+	  if (strcmp (o->name, "size_not_fixed") == 0)
+	    have_size = 1;
+ 
+	if (s->kind == TYPE_STRUCT)
+	  type_kind = "struct ";
+	else if (s->kind == TYPE_UNION)
+	  type_kind = "union ";
+	else
+	  type_kind = "";
+
+	oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
+		 s->u.s.tag, (have_size ? "SIZE" : ""));
+	oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
+	output_mangled_typename (header_file, s);
+	if (have_size)
+	  oprintf (header_file, ", SIZE)\n");
+	else
+	  oprintf (header_file, ", sizeof (%s%s))\n",
+		   type_kind, s->u.s.tag);
+      }
+
+  oprintf (header_file,
+           "\n/* Typed allocation for known typedefs.  */\n");
+  for (p = typedefs; p != NULL; p = p->next)
+    {
+      s = p->type;
+      if (strcmp (p->name, s->u.s.tag) == 0)
+	continue;
+
+      if (s->gc_used == GC_POINTED_TO
+	  || (s->gc_used == GC_MAYBE_POINTED_TO && s->u.s.line.file != NULL))
+	{
+	  if (s->kind != TYPE_STRUCT
+	      && s->kind != TYPE_UNION)
+	    continue;
+
+	  oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
+		   p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
+	  oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
+	  output_mangled_typename (header_file, s);
+	  oprintf (header_file, ", sizeof (%s%s))\n",
+		   s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
+	}
+    }
 }
 
 /* Might T contain any non-pointer elements?  */
@@ -3083,6 +3152,7 @@ main(int ARG_UNUSED (argc), char ** ARG_UNUSED (argv))
 
   open_base_files ();
   write_enum_defn (structures, param_structs);
+  write_typed_alloc_defns (structures);
   write_types (structures, param_structs, &ggc_wtd);
   write_types (structures, param_structs, &pch_wtd);
   write_local (structures, param_structs);

@@ -3143,7 +3143,8 @@ struct tree_value_handle GTY(())
    for various types of node.  */
 
 union tree_node GTY ((ptr_alias (union lang_tree_node),
-		      desc ("tree_node_structure (&%h)")))
+		      desc ("tree_node_structure (&%h)"),
+		      size_not_fixed ("")))
 {
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;

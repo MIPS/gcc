@@ -16,16 +16,24 @@ static int ggc_htab_register_weak_ptr(void **slot, void *info);
 static int ggc_htab_unregister_weak_ptr(void **slot, void *info);
 static void ggc_htab_delete_weak_ptr(void ** slot, void * object,
 				     void * info);
+
 static size_t get_used_heap_size(void);
 static void register_gty_roots(void);
 static void gc_warning_filter(char * msg, GC_word arg);
+
+static enum gt_types_enum *get_type_offset(void * block);
+static enum gt_types_enum get_block_type(void * block);
+
 static void register_weak_pointers(void);
 static void unregister_weak_pointers(void);
 
 static size_t last_allocated = 0;
+static size_t type_overhead = 0;
 static ggc_stringpool_roots stringpool_roots;
 
 static GC_warn_proc default_warn_proc;
+
+#define OBJ_OVERHEAD sizeof(enum gt_types_enum)
 
 void
 init_ggc (void)
@@ -50,6 +58,38 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 {
   void * result = GC_MALLOC(size);
   return result;
+}
+
+enum gt_types_enum *
+get_type_offset(void * block)
+{
+  return (enum gt_types_enum *)((char *)block + GC_size(block) - OBJ_OVERHEAD);
+}
+
+void *
+ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
+{
+  void * result = NULL;
+
+  size_t actual_obj_size;
+  const size_t obj_plus_info_size = size + OBJ_OVERHEAD;
+  type_overhead += obj_plus_info_size;
+
+  result = GC_malloc (obj_plus_info_size);
+  actual_obj_size = GC_size(result);
+
+  *(get_type_offset(result)) = type;
+
+  /* Verification */
+  gcc_assert (type == get_block_type (result));
+
+  return result;
+}
+
+enum gt_types_enum
+get_block_type(void * block)
+{
+  return *(get_type_offset(block));
 }
 
 void *
@@ -177,8 +217,9 @@ ggc_free (void * block)
 size_t
 ggc_get_size (const void * block)
 {
-  return GC_size((void *)block); /* Note that GC_size may return a bit larger
-			            value than originally requested */
+  return GC_size((void *)block) - OBJ_OVERHEAD; /* Note that GC_size may return
+						   a bit larger value than
+						   originally requested */
 }
 
 int
@@ -267,6 +308,9 @@ ggc_print_statistics (void)
   fprintf (stderr,
 	   "Used bytes in the heap: %lu\n",
 	   (unsigned long)get_used_heap_size());
+  fprintf (stderr,
+	   "Local ggc-boehm overhead: %lu\n",
+	   (unsigned long)type_overhead);
 }
 
 int
