@@ -2350,7 +2350,7 @@ set_alias_info (tree ref, struct data_reference *dr)
     return;
 
   if (!MTAG_P (tag))
-    new_type_alias (var, tag);
+    new_type_alias (var, tag, ref);
   else
     var_ann (var)->symbol_mem_tag = tag;
 

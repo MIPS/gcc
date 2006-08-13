@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
@@ -2167,6 +2167,9 @@ alias_get_name (tree decl)
     return res;
 
   res = "NULL";
+  if (!dump_file)
+    return res;
+
   if (TREE_CODE (decl) == SSA_NAME)
     {
       num_printed = asprintf (&temp, "%s_%u", 
@@ -3569,7 +3572,8 @@ fieldoff_compare (const void *pa, const void *pb)
 }
 
 /* Sort a fieldstack according to the field offset and sizes.  */
-void sort_fieldstack (VEC(fieldoff_s,heap) *fieldstack)
+void
+sort_fieldstack (VEC(fieldoff_s,heap) *fieldstack)
 {
   qsort (VEC_address (fieldoff_s, fieldstack), 
 	 VEC_length (fieldoff_s, fieldstack), 
@@ -3987,16 +3991,21 @@ create_variable_info_for (tree decl, const char *name)
 	   i--)
 	{
 	  varinfo_t newvi;
-	  const char *newname;
+	  const char *newname = "NULL";
 	  char *tempname;
 
 	  newindex = VEC_length (varinfo_t, varmap);
-	  if (fo->decl)
-	    asprintf (&tempname, "%s.%s", vi->name, alias_get_name (fo->decl));
-	  else
-	    asprintf (&tempname, "%s." HOST_WIDE_INT_PRINT_DEC, vi->name, fo->offset);
-	  newname = ggc_strdup (tempname);
-	  free (tempname);
+	  if (dump_file)
+	    {
+	      if (fo->decl)
+	        asprintf (&tempname, "%s.%s",
+			  vi->name, alias_get_name (fo->decl));
+	      else
+	        asprintf (&tempname, "%s." HOST_WIDE_INT_PRINT_DEC,
+			  vi->name, fo->offset);
+	      newname = ggc_strdup (tempname);
+	      free (tempname);
+	    }
 	  newvi = new_var_info (decl, newindex, newname, newindex);
 	  newvi->offset = fo->offset;
 	  newvi->size = TREE_INT_CST_LOW (fo->size);
@@ -4682,7 +4691,7 @@ struct tree_opt_pass pass_ipa_pta =
 };
 
 /* Initialize the heapvar for statement mapping.  */
-void 
+void
 init_alias_heapvars (void)
 {
   heapvar_for_stmt = htab_create_ggc (11, tree_map_hash, tree_map_eq, NULL);

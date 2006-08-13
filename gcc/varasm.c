@@ -655,16 +655,20 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 			  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED,
 			  unsigned int flags ATTRIBUTE_UNUSED)
 {
+  HOST_WIDE_INT len;
+
   if (HAVE_GAS_SHF_MERGE && flag_merge_constants
       && TREE_CODE (decl) == STRING_CST
       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
       && align <= 256
-      && TREE_STRING_LENGTH (decl) >= int_size_in_bytes (TREE_TYPE (decl)))
+      && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
+      && TREE_STRING_LENGTH (decl) >= len)
     {
       enum machine_mode mode;
       unsigned int modesize;
       const char *str;
-      int i, j, len, unit;
+      HOST_WIDE_INT i;
+      int j, unit;
       char name[30];
 
       mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (decl)));
@@ -676,7 +680,6 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
 	    align = modesize;
 
 	  str = TREE_STRING_POINTER (decl);
-	  len = TREE_STRING_LENGTH (decl);
 	  unit = GET_MODE_SIZE (mode);
 
 	  /* Check for embedded NUL characters.  */
@@ -831,7 +834,7 @@ bss_initializer_p (tree decl)
 /* Compute the alignment of variable specified by DECL.
    DONT_OUTPUT_DATA is from assemble_variable.  */
 
-static void
+void
 align_variable (tree decl, bool dont_output_data)
 {
   unsigned int align = DECL_ALIGN (decl);
@@ -3696,6 +3699,20 @@ output_addressed_constants (tree exp)
     }
 }
 
+/* Whether a constructor CTOR is a valid static constant initializer if all
+   its elements are.  This used to be internal to initializer_constant_valid_p
+   and has been exposed to let other functions like categorize_ctor_elements
+   evaluate the property while walking a constructor for other purposes.  */
+
+bool
+constructor_static_from_elts_p (tree ctor)
+{
+  return (TREE_CONSTANT (ctor)
+	  && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
+	      || TREE_CODE (TREE_TYPE (ctor)) == RECORD_TYPE)
+	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (ctor)));
+}
+
 /* Return nonzero if VALUE is a valid constant-valued expression
    for use in initializing a static variable; one that can be an
    element of a "constant" initializer.
@@ -3716,10 +3733,7 @@ initializer_constant_valid_p (tree value, tree endtype)
   switch (TREE_CODE (value))
     {
     case CONSTRUCTOR:
-      if ((TREE_CODE (TREE_TYPE (value)) == UNION_TYPE
-	   || TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE)
-	  && TREE_CONSTANT (value)
-	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (value)))
+      if (constructor_static_from_elts_p (value))
 	{
 	  unsigned HOST_WIDE_INT idx;
 	  tree elt;
@@ -4033,6 +4047,9 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 
   code = TREE_CODE (TREE_TYPE (exp));
   thissize = int_size_in_bytes (TREE_TYPE (exp));
+
+  /* Give the front end another chance to expand constants.  */
+  exp = lang_hooks.expand_constant (exp);
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
@@ -4743,16 +4760,16 @@ globalize_decl (tree decl)
 	    p = &TREE_CHAIN (t);
 	}
 
-	/* Remove weakrefs to the same target from the pending weakref
-	   list, for the same reason.  */
-	for (p = &weakref_targets; (t = *p) ; )
-	  {
-	    if (DECL_ASSEMBLER_NAME (decl)
-		== ultimate_transparent_alias_target (&TREE_VALUE (t)))
-	      *p = TREE_CHAIN (t);
-	    else
-	      p = &TREE_CHAIN (t);
-	  }
+      /* Remove weakrefs to the same target from the pending weakref
+	 list, for the same reason.  */
+      for (p = &weakref_targets; (t = *p) ; )
+	{
+	  if (DECL_ASSEMBLER_NAME (decl)
+	      == ultimate_transparent_alias_target (&TREE_VALUE (t)))
+	    *p = TREE_CHAIN (t);
+	  else
+	    p = &TREE_CHAIN (t);
+	}
 
       return;
     }
@@ -5030,7 +5047,7 @@ void
 default_assemble_visibility (tree decl, int vis)
 {
   static const char * const visibility_types[] = {
-    NULL, "internal", "hidden", "protected"
+    NULL, "protected", "hidden", "internal"
   };
 
   const char *name, *type;

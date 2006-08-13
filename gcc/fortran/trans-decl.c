@@ -121,7 +121,6 @@ tree gfor_fndecl_math_exponent16;
 
 /* String functions.  */
 
-tree gfor_fndecl_copy_string;
 tree gfor_fndecl_compare_string;
 tree gfor_fndecl_concat_string;
 tree gfor_fndecl_string_len_trim;
@@ -1618,7 +1617,7 @@ build_entry_thunks (gfc_namespace * ns)
 	      args = tree_cons (NULL_TREE, null_pointer_node, args);
 	      if (formal->sym->ts.type == BT_CHARACTER)
 		{
-		  tmp = convert (gfc_charlen_type_node, integer_zero_node);
+		  tmp = build_int_cst (gfc_charlen_type_node, 0);
 		  string_args = tree_cons (NULL_TREE, tmp, string_args);
 		}
 	    }
@@ -1938,13 +1937,6 @@ gfc_build_intrinsic_function_decls (void)
   tree gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   /* String functions.  */
-  gfor_fndecl_copy_string =
-    gfc_build_library_function_decl (get_identifier (PREFIX("copy_string")),
-				     void_type_node,
-				     4,
-				     gfc_charlen_type_node, pchar_type_node,
-				     gfc_charlen_type_node, pchar_type_node);
-
   gfor_fndecl_compare_string =
     gfc_build_library_function_decl (get_identifier (PREFIX("compare_string")),
 				     gfc_int4_type_node,
@@ -2275,10 +2267,7 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_runtime_error =
     gfc_build_library_function_decl (get_identifier (PREFIX("runtime_error")),
-				     void_type_node,
-				     3,
-				     pchar_type_node, pchar_type_node,
-				     gfc_int4_type_node);
+				     void_type_node, 1, pchar_type_node);
   /* The runtime_error function does not return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_runtime_error) = 1;
 
@@ -2655,6 +2644,11 @@ static void
 gfc_create_module_variable (gfc_symbol * sym)
 {
   tree decl;
+
+  /* Module functions with alternate entries are dealt with later and
+     would get caught by the next condition.  */
+  if (sym->attr.entry)
+    return;
 
   /* Only output symbols from this module.  */
   if (sym->ns != module_namespace)

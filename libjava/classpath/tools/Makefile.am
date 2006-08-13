@@ -21,18 +21,65 @@ endif
 endif
 endif
 
+## GCJ LOCAL: do not build and install wrapper binaries here, since
+## the build ordering will not work.  Instead build them in
+## gcc/libjava/Makefile.am.
+# if CREATE_WRAPPERS
+# bin_SCRIPTS =
+# bin_PROGRAMS = gappletviewer gjarsigner gkeytool
+
+# if FOUND_GCJ
+# LIBJVM = -lgcj
+# else
+# if FOUND_CACAO
+# LIBJVM = -ljvm
+# else
+# LIBJVM =
+# endif
+# endif
+
+# AM_CPPFLAGS = -Wall \
+# 	-I$(top_srcdir)/include \
+# 	-DTOOLS_ZIP="\"$(TOOLSdir)/$(TOOLS_ZIP)\""
+
+# gappletviewer_SOURCES = toolwrapper.c
+# gappletviewer_CFLAGS = \
+# 	-DTOOLPACKAGE="\"appletviewer\"" \
+# 	-DTOOLNAME="\"gappletviewer\""
+# gappletviewer_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+# gjarsigner_SOURCES = toolwrapper.c
+# gjarsigner_CFLAGS = \
+# 	-DTOOLPACKAGE="\"jarsigner\"" \
+# 	-DTOOLNAME="\"gjarsigner\""
+# gjarsigner_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+# gkeytool_SOURCES = toolwrapper.c
+# gkeytool_CFLAGS = \
+# 	-DTOOLPACKAGE="\"keytool\"" \
+# 	-DTOOLNAME="\"gkeytool\""
+# gkeytool_LDFLAGS = -L$(libdir) $(LIBJVM)
+
+# else
+# bin_SCRIPTS = gappletviewer gjarsigner gkeytool
+# bin_PROGRAMS =
+# endif
+EXTRA_DIST = toolwrapper.c gappletviewer.in gjarsigner.in gkeytool.in
+
 # All our example java source files
 TOOLS_JAVA_FILES = $(srcdir)/gnu/classpath/tools/*.java $(srcdir)/gnu/classpath/tools/*/*.java $(srcdir)/gnu/classpath/tools/*/*/*.java
 
-
 # The zip files with classes we want to produce.
-TOOLS_ZIP = tools.zip
+
+## GCJ LOCAL: rename this tools.jar for libgcj_tools_la_SOURCES in
+## gcc/libjava/Makefile.am.
+TOOLS_ZIP = tools.jar
 
 # Extra objects that will not exist until configure-time
 BUILT_SOURCES = $(TOOLS_ZIP)
 
 # The templates that must be included into the generated zip file.
-GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav 
+GRMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/giop/grmic/templates/*.jav
 RMIC_TEMPLATES = $(srcdir)/gnu/classpath/tools/rmi/rmic/templates/*.jav
 
 TOOLS_TEMPLATES = $(GRMIC_TEMPLATES) $(RMIC_TEMPLATES)
@@ -47,13 +94,17 @@ TOOLS_HELPS = $(GIOP_HELPS) $(RMI_HELPS)
 READMES = $(srcdir)/gnu/classpath/tools/giop/README
 
 # All the files we find "interesting"
-ALL_TOOLS_FILES = $(TOOLS_JAVA_FILES) $(TOOLS_TEMPLATES) $(TOOLS_HELPS) $(READMES)
+ALL_TOOLS_FILES = $(TOOLS_JAVA_FILES) $(TOOLS_TEMPLATES) $(TOOLS_HELPS)
 
-# Some architecture independent data to be installed.
-TOOLS_DATA = $(TOOLS_ZIP) README
+## GCJ LOCAL: build tools.zip but do not install it.  It is installed
+## in gcc/libjava/Makefile.am.
+# # Some architecture independent data to be installed.
+# TOOLS_DATA = $(TOOLS_ZIP)
+noinst_DATA = $(TOOLS_ZIP)
 
 # Where we want these data files installed.
-TOOLSdir = $(pkgdatadir)
+## GCJ LOCAL: install libgcj-tools.jar alongside libgcj.jar.
+# TOOLSdir = $(datadir)/java
 
 # Make sure everything is included in the distribution.
 dist-hook:
@@ -73,20 +124,27 @@ dist-hook:
 # the class files. Always regenerate all .class files and remove them
 # immediately.  And copy the template files we use to the classes dir
 # so they get also included.
+## GCJ LOCAL: assume FASTJAR since we pass --with-fastjar to configure
 $(TOOLS_ZIP): $(TOOLS_JAVA_FILES)
 	mkdir -p classes/gnu/classpath/tools/giop/grmic/templates
 	mkdir -p classes/gnu/classpath/tools/rmi/rmic/templates
+	mkdir -p classes/gnu/classpath/tools/appletviewer
+	mkdir -p classes/gnu/classpath/tools/jarsigner
+	mkdir -p classes/gnu/classpath/tools/keytool
 	cp $(RMIC_TEMPLATES) classes/gnu/classpath/tools/rmi/rmic/templates
-	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates	
+	cp $(GRMIC_TEMPLATES) classes/gnu/classpath/tools/giop/grmic/templates
 	cp $(RMI_HELPS) classes/gnu/classpath/tools/rmi/
 	cp $(GIOP_HELPS) classes/gnu/classpath/tools/giop/
-	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES) 
+	$(JCOMPILER) -d classes $(TOOLS_JAVA_FILES)
 	(cd classes; \
-	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(TOOLS_ZIP) .; fi; \
-	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(TOOLS_ZIP) .; fi; \
+	$(FASTJAR) cf ../$(TOOLS_ZIP) .; \
 	cd ..)
 	rm -rf classes
 
 # Zip file be gone! (and make sure the classes are gone too)
 clean-local:
 	rm -rf $(TOOLS_ZIP) classes
+
+# FIXME: remove this when GNU Classpath includes a bootstrap VM.
+installcheck-binSCRIPTS:
+	:

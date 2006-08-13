@@ -104,7 +104,7 @@ static tree classtype_mangled_name (tree);
 static char* mangle_class_name_for_template (const char *, tree, tree);
 static tree tsubst_initializer_list (tree, tree);
 static tree get_class_bindings (tree, tree, tree);
-static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t, 
+static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
 				   bool, bool);
 static void tsubst_enum	(tree, tree, tree);
 static tree add_to_template_args (tree, tree);
@@ -336,7 +336,12 @@ push_inline_template_parms_recursive (tree parmlist, int levels)
 	       NULL);
   for (i = 0; i < TREE_VEC_LENGTH (parms); ++i)
     {
-      tree parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
+      tree parm;
+
+      if (TREE_VEC_ELT (parms, i) == error_mark_node)
+        continue;
+
+      parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
       gcc_assert (DECL_P (parm));
 
       switch (TREE_CODE (parm))
@@ -658,7 +663,7 @@ check_explicit_instantiation_namespace (tree spec)
   tree ns;
 
   /* DR 275: An explicit instantiation shall appear in an enclosing
-     namespace of its template.  */ 
+     namespace of its template.  */
   ns = decl_namespace_context (spec);
   if (!is_ancestor (current_namespace, ns))
     pedwarn ("explicit instantiation of %qD in namespace %qD "
@@ -811,6 +816,9 @@ static tree
 retrieve_specialization (tree tmpl, tree args,
 			 bool class_specializations_p)
 {
+  if (args == error_mark_node)
+    return NULL_TREE;
+
   gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
 
   /* There should be as many levels of arguments as there are
@@ -895,7 +903,7 @@ static tree
 retrieve_local_specialization (tree tmpl)
 {
   tree spec = (tree) htab_find_with_hash (local_specializations, tmpl,
-                                          htab_hash_pointer (tmpl));
+					  htab_hash_pointer (tmpl));
   return spec ? TREE_PURPOSE (spec) : NULL_TREE;
 }
 
@@ -1187,15 +1195,15 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 	      DECL_INITIAL (fn) = NULL_TREE;
 	      duplicate_decls (spec, fn, is_friend);
 	      /* The call to duplicate_decls will have applied
-		 [temp.expl.spec]: 
+		 [temp.expl.spec]:
 
-  	           An explicit specialization of a function template
+		   An explicit specialization of a function template
 		   is inline only if it is explicitly declared to be,
 		   and independently of whether its function template
 		   is.
 
 		to the primary function; now copy the inline bits to
-		the various clones.  */   
+		the various clones.  */
 	      FOR_EACH_CLONE (clone, fn)
 		{
 		  DECL_DECLARED_INLINE_P (clone)
@@ -1224,7 +1232,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
      template it is specializing.  */
   if (DECL_TEMPLATE_SPECIALIZATION (spec)
       && !check_specialization_namespace (tmpl))
-    DECL_CONTEXT (spec) = decl_namespace_context (tmpl);
+    DECL_CONTEXT (spec) = FROB_CONTEXT (decl_namespace_context (tmpl));
 
   if (!optimize_specialization_lookup_p (tmpl))
     DECL_TEMPLATE_SPECIALIZATIONS (tmpl)
@@ -1354,7 +1362,7 @@ determine_specialization (tree template_id,
 
   *targs_out = NULL_TREE;
 
-  if (template_id == error_mark_node)
+  if (template_id == error_mark_node || decl == error_mark_node)
     return error_mark_node;
 
   fns = TREE_OPERAND (template_id, 0);
@@ -1451,7 +1459,7 @@ determine_specialization (tree template_id,
 	  if (current_binding_level->kind == sk_template_parms
 	      && !current_binding_level->explicit_spec_p
 	      && (TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (fn))
-		  != TREE_VEC_LENGTH (INNERMOST_TEMPLATE_PARMS 
+		  != TREE_VEC_LENGTH (INNERMOST_TEMPLATE_PARMS
 				      (current_template_parms))))
 	    continue;
 
@@ -2140,24 +2148,18 @@ check_explicit_specialization (tree declarator,
 	     template it specializes.  */
 	  TREE_PRIVATE (decl) = TREE_PRIVATE (gen_tmpl);
 	  TREE_PROTECTED (decl) = TREE_PROTECTED (gen_tmpl);
-	  /* The specialization has the same visibility as the
-	     template it specializes.  */
-	  if (DECL_VISIBILITY_SPECIFIED (gen_tmpl))
-	    {
-	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (gen_tmpl);
-	    }
+
 	  /* If DECL is a friend declaration, declared using an
 	     unqualified name, the namespace associated with DECL may
 	     have been set incorrectly.  For example, in:
-	     
-	       template <typename T> void f(T); 
-               namespace N {
-  	         struct S { friend void f<int>(int); }
-               }
 
-             we will have set the DECL_CONTEXT for the friend
-             declaration to N, rather than to the global namespace.  */
+	       template <typename T> void f(T);
+	       namespace N {
+		 struct S { friend void f<int>(int); }
+	       }
+
+	     we will have set the DECL_CONTEXT for the friend
+	     declaration to N, rather than to the global namespace.  */
 	  if (DECL_NAMESPACE_SCOPE_P (decl))
 	    DECL_CONTEXT (decl) = DECL_CONTEXT (tmpl);
 
@@ -2210,8 +2212,15 @@ comp_template_parms (tree parms1, tree parms2)
 
       for (i = 0; i < TREE_VEC_LENGTH (t2); ++i)
 	{
-	  tree parm1 = TREE_VALUE (TREE_VEC_ELT (t1, i));
-	  tree parm2 = TREE_VALUE (TREE_VEC_ELT (t2, i));
+          tree parm1;
+          tree parm2;
+
+          if (TREE_VEC_ELT (t1, i) == error_mark_node
+              || TREE_VEC_ELT (t2, i) == error_mark_node)
+            continue;
+
+	  parm1 = TREE_VALUE (TREE_VEC_ELT (t1, i));
+          parm2 = TREE_VALUE (TREE_VEC_ELT (t2, i));
 
 	  if (TREE_CODE (parm1) != TREE_CODE (parm2))
 	    return 0;
@@ -2368,7 +2377,7 @@ process_template_parm (tree list, tree parm, bool is_non_type)
       SET_DECL_TEMPLATE_PARM_P (parm);
 
       if (TREE_TYPE (parm) == error_mark_node)
-	TREE_TYPE (parm) = void_type_node;
+	return chainon(list, error_mark_node);
       else
       {
 	/* [temp.param]
@@ -2377,7 +2386,7 @@ process_template_parm (tree list, tree parm, bool is_non_type)
 	   ignored when determining its type.  */
 	TREE_TYPE (parm) = TYPE_MAIN_VARIANT (TREE_TYPE (parm));
 	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), 1))
-	  TREE_TYPE (parm) = void_type_node;
+	  return chainon(list, error_mark_node);
       }
 
       /* A template parameter is not modifiable.  */
@@ -2844,6 +2853,10 @@ check_default_tmpl_args (tree decl, tree parms, int is_primary, int is_partial)
       for (i = 0; i < ntparms; ++i)
 	{
 	  tree parm = TREE_VEC_ELT (inner_parms, i);
+
+          if (parm == error_mark_node)
+            continue;
+
 	  if (TREE_PURPOSE (parm))
 	    seen_def_arg_p = 1;
 	  else if (seen_def_arg_p)
@@ -2908,18 +2921,23 @@ check_default_tmpl_args (tree decl, tree parms, int is_primary, int is_partial)
 
       ntparms = TREE_VEC_LENGTH (inner_parms);
       for (i = 0; i < ntparms; ++i)
-	if (TREE_PURPOSE (TREE_VEC_ELT (inner_parms, i)))
-	  {
-	    if (msg)
-	      {
-		error (msg, decl);
-		msg = 0;
-	      }
+        {
+          if (TREE_VEC_ELT (inner_parms, i) == error_mark_node)
+            continue;
 
-	    /* Clear out the default argument so that we are not
-	       confused later.  */
-	    TREE_PURPOSE (TREE_VEC_ELT (inner_parms, i)) = NULL_TREE;
-	  }
+	  if (TREE_PURPOSE (TREE_VEC_ELT (inner_parms, i)))
+	    {
+	      if (msg)
+	        {
+		  error (msg, decl);
+		  msg = 0;
+	        }
+
+	      /* Clear out the default argument so that we are not
+	         confused later.  */
+	      TREE_PURPOSE (TREE_VEC_ELT (inner_parms, i)) = NULL_TREE;
+	    }
+        }
 
       /* At this point, if we're still interested in issuing messages,
 	 they must apply to classes surrounding the object declared.  */
@@ -3305,10 +3323,19 @@ redeclare_class_template (tree type, tree parms)
 
   for (i = 0; i < TREE_VEC_LENGTH (tmpl_parms); ++i)
     {
-      tree tmpl_parm = TREE_VALUE (TREE_VEC_ELT (tmpl_parms, i));
-      tree parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
-      tree tmpl_default = TREE_PURPOSE (TREE_VEC_ELT (tmpl_parms, i));
-      tree parm_default = TREE_PURPOSE (TREE_VEC_ELT (parms, i));
+      tree tmpl_parm;
+      tree parm;
+      tree tmpl_default;
+      tree parm_default;
+
+      if (TREE_VEC_ELT (tmpl_parms, i) == error_mark_node
+          || TREE_VEC_ELT (parms, i) == error_mark_node)
+        continue;
+
+      tmpl_parm = TREE_VALUE (TREE_VEC_ELT (tmpl_parms, i));
+      parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
+      tmpl_default = TREE_PURPOSE (TREE_VEC_ELT (tmpl_parms, i));
+      parm_default = TREE_PURPOSE (TREE_VEC_ELT (parms, i));
 
       /* TMPL_PARM and PARM can be either TYPE_DECL, PARM_DECL, or
 	 TEMPLATE_DECL.  */
@@ -3592,9 +3619,9 @@ convert_nontype_argument (tree type, tree expr)
 
       if (!constant_address_p)
 	{
-	    error ("%qE is not a valid template argument for type %qT "
-		  "because it is not a constant pointer", expr, type);
-	    return NULL_TREE;
+	  error ("%qE is not a valid template argument for type %qT "
+		 "because it is not a constant pointer", expr, type);
+	  return NULL_TREE;
 	}
     }
   /* [temp.arg.nontype]/5, bullet 3
@@ -3620,7 +3647,7 @@ convert_nontype_argument (tree type, tree expr)
       if (!real_lvalue_p (expr))
 	{
 	  error ("%qE is not a valid template argument for type %qT "
-		 "because it is not a lvalue", expr, type);
+		 "because it is not an lvalue", expr, type);
 	  return NULL_TREE;
 	}
 
@@ -3770,6 +3797,10 @@ coerce_template_template_parms (tree parm_parms,
 
   for (i = 0; i < nparms; ++i)
     {
+      if (TREE_VEC_ELT (parm_parms, i) == error_mark_node
+          || TREE_VEC_ELT (arg_parms, i) == error_mark_node)
+        continue;
+
       parm = TREE_VALUE (TREE_VEC_ELT (parm_parms, i));
       arg = TREE_VALUE (TREE_VEC_ELT (arg_parms, i));
 
@@ -3837,10 +3868,7 @@ convert_template_argument (tree parm,
 			   tree in_decl)
 {
   tree val;
-  tree inner_args;
   int is_type, requires_type, is_tmpl_type, requires_tmpl_type;
-
-  inner_args = INNERMOST_TEMPLATE_ARGS (args);
 
   if (TREE_CODE (arg) == TREE_LIST
       && TREE_CODE (TREE_VALUE (arg)) == OFFSET_REF)
@@ -3933,7 +3961,7 @@ convert_template_argument (tree parm,
 
 	      if (coerce_template_template_parms (parmparm, argparm,
 						  complain, in_decl,
-						  inner_args))
+						  args))
 		{
 		  val = arg;
 
@@ -3962,7 +3990,7 @@ convert_template_argument (tree parm,
 	val = arg;
       /* We only form one instance of each template specialization.
 	 Therefore, if we use a non-canonical variant (i.e., a
-	 typedef), any future messages referring to the type will use 
+	 typedef), any future messages referring to the type will use
 	 the typedef, which is confusing if those future uses do not
 	 themselves also use the typedef.  */
       if (TYPE_P (val))
@@ -4032,7 +4060,8 @@ coerce_template_parms (tree parms,
       || (nargs < nparms
 	  && require_all_args
 	  && (!use_default_args
-	      || !TREE_PURPOSE (TREE_VEC_ELT (parms, nargs)))))
+	      || (TREE_VEC_ELT (parms, nargs) != error_mark_node
+                  && !TREE_PURPOSE (TREE_VEC_ELT (parms, nargs))))))
     {
       if (complain & tf_error)
 	{
@@ -4055,6 +4084,12 @@ coerce_template_parms (tree parms,
 
       /* Get the Ith template parameter.  */
       parm = TREE_VEC_ELT (parms, i);
+ 
+      if (parm == error_mark_node)
+      {
+        TREE_VEC_ELT (new_inner_args, i) = error_mark_node;
+        continue;
+      }
 
       /* Calculate the Ith argument.  */
       if (i < nargs)
@@ -4155,8 +4190,14 @@ mangle_class_name_for_template (const char* name, tree parms, tree arglist)
   gcc_assert (nparms == TREE_VEC_LENGTH (arglist));
   for (i = 0; i < nparms; i++)
     {
-      tree parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
-      tree arg = TREE_VEC_ELT (arglist, i);
+      tree parm;
+      tree arg;
+
+      if (TREE_VEC_ELT (parms, i) == error_mark_node)
+        continue;
+
+      parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
+      arg = TREE_VEC_ELT (arglist, i);
 
       if (i)
 	ccat (',');
@@ -4464,7 +4505,7 @@ lookup_template_class (tree d1,
 	arglist = add_to_template_args (current_template_args (), arglist);
 
       arglist2 = coerce_template_parms (parmlist, arglist, template,
-					complain, 
+					complain,
 					/*require_all_args=*/true,
 					/*use_default_args=*/true);
       if (arglist2 == error_mark_node
@@ -4535,7 +4576,7 @@ lookup_template_class (tree d1,
 	    {
 	      tree a = coerce_template_parms (TREE_VALUE (t),
 					      arglist, template,
-					      complain, 
+					      complain,
 					      /*require_all_args=*/true,
 					      /*use_default_args=*/true);
 
@@ -4566,7 +4607,7 @@ lookup_template_class (tree d1,
 	  = coerce_template_parms (INNERMOST_TEMPLATE_PARMS (parmlist),
 				   INNERMOST_TEMPLATE_ARGS (arglist),
 				   template,
-				   complain, 
+				   complain,
 				   /*require_all_args=*/true,
 				   /*use_default_args=*/true);
 
@@ -4784,6 +4825,10 @@ lookup_template_class (tree d1,
 	/* If the type makes use of template parameters, the
 	   code that generates debugging information will crash.  */
 	DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 1;
+
+      /* Possibly limit visibility based on template args.  */
+      TREE_PUBLIC (type_decl) = 1;
+      determine_visibility (type_decl);
 
       POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
     }
@@ -5413,8 +5458,21 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 	push_nested_class (tsubst (context, args, tf_none, NULL_TREE));
     }
 
-  /* First, we look for a class template.  */
-  tmpl = lookup_name (DECL_NAME (friend_tmpl));
+  /* Look for a class template declaration.  We look for hidden names
+     because two friend declarations of the same template are the
+     same.  For example, in:
+
+       struct A { 
+         template <typename> friend class F;
+       };
+       template <typename> struct B { 
+         template <typename> friend class F;
+       };
+
+     both F templates are the same.  */
+  tmpl = lookup_name_real (DECL_NAME (friend_tmpl), 0, 0,
+			   /*block_p=*/true, 0, 
+			   LOOKUP_COMPLAIN | LOOKUP_HIDDEN);
 
   /* But, if we don't find one, it might be because we're in a
      situation like this:
@@ -5539,12 +5597,12 @@ instantiate_class_template (tree type)
 	 specialization.  We replace the innermost set of ARGS with
 	 the arguments appropriate for substitution.  For example,
 	 given:
-       
-           template <class T> struct S {};
+
+	   template <class T> struct S {};
 	   template <class T> struct S<T*> {};
 
 	 and supposing that we are instantiating S<int*>, ARGS will
-         presently be {int*} -- but we need {int}.  */
+	 presently be {int*} -- but we need {int}.  */
       pattern = TREE_TYPE (t);
       args = TREE_PURPOSE (t);
     }
@@ -5762,15 +5820,15 @@ instantiate_class_template (tree type)
 			   not occur unless the static data member is
 			   itself used in a way that requires the
 			   definition of the static data member to
-			   exist.  
+			   exist.
 
 			 Therefore, we do not substitute into the
-		         initialized for the static data member here.  */
-		      finish_static_data_member_decl 
-			(r, 
-			 /*init=*/NULL_TREE, 
+			 initialized for the static data member here.  */
+		      finish_static_data_member_decl
+			(r,
+			 /*init=*/NULL_TREE,
 			 /*init_const_expr_p=*/false,
-			 /*asmspec_tree=*/NULL_TREE, 
+			 /*asmspec_tree=*/NULL_TREE,
 			 /*flags=*/0);
 		      if (DECL_INITIALIZED_IN_CLASS_P (r))
 			check_static_variable_definition (r, TREE_TYPE (r));
@@ -6045,9 +6103,20 @@ tsubst_template_parms (tree parms, tree args, tsubst_flags_t complain)
 
       for (i = 0; i < TREE_VEC_LENGTH (new_vec); ++i)
 	{
-	  tree tuple = TREE_VEC_ELT (TREE_VALUE (parms), i);
-	  tree default_value = TREE_PURPOSE (tuple);
-	  tree parm_decl = TREE_VALUE (tuple);
+          tree tuple;
+          tree default_value;
+          tree parm_decl;
+
+          if (parms == error_mark_node)
+            continue;
+
+          tuple = TREE_VEC_ELT (TREE_VALUE (parms), i);
+
+          if (tuple == error_mark_node)
+            continue;
+
+          default_value = TREE_PURPOSE (tuple);
+          parm_decl = TREE_VALUE (tuple);
 
 	  parm_decl = tsubst (parm_decl, args, complain, NULL_TREE);
 	  if (TREE_CODE (parm_decl) == PARM_DECL
@@ -6133,7 +6202,7 @@ tsubst_aggr_type (tree t,
 					 entering_scope, complain);
 	      r = cp_build_qualified_type_real (r, TYPE_QUALS (t), complain);
 	    }
-	  
+
 	  skip_evaluation = saved_skip_evaluation;
 
 	  return r;
@@ -6322,7 +6391,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    tree new_type;
 	    ++processing_template_decl;
 	    new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
-	    --processing_template_decl; 
+	    --processing_template_decl;
 	    if (new_type == error_mark_node)
 	      return error_mark_node;
 
@@ -6345,7 +6414,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_TI_TEMPLATE (new_decl) = r;
 	    TREE_TYPE (r) = TREE_TYPE (new_decl);
 	    DECL_TI_ARGS (r) = DECL_TI_ARGS (new_decl);
-	    DECL_CONTEXT (r) = DECL_CONTEXT (new_decl); 
+	    DECL_CONTEXT (r) = DECL_CONTEXT (new_decl);
 	  }
 
 	SET_DECL_IMPLICIT_INSTANTIATION (r);
@@ -6591,6 +6660,16 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  SET_DECL_FRIEND_CONTEXT (r,
 				   tsubst (DECL_FRIEND_CONTEXT (t),
 					    args, complain, in_decl));
+
+	/* Possibly limit visibility based on template args.  */
+	DECL_VISIBILITY (r) = VISIBILITY_DEFAULT;
+	if (DECL_VISIBILITY_SPECIFIED (t))
+	  {
+	    DECL_VISIBILITY_SPECIFIED (r) = 0;
+	    DECL_ATTRIBUTES (r)
+	      = remove_attribute ("visibility", DECL_ATTRIBUTES (r));
+	  }
+	determine_visibility (r);
       }
       break;
 
@@ -6673,7 +6752,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	tree tmpl = NULL_TREE;
 	tree ctx;
 	tree type = NULL_TREE;
-	int local_p;
+	bool local_p;
 
 	if (TREE_CODE (t) == TYPE_DECL)
 	  {
@@ -6691,40 +6770,64 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      }
 	  }
 
-	/* Assume this is a non-local variable.  */
-	local_p = 0;
+	/* Check to see if we already have the specialization we
+	   need.  */
+	spec = NULL_TREE;
+	if (DECL_CLASS_SCOPE_P (t) || DECL_NAMESPACE_SCOPE_P (t))
+	  {
+	    /* T is a static data member or namespace-scope entity.
+	       We have to substitute into namespace-scope variables
+	       (even though such entities are never templates) because
+	       of cases like:
+	       
+	         template <class T> void f() { extern T t; }
 
-	if (TYPE_P (CP_DECL_CONTEXT (t)))
-	  ctx = tsubst_aggr_type (DECL_CONTEXT (t), args,
-				  complain,
-				  in_decl, /*entering_scope=*/1);
-	else if (DECL_NAMESPACE_SCOPE_P (t))
-	  ctx = DECL_CONTEXT (t);
+	       where the entity referenced is not known until
+	       instantiation time.  */
+	    local_p = false;
+	    ctx = DECL_CONTEXT (t);
+	    if (DECL_CLASS_SCOPE_P (t))
+	      {
+		ctx = tsubst_aggr_type (ctx, args,
+					complain,
+					in_decl, /*entering_scope=*/1);
+		/* If CTX is unchanged, then T is in fact the
+		   specialization we want.  That situation occurs when
+		   referencing a static data member within in its own
+		   class.  We can use pointer equality, rather than
+		   same_type_p, because DECL_CONTEXT is always
+		   canonical.  */
+		if (ctx == DECL_CONTEXT (t))
+		  spec = t;
+	      }
+
+	    if (!spec)
+	      {
+		tmpl = DECL_TI_TEMPLATE (t);
+		gen_tmpl = most_general_template (tmpl);
+		argvec = tsubst (DECL_TI_ARGS (t), args, complain, in_decl);
+		spec = (retrieve_specialization 
+			(gen_tmpl, argvec,
+			 /*class_specializations_p=*/false));
+	      }
+	  }
 	else
 	  {
+	    /* A local variable.  */
+	    local_p = true;
 	    /* Subsequent calls to pushdecl will fill this in.  */
 	    ctx = NULL_TREE;
-	    local_p = 1;
+	    spec = retrieve_local_specialization (t);
 	  }
-
-	/* Check to see if we already have this specialization.  */
-	if (!local_p)
-	  {
-	    tmpl = DECL_TI_TEMPLATE (t);
-	    gen_tmpl = most_general_template (tmpl);
-	    argvec = tsubst (DECL_TI_ARGS (t), args, complain, in_decl);
-	    spec = retrieve_specialization (gen_tmpl, argvec,
-					    /*class_specializations_p=*/false);
-	  }
-	else
-	  spec = retrieve_local_specialization (t);
-
+	/* If we already have the specialization we need, there is
+	   nothing more to do.  */ 
 	if (spec)
 	  {
 	    r = spec;
 	    break;
 	  }
 
+	/* Create a new node for the specialization we need.  */
 	r = copy_decl (t);
 	if (TREE_CODE (r) == VAR_DECL)
 	  {
@@ -6745,7 +6848,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      {
 		tree ve = DECL_VALUE_EXPR (t);
 		ve = tsubst_expr (ve, args, complain, in_decl);
-	        SET_DECL_VALUE_EXPR (r, ve);
+		SET_DECL_VALUE_EXPR (r, ve);
 	      }
 	  }
 	else if (DECL_SELF_REFERENCE_P (t))
@@ -6763,6 +6866,18 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
 	  SET_DECL_RTL (r, NULL_RTX);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
+	if (TREE_CODE (r) == VAR_DECL)
+	  {
+	    /* Possibly limit visibility based on template args.  */
+	    DECL_VISIBILITY (r) = VISIBILITY_DEFAULT;
+	    if (DECL_VISIBILITY_SPECIFIED (t))
+	      {
+		DECL_VISIBILITY_SPECIFIED (r) = 0;
+		DECL_ATTRIBUTES (r)
+		  = remove_attribute ("visibility", DECL_ATTRIBUTES (r));
+	      }
+	    determine_visibility (r);
+	  }
 
 	if (!local_p)
 	  {
@@ -7576,6 +7691,7 @@ tsubst_baselink (tree baselink, tree object_type,
     tree name;
     tree qualifying_scope;
     tree fns;
+    tree optype;
     tree template_args = 0;
     bool template_id_p = false;
 
@@ -7589,6 +7705,7 @@ tsubst_baselink (tree baselink, tree object_type,
        ambiguous now.  Therefore, we perform the lookup again.  */
     qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (baselink));
     fns = BASELINK_FUNCTIONS (baselink);
+    optype = BASELINK_OPTYPE (baselink);
     if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
       {
 	template_id_p = true;
@@ -7616,6 +7733,9 @@ tsubst_baselink (tree baselink, tree object_type,
 	= build_nt (TEMPLATE_ID_EXPR,
 		    BASELINK_FUNCTIONS (baselink),
 		    template_args);
+    /* Update the conversion operator type.  */
+    BASELINK_OPTYPE (baselink) 
+      = tsubst (optype, args, complain, in_decl);
 
     if (!object_type)
       object_type = current_class_type;
@@ -7674,8 +7794,8 @@ tsubst_qualified_id (tree qualified_id, tree args,
     expr = name;
 
   if (dependent_type_p (scope))
-    return build_qualified_name (/*type=*/NULL_TREE, 
-				 scope, expr, 
+    return build_qualified_name (/*type=*/NULL_TREE,
+				 scope, expr,
 				 QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
 
   if (!BASELINK_P (name) && !DECL_P (expr))
@@ -7726,7 +7846,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
     {
       expr = (adjust_result_of_qualified_name_lookup
 	      (expr, scope, current_class_type));
-      expr = (finish_qualified_id_expr 
+      expr = (finish_qualified_id_expr
 	      (scope, expr, done, address_p,
 	       QUALIFIED_NAME_IS_TEMPLATE (qualified_id),
 	       /*template_arg_p=*/false));
@@ -7917,7 +8037,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				complain, in_decl);
 	    name = build1 (BIT_NOT_EXPR, NULL_TREE, name);
 	    name = build_qualified_name (/*type=*/NULL_TREE,
-					 base, name, 
+					 base, name,
 					 /*template_p=*/false);
 	  }
 	else if (TREE_CODE (name) == BASELINK)
@@ -8266,8 +8386,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	    decl = tsubst (decl, args, complain, in_decl);
 	    if (decl != error_mark_node)
 	      {
-		if (init)
-		  DECL_INITIAL (decl) = error_mark_node;
 		/* By marking the declaration as instantiated, we avoid
 		   trying to instantiate it.  Since instantiate_decl can't
 		   handle local variables, and since we've already done
@@ -8452,20 +8570,18 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case HANDLER:
       {
-	tree decl;
+	tree decl = HANDLER_PARMS (t);
 
-	stmt = begin_handler ();
-	if (HANDLER_PARMS (t))
+	if (decl)
 	  {
-	    decl = HANDLER_PARMS (t);
 	    decl = tsubst (decl, args, complain, in_decl);
 	    /* Prevent instantiate_decl from trying to instantiate
 	       this variable.  We've already done all that needs to be
 	       done.  */
-	    DECL_TEMPLATE_INSTANTIATED (decl) = 1;
+	    if (decl != error_mark_node)
+	      DECL_TEMPLATE_INSTANTIATED (decl) = 1;
 	  }
-	else
-	  decl = NULL_TREE;
+	stmt = begin_handler ();
 	finish_handler_parms (decl, stmt);
 	tsubst_expr (HANDLER_BODY (t), args, complain, in_decl);
 	finish_handler (stmt);
@@ -8548,10 +8664,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	tree op0, op1;
 	op0 = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl);
 	op1 = tsubst_expr (TREE_OPERAND (t, 1), args, complain, in_decl);
-	if (OMP_ATOMIC_DEPENDENT_P (t))
-	  c_finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
-	else
-	  add_stmt (build2 (OMP_ATOMIC, void_type_node, op0, op1));
+	finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
       }
       break;
 
@@ -8887,7 +9000,7 @@ tsubst_copy_and_build (tree t,
 	      }
 	    else
 	      qualified_p = false;
-	    
+
 	    function = tsubst_copy_and_build (function, args, complain,
 					      in_decl,
 					      !qualified_p);
@@ -9128,7 +9241,7 @@ tsubst_copy_and_build (tree t,
 					  in_decl));
 
     case OFFSETOF_EXPR:
-      return fold_offsetof (RECUR (TREE_OPERAND (t, 0)));
+      return finish_offsetof (RECUR (TREE_OPERAND (t, 0)));
 
     case STMT_EXPR:
       {
@@ -9148,7 +9261,10 @@ tsubst_copy_and_build (tree t,
       /* As in finish_id_expression, we resolve enumeration constants
 	 to their underlying values.  */
       if (TREE_CODE (t) == CONST_DECL)
-	return DECL_INITIAL (t);
+	{
+	  used_types_insert (TREE_TYPE (t));
+	  return DECL_INITIAL (t);
+	}
       return t;
 
     default:
@@ -9193,14 +9309,14 @@ check_instantiated_args (tree tmpl, tree args, tsubst_flags_t complain)
 	  if (nt)
 	    {
 	      /* DR 488 makes use of a type with no linkage cause
-		 type deduction to fail.  */ 
+		 type deduction to fail.  */
 	      if (complain & tf_error)
 		{
 		  if (TYPE_ANONYMOUS_P (nt))
 		    error ("%qT is/uses anonymous type", t);
 		  else
 		    error ("template argument for %qD uses local type %qT",
-                           tmpl, t);
+			   tmpl, t);
 		}
 	      result = true;
 	    }
@@ -9238,6 +9354,7 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
   tree fndecl;
   tree gen_tmpl;
   tree spec;
+  HOST_WIDE_INT saved_processing_template_decl;
 
   if (tmpl == error_mark_node)
     return error_mark_node;
@@ -9297,9 +9414,18 @@ instantiate_template (tree tmpl, tree targ_ptr, tsubst_flags_t complain)
      deferring all checks until we have the FUNCTION_DECL.  */
   push_deferring_access_checks (dk_deferred);
 
-  /* Substitute template parameters.  */
+  /* Although PROCESSING_TEMPLATE_DECL may be true at this point
+     (because, for example, we have encountered a non-dependent
+     function call in the body of a template function and must now
+     determine which of several overloaded functions will be called),
+     within the instantiation itself we are not processing a
+     template.  */  
+  saved_processing_template_decl = processing_template_decl;
+  processing_template_decl = 0;
+  /* Substitute template parameters to obtain the specialization.  */
   fndecl = tsubst (DECL_TEMPLATE_RESULT (gen_tmpl),
 		   targ_ptr, complain, gen_tmpl);
+  processing_template_decl = saved_processing_template_decl;
   if (fndecl == error_mark_node)
     return error_mark_node;
 
@@ -9625,10 +9751,10 @@ type_unification_real (tree tparms,
 	  if (same_type_p (parm, type))
 	    continue;
 	  if (strict != DEDUCE_EXACT
-	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg, 
+	      && can_convert_arg (parm, type, TYPE_P (arg) ? NULL_TREE : arg,
 				  flags))
 	    continue;
-	  
+
 	  return 1;
 	}
 
@@ -9678,7 +9804,12 @@ type_unification_real (tree tparms,
     for (i = 0; i < ntparms; i++)
       if (!TREE_VEC_ELT (targs, i))
 	{
-	  tree tparm = TREE_VALUE (TREE_VEC_ELT (tparms, i));
+	  tree tparm;
+
+          if (TREE_VEC_ELT (tparms, i) == error_mark_node)
+            continue;
+
+          tparm = TREE_VALUE (TREE_VEC_ELT (tparms, i));
 
 	  /* If this is an undeduced nontype parameter that depends on
 	     a type parameter, try another pass; its type may have been
@@ -10162,7 +10293,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	  /* ARG must be constructed from a template class or a template
 	     template parameter.  */
 	  if (TREE_CODE (arg) != BOUND_TEMPLATE_TEMPLATE_PARM
-	      && (TREE_CODE (arg) != RECORD_TYPE || !CLASSTYPE_TEMPLATE_INFO (arg)))
+	      && !CLASSTYPE_SPECIALIZATION_OF_PRIMARY_TEMPLATE_P (arg))
 	    return 1;
 
 	  {
@@ -10185,8 +10316,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 			    typename Block>
 		  void operator+(float, View<Block> const&);
 
-		  template <typename Block, 
-		            unsigned int Dim = Block::dim>
+		  template <typename Block,
+			    unsigned int Dim = Block::dim>
 		  struct Lvalue_proxy { operator float() const; };
 
 		  void
@@ -10198,8 +10329,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
 	      Here, if Lvalue_proxy is permitted to bind to View, then
 	      the global operator+ will be used; if they are not, the
-	      Lvalue_proxy will be converted to float.  */	  
-	    if (coerce_template_parms (argtmplvec, parmvec, 
+	      Lvalue_proxy will be converted to float.  */
+	    if (coerce_template_parms (argtmplvec, parmvec,
 				       TYPE_TI_TEMPLATE (parm),
 				       tf_none,
 				       /*require_all_args=*/true,
@@ -10276,6 +10407,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
     case TEMPLATE_PARM_INDEX:
       tparm = TREE_VALUE (TREE_VEC_ELT (tparms, 0));
+      if (tparm == error_mark_node)
+	return 1;
 
       if (TEMPLATE_PARM_LEVEL (parm)
 	  != template_decl_level (tparm))
@@ -10515,9 +10648,9 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	return 1;
 
       /* CV qualifications for methods can never be deduced, they must
-  	 match exactly.  We need to check them explicitly here,
-  	 because type_unification_real treats them as any other
-  	 cvqualified parameter.  */
+	 match exactly.  We need to check them explicitly here,
+	 because type_unification_real treats them as any other
+	 cvqualified parameter.  */
       if (TREE_CODE (parm) == METHOD_TYPE
 	  && (!check_cv_quals_for_unify
 	      (UNIFY_ALLOW_NONE,
@@ -10708,7 +10841,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   tree args2 = TYPE_ARG_TYPES (TREE_TYPE (decl2));
   int better1 = 0;
   int better2 = 0;
-  
+
   /* Remove the this parameter from non-static member functions.  If
      one is a non-static member function and the other is not a static
      member function, remove the first parameter from that function
@@ -10731,7 +10864,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 	  args1 = TREE_CHAIN (args1);
 	}
     }
-    
+
   /* If only one is a conversion operator, they are unordered.  */
   if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
     return 0;
@@ -10856,7 +10989,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
    specialized.
 
    See [temp.class.order] for information about determining which of
-   two templates is more specialized.  */ 
+   two templates is more specialized.  */
 
 static int
 more_specialized_class (tree pat1, tree pat2)
@@ -10873,13 +11006,13 @@ more_specialized_class (tree pat1, tree pat2)
      types in the arguments, and we need our dependency check functions
      to behave correctly.  */
   ++processing_template_decl;
-  targs = get_class_bindings (TREE_VALUE (pat1), 
+  targs = get_class_bindings (TREE_VALUE (pat1),
 			      CLASSTYPE_TI_ARGS (tmpl1),
 			      CLASSTYPE_TI_ARGS (tmpl2));
   if (targs)
     --winner;
 
-  targs = get_class_bindings (TREE_VALUE (pat2), 
+  targs = get_class_bindings (TREE_VALUE (pat2),
 			      CLASSTYPE_TI_ARGS (tmpl2),
 			      CLASSTYPE_TI_ARGS (tmpl1));
   if (targs)
@@ -10921,7 +11054,7 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
       converted_args
 	= coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (tmpl),
 				 explicit_args, NULL_TREE,
-				 tf_none, 
+				 tf_none,
 				 /*require_all_args=*/false,
 				 /*use_default_args=*/false);
       if (converted_args == error_mark_node)
@@ -10978,11 +11111,11 @@ get_class_bindings (tree tparms, tree spec_args, tree args)
 			   innermost_deduced_args);
     }
   else
-    deduced_args = innermost_deduced_args; 
+    deduced_args = innermost_deduced_args;
 
-  if (unify (tparms, deduced_args, 
-	     INNERMOST_TEMPLATE_ARGS (spec_args), 
-	     INNERMOST_TEMPLATE_ARGS (args), 
+  if (unify (tparms, deduced_args,
+	     INNERMOST_TEMPLATE_ARGS (spec_args),
+	     INNERMOST_TEMPLATE_ARGS (args),
 	     UNIFY_ALLOW_NONE))
     return NULL_TREE;
 
@@ -10992,7 +11125,7 @@ get_class_bindings (tree tparms, tree spec_args, tree args)
 
   /* Verify that nondeduced template arguments agree with the type
      obtained from argument deduction.
-     
+
      For example:
 
        struct A { typedef int X; };
@@ -11170,8 +11303,8 @@ most_specialized_class (tree type, tree tmpl)
       tree spec_args;
 
       partial_spec_args = CLASSTYPE_TI_ARGS (TREE_TYPE (t));
-      spec_args = get_class_bindings (TREE_VALUE (t), 
-				      partial_spec_args, 
+      spec_args = get_class_bindings (TREE_VALUE (t),
+				      partial_spec_args,
 				      args);
       if (spec_args)
 	{
@@ -11333,11 +11466,11 @@ do_decl_instantiation (tree decl, tree storage)
     }
   else
     error ("storage class %qD applied to template instantiation", storage);
-  
+
   check_explicit_instantiation_namespace (result);
   mark_decl_instantiated (result, extern_p);
   if (! extern_p)
-    instantiate_decl (result, /*defer_ok=*/1, 
+    instantiate_decl (result, /*defer_ok=*/1,
 		      /*expl_inst_class_mem_p=*/false);
 }
 
@@ -11375,7 +11508,7 @@ instantiate_class_member (tree decl, int extern_p)
 {
   mark_decl_instantiated (decl, extern_p);
   if (! extern_p)
-    instantiate_decl (decl, /*defer_ok=*/1, 
+    instantiate_decl (decl, /*defer_ok=*/1,
 		      /*expl_inst_class_mem_p=*/true);
 }
 
@@ -11673,7 +11806,7 @@ template_for_substitution (tree decl)
    explicitly instantiated class template.  */
 
 tree
-instantiate_decl (tree d, int defer_ok, 
+instantiate_decl (tree d, int defer_ok,
 		  bool expl_inst_class_mem_p)
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
@@ -11738,9 +11871,9 @@ instantiate_decl (tree d, int defer_ok,
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
   /* We should never be trying to instantiate a member of a class
-     template or partial specialization.  */ 
+     template or partial specialization.  */
   gcc_assert (d != code_pattern);
- 
+
   if ((DECL_NAMESPACE_SCOPE_P (d) && !DECL_INITIALIZED_IN_CLASS_P (d))
       || DECL_TEMPLATE_SPECIALIZATION (td))
     /* In the case of a friend template whose definition is provided
@@ -11771,9 +11904,9 @@ instantiate_decl (tree d, int defer_ok,
 
   /* If D is a member of an explicitly instantiated class template,
      and no definition is available, treat it like an implicit
-     instantiation.  */ 
-  if (!pattern_defined && expl_inst_class_mem_p 
-      && DECL_EXPLICIT_INSTANTIATION (d)) 
+     instantiation.  */
+  if (!pattern_defined && expl_inst_class_mem_p
+      && DECL_EXPLICIT_INSTANTIATION (d))
     {
       DECL_NOT_REALLY_EXTERN (d) = 0;
       DECL_INTERFACE_KNOWN (d) = 0;
@@ -11819,14 +11952,14 @@ instantiate_decl (tree d, int defer_ok,
       && ! (TREE_CODE (d) == FUNCTION_DECL && DECL_INLINE (d))
       /* ... we instantiate static data members whose values are
 	 needed in integral constant expressions.  */
-      && ! (TREE_CODE (d) == VAR_DECL 
+      && ! (TREE_CODE (d) == VAR_DECL
 	    && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (d)))
     goto out;
   /* Defer all other templates, unless we have been explicitly
      forbidden from doing so.  */
   if (/* If there is no definition, we cannot instantiate the
 	 template.  */
-      ! pattern_defined 
+      ! pattern_defined
       /* If it's OK to postpone instantiation, do so.  */
       || defer_ok
       /* If this is a static data member that will be defined
@@ -11838,7 +11971,7 @@ instantiate_decl (tree d, int defer_ok,
       /* The definition of the static data member is now required so
 	 we must substitute the initializer.  */
       if (TREE_CODE (d) == VAR_DECL
-	  && !DECL_INITIAL (d) 
+	  && !DECL_INITIAL (d)
 	  && DECL_INITIAL (code_pattern))
 	{
 	  tree ns;
@@ -11847,10 +11980,9 @@ instantiate_decl (tree d, int defer_ok,
 	  ns = decl_namespace_context (d);
 	  push_nested_namespace (ns);
 	  push_nested_class (DECL_CONTEXT (d));
-	  init = tsubst_expr (DECL_INITIAL (code_pattern), 
+	  init = tsubst_expr (DECL_INITIAL (code_pattern),
 			      args,
 			      tf_warning_or_error, NULL_TREE);
-	  DECL_INITIAL (d) = init;
 	  cp_finish_decl (d, init, /*init_const_expr_p=*/false,
 			  /*asmspec_tree=*/NULL_TREE,
 			  LOOKUP_ONLYCONVERTING);
@@ -11917,10 +12049,19 @@ instantiate_decl (tree d, int defer_ok,
 
   if (TREE_CODE (d) == VAR_DECL)
     {
+      tree init;
+
       /* Clear out DECL_RTL; whatever was there before may not be right
 	 since we've reset the type of the declaration.  */
       SET_DECL_RTL (d, NULL_RTX);
       DECL_IN_AGGR_P (d) = 0;
+
+      /* The initializer is placed in DECL_INITIAL by
+	 regenerate_decl_from_template.  Pull it out so that
+	 finish_decl can process it.  */
+      init = DECL_INITIAL (d);
+      DECL_INITIAL (d) = NULL_TREE;
+      DECL_INITIALIZED_P (d) = 0;
 
       /* Clear DECL_EXTERNAL so that cp_finish_decl will process the
 	 initializer.  That function will defer actual emission until
@@ -11929,7 +12070,7 @@ instantiate_decl (tree d, int defer_ok,
 
       /* Enter the scope of D so that access-checking works correctly.  */
       push_nested_class (DECL_CONTEXT (d));
-      finish_decl (d, DECL_INITIAL (d), NULL_TREE);
+      finish_decl (d, init, NULL_TREE);
       pop_nested_class ();
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
@@ -12052,7 +12193,7 @@ instantiate_pending_templates (int retries)
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn, 
+			instantiate_decl (fn,
 					  /*defer_ok=*/0,
 					  /*expl_inst_class_mem_p=*/false);
 		  if (COMPLETE_TYPE_P (instantiation))
@@ -12074,7 +12215,7 @@ instantiate_pending_templates (int retries)
 	      if (!DECL_TEMPLATE_SPECIALIZATION (instantiation)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
-		  instantiation 
+		  instantiation
 		    = instantiate_decl (instantiation,
 					/*defer_ok=*/0,
 					/*expl_inst_class_mem_p=*/false);
@@ -12467,7 +12608,8 @@ dependent_scope_ref_p (tree expression, bool criterion (tree))
 }
 
 /* Returns TRUE if the EXPRESSION is value-dependent, in the sense of
-   [temp.dep.constexpr] */
+   [temp.dep.constexpr].  EXPRESSION is already known to be a constant
+   expression.  */
 
 bool
 value_dependent_expression_p (tree expression)
@@ -12558,32 +12700,10 @@ value_dependent_expression_p (tree expression)
 	      || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
 
     case CALL_EXPR:
-      /* A CALL_EXPR is value-dependent if any argument is
-	 value-dependent.  Why do we have to handle CALL_EXPRs in this
-	 function at all?  First, some function calls, those for which
-	 value_dependent_expression_p is true, man appear in constant
-	 expressions.  Second, there appear to be bugs which result in
-	 other CALL_EXPRs reaching this point. */
-      {
-	tree function = TREE_OPERAND (expression, 0);
-	tree args = TREE_OPERAND (expression, 1);
-
-	if (value_dependent_expression_p (function))
-	  return true;
-
-	if (! args)
-	  return false;
-
-	if (TREE_CODE (args) == TREE_LIST)
-	  {
-	    for (; args; args = TREE_CHAIN (args))
-	      if (value_dependent_expression_p (TREE_VALUE (args)))
-		return true;
-	    return false;
-	  }
-
-	return value_dependent_expression_p (args);
-      }
+      /* A CALL_EXPR may appear in a constant expression if it is a
+	 call to a builtin function, e.g., __builtin_constant_p.  All
+	 such calls are value-dependent.  */
+      return true;
 
     default:
       /* A constant expression is value-dependent if any subexpression is
@@ -12736,7 +12856,7 @@ type_dependent_expression_p (tree expression)
     }
 
   gcc_assert (TREE_CODE (expression) != TYPE_DECL);
-  
+
   return (dependent_type_p (TREE_TYPE (expression)));
 }
 
@@ -12978,7 +13098,7 @@ build_non_dependent_expr (tree expr)
 
   /* If the type is unknown, it can't really be non-dependent */
   gcc_assert (TREE_TYPE (expr) != unknown_type_node);
-  
+
   /* Otherwise, build a NON_DEPENDENT_EXPR.
 
      REFERENCE_TYPEs are not stripped for expressions in templates

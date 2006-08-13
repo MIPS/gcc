@@ -1,6 +1,6 @@
 // posix-threads.cc - interface between libjava and POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2004, 2006  Free Software Foundation
 
    This file is part of libgcj.
 

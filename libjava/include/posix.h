@@ -37,6 +37,12 @@ details.  */
 
 #include <fcntl.h>
 
+/* The header file <sys/rw_lock.h> needs to be included before javaprims.h
+   on HP-UX 11 to avoid a compilation error.  */
+#ifdef HAVE_SYS_RW_LOCK_H
+#include <sys/rw_lock.h>
+#endif
+
 #include <gcj/cni.h>
 #include <java/util/Properties.h>
 
@@ -187,5 +193,12 @@ _Jv_pipe (int filedes[2])
 {
   return ::pipe (filedes);
 }
+
+// Forward declaration.  See java-stack.h for definition.
+struct _Jv_AddrInfo;
+
+// Given an address, determine the executable or shared object that defines
+// it and the nearest named symbol.
+extern int _Jv_platform_dladdr (void *addr, _Jv_AddrInfo *info);
 
 #endif /* __JV_POSIX_H__ */

@@ -853,6 +853,7 @@ tree_unroll_loop_prepare (struct loops *loops, struct loop *loop,
   block_stmt_iterator bsi;
   use_operand_p op;
   unsigned est_niter, prob_entry, scale_unrolled, scale_rest;
+  unsigned irr = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
@@ -888,7 +889,7 @@ tree_unroll_loop_prepare (struct loops *loops, struct loop *loop,
   loop_split_edge_with (loop_latch_edge (loop), NULL);
   exit_bb = single_pred (loop->latch);
 
-  new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE);
+  new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
   new_exit->count = loop_preheader_edge (loop)->count;
   est_niter = est_niter / factor + 1;
   new_exit->probability = REG_BR_PROB_BASE / est_niter;

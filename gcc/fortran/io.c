@@ -413,7 +413,6 @@ static try
 check_format (void)
 {
   const char *posint_required	  = _("Positive width required");
-  const char *period_required	  = _("Period required");
   const char *nonneg_required	  = _("Nonnegative width required");
   const char *unexpected_element  = _("Unexpected element");
   const char *unexpected_end	  = _("Unexpected end of format string");
@@ -610,8 +609,13 @@ data_desc:
       u = format_lex ();
       if (u != FMT_PERIOD)
 	{
-	  error = period_required;
-	  goto syntax;
+	  /* Warn if -std=legacy, otherwise error.  */
+	  if (gfc_option.warn_std != 0)
+	    gfc_error_now ("Period required in format specifier at %C");
+	  else
+	    gfc_warning ("Period required in format specifier at %C");
+	  saved_token = u;
+	  break;
 	}
 
       u = format_lex ();
@@ -653,8 +657,13 @@ data_desc:
       t = format_lex ();
       if (t != FMT_PERIOD)
 	{
-	  error = period_required;
-	  goto syntax;
+	  /* Warn if -std=legacy, otherwise error.  */
+          if (gfc_option.warn_std != 0)
+	    gfc_error_now ("Period required in format specifier at %C");
+	  else
+	    gfc_warning ("Period required in format specifier at %C");
+	  saved_token = t;
+	  break;
 	}
 
       t = format_lex ();
@@ -1054,6 +1063,13 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 		  return FAILURE;
 		}
 	    }
+	  else if (e->ts.type == BT_INTEGER)
+	    {
+	      gfc_error ("scalar '%s' FORMAT tag at %L is not an ASSIGNED "
+			 "variable", gfc_basic_typename (e->ts.type), &e->where);
+	      return FAILURE;
+	    }
+
 	  return SUCCESS;
 	}
       else
@@ -2324,6 +2340,12 @@ if (condition) \
 		     "List directed format(*) is not allowed with a "
 		     "ADVANCE=specifier at %L.", &expr->where);
 
+      io_constraint (dt->format_expr == NULL
+		       && dt->format_label == NULL
+		       && dt->namelist == NULL,
+		     "the ADVANCE=specifier at %L must appear with an "
+		     "explicit format expression", &expr->where);
+
       if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_CHARACTER)
 	{
 	  const char * advance = expr->value.character.string;
@@ -2423,6 +2445,12 @@ match_io (io_kind k)
       comma_flag = 1;
       dt->io_unit = default_unit (k);
       goto get_io_list;
+    }
+  else
+    {
+      /* Error for constructs like print (1,*).   */
+      if (k == M_PRINT)
+	goto  syntax;
     }
 
   /* Match a control list */

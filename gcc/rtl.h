@@ -996,6 +996,7 @@ enum label_kind
 
 /* For a CONST_INT rtx, INTVAL extracts the integer.  */
 #define INTVAL(RTX) XCWINT(RTX, 0, CONST_INT)
+#define UINTVAL(RTX) ((unsigned HOST_WIDE_INT) INTVAL (RTX))
 
 /* For a CONST_DOUBLE:
    For a VOIDmode, there are two integers CONST_DOUBLE_LOW is the
@@ -2115,9 +2116,6 @@ extern void print_rtl (FILE *, rtx);
 extern void print_simple_rtl (FILE *, rtx);
 extern int print_rtl_single (FILE *, rtx);
 extern void print_inline_rtx (FILE *, rtx, int);
-
-/* In loop.c */
-extern void init_loop (void);
 
 /* In bt-load.c */
 extern void branch_target_load_optimize (bool);

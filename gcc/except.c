@@ -893,6 +893,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 
   *n = *old;
   n->outer = outer;
+  n->next_peer = NULL;
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
@@ -3572,7 +3573,7 @@ switch_to_exception_section (void)
 
 
 /* Output a reference from an exception table to the type_info object TYPE.
-   TT_FORMAT and TT_FORMAT_SIZE descibe the DWARF encoding method used for
+   TT_FORMAT and TT_FORMAT_SIZE describe the DWARF encoding method used for
    the value.  */
 
 static void
@@ -3588,7 +3589,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
       struct cgraph_varpool_node *node;
 
       type = lookup_type_for_runtime (type);
-      value = expand_normal (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
 
       /* Let cgraph know that the rtti decl is used.  Not all of the
 	 paths below go through assemble_integer, which would take

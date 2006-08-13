@@ -56,7 +56,6 @@ details.  */
 #include <java/lang/NullPointerException.h>
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/System.h>
-#include <java/lang/VMThrowable.h>
 #include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
@@ -1404,8 +1403,6 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   if (runtimeInitialized)
     return -1;
 
-  runtimeInitialized = true;
-
   jint result = parse_init_args (vm_args);
   if (result < 0)
     return -1;
@@ -1447,10 +1444,6 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   _Jv_InitPrimClass (&_Jv_doubleClass,  "double",  'D', 8);
   _Jv_InitPrimClass (&_Jv_voidClass,    "void",    'V', 0);
 
-  // Turn stack trace generation off while creating exception objects.
-  _Jv_InitClass (&java::lang::VMThrowable::class$);
-  java::lang::VMThrowable::trace_enabled = 0;
-  
   // We have to initialize this fairly early, to avoid circular class
   // initialization.  In particular we want to start the
   // initialization of ClassLoader before we start the initialization
@@ -1464,8 +1457,6 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   _Jv_RegisterBootstrapPackages();
 
   no_memory = new java::lang::OutOfMemoryError;
-
-  java::lang::VMThrowable::trace_enabled = 1;
 
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
@@ -1488,6 +1479,8 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   catch (java::lang::VirtualMachineError *ignore)
     {
     }
+
+  runtimeInitialized = true;
 
   return 0;
 }
@@ -1524,7 +1517,7 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
       if (klass)
 	main_thread = new MainThread (klass, arg_vec);
       else
-	main_thread = new MainThread (JvNewStringLatin1 (name),
+	main_thread = new MainThread (JvNewStringUTF (name),
 				      arg_vec, is_jar);
     }
   catch (java::lang::Throwable *t)
@@ -1722,4 +1715,46 @@ _Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
 	  || (((flags & Modifier::PRIVATE) == 0)
 	      && _Jv_ClassNameSamePackage (self_klass->name,
 					   other_klass->name)));
+}
+
+// Prepend GCJ_VERSIONED_LIBDIR to a module search path stored in a C
+// char array, if the path is not already prefixed by
+// GCJ_VERSIONED_LIBDIR.  Return a newly JvMalloc'd char buffer.  The
+// result should be freed using JvFree.
+char*
+_Jv_PrependVersionedLibdir (char* libpath)
+{
+  char* retval = 0;
+
+  if (libpath && libpath[0] != '\0')
+    {
+      if (! strncmp (libpath,
+                     GCJ_VERSIONED_LIBDIR,
+                     sizeof (GCJ_VERSIONED_LIBDIR) - 1))
+        {
+          // LD_LIBRARY_PATH is already prefixed with
+          // GCJ_VERSIONED_LIBDIR.
+          retval = (char*) _Jv_Malloc (strlen (libpath) + 1);
+          strcpy (retval, libpath);
+        }
+      else
+        {
+          // LD_LIBRARY_PATH is not prefixed with
+          // GCJ_VERSIONED_LIBDIR.
+          jsize total = (sizeof (GCJ_VERSIONED_LIBDIR) - 1)
+            + (sizeof (PATH_SEPARATOR) - 1) + strlen (libpath) + 1;
+          retval = (char*) _Jv_Malloc (total);
+          strcpy (retval, GCJ_VERSIONED_LIBDIR);
+          strcat (retval, PATH_SEPARATOR);
+          strcat (retval, libpath);
+        }
+    }
+  else
+    {
+      // LD_LIBRARY_PATH was not specified or is empty.
+      retval = (char*) _Jv_Malloc (sizeof (GCJ_VERSIONED_LIBDIR));
+      strcpy (retval, GCJ_VERSIONED_LIBDIR);
+    }
+
+  return retval;
 }

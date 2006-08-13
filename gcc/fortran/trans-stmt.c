@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "real.h"
 #include "gfortran.h"
+#include "flags.h"
 #include "trans.h"
 #include "trans-stmt.h"
 #include "trans-types.h"
@@ -139,13 +140,11 @@ gfc_trans_label_assign (gfc_code * code)
 tree
 gfc_trans_goto (gfc_code * code)
 {
+  locus loc = code->loc;
   tree assigned_goto;
   tree target;
   tree tmp;
-  tree assign_error;
-  tree range_error;
   gfc_se se;
-
 
   if (code->label != NULL)
     return build1_v (GOTO_EXPR, gfc_get_label_decl (code->label));
@@ -154,12 +153,11 @@ gfc_trans_goto (gfc_code * code)
   gfc_init_se (&se, NULL);
   gfc_start_block (&se.pre);
   gfc_conv_label_variable (&se, code->expr);
-  assign_error =
-    gfc_build_cstring_const ("Assigned label is not a target label");
   tmp = GFC_DECL_STRING_LEN (se.expr);
   tmp = fold_build2 (NE_EXPR, boolean_type_node, tmp,
 		     build_int_cst (TREE_TYPE (tmp), -1));
-  gfc_trans_runtime_check (tmp, assign_error, &se.pre);
+  gfc_trans_runtime_check (tmp, "Assigned label is not a target label",
+			   &se.pre, &loc);
 
   assigned_goto = GFC_DECL_ASSIGN_ADDR (se.expr);
 
@@ -172,8 +170,6 @@ gfc_trans_goto (gfc_code * code)
     }
 
   /* Check the label list.  */
-  range_error = gfc_build_cstring_const ("Assigned label is not in the list");
-
   do
     {
       target = gfc_get_label_decl (code->label);
@@ -186,7 +182,9 @@ gfc_trans_goto (gfc_code * code)
       code = code->block;
     }
   while (code != NULL);
-  gfc_trans_runtime_check (boolean_true_node, range_error, &se.pre);
+  gfc_trans_runtime_check (boolean_true_node,
+			   "Assigned label is not in the list", &se.pre, &loc);
+
   return gfc_finish_block (&se.pre); 
 }
 
@@ -272,7 +270,7 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  tmp = gfc_typenode_for_spec (&e->ts);
 	  tmp = gfc_trans_create_temp_array (&se->pre, &se->post,
 					      &tmp_loop, info, tmp,
-					      false, true, false);
+					      false, true, false, false);
 	  gfc_add_modify_expr (&se->pre, size, tmp);
 	  tmp = fold_convert (pvoid_type_node, info->data);
 	  gfc_add_modify_expr (&se->pre, data, tmp);
@@ -665,6 +663,7 @@ gfc_trans_arithmetic_if (gfc_code * code)
 
   /* Pre-evaluate COND.  */
   gfc_conv_expr_val (&se, code->expr);
+  se.expr = gfc_evaluate_now (se.expr, &se.pre);
 
   /* Build something to compare with.  */
   zero = gfc_build_const (TREE_TYPE (se.expr), integer_zero_node);
@@ -906,7 +905,7 @@ gfc_trans_do (gfc_code * code)
     }
   gfc_add_modify_expr (&block, count, tmp);
 
-  count_one = convert (TREE_TYPE (count), integer_one_node);
+  count_one = build_int_cst (TREE_TYPE (count), 1);
 
   /* Initialize the DO variable: dovar = from.  */
   gfc_add_modify_expr (&block, dovar, from);
@@ -1150,7 +1149,7 @@ gfc_trans_integer_select (gfc_code * code)
 		    internal representation of CASE(N).
 
 		 In the first and second case, we need to set a value for
-		 high.  In the thirth case, we don't because the GCC middle
+		 high.  In the third case, we don't because the GCC middle
 		 end represents a single case value by just letting high be
 		 a NULL_TREE.  We can't do that because we need to be able
 		 to represent unbounded cases.  */
@@ -1959,6 +1958,7 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
   gfc_loopinfo loop;
   tree size;
   int i;
+  int save_flag;
   tree tmp;
 
   *lss = gfc_walk_expr (expr1);
@@ -1991,7 +1991,10 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
       loop.array_parameter = 1;
 
       /* Calculate the bounds of the scalarization.  */
+      save_flag = flag_bounds_check;
+      flag_bounds_check = 0;
       gfc_conv_ss_startstride (&loop);
+      flag_bounds_check = save_flag;
       gfc_conv_loop_setup (&loop);
 
       /* Figure out how many elements we need.  */

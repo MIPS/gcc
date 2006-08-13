@@ -659,7 +659,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
-	  recompute_tree_invariant_for_addr_expr (*tp);
+	  /* Handle the case where we substituted an INDIRECT_REF
+	     into the operand of the ADDR_EXPR.  */
+	  if (TREE_CODE (TREE_OPERAND (*tp, 0)) == INDIRECT_REF)
+	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
+	  else
+	    recompute_tree_invariant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
     }
@@ -699,6 +704,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
       if (stmt)
 	{
 	  tree call, decl;
+
+	  /* With return slot optimization we can end up with
+	     non-gimple (foo *)&this->m, fix that here.  */
+	  if (TREE_CODE (stmt) == MODIFY_EXPR
+	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == NOP_EXPR
+	      && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (stmt, 1), 0)))
+	    gimplify_stmt (&stmt);
+
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 	  call = get_call_expr_in (stmt);
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
@@ -1076,6 +1089,8 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 
       if (rhs == error_mark_node)
 	return;
+	
+      STRIP_USELESS_TYPE_CONVERSION (rhs);
 
       /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	 keep our trees in gimple form.  */
@@ -1262,6 +1277,8 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
   use = var;
   if (!lang_hooks.types_compatible_p (TREE_TYPE (var), caller_type))
     use = fold_convert (caller_type, var);
+    
+  STRIP_USELESS_TYPE_CONVERSION (use);
 
  done:
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
@@ -2146,8 +2163,6 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   /* Update callgraph if needed.  */
   cgraph_remove_node (cg_edge->callee);
 
-  /* Declare the 'auto' variables added with this inlined body.  */
-  record_vars (BLOCK_VARS (id->block));
   id->block = NULL_TREE;
   successfully_inlined = TRUE;
 
@@ -2539,7 +2554,13 @@ declare_inline_vars (tree block, tree vars)
 {
   tree t;
   for (t = vars; t; t = TREE_CHAIN (t))
-    DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+    {
+      DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
+      gcc_assert (!TREE_STATIC (t) && !TREE_ASM_WRITTEN (t));
+      cfun->unexpanded_var_list =
+	tree_cons (NULL_TREE, t,
+		   cfun->unexpanded_var_list);
+    }
 
   if (block)
     BLOCK_VARS (block) = chainon (BLOCK_VARS (block), vars);

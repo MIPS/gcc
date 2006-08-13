@@ -263,7 +263,7 @@ typedef struct immediate_use_iterator_d
 
 
 /* Use this iterator in combination with FOR_EACH_IMM_USE_STMT to 
-   get access to each occurence of ssavar on the stmt returned by
+   get access to each occurrence of ssavar on the stmt returned by
    that iterator..  for instance:
 
      FOR_EACH_IMM_USE_STMT (stmt, iter, var)
@@ -668,8 +668,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern bool is_aliased_with (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
-extern void add_type_alias (tree, tree);
-extern void new_type_alias (tree, tree);
+extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
@@ -791,6 +790,8 @@ struct tree_niter_desc
 
 /* In tree-vectorizer.c */
 void vectorize_loops (struct loops *);
+extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
 bool empty_block_p (basic_block);
@@ -828,7 +829,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
-void compute_phi_arg_on_exit (edge, tree, tree);
 unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,

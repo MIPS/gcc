@@ -575,13 +575,20 @@ tree
 gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 			     gfc_loopinfo * loop, gfc_ss_info * info,
 			     tree eltype, bool dynamic, bool dealloc,
-			     bool callee_alloc)
+			     bool callee_alloc, bool function)
 {
   tree type;
   tree desc;
   tree tmp;
   tree size;
   tree nelem;
+  tree cond;
+  tree or_expr;
+  tree thencase;
+  tree elsecase;
+  tree var;
+  stmtblock_t thenblock;
+  stmtblock_t elseblock;
   int n;
   int dim;
 
@@ -633,6 +640,8 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
      size = size * sizeof(element);
   */
 
+  or_expr = NULL_TREE;
+
   for (n = 0; n < info->dimen; n++)
     {
       if (loop->to[n] == NULL_TREE)
@@ -660,17 +669,55 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
       tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 			 loop->to[n], gfc_index_one_node);
 
+      if (function)
+	{
+	  /* Check wether the size for this dimension is negative.  */
+	  cond = fold_build2 (LE_EXPR, boolean_type_node, tmp,
+			  gfc_index_zero_node);
+
+	  cond = gfc_evaluate_now (cond, pre);
+
+	  if (n == 0)
+	    or_expr = cond;
+	  else
+	    or_expr = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, or_expr, cond);
+	}
       size = fold_build2 (MULT_EXPR, gfc_array_index_type, size, tmp);
       size = gfc_evaluate_now (size, pre);
     }
 
   /* Get the size of the array.  */
-  nelem = size;
+
   if (size && !callee_alloc)
-    size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
-			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+    {
+      if (function)
+	{
+	  var = gfc_create_var (TREE_TYPE (size), "size");
+	  gfc_start_block (&thenblock);
+	  gfc_add_modify_expr (&thenblock, var, gfc_index_zero_node);
+	  thencase = gfc_finish_block (&thenblock);
+
+	  gfc_start_block (&elseblock);
+	  gfc_add_modify_expr (&elseblock, var, size);
+	  elsecase = gfc_finish_block (&elseblock);
+	  
+	  tmp = gfc_evaluate_now (or_expr, pre);
+	  tmp = build3_v (COND_EXPR, tmp, thencase, elsecase);
+	  gfc_add_expr_to_block (pre, tmp);
+	  nelem = var;
+	  size = var;
+	}
+      else
+	  nelem = size;
+
+      size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
+			  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+    }
   else
-    size = NULL_TREE;
+    {
+      nelem = size;
+      size = NULL_TREE;
+    }
 
   gfc_trans_allocate_array_storage (pre, post, info, size, nelem, dynamic,
 			            dealloc);
@@ -1294,6 +1341,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 {
   gfc_ref *ref;
   gfc_typespec *ts;
+  mpz_t char_len;
 
   /* Don't bother if we already know the length is a constant.  */
   if (*len && INTEGER_CST_P (*len))
@@ -1312,6 +1360,19 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 	  /* Use the length of the component.  */
 	  ts = &ref->u.c.component->ts;
 	  break;
+
+	case REF_SUBSTRING:
+	  if (ref->u.ss.start->expr_type != EXPR_CONSTANT
+		|| ref->u.ss.start->expr_type != EXPR_CONSTANT)
+	    break;
+	  mpz_init_set_ui (char_len, 1);
+	  mpz_add (char_len, char_len, ref->u.ss.end->value.integer);
+	  mpz_sub (char_len, char_len, ref->u.ss.start->value.integer);
+	  *len = gfc_conv_mpz_to_tree (char_len,
+				       gfc_default_character_kind);
+	  *len = convert (gfc_charlen_type_node, *len);
+	  mpz_clear (char_len);
+	  return;
 
 	default:
 	  /* TODO: Substrings are tricky because we can't evaluate the
@@ -1421,7 +1482,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
     }
 
   gfc_trans_create_temp_array (&loop->pre, &loop->post, loop, &ss->data.info,
-			       type, dynamic, true, false);
+			       type, dynamic, true, false, false);
 
   desc = ss->data.info.descriptor;
   offset = gfc_index_zero_node;
@@ -1765,25 +1826,41 @@ gfc_conv_array_ubound (tree descriptor, int dim)
 /* Generate code to perform an array index bound check.  */
 
 static tree
-gfc_trans_array_bound_check (gfc_se * se, tree descriptor, tree index, int n)
+gfc_trans_array_bound_check (gfc_se * se, tree descriptor, tree index, int n,
+			     locus * where)
 {
-  tree cond;
   tree fault;
   tree tmp;
+  char *msg;
 
   if (!flag_bounds_check)
     return index;
 
   index = gfc_evaluate_now (index, &se->pre);
+
   /* Check lower bound.  */
   tmp = gfc_conv_array_lbound (descriptor, n);
   fault = fold_build2 (LT_EXPR, boolean_type_node, index, tmp);
+  if (se->ss)
+    asprintf (&msg, "%s for array '%s', lower bound of dimension %d exceeded",
+	      gfc_msg_fault, se->ss->expr->symtree->name, n+1);
+  else
+    asprintf (&msg, "%s, lower bound of dimension %d exceeded",
+	      gfc_msg_fault, n+1);
+  gfc_trans_runtime_check (fault, msg, &se->pre, where);
+  gfc_free (msg);
+
   /* Check upper bound.  */
   tmp = gfc_conv_array_ubound (descriptor, n);
-  cond = fold_build2 (GT_EXPR, boolean_type_node, index, tmp);
-  fault = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, fault, cond);
-
-  gfc_trans_runtime_check (fault, gfc_strconst_fault, &se->pre);
+  fault = fold_build2 (GT_EXPR, boolean_type_node, index, tmp);
+  if (se->ss)
+    asprintf (&msg, "%s for array '%s', upper bound of dimension %d exceeded",
+	      gfc_msg_fault, se->ss->expr->symtree->name, n+1);
+  else
+    asprintf (&msg, "%s, upper bound of dimension %d exceeded",
+	      gfc_msg_fault, n+1);
+  gfc_trans_runtime_check (fault, msg, &se->pre, where);
+  gfc_free (msg);
 
   return index;
 }
@@ -1814,8 +1891,10 @@ gfc_conv_array_index_offset (gfc_se * se, gfc_ss_info * info, int dim, int i,
 	  /* We've already translated this value outside the loop.  */
 	  index = info->subscript[dim]->data.scalar.expr;
 
-	  index =
-	    gfc_trans_array_bound_check (se, info->descriptor, index, dim);
+	  if ((ar->as->type != AS_ASSUMED_SIZE && !ar->as->cp_was_assumed)
+	      || dim < ar->dimen - 1)
+	    index = gfc_trans_array_bound_check (se, info->descriptor,
+						 index, dim, &ar->where);
 	  break;
 
 	case DIMEN_VECTOR:
@@ -1838,8 +1917,10 @@ gfc_conv_array_index_offset (gfc_se * se, gfc_ss_info * info, int dim, int i,
 	  index = gfc_evaluate_now (index, &se->pre);
 
 	  /* Do any bounds checking on the final info->descriptor index.  */
-	  index = gfc_trans_array_bound_check (se, info->descriptor,
-					       index, dim);
+	  if ((ar->as->type != AS_ASSUMED_SIZE && !ar->as->cp_was_assumed)
+	      || dim < ar->dimen - 1)
+	    index = gfc_trans_array_bound_check (se, info->descriptor,
+						 index, dim, &ar->where);
 	  break;
 
 	case DIMEN_RANGE:
@@ -1919,13 +2000,13 @@ gfc_conv_tmp_array_ref (gfc_se * se)
    a(i, j, k) = base[offset + i * stride[0] + j * stride[1] + k * stride[2]]*/
 
 void
-gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
+gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
+		    locus * where)
 {
   int n;
   tree index;
   tree tmp;
   tree stride;
-  tree fault;
   gfc_se indexse;
 
   /* Handle scalarized references separately.  */
@@ -1938,8 +2019,6 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
 
   index = gfc_index_zero_node;
 
-  fault = gfc_index_zero_node;
-
   /* Calculate the offsets from all the dimensions.  */
   for (n = 0; n < ar->dimen; n++)
     {
@@ -1948,24 +2027,33 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
       gfc_conv_expr_type (&indexse, ar->start[n], gfc_array_index_type);
       gfc_add_block_to_block (&se->pre, &indexse.pre);
 
-      if (flag_bounds_check)
+      if (flag_bounds_check &&
+	  ((ar->as->type != AS_ASSUMED_SIZE && !ar->as->cp_was_assumed)
+	   || n < ar->dimen - 1))
 	{
 	  /* Check array bounds.  */
 	  tree cond;
+	  char *msg;
 
 	  indexse.expr = gfc_evaluate_now (indexse.expr, &se->pre);
 
 	  tmp = gfc_conv_array_lbound (se->expr, n);
 	  cond = fold_build2 (LT_EXPR, boolean_type_node, 
 			      indexse.expr, tmp);
-	  fault =
-	    fold_build2 (TRUTH_OR_EXPR, boolean_type_node, fault, cond);
+	  asprintf (&msg, "%s for array '%s', "
+	            "lower bound of dimension %d exceeded", gfc_msg_fault,
+		    sym->name, n+1);
+	  gfc_trans_runtime_check (cond, msg, &se->pre, where);
+	  gfc_free (msg);
 
 	  tmp = gfc_conv_array_ubound (se->expr, n);
 	  cond = fold_build2 (GT_EXPR, boolean_type_node, 
 			      indexse.expr, tmp);
-	  fault =
-	    fold_build2 (TRUTH_OR_EXPR, boolean_type_node, fault, cond);
+	  asprintf (&msg, "%s for array '%s', "
+	            "upper bound of dimension %d exceeded", gfc_msg_fault,
+		    sym->name, n+1);
+	  gfc_trans_runtime_check (cond, msg, &se->pre, where);
+	  gfc_free (msg);
 	}
 
       /* Multiply the index by the stride.  */
@@ -1976,9 +2064,6 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar)
       /* And add it to the total.  */
       index = fold_build2 (PLUS_EXPR, gfc_array_index_type, index, tmp);
     }
-
-  if (flag_bounds_check)
-    gfc_trans_runtime_check (fault, gfc_strconst_fault, &se->pre);
 
   tmp = gfc_conv_array_offset (se->expr);
   if (!integer_zerop (tmp))
@@ -2456,16 +2541,16 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
   if (flag_bounds_check)
     {
       stmtblock_t block;
-      tree fault;
-      tree bound;
+      tree lbound, ubound;
       tree end;
       tree size[GFC_MAX_DIMENSIONS];
+      tree stride_pos, stride_neg, non_zerosized, tmp2;
       gfc_ss_info *info;
+      char *msg;
       int dim;
 
       gfc_start_block (&block);
 
-      fault = boolean_false_node;
       for (n = 0; n < loop->dimen; n++)
 	size[n] = NULL_TREE;
 
@@ -2484,22 +2569,96 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	      dim = info->dim[n];
 	      if (info->ref->u.ar.dimen_type[dim] != DIMEN_RANGE)
 		continue;
+	      if (n == info->ref->u.ar.dimen - 1
+		  && (info->ref->u.ar.as->type == AS_ASSUMED_SIZE
+		      || info->ref->u.ar.as->cp_was_assumed))
+		continue;
 
 	      desc = ss->data.info.descriptor;
 
-	      /* Check lower bound.  */
-	      bound = gfc_conv_array_lbound (desc, dim);
-	      tmp = info->start[n];
-	      tmp = fold_build2 (LT_EXPR, boolean_type_node, tmp, bound);
-	      fault = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, fault,
-				   tmp);
-
-	      /* Check the upper bound.  */
-	      bound = gfc_conv_array_ubound (desc, dim);
+	      /* This is the run-time equivalent of resolve.c's
+	         check_dimension().  The logical is more readable there
+	         than it is here, with all the trees.  */
+	      lbound = gfc_conv_array_lbound (desc, dim);
+	      ubound = gfc_conv_array_ubound (desc, dim);
 	      end = gfc_conv_section_upper_bound (ss, n, &block);
-	      tmp = fold_build2 (GT_EXPR, boolean_type_node, end, bound);
-	      fault = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, fault,
-				   tmp);
+
+	      /* Zero stride is not allowed.  */
+	      tmp = fold_build2 (EQ_EXPR, boolean_type_node, info->stride[n],
+				 gfc_index_zero_node);
+	      asprintf (&msg, "Zero stride is not allowed, for dimension %d "
+			"of array '%s'", info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      /* non_zerosized is true when the selected range is not
+	         empty.  */
+	      stride_pos = fold_build2 (GT_EXPR, boolean_type_node,
+					info->stride[n], gfc_index_zero_node);
+	      tmp = fold_build2 (LE_EXPR, boolean_type_node, info->start[n],
+				 end);
+	      stride_pos = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+					stride_pos, tmp);
+
+	      stride_neg = fold_build2 (LT_EXPR, boolean_type_node,
+					info->stride[n], gfc_index_zero_node);
+	      tmp = fold_build2 (GE_EXPR, boolean_type_node, info->start[n],
+				 end);
+	      stride_neg = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+					stride_neg, tmp);
+	      non_zerosized = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
+					   stride_pos, stride_neg);
+
+	      /* Check the start of the range against the lower and upper
+		 bounds of the array, if the range is not empty.  */
+	      tmp = fold_build2 (LT_EXPR, boolean_type_node, info->start[n],
+				 lbound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      tmp = fold_build2 (GT_EXPR, boolean_type_node, info->start[n],
+				 ubound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, upper bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      /* Compute the last element of the range, which is not
+		 necessarily "end" (think 0:5:3, which doesn't contain 5)
+		 and check it against both lower and upper bounds.  */
+	      tmp2 = fold_build2 (MINUS_EXPR, gfc_array_index_type, end,
+				  info->start[n]);
+	      tmp2 = fold_build2 (TRUNC_MOD_EXPR, gfc_array_index_type, tmp2,
+				  info->stride[n]);
+	      tmp2 = fold_build2 (MINUS_EXPR, gfc_array_index_type, end,
+				  tmp2);
+
+	      tmp = fold_build2 (LT_EXPR, boolean_type_node, tmp2, lbound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
+
+	      tmp = fold_build2 (GT_EXPR, boolean_type_node, tmp2, ubound);
+	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				 non_zerosized, tmp);
+	      asprintf (&msg, "%s, upper bound of dimension %d of array '%s'"
+			" exceeded", gfc_msg_fault, info->dim[n]+1,
+			ss->expr->symtree->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+	      gfc_free (msg);
 
 	      /* Check the section sizes match.  */
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type, end,
@@ -2512,14 +2671,16 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 		{
 		  tmp =
 		    fold_build2 (NE_EXPR, boolean_type_node, tmp, size[n]);
-		  fault =
-		    build2 (TRUTH_OR_EXPR, boolean_type_node, fault, tmp);
+		  asprintf (&msg, "%s, size mismatch for dimension %d "
+			    "of array '%s'", gfc_msg_bounds, info->dim[n]+1,
+			    ss->expr->symtree->name);
+		  gfc_trans_runtime_check (tmp, msg, &block, &ss->expr->where);
+		  gfc_free (msg);
 		}
 	      else
 		size[n] = gfc_evaluate_now (tmp, &block);
 	    }
 	}
-      gfc_trans_runtime_check (fault, gfc_strconst_bounds, &block);
 
       tmp = gfc_finish_block (&block);
       gfc_add_expr_to_block (&loop->pre, tmp);
@@ -2862,7 +3023,7 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
       loop->temp_ss->data.info.dimen = n;
       gfc_trans_create_temp_array (&loop->pre, &loop->post, loop,
 				   &loop->temp_ss->data.info, tmp, false, true,
-				   false);
+				   false, false);
     }
 
   for (n = 0; n < loop->temp_dim; n++)
@@ -3564,7 +3725,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
   tree dumdesc;
   tree tmp;
   tree stmt;
-  tree stride;
+  tree stride, stride2;
   tree stmt_packed;
   tree stmt_unpacked;
   tree partial;
@@ -3708,13 +3869,17 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 	  if (checkparm)
 	    {
 	      /* Check (ubound(a) - lbound(a) == ubound(b) - lbound(b)).  */
+	      char * msg;
 
 	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 				 ubound, lbound);
-              stride = build2 (MINUS_EXPR, gfc_array_index_type,
+              stride2 = build2 (MINUS_EXPR, gfc_array_index_type,
 			       dubound, dlbound);
-              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride);
-	      gfc_trans_runtime_check (tmp, gfc_strconst_bounds, &block);
+              tmp = fold_build2 (NE_EXPR, gfc_array_index_type, tmp, stride2);
+	      asprintf (&msg, "%s for dimension %d of array '%s'",
+			gfc_msg_bounds, n+1, sym->name);
+	      gfc_trans_runtime_check (tmp, msg, &block, NULL);
+	      gfc_free (msg);
 	    }
 	}
       else
@@ -4036,9 +4201,40 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       loop.temp_ss->next = gfc_ss_terminator;
       if (expr->ts.type == BT_CHARACTER)
 	{
-	  if (expr->ts.cl
-	      && expr->ts.cl->length
-	      && expr->ts.cl->length->expr_type == EXPR_CONSTANT)
+	  if (expr->ts.cl == NULL)
+	    {
+	      /* This had better be a substring reference!  */
+	      gfc_ref *char_ref = expr->ref;
+	      for (; char_ref; char_ref = char_ref->next)
+		if (char_ref->type == REF_SUBSTRING)
+		  {
+		    mpz_t char_len;
+		    expr->ts.cl = gfc_get_charlen ();
+		    expr->ts.cl->next = char_ref->u.ss.length->next;
+		    char_ref->u.ss.length->next = expr->ts.cl;
+
+		    mpz_init_set_ui (char_len, 1);
+		    mpz_add (char_len, char_len,
+			     char_ref->u.ss.end->value.integer);
+		    mpz_sub (char_len, char_len,
+			     char_ref->u.ss.start->value.integer);
+		    expr->ts.cl->backend_decl
+			= gfc_conv_mpz_to_tree (char_len,
+					gfc_default_character_kind);
+		    /* Cast is necessary for *-charlen refs.  */
+		    expr->ts.cl->backend_decl
+			= convert (gfc_charlen_type_node,
+				   expr->ts.cl->backend_decl);
+		    mpz_clear (char_len);
+		      break;
+		  }
+	      gcc_assert (char_ref != NULL);
+	      loop.temp_ss->data.temp.type
+		= gfc_typenode_for_spec (&expr->ts);
+	      loop.temp_ss->string_length = expr->ts.cl->backend_decl;
+	    }
+	  else if (expr->ts.cl->length
+		     && expr->ts.cl->length->expr_type == EXPR_CONSTANT)
 	    {
 	      expr->ts.cl->backend_decl
 		= gfc_conv_mpz_to_tree (expr->ts.cl->length->value.integer,
@@ -4328,7 +4524,13 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
         }
       if (sym->attr.allocatable)
         {
-          se->expr = gfc_conv_array_data (tmp);
+	  if (sym->attr.dummy)
+	    {
+	      gfc_conv_expr_descriptor (se, expr, ss);
+	      se->expr = gfc_conv_array_data (se->expr);
+	    }
+	  else
+	    se->expr = gfc_conv_array_data (tmp);
           return;
         }
     }

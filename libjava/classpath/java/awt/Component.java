@@ -1739,9 +1739,8 @@ public abstract class Component
         if (gfx == null && parent != null)
           {
             gfx = parent.getGraphics();
-            Rectangle bounds = getBounds();
-            gfx.setClip(bounds);
-            gfx.translate(bounds.x, bounds.y);
+            gfx.clipRect(getX(), getY(), getWidth(), getHeight());
+            gfx.translate(getX(), getY());
             return gfx;
           }
         gfx.setFont(font);
@@ -2067,11 +2066,9 @@ public abstract class Component
    */
   public VolatileImage createVolatileImage(int width, int height)
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -2090,11 +2087,9 @@ public abstract class Component
                                            ImageCapabilities caps)
     throws AWTException
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null
-      : config.createCompatibleVolatileImage(width, height, caps);
+    if (peer != null)
+      return peer.createVolatileImage(width, height);
+    return null;
   }
 
   /**
@@ -4810,8 +4805,38 @@ p   * <li>the set of backward traversal keys
   {
     Object target = e.getSource ();
     Event translated = null;
+    
+    if (e instanceof WindowEvent)
+      {
+        WindowEvent we = (WindowEvent) e;
+        int id = we.id;
+        int newId = 0;
+        
+        switch (id)
+          {
+          case WindowEvent.WINDOW_DEICONIFIED:
+            newId = Event.WINDOW_DEICONIFY;
+            break;
+          case WindowEvent.WINDOW_CLOSED:
+          case WindowEvent.WINDOW_CLOSING:
+            newId = Event.WINDOW_DESTROY;
+            break;
+          case WindowEvent.WINDOW_ICONIFIED:
+            newId = Event.WINDOW_ICONIFY;
+            break;
+          case WindowEvent.WINDOW_GAINED_FOCUS:
+            newId = Event.GOT_FOCUS;
+            break;
+          case WindowEvent.WINDOW_LOST_FOCUS:
+            newId = Event.LOST_FOCUS;
+            break;
+          default:
+            return null;
+          }
 
-    if (e instanceof InputEvent)
+        translated = new Event(target, 0, newId, 0, 0, 0, 0);
+      }
+    else if (e instanceof InputEvent)
       {
         InputEvent ie = (InputEvent) e;
         long when = ie.getWhen ();
@@ -5052,7 +5077,12 @@ p   * <li>the set of backward traversal keys
                     .dispatchEvent(e))
                     return;
               case MouseEvent.MOUSE_PRESSED:
-                if (isLightweight() && !e.isConsumed())
+                // A mouse click on an enabled lightweight component
+                // which has not yet been marked as consumed by any
+                // other mouse listener results in a focus traversal
+                // to that component.
+                if (isLightweight()
+                    && isEnabled() && !e.isConsumed())
                     requestFocus();
                 break;
               }

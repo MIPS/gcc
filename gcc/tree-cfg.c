@@ -112,6 +112,7 @@ static inline bool stmt_starts_bb_p (tree, tree);
 static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
 static void tree_cfg2vcg (FILE *);
+static inline void change_bb_for_stmt (tree t, basic_block bb);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -1386,7 +1387,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
 	{
-	  set_bb_for_stmt (bsi_stmt (bsi), a);
+	  change_bb_for_stmt (bsi_stmt (bsi), a);
 	  bsi_next (&bsi);
 	}
     }
@@ -2778,6 +2779,20 @@ set_bb_for_stmt (tree t, basic_block bb)
     }
 }
 
+/* Faster version of set_bb_for_stmt that assume that statement is being moved
+   from one basic block to another.  
+   For BB splitting we can run into quadratic case, so performance is quite
+   important and knowing that the tables are big enough, change_bb_for_stmt
+   can inline as leaf function.  */
+static inline void
+change_bb_for_stmt (tree t, basic_block bb)
+{
+  get_stmt_ann (t)->bb = bb;
+  if (TREE_CODE (t) == LABEL_EXPR)
+    VEC_replace (basic_block, label_to_block_map,
+		 LABEL_DECL_UID (LABEL_EXPR_LABEL (t)), bb);
+}
+
 /* Finds iterator for STMT.  */
 
 extern block_stmt_iterator
@@ -3121,7 +3136,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   PENDING_STMT (old_edge) = NULL;
 }
 
-/* Returns the basic block after that the new basic block created
+/* Returns the basic block after which the new basic block created
    by splitting edge EDGE_IN should be placed.  Tries to keep the new block
    near its "logical" location.  This is of most help to humans looking
    at debugging dumps.  */
@@ -4158,7 +4173,8 @@ tree_redirect_edge_and_branch_force (edge e, basic_block dest)
 static basic_block
 tree_split_block (basic_block bb, void *stmt)
 {
-  block_stmt_iterator bsi, bsi_tgt;
+  block_stmt_iterator bsi;
+  tree_stmt_iterator tsi_tgt;
   tree act;
   basic_block new_bb;
   edge e;
@@ -4192,13 +4208,17 @@ tree_split_block (basic_block bb, void *stmt)
 	}
     }
 
-  bsi_tgt = bsi_start (new_bb);
-  while (!bsi_end_p (bsi))
-    {
-      act = bsi_stmt (bsi);
-      bsi_remove (&bsi, false);
-      bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
-    }
+  if (bsi_end_p (bsi))
+    return new_bb;
+
+  /* Split the statement list - avoid re-creating new containers as this
+     brings ugly quadratic memory consumption in the inliner.  
+     (We are still quadratic since we need to update stmt BB pointers,
+     sadly.)  */
+  new_bb->stmt_list = tsi_split_statement_list_before (&bsi.tsi);
+  for (tsi_tgt = tsi_start (new_bb->stmt_list);
+       !tsi_end_p (tsi_tgt); tsi_next (&tsi_tgt))
+    change_bb_for_stmt (tsi_stmt (tsi_tgt), new_bb);
 
   return new_bb;
 }
@@ -5584,6 +5604,8 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
   TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
 
   bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+  if (in_ssa_p)
+    mark_new_vars_to_rename (new_stmt);
 
   return t;
 }

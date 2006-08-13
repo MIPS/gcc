@@ -73,6 +73,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_max_stack_var_size = 32768;
   gfc_option.flag_module_access_private = 0;
   gfc_option.flag_no_backend = 0;
+  gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
   gfc_option.flag_preprocessed = 0;
@@ -519,6 +520,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_no_backend = value;
       break;
 
+    case OPT_frange_check:
+      gfc_option.flag_range_check = value;
+      break;
+
     case OPT_fpack_derived:
       gfc_option.flag_pack_derived = value;
       break;
@@ -533,7 +538,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fmax_identifier_length_:
       if (value > GFC_MAX_SYMBOL_LEN)
-	gfc_fatal_error ("Maximum supported idenitifier length is %d",
+	gfc_fatal_error ("Maximum supported identifier length is %d",
 			 GFC_MAX_SYMBOL_LEN);
       gfc_option.max_identifier_length = value;
       break;

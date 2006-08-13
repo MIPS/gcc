@@ -96,6 +96,8 @@ darwin port		Mike Stump		mrs@apple.com
 darwin port		Stan Shebs		shebs@apple.com
 DJGPP			DJ Delorie		dj@delorie.com
 freebsd			Loren J. Rittle		ljrittle@acm.org
+hpux			Dave Anglin		dave.anglin@nrc.ca
+hpux			Steve Ellcey		sje@cup.hp.com
 netbsd			Jason Thorpe		thorpej@netbsd.org
 sco5, unixware, sco udk	Kean Johnston		jkj@sco.com
 sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
@@ -205,6 +207,9 @@ profile feedback	Jan Hubicka		jh@suse.cz
 type-safe vectors	Nathan Sidwell		nathan@codesourcery.com
 alias analysis		Daniel Berlin		dberlin@dberlin.org
 alias analysis		Diego Novillo		dnovillo@redhat.com
+reload			Ulrich Weigand		uweigand@de.ibm.com
+dfp.c, related		Ben Elliston		bje@au.ibm.com
+RTL optimizers		Eric Botcazou		ebotcazou@libertysurf.fr
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -220,7 +225,7 @@ Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
 Jan Beulich					jbeulich@novell.com
 David Billinghurst				David.Billinghurst@riotinto.com
-Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
+Laurynas Biveinis			        laurynas.biveinis@gmail.com
 Uros Bizjak					uros@kss-loka.si
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@codesourcery.com
@@ -246,7 +251,6 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
 Zdenek Dvorak					dvorakz@suse.cz
-Steve Ellcey					sje@cup.hp.com
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
@@ -267,10 +271,12 @@ Stuart Hastings					stuart@apple.com
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
 Falk Hueffner					falk@debian.org
+Andrew John Hughes				gnu_andrew@member.fsf.org
 Bernardo Innocenti				bernie@develer.com
 Daniel Jacobowitz				dan@debian.org
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
+Phillip Jordan					phillip.m.jordan@gmail.com
 Klaus Kaempf					kkaempf@progis.de
 Victor Kaplansky				victork@il.ibm.com
 Brendan Kehoe					brendan@zen.org
@@ -284,11 +290,12 @@ Maxim Kuvyrkov					mkuvyrkov@ispras.ru
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
 Aaron W. LaFramboise				aaronavay62@aaronwl.com
+Asher Langton					langton2@llnl.gov
 Chris Lattner					sabre@nondot.org
 Terry Laurenzo					tlaurenzo@gmail.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
-James Lemke					jim@wasabisystems.com
+James Lemke					jim@lemke.org
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com

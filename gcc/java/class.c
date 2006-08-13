@@ -62,7 +62,7 @@ static int supers_all_compiled (tree type);
 static tree maybe_layout_super_class (tree, tree);
 static void add_miranda_methods (tree, tree);
 static int assume_compiled (const char *);
-static tree build_symbol_entry (tree);
+static tree build_symbol_entry (tree, tree);
 static tree emit_assertion_table (tree);
 static void register_class (void);
 
@@ -785,7 +785,11 @@ add_field (tree class, tree name, tree field_type, int flags)
   if (flags & ACC_PROTECTED) FIELD_PROTECTED (field) = 1;
   if (flags & ACC_PRIVATE) FIELD_PRIVATE (field) = 1;
   if (flags & ACC_FINAL) FIELD_FINAL (field) = 1;
-  if (flags & ACC_VOLATILE) FIELD_VOLATILE (field) = 1;
+  if (flags & ACC_VOLATILE) 
+    {
+      FIELD_VOLATILE (field) = 1;
+      TREE_THIS_VOLATILE (field) = 1;
+    }
   if (flags & ACC_TRANSIENT) FIELD_TRANSIENT (field) = 1;
   if (is_static)
     {
@@ -1126,6 +1130,7 @@ build_fieldref_cache_entry (int index, tree fdecl ATTRIBUTE_UNUSED)
       TREE_PUBLIC (decl) = 0;
       DECL_EXTERNAL (decl) = 0;
       DECL_ARTIFICIAL (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
       pushdecl_top_level (decl);
     }
   return decl;
@@ -1859,10 +1864,12 @@ make_class_data (tree type)
 
   START_RECORD_CONSTRUCTOR (temp, object_type_node);
   PUSH_FIELD_VALUE (temp, "vtable",
-		    build2 (PLUS_EXPR, dtable_ptr_type,
-			    build1 (ADDR_EXPR, dtable_ptr_type,
-				    class_dtable_decl),
-			    dtable_start_offset));
+		    (flag_indirect_classes 
+		     ? null_pointer_node
+		     : build2 (PLUS_EXPR, dtable_ptr_type,
+			       build1 (ADDR_EXPR, dtable_ptr_type,
+				       class_dtable_decl),
+			       dtable_start_offset)));
   if (! flag_hash_synchronization)
     PUSH_FIELD_VALUE (temp, "sync_info", null_pointer_node);
   FINISH_RECORD_CONSTRUCTOR (temp);
@@ -2606,7 +2613,7 @@ emit_register_classes (tree *list_p)
   /* TARGET_USE_JCR_SECTION defaults to 1 if SUPPORTS_WEAK and
      TARGET_ASM_NAMED_SECTION, else 0.  Some targets meet those conditions
      but lack suitable crtbegin/end objects or linker support.  These
-     targets can overide the default in tm.h to use the fallback mechanism.  */
+     targets can override the default in tm.h to use the fallback mechanism.  */
   if (TARGET_USE_JCR_SECTION)
     {
       tree klass, t;
@@ -2651,7 +2658,7 @@ emit_register_classes (tree *list_p)
 /* Make a symbol_type (_Jv_MethodSymbol) node for DECL. */
 
 static tree
-build_symbol_entry (tree decl)
+build_symbol_entry (tree decl, tree special)
 {
   tree clname, name, signature, sym;
   clname = build_utf8_ref (DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl))));
@@ -2667,6 +2674,12 @@ build_symbol_entry (tree decl)
   signature = build_utf8_ref (unmangle_classname 
 			      (IDENTIFIER_POINTER (signature),
 			       IDENTIFIER_LENGTH (signature)));
+  /* SPECIAL is either NULL_TREE or integer_one_node.  We emit
+     signature addr+1 if SPECIAL, and this indicates to the runtime
+     system that this is a "special" symbol, i.e. one that should
+     bypass access controls.  */
+  if (special != NULL_TREE)
+    signature = build2 (PLUS_EXPR, TREE_TYPE (signature), signature, special);
       
   START_RECORD_CONSTRUCTOR (sym, symbol_type);
   PUSH_FIELD_VALUE (sym, "clname", clname);
@@ -2701,8 +2714,9 @@ emit_symbol_table (tree name, tree the_table, tree decl_list,
   list = NULL_TREE;  
   while (method_list != NULL_TREE)
     {
+      tree special = TREE_PURPOSE (method_list);
       method = TREE_VALUE (method_list);
-      list = tree_cons (NULL_TREE, build_symbol_entry (method), list);
+      list = tree_cons (NULL_TREE, build_symbol_entry (method, special), list);
       method_list = TREE_CHAIN (method_list);
       index++;
     }

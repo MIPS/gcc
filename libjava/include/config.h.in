@@ -115,6 +115,9 @@
 /* Define if gethostname is declared in <unistd.h>. */
 #undef HAVE_GETHOSTNAME_DECL
 
+/* Define to 1 if you have the `getifaddrs' function. */
+#undef HAVE_GETIFADDRS
+
 /* Define to 1 if you have the `getpwuid_r' function. */
 #undef HAVE_GETPWUID_R
 
@@ -126,6 +129,9 @@
 
 /* Define if you have the iconv() function. */
 #undef HAVE_ICONV
+
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#undef HAVE_IFADDRS_H
 
 /* Define if inet6 structures are defined in netinet/in.h. */
 #undef HAVE_INET6
@@ -168,6 +174,9 @@
 
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R
+
+/* Define to 1 if you have the `lstat' function. */
+#undef HAVE_LSTAT
 
 /* Define to 1 if you have the `memcpy' function. */
 #undef HAVE_MEMCPY
@@ -226,8 +235,8 @@
 /* Define to 1 if you have the `readdir_r' function. */
 #undef HAVE_READDIR_R
 
-/* Define to 1 if you have the `realpath' function. */
-#undef HAVE_REALPATH
+/* Define to 1 if you have the `readlink' function. */
+#undef HAVE_READLINK
 
 /* Define to 1 if you have the `rename' function. */
 #undef HAVE_RENAME
@@ -291,6 +300,9 @@
 
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
 #undef HAVE_SYS_IOCTL_H
+
+/* Define to 1 if you have the <sys/rw_lock.h> header file. */
+#undef HAVE_SYS_RW_LOCK_H
 
 /* Define to 1 if you have the <sys/select.h> header file. */
 #undef HAVE_SYS_SELECT_H

@@ -290,6 +290,25 @@ get_value_range (tree var)
   return vr;
 }
 
+/* Return true, if VAL1 and VAL2 are equal values for VRP purposes.  */
+
+static inline bool
+vrp_operand_equal_p (tree val1, tree val2)
+{
+  return (val1 == val2
+	  || (val1 && val2
+	      && operand_equal_p (val1, val2, 0)));
+}
+
+/* Return true, if the bitmaps B1 and B2 are equal.  */
+
+static inline bool
+vrp_bitmap_equal_p (bitmap b1, bitmap b2)
+{
+  return (b1 == b2
+	  || (b1 && b2
+	      && bitmap_equal_p (b1, b2)));
+}
 
 /* Update the value range and equivalence set for variable VAR to
    NEW_VR.  Return true if NEW_VR is different from VAR's previous
@@ -310,11 +329,9 @@ update_value_range (tree var, value_range_t *new_vr)
   /* Update the value range, if necessary.  */
   old_vr = get_value_range (var);
   is_new = old_vr->type != new_vr->type
-           || old_vr->min != new_vr->min
-	   || old_vr->max != new_vr->max
-	   || (old_vr->equiv == NULL && new_vr->equiv)
-	   || (old_vr->equiv && new_vr->equiv == NULL)
-	   || (!bitmap_equal_p (old_vr->equiv, new_vr->equiv));
+	   || !vrp_operand_equal_p (old_vr->min, new_vr->min)
+	   || !vrp_operand_equal_p (old_vr->max, new_vr->max)
+	   || !vrp_bitmap_equal_p (old_vr->equiv, new_vr->equiv);
 
   if (is_new)
     set_value_range (old_vr, new_vr->type, new_vr->min, new_vr->max,
@@ -743,7 +760,7 @@ fix_equivalence_set (value_range_t *vr_p)
   bitmap_iterator bi;
   unsigned i;
   bitmap e = vr_p->equiv;
-  bitmap to_remove = BITMAP_ALLOC (NULL);
+  bitmap to_remove;
 
   /* Only detect inconsistencies on numeric ranges.  */
   if (vr_p->type == VR_VARYING
@@ -751,6 +768,7 @@ fix_equivalence_set (value_range_t *vr_p)
       || symbolic_range_p (vr_p))
     return;
 
+  to_remove = BITMAP_ALLOC (NULL);
   EXECUTE_IF_SET_IN_BITMAP (e, 0, i, bi)
     {
       value_range_t *equiv_vr = vr_value[i];
@@ -1795,14 +1813,21 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   if (code == NEGATE_EXPR
       && !TYPE_UNSIGNED (TREE_TYPE (expr)))
     {
-      /* NEGATE_EXPR flips the range around.  */
-      min = (vr0.max == TYPE_MAX_VALUE (TREE_TYPE (expr)) && !flag_wrapv)
-	     ? TYPE_MIN_VALUE (TREE_TYPE (expr))
-	     : fold_unary_to_constant (code, TREE_TYPE (expr), vr0.max);
+      /* NEGATE_EXPR flips the range around.  We need to treat
+	 TYPE_MIN_VALUE specially dependent on wrapping, range type
+	 and if it was used as minimum or maximum value:  
+	  -~[MIN, MIN] == ~[MIN, MIN]
+	  -[MIN, 0] == [0, MAX]  for -fno-wrapv
+	  -[MIN, 0] == [0, MIN]  for -fwrapv (will be set to varying later)  */
+      min = vr0.max == TYPE_MIN_VALUE (TREE_TYPE (expr))
+	    ? TYPE_MIN_VALUE (TREE_TYPE (expr))
+	    : fold_unary_to_constant (code, TREE_TYPE (expr), vr0.max);
 
-      max = (vr0.min == TYPE_MIN_VALUE (TREE_TYPE (expr)) && !flag_wrapv)
-	     ? TYPE_MAX_VALUE (TREE_TYPE (expr))
-	     : fold_unary_to_constant (code, TREE_TYPE (expr), vr0.min);
+      max = vr0.min == TYPE_MIN_VALUE (TREE_TYPE (expr))
+	    ? (vr0.type == VR_ANTI_RANGE || flag_wrapv
+	       ? TYPE_MIN_VALUE (TREE_TYPE (expr))
+	       : TYPE_MAX_VALUE (TREE_TYPE (expr)))
+	    : fold_unary_to_constant (code, TREE_TYPE (expr), vr0.min);
 
     }
   else if (code == NEGATE_EXPR

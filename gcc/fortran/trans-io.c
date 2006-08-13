@@ -52,6 +52,7 @@ enum ioparam_type
 enum iofield_type
 {
   IOPARM_type_int4,
+  IOPARM_type_large_io_int,
   IOPARM_type_pint4,
   IOPARM_type_pchar,
   IOPARM_type_parray,
@@ -168,6 +169,7 @@ gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
       switch (p->type)
 	{
 	case IOPARM_type_int4:
+	case IOPARM_type_large_io_int:
 	case IOPARM_type_pint4:
 	case IOPARM_type_parray:
 	case IOPARM_type_pchar:
@@ -214,12 +216,15 @@ void
 gfc_build_io_library_fndecls (void)
 {
   tree types[IOPARM_type_num], pad_idx, gfc_int4_type_node;
+  tree gfc_large_io_int_type_node;
   tree parm_type, dt_parm_type;
   tree gfc_c_int_type_node;
   HOST_WIDE_INT pad_size;
   enum ioparam_type ptype;
 
   types[IOPARM_type_int4] = gfc_int4_type_node = gfc_get_int_type (4);
+  types[IOPARM_type_large_io_int] = gfc_large_io_int_type_node
+			    = gfc_get_int_type (gfc_large_io_int_kind);
   types[IOPARM_type_pint4] = build_pointer_type (gfc_int4_type_node);
   types[IOPARM_type_parray] = pchar_type_node;
   types[IOPARM_type_pchar] = pchar_type_node;
@@ -518,7 +523,6 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
 {
   gfc_se se;
   tree tmp;
-  tree msg;
   tree io;
   tree len;
   gfc_st_parameter_field *p = &st_parameter_field[type];
@@ -536,13 +540,18 @@ set_string (stmtblock_t * block, stmtblock_t * postblock, tree var,
   /* Integer variable assigned a format label.  */
   if (e->ts.type == BT_INTEGER && e->symtree->n.sym->attr.assign == 1)
     {
+      char * msg;
+
       gfc_conv_label_variable (&se, e);
-      msg =
-        gfc_build_cstring_const ("Assigned label is not a format label");
       tmp = GFC_DECL_STRING_LEN (se.expr);
       tmp = fold_build2 (LT_EXPR, boolean_type_node,
 			 tmp, build_int_cst (TREE_TYPE (tmp), 0));
-      gfc_trans_runtime_check (tmp, msg, &se.pre);
+
+      asprintf(&msg, "Label assigned to variable '%s' is not a format label",
+	       e->symtree->name);
+      gfc_trans_runtime_check (tmp, msg, &se.pre, &e->where);
+      gfc_free (msg);
+
       gfc_add_modify_expr (&se.pre, io,
 		 fold_convert (TREE_TYPE (io), GFC_DECL_ASSIGN_ADDR (se.expr)));
       gfc_add_modify_expr (&se.pre, len, GFC_DECL_STRING_LEN (se.expr));
@@ -603,7 +612,7 @@ set_internal_unit (stmtblock_t * block, tree var, gfc_expr * e)
       gfc_conv_expr (&se, e);
       gfc_conv_string_parameter (&se);
       tmp = se.expr;
-      se.expr = fold_convert (pchar_type_node, integer_zero_node);
+      se.expr = build_int_cst (pchar_type_node, 0);
     }
 
   /* Character array.  */
@@ -1304,7 +1313,7 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   if (ts->type == BT_CHARACTER)
     NML_ADD_ARG (ts->cl->backend_decl);
   else
-    NML_ADD_ARG (convert (gfc_charlen_type_node, integer_zero_node));
+    NML_ADD_ARG (build_int_cst (gfc_charlen_type_node, 0));
 
   NML_ADD_ARG (dtype);
   tmp = build_function_call_expr (iocall[IOCALL_SET_NML_VAL], args);
@@ -1696,6 +1705,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr)
       break;
 
     case BT_CHARACTER:
+    case BT_HOLLERITH:
       if (se->string_length)
 	arg2 = se->string_length;
       else

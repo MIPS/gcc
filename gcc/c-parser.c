@@ -919,6 +919,9 @@ c_parser_skip_to_end_of_block_or_statement (c_parser *parser)
 	  c_parser_skip_to_pragma_eol (parser);
 	  parser->error = save_error;
 	  continue;
+
+	default:
+	  break;
 	}
 
       c_parser_consume_token (parser);
@@ -5429,7 +5432,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
   struct c_expr expr;
   start_init (NULL_TREE, NULL, 0);
   type = groktypename (type_name);
-  if (C_TYPE_VARIABLE_SIZE (type))
+  if (type != error_mark_node && C_TYPE_VARIABLE_SIZE (type))
     {
       error ("compound literal has variable size");
       type = error_mark_node;
@@ -7214,6 +7217,7 @@ static void
 c_parser_omp_atomic (c_parser *parser)
 {
   tree lhs, rhs;
+  tree stmt;
   enum tree_code code;
 
   c_parser_skip_to_pragma_eol (parser);
@@ -7280,7 +7284,9 @@ c_parser_omp_atomic (c_parser *parser)
       rhs = c_parser_expression (parser).value;
       break;
     }
-  c_finish_omp_atomic (code, lhs, rhs);
+  stmt = c_finish_omp_atomic (code, lhs, rhs);
+  if (stmt != error_mark_node)
+    add_stmt (stmt);
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
 

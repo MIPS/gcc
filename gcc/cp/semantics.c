@@ -1089,7 +1089,6 @@ finish_handler_parms (tree decl, tree handler)
     }
   else
     type = expand_start_catch_block (decl);
-
   HANDLER_TYPE (handler) = type;
   if (!processing_template_decl && type)
     mark_used (eh_type_info (type));
@@ -1213,17 +1212,17 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	  if (!lvalue_or_else (operand, lv_asm))
 	    operand = error_mark_node;
 
-          if (operand != error_mark_node
+	  if (operand != error_mark_node
 	      && (TREE_READONLY (operand)
 		  || CP_TYPE_CONST_P (TREE_TYPE (operand))
-	          /* Functions are not modifiable, even though they are
-	             lvalues.  */
-	          || TREE_CODE (TREE_TYPE (operand)) == FUNCTION_TYPE
-	          || TREE_CODE (TREE_TYPE (operand)) == METHOD_TYPE
-	          /* If it's an aggregate and any field is const, then it is
-	             effectively const.  */
-	          || (CLASS_TYPE_P (TREE_TYPE (operand))
-	              && C_TYPE_FIELDS_READONLY (TREE_TYPE (operand)))))
+		  /* Functions are not modifiable, even though they are
+		     lvalues.  */
+		  || TREE_CODE (TREE_TYPE (operand)) == FUNCTION_TYPE
+		  || TREE_CODE (TREE_TYPE (operand)) == METHOD_TYPE
+		  /* If it's an aggregate and any field is const, then it is
+		     effectively const.  */
+		  || (CLASS_TYPE_P (TREE_TYPE (operand))
+		      && C_TYPE_FIELDS_READONLY (TREE_TYPE (operand)))))
 	    readonly_error (operand, "assignment (via 'asm' output)", 0);
 
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
@@ -1294,6 +1293,10 @@ tree
 finish_label_stmt (tree name)
 {
   tree decl = define_label (input_location, name);
+
+  if (decl  == error_mark_node)
+    return error_mark_node;
+
   return add_stmt (build_stmt (LABEL_EXPR, decl));
 }
 
@@ -1503,9 +1506,11 @@ check_accessibility_of_qualified_id (tree decl,
        its bases.  */
     qualifying_type = currently_open_derived_class (scope);
 
-  if (qualifying_type && IS_AGGR_TYPE_CODE (TREE_CODE (qualifying_type)))
-    /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
-       or similar in a default argument value.  */
+  if (qualifying_type 
+      /* It is possible for qualifying type to be a TEMPLATE_TYPE_PARM
+	 or similar in a default argument value.  */
+      && CLASS_TYPE_P (qualifying_type)
+      && !dependent_type_p (qualifying_type))
     perform_or_defer_access_check (TYPE_BINFO (qualifying_type), decl);
 }
 
@@ -1518,10 +1523,10 @@ check_accessibility_of_qualified_id (tree decl,
    is true iff this qualified name appears as a template argument.  */
 
 tree
-finish_qualified_id_expr (tree qualifying_class, 
-			  tree expr, 
+finish_qualified_id_expr (tree qualifying_class,
+			  tree expr,
 			  bool done,
-			  bool address_p, 
+			  bool address_p,
 			  bool template_p,
 			  bool template_arg_p)
 {
@@ -1604,7 +1609,7 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
     return error_mark_node;
 
   /* If the last statement does not have "void" type, then the value
-     of the last statement is the value of the entire expression.  */ 
+     of the last statement is the value of the entire expression.  */
   if (expr)
     {
       tree type;
@@ -1634,9 +1639,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 	 statement-expression.  */
       if (!processing_template_decl && !VOID_TYPE_P (type))
 	{
-	  tree target_expr; 
-	  if (CLASS_TYPE_P (type) 
-	      && !TYPE_HAS_TRIVIAL_INIT_REF (type)) 
+	  tree target_expr;
+	  if (CLASS_TYPE_P (type)
+	      && !TYPE_HAS_TRIVIAL_INIT_REF (type))
 	    {
 	      target_expr = build_target_expr_with_type (expr, type);
 	      expr = TARGET_EXPR_INITIAL (target_expr);
@@ -1649,7 +1654,7 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 		 problem described above.  */
 	      target_expr = force_target_expr (type, expr);
 	      expr = TARGET_EXPR_INITIAL (target_expr);
-	      expr = build2 (INIT_EXPR, 
+	      expr = build2 (INIT_EXPR,
 			     type,
 			     TARGET_EXPR_SLOT (target_expr),
 			     expr);
@@ -2019,33 +2024,49 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 tree
 finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 {
+  tree var;
   tree compound_literal;
+
+  if (!TYPE_OBJ_P (type))
+    {
+      error ("compound literal of non-object type %qT", type);
+      return error_mark_node;
+    }
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
   if (processing_template_decl)
-    TREE_TYPE (compound_literal) = type;
-  else
     {
-      /* Check the initialization.  */
-      compound_literal = reshape_init (type, compound_literal);
-      compound_literal = digest_init (type, compound_literal);
-      /* If the TYPE was an array type with an unknown bound, then we can
-	 figure out the dimension now.  For example, something like:
-
-	   `(int []) { 2, 3 }'
-
-	 implies that the array has two elements.  */
-      if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	cp_complete_array_type (&TREE_TYPE (compound_literal),
-				compound_literal, 1);
+      TREE_TYPE (compound_literal) = type;
+      /* Mark the expression as a compound literal.  */
+      TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+      return compound_literal;
     }
 
-  /* Mark it as a compound-literal.  */
-  if (TREE_CODE (compound_literal) == CONSTRUCTOR)
-    TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
-
-  return compound_literal;
+  /* Create a temporary variable to represent the compound literal.  */
+  var = create_temporary_var (type);
+  if (!current_function_decl)
+    {
+      /* If this compound-literal appears outside of a function, then
+	 the corresponding variable has static storage duration, just
+	 like the variable in whose initializer it appears.  */
+      TREE_STATIC (var) = 1;
+      /* The variable has internal linkage, since there is no need to
+	 reference it from another translation unit.  */
+      TREE_PUBLIC (var) = 0;
+      /* It must have a name, so that the name mangler can mangle it.  */
+      DECL_NAME (var) = make_anon_name ();
+    }
+  /* We must call pushdecl, since the gimplifier complains if the
+     variable has not been declared via a BIND_EXPR.  */
+  pushdecl (var);
+  /* Initialize the variable as we would any other variable with a
+     brace-enclosed initializer.  */
+  cp_finish_decl (var, compound_literal,
+		  /*init_const_expr_p=*/false,
+		  /*asmspec_tree=*/NULL_TREE,
+		  LOOKUP_ONLYCONVERTING);
+  return var;
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -2122,19 +2143,8 @@ check_template_template_default_arg (tree argument)
       && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
     {
       if (TREE_CODE (argument) == TYPE_DECL)
-	{
-	  tree t = TREE_TYPE (argument);
-
-	  /* Try to emit a slightly smarter error message if we detect
-	     that the user is using a template instantiation.  */
-	  if (CLASSTYPE_TEMPLATE_INFO (t)
-	      && CLASSTYPE_TEMPLATE_INSTANTIATION (t))
-	    error ("invalid use of type %qT as a default value for a "
-		   "template template-parameter", t);
-	  else
-	    error ("invalid use of %qD as a default value for a template "
-		   "template-parameter", argument);
-	}
+	error ("invalid use of type %qT as a default value for a template "
+	       "template-parameter", TREE_TYPE (argument));
       else
 	error ("invalid default argument for a template template parameter");
       return error_mark_node;
@@ -2146,7 +2156,7 @@ check_template_template_default_arg (tree argument)
 /* Begin a class definition, as indicated by T.  */
 
 tree
-begin_class_definition (tree t)
+begin_class_definition (tree t, tree attributes)
 {
   if (t == error_mark_node)
     return error_mark_node;
@@ -2185,6 +2195,9 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
+
+  cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+
   if (flag_pack_struct)
     {
       tree v;
@@ -2317,8 +2330,9 @@ note_decl_for_pch (tree decl)
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      || TREE_CODE (decl) == FUNCTION_DECL)
+  if ((TREE_CODE (decl) == VAR_DECL
+       || TREE_CODE (decl) == FUNCTION_DECL)
+      && !processing_template_decl)
     mangle_decl (decl);
 }
 
@@ -2575,7 +2589,10 @@ finish_id_expression (tree id_expression,
     {
       *idk = CP_ID_KIND_NONE;
       if (!processing_template_decl)
-	return DECL_INITIAL (decl);
+	{
+	  used_types_insert (TREE_TYPE (decl));
+	  return DECL_INITIAL (decl);
+	}
       return decl;
     }
   else
@@ -2864,6 +2881,30 @@ finish_typeof (tree expr)
     }
 
   return type;
+}
+
+/* Perform C++-specific checks for __builtin_offsetof before calling
+   fold_offsetof.  */
+
+tree
+finish_offsetof (tree expr)
+{
+  if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
+    {
+      error ("cannot apply %<offsetof%> to destructor %<~%T%>",
+	      TREE_OPERAND (expr, 2));
+      return error_mark_node;
+    }
+  if (TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
+      || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
+      || TREE_CODE (TREE_TYPE (expr)) == UNKNOWN_TYPE)
+    {
+      if (TREE_CODE (expr) == COMPONENT_REF)
+	expr = TREE_OPERAND (expr, 1);
+      error ("cannot apply %<offsetof%> to member function %qD", expr);
+      return error_mark_node;
+    }
+  return fold_offsetof (expr);
 }
 
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
@@ -3588,7 +3629,7 @@ finish_omp_clauses (tree clauses)
 					     inner_type, LOOKUP_NORMAL);
 
 	      /* We'll have called convert_from_reference on the call, which
-		 may well have added an indirect_ref.  It's unneeded here, 
+		 may well have added an indirect_ref.  It's unneeded here,
 		 and in the way, so kill it.  */
 	      if (TREE_CODE (t) == INDIRECT_REF)
 		t = TREE_OPERAND (t, 0);
@@ -3796,24 +3837,41 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 void
 finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
-  /* If either of the operands are dependent, we can't do semantic 
-     processing yet.  Stuff the values away for now.  We cheat a bit
-     and use the same tree code for this, even though the operands 
-     are of totally different form, thus we need to remember which
-     statements are which, thus the lang_flag bit.  */
-  /* ??? We ought to be using type_dependent_expression_p, but the
-     invocation of build_modify_expr in c_finish_omp_atomic can result
-     in the creation of CONVERT_EXPRs, which are not handled by
-     tsubst_copy_and_build.  */
-  if (uses_template_parms (lhs) || uses_template_parms (rhs))
+  tree orig_lhs;
+  tree orig_rhs;
+  bool dependent_p;
+  tree stmt;
+
+  orig_lhs = lhs;
+  orig_rhs = rhs;
+  dependent_p = false;
+  stmt = NULL_TREE;
+
+  /* Even in a template, we can detect invalid uses of the atomic
+     pragma if neither LHS nor RHS is type-dependent.  */
+  if (processing_template_decl)
     {
-      tree stmt = build2 (OMP_ATOMIC, void_type_node, lhs, rhs);
+      dependent_p = (type_dependent_expression_p (lhs) 
+		     || type_dependent_expression_p (rhs));
+      if (!dependent_p)
+	{
+	  lhs = build_non_dependent_expr (lhs);
+	  rhs = build_non_dependent_expr (rhs);
+	}
+    }
+  if (!dependent_p)
+    {
+      stmt = c_finish_omp_atomic (code, lhs, rhs);
+      if (stmt == error_mark_node)
+	return;
+    }
+  if (processing_template_decl)
+    {
+      stmt = build2 (OMP_ATOMIC, void_type_node, orig_lhs, orig_rhs);
       OMP_ATOMIC_DEPENDENT_P (stmt) = 1;
       OMP_ATOMIC_CODE (stmt) = code;
-      add_stmt (stmt);
     }
-  else
-    c_finish_omp_atomic (code, lhs, rhs);
+  add_stmt (stmt);
 }
 
 void

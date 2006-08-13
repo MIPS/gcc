@@ -1254,7 +1254,19 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	{
 	  error_for_asm (this_insn, "impossible register constraint "
 			 "in %<asm%>");
-	  class = ALL_REGS;
+	  /* Avoid further trouble with this insn.  */
+	  PATTERN (this_insn) = gen_rtx_USE (VOIDmode, const0_rtx);
+	  /* We used to continue here setting class to ALL_REGS, but it triggers
+	     sanity check on i386 for:
+	     void foo(long double d)
+	     {
+	       asm("" :: "a" (d));
+	     }
+	     Returning zero here ought to be safe as we take care in
+	     find_reloads to not process the reloads when instruction was
+	     replaced by USE.  */
+	    
+	  return 0;
 	}
     }
 
@@ -3275,6 +3287,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		break;
 
 	      case 'X':
+		force_reload = 0;
 		win = 1;
 		break;
 
@@ -3854,11 +3867,19 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		 && goal_alternative_offmemok[i]
 		 && MEM_P (recog_data.operand[i]))
 	  {
+	    /* If the address to be reloaded is a VOIDmode constant,
+	       use Pmode as mode of the reload register, as would have
+	       been done by find_reloads_address.  */
+	    enum machine_mode address_mode;
+	    address_mode = GET_MODE (XEXP (recog_data.operand[i], 0));
+	    if (address_mode == VOIDmode)
+	      address_mode = Pmode;
+
 	    operand_reloadnum[i]
 	      = push_reload (XEXP (recog_data.operand[i], 0), NULL_RTX,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     base_reg_class (VOIDmode, MEM, SCRATCH),
-			     GET_MODE (XEXP (recog_data.operand[i], 0)),
+			     address_mode,
 			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
 	    rld[operand_reloadnum[i]].inc
 	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
@@ -4123,6 +4144,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  rld[i].in = rld[i].reg_rtx;
       }
 #endif
+
+  /* If we detected error and replaced asm instruction by USE, forget about the
+     reloads.  */
+  if (GET_CODE (PATTERN (insn)) == USE
+      && GET_CODE (XEXP (PATTERN (insn), 0)) == CONST_INT)
+    n_reloads = 0;
 
   /* Perhaps an output reload can be combined with another
      to reduce needs by one.  */
@@ -4563,8 +4590,7 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	  && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0
 	  && (tem = gen_lowpart_common (GET_MODE (x),
-					reg_equiv_constant[regno])) != 0
-	  && LEGITIMATE_CONSTANT_P (tem))
+					reg_equiv_constant[regno])) != 0)
 	return tem;
 
       if (regno >= FIRST_PSEUDO_REGISTER
@@ -4575,8 +4601,7 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	    simplify_gen_subreg (GET_MODE (x), reg_equiv_constant[regno],
 				 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
 	  gcc_assert (tem);
-	  if (LEGITIMATE_CONSTANT_P (tem))
-	    return tem;
+	  return tem;
 	}
 
       /* If the subreg contains a reg that will be converted to a mem,
@@ -5367,7 +5392,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 						       GET_MODE (orig_op1))));
 	  }
 	/* Plus in the index register may be created only as a result of
-	   register remateralization for expression like &localvar*4.  Reload it.
+	   register rematerialization for expression like &localvar*4.  Reload it.
 	   It may be possible to combine the displacement on the outer level,
 	   but it is probably not worthwhile to do so.  */
 	if (context == 1)

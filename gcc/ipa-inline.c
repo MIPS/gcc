@@ -413,6 +413,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 		    bitmap updated_nodes)
 {
   struct cgraph_edge *edge;
+  const char *failed_reason;
 
   if (!node->local.inlinable || node->local.disregard_inline_limits
       || node->global.inlined_to)
@@ -421,6 +422,22 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
     return;
   bitmap_set_bit (updated_nodes, node->uid);
   node->global.estimated_growth = INT_MIN;
+
+  if (!node->local.inlinable)
+    return;
+  /* Prune out edges we won't inline into anymore.  */
+  if (!cgraph_default_inline_p (node, &failed_reason))
+    {
+      for (edge = node->callers; edge; edge = edge->next_caller)
+	if (edge->aux)
+	  {
+	    fibheap_delete_node (heap, edge->aux);
+	    edge->aux = NULL;
+	    if (edge->inline_failed)
+	      edge->inline_failed = failed_reason;
+	  }
+      return;
+    }
 
   for (edge = node->callers; edge; edge = edge->next_caller)
     if (edge->inline_failed)
@@ -553,7 +570,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
   int probability = PARAM_VALUE (PARAM_MIN_INLINE_RECURSIVE_PROBABILITY);
   fibheap_t heap;
   struct cgraph_edge *e;
-  struct cgraph_node *master_clone;
+  struct cgraph_node *master_clone, *next;
   int depth = 0;
   int n = 0;
 
@@ -654,9 +671,12 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
      into master clone gets queued just before master clone so we don't
      need recursion.  */
   for (node = cgraph_nodes; node != master_clone;
-       node = node->next)
-    if (node->global.inlined_to == master_clone)
-      cgraph_remove_node (node);
+       node = next)
+    {
+      next = node->next;
+      if (node->global.inlined_to == master_clone)
+	cgraph_remove_node (node);
+    }
   cgraph_remove_node (master_clone);
   /* FIXME: Recursive inlining actually reduces number of calls of the
      function.  At this place we should probably walk the function and
@@ -1133,6 +1153,12 @@ struct tree_opt_pass pass_ipa_inline =
   0					/* letter */
 };
 
+/* Because inlining might remove no-longer reachable nodes, we need to
+   keep the array visible to garbage collector to avoid reading collected
+   out nodes.  */
+static int nnodes;
+static GTY ((length ("nnodes"))) struct cgraph_node **order;
+
 /* Do inlining of small functions.  Doing so early helps profiling and other
    passes to be somewhat more effective and avoids some code duplication in
    later real inlining pass for testcases with very many function calls.  */
@@ -1140,9 +1166,6 @@ static unsigned int
 cgraph_early_inlining (void)
 {
   struct cgraph_node *node;
-  int nnodes;
-  struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int i;
 
   if (sorrycount || errorcount)
@@ -1152,6 +1175,7 @@ cgraph_early_inlining (void)
     gcc_assert (!node->aux);
 #endif
 
+  order = ggc_alloc (sizeof (*order) * cgraph_n_nodes);
   nnodes = cgraph_postorder (order);
   for (i = nnodes - 1; i >= 0; i--)
     {
@@ -1169,7 +1193,9 @@ cgraph_early_inlining (void)
   for (node = cgraph_nodes; node; node = node->next)
     gcc_assert (!node->global.inlined_to);
 #endif
-  free (order);
+  ggc_free (order);
+  order = NULL;
+  nnodes = 0;
   return 0;
 }
 
@@ -1196,3 +1222,5 @@ struct tree_opt_pass pass_early_ipa_inline =
   TODO_dump_cgraph | TODO_dump_func,	/* todo_flags_finish */
   0					/* letter */
 };
+
+#include "gt-ipa-inline.h"

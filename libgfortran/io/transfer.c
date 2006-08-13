@@ -220,7 +220,8 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
       if (*q == ',')
 	if (dtp->u.p.sf_read_comma == 1)
 	  {
-	    notify_std (GFC_STD_GNU, "Comma in formatted numeric read.");
+	    notify_std (&dtp->common, GFC_STD_GNU,
+			"Comma in formatted numeric read.");
 	    *length = n;
 	    break;
 	  }
@@ -412,6 +413,9 @@ write_block (st_parameter_dt *dtp, int length)
       generate_error (&dtp->common, ERROR_END, NULL);
       return NULL;
     }
+
+  if (is_internal_unit (dtp) && dtp->u.p.current_unit->endfile == AT_ENDFILE)
+    generate_error (&dtp->common, ERROR_END, NULL);
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
     dtp->u.p.size_used += (gfc_offset) length;
@@ -1224,9 +1228,6 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
     default:
       internal_error (&dtp->common, "transfer_array(): Bad type");
     }
-
-  if (desc->dim[0].stride == 0)
-    desc->dim[0].stride = 1;
 
   rank = GFC_DESCRIPTOR_RANK (desc);
   for (n = 0; n < rank; n++)
@@ -2051,9 +2052,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 
     case FORMATTED_SEQUENTIAL:
 
-      if (dtp->u.p.current_unit->bytes_left == 0)
-	break;
-	
       if (is_internal_unit (dtp))
 	{
 	  if (is_array_io (dtp))
@@ -2082,7 +2080,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 	      /* Now that the current record has been padded out,
 		 determine where the next record in the array is. */
 	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
-
+	      if (record == 0)
+		dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	      
 	      /* Now seek to this record */
 	      record = record * dtp->u.p.current_unit->recl;
 
@@ -2123,6 +2123,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
+	  if (dtp->u.p.current_unit->bytes_left == 0)
+	    break;
+
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
 	  (for file unit) */

@@ -1556,7 +1556,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   var_map map = tab->map;
   ssa_op_iter iter;
   tree call_expr;
-  bitmap def_vars = BITMAP_ALLOC (NULL), use_vars;
+  bitmap def_vars, use_vars;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1588,6 +1588,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 
   version = SSA_NAME_VERSION (def);
   basevar = SSA_NAME_VAR (def);
+  def_vars = BITMAP_ALLOC (NULL);
   bitmap_set_bit (def_vars, DECL_UID (basevar));
 
   /* Add this expression to the dependency list for each use partition.  */
@@ -2214,7 +2215,7 @@ analyze_edges_for_bb (basic_block bb)
 	leader_match = leader;
 
 	/* The tree_* cfg manipulation routines use the PENDING_EDGE field
-	   for various PHI manipulations, so it gets cleared whhen calls are 
+	   for various PHI manipulations, so it gets cleared when calls are 
 	   made to make_forwarder_block(). So make sure the edge is clear, 
 	   and use the saved stmt list.  */
 	PENDING_STMT (leader) = NULL;

@@ -1,3 +1,43 @@
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-06-23  Olivier Hainque  <hainque@adacore.com>
+
+	* misc.c (gnat_type_max_size): Look at TYPE_ADA_SIZE if we have
+	not been able to get a constant upper bound from TYPE_SIZE_UNIT.
+
+2006-06-20  James A. Morrison  <phython@gcc.gnu.org>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/18692
+	* Make-lang.in: Add check-gnat to lang_checks.  Rename existing
+	check-gnat into check-acats.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+        * gnat-style.texi (@dircategory): Use "Software development"
+	instead of "Programming", following the Free Software Directory.
+
+2006-06-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/27944
+	* s-taprop-hpux-dce.adb: Delete redundant 'with System.Parameters'.
+
+2006-06-06  Laurent GUERBY  <laurent@guerby.net>
+
+        PR ada/27769
+        mlib-utl.adb: Use Program_Name.
+	
+2006-05-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c, env.c, gigi.h, init.c, initialize.c, raise-gcc.c,
+	sem_ch13.adb, sysdep.c, targtyps.c, tb-alvxw.c, tracebak.c,
+	trans.c, utils.c: Fix comment typos.  Follow spelling
+	conventions.
+	* gnat_rm.texi, gnat_ugn.texi, : Fix typos.  Follow spelling
+	conventions.
+
 2006-05-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* Make-lang.in (ada/decl.o): Replace target.h with $(TARGET_H).

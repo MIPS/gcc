@@ -385,11 +385,13 @@ match_old_style_init (const char *name)
 {
   match m;
   gfc_symtree *st;
+  gfc_symbol *sym;
   gfc_data *newdata;
 
   /* Set up data structure to hold initializers.  */
   gfc_find_sym_tree (name, NULL, 0, &st);
-	  
+  sym = st->n.sym;
+
   newdata = gfc_get_data ();
   newdata->var = gfc_get_data_variable ();
   newdata->var->expr = gfc_get_variable_expr (st);
@@ -406,6 +408,13 @@ match_old_style_init (const char *name)
   if (gfc_pure (NULL))
     {
       gfc_error ("Initialization at %C is not allowed in a PURE procedure");
+      gfc_free (newdata);
+      return MATCH_ERROR;
+    }
+
+  /* Mark the variable as having appeared in a data statement.  */
+  if (gfc_add_data (&sym->attr, sym->name, &sym->declared_at) == FAILURE)
+    {
       gfc_free (newdata);
       return MATCH_ERROR;
     }
@@ -596,13 +605,20 @@ end:
    parent, then the symbol is just created in the current unit.  */
 
 static int
-get_proc_name (const char *name, gfc_symbol ** result)
+get_proc_name (const char *name, gfc_symbol ** result,
+	       bool module_fcn_entry)
 {
   gfc_symtree *st;
   gfc_symbol *sym;
   int rc;
 
-  if (gfc_current_ns->parent == NULL)
+  /* Module functions have to be left in their own namespace because
+     they have potentially (almost certainly!) already been referenced.
+     In this sense, they are rather like external functions.  This is
+     fixed up in resolve.c(resolve_entries), where the symbol name-
+     space is set to point to the master function, so that the fake
+     result mechanism can work.  */
+  if (module_fcn_entry)
     rc = gfc_get_symbol (name, NULL, result);
   else
     rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
@@ -628,7 +644,8 @@ get_proc_name (const char *name, gfc_symbol ** result)
       if (sym->ts.kind != 0
 	    && sym->attr.proc == 0
 	    && gfc_current_ns->parent != NULL
-	    && sym->attr.access == 0)
+	    && sym->attr.access == 0
+	    && !module_fcn_entry)
 	gfc_error_now ("Procedure '%s' at %C has an explicit interface"
 		       " and must not have attributes declared at %L",
 		       name, &sym->declared_at);
@@ -637,18 +654,23 @@ get_proc_name (const char *name, gfc_symbol ** result)
   if (gfc_current_ns->parent == NULL || *result == NULL)
     return rc;
 
-  st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
+  /* Module function entries will already have a symtree in
+     the current namespace but will need one at module level.  */
+  if (module_fcn_entry)
+    st = gfc_new_symtree (&gfc_current_ns->parent->sym_root, name);
+  else
+    st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
 
   st->n.sym = sym;
   sym->refs++;
 
   /* See if the procedure should be a module procedure */
 
-  if (sym->ns->proc_name != NULL
-      && sym->ns->proc_name->attr.flavor == FL_MODULE
-      && sym->attr.proc != PROC_MODULE
-      && gfc_add_procedure (&sym->attr, PROC_MODULE,
-			    sym->name, NULL) == FAILURE)
+  if (((sym->ns->proc_name != NULL
+	  && sym->ns->proc_name->attr.flavor == FL_MODULE
+	  && sym->attr.proc != PROC_MODULE) || module_fcn_entry)
+	&& gfc_add_procedure (&sym->attr, PROC_MODULE,
+			      sym->name, NULL) == FAILURE)
     rc = 2;
 
   return rc;
@@ -1150,6 +1172,20 @@ variable_decl (int elem)
   if (gfc_current_state () != COMP_DERIVED
       && build_sym (name, cl, &as, &var_locus) == FAILURE)
     {
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
+  /* An interface body specifies all of the procedure's characteristics and these
+     shall be consistent with those specified in the procedure definition, except
+     that the interface may specify a procedure that is not pure if the procedure
+     is defined to be pure(12.3.2).  */
+  if (current_ts.type == BT_DERIVED
+	&& gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
+	&& current_ts.derived->ns != gfc_current_ns)
+    {
+      gfc_error ("the type of '%s' at %C has not been declared within the "
+		 "interface", name);
       m = MATCH_ERROR;
       goto cleanup;
     }
@@ -2564,7 +2600,7 @@ gfc_match_function_decl (void)
       return MATCH_NO;
     }
 
-  if (get_proc_name (name, &sym))
+  if (get_proc_name (name, &sym, false))
     return MATCH_ERROR;
   gfc_new_block = sym;
 
@@ -2667,6 +2703,7 @@ gfc_match_entry (void)
   match m;
   gfc_entry_list *el;
   locus old_loc;
+  bool module_procedure;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -2727,16 +2764,26 @@ gfc_match_entry (void)
       return MATCH_ERROR;
     }
 
+  module_procedure = gfc_current_ns->parent != NULL
+      && gfc_current_ns->parent->proc_name
+      && gfc_current_ns->parent->proc_name->attr.flavor == FL_MODULE;
+
   if (gfc_current_ns->parent != NULL
       && gfc_current_ns->parent->proc_name
-      && gfc_current_ns->parent->proc_name->attr.flavor != FL_MODULE)
+      && !module_procedure)
     {
       gfc_error("ENTRY statement at %C cannot appear in a "
 		"contained procedure");
       return MATCH_ERROR;
     }
 
-  if (get_proc_name (name, &entry))
+  /* Module function entries need special care in get_proc_name
+     because previous references within the function will have
+     created symbols attached to the current namespace.  */
+  if (get_proc_name (name, &entry,
+		     gfc_current_ns->parent != NULL
+		     && module_procedure
+		     && gfc_current_ns->proc_name->attr.function))
     return MATCH_ERROR;
 
   proc = gfc_current_block ();
@@ -2865,7 +2912,7 @@ gfc_match_subroutine (void)
   if (m != MATCH_YES)
     return m;
 
-  if (get_proc_name (name, &sym))
+  if (get_proc_name (name, &sym, false))
     return MATCH_ERROR;
   gfc_new_block = sym;
 
