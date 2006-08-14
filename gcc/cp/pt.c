@@ -9474,13 +9474,13 @@ type_unification_real_args (tree fn,
 			    unification_kind_t strict,
 			    int flags)
 {
-  tree parm, arg;
   int i;
   int ntparms = TREE_VEC_LENGTH (tparms);
   int sub_strict;
   int saw_undeduced = 0;
-  tree parms, args;
+  tree args;
   tree xparmdecls, parmdecls;
+  int parms_len;
 
   gcc_assert (TREE_CODE (tparms) == TREE_VEC);
   gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_LIST);
@@ -9522,22 +9522,21 @@ type_unification_real_args (tree fn,
     }
 
  again:
-  parms = xparms;
+  parms_len = num_parm_types (xparms);
   args = xargs;
   parmdecls = xparmdecls;
 
-  while (parms
-	 && !(parms
-	      && TREE_VALUE (parms) == void_type_node
-	      && TREE_CHAIN (parms) == NULL_TREE)
-	 && args
-	 && !(args
-	      && TREE_VALUE (args) == void_type_node
-	      && TREE_CHAIN (args) == NULL_TREE))
+  for (i = 0; (i < parms_len
+	       && !(i + 1 == parms_len
+		    && nth_parm_type (xparms, i) == void_type_node)
+	       && args
+	       && !(args
+		    && TREE_VALUE (args) == void_type_node
+		    && TREE_CHAIN (args) == NULL_TREE));
+       i++)
     {
-      parm = TREE_VALUE (parms);
-      parms = TREE_CHAIN (parms);
-      arg = TREE_VALUE (args);
+      tree parm = nth_parm_type (xparms, i);
+      tree arg = TREE_VALUE (args);
       args = TREE_CHAIN (args);
       if (parmdecls)
 	parmdecls = TREE_CHAIN (parmdecls);
@@ -9611,15 +9610,13 @@ type_unification_real_args (tree fn,
       && !(args
 	   && TREE_VALUE (args) == void_type_node
 	   && TREE_CHAIN (args) == NULL_TREE)
-      && (parms
-	  && TREE_VALUE (parms) == void_type_node
-	  && TREE_CHAIN (parms) == NULL_TREE))
+      && (i + 1 == parms_len
+	  && nth_parm_type (xparms, i) == void_type_node))
     return 1;
   /* Fail if parms are left and they don't have default values.  */
-  if (parms
-      && !(parms
-	   && TREE_VALUE (parms) == void_type_node
-	   && TREE_CHAIN (parms) == NULL_TREE)
+  if (i < parms_len
+      && !(i + 1 == parms_len
+	   && nth_parm_type (xparms, i) == void_type_node)
       && parmdecls && DECL_INITIAL (parmdecls) == NULL_TREE)
     return 1;
 

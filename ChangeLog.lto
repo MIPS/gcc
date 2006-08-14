@@ -1,3 +1,8 @@
+2006-08-13  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/pt.c (type_unification_real_args): Use num_parm_types and
+	nth_parm_type.
+
 2006-08-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/calls.c (initialize_argument_information): Pass original EXP
