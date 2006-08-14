@@ -613,7 +613,7 @@ dump_type_suffix (tree t, int flags)
 
 	if (TREE_CODE (t) == METHOD_TYPE)
 	  pp_cxx_cv_qualifier_seq
-	    (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
+	    (cxx_pp, TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (t), 0)));
 	else
 	  pp_cxx_cv_qualifier_seq(cxx_pp, t);
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
@@ -1053,7 +1053,7 @@ dump_function_decl (tree t, int flags)
 	{
 	  pp_base (cxx_pp)->padding = pp_before;
 	  pp_cxx_cv_qualifier_seq
-	    (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))));
+	    (cxx_pp, TREE_TYPE (nth_parm_type (TYPE_ARG_TYPES (fntype), 0)));
 	}
 
       if (flags & TFF_EXCEPTION_SPECIFICATION)

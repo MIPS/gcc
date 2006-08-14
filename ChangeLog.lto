@@ -1,3 +1,10 @@
+2006-08-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/cp/decl.c (build_ptrmem_type, check_function_type): Use
+	nth_parm_type and copy_type_arg_types_skip.
+	* gcc/cp/error.c (dump_type_suffix, dump_function_decl): Use
+	nth_parm_type.
+
 2006-08-13  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/pt.c (type_unification_real_args): Use num_parm_types and

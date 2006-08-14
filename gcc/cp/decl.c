@@ -6426,11 +6426,12 @@ build_ptrmem_type (tree class_type, tree member_type)
       arg_types = TYPE_ARG_TYPES (member_type);
       class_type = (cp_build_qualified_type
 		    (class_type,
-		     cp_type_quals (TREE_TYPE (TREE_VALUE (arg_types)))));
+		     cp_type_quals (TREE_TYPE (nth_parm_type (arg_types, 0)))));
+      arg_types = copy_type_arg_types_skip (arg_types, 1);
       member_type
 	= build_method_type_directly (class_type,
 				      TREE_TYPE (member_type),
-				      TREE_CHAIN (arg_types));
+				      arg_types);
       return build_ptrmemfunc_type (build_pointer_type (member_type));
     }
   else
@@ -10283,9 +10284,13 @@ check_function_type (tree decl, tree current_function_parms)
 
       /* Make it return void instead.  */
       if (TREE_CODE (fntype) == METHOD_TYPE)
-	fntype = build_method_type_directly (TREE_TYPE (TREE_VALUE (args)),
-					     void_type_node,
-					     TREE_CHAIN (args));
+	{
+	  tree first = nth_parm_type (args, 0);
+	  tree remaining = copy_type_arg_types_skip (args, 1);
+	  fntype = build_method_type_directly (TREE_TYPE (first),
+					       void_type_node,
+					       remaining);
+	}
       else
 	fntype = build_function_type (void_type_node, args);
       TREE_TYPE (decl)
