@@ -493,13 +493,12 @@ static void
 find_possible_eliminations (void)
 {
   basic_block bb;
-  rtx insn, bound;
+  rtx insn;
   struct reg_eliminate *ep;
 
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
 	    note_stores (PATTERN (insn), mark_set_reg_not_eliminable, NULL);
@@ -1025,13 +1024,13 @@ set_insn_regno_regs (rtx x)
 static void
 set_bb_regno_refs (struct yara_loop_tree_node *bb_node)
 {
-  rtx insn, bound;
+  rtx insn;
   basic_block bb;
 
   curr_bb_node = bb_node;
   bb = bb_node->bb;
-  bound = NEXT_INSN (BB_END (bb));
-  for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+
+  FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
       set_insn_regno_regs (PATTERN (insn));
 }
@@ -1278,7 +1277,7 @@ scan_insn_for_reg_equivs (rtx insn)
 static void
 initiate_equivs (void)
 {
-  rtx insn, bound;
+  rtx insn;
   basic_block bb;
 
   reg_equiv_constant = yara_allocate (max_regno * sizeof (rtx));
@@ -1301,8 +1300,7 @@ initiate_equivs (void)
   equiv_memory_num = 0;
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
 	    scan_rtx_for_reg_size_alignment (PATTERN (insn));
@@ -3874,15 +3872,13 @@ static int all, moves;
 static void
 create_bb_insn_allocnos (struct yara_loop_tree_node *bb_node)
 {
-  rtx insn, next_insn, prev_insn, set, bound;
+  rtx insn, next_insn, prev_insn, set;
   basic_block bb;
 
   curr_bb_node = bb_node;
   bb = bb_node->bb;
-  bound = NEXT_INSN (BB_END (bb));
-  for (prev_insn = NULL_RTX, insn = BB_HEAD (bb);
-       insn != bound;
-       insn = next_insn)
+  prev_insn = NULL_RTX;
+  FOR_BB_INSNS (bb, insn)
     if (! INSN_P (insn))
       next_insn = NEXT_INSN (insn);
     else
@@ -4710,7 +4706,7 @@ make_vn (void)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  rtx insn, bound, set;
+  rtx insn, set;
   allocno_t a, a2;
   allocno_t *vec;
 
@@ -4740,8 +4736,7 @@ make_vn (void)
 	    }
 	  if (propagate_copy_value (at_bb_start_copies [bb->index]))
 	    changed_p = true;
-	  bound = NEXT_INSN (BB_END (bb));
-	  for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+	  FOR_BB_INSNS (bb, insn)
 	    if (INSN_P (insn))
 	      {
 		if (propagate_copy_value (before_insn_copies
@@ -5525,14 +5520,13 @@ make_aggressive_coalescing (void)
   struct move_info *move, *last;
   varray_type move_varray;
   basic_block bb;
-  rtx insn, bound, set;
+  rtx insn, set;
 
   VARRAY_RTX_INIT (move_insn_varray, yara_max_uid, "move insns");
   VARRAY_GENERIC_PTR_NOGC_INIT (move_varray, yara_max_uid, "moves");
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
 	    if ((set = single_set (insn)) != NULL_RTX

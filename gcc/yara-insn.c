@@ -402,12 +402,11 @@ void
 setup_possible_alternatives (bool strict_p)
 {
   basic_block bb;
-  rtx bound, insn;
+  rtx insn;
 
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  setup_possible_operand_alternatives (insn, strict_p);
     }

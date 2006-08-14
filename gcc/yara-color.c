@@ -966,7 +966,7 @@ process_insn_op_allocno_for_can_classes (allocno_t a,
 static void
 setup_can_classes (void)
 {
-  rtx insn, bound;
+  rtx insn;
   allocno_t a;
   can_t can;
   int i, j, can_num, hard_regno, op_num, curr_alt;
@@ -982,8 +982,7 @@ setup_can_classes (void)
   sbitmap_zero (can_classes_sbitmap);
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
 	    info = insn_infos [INSN_UID (insn)];
@@ -1078,7 +1077,7 @@ setup_cover_classes_and_reg_costs (void)
 {
   int i, j, k, n, cost, min_cost, freq, op_num, can_num, hard_regno;
   enum reg_class cl, cl1, best_class, cover_class, *classes;
-  rtx insn, bound;
+  rtx insn;
   enum machine_mode mode;
   enum op_type op_mode;
   basic_block bb;
@@ -1096,11 +1095,10 @@ setup_cover_classes_and_reg_costs (void)
   memset (can_memory_cost, 0, cans_num * sizeof (int));
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
       freq = bb->frequency;
       if (freq == 0)
 	freq = 1;
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
 	    curr_preference_insn = insn;
@@ -1372,7 +1370,7 @@ calculate_reg_pressure (void)
 {
   int i, class_num;
   unsigned int uid, j;
-  rtx insn, bound;
+  rtx insn;
   allocno_t a;
   copy_t before_copies, after_copies, cp;
   bitmap_iterator bi;
@@ -1406,10 +1404,8 @@ calculate_reg_pressure (void)
 	{
 	  live_allocno (allocnos [j]);;
 	}
-      bound = NEXT_INSN (BB_END (curr_reg_pressure_calculation_bb_node->bb));
-      for (insn = BB_HEAD (curr_reg_pressure_calculation_bb_node->bb);
-	   insn != bound;
-	   insn = NEXT_INSN (insn))
+
+      FOR_BB_INSNS (curr_reg_pressure_calculation_bb_node->bb, insn)
 	{
 	  if (! INSN_P (insn))
 	    continue;
@@ -1875,7 +1871,7 @@ static void
 add_move_costs (void)
 {
   int i, freq, hard_regno;
-  rtx insn, bound, set, dst, src;
+  rtx insn, set, dst, src;
   basic_block bb;
   allocno_t a, src_a, dst_a;
   copy_t cp;
@@ -1902,11 +1898,10 @@ add_move_costs (void)
     }
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
       freq = bb->frequency;
       if (freq == 0)
 	freq = 1;
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn) && (set = single_set (insn)) != NULL_RTX
 	    && REG_P (SET_DEST (set))
 	    && REG_P (SET_SRC (set))
@@ -2703,11 +2698,10 @@ static int *insn_pos_map;
 static void
 setup_bb_pos_insn_maps (void)
 {
-  rtx insn, bound;
+  rtx insn;
 
-  bound = NEXT_INSN (BB_END (curr_bb));
   VARRAY_POP_ALL (pos_insn_map);
-  for (insn = BB_HEAD (curr_bb); insn != bound; insn = NEXT_INSN (insn))
+  FOR_BB_INSNS (curr_bb, insn)
     if (INSN_P (insn))
       {
 	VARRAY_PUSH_RTX (pos_insn_map, insn);

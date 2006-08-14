@@ -97,8 +97,8 @@ struct reg_eliminate GTY(())
   /* It is used temporary to calculate possible elimination.  Finally
      we have only eliminations with nonzero value in the table
      REG_ELIMINATE.  */
-  bool can_eliminate:1;
-  bool obligatory:1;
+  BOOL_BITFIELD can_eliminate:1;
+  BOOL_BITFIELD obligatory:1;
   /* Next possible elimination for given register FROM.  Finally we
      can have only one obligatory elimination for given register.  */
   struct reg_eliminate *from_next;
@@ -289,7 +289,7 @@ struct allocno_change
 {
   /* This member is true only for pseudo-register which will be
      changed by equivalent constant.  */
-  bool use_equiv_const_p : 1;
+  BOOL_BITFIELD use_equiv_const_p : 1;
   /* Allocated start hard regno. -1 for memory or constant.  */
   short hard_regno;
   /* Pseudo-register could need several hard registers starting with
@@ -307,15 +307,15 @@ struct allocno_change
    representing a pseudo-register in a part of his live range.  */
 struct allocno_common
 {
-  enum allocno_type type : 2;
+  ENUM_BITFIELD(allocno_type) type : 2;
   /* The following true if the allocno crosses a call.  */
-  bool call_cross_p : 1;
+  BOOL_BITFIELD call_cross_p : 1;
   /* Very contradictory for subregs -- check and fix ????? Mode of the
      pseudo-register, hard register, scratch or non-register operand.
      For insn allocnos, it is taken from recog_data which is mode of
      operand or mode form the insn template if the former is of
      VOIDmode.  */
-  enum machine_mode mode : 8;
+  ENUM_BITFIELD(machine_mode) mode : 8;
 
   int allocno_num; /* ?!? if conflicts as arcs */
 
@@ -381,14 +381,14 @@ struct insn_allocno_change
      case the previous member refers to the duplicate), otherwise it
      is duplicate (in this case the previous member refers to the
      original).  */
-  bool original_p : 1;
+  BOOL_BITFIELD original_p : 1;
   /* This member is true only for constant which should be placed in
      const pool.  */
-  bool const_pool_p : 1;
+  BOOL_BITFIELD const_pool_p : 1;
   /* This member is true only for operand which is used without
      change.  It is possible for memory, constant, or hard
      register.  */
-  bool use_without_change_p : 1;
+  BOOL_BITFIELD use_without_change_p : 1;
   /* The following is a hard register needed for elimination.  The
      negative value means we don't need a hard register for the
      elimination.  The elimination register mode is always Pmode.  */
@@ -414,23 +414,23 @@ struct insn_allocno
   /* If the allocno LOC contains subreg or inside subreg, this is the
      biggest mode of subreg and subreg internal.  Otherwise it is just
      allocno mode (mode of LOC). */
-  enum machine_mode biggest_mode : 8;
-  enum op_type op_mode : 8;
+  ENUM_BITFIELD(machine_mode) biggest_mode : 8;
+  ENUM_BITFIELD(op_type) op_mode : 8;
   int type : 8; /* 0 - Base, 1 - Index, 2, 3, 4, ... - Operand #val - 2. */
   /* The following member value is true if there is early clobber flag
      for the corresponding operand.  Actually the clobber flag
      belongs to an alternative but it is hard to represent and use it
      for allocno conflicts.  Therefore we make it true for all
      alternatives if there is a flag.  */
-  bool early_clobber : 1;
+  BOOL_BITFIELD early_clobber : 1;
   /* The following is true if the allocno contains a register can be
      eliminated.  We ignore the registers in memory expression.  They
      will be processed in other allocnos.  */
-  bool elimination_p : 1;
+  BOOL_BITFIELD elimination_p : 1;
   /* The value is true if it is a constant being a part of expression
      which might be transformed by register elimination.  Such
      constant never gets a hard register or memory.  */
-  bool elimination_part_const_p : 1;
+  BOOL_BITFIELD elimination_part_const_p : 1;
   rtx insn;
   /* It is address of rtx of the allocno.  If the allocno corresponing
      an operand, it is an operand location.  */
@@ -591,11 +591,14 @@ struct copy_change
 #ifdef HAVE_SECONDARY_RELOADS
   /* The following true value means that we use icode insn with src as
      an operand.  Otherwise we use dst as output of icode insn.  */
-  bool in_p : 1;
+  BOOL_BITFIELD in_p : 1;
   /* Code of reload insn used for copying, CODE_FOR_nothing if we use
      standard move patterns.  */
-  enum insn_code icode : 15;
-  enum machine_mode interm_mode : 8, scratch_mode : 8;
+  ENUM_BITFIELD(insn_code) icode : 15;
+ 
+  ENUM_BITFIELD(machine_mode) interm_mode : 8;
+  ENUM_BITFIELD(machine_mode) scratch_mode : 8;
+
   /* Start intermediate hard register needed for a secondary reload.
      -1 means it is not necessary.  */
   short interm_regno;
@@ -607,12 +610,12 @@ struct copy_change
   /* The following hard register (in given mode) might be needed to
      load equivalent constant into the destination allocno.  */
   short interm_equiv_const_regno;
-  enum machine_mode interm_equiv_const_mode : 8;
+  ENUM_BITFIELD(machine_mode) interm_equiv_const_mode : 8;
   /* The following two member values are used only when secondary
      memory is needed.  We don't need secondary memory if the two
      values are NULL.  */
 #ifdef SECONDARY_MEMORY_NEEDED
-  enum machine_mode memory_mode : 8;
+  ENUM_BITFIELD(machine_mode) memory_mode : 8;
   /* Value from SECONDARY_MEMORY_NEEDED_RTX, otherwise NULL.  */
   rtx user_defined_memory;
   /* Allocated memory used only the previous value is NULL.  */
@@ -651,10 +654,11 @@ struct copy
 
   short freq;
   /* Flag of that source and target are already synchronized.  */
-  bool sync_p : 1;
+  BOOL_BITFIELD sync_p : 1;
+
   /* Use the hard regno (if it is not negative) instead of src
      location.  */
-  short subst_src_hard_regno : 15;
+  short subst_src_hard_regno;
 
   /* Set of hard regs conflicting with the copy.  */
   HARD_REG_SET hard_reg_conflicts;

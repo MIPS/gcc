@@ -1,3 +1,21 @@
+2006-07-30  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* yara-int.h (struct reg_eliminate, struct allocno_change,
+	struct insn_allocno_change, struct insn_allocno, struct copy_change,
+	struct copy): Use ENUM_BITFIELD and BOOL_BITFIELD where appropriate.
+	Don't create bitfields of signed types.
+	* lower-subreg.c (decompose_multiword_subregs): Make it static.
+
+	* yara-insn.c (setup_possible_alternatives): Use FOR_BB_INSNS.
+	* yara-color.c (setup_can_classes,
+	setup_cover_classes_and_reg_costs, calculate_reg_pressure,
+	add_move_costs, setup_bb_pos_insn_maps): Likewise.
+	* yara-final.c (process_bb_locs, yara_rewrite): Likewise.
+	* yara.c (check_allocation, yara): Likewise.
+	* yara-ir.c (find_possible_eliminations, set_insn_regno_regs,
+	scan_insn_for_reg_equivs, initiate_equivs, create_bb_insn_allocnos,
+	make_vn, make_aggressive_coalescing): Likewise.
+
 2006-07-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* params.h (YARA_SPLIT_THRESHOLD): Remove.

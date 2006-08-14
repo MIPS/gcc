@@ -554,7 +554,7 @@ resolve_use (rtx pat, rtx insn)
 
 /* */
 
-void
+static void
 decompose_multiword_subregs (void)
 {
   rtx insn, set;

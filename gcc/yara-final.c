@@ -333,15 +333,14 @@ static void
 process_bb_locs (basic_block bb)
 {
   int i, hard_regno;
-  rtx insn, bound, set;
+  rtx insn, set;
   enum machine_mode mode;
   allocno_t a, a2;
   struct memory_slot *memory_slot;
   bool cont_p;
 
-  bound = NEXT_INSN (BB_END (bb));
   process_copy_locs (at_bb_start_copies [bb->index]);
-  for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+  FOR_BB_INSNS (bb, insn)
     {
       if (! INSN_P (insn))
 	continue;
@@ -3098,7 +3097,7 @@ yara_rewrite (void)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  rtx bound, insn, next_insn, set;
+  rtx insn, next_insn, set;
   bool remove_p;
 
   if ((YARA_PARAMS & YARA_NO_COPY_SYNC) == 0)
@@ -3113,8 +3112,7 @@ yara_rewrite (void)
   allocate_stack_memory ();
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = next_insn)
+      FOR_BB_INSNS (bb, insn)
 	{
 	  next_insn = NEXT_INSN (insn);
 	  if (INSN_P (insn) && INSN_UID (insn) < yara_max_uid)

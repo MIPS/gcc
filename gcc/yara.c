@@ -361,12 +361,11 @@ static void
 check_allocation (void)
 {
   basic_block bb;
-  rtx bound, insn;
+  rtx insn;
 
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	/* ????!!!! We should check somehow code inside use clobber and
 	   asm.  */
 	if (INSN_P (insn) && GET_CODE (PATTERN (insn)) != USE
@@ -403,15 +402,14 @@ void
 yara (FILE *f)
 {
   basic_block bb;
-  rtx bound, insn;
+  rtx insn;
 
   yara_max_uid = get_max_uid ();
   /* Our code is based on assumption that there is no subreg of hard
      registers and memory.  */
   FOR_EACH_BB (bb)
     {
-      bound = NEXT_INSN (BB_END (bb));
-      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  cleanup_subreg_operands (insn);
     }
