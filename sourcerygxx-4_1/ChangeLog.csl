@@ -1,3 +1,10 @@
+2006-08-14  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (notice_update_cc): If an SFmode move is
+	implemented using move.l, do not use its cc result for floating-point
+	comparisons.
+
 2006-08-09  Paul Brook  <paul@codesourcery.com>
 
 	gcc/
