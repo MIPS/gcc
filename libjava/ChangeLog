@@ -1,5 +1,13 @@
 2006-08-14  Tom Tromey  <tromey@redhat.com>
 
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj_la_LIBADD): Add LIBMAGIC.
+	* java/net/natVMURLConnection.cc: Wrote, based on Classpath.
+	* configure, config.h.in: Rebuilt.
+	* configure.ac: Check for magic.h and -lmagic.
+
+2006-08-14  Tom Tromey  <tromey@redhat.com>
+
 	* java/lang/natThread.cc (getId): Removed.
 	* java/lang/Thread.java (threadId): New field.
 	(totalThreadsCreated): Likewise.

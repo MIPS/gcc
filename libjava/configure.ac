@@ -1161,6 +1161,10 @@ else
       AC_CHECK_LIB(z, deflate, ZLIBSPEC=-lz, ZLIBSPEC=)
    fi
 
+   LIBMAGIC=
+   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
+   AC_SUBST(LIBMAGIC)
+
    # Test for Gtk stuff, if asked for.
    if test "$use_gtk_awt" = yes; then
       PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.4)
@@ -1321,7 +1325,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h sys/rw_lock.h])
+		  dirent.h sys/rw_lock.h magic.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
