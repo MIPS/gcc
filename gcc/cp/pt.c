@@ -10846,6 +10846,12 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   tree args2 = TYPE_ARG_TYPES (TREE_TYPE (decl2));
   int better1 = 0;
   int better2 = 0;
+  int skip1 = 0;
+  int skip2 = 0;
+  int orig_len;
+  int i;
+  VEC(tree,heap) *v1;
+  VEC(tree,heap) *v2;
   
   /* Remove the this parameter from non-static member functions.  If
      one is a non-static member function and the other is not a static
@@ -10856,17 +10862,17 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl1))
     {
       len--; /* LEN is the number of significant arguments for DECL1 */
-      args1 = TREE_CHAIN (args1);
+      skip1++;
       if (!DECL_STATIC_FUNCTION_P (decl2))
-	args2 = TREE_CHAIN (args2);
+	skip2++;
     }
   else if (DECL_NONSTATIC_MEMBER_FUNCTION_P (decl2))
     {
-      args2 = TREE_CHAIN (args2);
+      skip2++;
       if (!DECL_STATIC_FUNCTION_P (decl1))
 	{
 	  len--;
-	  args1 = TREE_CHAIN (args1);
+	  skip1++;
 	}
     }
     
@@ -10874,20 +10880,30 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   if (DECL_CONV_FN_P (decl1) != DECL_CONV_FN_P (decl2))
     return 0;
 
-  /* Consider the return type for a conversion function */
+  v1 = VEC_alloc (tree, heap, len + 1);
+  v2 = VEC_alloc (tree, heap, len + 1);
+
+  /* Consider the return type for a conversion function.  */
+  orig_len = len;
   if (DECL_CONV_FN_P (decl1))
     {
-      args1 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl1)), args1);
-      args2 = tree_cons (NULL_TREE, TREE_TYPE (TREE_TYPE (decl2)), args2);
+      VEC_quick_push (tree, v1, TREE_TYPE (TREE_TYPE (decl1)));
+      VEC_quick_push (tree, v2, TREE_TYPE (TREE_TYPE (decl2)));
       len++;
+    }
+
+  for (i = 0; i < orig_len; i++)
+    {
+      VEC_quick_push (tree, v1, nth_parm_type (args1, skip1 + i));
+      VEC_quick_push (tree, v2, nth_parm_type (args2, skip2 + i));
     }
 
   processing_template_decl++;
 
-  while (len--)
+  for (i = 0; i < len; i++)
     {
-      tree arg1 = TREE_VALUE (args1);
-      tree arg2 = TREE_VALUE (args2);
+      tree arg1 = VEC_index (tree, v1, i);
+      tree arg2 = VEC_index (tree, v2, i);
       int deduce1, deduce2;
       int quals1 = -1;
       int quals2 = -1;
@@ -10972,10 +10988,10 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 	better2 = 1;
       if (deduce2 && !deduce1 && !better1)
 	better1 = 1;
-
-      args1 = TREE_CHAIN (args1);
-      args2 = TREE_CHAIN (args2);
     }
+
+  VEC_free (tree, heap, v1);
+  VEC_free (tree, heap, v2);
 
   processing_template_decl--;
 
