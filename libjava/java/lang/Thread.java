@@ -133,6 +133,12 @@ public class Thread implements Runnable
   /** The context classloader for this Thread. */
   private ClassLoader contextClassLoader;
 
+  /** This thread's ID.  */
+  private final long threadId;
+  
+  /** Used to generate the next thread ID to use.  */
+  private static long totalThreadsCreated;
+
   /** The default exception handler.  */
   private static UncaughtExceptionHandler defaultHandler;
 
@@ -381,6 +387,11 @@ public class Thread implements Runnable
       {
 	daemon = false;
 	priority = NORM_PRIORITY;
+      }
+
+    synchronized (Thread.class)
+      {
+        this.threadId = ++totalThreadsCreated;
       }
 
     name = n;
@@ -1040,7 +1051,10 @@ public class Thread implements Runnable
    * @return a positive long number representing the thread's ID.
    * @since 1.5 
    */
-  public native long getId();
+  public long getId()
+  {
+    return threadId;
+  }
 
   /**
    * <p>

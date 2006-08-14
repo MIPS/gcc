@@ -1,5 +1,13 @@
 2006-08-14  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/natThread.cc (getId): Removed.
+	* java/lang/Thread.java (threadId): New field.
+	(totalThreadsCreated): Likewise.
+	(Thread): Set threadId.
+	(getId): No longer native.
+
+2006-08-14  Tom Tromey  <tromey@redhat.com>
+
 	* sources.am, Makefile.in: Rebuilt.
 	* Makefile.am (nat_source_files): Added new .cc files.
 	(libgcj-$(gcc_version).jar): Include 'sun'.
