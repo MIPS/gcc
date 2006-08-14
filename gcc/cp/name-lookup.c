@@ -4204,6 +4204,7 @@ struct arg_lookup
 
 static bool arg_assoc (struct arg_lookup*, tree);
 static bool arg_assoc_args (struct arg_lookup*, tree);
+static bool arg_assoc_parm_types (struct arg_lookup*, tree);
 static bool arg_assoc_type (struct arg_lookup*, tree);
 static bool add_function (struct arg_lookup *, tree);
 static bool arg_assoc_namespace (struct arg_lookup *, tree);
@@ -4521,7 +4522,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
 	 fall through.  */
     case FUNCTION_TYPE:
       /* Associate the parameter types.  */
-      if (arg_assoc_args (k, TYPE_ARG_TYPES (type)))
+      if (arg_assoc_parm_types (k, TYPE_ARG_TYPES (type)))
 	return true;
       /* Associate the return type.  */
       return arg_assoc_type (k, TREE_TYPE (type));
@@ -4543,6 +4544,17 @@ arg_assoc_type (struct arg_lookup *k, tree type)
 
 static bool
 arg_assoc_args (struct arg_lookup *k, tree args)
+{
+  for (; args; args = TREE_CHAIN (args))
+    if (arg_assoc (k, TREE_VALUE (args)))
+      return true;
+  return false;
+}
+
+/* Adds everything associated with arguments.  Returns true on error.  */
+
+static bool
+arg_assoc_parm_types (struct arg_lookup *k, tree args)
 {
   int len = num_parm_types (args);
   int i;

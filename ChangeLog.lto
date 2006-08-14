@@ -7,6 +7,11 @@
 
 	* gcc/cp/pt.c (more_specialized_fn): Use nth_parm_type.
 
+	* gcc/cp/name-lookup.c (arg_assoc_type): Call arg_assoc_parm_types
+	instead of arg_assoc_args.
+	(arg_assoc_args): Don't use nth_parm_type.
+	(arg_assoc_parm_types): New.
+
 2006-08-13  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/pt.c (type_unification_real_args): Use num_parm_types and
