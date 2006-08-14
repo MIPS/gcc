@@ -233,6 +233,13 @@ namespace gcj
 
   /* Thread stack size specified by the -Xss runtime argument. */
   extern size_t stack_size;
+
+  /* The start time */
+  extern jlong startTime;
+  
+  /* The VM arguments */
+  extern JArray<jstring>* vmArgs;
+
 }
 
 // This class handles all aspects of class preparation and linking.

@@ -292,7 +292,7 @@ $(propertyo_files): %.lo: classpath/resource/%
 
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	cd classpath/lib; $(JAR) -cfM \
-	    ../../libgcj-$(gcc_version).jar gnu java javax org
+	    ../../libgcj-$(gcc_version).jar gnu java javax org sun
 
 CLEANFILES = libgcj-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
@@ -626,16 +626,26 @@ gnu/gcj/runtime/natSystemClassLoader.cc \
 gnu/gcj/runtime/natStringBuffer.cc \
 gnu/gcj/util/natDebug.cc \
 gnu/java/lang/natMainThread.cc \
+gnu/java/lang/management/natVMClassLoadingMXBeanImpl.cc \
+gnu/java/lang/management/natVMCompilationMXBeanImpl.cc \
+gnu/java/lang/management/natVMGarbageCollectorMXBeanImpl.cc \
+gnu/java/lang/management/natVMMemoryMXBeanImpl.cc \
+gnu/java/lang/management/natVMMemoryManagerMXBeanImpl.cc \
+gnu/java/lang/management/natVMMemoryPoolMXBeanImpl.cc \
+gnu/java/lang/management/natVMRuntimeMXBeanImpl.cc \
+gnu/java/lang/management/natVMThreadMXBeanImpl.cc \
 gnu/java/net/natPlainDatagramSocketImpl.cc \
 gnu/java/net/natPlainSocketImpl.cc \
 gnu/java/net/protocol/core/natCoreInputStream.cc \
 gnu/java/nio/natPipeImpl.cc \
 gnu/java/nio/natSelectorImpl.cc \
 gnu/java/nio/natNIOServerSocket.cc \
+gnu/java/nio/natVMChannel.cc \
 gnu/java/nio/channels/natFileChannelImpl.cc \
 java/io/natFile.cc \
 java/io/natObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
+java/lang/management/natVMManagementFactory.cc \
 java/lang/natCharacter.cc \
 java/lang/natClass.cc \
 java/lang/natClassLoader.cc \
@@ -658,16 +668,19 @@ java/lang/reflect/natArray.cc \
 java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
-java/net/natVMNetworkInterface.cc \
 java/net/natInetAddress.cc \
+java/net/natVMNetworkInterface.cc \
+java/net/natVMURLConnection.cc \
 java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \
 java/text/natCollator.cc \
 java/util/natResourceBundle.cc \
 java/util/natVMTimeZone.cc \
+java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \
 java/util/zip/natDeflater.cc \
-java/util/zip/natInflater.cc
+java/util/zip/natInflater.cc \
+sun/misc/natUnsafe.cc
 
 xlib_nat_source_files = \
 gnu/gcj/xlib/natClip.cc \
@@ -704,7 +717,7 @@ src.zip:
 	here=`pwd`; \
 	( \
 	  ( cd $(srcdir)/classpath; \
-	  find java gnu javax org -name '*.java' -print | \
+	  find java gnu javax org sun -name '*.java' -print | \
 	  while read file; do \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
 ## Gross but easy.

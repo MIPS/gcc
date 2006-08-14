@@ -38,6 +38,13 @@ exception statement from your version. */
 
 package gnu.classpath.tools.keytool;
 
+import gnu.classpath.Configuration;
+import gnu.classpath.tools.getopt.ClasspathToolParser;
+import gnu.classpath.tools.getopt.Option;
+import gnu.classpath.tools.getopt.OptionException;
+import gnu.classpath.tools.getopt.OptionGroup;
+import gnu.classpath.tools.getopt.Parser;
+
 import java.io.PrintWriter;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
@@ -63,7 +70,7 @@ import java.util.logging.Logger;
 class PrintCertCmd extends Command
 {
   private static final Logger log = Logger.getLogger(PrintCertCmd.class.getName());
-  private String _certFileName;
+  protected String _certFileName;
 
   // default 0-arguments constructor
 
@@ -77,47 +84,60 @@ class PrintCertCmd extends Command
 
   // life-cycle methods -------------------------------------------------------
 
-  int processArgs(String[] args, int i)
-  {
-    int limit = args.length;
-    String opt;
-    while (++i < limit)
-      {
-        opt = args[i];
-        log.finest("args[" + i + "]=" + opt);
-        if (opt == null || opt.length() == 0)
-          continue;
-
-        if ("-file".equals(opt)) // -file FILE_NAME
-          _certFileName = args[++i];
-        else if ("-v".equals(opt))
-          verbose = true;
-        else
-          break;
-      }
-
-    return i;
-  }
-
   void setup() throws Exception
   {
     setInputStreamParam(_certFileName);
-
-    log.finer("-printcert handler will use the following options:");
-    log.finer("  -file=" + _certFileName);
-    log.finer("  -v=" + verbose);
+    if (Configuration.DEBUG)
+      {
+        log.fine("-printcert handler will use the following options:"); //$NON-NLS-1$
+        log.fine("  -file=" + _certFileName); //$NON-NLS-1$
+        log.fine("  -v=" + verbose); //$NON-NLS-1$
+      }
   }
 
   void start() throws CertificateException
   {
-    log.entering(getClass().getName(), "start");
-
+    if (Configuration.DEBUG)
+      log.entering(getClass().getName(), "start"); //$NON-NLS-1$
     CertificateFactory x509Factory = CertificateFactory.getInstance(Main.X_509);
     Certificate certificate = x509Factory.generateCertificate(inStream);
     PrintWriter writer = new PrintWriter(System.out, true);
     writer.println();
     printVerbose(certificate, writer);
+    if (Configuration.DEBUG)
+      log.exiting(getClass().getName(), "start"); //$NON-NLS-1$
+  }
 
-    log.exiting(getClass().getName(), "start");
+  // own methods --------------------------------------------------------------
+
+  Parser getParser()
+  {
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "getParser"); //$NON-NLS-1$
+    Parser result = new ClasspathToolParser(Main.PRINTCERT_CMD, true);
+    result.setHeader(Messages.getString("PrintCertCmd.5")); //$NON-NLS-1$
+    result.setFooter(Messages.getString("PrintCertCmd.6")); //$NON-NLS-1$
+    OptionGroup options = new OptionGroup(Messages.getString("PrintCertCmd.7")); //$NON-NLS-1$
+    options.add(new Option(Main.FILE_OPT,
+                           Messages.getString("PrintCertCmd.8"), //$NON-NLS-1$
+                           Messages.getString("PrintCertCmd.9")) //$NON-NLS-1$
+    {
+      public void parsed(String argument) throws OptionException
+      {
+        _certFileName = argument;
+      }
+    });
+    options.add(new Option(Main.VERBOSE_OPT,
+                           Messages.getString("PrintCertCmd.10")) //$NON-NLS-1$
+    {
+      public void parsed(String argument) throws OptionException
+      {
+        verbose = true;
+      }
+    });
+    result.add(options);
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "getParser", result); //$NON-NLS-1$
+    return result;
   }
 }

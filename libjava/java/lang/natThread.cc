@@ -385,6 +385,20 @@ java::lang::Thread::yield (void)
   _Jv_ThreadYield ();
 }
 
+jlong
+java::lang::Thread::getId()
+{
+  // FIXME
+  return 5;
+}
+
+::java::lang::Thread$State *
+java::lang::Thread::getState()
+{
+  // FIXME
+  return NULL;
+}
+
 JNIEnv *
 _Jv_GetCurrentJNIEnv ()
 {

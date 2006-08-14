@@ -49,8 +49,11 @@ set package_map(gnu/xml) bc
 set package_map(javax/imageio) bc
 set package_map(javax/xml) bc
 set package_map(gnu/java/beans) bc
+set package_map(gnu/java/awt/dnd/peer/gtk) bc
 set package_map(gnu/java/awt/peer/gtk) bc
 set package_map(gnu/java/awt/peer/qt) bc
+set package_map(gnu/java/awt/peer/x) bc
+set package_map(gnu/java/util/prefs/gconf) bc
 set package_map(gnu/javax/sound/midi) bc
 set package_map(org/xml) bc
 set package_map(org/w3c) bc
@@ -214,7 +217,7 @@ proc scan_directory {basedir subdir} {
 # Scan known packages beneath the base directory for .java source
 # files.
 proc scan_packages {basedir} {
-  foreach subdir {gnu java javax org META-INF} {
+  foreach subdir {gnu java javax org sun META-INF} {
     if {[file exists $basedir/$subdir]} {
       scan_directory $basedir $subdir
     }
@@ -249,7 +252,7 @@ proc emit_bc_rule {package} {
 
   # We skip these because they are built into their own libraries and
   # are handled specially in Makefile.am.
-  if {$loname != "gnu-java-awt-peer-qt.lo"} {
+  if {$loname != "gnu-java-awt-peer-qt.lo" && $loname != "gnu-java-awt-peer-x.lo"} {
     lappend bc_objects $loname
   }
 }
@@ -323,7 +326,9 @@ proc emit_source_var {package} {
   if {$package_map($package) != "bc"} {
     # Ugly code to build up the appropriate patsubst.
     set result "\$(patsubst %.java,%.h,\$($varname))"
-    foreach dir [lsort [array names dirs]] {
+    # We use -decreasing so that classpath/external will be stripped
+    # before classpath.
+    foreach dir [lsort -decreasing [array names dirs]] {
       if {$dir != "."} {
 	set result "\$(patsubst $dir/%,%,$result)"
       }
@@ -360,13 +365,14 @@ if {[llength $argv] > 0 && [lindex $argv 0] == "-verbose"} {
 
 # Read the proper .omit files.
 read_omit_file standard.omit.in
-read_omit_file classpath/lib/standard.omit
+read_omit_file classpath/lib/standard.omit.in
 
 # Scan classpath first.
 scan_packages classpath
 scan_packages classpath/external/sax
 scan_packages classpath/external/w3c_dom
 scan_packages classpath/external/relaxngDatatype
+scan_packages classpath/external/jsr166
 # Resource files.
 scan_packages classpath/resource
 # Now scan our own files; this will correctly override decisions made

@@ -1822,7 +1822,7 @@ public final class String
    */
   public synchronized int codePointCount(int start, int end)
   {
-    if (start < 0 || end >= count || start > end)
+    if (start < 0 || end > count || start > end)
       throw new StringIndexOutOfBoundsException();
 
     start += offset;

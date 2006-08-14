@@ -91,8 +91,76 @@ public class PrintStream extends FilterOutputStream implements Appendable
   private boolean auto_flush;
 
   /**
-   * This method intializes a new <code>PrintStream</code> object to write
-   * to the specified output sink.
+   * This method initializes a new <code>PrintStream</code> object to write
+   * to the specified output File. Doesn't autoflush.
+   *
+   * @param file The <code>File</code> to write to.
+   * @throws FileNotFoundException if an error occurs while opening the file.
+   *
+   * @since 1.5
+   */
+  public PrintStream (File file)
+    throws FileNotFoundException
+  {
+    this (new FileOutputStream(file), false);
+  }
+
+  /**
+   * This method initializes a new <code>PrintStream</code> object to write
+   * to the specified output File. Doesn't autoflush.
+   *
+   * @param file The <code>File</code> to write to.
+   * @param encoding The name of the character encoding to use for this
+   * object.
+   * @throws FileNotFoundException If an error occurs while opening the file.
+   * @throws UnsupportedEncodingException If the charset specified by
+   * <code>encoding</code> is invalid.
+   *
+   * @since 1.5
+   */
+  public PrintStream (File file, String encoding)
+    throws FileNotFoundException,UnsupportedEncodingException
+  {
+    this (new FileOutputStream(file), false, encoding);
+  }
+
+  /**
+   * This method initializes a new <code>PrintStream</code> object to write
+   * to the specified output File. Doesn't autoflush.
+   *
+   * @param fileName The name of the <code>File</code> to write to.
+   * @throws FileNotFoundException if an error occurs while opening the file,
+   *
+   * @since 1.5
+   */
+  public PrintStream (String fileName)
+    throws FileNotFoundException
+  {
+    this (new FileOutputStream(new File(fileName)), false);
+  }
+
+  /**
+   * This method initializes a new <code>PrintStream</code> object to write
+   * to the specified output File. Doesn't autoflush.
+   *
+   * @param fileName The name of the <code>File</code> to write to.
+   * @param encoding The name of the character encoding to use for this
+   * object.
+   * @throws FileNotFoundException if an error occurs while opening the file.
+   * @throws UnsupportedEncodingException If the charset specified by
+   * <code>encoding</code> is invalid.
+   *
+   * @since 1.5
+   */
+  public PrintStream (String fileName, String encoding)
+      throws FileNotFoundException,UnsupportedEncodingException
+  {
+    this (new FileOutputStream(new File(fileName)), false, encoding);
+  }
+
+  /**
+   * This method initializes a new <code>PrintStream</code> object to write
+   * to the specified output sink. Doesn't autoflush.
    *
    * @param out The <code>OutputStream</code> to write to.
    */
@@ -102,7 +170,7 @@ public class PrintStream extends FilterOutputStream implements Appendable
   }
 
   /**
-   * This method intializes a new <code>PrintStream</code> object to write
+   * This method initializes a new <code>PrintStream</code> object to write
    * to the specified output sink.  This constructor also allows "auto-flush"
    * functionality to be specified where the stream will be flushed after
    * every <code>print</code> or <code>println</code> call, when the 
@@ -131,7 +199,7 @@ public class PrintStream extends FilterOutputStream implements Appendable
   }
 
   /**
-   * This method intializes a new <code>PrintStream</code> object to write
+   * This method initializes a new <code>PrintStream</code> object to write
    * to the specified output sink.  This constructor also allows "auto-flush"
    * functionality to be specified where the stream will be flushed after
    * every <code>print</code> or <code>println</code> call, when the 
@@ -153,33 +221,6 @@ public class PrintStream extends FilterOutputStream implements Appendable
     new String(new byte[]{0}, encoding);    // check if encoding is supported
     this.encoding = encoding;
     this.auto_flush = auto_flush;
-  }
-
-  /** @since 1.5 */
-  public PrintStream (String filename)
-    throws FileNotFoundException
-  {
-    this(new FileOutputStream (filename));
-  }
-
-  /** @since 1.5 */
-  public PrintStream (String filename, String encoding)
-    throws FileNotFoundException, UnsupportedEncodingException
-  {
-    this(new FileOutputStream (filename),false,encoding);
-  }
-
-  /** @since 1.5 */
-  public PrintStream (File file) throws FileNotFoundException
-  {
-    this(new FileOutputStream (file));
-  }
-
-  /** @since 1.5 */
-  public PrintStream (File file, String encoding)
-    throws FileNotFoundException, UnsupportedEncodingException
-  {
-    this(new FileOutputStream (file),false,encoding);
   }
 
   /**

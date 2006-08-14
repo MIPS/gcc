@@ -174,6 +174,24 @@ AC_ARG_ENABLE(libgcj-debug,
     LIBGCJDEBUG="enable"
   fi])
 
+AC_ARG_WITH([escher],
+         AS_HELP_STRING([--with-escher=ABS.PATH],
+                        [specify path to escher dir or JAR for X peers]))
+case "$with_escher" in
+"")
+        use_escher=false
+        ;;
+"no")
+        use_escher=false
+        ;;
+"yes")
+        AC_MSG_ERROR([Please supply an absolute path to Escher library])
+        ;;
+*)
+        use_escher=true
+        ;;
+esac
+
 # Determine which AWT peer libraries to build
 AC_ARG_ENABLE(java-awt,
   AS_HELP_STRING([--enable-java-awt],
@@ -183,6 +201,7 @@ peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
 use_xlib_awt=""
 use_gtk_awt=""
 use_qt_awt=""
+use_x_awt=""
 # The default toolkit to use is the first one specified.
 TOOLKIT=
 AC_SUBST(TOOLKIT)
@@ -223,10 +242,17 @@ for peer in $peerlibs ; do
 	 fi
       fi
       ;;
+    x)
+      use_x_awt=yes
+      if test -z "$TOOLKIT"; then
+	 TOOLKIT=gnu.java.awt.peer.x.XToolkit
+      fi
+      ;;
     no)
       use_xlib_awt=
       use_gtk_awt=
       use_qt_awt=
+      use_x_awt=
       break
       ;;
     *)
@@ -237,6 +263,7 @@ done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
 AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
+AM_CONDITIONAL(X_AWT, test "$use_x_awt" = yes)
 
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
@@ -246,6 +273,9 @@ if test "$use_xlib_awt" != yes; then
 fi
 if test "$use_qt_awt" != yes; then
    echo gnu/java/awt/peer/qt >> standard.omit
+fi
+if test "$use_x_awt" != yes; then
+   echo gnu/java/awt/peer/x >> standard.omit
 fi
 
 if test -z "${with_multisubdir}"; then
@@ -335,13 +365,23 @@ dnl FIXME?
 ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
 if test "$use_gtk_awt" != yes; then
-  ac_configure_args="$ac_configure_args --disable-gtk-peer"
+  ac_configure_args="$ac_configure_args --disable-gtk-peer --disable-plugin"
 fi
 if test "$use_qt_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-qt-peer"
 else
   # We need this as qt is disabled by default in classpath.
   ac_configure_args="$ac_configure_args --enable-qt-peer"
+fi
+if test "$use_x_awt" != yes; then
+  ac_configure_args="$ac_configure_args --without-escher"
+else
+  # We need this as escher is disabled by default in classpath.
+  if test "$use_escher" != true; then
+    AC_MSG_ERROR([Please supply an absolute path to the Escher library])
+  else
+    ac_configure_args="$ac_configure_args --with-escher=$with_escher"
+  fi
 fi
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
