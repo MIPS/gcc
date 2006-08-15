@@ -85,7 +85,7 @@ gnu::gcj::runtime::SharedLibHelper::init(void)
 
   if (flags==0)
     flags = RTLD_GLOBAL | RTLD_LAZY;
-  JvSynchronize dummy1(&java::lang::Class::class$);
+  JvSynchronize dummy1(&::java::lang::Class::class$);
   SharedLibDummy dummy2;
   curLoader = loader;
   curHelper = this;
@@ -95,7 +95,7 @@ gnu::gcj::runtime::SharedLibHelper::init(void)
   if (h == NULL)
     {
       const char *msg = dlerror();
-      throw new java::lang::UnknownError(JvNewStringLatin1(msg));
+      throw new ::java::lang::UnknownError(JvNewStringLatin1(msg));
     }
   handler = (gnu::gcj::RawData*) h;
 #else

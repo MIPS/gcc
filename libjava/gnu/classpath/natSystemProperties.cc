@@ -142,7 +142,7 @@ PrependVersionedLibdir (::java::lang::String* libpath)
 }
 
 void
-gnu::classpath::SystemProperties::insertSystemProperties (java::util::Properties *newprops)
+gnu::classpath::SystemProperties::insertSystemProperties (::java::util::Properties *newprops)
 {
   // A convenience define.
 #define SET(Prop,Val) \

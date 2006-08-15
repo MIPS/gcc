@@ -1,3 +1,13 @@
+2006-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/gcj/runtime/natSharedLibLoader.cc (init): Added missing
+	'::'.
+	* gnu/gcj/convert/natIconv.cc (init): Added missing '::'.
+	(read): Likewise.
+	* gnu/gcj/natCore.cc (create): Added missing '::'.
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties):
+	Added missing '::'
+
 2006-08-14  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in: Rebuilt.
