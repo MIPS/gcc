@@ -86,6 +86,14 @@ ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
   return result;
 }
 
+void *ggc_alloc_cleared_typed_stat (enum gt_types_enum type,
+				    size_t size MEM_STAT_DECL)
+{
+  void * result = ggc_alloc_typed_stat(type, size);
+  memset (result, 0, size);
+  return result;
+}
+
 enum gt_types_enum
 get_block_type(void * block)
 {

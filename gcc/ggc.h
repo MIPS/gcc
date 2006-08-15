@@ -209,6 +209,9 @@ extern void *ggc_alloc_typed_stat (enum gt_types_enum, size_t MEM_STAT_DECL);
 #define ggc_alloc_typed(s,z) ggc_alloc_typed_stat (s,z MEM_STAT_INFO)
 /* Like ggc_alloc, but allocates cleared memory.  */
 extern void *ggc_alloc_cleared_stat (size_t MEM_STAT_DECL);
+extern void *ggc_alloc_cleared_typed_stat (enum gt_types_enum,
+					   size_t MEM_STAT_DECL);
+#define ggc_alloc_cleared_typed(s, z) ggc_alloc_cleared_typed_stat(s,z MEM_STAT_INFO)
 #define ggc_alloc_cleared(s) ggc_alloc_cleared_stat (s MEM_STAT_INFO)
 /* Resize a block.  */
 extern void *ggc_realloc_stat (void *, size_t MEM_STAT_DECL);
