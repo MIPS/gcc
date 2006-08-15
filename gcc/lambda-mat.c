@@ -38,7 +38,7 @@ lambda_matrix_new (int m, int n)
   int i;
 
   mat = ggc_alloc (m * sizeof (lambda_vector));
-  
+
   for (i = 0; i < m; i++)
     mat[i] = lambda_vector_new (n);
 

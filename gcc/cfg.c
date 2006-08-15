@@ -82,7 +82,7 @@ void
 init_flow (void)
 {
   if (!cfun->cfg)
-    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+    cfun->cfg = ggc_alloc_cleared_control_flow_graph();
   n_edges = 0;
   ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;

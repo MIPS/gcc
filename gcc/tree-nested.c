@@ -870,7 +870,7 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = ggc_alloc_var_map_elt ();
   elt->old = decl;
   elt->new = new_decl;
   *slot = elt;
@@ -1178,7 +1178,7 @@ get_local_debug_decl (struct nesting_info *info, tree decl, tree field)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = ggc_alloc_var_map_elt ();
   elt->old = decl;
   elt->new = new_decl;
   *slot = elt;

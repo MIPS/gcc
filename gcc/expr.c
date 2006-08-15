@@ -337,7 +337,7 @@ init_expr_once (void)
 void
 init_expr (void)
 {
-  cfun->expr = ggc_alloc_cleared (sizeof (struct expr_status));
+  cfun->expr = ggc_alloc_cleared_expr_status();
 }
 
 /* Copy data from FROM to TO, where the machine modes are not the same.

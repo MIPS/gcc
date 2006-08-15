@@ -864,8 +864,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   struct function *new_cfun;
   /* Place to copy from; when a copy of the function was saved off earlier,
      use that instead of the main copy.  */
-  struct function *cfun_to_copy =
-    (struct function *) ggc_alloc_cleared (sizeof (struct function));
+  struct function *cfun_to_copy = ggc_alloc_cleared_function ();
   basic_block bb;
   tree new_fndecl = NULL;
   int count_scale, frequency_scale;
@@ -898,8 +897,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
      Otherwise, insert our new blocks and labels into the existing cfg.  */
   if (id->transform_new_cfg)
     {
-      new_cfun =
-	(struct function *) ggc_alloc_cleared (sizeof (struct function));
+      new_cfun = ggc_alloc_cleared_function ();
       *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
       new_cfun->cfg = NULL;
       new_cfun->decl = new_fndecl = copy_node (callee_fndecl);

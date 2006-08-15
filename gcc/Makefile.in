@@ -2863,8 +2863,8 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
-  $(srcdir)/tree-ssa-structalias.c \
-  $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
+  $(srcdir)/tree-ssa-structalias.c $(srcdir)/value-prof.h \
+  $(srcdir)/c-pragma.h $(srcdir)/omp-low.c $(srcdir)/stmt.c \
   $(srcdir)/targhooks.c $(out_file) \
   @all_gtfiles@
 

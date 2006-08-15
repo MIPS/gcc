@@ -736,7 +736,7 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 	{
 	  /* Check for the case where the divisor is the same value most
 	     of the time.  */
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = ggc_alloc_histogram_value_t ();
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_SINGLE_VALUE;
@@ -748,14 +748,14 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
       if (TREE_CODE (rhs) == TRUNC_MOD_EXPR
 	  && TYPE_UNSIGNED (type))
 	{
-          /* Check for a special case where the divisor is power of 2.  */
-	  hist = ggc_alloc (sizeof (*hist));
+	  /* Check for a special case where the divisor is power of 2.  */
+	  hist = ggc_alloc_histogram_value_t ();
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_POW2;
 	  VEC_quick_push (histogram_value, *values, hist);
 
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = ggc_alloc_histogram_value_t ();
 	  hist->hvalue.stmt = stmt;
 	  hist->hvalue.value
 		  = build2 (TRUNC_DIV_EXPR, type, op0, divisor);

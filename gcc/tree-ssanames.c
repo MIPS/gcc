@@ -268,7 +268,7 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   if (!ptr_info)
     return;
 
-  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
+  new_ptr_info = ggc_alloc_ptr_info_def ();
   *new_ptr_info = *ptr_info;
 
   if (ptr_info->pt_vars)

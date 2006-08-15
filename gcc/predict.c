@@ -235,7 +235,7 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
   if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
       && flag_guess_branch_prob && optimize)
     {
-      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+      struct edge_prediction *i = ggc_alloc_edge_prediction ();
 
       i->ep_next = e->src->predictions;
       e->src->predictions = i;

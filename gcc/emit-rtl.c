@@ -304,7 +304,7 @@ get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
   slot = htab_find_slot (mem_attrs_htab, &attrs, INSERT);
   if (*slot == 0)
     {
-      *slot = ggc_alloc (sizeof (mem_attrs));
+      *slot = ggc_alloc_mem_attrs();
       memcpy (*slot, &attrs, sizeof (mem_attrs));
     }
 
@@ -353,7 +353,7 @@ get_reg_attrs (tree decl, int offset)
   slot = htab_find_slot (reg_attrs_htab, &attrs, INSERT);
   if (*slot == 0)
     {
-      *slot = ggc_alloc (sizeof (reg_attrs));
+      *slot = ggc_alloc_reg_attrs();
       memcpy (*slot, &attrs, sizeof (reg_attrs));
     }
 
@@ -4679,7 +4679,7 @@ start_sequence (void)
       free_sequence_stack = tem->next;
     }
   else
-    tem = ggc_alloc (sizeof (struct sequence_stack));
+    tem = ggc_alloc_sequence_stack();
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4966,7 +4966,7 @@ init_emit (void)
 {
   struct function *f = cfun;
 
-  f->emit = ggc_alloc (sizeof (struct emit_status));
+  f->emit = ggc_alloc_emit_status();
   first_insn = NULL;
   last_insn = NULL;
   cur_insn_uid = 1;

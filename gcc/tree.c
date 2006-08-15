@@ -3188,7 +3188,7 @@ annotate_with_file_line (tree node, const char *file, int line)
       return;
     }
 
-  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
+  SET_EXPR_LOCUS (node, ggc_alloc_location_t ());
   EXPR_LINENO (node) = line;
   EXPR_FILENAME (node) = file;
   last_annotated_node = EXPR_LOCUS (node);
@@ -3852,7 +3852,7 @@ decl_init_priority_insert (tree from, unsigned short to)
   struct tree_int_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_int_map));
+  h = ggc_alloc_tree_int_map();
   h->from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (init_priority_for_decl, h, 
@@ -3882,7 +3882,7 @@ decl_restrict_base_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = ggc_alloc_tree_map ();
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -3948,7 +3948,7 @@ decl_debug_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = ggc_alloc_tree_map ();
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -3978,7 +3978,7 @@ decl_value_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = ggc_alloc_tree_map ();
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -4137,7 +4137,7 @@ type_hash_add (hashval_t hashcode, tree type)
   struct type_hash *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct type_hash));
+  h = ggc_alloc_type_hash ();
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);

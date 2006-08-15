@@ -575,7 +575,7 @@ dwarf_cfi_name (unsigned int cfi_opc)
 static inline dw_cfi_ref
 new_cfi (void)
 {
-  dw_cfi_ref cfi = ggc_alloc (sizeof (dw_cfi_node));
+  dw_cfi_ref cfi = ggc_alloc_dw_cfi_node();
 
   cfi->dw_cfi_next = NULL;
   cfi->dw_cfi_oprnd1.dw_cfi_reg_num = 0;
@@ -1208,7 +1208,7 @@ queue_reg_save (const char *label, rtx reg, rtx sreg, HOST_WIDE_INT offset)
 
   if (q == NULL)
     {
-      q = ggc_alloc (sizeof (*q));
+      q = ggc_alloc_queued_reg_save ();
       q->next = queued_reg_saves;
       queued_reg_saves = q;
     }
@@ -3086,7 +3086,7 @@ static inline dw_loc_descr_ref
 new_loc_descr (enum dwarf_location_atom op, unsigned HOST_WIDE_INT oprnd1,
 	       unsigned HOST_WIDE_INT oprnd2)
 {
-  dw_loc_descr_ref descr = ggc_alloc_cleared (sizeof (dw_loc_descr_node));
+  dw_loc_descr_ref descr = ggc_alloc_cleared_dw_loc_descr_node();
 
   descr->dw_loc_opc = op;
   descr->dw_loc_oprnd1.val_class = dw_val_class_unsigned_const;
@@ -5002,7 +5002,7 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   slot = htab_find_slot_with_hash (debug_str_hash, str,
 				   htab_hash_string (str), INSERT);
   if (*slot == NULL)
-    *slot = ggc_alloc_cleared (sizeof (struct indirect_string_node));
+    *slot = ggc_alloc_cleared_indirect_string_node ();
   node = (struct indirect_string_node *) *slot;
   node->str = ggc_strdup (str);
   node->refcount++;
@@ -5527,7 +5527,7 @@ splice_child_die (dw_die_ref parent, dw_die_ref child)
 static inline dw_die_ref
 new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 {
-  dw_die_ref die = ggc_alloc_cleared (sizeof (die_node));
+  dw_die_ref die = ggc_alloc_cleared_die_node ();
 
   die->die_tag = tag_value;
 
@@ -5537,7 +5537,7 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
     {
       limbo_die_node *limbo_node;
 
-      limbo_node = ggc_alloc_cleared (sizeof (limbo_die_node));
+      limbo_node = ggc_alloc_cleared_limbo_die_node ();
       limbo_node->die = die;
       limbo_node->created_for = t;
       limbo_node->next = limbo_die_list;
@@ -5637,7 +5637,7 @@ add_var_loc_to_decl (tree decl, struct var_loc_node *loc)
   slot = htab_find_slot_with_hash (decl_loc_table, decl, decl_id, INSERT);
   if (*slot == NULL)
     {
-      temp = ggc_alloc_cleared (sizeof (var_loc_list));
+      temp = ggc_alloc_cleared_var_loc_list ();
       temp->decl_id = decl_id;
       *slot = temp;
     }
@@ -6876,7 +6876,7 @@ static inline dw_loc_list_ref
 new_loc_list (dw_loc_descr_ref expr, const char *begin, const char *end,
 	      const char *section, unsigned int gensym)
 {
-  dw_loc_list_ref retlist = ggc_alloc_cleared (sizeof (dw_loc_list_node));
+  dw_loc_list_ref retlist = ggc_alloc_cleared_dw_loc_list_node ();
 
   retlist->begin = begin;
   retlist->end = end;
@@ -13518,7 +13518,7 @@ dwarf2out_var_location (rtx loc_note)
     return;
   prev_insn = PREV_INSN (loc_note);
 
-  newloc = ggc_alloc_cleared (sizeof (struct var_loc_node));
+  newloc = ggc_alloc_cleared_var_loc_node ();
   /* If the insn we processed last time is the previous insn
      and it is also a var location note, use the label we emitted
      last time.  */
