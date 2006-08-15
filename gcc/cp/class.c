@@ -5765,6 +5765,10 @@ resolve_address_of_overloaded_function (tree target_type,
 	  tree instantiation;
 	  tree instantiation_type;
 	  tree targs;
+	  VEC(tree,heap) *v;
+	  int result;
+	  int len;
+	  int i;
 
 	  if (TREE_CODE (fn) != TEMPLATE_DECL)
 	    /* We're only looking for templates.  */
@@ -5778,9 +5782,17 @@ resolve_address_of_overloaded_function (tree target_type,
 
 	  /* Try to do argument deduction.  */
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
-	  if (fn_type_unification (fn, explicit_targs, targs,
-				   target_arg_types, target_ret_type,
-				   DEDUCE_EXACT, LOOKUP_NORMAL))
+
+	  /* Copy TARGET_ARG_TYPES to an instance of VEC.  */
+	  len = num_parm_types (target_arg_types);
+	  v = VEC_alloc (tree, heap, len);
+	  for (i = 0; i < len; i++)
+	    VEC_quick_push (tree, v, nth_parm_type (target_arg_types, i));
+	  result = fn_type_unification (fn, explicit_targs, targs,
+					&v, target_ret_type,
+					DEDUCE_EXACT, LOOKUP_NORMAL);
+	  VEC_free (tree, heap, v);
+	  if (result)
 	    /* Argument deduction failed.  */
 	    continue;
 

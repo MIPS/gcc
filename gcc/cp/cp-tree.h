@@ -4105,7 +4105,7 @@ extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
-extern int fn_type_unification			(tree, tree, tree, tree,
+extern int fn_type_unification			(tree, tree, tree, VEC(tree,heap) **,
 						 tree, unification_kind_t, int);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);

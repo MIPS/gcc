@@ -2205,6 +2205,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   struct z_candidate *cand;
   int i;
   tree fn;
+  VEC(tree,heap) *v = NULL;
 
   /* We don't do deduction on the in-charge parameter, the VTT
      parameter or 'this'.  */
@@ -2216,10 +2217,15 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
       && CLASSTYPE_VBASECLASSES (DECL_CONTEXT (tmpl)))
     args_without_in_chrg = TREE_CHAIN (args_without_in_chrg);
 
+  /* Copy ARGS_WITHOUT_IN_CHRG to an instance of VEC.  */
+  for (;
+       args_without_in_chrg;
+       args_without_in_chrg = TREE_CHAIN (args_without_in_chrg))
+    VEC_safe_push (tree, heap, v, TREE_VALUE (args_without_in_chrg));
   i = fn_type_unification (tmpl, explicit_targs, targs,
-			   args_without_in_chrg,
+			   &v,
 			   return_type, strict, flags);
-
+  VEC_free (tree, heap, v);
   if (i != 0)
     return NULL;
 
