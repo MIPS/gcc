@@ -89,8 +89,7 @@ static const char * const tree_node_kind_names[] = {
   "exprs",
   "constants",
   "identifiers",
-  "perm_tree_lists",
-  "temp_tree_lists",
+  "tree_lists",
   "vecs",
   "binfos",
   "phi_nodes",
@@ -498,6 +497,10 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	{
 	case IDENTIFIER_NODE:
 	  kind = id_kind;
+	  break;
+
+	case TREE_LIST:
+	  kind = list_kind;
 	  break;
 
 	case TREE_VEC:
@@ -1751,8 +1754,8 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
   memset (node, 0, sizeof (struct tree_common));
 
 #ifdef GATHER_STATISTICS
-  tree_node_counts[(int) x_kind]++;
-  tree_node_sizes[(int) x_kind] += sizeof (struct tree_list);
+  tree_node_counts[(int) list_kind]++;
+  tree_node_sizes[(int) list_kind] += sizeof (struct tree_list);
 #endif
 
   TREE_SET_CODE (node, TREE_LIST);

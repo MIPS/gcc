@@ -1,3 +1,11 @@
+2006-08-15  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/tree.h (tree_node_kind): Combine unused perm_list_kind and
+	temp_list_kind into a single list_kind.
+	* gcc/tree.c (tree_node_kind_names): Likewise.
+	(make_node_stat, tree_cons_stat): Report TREE_LIST statistics as
+	list_kind instead of x_kind.
+
 2006-08-14  Kazu Hirata  <kazu@codesourcery.com>
 
 	* gcc/cp/decl.c (build_ptrmem_type, check_function_type): Use
