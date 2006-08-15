@@ -2441,25 +2441,22 @@ write_enum_defn (type_p structures, type_p param_structs)
   oprintf (header_file, "\n/* Enumeration of known types.  */\n");
   oprintf (header_file, "enum gt_types_enum {\n");
   for (s = structures; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO
-	|| s->gc_used == GC_MAYBE_POINTED_TO)
-      {
-	if (s->gc_used == GC_MAYBE_POINTED_TO
-	    && s->u.s.line.file == NULL)
-	  continue;
+    {
+      if (s->gc_used == GC_MAYBE_POINTED_TO
+	  && s->u.s.line.file == NULL)
+	continue;
 
-	oprintf (header_file, " gt_ggc_e_");
-	output_mangled_typename (header_file, s);
-	oprintf (header_file, ", \n");
-      }
+      oprintf (header_file, " gt_ggc_e_");
+      output_mangled_typename (header_file, s);
+      oprintf (header_file, ", \n");
+    }
 
   for (s = param_structs; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO)
-      {
-	oprintf (header_file, " gt_e_");
-	output_mangled_typename (header_file, s);
-	oprintf (header_file, ", \n");
-      }
+    {
+      oprintf (header_file, " gt_e_");
+      output_mangled_typename (header_file, s);
+      oprintf (header_file, ", \n");
+    }
 
   oprintf (header_file, " gt_types_enum_last\n");
   oprintf (header_file, "};\n");
@@ -2476,35 +2473,42 @@ write_typed_alloc_defns (type_p structures)
   oprintf (header_file,
 	   "\n/* Typed allocation for known structs and unions.  */\n");
   for (s = structures; s; s = s->next)
-    if (s->gc_used == GC_POINTED_TO
-	|| (s->gc_used == GC_MAYBE_POINTED_TO && s->u.s.line.file != NULL))
-      {
-	options_p o;
-	int have_size = 0;
-	const char *type_kind;
+    {
+      options_p o;
+      int have_size = 0;
+      const char *type_kind;
 
-	for (o = s->u.s.opt; o; o = o->next)
-	  if (strcmp (o->name, "size_not_fixed") == 0)
-	    have_size = 1;
- 
-	if (s->kind == TYPE_STRUCT)
-	  type_kind = "struct ";
-	else if (s->kind == TYPE_UNION)
-	  type_kind = "union ";
-	else
-	  type_kind = "";
+      for (o = s->u.s.opt; o; o = o->next)
+	if (strcmp (o->name, "size_not_fixed") == 0)
+	  have_size = 1;
 
-	oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
-		 s->u.s.tag, (have_size ? "SIZE" : ""));
-	oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-	output_mangled_typename (header_file, s);
-	if (have_size)
-	  oprintf (header_file, ", SIZE)\n");
-	else
-	  oprintf (header_file, ", sizeof (%s%s))\n",
-		   type_kind, s->u.s.tag);
-      }
+      if (s->kind == TYPE_STRUCT)
+	type_kind = "struct ";
+      else if (s->kind == TYPE_UNION)
+	type_kind = "union ";
+      else
+	type_kind = "";
 
+      oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
+	       s->u.s.tag, (have_size ? "SIZE" : ""));
+      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
+      output_mangled_typename (header_file, s);
+      if (have_size)
+	oprintf (header_file, ", SIZE)\n");
+      else
+	oprintf (header_file, ", sizeof (%s%s))\n",
+		 type_kind, s->u.s.tag);
+
+      oprintf (header_file, "#define ggc_alloc_cleared_%s(%s) \\\n",
+	       s->u.s.tag, (have_size ? "SIZE" : ""));
+      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
+      output_mangled_typename (header_file, s);
+      if (have_size)
+	oprintf (header_file, ", SIZE)\n");
+      else
+	oprintf (header_file, ", sizeof (%s%s))\n",
+		 type_kind, s->u.s.tag);
+    }
   oprintf (header_file,
            "\n/* Typed allocation for known typedefs.  */\n");
   for (p = typedefs; p != NULL; p = p->next)
@@ -2513,20 +2517,23 @@ write_typed_alloc_defns (type_p structures)
       if (strcmp (p->name, s->u.s.tag) == 0)
 	continue;
 
-      if (s->gc_used == GC_POINTED_TO
-	  || (s->gc_used == GC_MAYBE_POINTED_TO && s->u.s.line.file != NULL))
-	{
-	  if (s->kind != TYPE_STRUCT
-	      && s->kind != TYPE_UNION)
-	    continue;
+      if (s->kind != TYPE_STRUCT
+	  && s->kind != TYPE_UNION)
+	continue;
 
-	  oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
-		   p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
-	  oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-	  output_mangled_typename (header_file, s);
-	  oprintf (header_file, ", sizeof (%s%s))\n",
-		   s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
-	}
+      oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
+	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
+      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
+      output_mangled_typename (header_file, s);
+      oprintf (header_file, ", sizeof (%s%s))\n",
+	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
+
+      oprintf (header_file, "#define ggc_alloc_cleared_%s(%s) \\\n",
+	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
+      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
+      output_mangled_typename (header_file, s);
+      oprintf (header_file, ", sizeof (%s%s))\n",
+	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
     }
 }
 
