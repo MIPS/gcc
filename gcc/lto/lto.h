@@ -22,6 +22,10 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LTO_H
 #define LTO_H
 
+/* Included files.  */
+
+#include "hashtab.h"
+
 /* Forward Declarations */
 
 typedef struct lto_file lto_file;
@@ -56,6 +60,9 @@ typedef struct lto_info_fd
   size_t num_units;
   /* The compilation units themselves.  */
   DWARF2_CompUnit **units;
+  /* A map from DIEs to trees.  The keys are offsets into the DWARF
+     information section; the values are trees.  */
+  htab_t die_cache;
 } lto_info_fd;
 
 /* A file descriptor for reading from a DWARF abbreviation section.  */
