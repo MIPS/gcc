@@ -1,3 +1,44 @@
+2006-08-15  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/28649
+	* c-parser.c (c_parser_compound_statement_nostart): Reset
+	parser->error after each statement.
+
+2006-08-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/28075
+	* tree-inline.c (setup_one_parameter): Strip useless
+	type conversion before adding it to the IR.
+	(declare_return_variable): Likewise.
+
+2006-08-13  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR middle-end/27793
+	* tree-dfa.c (add_referenced_var): Assert DECL_UID is unique for
+	different decls.
+
+2006-08-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28677
+	Revert:
+	2006-06-06  Andrew MacLeod  <amacleod@redhat.com>
+	PR middle-end/27793
+	* tree-dfa.c (referenced_vars_dup_list): New.  List of duplicate 
+	referenced_variables with matching DECL_UID's.
+	(find_referenced_vars): Make sure duplicate list is empty to start.
+	(add_referenced_var): Add var to duplicate list if required.
+	* tree-ssa.c (delete_tree_ssa): Clear var_ann's on duplicates.
+	* tree-flow.h (referenced_vars_dup_list): External declaration.
+
+2006-08-13  Matthias Klose  <doko@debian.org>
+
+	* doc/invoke.texi: Fix spelling errors.
+
+2006-08-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/23454
+	* reorg.c (relax_delay_slots): Update comment.
+
 2006-08-11  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/27827

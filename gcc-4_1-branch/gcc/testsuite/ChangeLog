@@ -1,3 +1,40 @@
+2006-08-15  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/28649
+	* gcc.dg/parse-error-1.c: New test.
+	* gcc.dg/parse-error-2.c: New test.
+	* gcc.dg/cpp/digraph2.c: Add error-marker.
+	* gcc.dg/noncompile/920923-1.c: Likewise.
+
+2006-08-14  Asher Langton  <langton2@llnl.gov>
+
+        * gfortran.dg/oldstyle_2.f90: New.
+
+2006-08-14  Andrew Pinski  <pinskia@gmail.com>
+
+	* gcc.dg/tree-ssa/inline-1.c: Fix up scan-tree-dump-times
+	for '(' / ')' needing an extra '\'.
+
+2006-08-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/28075
+	* gcc.dg/tree-ssa/inline-1.c: New test.
+
+2006-08-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/26757
+	PR c++/27894
+	* g++.dg/tree-ssa/pr26757.C: New test.
+	* g++.dg/tree-ssa/pr27894.C: New test.
+
+2006-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/pr27827.c: Only compile on ilp32 target.
+
+2006-08-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/pr23454-2.C: New test.
+
 2006-08-11  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/27827
