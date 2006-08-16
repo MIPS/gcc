@@ -57,7 +57,7 @@ static void casts_away_constness_r (tree *, tree *);
 static bool casts_away_constness (tree, tree);
 static void maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree);
-static tree convert_arguments (tree, tree, tree, int);
+static int convert_arguments (int, tree *, tree, tree, tree, int);
 
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)
@@ -2579,10 +2579,12 @@ tree
 build_function_call (tree function, tree params)
 {
   tree fntype, fndecl;
-  tree coerced_params;
   tree name = NULL_TREE;
   int is_method;
   tree original = function;
+  int nargs, parm_types_len;
+  tree *argarray;
+  tree parm_types;
 
   /* For Objective-C, convert any calls via a cast to OBJC_TYPE_REF
      expressions, like those used for ObjC messenger dispatches.  */
@@ -2648,22 +2650,27 @@ build_function_call (tree function, tree params)
 
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
+  parm_types = TYPE_ARG_TYPES (fntype);
 
   /* Convert the parameters to the types declared in the
      function prototype, or apply default promotions.  */
-
-  coerced_params = convert_arguments (TYPE_ARG_TYPES (fntype),
-				      params, fndecl, LOOKUP_NORMAL);
-  if (coerced_params == error_mark_node)
+  parm_types_len = num_parm_types (parm_types);
+  nargs = list_length (params);
+  if (parm_types_len > nargs)
+    nargs = parm_types_len;
+  argarray = (tree *) alloca (nargs * sizeof (tree));
+  nargs = convert_arguments (nargs, argarray, parm_types,
+			     params, fndecl, LOOKUP_NORMAL);
+  if (nargs < 0)
     return error_mark_node;
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
 
-  check_function_arguments (TYPE_ATTRIBUTES (fntype), coerced_params,
-			    TYPE_ARG_TYPES (fntype));
+  check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
+			    parm_types);
 
-  return build_cxx_call (function, coerced_params);
+  return build_cxx_call (function, nargs, argarray);
 }
 
 /* Convert the actual parameter expressions in the list VALUES
@@ -2671,24 +2678,27 @@ build_function_call (tree function, tree params)
    If parmdecls is exhausted, or when an element has NULL as its type,
    perform the default conversions.
 
+   Store the converted arguments in ARGARRAY.  NARGS is the size of this array.
+
    NAME is an IDENTIFIER_NODE or 0.  It is used only for error messages.
 
    This is also where warnings about wrong number of args are generated.
 
-   Return a list of expressions for the parameters as converted.
+   Returns the actual number of arguments processed (which might be less
+   than NARGS), or -1 on error.
 
-   Both VALUES and the returned value are chains of TREE_LIST nodes
-   with the elements of the list in the TREE_VALUE slots of those nodes.
+   VALUES is a chain of TREE_LIST nodes with the elements of the list
+   in the TREE_VALUE slots of those nodes.
 
    In C++, unspecified trailing parameters can be filled in with their
    default arguments, if such were specified.  Do so here.  */
 
-static tree
-convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
+static int
+convert_arguments (int nargs, tree *argarray, tree parm_types, 
+		   tree values, tree fndecl, int flags)
 {
   tree parm = NULL_TREE;
   tree valtail;
-  tree result = NULL_TREE;
   const char *called_thing = 0;
   int parm_types_len = num_parm_types (parm_types);
   int i = 0;
@@ -2720,7 +2730,7 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
       tree val = TREE_VALUE (valtail);
 
       if (val == error_mark_node || type == error_mark_node)
-	return error_mark_node;
+	return -1;
 
       if (type == void_type_node)
 	{
@@ -2731,11 +2741,7 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 	    }
 	  else
 	    error ("too many arguments to function");
-	  /* In case anybody wants to know if this argument
-	     list is valid.  */
-	  if (result)
-	    TREE_TYPE (tree_last (result)) = error_mark_node;
-	  break;
+	  return i;
 	}
 
       /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
@@ -2754,7 +2760,7 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 	}
 
       if (val == error_mark_node)
-	return error_mark_node;
+	return -1;
 
       if (type != 0)
 	{
@@ -2779,9 +2785,9 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 	    }
 
 	  if (parmval == error_mark_node)
-	    return error_mark_node;
+	    return -1;
 
-	  result = tree_cons (NULL_TREE, parmval, result);
+	  argarray[i] = parmval;
 	}
       else
 	{
@@ -2794,7 +2800,7 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 	  else
 	    val = convert_arg_to_ellipsis (val);
 
-	  result = tree_cons (NULL_TREE, val, result);
+	  argarray[i] = val;
 	}
 
       if (parm)
@@ -2824,9 +2830,9 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 				       fndecl, i);
 
 	      if (parmval == error_mark_node)
-		return error_mark_node;
+		return -1;
 
-	      result = tree_cons (0, parmval, result);
+	      argarray[i] = parmval;
 	      parm = TREE_CHAIN (parm);
 	      /* ends with `...'.  */
 	      if (parm == NULL_TREE)
@@ -2842,11 +2848,12 @@ convert_arguments (tree parm_types, tree values, tree fndecl, int flags)
 	    }
 	  else
 	    error ("too few arguments to function");
-	  return error_mark_node;
+	  return -1;
 	}
     }
 
-  return nreverse (result);
+  gcc_assert (i <= nargs);
+  return i;
 }
 
 /* Build a binary-operation expression, after performing default

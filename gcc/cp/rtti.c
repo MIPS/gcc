@@ -197,7 +197,7 @@ throw_bad_cast (void)
       fn = push_throw_library_fn (fn, tmp);
     }
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an expression for "__cxa_bad_typeid()".  The expression
@@ -216,7 +216,7 @@ throw_bad_typeid (void)
       fn = push_throw_library_fn (fn, t);
     }
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an lvalue expression whose type is "const std::type_info"
@@ -591,7 +591,8 @@ build_dynamic_cast_1 (tree type, tree expr)
       else
 	{
 	  tree retval;
-	  tree result, td2, td3, elems;
+	  tree result, td2, td3;
+	  tree elems[4];
 	  tree static_type, target_type, boff;
 
 	  /* If we got here, we can't convert statically.  Therefore,
@@ -642,11 +643,10 @@ build_dynamic_cast_1 (tree type, tree expr)
 	  if (tc == REFERENCE_TYPE)
 	    expr1 = build_unary_op (ADDR_EXPR, expr1, 0);
 
-	  elems = tree_cons
-	    (NULL_TREE, expr1, tree_cons
-	     (NULL_TREE, td3, tree_cons
-	      (NULL_TREE, td2, tree_cons
-	       (NULL_TREE, boff, NULL_TREE))));
+	  elems[0] = expr1;
+	  elems[1] = td3;
+	  elems[2] = td2;
+	  elems[3] = boff;
 
 	  dcast_fn = dynamic_cast_node;
 	  if (!dcast_fn)
@@ -676,7 +676,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      pop_nested_namespace (ns);
 	      dynamic_cast_node = dcast_fn;
 	    }
-	  result = build_cxx_call (dcast_fn, elems);
+	  result = build_cxx_call (dcast_fn, 4, elems);
 
 	  if (tc == REFERENCE_TYPE)
 	    {

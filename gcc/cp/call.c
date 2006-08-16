@@ -267,17 +267,38 @@ build_addr_func (tree function)
 
 /* Build a CALL_EXPR, we can handle FUNCTION_TYPEs, METHOD_TYPEs, or
    POINTER_TYPE to those.  Note, pointer to member function types
-   (TYPE_PTRMEMFUNC_P) must be handled by our callers.  */
+   (TYPE_PTRMEMFUNC_P) must be handled by our callers.  There are
+   two variants.  build_call_a is the primitive taking an array of
+   arguments, while build_call_n is a wrapper that handles varargs.  */
 
 tree
-build_call (tree function, tree parms)
+build_call_n (tree function, int n, ...)
+{
+  if (n == 0)
+    return build_call_a (function, 0, NULL);
+  else
+    {
+      tree *argarray = (tree *) alloca (n * sizeof (tree));
+      va_list ap;
+      int i;
+
+      va_start (ap, n);
+      for (i = 0; i < n; i++)
+	argarray[i] = va_arg (ap, tree);
+      va_end (ap);
+      return build_call_a (function, n, argarray);
+    }
+}
+
+tree
+build_call_a (tree function, int n, tree *argarray)
 {
   int is_constructor = 0;
   int nothrow;
-  tree tmp;
   tree decl;
   tree result_type;
   tree fntype;
+  int i;
 
   function = build_addr_func (function);
 
@@ -325,16 +346,16 @@ build_call (tree function, tree parms)
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
   if (! decl || ! DECL_BUILT_IN (decl))
-    for (tmp = parms; tmp; tmp = TREE_CHAIN (tmp))
-      if (is_empty_class (TREE_TYPE (TREE_VALUE (tmp)))
-	  && ! TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (tmp))))
+    for (i = 0; i < n; i++)
+      if (is_empty_class (TREE_TYPE (argarray[i]))
+	  && ! TREE_ADDRESSABLE (TREE_TYPE (argarray[i])))
 	{
-	  tree t = build0 (EMPTY_CLASS_EXPR, TREE_TYPE (TREE_VALUE (tmp)));
-	  TREE_VALUE (tmp) = build2 (COMPOUND_EXPR, TREE_TYPE (t),
-				     TREE_VALUE (tmp), t);
+	  tree t = build0 (EMPTY_CLASS_EXPR, TREE_TYPE (argarray[i]));
+	  argarray[i] = build2 (COMPOUND_EXPR, TREE_TYPE (t),
+				argarray[i], t);
 	}
 
-  function = build_call_list (CALL_EXPR, result_type, function, parms);
+  function = build_call_array (CALL_EXPR, result_type, function, n, argarray);
   TREE_HAS_CONSTRUCTOR (function) = is_constructor;
   TREE_NOTHROW (function) = nothrow;
 
@@ -3981,7 +4002,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 		      tree alloc_fn)
 {
   tree fn = NULL_TREE;
-  tree fns, fnname, argtypes, args, type;
+  tree fns, fnname, argtypes, type;
   int pass;
   int skip = 0;
 
@@ -4013,6 +4034,9 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
   if (fns == NULL_TREE)
     fns = lookup_name_nonclass (fnname);
 
+  /* Strip const and volatile from addr.  */
+  addr = cp_convert (ptr_type_node, addr);
+
   if (placement)
     {
       /* Get the parameter types for the allocation function that is
@@ -4020,18 +4044,12 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
       gcc_assert (alloc_fn != NULL_TREE);
       argtypes = TYPE_ARG_TYPES (TREE_TYPE (alloc_fn));
       skip++;
-      /* Also the second argument.  */
-      args = TREE_CHAIN (TREE_OPERAND (placement, 1));
     }
   else
     {
       /* First try it without the size argument.  */
       argtypes = void_vec_node;
-      args = NULL_TREE;
     }
-
-  /* Strip const and volatile from addr.  */
-  addr = cp_convert (ptr_type_node, addr);
 
   /* We make two tries at finding a matching `operator delete'.  On
      the first pass, we look for a one-operator (or placement)
@@ -4083,21 +4101,29 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
       if (DECL_CLASS_SCOPE_P (fn))
 	perform_or_defer_access_check (TYPE_BINFO (type), fn);
 
-      if (pass == 0)
-	args = tree_cons (NULL_TREE, addr, args);
-      else
-	args = tree_cons (NULL_TREE, addr,
-			  build_tree_list (NULL_TREE, size));
-
       if (placement)
 	{
 	  /* The placement args might not be suitable for overload
 	     resolution at this point, so build the call directly.  */
+	  int nargs = call_expr_nargs (placement);
+	  tree *argarray = (tree *) alloca (nargs * sizeof (tree));
+	  int i;
+	  argarray[0] = addr;
+	  for (i = 1; i < nargs; i++)
+	    argarray[i] = CALL_EXPR_ARG (placement, i);
 	  mark_used (fn);
-	  return build_cxx_call (fn, args);
+	  return build_cxx_call (fn, nargs, argarray);
 	}
       else
-	return build_function_call (fn, args);
+	{
+	  tree args;
+	  if (pass == 0)
+	    args = tree_cons (NULL_TREE, addr, NULL_TREE);
+	  else
+	    args = tree_cons (NULL_TREE, addr,
+			      build_tree_list (NULL_TREE, size));
+	  return build_function_call (fn, args);
+	}
     }
 
   /* If we are doing placement delete we do nothing if we don't find a
@@ -4463,7 +4489,7 @@ call_builtin_trap (void)
   tree fn = implicit_built_in_decls[BUILT_IN_TRAP];
 
   gcc_assert (fn != NULL);
-  fn = build_call (fn, NULL_TREE);
+  fn = build_call_n (fn, 0);
   return fn;
 }
 
@@ -4692,7 +4718,6 @@ build_over_call (struct z_candidate *cand, int flags)
   tree args = cand->args;
   conversion **convs = cand->convs;
   conversion *conv;
-  tree converted_args = NULL_TREE;
   tree parm = TYPE_ARG_TYPES (TREE_TYPE (fn));
   tree decl = DECL_ARGUMENTS (fn);
   tree arg, val;
@@ -4700,6 +4725,8 @@ build_over_call (struct z_candidate *cand, int flags)
   int is_method = 0;
   int skip = 0;
   int parmlen;
+  int nargs;
+  tree *argarray;
 
   /* In a template, there is no need to perform all of the work that
      is normally done.  We are only interested in the type of the call
@@ -4765,11 +4792,17 @@ build_over_call (struct z_candidate *cand, int flags)
     args = build_tree_list (NULL_TREE, args);
   arg = args;
 
+  parmlen = num_parm_types (parm);
+  nargs = list_length (args);
+  if (parmlen > nargs)
+    nargs = parmlen;
+  argarray = (tree *) alloca (nargs * sizeof (tree));
+
   /* The implicit parameters to a constructor are not considered by overload
      resolution, and must be of the proper type.  */
   if (DECL_CONSTRUCTOR_P (fn))
     {
-      converted_args = tree_cons (NULL_TREE, TREE_VALUE (arg), converted_args);
+      argarray[skip] = TREE_VALUE (arg);
       arg = TREE_CHAIN (arg);
       skip++;
       decl = TREE_CHAIN (decl);
@@ -4778,8 +4811,7 @@ build_over_call (struct z_candidate *cand, int flags)
 
       if (DECL_HAS_VTT_PARM_P (fn))
 	{
-	  converted_args = tree_cons
-	    (NULL_TREE, TREE_VALUE (arg), converted_args);
+	  argarray[skip] = TREE_VALUE (arg);
 	  arg = TREE_CHAIN (arg);
 	  skip++;
 	  decl = TREE_CHAIN (decl);
@@ -4824,7 +4856,7 @@ build_over_call (struct z_candidate *cand, int flags)
       converted_arg = build_base_path (PLUS_EXPR, converted_arg,
 				       base_binfo, 1);
 
-      converted_args = tree_cons (NULL_TREE, converted_arg, converted_args);
+      argarray[skip] = converted_arg;
       skip++;
       arg = TREE_CHAIN (arg);
       decl = TREE_CHAIN (decl);
@@ -4832,7 +4864,6 @@ build_over_call (struct z_candidate *cand, int flags)
       is_method = 1;
     }
 
-  parmlen = num_parm_types (parm);
   for (; arg && skip < parmlen; arg = TREE_CHAIN (arg), ++i, skip++)
     {
       tree type = nth_parm_type (parm, skip);
@@ -4842,7 +4873,7 @@ build_over_call (struct z_candidate *cand, int flags)
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 
       val = convert_for_arg_passing (type, val);
-      converted_args = tree_cons (NULL_TREE, val, converted_args);
+      argarray[skip] = val;
       if (decl)
 	decl = TREE_CHAIN (decl);
     }
@@ -4855,29 +4886,26 @@ build_over_call (struct z_candidate *cand, int flags)
       if (type == void_type_node)
 	break;
 
-      converted_args
-	= tree_cons (NULL_TREE,
-		     convert_default_arg (type,
-					  DECL_INITIAL (decl),
-					  fn, i - is_method),
-		     converted_args);
+      argarray[skip] = 
+	convert_default_arg (type, DECL_INITIAL (decl), fn, i - is_method);
     }
 
   /* Ellipsis */
-  for (; arg; arg = TREE_CHAIN (arg))
+  for (; arg; arg = TREE_CHAIN (arg), skip++)
     {
       tree a = TREE_VALUE (arg);
       if (magic_varargs_p (fn))
 	/* Do no conversions for magic varargs.  */;
       else
 	a = convert_arg_to_ellipsis (a);
-      converted_args = tree_cons (NULL_TREE, a, converted_args);
+      argarray[skip] = a;
     }
 
-  converted_args = nreverse (converted_args);
+  gcc_assert (skip <= nargs);
+  nargs = skip;
 
   check_function_arguments (TYPE_ATTRIBUTES (TREE_TYPE (fn)),
-			    converted_args, TYPE_ARG_TYPES (TREE_TYPE (fn)));
+			    nargs, argarray, TYPE_ARG_TYPES (TREE_TYPE (fn)));
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
@@ -4887,8 +4915,7 @@ build_over_call (struct z_candidate *cand, int flags)
   else if (cand->num_convs == 1 && DECL_COPY_CONSTRUCTOR_P (fn))
     {
       tree targ;
-      arg = skip_artificial_parms_for (fn, converted_args);
-      arg = TREE_VALUE (arg);
+      arg = argarray[num_artificial_parms_for (fn)];
 
       /* Pull out the real argument, disregarding const-correctness.  */
       targ = arg;
@@ -4943,11 +4970,11 @@ build_over_call (struct z_candidate *cand, int flags)
 	   && TYPE_HAS_TRIVIAL_ASSIGN_REF (DECL_CONTEXT (fn)))
     {
       tree to = stabilize_reference
-	(build_indirect_ref (TREE_VALUE (converted_args), 0));
+	(build_indirect_ref (argarray[0], 0));
       tree type = TREE_TYPE (to);
       tree as_base = CLASSTYPE_AS_BASE (type);
 
-      arg = TREE_VALUE (TREE_CHAIN (converted_args));
+      arg = argarray[1];
       if (tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (as_base)))
 	{
 	  arg = build_indirect_ref (arg, 0);
@@ -4957,17 +4984,16 @@ build_over_call (struct z_candidate *cand, int flags)
 	{
 	  /* We must only copy the non-tail padding parts.
 	     Use __builtin_memcpy for the bitwise copy.  */
+	
+	  tree arg0, arg1, arg2, t;
 
-	  tree args, t;
-
-	  args = tree_cons (NULL, TYPE_SIZE_UNIT (as_base), NULL);
-	  args = tree_cons (NULL, arg, args);
-	  t = build_unary_op (ADDR_EXPR, to, 0);
-	  args = tree_cons (NULL, t, args);
+	  arg2 = TYPE_SIZE_UNIT (as_base);
+	  arg1 = arg;
+	  arg0 = build_unary_op (ADDR_EXPR, to, 0);
 	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
-	  t = build_call (t, args);
+	  t = build_call_n (t, 3, arg0, arg1, arg2);
 
-	  t = convert (TREE_TYPE (TREE_VALUE (args)), t);
+	  t = convert (TREE_TYPE (arg0), t);
 	  val = build_indirect_ref (t, 0);
 	}
 
@@ -4978,20 +5004,20 @@ build_over_call (struct z_candidate *cand, int flags)
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
     {
-      tree t, *p = &TREE_VALUE (converted_args);
-      tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (*p)),
+      tree t;
+      tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (argarray[0])),
 				DECL_CONTEXT (fn),
 				ba_any, NULL);
       gcc_assert (binfo && binfo != error_mark_node);
 
-      *p = build_base_path (PLUS_EXPR, *p, binfo, 1);
-      if (TREE_SIDE_EFFECTS (*p))
-	*p = save_expr (*p);
+      argarray[0] = build_base_path (PLUS_EXPR, argarray[0], binfo, 1);
+      if (TREE_SIDE_EFFECTS (argarray[0]))
+	argarray[0] = save_expr (argarray[0]);
       t = build_pointer_type (TREE_TYPE (fn));
       if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
-	fn = build_java_interface_fn_ref (fn, *p);
+	fn = build_java_interface_fn_ref (fn, argarray[0]);
       else
-	fn = build_vfn_ref (*p, DECL_VINDEX (fn));
+	fn = build_vfn_ref (argarray[0], DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -4999,19 +5025,19 @@ build_over_call (struct z_candidate *cand, int flags)
   else
     fn = build_addr_func (fn);
 
-  return build_cxx_call (fn, converted_args);
+  return build_cxx_call (fn, nargs, argarray);
 }
 
-/* Build and return a call to FN, using ARGS.  This function performs
-   no overload resolution, conversion, or other high-level
-   operations.  */
+/* Build and return a call to FN, using NARGS arguments in ARGARRAY.
+   This function performs no overload resolution, conversion, or other
+   high-level operations.  */
 
 tree
-build_cxx_call (tree fn, tree args)
+build_cxx_call (tree fn, int nargs, tree *argarray)
 {
   tree fndecl;
 
-  fn = build_call (fn, args);
+  fn = build_call_a (fn, nargs, argarray);
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
@@ -5045,7 +5071,7 @@ static GTY(()) tree java_iface_lookup_fn;
 static tree
 build_java_interface_fn_ref (tree fn, tree instance)
 {
-  tree lookup_args, lookup_fn, method, idx;
+  tree lookup_fn, method, idx;
   tree klass_ref, iface, iface_ref;
   int i;
 
@@ -5091,13 +5117,11 @@ build_java_interface_fn_ref (tree fn, tree instance)
     }
   idx = build_int_cst (NULL_TREE, i);
 
-  lookup_args = tree_cons (NULL_TREE, klass_ref,
-			   tree_cons (NULL_TREE, iface_ref,
-				      build_tree_list (NULL_TREE, idx)));
   lookup_fn = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
 		      java_iface_lookup_fn);
-  return build_call_list (CALL_EXPR, ptr_type_node, lookup_fn, lookup_args);
+  return build_call_nary (CALL_EXPR, ptr_type_node, lookup_fn,
+			  3, klass_ref, iface_ref, idx);
 }
 
 /* Returns the value to use for the in-charge parameter when making a

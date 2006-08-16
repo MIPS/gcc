@@ -446,6 +446,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
     }
   else
     {
+      int i;
+      tree *argarray = (tree *) alloca (list_length (a) * sizeof (tree));
       /* If this is a covariant thunk, or we don't have the necessary
 	 code for efficient thunks, generate a thunk function that
 	 just makes a call to the real function.  Unfortunately, this
@@ -469,11 +471,10 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 			  fixed_offset, virtual_offset);
 
       /* Build up the call to the real function.  */
-      t = tree_cons (NULL_TREE, t, NULL_TREE);
-      for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
-	t = tree_cons (NULL_TREE, a, t);
-      t = nreverse (t);
-      t = build_call (alias, t);
+      argarray[0] = t;
+      for (i = 1, a = TREE_CHAIN (a); a; a = TREE_CHAIN (a), i++)
+	argarray[i] = a;
+      t = build_call_a (alias, i, argarray);
       CALL_FROM_THUNK_P (t) = 1;
 
       if (VOID_TYPE_P (TREE_TYPE (t)))

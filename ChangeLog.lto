@@ -1,3 +1,54 @@
+2006-08-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/builtins.c (fold_builtin_call_list, fold_builtin_call_valist):
+	Delete, and replace with...
+	(fold_builtin_call_array): This, to optimize the common case and
+	avoid duplication of code.  Updated callers to pass in a
+	stack-allocated	array.
+	* gcc/fold-const.c (fold_build_call_list): Delete, and replace with...
+	(fold_build_call_array): This.
+	(fold_build_call_list_initializer): Delete, and replace with...
+	(fold_build_call_array_initializer): This.
+	* gcc/tree.h: Update declarations to reflect above changes.
+
+	* gcc/c-typeck.c (build_function_call): Store converted arguments
+	in a stack-allocated array instead of building a list.
+	(convert_arguments): Store arguments in the array passed in as an
+	argument, and return the actual number of arguments.
+	* gcc/c-format.c: (check_function_format): Pass arguments in an
+	array instead of a list.
+	* gcc/c-common.c (check_function_nonnull): Likewise.
+	(check_function_sentinel): Likewise.
+	(check_function_arguments): Likewise.
+	* gcc/c-common.h: Update declarations to reflect above changes.
+
+	* gcc/cp/typeck.c (build_function_call): Store converted arguments
+	in a stack-allocated array instead of building a list.
+	(convert_arguments): Store arguments in the array passed in as an
+	argument, and return the actual number of arguments.
+
+	* gcc/cp/call.c (build_call): Delete, and replace with...
+	(build_call_n, build_call_a): New.
+	(build_op_delete_call): Rewrite to avoid constructing argument lists.
+	(build_over_call): Store converted arguments in a stack-allocated
+	array instead of building a list.
+	(build_cxx_call): Pass arguments in an array instead of as a list.
+	(build_java_interface_fn_ref): Rewrite to avoid constructing
+	argument lists.
+	* gcc/cp/tree.h: Update declarations to reflect above changes.
+
+	* gcc/cp/method.c (use_thunk): Use a stack-allocated array to hold
+	the arguments instead of a list.
+	* gcc/cp/rtti.c (throw_bad_cast): Update call to cxx_call.
+	(throw_bad_typeid): Likewise.
+	(build_dynamic_cast_1): Likewise.
+	* gcc/cp/init.c (build_builtin_delete_call): Use build_call_n.
+	* gcc/cp/decl.c (expand_static_init): Likewise.
+	* gcc/cp/except.c (cp_protect_cleanup_actions): Likewise.
+	* gcc/cp/cp-gimplify.c (genericize_eh_spec_block): Likewise.
+	(gimplify_must_not_throw_expr): Likewise.
+	(cxx_omp_apply_fn): Use build_call_a.
+
 2006-08-15  Kazu Hirata  <kazu@codesourcery.com>
 
 	Change the internal representation of TYPE_ARG_TYPES to use
