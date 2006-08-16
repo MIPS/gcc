@@ -1,6 +1,6 @@
 // posix-threads.cc - interface between libjava and POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2004  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2004, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -78,6 +78,34 @@ static int non_daemon_count;
 
 
 
+int
+_Jv_MutexLock (_Jv_Mutex_t *mu)
+{
+  pthread_t self = pthread_self ();
+  if (mu->owner == self)
+    {
+      mu->count++;
+    }
+  else
+    {
+      JvSetThreadState holder (_Jv_ThreadCurrent(), JV_BLOCKED);
+	
+#     ifdef LOCK_DEBUG
+	int result = pthread_mutex_lock (&mu->mutex);
+	if (0 != result)
+	  {
+	    fprintf(stderr, "Pthread_mutex_lock returned %d\n", result);
+	    for (;;) {}
+	  }
+#     else
+        pthread_mutex_lock (&mu->mutex);
+#     endif
+      mu->count = 1;
+      mu->owner = self;
+    }
+  return 0;
+}
+
 // Wait for the condition variable "CV" to be notified. 
 // Return values:
 // 0: the condition was notified, or the timeout expired.
@@ -93,6 +121,7 @@ _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu,
 
   struct timespec ts;
 
+  JvThreadState new_state = JV_WAITING;
   if (millis > 0 || nanos > 0)
     {
       // Calculate the abstime corresponding to the timeout.
@@ -118,6 +147,7 @@ _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu,
         {
           m %= 1000;
           ts.tv_nsec = m * 1000000 + (unsigned long long)nanos;
+	  new_state = JV_TIMED_WAITING;
         }
     }
 
@@ -133,6 +163,9 @@ _Jv_CondWait (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu,
       pthread_mutex_unlock (&current->wait_mutex);
       return _JV_INTERRUPTED;
     }
+
+  // Set the thread's state.
+  JvSetThreadState holder (current_obj, new_state);
 
   // Add this thread to the cv's wait set.
   current->next = NULL;

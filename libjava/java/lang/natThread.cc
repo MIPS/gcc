@@ -18,6 +18,8 @@ details.  */
 
 #include <gnu/gcj/RawDataManaged.h>
 #include <java/lang/Thread.h>
+#include <java/lang/Thread$State.h>
+#include <java/lang/Thread$UncaughtExceptionHandler.h>
 #include <java/lang/ThreadGroup.h>
 #include <java/lang/IllegalArgumentException.h>
 #include <java/lang/IllegalThreadStateException.h>
@@ -59,6 +61,8 @@ java::lang::Thread::initialize_native (void)
 {
   natThread *nt = (natThread *) _Jv_AllocBytes (sizeof (natThread));
   
+  state = JV_NEW;
+
   data = (gnu::gcj::RawDataManaged *) nt;
   
   // Register a finalizer to clean up the native thread resources.
@@ -227,6 +231,7 @@ java::lang::Thread::finish_ ()
   {
     JvSynchronize sync (this);
     alive_flag = false;
+    state = JV_TERMINATED;
   }
 
   _Jv_CondNotifyAll (&nt->join_cond, &nt->join_mutex);
@@ -307,7 +312,7 @@ _Jv_ThreadRun (java::lang::Thread* thread)
       // this results in an uncaught exception, that is ignored.
       try
 	{
-	  thread->group->uncaughtException (thread, t);
+	  thread->getUncaughtExceptionHandler()->uncaughtException (thread, t);
 	}
       catch (java::lang::Throwable *f)
 	{
@@ -329,6 +334,7 @@ java::lang::Thread::start (void)
 
   alive_flag = true;
   startable_flag = false;
+  state = JV_RUNNABLE;
   natThread *nt = (natThread *) data;
   _Jv_ThreadStart (this, nt->thread, (_Jv_ThreadStartFunc *) &_Jv_ThreadRun);
 }
@@ -388,8 +394,28 @@ java::lang::Thread::yield (void)
 ::java::lang::Thread$State *
 java::lang::Thread::getState()
 {
-  // FIXME
-  return NULL;
+  _Jv_InitClass(&::java::lang::Thread$State::class$);
+
+  switch (state)
+    {
+    case JV_BLOCKED:
+      return ::java::lang::Thread$State::BLOCKED;
+    case JV_NEW:
+      return ::java::lang::Thread$State::NEW;
+
+    case JV_RUNNABLE:
+      return ::java::lang::Thread$State::RUNNABLE;
+    case JV_TERMINATED:
+      return ::java::lang::Thread$State::TERMINATED;
+    case JV_TIMED_WAITING:
+      return ::java::lang::Thread$State::TIMED_WAITING;
+    case JV_WAITING:
+      return ::java::lang::Thread$State::WAITING;
+    }
+
+  // We don't really need a default, but this makes the compiler
+  // happy.
+  return ::java::lang::Thread$State::RUNNABLE;
 }
 
 JNIEnv *
@@ -419,6 +445,7 @@ _Jv_AttachCurrentThread(java::lang::Thread* thread)
     return -1;
   thread->startable_flag = false;
   thread->alive_flag = true;
+  thread->state = JV_RUNNABLE;
   natThread *nt = (natThread *) thread->data;
   _Jv_ThreadRegister (nt->thread);
   return 0;

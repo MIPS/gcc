@@ -153,6 +153,9 @@ public class Thread implements Runnable
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
 
+  // Current state.
+  volatile int state;
+
   // Our native data - points to an instance of struct natThread.
   private RawDataManaged data;
 
@@ -997,6 +1000,7 @@ public class Thread implements Runnable
    */
   public UncaughtExceptionHandler getUncaughtExceptionHandler()
   {
+    // FIXME: if thread is dead, should return null...
     return exceptionHandler != null ? exceptionHandler : group;
   }
 

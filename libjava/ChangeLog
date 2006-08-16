@@ -1,3 +1,17 @@
+2006-08-16  Tom Tromey  <tromey@redhat.com>
+
+	* include/posix-threads.h (_Jv_MutexLock): No longer inline.
+	* posix-threads.cc (_Jv_CondWait): Set thread's state.
+	* include/jvm.h (class JvSetThreadState): New class.
+	(JvThreadState): New enum.
+	* java/lang/Thread.java (state): New field.
+	* java/lang/natThread.cc (_Jv_ThreadRun): Use
+	getUncaughtExceptionHandler.
+	(start): Set state.
+	(_Jv_AttachCurrentThread): Likewise.
+	(finish_): Likewise.
+	(getState): Wrote.
+
 2006-08-15  Tom Tromey  <tromey@redhat.com>
 
 	* gnu/gcj/runtime/natSharedLibLoader.cc (init): Added missing

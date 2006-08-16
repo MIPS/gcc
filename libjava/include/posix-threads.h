@@ -1,7 +1,7 @@
 // -*- c++ -*-
 // posix-threads.h - Defines for using POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2001, 2003  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2003, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -123,31 +123,7 @@ _Jv_MutexInit (_Jv_Mutex_t *mu)
   mu->owner = 0;
 }
 
-inline int
-_Jv_MutexLock (_Jv_Mutex_t *mu)
-{
-  pthread_t self = pthread_self ();
-  if (mu->owner == self)
-    {
-      mu->count++;
-    }
-  else
-    {
-#     ifdef LOCK_DEBUG
-	int result = pthread_mutex_lock (&mu->mutex);
-	if (0 != result)
-	  {
-	    fprintf(stderr, "Pthread_mutex_lock returned %d\n", result);
-	    for (;;) {}
-	  }
-#     else
-        pthread_mutex_lock (&mu->mutex);
-#     endif
-      mu->count = 1;
-      mu->owner = self;
-    }
-  return 0;
-}
+extern int _Jv_MutexLock (_Jv_Mutex_t *);
 
 inline int
 _Jv_MutexUnlock (_Jv_Mutex_t *mu)

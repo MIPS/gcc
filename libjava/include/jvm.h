@@ -30,6 +30,8 @@ details.  */
 #include <gcj/cni.h>
 #include <gcj/field.h>
 
+#include <java/lang/Thread.h>
+
 /* Macro for possible unused arguments.  */
 #define MAYBE_UNUSED __attribute__((__unused__))
 
@@ -672,5 +674,45 @@ _Jv_IsPhantomClass (jclass c)
 
 // A helper function defined in prims.cc.
 char* _Jv_PrependVersionedLibdir (char* libpath);
+
+
+// An enum for use with JvSetThreadState.  We use a C++ enum rather
+// than the Java enum to avoid problems with class initialization
+// during VM bootstrap.
+typedef enum
+{
+  JV_BLOCKED,
+  JV_NEW,
+  JV_RUNNABLE,
+  JV_TERMINATED,
+  JV_TIMED_WAITING,
+  JV_WAITING
+} JvThreadState;
+
+// Temporarily set the thread's state.
+class JvSetThreadState
+{
+private:
+  ::java::lang::Thread *thread;
+  jint saved;
+
+public:
+
+  // Note that 'cthread' could be NULL -- during VM startup there may
+  // not be a Thread available.
+  JvSetThreadState(::java::lang::Thread *cthread, JvThreadState nstate)
+    : thread (cthread),
+      saved (cthread ? cthread->state : JV_NEW)
+  {
+    if (thread)
+      thread->state = nstate;
+  }
+
+  ~JvSetThreadState()
+  {
+    if (thread)
+      thread->state = saved;
+  }
+};
 
 #endif /* __JAVA_JVM_H__ */
