@@ -3767,6 +3767,7 @@ build_clone (tree fn, tree name)
       if (DECL_HAS_VTT_PARM_P (fn)
 	  && ! DECL_NEEDS_VTT_PARM_P (clone))
 	skip++;
+      gcc_assert (skip <= num_parm_types (parmtypes));
       parmtypes = copy_type_arg_types_skip (parmtypes, skip);
        /* If this is subobject constructor or destructor, add the vtt
 	 parameter.  */

@@ -3288,6 +3288,7 @@ enum tree_index
   TI_DFLOAT128_PTR_TYPE,
 
   TI_VOID_LIST_NODE,
+  TI_VOID_VEC_NODE,
 
   TI_MAIN_IDENTIFIER,
 
@@ -3373,6 +3374,7 @@ extern GTY(()) tree global_trees[TI_MAX];
    no TREE_CHAIN.  Language-independent code should not assume
    anything else about this node.  */
 #define void_list_node                  global_trees[TI_VOID_LIST_NODE]
+#define void_vec_node                   global_trees[TI_VOID_VEC_NODE]
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
@@ -4340,6 +4342,7 @@ extern int simple_cst_equal (tree, tree);
 extern hashval_t iterative_hash_expr (tree, hashval_t);
 extern int compare_tree_int (tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (tree, tree);
+extern int type_vec_equal (tree, tree);
 extern int chain_member (tree, tree);
 extern tree type_hash_lookup (unsigned int, tree);
 extern void type_hash_add (unsigned int, tree);

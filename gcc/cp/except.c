@@ -228,7 +228,7 @@ do_end_catch (tree type)
   if (!get_global_value_if_present (fn, &fn))
     {
       /* Declare void __cxa_end_catch ().  */
-      fn = push_void_library_fn (fn, void_list_node);
+      fn = push_void_library_fn (fn, void_vec_node);
       /* This can throw if the destructor for the exception throws.  */
       TREE_NOTHROW (fn) = 0;
     }

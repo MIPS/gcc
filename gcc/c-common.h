@@ -620,6 +620,7 @@ extern tree (*make_fname_decl) (tree, int);
 extern tree identifier_global_value (tree);
 extern void record_builtin_type (enum rid, const char *, tree);
 extern tree build_void_list_node (void);
+extern tree build_void_vec_node (void);
 extern void start_fname_decls (void);
 extern void finish_fname_decls (void);
 extern const char *fname_as_string (int);

@@ -2470,6 +2470,9 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
       c_parser_consume_token (parser);
       attrs = c_parser_attributes (parser);
       args = c_parser_parms_declarator (parser, id_present, attrs);
+      gcc_assert (args->types == NULL_TREE
+		  || args->types == error_mark_node
+		  || TREE_CODE (args->types) == TREE_VEC);
       if (args == NULL)
 	return NULL;
       else

@@ -1,3 +1,48 @@
+2006-08-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	Change the internal representation of TYPE_ARG_TYPES to use
+	TREE_VEC.
+	* gcc/c-common.c (c_common_nodes_and_builtins): Call
+	build_void_vec_node.
+	* gcc/c-common.h: Add a prototype for build_void_vec_node.
+	* gcc/c-decl.c (diagnose_mismatched_decls): Assert that OLDTYPE is
+	tcc_type.
+	(grokdeclarator): Assert that declarator->u.arg_info->types is
+	NULL_TREE, error_mark_node, or a TREE_VEC object.
+	(get_parm_info): Use void_vec_node instead of void_list_node.
+	(build_void_vec_node): New.
+	* gcc/c-parser.c (c_parser_direct_declarator_inner): Assert that
+	declarator->u.arg_info->types is NULL_TREE, error_mark_node, or a
+	TREE_VEC object.
+	* gcc/tree.c (num_parm_types, nth_parm_type, nth_parm_type_ptr,
+	alloc_parm_types): Update to use TREE_VEC.
+	(build_type_attribute_variant): Call type_hash_vec instead of
+	type_hash_list.
+	(type_hash_list): Rename to type_hash_vec.
+	(type_hash_eq): Expect TREE_VEC instead of TREE_LIST.  Call
+	type_vec_equal instead of type_list_equal.
+	(type_vec_equal): New.
+	(build_function_type): Assert that ARG_TYPES is either NULL_TREE
+	or a TREE_VEC object.  Call type_hash_vec instead of
+	type_hash_list.
+	(build_method_type_directly): Construct a new parameter list with
+	PTYPE at the beginning.  Use type_hash_vec instead of
+	type_hash_list.
+	* gcc/tree.h (tree_index): Add TI_VOID_VEC_NODE.
+	(void_vec_node): New.
+	Add a prototype for type_vec_equal.
+	* gcc/cp/call.c (build_op_delete_call): Use void_vec_node instead
+	of void_list_node.
+	* gcc/cp/class.c (build_clone): Assert that SKIP is no greater
+	than num_parm_types (PARM_TYPES).
+	* gcc/cp/decl.c (grokdeclarator): Use void_vec_node instaed of
+	void_list_node.
+	(build_void_vec_node): New.
+	* gcc/cp/except.c (do_end_catch): Use void_vec_node instaed of
+	void_list_node.
+	* gcc/cp/pt.c (type_unification_real): Assert that XPARMS is
+	either NULL_TREE or a TREE_VEC object.
+
 2006-08-15  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/tree.h (tree_node_kind): Combine unused perm_list_kind and

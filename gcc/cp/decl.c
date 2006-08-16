@@ -7612,7 +7612,7 @@ grokdeclarator (const cp_declarator *declarator,
 		     && nth_parm_type (arg_types, 0) == void_type_node))
 	      {
 		error ("destructors may not have parameters");
-		arg_types = void_list_node;
+		arg_types = void_vec_node;
 		parms = NULL_TREE;
 	      }
 
@@ -11536,6 +11536,15 @@ tree
 build_void_list_node (void)
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
+  return t;
+}
+
+/* Build the void_list_node (void_type_node having been created).  */
+tree
+build_void_vec_node (void)
+{
+  tree t = make_tree_vec (1);
+  TREE_VEC_ELT (t, 0) = void_type_node;
   return t;
 }
 

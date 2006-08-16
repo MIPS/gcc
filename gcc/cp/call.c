@@ -4026,7 +4026,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
   else
     {
       /* First try it without the size argument.  */
-      argtypes = void_list_node;
+      argtypes = void_vec_node;
       args = NULL_TREE;
     }
 

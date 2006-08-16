@@ -3269,6 +3269,7 @@ c_common_nodes_and_builtins (void)
   TREE_TYPE (void_zero_node) = void_type_node;
 
   void_list_node = build_void_list_node ();
+  void_vec_node = build_void_vec_node ();
 
   /* Make a type to be the domain of a few array types
      whose domains don't really matter.

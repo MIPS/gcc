@@ -9489,7 +9489,7 @@ type_unification_real (tree fn,
   int parms_len, args_len, arity;
 
   gcc_assert (TREE_CODE (tparms) == TREE_VEC);
-  gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_LIST);
+  gcc_assert (xparms == NULL_TREE || TREE_CODE (xparms) == TREE_VEC);
   gcc_assert (ntparms > 0);
 
   if (fn)

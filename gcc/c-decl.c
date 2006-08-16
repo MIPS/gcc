@@ -1175,6 +1175,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (oldtype == error_mark_node || newtype == error_mark_node)
     return false;
 
+  gcc_assert (TREE_CODE_CLASS (TREE_CODE (oldtype)) == tcc_type);
+
   /* Two different categories of symbol altogether.  This is an error
      unless OLDDECL is a builtin.  OLDDECL will be discarded in any case.  */
   if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
@@ -4373,6 +4375,9 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    /* Construct the function type and go to the next
 	       inner layer of declarator.  */
+	    gcc_assert (declarator->u.arg_info->types == NULL_TREE
+			|| declarator->u.arg_info->types == error_mark_node
+			|| TREE_CODE (declarator->u.arg_info->types) == TREE_VEC);
 	    arg_info = declarator->u.arg_info;
 	    arg_types = grokparms (arg_info, really_funcdef);
 
@@ -4991,7 +4996,7 @@ get_parm_info (bool ellipsis)
       if (ellipsis)
 	error ("%<void%> must be the only parameter");
 
-      arg_info->types = void_list_node;
+      arg_info->types = void_vec_node;
       return arg_info;
     }
 
@@ -6970,6 +6975,15 @@ tree
 build_void_list_node (void)
 {
   tree t = build_tree_list (NULL_TREE, void_type_node);
+  return t;
+}
+
+/* Build the void_vec_node (void_type_node having been created).  */
+tree
+build_void_vec_node (void)
+{
+  tree t = make_tree_vec (1);
+  TREE_VEC_ELT (t, 0) = void_type_node;
   return t;
 }
 

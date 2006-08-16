@@ -167,7 +167,7 @@ static void print_debug_expr_statistics (void);
 static void print_value_expr_statistics (void);
 static tree make_vector_type (tree, int, enum machine_mode);
 static int type_hash_marked_p (const void *);
-static unsigned int type_hash_list (tree, hashval_t);
+static unsigned int type_hash_vec (tree, hashval_t);
 static unsigned int attribute_hash_list (tree, hashval_t);
 
 tree global_trees[TI_MAX];
@@ -1588,7 +1588,9 @@ list_length (tree t)
 int
 num_parm_types (tree parmtypes)
 {
-  return list_length (parmtypes);
+  gcc_assert (parmtypes == NULL_TREE
+	      || TREE_CODE (parmtypes) == TREE_VEC);
+  return parmtypes ? TREE_VEC_LENGTH (parmtypes) : 0;
 }
 
 /* Return the Nth element of PARMTYPES, a list of parameter types.  */
@@ -1596,14 +1598,8 @@ num_parm_types (tree parmtypes)
 tree
 nth_parm_type (tree parmtypes, int n)
 {
-  while (n--)
-    {
-      gcc_assert (parmtypes);
-      parmtypes = TREE_CHAIN (parmtypes);
-    }
-
-  gcc_assert (parmtypes);
-  return TREE_VALUE (parmtypes);
+  gcc_assert (TREE_CODE (parmtypes) == TREE_VEC);
+  return TREE_VEC_ELT (parmtypes, n);
 }
 
 /* Return the pointer to the Nth element of PARMTYPES, a list of
@@ -1612,14 +1608,8 @@ nth_parm_type (tree parmtypes, int n)
 tree *
 nth_parm_type_ptr (tree parmtypes, int n)
 {
-  while (n--)
-    {
-      gcc_assert (parmtypes);
-      parmtypes = TREE_CHAIN (parmtypes);
-    }
-
-  gcc_assert (parmtypes);
-  return &(TREE_VALUE (parmtypes));
+  gcc_assert (TREE_CODE (parmtypes) == TREE_VEC);
+  return &TREE_VEC_ELT (parmtypes, n);
 }
 
 /* Allocate parameter types of length LEN.  */
@@ -1627,12 +1617,7 @@ nth_parm_type_ptr (tree parmtypes, int n)
 tree
 alloc_parm_types (int len)
 {
-  tree t = NULL;
-
-  while (len--)
-    t = tree_cons (NULL, NULL, t);
-
-  return t;
+  return len ? make_tree_vec (len) : NULL_TREE;
 }
 
 /* Make a parameter list containing types given in V.  Return NULL if
@@ -3468,7 +3453,7 @@ build_type_attribute_variant (tree ttype, tree attribute)
       switch (TREE_CODE (ntype))
 	{
 	case FUNCTION_TYPE:
-	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
+	  hashcode = type_hash_vec (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
 	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
@@ -4149,14 +4134,18 @@ decl_value_expr_insert (tree from, tree to)
    of the individual types.  */
 
 unsigned int
-type_hash_list (tree list, hashval_t hashcode)
+type_hash_vec (tree list, hashval_t hashcode)
 {
-  tree tail;
+  int len = num_parm_types (list);
+  int i;
 
-  for (tail = list; tail; tail = TREE_CHAIN (tail))
-    if (TREE_VALUE (tail) != error_mark_node)
-      hashcode = iterative_hash_object (TYPE_HASH (TREE_VALUE (tail)),
-					hashcode);
+  for (i = 0; i < len; i++)
+    {
+      tree type = nth_parm_type (list, i);
+      if (type != error_mark_node)
+	hashcode = iterative_hash_object (TYPE_HASH (type),
+					  hashcode);
+    }
 
   return hashcode;
 }
@@ -4243,11 +4232,11 @@ type_hash_eq (const void *va, const void *vb)
     case FUNCTION_TYPE:
       return (TYPE_ARG_TYPES (a->type) == TYPE_ARG_TYPES (b->type)
 	      || (TYPE_ARG_TYPES (a->type)
-		  && TREE_CODE (TYPE_ARG_TYPES (a->type)) == TREE_LIST
+		  && TREE_CODE (TYPE_ARG_TYPES (a->type)) == TREE_VEC
 		  && TYPE_ARG_TYPES (b->type)
-		  && TREE_CODE (TYPE_ARG_TYPES (b->type)) == TREE_LIST
-		  && type_list_equal (TYPE_ARG_TYPES (a->type),
-				      TYPE_ARG_TYPES (b->type))));
+		  && TREE_CODE (TYPE_ARG_TYPES (b->type)) == TREE_VEC
+		  && type_vec_equal (TYPE_ARG_TYPES (a->type),
+				     TYPE_ARG_TYPES (b->type))));
 
     default:
       return 0;
@@ -4456,6 +4445,30 @@ type_list_equal (tree l1, tree l2)
       return 0;
 
   return t1 == t2;
+}
+
+/* Given two vectors of types
+   (TREE_VEC with types in the TREE_VEC_ELT slots)
+   return 1 if the vectors contain the same types in the same order.  */
+
+int
+type_vec_equal (tree l1, tree l2)
+{
+  if (l1 == 0 && l2 == 0)
+    return 1;
+
+  if (l1 == 0 || l2 == 0)
+    return 0;
+
+  gcc_assert (TREE_CODE (l1) == TREE_VEC);
+  gcc_assert (TREE_CODE (l2) == TREE_VEC);
+
+  if (TREE_VEC_LENGTH (l1) != TREE_VEC_LENGTH (l2))
+    return 0;
+
+  return (0 == memcmp (&TREE_VEC_ELT (l1, 0),
+		       &TREE_VEC_ELT (l2, 0),
+		       sizeof (tree) * TREE_VEC_LENGTH (l1)));
 }
 
 /* Returns the number of arguments to the FUNCTION_TYPE or METHOD_TYPE
@@ -5271,11 +5284,13 @@ build_function_type (tree value_type, tree arg_types)
   /* Make a node of the sort we want.  */
   t = make_node (FUNCTION_TYPE);
   TREE_TYPE (t) = value_type;
+  gcc_assert (arg_types == NULL_TREE
+	      || TREE_CODE (arg_types) == TREE_VEC);
   TYPE_ARG_TYPES (t) = arg_types;
 
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (value_type), hashcode);
-  hashcode = type_hash_list (arg_types, hashcode);
+  hashcode = type_hash_vec (arg_types, hashcode);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
@@ -5337,13 +5352,25 @@ build_method_type_directly (tree basetype,
 
   /* The actual arglist for this function includes a "hidden" argument
      which is "this".  Put it into the list of argument types.  */
-  argtypes = tree_cons (NULL_TREE, ptype, argtypes);
+  gcc_assert (argtypes == NULL_TREE
+	      || TREE_CODE (argtypes) == TREE_VEC);
+  {
+    int len = num_parm_types (argtypes);
+    tree new_parm_types = alloc_parm_types (1 + len);
+    int i;
+
+    *(nth_parm_type_ptr (new_parm_types, 0)) = ptype;
+    for (i = 0; i < len; i++)
+      *(nth_parm_type_ptr (new_parm_types, 1 + i)) =
+	nth_parm_type (argtypes, i);
+    argtypes = new_parm_types;
+  }
   TYPE_ARG_TYPES (t) = argtypes;
 
   /* If we already have such a type, use the old one.  */
   hashcode = iterative_hash_object (TYPE_HASH (basetype), hashcode);
   hashcode = iterative_hash_object (TYPE_HASH (rettype), hashcode);
-  hashcode = type_hash_list (argtypes, hashcode);
+  hashcode = type_hash_vec (argtypes, hashcode);
   t = type_hash_canon (hashcode, t);
 
   if (!COMPLETE_TYPE_P (t))
