@@ -1,6 +1,49 @@
 2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
 
 	* congraph.c: New file
+	* congraph.h, congraph.c, tree-ssa-escape.c (con_node) <LOCAL>
+	<OBJECT, FIELD, GLOBAL, RETURN, CALLEE_ACTUAL, CALLER_ACTUAL>:
+	Changed int con_node->type to enum con_node_type
+
+	* congraph.h, congraph.c, tree-ssa-escape.c (con_edge)
+	<POINTS-TO, DEFERRED, FIELD>: Changed int con_edge->type to
+	enum con_edge_type
+
+	* congraph.h, congraph.c, tree-ssa-escape.c (con_node)
+	<NO_ESCAPE, ARG_ESCAPE, GLOBAL_ESCAPE>: Changed int
+	con_node->escape to enum ea_escape_type
+
+	* congraph.h, congraph.h (new_con_graph): Removed arg
+	num_basic_block
+	* congraph.h, congraph.h (con_graph): Removed field
+	block_iteration_count, dirty
+	* congraph.h, congraph.h: Removed functions reset_dirty,
+	is_dirty, increment_iteration_count, get_iteration_count,
+	reset_iteration_count
+
+	* congraph.h, congraph.c: Removed functions update_nodes,
+	in_maps_to_obj, add_to_maps_to_obj
+
+	* congraph.h (con_node, con_edge): Updated comments
+
+	* tree-ssa-escape.c (get_constructor_function): Simplified
+
+	* tree-ssa-escape.c (update_connection_graph_from_statement):
+	Used LHS macro in place of many TREE_OPERAND (stmt, 0)
+	Used RHS macro in place of many TREE_OPERAND (stmt, 1)
+
+	* tree-ssa-escape.c
+	(process_function): Remove function
+	update_connection_graph_after_method_invocation and call to it
+
+	* tree-ssa-escape.c (process_function): Removed commented
+	debugging printf
+
+
+
+2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
+
+	* congraph.c: New file
 	* congraph.h: New file
 	* tree-ssa-escape.c: New file
 	* tree-pass.h (pass_ipa_escape): New pass

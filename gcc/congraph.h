@@ -50,27 +50,32 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "bitmap.h"
 
 
-/* nodes */
-#define LOCAL	1
-#define OBJECT 2
-#define FIELD	3
-#define GLOBAL 4
-#define RETURN 5
-#define CALLEE_ACTUAL	6
-#define CALLER_ACTUAL	7
+enum con_node_type
+{
+  LOCAL_NODE = 101,
+  OBJECT_NODE,
+  FIELD_NODE,
+  GLOBAL_NODE,
+  RETURN_NODE,
+  CALLEE_ACTUAL_NODE,
+  CALLER_ACTUAL_NODE
+};
 
-/* edges */
-#define POINTS_TO 1
-#define DEFERRED	2
-/* #define FIELD		3	// shared with node definition */
+enum con_edge_type
+{
+  POINTS_TO_EDGE = 111,
+  DEFERRED_EDGE,
+  FIELD_EDGE
+};
 
-/* escaping */
-#define NO_ESCAPE 10
-#define ARG_ESCAPE 11
-#define GLOBAL_ESCAPE 12
-
-#define CALLER 23
-#define CALLEE 24
+/* This should be combined in the future with structure aliasing, but
+ * for now it needs a prefix */
+enum ea_escape_type
+{
+  EA_NO_ESCAPE = 121,
+  EA_ARG_ESCAPE,
+  EA_GLOBAL_ESCAPE
+};
 
 extern bool flow_sensisitive;
 extern bool interprocedural;
@@ -90,9 +95,7 @@ struct _con_graph
   con_node root;
   const char *filename;
 
-  int *block_iteration_count;
-  bool dirty;			/* has the graph been updated */
-
+        
   tree function;
 
   /* for the inter-procedural, we use a return node, and draw an edge
@@ -107,8 +110,6 @@ struct _con_graph
   /* I use this as a maximum size for MapsTo vectors */
   int num_objects;
 
-  /* for deubgging */
-  int role;
 };
 
 
@@ -116,25 +117,25 @@ struct _con_graph
 struct _con_node
 {
   /* the id used for comparison - done using a node to have a
-   * '1-limited naming scheme */
+   * '1-limited naming scheme' */
   tree id;
 
-  /* for field nodes, this is the owner */
+  /* A link to the object who's field this node is */
   con_node owner;
 
-  /* type; can be LOCAL, FIELD, ACTUAL, GLOBAL, OBJECT */
-  int type;
+  /* type */
+  enum con_node_type type;
 
   /* for object nodes, the class this node is an object of */
-  /* Not allowed call things class, due to GNU coding stds */
   tree class_id;
 
-  /* a phantom node is one which is referred to in the function,
-   * but doesnt otherwise exist there (ie, a field of a passed
-   * reference)*/
+  /* a phantom node is one which represents the existing value, when
+   * no information about that value is provided. Currently this is
+   * the object and fields of passed references, other references they
+   * access, and the values of caller and callee parameters */
   bool phantom;
 
-  /* index for actual nodes */
+  /* Actual nodes are references and searched by index */
   int index;
 
   /* the linked list of incoming edges */
@@ -148,102 +149,67 @@ struct _con_node
    * graph's structure */
   con_node next;
 
-  /* the next in the linked list of points_to nodes of a
-   * particular node.  This list contains object nodes only. This
-   * is used in the get_points_to traversal, and nothing can be
-   * infered from this otherwise. */
+  /* Used to return lists of nodes from functions */
   con_node next_link;
 
-  /* how far the node escapes. Can be UNINIT, NO_ESCAPE,
-   * ARG_ESCAPE or GLOBAl_ESCAPE */
-  int escape;
+  enum ea_escape_type escape;
 
   /* this is here for debugging. It allows me dump the con_graph
-   * at any time. Also allows me update the dirty flag, though I
-   * may have to refactor this */
+   * at any time. */
   con_graph graph;
-
-  /* the list of maps_to_obj nodes */
-  con_node *maps_to_obj;
-  int num_maps_to_obj;
 
   /* the id used by the caller/callee */
   tree call_id;
 
 };
 
-/*typedef struct _con_node *con_node; */
-
 
 
 struct _con_edge
 {
-  /* the source of this edge */
   con_node source;
-
-  /* target of this edge */
   con_node target;
 
-  /* the next in the linked list of edges which come from the
-   * source node */
+  /* next in the linked list of the source's outgoing edges */
   con_edge next_out;
 
 
-  /* the next in the linked list of edges which end at the target
-   * node */
+  /* the next in the linked list of the target's incoming edges */
   con_edge next_in;
 
-  /* type, can be FIELD, DEFERRED, or POINTS_TO */
-  int type;
+  enum con_edge_type type;
 };
 
 
 /* print the name of the node for (Graph::Easy) */
 void print_node_name (FILE * out, con_node node);
 
-/* increment the count for basic block _index_. This is for
- * flow-sensitive analysis, to make sure we dont keep iterating
- * forever when a solution wont converge. When it gets >= a magic
- * number (probably 10), we're going to stop, and set all vars to
- * GlobalEscape. */
-void increment_iteration_count (con_graph cg, int block_index);
-
-int get_iteration_count (con_graph cg, int block_index);
-
-void reset_iteration_count (con_graph cg, int block_index);
-
-/* reset the dirty flag. Do this when you're starting again */
-void reset_dirty (con_graph cg);
-
-
 /* ---------------------------------------------------
- *							graph
+ *                      graph
  * --------------------------------------------------- */
 
 /* allocates a new, cleared and inited con_graph */
-con_graph new_con_graph (const char *filename, int num_basic_blocks,
-			 tree function, con_graph next);
+con_graph 
+new_con_graph (const char *filename, tree function, con_graph next);
 
 /* print the connection graph to file (in Graph::Easy format) */
 int con_graph_dump (con_graph cg);
 void con_graph_dump_node (con_node node, FILE * out);
 void con_graph_dump_edge (con_edge edge, FILE * out);
 
-/* accesor - remove later */
-bool is_dirty (con_graph cg);
 
 /* search through the list of connection graphs for the one
  * representing _function_ */
 con_graph get_cg_for_function (con_graph cg, tree function);
 
 /* ---------------------------------------------------
- *							nodes
+ *			nodes
 * --------------------------------------------------- */
 
 
 /* add a new object node, identified by id, of class class, and
  * return the node */
-con_node add_object_node (con_graph cg, tree id, tree class);
+con_node add_object_node (con_graph cg, tree id, tree class_id);
 
 
 /* add a new field node representing a field id */

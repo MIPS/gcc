@@ -29,23 +29,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static bool
 is_actual_type (con_node node)
 {
-  return node->type == CALLER_ACTUAL || node->type == CALLEE_ACTUAL;
+  return node->type == CALLER_ACTUAL_NODE 
+    || node->type == CALLEE_ACTUAL_NODE;
 }
 
 /* allocates a new, cleared and inited con_graph */
 con_graph
-new_con_graph (const char *filename, int num_basic_blocks,
-	       tree function, con_graph next)
+new_con_graph (const char *filename, tree function, con_graph next)
 {
   con_graph result = xcalloc (1, sizeof (struct _con_graph));
   gcc_assert (result);
 
   result->filename = filename;
-
-  /* used for flow-sensitive */
-  result->block_iteration_count =
-    xcalloc (num_basic_blocks, sizeof (int));
-  gcc_assert (result->block_iteration_count);
 
   result->return_node = add_return_node (result);
   result->function = function;
@@ -83,7 +78,7 @@ con_graph_dump (con_graph cg)
   /* do the localgraph */
   for (node = cg->root; node != NULL; node = node->next)
     {
-      if (node->escape == NO_ESCAPE)
+      if (node->escape == EA_NO_ESCAPE)
 	{
 	  fprintf (out, " [ %p ]\n", (void *) node);
 	}
@@ -94,7 +89,7 @@ con_graph_dump (con_graph cg)
   fprintf (out, "( NonLocalGraph: \n");
   for (node = cg->root; node != NULL; node = node->next)
     {
-      if (node->escape != NO_ESCAPE)
+      if (node->escape != EA_NO_ESCAPE)
 	{
 	  fprintf (out, " [ %p ]\n", (void *) node);
 	}
@@ -118,8 +113,8 @@ void
 con_graph_dump_node (con_node node, FILE * out)
 {
   gcc_assert (node->id);
-  gcc_assert (node->type == FIELD ? node->owner != NULL : true);
-  gcc_assert (node->type == OBJECT ? node->class_id != NULL : true);
+  gcc_assert (node->type == FIELD_NODE ? node->owner != NULL : true);
+  gcc_assert (node->type == OBJECT_NODE ? node->class_id != NULL : true);
   gcc_assert (node->graph);
   /* print the nodes first, so that we can annotate them */
 
@@ -133,26 +128,26 @@ con_graph_dump_node (con_node node, FILE * out)
   fprintf (out, "label: ");
   switch (node->type)
     {
-    case CALLEE_ACTUAL:
+    case CALLEE_ACTUAL_NODE:
       fprintf (out, "a%d_ee (", node->index);
       print_generic_expr (out, node->id, 0);
       fprintf (out, ")");
       break;
 
-    case CALLER_ACTUAL:
+    case CALLER_ACTUAL_NODE:
       fprintf (out, "a%d_er (", node->index);
       print_generic_expr (out, node->id, 0);
       fprintf (out, ")");
       break;
 
-    case FIELD:
-    case OBJECT:
-    case LOCAL:
-    case GLOBAL:
+    case FIELD_NODE:
+    case OBJECT_NODE:
+    case LOCAL_NODE:
+    case GLOBAL_NODE:
       print_generic_expr (out, node->id, 0);
       break;
 
-    case RETURN:
+    case RETURN_NODE:
       fprintf (out, "RETURN");
       break;
 
@@ -166,13 +161,13 @@ con_graph_dump_node (con_node node, FILE * out)
    * */
   switch (node->escape)
     {
-    case NO_ESCAPE:
+    case EA_NO_ESCAPE:
       fprintf (out, "border: limegreen; ");
       break;
-    case ARG_ESCAPE:
+    case EA_ARG_ESCAPE:
       fprintf (out, "border: blue; ");
       break;
-    case GLOBAL_ESCAPE:
+    case EA_GLOBAL_ESCAPE:
       fprintf (out, "border: red; ");
       break;
     default:
@@ -183,29 +178,30 @@ con_graph_dump_node (con_node node, FILE * out)
   /* design for the color and shape node depends on its type */
   switch (node->type)
     {
-    case FIELD:
+
+    case LOCAL_NODE:
+      fprintf (out, "shape: ellipse; ");
+      break;
+
+    case OBJECT_NODE:
+      fprintf (out, "shape: rect; ");
+      break;
+
+    case FIELD_NODE:
       fprintf (out, "fill: #cfffcf; ");
       fprintf (out, "shape: ellipse; ");
       break;
 
-    case OBJECT:
-      fprintf (out, "shape: rect; ");
-      break;
-
-    case LOCAL:
-      fprintf (out, "shape: ellipse; ");
-      break;
-
-    case RETURN:
-    case CALLEE_ACTUAL:
-    case CALLER_ACTUAL:
-      fprintf (out, "fill: #ffcfcf; ");
-      fprintf (out, "shape: ellipse; ");
-      break;
-
-    case GLOBAL:
+    case GLOBAL_NODE:
       fprintf (out, "shape: ellipse; ");
       fprintf (out, "fill: silver; ");
+      break;
+
+    case RETURN_NODE:
+    case CALLEE_ACTUAL_NODE:
+    case CALLER_ACTUAL_NODE:
+      fprintf (out, "fill: #ffcfcf; ");
+      fprintf (out, "shape: ellipse; ");
       break;
 
     default:
@@ -237,14 +233,16 @@ con_graph_dump_edge (con_edge edge, FILE * out)
   fprintf (out, " -> ");
   switch (edge->type)
     {
-    case FIELD:
-      fprintf (out, " { label: F; }");
-      break;
-    case POINTS_TO:
+    case POINTS_TO_EDGE:
       fprintf (out, " { label: P; }");
       break;
-    case DEFERRED:
+
+    case DEFERRED_EDGE:
       fprintf (out, " { label: D; style: dashed; }");
+      break;
+
+    case FIELD_EDGE:
+      fprintf (out, " { label: F; }");
       break;
 
     default:
@@ -257,44 +255,6 @@ con_graph_dump_edge (con_edge edge, FILE * out)
   fprintf (out, "\n");
 }
 
-/* TODO should each bb have a dirty bit */
-void
-reset_dirty (con_graph cg)
-{
-  gcc_assert (cg);
-  cg->dirty = false;
-}
-
-bool
-is_dirty (con_graph cg)
-{
-  gcc_assert (cg);
-  return cg->dirty;
-}
-
-void
-increment_iteration_count (con_graph cg, int block_index)
-{
-  gcc_assert (cg);
-  gcc_assert (cg->block_iteration_count);
-  cg->block_iteration_count[block_index]++;
-}
-
-int
-get_iteration_count (con_graph cg, int block_index)
-{
-  gcc_assert (cg);
-  gcc_assert (cg->block_iteration_count);
-  return cg->block_iteration_count[block_index];
-}
-
-void
-reset_iteration_count (con_graph cg, int block_index)
-{
-  gcc_assert (cg);
-  gcc_assert (cg->block_iteration_count);
-  cg->block_iteration_count[block_index] = 0;
-}
 
 /* search through the list of connection graphs FUNCTION */
 con_graph
@@ -335,7 +295,7 @@ add_object_node (con_graph cg, tree id, tree class_id)
   cg->num_objects++;
   node->id = id;
   node->class_id = class_id;
-  node->type = OBJECT;
+  node->type = OBJECT_NODE;
   add_node (cg, node);
   return node;
 }
@@ -351,8 +311,8 @@ add_callee_actual_node (con_graph cg, tree id, int index, tree stmt)
   node->id = id;
   node->index = index;
   node->phantom = true;
-  node->type = CALLEE_ACTUAL;
-  node->escape = ARG_ESCAPE;
+  node->type = CALLEE_ACTUAL_NODE;
+  node->escape = EA_ARG_ESCAPE;
   node->call_id = stmt;
   add_node (cg, node);
   return node;
@@ -370,8 +330,8 @@ add_caller_actual_node (con_graph cg, tree id, int index,
   node->id = id;
   node->index = index;
   node->phantom = true;
-  node->type = CALLER_ACTUAL;
-  node->escape = ARG_ESCAPE;
+  node->type = CALLER_ACTUAL_NODE;
+  node->escape = EA_ARG_ESCAPE;
   node->call_id = call_id;
   add_node (cg, node);
   return node;
@@ -387,7 +347,7 @@ add_field_node (con_graph cg, tree id)
 
   node = new_con_node ();
   node->id = id;
-  node->type = FIELD;
+  node->type = FIELD_NODE;
   add_node (cg, node);
   return node;
 }
@@ -404,8 +364,8 @@ add_return_node (con_graph cg)
   /* HACK TODO this is very bold. fix it */
   /* so that it wont be the same as another id */
   node->id = (tree) cg;
-  node->type = RETURN;
-  node->escape = ARG_ESCAPE;
+  node->type = RETURN_NODE;
+  node->escape = EA_ARG_ESCAPE;
   node->phantom = true;
   add_node (cg, node);
   return node;
@@ -420,8 +380,8 @@ add_global_node (con_graph cg, tree id)
 
   node = new_con_node ();
   node->id = id;
-  node->type = GLOBAL;
-  node->escape = GLOBAL_ESCAPE;
+  node->type = GLOBAL_NODE;
+  node->escape = EA_GLOBAL_ESCAPE;
   add_node (cg, node);
   return node;
 }
@@ -435,7 +395,7 @@ add_local_node (con_graph cg, tree id)
 
   node = new_con_node ();
   node->id = id;
-  node->type = LOCAL;
+  node->type = LOCAL_NODE;
   add_node (cg, node);
   return node;
 }
@@ -449,7 +409,7 @@ add_node (con_graph cg, con_node node)
 
   /* we search for id, which is duplicated in the case of field and
    * actual nodes */
-  if (node->type != FIELD && !is_actual_type (node))
+  if (node->type != FIELD_NODE && !is_actual_type (node))
     gcc_assert (get_existing_node_with_call_id
 		(cg, node->id, node->call_id) == NULL);
 
@@ -459,8 +419,6 @@ add_node (con_graph cg, con_node node)
 
   /* remove this later, this is just for debugging */
   node->graph = cg;
-
-  cg->dirty = true;
 }
 
 
@@ -470,7 +428,7 @@ new_con_node (void)
 {
   con_node result = xcalloc (1, sizeof (struct _con_node));
   gcc_assert (result);
-  result->escape = NO_ESCAPE;
+  result->escape = EA_NO_ESCAPE;
   return result;
 }
 
@@ -494,7 +452,7 @@ get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
 	  && !is_actual_type (node))
 	{
 	  /* For field nodes use get_existing_field_nodes */
-	  gcc_assert (node->type != FIELD);
+	  gcc_assert (node->type != FIELD_NODE);
 
 	  /* check for dups */
 	  gcc_assert (result == NULL);
@@ -526,7 +484,7 @@ get_existing_field_node_with_call_id (con_graph graph,
 	  && node->call_id == call_id)
 	{
 	  /* For other types use get_existing_node */
-	  gcc_assert (node->type == FIELD);
+	  gcc_assert (node->type == FIELD_NODE);
 	  return node;
 	}
     }
@@ -550,7 +508,7 @@ new_con_edge (void)
 bool
 is_reference_node (con_node node)
 {
-  return (node->type != OBJECT);
+  return (node->type != OBJECT_NODE);
 }
 
 con_edge
@@ -596,21 +554,18 @@ add_edge (con_node source, con_node target)
   /* check that this edge doesnt already occur */
   gcc_assert (get_edge (source, target) == NULL);
 
-  /* mark graph as dirty */
-  source->graph->dirty = true;
-
   edge = new_con_edge ();
   edge->source = source;
   edge->target = target;
 
   /* set the type */
-  if (is_reference_node (source) && target->type == OBJECT)
-    edge->type = POINTS_TO;
+  if (is_reference_node (source) && target->type == OBJECT_NODE)
+    edge->type = POINTS_TO_EDGE;
 
-  else if (source->type == OBJECT && target->type == FIELD)
+  else if (source->type == OBJECT_NODE && target->type == FIELD_NODE)
     {
       con_edge temp;
-      edge->type = FIELD;
+      edge->type = FIELD_EDGE;
 
       /* there can only be 1 owner of a field node */
       gcc_assert (target->owner == NULL);
@@ -621,12 +576,12 @@ add_edge (con_node source, con_node target)
       /* check that no other edges originate from on object */
       for (temp = target->in; temp != NULL; temp = temp->next_in)
 	{
-	  gcc_assert (temp->type != POINTS_TO);
+	  gcc_assert (temp->type != POINTS_TO_EDGE);
 	}
 
     }
   else if (is_reference_node (source) && is_reference_node (target))
-    edge->type = DEFERRED;
+    edge->type = DEFERRED_EDGE;
 
   else
     gcc_unreachable ();
@@ -652,9 +607,6 @@ remove_con_edge (con_edge edge)
   con_node node;
   con_edge temp;
   gcc_assert (edge);
-
-  /* guaranteed to be dirty */
-  edge->source->graph->dirty = true;
 
   /* do the incoming first */
   node = edge->target;
@@ -717,13 +669,13 @@ get_points_to (con_node node)
   con_node result = NULL;
 
   gcc_assert (node);
-  gcc_assert (node->type != OBJECT);
+  gcc_assert (node->type != OBJECT_NODE);
 
   for (edge = node->out; edge != NULL; edge = edge->next_out)
     {
       con_node new_result = NULL;
 
-      if (edge->target->type == OBJECT)
+      if (edge->target->type == OBJECT_NODE)
 	{
 	  /* its not already in the list */
 	  if (edge->target->next_link == NULL)
@@ -757,15 +709,15 @@ get_single_named_field_node (con_node node, tree field_id)
 
   gcc_assert (node);
   gcc_assert (field_id);
-  gcc_assert (node->type == OBJECT);
+  gcc_assert (node->type == OBJECT_NODE);
 
 
   /* get the field nodes from the target of the field edges, and build
    * a list of them */
   for (edge = node->out; edge != NULL; edge = edge->next_out)
     {
-      gcc_assert (edge->type == FIELD);
-      gcc_assert (edge->target->type == FIELD);
+      gcc_assert (edge->type == FIELD_EDGE);
+      gcc_assert (edge->target->type == FIELD_NODE);
       gcc_assert (edge->target->next_link == NULL);
 
       /* add it to the result list */
@@ -793,14 +745,14 @@ get_field_nodes (con_node node, tree field_id)
   while (node)
     {
       bool field_found = false;
-      gcc_assert (node->type == OBJECT);
+      gcc_assert (node->type == OBJECT_NODE);
 
       /* get the field nodes from the target of the field edges, and
        * build a list of them */
       for (edge = node->out; edge != NULL; edge = edge->next_out)
 	{
-	  gcc_assert (edge->type == FIELD);
-	  gcc_assert (edge->target->type == FIELD);
+	  gcc_assert (edge->type == FIELD_EDGE);
+	  gcc_assert (edge->target->type == FIELD_NODE);
 	  gcc_assert (edge->target->next_link == NULL);
 
 	  /* add it to the result list */
@@ -840,14 +792,14 @@ get_field_nodes_vec (con_node node)
   int count = 0;
 
   gcc_assert (node);
-  gcc_assert (node->type == OBJECT);
+  gcc_assert (node->type == OBJECT_NODE);
 
   /* get the field nodes from the target of the field edges, and build
    * a list of them */
   for (edge = node->out; edge != NULL; edge = edge->next_out)
     {
-      gcc_assert (edge->type == FIELD);
-      gcc_assert (edge->target->type == FIELD);
+      gcc_assert (edge->type == FIELD_EDGE);
+      gcc_assert (edge->target->type == FIELD_NODE);
 
       /* add it to the result list */
       result[count++] = edge->target;
@@ -870,7 +822,7 @@ bypass_node (con_node node)
   con_edge out;
 
   gcc_assert (node);
-  gcc_assert (node->type != OBJECT);
+  gcc_assert (node->type != OBJECT_NODE);
 
   /* you dont want to bypass nodes at the start or the end */
   if (node->in == NULL || node->out == NULL)
@@ -880,11 +832,11 @@ bypass_node (con_node node)
 
   for (in = node->in; in != NULL; in = in->next_in)
     {
-      if (in->type == DEFERRED)
+      if (in->type == DEFERRED_EDGE)
 	{
 	  for (out = node->out; out != NULL; out = out->next_out)
 	    {
-	      gcc_assert (in->type != FIELD);
+	      gcc_assert (in->type != FIELD_EDGE);
 
 	      add_edge (in->source, out->target);
 	    }
@@ -902,7 +854,7 @@ get_terminal_nodes (con_node node)
   con_node result = NULL;
 
   gcc_assert (node);
-  gcc_assert (node->type != OBJECT);
+  gcc_assert (node->type != OBJECT_NODE);
   gcc_assert (node->next_link == NULL);
 
   for (edge = node->out; edge != NULL; edge = edge->next_out)
@@ -1003,7 +955,7 @@ get_caller_actual_node (con_graph cg, int index, tree stmt)
   gcc_assert (stmt);
   for (node = cg->root; node; node = node->next)
     {
-      if (node->type == CALLER_ACTUAL && node->index == index
+      if (node->type == CALLER_ACTUAL_NODE && node->index == index
 	  && node->call_id == stmt)
 	{
 	  return node;
@@ -1021,7 +973,7 @@ get_callee_actual_node (con_graph cg, int index, tree call_id)
   gcc_assert (call_id);
   for (node = cg->root; node; node = node->next)
     {
-      if (node->type == CALLEE_ACTUAL && node->index == index
+      if (node->type == CALLEE_ACTUAL_NODE && node->index == index
 	  && node->call_id == call_id)
 	{
 	  return node;
@@ -1032,161 +984,7 @@ get_callee_actual_node (con_graph cg, int index, tree call_id)
 
 }
 
-/* This function, and the symbols in it come Toplas03, Figure 7
- * (Choi99 has the same code, but different symbol names). I call the
- * objects 'o' instead of 'n_o', as this is more intuitive (o is for
- * object) */
-void
-update_nodes (con_node f, con_node mapped_fields)
-{
-  con_node temp;
-  con_node o = get_points_to (f);
 
-  /* _bar nodes belong to the caller, and the other nodes belong to
-   * the callee */
-  fprintf (stderr, "update_nodes ");
-  fprintf (stderr, "f: '");
-  print_generic_stmt (stderr, f->id, 0);
-  fprintf (stderr, "' mapped: '");
-  print_generic_stmt (stderr, mapped_fields->id, 0);
-
-  /* this is my theory */
-  gcc_assert (mapped_fields->next_link == NULL);
-
-  gcc_assert (f->type == FIELD || is_actual_type (f));
-  gcc_assert (f->graph->role == CALLEE);
-  gcc_assert (mapped_fields->graph->role == CALLER);
-
-  /* The mapsTo is an n-k relationship, which I'll model one-way,
-   * using a hashtable of arrays, and not at all the other way. To
-   * make calculating the size easier, I'll just use the number of
-   * objects in the function.  */
-
-
-  /* There are 4 distinct set of linked lists going on here. f, f_bar,
-   * o, and o_bar. f and o are from the same method, as are f_bar and
-   * o_bar, so there should be no overlap of lists. f and f_bar are
-   * field nodes, and o and o_bar are object nodes, so there should be
-   * no overlap in those lists either.  */
-
-
-  while (o)
-    {
-      con_node f_bar;
-      gcc_assert (o->type == OBJECT);
-      gcc_assert (o->graph->function == f->graph->function);
-      gcc_assert (o->escape != NO_ESCAPE);
-
-      f_bar = mapped_fields;
-      while (f_bar)
-	{
-	  con_node o_bar;
-	  gcc_assert (is_actual_type (f_bar) || f_bar->type == FIELD);
-
-	  o_bar = get_points_to (f_bar);
-	  if (o_bar == NULL)
-	    {
-	      gcc_unreachable ();
-	      /* TODO
-	         create_target_node(f_bar); */
-	      /* create/insert a new node as the target of f, make it
-	       * NoEscape */
-	    }
-	  while (o_bar)
-	    {
-	      gcc_assert (o_bar->graph->function !=
-			  f->graph->function);
-	      gcc_assert (o_bar->graph->function ==
-			  f_bar->graph->function);
-	      gcc_assert (o_bar->type == OBJECT);
-
-	      if (!in_maps_to_obj (o, o_bar))
-		{
-		  con_node *vec;
-
-		  add_to_maps_to_obj (o, o_bar);
-		  update_escape_state (o, o_bar);
-
-		  vec = get_field_nodes_vec (o);
-		  while (*vec)
-		    {
-		      con_node g = *vec;
-		      con_node tmp_mapped_fields =
-			get_single_named_field_node (o_bar, g->id);
-		      gcc_assert (tmp_mapped_fields);
-		      /* not to say it will be, but more of a TODO */
-		      update_nodes (g, tmp_mapped_fields);
-		      vec++;
-		    }
-		}
-
-	      /* iterate through o_bar */
-	      temp = o_bar->next_link;
-	      o_bar->next_link = NULL;
-	      o_bar = temp;
-	    }
-
-	  /* iterate through maps_to_f */
-	  temp = f_bar->next_link;
-	  f_bar->next_link = NULL;
-	  f_bar = temp;
-	}
-
-      /* iterate through get_points_to(fee) */
-      temp = o->next_link;
-      o->next_link = NULL;
-      o = temp;
-    }
-}
-
-/* whether source maps_to target */
-bool
-in_maps_to_obj (con_node source, con_node target)
-{
-  int i;
-  gcc_assert (source);
-  gcc_assert (target);
-
-  gcc_assert (source->type == OBJECT);
-  gcc_assert (target->type == OBJECT);
-  gcc_assert (source->graph->function != target->graph->function);
-
-  if (source->maps_to_obj == NULL)
-    return false;
-
-  for (i = 0; i < target->graph->num_objects; i++)
-    if (source->maps_to_obj[i] == target)
-      return true;
-
-  return false;
-}
-
-void
-add_to_maps_to_obj (con_node source, con_node target)
-{
-  int i;
-  /* quick sanity check - this takes care of all preconditions aswell
-   * */
-  gcc_assert (!in_maps_to_obj (source, target));
-
-  if (source->maps_to_obj == NULL)
-    {
-      source->maps_to_obj =
-	XCNEWVEC (con_node, target->graph->num_objects);
-      source->maps_to_obj[0] = target;
-      return;
-    }
-
-  for (i = 0; i < target->graph->num_objects; i++)
-    {
-      if (source->maps_to_obj[i] == NULL)
-	{
-	  source->maps_to_obj[i] = target;
-	  break;
-	}
-    }
-
-}
 
 void
 update_escape_state (con_node source, con_node target)
@@ -1194,8 +992,8 @@ update_escape_state (con_node source, con_node target)
   gcc_assert (source);
   gcc_assert (target);
 
-  if (source->escape == GLOBAL_ESCAPE)
-    target->escape = GLOBAL_ESCAPE;
+  if (source->escape == EA_GLOBAL_ESCAPE)
+    target->escape = EA_GLOBAL_ESCAPE;
 }
 
 void
@@ -1225,38 +1023,38 @@ inline_constructor_graph (con_graph cg,
 
       switch (node->type)
 	{
-	case LOCAL:
+	case LOCAL_NODE:
 	  result = add_local_node (cg, node->id);
 	  result->call_id = call_id;
 	  break;
 
-	case OBJECT:
+	case OBJECT_NODE:
 	  result = add_object_node (cg, node->id, node->class_id);
 	  result->call_id = call_id;
 	  break;
 
-	case FIELD:
+	case FIELD_NODE:
 	  result = add_field_node (cg, node->id);
 	  result->call_id = call_id;
 	  break;
 
-	case GLOBAL:
+	case GLOBAL_NODE:
 	  /* dont copy global's. They'll be there anyway */
 	  break;
 
-	case RETURN:
+	case RETURN_NODE:
 	  /* constructors dont have caller results */
 	  /* TODO make it so these arent added */
 	  gcc_assert (node->out == NULL);
 	  gcc_assert (node->in == NULL);
 	  break;
 
-	case CALLEE_ACTUAL:
+	case CALLEE_ACTUAL_NODE:
 	  /* no need for this anymore */
 	  break;
 
 
-	case CALLER_ACTUAL:
+	case CALLER_ACTUAL_NODE:
 	  result =
 	    add_caller_actual_node (cg, node->id, node->index,
 				    node->call_id);
@@ -1281,9 +1079,9 @@ inline_constructor_graph (con_graph cg,
 	    get_matching_node_in_caller (cg, edge->target, call_id);
 	  gcc_assert (source);
 	  gcc_assert (target);
-	  if (edge->target->type == CALLEE_ACTUAL)
+	  if (edge->target->type == CALLEE_ACTUAL_NODE)
 	    {
-	      target->escape = NO_ESCAPE;
+	      target->escape = EA_NO_ESCAPE;
 	    }
 	  add_edge (source, target);
 	}
@@ -1302,7 +1100,7 @@ get_matching_node_in_caller (con_graph cg,
     {
       con_node field_owner;
 
-    case FIELD:
+    case FIELD_NODE:
       field_owner =
 	get_matching_node_in_caller (cg, node->owner, call_id);
       gcc_assert (field_owner);
@@ -1310,21 +1108,21 @@ get_matching_node_in_caller (con_graph cg,
 						   field_owner,
 						   call_id);
 
-    case LOCAL:
-    case OBJECT:
+    case LOCAL_NODE:
+    case OBJECT_NODE:
       return get_existing_node_with_call_id (cg, node->id, call_id);
 
-    case GLOBAL:
+    case GLOBAL_NODE:
       /* globals dont use a call_id */
       return get_existing_node (cg, node->id);
 
-    case CALLEE_ACTUAL:
+    case CALLEE_ACTUAL_NODE:
       /* Note: not a typo, case CALLEE: return get_caller.. */
       /*a callee matches with a caller, but the callee doesnt have the
        * same id, which is why this function has a call_id parameter*/
       return get_caller_actual_node (cg, node->index, call_id);
 
-    case CALLER_ACTUAL:
+    case CALLER_ACTUAL_NODE:
       /* a caller node isnt affected by the inlining, so get the
        * original id */
       return get_caller_actual_node (cg, node->index, node->call_id);

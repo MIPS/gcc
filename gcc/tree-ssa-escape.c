@@ -100,19 +100,14 @@ static tree
 get_constructor_function (tree stmt)
 {
   gcc_assert (is_constructor (stmt));
+
   if (TREE_CODE (stmt) == CALL_EXPR
       && (VOID_TYPE_P (TREE_TYPE (stmt))))
     {
       tree addr_expr = TREE_OPERAND (stmt, 0);
       if (TREE_CODE (addr_expr) == ADDR_EXPR)
 	{
-	  tree func_decl = TREE_OPERAND (addr_expr, 0);
-	  const char *name =
-	    IDENTIFIER_POINTER (DECL_NAME (func_decl));
-	  if (strcmp (name, "<init>") == 0)
-	    {
-	      return func_decl;
-	    }
+	  return TREE_OPERAND (addr_expr, 0);
 	}
     }
   gcc_unreachable ();
@@ -155,7 +150,7 @@ is_memory_allocation (tree stmt)
   if (TREE_CODE (stmt) == MODIFY_EXPR
       && (POINTER_TYPE_P (TREE_TYPE (stmt))))
     {
-      tree rhs = TREE_OPERAND (stmt, 1);
+      tree rhs = RHS (stmt);
 
       if (TREE_CODE (rhs) == CALL_EXPR)
 	{
@@ -271,7 +266,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       gcc_assert (type_name);
 
       /* get the source id */
-      p_name = TREE_OPERAND (stmt, 0);
+      p_name = LHS (stmt);
       gcc_assert (p_name);
 
       /* if the source exists, bypass it */
@@ -349,11 +344,11 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
        * ----------------------------------------*/
 
       /* get the name of the lvalue */
-      p_name = TREE_OPERAND (stmt, 0);
+      p_name = LHS (stmt);
       gcc_assert (p_name);
 
       /* get the name of the rvalue name */
-      q_name = TREE_OPERAND (stmt, 1);
+      q_name = RHS (stmt);
       gcc_assert (q_name);
 
 
@@ -414,7 +409,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       else
 	{
 	  r = add_local_node (cg, r_name);
-	  r->escape = ARG_ESCAPE;
+	  r->escape = EA_ARG_ESCAPE;
 	}
 
       if (get_edge (cg->return_node, r) == NULL)
@@ -462,7 +457,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 	  else
 	    {
 	      r = add_local_node (cg, r_name);
-	      r->escape = ARG_ESCAPE;
+	      r->escape = EA_ARG_ESCAPE;
 	    }
 	  call_expr = RHS (stmt);
 	}
@@ -838,90 +833,6 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
     }
 }
 
-static void
-update_connection_graph_after_method_invocation (con_graph cg,
-						 tree stmt)
-{
-  tree call_expr;
-  tree addr_expr;
-  tree function_decl;
-  tree argument_list;
-  tree parameter_list;
-  con_graph callee_cg;
-  int i = 1;
-
-  /* could be a function call with or without a return value */
-  if (TREE_CODE (stmt) == CALL_EXPR)
-    {
-      call_expr = stmt;
-    }
-  else
-    {
-      call_expr = RHS (stmt);
-    }
-
-  addr_expr = TREE_OPERAND (call_expr, 0);
-  function_decl = TREE_OPERAND (addr_expr, 0);
-  argument_list = TREE_OPERAND (call_expr, 1);
-  parameter_list = DECL_ARGUMENTS (function_decl);
-
-  callee_cg = get_cg_for_function (cg, function_decl);
-
-  /* check that the called function has been analysed */
-  if (callee_cg != NULL)
-    {
-
-      gcc_assert (callee_cg);
-
-      assert_all_next_link_free (cg);
-      assert_all_next_link_free (callee_cg);
-
-      while (argument_list)
-	{
-	  if (is_pointer_type (parameter_list))
-	    {
-	      /* Choi 4.4 */
-	      con_node argument_node =
-		get_caller_actual_node (cg, i, stmt);
-	      con_node parameter_node =
-		get_callee_actual_node (callee_cg, i, function_decl);
-
-	      gcc_assert (is_pointer_type
-			  (TREE_VALUE (argument_list)));
-
-	      gcc_assert (argument_node);
-	      gcc_assert (parameter_node);
-
-	      gcc_assert (argument_node->id ==
-			  TREE_VALUE (argument_list));
-	      gcc_assert (parameter_node->id == parameter_list);
-
-	      cg->role = CALLER;
-	      callee_cg->role = CALLEE;
-
-/*							update_nodes(parameter_node, argument_node); */
-	      assert_all_next_link_free (cg);
-	      assert_all_next_link_free (callee_cg);
-
-	      cg->role = 0;
-	      callee_cg->role = 0;
-
-	      /* TODO what are we doing here */
-
-	      /* get the next parameter */
-	      i++;
-	    }
-	  parameter_list = TREE_CHAIN (parameter_list);
-	  argument_list = TREE_CHAIN (argument_list);
-	}
-
-      /* check that there's the same number of each */
-      gcc_assert (argument_list == NULL);
-      gcc_assert (parameter_list == NULL);
-
-    }
-
-}
 
 static void
 process_function (con_graph cg, tree function)
@@ -973,10 +884,12 @@ process_function (con_graph cg, tree function)
 
       FOR_EACH_BB (bb)
       {
-/*			fprintf (stderr, "\n\n----------------------------\n");
-			fprintf (stderr, "Basic block %d (iteration %d) \n", 
-					bb->index, get_iteration_count(cg, bb->index));
-*/
+        /*
+        fprintf (stderr, "\n\n----------------------------\n");
+        fprintf (stderr, "Basic block %d (iteration %d) \n", 
+            bb->index, get_iteration_count(cg, bb->index));
+        */
+
 	gcc_assert (bb->index < n_basic_blocks);
 
 	/* process the statements */
@@ -1012,14 +925,6 @@ process_function (con_graph cg, tree function)
 		inline_constructor_graph (cg, callee_cg, stmt);
 	      }
 	  }
-	else if
-	  ((is_function_call (stmt)
-	    || is_function_call_with_return_value (stmt))
-	   && !is_memory_allocation (stmt))
-	  {
-	    update_connection_graph_after_method_invocation (cg,
-							     stmt);
-	  }
       }
   }
 
@@ -1028,7 +933,7 @@ process_function (con_graph cg, tree function)
   /* do the bypassing */
   for (node = cg->root; node; node = node->next)
     {
-      if (node->type != OBJECT)
+      if (is_reference_node (node))
 	{
 	  /* TODO currently broken, but doesnt affect the correctness, and
 	   * is really a speedup step, so leave til later */
@@ -1067,7 +972,8 @@ process_function (con_graph cg, tree function)
   /* make the allocation use alloca */
   for (node = cg->root; node; node = node->next)
     {
-      if (node->type == OBJECT && node->escape == NO_ESCAPE)
+      if (node->type == OBJECT_NODE 
+        && node->escape == EA_NO_ESCAPE)
 	{
 	  tree stmt, call_expr, addr_expr, func_decl;
 
@@ -1140,7 +1046,7 @@ execute_escape (void)
 				      (IDENTIFIER_POINTER
 				       (DECL_ASSEMBLER_NAME
 					(current_function_decl))),
-				      ".graph", NULL), n_basic_blocks,
+				      ".graph", NULL),
 			      current_function_decl, last_cg);
 
 	  /* fix up the next_cg list */
