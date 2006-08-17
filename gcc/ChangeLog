@@ -1,3 +1,13 @@
+2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
+
+	* congraph.c: New file
+	* congraph.h: New file
+	* tree-ssa-escape.c: New file
+	* tree-pass.h (pass_ipa_escape): New pass
+	* passes.c (init_optimization_passes) <pass_ipa_escape>: New pass
+	* Makefile.in (tree-ssa-escape.o): New rule
+	(OBJS-common): Add tree-ssa-escape.o
+
 2006-08-15  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	PR c/28287
