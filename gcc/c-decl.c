@@ -489,7 +489,7 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested)
       binding_freelist = b->prev;
     }
   else
-    b = GGC_NEW (struct c_binding);
+    b = ggc_alloc_c_binding();
 
   b->shadowed = 0;
   b->decl = decl;
@@ -659,7 +659,7 @@ push_scope (void)
 	  scope_freelist = scope->outer;
 	}
       else
-	scope = GGC_CNEW (struct c_scope);
+	scope = ggc_alloc_cleared_c_scope ();
 
       scope->keep          = keep_next_level_flag;
       scope->outer         = current_scope;
@@ -2038,7 +2038,7 @@ pushdecl (tree x)
 
   /* Functions need the lang_decl data.  */
   if (TREE_CODE (x) == FUNCTION_DECL && !DECL_LANG_SPECIFIC (x))
-    DECL_LANG_SPECIFIC (x) = GGC_CNEW (struct lang_decl);
+    DECL_LANG_SPECIFIC (x) = ggc_alloc_cleared_lang_decl ();
 
   /* Must set DECL_CONTEXT for everything not at file scope or
      DECL_FILE_SCOPE_P won't work.  Local externs don't count
@@ -2815,7 +2815,7 @@ builtin_function (const char *name, tree type, int function_code,
   tree decl = build_decl (FUNCTION_DECL, id, type);
   TREE_PUBLIC (decl) = 1;
   DECL_EXTERNAL (decl) = 1;
-  DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
+  DECL_LANG_SPECIFIC (decl) = ggc_alloc_cleared_lang_decl ();
   DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = function_code;
   C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
@@ -4670,7 +4670,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	decl = build_decl (FUNCTION_DECL, declarator->u.id, type);
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
+	DECL_LANG_SPECIFIC (decl) = ggc_alloc_cleared_lang_decl ();
 
 	if (pedantic && type_quals && !DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn ("ISO C forbids qualified function types");
@@ -5546,9 +5546,9 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  ensure that this lives as long as the rest of the struct decl.
 	  All decls in an inline function need to be saved.  */
 
-	space = GGC_CNEW (struct lang_type);
-	space2 = GGC_NEWVAR (struct sorted_fields_type,
-			     sizeof (struct sorted_fields_type) + len * sizeof (tree));
+	space = ggc_alloc_cleared_lang_type ();
+	space2 = ggc_alloc_sorted_fields_type (sizeof (struct sorted_fields_type)
+					       + len * sizeof (tree));
 
 	len = 0;
 	space->s = space2;
@@ -5794,7 +5794,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   /* Record the min/max values so that we can warn about bit-field
      enumerations that are too small for the values.  */
-  lt = GGC_CNEW (struct lang_type);
+  lt = ggc_alloc_cleared_lang_type ();
   lt->enum_min = minnode;
   lt->enum_max = maxnode;
   TYPE_LANG_SPECIFIC (enumtype) = lt;
@@ -6837,7 +6837,7 @@ void
 c_push_function_context (struct function *f)
 {
   struct language_function *p;
-  p = GGC_NEW (struct language_function);
+  p = ggc_alloc_language_function();
   f->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
@@ -6893,7 +6893,7 @@ c_dup_lang_specific_decl (tree decl)
   if (!DECL_LANG_SPECIFIC (decl))
     return;
 
-  ld = GGC_NEW (struct lang_decl);
+  ld = ggc_alloc_lang_decl();
   memcpy (ld, DECL_LANG_SPECIFIC (decl), sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (decl) = ld;
 }

@@ -1,4 +1,4 @@
-/* 
+/*
 
     TREELANG Compiler common definitions (treelang.h)
 
@@ -146,7 +146,6 @@ struct prod_token_parm_item GTY(())
    union. */
 #define YYSTYPE void *
 
-void *my_malloc (size_t size);
 int insert_tree_name (struct prod_token_parm_item *prod);
 struct prod_token_parm_item *lookup_tree_name (struct prod_token_parm_item *prod);
 struct prod_token_parm_item *make_production (int type, struct prod_token_parm_item *main_tok);

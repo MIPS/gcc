@@ -145,7 +145,7 @@ struct loops;
 bool perfect_nest_p (struct loop *);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
-#define lambda_loop_new() (lambda_loop) ggc_alloc_cleared (sizeof (struct lambda_loop_s))
+#define lambda_loop_new() (lambda_loop) ggc_alloc_cleared_atomic (sizeof (struct lambda_loop_s))
 
 void print_lambda_loop (FILE *, lambda_loop, int, int, char);
 
@@ -224,7 +224,7 @@ static inline void print_lambda_vector (FILE *, lambda_vector, int);
 static inline lambda_vector
 lambda_vector_new (int size)
 {
-  return GGC_CNEWVEC (int, size);
+  return GGC_CNEWVEC_ATOMIC (int, size);
 }
 
 

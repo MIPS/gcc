@@ -207,23 +207,6 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
   cgraph_optimize ();
 }
 
-/* Allocate SIZE bytes and clear them.  Not to be used for strings
-   which must go in stringpool.  */
-
-void *
-my_malloc (size_t size)
-{
-  void *mem;
-  mem = ggc_alloc (size);
-  if (!mem)
-    {
-      fprintf (stderr, "\nOut of memory\n");
-      abort ();
-    }
-  memset (mem, 0, size);
-  return mem;
-}
-
 /* Look up a name in PROD->SYMBOL_TABLE_NAME in the symbol table;
    return the symbol table entry from the symbol table if found there,
    else 0.  */
@@ -291,12 +274,12 @@ struct prod_token_parm_item *
 make_production (int type, struct prod_token_parm_item *main_tok)
 {
   struct prod_token_parm_item *prod;
-  prod = my_malloc (sizeof (struct prod_token_parm_item));
+  prod = ggc_alloc_cleared_prod_token_parm_item ();
   prod->category = production_category;
   prod->type = type;
   prod->tp.pro.main_token = main_tok;
   return prod;
-} 
+}
 
 /* Abort if ITEM is not a valid structure, based on 'category'.  */
 

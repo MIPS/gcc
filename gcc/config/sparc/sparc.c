@@ -8743,7 +8743,7 @@ sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
 static struct machine_function *
 sparc_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 /* Locate some local-dynamic symbol still in use by this function

@@ -72,9 +72,8 @@ extern tree objcp_end_compound_stmt (tree, int);
 #define SIZEOF_OBJC_TYPE_LANG_SPECIFIC sizeof (struct lang_type_class)
 #undef ALLOC_OBJC_TYPE_LANG_SPECIFIC
 #define ALLOC_OBJC_TYPE_LANG_SPECIFIC(NODE)				\
-  do {									\
-    TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR	                        \
-      (struct lang_type, sizeof (struct lang_type_class));		\
+  do {	/* TODO: allocate sizeof (struct lang_type_class) bytes here */	\
+    TYPE_LANG_SPECIFIC (NODE) = ggc_alloc_cleared_lang_type();          \
     TYPE_LANG_SPECIFIC (NODE)->u.c.h.is_lang_type_class = 1;		\
   } while (0)
 

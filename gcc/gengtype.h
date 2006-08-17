@@ -18,7 +18,7 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* A file position, mostly for error messages.  
+/* A file position, mostly for error messages.
    The FILE element may be compared using pointer equality.  */
 struct fileloc {
   const char *file;
@@ -46,7 +46,7 @@ struct nested_ptr_data {
   type_p type;
   const char *convert_to;
   const char *convert_from;
-};    
+};
 
 /* A way to pass data through to the output end.  */
 typedef struct options {
@@ -120,7 +120,7 @@ extern int lexer_toplevel_done;
 extern struct fileloc lexer_line;
 
 /* Print an error message.  */
-extern void error_at_line 
+extern void error_at_line
   (struct fileloc *pos, const char *msg, ...) ATTRIBUTE_PRINTF_2;
 
 /* Combines xmalloc() and vasprintf().  */
@@ -156,7 +156,7 @@ extern void parse_file (const char *name);
 /* Output file handling.  */
 
 /* Structure representing an output file.  */
-struct outf 
+struct outf
 {
   struct outf *next;
   const char *name;
@@ -170,7 +170,7 @@ typedef struct outf * outf_p;
 /* An output file, suitable for definitions, that can see declarations
    made in INPUT_FILE and is linked into every language that uses
    INPUT_FILE.  */
-extern outf_p get_output_file_with_visibility 
+extern outf_p get_output_file_with_visibility
    (const char *input_file);
 const char *get_output_file_name (const char *);
 

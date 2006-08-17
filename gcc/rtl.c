@@ -188,7 +188,7 @@ rtx_alloc_stat (RTX_CODE code MEM_STAT_DECL)
 {
   rtx rt;
 
-  rt = (rtx) ggc_alloc_zone_pass_stat (RTX_CODE_SIZE (code), &rtl_zone);
+  rt = ggc_alloc_rtx_def (RTX_CODE_SIZE (code)); /* TODO: rtl_zone */
 
   /* We want to clear everything up to the FLD array.  Normally, this
      is one int, but we don't want to assume that and it isn't very
@@ -313,13 +313,13 @@ copy_rtx (rtx orig)
 /* Create a new copy of an rtx.  Only copy just one level.  */
 
 rtx
-shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL)
+shallow_copy_rtx_stat (rtx orig MEM_STAT_DECL) /* TODO: broken MEM_STAT */
 {
   unsigned int size;
   rtx copy;
 
   size = rtx_size (orig);
-  copy = (rtx) ggc_alloc_zone_pass_stat (size, &rtl_zone);
+  copy = ggc_alloc_rtx_def (size); /* TODO: rtl_zone */
   memcpy (copy, orig, size);
   return copy;
 }

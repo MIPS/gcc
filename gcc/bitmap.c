@@ -136,7 +136,7 @@ bitmap_element_allocate (bitmap head)
 	  /*  Inner list was just a singleton.  */
 	  bitmap_ggc_free = element->prev;
       else
-	element = GGC_NEW (bitmap_element);
+	element = ggc_alloc_bitmap_element_def();
     }
 
   memset (element->bits, 0, sizeof (element->bits));
@@ -255,7 +255,7 @@ bitmap_gc_alloc (void)
 {
   bitmap map;
 
-  map = GGC_NEW (struct bitmap_head_def);
+  map = ggc_alloc_bitmap_head_def();
   bitmap_initialize (map, NULL);
 
   return map;

@@ -2600,15 +2600,14 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    hashed POINTER_TYPE, and can only be used on the POINTER_TYPE.  */
 #define TYPE_GET_PTRMEMFUNC_TYPE(NODE) \
   (TYPE_LANG_SPECIFIC (NODE) ? LANG_TYPE_PTRMEM_CHECK (NODE)->record : NULL)
-#define TYPE_SET_PTRMEMFUNC_TYPE(NODE, VALUE)				\
-  do {									\
-    if (TYPE_LANG_SPECIFIC (NODE) == NULL)				\
-      {									\
-	TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR				\
-	 (struct lang_type, sizeof (struct lang_type_ptrmem));		\
-	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;	\
-      }									\
-    TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);		\
+#define TYPE_SET_PTRMEMFUNC_TYPE(NODE, VALUE)				 \
+  do {									 \
+    if (TYPE_LANG_SPECIFIC (NODE) == NULL)				 \
+      {	/* TODO: allocate sizeof (struct lang_type_ptrmem) bytes here */ \
+	TYPE_LANG_SPECIFIC (NODE) = ggc_alloc_cleared_lang_type();	 \
+	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;    \
+      }								       \
+    TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);	       \
   } while (0)
 
 /* For a pointer-to-member type of the form `T X::*', this is `X'.

@@ -54,7 +54,7 @@ init_ggc (void)
 }
 
 void *
-ggc_alloc_stat (size_t size MEM_STAT_DECL)
+ggc_internal_alloc_stat (size_t size MEM_STAT_DECL)
 {
   void * result = GC_MALLOC(size);
   return result;
@@ -86,13 +86,27 @@ ggc_alloc_typed_stat (enum gt_types_enum type, size_t size MEM_STAT_DECL)
   return result;
 }
 
-void *ggc_alloc_cleared_typed_stat (enum gt_types_enum type,
-				    size_t size MEM_STAT_DECL)
+void *
+ggc_alloc_cleared_typed_stat (enum gt_types_enum type,
+			      size_t size MEM_STAT_DECL)
 {
   void * result = ggc_alloc_typed_stat(type, size);
   memset (result, 0, size);
   return result;
 }
+
+void *
+ggc_alloc_atomic_stat (size_t size MEM_STAT_INFO)
+{
+  return ggc_alloc_typed_stat (gt_types_enum_atomic_data, size);
+}
+
+void *
+ggc_alloc_cleared_atomic_stat (size_t size MEM_STAT_INFO)
+{
+  return ggc_alloc_cleared_typed_stat (gt_types_enum_atomic_data, size);
+}
+
 
 enum gt_types_enum
 get_block_type(void * block)
@@ -101,9 +115,14 @@ get_block_type(void * block)
 }
 
 void *
-ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
+ggc_realloc_atomic_stat (void *x, size_t size MEM_STAT_DECL)
 {
-  void * result = GC_REALLOC(x, size);
+  void * result;
+  if (x == NULL)
+    return ggc_alloc_atomic_stat (size);
+  gcc_assert (get_block_type(x) == gt_types_enum_atomic_data);
+  result = GC_REALLOC(x, size);
+  *(get_type_offset(result)) = gt_types_enum_atomic_data;
   return result;
 }
 

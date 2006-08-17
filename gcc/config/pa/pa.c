@@ -189,7 +189,7 @@ static int last_address;
 
 /* Variables to handle plabels that we discover are necessary at assembly
    output time.  They are output after the current function.  */
-struct deferred_plabel GTY(())
+struct deferred_plabel GTY((size_not_fixed("")))
 {
   rtx internal_label;
   rtx symbol;
@@ -521,7 +521,7 @@ pa_init_builtins (void)
 static struct machine_function *
 pa_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (machine_function));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 /* If FROM is a probable pointer register, mark TO as a probable
@@ -5295,12 +5295,13 @@ get_deferred_plabel (rtx symbol)
 
       if (deferred_plabels == 0)
 	deferred_plabels = (struct deferred_plabel *)
-	  ggc_alloc (sizeof (struct deferred_plabel));
+	  ggc_alloc_deferred_plabel ();
       else
+	/* TODO: is wrong and *will* cause error very soon. */
 	deferred_plabels = (struct deferred_plabel *)
-	  ggc_realloc (deferred_plabels,
-		       ((n_deferred_plabels + 1)
-			* sizeof (struct deferred_plabel)));
+	  ggc_realloc_atomic (deferred_plabels,
+			      ((n_deferred_plabels + 1)
+			       * sizeof (struct deferred_plabel)));
 
       i = n_deferred_plabels++;
       deferred_plabels[i].internal_label = gen_label_rtx ();

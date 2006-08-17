@@ -3,7 +3,7 @@
    Contributed by Mark Mitchell (mark@markmitchell.com).
 
 This file is part of GNU CC.
-   
+
 GNU CC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
@@ -249,7 +249,8 @@ splay_tree_new (splay_tree_compare_fn compare_fn,
 {
   return (splay_tree_new_with_allocator
           (compare_fn, delete_key_fn, delete_value_fn,
-           splay_tree_xmalloc_allocate, splay_tree_xmalloc_deallocate, 0));
+	   splay_tree_xmalloc_allocate, splay_tree_xmalloc_allocate,
+	   splay_tree_xmalloc_deallocate, 0));
 }
 
 
@@ -261,17 +262,18 @@ splay_tree
 splay_tree_new_with_allocator (splay_tree_compare_fn compare_fn,
                                splay_tree_delete_key_fn delete_key_fn,
                                splay_tree_delete_value_fn delete_value_fn,
-                               splay_tree_allocate_fn allocate_fn,
+                               splay_tree_allocate_fn allocate_tree_fn,
+			       splay_tree_allocate_fn allocate_tree_node_fn,
                                splay_tree_deallocate_fn deallocate_fn,
                                void *allocate_data)
 {
-  splay_tree sp = (splay_tree) (*allocate_fn) (sizeof (struct splay_tree_s),
-                                               allocate_data);
+  splay_tree sp = (splay_tree)
+    (*allocate_tree_fn) (sizeof (struct splay_tree_s), allocate_data);
   sp->root = 0;
   sp->comp = compare_fn;
   sp->delete_key = delete_key_fn;
   sp->delete_value = delete_value_fn;
-  sp->allocate = allocate_fn;
+  sp->allocate_tree_node = allocate_tree_node_fn;
   sp->deallocate = deallocate_fn;
   sp->allocate_data = allocate_data;
 
@@ -280,7 +282,7 @@ splay_tree_new_with_allocator (splay_tree_compare_fn compare_fn,
 
 /* Deallocate SP.  */
 
-void 
+void
 splay_tree_delete (splay_tree sp)
 {
   splay_tree_delete_helper (sp, sp->root);
@@ -308,18 +310,18 @@ splay_tree_insert (splay_tree sp, splay_tree_key key, splay_tree_value value)
       if (sp->delete_value)
 	(*sp->delete_value)(sp->root->value);
       sp->root->value = value;
-    } 
-  else 
+    }
+  else
     {
       /* Create a new node, and insert it at the root.  */
       splay_tree_node node;
-      
+
       node = ((splay_tree_node)
-              (*sp->allocate) (sizeof (struct splay_tree_node_s),
+              (*sp->allocate_tree_node) (sizeof (struct splay_tree_node_s),
                                sp->allocate_data));
       node->key = key;
       node->value = value;
-      
+
       if (!sp->root)
 	node->left = node->right = 0;
       else if (comparison < 0)
@@ -521,6 +523,6 @@ splay_tree_compare_pointers (splay_tree_key k1, splay_tree_key k2)
     return -1;
   else if ((char*) k1 > (char*) k2)
     return 1;
-  else 
+  else
     return 0;
 }

@@ -316,7 +316,7 @@ init_reswords (void)
 	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
-  ridpointers = GGC_CNEWVEC (tree, (int) RID_MAX);
+  ridpointers = GGC_CNEWVEC_ATOMIC(tree, (int) RID_MAX);
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
@@ -684,12 +684,13 @@ retrofit_lang_decl (tree t)
   struct lang_decl *ld;
   size_t size;
 
+  /* TODO: find a way to use size for allocation too. */
   if (CAN_HAVE_FULL_LANG_DECL_P (t))
     size = sizeof (struct lang_decl);
   else
     size = sizeof (struct lang_decl_flags);
 
-  ld = GGC_CNEWVAR (struct lang_decl, size);
+  ld = ggc_alloc_cleared_lang_decl ();
 
   ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
   ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
@@ -723,11 +724,13 @@ cxx_dup_lang_specific_decl (tree node)
   if (! DECL_LANG_SPECIFIC (node))
     return;
 
+  /*  TODO: find a way to put use this size for allocation */
   if (!CAN_HAVE_FULL_LANG_DECL_P (node))
     size = sizeof (struct lang_decl_flags);
   else
-    size = sizeof (struct lang_decl);
-  ld = GGC_NEWVAR (struct lang_decl, size);
+  size = sizeof (struct lang_decl);
+
+  ld = ggc_alloc_lang_decl ();
   memcpy (ld, DECL_LANG_SPECIFIC (node), size);
   DECL_LANG_SPECIFIC (node) = ld;
 
@@ -760,11 +763,12 @@ copy_lang_type (tree node)
   if (! TYPE_LANG_SPECIFIC (node))
     return;
 
+  /*  TODO: find a way to use this size for allocation */
   if (TYPE_LANG_SPECIFIC (node)->u.h.is_lang_type_class)
     size = sizeof (struct lang_type);
   else
     size = sizeof (struct lang_type_ptrmem);
-  lt = GGC_NEWVAR (struct lang_type, size);
+  lt = ggc_alloc_lang_type ();
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
 
@@ -795,7 +799,7 @@ cxx_make_type (enum tree_code code)
   if (IS_AGGR_TYPE_CODE (code)
       || code == BOUND_TEMPLATE_TEMPLATE_PARM)
     {
-      struct lang_type *pi = GGC_CNEW (struct lang_type);
+      struct lang_type *pi = ggc_alloc_cleared_lang_type();
 
       TYPE_LANG_SPECIFIC (t) = pi;
       pi->u.c.h.is_lang_type_class = 1;

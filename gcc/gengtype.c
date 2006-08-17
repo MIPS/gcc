@@ -2465,6 +2465,74 @@ write_enum_defn (type_p structures, type_p param_structs)
 
 /* Write out a macro for typed allocations for each known struct or union.  */
 
+static const char *
+get_tag_string (const type_p s)
+{
+  if (s->kind == TYPE_STRUCT || s->kind == TYPE_LANG_STRUCT)
+    return "struct ";
+  if (s->kind == TYPE_UNION)
+    return "union ";
+  return "";
+}
+
+static int
+has_size_p (const type_p s)
+{
+  options_p o;
+  for (o = s->u.s.opt; o; o = o->next)
+    if (strcmp (o->name, "size_not_fixed") == 0)
+      return 1;
+  return 0;
+}
+
+static void
+write_typecast_to_ptr (const type_p s)
+{
+  oprintf (header_file, "(%s%s *)", get_tag_string (s), s->u.s.tag);
+}
+
+static void
+write_typed_struct_alloc_def (const type_p s, const char * const fn_type,
+			      int is_vector)
+{
+  int have_size = has_size_p (s);
+  const char *type_kind = get_tag_string (s);
+
+  oprintf (header_file, "#define ggc_alloc_%s%s(%s%s%s) \\\n", fn_type,
+	   s->u.s.tag, (have_size ? "SIZE" : ""),
+	   ((have_size && is_vector) ? ", " : ""), (is_vector ? "n" : ""));
+  oprintf (header_file, "  ");
+  write_typecast_to_ptr (s);
+  oprintf (header_file, " ggc_alloc_%styped(gt_ggc_e_", fn_type);
+  output_mangled_typename (header_file, s);
+  if (have_size)
+    oprintf (header_file, ", SIZE%s)\n", (is_vector ? " * (n)" : ""));
+  else
+    oprintf (header_file, ", sizeof (%s%s)%s)\n",
+	     type_kind, s->u.s.tag, (is_vector ? " * (n)" : ""));
+}
+
+static void
+write_typed_typedef_alloc_def (const pair_p p, const char * const fn_type,
+			       int is_vector)
+{
+  type_p s = p->type;
+
+  oprintf (header_file, "#define ggc_alloc_%s%s%s(%s) \\\n", fn_type,
+	   p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE",
+	   (is_vector ? "n" : ""));
+  oprintf (header_file, "  ");
+  write_typecast_to_ptr (s);
+  oprintf (header_file, " ggc_alloc_%styped(gt_ggc_e_", fn_type);
+  output_mangled_typename (header_file, s);
+  oprintf (header_file, ", sizeof (%s%s)%s)\n",
+	   s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag,
+	   (is_vector ? " * (n)" : ""));
+}
+
+#define NON_VECTOR_DEF 0
+#define VECTOR_DEF 1
+
 static void
 write_typed_alloc_defns (type_p structures)
 {
@@ -2475,63 +2543,12 @@ write_typed_alloc_defns (type_p structures)
 	   "\n/* Typed allocation for known structs and unions.  */\n");
   for (s = structures; s; s = s->next)
     {
-      options_p o;
-      int have_size = 0;
-      const char *type_kind;
-
-      for (o = s->u.s.opt; o; o = o->next)
-	if (strcmp (o->name, "size_not_fixed") == 0)
-	  have_size = 1;
-
-      if (s->kind == TYPE_STRUCT || s->kind == TYPE_LANG_STRUCT)
-	type_kind = "struct ";
-      else if (s->kind == TYPE_UNION)
-	type_kind = "union ";
-      else
-	type_kind = "";
-
-      oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
-	       s->u.s.tag, (have_size ? "SIZE" : ""));
-      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      if (have_size)
-	oprintf (header_file, ", SIZE)\n");
-      else
-	oprintf (header_file, ", sizeof (%s%s))\n",
-		 type_kind, s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_cleared_%s(%s) \\\n",
-	       s->u.s.tag, (have_size ? "SIZE" : ""));
-      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      if (have_size)
-	oprintf (header_file, ", SIZE)\n");
-      else
-	oprintf (header_file, ", sizeof (%s%s))\n",
-		 type_kind, s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_vec_%s(%sn) \\\n",
-	       s->u.s.tag, (have_size ? "SIZE, " : ""));
-      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      if (have_size)
-	oprintf (header_file, ", (n) * SIZE)\n");
-      else
-	oprintf (header_file, ", (n) * sizeof (%s%s))\n",
-		 type_kind, s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_cleared_vec_%s(%sn) \\\n",
-	       s->u.s.tag, (have_size ? "SIZE, " : ""));
-      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      if (have_size)
-	oprintf (header_file, ", (n) * SIZE)\n");
-      else
-	oprintf (header_file, ", (n) * sizeof (%s%s))\n",
-		 type_kind, s->u.s.tag);
+      write_typed_struct_alloc_def (s, "", NON_VECTOR_DEF);
+      write_typed_struct_alloc_def (s, "cleared_", NON_VECTOR_DEF);
+      write_typed_struct_alloc_def (s, "vec_", VECTOR_DEF);
+      write_typed_struct_alloc_def (s, "cleared_vec_", VECTOR_DEF);
     }
-  oprintf (header_file,
-           "\n/* Typed allocation for known typedefs.  */\n");
+  oprintf (header_file, "\n/* Typed allocation for known typedefs.  */\n");
   for (p = typedefs; p != NULL; p = p->next)
     {
       s = p->type;
@@ -2542,33 +2559,10 @@ write_typed_alloc_defns (type_p structures)
 	  && s->kind != TYPE_UNION)
 	continue;
 
-      oprintf (header_file, "#define ggc_alloc_%s(%s) \\\n",
-	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
-      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      oprintf (header_file, ", sizeof (%s%s))\n",
-	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_cleared_%s(%s) \\\n",
-	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE");
-      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      oprintf (header_file, ", sizeof (%s%s))\n",
-	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_vec_%s(%sn) \\\n",
-	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE, ");
-      oprintf (header_file, "  ggc_alloc_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      oprintf (header_file, ", (n) * sizeof (%s%s))\n",
-	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
-
-      oprintf (header_file, "#define ggc_alloc_cleared_vec_%s(%sn) \\\n",
-	       p->name, s->kind == TYPE_STRUCT ? "" : "__SIZE, ");
-      oprintf (header_file, "  ggc_alloc_cleared_typed(gt_ggc_e_");
-      output_mangled_typename (header_file, s);
-      oprintf (header_file, ", (n) * sizeof (%s%s))\n",
-	       s->kind == TYPE_STRUCT ? "struct " : "", s->u.s.tag);
+      write_typed_typedef_alloc_def (p, "", NON_VECTOR_DEF);
+      write_typed_typedef_alloc_def (p, "cleared_", NON_VECTOR_DEF);
+      write_typed_typedef_alloc_def (p, "vec_", VECTOR_DEF);
+      write_typed_typedef_alloc_def (p, "cleared_vec_", VECTOR_DEF);
     }
 }
 

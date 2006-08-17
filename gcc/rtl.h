@@ -346,7 +346,7 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
    for a variable number of things.  The principle use is inside
    PARALLEL expressions.  */
 
-struct rtvec_def GTY(()) {
+struct rtvec_def GTY((size_not_fixed(""))) {
   int num_elem;		/* number of elements */
   rtx GTY ((length ("%h.num_elem"))) elem[1];
 };

@@ -36,6 +36,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "ggc.h"
 #include "input.h"
 #include "tree.h"
 
@@ -76,7 +77,7 @@ static void dump_lex_value (int lexret);
 
  { 
    /* ??? Should really allocate only what we need.  */
-   yylval = my_malloc (sizeof (struct prod_token_parm_item));
+   yylval = ggc_alloc_cleared_prod_token_parm_item ();
    LINEMAP_POSITION_FOR_COLUMN (input_location, &line_table,
 				next_tree_charno);
    ((struct prod_token_parm_item *)yylval)->tp.tok.location = input_location;

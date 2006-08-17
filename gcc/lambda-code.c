@@ -156,7 +156,7 @@ lambda_body_vector_new (int size)
 {
   lambda_body_vector ret;
 
-  ret = ggc_alloc (sizeof (*ret));
+  ret = ggc_alloc_atomic (sizeof (*ret));
   LBV_COEFFICIENTS (ret) = lambda_vector_new (size);
   LBV_SIZE (ret) = size;
   LBV_DENOMINATOR (ret) = 1;
@@ -228,7 +228,7 @@ lambda_linear_expression_new (int dim, int invariants)
 {
   lambda_linear_expression ret;
 
-  ret = ggc_alloc_cleared (sizeof (*ret));
+  ret = ggc_alloc_cleared_atomic (sizeof (*ret));
 
   LLE_COEFFICIENTS (ret) = lambda_vector_new (dim);
   LLE_CONSTANT (ret) = 0;
@@ -329,9 +329,9 @@ lambda_loopnest
 lambda_loopnest_new (int depth, int invariants)
 {
   lambda_loopnest ret;
-  ret = ggc_alloc (sizeof (*ret));
+  ret = ggc_alloc_atomic (sizeof (*ret));
 
-  LN_LOOPS (ret) = ggc_alloc_cleared (depth * sizeof (lambda_loop));
+  LN_LOOPS (ret) = ggc_alloc_cleared_vec_atomic (depth, sizeof (lambda_loop));
   LN_DEPTH (ret) = depth;
   LN_INVARIANTS (ret) = invariants;
 
@@ -361,7 +361,7 @@ static lambda_lattice
 lambda_lattice_new (int depth, int invariants)
 {
   lambda_lattice ret;
-  ret = ggc_alloc (sizeof (*ret));
+  ret = ggc_alloc_atomic (sizeof (*ret));
   LATTICE_BASE (ret) = lambda_matrix_new (depth, depth);
   LATTICE_ORIGIN (ret) = lambda_vector_new (depth);
   LATTICE_ORIGIN_INVARIANTS (ret) = lambda_matrix_new (depth, invariants);

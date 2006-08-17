@@ -254,7 +254,7 @@ get_unnamed_section (unsigned int flags, void (*callback) (const void *),
 {
   section *sect;
 
-  sect = ggc_alloc_unnamed_section();
+  sect = ggc_alloc_section();
   sect->unnamed.common.flags = flags | SECTION_UNNAMED;
   sect->unnamed.callback = callback;
   sect->unnamed.data = data;
@@ -271,7 +271,7 @@ get_noswitch_section (unsigned int flags, noswitch_section_callback callback)
 {
   section *sect;
 
-  sect = ggc_alloc_unnamed_section();
+  sect = ggc_alloc_section();
   sect->noswitch.common.flags = flags | SECTION_NOSWITCH;
   sect->noswitch.callback = callback;
 
@@ -292,7 +292,7 @@ get_section (const char *name, unsigned int flags, tree decl)
   flags |= SECTION_NAMED;
   if (*slot == NULL)
     {
-      sect = ggc_alloc_named_section();
+      sect = ggc_alloc_section();
       sect->named.common.flags = flags;
       sect->named.name = ggc_strdup (name);
       sect->named.decl = decl;
@@ -361,7 +361,7 @@ create_block_symbol (const char *label, struct object_block *block,
 
   /* Create the extended SYMBOL_REF.  */
   size = RTX_HDR_SIZE + sizeof (struct block_symbol);
-  symbol = ggc_alloc_zone (size, &rtl_zone);
+  symbol = ggc_alloc_rtx_def (size);
 
   /* Initialize the normal SYMBOL_REF fields.  */
   memset (symbol, 0, size);

@@ -4835,8 +4835,7 @@ struct machine_function GTY(())
 static struct machine_function *
 alpha_init_machine_status (void)
 {
-  return ((struct machine_function *)
-		ggc_alloc_cleared (sizeof (struct machine_function)));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 /* Functions to save and restore alpha_return_addr_rtx.  */
@@ -9492,7 +9491,7 @@ alpha_need_linkage (const char *name, int is_local)
         alpha_funcs_tree = splay_tree_new_ggc ((splay_tree_compare_fn)
 					       splay_tree_compare_pointers);
 
-      cfaf = (struct alpha_funcs *) ggc_alloc (sizeof (struct alpha_funcs));
+      cfaf = ggc_alloc_alpha_funcs ();
 
       cfaf->links = 0;
       cfaf->num = ++alpha_funcs_num;
@@ -9528,7 +9527,7 @@ alpha_need_linkage (const char *name, int is_local)
   else
     alpha_links_tree = splay_tree_new_ggc ((splay_tree_compare_fn) strcmp);
 
-  al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
+  al = ggc_alloc_alpha_links ();
   name = ggc_strdup (name);
 
   /* Assume external if no definition.  */
@@ -9595,7 +9594,7 @@ alpha_use_linkage (rtx linkage, tree cfundecl, int lflag, int rflag)
 
       name_len = strlen (name);
 
-      al = (struct alpha_links *) ggc_alloc (sizeof (struct alpha_links));
+      al = ggc_alloc_alpha_links ();
       al->num = cfaf->num;
 
       node = splay_tree_lookup (alpha_links_tree, (splay_tree_key) name);

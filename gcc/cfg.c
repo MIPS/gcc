@@ -84,9 +84,9 @@ init_flow (void)
   if (!cfun->cfg)
     cfun->cfg = ggc_alloc_cleared_control_flow_graph();
   n_edges = 0;
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared_basic_block_def();
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared_basic_block_def();
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -133,7 +133,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = ggc_alloc_cleared (sizeof (*bb));
+  bb = ggc_alloc_cleared_basic_block_def ();
   return bb;
 }
 
@@ -263,7 +263,7 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = ggc_alloc_cleared (sizeof (*e));
+  e = ggc_alloc_cleared_edge_def ();
   n_edges++;
 
   e->src = src;

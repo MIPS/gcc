@@ -4846,7 +4846,7 @@ static int designator_erroneous;
 
 struct constructor_range_stack;
 
-struct constructor_stack
+struct constructor_stack GTY(())
 {
   struct constructor_stack *next;
   tree type;
@@ -5538,7 +5538,7 @@ push_range_stack (tree range_end)
 {
   struct constructor_range_stack *p;
 
-  p = GGC_NEW (struct constructor_range_stack);
+  p = ggc_alloc_constructor_range_stack();
   p->prev = constructor_range_stack;
   p->next = 0;
   p->fields = constructor_fields;
@@ -5703,7 +5703,7 @@ add_pending_init (tree purpose, tree value)
 	}
     }
 
-  r = GGC_NEW (struct init_node);
+  r = ggc_alloc_init_node();
   r->purpose = purpose;
   r->value = value;
 

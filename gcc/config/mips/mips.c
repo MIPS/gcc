@@ -5196,7 +5196,7 @@ static struct machine_function *
 mips_init_machine_status (void)
 {
   return ((struct machine_function *)
-	  ggc_alloc_cleared (sizeof (struct machine_function)));
+	  ggc_alloc_cleared_machine_function ());
 }
 
 /* On the mips16, we want to allocate $24 (T_REG) before other
@@ -5678,7 +5678,7 @@ mips_output_external (FILE *file ATTRIBUTE_UNUSED, tree decl, const char *name)
 
   if (!TARGET_EXPLICIT_RELOCS && mips_in_small_data_p (decl))
     {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
+      p = ggc_alloc_extern_list ();
       p->next = extern_head;
       p->name = name;
       p->size = int_size_in_bytes (TREE_TYPE (decl));
@@ -5687,7 +5687,7 @@ mips_output_external (FILE *file ATTRIBUTE_UNUSED, tree decl, const char *name)
 
   if (TARGET_IRIX && mips_abi == ABI_32 && TREE_CODE (decl) == FUNCTION_DECL)
     {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
+      p = ggc_alloc_extern_list ();
       p->next = extern_head;
       p->name = name;
       p->size = -1;
@@ -5705,7 +5705,7 @@ irix_output_external_libcall (rtx fun)
 
   if (mips_abi == ABI_32)
     {
-      p = (struct extern_list *) ggc_alloc (sizeof (struct extern_list));
+      p = ggc_alloc_extern_list ();
       p->next = extern_head;
       p->name = XSTR (fun, 0);
       p->size = -1;

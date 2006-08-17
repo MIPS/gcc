@@ -782,7 +782,7 @@ mt_init_machine_status (void)
 {
   struct machine_function *f;
 
-  f = ggc_alloc_cleared (sizeof (struct machine_function));
+  f = ggc_alloc_cleared_machine_function ();
 
   return f;
 }

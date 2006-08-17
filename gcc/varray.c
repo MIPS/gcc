@@ -127,7 +127,7 @@ varray_init (size_t num_elements, enum varray_data_enum element_kind,
   desc->allocated += data_size + VARRAY_HDR_SIZE;
 #endif
   if (element[element_kind].uses_ggc)
-    ptr = ggc_alloc_cleared (VARRAY_HDR_SIZE + data_size);
+    ptr = ggc_alloc_cleared_atomic (VARRAY_HDR_SIZE + data_size);
   else
     ptr = xcalloc (VARRAY_HDR_SIZE + data_size, 1);
 
@@ -160,7 +160,7 @@ varray_grow (varray_type va, size_t n)
 
 
       if (element[va->type].uses_ggc)
-	va = ggc_realloc (va, VARRAY_HDR_SIZE + data_size);
+	va = ggc_realloc_atomic (va, VARRAY_HDR_SIZE + data_size);
       else
 	va = xrealloc (va, VARRAY_HDR_SIZE + data_size);
       va->num_elements = n;

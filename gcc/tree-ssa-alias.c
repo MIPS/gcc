@@ -2451,7 +2451,7 @@ get_ptr_info (tree t)
   pi = SSA_NAME_PTR_INFO (t);
   if (pi == NULL)
     {
-      pi = GGC_NEW (struct ptr_info_def);
+      pi = ggc_alloc_ptr_info_def();
       memset ((void *)pi, 0, sizeof (*pi));
       SSA_NAME_PTR_INFO (t) = pi;
     }
@@ -3001,7 +3001,7 @@ create_overlap_variables_for (tree var)
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
 	    continue;
-	  sv = GGC_NEW (struct subvar);
+	  sv = ggc_alloc_subvar ();
 	  sv->next = *subvars;
 	  sv->var = create_sft (var, fo->type, fo->offset, fosize);
 

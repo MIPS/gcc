@@ -181,7 +181,7 @@ cgraph_create_node (void)
 {
   struct cgraph_node *node;
 
-  node = GGC_CNEW (struct cgraph_node);
+  node = ggc_alloc_cleared_cgraph_node ();
   node->next = cgraph_nodes;
   node->uid = cgraph_max_uid++;
   node->order = cgraph_order++;
@@ -316,7 +316,7 @@ struct cgraph_edge *
 cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 		    tree call_stmt, gcov_type count, int nest)
 {
-  struct cgraph_edge *edge = GGC_NEW (struct cgraph_edge);
+  struct cgraph_edge *edge = ggc_alloc_cgraph_edge();
 #ifdef ENABLE_CHECKING
   struct cgraph_edge *e;
 
@@ -759,7 +759,7 @@ cgraph_varpool_node (tree decl)
     htab_find_slot (cgraph_varpool_hash, &key, INSERT);
   if (*slot)
     return *slot;
-  node = GGC_CNEW (struct cgraph_varpool_node);
+  node = ggc_alloc_cleared_cgraph_varpool_node ();
   node->decl = decl;
   node->order = cgraph_order++;
   node->next = cgraph_varpool_nodes;
@@ -912,7 +912,7 @@ cgraph_add_asm_node (tree asm_str)
 {
   struct cgraph_asm_node *node;
 
-  node = GGC_CNEW (struct cgraph_asm_node);
+  node = ggc_alloc_cleared_cgraph_asm_node ();
   node->asm_str = asm_str;
   node->order = cgraph_order++;
   node->next = NULL;

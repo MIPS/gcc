@@ -1,9 +1,9 @@
-/* A splay-tree datatype.  
+/* A splay-tree datatype.
    Copyright 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Mark Mitchell (mark@markmitchell.com).
 
 This file is part of GCC.
-   
+
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
@@ -22,7 +22,7 @@ Boston, MA 02110-1301, USA.  */
 /* For an easily readable description of splay-trees, see:
 
      Lewis, Harry R. and Denenberg, Larry.  Data Structures and Their
-     Algorithms.  Harper-Collins, Inc.  1991.  
+     Algorithms.  Harper-Collins, Inc.  1991.
 
    The major feature of splay trees is that all basic tree operations
    are amortized O(log n) time for a tree with n nodes.  */
@@ -107,7 +107,8 @@ struct splay_tree_s GTY(())
   splay_tree_delete_value_fn delete_value;
 
   /* Allocate/free functions, and a data pointer to pass to them.  */
-  splay_tree_allocate_fn allocate;
+  splay_tree_allocate_fn allocate_tree_node;
+
   splay_tree_deallocate_fn deallocate;
   void * GTY((skip)) allocate_data;
 
@@ -121,6 +122,7 @@ extern splay_tree splay_tree_new_with_allocator (splay_tree_compare_fn,
                                                  splay_tree_delete_key_fn,
 					        splay_tree_delete_value_fn,
                                                  splay_tree_allocate_fn,
+						 splay_tree_allocate_fn,
                                                  splay_tree_deallocate_fn,
                                                  void *);
 extern void splay_tree_delete           (splay_tree);

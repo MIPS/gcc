@@ -112,7 +112,8 @@ vec_gc_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
   if (!alloc)
     return NULL;
 
-  vec = ggc_realloc_stat (vec, vec_offset + alloc * elt_size PASS_MEM_STAT);
+  vec = ggc_realloc_atomic_stat (vec,
+				 vec_offset + alloc * elt_size PASS_MEM_STAT);
   ((struct vec_prefix *)vec)->alloc = alloc;
   if (!pfx)
     ((struct vec_prefix *)vec)->num = 0;

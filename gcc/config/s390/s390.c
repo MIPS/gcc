@@ -1273,7 +1273,7 @@ s390_narrow_logical_operator (enum rtx_code code, rtx *memop, rtx *immop)
 static struct machine_function *
 s390_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 /* Change optimizations to be performed, depending on the

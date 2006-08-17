@@ -522,10 +522,11 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   tree_node_sizes[(int) kind] += length;
 #endif
 
+  /* TODO: MEM_STAT broken */
   if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
+    t = ggc_alloc_tree_node (length); /* TODO: tree_id_zone */
   else
-    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+    t = ggc_alloc_tree_node (length); /* TODO: tree_zone */
 
   memset (t, 0, length);
 
@@ -613,7 +614,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -1059,7 +1060,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
      Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
-  dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
+  dp = ggc_alloc_real_value ();
   memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
 
   TREE_TYPE (v) = type;
@@ -1165,7 +1166,7 @@ make_tree_binfo_stat (unsigned base_binfos MEM_STAT_DECL)
   tree_node_sizes[(int) binfo_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
 
   memset (t, 0, offsetof (struct tree_binfo, base_binfos));
 
@@ -1190,7 +1191,7 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
 
   memset (t, 0, length);
 
@@ -1656,7 +1657,8 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  node = ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
+  /* TODO: MEM_STAT broken, tree_zone */
+  node = ggc_alloc_tree_node (sizeof (struct tree_list));
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2793,7 +2795,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 1);
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = ggc_alloc_tree_node (length); /* TODO: MEM_STAT broken, tree_zone */
 
   memset (t, 0, sizeof (struct tree_common));
 
@@ -6819,7 +6821,7 @@ build_omp_clause (enum omp_clause_code code)
   length = omp_clause_num_ops[code];
   size = (sizeof (struct tree_omp_clause) + (length - 1) * sizeof (tree));
 
-  t = ggc_alloc (size);
+  t = ggc_alloc_tree_node (size);
   memset (t, 0, size);
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);

@@ -5179,7 +5179,7 @@ ia64_override_options (void)
 static struct machine_function *
 ia64_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return ggc_alloc_cleared_machine_function ();
 }
 
 static enum attr_itanium_class ia64_safe_itanium_class (rtx);
@@ -9164,7 +9164,7 @@ static GTY(()) struct extern_func_list *extern_func_head;
 static void
 ia64_hpux_add_extern_decl (tree decl)
 {
-  struct extern_func_list *p = ggc_alloc (sizeof (struct extern_func_list));
+  struct extern_func_list *p = ggc_alloc_extern_func_list();
 
   p->decl = decl;
   p->next = extern_func_head;

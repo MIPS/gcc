@@ -991,7 +991,7 @@ dbxout_init (const char *input_file_name)
   tree syms = lang_hooks.decls.getdecls ();
 
   typevec_len = 100;
-  typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
+  typevec = ggc_alloc_cleared_vec_typeinfo (typevec_len);
 
   /* stabstr_ob contains one string, which will be just fine with
      1-byte alignment.  */
@@ -1691,7 +1691,8 @@ dbxout_type (tree type, int full)
       if (next_type_number == typevec_len)
 	{
 	  typevec
-	    = ggc_realloc (typevec, (typevec_len * 2 * sizeof typevec[0]));
+	    = ggc_realloc_atomic (typevec,
+				  typevec_len * 2 * sizeof typevec[0]);
 	  memset (typevec + typevec_len, 0, typevec_len * sizeof typevec[0]);
 	  typevec_len *= 2;
 	}

@@ -3238,7 +3238,7 @@ add_call_site (rtx landing_pad, int action)
   if (used >= size)
     {
       size = (size ? size * 2 : 64);
-      data = ggc_realloc (data, sizeof (*data) * size);
+      data = ggc_realloc_atomic (data, sizeof (*data) * size);
       cfun->eh->call_site_data = data;
       cfun->eh->call_site_data_size = size;
     }

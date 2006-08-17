@@ -2549,8 +2549,9 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   if (fde_table_in_use == fde_table_allocated)
     {
       fde_table_allocated += FDE_TABLE_INCREMENT;
-      fde_table = ggc_realloc (fde_table,
-			       fde_table_allocated * sizeof (dw_fde_node));
+      fde_table = ggc_realloc_atomic (fde_table,
+				      fde_table_allocated
+				      * sizeof (dw_fde_node));
       memset (fde_table + fde_table_in_use, 0,
 	      FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
     }
@@ -2609,7 +2610,8 @@ void
 dwarf2out_frame_init (void)
 {
   /* Allocate the initial hunk of the fde_table.  */
-  fde_table = ggc_alloc_cleared (FDE_TABLE_INCREMENT * sizeof (dw_fde_node));
+  fde_table = ggc_alloc_vec_atomic (sizeof (dw_fde_node),
+					   FDE_TABLE_INCREMENT);
   fde_table_allocated = FDE_TABLE_INCREMENT;
   fde_table_in_use = 0;
 
@@ -6504,8 +6506,9 @@ build_abbrev_table (dw_die_ref die)
       if (abbrev_die_table_in_use >= abbrev_die_table_allocated)
 	{
 	  n_alloc = abbrev_die_table_allocated + ABBREV_DIE_TABLE_INCREMENT;
-	  abbrev_die_table = ggc_realloc (abbrev_die_table,
-					  sizeof (dw_die_ref) * n_alloc);
+	  abbrev_die_table = ggc_realloc_atomic (abbrev_die_table,
+						 sizeof (dw_die_ref)
+						 * n_alloc);
 
 	  memset (&abbrev_die_table[abbrev_die_table_allocated], 0,
 		 (n_alloc - abbrev_die_table_allocated) * sizeof (dw_die_ref));
@@ -7254,8 +7257,9 @@ add_pubname (tree decl, dw_die_ref die)
     {
       pubname_table_allocated += PUBNAME_TABLE_INCREMENT;
       pubname_table
-	= ggc_realloc (pubname_table,
-		       (pubname_table_allocated * sizeof (pubname_entry)));
+	= ggc_realloc_atomic (pubname_table,
+			      (pubname_table_allocated
+			       * sizeof (pubname_entry)));
       memset (pubname_table + pubname_table_in_use, 0,
 	      PUBNAME_TABLE_INCREMENT * sizeof (pubname_entry));
     }
@@ -7314,9 +7318,9 @@ add_arange (tree decl, dw_die_ref die)
   if (arange_table_in_use == arange_table_allocated)
     {
       arange_table_allocated += ARANGE_TABLE_INCREMENT;
-      arange_table = ggc_realloc (arange_table,
-				  (arange_table_allocated
-				   * sizeof (dw_die_ref)));
+      arange_table = ggc_realloc_atomic (arange_table,
+					 (arange_table_allocated
+					  * sizeof (dw_die_ref)));
       memset (arange_table + arange_table_in_use, 0,
 	      ARANGE_TABLE_INCREMENT * sizeof (dw_die_ref));
     }
@@ -7420,8 +7424,9 @@ add_ranges (tree block)
     {
       ranges_table_allocated += RANGES_TABLE_INCREMENT;
       ranges_table
-	= ggc_realloc (ranges_table, (ranges_table_allocated
-				      * sizeof (struct dw_ranges_struct)));
+	= ggc_realloc_atomic (ranges_table,
+			      (ranges_table_allocated
+			       * sizeof (struct dw_ranges_struct)));
       memset (ranges_table + ranges_table_in_use, 0,
 	      RANGES_TABLE_INCREMENT * sizeof (struct dw_ranges_struct));
     }
@@ -9783,7 +9788,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	if (SCALAR_FLOAT_MODE_P (mode))
 	  {
 	    unsigned int length = GET_MODE_SIZE (mode);
-	    unsigned char *array = ggc_alloc (length);
+	    unsigned char *array = ggc_alloc_atomic (length);
 
 	    insert_float (rtl, array);
 	    add_AT_vec (die, DW_AT_const_value, length / 4, 4, array);
@@ -9804,7 +9809,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	enum machine_mode mode = GET_MODE (rtl);
 	unsigned int elt_size = GET_MODE_UNIT_SIZE (mode);
 	unsigned int length = CONST_VECTOR_NUNITS (rtl);
-	unsigned char *array = ggc_alloc (length * elt_size);
+	unsigned char *array = ggc_alloc_vec_atomic (length, elt_size);
 	unsigned int i;
 	unsigned char *p;
 
@@ -13608,9 +13613,9 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 	    {
 	      separate_line_info_table_allocated += LINE_INFO_TABLE_INCREMENT;
 	      separate_line_info_table
-		= ggc_realloc (separate_line_info_table,
-			       separate_line_info_table_allocated
-			       * sizeof (dw_separate_line_info_entry));
+		= ggc_realloc_atomic (separate_line_info_table,
+				      separate_line_info_table_allocated
+				      * sizeof (dw_separate_line_info_entry));
 	      memset (separate_line_info_table
 		       + separate_line_info_table_in_use,
 		      0,
@@ -13637,9 +13642,9 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 	    {
 	      line_info_table_allocated += LINE_INFO_TABLE_INCREMENT;
 	      line_info_table
-		= ggc_realloc (line_info_table,
-			       (line_info_table_allocated
-				* sizeof (dw_line_info_entry)));
+		= ggc_realloc_atomic (line_info_table,
+				      (line_info_table_allocated
+				       * sizeof (dw_line_info_entry)));
 	      memset (line_info_table + line_info_table_in_use, 0,
 		      LINE_INFO_TABLE_INCREMENT * sizeof (dw_line_info_entry));
 	    }
@@ -13749,15 +13754,14 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   decl_scope_table = VEC_alloc (tree, gc, 256);
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
-  abbrev_die_table = ggc_alloc_cleared (ABBREV_DIE_TABLE_INCREMENT
-					* sizeof (dw_die_ref));
+  abbrev_die_table = ggc_alloc_cleared_vec_atomic (sizeof(dw_die_ref),
+						   ABBREV_DIE_TABLE_INCREMENT);
   abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
   /* Zero-th entry is allocated, but unused.  */
   abbrev_die_table_in_use = 1;
 
   /* Allocate the initial hunk of the line_info_table.  */
-  line_info_table = ggc_alloc_cleared (LINE_INFO_TABLE_INCREMENT
-				       * sizeof (dw_line_info_entry));
+  line_info_table = ggc_alloc_cleared_vec_dw_line_info_struct (LINE_INFO_TABLE_INCREMENT);
   line_info_table_allocated = LINE_INFO_TABLE_INCREMENT;
 
   /* Zero-th entry is allocated, but unused.  */

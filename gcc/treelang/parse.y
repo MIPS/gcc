@@ -38,6 +38,7 @@ the GCC compiler.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "ggc.h"
 #include "tm.h"
 #include "timevar.h"
 #include "tree.h"
@@ -300,7 +301,7 @@ storage typename NAME LEFT_PARENTHESIS parameters_opt RIGHT_PARENTHESIS SEMICOLO
       gcc_assert (this_parm_var->category == production_category);
       gcc_assert (this_parm_var->tp.pro.main_token);
 
-      this_parms = my_malloc (sizeof (struct prod_token_parm_item));
+      this_parms = ggc_alloc_cleared_prod_token_parm_item ();
 
       this_parms->tp.par.variable_name =
 	this_parm_var->tp.pro.main_token->tp.tok.chars;

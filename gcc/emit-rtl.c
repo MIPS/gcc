@@ -796,12 +796,12 @@ gen_reg_rtx (enum machine_mode mode)
       char *new;
       rtx *new1;
 
-      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
+      new = ggc_realloc_atomic (f->emit->regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
       f->emit->regno_pointer_align = (unsigned char *) new;
 
-      new1 = ggc_realloc (f->emit->x_regno_reg_rtx,
-			  old_size * 2 * sizeof (rtx));
+      new1 = ggc_realloc_atomic (f->emit->x_regno_reg_rtx,
+				 old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
@@ -4980,11 +4980,11 @@ init_emit (void)
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = ggc_alloc_cleared (f->emit->regno_pointer_align_length
-			 * sizeof (unsigned char));
+    = ggc_alloc_cleared_vec_atomic (f->emit->regno_pointer_align_length,
+				    sizeof (unsigned char));
 
   regno_reg_rtx
-    = ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
+    = ggc_alloc_vec_atomic (f->emit->regno_pointer_align_length, sizeof(rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,

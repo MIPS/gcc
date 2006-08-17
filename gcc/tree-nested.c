@@ -300,7 +300,7 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
   
-      elt = GGC_NEW (struct var_map_elt);
+      elt = ggc_alloc_var_map_elt();
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -486,7 +486,7 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
 
       insert_field_into_struct (get_frame_type (info), field);
 
-      elt = GGC_NEW (struct var_map_elt);
+      elt = ggc_alloc_var_map_elt();
       elt->old = decl;
       elt->new = field;
       *slot = elt;
@@ -717,7 +717,7 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 static struct nesting_info *
 create_nesting_tree (struct cgraph_node *cgn)
 {
-  struct nesting_info *info = GGC_CNEW (struct nesting_info);
+  struct nesting_info *info = ggc_alloc_cleared_nesting_info ();
   info->field_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->var_map = htab_create_ggc (7, var_map_hash, var_map_eq, ggc_free);
   info->suppress_expansion = BITMAP_GGC_ALLOC ();
@@ -1472,14 +1472,14 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
       new_label = create_artificial_label ();
       DECL_NONLOCAL (new_label) = 1;
 
-      elt = GGC_NEW (struct var_map_elt); 
+      elt = ggc_alloc_var_map_elt();
       elt->old = label;
       elt->new = new_label;
       *slot = elt;
     }
   else
     new_label = elt->new;
-  
+
   /* Build: __builtin_nl_goto(new_label, &chain->nl_goto_field).  */
   field = get_nl_goto_field (i);
   x = get_frame_field (info, target_context, field, &wi->tsi);

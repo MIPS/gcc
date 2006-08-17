@@ -59,7 +59,7 @@ static int mark_ident (struct cpp_reader *, hashnode, const void *);
 static void *
 stringpool_ggc_alloc (size_t x)
 {
-  return ggc_alloc (x); /* TODO: specialized alloc for no pointers inside? */
+  return ggc_alloc_atomic (x);
 }
 
 /* Initialize the string pool.  */
@@ -213,7 +213,7 @@ gt_pch_n_S (const void *x)
 
 struct string_pool_data GTY(())
 {
-  struct ht_identifier * * 
+  struct ht_identifier * *
     GTY((length ("%h.nslots"),
 	 nested_ptr (union tree_node, "%h ? GCC_IDENT_TO_HT_IDENT (%h) : NULL",
 		     "%h ? HT_IDENT_TO_GCC_IDENT (%h) : NULL")))
@@ -229,10 +229,10 @@ static GTY(()) struct string_pool_data * spd;
 void
 gt_pch_save_stringpool (void)
 {
-  spd = ggc_alloc (sizeof (*spd));
+  spd = ggc_alloc_string_pool_data ();
   spd->nslots = ident_hash->nslots;
   spd->nelements = ident_hash->nelements;
-  spd->entries = ggc_alloc (sizeof (spd->entries[0]) * spd->nslots);
+  spd->entries = ggc_alloc_vec_atomic (sizeof (spd->entries[0]), spd->nslots);
   memcpy (spd->entries, ident_hash->entries,
 	  spd->nslots * sizeof (spd->entries[0]));
 }

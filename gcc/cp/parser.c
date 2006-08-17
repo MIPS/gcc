@@ -263,7 +263,7 @@ cp_lexer_new_main (void)
   c_common_no_more_pch ();
 
   /* Allocate the memory.  */
-  lexer = GGC_CNEW (cp_lexer);
+  lexer = ggc_alloc_cleared_cp_lexer ();
 
 #ifdef ENABLE_CHECKING
   /* Initially we are not debugging.  */
@@ -274,7 +274,10 @@ cp_lexer_new_main (void)
 
   /* Create the buffer.  */
   alloc = CP_LEXER_BUFFER_SIZE;
-  buffer = GGC_NEWVEC (cp_token, alloc);
+  buffer = GGC_NEWVEC_ATOMIC (cp_token, alloc);
+  /* TODO: atomic here looks very stinky.  Typed alloc below not possible
+     because of realloc.  */
+  /* buffer = ggc_alloc_vec_cp_token (alloc); */
 
   /* Put the first token in the buffer.  */
   space = alloc;
@@ -289,7 +292,7 @@ cp_lexer_new_main (void)
 	{
 	  space = alloc;
 	  alloc *= 2;
-	  buffer = GGC_RESIZEVEC (cp_token, buffer, alloc);
+	  buffer = GGC_RESIZEVEC_ATOMIC (cp_token, buffer, alloc);
 	  pos = buffer + space;
 	}
       cp_lexer_get_preprocessor_token (lexer, pos);
@@ -316,7 +319,7 @@ cp_lexer_new_from_tokens (cp_token_cache *cache)
 {
   cp_token *first = cache->first;
   cp_token *last = cache->last;
-  cp_lexer *lexer = GGC_CNEW (cp_lexer);
+  cp_lexer *lexer = ggc_alloc_cleared_cp_lexer ();
 
   /* We do not own the buffer.  */
   lexer->buffer = NULL;
@@ -743,7 +746,7 @@ cp_lexer_stop_debugging (cp_lexer* lexer)
 static cp_token_cache *
 cp_token_cache_new (cp_token *first, cp_token *last)
 {
-  cp_token_cache *cache = GGC_NEW (cp_token_cache);
+  cp_token_cache *cache = ggc_alloc_cp_token_cache ();
   cache->first = first;
   cache->last = last;
   return cache;
@@ -1191,7 +1194,7 @@ cp_parser_context_new (cp_parser_context* next)
       memset (context, 0, sizeof (*context));
     }
   else
-    context = GGC_CNEW (cp_parser_context);
+    context = ggc_alloc_cleared_cp_parser_context ();
 
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
@@ -2472,7 +2475,7 @@ cp_parser_new (void)
   cp_lexer *lexer;
   unsigned i;
 
-  /* cp_lexer_new_main is called before calling ggc_alloc because
+  /* cp_lexer_new_main is called before allocating GC memory because
      cp_lexer_new_main might load a PCH file.  */
   lexer = cp_lexer_new_main ();
 
@@ -2481,7 +2484,7 @@ cp_parser_new (void)
   for (i = 0; i < sizeof (binops) / sizeof (binops[0]); i++)
     binops_by_token[binops[i].token_type] = binops[i];
 
-  parser = GGC_CNEW (cp_parser);
+  parser = ggc_alloc_cleared_cp_parser ();
   parser->lexer = lexer;
   parser->context = cp_parser_context_new (NULL);
 

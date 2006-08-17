@@ -13285,7 +13285,7 @@ ix86_init_machine_status (void)
 {
   struct machine_function *f;
 
-  f = ggc_alloc_cleared (sizeof (struct machine_function));
+  f = ggc_alloc_cleared_machine_function ();
   f->use_fast_prologue_epilogue_nregs = -1;
   f->tls_descriptor_call_expanded_p = 0;
 
@@ -13309,8 +13309,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
     if (s->mode == mode && s->n == n)
       return s->rtl;
 
-  s = (struct stack_local_entry *)
-    ggc_alloc (sizeof (struct stack_local_entry));
+  s = ggc_alloc_stack_local_entry();
   s->n = n;
   s->mode = mode;
   s->rtl = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
