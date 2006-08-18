@@ -215,6 +215,10 @@ extern GTY(()) rtx aof_pic_label;
    for Thumb-2.  */
 #define TARGET_UNIFIED_ASM TARGET_THUMB2
 
+/* True if FLDMX and FSTMX instructions must be used in function prologues
+   and epilogues rather than FLDMD and FSTMD instructions.
+   (This does not affect use of FLDMD and FSTMD anywhere else.)  */
+#define TARGET_FLDMX !arm_arch6
 
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not

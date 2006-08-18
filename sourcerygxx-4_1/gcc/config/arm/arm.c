@@ -8712,7 +8712,7 @@ print_multi_reg (FILE *stream, const char *instr, unsigned reg,
 }
 
 
-/* Output a FLDMX instruction to STREAM.
+/* Output a FLDMX or FLDMD instruction to STREAM.
    BASE if the register containing the address.
    REG and COUNT specify the register range.
    Extra registers may be added to avoid hardware bugs.  */
@@ -8731,7 +8731,7 @@ arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
     }
 
   fputc ('\t', stream);
-  asm_fprintf (stream, "fldmfdx\t%r!, {", base);
+  asm_fprintf (stream, "fldmfd%c\t%r!, {", TARGET_FLDMX ? 'x' : 'd', base);
 
   for (i = reg; i < reg + count; i++)
     {
@@ -8754,7 +8754,7 @@ vfp_output_fstmx (rtx * operands)
   int base;
   int i;
 
-  strcpy (pattern, "fstmfdx\t%m0!, {%P1");
+  sprintf (pattern, "fstmfd%c\t%%m0!, {%%P1", TARGET_FLDMX ? 'x' : 'd');
   p = strlen (pattern);
 
   gcc_assert (GET_CODE (operands[1]) == REG);
@@ -8781,6 +8781,7 @@ vfp_emit_fstmx (int base_reg, int count)
   rtx dwarf;
   rtx tmp, reg;
   int i;
+  int pad = TARGET_FLDMX ? 4 : 0;
 
   /* Workaround ARM10 VFPr1 bug.  Data corruption can occur when exactly two
      register pairs are stored by a store multiple insn.  We avoid this
@@ -8793,7 +8794,9 @@ vfp_emit_fstmx (int base_reg, int count)
     }
 
   /* ??? The frame layout is implementation defined.  We describe
-     standard format 1 (equivalent to a FSTMD insn and unused pad word).
+     standard format 1 (equivalent to a FSTMD insn and unused pad word)
+     for architectures pre-v6, and FSTMD insn format without the pad
+     word for v6+.
      We really need some way of representing the whole block so that the
      unwinder can figure it out at runtime.  */
   par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (count));
@@ -8813,7 +8816,7 @@ vfp_emit_fstmx (int base_reg, int count)
 
   tmp = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
 		     gen_rtx_PLUS (SImode, stack_pointer_rtx,
-				   GEN_INT (-(count * 8 + 4))));
+				   GEN_INT (-(count * 8 + pad))));
   RTX_FRAME_RELATED_P (tmp) = 1;
   XVECEXP (dwarf, 0, 0) = tmp;
 
@@ -8844,7 +8847,7 @@ vfp_emit_fstmx (int base_reg, int count)
 				       REG_NOTES (par));
   RTX_FRAME_RELATED_P (par) = 1;
 
-  return count * 8 + 4;
+  return count * 8 + pad;
 }
 
 
@@ -9830,6 +9833,10 @@ arm_get_vfp_saved_size (void)
   unsigned int regno;
   int count;
   int saved;
+  /* Check if we need to allow for the format word that
+     is used by the FLDMX and FSTMX instructions.  (If we are using
+     FLDMD and FSTMD then no such space is required.)  */
+  int space_for_format_word = TARGET_FLDMX ? 4 : 0;
 
   saved = 0;
   /* Space for saved VFP registers.  */
@@ -9848,7 +9855,7 @@ arm_get_vfp_saved_size (void)
 		  /* Workaround ARM10 VFPr1 bug.  */
 		  if (count == 2 && !arm_arch6)
 		    count++;
-		  saved += count * 8 + 4;
+		  saved += count * 8 + space_for_format_word;
 		}
 	      count = 0;
 	    }
@@ -9859,7 +9866,7 @@ arm_get_vfp_saved_size (void)
 	{
 	  if (count == 2 && !arm_arch6)
 	    count++;
-	  saved += count * 8 + 4;
+	  saved += count * 8 + space_for_format_word;
 	}
     }
   return saved;
@@ -10289,8 +10296,8 @@ arm_output_epilogue (rtx sibling)
 	{
 	  int saved_size;
 
-	  /* The fldmx insn does not have base+offset addressing modes,
-	     so we use IP to hold the address.  */
+	  /* The fldmx and fldmd insns do not have base+offset addressing
+             modes, so we use IP to hold the address.  */
 	  saved_size = arm_get_vfp_saved_size ();
 
 	  if (saved_size > 0)
@@ -16085,12 +16092,15 @@ arm_unwind_emit_sequence (FILE * asm_out_file, rtx p)
 	  offset -= 4;
 	}
       reg_size = 4;
+      fprintf (asm_out_file, "\t.save {");
     }
   else if (IS_VFP_REGNUM (reg))
     {
-      /* FPA register saves use an additional word.  */
-      offset -= 4;
+      /* VFP register saves using FSTMX require an extra word.  */
+      if (TARGET_FLDMX)
+        offset -= 4;
       reg_size = 8;
+      fprintf (asm_out_file, TARGET_FLDMX ? "\t.save {" : "\t.vsave {");
     }
   else if (reg >= FIRST_FPA_REGNUM && reg <= LAST_FPA_REGNUM)
     {
@@ -16106,8 +16116,6 @@ arm_unwind_emit_sequence (FILE * asm_out_file, rtx p)
      something has gone horribly wrong.  */
   if (offset != nregs * reg_size)
     abort ();
-
-  fprintf (asm_out_file, "\t.save {");
 
   offset = 0;
   lastreg = 0;
