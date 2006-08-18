@@ -409,6 +409,10 @@ femit-class-debug-always
 Common Report Var(flag_emit_class_debug_always) Init(1)
 Do not suppress C++ class debug information.
 
+fipa-stack-allocate
+Common Report Var(flag_ipa_stack_allocate)
+Perform stack allocation of memory when it can be determined to be safe
+
 fexceptions
 Common Report Var(flag_exceptions)
 Enable exception handling

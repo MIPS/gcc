@@ -1012,7 +1012,7 @@ process_function (con_graph cg, tree function)
 }
 
 static unsigned int
-execute_escape (void)
+execute_stack_allocate (void)
 {
   struct cgraph_node *node;
   con_graph cg;
@@ -1095,15 +1095,15 @@ execute_escape (void)
 }
 
 static bool
-gate_ipa_escape (void)
+gate_ipa_stack_allocate (void)
 {
-  return true;
+  return false;
 }
 
-struct tree_opt_pass pass_ipa_escape = {
+struct tree_opt_pass pass_ipa_stack_allocate = {
   "escape",			/* name */
-  gate_ipa_escape,		/* gate */
-  execute_escape,		/* execute */
+  gate_ipa_stack_allocate,	/* gate */
+  execute_stack_allocate,	/* execute */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

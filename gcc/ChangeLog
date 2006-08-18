@@ -1,3 +1,17 @@
+2006-08-18	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c: Rename from tree-ssa-escape.c
+	* (execute_stack_allocate): Rename from execute_escape
+	* (gate_ipa_escape): Rename from gate_ipa_stack_allocate
+	
+	* tree-pass.h (pass_ipa_stack_allocate):
+	* ipa-stack-allocate.c (pass_ipa_stack_allocate):
+	* passes.c (pass_ipa_stack_allocate): Rename from pass_ipa_escape
+
+	* common.opt (fipa-stack-escape): New option
+	* Makefile.in (ipa-stack-allocate): New rule
+
+
 2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
 
 	* congraph.c: New file

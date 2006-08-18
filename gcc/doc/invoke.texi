@@ -345,7 +345,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--ftree-vect-loop-version -ftree-salias -fipa-pta -fweb @gol
+-ftree-vect-loop-version -ftree-salias -fipa-pta -fipa-stack-allocate -fweb @gol
 -ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop -fwhole-program @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -5077,6 +5077,13 @@ is enabled by default at @option{-O} and higher.
 
 @item -fipa-pta
 Perform interprocedural pointer analysis.
+
+@item -fipa-stack-allocate
+Perform interprocedural escape analysis.  This pass replaces memory
+allocations on the heap, with allocations on the stack, where it is safe
+to do so.  This reduces memory consumption, garbage-collection time
+(where applicable), and memory allocation time, but can temporarily
+increasing memory usage in some cases.
 
 @item -ftree-sink
 Perform forward store motion  on trees.  This flag is
