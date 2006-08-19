@@ -1,3 +1,22 @@
+2006-08-18  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/arm/unwind-arm.c (struct wmmxd_regs, struct wmmxc_regs):
+	New.
+	(phase1_vrs): Use them.
+	(DEMAND_SAVE_WMMXD, DEMAND_SAVE_WMMXC): New.
+	(__gnu_Unwind_Save_WMMXD, __gnu_Unwind_Restore_WMMXD,
+	__gnu_Unwind_Save_WMMXC, __gnu_Unwind_Restore_WMMXC): Declare.
+	(restore_non_core_regs): Call __gnu_Unwind_Restore_WMMXD and
+	__gnu_Unwind_Restore_WMMXC if required.
+	(_Unwind_VRS_Pop): Implement iWMMXt support.
+	* config/arm/libunwind.S (gnu_Unwind_Restore_WMMXD,
+	gnu_Unwind_Save_WMMXD, gnu_Unwind_Restore_WMMXC,
+	gnu_Unwind_Save_WMMXC): Define.
+
+	gcc/testsuite/
+	* g++.dg/eh/arm-iwmmxt-unwind.C: New test.
+
 2006-08-18  Mark Shinwell  <shinwell@codesourcery.com>
 
 	* config/arm/arm.c (arm_output_fldmx): Output FLDMD instead of
