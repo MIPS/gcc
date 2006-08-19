@@ -1,3 +1,12 @@
+2006-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/arm/vfp-ldmdbd.c, gcc.target/arm/vfp-ldmdbs.c,
+	gcc.target/arm/vfp-ldmiad.c, gcc.target/arm/vfp-ldmias.c,
+	gcc.target/arm/vfp-stmdbd.c, gcc.target/arm/vfp-stmdbs.c,
+	gcc.target/arm/vfp-stmiad.c, gcc.target/arm/vfp-stmias.c: Skip for
+	iWMMXt.
+
 2006-08-18  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/

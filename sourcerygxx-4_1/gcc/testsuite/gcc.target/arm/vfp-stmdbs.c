@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target arm32 } */
 /* { dg-options "-O2 -mfpu=vfp -mfloat-abi=softfp" } */
+/* { dg-skip-if "" { *-*-* } { "-mcpu=iwmmxt" "-march=iwmmxt" } { "" } } */
 
 void
 foo (float *p, float a, float b, int n)

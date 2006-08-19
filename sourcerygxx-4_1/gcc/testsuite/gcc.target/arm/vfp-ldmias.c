@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target arm32 } */
 /* { dg-options "-O2 -mfpu=vfp -mfloat-abi=softfp" } */
+/* { dg-skip-if "" { *-*-* } { "-mcpu=iwmmxt" "-march=iwmmxt" } { "" } } */
 
 extern void baz (float);
 
