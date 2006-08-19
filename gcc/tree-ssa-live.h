@@ -209,23 +209,26 @@ typedef struct tree_live_info_d
   /* Var map this relates to.  */
   var_map map;
 
-  /* Bitmap indicating which partitions are global.  */
-  bitmap global;
-
   /* Bitmap of live on entry blocks for partition elements.  */
   bitmap *livein;
 
   /* Number of basic blocks when live on exit calculated.  */
   int num_blocks;
 
-  /* Bitmap of what variables are live on exit for a basic blocks.  */
-  bitmap *liveout;
+  /* Vector used when creating live ranges as a visited stack.  */
+  int *work_stack;
+
+  /* Top of woirkstack.  */
+  int *stack_top;
+
+  /* Temporary working bitmap used by calc_live_at_exit.  */
+  bitmap succ_mask;
 } *tree_live_info_p;
 
 
 extern tree_live_info_p calculate_live_on_entry (var_map);
-extern void calculate_live_on_exit (tree_live_info_p);
 extern void delete_tree_live_info (tree_live_info_p);
+extern void calc_live_at_exit (basic_block, tree_live_info_p, bitmap);
 
 #define LIVEDUMP_ENTRY	0x01
 #define LIVEDUMP_EXIT	0x02
@@ -234,7 +237,6 @@ extern void dump_live_info (FILE *, tree_live_info_p, int);
 
 static inline int partition_is_global (tree_live_info_p, int);
 static inline bitmap live_entry_blocks (tree_live_info_p, int);
-static inline bitmap live_on_exit (tree_live_info_p, basic_block);
 static inline var_map live_var_map (tree_live_info_p);
 static inline void live_merge_and_clear (tree_live_info_p, int, int);
 static inline void make_live_on_entry (tree_live_info_p, basic_block, int);
@@ -245,33 +247,19 @@ static inline void make_live_on_entry (tree_live_info_p, basic_block, int);
 static inline int
 partition_is_global (tree_live_info_p live, int p)
 {
-  gcc_assert (live->global);
-  return bitmap_bit_p (live->global, p);
+  gcc_assert (live->livein);
+  return (live->livein[p] != NULL);
 }
 
 
 /* Return the bitmap from LIVE representing the live on entry blocks for 
-   partition P.  */
+   partition P.  A NULL means there are NO live blocks.  */
 
 static inline bitmap
 live_entry_blocks (tree_live_info_p live, int p)
 {
   gcc_assert (live->livein);
   return live->livein[p];
-}
-
-
-/* Return the bitmap from LIVE representing the live on exit partitions from
-   block BB.  */
-
-static inline bitmap
-live_on_exit (tree_live_info_p live, basic_block bb)
-{
-  gcc_assert (live->liveout);
-  gcc_assert (bb != ENTRY_BLOCK_PTR);
-  gcc_assert (bb != EXIT_BLOCK_PTR);
-
-  return live->liveout[bb->index];
 }
 
 
@@ -290,6 +278,8 @@ live_var_map (tree_live_info_p live)
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
+  gcc_assert (live->livein[p1]);
+  gcc_assert (live->livein[p2]);
   bitmap_ior_into (live->livein[p1], live->livein[p2]);
   bitmap_zero (live->livein[p2]);
 }
@@ -300,8 +290,9 @@ live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 static inline void 
 make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
 {
+  if (live->livein[p] == NULL)
+    live->livein[p] = BITMAP_ALLOC (NULL);
   bitmap_set_bit (live->livein[p], bb->index);
-  bitmap_set_bit (live->global, p);
 }
 
 

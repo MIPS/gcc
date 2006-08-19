@@ -1,3 +1,32 @@
+2006-08-18  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (new_tree_live_info): Don't initialize global bitmap
+	and initialize livein vectors to NULL rather than an empty bitmap.
+	(delete_tree_live_info): Free live bitmaps only if allocated.
+	(live_worklist):  Use stack which is in liveinfo struct.  Stack is
+	already initially set upon entry now.
+	(add_livein_if_notdef): Remove.
+	(set_var_live_on_entry):  New.  Calculate the initial set of live on
+	entry blocks using immediate use links.
+	(calculate_live_on_entry): Call set_var_live_on_entry for each var.
+	Split out the data verification code.
+	(calculate_live_on_exit): Remove.
+	(calc_live_at_exit): New.  Calculate the live on exit data for a
+	single basic block.
+	(build_tree_conflict_graph):  Use calc_live_at_exit.
+	(dump_live_info): Use calc_live_at_exit, check for empty live-on-entry
+	vectors.
+	(verify_live_on_entry): New.  Split out verification code from
+	calculate_live_on_entry.
+	* tree-ssa-live.h (struct tree_live_info_d): Remove global and liveout
+	bitmaps.  Add succ_mask and integer work stack fields.
+	(partition_is_global): Check for existance of live on entry info.
+	(live_on_exit): Remove.
+	(live_merge_and_clear): Add asserts.
+	(make_live_on_entry): Allocate a bitmap if needed.
+	* tree-outof-ssa.c (coalesce_ssa_name, coalesce_vars): Remove call to
+	calculate_live_on_exit.
+
 2006-08-04  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Change parms

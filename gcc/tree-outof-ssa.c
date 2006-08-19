@@ -824,7 +824,6 @@ coalesce_ssa_name (var_map map, int flags)
     return NULL;
 
   liveinfo = calculate_live_on_entry (map);
-  calculate_live_on_exit (liveinfo);
   rv = root_var_init (map);
 
   /* Remove single element variable from the list.  */
@@ -1194,8 +1193,6 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
    }
 
   
-  /* Re-calculate live on exit info.  */
-  calculate_live_on_exit (liveinfo);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
