@@ -561,6 +561,19 @@ _Jv_AllocObjectNoFinalizer (jclass klass)
   return obj;
 }
 
+// Now a version that takes it's memory as a parameter
+void
+_Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj)
+{
+  if (_Jv_IsPhantomClass(klass) )
+    throw new java::lang::NoClassDefFoundError(klass->getName());
+
+  _Jv_InitClass (klass);
+  jint size = klass->size ();
+  _Jv_AllocaObj (size, klass, obj);
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
+}
+
 // And now the general version that registers a finalizer if necessary.
 jobject
 _Jv_AllocObject (jclass klass)

@@ -389,6 +389,7 @@ enum java_tree_index
   JTI_THROW_NODE,
   JTI_ALLOC_OBJECT_NODE,
   JTI_ALLOC_NO_FINALIZER_NODE,
+  JTI_ALLOCA_NO_FINALIZER_NODE,
   JTI_SOFT_INSTANCEOF_NODE,
   JTI_SOFT_CHECKCAST_NODE,
   JTI_SOFT_INITCLASS_NODE,
@@ -643,6 +644,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_ALLOC_OBJECT_NODE]
 #define alloc_no_finalizer_node \
   java_global_trees[JTI_ALLOC_NO_FINALIZER_NODE]
+#define alloca_no_finalizer_node \
+  java_global_trees[JTI_ALLOCA_NO_FINALIZER_NODE]
 #define soft_instanceof_node \
   java_global_trees[JTI_SOFT_INSTANCEOF_NODE]
 #define soft_checkcast_node \

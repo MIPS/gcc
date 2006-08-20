@@ -242,7 +242,7 @@ uses_jv_markobj_p (tree dtable)
 {
   tree v;
   /* FIXME: what do we return if !flag_use_boehm_gc ? */
-  gcc_assert (flag_use_boehm_gc);
+/*  gcc_assert (flag_use_boehm_gc); */
   /* FIXME: this is wrong if TARGET_VTABLE_USES_DESCRIPTORS.  However,
      this function is only used with flag_reduced_reflection.  No
      point in asserting unless we hit the bad case.  */

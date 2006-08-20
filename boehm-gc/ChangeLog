@@ -1,3 +1,7 @@
+2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
+
+	* gcj-mlc.c (GC_gcj_alloca): New function
+
 2006-06-21  Keith Seitz  <keiths@redhat.com>
 
 	* pthread_stop_world.c (GC_suspend_handler): Redirect to suspension

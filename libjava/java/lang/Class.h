@@ -213,7 +213,9 @@ jfieldID JvGetFirstStaticField (jclass);
 jint JvNumStaticFields (jclass);
 
 jobject _Jv_AllocObject (jclass);
+void _Jv_AllocaObject (jclass, jobject);
 void *_Jv_AllocObj (jint, jclass);
+void _Jv_AllocaObj (jint, jclass, jobject);
 void *_Jv_AllocPtrFreeObj (jint, jclass);
 void *_Jv_AllocArray (jint, jclass);
 
@@ -459,7 +461,9 @@ private:
   friend jint (::JvNumStaticFields) (jclass);
 
   friend jobject (::_Jv_AllocObject) (jclass);
+  friend void (::_Jv_AllocaObject) (jclass, jobject);
   friend void *::_Jv_AllocObj (jint, jclass);
+  friend void ::_Jv_AllocaObj (jint, jclass, jobject);
   friend void *::_Jv_AllocPtrFreeObj (jint, jclass);
   friend void *::_Jv_AllocArray (jint, jclass);
 

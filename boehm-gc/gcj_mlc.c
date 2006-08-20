@@ -183,6 +183,22 @@ DCL_LOCK_STATE;
     return((GC_PTR) op);
 }
 
+/* Given an existing pointer, clear it, and store the pointer to the
+ type structure (vtable in gcj). */ 
+void * GC_gcj_alloca(size_t lb, void * ptr_to_struct_containing_descr,
+void * object)
+{
+  register ptr_t op = object;
+
+  if (0 == op) {
+    return(GC_oom_fn(lb));
+  }
+
+  *(void **)op = ptr_to_struct_containing_descr;
+  GC_ASSERT(((void **)op)[1] == 0);
+  return((GC_PTR) op);
+}
+
 /* Similar to GC_gcj_malloc, but add debug info.  This is allocated	*/
 /* with GC_gcj_debug_kind.						*/
 GC_PTR GC_debug_gcj_malloc(size_t lb, void * ptr_to_struct_containing_descr,

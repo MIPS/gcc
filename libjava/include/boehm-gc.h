@@ -31,9 +31,13 @@ extern "C"
 
 extern "C" void * GC_gcj_malloc(size_t, void *);
 extern "C" void * GC_malloc_atomic(size_t);
+extern "C" void * GC_gcj_alloca(size_t, void *, void *);
+extern "C" void * GC_alloca_atomic(size_t, void*);
 #ifdef THREAD_LOCAL_ALLOC
 extern "C" void * GC_local_gcj_malloc(size_t, void *);
 extern "C" void * GC_local_malloc_atomic(size_t);
+extern "C" void * GC_local_gcj_alloca(size_t, void *, void *);
+extern "C" void * GC_local_alloca_atomic(size_t, void *);
 #endif
 
 #ifndef LIBGCJ_GC_DEBUG
@@ -47,6 +51,18 @@ _Jv_AllocObj (jsize size, jclass klass)
   return GC_local_gcj_malloc (size, klass->vtable);
 #else 
   return GC_gcj_malloc (size, klass->vtable);
+#endif
+}
+
+inline void
+_Jv_AllocaObj (jsize size, jclass klass, jobject obj)
+{
+  // This should call GC_GCJ_MALLOC, but that would involve
+  // including gc.h.
+#ifdef THREAD_LOCAL_ALLOC
+  GC_local_gcj_alloca (size, klass->vtable, obj);
+#else 
+  GC_gcj_alloca (size, klass->vtable, obj);
 #endif
 }
 
@@ -74,6 +90,9 @@ _Jv_AllocPtrFreeObj (jsize size, jclass klass)
 
 void *
 _Jv_AllocObj (jsize size, jclass klass);
+
+void
+_Jv_AllocaObj (jsize size, jclass klass, jobject obj);
 
 void *
 _Jv_AllocPtrFreeObj (jsize size, jclass klass);

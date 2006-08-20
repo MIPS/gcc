@@ -1,3 +1,9 @@
+2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
+
+	* decl.c (java_init_decl_processing): Added
+	alloca_no_finalizer_node.
+	* java-tree.h (JTI_ALLOCA_NO_FINALIZER_NODE): New
+
 2006-08-10  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR java/8923

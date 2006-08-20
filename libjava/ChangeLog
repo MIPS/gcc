@@ -1,3 +1,18 @@
+2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
+
+	* gcj/javaprims.h (_Jv_AllocaObjectNoFinalizer)
+	(_Jv_AllocaObject): New declarations
+	* boehm.cc (_Jv_AllocaObj): New function
+	* java/lang/Class.h (_Jv_AllocaObj, _Jv_AllocaObject): New
+	declarations and friends of Class
+	* include/jvm.h (_Jv_AllocaObj): New declaration
+	* include/boehm-gc.h (GC_gcj_alloca, GC_alloca_atomic)
+	(GC_local_gcj_alloca, GC_local_alloca_atomic): New declarations
+	(_Jv_AllocaObj): New declaration and inline definition
+	* prims.cc (_Jv_AllocaObjectNoFinalizer): New function
+
+
+
 2006-08-15  Kyle Galloway  <kgallowa@redhat.com>
 
   	* include/java-interp.h (_Jv_InterpMethod::run_debug): New method.

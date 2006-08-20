@@ -1,5 +1,4 @@
-/* A pass for escape analysys, for stack allocation, synchronization
-   removal and extra aliasing information. 
+/* A pass for escape analysis, for stack allocation.
    Copyright (C) 2006 Free Software Foundation, Inc.
    Contributed by Paul Biggar <paul.biggar@gmail.com>
 
@@ -61,8 +60,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "vec.h"
 #include "bitmap.h"
 #include "congraph.h"
-
-
+#include "java/java-tree.h"
 
 static tree
 LHS (tree stmt)
@@ -838,7 +836,7 @@ static void
 process_function (con_graph cg, tree function)
 {
   struct cgraph_varpool_node *vnode;
-  block_stmt_iterator si;
+  block_stmt_iterator bsi;
   basic_block bb;
   tree parameter_list;
   con_node parameter_node;
@@ -893,9 +891,9 @@ process_function (con_graph cg, tree function)
 	gcc_assert (bb->index < n_basic_blocks);
 
 	/* process the statements */
-	for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	  {
-	    tree stmt = bsi_stmt (si);
+	    tree stmt = bsi_stmt (bsi);
 	    update_connection_graph_from_statement (cg, stmt);
 	    stmt_count++;
 	  }
@@ -905,9 +903,9 @@ process_function (con_graph cg, tree function)
   FOR_EACH_BB (bb)
   {
     /* process the statements */
-    for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
       {
-	tree stmt = bsi_stmt (si);
+	tree stmt = bsi_stmt (bsi);
 
 	/* inline constructors. this only needs to be
 	 * done once per BB */
@@ -970,64 +968,131 @@ process_function (con_graph cg, tree function)
   assert_all_next_link_free (cg);
 
   /* make the allocation use alloca */
-  for (node = cg->root; node; node = node->next)
-    {
-      if (node->type == OBJECT_NODE 
-        && node->escape == EA_NO_ESCAPE)
-	{
-	  tree stmt, call_expr, addr_expr, func_decl;
 
-	  stmt = node->id;
-	  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR
-		      && (POINTER_TYPE_P (TREE_TYPE (stmt))));
+  FOR_EACH_BB (bb)
+  {
+    /* process the statements */
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+        tree stmt = bsi_stmt (bsi);
+        con_node node = get_existing_node (cg, stmt);
 
-	  call_expr = TREE_OPERAND (stmt, 1);
-	  gcc_assert (TREE_CODE (call_expr) == CALL_EXPR);
+        if (node 
+          && node->type == OBJECT_NODE 
+          && node->escape == EA_NO_ESCAPE)
+          {
+	    tree new_stmt0;
+	    tree new_stmt1;
+	    tree new_stmt2;
 
-	  addr_expr = TREE_OPERAND (call_expr, 0);
-	  gcc_assert (TREE_CODE (addr_expr) == ADDR_EXPR);
+            tree stmt, call_expr, addr_expr, func_decl, lhs, parms, klass;
+	    tree alloca_func, args, parm1, parm2;
 
-	  func_decl = TREE_OPERAND (addr_expr, 0);
 
-	  fprintf (stderr, "\nStack allocating this node\n");
-	  print_generic_stmt (stderr, stmt, 0);
-	  debug_tree (stmt);
+            stmt = node->id;
+            gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR
+                        && (POINTER_TYPE_P (TREE_TYPE (stmt))));
 
-	  fprintf (stderr, "\n--------------------------\n");
-	  print_generic_stmt (stderr, call_expr, 0);
-	  debug_tree (call_expr);
+            lhs = LHS (stmt);
+            gcc_assert (TREE_CODE (lhs) == VAR_DECL);
 
-	  fprintf (stderr, "\n--------------------------\n");
-	  print_generic_stmt (stderr, addr_expr, 0);
-	  debug_tree (addr_expr);
+            call_expr = RHS (stmt);
+            gcc_assert (TREE_CODE (call_expr) == CALL_EXPR);
 
-	  fprintf (stderr, "\n--------------------------\n");
-	  print_generic_stmt (stderr, func_decl, 0);
-	  debug_tree (func_decl);
+            addr_expr = TREE_OPERAND (call_expr, 0);
+            gcc_assert (TREE_CODE (addr_expr) == ADDR_EXPR);
 
-	  fprintf (stderr, "\n--------------------------\n");
-	}
-    }
+            parms = TREE_OPERAND (call_expr, 1);
+            gcc_assert (TREE_CODE (parms) == TREE_LIST);
+
+            klass = TREE_VALUE (parms);
+            gcc_assert (TREE_CODE (klass) == ADDR_EXPR);
+
+            func_decl = TREE_OPERAND (addr_expr, 0);
+
+	    alloca_func = built_in_decls[BUILT_IN_ALLOCA];
+
+
+	    /* TODO use bsi_for_stmt, then you can iterate across the nodes
+	     * and use id, rather than walk the tree */
+
+	    parm1 = create_tmp_var ( integer_type_node, "D");
+	    parm2 = build3 (COMPONENT_REF, integer_type_node,
+			    LHS(klass),
+/*			    build1 (INDIRECT_REF, ptr_type_node, LHS(klass)),*/
+			    lookup_field (&class_type_node, get_identifier
+					  ("size_in_bytes")) , NULL_TREE);
+
+	    new_stmt0 = build2 (MODIFY_EXPR, integer_type_node, parm1,
+				parm2);
+
+	    args = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 128),
+			      NULL_TREE);
+
+	    new_stmt1 = build2 (MODIFY_EXPR, TREE_TYPE ( TREE_TYPE (alloca_func)), lhs,
+				build_function_call_expr (alloca_func,
+							  args));
+
+
+	    args = tree_cons (NULL_TREE, klass, tree_cons (NULL_TREE, lhs,
+							   NULL_TREE));
+
+	    new_stmt2 = build_function_call_expr ( alloca_no_finalizer_node, args);
+
+	    bsi_insert_before (&bsi, new_stmt0, BSI_SAME_STMT);
+	    bsi_insert_before (&bsi, new_stmt1, BSI_SAME_STMT); 
+	    bsi_insert_before (&bsi, new_stmt2, BSI_SAME_STMT);
+	    bsi_remove(&bsi, true);
+/*
+            fprintf (stderr, "\n--------------------------\n");
+            print_generic_stmt (stderr, call_expr, 0);
+            debug_tree (call_expr);
+
+            fprintf (stderr, "\n--------------------------\n");
+            print_generic_stmt (stderr, addr_expr, 0);
+            debug_tree (addr_expr);
+
+            fprintf (stderr, "\n--------------------------\n");
+            print_generic_stmt (stderr, func_decl, 0);
+            debug_tree (func_decl);*/
+
+          }
+      }
+  }
 
 }
 
 static unsigned int
-execute_stack_allocate (void)
+execute_ipa_stack_allocate (void)
 {
   struct cgraph_node *node;
   con_graph cg;
   con_graph last_cg = NULL;
   con_graph first_cg = NULL;
+  /*tree alloca_func; */
+  struct cgraph_node **order;
+  int order_pos;
+  int i;
+
+
+/*  tree endlink = tree_cons (NULL_TREE, void_type_node, NULL_TREE);*/
+
+/*  alloca_func = local_define_builtin ("_Jv_AllocaObjectNoFinalizer",
+				      build_function_type (ptr_type_node,
+							   tree_cons
+							   (NULL_TREE,
+							    class_ptr_type,
+							    tree_cons(NULL_TREE,
+								      ptr_type,
+								      endlink))),
+				      ptr_type_node, 0, NULL, 0);*/
 
   /* TODO should I use postorder from ipa.c ? */
 
-  struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
 
-  int order_pos = ipa_utils_reduced_inorder (order, true, false);
+  order_pos = ipa_utils_reduced_inorder (order, true, false);
   /* TODO what happens with cycles here. RE reduced parameter */
-
-  int i;
 
   for (i = 0; i < order_pos; i++)
     {
@@ -1041,13 +1106,12 @@ execute_stack_allocate (void)
 
 
 	  /* set up this functrion's connection graph */
-	  cg = new_con_graph (concat ("graphs/",
-				      current_function_name (),
+	  cg = new_con_graph (concat ("graphs/", current_function_name (),
 				      (IDENTIFIER_POINTER
 				       (DECL_ASSEMBLER_NAME
-					(current_function_decl))),
-				      ".graph", NULL),
-			      current_function_decl, last_cg);
+					(current_function_decl))), ".graph",
+				      NULL), current_function_decl,
+			      last_cg);
 
 	  /* fix up the next_cg list */
 	  last_cg = cg;
@@ -1090,24 +1154,23 @@ execute_stack_allocate (void)
     }
   free (order);
 
-
   return 0;
 }
 
 static bool
 gate_ipa_stack_allocate (void)
 {
-  return false;
+  return flag_ipa_stack_allocate != 0;
 }
 
 struct tree_opt_pass pass_ipa_stack_allocate = {
-  "escape",			/* name */
+  "stack-allocate",		/* name */
   gate_ipa_stack_allocate,	/* gate */
-  execute_stack_allocate,	/* execute */
-  NULL,				/* sub */
+  execute_ipa_stack_allocate,	/* execute */
+  &pass_rebuild_cgraph_edges,	/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
-  0,				/* tv_id */
+  TV_IPA_STACK_ALLOCATE,	/* tv_id */
   0,				/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
@@ -1115,3 +1178,4 @@ struct tree_opt_pass pass_ipa_stack_allocate = {
   TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_finish */
   0				/* letter */
 };
+

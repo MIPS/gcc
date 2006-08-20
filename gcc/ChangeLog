@@ -1,3 +1,19 @@
+2006-08-20	Paul Biggar	<paul.biggar@gmail.com>
+
+	* timevar.def (TV_IPA_STACK_ALLOCATE): New.
+	* ipa-stack-allocate.h: Changed first line comment.
+	(process_function): Add code generation of alloca; remove comments
+	and debugging
+	(execute_ipa_stack_allocate): rename from execute_stack_allocate;
+	new indentation and comments
+	(gate_ipa_stack_allocate): made conditional on
+	flag_ipa_stack_allocate
+	 
+	
+	 
+
+
+
 2006-08-18	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c: Rename from tree-ssa-escape.c
