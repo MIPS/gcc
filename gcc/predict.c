@@ -79,7 +79,7 @@ static void propagate_freq (struct loop *, bitmap);
 static void estimate_bb_frequencies (struct loops *);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
-static void compute_function_frequency (void);
+void compute_function_frequency (void);
 static void choose_function_section (void);
 static bool can_predict_insn_p (rtx);
 
@@ -1796,7 +1796,7 @@ estimate_bb_frequencies (struct loops *loops)
 }
 
 /* Decide whether function is hot, cold or unlikely executed.  */
-static void
+void
 compute_function_frequency (void)
 {
   basic_block bb;

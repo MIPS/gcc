@@ -1,3 +1,12 @@
+2006-08-20  Razya Ladelsky  <razya@il.ibm.com>
+	* ipa-cp.c (ipcp_insert_stage, ipcp_driver): Support for SSA.
+        (compute_prof): New function to compute how hot each method is. 
+	Use compute_function_frequency.
+        * ipa-prop.c (ipa_method_modify_stmt, 
+ 	ipa_callsite_compute_param): Support for SSA.
+        * predict.c (compute_function_frequency): Change from static 
+ 	to extern. 
+	
 2006-05-28  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline

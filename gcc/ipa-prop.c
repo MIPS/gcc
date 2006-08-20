@@ -255,16 +255,63 @@ ipa_method_formal_compute_count (struct cgraph_node *mt)
 static void
 ipa_method_modify_stmt (struct cgraph_node *mt, tree stmt)
 {
-  int i, j;
+  int i, j, arg_num;
+  tree parm_decl;
+  tree arg, def;
 
   switch (TREE_CODE (stmt))
     {
-    case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == PARM_DECL)
+    case CALL_EXPR:
+      arg = TREE_OPERAND (stmt, 1);
+      arg_num = 0;
+
+      for (; arg != NULL_TREE; arg = TREE_CHAIN (arg))
 	{
-	  i = ipa_method_tree_map (mt, TREE_OPERAND (stmt, 0));
+	  if (TREE_CODE (TREE_VALUE (arg)) == SSA_NAME
+	      && TREE_CODE (SSA_NAME_VAR (TREE_VALUE (arg))) == PARM_DECL)
+	    {
+	      def = SSA_NAME_DEF_STMT (TREE_VALUE (arg));
+	      if (TREE_CODE (def) == PHI_NODE)
+		{
+		  parm_decl = SSA_NAME_VAR (TREE_VALUE (arg));
+		  i = ipa_method_tree_map (mt, parm_decl);
+		  if (i >= 0)
+		    ipa_method_modify_set (mt, i, true);
+		}
+	    }
+	}
+      break;
+    case MODIFY_EXPR:
+      if ((TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME
+	   && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (stmt, 0))) == PARM_DECL)
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == PARM_DECL)
+	{
+	  parm_decl = TREE_CODE (TREE_OPERAND (stmt, 0)) == PARM_DECL
+	    ? TREE_OPERAND (stmt, 0) : SSA_NAME_VAR (TREE_OPERAND (stmt, 0));
+	  i = ipa_method_tree_map (mt, parm_decl);
 	  if (i >= 0)
-            ipa_method_modify_set (mt, i, true);
+	    ipa_method_modify_set (mt, i, true);
+	}
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	{
+	  arg = TREE_OPERAND (TREE_OPERAND (stmt, 1), 1);
+	  arg_num = 0;
+
+	  for (; arg != NULL_TREE; arg = TREE_CHAIN (arg))
+	    {
+	      if (TREE_CODE (TREE_VALUE (arg)) == SSA_NAME
+		  && TREE_CODE (SSA_NAME_VAR (TREE_VALUE (arg))) == PARM_DECL)
+		{
+		  def = SSA_NAME_DEF_STMT (TREE_VALUE (arg));
+		  if (TREE_CODE (def) == PHI_NODE)
+		    {
+		      parm_decl = SSA_NAME_VAR (TREE_VALUE (arg));
+		      i = ipa_method_tree_map (mt, parm_decl);
+		      if (i >= 0)
+			ipa_method_modify_set (mt, i, true);
+		    }
+		}
+	    }
 	}
       break;
     case ASM_EXPR:
@@ -393,7 +440,8 @@ ipa_callsite_param_set_info_type_formal (struct cgraph_edge *cs, int i,
 /* Set int-valued INFO_TYPE1 as 'info_type' field of 
    jump function (ipa_jump_func struct) of argument I of callsite CS.  */
 static inline void
-ipa_callsite_param_set_info_type (struct cgraph_edge *cs, int i, tree info_type1)
+ipa_callsite_param_set_info_type (struct cgraph_edge *cs, int i,
+				  tree info_type1)
 {
   ipa_callsite_param (cs, i)->info_type.value = info_type1;
 }
@@ -450,6 +498,7 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
   int arg_num;
   int i;
   struct cgraph_node *mt;
+  tree parm_decl;
 
   if (ipa_callsite_param_count (cs) == 0)
     return;
@@ -464,10 +513,15 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
       /* If the formal parameter was passed as argument, we store 
          FORMAL_IPATYPE and its index in the caller as the jump function 
          of this argument.  */
-      if (TREE_CODE (TREE_VALUE (arg)) == PARM_DECL)
+      if ((TREE_CODE (TREE_VALUE (arg)) == SSA_NAME
+	   && TREE_CODE (SSA_NAME_VAR (TREE_VALUE (arg))) == PARM_DECL)
+	  || TREE_CODE (TREE_VALUE (arg)) == PARM_DECL)
 	{
 	  mt = ipa_callsite_caller (cs);
-	  i = ipa_method_tree_map (mt, TREE_VALUE (arg));
+	  parm_decl =
+	    TREE_CODE (TREE_VALUE (arg)) ==
+	    PARM_DECL ? TREE_VALUE (arg) : SSA_NAME_VAR (TREE_VALUE (arg));
+	  i = ipa_method_tree_map (mt, parm_decl);
 	  if (!IS_VALID_TREE_MAP_INDEX (i) || ipa_method_is_modified (mt, i))
 	    ipa_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
 	  else
@@ -483,8 +537,7 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	       || TREE_CODE (TREE_VALUE (arg)) == REAL_CST)
 	{
 	  ipa_callsite_param_set_type (cs, arg_num, CONST_IPATYPE);
-	  ipa_callsite_param_set_info_type (cs, arg_num,
-					    TREE_VALUE (arg));
+	  ipa_callsite_param_set_info_type (cs, arg_num, TREE_VALUE (arg));
 	}
       /* This is for the case of Fortran. If the address of a const_decl 
          was passed as argument then we store 
@@ -498,8 +551,7 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	  if (TREE_CODE (DECL_INITIAL (cst_decl)) == INTEGER_CST
 	      || TREE_CODE (DECL_INITIAL (cst_decl)) == REAL_CST)
 	    {
-	      ipa_callsite_param_set_type (cs, arg_num,
-					   CONST_IPATYPE_REF);
+	      ipa_callsite_param_set_type (cs, arg_num, CONST_IPATYPE_REF);
 	      ipa_callsite_param_set_info_type (cs, arg_num,
 						DECL_INITIAL (cst_decl));
 	    }
@@ -671,14 +723,14 @@ ipa_calc_formals_counts (void)
   struct cgraph_edge *cs;
 
   for (node = cgraph_nodes; node; node = node->next)
-      ipa_method_formal_compute_count (node);
+    ipa_method_formal_compute_count (node);
 
   for (node = cgraph_nodes; node; node = node->next)
     for (cs = node->callees; cs; cs = cs->next_callee)
       {
 	ipa_callsite_compute_count (cs);
 	/* Handles the cases of functions with 
-	   a variable number of parameters.  */    
+	   a variable number of parameters.  */
 	if (ipa_callsite_param_count (cs)
 	    != ipa_method_formal_count (cs->callee))
 	  {
@@ -689,7 +741,6 @@ ipa_calc_formals_counts (void)
   /* Synchronize results for functions with their caller.  */
   for (node = cgraph_nodes; node; node = node->next)
     for (cs = node->callers; cs != NULL; cs = cs->next_caller)
-      ipa_callsite_param_count_set (cs, 
-				    ipa_method_formal_count (node));
-    
+      ipa_callsite_param_count_set (cs, ipa_method_formal_count (node));
+
 }

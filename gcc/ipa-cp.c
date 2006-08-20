@@ -143,6 +143,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "timevar.h"
 #include "diagnostic.h"
+#include "langhooks.h"
+#include "params.h"
+#include "tree-dump.h"
+#include "tree-inline.h"
+
+
+void compute_prof (void);
+void compute_function_frequency (void);
 
 /* Get orig node field of ipa_node associated with method MT.  */
 static inline struct cgraph_node *
@@ -219,7 +227,7 @@ ipcp_cval_set_cvalue (struct ipcp_formal *cval, union parameter_info *value,
 		      enum cvalue_type type)
 {
   if (type == CONST_VALUE || type == CONST_VALUE_REF)
-    cval->cvalue.value =  value->value;
+    cval->cvalue.value = value->value;
 }
 
 /* Return whether TYPE is a constant type.  */
@@ -336,7 +344,7 @@ ipcp_cval_changed (struct ipcp_formal *cval1, struct ipcp_formal *cval2)
   if (ipcp_cval_get_cvalue_type (cval1) == ipcp_cval_get_cvalue_type (cval2))
     {
       if (ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE &&
-	  ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_REF)	 
+	  ipcp_cval_get_cvalue_type (cval1) != CONST_VALUE_REF)
 	return false;
       if (ipcp_cval_equal_cvalues (ipcp_cval_get_cvalue (cval1),
 				   ipcp_cval_get_cvalue (cval2),
@@ -379,7 +387,7 @@ ipcp_method_cval_print (FILE * f)
   struct cgraph_node *node;
   int i, count;
   tree cvalue;
- 
+
   fprintf (f, "\nCVAL PRINT\n");
   for (node = cgraph_nodes; node; node = node->next)
     {
@@ -395,10 +403,9 @@ ipcp_method_cval_print (FILE * f)
 	      fprintf (f, " param [%d]: ", i);
 	      fprintf (f, "type is CONST ");
 	      cvalue =
-		ipcp_cval_get_cvalue (ipcp_method_cval (node, i))->
-		  value;
-              print_generic_expr (f, cvalue, 0);
-              fprintf (f, "\n");
+		ipcp_cval_get_cvalue (ipcp_method_cval (node, i))->value;
+	      print_generic_expr (f, cvalue, 0);
+	      fprintf (f, "\n");
 	    }
 	  else if (ipcp_method_cval (node, i)->cval_type == TOP)
 	    fprintf (f, "param [%d]: type is TOP  \n", i);
@@ -424,8 +431,8 @@ ipcp_method_cval_init (struct cgraph_node *mt)
   for (i = 0; i < ipa_method_formal_count (mt); i++)
     {
       parm_tree = ipa_method_get_tree (mt, i);
-      if (INTEGRAL_TYPE_P (TREE_TYPE (parm_tree)) 
-	  || SCALAR_FLOAT_TYPE_P (TREE_TYPE (parm_tree)) 
+      if (INTEGRAL_TYPE_P (TREE_TYPE (parm_tree))
+	  || SCALAR_FLOAT_TYPE_P (TREE_TYPE (parm_tree))
 	  || POINTER_TYPE_P (TREE_TYPE (parm_tree)))
 	ipcp_method_cval_set_cvalue_type (mt, i, TOP);
       else
@@ -442,14 +449,42 @@ static void
 constant_val_insert (tree fn, tree parm1, tree val)
 {
   struct function *func;
-  tree init_stmt;
+  tree init_stmt, use_stmt;
   edge e_step;
   edge_iterator ei;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree new_ssa;
 
-  init_stmt = build2 (MODIFY_EXPR, void_type_node, parm1, val);
   func = DECL_STRUCT_FUNCTION (fn);
   cfun = func;
   current_function_decl = fn;
+
+
+  if (in_ssa_p && !TREE_ADDRESSABLE (parm1))
+    {
+      if (!default_def (parm1))
+	return;
+
+      new_ssa = make_ssa_name (parm1, NULL);
+      init_stmt =
+	build2 (MODIFY_EXPR, void_type_node,
+		new_ssa /*default_def (parm1) */ , val);
+      TREE_OPERAND (init_stmt, 0) = new_ssa /*default_def (parm1) */ ;
+      SSA_NAME_DEF_STMT (new_ssa /*default_def (parm1) */ ) = init_stmt;
+
+      FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, default_def (parm1))
+	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter) 
+          SET_USE (use_p, new_ssa);
+      set_default_def (parm1, NULL);
+    }
+  else
+    init_stmt = build2 (MODIFY_EXPR, void_type_node, parm1, val);
+
+  func = DECL_STRUCT_FUNCTION (fn);
+  cfun = func;
+  current_function_decl = fn;
+
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
     FOR_EACH_EDGE (e_step, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
       bsi_insert_on_edge_immediate (e_step, init_stmt);
@@ -472,11 +507,12 @@ build_const_val (union parameter_info *cvalue, enum cvalue_type type,
    constant_val_insert().  */
 static void
 ipcp_propagate_const (struct cgraph_node *mt, int param,
-		      union parameter_info *cvalue ,enum cvalue_type type)
+		      union parameter_info *cvalue, enum cvalue_type type)
 {
-  tree fndecl;
   tree const_val;
   tree parm_tree;
+  struct function *func;
+  tree fndecl;
 
   if (dump_file)
     fprintf (dump_file, "propagating const to %s\n", cgraph_node_name (mt));
@@ -484,6 +520,9 @@ ipcp_propagate_const (struct cgraph_node *mt, int param,
   parm_tree = ipa_method_get_tree (mt, param);
   const_val = build_const_val (cvalue, type, TREE_TYPE (parm_tree));
   constant_val_insert (fndecl, parm_tree, const_val);
+  func = DECL_STRUCT_FUNCTION (fndecl);
+  cfun = func;
+  current_function_decl = fndecl;
 }
 
 /* Compute the proper scale for NODE.  It is the ratio between 
@@ -573,7 +612,7 @@ static void
 ipcp_propagate_stage (void)
 {
   int i;
-  struct ipcp_formal cval1 = { 0, {0} }, cval = { 0,{0} };
+  struct ipcp_formal cval1 = { 0, {0} }, cval = { 0, {0} };
   struct ipcp_formal *cval2;
   struct cgraph_node *mt, *callee;
   struct cgraph_edge *cs;
@@ -642,7 +681,7 @@ ipcp_callsite_param_print (FILE * f)
   struct ipa_jump_func *jump_func;
   enum jump_func_type type;
   tree info_type;
- 
+
   fprintf (f, "\nCALLSITE PARAM PRINT\n");
   for (node = cgraph_nodes; node; node = node->next)
     {
@@ -661,11 +700,10 @@ ipcp_callsite_param_print (FILE * f)
 		fprintf (f, "UNKNOWN\n");
 	      else if (type == CONST_IPATYPE || type == CONST_IPATYPE_REF)
 		{
-		  info_type =
-		    ipa_jf_get_info_type (jump_func)->value;
-                  fprintf (f, "CONST : ");
-                  print_generic_expr (f, info_type, 0);
-                  fprintf (f, "\n");
+		  info_type = ipa_jf_get_info_type (jump_func)->value;
+		  fprintf (f, "CONST : ");
+		  print_generic_expr (f, info_type, 0);
+		  fprintf (f, "\n");
 		}
 	      else if (type == FORMAL_IPATYPE)
 		{
@@ -855,7 +893,7 @@ ipcp_replace_map_create (enum cvalue_type type, tree parm_tree,
 
   replace_map = XCNEW (struct ipa_replace_map);
   gcc_assert (ipcp_type_is_const (type));
-  if (type == CONST_VALUE_REF )
+  if (type == CONST_VALUE_REF)
     {
       const_val =
 	build_const_val (cvalue, type, TREE_TYPE (TREE_TYPE (parm_tree)));
@@ -906,8 +944,7 @@ ipcp_redirect (struct cgraph_edge *cs)
 	{
 	  jump_func = ipa_callsite_param (cs, i);
 	  type = get_type (jump_func);
-	  if (type != CONST_IPATYPE 
-	      && type != CONST_IPATYPE_REF)
+	  if (type != CONST_IPATYPE && type != CONST_IPATYPE_REF)
 	    return true;
 	}
     }
@@ -1005,7 +1042,7 @@ ipcp_insert_stage (void)
   struct cgraph_node *node, *node1 = NULL;
   int i, const_param;
   union parameter_info *cvalue;
-  VEC(cgraph_edge_p,heap) *redirect_callers;
+  VEC (cgraph_edge_p, heap) * redirect_callers;
   varray_type replace_trees;
   struct cgraph_edge *cs;
   int node_callers, count;
@@ -1051,8 +1088,14 @@ ipcp_insert_stage (void)
 	VEC_quick_push (cgraph_edge_p, redirect_callers, cs);
       /* Redirecting all the callers of the node to the
          new versioned node.  */
-      node1 =
-	cgraph_function_versioning (node, redirect_callers, replace_trees);
+      if ((profile_info
+	   && DECL_STRUCT_FUNCTION (node->decl)->function_frequency !=
+	   FUNCTION_FREQUENCY_HOT))
+	node1 = NULL;
+      else
+	node1 =
+	  cgraph_function_versioning (node, redirect_callers, replace_trees);
+
       VEC_free (cgraph_edge_p, heap, redirect_callers);
       VARRAY_CLEAR (replace_trees);
       if (node1 == NULL)
@@ -1068,11 +1111,13 @@ ipcp_insert_stage (void)
 	    {
 	      cvalue = ipcp_cval_get_cvalue (ipcp_method_cval (node, i));
 	      parm_tree = ipa_method_get_tree (node, i);
-	      if (type != CONST_VALUE_REF 
-		  && !TREE_READONLY (parm_tree))
+	      if (type != CONST_VALUE_REF && !TREE_READONLY (parm_tree))
 		ipcp_propagate_const (node1, i, cvalue, type);
 	    }
 	}
+      if (dump_file)
+	dump_function_to_file (node1->decl, dump_file, dump_flags);
+
     }
   ipcp_update_callgraph ();
   ipcp_update_profiling ();
@@ -1082,6 +1127,11 @@ ipcp_insert_stage (void)
 static unsigned int
 ipcp_driver (void)
 {
+  tree temp;
+
+  push_cfun (cfun);
+  temp = current_function_decl;
+  compute_prof ();
   if (dump_file)
     fprintf (dump_file, "\nIPA constant propagation start:\n");
   ipa_nodes_create ();
@@ -1117,6 +1167,8 @@ ipcp_driver (void)
   if (dump_file)
     fprintf (dump_file, "\nIPA constant propagation end\n");
   cgraph_remove_unreachable_nodes (true, NULL);
+  pop_cfun ();
+  current_function_decl = temp;
   return 0;
 }
 
@@ -1142,3 +1194,30 @@ struct tree_opt_pass pass_ipa_cp = {
   TODO_dump_cgraph | TODO_dump_func,	/* todo_flags_finish */
   0				/* letter */
 };
+
+void
+compute_prof (void)
+{
+  struct function *temp_cfun;
+  tree temp_fn;
+  struct cgraph_node *node;
+
+  if (!profile_info)
+    return;
+  temp_cfun = cfun;
+  temp_fn = current_function_decl;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      cfun = DECL_STRUCT_FUNCTION (node->decl);
+      current_function_decl = node->decl;
+      if (DECL_SAVED_TREE (node->decl))
+	{
+	  if (TREE_CODE (node->decl) == FUNCTION_DECL)
+	    if (cfun && cfun->cfg)
+	      compute_function_frequency ();
+	}
+      cfun = temp_cfun;
+      current_function_decl = temp_fn;
+    }
+}
