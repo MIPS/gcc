@@ -149,17 +149,17 @@ ggc_calloc_atomic (size_t s, size_t n)
 
 /* These are for splay_tree_new_ggc.  */
 void *
-ggc_splay_alloc_tree (int sz ATTRIBUTE_UNUSED, void *nl)
+ggc_splay_alloc_tree (int sz, void *nl)
 {
   gcc_assert (!nl);
-  return ggc_alloc_splay_tree_s();
+  return ggc_alloc_atomic(sz);
 }
 
 void *
-ggc_splay_alloc_tree_node (int sz ATTRIBUTE_UNUSED, void *nl)
+ggc_splay_alloc_tree_node (int sz, void *nl)
 {
   gcc_assert (!nl);
-  return ggc_alloc_splay_tree_node_s();
+  return ggc_alloc_atomic(sz);
 }
 
 void

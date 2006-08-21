@@ -2124,7 +2124,7 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 
   /* Add this label to the chain.  Make sure to drop overflow flags.  */
-  r = ggc_alloc_case_node ();
+  r = ggc_alloc_atomic (sizeof (struct case_node));
   r->low = build_int_cst_wide (TREE_TYPE (low), TREE_INT_CST_LOW (low),
 			       TREE_INT_CST_HIGH (low));
   r->high = build_int_cst_wide (TREE_TYPE (high), TREE_INT_CST_LOW (high),

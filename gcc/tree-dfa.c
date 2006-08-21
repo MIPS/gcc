@@ -142,7 +142,7 @@ create_var_ann (tree t)
   gcc_assert (DECL_P (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
-  ann = ggc_alloc_var_ann_d();
+  ann = ggc_alloc_atomic (sizeof (struct var_ann_d));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = VAR_ANN;
@@ -163,7 +163,7 @@ create_function_ann (tree t)
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
 
-  ann = ggc_alloc_function_ann_d ();
+  ann = ggc_alloc_atomic (sizeof (struct function_ann_d));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = FUNCTION_ANN;
@@ -183,7 +183,7 @@ create_stmt_ann (tree t)
   gcc_assert (is_gimple_stmt (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
-  ann = ggc_alloc_stmt_ann_d();
+  ann = ggc_alloc_atomic (sizeof (struct stmt_ann_d));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = STMT_ANN;

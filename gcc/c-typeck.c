@@ -4803,9 +4803,10 @@ static int constructor_erroneous;
 /* Structure for managing pending initializer elements, organized as an
    AVL tree.  */
 
-struct init_node
+struct init_node GTY(())
 {
-  struct init_node *left, *right;
+  struct init_node *left;
+  struct init_node *right;
   struct init_node *parent;
   int balance;
   tree purpose;
@@ -4878,9 +4879,10 @@ static struct constructor_stack *constructor_stack;
 /* This stack represents designators from some range designator up to
    the last designator in the list.  */
 
-struct constructor_range_stack
+struct constructor_range_stack GTY(())
 {
-  struct constructor_range_stack *next, *prev;
+  struct constructor_range_stack *next;
+  struct constructor_range_stack *prev;
   struct constructor_stack *stack;
   tree range_start;
   tree index;
@@ -5538,7 +5540,7 @@ push_range_stack (tree range_end)
 {
   struct constructor_range_stack *p;
 
-  p = ggc_alloc_constructor_range_stack();
+  p = ggc_alloc_atomic (sizeof (struct constructor_range_stack));
   p->prev = constructor_range_stack;
   p->next = 0;
   p->fields = constructor_fields;
@@ -5703,7 +5705,7 @@ add_pending_init (tree purpose, tree value)
 	}
     }
 
-  r = ggc_alloc_init_node();
+  r = ggc_alloc_atomic (sizeof (struct init_node));
   r->purpose = purpose;
   r->value = value;
 

@@ -2077,7 +2077,7 @@ check_format_info_main (format_check_results *res,
 	      fci = fci->chain;
 	      if (fci)
 		{
-		  wanted_type_ptr = ggc_alloc_format_wanted_type();
+		  wanted_type_ptr = ggc_alloc_atomic (sizeof (struct format_wanted_type));
 		  arg_num++;
 		  wanted_type = *fci->types[length_chars_val].type;
 		  wanted_type_name = fci->types[length_chars_val].name;
