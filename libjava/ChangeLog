@@ -1,3 +1,21 @@
+2006-08-21  Paul Biggar  <paul.biggar@gmail.com>
+
+
+	* prims.cc (_Jv_AllocaObjectNoFinalizer): Effectively inlined 
+   malloc call
+	* gcj/javaprims.h (_Jv_AllocaObject): Removed declaration.
+	* boehm.cc (_Jv_AllocaObj): Removed
+	* java/lang/Class.h (_Jv_AllocaObj, _Jv_AllocaObject): Removed
+	declarations and friends of Class
+	* java/lang/Class.h (_Jv_AllocaObjectNoFinalizer): New declaration
+	and friend of Class.
+	* include/jvm.h (_Jv_AllocaObj): Removed declaration
+	* include/boehm-gc.h (GC_gcj_alloca, GC_alloca_atomic)
+	(GC_local_gcj_alloca, GC_local_alloca_atomic): Removed declarations
+	(_Jv_AllocaObj): Removed declaration and inline definition
+
+	
+
 2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
 
 	* gcj/javaprims.h (_Jv_AllocaObjectNoFinalizer)

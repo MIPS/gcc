@@ -308,10 +308,6 @@ typedef void _Jv_FinalizerFunc (jobject);
 
 /* Allocate space for a new Java object.  */
 void *_Jv_AllocObj (jsize size, jclass cl) __attribute__((__malloc__));
-
-/* Setup a new Java object, using preallocated space.  */
-void _Jv_AllocaObj (jsize size, jclass cl, jobject obj);
-
 /* Allocate space for a potentially uninitialized pointer-free object.
    Interesting only with JV_HASH_SYNCHRONIZATION.  */
 void *_Jv_AllocPtrFreeObj (jsize size, jclass cl) __attribute__((__malloc__));

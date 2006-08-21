@@ -569,8 +569,17 @@ _Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj)
     throw new java::lang::NoClassDefFoundError(klass->getName());
 
   _Jv_InitClass (klass);
+
+  /* If OBJ is 0, this is as a result of ALLOCA failing (presumably due to
+	* stack overflow, which is undefined. So we'll ignore it. */
+
+  /* Memory is assumed to be cleared, so we need to clear the allocation
+	* here.  */
   jint size = klass->size ();
-  _Jv_AllocaObj (size, klass, obj);
+  memset (obj, 0, size);
+  
+  *(void **)obj = klass->vtable;
+
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
 }
 

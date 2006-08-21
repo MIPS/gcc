@@ -323,12 +323,6 @@ _Jv_AllocObj (jsize size, jclass klass)
   return GC_GCJ_MALLOC (size, klass->vtable);
 }
 
-void
-_Jv_AllocaObj (jsize size, jclass klass, jobject obj)
-{
-  GC_GCJ_ALLOCA (size, klass->vtable, obj);
-}
-
 void *
 _Jv_AllocPtrFreeObj (jsize size, jclass klass)
 {

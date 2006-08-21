@@ -550,7 +550,6 @@ typedef struct _Jv_Field *jfieldID;
 typedef struct _Jv_Method *jmethodID;
 
 extern "C" jobject _Jv_AllocObject (jclass) __attribute__((__malloc__));
-extern "C" void _Jv_AllocaObject (jclass, jobject);
 extern "C" jobject _Jv_AllocObjectNoFinalizer (jclass) __attribute__((__malloc__));
 extern "C" void _Jv_AllocaObjectNoFinalizer (jclass, jobject);
 extern "C" jobject _Jv_AllocObjectNoInitNoFinalizer (jclass) __attribute__((__malloc__));

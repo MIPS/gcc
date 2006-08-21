@@ -21,11 +21,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 /*
- * TODO fix makefile (just copied from tree-ssa-alias.o for now
- * TODO rename pass
  * TODO deal with this construct (and arrays in general) a.b[2] = 42
  * TODO when I switch to flow sensitive, its even harder without SSA
- * TODO go through L'Aquila gcc notes
  * TODO i think the phantom-ness is unnecessary
  * TODO throw
  * TODO remove terminal nodes incomming deferred edges according to
@@ -61,6 +58,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "bitmap.h"
 #include "congraph.h"
 #include "java/java-tree.h"
+
 
 static tree
 LHS (tree stmt)
@@ -1012,16 +1010,13 @@ process_function (con_graph cg, tree function)
 
 	    alloca_func = built_in_decls[BUILT_IN_ALLOCA];
 
-
 	    /* TODO use bsi_for_stmt, then you can iterate across the nodes
 	     * and use id, rather than walk the tree */
 
 	    parm1 = create_tmp_var ( integer_type_node, "D");
-	    parm2 = build3 (COMPONENT_REF, integer_type_node,
-			    LHS(klass),
-/*			    build1 (INDIRECT_REF, ptr_type_node, LHS(klass)),*/
+	    parm2 = build3 (COMPONENT_REF, integer_type_node, LHS(klass),
 			    lookup_field (&class_type_node, get_identifier
-					  ("size_in_bytes")) , NULL_TREE);
+					  ("size_in_bytes")), NULL_TREE);
 
 	    new_stmt0 = build2 (MODIFY_EXPR, integer_type_node, parm1,
 				parm2);
@@ -1061,6 +1056,7 @@ process_function (con_graph cg, tree function)
   }
 
 }
+
 
 static unsigned int
 execute_ipa_stack_allocate (void)
@@ -1153,7 +1149,6 @@ execute_ipa_stack_allocate (void)
 	}
     }
   free (order);
-
   return 0;
 }
 
