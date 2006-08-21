@@ -1049,8 +1049,10 @@ enum reg_class
    we can not support SP+reg addressing, so we return LO_REGS
    instead of BASE_REGS for reg+reg addresses.  */
 #define MODE_CODE_BASE_REG_CLASS(MODE, OUTER, INDEX)			\
-    (TARGET_ARM ? GENERAL_REGS :					\
-     (INDEX) != REG && GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS : LO_REGS)
+  (TARGET_ARM ? GENERAL_REGS						\
+   : ((INDEX) != REG							\
+      && (MODE) != VOIDmode						\
+      && GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS : LO_REGS))
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1730,7 +1732,9 @@ typedef struct
 
 #define THUMB_REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, OUTER, INDEX)	\
   (TEST_REGNO (REGNO, <=, LAST_LO_REGNUM)				\
-   || ((INDEX) != REG && GET_MODE_SIZE (MODE) >= 4			\
+   || ((INDEX) != REG							\
+       && (MODE) != VOIDmode						\
+       && GET_MODE_SIZE (MODE) >= 4					\
        && TEST_REGNO (REGNO, ==, STACK_POINTER_REGNUM)))
 
 /* On the thumb, never allow SP to be used as index.  */
