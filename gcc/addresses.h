@@ -27,44 +27,16 @@ base_reg_class (enum machine_mode mode ATTRIBUTE_UNUSED,
 		enum rtx_code outer_code ATTRIBUTE_UNUSED,
 		enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
-#ifdef MODE_CODE_BASE_REG_CLASS
   return MODE_CODE_BASE_REG_CLASS (mode, outer_code, index_code);
-#else
-#ifdef MODE_BASE_REG_CLASS
-  return MODE_BASE_REG_CLASS (mode);
-#else
-  return BASE_REG_CLASS;
-#endif
-#endif
 }
 
-/* Wrapper function to unify target macros REGNO_MODE_CODE_OK_FOR_BASE_P,
-   REGNO_MODE_OK_FOR_REG_BASE_P, REGNO_MODE_OK_FOR_BASE_P and
-   REGNO_OK_FOR_BASE_P.
-   Arguments as for the REGNO_MODE_CODE_OK_FOR_BASE_P macro.  */
-
-static inline bool
-ok_for_base_p_1 (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
-		 enum rtx_code outer_code ATTRIBUTE_UNUSED,
-		 enum rtx_code index_code ATTRIBUTE_UNUSED)
-{
-#ifdef REGNO_MODE_CODE_OK_FOR_BASE_P
-  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
-#else
-#ifdef REGNO_MODE_OK_FOR_BASE_P
-  return REGNO_MODE_OK_FOR_BASE_P (regno, mode);
-#else
-  return REGNO_OK_FOR_BASE_P (regno);
-#endif
-#endif
-}
-
-/* Wrapper around ok_for_base_p_1, for use after register allocation is
+/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
-regno_ok_for_base_p (unsigned regno, enum machine_mode mode,
-		     enum rtx_code outer_code, enum rtx_code index_code)
+regno_ok_for_base_p (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
+		     enum rtx_code outer_code ATTRIBUTE_UNUSED,
+		     enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
   if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0)
     {
@@ -74,15 +46,16 @@ regno_ok_for_base_p (unsigned regno, enum machine_mode mode,
         return false;
     }
 
-  return ok_for_base_p_1 (regno, mode, outer_code, index_code);
+  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
 }
 
-/* Wrapper around ok_for_base_p_1, for use after register allocation is
+/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
-ok_for_base_p (rtx reg, enum machine_mode mode,
-	       enum rtx_code outer_code, enum rtx_code index_code)
+ok_for_base_p (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
+               enum rtx_code outer_code ATTRIBUTE_UNUSED,
+               enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
   unsigned regno = REGNO (reg);
   if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0)
@@ -93,7 +66,7 @@ ok_for_base_p (rtx reg, enum machine_mode mode,
         return false;
     }
 
-  return ok_for_base_p_1 (regno, mode, outer_code, index_code);
+  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
 }
 
   
@@ -101,11 +74,12 @@ ok_for_base_p (rtx reg, enum machine_mode mode,
    should count as OK.  Arguments as for regno_ok_for_base_p.  */
 
 static inline bool
-regno_ok_for_base_p_nonstrict (unsigned regno, enum machine_mode mode,
-                               enum rtx_code outer_code, enum rtx_code index_code)
+regno_ok_for_base_p_nonstrict (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
+	                       enum rtx_code outer_code ATTRIBUTE_UNUSED,
+	                       enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
   return regno >= FIRST_PSEUDO_REGISTER
-	 || ok_for_base_p_1 (regno, mode, outer_code, index_code);
+	 || REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
 }
 
    
@@ -113,15 +87,16 @@ regno_ok_for_base_p_nonstrict (unsigned regno, enum machine_mode mode,
    should count as OK.  Arguments as for regno_ok_for_base_p.  */
 
 static inline bool
-ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode,
-                         enum rtx_code outer_code, enum rtx_code index_code)
+ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
+	                 enum rtx_code outer_code ATTRIBUTE_UNUSED,
+	                 enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
   unsigned regno = REGNO (reg);
   if (regno >= FIRST_PSEUDO_REGISTER)
     return true;
 
   return regno >= FIRST_PSEUDO_REGISTER
-         || ok_for_base_p_1 (regno, mode, outer_code, index_code);
+         || REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
 }
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
