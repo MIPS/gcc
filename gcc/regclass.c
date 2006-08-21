@@ -860,29 +860,6 @@ static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
 static void reg_scan_mark_refs (rtx, rtx, int);
 
-/* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
-
-static inline bool
-ok_for_index_p_nonstrict (rtx reg)
-{
-  unsigned regno = REGNO (reg);
-  return regno >= FIRST_PSEUDO_REGISTER || REGNO_OK_FOR_INDEX_P (regno);
-}
-
-/* A version of regno_ok_for_base_p for use during regclass, when all pseudos
-   should count as OK.  Arguments as for regno_ok_for_base_p.  */
-
-static inline bool
-ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode,
-			 enum rtx_code outer_code, enum rtx_code index_code)
-{
-  unsigned regno = REGNO (reg);
-  if (regno >= FIRST_PSEUDO_REGISTER)
-    return true;
-
-  return ok_for_base_p_1 (regno, mode, outer_code, index_code);
-}
-
 /* Return the reg_class in which pseudo reg number REGNO is best allocated.
    This function is sometimes called before the info has been computed.
    When that happens, just return GENERAL_REGS, which is innocuous.  */

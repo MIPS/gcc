@@ -690,7 +690,7 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 #ifdef REGNO_OK_FOR_INDIRECT_JUMP_P
         || (!REGNO_OK_FOR_INDIRECT_JUMP_P (i, Pmode))
 #else
-        || (!ok_for_base_p_1 (i, Pmode, MEM, SCRATCH))
+        || (!regno_ok_for_base_p_nonstrict (i, Pmode, MEM, SCRATCH))
         || (!reg_class_subset_p (REGNO_REG_CLASS (i),
 				 base_reg_class (VOIDmode, MEM, SCRATCH)))
 #endif

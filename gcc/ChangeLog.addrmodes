@@ -1,0 +1,10 @@
+2006-08-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* addresses.h (regno_ok_for_base_p): Return false for pseudos whose
+	reg_renumber is <0.
+	(ok_for_base_p, regno_ok_for_base_p_nonstrict, ok_for_base_p_nonstrict,
+	regno_ok_for_index_p, ok_for_index_p, regno_ok_for_index_p_nonstrict,
+	ok_for_index_p_nonstrict): New.
+	* regclass.c (ok_for_index_p_nonstrict, ok_for_base_p_nonstrict): Delete.
+	* rtl-factoring.c (recompute_gain_for_pattern_seq): Use
+	regno_ok_for_base_p_nonstrict instead of ok_for_base_p_1.
