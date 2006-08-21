@@ -30,10 +30,6 @@ base_reg_class (enum machine_mode mode ATTRIBUTE_UNUSED,
 #ifdef MODE_CODE_BASE_REG_CLASS
   return MODE_CODE_BASE_REG_CLASS (mode, outer_code, index_code);
 #else
-#ifdef MODE_BASE_REG_REG_CLASS
-  if (index_code == REG)
-    return MODE_BASE_REG_REG_CLASS (mode);
-#endif
 #ifdef MODE_BASE_REG_CLASS
   return MODE_BASE_REG_CLASS (mode);
 #else
@@ -55,10 +51,6 @@ ok_for_base_p_1 (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
 #ifdef REGNO_MODE_CODE_OK_FOR_BASE_P
   return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
 #else
-#ifdef REGNO_MODE_OK_FOR_REG_BASE_P
-  if (index_code == REG)
-    return REGNO_MODE_OK_FOR_REG_BASE_P (regno, mode);
-#endif
 #ifdef REGNO_MODE_OK_FOR_BASE_P
   return REGNO_MODE_OK_FOR_BASE_P (regno, mode);
 #else

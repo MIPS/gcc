@@ -2295,13 +2295,6 @@ the selection of a base register in a mode dependent manner.  If
 @code{BASE_REG_CLASS}.
 @end defmac
 
-@defmac MODE_BASE_REG_REG_CLASS (@var{mode})
-A C expression whose value is the register class to which a valid
-base register must belong in order to be used in a base plus index
-register address.  You should define this macro if base plus index
-addresses have different requirements than other base register uses.
-@end defmac
-
 @defmac MODE_CODE_BASE_REG_CLASS (@var{mode}, @var{outer_code}, @var{index_code})
 A C expression whose value is the register class to which a valid
 base register must belong.  @var{outer_code} and @var{index_code} define the
@@ -2335,18 +2328,6 @@ you define this macro, the compiler will use it instead of
 @code{REGNO_OK_FOR_BASE_P}.  The mode may be @code{VOIDmode} for addresses
 that appear outside a @code{MEM}, i.e. as an @code{address_operand}.
 
-@end defmac
-
-@defmac REGNO_MODE_OK_FOR_REG_BASE_P (@var{num}, @var{mode})
-A C expression which is nonzero if register number @var{num} is suitable for
-use as a base register in base plus index operand addresses, accessing
-memory in mode @var{mode}.  It may be either a suitable hard register or a
-pseudo register that has been allocated such a hard register.  You should
-define this macro if base plus index addresses have different requirements
-than other base register uses.
-
-Use of this macro is deprecated; please use the more general
-@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.
 @end defmac
 
 @defmac REGNO_MODE_CODE_OK_FOR_BASE_P (@var{num}, @var{mode}, @var{outer_code}, @var{index_code})

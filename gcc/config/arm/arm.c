@@ -30,6 +30,7 @@
 #include "tree.h"
 #include "obstack.h"
 #include "regs.h"
+#include "addresses.h"
 #include "hard-reg-set.h"
 #include "real.h"
 #include "insn-config.h"
@@ -3682,7 +3683,7 @@ thumb_base_register_rtx_p (rtx x, enum machine_mode mode, int strict_p)
   regno = REGNO (x);
 
   if (strict_p)
-    return THUMB_REGNO_MODE_OK_FOR_BASE_P (regno, mode);
+    return THUMB_REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, MEM, SCRATCH);
 
   return (regno <= LAST_LO_REGNUM
 	  || regno > LAST_VIRTUAL_REGISTER
@@ -4184,7 +4185,7 @@ thumb_legitimize_reload_address (rtx *x_p,
       rtx orig_x = x;
 
       x = copy_rtx (x);
-      push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
+      push_reload (orig_x, NULL_RTX, x_p, NULL, base_reg_class (mode, MEM, SCRATCH),
 		   Pmode, VOIDmode, 0, 0, opnum, type);
       return x;
     }
@@ -4201,7 +4202,7 @@ thumb_legitimize_reload_address (rtx *x_p,
       rtx orig_x = x;
 
       x = copy_rtx (x);
-      push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
+      push_reload (orig_x, NULL_RTX, x_p, NULL, base_reg_class (mode, MEM, SCRATCH),
 		   Pmode, VOIDmode, 0, 0, opnum, type);
       return x;
     }

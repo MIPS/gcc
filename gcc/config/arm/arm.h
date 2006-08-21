@@ -1042,18 +1042,15 @@ enum reg_class
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
-#define BASE_REG_CLASS   (TARGET_THUMB ? LO_REGS : GENERAL_REGS)
 
 /* For the Thumb the high registers cannot be used as base registers
    when addressing quantities in QI or HI mode; if we don't know the
-   mode, then we must be conservative.  */
-#define MODE_BASE_REG_CLASS(MODE)					\
+   mode, then we must be conservative.  In addition, for Thumb we
+   we can not support SP+reg addressing, so we return LO_REGS
+   instead of BASE_REGS for reg+reg addresses.  */
+#define MODE_CODE_BASE_REG_CLASS(MODE, OUTER, INDEX)			\
     (TARGET_ARM ? GENERAL_REGS :					\
-     (((MODE) == SImode) ? BASE_REGS : LO_REGS))
-
-/* For Thumb we can not support SP+reg addressing, so we return LO_REGS
-   instead of BASE_REGS.  */
-#define MODE_BASE_REG_REG_CLASS(MODE) BASE_REG_CLASS
+     (INDEX) != REG && GET_MODE_SIZE (MODE) >= 4 ? BASE_REGS : LO_REGS)
 
 /* When SMALL_REGISTER_CLASSES is nonzero, the compiler allows
    registers explicitly used in the rtl to be used as spill registers
@@ -1172,7 +1169,7 @@ enum reg_class
 					  GEN_INT (high)),		   \
 			    GEN_INT (low));				   \
 	  push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,	   \
-		       MODE_BASE_REG_CLASS (MODE), GET_MODE (X), 	   \
+		       MODE_CODE_BASE_REG_CLASS (MODE, MEM, SCRATCH), GET_MODE (X), 	   \
 		       VOIDmode, 0, 0, OPNUM, TYPE);			   \
 	  goto WIN;							   \
 	}								   \
@@ -1727,25 +1724,28 @@ typedef struct
    || TEST_REGNO (REGNO, ==, FRAME_POINTER_REGNUM)	\
    || TEST_REGNO (REGNO, ==, ARG_POINTER_REGNUM))
 
-#define THUMB_REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE)		\
-  (TEST_REGNO (REGNO, <=, LAST_LO_REGNUM)			\
-   || (GET_MODE_SIZE (MODE) >= 4				\
+/*   On the ARM, don't allow the pc to be used.  */
+#define ARM_REGNO_OK_FOR_INDEX_P(REGNO)			\
+  ARM_REGNO_OK_FOR_BASE_P(REGNO)
+
+#define THUMB_REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, OUTER, INDEX)	\
+  (TEST_REGNO (REGNO, <=, LAST_LO_REGNUM)				\
+   || ((INDEX) != REG && GET_MODE_SIZE (MODE) >= 4			\
        && TEST_REGNO (REGNO, ==, STACK_POINTER_REGNUM)))
 
-#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE)		\
-  (TARGET_THUMB						\
-   ? THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)	\
+/* On the thumb, never allow SP to be used as index.  */
+#define THUMB_REGNO_OK_FOR_INDEX_P(REGNO)		\
+  TEST_REGNO (REGNO, <=, LAST_LO_REGNUM)
+
+#define REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, OUTER, INDEX)	\
+  (TARGET_THUMB								\
+   ? THUMB_REGNO_MODE_CODE_OK_FOR_BASE_P (REGNO, MODE, OUTER, INDEX)	\
    : ARM_REGNO_OK_FOR_BASE_P (REGNO))
 
-/* Nonzero if X can be the base register in a reg+reg addressing mode.
-   For Thumb, we can not use SP + reg, so reject SP.  */
-#define REGNO_MODE_OK_FOR_REG_BASE_P(X, MODE)	\
-  REGNO_OK_FOR_INDEX_P (X)
-
-/* For ARM code, we don't care about the mode, but for Thumb, the index
-   must be suitable for use in a QImode load.  */
-#define REGNO_OK_FOR_INDEX_P(REGNO)	\
-  REGNO_MODE_OK_FOR_BASE_P (REGNO, QImode)
+#define REGNO_OK_FOR_INDEX_P(REGNO)			\
+  (TARGET_THUMB						\
+   ? THUMB_REGNO_OK_FOR_INDEX_P (REGNO)			\
+   : ARM_REGNO_OK_FOR_INDEX_P (REGNO))
 
 /* Maximum number of registers that can appear in a valid memory address.
    Shifts in addresses can't be by a register.  */
@@ -1919,7 +1919,7 @@ typedef struct
   ARM_REGNO_OK_FOR_BASE_P (REGNO (X))
 
 #define THUMB_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
-  THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO (X), MODE)
+  THUMB_REGNO_MODE_CODE_OK_FOR_BASE_P (REGNO (X), MODE, MEM, SCRATCH)
 
 #endif /* REG_OK_STRICT */
 
