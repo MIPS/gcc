@@ -759,19 +759,11 @@ typedef struct {
 #define LEGITIMATE_MODE_FOR_AUTOINC_P(MODE) \
       (GET_MODE_SIZE (MODE) <= 4 || (MODE) == PDImode)
 
-#ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, WIN)		\
   do {							\
-    if (bfin_legitimate_address_p (MODE, X, 1))		\
+    if (bfin_legitimate_address_p (MODE, X, REG_STRICT_P))		\
       goto WIN;						\
   } while (0);
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, WIN)		\
-  do {							\
-    if (bfin_legitimate_address_p (MODE, X, 0))		\
-      goto WIN;						\
-  } while (0);
-#endif
 
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.

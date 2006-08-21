@@ -87,6 +87,7 @@ an ordinary operand, it is classified as RELOAD_OTHER, and cannot share
 a register with any other reload.  */
 
 #define REG_OK_STRICT
+#define REG_STRICT_P 1
 
 #include "config.h"
 #include "system.h"

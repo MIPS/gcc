@@ -543,19 +543,11 @@ typedef struct m32c_cumulative_args
 #define CONSTANT_ADDRESS_P(X) CONSTANT_P(X)
 #define MAX_REGS_PER_ADDRESS 1
 
-/* This is passed to the macros below, so that they can be implemented
-   in m32c.c.  */
-#ifdef REG_OK_STRICT
-#define REG_OK_STRICT_V 1
-#else
-#define REG_OK_STRICT_V 0
-#endif
-
 #define GO_IF_LEGITIMATE_ADDRESS(MODE,X,LABEL) \
-	if (m32c_legitimate_address_p (MODE, X, REG_OK_STRICT_V)) \
+	if (m32c_legitimate_address_p (MODE, X, REG_STRICT_P)) \
 	  goto LABEL;
 
-#define REG_OK_FOR_BASE_P(X) m32c_reg_ok_for_base_p (X, REG_OK_STRICT_V)
+#define REG_OK_FOR_BASE_P(X) m32c_reg_ok_for_base_p (X, REG_STRICT_P)
 #define REG_OK_FOR_INDEX_P(X) 0
 
 /* #define FIND_BASE_TERM(X) when we do unspecs for symrefs */

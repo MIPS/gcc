@@ -1062,12 +1062,6 @@ CUMULATIVE_ARGS;
 
 #define REG_OK_FOR_INDEX_P(X) IS_INDEX_OR_PSEUDO_REG(X)
 
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-{									\
-  if (c4x_legitimate_address_p (MODE, X, 0))				\
-    goto ADDR;								\
-}
-
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
@@ -1078,13 +1072,13 @@ CUMULATIVE_ARGS;
 
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
+#endif
+
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_legitimate_address_p (MODE, X, 1))				\
+  if (c4x_legitimate_address_p (MODE, X, REG_STRICT_P))				\
     goto ADDR;								\
 }
-
-#endif
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) \
 {									\

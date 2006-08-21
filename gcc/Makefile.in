@@ -1208,7 +1208,7 @@ cs-tconfig.h: Makefile
 
 cs-tm.h: Makefile
 	TARGET_CPU_DEFAULT="$(target_cpu_default)" \
-	HEADERS="$(tm_include_list)" DEFINES="$(tm_defines)" \
+	HEADERS="$(tm_include_list)" DEFINES="$(tm_defines) REG_STRICT_P=0" \
 	$(SHELL) $(srcdir)/mkconfig.sh tm.h
 
 cs-tm_p.h: Makefile

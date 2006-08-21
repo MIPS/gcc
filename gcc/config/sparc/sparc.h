@@ -1889,15 +1889,6 @@ do {									\
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_INDEX_P (X)
 
-/* 'T', 'U' are for aligned memory loads which aren't needed for arch64.
-   'W' is like 'T' but is assumed true on arch64.
-
-   Remember to accept pseudo-registers for memory constraints if reload is
-   in progress.  */
-
-#define EXTRA_CONSTRAINT(OP, C) \
-	sparc_extra_constraint_check(OP, C, 0)
-
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
@@ -1905,10 +1896,17 @@ do {									\
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#define EXTRA_CONSTRAINT(OP, C) \
-	sparc_extra_constraint_check(OP, C, 1)
-
 #endif
+
+/* 'T', 'U' are for aligned memory loads which aren't needed for arch64.
+   'W' is like 'T' but is assumed true on arch64.
+
+   Remember to accept pseudo-registers for memory constraints if reload is
+   in progress.  */
+
+#define EXTRA_CONSTRAINT(OP, C) \
+	sparc_extra_constraint_check(OP, C, REG_STRICT_P)
+
 
 /* Should gcc use [%reg+%lo(xx)+offset] addresses?  */
 
@@ -1948,19 +1946,11 @@ do {									\
 #define RTX_OK_FOR_OLO10_P(X)						\
   (GET_CODE (X) == CONST_INT && INTVAL (X) >= -0x1000 && INTVAL (X) < 0xc00 - 8)
 
-#ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
 {							\
-  if (legitimate_address_p (MODE, X, 1))		\
+  if (legitimate_address_p (MODE, X, REG_STRICT_P))		\
     goto ADDR;						\
 }
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{							\
-  if (legitimate_address_p (MODE, X, 0))		\
-    goto ADDR;						\
-}
-#endif
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.

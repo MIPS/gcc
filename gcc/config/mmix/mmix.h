@@ -72,12 +72,6 @@ Boston, MA 02110-1301, USA.  */
    untouched by the epilogue".  */
 #define MMIX_EH_RETURN_STACKADJ_REGNUM MMIX_STATIC_CHAIN_REGNUM
 
-#ifdef REG_OK_STRICT
-# define MMIX_REG_OK_STRICT 1
-#else
-# define MMIX_REG_OK_STRICT 0
-#endif
-
 #define MMIX_FUNCTION_ARG_SIZE(MODE, TYPE) \
  ((MODE) != BLKmode ? GET_MODE_SIZE (MODE) : int_size_in_bytes (TYPE))
 
@@ -523,7 +517,7 @@ enum reg_class
  mmix_const_ok_for_letter_p (VALUE, C)
 
 #define EXTRA_CONSTRAINT(VALUE, C)	\
- mmix_extra_constraint (VALUE, C, MMIX_REG_OK_STRICT)
+ mmix_extra_constraint (VALUE, C, REG_STRICT_P)
 
 /* Do we need anything serious here?  Yes, any FLOT constant.  */
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)			\
@@ -703,7 +697,7 @@ typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 #define MAX_REGS_PER_ADDRESS 2
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)		\
- if (mmix_legitimate_address (MODE, X, MMIX_REG_OK_STRICT))	\
+ if (mmix_legitimate_address (MODE, X, REG_STRICT_P))	\
    goto LABEL
 
 #ifndef REG_OK_STRICT

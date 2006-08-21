@@ -391,19 +391,11 @@ struct cumulative_args
 #define REG_OK_FOR_INDEX_P(X)	1
 #endif /* REG_OK_STRICT */
 
-#ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
 {									\
-  if (crx_legitimate_address_p (MODE, X, 1))				\
+  if (crx_legitimate_address_p (MODE, X, REG_STRICT_P))				\
       goto LABEL;							\
 }
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
-{									\
-  if (crx_legitimate_address_p (MODE, X, 0))				\
-      goto LABEL;							\
-}
-#endif /* REG_OK_STRICT */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)			\
 {									\

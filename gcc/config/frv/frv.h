@@ -2075,16 +2075,10 @@ __asm__("\n"								\
    definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
    `PRINT_OPERAND_ADDRESS'.  */
 
-#ifdef REG_OK_STRICT
-#define REG_OK_STRICT_P 1
-#else
-#define REG_OK_STRICT_P 0
-#endif
-
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)			\
   do									\
     {									\
-      if (frv_legitimate_address_p (MODE, X, REG_OK_STRICT_P,		\
+      if (frv_legitimate_address_p (MODE, X, REG_STRICT_P,		\
  				    FALSE, FALSE))			\
 	goto LABEL;							\
     }									\

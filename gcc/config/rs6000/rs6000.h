@@ -1616,12 +1616,6 @@ typedef struct rs6000_args
    After reload, it makes no difference, since pseudo regs have
    been eliminated by then.  */
 
-#ifdef REG_OK_STRICT
-# define REG_OK_STRICT_FLAG 1
-#else
-# define REG_OK_STRICT_FLAG 0
-#endif
-
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg in the non-strict case.  */
 #define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
@@ -1634,8 +1628,8 @@ typedef struct rs6000_args
   ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
    || REGNO_OK_FOR_BASE_P (REGNO (X)))
 
-#define REG_OK_FOR_INDEX_P(X) INT_REG_OK_FOR_INDEX_P (X, REG_OK_STRICT_FLAG)
-#define REG_OK_FOR_BASE_P(X)  INT_REG_OK_FOR_BASE_P (X, REG_OK_STRICT_FLAG)
+#define REG_OK_FOR_INDEX_P(X) INT_REG_OK_FOR_INDEX_P (X, REG_STRICT_P)
+#define REG_OK_FOR_BASE_P(X)  INT_REG_OK_FOR_BASE_P (X, REG_STRICT_P)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.
@@ -1656,7 +1650,7 @@ typedef struct rs6000_args
    during assembly output.  */
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
-{ if (rs6000_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
+{ if (rs6000_legitimate_address (MODE, X, REG_STRICT_P))	\
     goto ADDR;							\
 }
 

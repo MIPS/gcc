@@ -1913,8 +1913,6 @@ typedef struct
 	   || (X) == hard_frame_pointer_rtx	\
 	   || (X) == arg_pointer_rtx)))
 
-#define REG_STRICT_P 0
-
 #else /* REG_OK_STRICT */
 
 #define ARM_REG_OK_FOR_BASE_P(X) 		\
@@ -1922,8 +1920,6 @@ typedef struct
 
 #define THUMB_REG_MODE_OK_FOR_BASE_P(X, MODE)	\
   THUMB_REGNO_MODE_OK_FOR_BASE_P (REGNO (X), MODE)
-
-#define REG_STRICT_P 1
 
 #endif /* REG_OK_STRICT */
 

@@ -709,19 +709,11 @@ CUMULATIVE_ARGS;
    valid memory address for an instruction.
    The MODE argument is the machine mode for the MEM expression
    that wants to use this address.  */
-#ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)                         \
 {                                                                       \
-  if (legitimate_address_p (MODE, X, 1))                                \
+  if (legitimate_address_p (MODE, X, REG_STRICT_P))                     \
     goto ADDR;                                                          \
 }
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)                         \
-{                                                                       \
-  if (legitimate_address_p (MODE, X, 0))                                \
-    goto ADDR;                                                          \
-}
-#endif
 
 /* Try machine-dependent ways of modifying an illegitimate address
    to be legitimate.  If we find one, return the new, valid address.

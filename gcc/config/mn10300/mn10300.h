@@ -345,12 +345,6 @@ enum reg_class {
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
 
-#ifndef REG_OK_STRICT
-# define REG_STRICT 0
-#else
-# define REG_STRICT 1
-#endif
-
 # define REGNO_IN_RANGE_P(regno,min,max,strict) \
   (IN_RANGE ((regno), (min), (max)) 		\
    || ((strict)					\
@@ -382,21 +376,21 @@ enum reg_class {
    || REGNO_ADDRESS_P ((regno), (strict)) \
    || REGNO_EXTENDED_P ((regno), (strict)))
 #define REGNO_OK_FOR_BASE_P(regno) \
-  (REGNO_STRICT_OK_FOR_BASE_P ((regno), REG_STRICT))
+  (REGNO_STRICT_OK_FOR_BASE_P ((regno), REG_STRICT_P))
 #define REG_OK_FOR_BASE_P(X) \
   (REGNO_OK_FOR_BASE_P (REGNO (X)))
 
 #define REGNO_STRICT_OK_FOR_BIT_BASE_P(regno, strict) \
   (REGNO_SP_P ((regno), (strict)) || REGNO_ADDRESS_P ((regno), (strict)))
 #define REGNO_OK_FOR_BIT_BASE_P(regno) \
-  (REGNO_STRICT_OK_FOR_BIT_BASE_P ((regno), REG_STRICT))
+  (REGNO_STRICT_OK_FOR_BIT_BASE_P ((regno), REG_STRICT_P))
 #define REG_OK_FOR_BIT_BASE_P(X) \
   (REGNO_OK_FOR_BIT_BASE_P (REGNO (X)))
 
 #define REGNO_STRICT_OK_FOR_INDEX_P(regno, strict) \
   (REGNO_DATA_P ((regno), (strict)) || REGNO_EXTENDED_P ((regno), (strict)))
 #define REGNO_OK_FOR_INDEX_P(regno) \
-  (REGNO_STRICT_OK_FOR_INDEX_P ((regno), REG_STRICT))
+  (REGNO_STRICT_OK_FOR_INDEX_P ((regno), REG_STRICT_P))
 #define REG_OK_FOR_INDEX_P(X) \
   (REGNO_OK_FOR_INDEX_P (REGNO (X)))
 
@@ -749,7 +743,7 @@ struct cum_arg {int nbytes; };
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)    	\
 do							\
   {							\
-    if (legitimate_address_p ((MODE), (X), REG_STRICT))	\
+    if (legitimate_address_p ((MODE), (X), REG_STRICT_P))	\
       goto ADDR;					\
   }							\
 while (0) 

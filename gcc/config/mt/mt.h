@@ -624,19 +624,11 @@ extern struct mt_frame_info current_frame_info;
    number that `GO_IF_LEGITIMATE_ADDRESS' would ever accept.  */
 #define MAX_REGS_PER_ADDRESS 1
 
-#ifdef REG_OK_STRICT
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
 {						\
-  if (mt_legitimate_address_p (MODE, X, 1))	\
+  if (mt_legitimate_address_p (MODE, X, REG_STRICT_P))	\
     goto ADDR;					\
 }
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
-{						\
-  if (mt_legitimate_address_p (MODE, X, 0))	\
-    goto ADDR;					\
-}
-#endif
 
 #ifdef REG_OK_STRICT
 #define REG_OK_FOR_BASE_P(X) mt_reg_ok_for_base_p (X, 1)
