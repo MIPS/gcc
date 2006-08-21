@@ -1,5 +1,11 @@
 2006-08-21  Paolo Bonzini  <bonzini@gnu.org>
 
+	* doc/tm.texi: Define non-deprecated base register class
+	macros before the others.  Mention REG_STRICT_P instead
+	of REG_OK_STRICT.  Mention addresses.h functions.
+
+2006-08-21  Paolo Bonzini  <bonzini@gnu.org>
+
 	* addresses.h (regno_ok_for_base_p, ok_for_base_p, regno_ok_for_index_p,
 	ok_for_index_p): Get an argument to indicate strictness.
 	(regno_ok_for_base_p_strict, ok_for_base_p_strict, regno_ok_for_index_p_strict,
