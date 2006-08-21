@@ -1,8 +1,8 @@
 /* Test unwinding of iWMMXt register saves.  */
 /* Origin: Joseph Myers <joseph@codesourcery.com> */
 
-/* { dg-require-effective-target arm32 } */
 /* { dg-do run } */
+/* { dg-require-effective-target arm32 } */
 
 #ifdef __IWMMXT__
 extern "C" void abort (void);
