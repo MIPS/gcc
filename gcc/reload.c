@@ -4829,7 +4829,7 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	 subject of a CLOBBER in this insn.  */
 
       else if (regno < FIRST_PSEUDO_REGISTER
-	       && regno_ok_for_base_p (regno, mode, MEM, SCRATCH)
+	       && regno_ok_for_base_p_strict (regno, mode, MEM, SCRATCH)
 	       && ! regno_clobbered_p (regno, this_insn, mode, 0))
 	return 0;
 
@@ -4953,7 +4953,7 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	   && REG_P (XEXP (ad, 0))
 	   && REGNO (XEXP (ad, 0)) < FIRST_PSEUDO_REGISTER
 	   && GET_CODE (XEXP (ad, 1)) == CONST_INT
-	   && regno_ok_for_base_p (REGNO (XEXP (ad, 0)), mode, PLUS,
+	   && regno_ok_for_base_p_strict (REGNO (XEXP (ad, 0)), mode, PLUS,
 				   CONST_INT))
 
     {
@@ -5036,8 +5036,8 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 
       addend = XEXP (XEXP (ad, 0), 1 - op_index);
 
-      if ((regno_ok_for_base_p (REGNO (operand), mode, inner_code,
-				GET_CODE (addend))
+      if ((regno_ok_for_base_p_strict (REGNO (operand), mode, inner_code,
+				       GET_CODE (addend))
 	   || operand == frame_pointer_rtx
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
 	   || operand == hard_frame_pointer_rtx
@@ -5366,8 +5366,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 {
 #define REG_OK_FOR_CONTEXT(CONTEXT, REGNO, MODE, OUTER, INDEX)		\
   ((CONTEXT) == 0							\
-   ? regno_ok_for_base_p (REGNO, MODE, OUTER, INDEX)			\
-   : REGNO_OK_FOR_INDEX_P (REGNO))					
+   ? regno_ok_for_base_p_strict (REGNO, MODE, OUTER, INDEX)			\
+   : regno_ok_for_index_p_strict (REGNO))					
 
   enum reg_class context_reg_class;
   RTX_CODE code = GET_CODE (x);
@@ -5465,25 +5465,25 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 
 	else if (code0 == REG && code1 == REG)
 	  {
-	    if (REGNO_OK_FOR_INDEX_P (REGNO (op0))
-		&& regno_ok_for_base_p (REGNO (op1), mode, PLUS, REG))
+	    if (regno_ok_for_index_p_strict (REGNO (op0))
+		&& regno_ok_for_base_p_strict (REGNO (op1), mode, PLUS, REG))
 	      return 0;
-	    else if (REGNO_OK_FOR_INDEX_P (REGNO (op1))
-		     && regno_ok_for_base_p (REGNO (op0), mode, PLUS, REG))
+	    else if (regno_ok_for_index_p_strict (REGNO (op1))
+		     && regno_ok_for_base_p_strict (REGNO (op0), mode, PLUS, REG))
 	      return 0;
-	    else if (regno_ok_for_base_p (REGNO (op1), mode, PLUS, REG))
+	    else if (regno_ok_for_base_p_strict (REGNO (op1), mode, PLUS, REG))
 	      find_reloads_address_1 (mode, orig_op0, 1, PLUS, SCRATCH,
 				      &XEXP (x, 0), opnum, type, ind_levels,
 				      insn);
-	    else if (regno_ok_for_base_p (REGNO (op0), mode, PLUS, REG))
+	    else if (regno_ok_for_base_p_strict (REGNO (op0), mode, PLUS, REG))
 	      find_reloads_address_1 (mode, orig_op1, 1, PLUS, SCRATCH,
 				      &XEXP (x, 1), opnum, type, ind_levels,
 				      insn);
-	    else if (REGNO_OK_FOR_INDEX_P (REGNO (op1)))
+	    else if (regno_ok_for_index_p_strict (REGNO (op1)))
 	      find_reloads_address_1 (mode, orig_op0, 0, PLUS, REG,
 				      &XEXP (x, 0), opnum, type, ind_levels,
 				      insn);
-	    else if (REGNO_OK_FOR_INDEX_P (REGNO (op0)))
+	    else if (regno_ok_for_index_p_strict (REGNO (op0)))
 	      find_reloads_address_1 (mode, orig_op1, 0, PLUS, REG,
 				      &XEXP (x, 1), opnum, type, ind_levels,
 				      insn);
@@ -5544,7 +5544,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	   auto-modify by a constant then we could try replacing a pseudo
 	   register with its equivalent constant where applicable.  */
 	if (REG_P (XEXP (op1, 1)))
-	  if (!REGNO_OK_FOR_INDEX_P (REGNO (XEXP (op1, 1))))
+	  if (!regno_ok_for_index_p_strict (REGNO (XEXP (op1, 1))))
 	    find_reloads_address_1 (mode, XEXP (op1, 1), 1, code, SCRATCH,
 				    &XEXP (op1, 1), opnum, type, ind_levels,
 				    insn);
@@ -5601,7 +5601,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	  regno = reg_renumber[regno];
 
 	/* We require a base register here...  */
-	if (!regno_ok_for_base_p (regno, GET_MODE (x), code, index_code))
+	if (!regno_ok_for_base_p_strict (regno, GET_MODE (x), code, index_code))
 	  {
 	    reloadnum = push_reload (XEXP (op1, 0), XEXP (x, 0),
 				     &XEXP (op1, 0), &XEXP (x, 0),

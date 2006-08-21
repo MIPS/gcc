@@ -34,11 +34,11 @@ base_reg_class (enum machine_mode mode ATTRIBUTE_UNUSED,
    complete.  Arguments as for the called function.  */
 
 static inline bool
-regno_ok_for_base_p (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
-		     enum rtx_code outer_code ATTRIBUTE_UNUSED,
-		     enum rtx_code index_code ATTRIBUTE_UNUSED)
+regno_ok_for_base_p_strict (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
+			    enum rtx_code outer_code ATTRIBUTE_UNUSED,
+			    enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
-  if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0)
+  if (regno >= FIRST_PSEUDO_REGISTER)
     {
       if (reg_renumber[regno] >= 0)
         regno = reg_renumber[regno];
@@ -53,12 +53,15 @@ regno_ok_for_base_p (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
    complete.  Arguments as for the called function.  */
 
 static inline bool
-ok_for_base_p (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
-               enum rtx_code outer_code ATTRIBUTE_UNUSED,
-               enum rtx_code index_code ATTRIBUTE_UNUSED)
+ok_for_base_p_strict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
+	              enum rtx_code outer_code ATTRIBUTE_UNUSED,
+	              enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
-  unsigned regno = REGNO (reg);
-  if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0)
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
+  if (regno >= FIRST_PSEUDO_REGISTER)
     {
       if (reg_renumber[regno] >= 0)
         regno = reg_renumber[regno];
@@ -91,7 +94,10 @@ ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
 	                 enum rtx_code outer_code ATTRIBUTE_UNUSED,
 	                 enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
-  unsigned regno = REGNO (reg);
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
   if (regno >= FIRST_PSEUDO_REGISTER)
     return true;
 
@@ -103,7 +109,7 @@ ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
    complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
 
 static inline bool
-regno_ok_for_index_p (unsigned regno)
+regno_ok_for_index_p_strict (unsigned regno)
 {
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
@@ -120,9 +126,12 @@ regno_ok_for_index_p (unsigned regno)
    complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
 
 static inline bool
-ok_for_index_p (rtx reg)
+ok_for_index_p_strict (rtx reg)
 {
-  unsigned regno = REGNO (reg);
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
       if (reg_renumber[regno] >= 0)
@@ -148,9 +157,95 @@ regno_ok_for_index_p_nonstrict (unsigned regno)
 static inline bool
 ok_for_index_p_nonstrict (rtx reg)
 {
-  unsigned regno = REGNO (reg);
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
   return regno >= FIRST_PSEUDO_REGISTER
 	 || REGNO_OK_FOR_INDEX_P (regno);
 }  
 
+
+/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+   complete.  Arguments as for the called function.  */
+
+static inline bool
+regno_ok_for_base_p (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
+		     enum rtx_code outer_code ATTRIBUTE_UNUSED,
+		     enum rtx_code index_code ATTRIBUTE_UNUSED,
+		     int strict_p)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      if (strict_p && reg_renumber[regno] >= 0)
+        regno = reg_renumber[regno];
+      else
+        return !strict_p;
+    }
+
+  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+}
+
+/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+   complete.  Arguments as for the called function.  */
+
+static inline bool
+ok_for_base_p (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
+	       enum rtx_code outer_code ATTRIBUTE_UNUSED,
+	       enum rtx_code index_code ATTRIBUTE_UNUSED,
+	       int strict_p)
+{
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      if (strict_p && reg_renumber[regno] >= 0)
+        regno = reg_renumber[regno];
+      else
+        return !strict_p;
+    }
+
+  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+}
+
+  
+/* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
+   complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
+
+static inline bool
+regno_ok_for_index_p (unsigned regno, int strict_p)
+{
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      if (strict_p && reg_renumber[regno] >= 0)
+        regno = reg_renumber[regno];
+      else
+        return !strict_p;
+    }
+
+  return REGNO_OK_FOR_INDEX_P (regno);
+}
+
+/* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
+   complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
+
+static inline bool
+ok_for_index_p (rtx reg, int strict_p)
+{
+  unsigned regno;
+  if (!REG_P (reg))
+    return false;
+  regno = REGNO (reg);
+  if (regno >= FIRST_PSEUDO_REGISTER)
+    {
+      if (strict_p && reg_renumber[regno] >= 0)
+        regno = reg_renumber[regno];
+      else
+        return !strict_p;
+    }
+
+  return REGNO_OK_FOR_INDEX_P (regno);
+}
 
