@@ -1,8 +1,6 @@
 2006-08-21	Paul Biggar	<paul.biggar@gmail.com>
 	* ipa-stack-allocate.c: Removing comments.
 
-
-
 2006-08-20	Paul Biggar	<paul.biggar@gmail.com>
 
 	* timevar.def (TV_IPA_STACK_ALLOCATE): New.
@@ -14,11 +12,6 @@
 	(gate_ipa_stack_allocate): made conditional on
 	flag_ipa_stack_allocate
 	 
-	
-	 
-
-
-
 2006-08-18	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c: Rename from tree-ssa-escape.c
@@ -31,7 +24,6 @@
 
 	* common.opt (fipa-stack-escape): New option
 	* Makefile.in (ipa-stack-allocate): New rule
-
 
 2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
 
@@ -74,8 +66,6 @@
 	* tree-ssa-escape.c (process_function): Removed commented
 	debugging printf
 
-
-
 2006-08-17	Paul Biggar	<paul.biggar@gmail.com>
 
 	* congraph.c: New file
@@ -85,6 +75,208 @@
 	* passes.c (init_optimization_passes) <pass_ipa_escape>: New pass
 	* Makefile.in (tree-ssa-escape.o): New rule
 	(OBJS-common): Add tree-ssa-escape.o
+
+2006-08-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27115
+	* gimplify.c (voidify_wrapper_expr): Handle STATEMENT_LIST as a
+	wrapper.  Loop to handle nested wrappers.
+	(gimplify_bind_expr): Remove temp parameter.
+	(gimplify_modify_expr_rhs): Handle CLEANUP_POINT_EXPR, BIND_EXPR
+	and STATEMENT_LIST on the rhs.
+	(gimplify_statement_list): Voidify the STATEMENT_LIST.
+	(gimplify_expr): Pass pre_p to gimplify_statement_list.
+	(gimplify_target_expr): Remove special BIND_EXPR handling.
+
+2006-08-21  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* config/sh/lib1funcs-Os-4-200.asm: Guard entire file with
+	#if !__SHMEDIA__ .
+
+2006-08-21  Olivier Hainque  <hainque@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor) <RECORD,UNION,ARRAY types>:
+	Arrange for the temporary captures of components overlapping the lhs
+	to happen before the lhs is possibly cleared.
+	
+2006-08-21  Mark Shinwell  <shinwell@codesourcery.com>
+ 
+	* config/arm/pr-support.c (__gnu_unwind_execute): Insert " + 1" in
+	necessary places to pass the correct "number of registers" values
+	to _Unwind_VRS_Pop.
+
+2006-08-20  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-alias.c (eq_ptr_info, ptr_info_hash): New function.
+	(create_name_tags): Instead of quadratic checking use hashtable.
+	* bitmap.h: Include hashtab.h.
+	(bitmap_hash): Declare.
+	* bitmap.c (bitmap_hash): New function.
+
+2006-08-20  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/28071
+	* tree-optimize.c (tree_rest_of_compilation): Do not remove edges
+	twice.
+	* tree-inline.c (copy_bb): Use cgraph_set_call_stmt.
+	* ipa-inline.c (cgraph_check_inline_limits): Add one_only argument.
+	(cgraph_decide_inlining, cgraph_decide_inlining_of_small_function,
+	cgraph_decide_inlining_incrementally): Update use of
+	cgraph_check_inline_limits.
+	* cgraph.c (edge_hash, edge_eq): New function.
+	(cgraph_edge, cgraph_set_call_stmt, cgraph_create_edge,
+	cgraph_edge_remove_caller, cgraph_node_remove_callees,
+	cgraph_remove_node): Maintain call site hash.
+	* cgraph.h (struct cgraph_node): Add call_site_hash.
+	(cgraph_set_call_stmt): New function.
+
+2006-08-20  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/28071
+	* reload1.c (reg_has_output_reload): Turn into regset.
+	(reload_as_needed, forget_old_reloads_1, forget_marked_reloads,
+	choose_reload_regs, emit_reload_insns): Update to new
+	reg_has_output_reload.
+
+2006-08-20  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/28779
+	* ipa-inline.c (cgraph_decide_inlining, cgraph_early_inlining): Compute
+	function body sizes.
+	* cgraphunit.c (cgraph_analyze_function): Don't do so.
+
+2006-08-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/28648 c:
+	* tree.c (handle_dll_attribute): Return early if not a
+   	var or function decl.
+
+2006-08-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/27565
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): For SPE, only adjust
+	alignment of SPE vector types.
+
+2006-08-18  Christophe Jaillet  <christophe.jaillet@wanadoo.fr>
+
+	* tree.c (is_attribute_with_length_p): Remove a duplicated assert.
+
+2006-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/28744
+	* cgraph.h (struct cgraph_node): Remove externally_visible
+	bitfield.
+	* cgraphunit.c (process_function_and_variable_attributes): Set
+	local.externally_visible rather than externally_visible.
+
+	PR c/28744
+	* c-common.c (handle_externally_visible_attribute): First look
+	at TREE_CODE and only if it is function or var decl, check for
+	non-public objects.  Don't warn for DECL_EXTERNAL.
+	* cgraphunit.c (process_function_and_variable_attributes): Warn
+	if externally_visible attribute is used on non-public object.
+
+2006-08-17  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/27865
+	* reload1.c (forget_marked_reloads): New function.
+	(forget_old_reloads_1): When data are passed, just mark the registers
+	for later removal.
+	(reload_as_needed): Use the new mechanizm.
+
+2006-08-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/28146
+	* reload.h (reg_equiv_alt_mem_list): New declaration.
+	* reload1.c (reg_equiv_alt_mem_list): New definition.
+	(reload): Initialize it and release it.
+	(delete_output_reload): Use it.
+	* reload.c (push_reg_equiv_alt_mem): New function.
+	(find_reloads_toplev): Call it.
+	(find_reloads_address, find_reloads_address_1): Likewise.
+	(find_reloads_subreg_address): Likewise.
+
+2006-08-17  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR rtl-optimization/28489
+	* sched-ebb.c (begin_schedule_ready): Create basic block
+	at the right place.
+	(advance_target_bb): Skip empty blocks.
+	* haifa-sched.c (bb_note): Make global.
+	* sched-int.h (bb_note): Add prototype.
+
+2006-08-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27865
+	* tree-vrp.c (adjust_range_with_scev): Do not use TYPE_{MIN,MAX}_VALUE
+	for pointer types.
+	* tree-scalar-evolution.c (fold_used_pointer_cast, pointer_offset_p,
+	fold_used_pointer, pointer_used_p): New functions.
+	(analyze_scalar_evolution_1): Use fold_used_pointer.
+	* tree-chrec.c (convert_affine_scev): Convert no-op casts correctly.
+	* tree-ssa-loop-ivopts.c (generic_type_for): Return integral type
+	for pointers.
+
+2006-08-17  Paolo Bonzini <bonzini@gnu.org>
+
+	PR c++/28573
+	* c-common.c (fold_offsetof_1): Add an argument and recurse down to it
+	or the INTEGER_CST.  Fail on a CALL_EXPR. 
+	(fold_offsetof): Pass new argument to fold_offsetof_1.
+	* c-parser.c (c_parser_postfix_expression): Don't include a NULL
+	operand into an INDIRECT_REF. 
+	* c-typeck.c (build_unary_op): Adjust call to fold_offsetof.
+
+2006-08-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR gcov/profile/26570
+	* value-prof.c (static_values): Removed.
+	(tree_find_values_to_profile): Do not set static_values.
+	(find_values_to_profile): Do not free static_values.
+	* profile.c (instrument_values): Do not free the values.
+	(branch_prob): Free the values.
+
+2006-08-16  Naveen.H.S  <naveenh@kpitcummins.com>
+
+	* config/m32c/m32c_lib1.S (__mulsi3): Use only registers for dest.
+
+2006-08-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/27697
+	* c-typeck.c (build_component_ref): Combine qualifiers of
+	structure or union and field.
+
+2006-08-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/28071
+	* basic-block.h (bb_dom_dfs_in, bb_dom_dfs_out): Declare.
+	* dominance.c (bb_dom_dfs_in, bb_dom_dfs_out): New functions.
+	* tree-into-ssa.c (struct dom_dfsnum): New.
+	(cmp_dfsnum, find_dfsnum_interval, prune_unused_phi_nodes): New
+	functions.
+	(insert_phi_nodes_for): Use prune_unused_phi_nodes instead of
+	compute_global_livein.
+	(prepare_block_for_update, prepare_use_sites_for): Mark the uses
+	in phi nodes in the correct blocks.
+
+2006-08-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/28364
+	* tree-ssa-loop-ivopts.c (aff_combination_to_tree): Handle zero
+	correctly.
+	(fold_affine_expr): New function.
+	(may_eliminate_iv): Use fold_affine_expr.
+
+2006-08-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/27489
+	* c-typeck.c (c_start_case): Handle invalid orig_type correctly.
+	Clean up.
+
+2006-08-16  Mike Stump  <mrs@apple.com>
+
+	* doc/invoke.texi (-Wno-deprecated-declarations): Fixup use of pxref.
+	* doc/cppopts.texi (-MD): Likewise.
 
 2006-08-15  Danny Smith  <dannysmith@users.sourceforge.net>
 

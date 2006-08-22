@@ -1,3 +1,97 @@
+2006-08-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27115
+	* semantics.c (finish_stmt_expr_expr): Don't try to voidify here,
+	just leave the expression as it is.
+	(finish_stmt_expr): If the statement-expression has class type,
+	wrap it in a TARGET_EXPR.
+	* cp-gimplify.c (cp_gimplify_init_expr): Don't bother with
+	CLEANUP_POINT_EXPR.
+	* except.c (build_throw): Give the CLEANUP_POINT_EXPR void type.
+
+2006-08-21  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/26269
+	* decl.c (duplicate_decls): Return early if either
+	newdecl or olddecl is error_mark_node.
+
+	 PR c++/28505
+	* decl.c (grokdeclarator): Return early after
+	issuing diagnostic about an incomplete type.
+
+	PR c++/28741
+	* tree.c (decl_anon_ns_mem_p): Robustify.
+	* decl2.c (determine_visibility): Likewise.
+	
+2006-08-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28341
+	* tree.c (cast_valid_in_integral_constant_expression_p): New
+	function.
+	* cp-tree.h (tsubst_copy_and_build): Adjust prototype.
+	* pt.c (tsubst_expr): Add integral_constant_expression_p
+	parameter.
+	(fold_non_dependent_expr): Adjust callers of
+	tsubst_{expr,copy_and_build}.
+	(tsubst_friend_function): Likewise.
+	(tsubst_template_arg): Likewise.
+	(tsubst_default_argument): Likewise.
+	(tsubst_decl): Likewise.
+	(tsubst): Likewise.
+	(tsubst_omp_clasuses): Likewise.
+	(regenerate_decl_fromp_template): Likewise.
+	(instantiate_decl): Likewise.
+	(tsubst_initializer_list): Likewise.
+	(tsubst_enum): Likewise.
+	(tsubst_expr): Use RECUR throughout.
+	(tsubst_copy_and_build): Change definition of RECUR.  Do not allow
+	invalid casts in integral constant expressions.
+	* parser.c (cp_parser_postfix_expression): Use
+	cast_valid_in_integral_constant_expression_p.
+	(cp_parser_cast_expression): Likewise.
+	(cp_parser_functional_cast): Likewise.
+
+	PR c++/28346
+	* pt.c (tsubst_qualified_id): Do not strip references from
+	OFFSET_REFs. 
+
+2006-08-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28606
+	* parser.c (cp_parser_diagnose_invalid_type_name): Handle BIT_NOT_EXPR.
+	Fix formatting.
+	(cp_parser_parse_and_diagnose_invalid_type_name): Tighten condition
+	for valid type-names.
+	(cp_parser_unqualified_id): Fix error handling for destructors.
+
+	PR c++/28710
+	* decl.c (xref_tag): Improve error message.  Return early on error.
+
+	PR c++/28711
+	* pt.c (tsubst_copy_and_build) <case CONSTRUCTOR>: Robustify.
+
+2006-08-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/28573
+	* semantics.c (finish_offsetof): Add new argument to fold_offsetof.
+
+2006-08-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/28302
+	* typeck.c (build_unary_op <case BIT_NOT_EXPR:>): Don't call
+	perform_integral_promotions for non integral type.
+
+2006-08-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28385
+	* pt.c (tsubst) [TEMPLATE_TYPE_PARM]: Ignore quals from template
+	if arg is a function.
+
+2006-08-16  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28593
+	* init.c (build_new): Return early on invalid placement.
+
 2006-08-15  Lee Millward  <lee.millward@codesourcery.com>
 
 	PR c++/28594
@@ -106,18 +200,18 @@
 
 2006-07-28  Lee Millward  <lee.millward@codesourcery.com>
 
-        PR c++/27668
-        PR c++/27962
-        * pt.c (process_template_parm) Store invalid template
-        parameters as error_mark_node in the paramater list.
-        (push_inline_template_parms_recursive): Handle invalid
-        template parameters.
-        (comp_template_parms): Likewise.
-        (check_default_tmpl_arg): Likewise.
-        (coerce_template_template_parms): Likewise.
-        (mangle_class_name_for_template): Likewise.
-        (tsubst_template_parms): Likewise.
-        * error.c (dump_template_argument_list): Likewise.
+	PR c++/27668
+	PR c++/27962
+	* pt.c (process_template_parm) Store invalid template
+	parameters as error_mark_node in the paramater list.
+	(push_inline_template_parms_recursive): Handle invalid
+	template parameters.
+	(comp_template_parms): Likewise.
+	(check_default_tmpl_arg): Likewise.
+	(coerce_template_template_parms): Likewise.
+	(mangle_class_name_for_template): Likewise.
+	(tsubst_template_parms): Likewise.
+	* error.c (dump_template_argument_list): Likewise.
 	
 2006-07-28  Kazu Hirata  <kazu@codesourcery.com>
 

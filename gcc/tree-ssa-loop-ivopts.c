@@ -1925,14 +1925,14 @@ strip_offset (tree expr, unsigned HOST_WIDE_INT *offset)
 }
 
 /* Returns variant of TYPE that can be used as base for different uses.
-   For integer types, we return unsigned variant of the type, which
-   avoids problems with overflows.  For pointer types, we return void *.  */
+   We return unsigned type with the same precision, which avoids problems
+   with overflows.  */
 
 static tree
 generic_type_for (tree type)
 {
   if (POINTER_TYPE_P (type))
-    return ptr_type_node;
+    return unsigned_type_for (type);
 
   if (TYPE_UNSIGNED (type))
     return type;
@@ -2917,10 +2917,17 @@ aff_combination_to_tree (struct affine_tree_combination *comb)
   unsigned i;
   unsigned HOST_WIDE_INT off, sgn;
 
-  /* Handle the special case produced by get_computation_aff when
-     the type does not fit in HOST_WIDE_INT.  */
   if (comb->n == 0 && comb->offset == 0)
-    return fold_convert (type, expr);
+    {
+      if (expr)
+	{
+	  /* Handle the special case produced by get_computation_aff when
+	     the type does not fit in HOST_WIDE_INT.  */
+	  return fold_convert (type, expr);
+	}
+      else
+	return build_int_cst (type, 0);
+    }
 
   gcc_assert (comb->n == MAX_AFF_ELTS || comb->rest == NULL_TREE);
 
@@ -2941,6 +2948,21 @@ aff_combination_to_tree (struct affine_tree_combination *comb)
     }
   return add_elt_to_tree (expr, type, build_int_cst_type (type, off), sgn,
 			  comb->mask);
+}
+
+/* Folds EXPR using the affine expressions framework.  */
+
+static tree
+fold_affine_expr (tree expr)
+{
+  tree type = TREE_TYPE (expr);
+  struct affine_tree_combination comb;
+
+  if (TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT)
+    return expr;
+
+  tree_to_aff_combination (expr, type, &comb);
+  return aff_combination_to_tree (&comb);
 }
 
 /* Determines the expression by that USE is expressed from induction variable
@@ -4029,7 +4051,7 @@ may_eliminate_iv (struct ivopts_data *data,
 				      fold_convert (wider_type, nit))))
     return false;
 
-  *bound = cand_value_at (loop, cand, use->stmt, nit);
+  *bound = fold_affine_expr (cand_value_at (loop, cand, use->stmt, nit));
   return true;
 }
 

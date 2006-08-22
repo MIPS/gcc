@@ -2014,6 +2014,16 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
       gfc_add_block_to_block (&se->pre, &parmse.pre);
       gfc_add_block_to_block (&post, &parmse.post);
 
+      /* If an INTENT(OUT) dummy of derived type has a default
+	 initializer, it must be (re)initialized here.  */
+      if (fsym && fsym->attr.intent == INTENT_OUT && fsym->ts.type == BT_DERIVED
+          && fsym->value)
+	{
+	  gcc_assert (!fsym->attr.allocatable);
+	  tmp = gfc_trans_assignment (e, fsym->value);
+	  gfc_add_expr_to_block (&se->pre, tmp);
+	}
+
       /* Character strings are passed as two parameters, a length and a
          pointer.  */
       if (parmse.string_length != NULL_TREE)
@@ -2659,9 +2669,19 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
     }
   else if (expr->ts.type == BT_DERIVED)
     {
-      /* Nested derived type.  */
-      tmp = gfc_trans_structure_assign (dest, expr);
-      gfc_add_expr_to_block (&block, tmp);
+      if (expr->expr_type != EXPR_STRUCTURE)
+	{
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, expr);
+	  gfc_add_modify_expr (&block, dest,
+			       fold_convert (TREE_TYPE (dest), se.expr));
+	}
+      else
+	{
+	  /* Nested constructors.  */
+	  tmp = gfc_trans_structure_assign (dest, expr);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
     }
   else
     {

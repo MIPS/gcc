@@ -1,3 +1,4 @@
+<<<<<<< .working
 2006-08-21  Paul Biggar  <paul.biggar@gmail.com>
 
 
@@ -14,8 +15,6 @@
 	(GC_local_gcj_alloca, GC_local_alloca_atomic): Removed declarations
 	(_Jv_AllocaObj): Removed declaration and inline definition
 
-	
-
 2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
 
 	* gcj/javaprims.h (_Jv_AllocaObjectNoFinalizer)
@@ -29,7 +28,48 @@
 	(_Jv_AllocaObj): New declaration and inline definition
 	* prims.cc (_Jv_AllocaObjectNoFinalizer): New function
 
+2006-08-21  Bryce McKinlay  <mckinlay@redhat.com>
 
+	* java/lang/natThread.cc (_Jv_AttachCurrentThread): Attach thread
+	to GC.
+	(_Jv_DetachCurrentThread): Detach thread from GC.
+	* include/boehm-gc.h (_Jv_GCAttachThread, _Jv_GCDetachThread):
+	Declare.
+	* boehm.cc (_Jv_GCAttachThread): New function.
+	(_Jv_GCDetachThread): Likewise.
+
+2006-08-19  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* sysdep/i386/backtrace.h (fallback_backtrace): Add "0x55 0x8B 0xEC"
+	as another sequence that can indicate a "pushl %ebp; movl %esp, %ebp"
+	function prologue.
+
+2006-08-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.am (install-exec-hook): Support $(DESTDIR).
+	* Makefile.in: Regenerated.
+
+2006-08-16  Tom Tromey  <tromey@redhat.com>
+
+	* libtool-version: Updated.
+
+2006-08-16  Jakub Jelinek  <jakub@redhat.com>
+	    Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* configure, Makefile.in: Rebuilt.
+	* Makefile.am (toolexeclib_LTLIBRARIES): Add libgcj_bc.la.
+	(libgcj_bc_la_SOURCES): New variable.
+	(libgcj_bc_la_LDFLAGS): Likewise.
+	(libgcj_bc_la_LIBADD): Likewise.
+	(libgcj_bc_la_DEPENDENCIES): Likewise.
+	(libgcj_bc_la_LINK): Likewise.
+	(libgcj_bc_dummy_LINK): Likewise.
+	(libgcj_bc.la): New target.
+	(install-exec-hook): Likewise.
+	* libgcj.spec.in (*lib): Use LIBGCJ_SPEC.
+	* libgcj_bc.c: New file.
+	* configure.ac (LIBGCJ_SPEC): New subst.
+	* configure.host (use_libgcj_bc): New variable.
 
 2006-08-15  Kyle Galloway  <kgallowa@redhat.com>
 

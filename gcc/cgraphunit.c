@@ -928,7 +928,8 @@ cgraph_analyze_function (struct cgraph_node *node)
   cgraph_create_edges (node, decl);
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  node->local.self_insns = estimate_num_insns (decl);
+  if (!flag_unit_at_a_time)
+    node->local.self_insns = estimate_num_insns (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = lang_hooks.tree_inlining.disregard_inline_limits (decl);
@@ -985,9 +986,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (node->local.finalized)
-	    cgraph_mark_needed_node (node);
-	  node->externally_visible = true;
+	  if (! TREE_PUBLIC (node->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     node->decl);
+	  else
+	    {
+	      if (node->local.finalized)
+		cgraph_mark_needed_node (node);
+	      node->local.externally_visible = true;
+	    }
 	}
     }
   for (vnode = cgraph_varpool_nodes; vnode != first_var; vnode = vnode->next)
@@ -1001,9 +1009,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (vnode->finalized)
-	    cgraph_varpool_mark_needed_node (vnode);
-	  vnode->externally_visible = true;
+	  if (! TREE_PUBLIC (vnode->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     vnode->decl);
+	  else
+	    {
+	      if (vnode->finalized)
+		cgraph_varpool_mark_needed_node (vnode);
+	      vnode->externally_visible = true;
+	    }
 	}
     }
 }

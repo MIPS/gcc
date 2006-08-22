@@ -1393,7 +1393,7 @@ decl_anon_ns_mem_p (tree decl)
 {
   while (1)
     {
-      if (decl == NULL_TREE)
+      if (decl == NULL_TREE || decl == error_mark_node)
 	return false;
       if (TREE_CODE (decl) == NAMESPACE_DECL
 	  && DECL_NAME (decl) == NULL_TREE)
@@ -2374,6 +2374,17 @@ fold_if_not_in_template (tree expr)
     return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
 
   return fold (expr);
+}
+
+/* Returns true if a cast to TYPE may appear in an integral constant
+   expression.  */
+
+bool
+cast_valid_in_integral_constant_expression_p (tree type)
+{
+  return (INTEGRAL_OR_ENUMERATION_TYPE_P (type)
+	  || dependent_type_p (type)
+	  || type == error_mark_node);
 }
 
 

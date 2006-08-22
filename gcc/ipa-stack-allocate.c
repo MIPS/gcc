@@ -59,6 +59,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "congraph.h"
 #include "java/java-tree.h"
 
+/*#define UNHIDE_IT*/
+#ifdef UNHIDE_IT
 
 static tree
 LHS (tree stmt)
@@ -1057,6 +1059,7 @@ process_function (con_graph cg, tree function)
 
 }
 
+#endif /* UNHIDE_IT */
 
 static unsigned int
 execute_ipa_stack_allocate (void)
@@ -1123,8 +1126,9 @@ execute_ipa_stack_allocate (void)
 	      first_cg->next = cg;
 	    }
 
+#ifdef UNHIDE_IT
 	  process_function (cg, current_function_decl);
-
+#endif
 	  pop_cfun ();
 
 
