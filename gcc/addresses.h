@@ -18,10 +18,8 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-/* Wrapper function to unify target macros MODE_CODE_BASE_REG_CLASS,
-   MODE_BASE_REG_REG_CLASS, MODE_BASE_REG_CLASS and BASE_REG_CLASS.
-   Arguments as for the MODE_CODE_BASE_REG_CLASS macro.  */
-
+/* Wrapper function which we could get rid of.  We leave it anyway
+   just in case.  */
 static inline enum reg_class
 base_reg_class (enum machine_mode mode ATTRIBUTE_UNUSED,
 		enum rtx_code outer_code ATTRIBUTE_UNUSED,
@@ -30,7 +28,43 @@ base_reg_class (enum machine_mode mode ATTRIBUTE_UNUSED,
   return MODE_CODE_BASE_REG_CLASS (mode, outer_code, index_code);
 }
 
-/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+/* Wrapper function to expand REGNO_MODE_CODE_OK_FOR_BASE_P if defined, or
+   otherwise to test for the regclass given by MODE_CODE_BASE_REG_CLASS.  */
+static inline bool
+regno_ok_for_base_p_1 (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
+		       enum rtx_code outer_code ATTRIBUTE_UNUSED,
+		       enum rtx_code index_code ATTRIBUTE_UNUSED)
+{
+#ifdef REGNO_MODE_CODE_OK_FOR_BASE_P
+  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+#else
+  enum reg_class class = base_reg_class (mode, outer_code, index_code);
+  return TEST_HARD_REG_BIT (reg_class_contents[class], regno);
+#endif
+}
+  
+/* Wrapper function to expand REGNO_MODE_CODE_OK_FOR_BASE_P if defined, or
+   otherwise to test for the regclass given by MODE_CODE_BASE_REG_CLASS.  */
+static inline bool
+regno_ok_for_index_p_1 (unsigned regno)
+{
+#ifdef REGNO_OK_FOR_INDEX_P
+  return REGNO_OK_FOR_INDEX_P (regno);
+#else
+#ifdef __GCC__
+  /* Provide a fast path for targets with no index register.  */
+  if (__builtin_constant_p (INDEX_REG_CLASS) && INDEX_REG_CLASS == NO_REGS)
+    return 0;
+  else
+#endif
+    {
+      enum reg_class class = INDEX_REG_CLASS;
+      return TEST_HARD_REG_BIT (reg_class_contents[class], regno);
+    }
+#endif
+}
+
+/* Wrapper around regno_ok_for_base_p_1, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
@@ -46,10 +80,10 @@ regno_ok_for_base_p_strict (unsigned regno, enum machine_mode mode ATTRIBUTE_UNU
         return false;
     }
 
-  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+  return regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
-/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+/* Wrapper around regno_ok_for_base_p_1, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
@@ -69,7 +103,7 @@ ok_for_base_p_strict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
         return false;
     }
 
-  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+  return regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
   
@@ -82,7 +116,7 @@ regno_ok_for_base_p_nonstrict (unsigned regno, enum machine_mode mode ATTRIBUTE_
 	                       enum rtx_code index_code ATTRIBUTE_UNUSED)
 {
   return regno >= FIRST_PSEUDO_REGISTER
-	 || REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+	 || regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
    
@@ -102,7 +136,7 @@ ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
     return true;
 
   return regno >= FIRST_PSEUDO_REGISTER
-         || REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+         || regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
@@ -119,7 +153,7 @@ regno_ok_for_index_p_strict (unsigned regno)
         return false;
     }
 
-  return REGNO_OK_FOR_INDEX_P (regno);
+  return regno_ok_for_index_p_1 (regno);
 }
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
@@ -140,7 +174,7 @@ ok_for_index_p_strict (rtx reg)
         return false;
     }
 
-  return REGNO_OK_FOR_INDEX_P (regno);
+  return regno_ok_for_index_p_1 (regno);
 }
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
@@ -149,7 +183,7 @@ static inline bool
 regno_ok_for_index_p_nonstrict (unsigned regno)
 {
   return regno >= FIRST_PSEUDO_REGISTER
-	 || REGNO_OK_FOR_INDEX_P (regno);
+	 || regno_ok_for_index_p_1 (regno);
 }
 
 /* Wrapper around REGNO_OK_FOR_INDEX_P, to allow pseudo registers.  */
@@ -162,11 +196,11 @@ ok_for_index_p_nonstrict (rtx reg)
     return false;
   regno = REGNO (reg);
   return regno >= FIRST_PSEUDO_REGISTER
-	 || REGNO_OK_FOR_INDEX_P (regno);
+	 || regno_ok_for_index_p_1 (regno);
 }  
 
 
-/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+/* Wrapper around regno_ok_for_base_p_1, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
@@ -183,10 +217,10 @@ regno_ok_for_base_p (unsigned regno, enum machine_mode mode ATTRIBUTE_UNUSED,
         return !strict_p;
     }
 
-  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+  return regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
-/* Wrapper around REGNO_MODE_CODE_OK_FOR_BASE_P, for use after register allocation is
+/* Wrapper around regno_ok_for_base_p_1, for use after register allocation is
    complete.  Arguments as for the called function.  */
 
 static inline bool
@@ -207,12 +241,12 @@ ok_for_base_p (rtx reg, enum machine_mode mode ATTRIBUTE_UNUSED,
         return !strict_p;
     }
 
-  return REGNO_MODE_CODE_OK_FOR_BASE_P (regno, mode, outer_code, index_code);
+  return regno_ok_for_base_p_1 (regno, mode, outer_code, index_code);
 }
 
   
-/* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
-   complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
+/* Wrapper around regno_ok_for_index_p_1, for use after register allocation is
+   complete.  Arguments as for regno_ok_for_index_p_1.  */
 
 static inline bool
 regno_ok_for_index_p (unsigned regno, int strict_p)
@@ -225,11 +259,11 @@ regno_ok_for_index_p (unsigned regno, int strict_p)
         return !strict_p;
     }
 
-  return REGNO_OK_FOR_INDEX_P (regno);
+  return regno_ok_for_index_p_1 (regno);
 }
 
-/* Wrapper around REGNO_OK_FOR_INDEX_P, for use after register allocation is
-   complete.  Arguments as for REGNO_OK_FOR_INDEX_P.  */
+/* Wrapper around regno_ok_for_index_p_1, for use after register allocation is
+   complete.  Arguments as for regno_ok_for_index_p_1.  */
 
 static inline bool
 ok_for_index_p (rtx reg, int strict_p)
@@ -246,6 +280,6 @@ ok_for_index_p (rtx reg, int strict_p)
         return !strict_p;
     }
 
-  return REGNO_OK_FOR_INDEX_P (regno);
+  return regno_ok_for_index_p_1 (regno);
 }
 
