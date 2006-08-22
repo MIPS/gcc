@@ -1,3 +1,7 @@
+2006-08-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c:  Fix typos in comments throughout file.
+
 2006-08-16  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/builtins.c (fold_builtin_call_list, fold_builtin_call_valist):

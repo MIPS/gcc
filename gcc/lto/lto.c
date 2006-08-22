@@ -89,7 +89,7 @@ typedef struct DWARF2_form_data
   union {
     /* If CL is DW_address, DW_lineptr, DW_loclistptr, DW_macptr, 
        or DW_rangelistptr, there is no additional data.  These forms
-       are not of interest to us for linke-time optimization.  */
+       are not of interest to us for link-time optimization.  */
     /* Used when CL is DW_cl_constant.  */
     uint64_t constant;
     /* Used when CL is DW_cl_block.  */
@@ -133,7 +133,7 @@ typedef struct lto_context
 } lto_context;
 
 /* We can't use DWARF_Internal_CompUnit because it does not track the
-   offset from the beginning of debug_info, which necessary for
+   offset from the beginning of debug_info, which is necessary for
    lookups of DW_FORM_ref_addr data.  */
    
 struct DWARF2_CompUnit
@@ -1039,20 +1039,20 @@ lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
 	 lto_read_child_DIES (fd, abbrev, context);
       }  
 
-   The set of attributes handle should include (at least) all the
-   attributes actually emitted by GCC.  Uinteresting attributes may
+   The set of attributes handled should include (at least) all the
+   attributes actually emitted by GCC.  Uninteresting attributes may
    simply be ignored, but they should be named.  Attributes that you
    know are important, but for which support has not yet been
    implemented, should be handled by calling
    lto_unsupported_attr_error.  As a special case, you do not need to
    handle DW_AT_sibling; this attribute is just a hint, and is ignored
-   everywhere.  LTO_{BEGIN,END}_READ_ATTRS will add a default case
+   everywhere.  LTO_{BEGIN,END}_READ_ATTRS add a default case
    that issues about errors for unhandled attributes to help to
    enforce these rules.  
    
    These rules may seem in contrast to the normal rules for a DWARF
-   consumer which suggest that consumers should just ignore entries do
-   not understand.  However, in this situation, we can assume that the
+   consumer which suggest that consumers should just ignore entries they 
+   do not understand.  However, in this situation, we can assume that the
    input files came from GCC itself (so we do not need to worry about
    extensions from other tools).  Furthermore, we must be concerned
    that ignoring entries might result in silent wrong-code generation.
@@ -1572,7 +1572,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
 	  skip = false;
 	}
       else
-	/* Aassume that all other tags matter, as we are otherwise at
+	/* Assume that all other tags matter, as we are otherwise at
 	   risk of silently generating wrong code.  If a tag can be
 	   safely ignored, it should be explicitly ignored above.  */
 	error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
