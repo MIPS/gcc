@@ -56,6 +56,7 @@
 #include "tree-gimple.h"
 #include "intl.h"
 #include "params.h"
+#include "addresses.h"
 #include "tm-constrs.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
@@ -2757,9 +2758,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 
   if (GET_CODE (x) != PLUS)
     return false;
-  if (GET_CODE (XEXP (x, 0)) != REG)
-    return false;
-  if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
+  if (!ok_for_base_p (XEXP (x, 0), mode, PLUS, SCRATCH, strict))
     return false;
   if (legitimate_constant_pool_address_p (x))
     return true;
@@ -2842,17 +2841,16 @@ legitimate_indexed_address_p (rtx x, int strict)
       && REG_P (op1))
     return true;
 
-  return (REG_P (op0) && REG_P (op1)
-	  && ((INT_REG_OK_FOR_BASE_P (op0, strict)
-	       && INT_REG_OK_FOR_INDEX_P (op1, strict))
-	      || (INT_REG_OK_FOR_BASE_P (op1, strict)
-		  && INT_REG_OK_FOR_INDEX_P (op0, strict))));
+  return (ok_for_base_p (op0, VOIDmode, PLUS, REG, strict)
+	  && ok_for_index_p (op1, strict))
+	 || (ok_for_base_p (op1, VOIDmode, PLUS, REG, strict)
+	     && ok_for_index_p (op0, strict));
 }
 
 inline bool
 legitimate_indirect_address_p (rtx x, int strict)
 {
-  return GET_CODE (x) == REG && INT_REG_OK_FOR_BASE_P (x, strict);
+  return ok_for_base_p (x, VOIDmode, MEM, SCRATCH, strict);
 }
 
 bool
@@ -2861,17 +2859,11 @@ macho_lo_sum_memory_operand (rtx x, enum machine_mode mode)
   if (!TARGET_MACHO || !flag_pic
       || mode != SImode || GET_CODE (x) != MEM)
     return false;
+
   x = XEXP (x, 0);
-
-  if (GET_CODE (x) != LO_SUM)
-    return false;
-  if (GET_CODE (XEXP (x, 0)) != REG)
-    return false;
-  if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), 0))
-    return false;
-  x = XEXP (x, 1);
-
-  return CONSTANT_P (x);
+  return GET_CODE (x) != LO_SUM
+         && CONSTANT_P (XEXP (x, 1))
+         && ok_for_base_p_nonstrict (XEXP (x, 0), mode, LO_SUM, SCRATCH);
 }
 
 static bool
@@ -2879,9 +2871,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 {
   if (GET_CODE (x) != LO_SUM)
     return false;
-  if (GET_CODE (XEXP (x, 0)) != REG)
-    return false;
-  if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
+  if (!ok_for_base_p (XEXP (x, 0), mode, LO_SUM, SCRATCH, strict))
     return false;
   /* Restrict addressing for DI because of our SUBREG hackery.  */
   if (TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
@@ -3301,13 +3291,6 @@ rs6000_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
   return RS6000_SYMBOL_REF_TLS_P (*x);
 }
 
-/* The convention appears to be to define this wherever it is used.
-   With legitimize_reload_address now defined here, REG_MODE_OK_FOR_BASE_P
-   is now used here.  */
-#ifndef REG_MODE_OK_FOR_BASE_P
-#define REG_MODE_OK_FOR_BASE_P(REGNO, MODE) REG_OK_FOR_BASE_P (REGNO)
-#endif
-
 /* Our implementation of LEGITIMIZE_RELOAD_ADDRESS.  Returns a value to
    replace the input X, or the original X if no replacement is called for.
    The output parameter *WIN is 1 if the calling macro should goto WIN,
@@ -3334,7 +3317,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     {
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
+		   base_reg_class (mode, PLUS, CONST_INT),
+		   GET_MODE (x), VOIDmode, 0, 0,
 		   opnum, (enum reload_type)type);
       *win = 1;
       return x;
@@ -3355,7 +3339,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       /* Result of previous invocation of this function on Darwin
 	 floating point constant.  */
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		   base_reg_class (mode, LO_SUM, SYMBOL_REF),
+		   Pmode, VOIDmode, 0, 0,
 		   opnum, (enum reload_type)type);
       *win = 1;
       return x;
@@ -3365,10 +3350,9 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
   /* Force ld/std non-word aligned offset into base register by wrapping
      in offset 0.  */
   if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == REG
-      && REGNO (XEXP (x, 0)) < 32
-      && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
       && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && ok_for_base_p_strict (XEXP (x, 0), mode, PLUS, CONST_INT)
+      && REGNO (XEXP (x, 0)) < 32
       && (INTVAL (XEXP (x, 1)) & 3) != 0
       && !ALTIVEC_VECTOR_MODE (mode)
       && GET_MODE_SIZE (mode) >= UNITS_PER_WORD
@@ -3376,17 +3360,16 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
     {
       x = gen_rtx_PLUS (GET_MODE (x), x, GEN_INT (0));
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
+		   base_reg_class (mode, PLUS, CONST_INT),
+		   GET_MODE (x), VOIDmode, 0, 0,
 		   opnum, (enum reload_type) type);
       *win = 1;
       return x;
     }
 
   if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == REG
-      && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
-      && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
       && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && ok_for_base_p_strict (XEXP (x, 0), mode, PLUS, CONST_INT)
       && !SPE_VECTOR_MODE (mode)
       && !(TARGET_E500_DOUBLE && (mode == DFmode
 				  || mode == DImode))
@@ -3413,7 +3396,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 			GEN_INT (low));
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
+		   base_reg_class (mode, PLUS, CONST_INT),
+		   GET_MODE (x), VOIDmode, 0, 0,
 		   opnum, (enum reload_type)type);
       *win = 1;
       return x;
@@ -3453,7 +3437,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 	      gen_rtx_HIGH (Pmode, x), x);
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		   base_reg_class (mode, LO_SUM, SYMBOL_REF),
+		   Pmode, VOIDmode, 0, 0,
 		   opnum, (enum reload_type)type);
       *win = 1;
       return x;

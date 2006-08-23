@@ -1057,7 +1057,7 @@ enum reg_class
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
-#define BASE_REG_CLASS BASE_REGS
+#define MODE_CODE_BASE_REG_CLASS(MODE, OUTER, INDEX) BASE_REGS
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1551,25 +1551,17 @@ typedef struct rs6000_args
 
 /* These assume that REGNO is a hard or pseudo reg number.
    They give nonzero only if REGNO is a hard reg of the suitable class
-   or a pseudo reg currently allocated to a suitable hard reg.
-   Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   or a pseudo reg currently allocated to a suitable hard reg. */
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)				\
-((REGNO) < FIRST_PSEUDO_REGISTER				\
- ? (REGNO) <= 31 || (REGNO) == 67				\
-   || (REGNO) == FRAME_POINTER_REGNUM				\
- : (reg_renumber[REGNO] >= 0					\
-    && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67	\
-	|| reg_renumber[REGNO] == FRAME_POINTER_REGNUM)))
+  ((REGNO) <= 31						\
+   || (REGNO) == ARG_POINTER_REGNUM				\
+   || (REGNO) == FRAME_POINTER_REGNUM)
 
-#define REGNO_OK_FOR_BASE_P(REGNO)				\
-((REGNO) < FIRST_PSEUDO_REGISTER				\
- ? ((REGNO) > 0 && (REGNO) <= 31) || (REGNO) == 67		\
-   || (REGNO) == FRAME_POINTER_REGNUM				\
- : (reg_renumber[REGNO] > 0					\
-    && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67	\
-	|| reg_renumber[REGNO] == FRAME_POINTER_REGNUM)))
+#define REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, OUTER, INDEX)	\
+  (((REGNO) > 0 && (REGNO) <= 31)					\
+    || (REGNO) == ARG_POINTER_REGNUM					\
+    || (REGNO) == FRAME_POINTER_REGNUM)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -1603,33 +1595,6 @@ typedef struct rs6000_args
 				    && EASY_VECTOR_15((n) >> 1) \
 				    && ((n) & 1) == 0)
 
-/* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
-   and check its validity for a certain class.
-   We have two alternate definitions for each of them.
-   The usual definition accepts all pseudo regs; the other rejects
-   them unless they have been allocated suitable hard regs.
-   The symbol REG_OK_STRICT causes the latter definition to be used.
-
-   Most source files want to accept pseudo regs in the hope that
-   they will get allocated to the class that the insn wants them to be in.
-   Source files for reload pass need to be strict.
-   After reload, it makes no difference, since pseudo regs have
-   been eliminated by then.  */
-
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg in the non-strict case.  */
-#define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
-  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
-   || REGNO_OK_FOR_INDEX_P (REGNO (X)))
-
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg in the non-strict case.  */
-#define INT_REG_OK_FOR_BASE_P(X, STRICT)			\
-  ((!(STRICT) && REGNO (X) >= FIRST_PSEUDO_REGISTER)		\
-   || REGNO_OK_FOR_BASE_P (REGNO (X)))
-
-#define REG_OK_FOR_INDEX_P(X) INT_REG_OK_FOR_INDEX_P (X, REG_STRICT_P)
-#define REG_OK_FOR_BASE_P(X)  INT_REG_OK_FOR_BASE_P (X, REG_STRICT_P)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.
