@@ -383,6 +383,302 @@ new_decision_test (enum decision_type type, struct decision_test ***pplace)
 }
 
 
+/* Create a chain of nodes to verify that an rtl expression matches
+   PATTERN.
+
+   LAST is a pointer to the listhead in the previous node in the chain (or
+   in the calling function, for the first node).
+
+   POSITION is the string representing the current position in the insn.
+
+   A pointer to the final node in the chain is returned.  */
+
+struct decision *
+add_to_sequence (rtx pattern, struct decision_head *last, const char *position)
+{
+  RTX_CODE code;
+  struct decision *this, *sub;
+  struct decision_test *test;
+  struct decision_test **place;
+  char *subpos;
+  size_t i;
+  const char *fmt;
+  int depth = strlen (position);
+  int len;
+  enum machine_mode mode;
+
+  subpos = xmalloc (depth + 2);
+  strcpy (subpos, position);
+  subpos[depth + 1] = 0;
+
+  sub = this = new_decision (position, last);
+  place = &this->tests;
+
+ restart:
+  mode = GET_MODE (pattern);
+  code = GET_CODE (pattern);
+
+  switch (code)
+    {
+    case MATCH_PARALLEL:
+      /* The explicit patterns within a match_parallel enforce a minimum
+	 length on the vector.  The match_parallel predicate may allow
+	 for more elements.  We do need to check for this minimum here
+	 or the code generated to match the internals may reference data
+	 beyond the end of the vector.  */
+      test = new_decision_test (DT_veclen_ge, &place);
+      test->u.veclen = XVECLEN (pattern, 2);
+      /* Fall through.  */
+
+    case MATCH_OPERAND:
+    case MATCH_SCRATCH:
+    case MATCH_OPERATOR:
+      {
+	RTX_CODE was_code = code;
+	const char *pred_name;
+	bool allows_const_int = true;
+
+	if (code == MATCH_SCRATCH)
+	  {
+	    pred_name = "scratch_operand";
+	    code = UNKNOWN;
+	  }
+	else
+	  {
+	    pred_name = XSTR (pattern, 1);
+	    if (code == MATCH_PARALLEL)
+	      code = PARALLEL;
+	    else
+	      code = UNKNOWN;
+	  }
+
+	if (pred_name[0] != 0)
+	  {
+	    const struct pred_data *pred;
+
+	    test = new_decision_test (DT_pred, &place);
+	    test->u.pred.name = pred_name;
+	    test->u.pred.mode = mode;
+
+	    /* See if we know about this predicate.
+	       If we do, remember it for use below.
+
+	       We can optimize the generated code a little if either
+	       (a) the predicate only accepts one code, or (b) the
+	       predicate does not allow CONST_INT, in which case it
+	       can match only if the modes match.  */
+	    pred = lookup_predicate (pred_name);
+	    if (pred)
+	      {
+		test->u.pred.data = pred;
+		allows_const_int = pred->codes[CONST_INT];
+		if (was_code == MATCH_PARALLEL
+		    && pred->singleton != PARALLEL)
+		  message_with_line (pattern_lineno,
+			"predicate '%s' used in match_parallel "
+			"does not allow only PARALLEL", pred->name);
+		else
+		  code = pred->singleton;
+	      }
+	    else
+	      message_with_line (pattern_lineno,
+			"warning: unknown predicate '%s' in '%s' expression",
+			pred_name, GET_RTX_NAME (was_code));
+	  }
+
+	/* Can't enforce a mode if we allow const_int.  */
+	if (allows_const_int)
+	  mode = VOIDmode;
+
+	/* Accept the operand, i.e. record it in `operands'.  */
+	test = new_decision_test (DT_accept_op, &place);
+	test->u.opno = XINT (pattern, 0);
+
+	if (was_code == MATCH_OPERATOR || was_code == MATCH_PARALLEL)
+	  {
+	    char base = (was_code == MATCH_OPERATOR ? '0' : 'a');
+	    for (i = 0; i < (size_t) XVECLEN (pattern, 2); i++)
+	      {
+		subpos[depth] = i + base;
+		sub = add_to_sequence (XVECEXP (pattern, 2, i),
+				       &sub->success, subpos);
+	      }
+	  }
+	goto fini;
+      }
+
+    case MATCH_OP_DUP:
+      code = UNKNOWN;
+
+      test = new_decision_test (DT_dup, &place);
+      test->u.dup = XINT (pattern, 0);
+
+      test = new_decision_test (DT_accept_op, &place);
+      test->u.opno = XINT (pattern, 0);
+
+      for (i = 0; i < (size_t) XVECLEN (pattern, 1); i++)
+	{
+	  subpos[depth] = i + '0';
+	  sub = add_to_sequence (XVECEXP (pattern, 1, i), &sub->success, subpos);
+	}
+      goto fini;
+
+    case MATCH_DUP:
+    case MATCH_PAR_DUP:
+      code = UNKNOWN;
+
+      test = new_decision_test (DT_dup, &place);
+      test->u.dup = XINT (pattern, 0);
+      goto fini;
+
+    case ADDRESS:
+      pattern = XEXP (pattern, 0);
+      goto restart;
+
+    default:
+      break;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  len = GET_RTX_LENGTH (code);
+
+  /* Do tests against the current node first.  */
+  for (i = 0; i < (size_t) len; i++)
+    {
+      if (fmt[i] == 'i')
+	{
+	  gcc_assert (i < 2);
+	  
+	  if (!i)
+	    {
+	      test = new_decision_test (DT_elt_zero_int, &place);
+	      test->u.intval = XINT (pattern, i);
+	    }
+	  else
+	    {
+	      test = new_decision_test (DT_elt_one_int, &place);
+	      test->u.intval = XINT (pattern, i);
+	    }
+	}
+      else if (fmt[i] == 'w')
+	{
+	  /* If this value actually fits in an int, we can use a switch
+	     statement here, so indicate that.  */
+	  enum decision_type type
+	    = ((int) XWINT (pattern, i) == XWINT (pattern, i))
+	      ? DT_elt_zero_wide_safe : DT_elt_zero_wide;
+
+	  gcc_assert (!i);
+
+	  test = new_decision_test (type, &place);
+	  test->u.intval = XWINT (pattern, i);
+	}
+      else if (fmt[i] == 'E')
+	{
+	  gcc_assert (!i);
+
+	  test = new_decision_test (DT_veclen, &place);
+	  test->u.veclen = XVECLEN (pattern, i);
+	}
+    }
+
+  /* Now test our sub-patterns.  */
+  for (i = 0; i < (size_t) len; i++)
+    {
+      switch (fmt[i])
+	{
+	case 'e': case 'u':
+	  subpos[depth] = '0' + i;
+	  sub = add_to_sequence (XEXP (pattern, i), &sub->success, subpos);
+	  break;
+
+	case 'E':
+	  {
+	    int j;
+	    for (j = 0; j < XVECLEN (pattern, i); j++)
+	      {
+		subpos[depth] = 'a' + j;
+		sub = add_to_sequence (XVECEXP (pattern, i, j),
+				       &sub->success, subpos);
+	      }
+	    break;
+	  }
+
+	case 'i': case 'w':
+	  /* Handled above.  */
+	  break;
+	case '0':
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+ fini:
+  /* Insert nodes testing mode and code, if they're still relevant,
+     before any of the nodes we may have added above.  */
+  if (code != UNKNOWN)
+    {
+      place = &this->tests;
+      test = new_decision_test (DT_code, &place);
+      test->u.code = code;
+    }
+
+  if (mode != VOIDmode)
+    {
+      place = &this->tests;
+      test = new_decision_test (DT_mode, &place);
+      test->u.mode = mode;
+    }
+
+  /* If we didn't insert any tests or accept nodes, hork.  */
+  gcc_assert (this->tests);
+  free (subpos);
+  return sub;
+}
+
+/* Given the returned value from add_to_sequence, TREE, finish the sequence by adding
+   a DT_c_test node (as a separate tree if the last node in TREE is a DT_accept_opa or
+   if ALWAYS_ADD is true) for C_TEST at position SUBPOS, and a DT_accept_insn node with
+   parameters NEXT_INSN_CODE and NUM_CLOBBERS_TO_ADD.  */
+
+void
+finish_sequence (struct decision *tree, const char *subpos,
+		 const char *c_test, bool always_add,
+		 int next_insn_code, int num_clobbers_to_add)
+{
+  struct decision_test *test, **place;
+  int truth = maybe_eval_c_test (c_test);
+
+  /* We should never see an insn whose C test is false at compile time.  */
+  gcc_assert (truth);
+
+  /* Find the end of the test chain on the last node.  */
+  for (test = tree->tests; test->next; test = test->next)
+    continue;
+  place = &test->next;
+
+  /* Need a new node if we have another test to add.  */
+  if (test->type == DT_accept_op && (truth == -1 || always_add))
+    {
+      tree = new_decision (subpos, &tree->success);
+      place = &tree->tests;
+    }
+
+  /* Skip the C test if it's known to be true at compile time.  */
+  if (truth == -1)
+    {
+      test = new_decision_test (DT_c_test, &place);
+      test->u.c_test = c_test;
+    }
+
+  test = new_decision_test (DT_accept_insn, &place);
+  test->u.insn.code_number = next_insn_code;
+  test->u.insn.lineno = pattern_lineno;
+  test->u.insn.num_clobbers_to_add = num_clobbers_to_add;
+}
+
 /* A subroutine of maybe_both_true; examines only one test.
    Returns > 0 for "definitely both true" and < 0 for "maybe both true".  */
 
@@ -1000,38 +1296,30 @@ change_state (const char *oldpos, const char *newpos, const char *indent)
   int odepth = strlen (oldpos);
   int ndepth = strlen (newpos);
   int depth;
-  int old_has_insn, new_has_insn;
 
   /* Pop up as many levels as necessary.  */
   for (depth = odepth; strncmp (oldpos, newpos, depth) != 0; --depth)
     continue;
 
-  /* Hunt for the last [A-Z] in both strings.  */
-  for (old_has_insn = odepth - 1; old_has_insn >= 0; --old_has_insn)
-    if (ISUPPER (oldpos[old_has_insn]))
-      break;
-  for (new_has_insn = ndepth - 1; new_has_insn >= 0; --new_has_insn)
-    if (ISUPPER (newpos[new_has_insn]))
-      break;
+  /* It's a different insn from the first one.  */
+  if (ISUPPER (newpos[depth]))
+    {
+      gcc_assert (depth == 0);
+      printf ("%stem = peep2_next_insn (%d);\n", indent, newpos[depth] - 'A');
+      printf ("%sx%d = PATTERN (tem);\n", indent, depth + 1);
+      depth++;
+    }
 
   /* Go down to desired level.  */
-  while (depth < ndepth)
-    {
-      /* It's a different insn from the first one.  */
-      if (ISUPPER (newpos[depth]))
-	{
-	  printf ("%stem = peep2_next_insn (%d);\n",
-		  indent, newpos[depth] - 'A');
-	  printf ("%sx%d = PATTERN (tem);\n", indent, depth + 1);
-	}
-      else if (ISLOWER (newpos[depth]))
+  for (; depth < ndepth; depth++)
+      if (ISLOWER (newpos[depth]))
 	printf ("%sx%d = XVECEXP (x%d, 0, %d);\n",
 		indent, depth + 1, depth, newpos[depth] - 'a');
-      else
+      else if (ISDIGIT (newpos[depth]))
 	printf ("%sx%d = XEXP (x%d, %c);\n",
 		indent, depth + 1, depth, newpos[depth]);
-      ++depth;
-    }
+      else
+	gcc_unreachable ();
 }
 
 /* Print the enumerator constant for CODE -- the upcase version of

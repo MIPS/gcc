@@ -1326,6 +1326,7 @@ write_insn_preds_c (void)
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
+#include \"addresses.h\"\n\
 #include \"tm-constrs.h\"\n");
 
   FOR_ALL_PREDICATES (p)

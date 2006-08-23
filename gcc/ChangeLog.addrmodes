@@ -1,5 +1,18 @@
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
+	* gendtree.c (add_to_sequence): Move from genrecog.c, removing PEEPHOLE2 stuff.
+	(finish_sequence): Extract from genrecog.c make_insn_sequence.
+	* gendtree.h (add_to_sequence, finish_sequence): New prototypes.
+	* genrecog.c (make_insn_sequence): Split into...
+	(make_recog_sequence, make_split_sequence, make_peephole2_sequence): ... these.
+	Move code for PEEPHOLE2's from add_to_sequence into make_peephole2_sequence.
+	(main): Call them.
+	(add_to_sequence): Delete.
+	(extract_pattern): New.
+	(enum routine_type): Delete.
+
+2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
 	* gendtree.c, gendtree.h: New, split from...
 	* genrecog.c: ... this.  Add hooks to differentiate recog/split/peep2.
 

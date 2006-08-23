@@ -117,5 +117,7 @@ void process_define_predicate (rtx desc);
 struct decision *new_decision (const char *, struct decision_head *);
 struct decision_test *new_decision_test (enum decision_type,
 					 struct decision_test ***);
+struct decision *add_to_sequence (rtx, struct decision_head *, const char *);
+void finish_sequence (struct decision *, const char *, const char *, bool, int, int);
 void merge_trees (struct decision_head *, struct decision_head *);
 void process_tree (struct decision_head *, const struct print_dtree_hooks *);

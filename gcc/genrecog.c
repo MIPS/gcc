@@ -59,10 +59,6 @@
 #include "gensupport.h"
 #include "gendtree.h"
 
-enum routine_type {
-  RECOG, SPLIT, PEEPHOLE2
-};
-
 /* Next number to use as an insn_code.  */
 
 static int next_insn_code;
@@ -158,12 +154,12 @@ static void
 print_accept_insn_recog (const char *indent, struct decision_test *test,
 			      struct decision *p ATTRIBUTE_UNUSED)
 {
-	  if (test->u.insn.num_clobbers_to_add != 0)
-	    printf ("%s*pnum_clobbers = %d;\n",
-		    indent, test->u.insn.num_clobbers_to_add);
-	  printf ("%sreturn %d;  /* %s */\n", indent,
-		  test->u.insn.code_number,
-		  get_insn_name (test->u.insn.code_number));
+  if (test->u.insn.num_clobbers_to_add != 0)
+    printf ("%s*pnum_clobbers = %d;\n",
+	    indent, test->u.insn.num_clobbers_to_add);
+  printf ("%sreturn %d;  /* %s */\n", indent,
+	  test->u.insn.code_number,
+	  get_insn_name (test->u.insn.code_number));
 }
 
 static int
@@ -201,8 +197,8 @@ static void
 print_accept_insn_split (const char *indent, struct decision_test *test,
 			      struct decision *p ATTRIBUTE_UNUSED)
 {
-	  printf ("%sreturn gen_split_%d (insn, operands);\n",
-		  indent, test->u.insn.code_number);
+  printf ("%sreturn gen_split_%d (insn, operands);\n",
+	  indent, test->u.insn.code_number);
 }
 
 static int
@@ -222,18 +218,18 @@ static void
 print_accept_insn_peephole2 (const char *indent, struct decision_test *test,
 			      struct decision *p)
 {
-	    int match_len = 0, i;
+  int match_len = 0, i;
 
-	    for (i = strlen (p->position) - 1; i >= 0; --i)
-	      if (ISUPPER (p->position[i]))
-		{
-		  match_len = p->position[i] - 'A';
-		  break;
-		}
-	    printf ("%s*_pmatch_len = %d;\n", indent, match_len);
-	    printf ("%stem = gen_peephole2_%d (insn, operands);\n",
-		    indent, test->u.insn.code_number);
-	    printf ("%sif (tem != 0)\n%s  return tem;\n", indent, indent);
+  for (i = strlen (p->position) - 1; i >= 0; --i)
+    if (ISUPPER (p->position[i]))
+      {
+	match_len = p->position[i] - 'A';
+	break;
+      }
+  printf ("%s*_pmatch_len = %d;\n", indent, match_len);
+  printf ("%stem = gen_peephole2_%d (insn, operands);\n",
+	  indent, test->u.insn.code_number);
+  printf ("%sif (tem != 0)\n%s  return tem;\n", indent, indent);
 }
 
 static int
@@ -630,472 +626,175 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
     }
 }
 
-/* Create a chain of nodes to verify that an rtl expression matches
-   PATTERN.
-
-   LAST is a pointer to the listhead in the previous node in the chain (or
-   in the calling function, for the first node).
-
-   POSITION is the string representing the current position in the insn.
-
-   INSN_TYPE is the type of insn for which we are emitting code.
-
-   A pointer to the final node in the chain is returned.  */
-
-static struct decision *
-add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
-		 enum routine_type insn_type, int top)
+/* Extract the pattern from a DEFINE_INSN or DEFINE_SPLIT, adding an implicit
+   PARALLEL if the pattern has more than one element.  */
+static rtx
+extract_pattern (rtx insn, int op)
 {
-  RTX_CODE code;
-  struct decision *this, *sub;
-  struct decision_test *test;
-  struct decision_test **place;
-  char *subpos;
-  size_t i;
-  const char *fmt;
-  int depth = strlen (position);
-  int len;
-  enum machine_mode mode;
-
-  subpos = xmalloc (depth + 2);
-  strcpy (subpos, position);
-  subpos[depth + 1] = 0;
-
-  sub = this = new_decision (position, last);
-  place = &this->tests;
-
- restart:
-  mode = GET_MODE (pattern);
-  code = GET_CODE (pattern);
-
-  switch (code)
-    {
-    case PARALLEL:
-      /* Toplevel peephole pattern.  */
-      if (insn_type == PEEPHOLE2 && top)
-	{
-	  int num_insns;
-
-	  /* Check we have sufficient insns.  This avoids complications
-	     because we then know peep2_next_insn never fails.  */
-	  num_insns = XVECLEN (pattern, 0);
-	  if (num_insns > 1)
-	    {
-	      test = new_decision_test (DT_num_insns, &place);
-	      test->u.num_insns = num_insns;
-	      last = &sub->success;
-	    }
-	  else
-	    {
-	      /* We don't need the node we just created -- unlink it.  */
-	      last->first = last->last = NULL;
-	    }
-
-	  for (i = 0; i < (size_t) XVECLEN (pattern, 0); i++)
-	    {
-	      /* Which insn we're looking at is represented by A-Z. We don't
-	         ever use 'A', however; it is always implied.  */
-
-	      subpos[depth] = (i > 0 ? 'A' + i : 0);
-	      sub = add_to_sequence (XVECEXP (pattern, 0, i),
-				     last, subpos, insn_type, 0);
-	      last = &sub->success;
-	    }
-	  goto ret;
-	}
-
-      /* Else nothing special.  */
-      break;
-
-    case MATCH_PARALLEL:
-      /* The explicit patterns within a match_parallel enforce a minimum
-	 length on the vector.  The match_parallel predicate may allow
-	 for more elements.  We do need to check for this minimum here
-	 or the code generated to match the internals may reference data
-	 beyond the end of the vector.  */
-      test = new_decision_test (DT_veclen_ge, &place);
-      test->u.veclen = XVECLEN (pattern, 2);
-      /* Fall through.  */
-
-    case MATCH_OPERAND:
-    case MATCH_SCRATCH:
-    case MATCH_OPERATOR:
-      {
-	RTX_CODE was_code = code;
-	const char *pred_name;
-	bool allows_const_int = true;
-
-	if (code == MATCH_SCRATCH)
-	  {
-	    pred_name = "scratch_operand";
-	    code = UNKNOWN;
-	  }
-	else
-	  {
-	    pred_name = XSTR (pattern, 1);
-	    if (code == MATCH_PARALLEL)
-	      code = PARALLEL;
-	    else
-	      code = UNKNOWN;
-	  }
-
-	if (pred_name[0] != 0)
-	  {
-	    const struct pred_data *pred;
-
-	    test = new_decision_test (DT_pred, &place);
-	    test->u.pred.name = pred_name;
-	    test->u.pred.mode = mode;
-
-	    /* See if we know about this predicate.
-	       If we do, remember it for use below.
-
-	       We can optimize the generated code a little if either
-	       (a) the predicate only accepts one code, or (b) the
-	       predicate does not allow CONST_INT, in which case it
-	       can match only if the modes match.  */
-	    pred = lookup_predicate (pred_name);
-	    if (pred)
-	      {
-		test->u.pred.data = pred;
-		allows_const_int = pred->codes[CONST_INT];
-		if (was_code == MATCH_PARALLEL
-		    && pred->singleton != PARALLEL)
-		  message_with_line (pattern_lineno,
-			"predicate '%s' used in match_parallel "
-			"does not allow only PARALLEL", pred->name);
-		else
-		  code = pred->singleton;
-	      }
-	    else
-	      message_with_line (pattern_lineno,
-			"warning: unknown predicate '%s' in '%s' expression",
-			pred_name, GET_RTX_NAME (was_code));
-	  }
-
-	/* Can't enforce a mode if we allow const_int.  */
-	if (allows_const_int)
-	  mode = VOIDmode;
-
-	/* Accept the operand, i.e. record it in `operands'.  */
-	test = new_decision_test (DT_accept_op, &place);
-	test->u.opno = XINT (pattern, 0);
-
-	if (was_code == MATCH_OPERATOR || was_code == MATCH_PARALLEL)
-	  {
-	    char base = (was_code == MATCH_OPERATOR ? '0' : 'a');
-	    for (i = 0; i < (size_t) XVECLEN (pattern, 2); i++)
-	      {
-		subpos[depth] = i + base;
-		sub = add_to_sequence (XVECEXP (pattern, 2, i),
-				       &sub->success, subpos, insn_type, 0);
-	      }
-	  }
-	goto fini;
-      }
-
-    case MATCH_OP_DUP:
-      code = UNKNOWN;
-
-      test = new_decision_test (DT_dup, &place);
-      test->u.dup = XINT (pattern, 0);
-
-      test = new_decision_test (DT_accept_op, &place);
-      test->u.opno = XINT (pattern, 0);
-
-      for (i = 0; i < (size_t) XVECLEN (pattern, 1); i++)
-	{
-	  subpos[depth] = i + '0';
-	  sub = add_to_sequence (XVECEXP (pattern, 1, i),
-				 &sub->success, subpos, insn_type, 0);
-	}
-      goto fini;
-
-    case MATCH_DUP:
-    case MATCH_PAR_DUP:
-      code = UNKNOWN;
-
-      test = new_decision_test (DT_dup, &place);
-      test->u.dup = XINT (pattern, 0);
-      goto fini;
-
-    case ADDRESS:
-      pattern = XEXP (pattern, 0);
-      goto restart;
-
-    default:
-      break;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  len = GET_RTX_LENGTH (code);
-
-  /* Do tests against the current node first.  */
-  for (i = 0; i < (size_t) len; i++)
-    {
-      if (fmt[i] == 'i')
-	{
-	  gcc_assert (i < 2);
-	  
-	  if (!i)
-	    {
-	      test = new_decision_test (DT_elt_zero_int, &place);
-	      test->u.intval = XINT (pattern, i);
-	    }
-	  else
-	    {
-	      test = new_decision_test (DT_elt_one_int, &place);
-	      test->u.intval = XINT (pattern, i);
-	    }
-	}
-      else if (fmt[i] == 'w')
-	{
-	  /* If this value actually fits in an int, we can use a switch
-	     statement here, so indicate that.  */
-	  enum decision_type type
-	    = ((int) XWINT (pattern, i) == XWINT (pattern, i))
-	      ? DT_elt_zero_wide_safe : DT_elt_zero_wide;
-
-	  gcc_assert (!i);
-
-	  test = new_decision_test (type, &place);
-	  test->u.intval = XWINT (pattern, i);
-	}
-      else if (fmt[i] == 'E')
-	{
-	  gcc_assert (!i);
-
-	  test = new_decision_test (DT_veclen, &place);
-	  test->u.veclen = XVECLEN (pattern, i);
-	}
-    }
-
-  /* Now test our sub-patterns.  */
-  for (i = 0; i < (size_t) len; i++)
-    {
-      switch (fmt[i])
-	{
-	case 'e': case 'u':
-	  subpos[depth] = '0' + i;
-	  sub = add_to_sequence (XEXP (pattern, i), &sub->success,
-				 subpos, insn_type, 0);
-	  break;
-
-	case 'E':
-	  {
-	    int j;
-	    for (j = 0; j < XVECLEN (pattern, i); j++)
-	      {
-		subpos[depth] = 'a' + j;
-		sub = add_to_sequence (XVECEXP (pattern, i, j),
-				       &sub->success, subpos, insn_type, 0);
-	      }
-	    break;
-	  }
-
-	case 'i': case 'w':
-	  /* Handled above.  */
-	  break;
-	case '0':
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
- fini:
-  /* Insert nodes testing mode and code, if they're still relevant,
-     before any of the nodes we may have added above.  */
-  if (code != UNKNOWN)
-    {
-      place = &this->tests;
-      test = new_decision_test (DT_code, &place);
-      test->u.code = code;
-    }
-
-  if (mode != VOIDmode)
-    {
-      place = &this->tests;
-      test = new_decision_test (DT_mode, &place);
-      test->u.mode = mode;
-    }
-
-  /* If we didn't insert any tests or accept nodes, hork.  */
-  gcc_assert (this->tests);
-
- ret:
-  free (subpos);
-  return sub;
-}
-
-/* Construct and return a sequence of decisions
-   that will recognize INSN.
-
-   TYPE says what type of routine we are recognizing (RECOG or SPLIT).  */
-
-static struct decision_head
-make_insn_sequence (rtx insn, enum routine_type type)
-{
-  rtx x;
-  const char *c_test = XSTR (insn, type == RECOG ? 2 : 1);
-  int truth = maybe_eval_c_test (c_test);
-  struct decision *last;
-  struct decision_test *test, **place;
-  struct decision_head head;
-  char c_test_pos[2];
-
-  /* We should never see an insn whose C test is false at compile time.  */
-  gcc_assert (truth);
-
-  c_test_pos[0] = '\0';
-  if (type == PEEPHOLE2)
-    {
-      int i, j;
-
-      /* peephole2 gets special treatment:
-	 - X always gets an outer parallel even if it's only one entry
-	 - we remove all traces of outer-level match_scratch and match_dup
-           expressions here.  */
-      x = rtx_alloc (PARALLEL);
-      PUT_MODE (x, VOIDmode);
-      XVEC (x, 0) = rtvec_alloc (XVECLEN (insn, 0));
-      for (i = j = 0; i < XVECLEN (insn, 0); i++)
-	{
-	  rtx tmp = XVECEXP (insn, 0, i);
-	  if (GET_CODE (tmp) != MATCH_SCRATCH && GET_CODE (tmp) != MATCH_DUP)
-	    {
-	      XVECEXP (x, 0, j) = tmp;
-	      j++;
-	    }
-	}
-      XVECLEN (x, 0) = j;
-
-      c_test_pos[0] = 'A' + j - 1;
-      c_test_pos[1] = '\0';
-    }
-  else if (XVECLEN (insn, type == RECOG) == 1)
-    x = XVECEXP (insn, type == RECOG, 0);
+  if (XVECLEN (insn, op) == 1)
+    return XVECEXP (insn, op, 0);
   else
     {
-      x = rtx_alloc (PARALLEL);
-      XVEC (x, 0) = XVEC (insn, type == RECOG);
+      rtx x = rtx_alloc (PARALLEL);
+      XVEC (x, 0) = XVEC (insn, op);
       PUT_MODE (x, VOIDmode);
+      return x;
     }
+}
+
+
+/* Construct and return a sequence of decisions that will recognize a
+   DEFINE_INSN, INSN.  */
+
+static struct decision_head
+make_recog_sequence (rtx insn)
+{
+  rtx x;
+  const char *c_test = XSTR (insn, 2);
+  struct decision *last;
+  struct decision_head head = { NULL, NULL };
+  int i;
+
+  x = extract_pattern (insn, 1);
+  validate_pattern (x, insn, NULL_RTX, 0);
+  last = add_to_sequence (x, &head, "");
+  finish_sequence (last, "", c_test, false, next_insn_code, 0);
+
+  /* If X is a PARALLEL, see if it ends with a group of CLOBBERs of (hard)
+     registers or MATCH_SCRATCHes.  If so, set up to recognize the pattern
+     without these CLOBBERs.  */
+
+  if (GET_CODE (x) == PARALLEL)
+    {
+      /* Find the last non-clobber in the parallel.  */
+      for (i = XVECLEN (x, 0); i > 0; i--)
+	{
+	  rtx y = XVECEXP (x, 0, i - 1);
+	  if (GET_CODE (y) != CLOBBER
+	      || (!REG_P (XEXP (y, 0))
+		  && GET_CODE (XEXP (y, 0)) != MATCH_SCRATCH))
+	    break;
+	}
+
+      if (i != XVECLEN (x, 0))
+	{
+	  rtx new;
+	  struct decision_head clobber_head = { NULL, NULL };
+
+	  /* Build a similar insn without the clobbers.  */
+	  if (i == 1)
+	    new = XVECEXP (x, 0, 0);
+	  else
+	    {
+	      int j;
+
+	      new = rtx_alloc (PARALLEL);
+	      XVEC (new, 0) = rtvec_alloc (i);
+	      for (j = i - 1; j >= 0; j--)
+		XVECEXP (new, 0, j) = XVECEXP (x, 0, j);
+	    }
+
+	  /* Recognize it.  */
+	  last = add_to_sequence (new, &clobber_head, "");
+	  finish_sequence (last, "", c_test, true, next_insn_code, XVECLEN (x, 0) - i);
+
+	  merge_trees (&head, &clobber_head);
+	}
+    }
+
+  return head;
+}
+
+/* Construct and return a sequence of decisions that will recognize a
+   DEFINE_SPLIT, INSN.  */
+
+static struct decision_head
+make_split_sequence (rtx insn)
+{
+  rtx x;
+  const char *c_test = XSTR (insn, 1);
+  struct decision *last;
+  struct decision_head head = { NULL, NULL };
+
+  x = extract_pattern (insn, 0);
+  validate_pattern (x, insn, NULL_RTX, 0);
+  last = add_to_sequence (x, &head, "");
+  finish_sequence (last, "", c_test, false, next_insn_code, 0);
+
+  /* Define the subroutine we will call below and emit in genemit.  */
+  printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
+
+  return head;
+}
+
+
+/* Construct and return a sequence of decisions that will recognize a
+   DEFINE_PEEPHOLE2, INSN.  */
+
+static struct decision_head
+make_peephole2_sequence (rtx insn)
+{
+  rtx x;
+  const char *c_test = XSTR (insn, 1);
+  struct decision *last;
+  struct decision_test *test, **place;
+  struct decision_head *next, head = { NULL, NULL };
+  char c_test_pos[2];
+  int i, num_insns;
+  char subpos[2] = "A";
+
+  /* peephole2 gets special treatment, as we remove all traces of
+     outer-level match_scratch and match_dup expressions here.
+     For simplicity, X always gets an outer parallel even if it's only
+     one entry.  */
+  x = rtx_alloc (PARALLEL);
+  PUT_MODE (x, VOIDmode);
+  XVEC (x, 0) = rtvec_alloc (XVECLEN (insn, 0));
+  for (i = num_insns = 0; i < XVECLEN (insn, 0); i++)
+    {
+      rtx tmp = XVECEXP (insn, 0, i);
+      if (GET_CODE (tmp) != MATCH_SCRATCH && GET_CODE (tmp) != MATCH_DUP)
+	{
+	  XVECEXP (x, 0, num_insns) = tmp;
+	  num_insns++;
+	}
+    }
+  XVECLEN (x, 0) = num_insns;
+
+  c_test_pos[0] = 'A' + num_insns - 1;
+  c_test_pos[1] = '\0';
 
   validate_pattern (x, insn, NULL_RTX, 0);
+  last = new_decision ("", &head);
 
-  memset(&head, 0, sizeof(head));
-  last = add_to_sequence (x, &head, "", type, 1);
-
-  /* Find the end of the test chain on the last node.  */
-  for (test = last->tests; test->next; test = test->next)
-    continue;
-  place = &test->next;
-
-  /* Skip the C test if it's known to be true at compile time.  */
-  if (truth == -1)
+  /* Check we have sufficient insns.  This avoids complications
+     because we then know peep2_next_insn never fails.  */
+  if (num_insns > 1)
     {
-      /* Need a new node if we have another test to add.  */
-      if (test->type == DT_accept_op)
-	{
-	  last = new_decision (c_test_pos, &last->success);
-	  place = &last->tests;
-	}
-      test = new_decision_test (DT_c_test, &place);
-      test->u.c_test = c_test;
+      place = &last->tests;
+      test = new_decision_test (DT_num_insns, &place);
+      test->u.num_insns = num_insns;
+      next = &last->success;
+    }
+  else
+    {
+      head.first = head.last = NULL;
+      next = &head;
+   }
+
+  for (i = 0; i < XVECLEN (x, 0); i++, subpos[0]++)
+    {
+      /* Which insn we're looking at is represented by A-Z. We don't
+         ever use 'A', however; it is always implied.  */
+
+      last = add_to_sequence (XVECEXP (x, 0, i), next, i ? subpos : "");
+      next = &last->success;
     }
 
-  test = new_decision_test (DT_accept_insn, &place);
-  test->u.insn.code_number = next_insn_code;
-  test->u.insn.lineno = pattern_lineno;
-  test->u.insn.num_clobbers_to_add = 0;
+  finish_sequence (last, c_test_pos, c_test, false, next_insn_code, 0);
 
-  switch (type)
-    {
-    case RECOG:
-      /* If this is a DEFINE_INSN and X is a PARALLEL, see if it ends
-	 with a group of CLOBBERs of (hard) registers or MATCH_SCRATCHes.
-	 If so, set up to recognize the pattern without these CLOBBERs.  */
-
-      if (GET_CODE (x) == PARALLEL)
-	{
-	  int i;
-
-	  /* Find the last non-clobber in the parallel.  */
-	  for (i = XVECLEN (x, 0); i > 0; i--)
-	    {
-	      rtx y = XVECEXP (x, 0, i - 1);
-	      if (GET_CODE (y) != CLOBBER
-		  || (!REG_P (XEXP (y, 0))
-		      && GET_CODE (XEXP (y, 0)) != MATCH_SCRATCH))
-		break;
-	    }
-
-	  if (i != XVECLEN (x, 0))
-	    {
-	      rtx new;
-	      struct decision_head clobber_head;
-
-	      /* Build a similar insn without the clobbers.  */
-	      if (i == 1)
-		new = XVECEXP (x, 0, 0);
-	      else
-		{
-		  int j;
-
-		  new = rtx_alloc (PARALLEL);
-		  XVEC (new, 0) = rtvec_alloc (i);
-		  for (j = i - 1; j >= 0; j--)
-		    XVECEXP (new, 0, j) = XVECEXP (x, 0, j);
-		}
-
-	      /* Recognize it.  */
-	      memset (&clobber_head, 0, sizeof(clobber_head));
-	      last = add_to_sequence (new, &clobber_head, "", type, 1);
-
-	      /* Find the end of the test chain on the last node.  */
-	      for (test = last->tests; test->next; test = test->next)
-		continue;
-
-	      /* We definitely have a new test to add -- create a new
-		 node if needed.  */
-	      place = &test->next;
-	      if (test->type == DT_accept_op)
-		{
-		  last = new_decision ("", &last->success);
-		  place = &last->tests;
-		}
-
-	      /* Skip the C test if it's known to be true at compile
-                 time.  */
-	      if (truth == -1)
-		{
-		  test = new_decision_test (DT_c_test, &place);
-		  test->u.c_test = c_test;
-		}
-
-	      test = new_decision_test (DT_accept_insn, &place);
-	      test->u.insn.code_number = next_insn_code;
-	      test->u.insn.lineno = pattern_lineno;
-	      test->u.insn.num_clobbers_to_add = XVECLEN (x, 0) - i;
-
-	      merge_trees (&head, &clobber_head);
-	    }
-	}
-      break;
-
-    case SPLIT:
-      /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
-      break;
-
-    case PEEPHOLE2:
-      /* Define the subroutine we will call below and emit in genemit.  */
-      printf ("extern rtx gen_peephole2_%d (rtx, rtx *);\n",
-	      next_insn_code);
-      break;
-    }
+  /* Define the subroutine we will call below and emit in genemit.  */
+  printf ("extern rtx gen_peephole2_%d (rtx, rtx *);\n", next_insn_code);
 
   return head;
 }
@@ -1135,17 +834,17 @@ main (int argc, char **argv)
 	  break;
 
 	case DEFINE_INSN:
-	  h = make_insn_sequence (desc, RECOG);
+	  h = make_recog_sequence (desc);
 	  merge_trees (&recog_tree, &h);
 	  break;
 
 	case DEFINE_SPLIT:
-	  h = make_insn_sequence (desc, SPLIT);
+	  h = make_split_sequence (desc);
 	  merge_trees (&split_tree, &h);
 	  break;
 
 	case DEFINE_PEEPHOLE2:
-	  h = make_insn_sequence (desc, PEEPHOLE2);
+	  h = make_peephole2_sequence (desc);
 	  merge_trees (&peephole2_tree, &h);
 
 	default:
