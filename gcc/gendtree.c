@@ -639,13 +639,15 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position)
 }
 
 /* Given the returned value from add_to_sequence, TREE, finish the sequence by adding
-   a DT_c_test node (as a separate tree if the last node in TREE is a DT_accept_opa or
-   if ALWAYS_ADD is true) for C_TEST at position SUBPOS, and a DT_accept_insn node with
-   parameters NEXT_INSN_CODE and NUM_CLOBBERS_TO_ADD.  */
+   a DT_c_test node for C_TEST at position SUBPOS, and a DT_accept_insn node with
+   parameters NEXT_INSN_CODE and NUM_CLOBBERS_TO_ADD.  
+
+   A DT_accept_op can only be followed by a DT_accept_insn, so if the DT_c_test is
+   not always true, the DT_c_test is added as a separate tree and linked via
+   tree->success.  */
 
 void
-finish_sequence (struct decision *tree, const char *subpos,
-		 const char *c_test, bool always_add,
+finish_sequence (struct decision *tree, const char *subpos, const char *c_test, 
 		 int next_insn_code, int num_clobbers_to_add)
 {
   struct decision_test *test, **place;
@@ -659,16 +661,16 @@ finish_sequence (struct decision *tree, const char *subpos,
     continue;
   place = &test->next;
 
-  /* Need a new node if we have another test to add.  */
-  if (test->type == DT_accept_op && (truth == -1 || always_add))
-    {
-      tree = new_decision (subpos, &tree->success);
-      place = &tree->tests;
-    }
-
   /* Skip the C test if it's known to be true at compile time.  */
   if (truth == -1)
     {
+      /* Need a new node if we have another test to add.  */
+      if (test->type == DT_accept_op)
+	{
+	  tree = new_decision (subpos, &tree->success);
+	  place = &tree->tests;
+	}
+
       test = new_decision_test (DT_c_test, &place);
       test->u.c_test = c_test;
     }

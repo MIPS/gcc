@@ -658,7 +658,7 @@ make_recog_sequence (rtx insn)
   x = extract_pattern (insn, 1);
   validate_pattern (x, insn, NULL_RTX, 0);
   last = add_to_sequence (x, &head, "");
-  finish_sequence (last, "", c_test, false, next_insn_code, 0);
+  finish_sequence (last, "", c_test, next_insn_code, 0);
 
   /* If X is a PARALLEL, see if it ends with a group of CLOBBERs of (hard)
      registers or MATCH_SCRATCHes.  If so, set up to recognize the pattern
@@ -696,7 +696,7 @@ make_recog_sequence (rtx insn)
 
 	  /* Recognize it.  */
 	  last = add_to_sequence (new, &clobber_head, "");
-	  finish_sequence (last, "", c_test, true, next_insn_code, XVECLEN (x, 0) - i);
+	  finish_sequence (last, "", c_test, next_insn_code, XVECLEN (x, 0) - i);
 
 	  merge_trees (&head, &clobber_head);
 	}
@@ -719,7 +719,7 @@ make_split_sequence (rtx insn)
   x = extract_pattern (insn, 0);
   validate_pattern (x, insn, NULL_RTX, 0);
   last = add_to_sequence (x, &head, "");
-  finish_sequence (last, "", c_test, false, next_insn_code, 0);
+  finish_sequence (last, "", c_test, next_insn_code, 0);
 
   /* Define the subroutine we will call below and emit in genemit.  */
   printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
@@ -788,7 +788,7 @@ make_peephole2_sequence (rtx insn)
       next = &last->success;
     }
 
-  finish_sequence (last, c_test_pos, c_test, false, next_insn_code, 0);
+  finish_sequence (last, c_test_pos, c_test, next_insn_code, 0);
 
   /* Define the subroutine we will call below and emit in genemit.  */
   printf ("extern rtx gen_peephole2_%d (rtx, rtx *);\n", next_insn_code);

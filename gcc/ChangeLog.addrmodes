@@ -1,5 +1,11 @@
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
+	* gendtree.c (finish_sequence): Remove always_add parameter, assume it is
+	always false.
+	(make_insn_sequence, make_split_sequence, make_peephole2_sequence): Adjust.
+
+2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
 	* genrecog.c (make_peephole2_sequence): Never create nodes to discard them.
 
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
