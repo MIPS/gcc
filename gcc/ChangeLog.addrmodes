@@ -1,5 +1,9 @@
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
+	* genrecog.c (make_peephole2_sequence): Never create nodes to discard them.
+
+2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
 	* gendtree.c (add_to_sequence): Move from genrecog.c, removing PEEPHOLE2 stuff.
 	(finish_sequence): Extract from genrecog.c make_insn_sequence.
 	* gendtree.h (add_to_sequence, finish_sequence): New prototypes.

@@ -765,22 +765,19 @@ make_peephole2_sequence (rtx insn)
   c_test_pos[1] = '\0';
 
   validate_pattern (x, insn, NULL_RTX, 0);
-  last = new_decision ("", &head);
 
   /* Check we have sufficient insns.  This avoids complications
      because we then know peep2_next_insn never fails.  */
   if (num_insns > 1)
     {
+      last = new_decision ("", &head);
       place = &last->tests;
       test = new_decision_test (DT_num_insns, &place);
       test->u.num_insns = num_insns;
       next = &last->success;
     }
   else
-    {
-      head.first = head.last = NULL;
-      next = &head;
-   }
+   next = &head;
 
   for (i = 0; i < XVECLEN (x, 0); i++, subpos[0]++)
     {
