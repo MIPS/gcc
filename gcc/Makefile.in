@@ -3011,8 +3011,10 @@ build/genpeep.o : genpeep.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h toplev.h
 build/genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h gensupport.h $(OBSTACK_H)
+build/gendtree.o : gendtree.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
+  coretypes.h $(GTM_H) errors.h gensupport.h gendtree.h
 build/genrecog.o : genrecog.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
-  coretypes.h $(GTM_H) errors.h gensupport.h
+  coretypes.h $(GTM_H) errors.h gensupport.h gendtree.h
 
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(CC_FOR_BUILD), and associated libraries,
@@ -3035,6 +3037,7 @@ build/genautomata$(build_exeext) : BUILD_LIBS += -lm
 # These programs are not linked with the MD reader.
 build/gengenrtl$(build_exeext) : $(BUILD_ERRORS)
 build/genmodes$(build_exeext) : $(BUILD_ERRORS)
+build/genrecog$(build_exeext) : build/gendtree.o
 build/gengtype$(build_exeext) : build/gengtype-lex.o \
   build/gengtype-yacc.o $(BUILD_ERRORS)
 
