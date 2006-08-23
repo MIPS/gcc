@@ -63,6 +63,10 @@
 
 static int next_insn_code;
 
+static struct decision_head recog_tree;
+static struct decision_head split_tree;
+static struct decision_head peephole2_tree;
+
 /* Begin the output file.  */
 
 static void
@@ -646,8 +650,8 @@ extract_pattern (rtx insn, int op)
 /* Construct and return a sequence of decisions that will recognize a
    DEFINE_INSN, INSN.  */
 
-static struct decision_head
-make_recog_sequence (rtx insn)
+static void
+process_define_insn (rtx insn)
 {
   rtx x;
   const char *c_test = XSTR (insn, 2);
@@ -702,14 +706,14 @@ make_recog_sequence (rtx insn)
 	}
     }
 
-  return head;
+  merge_trees (&recog_tree, &head);
 }
 
 /* Construct and return a sequence of decisions that will recognize a
    DEFINE_SPLIT, INSN.  */
 
-static struct decision_head
-make_split_sequence (rtx insn)
+static void
+process_define_split (rtx insn)
 {
   rtx x;
   const char *c_test = XSTR (insn, 1);
@@ -720,19 +724,18 @@ make_split_sequence (rtx insn)
   validate_pattern (x, insn, NULL_RTX, 0);
   last = add_to_sequence (x, &head, "");
   finish_sequence (last, "", c_test, next_insn_code, 0);
+  merge_trees (&split_tree, &head);
 
   /* Define the subroutine we will call below and emit in genemit.  */
   printf ("extern rtx gen_split_%d (rtx, rtx *);\n", next_insn_code);
-
-  return head;
 }
 
 
 /* Construct and return a sequence of decisions that will recognize a
    DEFINE_PEEPHOLE2, INSN.  */
 
-static struct decision_head
-make_peephole2_sequence (rtx insn)
+static void
+process_define_peephole2 (rtx insn)
 {
   rtx x;
   const char *c_test = XSTR (insn, 1);
@@ -789,24 +792,18 @@ make_peephole2_sequence (rtx insn)
     }
 
   finish_sequence (last, c_test_pos, c_test, next_insn_code, 0);
+  merge_trees (&peephole2_tree, &head);
 
   /* Define the subroutine we will call below and emit in genemit.  */
   printf ("extern rtx gen_peephole2_%d (rtx, rtx *);\n", next_insn_code);
-
-  return head;
 }
 
 int
 main (int argc, char **argv)
 {
   rtx desc;
-  struct decision_head recog_tree, split_tree, peephole2_tree, h;
 
   progname = "genrecog";
-
-  memset (&recog_tree, 0, sizeof recog_tree);
-  memset (&split_tree, 0, sizeof split_tree);
-  memset (&peephole2_tree, 0, sizeof peephole2_tree);
 
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
@@ -831,18 +828,16 @@ main (int argc, char **argv)
 	  break;
 
 	case DEFINE_INSN:
-	  h = make_recog_sequence (desc);
-	  merge_trees (&recog_tree, &h);
+	  process_define_insn (desc);
 	  break;
 
 	case DEFINE_SPLIT:
-	  h = make_split_sequence (desc);
-	  merge_trees (&split_tree, &h);
+	  process_define_split (desc);
 	  break;
 
 	case DEFINE_PEEPHOLE2:
-	  h = make_peephole2_sequence (desc);
-	  merge_trees (&peephole2_tree, &h);
+	  process_define_peephole2 (desc);
+	  break;
 
 	default:
 	  /* do nothing */;

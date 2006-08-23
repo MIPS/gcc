@@ -1,8 +1,19 @@
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
+	* genrecog.c (recog_tree, split_tree, peephole2_tree): New globals.
+	(make_insn_sequence, make_split_sequence, make_peephole2_sequence):
+	Rename to...
+	(process_define_insn, process_define_split, process_define_peephole2):
+	... these.  Return void and call merge_trees here.
+	(main): Remove declarations of new globals and don't initialize them.
+	Adjust make_*_sequence call.
+
+2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
+
 	* gendtree.c (finish_sequence): Remove always_add parameter, assume it is
 	always false.
-	(make_insn_sequence, make_split_sequence, make_peephole2_sequence): Adjust.
+	* genrecog.c (make_insn_sequence, make_split_sequence,
+	make_peephole2_sequence): Adjust.
 
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
