@@ -2220,18 +2220,7 @@ do {							\
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
-#define ARM_GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)  			\
-{									\
-  if (   GET_CODE (ADDR) == PRE_DEC || GET_CODE (ADDR) == POST_DEC	\
-      || GET_CODE (ADDR) == PRE_INC || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL;								\
-}
-
-/* Nothing helpful to do for the Thumb */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)	\
-  if (TARGET_32BIT)					\
-    ARM_GO_IF_MODE_DEPENDENT_ADDRESS (ADDR, LABEL)
-
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) do {} while (0)
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */

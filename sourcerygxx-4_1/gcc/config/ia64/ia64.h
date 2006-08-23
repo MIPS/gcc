@@ -1403,9 +1403,7 @@ do {									\
    on the machine mode of the memory reference it is used for or if the address
    is valid for some modes but not others.  */
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)			\
-  if (GET_CODE (ADDR) == POST_DEC || GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL;
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) do {} while (0)
 
 /* A C expression that is nonzero if X is a legitimate constant for an
    immediate operand on the target machine.  */
