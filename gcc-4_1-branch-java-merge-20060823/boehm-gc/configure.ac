@@ -1,4 +1,4 @@
-# Copyright (c) 1999, 2000, 2001, 2002, 2003 by Red Hat, Inc. All rights reserved.
+# Copyright (c) 1999, 2000, 2001, 2002, 2003, 2006 by Red Hat, Inc. All rights reserved.
 # Copyright 2004 Nathanael Nerode
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
@@ -328,6 +328,13 @@ case "$host" in
      AC_MSG_RESULT(yes)
      ;;
 esac
+
+# Checks for pthreads functions
+#
+oldLIBS="$LIBS"
+LIBS="$LIBS $THREADLIBS"
+AC_CHECK_FUNCS([pthread_getattr_np])
+LIBS="$oldLIBS"
 
 # Configuration of machine-dependent code
 #
