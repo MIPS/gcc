@@ -1,3 +1,8 @@
+2006-08-24  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/sh/sh.c (sh_expand_prologue, sh_expand_epilogue):
+	Use memory_address_p instead of GO_IF_LEGITIMATE_ADDRESS.
+
 2006-08-23  Paolo Bonzini  <bonzini@gnu.org>
 
 	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p,
