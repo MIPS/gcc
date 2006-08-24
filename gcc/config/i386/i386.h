@@ -1674,8 +1674,6 @@ do {									\
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
 do {									\
   (X) = legitimize_address ((X), (OLDX), (MODE));			\
-  if (memory_address_p ((MODE), (X)))					\
-    goto WIN;								\
 } while (0)
 
 #define REWRITE_ADDRESS(X) rewrite_address (X)

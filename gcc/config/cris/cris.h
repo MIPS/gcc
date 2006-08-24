@@ -1053,7 +1053,7 @@ struct cum_args {int regs;};
    sometimes, but I'm not sure that it may be fixed here, since it is
    already split up in several instructions (Is this still true?).
    FIXME: Check and adjust for gcc-2.9x.  */
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) {}
+/* #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) */
 
 /* Fix reloads known to cause suboptimal spilling.  */
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, INDL, WIN)	\

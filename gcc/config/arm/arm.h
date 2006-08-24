@@ -2001,9 +2001,6 @@ do {							\
     ARM_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
   else							\
     THUMB_LEGITIMIZE_ADDRESS (X, OLDX, MODE, WIN);	\
-							\
-  if (memory_address_p (MODE, X))			\
-    goto WIN;						\
 } while (0)
 
 /* Go to LABEL if ADDR (a legitimate address expression)

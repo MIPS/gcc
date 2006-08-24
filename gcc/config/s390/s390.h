@@ -721,8 +721,6 @@ CUMULATIVE_ARGS;
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)                          \
 {                                                                       \
   (X) = legitimize_address (X, OLDX, MODE);                             \
-  if (memory_address_p (MODE, X))                                       \
-    goto WIN;                                                           \
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address

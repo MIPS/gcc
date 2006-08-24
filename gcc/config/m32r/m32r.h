@@ -1257,8 +1257,6 @@ L2:     .word STATIC
     {								 \
       if (flag_pic)						 \
 	(X) = m32r_legitimize_pic_address (X, NULL_RTX);	 \
-      if (memory_address_p (MODE, X))				 \
-	goto WIN;						 \
     }								 \
   while (0)
 

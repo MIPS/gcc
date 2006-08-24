@@ -363,8 +363,6 @@ extern int avr_reg_order[];
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)				\
 {									\
   (X) = legitimize_address (X, OLDX, MODE);				\
-  if (memory_address_p (MODE, X))					\
-    goto WIN;								\
 }
 
 #define XEXP_(X,Y) (X)

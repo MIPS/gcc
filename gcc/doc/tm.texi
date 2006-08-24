@@ -2294,29 +2294,6 @@ expression if @var{outer_code} is @code{PLUS}; @code{SCRATCH}
 otherwise.
 @end defmac
 
-@defmac MODE_BASE_REG_CLASS (@var{mode})
-This is a variation of the @code{BASE_REG_CLASS} macro which allows
-the selection of a base register in a mode dependent manner.  The mode
-may be @code{VOIDmode} for addresses that appear outside a @code{MEM},
-i.e. as an @code{address_operand}.
-
-If you define this macro, the compiler will use it instead of
-@code{MODE_CODE_BASE_REG_CLASS}.  However, using this macro is
-deprecated, since you can equivalently use
-@code{MODE_CODE_BASE_REG_CLASS}.
-@end defmac
-
-@defmac BASE_REG_CLASS
-A macro whose definition is the name of the class to which a valid
-base register must belong.  A base register is one used in an address
-which is the register value plus a displacement.
-
-If you define this macro, the compiler will use it instead of
-@code{MODE_CODE_BASE_REG_CLASS}.  However, using this macro is
-deprecated, since you can equivalently use
-@code{MODE_CODE_BASE_REG_CLASS}.
-@end defmac
-
 @defmac INDEX_REG_CLASS
 A macro whose definition is the name of the class to which a valid
 index register must belong.  An index register is one used in an
@@ -2324,40 +2301,22 @@ address where its value is either multiplied by a scale factor or
 added to another register (as well as added to a displacement).
 @end defmac
 
-@defmac REGNO_MODE_CODE_OK_FOR_BASE_P (@var{num}, @var{mode}, @var{outer_code}, @var{index_code})
-A C expression that is just like @code{REGNO_MODE_OK_FOR_BASE_P},
-except that that expression may examine the context in which the
-register appears in the memory reference.  @var{outer_code} is the
-code of the immediately enclosing expression (@code{MEM} if at the top
-level of the address, @code{ADDRESS} for something that occurs in an
+@defmac REGNO_OK_FOR_BASE_P (@var{num}, @var{mode}, @var{outer_code}, @var{index_code})
+A C expression which is nonzero if register number @var{num} is
+suitable for use as a base register in operand addresses.  The
+expression may examine the context in which the register appears in
+the memory reference.  @var{outer_code} is the code of the immediately
+enclosing expression (@code{MEM} if at the top level of the address,
+@code{ADDRESS} for something that occurs in an
 @code{address_operand}).  In the latter case, the mode may be
 @code{VOIDmode}.  @var{index_code} is the code of the corresponding
 index expression if @var{outer_code} is @code{PLUS}; @code{SCRATCH}
 otherwise.
-@end defmac
 
-@defmac REGNO_MODE_OK_FOR_BASE_P (@var{num}, @var{mode})
-A C expression that is just like @code{REGNO_MODE_CODE_OK_FOR_BASE_P},
-except that that expression may only examine the register number, and
-the mode of the memory reference in @var{mode}.
-The mode may be @code{VOIDmode} for addresses that appear outside a
-@code{MEM}, i.e. as an @code{address_operand}.
-
-If you define this macro, the compiler will use it instead of
-@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.  However, using this macro is
-deprecated, since you can equivalently use
-@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.
-@end defmac
-
-@defmac REGNO_OK_FOR_BASE_P (@var{num})
-A C expression that is just like @code{REGNO_MODE_CODE_OK_FOR_BASE_P},
-except that you may not look at any information but the register
-number.
-
-If you define this macro, the compiler will use it instead of
-@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.  However, using this macro is
-deprecated, since you can equivalently use
-@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.
+This macro may be left undefined if the class returned by
+@code{MODE_CODE_BASE_REG_CLASS} describes each register that can be a
+valid base.  It may be valid to add the argument, frame or
+stack pointer registers to @code{REGNO_OK_FOR_BASE_P}.
 @end defmac
 
 @defmac REGNO_OK_FOR_INDEX_P (@var{num})
@@ -2374,6 +2333,10 @@ labeling is used must fit the machine's constraints of which registers
 may serve in each capacity.  The compiler will try both labelings,
 looking for one that is valid, and will reload one or both registers
 only if neither labeling works.
+
+This macro may be left undefined if the class returned by
+@code{INDEX_REG_CLASS} describes each register that can be a
+valid index, as usually is the case.
 @end defmac
 
 @defmac PREFERRED_RELOAD_CLASS (@var{x}, @var{class})
@@ -5115,18 +5078,12 @@ a label_ref or symbol_ref within an UNSPEC@.
 A C compound statement that attempts to replace @var{x} with a valid
 memory address for an operand of mode @var{mode}.  @var{win} will be a
 C statement label elsewhere in the code; the macro definition may use
-
-@smallexample
-GO_IF_LEGITIMATE_ADDRESS (@var{mode}, @var{x}, @var{win});
-@end smallexample
-
-@noindent
-to avoid further processing if the address has become legitimate.
+it to leave its definition.
 
 @findex break_out_memory_refs
 @var{x} will always be the result of a call to @code{break_out_memory_refs},
 and @var{oldx} will be the operand that was given to that function to produce
-@var{x}.
+@var{x}.  See @file{explow.c} for more information.
 
 The code generated by this macro should not alter the substructure of
 @var{x}.  If it transforms @var{x} into a more legitimate form, it
@@ -5136,6 +5093,9 @@ It is not necessary for this macro to come up with a legitimate
 address.  The compiler has standard ways of doing so in all cases.  In
 fact, it is safe to omit this macro.  But often a
 machine-dependent strategy can generate better code.
+
+It is suggested that you define a function instead that returns the
+new address.
 @end defmac
 
 @defmac LEGITIMIZE_RELOAD_ADDRESS (@var{x}, @var{mode}, @var{opnum}, @var{type}, @var{ind_levels}, @var{win})

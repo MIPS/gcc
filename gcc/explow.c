@@ -395,6 +395,27 @@ convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 #endif /* defined(POINTERS_EXTEND_UNSIGNED) */
 }
 
+/* Try machine-dependent ways of modifying an illegitimate address
+   to be legitimate.  If we find one, return a new address (which
+   may still be invalid!).  Otherwise, return X.  */
+
+static inline rtx
+memory_address_1 (enum machine_mode mode ATTRIBUTE_UNUSED,
+		  rtx x, rtx oldx ATTRIBUTE_UNUSED)
+{
+#ifdef LEGITIMIZE_ADDRESS
+  /* Just in case this function is used somewhere else.  */
+  if (oldx == NULL_RTX)
+    oldx = x;
+
+  LEGITIMIZE_ADDRESS (x, oldx, mode, win);
+
+ win: ATTRIBUTE_UNUSED_LABEL
+#endif
+  return x;
+}
+
+
 /* Return something equivalent to X but valid as a memory address
    for something of mode MODE.  When X is not itself valid, this
    works by copying X or subexpressions of it into registers.  */
@@ -417,23 +438,41 @@ memory_address (enum machine_mode mode, rtx x)
      are visible.  But not if cse won't be done!  */
   else
     {
+      bool legitimate;
+
       if (! cse_not_expected && !REG_P (x))
 	x = break_out_memory_refs (x);
 
       /* At this point, any valid address is accepted.  */
       if (memory_address_p (mode, x))
-	goto win;
+	legitimate = true;
 
       /* If it was valid before but breaking out memory refs invalidated it,
 	 use it the old way.  */
-      if (memory_address_p (mode, oldx))
-	goto win2;
+      else if (memory_address_p (mode, oldx))
+	x = oldx, legitimate = true;
 
       /* Perform machine-dependent transformations on X
 	 in certain cases.  This is not necessary since the code
 	 below can handle all possible cases, but machine-dependent
 	 transformations can make better code.  */
-      LEGITIMIZE_ADDRESS (x, oldx, mode, win);
+      else
+	{
+	  rtx newx = memory_address_1 (mode, x, oldx);
+	  legitimate = (newx != x && newx != oldx
+			&& memory_address_p (mode, newx));
+	  x = newx;
+	}
+
+      if (legitimate)
+	{
+	  x = newx;
+          if (flag_force_addr && ! cse_not_expected && !REG_P (x))
+	    {
+	      x = force_operand (x, NULL_RTX);
+	      x = force_reg (Pmode, x);
+	    }
+	}
 
       /* PLUS and MULT can appear in special ways
 	 as the result of attempts to make an address usable for indexing.
@@ -444,7 +483,7 @@ memory_address (enum machine_mode mode, rtx x)
 	 and index off of it.  We do this because it often makes
 	 shorter code, and because the addresses thus generated
 	 in registers often become common subexpressions.  */
-      if (GET_CODE (x) == PLUS)
+      else if (GET_CODE (x) == PLUS)
 	{
 	  rtx constant_term = const0_rtx;
 	  rtx y = eliminate_constant_term (x, &constant_term);
@@ -473,20 +512,7 @@ memory_address (enum machine_mode mode, rtx x)
 	 the register is a valid address.  */
       else
 	x = force_reg (Pmode, x);
-
-      goto done;
-
-    win2:
-      x = oldx;
-    win:
-      if (flag_force_addr && ! cse_not_expected && !REG_P (x))
-	{
-	  x = force_operand (x, NULL_RTX);
-	  x = force_reg (Pmode, x);
-	}
     }
-
- done:
 
   /* If we didn't change the address, we are done.  Otherwise, mark
      a reg as a pointer if we have REG or REG + CONST_INT.  */

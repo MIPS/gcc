@@ -1224,10 +1224,7 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN)                     \
 { rtx operand = (X);                                            \
   if (m68hc11_legitimize_address (&operand, (OLDX), (MODE)))	\
-    {                                                           \
       (X) = operand;                                            \
-      GO_IF_LEGITIMATE_ADDRESS (MODE,X,WIN);                    \
-    }                                                           \
 }
 
 /* Go to LABEL if ADDR (a legitimate address expression)

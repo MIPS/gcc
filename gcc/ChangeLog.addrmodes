@@ -1,5 +1,30 @@
 2006-08-24  Paolo Bonzini  <bonzini@gnu.org>
 
+	* explow.c (memory_address_1): New.
+	(memory_address): Use it.  Avoid gotos.  Test for the validity
+	of the address returned by LEGITIMIZE_ADDRESS.
+
+	* doc/tm.texi (LEGITIMIZE_ADDRESS): Discourage using
+	GO_IF_LEGITIMATE_ADDRESS (and WIN) within the macro.
+
+	* config/s390/s390.h (LEGITIMIZE_ADDRESS): Remove checks
+	now performed by memory_address.
+	* config/m32r/m32r.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/i386/i386.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/avr/avr.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/m68hc11/m68hc11.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/mn10300/mn10300.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/arm/arm.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/pa/pa.h (LEGITIMIZE_ADDRESS): Likewise.
+	* config/sparc/sparc.h (LEGITIMIZE_ADDRESS): Likewise.
+
+	* config/m68k/m68k.h (LEGITIMIZE_ADDRESS): Use memory_address_p.
+
+	* config/cris/cris.h (LEGITIMIZE_ADDRESS): Undefine.
+	* config/mt/mt.h (LEGITIMIZE_ADDRESS): Likewise.
+
+2006-08-24  Paolo Bonzini  <bonzini@gnu.org>
+
 	* config/sh/sh.c (sh_expand_prologue, sh_expand_epilogue):
 	Use memory_address_p instead of GO_IF_LEGITIMATE_ADDRESS.
 

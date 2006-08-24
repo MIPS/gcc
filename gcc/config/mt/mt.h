@@ -638,7 +638,7 @@ extern struct mt_frame_info current_frame_info;
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
 
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) {}
+/* #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
 

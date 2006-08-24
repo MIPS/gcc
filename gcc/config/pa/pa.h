@@ -1552,10 +1552,7 @@ do { 									\
    opportunities to optimize the output.  */
 
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)	\
-{ rtx orig_x = (X);				\
-  (X) = hppa_legitimize_address (X, OLDX, MODE);	\
-  if ((X) != orig_x && memory_address_p (MODE, X)) \
-    goto WIN; }
+{ (X) = hppa_legitimize_address (X, OLDX, MODE);	}
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
