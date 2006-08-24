@@ -1303,37 +1303,8 @@ void * GC_start_routine(void * arg)
     return(result);
 }
 
-#ifdef GC_PTHREAD_SYM_VERSION
-
-/* Force constr to execute prior to main().  */
-static void constr (void) __attribute__ ((constructor));
-
-static int
-(*pthread_create_)(pthread_t *new_thread,
-		   const pthread_attr_t *attr_in,
-		   void * (*thread_execp)(void *), void *arg);
-
-static void
-constr (void)
-{
-  /* Get a pointer to the real pthread_create.  */
-  pthread_create_ = dlvsym (RTLD_NEXT, "pthread_create",
-			    GC_PTHREAD_SYM_VERSION);
-}
-
-#define GC_PTHREAD_CREATE_NAME pthread_create
-#define GC_PTHREAD_REAL_NAME (*pthread_create_)
-
-#else
-
-#define GC_PTHREAD_CREATE_NAME WRAP_FUNC(pthread_create)
-#define GC_PTHREAD_REAL_NAME REAL_FUNC(pthread_create)
-
-#endif
-
-
 int
-GC_PTHREAD_CREATE_NAME(pthread_t *new_thread,
+WRAP_FUNC(pthread_create)(pthread_t *new_thread,
 		  const pthread_attr_t *attr,
                   void *(*start_routine)(void *), void *arg)
 {
@@ -1394,7 +1365,7 @@ GC_PTHREAD_CREATE_NAME(pthread_t *new_thread,
 		   pthread_self());
 #   endif
 
-    result = GC_PTHREAD_REAL_NAME(new_thread, attr, GC_start_routine, si);
+    result = REAL_FUNC(pthread_create)(new_thread, attr, GC_start_routine, si);
 
 #   ifdef DEBUG_THREADS
         GC_printf1("Started thread 0x%X\n", *new_thread);
