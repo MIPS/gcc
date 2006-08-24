@@ -466,7 +466,6 @@ memory_address (enum machine_mode mode, rtx x)
 
       if (legitimate)
 	{
-	  x = newx;
           if (flag_force_addr && ! cse_not_expected && !REG_P (x))
 	    {
 	      x = force_operand (x, NULL_RTX);
