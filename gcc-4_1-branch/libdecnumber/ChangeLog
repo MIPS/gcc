@@ -1,5 +1,15 @@
-2005-11-29  Ben Elliston  <bje@au.ibm.com>
+2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline
+	2005-11-29  Ben Elliston  <bje@au.ibm.com>
+	* configure.ac: New file.
+	* aclocal.m4: Likewise.
+	* Makefile.in: Likewise.
+	* configure: Generate.
+	* config.in: Likewise.
+
+	Backport from mainline
+	2005-11-29  Ben Elliston  <bje@au.ibm.com>
 	* decimal32.h, decimal64.h, decimal128.h: New.
         * decimal32.c, decimal64.c, decimal128.c: Likewise.
 	* decContext.c, decContext.h: Likewise.
