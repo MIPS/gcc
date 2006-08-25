@@ -1,6 +1,10 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2005-12-16  Ben Elliston  <bje@au.ibm.com>
+	* real.c (decimal_quad_format): Correct values for emin, emax.
+
+	Backport from mainline
 	* real.c: Missed in previous big checkin (mainline, too).
 
 	Backport from mainline
