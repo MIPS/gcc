@@ -1,6 +1,11 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2005-11-24  Ben Elliston  <bje@au.ibm.com>
+	* optabs.c (prepare_cmp_insn): Use SCALAR_FLOAT_MODE_P.
+	Remove unused `class' variable.
+
+	Backport from mainline
 	2005-11-22  Ben Elliston  <bje@au.ibm.com>
 	* optabs.c: Use SCALAR_FLOAT_MODE_P instead of explicitly testing
 	GET_MODE_CLASS (x) == MODE_FLOAT.
