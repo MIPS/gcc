@@ -1,6 +1,10 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2005-11-23  Ben Elliston  <bje@au.ibm.com>
+	* dwarf2.h (enum dwarf_type): Add DW_ATE_decimal_float.
+
+	Backport from mainline
 	2005-12-16  Jon Grimm  <jgrimm2@us.ibm.com>
 	    Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
