@@ -1,6 +1,9 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	* real.c: Missed in previous big checkin (mainline, too).
+
+	Backport from mainline
 	* doc/rtl.texi: Missed in previous checkin (mainline, too).
 
 	Backport from mainline
