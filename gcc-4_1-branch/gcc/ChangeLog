@@ -1,5 +1,10 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline
+	2006-01-04  Ben Elliston  <bje@au.ibm.com>
+	* config/fp-bit.h: Use top-of-file comment from libgcc2.c.
+	* config/fp-bit.c: Likewise.
+
 	Backport from malinline
 	2006-01-03  Ben Elliston  <bje@au.ibm.com>
 	* targhooks.h (default_decimal_float_supported_p): Declare.
