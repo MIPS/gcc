@@ -1,6 +1,12 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-01-13  Ben Elliston  <bje@au.ibm.com>
+	* doc/tm.texi (Data Output): Add REAL_VALUE_TO_TARGET_DECIMAL32,
+	REAL_VALUE_TO_TARGET_DECIMAL64 and REAL_VALUE_TO_TARGET_DECIMAL128
+	documentation.
+
+	Backport from mainline
 	2006-01-10  Ben Elliston  <bje@au.ibm.com>
 	* config/rs6000/predicates.md (easy_fp_constant): Discount decimal
 	float modes.
