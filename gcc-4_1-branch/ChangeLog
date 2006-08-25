@@ -1,3 +1,9 @@
+2006-08-25  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline (r107629)
+	2005-11-29  Ben Elliston  <bje@au.ibm.com>
+	* libdecnumber: Import decNumber sources from the dfp-branch.
+
 2006-07-04  Peter O'Gorman  <peter@pogma.com>
 
 	* ltconfig: chmod 644 before ranlib during install.
