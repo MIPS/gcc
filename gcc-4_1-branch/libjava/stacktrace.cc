@@ -18,10 +18,13 @@ details.  */
 
 #include <stdio.h>
 
+#include <java/lang/Boolean.h>
 #include <java/lang/Class.h>
 #include <java/lang/Long.h>
+#include <java/security/AccessController.h>
 #include <java/util/ArrayList.h>
 #include <java/util/IdentityHashMap.h>
+#include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/java/lang/MainThread.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 #include <gnu/gcj/runtime/StringBuffer.h>
@@ -111,7 +114,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  void *interp_run = (void *) &_Jv_InterpMethod::run;
+  void *interp_run = NULL;
+  
+  if (::gnu::classpath::jdwp::Jdwp::isDebugging)
+  	interp_run = (void *) &_Jv_InterpMethod::run_debug;
+  else
+    interp_run = (void *) &_Jv_InterpMethod::run;
+  	
   if (func_addr == UNWRAP_FUNCTION_DESCRIPTOR (interp_run))
     {
       state->frames[pos].type = frame_interpreter;
@@ -533,4 +542,76 @@ _Jv_StackTrace::GetFirstNonSystemClassLoader ()
     return (ClassLoader *) state.trace_data;
   
   return NULL;
+}
+
+struct AccessControlTraceData
+{
+  jint length;
+  jboolean privileged;
+};
+
+_Unwind_Reason_Code
+_Jv_StackTrace::accesscontrol_trace_fn (_Jv_UnwindState *state)
+{
+  AccessControlTraceData *trace_data = (AccessControlTraceData *)
+    state->trace_data;
+  _Jv_StackFrame *frame = &state->frames[state->pos];
+  FillInFrameInfo (frame);
+
+  if (!(frame->klass && frame->meth))
+    return _URC_NO_REASON;
+
+  trace_data->length++;
+
+  // If the previous frame was a call to doPrivileged, then this is
+  // the last frame we look at.
+  if (trace_data->privileged)
+    return _URC_NORMAL_STOP;
+  
+  if (frame->klass == &::java::security::AccessController::class$
+      && strcmp (frame->meth->name->chars(), "doPrivileged") == 0)
+    trace_data->privileged = true;
+
+  return _URC_NO_REASON;
+}
+
+jobjectArray
+_Jv_StackTrace::GetAccessControlStack (void)
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  AccessControlTraceData trace_data;
+  trace_data.length = 0;
+  trace_data.privileged = false;
+  
+  state.trace_function = accesscontrol_trace_fn;
+  state.trace_data = (void *) &trace_data;
+
+  UpdateNCodeMap();
+  _Unwind_Backtrace (UnwindTraceFn, &state);
+
+  JArray<jclass> *classes = (JArray<jclass> *)
+    _Jv_NewObjectArray (trace_data.length, &::java::lang::Class::class$, NULL);
+  jclass *c = elements (classes);
+
+  for (int i = 0, j = 0; i < state.pos; i++)
+    {
+      _Jv_StackFrame *frame = &state.frames[i];
+      if (!frame->klass || !frame->meth)
+	continue;
+      c[j] = frame->klass;
+      j++;
+    }
+
+  jobjectArray result =
+    (jobjectArray) _Jv_NewObjectArray (2, &::java::lang::Object::class$,
+					 NULL);
+  jobject *r = elements (result);
+  r[0] = (jobject) classes;
+  r[1] = (jobject) new Boolean (trace_data.privileged);
+  
+  return result;
 }

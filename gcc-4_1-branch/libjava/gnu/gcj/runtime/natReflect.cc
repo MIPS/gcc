@@ -12,6 +12,7 @@ details.  */
 #include <platform.h>
 
 #include <gcj/cni.h>
+#include <gcj/method.h>
 #include <jvm.h>
 
 #include <gnu/gcj/runtime/Reflect.h>
