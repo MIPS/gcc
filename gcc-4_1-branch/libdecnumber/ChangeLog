@@ -1,6 +1,12 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-01-03  Roger Sayle  <roger@eyesopen.com>
+	    Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* decNumber.c (__NO_STRING_INLINES): Define to prevent glibc macro
+	definition of strcpy from generating compilation warnings.
+
+	Backport from mainline
 	2005-12-20  Roger Sayle  <roger@eyesopen.com>
 	* decNumber.c (decStrEq): Cast string contents to unsigned char
 	instead of int before calling tolower.
