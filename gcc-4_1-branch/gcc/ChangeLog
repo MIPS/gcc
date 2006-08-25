@@ -1,6 +1,9 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	* doc/rtl.texi: Missed in previous checkin (mainline, too).
+
+	Backport from mainline
 	2005-12-02  Jon Grimm  <jgrimm2@us.ibm.com>
 	    Janis Johnson  <janis187@us.ibm.com>
 	    David Edelsohn  <dje@watson.ibm.com>
