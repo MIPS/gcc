@@ -1003,6 +1003,8 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  d = REAL_VALUE_NEGATE (d);
 	  break;
 	case FLOAT_TRUNCATE:
+	  if (DECIMAL_FLOAT_MODE_P (mode))
+	    break;
 	  d = real_value_truncate (mode, d);
 	  break;
 	case FLOAT_EXTEND:
@@ -3761,6 +3763,7 @@ simplify_immed_subreg (enum machine_mode outermode, rtx op,
 	  break;
       
 	case MODE_FLOAT:
+	case MODE_DECIMAL_FLOAT:
 	  {
 	    REAL_VALUE_TYPE r;
 	    long tmp[max_bitsize / 32];

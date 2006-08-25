@@ -2490,7 +2490,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
   if (unoptab->code == NEG)
     {
       /* Try negating floating point values by flipping the sign bit.  */
-      if (SCALAR_FLOAT_MODE_P (class))
+      if (SCALAR_FLOAT_MODE_P (mode))
 	{
 	  temp = expand_absneg_bit (NEG, mode, op0, target);
 	  if (temp)
@@ -4316,6 +4316,7 @@ expand_float (rtx to, rtx from, int unsignedp)
   enum insn_code icode;
   rtx target = to;
   enum machine_mode fmode, imode;
+  bool can_do_signed = false;
 
   /* Crash now, because we won't be able to decide which mode to use.  */
   gcc_assert (GET_MODE (from) != VOIDmode);
@@ -4337,8 +4338,14 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  continue;
 
 	icode = can_float_p (fmode, imode, unsignedp);
-	if (icode == CODE_FOR_nothing && imode != GET_MODE (from) && unsignedp)
-	  icode = can_float_p (fmode, imode, 0), doing_unsigned = 0;
+	if (icode == CODE_FOR_nothing && unsignedp)
+	  {
+	    enum insn_code scode = can_float_p (fmode, imode, 0);
+	    if (scode != CODE_FOR_nothing)
+	      can_do_signed = true;
+	    if (imode != GET_MODE (from))
+	      icode = scode, doing_unsigned = 0;
+	  }
 
 	if (icode != CODE_FOR_nothing)
 	  {
@@ -4357,9 +4364,10 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  }
       }
 
-  /* Unsigned integer, and no way to convert directly.
-     Convert as signed, then conditionally adjust the result.  */
-  if (unsignedp)
+  /* Unsigned integer, and no way to convert directly.  For binary
+     floating point modes, convert as signed, then conditionally adjust
+     the result.  */
+  if (unsignedp && can_do_signed && !DECIMAL_FLOAT_MODE_P (GET_MODE (to)))
     {
       rtx label = gen_label_rtx ();
       rtx temp;
@@ -4819,6 +4827,8 @@ static void
 init_floating_libfuncs (optab optable, const char *opname, int suffix)
 {
   init_libfuncs (optable, MIN_MODE_FLOAT, MAX_MODE_FLOAT, opname, suffix);
+  init_libfuncs (optable, MIN_MODE_DECIMAL_FLOAT, MAX_MODE_DECIMAL_FLOAT,
+		 opname, suffix);
 }
 
 /* Initialize the libfunc fields of an entire group of entries of an
@@ -5237,14 +5247,32 @@ init_optabs (void)
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",
 				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (sfloat_optab, "float",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
+				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (sfix_optab, "fix",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (ufix_optab, "fixuns",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufix_optab, "fixuns",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatuns",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
+  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, true);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, MODE_FLOAT);
   init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
+  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, false);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, MODE_FLOAT);
 
   /* Use cabs for double complex abs, since systems generally have cabs.
      Don't define any libcall for float complex, so that cabs will be used.  */
