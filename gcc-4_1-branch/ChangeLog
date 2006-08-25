@@ -1,6 +1,14 @@
-2006-08-25  Janis Johnson  <janis187@us.ibm.com>
+u006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
-	Backport from mainline (r107629)
+	Backport from mainline
+	 2005-11-29  Ben Elliston  <bje@au.ibm.com>
+	* Makefile.def: Add new libdecnumber host_module.  Make all-gcc
+	depend on all-libdecnumber.
+	* configure.in (host_libs): Include libdecnumber.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+
+	Backport from mainline
 	2005-11-29  Ben Elliston  <bje@au.ibm.com>
 	* libdecnumber: Import decNumber sources from the dfp-branch.
 
