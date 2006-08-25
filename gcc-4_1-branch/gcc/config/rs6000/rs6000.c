@@ -746,6 +746,7 @@ static void rs6000_darwin_file_start (void);
 static tree rs6000_build_builtin_va_list (void);
 static tree rs6000_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool rs6000_must_pass_in_stack (enum machine_mode, tree);
+static bool rs6000_scalar_mode_supported_p (enum machine_mode);
 static bool rs6000_vector_mode_supported_p (enum machine_mode);
 static int get_vec_cmp_insn (enum rtx_code, enum machine_mode,
 			     enum machine_mode);
@@ -984,6 +985,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_EH_RETURN_FILTER_MODE
 #define TARGET_EH_RETURN_FILTER_MODE rs6000_eh_return_filter_mode
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P rs6000_scalar_mode_supported_p
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P rs6000_vector_mode_supported_p
@@ -4184,6 +4188,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
   (SCALAR_FLOAT_MODE_P (MODE)			\
+   && !DECIMAL_FLOAT_MODE_P (MODE)		\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -4719,6 +4724,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words = align_words + n_words;
 
       if (SCALAR_FLOAT_MODE_P (mode)
+	  && !DECIMAL_FLOAT_MODE_P (mode)
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 
@@ -15785,13 +15791,17 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
   /* Handle FP constants specially.  Note that if we have a minimal
      TOC, things we put here aren't actually in the TOC, so we can allow
      FP constants.  */
-  if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == TFmode)
+  if (GET_CODE (x) == CONST_DOUBLE &&
+      (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL128 (rv, k);
+      else
+	REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
 
       if (TARGET_64BIT)
 	{
@@ -15820,13 +15830,18 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  return;
 	}
     }
-  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
+  else if (GET_CODE (x) == CONST_DOUBLE &&
+	   (GET_MODE (x) == DFmode || GET_MODE (x) == DDmode))
     {
       REAL_VALUE_TYPE rv;
       long k[2];
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
+
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL64 (rv, k);
+      else
+	REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
       if (TARGET_64BIT)
 	{
@@ -15851,13 +15866,17 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	  return;
 	}
     }
-  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == SFmode)
+  else if (GET_CODE (x) == CONST_DOUBLE &&
+	   (GET_MODE (x) == SFmode || GET_MODE (x) == SDmode))
     {
       REAL_VALUE_TYPE rv;
       long l;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+      if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
+	REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+      else
+	REAL_VALUE_TO_TARGET_SINGLE (rv, l);
 
       if (TARGET_64BIT)
 	{
@@ -17338,6 +17357,8 @@ rs6000_handle_altivec_attribute (tree *node,
     error ("use of boolean types in AltiVec types is invalid");
   else if (TREE_CODE (type) == COMPLEX_TYPE)
     error ("use of %<complex%> in AltiVec types is invalid");
+  else if (DECIMAL_FLOAT_MODE_P (mode))
+    error ("use of decimal floating point types in AltiVec types is invalid");
 
   switch (altivec_type)
     {
@@ -18957,7 +18978,9 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else
     mode = TYPE_MODE (valtype);
 
-  if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    regno = GP_ARG_RETURN;
+  else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
 	   && targetm.calls.split_complex_arg)
@@ -18996,7 +19019,9 @@ rs6000_libcall_value (enum machine_mode mode)
 				      GEN_INT (4))));
     }
 
-  if (SCALAR_FLOAT_MODE_P (mode)
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    regno = GP_ARG_RETURN;
+  else if (SCALAR_FLOAT_MODE_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (ALTIVEC_VECTOR_MODE (mode)
@@ -19122,6 +19147,16 @@ static enum machine_mode
 rs6000_eh_return_filter_mode (void)
 {
   return TARGET_32BIT ? SImode : word_mode;
+}
+
+/* Target hook for scalar_mode_supported_p.  */
+static bool
+rs6000_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
 }
 
 /* Target hook for vector_mode_supported_p.  */
