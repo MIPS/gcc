@@ -1,5 +1,13 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from malinline
+	2006-01-03  Ben Elliston  <bje@au.ibm.com>
+	* targhooks.h (default_decimal_float_supported_p): Declare.
+	* targhooks.c (default_decimal_float_supported_p): Define.
+	* target-def.h (TARGET_DECIMAL_FLOAT_SUPPORTED_P): Redefine to
+	`default_decimal_float_supported_p'.
+	* doc/tm.texi (TARGET_DECIMAL_FLOAT_SUPPORTED_P): Update.
+
 	Backport from mainline
 	2005-12-21  Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
