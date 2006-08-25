@@ -853,6 +853,13 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
 			 &e->where);
 	    }
 
+	  if (sym->attr.generic)
+	    {
+	      gfc_error ("GENERIC non-INTRINSIC procedure '%s' is not "
+		         "allowed as an actual argument at %L", sym->name,
+			 &e->where);
+	    }
+
 	  /* If the symbol is the function that names the current (or
 	     parent) scope, then we really have a variable reference.  */
 
@@ -2878,10 +2885,10 @@ resolve_variable (gfc_expr * e)
 
   t = SUCCESS;
 
-  if (e->ref && resolve_ref (e) == FAILURE)
+  if (e->symtree == NULL)
     return FAILURE;
 
-  if (e->symtree == NULL)
+  if (e->ref && resolve_ref (e) == FAILURE)
     return FAILURE;
 
   sym = e->symtree->n.sym;
@@ -5213,8 +5220,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
   /* Assign default initializer.  */
-  if (sym->ts.type == BT_DERIVED && !(sym->value || flag)
-	&& !sym->attr.pointer)
+  if (sym->ts.type == BT_DERIVED && !sym->value && !sym->attr.pointer
+      && !sym->attr.allocatable && (!flag || sym->attr.intent == INTENT_OUT))
     sym->value = gfc_default_initializer (&sym->ts);
 
   return SUCCESS;
@@ -5341,7 +5348,6 @@ static try
 resolve_fl_derived (gfc_symbol *sym)
 {
   gfc_component *c;
-  gfc_dt_list * dt_list;
   int i;
 
   for (c = sym->components; c != NULL; c = c->next)
@@ -5404,12 +5410,6 @@ resolve_fl_derived (gfc_symbol *sym)
 	}
     }
     
-  /* Add derived type to the derived type list.  */
-  dt_list = gfc_get_dt_list ();
-  dt_list->next = sym->ns->derived_types;
-  dt_list->derived = sym;
-  sym->ns->derived_types = dt_list;
-
   return SUCCESS;
 }
 

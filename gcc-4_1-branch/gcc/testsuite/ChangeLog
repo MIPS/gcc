@@ -1,3 +1,65 @@
+2006-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* gfortran.dg/used_types_4.f90: New test.
+	* gfortran.dg/used_types_2.f90: Add module cleanup.
+	* gfortran.dg/used_types_3.f90: The same.
+
+	PR fortran/28771
+	* gfortran.dg/assumed_charlen_in_main.f90: Modify to check
+	fix of regression.
+
+2006-08-21  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* g++.dg/eh/arm-vfp-unwind.C: Correct order of DejaGNU directives.
+
+2006-08-21  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* g++.dg/eh/arm-vfp-unwind.C: New test.
+
+2006-08-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28346
+	* g++.dg/template/ptrmem17.C: New test.
+
+2006-08-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28630
+	* gfortran.dg/used_types_2.f90: New test.
+
+	PR fortran/28601
+	* gfortran.dg/used_types_3.f90: New test.
+
+	PR fortran/20886
+	* gfortran.dg/generic_actual_arg.f90: New test.
+
+	PR fortran/28735
+	* gfortran.dg/module_private_array_refs_1.f90: New test.
+
+	PR fortran/28762
+	* gfortran.dg/program_name_1.f90: New test.
+
+	PR fortran/28425
+	* gfortran.dg/derived_constructor_comps_1.f90: New test.
+
+	PR fortran/28496
+	* gfortran.dg/array_initializer_2.f90: New test.
+
+	PR fortran/18111
+	* gfortran.dg/unused_artificial_dummies_1.f90: New test. 
+
+	PR fortran/28771
+	* gfortran.dg/assumed_charlen_in_main.f90: New test.
+
+	PR fortran/28660
+	* gfortran.dg/dependent_decls_1.f90: New test.
+
+2006-08-20  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25217
+	* gfortran.dg/derived_init_2.f90: New.
+
+
 2006-08-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/28606
