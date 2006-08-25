@@ -1,6 +1,11 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2005-12-20  Roger Sayle  <roger@eyesopen.com>
+	* decNumber.c (decStrEq): Cast operands to int before calling
+	tolower to avoid compilation warnings on Tru64.
+
+	Backport from mainline
 	2005-12-05  Ben Elliston  <bje@au.ibm.com>
 	* Makefile.in (clean): Remove stray reference to libcpp.a.
 	* decimal128.h, decContext.c, decRound.c, decimal32.c,
