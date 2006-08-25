@@ -816,7 +816,7 @@ __transfer_from_trampoline ()					\
 	{ if (TARGET_CFV4E && GET_MODE_CLASS (MODE) == MODE_FLOAT)	\
 	    { COPY_ONCE (X); X = force_operand (X, 0);}			\
 	  goto WIN; }							\
-      if (ch && memory_address_p (MODE, X) goto WIN;			\
+      if (ch && memory_address_p (MODE, X)) goto WIN;			\
       if (GET_CODE (XEXP (X, 0)) == REG					\
 	       || (GET_CODE (XEXP (X, 0)) == SIGN_EXTEND		\
 		   && GET_CODE (XEXP (XEXP (X, 0), 0)) == REG		\

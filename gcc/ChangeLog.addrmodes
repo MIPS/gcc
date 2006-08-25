@@ -1,3 +1,7 @@
+2006-08-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* config/m68k/m68k.h (LEGITIMIZE_ADDRESS): Fix commit.
+
 2006-08-24  Paolo Bonzini  <bonzini@gnu.org>
 
 	* explow.c (memory_address_1): New.
