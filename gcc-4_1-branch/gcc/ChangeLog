@@ -1,6 +1,14 @@
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2005-12-21  Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+	* configure.ac: Enable C extension for decimal float if invoked
+	with --enable-decimal-float.
+	* doc/install.texi (Configuration): Document it.
+	* configure, config.in: Regenerate.
+
+	Backport from mainline
 	2005-12-17  Jon Grimm  <jgrimm2@us.ibm.com>
 	    Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
