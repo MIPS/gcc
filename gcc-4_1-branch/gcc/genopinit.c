@@ -353,7 +353,7 @@ gen_insn (rtx insn)
 	  case 'I':  case 'F':  case 'N':
 	    break;
 	  case 'V':
-            if (GET_MODE_CLASS (m1) == MODE_FLOAT)
+	    if (SCALAR_FLOAT_MODE_P (m1))
               printf ("v");
             break;
 	  case 'a':
