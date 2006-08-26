@@ -242,6 +242,11 @@ namespace gcj
   /* The VM arguments */
   extern JArray<jstring>* vmArgs;
 
+  // Currently loaded classes
+  extern jint loadedClasses;
+
+  // Unloaded classes
+  extern jlong unloadedClasses;
 }
 
 // This class handles all aspects of class preparation and linking.

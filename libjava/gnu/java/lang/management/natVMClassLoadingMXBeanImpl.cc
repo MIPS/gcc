@@ -1,32 +1,49 @@
+/* Copyright (C) 2006  Free Software Foundation
+
+   This file is part of libgcj.
+
+This software is copyrighted work licensed under the terms of the
+Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
+details.  */
+ 
+/**
+ * @author Andrew John Hughes <gnu_andrew@member.fsf.org>
+ * @date Sun 20 Aug 2006 */
+/* Written using online API docs for JDK 1.5 beta from http://java.sun.com.
+ * Status:  Believed complete and correct.
+ */
+ 
 #include <config.h>
 
+#include <jvm.h>
+
 #include <gnu/java/lang/management/VMClassLoadingMXBeanImpl.h>
-#include <gcj/cni.h>
-#include <java/lang/UnsupportedOperationException.h>
 
 jint
 gnu::java::lang::management::VMClassLoadingMXBeanImpl::getLoadedClassCount ()
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMClassLoadingMXBeanImpl::getLoadedClassCount () not implemented"));
+  /* FIXME: We never unload, so this never goes down again */
+  return ::gcj::loadedClasses;
 }
 
 
 jlong
 gnu::java::lang::management::VMClassLoadingMXBeanImpl::getUnloadedClassCount ()
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMClassLoadingMXBeanImpl::getUnloadedClassCount () not implemented"));
+  /* FIXME: We never unload, so this always == 0 */
+  return ::gcj::unloadedClasses;
 }
 
 
 jboolean
 gnu::java::lang::management::VMClassLoadingMXBeanImpl::isVerbose ()
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMClassLoadingMXBeanImpl::isVerbose () not implemented"));
+  return ::gcj::verbose_class_flag;
 }
 
 
 void
-gnu::java::lang::management::VMClassLoadingMXBeanImpl::setVerbose (jboolean)
+gnu::java::lang::management::VMClassLoadingMXBeanImpl::setVerbose (jboolean b)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMClassLoadingMXBeanImpl::setVerbose (jboolean) not implemented"));
+  ::gcj::verbose_class_flag = b;
 }

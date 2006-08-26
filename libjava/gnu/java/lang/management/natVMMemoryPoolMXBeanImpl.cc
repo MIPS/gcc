@@ -1,11 +1,26 @@
+/* Copyright (C) 2006  Free Software Foundation
+
+   This file is part of libgcj.
+
+This software is copyrighted work licensed under the terms of the
+Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
+details.  */
+ 
+/**
+ * @author Andrew John Hughes <gnu_andrew@member.fsf.org>
+ * @date Tue 08 Aug 2006 */
+/* Implemented for our sole pool, the heap (we ignore the name input).
+ * Status:  Stubbed.
+ */
+
 #include <config.h>
 
-#include <gnu/java/lang/management/VMMemoryPoolMXBeanImpl.h>
 #include <gcj/cni.h>
+#include <gnu/java/lang/management/VMMemoryPoolMXBeanImpl.h>
 #include <java/lang/UnsupportedOperationException.h>
 
 ::java::lang::management::MemoryUsage *
-gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getCollectionUsage (::java::lang::String *)
+gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getCollectionUsage(jstring n)
 {
   throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getCollectionUsage (::java::lang::String *) not implemented"));
 }
@@ -26,9 +41,10 @@ gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getCollectionUsageThreshold
 
 
 JArray< ::java::lang::String *> *
-gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getMemoryManagerNames (::java::lang::String *)
+gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getMemoryManagerNames(jstring n)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getMemoryManagerNames (::java::lang::String *) not implemented"));
+  return (JArray<jstring>*)
+    JvNewObjectArray(1, &::java::lang::String::class$, JvNewStringLatin1("BoehmGC"));
 }
 
 
@@ -70,7 +86,7 @@ gnu::java::lang::management::VMMemoryPoolMXBeanImpl::getUsageThresholdCount (::j
 jboolean
 gnu::java::lang::management::VMMemoryPoolMXBeanImpl::isValid (::java::lang::String *)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("gnu::java::lang::management::VMMemoryPoolMXBeanImpl::isValid (::java::lang::String *) not implemented"));
+  return true;
 }
 
 

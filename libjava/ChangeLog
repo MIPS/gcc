@@ -1,3 +1,28 @@
+2006-08-26  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* link.cc:
+	Increment loaded classes when printing verbose output.
+	* gnu/java/lang/management/natVMMemoryMXBeanImpl.cc:
+	Added comments.
+	* gnu/java/lang/management/natVMMemoryPoolMXBeanImpl.cc:
+	(getMemoryManagerNames(jstring)): Implemented.
+	(isValid(jstring)): Implemented.
+	* gnu/java/lang/management/natVMClassLoadingMXBeanImpl.cc:
+	(getLoadedClassCount()): Implemented.
+	(getUnloadedClassCount()): Likewise.
+	(isVerbose()): Likewise.
+	(setVerbose(jboolean)): Likewise.
+	* java/lang/management/natVMManagementFactory.cc:
+	(getMemoryPoolNames()): Implemented.
+	(getMemoryManagerNames()): Likewise.
+	(getGarbageCollectorNames()): Likewise.
+	* include/jvm.h:
+	Add loaded and unloaded class counts.
+	* defineclasses.c:
+	Increment loaded classes count.
+	* prims.cc:
+	Add loaded and unloaded class counts.
+	
 2006-08-16  Tom Tromey  <tromey@redhat.com>
 
 	* include/posix-threads.h (_Jv_MutexLock): No longer inline.

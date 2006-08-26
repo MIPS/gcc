@@ -1121,6 +1121,12 @@ namespace gcj
 
   // Arguments passed to the VM
   JArray<jstring>* vmArgs;
+
+  // Currently loaded classes
+  jint loadedClasses = 0;
+
+  // Unloaded classes
+  jlong unloadedClasses = 0;
 }
 
 // We accept all non-standard options accepted by Sun's java command,

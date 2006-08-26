@@ -1932,11 +1932,14 @@ _Jv_Linker::wait_for_state (jclass klass, int state)
   // Print some debugging info if requested.  Interpreted classes are
   // handled in defineclass, so we only need to handle the two
   // pre-compiled cases here.
-  if (gcj::verbose_class_flag
-      && (klass->state == JV_STATE_COMPILED
+  if ((klass->state == JV_STATE_COMPILED
 	  || klass->state == JV_STATE_PRELOADING)
       && ! _Jv_IsInterpretedClass (klass))
-    print_class_loaded (klass);
+    {
+      if (gcj::verbose_class_flag)
+	print_class_loaded (klass);
+      ++gcj::loadedClasses;
+    }
 
   try
     {

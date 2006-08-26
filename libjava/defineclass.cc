@@ -417,6 +417,7 @@ _Jv_ClassReader::parse ()
   def->state = JV_STATE_READ;
   if (gcj::verbose_class_flag)
     _Jv_Linker::print_class_loaded (def);
+  ++gcj::loadedClasses;
   def->notifyAll ();
 }
 
