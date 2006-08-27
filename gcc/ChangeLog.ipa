@@ -1,3 +1,14 @@
+2006-08-23 Razya Ladelsky <razya@il.ibm.com>
+
+        * targhooks.c (default_internal_arg_pointer): New function.
+        * dominance.c (dom_computed, n_bbs_in_dom_tree): Remove definitions.
+        * fortran/decl.c (gfc_match_entry):Add missing declaration.
+        * function.h (dom_state): Add enumerator.
+        (dom_computed, n_bbs_in_dom_tree): Add new fields to function struct,
+        add matching macros.
+        * basic-block.h (dom_state, dom_computed): Remove.
+        * config/rs6000/rs6000.c: Merge (partially) from mainline.
+
 2006-08-20  Razya Ladelsky  <razya@il.ibm.com>
 	* ipa-cp.c (ipcp_insert_stage, ipcp_driver): Support for SSA.
         (compute_prof): New function to compute how hot each method is. 

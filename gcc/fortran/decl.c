@@ -2666,6 +2666,7 @@ gfc_match_entry (void)
   gfc_compile_state state;
   match m;
   gfc_entry_list *el;
+  locus old_loc;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)

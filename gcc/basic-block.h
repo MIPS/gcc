@@ -956,15 +956,6 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-enum dom_state
-{
-  DOM_NONE,		/* Not computed at all.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
-  DOM_OK		/* Everything is ok.  */
-};
-
-extern enum dom_state dom_computed[2];
-
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);

@@ -169,6 +169,13 @@ DEF_VEC_ALLOC_P(temp_slot_p,gc);
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
 
+enum dom_state
+{
+  DOM_NONE,            /* Not computed at all.  */
+  DOM_NO_FAST_QUERY,   /* The data is OK, but the fast query data are not usable.  */
+  DOM_OK               /* Everything is ok.  */
+};
+
 struct function GTY(())
 {
   struct eh_status *eh;
@@ -180,6 +187,10 @@ struct function GTY(())
   struct control_flow_graph *cfg;
   bool after_inlining;
   struct ssa *ssa;
+
+  unsigned n_bbs_in_dom_tree[2];
+  /* Whether the dominators and the postdominators are available.  */
+  enum dom_state dom_computed[2];
 
   /* For function.c.  */
 
@@ -521,6 +532,9 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+
+#define n_bbs_in_dom_tree (cfun->n_bbs_in_dom_tree)
+#define dom_computed (cfun->dom_computed)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
