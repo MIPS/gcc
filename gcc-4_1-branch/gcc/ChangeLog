@@ -1,3 +1,36 @@
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/27893
+	* gimplify.c (gimplify_decl_expr, gimplify_init_ctor_preeval):
+	Treat sizes as variable whenever not INTEGER_CST.
+
+2006-08-25  Fariborz Jahanian  <fjahanian@apple.com>
+
+	PR c/28418
+	* c-gimplify.c (gimplify_compound_literal_expr): Don't add
+	variable again if DECL_SEEN_IN_BIND_EXPR_P.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28299
+	* c-decl.c (start_function): Don't try to process prototype
+	information from old declaration that isn't a function.
+
+2006-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27558
+	Backport:
+	2006-04-20  Jakub Jelinek  <jakub@redhat.com>
+	* c-pretty-print.c (pp_c_direct_abstract_declarator): Print
+	TYPE_MAX_VALUE (TYPE_DOMAIN (t)) + 1 for ARRAY_TYPE rather
+	than plain TYPE_MAX_VALUE (TYPE_DOMAIN (t)).
+
+2006-08-25  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/27075
+	* config/rs6000/rs6000.c (print_operand): Only use e500 %y syntax
+	for 8 byte objects.
+
 2006-07-20  Jason Merrill  <jason@redhat.com>
 
 	* tree.c (remove_attribute): New fn.
@@ -1099,12 +1132,6 @@
 
 	* config/i386/sse.md (*vec_extractv2di_1_sse2): New.
 	(*vec_extractv2di_1_sse): New.
-
-2006-04-20  Jakub Jelinek  <jakub@redhat.com>
-
-	* c-pretty-print.c (pp_c_direct_abstract_declarator): Print
-	TYPE_MAX_VALUE (TYPE_DOMAIN (t)) + 1 for ARRAY_TYPE rather
-	than plain TYPE_MAX_VALUE (TYPE_DOMAIN (t)).
 
 2006-05-08  Alan Modra  <amodra@bigpond.net.au>
 

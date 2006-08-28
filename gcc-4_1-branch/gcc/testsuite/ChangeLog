@@ -1,3 +1,56 @@
+2006-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28058
+	* g++.dg/template/spec31.C: New test.
+	* g++.old-deja/g++.pt/spec9.C: Adjust error markers.
+
+2006-08-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/28452
+	* gfortran.dg/random_3.f90:  New test.
+
+2006-08-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28595
+	* g++.dg/template/array15.C: New test.
+	* g++.dg/template/crash2.C: Tweak error markers.
+
+2006-08-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28853
+	* g++.dg/template/ttp21.C: New test.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/27893
+	* gcc.c-torture/compile/vla-const-1.c,
+	gcc.c-torture/compile/vla-const-2.c: New tests.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28418
+	* gcc.c-torture/compile/compound-literal-1.c: New test.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28299
+	* gcc.dg/funcdef-var-1.c, gcc.dg/funcdef-var-2.c: New tests.
+	* gcc.dg/pr20368-1.c, gcc.dg/pr20368-2.c, gcc.dg/pr20368-3.c:
+	Expect extra diagnostics.
+
+2006-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27558
+	Backport:
+	2006-04-20  Jakub Jelinek  <jakub@redhat.com>
+	* gcc.dg/20060419-1.c: New test.
+
+2006-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28056
+	* g++.dg/parse/local1.C: New test.
+	* g++.dg/other/qual1.C: Tweak error marker.
+
 2006-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/28370
@@ -1166,10 +1219,6 @@
 
 	PR c++/27359
 	* g++.dg/gomp/pr27359.C: New test.
-
-2006-04-20  Jakub Jelinek  <jakub@redhat.com>
-
-	* gcc.dg/20060419-1.c: New test.
 
 2006-05-08  Paul Thomas  <pault@gcc.gnu.org>
 
