@@ -1,5 +1,13 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline (partial)
+	2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
+        PR target/25259
+        * configure.ac: Use GCC_HEADER_STDINT.
+        * decContext.h: Include gstdint.h.
+        * aclocal.m4: Regenerate.
+        * configure: Regenerate.
+
 	Backport from mainline
 	2006-02-06  Ben Elliston  <bje@au.ibm.com>
 	* configure.ac: Unconditionally disable decimal float by default.

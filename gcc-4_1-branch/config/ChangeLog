@@ -1,3 +1,10 @@
+2006-08-28  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline (part of r198241)
+	2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
+        PR target/25259
+        * Makefile.in (DECNUMINC): Include libdecnumber's build directory.
+
 2006-05-24  Release Manager
 
 	* GCC 4.1.1 released.
