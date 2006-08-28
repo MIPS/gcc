@@ -1,3 +1,21 @@
+2006-08-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-outof-ssa.c (struct value_expr_d): Remove.
+	(struct temp_expr_table_d): Change value_expr_p's to bitmap.  Delete
+	free_list.
+	(new_temp_expr_table, free_temp_expr_table): Update.
+	(new_value_expr, free_value_expr, find_value_in_list, add_value_to_list,
+	add_info_to_list, remove_value_from_list): Delete.
+	(add_value_to_version_list): New.  Set bit in version list, allocating 
+	a bitmap if need be.
+	(add_value_to_partition_list): New.  Set bit in the partition list, 
+	allocating a bitmap if need be.
+	(remove_value_from_partition_list): New.  Remove a bit from the
+	partition list, free the bitmap if it is empty.
+	(add_dependence, check_replaceable, finish_expr, mark_replaceable,
+	kill_expr, find_replaceable_in_bb, find_replaceable_exprs): Use bitmap 
+	routines and new functions.
+
 2006-08-04  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Change parms

@@ -1282,16 +1282,6 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
    it is replaced with the RHS of the defining expression.  */
 
 
-/* Dependency list element.  This can contain either a partition index or a
-   version number, depending on which list it is in.  */
-
-typedef struct value_expr_d 
-{
-  int value;
-  struct value_expr_d *next;
-} *value_expr_p;
-
-
 /* Temporary Expression Replacement (TER) table information.  */
 
 typedef struct temp_expr_table_d 
@@ -1299,13 +1289,12 @@ typedef struct temp_expr_table_d
   var_map map;
   void **version_info;
   bitmap *expr_vars;
-  value_expr_p *partition_dep_list;
+  bitmap *partition_dep_list;
   bitmap replaceable;
   bool saw_replaceable;
   int virtual_partition;
   bitmap partition_in_use;
-  value_expr_p free_list;
-  value_expr_p pending_dependence;
+  bitmap pending_dependence;
 } *temp_expr_table_p;
 
 /* Used to indicate a dependency on V_MAY_DEFs.  */
@@ -1313,14 +1302,9 @@ typedef struct temp_expr_table_d
 
 static temp_expr_table_p new_temp_expr_table (var_map);
 static tree *free_temp_expr_table (temp_expr_table_p);
-static inline value_expr_p new_value_expr (temp_expr_table_p);
-static inline void free_value_expr (temp_expr_table_p, value_expr_p);
-static inline value_expr_p find_value_in_list (value_expr_p, int, 
-					       value_expr_p *);
-static inline void add_value_to_list (temp_expr_table_p, value_expr_p *, int);
-static inline void add_info_to_list (temp_expr_table_p, value_expr_p *, 
-				     value_expr_p);
-static value_expr_p remove_value_from_list (value_expr_p *, int);
+static inline void add_value_to_version_list (temp_expr_table_p, int, int);
+static inline void add_value_to_partition_list (temp_expr_table_p, int, int);
+static inline void remove_value_from_partition_list (temp_expr_table_p, int, int);
 static void add_dependence (temp_expr_table_p, int, tree);
 static bool check_replaceable (temp_expr_table_p, tree);
 static void finish_expr (temp_expr_table_p, int, bool);
@@ -1344,7 +1328,7 @@ new_temp_expr_table (var_map map)
 
   t->version_info = XCNEWVEC (void *, num_ssa_names + 1);
   t->expr_vars = XCNEWVEC (bitmap, num_ssa_names + 1);
-  t->partition_dep_list = XCNEWVEC (value_expr_p,
+  t->partition_dep_list = XCNEWVEC (bitmap,
                                     num_var_partitions (map) + 1);
 
   t->replaceable = BITMAP_ALLOC (NULL);
@@ -1352,8 +1336,7 @@ new_temp_expr_table (var_map map)
 
   t->saw_replaceable = false;
   t->virtual_partition = num_var_partitions (map);
-  t->free_list = NULL;
-  t->pending_dependence = NULL;
+  t->pending_dependence = BITMAP_ALLOC (NULL);
 
   return t;
 }
@@ -1365,7 +1348,6 @@ new_temp_expr_table (var_map map)
 static tree *
 free_temp_expr_table (temp_expr_table_p t)
 {
-  value_expr_p p;
   tree *ret = NULL;
   unsigned i;
 
@@ -1374,12 +1356,6 @@ free_temp_expr_table (temp_expr_table_p t)
   for (x = 0; x <= num_var_partitions (t->map); x++)
     gcc_assert (!t->partition_dep_list[x]);
 #endif
-
-  while ((p = t->free_list))
-    {
-      t->free_list = p->next;
-      free (p);
-    }
 
   BITMAP_FREE (t->partition_in_use);
   BITMAP_FREE (t->replaceable);
@@ -1400,107 +1376,44 @@ free_temp_expr_table (temp_expr_table_p t)
 }
 
 
-/* Allocate a new value list node. Take it from the free list in TABLE if 
-   possible.  */
-
-static inline value_expr_p
-new_value_expr (temp_expr_table_p table)
-{
-  value_expr_p p;
-  if (table->free_list)
-    {
-      p = table->free_list;
-      table->free_list = p->next;
-    }
-  else
-    p = (value_expr_p) xmalloc (sizeof (struct value_expr_d));
-
-  return p;
-}
-
-
-/* Add value list node P to the free list in TABLE.  */
+/* Add VALUE to the version list for LIST.  TAB is the expression table */
 
 static inline void
-free_value_expr (temp_expr_table_p table, value_expr_p p)
+add_value_to_version_list (temp_expr_table_p tab, int list, int value)
 {
-  p->next = table->free_list;
-  table->free_list = p;
+
+  if (!tab->version_info[list])
+    tab->version_info[list] = BITMAP_ALLOC (NULL);
+
+  bitmap_set_bit (tab->version_info[list], value);
 }
 
 
-/* Find VALUE if it's in LIST.  Return a pointer to the list object if found,  
-   else return NULL.  If LAST_PTR is provided, it will point to the previous 
-   item upon return, or NULL if this is the first item in the list.  */
-
-static inline value_expr_p
-find_value_in_list (value_expr_p list, int value, value_expr_p *last_ptr)
-{
-  value_expr_p curr;
-  value_expr_p last = NULL;
-
-  for (curr = list; curr; last = curr, curr = curr->next)
-    {
-      if (curr->value == value)
-        break;
-    }
-  if (last_ptr)
-    *last_ptr = last;
-  return curr;
-}
-
-
-/* Add VALUE to LIST, if it isn't already present.  TAB is the expression 
-   table */
+/* Add VALUE to the partition list for LIST.  TAB is the expression table */
 
 static inline void
-add_value_to_list (temp_expr_table_p tab, value_expr_p *list, int value)
+add_value_to_partition_list (temp_expr_table_p tab, int list, int value)
 {
-  value_expr_p info;
 
-  if (!find_value_in_list (*list, value, NULL))
-    {
-      info = new_value_expr (tab);
-      info->value = value;
-      info->next = *list;
-      *list = info;
-    }
+  if (!tab->partition_dep_list[list])
+    tab->partition_dep_list[list] = BITMAP_ALLOC (NULL);
+
+  bitmap_set_bit (tab->partition_dep_list[list], value);
 }
 
 
-/* Add value node INFO if it's value isn't already in LIST.  Free INFO if
-   it is already in the list. TAB is the expression table.  */
+/* Remove VALUE from the partition list for LIST.  TAB is the expression 
+   table.  */
 
-static inline void
-add_info_to_list (temp_expr_table_p tab, value_expr_p *list, value_expr_p info)
+static inline void 
+remove_value_from_partition_list (temp_expr_table_p tab, int list, int value)
 {
-  if (find_value_in_list (*list, info->value, NULL))
-    free_value_expr (tab, info);
-  else
+  bitmap_clear_bit (tab->partition_dep_list[list], value);
+  if (bitmap_empty_p (tab->partition_dep_list[list]))
     {
-      info->next = *list;
-      *list = info;
+      BITMAP_FREE (tab->partition_dep_list[list]);
+      tab->partition_dep_list[list] = NULL;
     }
-}
-
-
-/* Look for VALUE in LIST.  If found, remove it from the list and return it's 
-   pointer.  */
-
-static value_expr_p
-remove_value_from_list (value_expr_p *list, int value)
-{
-  value_expr_p info, last;
-
-  info = find_value_in_list (*list, value, &last);
-  if (!info)
-    return NULL;
-  if (!last)
-    *list = info->next;
-  else
-    last->next = info->next;
- 
-  return info;
 }
 
 
@@ -1512,34 +1425,35 @@ remove_value_from_list (value_expr_p *list, int value)
 static void
 add_dependence (temp_expr_table_p tab, int version, tree var)
 {
-  int i, x;
-  value_expr_p info;
+  int i;
+  bitmap_iterator bi;
+  unsigned x;
 
   i = SSA_NAME_VERSION (var);
   if (bitmap_bit_p (tab->replaceable, i))
     {
       /* This variable is being substituted, so use whatever dependences
          were queued up when we marked this as replaceable earlier.  */
-      while ((info = tab->pending_dependence))
+      EXECUTE_IF_SET_IN_BITMAP (tab->pending_dependence, 0, x, bi)
         {
-	  tab->pending_dependence = info->next;
-	  /* Get the partition this variable was dependent on. Reuse this
-	     object to represent the current  expression instead.  */
-	  x = info->value;
-	  info->value = version;
-	  add_info_to_list (tab, &(tab->partition_dep_list[x]), info);
-          add_value_to_list (tab, 
-			     (value_expr_p *)&(tab->version_info[version]), x);
-	  bitmap_set_bit (tab->partition_in_use, x);
+	  /* Version is now dependant on each pending dep partition.  */
+	  add_value_to_partition_list (tab, x, version);
 	}
+      /* Rather than set version and inuse lists bit by bit, simply OR in
+         the pending_dependence bits.  */
+      if (!tab->version_info[version])
+        tab->version_info[version] = BITMAP_ALLOC (NULL);
+      bitmap_ior_into (tab->version_info[version], tab->pending_dependence);
+      bitmap_ior_into (tab->partition_in_use, tab->pending_dependence);
+
+      bitmap_clear (tab->pending_dependence);
     }
   else
     {
       i = var_to_partition (tab->map, var);
       gcc_assert (i != NO_PARTITION);
-      add_value_to_list (tab, &(tab->partition_dep_list[i]), version);
-      add_value_to_list (tab, 
-			 (value_expr_p *)&(tab->version_info[version]), i);
+      add_value_to_partition_list (tab, i, version);
+      add_value_to_version_list (tab, version, i);
       bitmap_set_bit (tab->partition_in_use, i);
     }
 }
@@ -1593,7 +1507,6 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     {
       add_dependence (tab, version, var);
-
       use_vars = tab->expr_vars[SSA_NAME_VERSION (var)];
       if (use_vars)
 	bitmap_ior_into (def_vars, use_vars);
@@ -1603,11 +1516,8 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   /* If there are VUSES, add a dependence on virtual defs.  */
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE))
     {
-      add_value_to_list (tab, (value_expr_p *)&(tab->version_info[version]), 
-			 VIRTUAL_PARTITION (tab));
-      add_value_to_list (tab, 
-			 &(tab->partition_dep_list[VIRTUAL_PARTITION (tab)]), 
-			 version);
+      add_value_to_version_list (tab, version, VIRTUAL_PARTITION (tab));
+      add_value_to_partition_list (tab, VIRTUAL_PARTITION (tab), version);
       bitmap_set_bit (tab->partition_in_use, VIRTUAL_PARTITION (tab));
     }
 
@@ -1622,28 +1532,23 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 static void
 finish_expr (temp_expr_table_p tab, int version, bool replace)
 {
-  value_expr_p info, tmp;
   int partition;
+  unsigned i;
+  bitmap_iterator bi;
 
+  gcc_assert (tab->version_info[version]);
   /* Remove this expression from its dependent lists.  The partition dependence
      list is retained and transfered later to whomever uses this version.  */
-  for (info = (value_expr_p) tab->version_info[version]; info; info = tmp)
+  EXECUTE_IF_SET_IN_BITMAP (tab->version_info[version], 0, i, bi)
     {
-      partition = info->value;
+      partition = i;
       gcc_assert (tab->partition_dep_list[partition]);
-      tmp = remove_value_from_list (&(tab->partition_dep_list[partition]), 
-				    version);
-      gcc_assert (tmp);
-      free_value_expr (tab, tmp);
+      remove_value_from_partition_list (tab, partition, version);
       /* Only clear the bit when the dependency list is emptied via 
          a replacement. Otherwise kill_expr will take care of it.  */
-      if (!(tab->partition_dep_list[partition]) && replace)
-        bitmap_clear_bit (tab->partition_in_use, partition);
-      tmp = info->next;
-      if (!replace)
-        free_value_expr (tab, info);
+      if (!tab->partition_dep_list[partition] && replace)
+	bitmap_clear_bit (tab->partition_in_use, partition);
     }
-
   if (replace)
     {
       tab->saw_replaceable = true;
@@ -1652,7 +1557,7 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
   else
     {
       gcc_assert (!bitmap_bit_p (tab->replaceable, version));
-      tab->version_info[version] = NULL;
+      BITMAP_FREE (tab->version_info[version]);
     }
 }
 
@@ -1663,20 +1568,17 @@ finish_expr (temp_expr_table_p tab, int version, bool replace)
 static void
 mark_replaceable (temp_expr_table_p tab, tree var)
 {
-  value_expr_p info;
   int version = SSA_NAME_VERSION (var);
   finish_expr (tab, version, true);
 
   /* Move the dependence list to the pending list.  */
   if (tab->version_info[version])
     {
-      info = (value_expr_p) tab->version_info[version]; 
-      for ( ; info->next; info = info->next)
-	continue;
-      info->next = tab->pending_dependence;
-      tab->pending_dependence = (value_expr_p)tab->version_info[version];
+      bitmap_ior_into (tab->pending_dependence, tab->version_info[version]);
+      BITMAP_FREE (tab->version_info[version]);
     }
-
+  
+  /* Set it to the replaceable expression.  */
   tab->version_info[version] = SSA_NAME_DEF_STMT (var);
 }
 
@@ -1689,11 +1591,17 @@ mark_replaceable (temp_expr_table_p tab, tree var)
 static inline void
 kill_expr (temp_expr_table_p tab, int partition, bool clear_bit)
 {
-  value_expr_p ptr;
+  unsigned i;
 
-  /* Mark every active expr dependent on this var as not replaceable.  */
-  while ((ptr = tab->partition_dep_list[partition]) != NULL)
-    finish_expr (tab, ptr->value, false);
+  /* Mark every active expr dependent on this var as not replaceable.  
+     finish_expr can modify the bitmap, so we can't execute over it.  */
+  while (tab->partition_dep_list[partition])
+    {
+      i = bitmap_first_set_bit (tab->partition_dep_list[partition]);
+      finish_expr (tab, i, false);
+    }
+
+  gcc_assert (!tab->partition_dep_list[partition]);
 
   if (clear_bit)
     bitmap_clear_bit (tab->partition_in_use, partition);
@@ -1721,7 +1629,6 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
   stmt_ann_t ann;
   int partition;
   var_map map = tab->map;
-  value_expr_p p;
   ssa_op_iter iter;
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -1774,11 +1681,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	check_replaceable (tab, stmt);
 
       /* Free any unused dependency lists.  */
-      while ((p = tab->pending_dependence))
-	{
-	  tab->pending_dependence = p->next;
-	  free_value_expr (tab, p);
-	}
+      bitmap_clear (tab->pending_dependence);
 
       /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand.  */
       if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
@@ -1810,9 +1713,16 @@ find_replaceable_exprs (var_map map)
 
       find_replaceable_in_bb (table, bb);
       EXECUTE_IF_SET_IN_BITMAP ((table->partition_in_use), 0, i, bi)
-        {
-	  kill_expr (table, i, false);
-	}
+	kill_expr (table, i, false);
+      bitmap_clear (table->partition_in_use);
+
+#ifdef ENABLE_CHECKING
+  for (i = 0; i < num_ssa_names + 1; i++)
+    if (bitmap_bit_p (table->replaceable, i))
+      gcc_assert (table->version_info[i] != NULL);
+    else
+      gcc_assert (table->version_info[i] == NULL);
+#endif
     }
 
   ret = free_temp_expr_table (table);
