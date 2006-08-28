@@ -737,14 +737,6 @@ note_vague_linkage_fn (tree decl)
     }
 }
 
-/* Like note_vague_linkage_fn but for variables.  */
-
-static void
-note_vague_linkage_var (tree var)
-{
-  VEC_safe_push (tree, gc, pending_statics, var);
-}
-
 /* We have just processed the DECL, which is a static data member.
    The other parameters are as for cp_finish_decl.  */
 
@@ -763,8 +755,8 @@ finish_static_data_member_decl (tree decl,
   if (!asmspec_tree && current_class_type)
     DECL_INITIAL (decl) = error_mark_node;
 
-  if (! processing_template_decl && TREE_PUBLIC (decl))
-    note_vague_linkage_var (decl);
+  if (! processing_template_decl)
+    VEC_safe_push (tree, gc, pending_statics, decl);
 
   if (LOCAL_CLASS_P (current_class_type))
     pedwarn ("local class %q#T shall not have static data member %q#D",

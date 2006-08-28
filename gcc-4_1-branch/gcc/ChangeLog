@@ -1,3 +1,10 @@
+2006-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28370
+	* decl2.c (note_vague_linkage_var): Removed.
+	(finish_static_data_member_decl): Add decl to pending_statics vector
+	directly.  Do it even for non-public decls.
+
 2006-06-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/26905
