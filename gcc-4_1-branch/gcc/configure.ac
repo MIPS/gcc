@@ -646,6 +646,7 @@ AC_ARG_ENABLE(decimal-float,
   if test x$enablevar = xyes ; then
     case $target in
     powerpc*-*-linux* | i?86*-*-linux*)
+      enable_decimal_float=yes
       ;;
     *)
       AC_MSG_WARN(decimal float is not supported for this target, ignored)
@@ -653,17 +654,7 @@ AC_ARG_ENABLE(decimal-float,
       ;;
     esac
   fi
-],
-[
-  case $target in
-  powerpc*-*-linux*)
-    enable_decimal_float=yes
-    ;;
-  *)
-    enable_decimal_float=no
-    ;;
-  esac
-])
+], [enable_decimal_float=no])
 
 AC_SUBST(enable_decimal_float)
 

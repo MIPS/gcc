@@ -6891,6 +6891,7 @@ if test "${enable_decimal_float+set}" = set; then
   if test x$enablevar = xyes ; then
     case $target in
     powerpc*-*-linux* | i?86*-*-linux*)
+      enable_decimal_float=yes
       ;;
     *)
       { echo "$as_me:$LINENO: WARNING: decimal float is not supported for this target" >&5
@@ -6901,16 +6902,7 @@ echo "$as_me: WARNING: decimal float is not supported for this target" >&2;}
   fi
 
 else
-
-  case $target in
-  powerpc*-*-linux*)
-    enable_decimal_float=yes
-    ;;
-  *)
-    enable_decimal_float=no
-    ;;
-  esac
-
+  enable_decimal_float=no
 fi;
 
 
@@ -7532,7 +7524,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7535: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7527: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[2-9]*)
