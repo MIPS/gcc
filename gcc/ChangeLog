@@ -1,5 +1,14 @@
 2006-08-28  Andrew MacLeod  <amacleod@redhat.com>
 
+	* common.opt (ftree-combine-temps): Remove.
+	* tree-outof-ssa.c (SSANORM_COMBINE_TEMPS): Remove.
+	(coalesce_ssa_name): Don't check for combine-temps.
+	(coalesce_vars): Remove.
+	(remove_ssa_form, insert_backedge_copies, rewrite_out_of_ssa): Don't 
+	check for combine-temps.
+
+2006-08-28  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-ssa-live.c (new_tree_live_info, delete_tree_live_info): Update.
 	(add_livein_if_notdef): Delete.
 	(loe_visit_block): New.  Propogate live on entry info for a block into
