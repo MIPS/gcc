@@ -1,6 +1,11 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-03-02  Ben Elliston  <bje@au.ibm.com>
+	* mklibgcc.in: Depend on config/dfp-bit.h in rules that compile
+	config/dfp-bit.c.
+
+	Backport from mainline
 	2006-03-01  Ben Elliston  <bje@au.ibm.com>
 	* config.gcc: Add t-dfprules to $tmake_file for powerpc-*-linux*
 	and powerpc64-*-linux* configurations.
