@@ -2346,6 +2346,9 @@ restriction is implicitly propagated to the template instantiation.
 Otherwise, template instantiations and specializations default to the
 visibility of their template.
 
+If both the template and enclosing class have explicit visibility, the
+visibility from the template is used.
+
 @item warn_unused_result
 @cindex @code{warn_unused_result} attribute
 The @code{warn_unused_result} attribute causes a warning to be emitted
@@ -3464,6 +3467,13 @@ In C++, attribute visibility (@pxref{Function Attributes}) can also be
 applied to class, struct, union and enum types.  Unlike other type
 attributes, the attribute must appear between the initial keyword and
 the name of the type; it cannot appear after the body of the type.
+
+Note that the type visibility is applied to vague linkage entities
+associated with the class (vtable, typeinfo node, etc.).  In
+particular, if a class is thrown as an exception in one shared object
+and caught in another, the class must have default visibility.
+Otherwise the two shared objects will be unable to use the same
+typeinfo node and exception handling will break.
 
 @subsection ARM Type Attributes
 

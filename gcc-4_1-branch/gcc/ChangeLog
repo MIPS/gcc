@@ -1,3 +1,7 @@
+2006-07-20  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (remove_attribute): New fn.
+
 2006-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/28370
