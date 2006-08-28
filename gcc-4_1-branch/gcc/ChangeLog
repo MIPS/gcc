@@ -1,6 +1,13 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-02-04  Ben Elliston  <bje@au.ibm.com>
+	* dfp.c (decimal_real_arithmetic): Change second argument type
+	from int to enum tree_code. Do not always return true, but now
+	return result of any call to decimal_do helper functions.
+	* dfp.h (decimal_real_arithmetic): Update prototype.
+
+	Backport from mainline
 	2006-01-25  Ben Elliston  <bje@au.ibm.com>
 	* dfp.c (dfp_byte_swap): Use uint32_t and not unsigned long.
 
