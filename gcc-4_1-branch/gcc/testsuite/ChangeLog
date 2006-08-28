@@ -1,6 +1,10 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-01-27  Ben Elliston  <bje@au.ibm.com>
+	* gcc.misc-tests/dectest.exp: Remove defunct comment.
+
+	Backport from mainline
 	2006-01-23  Ben Elliston  <bje@au.ibm.com>
 	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Include -Os.
 	Remove target conditional torture options for i?86 and x86_64
