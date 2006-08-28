@@ -3032,7 +3032,12 @@ push_namespace_with_attribs (tree name, tree attributes)
       /* Make a new namespace, binding the name to it.  */
       d = build_lang_decl (NAMESPACE_DECL, name, void_type_node);
       DECL_CONTEXT (d) = FROB_CONTEXT (current_namespace);
-      TREE_PUBLIC (d) = 1;
+      /* The name of this namespace is not visible to other translation
+	 units if it is an anonymous namespace or member thereof.  */
+      if (anon || decl_anon_ns_mem_p (current_namespace))
+	TREE_PUBLIC (d) = 0;
+      else
+	TREE_PUBLIC (d) = 1;
       pushdecl (d);
       if (anon)
 	{
@@ -4971,6 +4976,10 @@ pushtag (tree name, tree type, tag_scope scope)
   decl = TYPE_NAME (type);
   gcc_assert (TREE_CODE (decl) == TYPE_DECL);
   TYPE_STUB_DECL (type) = decl;
+
+  /* Set type visibility now if this is a forward declaration.  */
+  TREE_PUBLIC (decl) = 1;
+  determine_visibility (decl);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, type);
 }
