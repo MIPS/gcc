@@ -1,6 +1,10 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-03-06  Ben Elliston  <bje@au.ibm.com>
+	* config/dfp-bit.h (CMPtype): Typedef to a word mode integer.
+
+	Backport from mainline
 	2006-03-02  Ben Elliston  <bje@au.ibm.com>
 	* mklibgcc.in: Depend on config/dfp-bit.h in rules that compile
 	config/dfp-bit.c.
