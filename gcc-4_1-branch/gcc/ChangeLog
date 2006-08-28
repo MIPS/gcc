@@ -1,6 +1,15 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-03-01  Ben Elliston  <bje@au.ibm.com>
+	* mklibgcc.in: Add logic to handle $DFP_ENABLE and $DFP_CFLAGS.
+	Compile dfp-bit.c from the source directory using -DWIDTH and
+	$DFP_CFLAGS to control the compilation of that file, rather than
+	generating width-specific versions in the build directory.
+	* Makefile.in (libgcc.mk): Pass down DFP_ENABLE and DFP_CFLAGS.
+	(LIBGCC_DEPS): Replace $(D32PBIT) et al with config/dfp-bit.[hc].
+
+	Backport from mainline
 	2006-02-07  Ben Elliston  <bje@au.ibm.com>
 	* config/i386/i386.c (ix86_scalar_mode_supported_p): New.
 	(TARGET_SCALAR_MODE_SUPPORTED_P): Define hook.
