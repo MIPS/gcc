@@ -1,3 +1,10 @@
+2006-08-28  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline
+	2006-02-06  Ben Elliston  <bje@au.ibm.com>
+	* configure.ac: Unconditionally disable decimal float by default.
+	* configure: Regenerate.
+
 2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
