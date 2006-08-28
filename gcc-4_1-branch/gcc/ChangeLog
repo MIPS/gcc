@@ -1,6 +1,9 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	* gcc/config/t-dfprules: Fix a comment.
+
+	Backport from mainline
 	2006-03-06  Ben Elliston  <bje@au.ibm.com>
 	* config.gcc: Add t-dfprules to $tmake_file for i*86-*-linux* and
 	x86_64-*-linux* configurations.
