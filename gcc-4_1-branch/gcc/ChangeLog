@@ -1,6 +1,10 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-01-25  Ben Elliston  <bje@au.ibm.com>
+	* dfp.c (dfp_byte_swap): Use uint32_t and not unsigned long.
+
+	Backport from mainline
 	2006-01-21  Ben Elliston  <bje@au.ibm.com>
 	* varasm.c (assemble_real): Initialise data array.
 
