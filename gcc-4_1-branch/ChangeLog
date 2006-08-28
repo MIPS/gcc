@@ -1,4 +1,8 @@
-u006-08-25  Janis Johnson  <janis187@us.ibm.com>
+2006-08-28  Janis Johnson  <janis187@us.ibm.com>
+
+	* configure: Regenerate.
+
+2006-08-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
 	 2005-11-29  Ben Elliston  <bje@au.ibm.com>
