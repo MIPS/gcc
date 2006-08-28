@@ -1,5 +1,9 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline
+	2006-06-23  Ben Elliston  <bje@au.ibm.com>
+	* decNumber.h (decNumberNegate): Remove.
+
 	Backport from mainline (partial)
 	2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
         PR target/25259
