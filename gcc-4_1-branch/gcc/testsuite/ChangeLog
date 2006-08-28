@@ -1,5 +1,9 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
+	Backport from mainline (r114951)
+	2006-06-23  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.dg/dfp/usual-arith-conv-bad.c: New test.
+
 	Backport from mainline
 	2006-01-27  Ben Elliston  <bje@au.ibm.com>
 	* gcc.misc-tests/dectest.exp: Remove defunct comment.

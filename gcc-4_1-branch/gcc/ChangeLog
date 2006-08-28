@@ -1,6 +1,14 @@
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline
+	2006-06-23  Janis Johnson  <janis187@us.ibm.com>
+	* tree.h (DECIMAL_FLOAT_TYPE_P): New.
+	* c-typeck.c (c_common_type): Disallow operations on decimal float
+	types and other float types.
+	* convert.c (convert_to_real): Don't ignore conversions involving
+	decimal float types.
+
+	Backport from mainline
 	2006-06-23  Ben Elliston  <bje@au.ibm.com>
 	* dfp.c (decimal_to_decnumber): Do not use decNumberNegate to
 	negate dn -- manipulate it directly.

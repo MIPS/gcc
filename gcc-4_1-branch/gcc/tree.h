@@ -812,6 +812,11 @@ extern void tree_operand_check_failed (int, enum tree_code,
         || TREE_CODE (TYPE) == VECTOR_TYPE)	\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
+/* Nonzero if TYPE represents a decimal floating-point type.  */
+#define DECIMAL_FLOAT_TYPE_P(TYPE)		\
+  (SCALAR_FLOAT_TYPE_P (TYPE)			\
+   && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
+
 /* Nonzero if TYPE represents an aggregate (multi-component) type.
    Keep these checks in ascending code order.  */
 
