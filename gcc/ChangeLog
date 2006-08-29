@@ -1,3 +1,11 @@
+2006-08-29  Andrew MacLeod  <amacleod@redhat,com>
+
+	* tree-ssa-live.c (type_var_init): Remove.
+	* tree-ssa-live.h (type_var_num, type_var, type_var_first_partition,
+	type_var_next_partition, type_var_dump, type_var_delete,
+	type_var_remove_partition, type_var_find, type_var_compact,
+	type_var_decompact): Remove.
+
 2006-08-28  Andrew MacLeod  <amacleod@redhat.com>
 
 	* common.opt (ftree-combine-temps): Remove.
