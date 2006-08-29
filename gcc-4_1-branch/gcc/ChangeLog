@@ -1,5 +1,8 @@
 2006-08-29  Janis Johnson  <janis187@us.ibm.com>
 
+	* version.c (VERSUFFIX): Set to IBM.
+	(bug_report_url): Set to IBM Bugzilla.
+
 	* cse.c (find_comparison_args, fold_rtx): Fix merge problems.
 
 	* optabs.c (expand_float): Fix merge problem.
