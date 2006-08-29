@@ -1,4 +1,15 @@
+2006-08-29	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c:
+	* congraph.c: Removed unused headers
+	* Makefile.in (congraph.o): Added target
+	* ipa-stack-allocate.c: Miscelaneous comments and formatting changes
+
+2006-08-20	Paul Biggar	<paul.biggar@gmail.com>
+
+
 2006-08-21	Paul Biggar	<paul.biggar@gmail.com>
+
 	* ipa-stack-allocate.c: Removing comments.
 
 2006-08-20	Paul Biggar	<paul.biggar@gmail.com>

@@ -34,32 +34,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tm_p.h"
-#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "timevar.h"
-#include "expr.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "flags.h"
-#include "function.h"
 #include "diagnostic.h"
-#include "tree-dump.h"
-#include "tree-gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
-#include "tree-ssa-structalias.h"
-#include "convert.h"
-#include "params.h"
-#include "ipa-type-escape.h"
 #include "ipa-utils.h"
-#include "vec.h"
-#include "bitmap.h"
 #include "congraph.h"
 #include "java/java-tree.h"
 
-/*#define UNHIDE_IT*/
+#define UNHIDE_IT
 #ifdef UNHIDE_IT
 
 static tree
@@ -371,16 +358,15 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       q = get_existing_node (cg, q_name);
 
       /* it may be that the rvalue is a parameter to the function, in
-       * which case the node doesnt exist yet */
+       * which case the node doesnt exist yet (there are also cases in
+       * which the rhs hasnt been seen before */
       if (q == NULL)
 	{
-	  /* this is the only circumstance I know about for which this is
-	   * allowable, so if this isnt it, I don't know what's going on */
-	  gcc_assert (TREE_CODE (q_name) == PARM_DECL);
-
 	  /* add it to the graph */
 	  q = add_local_node (cg, q_name);
 	}
+
+      gcc_assert (q);
 
       if (get_edge (p, q) == NULL)
 	add_edge (p, q);
@@ -424,13 +410,13 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       /* for intraprocedural, just create node and make it ArgEsacpe */
       tree r_name;
       con_node r = NULL;
-      con_graph callee_cg;
 
       tree call_expr;
       tree addr_expr;
       tree function_decl;
       tree argument_list;
-      bool function_available;
+
+      bool function_in_java_lang_object;
 
       int i;
 
@@ -472,15 +458,16 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       function_decl = TREE_OPERAND (addr_expr, 0);
       argument_list = TREE_OPERAND (call_expr, 1);
 
-      /* might not be able to analyse it */
-      callee_cg = get_cg_for_function (cg, function_decl);
-      function_available = (callee_cg && argument_list);
+
+      function_in_java_lang_object = (object_type_node == DECL_CONTEXT (function_decl));
+
+      
 
       i = 1;
 
       /* Add special nodes for the function arguments */
       /* Choi99 4.4 */
-      while (function_available && argument_list)
+      while (!function_in_java_lang_object && argument_list)
 	{
 	  tree argument = TREE_VALUE (argument_list);
 	  if (is_pointer_type (argument))
@@ -489,13 +476,34 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 		get_caller_actual_node (cg, i, stmt);
 	      if (actual_node == NULL)
 		{
-		  con_node parameter_node;
-		  actual_node =
-		    add_caller_actual_node (cg, argument, i, stmt);
-		  parameter_node = get_existing_node (cg, argument);
-		  gcc_assert (parameter_node);
+		  con_node argument_node;
+		  actual_node = add_caller_actual_node (cg, argument, i,
+							stmt);
+		  argument_node = get_existing_node (cg, argument);
+
+		  if (argument_node == NULL)
+		    {
+		      /* this can be an ADDR_EXPR, which means &a, so we
+		       * add a, and we add &a, with an edge, if thats the
+		       * case */
+		      if (TREE_CODE (argument) == ADDR_EXPR)
+			{
+			  tree addressed_expr = TREE_OPERAND (argument, 0);
+			  con_node addressed_node = get_existing_node (cg,
+								       addressed_expr);
+			  if (addressed_node == NULL)
+			    addressed_node = add_local_node (cg, addressed_expr);
+			  argument_node = add_local_node (cg, argument);
+			  add_edge (argument_node, addressed_node);
+			}
+		      else
+			{
+			  argument_node = add_local_node (cg, argument);
+			}
+		    }
+		  gcc_assert (argument_node);
 		  gcc_assert (actual_node);
-		  add_edge (actual_node, parameter_node);
+		  add_edge (actual_node, argument_node);
 
 		  i++;
 		}
@@ -686,18 +694,14 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 
 
       q = get_existing_node (cg, q_name);
-      gcc_assert (q);
+
       /* it may be that the rvalue is a parameter to this function, in
        * which case the node doesnt exist yet */
       if (q == NULL)
 	{
-	  /* this is the only circumstance I know about for which this
-	   * is allowable, so if this isnt it, I don't know what's
-	   * going on */
-	  gcc_assert (TREE_CODE (SSA_NAME_VAR (q_name)) == PARM_DECL);
-
 	  /* add it to the graph */
 	  q = add_local_node (cg, q_name);
+	  q->phantom = true;
 	}
 
 
@@ -708,7 +712,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       if (u == NULL || get_terminal_nodes (q) != NULL)
 	{
 	  con_node terminal;
-	  u = get_existing_node (cg, stmt);
+	  u = get_existing_node (cg, stmt); /* 1-limited */
 	  if (u == NULL)
 	    {
 	      u =
@@ -736,6 +740,8 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 	      terminal->next_link = NULL;
 	      terminal = next;
 	    }
+	  /* this neednt be true, actually, since u->next_link might exist
+	   * */
 	  assert_all_next_link_free (cg);
 
 	}
@@ -825,7 +831,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 	}
       else
 	{
-	  /* fprintf (stderr, "HANDLED, BUT IGNORED: %s\n", reason); */
+	  fprintf (stderr, "HANDLED, BUT IGNORED: %s\n", reason);
 	}
 
     }
@@ -1105,7 +1111,7 @@ execute_ipa_stack_allocate (void)
 
 
 	  /* set up this functrion's connection graph */
-	  cg = new_con_graph (concat ("graphs/", current_function_name (),
+	  cg = new_con_graph (concat ("testing/graphs/", current_function_name (),
 				      (IDENTIFIER_POINTER
 				       (DECL_ASSEMBLER_NAME
 					(current_function_decl))), ".graph",
@@ -1159,6 +1165,13 @@ execute_ipa_stack_allocate (void)
 static bool
 gate_ipa_stack_allocate (void)
 {
+  if (flag_ipa_stack_allocate != 0)
+    {
+      fprintf (stderr, "Running\n");
+    }
+  else
+      fprintf (stderr, "Not running\n");
+
   return flag_ipa_stack_allocate != 0;
 }
 
@@ -1173,7 +1186,7 @@ struct tree_opt_pass pass_ipa_stack_allocate = {
   0,				/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
+  TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_start */
   TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_finish */
   0				/* letter */
 };
