@@ -1,5 +1,7 @@
 2006-08-29  Janis Johnson  <janis187@us.ibm.com>
 
+	* cse.c (find_comparison_args, fold_rtx): Fix merge problems.
+
 	* optabs.c (expand_float): Fix merge problem.
 
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
