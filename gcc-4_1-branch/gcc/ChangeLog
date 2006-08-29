@@ -1,3 +1,7 @@
+2006-08-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* optabs.c (expand_float): Fix merge problem.
+
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline

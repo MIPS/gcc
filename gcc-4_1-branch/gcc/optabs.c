@@ -4367,7 +4367,7 @@ expand_float (rtx to, rtx from, int unsignedp)
   /* Unsigned integer, and no way to convert directly.  For binary
      floating point modes, convert as signed, then conditionally adjust
      the result.  */
-  if (unsignedp && can_do_signed && !DECIMAL_FLOAT_MODE_P (GET_MODE (to)))
+  if (unsignedp && !DECIMAL_FLOAT_MODE_P (GET_MODE (to)))
     {
       rtx label = gen_label_rtx ();
       rtx temp;
