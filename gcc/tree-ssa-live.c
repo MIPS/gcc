@@ -166,7 +166,7 @@ var_union (var_map map, tree var1, tree var2)
    0..(num_partitions-1) instead of wherever they turned out during
    the partitioning exercise.  This removes any references to unused
    partitions, thereby allowing bitmaps and other vectors to be much
-   denser.  Compression type is controlled by FLAGS.
+   denser.  
 
    This is implemented such that compaction doesn't affect partitioning.
    Ie., once partitions are created and possibly merged, running one
@@ -179,18 +179,17 @@ var_union (var_map map, tree var1, tree var2)
    definitions, and then 'recompact' later to include all the single
    definitions for assignment to program variables.  */
 
-void 
-compact_var_map (var_map map, int flags)
+/* Set MAP back ot the initial state of having no form of partition compaction.
+   Return a bitmap which has a bit set for each partition number which is in 
+   use in the varmap.  */
+static bitmap
+partition_view_init (var_map map)
 {
-  sbitmap used;
-  int tmp, root, root_i;
-  unsigned int x, limit, count;
-  tree var;
-  root_var_p rv = NULL;
+  bitmap used;
+  int tmp;
+  unsigned int x;
 
-  limit = map->partition_size;
-  used = sbitmap_alloc (limit);
-  sbitmap_zero (used);
+  used = BITMAP_ALLOC (NULL);
 
   /* Already compressed? Abandon the old one.  */
   if (map->partition_to_compact)
@@ -204,65 +203,119 @@ compact_var_map (var_map map, int flags)
       map->compact_to_partition = NULL;
     }
 
-  map->num_partitions = map->partition_size;
-
-  if (flags & VARMAP_NO_SINGLE_DEFS)
-    rv = root_var_init (map);
-
-  map->partition_to_compact = (int *)xmalloc (limit * sizeof (int));
-  memset (map->partition_to_compact, 0xff, (limit * sizeof (int)));
-
   /* Find out which partitions are actually referenced.  */
-  count = 0;
-  for (x = 0; x < limit; x++)
+  for (x = 0; x < map->partition_size; x++)
     {
       tmp = partition_find (map->var_partition, x);
-      if (!TEST_BIT (used, tmp) && map->partition_to_var[tmp] != NULL_TREE)
-        {
-	  /* It is referenced, check to see if there is more than one version
-	     in the root_var table, if one is available.  */
-	  if (rv)
-	    {
-	      root = root_var_find (rv, tmp);
-	      root_i = root_var_first_partition (rv, root);
-	      /* If there is only one, don't include this in the compaction.  */
-	      if (root_var_next_partition (rv, root_i) == ROOT_VAR_NONE)
-	        continue;
-	    }
-	  SET_BIT (used, tmp);
-	  count++;
-	}
+      if (!bitmap_bit_p (used, tmp) && map->partition_to_var[tmp] != NULL_TREE)
+	bitmap_set_bit (used, tmp);
     }
 
-  /* Build a compacted partitioning.  */
-  if (count != limit)
-    {
-      sbitmap_iterator sbi;
+  map->num_partitions = map->partition_size;
+  return used;
+}
 
+
+/* This routine will build the compaction data for MAP based on the partitions
+   set in SELECTED. This is either the same bitmap returned from 
+   partition_view_init, or a trimmed down version if some of those partitions
+   were not desired in this compaction.  SELECTED is freed before returning.  */
+static void 
+partition_view_fini (var_map map, bitmap selected)
+{
+  bitmap_iterator bi;
+  unsigned count, i, x, limit;
+  tree var;
+
+  gcc_assert (selected);
+
+  count = bitmap_count_bits (selected);
+  limit = map->partition_size;
+  /* If its a one-to-one ratio, we don't need any compaction.  */
+  if (count < limit)
+    {
+      map->partition_to_compact = (int *)xmalloc (limit * sizeof (int));
+      memset (map->partition_to_compact, 0xff, (limit * sizeof (int)));
       map->compact_to_partition = (int *)xmalloc (count * sizeof (int));
-      count = 0;
-      /* SSA renaming begins at 1, so skip 0 when compacting.  */
-      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x, sbi)
+
+      i = 0;
+      /* Give each selected partition an index.  */
+      EXECUTE_IF_SET_IN_BITMAP (selected, 0, x, bi)
 	{
-	  map->partition_to_compact[x] = count;
-	  map->compact_to_partition[count] = x;
+	  map->partition_to_compact[x] = i;
+	  map->compact_to_partition[i] = x;
 	  var = map->partition_to_var[x];
+	  /* If any one of the members of a partition is not an SSA_NAME, make
+	     sure it is the representative.  */
 	  if (TREE_CODE (var) != SSA_NAME)
-	    change_partition_var (map, var, count);
-	  count++;
+	    change_partition_var (map, var, i);
+	  i++;
 	}
+      gcc_assert (i == count);
+      map->num_partitions = i;
     }
-  else
+
+  BITMAP_FREE (selected);
+}
+
+
+/* Create a partition view which includes all the partitions in MAP.  */
+extern void
+partition_view_normal (var_map map)
+{
+  bitmap used;
+
+  used = partition_view_init (map);
+  partition_view_fini (map, used);
+}
+
+
+/* Create a partition list for MAP in which only partitions which have a base 
+   variable used more than once.  */
+extern void
+partition_view_no_single_version (var_map map)
+{
+  bitmap used, select, decl, decl2;
+  bitmap_iterator bi;
+  unsigned x, uid;
+  tree var;
+
+  used = partition_view_init (map);
+  select = BITMAP_ALLOC (NULL);
+  decl = BITMAP_ALLOC (NULL);
+  decl2 = BITMAP_ALLOC (NULL);
+
+  /* Set the DECL and DECL2 bitmaps.  DECL indicates a decl has been seen,
+     DECL2 indicates its been seen more than once.  */
+  EXECUTE_IF_SET_IN_BITMAP (used, 0, x, bi)
     {
-      free (map->partition_to_compact);
-      map->partition_to_compact = NULL;
+      var = map->partition_to_var[x];
+      if (TREE_CODE (var) == SSA_NAME)
+        uid = DECL_UID (SSA_NAME_VAR (var));
+      else
+        uid = DECL_UID (var);
+      if (bitmap_bit_p (decl, uid))
+	bitmap_set_bit (decl2, uid);
+      else
+	bitmap_set_bit (decl, uid);
     }
 
-  map->num_partitions = count;
+  EXECUTE_IF_SET_IN_BITMAP (used, 0, x, bi)
+    {
+      var = map->partition_to_var[x];
+      if (TREE_CODE (var) == SSA_NAME)
+        uid = DECL_UID (SSA_NAME_VAR (var));
+      else
+        uid = DECL_UID (var);
+      /* If this UID has been seen twice or more, then include it.  */
+      if (bitmap_bit_p (decl2, uid))
+	bitmap_set_bit (select, x);
+    }
 
-  if (rv)
-    root_var_delete (rv);
-  sbitmap_free (used);
+  partition_view_fini (map, select);
+  BITMAP_FREE (used);
+  BITMAP_FREE (decl);
+  BITMAP_FREE (decl2);
 }
 
 
@@ -1283,12 +1336,10 @@ set_if_valid (var_map map, bitmap vec, tree var)
 }
 
 /* Return a conflict graph for the information contained in LIVE_INFO.  Only
-   conflicts between items in the same TPA list are added.  If optional 
-   coalesce list CL is passed in, any copies encountered are added.  */
+   conflicts between items in the same TPA list are added.  */
 
 conflict_graph
-build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa, 
-			   coalesce_list_p cl)
+build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa)
 {
   conflict_graph graph;
   var_map map;
@@ -1365,10 +1416,6 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 		  add_conflicts_if_valid (tpa, graph, map, live, lhs);
 		  if (bit)
 		    bitmap_set_bit (live, p2);
-		  if (cl)
-		    add_coalesce (cl, p1, p2,
-				  coalesce_cost (bb->frequency,
-				                 maybe_hot_bb_p (bb), false));
 		  set_if_valid (map, live, rhs);
 		}
 	    }

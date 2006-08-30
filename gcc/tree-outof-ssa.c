@@ -718,10 +718,11 @@ coalesce_phi_operands (var_map map, coalesce_list_p cl)
 /* Coalesce all the result decls together.  */
 
 static void
-coalesce_result_decls (var_map map, coalesce_list_p cl)
+coalesce_result_decls_and_copies (var_map map, coalesce_list_p cl)
 {
   unsigned int i, x;
   tree var = NULL;
+  tree stmt;
 
   for (i = x = 0; x < num_var_partitions (map); x++)
     {
@@ -739,6 +740,22 @@ coalesce_result_decls (var_map map, coalesce_list_p cl)
 					 maybe_hot_bb_p (EXIT_BLOCK_PTR),
 					 false));
 	}
+      else
+        /* Add coalesces between copies seen in the IL as well.  */
+        if ((stmt = SSA_NAME_DEF_STMT (p)) != NULL_TREE)
+	  {
+	    if (TREE_CODE (stmt) == MODIFY_EXPR 
+		&& TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME)
+	      {
+	        int p = var_to_partition (map, TREE_OPERAND (stmt, 1));
+		basic_block bb = bb_for_stmt (stmt);
+		if (p != NO_PARTITION)
+		  add_coalesce (cl, x, p,
+				coalesce_cost (bb->frequency,
+					       maybe_hot_bb_p (bb),
+					       false));
+	      }
+	  }
     }
 }
 
@@ -819,8 +836,20 @@ coalesce_ssa_name (var_map map, int flags)
   coalesce_list_p cl = NULL;
   sbitmap_iterator sbi;
 
+  /* Don't calculate live ranges for variables with only one SSA version.  */
+  partition_view_no_single_version (map);
+
   if (num_var_partitions (map) <= 1)
     return NULL;
+
+  cl = create_coalesce_list (map);
+
+  coalesce_phi_operands (map, cl);
+  coalesce_result_decls_and_copies (map, cl);
+  coalesce_asm_operands (map, cl);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_var_map (dump_file, map);
 
   liveinfo = calculate_live_ranges (map);
   rv = root_var_init (map);
@@ -828,30 +857,21 @@ coalesce_ssa_name (var_map map, int flags)
   /* Remove single element variable from the list.  */
   root_var_compact (rv);
 
-  cl = create_coalesce_list (map);
-
-  coalesce_phi_operands (map, cl);
-  coalesce_result_decls (map, cl);
-  coalesce_asm_operands (map, cl);
-
   /* Build a conflict graph.  */
-  graph = build_tree_conflict_graph (liveinfo, rv, cl);
+  graph = build_tree_conflict_graph (liveinfo, rv);
 
-  if (cl)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "Before sorting:\n");
-	  dump_coalesce_list (dump_file, cl);
-	}
+      fprintf (dump_file, "Before sorting:\n");
+      dump_coalesce_list (dump_file, cl);
+    }
 
-      sort_coalesce_list (cl);
+  sort_coalesce_list (cl);
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "\nAfter sorting:\n");
-	  dump_coalesce_list (dump_file, cl);
-	}
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nAfter sorting:\n");
+      dump_coalesce_list (dump_file, cl);
     }
 
   /* Put the single element variables back in.  */
@@ -2127,17 +2147,10 @@ remove_ssa_form (var_map map, int flags)
   tree phi, next;
   tree *values = NULL;
 
-  /* If we are not combining temps, don't calculate live ranges for variables
-     with only one SSA version.  */
-  compact_var_map (map, VARMAP_NO_SINGLE_DEFS);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_var_map (dump_file, map);
-
   liveinfo = coalesce_ssa_name (map, flags);
 
-  /* Make sure even single occurrence variables are in the list now.  */
-  compact_var_map (map, VARMAP_NORMAL);
+  /* Make sure all variables are in the list.  */
+  partition_view_normal (map);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

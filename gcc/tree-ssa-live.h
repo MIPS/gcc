@@ -51,17 +51,13 @@ typedef struct _var_map
 
 #define NO_PARTITION		-1
 
-/* Flags to pass to compact_var_map  */
-
-#define VARMAP_NORMAL		0
-#define VARMAP_NO_SINGLE_DEFS	1
-
 extern var_map init_var_map (int);
 extern void delete_var_map (var_map);
 extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
-extern void compact_var_map (var_map, int);
+extern void partition_view_normal (var_map);
+extern void partition_view_no_single_version (var_map);
 #ifdef ENABLE_CHECKING
 extern void register_ssa_partition_check (tree ssa_var);
 #endif
@@ -581,8 +577,7 @@ extern void delete_coalesce_list (coalesce_list_p);
 
 #define NO_BEST_COALESCE	-1
 
-extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p,
-						 coalesce_list_p);
+extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p);
 extern void coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 				  coalesce_list_p cl, FILE *);
 
