@@ -42,10 +42,14 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.beans.PropertyChangeEvent;
@@ -55,10 +59,10 @@ import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
-import javax.swing.KeyStroke;
 import javax.swing.LookAndFeel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -79,7 +83,6 @@ import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.Keymap;
 import javax.swing.text.Position;
-import javax.swing.text.Utilities;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 
@@ -414,7 +417,19 @@ public abstract class BasicTextUI extends TextUI
       if (event.getPropertyName().equals("document"))
         {
           // Document changed.
-	      modelChanged();
+          Object oldValue = event.getOldValue();
+          if (oldValue != null)
+            {
+              Document oldDoc = (Document) oldValue;
+              oldDoc.removeDocumentListener(documentHandler);
+            }
+          Object newValue = event.getNewValue();
+          if (newValue != null)
+            {
+              Document newDoc = (Document) newValue;
+              newDoc.addDocumentListener(documentHandler);
+            }
+          modelChanged();
         }
 
       BasicTextUI.this.propertyChange(event);
@@ -436,6 +451,9 @@ public abstract class BasicTextUI extends TextUI
      */
     public void changedUpdate(DocumentEvent ev)
     {
+      // Updates are forwarded to the View even if 'getVisibleEditorRect'
+      // method returns null. This means the View classes have to be
+      // aware of that possibility.
       rootView.changedUpdate(ev, getVisibleEditorRect(),
                              rootView.getViewFactory());
     }
@@ -447,6 +465,9 @@ public abstract class BasicTextUI extends TextUI
      */
     public void insertUpdate(DocumentEvent ev)
     {
+      // Updates are forwarded to the View even if 'getVisibleEditorRect'
+      // method returns null. This means the View classes have to be
+      // aware of that possibility.
       rootView.insertUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
     }
@@ -458,6 +479,9 @@ public abstract class BasicTextUI extends TextUI
      */
     public void removeUpdate(DocumentEvent ev)
     {
+      // Updates are forwarded to the View even if 'getVisibleEditorRect'
+      // method returns null. This means the View classes have to be
+      // aware of that possibility.
       rootView.removeUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
     }
@@ -486,18 +510,6 @@ public abstract class BasicTextUI extends TextUI
 
   /** The DocumentEvent handler. */
   DocumentHandler documentHandler = new DocumentHandler();
-
-  /**
-   * The standard background color. This is the color which is used to paint
-   * text in enabled text components.
-   */
-  Color background;
-
-  /**
-   * The inactive background color. This is the color which is used to paint
-   * text in disabled text components.
-   */
-  Color inactiveBackground;
 
   /**
    * Creates a new <code>BasicTextUI</code> instance.
@@ -545,23 +557,23 @@ public abstract class BasicTextUI extends TextUI
    */
   public void installUI(final JComponent c)
   {
-    super.installUI(c);
-    c.setOpaque(true);
-
     textComponent = (JTextComponent) c;
+    installDefaults();
+    textComponent.addPropertyChangeListener(updateHandler);
     Document doc = textComponent.getDocument();
     if (doc == null)
       {
         doc = getEditorKit(textComponent).createDefaultDocument();
         textComponent.setDocument(doc);
       }
-    installDefaults();
+    else
+      {
+        doc.addDocumentListener(documentHandler);
+        modelChanged();
+      }
+
     installListeners();
     installKeyboardActions();
-
-    // We need to trigger this so that the view hierarchy gets initialized.
-    modelChanged();
-
   }
 
   /**
@@ -569,32 +581,60 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void installDefaults()
   {
-    Caret caret = textComponent.getCaret();
-    if (caret == null)
-      {
-        caret = createCaret();
-        textComponent.setCaret(caret);
-      }
-
-    Highlighter highlighter = textComponent.getHighlighter();
-    if (highlighter == null)
-      textComponent.setHighlighter(createHighlighter());
-
     String prefix = getPropertyPrefix();
+    // Install the standard properties.
     LookAndFeel.installColorsAndFont(textComponent, prefix + ".background",
                                      prefix + ".foreground", prefix + ".font");
     LookAndFeel.installBorder(textComponent, prefix + ".border");
     textComponent.setMargin(UIManager.getInsets(prefix + ".margin"));
 
-    caret.setBlinkRate(UIManager.getInt(prefix + ".caretBlinkRate"));
+    // Some additional text component only properties.
+    Color color = textComponent.getCaretColor();
+    if (color == null || color instanceof UIResource)
+      {
+        color = UIManager.getColor(prefix + ".caretForeground");
+        textComponent.setCaretColor(color);
+      }
 
     // Fetch the colors for enabled/disabled text components.
-    background = UIManager.getColor(prefix + ".background");
-    inactiveBackground = UIManager.getColor(prefix + ".inactiveBackground");
-    textComponent.setDisabledTextColor
-                         (UIManager.getColor(prefix + ".inactiveForeground"));
-    textComponent.setSelectedTextColor(UIManager.getColor(prefix + ".selectionForeground"));
-    textComponent.setSelectionColor(UIManager.getColor(prefix + ".selectionBackground"));    
+    color = textComponent.getDisabledTextColor();
+    if (color == null || color instanceof UIResource)
+      {
+        color = UIManager.getColor(prefix + ".inactiveBackground");
+        textComponent.setDisabledTextColor(color);
+      }
+    color = textComponent.getSelectedTextColor();
+    if (color == null || color instanceof UIResource)
+      {
+        color = UIManager.getColor(prefix  + ".selectionForeground");
+        textComponent.setSelectedTextColor(color);
+      }
+    color = textComponent.getSelectionColor();
+    if (color == null || color instanceof UIResource)
+      {
+        color = UIManager.getColor(prefix  + ".selectionBackground");
+        textComponent.setSelectionColor(color);    
+      }
+
+    Insets margin = textComponent.getMargin();
+    if (margin == null || margin instanceof UIResource)
+      {
+        margin = UIManager.getInsets(prefix + ".margin");
+        textComponent.setMargin(margin);
+      }
+
+    Caret caret = textComponent.getCaret();
+    if (caret == null || caret instanceof UIResource)
+      {
+        caret = createCaret();
+        textComponent.setCaret(caret);
+        caret.setBlinkRate(UIManager.getInt(prefix + ".caretBlinkRate"));
+      }
+
+    Highlighter highlighter = textComponent.getHighlighter();
+    if (highlighter == null || highlighter instanceof UIResource)
+      textComponent.setHighlighter(createHighlighter());
+
   }
 
   /**
@@ -608,6 +648,45 @@ public abstract class BasicTextUI extends TextUI
       public void focusLost(FocusEvent e)
       {
         textComponent.repaint();
+        
+        // Integrates Swing text components with the system clipboard:
+        // The idea is that if one wants to copy text around X11-style
+        // (select text and middle-click in the target component) the focus
+        // will move to the new component which gives the old focus owner the
+        // possibility to paste its selection into the clipboard.
+        if (!e.isTemporary()
+            && textComponent.getSelectionStart()
+               != textComponent.getSelectionEnd())
+          {
+            SecurityManager sm = System.getSecurityManager();
+            try
+              {
+                if (sm != null)
+                  sm.checkSystemClipboardAccess();
+                
+                Clipboard cb = Toolkit.getDefaultToolkit().getSystemSelection();
+                if (cb != null)
+                  {
+                    StringSelection selection = new StringSelection(
+                        textComponent.getSelectedText());
+                    cb.setContents(selection, selection);
+                  }
+              }
+            catch (SecurityException se)
+              {
+                // Not allowed to access the clipboard: Ignore and
+                // do not access it.
+              }
+            catch (HeadlessException he)
+              {
+                // There is no AWT: Ignore and do not access the
+                // clipboard.
+              }
+            catch (IllegalStateException ise)
+            {
+                // Clipboard is currently unavaible.
+            }
+          }
       }
     };
 
@@ -617,18 +696,6 @@ public abstract class BasicTextUI extends TextUI
   protected void installListeners()
   {
     textComponent.addFocusListener(focuslistener);
-    textComponent.addPropertyChangeListener(updateHandler);
-    installDocumentListeners();
-  }
-
-  /**
-   * Installs the document listeners on the textComponent's model.
-   */
-  private void installDocumentListeners()
-  {
-    Document doc = textComponent.getDocument();
-    if (doc != null)
-      doc.addDocumentListener(documentHandler);
   }
 
   /**
@@ -655,33 +722,23 @@ public abstract class BasicTextUI extends TextUI
    */
   protected Keymap createKeymap()
   {
-    // FIXME: It seems to me that this method implementation is wrong. It seems
-    // to fetch the focusInputMap and transform it to the KeyBinding/Keymap
-    // implemenation. I would think that it should be done the other way,
-    // fetching the keybindings (from prefix + ".bindings") and transform
-    // it to the newer InputMap/ActionMap implementation.
-    JTextComponent.KeyBinding[] bindings = null;
-    String prefix = getPropertyPrefix();
-    InputMapUIResource m = (InputMapUIResource) UIManager.get(prefix + ".focusInputMap");
-    if (m != null)
+    String keymapName = getKeymapName();
+    Keymap keymap = JTextComponent.getKeymap(keymapName);
+    if (keymap == null)
       {
-        KeyStroke[] keys = m.keys();
-        int len = keys.length;
-        bindings = new JTextComponent.KeyBinding[len];
-        for (int i = 0; i < len; i++)
+        Keymap parentMap =
+          JTextComponent.getKeymap(JTextComponent.DEFAULT_KEYMAP);
+        keymap = JTextComponent.addKeymap(keymapName, parentMap);
+        Object val = UIManager.get(getPropertyPrefix() + ".keyBindings");
+        if (val != null && val instanceof JTextComponent.KeyBinding[])
           {
-            KeyStroke curr = keys[i];
-            bindings[i] = new JTextComponent.KeyBinding(curr,
-                                                        (String) m.get(curr));
+            JTextComponent.KeyBinding[] bindings =
+              (JTextComponent.KeyBinding[]) val;
+            JTextComponent.loadKeymap(keymap, bindings,
+                                      getComponent().getActions());
           }
       }
-    if (bindings == null)
-      bindings = new JTextComponent.KeyBinding[0];
-
-    Keymap km = JTextComponent.addKeymap(getKeymapName(), 
-                                         JTextComponent.getKeymap(JTextComponent.DEFAULT_KEYMAP));    
-    JTextComponent.loadKeymap(km, bindings, textComponent.getActions());
-    return km;    
+    return keymap;
   }
 
   /**
@@ -689,26 +746,13 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void installKeyboardActions()
   {
-    // load key bindings for the older interface
-    Keymap km = JTextComponent.getKeymap(getKeymapName());
-    if (km == null)
-      km = createKeymap();
-    textComponent.setKeymap(km);
+    // This is only there for backwards compatibility.
+    textComponent.setKeymap(createKeymap());
 
     // load any bindings for the newer InputMap / ActionMap interface
     SwingUtilities.replaceUIInputMap(textComponent, JComponent.WHEN_FOCUSED,
-                                     getInputMap(JComponent.WHEN_FOCUSED));
-    SwingUtilities.replaceUIActionMap(textComponent, createActionMap());
-    
-    ActionMap parentActionMap = new ActionMapUIResource();
-    Action[] actions = textComponent.getActions();
-    for (int j = 0; j < actions.length; j++)
-      {
-        Action currAction = actions[j];
-        parentActionMap.put(currAction.getValue(Action.NAME), currAction);
-      }
-    
-    SwingUtilities.replaceUIActionMap(textComponent, parentActionMap);
+                                     getInputMap());
+    SwingUtilities.replaceUIActionMap(textComponent, getActionMap());
   }
   
   /**
@@ -716,40 +760,71 @@ public abstract class BasicTextUI extends TextUI
    * 
    * @return an ActionMap to be installed on the text component
    */
-  ActionMap createActionMap()
+  private ActionMap getActionMap()
   {
-    Action[] actions = textComponent.getActions();
-    ActionMap am = new ActionMapUIResource();
-    for (int i = 0; i < actions.length; ++i)
+    // Note: There are no .actionMap entries in the standard L&Fs. However,
+    // with the RI it is possible to install action maps via such keys, so
+    // we must load them too. It can be observed that when there is no
+    // .actionMap entry in the UIManager, one gets installed after a text
+    // component of that type has been loaded.
+    String prefix = getPropertyPrefix();
+    String amName = prefix + ".actionMap";
+    ActionMap am = (ActionMap) UIManager.get(amName);
+    if (am == null)
       {
-        String name = (String) actions[i].getValue(Action.NAME);
-        if (name != null)
-          am.put(name, actions[i]);
+        am = createActionMap();
+        UIManager.put(amName, am);
       }
+
+    ActionMap map = new ActionMapUIResource();
+    map.setParent(am);
+
+    return map;
+  }
+
+  /**
+   * Creates a default ActionMap for text components that have no UI default
+   * for this (the standard for the built-in L&Fs). The ActionMap is copied
+   * from the text component's getActions() method.
+   *
+   * @returna default ActionMap
+   */
+  private ActionMap createActionMap()
+  {
+    ActionMap am = new ActionMapUIResource();
+    Action[] actions = textComponent.getActions();
+    for (int i = actions.length - 1; i >= 0; i--)
+      {
+        Action action = actions[i];
+        am.put(action.getValue(Action.NAME), action);
+      }
+    // Add TransferHandler's actions here. They don't seem to be in the
+    // JTextComponent's default actions, and I can't make up a better place
+    // to add them.
+    Action copyAction = TransferHandler.getCopyAction();
+    am.put(copyAction.getValue(Action.NAME), copyAction);
+    Action cutAction = TransferHandler.getCutAction();
+    am.put(cutAction.getValue(Action.NAME), cutAction);
+    Action pasteAction = TransferHandler.getPasteAction();
+    am.put(pasteAction.getValue(Action.NAME), pasteAction);
+
     return am;
   }
 
   /**
    * Gets the input map for the specified <code>condition</code>.
    *
-   * @param condition the condition for the InputMap
-   *
    * @return the InputMap for the specified condition
    */
-  InputMap getInputMap(int condition)
+  private InputMap getInputMap()
   {
+    InputMap im = new InputMapUIResource();
     String prefix = getPropertyPrefix();
-    switch (condition)
-      {
-      case JComponent.WHEN_IN_FOCUSED_WINDOW:
-        // FIXME: is this the right string? nobody seems to use it.
-        return (InputMap) UIManager.get(prefix + ".windowInputMap"); 
-      case JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT:
-        return (InputMap) UIManager.get(prefix + ".ancestorInputMap");
-      default:
-      case JComponent.WHEN_FOCUSED:
-        return (InputMap) UIManager.get(prefix + ".focusInputMap");
-      }
+    InputMap shared =
+      (InputMap) SharedUIDefaults.get(prefix + ".focusInputMap");
+    if (shared != null)
+      im.setParent(shared);
+    return im;
   }
 
   /**
@@ -784,9 +859,7 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void uninstallListeners()
   {
-    textComponent.removePropertyChangeListener(updateHandler);
     textComponent.removeFocusListener(focuslistener);
-    textComponent.getDocument().removeDocumentListener(documentHandler);
   }
 
   /**
@@ -795,7 +868,9 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void uninstallKeyboardActions()
   {
-    // FIXME: Uninstall keyboard actions here.
+    SwingUtilities.replaceUIInputMap(textComponent, JComponent.WHEN_FOCUSED, 
+                                     null);
+    SwingUtilities.replaceUIActionMap(textComponent, null);
   }
 
   /**
@@ -966,7 +1041,7 @@ public abstract class BasicTextUI extends TextUI
    */
   public void damageRange(JTextComponent t, int p0, int p1)
   {
-    damageRange(t, p0, p1, null, null);
+    damageRange(t, p0, p1, Position.Bias.Forward, Position.Bias.Backward);
   }
 
   /**
@@ -986,83 +1061,35 @@ public abstract class BasicTextUI extends TextUI
   public void damageRange(JTextComponent t, int p0, int p1,
                           Position.Bias firstBias, Position.Bias secondBias)
   {
-    try
+    Rectangle alloc = getVisibleEditorRect();
+    if (alloc != null)
       {
-        // Limit p0 and p1 to sane values to prevent unfriendly
-        // BadLocationExceptions. This makes it possible for the highlighter
-        // to send us illegal values which can happen when a large number
-        // of selected characters are removed (eg. by pressing delete
-        // or backspace).
-        // The reference implementation does not throw an exception, too.
-        p0 = Math.min(p0, t.getDocument().getLength());
-        p1 = Math.min(p1, t.getDocument().getLength());
+        Document doc = t.getDocument();
 
-        Rectangle l1 = modelToView(t, p0, firstBias);
-        Rectangle l2 = modelToView(t, p1, secondBias);
-        if (l1.y == l2.y)
-          t.repaint(l1.union(l2));
-        else
+        // Acquire lock here to avoid structural changes in between.
+        if (doc instanceof AbstractDocument)
+          ((AbstractDocument) doc).readLock();
+        try
           {
-            // The two rectangles lie on different lines and we need a
-            // different algorithm to calculate the damaged area:
-            // 1. The line of p0 is damaged from the position of p0
-            // to the right border.
-            // 2. All lines between the ones where p0 and p1 lie on
-            // are completely damaged. Use the allocation area to find
-            // out the bounds.
-            // 3. The final line is damaged from the left bound to the
-            // position of p1.
-            Insets insets = t.getInsets();
-
-            // Damage first line until the end.
-            l1.width = insets.right + t.getWidth() - l1.x;
-            t.repaint(l1);
-            
-            // Note: Utilities.getPositionBelow() may return the offset
-            // that was put in. In that case there is no next line and
-            // we should stop searching for one.
-            
-            int posBelow = Utilities.getPositionBelow(t, p0, l1.x);
-            if (posBelow < p1 && posBelow != -1 && posBelow != p0)
-              {
-                // Take the rectangle of the offset we just found and grow it
-                // to the maximum width. Retain y because this is our start
-                // height.
-                Rectangle grow = modelToView(t, posBelow);
-                grow.x = insets.left;
-                grow.width = t.getWidth() + insets.right;
-                
-                // Find further lines which have to be damaged completely.
-                int nextPosBelow = posBelow;
-                while (nextPosBelow < p1 && nextPosBelow != -1 && posBelow != nextPosBelow)
-                  {
-                    posBelow = nextPosBelow;
-                    nextPosBelow = Utilities.getPositionBelow(t, posBelow, l1.x);
-                  }
-                // Now posBelow is an offset on the last line which has to be damaged
-                // completely. (newPosBelow is on the same line as p1)
-                 
-                // Retrieve the rectangle of posBelow and use its y and height
-                // value to calculate the final height of the multiple line
-                // spanning rectangle.
-                Rectangle end = modelToView(t, posBelow);
-                grow.height = end.y + end.height - grow.y;
-                
-                // Mark that area as damage.
-                t.repaint(grow);
-              }
-            
-            // Damage last line from its beginning to the position of p1.
-            l2.width += l2.x;
-            l2.x = insets.left;
-            t.repaint(l2);
+            rootView.setSize(alloc.width, alloc.height);
+            Shape damage = rootView.modelToView(p0, firstBias, p1, secondBias,
+                                                alloc);
+            Rectangle r = damage instanceof Rectangle ? (Rectangle) damage
+                                                      : damage.getBounds();
+            textComponent.repaint(r.x, r.y, r.width, r.height);
           }
-      }
-    catch (BadLocationException ex)
-      {
-        AssertionError err = new AssertionError("Unexpected bad location");
-        err.initCause(ex);
-        throw err;
+        catch (BadLocationException ex)
+          {
+            // Lets ignore this as it causes no serious problems.
+            // For debugging, comment this out.
+            // ex.printStackTrace();
+          }
+        finally
+          {
+            // Release lock.
+            if (doc instanceof AbstractDocument)
+              ((AbstractDocument) doc).readUnlock();
+          }
       }
   }
 
@@ -1099,7 +1126,12 @@ public abstract class BasicTextUI extends TextUI
                                        Position.Bias[] biasRet)
     throws BadLocationException
   {
-    return 0; // TODO: Implement me.
+    // A comment in the spec of NavigationFilter.getNextVisualPositionFrom()
+    // suggests that this method should be implemented by forwarding the call
+    // the root view.
+    return rootView.getNextVisualPositionFrom(pos, b,
+                                              getVisibleEditorRect(),
+                                              direction, biasRet);
   }
 
   /**
@@ -1155,7 +1187,29 @@ public abstract class BasicTextUI extends TextUI
   public Rectangle modelToView(JTextComponent t, int pos, Position.Bias bias)
     throws BadLocationException
   {
-    return rootView.modelToView(pos, getVisibleEditorRect(), bias).getBounds();
+    // We need to read-lock here because we depend on the document
+    // structure not beeing changed in between.
+    Document doc = textComponent.getDocument();
+    if (doc instanceof AbstractDocument)
+      ((AbstractDocument) doc).readLock();
+    Rectangle rect = null;
+    try
+      {
+        Rectangle r = getVisibleEditorRect();
+        if (r != null)
+          {
+            rootView.setSize(r.width, r.height);
+            Shape s = rootView.modelToView(pos, r, bias);
+            if (s != null)
+              rect = s.getBounds();
+          }
+      }
+    finally
+      {
+        if (doc instanceof AbstractDocument)
+          ((AbstractDocument) doc).readUnlock();
+      }
+    return rect;
   }
 
   /**
@@ -1232,8 +1286,9 @@ public abstract class BasicTextUI extends TextUI
     int width = textComponent.getWidth();
     int height = textComponent.getHeight();
 
+    // Return null if the component has no valid size.
     if (width <= 0 || height <= 0)
-      return new Rectangle(0, 0, 0, 0);
+      return null;
 	
     Insets insets = textComponent.getInsets();
     return new Rectangle(insets.left, insets.top,
@@ -1267,7 +1322,6 @@ public abstract class BasicTextUI extends TextUI
     Document doc = textComponent.getDocument();
     if (doc == null)
       return;
-    installDocumentListeners();
     Element elem = doc.getDefaultRootElement();
     if (elem == null)
       return;

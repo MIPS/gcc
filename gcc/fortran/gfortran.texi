@@ -61,7 +61,7 @@ texts being (a) (see below), and with the Back-Cover Texts being (b)
 @end copying
 
 @ifinfo
-@dircategory Programming
+@dircategory Software development
 @direntry
 * gfortran: (gfortran).                  The GNU Fortran 95 Compiler.
 @end direntry
@@ -607,7 +607,7 @@ this is also missing, the default is @file{/tmp}.
 @node GFORTRAN_UNBUFFERED_ALL
 @section @env{GFORTRAN_UNBUFFERED_ALL}---Don't buffer output
 
-This environment variable controls wether all output is unbuffered.
+This environment variable controls whether all output is unbuffered.
 If the first letter is @samp{y}, @samp{Y} or @samp{1}, all output is
 unbuffered. This will slow down large writes.  If the first letter is
 @samp{n}, @samp{N}  or @samp{0}, output is buffered.  This is the
@@ -743,6 +743,7 @@ of extensions, and @option{-std=legacy} allows both without warning.
 * Extensions to namelist::
 * X format descriptor::
 * Commas in FORMAT specifications::
+* Missing period in FORMAT specifications::
 * I/O item lists::
 * Hexadecimal constants::
 * Real array indices::
@@ -799,6 +800,9 @@ Examples of standard conforming code equivalent to the above example, are:
       DOUBLE PRECISION x(2,2)
       DATA i,j,x /1,2,3*0.,1./
 @end smallexample
+
+Note that variables initialized in type declarations
+automatically acquire the @code{SAVE} attribute.
 
 @node Extensions to namelist
 @section Extensions to namelist
@@ -857,6 +861,15 @@ PROGRAM test_print
 END PROGRAM test_print
 @end smallexample
 
+Expanded namelist reads are permitted.  This causes an error if -std=f95
+is used.  In the following example, the first element of the array will be
+given the value 0.00 and succeeding elements will be 1.00 and 2.00.
+@smallexample
+&MYNML
+  X(1,1) = 0.00 , 1.00 , 2.00
+/
+@end smallexample
+
 @node X format descriptor
 @section X format descriptor
 @cindex X format descriptor
@@ -883,6 +896,21 @@ descriptors in FORMAT statements.
 10     FORMAT ('FOO='I1' BAR='I2)
 @end smallexample
 
+
+@node Missing period in FORMAT specifications
+@section Missing period in FORMAT specifications
+@cindex Missing period in FORMAT specifications
+
+To support legacy codes, @command{gfortran} allows missing periods in format
+specifications if and only if -std=legacy is given on the command line.  This
+is considered non-conforming code and is discouraged.
+
+@smallexample
+       REAL :: value
+       READ(*,10) value
+10     FORMAT ('F4')
+@end smallexample
+
 @node I/O item lists
 @section I/O item lists
 @cindex I/O item lists
@@ -897,6 +925,20 @@ statements to start with a comma.
 
 As a GNU extension, @command{gfortran} allows hexadecimal constants to
 be specified using the X prefix, in addition to the standard Z prefix.
+BOZ literal constants can also be specified by adding a suffix to the string.
+For example, @code{Z'ABC'} and @code{'ABC'Z} are the same constant.
+
+The Fortran standard restricts the appearance of a BOZ literal constant to
+the @code{DATA} statement, and it is expected to be assigned to an 
+@code{INTEGER} variable.  @command{gfortran} permits a BOZ to appear
+in any initialization expression as well as assignment statements.
+
+The use of a BOZ literal constant to initialize a @code{REAL} variable will 
+lead to confusion.  A BOZ literal constant is converted to an
+@code{INTEGER} with the kind type with the largest decimal representation
+before a conversion to a @code{REAL} variable.  That is, one should not
+expect a bitwise copy of the BOZ literal constant to be assigned to the
+@code{REAL}.
 
 @node Real array indices
 @section Real array indices
@@ -1082,12 +1124,27 @@ pointers will ``incorrectly'' optimize code with illegal aliasing.)
 
 There are a number of restrictions on the attributes that can be
 applied to Cray pointers and pointees.  Pointees may not have the
-attributes ALLOCATABLE, INTENT, OPTIONAL, DUMMY, TARGET, EXTERNAL,
+attributes ALLOCATABLE, INTENT, OPTIONAL, DUMMY, TARGET,
 INTRINSIC, or POINTER.  Pointers may not have the attributes
 DIMENSION, POINTER, TARGET, ALLOCATABLE, EXTERNAL, or INTRINSIC.
 Pointees may not occur in more than one pointer statement.  A pointee
 cannot be a pointer.  Pointees cannot occur in equivalence, common, or
 data statements.
+
+A Cray pointer may point to a function or a subroutine.  For example,
+the following excerpt is valid:
+@smallexample
+  implicit none
+  external sub
+  pointer (subptr,subpte)
+  external subpte
+  subptr = loc(sub)
+  call subpte()
+  [...]
+  subroutine sub
+  [...]
+  end subroutine sub
+@end smallexample
 
 A pointer may be modified during the course of a program, and this
 will change the location to which the pointee refers.  However, when
@@ -1149,7 +1206,7 @@ portable.
 
 gfortran attempts to be OpenMP Application Program Interface v2.5
 compatible when invoked with the @code{-fopenmp} option.  gfortran
-then generates parallellized code according to the OpenMP directives
+then generates parallelized code according to the OpenMP directives
 used in the source.  The OpenMP Fortran runtime library
 routines are provided both in a form of Fortran 90 module named
 @code{omp_lib} and in a form of a Fortran @code{include} file named
@@ -1205,12 +1262,12 @@ Most of the interface with GCC was written by @emph{Paul Brook}.
 
 The following individuals have contributed code and/or
 ideas and significant help to the gfortran project
-(in no particular order): 
+(in no particular order):
 
 @itemize @minus
 @item Andy Vaught
 @item Katherine Holcomb
-@item Tobias Schlüter
+@item Tobias Schl@"uter
 @item Steven Bosscher
 @item Toon Moene
 @item Tim Prince
@@ -1220,13 +1277,20 @@ ideas and significant help to the gfortran project
 @item Feng Wang
 @item Bud Davis
 @item Paul Thomas
-@item François-Xavier Coudert
-@item Steve Kargl
+@item Fran@,{c}ois-Xavier Coudert
+@item Steven G. Kargl
 @item Jerry Delisle
 @item Janne Blomqvist
 @item Erik Edelmann
 @item Thomas Koenig
 @item Asher Langton
+@item Jakub Jelinek
+@item Roger Sayle
+@item H.J. Lu
+@item Richard Henderson
+@item Richard Sandiford
+@item Richard Guenther
+@item Bernhard Fischer
 @end itemize
 
 The following people have contributed bug reports,
@@ -1342,6 +1406,14 @@ The @code{ALLOCATABLE} attribute for dummy arguments.
 @cindex @code{ALLOCATABLE} function results
 @code{ALLOCATABLE} function results
 @end itemize
+
+@item
+@cindex @code{STREAM} I/O
+@cindex @code{ACCESS='STREAM'} I/O
+The @code{OPEN} statement supports the @code{ACCESS='STREAM'} specifier,
+allowing I/O without any record structure.
+
+
 
 @end itemize
 

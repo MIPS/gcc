@@ -56,31 +56,31 @@ struct cgraph_local_info GTY(())
 
   /* Set when function function is visible in current compilation unit only
      and its address is never taken.  */
-  bool local;
+  unsigned local : 1;
 
   /* Set when function is visible by other units.  */
-  bool externally_visible;
+  unsigned externally_visible : 1;
 
   /* Set once it has been finalized so we consider it to be output.  */
-  bool finalized;
+  unsigned finalized : 1;
 
   /* False when there something makes inlining impossible (such as va_arg).  */
-  bool inlinable;
+  unsigned inlinable : 1;
 
   /* True when function should be inlined independently on its size.  */
-  bool disregard_inline_limits;
+  unsigned disregard_inline_limits : 1;
 
   /* True when the function has been originally extern inline, but it is
      redefined now.  */
-  bool redefined_extern_inline;
+  unsigned redefined_extern_inline : 1;
 
   /* True if statics_read_for_function and
      statics_written_for_function contain valid data.  */
-  bool for_functions_valid;
+  unsigned for_functions_valid : 1;
 
   /* True if the function is going to be emitted in some other translation
      unit, referenced from vtable.  */
-  bool vtable_method;
+  unsigned vtable_method : 1;
 };
 
 /* Information about the function that needs to be computed globally
@@ -133,36 +133,38 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Pointer to a single unique cgraph node for this function.  If the
      function is to be output, this is the copy that will survive.  */
   struct cgraph_node *master_clone;
- 
+  /* For functions with many calls sites it holds map from call expression
+     to the edge to speed up cgraph_edge function.  */
+  htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;
+
   PTR GTY ((skip)) aux;
 
   struct cgraph_local_info local;
   struct cgraph_global_info global;
   struct cgraph_rtl_info rtl;
-  
+
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
   /* Unique id of the node.  */
   int uid;
   /* Ordering of all cgraph nodes.  */
   int order;
+
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
-  bool needed;
+  unsigned needed : 1;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
-  bool reachable;
+  unsigned reachable : 1;
   /* Set once the function is lowered (i.e. its CFG is built).  */
-  bool lowered;
+  unsigned lowered : 1;
   /* Set once the function has been instantiated and its callee
      lists created.  */
-  bool analyzed;
+  unsigned analyzed : 1;
   /* Set when function is scheduled to be assembled.  */
-  bool output;
-  /* Set when function is visible by other units.  */
-  bool externally_visible;
+  unsigned output : 1;
   /* Set for aliases once they got through assemble_alias.  */
-  bool alias;
+  unsigned alias : 1;
 
   /* In non-unit-at-a-time mode the function body of inline candidates is saved
      into clone before compiling so the function in original form can be
@@ -209,21 +211,21 @@ struct cgraph_varpool_node GTY(())
 
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
-  bool needed;
+  unsigned needed : 1;
   /* Needed variables might become dead by optimization.  This flag
      forces the variable to be output even if it appears dead otherwise.  */
-  bool force_output;
+  unsigned force_output : 1;
   /* Set once the variable has been instantiated and its callee
      lists created.  */
-  bool analyzed;
+  unsigned analyzed : 1;
   /* Set once it has been finalized so we consider it to be output.  */
-  bool finalized;
+  unsigned finalized : 1;
   /* Set when variable is scheduled to be assembled.  */
-  bool output;
+  unsigned output : 1;
   /* Set when function is visible by other units.  */
-  bool externally_visible;
+  unsigned externally_visible : 1;
   /* Set for aliases once they got through assemble_alias.  */
-  bool alias;
+  unsigned alias : 1;
 };
 
 /* Every top level asm statement is put into a cgraph_asm_node.  */
@@ -248,6 +250,7 @@ extern GTY(()) struct cgraph_node *cgraph_expand_queue;
 
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes;
 extern GTY(()) struct cgraph_asm_node *cgraph_asm_nodes;
 extern GTY(()) int cgraph_order;
 
@@ -262,17 +265,18 @@ void cgraph_remove_node (struct cgraph_node *);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
-				        tree, gcov_type, int);
+					tree, gcov_type, int);
 struct cgraph_node *cgraph_node (tree);
 struct cgraph_node *cgraph_node_for_asm (tree asmname);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
+void cgraph_set_call_stmt (struct cgraph_edge *, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
 struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
-				        struct cgraph_node *,
-				        tree, gcov_type, int, bool);
+					struct cgraph_node *,
+					tree, gcov_type, int, bool);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type,
 					int, bool);
 
@@ -312,7 +316,7 @@ void cgraph_build_static_cdtor (char which, tree body, int priority);
 void cgraph_reset_static_var_maps (void);
 void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
-                                                VEC(cgraph_edge_p,heap)*,
+						VEC(cgraph_edge_p,heap)*,
 						varray_type);
 void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);

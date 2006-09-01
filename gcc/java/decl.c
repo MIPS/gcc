@@ -48,6 +48,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree-inline.h"
 #include "target.h"
 #include "version.h"
+#include "tree-iterator.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -159,46 +160,6 @@ debug_variable_p (tree decl)
   return true;
 }
  
-/* Copy the value in decl into every live alias in the same local
-   variable slot.  Some of these will be dead stores removed by the
-   optimizer.  */
-
-void 
-update_aliases (tree decl, int index, int pc)
-{
-  tree decl_type = TREE_TYPE (decl);
-  tree tmp;
-
-  gcc_assert (! debug_variable_p (decl));
-
-  for (tmp = TREE_VEC_ELT (decl_map, index); 
-       tmp != NULL_TREE; 
-       tmp = DECL_LOCAL_SLOT_CHAIN (tmp))
-    {
-      tree tmp_type = TREE_TYPE (tmp);
-      if (tmp != decl
-	  && LOCAL_SLOT_P (tmp) == 0
-	  && (pc == -1
-	      || (pc >= DECL_LOCAL_START_PC (tmp)
-		  && pc < DECL_LOCAL_END_PC (tmp)))
-	  /* This test is < (rather than <=) because there's no point
-	     updating an alias that's about to die at the end of this
-	     instruction.  */
-	  && (tmp_type == decl_type
-	      || (INTEGRAL_TYPE_P (tmp_type)
-		  && INTEGRAL_TYPE_P (decl_type)
-		  && TYPE_PRECISION (decl_type) <= 32
-		  && TYPE_PRECISION (tmp_type) <= 32)
-	      || (TREE_CODE (tmp_type) == POINTER_TYPE
-		  && TREE_CODE (decl_type) == POINTER_TYPE)))
-	{
-	  tree src = build1 (NOP_EXPR, tmp_type, decl);
-	  gcc_assert (! LOCAL_VAR_OUT_OF_SCOPE_P (tmp));
-	  java_add_stmt (build2 (MODIFY_EXPR, tmp_type, tmp, src));
-	}
-    }
-}
-
 static tree
 push_jvm_slot (int index, tree decl)
 {
@@ -217,52 +178,6 @@ push_jvm_slot (int index, tree decl)
   TREE_VEC_ELT (decl_map, index) = decl;
 
   return decl;
-}
-
-/*  At the point of its creation a local variable decl inherits
-    whatever is already in the same slot.  In the case of a local
-    variable that is declared but unused, we won't find anything.  */
-
-static void
-initialize_local_variable (tree decl, int index)
-{
-  tree decl_type = TREE_TYPE (decl);
-  if (TREE_CODE (decl_type) == POINTER_TYPE)
-    {
-      tree tmp = TREE_VEC_ELT (base_decl_map, index);
-
-      if (tmp)
-        {
-	  /* At the point of its creation this decl inherits whatever
-	     is in the slot.  */
-	  tree src = build1 (NOP_EXPR, decl_type, tmp);
-	  java_add_stmt (build2 (MODIFY_EXPR, decl_type, decl, src));	
-	}
-    }
-  else
-    {
-      tree tmp;
-  
-      for (tmp = TREE_VEC_ELT (decl_map, index); 
-	   tmp != NULL_TREE; 
-	   tmp = DECL_LOCAL_SLOT_CHAIN (tmp))
-	{
-	  tree tmp_type = TREE_TYPE (tmp);
-	  if (tmp != decl
-	      && ! debug_variable_p (tmp)
-	      && (tmp_type == decl_type
-		  || (INTEGRAL_TYPE_P (tmp_type)
-		      && INTEGRAL_TYPE_P (decl_type)
-		      && TYPE_PRECISION (decl_type) <= 32
-		      && TYPE_PRECISION (tmp_type) <= 32
-		      && TYPE_PRECISION (tmp_type)
-			 >= TYPE_PRECISION (decl_type))))
-	    {
-	      java_add_stmt (build2 (MODIFY_EXPR, decl_type, decl, tmp));	
-	      return;
-	    }
-	}  
-    }
 }
 
 /* Find the best declaration based upon type.  If 'decl' fits 'type' better
@@ -1784,8 +1699,10 @@ maybe_pushlevels (int pc)
 	 truncating variable lifetimes. */
       if (end_pc > current_binding_level->end_pc)
 	{
+	  tree t;
 	  end_pc = current_binding_level->end_pc;
-	  DECL_LOCAL_END_PC (decl) = end_pc;
+	  for (t = decl; t != NULL_TREE; t = TREE_CHAIN (t))
+	    DECL_LOCAL_END_PC (t) = end_pc;
 	}
 
       maybe_start_try (pc, end_pc);
@@ -1797,10 +1714,17 @@ maybe_pushlevels (int pc)
       current_binding_level->names = NULL;
       for ( ; decl != NULL_TREE; decl = next)
 	{
+	  int index = DECL_LOCAL_SLOT_NUMBER (decl);
+	  tree base_decl;
 	  next = TREE_CHAIN (decl);
-	  push_jvm_slot (DECL_LOCAL_SLOT_NUMBER (decl), decl);
+	  push_jvm_slot (index, decl);
 	  pushdecl (decl);
-	  initialize_local_variable (decl, DECL_LOCAL_SLOT_NUMBER (decl));
+	  base_decl
+	    = find_local_variable (index, TREE_TYPE (decl), pc);
+	  if (TREE_CODE (TREE_TYPE (base_decl)) == POINTER_TYPE)
+	    base_decl = TREE_VEC_ELT (base_decl_map, index);
+	  SET_DECL_VALUE_EXPR (decl, base_decl);
+	  DECL_HAS_VALUE_EXPR_P (decl) = 1;
 	}
     }      
 
@@ -2236,18 +2160,37 @@ add_stmt_to_compound (tree existing, tree type, tree stmt)
     return stmt;
 }
 
-/* Add a statement to the compound_expr currently being
-   constructed.  */
+/* Add a statement to the statement_list currently being constructed.
+   If the statement_list is null, we don't create a singleton list.
+   This is necessary because poplevel() assumes that adding a
+   statement to a null statement_list returns the statement.  */
 
 tree
-java_add_stmt (tree stmt)
+java_add_stmt (tree new_stmt)
 {
+  tree stmts = current_binding_level->stmts;
+  tree_stmt_iterator i;
+
   if (input_filename)
-    SET_EXPR_LOCATION (stmt, input_location);
+    SET_EXPR_LOCATION (new_stmt, input_location);
   
-  return current_binding_level->stmts 
-    = add_stmt_to_compound (current_binding_level->stmts, 
-			    TREE_TYPE (stmt), stmt);
+  if (stmts == NULL)
+    return current_binding_level->stmts = new_stmt;
+
+  /* Force STMTS to be a statement_list.  */
+  if (TREE_CODE (stmts) != STATEMENT_LIST)
+    {
+      tree t = make_node (STATEMENT_LIST);
+      i = tsi_last (t);
+      tsi_link_after (&i, stmts, TSI_CONTINUE_LINKING);
+      stmts = t;
+    }  
+      
+  i = tsi_last (stmts);
+  tsi_link_after (&i, new_stmt, TSI_CONTINUE_LINKING);
+  TREE_TYPE (stmts) = void_type_node;
+
+  return current_binding_level->stmts = stmts;
 }
 
 /* Add a variable to the current scope.  */

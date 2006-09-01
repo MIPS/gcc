@@ -205,7 +205,7 @@ st_backspace (st_parameter_filepos *fpp)
      sequential I/O and the next direct access transfer repositions the file 
      anyway.  */
 
-  if (u->flags.access == ACCESS_DIRECT)
+  if (u->flags.access == ACCESS_DIRECT || u->flags.access == ACCESS_STREAM)
     goto done;
 
   /* Check for special cases involving the ENDFILE record first.  */
@@ -291,7 +291,7 @@ st_rewind (st_parameter_filepos *fpp)
   u = find_unit (fpp->common.unit);
   if (u != NULL)
     {
-      if (u->flags.access != ACCESS_SEQUENTIAL)
+      if (u->flags.access == ACCESS_DIRECT)
 	generate_error (&fpp->common, ERROR_BAD_OPTION,
 			"Cannot REWIND a file opened for DIRECT access");
       else
@@ -301,7 +301,7 @@ st_rewind (st_parameter_filepos *fpp)
 	       file now.  Reset to read mode so two consecutive rewind
 	       statements do not delete the file contents.  */
 	  flush (u->s);
-	  if (u->mode == WRITING)
+	  if (u->mode == WRITING && u->flags.access != ACCESS_STREAM)
 	    struncate (u->s);
 
 	  u->mode = READING;
@@ -340,6 +340,10 @@ st_flush (st_parameter_filepos *fpp)
       flush (u->s);
       unlock_unit (u);
     }
+  else
+    /* FLUSH on unconnected unit is illegal: F95 std., 9.3.5. */ 
+    generate_error (&fpp->common, ERROR_BAD_OPTION,
+			"Specified UNIT in FLUSH is not connected");
 
   library_end ();
 }

@@ -43,15 +43,10 @@ import gnu.java.security.Registry;
 /**
  * The implementation of the Tiger <i>Service Provider Interface</i>
  * (<b>SPI</b>) adapter.
- *
- * @version $Revision: 1.1 $
  */
-public final class HMacTigerSpi extends MacAdapter
+public final class HMacTigerSpi
+    extends MacAdapter
 {
-
-  // Constructors.
-  // -----------------------------------------------------------------------
-
   public HMacTigerSpi()
   {
     super(Registry.HMAC_NAME_PREFIX + Registry.TIGER_HASH);

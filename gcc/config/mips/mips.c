@@ -759,6 +759,7 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "5kf", PROCESSOR_5KF, 64 },
   { "20kc", PROCESSOR_20KC, 64 },
   { "sb1", PROCESSOR_SB1, 64 },
+  { "sb1a", PROCESSOR_SB1A, 64 },
   { "sr71000", PROCESSOR_SR71000, 64 },
 
   /* End marker */
@@ -1016,6 +1017,21 @@ static struct mips_rtx_cost_data const mips_rtx_cost_data[PROCESSOR_MAX] =
                        4            /* memory_latency */
     },
     { /* SB1 */
+      /* These costs are the same as the SB-1A below.  */
+      COSTS_N_INSNS (4),            /* fp_add */
+      COSTS_N_INSNS (4),            /* fp_mult_sf */
+      COSTS_N_INSNS (4),            /* fp_mult_df */
+      COSTS_N_INSNS (24),           /* fp_div_sf */
+      COSTS_N_INSNS (32),           /* fp_div_df */
+      COSTS_N_INSNS (3),            /* int_mult_si */
+      COSTS_N_INSNS (4),            /* int_mult_di */
+      COSTS_N_INSNS (36),           /* int_div_si */
+      COSTS_N_INSNS (68),           /* int_div_di */
+                       1,           /* branch_cost */
+                       4            /* memory_latency */
+    },
+    { /* SB1-A */
+      /* These costs are the same as the SB-1 above.  */
       COSTS_N_INSNS (4),            /* fp_add */
       COSTS_N_INSNS (4),            /* fp_mult_sf */
       COSTS_N_INSNS (4),            /* fp_mult_df */
@@ -3116,6 +3132,27 @@ mips_zero_if_equal (rtx cmp0, rtx cmp1)
 		       cmp0, cmp1, 0, 0, OPTAB_DIRECT);
 }
 
+/* Convert *CODE into a code that can be used in a floating-point
+   scc instruction (c.<cond>.<fmt>).  Return true if the values of
+   the condition code registers will be inverted, with 0 indicating
+   that the condition holds.  */
+
+static bool
+mips_reverse_fp_cond_p (enum rtx_code *code)
+{
+  switch (*code)
+    {
+    case NE:
+    case LTGT:
+    case ORDERED:
+      *code = reverse_condition_maybe_unordered (*code);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Convert a comparison into something that can be used in a branch or
    conditional move.  cmp_operands[0] and cmp_operands[1] are the values
    being compared and *CODE is the code used to compare them.
@@ -3173,20 +3210,8 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 
 	 Set CMP_CODE to the code of the comparison instruction and
 	 *CODE to the code that the branch or move should use.  */
-      switch (*code)
-	{
-	case NE:
-	case LTGT:
-	case ORDERED:
-	  cmp_code = reverse_condition_maybe_unordered (*code);
-	  *code = EQ;
-	  break;
-
-	default:
-	  cmp_code = *code;
-	  *code = NE;
-	  break;
-	}
+      cmp_code = *code;
+      *code = mips_reverse_fp_cond_p (&cmp_code) ? EQ : NE;
       *op0 = (ISA_HAS_8CC
 	      ? gen_reg_rtx (CCmode)
 	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
@@ -3230,6 +3255,30 @@ gen_conditional_branch (rtx *operands, enum rtx_code code)
   mips_emit_compare (&code, &op0, &op1, TARGET_MIPS16);
   condition = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
   emit_jump_insn (gen_condjump (condition, operands[0]));
+}
+
+/* Implement:
+
+   (set temp (COND:CCV2 CMP_OP0 CMP_OP1))
+   (set DEST (unspec [TRUE_SRC FALSE_SRC temp] UNSPEC_MOVE_TF_PS))  */
+
+void
+mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
+		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
+{
+  rtx cmp_result;
+  bool reversed_p;
+
+  reversed_p = mips_reverse_fp_cond_p (&cond);
+  cmp_result = gen_reg_rtx (CCV2mode);
+  emit_insn (gen_scc_ps (cmp_result,
+			 gen_rtx_fmt_ee (cond, VOIDmode, cmp_op0, cmp_op1)));
+  if (reversed_p)
+    emit_insn (gen_mips_cond_move_tf_ps (dest, false_src, true_src,
+					 cmp_result));
+  else
+    emit_insn (gen_mips_cond_move_tf_ps (dest, true_src, false_src,
+					 cmp_result));
 }
 
 /* Emit the common code for conditional moves.  OPERANDS is the array
@@ -3861,13 +3910,24 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       inner = GET_MODE_INNER (mode);
       reg = FP_ARG_FIRST + info.reg_offset;
-      real = gen_rtx_EXPR_LIST (VOIDmode,
-				gen_rtx_REG (inner, reg),
-				const0_rtx);
-      imag = gen_rtx_EXPR_LIST (VOIDmode,
-				gen_rtx_REG (inner, reg + info.reg_words / 2),
-				GEN_INT (GET_MODE_SIZE (inner)));
-      return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
+      if (info.reg_words * UNITS_PER_WORD == GET_MODE_SIZE (inner))
+	{
+	  /* Real part in registers, imaginary part on stack.  */
+	  gcc_assert (info.stack_words == info.reg_words);
+	  return gen_rtx_REG (inner, reg);
+	}
+      else
+	{
+	  gcc_assert (info.stack_words == 0);
+	  real = gen_rtx_EXPR_LIST (VOIDmode,
+				    gen_rtx_REG (inner, reg),
+				    const0_rtx);
+	  imag = gen_rtx_EXPR_LIST (VOIDmode,
+				    gen_rtx_REG (inner,
+						 reg + info.reg_words / 2),
+				    GEN_INT (GET_MODE_SIZE (inner)));
+	  return gen_rtx_PARALLEL (mode, gen_rtvec (2, real, imag));
+	}
     }
 
   if (!info.fpr_p)
@@ -5797,8 +5857,9 @@ mips_file_start (void)
 
       /* There is no ELF header flag to distinguish long32 forms of the
 	 EABI from long64 forms.  Emit a special section to help tools
-	 such as GDB.  */
-      if (mips_abi == ABI_EABI)
+	 such as GDB.  Do the same for o64, which is sometimes used with
+	 -mlong64.  */
+      if (mips_abi == ABI_EABI || mips_abi == ABI_O64)
 	fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n",
 		 TARGET_LONG64 ? 64 : 32);
 
@@ -9859,6 +9920,7 @@ mips_issue_rate (void)
       return 2;
 
     case PROCESSOR_SB1:
+    case PROCESSOR_SB1A:
       /* This is actually 4, but we get better performance if we claim 3.
 	 This is partly because of unwanted speculative code motion with the
 	 larger number, and partly because in most common cases we can't
@@ -9877,10 +9939,24 @@ static int
 mips_multipass_dfa_lookahead (void)
 {
   /* Can schedule up to 4 of the 6 function units in any one cycle.  */
-  if (mips_tune == PROCESSOR_SB1)
+  if (TUNE_SB1)
     return 4;
 
   return 0;
+}
+
+/* Implements a store data bypass check.  We need this because the cprestore
+   pattern is type store, but defined using an UNSPEC.  This UNSPEC causes the
+   default routine to abort.  We just return false for that case.  */
+/* ??? Should try to give a better result here than assuming false.  */
+
+int
+mips_store_data_bypass_p (rtx out_insn, rtx in_insn)
+{
+  if (GET_CODE (PATTERN (in_insn)) == UNSPEC_VOLATILE)
+    return false;
+
+  return ! store_data_bypass_p (out_insn, in_insn);
 }
 
 /* Given that we have an rtx of the form (prefetch ... WRITE LOCALITY),

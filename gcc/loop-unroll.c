@@ -233,22 +233,15 @@ loop_exit_at_end_p (struct loop *loop)
 static void
 peel_loops_completely (struct loops *loops, int flags)
 {
-  struct loop *loop, *next;
+  struct loop *loop;
+  unsigned i;
 
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
+  /* Scan the loops, the inner ones first.  */
+  for (i = loops->num - 1; i > 0; i--)
     {
-      if (loop->next)
-	{
-	  next = loop->next;
-	  while (next->inner)
-	    next = next->inner;
-	}
-      else
-	next = loop->outer;
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
 
       loop->lpt_decision.decision = LPT_NONE;
 
@@ -271,7 +264,6 @@ peel_loops_completely (struct loops *loops, int flags)
 	  verify_loop_structure (loops);
 #endif
 	}
-      loop = next;
     }
 }
 
@@ -1474,7 +1466,7 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
 static hashval_t
 si_info_hash (const void *ivts)
 {
-  return htab_hash_pointer (((struct iv_to_split *) ivts)->insn);
+  return (hashval_t) INSN_UID (((struct iv_to_split *) ivts)->insn);
 }
 
 /* An equality functions for information about insns to split.  */
@@ -1493,7 +1485,7 @@ si_info_eq (const void *ivts1, const void *ivts2)
 static hashval_t
 ve_info_hash (const void *ves)
 {
-  return htab_hash_pointer (((struct var_to_expand *) ves)->insn);
+  return (hashval_t) INSN_UID (((struct var_to_expand *) ves)->insn);
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 

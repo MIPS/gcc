@@ -126,20 +126,25 @@ int avr_enhanced_p = 0;
 /* Assembler only.  */
 int avr_asm_only_p = 0;
 
+/* Core have 'MOVW' and 'LPM Rx,Z' instructions.  */
+int avr_have_movw_lpmx_p = 0;
+
 struct base_arch_s {
   int asm_only;
   int enhanced;
   int mega;
+  int have_movw_lpmx;
   const char *const macro;
 };
 
 static const struct base_arch_s avr_arch_types[] = {
-  { 1, 0, 0, NULL },  /* unknown device specified */
-  { 1, 0, 0, "__AVR_ARCH__=1" },
-  { 0, 0, 0, "__AVR_ARCH__=2" },
-  { 0, 0, 1, "__AVR_ARCH__=3" },
-  { 0, 1, 0, "__AVR_ARCH__=4" },
-  { 0, 1, 1, "__AVR_ARCH__=5" }
+  { 1, 0, 0, 0,  NULL },  /* unknown device specified */
+  { 1, 0, 0, 0, "__AVR_ARCH__=1" },
+  { 0, 0, 0, 0, "__AVR_ARCH__=2" },
+  { 0, 0, 1, 0, "__AVR_ARCH__=3" },
+  { 0, 1, 0, 1, "__AVR_ARCH__=4" },
+  { 0, 1, 1, 1, "__AVR_ARCH__=5" },
+  { 0, 0, 0, 1, "__AVR_ARCH__=25"}
 };
 
 struct mcu_type_s {
@@ -172,10 +177,20 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90s8515", 2, "__AVR_AT90S8515__" },
   { "at90c8534", 2, "__AVR_AT90C8534__" },
   { "at90s8535", 2, "__AVR_AT90S8535__" },
-  { "at86rf401", 2, "__AVR_AT86RF401__" },
     /* Classic + MOVW, <= 8K.  */
-  { "attiny13",   2, "__AVR_ATtiny13__" },
-  { "attiny2313", 2, "__AVR_ATtiny2313__" },
+  { "avr25",      6, NULL },
+  { "attiny13",   6, "__AVR_ATtiny13__" },
+  { "attiny2313", 6, "__AVR_ATtiny2313__" },
+  { "attiny24",   6, "__AVR_ATtiny24__" },
+  { "attiny44",   6, "__AVR_ATtiny44__" },
+  { "attiny84",   6, "__AVR_ATtiny84__" },
+  { "attiny25",   6, "__AVR_ATtiny25__" },
+  { "attiny45",   6, "__AVR_ATtiny45__" },
+  { "attiny85",   6, "__AVR_ATtiny85__" },
+  { "attiny261",  6, "__AVR_ATtiny261__" },
+  { "attiny461",  6, "__AVR_ATtiny461__" },
+  { "attiny861",  6, "__AVR_ATtiny861__" },
+  { "at86rf401",  6, "__AVR_AT86RF401__" },
     /* Classic, > 8K.  */
   { "avr3",      3, NULL },
   { "atmega103", 3, "__AVR_ATmega103__" },
@@ -190,24 +205,46 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega88",   4, "__AVR_ATmega88__" },
   { "atmega8515", 4, "__AVR_ATmega8515__" },
   { "atmega8535", 4, "__AVR_ATmega8535__" },
+  { "at90pwm2",  4, "__AVR_AT90PWM2__" },
+  { "at90pwm3",  4, "__AVR_AT90PWM3__" },
     /* Enhanced, > 8K.  */
   { "avr5",      5, NULL },
   { "atmega16",  5, "__AVR_ATmega16__" },
   { "atmega161", 5, "__AVR_ATmega161__" },
   { "atmega162", 5, "__AVR_ATmega162__" },
   { "atmega163", 5, "__AVR_ATmega163__" },
+  { "atmega164p",5, "__AVR_ATmega164P__" },
   { "atmega165", 5, "__AVR_ATmega165__" },
+  { "atmega165p",5, "__AVR_ATmega165P__" },
   { "atmega168", 5, "__AVR_ATmega168__" },
   { "atmega169", 5, "__AVR_ATmega169__" },
+  { "atmega169p",5, "__AVR_ATmega169P__" },
   { "atmega32",  5, "__AVR_ATmega32__" },
   { "atmega323", 5, "__AVR_ATmega323__" },
+  { "atmega324p",5, "__AVR_ATmega324P__" },
   { "atmega325", 5, "__AVR_ATmega325__" },
   { "atmega3250", 5, "__AVR_ATmega3250__" },
+  { "atmega329", 5, "__AVR_ATmega329__" },
+  { "atmega3290", 5, "__AVR_ATmega3290__" },
+  { "atmega406", 5, "__AVR_ATmega406__" },
   { "atmega64",  5, "__AVR_ATmega64__" },
+  { "atmega640", 5, "__AVR_ATmega640__" },
+  { "atmega644", 5, "__AVR_ATmega644__" },
+  { "atmega644p",5, "__AVR_ATmega644P__" },
   { "atmega645", 5, "__AVR_ATmega645__" },
   { "atmega6450", 5, "__AVR_ATmega6450__" },
+  { "atmega649", 5, "__AVR_ATmega649__" },
+  { "atmega6490", 5, "__AVR_ATmega6490__" },
   { "atmega128", 5, "__AVR_ATmega128__" },
+  { "atmega1280",5, "__AVR_ATmega1280__" },
+  { "atmega1281",5, "__AVR_ATmega1281__" },
+  { "at90can32", 5, "__AVR_AT90CAN32__" },
+  { "at90can64", 5, "__AVR_AT90CAN64__" },
   { "at90can128", 5, "__AVR_AT90CAN128__" },
+  { "at90usb646", 5, "__AVR_AT90USB646__" },
+  { "at90usb647", 5, "__AVR_AT90USB647__" },
+  { "at90usb1286", 5, "__AVR_AT90USB1286__" },
+  { "at90usb1287", 5, "__AVR_AT90USB1287__" },
   { "at94k",     5, "__AVR_AT94K__" },
     /* Assembler only.  */
   { "avr1",      1, NULL },
@@ -288,6 +325,7 @@ avr_override_options (void)
   avr_asm_only_p = base->asm_only;
   avr_enhanced_p = base->enhanced;
   avr_mega_p = base->mega;
+  avr_have_movw_lpmx_p = base->have_movw_lpmx;
   avr_base_arch_macro = base->macro;
   avr_extra_arch_macro = t->macro;
 
@@ -1625,7 +1663,7 @@ output_movhi (rtx insn, rtx operands[], int *l)
 		      AS2 (in,%B0,__SP_H__));
 	    }
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    {
 	      *l = 1;
 	      return (AS2 (movw,%0,%1));
@@ -2294,7 +2332,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	{
 	  if (true_regnum (dest) > true_regnum (src))
 	    {
-	      if (AVR_ENHANCED)
+	      if (AVR_HAVE_MOVW)
 		{
 		  *l = 2;
 		  return (AS2 (movw,%C0,%C1) CR_TAB
@@ -2308,7 +2346,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	    }
 	  else
 	    {
-	      if (AVR_ENHANCED)
+	      if (AVR_HAVE_MOVW)
 		{
 		  *l = 2;
 		  return (AS2 (movw,%A0,%A1) CR_TAB
@@ -2335,7 +2373,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 	  if (GET_CODE (src) == CONST_INT)
 	    {
 	      const char *const clr_op0 =
-		AVR_ENHANCED ? (AS1 (clr,%A0) CR_TAB
+		AVR_HAVE_MOVW ? (AS1 (clr,%A0) CR_TAB
 				AS1 (clr,%B0) CR_TAB
 				AS2 (movw,%C0,%A0))
 			     : (AS1 (clr,%A0) CR_TAB
@@ -2345,20 +2383,20 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 
 	      if (src == const0_rtx) /* mov r,L */
 		{
-		  *l = AVR_ENHANCED ? 3 : 4;
+		  *l = AVR_HAVE_MOVW ? 3 : 4;
 		  return clr_op0;
 		}
 	      else if (src == const1_rtx)
 		{
 		  if (!real_l)
 		    output_asm_insn (clr_op0, operands);
-		  *l = AVR_ENHANCED ? 4 : 5;
+		  *l = AVR_HAVE_MOVW ? 4 : 5;
 		  return AS1 (inc,%A0);
 		}
 	      else if (src == constm1_rtx)
 		{
 		  /* Immediate constants -1 to any register */
-		  if (AVR_ENHANCED)
+		  if (AVR_HAVE_MOVW)
 		    {
 		      *l = 4;
 		      return (AS1 (clr,%A0)     CR_TAB
@@ -2379,7 +2417,7 @@ output_movsisf(rtx insn, rtx operands[], int *l)
 
 		  if (bit_nr >= 0)
 		    {
-		      *l = AVR_ENHANCED ? 5 : 6;
+		      *l = AVR_HAVE_MOVW ? 5 : 6;
 		      if (!real_l)
 			{
 			  output_asm_insn (clr_op0, operands);
@@ -3270,7 +3308,7 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
 	  if (INTVAL (operands[2]) < 32)
 	    break;
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 3, (AS1 (clr,%D0) CR_TAB
 			      AS1 (clr,%C0) CR_TAB
 			      AS2 (movw,%A0,%C0));
@@ -3307,7 +3345,7 @@ ashlsi3_out (rtx insn, rtx operands[], int *len)
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
 	    *len = 4;
-	    if (AVR_ENHANCED && (reg0 + 2 != reg1))
+	    if (AVR_HAVE_MOVW && (reg0 + 2 != reg1))
 	      {
 		*len = 3;
 		return (AS2 (movw,%C0,%A1) CR_TAB
@@ -3654,7 +3692,7 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
 	    *len=6;
-	    if (AVR_ENHANCED && (reg0 != reg1 + 2))
+	    if (AVR_HAVE_MOVW && (reg0 != reg1 + 2))
 	      {
 		*len = 5;
 		return (AS2 (movw,%A0,%C1) CR_TAB
@@ -3706,7 +3744,7 @@ ashrsi3_out (rtx insn, rtx operands[], int *len)
 	  /* fall through */
 
 	case 31:
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 4, (AS1 (lsl,%D0)     CR_TAB
 			      AS2 (sbc,%A0,%A0) CR_TAB
 			      AS2 (mov,%B0,%A0) CR_TAB
@@ -4102,7 +4140,7 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
 	  if (INTVAL (operands[2]) < 32)
 	    break;
 
-	  if (AVR_ENHANCED)
+	  if (AVR_HAVE_MOVW)
 	    return *len = 3, (AS1 (clr,%D0) CR_TAB
 			      AS1 (clr,%C0) CR_TAB
 			      AS2 (movw,%A0,%C0));
@@ -4136,7 +4174,7 @@ lshrsi3_out (rtx insn, rtx operands[], int *len)
 	    int reg0 = true_regnum (operands[0]);
 	    int reg1 = true_regnum (operands[1]);
 	    *len = 4;
-	    if (AVR_ENHANCED && (reg0 != reg1 + 2))
+	    if (AVR_HAVE_MOVW && (reg0 != reg1 + 2))
 	      {
 		*len = 3;
 		return (AS2 (movw,%A0,%C1) CR_TAB
@@ -4782,7 +4820,7 @@ avr_file_start (void)
 
   default_file_start ();
 
-  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);
+/*  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);*/
   fputs ("__SREG__ = 0x3f\n"
 	 "__SP_H__ = 0x3e\n"
 	 "__SP_L__ = 0x3d\n", asm_out_file);
@@ -5270,7 +5308,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 		*total = COSTS_N_INSNS (optimize_size ? 7 : 8);
 		break;
 	      case 31:
-		*total = COSTS_N_INSNS (AVR_ENHANCED ? 4 : 5);
+		*total = COSTS_N_INSNS (AVR_HAVE_MOVW ? 4 : 5);
 		break;
 	      default:
 		*total = COSTS_N_INSNS (optimize_size ? 7 : 113);

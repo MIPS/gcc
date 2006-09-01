@@ -94,6 +94,7 @@ static HOST_WIDE_INT gnat_get_alias_set	(tree);
 static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
 static const char *gnat_printable_name	(tree, int);
+static const char *gnat_dwarf_name	(tree, int);
 static tree gnat_eh_runtime_type	(tree);
 static int gnat_eh_type_covers		(tree, tree);
 static void gnat_parse_file		(int);
@@ -144,6 +145,8 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_MAX_SIZE	gnat_type_max_size
 #undef  LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	gnat_printable_name
+#undef  LANG_HOOKS_DWARF_NAME
+#define LANG_HOOKS_DWARF_NAME		gnat_dwarf_name
 #undef  LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gnat_expand_body
 #undef  LANG_HOOKS_GIMPLIFY_EXPR
@@ -596,6 +599,14 @@ gnat_printable_name (tree decl, int verbosity)
   return (const char *) ada_name;
 }
 
+static const char *
+gnat_dwarf_name (tree t, int verbosity ATTRIBUTE_UNUSED)
+{
+  gcc_assert (DECL_P (t));
+
+  return (const char *) IDENTIFIER_POINTER (DECL_NAME (t));
+}
+
 /* Expands GNAT-specific GCC tree nodes.  The only ones we support
    here are  and NULL_EXPR.  */
 
@@ -734,13 +745,40 @@ gnat_get_alias_set (tree type)
   return -1;
 }
 
-/* GNU_TYPE is a type.  Return its maxium size in bytes, if known.  */
+/* GNU_TYPE is a type.  Return its maxium size in bytes, if known,
+   as a constant when possible.  */
 
 static tree
-gnat_type_max_size (gnu_type)
-     tree gnu_type;
+gnat_type_max_size (tree gnu_type)
 {
-  return max_size (TYPE_SIZE_UNIT (gnu_type), true);
+  /* First see what we can get from TYPE_SIZE_UNIT, which might not be
+     constant even for simple expressions if it has already been gimplified
+     and replaced by a VAR_DECL.  */
+
+  tree max_unitsize = max_size (TYPE_SIZE_UNIT (gnu_type), true);
+
+  /* If we don't have a constant, see what we can get from TYPE_ADA_SIZE,
+     typically not gimplified.  */
+
+  if (!host_integerp (max_unitsize, 1)
+      && (TREE_CODE (gnu_type) == RECORD_TYPE
+	  || TREE_CODE (gnu_type) == UNION_TYPE
+	  || TREE_CODE (gnu_type) == QUAL_UNION_TYPE)
+      && TYPE_ADA_SIZE (gnu_type))
+    {
+      tree max_adasize = max_size (TYPE_ADA_SIZE (gnu_type), true);
+      
+      /* If we have succeded in finding a constant, round it up to the
+	 type's alignment and return the result in byte units.  */
+
+      if (host_integerp (max_adasize, 1))
+	max_unitsize
+	  = size_binop (CEIL_DIV_EXPR,
+			round_up (max_adasize, TYPE_ALIGN (gnu_type)),
+			bitsize_unit_node);
+    }
+
+  return max_unitsize;
 }
 
 /* GNU_TYPE is a type. Determine if it should be passed by reference by

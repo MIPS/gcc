@@ -1,5 +1,5 @@
 /* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -120,15 +120,6 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
       retarray->offset = 0;
     }
 
-  if (retarray->dim[0].stride == 0)
-    retarray->dim[0].stride = 1;
-
-  /* This prevents constifying the input arguments.  */
-  if (a->dim[0].stride == 0)
-    a->dim[0].stride = 1;
-  if (b->dim[0].stride == 0)
-    b->dim[0].stride = 1;
-
 
   if (GFC_DESCRIPTOR_RANK (retarray) == 1)
     {
@@ -219,22 +210,39 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
     {
-      const GFC_COMPLEX_8 *restrict abase_x;
-      const GFC_COMPLEX_8 *restrict bbase_y;
-      GFC_COMPLEX_8 *restrict dest_y;
-      GFC_COMPLEX_8 s;
-
-      for (y = 0; y < ycount; y++)
+      if (GFC_DESCRIPTOR_RANK (a) != 1)
 	{
-	  bbase_y = &bbase[y*bystride];
-	  dest_y = &dest[y*rystride];
-	  for (x = 0; x < xcount; x++)
+	  const GFC_COMPLEX_8 *restrict abase_x;
+	  const GFC_COMPLEX_8 *restrict bbase_y;
+	  GFC_COMPLEX_8 *restrict dest_y;
+	  GFC_COMPLEX_8 s;
+
+	  for (y = 0; y < ycount; y++)
 	    {
-	      abase_x = &abase[x*axstride];
+	      bbase_y = &bbase[y*bystride];
+	      dest_y = &dest[y*rystride];
+	      for (x = 0; x < xcount; x++)
+		{
+		  abase_x = &abase[x*axstride];
+		  s = (GFC_COMPLEX_8) 0;
+		  for (n = 0; n < count; n++)
+		    s += abase_x[n] * bbase_y[n];
+		  dest_y[x] = s;
+		}
+	    }
+	}
+      else
+	{
+	  const GFC_COMPLEX_8 *restrict bbase_y;
+	  GFC_COMPLEX_8 s;
+
+	  for (y = 0; y < ycount; y++)
+	    {
+	      bbase_y = &bbase[y*bystride];
 	      s = (GFC_COMPLEX_8) 0;
 	      for (n = 0; n < count; n++)
-		s += abase_x[n] * bbase_y[n];
-	      dest_y[x] = s;
+		s += abase[n*axstride] * bbase_y[n];
+	      dest[y*rystride] = s;
 	    }
 	}
     }

@@ -44,21 +44,13 @@ import java.util.Map;
 /**
  * An Adapter to use any {@link Cascade} as a {@link Transformer} in an
  * {@link Assembly}.
- *
- * @version $Revision: 1.1 $
  */
-class CascadeTransformer extends Transformer
+class CascadeTransformer
+    extends Transformer
 {
-
-  // Constants and variables
-  // -------------------------------------------------------------------------
-
   private Cascade delegate;
 
   private int blockSize;
-
-  // Constructor(s)
-  // -------------------------------------------------------------------------
 
   CascadeTransformer(Cascade delegate)
   {
@@ -66,12 +58,6 @@ class CascadeTransformer extends Transformer
 
     this.delegate = delegate;
   }
-
-  // Class methods
-  // -------------------------------------------------------------------------
-
-  // Instant methods
-  // -------------------------------------------------------------------------
 
   void initDelegate(Map attributes) throws TransformerException
   {
@@ -109,11 +95,9 @@ class CascadeTransformer extends Transformer
   {
     if (inBuffer.size() != 0)
       {
-        throw new TransformerException(
-                                       "lastUpdateDelegate()",
-                                       new IllegalStateException(
-                                                                 "Cascade transformer, after last "
-                                                                     + "update, must be empty but isn't"));
+        IllegalStateException cause = new IllegalStateException(
+            "Cascade transformer, after last update, must be empty but isn't");
+        throw new TransformerException("lastUpdateDelegate()", cause);
       }
     return new byte[0];
   }

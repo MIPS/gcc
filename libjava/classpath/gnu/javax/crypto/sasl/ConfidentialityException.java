@@ -44,15 +44,13 @@ import javax.security.sasl.SaslException;
  * Used by mechanisms that offer a security services layer, this checked
  * exception is thrown to indicate that a violation has occured during the
  * processing of a <i>confidentiality</i> protection filter.
- *
- * @version $Revision: 1.1 $
  */
-public class ConfidentialityException extends SaslException
+public class ConfidentialityException
+    extends SaslException
 {
-
   /**
-   * Constructs a new instance of <code>ConfidentialityException</code> with no
-   * detail message.
+   * Constructs a new instance of <code>ConfidentialityException</code> with
+   * no detail message.
    */
   public ConfidentialityException()
   {
@@ -62,7 +60,7 @@ public class ConfidentialityException extends SaslException
   /**
    * Constructs a new instance of <code>ConfidentialityException</code> with
    * the specified detail message.
-   *
+   * 
    * @param s the detail message.
    */
   public ConfidentialityException(String s)
@@ -73,7 +71,7 @@ public class ConfidentialityException extends SaslException
   /**
    * Constructs a new instance of <code>ConfidentialityException</code> with a
    * detailed message and a root exception.
-   *
+   * 
    * @param s possibly null additional detail about the exception.
    * @param x a possibly null root exception that caused this one.
    */

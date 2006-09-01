@@ -1,5 +1,5 @@
 /* JFileChooser.java --
-   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006,  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,9 +39,12 @@ package javax.swing;
 
 import java.awt.Component;
 import java.awt.Frame;
+import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowAdapter;
 import java.beans.PropertyChangeEvent;
 import java.io.File;
 import java.util.ArrayList;
@@ -49,7 +52,6 @@ import java.util.ArrayList;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
-import javax.swing.JDialog;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.filechooser.FileView;
@@ -351,7 +353,7 @@ public class JFileChooser extends JComponent implements Accessible
    * The file selection mode.
    * @see #setFileSelectionMode(int) 
    */
-  private int fileSelectionMode = FILES_AND_DIRECTORIES;
+  private int fileSelectionMode = FILES_ONLY;
 
   /** 
    * The file view.
@@ -388,6 +390,13 @@ public class JFileChooser extends JComponent implements Accessible
    * @see #setSelectedFile(File)
    */
   private File selectedFile;
+  
+  /**
+   * The drag enabled property.
+   * @see #setDragEnabled(boolean)
+   * @see #getDragEnabled()
+   */
+  private boolean dragEnabled;
 
   /**
    * Creates a new <code>JFileChooser</code> object.
@@ -486,24 +495,31 @@ public class JFileChooser extends JComponent implements Accessible
   }
 
   /**
-   * DOCUMENT ME!
-   *
-   * @param b DOCUMENT ME!
+   * Sets the dragEnabled property, this disables/enables automatic drag
+   * handling (drag and drop) on this component. The default value of the
+   * dragEnabled property is false. 
+   * 
+   * Some look and feels might not support automatic drag and drop; they
+   * will ignore this property.
+   * 
+   * @param b - the new dragEnabled value
    */
   public void setDragEnabled(boolean b)
   {
-    // FIXME: Implement
+    if (b && GraphicsEnvironment.isHeadless())
+      throw new HeadlessException();
+    
+    dragEnabled = b;
   }
 
   /**
-   * DOCUMENT ME!
+   * Returns true if dragging is enabled.
    *
-   * @return DOCUMENT ME!
+   * @return true if dragging is enabled.
    */
   public boolean getDragEnabled()
   {
-    // FIXME: Implement
-    return false;
+    return dragEnabled;
   }
 
   /**
@@ -730,10 +746,16 @@ public class JFileChooser extends JComponent implements Accessible
     JDialog dialog = new JDialog(toUse);
     setSelectedFile(null);
     dialog.getContentPane().add(this);
+    dialog.addWindowListener( new WindowAdapter()
+      {
+	public void windowClosing(WindowEvent e)
+	{
+	  cancelSelection();
+	}
+      });
     dialog.setModal(true);
     dialog.invalidate();
     dialog.repaint();
-
     return dialog;
   }
 
@@ -1488,7 +1510,6 @@ public class JFileChooser extends JComponent implements Accessible
   public void updateUI()
   {
     setUI((FileChooserUI) UIManager.getUI(this));
-    revalidate();
   }
 
   /**
@@ -1512,36 +1533,89 @@ public class JFileChooser extends JComponent implements Accessible
   }
 
   /**
-   * DOCUMENT ME!
+   * Returns a string describing the attributes for the 
+   * <code>JFileChooser</code> component, for use in debugging.  The return 
+   * value is guaranteed to be non-<code>null</code>, but the format of the 
+   * string may vary between implementations.
    *
-   * @return DOCUMENT ME!
+   * @return A string describing the attributes of the 
+   *     <code>JFileChooser</code>.
    */
   protected String paramString()
   {
-    return "JFileChooser";
+    StringBuffer sb = new StringBuffer(super.paramString());
+    sb.append(",approveButtonText=");
+    if (approveButtonText != null)
+      sb.append(approveButtonText);
+    sb.append(",currentDirectory=");
+    if (currentDir != null)
+      sb.append(currentDir);
+    sb.append(",dialogTitle=");
+    if (dialogTitle != null)
+      sb.append(dialogTitle);
+    sb.append(",dialogType=");
+    if (dialogType == OPEN_DIALOG)
+      sb.append("OPEN_DIALOG");
+    if (dialogType == SAVE_DIALOG)
+      sb.append("SAVE_DIALOG");
+    if (dialogType == CUSTOM_DIALOG)
+      sb.append("CUSTOM_DIALOG");
+    sb.append(",fileSelectionMode=");
+    if (fileSelectionMode == FILES_ONLY)
+      sb.append("FILES_ONLY");
+    if (fileSelectionMode == DIRECTORIES_ONLY)
+      sb.append("DIRECTORIES_ONLY");
+    if (fileSelectionMode == FILES_AND_DIRECTORIES)
+      sb.append("FILES_AND_DIRECTORIES");
+    sb.append(",returnValue=");
+    if (retval == APPROVE_OPTION)
+      sb.append("APPROVE_OPTION");
+    if (retval == CANCEL_OPTION)
+      sb.append("CANCEL_OPTION");
+    if (retval == ERROR_OPTION)
+      sb.append("ERROR_OPTION");
+    sb.append(",selectedFile=");
+    if (selectedFile != null)
+      sb.append(selectedFile);
+    sb.append(",useFileHiding=").append(fileHiding);
+    return sb.toString();
   }
 
   /**
-   * Returns the accessible context.
+   * Returns the object that provides accessibility features for this
+   * <code>JFileChooser</code> component.
    *
-   * @return The accessible context.
+   * @return The accessible context (an instance of 
+   *     {@link AccessibleJFileChooser}).
    */
   public AccessibleContext getAccessibleContext()
   {
-    return new AccessibleJFileChooser();
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJFileChooser();
+    return accessibleContext;
   }
 
   /**
-   * Accessibility support for JFileChooser
+   * Provides the accessibility features for the <code>JFileChooser</code>
+   * component.
    */
   protected class AccessibleJFileChooser 
     extends JComponent.AccessibleJComponent
   {
+    /**
+     * Creates a new instance of <code>AccessibleJFileChooser</code>.
+     */
     protected AccessibleJFileChooser()
     {
       // Nothing to do here.
     }
     
+    /**
+     * Returns the accessible role for the <code>JFileChooser</code> 
+     * component.
+     *
+     * @return {@link AccessibleRole#FILE_CHOOSER}.
+     */
     public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.FILE_CHOOSER;

@@ -129,7 +129,7 @@ typedef struct
 #endif
 
   /* Conversions */
-decNumber *decNumberFromString (decNumber *, char *, decContext *);
+decNumber *decNumberFromString (decNumber *, const char *, decContext *);
 char *decNumberToString (decNumber *, char *);
 char *decNumberToEngString (decNumber *, char *);
 
@@ -178,6 +178,5 @@ decNumber *decNumberZero (decNumber *);
 #define decNumberIsNegative(dn) (((dn)->bits&DECNEG)!=0)
 #define decNumberIsNaN(dn)      (((dn)->bits&(DECNAN|DECSNAN))!=0)
 #define decNumberIsInfinite(dn) (((dn)->bits&DECINF)!=0)
-#define decNumberNegate(dn) (((dn)->bits)^=DECNEG)
 
 #endif

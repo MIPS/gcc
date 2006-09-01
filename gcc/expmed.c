@@ -793,7 +793,7 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT offset,
 {
   enum machine_mode mode;
   unsigned int total_bits = BITS_PER_WORD;
-  rtx subtarget, temp;
+  rtx temp;
   int all_zero = 0;
   int all_one = 0;
 
@@ -919,29 +919,28 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT offset,
 
   /* Now clear the chosen bits in OP0,
      except that if VALUE is -1 we need not bother.  */
+  /* We keep the intermediates in registers to allow CSE to combine
+     consecutive bitfield assignments.  */
 
-  subtarget = op0;
+  temp = force_reg (mode, op0);
 
   if (! all_one)
     {
-      /* Don't try and keep the intermediate in memory, if we need to
-	 perform both a bit-wise AND and a bit-wise IOR (except when
-	 we're optimizing for size).  */
-      if (MEM_P (subtarget) && !all_zero && !optimize_size)
-	subtarget = force_reg (mode, subtarget);
-      temp = expand_binop (mode, and_optab, subtarget,
+      temp = expand_binop (mode, and_optab, temp,
 			   mask_rtx (mode, bitpos, bitsize, 1),
-			   subtarget, 1, OPTAB_LIB_WIDEN);
-      subtarget = temp;
+			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
+      temp = force_reg (mode, temp);
     }
-  else
-    temp = op0;
 
   /* Now logical-or VALUE into OP0, unless it is zero.  */
 
   if (! all_zero)
-    temp = expand_binop (mode, ior_optab, temp, value,
-			 subtarget, 1, OPTAB_LIB_WIDEN);
+    {
+      temp = expand_binop (mode, ior_optab, temp, value,
+			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
+      temp = force_reg (mode, temp);
+    }
+
   if (op0 != temp)
     emit_move_insn (op0, temp);
 }
@@ -2218,7 +2217,9 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
       && GET_CODE (op1) == CONST_INT
       && INTVAL (op1) > 0
       && INTVAL (op1) < GET_MODE_BITSIZE (mode)
-      && shift_cost[mode][INTVAL (op1)] > INTVAL (op1) * add_cost[mode])
+      && INTVAL (op1) < MAX_BITS_PER_WORD
+      && shift_cost[mode][INTVAL (op1)] > INTVAL (op1) * add_cost[mode]
+      && shift_cost[mode][INTVAL (op1)] != MAX_COST)
     {
       int i;
       for (i = 0; i < INTVAL (op1); i++)
@@ -2261,13 +2262,17 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 		 code below.  */
 
 	      rtx subtarget = target == shifted ? 0 : target;
+	      tree new_amount, other_amount;
 	      rtx temp1;
 	      tree type = TREE_TYPE (amount);
-	      tree new_amount = make_tree (type, op1);
-	      tree other_amount
+	      if (GET_MODE (op1) != TYPE_MODE (type)
+		  && GET_MODE (op1) != VOIDmode)
+		op1 = convert_to_mode (TYPE_MODE (type), op1, 1);
+	      new_amount = make_tree (type, op1);
+	      other_amount
 		= fold_build2 (MINUS_EXPR, type,
 			       build_int_cst (type, GET_MODE_BITSIZE (mode)),
-			       amount);
+			       new_amount);
 
 	      shifted = force_reg (mode, shifted);
 
@@ -2396,7 +2401,7 @@ struct algorithm
 /* The entry for our multiplication cache/hash table.  */
 struct alg_hash_entry {
   /* The number we are multiplying by.  */
-  unsigned int t;
+  unsigned HOST_WIDE_INT t;
 
   /* The mode in which we are multiplying something by T.  */
   enum machine_mode mode;
@@ -2411,7 +2416,11 @@ struct alg_hash_entry {
 };
 
 /* The number of cache/hash entries.  */
+#if HOST_BITS_PER_WIDE_INT == 64
+#define NUM_ALG_HASH_ENTRIES 1031
+#else
 #define NUM_ALG_HASH_ENTRIES 307
+#endif
 
 /* Each entry of ALG_HASH caches alg_code for some integer.  This is
    actually a hash table.  If we have a collision, that the older

@@ -228,7 +228,9 @@ commonparms (tree p1, tree p2)
 static tree
 original_type (tree t)
 {
-  while (TYPE_NAME (t) != NULL_TREE)
+  int quals = cp_type_quals (t);
+  while (t != error_mark_node
+	 && TYPE_NAME (t) != NULL_TREE)
     {
       tree x = TYPE_NAME (t);
       if (TREE_CODE (x) != TYPE_DECL)
@@ -238,7 +240,7 @@ original_type (tree t)
 	break;
       t = x;
     }
-  return t;
+  return cp_build_qualified_type (t, quals);
 }
 
 /* T1 and T2 are arithmetic or enumeration types.  Return the type
@@ -729,7 +731,13 @@ merge_types (tree t1, tree t2)
 
     default:;
     }
-  return cp_build_type_attribute_variant (t1, attributes);
+
+  if (attribute_list_equal (TYPE_ATTRIBUTES (t1), attributes))
+    return t1;
+  else if (attribute_list_equal (TYPE_ATTRIBUTES (t2), attributes))
+    return t2;
+  else
+    return cp_build_type_attribute_variant (t1, attributes);
 }
 
 /* Return the common type of two types.
@@ -1317,7 +1325,7 @@ static tree
 cxx_alignof_expr (tree e)
 {
   tree t;
-  
+
   if (e == error_mark_node)
     return error_mark_node;
 
@@ -1426,10 +1434,14 @@ is_bitfield_expr_with_lowered_type (tree exp)
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
-   function-to-pointer conversions.
+   function-to-pointer conversions.  In addition, manifest constants
+   are replaced by their values, and bitfield references are converted
+   to their declared types.
 
-   In addition, manifest constants are replaced by their values, and
-   bitfield references are converted to their declared types.  */
+   Although the returned value is being used as an rvalue, this
+   function does not wrap the returned expression in a
+   NON_LVALUE_EXPR; the caller is expected to be mindful of the fact
+   that the return value is no longer an lvalue.  */
 
 tree
 decay_conversion (tree exp)
@@ -1448,6 +1460,8 @@ decay_conversion (tree exp)
     }
 
   exp = decl_constant_value (exp);
+  if (error_operand_p (exp))
+    return error_mark_node;
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Leave such NOP_EXPRs, since RHS is being used in non-lvalue context.  */
@@ -1499,21 +1513,51 @@ decay_conversion (tree exp)
       return cp_convert (ptrtype, adr);
     }
 
-  /* [basic.lval]: Class rvalues can have cv-qualified types; non-class
-     rvalues always have cv-unqualified types.  */
-  if (! CLASS_TYPE_P (type))
-    exp = cp_convert (TYPE_MAIN_VARIANT (type), exp);
+  /* If a bitfield is used in a context where integral promotion
+     applies, then the caller is expected to have used
+     default_conversion.  That function promotes bitfields correctly
+     before calling this function.  At this point, if we have a
+     bitfield referenced, we may assume that is not subject to
+     promotion, and that, therefore, the type of the resulting rvalue
+     is the declared type of the bitfield.  */
+  exp = convert_bitfield_to_declared_type (exp);
+
+  /* We do not call rvalue() here because we do not want to wrap EXP
+     in a NON_LVALUE_EXPR.  */
+
+  /* [basic.lval]
+
+     Non-class rvalues always have cv-unqualified types.  */
+  type = TREE_TYPE (exp);
+  if (!CLASS_TYPE_P (type) && cp_type_quals (type))
+    exp = build_nop (TYPE_MAIN_VARIANT (type), exp);
 
   return exp;
 }
 
+/* Perform prepatory conversions, as part of the "usual arithmetic
+   conversions".  In particular, as per [expr]:
+
+     Whenever an lvalue expression appears as an operand of an
+     operator that expects the rvalue for that operand, the
+     lvalue-to-rvalue, array-to-pointer, or function-to-pointer
+     standard conversions are applied to convert the expression to an
+     rvalue.
+
+   In addition, we perform integral promotions here, as those are
+   applied to both operands to a binary operator before determining
+   what additional conversions should apply.  */
+
 tree
 default_conversion (tree exp)
 {
-  exp = decay_conversion (exp);
-
+  /* Perform the integral promotions first so that bitfield
+     expressions (which may promote to "int", even if the bitfield is
+     declared "unsigned") are promoted correctly.  */
   if (INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
     exp = perform_integral_promotions (exp);
+  /* Perform the other conversions.  */
+  exp = decay_conversion (exp);
 
   return exp;
 }
@@ -1590,7 +1634,9 @@ string_conv_p (tree totype, tree exp, int warn)
 
   /* This warning is not very useful, as it complains about printf.  */
   if (warn)
-    warning (OPT_Wwrite_strings, "deprecated conversion from string constant to %qT'", totype);
+    warning (OPT_Wwrite_strings,
+	     "deprecated conversion from string constant to %qT",
+	     totype);
 
   return 1;
 }
@@ -1686,7 +1732,7 @@ build_class_member_access_expr (tree object, tree member,
   tree member_scope;
   tree result = NULL_TREE;
 
-  if (object == error_mark_node || member == error_mark_node)
+  if (error_operand_p (object) || error_operand_p (member))
     return error_mark_node;
 
   gcc_assert (DECL_P (member) || BASELINK_P (member));
@@ -1953,8 +1999,8 @@ check_template_keyword (tree decl)
       template, the program is ill-formed.
 
      DR 228 removed the restriction that the template be a member
-     template.  
-     
+     template.
+
      DR 96, if accepted would add the further restriction that explicit
      template arguments must be provided if the template keyword is
      used, but, as of 2005-10-16, that DR is still in "drafting".  If
@@ -2162,7 +2208,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p)
 				orig_object, orig_name,
 				NULL_TREE);
     }
-  
+
   return expr;
 }
 
@@ -2704,7 +2750,7 @@ convert_arguments (tree typelist, tree values, tree fndecl, int flags)
       tree type = typetail ? TREE_VALUE (typetail) : 0;
       tree val = TREE_VALUE (valtail);
 
-      if (val == error_mark_node)
+      if (val == error_mark_node || type == error_mark_node)
 	return error_mark_node;
 
       if (type == void_type_node)
@@ -3004,16 +3050,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
   switch (code)
     {
-    case PLUS_EXPR:
-      /* Handle the pointer + int case.  */
-      if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return cp_pointer_int_sum (PLUS_EXPR, op0, op1);
-      else if (code1 == POINTER_TYPE && code0 == INTEGER_TYPE)
-	return cp_pointer_int_sum (PLUS_EXPR, op1, op0);
-      else
-	common = 1;
-      break;
-
     case MINUS_EXPR:
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
@@ -3021,11 +3057,33 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  && same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (type0),
 							TREE_TYPE (type1)))
 	return pointer_diff (op0, op1, common_type (type0, type1));
-      /* Handle pointer minus int.  Just like pointer plus int.  */
-      else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return cp_pointer_int_sum (MINUS_EXPR, op0, op1);
-      else
-	common = 1;
+      /* In all other cases except pointer - int, the usual arithmetic
+	 rules aply.  */
+      else if (!(code0 == POINTER_TYPE && code1 == INTEGER_TYPE))
+	{
+	  common = 1;
+	  break;
+	}
+      /* The pointer - int case is just like pointer + int; fall
+	 through.  */
+    case PLUS_EXPR:
+      if ((code0 == POINTER_TYPE || code1 == POINTER_TYPE)
+	  && (code0 == INTEGER_TYPE || code1 == INTEGER_TYPE))
+	{
+	  tree ptr_operand;
+	  tree int_operand;
+	  ptr_operand = ((code0 == POINTER_TYPE) ? op0 : op1);
+	  int_operand = ((code0 == INTEGER_TYPE) ? op0 : op1);
+	  if (processing_template_decl)
+	    {
+	      result_type = TREE_TYPE (ptr_operand);
+	      break;
+	    }
+	  return cp_pointer_int_sum (code,
+				     ptr_operand, 
+				     int_operand);
+	}
+      common = 1;
       break;
 
     case MULT_EXPR:
@@ -3178,8 +3236,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case EQ_EXPR:
     case NE_EXPR:
       if (code0 == REAL_TYPE || code1 == REAL_TYPE)
-	warning (OPT_Wfloat_equal, 
-                 "comparing floating point with == or != is unsafe");
+	warning (OPT_Wfloat_equal,
+		 "comparing floating point with == or != is unsafe");
       if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
 	  || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0)))
 	warning (OPT_Wstring_literal_comparison,
@@ -3945,7 +4003,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       else if (!(arg = build_expr_type_conversion (WANT_INT | WANT_ENUM,
 						   arg, true)))
 	errstring = "wrong type argument to bit-complement";
-      else if (!noconvert)
+      else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
 	arg = perform_integral_promotions (arg);
       break;
 
@@ -4209,6 +4267,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	     and the created OFFSET_REF.  */
 	  tree base = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg, 0)));
 	  tree fn = get_first_fn (TREE_OPERAND (arg, 1));
+	  mark_used (fn);
 
 	  if (! flag_ms_extensions)
 	    {
@@ -4288,9 +4347,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
       if (TREE_CODE (argtype) != FUNCTION_TYPE
 	  && TREE_CODE (argtype) != METHOD_TYPE
 	  && TREE_CODE (arg) != OFFSET_REF
-	  /* Permit users to take the address of a compound-literal
-	     with sufficient simple elements.  */
-	  && !(COMPOUND_LITERAL_P (arg) && TREE_STATIC (arg))
 	  && !lvalue_or_else (arg, lv_addressof))
 	return error_mark_node;
 
@@ -4307,24 +4363,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return val;
 	}
 
-      /* If the user has taken the address of the compound literal,
-	 create a variable to contain the value of the literal and
-	 then return the address of that variable.  */
-      if (COMPOUND_LITERAL_P (arg))
-	{
-	  tree var;
-	  gcc_assert (TREE_STATIC (arg));
-	  var = create_temporary_var (TREE_TYPE (arg));
-	  TREE_STATIC (var) = 1;
-	  set_compound_literal_name (var); 
-	  initialize_artificial_var (var, arg);
-	  arg = pushdecl (var);
-	  /* Since each compound literal is unique, pushdecl should
-	     never find a pre-existing variable with the same
-	     name.  */
-	  gcc_assert (arg == var);
-	}
-      
       if (TREE_CODE (arg) != COMPONENT_REF)
 	{
 	  val = build_address (arg);
@@ -5466,7 +5504,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   bool plain_assign = (modifycode == NOP_EXPR);
 
   /* Avoid duplicate error messages from operands that had errors.  */
-  if (lhs == error_mark_node || rhs == error_mark_node)
+  if (error_operand_p (lhs) || error_operand_p (rhs))
     return error_mark_node;
 
   /* Handle control structure constructs used as "lvalues".  */
@@ -5690,11 +5728,19 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 
       /* Allow array assignment in compiler-generated code.  */
       if (! DECL_ARTIFICIAL (current_function_decl))
-	pedwarn ("ISO C++ forbids assignment of arrays");
+	{
+          /* This routine is used for both initialization and assignment.
+             Make sure the diagnostic message differentiates the context.  */
+          if (modifycode == INIT_EXPR)
+            error ("array used as initializer");
+          else
+            error ("invalid array assignment");
+	  return error_mark_node;
+	}
 
       from_array = TREE_CODE (TREE_TYPE (newrhs)) == ARRAY_TYPE
 		   ? 1 + (modifycode != INIT_EXPR): 0;
-      return build_vec_init (lhs, NULL_TREE, newrhs, 
+      return build_vec_init (lhs, NULL_TREE, newrhs,
 			     /*explicit_default_init_p=*/false,
 			     from_array);
     }
@@ -6184,7 +6230,7 @@ convert_for_assignment (tree type, tree rhs,
 		 "%s might be a candidate for a format attribute",
 		 errtype);
     }
-  
+
   return perform_implicit_conversion (strip_top_quals (type), rhs);
 }
 
@@ -6219,7 +6265,8 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
       && codel != REFERENCE_TYPE)
     rhs = TREE_OPERAND (rhs, 0);
 
-  if (rhs == error_mark_node
+  if (type == error_mark_node
+      || rhs == error_mark_node
       || (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node))
     return error_mark_node;
 
@@ -6403,8 +6450,8 @@ check_return_expr (tree retval, bool *no_warning)
 	 return!).  */
       current_function_returns_null = 0;
       /* And signal caller that TREE_NO_WARNING should be set on the
-         RETURN_EXPR to avoid control reaches end of non-void function
-         warnings in tree-cfg.c.  */
+	 RETURN_EXPR to avoid control reaches end of non-void function
+	 warnings in tree-cfg.c.  */
       *no_warning = true;
     }
   /* Check for a return statement with a value in a function that
@@ -6533,7 +6580,7 @@ check_return_expr (tree retval, bool *no_warning)
 	 was an incomplete type.  Just treat this as 'return;' */
       if (VOID_TYPE_P (functype))
 	return error_mark_node;
-      
+
       /* First convert the value to the function's return type, then
 	 to the type of return value's location to handle the
 	 case that functype is smaller than the valtype.  */

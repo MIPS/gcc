@@ -174,7 +174,6 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case BIT_FIELD_REF:
 	case VIEW_CONVERT_EXPR:
-	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
@@ -192,6 +191,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	  break;
 
 	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
 	  nxt = &TREE_OPERAND (*addr_p, 0);
 	  if (!cbck (*addr_p, &TREE_OPERAND (*addr_p, 1), data))
 	    return false;
@@ -624,7 +624,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 
 	  /* stmt must be MODIFY_EXPR.  */
 	  var = create_tmp_var (TREE_TYPE (rhs), "reciptmp");
-	  add_referenced_tmp_var (var);
+	  add_referenced_var (var);
 
 	  stmt1 = build2 (MODIFY_EXPR, void_type_node, var,
 			  build2 (RDIV_EXPR, TREE_TYPE (rhs),

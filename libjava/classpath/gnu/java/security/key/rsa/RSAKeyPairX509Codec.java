@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package gnu.java.security.key.rsa;
 
+import gnu.java.security.Configuration;
 import gnu.java.security.OID;
 import gnu.java.security.Registry;
 import gnu.java.security.der.BitString;
@@ -114,8 +115,8 @@ public class RSAKeyPairX509Codec
    */
   public byte[] encodePublicKey(PublicKey key)
   {
-    log.entering(this.getClass().getName(), "encodePublicKey()", key);
-
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "encodePublicKey()", key);
     if (! (key instanceof GnuRSAPublicKey))
       throw new InvalidParameterException("key");
 
@@ -128,8 +129,9 @@ public class RSAKeyPairX509Codec
     DERValue derN = new DERValue(DER.INTEGER, n);
     DERValue derE = new DERValue(DER.INTEGER, e);
 
-    ArrayList algorithmID = new ArrayList(1);
+    ArrayList algorithmID = new ArrayList(2);
     algorithmID.add(derOID);
+    algorithmID.add(new DERValue(DER.NULL, null));
     DERValue derAlgorithmID = new DERValue(DER.CONSTRUCTED | DER.SEQUENCE,
                                            algorithmID);
 
@@ -155,12 +157,12 @@ public class RSAKeyPairX509Codec
       }
     catch (IOException x)
       {
-        InvalidParameterException y = new InvalidParameterException();
+        InvalidParameterException y = new InvalidParameterException(x.getMessage());
         y.initCause(x);
         throw y;
       }
-
-    log.exiting(this.getClass().getName(), "encodePublicKey()", result);
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "encodePublicKey()", result);
     return result;
   }
 
@@ -182,8 +184,8 @@ public class RSAKeyPairX509Codec
    */
   public PublicKey decodePublicKey(byte[] input)
   {
-    log.entering(this.getClass().getName(), "decodePublicKey()", input);
-
+    if (Configuration.DEBUG)
+      log.entering(this.getClass().getName(), "decodePublicKey()", input);
     if (input == null)
       throw new InvalidParameterException("Input bytes MUST NOT be null");
 
@@ -228,13 +230,13 @@ public class RSAKeyPairX509Codec
       }
     catch (IOException x)
       {
-        InvalidParameterException y = new InvalidParameterException();
+        InvalidParameterException y = new InvalidParameterException(x.getMessage());
         y.initCause(x);
         throw y;
       }
-
     PublicKey result = new GnuRSAPublicKey(Registry.X509_ENCODING_ID, n, e);
-    log.exiting(this.getClass().getName(), "decodePublicKey()", result);
+    if (Configuration.DEBUG)
+      log.exiting(this.getClass().getName(), "decodePublicKey()", result);
     return result;
   }
 

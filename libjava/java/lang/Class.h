@@ -40,8 +40,8 @@ extern "Java"
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
 extern "C" jclass _Jv_NewClassFromInitializer 
-   (const jclass class_initializer);
-extern "C" void _Jv_RegisterNewClasses (void **classes);
+   (const char *class_initializer);
+extern "C" void _Jv_RegisterNewClasses (char **classes);
 extern "C" void _Jv_RegisterClasses (const jclass *classes);
 extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 					     size_t count);
@@ -96,6 +96,7 @@ struct _Jv_ArrayVTable;
 class _Jv_Linker;
 class _Jv_ExecutionEngine;
 class _Jv_CompiledEngine;
+class _Jv_IndirectCompiledEngine;
 class _Jv_InterpreterEngine;
 
 #ifdef INTERPRETER
@@ -394,6 +395,13 @@ public:
   jstring toString (void);
   jboolean desiredAssertionStatus (void);
 
+  JArray<java::lang::reflect::TypeVariable *> *getTypeParameters (void);
+
+  java::lang::Class *getEnclosingClass (void);
+  java::lang::reflect::Constructor *getEnclosingConstructor (void);
+  java::lang::reflect::Method *getEnclosingMethod (void);
+  jboolean isEnum (void);
+
   // FIXME: this probably shouldn't be public.
   jint size (void)
   {
@@ -440,7 +448,7 @@ private:
 					       int method_idx);
 
   friend void ::_Jv_InitClass (jclass klass);
-  friend java::lang::Class* ::_Jv_NewClassFromInitializer (const jclass class_initializer);
+  friend java::lang::Class* ::_Jv_NewClassFromInitializer (const char *class_initializer);
   friend void _Jv_RegisterNewClasses (void **classes);
 
   friend _Jv_Method* ::_Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
@@ -538,6 +546,7 @@ private:
   friend class ::_Jv_Linker;
   friend class ::_Jv_ExecutionEngine;
   friend class ::_Jv_CompiledEngine;
+  friend class ::_Jv_IndirectCompiledEngine;
   friend class ::_Jv_InterpreterEngine;
 
   friend void ::_Jv_sharedlib_register_hook (jclass klass);

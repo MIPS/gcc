@@ -156,6 +156,30 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
   loader->loadedClasses->remove(klass->name->toString());
 }
 
+
+// Class registration.
+//
+// There are two kinds of functions that register classes.  
+//
+// Type 1:
+//
+// These take the address of a class that is in an object file.
+// Because these classes are not allocated on the heap, It is also
+// necessary to register the address of the object for garbage
+// collection.  This is used with the "old" C++ ABI and with
+// -findirect-dispatch -fno-indirect-classes.
+//
+// Type 2:
+//
+// These take an initializer struct, create the class, and return the
+// address of the newly created class to their caller.  These are used
+// with -findirect-dispatch.
+//
+// _Jv_RegisterClasses() and _Jv_RegisterClasses_Counted() are
+// functions of Type 1, and _Jv_NewClassFromInitializer() and
+// _Jv_RegisterNewClasses() are of Type 2.
+
+
 // This function is called many times during startup, before main() is
 // run.  At that point in time we know for certain we are running 
 // single-threaded, so we don't need to lock when adding classes to the 
@@ -194,11 +218,22 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
 
 // Create a class on the heap from an initializer struct.
 jclass
-_Jv_NewClassFromInitializer (const jclass class_initializer)
+_Jv_NewClassFromInitializer (const char *class_initializer)
 {
-  jclass new_class = (jclass)_Jv_AllocObj (sizeof *new_class,
-					   &java::lang::Class::class$);  
-  memcpy ((void*)new_class, (void*)class_initializer, sizeof *new_class);
+  /* We create an instance of java::lang::Class and copy all of its
+     fields except the first word (the vtable pointer) from
+     CLASS_INITIALIZER.  This first word is pre-initialized by
+     _Jv_AllocObj, and we don't want to overwrite it.  */
+
+  jclass new_class
+    = (jclass)_Jv_AllocObj (sizeof (java::lang::Class),
+			    &java::lang::Class::class$);
+  const char *src = class_initializer + sizeof (void*);
+  char *dst = (char*)new_class + sizeof (void*);
+  size_t len = sizeof (*new_class) - sizeof (void*);
+  memcpy (dst, src, len);
+
+  new_class->engine = &_Jv_soleIndirectCompiledEngine;
 
   if (_Jv_CheckABIVersion ((unsigned long) new_class->next_or_version))
     (*_Jv_RegisterClassHook) (new_class);
@@ -214,13 +249,13 @@ _Jv_NewClassFromInitializer (const jclass class_initializer)
 // heap) and we write the address of the new class into the address
 // pointed to by the second word.
 void
-_Jv_RegisterNewClasses (void **classes)
+_Jv_RegisterNewClasses (char **classes)
 {
   _Jv_InitGC ();
 
-  jclass initializer;
+  const char *initializer;
 
-  while ((initializer = (jclass)*classes++))
+  while ((initializer = *classes++))
     {
       jclass *class_ptr = (jclass *)*classes++;
       *class_ptr = _Jv_NewClassFromInitializer (initializer);

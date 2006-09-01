@@ -41,28 +41,14 @@ package gnu.java.security.jce.hash;
 import gnu.java.security.Registry;
 
 /**
- * <p>The implementation of the SHA-2-2 (384-bit) <i>Service Provider Interface</i>
- * (<b>SPI</b>) adapter.</p>
- *
- * @version $Revision: 1.1 $
+ * The implementation of the SHA-2-2 (384-bit) <i>Service Provider Interface</i>
+ * (<b>SPI</b>) adapter.
  */
-public class Sha384Spi extends MessageDigestAdapter
+public class Sha384Spi
+    extends MessageDigestAdapter
 {
-
-  // Constants and variables
-  // -------------------------------------------------------------------------
-
-  // Constructor(s)
-  // -------------------------------------------------------------------------
-
   public Sha384Spi()
   {
     super(Registry.SHA384_HASH);
   }
-
-  // Class methods
-  // -------------------------------------------------------------------------
-
-  // Instance methods
-  // -------------------------------------------------------------------------
 }

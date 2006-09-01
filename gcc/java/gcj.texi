@@ -57,7 +57,7 @@ man page gfdl(7).
 
 @ifinfo
 @format
-@dircategory Programming
+@dircategory Software development
 @direntry
 * Gcj: (gcj).               Ahead-of-time compiler for the Java language
 @end direntry
@@ -670,16 +670,26 @@ added are to facilitate this functionality.
 @xref{About CNI}, for more info on how to use this in your programs.
 
 @item
-When you compile your classes into a shared library they can be automatically
-loaded by the @code{libgcj} system classloader.  When trying to load a class
-@code{gnu.pkg.SomeClass} the system classloader will first try to load the
-shared library @file{lib-gnu-pkg-SomeClass.so}, if that fails to load the
-class then it will try to load @file{lib-gnu-pkg.so} and finally when the
-class is still not loaded it will try to load @file{lib-gnu.so}.  Note that
+When you compile your classes into a shared library using
+@code{-findirect-dispatch} then add them to the system-wide
+classmap.db file using @code{gcj-dbtool}, they will be automatically
+loaded by the @code{libgcj} system classloader.  This is the new,
+preferred classname-to-library resolution mechanism.  @xref{Invoking
+gcj-dbtool}, for more information on using the classmap database.
+
+@item
+The old classname-to-library lookup mechanism is still supported
+through the @code{gnu.gcj.runtime.VMClassLoader.library_control}
+property, but it is deprecated and will likely be removed in some
+future release.  When trying to load a class @code{gnu.pkg.SomeClass}
+the system classloader will first try to load the shared library
+@file{lib-gnu-pkg-SomeClass.so}, if that fails to load the class then
+it will try to load @file{lib-gnu-pkg.so} and finally when the class
+is still not loaded it will try to load @file{lib-gnu.so}.  Note that
 all @samp{.}s will be transformed into @samp{-}s and that searching
-for inner classes starts with their outermost outer class.  If the class
-cannot be found this way the system classloader tries to use
-the @code{libgcj} bytecode interpreter to load the class from the standard
+for inner classes starts with their outermost outer class.  If the
+class cannot be found this way the system classloader tries to use the
+@code{libgcj} bytecode interpreter to load the class from the standard
 classpath.  This process can be controlled to some degree via the
 @code{gnu.gcj.runtime.VMClassLoader.library_control} property;
 @xref{libgcj Runtime Properties}.
@@ -2497,7 +2507,7 @@ is detached from the runtime once it has finished making Java calls. Everything
 is wrapped with a try/catch block to provide a default handler for any uncaught 
 exceptions.
 
-The example can be compiled with @command{c++ test.cc -lgcj}.
+The example can be compiled with @command{c++ -c test.cc; gcj test.o}.
 
 @example
 // test.cc
@@ -2506,7 +2516,7 @@ The example can be compiled with @command{c++ test.cc -lgcj}.
 #include <java/io/PrintStream.h>
 #include <java/lang/Throwable.h>
 
-int main(int argc, char *argv)
+int main(int argc, char *argv[])
 @{
   using namespace java::lang;
   
@@ -2775,6 +2785,12 @@ the name of the "main" class in the case where the @code{gij} front end is
 used, or the program binary name in the case where an application is compiled 
 to a native binary.
 
+@item gnu.gcj.user.realname
+The real name of the user, as taken from the password file.  This may
+not always hold only the user's name (as some sites put extra
+information in this field).  Also, this property is not available on
+all platforms.
+
 @item gnu.gcj.runtime.NameFinder.use_addr2line
 Whether an external process, @command{addr2line}, should be used to determine
 line number information when tracing the stack. Setting this to @code{false} 
@@ -2783,12 +2799,27 @@ the java.util.logging infrastructure. However, performance may improve
 significantly for applications that print stack traces or make logging calls
 frequently.
 
+@item gnu.gcj.runtime.NameFinder.show_raw
+Whether the address of a stack frame should be printed when the line
+number is unavailable. Setting this to @code{true} will cause the name
+of the object and the offset within that object to be printed when no
+line number is available.  This allows for off-line decoding of
+stack traces if necessary debug information is available.  The default
+is @code{false}, no raw addresses are printed.
+
+@item gnu.gcj.runtime.NameFinder.remove_unknown
+Whether stack frames for non-java code should be included in a stack
+trace.  The default value is @code{true}, stack frames for non-java
+code are suppressed.  Setting this to @code{false} will cause any
+non-java stack frames to be printed in addition to frames for the java
+code.
+
 @item gnu.gcj.runtime.VMClassLoader.library_control
 This controls how shared libraries are automatically loaded by the
 built-in class loader.  If this property is set to @samp{full}, a full
 search is done for each requested class.  If this property is set to
-@samp{cache} (the default), then any failed lookups are cached and not
-tried again.  If this property is set to @samp{never}, then lookups
+@samp{cache}, then any failed lookups are cached and not tried again.
+If this property is set to @samp{never} (the default), then lookups
 are never done.  For more information, @xref{Extensions}.
 
 @item gnu.gcj.runtime.endorsed.dirs

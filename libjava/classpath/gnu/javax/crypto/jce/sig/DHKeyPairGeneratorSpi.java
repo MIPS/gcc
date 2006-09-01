@@ -44,6 +44,7 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.util.HashMap;
 
 import javax.crypto.spec.DHGenParameterSpec;
+import javax.crypto.spec.DHParameterSpec;
 
 import gnu.java.security.Registry;
 import gnu.java.security.jce.sig.KeyPairGeneratorAdapter;
@@ -60,12 +61,12 @@ public class DHKeyPairGeneratorSpi
   public void initialize(int keysize, SecureRandom random)
   {
     HashMap attributes = new HashMap();
-    attributes.put(GnuDHKeyPairGenerator.PRIME_SIZE, new Integer(keysize));
+    attributes.put(GnuDHKeyPairGenerator.PRIME_SIZE, Integer.valueOf(keysize));
     if (random != null)
       attributes.put(GnuDHKeyPairGenerator.SOURCE_OF_RANDOMNESS, random);
 
     attributes.put(GnuDHKeyPairGenerator.PREFERRED_ENCODING_FORMAT,
-                   new Integer(Registry.ASN1_ENCODING_ID));
+                   Integer.valueOf(Registry.ASN1_ENCODING_ID));
     adaptee.setup(attributes);
   }
 
@@ -75,7 +76,8 @@ public class DHKeyPairGeneratorSpi
     HashMap attributes = new HashMap();
     if (params != null)
       {
-        if (! (params instanceof DHGenParameterSpec))
+        if (! (params instanceof DHGenParameterSpec) &&
+            ! (params instanceof DHParameterSpec))
           throw new InvalidAlgorithmParameterException("params");
 
         attributes.put(GnuDHKeyPairGenerator.DH_PARAMETERS, params);
@@ -85,7 +87,7 @@ public class DHKeyPairGeneratorSpi
       attributes.put(GnuDHKeyPairGenerator.SOURCE_OF_RANDOMNESS, random);
 
     attributes.put(GnuDHKeyPairGenerator.PREFERRED_ENCODING_FORMAT,
-                   new Integer(Registry.ASN1_ENCODING_ID));
+                   Integer.valueOf(Registry.ASN1_ENCODING_ID));
     adaptee.setup(attributes);
   }
 }

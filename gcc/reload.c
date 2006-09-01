@@ -283,6 +283,23 @@ static int find_inc_amount (rtx, rtx);
 static int refers_to_mem_for_reload_p (rtx);
 static int refers_to_regno_for_reload_p (unsigned int, unsigned int,
 					 rtx, rtx *);
+
+/* Add NEW to reg_equiv_alt_mem_list[REGNO] if it's not present in the
+   list yet.  */
+
+static void
+push_reg_equiv_alt_mem (int regno, rtx mem)
+{
+  rtx it;
+
+  for (it = reg_equiv_alt_mem_list [regno]; it; it = XEXP (it, 1))
+    if (rtx_equal_p (XEXP (it, 0), mem))
+      return;
+
+  reg_equiv_alt_mem_list [regno]
+    = alloc_EXPR_LIST (REG_EQUIV, mem,
+		       reg_equiv_alt_mem_list [regno]);
+}
 
 /* Determine if any secondary reloads are needed for loading (if IN_P is
    nonzero) or storing (if IN_P is zero) X to or from a reload register of
@@ -1254,7 +1271,19 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	{
 	  error_for_asm (this_insn, "impossible register constraint "
 			 "in %<asm%>");
-	  class = ALL_REGS;
+	  /* Avoid further trouble with this insn.  */
+	  PATTERN (this_insn) = gen_rtx_USE (VOIDmode, const0_rtx);
+	  /* We used to continue here setting class to ALL_REGS, but it triggers
+	     sanity check on i386 for:
+	     void foo(long double d)
+	     {
+	       asm("" :: "a" (d));
+	     }
+	     Returning zero here ought to be safe as we take care in
+	     find_reloads to not process the reloads when instruction was
+	     replaced by USE.  */
+	    
+	  return 0;
 	}
     }
 
@@ -3275,6 +3304,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		break;
 
 	      case 'X':
+		force_reload = 0;
 		win = 1;
 		break;
 
@@ -3854,11 +3884,19 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		 && goal_alternative_offmemok[i]
 		 && MEM_P (recog_data.operand[i]))
 	  {
+	    /* If the address to be reloaded is a VOIDmode constant,
+	       use Pmode as mode of the reload register, as would have
+	       been done by find_reloads_address.  */
+	    enum machine_mode address_mode;
+	    address_mode = GET_MODE (XEXP (recog_data.operand[i], 0));
+	    if (address_mode == VOIDmode)
+	      address_mode = Pmode;
+
 	    operand_reloadnum[i]
 	      = push_reload (XEXP (recog_data.operand[i], 0), NULL_RTX,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     base_reg_class (VOIDmode, MEM, SCRATCH),
-			     GET_MODE (XEXP (recog_data.operand[i], 0)),
+			     address_mode,
 			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
 	    rld[operand_reloadnum[i]].inc
 	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
@@ -4123,6 +4161,12 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  rld[i].in = rld[i].reg_rtx;
       }
 #endif
+
+  /* If we detected error and replaced asm instruction by USE, forget about the
+     reloads.  */
+  if (GET_CODE (PATTERN (insn)) == USE
+      && GET_CODE (XEXP (PATTERN (insn), 0)) == CONST_INT)
+    n_reloads = 0;
 
   /* Perhaps an output reload can be combined with another
      to reduce needs by one.  */
@@ -4526,6 +4570,8 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	      x = mem;
 	      i = find_reloads_address (GET_MODE (x), &x, XEXP (x, 0), &XEXP (x, 0),
 					opnum, type, ind_levels, insn);
+	      if (x != mem)
+		push_reg_equiv_alt_mem (regno, x);
 	      if (address_reloaded)
 		*address_reloaded = i;
 	    }
@@ -4559,13 +4605,15 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
       rtx tem;
 
       if (subreg_lowpart_p (x)
-	  && regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
+	  && regno >= FIRST_PSEUDO_REGISTER
+	  && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0
 	  && (tem = gen_lowpart_common (GET_MODE (x),
 					reg_equiv_constant[regno])) != 0)
 	return tem;
 
-      if (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] < 0
+      if (regno >= FIRST_PSEUDO_REGISTER
+	  && reg_renumber[regno] < 0
 	  && reg_equiv_constant[regno] != 0)
 	{
 	  tem =
@@ -4588,7 +4636,7 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 	 a wider mode if we have a paradoxical SUBREG.  find_reloads will
 	 force a reload in that case.  So we should not do anything here.  */
 
-      else if (regno >= FIRST_PSEUDO_REGISTER
+      if (regno >= FIRST_PSEUDO_REGISTER
 #ifdef LOAD_EXTEND_OP
 	       && (GET_MODE_SIZE (GET_MODE (x))
 		   <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
@@ -4732,9 +4780,13 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	      tem = make_memloc (ad, regno);
 	      if (! strict_memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
 		{
+		  rtx orig = tem;
+
 		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					&XEXP (tem, 0), opnum,
 					ADDR_TYPE (type), ind_levels, insn);
+		  if (tem != orig)
+		    push_reg_equiv_alt_mem (regno, tem);
 		}
 	      /* We can avoid a reload if the register's equivalent memory
 		 expression is valid as an indirect memory address.
@@ -5363,7 +5415,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 						       GET_MODE (orig_op1))));
 	  }
 	/* Plus in the index register may be created only as a result of
-	   register remateralization for expression like &localvar*4.  Reload it.
+	   register rematerialization for expression like &localvar*4.  Reload it.
 	   It may be possible to combine the displacement on the outer level,
 	   but it is probably not worthwhile to do so.  */
 	if (context == 1)
@@ -5516,6 +5568,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    if (reg_equiv_address[regno]
 		|| ! rtx_equal_p (tem, reg_equiv_mem[regno]))
 	      {
+		rtx orig = tem;
+
 		/* First reload the memory location's address.
 		    We can't use ADDR_TYPE (type) here, because we need to
 		    write back the value after reading it, hence we actually
@@ -5524,6 +5578,9 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 				      &XEXP (tem, 0), opnum,
 				      RELOAD_OTHER,
 				      ind_levels, insn);
+
+		if (tem != orig)
+		  push_reg_equiv_alt_mem (regno, tem);
 
 		/* Then reload the memory location into a base
 		   register.  */
@@ -5580,6 +5637,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      if (reg_equiv_address[regno]
 		  || ! rtx_equal_p (tem, reg_equiv_mem[regno]))
 		{
+		  rtx orig = tem;
+
 		  /* First reload the memory location's address.
 		     We can't use ADDR_TYPE (type) here, because we need to
 		     write back the value after reading it, hence we actually
@@ -5587,6 +5646,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					&XEXP (tem, 0), opnum, type,
 					ind_levels, insn);
+		  if (tem != orig)
+		    push_reg_equiv_alt_mem (regno, tem);
 		  /* Put this inside a new increment-expression.  */
 		  x = gen_rtx_fmt_e (GET_CODE (x), GET_MODE (x), tem);
 		  /* Proceed to reload that, as if it contained a register.  */
@@ -5777,6 +5838,8 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 		find_reloads_address (GET_MODE (x), &x, XEXP (x, 0),
 				      &XEXP (x, 0), opnum, ADDR_TYPE (type),
 				      ind_levels, insn);
+		if (x != tem)
+		  push_reg_equiv_alt_mem (regno, x);
 	      }
 	  }
 
@@ -5964,6 +6027,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      unsigned outer_size = GET_MODE_SIZE (GET_MODE (x));
 	      unsigned inner_size = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
 	      int offset;
+	      rtx orig = tem;
 
 	      /* For big-endian paradoxical subregs, SUBREG_BYTE does not
 		 hold the correct (negative) byte offset.  */
@@ -5999,6 +6063,9 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 				    &XEXP (tem, 0), opnum, type,
 				    ind_levels, insn);
+	      /* ??? Do we need to handle nonzero offsets somehow?  */
+	      if (!offset && tem != orig)
+		push_reg_equiv_alt_mem (regno, tem);
 
 	      /* If this is not a toplevel operand, find_reloads doesn't see
 		 this substitution.  We have to emit a USE of the pseudo so

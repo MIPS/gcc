@@ -98,7 +98,8 @@ public class SwingComponentPeer
 
   /**
    * Creates a SwingComponentPeer instance. Subclasses are expected to call
-   * this constructor and thereafter call {@link #init(Component, JComponent)}
+   * this constructor and thereafter call
+   * {@link #init(Component,SwingComponent)}
    * in order to setup the AWT and Swing components properly.
    */
   protected SwingComponentPeer()
@@ -330,21 +331,24 @@ public class SwingComponentPeer
     {
       case PaintEvent.UPDATE:
       case PaintEvent.PAINT:
-        Graphics g = getGraphics();
-        Rectangle clip = ((PaintEvent)e).getUpdateRect();
-        g.clipRect(clip.x, clip.y, clip.width, clip.height);
-        //if (this instanceof LightweightPeer)
-        //  {
+        // This only will work when the component is showing.
+        if (awtComponent.isShowing())
+          {
+            Graphics g = getGraphics();
+            Rectangle clip = ((PaintEvent)e).getUpdateRect();
+            g.clipRect(clip.x, clip.y, clip.width, clip.height);
+            //if (this instanceof LightweightPeer)
+            //  {
             if (e.getID() == PaintEvent.UPDATE)
               awtComponent.update(g);
             else
               awtComponent.paint(g);
-        //  }
-        // We paint the 'heavyweights' at last, so that they appear on top of
-        // everything else.
-        peerPaint(g);
-
-        g.dispose();
+            //  }
+            // We paint the 'heavyweights' at last, so that they appear on top of
+            // everything else.
+            peerPaint(g);
+            g.dispose();
+          }
         break;
       case MouseEvent.MOUSE_PRESSED:
       case MouseEvent.MOUSE_RELEASED:
@@ -378,6 +382,11 @@ public class SwingComponentPeer
   {
     if (swingComponent != null)
       swingComponent.getJComponent().setVisible(false);
+
+    Component parent = awtComponent.getParent();
+    if (parent != null)
+      parent.repaint(awtComponent.getX(), awtComponent.getY(),
+                     awtComponent.getWidth(), awtComponent.getHeight());
   }
 
   /**
@@ -442,20 +451,6 @@ public class SwingComponentPeer
     return retVal;
   }
 
-  /**
-   * Prepares an image for rendering on this component. This is called by
-   * {@link Component#prepareImage(Image, int, int, ImageObserver)}.
-   *
-   * @param img the image to prepare
-   * @param width the desired width of the rendered image
-   * @param height the desired height of the rendered image
-   * @param ob the image observer to be notified of updates in the preparation
-   *        process
-   *
-   * @return <code>true</code> if the image has been fully prepared,
-   *         <code>false</code> otherwise (in which case the image observer
-   *         receives updates)
-   */
   public void paint(Graphics graphics)
   {
     // FIXME: I don't know what this method is supposed to do.
@@ -478,8 +473,15 @@ public class SwingComponentPeer
   public boolean prepareImage(Image img, int width, int height, ImageObserver ob)
   {
     Component parent = awtComponent.getParent();
-    ComponentPeer parentPeer = parent.getPeer();
-    return parentPeer.prepareImage(img, width, height, ob);
+    if(parent != null)
+    {
+      ComponentPeer parentPeer = parent.getPeer();
+      return parentPeer.prepareImage(img, width, height, ob);
+    }
+    else
+    {
+      return Toolkit.getDefaultToolkit().prepareImage(img, width, height, ob);
+    }
   }
 
   public void print(Graphics graphics)
@@ -590,8 +592,7 @@ public class SwingComponentPeer
    */
   public void setBounds(int x, int y, int width, int height)
   {
-    if (swingComponent != null)
-      swingComponent.getJComponent().setBounds(x, y, width, height);
+    reshape(x, y, width, height);
   }
 
   /**
@@ -662,8 +663,10 @@ public class SwingComponentPeer
    */
   public void setVisible(boolean visible)
   {
-    if (swingComponent != null)
-      swingComponent.getJComponent().setVisible(visible);
+    if (visible)
+      show();
+    else
+      hide();
   }
 
   /**
@@ -782,8 +785,13 @@ public class SwingComponentPeer
   public VolatileImage createVolatileImage(int width, int height)
   {
     Component parent = awtComponent.getParent();
-    ComponentPeer parentPeer = parent.getPeer();
-    return parentPeer.createVolatileImage(width, height);
+    VolatileImage im = null;
+    if (parent != null)
+      {
+        ComponentPeer parentPeer = parent.getPeer();
+        im = parentPeer.createVolatileImage(width, height);
+      }
+    return im;
   }
 
   /**

@@ -304,6 +304,7 @@ enum gfc_generic_isym_id
      the backend (eg. KIND).  */
   GFC_ISYM_NONE = 0,
   GFC_ISYM_ABS,
+  GFC_ISYM_ACCESS,
   GFC_ISYM_ACHAR,
   GFC_ISYM_ACOS,
   GFC_ISYM_ACOSH,
@@ -332,6 +333,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
   GFC_ISYM_CHDIR,
+  GFC_ISYM_CHMOD,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_COMPLEX,
@@ -377,6 +379,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
+  GFC_ISYM_INT2,
+  GFC_ISYM_INT8,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISATTY,
@@ -391,15 +395,20 @@ enum gfc_generic_isym_id
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
   GFC_ISYM_LLT,
-  GFC_ISYM_LOG,
   GFC_ISYM_LOC,
+  GFC_ISYM_LOG,
   GFC_ISYM_LOG10,
   GFC_ISYM_LOGICAL,
+  GFC_ISYM_LONG,
+  GFC_ISYM_LSHIFT,
+  GFC_ISYM_LSTAT,
   GFC_ISYM_MALLOC,
   GFC_ISYM_MATMUL,
   GFC_ISYM_MAX,
   GFC_ISYM_MAXLOC,
   GFC_ISYM_MAXVAL,
+  GFC_ISYM_MCLOCK,
+  GFC_ISYM_MCLOCK8,
   GFC_ISYM_MERGE,
   GFC_ISYM_MIN,
   GFC_ISYM_MINLOC,
@@ -418,6 +427,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
+  GFC_ISYM_RSHIFT,
   GFC_ISYM_RRSPACING,
   GFC_ISYM_SCALE,
   GFC_ISYM_SCAN,
@@ -838,6 +848,8 @@ typedef struct gfc_symbol
      order.  */
   int dummy_order;
 
+  int entry_id;
+
   gfc_namelist *namelist, *namelist_tail;
 
   /* Change management fields.  Symbols that might be modified by the
@@ -915,17 +927,6 @@ typedef struct gfc_symtree
 }
 gfc_symtree;
 
-/* A linked list of derived types in the namespace.  */
-typedef struct gfc_dt_list
-{
-  struct gfc_symbol *derived;
-  struct gfc_dt_list *next;
-}
-gfc_dt_list;
-
-#define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
-
-
 /* A namespace describes the contents of procedure, module or
    interface block.  */
 /* ??? Anything else use these?  */
@@ -987,9 +988,6 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
-
-  /* A list of all derived types in this procedure (or NULL).  */
-  gfc_dt_list *derived_types;
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
@@ -1453,7 +1451,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert, *strm_pos;
 
   gfc_st_label *err;
 
@@ -1487,7 +1485,7 @@ gfc_forall_iterator;
 typedef enum
 {
   EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
-  EXEC_GOTO, EXEC_CALL, EXEC_RETURN, EXEC_ENTRY,
+  EXEC_GOTO, EXEC_CALL, EXEC_ASSIGN_CALL, EXEC_RETURN, EXEC_ENTRY,
   EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
   EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
@@ -1625,6 +1623,7 @@ typedef struct
   int flag_max_stack_var_size;
   int flag_module_access_private;
   int flag_no_backend;
+  int flag_range_check;
   int flag_pack_derived;
   int flag_repack_arrays;
   int flag_preprocessed;
@@ -1803,6 +1802,7 @@ extern int gfc_default_character_kind;
 extern int gfc_default_logical_kind;
 extern int gfc_default_complex_kind;
 extern int gfc_c_int_kind;
+extern int gfc_intio_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
@@ -1941,6 +1941,9 @@ void gfc_free_equiv (gfc_equiv *);
 void gfc_free_data (gfc_data *);
 void gfc_free_case_list (gfc_case *);
 
+/* matchexp.c -- FIXME too?  */
+gfc_expr *gfc_get_parentheses (gfc_expr *);
+
 /* openmp.c */
 void gfc_free_omp_clauses (gfc_omp_clauses *);
 void gfc_resolve_omp_directive (gfc_code *, gfc_namespace *);
@@ -2022,6 +2025,7 @@ void gfc_simplify_iterator_var (gfc_expr *);
 try gfc_expand_constructor (gfc_expr *);
 int gfc_constant_ac (gfc_expr *);
 int gfc_expanded_ac (gfc_expr *);
+void gfc_resolve_character_array_constructor (gfc_expr *);
 try gfc_resolve_array_constructor (gfc_expr *);
 try gfc_check_constructor_type (gfc_expr *);
 try gfc_check_iter_variable (gfc_expr *);

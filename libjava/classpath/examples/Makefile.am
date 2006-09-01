@@ -1,17 +1,18 @@
 ## Input file for automake to generate the Makefile.in used by configure
+GLIBJ_CLASSPATH='$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
 
 # Setup the compiler to use the GNU Classpath library we just build
 if FOUND_GCJ
-JCOMPILER = $(GCJ) --bootclasspath '$(top_builddir)/lib' --classpath . -C
+JCOMPILER = $(GCJ) -encoding UTF-8 --bootclasspath $(GLIBJ_CLASSPATH) --classpath . -C
 else
 if FOUND_JIKES
-JCOMPILER = $(JIKES) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(top_builddir)/lib:.
+JCOMPILER = $(JIKES) $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_GCJX
-JCOMPILER = $(GCJX) -bootclasspath '' -sourcepath '' -classpath $(top_builddir)/lib:.
+JCOMPILER = $(GCJX) -encoding UTF-8 -bootclasspath '' -sourcepath '' -classpath $(GLIBJ_CLASSPATH):.
 else
 if FOUND_ECJ
-JCOMPILER = $(ECJ) -bootclasspath '$(top_builddir)/lib' -classpath .
+JCOMPILER = $(ECJ) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
 else
 error dunno how to setup the JCOMPILER and compile
 endif
@@ -22,8 +23,9 @@ endif
 # All our example java source files
 EXAMPLE_JAVA_FILES = $(srcdir)/gnu/classpath/examples/*/*.java $(srcdir)/gnu/classpath/examples/*/*/*.java $(srcdir)/gnu/classpath/examples/*/*/*/*.java
 
-# The example C source files
+# The example C source & header files
 EXAMPLE_C_FILES = $(srcdir)/gnu/classpath/examples/*/*.c
+EXAMPLE_CH_FILES = $(srcdir)/gnu/classpath/examples/*/*.h
 
 # The zip files with classes we want to produce.
 EXAMPLE_ZIP = examples.zip
@@ -38,7 +40,7 @@ EXAMPLE_ICONS = $(srcdir)/gnu/classpath/examples/icons/*.png
 READMES = $(srcdir)/gnu/classpath/examples/CORBA/swing/README.html
 
 # All the files we find "interesting"
-ALL_EXAMPLE_FILES = $(EXAMPLE_JAVA_FILES) $(EXAMPLE_C_FILES) $(EXAMPLE_ICONS) $(READMES)
+ALL_EXAMPLE_FILES = $(EXAMPLE_JAVA_FILES) $(EXAMPLE_C_FILES) $(EXAMPLE_CH_FILES) $(EXAMPLE_ICONS) $(READMES)
 
 # Some architecture independent data to be installed.
 example_DATA = $(EXAMPLE_ZIP) README
@@ -61,7 +63,9 @@ install-data-local:
 	  $(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
 	echo "$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/"
+	echo "$(INSTALL_DATA) Makefile.java2d $(DESTDIR)$(pkgdatadir)/examples/"
 	$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/
+	$(INSTALL_DATA) Makefile.java2d $(DESTDIR)$(pkgdatadir)/examples/
 
 uninstall-local:
 	srcdir_cnt=`echo $(srcdir) | wc -c`; \
@@ -71,10 +75,12 @@ uninstall-local:
 	  rm -f $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
 	echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt"
+	echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.java2d"
 	rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt
+	rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.java2d
 
 # Make sure everything is included in the distribution.
-EXTRA_DIST = README Makefile.jawt.in
+EXTRA_DIST = README Makefile.jawt.in Makefile.java2d.in
 dist-hook:
 	srcdir_cnt=`echo $(srcdir) | wc -c`; \
 	for file in $(ALL_EXAMPLE_FILES); do \

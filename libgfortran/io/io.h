@@ -46,10 +46,6 @@ typedef enum
 bt;
 
 
-typedef enum
-{ SUCCESS = 1, FAILURE }
-try;
-
 struct st_parameter_dt;
 
 typedef struct stream
@@ -160,7 +156,7 @@ namelist_info;
 /* Options for the OPEN statement.  */
 
 typedef enum
-{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND,
+{ ACCESS_SEQUENTIAL, ACCESS_DIRECT, ACCESS_APPEND, ACCESS_STREAM,
   ACCESS_UNSPECIFIED
 }
 unit_access;
@@ -294,29 +290,31 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_NAMED	(1 << 10)
 #define IOPARM_INQUIRE_HAS_NEXTREC	(1 << 11)
 #define IOPARM_INQUIRE_HAS_RECL_OUT	(1 << 12)
-#define IOPARM_INQUIRE_HAS_FILE		(1 << 13)
-#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 14)
-#define IOPARM_INQUIRE_HAS_FORM		(1 << 15)
-#define IOPARM_INQUIRE_HAS_BLANK	(1 << 16)
-#define IOPARM_INQUIRE_HAS_POSITION	(1 << 17)
-#define IOPARM_INQUIRE_HAS_ACTION	(1 << 18)
-#define IOPARM_INQUIRE_HAS_DELIM	(1 << 19)
-#define IOPARM_INQUIRE_HAS_PAD		(1 << 20)
-#define IOPARM_INQUIRE_HAS_NAME		(1 << 21)
-#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 22)
-#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 23)
-#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 24)
-#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 25)
-#define IOPARM_INQUIRE_HAS_READ		(1 << 26)
-#define IOPARM_INQUIRE_HAS_WRITE	(1 << 27)
-#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 28)
-#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 29)
+#define IOPARM_INQUIRE_HAS_STRM_POS_OUT (1 << 13)
+#define IOPARM_INQUIRE_HAS_FILE		(1 << 14)
+#define IOPARM_INQUIRE_HAS_ACCESS	(1 << 15)
+#define IOPARM_INQUIRE_HAS_FORM		(1 << 16)
+#define IOPARM_INQUIRE_HAS_BLANK	(1 << 17)
+#define IOPARM_INQUIRE_HAS_POSITION	(1 << 18)
+#define IOPARM_INQUIRE_HAS_ACTION	(1 << 19)
+#define IOPARM_INQUIRE_HAS_DELIM	(1 << 20)
+#define IOPARM_INQUIRE_HAS_PAD		(1 << 21)
+#define IOPARM_INQUIRE_HAS_NAME		(1 << 22)
+#define IOPARM_INQUIRE_HAS_SEQUENTIAL	(1 << 23)
+#define IOPARM_INQUIRE_HAS_DIRECT	(1 << 24)
+#define IOPARM_INQUIRE_HAS_FORMATTED	(1 << 25)
+#define IOPARM_INQUIRE_HAS_UNFORMATTED	(1 << 26)
+#define IOPARM_INQUIRE_HAS_READ		(1 << 27)
+#define IOPARM_INQUIRE_HAS_WRITE	(1 << 28)
+#define IOPARM_INQUIRE_HAS_READWRITE	(1 << 29)
+#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 30)
 
 typedef struct
 {
   st_parameter_common common;
   GFC_INTEGER_4 *exist, *opened, *number, *named;
   GFC_INTEGER_4 *nextrec, *recl_out;
+  GFC_IO_INT *strm_pos_out;
   CHARACTER1 (file);
   CHARACTER2 (access);
   CHARACTER1 (form);
@@ -355,7 +353,7 @@ struct format_data;
 typedef struct st_parameter_dt
 {
   st_parameter_common common;
-  GFC_INTEGER_4 rec;
+  GFC_IO_INT rec;
   GFC_INTEGER_4 *size, *iolength;
   gfc_array_char *internal_unit_desc;
   CHARACTER1 (format);
@@ -432,7 +430,9 @@ typedef struct st_parameter_dt
 	  struct format_data *fmt;
 	  jmp_buf *eof_jump;
 	  namelist_info *ionml;
-
+	  /* A flag used to identify when a non-standard expanded namelist read
+	     has occurred.  */
+	  int expanded_read;
 	  /* Storage area for values except for strings.  Must be large
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
@@ -680,9 +680,6 @@ internal_proto(stream_ttyname);
 extern gfc_offset stream_offset (stream *s);
 internal_proto(stream_offset);
 
-extern int unit_to_fd (int);
-internal_proto(unit_to_fd);
-
 extern int unpack_filename (char *, const char *, int);
 internal_proto(unpack_filename);
 
@@ -714,11 +711,14 @@ internal_proto(is_internal_unit);
 extern int is_array_io (st_parameter_dt *);
 internal_proto(is_array_io);
 
+extern int is_stream_io (st_parameter_dt *);
+internal_proto(is_stream_io);
+
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
 extern gfc_unit *find_or_create_unit (int);
-internal_proto(find_unit);
+internal_proto(find_or_create_unit);
 
 extern gfc_unit *get_unit (st_parameter_dt *, int);
 internal_proto(get_unit);
@@ -866,9 +866,6 @@ extern void list_formatted_write (st_parameter_dt *, bt, void *, int, size_t,
 internal_proto(list_formatted_write);
 
 /* error.c */
-extern try notify_std (int, const char *);
-internal_proto(notify_std);
-
 extern notification notification_std(int);
 internal_proto(notification_std);
 

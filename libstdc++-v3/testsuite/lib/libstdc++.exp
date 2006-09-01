@@ -172,9 +172,9 @@ proc libstdc++_init { testfile } {
     # Do a bunch of handstands and backflips for cross compiling and
     # finding simulators...
     if [is_remote host] {
-        set header [remote_download host ${blddir}/testsuite/testsuite_hooks.h]
+        set header [remote_download host ${blddir}/testsuite/util/testsuite_hooks.h]
         if { $header == "" } {
-            verbose -log "Unable to download ${blddir}/testsuite/testsuite_hooks.h to host."
+            verbose -log "Unable to download ${blddir}/testsuite/util/testsuite_hooks.h to host."
             return "untested"
         }
       set cxx [transform "g++"]
@@ -190,7 +190,7 @@ proc libstdc++_init { testfile } {
             set includes [exec sh $flags_file --build-includes]
         } else {
             set cxx [transform "g++"]
-            set includes "-I${srcdir}"
+            set includes "-I${srcdir}/util"
             set cxxldflags ""
             set cxxflags "-g -O2 -D_GLIBCXX_ASSERT -fmessage-length=0" 
         }
@@ -211,9 +211,11 @@ proc libstdc++_init { testfile } {
 	close $f
 
 	set lines [v3_target_compile $src "config[pid].o" object \
-		   "additional_flags=-include additional_flags=bits/stdc++.h"]
+	         "additional_flags=-include additional_flags=bits/stdtr1c++.h"]
 	if {$lines == "" } {
-	    set PCH_CXXFLAGS "-include bits/stdc++.h"
+#	    set PCH_CXXFLAGS "-include bits/extc++.h"
+	    set PCH_CXXFLAGS "-include bits/stdtr1c++.h"
+#	    set PCH_CXXFLAGS "-include bits/stdc++.h"
 	} else {
 	    set PCH_CXXFLAGS ""
 	}
@@ -348,6 +350,7 @@ proc v3_target_compile { source dest type options } {
     }
 
     lappend options "compiler=$cxx_final"
+    lappend options "timeout=600"
 
     return [target_compile $source $dest $type $options]
 }
@@ -405,13 +408,17 @@ proc v3-build_support { } {
     }
 
     # Build the support objects.
-    set source_files \
-	[list testsuite_abi.cc testsuite_allocator.cc testsuite_character.cc testsuite_hooks.cc ]
+    set source_files [list testsuite_abi.cc testsuite_allocator.cc \
+			  testsuite_character.cc testsuite_hooks.cc \
+	       	 rng/twister_rand_gen.cc io/verified_cmd_line_input.cc \
+       	 io/prog_bar.cc regression/res_mng/dbg_ex_allocator_base.cc \
+	     performance/time/elapsed_timer.cc ]
     foreach f $source_files {
-	set object_file [file rootname $f].o
+	set obj [file rootname $f].o
+	set object_file [file tail $obj]
 	# Compile with "-w" so that warnings issued by the compiler
 	# do not prevent compilation.
-	if { [v3_target_compile $srcdir/$f $object_file "object" \
+	if { [v3_target_compile $srcdir/util/$f $object_file "object" \
 		  [list "incdir=$srcdir" "additional_flags=-w"]]
 	     != "" } {
 	    error "could not compile $f"
@@ -419,15 +426,32 @@ proc v3-build_support { } {
 	append v3-test_objs "$object_file "
     }
 
-    # Build the shared support objects.
+    # Collect into libtestc++.a
+    set arcommand "ar -rc ./libtestc++.a ${v3-test_objs}"
+    set result [lindex [local_exec "$arcommand" "" "" 300] 0]
+    verbose "link result is $result"
+    if { $result == 0 } {
+	set ranlibcommand "ranlib ./libtestc++.a"
+	set result [lindex [local_exec "$ranlibcommand" "" "" 300] 0]
+	if { $result != 0 } {
+	    error "could not link libtestc++.a"
+	    
+	    # We cannot actually use libtestc++.a because it's hard to
+	    # position this library after the test file being compiled
+	    # on the constructed compile line. However, we use this as
+	    # a convenience for performance testing.  
+	    #set v3-test_objs "./libtestc++.a"
+	}
+    }
+
+    # Build any shared objects needed for regression testing.
     if { ${v3-sharedlib} == 1 } {
-	set source_files \
-	    [list testsuite_shared.cc]
+	set source_files [list testsuite_shared.cc]
 	foreach f $source_files {
 	    set object_file [file rootname $f].so
 	    # Compile with "-w" so that warnings issued by the compiler
 	    # do not prevent compilation.
-	    if { [v3_target_compile $srcdir/$f $object_file "sharedlib" \
+	    if { [v3_target_compile $srcdir/util/$f $object_file "sharedlib" \
 	     [list "incdir=$srcdir" "additional_flags=-w -shared -fPIC -DPIC"]]
 		 != "" } {
 		error "could not compile $f"
@@ -527,90 +551,6 @@ proc check_v3_target_namedlocale { } {
 	}
     }
     return $et_namedlocale_saved
-}
-
-proc check_v3_target_cxa_atexit { } {
-    global et_cxa_atexit
-    global et_cxa_atexit_target_name
-    global tool	
-
-    if { ![info exists et_cxa_atexit_target_name] } {
-	set et_cxa_atexit_target_name ""
-    }
-
-    # If the target has changed since we set the cached value, clear it.
-    set current_target [current_target_name]
-    if { $current_target != $et_cxa_atexit_target_name } {
-	verbose "check_v3_target_cxa_atexit: `$et_cxa_atexit_target_name'" 2
-	set et_cxa_atexit_target_name $current_target
-	if [info exists et_cxa_atexit] {
-	    verbose "check_v3_target_cxa_atexit: removing cached result" 2
-	    unset et_cxa_atexit
-	}
-    }
-
-    if [info exists et_cxa_atexit] {
-	verbose "check_v3_target_cxa_atexit: using cached result" 2
-    } else {
-	set et_cxa_atexit 0
-
-	# Set up, compile, and execute a C++ test program that depends
-	# on correct ordering of static object destructors. This is
-	# indicative of the presence and use of __cxa_atexit.
-	set src cxaatexit[pid].cc
-	set exe cxaatexit[pid].x
-
-	set f [open $src "w"]
-	puts $f "#include <stdlib.h>"
-	puts $f "static unsigned int count;"
-	puts $f "struct X"
-	puts $f "{"
-	puts $f "  X() { count = 1; }"
-	puts $f "  ~X()"
-	puts $f "  {"
-	puts $f "    if (count != 3)"
-	puts $f "      exit(1);"
-	puts $f "    count = 4;"
-        puts $f "  }"
-        puts $f "};"
-	puts $f "void f()"
-	puts $f "{"
-	puts $f "  static X x;"
-        puts $f "}"
-	puts $f "struct Y"
-	puts $f "{"
-	puts $f "  Y() { f(); count = 2; }"
-	puts $f "  ~Y()"
-	puts $f "  {"
-	puts $f "    if (count != 2)"
-	puts $f "      exit(1);"
-	puts $f "    count = 3;"
-        puts $f "  }"
-        puts $f "};"
-	puts $f "Y y;"
-	puts $f "int main()"
-	puts $f "{ return 0; }"
-	close $f
-
-	set lines [v3_target_compile $src $exe executable ""]
-	file delete $src
-
-	if [string match "" $lines] {
-	    # No error message, compilation succeeded.
-	    set result [${tool}_load "./$exe" "" ""]
-	    set status [lindex $result 0]
-	    remote_file build delete $exe
-
-	    verbose "check_v3_target_cxa_atexit: status is <$status>" 2
-
-	    if { $status == "pass" } {
-		set et_cxa_atexit 1
-	    }
-	} else {
-	    verbose "check_v3_target_cxa_atexit: compilation failed" 2
-	}
-    }
-    return $et_cxa_atexit
 }
 
 proc check_v3_target_debug_mode { } {

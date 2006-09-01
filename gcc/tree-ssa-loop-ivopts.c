@@ -678,7 +678,7 @@ idx_contains_abnormal_ssa_name_p (tree base, tree *index,
 /* Returns true if EXPR contains a ssa name that occurs in an
    abnormal phi node.  */
 
-static bool
+bool
 contains_abnormal_ssa_name_p (tree expr)
 {
   enum tree_code code;
@@ -1338,7 +1338,7 @@ idx_find_step (tree base, tree *idx, void *data)
 {
   struct ifs_ivopts_data *dta = data;
   struct iv *iv;
-  tree step, iv_step, lbound, off;
+  tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
 
   if (TREE_CODE (base) == MISALIGNED_INDIRECT_REF
@@ -1394,12 +1394,11 @@ idx_find_step (tree base, tree *idx, void *data)
     /* The step for pointer arithmetics already is 1 byte.  */
     step = build_int_cst (sizetype, 1);
 
-  /* FIXME: convert_step should not be used outside chrec_convert: fix
-     this by calling chrec_convert.  */
-  iv_step = convert_step (dta->ivopts_data->current_loop,
-			  sizetype, iv->base, iv->step, dta->stmt);
-
-  if (!iv_step)
+  iv_base = iv->base;
+  iv_step = iv->step;
+  if (!convert_affine_scev (dta->ivopts_data->current_loop,
+			    sizetype, &iv_base, &iv_step, dta->stmt,
+			    false))
     {
       /* The index might wrap.  */
       return false;
@@ -1467,6 +1466,36 @@ may_be_unaligned_p (tree ref)
   return false;
 }
 
+/* Return true if EXPR may be non-addressable.   */
+
+static bool
+may_be_nonaddressable_p (tree expr)
+{
+  switch (TREE_CODE (expr))
+    {
+    case COMPONENT_REF:
+      return DECL_NONADDRESSABLE_P (TREE_OPERAND (expr, 1))
+	     || may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      return may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
+
+    case VIEW_CONVERT_EXPR:
+      /* This kind of view-conversions may wrap non-addressable objects
+	 and make them look addressable.  After some processing the
+	 non-addressability may be uncovered again, causing ADDR_EXPRs
+	 of inappropriate objects to be built.  */
+      return AGGREGATE_TYPE_P (TREE_TYPE (expr))
+	     && !AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+
+    default:
+      break;
+    }
+
+  return false;
+}
+
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
@@ -1483,9 +1512,10 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
-  if (TREE_CODE (base) == BIT_FIELD_REF
-      || (TREE_CODE (base) == COMPONENT_REF
-	  && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1))))
+  if (TREE_CODE (base) == BIT_FIELD_REF)
+    goto fail;
+
+  if (may_be_nonaddressable_p (base))
     goto fail;
 
   if (STRICT_ALIGNMENT
@@ -1895,14 +1925,14 @@ strip_offset (tree expr, unsigned HOST_WIDE_INT *offset)
 }
 
 /* Returns variant of TYPE that can be used as base for different uses.
-   For integer types, we return unsigned variant of the type, which
-   avoids problems with overflows.  For pointer types, we return void *.  */
+   We return unsigned type with the same precision, which avoids problems
+   with overflows.  */
 
 static tree
 generic_type_for (tree type)
 {
   if (POINTER_TYPE_P (type))
-    return ptr_type_node;
+    return unsigned_type_for (type);
 
   if (TYPE_UNSIGNED (type))
     return type;
@@ -2524,21 +2554,27 @@ tree_int_cst_sign_bit (tree t)
   return (w >> bitno) & 1;
 }
 
-/* If we can prove that TOP = cst * BOT for some constant cst in TYPE,
-   return cst.  Otherwise return NULL_TREE.  */
+/* If we can prove that TOP = cst * BOT for some constant cst,
+   store cst to MUL and return true.  Otherwise return false.
+   The returned value is always sign-extended, regardless of the
+   signedness of TOP and BOT.  */
 
-static tree
-constant_multiple_of (tree type, tree top, tree bot)
+static bool
+constant_multiple_of (tree top, tree bot, double_int *mul)
 {
-  tree res, mby, p0, p1;
+  tree mby;
   enum tree_code code;
-  bool negate;
+  double_int res, p0, p1;
+  unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
 
   STRIP_NOPS (top);
   STRIP_NOPS (bot);
 
   if (operand_equal_p (top, bot, 0))
-    return build_int_cst (type, 1);
+    {
+      *mul = double_int_one;
+      return true;
+    }
 
   code = TREE_CODE (top);
   switch (code)
@@ -2546,60 +2582,40 @@ constant_multiple_of (tree type, tree top, tree bot)
     case MULT_EXPR:
       mby = TREE_OPERAND (top, 1);
       if (TREE_CODE (mby) != INTEGER_CST)
-	return NULL_TREE;
+	return false;
 
-      res = constant_multiple_of (type, TREE_OPERAND (top, 0), bot);
-      if (!res)
-	return NULL_TREE;
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
+	return false;
 
-      return fold_binary_to_constant (MULT_EXPR, type, res,
-				      fold_convert (type, mby));
+      *mul = double_int_sext (double_int_mul (res, tree_to_double_int (mby)),
+			      precision);
+      return true;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      p0 = constant_multiple_of (type, TREE_OPERAND (top, 0), bot);
-      if (!p0)
-	return NULL_TREE;
-      p1 = constant_multiple_of (type, TREE_OPERAND (top, 1), bot);
-      if (!p1)
-	return NULL_TREE;
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &p0)
+	  || !constant_multiple_of (TREE_OPERAND (top, 1), bot, &p1))
+	return false;
 
-      return fold_binary_to_constant (code, type, p0, p1);
+      if (code == MINUS_EXPR)
+	p1 = double_int_neg (p1);
+      *mul = double_int_sext (double_int_add (p0, p1), precision);
+      return true;
 
     case INTEGER_CST:
       if (TREE_CODE (bot) != INTEGER_CST)
-	return NULL_TREE;
+	return false;
 
-      bot = fold_convert (type, bot);
-      top = fold_convert (type, top);
-
-      /* If BOT seems to be negative, try dividing by -BOT instead, and negate
-	 the result afterwards.  */
-      if (tree_int_cst_sign_bit (bot))
-	{
-	  negate = true;
-	  bot = fold_unary_to_constant (NEGATE_EXPR, type, bot);
-	}
-      else
-	negate = false;
-
-      /* Ditto for TOP.  */
-      if (tree_int_cst_sign_bit (top))
-	{
-	  negate = !negate;
-	  top = fold_unary_to_constant (NEGATE_EXPR, type, top);
-	}
-
-      if (!zero_p (fold_binary_to_constant (TRUNC_MOD_EXPR, type, top, bot)))
-	return NULL_TREE;
-
-      res = fold_binary_to_constant (EXACT_DIV_EXPR, type, top, bot);
-      if (negate)
-	res = fold_unary_to_constant (NEGATE_EXPR, type, res);
-      return res;
+      p0 = double_int_sext (tree_to_double_int (bot), precision);
+      p1 = double_int_sext (tree_to_double_int (top), precision);
+      if (double_int_zero_p (p1))
+	return false;
+      *mul = double_int_sext (double_int_sdivmod (p0, p1, FLOOR_DIV_EXPR, &res),
+			      precision);
+      return double_int_zero_p (res);
 
     default:
-      return NULL_TREE;
+      return false;
     }
 }
 
@@ -2887,10 +2903,17 @@ aff_combination_to_tree (struct affine_tree_combination *comb)
   unsigned i;
   unsigned HOST_WIDE_INT off, sgn;
 
-  /* Handle the special case produced by get_computation_aff when
-     the type does not fit in HOST_WIDE_INT.  */
   if (comb->n == 0 && comb->offset == 0)
-    return fold_convert (type, expr);
+    {
+      if (expr)
+	{
+	  /* Handle the special case produced by get_computation_aff when
+	     the type does not fit in HOST_WIDE_INT.  */
+	  return fold_convert (type, expr);
+	}
+      else
+	return build_int_cst (type, 0);
+    }
 
   gcc_assert (comb->n == MAX_AFF_ELTS || comb->rest == NULL_TREE);
 
@@ -2911,6 +2934,21 @@ aff_combination_to_tree (struct affine_tree_combination *comb)
     }
   return add_elt_to_tree (expr, type, build_int_cst_type (type, off), sgn,
 			  comb->mask);
+}
+
+/* Folds EXPR using the affine expressions framework.  */
+
+static tree
+fold_affine_expr (tree expr)
+{
+  tree type = TREE_TYPE (expr);
+  struct affine_tree_combination comb;
+
+  if (TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT)
+    return expr;
+
+  tree_to_aff_combination (expr, type, &comb);
+  return aff_combination_to_tree (&comb);
 }
 
 /* Determines the expression by that USE is expressed from induction variable
@@ -2934,6 +2972,7 @@ get_computation_aff (struct loop *loop,
   HOST_WIDE_INT ratioi;
   struct affine_tree_combination cbase_aff, expr_aff;
   tree cstep_orig = cstep, ustep_orig = ustep;
+  double_int rat;
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -2988,21 +3027,15 @@ get_computation_aff (struct loop *loop,
     }
   else
     {
-      ratio = constant_multiple_of (uutype, ustep_orig, cstep_orig);
-      if (!ratio)
+      if (!constant_multiple_of (ustep_orig, cstep_orig, &rat))
 	return false;
+      ratio = double_int_to_tree (uutype, rat);
 
       /* Ratioi is only used to detect special cases when the multiplicative
-	 factor is 1 or -1, so if we cannot convert ratio to HOST_WIDE_INT,
-	 we may set it to 0.  We prefer cst_and_fits_in_hwi/int_cst_value
-	 to integer_onep/integer_all_onesp, since the former ignores
-	 TREE_OVERFLOW.  */
-      if (cst_and_fits_in_hwi (ratio))
-	ratioi = int_cst_value (ratio);
-      else if (integer_onep (ratio))
-	ratioi = 1;
-      else if (integer_all_onesp (ratio))
-	ratioi = -1;
+	 factor is 1 or -1, so if rat does not fit to HOST_WIDE_INT, we may
+	 set it to 0.  */
+      if (double_int_fits_in_shwi_p (rat))
+	ratioi = double_int_to_shwi (rat);
       else
 	ratioi = 0;
     }
@@ -3723,19 +3756,13 @@ get_computation_cost_at (struct ivopts_data *data,
     }
   else
     {
-      tree rat;
+      double_int rat;
       
-      rat = constant_multiple_of (utype, ustep, cstep);
-    
-      if (!rat)
+      if (!constant_multiple_of (ustep, cstep, &rat))
 	return INFTY;
-
-      if (cst_and_fits_in_hwi (rat))
-	ratio = int_cst_value (rat);
-      else if (integer_onep (rat))
-	ratio = 1;
-      else if (integer_all_onesp (rat))
-	ratio = -1;
+    
+      if (double_int_fits_in_shwi_p (rat))
+	ratio = double_int_to_shwi (rat);
       else
 	return INFTY;
     }
@@ -3999,7 +4026,7 @@ may_eliminate_iv (struct ivopts_data *data,
 				      fold_convert (wider_type, nit))))
     return false;
 
-  *bound = cand_value_at (loop, cand, use->stmt, nit);
+  *bound = fold_affine_expr (cand_value_at (loop, cand, use->stmt, nit));
   return true;
 }
 
@@ -5123,7 +5150,7 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
     }
  
   gimple_add_tmp_var (cand->var_before);
-  add_referenced_tmp_var (cand->var_before);
+  add_referenced_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
 
@@ -5462,112 +5489,6 @@ rewrite_use_compare (struct ivopts_data *data,
     bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
   *op_p = op;
-}
-
-/* Ensure that operand *OP_P may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form_use (edge exit, use_operand_p op_p)
-{
-  basic_block def_bb;
-  struct loop *def_loop;
-  tree phi, use;
-
-  use = USE_FROM_PTR (op_p);
-  if (TREE_CODE (use) != SSA_NAME)
-    return;
-
-  def_bb = bb_for_stmt (SSA_NAME_DEF_STMT (use));
-  if (!def_bb)
-    return;
-
-  def_loop = def_bb->loop_father;
-  if (flow_bb_inside_loop_p (def_loop, exit->dest))
-    return;
-
-  /* Try finding a phi node that copies the value out of the loop.  */
-  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
-    if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == use)
-      break;
-
-  if (!phi)
-    {
-      /* Create such a phi node.  */
-      tree new_name = duplicate_ssa_name (use, NULL);
-
-      phi = create_phi_node (new_name, exit->dest);
-      SSA_NAME_DEF_STMT (new_name) = phi;
-      add_phi_arg (phi, use, exit);
-    }
-
-  SET_USE (op_p, PHI_RESULT (phi));
-}
-
-/* Ensure that operands of STMT may be used at the end of EXIT without
-   violating loop closed ssa form.  */
-
-static void
-protect_loop_closed_ssa_form (edge exit, tree stmt)
-{
-  ssa_op_iter iter;
-  use_operand_p use_p;
-
-  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
-    protect_loop_closed_ssa_form_use (exit, use_p);
-}
-
-/* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
-   so that they are emitted on the correct place, and so that the loop closed
-   ssa form is preserved.  */
-
-void
-compute_phi_arg_on_exit (edge exit, tree stmts, tree op)
-{
-  tree_stmt_iterator tsi;
-  block_stmt_iterator bsi;
-  tree phi, stmt, def, next;
-
-  if (!single_pred_p (exit->dest))
-    split_loop_exit_edge (exit);
-
-  /* Ensure there is label in exit->dest, so that we can
-     insert after it.  */
-  tree_block_label (exit->dest);
-  bsi = bsi_after_labels (exit->dest);
-
-  if (TREE_CODE (stmts) == STATEMENT_LIST)
-    {
-      for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
-        {
-	  tree stmt = tsi_stmt (tsi);
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	  protect_loop_closed_ssa_form (exit, stmt);
-	}
-    }
-  else
-    {
-      bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-      protect_loop_closed_ssa_form (exit, stmts);
-    }
-
-  if (!op)
-    return;
-
-  for (phi = phi_nodes (exit->dest); phi; phi = next)
-    {
-      next = PHI_CHAIN (phi);
-
-      if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == op)
-	{
-	  def = PHI_RESULT (phi);
-	  remove_statement (phi, false);
-	  stmt = build2 (MODIFY_EXPR, TREE_TYPE (op),
-			def, op);
-	  SSA_NAME_DEF_STMT (def) = stmt;
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	}
-    }
 }
 
 /* Rewrites USE using candidate CAND.  */

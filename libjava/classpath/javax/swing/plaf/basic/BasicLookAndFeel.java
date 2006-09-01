@@ -1,5 +1,5 @@
 /* BasicLookAndFeel.java --
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.SystemColor;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
 import java.awt.event.ActionEvent;
@@ -52,10 +53,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.ResourceBundle;
-import java.util.Set;
-import java.util.WeakHashMap;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -66,11 +64,10 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
-import javax.swing.JPopupMenu;
+import javax.swing.JComponent;
 import javax.swing.KeyStroke;
 import javax.swing.LookAndFeel;
 import javax.swing.MenuSelectionManager;
-import javax.swing.SwingUtilities;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.border.BevelBorder;
@@ -83,7 +80,9 @@ import javax.swing.plaf.IconUIResource;
 import javax.swing.plaf.InsetsUIResource;
 
 /**
- * BasicLookAndFeel
+ * A basic implementation of Swing's Look and Feel framework. This can serve
+ * as a base for custom look and feel implementations.
+ *
  * @author Andrew Selkirk
  */
 public abstract class BasicLookAndFeel extends LookAndFeel
@@ -102,11 +101,6 @@ public abstract class BasicLookAndFeel extends LookAndFeel
    */
   private class PopupHelper implements AWTEventListener
   {
-
-    /**
-     * Registered popups for autoclose.
-     */
-    private WeakHashMap autoClosePopups = new WeakHashMap();
 
     /**
      * Receives an event from the event queue.
@@ -135,48 +129,15 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       Component target = ev.getComponent();
       if (target instanceof Container)
         target = ((Container) target).findComponentAt(ev.getPoint());
-      if (! m.isComponentPartOfCurrentMenu(target))
-        m.clearSelectedPath();
-
-      // Handle other registered popup instances, like ComboBox popups.
-      autoClosePopups(ev, target);
-    }
-
-    /**
-     * Registers Popup and its content to be autoclosed when a mouseclick
-     * occurs outside of the popup.
-     *
-     * @param popup the popup to be autoclosed when clicked outside
-     */
-    void registerForAutoClose(JPopupMenu popup)
-    {
-      autoClosePopups.put(popup, null);
-    }
-
-    /**
-     * Automatically closes all popups that are not 'hit' by the mouse event.
-     *
-     * @param ev the mouse event
-     * @param target the target of the mouse event
-     */
-    private void autoClosePopups(MouseEvent ev, Component target)
-    {
-      if (autoClosePopups.size() != 0)
+      if (m.getSelectedPath().length > 0
+          && ! m.isComponentPartOfCurrentMenu(target)
+          && (((JComponent)target).getClientProperty(DONT_CANCEL_POPUP) == null
+          || !((JComponent)target).getClientProperty(DONT_CANCEL_POPUP).equals(Boolean.TRUE)))
         {
-          Set popups = autoClosePopups.keySet();
-          Iterator i = popups.iterator();
-          while (i.hasNext())
-            {
-              JPopupMenu popup = (JPopupMenu) i.next();
-              if (!(target == popup
-                    || SwingUtilities.isDescendingFrom(target, popup)))
-                {
-                  popup.setVisible(false);
-                  i.remove();
-                }
-            }
+          m.clearSelectedPath();
         }
     }
+
   }
 
   /**
@@ -240,10 +201,21 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   static final long serialVersionUID = -6096995660290287879L;
 
   /**
+   * This is a key for a client property that tells the PopupHelper that
+   * it shouldn't close popups when the mouse event target has this
+   * property set. This is used when the component handles popup closing
+   * itself.
+   */
+  static final String DONT_CANCEL_POPUP = "noCancelPopup";
+
+  /**
    * Helps closing menu popups when user clicks outside of the menu area.
    */
   private transient PopupHelper popupHelper;
 
+  /**
+   * Maps the audio actions for this l&f.
+   */
   private ActionMap audioActionMap;
 
   /**
@@ -251,7 +223,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
    */
   public BasicLookAndFeel()
   {
-    // TODO
+    // Nothing to do here.
   }
 
   /**
@@ -337,65 +309,150 @@ public abstract class BasicLookAndFeel extends LookAndFeel
 
   /**
    * Populates the <code>defaults</code> table with system color defaults.
+   *
+   * This sets up a couple of default values and passes them to
+   * {@link #loadSystemColors(UIDefaults, String[], boolean)}. If the
+   * look and feel is a native look and feel, these defaults may be overridden
+   * by the corresponding SystemColor constants.
    * 
    * @param defaults  the defaults table (<code>null</code> not permitted).
    */
   protected void initSystemColorDefaults(UIDefaults defaults)
   {
-    Color highLight = new Color(249, 247, 246);
-    Color light = new Color(239, 235, 231);
-    Color shadow = new Color(139, 136, 134);
-    Color darkShadow = new Color(16, 16, 16);
-
-    Object[] uiDefaults;
-    uiDefaults = new Object[] {
-      "activeCaption", new ColorUIResource(0, 0, 128),
-      "activeCaptionBorder", new ColorUIResource(Color.lightGray),
-      "activeCaptionText", new ColorUIResource(Color.white),
-      "control", new ColorUIResource(light),
-      "controlDkShadow", new ColorUIResource(shadow),
-      "controlHighlight", new ColorUIResource(highLight),
-      "controlLtHighlight", new ColorUIResource(highLight),
-      "controlShadow", new ColorUIResource(shadow),
-      "controlText", new ColorUIResource(darkShadow),
-      "desktop", new ColorUIResource(0, 92, 92),
-      "inactiveCaption", new ColorUIResource(Color.gray),
-      "inactiveCaptionBorder", new ColorUIResource(Color.lightGray),
-      "inactiveCaptionText", new ColorUIResource(Color.lightGray),
-      "info", new ColorUIResource(light),
-      "infoText", new ColorUIResource(darkShadow),
-      "menu", new ColorUIResource(light),
-      "menuText", new ColorUIResource(darkShadow),
-      "scrollbar", new ColorUIResource(light),
-      "text", new ColorUIResource(Color.white),
-      "textHighlight", new ColorUIResource(Color.black),
-      "textHighlightText", new ColorUIResource(Color.white),
-      "textInactiveText", new ColorUIResource(Color.gray),
-      "textText", new ColorUIResource(Color.black),
-      "window", new ColorUIResource(light),
-      "windowBorder", new ColorUIResource(Color.black),
-      "windowText", new ColorUIResource(darkShadow)
+    String[] defaultColors = new String[] {
+      "activeCaption", "#000080",
+      "activeCaptionBorder", "#C0C0C0",
+      "activeCaptionText", "#FFFFFF",
+      "control", "#C0C0C0",
+      "controlDkShadow", "#000000",
+      "controlHighlight", "#C0C0C0",
+      "controlLtHighlight", "#FFFFFF",
+      "controlShadow", "#808080",
+      "controlText", "#000000",
+      "desktop", "#005C5C",
+      "inactiveCaption", "#808080",
+      "inactiveCaptionBorder", "#C0C0C0",
+      "inactiveCaptionText", "#C0C0C0",
+      "info", "#FFFFE1",
+      "infoText", "#000000",
+      "menu", "#C0C0C0",
+      "menuText", "#000000",
+      "scrollbar", "#E0E0E0",
+      "text", "#C0C0C0",
+      "textHighlight", "#000080",
+      "textHighlightText", "#FFFFFF",
+      "textInactiveText", "#808080",
+      "textText", "#000000",
+      "window", "#FFFFFF",
+      "windowBorder", "#000000",
+      "windowText", "#000000"
     };
-    defaults.putDefaults(uiDefaults);
+    loadSystemColors(defaults, defaultColors, isNativeLookAndFeel());
   }
 
   /**
-   * Loads the system colors.  This method is not implemented yet.
-   * 
+   * Populates the <code>defaults</code> table with the system colors. If
+   * <code>useNative</code> is <code>true</code>, the table is populated
+   * with the constants in {@link SystemColor}, otherwise the
+   * <code>systemColors</code> parameter is decoded into the defaults table.
+   * The system colors array is made up of pairs, where the first entry is the
+   * name of the system color, and the second entry is a string denoting
+   * an RGB color value like &quot;#C0C0C0&quot;, which is decoded using
+   * {@link Color#decode(String)}.
+   *
    * @param defaults  the defaults table (<code>null</code> not permitted).
-   * @param systemColors TODO
-   * @param useNative TODO
+   * @param systemColors defaults to use when <code>useNative</code> is
+   *        <code>false</code>
+   * @param useNative when <code>true</code>, installs the values of the
+   *        SystemColor constants, when <code>false</code>, install the values
+   *        from <code>systemColors</code> 
    */
   protected void loadSystemColors(UIDefaults defaults, String[] systemColors,
                                   boolean useNative)
   {
-    // TODO
+    if (useNative)
+      {
+        defaults.put("activeCaption",
+                     new ColorUIResource(SystemColor.ACTIVE_CAPTION));
+        defaults.put("activeCaptionBorder",
+                     new ColorUIResource(SystemColor.ACTIVE_CAPTION_BORDER));
+        defaults.put("activeCaptionText",
+                     new ColorUIResource(SystemColor.ACTIVE_CAPTION_TEXT));
+        defaults.put("control",
+                     new ColorUIResource(SystemColor.CONTROL));
+        defaults.put("controlDkShadow",
+                     new ColorUIResource(SystemColor.CONTROL_DK_SHADOW));
+        defaults.put("controlHighlight",
+                     new ColorUIResource(SystemColor.CONTROL_HIGHLIGHT));
+        defaults.put("controlLtHighlight",
+                     new ColorUIResource(SystemColor.CONTROL_LT_HIGHLIGHT));
+        defaults.put("controlShadow",
+                     new ColorUIResource(SystemColor.CONTROL_SHADOW));
+        defaults.put("controlText",
+                     new ColorUIResource(SystemColor.CONTROL_TEXT));
+        defaults.put("desktop",
+                     new ColorUIResource(SystemColor.DESKTOP));
+        defaults.put("inactiveCaption",
+                     new ColorUIResource(SystemColor.INACTIVE_CAPTION));
+        defaults.put("inactiveCaptionBorder",
+                     new ColorUIResource(SystemColor.INACTIVE_CAPTION_BORDER));
+        defaults.put("inactiveCaptionText",
+                     new ColorUIResource(SystemColor.INACTIVE_CAPTION_TEXT));
+        defaults.put("info",
+                     new ColorUIResource(SystemColor.INFO));
+        defaults.put("infoText",
+                     new ColorUIResource(SystemColor.INFO_TEXT));
+        defaults.put("menu",
+                     new ColorUIResource(SystemColor.MENU));
+        defaults.put("menuText",
+                     new ColorUIResource(SystemColor.MENU_TEXT));
+        defaults.put("scrollbar",
+                     new ColorUIResource(SystemColor.SCROLLBAR));
+        defaults.put("text",
+                     new ColorUIResource(SystemColor.TEXT));
+        defaults.put("textHighlight",
+                     new ColorUIResource(SystemColor.TEXT_HIGHLIGHT));
+        defaults.put("textHighlightText",
+                     new ColorUIResource(SystemColor.TEXT_HIGHLIGHT_TEXT));
+        defaults.put("textInactiveText",
+                     new ColorUIResource(SystemColor.TEXT_INACTIVE_TEXT));
+        defaults.put("textText",
+                     new ColorUIResource(SystemColor.TEXT_TEXT));
+        defaults.put("window",
+                     new ColorUIResource(SystemColor.WINDOW));
+        defaults.put("windowBorder",
+                     new ColorUIResource(SystemColor.WINDOW_BORDER));
+        defaults.put("windowText",
+                     new ColorUIResource(SystemColor.WINDOW_TEXT));
+      }
+    else
+      {
+        for (int i = 0; i < systemColors.length; i += 2)
+          {
+            Color color = Color.BLACK;
+            try
+              {
+                color = Color.decode(systemColors[i + 1]);
+              }
+            catch (NumberFormatException e)
+              {
+                e.printStackTrace();
+              }
+            defaults.put(systemColors[i], new ColorUIResource(color));
+          }
+      }
   }
 
   /**
-   * loadResourceBundle
-   * @param defaults TODO
+   * Loads the resource bundle in 'resources/basic' and adds the contained
+   * key/value pairs to the <code>defaults</code> table.
+   *
+   * @param defaults the UI defaults to load the resources into
    */
+  // FIXME: This method is not used atm and private and thus could be removed.
+  // However, I consider this method useful for providing localized
+  // descriptions and similar stuff and therefore think that we should use it
+  // instead and provide the resource bundles.
   private void loadResourceBundle(UIDefaults defaults)
   {
     ResourceBundle bundle;
@@ -414,7 +471,9 @@ public abstract class BasicLookAndFeel extends LookAndFeel
   }
 
   /**
-   * initComponentDefaults
+   * Populates the <code>defaults</code> table with UI default values for
+   * colors, fonts, keybindings and much more.
+   *
    * @param defaults  the defaults table (<code>null</code> not permitted).
    */
   protected void initComponentDefaults(UIDefaults defaults)
@@ -477,7 +536,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
           return BasicIconFactory.getMenuItemCheckIcon();
         }
       },
-      "CheckBox.margin",new InsetsUIResource(2, 2, 2, 2),
+      "CheckBox.margin", new InsetsUIResource(2, 2, 2, 2),
       "CheckBox.textIconGap", new Integer(4),
       "CheckBox.textShiftOffset", new Integer(0),
       "CheckBoxMenuItem.acceleratorFont", new FontUIResource("Dialog",
@@ -567,7 +626,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl F4", "close",
         "KP_DOWN", "down",
         "ctrl F10", "maximize",
-        "ctrl alt shift F6","selectPreviousFrame"
+        "ctrl alt shift F6", "selectPreviousFrame"
       }),
       "DesktopIcon.border", new BorderUIResource.CompoundBorderUIResource(null,
                                                                           null),
@@ -972,6 +1031,25 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "PopupMenu.border", new BorderUIResource.BevelBorderUIResource(0),
       "PopupMenu.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "PopupMenu.foreground", new ColorUIResource(darkShadow),
+      "PopupMenu.selectedWindowInputMapBindings",
+      new Object[] {"ESCAPE", "cancel",
+                    "DOWN", "selectNext",
+                    "KP_DOWN", "selectNext",
+                    "UP", "selectPrevious",
+                    "KP_UP", "selectPrevious",
+                    "LEFT", "selectParent",
+                    "KP_LEFT", "selectParent",
+                    "RIGHT", "selectChild",
+                    "KP_RIGHT", "selectChild",
+                    "ENTER", "return",
+                    "SPACE", "return"
+      },
+      "PopupMenu.selectedWindowInputMapBindings.RightToLeft",
+      new Object[] {"LEFT", "selectChild",
+                    "KP_LEFT", "selectChild",
+                    "RIGHT", "selectParent",
+                    "KP_RIGHT", "selectParent",
+      },
       "ProgressBar.background", new ColorUIResource(Color.LIGHT_GRAY),
       "ProgressBar.border",
       new BorderUIResource.LineBorderUIResource(Color.GREEN, 2),
@@ -1037,14 +1115,14 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "PAGE_DOWN", "positiveBlockIncrement",
         "END",  "maxScroll",
         "HOME",  "minScroll",
-        "LEFT",  "positiveUnitIncrement",
+        "LEFT",  "negativeUnitIncrement",
         "KP_UP", "negativeUnitIncrement",
         "KP_DOWN", "positiveUnitIncrement",
         "UP",  "negativeUnitIncrement",
-        "RIGHT", "negativeUnitIncrement",
-        "KP_LEFT", "positiveUnitIncrement",
+        "RIGHT", "positiveUnitIncrement",
+        "KP_LEFT", "negativeUnitIncrement",
         "DOWN",  "positiveUnitIncrement",
-        "KP_RIGHT", "negativeUnitIncrement"
+        "KP_RIGHT", "positiveUnitIncrement"
       }),
       "ScrollBar.foreground", new ColorUIResource(light),
       "ScrollBar.maximumThumbSize", new DimensionUIResource(4096, 4096),
@@ -1059,7 +1137,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "ScrollPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
         "PAGE_UP", "scrollUp",
         "KP_LEFT", "unitScrollLeft",
-        "ctrl PAGE_DOWN","scrollRight",
+        "ctrl PAGE_DOWN", "scrollRight",
         "PAGE_DOWN", "scrollDown",
         "KP_RIGHT", "unitScrollRight",
         "LEFT",  "unitScrollLeft",
@@ -1115,14 +1193,16 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "F8",  "startResize",
         "END",  "selectMax",
         "HOME",  "selectMin",
-        "LEFT",  "negativeIncremnent",
+        "LEFT",  "negativeIncrement",
         "KP_UP", "negativeIncrement",
         "KP_DOWN", "positiveIncrement",
         "UP",  "negativeIncrement",
         "RIGHT", "positiveIncrement",
         "KP_LEFT", "negativeIncrement",
         "DOWN",  "positiveIncrement",
-        "KP_RIGHT", "positiveIncrement"
+        "KP_RIGHT", "positiveIncrement",
+        "shift ctrl pressed TAB", "focusOutBackward",
+        "ctrl pressed TAB", "focusOutForward"
       }),
       "SplitPane.background", new ColorUIResource(light),
       "SplitPane.border", new BasicBorders.SplitPaneBorder(null, null),
@@ -1133,7 +1213,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "SplitPaneDivider.border", BasicBorders.getSplitPaneDividerBorder(),
       "SplitPaneDivider.draggingColor", new ColorUIResource(Color.DARK_GRAY),
       "TabbedPane.ancestorInputMap", new UIDefaults.LazyInputMap(new Object[] {
-        "ctrl PAGE_DOWN","navigatePageDown",
+        "ctrl PAGE_DOWN", "navigatePageDown",
         "ctrl PAGE_UP", "navigatePageUp",
         "ctrl UP", "requestFocus",
         "ctrl KP_UP", "requestFocus"
@@ -1162,6 +1242,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       "TabbedPane.shadow", new ColorUIResource(shadow),
       "TabbedPane.tabbedPaneContentBorderInsets", new InsetsUIResource(3, 2, 1, 2),
       "TabbedPane.tabbedPaneTabPadInsets", new InsetsUIResource(1, 1, 1, 1),
+      "TabbedPane.tabsOpaque", Boolean.TRUE,
       "TabbedPane.tabAreaInsets", new InsetsUIResource(3, 2, 0, 2),
       "TabbedPane.tabInsets", new InsetsUIResource(0, 4, 1, 4),
       "TabbedPane.tabRunOverlay", new Integer(2),
@@ -1185,13 +1266,13 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "COPY", "copy",
         "ctrl KP_UP", "selectPreviousRowChangeLead",
         "PASTE", "paste",
-        "shift PAGE_DOWN","scrollDownExtendSelection",
+        "shift PAGE_DOWN", "scrollDownExtendSelection",
         "PAGE_DOWN", "scrollDownChangeSelection",
         "END",  "selectLastColumn",
         "shift END", "selectLastColumnExtendSelection",
         "HOME",  "selectFirstColumn",
         "ctrl END", "selectLastRow",
-        "ctrl shift END","selectLastRowExtendSelection",
+        "ctrl shift END", "selectLastRowExtendSelection",
         "LEFT",  "selectPreviousColumn",
         "shift HOME", "selectFirstColumnExtendSelection",
         "UP",  "selectPreviousRow",
@@ -1199,7 +1280,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
         "ctrl HOME", "selectFirstRow",
         "shift LEFT", "selectPreviousColumnExtendSelection",
         "DOWN",  "selectNextRow",
-        "ctrl shift HOME","selectFirstRowExtendSelection",
+        "ctrl shift HOME", "selectFirstRowExtendSelection",
         "shift UP", "selectPreviousRowExtendSelection",
         "F2",  "startEditing",
         "shift RIGHT", "selectNextColumnExtendSelection",
@@ -1548,7 +1629,7 @@ public abstract class BasicLookAndFeel extends LookAndFeel
       }),
       "Tree.font", new FontUIResource("Dialog", Font.PLAIN, 12),
       "Tree.foreground", new ColorUIResource(Color.black),
-      "Tree.hash", new ColorUIResource(new Color(128, 128, 128)),
+      "Tree.hash", new ColorUIResource(new Color(184, 207, 228)),
       "Tree.leftChildIndent", new Integer(7),
       "Tree.rightChildIndent", new Integer(13),
       "Tree.rowHeight", new Integer(16),
@@ -1647,18 +1728,5 @@ public abstract class BasicLookAndFeel extends LookAndFeel
     Toolkit toolkit = Toolkit.getDefaultToolkit();
     toolkit.removeAWTEventListener(popupHelper);
     popupHelper = null;
-  }
-
-  /**
-   * Registers a JPopupMenu for autoclosing when a mouseclick occurs outside
-   * of the JPopupMenu. This must be called when the popup gets opened. The
-   * popup is unregistered from autoclosing as soon as it either got closed
-   * by this helper, or when it has been garbage collected.
-   *
-   * @param popup the popup menu to autoclose
-   */
-  void registerForAutoClose(JPopupMenu popup)
-  {
-    popupHelper.registerForAutoClose(popup);
   }
 }

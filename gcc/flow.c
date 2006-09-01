@@ -490,7 +490,7 @@ verify_wide_reg (int regno, basic_block bb)
       fprintf (dump_file, "Register %d died unexpectedly.\n", regno);
       dump_bb (bb, dump_file, 0);
     }
-  fatal_error ("internal consistency failure");
+  internal_error ("internal consistency failure");
 }
 
 /* A subroutine of update_life_info.  Verify that there are no untoward
@@ -515,7 +515,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 	      fputs ("Old:\n", dump_file);
 	      dump_bb (bb, dump_file, 0);
 	    }
-	  fatal_error ("internal consistency failure");
+	  internal_error ("internal consistency failure");
 	}
     }
   else
@@ -537,7 +537,7 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
 			   "Register %d died unexpectedly.\n", i);
 		  dump_bb (bb, dump_file, 0);
 		}
-	      fatal_error ("internal consistency failure");
+	      internal_error ("internal consistency failure");
 	    }
 	  /* Verify that the now-live register is wider than word_mode.  */
 	  verify_wide_reg (i, bb);
@@ -1564,8 +1564,16 @@ allocate_bb_life_data (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+      if (bb->il.rtl->global_live_at_start)
+	{
+	  CLEAR_REG_SET (bb->il.rtl->global_live_at_start);
+	  CLEAR_REG_SET (bb->il.rtl->global_live_at_end);
+	}
+      else
+	{
+	  bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+	  bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+	}
     }
 
   regs_live_at_setjmp = ALLOC_REG_SET (&reg_obstack);

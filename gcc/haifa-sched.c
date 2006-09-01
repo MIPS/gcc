@@ -593,7 +593,6 @@ static void free_glat (void);
 static void sched_remove_insn (rtx);
 static void clear_priorities (rtx);
 static void add_jump_dependencies (rtx, rtx);
-static rtx bb_note (basic_block);
 static void calc_priorities (rtx);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
@@ -1243,11 +1242,24 @@ unlink_other_notes (rtx insn, rtx tail)
   while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
       /* Delete the note from its current position.  */
       if (prev)
 	NEXT_INSN (prev) = next;
       if (next)
 	PREV_INSN (next) = prev;
+
+      if (bb)
+        {
+          /* Basic block can begin with either LABEL or
+             NOTE_INSN_BASIC_BLOCK.  */
+          gcc_assert (BB_HEAD (bb) != insn);
+
+          /* Check if we are removing last insn in the BB.  */
+          if (BB_END (bb) == insn)
+            BB_END (bb) = prev;
+        }
 
       /* See sched_analyze to see how these are handled.  */
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
@@ -1273,17 +1285,30 @@ unlink_line_notes (rtx insn, rtx tail)
 {
   rtx prev = PREV_INSN (insn);
 
-  while (insn != tail && NOTE_P (insn))
+  while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
 
       if (write_symbols != NO_DEBUG && NOTE_LINE_NUMBER (insn) > 0)
 	{
+          basic_block bb = BLOCK_FOR_INSN (insn);
+
 	  /* Delete the note from its current position.  */
 	  if (prev)
 	    NEXT_INSN (prev) = next;
 	  if (next)
 	    PREV_INSN (next) = prev;
+
+          if (bb)
+            {
+              /* Basic block can begin with either LABEL or
+                 NOTE_INSN_BASIC_BLOCK.  */
+              gcc_assert (BB_HEAD (bb) != insn);
+
+              /* Check if we are removing last insn in the BB.  */
+              if (BB_END (bb) == insn)
+                BB_END (bb) = prev;
+            }
 
 	  /* Record line-number notes so they can be reused.  */
 	  LINE_NOTE (insn) = insn;
@@ -2765,14 +2790,14 @@ sched_init (void)
 	spec_info->weakness_cutoff =
 	  (PARAM_VALUE (PARAM_SCHED_SPEC_PROB_CUTOFF) * MAX_DEP_WEAK) / 100;
       else
-	/* So we won't read anything accidently.  */
+	/* So we won't read anything accidentally.  */
 	spec_info = 0;
 #ifdef ENABLE_CHECKING
       check_sched_flags ();
 #endif
     }
   else
-    /* So we won't read anything accidently.  */
+    /* So we won't read anything accidentally.  */
     spec_info = 0;
 
   /* Initialize issue_rate.  */
@@ -4523,7 +4548,7 @@ add_jump_dependencies (rtx insn, rtx jump)
 }
 
 /* Return the NOTE_INSN_BASIC_BLOCK of BB.  */
-static rtx
+rtx
 bb_note (basic_block bb)
 {
   rtx note;
@@ -4647,8 +4672,13 @@ check_cfg (rtx head, rtx tail)
 		    gcc_assert (EDGE_COUNT (bb->succs) == 1
 				&& BARRIER_P (NEXT_INSN (head)));
 		  else if (any_condjump_p (head))
-		    gcc_assert (EDGE_COUNT (bb->succs) > 1
-				&& !BARRIER_P (NEXT_INSN (head)));
+		    gcc_assert (/* Usual case.  */
+                                (EDGE_COUNT (bb->succs) > 1
+                                 && !BARRIER_P (NEXT_INSN (head)))
+                                /* Or jump to the next instruction.  */
+                                || (EDGE_COUNT (bb->succs) == 1
+                                    && (BB_HEAD (EDGE_I (bb->succs, 0)->dest)
+                                        == JUMP_LABEL (head))));
 		}
 	      if (BB_END (bb) == head)
 		{

@@ -628,13 +628,19 @@ add_fde_cfi (const char *label, dw_cfi_ref cfi)
 	{
 	  dw_cfi_ref xcfi;
 
-	  fde->dw_fde_current_label = label = xstrdup (label);
+	  label = xstrdup (label);
 
 	  /* Set the location counter to the new label.  */
 	  xcfi = new_cfi ();
-	  xcfi->dw_cfi_opc = DW_CFA_advance_loc4;
+	  /* If we have a current label, advance from there, otherwise
+	     set the location directly using set_loc.  */
+	  xcfi->dw_cfi_opc = fde->dw_fde_current_label
+			     ? DW_CFA_advance_loc4
+			     : DW_CFA_set_loc;
 	  xcfi->dw_cfi_oprnd1.dw_cfi_addr = label;
 	  add_cfi (&fde->dw_fde_cfi, xcfi);
+
+	  fde->dw_fde_current_label = label;
 	}
 
       add_cfi (&fde->dw_fde_cfi, cfi);
@@ -2069,6 +2075,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	  else
 	    dw2_asm_output_addr (DWARF2_ADDR_SIZE,
 				 cfi->dw_cfi_oprnd1.dw_cfi_addr, NULL);
+	  fde->dw_fde_current_label = cfi->dw_cfi_oprnd1.dw_cfi_addr;
 	  break;
 
 	case DW_CFA_advance_loc1:
@@ -6919,6 +6926,10 @@ dwarf2out_switch_text_section (void)
   fde->dw_fde_unlikely_section_label = cfun->cold_section_label;
   fde->dw_fde_unlikely_section_end_label = cfun->cold_section_end_label;
   have_multiple_function_sections = true;
+
+  /* Reset the current label on switching text sections, so that we
+     don't attempt to advance_loc4 between labels in different sections.  */
+  fde->dw_fde_current_label = NULL;
 }
 
 /* Output the location list given to us.  */
@@ -7232,14 +7243,12 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
     }
 }
 
-/* The DWARF2 pubname for a nested thingy looks like "A::f".  The
-   output of lang_hooks.decl_printable_name for C++ looks like
-   "A::f(int)".  Let's drop the argument list, and maybe the scope.  */
+/* Return the DWARF2/3 pubname associated with a decl.  */
 
 static const char *
 dwarf2_name (tree decl, int scope)
 {
-  return lang_hooks.decl_printable_name (decl, scope ? 1 : 0);
+  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -8477,7 +8486,13 @@ dbx_reg_number (rtx rtl)
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
 
 #ifdef LEAF_REG_REMAP
-  regno = LEAF_REG_REMAP (regno);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (regno);
+    if (leaf_reg != -1)
+      regno = (unsigned) leaf_reg;
+  }
 #endif
 
   return DBX_REGISTER_NUMBER (regno);
@@ -8546,7 +8561,13 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 
   reg = REGNO (rtl);
 #ifdef LEAF_REG_REMAP
-  reg = LEAF_REG_REMAP (reg);
+  {
+    int leaf_reg;
+
+    leaf_reg = LEAF_REG_REMAP (reg);
+    if (leaf_reg != -1)
+      reg = (unsigned) leaf_reg;
+  }
 #endif
   gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
   nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
@@ -9932,10 +9953,13 @@ rtl_for_decl_init (tree init, tree type)
 	rtl = gen_rtx_CONST_STRING (VOIDmode,
 				    ggc_strdup (TREE_STRING_POINTER (init)));
     }
-  /* Although DWARF could easily handle other kinds of aggregates, we
-     have no way to represent such values as RTL constants, so skip
-     those.  */
-  else if (AGGREGATE_TYPE_P (type))
+  /* Other aggregates, and complex values, could be represented using
+     CONCAT: FIXME!  */
+  else if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+    ;
+  /* Vectors only work if their mode is supported by the target.  
+     FIXME: generic vectors ought to work too.  */
+  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_MODE (type) == BLKmode)
     ;
   /* If the initializer is something that we know will expand into an
      immediate RTL constant, expand it now.  We must be careful not to
@@ -11447,6 +11471,7 @@ dwarf2out_abstract_function (tree decl)
 {
   dw_die_ref old_die;
   tree save_fn;
+  struct function *save_cfun;
   tree context;
   int was_abstract = DECL_ABSTRACT (decl);
 
@@ -11470,7 +11495,9 @@ dwarf2out_abstract_function (tree decl)
 
   /* Pretend we've just finished compiling this function.  */
   save_fn = current_function_decl;
+  save_cfun = cfun;
   current_function_decl = decl;
+  cfun = DECL_STRUCT_FUNCTION (decl);
 
   set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
@@ -11478,6 +11505,7 @@ dwarf2out_abstract_function (tree decl)
     set_decl_abstract_flags (decl, 0);
 
   current_function_decl = save_fn;
+  cfun = save_cfun;
 }
 
 /* Helper function of premark_used_types() which gets called through
@@ -11521,7 +11549,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
-  premark_used_types();
+  premark_used_types ();
 
   /* It is possible to have both DECL_ABSTRACT and DECLARATION be true if we
      started to generate the abstract instance of an inline, decided to output
@@ -13537,9 +13565,6 @@ dwarf2out_var_location (rtx loc_note)
   last_insn = loc_note;
   last_label = newloc->label;
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
-  if (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl) 
-      && DECL_P (DECL_DEBUG_EXPR (decl)))
-    decl = DECL_DEBUG_EXPR (decl); 
   add_var_loc_to_decl (decl, newloc);
 }
 
@@ -14030,6 +14055,7 @@ prune_unused_types_prune (dw_die_ref die)
   dw_die_ref c;
 
   gcc_assert (die->die_mark);
+  prune_unused_types_update_strings (die);
 
   if (! die->die_child)
     return;
@@ -14054,7 +14080,6 @@ prune_unused_types_prune (dw_die_ref die)
 
     if (c != prev->die_sib)
       prev->die_sib = c;
-    prune_unused_types_update_strings (c);
     prune_unused_types_prune (c);
   } while (c != die->die_child);
 }

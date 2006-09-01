@@ -163,7 +163,6 @@ static void aof_file_start (void);
 static void aof_file_end (void);
 static void aof_asm_init_sections (void);
 #endif
-static rtx arm_struct_value_rtx (tree, int);
 static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
 static bool arm_pass_by_reference (CUMULATIVE_ARGS *,
@@ -299,9 +298,6 @@ static bool arm_tls_symbol_p (rtx x);
 #define TARGET_PASS_BY_REFERENCE arm_pass_by_reference
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES arm_arg_partial_bytes
-
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
 
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS arm_setup_incoming_varargs
@@ -2669,7 +2665,7 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 			  tree fndecl ATTRIBUTE_UNUSED)
 {
   /* On the ARM, the offset starts at 0.  */
-  pcum->nregs = ((fntype && aggregate_value_p (TREE_TYPE (fntype), fntype)) ? 1 : 0);
+  pcum->nregs = 0;
   pcum->iwmmxt_nregs = 0;
   pcum->can_split = true;
 
@@ -2806,7 +2802,7 @@ arm_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 /* Encode the current state of the #pragma [no_]long_calls.  */
 typedef enum
 {
-  OFF,		/* No #pramgma [no_]long_calls is in effect.  */
+  OFF,		/* No #pragma [no_]long_calls is in effect.  */
   LONG,		/* #pragma long_calls is in effect.  */
   SHORT		/* #pragma no_long_calls is in effect.  */
 } arm_pragma_enum;
@@ -11017,11 +11013,19 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'S':
       {
 	HOST_WIDE_INT val;
-	const char * shift = shift_op (x, &val);
+	const char *shift;
+
+	if (!shift_operator (x, SImode))
+	  {
+	    output_operand_lossage ("invalid shift operand");
+	    break;
+	  }
+
+	shift = shift_op (x, &val);
 
 	if (shift)
 	  {
-	    fprintf (stream, ", %s ", shift_op (x, &val));
+	    fprintf (stream, ", %s ", shift);
 	    if (val == -1)
 	      arm_print_operand (stream, XEXP (x, 1), 0);
 	    else
@@ -14833,25 +14837,6 @@ arm_output_load_gr (rtx *operands)
   output_asm_insn ("ldr%?\t%0, [sp], #4\t@ End of GR load expansion", & reg);
 
   return "";
-}
-
-static rtx
-arm_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
-		      int incoming ATTRIBUTE_UNUSED)
-{
-#if 0
-  /* FIXME: The ARM backend has special code to handle structure
-	 returns, and will reserve its own hidden first argument.  So
-	 if this macro is enabled a *second* hidden argument will be
-	 reserved, which will break binary compatibility with old
-	 toolchains and also thunk handling.  One day this should be
-	 fixed.  */
-  return 0;
-#else
-  /* Register in which address to store a structure value
-     is passed to a function.  */
-  return gen_rtx_REG (Pmode, ARG_REGISTER (1));
-#endif
 }
 
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.

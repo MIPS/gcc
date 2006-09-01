@@ -1,5 +1,5 @@
 /* BasicListUI.java --
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -59,12 +59,12 @@ import javax.swing.DefaultListSelectionModel;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JList;
-import javax.swing.KeyStroke;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.event.ListDataEvent;
@@ -74,8 +74,8 @@ import javax.swing.event.ListSelectionListener;
 import javax.swing.event.MouseInputListener;
 import javax.swing.plaf.ActionMapUIResource;
 import javax.swing.plaf.ComponentUI;
-import javax.swing.plaf.InputMapUIResource;
 import javax.swing.plaf.ListUI;
+import javax.swing.plaf.UIResource;
 
 /**
  * The Basic Look and Feel UI delegate for the 
@@ -179,7 +179,8 @@ public class BasicListUI extends ListUI
       int index1 = e.getFirstIndex();
       int index2 = e.getLastIndex();
       Rectangle damaged = getCellBounds(list, index1, index2);
-      list.repaint(damaged);
+      if (damaged != null)
+        list.repaint(damaged);
     }
   }
 
@@ -212,14 +213,32 @@ public class BasicListUI extends ListUI
       target.actionPerformed(derivedEvent);
     }
   }
-  
-  class ListAction extends AbstractAction
+
+  /**
+   * Implements the action for the JList's keyboard commands.
+   */
+  private class ListAction
+    extends AbstractAction
   {
-    public void actionPerformed (ActionEvent e)
+    // TODO: Maybe make a couple of classes out of this bulk Action.
+    // Form logical groups of Actions when doing this.
+
+    /**
+     * Creates a new ListAction for the specified command.
+     *
+     * @param cmd the actionCommand to set
+     */
+    ListAction(String cmd)
+    {
+      putValue(ACTION_COMMAND_KEY, cmd);
+    }
+
+    public void actionPerformed(ActionEvent e)
     {
       int lead = list.getLeadSelectionIndex();
       int max = list.getModel().getSize() - 1;
-      DefaultListSelectionModel selModel = (DefaultListSelectionModel)list.getSelectionModel();
+      DefaultListSelectionModel selModel 
+          = (DefaultListSelectionModel) list.getSelectionModel();
       String command = e.getActionCommand();
       // Do nothing if list is empty
       if (max == -1)
@@ -257,9 +276,8 @@ public class BasicListUI extends ListUI
           int target;
           if (lead == list.getLastVisibleIndex())
             {
-              target = Math.min
-                (max, lead + (list.getLastVisibleIndex() -
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.min(max, lead + (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getLastVisibleIndex();
@@ -270,9 +288,8 @@ public class BasicListUI extends ListUI
           int target;
           if (lead == list.getLastVisibleIndex())
             {
-              target = Math.min
-                (max, lead + (list.getLastVisibleIndex() -
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.min(max, lead + (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getLastVisibleIndex();
@@ -283,9 +300,8 @@ public class BasicListUI extends ListUI
           int target;
           if (lead == list.getFirstVisibleIndex())
             {
-              target = Math.max 
-                (0, lead - (list.getLastVisibleIndex() - 
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.max(0, lead - (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getFirstVisibleIndex();
@@ -296,9 +312,8 @@ public class BasicListUI extends ListUI
           int target;
           if (lead == list.getFirstVisibleIndex())
             {
-              target = Math.max 
-                (0, lead - (list.getLastVisibleIndex() - 
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.max(0, lead - (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getFirstVisibleIndex();
@@ -306,32 +321,31 @@ public class BasicListUI extends ListUI
         }
       else if (command.equals("selectNextRowExtendSelection"))
         {
-          selModel.setLeadSelectionIndex(Math.min(lead + 1,max));
+          selModel.setLeadSelectionIndex(Math.min(lead + 1, max));
         }
       else if (command.equals("selectFirstRow"))
         {
           list.setSelectedIndex(0);
         }
       else if (command.equals("selectFirstRowChangeLead"))
-          {
-            selModel.moveLeadSelectionIndex(0);
-          }
+        {
+          selModel.moveLeadSelectionIndex(0);
+        }
       else if (command.equals("selectFirstRowExtendSelection"))
         {
           selModel.setLeadSelectionIndex(0);
         }
       else if (command.equals("selectPreviousRowExtendSelection"))
         {
-          selModel.setLeadSelectionIndex(Math.max(0,lead - 1));
+          selModel.setLeadSelectionIndex(Math.max(0, lead - 1));
         }
       else if (command.equals("scrollUp"))
         {
           int target;
           if (lead == list.getFirstVisibleIndex())
             {
-              target = Math.max 
-                (0, lead - (list.getLastVisibleIndex() - 
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.max(0, lead - (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getFirstVisibleIndex();
@@ -346,9 +360,8 @@ public class BasicListUI extends ListUI
           int target;
           if (lead == list.getLastVisibleIndex())
             {
-              target = Math.min
-                (max, lead + (list.getLastVisibleIndex() -
-                    list.getFirstVisibleIndex() + 1));
+              target = Math.min(max, lead + (list.getLastVisibleIndex() 
+                  - list.getFirstVisibleIndex() + 1));
             }
           else
             target = list.getLastVisibleIndex();
@@ -400,7 +413,7 @@ public class BasicListUI extends ListUI
       list.ensureIndexIsVisible(list.getLeadSelectionIndex());
     }
   }
-     
+
   /**
    * A helper class which listens for {@link MouseEvent}s 
    * from the {@link JList}.
@@ -448,9 +461,9 @@ public class BasicListUI extends ListUI
           if (list.getSelectionMode() == ListSelectionModel.SINGLE_SELECTION)
             list.setSelectedIndex(index);
           else if (list.isSelectedIndex(index))
-            list.removeSelectionInterval(index,index);
+            list.removeSelectionInterval(index, index);
           else
-            list.addSelectionInterval(index,index);
+            list.addSelectionInterval(index, index);
         }
       else
         list.setSelectedIndex(index);
@@ -466,7 +479,8 @@ public class BasicListUI extends ListUI
      */
     public void mousePressed(MouseEvent event)
     {
-      // TODO: What should be done here, if anything?
+      // We need to explicitly request focus.
+      list.requestFocusInWindow();
     }
 
     /**
@@ -716,7 +730,8 @@ public class BasicListUI extends ListUI
    * @param index2 The last row to incude in the bounds
    *
    * @return A rectangle encompassing the range of rows between 
-   * <code>index1</code> and <code>index2</code> inclusive
+   * <code>index1</code> and <code>index2</code> inclusive, or null
+   * such a rectangle couldn't be calculated for the given indexes.
    */
   public Rectangle getCellBounds(JList l, int index1, int index2)
   {
@@ -993,30 +1008,68 @@ public class BasicListUI extends ListUI
    */
   protected void installKeyboardActions()
   {
+    // Install UI InputMap.
     InputMap focusInputMap = (InputMap) UIManager.get("List.focusInputMap");
-    InputMapUIResource parentInputMap = new InputMapUIResource();
-    // FIXME: The JDK uses a LazyActionMap for parentActionMap
-    ActionMap parentActionMap = new ActionMapUIResource();
-    action = new ListAction();
-    Object keys[] = focusInputMap.allKeys();
-    // Register key bindings in the UI InputMap-ActionMap pair
-    for (int i = 0; i < keys.length; i++)
-      {
-        KeyStroke stroke = (KeyStroke)keys[i];
-        String actionString = (String) focusInputMap.get(stroke);
-        parentInputMap.put(KeyStroke.getKeyStroke(stroke.getKeyCode(),
-                                                  stroke.getModifiers()),
-                           actionString);
+    SwingUtilities.replaceUIInputMap(list, JComponent.WHEN_FOCUSED,
+                                     focusInputMap);
 
-        parentActionMap.put (actionString, 
-                             new ActionListenerProxy(action, actionString));
+    // Install UI ActionMap.
+    ActionMap am = (ActionMap) UIManager.get("List.actionMap");
+    if (am == null)
+      {
+        // Create the actionMap once and store it in the current UIDefaults
+        // for use in other components.
+        am = new ActionMapUIResource();
+        ListAction action;
+        action = new ListAction("selectPreviousRow");
+        am.put("selectPreviousRow", action);
+        action = new ListAction("selectNextRow");
+        am.put("selectNextRow", action);
+        action = new ListAction("selectPreviousRowExtendSelection");
+        am.put("selectPreviousRowExtendSelection", action);
+        action = new ListAction("selectNextRowExtendSelection");
+        am.put("selectNextRowExtendSelection", action);
+
+        action = new ListAction("selectPreviousColumn");
+        am.put("selectPreviousColumn", action);
+        action = new ListAction("selectNextColumn");
+        am.put("selectNextColumn", action);
+        action = new ListAction("selectPreviousColumnExtendSelection");
+        am.put("selectPreviousColumnExtendSelection", action);
+        action = new ListAction("selectNextColumnExtendSelection");
+        am.put("selectNextColumnExtendSelection", action);
+
+        action = new ListAction("selectFirstRow");
+        am.put("selectFirstRow", action);
+        action = new ListAction("selectLastRow");
+        am.put("selectLastRow", action);
+        action = new ListAction("selectFirstRowExtendSelection");
+        am.put("selectFirstRowExtendSelection", action);
+        action = new ListAction("selectLastRowExtendSelection");
+        am.put("selectLastRowExtendSelection", action);
+
+        action = new ListAction("scrollUp");
+        am.put("scrollUp", action);
+        action = new ListAction("scrollUpExtendSelection");
+        am.put("scrollUpExtendSelection", action);
+        action = new ListAction("scrollDown");
+        am.put("scrollDown", action);
+        action = new ListAction("scrollDownExtendSelection");
+        am.put("scrollDownExtendSelection", action);
+
+        action = new ListAction("selectAll");
+        am.put("selectAll", action);
+        action = new ListAction("clearSelection");
+        am.put("clearSelection", action);
+
+        am.put("copy", TransferHandler.getCopyAction());
+        am.put("cut", TransferHandler.getCutAction());
+        am.put("paste", TransferHandler.getPasteAction());
+
+        UIManager.put("List.actionMap", am);
       }
-    // Register the new InputMap-ActionMap as the parents of the list's
-    // InputMap and ActionMap
-    parentInputMap.setParent(list.getInputMap().getParent());
-    parentActionMap.setParent(list.getActionMap().getParent());
-    list.getInputMap().setParent(parentInputMap);
-    list.getActionMap().setParent(parentActionMap);
+
+    SwingUtilities.replaceUIActionMap(list, am);
   }
 
   /**
@@ -1024,7 +1077,14 @@ public class BasicListUI extends ListUI
    */
   protected void uninstallKeyboardActions()
   {
-    // TODO: Implement this properly.
+    // Uninstall the InputMap.
+    InputMap im = SwingUtilities.getUIInputMap(list, JComponent.WHEN_FOCUSED);
+    if (im instanceof UIResource)
+      SwingUtilities.replaceUIInputMap(list, JComponent.WHEN_FOCUSED, null);
+
+    // Uninstall the ActionMap.
+    if (SwingUtilities.getUIActionMap(list) instanceof UIResource)
+      SwingUtilities.replaceUIActionMap(list, null);
   }
 
   /**
@@ -1151,7 +1211,7 @@ public class BasicListUI extends ListUI
     boolean hasFocus = (list.getLeadSelectionIndex() == row) && BasicListUI.this.list.hasFocus();
     Component comp = rend.getListCellRendererComponent(list,
                                                        data.getElementAt(row),
-                                                       0, isSel, hasFocus);
+                                                       row, isSel, hasFocus);
     rendererPane.paintComponent(g, comp, list, bounds);
   }
 
@@ -1182,7 +1242,7 @@ public class BasicListUI extends ListUI
     for (int row = startIndex; row <= endIndex; ++row)
       {
         Rectangle bounds = getCellBounds(list, row, row);
-        if (bounds.intersects(clip))
+        if (bounds != null && bounds.intersects(clip))
           paintCell(g, row, bounds, render, model, sel, lead);
       }
   }

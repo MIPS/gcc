@@ -43,15 +43,10 @@ import gnu.java.security.Registry;
 /**
  * The implementation of the Blowfish <i>Service Provider Interface</i>
  * (<b>SPI</b>) adapter.
- *
- * @version $Revision: 1.1 $
  */
-public final class BlowfishSpi extends CipherAdapter
+public final class BlowfishSpi
+    extends CipherAdapter
 {
-
-  // Constructors.
-  // --------------------------------------------------------------------
-
   public BlowfishSpi()
   {
     super(Registry.BLOWFISH_CIPHER);

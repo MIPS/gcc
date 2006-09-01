@@ -516,7 +516,7 @@ extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
 extern rtx first_insn_after_basic_block_note (basic_block);
 extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
-extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type, 
+extern void scale_bbs_frequencies_gcov_type (basic_block *, int, gcov_type,
 					     gcov_type);
 
 /* Structure to group all of the information to process IF-THEN and
@@ -765,7 +765,7 @@ ei_cond (edge_iterator ei, edge *p)
    an element might be removed during the traversal, otherwise
    elements will be missed.  Instead, use a for-loop like that shown
    in the following pseudo-code:
-   
+
    FOR (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
      {
 	IF (e != taken_edge)
@@ -880,6 +880,8 @@ extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
+extern bool edge_probability_reliable_p (edge);
+extern bool br_prob_note_reliable_p (rtx);
 
 /* In flow.c */
 extern void init_flow (void);
@@ -970,7 +972,7 @@ extern void calculate_dominance_info (enum cdi_direction);
 extern void free_dominance_info (enum cdi_direction);
 extern basic_block nearest_common_dominator (enum cdi_direction,
 					     basic_block, basic_block);
-extern basic_block nearest_common_dominator_for_set (enum cdi_direction, 
+extern basic_block nearest_common_dominator_for_set (enum cdi_direction,
 						     bitmap);
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
@@ -988,6 +990,9 @@ extern void iterate_fix_dominators (enum cdi_direction, basic_block *, int);
 extern void verify_dominators (enum cdi_direction);
 extern basic_block first_dom_son (enum cdi_direction, basic_block);
 extern basic_block next_dom_son (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_in (enum cdi_direction, basic_block);
+unsigned bb_dom_dfs_out (enum cdi_direction, basic_block);
+
 extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
 extern void check_bb_profile (basic_block, FILE *);

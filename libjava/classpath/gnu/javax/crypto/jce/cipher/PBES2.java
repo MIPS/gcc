@@ -55,21 +55,12 @@ import javax.crypto.interfaces.PBEKey;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * <p>.</p>
- *
- * @version $Revision: 1.1 $
  */
-public abstract class PBES2 extends CipherAdapter
+public abstract class PBES2
+    extends CipherAdapter
 {
-
-  // Constants and variables
-  // -------------------------------------------------------------------------
-
   /** The HMac (PRF) algorithm name. */
   protected String macName;
-
-  // Constructor(s)
-  // -------------------------------------------------------------------------
 
   protected PBES2(String cipherName, int blockLen, String macName)
   {
@@ -83,15 +74,11 @@ public abstract class PBES2 extends CipherAdapter
     this.macName = macName;
   }
 
-  // Instance methods
-  // -------------------------------------------------------------------------
-
   protected void engineInit(int opmode, Key key, SecureRandom random)
       throws InvalidKeyException
   {
-    if (!(key instanceof PBEKey))
+    if (! (key instanceof PBEKey))
       throw new InvalidKeyException("not a PBE key");
-
     super.engineInit(opmode, genkey((PBEKey) key), random);
   }
 
@@ -99,9 +86,8 @@ public abstract class PBES2 extends CipherAdapter
                             SecureRandom random) throws InvalidKeyException,
       InvalidAlgorithmParameterException
   {
-    if (!(key instanceof PBEKey))
+    if (! (key instanceof PBEKey))
       throw new InvalidKeyException("not a PBE key");
-
     super.engineInit(opmode, genkey((PBEKey) key), params, random);
   }
 
@@ -109,9 +95,8 @@ public abstract class PBES2 extends CipherAdapter
                             SecureRandom random) throws InvalidKeyException,
       InvalidAlgorithmParameterException
   {
-    if (!(key instanceof PBEKey))
+    if (! (key instanceof PBEKey))
       throw new InvalidKeyException("not a PBE key");
-
     super.engineInit(opmode, genkey((PBEKey) key), params, random);
   }
 
@@ -119,11 +104,9 @@ public abstract class PBES2 extends CipherAdapter
   {
     IRandom kdf = PRNGFactory.getInstance("PBKDF2-" + macName);
     if (kdf == null)
-      {
-        throw new IllegalArgumentException("no such KDF: PBKDF2-" + macName);
-      }
+      throw new IllegalArgumentException("no such KDF: PBKDF2-" + macName);
     HashMap attrib = new HashMap();
-    attrib.put(IPBE.ITERATION_COUNT, new Integer(key.getIterationCount()));
+    attrib.put(IPBE.ITERATION_COUNT, Integer.valueOf(key.getIterationCount()));
     attrib.put(IPBE.PASSWORD, key.getPassword());
     attrib.put(IPBE.SALT, key.getSalt());
     try
@@ -141,21 +124,14 @@ public abstract class PBES2 extends CipherAdapter
       }
     catch (LimitReachedException shouldNotHappen)
       {
-        //         throw new Error(shouldNotHappen);
         throw new Error(String.valueOf(shouldNotHappen));
       }
     return new SecretKeySpec(dk, cipher.name());
   }
 
-  // Inner classe(s)
-  // =========================================================================
-
-  public static class HMacSHA1 extends PBES2
+  public static class HMacSHA1
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacSHA1(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-SHA1");
@@ -166,10 +142,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-SHA1");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacSHA1
+    public static class AES
+        extends HMacSHA1
     {
       public AES()
       {
@@ -177,7 +151,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacSHA1
+    public static class Anubis
+        extends HMacSHA1
     {
       public Anubis()
       {
@@ -185,7 +160,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacSHA1
+    public static class Blowfish
+        extends HMacSHA1
     {
       public Blowfish()
       {
@@ -193,7 +169,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacSHA1
+    public static class Cast5
+        extends HMacSHA1
     {
       public Cast5()
       {
@@ -201,7 +178,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacSHA1
+    public static class DES
+        extends HMacSHA1
     {
       public DES()
       {
@@ -209,7 +187,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacSHA1
+    public static class Khazad
+        extends HMacSHA1
     {
       public Khazad()
       {
@@ -217,7 +196,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacSHA1
+    public static class Serpent
+        extends HMacSHA1
     {
       public Serpent()
       {
@@ -225,7 +205,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacSHA1
+    public static class Square
+        extends HMacSHA1
     {
       public Square()
       {
@@ -233,7 +214,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacSHA1
+    public static class TripleDES
+        extends HMacSHA1
     {
       public TripleDES()
       {
@@ -241,7 +223,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacSHA1
+    public static class Twofish
+        extends HMacSHA1
     {
       public Twofish()
       {
@@ -250,12 +233,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacMD5 extends PBES2
+  public static class HMacMD5
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacMD5(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-MD5");
@@ -266,10 +246,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-MD5");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacMD5
+    public static class AES
+        extends HMacMD5
     {
       public AES()
       {
@@ -277,7 +255,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacMD5
+    public static class Anubis
+        extends HMacMD5
     {
       public Anubis()
       {
@@ -285,7 +264,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacMD5
+    public static class Blowfish
+        extends HMacMD5
     {
       public Blowfish()
       {
@@ -293,7 +273,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacMD5
+    public static class Cast5
+        extends HMacMD5
     {
       public Cast5()
       {
@@ -301,7 +282,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacMD5
+    public static class DES
+        extends HMacMD5
     {
       public DES()
       {
@@ -309,7 +291,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacMD5
+    public static class Khazad
+        extends HMacMD5
     {
       public Khazad()
       {
@@ -317,7 +300,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacMD5
+    public static class Serpent
+        extends HMacMD5
     {
       public Serpent()
       {
@@ -325,7 +309,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacMD5
+    public static class Square
+        extends HMacMD5
     {
       public Square()
       {
@@ -333,7 +318,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacMD5
+    public static class TripleDES
+        extends HMacMD5
     {
       public TripleDES()
       {
@@ -341,7 +327,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacMD5
+    public static class Twofish
+        extends HMacMD5
     {
       public Twofish()
       {
@@ -350,12 +337,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacMD2 extends PBES2
+  public static class HMacMD2
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacMD2(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-MD2");
@@ -366,10 +350,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-MD2");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacMD2
+    public static class AES
+        extends HMacMD2
     {
       public AES()
       {
@@ -377,7 +359,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacMD2
+    public static class Anubis
+        extends HMacMD2
     {
       public Anubis()
       {
@@ -385,7 +368,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacMD2
+    public static class Blowfish
+        extends HMacMD2
     {
       public Blowfish()
       {
@@ -393,7 +377,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacMD2
+    public static class Cast5
+        extends HMacMD2
     {
       public Cast5()
       {
@@ -401,7 +386,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacMD2
+    public static class DES
+        extends HMacMD2
     {
       public DES()
       {
@@ -409,7 +395,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacMD2
+    public static class Khazad
+        extends HMacMD2
     {
       public Khazad()
       {
@@ -417,7 +404,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacMD2
+    public static class Serpent
+        extends HMacMD2
     {
       public Serpent()
       {
@@ -425,7 +413,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacMD2
+    public static class Square
+        extends HMacMD2
     {
       public Square()
       {
@@ -433,7 +422,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacMD2
+    public static class TripleDES
+        extends HMacMD2
     {
       public TripleDES()
       {
@@ -441,7 +431,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacMD2
+    public static class Twofish
+        extends HMacMD2
     {
       public Twofish()
       {
@@ -450,12 +441,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacMD4 extends PBES2
+  public static class HMacMD4
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacMD4(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-MD4");
@@ -466,10 +454,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-MD4");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacMD4
+    public static class AES
+        extends HMacMD4
     {
       public AES()
       {
@@ -477,7 +463,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacMD4
+    public static class Anubis
+        extends HMacMD4
     {
       public Anubis()
       {
@@ -485,7 +472,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacMD4
+    public static class Blowfish
+        extends HMacMD4
     {
       public Blowfish()
       {
@@ -493,7 +481,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacMD4
+    public static class Cast5
+        extends HMacMD4
     {
       public Cast5()
       {
@@ -501,7 +490,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacMD4
+    public static class DES
+        extends HMacMD4
     {
       public DES()
       {
@@ -509,7 +499,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacMD4
+    public static class Khazad
+        extends HMacMD4
     {
       public Khazad()
       {
@@ -517,7 +508,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacMD4
+    public static class Serpent
+        extends HMacMD4
     {
       public Serpent()
       {
@@ -525,7 +517,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacMD4
+    public static class Square
+        extends HMacMD4
     {
       public Square()
       {
@@ -533,7 +526,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacMD4
+    public static class TripleDES
+        extends HMacMD4
     {
       public TripleDES()
       {
@@ -541,7 +535,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacMD4
+    public static class Twofish
+        extends HMacMD4
     {
       public Twofish()
       {
@@ -550,12 +545,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacHaval extends PBES2
+  public static class HMacHaval
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacHaval(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-HAVAL");
@@ -566,10 +558,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-HAVAL");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacHaval
+    public static class AES
+        extends HMacHaval
     {
       public AES()
       {
@@ -577,7 +567,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacHaval
+    public static class Anubis
+        extends HMacHaval
     {
       public Anubis()
       {
@@ -585,7 +576,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacHaval
+    public static class Blowfish
+        extends HMacHaval
     {
       public Blowfish()
       {
@@ -593,7 +585,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacHaval
+    public static class Cast5
+        extends HMacHaval
     {
       public Cast5()
       {
@@ -601,7 +594,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacHaval
+    public static class DES
+        extends HMacHaval
     {
       public DES()
       {
@@ -609,7 +603,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacHaval
+    public static class Khazad
+        extends HMacHaval
     {
       public Khazad()
       {
@@ -617,7 +612,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacHaval
+    public static class Serpent
+        extends HMacHaval
     {
       public Serpent()
       {
@@ -625,7 +621,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacHaval
+    public static class Square
+        extends HMacHaval
     {
       public Square()
       {
@@ -633,7 +630,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacHaval
+    public static class TripleDES
+        extends HMacHaval
     {
       public TripleDES()
       {
@@ -641,7 +639,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacHaval
+    public static class Twofish
+        extends HMacHaval
     {
       public Twofish()
       {
@@ -650,12 +649,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacRipeMD128 extends PBES2
+  public static class HMacRipeMD128
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacRipeMD128(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-RIPEMD128");
@@ -666,10 +662,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-RIPEMD128");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacRipeMD128
+    public static class AES
+        extends HMacRipeMD128
     {
       public AES()
       {
@@ -677,7 +671,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacRipeMD128
+    public static class Anubis
+        extends HMacRipeMD128
     {
       public Anubis()
       {
@@ -685,7 +680,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacRipeMD128
+    public static class Blowfish
+        extends HMacRipeMD128
     {
       public Blowfish()
       {
@@ -693,7 +689,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacRipeMD128
+    public static class Cast5
+        extends HMacRipeMD128
     {
       public Cast5()
       {
@@ -701,7 +698,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacRipeMD128
+    public static class DES
+        extends HMacRipeMD128
     {
       public DES()
       {
@@ -709,7 +707,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacRipeMD128
+    public static class Khazad
+        extends HMacRipeMD128
     {
       public Khazad()
       {
@@ -717,7 +716,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacRipeMD128
+    public static class Serpent
+        extends HMacRipeMD128
     {
       public Serpent()
       {
@@ -725,7 +725,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacRipeMD128
+    public static class Square
+        extends HMacRipeMD128
     {
       public Square()
       {
@@ -733,7 +734,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacRipeMD128
+    public static class TripleDES
+        extends HMacRipeMD128
     {
       public TripleDES()
       {
@@ -741,7 +743,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacRipeMD128
+    public static class Twofish
+        extends HMacRipeMD128
     {
       public Twofish()
       {
@@ -750,12 +753,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacRipeMD160 extends PBES2
+  public static class HMacRipeMD160
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacRipeMD160(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-RIPEMD160");
@@ -766,10 +766,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-RIPEMD160");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacRipeMD160
+    public static class AES
+        extends HMacRipeMD160
     {
       public AES()
       {
@@ -777,7 +775,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacRipeMD160
+    public static class Anubis
+        extends HMacRipeMD160
     {
       public Anubis()
       {
@@ -785,7 +784,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacRipeMD160
+    public static class Blowfish
+        extends HMacRipeMD160
     {
       public Blowfish()
       {
@@ -793,7 +793,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacRipeMD160
+    public static class Cast5
+        extends HMacRipeMD160
     {
       public Cast5()
       {
@@ -801,7 +802,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacRipeMD160
+    public static class DES
+        extends HMacRipeMD160
     {
       public DES()
       {
@@ -809,7 +811,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacRipeMD160
+    public static class Khazad
+        extends HMacRipeMD160
     {
       public Khazad()
       {
@@ -817,7 +820,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacRipeMD160
+    public static class Serpent
+        extends HMacRipeMD160
     {
       public Serpent()
       {
@@ -825,7 +829,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacRipeMD160
+    public static class Square
+        extends HMacRipeMD160
     {
       public Square()
       {
@@ -833,7 +838,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacRipeMD160
+    public static class TripleDES
+        extends HMacRipeMD160
     {
       public TripleDES()
       {
@@ -841,7 +847,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacRipeMD160
+    public static class Twofish
+        extends HMacRipeMD160
     {
       public Twofish()
       {
@@ -850,12 +857,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacSHA256 extends PBES2
+  public static class HMacSHA256
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacSHA256(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-SHA-256");
@@ -866,10 +870,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-SHA-256");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacSHA256
+    public static class AES
+        extends HMacSHA256
     {
       public AES()
       {
@@ -877,7 +879,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacSHA256
+    public static class Anubis
+        extends HMacSHA256
     {
       public Anubis()
       {
@@ -885,7 +888,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacSHA256
+    public static class Blowfish
+        extends HMacSHA256
     {
       public Blowfish()
       {
@@ -893,7 +897,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacSHA256
+    public static class Cast5
+        extends HMacSHA256
     {
       public Cast5()
       {
@@ -901,7 +906,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacSHA256
+    public static class DES
+        extends HMacSHA256
     {
       public DES()
       {
@@ -909,7 +915,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacSHA256
+    public static class Khazad
+        extends HMacSHA256
     {
       public Khazad()
       {
@@ -917,7 +924,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacSHA256
+    public static class Serpent
+        extends HMacSHA256
     {
       public Serpent()
       {
@@ -925,7 +933,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacSHA256
+    public static class Square
+        extends HMacSHA256
     {
       public Square()
       {
@@ -933,7 +942,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacSHA256
+    public static class TripleDES
+        extends HMacSHA256
     {
       public TripleDES()
       {
@@ -941,7 +951,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacSHA256
+    public static class Twofish
+        extends HMacSHA256
     {
       public Twofish()
       {
@@ -950,12 +961,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacSHA384 extends PBES2
+  public static class HMacSHA384
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacSHA384(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-SHA-384");
@@ -966,10 +974,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-SHA-384");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacSHA384
+    public static class AES
+        extends HMacSHA384
     {
       public AES()
       {
@@ -977,7 +983,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacSHA384
+    public static class Anubis
+        extends HMacSHA384
     {
       public Anubis()
       {
@@ -985,7 +992,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacSHA384
+    public static class Blowfish
+        extends HMacSHA384
     {
       public Blowfish()
       {
@@ -993,7 +1001,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacSHA384
+    public static class Cast5
+        extends HMacSHA384
     {
       public Cast5()
       {
@@ -1001,7 +1010,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacSHA384
+    public static class DES
+        extends HMacSHA384
     {
       public DES()
       {
@@ -1009,7 +1019,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacSHA384
+    public static class Khazad
+        extends HMacSHA384
     {
       public Khazad()
       {
@@ -1017,7 +1028,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacSHA384
+    public static class Serpent
+        extends HMacSHA384
     {
       public Serpent()
       {
@@ -1025,7 +1037,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacSHA384
+    public static class Square
+        extends HMacSHA384
     {
       public Square()
       {
@@ -1033,7 +1046,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacSHA384
+    public static class TripleDES
+        extends HMacSHA384
     {
       public TripleDES()
       {
@@ -1041,7 +1055,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacSHA384
+    public static class Twofish
+        extends HMacSHA384
     {
       public Twofish()
       {
@@ -1050,12 +1065,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacSHA512 extends PBES2
+  public static class HMacSHA512
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacSHA512(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-SHA-512");
@@ -1066,10 +1078,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-SHA-512");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacSHA512
+    public static class AES
+        extends HMacSHA512
     {
       public AES()
       {
@@ -1077,7 +1087,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacSHA512
+    public static class Anubis
+        extends HMacSHA512
     {
       public Anubis()
       {
@@ -1085,7 +1096,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacSHA512
+    public static class Blowfish
+        extends HMacSHA512
     {
       public Blowfish()
       {
@@ -1093,7 +1105,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacSHA512
+    public static class Cast5
+        extends HMacSHA512
     {
       public Cast5()
       {
@@ -1101,7 +1114,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacSHA512
+    public static class DES
+        extends HMacSHA512
     {
       public DES()
       {
@@ -1109,7 +1123,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacSHA512
+    public static class Khazad
+        extends HMacSHA512
     {
       public Khazad()
       {
@@ -1117,7 +1132,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacSHA512
+    public static class Serpent
+        extends HMacSHA512
     {
       public Serpent()
       {
@@ -1125,7 +1141,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacSHA512
+    public static class Square
+        extends HMacSHA512
     {
       public Square()
       {
@@ -1133,7 +1150,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacSHA512
+    public static class TripleDES
+        extends HMacSHA512
     {
       public TripleDES()
       {
@@ -1141,7 +1159,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacSHA512
+    public static class Twofish
+        extends HMacSHA512
     {
       public Twofish()
       {
@@ -1150,12 +1169,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacTiger extends PBES2
+  public static class HMacTiger
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ---------------------------------------------------------------------
-
     public HMacTiger(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-TIGER");
@@ -1166,10 +1182,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-TIGER");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacTiger
+    public static class AES
+        extends HMacTiger
     {
       public AES()
       {
@@ -1177,7 +1191,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacTiger
+    public static class Anubis
+        extends HMacTiger
     {
       public Anubis()
       {
@@ -1185,7 +1200,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacTiger
+    public static class Blowfish
+        extends HMacTiger
     {
       public Blowfish()
       {
@@ -1193,7 +1209,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacTiger
+    public static class Cast5
+        extends HMacTiger
     {
       public Cast5()
       {
@@ -1201,7 +1218,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacTiger
+    public static class DES
+        extends HMacTiger
     {
       public DES()
       {
@@ -1209,7 +1227,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacTiger
+    public static class Khazad
+        extends HMacTiger
     {
       public Khazad()
       {
@@ -1217,7 +1236,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacTiger
+    public static class Serpent
+        extends HMacTiger
     {
       public Serpent()
       {
@@ -1225,7 +1245,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacTiger
+    public static class Square
+        extends HMacTiger
     {
       public Square()
       {
@@ -1233,7 +1254,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacTiger
+    public static class TripleDES
+        extends HMacTiger
     {
       public TripleDES()
       {
@@ -1241,7 +1263,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacTiger
+    public static class Twofish
+        extends HMacTiger
     {
       public Twofish()
       {
@@ -1250,12 +1273,9 @@ public abstract class PBES2 extends CipherAdapter
     }
   }
 
-  public static class HMacWhirlpool extends PBES2
+  public static class HMacWhirlpool
+      extends PBES2
   {
-
-    // Constructor(s)
-    // ----------------------------------------------------------------------
-
     public HMacWhirlpool(String cipher, int blockLen)
     {
       super(cipher, blockLen, "HMAC-WHIRLPOOL");
@@ -1266,10 +1286,8 @@ public abstract class PBES2 extends CipherAdapter
       super(cipher, "HMAC-WHIRLPOOL");
     }
 
-    // Inner classe(s)
-    // ======================================================================
-
-    public static class AES extends HMacWhirlpool
+    public static class AES
+        extends HMacWhirlpool
     {
       public AES()
       {
@@ -1277,7 +1295,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Anubis extends HMacWhirlpool
+    public static class Anubis
+        extends HMacWhirlpool
     {
       public Anubis()
       {
@@ -1285,7 +1304,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Blowfish extends HMacWhirlpool
+    public static class Blowfish
+        extends HMacWhirlpool
     {
       public Blowfish()
       {
@@ -1293,7 +1313,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Cast5 extends HMacWhirlpool
+    public static class Cast5
+        extends HMacWhirlpool
     {
       public Cast5()
       {
@@ -1301,7 +1322,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class DES extends HMacWhirlpool
+    public static class DES
+        extends HMacWhirlpool
     {
       public DES()
       {
@@ -1309,7 +1331,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Khazad extends HMacWhirlpool
+    public static class Khazad
+        extends HMacWhirlpool
     {
       public Khazad()
       {
@@ -1317,7 +1340,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Serpent extends HMacWhirlpool
+    public static class Serpent
+        extends HMacWhirlpool
     {
       public Serpent()
       {
@@ -1325,7 +1349,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Square extends HMacWhirlpool
+    public static class Square
+        extends HMacWhirlpool
     {
       public Square()
       {
@@ -1333,7 +1358,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class TripleDES extends HMacWhirlpool
+    public static class TripleDES
+        extends HMacWhirlpool
     {
       public TripleDES()
       {
@@ -1341,7 +1367,8 @@ public abstract class PBES2 extends CipherAdapter
       }
     }
 
-    public static class Twofish extends HMacWhirlpool
+    public static class Twofish
+        extends HMacWhirlpool
     {
       public Twofish()
       {

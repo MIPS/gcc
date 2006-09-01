@@ -198,7 +198,7 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'T':
       gcc_assert (TYPE_P (t));
       name = TYPE_NAME (t);
-      
+
       if (name && TREE_CODE (name) == TYPE_DECL)
 	{
 	  if (DECL_NAME (name))
@@ -256,4 +256,12 @@ int
 c_types_compatible_p (tree x, tree y)
 {
     return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
+}
+
+/* Determine if the type is a vla type for the backend.  */
+
+bool
+c_vla_unspec_p (tree x, tree fn ATTRIBUTE_UNUSED)
+{
+  return c_vla_type_p (x);
 }

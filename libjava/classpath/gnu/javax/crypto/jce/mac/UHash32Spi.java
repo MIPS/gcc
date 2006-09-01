@@ -43,15 +43,10 @@ import gnu.java.security.Registry;
 /**
  * The implementation of the UHash-32 <i>Service Provider Interface</i>
  * (<b>SPI</b>) adapter.
- *
- * @version $Revision: 1.1 $
  */
-public final class UHash32Spi extends MacAdapter
+public final class UHash32Spi
+    extends MacAdapter
 {
-
-  // Constructors.
-  // -----------------------------------------------------------------------
-
   public UHash32Spi()
   {
     super(Registry.UHASH32);
