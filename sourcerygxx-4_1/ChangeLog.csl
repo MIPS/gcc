@@ -1,3 +1,9 @@
+2006-09-01  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config.gcc (arm*-*-eabi*): Add arm/nocrt0.h to tm_file.
+	* config/arm/nocrt0.h: New file.
+
 2006-09-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
