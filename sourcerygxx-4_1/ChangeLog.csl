@@ -1,3 +1,12 @@
+2006-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/builtins/memops-asm-lib.c: Do the copy or
+	set before checking whether it was allowed.
+	* gcc.c-torture/execute/builtins/memops-asm.c: Set inside_main.
+	* gcc.c-torture/execute/builtins/lib/memset.c: Do the memset
+	before checking inside_main.
+
 2006-08-30  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/testsuite/
