@@ -104,12 +104,12 @@ public class InheritableThreadLocal extends ThreadLocal
               {
                 InheritableThreadLocal local = (InheritableThreadLocal)key;
                 Object parentValue = parentThread.locals.get(key);
-                Object childValue = local.childValue(parentValue == NULL
+                Object childValue = local.childValue(parentValue == sentinel
                                                      ? null : parentValue);
                 if (childThread.locals == null)
                     childThread.locals = new WeakIdentityHashMap();
                 childThread.locals.put(key, (childValue == null
-                                             ? NULL : childValue));
+                                             ? sentinel : childValue));
               }
           }
       }

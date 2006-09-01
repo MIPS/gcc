@@ -87,7 +87,7 @@ _Jv_platform_nanotime ()
   if (clock_gettime (id, &now) == 0)
     {
       jlong result = (jlong) now.tv_sec;
-      result = result * 1000 * 1000 + now.tv_nsec;
+      result = result * 1000 * 1000 * 1000 + now.tv_nsec;
       return result;
     }
   // clock_gettime failed, but we can fall through.

@@ -8271,6 +8271,9 @@ static void
 java_expand_method_bodies (tree class)
 {
   tree decl;
+
+  build_tls_thunks (class);
+
   for (decl = TYPE_METHODS (class); decl; decl = TREE_CHAIN (decl))
     {
       tree block;

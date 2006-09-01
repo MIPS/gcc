@@ -293,7 +293,8 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	java/lang/natObject.cc java/lang/natRuntime.cc \
 	java/lang/natString.cc java/lang/natStringBuffer.cc \
 	java/lang/natStringBuilder.cc java/lang/natSystem.cc \
-	java/lang/natThread.cc java/lang/natVMClassLoader.cc \
+	java/lang/natThread.cc java/lang/natThreadLocal.cc \
+	java/lang/natVMClassLoader.cc \
 	java/lang/natVMSecurityManager.cc java/lang/natVMThrowable.cc \
 	java/lang/ref/natReference.cc java/lang/reflect/natArray.cc \
 	java/lang/reflect/natConstructor.cc \
@@ -340,7 +341,8 @@ am__objects_2 = gnu/classpath/natSystemProperties.lo \
 	java/lang/natObject.lo java/lang/natRuntime.lo \
 	java/lang/natString.lo java/lang/natStringBuffer.lo \
 	java/lang/natStringBuilder.lo java/lang/natSystem.lo \
-	java/lang/natThread.lo java/lang/natVMClassLoader.lo \
+	java/lang/natThread.lo java/lang/natThreadLocal.lo \
+	java/lang/natVMClassLoader.lo \
 	java/lang/natVMSecurityManager.lo java/lang/natVMThrowable.lo \
 	java/lang/ref/natReference.lo java/lang/reflect/natArray.lo \
 	java/lang/reflect/natConstructor.lo \
@@ -4021,7 +4023,7 @@ java/lang/System.java \
 java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
 classpath/java/lang/ThreadGroup.java \
-classpath/java/lang/ThreadLocal.java \
+java/lang/ThreadLocal.java \
 classpath/java/lang/Throwable.java \
 classpath/java/lang/TypeNotPresentException.java \
 classpath/java/lang/UnknownError.java \
@@ -7412,6 +7414,7 @@ java/lang/natStringBuffer.cc \
 java/lang/natStringBuilder.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
+java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
 java/lang/natVMSecurityManager.cc \
 java/lang/natVMThrowable.cc \
@@ -7874,6 +7877,8 @@ java/lang/natSystem.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natThread.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
+java/lang/natThreadLocal.lo: java/lang/$(am__dirstamp) \
+	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMClassLoader.lo: java/lang/$(am__dirstamp) \
 	java/lang/$(DEPDIR)/$(am__dirstamp)
 java/lang/natVMSecurityManager.lo: java/lang/$(am__dirstamp) \
@@ -8225,6 +8230,8 @@ mostlyclean-compile:
 	-rm -f java/lang/natSystem.lo
 	-rm -f java/lang/natThread.$(OBJEXT)
 	-rm -f java/lang/natThread.lo
+	-rm -f java/lang/natThreadLocal.$(OBJEXT)
+	-rm -f java/lang/natThreadLocal.lo
 	-rm -f java/lang/natVMClassLoader.$(OBJEXT)
 	-rm -f java/lang/natVMClassLoader.lo
 	-rm -f java/lang/natVMSecurityManager.$(OBJEXT)
@@ -8363,6 +8370,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natStringBuilder.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natSystem.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThread.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natThreadLocal.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMClassLoader.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMSecurityManager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@java/lang/$(DEPDIR)/natVMThrowable.Plo@am__quote@

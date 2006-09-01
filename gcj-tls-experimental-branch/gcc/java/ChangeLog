@@ -1,3 +1,14 @@
+2006-09-01  Andrew Haley  <aph@redhat.com>
+
+	* class.c (find_tls_thunk): New function.
+	(build_tls_thunks): New function.
+	(build_tls_thunk): New function.
+	(make_class_data): Spurious hacks.
+	* parse.y (java_expand_method_bodies): Call build_tls_thunks().
+	* jcf-parse.c (parse_class_file): Likewise.
+	* java-gimplify.c (java_maybe_replace_init_expr): New function.
+	(java_gimplify_modify_expr): Call java_maybe_replace_init_expr.
+
 2006-08-22  Andrew Haley  <aph@redhat.com>
 
 	* decl.c (java_add_stmt): Give the statement list a type.

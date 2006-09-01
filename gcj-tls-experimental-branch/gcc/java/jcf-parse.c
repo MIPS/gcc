@@ -856,6 +856,7 @@ parse_class_file (void)
   (*debug_hooks->start_source_file) (input_line, input_filename);
 
   gen_indirect_dispatch_tables (current_class);
+  build_tls_thunks (current_class);
 
   java_mark_class_local (current_class);
 

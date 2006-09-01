@@ -1,3 +1,8 @@
+2006-09-01  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/InheritableThreadLocal.java: Rename NULL to sentinel
+	throughout.
+
 2006-07-06  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Port to hosts whose 'sort' and 'tail' implementations
