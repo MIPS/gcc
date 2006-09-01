@@ -1,3 +1,8 @@
+2006-09-01  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.target/mips/pr26765.c: Add -w to options.
+
 2006-09-01  Paul Brook  <paul@codesourcery.com>
 
 	gcc/
