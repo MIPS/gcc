@@ -6232,6 +6232,27 @@ gen_internal_sym (const char *prefix)
   return xstrdup (buf);
 }
 
+/* Mark DIE as requiring an assembly label of its own.  Upon return,
+   DIE_SYMBOL will be set to the label that will be used for this
+   purpose.  */
+static void
+assign_symbol_name (dw_die_ref die)
+{
+  if (die->die_symbol)
+    return;
+
+  if (comdat_symbol_id)
+    {
+      char *p = alloca (strlen (comdat_symbol_id) + 64);
+
+      sprintf (p, "%s.%s.%x", DIE_LABEL_PREFIX,
+	       comdat_symbol_id, comdat_symbol_number++);
+      die->die_symbol = xstrdup (p);
+    }
+  else
+    die->die_symbol = gen_internal_sym ("LDIE");
+}
+
 /* Assign symbols to all worthy DIEs under DIE.  */
 
 static void
@@ -6240,18 +6261,7 @@ assign_symbol_names (dw_die_ref die)
   dw_die_ref c;
 
   if (is_symbol_die (die))
-    {
-      if (comdat_symbol_id)
-	{
-	  char *p = alloca (strlen (comdat_symbol_id) + 64);
-
-	  sprintf (p, "%s.%s.%x", DIE_LABEL_PREFIX,
-		   comdat_symbol_id, comdat_symbol_number++);
-	  die->die_symbol = xstrdup (p);
-	}
-      else
-	die->die_symbol = gen_internal_sym ("LDIE");
-    }
+    assign_symbol_name (die);
 
   FOR_EACH_CHILD (die, c, assign_symbol_names (c));
 }
@@ -14310,6 +14320,75 @@ dwarf2out_finish (const char *filename)
   if (debug_str_hash)
     htab_traverse (debug_str_hash, output_indirect_string, NULL);
 }
+
+/* Initialize REF.  SCOPE indicates the lexical scope containing the
+   entity being referenced.  */
+static void
+lto_init_ref (tree scope ATTRIBUTE_UNUSED, 
+	      lto_out_ref *ref)
+{
+  /* At present, we use only one DWARF section.  When we begin using
+     multiple sections, SCOPE will be used to figure out the section
+     and corresponding BASE_LABEL.  */
+  ref->section = 0;
+  ref->base_label = ".debug_info";
+  ref->label = NULL;
+}
+
+void 
+lto_type_ref (tree type, lto_out_ref *ref)
+{
+  dw_die_ref die;
+  tree scope;
+  dw_die_ref scope_die;
+
+  gcc_assert (TYPE_P (type));
+
+  /* Check to see if we already have a DIE.  */
+  die = lookup_type_die (type);
+  /* Create the DIE, if it does not already exist.  */
+  if (!die)
+    {
+      scope = TYPE_CONTEXT (type);
+      if (scope)
+	{
+	  /* We do not yet support lexically scoped types.  */
+	  sorry ("nested types are not supported by LTO");
+	  scope_die = NULL;
+	}
+      else
+	scope_die = comp_unit_die;
+      gen_type_die (type, scope_die);
+      die = lookup_type_die (type);
+    }
+  gcc_assert (die);
+  /* Make sure the DIE has a label.  */
+  assign_symbol_name (die);
+  /* Construct the reference.  */
+  lto_init_ref (scope, ref);
+  ref->label = die->die_symbol;
+
+  return;
+}
+
+void 
+lto_var_ref (tree var ATTRIBUTE_UNUSED, 
+	     lto_out_ref *ref ATTRIBUTE_UNUSED)
+{
+  gcc_assert (TREE_CODE (var) == VAR_DECL);
+  /* Not yet implemented.  */
+  abort ();
+}
+
+void 
+lto_fn_ref (tree fn ATTRIBUTE_UNUSED, 
+	    lto_out_ref *ref ATTRIBUTE_UNUSED)
+{
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+  /* Not yet implemented.  */
+  abort ();
+}
+
 #else
 
 /* This should never be used, but its address is needed for comparisons.  */

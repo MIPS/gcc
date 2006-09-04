@@ -1,3 +1,23 @@
+2006-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* lto.c (<inttypes.h>): Don't include it.
+	(lto_context): Don't typedef it.
+	(lto_resolve_reference): New function.
+	(lto_read_form): Use it.
+	(lto_resolve_type_ref): New function.
+	(lto_resolve_var_ref): Likewise.
+	(lto_resolve_fn_ref): Likewise.
+	* lto.h (<inttypes.h>): Include it.
+	(lto_context): New type.
+	(lto_ref): New structure.
+	(lto_resolve_type_ref): Declare.
+	(lto_resolve_var_ref): Likewise.
+	(lto_resolve_fn_ref): Likewise.
+
+2006-08-18  Mark Mitchell  <mark@codesourcery.com>
+
+	* lang-specs.h: New file.
+
 2006-08-14  Mark Mitchell  <mark@codesourcery.com>
 
 	* lto.c (lto_info_fd_init): Allocate the DIE cache.

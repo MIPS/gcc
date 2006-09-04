@@ -26,3 +26,44 @@ extern void debug_dwarf (void);
 struct die_struct;
 extern void debug_dwarf_die (struct die_struct *);
 extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
+
+/* The LTO representations for the bodies of functions may refer to
+   the LTO representations of global functions, variables, and
+   types.
+
+   Because LTO operates on relocatable object files, using an ordinary
+   label would require that the link-time optimizer perform much of
+   the relocation processing normally performed by a linker.
+   Therefore, the references used are pairs of the form (SECTION,
+   OFFSET).
+
+   The functions below indicate the OFFSET by using two labels.  The
+   caller is responsible for emitting the offset as the difference
+   between these two labels.  The labels are guaranteed to be in the
+   same section.  The functions lto_{type,var,fn}_ref in the LTO front
+   end are used to resolve these references in the LTO front end.  */
+
+/* A reference to a global entity.  */
+typedef struct lto_out_ref {
+  /* The index of the compilation unit containing the entity.  */
+  unsigned section;
+  /* The label corresponding to the base of the DWARF 2 section
+     containing this entity.  This string must not be freed by the
+     caller.  */
+  const char *base_label;
+  /* The label for the entity itself.  This string must not be freed
+     by the caller.  */
+  const char *label;
+} lto_out_ref;
+
+/* Upon return, *REF contains a reference to TYPE, which must be a
+   TYPE.  */
+extern void lto_type_ref (tree type, lto_out_ref *ref);
+
+/* Upon return, *REF contains a reference to VAR, which must be a
+   VAR_DECL.  */
+extern void lto_var_ref (tree var, lto_out_ref *ref);
+
+/* Upon return, *REF contains a reference to FN, which must be a
+   FUNCTION_DECL.  */
+extern void lto_fn_ref (tree fn, lto_out_ref *ref);

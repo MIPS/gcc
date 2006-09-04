@@ -1,3 +1,18 @@
+2006-09-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/tree.h (SYMTAB_DIE): Remove reference to SDB format in
+	comments.
+	* gcc/dwarf2out.c (assign_symbol_name): New function.
+	(assign_symbol_names): Use it.
+	(lto_init_ref): New function.
+	(lto_type_ref): Likewise.
+	(lto_var_ref): Likewise.
+	(lto_fn_ref): Likewise.
+	* gcc/dwarf2out.h (lto_out_ref): New structure.
+	(lto_type_ref): Declare.
+	(lto_var_ref): Likewise.
+	(lto_fn_ref): Likewise.
+
 2006-08-22  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c:  Fix typos in comments throughout file.
