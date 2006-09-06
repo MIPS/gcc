@@ -1679,7 +1679,7 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
     }
 
   /* empty stmt is expected only in case of a function argument.
-     (Otherwise - we expect a phi_node or a modify_expr).  */
+     (Otherwise - we expect a phi_node or a GIMPLE_MODIFY_STMT).  */
   if (IS_EMPTY_STMT (*def_stmt))
     {
       tree arg = TREE_OPERAND (*def_stmt, 0);
@@ -1731,8 +1731,8 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
                   || *dt == vect_invariant_def);
       break;
 
-    case MODIFY_EXPR:
-      *def = TREE_OPERAND (*def_stmt, 0);
+    case GIMPLE_MODIFY_STMT:
+      *def = GIMPLE_STMT_OPERAND (*def_stmt, 0);
       gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
       break;
 
@@ -1837,7 +1837,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (def_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         {
@@ -1846,7 +1846,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  operation = TREE_OPERAND (def_stmt, 1);
+  operation = GIMPLE_STMT_OPERAND (def_stmt, 1);
   code = TREE_CODE (operation);
   if (!commutative_tree_code (code) || !associative_tree_code (code))
     {
@@ -1936,7 +1936,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (def1) == MODIFY_EXPR
+  if (TREE_CODE (def1) == GIMPLE_MODIFY_STMT
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def1))
       && def2 == phi)
     {
@@ -1947,7 +1947,7 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
         }
       return def_stmt;
     }
-  else if (TREE_CODE (def2) == MODIFY_EXPR
+  else if (TREE_CODE (def2) == GIMPLE_MODIFY_STMT
       && flow_bb_inside_loop_p (loop, bb_for_stmt (def2))
       && def1 == phi)
     {

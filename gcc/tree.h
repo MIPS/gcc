@@ -64,7 +64,8 @@ enum tree_code_class {
   tcc_binary,      /* A binary arithmetic expression.  */
   tcc_statement,   /* A statement expression, which have side effects
 		      but usually no interesting value.  */
-  tcc_expression   /* Any other expression.  */
+  tcc_expression,  /* Any other expression.  */
+  tcc_gimple_stmt  /* A GIMPLE statement.  */
 };
 
 /* Each tree code class has an associated string representation.
@@ -162,6 +163,10 @@ extern const enum tree_code_class tree_code_type[];
 
 #define IS_EXPR_CODE_CLASS(CLASS)\
 	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
+
+/* Returns nonzer iff CLASS is a GIMPLE statement.  */
+
+#define IS_GIMPLE_STMT_CODE_CLASS(CLASS) ((CLASS) == tcc_gimple_stmt)
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -347,12 +352,8 @@ enum omp_clause_code
    fields.  */
 union tree_ann_d;
 
-struct tree_common GTY(())
+struct tree_base GTY(())
 {
-  tree chain;
-  tree type;
-  union tree_ann_d *ann;
-
   ENUM_BITFIELD(tree_code) code : 8;
 
   unsigned side_effects_flag : 1;
@@ -381,6 +382,26 @@ struct tree_common GTY(())
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
+
+  /* FIXME tuples: Eventually, we need to move this somewhere external to
+     the trees.  */
+  union tree_ann_d *ann;
+};
+
+struct tree_common GTY(())
+{
+  struct tree_base base;
+  tree chain;
+  tree type;
+};
+
+/* GIMPLE_MODIFY_STMT */
+struct gimple_stmt GTY(())
+{
+  struct tree_base base;
+  source_locus locus;
+  tree block;
+  struct tree_base *operands[1];
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -555,8 +576,8 @@ enum tree_node_structure_enum {
 
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
-#define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.code)
-#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.code = (VALUE))
+#define TREE_CODE(NODE) ((enum tree_code) (NODE)->common.base.code)
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->common.base.code = (VALUE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
@@ -703,6 +724,14 @@ enum tree_node_structure_enum {
 			       __FUNCTION__);				\
     __t; })
 
+#define GIMPLE_STMT_CHECK(T) __extension__				\
+({  const tree __t = (T);						\
+    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
+    if (!IS_GIMPLE_STMT_CODE_CLASS (__c))				\
+      tree_class_check_failed (__t, tcc_gimple_stmt, __FILE__, __LINE__,\
+			       __FUNCTION__);				\
+    __t; })
+
 /* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
@@ -748,6 +777,8 @@ enum tree_node_structure_enum {
 #define TREE_OPERAND_CHECK(T, I) __extension__				\
 (*({const tree __t = EXPR_CHECK (T);					\
     const int __i = (I);						\
+    if (GIMPLE_TUPLE_P (__t))						\
+      gcc_unreachable ();						\
     if (__i < 0 || __i >= TREE_CODE_LENGTH (TREE_CODE (__t)))		\
       tree_operand_check_failed (__i, TREE_CODE (__t),			\
 				 __FILE__, __LINE__, __FUNCTION__);	\
@@ -829,6 +860,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define TREE_CLASS_CHECK(T, CODE)		(T)
 #define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
+#define GIMPLE_STMT_CHECK(T)			(T)
 #define NON_TYPE_CHECK(T)			(T)
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
@@ -841,7 +873,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
 #endif
 
-#define TREE_BLOCK(NODE)		(EXPR_CHECK (NODE)->exp.block)
+#define TREE_BLOCK(NODE)		*(tree_block (NODE))
 
 #include "tree-check.h"
 
@@ -865,11 +897,46 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define NUMERICAL_TYPE_CHECK(T)					\
   TREE_CHECK4 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE)
 
+/* Nonzero if NODE is a GIMPLE statement.  */
+#define GIMPLE_STMT_P(NODE) \
+  (TREE_CODE_CLASS (TREE_CODE ((NODE))) == tcc_gimple_stmt)
+
+/* Nonzero if NODE is a GIMPLE tuple.  */
+#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE))
+
+/* Convert a GIMPLE_STMT into a TREE.  */
+#define TREE_TO_GIMPLE_STMT(T) ((struct gimple_stmt *)(GIMPLE_STMT_CHECK (T)))
+
+/* Convert a TREE into a GIMPLE_STMT.  */
+#define GIMPLE_STMT_TO_TREE(T) (GIMPLE_STMT_CHECK ((tree)(T)))
+
+/* Given a TREE, return its operand number I.  */
+#define GIMPLE_STMT_OPERAND(T, I) \
+  (*((tree *)(&TREE_TO_GIMPLE_STMT (T)->operands[(I)])))
+
+/* A GIMPLE tuple that has a ``locus'' field.  */
+#define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
+
+/* Like TREE_OPERAND but works with GIMPLE stmt tuples as well.
+
+   If you know the NODE is a GIMPLE statement, use GIMPLE_STMT_OPERAND.  If the
+   NODE code is unknown at compile time, use this macro.  */
+#define PROTECTED_TREE_OPERAND(NODE, I) *(protected_tree_operand ((NODE), (I)))
+
+/* Like TREE_TYPE but returns void_type_node for gimple tuples that have
+   no type.  */
+
+#define PROTECTED_TREE_TYPE(NODE) *(protected_tree_type ((NODE)))
+
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) ((NODE)->common.type)
+#define TREE_TYPE(NODE) \
+(*({  const tree __t = (NODE);					\
+    if (GIMPLE_TUPLE_P (__t))					\
+        gcc_unreachable ();					\
+      &__t->common.type; }))
 
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
@@ -888,7 +955,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    Often lists of things are represented by TREE_LIST nodes that
    are chained together.  */
 
-#define TREE_CHAIN(NODE) ((NODE)->common.chain)
+#define TREE_CHAIN(NODE) \
+(*({  const tree __t = (NODE);					\
+      if (GIMPLE_TUPLE_P (__t))					\
+        gcc_unreachable ();					\
+      &__t->common.chain; }))
 
 /* Given an expression as a tree, strip any NON_LVALUE_EXPRs and NOP_EXPRs
    that don't change the machine mode.  */
@@ -1019,17 +1090,18 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    object cannot go into register parameters, for example.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    had its address taken.  That matters for inline functions.  */
-#define TREE_ADDRESSABLE(NODE) ((NODE)->common.addressable_flag)
+#define TREE_ADDRESSABLE(NODE) ((NODE)->common.base.addressable_flag)
 
 /* Set on a CALL_EXPR if the call is in a tail position, ie. just before the
    exit of a function.  Calls for which this is true are candidates for tail
    call optimizations.  */
-#define CALL_EXPR_TAILCALL(NODE) (CALL_EXPR_CHECK(NODE)->common.addressable_flag)
+#define CALL_EXPR_TAILCALL(NODE) \
+  (CALL_EXPR_CHECK(NODE)->common.base.addressable_flag)
 
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_LOW operand has been processed.  */
 #define CASE_LOW_SEEN(NODE) \
-  (CASE_LABEL_EXPR_CHECK (NODE)->common.addressable_flag)
+  (CASE_LABEL_EXPR_CHECK (NODE)->common.base.addressable_flag)
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
@@ -1037,63 +1109,63 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
    ??? This is also used in lots of other nodes in unclear ways which
    should be cleaned up some day.  */
-#define TREE_STATIC(NODE) ((NODE)->common.static_flag)
+#define TREE_STATIC(NODE) ((NODE)->common.base.static_flag)
 
 /* In a TARGET_EXPR, WITH_CLEANUP_EXPR, means that the pertinent cleanup
    should only be executed if an exception is thrown, not on normal exit
    of its scope.  */
-#define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
+#define CLEANUP_EH_ONLY(NODE) ((NODE)->common.base.static_flag)
 
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_HIGH operand has been processed.  */
 #define CASE_HIGH_SEEN(NODE) \
-  (CASE_LABEL_EXPR_CHECK (NODE)->common.static_flag)
+  (CASE_LABEL_EXPR_CHECK (NODE)->common.base.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
    warnings concerning the decl should be suppressed.  This is used at
    least for used-before-set warnings, and it set after one warning is
    emitted.  */
-#define TREE_NO_WARNING(NODE) ((NODE)->common.nowarning_flag)
+#define TREE_NO_WARNING(NODE) ((NODE)->common.base.nowarning_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
    there was an overflow in folding.  This is distinct from
    TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
    occur in constant expressions.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) (CST_CHECK (NODE)->common.static_flag)
+#define TREE_CONSTANT_OVERFLOW(NODE) (CST_CHECK (NODE)->common.base.static_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
    this string as an argument.  */
 #define TREE_SYMBOL_REFERENCED(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->common.static_flag)
+  (IDENTIFIER_NODE_CHECK (NODE)->common.base.static_flag)
 
 /* Nonzero in a pointer or reference type means the data pointed to
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
-  (PTR_OR_REF_CHECK (NODE)->common.static_flag)
+  (PTR_OR_REF_CHECK (NODE)->common.base.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
    for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
    but not vice versa.  */
 
-#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.public_flag)
+#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.base.public_flag)
 
 /* In a VAR_DECL, FUNCTION_DECL, NAMESPACE_DECL or TYPE_DECL,
    nonzero means name is to be accessible from outside this module.
    In an IDENTIFIER_NODE, nonzero means an external declaration
    accessible from outside this module was previously seen
    for this name in an inner scope.  */
-#define TREE_PUBLIC(NODE) ((NODE)->common.public_flag)
+#define TREE_PUBLIC(NODE) ((NODE)->common.base.public_flag)
 
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
-#define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK(NODE)->common.public_flag)
+#define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK(NODE)->common.base.public_flag)
 
 /* In a SAVE_EXPR, indicates that the original expression has already
    been substituted with a VAR_DECL that contains the value.  */
 #define SAVE_EXPR_RESOLVED_P(NODE) \
-  (TREE_CHECK (NODE, SAVE_EXPR)->common.public_flag)
+  (TREE_CHECK (NODE, SAVE_EXPR)->common.base.public_flag)
 
 /* In any expression, decl, or constant, nonzero means it has side effects or
    reevaluation of the whole expression could produce a different value.
@@ -1101,12 +1173,12 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    reference to a volatile variable.  In a ..._DECL, this is set only if the
    declaration said `volatile'.  This will never be set for a constant.  */
 #define TREE_SIDE_EFFECTS(NODE) \
-  (NON_TYPE_CHECK (NODE)->common.side_effects_flag)
+  (NON_TYPE_CHECK (NODE)->common.base.side_effects_flag)
 
 /* In a LABEL_DECL, nonzero means this label had its address taken
    and therefore can never be deleted and is a jump target for
    computed gotos.  */
-#define FORCED_LABEL(NODE) ((NODE)->common.side_effects_flag)
+#define FORCED_LABEL(NODE) ((NODE)->common.base.side_effects_flag)
 
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
@@ -1121,7 +1193,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    because eventually we may make that a different bit.
 
    If this bit is set in an expression, so is TREE_SIDE_EFFECTS.  */
-#define TREE_THIS_VOLATILE(NODE) ((NODE)->common.volatile_flag)
+#define TREE_THIS_VOLATILE(NODE) ((NODE)->common.base.volatile_flag)
 
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
@@ -1133,11 +1205,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    (or slice of the array) always belongs to the range of the array.
    I.e. that the access will not trap, provided that the access to
    the base to the array will not trap.  */
-#define TREE_THIS_NOTRAP(NODE) ((NODE)->common.nothrow_flag)
+#define TREE_THIS_NOTRAP(NODE) ((NODE)->common.base.nothrow_flag)
 
 /* In a VAR_DECL, PARM_DECL or FIELD_DECL, or any kind of ..._REF node,
    nonzero means it may not be the lhs of an assignment.  */
-#define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->common.readonly_flag)
+#define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->common.base.readonly_flag)
 
 /* Nonzero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE)\
@@ -1145,20 +1217,22 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
 /* Value of expression is constant.  Always on in all ..._CST nodes.  May
    also appear in an expression or decl where the value is constant.  */
-#define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->common.constant_flag)
+#define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->common.base.constant_flag)
 
 /* Nonzero if NODE, a type, has had its sizes gimplified.  */
-#define TYPE_SIZES_GIMPLIFIED(NODE) (TYPE_CHECK (NODE)->common.constant_flag)
+#define TYPE_SIZES_GIMPLIFIED(NODE) \
+  (TYPE_CHECK (NODE)->common.base.constant_flag)
 
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
-#define DECL_UNSIGNED(NODE) (DECL_COMMON_CHECK (NODE)->common.unsigned_flag)
+#define DECL_UNSIGNED(NODE) \
+  (DECL_COMMON_CHECK (NODE)->common.base.unsigned_flag)
 
 /* In a BIT_FIELD_REF, means the bitfield is to be interpreted as unsigned.  */
 #define BIT_FIELD_REF_UNSIGNED(NODE) \
-  (BIT_FIELD_REF_CHECK (NODE)->common.unsigned_flag)
+  (BIT_FIELD_REF_CHECK (NODE)->common.base.unsigned_flag)
 
 /* In integral and pointer types, means an unsigned type.  */
-#define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->common.unsigned_flag)
+#define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->common.base.unsigned_flag)
 
 #define TYPE_TRAP_SIGNED(NODE) \
   (flag_trapv && ! TYPE_UNSIGNED (NODE))
@@ -1172,30 +1246,32 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    In a BLOCK node, nonzero if reorder_blocks has already seen this block.
    In an SSA_NAME node, nonzero if the SSA_NAME occurs in an abnormal
    PHI node.  */
-#define TREE_ASM_WRITTEN(NODE) ((NODE)->common.asm_written_flag)
+#define TREE_ASM_WRITTEN(NODE) ((NODE)->common.base.asm_written_flag)
 
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    was used.
    In a BLOCK, this means that the block contains variables that are used.  */
-#define TREE_USED(NODE) ((NODE)->common.used_flag)
+#define TREE_USED(NODE) ((NODE)->common.base.used_flag)
 
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot throw
    an exception.  In a CALL_EXPR, nonzero means the call cannot throw.  */
-#define TREE_NOTHROW(NODE) ((NODE)->common.nothrow_flag)
+#define TREE_NOTHROW(NODE) ((NODE)->common.base.nothrow_flag)
 
 /* In a CALL_EXPR, means that it's safe to use the target of the call
    expansion as the return slot for a call that returns in memory.  */
-#define CALL_EXPR_RETURN_SLOT_OPT(NODE) ((NODE)->common.private_flag)
+#define CALL_EXPR_RETURN_SLOT_OPT(NODE) ((NODE)->common.base.private_flag)
 
 /* In a RESULT_DECL or PARM_DECL, means that it is passed by invisible
    reference (and the TREE_TYPE is a pointer to the true type).  */
-#define DECL_BY_REFERENCE(NODE) (DECL_COMMON_CHECK (NODE)->common.private_flag)
+#define DECL_BY_REFERENCE(NODE) \
+  (DECL_COMMON_CHECK (NODE)->common.base.private_flag)
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
    thunked-to function.  */
-#define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->common.protected_flag)
+#define CALL_FROM_THUNK_P(NODE) \
+  (CALL_EXPR_CHECK (NODE)->common.base.protected_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -1206,38 +1282,38 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
    In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
    freelist.  */
-#define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->common.nothrow_flag)
+#define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->common.base.nothrow_flag)
 
 /* Used in classes in C++.  */
-#define TREE_PRIVATE(NODE) ((NODE)->common.private_flag)
+#define TREE_PRIVATE(NODE) ((NODE)->common.base.private_flag)
 /* Used in classes in C++.
    In a BLOCK node, this is BLOCK_HANDLER_BLOCK.  */
-#define TREE_PROTECTED(NODE) ((NODE)->common.protected_flag)
+#define TREE_PROTECTED(NODE) ((NODE)->common.base.protected_flag)
 
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
 #define TREE_DEPRECATED(NODE) \
-  ((NODE)->common.deprecated_flag)
+  ((NODE)->common.base.deprecated_flag)
 
 /* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
    uses are to be substituted for uses of the TREE_CHAINed identifier.  */
 #define IDENTIFIER_TRANSPARENT_ALIAS(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->common.deprecated_flag)
+  (IDENTIFIER_NODE_CHECK (NODE)->common.base.deprecated_flag)
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
    invocation, though not across different invocations.  May appear in
    any expression node.  */
-#define TREE_INVARIANT(NODE) ((NODE)->common.invariant_flag)
+#define TREE_INVARIANT(NODE) ((NODE)->common.base.invariant_flag)
 
 /* These flags are available for each language front end to use internally.  */
-#define TREE_LANG_FLAG_0(NODE) ((NODE)->common.lang_flag_0)
-#define TREE_LANG_FLAG_1(NODE) ((NODE)->common.lang_flag_1)
-#define TREE_LANG_FLAG_2(NODE) ((NODE)->common.lang_flag_2)
-#define TREE_LANG_FLAG_3(NODE) ((NODE)->common.lang_flag_3)
-#define TREE_LANG_FLAG_4(NODE) ((NODE)->common.lang_flag_4)
-#define TREE_LANG_FLAG_5(NODE) ((NODE)->common.lang_flag_5)
-#define TREE_LANG_FLAG_6(NODE) ((NODE)->common.lang_flag_6)
+#define TREE_LANG_FLAG_0(NODE) ((NODE)->common.base.lang_flag_0)
+#define TREE_LANG_FLAG_1(NODE) ((NODE)->common.base.lang_flag_1)
+#define TREE_LANG_FLAG_2(NODE) ((NODE)->common.base.lang_flag_2)
+#define TREE_LANG_FLAG_3(NODE) ((NODE)->common.base.lang_flag_3)
+#define TREE_LANG_FLAG_4(NODE) ((NODE)->common.base.lang_flag_4)
+#define TREE_LANG_FLAG_5(NODE) ((NODE)->common.base.lang_flag_5)
+#define TREE_LANG_FLAG_6(NODE) ((NODE)->common.base.lang_flag_6)
 
 /* Define additional fields and accessors for nodes representing constants.  */
 
@@ -1427,43 +1503,16 @@ struct tree_constructor GTY(())
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
-#ifdef USE_MAPPED_LOCATION
 /* The source location of this expression.  Non-tree_exp nodes such as
    decls and constants can be shared among multiple locations, so
    return nothing.  */
-#define EXPR_LOCATION(NODE)					\
-  (EXPR_P (NODE) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
-#define SET_EXPR_LOCATION(NODE, FROM) \
-  (EXPR_CHECK (NODE)->exp.locus = (FROM))
-#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
-/* EXPR_LOCUS and SET_EXPR_LOCUS are deprecated.  */
-#define EXPR_LOCUS(NODE)					\
-  (EXPR_P (NODE) ? &(NODE)->exp.locus : (location_t *)NULL)
-#define SET_EXPR_LOCUS(NODE, FROM) \
-  do { source_location *loc_tmp = FROM; \
-       EXPR_CHECK (NODE)->exp.locus \
-       = loc_tmp == NULL ? UNKNOWN_LOCATION : *loc_tmp; } while (0)
-#define EXPR_FILENAME(NODE) \
-  LOCATION_FILE (EXPR_CHECK (NODE)->exp.locus)
-#define EXPR_LINENO(NODE) \
-  LOCATION_LINE (EXPR_CHECK (NODE)->exp.locus)
-#else
-/* The source location of this expression.  Non-tree_exp nodes such as
-   decls and constants can be shared among multiple locations, so
-   return nothing.  */
-#define EXPR_LOCUS(NODE)					\
-  (EXPR_P (NODE) ? (NODE)->exp.locus : (location_t *)NULL)
-#define SET_EXPR_LOCUS(NODE, FROM) \
-  (EXPR_CHECK (NODE)->exp.locus = (FROM))
-#define SET_EXPR_LOCATION(NODE, FROM) annotate_with_locus (NODE, FROM)
-#define EXPR_FILENAME(NODE) \
-  (EXPR_CHECK (NODE)->exp.locus->file)
-#define EXPR_LINENO(NODE) \
-  (EXPR_CHECK (NODE)->exp.locus->line)
-#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCUS (NODE) != NULL)
-#define EXPR_LOCATION(NODE) \
-  (EXPR_HAS_LOCATION(NODE) ? *(NODE)->exp.locus : UNKNOWN_LOCATION)
-#endif
+#define EXPR_LOCATION(NODE) expr_location ((NODE))
+#define SET_EXPR_LOCATION(NODE, FROM) set_expr_location ((NODE), (FROM))
+#define EXPR_HAS_LOCATION(NODE) expr_has_location ((NODE))
+#define EXPR_LOCUS(NODE) expr_locus ((NODE))
+#define SET_EXPR_LOCUS(NODE, FROM) set_expr_locus ((NODE), (FROM))
+#define EXPR_FILENAME(NODE) *(expr_filename ((NODE)))
+#define EXPR_LINENO(NODE) *(expr_lineno ((NODE)))
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
@@ -1686,13 +1735,13 @@ struct tree_exp GTY(())
    never output, so we can safely use the ASM_WRITTEN_FLAG for this
    status bit.  */
 #define SSA_NAME_OCCURS_IN_ABNORMAL_PHI(NODE) \
-    SSA_NAME_CHECK (NODE)->common.asm_written_flag
+    SSA_NAME_CHECK (NODE)->common.base.asm_written_flag
 
 /* Nonzero if this SSA_NAME expression is currently on the free list of
    SSA_NAMES.  Using NOTHROW_FLAG seems reasonably safe since throwing
    has no meaning for an SSA_NAME.  */
 #define SSA_NAME_IN_FREE_LIST(NODE) \
-    SSA_NAME_CHECK (NODE)->common.nothrow_flag
+    SSA_NAME_CHECK (NODE)->common.base.nothrow_flag
 
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
@@ -1998,10 +2047,10 @@ struct tree_block GTY(())
   (FUNCTION_TYPE_CHECK (NODE)->type.no_force_blk_flag)
 
 /* Nonzero in a type considered volatile as a whole.  */
-#define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->common.volatile_flag)
+#define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->common.base.volatile_flag)
 
 /* Means this type is const-qualified.  */
-#define TYPE_READONLY(NODE) (TYPE_CHECK (NODE)->common.readonly_flag)
+#define TYPE_READONLY(NODE) (TYPE_CHECK (NODE)->common.base.readonly_flag)
 
 /* If nonzero, this type is `restrict'-qualified, in the C sense of
    the term.  */
@@ -2033,7 +2082,7 @@ struct tree_block GTY(())
 
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
-#define TREE_VISITED(NODE) ((NODE)->common.visited)
+#define TREE_VISITED(NODE) ((NODE)->common.base.visited)
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
@@ -2150,7 +2199,7 @@ struct tree_type GTY(())
 /* BINFO specific flags.  */
 
 /* Nonzero means that the derivation chain is via a `virtual' declaration.  */
-#define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->common.static_flag)
+#define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->common.base.static_flag)
 
 /* Flags for language dependent use.  */
 #define BINFO_MARKED(NODE) TREE_LANG_FLAG_0(TREE_BINFO_CHECK(NODE))
@@ -3057,6 +3106,10 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
+/* Nonzero in a FUNCTION_DECL if it has been high level gimplified.  */
+#define DECL_GIMPLIFIED(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.gimplified_flag)
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3081,6 +3134,10 @@ struct tree_function_decl GTY(())
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_limit_stack : 1;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
+  /* This bit is temporarily here to mark when a function has been
+     gimplified, so we can make sure we're not creating non GIMPLE tuples
+     after gimplification.  */
+  unsigned gimplified_flag : 1;
 
   struct function *f;
 };
@@ -3522,6 +3579,8 @@ extern tree build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
 #define build1(c,t1,t2) build1_stat (c,t1,t2 MEM_STAT_INFO)
 extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
 #define build2(c,t1,t2,t3) build2_stat (c,t1,t2,t3 MEM_STAT_INFO)
+extern tree build2_gimple_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+#define build2_gimple(c,t1,t2) build2_gimple_stat (c,t1,t2 MEM_STAT_INFO)
 extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 #define build3(c,t1,t2,t3,t4) build3_stat (c,t1,t2,t3,t4 MEM_STAT_INFO)
 extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
@@ -4339,6 +4398,29 @@ extern tree build_addr (tree, tree);
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
 
+extern location_t expr_location (tree);
+extern void set_expr_location (tree, location_t);
+extern bool expr_has_location (tree);
+extern
+#ifdef USE_MAPPED_LOCATION
+source_location *
+#else
+source_locus
+#endif
+expr_locus (tree);
+extern void set_expr_locus (tree,
+#ifdef USE_MAPPED_LOCATION
+                            source_location *loc
+#else
+		            source_locus loc
+#endif
+			   );
+extern const char **expr_filename (tree);
+extern int *expr_lineno (tree);
+extern tree *tree_block (tree);
+extern tree *protected_tree_operand (tree, int);
+extern tree *protected_tree_type (tree);
+
 /* In function.c */
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
@@ -4560,6 +4642,7 @@ typedef enum
   lang_decl,
   lang_type,
   omp_clause_kind,
+  gimple_stmt_kind,
   all_kinds
 } tree_node_kind;
 

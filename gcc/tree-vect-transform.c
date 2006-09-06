@@ -177,7 +177,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
   addr_expr = vect_get_new_vect_var (scalar_ptr_type, vect_pointer_var,
                                      get_name (base_name));
   add_referenced_var (addr_expr);
-  vec_stmt = build2 (MODIFY_EXPR, void_type_node, addr_expr, addr_base);
+  vec_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr_expr, addr_base);
   new_temp = make_ssa_name (addr_expr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   append_to_statement_list_force (vec_stmt, new_stmt_list);
@@ -218,7 +218,8 @@ vect_align_data_ref (tree stmt)
 
    Input:
    1. STMT: a stmt that references memory. Expected to be of the form
-         MODIFY_EXPR <name, data-ref> or MODIFY_EXPR <data-ref, name>.
+         GIMPLE_MODIFY_STMT <name, data-ref> or
+	 GIMPLE_MODIFY_STMT <data-ref, name>.
    2. BSI: block_stmt_iterator where new stmts can be added.
    3. OFFSET (optional): an offset to be added to the initial address accessed
         by the data-ref in STMT.
@@ -322,7 +323,7 @@ vect_create_data_ref_ptr (tree stmt,
 
   /* Create: p = (vectype *) initial_base  */
   vec_stmt = fold_convert (vect_ptr_type, new_temp);
-  vec_stmt = build2 (MODIFY_EXPR, void_type_node, vect_ptr, vec_stmt);
+  vec_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, vect_ptr, vec_stmt);
   vect_ptr_init = make_ssa_name (vect_ptr, vec_stmt);
   TREE_OPERAND (vec_stmt, 0) = vect_ptr_init;
   new_bb = bsi_insert_on_edge_immediate (pe, vec_stmt);
@@ -418,7 +419,7 @@ vect_init_vector (tree stmt, tree vector_var)
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
   add_referenced_var (new_var); 
  
-  init_stmt = build2 (MODIFY_EXPR, vectype, new_var, vector_var);
+  init_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, new_var, vector_var);
   new_temp = make_ssa_name (new_var, init_stmt);
   TREE_OPERAND (init_stmt, 0) = new_temp;
 
@@ -898,8 +899,9 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	fprintf (vect_dump, "Reduce using direct vector reduction.");
 
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
-			build1 (reduc_code, vectype,  PHI_RESULT (new_phi)));
+      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest,
+			    build1 (reduc_code, vectype,
+			      	    PHI_RESULT (new_phi)));
       new_temp = make_ssa_name (vec_dest, epilog_stmt);
       TREE_OPERAND (epilog_stmt, 0) = new_temp;
       bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -956,13 +958,13 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	    {
 	      tree bitpos = size_int (bit_offset);
 
-	      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+	      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest,
 	      build2 (shift_code, vectype, new_temp, bitpos));
 	      new_name = make_ssa_name (vec_dest, epilog_stmt);
 	      TREE_OPERAND (epilog_stmt, 0) = new_name;
 	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
 
-	      epilog_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+	      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest,
 	      build2 (code, vectype, new_name, new_temp));
 	      new_temp = make_ssa_name (vec_dest, epilog_stmt);
 	      TREE_OPERAND (epilog_stmt, 0) = new_temp;
@@ -993,7 +995,8 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 	  rhs = build3 (BIT_FIELD_REF, scalar_type, vec_temp, bitsize,
 			 bitsize_zero_node);
 	  BIT_FIELD_REF_UNSIGNED (rhs) = TYPE_UNSIGNED (scalar_type);
-	  epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest, rhs);
+	  epilog_stmt = build2 (GIMPLE_MODIFY_STMT, scalar_type,
+	      			new_scalar_dest, rhs);
 	  new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
 	  TREE_OPERAND (epilog_stmt, 0) = new_temp;
 	  bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -1007,14 +1010,17 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 				 bitpos);
 		
 	      BIT_FIELD_REF_UNSIGNED (rhs) = TYPE_UNSIGNED (scalar_type);
-	      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
+	      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, scalar_type,
+		  		    new_scalar_dest,
 				    rhs);	
 	      new_name = make_ssa_name (new_scalar_dest, epilog_stmt);
 	      TREE_OPERAND (epilog_stmt, 0) = new_name;
 	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
 
-	      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
-				build2 (code, scalar_type, new_name, new_temp));
+	      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, scalar_type,
+		  		    new_scalar_dest,
+				    build2 (code, scalar_type, new_name,
+				      	    new_temp));
 	      new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
 	      TREE_OPERAND (epilog_stmt, 0) = new_temp;
 	      bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -1043,7 +1049,8 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
 
       rhs = build3 (BIT_FIELD_REF, scalar_type, new_temp, bitsize, bitpos);
       BIT_FIELD_REF_UNSIGNED (rhs) = TYPE_UNSIGNED (scalar_type);
-      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest, rhs);
+      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, scalar_type, new_scalar_dest,
+	  		    rhs);
       new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
       TREE_OPERAND (epilog_stmt, 0) = new_temp; 
       bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -1058,8 +1065,9 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   
   if (scalar_initial_def)
     {
-      epilog_stmt = build2 (MODIFY_EXPR, scalar_type, new_scalar_dest,
-                      build2 (code, scalar_type, new_temp, scalar_initial_def));
+      epilog_stmt = build2 (GIMPLE_MODIFY_STMT, scalar_type, new_scalar_dest,
+                      	    build2 (code, scalar_type, new_temp,
+			      	    scalar_initial_def));
       new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
       TREE_OPERAND (epilog_stmt, 0) = new_temp;
       bsi_insert_after (&exit_bsi, epilog_stmt, BSI_NEW_STMT);
@@ -1189,15 +1197,15 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
         inside the loop body. The last operand is the reduction variable,
         which is defined by the loop-header-phi.  */
 
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
 
-  operation = TREE_OPERAND (stmt, 1);
+  operation = GIMPLE_STMT_OPERAND (stmt, 1);
   code = TREE_CODE (operation);
   op_type = TREE_CODE_LENGTH (code);
 
   if (op_type != binary_op && op_type != ternary_op)
     return false;
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   scalar_type = TREE_TYPE (scalar_dest);
 
   /* All uses but the last are expected to be defined in the loop.
@@ -1353,7 +1361,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     }
 
   /* Create the vectorized operation that computes the partial results  */
-  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, expr);
+  *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, expr);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
@@ -1392,14 +1400,14 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_info) == vect_loop_def);
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     return false;
 
-  op = TREE_OPERAND (stmt, 1);
+  op = GIMPLE_STMT_OPERAND (stmt, 1);
   if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -1421,11 +1429,11 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
   /* Handle use.  */
-  op = TREE_OPERAND (stmt, 1);
+  op = GIMPLE_STMT_OPERAND (stmt, 1);
   vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
 
   /* Arguments are ready. create the new vector stmt.  */
-  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_oprnd);
+  *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, vec_oprnd);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
@@ -1505,13 +1513,13 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
     return false;
 
-  operation = TREE_OPERAND (stmt, 1);
+  operation = GIMPLE_STMT_OPERAND (stmt, 1);
   code = TREE_CODE (operation);
   optab = optab_for_tree_code (code, vectype);
 
@@ -1597,7 +1605,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     fprintf (vect_dump, "transform binary/unary operation.");
 
   /* Handle def.  */
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
   /* Handle uses.  */
@@ -1631,10 +1639,10 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Arguments are ready. create the new vector stmt.  */
 
   if (op_type == binary_op)
-    *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+    *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest,
 		build2 (code, vectype, vec_oprnd0, vec_oprnd1));
   else
-    *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest,
+    *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest,
 		build1 (code, vectype, vec_oprnd0));
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
@@ -1672,15 +1680,15 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 
   /* Is vectorizable store? */
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   if (TREE_CODE (scalar_dest) != ARRAY_REF
       && TREE_CODE (scalar_dest) != INDIRECT_REF)
     return false;
 
-  op = TREE_OPERAND (stmt, 1);
+  op = GIMPLE_STMT_OPERAND (stmt, 1);
   if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -1723,7 +1731,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   data_ref = build_fold_indirect_ref (data_ref);
 
   /* Arguments are ready. create the new vector stmt.  */
-  *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
+  *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
   /* Copy the V_MAY_DEFS representing the aliasing of the original array
@@ -1789,14 +1797,14 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   if (TREE_CODE (scalar_dest) != SSA_NAME)
     return false;
 
-  op = TREE_OPERAND (stmt, 1);
+  op = GIMPLE_STMT_OPERAND (stmt, 1);
   if (TREE_CODE (op) != ARRAY_REF && TREE_CODE (op) != INDIRECT_REF)
     return false;
 
@@ -1851,7 +1859,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  tmis = size_binop (MULT_EXPR, tmis, size_int(BITS_PER_UNIT));
 	  data_ref = build2 (MISALIGNED_INDIRECT_REF, vectype, data_ref, tmis);
 	}
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
@@ -1887,7 +1895,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       data_ref = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
 					   &init_addr, true);
       data_ref = build1 (ALIGN_INDIRECT_REF, vectype, data_ref);
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
       new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
@@ -1902,7 +1910,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, offset, &dummy, false);
       data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
@@ -1919,7 +1927,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
 	  new_stmt = build_function_call_expr (builtin_decl, params);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+	  new_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, new_stmt);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
 	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
@@ -1953,7 +1961,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       /* <5> Create <vec_dest = realign_load (msq, lsq, magic)> in loop  */
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
-      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+      new_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, new_stmt);
       new_temp = make_ssa_name (vec_dest, new_stmt); 
       TREE_OPERAND (new_stmt, 0) = new_temp;
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
@@ -1989,13 +1997,13 @@ vectorizable_live_operation (tree stmt,
   if (!STMT_VINFO_LIVE_P (stmt_info))
     return false;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
     return false;
 
-  operation = TREE_OPERAND (stmt, 1);
+  operation = GIMPLE_STMT_OPERAND (stmt, 1);
   code = TREE_CODE (operation);
 
   op_type = TREE_CODE_LENGTH (code);
@@ -2105,10 +2113,10 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
       return false;
     }
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  op = TREE_OPERAND (stmt, 1);
+  op = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (op) != COND_EXPR)
     return false;
@@ -2159,7 +2167,7 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Transform */
 
   /* Handle def.  */
-  scalar_dest = TREE_OPERAND (stmt, 0);
+  scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
   /* Handle cond expr.  */
@@ -2176,7 +2184,7 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vec_cond_expr = build3 (VEC_COND_EXPR, vectype, 
 			  vec_compare, vec_then_clause, vec_else_clause);
 
-  *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
+  *vec_stmt = build2 (GIMPLE_MODIFY_STMT, vectype, vec_dest, vec_cond_expr);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
   TREE_OPERAND (*vec_stmt, 0) = new_temp;
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
@@ -2344,7 +2352,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   var = create_tmp_var (TREE_TYPE (ni), "bnd");
   add_referenced_var (var);
   ratio_name = make_ssa_name (var, NULL_TREE);
-  stmt = build2 (MODIFY_EXPR, void_type_node, ratio_name,
+  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, ratio_name,
 	   build2 (RSHIFT_EXPR, TREE_TYPE (ni_name), ni_name, log_vf));
   SSA_NAME_DEF_STMT (ratio_name) = stmt;
 
@@ -2357,7 +2365,7 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
   var = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
   add_referenced_var (var);
   ratio_mult_vf_name = make_ssa_name (var, NULL_TREE);
-  stmt = build2 (MODIFY_EXPR, void_type_node, ratio_mult_vf_name,
+  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, ratio_mult_vf_name,
 	   build2 (LSHIFT_EXPR, TREE_TYPE (ratio_name), ratio_name, log_vf));
   SSA_NAME_DEF_STMT (ratio_mult_vf_name) = stmt;
 
@@ -2908,7 +2916,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       add_referenced_var (addr_tmp);
       addr_tmp_name = make_ssa_name (addr_tmp, NULL_TREE);
       addr_stmt = fold_convert (int_ptrsize_type, addr_base);
-      addr_stmt = build2 (MODIFY_EXPR, void_type_node,
+      addr_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node,
                           addr_tmp_name, addr_stmt);
       SSA_NAME_DEF_STMT (addr_tmp_name) = addr_stmt;
       append_to_statement_list_force (addr_stmt, cond_expr_stmt_list);
@@ -2922,7 +2930,8 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
           or_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
           add_referenced_var (or_tmp);
           new_or_tmp_name = make_ssa_name (or_tmp, NULL_TREE);
-          or_stmt = build2 (MODIFY_EXPR, void_type_node, new_or_tmp_name,
+          or_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node,
+	      		    new_or_tmp_name,
                             build2 (BIT_IOR_EXPR, int_ptrsize_type,
 	                            or_tmp_name,
                                     addr_tmp_name));
@@ -2942,7 +2951,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   add_referenced_var (and_tmp);
   and_tmp_name = make_ssa_name (and_tmp, NULL_TREE);
 
-  and_stmt = build2 (MODIFY_EXPR, void_type_node,
+  and_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node,
                      and_tmp_name,
                      build2 (BIT_AND_EXPR, int_ptrsize_type,
                              or_tmp_name, mask_cst));

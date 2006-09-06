@@ -152,8 +152,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      if (STMT_VINFO_DATA_REF (stmt_info))
 		scalar_type = 
 			TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (stmt_info)));
-	      else if (TREE_CODE (stmt) == MODIFY_EXPR)
-		scalar_type = TREE_TYPE (TREE_OPERAND (stmt, 0));
+	      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+		scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
 	      else
 		scalar_type = TREE_TYPE (stmt);
 

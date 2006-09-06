@@ -9140,8 +9140,9 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
-    case MODIFY_EXPR:
-      return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 0), want_address);
+    case GIMPLE_MODIFY_STMT:
+      return loc_descriptor_from_tree_1 (PROTECTED_TREE_OPERAND (loc, 0),
+					 want_address);
 
     case COMPONENT_REF:
     case BIT_FIELD_REF:

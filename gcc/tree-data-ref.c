@@ -4049,11 +4049,11 @@ find_data_references_in_loop (struct loop *loop,
 
 	  switch (TREE_CODE (stmt))
 	    {
-	    case MODIFY_EXPR:
+	    case GIMPLE_MODIFY_STMT:
 	      {
 		bool one_inserted = false;
-		tree opnd0 = TREE_OPERAND (stmt, 0);
-		tree opnd1 = TREE_OPERAND (stmt, 1);
+		tree opnd0 = GIMPLE_STMT_OPERAND (stmt, 0);
+		tree opnd1 = GIMPLE_STMT_OPERAND (stmt, 1);
 		
 		if (TREE_CODE (opnd0) == ARRAY_REF 
 		    || TREE_CODE (opnd0) == INDIRECT_REF

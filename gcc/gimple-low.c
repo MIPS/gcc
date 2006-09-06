@@ -207,7 +207,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
       
     case NOP_EXPR:
     case ASM_EXPR:
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case CALL_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
@@ -384,9 +384,9 @@ block_may_fallthru (tree block)
       return (block_may_fallthru (TREE_OPERAND (stmt, 0))
 	      && block_may_fallthru (TREE_OPERAND (stmt, 1)));
 
-    case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
-	stmt = TREE_OPERAND (stmt, 1);
+    case GIMPLE_MODIFY_STMT:
+      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CALL_EXPR)
+	stmt = GIMPLE_STMT_OPERAND (stmt, 1);
       else
 	return true;
       /* FALLTHRU */
@@ -506,15 +506,15 @@ lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* Extract the value being returned.  */
   value = TREE_OPERAND (stmt, 0);
-  if (value && TREE_CODE (value) == MODIFY_EXPR)
-    value = TREE_OPERAND (value, 1);
+  if (value && TREE_CODE (value) == GIMPLE_MODIFY_STMT)
+    value = GIMPLE_STMT_OPERAND (value, 1);
 
   /* Match this up with an existing return statement that's been created.  */
   for (t = data->return_statements; t ; t = TREE_CHAIN (t))
     {
       tree tvalue = TREE_OPERAND (TREE_VALUE (t), 0);
-      if (tvalue && TREE_CODE (tvalue) == MODIFY_EXPR)
-	tvalue = TREE_OPERAND (tvalue, 1);
+      if (tvalue && TREE_CODE (tvalue) == GIMPLE_MODIFY_STMT)
+	tvalue = GIMPLE_STMT_OPERAND (tvalue, 1);
 
       if (value == tvalue)
 	{

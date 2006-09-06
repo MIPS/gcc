@@ -4176,7 +4176,7 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
 
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
 	      make_tree (ptr_type_node, nextarg));
   TREE_SIDE_EFFECTS (t) = 1;
 
@@ -4247,12 +4247,12 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       && !integer_zerop (TYPE_SIZE (type)))
     {
       t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
-      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist_tmp,
 		  build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
 
       t = fold_convert (TREE_TYPE (valist), size_int (-boundary));
-      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist_tmp,
 		  build2 (BIT_AND_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
     }
@@ -4291,7 +4291,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   /* Compute new value for AP.  */
   t = fold_convert (TREE_TYPE (valist), rounded_size);
   t = build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t);
-  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist, t);
   gimplify_and_add (t, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
@@ -4456,7 +4456,7 @@ expand_builtin_va_copy (tree arglist)
 
   if (TREE_CODE (va_list_type_node) != ARRAY_TYPE)
     {
-      t = build2 (MODIFY_EXPR, va_list_type_node, dst, src);
+      t = build2 (GIMPLE_MODIFY_STMT, va_list_type_node, dst, src);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -6637,9 +6637,9 @@ integer_valued_real_p (tree t)
       return integer_valued_real_p (TREE_OPERAND (t, 0));
 
     case COMPOUND_EXPR:
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case BIND_EXPR:
-      return integer_valued_real_p (TREE_OPERAND (t, 1));
+      return integer_valued_real_p (PROTECTED_TREE_OPERAND (t, 1));
 
     case PLUS_EXPR:
     case MINUS_EXPR:

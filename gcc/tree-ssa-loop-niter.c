@@ -744,10 +744,10 @@ expand_simple_operations (tree expr)
     return expr;
 
   stmt = SSA_NAME_DEF_STMT (expr);
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return expr;
 
-  e = TREE_OPERAND (stmt, 1);
+  e = GIMPLE_STMT_OPERAND (stmt, 1);
   if (/* Casts are simple.  */
       TREE_CODE (e) != NOP_EXPR
       && TREE_CODE (e) != CONVERT_EXPR
@@ -1256,7 +1256,7 @@ chain_of_csts_start (struct loop *loop, tree x)
       return NULL_TREE;
     }
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return NULL_TREE;
 
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
@@ -1729,10 +1729,10 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 
 	  switch (TREE_CODE (stmt))
 	    {
-	    case MODIFY_EXPR:
+	    case GIMPLE_MODIFY_STMT:
 	      {
-		tree op0 = TREE_OPERAND (stmt, 0);
-		tree op1 = TREE_OPERAND (stmt, 1);
+		tree op0 = GIMPLE_STMT_OPERAND (stmt, 0);
+		tree op1 = GIMPLE_STMT_OPERAND (stmt, 1);
 
 		/* For each array access, analyze its access function
 		   and record a bound on the loop iteration domain.  */

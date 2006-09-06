@@ -89,10 +89,10 @@ widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt)
   if (! *def_stmt)
     return false;
 
-  if (TREE_CODE (*def_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (*def_stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
-  expr = TREE_OPERAND (*def_stmt, 1);
+  expr = GIMPLE_STMT_OPERAND (*def_stmt, 1);
   if (TREE_CODE (expr) != NOP_EXPR)
     return false;
 
@@ -164,10 +164,10 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
   tree pattern_expr;
   tree prod_type;
 
-  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (last_stmt) != GIMPLE_MODIFY_STMT)
     return NULL;
 
-  expr = TREE_OPERAND (last_stmt, 1);
+  expr = GIMPLE_STMT_OPERAND (last_stmt, 1);
   type = TREE_TYPE (expr);
 
   /* Look for the following pattern 
@@ -384,10 +384,10 @@ vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out)
   tree type, half_type;
   tree pattern_expr;
 
-  if (TREE_CODE (last_stmt) != MODIFY_EXPR)
+  if (TREE_CODE (last_stmt) != GIMPLE_MODIFY_STMT)
     return NULL;
 
-  expr = TREE_OPERAND (last_stmt, 1);
+  expr = GIMPLE_STMT_OPERAND (last_stmt, 1);
   type = TREE_TYPE (expr);
 
   /* Look for the following pattern
@@ -518,7 +518,8 @@ vect_pattern_recog_1 (
   var = create_tmp_var (pattern_type, "patt");
   add_referenced_var (var);
   var_name = make_ssa_name (var, NULL_TREE);
-  pattern_expr = build2 (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
+  pattern_expr = build2 (GIMPLE_MODIFY_STMT, void_type_node, var_name,
+      			 pattern_expr);
   SSA_NAME_DEF_STMT (var_name) = pattern_expr;
   bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);
   ann = stmt_ann (pattern_expr);

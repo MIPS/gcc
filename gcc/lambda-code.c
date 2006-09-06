@@ -1542,9 +1542,10 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
   add_referenced_var (resvar);
 
   /* Start at 0.  */
-  stmt = build2 (MODIFY_EXPR, void_type_node, resvar, integer_zero_node);
+  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
+      		 integer_zero_node);
   name = make_ssa_name (resvar, stmt);
-  TREE_OPERAND (stmt, 0) = name;
+  GIMPLE_STMT_OPERAND (stmt, 0) = name;
   tsi = tsi_last (stmts);
   tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 
@@ -1557,20 +1558,20 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
 	  
 	  /* newname = coefficient * induction_variable */
 	  coeffmult = build_int_cst (type, LBV_COEFFICIENTS (lbv)[i]);
-	  stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			 fold_build2 (MULT_EXPR, type, iv, coeffmult));
 
 	  newname = make_ssa_name (resvar, stmt);
-	  TREE_OPERAND (stmt, 0) = newname;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = newname;
 	  fold_stmt (&stmt);
 	  tsi = tsi_last (stmts);
 	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 
 	  /* name = name + newname */
-	  stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			 build2 (PLUS_EXPR, type, name, newname));
 	  name = make_ssa_name (resvar, stmt);
-	  TREE_OPERAND (stmt, 0) = name;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	  fold_stmt (&stmt);
 	  tsi = tsi_last (stmts);
 	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1582,10 +1583,10 @@ lbv_to_gcc_expression (lambda_body_vector lbv,
   if (LBV_DENOMINATOR (lbv) != 1)
     {
       tree denominator = build_int_cst (type, LBV_DENOMINATOR (lbv));
-      stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 		     build2 (CEIL_DIV_EXPR, type, name, denominator));
       name = make_ssa_name (resvar, stmt);
-      TREE_OPERAND (stmt, 0) = name;
+      GIMPLE_STMT_OPERAND (stmt, 0) = name;
       fold_stmt (&stmt);
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1633,9 +1634,10 @@ lle_to_gcc_expression (lambda_linear_expression lle,
   for (; lle != NULL; lle = LLE_NEXT (lle))
     {
       /* Start at name = 0.  */
-      stmt = build2 (MODIFY_EXPR, void_type_node, resvar, integer_zero_node);
+      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
+	  	     integer_zero_node);
       name = make_ssa_name (resvar, stmt);
-      TREE_OPERAND (stmt, 0) = name;
+      GIMPLE_STMT_OPERAND (stmt, 0) = name;
       fold_stmt (&stmt);
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1664,18 +1666,18 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 		}
 
 	      /* newname = mult */
-	      stmt = build2 (MODIFY_EXPR, void_type_node, resvar, mult);
+	      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar, mult);
 	      newname = make_ssa_name (resvar, stmt);
-	      TREE_OPERAND (stmt, 0) = newname;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = newname;
 	      fold_stmt (&stmt);
 	      tsi = tsi_last (stmts);
 	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 
 	      /* name = name + newname */
-	      stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			     build2 (PLUS_EXPR, type, name, newname));
 	      name = make_ssa_name (resvar, stmt);
-	      TREE_OPERAND (stmt, 0) = name;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	      fold_stmt (&stmt);
 	      tsi = tsi_last (stmts);
 	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1705,18 +1707,18 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 		}
 
 	      /* newname = mult */
-	      stmt = build2 (MODIFY_EXPR, void_type_node, resvar, mult);
+	      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar, mult);
 	      newname = make_ssa_name (resvar, stmt);
-	      TREE_OPERAND (stmt, 0) = newname;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = newname;
 	      fold_stmt (&stmt);
 	      tsi = tsi_last (stmts);
 	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 
 	      /* name = name + newname */
-	      stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			     build2 (PLUS_EXPR, type, name, newname));
 	      name = make_ssa_name (resvar, stmt);
-	      TREE_OPERAND (stmt, 0) = name;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	      fold_stmt (&stmt);
 	      tsi = tsi_last (stmts);
 	      tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1727,11 +1729,11 @@ lle_to_gcc_expression (lambda_linear_expression lle,
          name = name + constant.  */
       if (LLE_CONSTANT (lle) != 0)
 	{
-	  stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			 build2 (PLUS_EXPR, type, name, 
 			         build_int_cst (type, LLE_CONSTANT (lle))));
 	  name = make_ssa_name (resvar, stmt);
-	  TREE_OPERAND (stmt, 0) = name;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	  fold_stmt (&stmt);
 	  tsi = tsi_last (stmts);
 	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1741,11 +1743,11 @@ lle_to_gcc_expression (lambda_linear_expression lle,
          name = name + linear offset.  */
       if (LLE_CONSTANT (offset) != 0)
 	{
-	  stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+	  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 			 build2 (PLUS_EXPR, type, name, 
 			         build_int_cst (type, LLE_CONSTANT (offset))));
 	  name = make_ssa_name (resvar, stmt);
-	  TREE_OPERAND (stmt, 0) = name;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	  fold_stmt (&stmt);
 	  tsi = tsi_last (stmts);
 	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
@@ -1757,11 +1759,11 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 	  stmt = build_int_cst (type, LLE_DENOMINATOR (lle));
 	  stmt = build2 (wrap == MAX_EXPR ? CEIL_DIV_EXPR : FLOOR_DIV_EXPR,
 			 type, name, stmt);
-	  stmt = build2 (MODIFY_EXPR, void_type_node, resvar, stmt);
+	  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar, stmt);
 
 	  /* name = {ceil, floor}(name/denominator) */
 	  name = make_ssa_name (resvar, stmt);
-	  TREE_OPERAND (stmt, 0) = name;
+	  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 	  tsi = tsi_last (stmts);
 	  tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
 	}
@@ -1777,10 +1779,10 @@ lle_to_gcc_expression (lambda_linear_expression lle,
     {
       tree op1 = VEC_index (tree, results, 0);
       tree op2 = VEC_index (tree, results, 1);
-      stmt = build2 (MODIFY_EXPR, void_type_node, resvar,
+      stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, resvar,
 		     build2 (wrap, type, op1, op2));
       name = make_ssa_name (resvar, stmt);
-      TREE_OPERAND (stmt, 0) = name;
+      GIMPLE_STMT_OPERAND (stmt, 0) = name;
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, stmt, TSI_CONTINUE_LINKING);
     }
@@ -1895,10 +1897,10 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	 test,  and let redundancy elimination sort it out.  */
       inc_stmt = build2 (PLUS_EXPR, type, 
 			 ivvar, build_int_cst (type, LL_STEP (newloop)));
-      inc_stmt = build2 (MODIFY_EXPR, void_type_node, SSA_NAME_VAR (ivvar),
-			 inc_stmt);
+      inc_stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node,
+	  		 SSA_NAME_VAR (ivvar), inc_stmt);
       ivvarinced = make_ssa_name (SSA_NAME_VAR (ivvar), inc_stmt);
-      TREE_OPERAND (inc_stmt, 0) = ivvarinced;
+      GIMPLE_STMT_OPERAND (inc_stmt, 0) = ivvarinced;
       bsi = bsi_for_stmt (exitcond);
       bsi_insert_before (&bsi, inc_stmt, BSI_SAME_STMT);
 
@@ -2154,7 +2156,7 @@ can_put_in_inner_loop (struct loop *inner, tree stmt)
   imm_use_iterator imm_iter;
   use_operand_p use_p;
   
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
+  gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)
       || !expr_invariant_in_loop_p (inner, TREE_OPERAND (stmt, 1)))
     return false;
@@ -2240,12 +2242,12 @@ can_convert_to_perfect_nest (struct loop *loop)
 		 win we get from rearranging the memory walk
 		 the loop is doing so that it has better
 		 cache behavior.  */
-	      if (TREE_CODE (stmt) == MODIFY_EXPR)
+	      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
 		{
 		  use_operand_p use_a, use_b;
 		  imm_use_iterator imm_iter;
 		  ssa_op_iter op_iter, op_iter1;
-		  tree op0 = TREE_OPERAND (stmt, 0);
+		  tree op0 = GIMPLE_STMT_OPERAND (stmt, 0);
 		  tree scev = instantiate_parameters
 		    (loop, analyze_scalar_evolution (loop, op0));
 
@@ -2469,10 +2471,10 @@ perfect_nestify (struct loops *loops,
   exit_condition = get_loop_exit_condition (newloop);
   uboundvar = create_tmp_var (integer_type_node, "uboundvar");
   add_referenced_var (uboundvar);
-  stmt = build2 (MODIFY_EXPR, void_type_node, uboundvar, 
+  stmt = build2 (GIMPLE_MODIFY_STMT, void_type_node, uboundvar, 
 		 VEC_index (tree, ubounds, 0));
   uboundvar = make_ssa_name (uboundvar, stmt);
-  TREE_OPERAND (stmt, 0) = uboundvar;
+  GIMPLE_STMT_OPERAND (stmt, 0) = uboundvar;
 
   if (insert_after)
     bsi_insert_after (&bsi, stmt, BSI_SAME_STMT);

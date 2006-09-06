@@ -314,8 +314,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build2 (MODIFY_EXPR, ptr_type_node,
-			       var, GOTO_DESTINATION (last));
+	  assignment = build2_gimple (GIMPLE_MODIFY_STMT,
+			              var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -502,11 +502,14 @@ make_edges (void)
 	      break;
 
 	    case MODIFY_EXPR:
+	      gcc_unreachable ();
+
+	    case GIMPLE_MODIFY_STMT:
 	      if (is_ctrl_altering_stmt (last))
 		{
-		  /* A MODIFY_EXPR may have a CALL_EXPR on its RHS and the
-		     CALL_EXPR may have an abnormal edge.  Search the RHS for
-		     this case and create any required edges.  */
+		  /* A GIMPLE_MODIFY_STMT may have a CALL_EXPR on its RHS and
+		     the CALL_EXPR may have an abnormal edge.  Search the RHS
+		     for this case and create any required edges.  */
 		  tree op = get_call_expr_in (last);
 		  if (op && TREE_SIDE_EFFECTS (op)
 		      && current_function_has_nonlocal_label)
@@ -849,8 +852,8 @@ make_goto_expr_edges (basic_block bb)
   goto_t = bsi_stmt (last);
 
   /* If the last statement is not a GOTO (i.e., it is a RETURN_EXPR,
-     CALL_EXPR or MODIFY_EXPR), then the edge is an abnormal edge resulting
-     from a nonlocal goto.  */
+     CALL_EXPR or GIMPLE_MODIFY_STMT), then the edge is an abnormal edge
+     resulting from a nonlocal goto.  */
   if (TREE_CODE (goto_t) != GOTO_EXPR)
     for_call = true;
   else
@@ -1348,7 +1351,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     with ordering of phi nodes.  This is because A is the single
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
-	  copy = build2 (MODIFY_EXPR, void_type_node, def, use);
+	  copy = build2_gimple (GIMPLE_MODIFY_STMT, def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
 	  SET_PHI_RESULT (phi, NULL_TREE);
 	  SSA_NAME_DEF_STMT (def) = copy;
@@ -1577,9 +1580,9 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
       else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
 	{
 	  if (else_stmt
-	      && TREE_CODE (else_stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (else_stmt, 0) == cond
-	      && integer_zerop (TREE_OPERAND (else_stmt, 1)))
+	      && TREE_CODE (else_stmt) == GIMPLE_MODIFY_STMT
+	      && GIMPLE_STMT_OPERAND (else_stmt, 0) == cond
+	      && integer_zerop (GIMPLE_STMT_OPERAND (else_stmt, 1)))
 	    COND_EXPR_ELSE (*stmt_p) = alloc_stmt_list ();
 	}
       else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
@@ -1594,9 +1597,9 @@ remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 			    : &COND_EXPR_ELSE (*stmt_p));
 
 	  if (stmt
-	      && TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
-	      && TREE_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
+	      && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && GIMPLE_STMT_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
+	      && GIMPLE_STMT_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
 	    *location = alloc_stmt_list ();
 	}
     }
@@ -1889,6 +1892,9 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       break;
 
     case MODIFY_EXPR:
+      gcc_unreachable ();
+
+    case GIMPLE_MODIFY_STMT:
       data->last_goto = NULL;
       fold_stmt (tp);
       op = get_call_expr_in (t);
@@ -3020,9 +3026,9 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
 	  tree op = TREE_OPERAND (tmp, 0);
 	  if (op && !is_gimple_val (op))
 	    {
-	      gcc_assert (TREE_CODE (op) == MODIFY_EXPR);
+	      gcc_assert (TREE_CODE (op) == GIMPLE_MODIFY_STMT);
 	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
-	      TREE_OPERAND (tmp, 0) = TREE_OPERAND (op, 0);
+	      TREE_OPERAND (tmp, 0) = GIMPLE_STMT_OPERAND (op, 0);
 	    }
 	  bsi_prev (bsi);
 	  return true;
@@ -3241,7 +3247,10 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case MODIFY_EXPR:
-      x = TREE_OPERAND (t, 0);
+      gcc_unreachable ();
+
+    case GIMPLE_MODIFY_STMT:
+      x = GIMPLE_STMT_OPERAND (t, 0);
       if (TREE_CODE (x) == BIT_FIELD_REF
 	  && is_gimple_reg (TREE_OPERAND (x, 0)))
 	{
@@ -3543,6 +3552,34 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 }
 
 
+/* Helper function for verify_gimple_tuples.  */
+
+static tree
+verify_gimple_tuples_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			 void *data ATTRIBUTE_UNUSED)
+{
+  switch (TREE_CODE (*tp))
+    {
+    case MODIFY_EXPR:
+      error ("unexpected non-tuple");
+      debug_tree (*tp);
+      return true;
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Verify that there are no trees that should have been converted to
+   gimple tuples.  Return true if T contains a node that should have
+   been converted to a gimple tuple, but hasn't.  */
+
+static bool
+verify_gimple_tuples (tree t)
+{
+  return walk_tree (&t, verify_gimple_tuples_1, NULL, NULL) != NULL;
+}
+
 /* Verify the GIMPLE statement chain.  */
 
 void
@@ -3610,6 +3647,8 @@ verify_stmts (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
 	{
 	  tree stmt = bsi_stmt (bsi);
+
+	  err |= verify_gimple_tuples (stmt);
 
 	  if (bb_for_stmt (stmt) != bb)
 	    {
@@ -5597,7 +5636,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build2 (MODIFY_EXPR, type, t, exp);
+  new_stmt = build2_gimple (GIMPLE_MODIFY_STMT, t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

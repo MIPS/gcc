@@ -108,7 +108,8 @@ static tree tree_if_convert_stmt (struct loop *loop, tree, tree,
 static void tree_if_convert_cond_expr (struct loop *, tree, tree,
 				       block_stmt_iterator *);
 static bool if_convertible_phi_p (struct loop *, basic_block, tree);
-static bool if_convertible_modify_expr_p (struct loop *, basic_block, tree);
+static bool if_convertible_gimple_modify_stmt_p (struct loop *, basic_block,
+    						 tree);
 static bool if_convertible_stmt_p (struct loop *, basic_block, tree);
 static bool if_convertible_bb_p (struct loop *, basic_block, basic_block);
 static bool if_convertible_loop_p (struct loop *, bool);
@@ -119,7 +120,7 @@ static void clean_predicate_lists (struct loop *loop);
 static basic_block find_phi_replacement_condition (struct loop *loop,
 						   basic_block, tree *,
 						   block_stmt_iterator *);
-static void replace_phi_with_cond_modify_expr (tree, tree, basic_block,
+static void replace_phi_with_cond_gimple_modify_stmt (tree, tree, basic_block,
                                                block_stmt_iterator *);
 static void process_phi_nodes (struct loop *);
 static void combine_blocks (struct loop *);
@@ -209,7 +210,7 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
 }
 
 /* if-convert stmt T which is part of LOOP.
-   If T is a MODIFY_EXPR than it is converted into conditional modify
+   If T is a GIMPLE_MODIFY_STMT than it is converted into conditional modify
    expression using COND.  For conditional expressions, add condition in the
    destination basic block's predicate list and remove conditional
    expression itself. BSI is the iterator used to traverse statements of
@@ -232,12 +233,12 @@ tree_if_convert_stmt (struct loop *  loop, tree t, tree cond,
     case LABEL_EXPR:
       break;
 
-    case MODIFY_EXPR:
-      /* This modify_expr is killing previous value of LHS. Appropriate value will
-	 be selected by PHI node based on condition. It is possible that before
-	 this transformation, PHI nodes was selecting default value and now it will
-	 use this new value. This is OK because it does not change validity the
-	 program.  */
+    case GIMPLE_MODIFY_STMT:
+      /* This GIMPLE_MODIFY_STMT is killing previous value of LHS. Appropriate
+	 value will be selected by PHI node based on condition. It is possible
+	 that before this transformation, PHI nodes was selecting default
+	 value and now it will use this new value. This is OK because it does 
+	 not change validity the program.  */
       break;
 
     case COND_EXPR:
@@ -334,15 +335,16 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
 }
 
 /* Return true, if M_EXPR is if-convertible.
-   MODIFY_EXPR is not if-convertible if,
+   GIMPLE_MODIFY_STMT is not if-convertible if,
    - It is not movable.
    - It could trap.
    - LHS is not var decl.
-  MODIFY_EXPR is part of block BB, which is inside loop LOOP.
+  GIMPLE_MODIFY_STMT is part of block BB, which is inside loop LOOP.
 */
 
 static bool
-if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
+if_convertible_gimple_modify_stmt_p (struct loop *loop, basic_block bb,
+    				     tree m_expr)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -392,7 +394,7 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
 
 /* Return true, iff STMT is if-convertible.
    Statement is if-convertible if,
-   - It is if-convertible MODIFY_EXPR
+   - It is if-convertible GIMPLE_MODIFY_STMT
    - IT is LABEL_EXPR or COND_EXPR.
    STMT is inside block BB, which is inside loop LOOP.  */
 
@@ -404,9 +406,9 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
     case LABEL_EXPR:
       break;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
 
-      if (!if_convertible_modify_expr_p (loop, bb, stmt))
+      if (!if_convertible_gimple_modify_stmt_p (loop, bb, stmt))
 	return false;
       break;
 
@@ -758,8 +760,9 @@ find_phi_replacement_condition (struct loop *loop,
 */
 
 static void
-replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
-                                   block_stmt_iterator *bsi)
+replace_phi_with_cond_gimple_modify_stmt (tree phi, tree cond,
+    					  basic_block true_bb,
+                                   	  block_stmt_iterator *bsi)
 {
   tree new_stmt;
   basic_block bb;
@@ -796,7 +799,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
 	        unshare_expr (arg_1));
 
   /* Create new MODIFY expression using RHS.  */
-  new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+  new_stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (PHI_RESULT (phi)),
 		     unshare_expr (PHI_RESULT (phi)), rhs);
 
   /* Make new statement definition of the original phi result.  */
@@ -845,7 +848,7 @@ process_phi_nodes (struct loop *loop)
       while (phi)
 	{
 	  tree next = PHI_CHAIN (phi);
-	  replace_phi_with_cond_modify_expr (phi, cond, true_bb, &bsi);
+	  replace_phi_with_cond_gimple_modify_stmt (phi, cond, true_bb, &bsi);
 	  release_phi_node (phi);
 	  phi = next;
 	}
@@ -975,7 +978,7 @@ combine_blocks (struct loop *loop)
     }
 }
 
-/* Make new  temp variable of type TYPE. Add MODIFY_EXPR to assign EXP
+/* Make new  temp variable of type TYPE. Add GIMPLE_MODIFY_STMT to assign EXP
    to the new variable.  */
 
 static tree
@@ -992,7 +995,7 @@ ifc_temp_var (tree type, tree exp)
   add_referenced_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
-  stmt = build2 (MODIFY_EXPR, type, var, exp);
+  stmt = build2 (GIMPLE_MODIFY_STMT, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */

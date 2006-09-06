@@ -1,0 +1,391 @@
+2006-09-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-dump.c (dequeue_and_dump): Handle GIMPLE_MODIFY_STMT.
+	* tree-vrp.c (build_assert_expr_for): Change uses of
+	MODIFY_EXPR to GIMPLE_MODIFY_STMT and adjust accordingly.
+	(find_assert_locations): Same.
+	(remove_range_assertions): Same.
+	(stmt_interesting_for_vrp): Same.
+	(vrp_visit_assignment): Same.
+	(vrp_visit_stmt): Same.
+	(simplify_cond_using_ranges): Same.
+	* tree-into-ssa.c (REGISTER_DEFS_IN_THIS_STMT): Adjust for new
+	tree structure.
+	* tree-ssa-loop-im.c (movement_possibility): Change uses of
+	MODIFY_EXPR to GIMPLE_MODIFY_STMT and adjust accordingly.
+	(stmt_cost): Same.
+	(determine_invariantness_stmt): Same.
+	(schedule_sm): Same.
+	(gather_mem_refs_stmt): Same.
+	* tree-complex.c (init_dont_simulate_again): Same.
+	(complex_visit_stmt): Same.
+	(set_component_ssa_name): Same.
+	(expand_complex_move): Same.
+	(expand_complex_div_wide): Same.
+	(expand_complex_comparison): Same.
+	(expand_complex_operations_1): Same.
+	* tree-ssa-loop-niter.c (expand_simple_operations): Same.
+	(chain_of_csts_start): Same.
+	(infer_loop_bounds_from_undefined): Same.
+	* tree-pretty-print.c (dump_generic_node): Same.
+	(op_prio): Same.
+	(op_symbol_1): Same.
+	* tree-ssa-loop-manip.c (create_iv): Same.
+	* value-prof.c (tree_divmod_fixed_value): Same.
+	(tree_divmod_fixed_value_transform): Same.
+	(tree_mod_pow2): Same.
+	(tree_mod_pow2_value_transform): Same.
+	(tree_mod_subtract): Same.
+	(tree_mod_subtract_transform): Same.
+	(tree_divmod_values_to_profile): Same.
+	* tree-tailcall.c (process_assignment): Same.
+	(find_tail_calls): Same.
+	(adjust_accumulator_values): Same.
+	(adjust_return_value): Same.
+	(eliminate_tail_call): Same.
+	* tree.c (tree_code_size): Handle tcc_gimple_stmt.
+	(make_node_stat): Same.
+	(copy_node_stat): Handle gimple tuples.
+	(expr_align): Handle GIMPLE_MODIFY_STMT.  Abort on MODIFY_EXPR.
+	(tree_node_structure): Handle tcc_gimple_stmt.
+	(build2_stat): Abort on MODIFY_EXPR after gimplification.  Handle
+	tcc_gimple_stmt.
+	(build2_gimple_stat): New.
+	(expr_location): New.
+	(set_expr_location): New.
+	(expr_has_location): New.
+	(expr_locus): New.
+	(set_expr_locus): New.
+	(expr_filename): New.
+	(expr_lineno): New.
+	(walk_tree): Handle tcc_gimple_stmt.
+	(tree_block): New.
+	(protected_tree_operand): New.
+	(protected_tree_type): New.
+	(tree_code_kind): Add gimple statements.
+	* tree.h (tree_code_class): Add tcc_gimple_stmt.
+	(IS_GIMPLE_STMT_CODE_CLASS): New.
+	(struct tree_base): New.
+	(struct tree_common): Shrink.
+	(struct gimple_stmt): New.
+	(struct gimple_expr): New.
+	(TREE_SET_CODE, TREE_ADDRESSABLE, CALL_EXPR_TAILCALL,
+	CASE_LOW_SEEN, TREE_STATIC, CLEANUP_EH_ONLY, CASE_HIGH_SEEN,
+	TREE_NO_WARNING, TREE_CONSTANT_OVERFLOW, TREE_SYMBOL_REFERENCED,
+	TYPE_REF_CAN_ALIAS_ALL, TREE_OVERFLOW, TREE_PUBLIC,
+	TYPE_CACHED_VALUES_P, SAVE_EXPR_RESOLVED_P, TREE_SIDE_EFFECTS,
+	FORCED_LABEL, TREE_THIS_VOLATILE, TREE_THIS_NOTRAP, TREE_READONLY,
+	TREE_CONSTANT, TYPE_SIZES_GIMPLIFIED, DECL_UNSIGNED,
+	BIT_FIELD_REF_UNSIGNED, TYPE_UNSIGNED, TREE_ASM_WRITTEN,
+	TREE_USED, TREE_NOTHROW, CALL_EXPR_RETURN_SLOT_OPT,
+	DECL_BY_REFERENCE, CALL_FROM_THUNK_P, TYPE_ALIGN_OK,
+	TREE_PRIVATE, TREE_PROTECTED, TREE_DEPRECATED,
+	IDENTIFIER_TRANSPARENT_ALIAS, TREE_INVARIANT,
+	TREE_LANG_FLAG_[0-6], SSA_NAME_CHECK, SSA_NAME_IN_FREE_LIST,
+	TYPE_VOLATILE, TYPE_READONLY, TREE_VISITED, BINFO_VIRTUAL_P):
+	Adjust for new `common' layout.
+	(struct tree_function_decl): Add gimplified_flag.
+	(DECL_GIMPLIFIED): NEW.
+	(EXPR_LOCATION, SET_EXPR_LOCUS, EXPR_FILENAME, EXPR_LOCUS,
+	SET_EXPR_LOCUS, SET_EXPR_LOCATION, EXPR_LINENO,
+	EXPR_HAS_LOCATION): Call corresponding function.
+	(GIMPLE_STMT_CHECK): New.
+	(TREE_OPERAND_CHECK, TREE_TYPE, TREE_CHAIN): Abort on gimple tuples.
+	(TREE_BLOCK): Call tree_block.
+	(GIMPLE_STMT_P): New.
+	(GIMPLE_TUPLE_P): New.
+	(TREE_TO_GIMPLE_STMT): New.
+	(GIMPLE_STMT_TO_TREE): New.
+	(GIMPLE_STMT_OPERAND): New.
+	(GIMPLE_TUPLE_HAS_LOCUS_P): New.
+	(PROTECTED_TREE_OPERAND): New.
+	(PROTECTED_TREE_TYPE): New.
+	(build2_gimple_stat): Protoize.
+	(build2_gimple): New.
+	(expr_location): Protoize.
+	(set_expr_location): Protoize.
+	(expr_has_location): Protoize.
+	(expr_locus): Protoize.
+	(set_expr_locus): Protoize.
+	(expr_filename): Protoize.
+	(expr_lineno): Protoize.
+	(tree_block): Protoize.
+	(protected_tree_operand): Protoize.
+	(protected_tree_type): Protoize.
+	(enum tree_node_kind): Add gimple_stmt_kind.
+	* c-decl.c (union lang_tree_node): Tuples do not have a
+	TREE_CHAIN.
+	* ipa-cp.c (constant_val_insert): Change uses of MODIFY_EXPR to
+	GIMPLE_MODIFY_STMT and adjust accordingly.
+	* tree-scalar-evolution.c (follow_ssa_edge): Same.
+	(interpret_condition_phi): Same.
+	(pointer_used_p): Same.
+	(analyze_scalar_evolution_1): Same.
+	(scev_const_prop): Same.
+	(interpret_rhs_modify_stmt): Rename from
+	interpret_rhs_modify_expr.
+	* builtins.c (std_expand_builtin_va_start): Change uses of
+	MODIFY_EXPR to GIMPLE_MODIFY_STMT and adjust accordingly.
+	(std_gimplify_va_arg_expr): Same.
+	(expand_builtin_va_copy): Same.
+	(integer_valued_real_p): Same.
+	* fold-const.c (maybe_lvalue_p): Same.
+	(fold_unary): Same.
+	(tree_expr_nonnegative_p): Same.
+	(tree_expr_nonzero_p): Same.
+	* omp-low.c (extract_omp_for_data): Same.
+	(lower_rec_input_clauses): Same.
+	(lower_reduction_clauses): Same.
+	(lower_copyprivate_clauses): Same.
+	(lower_send_clauses): Same.
+	(lower_send_shared_vars): Same.
+	(expand_parallel_call): Same.
+	(expand_omp_parallel): Same.
+	(expand_omp_for_generic): Same.
+	(expand_omp_for_static_nochunk): Same.
+	(expand_omp_for_static_chunk): Same.
+	(expand_omp_sections): Same.
+	(lower_omp_single_copy): Same.
+	(lower_omp_parallel): Same.
+	* tree-ssa-dse.c (memory_address_same): Same.
+	(dse_optimize_stmt): Same.
+	* ipa-reference.c (scan_for_static_refs): Same.
+	* tree-gimple.c (is_gimple_reg_rhs): Same.
+	(get_call_expr_in): Same.
+	(recalculate_side_effects): Same.
+	* cgraphunit.c (cgraph_create_edges): Same.
+	* tree-ssa-copyrename.c (rename_ssa_copies): Same.
+	* tree-ssa-ccp.c (get_default_value): Same.
+	(likely_value): Same.
+	(visit_assignment): Same.
+	(ccp_visit_stmt): Same.
+	(get_maxval_strlen): Same.
+	(ccp_fold_builtin): Same.
+	* tree-ssa-loop-ivopts.c (find_givs_in_stmt_scev): Same.
+	(find_givs_in_stmt): Same.
+	(find_interesting_uses_op): Same.
+	(find_interesting_uses_stmt): Same.
+	(rewrite_use_nonlinear_expr): Same.
+	* ipa-pure-const.c (scan_function): Same.
+	* tree-stdarg.c (va_list_counter_bump): Same.
+	(check_all_va_list_escapes): Same.
+	(execute_optimize_stdarg): Same.
+	* tree-ssa-math-opts.c (compute_merit): Same.
+	(insert_reciprocals): Same.
+	(execute_cse_reciprocals): Same.
+	* tree-ssa-dom.c (initialize_hash_element): Same.
+	(simple_iv_increment_p): Same.
+	(record_equivalences_from_stmt): Same.
+	(optimize_stmt): Same.
+	(remove_stmt_or_phi): Same.
+	(get_rhs_or_phi_arg): Same.
+	(get_lhs_or_phi_result): Same.
+	(propagate_rhs_into_lhs): Same.
+	* tree-nrv.c (tree_nrv): Same.
+	(execute_return_slot_opt): Same.
+	* tree-ssa-propagate.c (get_rhs): Same.
+	(set_rhs): Same.
+	(stmt_makes_single_load): Same.
+	(stmt_makes_single_store): Same.
+	(replace_vuses_in): Same.
+	(fold_predicate_in): Same.
+	(substitute_and_fold): Same.
+	* tree-ssa-alias.c (compute_call_clobbered): Same.
+	(recalculate_used_alone): Same.
+	(count_uses_and_derefs): Same.
+	(is_escape_site): Same.
+	(find_used_portions): Same.
+	* gimple-low.c (lower_stmt): Same.
+	(block_may_fallthru): Same.
+	(lower_return_expr): Same.
+	* tree-ssa-sink.c (is_hidden_global_store): Same.
+	(statement_sink_location): Same.
+	* dwarf2out.c (loc_descriptor_from_tree_1): Same.
+	* expr.c (safe_from_p): Same.
+	(expand_expr_real): Same.
+	(expand_expr_real_1): Same.
+	* tree-ssa-loop-ivcanon.c (empty_loop_p): Same.
+	* predict.c (expr_expected_value): Same.
+	(strip_builtin_expect): Same.
+	(apply_return_prediction): Same.
+	(tree_bb_level_predictions): Same.
+	(tree_estimate_probability): Same.
+	* tree-vn.c (vn_compute): Same.
+	* tree-eh.c (add_stmt_to_eh_region_fn): Same.
+	(remove_stmt_from_eh_region_fn): Same.
+	(do_return_redirection): Same.
+	(honor_protect_cleanup_actions): Same.
+	(lower_try_finally_switch): Same.
+	(lower_eh_constructs_1): Same.
+	(tree_could_throw_p): Same.
+	(verify_eh_throw_stmt_node): Same.
+	* function.c (gimplify_parameters): Same.
+	* tree-vectorizer.c (vect_is_simple_use): Same.
+	(vect_is_simple_reduction): Same.
+	* ipa-type-escape.c (scan_for_refs): Same.
+	* tree-if-conv.c (tree_if_conversion): Same.
+	(tree_if_convert_stmt): Same.
+	(if_convertible_gimplify_modify_stmt_p): Rename from
+	if_convertible_modify_expr_p.
+	(if_convertible_stmt_p): Adjust for GIMPLE_MODIFY_STMT.
+	(ifc_temp_var): Same.
+	(replace_phi_with_cond_modify_stmt): Rename from
+	replace_phi_with_cond_modify_expr.
+	(process_phi_nodes): Call replace_phi_with_cond_modify_stmt.
+	* tree.def (DEFTREECODE): Add GIMPLE_MODIFY_STMT.
+	* tree-data-ref.c (find_data_references_in_loop): Adjust for
+	GIMPLE_MODIFY_STMT.
+	* tree-flow-inline.h (var_ann): Same.
+	(function_ann): Same.
+	(stmt_ann): Same.
+	(mark_non_addressable): Same.
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Same.
+	* gimplify.c (tree_to_gimple_tuple): New.
+	(build_stack_save_restore): Adjust for GIMPLE_MODIFY_STMT.
+	(gimplify_return_expr): Same.
+	(gimplify_decl_expr): Same.
+	(gimplify_self_mod_expr): Same.
+	(gimplify_cond_expr): Same.
+	(gimplify_init_constructor): Same.
+	(gimplify_modify_expr): Same.
+	(gimplify_expr): Same.
+	(gimplify_function_tree): Same.
+	(force_gimple_operand): Same.
+	* tree-ssa-phiopt.c (conditional_replacement): Same.
+	(minmax_replacement): Same.
+	(abs_replacement): Same.
+	* tree-dfa.c (create_var_ann): Same.
+	(create_function_ann): Same.
+	(create_stmt_ann): Same.
+	(create_tree_ann): Same.
+	(collect_dfa_stats_r): Same.
+	* tree-ssa-pre.c (find_or_generate_expression): Same.
+	(create_expression_by_pieces): Same.
+	(try_look_through_load): Same.
+	(insert_fake_stores): Same.
+	(realify_fake_stores): Same.
+	(compute_avail): Same.
+	(eliminate): Same.
+	(init_pre): Same.
+	(poolify_modify_stmt): Rename from poolify_modify_stmt.
+	Adjust for GIMPLE_MODIFY_STMT.
+	(NECESSARY): Adjust for new `common' layout.
+	* tree-ssa-live.c (build_tree_conflict_graph): Adjust for
+	GIMPLE_MODIFY_STMT.
+	* tree-sra.c (sra_walk_modify_stmt): Rename from
+	sra_walk_modify_expr.
+	(sra_walk_function): Adjust for GIMPLE_MODIFY_STMT.
+	(generate_copy_inout): Same.
+	(generate_element_copy): Same.
+	(generate_element_zero): Same.
+	(scalarize_copy): Same.
+	* tree-mudflap.c (mf_decl_cache_locals): Same.
+	(mf_build_check_statement_for): Same.
+	(mf_xform_derefs): Same.
+	* ipa-prop.c (ipa_method_modify_stmt): Same.
+	* print-tree.c (print_node): Handle gimple tuples.
+	Add case for tcc_gimple_stmt.
+	* tree-ssa-copy.c (stmt_may_generate_copy): Adjust for
+	GIMPLE_MODIFY_STMT.
+	(copy_prop_visit_assignment): Same.
+	(copy_prop_visit_stmt): Same.
+	(init_copy_prop): Same.
+	* tree-ssa-forwprop.c (ssa_name_defined_by_comparison_p): Same.
+	(forward_propagate_into_cond_1): Same.
+	(find_equivalent_equality_comparison): Same.
+	(tidy_after_forward_propagate_addr): Same.
+	(forward_propagate_addr_expr_1): Same.
+	(simplify_not_neg_expr): Same.
+	(simplify_switch_expr): Same.
+	* tree-ssa-dce.c (find_pdom): Same.
+	(mark_stmt_if_obviously_necessary): Same.
+	(NECESSARY): Adjust for new `common' layout.
+	* tree-flow.h: Same.
+	* tree-vect-patterns.c (widened_name_p): Adjust for
+	GIMPLE_MODIFY_STMT.
+	(vect_recog_dot_prod_pattern): Same.
+	(vect_recog_widen_sum_pattern): Same.
+	(vect_pattern_recog_1): Same.
+	* tree-nested.c (init_tmp_var): Same.
+	(save_tmp_var): Same.
+	(walk_stmts): Same.
+	(convert_call_expr): Same.
+	(finalize_nesting_tree_1): Same.
+	* tree-ssa.c (verify_ssa): Same.
+	(delete_tree_ssa): Same.
+	* lambda-code.c (lbv_to_gcc_expression): Same.
+	(lle_to_gcc_expression): Same.
+	(lambda_loopnest_to_gcc_loopnest): Same.
+	(can_put_in_inner_loop): Same.
+	(can_convert_to_perfect_nest): Same.
+	(perfect_nestify): Same.
+	* tree-ssa-loop-prefetch.c (gather_memory_references): Same.
+	* tree-inline.c (copy_body_r): Same.
+	(setup_one_parameter): Same.
+	(initialize_inlined_parameters): Same.
+	(estimate_num_insns_1): Same.
+	(expand_call_inline): Same.
+	(gimple_expand_calls_inline): Same.
+	(copy_tree_r): Same.
+	* tree-optimize.c (execute_free_cfg_annotations): Same.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref): Same.
+	(vect_align_data_ref): Same.
+	(vect_create_data_ref_ptr): Same.
+	(vect_init_vector): Same.
+	(vect_create_epilog_for_reduction): Same.
+	(vectorizable_reduction): Same.
+	(vectorizable_assignment): Same.
+	(vectorizable_operation): Same.
+	(vectorizable_store): Same.
+	(vectorizable_load): Same.
+	(vectorizable_live_operation): Same.
+	(vectorizable_condition): Same.
+	(vect_generate_tmps_on_preheader): Same.
+	(vect_create_cond_for_align_checks): Same.
+	* tree-object-size.c (collect_object_sizes_for): Same.
+	(check_for_plus_in_loops_1): Same.
+	(check_for_plus_in_loops): Same.
+	* tree-outof-ssa.c (insert_copy_on_edge): Same.
+	(replace_use_variable): Same.
+	(check_replaceable): Same.
+	(rewrite_trees): Same.
+	(identical_copies_p): Same.
+	(insert_backedge_copies): Same.
+	* tree-profile.c (tree_gen_edge_profiler): Same.
+	* tree-vect-generic.c (expand_vector_operations_1): Same.
+	* tree-ssa-structalias.c (update_alias_info): Same.
+	(find_func_aliases): Same.
+	* tree-cfg.c (factor_computed_gotos): Same.
+	(make_edges): Same.
+	(make_goto_expr_edges): Same.
+	(tree_merge_blocks): Same.
+	(remove_useless_stmts_cond): Same.
+	(remove_useless_stmts_1): Same.
+	(tree_find_edge_insert_loc): Same.
+	(verify_expr): Same.
+	(gimplify_val): Same.
+	(verify_gimple_tuples_1): New.
+	(verify_gimple_tuples): New.
+	(verify_stmts): Call verify_gimple_tuples.
+	* tree-ssa-reassoc.c (get_rank): Adjust for GIMPLE_MODIFY_STMT.
+	(get_unary_op): Same.
+	(linearize_expr): Same.
+	(get_single_immediate_use): Same.
+	(negate_value): Same.
+	(should_break_up_subtract): Same.
+	(break_up_subtract): Same.
+	(repropagate_negates): Same.
+	(break_up_subtract_bb): Same.
+	(reassociate_bb): Same.
+	* config/i386/i386.c (ix86_va_start): Same.
+	(ix86_gimplify_va_arg): Same.
+	* stmt.c (expand_expr_stmt): Same.
+	(warn_if_unused_value): Same.
+	(expand_return): Same.
+	* tree-ssanames.c (make_ssa_name): Same.
+	* tree-ssa-threadedge.c (lhs_of_dominating_assert): Same.
+	* tree-ssa-operands.c (finalize_ssa_defs): Same.
+	(add_virtual_operand): Same.
+	(get_expr_operands): Same.
+	(parse_ssa_operands): Same.
+	(get_modify_stmt_operands): Rename from get_modify_stmt_operands.

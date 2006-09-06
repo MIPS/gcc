@@ -127,9 +127,10 @@ var_ann (tree t)
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
+  gcc_assert (!t->common.base.ann
+	      || t->common.base.ann->common.type == VAR_ANN);
 
-  return (var_ann_t) t->common.ann;
+  return (var_ann_t) t->common.base.ann;
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -148,9 +149,10 @@ function_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+  gcc_assert (!t->common.base.ann
+	      || t->common.base.ann->common.type == FUNCTION_ANN);
 
-  return (function_ann_t) t->common.ann;
+  return (function_ann_t) t->common.base.ann;
 }
 
 /* Return the function annotation for T, which must be a FUNCTION_DECL node.
@@ -170,7 +172,7 @@ stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
-  return (stmt_ann_t) t->common.ann;
+  return (stmt_ann_t) t->common.base.ann;
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -788,7 +790,7 @@ mark_non_addressable (tree var)
 static inline tree_ann_t
 tree_ann (tree t)
 {
-  return t->common.ann;
+  return t->common.base.ann;
 }
 
 /* Return a common annotation for T.  Create the constant annotation if it

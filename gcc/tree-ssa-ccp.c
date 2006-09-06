@@ -372,7 +372,7 @@ get_default_value (tree var)
 	  else
 	    val.lattice_val = VARYING;
 	}
-      else if (TREE_CODE (stmt) == MODIFY_EXPR
+      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	       || TREE_CODE (stmt) == PHI_NODE)
 	{
 	  /* Any other variable defined by an assignment or a PHI node
@@ -493,7 +493,7 @@ likely_value (tree stmt)
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != MODIFY_EXPR
+  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
       && TREE_CODE (stmt) != COND_EXPR
       && TREE_CODE (stmt) != SWITCH_EXPR)
     return VARYING;
@@ -1175,8 +1175,8 @@ visit_assignment (tree stmt, tree *output_p)
   tree lhs, rhs;
   enum ssa_prop_result retval;
 
-  lhs = TREE_OPERAND (stmt, 0);
-  rhs = TREE_OPERAND (stmt, 1);
+  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (rhs) == SSA_NAME)
     {
@@ -1209,7 +1209,7 @@ visit_assignment (tree stmt, tree *output_p)
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree orig_lhs = TREE_OPERAND (stmt, 0);
+    tree orig_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
@@ -1349,7 +1349,7 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (stmt) == MODIFY_EXPR)
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
     {
       /* If the statement is an assignment that produces a single
 	 output value, evaluate its RHS to see if the lattice value of
@@ -2115,14 +2115,14 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 
   switch (TREE_CODE (def_stmt))
     {
-      case MODIFY_EXPR:
+      case GIMPLE_MODIFY_STMT:
 	{
 	  tree rhs;
 
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
-	  rhs = TREE_OPERAND (def_stmt, 1);
+	  rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
 	  return get_maxval_strlen (rhs, length, visited, type);
 	}
@@ -2174,7 +2174,7 @@ ccp_fold_builtin (tree stmt, tree fn)
   bitmap visited;
   bool ignore;
 
-  ignore = TREE_CODE (stmt) != MODIFY_EXPR;
+  ignore = TREE_CODE (stmt) != GIMPLE_MODIFY_STMT;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
@@ -2278,13 +2278,13 @@ ccp_fold_builtin (tree stmt, tree fn)
 
     case BUILT_IN_FPUTS:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
       result = fold_builtin_fputs (arglist,
-				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
+				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 1,
 				   val[0]);
       break;
 
