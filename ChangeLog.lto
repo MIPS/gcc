@@ -1,3 +1,16 @@
+2006-09-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc/objcobjc-act.c (synth_module_prologue): Use alloc_parm_types,
+	and nth_parm_type_ptr to build the function argument types
+	instead of tree_cons.
+	(build_module_initializer_routine): Likewise.
+	(build_next_objc_exception_stuff): Likewise.
+	(build_objc_exception_stuff): Likewise.
+	(get_arg_type_vec): New function.
+	(build_objc_method_call): Use get_arg_type_vec instead of
+	get_arg_type_list.
+	(really_start_method): Likewise.
+
 2006-09-03  Mark Mitchell  <mark@codesourcery.com>
 
 	* gcc/tree.h (SYMTAB_DIE): Remove reference to SDB format in
