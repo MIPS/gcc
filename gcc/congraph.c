@@ -126,6 +126,10 @@ con_graph_dump_node (con_node node, FILE * out)
 
   /* print the label */
   fprintf (out, "label: ");
+
+  if (node->phantom)
+    fprintf (out, "[");
+
   switch (node->type)
     {
     case CALLEE_ACTUAL_NODE:
@@ -155,6 +159,8 @@ con_graph_dump_node (con_node node, FILE * out)
       gcc_unreachable ();
       break;
     }
+  if (node->phantom)
+    fprintf (out, "]");
   fprintf (out, "; ");
 
   /* color the border and assign groups based on the nodes escape-ness
@@ -206,10 +212,6 @@ con_graph_dump_node (con_node node, FILE * out)
 
     default:
       gcc_unreachable ();
-    }
-  if (node->phantom)
-    {
-      fprintf (out, "border-width: 3px; ");
     }
 
   fprintf (out, "}\n");
@@ -1081,6 +1083,8 @@ inline_constructor_graph (con_graph cg,
 	  gcc_assert (target);
 	  if (edge->target->type == CALLEE_ACTUAL_NODE)
 	    {
+	      /* we override the old state */
+	      /* TODO what if it was global? */
 	      target->escape = EA_NO_ESCAPE;
 	    }
 	  add_edge (source, target);
@@ -1130,5 +1134,140 @@ get_matching_node_in_caller (con_graph cg,
     default:
       gcc_unreachable ();
 
+    }
+}
+
+void
+set_stmt_type (con_graph cg, tree stmt, enum statement_type type)
+{
+  stmt_type_list list = get_stmt_type (cg, stmt);
+  if (list) 
+    list->type = type;
+  else
+    {
+      /* if it doesnt exist, add it to the front of the list */
+      list = xcalloc (1, sizeof (struct _stmt_type_list));
+      list->stmt = stmt;
+      list->type = type;
+      list->next = cg->stmts;
+      cg->stmts = list;
+    }
+}
+
+stmt_type_list
+get_stmt_type (con_graph cg, tree stmt)
+{
+  stmt_type_list list;
+
+  /* empty list */
+  if (cg->stmts == NULL)
+    {
+      return NULL;
+    }
+
+  /* iterate therough the list */
+  list = cg->stmts;
+  while (list)
+    {
+      if (list->stmt == stmt)
+	{
+	  return list;
+	}
+      list = list->next;
+    }
+
+  /* none found */
+  return NULL;
+
+}
+
+
+void 
+print_stmt_type (con_graph cg, FILE* file, tree stmt)
+{
+  stmt_type_list data;
+  gcc_assert (cg);
+  gcc_assert (file);
+  gcc_assert (stmt);
+
+  data = get_stmt_type (cg, stmt);
+
+  gcc_assert (data);
+  fprintf(file, " (");
+
+  gcc_assert (data->type >= FUNCTION_CALL);
+  switch (data->type)
+    {
+    case FUNCTION_CALL:
+      fprintf (file, "FUNCTION_CALL");
+      break;
+    case FUNCTION_CALL_WITH_RETURN:
+      fprintf (file, "FUNCTION_CALL_WITH_RETURN");
+      break;
+    case CONSTRUCTOR_STMT:
+      fprintf (file, "CONSTRUCTOR_STMT");
+      break;
+    case INDIRECT_FUNCTION_CALL:
+      fprintf (file, "INDIRECT_FUNCTION_CALL");
+      break;
+    case REFERENCE_COPY:
+      fprintf (file, "REFERENCE_COPY");
+      break;
+    case CAST:
+      fprintf (file, "CAST");
+      break;
+    case ASSIGNMENT_FROM_FIELD:
+      fprintf (file, "ASSIGNMENT_FROM_FIELD");
+      break;
+    case ASSIGNMENT_TO_FIELD:
+      fprintf (file, "ASSIGNMENT_TO_FIELD");
+      break;
+    case RETURN:
+      fprintf (file, "RETURN");
+      break;
+    case MEMORY_ALLOCATION:
+      fprintf (file, "MEMORY_ALLOCATION");
+      break;
+    case IGNORED_RETURNING_VOID:
+      fprintf (file, "IGNORED_RETURNING_VOID");
+      break;
+    case IGNORED_NOT_A_POINTER:
+      fprintf (file, "IGNORED_NOT_A_POINTER");
+      break;
+    case IGNORED_LABEL_EXPR:
+      fprintf (file, "IGNORED_LABEL_EXPR");
+      break;
+    case IGNORED_COND_EXPR:
+      fprintf (file, "IGNORED_COND_EXPR");
+      break;
+    case IGNORED_UNKNOWN:
+      fprintf (file, "IGNORED_UNKNOW");
+      break;
+    case ASSIGNMENT_FROM_VTABLE:
+      fprintf (file, "ASSIGNMENT_FROM_VTABLE");
+      break;
+    case ASSIGNMENT_FROM_ARRAY:
+      fprintf (file, "ASSIGNMENT_FROM_ARRAY");
+      break;
+    case POINTER_ARITHMETIC:
+      fprintf (file, "POINTER_ARITHMETIC");
+      break;
+    case POINTER_DEREFERENCE:
+      fprintf (file, "POINTER_DEREFERENCE");
+      break;
+    case IGNORED_ASSIGNMENT_TO_NULL:
+      fprintf (file, "IGNORED_ASSIGNMENT_TO_NULL");
+      break;
+    }  
+  fprintf (file, ")");
+}
+
+
+void 
+set_escape_state (con_node node, enum ea_escape_state state)
+{
+  if (node->escape < state)
+    {
+      node->escape = state;
     }
 }

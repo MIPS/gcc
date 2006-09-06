@@ -57,6 +57,18 @@ debug_tree (tree node)
   putc ('\n', stderr);
 }
 
+void debug_tree_to_file (tree node, FILE *file);
+
+void
+debug_tree_to_file (tree node, FILE *file)
+{
+  table = XCNEWVEC (struct bucket *, HASH_SIZE);
+  print_node (file, "", node, 0);
+  free (table);
+  table = 0;
+  putc ('\n', file);
+}
+
 /* Print PREFIX and ADDR to FILE.  */
 void
 dump_addr (FILE *file, const char *prefix, void *addr)

@@ -1,3 +1,48 @@
+2006-09-06	Paul Biggar	<paul.biggar@gmail.com>
+
+	* tree-pretty-print.c (dump_escape_function): New function
+	* print-tree.c (debug_tree_to_file): New function
+	* ipa-stack-allocate.c (debug, dump): New globals
+	(LHS, RHS, get_constructor_function): Added assertions
+
+	(is_pointer_type): New check for array type
+
+	(is_null, is_assignment_to_null, is_function_call_with_return_value)
+	(is_function_call, is_pointer_return): Fixed formatting
+
+	(update_connection_graph_from_statement): Refactored into new functions
+	(is_suitable_decl, is_pointer_arithmetic, is_pointer_dereference)
+	(is_assignment_from_array, is_assignment_from_vtable)
+	(is_assignment_to_array, is_cast_stmt, is_indirect_function_call): 
+	New functions
+
+	(update_connection_graph_from_memory_allocation)
+	(update_connection_graph_from_pointer_arithmetic)
+	(update_connection_graph_from_cast)
+	(update_connection_graph_from_reference_copy)
+	(update_connection_graph_from_return)
+	(update_connection_graph_from_indirect_function_call)
+	(update_connection_graph_from_function_call)
+	(update_connection_graph_from_assignment_from_vtable)
+	(update_connection_graph_from_assignment_to_field)
+	(update_connection_graph_from_assignment_from_field)
+	(update_connection_graph_from_assignment_from_array)
+	(update_connection_graph_from_pointer_dereference): New functions
+
+	(stmt_count): removed global
+
+	(process_function): New comments, fixed formatting, added
+	DECL_ARTIFICIAL for generated temporary
+
+	* congraph.c (con_graph_dump_node): Added "[]" to wrap phantom nodes
+	(set_statement_type, get_statement_type, print_stmt_type)
+	(set_escape_State): New function
+
+	* congraph.h (statement_type): New enum
+	(ea_escape_type): Renamed to ea_escape_state
+	(stmt_type_list): New type
+
+
 2006-08-29	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c:

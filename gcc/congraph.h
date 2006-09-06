@@ -47,9 +47,33 @@ enum con_edge_type
   FIELD_EDGE
 };
 
+enum statement_type
+{
+  FUNCTION_CALL = 131,
+  FUNCTION_CALL_WITH_RETURN,
+  CONSTRUCTOR_STMT,
+  INDIRECT_FUNCTION_CALL,
+  REFERENCE_COPY,
+  CAST,
+  ASSIGNMENT_FROM_FIELD,
+  ASSIGNMENT_TO_FIELD,
+  ASSIGNMENT_FROM_VTABLE,
+  RETURN,
+  MEMORY_ALLOCATION,
+  IGNORED_RETURNING_VOID,
+  IGNORED_NOT_A_POINTER,
+  IGNORED_LABEL_EXPR,
+  IGNORED_COND_EXPR,
+  IGNORED_UNKNOWN,
+  ASSIGNMENT_FROM_ARRAY,
+  POINTER_ARITHMETIC,
+  POINTER_DEREFERENCE,
+  IGNORED_ASSIGNMENT_TO_NULL
+};
+
 /* This should be combined in the future with structure aliasing, but
  * for now it needs a prefix */
-enum ea_escape_type
+enum ea_escape_state
 {
   EA_NO_ESCAPE = 121,
   EA_ARG_ESCAPE,
@@ -68,6 +92,9 @@ typedef struct _con_node *con_node;
 
 struct _con_edge;
 typedef struct _con_edge *con_edge;
+
+struct _stmt_type_list;
+typedef struct _stmt_type_list *stmt_type_list;
 
 struct _con_graph
 {
@@ -88,6 +115,9 @@ struct _con_graph
 
   /* I use this as a maximum size for MapsTo vectors */
   int num_objects;
+
+  /* A list containing the types of statements, for dumping */
+  stmt_type_list stmts;
 
 };
 
@@ -131,7 +161,7 @@ struct _con_node
   /* Used to return lists of nodes from functions */
   con_node next_link;
 
-  enum ea_escape_type escape;
+  enum ea_escape_state escape;
 
   /* this is here for debugging. It allows me dump the con_graph
    * at any time. */
@@ -159,9 +189,16 @@ struct _con_edge
   enum con_edge_type type;
 };
 
+struct _stmt_type_list
+{
+  tree stmt;
+  enum statement_type type;
+  stmt_type_list next;
+};
+
 
 /* print the name of the node for (Graph::Easy) */
-void print_node_name (FILE * out, con_node node);
+void print_node_name (FILE *out, con_node node);
 
 /* ---------------------------------------------------
  *                      graph
@@ -173,8 +210,8 @@ new_con_graph (const char *filename, tree function, con_graph next);
 
 /* print the connection graph to file (in Graph::Easy format) */
 int con_graph_dump (con_graph cg);
-void con_graph_dump_node (con_node node, FILE * out);
-void con_graph_dump_edge (con_edge edge, FILE * out);
+void con_graph_dump_node (con_node node, FILE *out);
+void con_graph_dump_edge (con_edge edge, FILE *out);
 
 
 /* search through the list of connection graphs for the one
@@ -301,6 +338,7 @@ con_node get_caller_actual_node (con_graph cg,
 con_node get_callee_actual_node (con_graph cg,
 				 int index, tree call_id);
 
+void set_escape_state (con_node node, enum ea_escape_state);
 /* ---------------------------------------------------
  *							edges
  * --------------------------------------------------- */
@@ -350,4 +388,7 @@ con_node get_matching_node_in_caller (con_graph cg,
 				      con_node node, tree call_id);
 
 
+void set_stmt_type (con_graph cg, tree stmt, enum statement_type type);
+stmt_type_list get_stmt_type (con_graph cg, tree stmt);
+void print_stmt_type (con_graph cg, FILE* file, tree stmt);
 #endif /* _CON_GRAPH_H */
