@@ -204,6 +204,15 @@ extern GTY(()) rtx aof_pic_label;
 /* 32-bit Thumb-2 code.  */
 #define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
 
+/* FPU is VFPv3 (with twice the number of D registers).  Setting the FPU to
+   Neon automatically enables VFPv3 too.  */
+#define TARGET_VFP3 (arm_fp_model == ARM_FP_MODEL_VFP \
+		     && (arm_fpu_arch == FPUTYPE_VFP3 \
+			 || arm_fpu_arch == FPUTYPE_NEON))
+/* FPU supports Neon instructions.  */
+#define TARGET_NEON (arm_fp_model == ARM_FP_MODEL_VFP \
+		     && arm_fpu_arch == FPUTYPE_NEON)
+
 /* "DSP" multiply instructions, eg. SMULxy.  */
 #define TARGET_DSP_MULTIPLY \
   (TARGET_32BIT && arm_arch5e && arm_arch_notm)
@@ -218,7 +227,7 @@ extern GTY(()) rtx aof_pic_label;
 /* True if FLDMX and FSTMX instructions must be used in function prologues
    and epilogues rather than FLDMD and FSTMD instructions.
    (This does not affect use of FLDMD and FSTMD anywhere else.)  */
-#define TARGET_FLDMX !arm_arch6
+#define TARGET_FLDMX (!arm_arch6 && !TARGET_VFP3)
 
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
@@ -277,7 +286,11 @@ enum fputype
   /* Cirrus Maverick floating point co-processor.  */
   FPUTYPE_MAVERICK,
   /* VFP.  */
-  FPUTYPE_VFP
+  FPUTYPE_VFP,
+  /* VFPv3.  */
+  FPUTYPE_VFP3,
+  /* Neon.  */
+  FPUTYPE_NEON
 };
 
 /* Recast the floating point class to be the floating point attribute.  */
@@ -478,6 +491,12 @@ extern int arm_arch_hwdiv;
 
 #define UNITS_PER_WORD	4
 
+/* Use the option -mvectorize-with-neon-quad to override the use of doubleword
+   registers when autovectorizing for Neon, at least until multiple vector
+   widths are supported properly by the middle-end.  */
+#define UNITS_PER_SIMD_WORD \
+  (TARGET_NEON ? (TARGET_NEON_VECTORIZE_QUAD ? 16 : 8) : UNITS_PER_WORD)
+
 /* True if natural alignment is used for doubleword types.  */
 #define ARM_DOUBLEWORD_ALIGN	TARGET_AAPCS_BASED
 
@@ -644,6 +663,10 @@ extern int arm_structure_size_boundary;
   1,1,1,1,1,1,1,1,	\
   1,1,1,1,1,1,1,1,	\
   1,1,1,1,1,1,1,1,	\
+  1,1,1,1,1,1,1,1,	\
+  1,1,1,1,1,1,1,1,	\
+  1,1,1,1,1,1,1,1,	\
+  1,1,1,1,1,1,1,1,	\
   1			\
 }
 
@@ -666,6 +689,10 @@ extern int arm_structure_size_boundary;
   1,1,1,1,1,1,1,1,	     \
   1,1,1,1,1,1,1,1,	     \
   1,1,1,1,		     \
+  1,1,1,1,1,1,1,1,	     \
+  1,1,1,1,1,1,1,1,	     \
+  1,1,1,1,1,1,1,1,	     \
+  1,1,1,1,1,1,1,1,	     \
   1,1,1,1,1,1,1,1,	     \
   1,1,1,1,1,1,1,1,	     \
   1,1,1,1,1,1,1,1,	     \
@@ -721,6 +748,9 @@ extern int arm_structure_size_boundary;
 	}							\
       if (TARGET_VFP)						\
 	{							\
+	  /* VFPv3 registers are disabled when earlier VFP	\
+	     versions are selected due to the definition of	\
+	     LAST_VFP_REGNUM.  */				\
 	  for (regno = FIRST_VFP_REGNUM;			\
 	       regno <= LAST_VFP_REGNUM; ++ regno)		\
 	    {							\
@@ -899,15 +929,35 @@ extern int arm_structure_size_boundary;
   (((REGNUM) >= FIRST_CIRRUS_FP_REGNUM) && ((REGNUM) <= LAST_CIRRUS_FP_REGNUM))
 
 #define FIRST_VFP_REGNUM	63
-#define LAST_VFP_REGNUM		94
+#define LAST_VFP_REGNUM		(TARGET_VFP3 ? 126 : 94)
 #define IS_VFP_REGNUM(REGNUM) \
   (((REGNUM) >= FIRST_VFP_REGNUM) && ((REGNUM) <= LAST_VFP_REGNUM))
+
+/* VFP registers are split into two types: those defined by VFP versions < 3
+   have D registers overlaid on consecutive pairs of S registers. VFP version 3
+   defines 16 new D registers (d16-d31) which, for simplicity and correctness
+   in various parts of the backend, we implement as "fake" single-precision
+   registers (which would be S32-S63, but cannot be used in that way).  The
+   following macros define these ranges of registers.  */
+#define LAST_LO_VFP_REGNUM	94
+#define FIRST_HI_VFP_REGNUM	95
+
+#define VFP_REGNO_OK_FOR_SINGLE(REGNUM) \
+  ((REGNUM) <= LAST_LO_VFP_REGNUM)
+
+/* DFmode values are only valid in even register pairs.  */
+#define VFP_REGNO_OK_FOR_DOUBLE(REGNUM) \
+  ((((REGNUM) - FIRST_VFP_REGNUM) & 1) == 0)
+
+/* Neon Quad values must start at a multiple of four registers.  */
+#define NEON_REGNO_OK_FOR_QUAD(REGNUM) \
+  ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0)
 
 /* The number of hard registers is 16 ARM + 8 FPA + 1 CC + 1 SFP + 1 AFP.  */
 /* + 16 Cirrus registers take us up to 43.  */
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
-/* VFP adds 32 + 1 more.  */
-#define FIRST_PSEUDO_REGISTER   96
+/* VFP (VFP3) adds 32 (64) + 1 more.  */
+#define FIRST_PSEUDO_REGISTER   128
 
 #define DBX_REGISTER_NUMBER(REGNO) arm_dbx_register_number (REGNO)
 
@@ -956,29 +1006,48 @@ extern int arm_structure_size_boundary;
 #define VALID_IWMMXT_REG_MODE(MODE) \
  (arm_vector_mode_supported_p (MODE) || (MODE) == DImode)
 
+/* Modes valid for Neon D registers.  */
+#define VALID_NEON_DREG_MODE(MODE) \
+  ((MODE) == V2SImode || (MODE) == V4HImode || (MODE) == V8QImode \
+   || (MODE) == V2SFmode || (MODE) == DImode)
+
+/* Modes valid for Neon Q registers.  */
+#define VALID_NEON_QREG_MODE(MODE) \
+  ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
+   || (MODE) == V4SFmode || (MODE) == TImode)
+
 /* The order in which register should be allocated.  It is good to use ip
    since no saving is required (though calls clobber it) and it never contains
    function parameters.  It is quite good to use lr since other calls may
    clobber it anyway.  Allocate r0 through r3 in reverse order since r3 is
    least likely to contain a function parameter; in addition results are
-   returned in r0.  */
+   returned in r0.
+   For VFP/VFPv3, allocate caller-saved registers first (D0-D7), then D16-D31,
+   then D8-D15.  The reason for doing this is to attempt to reduce register
+   pressure when both single- and double-precision registers are used in a
+   function, but hopefully not force double-precision registers to be
+   callee-saved when it's not necessary. */
 
-#define REG_ALLOC_ORDER  	    \
-{                                   \
-     3,  2,  1,  0, 12, 14,  4,  5, \
-     6,  7,  8, 10,  9, 11, 13, 15, \
-    16, 17, 18, 19, 20, 21, 22, 23, \
-    27, 28, 29, 30, 31, 32, 33, 34, \
-    35, 36, 37, 38, 39, 40, 41, 42, \
-    43, 44, 45, 46, 47, 48, 49, 50, \
-    51, 52, 53, 54, 55, 56, 57, 58, \
-    59, 60, 61, 62,		    \
-    24, 25, 26,			    \
-    78, 77, 76, 75, 74, 73, 72, 71, \
-    70, 69, 68, 67, 66, 65, 64, 63, \
-    79, 80, 81, 82, 83, 84, 85, 86, \
-    87, 88, 89, 90, 91, 92, 93, 94, \
-    95				    \
+#define REG_ALLOC_ORDER				\
+{						\
+     3,  2,  1,  0, 12, 14,  4,  5,		\
+     6,  7,  8, 10,  9, 11, 13, 15,		\
+    16, 17, 18, 19, 20, 21, 22, 23,		\
+    27, 28, 29, 30, 31, 32, 33, 34,		\
+    35, 36, 37, 38, 39, 40, 41, 42,		\
+    43, 44, 45, 46, 47, 48, 49, 50,		\
+    51, 52, 53, 54, 55, 56, 57, 58,		\
+    59, 60, 61, 62,				\
+    24, 25, 26,					\
+    78,  77,  76,  75,  74,  73,  72,  71,	\
+    70,  69,  68,  67,  66,  65,  64,  63,	\
+    95,  96,  97,  98,  99, 100, 101, 102,	\
+   103, 104, 105, 106, 107, 108, 109, 110,	\
+   111, 112, 113, 114, 115, 116, 117, 118,	\
+   119, 120, 121, 122, 123, 124, 125, 126,	\
+    79,  80,  81,  82,  83,  84,  85,  86,	\
+    87,  88,  89,  90,  91,  92,  93,  94,	\
+   127						\
 }
 
 /* Interrupt functions can only use registers that have already been
@@ -997,6 +1066,8 @@ enum reg_class
   NO_REGS,
   FPA_REGS,
   CIRRUS_REGS,
+  VFP_LO_REGS,
+  VFP_HI_REGS,
   VFP_REGS,
   IWMMXT_GR_REGS,
   IWMMXT_REGS,
@@ -1019,6 +1090,8 @@ enum reg_class
   "NO_REGS",		\
   "FPA_REGS",		\
   "CIRRUS_REGS",	\
+  "VFP_LO_REGS",	\
+  "VFP_HI_REGS",	\
   "VFP_REGS",		\
   "IWMMXT_GR_REGS",	\
   "IWMMXT_REGS",	\
@@ -1035,23 +1108,29 @@ enum reg_class
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
-#define REG_CLASS_CONTENTS					\
-{								\
-  { 0x00000000, 0x00000000, 0x00000000 }, /* NO_REGS  */	\
-  { 0x00FF0000, 0x00000000, 0x00000000 }, /* FPA_REGS */	\
-  { 0xF8000000, 0x000007FF, 0x00000000 }, /* CIRRUS_REGS */	\
-  { 0x00000000, 0x80000000, 0x7FFFFFFF }, /* VFP_REGS  */	\
-  { 0x00000000, 0x00007800, 0x00000000 }, /* IWMMXT_GR_REGS */	\
-  { 0x00000000, 0x7FFF8000, 0x00000000 }, /* IWMMXT_REGS */	\
-  { 0x000000FF, 0x00000000, 0x00000000 }, /* LO_REGS */		\
-  { 0x00002000, 0x00000000, 0x00000000 }, /* STACK_REG */	\
-  { 0x000020FF, 0x00000000, 0x00000000 }, /* BASE_REGS */	\
-  { 0x0000FF00, 0x00000000, 0x00000000 }, /* HI_REGS */		\
-  { 0x01000000, 0x00000000, 0x00000000 }, /* CC_REG */		\
-  { 0x00000000, 0x00000000, 0x80000000 }, /* VFPCC_REG */	\
-  { 0x0200FFFF, 0x00000000, 0x00000000 }, /* GENERAL_REGS */	\
-  { 0xFAFFFFFF, 0xFFFFFFFF, 0x7FFFFFFF }  /* ALL_REGS */	\
+#define REG_CLASS_CONTENTS						\
+{									\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000 }, /* NO_REGS  */	\
+  { 0x00FF0000, 0x00000000, 0x00000000, 0x00000000 }, /* FPA_REGS */	\
+  { 0xF8000000, 0x000007FF, 0x00000000, 0x00000000 }, /* CIRRUS_REGS */	\
+  { 0x00000000, 0x80000000, 0x7FFFFFFF, 0x00000000 }, /* VFP_LO_REGS  */ \
+  { 0x00000000, 0x00000000, 0x80000000, 0x7FFFFFFF }, /* VFP_HI_REGS  */ \
+  { 0x00000000, 0x80000000, 0xFFFFFFFF, 0x7FFFFFFF }, /* VFP_REGS  */	\
+  { 0x00000000, 0x00007800, 0x00000000, 0x00000000 }, /* IWMMXT_GR_REGS */ \
+  { 0x00000000, 0x7FFF8000, 0x00000000, 0x00000000 }, /* IWMMXT_REGS */	\
+  { 0x000000FF, 0x00000000, 0x00000000, 0x00000000 }, /* LO_REGS */	\
+  { 0x00002000, 0x00000000, 0x00000000, 0x00000000 }, /* STACK_REG */	\
+  { 0x000020FF, 0x00000000, 0x00000000, 0x00000000 }, /* BASE_REGS */	\
+  { 0x0000FF00, 0x00000000, 0x00000000, 0x00000000 }, /* HI_REGS */	\
+  { 0x01000000, 0x00000000, 0x00000000, 0x00000000 }, /* CC_REG */	\
+  { 0x00000000, 0x00000000, 0x00000000, 0x80000000 }, /* VFPCC_REG */	\
+  { 0x0200FFFF, 0x00000000, 0x00000000, 0x00000000 }, /* GENERAL_REGS */ \
+  { 0xFAFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x7FFFFFFF }  /* ALL_REGS */	\
 }
+
+/* Any of the VFP register classes.  */
+#define IS_VFP_CLASS(X) \
+  ((X) == VFP_LO_REGS || (X) == VFP_HI_REGS || (X) == VFP_REGS)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1098,11 +1177,17 @@ enum reg_class
 
 /* Get reg_class from a letter such as appears in the machine description.
    We only need constraint `f' for FPA_REGS (`r' == GENERAL_REGS) for the
-   ARM, but several more letters for the Thumb.  */
+   ARM, but several more letters for the Thumb.
+   For VFP, use 't' for things which can only go in single-precision registers,
+   else use 'w'. We use this distinction because VFP3 D registers are a
+   superset of the S registers, rather than simply being overlaid on top of
+   them. FIXME: This distinction may also be useful for VFP variants without
+   double-precision operations.  */
 #define REG_CLASS_FROM_LETTER(C)  	\
   (  (C) == 'f' ? FPA_REGS		\
    : (C) == 'v' ? CIRRUS_REGS		\
-   : (C) == 'w' ? VFP_REGS		\
+   : (C) == 'w' ? (TARGET_VFP3 ? VFP_REGS : VFP_LO_REGS) \
+   : (C) == 't' ? VFP_LO_REGS		\
    : (C) == 'y' ? IWMMXT_REGS		\
    : (C) == 'z' ? IWMMXT_GR_REGS	\
    : (C) == 'l' ? (TARGET_ARM ? GENERAL_REGS : LO_REGS)	\
@@ -1180,9 +1265,15 @@ enum reg_class
    'Da' is a constant that takes two ARM insns to load.
    'Db' takes three ARM insns.
    'Dc' takes four ARM insns, if we allow that in this compilation.
+   'Dn' is a constant which can be loaded with Neon VMOV immediate insns.
+   'Dl' is a constant which can be used with Neon VORR/VBIC insns.
+   'DL' is a constant which can be used with Neon VORN/VAND pseudo-insns.
+   'Dv' is a constant which can be loaded with VFPv3 fconst[sd] insns.
    'U' Prefixes an extended memory constraint where:
    'Uv' is an address valid for VFP load/store insns.
    'Uy' is an address valid for iwmmxt load/store insns.
+   'Un' is an address valid for Neon VLD1/VST1 insns.
+   'Us' is an address valid for ("simple") quad-word loads/stores from ARM regs.
    'Uq' is an address valid for ldrsb.  */
 
 #define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
@@ -1195,7 +1286,21 @@ enum reg_class
 			   && arm_const_double_inline_cost (OP) == 3)	\
 		       || ((STR)[1] == 'c'				\
 			   && arm_const_double_inline_cost (OP) == 4	\
-			   && !(optimize_size || arm_ld_sched)))) :	\
+			   && !(optimize_size || arm_ld_sched))		\
+                       || ((STR)[1] == 'n'				\
+                           && GET_CODE (OP) == CONST_VECTOR		\
+                           && imm_for_neon_mov_operand ((OP), GET_MODE (OP))) \
+                       || ((STR)[1] == 'l'				\
+                           && GET_CODE (OP) == CONST_VECTOR		\
+                           && imm_for_neon_logic_operand ((OP),		\
+							  GET_MODE (OP))) \
+                       || ((STR)[1] == 'L'				\
+                           && GET_CODE (OP) == CONST_VECTOR		\
+                           && imm_for_neon_inv_logic_operand ((OP),	\
+							  GET_MODE (OP))) \
+		       || ((STR)[1] == 'v'				\
+			   && GET_CODE (OP) == CONST_DOUBLE		\
+			   && vfp3_const_double_rtx (OP)))) :		\
    ((C) == 'Q') ? (GET_CODE (OP) == MEM					\
 		 && GET_CODE (XEXP (OP, 0)) == REG) :			\
    ((C) == 'R') ? (GET_CODE (OP) == MEM					\
@@ -1205,6 +1310,8 @@ enum reg_class
    ((C) == 'T') ? cirrus_memory_offset (OP) :				\
    ((C) == 'U' && (STR)[1] == 'v') ? arm_coproc_mem_operand (OP, FALSE) : \
    ((C) == 'U' && (STR)[1] == 'y') ? arm_coproc_mem_operand (OP, TRUE) : \
+   ((C) == 'U' && (STR)[1] == 'n') ? neon_vector_mem_operand (OP, FALSE) : \
+   ((C) == 'U' && (STR)[1] == 's') ? neon_vector_mem_operand (OP, TRUE) : \
    ((C) == 'U' && (STR)[1] == 'q')					\
     ? arm_extendqisi_mem_op (OP, GET_MODE (OP))				\
    : 0)
@@ -1249,22 +1356,24 @@ enum reg_class
 
 /* Return the register class of a scratch register needed to copy IN into
    or out of a register in CLASS in MODE.  If it can be done directly,
-   NO_REGS is returned.  */
+   NO_REGS is returned.
+   FIXME: The IS_VFP_CLASS part may need attention.  */
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)		\
   /* Restrict which direct reloads are allowed for VFP regs.  */ \
   ((TARGET_VFP && TARGET_HARD_FLOAT				\
-    && (CLASS) == VFP_REGS)					\
+    && IS_VFP_CLASS (CLASS))					\
    ? vfp_secondary_reload_class (MODE, X)			\
    : TARGET_32BIT						\
    ? (((MODE) == HImode && ! arm_arch4 && true_regnum (X) == -1) \
     ? GENERAL_REGS : NO_REGS)					\
    : THUMB_SECONDARY_OUTPUT_RELOAD_CLASS (CLASS, MODE, X))
 
-/* If we need to load shorts byte-at-a-time, then we need a scratch.  */
+/* If we need to load shorts byte-at-a-time, then we need a scratch.
+   FIXME: As above.  */
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)		\
   /* Restrict which direct reloads are allowed for VFP regs.  */ \
   ((TARGET_VFP && TARGET_HARD_FLOAT				\
-    && (CLASS) == VFP_REGS)					\
+    && IS_VFP_CLASS (CLASS))					\
     ? vfp_secondary_reload_class (MODE, X) :			\
   /* Cannot load constants into Cirrus registers.  */		\
    (TARGET_MAVERICK && TARGET_HARD_FLOAT			\
@@ -1378,11 +1487,11 @@ do {									      \
 
 /* Moves between FPA_REGS and GENERAL_REGS are two memory insns.  */
 #define REGISTER_MOVE_COST(MODE, FROM, TO)		\
-  (TARGET_32BIT ?						\
+  (TARGET_32BIT ?					\
    ((FROM) == FPA_REGS && (TO) != FPA_REGS ? 20 :	\
     (FROM) != FPA_REGS && (TO) == FPA_REGS ? 20 :	\
-    (FROM) == VFP_REGS && (TO) != VFP_REGS ? 10 :  \
-    (FROM) != VFP_REGS && (TO) == VFP_REGS ? 10 :  \
+    IS_VFP_CLASS (FROM) && !IS_VFP_CLASS (TO) ? 10 :	\
+    !IS_VFP_CLASS (FROM) && IS_VFP_CLASS (TO) ? 10 :	\
     (FROM) == IWMMXT_REGS && (TO) != IWMMXT_REGS ? 4 :  \
     (FROM) != IWMMXT_REGS && (TO) == IWMMXT_REGS ? 4 :  \
     (FROM) == IWMMXT_GR_REGS || (TO) == IWMMXT_GR_REGS ? 20 :  \
@@ -1645,7 +1754,8 @@ typedef struct
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
   (CUM).nargs += 1;					\
   if (arm_vector_mode_supported_p (MODE)	       	\
-      && (CUM).named_count > (CUM).nargs)		\
+      && (CUM).named_count > (CUM).nargs		\
+      && TARGET_IWMMXT)					\
     (CUM).iwmmxt_nregs += 1;				\
   else							\
     (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)

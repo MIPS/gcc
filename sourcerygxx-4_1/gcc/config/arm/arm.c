@@ -452,6 +452,8 @@ static int thumb_call_reg_needed;
 #define FL_NOTM	      (1 << 17)	      /* Instructions not present in the 'M'
 					 profile.  */
 #define FL_DIV	      (1 << 18)	      /* Hardware divde.  */
+#define FL_VFPV3      (1 << 19)	      /* Vector Floating Point V3.  */
+#define FL_NEON	      (1 << 20)	      /* Neon instructions.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
@@ -695,7 +697,9 @@ static const struct fpu_desc all_fpus[] =
   {"fpe2",	FPUTYPE_FPA_EMU2},
   {"fpe3",	FPUTYPE_FPA_EMU2},
   {"maverick",	FPUTYPE_MAVERICK},
-  {"vfp",	FPUTYPE_VFP}
+  {"vfp",	FPUTYPE_VFP},
+  {"vfp3",	FPUTYPE_VFP3},
+  {"neon",	FPUTYPE_NEON}
 };
 
 
@@ -710,7 +714,9 @@ static const enum fputype fp_model_for_fpu[] =
   ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU2  */
   ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU3  */
   ARM_FP_MODEL_MAVERICK,	/* FPUTYPE_MAVERICK  */
-  ARM_FP_MODEL_VFP		/* FPUTYPE_VFP  */
+  ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP  */
+  ARM_FP_MODEL_VFP,		/* FPUTYPE_VFP3  */
+  ARM_FP_MODEL_VFP		/* FPUTYPE_NEON  */
 };
 
 
@@ -2633,14 +2639,19 @@ arm_return_in_memory (tree type)
 {
   HOST_WIDE_INT size;
 
+  size = int_size_in_bytes (type);
+
+  /* Vector values should be returned using ARM registers, not memory (unless
+     they're over 16 bytes, which will break since we only have four
+     call-clobbered registers to play with).  */
+  if (TREE_CODE (type) == VECTOR_TYPE && size <= 16)
+    return 0;
+
   if (!AGGREGATE_TYPE_P (type) &&
-      (TREE_CODE (type) != VECTOR_TYPE) &&
       !(TARGET_AAPCS_BASED && TREE_CODE (type) == COMPLEX_TYPE))
     /* All simple types are returned in registers.
        For AAPCS, complex types are treated the same as aggregates.  */
     return 0;
-
-  size = int_size_in_bytes (type);
 
   if (arm_abi != ARM_ABI_APCS)
     {
@@ -2882,7 +2893,7 @@ arm_arg_partial_bytes (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 {
   int nregs = pcum->nregs;
 
-  if (arm_vector_mode_supported_p (mode))
+  if (TARGET_IWMMXT_ABI && arm_vector_mode_supported_p (mode))
     return 0;
 
   if (NUM_ARG_REGS > nregs
@@ -4869,7 +4880,7 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       return 6;
 
     case CONST_DOUBLE:
-      if (arm_const_double_rtx (x))
+      if (arm_const_double_rtx (x) || vfp3_const_double_rtx (x))
 	return outer == SET ? 2 : -1;
       else if ((outer == COMPARE || outer == PLUS)
 	       && neg_const_double_rtx_ok_for_fpa (x))
@@ -5568,6 +5579,458 @@ neg_const_double_rtx_ok_for_fpa (rtx x)
 
   return 0;
 }
+
+/* VFPv3 has a fairly wide range of representable immediates, formed from
+   "quarter-precision" floating-point values. These can be evaluated using this
+   formula (with ^ for exponentiation):
+
+     -1^s * n * 2^-r
+   
+   Where 's' is a sign bit (0/1), 'n' and 'r' are integers such that
+   16 <= n <= 31 and 0 <= r <= 7.
+   
+   These values are mapped onto an 8-bit integer ABCDEFGH s.t.
+   
+     - A (most-significant) is the sign bit.
+     - BCD are the exponent (encoded as r XOR 3).
+     - EFGH are the mantissa (encoded as n - 16).
+*/
+
+/* Return an integer index for a VFPv3 immediate operand X suitable for the
+   fconst[sd] instruction, or -1 if X isn't suitable.  */
+static int
+vfp3_const_double_index (rtx x)
+{
+  REAL_VALUE_TYPE r, m;
+  int sign, exponent;
+  unsigned HOST_WIDE_INT mantissa, mant_hi;
+  unsigned HOST_WIDE_INT mask;
+  int point_pos = 2 * HOST_BITS_PER_WIDE_INT - 1;
+
+  if (!TARGET_VFP3 || GET_CODE (x) != CONST_DOUBLE)
+    return -1;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+
+  /* We can't represent these things, so detect them first.  */
+  if (REAL_VALUE_ISINF (r) || REAL_VALUE_ISNAN (r) || REAL_VALUE_MINUS_ZERO (r))
+    return -1;
+
+  /* Extract sign, exponent and mantissa.  */
+  sign = REAL_VALUE_NEGATIVE (r) ? 1 : 0;
+  r = REAL_VALUE_ABS (r);
+  exponent = REAL_EXP (&r);
+  /* For the mantissa, we expand into two HOST_WIDE_INTS, apart from the
+     highest (sign) bit, with a fixed binary point at bit point_pos.
+     WARNING: If there's ever a VFP version which uses more than 2 * H_W_I - 1
+     bits for the mantissa, this may fail (low bits would be lost).  */
+  real_ldexp (&m, &r, point_pos - exponent);
+  REAL_VALUE_TO_INT (&mantissa, &mant_hi, m);
+
+  /* If there are bits set in the low part of the mantissa, we can't
+     represent this value.  */
+  if (mantissa != 0)
+    return -1;
+  
+  /* Now make it so that mantissa contains the most-significant bits, and move
+     the point_pos to indicate that the least-significant bits have been
+     discarded.  */
+  point_pos -= HOST_BITS_PER_WIDE_INT;
+  mantissa = mant_hi;
+  
+  /* We can permit four significant bits of mantissa only, plus a high bit
+     which is always 1.  */
+  mask = ((unsigned HOST_WIDE_INT)1 << (point_pos - 5)) - 1;
+  if ((mantissa & mask) != 0)
+    return -1;
+  
+  /* Now we know the mantissa is in range, chop off the unneeded bits.  */
+  mantissa >>= point_pos - 5;
+  
+  /* The mantissa may be zero. Disallow that case. (It's possible to load the
+     floating-point immediate zero with Neon using an integer-zero load, but
+     that case is handled elsewhere.)  */
+  if (mantissa == 0)
+    return -1;
+  
+  gcc_assert (mantissa >= 16 && mantissa <= 31);
+  
+  /* The value of 5 here would be 4 if GCC used IEEE754-like encoding (where
+     normalised significands are in the range [1, 2). (Our mantissa is shifted
+     left 4 places at this point relative to normalised IEEE754 values).  GCC
+     internally uses [0.5, 1) (see real.c), so the exponent returned from
+     REAL_EXP must be altered.  */
+  exponent = 5 - exponent;
+    
+  if (exponent < 0 || exponent > 7)
+    return -1;
+  
+  /* Sign, mantissa and exponent are now in the correct form to plug into the
+     formulae described in the comment above.  */
+  return (sign << 7) | ((exponent ^ 3) << 4) | (mantissa - 16);
+}
+
+/* Return TRUE if rtx X is a valid immediate VFPv3 constant.  */
+int
+vfp3_const_double_rtx (rtx x)
+{
+  if (!TARGET_VFP3)
+    return 0;
+  
+  return vfp3_const_double_index (x) != -1;
+}
+
+/* Recognize immediates which can be used in various Neon instructions. Legal
+   immediates are described by the following table (for VMVN variants, the
+   bitwise inverse of the constant shown is recognized. In either case, VMOV
+   is output and the correct instruction to use for a given constant is chosen
+   by the assembler). The constant shown is replicated across all elements of
+   the destination vector.
+   
+   insn elems variant constant (binary)
+   ---- ----- ------- -----------------
+   vmov  i32     0    00000000 00000000 00000000 abcdefgh
+   vmov  i32     1    00000000 00000000 abcdefgh 00000000
+   vmov  i32     2    00000000 abcdefgh 00000000 00000000
+   vmov  i32     3    abcdefgh 00000000 00000000 00000000
+   vmov  i16     4    00000000 abcdefgh
+   vmov  i16     5    abcdefgh 00000000
+   vmvn  i32     6    00000000 00000000 00000000 abcdefgh
+   vmvn  i32     7    00000000 00000000 abcdefgh 00000000
+   vmvn  i32     8    00000000 abcdefgh 00000000 00000000
+   vmvn  i32     9    abcdefgh 00000000 00000000 00000000
+   vmvn  i16    10    00000000 abcdefgh
+   vmvn  i16    11    abcdefgh 00000000
+   vmov  i32    12    00000000 00000000 abcdefgh 11111111
+   vmvn  i32    13    00000000 00000000 abcdefgh 11111111
+   vmov  i32    14    00000000 abcdefgh 11111111 11111111
+   vmvn  i32    15    00000000 abcdefgh 11111111 11111111
+   vmov   i8    16    abcdefgh
+   vmov  i64    17    aaaaaaaa bbbbbbbb cccccccc dddddddd
+                      eeeeeeee ffffffff gggggggg hhhhhhhh
+   vmov  f32    18    aBbbbbbc defgh000 00000000 00000000
+
+   For case 18, B = !b. Representable values are exactly those accepted by
+   vfp3_const_double_index, but are output as floating-point numbers rather
+   than indices.
+   
+   Variants 0-5 (inclusive) may also be used as immediates for the second
+   operand of VORR/VBIC instructions.
+   
+   The INVERSE argument causes the bitwise inverse of the given operand to be
+   recognized instead (used for recognizing legal immediates for the VAND/VORN
+   pseudo-instructions). If INVERSE is true, the value placed in *MODCONST is
+   *not* inverted (i.e. the pseudo-instruction forms vand/vorn should still be
+   output, rather than the real insns vbic/vorr).
+   
+   INVERSE makes no difference to the recognition of float vectors.
+   
+   The return value is the variant of immediate as shown in the above table, or
+   -1 if the given value doesn't match any of the listed patterns.
+*/
+static int
+neon_valid_immediate (rtx op, enum machine_mode mode, int inverse,
+		      rtx *modconst, int *elementwidth)
+{
+#define CHECK(STRIDE, ELSIZE, CLASS, TEST)	\
+  matches = 1;					\
+  for (i = 0; i < idx; i += (STRIDE))		\
+    if (!(TEST))				\
+      matches = 0;				\
+  if (matches)					\
+    {						\
+      immtype = (CLASS);			\
+      elsize = (ELSIZE);			\
+      break;					\
+    }
+
+  unsigned int i, elsize, idx = 0, n_elts = CONST_VECTOR_NUNITS (op);
+  unsigned int innersize = GET_MODE_SIZE (GET_MODE_INNER (mode));
+  unsigned char bytes[16];
+  int immtype = -1, matches;
+  unsigned int invmask = inverse ? 0xff : 0;
+  
+  /* Vectors of float constants.  */
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+    {
+      rtx el0 = CONST_VECTOR_ELT (op, 0);
+      REAL_VALUE_TYPE r0;
+
+      if (!vfp3_const_double_rtx (el0))
+        return -1;
+
+      REAL_VALUE_FROM_CONST_DOUBLE (r0, el0);
+
+      for (i = 1; i < n_elts; i++)
+        {
+          rtx elt = CONST_VECTOR_ELT (op, i);
+          REAL_VALUE_TYPE re;
+          
+          REAL_VALUE_FROM_CONST_DOUBLE (re, elt);
+
+          if (!REAL_VALUES_EQUAL (r0, re))
+            return -1;
+        }
+
+      if (modconst)
+        *modconst = CONST_VECTOR_ELT (op, 0);
+      
+      if (elementwidth)
+        *elementwidth = 0;
+      
+      return 18;
+    }
+  
+  /* Splat vector constant out into a byte vector.  */
+  for (i = 0; i < n_elts; i++)
+    {
+      rtx el = CONST_VECTOR_ELT (op, i);
+      unsigned HOST_WIDE_INT elpart;
+      unsigned int part, parts;
+
+      if (GET_CODE (el) == CONST_INT)
+        {
+          elpart = INTVAL (el);
+          parts = 1;
+        }
+      else if (GET_CODE (el) == CONST_DOUBLE)
+        {
+          elpart = CONST_DOUBLE_LOW (el);
+          parts = 2;
+        }
+      else
+        gcc_unreachable ();
+      
+      for (part = 0; part < parts; part++)
+        {
+          unsigned int byte;
+          for (byte = 0; byte < innersize; byte++)
+            {
+              bytes[idx++] = (elpart & 0xff) ^ invmask;
+              elpart >>= BITS_PER_UNIT;
+            }
+          if (GET_CODE (el) == CONST_DOUBLE)
+            elpart = CONST_DOUBLE_HIGH (el);
+        }
+    }
+  
+  /* Sanity check.  */
+  gcc_assert (idx == GET_MODE_SIZE (mode));
+  
+  do
+    {
+      CHECK (4, 32, 0, bytes[i] == bytes[0] && bytes[i + 1] == 0
+		       && bytes[i + 2] == 0 && bytes[i + 3] == 0);
+
+      CHECK (4, 32, 1, bytes[i] == 0 && bytes[i + 1] == bytes[1]
+		       && bytes[i + 2] == 0 && bytes[i + 3] == 0);
+
+      CHECK (4, 32, 2, bytes[i] == 0 && bytes[i + 1] == 0
+		       && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0);
+
+      CHECK (4, 32, 3, bytes[i] == 0 && bytes[i + 1] == 0
+		       && bytes[i + 2] == 0 && bytes[i + 3] == bytes[3]);
+
+      CHECK (2, 16, 4, bytes[i] == bytes[0] && bytes[i + 1] == 0);
+
+      CHECK (2, 16, 5, bytes[i] == 0 && bytes[i + 1] == bytes[1]);
+
+      CHECK (4, 32, 6, bytes[i] == bytes[0] && bytes[i + 1] == 0xff
+		       && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff);
+
+      CHECK (4, 32, 7, bytes[i] == 0xff && bytes[i + 1] == bytes[1]
+		       && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff);
+                   
+      CHECK (4, 32, 8, bytes[i] == 0xff && bytes[i + 1] == 0xff
+		       && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff);
+
+      CHECK (4, 32, 9, bytes[i] == 0xff && bytes[i + 1] == 0xff
+		       && bytes[i + 2] == 0xff && bytes[i + 3] == bytes[3]);
+      
+      CHECK (2, 16, 10, bytes[i] == bytes[0] && bytes[i + 1] == 0xff);
+
+      CHECK (2, 16, 11, bytes[i] == 0xff && bytes[i + 1] == bytes[1]);
+                    
+      CHECK (4, 32, 12, bytes[i] == 0xff && bytes[i + 1] == bytes[1]
+			&& bytes[i + 2] == 0 && bytes[i + 3] == 0);
+
+      CHECK (4, 32, 13, bytes[i] == 0 && bytes[i + 1] == bytes[1]
+			&& bytes[i + 2] == 0xff && bytes[i + 3] == 0xff);
+      
+      CHECK (4, 32, 14, bytes[i] == 0xff && bytes[i + 1] == 0xff
+			&& bytes[i + 2] == bytes[2] && bytes[i + 3] == 0);
+                    
+      CHECK (4, 32, 15, bytes[i] == 0 && bytes[i + 1] == 0
+			&& bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff);
+                    
+      CHECK (1, 8, 16, bytes[i] == bytes[0]);
+
+      CHECK (1, 64, 17, (bytes[i] == 0 || bytes[i] == 0xff)
+			&& bytes[i] == bytes[(i + 8) % idx]);
+    }
+  while (0);
+
+  if (immtype == -1)
+    return -1;
+
+  if (elementwidth)
+    *elementwidth = elsize;
+  
+  if (modconst)
+    {
+      unsigned HOST_WIDE_INT imm = 0;
+
+      /* Un-invert bytes of recognized vector, if neccessary.  */
+      if (invmask != 0)
+        for (i = 0; i < idx; i++)
+          bytes[i] ^= invmask;
+
+      if (immtype == 17)
+        {
+          /* FIXME: Broken on 32-bit H_W_I hosts.  */
+          gcc_assert (sizeof (HOST_WIDE_INT) == 8);
+          
+          for (i = 0; i < 8; i++)
+            imm |= (unsigned HOST_WIDE_INT) (bytes[i] ? 0xff : 0)
+                   << (i * BITS_PER_UNIT);
+
+          *modconst = GEN_INT (imm);
+        }
+      else
+        {
+          unsigned HOST_WIDE_INT imm = 0;
+
+          for (i = 0; i < elsize / BITS_PER_UNIT; i++)
+            imm |= (unsigned HOST_WIDE_INT) bytes[i] << (i * BITS_PER_UNIT);
+
+          *modconst = GEN_INT (imm);
+        }
+    }
+  
+  return immtype;
+#undef CHECK
+}
+
+/* Return TRUE if rtx X is legal for use as either a Neon VMOV (or, implicitly,
+   VMVN) immediate. Write back width per element to *ELEMENTWIDTH (or zero for
+   float elements), and a modified constant (whatever should be output for a
+   VMOV) in *MODCONST.  */
+
+int
+neon_immediate_valid_for_move (rtx op, enum machine_mode mode,
+			       rtx *modconst, int *elementwidth)
+{
+  rtx tmpconst;
+  int tmpwidth;
+  int retval = neon_valid_immediate (op, mode, 0, &tmpconst, &tmpwidth);
+  
+  if (retval == -1)
+    return 0;
+  
+  if (modconst)
+    *modconst = tmpconst;
+  
+  if (elementwidth)
+    *elementwidth = tmpwidth;
+  
+  return 1;
+}
+
+/* Return TRUE if rtx X is legal for use in a VORR or VBIC instruction.  If
+   the immediate is valid, write a constant suitable for using as an operand
+   to VORR/VBIC/VAND/VORN to *MODCONST and the corresponding element width to
+   *ELEMENTWIDTH. See neon_valid_immediate for description of INVERSE.  */
+
+int
+neon_immediate_valid_for_logic (rtx op, enum machine_mode mode, int inverse,
+				rtx *modconst, int *elementwidth)
+{
+  rtx tmpconst;
+  int tmpwidth;
+  int retval = neon_valid_immediate (op, mode, inverse, &tmpconst, &tmpwidth);
+
+  if (retval < 0 || retval > 5)
+    return 0;
+  
+  if (modconst)
+    *modconst = tmpconst;
+  
+  if (elementwidth)
+    *elementwidth = tmpwidth;
+  
+  return 1;
+}
+
+/* Return a string suitable for output of Neon immediate logic operation
+   MNEM.  */
+
+char *
+neon_output_logic_immediate (const char *mnem, rtx *op2, enum machine_mode mode,
+			     int inverse, int quad)
+{
+  int width, is_valid;
+  static char templ[40];
+  
+  is_valid = neon_immediate_valid_for_logic (*op2, mode, inverse, op2, &width);
+  
+  gcc_assert (is_valid != 0);
+  
+  if (quad)
+    sprintf (templ, "%s.i%d\t%%q0, %%2", mnem, width);
+  else
+    sprintf (templ, "%s.i%d\t%%P0, %%2", mnem, width);
+  
+  return templ;
+}
+
+/* Output a sequence of pairwise operations to implement a reduction.
+   NOTE: We do "too much work" here, because pairwise operations work on two
+   registers-worth of operands in one go. Unfortunately we can't exploit those
+   extra calculations to do the full operation in fewer steps, I don't think.
+   Although all vector elements of the result but the first are ignored, we
+   actually calculate the same result in each of the elements. An alternative
+   such as initially loading a vector with zero to use as each of the second
+   operands would use up an additional register and take an extra instruction,
+   for no particular gain.  */
+
+void
+neon_pairwise_reduce (rtx op0, rtx op1, enum machine_mode mode,
+		      rtx (*reduc) (rtx, rtx, rtx))
+{
+  enum machine_mode inner = GET_MODE_INNER (mode);
+  unsigned int i, parts = GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner);
+  rtx tmpsum = op1;
+  
+  for (i = parts / 2; i >= 1; i /= 2)
+    {
+      rtx dest = (i == 1) ? op0 : gen_reg_rtx (mode);
+      emit_insn (reduc (dest, tmpsum, tmpsum));
+      tmpsum = dest;
+    }
+}
+
+/* Initialise a vector with non-constant elements.  FIXME: We can do better
+   than the current implementation (building a vector on the stack and then
+   loading it) in many cases.  See rs6000.c.  */
+
+void
+neon_expand_vector_init (rtx target, rtx vals)
+{
+  enum machine_mode mode = GET_MODE (target);
+  enum machine_mode inner = GET_MODE_INNER (mode);
+  unsigned int i, n_elts = GET_MODE_NUNITS (mode);
+  rtx mem;
+
+  gcc_assert (VECTOR_MODE_P (mode));
+
+  mem = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
+  for (i = 0; i < n_elts; i++)
+    emit_move_insn (adjust_address_nv (mem, inner, i * GET_MODE_SIZE (inner)),
+                   XVECEXP (vals, 0, i));
+
+  emit_move_insn (target, mem);
+}
+
 
 /* Predicates for `match_operand' and `match_operator'.  */
 
@@ -5679,6 +6142,72 @@ arm_coproc_mem_operand (rtx op, bool wb)
   return FALSE;
 }
 
+/* Return TRUE if OP is a memory operand which we can load or store a vector
+   to/from. If CORE is true, we're moving from ARM registers not Neon
+   registers.  */
+int
+neon_vector_mem_operand (rtx op, bool core)
+{
+  rtx ind;
+
+  /* Reject eliminable registers.  */
+  if (! (reload_in_progress || reload_completed)
+      && (   reg_mentioned_p (frame_pointer_rtx, op)
+	  || reg_mentioned_p (arg_pointer_rtx, op)
+	  || reg_mentioned_p (virtual_incoming_args_rtx, op)
+	  || reg_mentioned_p (virtual_outgoing_args_rtx, op)
+	  || reg_mentioned_p (virtual_stack_dynamic_rtx, op)
+	  || reg_mentioned_p (virtual_stack_vars_rtx, op)))
+    return FALSE;
+
+  /* Constants are converted into offsets from labels.  */
+  if (GET_CODE (op) != MEM)
+    return FALSE;
+
+  ind = XEXP (op, 0);
+
+  if (reload_completed
+      && (GET_CODE (ind) == LABEL_REF
+	  || (GET_CODE (ind) == CONST
+	      && GET_CODE (XEXP (ind, 0)) == PLUS
+	      && GET_CODE (XEXP (XEXP (ind, 0), 0)) == LABEL_REF
+	      && GET_CODE (XEXP (XEXP (ind, 0), 1)) == CONST_INT)))
+    return TRUE;
+
+  /* Match: (mem (reg)).  */
+  if (GET_CODE (ind) == REG)
+    return arm_address_register_rtx_p (ind, 0);
+
+  /* Allow post-increment with Neon registers.  */
+  if (!core && GET_CODE (ind) == POST_INC)
+    return arm_address_register_rtx_p (XEXP (ind, 0), 0);
+
+#if 0
+  /* FIXME: We can support this too if we use VLD1/VST1.  */
+  if (!core
+      && GET_CODE (ind) == POST_MODIFY
+      && arm_address_register_rtx_p (XEXP (ind, 0), 0)
+      && GET_CODE (XEXP (ind, 1)) == PLUS
+      && rtx_equal_p (XEXP (XEXP (ind, 1), 0), XEXP (ind, 0)))
+    ind = XEXP (ind, 1);
+#endif
+
+  /* Match:
+     (plus (reg)
+          (const)).  */
+  if (!core
+      && GET_CODE (ind) == PLUS
+      && GET_CODE (XEXP (ind, 0)) == REG
+      && REG_MODE_OK_FOR_BASE_P (XEXP (ind, 0), VOIDmode)
+      && GET_CODE (XEXP (ind, 1)) == CONST_INT
+      && INTVAL (XEXP (ind, 1)) > -1024
+      && INTVAL (XEXP (ind, 1)) < 1016
+      && (INTVAL (XEXP (ind, 1)) & 3) == 0)
+    return TRUE;
+
+  return FALSE;
+}
+
 /* Return true if X is a register that will be eliminated later on.  */
 int
 arm_eliminable_register (rtx x)
@@ -5695,6 +6224,12 @@ arm_eliminable_register (rtx x)
 enum reg_class
 vfp_secondary_reload_class (enum machine_mode mode, rtx x)
 {
+  if (TARGET_NEON
+      && (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+      && neon_vector_mem_operand (x, FALSE))
+    return NO_REGS;
+
   if (arm_coproc_mem_operand (x, FALSE) || s_register_operand (x, mode))
     return NO_REGS;
 
@@ -7767,8 +8302,8 @@ add_minipool_forward_ref (Mfix *fix)
 	 placed at the start of the pool.  */
       if (ARM_DOUBLEWORD_ALIGN
 	  && max_mp == NULL
-	  && fix->fix_size == 8
-	  && mp->fix_size != 8)
+	  && fix->fix_size >= 8
+	  && mp->fix_size < 8)
 	{
 	  max_mp = mp;
 	  max_address = mp->max_address;
@@ -7948,7 +8483,7 @@ add_minipool_backward_ref (Mfix *fix)
 	      /* For now, we do not allow the insertion of 8-byte alignment
 		 requiring nodes anywhere but at the start of the pool.  */
 	      if (ARM_DOUBLEWORD_ALIGN
-		  && fix->fix_size == 8 && mp->fix_size != 8)
+		  && fix->fix_size >= 8 && mp->fix_size < 8)
 		return NULL;
 	      else
 		min_mp = mp;
@@ -7969,7 +8504,7 @@ add_minipool_backward_ref (Mfix *fix)
 	     placed at the start of the pool.  */
 	  else if (ARM_DOUBLEWORD_ALIGN
 		   && min_mp == NULL
-		   && fix->fix_size == 8
+		   && fix->fix_size >= 8
 		   && mp->fix_size < 8)
 	    {
 	      min_mp = mp;
@@ -8067,7 +8602,7 @@ dump_minipool (rtx scan)
 
   if (ARM_DOUBLEWORD_ALIGN)
     for (mp = minipool_vector_head; mp != NULL; mp = mp->next)
-      if (mp->refcount > 0 && mp->fix_size == 8)
+      if (mp->refcount > 0 && mp->fix_size >= 8)
 	{
 	  align64 = 1;
 	  break;
@@ -8120,6 +8655,12 @@ dump_minipool (rtx scan)
 	    case 8:
 	      scan = emit_insn_after (gen_consttable_8 (mp->value), scan);
 	      break;
+
+#endif
+#ifdef HAVE_consttable_16
+	    case 16:
+              scan = emit_insn_after (gen_consttable_16 (mp->value), scan);
+              break;
 
 #endif
 	    default:
@@ -8314,7 +8855,7 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
   /* If an entry requires 8-byte alignment then assume all constant pools
      require 4 bytes of padding.  Trying to do this later on a per-pool
      basis is awkward becuse existing pool entries have to be modified.  */
-  if (ARM_DOUBLEWORD_ALIGN && fix->fix_size == 8)
+  if (ARM_DOUBLEWORD_ALIGN && fix->fix_size >= 8)
     minipool_pad = 4;
 
   if (dump_file)
@@ -8730,6 +9271,17 @@ arm_output_fldmx (FILE * stream, unsigned int base, int reg, int count)
       count++;
     }
 
+  /* FLDMX may not load more than 16 doubleword registers at a time. Split the
+     load into multiple parts if we have to handle more than 16 registers.
+     FIXME: This will increase the maximum size of the epilogue, which will
+     need altering elsewhere.  */
+  if (count > 16)
+    {
+      arm_output_fldmx (stream, base, reg, 16);
+      arm_output_fldmx (stream, base, reg + 16, count - 16);
+      return;
+    }
+
   fputc ('\t', stream);
   asm_fprintf (stream, "fldmfd%c\t%r!, {", TARGET_FLDMX ? 'x' : 'd', base);
 
@@ -8791,6 +9343,19 @@ vfp_emit_fstmx (int base_reg, int count)
       if (base_reg == LAST_VFP_REGNUM - 3)
 	base_reg -= 2;
       count++;
+    }
+
+  /* FSTMX may not store more than 16 doubleword registers at once.  Split
+     larger stores into multiple parts (up to a maximum of two, in
+     practice).  */
+  if (count > 16)
+    {
+      int saved;
+      /* FIXME: When ARMv6 support is added to this function, the padding used
+         by f{ldm,stm}x may need attention here.  */
+      saved = vfp_emit_fstmx (base_reg + 16, count - 16);
+      saved += vfp_emit_fstmx (base_reg, 16);
+      return saved;
     }
 
   /* ??? The frame layout is implementation defined.  We describe
@@ -9279,6 +9844,85 @@ output_move_double (rtx *operands)
   return "";
 }
 
+/* Output a move, load or store for quad-word vectors in ARM registers.  Only
+   handles MEMs accepted by neon_vector_mem_operand with CORE=true.  */
+
+const char *
+output_move_quad (rtx *operands)
+{
+  if (REG_P (operands[0]))
+    {
+      /* Load, or reg->reg move.  */
+
+      if (MEM_P (operands[1]))
+        {
+          switch (GET_CODE (XEXP (operands[1], 0)))
+            {
+            case REG:
+              output_asm_insn ("ldm%(ia%)\t%m1, %M0", operands);
+              break;
+
+            case LABEL_REF:
+            case CONST:
+              output_asm_insn ("adr%?\t%0, %1", operands);
+              output_asm_insn ("ldm%(ia%)\t%0, %M0", operands);
+              break;
+
+            default:
+              gcc_unreachable ();
+            }
+        }
+      else
+        {
+          rtx ops[2];
+          int dest, src, i;
+
+          gcc_assert (REG_P (operands[1]));
+
+          dest = REGNO (operands[0]);
+          src = REGNO (operands[1]);
+          
+          /* This seems pretty dumb, but hopefully GCC won't try to do it
+             very often.  */
+          if (dest < src)
+            for (i = 0; i < 4; i++)
+              {
+                ops[0] = gen_rtx_REG (SImode, dest + i);
+                ops[1] = gen_rtx_REG (SImode, src + i);
+                output_asm_insn ("mov%?\t%0, %1", ops);
+              }
+          else
+            for (i = 3; i >= 0; i--)
+              {
+                ops[0] = gen_rtx_REG (SImode, dest + i);
+                ops[1] = gen_rtx_REG (SImode, src + i);
+                output_asm_insn ("mov%?\t%0, %1", ops);
+              }
+        }
+    }
+  else 
+    {
+      int i, regno;
+      rtx ops[3];
+      
+      gcc_assert (MEM_P (operands[0]));
+      gcc_assert (REG_P (operands[1]));
+      gcc_assert (!reg_overlap_mentioned_p (operands[1], operands[0]));
+      
+      switch (GET_CODE (XEXP (operands[0], 0)))
+        {
+        case REG:
+          output_asm_insn ("stm%(ia%)\t%m0, %M1", operands);
+          break;
+
+        default:
+          gcc_unreachable ();
+        }
+    }
+  
+  return "";
+}
+
 /* Output a VFP load or store instruction.  */
 
 const char *
@@ -9290,16 +9934,20 @@ output_move_vfp (rtx *operands)
   int integer_p = GET_MODE_CLASS (GET_MODE (operands[0])) == MODE_INT;
   const char *template;
   char buff[50];
+  enum machine_mode mode;
 
   reg = operands[!load];
   mem = operands[load];
 
+  mode = GET_MODE (reg);
+
   gcc_assert (REG_P (reg));
   gcc_assert (IS_VFP_REGNUM (REGNO (reg)));
-  gcc_assert (GET_MODE (reg) == SFmode
-	      || GET_MODE (reg) == DFmode
-	      || GET_MODE (reg) == SImode
-	      || GET_MODE (reg) == DImode);
+  gcc_assert (mode == SFmode
+	      || mode == DFmode
+	      || mode == SImode
+	      || mode == DImode
+              || (TARGET_NEON && VALID_NEON_DREG_MODE (mode)));
   gcc_assert (MEM_P (mem));
 
   addr = XEXP (mem, 0);
@@ -9332,6 +9980,112 @@ output_move_vfp (rtx *operands)
 	   integer_p ? "\t%@ int" : "");
   output_asm_insn (buff, ops);
 
+  return "";
+}
+
+/* Output a Neon quad-word load or store. We could also support post-modify
+   forms using VLD1/VST1, but we don't do that yet.
+   WARNING, FIXME: The ordering of elements in memory is going to be weird in
+   big-endian mode at present, because we use VSTM instead of VST1, to make
+   it easy to make vector stores via ARM registers write values in the same
+   order as stores direct from Neon registers.  For example, the byte ordering
+   of a quadword vector with 16-byte elements like this:
+
+     [e7:e6:e5:e4:e3:e2:e1:e0]  (highest-numbered element first)
+
+   will be (with lowest address first, h = most-significant byte,
+   l = least-significant byte of element):
+
+     [e3h, e3l, e2h, e2l, e1h, e1l, e0h, e0l,
+      e7h, e7l, e6h, e6l, e5h, e5l, e4h, e4l]
+   
+   When necessary, quadword registers (dN, dN+1) are moved to ARM registers from
+   rN in the order:
+   
+     dN -> (rN+1, rN), dN+1 -> (rN+3, rN+2)
+   
+   So that STM/LDM can be used on vectors in ARM registers, and the same memory
+   layout will result as if VSTM/VLDM were used.
+
+   This memory format (in BE mode) is very likely to change in the future.  */
+
+const char *
+output_move_neon (rtx *operands)
+{
+  rtx reg, mem, addr, ops[2];
+  int regno, load = REG_P (operands[0]);
+  const char *template;
+  char buff[50];
+  enum machine_mode mode;
+  
+  reg = operands[!load];
+  mem = operands[load];
+  
+  mode = GET_MODE (reg);
+  
+  gcc_assert (REG_P (reg));
+  regno = REGNO (reg);
+  gcc_assert (VFP_REGNO_OK_FOR_DOUBLE (regno)
+	      || NEON_REGNO_OK_FOR_QUAD (regno));
+  gcc_assert (VALID_NEON_DREG_MODE (mode)
+	      || VALID_NEON_QREG_MODE (mode));
+  gcc_assert (MEM_P (mem));
+  
+  addr = XEXP (mem, 0);
+  
+  switch (GET_CODE (addr))
+    {
+    case POST_INC:
+      /* FIXME: We should be using vld1/vst1 here in BE mode?  */
+      template = "v%smia%%?\t%%0!, %%h1";
+      ops[0] = XEXP (addr, 0);
+      ops[1] = reg;
+      break;
+    
+    case POST_MODIFY:
+      /* FIXME: Not currently enabled in neon_vector_mem_operand.  */
+      gcc_unreachable ();
+
+    case PLUS:
+      {
+        rtx otherops[2];
+        /* We're only using DImode here because it's a convenient size.
+           FIXME: This will need updating if the memory format of vectors
+           changes.  */
+        ops[0] = gen_rtx_REG (DImode, REGNO (reg));
+        ops[1] = mem;
+
+        otherops[0] = gen_rtx_REG (DImode, REGNO (reg) + 2);
+        otherops[1] = adjust_address (ops[1], SImode, 8);
+
+        if (reg_overlap_mentioned_p (ops[0], mem))
+          {
+            sprintf (buff, "v%sr%%?\t%%P0, %%1", load ? "ld" : "st");
+            output_asm_insn (buff, otherops);
+            sprintf (buff, "v%sr%%?\t%%P0, %%1", load ? "ld" : "st");
+            output_asm_insn (buff, ops);
+          }
+        else
+          {
+            sprintf (buff, "v%sr%%?\t%%P0, %%1", load ? "ld" : "st");
+            output_asm_insn (buff, ops);
+            sprintf (buff, "v%sr%%?\t%%P0, %%1", load ? "ld" : "st");
+            output_asm_insn (buff, otherops);
+          }
+
+        return "";
+      }
+
+    default:
+      /* FIXME: See POST_INC.  */
+      template = "v%smia%%?\t%%m0, %%h1";
+      ops[0] = mem;
+      ops[1] = reg;
+    }
+  
+  sprintf (buff, template, load ? "ld" : "st");
+  output_asm_insn (buff, ops);
+  
   return "";
 }
 
@@ -9855,7 +10609,10 @@ arm_get_vfp_saved_size (void)
 		  /* Workaround ARM10 VFPr1 bug.  */
 		  if (count == 2 && !arm_arch6)
 		    count++;
-		  saved += count * 8 + space_for_format_word;
+		  /* Count extra padding for transfers > 16 words, which are
+		     split into multiple parts.  */
+		  saved += count * 8
+			   + ((count + 15) / 16) * space_for_format_word;
 		}
 	      count = 0;
 	    }
@@ -9866,7 +10623,7 @@ arm_get_vfp_saved_size (void)
 	{
 	  if (count == 2 && !arm_arch6)
 	    count++;
-	  saved += count * 8 + space_for_format_word;
+	  saved += count * 8 + ((count + 15) / 16) * space_for_format_word;
 	}
     }
   return saved;
@@ -11591,6 +12348,11 @@ arm_print_operand (FILE *stream, rtx x, int code)
       }
       return;
 
+    /* An integer without a preceding # sign.  */
+    case 'n':
+      fprintf (stream, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
+      return;
+
     case 'B':
       if (GET_CODE (x) == CONST_INT)
 	{
@@ -11708,6 +12470,26 @@ arm_print_operand (FILE *stream, rtx x, int code)
       asm_fprintf (stream, "%r", REGNO (x) + 1);
       return;
 
+    case 'J':
+      if (GET_CODE (x) != REG || REGNO (x) > LAST_ARM_REGNUM)
+	{
+	  output_operand_lossage ("invalid operand for code '%c'", code);
+	  return;
+	}
+
+      asm_fprintf (stream, "%r", REGNO (x) + (WORDS_BIG_ENDIAN ? 3 : 2));
+      return;
+
+    case 'K':
+      if (GET_CODE (x) != REG || REGNO (x) > LAST_ARM_REGNUM)
+	{
+	  output_operand_lossage ("invalid operand for code '%c'", code);
+	  return;
+	}
+
+      asm_fprintf (stream, "%r", REGNO (x) + (WORDS_BIG_ENDIAN ? 2 : 3));
+      return;
+
     case 'm':
       asm_fprintf (stream, "%r",
 		   GET_CODE (XEXP (x, 0)) == REG
@@ -11718,6 +12500,19 @@ arm_print_operand (FILE *stream, rtx x, int code)
       asm_fprintf (stream, "{%r-%r}",
 		   REGNO (x),
 		   REGNO (x) + ARM_NUM_REGS (GET_MODE (x)) - 1);
+      return;
+
+    /* Like 'M', but writing doubleword vector registers, for use by Neon
+       insns.  */
+    case 'h':
+      {
+        int regno = (REGNO (x) - FIRST_VFP_REGNUM) / 2;
+        int numregs = ARM_NUM_REGS (GET_MODE (x)) / 2;
+        if (numregs == 1)
+          asm_fprintf (stream, "{d%d}", regno);
+        else
+          asm_fprintf (stream, "{d%d-d%d}", regno, regno + numregs - 1);
+      }
       return;
 
     case 'd':
@@ -11832,13 +12627,15 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	}
       return;
 
-      /* Print a VFP double precision register name.  */
+    /* Print a VFP/Neon double precision or quad precision register name.  */
     case 'P':
+    case 'q':
       {
 	int mode = GET_MODE (x);
-	int num;
+        int is_quad = (code == 'q');
+	int regno;
 
-	if (mode != DImode && mode != DFmode)
+	if (GET_MODE_SIZE (mode) != (is_quad ? 16 : 8))
 	  {
 	    output_operand_lossage ("invalid operand for code '%c'", code);
 	    return;
@@ -11851,14 +12648,52 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	    return;
 	  }
 
-	num = REGNO(x) - FIRST_VFP_REGNUM;
-	if (num & 1)
+	regno = REGNO (x);
+	if ((is_quad && !NEON_REGNO_OK_FOR_QUAD (regno))
+            || (!is_quad && !VFP_REGNO_OK_FOR_DOUBLE (regno)))
 	  {
 	    output_operand_lossage ("invalid operand for code '%c'", code);
 	    return;
 	  }
 
-	fprintf (stream, "d%d", num >> 1);
+	fprintf (stream, "%c%d", is_quad ? 'q' : 'd',
+	  (regno - FIRST_VFP_REGNUM) >> (is_quad ? 2 : 1));
+      }
+      return;
+
+    /* These two codes print the low/high doubleword register of a Neon quad
+       register, respectively.  */
+    case 'e':
+    case 'f':
+      {
+        int mode = GET_MODE (x);
+        int regno;
+        
+        if (GET_MODE_SIZE (mode) != 16 || GET_CODE (x) != REG)
+          {
+	    output_operand_lossage ("invalid operand for code '%c'", code);
+	    return;
+          }
+        
+        regno = REGNO (x);
+        if (!NEON_REGNO_OK_FOR_QUAD (regno))
+          {
+	    output_operand_lossage ("invalid operand for code '%c'", code);
+	    return;
+          }
+        
+        fprintf (stream, "d%d", ((regno - FIRST_VFP_REGNUM) >> 1)
+				+ (code == 'f' ? 1 : 0));
+      }
+      return;
+
+    /* Print a VFPv3 floating-point constant, represented as an integer
+       index.  */
+    case 'G':
+      {
+        int index = vfp3_const_double_index (x);
+	gcc_assert (index != -1);
+	fprintf (stream, "%d", index);
       }
       return;
 
@@ -11881,7 +12716,15 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  break;
 
 	case CONST_DOUBLE:
-	  fprintf (stream, "#%s", fp_immediate_constant (x));
+          if (TARGET_NEON)
+            {
+              char fpstr[20];
+              real_to_decimal (fpstr, CONST_DOUBLE_REAL_VALUE (x),
+			       sizeof (fpstr), 0, 1);
+              fprintf (stream, "#%s", fpstr);
+            }
+          else
+	    fprintf (stream, "#%s", fp_immediate_constant (x));
 	  break;
 
 	default:
@@ -11899,6 +12742,8 @@ arm_print_operand (FILE *stream, rtx x, int code)
 static bool
 arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
+  enum machine_mode mode;
+
   if (size == UNITS_PER_WORD && aligned_p)
     {
       fputs ("\t.word\t", asm_out_file);
@@ -11922,31 +12767,48 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
       return true;
     }
 
-  if (arm_vector_mode_supported_p (GET_MODE (x)))
+  mode = GET_MODE (x);
+
+  if (arm_vector_mode_supported_p (mode))
     {
       int i, units;
+      unsigned int invmask = 0, parts_per_word;
 
       gcc_assert (GET_CODE (x) == CONST_VECTOR);
 
       units = CONST_VECTOR_NUNITS (x);
-
-      switch (GET_MODE (x))
-	{
-	case V2SImode: size = 4; break;
-	case V4HImode: size = 2; break;
-	case V8QImode: size = 1; break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      for (i = 0; i < units; i++)
-	{
-	  rtx elt;
-
-	  elt = CONST_VECTOR_ELT (x, i);
-	  assemble_integer
-	    (elt, size, i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT, 1);
-	}
+      size = GET_MODE_SIZE (GET_MODE_INNER (mode));
+      
+      /* For big-endian Neon vectors, we must permute the vector to the form
+         which, when loaded by a VLDR or VLDM instruction, will give a vector
+         with the elements in the right order.  */
+      if (TARGET_NEON && WORDS_BIG_ENDIAN)
+        {
+          parts_per_word = UNITS_PER_WORD / size;
+          /* FIXME: This might be wrong for 64-bit vector elements, but we don't
+             support those anywhere yet.  */
+          invmask = (parts_per_word == 0) ? 0 : (1 << (parts_per_word - 1)) - 1;
+        }
+      
+      if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+        for (i = 0; i < units; i++)
+	  {
+	    rtx elt = CONST_VECTOR_ELT (x, i ^ invmask);
+	    assemble_integer
+	      (elt, size, i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT, 1);
+	  }
+      else
+        for (i = 0; i < units; i++)
+          {
+            rtx elt = CONST_VECTOR_ELT (x, i);
+            REAL_VALUE_TYPE rval;
+            
+            REAL_VALUE_FROM_CONST_DOUBLE (rval, elt);
+            
+            assemble_real
+              (rval, GET_MODE_INNER (mode),
+              i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT);
+          }
 
       return true;
     }
@@ -12622,11 +13484,16 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
       && IS_VFP_REGNUM (regno))
     {
       if (mode == SFmode || mode == SImode)
-	return TRUE;
+	return VFP_REGNO_OK_FOR_SINGLE (regno);
 
-      /* DFmode values are only valid in even register pairs.  */
       if (mode == DFmode)
-	return ((regno - FIRST_VFP_REGNUM) & 1) == 0;
+	return VFP_REGNO_OK_FOR_DOUBLE (regno);
+      
+      if (TARGET_NEON)
+        return (VALID_NEON_DREG_MODE (mode) && VFP_REGNO_OK_FOR_DOUBLE (regno))
+               || (VALID_NEON_QREG_MODE (mode)
+                   && NEON_REGNO_OK_FOR_QUAD (regno));
+      
       return FALSE;
     }
 
@@ -12689,7 +13556,12 @@ arm_regno_class (int regno)
     return CIRRUS_REGS;
 
   if (IS_VFP_REGNUM (regno))
-    return VFP_REGS;
+    {
+      if (regno >= FIRST_VFP_REGNUM && regno <= LAST_LO_VFP_REGNUM)
+        return VFP_LO_REGS;
+      else
+        return VFP_HI_REGS;
+    }
 
   if (IS_IWMMXT_REGNUM (regno))
     return IWMMXT_REGS;
@@ -12871,38 +13743,38 @@ static const struct builtin_description bdesc_2arg[] =
 #define IWMMXT_BUILTIN2(code, builtin) \
   { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, 0, 0 },
 
-  IWMMXT_BUILTIN2 (iwmmxt_wpackhss, WPACKHSS)
-  IWMMXT_BUILTIN2 (iwmmxt_wpackwss, WPACKWSS)
-  IWMMXT_BUILTIN2 (iwmmxt_wpackdss, WPACKDSS)
-  IWMMXT_BUILTIN2 (iwmmxt_wpackhus, WPACKHUS)
-  IWMMXT_BUILTIN2 (iwmmxt_wpackwus, WPACKWUS)
-  IWMMXT_BUILTIN2 (iwmmxt_wpackdus, WPACKDUS)
-  IWMMXT_BUILTIN2 (ashlv4hi3_di,    WSLLH)
-  IWMMXT_BUILTIN2 (ashlv4hi3,       WSLLHI)
-  IWMMXT_BUILTIN2 (ashlv2si3_di,    WSLLW)
-  IWMMXT_BUILTIN2 (ashlv2si3,       WSLLWI)
-  IWMMXT_BUILTIN2 (ashldi3_di,      WSLLD)
-  IWMMXT_BUILTIN2 (ashldi3_iwmmxt,  WSLLDI)
-  IWMMXT_BUILTIN2 (lshrv4hi3_di,    WSRLH)
-  IWMMXT_BUILTIN2 (lshrv4hi3,       WSRLHI)
-  IWMMXT_BUILTIN2 (lshrv2si3_di,    WSRLW)
-  IWMMXT_BUILTIN2 (lshrv2si3,       WSRLWI)
-  IWMMXT_BUILTIN2 (lshrdi3_di,      WSRLD)
-  IWMMXT_BUILTIN2 (lshrdi3_iwmmxt,  WSRLDI)
-  IWMMXT_BUILTIN2 (ashrv4hi3_di,    WSRAH)
-  IWMMXT_BUILTIN2 (ashrv4hi3,       WSRAHI)
-  IWMMXT_BUILTIN2 (ashrv2si3_di,    WSRAW)
-  IWMMXT_BUILTIN2 (ashrv2si3,       WSRAWI)
-  IWMMXT_BUILTIN2 (ashrdi3_di,      WSRAD)
-  IWMMXT_BUILTIN2 (ashrdi3_iwmmxt,  WSRADI)
-  IWMMXT_BUILTIN2 (rorv4hi3_di,     WRORH)
-  IWMMXT_BUILTIN2 (rorv4hi3,        WRORHI)
-  IWMMXT_BUILTIN2 (rorv2si3_di,     WRORW)
-  IWMMXT_BUILTIN2 (rorv2si3,        WRORWI)
-  IWMMXT_BUILTIN2 (rordi3_di,       WRORD)
-  IWMMXT_BUILTIN2 (rordi3,          WRORDI)
-  IWMMXT_BUILTIN2 (iwmmxt_wmacuz,   WMACUZ)
-  IWMMXT_BUILTIN2 (iwmmxt_wmacsz,   WMACSZ)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackhss,  WPACKHSS)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackwss,  WPACKWSS)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackdss,  WPACKDSS)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackhus,  WPACKHUS)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackwus,  WPACKWUS)
+  IWMMXT_BUILTIN2 (iwmmxt_wpackdus,  WPACKDUS)
+  IWMMXT_BUILTIN2 (ashlv4hi3_di,     WSLLH)
+  IWMMXT_BUILTIN2 (ashlv4hi3_iwmmxt, WSLLHI)
+  IWMMXT_BUILTIN2 (ashlv2si3_di,     WSLLW)
+  IWMMXT_BUILTIN2 (ashlv2si3_iwmmxt, WSLLWI)
+  IWMMXT_BUILTIN2 (ashldi3_di,       WSLLD)
+  IWMMXT_BUILTIN2 (ashldi3_iwmmxt,   WSLLDI)
+  IWMMXT_BUILTIN2 (lshrv4hi3_di,     WSRLH)
+  IWMMXT_BUILTIN2 (lshrv4hi3_iwmmxt, WSRLHI)
+  IWMMXT_BUILTIN2 (lshrv2si3_di,     WSRLW)
+  IWMMXT_BUILTIN2 (lshrv2si3_iwmmxt, WSRLWI)
+  IWMMXT_BUILTIN2 (lshrdi3_di,       WSRLD)
+  IWMMXT_BUILTIN2 (lshrdi3_iwmmxt,   WSRLDI)
+  IWMMXT_BUILTIN2 (ashrv4hi3_di,     WSRAH)
+  IWMMXT_BUILTIN2 (ashrv4hi3_iwmmxt, WSRAHI)
+  IWMMXT_BUILTIN2 (ashrv2si3_di,     WSRAW)
+  IWMMXT_BUILTIN2 (ashrv2si3_iwmmxt, WSRAWI)
+  IWMMXT_BUILTIN2 (ashrdi3_di,       WSRAD)
+  IWMMXT_BUILTIN2 (ashrdi3_iwmmxt,   WSRADI)
+  IWMMXT_BUILTIN2 (rorv4hi3_di,      WRORH)
+  IWMMXT_BUILTIN2 (rorv4hi3,         WRORHI)
+  IWMMXT_BUILTIN2 (rorv2si3_di,      WRORW)
+  IWMMXT_BUILTIN2 (rorv2si3,         WRORWI)
+  IWMMXT_BUILTIN2 (rordi3_di,        WRORD)
+  IWMMXT_BUILTIN2 (rordi3,           WRORDI)
+  IWMMXT_BUILTIN2 (iwmmxt_wmacuz,    WMACUZ)
+  IWMMXT_BUILTIN2 (iwmmxt_wmacsz,    WMACSZ)
 };
 
 static const struct builtin_description bdesc_1arg[] =
@@ -15136,6 +16008,7 @@ arm_file_start (void)
 	}
       else
 	{
+	  int set_float_abi_attributes = 0;
 	  switch (arm_fpu_arch)
 	    {
 	    case FPUTYPE_FPA:
@@ -15151,14 +16024,26 @@ arm_file_start (void)
 	      fpu_name = "maverick";
 	      break;
 	    case FPUTYPE_VFP:
+	      fpu_name = "vfp";
+	      set_float_abi_attributes = 1;
+	      break;
+	    case FPUTYPE_VFP3:
+	      fpu_name = "vfp3";
+	      set_float_abi_attributes = 1;
+	      break;
+	    case FPUTYPE_NEON:
+	      fpu_name = "neon";
+	      set_float_abi_attributes = 1;
+	      break;
+	    default:
+	      abort();
+	    }
+	  if (set_float_abi_attributes)
+	    {
 	      if (TARGET_HARD_FLOAT)
 		asm_fprintf (asm_out_file, "\t.eabi_attribute 27, 3\n");
 	      if (TARGET_HARD_FLOAT_ABI)
 		asm_fprintf (asm_out_file, "\t.eabi_attribute 28, 1\n");
-	      fpu_name = "vfp";
-	      break;
-	    default:
-	      abort();
 	    }
 	}
       asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
@@ -16004,6 +16889,11 @@ thumb_set_return_address (rtx source, rtx scratch)
 bool
 arm_vector_mode_supported_p (enum machine_mode mode)
 {
+  /* Neon also supports V2SImode, etc. listed in the clause below.  */
+  if (TARGET_NEON && (mode == V2SFmode || mode == V4SImode || mode == V8HImode
+      || mode == V16QImode || mode == V4SFmode))
+    return true;
+
   if ((mode == V2SImode)
       || (mode == V4HImode)
       || (mode == V8QImode))
@@ -16037,6 +16927,7 @@ arm_dbx_register_number (unsigned int regno)
   if (IS_FPA_REGNUM (regno))
     return (TARGET_AAPCS_BASED ? 96 : 16) + regno - FIRST_FPA_REGNUM;
 
+  /* FIXME: VFPv3 register numbering.  */
   if (IS_VFP_REGNUM (regno))
     return 64 + regno - FIRST_VFP_REGNUM;
 

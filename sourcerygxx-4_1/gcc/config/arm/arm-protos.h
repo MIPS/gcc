@@ -68,11 +68,21 @@ extern rtx thumb_legitimize_reload_address (rtx *, enum machine_mode, int, int,
 					    int);
 extern int arm_const_double_rtx (rtx);
 extern int neg_const_double_rtx_ok_for_fpa (rtx);
+extern int vfp3_const_double_rtx (rtx);
+extern int neon_immediate_valid_for_move (rtx, enum machine_mode, rtx *, int *);
+extern int neon_immediate_valid_for_logic (rtx, enum machine_mode, int, rtx *,
+					   int *);
+extern char *neon_output_logic_immediate (const char *, rtx *,
+					  enum machine_mode, int, int);
+extern void neon_pairwise_reduce (rtx, rtx, enum machine_mode,
+				  rtx (*) (rtx, rtx, rtx));
+extern void neon_expand_vector_init (rtx, rtx);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
 extern bool arm_tls_referenced_p (rtx);
 
 extern int cirrus_memory_offset (rtx);
 extern int arm_coproc_mem_operand (rtx, bool);
+extern int neon_vector_mem_operand (rtx, bool);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
@@ -110,7 +120,9 @@ extern const char *output_mov_long_double_arm_from_arm (rtx *);
 extern const char *output_mov_double_fpa_from_arm (rtx *);
 extern const char *output_mov_double_arm_from_fpa (rtx *);
 extern const char *output_move_double (rtx *);
+extern const char *output_move_quad (rtx *);
 extern const char *output_move_vfp (rtx *operands);
+extern const char *output_move_neon (rtx *operands);
 extern const char *output_add_immediate (rtx *);
 extern const char *arithmetic_instr (rtx, int);
 extern void output_ascii_pseudo_op (FILE *, const unsigned char *, int);
