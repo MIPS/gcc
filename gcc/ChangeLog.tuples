@@ -388,4 +388,4 @@
 	(add_virtual_operand): Same.
 	(get_expr_operands): Same.
 	(parse_ssa_operands): Same.
-	(get_modify_stmt_operands): Rename from get_modify_stmt_operands.
+	(get_modify_stmt_operands): Rename from get_modify_expr_operands.
