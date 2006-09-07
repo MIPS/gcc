@@ -1017,7 +1017,7 @@ OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
   cgraph.o cgraphunit.o tree-nomudflap.o ipa.o ipa-inline.o                \
   ipa-utils.o ipa-reference.o ipa-pure-const.o ipa-type-escape.o           \
-  ipa-prop.o ipa-cp.o ipa-alias.o
+  ipa-prop.o ipa-cp.o ipa-alias.o matrix-reorg.o
 
 OBJS = $(OBJS-common) $(out_object_file) $(OBJS-archive)
 
@@ -2315,6 +2315,10 @@ ipa-type-escape.o : ipa-type-escape.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_TYPE_ESCAPE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
    $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h $(DIAGNOSTIC_H)  
+matrix-reorg.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) function.h \
+   toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) libfuncs.h \
+   gt-coverage.h $(HASHTAB_H)
 coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
    $(FUNCTION_H) toplev.h $(GGC_H) langhooks.h $(COVERAGE_H) gt-coverage.h \

@@ -1,3 +1,12 @@
+2006-09-07  Razya Ladelsky  <razya@il.ibm.com>
+
+        * matrix-reorg.c: New file. Implement matrix flattening optimization.
+        * tree-pass.h: Add matrix reorg (flattening) pass.
+        * common.opt: Add fmatrix-flattening flag.
+        * Makefile.in: Add matrix-reorg.c.
+        * passes.c: Add matrix reorg pass.
+
+
 2006-08-23 Razya Ladelsky <razya@il.ibm.com>
 
         * targhooks.c (default_internal_arg_pointer): New function.
