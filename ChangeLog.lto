@@ -1,3 +1,43 @@
+2006-09-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* gcc/lto-tags.h: New file.
+	* gcc/lto-tree-flags.def: New file.
+	* gcc/lto-function-out.c: New file.
+	* gcc/lto-tree-tags.def: New file.
+	* gcc/dwarf2asm.c (dw2_asm_output_data): Fixed comment.
+	* gcc/cgraph.c (cgraph_is_master_clone, cgraph_master_clone):
+	Added check_overwrite flag.
+	* gcc/cgraph.h (cgraph_is_master_clone, cgraph_master_clone):
+	Ditto.
+	* gcc/reference.c (propagate_bits, merge_callee_local_info,
+`	static_execute): Added extra parameter to cgraph_is_master_clone
+	or cgraph_master_clone.
+	* gcc/ipa-pure-const.c (static_execute) Ditto.
+	* gcc/ipa-utils.c (static_execute): Ditto.
+	* gcc/ipa-type-escape.c (type_escape_execute): Ditto.
+	* gcc/tree-ssa-structalias.c (ipa_pta_execute): Ditto.
+	* gcc/tree-pass.h (pass_ipa_lto_out): New pass.
+	* gcc/passes.c (pass_ipa_lto_out): New pass.
+        * gcc/timevar.def (TV_IPA_LTO_OUT): New time var.
+	* gcc/tree-vectorizer.h (tree-data-ref.h): Added needed include.
+	* gcc/tree-data-ref.h (cfgloop.h): Added needed include.
+	* gcc/except.c (ERT_THROW): Removed from eh_region_type.
+	(struct eh_region, remove_unreachable_regions
+	current_function_has_exception_handlers, 
+	build_post_landing_pads, 
+	sjlj_find_directly_reachable_regions, reachable_next_level
+	foreach_reachable_handler, can_throw_internal_1,
+	can_throw_external_1, collect_one_action_chain, 
+	output_ttype): Ditto.
+	(output_eh_records): New function for lto.
+	gcc/except.h: (output_eh_cleanup_t, output_eh_try_t,
+	output_eh_catch_t, output_eh_allowed_t, 
+	output_eh_must_not_throw_t): New function signitures.
+	(output_eh_records): New function.
+	* gcc/Makefile.in (lto-function-out.o): New c file.
+	(tree-vectorizer.h): Changed to $(TREE_VECTORIZER_H) to
+	account for new dependency.
+	(TREE_DATA_REF_H): Added new dependency.
+
 2006-09-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc/objcobjc-act.c (synth_module_prologue): Use alloc_parm_types,

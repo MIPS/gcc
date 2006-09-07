@@ -1009,17 +1009,22 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest,
 /* Return true if N is an master_clone, (see cgraph_master_clone).  */
 
 bool
-cgraph_is_master_clone (struct cgraph_node *n)
+cgraph_is_master_clone (struct cgraph_node *n, bool check_overwrite)
 {
-  return (n == cgraph_master_clone (n));
+  return (n == cgraph_master_clone (n, check_overwrite));
 }
 
+
+/* Return the master clone node of N if it is available and if
+   CHECK_OVERWRITE is true, not overwritable.  */ 
+
 struct cgraph_node *
-cgraph_master_clone (struct cgraph_node *n)
+cgraph_master_clone (struct cgraph_node *n, bool check_overwrite)
 {
   enum availability avail = cgraph_function_body_availability (n);
 
-  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
+  if (avail == AVAIL_NOT_AVAILABLE || 
+      (check_overwrite && (avail == AVAIL_OVERWRITABLE)))
     return NULL;
 
   if (!n->master_clone)

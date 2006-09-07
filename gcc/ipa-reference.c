@@ -622,7 +622,7 @@ propagate_bits (struct cgraph_node *x)
       struct cgraph_node *y = e->callee;
 
       /* Only look at the master nodes and skip external nodes.  */
-      y = cgraph_master_clone (y);
+      y = cgraph_master_clone (y, true);
       if (y)
 	{
 	  if (get_reference_vars_info_from_cgraph (y))
@@ -707,7 +707,7 @@ merge_callee_local_info (struct cgraph_node *target,
 	  ipa_reference_local_vars_info_t y_l;
 	  struct cgraph_node* orig_y = y;
 	 
-	  y = cgraph_master_clone (y);
+	  y = cgraph_master_clone (y, true);
 	  if (y)
 	    {
 	      y_info = get_reference_vars_info_from_cgraph (y);
@@ -920,7 +920,7 @@ static_execute (void)
   */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed 
-	&& (cgraph_is_master_clone (node)
+	&& (cgraph_is_master_clone (node, true)
 	    || (cgraph_function_body_availability (node) 
 		== AVAIL_OVERWRITABLE)))
       analyze_function (node);

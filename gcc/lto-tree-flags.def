@@ -1,0 +1,732 @@
+/* Code to decode the gimple tree flags. 
+
+   Copyright (C) 2006 Free Software Foundation, Inc.
+   Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
+
+   This file is part of GCC.
+
+   GCC is free software; you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation; either version 2, or (at your option) any later
+   version.
+
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
+
+/* This file is designed to be inlined into both the writing and the
+   reading of the lto information.  What it does depends on the glue
+   that put in front and at the end of this and how ADD_BASE_FLAG is
+   defined. 
+
+   For those interested in extra credit, this could also be used as
+   the checking code to see if each flag is used correctly.  10 extra
+   credit points will be given for the intrepid programmer who does
+   this and is able to removes the comment that this was generated
+   from in tree.h.  */
+
+  START_CLASS_SWITCH ()
+    START_CLASS_CASE (tcc_binary)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_binary)
+
+    START_CLASS_CASE (tcc_comparison)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_comparison)
+
+    START_CLASS_CASE (tcc_expression)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_expression)
+
+    START_CLASS_CASE (tcc_reference)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_reference)
+
+    START_CLASS_CASE (tcc_statement)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_statement)
+
+    START_CLASS_CASE (tcc_unary)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_unary)
+
+    START_CLASS_CASE (tcc_vl_exp)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (used_flag)
+      ADD_CLASS_FLAG (invariant_flag)
+      ADD_CLASS_FLAG (nowarning_flag)
+    END_CLASS_CASE (tcc_vl_exp)
+
+    START_CLASS_CASE (tcc_constant)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+    END_CLASS_CASE (tcc_constant)
+
+    START_CLASS_CASE (tcc_declaration)
+      ADD_CLASS_FLAG (private_flag)
+      ADD_CLASS_FLAG (protected_flag)
+      ADD_CLASS_FLAG (side_effects_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (unsigned_flag)
+      ADD_CLASS_FLAG (deprecated_flag)
+    END_CLASS_CASE (tcc_declaration)
+
+    START_CLASS_CASE (tcc_exceptional)
+    END_CLASS_CASE (tcc_exceptional)
+
+    START_CLASS_CASE (tcc_type)
+      ADD_CLASS_FLAG (addressable_flag)
+      ADD_CLASS_FLAG (public_flag)
+      ADD_CLASS_FLAG (volatile_flag)
+      ADD_CLASS_FLAG (readonly_flag)
+      ADD_CLASS_FLAG (constant_flag)
+      ADD_CLASS_FLAG (unsigned_flag)
+      ADD_CLASS_FLAG (nothrow_flag)
+    END_CLASS_CASE (tcc_type)
+  END_CLASS_SWITCH ()
+
+  START_EXPR_SWITCH ()
+    START_EXPR_CASE (ABS_EXPR)
+    END_EXPR_CASE (ABS_EXPR)
+      
+    START_EXPR_CASE (ADDR_EXPR)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (ADDR_EXPR)
+      
+    START_EXPR_CASE (ALIGN_INDIRECT_REF)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (ALIGN_INDIRECT_REF)
+      
+    START_EXPR_CASE (ARRAY_RANGE_REF)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (ARRAY_RANGE_REF)
+      
+    START_EXPR_CASE (ARRAY_REF)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (ARRAY_REF)
+      
+    START_EXPR_CASE (ARRAY_TYPE)
+    END_EXPR_CASE (ARRAY_TYPE)
+      
+    START_EXPR_CASE (ASM_EXPR)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (ASM_EXPR)
+      
+    START_EXPR_CASE (ASSERT_EXPR)
+    END_EXPR_CASE (ASSERT_EXPR)
+      
+    START_EXPR_CASE (BIND_EXPR)
+    END_EXPR_CASE (BIND_EXPR)
+      
+    START_EXPR_CASE (BIT_AND_EXPR)
+    END_EXPR_CASE (BIT_AND_EXPR)
+      
+    START_EXPR_CASE (BIT_FIELD_REF)
+      ADD_EXPR_FLAG (unsigned_flag)
+    END_EXPR_CASE (BIT_FIELD_REF)
+      
+    START_EXPR_CASE (BIT_IOR_EXPR)
+    END_EXPR_CASE (BIT_IOR_EXPR)
+      
+    START_EXPR_CASE (BIT_NOT_EXPR)
+    END_EXPR_CASE (BIT_NOT_EXPR)
+      
+    START_EXPR_CASE (BIT_XOR_EXPR)
+    END_EXPR_CASE (BIT_XOR_EXPR)
+      
+    START_EXPR_CASE (BLOCK)
+      ADD_EXPR_FLAG (asm_written_flag)
+    END_EXPR_CASE (BLOCK)
+      
+    START_EXPR_CASE (BOOLEAN_TYPE)
+    END_EXPR_CASE (BOOLEAN_TYPE)
+      
+    START_EXPR_CASE (CALL_EXPR)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (private_flag)
+      ADD_EXPR_FLAG (protected_flag)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (CALL_EXPR)
+      
+    START_EXPR_CASE (CASE_LABEL_EXPR)
+    END_EXPR_CASE (CASE_LABEL_EXPR)
+      
+    START_EXPR_CASE (CATCH_EXPR)
+    END_EXPR_CASE (CATCH_EXPR)
+      
+    START_EXPR_CASE (CEIL_DIV_EXPR)
+    END_EXPR_CASE (CEIL_DIV_EXPR)
+      
+    START_EXPR_CASE (CEIL_MOD_EXPR)
+    END_EXPR_CASE (CEIL_MOD_EXPR)
+      
+    START_EXPR_CASE (CLEANUP_POINT_EXPR)
+    END_EXPR_CASE (CLEANUP_POINT_EXPR)
+      
+    START_EXPR_CASE (COMPLEX_CST)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (COMPLEX_CST)
+
+    START_EXPR_CASE (COMPLEX_EXPR)
+    END_EXPR_CASE (COMPLEX_EXPR)
+      
+    START_EXPR_CASE (COMPLEX_TYPE)
+    END_EXPR_CASE (COMPLEX_TYPE)
+      
+    START_EXPR_CASE (COMPONENT_REF)
+    END_EXPR_CASE (COMPONENT_REF)
+      
+    START_EXPR_CASE (COMPOUND_EXPR)
+    END_EXPR_CASE (COMPOUND_EXPR)
+      
+    START_EXPR_CASE (COND_EXPR)
+    END_EXPR_CASE (COND_EXPR)
+      
+    START_EXPR_CASE (CONJ_EXPR)
+    END_EXPR_CASE (CONJ_EXPR)
+      
+    START_EXPR_CASE (CONST_DECL)
+    END_EXPR_CASE (CONST_DECL)
+      
+    START_EXPR_CASE (CONSTRUCTOR)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (CONSTRUCTOR)
+
+    START_EXPR_CASE (CONVERT_EXPR)
+    END_EXPR_CASE (CONVERT_EXPR)
+      
+    START_EXPR_CASE (DECL_EXPR)
+    END_EXPR_CASE (DECL_EXPR)
+      
+    START_EXPR_CASE (DOT_PROD_EXPR)
+    END_EXPR_CASE (DOT_PROD_EXPR)
+      
+    START_EXPR_CASE (EH_FILTER_EXPR)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (EH_FILTER_EXPR)
+
+    START_EXPR_CASE (ENUMERAL_TYPE)
+    END_EXPR_CASE (EH_FILTER_EXPR)
+      
+    START_EXPR_CASE (EQ_EXPR)
+    END_EXPR_CASE (EQ_EXPR)
+      
+    START_EXPR_CASE (ERROR_MARK)
+    END_EXPR_CASE (ERROR_MARK)
+      
+    START_EXPR_CASE (EXACT_DIV_EXPR)
+    END_EXPR_CASE (EXACT_DIV_EXPR)
+      
+    START_EXPR_CASE (EXC_PTR_EXPR)
+    END_EXPR_CASE (EXC_PTR_EXPR)
+      
+    START_EXPR_CASE (EXIT_EXPR)
+    END_EXPR_CASE (EXIT_EXPR)
+      
+    START_EXPR_CASE (FDESC_EXPR)
+    END_EXPR_CASE (FDESC_EXPR)
+      
+    START_EXPR_CASE (FIELD_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
+    END_EXPR_CASE (FIELD_DECL)
+      
+    START_EXPR_CASE (FILTER_EXPR)
+    END_EXPR_CASE (FILTER_EXPR)
+      
+    START_EXPR_CASE (FIX_CEIL_EXPR)
+    END_EXPR_CASE (FIX_CEIL_EXPR)
+      
+    START_EXPR_CASE (FIX_FLOOR_EXPR)
+    END_EXPR_CASE (FIX_FLOOR_EXPR)
+      
+    START_EXPR_CASE (FIX_ROUND_EXPR)
+    END_EXPR_CASE (FIX_ROUND_EXPR)
+      
+    START_EXPR_CASE (FIX_TRUNC_EXPR)
+    END_EXPR_CASE (FIX_TRUNC_EXPR)
+      
+    START_EXPR_CASE (FLOAT_EXPR)
+    END_EXPR_CASE (FLOAT_EXPR)
+      
+    START_EXPR_CASE (FLOOR_DIV_EXPR)
+    END_EXPR_CASE (FLOOR_DIV_EXPR)
+      
+    START_EXPR_CASE (FLOOR_MOD_EXPR)
+    END_EXPR_CASE (FLOOR_MOD_EXPR)
+      
+    START_EXPR_CASE (FUNCTION_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (FUNCTION_DECL)
+      
+    START_EXPR_CASE (FUNCTION_TYPE)
+    END_EXPR_CASE (FUNCTION_TYPE)
+      
+    START_EXPR_CASE (GE_EXPR)
+    END_EXPR_CASE (GE_EXPR)
+      
+    START_EXPR_CASE (GOTO_EXPR)
+    END_EXPR_CASE (GOTO_EXPR)
+      
+    START_EXPR_CASE (GT_EXPR)
+    END_EXPR_CASE (GT_EXPR)
+      
+    START_EXPR_CASE (IDENTIFIER_NODE)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_EXPR_FLAG (used_flag)
+      ADD_EXPR_FLAG (deprecated_flag)
+    END_EXPR_CASE (IDENTIFIER_NODE)
+      
+    START_EXPR_CASE (IMAGPART_EXPR)
+    END_EXPR_CASE (IMAGPART_EXPR)
+      
+    START_EXPR_CASE (INDIRECT_REF)
+    END_EXPR_CASE (INDIRECT_REF)
+      
+    START_EXPR_CASE (INIT_EXPR)
+    END_EXPR_CASE (INIT_EXPR)
+      
+    START_EXPR_CASE (INTEGER_CST)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (INTEGER_CST)
+      
+    START_EXPR_CASE (INTEGER_TYPE)
+    END_EXPR_CASE (INTEGER_TYPE)
+      
+    START_EXPR_CASE (LABEL_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (side_effects_flag)
+    END_EXPR_CASE (LABEL_DECL)
+      
+    START_EXPR_CASE (LABEL_EXPR)
+    END_EXPR_CASE (LABEL_EXPR)
+      
+    START_EXPR_CASE (LANG_TYPE)
+    END_EXPR_CASE (LANG_TYPE)
+      
+    START_EXPR_CASE (LE_EXPR)
+    END_EXPR_CASE (LE_EXPR)
+      
+    START_EXPR_CASE (LOOP_EXPR)
+    END_EXPR_CASE (LOOP_EXPR)
+      
+    START_EXPR_CASE (LROTATE_EXPR)
+    END_EXPR_CASE (LROTATE_EXPR)
+      
+    START_EXPR_CASE (LSHIFT_EXPR)
+    END_EXPR_CASE (LSHIFT_EXPR)
+      
+    START_EXPR_CASE (LT_EXPR)
+    END_EXPR_CASE (LT_EXPR)
+      
+    START_EXPR_CASE (LTGT_EXPR)
+    END_EXPR_CASE (LTGT_EXPR)
+      
+    START_EXPR_CASE (MAX_EXPR)
+    END_EXPR_CASE (MAX_EXPR)
+      
+    START_EXPR_CASE (METHOD_TYPE)
+    END_EXPR_CASE (METHOD_TYPE)
+      
+    START_EXPR_CASE (MIN_EXPR)
+    END_EXPR_CASE (MIN_EXPR)
+      
+    START_EXPR_CASE (MINUS_EXPR)
+    END_EXPR_CASE (MINUS_EXPR)
+      
+    START_EXPR_CASE (MISALIGNED_INDIRECT_REF)
+      ADD_EXPR_FLAG (nothrow_flag)
+    END_EXPR_CASE (MISALIGNED_INDIRECT_REF)
+      
+    START_EXPR_CASE (MODIFY_EXPR)
+    END_EXPR_CASE (MODIFY_EXPR)
+      
+    START_EXPR_CASE (MULT_EXPR)
+    END_EXPR_CASE (MULT_EXPR)
+      
+    START_EXPR_CASE (NAME_MEMORY_TAG)
+    END_EXPR_CASE (NAME_MEMORY_TAG)
+      
+    START_EXPR_CASE (NAMESPACE_DECL)
+    END_EXPR_CASE (NAMESPACE_DECL)
+      
+    START_EXPR_CASE (NE_EXPR)
+    END_EXPR_CASE (NE_EXPR)
+      
+    START_EXPR_CASE (NEGATE_EXPR)
+    END_EXPR_CASE (NEGATE_EXPR)
+      
+    START_EXPR_CASE (NON_LVALUE_EXPR)
+    END_EXPR_CASE (NON_LVALUE_EXPR)
+      
+    START_EXPR_CASE (NOP_EXPR)
+    END_EXPR_CASE (NOP_EXPR)
+      
+    START_EXPR_CASE (OBJ_TYPE_REF)
+    END_EXPR_CASE (OBJ_TYPE_REF)
+      
+    START_EXPR_CASE (OFFSET_TYPE)
+    END_EXPR_CASE (OFFSET_TYPE)
+      
+    START_EXPR_CASE (OMP_ATOMIC)
+    END_EXPR_CASE (OMP_ATOMIC)
+      
+    START_EXPR_CASE (OMP_CLAUSE)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (OMP_CLAUSE)
+      
+    START_EXPR_CASE (OMP_CONTINUE)
+    END_EXPR_CASE (OMP_CONTINUE)
+      
+    START_EXPR_CASE (OMP_CRITICAL)
+    END_EXPR_CASE (OMP_CRITICAL)
+      
+    START_EXPR_CASE (OMP_FOR)
+    END_EXPR_CASE (OMP_FOR)
+      
+    START_EXPR_CASE (OMP_MASTER)
+    END_EXPR_CASE (OMP_MASTER)
+      
+    START_EXPR_CASE (OMP_ORDERED)
+    END_EXPR_CASE (OMP_ORDERED)
+      
+    START_EXPR_CASE (OMP_PARALLEL)
+      ADD_EXPR_FLAG (private_flag)
+    END_EXPR_CASE (OMP_PARALLEL)
+      
+    START_EXPR_CASE (OMP_RETURN)
+      ADD_EXPR_FLAG (private_flag)
+    END_EXPR_CASE (OMP_RETURN)
+      
+    START_EXPR_CASE (OMP_SECTION)
+      ADD_EXPR_FLAG (private_flag)
+    END_EXPR_CASE (OMP_SECTION)
+      
+    START_EXPR_CASE (OMP_SECTIONS)
+    END_EXPR_CASE (OMP_SECTIONS)
+      
+    START_EXPR_CASE (OMP_SINGLE)
+    END_EXPR_CASE (OMP_SINGLE)
+      
+    START_EXPR_CASE (ORDERED_EXPR)
+    END_EXPR_CASE (ORDERED_EXPR)
+      
+    START_EXPR_CASE (PARM_DECL)
+      ADD_DECL_FLAG (nonlocal_flag)
+      ADD_DECL_FLAG (virtual_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (decl_flag_0)
+      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (decl_flag_3)
+      ADD_DECL_FLAG (gimple_reg_flag)
+      ADD_DECL_FLAG (call_clobbered_flag)
+    END_EXPR_CASE (PARM_DECL)
+      
+    START_EXPR_CASE (PHI_NODE)
+    END_EXPR_CASE (PHI_NODE)
+      
+    START_EXPR_CASE (PLACEHOLDER_EXPR)
+    END_EXPR_CASE (PLACEHOLDER_EXPR)
+      
+    START_EXPR_CASE (PLUS_EXPR)
+    END_EXPR_CASE (PLUS_EXPR)
+      
+    START_EXPR_CASE (POINTER_TYPE)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (POINTER_TYPE)
+      
+    START_EXPR_CASE (POLYNOMIAL_CHREC)
+    END_EXPR_CASE (POLYNOMIAL_CHREC)
+      
+    START_EXPR_CASE (POSTDECREMENT_EXPR)
+    END_EXPR_CASE (POSTDECREMENT_EXPR)
+      
+    START_EXPR_CASE (POSTINCREMENT_EXPR)
+    END_EXPR_CASE (POSTINCREMENT_EXPR)
+      
+    START_EXPR_CASE (PREDECREMENT_EXPR)
+    END_EXPR_CASE (PREDECREMENT_EXPR)
+      
+    START_EXPR_CASE (PREINCREMENT_EXPR)
+    END_EXPR_CASE (PREINCREMENT_EXPR)
+      
+    START_EXPR_CASE (QUAL_UNION_TYPE)
+      ADD_EXPR_FLAG (asm_written_flag)
+    END_EXPR_CASE (QUAL_UNION_TYPE)
+      
+    START_EXPR_CASE (RANGE_EXPR)
+    END_EXPR_CASE (RANGE_EXPR)
+      
+    START_EXPR_CASE (RDIV_EXPR)
+    END_EXPR_CASE (RDIV_EXPR)
+      
+    START_EXPR_CASE (REAL_CST)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (REAL_CST)
+      
+    START_EXPR_CASE (REALIGN_LOAD_EXPR)
+    END_EXPR_CASE (REALIGN_LOAD_EXPR)
+      
+    START_EXPR_CASE (REALPART_EXPR)
+    END_EXPR_CASE (REALPART_EXPR)
+      
+    START_EXPR_CASE (REAL_TYPE)
+    END_EXPR_CASE (REAL_TYPE)
+      
+    START_EXPR_CASE (RECORD_TYPE)
+      ADD_EXPR_FLAG (asm_written_flag)
+    END_EXPR_CASE (RECORD_TYPE)
+      
+    START_EXPR_CASE (REDUC_MAX_EXPR)
+    END_EXPR_CASE (REDUC_MAX_EXPR)
+      
+    START_EXPR_CASE (REDUC_MIN_EXPR)
+    END_EXPR_CASE (REDUC_MIN_EXPR)
+      
+    START_EXPR_CASE (REDUC_PLUS_EXPR)
+    END_EXPR_CASE (REDUC_PLUS_EXPR)
+      
+    START_EXPR_CASE (REFERENCE_TYPE)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (REFERENCE_TYPE)
+      
+    START_EXPR_CASE (RESULT_DECL)
+    END_EXPR_CASE (RESULT_DECL)
+      
+    START_EXPR_CASE (RESX_EXPR)
+    END_EXPR_CASE (RESX_EXPR)
+      
+    START_EXPR_CASE (RETURN_EXPR)
+    END_EXPR_CASE (RETURN_EXPR)
+      
+    START_EXPR_CASE (ROUND_DIV_EXPR)
+    END_EXPR_CASE (ROUND_DIV_EXPR)
+      
+    START_EXPR_CASE (ROUND_MOD_EXPR)
+    END_EXPR_CASE (ROUND_MOD_EXPR)
+      
+    START_EXPR_CASE (RROTATE_EXPR)
+    END_EXPR_CASE (RROTATE_EXPR)
+      
+    START_EXPR_CASE (RSHIFT_EXPR)
+    END_EXPR_CASE (RSHIFT_EXPR)
+      
+    START_EXPR_CASE (SAVE_EXPR)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (SAVE_EXPR)
+      
+    START_EXPR_CASE (SCEV_KNOWN)
+    END_EXPR_CASE (SCEV_KNOWN)
+      
+    START_EXPR_CASE (SCEV_NOT_KNOWN)
+    END_EXPR_CASE (SCEV_NOT_KNOWN)
+      
+    START_EXPR_CASE (SSA_NAME)
+      ADD_EXPR_FLAG (asm_written_flag)
+    END_EXPR_CASE (SSA_NAME)
+      
+    START_EXPR_CASE (STATEMENT_LIST)
+    END_EXPR_CASE (STATEMENT_LIST)
+      
+    START_EXPR_CASE (STRING_CST)
+    END_EXPR_CASE (STRING_CST)
+      
+    START_EXPR_CASE (STRUCT_FIELD_TAG)
+    END_EXPR_CASE (STRUCT_FIELD_TAG)
+      
+    START_EXPR_CASE (SWITCH_EXPR)
+    END_EXPR_CASE (SWITCH_EXPR)
+      
+    START_EXPR_CASE (SYMBOL_MEMORY_TAG)
+    END_EXPR_CASE (SYMBOL_MEMORY_TAG)
+      
+    START_EXPR_CASE (TARGET_EXPR)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (TARGET_EXPR)
+      
+    START_EXPR_CASE (TARGET_MEM_REF)
+    END_EXPR_CASE (TARGET_MEM_REF)
+      
+    START_EXPR_CASE (TRANSLATION_UNIT_DECL)
+    END_EXPR_CASE (TRANSLATION_UNIT_DECL)
+      
+    START_EXPR_CASE (TREE_BINFO)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (TREE_BINFO)
+      
+    START_EXPR_CASE (TREE_LIST)
+    END_EXPR_CASE (TREE_LIST)
+      
+    START_EXPR_CASE (TREE_VEC)
+    END_EXPR_CASE (TREE_VEC)
+      
+    START_EXPR_CASE (TRUNC_DIV_EXPR)
+    END_EXPR_CASE (TRUNC_DIV_EXPR)
+      
+    START_EXPR_CASE (TRUNC_MOD_EXPR)
+    END_EXPR_CASE (TRUNC_MOD_EXPR)
+      
+    START_EXPR_CASE (TRUTH_AND_EXPR)
+    END_EXPR_CASE (TRUTH_AND_EXPR)
+      
+    START_EXPR_CASE (TRUTH_ANDIF_EXPR)
+    END_EXPR_CASE (TRUTH_ANDIF_EXPR)
+      
+    START_EXPR_CASE (TRUTH_NOT_EXPR)
+    END_EXPR_CASE (TRUTH_NOT_EXPR)
+      
+    START_EXPR_CASE (TRUTH_OR_EXPR)
+    END_EXPR_CASE (TRUTH_OR_EXPR)
+      
+    START_EXPR_CASE (TRUTH_ORIF_EXPR)
+    END_EXPR_CASE (TRUTH_ORIF_EXPR)
+      
+    START_EXPR_CASE (TRUTH_XOR_EXPR)
+    END_EXPR_CASE (TRUTH_XOR_EXPR)
+      
+    START_EXPR_CASE (TRY_CATCH_EXPR)
+    END_EXPR_CASE (TRY_CATCH_EXPR)
+      
+    START_EXPR_CASE (TRY_FINALLY_EXPR)
+    END_EXPR_CASE (TRY_FINALLY_EXPR)
+      
+    START_EXPR_CASE (TYPE_DECL)
+    END_EXPR_CASE (TYPE_DECL)
+      
+    START_EXPR_CASE (UNEQ_EXPR)
+    END_EXPR_CASE (UNEQ_EXPR)
+      
+    START_EXPR_CASE (UNGE_EXPR)
+    END_EXPR_CASE (UNGE_EXPR)
+      
+    START_EXPR_CASE (UNGT_EXPR)
+    END_EXPR_CASE (UNGT_EXPR)
+      
+    START_EXPR_CASE (UNION_TYPE)
+      ADD_EXPR_FLAG (asm_written_flag)
+    END_EXPR_CASE (UNION_TYPE)
+      
+    START_EXPR_CASE (UNLE_EXPR)
+    END_EXPR_CASE (UNLE_EXPR)
+      
+    START_EXPR_CASE (UNLT_EXPR)
+    END_EXPR_CASE (UNLT_EXPR)
+      
+    START_EXPR_CASE (UNORDERED_EXPR)
+    END_EXPR_CASE (UNORDERED_EXPR)
+      
+    START_EXPR_CASE (VA_ARG_EXPR)
+    END_EXPR_CASE (VA_ARG_EXPR)
+      
+    START_EXPR_CASE (VALUE_HANDLE)
+    END_EXPR_CASE (VALUE_HANDLE)
+      
+    START_EXPR_CASE (VAR_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_EXPR_FLAG (asm_written_flag)
+      ADD_DECL_FLAG (nonlocal_flag)
+      ADD_DECL_FLAG (virtual_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (decl_flag_0)
+      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (decl_flag_3)
+      ADD_DECL_FLAG (gimple_reg_flag)
+      ADD_DECL_FLAG (call_clobbered_flag)
+    END_EXPR_CASE (VAR_DECL)
+      
+    START_EXPR_CASE (VEC_COND_EXPR)
+    END_EXPR_CASE (VEC_COND_EXPR)
+      
+    START_EXPR_CASE (VEC_LSHIFT_EXPR)
+    END_EXPR_CASE (VEC_LSHIFT_EXPR)
+      
+    START_EXPR_CASE (VEC_RSHIFT_EXPR)
+    END_EXPR_CASE (VEC_RSHIFT_EXPR)
+      
+    START_EXPR_CASE (VECTOR_CST)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+    END_EXPR_CASE (VECTOR_CST)
+      
+    START_EXPR_CASE (VECTOR_TYPE)
+    END_EXPR_CASE (VECTOR_TYPE)
+      
+    START_EXPR_CASE (VIEW_CONVERT_EXPR)
+    END_EXPR_CASE (VIEW_CONVERT_EXPR)
+      
+    START_EXPR_CASE (VOID_TYPE)
+    END_EXPR_CASE (VOID_TYPE)
+      
+    START_EXPR_CASE (WIDEN_MULT_EXPR)
+    END_EXPR_CASE (WIDEN_MULT_EXPR)
+      
+    START_EXPR_CASE (WIDEN_SUM_EXPR)
+    END_EXPR_CASE (WIDEN_SUM_EXPR)
+      
+    START_EXPR_CASE (WITH_CLEANUP_EXPR)
+      ADD_EXPR_FLAG (static_flag)
+    END_EXPR_CASE (WITH_CLEANUP_EXPR)
+      
+    START_EXPR_CASE (WITH_SIZE_EXPR)
+    END_EXPR_CASE (WITH_SIZE_EXPR)
+  END_EXPR_SWITCH ()

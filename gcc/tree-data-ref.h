@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_DATA_REF_H
 #define GCC_TREE_DATA_REF_H
 
+#include "cfgloop.h"
 #include "lambda.h"
 
 /** {base_address + offset + init} is the first location accessed by data-ref 

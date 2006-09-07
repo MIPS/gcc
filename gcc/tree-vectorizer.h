@@ -22,6 +22,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_TREE_VECTORIZER_H
 #define GCC_TREE_VECTORIZER_H
 
+#include "tree-data-ref.h"
+
 #ifdef USE_MAPPED_LOCATION
   typedef source_location LOC;
   #define UNKNOWN_LOC UNKNOWN_LOCATION

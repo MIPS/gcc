@@ -308,6 +308,7 @@ extern struct tree_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
 extern struct tree_opt_pass pass_ipa_cp;
+extern struct tree_opt_pass pass_ipa_lto_out;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;
 extern struct tree_opt_pass pass_ipa_reference;

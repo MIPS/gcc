@@ -603,7 +603,7 @@ static_execute (void)
      for the one that overriders it.
   */
   for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed && cgraph_is_master_clone (node))
+    if (node->analyzed && cgraph_is_master_clone (node, true))
       analyze_function (node);
 
   pointer_set_destroy (visited_nodes);
@@ -641,7 +641,7 @@ static_execute (void)
 		{
 		  struct cgraph_node *y = e->callee;
 		  /* Only look at the master nodes and skip external nodes.  */
-		  y = cgraph_master_clone (y);
+		  y = cgraph_master_clone (y, true);
 		  if (y)
 		    {
 		      funct_state y_l = get_function_state (y);

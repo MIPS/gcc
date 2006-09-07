@@ -292,8 +292,8 @@ bool decide_is_variable_needed (struct cgraph_varpool_node *, tree);
 
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
-bool cgraph_is_master_clone (struct cgraph_node *);
-struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
+bool cgraph_is_master_clone (struct cgraph_node *, bool);
+struct cgraph_node *cgraph_master_clone (struct cgraph_node *, bool);
 void cgraph_add_new_function (tree);
 
 /* In cgraphunit.c  */

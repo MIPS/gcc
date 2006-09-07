@@ -174,6 +174,21 @@ struct throw_stmt_node GTY(())
   int region_nr;
 };
 
+typedef void (*output_eh_cleanup_t) (void *, int, bool, bool, 
+				     bool, int);
+typedef void (*output_eh_try_t) (void *, int, bool, bool, 
+				 bool, int, int);
+typedef void (*output_eh_catch_t) (void *, int, bool, bool, 
+				   bool, int, int, tree);
+typedef void (*output_eh_allowed_t) (void *, int, bool, bool, 
+				     bool, tree);
+typedef void (*output_eh_must_not_throw_t) (void *, int, bool, bool, bool);
+
+extern void output_eh_records (void *, struct function *, 
+			       output_eh_cleanup_t, output_eh_try_t, 
+			       output_eh_catch_t, output_eh_allowed_t, 
+			       output_eh_must_not_throw_t);
+
 extern struct htab *get_eh_throw_stmt_table (struct function *);
 extern void set_eh_throw_stmt_table (struct function *, struct htab *);
 
