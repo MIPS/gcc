@@ -1826,6 +1826,11 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       && (sect->common.flags & SECTION_COMMON) == 0)
     globalize_decl (decl);
 
+#ifdef TARGET_DECLARE_VARIABLE
+  TARGET_DECLARE_VARIABLE(asm_out_file,decl);
+  return;
+#endif
+
   /* Output any data that we will need to use the address of.  */
   if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
     output_addressed_constants (DECL_INITIAL (decl));

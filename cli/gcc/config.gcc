@@ -257,6 +257,9 @@ arm*-*-*)
 bfin*-*)
 	cpu_type=bfin
 	;;
+cil32-*-*)
+	cpu_type=cil32
+	;;
 ep9312*-*-*)
 	cpu_type=arm
 	;;
@@ -798,6 +801,12 @@ c4x-* | tic4x-*)
 	tmake_file=c4x/t-c4x
 	c_target_objs="c4x-c.o"
 	cxx_target_objs="c4x-c.o"
+	;;
+cil32-*-*)
+	gas=no
+	use_collect2=no
+        extra_objs="tree-simp-cil.o gen-cil.o"
+	target_gtfiles="\$(srcdir)/config/cil32/gen-cil.c"
 	;;
 cris-*-aout)
 	tm_file="dbxelf.h ${tm_file} cris/aout.h"

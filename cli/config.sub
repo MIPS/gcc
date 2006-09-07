@@ -288,6 +288,9 @@ case $basic_machine in
 	| z8k)
 		basic_machine=$basic_machine-unknown
 		;;
+	cil32)
+		basic_machine=$basic_machine-unknown
+		;;
 	m6811 | m68hc11 | m6812 | m68hc12)
 		# Motorola 68HC11/12.
 		basic_machine=$basic_machine-unknown
@@ -371,6 +374,8 @@ case $basic_machine in
 	| xstormy16-* | xtensa-* \
 	| ymp-* \
 	| z8k-*)
+		;;
+	cil32-*)
 		;;
 	# Recognize the various machine names and aliases which stand
 	# for a CPU type and a company and sometimes even an OS.

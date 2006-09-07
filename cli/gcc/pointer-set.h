@@ -23,10 +23,22 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 struct pointer_set_t;
 
+struct pointer_set_iter_t {
+  void* elem;
+  int   slot;
+};
+
+#define POINTER_SET_ITER_ELEM(it) ((it).elem)
+#define POINTER_SET_ITER_IS_END(it) ((it).slot < 0)
+
 struct pointer_set_t *pointer_set_create (void);
 void pointer_set_destroy (struct pointer_set_t *pset);
 
 int pointer_set_contains (struct pointer_set_t *pset, void *p);
 int pointer_set_insert (struct pointer_set_t *pset, void *p);
+
+struct pointer_set_iter_t pointer_set_begin (struct pointer_set_t *pset);
+struct pointer_set_iter_t pointer_set_next (struct pointer_set_t *pset,
+                                            struct pointer_set_iter_t it);
 
 #endif  /* POINTER_SET_H  */

@@ -214,6 +214,7 @@ finish_optimization_passes (void)
   char *name;
 
   timevar_push (TV_DUMP);
+#if !defined(DISABLE_RTL_PASSES)
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       dump_file = dump_begin (pass_profile.static_pass_number, NULL);
@@ -231,6 +232,7 @@ finish_optimization_passes (void)
           dump_end (pass_combine.static_pass_number, dump_file);
 	}
     }
+#endif
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
@@ -478,11 +480,18 @@ init_optimization_passes (void)
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
+#if defined(DISABLE_RTL_PASSES)
+  NEXT_PASS (pass_simp_cil);
+  NEXT_PASS (pass_gen_cil);   /*   <--- CIL   */
+  NEXT_PASS (pass_free_datastructures);
+  NEXT_PASS (pass_free_cfg_annotations);
+#else
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
   NEXT_PASS (pass_clean_state);
+#endif
   *p = NULL;
 
   p = &pass_all_optimizations.sub;
