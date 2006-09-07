@@ -1,5 +1,16 @@
 2006-09-07  Razya Ladelsky  <razya@il.ibm.com>
 
+        * testsuite/gcc.dg/matrix: Create new directory for matrix optimizatinos.
+        * testsuite/gcc.dg/matrix/matrix.exp: New file. Driver for matrix testcases.
+ 	* testsuite/gcc.dg/matrix/matrix-1.c: New testcase. 
+	* testsuite/gcc.dg/matrix/matrix-2.c: New testcase.
+	* testsuite/gcc.dg/matrix/matrix-3.c: New testcase.
+	* testsuite/gcc.dg/matrix/matrix-4.c: New testcase.
+	* testsuite/gcc.dg/matrix/matrix-5.c: New testcase.
+	* testsuite/gcc.dg/matrix/matrix-6.c: New testcase.
+
+2006-09-07  Razya Ladelsky  <razya@il.ibm.com>
+
         * matrix-reorg.c: New file. Implement matrix flattening optimization.
         * tree-pass.h: Add matrix reorg (flattening) pass.
         * common.opt: Add fmatrix-flattening flag.
