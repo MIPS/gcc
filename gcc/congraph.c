@@ -1198,68 +1198,31 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
   gcc_assert (data->type >= FUNCTION_CALL);
   switch (data->type)
     {
-    case FUNCTION_CALL:
-      fprintf (file, "FUNCTION_CALL");
-      break;
-    case FUNCTION_CALL_WITH_RETURN:
-      fprintf (file, "FUNCTION_CALL_WITH_RETURN");
-      break;
-    case CONSTRUCTOR_STMT:
-      fprintf (file, "CONSTRUCTOR_STMT");
-      break;
-    case INDIRECT_FUNCTION_CALL:
-      fprintf (file, "INDIRECT_FUNCTION_CALL");
-      break;
-    case REFERENCE_COPY:
-      fprintf (file, "REFERENCE_COPY");
-      break;
-    case CAST:
-      fprintf (file, "CAST");
-      break;
-    case ASSIGNMENT_FROM_FIELD:
-      fprintf (file, "ASSIGNMENT_FROM_FIELD");
-      break;
-    case ASSIGNMENT_TO_FIELD:
-      fprintf (file, "ASSIGNMENT_TO_FIELD");
-      break;
-    case RETURN:
-      fprintf (file, "RETURN");
-      break;
-    case MEMORY_ALLOCATION:
-      fprintf (file, "MEMORY_ALLOCATION");
-      break;
-    case IGNORED_RETURNING_VOID:
-      fprintf (file, "IGNORED_RETURNING_VOID");
-      break;
-    case IGNORED_NOT_A_POINTER:
-      fprintf (file, "IGNORED_NOT_A_POINTER");
-      break;
-    case IGNORED_LABEL_EXPR:
-      fprintf (file, "IGNORED_LABEL_EXPR");
-      break;
-    case IGNORED_COND_EXPR:
-      fprintf (file, "IGNORED_COND_EXPR");
-      break;
-    case IGNORED_UNKNOWN:
-      fprintf (file, "IGNORED_UNKNOW");
-      break;
-    case ASSIGNMENT_FROM_VTABLE:
-      fprintf (file, "ASSIGNMENT_FROM_VTABLE");
-      break;
-    case ASSIGNMENT_FROM_ARRAY:
-      fprintf (file, "ASSIGNMENT_FROM_ARRAY");
-      break;
-    case POINTER_ARITHMETIC:
-      fprintf (file, "POINTER_ARITHMETIC");
-      break;
-    case POINTER_DEREFERENCE:
-      fprintf (file, "POINTER_DEREFERENCE");
-      break;
-    case IGNORED_ASSIGNMENT_TO_NULL:
-      fprintf (file, "IGNORED_ASSIGNMENT_TO_NULL");
-      break;
-    }  
+#define HANDLE(A) case A: fprintf (file, #A); break;
+      HANDLE(FUNCTION_CALL);
+      HANDLE(FUNCTION_CALL_WITH_RETURN);
+      HANDLE(CONSTRUCTOR_STMT);
+      HANDLE(INDIRECT_FUNCTION_CALL);
+      HANDLE(REFERENCE_COPY);
+      HANDLE(CAST);
+      HANDLE(ASSIGNMENT_FROM_FIELD);
+      HANDLE(ASSIGNMENT_TO_FIELD);
+      HANDLE(ASSIGNMENT_FROM_VTABLE);
+      HANDLE(RETURN);
+      HANDLE(MEMORY_ALLOCATION);
+      HANDLE(IGNORED_RETURNING_VOID);
+      HANDLE(IGNORED_NOT_A_POINTER);
+      HANDLE(IGNORED_LABEL_EXPR);
+      HANDLE(IGNORED_COND_EXPR);
+      HANDLE(IGNORED_UNKNOWN);
+      HANDLE(ASSIGNMENT_FROM_ARRAY);
+      HANDLE(POINTER_ARITHMETIC);
+      HANDLE(POINTER_DEREFERENCE);
+      HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
+      HANDLE(ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+    }
   fprintf (file, ")");
+#undef HANDLE
 }
 
 

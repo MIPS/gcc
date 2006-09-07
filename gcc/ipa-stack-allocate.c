@@ -284,6 +284,20 @@ is_assignment_to_field (tree stmt)
 }
 
 static bool
+is_assignment_to_indirect_array_ref (tree stmt)
+{
+  return is_pointer_type (stmt)
+    && TREE_CODE (stmt) == MODIFY_EXPR
+    && TREE_CODE (LHS (stmt)) == ARRAY_REF
+    && is_suitable_decl (RHS (stmt))
+    && TREE_CODE (LHS (LHS (stmt))) == COMPONENT_REF
+    && TREE_CODE (RHS (LHS (stmt))) == INTEGER_CST
+    && TREE_CODE (LHS (LHS (LHS (stmt)))) == INDIRECT_REF
+    && TREE_CODE (RHS (LHS (LHS (stmt)))) == FIELD_DECL
+    && is_suitable_decl (LHS (LHS (LHS (LHS (stmt)))));
+}
+
+static bool
 is_null (tree stmt)
 {
   return TREE_CODE (stmt) == INTEGER_CST
@@ -754,7 +768,11 @@ update_connection_graph_from_function_call (con_graph cg, tree stmt)
     }
   else
     {
-      set_stmt_type (cg, stmt, FUNCTION_CALL);
+      if (is_constructor (stmt))
+	set_stmt_type (cg, stmt, CONSTRUCTOR_STMT);
+      else
+	set_stmt_type (cg, stmt, FUNCTION_CALL);
+
       call_expr = stmt;
     }
 
@@ -877,6 +895,144 @@ update_connection_graph_from_assignment_from_array (con_graph cg, tree stmt)
 
 }
 
+static void
+update_connection_graph_from_assignment_to_indirect_array_ref (con_graph cg, tree stmt)
+{
+  /* this is a mix of assignment to field, and assignment to array */
+  /* p.f[x] = q:
+   * modify_expr
+   *   array_ref
+   *     component_ref
+   *       indirect_ref
+   *         var_decl - p
+   *       field_decl - f
+   *     integer_cst - x
+   *   var_decl
+   */
+  tree p_name;
+  tree f_name;
+  tree q_name;
+  tree lhs;
+  tree indirect_ref;
+  con_node p;
+  con_node q;
+  con_node u;
+  con_node v;
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+  /* ----------------------------------------
+   *      get detail from the tree
+   * ----------------------------------------*/
+
+
+  /* get the lvalue reference and its field */
+  /* get to the field ref and ignore the array */
+  lhs = LHS (TREE_OPERAND (stmt, 0));
+  indirect_ref = TREE_OPERAND (lhs, 0);
+  p_name = TREE_OPERAND (indirect_ref, 0);
+  f_name = TREE_OPERAND (lhs, 1);
+
+  gcc_assert (p_name);
+  gcc_assert (f_name);
+
+  /* get the rvalue */
+  q_name = TREE_OPERAND (stmt, 1);
+  gcc_assert (q_name);
+
+
+  /* ----------------------------------------
+   *      get the nodes from the graph
+   * ----------------------------------------*/
+
+  p = get_existing_node (cg, p_name);
+  gcc_assert (p);
+
+  /* note that we dont bypass here, as Choi99 says we can't
+   * kill p.f.  Not sure why though... */
+
+  q = get_existing_node (cg, q_name);
+  gcc_assert (q);
+
+  /* if u doesnt point to anything, (say it's passed in as a
+   * parameter), create phantom object nodes for it */
+  u = get_points_to (p);
+  if (u == NULL || get_terminal_nodes (p))
+    {
+      con_node terminal;
+      u = get_existing_node (cg, stmt);
+      if (u == NULL)
+	{
+	  u =
+	    add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
+	  gcc_assert (u);
+	  u->phantom = true;
+	}
+      gcc_assert (u->phantom);
+
+      /* Attach the phantom node to the last nodes
+       * reachable from p */
+      terminal = get_terminal_nodes (p);
+
+      if (terminal == NULL)
+	terminal = p;
+
+      while (terminal)
+	{
+	  con_node next;
+
+	  add_edge (terminal, u);
+
+	  /* reset and iterate */
+	  next = terminal->next_link;
+	  terminal->next_link = NULL;
+	  terminal = next;
+	}
+
+      assert_all_next_link_free (cg);
+
+    }
+
+  /* get the field nodes of the pointed-to objects */
+  v = get_field_nodes (u, f_name);
+
+
+  /* if v is empty, more phantoms are required */
+  if (v == NULL)
+    {
+      con_node v;
+      /* if v is null, then u was just created, so there is only 1
+       * of it */
+      gcc_assert (u->next_link == NULL);
+
+      v = add_field_node (cg, f_name);
+      v->phantom = true;
+
+      add_edge (u, v);
+    }
+
+
+  /* do not bypass, this isnt a killing assignment */
+
+
+  /* add deferred edges */
+  /* TODO make a macro for this iteration */
+  while (v)
+    {
+      con_node next;
+      if (get_edge (v, q) == NULL)
+	add_edge (v, q);
+
+      /* clear the next_link */
+      next = v->next_link;
+      v->next_link = NULL;
+      v = next;
+    }
+
+  assert_all_next_link_free (cg);
+
+
+  /* done ASSIGNMENT TO FIELD */
+}
 
 static void
 update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
@@ -1266,6 +1422,9 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
     }
   else if (is_assignment_from_array (stmt))
     update_connection_graph_from_assignment_from_array (cg, stmt);
+
+  else if (is_assignment_to_indirect_array_ref (stmt))
+    update_connection_graph_from_assignment_to_indirect_array_ref (cg, stmt);
 
   else if (is_assignment_to_array (stmt))
       /* TODO */ gcc_unreachable();

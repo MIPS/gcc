@@ -68,7 +68,8 @@ enum statement_type
   ASSIGNMENT_FROM_ARRAY,
   POINTER_ARITHMETIC,
   POINTER_DEREFERENCE,
-  IGNORED_ASSIGNMENT_TO_NULL
+  IGNORED_ASSIGNMENT_TO_NULL,
+  ASSIGNMENT_TO_INDIRECT_ARRAY_REF 
 };
 
 /* This should be combined in the future with structure aliasing, but

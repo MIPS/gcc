@@ -2996,8 +2996,8 @@ dump_escape_function (con_graph cg, FILE* debug_file, FILE* dump_file)
 	      pp_flush (&debug_buffer);
 	      pp_flush (&dump_buffer);
 
-	      pp_newline (&debug_buffer);
-	      pp_newline (&dump_buffer);
+	      /*pp_newline (&debug_buffer);
+	      pp_newline (&dump_buffer);*/
 
 	      debug_tree_to_file (stmt, dump_file);
 

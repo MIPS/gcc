@@ -1,4 +1,18 @@
 2006-09-06	Paul Biggar	<paul.biggar@gmail.com>
+	
+	* tree-pretty-print.c (dump_escape_function): Removed extra new lines.
+	* ipa-stack-allocate.c (is_assignment_to_indirect_array_ref) 
+	(update_connection_graph_from_assignment_to_indirect_array_ref):
+	New functions
+	(update_connection_graph_from_function_call): Switched
+	CONSTRUCTOR_STMT and FUNCTION_CALL, which were accidentally in the
+	wrong order
+	(update_connection_graph_from_statement): Added dealing with
+	assignment to indirect array references
+
+	* congraph.c (con_graph_dump_node): New case, and new macro (HANDLE).
+
+2006-09-06	Paul Biggar	<paul.biggar@gmail.com>
 
 	* tree-pretty-print.c (dump_escape_function): New function
 	* print-tree.c (debug_tree_to_file): New function
