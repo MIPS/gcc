@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 /* Included files.  */
 
 #include "hashtab.h"
+#include "tree.h"
 #include <inttypes.h>
 
 /* Forward Declarations */

@@ -27,6 +27,9 @@ Boston, MA 02110-1301, USA.  */
 #include "lto.h"
 #include "lto-tree.h"
 
+/* Vector to keep track of external variables we've seen so far.  */
+VEC(tree,gc) *lto_global_var_decls;
+
 /* Returns true iff TYPE_1 and TYPE_2 are the same type.  */
 static bool
 lto_same_type_p (tree type_1, tree type_2)
@@ -73,6 +76,7 @@ lto_symtab_merge_var (tree new_var)
   if (!old_var)
     {
       LTO_IDENTIFIER_DECL (name) = new_var;
+      VEC_safe_push (tree, gc, lto_global_var_decls, new_var);
       return new_var;
     }
   /* Check for inconsistencies.  */

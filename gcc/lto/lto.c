@@ -69,16 +69,21 @@ typedef enum DWARF2_class
 {
   DW_cl_error = 0x0,
   DW_cl_address = 0x1,
-  DW_cl_block = 0x2 ,
-  DW_cl_constant = 0x4 ,
-  DW_cl_flag = 0x8,
-  DW_cl_lineptr = 0x10,
-  DW_cl_loclistptr = 0x20,
-  DW_cl_macptr = 0x40,
-  DW_cl_rangelistptr = 0x80,
-  DW_cl_reference = 0x100,
-  DW_cl_string = 0x200
+  DW_cl_block = 0x2,
+  DW_cl_uconstant = 0x4,
+  DW_cl_sconstant = 0x8,
+  DW_cl_flag = 0x10,
+  DW_cl_lineptr = 0x20,
+  DW_cl_loclistptr = 0x40,
+  DW_cl_macptr = 0x80,
+  DW_cl_rangelistptr = 0x100,
+  DW_cl_reference = 0x200,
+  DW_cl_string = 0x400
 } DWARF2_class;
+
+/* Some places we want to specify that both unsigned and signed constant
+   forms are allowed, so define a shorthand.  */
+#define DW_cl_constant (DW_cl_uconstant | DW_cl_sconstant)
 
 /* The data corresponding to a single attribute form in a DIE.  */
 typedef struct DWARF2_form_data
@@ -89,8 +94,10 @@ typedef struct DWARF2_form_data
     /* If CL is DW_address, DW_lineptr, DW_loclistptr, DW_macptr, 
        or DW_rangelistptr, there is no additional data.  These forms
        are not of interest to us for link-time optimization.  */
-    /* Used when CL is DW_cl_constant.  */
-    uint64_t constant;
+    /* Used when CL is DW_cl_uconstant.  */
+    uint64_t uconstant;
+    /* Used when CL is DW_cl_sconstant.  */
+    int64_t sconstant;
     /* Used when CL is DW_cl_block.  */
     struct DWARF2_form_data_block {
       /* The number of bytes in the block.  */
@@ -126,9 +133,12 @@ struct lto_context
      containing the DIE about to be read.  NULL_TREE if at the
      outermost level.  */
   tree scope;
-  /* If the last DIE read (with lto_read_DIE) was a type, then this
-     field is the type.  NULL otherwise.  */
-  tree type;
+  /* Some things (like lower array bounds) have language-specific defaults,
+     so keep track of the language here.  */
+  int language;
+  /* Some DIEs (like enumerated types) need to pass down some information
+     to their children as they are parsed.  */
+  tree parentdata;
 };
 
 /* We can't use DWARF_Internal_CompUnit because it does not track the
@@ -159,14 +169,20 @@ lto_cache_hash (const void *data);
 static int
 lto_cache_eq (const void *data, const void *key);
 
-static bool
+static tree
 lto_read_DIE (lto_info_fd *fd,
-	      lto_context *context);
+	      lto_context *context,
+	      bool *more);
 
 static void
 lto_read_child_DIEs (lto_info_fd *fd, 
 		     const DWARF2_abbrev *abbrev, 
 		     lto_context *context);
+
+static VEC(tree,heap) *
+lto_collect_child_DIEs (lto_info_fd *fd, 
+			const DWARF2_abbrev *abbrev, 
+			lto_context *context);
 
 static void
 lto_set_cu_context (lto_context *context, lto_info_fd *fd,
@@ -254,7 +270,7 @@ lto_file_close (lto_file *file)
 
 /* Issue an error indicating that the section from which FD is reading
    is corrupt, i.e., fails to conform to the DWARF specification.  */
-static void
+static void ATTRIBUTE_NORETURN
 lto_file_corrupt_error (const lto_fd *fd)
 {
   fatal_error ("corrupt link-time optimization information in "
@@ -263,7 +279,7 @@ lto_file_corrupt_error (const lto_fd *fd)
 
 /* Issue an error indicating that the ABI used to compile the object
    file does not match that currently in use by the LTO front end.  */
-static void
+static void ATTRIBUTE_NORETURN
 lto_abi_mismatch_error (void)
 {
   fatal_error ("ABI for object file does not match current "
@@ -341,17 +357,50 @@ lto_read_uleb128 (lto_fd *fd)
   uint8_t byte;
   uint64_t result;
   bool more;
+  unsigned shift;
 
   result = 0;
+  shift = 0;
   do
     {
       byte = lto_read_ubyte (fd);
       more = byte & 0x80;
-      result = (result << 7) | (byte & ~0x80);
+      result |= (byte & ~0x80) << shift;
+      shift += 7;
     }
   while (more);
 
   return result;
+}
+
+/* Read an signed LEB128 value from FD.  */
+static int64_t
+lto_read_sleb128 (lto_fd *fd)
+{
+  uint8_t byte;
+  uint64_t result;
+  int64_t sresult;
+  bool more;
+  uint8_t sign;
+  unsigned shift;
+
+  result = 0;
+  shift = 0;
+  do
+    {
+      byte = lto_read_ubyte (fd);
+      more = byte & 0x80;
+      result |= (byte & ~0x80) << shift;
+      shift += 7;
+      sign = (byte & 0x40);
+    }
+  while (more);
+
+  if (sign && shift < 64)
+    sresult = (int64_t) result | ((int64_t)(-1) << shift);
+  else
+    sresult = (int64_t) result;
+  return sresult;
 }
 
 /* Read an initial length field from FD.  The length may be a 32-bit
@@ -640,7 +689,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
-    DW_cl_error, /* ordering */
+    DW_cl_constant, /* ordering */
     DW_cl_error, /* subscr_data */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* byte_size */
     DW_cl_error, /* bit_offset */
@@ -659,13 +708,13 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* string_length */
     DW_cl_error, /* common_reference */
     DW_cl_string, /* comp_dir */
-    DW_cl_error, /* const_value */
+    DW_cl_block | DW_cl_constant | DW_cl_string, /* const_value */
     DW_cl_error, /* containing_type */
     DW_cl_error, /* default_value */
     DW_cl_error, /* padding */
     DW_cl_error, /* inline */
     DW_cl_error, /* is_optional */
-    DW_cl_error, /* lower_bound */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* lower_bound */
     DW_cl_error, /* padding */
     DW_cl_error, /* padding */
     DW_cl_string, /* producer */
@@ -678,7 +727,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* start_scope */
     DW_cl_error, /* padding */
     DW_cl_error, /* stride_size */
-    DW_cl_error, /* upper_bound */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* upper_bound */
     DW_cl_error, /* padding */
     DW_cl_error, /* abstract_origin */
     DW_cl_error, /* accessibility */
@@ -686,7 +735,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* artificial */
     DW_cl_error, /* base_types */
     DW_cl_error, /* calling_convention */
-    DW_cl_error, /* count */
+    DW_cl_block | DW_cl_constant | DW_cl_reference, /* count */
     DW_cl_error, /* data_member_location */
     DW_cl_error, /* decl_column */
     DW_cl_constant, /* decl_file */
@@ -780,8 +829,11 @@ lto_read_form (lto_info_fd *info_fd,
     case DW_FORM_data2:
     case DW_FORM_data4:
     case DW_FORM_data8:
+    case DW_FORM_sdata:
+    case DW_FORM_udata:
       {
-	uint64_t data;
+	uint64_t data = 0;
+	int64_t sdata = 0;
 	/* Read the actual data.  */
 	switch (form)
 	  {
@@ -796,6 +848,12 @@ lto_read_form (lto_info_fd *info_fd,
 	    break;
 	  case DW_FORM_data8:
 	    data = lto_read_udword (fd);
+	    break;
+	  case DW_FORM_sdata:
+	    sdata = lto_read_sleb128 (fd);
+	    break;
+	  case DW_FORM_udata:
+	    data = lto_read_uleb128 (fd);
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -834,8 +892,16 @@ lto_read_form (lto_info_fd *info_fd,
 					| DW_cl_lineptr
 					| DW_cl_macptr
 					| DW_cl_rangelistptr)));
-	    out->cl = DW_cl_constant;
-	    out->u.constant = data;
+	    if (form == DW_FORM_sdata)
+	      {
+		out->cl = DW_cl_sconstant;
+		out->u.sconstant = sdata;
+	      }
+	    else
+	      {
+		out->cl = DW_cl_uconstant;
+		out->u.uconstant = data;
+	      }
 	  }
 	break;
       }
@@ -955,6 +1021,89 @@ lto_read_form (lto_info_fd *info_fd,
     lto_file_corrupt_error (fd);
 }
 
+/* Convert the attribute data to an int.  */
+static int
+attribute_value_as_int (DWARF2_form_data *attr_data)
+{
+  switch (attr_data->cl)
+    {
+    case DW_cl_uconstant:
+      return lto_check_int_val (attr_data->u.uconstant,
+				"unsigned value cannot be converted to int");
+    case DW_cl_sconstant:
+      if (attr_data->u.sconstant <= INT_MAX
+	  && attr_data->u.sconstant >= INT_MIN)
+	return (int)attr_data->u.sconstant;
+      else
+	fatal_error ("signed value cannot be converted to int");
+    default:
+      fatal_error ("cannot interpret attribute value as integer");
+    }
+}
+
+/* A helper function: convert an unsigned HOST_WIDE_INT to a signed
+   HOST_WIDE_INT.  According to ISO C, the obvious conversion is undefined
+   if the unsigned value is larger than the largest positive signed
+   HOST_WIDE_INT.  There are many other places in GCC that assume it works
+   (and, more specifically, that a two's-complement representation is used
+   for signed integers on the host machine), but to be pedantic here,
+   we'll split out the conversion into its own function so that it could
+   be reimplemented.  */
+
+static HOST_WIDE_INT
+make_signed_host_wide_int (unsigned HOST_WIDE_INT u)
+{
+  return (HOST_WIDE_INT) u;
+}
+
+/* Convert the attribute value to an integer constant of type TYPE.  If
+   TYPE is null, choose an appropriate signed/unsigned int type, depending
+   on the form of the attribute data.  This doesn't do any checking to make
+   sure that the constant value can actually be represented in the indicated
+   TYPE; we'll assume that the compiler is smart enough not to emit such
+   DWARF constants in the first place.  */
+static tree
+attribute_value_as_constant (DWARF2_form_data *attr_data, tree type)
+{
+  switch (attr_data->cl)
+    {
+    case DW_cl_uconstant:
+      {
+	uint64_t u = attr_data->u.uconstant;
+	if (!type)
+	  type = unsigned_type_node;
+	if (sizeof (HOST_WIDE_INT) >= sizeof (uint64_t))
+	  return build_int_cstu (type, u);
+	else
+	  {
+	    int size = sizeof (HOST_WIDE_INT);
+	    int nbits = size * CHAR_BIT;
+	    gcc_assert (size * 2 >= (int) sizeof (uint64_t));
+	    return build_int_cst_wide (type, (unsigned HOST_WIDE_INT)u,
+				       make_signed_host_wide_int (u >> nbits));
+	  }
+      }
+    case DW_cl_sconstant:
+      {
+	int64_t s = attr_data->u.sconstant;
+	if (!type)
+	  type = integer_type_node;
+	if (sizeof (HOST_WIDE_INT) >= (int) sizeof (uint64_t))
+	  return build_int_cst (type, s);
+	else
+	  {
+	    int size = sizeof (HOST_WIDE_INT);
+	    int nbits = size * BITS_PER_UNIT;
+	    gcc_assert (size * 2 >= (int) sizeof (int64_t));
+	    return build_int_cst_wide (type, (unsigned HOST_WIDE_INT)s,
+				       make_signed_host_wide_int (s >> nbits));
+	  }
+      }
+    default:
+      fatal_error ("cannot interpret attribute value as integer");
+    }
+}
+
 /* DIE Cache
 
    Some DIEs (like those for types and declarations) may be referred
@@ -1021,6 +1170,50 @@ lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
 			       htab_hash_pointer (die));
   return entry ? entry->val : NULL_TREE;
 }  
+
+
+/* Some DIEs (notably those for DW_TAG_subrange_type and
+   DW_TAG_enumeration_type) may include either or both of base type and 
+   byte size attributes; the byte size is supposed modify the base
+   type.  Put them together and return the resulting type.
+   Additionally enforce the restriction that the base type must be
+   a complete integral type.
+   If neither attribute is specified, then return integer_type as the default.
+*/
+
+static tree
+lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
+{
+  int nbits = byte_size * BITS_PER_UNIT;
+
+  if (! base_type)
+    {
+      if (! got_byte_size)
+	base_type = integer_type_node;
+      else if (nbits == INT_TYPE_SIZE)
+	base_type = integer_type_node;
+      else if (nbits == CHAR_TYPE_SIZE)
+	base_type = char_type_node;
+      else if (nbits == SHORT_TYPE_SIZE)
+	base_type = short_integer_type_node;
+      else if (nbits == LONG_TYPE_SIZE)
+	base_type = long_integer_type_node;
+      else if (nbits == LONG_LONG_TYPE_SIZE)
+	base_type = long_long_integer_type_node;
+      else
+	lto_abi_mismatch_error ();
+    }
+  else if (! INTEGRAL_TYPE_P (base_type)
+	   || !TYPE_SIZE (base_type)
+	   || !host_integerp (TYPE_SIZE (base_type), 1))
+    lto_abi_mismatch_error ();
+  else if (got_byte_size
+	   && nbits != tree_low_cst (TYPE_SIZE (base_type), 1))
+    sorry ("size of base type (%d bits) doesn't match specified size (%d bits)",
+	   tree_low_cst (TYPE_SIZE (base_type), 1),
+	   nbits);
+  return base_type;
+}
    
 /* DIE Readers
  
@@ -1034,7 +1227,7 @@ lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
    Each DIE reader is responsible for reading a DIE and its children.
    In general, the form of each DIE reader is:
 
-      static void
+      static tree
       lto_read_tag_DIE (lto_info_fd *fd, 
                         const DWARF2_abbrev *abbrev,
 		        lto_context *context)
@@ -1054,6 +1247,8 @@ lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
 	 LTO_END_READ_ATTRS ();  
 	 
 	 lto_read_child_DIES (fd, abbrev, context);
+
+         return ...tree representing decoded DIE;        
       }  
 
    The set of attributes handled should include (at least) all the
@@ -1177,13 +1372,9 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
       saved_cur = fd->base.cur;
       fd->base.cur = reference;
       /* Read the DIE, which we insist must be a type.  */
-      lto_read_DIE (fd, context);
+      type = lto_read_DIE (fd, context, NULL);
       /* Restore the file pointer.  */
       fd->base.cur = saved_cur;
-      type = context->type;
-      /* Clear CONTEXT->TYPE since we are just reading a reference to
-	 a type, not the DWARF subtree for a type.  */
-      context->type = NULL_TREE;
     }
   /* The DIE read should have been a type.  */
   if (!type || !TYPE_P (type))
@@ -1192,7 +1383,7 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
   return type;
 }
 
-static void
+static tree
 lto_read_compile_unit_DIE (lto_info_fd *fd, 
 			   const DWARF2_abbrev *abbrev,
 			   lto_context *context)
@@ -1202,19 +1393,22 @@ lto_read_compile_unit_DIE (lto_info_fd *fd,
   LTO_BEGIN_READ_ATTRS ()
     {
     case DW_AT_language:
-      switch (attr_data.u.constant)
-	{
-	case DW_LANG_C:
-	case DW_LANG_C89:
-	case DW_LANG_C99:
-	  break;
-
-	default:
-	  error ("unsupported language " HOST_WIDEST_INT_PRINT_UNSIGNED, 
-		 attr_data.u.constant);
-	  break;
-	}
-      break;
+      {
+	int lang = attribute_value_as_int (&attr_data);
+	switch (lang)
+	  {
+	  case DW_LANG_C:
+	  case DW_LANG_C89:
+	  case DW_LANG_C99:
+	    break;
+	    
+	  default:
+	    error ("unsupported language %d", lang);
+	    break;
+	  }
+	context->language = lang;
+	break;
+      }
 
     case DW_AT_low_pc:
     case DW_AT_high_pc:
@@ -1237,9 +1431,223 @@ lto_read_compile_unit_DIE (lto_info_fd *fd,
   LTO_END_READ_ATTRS ();
 
   lto_read_child_DIEs (fd, abbrev, context);
+  return NULL_TREE;
 }
 
-static void
+static tree
+lto_read_array_type_DIE (lto_info_fd *fd,
+			 const DWARF2_abbrev *abbrev,
+			 lto_context *context)
+{
+  tree type = NULL_TREE;
+  VEC(tree,heap) *dims;
+  int ndims;
+  int order = -1;
+  int i, istart, iend;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_type:
+      type = lto_read_referenced_type_DIE (fd, 
+					   context, 
+					   attr_data.u.reference);
+      break;
+
+    case DW_AT_ordering:
+      switch (attribute_value_as_int (&attr_data))
+	{
+	case DW_ORD_col_major:
+	  /* Process dimensions left-to-right */
+	  order = 1;
+	  break;
+	case DW_ORD_row_major:
+	  /* Process dimensions right-to-left */
+	  order = -1;
+	  break;
+	default:
+	  lto_file_corrupt_error ((lto_fd *)fd);
+	}
+      break;
+      
+    case DW_AT_byte_size:
+    case DW_AT_stride:
+      lto_unsupported_attr_error (abbrev, attr);
+      break;
+
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* The DW_AT_type attribute is required.  */
+  if (!type)
+    lto_file_corrupt_error ((lto_fd *)fd);
+
+  /* Array dimensions are given as children of the DW_TAG_array_type DIE,
+     and are tagged with either DW_TAG_subrange_type or
+     DW_TAG_enumeration_type.  */
+  dims = lto_collect_child_DIEs (fd, abbrev, context);
+  ndims = VEC_length (tree, dims);
+
+  /* Construct and cache the array type object for our caller.  */
+  if (ndims == 0)
+    lto_file_corrupt_error ((lto_fd *)fd);
+  if (order == -1)
+    {
+      istart = ndims - 1;
+      iend = -1;
+    }
+  else
+    {
+      gcc_assert (order == 1);
+      istart = 0;
+      iend = ndims;
+    }
+  for (i = istart; i != iend; i += order)
+    {
+      tree dim = VEC_index (tree, dims, i);
+      if (!dim || ! INTEGRAL_TYPE_P (dim))
+	lto_file_corrupt_error ((lto_fd *)fd);	
+      type = build_array_type (type, dim);
+    }
+  VEC_free (tree, heap, dims);
+  return type;
+}
+
+static tree
+lto_read_enumeration_type_DIE (lto_info_fd *fd,
+			       const DWARF2_abbrev *abbrev,
+			       lto_context *context)
+{
+  VEC(tree,heap) *enumerators;
+  int i, n;
+  tree type;
+  tree base = NULL_TREE;
+  tree name = NULL_TREE;
+  int byte_size = 0;
+  bool got_byte_size = false;
+  tree enumlist = NULL_TREE;
+  tree parentdata;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+      
+    case DW_AT_type:
+      base = lto_read_referenced_type_DIE (fd, 
+					   context, 
+					   attr_data.u.reference);
+      break;
+
+    case DW_AT_byte_size:
+      byte_size = attribute_value_as_int (&attr_data);
+      got_byte_size = true;
+      break;
+
+    case DW_AT_stride:
+      lto_unsupported_attr_error (abbrev, attr);
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* Reconcile base type and byte size attributes.  */
+  base = lto_find_integral_type (base, byte_size, got_byte_size);
+
+  /* Build the (empty) enumeration type and fill in some attributes
+     copied from the base type.  */
+  type = make_node (ENUMERAL_TYPE);
+  if (name)
+    TYPE_NAME (type) = name;
+  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (base);
+  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (base);
+  TYPE_UNSIGNED (type) = TYPE_UNSIGNED (base);
+  TYPE_SIZE (type) = 0;
+  TYPE_PRECISION (type) = TYPE_PRECISION (base);
+  layout_type (type);
+
+  /* Process the enumerators.  */
+  parentdata = context->parentdata;
+  context->parentdata = type;
+  enumerators = lto_collect_child_DIEs (fd, abbrev, context);
+  context->parentdata = parentdata;
+  
+  n = VEC_length (tree, enumerators);
+  for (i = n-1; i >= 0; i--)
+    {
+      tree pair = VEC_index (tree, enumerators, i);
+      /* Make sure the child was actually an enumerator, which parse as
+	 (name, value) pairs.  */
+      if (! pair
+	  || TREE_CODE (pair) != TREE_LIST
+	  || ! TREE_VALUE (pair)
+	  || TREE_CODE (TREE_VALUE (pair)) != INTEGER_CST
+	  || ! TREE_PURPOSE (pair)
+	  || TREE_CODE (TREE_PURPOSE (pair)) != IDENTIFIER_NODE)
+	lto_abi_mismatch_error ();
+      /* Link the enumerators together.  */
+      TREE_CHAIN (pair) = enumlist;
+      enumlist = pair;
+    }
+  TYPE_VALUES (type) = enumlist;
+  TYPE_STUB_DECL (type) = build_decl (TYPE_DECL, NULL_TREE, type);
+
+  /* Finish debugging output for this type.  */
+  rest_of_type_compilation (type, /*top_level=*/1);
+  return type;
+}
+
+static tree
+lto_read_enumerator_DIE (lto_info_fd *fd,
+			 const DWARF2_abbrev *abbrev,
+			 lto_context *context)
+{
+  tree name = NULL_TREE;
+  tree value = NULL_TREE;
+  tree type = context->parentdata;
+
+  /* Enumerators can only appear as children of an enumeral type DIE.  The
+     parent has already created the enum type node and stashed it in the
+     context.  */
+  if (!type || TREE_CODE (type) != ENUMERAL_TYPE)
+    lto_file_corrupt_error ((lto_fd *)fd);
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
+    case DW_AT_const_value:
+      value = attribute_value_as_constant (&attr_data, type);
+      break;
+    }
+  LTO_END_READ_ATTRS ();
+
+  lto_read_child_DIEs (fd, abbrev, context);
+
+  /* Return a TREE_LIST with the name as TREE_PURPOSE and the value as
+     TREE_VALUE.  */
+  return tree_cons (name, value, NULL_TREE);
+}
+
+static tree
 lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 						 const DWARF2_abbrev *abbrev,
 						 lto_context *context)
@@ -1338,14 +1746,15 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 			      /*at_end=*/0);
 
   lto_read_child_DIEs (fd, abbrev, context);
+  return decl;
 }
 
-static void
+static tree
 lto_read_pointer_type_DIE (lto_info_fd *fd,
 			   const DWARF2_abbrev *abbrev,
 			   lto_context *context)
 {
-  tree pointed_to;
+  tree pointed_to = NULL_TREE;
   tree type;
 
   LTO_BEGIN_READ_ATTRS ()
@@ -1357,8 +1766,7 @@ lto_read_pointer_type_DIE (lto_info_fd *fd,
       break;
 
     case DW_AT_byte_size:
-      if (attr_data.cl != DW_cl_constant
-	  || attr_data.u.constant * BITS_PER_UNIT != POINTER_SIZE)
+      if (attribute_value_as_int (&attr_data) * BITS_PER_UNIT != POINTER_SIZE)
 	lto_abi_mismatch_error ();
       break;
     }
@@ -1369,13 +1777,110 @@ lto_read_pointer_type_DIE (lto_info_fd *fd,
     lto_file_corrupt_error ((lto_fd *)fd);
   /* Build the pointer type.  */
   type = build_pointer_type (pointed_to);
-  /* Record the type for our caller.  */
-  context->type = type;
 
   lto_read_child_DIEs (fd, abbrev, context);
+  return type;
 }
 
-static void
+static tree
+lto_read_subrange_type_DIE (lto_info_fd *fd,
+			    const DWARF2_abbrev *abbrev,
+			    lto_context *context)
+{
+  tree type;
+  tree base = NULL_TREE;
+  int byte_size = 0;
+  bool got_byte_size = false;
+  tree lower = NULL_TREE;
+  tree upper = NULL_TREE;
+  tree count = NULL_TREE;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_type:
+      base = lto_read_referenced_type_DIE (fd, 
+					   context, 
+					   attr_data.u.reference);
+      break;
+
+    case DW_AT_byte_size:
+      byte_size = attribute_value_as_int (&attr_data);
+      got_byte_size = true;
+      break;
+
+    case DW_AT_lower_bound:
+      lower = attribute_value_as_constant (&attr_data, NULL_TREE);
+      break;
+
+    case DW_AT_upper_bound:
+      upper = attribute_value_as_constant (&attr_data, NULL_TREE);
+      break;
+
+    case DW_AT_count:
+      count = attribute_value_as_constant (&attr_data, NULL_TREE);
+      break;
+
+    case DW_AT_threads_scaled:
+    case DW_AT_stride:
+      lto_unsupported_attr_error (abbrev, attr);
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* Reconcile base type and byte size attributes.  */
+  base = lto_find_integral_type (base, byte_size, got_byte_size);
+
+  /* Lower bound can be omitted if there is a language-specific default.  */
+  if (!lower)
+    {
+      switch (context->language)
+	{
+	case DW_LANG_C89:
+	case DW_LANG_C:
+	case DW_LANG_C_plus_plus:
+	case DW_LANG_C99:
+	  lower = integer_zero_node;
+	  break;
+
+	case DW_LANG_Fortran77:
+	case DW_LANG_Fortran90:
+	case DW_LANG_Fortran95:
+	  lower = integer_one_node;
+	  break;
+
+	default:
+	  /* No other default lower bound values are currently defined.  */
+	  lto_file_corrupt_error ((lto_fd *)fd);
+	}
+    }
+
+  /* At most one of count and upper bound can be specified.  If we got count,
+     use it to compute the upper bound.  */
+  if (count)
+    {
+      if (upper)
+	lto_file_corrupt_error ((lto_fd *)fd);
+      else if (host_integerp (count, 0) && host_integerp (lower, 0))
+	upper = build_int_cst (TREE_TYPE (count),
+			       TREE_INT_CST_LOW (lower)
+			       + TREE_INT_CST_LOW (count) - 1);
+      else
+	sorry ("can't compute upper array bound");
+    }
+
+  /* Build the range type, and record it for our caller.  */
+  type = build_range_type (base, lower, upper);
+
+  lto_read_child_DIEs (fd, abbrev, context);
+  return type;
+}
+
+static tree
 lto_read_base_type_DIE (lto_info_fd *fd, 
 			const DWARF2_abbrev *abbrev,
 			lto_context *context)
@@ -1384,7 +1889,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   bool have_encoding;
   enum dwarf_type encoding;
   bool have_size;
-  uint64_t size;
+  int size;
   tree type;
 
   name = NULL_TREE;
@@ -1402,20 +1907,12 @@ lto_read_base_type_DIE (lto_info_fd *fd,
 
     case DW_AT_encoding:
       have_encoding = true;
-      encoding = attr_data.u.constant;
+      encoding = attribute_value_as_int (&attr_data);
       break;
 
     case DW_AT_byte_size:
       have_size = true;
-      switch (attr_data.cl)
-	{
-	case DW_cl_constant:
-	  size = attr_data.u.constant;
-	  break;
-	default:
-	  sorry ("dynamically sized types are not supported");
-	  break;
-	}
+      size = attribute_value_as_int (&attr_data);
       break;
 
     case DW_AT_bit_size:
@@ -1425,7 +1922,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
-  if (!name || !have_encoding || !have_size)
+  if (!have_encoding || !have_size)
     lto_file_corrupt_error ((lto_fd *)fd);
 
   lto_read_child_DIEs (fd, abbrev, context);
@@ -1437,9 +1934,7 @@ lto_read_base_type_DIE (lto_info_fd *fd,
     case DW_ATE_unsigned:
       {
 	int bits;
-	bits = (BITS_PER_UNIT 
-		* lto_check_int_val (size,
-				     "size of base type too large"));
+	bits = (BITS_PER_UNIT * size);
 	type = build_nonstandard_integer_type (bits,
 					       encoding == DW_ATE_unsigned);
       }
@@ -1448,8 +1943,13 @@ lto_read_base_type_DIE (lto_info_fd *fd,
       sorry ("unsupported base type encoding");
       break;
     }
-  /* If this is a new type, declare it.  */
-  if (!TYPE_NAME (type))
+  /* If this is a new type, declare it.
+     The DWARF spec seems to imply that the name attribute is required,
+     but GCC generates base_type DIEs without names in some cases (e.g.,
+     for the referenced type of the subrange type used as an array
+     subscript).  Accept that without complaining by just skipping making
+     the declaration.  */
+  if (name && !TYPE_NAME (type))
     {
       tree decl;
       decl = build_decl (TYPE_DECL, name, type);
@@ -1460,28 +1960,28 @@ lto_read_base_type_DIE (lto_info_fd *fd,
 				/*at_end=*/0);
     }
  
-  /* Record the type for our caller.  */
-  context->type = type;
+  return type;
 }
 
 /* Read the next DIE from FD.  CONTEXT provides information about the
-   current state of the compilation unit.  Returns true iff there was
-   a real DIE present; false if the DIE was a null entry indicating
-   the end of a list of sibling DIEs.  */
-static bool
-lto_read_DIE (lto_info_fd *fd, lto_context *context)
+   current state of the compilation unit.  Returns a (possibly null) TREE
+   representing the DIE read.  If more is non-NULL, *more is set to true
+   iff there was a real DIE present; false if the DIE was a null entry
+   indicating the end of a list of sibling DIEs.  */
+static tree
+lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 {
-  typedef void (*DIE_reader_fnptr)(lto_info_fd * fd,
+  typedef tree (*DIE_reader_fnptr)(lto_info_fd * fd,
 				   const DWARF2_abbrev *abbrev,
 				   lto_context *context);
   /* Reader functions for the tags defined by DWARF 3.  */
   static const DIE_reader_fnptr readers[DW_TAG_shared_type + 1] = 
     {
       NULL, /* padding */
-      NULL, /* array_type */
+      lto_read_array_type_DIE,
       NULL, /* class_type */
       NULL, /* entry_point */
-      NULL, /* enumeration_type */
+      lto_read_enumeration_type_DIE,
       lto_read_variable_formal_parameter_constant_DIE,
       NULL, /* padding */
       NULL, /* padding */
@@ -1510,14 +2010,14 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
       NULL, /* module */
       NULL, /* ptr_to_member_type */
       NULL, /* set_type */
-      NULL, /* subrange_type */
+      lto_read_subrange_type_DIE,
       NULL, /* with_stmt */
       NULL, /* access_declaration */
       lto_read_base_type_DIE,
       NULL, /* catch_block */
       NULL, /* const_type */
       lto_read_variable_formal_parameter_constant_DIE,
-      NULL, /* enumerator */
+      lto_read_enumerator_DIE,
       NULL, /* file_type */
       NULL, /* friend */
       NULL, /* namelist */
@@ -1554,25 +2054,22 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
   /* Record the location of the current DIE -- before we change the
      file pointer.  */
   die = ((lto_fd *)fd)->cur;
-  /* This DIE is not yet known to be a type.  */
-  context->type = NULL_TREE;
   /* Read the abbreviation index.  */
   index = lto_read_uleb128 ((lto_fd *)fd);
   /* Zero indicates a null entry.  */
   if (!index)
-    return false; 
+    {
+      if (more)
+	*more = false;
+      return NULL_TREE;
+    }
   /* Get the actual abbreviation entry.  */
   abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
   /* Assume that we will need to skip over this DIE.  */
   skip = true;
   /* Check to see if this DIE has already been processed.  */
   val = lto_cache_lookup_DIE (fd, die);
-  if (val)
-    {
-      if (TYPE_P (val))
-	context->type = val;
-    }
-  else
+  if (!val)
     {
       /* Determine the DIE reader function.  */
       reader = NULL;
@@ -1581,11 +2078,11 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
       if (reader)
 	{
 	  /* If there is a reader, use it.  */
-	  reader (fd, abbrev, context);
+	  val = reader (fd, abbrev, context);
 	  /* If this DIE refers to a type, cache the value so that future
 	     references to the type can be processed quickly.  */
-	  if (context->type)
-	    lto_cache_store_DIE (fd, die, context->type);
+	  if (val && TYPE_P (val))
+	    lto_cache_store_DIE (fd, die, val);
 	  skip = false;
 	}
       else
@@ -1607,7 +2104,9 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
       lto_read_child_DIEs (fd, abbrev, context);
     }
 
-  return true;
+  if (more)
+    *more = true;
+  return val;
 }
 
 /* Read the children of a DIE from FD, passing CONTEXT to the DIE readers
@@ -1615,7 +2114,10 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context)
    read.  ABBREV indicates whether or not the DIE actually has
    children; if it does not, then this function returns without
    reading anything.  Therefore, it is always safe to call this
-   function from a DIE reader, after reading the DIE's attributes.  */
+   function from a DIE reader, after reading the DIE's attributes.
+   This function simply discards the tree valued returned by lto_read_DIE
+   for each child.
+*/
 static void
 lto_read_child_DIEs (lto_info_fd *fd, 
 		     const DWARF2_abbrev *abbrev,
@@ -1625,10 +2127,35 @@ lto_read_child_DIEs (lto_info_fd *fd,
     {
       bool more;
       do 
-	more = lto_read_DIE (fd, context);
+	lto_read_DIE (fd, context, &more);
       while (more);
     }
 }
+
+/* This function is similar to lto_read_child_DIEs but collects the tree
+   values from reading each child into a heap-allocated VEC, which is
+   returned.
+*/
+static VEC(tree,heap) *
+lto_collect_child_DIEs (lto_info_fd *fd, 
+			const DWARF2_abbrev *abbrev,
+			lto_context *context)
+{
+  VEC(tree,heap) *result = VEC_alloc (tree, heap, 32);
+  if (abbrev->has_children)
+    {
+      bool more;
+      do
+	{
+	  tree val = lto_read_DIE (fd, context, &more);
+	  if (more)
+	    VEC_safe_push (tree, heap, result, val);
+	}
+      while (more);
+    }
+  return result;
+}
+
 
 /* Read all the DWARF2 compile units from INFO_FD, placing them in
    INFO_FD->UNITS.  */
@@ -1730,11 +2257,11 @@ lto_file_read (lto_file *file)
       lto_set_cu_context (&context, &file->debug_info, unit);
       fd->cur = context.cu_start + unit->cu_header_length;
       context.scope = NULL_TREE;
-      context.type = NULL_TREE;
+      context.parentdata = NULL_TREE;
 
       /* Read DIEs.  */
       while (fd->cur < context.cu_end)
-	lto_read_DIE (&file->debug_info, &context);
+	lto_read_DIE (&file->debug_info, &context, NULL);
     }
 
   return true;

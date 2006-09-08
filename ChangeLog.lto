@@ -1,8 +1,66 @@
+2006-09-08  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (enum DWARF2_class): Split DW_cl_constant into
+	DW_cl_uconstant and DW_cl_sconstant for explicitly unsigned and
+	signed constants.  Re-number the enumerators.
+	(struct DWARF2_form_data): Replace constant field with uconstant
+	and sconstant, for explicitly unsigned and signed constants.
+	(struct lto_context): Remove type field.  Add language and
+	parentdata fields.
+	(lto_file_corrupt_error): Add ATTRIBUTE_NORETURN.
+	(lto_abi_mismatch_error): Likewise.
+	(lto_read_uleb128): Fix to assemble bytes in the correct order.
+	(lto_read_sleb128): New.
+	(lto_read_form): Make it know about some more attributes.  Make it
+	understand DW_FORM_sdata and DW_FORM_udata.
+	(attribute_value_as_int): New.  Change places throughout the file
+	formerly accessing attribute values expected to be host integers
+	as attr_data.u.constant to call this function instead.
+	(make_signed_host_wide_int): New.
+	(attribute_value_as_constant): New function for use when the attribute
+	value represents a target integer constant of a given type.
+	(lto_find_integral_type): New.
+	(lto_read_referenced_type_DIE): Don't mess with type in context.
+	(lto_read_compile_unit_DIE): Return tree instead of void.  Set the
+	language in the context.
+	(lto_read_array_type_DIE): New.
+	(lto_read_enumeration_type_DIE): New.
+	(lto_read_enumerator_DIE): New.
+	(lto_read_variable_formal_parameter_constant_DIE): Return the decl
+	instead of void.
+	(lto_read_pointer_type_DIE): Return the type instead of void.
+	(lto_read_subrange_type_DIE): New.
+	(lto_read_base_type_DIE): Return the type instead of void.  Also,
+	GCC generates unnamed base_type DIEs, so do something sensible if
+	we get one.
+	(lto_read_DIE): Change type to return the tree value constructed from
+	reading the DIE.  Make the boolean "more" flag a parameter instead.
+	Updated all callers.  Make it know about the readers for array_type,
+	enumeration_type, and subrange_type, and enumerator DIEs.
+	(lto_collect_child_DIEs): New.
+	(lto_file_read): Don't initialize type in context.  Do initialize
+	parentdata instead.
+	
+	* gcc/lto/lto-tree.h (lto_global_var_decls): Declare.
+
+	* gcc/lto/lto.h: Include tree.h.
+	* gcc/lto/Make-lang.in (LTO_H): Note dependency on TREE_H here.
+
+	* gcc/lto/lto-symtab.c (lto_global_var_decls): Define.
+	(lto_symtab_merge_var): Record decls in lto_global_var_decls.
+
+	* gcc/lto/lto-lang.c (lto_write_globals): New.
+	(lto_init): Initialize lto_global_var_decls.
+	LANG_HOOKS_WRITE_GLOBALS: Define to point at lto_write_globals.
+
+
 2006-09-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* gcc/lto-function-out.c (produce_asm): Changed section name.
 	* gcc/lto-tags.h (LTO_SECTION_NAME_PREFIX): New symbol.
 
 2006-09-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* gcc/lto-tags.h: New file.
 	* gcc/lto-tree-flags.def: New file.
 	* gcc/lto-function-out.c: New file.
