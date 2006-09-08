@@ -8067,7 +8067,7 @@ static rtx
 inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 {
   /* REG or MEM to be copied and incremented.  */
-  rtx incloc = XEXP (value, 0);
+  rtx incloc = find_replacement (&XEXP (value, 0));
   /* Nonzero if increment after copying.  */
   int post = (GET_CODE (value) == POST_DEC || GET_CODE (value) == POST_INC
 	      || GET_CODE (value) == POST_MODIFY);
@@ -8076,7 +8076,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
   rtx add_insn;
   int code;
   rtx store;
-  rtx real_in = in == value ? XEXP (in, 0) : in;
+  rtx real_in = in == value ? incloc : in;
 
   /* No hard register is equivalent to this register after
      inc/dec operation.  If REG_LAST_RELOAD_REG were nonzero,
@@ -8086,9 +8086,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
     reg_last_reload_reg[REGNO (incloc)] = 0;
 
   if (GET_CODE (value) == PRE_MODIFY || GET_CODE (value) == POST_MODIFY)
-    {
-      inc = XEXP (XEXP (value, 1), 1);
-    }
+    inc = find_replacement (&XEXP (XEXP (value, 1), 1));
   else
     {
       if (GET_CODE (value) == PRE_DEC || GET_CODE (value) == POST_DEC)

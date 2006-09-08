@@ -1,3 +1,15 @@
+2006-09-08  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* reload.c (find_reloads_address_1): Use RELOAD_OTHER for the
+	index of a PRE_MODIFY or POST_MODIFY address.
+	* reload1.c (inc_for_reload): Use find_replacement on the original
+	base and index registers.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/pr28982a.c: New test.
+	* gcc.c-torture/execute/pr28982b.c: Likewise.
+
 2006-09-06  Julian Brown  <julian@codesourcery.com>
 
 	Merge ARM NEON support from CodeSourcery internal arm-neon-4_1 branch
