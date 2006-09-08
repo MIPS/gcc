@@ -1,3 +1,64 @@
+2006-09-07  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/27724
+	* varasm.c (output_constant): Only strip actual no-op conversions.
+
+2006-09-06  Matthias Klose  <doko@debian.org>
+
+	* Makefile.in (s-macro_list): Conform to POSIX rules in single quoted
+	strings.
+
+2006-09-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28386
+	* loop.c (biased_biv_may_wrap_p): Rename to biv_may_wrap_p and
+	remove 'bias' parameter.
+	(maybe_eliminate_biv_1): Adjust for above change.
+
+2006-09-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/27616
+	* cse.c (table_size): New static variable.
+	(new_basic_block): Initialize it to 0.
+	(remove_from_table): Decrement it.
+	(insert): Increment it.
+	(fold_rtx_mem_1): New function, renamed from fold_rtx_mem.
+	(fold_rtx_mem): Enforce a cap on the recursion depth.  Call
+	fold_rtx_mem_1 if under the cap.
+	(fold_rtx) <RTX_COMM_ARITH>: In the associative case, delay a little
+	the lookup of the equivalent expression and test for equality of the
+	first operand of the equivalent expression before in turn looking up
+	an equivalent constant for the second operand.
+
+2006-09-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR middle-end/28814
+	* fold-const.c (fold_binary): Fold temporary to correct
+	type before constructing new comparison.
+
+2006-09-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/22313
+	* dwarf2out.c (add_fde_cfi): Use a set_loc if the current label is
+	NULL, otherwise use an advance_loc4 to adjust relative to the 
+	current label.
+	(output_cfi) <DW_CFA_set_loc>: Update the current label.
+	(dwarf2out_switch_text_section): Reset the current label to avoid
+	using advance_loc4 over section boundaries.
+
+2006-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/28683
+	* cfgexpand.c (add_reg_br_prob_note): Check if last has exactly
+	3 following insns.
+
+2006-08-31  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/24367
+	* config/s390/s390.md ("movsi", "movdi" expander): Accept rtxes like
+	r12 + SYMBOLIC_CONST.
+
 2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR c/27893

@@ -1176,7 +1176,7 @@ generic:
 
   if (!gfc_generic_intrinsic (expr->symtree->n.sym->name))
     {
-      gfc_error ("Generic function '%s' at %L is not an intrinsic function",
+      gfc_error ("There is no specific function for the generic '%s' at %L",
 		 expr->symtree->n.sym->name, &expr->where);
       return FAILURE;
     }
@@ -1609,31 +1609,31 @@ resolve_generic_s (gfc_code * c)
 
   sym = c->symtree->n.sym;
 
-  m = resolve_generic_s0 (c, sym);
-  if (m == MATCH_YES)
-    return SUCCESS;
-  if (m == MATCH_ERROR)
-    return FAILURE;
-
-  if (sym->ns->parent != NULL && !sym->attr.use_assoc)
+  for (;;)
     {
+      m = resolve_generic_s0 (c, sym);
+      if (m == MATCH_YES)
+	return SUCCESS;
+      else if (m == MATCH_ERROR)
+	return FAILURE;
+
+generic:
+      if (sym->ns->parent == NULL)
+	break;
       gfc_find_symbol (sym->name, sym->ns->parent, 1, &sym);
-      if (sym != NULL)
-	{
-	  m = resolve_generic_s0 (c, sym);
-	  if (m == MATCH_YES)
-	    return SUCCESS;
-	  if (m == MATCH_ERROR)
-	    return FAILURE;
-	}
+
+      if (sym == NULL)
+	break;
+      if (!generic_sym (sym))
+	goto generic;
     }
 
   /* Last ditch attempt.  */
-
+  sym = c->symtree->n.sym;
   if (!gfc_generic_intrinsic (sym->name))
     {
       gfc_error
-	("Generic subroutine '%s' at %L is not an intrinsic subroutine",
+	("There is no specific subroutine for the generic '%s' at %L",
 	 sym->name, &c->loc);
       return FAILURE;
     }
@@ -1703,23 +1703,24 @@ resolve_specific_s (gfc_code * c)
 
   sym = c->symtree->n.sym;
 
-  m = resolve_specific_s0 (c, sym);
-  if (m == MATCH_YES)
-    return SUCCESS;
-  if (m == MATCH_ERROR)
-    return FAILURE;
-
-  gfc_find_symbol (sym->name, sym->ns->parent, 1, &sym);
-
-  if (sym != NULL)
+  for (;;)
     {
       m = resolve_specific_s0 (c, sym);
       if (m == MATCH_YES)
 	return SUCCESS;
       if (m == MATCH_ERROR)
 	return FAILURE;
+
+      if (sym->ns->parent == NULL)
+	break;
+
+      gfc_find_symbol (sym->name, sym->ns->parent, 1, &sym);
+
+      if (sym == NULL)
+	break;
     }
 
+  sym = c->symtree->n.sym;
   gfc_error ("Unable to resolve the specific subroutine '%s' at %L",
 	     sym->name, &c->loc);
 
@@ -5348,6 +5349,7 @@ static try
 resolve_fl_derived (gfc_symbol *sym)
 {
   gfc_component *c;
+  gfc_dt_list * dt_list;
   int i;
 
   for (c = sym->components; c != NULL; c = c->next)
@@ -5410,6 +5412,19 @@ resolve_fl_derived (gfc_symbol *sym)
 	}
     }
     
+  /* Add derived type to the derived type list.  */
+  for (dt_list = sym->ns->derived_types; dt_list; dt_list = dt_list->next)
+    if (sym == dt_list->derived)
+      break;
+
+  if (dt_list == NULL)
+    {
+      dt_list = gfc_get_dt_list ();
+      dt_list->next = sym->ns->derived_types;
+      dt_list->derived = sym;
+      sym->ns->derived_types = dt_list;
+    }
+
   return SUCCESS;
 }
 
@@ -6510,6 +6525,21 @@ resolve_fntype (gfc_namespace * ns)
     {
       gfc_error ("PUBLIC function '%s' at %L cannot be of PRIVATE type '%s'",
                  sym->name, &sym->declared_at, sym->ts.derived->name);
+    }
+
+  /* Make sure that the type of a module derived type function is in the
+     module namespace, by copying it from the namespace's derived type
+     list, if necessary.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ns->proc_name->attr.flavor == FL_MODULE
+	&& sym->ts.derived->ns
+	&& sym->ns != sym->ts.derived->ns)
+    {
+      gfc_dt_list *dt = sym->ns->derived_types;
+
+      for (; dt; dt = dt->next)
+        if (gfc_compare_derived_types (sym->ts.derived, dt->derived))
+	  sym->ts.derived = dt->derived;
     }
 
   if (ns->entries)
