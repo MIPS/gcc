@@ -1419,7 +1419,7 @@ produce_asm (struct output_block *ob, tree function)
   int index;
   tree decl;
   tree type;
-  tree fn = DECL_SECTION_NAME (function);
+  tree fn = DECL_ASSEMBLER_NAME (function);
   char * section_name = xmalloc (SECTION_NAME_SIZE + 1);
   const char * function_name;
 
@@ -1427,37 +1427,9 @@ produce_asm (struct output_block *ob, tree function)
   unsigned int header_size = 8 + (7 * byte_size);
   lto_out_ref out_ref = {0, NULL, NULL};
 
-  /* FIXME!!!! While this got me thru a bootstrap, this will not fly
-     in general.  We must have a canonical mapping from function name
-     to section names or we will never be able to find all of the
-     functions.  */
-  if (fn == NULL_TREE)
-    {
-      int i = 0;
-      int j;
-      char c;
-      strcpy (section_name, "____LTO____");
-
-      function_name = IDENTIFIER_POINTER (DECL_NAME (function));
-      j = strlen (section_name);
-      while ((function_name[i]) && (j < SECTION_NAME_SIZE))
-	{
-	  c = function_name[i++];
-	  if (isspace (c))
-	    section_name[j] = '_';
-	  else
-	    section_name[j] = c;
-	  j++;
-	}
-      section_name[j] = 0;
-    }
-  else
-    {
-      function_name = TREE_STRING_POINTER (fn);
-      sprintf (section_name, "____LTO____%s", function_name);
-    }
-
-
+  gcc_assert (fn);
+  function_name = IDENTIFIER_POINTER (fn);
+  sprintf (section_name, "%s%s", LTO_SECTION_NAME_PREFIX, function_name);
   switch_to_section (get_section (section_name, SECTION_DEBUG, function));
 
   /* Write the header which says how to decode the pieces of the

@@ -1,4 +1,8 @@
-2006-09-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+2006-09-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* gcc/lto-function-out.c (produce_asm): Changed section name.
+	* gcc/lto-tags.h (LTO_SECTION_NAME_PREFIX): New symbol.
+
+2006-09-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* gcc/lto-tags.h: New file.
 	* gcc/lto-tree-flags.def: New file.
 	* gcc/lto-function-out.c: New file.
