@@ -1,3 +1,11 @@
+2006-09-10  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/linux-eabi.h (SYSROOT_SUFFIX_SPEC): Define.
+	* config/arm/libunwind.S: Add .arch/.object_arch for armv4 builds.
+	* config/arm/t-linux-eabi (MULTILIB_OPTIONS, MULTILIB_DIRNAMES):
+	Add armv4t multilib.
+
 2006-09-08  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/

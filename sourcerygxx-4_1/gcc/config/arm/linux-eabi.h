@@ -83,3 +83,7 @@
 		    : "=r" (_beg)					\
 		    : "0" (_beg), "r" (_end), "r" (_flg), "r" (_scno));	\
 }
+
+/* Look for v4t libc in a subdirectory.  */
+#undef SYSROOT_SUFFIX_SPEC
+#define SYSROOT_SUFFIX_SPEC "%{march=armv4t:/armv4t}"

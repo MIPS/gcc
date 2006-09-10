@@ -41,6 +41,18 @@
 	EQUIV SYM (\name), SYM (__\name)
 .endm
 
+#if (__ARM_ARCH__ == 4) && !defined(__thumb2__)
+/* Some coprocessors require armv5.  We know this code will never be run on
+   other cpus.  Tell gas to allow armv5, but only mark the objects as armv4.
+ */
+.arch armv5
+#ifdef __ARM_ARCH_4T__
+.object_arch armv4t
+#else
+.object_arch armv4
+#endif
+#endif
+
 /* r0 points to a 16-word block.  Upload these values to the actual core
    state.  */
 ARM_FUNC_START restore_core_regs
