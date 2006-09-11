@@ -1,6 +1,9 @@
 2006-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
+	* m68k/config/m68k-cores.def: Add m5210a & m5211a.
+
+	gcc/
 	* flow.c (create_reg_inc_note, update_reg_inc_notes_between): New.
 	* recog.c (split_insn): Call update_reg_inc_notes_between.
 	* basic-block.h (update_reg_inc_notes_between): Declare.
