@@ -45,7 +45,7 @@
 /* Some coprocessors require armv5.  We know this code will never be run on
    other cpus.  Tell gas to allow armv5, but only mark the objects as armv4.
  */
-.arch armv5
+.arch armv5t
 #ifdef __ARM_ARCH_4T__
 .object_arch armv4t
 #else
