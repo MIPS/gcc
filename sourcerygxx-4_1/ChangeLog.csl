@@ -1,3 +1,14 @@
+2006-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* flow.c (create_reg_inc_note, update_reg_inc_notes_between): New.
+	* recog.c (split_insn): Call update_reg_inc_notes_between.
+	* basic-block.h (update_reg_inc_notes_between): Declare.
+	
+	gcc/testsuite/
+	* gcc.target/m68k/m68k.exp: New.
+	* gcc.target/m68k/crash1.c: New.
+
 2006-09-10  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/

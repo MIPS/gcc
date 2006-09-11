@@ -4560,6 +4560,63 @@ reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
       SET_HARD_REG_BIT (*to, i);
     }
 }
+
+#ifdef AUTO_INC_DEC
+/* If *XP is an auto increment/decrement, add a new reg note onto
+   *DATA, which is a list of reg notes.  */
+
+static int
+create_reg_inc_note (rtx *xp, void *data)
+{
+  rtx x = *xp;
+  rtx *notep = data;
+  
+  switch (GET_CODE (x))
+    {
+    case PRE_INC:
+    case PRE_DEC:
+    case POST_INC:
+    case POST_DEC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      {
+	rtx reg = XEXP (x, 0);
+      
+	*notep = alloc_EXPR_LIST (REG_INC, reg, *notep);
+	return -1;
+      }
+    default:
+      break;
+    }
+  
+  return 0;
+}
+
+/* Update the REG_INC notes between INSN and END inclusive.  */
+
+void
+update_reg_inc_notes_between (rtx insn, rtx end)
+{
+  for (end = NEXT_INSN (end); insn != end; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  rtx *notep = &REG_NOTES (insn);
+	  
+	  /* Remove any existing REG_INC notes */
+	  while (*notep)
+	    if (REG_NOTE_KIND (*notep) == REG_INC)
+	      *notep = XEXP (*notep, 1);
+	    else
+	      notep = &XEXP (*notep, 1);
+	  
+	  /* Create the new notes. */
+	  for_each_rtx (&PATTERN (insn), create_reg_inc_note,
+			&REG_NOTES (insn));
+	}
+    }
+}
+#endif /* AUTO_INC_DEC */
 
 
 static bool

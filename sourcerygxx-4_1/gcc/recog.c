@@ -2747,6 +2747,9 @@ split_insn (rtx insn)
 	  first = NEXT_INSN (first);
 	}
     }
+#ifdef AUTO_INC_DEC
+  update_reg_inc_notes_between (first, last);
+#endif
   return last;
 }
 
