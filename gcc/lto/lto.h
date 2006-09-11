@@ -79,9 +79,23 @@ typedef struct lto_abbrev_fd
   DWARF2_abbrev **abbrevs;
 } lto_abbrev_fd;
 
+/* The virtual function table for an lto_file.  */
+typedef struct lto_file_vtable
+{
+  /* Return the address of the function-body data for the function
+     named FN, or NULL if the data is not available.  */
+  void *(*map_fn_body)(lto_file *file, const char *fn);
+  /* DATA is the non-NULL address returned by a previous call to
+     MAP_FN_BODY, with the same value of FN.  Release any resources
+     allocated by MAP_FN_BODY.  */
+  void (*unmap_fn_body)(lto_file *file, const char *fn, void *data);
+} lto_file_vtable;
+
 /* An input file.  */
 struct lto_file
 {
+  /* Virtual functions implemented by the derived file class.  */
+  const lto_file_vtable *vtable;
   /* The name of the file.  */
   const char *filename;
   /* The contents of the .debug_info section.  */
@@ -107,8 +121,10 @@ typedef struct lto_ref
 extern void lto_main (int debug_p);
 
 /* Initialize the newly allocated FILE, which corresponds to
-   FILENAME.  */
-extern void lto_file_init (lto_file *file, const char *filename);
+   FILENAME.  VTABLE is the virtual table for FILE.  */
+extern void lto_file_init (lto_file *file, 
+			   const lto_file_vtable *vtable,
+			   const char *filename);
 
 /* Free resources associated with FILE.  FILE itself will be
    deallocated by this function.  */
@@ -143,6 +159,22 @@ extern lto_file *lto_elf_file_open (const char *filename);
 /* Close an ELF input file.  */
 extern void lto_elf_file_close (lto_file *file);
 
+/* lto-read.c */
+
+/* FN is a FUNCTION_DECL.  DATA is the LTO data written out during
+   ordinary compilation, encoding the body of FN.  FD and CONTEXT may
+   be passed back to the lto_resolve__ref functions to retrieve
+   information about glogal entities.  Upon return, DECL_SAVED_TREE
+   for FN contains the reconstituted body of FN and DECL_INITIAL
+   contains the BLOCK tree for the function.  However, it is not this
+   function's responsibility to provide FN to the optimizers or
+   code-generators; that will be done by the caller.  */
+extern void
+lto_read_function_body (lto_info_fd *fd,
+			lto_context *context,
+			tree fn,
+			const void *data);
+
 /* lto-symtab.c */
 
 /* The NEW_VAR (a VAR_DECL) has just been read.  If there is an
@@ -156,5 +188,8 @@ extern void lto_elf_file_close (lto_file *file);
    error_mark_node is returned.  If there is no previous declaration,
    NEW_VAR is returned.  */
 extern tree lto_symtab_merge_var (tree new_var);
+
+/* Like lto_symtab_merge_var, but for functions.  */
+extern tree lto_symtab_merge_fn (tree new_fn);
 
 #endif /* LTO_H */

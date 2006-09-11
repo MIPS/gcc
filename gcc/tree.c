@@ -5262,12 +5262,10 @@ get_inner_array_type (tree array)
   return type;
 }
 
-/* Construct, lay out and return
-   the type of functions returning type VALUE_TYPE
-   given arguments of types ARG_TYPES.
-   ARG_TYPES is a chain of TREE_LIST nodes whose TREE_VALUEs
-   are data type nodes for the arguments of the function.
-   If such a type has already been constructed, reuse it.  */
+/* Construct, lay out and return the type of functions returning type
+   VALUE_TYPE given arguments of types ARG_TYPES.  ARG_TYPES is a
+   TREE_VEC of _TYPE nodes for the arguments of the function.  If such
+   a type has already been constructed, reuse it.  */
 
 tree
 build_function_type (tree value_type, tree arg_types)

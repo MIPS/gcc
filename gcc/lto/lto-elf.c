@@ -38,6 +38,20 @@ struct lto_elf_file
 };
 typedef struct lto_elf_file lto_elf_file;
 
+/* Forward Declarations */
+
+static void *
+lto_elf_map_fn_body (lto_file *file, const char *fn);
+
+static void
+lto_elf_unmap_fn_body (lto_file *file, const char *fn, void *data);
+
+/* The vtable for ELF input files.  */
+static const lto_file_vtable lto_elf_file_vtable = {
+  lto_elf_map_fn_body,
+  lto_elf_unmap_fn_body
+};
+
 lto_file *
 lto_elf_file_open (const char *filename)
 {
@@ -52,7 +66,7 @@ lto_elf_file_open (const char *filename)
   /* Set up.  */
   elf_file = XNEW (lto_elf_file);
   result = (lto_file *)elf_file;
-  lto_file_init (result, filename);
+  lto_file_init (result, &lto_elf_file_vtable, filename);
   elf_file->fd = -1;
   elf_file->elf = NULL;
 
@@ -244,4 +258,21 @@ lto_elf_file_close (lto_file *file)
   if (elf_file->fd != -1)
     close (elf_file->fd);
   lto_file_close (file);
+}
+
+void *
+lto_elf_map_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
+		     const char *fn ATTRIBUTE_UNUSED)
+{
+  /* ??? Look in the ELF file to find the actual data, which should be
+     in the section named ".lto_FN".  */
+  return (void *)0x1;
+}
+
+void
+lto_elf_unmap_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
+		       const char *fn ATTRIBUTE_UNUSED, 
+		       void *data ATTRIBUTE_UNUSED)
+{
+  return;
 }

@@ -1,3 +1,8 @@
+2006-09-10  Mark Mitchell  <mark@codesourcery.com>
+
+	gcc/
+	* tree.c (build_function_type): Adjust comment to match new API.
+
 2006-09-08  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (enum DWARF2_class): Split DW_cl_constant into

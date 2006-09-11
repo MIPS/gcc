@@ -187,6 +187,8 @@ lto_init (void)
 #define LANG_HOOKS_INIT lto_init
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE lto_main
+#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
+#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION tree_rest_of_compilation
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
