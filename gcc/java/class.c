@@ -2476,14 +2476,14 @@ layout_class_method (tree this_class, tree super_class,
 	    p = ptr;
 	}
       DECL_CONSTRUCTOR_P (method_decl) = 1;
-      build_java_argument_signature (TREE_TYPE (method_decl));
+      build_java_signature (TREE_TYPE (method_decl));
     }
   else if (! METHOD_STATIC (method_decl))
     {
       tree method_sig =
-	build_java_argument_signature (TREE_TYPE (method_decl));
+	build_java_signature (TREE_TYPE (method_decl));
       bool method_override = false;
-      tree super_method = lookup_argument_method (super_class, method_name,
+      tree super_method = lookup_java_method (super_class, method_name,
 						  method_sig);
       if (super_method != NULL_TREE
 	  && ! METHOD_DUMMY (super_method))

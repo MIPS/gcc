@@ -1,3 +1,9 @@
+2006-09-08  Andrew Haley  <aph@redhat.com>
+
+	* class.c (layout_class_method): Use build_java_signature, not
+	build_java_argument_signature.  Use lookup_java_method, not
+	lookup_argument_method.
+
 2006-08-16  Jakub Jelinek  <jakub@redhat.com>
 	    Bryce McKinlay  <bryce@mckinlay.net.nz>
 
