@@ -46,7 +46,7 @@ extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
 /* A reference to a global entity.  */
 typedef struct lto_out_ref {
   /* The index of the compilation unit containing the entity.  */
-  unsigned section;
+  int64_t section;
   /* The label corresponding to the base of the DWARF 2 section
      containing this entity.  This string must not be freed by the
      caller.  */

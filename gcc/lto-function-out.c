@@ -207,42 +207,50 @@ struct output_block
   struct output_stream *string_stream;
 
   /* The hash table that contains the set of labels we have seen so
-     far and the indexs assigned to them.  */
+     far and the indexes assigned to them.  */
   htab_t label_hash_table;
   unsigned int next_label_index;
 
-  /* The hash table that contains the set of strings we have seen so
-     far and the indexs assigned to them.  */
+  /* The hash table that contains the set of local parm and var decls
+     we have seen so far and the indexes assigned to them.  */
   htab_t local_decl_hash_table;
   unsigned int next_local_decl_index;
+  VEC(tree,heap) *local_decls;
 
-  /* The hash table that contains the set of variable names we have
-     seen so far and the indexs assigned to them.  */
-  htab_t name_hash_table;
-  unsigned int next_name_index;
+  /* The hash table that contains the set of field_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t field_decl_hash_table;
+  unsigned int next_field_decl_index;
+  VEC(tree,heap) *field_decls;
+
+  /* The hash table that contains the set of function_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t fn_decl_hash_table;
+  unsigned int next_fn_decl_index;
+  VEC(tree,heap) *fn_decls;
+
+  /* The hash table that contains the set of var_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t var_decl_hash_table;
+  unsigned int next_var_decl_index;
+  VEC(tree,heap) *var_decls;
 
   /* The hash table that contains the set of strings we have seen so
-     far and the indexs assigned to them.  */
+     far and the indexes assigned to them.  */
   htab_t string_hash_table;
   unsigned int next_string_index;
 
   /* The hash table that contains the set of type we have seen so far
-     and the indexs assigned to them.  */
+     and the indexes assigned to them.  */
   htab_t type_hash_table;
   unsigned int next_type_index;
+  VEC(tree,heap) *types;
 
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
      something into the stream and fix these up.  */
   const char *last_file;
   int last_line;
-
-  /* The set of local, global decls and global types that have been
-     seen.  These will be generated last after the full set is
-     found.  */
-  VEC(tree,heap) *local_decls;
-  VEC(tree,heap) *global_decls;
-  VEC(tree,heap) *global_types;
 };
 
 /* The output stream that contains the abbrev table for all of the
@@ -638,19 +646,7 @@ output_type_ref (struct output_block *ob, tree node)
   bool new = output_decl_index (ob->main_stream, ob->type_hash_table,
 				&ob->next_type_index, node);
   if (new)
-    VEC_safe_push (tree, heap, ob->global_types, node);
-}
-
-
-/* Look up NAME in the type table and write the uleb128 index for it.  */
-
-static void
-output_decl_ref (struct output_block *ob, tree name)
-{
-  bool new = output_decl_index (ob->main_stream, ob->name_hash_table,
-				&ob->next_name_index, name);
-  if (new)
-    VEC_safe_push (tree, heap, ob->global_decls, name);
+    VEC_safe_push (tree, heap, ob->types, node);
 }
 
 
@@ -1038,17 +1034,43 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case CONST_DECL:
+      /* Just ignore these, Mark will make them disappear.  */
+      break;
+
     case FIELD_DECL:
+      {
+	bool new;
+	output_record_start (ob, NULL, NULL, tag);
+	
+	output_decl_index (ob->main_stream, ob->field_decl_hash_table,
+			   &ob->next_field_decl_index, expr);
+	if (new)
+	  VEC_safe_push (tree, heap, ob->field_decls, expr);
+      }
+      break;
+
     case FUNCTION_DECL:
-      output_record_start (ob, NULL, NULL, tag);
-      output_decl_ref (ob, expr);
+      {
+	bool new;
+	output_record_start (ob, NULL, NULL, tag);
+	
+	output_decl_index (ob->main_stream, ob->fn_decl_hash_table,
+			   &ob->next_fn_decl_index, expr);
+	if (new)
+	  VEC_safe_push (tree, heap, ob->fn_decls, expr);
+      }
       break;
 
     case VAR_DECL:
       if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
 	{
+	  bool new;
 	  output_record_start (ob, NULL, NULL, tag);
-	  output_decl_ref (ob, expr);
+
+	  output_decl_index (ob->main_stream, ob->var_decl_hash_table,
+			     &ob->next_var_decl_index, expr);
+	  if (new)
+	    VEC_safe_push (tree, heap, ob->var_decls, expr);
 	}
       else
 	{
@@ -1407,118 +1429,88 @@ output_bb (struct output_block *ob, basic_block bb, struct function *cfun)
     }
 }
 
-#define SECTION_NAME_SIZE 1024
 
 /* Create the header in the file.  */
 
 static void
 produce_asm (struct output_block *ob, tree function)
 {
-  const int bit_size = HOST_BITS_PER_WIDE_INT;
-  const int byte_size = bit_size / 8;
   int index;
   tree decl;
   tree type;
-  tree fn = DECL_ASSEMBLER_NAME (function);
-  char * section_name = xmalloc (SECTION_NAME_SIZE + 1);
-  const char * function_name;
-
-  /* The entire header is stream computed here.  */
-  unsigned int header_size = 8 + (7 * byte_size);
+  const char *fn = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function));
+  const char *section_name = concat (LTO_SECTION_NAME_PREFIX, fn, NULL);
+  struct lto_function_header function_header;
   lto_out_ref out_ref = {0, NULL, NULL};
 
-  gcc_assert (fn);
-  function_name = IDENTIFIER_POINTER (fn);
-  sprintf (section_name, "%s%s", LTO_SECTION_NAME_PREFIX, function_name);
+  /* The entire header is stream computed here.  */
   switch_to_section (get_section (section_name, SECTION_DEBUG, function));
-
+  
   /* Write the header which says how to decode the pieces of the
      function.  */
-  dw2_asm_output_data (2, LTO_major_version, "major version");
-  dw2_asm_output_data (2, LTO_minor_version, "minor version");
-  dw2_asm_output_data (2, bit_size, "bitsize");
-  dw2_asm_output_data (2, 0, "padding");
+  function_header.major_version = LTO_major_version;
+  function_header.minor_version = LTO_minor_version;
+  
+  function_header.num_field_decls = VEC_length (tree, ob->field_decls);
+  function_header.num_fn_decls = VEC_length (tree, ob->fn_decls);
+  function_header.num_var_decls = VEC_length (tree, ob->var_decls);
+  function_header.num_types = VEC_length (tree, ob->types);
 
-  dw2_asm_output_data (byte_size, VEC_length (tree, ob->global_decls), "#decls");
-  dw2_asm_output_data (byte_size, VEC_length (tree, ob->global_types), "#types");
+  function_header.compressed_size = 0;
+  function_header.local_decls_size = ob->local_decl_stream->total_size;
+  function_header.main_size = ob->main_stream->total_size;
+  function_header.string_size = ob->string_stream->total_size;
 
-  header_size += 2 * byte_size *
-    (VEC_length (tree, ob->global_decls)
-     + VEC_length (tree, ob->global_types));
-  dw2_asm_output_data (byte_size, header_size, "start of gimple");
-  dw2_asm_output_data (byte_size, 0, "compressed data size");
+  assemble_string ((const char *)&function_header, 
+		   sizeof (struct lto_function_header));
 
-  dw2_asm_output_data (byte_size, ob->local_decl_stream->total_size,
-		       "local decl size");
-  dw2_asm_output_data (byte_size, ob->main_stream->total_size,
-		       "gimple size");
-  dw2_asm_output_data (byte_size, ob->string_stream->total_size,
-		       "string size");
-
-  /* Write the global decl references.  */
-  for (index = 0; VEC_iterate(tree, ob->global_decls, index, decl); index++)
+  /* Write the global type references.  */
+  for (index = 0; VEC_iterate(tree, ob->field_decls, index, decl); index++)
     {
-      const char * name;
-      tree tree_name;
-      switch (TREE_CODE (decl))
-	{
-	case CONST_DECL:
 #ifdef GIMPLE_SYMBOL_TABLE_WORKS
-	  lto_const_ref (decl, out_ref);
+      lto_field_ref (decl, out_ref);
 #else
-	  out_ref.section = 0;
-	  out_ref.base_label = "0";
-	  out_ref.label = "0";
+      out_ref.section = 0;
+      out_ref.base_label = "0";
+      out_ref.label = "0";
 #endif
-	  break;
-
-	case FIELD_DECL:
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
-	  lto_field_ref (decl, out_ref);
-#else
-	  out_ref.section = 0;
-	  out_ref.base_label = "0";
-	  out_ref.label = "0";
-#endif
-	  break;
-
-	case FUNCTION_DECL:
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
-	  lto_fn_ref (decl, &out_ref);
-#else
-	  out_ref.section = 0;
-	  out_ref.base_label = "0";
-	  out_ref.label = "0";
-#endif
-	  break;
-
-	case VAR_DECL:
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
-	  lto_var_ref (decl, &out_ref);
-#else
-	  out_ref.section = 0;
-	  out_ref.base_label = "0";
-	  out_ref.label = "0";
-#endif
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	  break;
-	}
-      tree_name = DECL_NAME (decl);
-      if (tree_name == NULL_TREE)
-	name = " ";
-      else
-	name = IDENTIFIER_POINTER (tree_name);
-
-      dw2_asm_output_data (byte_size, out_ref.section, name);
-      dw2_asm_output_delta (byte_size, out_ref.label,
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label,
 			    out_ref.base_label, " ");
     }
 
   /* Write the global type references.  */
-  for (index = 0; VEC_iterate(tree, ob->global_types, index, type); index++)
+  for (index = 0; VEC_iterate(tree, ob->fn_decls, index, decl); index++)
+    {
+#ifdef GIMPLE_SYMBOL_TABLE_WORKS
+      lto_fn_ref (delc, &out_ref);
+#else
+      out_ref.section = 0;
+      out_ref.base_label = "0";
+      out_ref.label = "0";
+#endif
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label,
+			    out_ref.base_label, " ");
+    }
+
+  /* Write the global type references.  */
+  for (index = 0; VEC_iterate(tree, ob->var_decls, index, decl); index++)
+    {
+#ifdef GIMPLE_SYMBOL_TABLE_WORKS
+      lto_var_ref (decl, &out_ref);
+#else
+      out_ref.section = 0;
+      out_ref.base_label = "0";
+      out_ref.label = "0";
+#endif
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label,
+			    out_ref.base_label, " ");
+    }
+
+  /* Write the global type references.  */
+  for (index = 0; VEC_iterate(tree, ob->types, index, type); index++)
     {
 #ifdef GIMPLE_SYMBOL_TABLE_WORKS
       lto_type_ref (type, &out_ref);
@@ -1527,8 +1519,8 @@ produce_asm (struct output_block *ob, tree function)
       out_ref.base_label = "0";
       out_ref.label = "0";
 #endif
-      dw2_asm_output_data (byte_size, out_ref.section, " ");
-      dw2_asm_output_delta (byte_size, out_ref.label,
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label,
 			    out_ref.base_label, " ");
     }
 
@@ -1639,7 +1631,11 @@ output_function (tree function)
     = htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
   ob->local_decl_hash_table
     = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->name_hash_table
+  ob->field_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->fn_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->var_decl_hash_table
     = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
   ob->string_hash_table
     = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
@@ -1688,12 +1684,16 @@ output_function (tree function)
 
   htab_delete (ob->label_hash_table);
   htab_delete (ob->local_decl_hash_table);
-  htab_delete (ob->name_hash_table);
+  htab_delete (ob->field_decl_hash_table);
+  htab_delete (ob->fn_decl_hash_table);
+  htab_delete (ob->var_decl_hash_table);
   htab_delete (ob->string_hash_table);
   htab_delete (ob->type_hash_table);
   VEC_free (tree, heap, ob->local_decls);
-  VEC_free (tree, heap, ob->global_decls);
-  VEC_free (tree, heap, ob->global_types);
+  VEC_free (tree, heap, ob->field_decls);
+  VEC_free (tree, heap, ob->fn_decls);
+  VEC_free (tree, heap, ob->var_decls);
+  VEC_free (tree, heap, ob->types);
   free (ob);
 }
 

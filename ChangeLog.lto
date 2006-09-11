@@ -1,3 +1,32 @@
+2006-09-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* gcc/lto-function-out.c (output_block.field_decl_hash_table,
+	output_block.fn_decl_hash_table, output_block.var_decl_hash_table, 
+	output_block.next_field_decl_index,
+	noutput_block.next_fn_decl_index,
+	output_block.next_var_decl_index,
+	output_block.field_decls, output_block.fn_decls,
+        output_block.var_decls):  New fields.
+	(output_block.name_hash_table_index,
+	output_block.name_next_index, output_block.local_decls): 
+	Deleted fields.
+	(output_block.global_types): Renamed to types.
+	(output_decl_ref): Deleted.
+	(output_expr_operand): Reworked cases for *_DECL.
+	(produce_asm): Reworked to use lto_function_header structure.
+	Fixed computation of section_name.
+	(output_data): Changed to match output_block structure.
+	* gcc/dwarf2out.h (lto_out_ref.section) Changed to be int64_t.
+	* gcc/lto/lto.h (lto_ref.section): Ditto.
+	* gcc/lto-tags.h (LTO_minor_version): Upped.
+	(struct lto_function_header): New structure.
+	* gcc/lto/Make-lang.in (lto-read.o): More dependencies.
+	* gcc/lto/lto-elf.c (lto_elf_map_fn_body): Fixed comment.
+	* gcc/lto/lto-read.c (fun_in): New structure.
+	* (load_globals): New function.
+	* (lto_read_function_body): Added code to decode function header and 
+	load all of the global vars and types.
+
+
 2006-09-10  Mark Mitchell  <mark@codesourcery.com>
 
 	gcc/

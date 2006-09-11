@@ -265,7 +265,7 @@ lto_elf_map_fn_body (lto_file *file ATTRIBUTE_UNUSED,
 		     const char *fn ATTRIBUTE_UNUSED)
 {
   /* ??? Look in the ELF file to find the actual data, which should be
-     in the section named ".lto_FN".  */
+     in the section named LTO_SECTION_NAME_PREFIX || "the function name".  */
   return (void *)0x1;
 }
 
