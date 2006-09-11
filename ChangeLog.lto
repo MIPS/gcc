@@ -1,3 +1,8 @@
+2006-09-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_read_base_type_DIE): Add support for char,
+	boolean, and float types.
+
 2006-09-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* gcc/lto-function-out.c (output_block.field_decl_hash_table,
 	output_block.fn_decl_hash_table, output_block.var_decl_hash_table, 
