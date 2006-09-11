@@ -243,11 +243,13 @@ public abstract class  AtomicLongFieldUpdater<T>  {
 	    int modifiers = 0;
             try {
                 field = tclass.getDeclaredField(fieldName);
-		caller = sun.reflect.Reflection.getCallerClass(3);
+		// FIXME: gcj doesn't have sun.reflect.*
+
+// 		caller = sun.reflect.Reflection.getCallerClass(3);
 		modifiers = field.getModifiers();
-                sun.reflect.misc.ReflectUtil.ensureMemberAccess(
-                    caller, tclass, null, modifiers); 
-		sun.reflect.misc.ReflectUtil.checkPackageAccess(tclass);
+//                 sun.reflect.misc.ReflectUtil.ensureMemberAccess(
+//                     caller, tclass, null, modifiers); 
+// 		sun.reflect.misc.ReflectUtil.checkPackageAccess(tclass);
             } catch(Exception ex) {
                 throw new RuntimeException(ex);
             }
@@ -326,11 +328,13 @@ public abstract class  AtomicLongFieldUpdater<T>  {
 	    int modifiers = 0;
             try {
                 field = tclass.getDeclaredField(fieldName);
-		caller = sun.reflect.Reflection.getCallerClass(3);
+		// FIXME: gcj doesn't have sun.reflect.*
+
+// 		caller = sun.reflect.Reflection.getCallerClass(3);
 		modifiers = field.getModifiers();
-                sun.reflect.misc.ReflectUtil.ensureMemberAccess(
-                    caller, tclass, null, modifiers); 
-		sun.reflect.misc.ReflectUtil.checkPackageAccess(tclass);
+//                 sun.reflect.misc.ReflectUtil.ensureMemberAccess(
+//                     caller, tclass, null, modifiers); 
+// 		sun.reflect.misc.ReflectUtil.checkPackageAccess(tclass);
             } catch(Exception ex) {
                 throw new RuntimeException(ex);
             }

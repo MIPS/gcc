@@ -150,6 +150,15 @@ public class Thread implements Runnable
   /** The uncaught exception handler.  */
   UncaughtExceptionHandler exceptionHandler;
 
+  /** This object is recorded while the thread is blocked to permit
+   * monitoring and diagnostic tools to identify the reasons that
+   * threads are blocked.
+   */
+  private Object parkBlocker;
+
+  /** Used by Unsafe.park and Unsafe.unpark.  */
+  int parkPermit = 1;
+
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
 

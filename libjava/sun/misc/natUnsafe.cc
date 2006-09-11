@@ -1,145 +1,165 @@
-
-#include <config.h>
-
-#include <sun/misc/Unsafe.h>
 #include <gcj/cni.h>
-#include <java/lang/UnsupportedOperationException.h>
+#include <gcj/field.h>
+#include <gcj/javaprims.h>
+#include <jvm.h>
+#include <sun/misc/Unsafe.h>
+#include <java/lang/System.h>
+#include <java/lang/InterruptedException.h>
+
+#include <java/lang/Thread.h>
+#include <java/lang/Long.h>
 
 jlong
-sun::misc::Unsafe::objectFieldOffset (::java::lang::reflect::Field *)
+sun::misc::Unsafe::objectFieldOffset (::java::lang::reflect::Field *field)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::objectFieldOffset (::java::lang::reflect::Field *) not implemented"));
+  _Jv_Field *fld = _Jv_FromReflectedField (field);
+  // FIXME: what if it is not an instance field?
+  return fld->getOffset();
 }
-
 
 jboolean
-sun::misc::Unsafe::compareAndSwapInt (::java::lang::Object *, jlong, jint, jint)
+sun::misc::Unsafe::compareAndSwapInt (jobject obj, jlong offset,
+				      jint expect, jint update)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::compareAndSwapInt (::java::lang::Object *, jlong, jint, jint) not implemented"));
+  jint *addr = (jint *)((char *)obj + offset);
+  return __sync_bool_compare_and_swap (addr, expect, update);
 }
-
-
-jboolean
-sun::misc::Unsafe::compareAndSwapLong (::java::lang::Object *, jlong, jlong, jlong)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::compareAndSwapLong (::java::lang::Object *, jlong, jlong, jlong) not implemented"));
-}
-
-
-jboolean
-sun::misc::Unsafe::compareAndSwapObject (::java::lang::Object *, jlong, ::java::lang::Object *, ::java::lang::Object *)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::compareAndSwapObject (::java::lang::Object *, jlong, ::java::lang::Object *, ::java::lang::Object *) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::putOrderedInt (::java::lang::Object *, jlong, jint)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putOrderedInt (::java::lang::Object *, jlong, jint) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::putOrderedLong (::java::lang::Object *, jlong, jlong)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putOrderedLong (::java::lang::Object *, jlong, jlong) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::putOrderedObject (::java::lang::Object *, jlong, ::java::lang::Object *)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putOrderedObject (::java::lang::Object *, jlong, ::java::lang::Object *) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::putIntVolatile (::java::lang::Object *, jlong, jint)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putIntVolatile (::java::lang::Object *, jlong, jint) not implemented"));
-}
-
 
 jint
-sun::misc::Unsafe::getIntVolatile (::java::lang::Object *, jlong)
+sun::misc::Unsafe::arrayBaseOffset (jclass arrayClass)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::getIntVolatile (::java::lang::Object *, jlong) not implemented"));
+  // FIXME: assert that arrayClass is array.
+  jclass eltClass = arrayClass->getComponentType();
+  return (jint)(jlong) _Jv_GetArrayElementFromElementType (NULL, eltClass);
 }
 
+jint
+sun::misc::Unsafe::arrayIndexScale (jclass arrayClass)
+{
+  // FIXME: assert that arrayClass is array.
+  jclass eltClass = arrayClass->getComponentType();
+  if (eltClass->isPrimitive())
+    return eltClass->size();
+  return sizeof (void *);
+}
+
+jboolean
+sun::misc::Unsafe::compareAndSwapLong (jobject obj, jlong offset,
+				       jlong expect, jlong update)
+{
+  jlong *addr = (jlong*)((char *) obj + offset);
+  return __sync_bool_compare_and_swap (addr, expect, update);
+}
+
+jboolean
+sun::misc::Unsafe::compareAndSwapObject (jobject obj, jlong offset,
+					 jobject expect, jobject update)
+{
+  jobject *addr = (jobject*)((char *) obj + offset);
+  return __sync_bool_compare_and_swap (addr, expect, update);
+}
 
 void
-sun::misc::Unsafe::putLongVolatile (::java::lang::Object *, jlong, jlong)
+sun::misc::Unsafe::putOrderedInt (jobject obj, jlong offset, jint value)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putLongVolatile (::java::lang::Object *, jlong, jlong) not implemented"));
+  jint *addr = (jint *) ((char *) obj + offset);
+  *addr = value;
 }
-
 
 void
-sun::misc::Unsafe::putLong (::java::lang::Object *, jlong, jlong)
+sun::misc::Unsafe::putOrderedLong (jobject obj, jlong offset, jlong value)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putLong (::java::lang::Object *, jlong, jlong) not implemented"));
+  jlong *addr = (jlong *) ((char *) obj + offset);
+  *addr = value;
 }
 
+void
+sun::misc::Unsafe::putOrderedObject (jobject obj, jlong offset, jobject value)
+{
+  jobject *addr = (jobject *) ((char *) obj + offset);
+  *addr = value;
+}
+
+void
+sun::misc::Unsafe::putIntVolatile (jobject obj, jlong offset, jint value)
+{
+  jint *addr = (jint *) ((char *) obj + offset);
+  *addr = value;
+}
+
+void
+sun::misc::Unsafe::putLongVolatile (jobject obj, jlong offset, jlong value)
+{
+  jlong *addr = (jlong *) ((char *) obj + offset);
+  *addr = value;
+}
+
+void
+sun::misc::Unsafe::putObjectVolatile (jobject obj, jlong offset, jobject value)
+{
+  jobject *addr = (jobject *) ((char *) obj + offset);
+  *addr = value;
+}
+
+#if 0  // FIXME
+void
+sun::misc::Unsafe::putInt (jobject obj, jlong offset, jint value)
+{
+  jint *addr = (jint *) ((char *) obj + offset);
+  *addr = value;
+}
+#endif
+
+void
+sun::misc::Unsafe::putLong (jobject obj, jlong offset, jlong value)
+{
+  jlong *addr = (jlong *) ((char *) obj + offset);
+  *addr = value;
+}
+
+void
+sun::misc::Unsafe::putObject (jobject obj, jlong offset, jobject value)
+{
+  jobject *addr = (jobject *) ((char *) obj + offset);
+  *addr = value;
+}
+
+jint
+sun::misc::Unsafe::getIntVolatile (jobject obj, jlong offset)
+{
+  jint *addr = (jint *) ((char *) obj + offset);
+  return *addr;
+}
+
+jobject
+sun::misc::Unsafe::getObjectVolatile (jobject obj, jlong offset)
+{
+  jobject *addr = (jobject *) ((char *) obj + offset);
+  return *addr;
+}
 
 jlong
-sun::misc::Unsafe::getLongVolatile (::java::lang::Object *, jlong)
+sun::misc::Unsafe::getLong (jobject obj, jlong offset)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::getLongVolatile (::java::lang::Object *, jlong) not implemented"));
+  jlong *addr = (jlong *) ((char *) obj + offset);
+  return *addr;
 }
-
 
 jlong
-sun::misc::Unsafe::getLong (::java::lang::Object *, jlong)
+sun::misc::Unsafe::getLongVolatile (jobject obj, jlong offset)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::getLong (::java::lang::Object *, jlong) not implemented"));
+  jlong *addr = (jlong *) ((char *) obj + offset);
+  return *addr;
 }
-
 
 void
-sun::misc::Unsafe::putObjectVolatile (::java::lang::Object *, jlong, ::java::lang::Object *)
+sun::misc::Unsafe::unpark (::java::lang::Thread *thread)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putObjectVolatile (::java::lang::Object *, jlong, ::java::lang::Object *) not implemented"));
+  return;
 }
-
 
 void
-sun::misc::Unsafe::putObject (::java::lang::Object *, jlong, ::java::lang::Object *)
+sun::misc::Unsafe::park (jboolean isAbsolute, jlong time)
 {
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::putObject (::java::lang::Object *, jlong, ::java::lang::Object *) not implemented"));
-}
-
-
-::java::lang::Object *
-sun::misc::Unsafe::getObjectVolatile (::java::lang::Object *, jlong)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::getObjectVolatile (::java::lang::Object *, jlong) not implemented"));
-}
-
-
-jint
-sun::misc::Unsafe::arrayBaseOffset (::java::lang::Class *)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::arrayBaseOffset (::java::lang::Class *) not implemented"));
-}
-
-
-jint
-sun::misc::Unsafe::arrayIndexScale (::java::lang::Class *)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::arrayIndexScale (::java::lang::Class *) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::unpark (::java::lang::Thread *)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::unpark (::java::lang::Thread *) not implemented"));
-}
-
-
-void
-sun::misc::Unsafe::park (jboolean, jlong)
-{
-  throw new ::java::lang::UnsupportedOperationException (JvNewStringLatin1 ("sun::misc::Unsafe::park (jboolean, jlong) not implemented"));
+//   ::java::lang::Thread::yield ();
 }
