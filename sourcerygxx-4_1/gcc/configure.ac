@@ -746,20 +746,18 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-# The trailing component of the string reported as the version number
-# by all components of the compiler.  For an official FSF release, it
-# is empty.
-AC_ARG_WITH(versuffix,
-  AS_HELP_STRING([--with-versuffix=SFX],
-                 [Append SFX to the version string]),
+# Package version.  For an official FSF release, it is empty.
+AC_ARG_WITH(pkgversion,
+  AS_HELP_STRING([--with-pkgversion=PKG],
+                 [Add PKG to the version string]),
   [case "$withval" in
-    yes) AC_MSG_ERROR([version suffix not specified]) ;;
-    no)  VERSUFFIX=" (CodeSourcery Unofficial)" ;;
-    *)   VERSUFFIX=" ($withval)" ;;
+    yes) AC_MSG_ERROR([package version not specified]) ;;
+    no)  PKGVERSION= ;;
+    *)   PKGVERSION=" ($withval)" ;;
    esac],
-  VERSUFFIX=
+  PKGVERSION=
 )
-AC_SUBST(VERSUFFIX)
+AC_SUBST(PKGVERSION)
 
 # The location to which bugs should be reported.
 AC_ARG_WITH(bugurl,

@@ -10,6 +10,7 @@
 const char bug_report_url[] = BUGURL;
 
 /* The complete version string, assembled from several pieces.
-   BASEVER, DATESTAMP, and DEVPHASE are defined by the Makefile.  */
+   BASEVER, DATESTAMP and DEVPHASE are defined by the Makefile.  */
 
-const char version_string[] = BASEVER DATESTAMP DEVPHASE VERSUFFIX;
+const char version_string[] = BASEVER DATESTAMP DEVPHASE;
+const char pkgversion_string[] = PKGVERSION;

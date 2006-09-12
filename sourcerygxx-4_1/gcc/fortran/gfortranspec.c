@@ -346,16 +346,23 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  break;
 
 	case OPTION_version:
-	  printf ("GNU Fortran 95 (GCC) %s\n", version_string);
-	  printf ("Copyright %s 2006 Free Software Foundation, Inc.\n\n",
-	          _("(C)"));
-	  printf (_("GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\
+	  {
+	    const char *pkg_version = " (GCC)";
+
+	    if (pkgversion_string[0])
+	      pkg_version = pkgversion_string;
+	    
+	    printf ("GNU Fortran 95%s %s\n", pkg_version, version_string);
+	    printf ("Copyright %s 2006 Free Software Foundation, Inc.\n\n",
+		    _("(C)"));
+	    printf (_("GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of GNU Fortran\n\
 under the terms of the GNU General Public License.\n\
 For more information about these matters, see the file named COPYING\n\n"));
-	  exit (0);
-	  break;
-
+	    exit (0);
+	    break;
+	  }
+	  
 	case OPTION_help:
 	  /* Let gcc.c handle this, as it has a really
 	     cool facility for handling --help and --verbose --help.  */

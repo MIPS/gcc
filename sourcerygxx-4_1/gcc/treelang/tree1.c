@@ -108,6 +108,8 @@ treelang_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED,
       if (!version_done)
 	{
 	  fputs (language_string, stdout);
+	  if (pkgversion_string[0])
+	    fputs (pkgversion_string, stdout);
 	  fputs (version_string, stdout);
 	  fputs ("\n", stdout);
 	  version_done = 1;

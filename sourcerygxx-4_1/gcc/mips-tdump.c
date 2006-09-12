@@ -1411,7 +1411,11 @@ main (int argc, char **argv)
 
   if (version)
     {
-      printf ("mips-tdump (GCC) %s\n", version_string);
+      const char *pkg_version = " (GCC)";
+
+      if (pkgversion_string[0])
+	pkg_version = pkgversion_string;
+      printf ("mips-tdump%s %s\n", pkg_version, version_string);
       fputs ("Copyright (C) 2006 Free Software Foundation, Inc.\n", stdout);
       fputs ("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",

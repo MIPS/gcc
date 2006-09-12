@@ -410,7 +410,11 @@ print_usage (int error_p)
 static void
 print_version (void)
 {
-  fnotice (stdout, "gcov (GCC) %s\n", version_string);
+  const char *pkg_version = " (GCC)";
+
+  if (pkgversion_string[0])
+    pkg_version = pkgversion_string;
+  fnotice (stdout, "gcov%s %s\n", pkg_version, version_string);
   fprintf (stdout, "Copyright %s 2006 Free Software Foundation, Inc.\n",
 	   _("(C)"));
   fnotice (stdout,

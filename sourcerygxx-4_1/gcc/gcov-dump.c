@@ -120,7 +120,11 @@ print_usage (void)
 static void
 print_version (void)
 {
-  printf ("gcov-dump (GCC) %s\n", version_string);
+  const char *pkg_version = " (GCC)";
+
+  if (pkgversion_string[0])
+    pkg_version = pkgversion_string;
+  printf ("gcov-dump%s %s\n", pkg_version, version_string);
   printf ("Copyright (C) 2006 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.\n"
   	  "There is NO warranty; not even for MERCHANTABILITY or \n"

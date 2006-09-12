@@ -927,7 +927,11 @@ help (void)
 static void
 version (void)
 {
-  printf ("jcf-dump (GCC) %s\n\n", version_string);
+  const char *pkg_version = " (GCC)";
+
+  if (pkgversion_string[0])
+    pkg_version = pkgversion_string;
+  printf ("jcf-dump%s %s\n\n", pkg_version, version_string);
   printf ("Copyright %s 2006 Free Software Foundation, Inc.\n", _("(C)"));
   printf (_("This is free software; see the source for copying conditions.  There is NO\n"
 	    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
