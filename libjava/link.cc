@@ -55,8 +55,6 @@ details.  */
 
 using namespace gcj;
 
-typedef unsigned int uaddr __attribute__ ((mode (pointer)));
-
 template<typename T>
 struct aligner
 {
@@ -337,17 +335,10 @@ _Jv_Linker::resolve_method_entry (jclass klass, jclass &found_class,
     }
 
   // Finally, search superclasses. 
-  for (jclass cls = owner->getSuperclass (); cls != 0; 
-       cls = cls->getSuperclass ())
-    {
-      the_method = search_method_in_class (cls, klass, method_name,
-					   method_signature);
-      if (the_method != 0)
-	{
-	  found_class = cls;
-	  break;
-	}
-    }
+  the_method = (search_method_in_superclasses 
+		(owner->getSuperclass (), klass, method_name, 
+		 method_signature, &found_class));
+  
 
  end_of_method_search:
 
@@ -553,11 +544,12 @@ _Jv_Linker::resolve_class_ref (jclass klass, jclass *classref)
 }
 
 // Find a method declared in the cls that is referenced from klass and
-// perform access checks.
+// perform access checks if CHECK_PERMS is true.
 _Jv_Method *
 _Jv_Linker::search_method_in_class (jclass cls, jclass klass, 
 				    _Jv_Utf8Const *method_name, 
-				    _Jv_Utf8Const *method_signature)
+				    _Jv_Utf8Const *method_signature,
+				    bool check_perms)
 {
   using namespace java::lang::reflect;
 
@@ -570,7 +562,7 @@ _Jv_Linker::search_method_in_class (jclass cls, jclass klass,
 				    method_signature)))
 	continue;
 
-      if (_Jv_CheckAccess (klass, cls, method->accflags))
+      if (!check_perms || _Jv_CheckAccess (klass, cls, method->accflags))
 	return method;
       else
 	{
@@ -587,6 +579,30 @@ _Jv_Linker::search_method_in_class (jclass cls, jclass klass,
   return 0;
 }
 
+// Like search_method_in_class, but work our way up the superclass
+// chain.
+_Jv_Method *
+_Jv_Linker::search_method_in_superclasses (jclass cls, jclass klass, 
+					   _Jv_Utf8Const *method_name, 
+					   _Jv_Utf8Const *method_signature,
+					   jclass *found_class, bool check_perms)
+{
+  _Jv_Method *the_method = NULL;
+
+  for ( ; cls != 0; cls = cls->getSuperclass ())
+    {
+      the_method = search_method_in_class (cls, klass, method_name,
+					   method_signature, check_perms);
+      if (the_method != 0)
+	{
+	  if (found_class)
+	    *found_class = cls;
+	  break;
+	}
+    }
+  
+  return the_method;
+}
 
 #define INITIAL_IOFFSETS_LEN 4
 #define INITIAL_IFACES_LEN 4
@@ -1095,6 +1111,8 @@ _Jv_Linker::link_symbol_table (jclass klass)
       _Jv_Method *meth = NULL;            
 
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       if (target_class == NULL)
 	throw new java::lang::NoClassDefFoundError 
@@ -1120,8 +1138,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	  // it out now.
 	  wait_for_state(target_class, JV_STATE_PREPARED);
 
-	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
-					  sym.signature);
+	  try
+	    {
+	      meth = (search_method_in_superclasses 
+		      (target_class, klass, sym.name, signature, 
+		       NULL, special == 0));
+	    }
+	  catch (::java::lang::IllegalAccessError *e)
+	    {
+	    }
 
 	  // Every class has a throwNoSuchMethodErrorIndex method that
 	  // it inherits from java.lang.Object.  Find its vtable
@@ -1177,7 +1202,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	try
 	  {
 	    the_field = find_field (klass, target_class, &found_class,
-				    sym.name, sym.signature);
+				    sym.name, signature);
 	    if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	      throw new java::lang::IncompatibleClassChangeError;
 	    else
@@ -1204,7 +1229,10 @@ _Jv_Linker::link_symbol_table (jclass klass)
         _Jv_FindClassNoException (sym.class_name, klass->loader);
 
       _Jv_Method *meth = NULL;            
+
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       // ??? Setting this pointer to null will at least get us a
       // NullPointerException
@@ -1212,7 +1240,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 
       // If the target class is missing we prepare a function call
       // that throws a NoClassDefFoundError and store the address of
-      // that newly prepare method in the atable. The user can run
+      // that newly prepared method in the atable. The user can run
       // code in classes where the missing class is part of the
       // execution environment as long as it is never referenced.
       if (target_class == NULL)
@@ -1238,8 +1266,15 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	      throw new VerifyError(sb->toString());
 	    }
 
-	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
-					  sym.signature);
+	  try
+	    {
+	      meth = (search_method_in_superclasses 
+		      (target_class, klass, sym.name, signature, 
+		       NULL, special == 0));
+	    }
+	  catch (::java::lang::IllegalAccessError *e)
+	    {
+	    }
 
 	  if (meth != NULL)
 	    {
@@ -1269,7 +1304,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	wait_for_state(target_class, JV_STATE_PREPARED);
 	jclass found_class;
 	_Jv_Field *the_field = find_field (klass, target_class, &found_class,
-					   sym.name, sym.signature);
+					   sym.name, signature);
 	if ((the_field->flags & java::lang::reflect::Modifier::STATIC))
 	  klass->atable->addresses[index] = the_field->u.addr;
 	else
@@ -1289,14 +1324,17 @@ _Jv_Linker::link_symbol_table (jclass klass)
        ++index)
     {
       jclass target_class = _Jv_FindClass (sym.class_name, klass->loader);
+
       _Jv_Utf8Const *signature = sym.signature;
+      uaddr special;
+      maybe_adjust_signature (signature, special);
 
       jclass cls;
       int i;
 
       wait_for_state(target_class, JV_STATE_LOADED);
       bool found = _Jv_getInterfaceMethod (target_class, cls, i,
-					   sym.name, sym.signature);
+					   sym.name, signature);
 
       if (found)
 	{
