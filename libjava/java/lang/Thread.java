@@ -127,7 +127,16 @@ public class Thread implements Runnable
   private int priority;
 
   boolean interrupt_flag;
-  private boolean alive_flag;
+
+  /** A thread is either alive, dead, or being sent a signal; if it is
+      being sent a signal, it is also alive.  Thus, if you want to
+      know if a thread is alive, it is sufficient to test 
+      alive_status != THREAD_DEAD. */
+  private static final byte THREAD_DEAD = 0;
+  private static final byte THREAD_ALIVE = 1;
+  private static final byte THREAD_SIGNALED = 2;
+  private volatile byte alive_flag;
+
   private boolean startable_flag;
 
   /** The context classloader for this Thread. */
@@ -156,8 +165,13 @@ public class Thread implements Runnable
    */
   private Object parkBlocker;
 
-  /** Used by Unsafe.park and Unsafe.unpark.  */
-  int parkPermit = 1;
+  /** Used by Unsafe.park and Unsafe.unpark.  Se Unsafe for a full
+      description.  */
+  static final byte THREAD_PARK_RUNNING = 0;
+  static final byte THREAD_PARK_PERMIT = 1;
+  static final byte THREAD_PARK_PARKED = 2;
+  static final byte THREAD_PARK_DEAD = 3;
+  byte  parkPermit;
 
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
@@ -166,7 +180,7 @@ public class Thread implements Runnable
   volatile int state;
 
   // Our native data - points to an instance of struct natThread.
-  private RawDataManaged data;
+  RawDataManaged data;
 
   /**
    * Allocates a new <code>Thread</code> object. This constructor has
@@ -381,7 +395,7 @@ public class Thread implements Runnable
       
     data = null;
     interrupt_flag = false;
-    alive_flag = false;
+    alive_flag = THREAD_DEAD;
     startable_flag = true;
 
     if (current != null)
@@ -594,7 +608,7 @@ public class Thread implements Runnable
    */
   public final synchronized boolean isAlive()
   {
-    return alive_flag;
+    return alive_flag != THREAD_DEAD;
   }
 
   /**

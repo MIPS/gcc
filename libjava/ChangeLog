@@ -1,3 +1,23 @@
+2006-09-12  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Thread.java (alive_flag): Make it a byte.
+	(THREAD_DEAD, THREAD_ALIVE, THREAD_SIGNALED): new constants.
+	(parkPermit): New variable.
+	(data): Now package private.
+	(Thread): Set alive_flag to THREAD_DEAD, not false.
+	(isAlive): Test against THREAD_DEAD.
+	* java/lang/natThread.cc (initialize_native): Initialize
+	park_mutex and park_cond.
+	(finish_): Set parkPermit THREAD_PARK_DEAD.
+	(interrupt): Rewrite.  Use an atomic update rather than a mutex to
+	access alive_flag.
+	If the thread is parked, unpark it.
+	(start): Set alive_flag to THREAD_ALIVE, not true.
+	(finalize_native): Destroy park_mutex and park_cond.
+	* sun/misc/natUnsafe.cc (unpark): New method.
+	(park): New method.
+	* include/jvm.h (struct natThread): Moved here.
+
 2006-06-07  Andrew Haley  <aph@redhat.com>
  
 	* include/jvm.h (_Jv_Linker::maybe_adjust_signature): New.

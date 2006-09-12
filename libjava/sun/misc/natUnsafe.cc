@@ -155,11 +155,97 @@ sun::misc::Unsafe::getLongVolatile (jobject obj, jlong offset)
 void
 sun::misc::Unsafe::unpark (::java::lang::Thread *thread)
 {
-  return;
+  using namespace ::java::lang;
+  volatile jbyte *ptr = &thread->parkPermit;
+
+  /* If this thread is in state RUNNING, give it a permit and return
+     immediately.  */
+  if (__sync_bool_compare_and_swap 
+      (ptr, Thread::THREAD_PARK_RUNNING, Thread::THREAD_PARK_PERMIT))
+    return;
+  
+  /* If this thread is parked, put it into state RUNNING and send it a
+     signal.  */
+  if (__sync_bool_compare_and_swap 
+      (ptr, Thread::THREAD_PARK_PARKED, Thread::THREAD_PARK_RUNNING))
+    {
+      natThread *nt = (natThread *) thread->data;
+      pthread_mutex_lock (&nt->park_mutex);
+      pthread_cond_signal (&nt->park_cond);
+      pthread_mutex_unlock (&nt->park_mutex);
+    }
 }
 
 void
 sun::misc::Unsafe::park (jboolean isAbsolute, jlong time)
 {
-//   ::java::lang::Thread::yield ();
+  using namespace ::java::lang;
+  Thread *thread = Thread::currentThread();
+  volatile jbyte *ptr = &thread->parkPermit;
+
+  /* If we have a permit, return immediately.  */
+  if (__sync_bool_compare_and_swap 
+      (ptr, Thread::THREAD_PARK_PERMIT, Thread::THREAD_PARK_RUNNING))
+    return;
+
+  struct timespec ts;
+  jlong millis = 0, nanos = 0;
+
+  if (time)
+    {
+      if (isAbsolute)
+	{
+	  millis = time;
+	  nanos = 0;
+	}
+      else
+	{
+	  millis = java::lang::System::currentTimeMillis();
+	  nanos = time;
+	}
+
+      if (millis > 0 || nanos > 0)
+	{
+	  // Calculate the abstime corresponding to the timeout.
+	  // Everything is in milliseconds.
+	  //
+	  // We use `unsigned long long' rather than jlong because our
+	  // caller may pass up to Long.MAX_VALUE millis.  This would
+	  // overflow the range of a timespec.
+
+	  unsigned long long m = (unsigned long long)millis;
+	  unsigned long long seconds = m / 1000; 
+
+	  ts.tv_sec = seconds;
+	  if (ts.tv_sec < 0 || (unsigned long long)ts.tv_sec != seconds)
+	    {
+	      // We treat a timeout that won't fit into a struct timespec
+	      // as a wait forever.
+	      millis = nanos = 0;
+	    }
+	  else
+	    {
+	      m %= 1000;
+	      ts.tv_nsec = m * 1000000 + (unsigned long long)nanos;
+	    }
+	}
+    }
+      
+  natThread *nt = (natThread *) thread->data;
+  pthread_mutex_lock (&nt->park_mutex);
+  if (__sync_bool_compare_and_swap 
+      (ptr, Thread::THREAD_PARK_RUNNING, Thread::THREAD_PARK_PARKED))
+    {
+      if (millis == 0 && nanos == 0)
+	pthread_cond_wait (&nt->park_cond, &nt->park_mutex);
+      else
+	pthread_cond_timedwait (&nt->park_cond, &nt->park_mutex, 
+					&ts);
+      /* If we were unparked by some other thread, this will already
+	 be in state THREAD_PARK_RUNNING.  If we timed out, we have to
+	 do it ourself.  */
+      __sync_bool_compare_and_swap 
+	(ptr, Thread::THREAD_PARK_PARKED, Thread::THREAD_PARK_RUNNING);
+    }
+  pthread_mutex_unlock (&nt->park_mutex);
 }

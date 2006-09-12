@@ -732,7 +732,7 @@ public:
   // not be a Thread available.
   JvSetThreadState(::java::lang::Thread *cthread, JvThreadState nstate)
     : thread (cthread),
-      saved (cthread ? cthread->state : JV_NEW)
+      saved (cthread ? cthread->state : (jint)JV_NEW)
   {
     if (thread)
       thread->state = nstate;
@@ -743,6 +743,28 @@ public:
     if (thread)
       thread->state = saved;
   }
+};
+
+// This structure is used to represent all the data the native side
+// needs.  An object of this type is assigned to the `data' member of
+// the Thread class.
+struct natThread
+{
+  // These are used to interrupt sleep and join calls.  We can share a
+  // condition variable here since it only ever gets notified when the thread
+  // exits.
+  _Jv_Mutex_t join_mutex;
+  _Jv_ConditionVariable_t join_cond;
+
+  // These are used by Unsafe.park() and Unsafe.unpark().  
+  pthread_mutex_t park_mutex;
+  pthread_cond_t park_cond;
+
+  // This is private data for the thread system layer.
+  _Jv_Thread_t *thread;
+
+  // Each thread has its own JNI object.
+  void *jni_env;
 };
 
 #endif /* __JAVA_JVM_H__ */
