@@ -1,3 +1,40 @@
+2006-09-08  Eric Christopher  <echristo@apple.com>
+
+	* configure.ac: Add 64-bit HWI support for i?86-darwin.
+
+2006-08-14  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/28288
+	PR c++/14556
+	* include/cpplib.h: Remove <?, >?, <?=, and >?= tokens.
+	(CPP_LAST_EQ): Change.
+	(CPP_LAST_PUNCTUATOR): Change.
+	* expr.c (cpp_operator): Remove MIN and MAX.
+	(reduce): Remove CPP_MIN and CPP_MAX.
+	(num_binary_op): Ditto.
+	* lex.c (_cpp_lex_direct): Ditto.
+	(cpp_avoid_paste): Remove ? as legal symbol after > or <.
+
+2006-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/27746
+	* directives.c (do_pragma): Handle pragma with valid namespace
+	and invalid name coming from macro expansion.
+	* directives.c (destringize_and_run): Initialize next field in
+	context.
+
+	PR c/27747
+	PR c++/27748
+	* directives.c (destringize_and_run): Set NO_EXPAND on the
+	tokens.
+
+	* macro.c (_cpp_backup_tokens): Fix comment typo.
+
+2006-05-31  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (CATALOGS): Add po/ prefix.
+	* configure: Regenerated.
+
 2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Makefile.in: Add install-html target. Add install-html to .PHONY
@@ -87,7 +124,7 @@
 
 2005-11-09  Per Bothner  <per@bothner.com>
 	    Uros Bizjak  <uros@kss-loka.si>
-	
+
 	PR c/24101
 	* init.c (read_original_filename): Temporarily set
 	state.in_directive before calling _cpp_lex_direct for
@@ -129,7 +166,7 @@
 	Use in print_dep assignment.
 	* init.c (cpp_read_main_file): Pass additional arg to _cpp_find_file.
 	* internal.h (_cpp_find_file): Add new parm to declaration.
-	
+
 2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* configure.ac: Require 64-bit int for arm*-*-*eabi*.

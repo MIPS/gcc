@@ -38,6 +38,8 @@
 
 package gnu.classpath.tools.jarsigner;
 
+import gnu.classpath.Configuration;
+
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,7 +56,7 @@ import java.util.logging.Logger;
 class Messages
 {
   private static final Logger log = Logger.getLogger(Messages.class.getName());
-  private static final String BUNDLE_NAME = "gnu.classpath.tools.jarsigner.MessageBundle"; //$NON-NLS-1$
+  private static final String BUNDLE_NAME = "gnu.classpath.tools.jarsigner.messages";
   private static final ResourceBundle RESOURCE_BUNDLE = ResourceBundle.getBundle(BUNDLE_NAME);
   private static final Map CACHED_FORMATS = new HashMap(5);
 
@@ -88,7 +90,7 @@ class Messages
           CACHED_FORMATS.put(key, mf);
       }
 
-    // if the argument is not an array, then build one consisiting of the
+    // if the argument is not an array, then build one consisting of the
     // sole argument before passing it to the format() method
     try
       {
@@ -99,8 +101,9 @@ class Messages
       }
     catch (IllegalArgumentException x)
       {
-        log.fine("Exception while rendering a message format keyed by ["
-                 + key + "]: " + mf.toPattern());
+        if (Configuration.DEBUG)
+          log.fine("Exception while rendering a message format keyed by ["
+                   + key + "]: " + mf.toPattern());
         return constructMessage(mf.toPattern(), args);
       }
   }

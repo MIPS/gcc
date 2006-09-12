@@ -41,10 +41,13 @@ io/io.h
 gfor_helper_src= \
 intrinsics/associated.c \
 intrinsics/abort.c \
+intrinsics/access.c \
 intrinsics/args.c \
 intrinsics/bessel.c \
 intrinsics/c99_functions.c \
 intrinsics/chdir.c \
+intrinsics/chmod.c \
+intrinsics/clock.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
 intrinsics/ctime.c \
@@ -96,8 +99,7 @@ intrinsics/umask.c \
 intrinsics/unlink.c \
 intrinsics/unpack_generic.c \
 runtime/in_pack_generic.c \
-runtime/in_unpack_generic.c \
-runtime/normalize.c
+runtime/in_unpack_generic.c
 
 gfor_src= \
 runtime/compile_options.c \
@@ -270,26 +272,6 @@ generated/product_c8.c \
 generated/product_c10.c \
 generated/product_c16.c
 
-i_dotprod_c= \
-generated/dotprod_i4.c \
-generated/dotprod_i8.c \
-generated/dotprod_i16.c \
-generated/dotprod_r4.c \
-generated/dotprod_r8.c \
-generated/dotprod_r10.c \
-generated/dotprod_r16.c
-
-i_dotprodl_c= \
-generated/dotprod_l4.c \
-generated/dotprod_l8.c \
-generated/dotprod_l16.c
-
-i_dotprodc_c= \
-generated/dotprod_c4.c \
-generated/dotprod_c8.c \
-generated/dotprod_c10.c \
-generated/dotprod_c16.c
-
 i_matmul_c= \
 generated/matmul_i4.c \
 generated/matmul_i8.c \
@@ -312,6 +294,8 @@ i_transpose_c= \
 generated/transpose_i4.c \
 generated/transpose_i8.c \
 generated/transpose_i16.c \
+generated/transpose_r4.c \
+generated/transpose_r8.c \
 generated/transpose_r10.c \
 generated/transpose_r16.c \
 generated/transpose_c4.c \
@@ -328,6 +312,8 @@ i_reshape_c= \
 generated/reshape_i4.c \
 generated/reshape_i8.c \
 generated/reshape_i16.c \
+generated/reshape_r4.c \
+generated/reshape_r8.c \
 generated/reshape_r10.c \
 generated/reshape_r16.c \
 generated/reshape_c4.c \
@@ -430,7 +416,7 @@ generated/pow_c16_i16.c
 m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/any.m4 m4/count.m4 m4/maxloc0.m4 m4/maxloc1.m4 m4/maxval.m4 \
     m4/minloc0.m4 m4/minloc1.m4 m4/minval.m4 m4/product.m4 m4/sum.m4 \
-    m4/dotprod.m4 m4/dotprodl.m4 m4/dotprodc.m4 m4/matmul.m4 m4/matmull.m4 \
+    m4/matmul.m4 m4/matmull.m4 \
     m4/ctrig.m4 m4/cexp.m4 m4/chyp.m4 m4/mtype.m4 \
     m4/specific.m4 m4/specific2.m4 m4/head.m4 m4/shape.m4 m4/reshape.m4 \
     m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4 m4/exponent.m4 \
@@ -438,7 +424,7 @@ m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
 
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
-    $(i_product_c) $(i_sum_c) $(i_dotprod_c) $(i_dotprodl_c) $(i_dotprodc_c) \
+    $(i_product_c) $(i_sum_c) \
     $(i_matmul_c) $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
@@ -567,11 +553,9 @@ generated/_mod_i4.F90 \
 generated/_mod_i8.F90 \
 generated/_mod_i16.F90 \
 generated/_mod_r4.F90 \
-generated/_mod_r8.F90
-# There are commented out due to a bug in the way the front-end
-# handles MOD
-#generated/_mod_r10.F90
-#generated/_mod_r16.F90
+generated/_mod_r8.F90 \
+generated/_mod_r10.F90 \
+generated/_mod_r16.F90
 
 gfor_specific_src= \
 $(gfor_built_specific_src) \
@@ -651,15 +635,6 @@ $(i_product_c): m4/product.m4 $(I_M4_DEPS1)
 
 $(i_sum_c): m4/sum.m4 $(I_M4_DEPS1)
 	m4 -Dfile=$@ -I$(srcdir)/m4 sum.m4 > $(srcdir)/$@
-
-$(i_dotprod_c): m4/dotprod.m4 $(I_M4_DEPS)
-	m4 -Dfile=$@ -I$(srcdir)/m4 dotprod.m4 > $(srcdir)/$@
-
-$(i_dotprodl_c): m4/dotprodl.m4 $(I_M4_DEPS)
-	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodl.m4 > $(srcdir)/$@
-
-$(i_dotprodc_c): m4/dotprodc.m4 $(I_M4_DEPS)
-	m4 -Dfile=$@ -I$(srcdir)/m4 dotprodc.m4 > $(srcdir)/$@
 
 $(i_matmul_c): m4/matmul.m4 $(I_M4_DEPS)
 	m4 -Dfile=$@ -I$(srcdir)/m4 matmul.m4 > $(srcdir)/$@

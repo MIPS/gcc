@@ -1,3 +1,7 @@
+2006-09-12  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline.
+
 2006-09-07  Razya Ladelsky  <razya@il.ibm.com>
 
         * testsuite/gcc.dg/matrix: Create new directory for matrix optimizatinos.

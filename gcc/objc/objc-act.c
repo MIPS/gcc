@@ -185,7 +185,6 @@ static tree build_protocol_initializer (tree, tree, tree, tree, tree);
 static tree get_class_ivars (tree, bool);
 static tree generate_protocol_list (tree);
 static void build_protocol_reference (tree);
-static tree objc_build_volatilized_type (tree);
 
 #ifdef OBJCPLUS
 static void objc_generate_cxx_cdtors (void);
@@ -1434,12 +1433,12 @@ lookup_and_install_protocols (tree protocols)
       tree ident = TREE_VALUE (proto);
       tree p = lookup_protocol (ident);
 
-      if (!p)
-	error ("cannot find protocol declaration for %qs",
-	       IDENTIFIER_POINTER (ident));
-      else
+      if (p)
 	return_value = chainon (return_value,
 				build_tree_list (NULL_TREE, p));
+      else if (ident != error_mark_node)
+	error ("cannot find protocol declaration for %qs",
+	       IDENTIFIER_POINTER (ident));
     }
 
   return return_value;

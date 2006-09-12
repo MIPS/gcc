@@ -1083,8 +1083,14 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
   for (;;)
     {
-      tree oldargtype = TYPE_MAIN_VARIANT (TREE_VALUE (oldargs));
-      tree newargtype = TYPE_MAIN_VARIANT (TREE_VALUE (newargs));
+      tree oldargtype = TREE_VALUE (oldargs);
+      tree newargtype = TREE_VALUE (newargs);
+
+      if (oldargtype == error_mark_node || newargtype == error_mark_node)
+	return false;
+
+      oldargtype = TYPE_MAIN_VARIANT (oldargtype);
+      newargtype = TYPE_MAIN_VARIANT (newargtype);
 
       if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
 	break;
@@ -3459,18 +3465,16 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   /* If #pragma weak was used, mark the decl weak now.  */
   maybe_apply_pragma_weak (decl);
 
-  /* If this is a variable definition, determine its ELF visibility.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && TREE_STATIC (decl)
-      && !DECL_EXTERNAL (decl))
-    c_determine_visibility (decl);
-
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
      If not, it will get done when the type is completed.  */
 
   if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
+      /* Determine the ELF visibility.  */
+      if (TREE_PUBLIC (decl))
+	c_determine_visibility (decl);
+
       /* This is a no-op in c-lang.c or something real in objc-act.c.  */
       if (c_dialect_objc ())
 	objc_check_decl (decl);
@@ -3556,7 +3560,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
     }
 
   /* If this was marked 'used', be sure it will be output.  */
-  if (lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
+  if (!flag_unit_at_a_time && lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
     mark_decl_referenced (decl);
 
   if (TREE_CODE (decl) == TYPE_DECL)
@@ -3936,6 +3940,14 @@ grokdeclarator (const struct c_declarator *declarator,
   if (declspecs->deprecated_p && deprecated_state != DEPRECATED_SUPPRESS)
     warn_deprecated_use (declspecs->type);
 
+  if ((decl_context == NORMAL || decl_context == FIELD)
+      && current_scope == file_scope
+      && variably_modified_type_p (type, NULL_TREE))
+    {
+      error ("variably modified %qs at file scope", name);
+      type = integer_type_node;
+    }
+
   typedef_type = type;
   size_varies = C_TYPE_VARIABLE_SIZE (type);
 
@@ -4206,6 +4218,12 @@ grokdeclarator (const struct c_declarator *declarator,
 			size = integer_one_node;
 		      }
 		  }
+		else if ((decl_context == NORMAL || decl_context == FIELD)
+			 && current_scope == file_scope)
+		  {
+		    error ("variably modified %qs at file scope", name);
+		    size = integer_one_node;
+		  }
 		else
 		  {
 		    /* Make sure the array size remains visibly
@@ -4291,6 +4309,18 @@ grokdeclarator (const struct c_declarator *declarator,
 		    size_varies = 1;
 		  }
 	      }
+	    else if (decl_context == TYPENAME)
+	      {
+		if (array_parm_vla_unspec_p)
+		  {
+		    /* The error is printed elsewhere.  We use this to
+		       avoid messing up with incomplete array types of
+		       the same type, that would otherwise be modified
+		       below.  */
+		    itype = build_range_type (sizetype, size_zero_node,
+					      NULL_TREE);
+		  }
+	      }
 
 	     /* Complain about arrays of incomplete types.  */
 	    if (!COMPLETE_TYPE_P (type))
@@ -4299,23 +4329,41 @@ grokdeclarator (const struct c_declarator *declarator,
 		type = error_mark_node;
 	      }
 	    else
+	    /* When itype is NULL, a shared incomplete array type is
+	       returned for all array of a given type.  Elsewhere we
+	       make sure we don't complete that type before copying
+	       it, but here we want to make sure we don't ever
+	       modify the shared type, so we gcc_assert (itype)
+	       below.  */
 	      type = build_array_type (type, itype);
 
 	    if (type != error_mark_node)
 	      {
 		if (size_varies)
-		  C_TYPE_VARIABLE_SIZE (type) = 1;
+		  {
+		    /* It is ok to modify type here even if itype is
+		       NULL: if size_varies, we're in a
+		       multi-dimensional array and the inner type has
+		       variable size, so the enclosing shared array type
+		       must too.  */
+		    if (size && TREE_CODE (size) == INTEGER_CST)
+		      type
+			= build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
+		    C_TYPE_VARIABLE_SIZE (type) = 1;
+		  }
 
 		/* The GCC extension for zero-length arrays differs from
 		   ISO flexible array members in that sizeof yields
 		   zero.  */
 		if (size && integer_zerop (size))
 		  {
+		    gcc_assert (itype);
 		    TYPE_SIZE (type) = bitsize_zero_node;
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
 		  }
 		if (array_parm_vla_unspec_p)
 		  {
+		    gcc_assert (itype);
 		    /* The type is complete.  C99 6.7.5.2p4  */
 		    TYPE_SIZE (type) = bitsize_zero_node;
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
@@ -4372,6 +4420,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	       inner layer of declarator.  */
 	    arg_info = declarator->u.arg_info;
 	    arg_types = grokparms (arg_info, really_funcdef);
+	    if (really_funcdef)
+	      put_pending_sizes (arg_info->pending_sizes);
 
 	    /* Type qualifiers before the return type of the function
 	       qualify the return type, not the function type.  */
@@ -4472,21 +4522,6 @@ grokdeclarator (const struct c_declarator *declarator,
       if (declspecs->inline_p)
 	pedwarn ("typedef %q+D declared %<inline%>", decl);
       return decl;
-    }
-
-  /* Detect the case of an array type of unspecified size
-     which came, as such, direct from a typedef name.
-     We must copy the type, so that each identifier gets
-     a distinct type, so that each identifier's size can be
-     controlled separately by its own initializer.  */
-
-  if (type != 0 && typedef_type != 0
-      && TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == 0
-      && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (typedef_type))
-    {
-      type = build_array_type (TREE_TYPE (type), 0);
-      if (size_varies)
-	C_TYPE_VARIABLE_SIZE (type) = 1;
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -4948,6 +4983,7 @@ get_parm_info (bool ellipsis)
   arg_info->tags = 0;
   arg_info->types = 0;
   arg_info->others = 0;
+  arg_info->pending_sizes = 0;
   arg_info->had_vla_unspec = current_scope->had_vla_unspec;
 
   /* The bindings in this scope must not get put into a block.
@@ -5103,6 +5139,7 @@ get_parm_info (bool ellipsis)
   arg_info->tags = tags;
   arg_info->types = types;
   arg_info->others = others;
+  arg_info->pending_sizes = get_pending_sizes ();
   return arg_info;
 }
 
@@ -5557,8 +5594,6 @@ finish_struct (tree t, tree fieldlist, tree attributes)
     {
       TYPE_FIELDS (x) = TYPE_FIELDS (t);
       TYPE_LANG_SPECIFIC (x) = TYPE_LANG_SPECIFIC (t);
-      TYPE_ALIGN (x) = TYPE_ALIGN (t);
-      TYPE_USER_ALIGN (x) = TYPE_USER_ALIGN (t);
       C_TYPE_FIELDS_READONLY (x) = C_TYPE_FIELDS_READONLY (t);
       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
@@ -5960,6 +5995,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this definition isn't a prototype and we had a prototype declaration
      before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
+  if (old_decl && TREE_CODE (old_decl) != FUNCTION_DECL)
+    old_decl = 0;
   current_function_prototype_locus = UNKNOWN_LOCATION;
   current_function_prototype_built_in = false;
   current_function_prototype_arg_types = NULL_TREE;

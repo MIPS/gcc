@@ -92,7 +92,7 @@ Free Documentation License}''.
 @ifinfo
 @insertcopying
 @end ifinfo
-@dircategory Programming
+@dircategory Software development
 @direntry
 * gccinstall: (gccinstall).    Installing the GNU Compiler Collection.
 @end direntry
@@ -305,7 +305,7 @@ release (4.1.3) when configured with @option{--enable-mpfr}.
 The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
 be used if your MPFR Library is not installed in your library search path.
 
-@item jar
+@item @command{jar}, or InfoZIP (@command{zip} and @command{unzip})
 
 Necessary to build libgcj, the GCJ runtime.
 
@@ -1052,6 +1052,20 @@ catalog, configuring with @option{--enable-maintainer-mode} will enable
 this.  Note that you need a recent version of the @code{gettext} tools
 to do so.
 
+@item --disable-bootstrap
+For a native build, the default configuration is to perform
+a 3-stage bootstrap of the compiler when @samp{make} is invoked,
+testing that GCC can compile itself correctly.  If you want to disable
+this process, you can configure with @option{--disable-bootstrap}.
+
+@item --enable-bootstrap
+In special cases, you may want to perform a 3-stage build
+even if the target and host triplets are different.
+This could happen when the host can run code compiled for
+the target (e.g.@: host is i686-linux, target is i486-linux).
+Starting from GCC 4.2, to do this you have to configure explicitly
+with @option{--enable-bootstrap}.
+
 @item --enable-generated-files-in-srcdir
 Neither the .c and .h files that are generated from Bison and flex nor the
 info manuals and man pages that are built from the .texi files are present
@@ -1571,10 +1585,15 @@ documentation pre-built for the unmodified documentation in the release.
 
 @section Building a native compiler
 
-For a native build, the command @samp{make} will trigger a 3-stage
-bootstrap of the compiler.  This will build the entire GCC system
-and ensure that it compiles itself correctly, by doing the
-following steps:
+For a native build, the default configuration is to perform
+a 3-stage bootstrap of the compiler when @samp{make} is invoked.
+This will build the entire GCC system and ensure that it compiles
+itself correctly.  It can be disabled with the @option{--disable-bootstrap}
+parameter to @samp{configure}, but bootstrapping is suggested because
+the compiler will be tested more completely and could also have
+better performance.
+
+The bootstrapping process will complete the following steps:
 
 @itemize @bullet
 @item
@@ -2911,6 +2930,10 @@ to build the Ada language as it can't be bootstrapped using C@.  Ada is
 only available for the 32-bit PA-RISC runtime.  The libffi and libjava
 haven't been ported to HP-UX and don't build.
 
+Starting with GCC 3.4 an ISO C compiler is required to bootstrap.  The
+bundled compiler supports only traditional C; you will need either HP's
+unbundled compiler, or a binary distribution of GCC@.
+
 It is possible to build GCC 3.3 starting with the bundled HP compiler,
 but the process requires several steps.  GCC 3.3 can then be used to
 build later versions.  The fastjar program contains ISO C code and
@@ -2918,10 +2941,6 @@ can't be built with the HP bundled compiler.  This problem can be
 avoided by not building the Java language.  For example, use the
 @option{--enable-languages="c,c++,f77,objc"} option in your configure
 command.
-
-Starting with GCC 3.4 an ISO C compiler is required to bootstrap.  The
-bundled compiler supports only traditional C; you will need either HP's
-unbundled compiler, or a binary distribution of GCC@.
 
 There are several possible approaches to building the distribution.
 Binutils can be built first using the HP tools.  Then, the GCC
@@ -3434,6 +3453,11 @@ currently do not work, because the auxiliary programs
 anything but a MIPS.  It does work to cross compile for a MIPS
 if you use the GNU assembler and linker.
 
+The linker from GNU binutils versions prior to 2.17 has a bug which
+causes the runtime linker stubs in @file{libgcj.so} to be incorrectly
+generated.  If you want to use libgcj, either use binutils 2.17 or
+later to build it or export @samp{LD_BIND_NOW=1} in your runtime environment.
+
 @html
 <hr />
 @end html
@@ -3540,6 +3564,11 @@ to build despite this, running into an internal error of the native
 @command{ld}.  A sure fix is to increase this limit (@samp{ncargs}) to
 its maximum of 262144 bytes.  If you have root access, you can use the
 @command{systune} command to do this.
+
+@code{wchar_t} support in @samp{libstdc++} is not available for old
+IRIX 6.5.x releases, @math{x < 19}.  The problem cannot be autodetected
+and in order to build GCC for such targets you need to configure with
+@option{--disable-wchar_t}.
 
 See @uref{http://freeware.sgi.com/} for more
 information about using GCC on IRIX platforms.
@@ -3803,9 +3832,9 @@ ld: warning: relocation error: R_SPARC_UA32: @dots{}
 To work around this problem, compile with @option{-gstabs+} instead of
 plain @option{-g}.
 
-When configuring the GNU Multiple Precision Library (GMP) on a Solaris 7
-or later system, the canonical target triplet must be specified as the
-@command{build} parameter on the configure line:
+When configuring the GNU Multiple Precision Library (GMP) version 4.1.x
+on a Solaris 7 or later system, the canonical target triplet must be
+specified as the @command{build} parameter on the configure line:
 
 @smallexample
 ./configure --build=sparc-sun-solaris2.7 --prefix=xxx --enable-mpfr

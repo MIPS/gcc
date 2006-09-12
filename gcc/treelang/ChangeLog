@@ -1,3 +1,17 @@
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* treelang.texi (@dircategory): Use "Software development"
+	instead of "Programming", following the Free Software Directory.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to gcc_htmldir to build_htmldir to avoid
+	installing during build.
+
 2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Make-lang.in: Rename htmldir to gcc_htmldir.

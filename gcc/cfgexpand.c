@@ -58,7 +58,9 @@ add_reg_br_prob_note (rtx last, int probability)
 	if (!any_condjump_p (last)
 	    || !JUMP_P (NEXT_INSN (last))
 	    || !simplejump_p (NEXT_INSN (last))
+	    || !NEXT_INSN (NEXT_INSN (last))
 	    || !BARRIER_P (NEXT_INSN (NEXT_INSN (last)))
+	    || !NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))
 	    || !LABEL_P (NEXT_INSN (NEXT_INSN (NEXT_INSN (last))))
 	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
 	  goto failed;
@@ -764,7 +766,7 @@ expand_used_vars_for_block (tree block, bool toplevel)
     expand_used_vars_for_block (t, false);
 
   /* Since we do not track exact variable lifetimes (which is not even
-     possible for varibles whose address escapes), we mirror the block
+     possible for variables whose address escapes), we mirror the block
      tree in the interference graph.  Here we cause all variables at this
      level, and all sublevels, to conflict.  Do make certain that a
      variable conflicts with itself.  */
@@ -1580,6 +1582,8 @@ tree_expand_cfg (void)
 {
   basic_block bb, init_block;
   sbitmap blocks;
+  edge_iterator ei;
+  edge e;
 
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
@@ -1622,6 +1626,11 @@ tree_expand_cfg (void)
   rtl_register_cfg_hooks ();
 
   init_block = construct_init_block ();
+
+  /* Clear EDGE_EXECUTABLE on the entry edge(s).  It is cleaned from the
+     remaining edges in expand_gimple_basic_block.  */
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+    e->flags &= ~EDGE_EXECUTABLE;
 
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);

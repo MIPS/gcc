@@ -628,13 +628,19 @@ add_fde_cfi (const char *label, dw_cfi_ref cfi)
 	{
 	  dw_cfi_ref xcfi;
 
-	  fde->dw_fde_current_label = label = xstrdup (label);
+	  label = xstrdup (label);
 
 	  /* Set the location counter to the new label.  */
 	  xcfi = new_cfi ();
-	  xcfi->dw_cfi_opc = DW_CFA_advance_loc4;
+	  /* If we have a current label, advance from there, otherwise
+	     set the location directly using set_loc.  */
+	  xcfi->dw_cfi_opc = fde->dw_fde_current_label
+			     ? DW_CFA_advance_loc4
+			     : DW_CFA_set_loc;
 	  xcfi->dw_cfi_oprnd1.dw_cfi_addr = label;
 	  add_cfi (&fde->dw_fde_cfi, xcfi);
+
+	  fde->dw_fde_current_label = label;
 	}
 
       add_cfi (&fde->dw_fde_cfi, cfi);
@@ -1080,7 +1086,7 @@ stack_adjust_offset (rtx pattern)
    much extra space it needs to pop off the stack.  */
 
 static void
-dwarf2out_stack_adjust (rtx insn, bool after_p ATTRIBUTE_UNUSED)
+dwarf2out_stack_adjust (rtx insn, bool after_p)
 {
   HOST_WIDE_INT offset;
   const char *label;
@@ -1093,7 +1099,31 @@ dwarf2out_stack_adjust (rtx insn, bool after_p ATTRIBUTE_UNUSED)
   if (prologue_epilogue_contains (insn) || sibcall_epilogue_contains (insn))
     return;
 
-  if (BARRIER_P (insn))
+  /* If only calls can throw, and we have a frame pointer,
+     save up adjustments until we see the CALL_INSN.  */
+  if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
+    {
+      if (CALL_P (insn) && !after_p)
+	{
+	  /* Extract the size of the args from the CALL rtx itself.  */
+	  insn = PATTERN (insn);
+	  if (GET_CODE (insn) == PARALLEL)
+	    insn = XVECEXP (insn, 0, 0);
+	  if (GET_CODE (insn) == SET)
+	    insn = SET_SRC (insn);
+	  gcc_assert (GET_CODE (insn) == CALL);
+	  dwarf2out_args_size ("", INTVAL (XEXP (insn, 1)));
+	}
+      return;
+    }
+
+  if (CALL_P (insn) && !after_p)
+    {
+      if (!flag_asynchronous_unwind_tables)
+	dwarf2out_args_size ("", args_size);
+      return;
+    }
+  else if (BARRIER_P (insn))
     {
       /* When we see a BARRIER, we know to reset args_size to 0.  Usually
 	 the compiler will have already emitted a stack adjustment, but
@@ -1115,19 +1145,8 @@ dwarf2out_stack_adjust (rtx insn, bool after_p ATTRIBUTE_UNUSED)
 	if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == SET)
 	  offset += stack_adjust_offset (XVECEXP (PATTERN (insn), 0, i));
     }
-  else if (GET_CODE (insn) == CALL_INSN)
-    offset = 0;
   else
     return;
-
-  /* We handle this separately because we want stack adjustments in a
-     CALL_INSN to be handled.  */;
-  if (GET_CODE (insn) == CALL_INSN)
-    {
-      /* If only calls can throw, adjust args_size only at call sites.  */
-      if (!flag_asynchronous_unwind_tables)
-	dwarf2out_args_size ("", args_size);
-    }
 
   if (offset == 0)
     return;
@@ -1142,16 +1161,6 @@ dwarf2out_stack_adjust (rtx insn, bool after_p ATTRIBUTE_UNUSED)
   args_size += offset;
   if (args_size < 0)
     args_size = 0;
-
-  /* If only calls can throw and we have a frame pointer, we'll save
-     up adjustments until we see the CALL_INSN.  We used to return
-     early and derive args_size from NARGS in the CALL_INSN itself,
-     but that doesn't compute the right value if we have nested call
-     expansions, e.g., stack adjustments for a call have already been
-     emitted, and then we issue another call to compute an argument
-     for the enclosing call (i.e., bar (foo ())).  */
-  if (!flag_asynchronous_unwind_tables && cfa.reg != STACK_POINTER_REGNUM)
-    return;
 
   label = dwarf2out_cfi_label ();
   def_cfa_1 (label, &cfa);
@@ -1493,9 +1502,9 @@ static dw_cfa_location cfa_temp;
 	   cfa.base_offset = -cfa_temp.offset
 	   cfa_temp.offset -= mode_size(mem)
 
-  Rule 15:
-  (set <reg> {unspec, unspec_volatile})
-  effects: target-dependent  */
+  Rule 15:
+  (set <reg> {unspec, unspec_volatile})
+  effects: target-dependent  */
 
 static void
 dwarf2out_frame_debug_expr (rtx expr, const char *label)
@@ -2069,6 +2078,7 @@ output_cfi (dw_cfi_ref cfi, dw_fde_ref fde, int for_eh)
 	  else
 	    dw2_asm_output_addr (DWARF2_ADDR_SIZE,
 				 cfi->dw_cfi_oprnd1.dw_cfi_addr, NULL);
+	  fde->dw_fde_current_label = cfi->dw_cfi_oprnd1.dw_cfi_addr;
 	  break;
 
 	case DW_CFA_advance_loc1:
@@ -6919,6 +6929,10 @@ dwarf2out_switch_text_section (void)
   fde->dw_fde_unlikely_section_label = cfun->cold_section_label;
   fde->dw_fde_unlikely_section_end_label = cfun->cold_section_end_label;
   have_multiple_function_sections = true;
+
+  /* Reset the current label on switching text sections, so that we
+     don't attempt to advance_loc4 between labels in different sections.  */
+  fde->dw_fde_current_label = NULL;
 }
 
 /* Output the location list given to us.  */
@@ -9942,10 +9956,13 @@ rtl_for_decl_init (tree init, tree type)
 	rtl = gen_rtx_CONST_STRING (VOIDmode,
 				    ggc_strdup (TREE_STRING_POINTER (init)));
     }
-  /* Although DWARF could easily handle other kinds of aggregates, we
-     have no way to represent such values as RTL constants, so skip
-     those.  */
-  else if (AGGREGATE_TYPE_P (type))
+  /* Other aggregates, and complex values, could be represented using
+     CONCAT: FIXME!  */
+  else if (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == COMPLEX_TYPE)
+    ;
+  /* Vectors only work if their mode is supported by the target.  
+     FIXME: generic vectors ought to work too.  */
+  else if (TREE_CODE (type) == VECTOR_TYPE && TYPE_MODE (type) == BLKmode)
     ;
   /* If the initializer is something that we know will expand into an
      immediate RTL constant, expand it now.  We must be careful not to
@@ -10380,6 +10397,7 @@ convert_cfa_to_fb_loc_list (HOST_WIDE_INT offset)
   for (cfi = fde->dw_fde_cfi; cfi; cfi = cfi->dw_cfi_next)
     switch (cfi->dw_cfi_opc)
       {
+      case DW_CFA_set_loc:
       case DW_CFA_advance_loc1:
       case DW_CFA_advance_loc2:
       case DW_CFA_advance_loc4:
@@ -11457,6 +11475,7 @@ dwarf2out_abstract_function (tree decl)
 {
   dw_die_ref old_die;
   tree save_fn;
+  struct function *save_cfun;
   tree context;
   int was_abstract = DECL_ABSTRACT (decl);
 
@@ -11480,7 +11499,9 @@ dwarf2out_abstract_function (tree decl)
 
   /* Pretend we've just finished compiling this function.  */
   save_fn = current_function_decl;
+  save_cfun = cfun;
   current_function_decl = decl;
+  cfun = DECL_STRUCT_FUNCTION (decl);
 
   set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
@@ -11488,6 +11509,7 @@ dwarf2out_abstract_function (tree decl)
     set_decl_abstract_flags (decl, 0);
 
   current_function_decl = save_fn;
+  cfun = save_cfun;
 }
 
 /* Helper function of premark_used_types() which gets called through
@@ -11531,7 +11553,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
-  premark_used_types();
+  premark_used_types ();
 
   /* It is possible to have both DECL_ABSTRACT and DECLARATION be true if we
      started to generate the abstract instance of an inline, decided to output
@@ -13547,9 +13569,6 @@ dwarf2out_var_location (rtx loc_note)
   last_insn = loc_note;
   last_label = newloc->label;
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
-  if (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl) 
-      && DECL_P (DECL_DEBUG_EXPR (decl)))
-    decl = DECL_DEBUG_EXPR (decl); 
   add_var_loc_to_decl (decl, newloc);
 }
 
@@ -14040,6 +14059,7 @@ prune_unused_types_prune (dw_die_ref die)
   dw_die_ref c;
 
   gcc_assert (die->die_mark);
+  prune_unused_types_update_strings (die);
 
   if (! die->die_child)
     return;
@@ -14064,7 +14084,6 @@ prune_unused_types_prune (dw_die_ref die)
 
     if (c != prev->die_sib)
       prev->die_sib = c;
-    prune_unused_types_update_strings (c);
     prune_unused_types_prune (c);
   } while (c != die->die_child);
 }

@@ -303,7 +303,7 @@ vect_create_data_ref_ptr (tree stmt,
   /* If tag is a variable (and NOT_A_TAG) than a new symbol memory
      tag must be created with tag added to its may alias list.  */
   if (!MTAG_P (tag))
-    new_type_alias (vect_ptr, tag);
+    new_type_alias (vect_ptr, tag, DR_REF (dr));
   else
     var_ann (vect_ptr)->symbol_mem_tag = tag;
 
@@ -2117,12 +2117,12 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   then_clause = TREE_OPERAND (op, 1);
   else_clause = TREE_OPERAND (op, 2);
 
+  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
+    return false;
+
   /* We do not handle two different vector types for the condition
      and the values.  */
   if (TREE_TYPE (TREE_OPERAND (cond_expr, 0)) != TREE_TYPE (vectype))
-    return false;
-
-  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
     return false;
 
   if (TREE_CODE (then_clause) == SSA_NAME)
@@ -3036,7 +3036,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
       bsi_insert_before (&cond_exp_bsi, cond_expr_stmt_list, BSI_SAME_STMT);
     }
 
-  /* CHECKME: we wouldn't need this if we calles update_ssa once
+  /* CHECKME: we wouldn't need this if we called update_ssa once
      for all loops.  */
   bitmap_zero (vect_vnames_to_rename);
 

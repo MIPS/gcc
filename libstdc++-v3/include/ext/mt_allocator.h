@@ -195,13 +195,13 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       union _Block_record
       {
 	// Points to the block_record of the next free block.
-	_Block_record* volatile         _M_next;
+	_Block_record* 			_M_next;
       };
 
       struct _Bin_record
       {
 	// An "array" of pointers to the first free block.
-	_Block_record** volatile        _M_first;
+	_Block_record**			_M_first;
 
 	// A list of the initial addresses of all allocated blocks.
 	_Block_address*		     	_M_address;
@@ -244,7 +244,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // An "array" of bin_records each of which represents a specific
       // power of 2 size. Memory to this "array" is allocated in
       // _M_initialize().
-      _Bin_record* volatile	_M_bin;
+      _Bin_record*		 _M_bin;
       
       // Actual value calculated in _M_initialize().
       size_t 	       	     	_M_bin_size;     
@@ -271,7 +271,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       struct _Thread_record
       {
 	// Points to next free thread id record. NULL if last record in list.
-	_Thread_record* volatile        _M_next;
+	_Thread_record*			_M_next;
 	
 	// Thread id ranging from 1 to _S_max_threads.
 	size_t                          _M_id;
@@ -280,7 +280,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       union _Block_record
       {
 	// Points to the block_record of the next free block.
-	_Block_record* volatile         _M_next;
+	_Block_record*			_M_next;
 	
 	// The thread id of the thread which has requested this block.
 	size_t                          _M_thread_id;
@@ -291,17 +291,22 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	// An "array" of pointers to the first free block for each
 	// thread id. Memory to this "array" is allocated in
 	// _S_initialize() for _S_max_threads + global pool 0.
-	_Block_record** volatile        _M_first;
+	_Block_record**			_M_first;
 	
 	// A list of the initial addresses of all allocated blocks.
 	_Block_address*		     	_M_address;
 
 	// An "array" of counters used to keep track of the amount of
 	// blocks that are on the freelist/used for each thread id.
-	// Memory to these "arrays" is allocated in _S_initialize() for
-	// _S_max_threads + global pool 0.
-	size_t* volatile                _M_free;
-	size_t* volatile                _M_used;
+	// - Note that the second part of the allocated _M_used "array"
+	//   actually hosts (atomic) counters of reclaimed blocks:  in
+	//   _M_reserve_block and in _M_reclaim_block those numbers are
+	//   subtracted from the first ones to obtain the actual size
+	//   of the "working set" of the given thread.
+	// - Memory to these "arrays" is allocated in _S_initialize()
+	//   for _S_max_threads + global pool 0.
+	size_t*				_M_free;
+	size_t*			        _M_used;
 	
 	// Each bin has its own mutex which is used to ensure data
 	// integrity while changing "ownership" on a block.  The mutex
@@ -365,7 +370,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // An "array" of bin_records each of which represents a specific
       // power of 2 size. Memory to this "array" is allocated in
       // _M_initialize().
-      _Bin_record* volatile	_M_bin;
+      _Bin_record*		_M_bin;
 
       // Actual value calculated in _M_initialize().
       size_t 	       	     	_M_bin_size;

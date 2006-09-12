@@ -80,18 +80,18 @@
 )
 
 (define_insn "mulhisi3_c"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,??Rmm")
-        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
-                 (match_operand 2 "immediate_operand" "i,i")))]
+  [(set (match_operand:SI 0 "ra_operand" "=Rsi")
+        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0"))
+                 (match_operand 2 "immediate_operand" "i")))]
   ""
   "mul.w\t%2,%1"
   [(set_attr "flags" "o")]
 )
 
 (define_insn "mulhisi3_r"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,RsiSd,??Rmm,??Rmm")
-        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0,0,0"))
-                 (sign_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm,RhiSd,?Rmm"))))]
+  [(set (match_operand:SI 0 "mra_operand" "=Rsi,Rsi")
+        (mult:SI (sign_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
+                 (sign_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm"))))]
   ""
   "mul.w\t%2,%1"
   [(set_attr "flags" "o")]
@@ -107,18 +107,18 @@
 )
 
 (define_insn "umulhisi3_c"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,??Rmm")
-        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
-                 (match_operand 2 "immediate_operand" "i,i")))]
+  [(set (match_operand:SI 0 "ra_operand" "=Rsi")
+        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0"))
+                 (match_operand 2 "immediate_operand" "i")))]
   ""
   "mulu.w\t%u2,%1"
   [(set_attr "flags" "o")]
 )
 
 (define_insn "umulhisi3_r"
-  [(set (match_operand:SI 0 "mra_operand" "=RsiSd,RsiSd,??Rmm,??Rmm")
-        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0,0,0"))
-                 (zero_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm,RhiSd,?Rmm"))))]
+  [(set (match_operand:SI 0 "mra_operand" "=Rsi,Rsi")
+        (mult:SI (zero_extend:SI (match_operand:HI 1 "mra_operand" "%0,0"))
+                 (zero_extend:SI (match_operand:HI 2 "mra_operand" "RhiSd,?Rmm"))))]
   ""
   "mulu.w\t%u2,%1"
   [(set_attr "flags" "o")]
@@ -152,7 +152,7 @@
 		  (match_operand 2 "m32c_psi_scale" "Ilb")))]
   "TARGET_A24"
   "if (GET_CODE (operands[2]) != CONST_INT
-       || INTVAL(operands[2]) < 0)
+       || ! m32c_psi_scale (operands[2], PSImode))
      {
        m32c_expand_neg_mulpsi3 (operands);
        DONE;

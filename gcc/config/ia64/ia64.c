@@ -54,6 +54,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "intl.h"
 #include "debug.h"
+#include "params.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -4655,11 +4656,13 @@ ia64_print_operand (FILE * file, rtx x, int code)
 	    int pred_val = INTVAL (XEXP (x, 0));
 
 	    /* Guess top and bottom 10% statically predicted.  */
-	    if (pred_val < REG_BR_PROB_BASE / 50)
+	    if (pred_val < REG_BR_PROB_BASE / 50
+		&& br_prob_note_reliable_p (x))
 	      which = ".spnt";
 	    else if (pred_val < REG_BR_PROB_BASE / 2)
 	      which = ".dpnt";
-	    else if (pred_val < REG_BR_PROB_BASE / 100 * 98)
+	    else if (pred_val < REG_BR_PROB_BASE / 100 * 98
+		     || !br_prob_note_reliable_p (x))
 	      which = ".dptk";
 	    else
 	      which = ".sptk";
@@ -9307,7 +9310,8 @@ ia64_select_rtx_section (enum machine_mode mode, rtx x,
 			 unsigned HOST_WIDE_INT align)
 {
   if (GET_MODE_SIZE (mode) > 0
-      && GET_MODE_SIZE (mode) <= ia64_section_threshold)
+      && GET_MODE_SIZE (mode) <= ia64_section_threshold
+      && !TARGET_NO_SDATA)
     return sdata_section;
   else
     return default_elf_select_rtx_section (mode, x, align);
@@ -9746,6 +9750,15 @@ ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, tree type1, tree type2)
   if (TYPE_MODE (type1) == RFmode || TYPE_MODE (type2) == RFmode)
     return N_("invalid operation on %<__fpreg%>");
   return NULL;
+}
+
+/* Implement overriding of the optimization options.  */
+void
+ia64_optimization_options (int level ATTRIBUTE_UNUSED,
+                           int size ATTRIBUTE_UNUSED)
+{
+  /* Let the scheduler form additional regions.  */
+  set_param_value ("max-sched-extend-regions-iters", 2);
 }
 
 #include "gt-ia64.h"

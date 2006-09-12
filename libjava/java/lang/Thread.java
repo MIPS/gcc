@@ -127,6 +127,12 @@ public class Thread implements Runnable
   /** The context classloader for this Thread. */
   private ClassLoader contextClassLoader;
 
+  /** This thread's ID.  */
+  private final long threadId;
+
+  /** The next thread ID to use.  */
+  private static long nextThreadId;
+
   /** The default exception handler.  */
   private static UncaughtExceptionHandler defaultHandler;
 
@@ -138,6 +144,11 @@ public class Thread implements Runnable
   /** The uncaught exception handler.  */
   UncaughtExceptionHandler exceptionHandler;
 
+  /** The access control state for this thread.  Package accessible
+    * for use by java.security.VMAccessControlState's native method.
+    */
+  Object accessControlState = null;
+  
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
 
@@ -354,11 +365,16 @@ public class Thread implements Runnable
       }
     else
       group = g;
-      
+
     data = null;
     interrupt_flag = false;
     alive_flag = false;
     startable_flag = true;
+
+    synchronized (Thread.class)
+      {
+        this.threadId = nextThreadId++;
+      }
 
     if (current != null)
       {
@@ -1027,6 +1043,18 @@ public class Thread implements Runnable
     return defaultHandler;
   }
   
+  /** 
+   * Returns the unique identifier for this thread.  This ID is generated
+   * on thread creation, and may be re-used on its death.
+   *
+   * @return a positive long number representing the thread's ID.
+   * @since 1.5 
+   */
+  public long getId()
+  {
+    return threadId;
+  }
+
   /**
    * <p>
    * This interface is used to handle uncaught exceptions
@@ -1083,5 +1111,18 @@ public class Thread implements Runnable
      * @param exc the uncaught exception.
      */
     void uncaughtException(Thread thr, Throwable exc);
+  }
+
+  /**
+   * Returns the current state of the thread.  This
+   * is designed for monitoring thread behaviour, rather
+   * than for synchronization control.
+   *
+   * @return the current thread state.
+   */
+  public String getState()
+  {
+    // FIXME - Provide real implementation.
+    return "NEW";
   }
 }

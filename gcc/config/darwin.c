@@ -1136,6 +1136,11 @@ machopic_select_section (tree exp, int reloc,
 	       TREE_INT_CST_LOW (size) == 8 &&
 	       TREE_INT_CST_HIGH (size) == 0)
 	return darwin_sections[literal8_section];
+      else if (TARGET_64BIT
+	       && TREE_CODE (size) == INTEGER_CST
+	       && TREE_INT_CST_LOW (size) == 16
+	       && TREE_INT_CST_HIGH (size) == 0)
+	return darwin_sections[literal16_section];
       else
 	return base_section;
     }
@@ -1234,6 +1239,12 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal4_section];
+  else if (TARGET_64BIT
+	   && GET_MODE_SIZE (mode) == 16
+	   && (GET_CODE (x) == CONST_INT
+	       || GET_CODE (x) == CONST_DOUBLE
+	       || GET_CODE (x) == CONST_VECTOR))
+    return darwin_sections[literal16_section];
   else if (MACHOPIC_INDIRECT
 	   && (GET_CODE (x) == SYMBOL_REF
 	       || GET_CODE (x) == CONST
@@ -1524,6 +1535,8 @@ darwin_binds_local_p (tree decl)
   return default_binds_local_p_1 (decl, 0);
 }
 
+#if 0
+/* See TARGET_ASM_OUTPUT_ANCHOR for why we can't do this yet.  */
 /* The Darwin's implementation of TARGET_ASM_OUTPUT_ANCHOR.  Define the
    anchor relative to ".", the current section position.  We cannot use
    the default one because ASM_OUTPUT_DEF is wrong for Darwin.  */
@@ -1536,6 +1549,7 @@ darwin_asm_output_anchor (rtx symbol)
   fprintf (asm_out_file, ", . + " HOST_WIDE_INT_PRINT_DEC "\n",
 	   SYMBOL_REF_BLOCK_OFFSET (symbol));
 }
+#endif
 
 /* Set the darwin specific attributes on TYPE.  */
 void

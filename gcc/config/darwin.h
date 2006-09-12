@@ -698,7 +698,9 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
-   variable has been defined in this translation unit.  */
+   variable has been defined in this translation unit.
+   When porting Mach-O to new architectures you need to make
+   sure these aren't clobbered by the backend.  */
 
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
@@ -812,8 +814,6 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
-#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
-
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */
 
@@ -826,6 +826,9 @@ enum machopic_addr_class {
 #define TARGET_ASM_INIT_SECTIONS darwin_init_sections
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
+
+/* Handle pragma weak and pragma pack.  */
+#define HANDLE_SYSV_PRAGMA 1
 
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
@@ -852,6 +855,7 @@ void add_framework_path (char *);
 #define TARGET_POSIX_IO
 
 /* All new versions of Darwin have C99 functions.  */
+
 #define TARGET_C99_FUNCTIONS 1
 
 #define WINT_TYPE "int"
@@ -859,7 +863,20 @@ void add_framework_path (char *);
 /* Every program on darwin links against libSystem which contains the pthread
    routines, so there's no need to explicitly call out when doing threaded
    work.  */
+
 #undef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS ""
+
+/* Darwin can't support anchors until we can cope with the adjustments
+   to size that ASM_DECLARE_OBJECT_NAME and ASM_DECLARE_CONSTANT_NAME
+   when outputting members of an anchor block and the linker can be
+   taught to keep them together or we find some other suitable
+   code-gen technique.  */
+
+#if 0
+#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
+#else
+#define TARGET_ASM_OUTPUT_ANCHOR NULL
+#endif
 
 #endif /* CONFIG_DARWIN_H */

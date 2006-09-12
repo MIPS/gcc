@@ -412,7 +412,7 @@ expand_start_catch_block (tree decl)
 
   /* Make sure this declaration is reasonable.  */
   if (decl && !complete_ptr_ref_or_void_ptr_p (TREE_TYPE (decl), NULL_TREE))
-    decl = NULL_TREE;
+    decl = error_mark_node;
 
   if (decl)
     type = prepare_eh_type (TREE_TYPE (decl));
@@ -438,13 +438,13 @@ expand_start_catch_block (tree decl)
 
   /* If there's no decl at all, then all we need to do is make sure
      to tell the runtime that we've begun handling the exception.  */
-  if (decl == NULL)
+  if (decl == NULL || decl == error_mark_node)
     finish_expr_stmt (do_begin_catch ());
 
   /* If the C++ object needs constructing, we need to do that before
      calling __cxa_begin_catch, so that std::uncaught_exception gets
      the right value during the copy constructor.  */
-  else if (flag_use_cxa_get_exception_ptr 
+  else if (flag_use_cxa_get_exception_ptr
 	   && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
     {
       exp = do_get_exception_ptr ();
@@ -458,9 +458,16 @@ expand_start_catch_block (tree decl)
   else
     {
       tree init = do_begin_catch ();
-      exp = create_temporary_var (ptr_type_node);
+      tree init_type = type;
+
+      /* Pointers are passed by values, everything else by reference.  */
+      if (!TYPE_PTR_P (type))
+	init_type = build_pointer_type (type);
+      if (init_type != TREE_TYPE (init))
+	init = build1 (NOP_EXPR, init_type, init);
+      exp = create_temporary_var (init_type);
       DECL_REGISTER (exp) = 1;
-      cp_finish_decl (exp, init, /*init_const_expr=*/false, 
+      cp_finish_decl (exp, init, /*init_const_expr=*/false,
 		      NULL_TREE, LOOKUP_ONLYCONVERTING);
       initialize_handler_parm (decl, exp);
     }
@@ -598,7 +605,8 @@ build_throw (tree exp)
 
   if (processing_template_decl)
     {
-      current_function_returns_abnormally = 1;
+      if (cfun)
+	current_function_returns_abnormally = 1;
       return build_min (THROW_EXPR, void_type_node, exp);
     }
 
@@ -664,9 +672,9 @@ build_throw (tree exp)
 	  fn = push_throw_library_fn (fn, tmp);
 	}
 
-      /* [except.throw] 
-	 
-         A throw-expression initializes a temporary object, the type
+      /* [except.throw]
+
+	 A throw-expression initializes a temporary object, the type
 	 of which is determined by removing any top-level
 	 cv-qualifiers from the static type of the operand of throw
 	 and adjusting the type from "array of T" or "function return
@@ -702,7 +710,7 @@ build_throw (tree exp)
       if (CLASS_TYPE_P (temp_type))
 	{
 	  /* Call the copy constructor.  */
-	  exp = (build_special_member_call 
+	  exp = (build_special_member_call
 		 (object, complete_ctor_identifier,
 		  build_tree_list (NULL_TREE, exp),
 		  TREE_TYPE (object),
@@ -714,7 +722,7 @@ build_throw (tree exp)
 	    }
 	}
       else
-	exp = build2 (INIT_EXPR, temp_type, object, 
+	exp = build2 (INIT_EXPR, temp_type, object,
 		      decay_conversion (exp));
 
       /* Pre-evaluate the thrown expression first, since if we allocated
@@ -744,7 +752,7 @@ build_throw (tree exp)
       /* Wrap the initialization in a CLEANUP_POINT_EXPR so that cleanups
 	 for temporaries within the initialization are run before the one
 	 for the exception object, preserving LIFO order.  */
-      exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
+      exp = build1 (CLEANUP_POINT_EXPR, void_type_node, exp);
 
       if (elided)
 	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,

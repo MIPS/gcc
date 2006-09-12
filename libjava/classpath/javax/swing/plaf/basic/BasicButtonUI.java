@@ -72,7 +72,7 @@ public class BasicButtonUI extends ButtonUI
    * A constant added to the defaultTextIconGap to adjust the text
    * within this particular button.
    */
-  protected int defaultTextShiftOffset = 0;
+  protected int defaultTextShiftOffset;
 
   private int textShiftOffset;
 
@@ -268,10 +268,9 @@ public class BasicButtonUI extends ButtonUI
    */
   public Dimension getPreferredSize(JComponent c) 
   {
-    AbstractButton b = (AbstractButton)c;
-    Dimension d = 
-      BasicGraphicsUtils.getPreferredButtonSize
-      (b, defaultTextIconGap + defaultTextShiftOffset);
+    AbstractButton b = (AbstractButton) c;
+    Dimension d = BasicGraphicsUtils.getPreferredButtonSize(b, 
+        defaultTextIconGap + defaultTextShiftOffset);
     return d;
   }
 
@@ -443,13 +442,17 @@ public class BasicButtonUI extends ButtonUI
     if (b.isEnabled())
       {
         g.setColor(b.getForeground());
-        g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+        // FIXME: Underline mnemonic.
+        BasicGraphicsUtils.drawString(b, g, text, -1, textRect.x,
+                                      textRect.y + fm.getAscent());
       }
     else
       {
         String prefix = getPropertyPrefix();
         g.setColor(UIManager.getColor(prefix + "disabledText"));
-        g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+        // FIXME: Underline mnemonic.
+        BasicGraphicsUtils.drawString(b, g, text, -1, textRect.x,
+                                      textRect.y + fm.getAscent());
       }
   } 
 }

@@ -95,10 +95,29 @@ static int xascii_table[256];
 static gfc_expr *
 range_check (gfc_expr * result, const char *name)
 {
-  if (gfc_range_check (result) == ARITH_OK)
-    return result;
 
-  gfc_error ("Result of %s overflows its kind at %L", name, &result->where);
+  switch (gfc_range_check (result))
+    {
+      case ARITH_OK:
+	return result;
+ 
+      case ARITH_OVERFLOW:
+	gfc_error ("Result of %s overflows its kind at %L", name, &result->where);
+	break;
+
+      case ARITH_UNDERFLOW:
+	gfc_error ("Result of %s underflows its kind at %L", name, &result->where);
+	break;
+
+      case ARITH_NAN:
+	gfc_error ("Result of %s is NaN at %L", name, &result->where);
+	break;
+
+      default:
+	gfc_error ("Result of %s gives range error for its kind at %L", name, &result->where);
+	break;
+    }
+
   gfc_free_expr (result);
   return &gfc_bad_expr;
 }
@@ -1591,6 +1610,66 @@ gfc_simplify_int (gfc_expr * e, gfc_expr * k)
 }
 
 
+static gfc_expr *
+gfc_simplify_intconv (gfc_expr * e, int kind, const char *name)
+{
+  gfc_expr *rpart, *rtrunc, *result;
+
+  if (e->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (BT_INTEGER, kind, &e->where);
+
+  switch (e->ts.type)
+    {
+    case BT_INTEGER:
+      mpz_set (result->value.integer, e->value.integer);
+      break;
+
+    case BT_REAL:
+      rtrunc = gfc_copy_expr (e);
+      mpfr_trunc (rtrunc->value.real, e->value.real);
+      gfc_mpfr_to_mpz (result->value.integer, rtrunc->value.real);
+      gfc_free_expr (rtrunc);
+      break;
+
+    case BT_COMPLEX:
+      rpart = gfc_complex2real (e, kind);
+      rtrunc = gfc_copy_expr (rpart);
+      mpfr_trunc (rtrunc->value.real, rpart->value.real);
+      gfc_mpfr_to_mpz (result->value.integer, rtrunc->value.real);
+      gfc_free_expr (rpart);
+      gfc_free_expr (rtrunc);
+      break;
+
+    default:
+      gfc_error ("Argument of %s at %L is not a valid type", name, &e->where);
+      gfc_free_expr (result);
+      return &gfc_bad_expr;
+    }
+
+  return range_check (result, name);
+}
+
+gfc_expr *
+gfc_simplify_int2 (gfc_expr * e)
+{
+  return gfc_simplify_intconv (e, 2, "INT2");
+}
+
+gfc_expr *
+gfc_simplify_int8 (gfc_expr * e)
+{
+  return gfc_simplify_intconv (e, 8, "INT8");
+}
+
+gfc_expr *
+gfc_simplify_long (gfc_expr * e)
+{
+  return gfc_simplify_intconv (e, 4, "LONG");
+}
+
+
 gfc_expr *
 gfc_simplify_ifix (gfc_expr * e)
 {
@@ -2511,6 +2590,7 @@ gfc_simplify_not (gfc_expr * e)
 {
   gfc_expr *result;
   int i;
+  mpz_t mask;
 
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
@@ -2520,14 +2600,19 @@ gfc_simplify_not (gfc_expr * e)
   mpz_com (result->value.integer, e->value.integer);
 
   /* Because of how GMP handles numbers, the result must be ANDed with
-     the max_int mask.  For radices <> 2, this will require change.  */
+     a mask.  For radices <> 2, this will require change.  */
 
   i = gfc_validate_kind (BT_INTEGER, e->ts.kind, false);
 
-  mpz_and (result->value.integer, result->value.integer,
-	   gfc_integer_kinds[i].max_int);
+  mpz_init (mask);
+  mpz_add (mask, gfc_integer_kinds[i].huge, gfc_integer_kinds[i].huge);
+  mpz_add_ui (mask, mask, 1);
+
+  mpz_and (result->value.integer, result->value.integer, mask);
 
   twos_complement (result->value.integer, gfc_integer_kinds[i].bit_size);
+
+  mpz_clear (mask);
 
   return range_check (result, "NOT");
 }
@@ -3011,6 +3096,7 @@ gfc_simplify_rrspacing (gfc_expr * x)
   mpfr_init (absv);
   mpfr_init (frac);
   mpfr_init (pow2);
+  mpfr_init (exp);
 
   mpfr_abs (absv, x->value.real, GFC_RND_MODE);
   mpfr_log2 (log2, absv, GFC_RND_MODE);
@@ -3027,6 +3113,7 @@ gfc_simplify_rrspacing (gfc_expr * x)
   mpfr_clear (absv);
   mpfr_clear (frac);
   mpfr_clear (pow2);
+  mpfr_clear (exp);
 
   return range_check (result, "RRSPACING");
 }
@@ -3692,6 +3779,19 @@ gfc_simplify_tiny (gfc_expr * e)
   mpfr_set (result->value.real, gfc_real_kinds[i].tiny, GFC_RND_MODE);
 
   return result;
+}
+
+
+gfc_expr *
+gfc_simplify_transfer (gfc_expr * source, gfc_expr *mold, gfc_expr * size)
+{
+
+  /* Reference mold and size to suppress warning.  */
+  if (gfc_init_expr && (mold || size))
+    gfc_error ("TRANSFER intrinsic not implemented for initialization at %L",
+	       &source->where);
+
+  return NULL;
 }
 
 

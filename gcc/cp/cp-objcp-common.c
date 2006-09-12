@@ -185,6 +185,21 @@ cxx_types_compatible_p (tree x, tree y)
   return 0;
 }
 
+tree
+cxx_staticp (tree arg)
+{
+  switch (TREE_CODE (arg))
+    {
+    case BASELINK:
+      return staticp (BASELINK_FUNCTIONS (arg));
+
+    default:
+      break;
+    }
+  
+  return NULL_TREE;
+}
+
 /* Stubs to keep c-opts.c happy.  */
 void
 push_file_scope (void)
@@ -203,19 +218,19 @@ has_c_linkage (tree decl)
   return DECL_EXTERN_C_P (decl);
 }
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t shadowed_var_for_decl;
 
 /* Lookup a shadowed var for FROM, and return it if we find one.  */
 
-tree 
+tree
 decl_shadowed_for_var_lookup (tree from)
 {
   struct tree_map *h, in;
   in.from = from;
 
-  h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in, 
-                                               htab_hash_pointer (from));
+  h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in,
+					       htab_hash_pointer (from));
   if (h)
     return h->to;
   return NULL_TREE;

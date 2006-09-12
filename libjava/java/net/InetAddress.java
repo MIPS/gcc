@@ -536,7 +536,20 @@ public class InetAddress implements Serializable
       return new Inet4Address(addr, host);
 
     if (addr.length == 16)
-      return new Inet6Address(addr, host);
+      {
+	for (int i = 0; i < 12; i++)
+	  {
+	    if (addr[i] != (i < 10 ? 0 : (byte) 0xFF))
+	      return new Inet6Address(addr, host);
+	  }
+	  
+	byte[] ip4addr = new byte[4];
+	ip4addr[0] = addr[12];
+	ip4addr[1] = addr[13];
+	ip4addr[2] = addr[14];
+	ip4addr[3] = addr[15];
+	return new Inet4Address(ip4addr, host);
+      }
 
     throw new UnknownHostException("IP address has illegal length");
   }
@@ -592,36 +605,19 @@ public class InetAddress implements Serializable
     throws UnknownHostException
   {
     // If null or the empty string is supplied, the loopback address
-    // is returned. Note that this is permitted without a security check.
+    // is returned.
     if (hostname == null || hostname.length() == 0)
       return loopback;
-
-    SecurityManager s = System.getSecurityManager();
-    if (s != null)
-      s.checkConnect(hostname, -1);
 
     // Assume that the host string is an IP address
     byte[] address = aton(hostname);
     if (address != null)
-      {
-        if (address.length == 4)
-          return new Inet4Address (address, null);
-        else if (address.length == 16)
-          {
-	    if ((address [10] == 0xFF) && (address [11] == 0xFF))
-	      {
-		byte[] ip4addr = new byte [4];
-		ip4addr [0] = address [12];
-		ip4addr [1] = address [13];
-		ip4addr [2] = address [14];
-		ip4addr [3] = address [15];
-		return new Inet4Address (ip4addr, null);
-	      }
-            return new Inet6Address (address, null);
-	  }
-	else
-          throw new UnknownHostException ("Address has invalid length");
-      }
+      return getByAddress(address);
+
+    // Perform security check before resolving
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkConnect(hostname, -1);
 
     // Try to resolve the host by DNS
     InetAddress result = new InetAddress(null, null);
@@ -650,22 +646,19 @@ public class InetAddress implements Serializable
     throws UnknownHostException
   {
     // If null or the empty string is supplied, the loopback address
-    // is returned. Note that this is permitted without a security check.
+    // is returned.
     if (hostname == null || hostname.length() == 0)
       return new InetAddress[] {loopback};
-
-    SecurityManager s = System.getSecurityManager();
-    if (s != null)
-      s.checkConnect(hostname, -1);
 
     // Check if hostname is an IP address
     byte[] address = aton (hostname);
     if (address != null)
-      {
-	InetAddress[] result = new InetAddress [1];
-	result [0] = new InetAddress (address, null);
-	return result;
-      }
+      return new InetAddress[] {getByAddress(address)};
+
+    // Perform security check before resolving
+    SecurityManager s = System.getSecurityManager();
+    if (s != null)
+      s.checkConnect(hostname, -1);
 
     // Try to resolve the hostname by DNS
     return lookup (hostname, null, true);
@@ -713,7 +706,10 @@ public class InetAddress implements Serializable
     
     String hostname = getLocalHostname();
     
-    if (s != null)
+    if (hostname == null || hostname.length() == 0)
+      throw new UnknownHostException();
+
+    try
       {
 	// "The Java Class Libraries" suggests that if the security
 	// manager disallows getting the local host name, then
@@ -721,37 +717,22 @@ public class InetAddress implements Serializable
 	// However, the JDK 1.2 API claims to throw SecurityException,
 	// which seems to suggest SecurityException is *not* caught.
 	// In this case, experimentation shows that former is correct.
-	try
+	if (s != null)
 	  {
 	    // This is wrong, if the name returned from getLocalHostname()
 	    // is not a fully qualified name.  FIXME.
 	    s.checkConnect (hostname, -1);
 	  }
-	catch (SecurityException ex)
-	  {
-	    hostname = null;
-	  }
+
+	localhost = new InetAddress (null, null);
+	lookup (hostname, localhost, false);
       }
-    
-    if (hostname != null && hostname.length() != 0)
+    catch (Exception ex)
       {
-	try
-	  {
-	    localhost = new InetAddress (null, null);
-	    lookup (hostname, localhost, false);
-	  }
-	catch (Exception ex)
-	  {
-	    UnknownHostException failure = new UnknownHostException(hostname);
-	    failure.initCause(ex);
-	    throw failure;
-	  }
+	UnknownHostException failure = new UnknownHostException(hostname);
+	failure.initCause(ex);
+	throw failure;
       }
-    else
-      throw new UnknownHostException();
-    
-    if (localhost == null)
-      localhost = new InetAddress (loopbackAddress, "localhost");
   }
 
   /**

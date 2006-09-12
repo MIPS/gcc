@@ -33,12 +33,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-const.h"
 #include "trans-types.h"
 
-/* String constants.  */
-tree gfc_strconst_bounds;
-tree gfc_strconst_fault;
-tree gfc_strconst_wrong_return;
-tree gfc_strconst_current_filename;
-
 tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
 /* Build a constant with given type from an int_cst.  */
@@ -154,17 +148,6 @@ gfc_init_constants (void)
 
   for (n = 0; n <= GFC_MAX_DIMENSIONS; n++)
     gfc_rank_cst[n] = build_int_cst (gfc_array_index_type, n);
-
-  gfc_strconst_bounds = gfc_build_cstring_const ("Array bound mismatch");
-
-  gfc_strconst_fault =
-    gfc_build_cstring_const ("Array reference out of bounds");
-
-  gfc_strconst_wrong_return =
-    gfc_build_cstring_const ("Incorrect function return value");
-
-  gfc_strconst_current_filename =
-    gfc_build_cstring_const (gfc_source_file);
 }
 
 /* Converts a GMP integer into a backend tree node.  */
@@ -226,10 +209,30 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
   mp_exp_t exp;
   char *p, *q;
   int n;
+  REAL_VALUE_TYPE real;
 
   n = gfc_validate_kind (BT_REAL, kind, false);
 
   gcc_assert (gfc_real_kinds[n].radix == 2);
+
+  type = gfc_get_real_type (kind);
+
+  /* Take care of Infinity and NaN.  */
+  if (mpfr_inf_p (f))
+    {
+      real_inf (&real);
+      if (mpfr_sgn (f) < 0)
+	real = REAL_VALUE_NEGATE(real);
+      res = build_real (type , real);
+      return res;
+    }
+
+  if (mpfr_nan_p (f))
+    {
+      real_nan (&real, "", 0, TYPE_MODE (type));
+      res = build_real (type , real);
+      return res;
+    }
 
   /* mpfr chooses too small a number of hexadecimal digits if the
      number of binary digits is not divisible by four, therefore we
@@ -251,7 +254,6 @@ gfc_conv_mpfr_to_tree (mpfr_t f, int kind)
   else
     sprintf (q, "0x.%sp%d", p, (int) exp);
 
-  type = gfc_get_real_type (kind);
   res = build_real (type, REAL_VALUE_ATOF (q, TYPE_MODE (type)));
 
   gfc_free (q);

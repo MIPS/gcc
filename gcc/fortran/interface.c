@@ -217,6 +217,13 @@ gfc_match_interface (void)
 	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
+      if (sym->attr.dummy)
+	{
+	  gfc_error ("Dummy procedure '%s' at %C cannot have a "
+		     "generic interface", sym->name);
+	  return MATCH_ERROR;
+	}
+
       current_interface.sym = gfc_new_block = sym;
       break;
 
@@ -496,7 +503,12 @@ check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
   for (formal = intr->sym->formal; formal; formal = formal->next)
     {
       sym = formal->sym;
-
+      if (sym == NULL)
+	{
+	  gfc_error ("Alternate return cannot appear in operator "
+		     "interface at %L", &intr->where);
+	  return;
+	}
       if (args == 0)
 	{
 	  t1 = sym->ts.type;
@@ -522,6 +534,24 @@ check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
 	  gfc_error
 	    ("Assignment operator interface at %L must be a SUBROUTINE",
 	     &intr->where);
+	  return;
+	}
+      if (args != 2)
+	{
+	  gfc_error
+	    ("Assignment operator interface at %L must have two arguments",
+	     &intr->where);
+	  return;
+	}
+      if (sym->formal->sym->ts.type != BT_DERIVED
+	    && sym->formal->next->sym->ts.type != BT_DERIVED
+	    && (sym->formal->sym->ts.type == sym->formal->next->sym->ts.type
+		  || (gfc_numeric_ts (&sym->formal->sym->ts)
+			&& gfc_numeric_ts (&sym->formal->next->sym->ts))))
+	{
+	  gfc_error
+	    ("Assignment operator interface at %L must not redefine "
+	     "an INTRINSIC type assignment", &intr->where);
 	  return;
 	}
     }
@@ -1123,7 +1153,8 @@ compare_parameter (gfc_symbol * formal, gfc_expr * actual,
 	  && !compare_type_rank (formal, actual->symtree->n.sym))
 	return 0;
 
-      if (formal->attr.if_source == IFSRC_UNKNOWN)
+      if (formal->attr.if_source == IFSRC_UNKNOWN
+	    || actual->symtree->n.sym->attr.external)
 	return 1;		/* Assume match */
 
       return compare_interfaces (formal, actual->symtree->n.sym, 0);
@@ -1177,6 +1208,7 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 {
   gfc_actual_arglist **new, *a, *actual, temp;
   gfc_formal_arglist *f;
+  gfc_gsymbol *gsym;
   int i, n, na;
   bool rank_check;
 
@@ -1272,6 +1304,35 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	{
 	  if (where)
 	    gfc_error ("Type/rank mismatch in argument '%s' at %L",
+		       f->sym->name, &a->expr->where);
+	  return 0;
+	}
+
+      /* Satisfy 12.4.1.2 by ensuring that a procedure actual argument is
+	 provided for a procedure formal argument.  */
+      if (a->expr->ts.type != BT_PROCEDURE
+	  && a->expr->expr_type == EXPR_VARIABLE
+	  && f->sym->attr.flavor == FL_PROCEDURE)
+	{
+	  gsym = gfc_find_gsymbol (gfc_gsym_root,
+				   a->expr->symtree->n.sym->name);
+	  if (gsym == NULL || (gsym->type != GSYM_FUNCTION
+		&& gsym->type != GSYM_SUBROUTINE))
+	    {
+	      if (where)
+		gfc_error ("Expected a procedure for argument '%s' at %L",
+			   f->sym->name, &a->expr->where);
+	      return 0;
+	    }
+	}
+
+      if (f->sym->attr.flavor == FL_PROCEDURE
+	    && f->sym->attr.pure
+	    && a->expr->ts.type == BT_PROCEDURE
+	    && !a->expr->symtree->n.sym->attr.pure)
+	{
+	  if (where)
+	    gfc_error ("Expected a PURE procedure for argument '%s' at %L",
 		       f->sym->name, &a->expr->where);
 	  return 0;
 	}
