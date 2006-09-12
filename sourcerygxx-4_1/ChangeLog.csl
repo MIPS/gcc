@@ -1,3 +1,15 @@
+2006-09-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+	gcc/testsuite/
+	* lib/c-torture.exp (c-torture-compile, c-torture-execute):
+	Treat $srcdir as a literal.
+	* lib/fortran-torture.exp (fortran-torture-compile,
+	fortran-torture-execute): Likewise.
+	* lib/objc-torture.exp (objc-torture-compile,
+	objc-torture-execute): Likewise.
+	* lib/profopt.exp (profopt-execute): Likewise.
+
 2006-09-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
