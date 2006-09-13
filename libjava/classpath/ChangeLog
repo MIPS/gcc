@@ -1,3 +1,14 @@
+2006-09-13  Andrew Haley  <aph@redhat.com>
+
+	* external/jsr166/java/util/concurrent/atomic/AtomicIntegerFieldUpdater.java:
+	Revert previous gcj-specific disabling of checks.
+	* external/jsr166/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java
+	* classpath/external/jsr166/java/util/concurrent/atomic/AtomicLongFieldUpdater.java
+
+	* java/util/PriorityQueue.java: Throw IllegalArgumentException for
+	capacity < 1.
+	(Iterator.remove()): Decrement index after removing element.
+
 2006-08-09  Mark Wielaard  <mark@klomp.org>
 
 	* configure.ac (VERSION): Set to 0.92-generics.

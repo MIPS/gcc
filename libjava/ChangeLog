@@ -1,3 +1,12 @@
+2006-09-13  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am: Add sun/reflect/natReflection.cc.
+	* Makefile.in: Rebuild.
+	* sun/reflect/natReflection.cc: New file.
+	* sun/reflect/Reflection.java (getCallerClass): Now native.
+	* stacktrace.cc (GetClassContext): Don't check the class if
+	checkClass is NULL.
+	
 2006-09-12  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/Thread.java (alive_flag): Make it a byte.

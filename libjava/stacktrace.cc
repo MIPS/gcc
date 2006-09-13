@@ -464,7 +464,7 @@ _Jv_StackTrace::GetClassContext (jclass checkClass)
 
   // Count the number of Java frames on the stack.
   int jframe_count = 0;
-  bool seen_checkClass = false;
+  bool seen_checkClass = checkClass == NULL;
   int start_pos = -1;
   for (int i = 0; i < state.pos; i++)
     {

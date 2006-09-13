@@ -725,7 +725,8 @@ java/util/concurrent/atomic/natAtomicLong.cc \
 java/util/logging/natLogger.cc \
 java/util/zip/natDeflater.cc \
 java/util/zip/natInflater.cc \
-sun/misc/natUnsafe.cc
+sun/misc/natUnsafe.cc \
+sun/reflect/natReflection.cc
 
 xlib_nat_source_files = \
 gnu/gcj/xlib/natClip.cc \

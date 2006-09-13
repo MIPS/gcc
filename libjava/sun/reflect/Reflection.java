@@ -45,10 +45,6 @@ public class Reflection
   /**
    * A stack-walking wrapper method used by the JSR 166 RI. 
    */
-  public static Class getCallerClass(int depth)
-  {
-    // GCJ LOCAL - We don't have VMStackWalker yet.
-    // return VMStackWalker.getClassContext()[depth];
-    return null;
-  }
+  public static native Class getCallerClass(int depth);
 }
+
