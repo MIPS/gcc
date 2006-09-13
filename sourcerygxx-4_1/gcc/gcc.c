@@ -3274,6 +3274,11 @@ process_command (int argc, const char **argv)
       gcc_libexec_prefix = make_relative_prefix (tmp_prefix,
 						 standard_exec_prefix,
 						 standard_libexec_prefix);
+
+      /* The path is unrelocated, so fallback to the original setting.  */
+      if (!gcc_libexec_prefix)
+	gcc_libexec_prefix = standard_libexec_prefix;
+
       free (tmp_prefix);
     }
 #else
