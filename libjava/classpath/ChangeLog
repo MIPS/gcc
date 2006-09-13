@@ -2,8 +2,12 @@
 
 	* external/jsr166/java/util/concurrent/atomic/AtomicIntegerFieldUpdater.java:
 	Revert previous gcj-specific disabling of checks.
-	* external/jsr166/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java
-	* classpath/external/jsr166/java/util/concurrent/atomic/AtomicLongFieldUpdater.java
+	* external/jsr166/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java:
+	Likewise.
+	* classpath/external/jsr166/java/util/concurrent/atomic/AtomicLongFieldUpdater.java:
+	Likewise.
+
+2006-09-13  Andrew Haley  <aph@redhat.com>
 
 	* java/util/PriorityQueue.java: Throw IllegalArgumentException for
 	capacity < 1.
