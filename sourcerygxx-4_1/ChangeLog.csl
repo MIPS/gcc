@@ -1,6 +1,13 @@
+2006-09-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_tls,
+	check_effective_target_tls_runtime): Remove bogus second definitions.
+
 2006-09-13  Carlos O'Donell  <carlos@codesourcery.com>
 
-	* gcc/gcc.c (process_command): Use standard_libexec_prefix
+	gcc/
+	* gcc.c (process_command): Use standard_libexec_prefix
 	as a fallback for gcc_libexec_prefix. 
 
 2006-09-12  Kazu Hirata  <kazu@codesourcery.com>
