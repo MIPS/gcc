@@ -1,3 +1,97 @@
+2006-09-15  Andrew MacLeod  <amacleod@redhat.com>
+
+	* opts.c (decode_options): Remove flag_tree_live_range_split.
+	* tree-ssa-live.c (var_map_base_init): New.  Initialize a basevar list.
+	(var_map_base_fini): New.  Finish a basevar list.
+	(init_var_map): Initialize new fields.
+	(delete_var_map): Free new fields.
+	(var_union): Use renamed fields.
+	(partition_to_view_init): Use renamed fields, change order of an if.
+	(partition_view_fini): Use renamed fields.
+	(partition_view_normal): Create basevar list if requested.
+	(partition_view_no_single_version): Remove.
+	(partition_view_coalesce): New.  Create coalescable partitions view.
+	(change_partition_var): Use renamed fields.
+	(create_ssa_var_map): Remove.
+	(tpa_init, tpa_remove_partition, tpa_delete, tpa_compact, 
+	root_var_init): Remove.
+	(partition_pair_map_hash, partition_pair_map_eq): Use renamed fields.
+	(create_coalesce_list): Remove add_mode, add present bitmap.
+	(delete_colaesce_list): Free present bitmap.
+	(find_coalesce_pair): Renamed from find_partition_pair. Use new field
+	names.
+	(add_coalesce_cost): Use new names, allow for MAX_COALESCE_COST.
+	(compare_pairs): Use new names.
+	(coalesce_pair_iterator): Renamed from partition_pair_iterator.
+	(first_coalesce_pair): Renamed from first_partition_pair.
+	(end_coalesce_pair_p): Renamed from end_partition_pair_p.
+	(next_coalesce_pair): Renamed from next_partition_pair.
+	(sort_coalesce_list): Use new names.
+	(pop_best_coalesce): Moved to tree-ssa-live.h
+	(add_conflicts_if_valid, set_if_valid, build_tree_conflict_graph,
+	coalesce_tpa_members): Remove.
+	(dump_coalesce_list): Use renamed fields.
+	(tpa_dump): Remove.
+	(dump_var_map): Use renamed fields.
+	* tree-ssa-live.h (struct _var_map): Rename some fields, add basevar
+	fields.
+	(partition_to_var, version_to_var, var_to_partition): Use renamed 
+	fields.
+	(basevar_index): New.  Index of the base variable of a partition.
+	(num_basevars): New.  Number of unique base variables in partition map.
+	(register_ssa_partition): Use renamed fields.
+	(struct tree_partition_associator_d): Remove.
+	(tpa_num_trees, tpa_tree, tpa_first_partition, tpa_next_partition,
+	tpa_find_tree, tpa_decompact, root_var_init, root_var_num,
+	root_var, root_var_first_partition, root_var_next_partition,
+	root_var_dump, root_var_delete, root_var_remove_partition, 
+	root_var_find, root_var_compact, root_var_decompact): Remove.
+	(struct coalesce_pair): Rename from struct partition_pair.
+	(struct coalesce_list_d): Remove add_mode.
+	(MUST_COALESCE_COST): New.  Highest coalesce cost possible.
+	(version_in_coalesce_list_p): New.  Check if ssa_name is in list.
+	(coalesce_cost_bb): New.  Calculate coalesce cost for copy in BB.
+	(coalesce_cost_edge): New.  Coalesce cost for copy on an edge.
+	(pop_best_coalesce): Moved from tree-ssa-live.c. Use renamed fields.
+	* common.opt (-ftree-lrs): Remove live range splitting option.
+	* tree-outof-ssa.c (print_exprs_edge, coalesce_abnormal_edges,
+	coalesce_phi_operands, coalesce_result_decls_and_copies,
+	coalesce_asm_operands): Remove.
+	(abnormal_corrupt): New.  Non-coalescable value fail on abnormal edges.
+	(create_outofssa_var_map): New.  Create var map & coalesce list.
+	(struct live_track_d): New.  Struct for tracking live partitions.
+	(new_live_track): New.  Create new live_track object.
+	(delete_live_track): New.  Delete a live_track object.
+	(live_track_clear_var): New.  Take VAR from the live list.
+	(live_track_live_p): New.  Is var live?
+	(live_track_process_use): New.  Make var come alive.
+	(live_track_process_def): New. Make var go dead, add conflicts.
+	(live_track_init): New.  Initialize to a live on exit set.
+	(live_track_add_conflicts): New.  Add conflicts between all live vars.
+	(build_ssa_conflict_graph): New.  Build a conflict graph.
+	(fail_abnormal_edge_coalesce): New.  Report abnormal edge non-coalesces.
+	(coalesce_partitions): New.  Coalesce partitions together.
+	(coalesce_ssa_name): Use new routines/algorithm.
+	(assign_vars): Use Basevar instead of root_var structure.
+	(replace_def_variable): Dont do anything if def is replaceable.
+	(struct temp_expr_table_d, new_temp_expr_table, free_temp_expr_table,
+	add_value_to_version_list, add_value_to_partition_list, 
+	remove_value_from_partition_list, add_dependence, check_replaceable,
+	finish_expr, mark_replaceable, kill_expr, kill_virtual_exprs,
+	find_replaceable_in_bb, find_replaceable_exprs, 
+	dump_replaceable_exprs): Move to tree-ssa-ter.c
+	(remove_ssa_form): Integrate functional changes.
+	(rewrite_out_of_ssa): Remove live-range_split option.
+	* tree-flow.h (struct var_ann_d): Rename fields fromroot_var_ to base_.
+	* Makefile.in: Add new file tree-ssa-ter.c
+	* tree-ssa-ter.c: New File.
+	(struct temp_expr_table_d, new_temp_expr_table, free_temp_expr_table, 
+	add_value_to_version_list, add_value_to_partition_list, 
+	remove_value_from_partition_list, add_dependence, check_replaceable, 
+	finish_expr, mark_replaceable, kill_expr, kill_virtual_exprs, 
+	find_replaceable_in_bb, find_replaceable_exprs, 
+	dump_replaceable_exprs): Move from tree-outof-ssa.c
+
 2006-08-30  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-live.c (compact_var_map): Remove.
