@@ -1,3 +1,29 @@
+2006-09-14  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_read_variable_formal_parameter_const): Don't
+	pass PARM_DECLs or CONST_DECLs to rest_of_decl_compilation.
+	(lto_read_subroutine_type_subprogram_DIE): Fix precedence problem
+	in computing parameter array length.  Make body const.  Initialize
+	name_str before using it.
+
+	* gcc/lto/Make-lang.in (lto/lto-elf.o): Add dependency on lto-tags.h.
+
+	* gcc/lto/lto-elf.c: Include lto-tags.h.
+	(struct lto_elf_file): Add bits and string_table_section_index, to
+	cache info needed by lto_elf_find_section_data.
+	(lto_elf_find_section_data): New.
+	(lto_elf_file_open): Refactored to use lto_elf_find_section_data
+	to look up the .debug_info and .debug_abbrev sections.
+	(lto_elf_map_fn_body): Make return type const.  Use
+	lto_elf_find_section_data to find the data.
+	(lto_elf_unmap_fn_body): Make data parameter const.
+
+	* gcc/lto/lto.h (struct lto_file_vtable): Make return type of
+	map_fn_body and data parameter to unmap_fn_body const.
+
+	* gcc/lto/lto-symtab.c (lto_symtab_merge_var): Don't complain if
+	it gets a PARM_DECL or CONST_DECL instead of a VAR_DECL.
+
 2006-09-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_read_base_type_DIE): Add support for char,
