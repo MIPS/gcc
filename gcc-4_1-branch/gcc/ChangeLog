@@ -1,3 +1,128 @@
+2006-09-14  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/28493
+	* builtins.c (expand_builtin_setjmp_receiver): Clobber
+	hard_frame_pointer_rtx after using it to update the frame pointer.
+
+2006-09-14  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/26504
+	* config/avr/avr.h (FRAME_POINTER_CFA_OFFSET): Define.
+
+2006-09-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi (mpreferred-stack-boundary): Remove exception
+	for -Os. Update __m128 alignment requirement.
+
+2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28243
+	* combine.c (distribute_notes) <REG_DEAD>: Do not consider SETs past
+	the insn to which the note was originally attached.
+
+2006-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/13685
+	PR target/27537
+	PR target/28621
+	* config/i386/i386.c (override_options): Always default to 16
+	byte stack boundary.
+
+2006-09-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28726
+	* sched-deps.c (sched_analyze_reg): New function extracted from...
+	(sched_analyze_1): ...here.  Call it to analyze references to
+	registers.  Treat again writes to a stack register as writing to the
+	register.
+	(sched_analyze_2): ...and here.  Call it to analyze references to
+	registers.  Treat again reads of a stack register as reading the
+	register.
+
+2006-09-11  Hideki Iwamoto  <h-iwamoto@kit.hi-ho.ne.jp>
+
+	* doc/cpp.texi: Fix names of charset options.
+
+2006-09-10  Roger Sayle  <roger@eyesopen.com>
+	    Nicolas Setton <setton@adacore.com>
+
+	Backport from mainline
+	* dwarf2out.c (convert_cfa_to_fb_loc_list): Handle DW_CFA_set_loc.
+
+2006-09-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28636
+	* combine.c (force_to_mode): Test for side-effects before
+	substituting by zero.
+	(simplify_shift_const): Likewise for zero or other constants.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/29006
+	* config/mips/mips-protos.h (mips_mem_fits_mode_p): Declare.
+	* config/mips/mips.c (mips_expand_unaligned_store): Use the mode
+	returned by mode_for_size, rather than the mode of src itself,
+	to choose between 32-bit and 64-bit patterns.
+	(mips_mem_fits_mode_p): New function.
+	* config/mips/mips.md (mov_<load>l, mov_<load>r): Use it to check
+	that the size of the source matches the size of the destination.
+	(mov_<store>l, mov_<store>r): Likewise.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/27681
+
+	Backport from mainline:
+
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* libgcc2.c (LIBGCC2_MAX_UNITS_PER_WORD): New macro.
+	(LIBGCC2_UNITS_PER_WORD): Use LIBGCC2_MAX_UNITS_PER_WORD rather than
+	MIN_UNITS_PER_WORD to set the default.  Also use it in the guard.
+
+	2006-05-22  Richard Sandiford  <richard@codesourcery.com>
+
+	* mklibgcc.in (lib2funcs): Remove _floatdidf from initial assignment.
+
+	2006-05-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* libgcc2.c (MIN_UNITS_PER_WORD): Move default definition from
+	libgcc2.h.
+	(LIBGCC2_UNITS_PER_WORD): Provide default definition, using old
+	MIN_UNITS_PER_WORD logic from libgcc2.h.  Do nothing if
+	LIBGCC2_UNITS_PER_WORD > MIN_UNITS_PER_WORD.
+	* libgcc2.h (MIN_UNITS_PER_WORD): Remove definition from here.
+	Use LIBGCC2_UNITS_PER_WORD rather than MIN_UNITS_PER_WORD to
+	determine the size of Wtype, etc.
+	* mklibgcc.in (LIB2_SIDITI_CONV_FUNCS): New argument.
+	(swfloatfuncs): New variable.
+	(dwfloatfuncs): Likewise.
+	(lib2funcs): Remove floating-point conversion functions from
+	initial assignment.  Use LIB2_SIDITI_CONV_FUNCS to determine
+	the set of conversion routines needed.  Allow entries to specify
+	an object name, filename and word size.  Update users accordingly.
+	* Makefile.in (libgcc.mk): Pass LIB2_SIDITI_CONV_FUNCS.
+	* config/mips/t-mips (LIB2_SIDITI_CONV_FUNCS): Define.
+
+	Revert:
+
+	2006-02-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/22209
+	* config/fixtfdi.c: New libgcc source file.
+	* config/fixunstfdi.c: New source file.
+	* config/floatditf.c: New source file.
+	* config/floatunditf.c: New souce file.
+	* config/mips/t-iris6 (LIB2FUNCS_EXTRA): Include the new source
+	files above instead of config/mips/_tilib.c.
+	* config/mips/t-linux64 (LIB2FUNCS_EXTRA): Likewise.
+
+2006-09-09  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/28634
+	* reorg.c (fill_slots_from_thread): Do not assume A + X - X == A
+	for floating-point modes unless flag_unsafe_math_optimizations.
+
 2006-09-07  Jason Merrill  <jason@redhat.com>
 
 	PR middle-end/27724

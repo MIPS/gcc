@@ -37,29 +37,16 @@ include(iparm.m4)dnl
 
 `#if defined (HAVE_'rtype_name`)'
 
-/* The order of loops is different in the case of plain matrix
-   multiplication C=MATMUL(A,B), and in the frequent special case where
-   the argument A is the temporary result of a TRANSPOSE intrinsic:
-   C=MATMUL(TRANSPOSE(A),B).  Transposed temporaries are detected by
-   looking at their strides.
-
-   The equivalent Fortran pseudo-code is:
+/* This is a C version of the following fortran pseudo-code. The key
+   point is the loop order -- we access all arrays column-first, which
+   improves the performance enough to boost galgel spec score by 50%.
 
    DIMENSION A(M,COUNT), B(COUNT,N), C(M,N)
-   IF (.NOT.IS_TRANSPOSED(A)) THEN
-     C = 0
-     DO J=1,N
-       DO K=1,COUNT
-         DO I=1,M
-           C(I,J) = C(I,J)+A(I,K)*B(K,J)
-   ELSE
-     DO J=1,N
+   C = 0
+   DO J=1,N
+     DO K=1,COUNT
        DO I=1,M
-         S = 0
-         DO K=1,COUNT
-           S = S+A(I,K)+B(K,J)
-         C(I,J) = S
-   ENDIF
+         C(I,J) = C(I,J)+A(I,K)*B(K,J)
 */
 
 extern void matmul_`'rtype_code (rtype * const restrict retarray, 
@@ -221,22 +208,39 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
     }
   else if (rxstride == 1 && aystride == 1 && bxstride == 1)
     {
-      const rtype_name *restrict abase_x;
-      const rtype_name *restrict bbase_y;
-      rtype_name *restrict dest_y;
-      rtype_name s;
-
-      for (y = 0; y < ycount; y++)
+      if (GFC_DESCRIPTOR_RANK (a) != 1)
 	{
-	  bbase_y = &bbase[y*bystride];
-	  dest_y = &dest[y*rystride];
-	  for (x = 0; x < xcount; x++)
+	  const rtype_name *restrict abase_x;
+	  const rtype_name *restrict bbase_y;
+	  rtype_name *restrict dest_y;
+	  rtype_name s;
+
+	  for (y = 0; y < ycount; y++)
 	    {
-	      abase_x = &abase[x*axstride];
+	      bbase_y = &bbase[y*bystride];
+	      dest_y = &dest[y*rystride];
+	      for (x = 0; x < xcount; x++)
+		{
+		  abase_x = &abase[x*axstride];
+		  s = (rtype_name) 0;
+		  for (n = 0; n < count; n++)
+		    s += abase_x[n] * bbase_y[n];
+		  dest_y[x] = s;
+		}
+	    }
+	}
+      else
+	{
+	  const rtype_name *restrict bbase_y;
+	  rtype_name s;
+
+	  for (y = 0; y < ycount; y++)
+	    {
+	      bbase_y = &bbase[y*bystride];
 	      s = (rtype_name) 0;
 	      for (n = 0; n < count; n++)
-		s += abase_x[n] * bbase_y[n];
-	      dest_y[x] = s;
+		s += abase[n*axstride] * bbase_y[n];
+	      dest[y*rystride] = s;
 	    }
 	}
     }
@@ -251,6 +255,20 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 	  for (x = 0; x < xcount; x++)
 	    /* dest[x,y] += a[x,n] * b[n,y] */
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
+    }
+  else if (GFC_DESCRIPTOR_RANK (a) == 1)
+    {
+      const rtype_name *restrict bbase_y;
+      rtype_name s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  s = (rtype_name) 0;
+	  for (n = 0; n < count; n++)
+	    s += abase[n*axstride] * bbase_y[n*bxstride];
+	  dest[y*rxstride] = s;
+	}
     }
   else
     {
