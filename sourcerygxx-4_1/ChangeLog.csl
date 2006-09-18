@@ -4,6 +4,9 @@
 	* config/m68k/m68k.c (m68k_output_function_epilogue): Use
 	current_function_is_leaf instead of leaf_function_p.
 
+	gcc/
+	* config/m68k/m68k.md (D0_REG, A1_REG, PIC_REG, FP0_REG): New.
+
 2006-09-14  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
