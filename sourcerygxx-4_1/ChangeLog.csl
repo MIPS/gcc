@@ -7,6 +7,17 @@
 	gcc/
 	* config/m68k/m68k.md (D0_REG, A1_REG, PIC_REG, FP0_REG): New.
 
+	gcc/
+	* calls.c (expand_call): If the return value is a PARALLEL,
+	extract its first member.
+	* config/m68k/linux.h (FUNCTION_EXTRA_EPILOGUE): Remove.
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	use FUNCTION_EXTRA_EPILOGUE.
+	(m68k_function_value): Return a PARALLEL
+	if the return value is of a pointer type.
+	* config/m68k/netbsd-elf.h (current_function_returns_pointer,
+	FUNCTION_EXTRA_EPILOGUE): Remove.
+
 2006-09-14  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
