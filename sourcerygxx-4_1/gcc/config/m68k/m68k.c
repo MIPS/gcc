@@ -1174,11 +1174,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 
   fsize = current_frame.size;
 
-  /* FIXME : leaf_function_p below is too strong.
+  /* FIXME : current_function_is_leaf below is too strong.
      What we really need to know there is if there could be pending
      stack adjustment needed at that point.  */
   restore_from_sp = ! frame_pointer_needed
-	     || (! current_function_calls_alloca && leaf_function_p ());
+	     || (! current_function_calls_alloca && current_function_is_leaf);
 
   /* fsize_with_regs is the size we need to adjust the sp when
      popping the frame.  */
