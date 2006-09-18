@@ -1,3 +1,17 @@
+2006-09-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_find_integral_type): Add explicit int cast to
+	hush compiler warning.
+	(lto_read_variable_formal_parameter_const): Clean up handling of
+	formal parameters and constants.  Only VAR_DECLs need to be merged.
+	(lto_read_subroutine_type_subprogram_DIE): Keep track of inlined flag.
+
+	* gcc/lto/lto-symtab.c (lto_same_type_p): Fill in the function.
+	(lto_merge_types): New.
+	(lto_symtab_merge_decl): Split out from lto_symtab_merge_var,
+	and generalize to handle function decls as well.
+	(lto_symtab_merge_var, lto_symtab_merge_fn): Use lto_symtab_merge_decl.
+
 2006-09-14  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_read_variable_formal_parameter_const): Don't

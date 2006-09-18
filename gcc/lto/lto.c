@@ -1213,7 +1213,7 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
   else if (got_byte_size
 	   && nbits != tree_low_cst (TYPE_SIZE (base_type), 1))
     sorry ("size of base type (%d bits) doesn't match specified size (%d bits)",
-	   tree_low_cst (TYPE_SIZE (base_type), 1),
+	   (int) tree_low_cst (TYPE_SIZE (base_type), 1),
 	   nbits);
   return base_type;
 }
@@ -1722,13 +1722,21 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
       code = PARM_DECL;
       break;
     case DW_TAG_constant:
-      code = CONST_DECL;
+      /* GCC doesn't have a distinct tree representation for this, and never
+	 generates this DWARF tag.  (CONST_DECL is only for enumerators.)
+	 Do something reasonable if we see one.  */
+      code = VAR_DECL;
       break;
     default:
       gcc_unreachable ();
       break;
     }
   decl = build_decl (code, name, type);
+
+  /* Parameter decls never have external linkage, never need merging, etc.  */
+  if (code == PARM_DECL)
+    return decl;
+
   TREE_PUBLIC (decl) = external;
   DECL_EXTERNAL (decl) = declaration;
   if (!context->scope || TREE_CODE (context->scope) != FUNCTION_DECL)
@@ -1743,13 +1751,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
      declarations.  */
   decl = lto_symtab_merge_var (decl);
   /* Let the middle end know about the new entity.  */
-  if (decl != error_mark_node
-      && TREE_CODE (decl) == VAR_DECL)
-    /* rest_of_decl_compilation won't handle PARM_DECLs or CONST_DECLs.
-       PARM_DECLs ought to be handled with their respective FUNCTION_DECL.
-       GCC never generates DW_TAG_constant, and otherwise uses CONST_DECL
-       only for enumeration constants, which are stored in the DWARF file
-       in a completely different way.  */
+  if (decl != error_mark_node)
     rest_of_decl_compilation (decl,
 			      /*top_level=*/1,
 			      /*at_end=*/0);
@@ -1773,6 +1775,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   unsigned i;
   bool prototyped;
   tree result;
+  int inlined = DW_INL_not_inlined;
 
   gcc_assert (abbrev->tag == DW_TAG_subroutine_type
 	      || abbrev->tag == DW_TAG_subprogram);
@@ -1832,6 +1835,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	case DW_AT_prototyped:
 	  prototyped = attr_data.u.flag;
 	  break;
+
+	case DW_AT_inline:
+	  inlined = attribute_value_as_int (&attr_data);
+	  break;
+	  
 	}
       LTO_END_READ_ATTRS ();
     }
@@ -1887,6 +1895,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	}
       else
 	DECL_EXTERNAL (result) = 1;
+      if (inlined == DW_INL_declared_inlined
+	  || inlined == DW_INL_declared_not_inlined)
+	DECL_DECLARED_INLINE_P (result) = 1;
+
       /* If the function has already been declared, merge the
 	 declarations.  */
       result = lto_symtab_merge_fn (result);
