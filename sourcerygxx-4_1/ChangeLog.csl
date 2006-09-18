@@ -1,3 +1,22 @@
+2006-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k-cores.def: Add CORE_FAMILY setting.  Add
+	synonyms for members of a family.
+	* config/m68k/m68k-protos.h (m68k_cpp_cpu_ident,
+	m68k_cpp_cpu_family): Declare.
+	* config/m68k/m68k.c (struct processors): Add family member.
+	(all_cores): Adjust.
+	(all_architectures, all_tunings): Adjust.
+	(current_cpu): New.
+	(override_options): Set current_cpu.
+	(m68k_cpp_cpu_ident, m68k_cpp_cpu_family): New.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define cpu's ident
+	and family.
+	(processor_type, target_cpus): Adjust.
+	* doc/invoke.texi (M680x0 Options): Document new cpus.  Document
+	new #defines.
+
 2006-09-18  Kazu Hirata  <kazu@codesourcery.com>
 
 	gcc/

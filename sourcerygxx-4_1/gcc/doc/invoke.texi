@@ -9830,13 +9830,31 @@ usually want to provide either an @option{-mcpu=} or @option{-march=}
 option, but not both.  If you give both, the @option{-mcpu=} will be
 used.  M680x0 cpus are: @samp{68000}, @samp{68010}, @samp{68020},
 @samp{68030}, @samp{68040}, @samp{68060}, @samp{68302}, @samp{68332}
-and @samp{cpu32}.  Coldfire cpus are: @samp{5202}, @samp{5204}
-@samp{5206}, @samp{5206e}, @samp{5207}, @samp{5208}, @samp{5211},
-@samp{5212}, @samp{5213}, @samp{5214}, @samp{5216}, @samp{52235},
-@samp{5225}, @samp{523x}, @samp{5249}, @samp{5250}, @samp{5270},
-@samp{5271}, @samp{5272}, @samp{5274}, @samp{5275}, @samp{528x},
-@samp{5307}, @samp{532x}, @samp{537x}, @samp{5407}, @samp{547x} and
-@samp{548x}.
+and @samp{cpu32}.  Coldfire cpus are:
+@samp{5202}, @samp{5204} @samp{5206}, @samp{5206e},
+@samp{5207}, @samp{5208},
+@samp{5210a}, @samp{5211a},
+@samp{5211}, @samp{5212}, @samp{5213},
+@samp{5214}, @samp{5216},
+@samp{52230}, @samp{52231}, @samp{52232}, @samp{52233}, @samp{52234},
+@samp{52235},
+@samp{5224}, @samp{5225},
+@samp{5232}, @samp{5233}, @samp{5234}, @samp{5235}, @samp{523x},
+@samp{5249}, @samp{5250},
+@samp{5270}, @samp{5271}, @samp{5272}, @samp{5274}, @samp{5275},
+@samp{5280}, @samp{5281}, @samp{5282}, @samp{528x},
+@samp{5307},
+@samp{5327}, @samp{5328}, @samp{5329}, @samp{532x},
+@samp{5372}, @samp{5373}, @samp{537x},
+@samp{5407},
+@samp{5470}, @samp{5471}, @samp{5472}, @samp{5473}, @samp{5474},
+@samp{5475}, @samp{547x} and
+@samp{5480}, @samp{5481}, @samp{5482}, @samp{5483}, @samp{5484}, @samp{5485},
+@samp{548x}.  When a Coldfire cpu is targetted, two
+preprocessor macros are defined.  One is of the form
+@samp{__mcf_cpu_NNNN} and indicates which @var{cpu} has been
+selected.  The other is of the form @samp{__mcf_family_NNNN} and
+indicates to which family of cpus the selected cpu belongs.
 
 @item -mtune=@var{tune}
 @opindex mtune

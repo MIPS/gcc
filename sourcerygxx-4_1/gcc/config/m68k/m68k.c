@@ -299,8 +299,9 @@ enum m68k_isa
 
 struct processors
 {
-  const char *const name;
+  const char *name;
   enum processor_type core;
+  const char *family;
   enum uarch_type microarch;
   enum m68k_isa isa;
   const unsigned long flags;
@@ -309,11 +310,11 @@ struct processors
 static const struct processors all_cores[] =
 {
   /* m68k cores.  */
-#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
-  { NAME, IDENT, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
+#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
+  { NAME, IDENT, FAMILY, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
 #include "m68k-cores.def"
 #undef M68K_CORE
-  { NULL, unk_proc, unk_arch, isa_max, 0 }
+  { NULL, unk_proc, NULL, unk_arch, isa_max, 0 }
 };
 
 /* Note that arch settings specify the minimum set of flags to enable running
@@ -322,37 +323,37 @@ static const struct processors all_cores[] =
 
 static const struct processors all_architectures[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,    FL_FOR_isa_00 },
-  { "68010",    m68010,   u68000,   isa_00,    FL_FOR_isa_00 },
-  { "68020",    m68020,   u68020,   isa_20,    FL_FOR_isa_20 },
-  { "68030",    m68030,   u68020,   isa_20,    FL_FOR_isa_20 },
-  { "68040",    m68040,   u68040,   isa_40,    FL_FOR_isa_40 },
-  { "68060",    m68060,   u68060,   isa_60,    FL_FOR_isa_60 },
-  { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
-  { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_FOR_isa_a | FL_CF_HWDIV },
-  { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_FOR_isa_aplus
+  { "68000",    m68000,   NULL,    u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68010",    m68010,   NULL,    u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68020",    m68020,   NULL,    u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68030",    m68030,   NULL,    u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68040",    m68040,   NULL,    u68040,   isa_40,    FL_FOR_isa_40 },
+  { "68060",    m68060,   NULL,    u68060,   isa_60,    FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    NULL,    ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
+  { "isaa",     mcf5206e, NULL,    ucfv2,    isa_a,     FL_FOR_isa_a | FL_CF_HWDIV },
+  { "isaaplus", mcf5271,  NULL,    ucfv2,    isa_aplus, FL_FOR_isa_aplus
 					       | FL_CF_HWDIV },
-  { "isab",     mcf5407,  ucfv4,    isa_b,     FL_FOR_isa_b },
-  { "isac",     unk_proc, ucfv4,    isa_c,     FL_FOR_isa_c | FL_CF_FPU
+  { "isab",     mcf5407,  NULL,    ucfv4,    isa_b,     FL_FOR_isa_b },
+  { "isac",     unk_proc, NULL,    ucfv4,    isa_c,     FL_FOR_isa_c | FL_CF_FPU
 					       | FL_CF_EMAC },
-  { NULL,       unk_proc, unk_arch, isa_max,   0 }
+  { NULL,       unk_proc, NULL,    unk_arch, isa_max,   0 }
 };
 
 static const struct processors all_tunings[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68010",    m68010,   u68000,   isa_00,  FL_FOR_isa_00 },
-  { "68020",    m68020,   u68020,   isa_20,  FL_FOR_isa_20 },
-  { "68030",    m68030,   u68020,   isa_20,  FL_FOR_isa_20 },
-  { "68040",    m68040,   u68040,   isa_40,  FL_FOR_isa_40 },
-  { "68060",    m68060,   u68060,   isa_60,  FL_FOR_isa_60 },
-  { "cpu32",    cpu32,    ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
-  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_FOR_isa_a },
-  { "cfv3",     mcf5307,  ucfv3,    isa_a,   FL_FOR_isa_a | FL_CF_HWDIV },
-  { "cfv4",     mcf5407,  ucfv4,    isa_b,   FL_FOR_isa_b },
-  { "cfv4e",    mcf547x,  ucfv4e,   isa_b,   FL_FOR_isa_b | FL_CF_USP
+  { "68000",    m68000,   NULL,    u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,   NULL,    u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68020",    m68020,   NULL,    u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68030",    m68030,   NULL,    u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68040",    m68040,   NULL,    u68040,   isa_40,  FL_FOR_isa_40 },
+  { "68060",    m68060,   NULL,    u68060,   isa_60,  FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    NULL,    ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
+  { "cfv2",     mcf5206,  NULL,    ucfv2,    isa_a,   FL_FOR_isa_a },
+  { "cfv3",     mcf5307,  NULL,    ucfv3,    isa_a,   FL_FOR_isa_a | FL_CF_HWDIV },
+  { "cfv4",     mcf5407,  NULL,    ucfv4,    isa_b,   FL_FOR_isa_b },
+  { "cfv4e",    mcf547x,  NULL,    ucfv4e,   isa_b,   FL_FOR_isa_b | FL_CF_USP
 					     | FL_CF_EMAC | FL_CF_FPU },
-  { NULL,       unk_proc, unk_arch, isa_max, 0 }
+  { NULL,       unk_proc, NULL,    unk_arch, isa_max, 0 }
 };
 
 struct m68k_cpu_select
@@ -373,6 +374,10 @@ static struct m68k_cpu_select m68k_select[] =
 #define M68K_OPT_SET_TUNE 0
 #define M68K_OPT_SET_ARCH 1
 #define M68K_OPT_SET_CPU 2
+
+/* The cpu that has been selected.  */
+
+const struct processors *current_cpu;
 
 /* Implement TARGET_HANDLE_OPTION.  */
 
@@ -526,6 +531,8 @@ override_options (void)
 		else
 		  tuning = sel - ptr->processors;
 
+		if (i == M68K_OPT_SET_CPU)
+		  current_cpu = sel;
 		break;
 	      }
 
@@ -546,6 +553,7 @@ override_options (void)
 	  if (defaultcpu == TARGET_CPU_invalid)
 	    defaultcpu = m68020;
 	}
+      current_cpu = &all_cores[defaultcpu];
       flags = all_cores[defaultcpu].flags;
       uarch = all_cores[defaultcpu].microarch;
       target_cpu = all_cores[defaultcpu].core;
@@ -666,6 +674,30 @@ override_options (void)
     }
 
   SUBTARGET_OVERRIDE_OPTIONS;
+}
+
+/* Generate a cpp define naming this cpu.  */
+
+const char *
+m68k_cpp_cpu_ident (const char *prefix)
+{
+  if (!current_cpu)
+    return NULL;
+  if (!current_cpu->name)
+    return NULL;
+  return concat ("__m", prefix, "_cpu_", current_cpu->name, NULL);
+}
+
+/* Generate a cpp define naming this cpu's family.  */
+
+const char *
+m68k_cpp_cpu_family (const char *prefix)
+{
+  if (!current_cpu)
+    return NULL;
+  if (!current_cpu->family)
+    return NULL;
+  return concat ("__m", prefix, "_family_", current_cpu->family, NULL);
 }
 
 

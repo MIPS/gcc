@@ -110,6 +110,14 @@ Boston, MA 02110-1301, USA.  */
 									     \
       if (m68k_arch_coldfire)						     \
         {								     \
+	  const char *tmp;						     \
+	  								     \
+	  tmp = m68k_cpp_cpu_ident ("cf");			   	     \
+	  if (tmp)							     \
+	    cpp_define (pfile, tmp);					     \
+	  tmp = m68k_cpp_cpu_family ("cf");				     \
+	  if (tmp)							     \
+	    cpp_define (pfile, tmp);					     \
           cpp_define (pfile, "__mcoldfire__");				     \
 									     \
           if (m68k_arch_isac)						     \
@@ -1106,7 +1114,7 @@ enum uarch_type
 
 enum processor_type
 {
-#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
   IDENT,
 #include "m68k-cores.def"
 #undef M68K_CORE
@@ -1116,7 +1124,7 @@ enum processor_type
 /* Used by config.gcc to identify the compiled-in CPU.  */
 enum target_cpus
 {
-#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+#define M68K_CORE(NAME,IDENT,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
   TARGET_CPU_##IDENT,
 #include "m68k-cores.def"
 #undef M68K_CORE
