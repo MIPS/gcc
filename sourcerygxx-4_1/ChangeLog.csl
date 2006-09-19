@@ -1,3 +1,12 @@
+2006-09-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/28516
+	gcc/
+	* config/arm/arm.c (arm_unwind_emit_set): Handle reg = sp + const.
+
+	gcc/testsuite/
+	* gcc.dg/nested-func-5.c: New test.
+
 2006-09-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
