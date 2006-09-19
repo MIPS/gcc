@@ -401,6 +401,8 @@ struct gimple_stmt GTY(())
   struct tree_base base;
   source_locus locus;
   tree block;
+  struct gimple_stmt *prev;
+  struct gimple_stmt *next;
   struct tree_base *operands[1];
 };
 
@@ -904,11 +906,11 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* Nonzero if NODE is a GIMPLE tuple.  */
 #define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE))
 
-/* Convert a GIMPLE_STMT into a TREE.  */
+/* Convert a TREE into a GIMPLE_STMT.  */
 #define TREE_TO_GIMPLE_STMT(T) ((struct gimple_stmt *)(GIMPLE_STMT_CHECK (T)))
 
-/* Convert a TREE into a GIMPLE_STMT.  */
-#define GIMPLE_STMT_TO_TREE(T) (GIMPLE_STMT_CHECK ((tree)(T)))
+/* Convert a GIMPLE_STMT into a TREE.  */
+#define GIMPLE_STMT_TO_TREE(T) ((tree)(T))
 
 /* Given a TREE, return its operand number I.  */
 #define GIMPLE_STMT_OPERAND(T, I) \
@@ -3157,7 +3159,7 @@ struct tree_type_decl GTY(())
 
 };
 
-/* A STATEMENT_LIST chains statements together in GENERIC and GIMPLE.
+/* A STATEMENT_LIST chains statements together in GENERIC.
    To reduce overhead, the nodes containing the statements are not trees.
    This avoids the overhead of tree_common on all linked list elements.
 
@@ -3182,6 +3184,22 @@ struct tree_statement_list
   struct tree_common common;
   struct tree_statement_list_node *head;
   struct tree_statement_list_node *tail;
+};
+
+/* A GIMPLE_STATEMENT_LIST is similar to STATEMENT_LIST but for GIMPLE
+   statements.  */
+
+#define GIMPLE_STATEMENT_LIST_HEAD(NODE) \
+  (GIMPLE_STATEMENT_LIST_CHECK (NODE)->gimple_stmt_list.head)
+#define GIMPLE_STATEMENT_LIST_TAIL(NODE) \
+  (GIMPLE_STATEMENT_LIST_CHECK (NODE)->gimple_stmt_list.tail)
+
+struct gimple_statement_list
+  GTY(())
+{
+  struct tree_common common;
+  struct gimple_stmt *head;
+  struct gimple_stmt *tail;
 };
 
 #define VALUE_HANDLE_ID(NODE)		\
@@ -3248,6 +3266,8 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
+  struct gimple_statement_list GTY ((tag ("TS_GIMPLE_STATEMENT_LIST"))) gimple_stmt_list;
+  struct gimple_stmt * GTY ((tag ("TS_GIMPLE_STATEMENT"))) gstmt;
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;

@@ -390,6 +390,8 @@ tree_code_size (enum tree_code code)
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 
 	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
+	case GIMPLE_STATEMENT_LIST:
+	  return sizeof (struct gimple_statement_list);
 	case BLOCK:		return sizeof (struct tree_block);
 	case VALUE_HANDLE:	return sizeof (struct tree_value_handle);
 	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
@@ -2183,6 +2185,8 @@ tree_node_structure (tree t)
     case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
     case STATEMENT_LIST:	return TS_STATEMENT_LIST;
+    case GIMPLE_STATEMENT_LIST:	return TS_GIMPLE_STATEMENT_LIST;
+    case GIMPLE_MODIFY_STMT:	return TS_GIMPLE_STATEMENT;
     case BLOCK:			return TS_BLOCK;
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;

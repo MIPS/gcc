@@ -1,3 +1,17 @@
+2006-09-19  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree.c (tree_code_size): Handle GIMPLE_STATEMENT_LIST.
+        (tree_node_structure): Handle GIMPLE_STATEMENT_LIST and
+	GIMPLE_MODIFY_STMT.
+        * tree.h (struct gimple_stmt): Add prev and next fields.
+	(GIMPLE_STMT_TO_TREE): Cast, do not call GIMPLE_STMT_CHECK.
+	(GIMPLE_STATEMENT_LIST_HEAD): New.
+	(GIMPLE_STATEMENT_LIST_TAIL): New.
+	(struct gimple_statement_list): New.
+	(union tree_node): Add gimple_stmt_list and gstmt.
+        * treestruct.def: Add TS_GIMPLE_STATEMENT_LIST, TS_GIMPLE_STATEMENT.
+        * tree.def: Add GIMPLE_STATEMENT_LIST.
+
 2006-09-06  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-dump.c (dequeue_and_dump): Handle GIMPLE_MODIFY_STMT.
