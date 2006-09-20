@@ -1193,12 +1193,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
   if (GET_CODE (insn) == NOTE)
     insn = prev_nonnote_insn (insn);
   if (insn && GET_CODE (insn) == BARRIER)
-    {
-      /* Output just a no-op so that debuggers don't get confused
-	 about which function the pc is in at this address.  */
-      fprintf (stream, "\tnop\n");
-      return;
-    }
+    return;
 
   fsize = current_frame.size;
 

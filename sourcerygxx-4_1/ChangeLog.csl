@@ -16,6 +16,10 @@
 	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Accept '?'.
 	* config/m68k/m68k.md (load_got): New.
 
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Don't
+	output nop.
+
 2006-09-20  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/
