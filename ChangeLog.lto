@@ -1,3 +1,9 @@
+2006-09-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc/lto/lto.c (lto_read_form <case DW_FORM_ref_addr>): Add
+	FIXME note about differences dwarf2 between dwarf3 with
+	DW_FORM_ref_addr.
+
 2006-09-18  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_find_integral_type): Add explicit int cast to

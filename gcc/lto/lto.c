@@ -922,6 +922,8 @@ lto_read_form (lto_info_fd *info_fd,
 	   "In the 32-bit DWARF format, this offset is a 4-byte unsigned
 	   value; in the 64-bit DWARF format, it is an 8-byte unsigned
 	   value"
+	   FIXME: Dwarf2 is different than Dwarf3 here: Dwarf2 says offet is
+	   the native address size and not offset size.
 	*/
 	if (!fd->dwarf64)
 	  offset = lto_read_uword (fd);
