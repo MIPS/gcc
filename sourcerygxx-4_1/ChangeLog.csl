@@ -11,6 +11,11 @@
 	* config/m68k/netbsd-elf.h (current_function_returns_pointer,
 	FUNCTION_EXTRA_EPILOGUE): Remove.
 
+	gcc/
+	* config/m68k/m68k.c (print_operand): Handle '?'.
+	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Accept '?'.
+	* config/m68k/m68k.md (load_got): New.
+
 2006-09-20  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/
