@@ -1,3 +1,8 @@
+2006-09-20  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.h (MAX_OFILE_ALIGNMENT): Define.
+
 2006-09-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
