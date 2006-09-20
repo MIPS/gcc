@@ -1,3 +1,37 @@
+2006-09-19 Paul Thomas <pault@gcc.gnu.org>
+	   Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR fortran/29101
+	* trans-stmt.c (gfc_trans_character_select): Store the label
+	from select_string and then clean up any temporaries from the
+	conversion of the select expression, before branching to the
+	selected case.
+
+2006-09-18 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/28526
+	* primary.c (match_variable): If the compiler is in a module
+	specification block, an interface block or a contains section,
+	reset host_flag to force the changed symbols mechanism.
+
+	PR fortran/29101
+	* trans-stmt.c (gfc_trans_character_select): Add the post block
+	for the expression to the main block, after the call to
+	select_string and the last label.
+
+2006-09-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29060
+	* iresolve.c (resolve_spread): Build shape for result if the
+	source shape is available and dim and ncopies are constants.
+
+2006-09-18  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/28817
+	PR fortran/21918
+	* trans-decl.c (generate_local_decl): Change from 'warning' to
+	'gfc_warning' to have line numbers correctly reported.
+
 2006-09-15  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/29051
