@@ -812,7 +812,7 @@ lto_read_form (lto_info_fd *info_fd,
     {
     case DW_FORM_addr:
       out->cl = DW_cl_address;
-      fd->dwarf64 ? lto_read_uword (fd) : lto_read_udword (fd);
+      fd->dwarf64 ? lto_read_udword (fd) : lto_read_uword (fd);
       break;
 
     case DW_FORM_string:
@@ -1239,7 +1239,7 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
       {
          gcc_assert (abbrev->tag == DW_TAG_<tag>);
 
-         LTO_BEGIN_READ_ATTRS (fd, abbrev)
+         LTO_BEGIN_READ_ATTRS ()
 	   {
 	   case DW_AT_attr1:
 	     ... handle this attribute ...
@@ -1251,7 +1251,7 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
 	   }   
 	 LTO_END_READ_ATTRS ();  
 	 
-	 lto_read_child_DIES (fd, abbrev, context);
+	 lto_read_child_DIEs (fd, abbrev, context);
 
          return ...tree representing decoded DIE;        
       }  
@@ -1342,7 +1342,7 @@ lto_unsupported_attr_error (const DWARF2_abbrev *abbrev,
 	 HOST_WIDEST_INT_PRINT_UNSIGNED, attr->name, abbrev->tag);
 }
 
-/* Return an IDENTIFIER_NODE for the string constant indicatec by
+/* Return an IDENTIFIER_NODE for the string constant indicated by
    DATA.  */
 static tree
 lto_get_identifier (const DWARF2_form_data *data)
