@@ -1,3 +1,9 @@
+2006-09-20  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/unwind-arm.c (selfrel_offset31): Clear top bit for
+	positive offsets.
+
 2006-09-20  Kazu Hirata  <kazu@codesourcery.com>
 
 	gcc/
