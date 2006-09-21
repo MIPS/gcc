@@ -1,5 +1,14 @@
 2006-09-21  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/lto/lto.c (lto_read_typedef_DIE): New.
+	(lto_read_pointer_reference_type_DIE): renamed from
+	lto_read_pointer_type_DIE, and generalized to handle reference types,
+	too.
+	(lto_read_const_volatile_restrict_type_DIE): New.
+	(lto_read_DIE): Update dispatch table to include new readers.
+
+2006-09-21  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/lto/lto.c (lto_varargs_cookie): Define.
 	(lto_read_subroutine_type_subprogram_DIE): Robustify collection
 	of formal parameters and make it handle varargs.

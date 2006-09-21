@@ -1967,9 +1967,54 @@ lto_read_unspecified_parameters_DIE (lto_info_fd *fd,
 }
 
 static tree
-lto_read_pointer_type_DIE (lto_info_fd *fd,
-			   const DWARF2_abbrev *abbrev,
-			   lto_context *context)
+lto_read_typedef_DIE (lto_info_fd *fd,
+		      const DWARF2_abbrev *abbrev,
+		      lto_context *context)
+{
+  tree base_type = NULL_TREE;
+  tree name = NULL_TREE;
+  tree decl;
+  tree type;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_type:
+      base_type = lto_read_referenced_type_DIE (fd, 
+						context, 
+						attr_data.u.reference);
+      break;
+
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* The DW_AT_type and DW_AT_name attributes are required.  */
+  if (!base_type || !name)
+    lto_file_corrupt_error ((lto_fd *)fd);
+  /* Build the typedef.  */
+  type = build_variant_type_copy (base_type);
+  decl = build_decl (TYPE_DECL, name, type);
+  TYPE_NAME (type) = decl;
+  DECL_ORIGINAL_TYPE (decl) = base_type;
+
+  lto_read_child_DIEs (fd, abbrev, context);
+  return type;
+}
+
+
+static tree
+lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
+				     const DWARF2_abbrev *abbrev,
+				     lto_context *context)
 {
   tree pointed_to = NULL_TREE;
   tree type;
@@ -1992,8 +2037,18 @@ lto_read_pointer_type_DIE (lto_info_fd *fd,
   /* The DW_AT_type attribute is required.  */
   if (!pointed_to)
     lto_file_corrupt_error ((lto_fd *)fd);
-  /* Build the pointer type.  */
-  type = build_pointer_type (pointed_to);
+  /* Build the pointer or reference type.  */
+  switch (abbrev->tag)
+    {
+    case DW_TAG_pointer_type:
+      type = build_pointer_type (pointed_to);
+      break;
+    case DW_TAG_reference_type:
+      type = build_reference_type (pointed_to);
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   lto_read_child_DIEs (fd, abbrev, context);
   return type;
@@ -2208,6 +2263,48 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   return type;
 }
 
+static tree
+lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
+					   const DWARF2_abbrev *abbrev,
+					   lto_context *context)
+{
+  tree base_type = NULL_TREE;
+  tree type;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_type:
+      base_type = lto_read_referenced_type_DIE (fd, 
+						context, 
+						attr_data.u.reference);
+      break;
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* The DW_AT_type attribute is required.  */
+  if (!base_type)
+    lto_file_corrupt_error ((lto_fd *)fd);
+  /* Build the modified type.  */
+  switch (abbrev->tag)
+    {
+    case DW_TAG_const_type:
+      type = build_qualified_type (base_type, TYPE_QUAL_CONST);
+      break;
+    case DW_TAG_volatile_type:
+      type = build_qualified_type (base_type, TYPE_QUAL_VOLATILE);
+      break;
+    case DW_TAG_restrict_type:
+      type = build_qualified_type (base_type, TYPE_QUAL_RESTRICT);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  lto_read_child_DIEs (fd, abbrev, context);
+  return type;
+}
+
+
 /* Read the next DIE from FD.  CONTEXT provides information about the
    current state of the compilation unit.  Returns a (possibly null) TREE
    representing the DIE read.  If more is non-NULL, *more is set to true
@@ -2237,14 +2334,14 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* padding */
       NULL, /* member */
       NULL, /* padding */
-      lto_read_pointer_type_DIE,
-      NULL, /* reference_type */
+      lto_read_pointer_reference_type_DIE,
+      lto_read_pointer_reference_type_DIE,
       lto_read_compile_unit_DIE,
       NULL, /* string_type */
       NULL, /* structure_type */
       NULL, /* padding */
       lto_read_subroutine_type_subprogram_DIE,
-      NULL, /* typedef */
+      lto_read_typedef_DIE,
       NULL, /* union_type */
       lto_read_unspecified_parameters_DIE,
       NULL, /* variant */
@@ -2260,7 +2357,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* access_declaration */
       lto_read_base_type_DIE,
       NULL, /* catch_block */
-      NULL, /* const_type */
+      lto_read_const_volatile_restrict_type_DIE,
       lto_read_variable_formal_parameter_constant_DIE,
       lto_read_enumerator_DIE,
       NULL, /* file_type */
@@ -2275,9 +2372,9 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* try_block */
       NULL, /* variant_part */
       lto_read_variable_formal_parameter_constant_DIE,
-      NULL, /* volatile_type */
+      lto_read_const_volatile_restrict_type_DIE,
       NULL, /* dwarf_procedure */
-      NULL, /* restrict_type */
+      lto_read_const_volatile_restrict_type_DIE,
       NULL, /* interface_type */
       NULL, /* namespace */
       NULL, /* imported_module */
