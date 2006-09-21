@@ -1,3 +1,13 @@
+2006-09-21  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_varargs_cookie): Define.
+	(lto_read_subroutine_type_subprogram_DIE): Robustify collection
+	of formal parameters and make it handle varargs.
+	(lto_read_unspecified_parameters_DIE): New.
+	(lto_read_DIE): Add lto_read_unspecified_parameters_DIE to table.
+	* gcc/lto/lto-tree.h (lto_varargs_cookie): Declare.
+	* gcc/lto/lto-lang.c (lto_init): Initialize lto_varargs_cookie.
+
 2006-09-20  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc/lto/Make-lang.in (lto-read.o): Remove white space before
