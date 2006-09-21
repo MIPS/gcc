@@ -216,7 +216,7 @@ find_pdom (basic_block block)
     }
 }
 
-#define NECESSARY(stmt)		stmt->common.base.asm_written_flag
+#define NECESSARY(stmt)		stmt->base.asm_written_flag
 
 /* If STMT is not already marked necessary, mark it, and add it to the
    worklist if ADD_TO_WORKLIST is true.  */

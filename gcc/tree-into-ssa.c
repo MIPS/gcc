@@ -248,7 +248,7 @@ enum rewrite_mode {
    processed from those that only need to have their defs processed.
    Statements that define new SSA names only need to have their defs
    registered, but they don't need to have their uses renamed.  */
-#define REGISTER_DEFS_IN_THIS_STMT(T)	(T)->common.base.unsigned_flag
+#define REGISTER_DEFS_IN_THIS_STMT(T)	(T)->base.unsigned_flag
 
 
 /* Prototypes for debugging functions.  */

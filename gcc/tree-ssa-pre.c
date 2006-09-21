@@ -2282,7 +2282,7 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
   return genop;
 }
 
-#define NECESSARY(stmt)		stmt->common.base.asm_written_flag
+#define NECESSARY(stmt)		stmt->base.asm_written_flag
 /* Create an expression in pieces, so that we can handle very complex
    expressions that may be ANTIC, but not necessary GIMPLE.
    BLOCK is the basic block the expression will be inserted into,

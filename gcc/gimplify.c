@@ -3521,7 +3521,7 @@ tree_to_gimple_tuple (tree *tp)
 	  }
 
         gs = TREE_TO_GIMPLE_STMT (make_node (GIMPLE_MODIFY_STMT));
-        gs->base = (*tp)->common.base;
+        gs->base = (*tp)->base;
         /* The set to base above overwrites the CODE.  */
         TREE_SET_CODE ((tree) gs, GIMPLE_MODIFY_STMT);
 

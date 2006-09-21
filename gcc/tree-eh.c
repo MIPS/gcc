@@ -2084,7 +2084,7 @@ verify_eh_throw_stmt_node (void **slot, void *data ATTRIBUTE_UNUSED)
 {
   struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
 
-  gcc_assert (node->stmt->common.base.ann == NULL);
+  gcc_assert (node->stmt->base.ann == NULL);
   return 1;
 }
 

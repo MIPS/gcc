@@ -896,9 +896,6 @@ DEFTREECODE (POLYNOMIAL_CHREC, "polynomial_chrec", tcc_expression, 3)
    Use the interface in tree-iterator.h to access this node.  */
 DEFTREECODE (STATEMENT_LIST, "statement_list", tcc_exceptional, 0)
 
-/* Similarly for gimple statements.  */
-DEFTREECODE (GIMPLE_STATEMENT_LIST, "gimple_statement_list", tcc_exceptional, 0)
-
 /* Value handles.  Artificial nodes to represent expressions in
    partial redundancy elimination (tree-ssa-pre.c).  These nodes are
    used for expression canonicalization.  If two expressions compute

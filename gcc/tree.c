@@ -390,8 +390,6 @@ tree_code_size (enum tree_code code)
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 
 	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
-	case GIMPLE_STATEMENT_LIST:
-	  return sizeof (struct gimple_statement_list);
 	case BLOCK:		return sizeof (struct tree_block);
 	case VALUE_HANDLE:	return sizeof (struct tree_value_handle);
 	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
@@ -642,7 +640,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
     TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
   TREE_VISITED (t) = 0;
-  t->common.base.ann = 0;
+  t->base.ann = 0;
 
   if (TREE_CODE_CLASS (code) == tcc_declaration)
     {
@@ -2163,8 +2161,9 @@ tree_node_structure (tree t)
     case tcc_binary:
     case tcc_expression:
     case tcc_statement:
-    case tcc_gimple_stmt:
       return TS_EXP;
+    case tcc_gimple_stmt:
+      return TS_GIMPLE_STATEMENT;
     default:  /* tcc_constant and tcc_exceptional */
       break;
     }
@@ -2177,6 +2176,8 @@ tree_node_structure (tree t)
     case VECTOR_CST:		return TS_VECTOR;
     case STRING_CST:		return TS_STRING;
       /* tcc_exceptional cases.  */
+    /* FIXME tuples: eventually this should be TS_BASE.  For now, nothing
+       returns TS_BASE.  */
     case ERROR_MARK:		return TS_COMMON;
     case IDENTIFIER_NODE:	return TS_IDENTIFIER;
     case TREE_LIST:		return TS_LIST;
@@ -2185,8 +2186,6 @@ tree_node_structure (tree t)
     case SSA_NAME:		return TS_SSA_NAME;
     case PLACEHOLDER_EXPR:	return TS_COMMON;
     case STATEMENT_LIST:	return TS_STATEMENT_LIST;
-    case GIMPLE_STATEMENT_LIST:	return TS_GIMPLE_STATEMENT_LIST;
-    case GIMPLE_MODIFY_STMT:	return TS_GIMPLE_STATEMENT;
     case BLOCK:			return TS_BLOCK;
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;

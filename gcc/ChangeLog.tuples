@@ -1,3 +1,51 @@
+2006-09-21  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-into-ssa.c (REGISTER_DEFS_IN_STMT): Change common.base
+        to base.
+        * tree-tailcall.c (adjust_return_value): Same.
+        * tree.c (tree_code_size): Remove GIMPLE_STATEMENT_LIST case.
+        (copy_node_stat): Change common.base to base.
+        (tree_node_structure): Return TS_GIMPLE_STATEMENT for tcc_gimple_stmt.
+        Remove GIMPLE_STATEMENT_LIST case.
+        * tree.h (struct gimple_stmt): Make operands of type tree.
+        (TREE_CODE, TREE_SET_CODE, TREE_ADDRESSABLE, CALL_EXPR_TAILCALL,
+        CASE_LOW_SEEN, TREE_STATIC, CLEANUP_EH_ONLY, CASE_HIGH_SEEN,
+        TREE_NO_WARNING, TREE_CONSTANT_OVERFLOW, TREE_SYMBOL_REFERENCED,
+        TYPE_REF_CAN_ALIAS_ALL, TREE_OVERFLOW, TREE_PUBLIC,
+        TYPE_CACHED_VALUES_P, TREE_SIDE_EFFECTS, FORCED_LABEL,
+        TREE_THIS_VOLATILE, TREE_THIS_NOTRAP, TREE_READONLY,
+        TREE_CONSTANT, TYPE_SIZES_GIMPLIFIED, DECL_UNSIGNED,
+        BIT_FIELD_REF_UNSIGNED, TYPE_UNSIGNED, TREE_ASM_WRITTEN, TREE_USED,
+        TREE_NOTHROW, CALL_EXPR_RETURN_SLOT_OPT, DECL_BY_REFERENCE,
+        CALL_FROM_THUNK_P, TYPE_ALIGN_OK, TREE_PRIVATE, TREE_PROTECTED,
+        TREE_DEPRECATED, IDENTIFIER_TRANSPARENT_ALIAS, TREE_INVARIANT,
+        TREE_LANG_FLAG_*, SSA_NAME_OCCURS_IN_ABNORMAL_PHI,
+        SSA_NAME_IN_FREE_LIST, TYPE_VOLATILE, TYPE_READONLY, BINFO_VIRTUAL_P):
+        Change common.base to base.
+        (GIMPLE_STATEMENT_LIST*): Remove.
+        (union tree_node): Add base.  Remove gimple_statement_list.
+        Remove pointer from gstmt.
+        * tree-ssa-propagate.c (set_rhs): Change common.base to base.
+        * treestruct.def: Add TS_BASE.  Remove TS_GIMPLE_STATEMENT_LIST.
+        * tree-vn.c (vn_compute): Change common.base to base.
+        * tree-eh.c (verify_eh_throw_stmt_node): Same.
+        * tree-flow-inline.h (var_ann): Same.
+        (function_ann): Same.
+        (stmt_ann): Same.
+        (mark_non_addressable): Same.
+        * gimplify.c (tree_to_gimple_tuple): Same.
+        * tree.def (DEFTREECODE): Remove GIMPLE_STATEMENT_LIST.
+        * tree-dfa.c (create_var_ann): Change common.base to base.
+        (create_function_ann): Same.
+        (create_stmt_ann): Same.
+        (create_tree_ann): Same.
+        (collect_dfa_stats_r): Same.
+        * tree-ssa-pre.c (NECESSARY): Change common.base to base.
+        * tree-ssa-dce.c (NECESSARY): Same.
+        * tree-ssa.c (delete_tree_ssa): Same.
+        * tree-optimize.c (execute_free_cfg_annotations): Same.
+        * tree-flow.h: Same.
+
 2006-09-19  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree.c (tree_code_size): Handle GIMPLE_STATEMENT_LIST.

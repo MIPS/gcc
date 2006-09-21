@@ -85,8 +85,8 @@ vn_compute (tree expr, hashval_t val)
   /* EXPR must not be a statement.  We are only interested in value
      numbering expressions on the RHS of assignments.  */
   gcc_assert (expr);
-  gcc_assert (!expr->common.base.ann
-	      || expr->common.base.ann->common.type != STMT_ANN);
+  gcc_assert (!expr->base.ann
+	      || expr->base.ann->common.type != STMT_ANN);
 
   val = iterative_hash_expr (expr, val);
   return val;

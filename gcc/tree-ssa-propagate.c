@@ -634,7 +634,7 @@ set_rhs (tree *stmt_p, tree expr)
 	 effects, then replace *STMT_P with an empty statement.  */
       ann = stmt_ann (stmt);
       *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
-      (*stmt_p)->common.base.ann = (tree_ann_t) ann;
+      (*stmt_p)->base.ann = (tree_ann_t) ann;
 
       if (in_ssa_p
 	  && TREE_SIDE_EFFECTS (expr))

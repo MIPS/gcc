@@ -884,8 +884,8 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      ggc_free (var->common.base.ann);
-      var->common.base.ann = NULL;
+      ggc_free (var->base.ann);
+      var->base.ann = NULL;
     }
   htab_delete (referenced_vars);
   referenced_vars = NULL;
