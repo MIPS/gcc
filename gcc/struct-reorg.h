@@ -1,3 +1,27 @@
+/* Struct-reorg optimization.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Contributed by Olga Golovanevsky <olga@dberlin.org>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
+under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+GCC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+#ifndef IPA_REORG_STRUCTS_H
+#define IPA_REORG_STRUCTS_H
+
 /* This file describes the data structure and interface for the data
    reorganization optimization. Currently there is the API for stage 2
    of the optimization - the profile based clustering decisions.  */
@@ -220,12 +244,14 @@ struct bb_field_access *
 get_last_field_access (struct data_structure *ds, basic_block bb);
 
 
-void dump_cpg (FILE *, cpg_t *);
+void dump_cpg (cpg_t *);
 void free_cpg (cpg_t *cpg);
-void update_cpg_for_structure (FILE *, struct data_structure *, struct function *);
+void update_cpg_for_structure (struct data_structure *, struct function *);
  
 /* Stage 2 (profile based clustering) API.  Detailed comment in
    struct-reorg-cpg.c  */
 bool
 cache_aware_data_reorganization (struct data_structure *str,
 				 bool reordering_only);
+
+#endif /* IPA_REORG_STRUCTS_H */

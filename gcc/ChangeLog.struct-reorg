@@ -1,3 +1,74 @@
+2006-09-20  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* flagf.h (flag_ipa_reorg_struct): Replace flag_reorg_struct.
+	* cgraphunit.c: Remove direct call to struct-reorg hook.
+	* opts.c (flag_ipa_reorg_structs): Replace flag_reorg_structs.
+	* struct-reorg_cpg.c: Use vcg_dump instead of dump_file. 
+	* timevar.def (TV_IPA_REORG_STRUCTS): Replace TV_REORG_STRUCTS.
+	* common.opt Add flag_ipa_reorg_structs flag.
+	* passes.c Add pass_ipa_reorg_structs pass.
+	* struct-reorg.h Add IPA_REORG_STRUCTS_H definition.
+	Update function interfaces. 
+	* struct-reorg.c (vcg_dump): Use vcg_dump as global variable.
+	(debug_mode): Global variable to trigger debug dumps.
+	(new_global_vars): List of new global variables.
+	(is_in_list_of_globals, is_in_list_of_locals,
+	create_new_global_vars_for_func, search_lhs_for_struct_vars, 
+	find_orig_variable, find_struct_field, copy_struct_init, 
+	find_new_var_of_type, find_var_of_given_type, 
+	create_new_mallocs_for_func, add_to_global_vars_list,
+	create_new_global_vars, do_reorg1): New functions. 
+	(debug_gimple, insert_into_var_list): Removed.
+	(get_stmt_accessed_fields_1): Support SSA_NAME. Remove MEM_REF 
+	support.
+	(EXECUTE_IF_SET_IN_SBITMAP): Use four arguments instead of tree.
+	(make_new_vars_2): New function to create global variable.
+	(make_new_vars_1): Create local variable.
+	(replace_var_types): Work with ssa_name's.
+	(create_new_vars): Renamed from create_new_var_decls.
+	(collect_malloc_data): Identify mallocs here, not as part 
+	of building callgraph.
+	(add_field_mallocs, create_cascading_mallocs): Use build2 instead 
+	of build.
+	(create_new_mallocs): Deal with only one malloc. New parameter 
+	cur_malloc. Added generation of phi nodes. Updated for ssa form. 
+	(search_rhs_for_struct_vars): Remove stmt param. Add 
+	data_struct_list param. Add suport of SSA_NAME.
+	(find_and_substitute_types_and_vars): New param rhs_vars. Support 
+	SSA_NAME.
+	(recursively_copy_node, build_new_stmts): Remove rtl setting.
+	(build_new_stmts): Support ssa form. Work for cfun.
+	(find_new_var): Support pointer type.
+	(update_struct_offset): Support ssa form. Replace 
+	multiplication/division operations by left/right shifts.
+	(update_field_accesses): Support ssa form. Work for cfun.
+	(collect_struct_use_data): New param c_node. Support ssa form.
+	(replace_all_types_1): Support ssa form.
+	(do_reorg): Use do_reorg1.
+	(make_data_struct_node): Temporary comment out type escape 
+	analysis due their restrictiveness.
+	(perform_escape_analysis): Use TYPE_UID macro. Temporary remove escapes
+	with indirect calls as not supported by callgraph.
+	(printout_structure_splitting_hints, printout_field_reordering_hints): 
+	Remove outfile parameter. Use dump file.
+	(remove_struct_from_data_struct_list): New function.
+	(reorg_structs): Move whole_program flag check to optimization gate.
+	(reorg_structs_drive): New optimization entry function.
+	(struct_reorg_gate): New function. Optimization gate.
+	(pass_ipa_reorg_structs): New optimization definition structure. 
+	(collect_malloc_data, create_new_mallocs, 
+	struct_passed_to_external_function, program_redefines_malloc_p): Recognize
+	malloc functions by DECL_FUNCTION_CODE, not by strcmp.
+	(print_new_types, create_and_assemble_new_types, replace_var_types, 
+	collect_malloc_data, collect_struct_use_data, remove_type_from_list,
+	replace_old_field_types, reorder_fields, replace_all_types_1, reorg_structs):
+	Added freeing allocations.
+	(free_new_vars, free_use_list, free_new_global_vars, free_struct_cluster,
+	free_data_structure_list, free_malloc_data): New functions to free allocated data.
+	(fix_test_of_malloc_result, create_new_malloc): Two new functions to disperse 
+	create_new_mallocs function.
+	
+	
 2005-08-24  Caroline Tice  <ctice@apple.com>
 
 	Merge tree-profiling branch, as of 2005-06-10, into 
@@ -166,7 +237,7 @@
 	* langhooks.h (struct lang_hooks_for_optimizations):  Add new field,
 	build_array_ref.
 	* struct-reorg.c (ipa-static.h): Add include statement.
-	(get_stmt_accessed_fields_1):  Add test for MEM_REF.
+	(get_stmt_accessed_fields_1):  Add MEM_REF support.
 	(collect_mallco_data): Add test for "xmalloc"
 	(create_cascading_mallocs): Add new arguments to calls to 
 	cgraph_create_edge.

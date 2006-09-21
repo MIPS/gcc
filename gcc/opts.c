@@ -977,9 +977,9 @@ common_handle_option (size_t scode, const char *arg, int value,
       flag_random_seed = arg;
       break;
 
-    case OPT_freorg_structs:
-      flag_reorg_structs = true;
-      break;
+    case OPT_fipa_reorg_structs:
+      flag_ipa_reorg_structs = true;
+      break; 
 
     case OPT_fsched_verbose_:
 #ifdef INSN_SCHEDULING

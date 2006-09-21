@@ -30,6 +30,8 @@
 #include "struct-reorg.h"
 #include "math.h"
 
+extern FILE *vcg_dump;
+
 /* Different algorithm for calculating the CPG from the BB 
    field accesses.  */
 /* An accurate and compile time efficient for the current 
@@ -488,17 +490,21 @@ compact_faccg (faccg_node_t *root, faccg_node_t **head_p, cpg_t *cpg)
 }
 
 static void
-dump_faccg_node (FILE *dump_file, faccg_node_t *node, struct data_structure *ds)
+dump_faccg_node (faccg_node_t *node, struct data_structure *ds)
 {
   const char *f_name;
   faccg_arc_t *arc;
+
+  if (!vcg_dump)
+    return;
 
   if (node->f_index >= 0)
     f_name = IDENTIFIER_POINTER (DECL_NAME (ds->fields[node->f_index].decl));
   else
     f_name = "";
 
-  fprintf (dump_file, "node: {title: \"%s_%d\" }\n", f_name, node->index);
+  
+  fprintf (vcg_dump, "node: {title: \"%s_%d\" }\n", f_name, node->index);
 
   for (arc = node->succs; arc; arc = arc->succ_next)
     {
@@ -512,22 +518,22 @@ dump_faccg_node (FILE *dump_file, faccg_node_t *node, struct data_structure *ds)
       else
 	dest_name = "";
 
-      fprintf (dump_file, "edge: { ");
-      fprintf (dump_file, "sourcename: \"%s_%d\" ", f_name, node->index);
-      fprintf (dump_file, "targetname: \"%s_%d\" ", dest_name, arc->dest->index);
-      fprintf (dump_file, "label: \"%d_", arc->distance);
-      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, arc->count);
-      fprintf (dump_file, "\"}\n");
+      fprintf (vcg_dump, "edge: { ");
+      fprintf (vcg_dump, "sourcename: \"%s_%d\" ", f_name, node->index);
+      fprintf (vcg_dump, "targetname: \"%s_%d\" ", dest_name, arc->dest->index);
+      fprintf (vcg_dump, "label: \"%d_", arc->distance);
+      fprintf (vcg_dump, HOST_WIDEST_INT_PRINT_DEC, arc->count);
+      fprintf (vcg_dump, "\"}\n");
     }
 }
 
 static void 
-dump_faccg (FILE *dump_file, faccg_node_t *head, struct data_structure *ds)
+dump_faccg (faccg_node_t *head, struct data_structure *ds)
 {
   faccg_node_t *node;
 
   for (node = head; node; node = node->next)
-    dump_faccg_node (dump_file, node, ds);
+    dump_faccg_node (node, ds);
 }
 
 static void
@@ -568,7 +574,7 @@ free_faccg (faccg_node_t *head)
    and edge with its count is aconsidered in calculating the minimum count
    of the appropriate outgoing edges of its the predecessor.  */
 static faccg_node_t *
-build_compact_field_access_graph (FILE *dump_file, struct data_structure *ds,
+build_compact_field_access_graph (struct data_structure *ds,
 				  struct function *f, faccg_node_t **head_p)
 {
   faccg_node_t **bb_faccg_nodes_first, **bb_faccg_nodes_last, 
@@ -649,8 +655,8 @@ build_compact_field_access_graph (FILE *dump_file, struct data_structure *ds,
   /* Clear the visited field of the nodes.  */
   for (crr = *head_p; crr; crr = crr->next)
     crr->visited = 0;
-  if (dump_file)
-    dump_faccg (dump_file, *head_p, ds);
+  if (vcg_dump)
+    dump_faccg (*head_p, ds);
   return root;
 }
 
@@ -858,7 +864,7 @@ update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited,
 
 /* Build the Close Proximity Graph for a given data structure.  */
 void
-update_cpg_for_structure (FILE *dump_file, struct data_structure *ds, 
+update_cpg_for_structure (struct data_structure *ds, 
 			  struct function *f)
 {
 #if USE_COMPACT_FIELD_ACCESS_GRAPH
@@ -886,7 +892,7 @@ update_cpg_for_structure (FILE *dump_file, struct data_structure *ds,
   else
     cpg = ds->cpg;
 #if USE_COMPACT_FIELD_ACCESS_GRAPH
-  root = build_compact_field_access_graph (dump_file, ds, f, &head),
+  root = build_compact_field_access_graph (ds, f, &head),
   update_cpg_from_faccg (cpg, root, NULL, f);
   free_faccg (head);
  
@@ -909,11 +915,14 @@ update_cpg_for_structure (FILE *dump_file, struct data_structure *ds,
           ...
  */
 void
-dump_cpg (FILE *dump_file, cpg_t *cpg)
+dump_cpg (cpg_t *cpg)
 {
   int i, j;
   bool first_time = true;
   tree struct_id = TYPE_NAME (cpg->ds->decl);
+
+  if (!vcg_dump)
+    return;
 
   if (! struct_id)
     return;
@@ -934,13 +943,13 @@ dump_cpg (FILE *dump_file, cpg_t *cpg)
 	  {
 	    first_time = false;
 	    if (struct_id)
-	      fprintf (dump_file, "%s:\n", IDENTIFIER_POINTER (struct_id));
+	      fprintf (vcg_dump, "%s:\n", IDENTIFIER_POINTER (struct_id));
 	  }
-        fprintf (dump_file, "\t%s <-- (%d, ",
+        fprintf (vcg_dump, "\t%s <-- (%d, ",
 		 IDENTIFIER_POINTER (DECL_NAME (f1->decl)),
 		 cell->distance);
-        fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, cell->count);
-        fprintf (dump_file, ") --> %s\n",
+        fprintf (vcg_dump, HOST_WIDEST_INT_PRINT_DEC, cell->count);
+        fprintf (vcg_dump, ") --> %s\n",
 		 IDENTIFIER_POINTER (DECL_NAME (f2->decl)));
       }
 }

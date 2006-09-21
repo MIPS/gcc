@@ -715,8 +715,8 @@ frename-registers
 Common Report Var(flag_rename_registers) Init(2)
 Perform a register renaming optimization pass
 
-freorg-structs
-Common Report Var(flag_reorg_structs)
+fipa-reorg-structs
+Common Report Var(flag_ipa_reorg_structs)
 Perform data struct layout reorganization optimizations
 
 freorder-blocks
