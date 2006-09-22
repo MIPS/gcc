@@ -1,3 +1,24 @@
+2006-09-22  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree.c (expr_location): Use GIMPLE_STMT_LOCUS.
+        (set_expr_location): Same.
+        (expr_locus): Same.
+        (set_expr_locus): Same.
+        (expr_filename): Same.
+        (expr_lineno): Same.
+        (tree_block): Use GIMPLE_STMT_BLOCK.
+        (protected_tree_operand): Use GIMPLE_STMT_OPERAND.
+        * tree.h (struct gimple_stmt): Remove prev and next.
+        (GIMPLE_STMT_OPERAND_CHECK): New.
+        (TREE_TO_GIMPLE_STMT): Delete.
+        (GIMPLE_STMT_TO_TREE): Delete.
+        (GIMPLE_STMT_OPERAND): Use union, not cast.
+        (GIMPLE_STMT_LOCUS): New.
+        (GIMPLE_STMT_BLOCK): New.
+        * gimplify.c (tree_to_gimple_tuple): Use union.  Do not cast
+        to tree_base.
+        * tree-cfg.c (verify_gimple_tuples_1): Call gcc_unreachable.
+
 2006-09-21  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree-into-ssa.c (REGISTER_DEFS_IN_STMT): Change common.base

@@ -401,8 +401,6 @@ struct gimple_stmt GTY(())
   struct tree_base base;
   source_locus locus;
   tree block;
-  struct gimple_stmt *prev;
-  struct gimple_stmt *next;
   /* FIXME tuples: Eventually this should be of type ``struct gimple_expr''.  */
   tree GTY ((length ("TREE_CODE_LENGTH (TREE_CODE (&%h))"))) operands[1];
 };
@@ -797,6 +795,15 @@ enum tree_node_structure_enum {
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
+/* Special checks for GIMPLE_STMT_OPERANDs.  */
+#define GIMPLE_STMT_OPERAND_CHECK(T, I) __extension__			\
+(*({const tree __t = GIMPLE_STMT_CHECK (T);				\
+    const int __i = (I);						\
+    if (__i < 0 || __i >= TREE_CODE_LENGTH (TREE_CODE (__t)))		\
+      tree_operand_check_failed (__i, TREE_CODE (__t),			\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->gstmt.operands[__i]; }))
+
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I) __extension__		\
 (*(rtx *)								\
  ({const tree __t = (T);						\
@@ -868,6 +875,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
+#define GIMPLE_STMT_OPERAND_CHECK(T, I)		((T)->gstmt.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 #define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
 #define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
@@ -906,16 +914,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
 /* Nonzero if NODE is a GIMPLE tuple.  */
 #define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE))
-
-/* Convert a TREE into a GIMPLE_STMT.  */
-#define TREE_TO_GIMPLE_STMT(T) ((struct gimple_stmt *)(GIMPLE_STMT_CHECK (T)))
-
-/* Convert a GIMPLE_STMT into a TREE.  */
-#define GIMPLE_STMT_TO_TREE(T) ((tree)(T))
-
-/* Given a TREE, return its operand number I.  */
-#define GIMPLE_STMT_OPERAND(T, I) \
-  (*((tree *)(&TREE_TO_GIMPLE_STMT (T)->operands[(I)])))
 
 /* A GIMPLE tuple that has a ``locus'' field.  */
 #define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
@@ -1502,6 +1500,11 @@ struct tree_constructor GTY(())
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
+
+/* In gimple statements.  */
+#define GIMPLE_STMT_OPERAND(NODE, I) GIMPLE_STMT_OPERAND_CHECK (NODE, I)
+#define GIMPLE_STMT_LOCUS(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.locus)
+#define GIMPLE_STMT_BLOCK(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.block)
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)

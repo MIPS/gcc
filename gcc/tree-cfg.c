@@ -3563,7 +3563,8 @@ verify_gimple_tuples_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     case MODIFY_EXPR:
       error ("unexpected non-tuple");
       debug_tree (*tp);
-      return true;
+      gcc_unreachable ();
+      return NULL_TREE;
 
     default:
       return NULL_TREE;

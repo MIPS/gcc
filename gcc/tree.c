@@ -3359,13 +3359,13 @@ location_t
 expr_location (tree node)
 {
 #ifdef USE_MAPPED_LOCATION
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return TREE_TO_GIMPLE_STMT (node)->locus;
+  if (GIMPLE_STMT_P (node))
+    return GIMPLE_STMT_LOCUS (node);
   return EXPR_P (node) ? node->exp.locus : UNKNOWN_LOCATION;
 #else
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
+  if (GIMPLE_STMT_P (node))
     return EXPR_HAS_LOCATION (node)
-      ? *TREE_TO_GIMPLE_STMT (node)->locus : UNKNOWN_LOCATION;
+      ? *GIMPLE_STMT_LOCUS (node) : UNKNOWN_LOCATION;
   return EXPR_HAS_LOCATION (node) ? *node->exp.locus : UNKNOWN_LOCATION;
 #endif
 }
@@ -3374,8 +3374,8 @@ void
 set_expr_location (tree node, location_t locus)
 {
 #ifdef USE_MAPPED_LOCATION
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    TREE_TO_GIMPLE_STMT (node)->locus = locus;
+  if (GIMPLE_STMT_P (node))
+    GIMPLE_STMT_LOCUS (node) = locus;
   else
     EXPR_CHECK (node)->exp.locus = locus;
 #else
@@ -3401,12 +3401,12 @@ source_locus
 expr_locus (tree node)
 {
 #ifdef USE_MAPPED_LOCATION
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return &TREE_TO_GIMPLE_STMT (node)->locus;
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node);
   return EXPR_P (node) ? &node->exp.locus : (location_t *) NULL;
 #else
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return TREE_TO_GIMPLE_STMT (node)->locus;
+  if (GIMPLE_STMT_P (node))
+    return GIMPLE_STMT_LOCUS (node);
   /* ?? The cast below was originally "(location_t *)" in the macro,
      but that makes no sense.  ?? */
   return EXPR_P (node) ? node->exp.locus : (source_locus) NULL;
@@ -3425,21 +3425,21 @@ set_expr_locus (tree node,
 #ifdef USE_MAPPED_LOCATION
   if (loc == NULL)
     {
-      if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-	TREE_TO_GIMPLE_STMT (node)->locus = UNKNOWN_LOCATION;
+      if (GIMPLE_STMT_P (node))
+	GIMPLE_STMT_LOCUS (node) = UNKNOWN_LOCATION;
       else
 	EXPR_CHECK (node)->exp.locus = UNKNOWN_LOCATION;
     }
   else
     {
-      if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-	TREE_TO_GIMPLE_STMT (node)->locus = *loc;
+      if (GIMPLE_STMT_P (node))
+	GIMPLE_STMT_LOCUS (node) = *loc;
       else
 	EXPR_CHECK (node)->exp.locus = *loc;
     }
 #else
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    TREE_TO_GIMPLE_STMT (node)->locus = loc;
+  if (GIMPLE_STMT_P (node))
+    GIMPLE_STMT_LOCUS (node) = loc;
   else
     EXPR_CHECK (node)->exp.locus = loc;
 #endif
@@ -3449,12 +3449,12 @@ const char **
 expr_filename (tree node)
 {
 #ifdef USE_MAPPED_LOCATION
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return &LOCATION_FILE (TREE_TO_GIMPLE_STMT (node)->locus);
+  if (GIMPLE_STMT_P (node))
+    return &LOCATION_FILE (GIMPLE_STMT_LOCUS (node));
   return &LOCATION_FILE (EXPR_CHECK (node)->exp.locus);
 #else
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return &(TREE_TO_GIMPLE_STMT (node)->locus->file);
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node)->file;
   return &(EXPR_CHECK (node)->exp.locus->file);
 #endif
 }
@@ -3463,12 +3463,12 @@ int *
 expr_lineno (tree node)
 {
 #ifdef USE_MAPPED_LOCATION
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return &LOCATION_LINE (TREE_TO_GIMPLE_STMT (node)->locus);
+  if (GIMPLE_STMT_P (node))
+    return &LOCATION_LINE (GIMPLE_STMT_LOCUS (node));
   return &LOCATION_LINE (EXPR_CHECK (node)->exp.locus);
 #else
-  if (GIMPLE_TUPLE_HAS_LOCUS_P (node))
-    return &TREE_TO_GIMPLE_STMT (node)->locus->line;
+  if (GIMPLE_STMT_P (node))
+    return &GIMPLE_STMT_LOCUS (node)->line;
   return &EXPR_CHECK (node)->exp.locus->line;
 #endif
 }
@@ -7932,7 +7932,7 @@ tree_block (tree t)
   if (IS_EXPR_CODE_CLASS (c))
     return &t->exp.block;
   else if (IS_GIMPLE_STMT_CODE_CLASS (c))
-    return &TREE_TO_GIMPLE_STMT (t)->block;
+    return &GIMPLE_STMT_BLOCK (t);
   gcc_unreachable ();
   return NULL;
 }
@@ -7941,7 +7941,7 @@ tree *
 protected_tree_operand (tree node, int i)
 {
   if (GIMPLE_STMT_P (node))
-    return (tree *)(&TREE_TO_GIMPLE_STMT (node)->operands[i]);
+    return &GIMPLE_STMT_OPERAND (node, i);
   return &TREE_OPERAND (node, i);
 }
 
