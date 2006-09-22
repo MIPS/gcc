@@ -1,3 +1,22 @@
+2006-08-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28659
+	* typeck.c (merge_types): If either of the types have the right 
+	attributes, return that one.
+
+	* tree.c (cp_build_type_attribute_variant): Make sure we aren't
+	doing this to class types.
+	* typeck.c (original_type): Deal with type quals properly.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Make-lang.in (GXX_OBJS): Replace gcc.o with $(GCC_OBJS).
+
+	PR driver/26885
+	* Make-lang.in ($(GCJ)$(exeext)): Replace gcc.o with
+	$(GCC_OBJS).
+
 2006-09-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/26957

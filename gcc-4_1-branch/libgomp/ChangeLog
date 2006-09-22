@@ -1,3 +1,26 @@
+2006-09-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28768
+	PR preprocessor/14634
+	* configure.ac (HAVE_CLOCK_GETTIME): Add missing second argument
+	to AC_DEFINE.
+	* configure: Regenerate.
+
+2006-09-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* testsuite/libgomp.fortran/reduction3.f90: Change
+	-2147483648 to -huge(i)-1 to avoid overflow.
+	* testsuite/libgomp.fortran/reduction4.f90: Change
+	Z'ffffffff' to not(0) to avoid overflow.
+
+2006-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/28725
+	* env.c: Include ctype.h.
+	(parse_schedule, parse_unsigned_long, parse_boolean): Allow
+	leading and/or trailing whitespace and compare strings case
+	insensitively.
+
 2006-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/28390

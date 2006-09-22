@@ -1,3 +1,32 @@
+2006-05-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/24879
+	* gcc.target/i386/monitor.c: New file.
+
+2006-07-27  Arjan van de Ven <arjan@linux.intel.com>
+
+	* gcc.target/i386/stack-prot-kernel.c: New test.
+
+2006-07-24  Jan Hubicka  <jh@suse.cz>
+
+	PR c/25795
+	PR c++/27369
+	* gcc.dg/pr25795.c: New test.
+	* gcc.dg/pr25795-1.c: New test.
+
+2006-05-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/compat/scalar-by-value-x.h: New.
+	* gcc.dg/compat/scalar-by-value-y.h: New.
+	* gcc.dg/compat/scalar-by-value-5.c: New.
+	* gcc.dg/compat/scalar-by-value-5_main.c: New.
+	* gcc.dg/compat/scalar-by-value-5_x.c: New.
+	* gcc.dg/compat/scalar-by-value-5_y.c: New.
+	* gcc.dg/compat/scalar-by-value-6.c: New.
+	* gcc.dg/compat/scalar-by-value-6_main.c: New.
+	* gcc.dg/compat/scalar-by-value-6_x.c: New.
+	* gcc.dg/compat/scalar-by-value-6_y.c: New.
+
 2006-09-18 Paul Thomas <pault@gcc.gnu.org>
 
 	PR fortran/28526
