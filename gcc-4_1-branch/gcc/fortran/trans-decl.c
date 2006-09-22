@@ -884,7 +884,15 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  if (TREE_CODE (length) == VAR_DECL
 	      && DECL_CONTEXT (length) == NULL_TREE)
 	    {
-	      gfc_add_decl_to_function (length);
+	      /* Add the string length to the same context as the symbol.  */
+	      if (DECL_CONTEXT (sym->backend_decl) == current_function_decl)
+	        gfc_add_decl_to_function (length);
+	      else
+		gfc_add_decl_to_parent_function (length);
+
+	      gcc_assert (DECL_CONTEXT (sym->backend_decl) ==
+			    DECL_CONTEXT (length));
+
 	      gfc_defer_symbol_init (sym);
 	    }
 	}
