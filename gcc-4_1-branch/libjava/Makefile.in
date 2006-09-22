@@ -9238,7 +9238,21 @@ libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 	rm -rf $$JARDIR $$JARDIR.stamp
 
 libgcj-tools-$(gcc_version).jar: classpath/tools/tools.jar
-	cp $< $@
+	javasrcdir=`cd $(srcdir) && pwd`; \
+	JARDIR=`mktemp -d $@.XXXXXX` || exit 1; \
+	touch -r $$javasrcdir/../gcc/ChangeLog $$JARDIR.stamp; \
+	[ $$javasrcdir/../gcc/java/ChangeLog -nt $$JARDIR.stamp ] \
+	    && touch -r $$javasrcdir/../gcc/java/ChangeLog $$JARDIR.stamp; \
+	[ $$javasrcdir/ChangeLog -nt $$JARDIR.stamp ] \
+	    && touch -r $$javasrcdir/ChangeLog $$JARDIR.stamp; \
+	cd $$JARDIR || exit 1; \
+	$(JAR) -xf ../$<; \
+	rm -rf META-INF; \
+	find -type f | xargs touch -r ../$$JARDIR.stamp; \
+	find -type d | xargs touch -r ../$$JARDIR.stamp; \
+	find * | LC_ALL=C sort | $(JAR) -cfM@E ../$@ || exit 1; \
+	cd ..; \
+	rm -rf $$JARDIR $$JARDIR.stamp
 
 mostlyclean-local:
 	find . -name '*.lo' -print | xargs $(LIBTOOL) rm -f
