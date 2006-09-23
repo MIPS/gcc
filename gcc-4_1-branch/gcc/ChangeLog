@@ -1,3 +1,16 @@
+2006-09-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/26983
+	Backport from mainline
+	* builtins.c (expand_builtin_setjmp): Force next_lab to be
+	preserved.
+
+2006-09-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* config/arm/unwind-arm.c (selfrel_offset31): Clear top bit for
+	positive offsets.
+
 2006-09-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/28706
