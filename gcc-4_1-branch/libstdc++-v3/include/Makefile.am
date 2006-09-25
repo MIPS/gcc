@@ -825,13 +825,18 @@ ${host_builddir}/c++config.h: ${top_builddir}/config.h \
 				${glibcxx_srcdir}/include/bits/c++config \
 				stamp-${host_alias} \
 				${toplevel_srcdir}/gcc/DATESTAMP
-	@cat ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
+	@ldbl_compat='' ;\
+	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
+	${CONFIG_HEADER} > /dev/null 2>&1 \
+	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
+	sed -e "$$ldbl_compat" ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
 	sed -e 's/^/#define __GLIBCXX__ /' \
-            < ${toplevel_srcdir}/gcc/DATESTAMP >> $@ ;\
+	    < ${toplevel_srcdir}/gcc/DATESTAMP >> $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \
 	    -e 's/PACKAGE/_GLIBCXX_PACKAGE/g' \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \
 	    -e 's/WORDS_/_GLIBCXX_WORDS_/g' \
+	    -e '/[ 	]_GLIBCXX_LONG_DOUBLE_COMPAT[ 	]/d' \
 	    < ${CONFIG_HEADER} >> $@ ;\
 	echo "#endif // _CXXCONFIG_" >>$@
 
