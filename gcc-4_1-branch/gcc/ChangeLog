@@ -1,3 +1,275 @@
+2006-09-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/26983
+	Backport from mainline
+	* builtins.c (expand_builtin_setjmp): Force next_lab to be
+	preserved.
+
+2006-09-20  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* config/arm/unwind-arm.c (selfrel_offset31): Clear top bit for
+	positive offsets.
+
+2006-09-18  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/4520
+	Backport from mainline
+	* cselib.c (cselib_hash_rtx): Avoid hashing on the address of labels
+	and symbols.  Instead use the implementation from cse.c's hash_rtx.
+
+2006-09-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR tree-optimization/28900
+	* tree-if-conv.c (find_phi_replacement_condition): Gimplify
+	compound conditional before creating COND_EXPR condition.
+
+2006-09-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	J"orn Rennecke  <joern.rennecke@st.com>
+	Richard Guenther  <rguenther@suse.de>
+	Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/27226
+	* builtins.c (get_pointer_alignment): Handle more forms
+	of base addresses that can be used to derive more precise
+	information about alignment.
+
+2006-09-15 Uros Bizjak <uros@kss-loka.si>
+
+	PR target/28946
+	* config/i386/i386.md ("*ashldi3_cconly_rex64", "*ashlsi3_cconly",
+	"*ashlhi3_cconly", "*ashlqi3_cconly", "*ashrdi3_one_bit_cconly_rex64",
+	"*ashrdi3_cconly_rex64", "*ashrsi3_one_bit_cconly", "*ashrsi3_cconly",
+	"*ashrhi3_one_bit_cconly", "*ashrhi3_cconly",
+	"*ashrqi3_one_bit_cconly", "*ashrqi3_cconly",
+	"*lshrdi3_cconly_one_bit_rex64", "*lshrdi3_cconly_rex64",
+	"*lshrsi3_one_bit_cconly", "*lshrsi3_cconly",
+	"*lshrhi3_one_bit_cconly", "*lshrhi3_cconly",
+	"*lshrqi2_one_bit_cconly", "*lshrqi2_cconly": New patterns to
+	implement only CC setting effects of shift instructions.
+
+2006-09-14  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/28493
+	* builtins.c (expand_builtin_setjmp_receiver): Clobber
+	hard_frame_pointer_rtx after using it to update the frame pointer.
+
+2006-09-14  Anatoly Sokolov <aesok@post.ru>
+
+	PR target/26504
+	* config/avr/avr.h (FRAME_POINTER_CFA_OFFSET): Define.
+
+2006-09-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi (mpreferred-stack-boundary): Remove exception
+	for -Os. Update __m128 alignment requirement.
+
+2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28243
+	* combine.c (distribute_notes) <REG_DEAD>: Do not consider SETs past
+	the insn to which the note was originally attached.
+
+2006-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/13685
+	PR target/27537
+	PR target/28621
+	* config/i386/i386.c (override_options): Always default to 16
+	byte stack boundary.
+
+2006-09-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28726
+	* sched-deps.c (sched_analyze_reg): New function extracted from...
+	(sched_analyze_1): ...here.  Call it to analyze references to
+	registers.  Treat again writes to a stack register as writing to the
+	register.
+	(sched_analyze_2): ...and here.  Call it to analyze references to
+	registers.  Treat again reads of a stack register as reading the
+	register.
+
+2006-09-11  Hideki Iwamoto  <h-iwamoto@kit.hi-ho.ne.jp>
+
+	* doc/cpp.texi: Fix names of charset options.
+
+2006-09-10  Roger Sayle  <roger@eyesopen.com>
+	    Nicolas Setton <setton@adacore.com>
+
+	Backport from mainline
+	* dwarf2out.c (convert_cfa_to_fb_loc_list): Handle DW_CFA_set_loc.
+
+2006-09-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28636
+	* combine.c (force_to_mode): Test for side-effects before
+	substituting by zero.
+	(simplify_shift_const): Likewise for zero or other constants.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/29006
+	* config/mips/mips-protos.h (mips_mem_fits_mode_p): Declare.
+	* config/mips/mips.c (mips_expand_unaligned_store): Use the mode
+	returned by mode_for_size, rather than the mode of src itself,
+	to choose between 32-bit and 64-bit patterns.
+	(mips_mem_fits_mode_p): New function.
+	* config/mips/mips.md (mov_<load>l, mov_<load>r): Use it to check
+	that the size of the source matches the size of the destination.
+	(mov_<store>l, mov_<store>r): Likewise.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/27681
+
+	Backport from mainline:
+
+	2006-05-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* libgcc2.c (LIBGCC2_MAX_UNITS_PER_WORD): New macro.
+	(LIBGCC2_UNITS_PER_WORD): Use LIBGCC2_MAX_UNITS_PER_WORD rather than
+	MIN_UNITS_PER_WORD to set the default.  Also use it in the guard.
+
+	2006-05-22  Richard Sandiford  <richard@codesourcery.com>
+
+	* mklibgcc.in (lib2funcs): Remove _floatdidf from initial assignment.
+
+	2006-05-19  Richard Sandiford  <richard@codesourcery.com>
+
+	* libgcc2.c (MIN_UNITS_PER_WORD): Move default definition from
+	libgcc2.h.
+	(LIBGCC2_UNITS_PER_WORD): Provide default definition, using old
+	MIN_UNITS_PER_WORD logic from libgcc2.h.  Do nothing if
+	LIBGCC2_UNITS_PER_WORD > MIN_UNITS_PER_WORD.
+	* libgcc2.h (MIN_UNITS_PER_WORD): Remove definition from here.
+	Use LIBGCC2_UNITS_PER_WORD rather than MIN_UNITS_PER_WORD to
+	determine the size of Wtype, etc.
+	* mklibgcc.in (LIB2_SIDITI_CONV_FUNCS): New argument.
+	(swfloatfuncs): New variable.
+	(dwfloatfuncs): Likewise.
+	(lib2funcs): Remove floating-point conversion functions from
+	initial assignment.  Use LIB2_SIDITI_CONV_FUNCS to determine
+	the set of conversion routines needed.  Allow entries to specify
+	an object name, filename and word size.  Update users accordingly.
+	* Makefile.in (libgcc.mk): Pass LIB2_SIDITI_CONV_FUNCS.
+	* config/mips/t-mips (LIB2_SIDITI_CONV_FUNCS): Define.
+
+	Revert:
+
+	2006-02-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/22209
+	* config/fixtfdi.c: New libgcc source file.
+	* config/fixunstfdi.c: New source file.
+	* config/floatditf.c: New source file.
+	* config/floatunditf.c: New souce file.
+	* config/mips/t-iris6 (LIB2FUNCS_EXTRA): Include the new source
+	files above instead of config/mips/_tilib.c.
+	* config/mips/t-linux64 (LIB2FUNCS_EXTRA): Likewise.
+
+2006-09-09  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/28634
+	* reorg.c (fill_slots_from_thread): Do not assume A + X - X == A
+	for floating-point modes unless flag_unsafe_math_optimizations.
+
+2006-09-07  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/27724
+	* varasm.c (output_constant): Only strip actual no-op conversions.
+
+2006-09-06  Matthias Klose  <doko@debian.org>
+
+	* Makefile.in (s-macro_list): Conform to POSIX rules in single quoted
+	strings.
+
+2006-09-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28386
+	* loop.c (biased_biv_may_wrap_p): Rename to biv_may_wrap_p and
+	remove 'bias' parameter.
+	(maybe_eliminate_biv_1): Adjust for above change.
+
+2006-09-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/27616
+	* cse.c (table_size): New static variable.
+	(new_basic_block): Initialize it to 0.
+	(remove_from_table): Decrement it.
+	(insert): Increment it.
+	(fold_rtx_mem_1): New function, renamed from fold_rtx_mem.
+	(fold_rtx_mem): Enforce a cap on the recursion depth.  Call
+	fold_rtx_mem_1 if under the cap.
+	(fold_rtx) <RTX_COMM_ARITH>: In the associative case, delay a little
+	the lookup of the equivalent expression and test for equality of the
+	first operand of the equivalent expression before in turn looking up
+	an equivalent constant for the second operand.
+
+2006-09-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR middle-end/28814
+	* fold-const.c (fold_binary): Fold temporary to correct
+	type before constructing new comparison.
+
+2006-09-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/22313
+	* dwarf2out.c (add_fde_cfi): Use a set_loc if the current label is
+	NULL, otherwise use an advance_loc4 to adjust relative to the 
+	current label.
+	(output_cfi) <DW_CFA_set_loc>: Update the current label.
+	(dwarf2out_switch_text_section): Reset the current label to avoid
+	using advance_loc4 over section boundaries.
+
+2006-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/28683
+	* cfgexpand.c (add_reg_br_prob_note): Check if last has exactly
+	3 following insns.
+
+2006-08-31  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/24367
+	* config/s390/s390.md ("movsi", "movdi" expander): Accept rtxes like
+	r12 + SYMBOLIC_CONST.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/27893
+	* gimplify.c (gimplify_decl_expr, gimplify_init_ctor_preeval):
+	Treat sizes as variable whenever not INTEGER_CST.
+
+2006-08-25  Fariborz Jahanian  <fjahanian@apple.com>
+
+	PR c/28418
+	* c-gimplify.c (gimplify_compound_literal_expr): Don't add
+	variable again if DECL_SEEN_IN_BIND_EXPR_P.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28299
+	* c-decl.c (start_function): Don't try to process prototype
+	information from old declaration that isn't a function.
+
+2006-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27558
+	Backport:
+	2006-04-20  Jakub Jelinek  <jakub@redhat.com>
+	* c-pretty-print.c (pp_c_direct_abstract_declarator): Print
+	TYPE_MAX_VALUE (TYPE_DOMAIN (t)) + 1 for ARRAY_TYPE rather
+	than plain TYPE_MAX_VALUE (TYPE_DOMAIN (t)).
+
+2006-08-25  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/27075
+	* config/rs6000/rs6000.c (print_operand): Only use e500 %y syntax
+	for 8 byte objects.
+
 2006-08-29  Janis Johnson  <janis187@us.ibm.com>
 
 	* version.c (VERSUFFIX): Set to IBM.

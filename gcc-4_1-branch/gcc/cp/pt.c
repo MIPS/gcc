@@ -690,13 +690,20 @@ check_explicit_instantiation_namespace (tree spec)
 /* The TYPE is being declared.  If it is a template type, that means it
    is a partial specialization.  Do appropriate error-checking.  */
 
-void
+tree
 maybe_process_partial_specialization (tree type)
 {
   tree context;
 
   if (type == error_mark_node)
-    return;
+    return error_mark_node;
+
+  if (TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+    {
+      error ("name of class shadows template template parameter %qD",
+	     TYPE_NAME (type));
+      return error_mark_node;
+    }
 
   context = TYPE_CONTEXT (type);
 
@@ -781,7 +788,12 @@ maybe_process_partial_specialization (tree type)
 	}
     }
   else if (processing_specialization)
-    error ("explicit specialization of non-template %qT", type);
+    {
+      error ("explicit specialization of non-template %qT", type);
+      return error_mark_node;
+    }
+
+  return type;
 }
 
 /* Returns nonzero if we can optimize the retrieval of specializations
@@ -1177,7 +1189,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 	    {
 	      error ("specialization of %qD after instantiation",
 		     fn);
-	      return spec;
+	      return error_mark_node;
 	    }
 	  else
 	    {
@@ -3006,7 +3018,13 @@ push_template_decl_real (tree decl, bool is_friend)
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 
   /* See if this is a primary template.  */
-  primary = template_parm_scope_p ();
+  if (is_friend && ctx)
+    /* A friend template that specifies a class context, i.e.
+         template <typename T> friend void A<T>::f();
+       is not primary.  */
+    primary = 0;
+  else
+    primary = template_parm_scope_p ();
 
   if (primary)
     {
@@ -5252,6 +5270,10 @@ tsubst_friend_function (tree decl, tree args)
       else
 	new_friend_result_template_info = NULL_TREE;
 
+      /* Make the init_value nonzero so pushdecl knows this is a defn.  */
+      if (new_friend_is_defn)
+	DECL_INITIAL (new_friend) = error_mark_node;
+
       /* Inside pushdecl_namespace_level, we will push into the
 	 current namespace. However, the friend function should go
 	 into the namespace of the template.  */
@@ -7125,6 +7147,15 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	max = tsubst_template_arg (omax, args, complain, in_decl);
 	max = fold_decl_constant_value (max);
 
+	if (TREE_CODE (max) != INTEGER_CST 
+	    && TREE_CODE (max) != TEMPLATE_PARM_INDEX
+	    && !at_function_scope_p ())
+	  {
+	    if (complain & tf_error)
+	      error ("array bound is not an integer constant");
+	    return error_mark_node;
+	  }
+
 	/* [temp.deduct]
 
 	   Type deduction may fail for any of the following
@@ -7137,7 +7168,6 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	     indicated by the state of complain), so that
 	     another substitution can be found.  */
 	  return error_mark_node;
-
 	else if (TREE_CODE (max) == INTEGER_CST
 		 && INT_CST_LT (max, integer_zero_node))
 	  {
@@ -10326,21 +10356,56 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	{
 	  tree parm_max;
 	  tree arg_max;
-
-	  parm_max = TYPE_MAX_VALUE (TYPE_DOMAIN (parm));
-	  arg_max = TYPE_MAX_VALUE (TYPE_DOMAIN (arg));
+	  bool parm_cst;
+	  bool arg_cst;
 
 	  /* Our representation of array types uses "N - 1" as the
 	     TYPE_MAX_VALUE for an array with "N" elements, if "N" is
-	     not an integer constant.  */
-	  if (TREE_CODE (parm_max) == MINUS_EXPR)
+	     not an integer constant.  We cannot unify arbitrarily
+	     complex expressions, so we eliminate the MINUS_EXPRs
+	     here.  */
+	  parm_max = TYPE_MAX_VALUE (TYPE_DOMAIN (parm));
+	  parm_cst = TREE_CODE (parm_max) == INTEGER_CST;
+	  if (!parm_cst)
 	    {
-	      arg_max = fold_build2 (PLUS_EXPR,
-				     integer_type_node,
-				     arg_max,
-				     TREE_OPERAND (parm_max, 1));
+	      gcc_assert (TREE_CODE (parm_max) == MINUS_EXPR);
 	      parm_max = TREE_OPERAND (parm_max, 0);
 	    }
+	  arg_max = TYPE_MAX_VALUE (TYPE_DOMAIN (arg));
+	  arg_cst = TREE_CODE (arg_max) == INTEGER_CST;
+	  if (!arg_cst)
+	    {
+	      /* The ARG_MAX may not be a simple MINUS_EXPR, if we are
+		 trying to unify the type of a variable with the type
+		 of a template parameter.  For example:
+
+                   template <unsigned int N>
+		   void f (char (&) [N]);
+		   int g(); 
+		   void h(int i) {
+                     char a[g(i)];
+		     f(a); 
+                   }
+
+                Here, the type of the ARG will be "int [g(i)]", and
+                may be a SAVE_EXPR, etc.  */
+	      if (TREE_CODE (arg_max) != MINUS_EXPR)
+		return 1;
+	      arg_max = TREE_OPERAND (arg_max, 0);
+	    }
+
+	  /* If only one of the bounds used a MINUS_EXPR, compensate
+	     by adding one to the other bound.  */
+	  if (parm_cst && !arg_cst)
+	    parm_max = fold_build2 (PLUS_EXPR,
+				    integer_type_node,
+				    parm_max,
+				    integer_one_node);
+	  else if (arg_cst && !parm_cst)
+	    arg_max = fold_build2 (PLUS_EXPR,
+				   integer_type_node,
+				   arg_max,
+				   integer_one_node);
 
 	  if (unify (tparms, targs, parm_max, arg_max, UNIFY_ALLOW_INTEGER))
 	    return 1;
@@ -12574,7 +12639,8 @@ type_dependent_expression_p (tree expression)
     return false;
 
   /* An unresolved name is always dependent.  */
-  if (TREE_CODE (expression) == IDENTIFIER_NODE)
+  if (TREE_CODE (expression) == IDENTIFIER_NODE
+      || TREE_CODE (expression) == USING_DECL)
     return true;
 
   /* Some expression forms are never type-dependent.  */

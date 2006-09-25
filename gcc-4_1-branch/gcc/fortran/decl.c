@@ -395,6 +395,7 @@ match_old_style_init (const char *name)
   newdata = gfc_get_data ();
   newdata->var = gfc_get_data_variable ();
   newdata->var->expr = gfc_get_variable_expr (st);
+  newdata->where = gfc_current_locus;
 
   /* Match initial value list. This also eats the terminal
      '/'.  */
@@ -876,6 +877,10 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 	      sym->ts.cl = gfc_get_charlen ();
 	      sym->ts.cl->next = gfc_current_ns->cl_list;
 	      gfc_current_ns->cl_list = sym->ts.cl;
+
+	      if (sym->attr.flavor == FL_PARAMETER
+		    && init->expr_type == EXPR_ARRAY)
+		sym->ts.cl->length = gfc_copy_expr (init->ts.cl->length);
 	    }
 	  /* Update initializer character length according symbol.  */
 	  else if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)

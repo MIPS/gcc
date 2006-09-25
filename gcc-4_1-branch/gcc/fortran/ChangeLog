@@ -1,3 +1,151 @@
+2006-09-19 Paul Thomas <pault@gcc.gnu.org>
+	   Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR fortran/29101
+	* trans-stmt.c (gfc_trans_character_select): Store the label
+	from select_string and then clean up any temporaries from the
+	conversion of the select expression, before branching to the
+	selected case.
+
+2006-09-18 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/28526
+	* primary.c (match_variable): If the compiler is in a module
+	specification block, an interface block or a contains section,
+	reset host_flag to force the changed symbols mechanism.
+
+	PR fortran/29101
+	* trans-stmt.c (gfc_trans_character_select): Add the post block
+	for the expression to the main block, after the call to
+	select_string and the last label.
+
+2006-09-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29060
+	* iresolve.c (resolve_spread): Build shape for result if the
+	source shape is available and dim and ncopies are constants.
+
+2006-09-18  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/28817
+	PR fortran/21918
+	* trans-decl.c (generate_local_decl): Change from 'warning' to
+	'gfc_warning' to have line numbers correctly reported.
+
+2006-09-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29051
+	* decl.c (match_old_style_init): Set the 'where' field of the
+	gfc_data structure 'newdata'.
+
+	* match.c (match_case_eos): Add a comprehensible error message.
+
+2006-09-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28890
+	trans-expr.c (gfc_conv_function_call): Obtain the string length
+	of a dummy character(*) function from the symbol if it is not
+	already translated.  For a call to a character(*) function, use
+	the passed, hidden string length argument, which is available
+	from the backend_decl of the formal argument.
+	resolve.c (resolve_function): It is an error if a function call
+	to a character(*) function is other than a dummy procedure or
+	an intrinsic.
+
+2006-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28923
+	expr.c (find_array_section): Only use the array lower and upper
+	bounds for the start and end of the sections, where the expr is
+	NULL.
+
+	PR fortran/28959
+	trans-types.c (gfc_get_derived_type): Use the parent namespace of
+	the procedure if the type's own namespace does not have a parent.
+
+2006-09-05 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/28908
+	* gfortran.h : Restore the gfc_dt_list structure and reference
+	to it in gfc_namespace.
+	* resolve.c (resolve_fl_derived): Restore the building of the
+	list of derived types for the current namespace. Modify the
+	restored code so that a check is made to see if the symbol is
+	already in the list.
+	(resolve_fntype): Make sure that the specification block
+	version of the derived type is used for a module function that
+	returns that type. 
+	* symbol.c (gfc_free_dt_list): Restore.
+	(gfc_free_namespace): Restore call to previous.
+	* trans-types.c (copy_dt_decls_ifequal): Restore.
+	(gfc_get_derived_type): Restore all the paraphenalia for
+	association of derived types, including calls to previous.
+	Modify the restored code such that all derived types are built
+	if their symbols are found in the parent namespace; not just
+	non-module types.  Add backend_decls to like derived types in
+	sibling namespaces, as well as that of the derived type.
+
+2006-08-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28885
+	* trans-expr.c (gfc_conv_aliased_arg): Ensure that the temp
+	declaration is retained for INTENT(OUT) arguments.
+
+	PR fortran/28873
+	PR fortran/20067
+	* resolve.c (resolve_generic_f): Make error message more
+	comprehensible.
+	(resolve_generic_s): Restructure search for specific procedures
+	to be similar to resolve_generic_f and change to similar error
+	message.  Ensure that symbol reference is refreshed, in case
+	the search produces a NULL.
+	(resolve_specific_s): Restructure search, as above and as
+	resolve_specific_f. Ensure that symbol reference is refreshed,
+	in case the search produces a NULL.
+
+	PR fortran/25077
+	PR fortran/25102
+	* interface.c (check_operator_interface): Throw error if the
+	interface assignment tries to change intrinsic type assigments
+	or has less than two arguments.  Also, it is an error if an
+	interface operator contains an alternate return.
+
+	PR fortran/24866
+	* parse.c (gfc_fixup_sibling_symbols): Do not modify the symbol
+	if it is a dummy in the contained namespace.
+
+2006-08-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* symbol.c (gfc_use_derived): Never eliminate the symbol,
+	following reassociation of use associated derived types.
+
+2006-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* symbol.c (shift_types): Shift the derived type references in
+	formal namespaces.
+	(gfc_use_derived): Return if the derived type symbol is already
+	in another namspace.  Add searches for the derived type in
+	sibling namespaces.
+
+	PR fortran/28771
+	* decl.c (add_init_expr_to_sym): Restore the original but
+	restricted to parameter arrays to fix a regression.
+
+2006-08-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* gfortran.dg/used_types_4.f90: New test.
+	* gfortran.dg/derived_init_2.f90: Modify to check sibling
+	association of derived types.
+	* gfortran.dg/used_types_2.f90: Add module cleanup.
+	* gfortran.dg/used_types_3.f90: The same.
+
+	PR fortran/28771
+	* gfortran.dg/assumed_charlen_in_main.f90: Modify to check
+	fix of regression.
+
 2006-08-20  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/28601

@@ -1683,6 +1683,12 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr,
       gcc_assert (rse.ss == gfc_ss_terminator);
       gfc_trans_scalarizing_loops (&loop, &body);
     }
+  else
+    {
+      /* Make sure that the temporary declaration survives.  */
+      tmp = gfc_finish_block (&body);
+      gfc_add_expr_to_block (&loop.pre, tmp);
+    }
 
   /* Add the post block after the second loop, so that any
      freeing of allocated memory is done at the right time.  */
@@ -1988,6 +1994,16 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_add_expr_to_block (&se->pre, tmp);
 	}
 
+      if (fsym && fsym->ts.type == BT_CHARACTER
+	     && parmse.string_length == NULL_TREE
+	     && e->ts.type == BT_PROCEDURE
+	     && e->symtree->n.sym->ts.type == BT_CHARACTER
+	     && e->symtree->n.sym->ts.cl->length != NULL)
+	{
+	  gfc_conv_const_charlen (e->symtree->n.sym->ts.cl);
+	  parmse.string_length = e->symtree->n.sym->ts.cl->backend_decl;
+	}
+
       /* Character strings are passed as two parameters, a length and a
          pointer.  */
       if (parmse.string_length != NULL_TREE)
@@ -2004,12 +2020,22 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	{
 	  /* Assumed character length results are not allowed by 5.1.1.5 of the
 	     standard and are trapped in resolve.c; except in the case of SPREAD
-	     (and other intrinsics?).  In this case, we take the character length
-	     of the first argument for the result.  */
-	  cl.backend_decl = TREE_VALUE (stringargs);
-	}
-      else
-	{
+	     (and other intrinsics?) and dummy functions.  In the case of SPREAD,
+	     we take the character length of the first argument for the result.
+	     For dummies, we have to look through the formal argument list for
+	     this function and use the character length found there.*/
+	  if (!sym->attr.dummy)
+	    cl.backend_decl = TREE_VALUE (stringargs);
+	  else
+	    {
+	      formal = sym->ns->proc_name->formal;
+	      for (; formal; formal = formal->next)
+		if (strcmp (formal->sym->name, sym->name) == 0)
+		  cl.backend_decl = formal->sym->ts.cl->backend_decl;
+	    }
+        }
+        else
+        {
 	  /* Calculate the length of the returned string.  */
 	  gfc_init_se (&parmse, NULL);
 	  if (need_interface_mapping)

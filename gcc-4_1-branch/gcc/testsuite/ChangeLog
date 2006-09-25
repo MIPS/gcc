@@ -1,3 +1,242 @@
+2006-09-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/26983
+	* gcc.dg/pr26983.c: New test.
+
+2006-09-18 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/28526
+	* gfortran.dg/keyword_symbol_1.f90: New test.
+
+	* gfortran.dg/spread_shape_1.f90: Add missing warning with
+	pedantic compilation option.
+
+2006-09-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR tree-optimization/28900
+	* gcc.dg/torture/pr28900.c: New testcase
+
+2006-09-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	J"orn Rennecke  <joern.rennecke@st.com>
+	Richard Guenther  <rguenther@suse.de>
+	Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/27226
+	* gcc.target/mips/memcpy-1.c: New testcase.
+
+2006-09-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29060
+	* gfortran.dg/spread_shape_1.f90: New test.
+
+2006-09-15  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/28946
+	* gcc.target/i386/pr28946.c: New test.
+
+2006-09-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29051
+	* gfortran.dg/oldstyle_3.f90: New test.
+
+2006-09-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pr28243.c: New test.
+
+2006-09-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR testsuite/29007
+	* gcc.dg/long-long-cst1.c (t): Add cast to
+	__SIZE_TYPE__ before casting to int.
+	(main): Return 0 on success.
+
+2006-09-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28890
+	gfortran.dg/assumed_charlen_function_5.f90: New test.
+
+2006-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/13685
+	* gcc.target/i386/pr13685.c: New test.
+
+2006-09-11  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR testsuite/28950
+	* gcc.target/powerpc/ppc-and-1.c: Fix regex.
+
+2006-09-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pr28726.c: New test.
+
+2006-09-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20060910-1.c: New test.
+
+2006-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/29006
+	* gcc.c-torture/execute/pr29006.c: New test.
+
+2006-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28923
+	gfortran.dg/array_initializer_2.f90: Fill in missing index start value.
+	gfortran.dg/array_initializer_3.f90: New test.
+
+	PR libfortran/28947
+	gfortran.dg/matmul_4.f90: New test.
+
+	PR fortran/28959
+	gfortran.dg/used_types_10: New test.
+
+2006-09-09  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/28634
+	* gcc.c-torture/execute/ieee/pr28634.c: New test.
+
+2006-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28886
+	* g++.dg/template/array16.C: New test.
+
+2006-09-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20060905-1.c: New test.
+
+2006-09-05 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/28908
+	* gfortran.dg/used_types_7.f90: New test.
+	* gfortran.dg/used_types_8.f90: New test.
+	* gfortran.dg/used_types_9.f90: New test.
+
+2006-09-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20060904-1.c: New test.
+
+2006-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28878
+	* g++.dg/parse/crash33.C: New test.
+
+2006-09-01  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	PR middle-end/28814
+	* gcc.dg/torture/pr28814.c: New testcase.
+
+2006-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/28683
+	* gcc.c-torture/compile/20060823-1.c: New test.
+
+2006-08-31  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/24367
+	* gcc.dg/pr24367.c: New testcase.
+
+2006-08-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28885
+	* gfortran.dg/aliasing_dummy_2.f90: New test.
+
+	PR fortran/20067
+	* gfortran.dg/generic_5.f90: Change error message.
+
+	PR fortran/28873
+	* gfortran.dg/generic_6.f90: New test.
+
+	PR fortran/25077
+	* gfortran.dg/redefined_intrinsic_assignment.f90: New test.
+
+	PR fortran/25102
+	* gfortran.dg/invalid_interface_assignment.f90: New test.
+
+	PR fortran/24866
+	* gfortran.dg/module_proc_external_dummy.f90: New test.
+
+2006-08-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* gfortran.dg/used_types_5.f90: New test.
+	* gfortran.dg/used_types_6.f90: New test.
+
+	PR fortran/28005
+	* gfortran.dg/matmul_3.f90: New test.
+
+2006-08-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28860
+	* g++.dg/template/ttp22.C: New test.
+
+2006-08-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28058
+	* g++.dg/template/spec31.C: New test.
+	* g++.old-deja/g++.pt/spec9.C: Adjust error markers.
+
+2006-08-28  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/28452
+	* gfortran.dg/random_3.f90:  New test.
+
+2006-08-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28595
+	* g++.dg/template/array15.C: New test.
+	* g++.dg/template/crash2.C: Tweak error markers.
+
+2006-08-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28853
+	* g++.dg/template/ttp21.C: New test.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/27893
+	* gcc.c-torture/compile/vla-const-1.c,
+	gcc.c-torture/compile/vla-const-2.c: New tests.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28418
+	* gcc.c-torture/compile/compound-literal-1.c: New test.
+
+2006-08-25  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/28299
+	* gcc.dg/funcdef-var-1.c, gcc.dg/funcdef-var-2.c: New tests.
+	* gcc.dg/pr20368-1.c, gcc.dg/pr20368-2.c, gcc.dg/pr20368-3.c:
+	Expect extra diagnostics.
+
+2006-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/27558
+	Backport:
+	2006-04-20  Jakub Jelinek  <jakub@redhat.com>
+	* gcc.dg/20060419-1.c: New test.
+
+2006-08-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28056
+	* g++.dg/parse/local1.C: New test.
+	* g++.dg/other/qual1.C: Tweak error marker.
+
+2006-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/28788
+	* gfortran.dg/used_types_4.f90: New test.
+	* gfortran.dg/used_types_2.f90: Add module cleanup.
+	* gfortran.dg/used_types_3.f90: The same.
+
+	PR fortran/28771
+	* gfortran.dg/assumed_charlen_in_main.f90: Modify to check
+	fix of regression.
+
 2006-08-28  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/struct-union.c: Update expected errors for 4.1.
