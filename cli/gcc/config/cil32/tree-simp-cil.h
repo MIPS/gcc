@@ -33,7 +33,7 @@ Roberto Costa <roberto.costa@st.com>   */
 
 #include "tree.h"
 
-void
-expand_init_to_stmt_list (tree, tree, tree *, bool);
+extern void expand_init_to_stmt_list (tree, tree, tree *, bool);
+extern tree get_integer_type (int, bool);
 
 #endif  /* TREE_SIMP_CIL_H */

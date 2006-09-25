@@ -90,6 +90,12 @@ Roberto Costa <roberto.costa@st.com>   */
       assignment also requires a load from memory; from the memory
       access point of view, the operation cannot be made atomic.
 
+   *) Expansion of BIT_FIELD_REF nodes.
+      CIL has no direct support for bit-field access; hence,
+      equivalent code that extracts the bit pattern and applies the
+      appropriate bit mask is generated.
+      Memory access is performed by using INDIRECT_REF nodes.
+
    *) Expansion of TARGET_MEM_REF nodes.
       Emission of such nodes is not difficult in gen_cil pass;
       however, a previous expansion may trigger further optimizations
@@ -126,6 +132,15 @@ Roberto Costa <roberto.costa@st.com>   */
       The reason is that CIL shift operations require a shift operand
       of type int32.
 
+   *) Forcing arguments of CALL_EXPRs to be local variables, only for
+      specific built-in functions.
+      A few built-in functions require special simplifications
+      in order to make their emission easier; in particular:
+      *) the 1st argument of BUILT_IN_VA_COPY has to be a local variable
+         (the emitted CIL uses a 'stloc' to store its value).
+      To force arguments of calls to be local variables, new local
+      variables are generated.
+
    *) Rename of inlined variables to unique names.
       Emitted variables by gen_cil pass keep the original name.
       In case of variables declared within inlined functions,
@@ -144,52 +159,67 @@ Roberto Costa <roberto.costa@st.com>   */
 */
 
 /* Local functions, macros and variables.  */
-static tree get_unsigned_integer_type (int);
 static bool is_copy_required (tree);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void simp_switch (block_stmt_iterator *, tree *);
 static void simp_trivial_switch (block_stmt_iterator *, tree *);
+static void simp_builtin_call (block_stmt_iterator, tree);
 static void simp_abs (block_stmt_iterator *, tree *);
 static void simp_min_max (block_stmt_iterator *, tree *);
 static void simp_rotate (block_stmt_iterator *, tree *);
 static void simp_shift (block_stmt_iterator *, tree);
 static void simp_target_mem_ref (block_stmt_iterator *, tree *);
 static void simp_array_ref (block_stmt_iterator *, tree *);
+static void simp_bitfield (block_stmt_iterator *, tree *, tree, unsigned int,
+                           unsigned int, unsigned int, HOST_WIDEST_INT, bool);
 static void simp_rhs_bitfield_component_ref (block_stmt_iterator *, tree *);
 static void simp_lhs_bitfield_component_ref (block_stmt_iterator *, tree *);
+static void simp_bitfield_ref (block_stmt_iterator *, tree *);
 static void pre_simp_init (block_stmt_iterator *, tree);
 static void simp_cil_node (block_stmt_iterator *, tree *);
-static void split_use (block_stmt_iterator, tree *);
-static void rename_var (tree, const char*);
+static void split_use (block_stmt_iterator, tree *, bool);
+static void rename_var (tree, const char*, unsigned long);
 static void simp_vars (void);
 static unsigned int simp_cil (void);
 static bool simp_cil_gate (void);
 
 static tree res_var;
-static tree uint32_type;
 
-/* Return the unsigned integer type with size BITS bits */
+/* Return the integer type with size BITS bits.
+   The type is unsigned or signed depending on UNS.   */
 
-static tree
-get_unsigned_integer_type (int bits)
+tree
+get_integer_type (int bits, bool uns)
 {
-    if (GET_MODE_BITSIZE (TYPE_MODE (unsigned_type_node)) == bits)
-      return unsigned_type_node;
-    else if (GET_MODE_BITSIZE (TYPE_MODE (long_unsigned_type_node)) == bits)
-      return long_unsigned_type_node;
-    else if (GET_MODE_BITSIZE (TYPE_MODE (short_unsigned_type_node)) == bits)
-      return short_unsigned_type_node;
-    else if (GET_MODE_BITSIZE (TYPE_MODE (long_long_unsigned_type_node))
-             == bits)
-      return long_long_unsigned_type_node;
-    else if (GET_MODE_BITSIZE (TYPE_MODE (unsigned_char_type_node)) == bits)
-      return unsigned_char_type_node;
-    else
-      {
-        gcc_assert (0);
-        return NULL_TREE;
-      }
+  if (uns)
+    {
+      switch (bits)
+        {
+        case 8:   return unsigned_intQI_type_node;
+        case 16:  return unsigned_intHI_type_node;
+        case 32:  return unsigned_intSI_type_node;
+        case 64:  return unsigned_intDI_type_node;
+        case 128: return unsigned_intTI_type_node;
+        default:
+          gcc_assert (0);
+          return NULL_TREE;
+        }
+    }
+  else
+    {
+      switch (bits)
+        {
+        case 8:   return intQI_type_node;
+        case 16:  return intHI_type_node;
+        case 32:  return intSI_type_node;
+        case 64:  return intDI_type_node;
+        case 128: return intTI_type_node;
+        default:
+          gcc_assert (0);
+          return NULL_TREE;
+        }
+    }
 }
 
 /* In the case of multiple uses of tree NODE, return whether
@@ -247,6 +277,8 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
     case CALL_EXPR:
       {
         tree args = TREE_OPERAND (node, 1);
+        tree fun_expr;
+        tree dfun = NULL_TREE;
 
         simp_cil_node (bsi, &TREE_OPERAND (node, 0));
 
@@ -255,6 +287,15 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
             simp_cil_node (bsi, &TREE_VALUE (args));
             args = TREE_CHAIN (args);
           }
+
+        fun_expr = TREE_OPERAND (node, 0);
+        if (TREE_CODE (fun_expr) == ADDR_EXPR
+            && TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL)
+          dfun = TREE_OPERAND (fun_expr, 0);
+
+        /* Calls to some built-in functions require ad-hoc simplifications */
+        if (dfun && DECL_BUILT_IN (dfun))
+          simp_builtin_call (*bsi, node);
       }
       break;
 
@@ -306,7 +347,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 1)))
           && TREE_CODE (TREE_OPERAND (node, 0)) == INDIRECT_REF
           && TREE_CODE (TREE_OPERAND (node, 1)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 1));
+        split_use (*bsi, &TREE_OPERAND (node, 1), false);
       break;
 
     case NEGATE_EXPR:
@@ -316,7 +357,6 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
     case NOP_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case BIT_FIELD_REF:
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       break;
 
@@ -324,14 +364,14 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0)))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 0));
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
       break;
 
     case INDIRECT_REF:
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       if (AGGREGATE_TYPE_P (TREE_TYPE (node))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 0));
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
       break;
 
     case COMPONENT_REF:
@@ -339,7 +379,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0)))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 0));
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
       if (DECL_BIT_FIELD (TREE_OPERAND (node, 1)))
         {
           tree stmt = bsi_stmt (*bsi);
@@ -352,6 +392,16 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
         }
       break;
 
+    case BIT_FIELD_REF:
+      simp_cil_node (bsi, &TREE_OPERAND (node, 0));
+      if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0)))
+          && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
+      gcc_assert (TREE_CODE (bsi_stmt (*bsi)) != MODIFY_EXPR
+                  || TREE_OPERAND (bsi_stmt (*bsi), 0) != node);
+      simp_bitfield_ref (bsi, node_ptr);
+      break;
+
     case TARGET_MEM_REF:
       simp_cil_node (bsi, &TMR_SYMBOL (node));
       simp_cil_node (bsi, &TMR_BASE (node));
@@ -361,7 +411,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       gcc_assert (TREE_CODE (node) == INDIRECT_REF);
       if (AGGREGATE_TYPE_P (TREE_TYPE (node))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 0));
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
       break;
 
     case ARRAY_REF:
@@ -372,7 +422,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
       gcc_assert (TREE_CODE (node) == INDIRECT_REF);
       if (AGGREGATE_TYPE_P (TREE_TYPE (node))
           && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 0));
+        split_use (*bsi, &TREE_OPERAND (node, 0), false);
       break;
 
     case RETURN_EXPR:
@@ -862,6 +912,40 @@ simp_trivial_switch (block_stmt_iterator *bsi, tree *node_ptr)
     }
 }
 
+/* Force specific arguments of the CALL_EXPR to a built-in function
+   pointed by NODE to be local variables.
+   Which arguments are forced depend on the built-in function.
+   BSI is the iterator of the statement that contains NODE
+   (in order to allow insertion of new statements).   */
+
+static void
+simp_builtin_call (block_stmt_iterator bsi, tree node)
+{
+  tree fun_expr = TREE_OPERAND (node, 0);
+
+  gcc_assert (TREE_CODE (node) == CALL_EXPR);
+  gcc_assert (TREE_CODE (fun_expr) == ADDR_EXPR);
+  gcc_assert (TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL);
+  gcc_assert (DECL_BUILT_IN (TREE_OPERAND (fun_expr, 0)));
+
+  switch (DECL_FUNCTION_CODE (TREE_OPERAND (fun_expr, 0)))
+    {
+    case BUILT_IN_VA_COPY:
+      {
+        tree va_dest = TREE_VALUE (TREE_OPERAND (node, 1));
+
+        gcc_assert (TREE_CODE (va_dest) == ADDR_EXPR);
+        if (TREE_CODE (TREE_OPERAND (va_dest, 0)) != VAR_DECL
+            || DECL_FILE_SCOPE_P (TREE_OPERAND (va_dest, 0)))
+          split_use (bsi, &TREE_OPERAND (va_dest, 0), true);
+      }
+      break;
+
+    default:
+      ;
+    }
+}
+
 /* Remove the ABS_EXPR pointed by NODE_PTR by inserting
    explicit control flow.
    BSI points to the iterator of the statement that contains *NODE_PTR
@@ -1077,7 +1161,7 @@ simp_rotate (block_stmt_iterator *bsi, tree *node_ptr)
   op0 = fold_convert (op0_uns_type, op0);
 
   /* Convert the second operand to 32-bit */
-  op1 = fold_convert (uint32_type, TREE_OPERAND (node, 1));
+  op1 = fold_convert (unsigned_intSI_type_node, TREE_OPERAND (node, 1));
 
   /* Make sure that the two operands have no side effects */
   if (is_copy_required (op0))
@@ -1109,8 +1193,8 @@ simp_rotate (block_stmt_iterator *bsi, tree *node_ptr)
   /* Build second shift */
   t2 = fold_build2 (left ? RSHIFT_EXPR : LSHIFT_EXPR, op0_uns_type,
                     op0,
-                    build2 (MINUS_EXPR, uint32_type,
-                            fold_convert (uint32_type,
+                    build2 (MINUS_EXPR, unsigned_intSI_type_node,
+                            fold_convert (unsigned_intSI_type_node,
                                           TYPE_SIZE (TREE_TYPE (op0))),
                             op1));
 
@@ -1143,7 +1227,7 @@ simp_shift (block_stmt_iterator *bsi, tree node)
               || TREE_CODE (node) == RSHIFT_EXPR);
 
   /* Generate the type conversion */
-  t = fold_convert (uint32_type, TREE_OPERAND (node, 1));
+  t = fold_convert (unsigned_intSI_type_node, TREE_OPERAND (node, 1));
 
   /* Gimplify the equivalent expression and update the current node */
   TREE_OPERAND (node, 1) = force_gimple_operand_bsi (bsi, t, FALSE, NULL);
@@ -1312,46 +1396,40 @@ simp_array_ref (block_stmt_iterator *bsi, tree *node_ptr)
   *node_ptr = build1 (INDIRECT_REF, TREE_TYPE (node), t1);
 }
 
-/* Expand the COMPONENT_REF (pointed by NODE_PTR) accessing
-   a BIT_FIELD_DECL and being on a right-hand side by transforming it
+/* Expand a bit-field reference by transforming it
    into an INDIRECT_REF and applying the necessary bit mask operations.
    BSI points to the iterator of the statement that contains *NODE_PTR
    (in order to allow insertion of new statements).
    BSI is passed by reference because instructions are inserted.
    NODE is passed by reference because simplification requires
-   replacing the node.   */
+   replacing the node.
+   OBJ is the object containing the bit-field.
+   CONT_SIZE is the number of bits of the bit-field container.
+   BFLD_SIZE is the number of bits being referenced.
+   BFLD_OFF is the position of the first referenced bit.
+   OFF is an additional offset in bytes of the bit-field from the
+   beginning of the OBJ.
+   UNS tells whether the bit-field is unsigned or not.   */
 
 static void
-simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
+simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
+               tree obj, unsigned int cont_size, unsigned int bfld_size,
+               unsigned int bfld_off, HOST_WIDEST_INT off, bool uns)
 {
   tree node = *node_ptr;
   location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
-  tree obj = TREE_OPERAND (node, 0);
-  tree fld = TREE_OPERAND (node, 1);
-  tree fld_type, fld_off ;
-  unsigned int cont_size, bfld_size, bfld_off;
   tree new_type, obj_ptr_type;
   tree tmp_var, tmp_stmt;
   tree t;
-  HOST_WIDEST_INT off;
 
-  gcc_assert (TREE_CODE (node) == COMPONENT_REF);
-  gcc_assert (DECL_BIT_FIELD (fld));
-
-  /* Extract bit field layout */
-  fld_type = DECL_BIT_FIELD_TYPE (fld);
-  fld_off = DECL_FIELD_OFFSET (fld);
-  cont_size = TREE_INT_CST_LOW (TYPE_SIZE (fld_type));
-  bfld_size = TYPE_PRECISION (TREE_TYPE (fld));
-  bfld_off = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld)) & (cont_size - 1);
-  gcc_assert (cont_size >= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))));
+  gcc_assert (cont_size >= bfld_size + bfld_off);
 
   /* Build the type corresponding of a pointer to the object */
   obj_ptr_type = build0 (POINTER_TYPE, TREE_TYPE (obj));
   layout_type (obj_ptr_type);
 
   /* Build the new type for the equivalent access */
-  new_type = get_unsigned_integer_type (cont_size);
+  new_type = get_integer_type (cont_size, uns);
 
   /* Build the (gimplified) equivalent expression */
 
@@ -1363,13 +1441,6 @@ simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-
-  off = TREE_INT_CST_LOW (fld_off)
-        + ((TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld))
-            & ~(cont_size - 1))
-           / 8);
-
-  gcc_assert (TREE_INT_CST_HIGH (fld_off) == 0);
 
   if (off > 0)
     {
@@ -1399,7 +1470,7 @@ simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                          tmp_var,
                          build2 (LSHIFT_EXPR, new_type,
                                  t,
-                                 build_int_cstu (uint32_type,
+                                 build_int_cstu (unsigned_intSI_type_node,
                                                  cont_size
                                                  - bfld_size - bfld_off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
@@ -1414,7 +1485,7 @@ simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                          tmp_var,
                          build2 (RSHIFT_EXPR, new_type,
                                  t,
-                                 build_int_cstu (uint32_type,
+                                 build_int_cstu (unsigned_intSI_type_node,
                                                  cont_size - bfld_size)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       t = tmp_var;
@@ -1425,6 +1496,46 @@ simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Update the current node */
   *node_ptr = fold_convert (TREE_TYPE (node), t);
+}
+
+/* Expand the COMPONENT_REF (pointed by NODE_PTR) accessing
+   a BIT_FIELD_DECL and being on a right-hand side by transforming it
+   into an INDIRECT_REF and applying the necessary bit mask operations.
+   BSI points to the iterator of the statement that contains *NODE_PTR
+   (in order to allow insertion of new statements).
+   BSI is passed by reference because instructions are inserted.
+   NODE is passed by reference because simplification requires
+   replacing the node.   */
+
+static void
+simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
+{
+  tree node = *node_ptr;
+  tree obj = TREE_OPERAND (node, 0);
+  tree fld = TREE_OPERAND (node, 1);
+  tree fld_type, fld_off;
+  unsigned int cont_size, bfld_size, bfld_off;
+  HOST_WIDEST_INT off;
+
+  gcc_assert (TREE_CODE (node) == COMPONENT_REF);
+  gcc_assert (DECL_BIT_FIELD (fld));
+
+  /* Extract bit field layout */
+  fld_type = DECL_BIT_FIELD_TYPE (fld);
+  fld_off = DECL_FIELD_OFFSET (fld);
+  cont_size = TREE_INT_CST_LOW (TYPE_SIZE (fld_type));
+  bfld_size = TYPE_PRECISION (TREE_TYPE (fld));
+  bfld_off = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld)) & (cont_size - 1);
+  gcc_assert (cont_size >= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))));
+  gcc_assert (TREE_INT_CST_HIGH (fld_off) == 0);
+  off = TREE_INT_CST_LOW (fld_off)
+        + ((TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld))
+            & ~(cont_size - 1))
+           / 8);
+
+  /* Simplify the bit-field */
+  simp_bitfield (bsi, node_ptr, obj, cont_size, bfld_size, bfld_off, off,
+                 DECL_UNSIGNED (fld));
 }
 
 /* Expand the COMPONENT_REF (pointed by NODE_PTR) accessing
@@ -1466,7 +1577,7 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   gcc_assert (cont_size >= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))));
 
   /* Build the new type for the equivalent access */
-  new_type = get_unsigned_integer_type (cont_size);
+  new_type = get_integer_type (cont_size, true);
 
   /* Build the type corresponding of a pointer to the object */
   obj_ptr_type = build0 (POINTER_TYPE, TREE_TYPE (obj));
@@ -1490,7 +1601,7 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                          tmp_var,
                          build2 (LSHIFT_EXPR, new_type,
                                  rhs,
-                                 build_int_cstu (uint32_type,
+                                 build_int_cstu (unsigned_intSI_type_node,
                                                  cont_size - bfld_size)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       rhs = tmp_var;
@@ -1506,7 +1617,7 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                          tmp_var,
                          build2 (RSHIFT_EXPR, new_type,
                                  rhs,
-                                 build_int_cstu (uint32_type,
+                                 build_int_cstu (unsigned_intSI_type_node,
                                                  cont_size
                                                  - bfld_size - bfld_off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
@@ -1556,9 +1667,9 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Compute the mask to be applied to the existing value */
   gcc_assert (HOST_BITS_PER_WIDEST_INT >= 64);
-  mask |= (1 << (cont_size - bfld_size - bfld_off)) - 1;
+  mask |= (1LL << (cont_size - bfld_size - bfld_off)) - 1LL;
   mask <<= bfld_off + bfld_size;
-  mask |= (1 << bfld_off) - 1;
+  mask |= (1LL << bfld_off) - 1;
 
   /* Apply the mask to the existing value */
   tmp_var = create_tmp_var (new_type, "cilsimp");
@@ -1566,7 +1677,9 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                      tmp_var,
                      build2 (BIT_AND_EXPR, new_type,
                              t,
-                             build_int_cstu (new_type, mask)));
+                             build_int_cst_wide (new_type,
+                                                 mask,
+                                                 mask >> HOST_BITS_PER_WIDE_INT)));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -1585,6 +1698,51 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   /* Update the current statement (and the current node) */
   *node_ptr = build1 (INDIRECT_REF, new_type, addr);
   TREE_OPERAND (stmt, 1) = rhs;
+}
+
+/* Expand the BIT_FIELD_REF (pointed by NODE_PTR) by transforming it
+   into an INDIRECT_REF and applying the necessary bit mask operations.
+   BSI points to the iterator of the statement that contains *NODE_PTR
+   (in order to allow insertion of new statements).
+   BSI is passed by reference because instructions are inserted.
+   NODE is passed by reference because simplification requires
+   replacing the node.   */
+
+static void
+simp_bitfield_ref (block_stmt_iterator *bsi, tree *node_ptr)
+{
+  tree node = *node_ptr;
+  tree obj = TREE_OPERAND (node, 0);
+  unsigned int ref_bfld_off, cont_size, bfld_size, bfld_off;
+  HOST_WIDE_INT off;
+
+  gcc_assert (TREE_CODE (node) == BIT_FIELD_REF);
+
+  /* Extract bit field layout */
+  bfld_size = TREE_INT_CST_LOW (TREE_OPERAND (node, 1));
+  ref_bfld_off = TREE_INT_CST_LOW (TREE_OPERAND (node, 2));
+  gcc_assert (bfld_size <= 64);
+
+  /* At least, cont_size is the next power of two of the bit-field size */
+  cont_size = bfld_size - 1;
+  cont_size |= (cont_size >> 1);
+  cont_size |= (cont_size >> 2);
+  cont_size |= (cont_size >> 4);
+  ++cont_size;
+  gcc_assert (cont_size == 8 || cont_size == 16
+              || cont_size == 32 || cont_size == 64);
+
+  /* Widen the container until an aligned access is enough */
+  while ((ref_bfld_off & ~(cont_size - 1))
+         != ((ref_bfld_off + bfld_size - 1) & ~(cont_size - 1)))
+    cont_size <<= 1;
+
+  bfld_off = ref_bfld_off & (cont_size - 1);
+  off = (ref_bfld_off - bfld_off) >> 3;
+
+  /* Simplify the bit-field */
+  simp_bitfield (bsi, node_ptr, obj, cont_size, bfld_size, bfld_off, off,
+                 BIT_FIELD_REF_UNSIGNED (node));
 }
 
 /* Expand the INIT_EXPR (or MODIFY_EXPR) in NODE having
@@ -1655,21 +1813,23 @@ pre_simp_init (block_stmt_iterator *bsi, tree node)
   *bsi = tmp_bsi;
 }
 
-/* Make sure that the tree pointed by NODE_PTR is a VAR_DECL.
+/* Make sure that the tree pointed by NODE_PTR is a VAR_DECL;
+   if LOCAL is true, then the VAR_DECL must be a local variable.
    In case, split the statement containing NODE_PTR into two
    by creating a new local variable.
    BSI points to the iterator of the statement that contains NODE_PTR
    (in order to allow insertion of new statements).   */
 
 static void
-split_use (block_stmt_iterator bsi, tree *node_ptr)
+split_use (block_stmt_iterator bsi, tree *node_ptr, bool local)
 {
   tree node = *node_ptr;
   location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
   tree type = TREE_TYPE (node);
   tree var, stmt;
 
-  if (TREE_CODE (node) == VAR_DECL)
+  if (TREE_CODE (node) == VAR_DECL
+      && (!local || !DECL_FILE_SCOPE_P (node)))
     return;
 
   /* Split the current statement by creating a new local variable */
@@ -1963,23 +2123,10 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list, bool cleared)
                elements.  */
             FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), i, index, value)
               {
-                enum machine_mode mode;
-                HOST_WIDE_INT bitsize;
-                int unsignedp;
                 tree t;
 
                 if (initializer_zerop (value))
                   continue;
-
-                unsignedp = TYPE_UNSIGNED (elttype);
-                mode = TYPE_MODE (elttype);
-
-                if (mode == BLKmode)
-                  bitsize = (host_integerp (TYPE_SIZE (elttype), 1)
-                             ? tree_low_cst (TYPE_SIZE (elttype), 1)
-                             : -1);
-                else
-                  bitsize = GET_MODE_BITSIZE (mode);
 
                 gcc_assert (index == NULL_TREE
                             || TREE_CODE (index) != RANGE_EXPR);
@@ -2020,7 +2167,7 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list, bool cleared)
 /* Rename a single variable using the specified suffix */
 
 static void
-rename_var (tree var, const char* suffix)
+rename_var (tree var, const char* suffix, unsigned long index)
 {
   const char *orig_name = IDENTIFIER_POINTER (DECL_NAME (var));
   char *newsym = alloca (strlen (orig_name) + strlen (suffix) + 10 + 1);
@@ -2029,7 +2176,7 @@ rename_var (tree var, const char* suffix)
                                                          "%s%s%lu",
                                                          orig_name,
                                                          suffix,
-                                                         (unsigned long)var));
+                                                         index));
 }
 
 /* Simplify variables: rename inlined variables
@@ -2041,20 +2188,28 @@ simp_vars (void)
 {
   block_stmt_iterator bsi = bsi_start (ENTRY_BLOCK_PTR);
   tree *p = &cfun->unexpanded_var_list;
+  unsigned long num_loc = 0;
 
-  for (; *p; )
+  for (; *p; p = &TREE_CHAIN (*p))
     {
       tree var  = TREE_VALUE (*p);
       tree init = DECL_INITIAL (var);
 
       if (TREE_STATIC (var) && DECL_CONTEXT (var) != 0)
         {
-          rename_var (var, "?fs");
+          rename_var (var, "?fs", (unsigned long)var);
           DECL_CONTEXT (var) = 0;
         }
 
-      if (DECL_FROM_INLINE (var) && DECL_NAME (var) != NULL)
-        rename_var (var, "?in");
+      if (DECL_NAME (var) != NULL && ! TREE_STATIC (var))
+        {
+          if (DECL_FROM_INLINE (var))
+            rename_var (var, "?in", num_loc);
+          else
+            rename_var (var, "?", num_loc);
+
+          ++num_loc;
+        }
 
       if (!TREE_STATIC (var) && init && init != error_mark_node)
         {
@@ -2063,8 +2218,6 @@ simp_vars (void)
                             build2 (INIT_EXPR, TREE_TYPE (var), var, init),
                             BSI_NEW_STMT);
         }
-
-      p = &TREE_CHAIN (*p);
     }
 }
 
@@ -2077,7 +2230,6 @@ simp_cil (void)
   block_stmt_iterator bsi;
 
   res_var = NULL_TREE;
-  uint32_type = get_unsigned_integer_type (32);
 
   simp_vars ();
 
@@ -2103,7 +2255,7 @@ simp_cil (void)
                 pre_simp_init (&bsi, stmt);
               else if (TREE_CODE (lhs) == COMPONENT_REF
                        && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-                split_use (bsi, &TREE_OPERAND (stmt, 1));
+                split_use (bsi, &TREE_OPERAND (stmt, 1), false);
             }
         }
     }

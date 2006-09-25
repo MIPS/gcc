@@ -75,7 +75,7 @@ static void dump_label_name (FILE *, tree);
 static void dump_fun_type (FILE *, tree, tree, const char *, bool);
 static void dump_valuetype_name (FILE *, tree);
 static void compute_addr_expr (FILE *, tree);
-static void print_type_suffix (FILE *, tree, tree, bool);
+static void print_type_suffix (FILE *, tree, bool);
 static void gen_cil_modify_expr (FILE *, tree);
 static char * append_string (char *, const char *,
                              unsigned int *, unsigned int *);
@@ -93,6 +93,7 @@ static void stack_set (unsigned int) ATTRIBUTE_UNUSED;
 static void stack_reset (void);
 static void stack_push (unsigned int);
 static void stack_pop (unsigned int);
+static void gen_integral_conv (FILE *, tree, tree);
 static void gen_start_function (FILE *);
 static unsigned int gen_cil (void);
 static void gen_cil_1 (FILE *);
@@ -136,6 +137,8 @@ mark_var_defs_uses (tree node)
     case CALL_EXPR:
       {
         tree args = TREE_OPERAND (node, 1);
+        tree fun_expr;
+        tree dfun = NULL_TREE;
 
         mark_var_defs_uses (TREE_OPERAND (node, 0));
 
@@ -143,6 +146,33 @@ mark_var_defs_uses (tree node)
           {
             mark_var_defs_uses (TREE_VALUE (args));
             args = TREE_CHAIN (args);
+          }
+
+        fun_expr = TREE_OPERAND (node, 0);
+        if (TREE_CODE (fun_expr) == ADDR_EXPR
+            && TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL)
+          dfun = TREE_OPERAND (fun_expr, 0);
+
+        /* Calls to some built-in functions require ad-hoc simplifications */
+        if (dfun && DECL_BUILT_IN (dfun))
+          {
+            switch (DECL_FUNCTION_CODE (dfun))
+              {
+              case BUILT_IN_VA_COPY:
+                {
+                  tree va_dest = TREE_VALUE (TREE_OPERAND (node, 1));
+
+                  gcc_assert (TREE_CODE (va_dest) == ADDR_EXPR);
+                  gcc_assert (TREE_CODE (TREE_OPERAND (va_dest, 0)) == VAR_DECL
+                              && !DECL_FILE_SCOPE_P (TREE_OPERAND (va_dest, 0)));
+
+                  TREE_SIDE_EFFECTS (TREE_OPERAND (va_dest, 0)) = true;
+                }
+                break;
+
+              default:
+                ;
+              }
           }
       }
       break;
@@ -200,6 +230,10 @@ mark_var_defs_uses (tree node)
           mark_var_defs_uses (lhs);
 
         mark_var_defs_uses (rhs);
+
+        if (AGGREGATE_TYPE_P (TREE_TYPE (lhs)) && TREE_CODE (rhs) == VAR_DECL)
+          TREE_SIDE_EFFECTS (rhs) = true;
+
         gcc_assert (TREE_CODE (rhs) != CONSTRUCTOR
                     && TREE_CODE (rhs) != STRING_CST);
       }
@@ -212,14 +246,31 @@ mark_var_defs_uses (tree node)
     case NOP_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case INDIRECT_REF:
-    case BIT_FIELD_REF:
-    case ADDR_EXPR:
-    case COMPONENT_REF:
     case ABS_EXPR:
     case RETURN_EXPR:
     case WITH_SIZE_EXPR:
       mark_var_defs_uses (TREE_OPERAND (node, 0));
+      break;
+
+    case ADDR_EXPR:
+    case COMPONENT_REF:
+      {
+        tree op = TREE_OPERAND (node, 0);
+
+        mark_var_defs_uses (op);
+        if (AGGREGATE_TYPE_P (TREE_TYPE (op)) && TREE_CODE (op) == VAR_DECL)
+          TREE_SIDE_EFFECTS (op) = true;
+      }
+      break;
+
+    case INDIRECT_REF:
+      {
+        tree op = TREE_OPERAND (node, 0);
+
+        mark_var_defs_uses (op);
+        if (AGGREGATE_TYPE_P (TREE_TYPE (node)) && TREE_CODE (op) == VAR_DECL)
+          TREE_SIDE_EFFECTS (op) = true;
+      }
       break;
 
     case INTEGER_CST:
@@ -342,8 +393,7 @@ remove_stloc_ldloc (block_stmt_iterator bsi, tree *node_ptr, bool *mod)
 
     case INIT_EXPR:
     case MODIFY_EXPR:
-      if (! AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0))))
-        remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 1), mod);
+      remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 1), mod);
       gcc_assert (TREE_CODE (TREE_OPERAND (node, 1)) != CONSTRUCTOR
                   && TREE_CODE (TREE_OPERAND (node, 1)) != STRING_CST);
       break;
@@ -355,28 +405,23 @@ remove_stloc_ldloc (block_stmt_iterator bsi, tree *node_ptr, bool *mod)
     case NOP_EXPR:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case BIT_FIELD_REF:
+    case ADDR_EXPR:
+    case COMPONENT_REF:
+    case INDIRECT_REF:
     case ABS_EXPR:
     case RETURN_EXPR:
     case WITH_SIZE_EXPR:
       remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
       break;
 
-    case ADDR_EXPR:
-    case COMPONENT_REF:
-      if (! AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 0))))
-        remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-      break;
-
-    case INDIRECT_REF:
-      if (! AGGREGATE_TYPE_P (TREE_TYPE (node)))
-        remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-      break;
-
     case VAR_DECL:
+      /* In GIMPLE, TREE_SIDE_EFFECTS is true for a VAR_DECL only if the
+         variable is volatile.
+         However, mark_var_defs_uses (...) function sets TREE_SIDE_EFFECTS
+         for some non-volatile variables that shouldn't be removed.   */
       if (! TREE_ADDRESSABLE (node)
           && ! TREE_STATIC (node)
-          && ! TREE_THIS_VOLATILE (node)
+          && ! TREE_SIDE_EFFECTS (node)
           && ! DECL_FILE_SCOPE_P (node))
         {
           tree prev_stmt;
@@ -812,10 +857,11 @@ dump_type (FILE *file, tree node, bool ref)
 {
 /*   node = TYPE_MAIN_VARIANT (node); */
 
-  if (TYPE_MAIN_VARIANT (node) == va_list_type_node) {
+  if (TYPE_MAIN_VARIANT (node) == va_list_type_node)
+    {
       fputs ("valuetype [mscorlib]System.ArgIterator", file);
       return;
-  }
+    }
 
   switch (TREE_CODE (node))
     {
@@ -861,7 +907,7 @@ dump_type (FILE *file, tree node, bool ref)
 
     case REAL_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
+        int type_size = TYPE_PRECISION (node);
 
         switch (type_size)
           {
@@ -898,7 +944,7 @@ dump_type (FILE *file, tree node, bool ref)
 
     case VECTOR_TYPE:
       {
-        int  type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
+        int  type_size = TREE_INT_CST_LOW (TYPE_SIZE (node));
         tree innertype = TREE_TYPE (node);
         enum machine_mode innermode = TYPE_MODE (innertype);
 
@@ -1099,6 +1145,7 @@ dump_type_for_builtin (FILE *file, tree node, bool all_types)
     {
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
       {
         int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
 
@@ -1120,7 +1167,7 @@ dump_type_for_builtin (FILE *file, tree node, bool all_types)
 
     case REAL_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
+        int type_size = TYPE_PRECISION (node);
 
         switch (type_size)
           {
@@ -1147,6 +1194,7 @@ dump_type_eval_mode (FILE *stream, tree node, bool all_types)
     {
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
       {
         int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
 
@@ -1254,23 +1302,6 @@ compute_addr_expr (FILE *file, tree t)
       }
       break;
 
-    case BIT_FIELD_REF:
-      {
-        tree obj = TREE_OPERAND (t, 0);
-        unsigned int off = TREE_INT_CST_LOW (TREE_OPERAND (t, 2));
-
-        gcc_assert (off % 8 == 0);
-        compute_addr_expr (file, obj);
-        if (off / 8 > 0)
-          {
-            fprintf (file, "\n\tldc.i4\t%d", off / 8);
-            fputs ("\n\tadd", file);
-            stack_push (1);
-            stack_pop (1);
-          }
-      }
-      break;
-
     default:
       fprintf (stderr, "%s: [7m%s[m\n",
                __func__, tree_code_name[TREE_CODE (t)]);
@@ -1282,22 +1313,15 @@ compute_addr_expr (FILE *file, tree t)
 }
 
 static void
-print_type_suffix (FILE *file, tree type_node, tree conv_in_type, bool unsign)
+print_type_suffix (FILE *file, tree type_node, bool unsign)
 {
-  int type_size = GET_MODE_BITSIZE (TYPE_MODE (type_node));
-
   switch (TREE_CODE (type_node))
     {
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
       {
-        bool uns = false;
-
-        if (TYPE_UNSIGNED (type_node)
-            || (conv_in_type != NULL_TREE
-                && TYPE_UNSIGNED (conv_in_type)
-                && type_size > GET_MODE_BITSIZE (TYPE_MODE (conv_in_type))))
-          uns = unsign;
+        int type_size = TYPE_PRECISION (type_node);
+        bool uns = unsign && TYPE_UNSIGNED (type_node);
 
         switch (type_size)
           {
@@ -1313,16 +1337,24 @@ print_type_suffix (FILE *file, tree type_node, tree conv_in_type, bool unsign)
       }
       break;
 
+    case BOOLEAN_TYPE:
+      fputs ((unsign && TYPE_UNSIGNED (type_node))?"u1":"i1", file);
+      break;
+
     case REAL_TYPE:
-      switch (type_size)
-        {
-        case 32: fputs ("r4", file); break;
-        case 64: fputs ("r8", file); break;
-        default:
-          fprintf (stderr, "Unsupported floating point size %d\n", type_size);
-          gcc_assert (0);
-          break;
-        }
+      {
+        int type_size = TYPE_PRECISION (type_node);
+
+        switch (type_size)
+          {
+          case 32: fputs ("r4", file); break;
+          case 64: fputs ("r8", file); break;
+          default:
+            fprintf (stderr, "Unsupported floating point size %d\n", type_size);
+            gcc_assert (0);
+            break;
+          }
+      }
       break;
 
     case POINTER_TYPE:
@@ -1331,16 +1363,13 @@ print_type_suffix (FILE *file, tree type_node, tree conv_in_type, bool unsign)
 
     case VECTOR_TYPE:
       {
-        bool uns = false;
+        int type_size = TREE_INT_CST_LOW (TYPE_SIZE (type_node));
+        bool uns = TYPE_UNSIGNED (type_node) && unsign;
         tree innertype = TREE_TYPE (type_node);
         enum machine_mode innermode = TYPE_MODE (innertype);
 
         /* Only expect integer vectors */
         gcc_assert (GET_MODE_CLASS (innermode) == MODE_INT);
-
-        /* and then emit as corresponding same-size interger mode */
-        if (TYPE_UNSIGNED (type_node) && unsign)
-          uns = true;
 
         switch (type_size)
           {
@@ -1361,6 +1390,79 @@ print_type_suffix (FILE *file, tree type_node, tree conv_in_type, bool unsign)
                       tree_code_name[TREE_CODE (type_node)]);
       gcc_assert (0);
       break;
+    }
+}
+
+/* Emit a conversion from integral or pointer type IN_TYPE
+   to integral type OUT_TYPE to file FILE.
+   If the precision of OUT_TYPE is bigger than that of IN_TYPE,
+   then IN_TYPE and OUT_TYPE have to have the same signedness.   */
+
+static void
+gen_integral_conv (FILE *file, tree out_type, tree in_type)
+{
+  unsigned int out_bits, cont_size, in_bits;
+
+  gcc_assert (INTEGRAL_TYPE_P (out_type));
+  gcc_assert (INTEGRAL_TYPE_P (in_type) || TREE_CODE (in_type) == POINTER_TYPE);
+  gcc_assert (TYPE_PRECISION (out_type) <= 64);
+  gcc_assert (TYPE_PRECISION (out_type) <= TYPE_PRECISION (in_type)
+              || TYPE_UNSIGNED (out_type) == TYPE_UNSIGNED (in_type));
+
+  /* Get the precision of the output and input types and the size
+     of the output type container */
+  in_bits = TYPE_PRECISION (in_type);
+  out_bits = TYPE_PRECISION (out_type);
+  cont_size = GET_MODE_BITSIZE (TYPE_MODE (out_type));
+  gcc_assert (cont_size >= out_bits);
+
+  /* Dump a conv with for the container size, if not superfluous */
+  if ((cont_size == out_bits && (out_bits != in_bits || out_bits < 32))
+      || ((out_bits > 32) ^ (in_bits > 32)))
+    {
+      fputs ("\n\tconv.", file);
+      print_type_suffix (file, get_integer_type (cont_size,
+                                                 TYPE_UNSIGNED (out_type)),
+                                                 true);
+    }
+
+  /* If the container is bigger than the output type precision,
+     force the output to be of the desired precision.   */
+  if (cont_size > out_bits)
+    {
+      if (TYPE_UNSIGNED (out_type))
+        {
+          unsigned HOST_WIDEST_INT mask;
+          double_int mask_di;
+
+          /* Compute the mask to be applied to the existing value */
+          gcc_assert (HOST_BITS_PER_WIDEST_INT >= 64);
+          mask = (1LL << out_bits) - 1LL;
+          mask_di.low = mask;
+          mask_di.high = (HOST_WIDE_INT)(mask >> HOST_BITS_PER_WIDE_INT);
+
+          /* Apply the mask */
+          if (out_bits <= 32)
+            fputs ("\n\tldc.i4\t", file);
+          else
+            fputs ("\n\tldc.i8\t", file);
+          dump_double_int (file, mask_di, false);
+          fputs ("\n\tand", file);
+        }
+      else
+        {
+          unsigned int cont_size = (out_bits > 32) ? 64 : 32;
+          unsigned int shift = cont_size - out_bits;
+
+          /* Do a pair of shift to perform the sign extension */
+          fprintf (file, "\n\tldc.i4\t%d", shift);
+          fputs ("\n\tshl\t", file);
+          fprintf (file, "\n\tldc.i4\t%d", shift);
+          fputs ("\n\tshr\t", file);
+        }
+
+      stack_push (1);
+      stack_pop (1);
     }
 }
 
@@ -1386,26 +1488,18 @@ gen_cil_node (FILE *file, tree node)
     {
     case INTEGER_CST:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (node)));
+        int type_size = TYPE_PRECISION (TREE_TYPE (node));
 
-        switch (type_size)
-          {
-          case 8:
-          case 16:
-          case 32:
-            fprintf (file, "\n\tldc.i4\t%ld", TREE_INT_CST_LOW (node));
-            break;
+        gcc_assert (type_size <= 64);
+        if (type_size <= 32)
+          fputs ("\n\tldc.i4\t", file);
+        else
+          fputs ("\n\tldc.i8\t", file);
+        dump_double_int (file, TREE_INT_CST (node), false);
 
-          case 64:
-            fprintf (file, "\n\tldc.i8\t%ld", TREE_INT_CST_LOW (node));
-            break;
-
-          default:
-            internal_error ("\nldc: unsupported int size %d\n", type_size);
-            break;
-          }
         if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
           fputs ("\n\tconv.i", file);
+
         stack_push (1);
       }
       break;
@@ -1425,7 +1519,7 @@ gen_cil_node (FILE *file, tree node)
         mode = TYPE_MODE (type_tree);
         real_to_target (buf, &d, mode);
         real_to_decimal (string, &d, sizeof (string), 5, 1);
-        type_size = GET_MODE_BITSIZE (TYPE_MODE (type_tree));
+        type_size = TYPE_PRECISION (type_tree);
 
         switch (type_size)
           {
@@ -1449,14 +1543,17 @@ gen_cil_node (FILE *file, tree node)
     case VECTOR_CST:
       {
         tree elt;
-        unsigned int val = 0;
+        unsigned HOST_WIDEST_INT val = 0;
+        double_int val_di;
         tree vector_type = TREE_TYPE (node);
-        int  vector_bitsize = GET_MODE_BITSIZE (TYPE_MODE (vector_type));
+        int  vector_bitsize = TREE_INT_CST_LOW (TYPE_SIZE (vector_type));
         tree unit_type = TREE_TYPE (vector_type);
-        int  unit_bitsize = GET_MODE_BITSIZE (TYPE_MODE (unit_type));
+        int  unit_bitsize = TYPE_PRECISION (unit_type);
 
-        /* At this time, support only 32 bit vectors */
-        if (vector_bitsize != 32)
+        gcc_assert (HOST_BITS_PER_WIDEST_INT >= 64);
+
+        /* At this time, support up to 64-bit vectors */
+        if (vector_bitsize > 64)
           internal_error ("\nVECTOR_CST size %d\n", vector_bitsize);
 
         for (elt = TREE_VECTOR_CST_ELTS (node); elt; elt = TREE_CHAIN (elt))
@@ -1465,6 +1562,7 @@ gen_cil_node (FILE *file, tree node)
             switch (TREE_CODE (elt_val))
               {
               case INTEGER_CST:
+                gcc_assert (TREE_INT_CST_HIGH (elt_val) == 0);
                 val = (val << unit_bitsize) | TREE_INT_CST_LOW (elt_val);
                 break;
 
@@ -1474,7 +1572,15 @@ gen_cil_node (FILE *file, tree node)
               }
           }
 
-        fprintf (file, "\n\tldc.i4\t%#0x", val);
+        val_di.low = val;
+        val_di.high = (HOST_WIDE_INT)(val >> HOST_BITS_PER_WIDE_INT);
+
+        if (vector_bitsize <= 32)
+          fputs ("\n\tldc.i4\t", file);
+        else
+          fputs ("\n\tldc.i8\t", file);
+        dump_double_int (file, val_di, false);
+
         stack_push (1);
         break;
       }
@@ -2012,7 +2118,6 @@ gen_cil_node (FILE *file, tree node)
     case MINUS_EXPR:
     case RDIV_EXPR:
     case LSHIFT_EXPR:
-    case BIT_XOR_EXPR:
       op0 = TREE_OPERAND (node, 0);
       op1 = TREE_OPERAND (node, 1);
 
@@ -2026,25 +2131,21 @@ gen_cil_node (FILE *file, tree node)
         case MINUS_EXPR:   fputs ("\n\tsub", file); break;
         case RDIV_EXPR:    fputs ("\n\tdiv", file); break;
         case LSHIFT_EXPR:  fputs ("\n\tshl", file); break;
-        case BIT_XOR_EXPR: fputs ("\n\txor", file); break;
         default:
           gcc_unreachable ();
         }
 
-      /* Values smaller than 32-bits are represented as 32-bit
-         on the evaluation stack, therefore an explicit conversion
-         is required.   */
-      if (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))) < 32)
-        {
-          fputs ("\n\tconv.", file);
-          print_type_suffix (file, TREE_TYPE (node), NULL_TREE, true);
-        }
-
       stack_pop (1);
+
+      /* Values with precision smaller than the one used
+         on the evaluation stack require an explicit conversion.   */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (node)))
+        gen_integral_conv (file, TREE_TYPE (node), TREE_TYPE (node));
       break;
 
     case BIT_IOR_EXPR:
     case BIT_AND_EXPR:
+    case BIT_XOR_EXPR:
       op0 = TREE_OPERAND (node, 0);
       op1 = TREE_OPERAND (node, 1);
 
@@ -2055,12 +2156,14 @@ gen_cil_node (FILE *file, tree node)
         {
         case BIT_IOR_EXPR: fputs ("\n\tor",  file); break;
         case BIT_AND_EXPR: fputs ("\n\tand", file); break;
+        case BIT_XOR_EXPR: fputs ("\n\txor", file); break;
         default:
           gcc_unreachable ();
         }
 
-      /* No need for conversions even in case of values smaller
-         than 32-bits, since for these operations the output is
+      /* No need for conversions even in case of values with precision
+         smaller than the one used on the evaluation stack,
+         since for these operations the output is
          always less or equal than both operands.   */
 
       stack_pop (1);
@@ -2095,7 +2198,7 @@ gen_cil_node (FILE *file, tree node)
           gcc_unreachable ();
         }
 
-      if (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))) == 64)
+      if (TYPE_PRECISION (TREE_TYPE (node)) > 32)
         fputs ("\n\tconv.i8", file);
 
       stack_pop (1);
@@ -2127,7 +2230,7 @@ gen_cil_node (FILE *file, tree node)
       fputs ("\n\tldc.i4.1"
              "\n\txor", file);
 
-      if (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))) == 64)
+      if (TYPE_PRECISION (TREE_TYPE (node)) > 32)
         fputs ("\n\tconv.i8", file);
 
       stack_pop (1);
@@ -2156,8 +2259,9 @@ gen_cil_node (FILE *file, tree node)
       if (TYPE_UNSIGNED (TREE_TYPE (node)))
         fputs (".un", file);
 
-      /* No need for conversions even in case of values smaller
-         than 32-bits, since for these operations the output is
+      /* No need for conversions even in case of values with precision
+         smaller than the one used on the evaluation stack,
+         since for these operations the output is
          always less or equal than both operands.   */
 
       stack_pop (1);
@@ -2190,8 +2294,9 @@ gen_cil_node (FILE *file, tree node)
             fputs (")", file);
           }
 
-      /* No need for conversions even in case of values smaller
-         than 32-bits, since for this operation the output is
+      /* No need for conversions even in case of values with precision
+         smaller than the one used on the evaluation stack,
+         since for these operations the output is
          always less or equal than both operands.   */
 
         stack_pop (1);
@@ -2210,49 +2315,63 @@ gen_cil_node (FILE *file, tree node)
           gcc_unreachable ();
         }
 
-      /* Values smaller than 32-bits are represented as 32-bit
-         on the evaluation stack, therefore an explicit conversion
-         is required.
+      /* Values with precision smaller than the one used
+         on the evaluation stack require an explicit conversion.
          Unfortunately this is true for the negation as well just
          for the case in which the operand is the smallest negative value.
          Example: 8-bit negation of -128 gives 0 and not 128.   */
-      if (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))) < 32)
-        {
-          fputs ("\n\tconv.", file);
-          print_type_suffix (file, TREE_TYPE (node), NULL_TREE, true);
-        }
-
+      if (INTEGRAL_TYPE_P (TREE_TYPE (node)))
+        gen_integral_conv (file, TREE_TYPE (node), TREE_TYPE (node));
       break;
 
     case INDIRECT_REF:
-    case BIT_FIELD_REF:
       compute_addr_expr (file, node);
-      fputs ("\n\tldind.", file);
-      print_type_suffix (file, TREE_TYPE (node), NULL_TREE, true);
+      if (AGGREGATE_TYPE_P (TREE_TYPE (node)))
+        {
+          fputs ("\n\tldobj\t", file);
+          dump_type (file, TREE_TYPE (node), true);
+        }
+      else
+        {
+          fputs ("\n\tldind.", file);
+          print_type_suffix (file, TREE_TYPE (node), true);
+        }
       break;
 
     case CONVERT_EXPR:
+    case FLOAT_EXPR:
       /* ER: if flag_trapv is set, we could generate the .ovf version? */
       /* TODO: */
-      gen_cil_node (file, TREE_OPERAND (node, 0));
-      fputs ("\n\tconv.", file);
-      print_type_suffix (file, TREE_TYPE (node), TREE_TYPE (TREE_OPERAND (node, 0)), true);
-      break;
-
+    case FIX_TRUNC_EXPR:
     case NOP_EXPR:
       {
-        enum tree_code out_type_code = TREE_CODE (TREE_TYPE (node));
+        tree op = TREE_OPERAND (node, 0);
+        tree in_type = TREE_TYPE (op);
+        tree out_type = TREE_TYPE (node);
 
-        gen_cil_node (file, TREE_OPERAND (node, 0));
+        gen_cil_node (file, op);
 
-        if (out_type_code == INTEGER_TYPE
-            || out_type_code == ENUMERAL_TYPE
-            || out_type_code == REAL_TYPE
-            || out_type_code == POINTER_TYPE)
+        if (TREE_CODE (node) == NOP_EXPR && INTEGRAL_TYPE_P (out_type))
+          {
+            gcc_assert (INTEGRAL_TYPE_P (in_type)
+                        || TREE_CODE (in_type) == POINTER_TYPE);
+
+            if (TYPE_PRECISION (out_type) > TYPE_PRECISION (in_type))
+              {
+                tree tmp_type = TYPE_UNSIGNED (in_type)
+                                ? unsigned_type_for (out_type)
+                                : signed_type_for (out_type);
+
+                gen_integral_conv (file, tmp_type, in_type);
+                gen_integral_conv (file, out_type, tmp_type);
+              }
+            else
+              gen_integral_conv (file, out_type, in_type);
+          }
+        else
           {
             fputs ("\n\tconv.", file);
-            print_type_suffix (file, TREE_TYPE (node),
-                               TREE_TYPE (TREE_OPERAND (node, 0)), true);
+            print_type_suffix (file, out_type, true);
           }
       }
       break;
@@ -2434,13 +2553,6 @@ gen_cil_node (FILE *file, tree node)
       }
       break;
 
-    case FLOAT_EXPR:
-    case FIX_TRUNC_EXPR:
-      gen_cil_node (file, TREE_OPERAND (node, 0));
-      fputs ("\n\tconv.", file);
-      print_type_suffix (file, TREE_TYPE (node), NULL_TREE, true);
-      break;
-
     case TRUTH_NOT_EXPR:
       gen_cil_node (file, TREE_OPERAND (node, 0));
       fputs ("\n\tldc.i4.0"
@@ -2456,6 +2568,8 @@ gen_cil_node (FILE *file, tree node)
       op1 = TREE_OPERAND (node, 1);
 
       gen_cil_node (file, op0);
+      gcc_assert (TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE
+                  || TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE);
       if (TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE)
         {
           fputs ("\n\tldc.i4.0"
@@ -2467,6 +2581,8 @@ gen_cil_node (FILE *file, tree node)
         }
 
       gen_cil_node (file, op1);
+      gcc_assert (TREE_CODE (TREE_TYPE (op1)) == INTEGER_TYPE
+                  || TREE_CODE (TREE_TYPE (op1)) == BOOLEAN_TYPE);
       if (TREE_CODE (TREE_TYPE (op1)) == INTEGER_TYPE)
         {
           fputs ("\n\tldc.i4.0"
@@ -2518,20 +2634,6 @@ gen_cil_modify_expr (FILE *file, tree node)
   tree lhs = TREE_OPERAND (node, 0);
   tree rhs = TREE_OPERAND (node, 1);
 
-  if (AGGREGATE_TYPE_P (TREE_TYPE (rhs))
-      && (TREE_CODE (lhs) == INDIRECT_REF || TREE_CODE (rhs) == INDIRECT_REF))
-    {
-      gcc_assert (AGGREGATE_TYPE_P (TREE_TYPE (lhs)));
-      compute_addr_expr (file, lhs);
-      compute_addr_expr (file, rhs);
-      fprintf (file, "\n\tldc.i4\t%lu",
-               TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (rhs))));
-      fputs ("\n\tcall\tvoid [gcc4net]gcc4net.Crt::memcpy(void*, void*, int32)",file);
-      stack_push (1);
-      stack_pop (3);
-      return;
-    }
-
   switch (TREE_CODE (lhs))
     {
     case SSA_NAME:
@@ -2541,8 +2643,19 @@ gen_cil_modify_expr (FILE *file, tree node)
     case INDIRECT_REF:
       compute_addr_expr (file, lhs);
       gen_cil_node (file, rhs);
-      fputs ("\n\tstind.", file);
-      print_type_suffix (file, TREE_TYPE (lhs), NULL_TREE, false);
+
+      if (AGGREGATE_TYPE_P (TREE_TYPE (lhs)))
+        {
+          gcc_assert (AGGREGATE_TYPE_P (TREE_TYPE (rhs)));
+          fputs ("\n\tstobj\t", file);
+          dump_type (file, TREE_TYPE (lhs), true);
+        }
+      else
+        {
+          fputs ("\n\tstind.", file);
+          print_type_suffix (file, TREE_TYPE (lhs), false);
+        }
+
       stack_pop (2);
       break;
 
@@ -2642,7 +2755,7 @@ append_coded_type (char *str, tree type,
     {
     case INTEGER_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (type));
+        int type_size = TYPE_PRECISION (type);
         char tmp_str[8] = "UI";
         char *tmp_str_ptr = tmp_str;
 
@@ -2655,9 +2768,13 @@ append_coded_type (char *str, tree type,
       }
       break;
 
+    case BOOLEAN_TYPE:
+      str = append_string (str, "B", len, max_len);
+      break;
+
     case REAL_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (type));
+        int type_size = TYPE_PRECISION (type);
         char tmp_str[4] = "F";
 
         snprintf (tmp_str + 1, 3, "%d", type_size);
@@ -2887,7 +3004,7 @@ print_valuetype_decl (FILE *file, tree t)
 
   if (is_enum)
     {
-      int type_size = GET_MODE_BITSIZE (TYPE_MODE (t));
+      int type_size = TYPE_PRECISION (t);
       char tmp_str[8] = "int";
       char *base_type_str = tmp_str;
       tree tmp;

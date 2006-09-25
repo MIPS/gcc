@@ -52,12 +52,10 @@ namespace gcc4net {
         }
 
 	public unsafe static void Startup() {
-            Module mainModule;
             Assembly assembly;
             Type type;
 
             // Find the module that contains the "main" function.
-            mainModule = null;
             assembly = Assembly.GetEntryAssembly();
             type = assembly.GetType("<Module>");
             // Invoke the application's ".init" function, if present.
@@ -90,17 +88,5 @@ namespace gcc4net {
         public static long   __absti2(long a)              { return (a>=0) ? a : -a; }
         public static float  __abssf2(float a)             { return (a>=0) ? a : -a; }
         public static double __absdf2(double a)            { return (a>=0) ? a : -a; }
-
-        unsafe public static void memset(void* dest , byte val, int len) {
-            byte* ptr = (byte*)dest;
-            while (len-- > 0)
-                *ptr++ = val;
-        }
-        unsafe public static void memcpy (void* dest, void* src, int len) {
-            byte* d = (byte*)dest;
-            byte* s = (byte*)src;
-            while (len-- > 0)
-                *d++ = *s++;
-        }
     }
 }
