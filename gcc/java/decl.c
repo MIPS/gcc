@@ -953,8 +953,16 @@ java_init_decl_processing (void)
   DECL_IS_MALLOC (alloc_no_finalizer_node) = 1;
 
   t = tree_cons (NULL_TREE, class_ptr_type, tree_cons (NULL_TREE, ptr_type_node, endlink));
-  alloca_no_finalizer_node = 
-    builtin_function ("_Jv_AllocaObjectNoFinalizer",
+  init_no_finalizer_node = 
+    builtin_function ("_Jv_InitObjectNoFinalizer",
+		      build_function_type (void_type_node, t),
+		      0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* it isnt malloc */
+
+  /* TODO put proper parameter types in */
+  t = tree_cons (NULL_TREE, class_ptr_type, tree_cons (NULL_TREE, ptr_type_node, endlink));
+  init_new_array_node = 
+    builtin_function ("_Jv_InitNewObjectArray",
 		      build_function_type (void_type_node, t),
 		      0, NOT_BUILT_IN, NULL, NULL_TREE);
   /* it isnt malloc */

@@ -159,12 +159,8 @@ is_memory_allocation (tree stmt)
 }
 */
 
-static int allocator_count = 3;
-static const char *allocators[] = {
-  "_Jv_AllocObjectNoFinalizer",
-  "_Jv_AllocObjectNoFinalizerNoInit",
-  "_Jv_AllocObject",
-};
+static int allocator_count = 2;
+static tree allocators[2];
 
 
 static bool
@@ -186,10 +182,7 @@ is_memory_allocation (tree stmt)
 	      int i;
 	      for (i = 0; i < allocator_count; i++)
 		{
-		  if (strcmp
-		      (allocators[i],
-		       IDENTIFIER_POINTER (DECL_NAME (func_decl))) ==
-		      0)
+		  if (func_decl == allocators[i])
 		    {
 		      return true;
 		    }
@@ -218,10 +211,31 @@ is_assignment_from_vtable (tree stmt)
 }
 
 static bool
+is_null_pointer_exception (tree stmt)
+{
+  if (TREE_CODE (stmt) == CALL_EXPR
+    && LHS (LHS (stmt)) == soft_nullpointer_node)
+    {
+      gcc_assert (TREE_OPERAND (stmt, 1) == NULL);
+      return true;
+    }
+  return false;
+}
+
+static bool
 is_assignment_to_array (tree stmt)
 {
   /* TODO */
   return false && stmt == stmt;
+}
+
+static bool
+is_array_allocation (tree stmt)
+{
+  return (TREE_CODE (stmt) == MODIFY_EXPR
+      && is_pointer_type (stmt)
+      && TREE_CODE (RHS (stmt)) == CALL_EXPR
+      && LHS (LHS (RHS (stmt))) == soft_anewarray_node);
 }
 
 static bool
@@ -323,6 +337,85 @@ is_assignment_from_field (tree stmt)
     && is_suitable_decl (LHS (stmt))
     && TREE_CODE (RHS (stmt)) == COMPONENT_REF;
 
+}
+
+static void
+update_connection_graph_from_array_allocation (con_graph cg, tree stmt)
+{
+  /* p = _Jv_NewObjectArray (type) */
+  tree type_name;
+  tree p_name;
+  tree f_name;
+  con_node object;
+  con_node p;
+
+  set_stmt_type (cg, stmt, MEMORY_ALLOCATION);
+
+  /* get the class id */
+  type_name = TREE_TYPE (TREE_TYPE (stmt));
+  gcc_assert (type_name);
+
+  /* get the source id */
+  p_name = LHS (stmt);
+  gcc_assert (p_name);
+
+  /* if the source exists, bypass it */
+  p = get_existing_node (cg, p_name);
+  if (p)
+    {
+      /* bypass_node (p); */
+      /* gcc_unreachable(); */
+      /* still need an iterative solution when you're not doing
+       * flow-sensisitve */
+    }
+  else
+    {
+      /* add the lhs node */
+      p = add_local_node (cg, p_name);
+    }
+  gcc_assert (p);
+
+  /* make a new object node, and add it to the graph */
+  object = get_existing_node (cg, stmt);
+  if (!object)
+    {
+      object = add_object_node (cg, stmt, type_name);
+    }
+  gcc_assert (object);
+
+
+  /* add the points-to edge */
+  if (get_edge (p, object) == NULL)
+    add_edge (p, object);
+
+
+  /* add fields */
+  f_name = TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (TREE_TYPE (stmt))));
+
+  while (f_name)
+    {
+      /* dont add static fields */
+      if (TREE_CODE (f_name) == FIELD_DECL)
+	{
+	  /* add the field */
+	  con_node field = get_existing_field_node (cg, f_name, object);
+
+	  /* only add edges which arent already there */
+	  if (!field)
+	    {
+	      field = add_field_node (cg, f_name);
+	      add_edge (object, field);
+	    }
+
+	  gcc_assert (field);
+
+	}
+
+      /* get the next field */
+      f_name = TREE_CHAIN (f_name);
+    }
+
+  /* done MEMORY ALLOCATION */
 }
 
 static void
@@ -918,6 +1011,8 @@ update_connection_graph_from_assignment_to_indirect_array_ref (con_graph cg, tre
   con_node q;
   con_node u;
   con_node v;
+  con_node terminal;
+  con_node phantom;
 
   set_stmt_type (cg, stmt, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
   /* ----------------------------------------
@@ -956,76 +1051,60 @@ update_connection_graph_from_assignment_to_indirect_array_ref (con_graph cg, tre
   /* if u doesnt point to anything, (say it's passed in as a
    * parameter), create phantom object nodes for it */
   u = get_points_to (p);
-  if (u == NULL || get_terminal_nodes (p))
+  terminal = get_terminal_nodes (q);
+
+  /* this is a lonely node */
+  if (terminal == NULL && u == NULL)
     {
-      con_node terminal;
-      u = get_existing_node (cg, stmt);
-      if (u == NULL)
+      gcc_assert (q->out == NULL);
+      terminal = q;
+    }
+
+  /* get the phantom node ready, if needed */
+  if (terminal)
+    {
+      phantom = get_existing_node (cg, stmt); /* 1-limited */
+      if (phantom == NULL)
 	{
-	  u =
-	    add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
-	  gcc_assert (u);
-	  u->phantom = true;
+	  con_node field;
+	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
+	  phantom->phantom = true;
+
+	  /* add a field node for it */
+	  field = add_field_node (cg, f_name);
+	  field->phantom = true;
+	  add_edge (phantom, field);
 	}
-      gcc_assert (u->phantom);
+      gcc_assert (phantom->phantom);
 
-      /* Attach the phantom node to the last nodes
-       * reachable from p */
-      terminal = get_terminal_nodes (p);
+      /* add the phantom the the list of u */
+      phantom->next_link = u;
+      u = phantom;
+    }
 
-      if (terminal == NULL)
-	terminal = p;
+  /* make the terminal nodes point to the node */
+  while (terminal)
+    {
+      if (terminal != phantom) /* this would be pointless otherwise */
+	  add_edge (terminal, phantom);
 
-      while (terminal)
-	{
-	  con_node next;
-
-	  add_edge (terminal, u);
-
-	  /* reset and iterate */
-	  next = terminal->next_link;
-	  terminal->next_link = NULL;
-	  terminal = next;
-	}
-
-      assert_all_next_link_free (cg);
-
+      NEXT_LINK_CLEAR (terminal);
     }
 
   /* get the field nodes of the pointed-to objects */
   v = get_field_nodes (u, f_name);
-
-
-  /* if v is empty, more phantoms are required */
-  if (v == NULL)
-    {
-      con_node v;
-      /* if v is null, then u was just created, so there is only 1
-       * of it */
-      gcc_assert (u->next_link == NULL);
-
-      v = add_field_node (cg, f_name);
-      v->phantom = true;
-
-      add_edge (u, v);
-    }
-
+  gcc_assert (v != NULL); /* even phantom nodes have this field */
 
   /* do not bypass, this isnt a killing assignment */
 
 
   /* add deferred edges */
-  /* TODO make a macro for this iteration */
   while (v)
     {
-      con_node next;
       if (get_edge (v, q) == NULL)
 	add_edge (v, q);
 
-      /* clear the next_link */
-      next = v->next_link;
-      v->next_link = NULL;
-      v = next;
+      NEXT_LINK_CLEAR (v);
     }
 
   assert_all_next_link_free (cg);
@@ -1048,6 +1127,8 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
   con_node q;
   con_node u;
   con_node v;
+  con_node terminal;
+  con_node phantom;
 
   set_stmt_type (cg, stmt, ASSIGNMENT_TO_FIELD);
   /* ----------------------------------------
@@ -1082,79 +1163,68 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
   q = get_existing_node (cg, q_name);
   gcc_assert (q);
 
-  /* if u doesnt point to anything, (say it's passed in as a
-   * parameter), create phantom object nodes for it */
+  /* we dont exactly follow the recommendations from Choi99. In
+   * particular, the paper alleges that you only use phantom nodes if
+   * there are no points to nodes, but in reality, there can be both at
+   * the same time.  */
   u = get_points_to (p);
-  if (u == NULL || get_terminal_nodes (p))
+  terminal = get_terminal_nodes (q);
+
+  /* this is a lonely node */
+  if (terminal == NULL && u == NULL)
     {
-      con_node terminal;
-      u = get_existing_node (cg, stmt);
-      if (u == NULL)
+      gcc_assert (q->out == NULL);
+      terminal = q;
+    }
+
+  /* get the phantom node ready, if needed */
+  if (terminal)
+    {
+      phantom = get_existing_node (cg, stmt); /* 1-limited */
+      if (phantom == NULL)
 	{
-	  u =
-	    add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
-	  gcc_assert (u);
-	  u->phantom = true;
+	  con_node field;
+	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
+	  phantom->phantom = true;
+
+	  /* add a field node for it */
+	  gcc_assert (get_existing_field_node (cg, f_name, phantom) == NULL);
+	  field = add_field_node (cg, f_name);
+	  field->phantom = true;
+	  add_edge (phantom, field);
 	}
-      gcc_assert (u->phantom);
+      gcc_assert (phantom->phantom);
 
-      /* Attach the phantom node to the last nodes
-       * reachable from p */
-      terminal = get_terminal_nodes (p);
+      /* add the phantom the the list of u */
+      gcc_assert (phantom->next_link == NULL);
+      phantom->next_link = u;
+      u = phantom;
+    }
 
-      if (terminal == NULL)
-	terminal = p;
+  /* make the terminal nodes point to the node */
+  while (terminal)
+    {
+      if (terminal != phantom) /* this would be pointless otherwise */
+	  add_edge (terminal, phantom);
 
-      while (terminal)
-	{
-	  con_node next;
-
-	  add_edge (terminal, u);
-
-	  /* reset and iterate */
-	  next = terminal->next_link;
-	  terminal->next_link = NULL;
-	  terminal = next;
-	}
-
-      assert_all_next_link_free (cg);
-
+      NEXT_LINK_CLEAR (terminal);
     }
 
   /* get the field nodes of the pointed-to objects */
   v = get_field_nodes (u, f_name);
+  gcc_assert (v != NULL); /* even phantom nodes have this field */
 
-
-  /* if v is empty, more phantoms are required */
-  if (v == NULL)
-    {
-      con_node v;
-      /* if v is null, then u was just created, so there is only 1
-       * of it */
-      gcc_assert (u->next_link == NULL);
-
-      v = add_field_node (cg, f_name);
-      v->phantom = true;
-
-      add_edge (u, v);
-    }
-
-
+  
   /* do not bypass, this isnt a killing assignment */
 
 
   /* add deferred edges */
-  /* TODO make a macro for this iteration */
   while (v)
     {
-      con_node next;
       if (get_edge (v, q) == NULL)
 	add_edge (v, q);
 
-      /* clear the next_link */
-      next = v->next_link;
-      v->next_link = NULL;
-      v = next;
+      NEXT_LINK_CLEAR (v);
     }
 
   assert_all_next_link_free (cg);
@@ -1176,6 +1246,8 @@ update_connection_graph_from_assignment_from_field (con_graph cg, tree stmt)
   con_node q;
   con_node u;
   con_node v;
+  con_node terminal;
+  con_node phantom;
 
   set_stmt_type (cg, stmt, ASSIGNMENT_FROM_FIELD);
 
@@ -1233,68 +1305,51 @@ update_connection_graph_from_assignment_from_field (con_graph cg, tree stmt)
 
   /* get the objects pointed to be q */
   u = get_points_to (q);
+  terminal = get_terminal_nodes (q);
 
-  /* if there's nothing in u, need to add phantom nodes */
-  if (u == NULL || get_terminal_nodes (q) != NULL)
+  /* this is a lonely node */
+  if (terminal == NULL && u == NULL)
     {
-      con_node terminal;
-      u = get_existing_node (cg, stmt); /* 1-limited */
-      if (u == NULL)
-	{
-	  u =
-	    add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
-	  u->phantom = true;
-	}
-      gcc_assert (u->phantom);
-
-
-      /* Attach the phantom node to the last nodes
-       * reachable from q */
-      terminal = get_terminal_nodes (q);
-
-      if (terminal == NULL)
-	terminal = q;
-
-      while (terminal)
-	{
-	  con_node next;
-
-	  add_edge (terminal, u);
-
-	  /* reset and iterate */
-	  next = terminal->next_link;
-	  terminal->next_link = NULL;
-	  terminal = next;
-	}
-      /* this neednt be true, actually, since u->next_link might exist
-       * */
-      assert_all_next_link_free (cg);
-
+      gcc_assert (q->out == NULL);
+      terminal = q;
     }
-  else
+
+  /* get the phantom node ready, if needed */
+  if (terminal)
     {
-      gcc_assert (get_terminal_nodes (q) == NULL);
+      phantom = get_existing_node (cg, stmt); /* 1-limited */
+      if (phantom == NULL)
+	{
+	  con_node field;
+	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
+	  phantom->phantom = true;
+
+	  /* add a field node for it */
+	  field = add_field_node (cg, f_name);
+	  field->phantom = true;
+	  add_edge (phantom, field);
+	}
+      gcc_assert (phantom->phantom);
+
+      /* add the phantom the the list of u */
+      phantom->next_link = u;
+      u = phantom;
+    }
+
+  /* make the terminal nodes point to the node */
+  while (terminal)
+    {
+      if (terminal != phantom) /* this would be pointless otherwise */
+	  add_edge (terminal, phantom);
+
+      NEXT_LINK_CLEAR (terminal);
     }
 
   /* get the field nodes of the pointed-to objects */
   v = get_field_nodes (u, f_name);
-
-  /* if v is empty, more phantoms are required */
-  if (v == NULL)
-    {
-      /* if V is null, then u was just created, and there is only
-       * 1 of it */
-      gcc_assert (u->next_link == NULL);
-
-      v = add_field_node (cg, f_name);
-      /* TODO move phantom into function */
-      v->phantom = true;
-
-      add_edge (u, v);
-    }
+  gcc_assert (v != NULL); /* even phantom nodes have this field */
 
   /* TODO check for flow-sensitive */
-
 
   /* its important to bypass late, otherwise a = a.b will
    * fail */
@@ -1304,14 +1359,10 @@ update_connection_graph_from_assignment_from_field (con_graph cg, tree stmt)
   /* add deferred edges */
   while (v)
     {
-      con_node next;
       if (get_edge (p, v) == NULL)
 	add_edge (p, v);
 
-      /* clear the next_link */
-      next = v->next_link;
-      v->next_link = NULL;
-      v = next;
+      NEXT_LINK_CLEAR (v);
     }
 
   assert_all_next_link_free (cg);
@@ -1328,7 +1379,7 @@ update_connection_graph_from_assignment_from_vtable (con_graph cg, tree stmt)
   /* p = q.vtable:
    * modify_expr
    *   var_decl - p
-   *   componet_ref
+   *   component_ref
    *     indirect_ref
    *       var_decl - q
    *     field_decl - vtable
@@ -1398,6 +1449,18 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
   else if (is_indirect_function_call (stmt))
     update_connection_graph_from_indirect_function_call (cg, stmt);
 
+  /* this goes before function call */
+  else if (is_null_pointer_exception (stmt))
+    {
+      set_stmt_type (cg, stmt, IGNORED_NULL_POINTER_EXCEPTION);
+      /* dont need to do anything, as it doesnt reference any var */
+    }
+
+  else if (is_array_allocation (stmt))
+    {
+      update_connection_graph_from_array_allocation (cg, stmt);
+    }
+
   else if (is_function_call (stmt)
 	   || is_function_call_with_return_value (stmt)
 	   || is_constructor (stmt))
@@ -1427,7 +1490,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
     update_connection_graph_from_assignment_to_indirect_array_ref (cg, stmt);
 
   else if (is_assignment_to_array (stmt))
-      /* TODO */ gcc_unreachable();
+      /* TODO */ gcc_unreachable ();
     
   else if (is_pointer_dereference (stmt))
     update_connection_graph_from_pointer_dereference (cg, stmt);
@@ -1467,48 +1530,253 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
     }
 }
 
+static void
+replace_array_with_alloca (con_node node)
+{
+  tree type, alloca_func_call, new_alloca_stmt;
+  tree new_jv_func_call_stmt;
+
+  tree stmt, call_expr, addr_expr, func_decl, lhs, parms, klass;
+  tree alloca_func, args, parm1;
+
+  tree object_pointer_pointer_type_node, obj, size_obj, indirect_ref, array_object_pointer_type_node, data_field;
+  tree array_type, component_ref, array_ref, int0, int1, int2, rhs, object_pointer_type_node;
+  tree elements_stmt, nop_expr, cast_stmt, minused, minus_stmt, four;
+  tree mult_expr, total_size, plus_expr, total_stmt, cast_size_obj, count_size, mult_stmt, minus_expr;
+
+  block_stmt_iterator bsi;
+
+  stmt = node->id;
+  bsi = bsi_for_stmt (stmt);
+
+  /* generated code (we have elementClass, count)
+   *   jobjectArray obj = NULL;
+   *   size_t size = (size_t) elements (obj)
+   *     size_t size = &obj->data[0]
+   *   size += count * sizeof (jobject)
+   *   _Jv_InitNewObjectArray (size, elementClass)
+   */
+  gcc_assert (is_memory_allocation (stmt));
+
+  /* get the relevent parts of the trees */
+  lhs = LHS (stmt);
+  call_expr = RHS (stmt);
+  addr_expr = TREE_OPERAND (call_expr, 0);
+  parms = TREE_OPERAND (call_expr, 1);
+  klass = TREE_VALUE (TREE_CHAIN (parms));
+  func_decl = TREE_OPERAND (addr_expr, 0);
+
+  /* TODO move some of these to static variables and work them out
+   * in initialization */
+
+  /* build the replacement statements */
+  alloca_func = built_in_decls[BUILT_IN_ALLOCA];
+
+
+  /* jobjectArray obj = NULL; */
+  object_pointer_pointer_type_node = build_pointer_type (object_pointer_type_node);
+  obj = create_tmp_var (object_pointer_pointer_type_node, "D");
+  DECL_ARTIFICIAL (parm1) = 1;
+
+  /* size_t size = (size_t) elements (obj) */
+  /*   size_t size = &obj->data[0] */
+  size_obj = create_tmp_var (object_pointer_pointer_type_node, "D");
+  DECL_ARTIFICIAL (parm1) = 1;
+
+  /* indirect ref */
+  indirect_ref = build1 (INDIRECT_REF, build_pointer_type (array_object_pointer_type_node), obj);
+
+  /* field decl */
+  data_field = lookup_field (&array_type, get_identifier ("data"));
+
+  /* make the component ref */
+  array_object_pointer_type_node = build_array_type (object_ptr_type_node, one_elt_array_domain_type);
+  component_ref = build2 (COMPONENT_REF, array_object_pointer_type_node, indirect_ref, data_field);
+
+  /* make the array ref */
+  array_ref = build1 (ARRAY_REF, object_pointer_type_node, component_ref);
+
+  /* make the rhs */
+  int0 = build_int_cst (NULL_TREE, 0);
+  int1 = build_int_cst (NULL_TREE, 0);
+  int2 = build_int_cst (NULL_TREE, 1);
+  rhs = build4 (ADDR_EXPR, object_pointer_pointer_type_node, array_ref,
+		int0, int1, int2);
+
+  /* combine */
+  elements_stmt = build2 (MODIFY_EXPR, object_pointer_pointer_type_node,
+			  size_obj, rhs);
+
+  /* cast_size = (size_t) size; */
+  nop_expr = build1 (NOP_EXPR, size_type_node, size_obj);
+  cast_size_obj = create_tmp_var (size_type_node, "D");
+  cast_stmt = build2 (MODIFY_EXPR, size_type_node, cast_size_obj,
+		      nop_expr);
+
+
+  /* minused = 2147483646 - cast_size */ 
+  minused = create_tmp_var (size_type_node, "D");
+  minus_expr = build2 (MINUS_EXPR, size_type_node, decimal_int_max, cast_size_obj);
+  minus_stmt = build2 (MODIFY_EXPR, size_type_node, minused, minus_expr);
+  
+
+  /* count_size = count * sizeof (jobject) */
+  count_size = create_tmp_var (size_type_node, "D");
+  four = build_int_cst (NULL_TREE, 4);
+  /* TODO find real size - where does 4 come from */
+  mult_expr = build2 (MULT_EXPR, size_type_node, cast_size_obj, four);
+  mult_stmt = build2 (MODIFY_EXPR, size_type_node, count_size, mult_expr);
+
+  /* size += count_size */
+  total_size = create_tmp_var (size_type_node, "D");
+  plus_expr = build2 (PLUS_EXPR, size_type_node, count_size, minused);
+  total_stmt = build2 (MODIFY_EXPR, size_type_node, total_size, plus_expr);
+
+  /* allocate the memory */
+  args = tree_cons (NULL_TREE, total_size, NULL_TREE);
+
+  type = TREE_TYPE (TREE_TYPE (alloca_func));
+  alloca_func_call = build_function_call_expr (alloca_func, args);
+  new_alloca_stmt = build2 (MODIFY_EXPR, type, lhs, alloca_func_call);
+
+
+
+  /* _Jv_InitNewObjectArray (size, elementClass, object) */
+  args = tree_cons (NULL_TREE, total_size, 
+		    tree_cons (NULL_TREE, klass, 
+			       tree_cons (NULL_TREE, lhs, NULL_TREE)));
+
+  new_jv_func_call_stmt = build_function_call_expr
+    (init_new_array_node, args);
+
+
+  /* put the statements in place */
+  bsi_insert_before (&bsi, elements_stmt, BSI_SAME_STMT);
+  bsi_insert_before (&bsi, cast_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, minus_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, mult_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, total_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, new_alloca_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT); 
+  bsi_remove(&bsi, true);
+}
+
+static void
+replace_with_alloca (con_node node)
+{
+  tree size_identifier, size_field, new_size_stmt;
+  tree type, alloca_func_call, new_alloca_stmt;
+  tree new_jv_func_call_stmt;
+
+  tree stmt, call_expr, addr_expr, func_decl, lhs, parms, klass;
+  tree alloca_func, args, parm1, parm2;
+  block_stmt_iterator bsi;
+
+  stmt = node->id;
+  bsi = bsi_for_stmt (stmt);
+
+  gcc_assert (is_memory_allocation (stmt));
+
+  /* get the relevent parts of the trees */
+  lhs = LHS (stmt);
+  call_expr = RHS (stmt);
+  addr_expr = TREE_OPERAND (call_expr, 0);
+  parms = TREE_OPERAND (call_expr, 1);
+  klass = TREE_VALUE (parms);
+  func_decl = TREE_OPERAND (addr_expr, 0);
+
+  /* TODO move some of these to static variables and work them out
+   * in initialization */
+
+  /* build the replacement statements */
+  alloca_func = built_in_decls[BUILT_IN_ALLOCA];
+
+
+  /* tmp = klass->size */
+  parm1 = create_tmp_var (integer_type_node, "D");
+  DECL_ARTIFICIAL (parm1) = 1;
+
+  size_identifier = get_identifier ("size_in_bytes");
+  size_field = lookup_field (&class_type_node, size_identifier);
+  parm2 = build3 (COMPONENT_REF, integer_type_node, LHS (klass),
+		  size_field, NULL_TREE);
+
+  new_size_stmt = build2 (MODIFY_EXPR, integer_type_node, parm1, parm2);
+
+
+  /* obj = alloca (tmp) */
+  args = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 128), NULL_TREE);
+
+  type = TREE_TYPE (TREE_TYPE (alloca_func));
+  alloca_func_call = build_function_call_expr (alloca_func, args);
+  new_alloca_stmt = build2 (MODIFY_EXPR, type, lhs, alloca_func_call);
+
+
+  /* _Jv_InitObjectNoFinalizer (klass, obj); */
+  args = tree_cons (NULL_TREE, klass, tree_cons (NULL_TREE, lhs,
+						 NULL_TREE));
+
+  new_jv_func_call_stmt = build_function_call_expr
+    (init_no_finalizer_node, args);
+
+  /* put the statements in place */
+  bsi_insert_before (&bsi, new_size_stmt, BSI_SAME_STMT);
+  bsi_insert_before (&bsi, new_alloca_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT);
+  bsi_remove(&bsi, true);
+}
+
+static void add_actual_parameters (con_graph cg, tree function)
+{
+  tree arg_list;
+  int i = 1;
+  con_node arg_node;
+  con_node actual_node;
+
+  gcc_assert (cg);
+  gcc_assert (function);
+
+  arg_list = DECL_ARGUMENTS (function);
+  while (arg_list)
+    {
+      if (is_pointer_type (arg_list))
+	{
+	  actual_node = add_callee_actual_node (cg, arg_list, i,
+						function);
+	  arg_node = add_local_node (cg, arg_list);
+
+	  /* without this, we would match the parameter to the node
+	   * which parameter_node points at, at the end of this
+	   * function, instead of now */
+	  add_edge (arg_node, actual_node);
+	  i++;
+	}
+
+      /* move the list on */
+      arg_list = TREE_CHAIN (arg_list);
+    }
+
+
+}
 
 static void
 process_function (con_graph cg, tree function)
 {
   struct cgraph_varpool_node *vnode;
-  block_stmt_iterator bsi;
   basic_block bb;
-  tree parameter_list;
-  con_node parameter_node;
-  con_node actual_node;
+  block_stmt_iterator bsi;
   con_node node;
-  int i = 1;
   int j;
 
   gcc_assert (cg);
   gcc_assert (function);
   gcc_assert (cg->function);
 
-  /* TODO rename parameter to argument */
-
+  allocators[0] = alloc_no_finalizer_node;
+  allocators[1] = soft_anewarray_node;
 
   /* add the phantom actual parameters (Choi99 Sect. 4.1) */
-  parameter_list = DECL_ARGUMENTS (function);
-  while (parameter_list)
-    {
-      if (is_pointer_type (parameter_list))
-	{
-	  actual_node =
-	    add_callee_actual_node (cg, parameter_list, i, function);
-	  parameter_node = add_local_node (cg, parameter_list);
-
-	  /* without this, we would match the parameter to the node
-	   * which parameter_node points at, at the end of this
-	   * function, instead of now */
-	  add_edge (parameter_node, actual_node);
-	  i++;
-	}
-
-      /* move the list on */
-      parameter_list = TREE_CHAIN (parameter_list);
-    }
-
+  add_actual_parameters (cg, function);
 
   /* add the globals */
   for (vnode = cgraph_varpool_nodes_queue;
@@ -1541,11 +1809,7 @@ process_function (con_graph cg, tree function)
       }
     }
 
-  dump_escape_function (cg, debug, dump);
-
-  con_graph_dump (cg);
-
-
+  
   /* inline the constructors */
   FOR_EACH_BB (bb)
   {
@@ -1598,113 +1862,32 @@ process_function (con_graph cg, tree function)
       con_node reachable = get_nodes_reachable_from (node);
       while (reachable)
 	{
-	  con_node next_node;
-
 	  if (node->escape > reachable->escape)
 	    {
 	      /* TODO test */
 	      reachable->escape = node->escape;
 	    }
 
-	  /* clear the next_link as we iterate */
-	  next_node = reachable->next_link;
-	  reachable->next_link = NULL;
-	  reachable = next_node;
+	  NEXT_LINK_CLEAR (reachable);
 	}
     }
   assert_all_next_link_free (cg);
 
   /* make the allocation use alloca */
+  for (node = cg->root; node; node = node->next)
+    {
 
-  FOR_EACH_BB (bb)
-  {
-    /* process the statements */
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-        tree stmt = bsi_stmt (bsi);
-        con_node node = get_existing_node (cg, stmt);
-
-        if (node 
-          && node->type == OBJECT_NODE 
-	  && node->phantom == false
-          && node->escape == EA_NO_ESCAPE)
-          {
-	    tree new_stmt0;
-	    tree new_stmt1;
-	    tree new_stmt2;
-
-            tree stmt, call_expr, addr_expr, func_decl, lhs, parms, klass;
-	    tree alloca_func, args, parm1, parm2;
-
-            stmt = node->id;
-            gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR
-                        && (POINTER_TYPE_P (TREE_TYPE (stmt))));
-
-            lhs = LHS (stmt);
-            gcc_assert (is_suitable_decl (lhs));
-
-            call_expr = RHS (stmt);
-            gcc_assert (TREE_CODE (call_expr) == CALL_EXPR);
-
-            addr_expr = TREE_OPERAND (call_expr, 0);
-            gcc_assert (TREE_CODE (addr_expr) == ADDR_EXPR);
-
-            parms = TREE_OPERAND (call_expr, 1);
-            gcc_assert (TREE_CODE (parms) == TREE_LIST);
-
-            klass = TREE_VALUE (parms);
-            gcc_assert (TREE_CODE (klass) == ADDR_EXPR);
-
-            func_decl = TREE_OPERAND (addr_expr, 0);
-
-	    alloca_func = built_in_decls[BUILT_IN_ALLOCA];
-
-	    /* TODO use bsi_for_stmt, then you can iterate across the nodes
-	     * and use id, rather than walk the tree */
-
-	    parm1 = create_tmp_var ( integer_type_node, "D");
-	    parm2 = build3 (COMPONENT_REF, integer_type_node, LHS (klass),
-			    lookup_field (&class_type_node, get_identifier
-					  ("size_in_bytes")), NULL_TREE);
-
-	    new_stmt0 = build2 (MODIFY_EXPR, integer_type_node, parm1,
-				parm2);
-
-	    args = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 128),
-			      NULL_TREE);
-
-	    new_stmt1 = build2 (MODIFY_EXPR, TREE_TYPE ( TREE_TYPE (alloca_func)), lhs,
-				build_function_call_expr (alloca_func,
-							  args));
-
-
-	    args = tree_cons (NULL_TREE, klass, tree_cons (NULL_TREE, lhs,
-							   NULL_TREE));
-
-	    new_stmt2 = build_function_call_expr ( alloca_no_finalizer_node, args);
-	    DECL_ARTIFICIAL (parm1) = 1;
-
-	    bsi_insert_before (&bsi, new_stmt0, BSI_SAME_STMT);
-	    bsi_insert_before (&bsi, new_stmt1, BSI_SAME_STMT); 
-	    bsi_insert_before (&bsi, new_stmt2, BSI_SAME_STMT);
-	    bsi_remove(&bsi, true);
-/*
-            fprintf (stderr, "\n--------------------------\n");
-            print_generic_stmt (stderr, call_expr, 0);
-            debug_tree (call_expr);
-
-            fprintf (stderr, "\n--------------------------\n");
-            print_generic_stmt (stderr, addr_expr, 0);
-            debug_tree (addr_expr);
-
-            fprintf (stderr, "\n--------------------------\n");
-            print_generic_stmt (stderr, func_decl, 0);
-            debug_tree (func_decl);*/
-
-          }
-      }
-  }
-
+      if ( node->type == OBJECT_NODE 
+	   && node->phantom == false 
+	   && node->escape == EA_NO_ESCAPE)
+	{
+	  if (is_array_allocation (node->id))
+	    replace_array_with_alloca (node);
+	  else
+	    replace_with_alloca (node); 
+	}
+    }
+  dump_escape_function (cg, debug, dump);
   con_graph_dump (cg);
 
 }
@@ -1714,6 +1897,7 @@ process_function (con_graph cg, tree function)
 static unsigned int
 execute_ipa_stack_allocate (void)
 {
+  struct cgraph_varpool_node *vnode;
   struct cgraph_node *node;
   con_graph cg;
   con_graph last_cg = NULL;
@@ -1723,8 +1907,36 @@ execute_ipa_stack_allocate (void)
   int order_pos;
   int i;
 
+  int flags = TDF_SLIM | TDF_DETAILS | TDF_BLOCKS | TDF_IPA | TDF_TREE |
+    TDF_GRAPH;
+  pretty_printer debug_buffer;
+  pretty_printer dump_buffer;
+
   debug = fopen ("testing/debug_log", "w");
   dump = fopen ("testing/dump_log", "w");
+
+  pp_construct (&debug_buffer, NULL, 0);
+  pp_construct (&dump_buffer, NULL, 0);
+  pp_needs_newline (&debug_buffer) = true;
+  pp_needs_newline (&dump_buffer) = true;
+
+  debug_buffer.buffer->stream = debug;
+  dump_buffer.buffer->stream = dump;
+
+  /* print the global nodes */
+  for (vnode = cgraph_varpool_nodes_queue;
+       vnode; vnode = vnode->next_needed)
+    {
+      if (is_pointer_type (vnode->decl))
+	{
+	  dump_generic_node (&debug_buffer, vnode->decl, 0, flags, true);
+	  pp_flush (&debug_buffer);
+	  dump_generic_node (&dump_buffer, vnode->decl, 0, flags, true);
+	  pp_flush (&dump_buffer);
+	}
+    }
+
+
 
   /* TODO should I use postorder from ipa.c ? */
 

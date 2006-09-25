@@ -693,13 +693,9 @@ get_points_to (con_node node)
 
       /* new list or append to list */
       if (result)
-	{
-	  result->next_link = new_result;
-	}
+	result->next_link = new_result;
       else
-	{
-	  result = new_result;
-	}
+	result = new_result;
     }
   return result;
 }
@@ -736,7 +732,6 @@ get_single_named_field_node (con_node node, tree field_id)
 con_node
 get_field_nodes (con_node node, tree field_id)
 {
-  con_node next_node;
   con_edge edge;
   con_node result = NULL;
 
@@ -760,14 +755,11 @@ get_field_nodes (con_node node, tree field_id)
 	  /* add it to the result list */
 	  if (edge->target->id == field_id)
 	    {
-	      if (result == NULL)
+	      if (result != NULL)
 		{
-		  result = edge->target;
+		  edge->target->next_link = result;
 		}
-	      else
-		{
-		  result->next_link = edge->target;
-		}
+	      result = edge->target;
 
 	      /* no need to check the other fields */
 	      field_found = true;
@@ -778,10 +770,25 @@ get_field_nodes (con_node node, tree field_id)
       /* there must be a field of this type (unless its a phantom) */
       gcc_assert (field_found || node->phantom);
 
+      /* lazily add the phantom field */
+      if (node->phantom && !field_found)
+	{
+	  con_node field;
+	  gcc_assert (get_existing_field_node (node->graph, field_id, node) == NULL);
+	  field = add_field_node (node->graph, field_id);
+	  field->phantom = true;
+	  add_edge (node, field);
+	  if (result != NULL) 
+	    {
+	      field->next_link = result;
+	    }
+	  result = field;
+
+	}
+
+
       /* clear the next_link */
-      next_node = node->next_link;
-      node->next_link = NULL;
-      node = next_node;
+      NEXT_LINK_CLEAR (node);
     }
   return result;
 }
@@ -1192,34 +1199,41 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 
   data = get_stmt_type (cg, stmt);
 
-  gcc_assert (data);
   fprintf(file, " (");
 
-  gcc_assert (data->type >= FUNCTION_CALL);
-  switch (data->type)
+  if (data)
     {
+      gcc_assert (data->type >= FUNCTION_CALL);
+      switch (data->type)
+	{
 #define HANDLE(A) case A: fprintf (file, #A); break;
-      HANDLE(FUNCTION_CALL);
-      HANDLE(FUNCTION_CALL_WITH_RETURN);
-      HANDLE(CONSTRUCTOR_STMT);
-      HANDLE(INDIRECT_FUNCTION_CALL);
-      HANDLE(REFERENCE_COPY);
-      HANDLE(CAST);
-      HANDLE(ASSIGNMENT_FROM_FIELD);
-      HANDLE(ASSIGNMENT_TO_FIELD);
-      HANDLE(ASSIGNMENT_FROM_VTABLE);
-      HANDLE(RETURN);
-      HANDLE(MEMORY_ALLOCATION);
-      HANDLE(IGNORED_RETURNING_VOID);
-      HANDLE(IGNORED_NOT_A_POINTER);
-      HANDLE(IGNORED_LABEL_EXPR);
-      HANDLE(IGNORED_COND_EXPR);
-      HANDLE(IGNORED_UNKNOWN);
-      HANDLE(ASSIGNMENT_FROM_ARRAY);
-      HANDLE(POINTER_ARITHMETIC);
-      HANDLE(POINTER_DEREFERENCE);
-      HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
-      HANDLE(ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+	  HANDLE(FUNCTION_CALL);
+	  HANDLE(FUNCTION_CALL_WITH_RETURN);
+	  HANDLE(CONSTRUCTOR_STMT);
+	  HANDLE(INDIRECT_FUNCTION_CALL);
+	  HANDLE(REFERENCE_COPY);
+	  HANDLE(CAST);
+	  HANDLE(ASSIGNMENT_FROM_FIELD);
+	  HANDLE(ASSIGNMENT_TO_FIELD);
+	  HANDLE(ASSIGNMENT_FROM_VTABLE);
+	  HANDLE(RETURN);
+	  HANDLE(MEMORY_ALLOCATION);
+	  HANDLE(IGNORED_RETURNING_VOID);
+	  HANDLE(IGNORED_NOT_A_POINTER);
+	  HANDLE(IGNORED_LABEL_EXPR);
+	  HANDLE(IGNORED_COND_EXPR);
+	  HANDLE(IGNORED_UNKNOWN);
+	  HANDLE(ASSIGNMENT_FROM_ARRAY);
+	  HANDLE(POINTER_ARITHMETIC);
+	  HANDLE(POINTER_DEREFERENCE);
+	  HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
+	  HANDLE(ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+	  HANDLE(IGNORED_NULL_POINTER_EXCEPTION);
+	}
+    }
+  else
+    {
+      fprintf (file, "Unknown");
     }
   fprintf (file, ")");
 #undef HANDLE

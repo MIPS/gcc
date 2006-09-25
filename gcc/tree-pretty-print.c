@@ -2927,8 +2927,8 @@ dump_escape_function (con_graph cg, FILE* debug_file, FILE* dump_file)
 
 	  /*print_generic_decl (debug_file, var, flags);
 	  fprintf (debug_file, "\n");*/
-	  /*print_generic_decl (dump_file, var, flags);
-	  fprintf (dump_file, "\n");*/
+	  print_generic_decl (dump_file, var, flags);
+	  fprintf (dump_file, "\n");
 
 	  any_var = true;
 	}

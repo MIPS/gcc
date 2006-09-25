@@ -563,7 +563,7 @@ _Jv_AllocObjectNoFinalizer (jclass klass)
 
 // Now a version that takes it's memory as a parameter
 void
-_Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj)
+_Jv_InitObjectNoFinalizer (jclass klass, jobject obj)
 {
   if (_Jv_IsPhantomClass(klass) )
     throw new java::lang::NoClassDefFoundError(klass->getName());
@@ -571,10 +571,10 @@ _Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj)
   _Jv_InitClass (klass);
 
   /* If OBJ is 0, this is as a result of ALLOCA failing (presumably due to
-	* stack overflow, which is undefined. So we'll ignore it. */
+   * stack overflow, which is undefined. So we'll ignore it. */
 
   /* Memory is assumed to be cleared, so we need to clear the allocation
-	* here.  */
+   * here.  */
   jint size = klass->size ();
   memset (obj, 0, size);
   
@@ -691,6 +691,36 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
     }
   return obj;
 }
+
+// Initialize a new array of Java objects from pre-allocated memory.
+// Each object is of type `elementClass'.  `init' is used to initialize
+// each slot in the array.
+void
+_Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj)
+{
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if ( _Jv_IsPhantomClass(elementClass) )
+    throw new java::lang::NoClassDefFoundError(elementClass->getName());
+
+  // this was meant to be count, but I removed cont, so 
+  if (__builtin_expect ((size_t)size < (size_t)elements(obj), false))
+    throw new java::lang::NegativeArraySizeException;
+  
+
+  JvAssert (! elementClass->isPrimitive ());
+
+  // memory is already allocated by alloca
+  jclass arrayClass = _Jv_GetArrayClass (elementClass,
+					 elementClass->getClassLoaderInternal());
+
+  // zero the memory (the allocator would otherwise do this)
+  memset (obj, 0, size);
+
+  // put in the array's vtable (from _JvAllocArray)
+  *((_Jv_VTable **) obj) = arrayClass->vtable;
+}
+
 
 // Allocate a new array of primitives.  ELTYPE is the type of the
 // element, COUNT is the size of the array.

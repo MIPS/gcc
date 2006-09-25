@@ -1,3 +1,15 @@
+2006-09-25  Paul Biggar  <paul.biggar@gmail.com>
+
+	* decl.c (java_init_decl_processing): Added init_new_array_node.
+	Renamed alloca_no_finalizer_node to init_no_finalizer_node. Changed
+	parameters of init_no_finalizer_node.
+	* java-tree.h (JTI_INIT_NO_FINALIZER_NODE): Renamed from
+	JTI_ALLOC_NO_FINALIZER_NODE.
+	(JTI_INIT_NEW_ARRAY_NODE): New
+	(init_new_array_node): New
+	(init_no_finalizer_node): Renamed from alloca_no_finalizer_node
+
+
 2006-08-20  Paul Biggar  <paul.biggar@gmail.com>
 
 	* decl.c (java_init_decl_processing): Added

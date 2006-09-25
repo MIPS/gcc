@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "diagnostic.h"
 
+#define NEXT_LINK_CLEAR(A) do { con_node next = (A)->next_link; (A)->next_link = NULL; (A) = next; } while (0)
 
 enum con_node_type
 {
@@ -69,7 +70,8 @@ enum statement_type
   POINTER_ARITHMETIC,
   POINTER_DEREFERENCE,
   IGNORED_ASSIGNMENT_TO_NULL,
-  ASSIGNMENT_TO_INDIRECT_ARRAY_REF 
+  ASSIGNMENT_TO_INDIRECT_ARRAY_REF,
+  IGNORED_NULL_POINTER_EXCEPTION
 };
 
 /* This should be combined in the future with structure aliasing, but
@@ -306,10 +308,9 @@ con_node get_points_to (con_node node);
 con_node get_terminal_nodes (con_node node);
 
 
-/* Returns a list of field nodes of the passed object nodes, with
+/* Returns a list of field nodes of the passed object node, with
  * the same id as field_id. 
  *
- * Precondition: All passed nodes will be object nodes (checked)
  * Precondition: All field nodes will have empty next_link fields
  * (checked)
  *

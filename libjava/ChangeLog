@@ -1,9 +1,19 @@
-<<<<<<< .working
 2006-08-21  Paul Biggar  <paul.biggar@gmail.com>
 
+	* gcj/javaprims.h (_Jv_InitObjectNoFinalizer): Renamed from
+	_Jv_AllocaObjectNoFinalizer 
+	* gcj/array.h (_Jv_InitNewObjectArray): New declaration
+	* java/lang/Class.h (_Jv_InitNewObjectNoFinalizer): Renamed from _Jv_AllocaObjectNoFinalizer
+	(java::lang:class): Added new friends: _Jv_InitObjectNoFinalizer and
+	_Jv_InitNewObjectArray
+	* prims.cc (_Jv_InitObjectNoFinalizer): Renamed from
+	_Jv_AllocaObjectNoFinalizer
+	(_Jv_InitNewObjectArray): New function
+
+2006-08-21  Paul Biggar  <paul.biggar@gmail.com>
 
 	* prims.cc (_Jv_AllocaObjectNoFinalizer): Effectively inlined 
-   malloc call
+	malloc call
 	* gcj/javaprims.h (_Jv_AllocaObject): Removed declaration.
 	* boehm.cc (_Jv_AllocaObj): Removed
 	* java/lang/Class.h (_Jv_AllocaObj, _Jv_AllocaObject): Removed

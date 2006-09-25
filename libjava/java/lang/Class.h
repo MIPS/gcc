@@ -16,6 +16,7 @@ details.  */
 
 #include <stddef.h>
 #include <java/lang/Object.h>
+#include <gcj/array.h>
 #include <java/lang/String.h>
 #include <java/net/URL.h>
 #include <java/lang/reflect/Modifier.h>
@@ -213,10 +214,11 @@ jfieldID JvGetFirstStaticField (jclass);
 jint JvNumStaticFields (jclass);
 
 jobject _Jv_AllocObject (jclass);
-void _Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj);
 void *_Jv_AllocObj (jint, jclass);
 void *_Jv_AllocPtrFreeObj (jint, jclass);
 void *_Jv_AllocArray (jint, jclass);
+
+void _Jv_InitObjectNoFinalizer (jclass klass, jobject obj);
 
 bool _Jv_getInterfaceMethod(jclass, jclass&, int&, 
 			    const _Jv_Utf8Const*,
@@ -460,10 +462,13 @@ private:
   friend jint (::JvNumStaticFields) (jclass);
 
   friend jobject (::_Jv_AllocObject) (jclass);
-  friend void ::_Jv_AllocaObjectNoFinalizer (jclass klass, jobject obj);
   friend void *::_Jv_AllocObj (jint, jclass);
   friend void *::_Jv_AllocPtrFreeObj (jint, jclass);
   friend void *::_Jv_AllocArray (jint, jclass);
+
+  friend void ::_Jv_InitObjectNoFinalizer (jclass, jobject);
+  friend void ::_Jv_InitNewObjectArray (jsize, jclass, jobjectArray);
+
 
   friend jobject (::_Jv_JNI_ToReflectedField) (_Jv_JNIEnv *, jclass, jfieldID,
 					       jboolean);

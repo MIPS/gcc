@@ -1,3 +1,30 @@
+2006-09-25	Paul Biggar	<paul.biggar@gmail.com>
+	* tree-pretty-print.c (dump_escape_function): Print declarations
+	* ipa-stack-allocate.c (allocators): Changed type. Moved declaration
+	to run-time
+	(is_memory_allocation): Use new allocators
+	(is_null_pointer_exception, is_array_allocation)
+	(update_connection_graph_from_array_allocation): New functions
+	(update_connection_graph_from_assignment_to_indirect_array_ref)
+	(update_connection_graph_from_assignment_to_field)
+	(update_connection_graph_from_assignment_from_field): Change logic for
+	creation of phantom nodes
+	(update_connection_graph_from_assignment_from_field): Added more cases:
+	is_array_allocation and is_null_pointer_exception
+	(replace_array_with_alloca): New function (not properly tested)
+	(process_function): Moved alloca logic into new function
+	(replace_With_alloca): New function. Moved logic from process_function
+	(add_actual_parameters): Rename parameter_list variable to arg_list
+	(execute_ipa_stack_allocate): Added pretty printing of declarations
+	* con_graph.c (get_points_to): Minor formatting
+	(get_field_nodes): Added field nodes lazily for phantom nodes. Shortened
+	function with simpler equivalent logic
+	(print_stmt_type): Added default case
+	* con_graph.h (NEXT_LINK_CLEAR): New macro
+	(con_node_type): New enum value (IGNORED_NULL_POINTER_EXCEPTION)
+
+
+
 2006-09-06	Paul Biggar	<paul.biggar@gmail.com>
 	
 	* tree-pretty-print.c (dump_escape_function): Removed extra new lines.
