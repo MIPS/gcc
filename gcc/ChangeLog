@@ -1,3 +1,31 @@
+2006-09-25  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-ssa-ter.c (struct temp_expr_table_d): Rensame fields, add 
+	explicit vector replacdeable expressions instead of sharing.
+	(new_temp_expr_table): Rename fields, count number of ssa_names in
+	each partition.
+	(free_temp_expr_table): Rename field, free new fields.
+	(version_to_be_replaced_p): New. Is an ssa-name replaceable?
+	(add_value_to_version_list): Rename to make_dependent_on_partition.
+	(add_value_to_partition_list): Rename to add_to_partition_kill_list.
+	(remove_value_from_partition_list): Rename to 
+	remove_from_partition_kill_list.
+	(add_dependence): Use renamed field, cleanup. Don't add a dependence
+	on partitions with only one member.
+	(is_replaceable_p): New.  Split out replaceability check from 
+	check_replaceable.
+	(process_replaceable): New. Replacement code split from 
+	check_replaceable.
+	(check_replaceable): Removed.
+	(finished_with_expr): Renamed from finish_expr.
+	(kill_expr): Use renamed fields. Less parameters.
+	(kill_virtual_exprs): Less parameters.
+	(mark_replaceable): Use renamed fields.
+	(find_replaceable_in_bb): Use renamed fields, cleanup.
+	(find_replaceable_exprs): Use renamed routines, cleanup.
+	(dump_replaceable_exprs): don;t go past end of ssa_names list.
+	(debug_ter): New.  Debug routine to dump state.
+
 2006-09-15  Andrew MacLeod  <amacleod@redhat.com>
 
 	* opts.c (decode_options): Remove flag_tree_live_range_split.
