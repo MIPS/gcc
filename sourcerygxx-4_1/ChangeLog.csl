@@ -1,3 +1,14 @@
+2006-09-26  Carlos O'Donell  <carlos@codesourcery.com>
+
+	gcc/
+	* Makefile.in: Add GCC_EXEC_PREFIX to site.exp.
+
+	gcc/testsuite/
+	* lib/c-torture.exp: Load target-libpath.exp and run
+	set_ld_library_path_evn_vars if required.
+	* lib/target-libpath.exp (set_ld_library_path_env_vars): Export 
+	env var GCC_EXEC_PREFIX	if global variable of same name is defined.
+
 2006-09-20  Paul Brook  <paul@codesourcery.com>
 
 	gcc/
