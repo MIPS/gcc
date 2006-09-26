@@ -1,3 +1,10 @@
+2006-09-26  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/thumb2.md (thumb2_negdi2): Use shorter code sequence.
+	* config/arm/ieee754-df.S: Ditto.
+	* config/arm/ieee754-sf.S: Ditto.
+
 2006-09-26  Carlos O'Donell  <carlos@codesourcery.com>
 
 	gcc/

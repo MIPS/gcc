@@ -162,15 +162,15 @@
    (set_attr "type" "alu_shift")]
 )
 
-;; Thumb-2 does not have rsc, so the source and destination must be different.
+;; Thumb-2 does not have rsc, so use a clever trick with shifter operands.
 (define_insn "*thumb2_negdi2"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r")
-	(neg:DI (match_operand:DI 1 "s_register_operand"  "r")))
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,r")
+	(neg:DI (match_operand:DI 1 "s_register_operand"  "?r,0")))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_THUMB2"
-  "negs\\t%Q0, %Q1\;mov\\t%R0, #0\;sbc\\t%R0, %R0, %R1"
+  "negs\\t%Q0, %Q1\;sbc\\t%R0, %R1, %R1, lsl #1"
   [(set_attr "conds" "clob")
-   (set_attr "length" "12")]
+   (set_attr "length" "8")]
 )
 
 (define_insn "*thumb2_abssi2"

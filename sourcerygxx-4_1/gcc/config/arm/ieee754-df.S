@@ -132,9 +132,8 @@ ARM_FUNC_ALIAS aeabi_dadd adddf3
 	orr	xh, ip, xh, lsr #12
 	beq	1f
 #if defined(__thumb2__)
-	mov	lr, #0
 	negs	xl, xl
-	sbc	xh, lr, xh
+	sbc	xh, xh, xh, lsl #1
 #else
 	rsbs	xl, xl, #0
 	rsc	xh, xh, #0
@@ -145,9 +144,8 @@ ARM_FUNC_ALIAS aeabi_dadd adddf3
 	orr	yh, ip, yh, lsr #12
 	beq	1f
 #if defined(__thumb2__)
-	mov	lr, #0
 	negs	yl, yl
-	sbc	yh, lr, yh
+	sbc	yh, yh, yh, lsl #1
 #else
 	rsbs	yl, yl, #0
 	rsc	yh, yh, #0
@@ -546,9 +544,8 @@ ARM_FUNC_ALIAS aeabi_l2d floatdidf
 	ands	r5, ah, #0x80000000	@ sign bit in r5
 	bpl	2f
 #if defined(__thumb2__)
-	movs	r4, #0
 	negs	al, al
-	sbc	ah, r4, ah
+	sbc	ah, ah, ah, lsl #1
 #else
 	rsbs	al, al, #0
 	rsc	ah, ah, #0

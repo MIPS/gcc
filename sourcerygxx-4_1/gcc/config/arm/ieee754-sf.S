@@ -128,9 +128,8 @@ LSYM(Lad_x):
 	and	r3, r0, #0x80000000
 	bpl	LSYM(Lad_p)
 #if defined(__thumb2__)
-	mov	ip, #0
 	negs	r1, r1
-	sbc	r0, ip, r0
+	sbc	r0, r0, r0, lsl #1
 #else
 	rsbs	r1, r1, #0
 	rsc	r0, r0, #0
@@ -357,9 +356,8 @@ ARM_FUNC_ALIAS aeabi_l2f floatdisf
 	ands	r3, ah, #0x80000000	@ sign bit in r3
 	bpl	1f
 #if defined(__thumb2__)
-	movs	r2, #0
 	negs	al, al
-	sbc	ah, r2, ah
+	sbc	ah, ah, ah, lsl #1
 #else
 	rsbs	al, al, #0
 	rsc	ah, ah, #0
