@@ -1041,7 +1041,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
     return expr;
 
   /* Phi translations of a given expression don't change.  */
-  if (EXPR_P (expr))
+  if (EXPR_P (expr) || GIMPLE_STMT_P (expr))
     {
       tree vh;
 
@@ -2400,8 +2400,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       for (; !tsi_end_p (tsi); tsi_next (&tsi))
 	{
 	  tree stmt = tsi_stmt (tsi);
-	  tree forcedname = TREE_OPERAND (stmt, 0);
-	  tree forcedexpr = TREE_OPERAND (stmt, 1);
+	  tree forcedname = GIMPLE_STMT_OPERAND (stmt, 0);
+	  tree forcedexpr = GIMPLE_STMT_OPERAND (stmt, 1);
 	  tree val = vn_lookup_or_add (forcedexpr, NULL);
 
 	  VEC_safe_push (tree, heap, inserted_exprs, stmt);
@@ -3291,7 +3291,7 @@ realify_fake_stores (void)
 	  tree newstmt;
 
 	  /* Mark the temp variable as referenced */
-	  add_referenced_var (SSA_NAME_VAR (TREE_OPERAND (stmt, 0)));
+	  add_referenced_var (SSA_NAME_VAR (GIMPLE_STMT_OPERAND (stmt, 0)));
 
 	  /* Put the new statement in GC memory, fix up the
 	     SSA_NAME_DEF_STMT on it, and then put it in place of
@@ -3300,9 +3300,9 @@ realify_fake_stores (void)
 	  bsi = bsi_for_stmt (stmt);
 	  bsi_prev (&bsi);
 	  newstmt = build2_gimple (GIMPLE_MODIFY_STMT,
-			           TREE_OPERAND (stmt, 0),
-			    	   TREE_OPERAND (bsi_stmt (bsi), 1));
-	  SSA_NAME_DEF_STMT (TREE_OPERAND (newstmt, 0)) = newstmt;
+			           GIMPLE_STMT_OPERAND (stmt, 0),
+			    	   GIMPLE_STMT_OPERAND (bsi_stmt (bsi), 1));
+	  SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (newstmt, 0)) = newstmt;
 	  bsi_insert_before (&bsi, newstmt, BSI_SAME_STMT);
 	  bsi = bsi_for_stmt (stmt);
 	  bsi_remove (&bsi, true);

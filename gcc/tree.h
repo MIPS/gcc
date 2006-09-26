@@ -1520,6 +1520,10 @@ struct tree_constructor GTY(())
 #define EXPR_FILENAME(NODE) *(expr_filename ((NODE)))
 #define EXPR_LINENO(NODE) *(expr_lineno ((NODE)))
 
+/* True if a tree is an expression or statement that can have a
+   location.  */
+#define CAN_HAVE_LOCATION_P(NODE) (EXPR_P (NODE) || GIMPLE_STMT_P (NODE))
+
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
 #define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 1)

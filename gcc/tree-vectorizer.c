@@ -1237,7 +1237,7 @@ find_loop_location (struct loop *loop)
 
   node = get_loop_exit_condition (loop);
 
-  if (node && EXPR_P (node) && EXPR_HAS_LOCATION (node)
+  if (node && CAN_HAVE_LOCATION_P (node) && EXPR_HAS_LOCATION (node)
       && EXPR_FILENAME (node) && EXPR_LINENO (node))
     return EXPR_LOC (node);
 
@@ -1252,7 +1252,7 @@ find_loop_location (struct loop *loop)
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
       node = bsi_stmt (si);
-      if (node && EXPR_P (node) && EXPR_HAS_LOCATION (node))
+      if (node && CAN_HAVE_LOCATION_P (node) && EXPR_HAS_LOCATION (node))
         return EXPR_LOC (node);
     }
 

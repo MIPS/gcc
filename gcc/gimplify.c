@@ -778,7 +778,8 @@ should_carry_locus_p (tree stmt)
 static void
 annotate_one_with_locus (tree t, location_t locus)
 {
-  if (EXPR_P (t) && ! EXPR_HAS_LOCATION (t) && should_carry_locus_p (t))
+  if (CAN_HAVE_LOCATION_P (t)
+      && ! EXPR_HAS_LOCATION (t) && should_carry_locus_p (t))
     SET_EXPR_LOCATION (t, locus);
 }
 
@@ -3508,7 +3509,6 @@ tree_to_gimple_tuple (tree *tp)
     case MODIFY_EXPR:
       {
         struct gimple_stmt *gs;
-        tree save_tree_block = TREE_BLOCK(*tp);
 	tree lhs = TREE_OPERAND (*tp, 0);
 	bool def_stmt_self_p = false;
 
@@ -3528,7 +3528,7 @@ tree_to_gimple_tuple (tree *tp)
         gs->locus = EXPR_LOCUS (*tp);
         gs->operands[0] = TREE_OPERAND (*tp, 0);
         gs->operands[1] = TREE_OPERAND (*tp, 1);
-        gs->block = save_tree_block;
+        gs->block = TREE_BLOCK (*tp);
         *tp = (tree)gs;
 
 	/* If we re-gimplify a set to an SSA_NAME, we must change the

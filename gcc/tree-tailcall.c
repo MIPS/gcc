@@ -565,7 +565,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	      add_referenced_var (tmp);
 
 	      var = make_ssa_name (tmp, stmt);
-	      TREE_OPERAND (stmt, 0) = var;
+	      GIMPLE_STMT_OPERAND (stmt, 0) = var;
 	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	    }
 	}
@@ -575,7 +575,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
       stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (PLUS_EXPR, ret_type, a_acc, var));
       var = make_ssa_name (SSA_NAME_VAR (a_acc), stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       a_acc_arg = var;
     }
@@ -585,7 +585,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
       stmt = build2 (GIMPLE_MODIFY_STMT, ret_type, NULL_TREE,
 		     build2 (MULT_EXPR, ret_type, m_acc, m));
       var = make_ssa_name (SSA_NAME_VAR (m_acc), stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       m_acc_arg = var;
     }
@@ -629,8 +629,8 @@ adjust_return_value (basic_block bb, tree m, tree a)
     {
       ret_var->base.ann = (tree_ann_t) stmt_ann (ret_stmt);
       bsi_replace (&bsi, ret_var, true);
-      SSA_NAME_DEF_STMT (TREE_OPERAND (ret_var, 0)) = ret_var;
-      ret_var = TREE_OPERAND (ret_var, 0);
+      SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (ret_var, 0)) = ret_var;
+      ret_var = GIMPLE_STMT_OPERAND (ret_var, 0);
       ret_stmt = build1 (RETURN_EXPR, TREE_TYPE (ret_stmt), ret_var);
       bsi_insert_after (&bsi, ret_stmt, BSI_NEW_STMT);
     }
@@ -644,7 +644,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
       add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
   else
@@ -659,7 +659,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
       add_referenced_var (tmp);
 
       var = make_ssa_name (tmp, stmt);
-      TREE_OPERAND (stmt, 0) = var;
+      GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
 

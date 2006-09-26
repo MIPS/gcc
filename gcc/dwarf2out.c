@@ -9918,7 +9918,7 @@ static tree
 reference_to_unused (tree * tp, int * walk_subtrees,
 		     void * data ATTRIBUTE_UNUSED)
 {
-  if (! EXPR_P (*tp) && ! CONSTANT_CLASS_P (*tp))
+  if (! EXPR_P (*tp) && ! GIMPLE_STMT_P (*tp) && ! CONSTANT_CLASS_P (*tp))
     *walk_subtrees = 0;
   
   if (DECL_P (*tp) && ! TREE_PUBLIC (*tp) && ! TREE_USED (*tp)

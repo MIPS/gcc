@@ -2243,7 +2243,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     we would need to update the invariant flag for ADDR_EXPRs.  */
 	  if (TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
 	      && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == ADDR_EXPR)
-	    recompute_tree_invariant_for_addr_expr (TREE_OPERAND (use_stmt, 1));
+	    recompute_tree_invariant_for_addr_expr
+	      (GIMPLE_STMT_OPERAND (use_stmt, 1));
 
 	  /* If we cleaned up EH information from the statement,
 	     mark its containing block as needing EH cleanups.  */

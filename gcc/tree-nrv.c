@@ -297,7 +297,7 @@ execute_return_slot_opt (void)
 	    /* Check if the location being assigned to is
 	       call-clobbered.  */
 	    CALL_EXPR_RETURN_SLOT_OPT (call) =
-	      dest_safe_for_nrv_p (TREE_OPERAND (stmt, 0)) ? 1 : 0;
+	      dest_safe_for_nrv_p (GIMPLE_STMT_OPERAND (stmt, 0)) ? 1 : 0;
 	}
     }
   return 0;

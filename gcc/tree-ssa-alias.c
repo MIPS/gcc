@@ -841,7 +841,8 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 	  rhs = stmt;
 	}
 
-      if (lhs && (TREE_CODE (lhs) == TREE_LIST || EXPR_P (lhs)))
+      if (lhs && (TREE_CODE (lhs) == TREE_LIST
+		  || EXPR_P (lhs) || GIMPLE_STMT_P (lhs)))
 	{
 	  struct count_ptr_d count;
 	  count.ptr = ptr;
@@ -851,7 +852,8 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
 	  *num_derefs_p = count.count;
 	}
 
-      if (rhs && (TREE_CODE (rhs) == TREE_LIST || EXPR_P (rhs)))
+      if (rhs && (TREE_CODE (rhs) == TREE_LIST
+		  || EXPR_P (rhs) || GIMPLE_STMT_P (rhs)))
 	{
 	  struct count_ptr_d count;
 	  count.ptr = ptr;

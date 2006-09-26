@@ -4206,7 +4206,7 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
 	  t = build2 (BIT_AND_EXPR, TREE_TYPE (op0), op0, t);
 	}
 
-      TREE_OPERAND (stmt, 1) = t;
+      GIMPLE_STMT_OPERAND (stmt, 1) = t;
       update_stmt (stmt);
     }
 }
@@ -4253,7 +4253,7 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
 	  else
 	    t = op;
 
-	  TREE_OPERAND (stmt, 1) = t;
+	  GIMPLE_STMT_OPERAND (stmt, 1) = t;
 	  update_stmt (stmt);
 	}
     }

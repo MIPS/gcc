@@ -684,7 +684,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
       || operand_equal_p (expr, old, 0))
     return unshare_expr (new);
 
-  if (!EXPR_P (expr))
+  if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return expr;
 
   n = TREE_CODE_LENGTH (TREE_CODE (expr));
@@ -1338,7 +1338,7 @@ get_val_for (tree x, tree base)
       nx = USE_FROM_PTR (op);
       val = get_val_for (nx, base);
       SET_USE (op, val);
-      val = fold (TREE_OPERAND (stmt, 1));
+      val = fold (GIMPLE_STMT_OPERAND (stmt, 1));
       SET_USE (op, nx);
       /* only iterate loop once.  */
       return val;

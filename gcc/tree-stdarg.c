@@ -153,7 +153,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  || GIMPLE_STMT_OPERAND (stmt, 0) != lhs)
 	return (unsigned HOST_WIDE_INT) -1;
 
-      rhs = TREE_OPERAND (stmt, 1);
+      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       if (TREE_CODE (rhs) == WITH_SIZE_EXPR)
 	rhs = TREE_OPERAND (rhs, 0);
 
@@ -211,7 +211,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 
       stmt = SSA_NAME_DEF_STMT (lhs);
 
-      rhs = TREE_OPERAND (stmt, 1);
+      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       if (TREE_CODE (rhs) == WITH_SIZE_EXPR)
 	rhs = TREE_OPERAND (rhs, 0);
 

@@ -1311,7 +1311,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
       return true;
     }
 
-  if (!EXPR_P (expr))
+  if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return false;
 
   len = TREE_CODE_LENGTH (TREE_CODE (expr));

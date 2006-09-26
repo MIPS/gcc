@@ -620,7 +620,7 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
   if (!is_gimple_cast (offset))
     return false;
 
-  offset = GIMPLE_STMT_OPERAND (offset, 0);
+  offset = TREE_OPERAND (offset, 0);
   if (TREE_CODE (offset) != SSA_NAME)
     return false;
 
@@ -639,13 +639,13 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
      is constant.  */
   offset = GIMPLE_STMT_OPERAND (offset, 1);
   if (TREE_CODE (offset) != MULT_EXPR
-      || TREE_CODE (GIMPLE_STMT_OPERAND (offset, 1)) != INTEGER_CST
-      || !simple_cst_equal (GIMPLE_STMT_OPERAND (offset, 1),
+      || TREE_CODE (TREE_OPERAND (offset, 1)) != INTEGER_CST
+      || !simple_cst_equal (TREE_OPERAND (offset, 1),
 			    TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (lhs)))))
     return false;
 
   /* The first operand to the MULT_EXPR is the desired index.  */
-  index = GIMPLE_STMT_OPERAND (offset, 0);
+  index = TREE_OPERAND (offset, 0);
 
   /* Replace the pointer addition with array indexing.  */
   GIMPLE_STMT_OPERAND (use_stmt, 1)

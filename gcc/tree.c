@@ -7838,7 +7838,8 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
       /* FALLTHRU */
 
     default:
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+	  || IS_GIMPLE_STMT_CODE_CLASS (TREE_CODE_CLASS (code)))
 	{
 	  int i, len;
 
@@ -7850,27 +7851,10 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	  if (len)
 	    {
 	      for (i = 0; i < len - 1; ++i)
-		WALK_SUBTREE (TREE_OPERAND (*tp, i));
-	      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
+		WALK_SUBTREE (PROTECTED_TREE_OPERAND (*tp, i));
+	      WALK_SUBTREE_TAIL (PROTECTED_TREE_OPERAND (*tp, len - 1));
 	    }
 	}
-      else if (TREE_CODE_CLASS (code) == tcc_gimple_stmt)
-	{
-	  int i, len;
-
-	  /* Walk over all the sub-trees of this operand.  */
-	  len = TREE_CODE_LENGTH (code);
-
-	  /* Go through the subtrees.  We need to do this in forward order so
-	     that the scope of a FOR_EXPR is handled properly.  */
-	  if (len)
-	    {
-	      for (i = 0; i < len - 1; ++i)
-		WALK_SUBTREE (GIMPLE_STMT_OPERAND (*tp, i));
-	      WALK_SUBTREE_TAIL (GIMPLE_STMT_OPERAND (*tp, len - 1));
-	    }
-	}
-
       /* If this is a type, walk the needed fields in the type.  */
       else if (TYPE_P (*tp))
 	return walk_type_fields (*tp, func, data, pset);

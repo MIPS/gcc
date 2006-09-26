@@ -1,3 +1,51 @@
+2006-09-25  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-vrp.c (simplify_div_or_mod_using_ranges): Use
+        GIMPLE_STMT_OPERAND.
+        (simplify_abs_using_ranges): Same.
+        * tree-complex.c (expand_complex_operations_1): Use
+        PROTECTED_TREE_OPERAND.
+        * tree-ssa-loop-niter.c (simplify_replace_tree): Check for gimple
+        stmt.
+        (get_val_for): Use GIMPLE_STMT_OPERAND.
+        * tree-tailcall.c (adjust_accumulator_values): Same.
+        (adjust_return_value): Same.
+        * tree.c (walk_tree): Use IS_GIMPLE_STMT_CODE_CLASS on default
+        case.  Remove special case for tcc_gimple_stmt.
+        * tree.h (CAN_HAVE_LOCATION_P): New.
+        * tree-ssa-loop-ivopts.c (expr_invariant_in_loop_p): Check for
+        GIMPLE_STMT_P.
+        * tree-stdarg.c (va_list_counter_bump): Use GIMPLE_STMT_OPERAND.
+        * tree-ssa-dom.c (propagate_rhs_into_lhs): Same.
+        * tree-nrv.c (execute_return_slot_opt): Same.
+        * tree-ssa-alias.c (count_uses_and_derefs): Check for GIMPLE_STMT_P.
+        * tree-vn.c (set_value_handle): Same.
+        (get_value_handle): Same.
+        * c-decl.c (add_stmt): Use CAN_HAVE_LOCATION_P.
+        * tree-vectorizer.c (find_loop_location): Same.
+        * c-typeck.c (c_process_expr_stmt): Same.
+        (c_finish_stmt_expr): Same.
+        * gimplify.c (should_carry_locus_p): Same.
+        (tree_to_gimple_tuple): Delete definition and use of unecessary
+        variable save_tree_block.
+        * tree-ssa-pre.c (phi_translate): Check for GIMPLE_STMT_P.
+        (create_expression_by_pieces): Use GIMPLE_STMT_OPERAND.
+        (realify_fake_stores): Same.
+        * tree-ssa-forwprop.c (forward_propagate_addr_into_variable_arr):
+        Use TREE_OPERAND.
+        * tree-inline.c (copy_body_r): Check for EXPR_P and GIMPLE_STMT_P.
+        (copy_tree_r): Check for IS_GIMPLE_STMT_CODE_CLASS.
+        * tree-cfg.c (move_stmt_r): Use EXPR_P.  Check for GIMPLE_STMT_P.
+        * c-parser.c (c_parser_typeof_specifier): Use CAN_HAVE_LOCATION_P.
+        (c_parser_statement_after_labels): Same.
+        (c_parser_paren_condition): Same.
+        (c_parser_for_statement): Same.
+        (c_parser_omp_for_loop): Same.
+        * tree-ssa-reassoc.c (linearize_expr): Use GIMPLE_STMT_OPERAND.
+        (linearize_expr_tree): Same.
+        * dwarf2out.c (reference_to_unused): Check for GIMPLE_STMT_P.
+        * function.c (instantiate_expr): Same.
+
 2006-09-22  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree.c (expr_location): Use GIMPLE_STMT_LOCUS.

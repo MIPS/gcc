@@ -4604,7 +4604,8 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
   struct move_stmt_d *p = (struct move_stmt_d *) data;
   tree t = *tp;
 
-  if (p->block && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
+  if (p->block
+      && (EXPR_P (t) || GIMPLE_STMT_P (t)))
     TREE_BLOCK (t) = p->block;
 
   if (OMP_DIRECTIVE_P (t)

@@ -1392,7 +1392,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 		  || TREE_CODE (rhs) == IMAGPART_EXPR)
 		 && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
 	  {
-	    TREE_OPERAND (stmt, 1)
+	    PROTECTED_TREE_OPERAND (stmt, 1)
 	      = extract_component (bsi, TREE_OPERAND (rhs, 0),
 				   TREE_CODE (rhs) == IMAGPART_EXPR, false);
 	    update_stmt (stmt);

@@ -950,7 +950,7 @@ static void
 linearize_expr (tree stmt)
 {
   block_stmt_iterator bsinow, bsirhs;
-  tree rhs = TREE_OPERAND (stmt, 1);
+  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
   enum tree_code rhscode = TREE_CODE (rhs);
   tree binrhs = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
   tree binlhs = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
@@ -963,11 +963,12 @@ linearize_expr (tree stmt)
   bsirhs = bsi_for_stmt (binrhs);
   bsi_move_before (&bsirhs, &bsinow);
 
-  TREE_OPERAND (rhs, 1) = TREE_OPERAND (TREE_OPERAND (binrhs, 1), 0);
+  TREE_OPERAND (rhs, 1) = TREE_OPERAND (GIMPLE_STMT_OPERAND (binrhs, 1), 0);
   if (TREE_CODE (TREE_OPERAND (rhs, 1)) == SSA_NAME)
     newbinrhs = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
-  TREE_OPERAND (TREE_OPERAND (binrhs, 1), 0) = TREE_OPERAND (binlhs, 0);
-  TREE_OPERAND (rhs, 0) = TREE_OPERAND (binrhs, 0);
+  TREE_OPERAND (GIMPLE_STMT_OPERAND (binrhs, 1), 0)
+    = GIMPLE_STMT_OPERAND (binlhs, 0);
+  TREE_OPERAND (rhs, 0) = GIMPLE_STMT_OPERAND (binrhs, 0);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1178,7 +1179,7 @@ linearize_expr_tree (VEC(operand_entry_t, heap) **ops, tree stmt)
   else if (binrhsisreassoc)
     {
       linearize_expr (stmt);
-      gcc_assert (rhs == TREE_OPERAND (stmt, 1));
+      gcc_assert (rhs == GIMPLE_STMT_OPERAND (stmt, 1));
       binlhs = TREE_OPERAND (rhs, 0);
       binrhs = TREE_OPERAND (rhs, 1);
     }
