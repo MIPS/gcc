@@ -941,6 +941,11 @@ live_track_add_conflicts (live_track_p ptr, conflict_graph graph)
 }
 
 
+/* Build a conflict graph based on LIVEINFO.  Any partitions which are in the
+   partition view of the var_map liveinfo is based on get entires in the 
+   conflict graph.  Only conflicts between ssa_name partitions with the same 
+   base variableare added.  */
+
 static conflict_graph
 build_ssa_conflict_graph (tree_live_info_p liveinfo)
 {

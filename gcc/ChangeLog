@@ -1,3 +1,7 @@
+2006-09-26  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-outof-ssa.c (build_ssa_conflict_graph): Add comments.
+
 2006-09-25  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-ssa-ter.c (struct temp_expr_table_d): Rensame fields, add 
