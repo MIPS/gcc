@@ -89,6 +89,4 @@ public:
 };
 
 
-#include <gcj/array.h>
-
 #endif /* __JAVA_LANG_OBJECT_H__ */
