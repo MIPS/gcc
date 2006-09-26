@@ -1,3 +1,50 @@
+2006-09-25  Janis Johnson  <janis187@us.ibm.com
+
+	Backport:
+	2006-02-14  Jakub Jelinek  <jakub@redhat.com>
+		    Aldy Hernandez  <aldyh@redhat.com>
+	PR target/25864
+	* configure.ac: Add --with{out}-long-double-128 configure option.
+	(TARGET_DEFAULT_LONG_DOUBLE_128): New test.
+	* configure: Rebuilt.
+	* config.in: Rebuilt.
+	* doc/install.texi (Options specification): Document
+	--with-long-double-128.
+
+	* config.gcc (sparc-*-linux*): Add sparc/t-linux to tmake_file.
+	(sparc64-*-linux*): Likewise.
+	* config/sparc/t-linux64 (SHLIB_MAPFILES): Removed.
+	* config/sparc/t-linux: New file.
+	* config/sparc/libgcc-sparc-glibc.ver (__fixtfdi, __fixunstfdi,
+	__floatditf): Export at GCC_LDBL_3.0 if -m32 -mlong-double-128.
+	(__divtc3, __multc3, __powitf2): Export at GCC_LDBL_4.0.0 if
+	-m32 -mlong-double-128.
+
+	* config.gcc (alpha*-*-linux*): Add alpha/t-linux to tmake_file.
+	* config/alpha/t-linux: New file.
+	* config/alpha/libgcc-alpha-ldbl.ver: New file.
+
+	* config/sparc/linux.h (TARGET_OS_CPP_BUILTINS): Define
+	__LONG_DOUBLE_128__ if TARGET_LONG_DOUBLE_128.
+	(CPP_SUBTARGET_SPEC): Don't add -D__LONG_DOUBLE_128__ here.
+	* config/sparc/linux64.h (TARGET_OS_CPP_BUILTINS): Define
+	__LONG_DOUBLE_128__ if TARGET_LONG_DOUBLE_128 and TARGET_ARCH32.
+	(CPP_ARCH32_SPEC): Remove.
+
+	* config/s390/s390.c (override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	* config/alpha/alpha.c (override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	* config/sparc/sparc.c (sparc_override_options): Handle
+	TARGET_DEFAULT_LONG_DOUBLE_128.
+
+	* config/rs6000/linux.h [TARGET_DEFAULT_LONG_DOUBLE_128]
+	(RS6000_DEFAULT_LONG_DOUBLE_SIZE): Define to 128.
+	* config/rs6000/linux64.h [TARGET_DEFAULT_LONG_DOUBLE_128]
+	(RS6000_DEFAULT_LONG_DOUBLE_SIZE): Define to 128.
+
 2006-09-20  Steven Bosscher  <steven@gcc.gnu.org>
 
 	PR middle-end/26983
