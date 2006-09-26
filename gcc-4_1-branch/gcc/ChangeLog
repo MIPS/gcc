@@ -1,4 +1,14 @@
-2006-09-25  Janis Johnson  <janis187@us.ibm.com
+2006-09-26  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport from mainline:
+	2006-09-21  Janis Johnson  <janis187@us.ibm.com>
+	* ginclude/decfloat.h (DEC*_DEN): Define using the correct builtins.
+
+	2006-09-20  Janis Johnson  <janis187@us.ibm.com>
+	* doc/extend.texi (Decimal Float): Update for latest draft TR,
+	clean up terminology.
+
+2006-09-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport:
 	2006-02-14  Jakub Jelinek  <jakub@redhat.com>
