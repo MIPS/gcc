@@ -342,6 +342,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsplit-ivs-in-unroller -funswitch-loops @gol
 -fvariable-expansion-in-unroller @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
+-ftree-parallelize-loops @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
@@ -5115,6 +5116,10 @@ for @option{-Os}, since it usually increases code size.
 @item -ftree-loop-optimize
 Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
+
+@item -ftree-parallelize-loops=@var{n}
+Automatically generate parallel code using the primitives from libgomp.
+Create parallel code for @var{n} threads.
 
 @item -ftree-loop-linear
 Perform linear loop transformations on tree.  This flag can improve cache

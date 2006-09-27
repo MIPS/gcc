@@ -146,6 +146,11 @@ init_empty_tree_cfg (void)
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+
+  dom_computed[CDI_DOMINATORS] = DOM_NONE;
+  dom_computed[CDI_POST_DOMINATORS] = DOM_NONE;
+  n_bbs_in_dom_tree[CDI_DOMINATORS] = 0;
+  n_bbs_in_dom_tree[CDI_POST_DOMINATORS] = 0;
 }
 
 /*---------------------------------------------------------------------------
@@ -4596,8 +4601,12 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 
       p->remap_decls_p = save_remap_decls_p;
     }
-  else if (DECL_P (t) && DECL_CONTEXT (t) == p->from_context)
+  else if ((DECL_P (t) && DECL_CONTEXT (t) == p->from_context)
+	   || TREE_CODE (t) == SSA_NAME)
     {
+      if (TREE_CODE (t) == SSA_NAME)
+	t = SSA_NAME_VAR (t);
+
       if (TREE_CODE (t) == LABEL_DECL)
 	{
 	  if (p->new_label_map)
@@ -4618,13 +4627,17 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	  if (TREE_CODE (t) == VAR_DECL)
 	    {
 	      struct function *f = DECL_STRUCT_FUNCTION (p->to_context);
-	      f->unexpanded_var_list
-		= tree_cons (0, t, f->unexpanded_var_list);
 
-	      /* Mark T to be removed from the original function,
-	         otherwise it will be given a DECL_RTL when the
-		 original function is expanded.  */
-	      bitmap_set_bit (p->vars_to_remove, DECL_UID (t));
+	      if (!bitmap_bit_p (p->vars_to_remove, DECL_UID (t)))
+		{
+		  f->unexpanded_var_list
+			  = tree_cons (0, t, f->unexpanded_var_list);
+
+		  /* Mark T to be removed from the original function,
+		     otherwise it will be given a DECL_RTL when the
+		     original function is expanded.  */
+		  bitmap_set_bit (p->vars_to_remove, DECL_UID (t));
+		}
 	    }
 	}
     }
@@ -4658,6 +4671,9 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   unsigned old_len, new_len;
   basic_block *addr;
 
+  /* Remove BB from dominance structures.  */
+  delete_from_dominance_info (CDI_DOMINATORS, bb);
+
   /* Link BB to the new linked list.  */
   move_block_after (bb, after);
 
@@ -4676,8 +4692,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   /* Grow DEST_CFUN's basic block array if needed.  */
   cfg = dest_cfun->cfg;
   cfg->x_n_basic_blocks++;
-  if (bb->index > cfg->x_last_basic_block)
-    cfg->x_last_basic_block = bb->index;
+  if (bb->index >= cfg->x_last_basic_block)
+    cfg->x_last_basic_block = bb->index + 1;
 
   old_len = VEC_length (basic_block, cfg->x_basic_block_info);
   if ((unsigned) cfg->x_last_basic_block >= old_len)
@@ -4689,7 +4705,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
     }
 
   VEC_replace (basic_block, cfg->x_basic_block_info,
-               cfg->x_last_basic_block, bb);
+               bb->index, bb);
 
   /* The statements in BB need to be associated with a new TREE_BLOCK.
      Labels need to be associated with a new label-to-block map.  */
@@ -4826,9 +4842,13 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
 		        basic_block exit_bb)
 {
   VEC(basic_block,heap) *bbs;
+  basic_block *dom_bbs;
+  unsigned n_dom_bbs;
+  basic_block dom_entry = get_immediate_dominator (CDI_DOMINATORS, entry_bb);
   basic_block after, bb, *entry_pred, *exit_succ;
   struct function *saved_cfun;
   int *entry_flag, *exit_flag, eh_offset;
+  unsigned *entry_prob, *exit_prob;
   unsigned i, num_entry_edges, num_exit_edges;
   edge e;
   edge_iterator ei;
@@ -4839,7 +4859,6 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
 
   /* Collect all the blocks in the region.  Manually add ENTRY_BB
      because it won't be added by dfs_enumerate_from.  */
-  calculate_dominance_info (CDI_DOMINATORS);
 
   /* If ENTRY does not strictly dominate EXIT, this cannot be an SESE
      region.  */
@@ -4851,6 +4870,14 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   VEC_safe_push (basic_block, heap, bbs, entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &bbs);
 
+  /* The blocks that used to be dominated by something in BBS will now be
+     dominated by the new block.  */
+  dom_bbs = XNEWVEC (basic_block, n_basic_blocks);
+  n_dom_bbs = get_dominated_by_region (CDI_DOMINATORS,
+				       VEC_address (basic_block, bbs),
+				       VEC_length (basic_block, bbs),
+				       dom_bbs);
+
   /* Detach ENTRY_BB and EXIT_BB from CFUN->CFG.  We need to remember
      the predecessor edges to ENTRY_BB and the successor edges to
      EXIT_BB so that we can re-attach them to the new basic block that
@@ -4858,9 +4885,11 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   num_entry_edges = EDGE_COUNT (entry_bb->preds);
   entry_pred = (basic_block *) xcalloc (num_entry_edges, sizeof (basic_block));
   entry_flag = (int *) xcalloc (num_entry_edges, sizeof (int));
+  entry_prob = XNEWVEC (unsigned, num_entry_edges);
   i = 0;
   for (ei = ei_start (entry_bb->preds); (e = ei_safe_edge (ei)) != NULL;)
     {
+      entry_prob[i] = e->probability;
       entry_flag[i] = e->flags;
       entry_pred[i++] = e->src;
       remove_edge (e);
@@ -4872,9 +4901,11 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
       exit_succ = (basic_block *) xcalloc (num_exit_edges,
 					   sizeof (basic_block));
       exit_flag = (int *) xcalloc (num_exit_edges, sizeof (int));
+      exit_prob = XNEWVEC (unsigned, num_exit_edges);
       i = 0;
       for (ei = ei_start (exit_bb->succs); (e = ei_safe_edge (ei)) != NULL;)
 	{
+	  exit_prob[i] = e->probability;
 	  exit_flag[i] = e->flags;
 	  exit_succ[i++] = e->dest;
 	  remove_edge (e);
@@ -4885,6 +4916,7 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
       num_exit_edges = 0;
       exit_succ = NULL;
       exit_flag = NULL;
+      exit_prob = NULL;
     }
 
   /* Switch context to the child function to initialize DEST_FN's CFG.  */
@@ -4972,20 +5004,31 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
      create a new basic block in its place.  */
   bb = create_empty_bb (entry_pred[0]);
   for (i = 0; i < num_entry_edges; i++)
-    make_edge (entry_pred[i], bb, entry_flag[i]);
+    {
+      e = make_edge (entry_pred[i], bb, entry_flag[i]);
+      e->probability = entry_prob[i];
+    }
 
   for (i = 0; i < num_exit_edges; i++)
-    make_edge (bb, exit_succ[i], exit_flag[i]);
+    {
+      e = make_edge (bb, exit_succ[i], exit_flag[i]);
+      e->probability = exit_prob[i];
+    }
+
+  set_immediate_dominator (CDI_DOMINATORS, bb, dom_entry);
+  for (i = 0; i < n_dom_bbs; i++)
+    set_immediate_dominator (CDI_DOMINATORS, dom_bbs[i], bb);
+  free (dom_bbs);
 
   if (exit_bb)
     {
+      free (exit_prob);
       free (exit_flag);
       free (exit_succ);
     }
+  free (entry_prob);
   free (entry_flag);
   free (entry_pred);
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   VEC_free (basic_block, heap, bbs);
 
   return bb;

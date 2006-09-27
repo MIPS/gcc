@@ -429,10 +429,6 @@ rtl-level loop unswitching in @file{loop-unswitch.c}, but currently
 the rtl-level pass is not completely redundant yet due to deficiencies
 in tree level alias analysis.
 
-The optimizations also use various utility functions contained in
-@file{tree-ssa-loop-manip.c}, @file{cfgloop.c}, @file{cfgloopanal.c} and
-@file{cfgloopmanip.c}.
-
 Vectorization.  This pass transforms loops to operate on vector types
 instead of scalar types.  Data parallelism across loop iterations is exploited
 to group data elements from consecutive iterations into a vector and operate 
@@ -445,6 +441,13 @@ to align the number of iterations, and to align the memory accesses in the loop.
 The pass is implemented in @file{tree-vectorizer.c} (the main driver and general
 utilities), @file{tree-vect-analyze.c} and @file{tree-vect-transform.c}.
 Analysis of data references is in @file{tree-data-ref.c}.
+
+Loop parallelization.  This pass transforms loops in program to run them in
+several threads.  The pass is implemented in @file{tree-parloops.c}.
+
+The optimizations also use various utility functions contained in
+@file{tree-ssa-loop-manip.c}, @file{cfgloop.c}, @file{cfgloopanal.c} and
+@file{cfgloopmanip.c}.
 
 @item Tree level if-conversion for vectorizer
 

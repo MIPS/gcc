@@ -75,6 +75,7 @@ verify_flow_info (void)
   int err = 0;
   basic_block bb, last_bb_seen;
   basic_block *last_visited;
+  int expected_n_edges;
 
   timevar_push (TV_CFG_VERIFY);
   last_visited = XCNEWVEC (basic_block, last_basic_block);
@@ -101,12 +102,16 @@ verify_flow_info (void)
       last_bb_seen = bb;
     }
 
+  expected_n_edges = EDGE_COUNT (ENTRY_BLOCK_PTR->succs);
+
   /* Now check the basic blocks (boundaries etc.) */
   FOR_EACH_BB_REVERSE (bb)
     {
       int n_fallthru = 0;
       edge e;
       edge_iterator ei;
+
+      expected_n_edges += EDGE_COUNT (bb->succs);
 
       if (bb->count < 0)
 	{
@@ -194,6 +199,13 @@ verify_flow_info (void)
 
 	  edge_checksum[e->dest->index] -= (size_t) e;
 	}
+    }
+
+  if (n_edges != expected_n_edges)
+    {
+      error ("verify_flow_info: %d edges found, %d edges expected",
+	     expected_n_edges, n_edges);
+      err = 1;
     }
 
   /* Complete edge checksumming for ENTRY and EXIT.  */

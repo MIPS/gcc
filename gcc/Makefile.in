@@ -986,7 +986,7 @@ OBJS-common = \
  tree-vectorizer.o tree-vect-analyze.o tree-vect-transform.o		   \
  tree-vect-patterns.o tree-ssa-loop-prefetch.o				   \
  tree-ssa-loop-ivcanon.o tree-ssa-propagate.o tree-ssa-address.o	   \
- tree-ssa-math-opts.o							   \
+ tree-ssa-math-opts.o tree-parloops.o					   \
  tree-ssa-loop-ivopts.o tree-if-conv.o tree-ssa-loop-unswitch.o		   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
@@ -2104,6 +2104,9 @@ tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \
    tree-pass.h $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H) $(LAMBDA_H) \
    $(TARGET_H) tree-chrec.h
+tree-parloops.o: tree-parloops.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TREE_FLOW_H) $(TREE_H) $(RTL_H) $(CFGLOOP_H) $(TREE_DATA_REF_H) $(GGC_H) \
+   $(DIAGNOSTIC_H) tree-pass.h $(SCEV_H) langhooks.h gt-tree-parloops.h
 tree-stdarg.o: tree-stdarg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(FUNCTION_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) tree-pass.h \
    tree-stdarg.h $(TARGET_H) langhooks.h
@@ -2866,7 +2869,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
-  $(srcdir)/tree-ssa-structalias.c \
+  $(srcdir)/tree-ssa-structalias.c $(srcdir)/tree-parloops.c \
   $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
   $(srcdir)/targhooks.c $(srcdir)/cgraphunit.c $(out_file) \
   @all_gtfiles@
@@ -2899,7 +2902,7 @@ gt-tree-mudflap.h gt-tree-vect-generic.h \
 gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
-gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
+gt-tree-ssa-operands.h gt-tree-ssa-propagate.h gt-tree-parloops.h \
 gt-tree-ssa-structalias.h gt-ipa-inline.h gt-cgraphunit.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 

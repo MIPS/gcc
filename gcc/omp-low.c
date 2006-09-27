@@ -2221,6 +2221,8 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 
 	  then_bb = create_empty_bb (cond_bb);
 	  else_bb = create_empty_bb (then_bb);
+	  set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
+	  set_immediate_dominator (CDI_DOMINATORS, else_bb, cond_bb);
 	  then_lab = create_artificial_label ();
 	  else_lab = create_artificial_label ();
 
@@ -2519,10 +2521,7 @@ expand_omp_parallel (struct omp_region *region)
       entry_bb = e->dest;
       single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
-      /* Move the parallel region into CHILD_CFUN.  We need to reset
-	 dominance information because the expansion of the inner
-	 regions has invalidated it.  */
-      free_dominance_info (CDI_DOMINATORS);
+      /* Move the parallel region into CHILD_CFUN.  */
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb);
       if (exit_bb)
 	single_succ_edge (new_bb)->flags = EDGE_FALLTHRU;
@@ -2711,6 +2710,15 @@ expand_omp_for_generic (struct omp_region *region,
 
   make_edge (l2_bb, l0_bb, EDGE_TRUE_VALUE);
   make_edge (l2_bb, l3_bb, EDGE_FALSE_VALUE);
+
+  set_immediate_dominator (CDI_DOMINATORS, l2_bb,
+			   recount_dominator (CDI_DOMINATORS, l2_bb));
+  set_immediate_dominator (CDI_DOMINATORS, l3_bb,
+			   recount_dominator (CDI_DOMINATORS, l3_bb));
+  set_immediate_dominator (CDI_DOMINATORS, l0_bb,
+			   recount_dominator (CDI_DOMINATORS, l0_bb));
+  set_immediate_dominator (CDI_DOMINATORS, l1_bb,
+			   recount_dominator (CDI_DOMINATORS, l1_bb));
 }
 
 
@@ -2881,6 +2889,12 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   make_edge (cont_bb, body_bb, EDGE_TRUE_VALUE);
   find_edge (cont_bb, fin_bb)->flags = EDGE_FALSE_VALUE;
+
+  set_immediate_dominator (CDI_DOMINATORS, seq_start_bb, entry_bb);
+  set_immediate_dominator (CDI_DOMINATORS, body_bb,
+			   recount_dominator (CDI_DOMINATORS, body_bb));
+  set_immediate_dominator (CDI_DOMINATORS, fin_bb,
+			   recount_dominator (CDI_DOMINATORS, fin_bb));
 }
 
 
@@ -3083,6 +3097,16 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   make_edge (cont_bb, trip_update_bb, EDGE_FALSE_VALUE);
 
   make_edge (trip_update_bb, iter_part_bb, EDGE_FALLTHRU);
+
+  set_immediate_dominator (CDI_DOMINATORS, trip_update_bb, cont_bb);
+  set_immediate_dominator (CDI_DOMINATORS, iter_part_bb,
+			   recount_dominator (CDI_DOMINATORS, iter_part_bb));
+  set_immediate_dominator (CDI_DOMINATORS, fin_bb,
+			   recount_dominator (CDI_DOMINATORS, fin_bb));
+  set_immediate_dominator (CDI_DOMINATORS, seq_start_bb,
+			   recount_dominator (CDI_DOMINATORS, seq_start_bb));
+  set_immediate_dominator (CDI_DOMINATORS, body_bb,
+			   recount_dominator (CDI_DOMINATORS, body_bb));
 }
 
 
@@ -3277,6 +3301,18 @@ expand_omp_sections (struct omp_region *region)
   e = single_succ_edge (l1_bb);
   redirect_edge_succ (e, l0_bb);
   e->flags = EDGE_FALLTHRU;
+
+  set_immediate_dominator (CDI_DOMINATORS, l1_bb,
+			   recount_dominator (CDI_DOMINATORS, l1_bb));
+  set_immediate_dominator (CDI_DOMINATORS, l0_bb,
+			   recount_dominator (CDI_DOMINATORS, l0_bb));
+  set_immediate_dominator (CDI_DOMINATORS, default_bb,
+			   recount_dominator (CDI_DOMINATORS, default_bb));
+  set_immediate_dominator (CDI_DOMINATORS, l2_bb,
+			   recount_dominator (CDI_DOMINATORS, l2_bb));
+  for (inner = region->inner; inner; inner = inner->next)
+    set_immediate_dominator (CDI_DOMINATORS, inner->entry,
+			     recount_dominator (CDI_DOMINATORS, inner->entry));
 }
 
 
@@ -3485,7 +3521,6 @@ execute_expand_omp (void)
   expand_omp (root_omp_region);
 
   free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   cleanup_tree_cfg ();
 
   free_omp_regions ();

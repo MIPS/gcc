@@ -355,6 +355,15 @@ enum bb_flags
 #define BB_COPY_PARTITION(dstbb, srcbb) \
   BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
+/* State of dominance information.  */
+
+enum dom_state
+{
+  DOM_NONE,		/* Not computed at all.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
+  DOM_OK		/* Everything is ok.  */
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -387,6 +396,12 @@ struct control_flow_graph GTY(())
     PROFILE_GUESSED,
     PROFILE_READ
   } x_profile_status;
+
+  /* Number of basic blocks in dominance tree in each direction.  */
+  unsigned x_n_bbs_in_dom_tree[2];
+
+  /* State of the dominance information.  */
+  enum dom_state x_dom_computed[2];
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -958,14 +973,8 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-enum dom_state
-{
-  DOM_NONE,		/* Not computed at all.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
-  DOM_OK		/* Everything is ok.  */
-};
-
-extern enum dom_state dom_computed[2];
+#define dom_computed cfun->cfg->x_dom_computed
+#define n_bbs_in_dom_tree cfun->cfg->x_n_bbs_in_dom_tree
 
 extern bool dom_info_available_p (enum cdi_direction);
 extern void calculate_dominance_info (enum cdi_direction);

@@ -45,9 +45,6 @@
 #include "et-forest.h"
 #include "timevar.h"
 
-/* Whether the dominators and the postdominators are available.  */
-enum dom_state dom_computed[2];
-
 /* We name our nodes with integers, beginning with 1.  Zero is reserved for
    'undefined' or 'end of list'.  The name of each node is given by the dfs
    number of the corresponding basic block.  Please note, that we include the
@@ -122,9 +119,6 @@ static TBB eval (struct dom_info *, TBB);
 static void link_roots (struct dom_info *, TBB, TBB);
 static void calc_idoms (struct dom_info *, enum cdi_direction);
 void debug_dominance_info (enum cdi_direction);
-
-/* Keeps track of the*/
-static unsigned n_bbs_in_dom_tree[2];
 
 /* Helper macro for allocating and initializing an array,
    for aesthetic reasons.  */

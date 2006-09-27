@@ -6348,9 +6348,17 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   if (var)
     expr = build2 (MODIFY_EXPR, TREE_TYPE (var), var, expr);
 
-  ret = gimplify_expr (&expr, stmts, NULL,
-		       gimple_test_f, fb_rvalue);
-  gcc_assert (ret != GS_ERROR);
+  if (TREE_TYPE (expr) == void_type_node)
+    {
+      gimplify_and_add (expr, stmts);
+      expr = NULL_TREE;
+    }
+  else
+    {
+      ret = gimplify_expr (&expr, stmts, NULL,
+			   gimple_test_f, fb_rvalue);
+      gcc_assert (ret != GS_ERROR);
+    }
 
   if (referenced_vars)
     {

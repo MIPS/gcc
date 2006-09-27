@@ -2405,9 +2405,6 @@ remove_ssa_form (var_map map, int flags)
 	}
     }
 
-  /* we no longer maintain the SSA operand cache at this point.  */
-  fini_ssa_operands ();
-
   /* If any copies were inserted on edges, analyze and insert them now.  */
   perform_edge_inserts ();
 }
@@ -2500,6 +2497,21 @@ insert_backedge_copies (void)
     }
 }
 
+/* Rewrites the current function out of SSA form, leaving it in gimple
+   and not freeing any structures.  */
+
+void
+go_out_of_ssa (void)
+{
+  var_map map;
+
+  insert_backedge_copies ();
+  eliminate_virtual_phis ();
+  map = create_ssa_var_map (0);
+  remove_ssa_form (map, 0);
+  delete_var_map (map);
+}
+
 /* Take the current function out of SSA form, as described in
    R. Morgan, ``Building an Optimizing Compiler'',
    Butterworth-Heinemann, Boston, MA, 1998. pp 176-186.  */
@@ -2539,6 +2551,9 @@ rewrite_out_of_ssa (void)
     ssa_flags |= SSANORM_PERFORM_TER;
 
   remove_ssa_form (map, ssa_flags);
+
+  /* We no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);

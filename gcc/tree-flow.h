@@ -713,6 +713,7 @@ void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
+void go_out_of_ssa (void);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
@@ -805,6 +806,7 @@ unsigned int tree_unroll_loops_completely (struct loops *, bool);
 unsigned int tree_ssa_prefetch_arrays (struct loops *);
 unsigned int remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
+bool parallelize_loops (void);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
