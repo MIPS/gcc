@@ -4352,10 +4352,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
   cum->call_cookie = ((DEFAULT_ABI == ABI_V4 && libcall)
 		      ? CALL_LIBCALL : CALL_NORMAL);
   cum->sysv_gregno = GP_ARG_MIN_REG;
-  cum->stdarg = fntype
-    && (TYPE_ARG_TYPES (fntype) != 0
-	&& (TREE_VALUE (tree_last  (TYPE_ARG_TYPES (fntype)))
-	    != void_type_node));
+  cum->stdarg = fntype && stdarg_p (fntype);
 
   cum->nargs_prototype = 0;
   if (incoming || cum->prototype)
@@ -13392,10 +13389,13 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
     {
       if (TARGET_ALTIVEC_VRSAVE)
 	{
-	  for (type = TYPE_ARG_TYPES (TREE_TYPE (decl));
-	       type; type = TREE_CHAIN (type))
+	  int len = num_parm_types (TYPE_ARG_TYPES (TREE_TYPE (decl)));
+	  int i;
+	  
+	  for (i = 0; i < len; i++)
 	    {
-	      if (TREE_CODE (TREE_VALUE (type)) == VECTOR_TYPE)
+	      type = nth_parm_type (TYPE_ARG_TYPES (TREE_TYPE (decl)), i);
+	      if (TREE_CODE (type) == VECTOR_TYPE)
 		return false;
 	    }
 	}
