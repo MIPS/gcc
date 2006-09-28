@@ -37,8 +37,7 @@
 #include <new>
 #include <cstdlib>
 #include <bits/functexcept.h>
-#include <bits/gthr.h>
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -51,7 +50,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   struct __pool_base
   {
     // Using short int as type for the binmap implies we are never
-    // caching blocks larger than 65535 with this allocator.
+    // caching blocks larger than 32768 with this allocator.
     typedef unsigned short int _Binmap_type;
 
     // Variables used to configure the behavior of the allocator,
@@ -74,19 +73,23 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // Allocation requests (after round-up to power of 2) below
       // this value will be handled by the allocator. A raw new/
       // call will be used for requests larger than this value.
+      // NB: Must be much smaller than _M_chunk_size and in any
+      // case <= 32768.
       size_t	_M_max_bytes; 
-      
+
       // Size in bytes of the smallest bin.
-      // NB: Must be a power of 2 and >= _M_align.
+      // NB: Must be a power of 2 and >= _M_align (and of course
+      // much smaller than _M_max_bytes).
       size_t	_M_min_bin;
-      
+
       // In order to avoid fragmenting and minimize the number of
       // new() calls we always request new memory using this
       // value. Based on previous discussions on the libstdc++
       // mailing list we have choosen the value below.
       // See http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
+      // NB: At least one order of magnitude > _M_max_bytes. 
       size_t	_M_chunk_size;
-      
+
       // The maximum number of supported threads. For
       // single-threaded operation, use one. Maximum values will
       // vary depending on details of the underlying system. (For
@@ -94,7 +97,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // /proc/sys/kernel/threads-max, while Linux 2.6.6 reports
       // 65534)
       size_t 	_M_max_threads;
-      
+
       // Each time a deallocation occurs in a threaded application
       // we make sure that there are no more than
       // _M_freelist_headroom % of used memory on the freelist. If
@@ -298,8 +301,13 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	// An "array" of counters used to keep track of the amount of
 	// blocks that are on the freelist/used for each thread id.
-	// Memory to these "arrays" is allocated in _S_initialize() for
-	// _S_max_threads + global pool 0.
+	// - Note that the second part of the allocated _M_used "array"
+	//   actually hosts (atomic) counters of reclaimed blocks:  in
+	//   _M_reserve_block and in _M_reclaim_block those numbers are
+	//   subtracted from the first ones to obtain the actual size
+	//   of the "working set" of the given thread.
+	// - Memory to these "arrays" is allocated in _S_initialize()
+	//   for _S_max_threads + global pool 0.
 	size_t*				_M_free;
 	size_t*			        _M_used;
 	

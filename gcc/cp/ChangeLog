@@ -1,4 +1,197 @@
+2006-09-25  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27329
+        PR c++/26938
+        * cp-tree.h (redeclare_class_template): Adjust declaration
+        to return bool instead of void.
+        * pt.c (redeclare_class_template): Update definition.
+	Return false on error.
+        * decl.c (xref_tag): Return error_mark_node if
+	redeclare_class_template returned false.
+
+	PR c++/27667
+        * cp-tree.h (begin_specialization): Return bool 
+	instead of void.
+        * pt.c (check_specialization_scope): Likwise. 
+	Adjust comment. Return false if a specialization 
+	isn't permitted in the current scope.
+        (begin_specialization): Use the return value of  
+        check_specialization_scope.
+        * parser.c (cp_parser_explicit_specialization): If
+        begin_specialization returned false, skip the rest 
+	of the specialization.
+	
+2006-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29016
+	* typeck.c (build_unary_op): Don't form an ADDR_EXPR around a
+	BASELINK.
+
+2006-09-21  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/28861
+	* decl.c (shadow_tag): Return error_mark_node
+        if maybe_process_partial_specialization failed.
+
+	PR c++/28303
+        * decl.c (grokdeclarator): Return error_mark_node on
+        declaration with two or more data types.
+	
+2006-09-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/27650
+	* class.c (check_for_override): Remove dllimport from virtual
+	methods.
+
+2006-09-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c++/29087
+	* parser.c (cp_parser_labeled_statement): Return nothing.  Do
+	not take in_statement_expr and in_compound as arguments.  Rename
+	to cp_parser_label_for_labeled_statement.  Parse only the label,
+	not the statement.
+	(cp_parser_statement): Parse the statement of a labeled-statement
+	from here, using tail recursion.
+
+2006-09-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/29002
+	* init.c (build_zero_init): If we have an error mark node for
+	the array size, return.
+
+2006-09-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28991
+	* cp-objcp-common.c (cxx_staticp): New function.
+	* cp-objcp-common.h (LANG_HOOOKS_STATICP): Use it.
+	* cp-tree.h (cxx_staticp): New function.
+
+2006-09-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28996
+	* cvt.c (convert_to_void): Strip COMPONENT_REF to functions.
+
+2006-09-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/28858
+	* parser.c (cp_parser_skip_until_found): Rename to
+	cp_parser_skip_to_end_of_template_parameter_list.  Remove last two
+	parameters.  Track levels of '< ... >'.  Stop at '{', '}', or ';'.
+	Reorganize.  Adjust comment.
+	(cp_parser_template_declaration_after_export): Adjust call.
+	(cp_parser_enclosed_template_argument_list): Likewise.
+
+2006-09-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/28906
+	* init.c (build_new_1): Build a distinct type copy
+	for the array type that was returned from
+	build_cplus_array_type.
+
+2006-09-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27371
+	* cvt.c (convert_to_void): Enable previous change.
+
+	PR c++/26957
+	* method.c (use_thunk): Clear DECL_HAS_VALUE_EXPR_P on copied
+	parms.
+
+2006-09-07  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/28284
+	* pt.c (fold_non_dependent_expr): Make sure expr is not
+	dereferenced if it is NULL.
+
+2006-09-06  Zak Kipling  <zak@transversal.com>
+
+	PR c++/26195
+	* decl.c (make_rtl_for_nonlocal_decl),
+	(start_preparsed_function): Don't use lbasename on
+	input_filename when calling get_fileinfo.
+	* semantics.c (begin_class_definition): Likewise.
+	* lex.c (cxx_make_type): Likewise.
+	(handle_pragma_interface): Call get_fileinfo on input_filename,
+	not on the parameter to the directive.
+
+2006-09-06  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28903
+	* pt.c (tsubst): Use fold_non_dependent_expr to fold array
+	dimensions.
+
+	PR c++/28886
+	* pt.c (unify): Avoid unnecessary calls to fold_build2 for array
+	dimensions.
+
+2006-09-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27371
+	* cvt.c (convert_to_void): Strip useless TARGET_EXPR.
+	* cp-tree.h (TARGET_EXPR_IMPLICIT_P): New macro.
+	* tree.c (build_cplus_new): Set it.
+
+	PR c++/26696
+	* cvt.c (convert_to_void): Replace a subexpression with no side 
+	effects with void_zero_node.
+	* tree.c (is_overloaded_fn): Look through COMPONENT_REF.
+	(get_first_fn): Ditto.
+	* decl.c (grokdeclarator): No need to look through COMPONENT_REF.
+
+2006-09-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/26571
+	* parser.c (cp_parser_diagnose_invalid_type_name): Handle the case
+	where the name is a type used incorrectly.
+
+	PR c++/26671
+	* typeck.c (maybe_warn_about_returning_address_of_local): Look 
+	through COMPONENT_REF and ARRAY_REF.	
+
+	PR c++/26102
+	* name-lookup.c (do_class_using_decl): Try to find the base even
+	if bases_dependent_p.
+	* pt.c (type_dependent_expression_p): A USING_DECL is dependent.	
+
+	PR c++/19809
+	* pt.c (tsubst_friend_function): Set DECL_INITIAL before pushdecl.
+
+2006-09-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 23287 Revert my 2006-09-01 patch.
+	* parser.c: Reverted.
+	* pt.c: Reverted.
+
+2006-09-02  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/27670
+	PR c++/27493
+	PR c++/27494
+	PR c++/27397
+	* parser.c (cp_parser_template_parameter_list): Add
+	invalid template parameters to the parameter list as
+	error_mark_node.
+
+2006-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/28878
+	* except.c (build_throw): Only set current_function_returns_abnormally
+	if cfun is not NULL.
+
+	PR c++/26917
+	* repo.c (repo_file): Remove.
+	(open_repo_file, reopen_repo_file_for_write): Return fopened
+	FILE * instead of setting global repo_file variable.
+	(init_repo): Adjust caller.
+	(finish_repo): Likewise.  Return instead of goto out before
+	reopen_repo_file_for_write has been called.
+
 2006-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/28705
+	* semantics.c (finish_call_expr): Add assert.
+	* name-lookup.c (lookup_arg_dependent): Check we found an overload
+	or an object.
 
 	PR c++/23287
 	* parser.c (cp_parser_id_expression): Add member_p

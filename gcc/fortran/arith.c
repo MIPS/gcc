@@ -75,6 +75,7 @@ gfc_set_model (mpfr_t x)
   mpfr_set_default_prec (mpfr_get_prec (x));
 }
 
+#if !defined(MPFR_VERSION_MAJOR)
 /* Calculate atan2 (y, x)
 
 atan2(y, x) = atan(y/x)				if x > 0,
@@ -124,7 +125,7 @@ arctangent2 (mpfr_t y, mpfr_t x, mpfr_t result)
 
   mpfr_clear (t);
 }
-
+#endif
 
 /* Given an arithmetic error code, return a pointer to a string that
    explains the error.  */
@@ -195,7 +196,7 @@ gfc_arith_init_1 (void)
       /* These are the numbers that are actually representable by the
          target.  For bases other than two, this needs to be changed.  */
       if (int_info->radix != 2)
-        gfc_internal_error ("Fix min_int, max_int calculation");
+        gfc_internal_error ("Fix min_int calculation");
 
       /* See PRs 13490 and 17912, related to integer ranges.
          The pedantic_min_int exists for range checking when a program
@@ -209,10 +210,6 @@ gfc_arith_init_1 (void)
 
       mpz_init (int_info->min_int);
       mpz_sub_ui (int_info->min_int, int_info->pedantic_min_int, 1);
-
-      mpz_init (int_info->max_int);
-      mpz_add (int_info->max_int, int_info->huge, int_info->huge);
-      mpz_add_ui (int_info->max_int, int_info->max_int, 1);
 
       /* Range  */
       mpfr_set_z (a, int_info->huge, GFC_RND_MODE);
@@ -321,7 +318,6 @@ gfc_arith_done_1 (void)
   for (ip = gfc_integer_kinds; ip->kind; ip++)
     {
       mpz_clear (ip->min_int);
-      mpz_clear (ip->max_int);
       mpz_clear (ip->pedantic_min_int);
       mpz_clear (ip->huge);
     }
@@ -356,7 +352,7 @@ gfc_check_integer_range (mpz_t p, int kind)
     }
 
   if (mpz_cmp (p, gfc_integer_kinds[i].min_int) < 0
-      || mpz_cmp (p, gfc_integer_kinds[i].max_int) > 0)
+      || mpz_cmp (p, gfc_integer_kinds[i].huge) > 0)
     result = ARITH_OVERFLOW;
 
   return result;
@@ -412,6 +408,7 @@ gfc_check_real_range (mpfr_t p, int kind)
     }
   else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
     {
+#if !defined(MPFR_VERSION_MAJOR)
       /* MPFR operates on a number with a given precision and enormous
 	exponential range.  To represent subnormal numbers, the exponent is
 	allowed to become smaller than emin, but always retains the full
@@ -433,13 +430,30 @@ gfc_check_real_range (mpfr_t p, int kind)
       sprintf (s, "0.%sE%d", bin, (int) e);
       mpfr_set_str (q, s, gfc_real_kinds[i].radix, GMP_RNDN);
 
+      gfc_free (s);
+      gfc_free (bin);
+#else
+      mp_exp_t emin, emax;
+
+      /* Save current values of emin and emax.  */
+      emin = mpfr_get_emin ();
+      emax = mpfr_get_emax ();
+
+      /* Set emin and emax for the current model number.  */
+      mpfr_set_emin ((mp_exp_t) gfc_real_kinds[i].min_exponent - 1);
+      mpfr_set_emax ((mp_exp_t) gfc_real_kinds[i].max_exponent - 1);
+      mpfr_subnormalize (q, 0, GFC_RND_MODE);
+
+      /* Reset emin and emax.  */
+      mpfr_set_emin (emin);
+      mpfr_set_emax (emax);
+#endif
+
+      /* Copy sign if needed.  */
       if (mpfr_sgn (p) < 0)
 	mpfr_neg (p, q, GMP_RNDN);
       else
 	mpfr_set (p, q, GMP_RNDN);
-
-      gfc_free (s);
-      gfc_free (bin);
 
       retval = ARITH_OK;
     }

@@ -161,6 +161,7 @@ static inline function_ann_t
 get_function_ann (tree var)
 {
   function_ann_t ann = function_ann (var);
+  gcc_assert (!var->base.ann || var->base.ann->common.type == FUNCTION_ANN);
   return (ann) ? ann : create_function_ann (var);
 }
 
@@ -172,6 +173,7 @@ stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
+  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
   return (stmt_ann_t) t->base.ann;
 }
 
@@ -787,19 +789,19 @@ mark_non_addressable (tree var)
 
 /* Return the common annotation for T.  Return NULL if the annotation
    doesn't already exist.  */
-static inline tree_ann_t
-tree_ann (tree t)
+static inline tree_ann_common_t
+tree_common_ann (tree t)
 {
-  return t->base.ann;
+  return &t->base.ann->common;
 }
 
 /* Return a common annotation for T.  Create the constant annotation if it
    doesn't exist.  */
-static inline tree_ann_t
-get_tree_ann (tree t)
+static inline tree_ann_common_t
+get_tree_common_ann (tree t)
 {
-  tree_ann_t ann = tree_ann (t);
-  return (ann) ? ann : create_tree_ann (t);
+  tree_ann_common_t ann = tree_common_ann (t);
+  return (ann) ? ann : create_tree_common_ann (t);
 }
 
 /*  -----------------------------------------------------------------------  */

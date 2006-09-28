@@ -588,8 +588,17 @@ set_rhs (tree *stmt_p, tree expr)
 	  && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
 	return false;
     }
-  else if (code == COMPOUND_EXPR)
+  else if (code == COMPOUND_EXPR
+	   || code == GIMPLE_MODIFY_STMT)
     return false;
+
+  if (EXPR_HAS_LOCATION (stmt)
+      && (EXPR_P (expr)
+	  || GIMPLE_STMT_P (expr))
+      && ! EXPR_HAS_LOCATION (expr)
+      && TREE_SIDE_EFFECTS (expr)
+      && TREE_CODE (expr) != LABEL_EXPR)
+    SET_EXPR_LOCATION (expr, EXPR_LOCATION (stmt));
 
   switch (TREE_CODE (stmt))
     {
@@ -1032,13 +1041,13 @@ static bool
 fold_predicate_in (tree stmt)
 {
   tree *pred_p = NULL;
-  bool modify_expr_p = false;
+  bool modify_stmt_p = false;
   tree val;
 
   if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
       && COMPARISON_CLASS_P (GIMPLE_STMT_OPERAND (stmt, 1)))
     {
-      modify_expr_p = true;
+      modify_stmt_p = true;
       pred_p = &GIMPLE_STMT_OPERAND (stmt, 1);
     }
   else if (TREE_CODE (stmt) == COND_EXPR)
@@ -1049,7 +1058,7 @@ fold_predicate_in (tree stmt)
   val = vrp_evaluate_conditional (*pred_p, true);
   if (val)
     {
-      if (modify_expr_p)
+      if (modify_stmt_p)
         val = fold_convert (TREE_TYPE (*pred_p), val);
       
       if (dump_file)
