@@ -1,3 +1,32 @@
+2006-09-28  Ira Rosen  <irar@il.ibm.com>
+
+	* lib/target-supports.exp (vect_strided): Define. 	
+	* gcc.dg/vect/vect-strided-a-mult.c: Vectorizable on targets
+	that support vectorization of strided accesses.
+	* gcc.dg/vect/vect-strided-mult.c, 
+        gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+        gcc.dg/vect/vect-strided-u8-i2.c,
+        gcc.dg/vect/vect-strided-a-u16-mult.c,
+        gcc.dg/vect/vect-strided-a-u8-i2-gap.c,
+        gcc.dg/vect/vect-strided-a-u16-i2.c, gcc.dg/vect/vect-1.c,
+        gcc.dg/vect/noreasoc-vect-strided-reduc-u8-i2.c,
+        gcc.dg/vect/vect-strided-u32-i4.c,
+        gcc.dg/vect/vect-strided-u16-i4.c,
+        gcc.dg/vect/vect-strided-u32-i8.c,
+        gcc.dg/vect/vect-strided-u8-i8-gap7.c,
+        gcc.dg/vect/vect-107.c, gcc.dg/vect/vect-98.c, 
+        gcc.dg/vect/vect-strided-mult-char.c,
+        gcc.dg/vect/vect-strided-float.c,
+        gcc.dg/vect/vect-strided-u8-i2-gap.c,
+        gcc.dg/vect/vect-strided-a-u8-i8-gap2.c,
+        gcc.dg/vect/vect-strided-u8-i8-gap4.c,
+        gcc.dg/vect/vect-strided-a-u32-mult.c,
+        gcc.dg/vect/vect-strided-u8-i8.c,
+        gcc.dg/vect/vect-strided-u32-mult.c,
+        gcc.dg/vect/vect-strided-a-u16-i4.c,
+        gcc.dg/vect/vect-strided-u16-i2.c,
+        gcc.dg/vect/vect-strided-a-u8-i8-gap7.c: Likewise.
+
 2006-05-07  Victor Kaplansky  <victork@il.ibm.com>
 
 	Merge from mainline (110552:110553)

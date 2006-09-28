@@ -1,3 +1,11 @@
+2006-09-28  Ira Rosen  <irar@il.ibm.com>
+
+	* targhooks.c (interleave_vectorize_builtin_extract_evenodd):
+	Fix to produce a correct instructions sequence. 
+	* tree-vect-transform.c (vect_permute_store_chain): Choose the
+	correct instruction according to the endianness. Call
+	mark_new_vars_to_rename.
+
 2006-06-20  Victor Kaplansky   <victork@il.ibm.com>
 
 	* gcc/tree-scalar-evolution.c: Revert last commit.

@@ -36,7 +36,7 @@ int main (void)
   return main1 (ia);
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target powerpc*-*-* } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { xfail powerpc*-*-* } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_strided } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { xfail vect_strided } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

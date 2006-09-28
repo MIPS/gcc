@@ -456,6 +456,7 @@ interleave_vectorize_builtin_extract_evenodd (tree dest, tree vec1,
   enum machine_mode mode;
   block_stmt_iterator bsi;
   tree th, tl, result, x;
+  int scalar_type_size, i, tmp;
 
   /* If the first argument is a type, just check if support
      is available. Return a non NULL value if supported, NULL_TREE otherwise.
@@ -479,31 +480,46 @@ interleave_vectorize_builtin_extract_evenodd (tree dest, tree vec1,
     return NULL;
 
   bsi = bsi_for_stmt (stmt);
-  
-  th = make_rename_temp (type, NULL);
-  x = build2 (VEC_INTERLEAVE_HIGH_EXPR, type, vec1, vec2);
-  x = build2 (MODIFY_EXPR, type, th, x);
-  th = make_ssa_name (th, x);
-  TREE_OPERAND (x, 0) = th;
-  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+ 
+  scalar_type_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (stmt)));
+  tmp = exact_log2 (UNITS_PER_SIMD_WORD / scalar_type_size) - 1;
 
-  tl = make_rename_temp (type, NULL);
-  x = build2 (VEC_INTERLEAVE_LOW_EXPR, type, vec1, vec2);
-  x = build2 (MODIFY_EXPR, type, tl, x);
-  tl = make_ssa_name (tl, x);
-  TREE_OPERAND (x, 0) = tl;
-  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+  th = vec1;
+  tl = vec2;
+  for (i = 0; i < tmp; i++)
+    {
+      th = make_rename_temp (type, NULL);
+      x = build2 (VEC_INTERLEAVE_HIGH_EXPR, type, vec1, vec2);
+      x = build2 (MODIFY_EXPR, type, th, x);
+      th = make_ssa_name (th, x);
+      TREE_OPERAND (x, 0) = th;
+      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+      mark_new_vars_to_rename (x);
 
+      tl = make_rename_temp (type, NULL);
+      x = build2 (VEC_INTERLEAVE_LOW_EXPR, type, vec1, vec2);
+      x = build2 (MODIFY_EXPR, type, tl, x);
+      tl = make_ssa_name (tl, x);
+      TREE_OPERAND (x, 0) = tl;
+      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+      mark_new_vars_to_rename (x);
+
+      vec1 = BYTES_BIG_ENDIAN ? th : tl;
+      vec2 = BYTES_BIG_ENDIAN ? tl : th;
+    }
   result = make_rename_temp (type, NULL);
-  /* ??? Endianness issues?  */
-  x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
-	      type, th, tl);
+  
+  if (BYTES_BIG_ENDIAN)
+    x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
+                type, th, tl);
+  else
+    x = build2 (odd_p ? VEC_INTERLEAVE_HIGH_EXPR : VEC_INTERLEAVE_LOW_EXPR,
+                type, tl, th);
   x = build2 (MODIFY_EXPR, type, result, x);
   result = make_ssa_name (result, x);
   TREE_OPERAND (x, 0) = result;
-  bsi_insert_before (&bsi, x, BSI_SAME_STMT);
 
-  return result;
+  return x;
 }
 
 tree
