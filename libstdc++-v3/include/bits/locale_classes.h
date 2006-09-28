@@ -105,12 +105,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     static const category none		= 0;
     static const category ctype		= 1L << 0;
     static const category numeric	= 1L << 1;
-    static const category collate	= 1L << 2;
-    static const category time		= 1L << 3;
+    static const category time		= 1L << 2;
+    static const category collate	= 1L << 3;
     static const category monetary	= 1L << 4;
     static const category messages	= 1L << 5;
-    static const category all		= (ctype | numeric | collate |
-					   time  | monetary | messages);
+    static const category all		= (ctype | numeric | time |
+					   collate | monetary | messages);
     //@}
 
     // Construct/copy/destroy:
@@ -497,8 +497,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     char**				_M_names;
     static const locale::id* const	_S_id_ctype[];
     static const locale::id* const	_S_id_numeric[];
-    static const locale::id* const	_S_id_collate[];
     static const locale::id* const	_S_id_time[];
+    static const locale::id* const	_S_id_collate[];
     static const locale::id* const	_S_id_monetary[];
     static const locale::id* const	_S_id_messages[];
     static const locale::id* const* const _S_facet_categories[];

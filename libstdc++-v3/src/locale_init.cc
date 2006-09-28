@@ -239,8 +239,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     // Order must match the decl order in class locale.
     locale::_Impl::_S_id_ctype,
     locale::_Impl::_S_id_numeric,
-    locale::_Impl::_S_id_collate,
     locale::_Impl::_S_id_time,
+    locale::_Impl::_S_id_collate,
     locale::_Impl::_S_id_monetary,
     locale::_Impl::_S_id_messages,
     0
