@@ -1,3 +1,12 @@
+2006-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29217
+	* include/bits/locale_classes.h: Fix (swap) numerical encodings of
+	time and collate categories.
+	* src/locale_init.cc: Consistently reorder locale::_Impl::_S_id_time
+	and _S_id_collate.
+	* src/locale.cc: Tweak.
+
 2006-06-21  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/std/std_stdexcept.h: Move __exception_string...
