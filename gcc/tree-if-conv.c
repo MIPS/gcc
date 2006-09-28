@@ -362,21 +362,21 @@ if_convertible_gimple_modify_stmt_p (struct loop *loop, basic_block bb,
 
   /* See if it needs speculative loading or not.  */
   if (bb != loop->header
-      && tree_could_trap_p (TREE_OPERAND (m_expr, 1)))
+      && tree_could_trap_p (GIMPLE_STMT_OPERAND (m_expr, 1)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "tree could trap...\n");
       return false;
     }
 
-  if (TREE_CODE (TREE_OPERAND (m_expr, 1)) == CALL_EXPR)
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (m_expr, 1)) == CALL_EXPR)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "CALL_EXPR \n");
       return false;
     }
 
-  if (TREE_CODE (TREE_OPERAND (m_expr, 0)) != SSA_NAME
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (m_expr, 0)) != SSA_NAME
       && bb != loop->header
       && !bb_with_exit_edge_p (loop, bb))
     {
@@ -1000,7 +1000,7 @@ ifc_temp_var (tree type, tree exp)
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */
   new_name = make_ssa_name (var, stmt);
-  TREE_OPERAND (stmt, 0) = new_name;
+  GIMPLE_STMT_OPERAND (stmt, 0) = new_name;
   SSA_NAME_DEF_STMT (new_name) = stmt;
 
   return stmt;

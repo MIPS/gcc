@@ -2158,10 +2158,10 @@ can_put_in_inner_loop (struct loop *inner, tree stmt)
   
   gcc_assert (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)
-      || !expr_invariant_in_loop_p (inner, TREE_OPERAND (stmt, 1)))
+      || !expr_invariant_in_loop_p (inner, GIMPLE_STMT_OPERAND (stmt, 1)))
     return false;
   
-  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, TREE_OPERAND (stmt, 0))
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, GIMPLE_STMT_OPERAND (stmt, 0))
     {
       if (!exit_phi_for_loop_p (inner, USE_STMT (use_p)))
 	{
@@ -2184,7 +2184,7 @@ can_put_after_inner_loop (struct loop *loop, tree stmt)
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return false;
   
-  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, TREE_OPERAND (stmt, 0))
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, GIMPLE_STMT_OPERAND (stmt, 0))
     {
       if (!exit_phi_for_loop_p (loop, USE_STMT (use_p)))
 	{

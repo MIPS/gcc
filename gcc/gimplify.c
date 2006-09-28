@@ -1151,12 +1151,13 @@ gimplify_return_expr (tree stmt, tree *pre_p)
     result_decl = NULL_TREE;
   else
     {
-      result_decl = TREE_OPERAND (ret_expr, 0);
+      result_decl = PROTECTED_TREE_OPERAND (ret_expr, 0);
       if (TREE_CODE (result_decl) == INDIRECT_REF)
 	/* See through a return by reference.  */
 	result_decl = TREE_OPERAND (result_decl, 0);
 
       gcc_assert ((TREE_CODE (ret_expr) == MODIFY_EXPR
+	    	   || TREE_CODE (ret_expr) == GIMPLE_MODIFY_STMT
 		   || TREE_CODE (ret_expr) == INIT_EXPR)
 		  && TREE_CODE (result_decl) == RESULT_DECL);
     }
@@ -1190,7 +1191,7 @@ gimplify_return_expr (tree stmt, tree *pre_p)
   /* Smash the lhs of the GIMPLE_MODIFY_STMT to the temporary we plan to use.
      Then gimplify the whole thing.  */
   if (result != result_decl)
-    TREE_OPERAND (ret_expr, 0) = result;
+    PROTECTED_TREE_OPERAND (ret_expr, 0) = result;
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 

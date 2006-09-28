@@ -5820,7 +5820,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr,
 		  build_int_cst (NULL_TREE, n_gpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5828,7 +5828,7 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr,
 		  build_int_cst (NULL_TREE, n_fpr));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5839,7 +5839,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
 	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5856,7 +5856,7 @@ rs6000_va_start (tree valist, rtx nextarg)
   if (cfun->machine->varargs_save_offset)
     t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
 	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -5989,7 +5989,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
       t = build2 (PLUS_EXPR, ptr_type_node, t, u);
 
-      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
@@ -6002,7 +6002,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of the n_reg == 2 gpr case.  */
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
+	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -6019,11 +6019,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (MODIFY_EXPR, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
   if (lab_over)

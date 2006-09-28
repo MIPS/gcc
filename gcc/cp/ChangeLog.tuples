@@ -1,0 +1,5 @@
+2006-09-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * cp-tree.h (union lang_tree_node): Gimple statements do not
+	have a TREE_CHAIN.
+	(TREE_INDIRECT_USING): Look in base.

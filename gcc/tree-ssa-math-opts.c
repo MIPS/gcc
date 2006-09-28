@@ -353,7 +353,7 @@ replace_reciprocal (use_operand_p use_p)
 
   if (occ->recip_def && use_stmt != occ->recip_def_stmt)
     {
-      TREE_SET_CODE (TREE_OPERAND (use_stmt, 1), MULT_EXPR);
+      TREE_SET_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1), MULT_EXPR);
       SET_USE (use_p, occ->recip_def);
       fold_stmt_inplace (use_stmt);
       update_stmt (use_stmt);

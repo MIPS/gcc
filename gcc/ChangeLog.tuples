@@ -1,3 +1,28 @@
+2006-09-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-ssa-math-opts.c (replace_reciprocal): Use GIMPLE_STMT_OPERAND.
+        * tree-if-conv.c (if_convertible_gimple_modify_stmt_p): Same.
+        (ifc_temp_var): Same.
+        * tree-vect-analyze.c (vect_determine_vectorization_factor): Check
+	for gimple statements.
+        (vect_analyze_operations): Same.
+        (exist_non_indexing_operands_for_use_p): Use GIMPLE_STMT_OPERAND.
+        * gimplify.c (gimplify_return_expr): Handle gimple statements.
+        * lambda-code.c (can_put_in_inner_loop): Same.
+        (can_put_after_inner_loop): Same.
+        * tree-vect-transform.c (vect_create_addr_base_for_vector_ref): Same.
+        (vect_create_data_ref_ptr): Same.
+        (vect_init_vector): Same.
+        (vect_get_vec_def_for_operand): Same.
+        (vect_create_epilog_for_reduction): Same.
+        (vectorizable_reduction): Same.
+        (vectorizable_assignment): Same.
+        (vectorizable_operation): Same.
+        (vectorizable_load): Same.
+        (vectorizable_condition): Same.
+        * config/rs6000/rs6000.c (rs6000_va_start): Do not create MODIFY_EXPRs.
+        (rs6000_gimplify_va_arg): Same.
+
 2006-09-25  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree-vrp.c (simplify_div_or_mod_using_ranges): Use
