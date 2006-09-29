@@ -1,5 +1,21 @@
 2006-09-27  Paul Brook  <paul@codesourcery.com>
 
+	Backport from mainline.
+	2006-09-20  Danny Smith  <dannysmith@users.sourceforge.net>
+	gcc/cp/
+	PR target/27650
+	* class.c (check_for_override): Remove dllimport from virtual
+	methods.
+
+	gcc/testsuite/
+	* g++.dg/ext/dllimport12.C: New file.
+
+	2006-07-20  Jason Merrill  <jason@redhat.com>
+	gcc/
+	* tree.c (remove_attribute): New fn.
+
+2006-09-27  Paul Brook  <paul@codesourcery.com>
+
 	PR target/29230
 	gcc/
 	* config/arm/arm.md (arith_adjacentmem): Handle large offsets.
