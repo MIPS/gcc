@@ -1,3 +1,7 @@
+2006-09-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (arm_rtx_costs_1): Handle multiply-accumulate.
+
 2006-09-27  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.
