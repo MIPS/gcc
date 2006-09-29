@@ -1,11 +1,16 @@
 2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
 
-	* tree-ssa-ilve.c (mix): Remove.
+	* tree-outof-ssa.c (coalesce_ssa_name): Remove a coalesce list dump, and
+	add a live range dump to a 'detail' listing.
+
+2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (mix): Remove.
 	(coalesce_pair_map_hash): Use simpler hash function.
 
 2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
 
-	* tree-ssa-ilve.c (mix): Define hash mix.
+	* tree-ssa-live.c (mix): Define hash mix.
 	(coalesce_pair_map_hash): Use hash mix.
 	(create_coalesce_list): Calculate initial size of hash table.
 

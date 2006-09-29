@@ -1133,15 +1133,12 @@ coalesce_ssa_name (void)
 
   liveinfo = calculate_live_ranges (map);
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_live_info (dump_file, liveinfo, LIVEDUMP_ENTRY);
+
   /* Build a conflict graph.  */
   graph = build_ssa_conflict_graph (liveinfo);
   delete_tree_live_info (liveinfo);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Before sorting:\n");
-      dump_coalesce_list (dump_file, cl);
-    }
 
   sort_coalesce_list (cl);
 
