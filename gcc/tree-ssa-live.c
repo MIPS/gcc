@@ -783,6 +783,20 @@ calculate_live_ranges (var_map map)
   return live;
 }
 
+/* Borrowed from hashtab.c iterative_hash implementation.  */
+#define mix(a,b,c) \
+{ \
+  a -= b; a -= c; a ^= (c>>13); \
+  b -= c; b -= a; b ^= (a<< 8); \
+  c -= a; c -= b; c ^= ((b&0xffffffff)>>13); \
+  a -= b; a -= c; a ^= ((c&0xffffffff)>>12); \
+  b -= c; b -= a; b = (b ^ (a<<16)) & 0xffffffff; \
+  c -= a; c -= b; c = (c ^ (b>> 5)) & 0xffffffff; \
+  a -= b; a -= c; a = (a ^ (c>> 3)) & 0xffffffff; \
+  b -= c; b -= a; b = (b ^ (a<<10)) & 0xffffffff; \
+  c -= a; c -= b; c = (c ^ (b>>15)) & 0xffffffff; \
+}
+
 
 /* Hash function for coalesce list.  Calculate hash for PAIR.   */
 
@@ -792,7 +806,8 @@ coalesce_pair_map_hash (const void *pair)
   hashval_t a = (hashval_t)(((coalesce_pair_p)pair)->first_element);
   hashval_t b = (hashval_t)(((coalesce_pair_p)pair)->second_element);
 
-  hashval_t val = (a << 16) & (b & 0xffff);
+  hashval_t val = 0x9e3779b9;
+  mix (a, b, val);
   return val;
 }
 
@@ -817,10 +832,13 @@ coalesce_list_p
 create_coalesce_list (void)
 {
   coalesce_list_p list;
+  unsigned size = num_ssa_names * 3;
+
+  if (size < 40) 
+    size = 40;
 
   list = (coalesce_list_p) xmalloc (sizeof (struct coalesce_list_d));
-
-  list->list = htab_create (60, coalesce_pair_map_hash,
+  list->list = htab_create (size, coalesce_pair_map_hash,
   			    coalesce_pair_map_eq, NULL);
   list->sorted = NULL;
   list->num_sorted = 0;
