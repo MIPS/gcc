@@ -953,6 +953,14 @@ extern int arm_structure_size_boundary;
 #define NEON_REGNO_OK_FOR_QUAD(REGNUM) \
   ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0)
 
+/* Neon structures of vectors must be in even register pairs and there
+   must be enough registers available.  Because of various patterns
+   requiring quad registers, we require them to start at a multiple of
+   four.  */
+#define NEON_REGNO_OK_FOR_NREGS(REGNUM, N) \
+  ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0 \
+   && (LAST_VFP_REGNUM - (REGNUM) >= 2 * (N) - 1))
+
 /* The number of hard registers is 16 ARM + 8 FPA + 1 CC + 1 SFP + 1 AFP.  */
 /* + 16 Cirrus registers take us up to 43.  */
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
@@ -1014,7 +1022,12 @@ extern int arm_structure_size_boundary;
 /* Modes valid for Neon Q registers.  */
 #define VALID_NEON_QREG_MODE(MODE) \
   ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
-   || (MODE) == V4SFmode || (MODE) == TImode)
+   || (MODE) == V4SFmode || (MODE) == V2DImode)
+
+/* Structure modes valid for Neon registers.  */
+#define VALID_NEON_STRUCT_MODE(MODE) \
+  ((MODE) == TImode || (MODE) == EImode || (MODE) == OImode \
+   || (MODE) == CImode || (MODE) == XImode)
 
 /* The order in which register should be allocated.  It is good to use ip
    since no saving is required (though calls clobber it) and it never contains
@@ -1274,6 +1287,7 @@ enum reg_class
    'Uy' is an address valid for iwmmxt load/store insns.
    'Un' is an address valid for Neon VLD1/VST1 insns.
    'Us' is an address valid for ("simple") quad-word loads/stores from ARM regs.
+   'Ut' is an address valid for Neon structure loads/stores.
    'Uq' is an address valid for ldrsb.  */
 
 #define EXTRA_CONSTRAINT_STR_ARM(OP, C, STR)				\
@@ -1312,6 +1326,7 @@ enum reg_class
    ((C) == 'U' && (STR)[1] == 'y') ? arm_coproc_mem_operand (OP, TRUE) : \
    ((C) == 'U' && (STR)[1] == 'n') ? neon_vector_mem_operand (OP, FALSE) : \
    ((C) == 'U' && (STR)[1] == 's') ? neon_vector_mem_operand (OP, TRUE) : \
+   ((C) == 'U' && (STR)[1] == 't') ? neon_struct_mem_operand (OP) :	\
    ((C) == 'U' && (STR)[1] == 'q')					\
     ? arm_extendqisi_mem_op (OP, GET_MODE (OP))				\
    : 0)
@@ -2597,7 +2612,7 @@ extern int making_const_table;
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
   (CODE == '@' || CODE == '|' || CODE == '.'	\
-   || CODE == '(' || CODE == ')'		\
+   || CODE == '(' || CODE == ')' || CODE == '#'	\
    || (TARGET_32BIT && (CODE == '?'))		\
    || (TARGET_THUMB2 && (CODE == '!'))		\
    || (TARGET_THUMB && (CODE == '_')))
@@ -2769,6 +2784,9 @@ extern int making_const_table;
    : arm_gen_return_addr_mask ())
 
 
+/* Neon defines builtins from ARM_BUILTIN_MAX upwards, though they don't have
+   symbolic names defined here (which would require too much duplication).
+   FIXME?  */
 enum arm_builtins
 {
   ARM_BUILTIN_GETWCX,
@@ -2933,7 +2951,9 @@ enum arm_builtins
 
   ARM_BUILTIN_THREAD_POINTER,
 
-  ARM_BUILTIN_MAX
+  ARM_BUILTIN_NEON_BASE,
+
+  ARM_BUILTIN_MAX = ARM_BUILTIN_NEON_BASE  /* FIXME: Wrong!  */
 };
 
 /* Do not emit .note.GNU-stack by default.  */

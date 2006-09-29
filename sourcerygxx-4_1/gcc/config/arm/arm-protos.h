@@ -77,12 +77,18 @@ extern char *neon_output_logic_immediate (const char *, rtx *,
 extern void neon_pairwise_reduce (rtx, rtx, enum machine_mode,
 				  rtx (*) (rtx, rtx, rtx));
 extern void neon_expand_vector_init (rtx, rtx);
+extern void neon_reinterpret (rtx, rtx);
+extern void neon_emit_pair_result_insn (enum machine_mode,
+					rtx (*) (rtx, rtx, rtx, rtx),
+                                        rtx, rtx, rtx);
+extern void neon_disambiguate_copy (rtx *, rtx *, rtx *, unsigned int);
 extern enum reg_class vfp_secondary_reload_class (enum machine_mode, rtx);
 extern bool arm_tls_referenced_p (rtx);
 
 extern int cirrus_memory_offset (rtx);
 extern int arm_coproc_mem_operand (rtx, bool);
 extern int neon_vector_mem_operand (rtx, bool);
+extern int neon_struct_mem_operand (rtx);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);

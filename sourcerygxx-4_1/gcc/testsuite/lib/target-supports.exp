@@ -1021,7 +1021,8 @@ proc check_effective_target_vect_int { } {
 	      || [istarget x86_64-*-*]
 	      || [istarget sparc*-*-*]
 	      || [istarget alpha*-*-*]
-	      || [istarget ia64-*-*] } {
+	      || [istarget ia64-*-*] 
+	      || [check_effective_target_arm32] } {
 	   set et_vect_int_saved 1
 	}
     }
@@ -1055,7 +1056,7 @@ proc check_effective_target_arm32 { } {
 	verbose "check-effective_target_arm32: using cached result" 2
     } else {
 	set et_arm32_saved 0
-	if { [istarget arm-*-*]
+	if { [istarget arm*-*-*]
 	      || [istarget strongarm*-*-*]
 	      || [istarget xscale-*-*] } {
 	    if ![string match "*-mthumb *" $compiler_flags] {
@@ -1065,6 +1066,20 @@ proc check_effective_target_arm32 { } {
     }
     verbose "check_effective_target_arm32: returning $et_arm32_saved" 2
     return $et_arm32_saved
+}
+
+# Return 1 if this is an ARM target supporting -mfpu=neon
+# -mfloat-abi=softfp.  Some multilibs may be incompatible with these
+# options.
+
+proc check_effective_target_arm_neon_ok { } {
+    if { [check_effective_target_arm32] } {
+	return [check_no_compiler_messages arm_neon_ok object {
+	    int dummy;
+	} "-mfpu=neon -mfloat-abi=softfp"]
+    } else {
+	return 0
+    }
 }
 
 # Return 1 if this is a PowerPC target with floating-point registers.
@@ -1113,7 +1128,8 @@ proc check_effective_target_vect_shift { } {
 	if { [istarget powerpc*-*-*]
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*]
+	     || [check_effective_target_arm32] } {
 	   set et_vect_shift_saved 1
 	}
     }
@@ -1130,6 +1146,7 @@ proc check_effective_target_vect_long { } {
     if { [istarget i?86-*-*]
 	 || ([istarget powerpc*-*-*] && [check_effective_target_ilp32])
 	 || [istarget x86_64-*-*]
+	 || [check_effective_target_arm32]
 	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32]) } {
 	set answer 1
     } else {
@@ -1155,7 +1172,8 @@ proc check_effective_target_vect_float { } {
 	      || [istarget powerpc*-*-*]
 	      || [istarget mipsisa64*-*-*]
 	      || [istarget x86_64-*-*]
-	      || [istarget ia64-*-*] } {
+	      || [istarget ia64-*-*]
+	      || [check_effective_target_arm32] } {
 	   set et_vect_float_saved 1
 	}
     }
@@ -1258,7 +1276,8 @@ proc check_effective_target_vect_no_align { } {
 	set et_vect_no_align_saved 0
 	if { [istarget mipsisa64*-*-*]
 	     || [istarget sparc*-*-*]
-	     || [istarget ia64-*-*] } {
+	     || [istarget ia64-*-*]
+	     || [check_effective_target_arm32] } {
 	    set et_vect_no_align_saved 1
 	}
     }
@@ -1298,7 +1317,8 @@ proc check_effective_target_vect_int_mult { } {
 	set et_vect_int_mult_saved 0
 	if { [istarget powerpc*-*-*]
 	     || [istarget i?86-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*]
+	     || [check_effective_target_arm32] } {
 	   set et_vect_int_mult_saved 1
 	}
     }

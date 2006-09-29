@@ -22,10 +22,10 @@
 ;; Vector Moves
 
 ;; All integer and float modes supported by Neon and IWMMXT.
-(define_mode_macro VALL [V2SI V4HI V8QI V2SF V4SI V8HI V16QI V4SF])
+(define_mode_macro VALL [V2DI V2SI V4HI V8QI V2SF V4SI V8HI V16QI V4SF])
 
 ;; All integer modes supported by Neon and IWMMXT
-(define_mode_macro VINT [V2SI V4HI V8QI V4SI V8HI V16QI])
+(define_mode_macro VINT [V2DI V2SI V4HI V8QI V4SI V8HI V16QI])
 
 (define_expand "mov<mode>"
   [(set (match_operand:VALL 0 "nonimmediate_operand" "")

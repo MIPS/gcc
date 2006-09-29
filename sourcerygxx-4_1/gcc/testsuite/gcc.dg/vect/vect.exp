@@ -67,6 +67,9 @@ if [istarget "powerpc*-*-*"] {
     }
 } elseif [istarget "ia64-*-*"] {
     set dg-do-what-default run
+} elseif [check_effective_target_arm_neon_ok] {
+    lappend DEFAULT_VECTCFLAGS "-mfpu=neon" "-mfloat-abi=softfp"
+    set dg-do-what-default run
 } else {
     return
 }

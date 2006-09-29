@@ -1,3 +1,7 @@
+2006-09-29  Julian Brown  <julian@codesourcery.com>
+
+	* Merge from CSL arm-neon-4_1 branch, revision 150297.
+
 2006-09-29  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_rtx_costs_1): Handle multiply-accumulate.
