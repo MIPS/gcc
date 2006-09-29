@@ -6052,8 +6052,40 @@ long long __builtin_arm_wzero ()
 @node ARM NEON Intrinsics
 @subsection ARM NEON Intrinsics
 
-These built-in intrinsics for the ARM Advanced SIMD extension are available
-when the @option{-mfpu=neon} switch is used:
+These built-in intrinsics for the ARM Advanced SIMD extension are
+available when the @option{-mfpu=neon} switch is used.  These
+intrinsics are defined in @code{<arm_neon.h>}.
+
+@emph{Note:} Only the @code{<arm_neon.h>} interface is supported.
+Internally, GCC uses built-in functions to achieve the functionality
+in the aforementioned header file, but they are not supported and are
+subject to change without notice.
+
+For scalars, these intrinsics use the standard types @code{int8_t},
+@code{int16_t}, @code{int32_t}, @code{int64_t}, @code{uint8_t},
+@code{uint16_t}, @code{uint32_t} and @code{uint64_t} from
+@code{<stdint.h>}, as well as @code{float32_t} for single-precision
+floating-point values and @code{poly8_t} and @code{poly16_t} for
+polynomials.
+
+For vectors, the intrinsics support 64-bit and 128-bit vectors whose
+elements are one of the above types.  The type
+@code{@var{T}x@var{N}_t} is a vector of @var{N} elements of type
+@code{@var{T}_t} (for example, @code{int16x8_t}).  These types should
+be considered as opaque types that can only be used via these
+intrinsics.
+
+Some intrinsics use structures containing two, three or four vectors.
+Such structures are named @code{@var{V}x@var{M}_t} for a vector type
+@var{V}, and contain a single element, an array called @code{val}
+whose elements are of the vector type.  For example:
+
+@smallexample
+typedef struct int16x8x3_t
+@{
+  int16x8_t val[3];
+@} int16x8x3_t;
+@end smallexample
 
 @include arm-neon-intrinsics.texi
 

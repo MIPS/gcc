@@ -1,3 +1,10 @@
+2006-09-29  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* doc/extend.texi (ARM NEON Intrinsics): Note that only intrinsics
+	not the underlying built-in functions are supported.  Document
+	types used.
+
 2006-09-29  Julian Brown  <julian@codesourcery.com>
 
 	* Merge from CSL arm-neon-4_1 branch, revision 150297.
