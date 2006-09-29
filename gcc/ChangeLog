@@ -1,5 +1,10 @@
 2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa-ilve.c (mix): Remove.
+	(coalesce_pair_map_hash): Use simpler hash function.
+
+2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-ssa-ilve.c (mix): Define hash mix.
 	(coalesce_pair_map_hash): Use hash mix.
 	(create_coalesce_list): Calculate initial size of hash table.
