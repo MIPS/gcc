@@ -106,9 +106,9 @@ initialize_uninitialized_subregs (void)
   bool did_something = false;
   find_regno_partial_param param;
   edge_iterator ei;
-  struct df *df = df_init (DF_HARD_REGS);
+  struct df *df = df_init (DF_HARD_REGS, 0);
 
-  df_live_add_problem (df, 0);
+  df_live_add_problem (df);
   df_analyze (df);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)

@@ -5093,7 +5093,7 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  prologue_epilogue_df = df_init (DF_HARD_REGS);
+  prologue_epilogue_df = df_init (DF_HARD_REGS, 0);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and
@@ -5104,7 +5104,7 @@ thread_prologue_and_epilogue_insns (void)
      designed for modular testing.  All of the test cases that fail
      because of running dce here fail in the g++ library, not in the
      test case.  */
-  df_lr_add_problem (prologue_epilogue_df, 0);
+  df_lr_add_problem (prologue_epilogue_df);
   df_analyze (prologue_epilogue_df);
 
 #ifdef HAVE_prologue

@@ -932,12 +932,14 @@ sms_schedule (void)
   current_sched_info = &sms_sched_info;
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_rd_add_problem (df, 0);
-  df_ru_add_problem (df, 0);
-  df_ri_add_problem (df, DF_RI_LIFE);
-  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
+  df = df_init (DF_HARD_REGS + DF_EQUIV_NOTES + DF_SUBREGS + 
+		DF_RI_LIFE + DF_DU_CHAIN + DF_UD_CHAIN, 
+		DF_LR_RUN_DCE);
+  df_lr_add_problem (df);
+  df_rd_add_problem (df);
+  df_ru_add_problem (df);
+  df_ri_add_problem (df);
+  df_chain_add_problem (df);
   df_analyze (df);
   sched_init (df);
 

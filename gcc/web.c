@@ -253,8 +253,8 @@ web_main (void)
   int max = max_reg_num ();
   char *used;
 
-  df = df_init (DF_EQUIV_NOTES);
-  df_chain_add_problem (df, DF_UD_CHAIN);
+  df = df_init (DF_EQUIV_NOTES + DF_UD_CHAIN, 0);
+  df_chain_add_problem (df);
   df_analyze (df);
   df_reorganize_refs (&df->def_info);
   df_reorganize_refs (&df->use_info);

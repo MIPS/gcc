@@ -840,8 +840,7 @@ static struct df_problem problem_RU =
   df_ru_start_dump,           /* Debugging.  */
   df_ru_top_dump,             /* Debugging start block.  */
   df_ru_bottom_dump,          /* Debugging end block.  */
-  NULL,                       /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  NULL                        /* Dependent problem.  */
 };
 
 
@@ -851,9 +850,9 @@ static struct df_problem problem_RU =
    solution.  */
 
 struct dataflow *
-df_ru_add_problem (struct df *df, int flags)
+df_ru_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_RU, flags);
+  return df_add_problem (df, &problem_RU);
 }
 
 
@@ -1384,8 +1383,7 @@ static struct df_problem problem_RD =
   df_rd_start_dump,           /* Debugging.  */
   df_rd_top_dump,             /* Debugging start block.  */
   df_rd_bottom_dump,          /* Debugging end block.  */
-  NULL,                       /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  NULL                        /* Dependent problem.  */
 };
 
 
@@ -1395,9 +1393,9 @@ static struct df_problem problem_RD =
    solution.  */
 
 struct dataflow *
-df_rd_add_problem (struct df *df, int flags)
+df_rd_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_RD, flags);
+  return df_add_problem (df, &problem_RD);
 }
 
 
@@ -1738,7 +1736,8 @@ df_lr_transfer_function (struct dataflow *dflow, int bb_index)
 static void
 df_lr_local_finalize (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED)
 {
-  if (dflow->flags & DF_LR_RUN_DCE)
+  struct df *df = dflow->df;
+  if (df->changeable_flags & DF_LR_RUN_DCE)
     run_fast_df_dce (dflow->df);
 }
 
@@ -1916,8 +1915,7 @@ static struct df_problem problem_LR =
   NULL,                       /* Debugging.  */
   df_lr_top_dump,             /* Debugging start block.  */
   df_lr_bottom_dump,          /* Debugging end block.  */
-  NULL,                       /* Dependent problem.  */
-  DF_LR_RUN_DCE               /* Can turn on or off dce running during df-analyze.  */
+  NULL                        /* Dependent problem.  */
 };
 
 
@@ -1926,9 +1924,9 @@ static struct df_problem problem_LR =
    solution.  */
 
 struct dataflow *
-df_lr_add_problem (struct df *df, int flags)
+df_lr_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_LR, flags);
+  return df_add_problem (df, &problem_LR);
 }
 
 
@@ -2239,8 +2237,7 @@ static struct df_problem problem_UR =
   NULL,                       /* Debugging.  */
   df_ur_top_dump,             /* Debugging start block.  */
   df_ur_bottom_dump,          /* Debugging end block.  */
-  df_lr_add_problem,          /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  df_lr_add_problem           /* Dependent problem.  */
 };
 
 
@@ -2249,9 +2246,9 @@ static struct df_problem problem_UR =
    solution.  */
 
 struct dataflow *
-df_ur_add_problem (struct df *df, int flags)
+df_ur_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_UR, flags);
+  return df_add_problem (df, &problem_UR);
 }
 
 
@@ -2434,8 +2431,7 @@ static struct df_problem problem_LIVE =
   NULL,                       /* Debugging.  */
   df_live_top_dump,           /* Debugging start block.  */
   df_live_bottom_dump,        /* Debugging end block.  */
-  df_ur_add_problem,          /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  df_ur_add_problem           /* Dependent problem.  */
 };
 
 
@@ -2444,9 +2440,9 @@ static struct df_problem problem_LIVE =
    solution.  */
 
 struct dataflow *
-df_live_add_problem (struct df *df, int flags)
+df_live_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_LIVE, flags);
+  return df_add_problem (df, &problem_LIVE);
 }
 
 
@@ -3046,8 +3042,7 @@ static struct df_problem problem_UREC =
   NULL,                       /* Debugging.  */
   df_urec_top_dump,           /* Debugging start block.  */
   df_urec_bottom_dump,        /* Debugging end block.  */
-  df_lr_add_problem,          /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  df_lr_add_problem           /* Dependent problem.  */
 };
 
 
@@ -3056,9 +3051,9 @@ static struct df_problem problem_UREC =
    solution.  */
 
 struct dataflow *
-df_urec_add_problem (struct df *df, int flags)
+df_urec_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_UREC, flags);
+  return df_add_problem (df, &problem_UREC);
 }
 
 
@@ -3092,7 +3087,7 @@ df_chain_alloc (struct dataflow *dflow,
   dflow->block_pool = create_alloc_pool ("df_chain_chain_block pool", 
 					 sizeof (struct df_link), 100);
 
-  if (dflow->flags & DF_DU_CHAIN)
+  if (df->permanent_flags & DF_DU_CHAIN)
     {
       if (!df->def_info.refs_organized)
 	df_reorganize_refs (&df->def_info);
@@ -3105,7 +3100,7 @@ df_chain_alloc (struct dataflow *dflow,
 	}
     }
   
-  if (dflow->flags & DF_UD_CHAIN)
+  if (df->permanent_flags & DF_UD_CHAIN)
     {
       if (!df->use_info.refs_organized)
 	df_reorganize_refs (&df->use_info);
@@ -3133,7 +3128,7 @@ df_chain_insn_reset (struct dataflow *dflow, rtx insn)
 
   if (insn_info)
     {
-      if (dflow->flags & DF_DU_CHAIN)
+      if (df->permanent_flags & DF_DU_CHAIN)
 	{
 	  ref = insn_info->defs;
 	  while (ref)
@@ -3143,7 +3138,7 @@ df_chain_insn_reset (struct dataflow *dflow, rtx insn)
 	    }
 	}
 
-      if (dflow->flags & DF_UD_CHAIN)
+      if (df->permanent_flags & DF_UD_CHAIN)
 	{
 	  ref = insn_info->uses;
 	  while (ref) 
@@ -3179,7 +3174,7 @@ df_chain_bb_reset (struct dataflow *dflow, unsigned int bb_index)
     }
   
   /* Get rid of any chains in artificial uses or defs.  */
-  if (dflow->flags & DF_DU_CHAIN)
+  if (df->permanent_flags & DF_DU_CHAIN)
     {
       struct df_ref *def;
       def = df_get_artificial_defs (df, bb_index);
@@ -3190,7 +3185,7 @@ df_chain_bb_reset (struct dataflow *dflow, unsigned int bb_index)
 	}
     }
 
-  if (dflow->flags & DF_UD_CHAIN)
+  if (df->permanent_flags & DF_UD_CHAIN)
     {
       struct df_ref *use;
       use = df_get_artificial_uses (df, bb_index);
@@ -3253,9 +3248,9 @@ df_chain_create_bb_process_use (struct dataflow *dflow,
 		    break;
 		  
 		  def = DF_DEFS_GET (df, def_index);
-		  if (dflow->flags & DF_DU_CHAIN)
+		  if (df->permanent_flags & DF_DU_CHAIN)
 		    df_chain_create (dflow, def, use);
-		  if (dflow->flags & DF_UD_CHAIN)
+		  if (df->permanent_flags & DF_UD_CHAIN)
 		    df_chain_create (dflow, use, def);
 		}
 	    }
@@ -3377,7 +3372,7 @@ df_chain_start_dump (struct dataflow *dflow, FILE *file)
   struct df *df = dflow->df;
   unsigned int j;
 
-  if (dflow->flags & DF_DU_CHAIN)
+  if (df->permanent_flags & DF_DU_CHAIN)
     {
       fprintf (file, "Def-use chains:\n");
       for (j = 0; j < df->def_info.bitmap_size; j++)
@@ -3400,7 +3395,7 @@ df_chain_start_dump (struct dataflow *dflow, FILE *file)
 	}
     }
 
-  if (dflow->flags & DF_UD_CHAIN)
+  if (df->permanent_flags & DF_UD_CHAIN)
     {
       fprintf (file, "Use-def chains:\n");
       for (j = 0; j < df->use_info.bitmap_size; j++)
@@ -3449,8 +3444,7 @@ static struct df_problem problem_CHAIN =
   df_chain_start_dump,        /* Debugging.  */
   NULL,                       /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
-  df_rd_add_problem,          /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  df_rd_add_problem           /* Dependent problem.  */
 };
 
 
@@ -3463,9 +3457,9 @@ VEC(reg_info_p,heap) *reg_n_info;
    solution.  */
 
 struct dataflow *
-df_chain_add_problem (struct df *df, int flags)
+df_chain_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_CHAIN, flags);
+  return df_add_problem (df, &problem_CHAIN);
 }
 
 
@@ -3519,7 +3513,7 @@ df_ri_alloc (struct dataflow *dflow,
       problem_data->setjmp_crosses = NULL;
     }
 
-  if (dflow->flags & DF_RI_SETJMP)
+  if (df->permanent_flags & DF_RI_SETJMP)
     {
       if (problem_data->setjmp_crosses)
 	bitmap_clear (problem_data->setjmp_crosses);
@@ -3527,7 +3521,7 @@ df_ri_alloc (struct dataflow *dflow,
 	problem_data->setjmp_crosses = BITMAP_ALLOC (NULL);
     }
 
-  if (dflow->flags & DF_RI_LIFE)
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       max_regno = max_reg_num ();
       allocate_reg_info (max_regno, FALSE, FALSE);
@@ -3866,7 +3860,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
   bitmap_copy (live, df_get_live_out (df, bb));
   bitmap_clear (artificial_uses);
 
-  if (dflow->flags & DF_RI_LIFE)
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       /* Process the regs live at the end of the block.  Mark them as
 	 not local to any one basic block.  */
@@ -3903,7 +3897,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
       if (!INSN_P (insn))
 	continue;
 
-      if (dflow->flags & DF_RI_LIFE)
+      if (df->permanent_flags & DF_RI_LIFE)
 	{
 	  /* Increment the live_length for all of the registers that
 	     are are referenced in this block and live at this
@@ -3918,18 +3912,18 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	}
 
       bitmap_clear (do_not_gen);
-      df_kill_notes (insn, dflow->flags);
+      df_kill_notes (insn, df->permanent_flags);
 
       /* Process the defs.  */
       if (CALL_P (insn))
 	{
-	  if (dflow->flags & (DF_RI_LIFE | DF_RI_SETJMP))
+	  if (df->permanent_flags & (DF_RI_LIFE | DF_RI_SETJMP))
 	    {
 	      bool can_throw = can_throw_internal (insn); 
 	      bool set_jump = (find_reg_note (insn, REG_SETJMP, NULL) != NULL);
 	      EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
 		{
-		  if (dflow->flags & DF_RI_LIFE)
+		  if (df->permanent_flags & DF_RI_LIFE)
 		    {
 		      REG_N_CALLS_CROSSED (regno)++;
 		      if (can_throw)
@@ -3958,7 +3952,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	      if ((mws->type == DF_REF_REG_DEF) 
 		  && !df_ignore_stack_reg (REGNO (mws->mw_reg)))
 		df_set_unused_notes_for_mw (insn, mws, live, do_not_gen, 
-					    artificial_uses, dflow->flags);
+					    artificial_uses, df->permanent_flags);
 	    }
 
 	  /* All of the defs except the return value are some sort of
@@ -3967,7 +3961,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	    if (!(DF_REF_FLAGS (def) & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
 	      df_create_unused_note (bb, insn, def, live, do_not_gen, 
 				     artificial_uses, local_live, 
-				     local_processed, dflow->flags, luid);
+				     local_processed, df->permanent_flags, luid);
 
 	}
       else
@@ -3977,13 +3971,13 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	    {
 	      if (mws->type == DF_REF_REG_DEF)
 		df_set_unused_notes_for_mw (insn, mws, live, do_not_gen, 
-					    artificial_uses, dflow->flags);
+					    artificial_uses, df->permanent_flags);
 	    }
 
 	  for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
 	    df_create_unused_note (bb, insn, def, live, do_not_gen, 
 				   artificial_uses, local_live, 
-				   local_processed, dflow->flags, luid);
+				   local_processed, df->permanent_flags, luid);
 	}
       
       /* Process the uses.  */
@@ -3992,14 +3986,14 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	  if ((mws->type != DF_REF_REG_DEF)  
 	      && !df_ignore_stack_reg (REGNO (mws->mw_reg)))
 	    df_set_dead_notes_for_mw (insn, mws, live, do_not_gen,
-				      artificial_uses, dflow->flags);
+				      artificial_uses, df->permanent_flags);
 	}
 
       for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
 	{
 	  unsigned int uregno = DF_REF_REGNO (use);
 
-	  if ((dflow->flags & DF_RI_LIFE) && (uregno >= FIRST_PSEUDO_REGISTER))
+	  if ((df->permanent_flags & DF_RI_LIFE) && (uregno >= FIRST_PSEUDO_REGISTER))
 	    {
 	      REG_FREQ (uregno) += REG_FREQ_FROM_BB (bb);
 	      if (REG_BASIC_BLOCK (uregno) == REG_BLOCK_UNKNOWN)
@@ -4027,7 +4021,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 		    SUBREG_REG (*DF_REF_LOC (use)) : *DF_REF_LOC (use);
 		  rtx note = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
 		  REG_NOTES (insn) = note;
-		  if (dflow->flags & DF_RI_LIFE)
+		  if (df->permanent_flags & DF_RI_LIFE)
 		    REG_N_DEATHS (uregno)++;
 
 #ifdef REG_DEAD_DEBUGGING
@@ -4037,7 +4031,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	      /* This register is now live.  */
 	      bitmap_set_bit (live, uregno);
 
-	      if (dflow->flags & DF_RI_LIFE)
+	      if (df->permanent_flags & DF_RI_LIFE)
 		{
 		  /* If we have seen this regno, then it has already
 		     been processed correctly with the per insn
@@ -4055,7 +4049,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 	}
     }
   
-  if (dflow->flags & DF_RI_LIFE)
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       /* Add the length of the block to all of the registers that were
 	 not referenced, but still live in this block.  */
@@ -4077,6 +4071,7 @@ static void
 df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED, 
 	       bitmap blocks_to_scan)
 {
+  struct df *df = dflow->df;
   unsigned int bb_index;
   bitmap_iterator bi;
   bitmap live = BITMAP_ALLOC (NULL);
@@ -4088,16 +4083,16 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
 
-  if (dflow->flags & DF_RI_LIFE)
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       local_live = BITMAP_ALLOC (NULL);
       local_processed = BITMAP_ALLOC (NULL);
-      if (dflow->flags & DF_RI_SETJMP)
+      if (df->permanent_flags & DF_RI_SETJMP)
 	setjmp_crosses = problem_data->setjmp_crosses;
       else
 	setjmp_crosses = BITMAP_ALLOC (NULL);
     }
-  else if (dflow->flags & DF_RI_SETJMP)
+  else if (df->permanent_flags & DF_RI_SETJMP)
     setjmp_crosses = problem_data->setjmp_crosses;
 
 
@@ -4115,7 +4110,7 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   BITMAP_FREE (live);
   BITMAP_FREE (do_not_gen);
   BITMAP_FREE (artificial_uses);
-  if (dflow->flags & DF_RI_LIFE)
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       bitmap_iterator bi;
       unsigned int regno;
@@ -4129,7 +4124,7 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 
       BITMAP_FREE (local_live);
       BITMAP_FREE (local_processed);
-      if (!dflow->flags & DF_RI_SETJMP)
+      if (!df->permanent_flags & DF_RI_SETJMP)
 	BITMAP_FREE (setjmp_crosses);
     }
 }
@@ -4140,10 +4135,11 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 static void
 df_ri_free (struct dataflow *dflow)
 {
+  struct df *df = dflow->df;
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
 
-  if (dflow->flags & DF_RI_SETJMP)
+  if (df->permanent_flags & DF_RI_SETJMP)
     BITMAP_FREE (problem_data->setjmp_crosses);
 
   free (dflow->problem_data);
@@ -4156,7 +4152,8 @@ df_ri_free (struct dataflow *dflow)
 static void
 df_ri_start_dump (struct dataflow *dflow, FILE *file)
 {
-  if (dflow->flags & DF_RI_LIFE)
+  struct df *df = dflow->df;
+  if (df->permanent_flags & DF_RI_LIFE)
     {
       fprintf (file, "Register info:\n");
       dump_reg_info (file);
@@ -4187,8 +4184,7 @@ static struct df_problem problem_RI =
   /* Technically this is only dependent on the live registers problem
      but it will produce information if built one of uninitialized
      register problems (UR, UREC) is also run.  */
-  df_lr_add_problem,          /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  df_lr_add_problem           /* Dependent problem.  */
 };
 
 
@@ -4197,9 +4193,9 @@ static struct df_problem problem_RI =
    solution.  */
 
 struct dataflow * 
-df_ri_add_problem (struct df *df, int flags)
+df_ri_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_RI, flags);
+  return df_add_problem (df, &problem_RI);
 }
 
 bitmap

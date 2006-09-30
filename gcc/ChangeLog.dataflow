@@ -1,3 +1,58 @@
+2006-09-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-scan.c (problem_SCAN): Removed flags.
+	(df_scan_add_problem): Ditto.
+	(df_ref_record, df_insn_refs_record, df_bb_refs_record,
+	df_refs_record, df_record_entry_block_defs,
+	df_record_exit_block_uses ): Moved flags to df structure.
+	* df-core.c (df_init): Added permanent_flags and changeable_flags.
+	(df_add_problem): Removed flags parameter.
+	(df_set_flags, df_clear_flags): Changed processing of flags.  *
+	df.h (df_dependent_problem_function, struct df_problem): Removed
+	flags.
+	(DF_HARD_REGS, DF_EQUIV_NOTES, DF_SUBREGS, DF_DU_CHAIN,
+	DF_UD_CHAIN, DF_RI_LIFE, DF_RI_SETJMP): Changed to be fields in
+	df_permanent_flags.
+	(DF_LR_RUN_DCE): Changed to be fields in df_changeable_flags.
+	(df_init, df_add_problem, df_set_flags, df_clear_flags,
+	df_ru_add_problem, df_rd_add_problem, df_lr_add_problem,
+	df_ur_add_problem, df_live_add_problem, df_urec_add_problem,
+	df_chain_add_problem, df_ri_add_problem, df_scan_add_problem):
+	Changed flag parameters.
+	* df-problems.c (problem_RU, problem_RD, problem_LR, problem_UR,
+	problem_LIVE, problem_UREC, problem_CHAIN, problem_RI): Removed
+	changeable flags field.
+	(df_ru_add_problem, df_rd_add_problem, df_lr_add_problem,
+	df_ur_add_problem, df_live_add_problem, df_urec_add_problem,
+	df_chain_add_problem, df_ri_add_problem): Removed flags parameter.
+	(df_lr_local_finalize, df_chain_alloc, df_chain_insn_reset,
+	df_chain_bb_reset, df_chain_create_bb_process_use,
+	df_chain_start_dump, df_ri_alloc, df_ri_bb_compute, df_ri_compute,
+	df_ri_free): Changed location of flags.
+	* dce.c (init_dce): Moved flags from df_*_add_problem to df_init.
+	(fast_dce): Changed parameters to df_set_flags and df_clear_flags.
+	* reg_stack.c (reg_to_stack): Moved flags from df_*_add_problem to df_init.
+	* sched_rgn.c (sched_insns): Ditto.
+	* regrename.c (regrename_optimize): Ditto.
+	* sched_ebb.c (schedule_ebbs): Ditto.
+	* fwprop.c (fwprop_init): Ditto.
+	* see.c (see_initialize_data_structures): Ditto.
+	* auto_inc_dec.c (rest_of_handle_auto_inc_dec): Ditto.
+	* mode-switching.c (optimize_mode_switching): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* web.c (web_main): Ditto.
+	* ifcvt.c (if_convert): Ditto.
+	* recog.c (peephole2_optimize): Ditto.
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments):
+	Ditto.
+	* local_alloc.c (rest_of_handle_local_alloc): Ditto.
+	* function.c (thread_prologue_and_epilogue_insns): Ditto.
+	* rtl_factoring.c (rtl_sequabstr): Ditto.
+	* bt_load.c (branch_target_load_optimize): Ditto.
+	* loop_invariant.c (move_loop_invariants): Ditto.
+	* subregs-init.c (initialize_uninitialized_subregs): Ditto.
+	* loop-iv.c (iv_analysis_loop_init): Ditto.
+	* combine.c (rest_of_handle_combine): Ditto.
+	
 2006-08-04  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_rtl_dse): Split into pass_rtl_dse1,

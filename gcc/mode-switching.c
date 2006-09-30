@@ -421,9 +421,9 @@ optimize_mode_switching (void)
   if (! n_entities)
     return 0;
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  df = df_init (DF_HARD_REGS, 0);
+  df_live_add_problem (df);
+  df_ri_add_problem (df);
   df_analyze (df);
 
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)

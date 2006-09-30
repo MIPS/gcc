@@ -191,14 +191,14 @@ init_dce (bool fast)
     {
       if (fast)
 	{
-	  dce_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (dce_df, 0);
+	  dce_df = df_init (DF_HARD_REGS, 0);
+	  df_lr_add_problem (dce_df);
 	  df_analyze (dce_df);
 	}
       else
 	{
-	  dce_df = df_init (DF_HARD_REGS);
-	  df_chain_add_problem (dce_df, DF_UD_CHAIN);
+	  dce_df = df_init (DF_HARD_REGS + DF_UD_CHAIN, 0);
+	  df_chain_add_problem (dce_df);
 	  df_analyze (dce_df);
 	}
     }
@@ -620,7 +620,7 @@ fast_dce (bool df_delete)
 	{
 	  /* Turn off the RUN_DCE flag to prevent recursive calls to
 	     dce.  */
-	  int old_flag = df_clear_flags (dflow, DF_LR_RUN_DCE);
+	  int old_flag = df_clear_flags (dce_df, DF_LR_RUN_DCE);
 
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
@@ -637,7 +637,7 @@ fast_dce (bool df_delete)
 			      changed, postorder, n_blocks, false);
 
 	  if (old_flag & DF_LR_RUN_DCE)
-	    df_set_flags (dflow, DF_LR_RUN_DCE);
+	    df_set_flags (dce_df, DF_LR_RUN_DCE);
 	  bitmap_clear (changed);
 	  prescan_insns_for_dce (true);
 	}

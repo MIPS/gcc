@@ -3852,9 +3852,9 @@ if_convert (void)
   basic_block bb;
   int pass;
   bitmap modified = BITMAP_ALLOC (NULL);
-  struct df * df = df_init (DF_HARD_REGS);
-  struct dataflow *lr_dflow = df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_live_add_problem (df, 0);
+  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  df_lr_add_problem (df);
+  df_live_add_problem (df);
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -3883,7 +3883,7 @@ if_convert (void)
     {
       df_analyze (df);
       /* Only need to do dce on the first pass.  */
-      df_clear_flags (lr_dflow, DF_LR_RUN_DCE);
+      df_clear_flags (df, DF_LR_RUN_DCE);
       cond_exec_changed_p = FALSE;
       pass++;
 

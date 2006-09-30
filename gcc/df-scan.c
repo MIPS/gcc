@@ -338,8 +338,7 @@ static struct df_problem problem_SCAN =
   df_scan_start_dump,         /* Debugging.  */
   NULL,                       /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
-  NULL,                       /* Dependent problem.  */
-  0                           /* Changeable flags.  */
+  NULL                        /* Dependent problem.  */
 };
 
 
@@ -348,9 +347,9 @@ static struct df_problem problem_SCAN =
    solution.  */
 
 struct dataflow *
-df_scan_add_problem (struct df *df, int flags)
+df_scan_add_problem (struct df *df)
 {
-  return df_add_problem (df, &problem_SCAN, flags);
+  return df_add_problem (df, &problem_SCAN);
 }
 
 /*----------------------------------------------------------------------------
@@ -1069,7 +1068,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
      reg.  As written in the docu those should have the form
      (subreg:SI (reg:M A) N), with size(SImode) > size(Mmode).
      XXX Is that true?  We could also use the global word_mode variable.  */
-  if ((dflow->flags & DF_SUBREGS) == 0
+  if ((df->permanent_flags & DF_SUBREGS) == 0
       && GET_CODE (reg) == SUBREG
       && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
 	  || GET_MODE_SIZE (GET_MODE (reg))
@@ -1089,7 +1088,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
       struct df_scan_problem_data *problem_data
 	= (struct df_scan_problem_data *) dflow->problem_data;
 
-      if (!(dflow->flags & DF_HARD_REGS))
+      if (!(df->permanent_flags & DF_HARD_REGS))
 	return;
 
       /* GET_MODE (reg) is correct here.  We do not want to go into a SUBREG
@@ -1538,7 +1537,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
       /* Record register defs.  */
       df_defs_record (dflow, PATTERN (insn), bb, insn, 0);
 
-      if (dflow->flags & DF_EQUIV_NOTES)
+      if (df->permanent_flags & DF_EQUIV_NOTES)
 	for (note = REG_NOTES (insn); note;
 	     note = XEXP (note, 1))
 	  {
@@ -1591,7 +1590,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 			  DF_REF_REG_USE, bb, insn, 
 			  DF_REF_CALL_STACK_USAGE);
 
-	  if (dflow->flags & DF_HARD_REGS)
+	  if (df->permanent_flags & DF_HARD_REGS)
 	    {
 	      bitmap_iterator bi;
 	      unsigned int ui;
@@ -1664,7 +1663,7 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
   struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
   bitmap artificial_uses_at_bottom = NULL;
 
-  if (dflow->flags & DF_HARD_REGS)
+  if (df->permanent_flags & DF_HARD_REGS)
     artificial_uses_at_bottom = BITMAP_ALLOC (NULL);
 
   /* Need to make sure that there is a record in the basic block info. */  
@@ -1690,7 +1689,7 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
     }
 
 #ifdef EH_RETURN_DATA_REGNO
-  if ((dflow->flags & DF_HARD_REGS)
+  if ((df->permanent_flags & DF_HARD_REGS)
       && df_has_eh_preds (bb))
     {
       unsigned int i;
@@ -1733,7 +1732,7 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
     }
 #endif
 
-  if ((dflow->flags & DF_HARD_REGS) 
+  if ((df->permanent_flags & DF_HARD_REGS) 
       && bb->index >= NUM_FIXED_BLOCKS)
     {
       bitmap_iterator bi;
@@ -1763,7 +1762,7 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
   bitmap_clear (df->regular_block_artificial_uses);
   bitmap_clear (df->eh_block_artificial_uses);
 
-  if (dflow->flags & DF_HARD_REGS)
+  if (df->permanent_flags & DF_HARD_REGS)
     {
       /* The following code (down thru the arg_pointer seting APPEARS
 	 to be necessary because there is nothing that actually
@@ -1866,7 +1865,7 @@ df_record_entry_block_defs (struct dataflow *dflow)
 
   bitmap_clear (df->entry_block_defs);
 
-  if (!(dflow->flags & DF_HARD_REGS))
+  if (!(df->permanent_flags & DF_HARD_REGS))
     return;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1978,7 +1977,7 @@ df_record_exit_block_uses (struct dataflow *dflow)
 
   bitmap_clear (df->exit_block_uses);
   
-  if (!(dflow->flags & DF_HARD_REGS))
+  if (!(df->permanent_flags & DF_HARD_REGS))
     return;
 
   /* If exiting needs the right stack value, consider the stack
@@ -2079,7 +2078,7 @@ df_record_exit_block_uses (struct dataflow *dflow)
   /* Mark function return value.  */
   diddle_return_value (df_mark_reg, (void*) df->exit_block_uses);
 
-  if (dflow->flags & DF_HARD_REGS)
+  if (df->permanent_flags & DF_HARD_REGS)
     EXECUTE_IF_SET_IN_BITMAP (df->exit_block_uses, 0, i, bi)
       df_uses_record (dflow, &regno_reg_rtx[i], 
   		      DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,

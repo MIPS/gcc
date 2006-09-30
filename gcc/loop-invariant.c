@@ -1319,8 +1319,8 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES);
-  df_chain_add_problem (df, DF_UD_CHAIN);
+  df = df_init (DF_HARD_REGS + DF_EQUIV_NOTES + DF_UD_CHAIN, 0);
+  df_chain_add_problem (df);
  
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;

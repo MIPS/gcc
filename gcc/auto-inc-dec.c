@@ -1457,9 +1457,9 @@ rest_of_handle_auto_inc_dec (void)
 
   mem_tmp = gen_rtx_MEM (Pmode, NULL_RTX);
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  df = df_init (DF_HARD_REGS, 0);
+  df_live_add_problem (df);
+  df_ri_add_problem (df);
   scan_dflow = df->problems_by_index[DF_SCAN];
   df_analyze (df);
 

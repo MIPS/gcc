@@ -1125,9 +1125,9 @@ regmove_optimize (rtx f, int nregs)
   int i;
   rtx copy_src, copy_dst;
   basic_block bb;
-  struct df * df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, DF_RI_LIFE);
+  struct df * df = df_init (DF_HARD_REGS + DF_RI_LIFE, 0);
+  df_live_add_problem (df);
+  df_ri_add_problem (df);
   df_analyze (df);
 
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily
@@ -2603,9 +2603,9 @@ rest_of_handle_stack_adjustments (void)
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
     {
-      struct df * df = df_init (DF_HARD_REGS);
-      df_live_add_problem (df, 0);
-      df_ri_add_problem (df, 0);
+      struct df * df = df_init (DF_HARD_REGS, 0);
+      df_live_add_problem (df);
+      df_ri_add_problem (df);
       df_analyze (df);
       combine_stack_adjustments ();
     }

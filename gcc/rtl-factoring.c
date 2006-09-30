@@ -1360,9 +1360,9 @@ static void
 rtl_seqabstr (void)
 {
   int iter;
-  struct df * df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_live_add_problem (df, 0);
+  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  df_lr_add_problem (df);
+  df_live_add_problem (df);
   df_analyze (df);
 
   /* Create a hash list for COLLECT_PATTERN_SEQS.  */

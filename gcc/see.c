@@ -1331,9 +1331,9 @@ static void
 see_initialize_data_structures (void)
 {
   /* Build the df object. */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
-  df_rd_add_problem (df, 0);
-  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
+  df = df_init (DF_HARD_REGS + DF_EQUIV_NOTES + DF_SUBREGS + DF_DU_CHAIN + DF_UD_CHAIN, 0);
+  df_rd_add_problem (df);
+  df_chain_add_problem (df);
   df_analyze (df);
 
   if (dump_file)

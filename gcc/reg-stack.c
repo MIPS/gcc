@@ -3103,9 +3103,9 @@ reg_to_stack (void)
   if (i > LAST_STACK_REG)
     return false;
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  df = df_init (DF_HARD_REGS, 0);
+  df_live_add_problem (df);
+  df_ri_add_problem (df);
   df_analyze (df);
 
   mark_dfs_back_edges ();

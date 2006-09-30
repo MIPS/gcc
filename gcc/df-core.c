@@ -315,16 +315,19 @@ static void df_set_bb_info (struct dataflow *, unsigned int, void *);
    memory.  */
 
 struct df *
-df_init (int flags)
+df_init (enum df_permanent_flags permanent_flags, 
+	 enum df_changeable_flags changeable_flags)
 {
   struct df *df = XCNEW (struct df);
 
+  df->permanent_flags = permanent_flags;
+  df->changeable_flags = changeable_flags;
   /* This is executed once per compilation to initialize platform
      specific data structures. */
   df_hard_reg_init ();
-  
+
   /* All df instance must define the scanning problem.  */
-  df_scan_add_problem (df, flags);
+  df_scan_add_problem (df);
 
   /* There should not be more than one active instance of df.  */
 
@@ -337,13 +340,13 @@ df_init (int flags)
 /* Add PROBLEM to the DF instance.  */
 
 struct dataflow *
-df_add_problem (struct df *df, struct df_problem *problem, int flags)
+df_add_problem (struct df *df, struct df_problem *problem)
 {
   struct dataflow *dflow;
 
   /* First try to add the dependent problem. */
   if (problem->dependent_problem_fun)
-    (problem->dependent_problem_fun) (df, 0);
+    (problem->dependent_problem_fun) (df);
 
   /* Check to see if this problem has already been defined.  If it
      has, just return that instance, if not, add it to the end of the
@@ -354,7 +357,6 @@ df_add_problem (struct df *df, struct df_problem *problem, int flags)
 
   /* Make a new one and add it to the end.  */
   dflow = XCNEW (struct dataflow);
-  dflow->flags = flags;
   dflow->df = df;
   dflow->problem = problem;
   dflow->computed = false;
@@ -368,32 +370,26 @@ df_add_problem (struct df *df, struct df_problem *problem, int flags)
 /* Set the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-int 
-df_set_flags (struct dataflow *dflow, int mask)
+enum df_changeable_flags
+df_set_flags (struct df *df, enum df_changeable_flags changeable_flags)
 {
-  int old_flags = dflow->flags;
-
-  gcc_assert (!(mask & (~dflow->problem->changeable_flags)));
-
-  dflow->flags |= mask;
-
+  enum df_changeable_flags old_flags = df->changeable_flags;
+  df->changeable_flags |= changeable_flags;
   return old_flags;
 }
+
 
 /* Clear the MASK flags in the DFLOW problem.  The old flags are
    returned.  If a flag is not allowed to be changed this will fail if
    checking is enabled.  */
-int 
-df_clear_flags (struct dataflow *dflow, int mask)
+enum df_changeable_flags
+df_clear_flags (struct df *df, enum df_changeable_flags changeable_flags)
 {
-  int old_flags = dflow->flags;
-
-  gcc_assert (!(mask & (~dflow->problem->changeable_flags)));
-
-  dflow->flags &= !mask;
-
+  enum df_changeable_flags old_flags = df->changeable_flags;
+  df->changeable_flags &= !changeable_flags;
   return old_flags;
 }
+
 
 /* Set the blocks that are to be considered for analysis.  If this is
    not called or is called with null, the entire function in

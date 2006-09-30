@@ -1467,8 +1467,8 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
   enum reg_class class = targetm.branch_target_register_class ();
   if (class != NO_REGS)
     {
-      struct df * df = df_init (DF_HARD_REGS);
-      df_live_add_problem (df, 0);
+      struct df * df = df_init (DF_HARD_REGS, 0);
+      df_live_add_problem (df);
 
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)

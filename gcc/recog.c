@@ -2881,12 +2881,12 @@ peephole2_optimize (void)
   basic_block bb;
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
-  struct df * df = df_init (DF_HARD_REGS);
+  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
   struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_live_add_problem (df, 0);
-  df_ru_add_problem (df, 0);
+  df_lr_add_problem (df);
+  df_live_add_problem (df);
+  df_ru_add_problem (df);
   df_analyze (df);
 
   /* Initialize the regsets we're going to use.  */

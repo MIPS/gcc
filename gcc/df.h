@@ -182,7 +182,7 @@ typedef void (*df_dump_bb_problem_function) (struct dataflow *, basic_block, FIL
 
 /* Function to add problem a dataflow problem that must be solved
    before this problem can be solved.  */
-typedef struct dataflow * (*df_dependent_problem_function) (struct df *, int);
+typedef struct dataflow * (*df_dependent_problem_function) (struct df *);
 
 /* The static description of a dataflow problem to solve.  See above
    typedefs for doc for the function fields.  */
@@ -207,9 +207,6 @@ struct df_problem {
   df_dump_bb_problem_function dump_top_fun;
   df_dump_bb_problem_function dump_bottom_fun;
   df_dependent_problem_function dependent_problem_fun;
-
-  /* Flags can be changed after analysis starts.  */
-  int changeable_flags;
 };
 
 
@@ -229,22 +226,6 @@ struct dataflow
 
   /* The pool to allocate the block_info from. */
   alloc_pool block_pool;                
-
-  /* Problem specific control infomation.  */
-
-  /* Scanning flags.  */
-#define DF_HARD_REGS	     1	/* Mark hard registers.  */
-#define DF_EQUIV_NOTES	     2	/* Mark uses present in EQUIV/EQUAL notes.  */
-#define DF_SUBREGS	     4	/* Return subregs rather than the inner reg.  */
-  /* Flag to control the running of dce as a side effect of building LR.  */
-#define DF_LR_RUN_DCE        1    /* Run DCE.  */
-  /* Flags that control the building of chains.  */
-#define DF_DU_CHAIN          1    /* Build DU chains.  */  
-#define DF_UD_CHAIN          2    /* Build UD chains.  */
-  /* Flag to control the building of register info.  */
-#define DF_RI_LIFE           1    /* Build register info.  */
-#define DF_RI_SETJMP         2    /* Build pseudos that cross setjmp info.  */
-  int flags;
 
   /* Other problem specific data that is not on a per basic block
      basis.  The structure is generally defined privately for the
@@ -353,6 +334,28 @@ struct df_ref_info
 };
 
 
+enum df_permanent_flags 
+{
+  /* Scanning flags.  */
+  DF_HARD_REGS     =  1, /* Mark hard registers.  */
+  DF_EQUIV_NOTES   =  2, /* Mark uses present in EQUIV/EQUAL notes.  */
+  DF_SUBREGS       =  4, /* Return subregs rather than the inner reg.  */
+  /* Flags that control the building of chains.  */
+  DF_DU_CHAIN      =  8, /* Build DU chains.  */  
+  DF_UD_CHAIN      = 16, /* Build UD chains.  */
+  /* Flag to control the building of register info.  */
+  DF_RI_LIFE       = 32, /* Build register info.  */
+  DF_RI_SETJMP     = 64  /* Build pseudos that cross setjmp info.  */
+};
+
+enum df_changeable_flags 
+{
+  /* Scanning flags.  */
+  /* Flag to control the running of dce as a side effect of building LR.  */
+  DF_LR_RUN_DCE    = 1   /* Run DCE.  */
+};
+
+
 /*----------------------------------------------------------------------------
    Problem data for the scanning dataflow problem.  Unlike the other
    dataflow problems, the problem data for scanning is fully exposed and
@@ -402,6 +405,10 @@ struct df
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
   int *postorder;                /* The current set of basic blocks in postorder.  */
   int n_blocks;                  /* The number of blocks in postorder.  */
+
+  /* Problem specific control infomation.  */
+  enum df_permanent_flags permanent_flags;
+  enum df_changeable_flags changeable_flags;
 };
 
 #define DF_SCAN_BB_INFO(DF, BB) (df_scan_get_bb_info((DF)->problems_by_index[DF_SCAN],(BB)->index))
@@ -625,10 +632,10 @@ extern struct df *df_current_instance;
 
 /* Functions defined in df-core.c.  */
 
-extern struct df *df_init (int);
-extern struct dataflow *df_add_problem (struct df *, struct df_problem *, int);
-extern int df_set_flags (struct dataflow *, int);
-extern int df_clear_flags (struct dataflow *, int);
+extern struct df *df_init (enum df_permanent_flags, enum df_changeable_flags);
+extern struct dataflow *df_add_problem (struct df *, struct df_problem *);
+extern enum df_changeable_flags df_set_flags (struct df *, enum df_changeable_flags);
+extern enum df_changeable_flags df_clear_flags (struct df *, enum df_changeable_flags);
 extern void df_set_blocks (struct df*, bitmap);
 extern void df_delete_basic_block (struct df *, int);
 extern void df_finish1 (struct df *);
@@ -680,28 +687,28 @@ extern bitmap df_get_live_out (struct df *, basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
-extern struct dataflow *df_ru_add_problem (struct df *, int);
+extern struct dataflow *df_ru_add_problem (struct df *);
 extern struct df_ru_bb_info *df_ru_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_rd_add_problem (struct df *, int);
+extern struct dataflow *df_rd_add_problem (struct df *);
 extern struct df_rd_bb_info *df_rd_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_lr_add_problem (struct df *, int);
+extern struct dataflow *df_lr_add_problem (struct df *);
 extern struct df_lr_bb_info *df_lr_get_bb_info (struct dataflow *, unsigned int);
 extern void df_lr_simulate_artificial_refs_at_end (struct df *, basic_block, bitmap);
 extern void df_lr_simulate_one_insn (struct df *, basic_block, rtx, bitmap);
-extern struct dataflow *df_ur_add_problem (struct df *, int);
+extern struct dataflow *df_ur_add_problem (struct df *);
 extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_live_add_problem (struct df *, int);
+extern struct dataflow *df_live_add_problem (struct df *);
 extern struct df_live_bb_info *df_live_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_urec_add_problem (struct df *, int);
+extern struct dataflow *df_urec_add_problem (struct df *);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_chain_add_problem (struct df *, int);
-extern struct dataflow *df_ri_add_problem (struct df *, int);
+extern struct dataflow *df_chain_add_problem (struct df *);
+extern struct dataflow *df_ri_add_problem (struct df *);
 extern bitmap df_ri_get_setjmp_crosses (struct df *);
 
 /* Functions defined in df-scan.c.  */
 
 extern struct df_scan_bb_info *df_scan_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_scan_add_problem (struct df *, int);
+extern struct dataflow *df_scan_add_problem (struct df *);
 extern void df_rescan_blocks (struct df *, bitmap);
 extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
 extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
