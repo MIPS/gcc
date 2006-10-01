@@ -319,10 +319,12 @@ eliminate_local_variables_1 (tree *tp, int *walk_subtrees, void *data)
 
   if (TREE_CODE (t) == ADDR_EXPR)
     {
-      *walk_subtrees = 0;
-
       var = TREE_OPERAND (t, 0);
-      if (DECL_EXTERNAL (var))
+      if (!DECL_P (var))
+	return NULL_TREE;
+
+      *walk_subtrees = 0;
+      if (!SSA_VAR_P (var) || DECL_EXTERNAL (var))
 	return NULL_TREE;
 
       addr_type = TREE_TYPE (t);

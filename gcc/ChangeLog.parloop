@@ -1,3 +1,8 @@
+2006-10-01  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-parloops.c (eliminate_local_variables_1): Handle addresses of
+	non-decls correctly.
+
 2006-09-27  Zdenek Dvorak <dvorakz@suse.cz>
 
 	Branch created.  Initial commit.
