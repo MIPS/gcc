@@ -1030,40 +1030,44 @@ df_rd_bb_local_compute_process_def (struct dataflow *dflow,
 	  unsigned int begin = DF_REG_DEF_GET (df, regno)->begin;
 	  unsigned int n_defs = DF_REG_DEF_GET (df, regno)->n_refs;
 	  
-	  /* Only the last def(s) for a regno in the block has any
-	     effect.  */ 
-	  if (!bitmap_bit_p (seen_in_block, regno))
+	  if ((!(df->changeable_flags & DF_NO_HARD_REGS))
+	      || (regno >= FIRST_PSEUDO_REGISTER))
 	    {
-	      /* The first def for regno in insn gets to knock out the
-		 defs from other instructions.  */
-	      if ((!bitmap_bit_p (seen_in_insn, regno))
-		  /* If the def is to only part of the reg, it does
-		     not kill the other defs that reach here.  */
-		  && (!(DF_REF_FLAGS (def) & 
-			(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))))
+	      /* Only the last def(s) for a regno in the block has any
+		 effect.  */ 
+	      if (!bitmap_bit_p (seen_in_block, regno))
 		{
-		  if (n_defs > DF_SPARSE_THRESHOLD)
+		  /* The first def for regno in insn gets to knock out the
+		     defs from other instructions.  */
+		  if ((!bitmap_bit_p (seen_in_insn, regno))
+		      /* If the def is to only part of the reg, it does
+			 not kill the other defs that reach here.  */
+		      && (!(DF_REF_FLAGS (def) & 
+			    (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))))
 		    {
-		      bitmap_set_bit (bb_info->sparse_kill, regno);
-		      bitmap_clear_range(bb_info->gen, begin, n_defs);
+		      if (n_defs > DF_SPARSE_THRESHOLD)
+			{
+			  bitmap_set_bit (bb_info->sparse_kill, regno);
+			  bitmap_clear_range(bb_info->gen, begin, n_defs);
+			}
+		      else
+			{
+			  struct df_rd_problem_data * problem_data
+			    = (struct df_rd_problem_data *)dflow->problem_data;
+			  bitmap defs = df_ref_bitmap (problem_data->def_sites, 
+						       regno, begin, n_defs);
+			  bitmap_ior_into (bb_info->kill, defs);
+			  bitmap_and_compl_into (bb_info->gen, defs);
+			}
 		    }
-		  else
-		    {
-		      struct df_rd_problem_data * problem_data
-			= (struct df_rd_problem_data *)dflow->problem_data;
-		      bitmap defs = df_ref_bitmap (problem_data->def_sites, 
-						   regno, begin, n_defs);
-		      bitmap_ior_into (bb_info->kill, defs);
-		      bitmap_and_compl_into (bb_info->gen, defs);
-		    }
+		  
+		  bitmap_set_bit (seen_in_insn, regno);
+		  /* All defs for regno in the instruction may be put into
+		     the gen set.  */
+		  if (!(DF_REF_FLAGS (def) 
+			& (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
+		    bitmap_set_bit (bb_info->gen, DF_REF_ID (def));
 		}
-	      
-	      bitmap_set_bit (seen_in_insn, regno);
-	      /* All defs for regno in the instruction may be put into
-		 the gen set.  */
-	      if (!(DF_REF_FLAGS (def) 
-		     & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-		bitmap_set_bit (bb_info->gen, DF_REF_ID (def));
 	    }
 	}
       def = def->next_ref;
@@ -1083,8 +1087,12 @@ df_rd_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
   bitmap_clear (seen_in_block);
   bitmap_clear (seen_in_insn);
 
-  df_rd_bb_local_compute_process_def (dflow, bb_info, 
-				      df_get_artificial_defs (df, bb_index), 0);
+  /* Artificials are only hard regs.  */
+  if (!(df->changeable_flags & DF_NO_HARD_REGS))
+    df_rd_bb_local_compute_process_def (dflow, bb_info, 
+					df_get_artificial_defs (df, 
+								bb_index),
+					0);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
@@ -1109,9 +1117,11 @@ df_rd_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
   /* Process the artificial defs at the top of the block last since we
      are going backwards through the block and these are logically at
      the start.  */
-  df_rd_bb_local_compute_process_def (dflow, bb_info, 
-				      df_get_artificial_defs (df, bb_index),
-				      DF_REF_AT_TOP);
+  if (!(df->changeable_flags & DF_NO_HARD_REGS))
+    df_rd_bb_local_compute_process_def (dflow, bb_info, 
+					df_get_artificial_defs (df, 
+								bb_index),
+					DF_REF_AT_TOP);
 }
 
 
@@ -3233,28 +3243,33 @@ df_chain_create_bb_process_use (struct dataflow *dflow,
     {
       /* Do not want to go through this for an uninitialized var.  */
       unsigned int uregno = DF_REF_REGNO (use);
-      int count = DF_REG_DEF_GET (df, uregno)->n_refs;
-      if (count)
+      if ((!(df->changeable_flags & DF_NO_HARD_REGS))
+	  || (uregno >= FIRST_PSEUDO_REGISTER))
 	{
-	  if (top_flag == (DF_REF_FLAGS (use) & DF_REF_AT_TOP))
+	  int count = DF_REG_DEF_GET (df, uregno)->n_refs;
+	  if (count)
 	    {
-	      unsigned int first_index = DF_REG_DEF_GET (df, uregno)->begin;
-	      unsigned int last_index = first_index + count - 1;
-	      
-	      EXECUTE_IF_SET_IN_BITMAP (local_rd, first_index, def_index, bi)
+	      if (top_flag == (DF_REF_FLAGS (use) & DF_REF_AT_TOP))
 		{
-		  struct df_ref *def;
-		  if (def_index > last_index) 
-		    break;
+		  unsigned int first_index = DF_REG_DEF_GET (df, uregno)->begin;
+		  unsigned int last_index = first_index + count - 1;
 		  
-		  def = DF_DEFS_GET (df, def_index);
-		  if (df->permanent_flags & DF_DU_CHAIN)
-		    df_chain_create (dflow, def, use);
-		  if (df->permanent_flags & DF_UD_CHAIN)
-		    df_chain_create (dflow, use, def);
+		  EXECUTE_IF_SET_IN_BITMAP (local_rd, first_index, def_index, bi)
+		    {
+		      struct df_ref *def;
+		      if (def_index > last_index) 
+			break;
+		      
+		      def = DF_DEFS_GET (df, def_index);
+		      if (df->permanent_flags & DF_DU_CHAIN)
+			df_chain_create (dflow, def, use);
+		      if (df->permanent_flags & DF_UD_CHAIN)
+			df_chain_create (dflow, use, def);
+		    }
 		}
 	    }
 	}
+
       use = use->next_ref;
     }
 }
@@ -3284,9 +3299,13 @@ df_chain_create_bb (struct dataflow *dflow,
 #ifdef EH_USES
   /* Create the chains for the artificial uses from the EH_USES at the
      beginning of the block.  */
-  df_chain_create_bb_process_use (dflow, cpy,
-				  df_get_artificial_uses (df, bb->index), 
-				  DF_REF_AT_TOP);
+  
+  /* Artificials are only hard regs.  */
+  if (!(df->changeable_flags & DF_NO_HARD_REGS))
+    df_chain_create_bb_process_use (dflow, cpy,
+				    df_get_artificial_uses (df, 
+							    bb->index), 
+				    DF_REF_AT_TOP);
 #endif
 
   for (def = df_get_artificial_defs (df, bb_index); def; def = def->next_ref)
@@ -3320,20 +3339,27 @@ df_chain_create_bb (struct dataflow *dflow,
       for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
-	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	    bitmap_clear_range (cpy, 
-				DF_REG_DEF_GET (df, dregno)->begin, 
-				DF_REG_DEF_GET (df, dregno)->n_refs);
-	  if (!(DF_REF_FLAGS (def) 
-		 & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-	    bitmap_set_bit (cpy, DF_REF_ID (def));
+	  if ((!(df->changeable_flags & DF_NO_HARD_REGS))
+	      || (dregno >= FIRST_PSEUDO_REGISTER))
+	    {
+	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
+		bitmap_clear_range (cpy, 
+				    DF_REG_DEF_GET (df, dregno)->begin, 
+				    DF_REG_DEF_GET (df, dregno)->n_refs);
+	      if (!(DF_REF_FLAGS (def) 
+		    & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
+		bitmap_set_bit (cpy, DF_REF_ID (def));
+	    }
 	}
     }
 
   /* Create the chains for the artificial uses of the hard registers
      at the end of the block.  */
-  df_chain_create_bb_process_use (dflow, cpy,
-				  df_get_artificial_uses (df, bb->index), 0);
+  if (!(df->changeable_flags & DF_NO_HARD_REGS))
+    df_chain_create_bb_process_use (dflow, cpy,
+				    df_get_artificial_uses (df, 
+							    bb->index), 
+				    0);
 }
 
 /* Create def-use chains from reaching use bitmaps for basic blocks

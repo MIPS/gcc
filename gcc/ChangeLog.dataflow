@@ -1,3 +1,40 @@
+2006-10-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-scan.c (df_ref_record, df_insn_refs_record,
+	df_bb_refs_record, df_refs_record, df_record_entry_block_defs):
+	Removed DF_HARD_REGS flag.
+	* df-core.c (comments): Ditto.
+	* df.h (permanent_flags.DF_HARD_REFS): Removed.
+	(changeable_flags.DF_NO_HARD_REGS): Added.
+	* df-problems.c (df_rd_bb_local_compute_process_def,
+	df_rd_bb_local_compute, df_chain_create_bb_process_use,
+	df_chain_create_bb): Added support for DF_NO_HARD_REGS flag.
+	* dce.c (init_dce): Removed DF_HARD_REFS flag.
+	* reg_stack.c (reg_to_stack): Ditto.
+	* sched_rgn.c (sched_insns): Ditto.
+	* regrename.c (regrename_optimize): Ditto.
+	* sched_ebb.c (schedule_ebbs): Ditto.
+	* fwprop.c (fwprop_init): Ditto.
+	* see.c (see_initialize_data_structures): Ditto.
+	* auto_inc_dec.c (rest_of_handle_auto_inc_dec): Ditto.
+	* mode-switching.c (optimize_mode_switching): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* ifcvt.c (if_convert): Ditto.
+	* recog.c (peephole2_optimize): Ditto.
+	* regmove.c (regmove_optimize, rest_of_handle_stack_adjustments):
+	Ditto.
+	* local_alloc.c (rest_of_handle_local_alloc): Ditto.
+	* function.c (thread_prologue_and_epilogue_insns): Ditto.
+	* rtl_factoring.c (rtl_sequabstr): Ditto.
+	* bt_load.c (branch_target_load_optimize): Ditto.
+	* loop_invariant.c (move_loop_invariants): Ditto.
+	* subregs-init.c (initialize_uninitialized_subregs): Ditto.
+	* loop-iv.c (iv_analysis_loop_init): Ditto.
+	* combine.c (rest_of_handle_combine): Ditto.
+	* web.c (web_main): Added DF_NO_HARD_REGS flag and changed loops
+	to skip over hard regs.
+	* reorg.c (dbr_schedule): Removed extra flags from
+	df_*_add_problems calls.
+	
 2006-09-30  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-scan.c (problem_SCAN): Removed flags.
 	(df_scan_add_problem): Ditto.

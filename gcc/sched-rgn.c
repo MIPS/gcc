@@ -2911,7 +2911,7 @@ schedule_insns (void)
      invoked via sched_init.  */
   current_sched_info = &region_sched_info;
 
-  df = df_init (DF_HARD_REGS + DF_EQUIV_NOTES + DF_SUBREGS + DF_RI_LIFE, 
+  df = df_init (DF_EQUIV_NOTES + DF_SUBREGS + DF_RI_LIFE, 
 		DF_LR_RUN_DCE);
   df_lr_add_problem (df);
   df_live_add_problem (df);

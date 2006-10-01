@@ -3852,7 +3852,7 @@ if_convert (void)
   basic_block bb;
   int pass;
   bitmap modified = BITMAP_ALLOC (NULL);
-  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  struct df * df = df_init (0, DF_LR_RUN_DCE);
   df_lr_add_problem (df);
   df_live_add_problem (df);
 

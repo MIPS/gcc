@@ -193,7 +193,7 @@ regrename_optimize (void)
   int this_tick = 0;
   basic_block bb;
   char *first_obj;
-  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  struct df * df = df_init (0, DF_LR_RUN_DCE);
   df_lr_add_problem (df);
   df_live_add_problem (df);
   df_ri_add_problem (df);

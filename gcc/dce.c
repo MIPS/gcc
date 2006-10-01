@@ -191,13 +191,13 @@ init_dce (bool fast)
     {
       if (fast)
 	{
-	  dce_df = df_init (DF_HARD_REGS, 0);
+	  dce_df = df_init (0, 0);
 	  df_lr_add_problem (dce_df);
 	  df_analyze (dce_df);
 	}
       else
 	{
-	  dce_df = df_init (DF_HARD_REGS + DF_UD_CHAIN, 0);
+	  dce_df = df_init (DF_UD_CHAIN, 0);
 	  df_chain_add_problem (dce_df);
 	  df_analyze (dce_df);
 	}

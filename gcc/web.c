@@ -253,7 +253,7 @@ web_main (void)
   int max = max_reg_num ();
   char *used;
 
-  df = df_init (DF_EQUIV_NOTES + DF_UD_CHAIN, 0);
+  df = df_init (DF_EQUIV_NOTES + DF_UD_CHAIN, DF_NO_HARD_REGS);
   df_chain_add_problem (df);
   df_analyze (df);
   df_reorganize_refs (&df->def_info);
@@ -265,16 +265,26 @@ web_main (void)
 
   /* Produce the web.  */
   for (i = 0; i < DF_USES_SIZE (df); i++)
-    union_defs (df, DF_USES_GET (df, i), def_entry, use_entry, unionfind_union);
+    {
+      struct df_ref *use = DF_USES_GET (df, i);
+      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+	union_defs (df, use, def_entry, use_entry, unionfind_union);
+    }
 
   /* Update the instruction stream, allocating new registers for split pseudos
      in progress.  */
   for (i = 0; i < DF_USES_SIZE (df); i++)
-    replace_ref (DF_USES_GET (df, i), 
-		 entry_register (use_entry + i, DF_USES_GET (df, i), used));
+    {
+      struct df_ref *use = DF_USES_GET (df, i);
+      if (DF_REF_REGNO (use) >= FIRST_PSEUDO_REGISTER)
+	replace_ref (use, entry_register (use_entry + i, use, used));
+    }
   for (i = 0; i < DF_DEFS_SIZE (df); i++)
-    replace_ref (DF_DEFS_GET (df, i), 
-		 entry_register (def_entry + i, DF_DEFS_GET (df, i), used));
+    {
+      struct df_ref *def = DF_DEFS_GET (df, i);
+      if (DF_REF_REGNO (def) >= FIRST_PSEUDO_REGISTER)
+	replace_ref (def, entry_register (def_entry + i, def, used));
+    }
 
   /* Dataflow information is corrupt here, but it can be easily updated
      by creating new entries for new registers and updates or calling

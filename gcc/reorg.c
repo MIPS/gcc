@@ -3538,9 +3538,9 @@ dbr_schedule (rtx first)
 {
   rtx insn, next, epilogue_insn = 0;
   int i;
-  struct df *df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  struct df *df = df_init (0, 0);
+  df_live_add_problem (df);
+  df_ri_add_problem (df);
   df_analyze (df);
 
   /* If the current function has no insns other than the prologue and

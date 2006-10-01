@@ -5093,7 +5093,7 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  prologue_epilogue_df = df_init (DF_HARD_REGS, 0);
+  prologue_epilogue_df = df_init (0, 0);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and

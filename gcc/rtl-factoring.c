@@ -1360,7 +1360,7 @@ static void
 rtl_seqabstr (void)
 {
   int iter;
-  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  struct df * df = df_init (0, DF_LR_RUN_DCE);
   df_lr_add_problem (df);
   df_live_add_problem (df);
   df_analyze (df);

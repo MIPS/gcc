@@ -66,9 +66,6 @@ and frees up any allocated memory.
 There are three flags that can be passed to df_init, each of these
 flags controls the scanning of the rtl:
 
-DF_HARD_REGS means that the scanning is to build information about
-both pseudo registers and hardware registers.  Without this
-information, the problems will be solved only on pseudo registers.
 DF_EQUIV_NOTES marks the uses present in EQUIV/EQUAL notes.
 DF_SUBREGS return subregs rather than the inner reg.
 
@@ -208,9 +205,7 @@ There are 4 ways to obtain access to refs:
 
    ARTIFICIAL refs are associated with basic blocks.  The heads of
    these lists can be accessed by calling get_artificial_defs or
-   get_artificial_uses for the particular basic block.  Artificial
-   defs and uses are only there if DF_HARD_REGS was specified when the
-   df instance was created.
+   get_artificial_uses for the particular basic block.  
  
    Artificial defs and uses occur both at the beginning and ends of blocks.
 

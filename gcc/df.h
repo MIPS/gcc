@@ -337,22 +337,22 @@ struct df_ref_info
 enum df_permanent_flags 
 {
   /* Scanning flags.  */
-  DF_HARD_REGS     =  1, /* Mark hard registers.  */
-  DF_EQUIV_NOTES   =  2, /* Mark uses present in EQUIV/EQUAL notes.  */
-  DF_SUBREGS       =  4, /* Return subregs rather than the inner reg.  */
+  DF_EQUIV_NOTES   =  1, /* Mark uses present in EQUIV/EQUAL notes.  */
+  DF_SUBREGS       =  2, /* Return subregs rather than the inner reg.  */
   /* Flags that control the building of chains.  */
-  DF_DU_CHAIN      =  8, /* Build DU chains.  */  
-  DF_UD_CHAIN      = 16, /* Build UD chains.  */
+  DF_DU_CHAIN      =  4, /* Build DU chains.  */  
+  DF_UD_CHAIN      =  8, /* Build UD chains.  */
   /* Flag to control the building of register info.  */
-  DF_RI_LIFE       = 32, /* Build register info.  */
-  DF_RI_SETJMP     = 64  /* Build pseudos that cross setjmp info.  */
+  DF_RI_LIFE       = 16, /* Build register info.  */
+  DF_RI_SETJMP     = 32  /* Build pseudos that cross setjmp info.  */
 };
 
 enum df_changeable_flags 
 {
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
-  DF_LR_RUN_DCE    = 1   /* Run DCE.  */
+  DF_LR_RUN_DCE    = 1,  /* Run DCE.  */
+  DF_NO_HARD_REGS  = 2   /* Skip hard registers in RD and CHAIN Building.  */
 };
 
 

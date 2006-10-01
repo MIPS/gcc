@@ -2881,7 +2881,7 @@ peephole2_optimize (void)
   basic_block bb;
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
-  struct df * df = df_init (DF_HARD_REGS, DF_LR_RUN_DCE);
+  struct df * df = df_init (0, DF_LR_RUN_DCE);
   struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
   df_lr_add_problem (df);

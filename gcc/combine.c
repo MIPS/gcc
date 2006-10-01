@@ -12915,7 +12915,7 @@ rest_of_handle_combine (void)
 {
   int rebuild_jump_labels_after_combine;
 
-  df = df_init (DF_HARD_REGS + DF_RI_LIFE, DF_LR_RUN_DCE);
+  df = df_init (DF_RI_LIFE, DF_LR_RUN_DCE);
   df_lr_add_problem (df);
   df_live_add_problem (df);
   df_ri_add_problem (df);

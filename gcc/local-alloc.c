@@ -2489,7 +2489,7 @@ rest_of_handle_local_alloc (void)
   int rebuild_notes;
 
   /* Create a new version of df that has the special version of UR.  */
-  ra_df = df_init (DF_HARD_REGS + DF_RI_LIFE + DF_RI_SETJMP, 0);
+  ra_df = df_init (DF_RI_LIFE + DF_RI_SETJMP, 0);
   df_lr_add_problem (ra_df);
   df_urec_add_problem (ra_df);
   df_ri_add_problem (ra_df);
