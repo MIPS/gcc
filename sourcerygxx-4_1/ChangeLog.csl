@@ -1,3 +1,9 @@
+2006-10-02  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/lib/libstdc++.exp (check_v3_target_fileio): Correct
+	test program and name of output variable.
+
 2006-09-29  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/

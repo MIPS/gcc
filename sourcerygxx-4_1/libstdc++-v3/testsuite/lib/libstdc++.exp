@@ -465,6 +465,7 @@ proc check_v3_target_fileio { } {
 	puts $f "#include <sys/types.h>"
 	puts $f "#include <sys/stat.h>"
 	puts $f "#include <fcntl.h>"
+	puts $f "#include <unistd.h>"
 	puts $f "#include <errno.h>"
 	puts $f "using namespace std;"	
 	puts $f "int main ()"
@@ -472,7 +473,7 @@ proc check_v3_target_fileio { } {
 	puts $f "  int fd  = open (\".\", O_RDONLY);"
 	puts $f "  if (fd == -1)"
 	puts $f "  {"
-	puts $f "    int err = errno ();"
+	puts $f "    int err = errno;"
 	puts $f "    if (err == EIO || err == ENOSYS)"
 	puts $f "      return 1;"
 	puts $f "  }"
@@ -494,7 +495,7 @@ proc check_v3_target_fileio { } {
 	    verbose "check_v3_target_fileio: status is <$status>" 2
 
 	    if { $status == "pass" } {
-		set et_filio_saved 1
+		set et_fileio_saved 1
 	    }
 	} else {
 	    verbose "check_v3_target_fileio: compilation failed" 2
