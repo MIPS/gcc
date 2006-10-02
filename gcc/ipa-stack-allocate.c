@@ -197,6 +197,7 @@ static bool
 is_assignment_from_array (tree stmt)
 {
   return TREE_CODE (stmt) == MODIFY_EXPR
+    && is_pointer_type (stmt)
     && TREE_CODE (RHS (stmt)) == ARRAY_REF;
 }
 
@@ -204,6 +205,7 @@ static bool
 is_assignment_from_vtable (tree stmt)
 {
   return TREE_CODE (stmt) == MODIFY_EXPR
+    && is_pointer_type (stmt)
     && TREE_CODE (RHS (stmt)) == COMPONENT_REF
     && TREE_CODE (RHS (RHS (stmt))) == FIELD_DECL
     && strcmp ("vtable", IDENTIFIER_POINTER (DECL_NAME (
@@ -958,6 +960,7 @@ update_connection_graph_from_assignment_from_array (con_graph cg, tree stmt)
   con_node p;
   con_node q;
 
+  gcc_assert (is_pointer_type (stmt));
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
   gcc_assert (is_suitable_decl (LHS (stmt)));
   gcc_assert (TREE_CODE (RHS (stmt)) == ARRAY_REF);
@@ -1168,13 +1171,13 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
    * there are no points to nodes, but in reality, there can be both at
    * the same time.  */
   u = get_points_to (p);
-  terminal = get_terminal_nodes (q);
+  terminal = get_terminal_nodes (p);
 
   /* this is a lonely node */
   if (terminal == NULL && u == NULL)
     {
-      gcc_assert (q->out == NULL);
-      terminal = q;
+      gcc_assert (p->out == NULL);
+      terminal = p;
     }
 
   /* get the phantom node ready, if needed */
@@ -1537,11 +1540,12 @@ replace_array_with_alloca (con_node node)
   tree new_jv_func_call_stmt;
 
   tree stmt, call_expr, addr_expr, func_decl, lhs, parms, klass;
-  tree alloca_func, args, parm1;
+  tree alloca_func, args;
+  tree cast_int_stmt, cast_int_obj, nop_expr, cast_size_stmt, convert_expr, required_int;
 
-  tree object_pointer_pointer_type_node, obj, size_obj, indirect_ref, array_object_pointer_type_node, data_field;
-  tree array_type, component_ref, array_ref, int0, int1, int2, rhs, object_pointer_type_node;
-  tree elements_stmt, nop_expr, cast_stmt, minused, minus_stmt, four;
+  tree array_type, array_ptr_type, array_element_type, obj, size_obj, indirect_ref, data_field;
+  tree component_ref, array_ref, int0, int1, int2, rhs;
+  tree elements_stmt, minused, minus_stmt, four;
   tree mult_expr, total_size, plus_expr, total_stmt, cast_size_obj, count_size, mult_stmt, minus_expr;
 
   block_stmt_iterator bsi;
@@ -1574,63 +1578,73 @@ replace_array_with_alloca (con_node node)
 
 
   /* jobjectArray obj = NULL; */
-  object_pointer_pointer_type_node = build_pointer_type (object_pointer_type_node);
-  obj = create_tmp_var (object_pointer_pointer_type_node, "D");
-  DECL_ARTIFICIAL (parm1) = 1;
+  array_type = TREE_TYPE (lhs);/* type of the array */
+  array_element_type = TREE_TYPE (array_type);/* type of array elements */
+  array_type = build_array_type (array_element_type, one_elt_array_domain_type);
+  array_ptr_type = build_pointer_type (array_element_type);
+  obj = create_tmp_var (TREE_TYPE (lhs), "D");
+  DECL_ARTIFICIAL (obj) = 1;
 
-  /* size_t size = (size_t) elements (obj) */
-  /*   size_t size = &obj->data[0] */
-  size_obj = create_tmp_var (object_pointer_pointer_type_node, "D");
-  DECL_ARTIFICIAL (parm1) = 1;
+  /* size_t size = (size_t)obj->data) */
+  size_obj = create_tmp_var (array_ptr_type, "D");
+  DECL_ARTIFICIAL (size_obj) = 1;
 
-  /* indirect ref */
-  indirect_ref = build1 (INDIRECT_REF, build_pointer_type (array_object_pointer_type_node), obj);
-
-  /* field decl */
-  data_field = lookup_field (&array_type, get_identifier ("data"));
-
-  /* make the component ref */
-  array_object_pointer_type_node = build_array_type (object_ptr_type_node, one_elt_array_domain_type);
-  component_ref = build2 (COMPONENT_REF, array_object_pointer_type_node, indirect_ref, data_field);
+  indirect_ref = build1 (INDIRECT_REF, array_element_type, obj);
+  data_field = lookup_field (&array_element_type, get_identifier ("data"));
+  component_ref = build3 (COMPONENT_REF, array_type, indirect_ref, data_field, NULL_TREE);
 
   /* make the array ref */
-  array_ref = build1 (ARRAY_REF, object_pointer_type_node, component_ref);
-
-  /* make the rhs */
   int0 = build_int_cst (NULL_TREE, 0);
   int1 = build_int_cst (NULL_TREE, 0);
   int2 = build_int_cst (NULL_TREE, 1);
-  rhs = build4 (ADDR_EXPR, object_pointer_pointer_type_node, array_ref,
-		int0, int1, int2);
+  array_ref = build4 (ARRAY_REF, array_element_type, component_ref, int0, int1, int2);
 
-  /* combine */
-  elements_stmt = build2 (MODIFY_EXPR, object_pointer_pointer_type_node,
-			  size_obj, rhs);
+  rhs = build1 (ADDR_EXPR, array_ptr_type, array_ref);
+  elements_stmt = build2 (MODIFY_EXPR, array_ptr_type, size_obj, rhs);
 
-  /* cast_size = (size_t) size; */
-  nop_expr = build1 (NOP_EXPR, size_type_node, size_obj);
+  /* int_size = (int) size; */
+  cast_int_obj = create_tmp_var (int_type_node, "D");
+  DECL_ARTIFICIAL (cast_int_obj) = 1;
+  convert_expr = build1 (CONVERT_EXPR, int_type_node, size_obj);
+  cast_int_stmt = build2 (MODIFY_EXPR, int_type_node, cast_int_obj,
+		      convert_expr);
+
+  /* cast_size = (size_t) int_size; */
+  /* a size_type_node ~= size_t */
   cast_size_obj = create_tmp_var (size_type_node, "D");
-  cast_stmt = build2 (MODIFY_EXPR, size_type_node, cast_size_obj,
-		      nop_expr);
+  DECL_ARTIFICIAL (cast_size_obj) = 1;
+  nop_expr = build1 (NOP_EXPR, size_type_node, cast_int_obj);
+  cast_size_stmt = build2 (MODIFY_EXPR, size_type_node, cast_size_obj,
+			   nop_expr);
 
 
   /* minused = 2147483646 - cast_size */ 
-  minused = create_tmp_var (size_type_node, "D");
-  minus_expr = build2 (MINUS_EXPR, size_type_node, decimal_int_max, cast_size_obj);
-  minus_stmt = build2 (MODIFY_EXPR, size_type_node, minused, minus_expr);
-  
+  minused = create_tmp_var (unsigned_int_type_node, "D");
+  DECL_ARTIFICIAL (minused) = 1;
+  required_int = build_int_cstu (unsigned_int_type_node, 2147483646);
+  minus_expr = build2 (MINUS_EXPR, unsigned_int_type_node, required_int,
+		       cast_size_obj);
+  minus_stmt = build2 (MODIFY_EXPR, unsigned_int_type_node, minused,
+		       minus_expr);
+
 
   /* count_size = count * sizeof (jobject) */
-  count_size = create_tmp_var (size_type_node, "D");
+  count_size = create_tmp_var (unsigned_int_type_node, "D");
+  DECL_ARTIFICIAL (count_size) = 1;
   four = build_int_cst (NULL_TREE, 4);
   /* TODO find real size - where does 4 come from */
-  mult_expr = build2 (MULT_EXPR, size_type_node, cast_size_obj, four);
-  mult_stmt = build2 (MODIFY_EXPR, size_type_node, count_size, mult_expr);
+  mult_expr = build2 (MULT_EXPR, unsigned_int_type_node, cast_size_obj,
+		      four);
+  mult_stmt = build2 (MODIFY_EXPR, unsigned_int_type_node, count_size,
+		      mult_expr);
 
   /* size += count_size */
   total_size = create_tmp_var (size_type_node, "D");
-  plus_expr = build2 (PLUS_EXPR, size_type_node, count_size, minused);
-  total_stmt = build2 (MODIFY_EXPR, size_type_node, total_size, plus_expr);
+  DECL_ARTIFICIAL (total_size) = 1;
+  plus_expr = build2 (PLUS_EXPR, unsigned_int_type_node, count_size,
+		      minused);
+  total_stmt = build2 (MODIFY_EXPR, size_type_node, total_size,
+		       plus_expr);
 
   /* allocate the memory */
   args = tree_cons (NULL_TREE, total_size, NULL_TREE);
@@ -1652,7 +1666,8 @@ replace_array_with_alloca (con_node node)
 
   /* put the statements in place */
   bsi_insert_before (&bsi, elements_stmt, BSI_SAME_STMT);
-  bsi_insert_before (&bsi, cast_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, cast_int_stmt, BSI_SAME_STMT); 
+  bsi_insert_before (&bsi, cast_size_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, minus_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, mult_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, total_stmt, BSI_SAME_STMT); 
@@ -1969,14 +1984,8 @@ execute_ipa_stack_allocate (void)
 
 	  /* make it cyclic */
 	  if (first_cg == NULL)
-	    {
 	      first_cg = cg;
-	      first_cg->next = cg;
-	    }
-	  else
-	    {
-	      first_cg->next = cg;
-	    }
+	  first_cg->next = cg;
 
 #ifdef UNHIDE_IT
 	  process_function (cg, current_function_decl);

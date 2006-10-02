@@ -1,3 +1,15 @@
+2006-10-02	Paul Biggar	<paul.biggar@gmail.com>
+	* ipa-stack-allocate.c (is_assignment_from_array)
+	(update_connection_graph_from_assignment_from_array)
+	(is_assignment_from_vtable): Check for pointer type
+	(update_connection_graph_from_assignment_to_field): Get terminal nodes
+	from p, not q.
+	(replace_array_with_alloca): Make code generation for alloca arrays work.
+	(execute_ipa_stack_allocate): Simplify cyclic list creation.
+	* congraph.c (inline_constructor_graph): Move assert to immediately after
+	variable definition.
+
+
 2006-09-25	Paul Biggar	<paul.biggar@gmail.com>
 	* tree-pretty-print.c (dump_escape_function): Print declarations
 	* ipa-stack-allocate.c (allocators): Changed type. Moved declaration

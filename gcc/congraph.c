@@ -1082,11 +1082,12 @@ inline_constructor_graph (con_graph cg,
       con_edge edge;
       for (edge = node->out; edge; edge = edge->next_out)
 	{
-	  con_node source =
-	    get_matching_node_in_caller (cg, edge->source, call_id);
-	  con_node target =
-	    get_matching_node_in_caller (cg, edge->target, call_id);
+	  con_node source, target;
+	  source = get_matching_node_in_caller (cg, edge->source,
+						call_id);
 	  gcc_assert (source);
+	  target = get_matching_node_in_caller (cg, edge->target,
+						call_id);
 	  gcc_assert (target);
 	  if (edge->target->type == CALLEE_ACTUAL_NODE)
 	    {
