@@ -1,3 +1,22 @@
+2006-10-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_check_HOST_WIDE_INT_val): New.
+	(lto_read_form): Make it know about DW_AT_bit_offset, DW_AT_bit_size,
+	DW_AT_data_member_location, DW_AT_specification.
+	(struct lto_die_cache_entry): Add sibling field.
+	(lto_cache_store_DIE): Set sibling field.
+	(lto_cache_lookup_DIE): Add SKIP argument; if true, skip to stored
+	sibling pointer when a cache hit is found.
+	(lto_read_referenced_type_DIE): Save/restore context->parentdata
+	while reading the DIE.  Add FIXME note about potential bugs.
+	(lto_read_structure_union_class_type_DIE): New.
+	(lto_read_member_DIE): New.
+	(lto_read_pointer_reference_type_DIE): Treat missing type attribute
+	as void instead of error, for compatibility with dwarf2out.c behavior.
+	(lto_read_const_volatile_restrict_type_DIE): Likewise.
+	(lto_read_DIE): Add entries for new DIE readers to lookup table.
+	Don't read children of an already-processed DIE a second time.
+
 2006-09-21  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_read_typedef_DIE): New.

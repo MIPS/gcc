@@ -321,6 +321,7 @@ lto_abi_mismatch_error (void)
    C datatypes.  */
 LTO_CHECK_INT_VAL(size_t);
 LTO_CHECK_INT_VAL(int);
+LTO_CHECK_INT_VAL(HOST_WIDE_INT);
 
 #undef LTO_CHECK_INT_VAL
 
@@ -701,8 +702,8 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_constant, /* ordering */
     DW_cl_error, /* subscr_data */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* byte_size */
-    DW_cl_error, /* bit_offset */
-    DW_cl_error, /* bit_size */
+    DW_cl_constant, /* bit_offset */
+    DW_cl_constant, /* bit_size */
     DW_cl_error, /* padding */
     DW_cl_error, /* element_list */
     DW_cl_lineptr, /* stmt_list */
@@ -745,7 +746,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* base_types */
     DW_cl_error, /* calling_convention */
     DW_cl_block | DW_cl_constant | DW_cl_reference, /* count */
-    DW_cl_error, /* data_member_location */
+    DW_cl_block | DW_cl_constant, /* data_member_location */
     DW_cl_error, /* decl_column */
     DW_cl_constant, /* decl_file */
     DW_cl_constant, /* decl_line */
@@ -760,7 +761,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_error, /* namelist_items */
     DW_cl_error, /* priority */
     DW_cl_error, /* segment */
-    DW_cl_error, /* specification */
+    DW_cl_reference, /* specification */
     DW_cl_error, /* static_link */
     DW_cl_reference, /* type */
     DW_cl_error, /* use_location */
@@ -1129,6 +1130,8 @@ typedef struct lto_die_cache_entry {
   const char *die;
   /* The tree corresponding to this DIE.  */
   tree val;
+  /* The address of the next sibling after the DIE.  */
+  const char *sibling;
 } lto_die_cache_entry;
 
 static hashval_t
@@ -1167,19 +1170,29 @@ lto_cache_store_DIE (lto_info_fd *fd,
   entry = XNEW (lto_die_cache_entry);
   entry->die = die;
   entry->val = val;
+  entry->sibling = fd->base.cur;
   *slot = entry;
 }
 
-/* If FD points to a DIE that has already been processed, returned the
-   cached value.  */
+/* If FD points to a DIE that has already been processed, return the
+   cached value.  If SKIP is true and the DIE has already been processed,
+   adjust FD to skip over the DIE and its children and point to its next
+   sibling.  */
 static tree
-lto_cache_lookup_DIE (lto_info_fd *fd, const char *die)
+lto_cache_lookup_DIE (lto_info_fd *fd, const char *die, bool skip)
 {
   lto_die_cache_entry *entry;
 
   entry = htab_find_with_hash (fd->die_cache, die, 
 			       htab_hash_pointer (die));
-  return entry ? entry->val : NULL_TREE;
+  if (entry)
+    {
+      if (skip)
+	fd->base.cur = entry->sibling;
+      return entry->val;
+    }
+  else
+    return NULL_TREE;
 }  
 
 
@@ -1362,13 +1375,18 @@ lto_get_identifier (const DWARF2_form_data *data)
 
 /* Read a type DIE (located at REFERENCE) from FD.  CONTEXT is the
    current context within the compilation unit.  Returns the _TYPE
-   node corresponding to the DIE.  */
+   node corresponding to the DIE.
+   FIXME: Skipping around in the DWARF tree is potentially buggy if
+   there are references to types thare arbitrarily nested children of
+   other DIEs, because this will attempt to read those children without
+   the context parentdata that would otherwise be set up by their parents.
+   Current uses of parentdata for parsing DW_TAG_ENUMERATOR and
+   DW_TAG_MEMBER ought to be OK since those are not types.  */
 static tree
 lto_read_referenced_type_DIE (lto_info_fd *fd,
 			      lto_context *context,
 			      const char *reference)
 {
-  const char *saved_cur;
   tree type;
 
   /* Check that the reference is in range.  We use an assert, rather
@@ -1376,16 +1394,21 @@ lto_read_referenced_type_DIE (lto_info_fd *fd,
      checked for validity when it is read from the file.  */
   gcc_assert (reference >= context->cu_start
 	      && reference < context->cu_end);
-  type = lto_cache_lookup_DIE (fd, reference);
+  type = lto_cache_lookup_DIE (fd, reference, false);
   if (!type)
     {
+      const char *saved_cur = fd->base.cur;
+      tree parentdata = context->parentdata; 
+
       /* Move the file pointer to the referenced location.  */
-      saved_cur = fd->base.cur;
       fd->base.cur = reference;
+      /* Reset parent data in context.  */
+      context->parentdata = NULL_TREE;
       /* Read the DIE, which we insist must be a type.  */
       type = lto_read_DIE (fd, context, NULL);
-      /* Restore the file pointer.  */
+      /* Restore the file pointer and parentdata.  */
       fd->base.cur = saved_cur;
+      context->parentdata = parentdata;
     }
   /* The DIE read should have been a type.  */
   if (!type || !TYPE_P (type))
@@ -1526,6 +1549,203 @@ lto_read_array_type_DIE (lto_info_fd *fd,
       type = build_array_type (type, dim);
     }
   VEC_free (tree, heap, dims);
+  return type;
+}
+
+
+static tree
+lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
+					 const DWARF2_abbrev *abbrev,
+					 lto_context *context)
+{
+  tree type = NULL_TREE;
+  bool declaration = false;
+  tree name = NULL_TREE;
+  int size = 0;
+  unsigned int align = 0;
+  tree parentdata;
+  VEC(tree,heap) *children;
+  int i, n;
+  tree *fields_tail;
+  tree *methods_tail;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
+    case DW_AT_byte_size:
+      if (attr_data.cl == DW_cl_uconstant || attr_data.cl == DW_cl_sconstant)
+	size = attribute_value_as_int (&attr_data);
+      else
+	sorry ("can't handle dynamically-sized struct/union/class types");
+      break;
+
+    case DW_AT_declaration:
+      declaration = attr_data.u.flag;
+      break;
+
+    case DW_AT_specification:
+      type = lto_read_referenced_type_DIE (fd, context, attr_data.u.reference);
+      if (TREE_CODE (type) != RECORD_TYPE
+	  && TREE_CODE (type) != UNION_TYPE
+	  && TREE_CODE (type) != QUAL_UNION_TYPE)
+	lto_file_corrupt_error ((lto_fd *) fd);
+      break;
+
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* Create the type, if this isn't a definition of a previously
+     forward-declared type.  */
+  if (!type)
+    {
+      switch (abbrev->tag)
+	{
+	case DW_TAG_structure_type:
+	case DW_TAG_class_type:
+	  type = make_node (RECORD_TYPE);
+	  break;
+
+	case DW_TAG_union_type:
+	  type = make_node (UNION_TYPE);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+      switch (context->language)
+	{
+	case DW_LANG_C_plus_plus:
+	  /* In C++, the name slot gets a TYPE_DECL.  */
+	  if (name)
+	    {
+	      tree decl = build_decl (TYPE_DECL, name, type);
+	      TYPE_NAME (type) = decl;
+	      TYPE_STUB_DECL (type) = decl;
+	    }
+	  else
+	    TYPE_STUB_DECL (type) = build_decl (TYPE_DECL, NULL_TREE, type);
+	  break;
+
+	case DW_LANG_C:
+	case DW_LANG_C89:
+	case DW_LANG_C99:
+	default:
+	  /* In C, the name slot gets the identifier which represents the
+	     only the struct/union tag name, not a type name.  TYPE_STUB_DECL
+	     contains an anonymous decl to be used when emitting debug info. */
+	  if (name)
+	    TYPE_NAME (type) = name;
+	  TYPE_STUB_DECL (type) = build_decl (TYPE_DECL, NULL_TREE, type);
+	  break;
+	}
+    }
+  if (size)
+    {
+      TYPE_SIZE (type) = bitsize_int (size * BITS_PER_UNIT);
+      TYPE_SIZE_UNIT (type) = size_int (size);
+    }
+
+  /* Process the members.  */
+  parentdata = context->parentdata;
+  context->parentdata = type;
+  children = lto_collect_child_DIEs (fd, abbrev, context);
+  context->parentdata = parentdata;
+
+  n = VEC_length (tree, children);
+  fields_tail = &TYPE_FIELDS (type);
+  methods_tail = &TYPE_METHODS (type);
+  for (i = 0; i < n; i++)
+    {
+      tree child = VEC_index (tree, children, i);
+
+      if (!child)
+	continue;
+
+      switch (TREE_CODE (child))
+	{
+	case FIELD_DECL:
+	  /* Field declarations.  */
+	  *fields_tail = child;
+	  fields_tail = &TREE_CHAIN (child);
+	  /* FIXME:  This is kind of nasty.  DWARF doesn't encode the overall
+	     alignment of the struct/union type, so we'll take a stab at
+	     recomputing it and hope it comes out the same as for the
+	     original type.  A better solution would be to extend DWARF to
+	     add an additional attribute for the alignment of the record
+	     type.  */
+	  if (DECL_ALIGN (child) > align)
+	    align = DECL_ALIGN (child);
+	  /* FIXME: mess with propagating mutable/volatile/etc attributes
+	     back to parent struct type.  */
+	  if (TREE_READONLY (child) || TREE_THIS_VOLATILE (child))
+	    sorry ("Don't know what to do with readonly or volatile fields");
+	  break;
+	  
+	case VAR_DECL:
+	  /* Static variables in a class.  */
+	  *fields_tail = child;
+	  fields_tail = &TREE_CHAIN (child);
+	  break;
+
+	case FUNCTION_DECL:
+	  /* Member functions of a class.
+	     FIXME: Extend the DW_TAG_subprogram reader to recognize
+	     additional attributes for member functions.  */
+	  *methods_tail = child;
+	  methods_tail = &TREE_CHAIN (child);
+	  break;
+
+	  /* FIXME: Add support for DW_TAG_access_declaration,
+	     DW_TAG_inheritance,  DW_TAG_friend, and DW_TAG_variant_part
+	     which can appear as children of a class/struct type.  */
+
+	default:
+	  if (TYPE_P (child))
+	    /* Types declared locally within the scope of a class.  */
+	    {
+	      tree name = TYPE_NAME (child);
+	      if (name && (TREE_CODE (name) == TYPE_DECL))
+		{
+		  *fields_tail = name;
+		  fields_tail = &TREE_CHAIN (name);
+		}
+	      if (TREE_CODE (child) == ENUMERAL_TYPE)
+		{
+		/* Add enumerators to TYPE_FIELDS, too.  */
+		  tree pair;
+		  for (pair = TYPE_VALUES (child); pair;
+		       pair = TREE_CHAIN (pair))
+		    {
+		      tree decl = build_decl (CONST_DECL, TREE_PURPOSE (pair),
+					      TREE_VALUE (pair));
+		      *fields_tail = decl;
+		      fields_tail = &TREE_CHAIN (decl);
+		    }
+		}
+	    }
+	}
+    }
+  VEC_free (tree, heap, children);
+
+  /* The type mode isn't encoded in the DWARF spec, either, so just recompute
+     it from scratch.  */
+  compute_record_mode (type);
+  if (GET_MODE_ALIGNMENT (TYPE_MODE (type)) > align)
+    align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
+  TYPE_ALIGN (type) = align;
+
+  /* Finish debugging output for this type.  */
+  if (!declaration)
+    rest_of_type_compilation (type, /*top_level=*/1);
   return type;
 }
 
@@ -1763,6 +1983,208 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     rest_of_decl_compilation (decl,
 			      /*top_level=*/1,
 			      /*at_end=*/0);
+
+  lto_read_child_DIEs (fd, abbrev, context);
+  return decl;
+}
+
+
+static tree
+lto_read_member_DIE (lto_info_fd *fd,
+		     const DWARF2_abbrev *abbrev,
+		     lto_context *context)
+{
+  tree name = NULL_TREE;
+  tree type = NULL_TREE;
+  tree byte_offset = NULL_TREE;
+  tree bit_offset = NULL_TREE;
+  tree bit_size = NULL_TREE;
+  tree byte_size = NULL_TREE;
+  bool bit_field_p = false;
+  tree decl;
+  int code;
+  tree bitpos;
+  unsigned int bitpos_align;
+
+  /* The DWARF spec implies that data member entries can appear outside of a
+     structure, union, or class, but doesn't say what that might mean.  */
+  code = context->parentdata ? TREE_CODE (context->parentdata) : ERROR_MARK;
+  if (code != RECORD_TYPE
+      && code != UNION_TYPE
+      && code != QUAL_UNION_TYPE)
+    sorry ("member declaration not inside structure, class, or union");
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_decl_column:
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
+    case DW_AT_type:
+      type = lto_read_referenced_type_DIE (fd, 
+					   context, 
+					   attr_data.u.reference);
+      break;
+
+    case DW_AT_data_member_location:
+      /* This is a constant or location description giving the offset in
+	 bytes from the beginning of the data member.  If it's a location
+	 description, it's an expression that would be evaluated as if the
+	 offset of the beginning of the structure has already been pushed
+	 on the stack.  */
+      if (attr_data.cl == DW_cl_uconstant || attr_data.cl == DW_cl_sconstant)
+	byte_offset = attribute_value_as_constant (&attr_data, bitsizetype);
+      else if (attr_data.cl != DW_cl_block)
+	lto_file_corrupt_error ((lto_fd *) fd);
+      else
+	/* Instead of doing a general location evaluation, just look
+	   for the patterns generated by dwarf2out.c.  */
+	{
+	  struct lto_fd datafd;
+	  uint64_t operator;
+
+	  lto_fd_init (&datafd, "DW_AT_data_member_location data",
+		       ((lto_fd *)fd)->file);
+	  datafd.start = (const char *)attr_data.u.block.data;
+	  datafd.end = datafd.start + attr_data.u.block.length;
+	  datafd.cur = datafd.start;
+	  datafd.dwarf64 = ((lto_fd *)fd)->dwarf64;
+
+	  operator = lto_read_uleb128 (&datafd);
+	  if (operator == DW_OP_constu || operator == DW_OP_plus_uconst)
+	    {
+	      uint64_t operand = lto_read_uleb128 (&datafd);
+	      HOST_WIDE_INT opval =
+		lto_check_HOST_WIDE_INT_val (operand, "offset too large");
+	      byte_offset = build_int_cst (bitsizetype, opval);
+	      if (datafd.cur != datafd.end)
+		lto_unsupported_attr_error (abbrev, attr);
+	    }
+	  else
+	    lto_unsupported_attr_error (abbrev, attr);
+	}
+      break;
+
+    case DW_AT_byte_size:
+      byte_size = attribute_value_as_constant (&attr_data, bitsizetype);
+      break;
+
+    case DW_AT_bit_offset:
+      bit_offset = attribute_value_as_constant (&attr_data, bitsizetype);
+      bit_field_p = true;
+      break;
+
+    case DW_AT_bit_size:
+      bit_size = attribute_value_as_constant (&attr_data, bitsizetype);
+      bit_field_p = true;
+      break;
+
+    case DW_AT_accessibility:
+    case DW_AT_mutable:
+      lto_unsupported_attr_error (abbrev, attr);
+      break;
+
+    }
+  LTO_END_READ_ATTRS ();
+
+  /* Complain if we didn't get a type.  */
+  if (! type)
+    lto_file_corrupt_error ((lto_fd *) fd);
+
+  /* Complain if we got a non-zero offset or bit field attribute for a union,
+     or a missing offset when we're not processing a union, or incomplete
+     bit field information.  */
+  if (code == UNION_TYPE)
+    {
+      if (bit_field_p)
+	lto_file_corrupt_error ((lto_fd *) fd);
+      if (!byte_offset)
+	byte_offset = bitsize_zero_node;
+      else if (! integer_zerop (byte_offset))
+	lto_file_corrupt_error ((lto_fd *) fd);
+    }
+  else
+    {
+      if (! byte_offset)
+	lto_file_corrupt_error ((lto_fd *) fd);
+      if (bit_field_p && ! (bit_size && bit_offset))
+	lto_file_corrupt_error ((lto_fd *) fd);
+    }
+
+  /* Make sure we got a byte size if we need one, or that it's not
+     incompatible with the specified type.  */
+  if (bit_field_p && ! byte_size)
+    byte_size = fold_convert (bitsizetype, TYPE_SIZE_UNIT (type));
+  else if (!bit_field_p && byte_size &&
+	   !tree_int_cst_equal (byte_size, TYPE_SIZE_UNIT (type)))
+    sorry ("don't know what to do with DW_AT_byte_size for non-bitfields");
+
+  /* Compute the bit position of the field relative to the beginning of
+     its containing structure.  */
+  bitpos = size_binop (MULT_EXPR, byte_offset, bitsize_unit_node);
+  if (bit_field_p)
+    {
+      /* DWARF's bit offset is the number of bits from the most significant
+	 bit of the anonymous containing object to the most significant
+	 bit of the bit field.  So we need to reverse to count from the
+	 opposite end of the container in the little-endian case.  */
+      if (! BYTES_BIG_ENDIAN)
+	{
+	  tree container_bit_size =
+	    size_binop (MULT_EXPR, byte_size, bitsize_unit_node);
+	  bit_offset = size_binop (MINUS_EXPR,
+				   size_binop (MINUS_EXPR,
+					       container_bit_size, bit_offset),
+				   bit_size);
+	}
+      bitpos = size_binop (PLUS_EXPR, bitpos, bit_offset);
+    }
+
+  /* Next we need to find the alignment of the bit position.  This bit of
+     code copied from the Ada front end.  */
+  if (host_integerp (bitpos, 1))
+    bitpos_align = (tree_low_cst (bitpos, 1) & -
+		   tree_low_cst (bitpos, 1));
+  else
+    bitpos_align = BITS_PER_UNIT;
+
+  /* Build the decl and fill in its attributes.  For bit fields, create
+     and layout the field with its declared type, then overwrite it with
+     a type of the specified precision; this is the way the C front end
+     does it, and doing it the same way ensures that all of the various
+     types, sizes, and alignments are compatible with those generated by
+     C.  */
+  decl = build_decl (FIELD_DECL, name, type);
+  if (bit_field_p)
+    {
+      DECL_SIZE (decl) = bit_size;
+      DECL_BIT_FIELD (decl) = true;
+      DECL_NONADDRESSABLE_P (decl) = true;
+      layout_decl (decl, bitpos_align);
+      TREE_TYPE (decl) =
+	build_nonstandard_integer_type (tree_low_cst (bit_size, 1),
+					TYPE_UNSIGNED (type));
+      DECL_MODE (decl) = TYPE_MODE (type);
+    }
+  else
+    layout_decl (decl, bitpos_align);
+  DECL_CONTEXT (decl) = context->parentdata;
+
+  /* Now set the offset explicitly.  This bit of code was stolen from the
+     Ada front end.  */
+  SET_DECL_OFFSET_ALIGN (decl,
+			 (host_integerp (bitpos, 1)
+			  ? BIGGEST_ALIGNMENT : BITS_PER_UNIT));
+  pos_from_bit (&DECL_FIELD_OFFSET (decl),
+		&DECL_FIELD_BIT_OFFSET (decl),
+		DECL_OFFSET_ALIGN (decl),
+		bitpos);
 
   lto_read_child_DIEs (fd, abbrev, context);
   return decl;
@@ -2034,9 +2456,13 @@ lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
-  /* The DW_AT_type attribute is required.  */
+  /* The DW_AT_type attribute is supposed to be required, but since DWARF
+     has no representation for the void type, dwarf2out.c omits the type
+     attribute in that case.  So, in order to allow GCC's output to be
+     read in again, we have to interpret a missing base type attribute as
+     the void type, too.  */
   if (!pointed_to)
-    lto_file_corrupt_error ((lto_fd *)fd);
+    pointed_to = void_type_node;
   /* Build the pointer or reference type.  */
   switch (abbrev->tag)
     {
@@ -2281,9 +2707,13 @@ lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
-  /* The DW_AT_type attribute is required.  */
+  /* The DW_AT_type attribute is supposed to be required, but since DWARF
+     has no representation for the void type, dwarf2out.c omits the type
+     attribute in that case.  So, in order to allow GCC's output to be
+     read in again, we have to interpret a missing base type attribute as
+     the void type, too.  */
   if (!base_type)
-    lto_file_corrupt_error ((lto_fd *)fd);
+    base_type = void_type_node;
   /* Build the modified type.  */
   switch (abbrev->tag)
     {
@@ -2321,7 +2751,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
     {
       NULL, /* padding */
       lto_read_array_type_DIE,
-      NULL, /* class_type */
+      lto_read_structure_union_class_type_DIE,
       NULL, /* entry_point */
       lto_read_enumeration_type_DIE,
       lto_read_variable_formal_parameter_constant_DIE,
@@ -2332,17 +2762,17 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* label */
       NULL, /* lexical_block */
       NULL, /* padding */
-      NULL, /* member */
+      lto_read_member_DIE,
       NULL, /* padding */
       lto_read_pointer_reference_type_DIE,
       lto_read_pointer_reference_type_DIE,
       lto_read_compile_unit_DIE,
       NULL, /* string_type */
-      NULL, /* structure_type */
+      lto_read_structure_union_class_type_DIE,
       NULL, /* padding */
       lto_read_subroutine_type_subprogram_DIE,
       lto_read_typedef_DIE,
-      NULL, /* union_type */
+      lto_read_structure_union_class_type_DIE,
       lto_read_unspecified_parameters_DIE,
       NULL, /* variant */
       NULL, /* common_block */
@@ -2391,7 +2821,6 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
   DIE_reader_fnptr reader;
   const char *die;
   tree val;
-  bool skip;
 
   /* Record the location of the current DIE -- before we change the
      file pointer.  */
@@ -2407,10 +2836,9 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
     }
   /* Get the actual abbreviation entry.  */
   abbrev = lto_abbrev_lookup (&fd->base.file->debug_abbrev, index);
-  /* Assume that we will need to skip over this DIE.  */
-  skip = true;
-  /* Check to see if this DIE has already been processed.  */
-  val = lto_cache_lookup_DIE (fd, die);
+  /* Check to see if this DIE has already been processed.  If so, skip
+     over it and its children.  */
+  val = lto_cache_lookup_DIE (fd, die, true);
   if (!val)
     {
       /* Determine the DIE reader function.  */
@@ -2425,25 +2853,23 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 	     references to the type can be processed quickly.  */
 	  if (val && TYPE_P (val))
 	    lto_cache_store_DIE (fd, die, val);
-	  skip = false;
 	}
       else
-	/* Assume that all other tags matter, as we are otherwise at
-	   risk of silently generating wrong code.  If a tag can be
-	   safely ignored, it should be explicitly ignored above.  */
-	error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
-	       "supported by link-time optimization", abbrev->tag);
-    }
-  /* Skip over this DIE if it has not already been processed.  */
-  if (skip)
-    {
-      /* Read and ignore all attributes.  */
-      LTO_BEGIN_READ_ATTRS_UNCHECKED ()
 	{
+	  /* Assume that all other tags matter, as we are otherwise at
+	     risk of silently generating wrong code.  If a tag can be
+	     safely ignored, it should be explicitly ignored above.  */
+	  error ("DWARF tag " HOST_WIDEST_INT_PRINT_UNSIGNED " not "
+		 "supported by link-time optimization", abbrev->tag);
+
+	  /* Skip over this DIE, but attempt to read its children.  */
+	  LTO_BEGIN_READ_ATTRS_UNCHECKED ()
+	    {
+	    }
+	  LTO_END_READ_ATTRS ();
+	  /* Read children.  */ 
+	  lto_read_child_DIEs (fd, abbrev, context);
 	}
-      LTO_END_READ_ATTRS ();
-      /* Read children.  */ 
-      lto_read_child_DIEs (fd, abbrev, context);
     }
 
   if (more)
