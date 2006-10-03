@@ -82,9 +82,11 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
-	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../libtool.m4 \
-	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 \
+	$(top_srcdir)/../config/unwind_ipinfo.m4 \
+	$(top_srcdir)/../libtool.m4 $(top_srcdir)/mingwld.m4 \
+	$(top_srcdir)/pkg.m4 $(top_srcdir)/shlibpath.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -721,8 +723,6 @@ jar_DATA = libgcj-$(gcc_version).jar libgcj-tools-$(gcc_version).jar
 @JAVA_HOME_SET_TRUE@JAVA_HOME_DIR = $(JAVA_HOME)
 @JAVA_HOME_SET_FALSE@BOOT_CLASS_PATH_DIR = $(jardir)/libgcj-$(gcc_version).jar
 @JAVA_HOME_SET_TRUE@BOOT_CLASS_PATH_DIR = $(JAVA_HOME)/lib/rt.jar
-secdir = $(libdir)/security
-propdir = $(libdir)
 db_name = classmap.db
 db_pathtail = gcj-$(gcc_version)/$(db_name)
 @NATIVE_TRUE@dbexec_DATA = $(db_name)
@@ -747,7 +747,7 @@ AM_CXXFLAGS = \
 	$(WARNINGS) \
 	-D_GNU_SOURCE \
 	-DPREFIX="\"$(prefix)\"" \
-	-DLIBDIR="\"$(libdir)\"" \
+	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\"" \
         -DJAVA_HOME="\"$(JAVA_HOME_DIR)\"" \
         -DBOOT_CLASS_PATH="\"$(BOOT_CLASS_PATH_DIR)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
@@ -755,8 +755,7 @@ AM_CXXFLAGS = \
 	-DGCJ_VERSIONED_LIBDIR="\"$(dbexecdir)\"" \
 	-DPATH_SEPARATOR="\"$(CLASSPATH_SEPARATOR)\"" \
 	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
-	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\"" \
-	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\""
+	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\""
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
@@ -777,9 +776,6 @@ AM_CPPFLAGS = -I$(top_srcdir) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 BOOTCLASSPATH = $(here)/classpath/lib
-all_property_files = $(property_files) \
-    java/util/logging/logging.properties
-
 libgij_la_SOURCES = gij.cc
 libgij_la_DEPENDENCIES = libgcj.la libgcj.spec
 libgij_la_LIBADD = -L$(here)/.libs libgcj.la
@@ -4142,6 +4138,7 @@ classpath/java/net/NoRouteToHostException.java \
 classpath/java/net/PasswordAuthentication.java \
 classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
+classpath/java/net/ResolverCache.java \
 classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
@@ -4162,6 +4159,7 @@ classpath/java/net/URLStreamHandler.java \
 classpath/java/net/URLStreamHandlerFactory.java \
 classpath/java/net/UnknownHostException.java \
 classpath/java/net/UnknownServiceException.java \
+java/net/VMInetAddress.java \
 java/net/VMNetworkInterface.java \
 java/net/VMURLConnection.java
 
@@ -11794,12 +11792,6 @@ install-data-local:
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(gxx_include_dir)/$$f; \
 	done
 	-@rm -f tmp-ilist
-	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in libgcj.security; do \
-	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
-	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
-	done
-	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
 	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
 	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/

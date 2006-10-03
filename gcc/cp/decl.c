@@ -2779,6 +2779,8 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 		    tsubst_flags_t complain)
 {
   tree fullname;
+  tree t;
+  bool want_template;
 
   if (name == error_mark_node
       || context == NULL_TREE
@@ -2816,73 +2818,60 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
   gcc_assert (TYPE_P (context));
 
-  if (!dependent_type_p (context)
-      || currently_open_class (context))
-    {
-      if (TREE_CODE (fullname) == TEMPLATE_ID_EXPR)
-	{
-	  tree tmpl = NULL_TREE;
-	  if (IS_AGGR_TYPE (context))
-	    tmpl = lookup_field (context, name, 0, false);
-	  if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
-	    {
-	      if (complain & tf_error)
-		error ("no class template named %q#T in %q#T",
-		       name, context);
-	      return error_mark_node;
-	    }
+  /* When the CONTEXT is a dependent type,  NAME could refer to a
+     dependent base class of CONTEXT.  So we cannot peek inside it,
+     even if CONTEXT is a currently open scope.  */
+  if (dependent_type_p (context))
+    return build_typename_type (context, name, fullname, tag_type);
 
-	  if (complain & tf_error)
-	    perform_or_defer_access_check (TYPE_BINFO (context), tmpl);
-
-	  return lookup_template_class (tmpl,
-					TREE_OPERAND (fullname, 1),
-					NULL_TREE, context,
-					/*entering_scope=*/0,
-					tf_warning_or_error | tf_user);
-	}
-      else
-	{
-	  tree t;
-
-	  if (!IS_AGGR_TYPE (context))
-	    {
-	      if (complain & tf_error)
-		error ("no type named %q#T in %q#T", name, context);
-	      return error_mark_node;
-	    }
-
-	  t = lookup_field (context, name, 0, true);
-	  if (t)
-	    {
-	      if (TREE_CODE (t) != TYPE_DECL)
-		{
-		  if (complain & tf_error)
-		    error ("no type named %q#T in %q#T", name, context);
-		  return error_mark_node;
-		}
-
-	      if (complain & tf_error)
-		perform_or_defer_access_check (TYPE_BINFO (context), t);
-
-	      if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
-		t = TREE_TYPE (t);
-
-	      return t;
-	    }
-	}
-    }
-
-  /* If the CONTEXT is not a template type, then either the field is
-     there now or its never going to be.  */
-  if (!dependent_type_p (context))
+  if (!IS_AGGR_TYPE (context))
     {
       if (complain & tf_error)
-	error ("no type named %q#T in %q#T", name, context);
+	error ("%q#T is not a class", context);
       return error_mark_node;
     }
+  
+  want_template = TREE_CODE (fullname) == TEMPLATE_ID_EXPR;
+  
+  /* We should only set WANT_TYPE when we're a nested typename type.
+     Then we can give better diagnostics if we find a non-type.  */
+  t = lookup_field (context, name, 0, /*want_type=*/true);
+  if (!t)
+    {
+      if (complain & tf_error)
+	error (want_template ? "no class template named %q#T in %q#T"
+	       : "no type named %q#T in %q#T", name, context);
+      return error_mark_node;
+    }
+  
+  if (want_template && !DECL_CLASS_TEMPLATE_P (t))
+    {
+      if (complain & tf_error)
+	error ("%<typename %T::%D%> names %q#T, which is not a class template",
+	       context, name, t);
+      return error_mark_node;
+    }
+  if (!want_template && TREE_CODE (t) != TYPE_DECL)
+    {
+      if (complain & tf_error)
+	error ("%<typename %T::%D%> names %q#T, which is not a type",
+	       context, name, t);
+      return error_mark_node;
+    }
+  
+  if (complain & tf_error)
+    perform_or_defer_access_check (TYPE_BINFO (context), t);
 
-  return build_typename_type (context, name, fullname, tag_type);
+  if (want_template)
+    return lookup_template_class (t, TREE_OPERAND (fullname, 1),
+				  NULL_TREE, context,
+				  /*entering_scope=*/0,
+				  tf_warning_or_error | tf_user);
+  
+  if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
+    t = TREE_TYPE (t);
+  
+  return t;
 }
 
 /* Resolve `CONTEXT::template NAME'.  Returns a TEMPLATE_DECL if the name
@@ -3756,7 +3745,8 @@ shadow_tag (cp_decl_specifier_seq *declspecs)
 
     }
 
-  maybe_process_partial_specialization (t);
+  if (maybe_process_partial_specialization (t) == error_mark_node)
+    return NULL_TREE;
 
   /* This is where the variables in an anonymous union are
      declared.  An anonymous union declaration looks like:
@@ -4919,7 +4909,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
-      struct c_fileinfo *finfo = get_fileinfo (lbasename (filename));
+      struct c_fileinfo *finfo = get_fileinfo (filename);
       if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
@@ -6128,8 +6118,9 @@ grokfndecl (tree ctype,
       quals = TYPE_UNQUALIFIED;
     }
 
-  if (IDENTIFIER_OPNAME_P (DECL_NAME (decl)))
-    grok_op_properties (decl, /*complain=*/true);
+  if (IDENTIFIER_OPNAME_P (DECL_NAME (decl))
+      && !grok_op_properties (decl, /*complain=*/true))
+    return NULL_TREE;
 
   if (ctype && decl_function_context (decl))
     DECL_NO_STATIC_CHAIN (decl) = 1;
@@ -6959,7 +6950,27 @@ grokdeclarator (const cp_declarator *declarator,
 	      break;
 	    if (qualifying_scope)
 	      {
-		if (TYPE_P (qualifying_scope))
+		if (at_function_scope_p ())
+		  {
+		    /* [dcl.meaning] 
+
+		       A declarator-id shall not be qualified except
+		       for ... 
+
+		       None of the cases are permitted in block
+		       scope.  */
+		    if (qualifying_scope == global_namespace)
+		      error ("invalid use of qualified-name %<::%D%>",
+			     decl);
+		    else if (TYPE_P (qualifying_scope))
+		      error ("invalid use of qualified-name %<%T::%D%>",
+			     qualifying_scope, decl);
+		    else 
+		      error ("invalid use of qualified-name %<%D::%D%>",
+			     qualifying_scope, decl);
+		    return error_mark_node;
+		  }
+		else if (TYPE_P (qualifying_scope))
 		  {
 		    ctype = qualifying_scope;
 		    if (innermost_code != cdk_function
@@ -7004,8 +7015,6 @@ grokdeclarator (const cp_declarator *declarator,
 		  tree fns = TREE_OPERAND (decl, 0);
 
 		  dname = fns;
-		  if (TREE_CODE (dname) == COMPONENT_REF)
-		    dname = TREE_OPERAND (dname, 1);
 		  if (TREE_CODE (dname) != IDENTIFIER_NODE)
 		    {
 		      gcc_assert (is_overloaded_fn (dname));
@@ -7108,7 +7117,11 @@ grokdeclarator (const cp_declarator *declarator,
   /* If there were multiple types specified in the decl-specifier-seq,
      issue an error message.  */
   if (declspecs->multiple_types_p)
-    error ("two or more data types in declaration of %qs", name);
+    {
+      error ("two or more data types in declaration of %qs", name);
+      return error_mark_node;
+    }
+
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
@@ -8891,9 +8904,7 @@ copy_fn_p (tree d)
   tree arg_type;
   int result = 1;
 
-  if (!DECL_FUNCTION_MEMBER_P (d))
-    /* Non-members are invalid.  We complained, but kept the declaration.  */
-    return 0;
+  gcc_assert (DECL_FUNCTION_MEMBER_P (d));
 
   if (TREE_CODE (d) == TEMPLATE_DECL
       || (DECL_TEMPLATE_INFO (d)
@@ -9046,7 +9057,7 @@ unary_op_p (enum tree_code code)
 /* DECL is a declaration for an overloaded operator.  If COMPLAIN is true,
    errors are issued for invalid declarations.  */
 
-void
+bool
 grok_op_properties (tree decl, bool complain)
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
@@ -9132,9 +9143,15 @@ grok_op_properties (tree decl, bool complain)
       if (DECL_NAMESPACE_SCOPE_P (decl))
 	{
 	  if (CP_DECL_CONTEXT (decl) != global_namespace)
-	    error ("%qD may not be declared within a namespace", decl);
+	    {
+	      error ("%qD may not be declared within a namespace", decl);
+	      return false;
+	    }
 	  else if (!TREE_PUBLIC (decl))
-	    error ("%qD may not be declared as static", decl);
+	    {
+	      error ("%qD may not be declared as static", decl);
+	      return false;
+	    }
 	}
     }
 
@@ -9156,7 +9173,7 @@ grok_op_properties (tree decl, bool complain)
 	      || operator_code == NOP_EXPR)
 	    {
 	      error ("%qD must be a nonstatic member function", decl);
-	      return;
+	      return false;
 	    }
 	  else
 	    {
@@ -9166,14 +9183,14 @@ grok_op_properties (tree decl, bool complain)
 		{
 		  error ("%qD must be either a non-static member "
 			 "function or a non-member function", decl);
-		  return;
+		  return false;
 		}
 
 	      for (p = argtypes; p && p != void_list_node; p = TREE_CHAIN (p))
 		{
 		  tree arg = non_reference (TREE_VALUE (p));
 		  if (arg == error_mark_node)
-		    return;
+		    return false;
 
 		  /* IS_AGGR_TYPE, rather than CLASS_TYPE_P, is used
 		     because these checks are performed even on
@@ -9184,12 +9201,10 @@ grok_op_properties (tree decl, bool complain)
 
 	      if (!p || p == void_list_node)
 		{
-		  if (!complain)
-		    return;
-
-		  error ("%qD must have an argument of class or "
-			 "enumerated type",
-			 decl);
+		  if (complain)
+		    error ("%qD must have an argument of class or "
+			   "enumerated type", decl);
+		  return false;
 		}
 	    }
 	}
@@ -9197,7 +9212,7 @@ grok_op_properties (tree decl, bool complain)
       /* There are no restrictions on the arguments to an overloaded
 	 "operator ()".  */
       if (operator_code == CALL_EXPR)
-	return;
+	return true;
 
       /* Warn about conversion operators that will never be used.  */
       if (IDENTIFIER_TYPENAME_P (name)
@@ -9237,9 +9252,13 @@ grok_op_properties (tree decl, bool complain)
 	{
 	  /* 13.4.0.3 */
 	  error ("ISO C++ prohibits overloading operator ?:");
+	  return false;
 	}
       else if (ellipsis_p)
-	error ("%qD must not have variable number of arguments", decl);
+	{
+	  error ("%qD must not have variable number of arguments", decl);
+	  return false;
+	}
       else if (ambi_op_p (operator_code))
 	{
 	  if (arity == 1)
@@ -9289,11 +9308,11 @@ grok_op_properties (tree decl, bool complain)
 		{
 		  if (methodp)
 		    error ("postfix %qD must take %<int%> as its argument",
-			      decl);
+			   decl);
 		  else
-		    error
-		      ("postfix %qD must take %<int%> as its second argument",
-		       decl);
+		    error ("postfix %qD must take %<int%> as its second "
+			   "argument", decl);
+		  return false;
 		}
 	    }
 	  else
@@ -9302,6 +9321,7 @@ grok_op_properties (tree decl, bool complain)
 		error ("%qD must take either zero or one argument", decl);
 	      else
 		error ("%qD must take either one or two arguments", decl);
+	      return false;
 	    }
 
 	  /* More Effective C++ rule 6.  */
@@ -9340,6 +9360,7 @@ grok_op_properties (tree decl, bool complain)
 		error ("%qD must take %<void%>", decl);
 	      else
 		error ("%qD must take exactly one argument", decl);
+	      return false;
 	    }
 	}
       else /* if (binary_op_p (operator_code)) */
@@ -9350,6 +9371,7 @@ grok_op_properties (tree decl, bool complain)
 		error ("%qD must take exactly one argument", decl);
 	      else
 		error ("%qD must take exactly two arguments", decl);
+	      return false;
 	    }
 
 	  /* More Effective C++ rule 7.  */
@@ -9386,11 +9408,13 @@ grok_op_properties (tree decl, bool complain)
 		  pedwarn ("%qD cannot have default arguments", decl);
 	      }
 	    else
-	      error ("%qD cannot have default arguments", decl);
+	      {
+		error ("%qD cannot have default arguments", decl);
+		return false;
+	      }
 	  }
-
     }
-
+  return true;
 }
 
 /* Return a string giving the keyword associate with CODE.  */
@@ -9688,7 +9712,10 @@ xref_tag (enum tag_types tag_code, tree name,
   else
     {
       if (template_header_p && IS_AGGR_TYPE (t))
-	redeclare_class_template (t, current_template_parms);
+        {
+	  if (!redeclare_class_template (t, current_template_parms))
+            POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+        }
       else if (!processing_template_decl
 	       && CLASS_TYPE_P (t)
 	       && CLASSTYPE_IS_TEMPLATE (t))
@@ -10338,7 +10365,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   struct cp_binding_level *bl;
   tree current_function_parms;
   struct c_fileinfo *finfo
-    = get_fileinfo (lbasename (LOCATION_FILE (DECL_SOURCE_LOCATION (decl1))));
+    = get_fileinfo (LOCATION_FILE (DECL_SOURCE_LOCATION (decl1)));
   bool honor_interface;
 
   /* Sanity check.  */

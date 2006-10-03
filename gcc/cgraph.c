@@ -47,9 +47,9 @@ The callgraph:
     be accessed in such an invisible way and it shall be considered an
     entry point to the callgraph.
 
-    Intraprocedural information:
+    Interprocedural information:
 
-      Callgraph is place to store data needed for intraprocedural optimization.
+      Callgraph is place to store data needed for interprocedural optimization.
       All data structures are divided into three components: local_info that
       is produced while analyzing the function, global_info that is result
       of global walking of the callgraph on the end of compilation and
@@ -786,7 +786,10 @@ void
 dump_cgraph_varpool_node (FILE *f, struct cgraph_varpool_node *node)
 {
   fprintf (f, "%s:", cgraph_varpool_node_name (node));
-  fprintf (f, " availability:%s", availability_names [cgraph_variable_initializer_availability (node)]);
+  fprintf (f, " availability:%s",
+	   cgraph_function_flags_ready
+	   ? availability_names[cgraph_variable_initializer_availability (node)]
+	   : "not-ready");
   if (DECL_INITIAL (node->decl))
     fprintf (f, " initialized");
   if (node->needed)
@@ -921,7 +924,8 @@ cgraph_varpool_reset_queue (void)
 void
 cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
 {
-  if (!node->needed && node->finalized)
+  if (!node->needed && node->finalized
+      && !TREE_ASM_WRITTEN (node->decl))
     cgraph_varpool_enqueue_needed_node (node);
   node->needed = 1;
 }

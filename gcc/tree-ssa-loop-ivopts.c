@@ -2554,21 +2554,27 @@ tree_int_cst_sign_bit (tree t)
   return (w >> bitno) & 1;
 }
 
-/* If we can prove that TOP = cst * BOT for some constant cst in TYPE,
-   return cst.  Otherwise return NULL_TREE.  */
+/* If we can prove that TOP = cst * BOT for some constant cst,
+   store cst to MUL and return true.  Otherwise return false.
+   The returned value is always sign-extended, regardless of the
+   signedness of TOP and BOT.  */
 
-static tree
-constant_multiple_of (tree type, tree top, tree bot)
+static bool
+constant_multiple_of (tree top, tree bot, double_int *mul)
 {
-  tree res, mby, p0, p1;
+  tree mby;
   enum tree_code code;
-  bool negate;
+  double_int res, p0, p1;
+  unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
 
   STRIP_NOPS (top);
   STRIP_NOPS (bot);
 
   if (operand_equal_p (top, bot, 0))
-    return build_int_cst (type, 1);
+    {
+      *mul = double_int_one;
+      return true;
+    }
 
   code = TREE_CODE (top);
   switch (code)
@@ -2576,60 +2582,40 @@ constant_multiple_of (tree type, tree top, tree bot)
     case MULT_EXPR:
       mby = TREE_OPERAND (top, 1);
       if (TREE_CODE (mby) != INTEGER_CST)
-	return NULL_TREE;
+	return false;
 
-      res = constant_multiple_of (type, TREE_OPERAND (top, 0), bot);
-      if (!res)
-	return NULL_TREE;
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
+	return false;
 
-      return fold_binary_to_constant (MULT_EXPR, type, res,
-				      fold_convert (type, mby));
+      *mul = double_int_sext (double_int_mul (res, tree_to_double_int (mby)),
+			      precision);
+      return true;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      p0 = constant_multiple_of (type, TREE_OPERAND (top, 0), bot);
-      if (!p0)
-	return NULL_TREE;
-      p1 = constant_multiple_of (type, TREE_OPERAND (top, 1), bot);
-      if (!p1)
-	return NULL_TREE;
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &p0)
+	  || !constant_multiple_of (TREE_OPERAND (top, 1), bot, &p1))
+	return false;
 
-      return fold_binary_to_constant (code, type, p0, p1);
+      if (code == MINUS_EXPR)
+	p1 = double_int_neg (p1);
+      *mul = double_int_sext (double_int_add (p0, p1), precision);
+      return true;
 
     case INTEGER_CST:
       if (TREE_CODE (bot) != INTEGER_CST)
-	return NULL_TREE;
+	return false;
 
-      bot = fold_convert (type, bot);
-      top = fold_convert (type, top);
-
-      /* If BOT seems to be negative, try dividing by -BOT instead, and negate
-	 the result afterwards.  */
-      if (tree_int_cst_sign_bit (bot))
-	{
-	  negate = true;
-	  bot = fold_unary_to_constant (NEGATE_EXPR, type, bot);
-	}
-      else
-	negate = false;
-
-      /* Ditto for TOP.  */
-      if (tree_int_cst_sign_bit (top))
-	{
-	  negate = !negate;
-	  top = fold_unary_to_constant (NEGATE_EXPR, type, top);
-	}
-
-      if (!zero_p (fold_binary_to_constant (TRUNC_MOD_EXPR, type, top, bot)))
-	return NULL_TREE;
-
-      res = fold_binary_to_constant (EXACT_DIV_EXPR, type, top, bot);
-      if (negate)
-	res = fold_unary_to_constant (NEGATE_EXPR, type, res);
-      return res;
+      p0 = double_int_sext (tree_to_double_int (bot), precision);
+      p1 = double_int_sext (tree_to_double_int (top), precision);
+      if (double_int_zero_p (p1))
+	return false;
+      *mul = double_int_sext (double_int_sdivmod (p0, p1, FLOOR_DIV_EXPR, &res),
+			      precision);
+      return double_int_zero_p (res);
 
     default:
-      return NULL_TREE;
+      return false;
     }
 }
 
@@ -2774,6 +2760,37 @@ aff_combination_add (struct affine_tree_combination *comb1,
     aff_combination_add_elt (comb1, comb2->elts[i], comb2->coefs[i]);
   if (comb2->rest)
     aff_combination_add_elt (comb1, comb2->rest, 1);
+}
+
+/* Convert COMB to TYPE.  */
+
+static void
+aff_combination_convert (tree type, struct affine_tree_combination *comb)
+{
+  unsigned prec = TYPE_PRECISION (type);
+  unsigned i;
+
+  /* If the precision of both types is the same, it suffices to change the type
+     of the whole combination -- the elements are allowed to have another type
+     equivalent wrto STRIP_NOPS.  */
+  if (prec == TYPE_PRECISION (comb->type))
+    {
+      comb->type = type;
+      return;
+    }
+
+  comb->mask = (((unsigned HOST_WIDE_INT) 2 << (prec - 1)) - 1);
+  comb->offset = comb->offset & comb->mask;
+
+  /* The type of the elements can be different from comb->type only as
+     much as what STRIP_NOPS would remove.  We can just directly cast
+     to TYPE.  */
+  for (i = 0; i < comb->n; i++)
+    comb->elts[i] = fold_convert (type, comb->elts[i]);
+  if (comb->rest)
+    comb->rest = fold_convert (type, comb->rest);
+
+  comb->type = type;
 }
 
 /* Splits EXPR into an affine combination of parts.  */
@@ -2965,6 +2982,44 @@ fold_affine_expr (tree expr)
   return aff_combination_to_tree (&comb);
 }
 
+/* If A is (TYPE) BA and B is (TYPE) BB, and the types of BA and BB have the
+   same precision that is at least as wide as the precision of TYPE, stores
+   BA to A and BB to B, and returns the type of BA.  Otherwise, returns the
+   type of A and B.  */
+
+static tree
+determine_common_wider_type (tree *a, tree *b)
+{
+  tree wider_type = NULL;
+  tree suba, subb;
+  tree atype = TREE_TYPE (*a);
+
+  if ((TREE_CODE (*a) == NOP_EXPR
+       || TREE_CODE (*a) == CONVERT_EXPR))
+    {
+      suba = TREE_OPERAND (*a, 0);
+      wider_type = TREE_TYPE (suba);
+      if (TYPE_PRECISION (wider_type) < TYPE_PRECISION (atype))
+	return atype;
+    }
+  else
+    return atype;
+
+  if ((TREE_CODE (*b) == NOP_EXPR
+       || TREE_CODE (*b) == CONVERT_EXPR))
+    {
+      subb = TREE_OPERAND (*b, 0);
+      if (TYPE_PRECISION (wider_type) != TYPE_PRECISION (TREE_TYPE (subb)))
+	return atype;
+    }
+  else
+    return atype;
+
+  *a = suba;
+  *b = subb;
+  return wider_type;
+}
+
 /* Determines the expression by that USE is expressed from induction variable
    CAND at statement AT in LOOP.  The expression is stored in a decomposed
    form into AFF.  Returns false if USE cannot be expressed using CAND.  */
@@ -2979,6 +3034,7 @@ get_computation_aff (struct loop *loop,
   tree cbase = cand->iv->base;
   tree cstep = cand->iv->step;
   tree utype = TREE_TYPE (ubase), ctype = TREE_TYPE (cbase);
+  tree common_type;
   tree uutype;
   tree expr, delta;
   tree ratio;
@@ -2986,6 +3042,7 @@ get_computation_aff (struct loop *loop,
   HOST_WIDE_INT ratioi;
   struct affine_tree_combination cbase_aff, expr_aff;
   tree cstep_orig = cstep, ustep_orig = ustep;
+  double_int rat;
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -3040,28 +3097,33 @@ get_computation_aff (struct loop *loop,
     }
   else
     {
-      ratio = constant_multiple_of (uutype, ustep_orig, cstep_orig);
-      if (!ratio)
+      if (!constant_multiple_of (ustep_orig, cstep_orig, &rat))
 	return false;
+      ratio = double_int_to_tree (uutype, rat);
 
       /* Ratioi is only used to detect special cases when the multiplicative
-	 factor is 1 or -1, so if we cannot convert ratio to HOST_WIDE_INT,
-	 we may set it to 0.  We prefer cst_and_fits_in_hwi/int_cst_value
-	 to integer_onep/integer_all_onesp, since the former ignores
-	 TREE_OVERFLOW.  */
-      if (cst_and_fits_in_hwi (ratio))
-	ratioi = int_cst_value (ratio);
-      else if (integer_onep (ratio))
-	ratioi = 1;
-      else if (integer_all_onesp (ratio))
-	ratioi = -1;
+	 factor is 1 or -1, so if rat does not fit to HOST_WIDE_INT, we may
+	 set it to 0.  */
+      if (double_int_fits_in_shwi_p (rat))
+	ratioi = double_int_to_shwi (rat);
       else
 	ratioi = 0;
     }
 
+  /* In case both UBASE and CBASE are shortened to UUTYPE from some common
+     type, we achieve better folding by computing their difference in this
+     wider type, and cast the result to UUTYPE.  We do not need to worry about
+     overflows, as all the arithmetics will in the end be performed in UUTYPE
+     anyway.  */
+  common_type = determine_common_wider_type (&ubase, &cbase);
+
   /* We may need to shift the value if we are after the increment.  */
   if (stmt_after_increment (loop, cand, at))
-    cbase = fold_build2 (PLUS_EXPR, uutype, cbase, cstep);
+    {
+      if (uutype != common_type)
+	cstep = fold_convert (common_type, cstep);
+      cbase = fold_build2 (PLUS_EXPR, common_type, cbase, cstep);
+    }
 
   /* use = ubase - ratio * cbase + ratio * var.
 
@@ -3071,7 +3133,7 @@ get_computation_aff (struct loop *loop,
      happen, fold is able to apply the distributive law to obtain this form
      anyway.  */
 
-  if (TYPE_PRECISION (uutype) > HOST_BITS_PER_WIDE_INT)
+  if (TYPE_PRECISION (common_type) > HOST_BITS_PER_WIDE_INT)
     {
       /* Let's compute in trees and just return the result in AFF.  This case
 	 should not be very common, and fold itself is not that bad either,
@@ -3079,18 +3141,24 @@ get_computation_aff (struct loop *loop,
 	 is not that urgent.  */
       if (ratioi == 1)
 	{
-	  delta = fold_build2 (MINUS_EXPR, uutype, ubase, cbase);
+	  delta = fold_build2 (MINUS_EXPR, common_type, ubase, cbase);
+	  if (uutype != common_type)
+	    delta = fold_convert (uutype, delta);
 	  expr = fold_build2 (PLUS_EXPR, uutype, expr, delta);
 	}
       else if (ratioi == -1)
 	{
-	  delta = fold_build2 (PLUS_EXPR, uutype, ubase, cbase);
+	  delta = fold_build2 (PLUS_EXPR, common_type, ubase, cbase);
+	  if (uutype != common_type)
+	    delta = fold_convert (uutype, delta);
 	  expr = fold_build2 (MINUS_EXPR, uutype, delta, expr);
 	}
       else
 	{
-	  delta = fold_build2 (MULT_EXPR, uutype, cbase, ratio);
-	  delta = fold_build2 (MINUS_EXPR, uutype, ubase, delta);
+	  delta = fold_build2 (MULT_EXPR, common_type, cbase, ratio);
+	  delta = fold_build2 (MINUS_EXPR, common_type, ubase, delta);
+	  if (uutype != common_type)
+	    delta = fold_convert (uutype, delta);
 	  expr = fold_build2 (MULT_EXPR, uutype, ratio, expr);
 	  expr = fold_build2 (PLUS_EXPR, uutype, delta, expr);
 	}
@@ -3107,12 +3175,14 @@ get_computation_aff (struct loop *loop,
      possible to compute ratioi.  */
   gcc_assert (ratioi);
 
-  tree_to_aff_combination (ubase, uutype, aff);
-  tree_to_aff_combination (cbase, uutype, &cbase_aff);
+  tree_to_aff_combination (ubase, common_type, aff);
+  tree_to_aff_combination (cbase, common_type, &cbase_aff);
   tree_to_aff_combination (expr, uutype, &expr_aff);
   aff_combination_scale (&cbase_aff, -ratioi);
   aff_combination_scale (&expr_aff, ratioi);
   aff_combination_add (aff, &cbase_aff);
+  if (common_type != uutype)
+    aff_combination_convert (uutype, aff);
   aff_combination_add (aff, &expr_aff);
 
   return true;
@@ -3775,19 +3845,13 @@ get_computation_cost_at (struct ivopts_data *data,
     }
   else
     {
-      tree rat;
+      double_int rat;
       
-      rat = constant_multiple_of (utype, ustep, cstep);
-    
-      if (!rat)
+      if (!constant_multiple_of (ustep, cstep, &rat))
 	return INFTY;
-
-      if (cst_and_fits_in_hwi (rat))
-	ratio = int_cst_value (rat);
-      else if (integer_onep (rat))
-	ratio = 1;
-      else if (integer_all_onesp (rat))
-	ratio = -1;
+    
+      if (double_int_fits_in_shwi_p (rat))
+	ratio = double_int_to_shwi (rat);
       else
 	return INFTY;
     }

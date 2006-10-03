@@ -40,7 +40,7 @@ arm port		Nick Clifton		nickc@redhat.com
 arm port		Richard Earnshaw	richard.earnshaw@arm.com
 arm port		Paul Brook		paul@codesourcery.com
 avr port		Denis Chertykov		denisc@overta.ru
-avr port		Marek Michalkiewicz	marekm@amelek.gda.pl
+avr port		Anatoly Sokolov		aesok@post.ru
 bfin port		Bernd Schmidt		bernd.schmidt@analog.com
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
@@ -153,6 +153,7 @@ libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 libobjc			Nicola Pero		n.pero@mi.flashnet.it
 libobjc			Andrew Pinski		pinskia@physics.uc.edu
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
+soft-fp			Joseph Myers		jsm@polyomino.org.uk
 scheduler (+ haifa)	Jim Wilson		wilson@specifixinc.com
 scheduler (+ haifa)	Michael Meissner	gnu@the-meissners.org
 scheduler (+ haifa)	Jeff Law		law@redhat.com
@@ -248,6 +249,7 @@ William Cohen					wcohen@redhat.com
 Josh Conner					jconner@apple.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
+Roberto Costa					roberto.costa@st.com
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
 Zdenek Dvorak					dvorakz@suse.cz
@@ -324,7 +326,6 @@ Carlos O'Donell					carlos@codesourcery.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
 Devang Patel					dpatel@apple.com
-Graeme Peterson					gp@qnx.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org
 Clinton Popetz					cpopetz@cpopetz.com
@@ -366,6 +367,7 @@ Kenneth Zadeck					zadeck@naturalbridge.com
 Jie Zhang					jie.zhang@analog.com
 Jon Ziegler					jonz@apple.com
 Josef Zlomek					josef.zlomek@email.cz
+Chao-ying Fu					fu@mips.com
 
 Bug database only accounts
 

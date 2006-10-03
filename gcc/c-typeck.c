@@ -375,6 +375,19 @@ composite_type (tree t1, tree t2)
 	return build_type_attribute_variant (t1, attributes);
       }
 
+    case ENUMERAL_TYPE:
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      if (attributes != NULL)
+	{
+	  /* Try harder not to create a new aggregate type.  */
+	  if (attribute_list_equal (TYPE_ATTRIBUTES (t1), attributes))
+	    return t1;
+	  if (attribute_list_equal (TYPE_ATTRIBUTES (t2), attributes))
+	    return t2;
+	}
+      return build_type_attribute_variant (t1, attributes);
+
     case FUNCTION_TYPE:
       /* Function types: prefer the one that specified arg types.
 	 If both do, merge the arg types.  Also merge the return types.  */
@@ -891,6 +904,13 @@ comptypes_internal (tree type1, tree type2)
     case UNION_TYPE:
       if (val != 1 && !same_translation_unit_p (t1, t2))
 	{
+	  tree a1 = TYPE_ATTRIBUTES (t1);
+	  tree a2 = TYPE_ATTRIBUTES (t2);
+
+	  if (! attribute_list_contained (a1, a2)
+	      && ! attribute_list_contained (a2, a1))
+	    break;
+
 	  if (attrval != 2)
 	    return tagged_types_tu_compatible_p (t1, t2);
 	  val = tagged_types_tu_compatible_p (t1, t2);
@@ -4243,7 +4263,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 }
 
 /* Convert VALUE for assignment into inlined parameter PARM.  ARGNUM
-   is used for error and waring reporting and indicates which argument
+   is used for error and warning reporting and indicates which argument
    is being processed.  */
 
 tree
@@ -4251,9 +4271,15 @@ c_convert_parm_for_inlining (tree parm, tree value, tree fn, int argnum)
 {
   tree ret, type;
 
-  /* If FN was prototyped, the value has been converted already
-     in convert_arguments.  */
-  if (!value || TYPE_ARG_TYPES (TREE_TYPE (fn)))
+  /* If FN was prototyped at the call site, the value has been converted
+     already in convert_arguments.
+     However, we might see a prototype now that was not in place when
+     the function call was seen, so check that the VALUE actually matches
+     PARM before taking an early exit.  */
+  if (!value
+      || (TYPE_ARG_TYPES (TREE_TYPE (fn))
+	  && (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (value)))))
     return value;
 
   type = TREE_TYPE (parm);
@@ -5711,6 +5737,8 @@ add_pending_init (tree purpose, tree value)
 	    {
 	      if (TREE_SIDE_EFFECTS (p->value))
 		warning_init ("initialized field with side-effects overwritten");
+	      else if (warn_override_init)
+		warning_init ("initialized field overwritten");
 	      p->value = value;
 	      return;
 	    }
@@ -5732,6 +5760,8 @@ add_pending_init (tree purpose, tree value)
 	    {
 	      if (TREE_SIDE_EFFECTS (p->value))
 		warning_init ("initialized field with side-effects overwritten");
+	      else if (warn_override_init)
+		warning_init ("initialized field overwritten");
 	      p->value = value;
 	      return;
 	    }
@@ -6204,6 +6234,8 @@ output_init_element (tree value, bool strict_string, tree type, tree field,
       if (TREE_SIDE_EFFECTS (VEC_last (constructor_elt,
 				       constructor_elements)->value))
 	warning_init ("initialized field with side-effects overwritten");
+      else if (warn_override_init)
+	warning_init ("initialized field overwritten");
 
       /* We can have just one union field set.  */
       constructor_elements = 0;

@@ -1,3 +1,92 @@
+2006-10-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* libgfortran.h: Add prototype for internal_unpack_c16.
+
+2006-09-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/18791
+	* m4/specific.m4: Special-case cabs so that its return type is
+	real. Special-case conjg so that their suffices are _4, _8, _10 and
+	_16 instead of _c4, _c8, _c10 and _c16.
+	* intrinsics/f2c_specifics.F90: Special-case conjg functions so
+	that their suffices are _4 and _8 instead of _c4 and _c8.
+	* generated/_conjg_c4.F90: Regenerate.
+	* generated/_conjg_c8.F90: Regenerate.
+	* generated/_conjg_c10.F90: Regenerate.
+	* generated/_conjg_c16.F90: Regenerate.
+	* generated/_abs_c4.F90: Regenerate.
+	* generated/_abs_c8.F90: Regenerate.
+	* generated/_abs_c10.F90: Regenerate.
+	* generated/_abs_c16.F90: Regenerate.
+
+2006-09-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* intrinsics/cpu_time.c:  Add cpu_time_10 and cpu_time_16 routines.
+
+2006-09-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Install libgfortranbegin inside compiler libraries
+	directory instead of system libraries directory.
+	* Makefile.in: Regenerate.
+
+2006-09-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Remove dependency on gfortypes.h.
+	* Makefile.in: Regenerate.
+
+2006-09-22  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libfortran/27964
+	* configure.ac: Check for setmode() function.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* io/unix.c (output_stream): Force stdout to binary mode. 
+	(error_stream): Force stderr to binary mode.
+
+2006-09-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/29099
+	* intrinsics/date_and_time.c (secnds): Fix case of zero time.
+
+2006-09-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/29053
+	* io.h (gfc_unit): Add variable, strm_pos, to track
+	STREAM I/O file position.
+	* file_pos.c (st_rewind): Set strm_pos to beginning.
+	* open.c (new_unit): Initialize strm_pos.
+	* read.c (read_x): Bump strm_pos.
+	* inquire.c (inquire_via_unit): Return strm_pos value.
+	* transfer.c (read_block),(read_block_direct),(write_block)
+	(write_buf): Seek to strm_pos - 1.  Update strm_pos when done.
+	(pre_position): Initialize strm_pos.
+	(data_transfer_init): Set strm_pos if DT_HAS_REC.
+	(finalize_transfer): Flush file, no need to update strm_pos.
+
+2006-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/28947
+	* m4/matmul.m4: For the case where the second input argument is
+	transposed, ensure that the case with rank (a) == 1 is
+	correctly calculated.
+	* generated/matmul_r4.c: Regenerate.
+	* generated/matmul_r8.c: Regenerate.
+	* generated/matmul_r10.c: Regenerate.
+	* generated/matmul_r16.c: Regenerate.
+	* generated/matmul_c4.c: Regenerate.
+	* generated/matmul_c8.c: Regenerate.
+	* generated/matmul_c10.c: Regenerate.
+	* generated/matmul_c16.c: Regenerate.
+	* generated/matmul_i4.c: Regenerate.
+	* generated/matmul_i8.c: Regenerate.
+	* generated/matmul_i16.c: Regenerate.
+
+2006-08-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/28354
+	* io/write.c: Check for special case of zero precision in format
+	and pre-round the real value.
+
 2006-08-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/25828
@@ -155,7 +244,7 @@
 	
 2006-07-18  Paolo Bonzini  <bonzini@gnu.org>
 
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2006-07-15  Steven G. Kargl  <kargls@comcast.net>
 
@@ -863,11 +952,11 @@
 
 2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
 
-        PR target/25259
-        * configure.ac: Use GCC_HEADER_STDINT.
-        * libgfortran.h: Include gstdint.h.
-        * aclocal.m4: Regenerate.
-        * configure: Regenerate.
+	PR target/25259
+	* configure.ac: Use GCC_HEADER_STDINT.
+	* libgfortran.h: Include gstdint.h.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
 
 2006-01-01  Steven G. Kargl  <kargls@comcast.net>
 

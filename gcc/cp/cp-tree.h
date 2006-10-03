@@ -55,6 +55,7 @@ struct diagnostic_context;
       OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
       OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
       BASELINK_QUALIFIED_P (in BASELINK)
+      TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -3091,6 +3092,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    expression statement.  */
 #define EXPR_STMT_EXPR(NODE)	TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
 
+/* True if this TARGET_EXPR was created by build_cplus_new, and so we can
+   discard it if it isn't useful.  */
+#define TARGET_EXPR_IMPLICIT_P(NODE) \
+  TREE_LANG_FLAG_0 (TARGET_EXPR_CHECK (NODE))
+
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
   none_type = 0, /* Not a tag type.  */
@@ -3899,7 +3905,7 @@ extern int copy_fn_p				(tree);
 extern tree get_scope_of_declarator		(const cp_declarator *);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
-extern void grok_op_properties			(tree, bool);
+extern bool grok_op_properties			(tree, bool);
 extern tree xref_tag				(enum tag_types, tree, tag_scope, bool);
 extern tree xref_tag_from_type			(tree, tree, tag_scope);
 extern void xref_basetypes			(tree, tree);
@@ -4080,7 +4086,7 @@ extern void maybe_begin_member_template_processing (tree);
 extern void maybe_end_member_template_processing (void);
 extern tree finish_member_template_decl		(tree);
 extern void begin_template_parm_list		(void);
-extern void begin_specialization		(void);
+extern bool begin_specialization		(void);
 extern void reset_specialization		(void);
 extern void end_specialization			(void);
 extern void begin_explicit_instantiation	(void);
@@ -4091,7 +4097,7 @@ extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
-extern void redeclare_class_template		(tree, tree);
+extern bool redeclare_class_template		(tree, tree);
 extern tree lookup_template_class		(tree, tree, tree, tree,
 						 int, tsubst_flags_t);
 extern tree lookup_template_function		(tree, tree);
@@ -4111,7 +4117,7 @@ extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);
 extern int comp_template_args			(tree, tree);
-extern void maybe_process_partial_specialization (tree);
+extern tree maybe_process_partial_specialization (tree);
 extern tree most_specialized_instantiation	(tree);
 extern void print_candidates			(tree);
 extern void instantiate_pending_templates	(int);
@@ -4321,6 +4327,7 @@ extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
 extern bool cxx_omp_privatize_by_reference	(tree);
+extern tree baselink_for_fns                    (tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4364,7 +4371,7 @@ extern bool decl_anon_ns_mem_p			(tree);
 extern tree lvalue_type				(tree);
 extern tree error_type				(tree);
 extern int varargs_function_p			(tree);
-extern int really_overloaded_fn			(tree);
+extern bool really_overloaded_fn		(tree);
 extern bool cp_tree_equal			(tree, tree);
 extern tree no_linkage_check			(tree, bool);
 extern void debug_binfo				(tree);
@@ -4512,6 +4519,7 @@ extern bool cp_var_mod_type_p			(tree, tree);
 extern void cxx_initialize_diagnostics		(struct diagnostic_context *);
 extern int cxx_types_compatible_p		(tree, tree);
 extern void init_shadowed_var_for_decl		(void);
+extern tree cxx_staticp                         (tree);
 
 /* in cp-gimplify.c */
 extern int cp_gimplify_expr			(tree *, tree *, tree *);

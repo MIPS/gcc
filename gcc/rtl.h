@@ -1198,11 +1198,6 @@ do {						\
    MEM_KEEP_ALIAS_SET_P (LHS) = MEM_KEEP_ALIAS_SET_P (RHS),	\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
-/* 1 if RTX is a label_ref to a label outside the loop containing the
-   reference.  */
-#define LABEL_OUTSIDE_LOOP_P(RTX)					\
-  (RTL_FLAG_CHECK1("LABEL_OUTSIDE_LOOP_P", (RTX), LABEL_REF)->in_struct)
-
 /* 1 if RTX is a label_ref for a nonlocal label.  */
 /* Likewise in an expr_list for a reg_label note.  */
 #define LABEL_REF_NONLOCAL_P(RTX)					\
@@ -2074,6 +2069,7 @@ extern rtx emit (rtx);
 extern void renumber_insns (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
+extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);

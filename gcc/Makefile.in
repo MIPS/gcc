@@ -2290,7 +2290,8 @@ cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) toplev.h $(FLAGS_H) $(GGC_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
    $(TREE_FLOW_H) tree-pass.h $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
-   $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h
+   $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h \
+   gt-cgraphunit.h
 ipa.o : ipa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(CGRAPH_H) 
 ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) ipa-prop.h \
@@ -2349,7 +2350,7 @@ web.o : web.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h
 see.o : see.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
-   $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h
+   $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h $(EXPR_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(REAL_H) insn-config.h $(GGC_H) \
    $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
@@ -2877,7 +2878,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
-  $(srcdir)/targhooks.c $(out_file) \
+  $(srcdir)/targhooks.c $(srcdir)/cgraphunit.c $(out_file) \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2909,7 +2910,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
-gt-tree-ssa-structalias.h gt-ipa-inline.h \
+gt-tree-ssa-structalias.h gt-ipa-inline.h gt-cgraphunit.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
@@ -3389,7 +3390,8 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 rtl.texi md.texi tm.texi hostconfig.texi fragments.texi	\
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi	\
 	 gnu.texi gpl.texi fdl.texi contrib.texi languages.texi		\
-	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi
+	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
+	 loop.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi
 

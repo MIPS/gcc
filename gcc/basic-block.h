@@ -880,6 +880,8 @@ extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
+extern bool edge_probability_reliable_p (edge);
+extern bool br_prob_note_reliable_p (rtx);
 
 /* In flow.c */
 extern void init_flow (void);
@@ -1172,5 +1174,19 @@ extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 
 /* In cfgrtl.c */
 extern bool condjump_equiv_p (struct equiv_info *, bool);
+
+/* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
+static inline bool bb_has_eh_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+	return true;
+    }
+  return false;
+}
 
 #endif /* GCC_BASIC_BLOCK_H */

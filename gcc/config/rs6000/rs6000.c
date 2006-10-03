@@ -4607,7 +4607,10 @@ rs6000_darwin64_record_arg_advance_recurse (CUMULATIVE_ARGS *cum,
       {
 	HOST_WIDE_INT bitpos = startbitpos;
 	tree ftype = TREE_TYPE (f);
-	enum machine_mode mode = TYPE_MODE (ftype);
+	enum machine_mode mode;
+	if (ftype == error_mark_node)
+	  continue;
+	mode = TYPE_MODE (ftype);
 
 	if (DECL_SIZE (f) != 0
 	    && host_integerp (bit_position (f), 1))
@@ -4975,7 +4978,10 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, tree type,
       {
 	HOST_WIDE_INT bitpos = startbitpos;
 	tree ftype = TREE_TYPE (f);
-	enum machine_mode mode = TYPE_MODE (ftype);
+	enum machine_mode mode;
+	if (ftype == error_mark_node)
+	  continue;
+	mode = TYPE_MODE (ftype);
 
 	if (DECL_SIZE (f) != 0
 	    && host_integerp (bit_position (f), 1))
@@ -10789,7 +10795,8 @@ print_operand (FILE *file, rtx x, int code)
 
 	tmp = XEXP (x, 0);
 
-	if (TARGET_E500)
+	/* Ugly hack because %y is overloaded.  */
+	if (TARGET_E500 && GET_MODE_SIZE (GET_MODE (x)) == 8)
 	  {
 	    /* Handle [reg].  */
 	    if (GET_CODE (tmp) == REG)
@@ -11498,7 +11505,8 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
 	 mispredicted taken branch is more expensive than a
 	 mispredicted not-taken branch.  */
       if (rs6000_always_hint
-	  || abs (prob) > REG_BR_PROB_BASE / 100 * 48)
+	  || (abs (prob) > REG_BR_PROB_BASE / 100 * 48
+	      && br_prob_note_reliable_p (note)))
 	{
 	  if (abs (prob) > REG_BR_PROB_BASE / 20
 	      && ((prob > 0) ^ need_longbranch))

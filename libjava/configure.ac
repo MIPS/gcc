@@ -1295,11 +1295,9 @@ multi_os_directory=`$CC -print-multi-os-directory`
 case $multi_os_directory in
   .)
    dbexecdir='$(libdir)/gcj-$(gcc_version)' # Avoid /.
-   ac_configure_args="$ac_configure_args --with-native-libdir=\$\(libdir\)/gcj-`cat $srcdir/../gcc/BASE-VER`"
    ;;
   *)
    dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)'
-   ac_configure_args="$ac_configure_args --with-native-libdir=\$\(libdir\)/$multi_os_directory/gcj-`cat $srcdir/../gcc/BASE-VER`"
    ;;
 esac
 AC_SUBST(dbexecdir)
@@ -1450,7 +1448,7 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- *-*-darwin*)
+ powerpc*-*-darwin*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -1481,6 +1479,9 @@ fi
 
 # See if we support thread-local storage.
 GCC_CHECK_TLS
+
+# For _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=
