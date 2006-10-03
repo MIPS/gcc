@@ -1,5 +1,15 @@
 2006-10-03  Joseph Myers  <joseph@codesourcery.com>
 
+	Backport:
+	2006-09-08  Eric Christopher  <echristo@apple.com>
+	* gcc.target/i386/asm-1.c: Run test on ilp32 only.
+	* gcc.target/i386/compress-float-387.c: Ditto.
+	* gcc.target/i386/compress-float-sse.c: Ditto.
+	* gcc.target/i386/compress-float-sse-pic.c: Ditto.
+	* gcc.target/i386/compress-float-387-pic.c: Ditto.
+
+2006-10-03  Joseph Myers  <joseph@codesourcery.com>
+
 	gcc/
 	* config.gcc (i[34567]86-*-linux*): Handle --enable-targets=all.
 	(with_cpu): Don't set to pentiumpro in bi-arch case.
