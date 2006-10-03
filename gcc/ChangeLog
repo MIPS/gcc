@@ -1,3 +1,42 @@
+2006-10-03  Richard Sandiford  <richard@codesourcery.com>
+
+	* cselib.h (cselib_discard_hook): Declare.
+	* cselib.c (cselib_discard_hook): New variable.
+	(remove_useless_values): Call it before freeing useless values.
+	* dce.c (base_address): New union.
+	(store_base_info): Change the type of the base field from "rtx"
+	to "union base_address".
+	(local_invariant_stores, local_value_stores): New variables.
+	(store_base_eq): Split into...
+	(invariant_store_base_eq, value_store_base_eq): ...these new functions.
+	(store_base_hash): Split into...
+	(invariant_store_base_hash, value_store_base_hash): ...these
+	new functions.
+	(store_base_del): Fix formatting.
+	(init_store_group): Split into...
+	(init_invariant_store_group, init_value_store_group): ...these
+	new functions.
+	(init_dse): Use init_invariant_store_group instead of init_store_group.
+	(get_canonical_address): Delete.
+	(add_store_offset): Change the type of BASE from "rtx" to "union
+	base_address *".
+	(record_store): Remove the GROUP parameter.  Don't call
+	get_canonical_address.  Store the base in a "union base_address" and
+	add stores to either local_invariant_stores or local_value_stores.
+	(record_stores): Remove the GROUP parameter and adjust the calls
+	to record_store.
+	(store_base_local): Add a parameter that indicates whether stores
+	are invariant or cselib_vals.
+	(invariant_store_base_local): New function.
+	(value_store_base_local): Likewise.
+	(value_store_base_useless): Likewise.
+	(remove_useless_values): Likewise.
+	(store_base_prune_needed): Adjust for store_base_info changes.
+	(prescan_insns_for_dse): Remove the local group variable and use
+	local_invariant_stores and local_value_stores instead.  Adjust the
+	call to record_stores.  Use remove_useless_values as the
+	cselib_discard_hook while processing a basic block.
+
 2006-08-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c/28502

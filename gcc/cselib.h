@@ -62,6 +62,8 @@ struct elt_list GTY(())
   cselib_val *elt;
 };
 
+extern void (*cselib_discard_hook) (void);
+
 extern cselib_val *cselib_lookup (rtx, enum machine_mode, int);
 extern void cselib_init (bool record_memory);
 extern void cselib_clear_table (void);

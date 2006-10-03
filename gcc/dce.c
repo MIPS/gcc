@@ -818,10 +818,17 @@ typedef struct store_offset_info store_offset_info;
 DEF_VEC_O(store_offset_info);
 DEF_VEC_ALLOC_O(store_offset_info,heap);
 
+/* Information about a base address.  Addresses are either function
+   invariants or cselib values, depending on context.  */
+union base_address {
+  rtx invariant;
+  cselib_val *value;
+};
+
 /* A structure for grouping together stores that share the same base address.
    STORES is a list of stores with base address BASE.  */
 struct store_base_info {
-  rtx base;
+  union base_address base;
   VEC(store_offset_info,heap) *stores;
 };
 typedef struct store_base_info store_base_info;
@@ -843,6 +850,10 @@ static store_group_info stores;
 /* The identifiers of stores for which we haven't found a potential use.  */
 static VEC(int,heap) *unmarked_stores;
 
+/* Used while processing a basic block.  LOCAL_INVARIANT_STORES contains
+   stores with invariant addresses; LOCAL_VALUE_STORES contains stores
+   whose base addresses are cselib_vals.  */
+static store_group_info local_invariant_stores, local_value_stores;
 
 /* max_in_luid[B][S] is the luid of the last instruction in basic block B
    that is reached by the incoming value of store S.  It is -1 if store S
@@ -851,31 +862,47 @@ static VEC(int,heap) *unmarked_stores;
 static int **max_in_luid;
 
 /* Hashtable callbacks for maintaining the "bases" field of
-   store_group_info.  */
+   store_group_info, given that the addresses are function invariants.  */
 
 static int
-store_base_eq (const void *p1, const void *p2)
+invariant_store_base_eq (const void *p1, const void *p2)
 {
   const store_base_info *sb1 = (const store_base_info *) p1;
   const store_base_info *sb2 = (const store_base_info *) p2;
-  return (GET_CODE (sb1->base) == VALUE
-	  ? sb1->base == sb2->base
-	  : rtx_equal_p (sb1->base, sb2->base));
+  return rtx_equal_p (sb1->base.invariant, sb2->base.invariant);
 }
 
 static hashval_t
-store_base_hash (const void *p)
-  {
+invariant_store_base_hash (const void *p)
+{
   const store_base_info *sb = (const store_base_info *) p;
   int do_not_record;
-  return (GET_CODE (sb->base) == VALUE
-	  ? htab_hash_pointer (sb->base)
-	  : hash_rtx (sb->base, Pmode, &do_not_record, NULL, false));
+  return hash_rtx (sb->base.invariant, Pmode, &do_not_record, NULL, false);
 }
+
+/* Hashtable callbacks for maintaining the "bases" field of
+   store_group_info, given that the addresses are cselib_vals.  */
+
+static int
+value_store_base_eq (const void *p1, const void *p2)
+{
+  const store_base_info *sb1 = (const store_base_info *) p1;
+  const store_base_info *sb2 = (const store_base_info *) p2;
+  return sb1->base.value == sb2->base.value;
+}
+
+static hashval_t
+value_store_base_hash (const void *p)
+{
+  const store_base_info *sb = (const store_base_info *) p;
+  return sb->base.value->value;
+}
+
+/* Hash table callback for the "bases" field of store_group_info.  */
 
 static void
 store_base_del (void *p)
-  {
+{
   store_base_info *sb = (store_base_info *) p;
   VEC_free (store_offset_info, heap, sb->stores);
   XDELETE (sb);
@@ -922,14 +949,24 @@ rs_transfer_function (struct dataflow * dflow ATTRIBUTE_UNUSED, int bb_index)
   return bitmap_ior_and_compl (out, gen, in, kill);
 }
  
-/* Initialize store group *GROUP.  */
+/* Initialize store group *GROUP so that it can hold invariant addresses.  */
  
- static void
-   init_store_group (store_group_info *group)
+static void
+init_invariant_store_group (store_group_info *group)
 {
   group->stores = NULL;
-  group->bases = htab_create (11, store_base_hash,
-			      store_base_eq, store_base_del);
+  group->bases = htab_create (11, invariant_store_base_hash,
+			      invariant_store_base_eq, store_base_del);
+}
+
+/* Initialize store group *GROUP so that it can hold cselib_val addresses.  */
+ 
+static void
+init_value_store_group (store_group_info *group)
+{
+  group->stores = NULL;
+  group->bases = htab_create (11, value_store_base_hash,
+			      value_store_base_eq, store_base_del);
 }
 
 /* Forget about all stores in *GROUP.  */
@@ -1043,7 +1080,7 @@ end_unmarked_stores (void)
 static void
 init_dse (void)
 {
-  init_store_group (&stores);
+  init_invariant_store_group (&stores);
 }
 
 /* Free the structures used by DSE.  */
@@ -1111,33 +1148,11 @@ split_address (rtx x, rtx *base_out, HOST_WIDE_INT *offset_out)
   *base_out = x;
 }
 
-/* Try to convert the address of memory reference MEM into a canonical
-   base + offset expression.  Return true on success, storing the two
-   components in *BASE_OUT and *OFFSET_OUT respectively.  *BASE_OUT
-   will be either a nonvarying address or a VALUE rtx.  */
-
-static bool
-get_canonical_address (rtx mem, rtx *base_out, HOST_WIDE_INT *offset_out)
-{
-  cselib_val *val;
-
-  split_address (canon_rtx (XEXP (mem, 0)), base_out, offset_out);
-  if (!rtx_varies_p (*base_out, false))
-    return true;
-
-  val = cselib_lookup (*base_out, Pmode, true);
-  if (val == NULL)
-    return false;
-
-  *base_out = val->u.val_rtx;
-  return true;
-}
-
 /* Add a store_offset_info structure to GROUP, given that the next
    store to be added to it will span bytes [BASE + BEGIN, BASE + END).  */
 
 static void
-add_store_offset (store_group_info *group, rtx base,
+add_store_offset (store_group_info *group, union base_address *base,
 		  HOST_WIDE_INT begin, HOST_WIDE_INT end)
 {
   store_base_info *sb, tmp_sb;
@@ -1146,13 +1161,13 @@ add_store_offset (store_group_info *group, rtx base,
 
   /* Find the store_base_info structure for BASE, creating a new one
      if necessary.  */
-  tmp_sb.base = base;
+  tmp_sb.base = *base;
   slot = htab_find_slot (group->bases, &tmp_sb, INSERT);
   sb = (store_base_info *) *slot;
   if (sb == NULL)
     {
       *slot = sb = XNEW (store_base_info);
-      sb->base = base;
+      sb->base = *base;
       sb->stores = NULL;
     }
 
@@ -1164,13 +1179,16 @@ add_store_offset (store_group_info *group, rtx base,
 }
 
 /* BODY is an instruction pattern that belongs to INSN.  Return true
-   if it is a candidate store, adding it to GROUP if so.  */
+   if it is a candidate store, adding it to the appropriate local
+   store group if so.  */
 
 static bool
-record_store (store_group_info *group, rtx body, rtx insn)
+record_store (rtx body, rtx insn)
 {
+  store_group_info *group;
   store_info *store;
-  rtx base, mem;
+  rtx mem;
+  union base_address base;
   HOST_WIDE_INT offset;
 
   /* Check whether INSN sets a single value.  */
@@ -1185,11 +1203,18 @@ record_store (store_group_info *group, rtx body, rtx insn)
     return false;
 
   /* Split the address into canonical BASE + OFFSET terms.  */
-  if (!get_canonical_address (mem, &base, &offset))
-    return false;
+  group = &local_invariant_stores;
+  split_address (canon_rtx (XEXP (mem, 0)), &base.invariant, &offset);
+  if (rtx_varies_p (base.invariant, false))
+    {
+      group = &local_value_stores;
+      base.value = cselib_lookup (base.invariant, Pmode, true);
+      if (base.value == NULL)
+	return false;
+    }
 
-  /* Add a store_offset_info structure for the sture.  */
-  add_store_offset (group, base, offset,
+  /* Add a store_offset_info structure for the store.  */
+  add_store_offset (group, &base, offset,
 		    offset + GET_MODE_SIZE (GET_MODE (mem)));
 
   /* Record the store itself.  */
@@ -1202,11 +1227,12 @@ record_store (store_group_info *group, rtx body, rtx insn)
   return true;
 }
 
-/* Add all candidate stores in INSN to GROUP.  Mark INSN if some part
-   of it is not a candidate store and assigns to a non-register target.  */
+/* Apply record_store to all candidate stores in INSN.  Mark INSN
+   if some part of it is not a candidate store and assigns to a
+   non-register target.  */
 
 static void
-record_stores (store_group_info *group, rtx insn)
+record_stores (rtx insn)
 {
   rtx body;
   int i;
@@ -1215,11 +1241,11 @@ record_stores (store_group_info *group, rtx insn)
   if (GET_CODE (body) == PARALLEL)
     for (i = 0; i < XVECLEN (body, 0); i++)
       {
-	if (!record_store (group, XVECEXP (body, 0, i), insn))
+	if (!record_store (XVECEXP (body, 0, i), insn))
 	  mark_nonreg_stores (XVECEXP (body, 0, i), insn, false);
       }
   else
-    if (!record_store (group, body, insn))
+    if (!record_store (body, insn))
       mark_nonreg_stores (body, insn, false);
 }
 
@@ -1240,14 +1266,17 @@ store_offset_compare (const void *p1, const void *p2)
     return offset2->store - offset1->store;
 }
 
-/* A htab_traverse callback in which *SLOT is a store_base_info structure
-   that belongs to store group DATA.  Work out the max_gen_luid of the
-   stores, all of which are known to be in the same block.  Decide whether
-   we can safely compute the reaching information for each store.
-   Add it to STORES if we can, otherwise mark it as needed.  */
+/* *SLOT is a store_base_info structure that belongs to store group DATA.
+   INVARIANT_P is true if all base addresses are function invariants; it is
+   false if all addresses are cselib_vals.
 
-static int
-store_base_local (void **slot, void *data)
+   Work out the max_gen_luid of the stores, all of which are known to be
+   in the same block.  Decide whether we can safely compute the reaching
+   information for each store.  Add it to STORES if we can, otherwise
+   mark it as needed.  Return true.  */
+
+static inline int
+store_base_local (void **slot, void *data, bool invariant_p)
 {
   store_base_info *sb = (store_base_info *) *slot;
   store_group_info *group = (store_group_info *) data;
@@ -1279,12 +1308,12 @@ store_base_local (void **slot, void *data)
 	    storei->max_gen_luid = storej->luid;
 	}
 
-      if (GET_CODE (sb->base) != VALUE)
+      if (invariant_p)
 	{
 	  /* An invariant address.  We can track STOREJ globally if reaches
 	     the end of the block.  We will also want to know whether STOREJ
 	     kills stores in other basic blocks.  */
-	  add_store_offset (&stores, sb->base, so[j].begin, so[j].end);
+	  add_store_offset (&stores, &sb->base, so[j].begin, so[j].end);
 	  VEC_safe_push (store_info, heap, stores.stores, storej);
 	}
       else
@@ -1298,6 +1327,49 @@ store_base_local (void **slot, void *data)
 	}
     }
   return true;
+}
+
+/* Like store_base_local, but for invariant base addresses only.  */
+
+static int
+invariant_store_base_local (void **slot, void *data)
+{
+  return store_base_local (slot, data, true);
+}
+
+/* Like store_base_local, but for cselib_val base addresses only.  */
+
+static int
+value_store_base_local (void **slot, void *data)
+{
+  return store_base_local (slot, data, false);
+}
+
+/* Like value_store_base_local, but only handle values that have
+   no elt_list_locs left.  Remove all such entries from the hash table.  */
+
+static int
+value_store_base_useless (void **slot, void *data)
+{
+  store_base_info *sb = (store_base_info *) *slot;
+  store_group_info *group = (store_group_info *) data;
+
+  if (sb->base.value->locs == NULL)
+    {
+      value_store_base_local (slot, data);
+      htab_clear_slot (group->bases, slot);
+    }
+  return true;
+}
+
+/* Process and remove all entries in local_value_stores that cselib
+   considers useless.  The associated cselib_vals are about to be freed.  */
+
+static void
+remove_useless_values (void)
+{
+  htab_traverse (local_value_stores.bases,
+		 value_store_base_useless, &local_value_stores);
 }
 
 /* A htab_traverse callback in which *SLOT is a store_base_info structure
@@ -1415,7 +1487,7 @@ store_base_prune_needed (void **slot, void *data)
   store_offset_info *so;
   unsigned int i;
 
-  if (sb->base == frame_pointer_rtx && !frame_stores_escape_p ())
+  if (sb->base.invariant == frame_pointer_rtx && !frame_stores_escape_p ())
     for (i = 0; VEC_iterate (store_offset_info, sb->stores, i, so); i++)
       bitmap_clear_bit (needed, so->store);
 
@@ -1556,19 +1628,19 @@ mark_dependent_stores (rtx insn)
 static void
 prescan_insns_for_dse (void)
 {
-  store_group_info group;
   basic_block bb;
   rtx insn;
 
   if (dump_file)
     fprintf (dump_file, "Finding stores and needed instructions:\n");
 
-  /* If we haven't added a store to this group yet, initialize it now.  */
   cselib_init (false);
-  init_store_group (&group);
+  init_invariant_store_group (&local_invariant_stores);
+  init_value_store_group (&local_value_stores);
   FOR_EACH_BB (bb)
     {
       cselib_clear_table ();
+      cselib_discard_hook = remove_useless_values;
       FOR_BB_INSNS (bb, insn)
 	{
 	  if (INSN_P (insn))
@@ -1576,14 +1648,20 @@ prescan_insns_for_dse (void)
 	      if (!deletable_insn_p (insn))
 		mark_insn (insn, false);
 	      else
-		record_stores (&group, insn);
+		record_stores (insn);
 	    }
 	  cselib_process_insn (insn);
 	}
-      htab_traverse (group.bases, store_base_local, &group);
-      empty_store_group (&group);
+      cselib_discard_hook = NULL;
+      htab_traverse (local_invariant_stores.bases,
+		     invariant_store_base_local, &local_invariant_stores);
+      htab_traverse (local_value_stores.bases,
+		     value_store_base_local, &local_value_stores);
+      empty_store_group (&local_invariant_stores);
+      empty_store_group (&local_value_stores);
     }
-  end_store_group (&group);
+  end_store_group (&local_invariant_stores);
+  end_store_group (&local_value_stores);
   cselib_finish ();
 }
 

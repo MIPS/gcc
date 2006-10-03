@@ -131,6 +131,10 @@ static cselib_val dummy_val;
    each time memory is invalidated.  */
 static cselib_val *first_containing_mem = &dummy_val;
 static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
+
+/* If nonnull, cselib will call this function before freeing useless
+   VALUEs.  A VALUE is deemed useless if its "locs" field is null.  */
+void (*cselib_discard_hook) (void);
 
 
 /* Allocate a struct elt_list and fill in its two elements with the
@@ -366,6 +370,9 @@ remove_useless_values (void)
 	p = &(*p)->next_containing_mem;
       }
   *p = &dummy_val;
+
+  if (cselib_discard_hook)
+    cselib_discard_hook ();
 
   htab_traverse (cselib_hash_table, discard_useless_values, 0);
 
