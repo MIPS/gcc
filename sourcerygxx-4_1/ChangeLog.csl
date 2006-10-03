@@ -1,3 +1,19 @@
+2006-10-03  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config.gcc (i[34567]86-*-linux*): Handle --enable-targets=all.
+	(with_cpu): Don't set to pentiumpro in bi-arch case.
+	* config/i386/linux64.h (TARGET_VERSION, MULTILIB_DEFAULTS):
+	Define conditionally depending on TARGET_64BIT_DEFAULT.
+	(SPEC_32, SPEC_64): Define.
+	(LINK_SPEC): Use them.
+	* doc/install.texi (--enable-targets=all): Document for x86-linux.
+
+	libcpp/
+	* configure.ac (need_64bit_hwint): Set for i[34567]86-*-linux*
+	depending on --enable-targets=all.
+	* configure: Regenerate.
+
 2006-10-02  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/

@@ -1058,10 +1058,20 @@ i[34567]86-*-coff*)
 i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			# Intel 80386's running GNU/*
 			# with ELF format using glibc 2
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h i386/linux.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h"
 	case ${target} in
-	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
-	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
+	i[34567]86-*-linux*)
+		if test x$enable_targets = xall; then
+			tm_file="${tm_file} i386/x86-64.h i386/linux64.h"
+			tm_defines="${tm_defines} TARGET_BI_ARCH=1"
+			tmake_file="${tmake_file} i386/t-linux64"
+			need_64bit_hwint=yes
+		else
+			tm_file="${tm_file} i386/linux.h"
+		fi
+		;;
+	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
+	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} i386/linux.h kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
 	esac
 	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtfm"
 	;;
@@ -2438,7 +2448,9 @@ if test x$with_cpu = x ; then
           with_cpu=pentium-m
           ;;
         *)
-          with_cpu=pentiumpro
+          if test x$need_64bit_hwint = x; then
+            with_cpu=pentiumpro
+          fi
           ;;
       esac
       ;;
