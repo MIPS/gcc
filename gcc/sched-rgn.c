@@ -280,7 +280,7 @@ static void compute_block_backward_dependences (int);
 void debug_dependencies (void);
 
 static void init_regions (void);
-static void schedule_region (struct df *, int);
+static void schedule_region (int);
 static rtx concat_INSN_LIST (rtx, rtx);
 static void concat_insn_mem_list (rtx, rtx, rtx *, rtx *);
 static void propagate_deps (int, struct deps *);
@@ -1490,6 +1490,9 @@ debug_candidates (int trg)
 
 /* Functions for speculative scheduling.  */
 
+static struct df *df;
+static bitmap_head not_in_df;
+
 /* Return 0 if x is a set of a register alive in the beginning of one
    of the split-blocks of src, otherwise return 1.  */
 
@@ -1541,18 +1544,15 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
+		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
 		     such blocks are always outside current region.  */
-		  gcc_assert (glat_start[b->index]
-			      || CONTAINING_RGN (b->index)
-			      != CONTAINING_RGN (BB_TO_BLOCK (src)));
-		  if (!glat_start[b->index]
-		      || REGNO_REG_SET_P (glat_start[b->index],
-					  regno + j))
-		    {
-		      return 0;
-		    }
+		  gcc_assert (!t || (CONTAINING_RGN (b->index)
+				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+		  if (t || REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno + j))
+		    return 0;
 		}
 	    }
 	}
@@ -1562,15 +1562,13 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
+	      int t = bitmap_bit_p (&not_in_df, b->index);
 
-	      gcc_assert (glat_start[b->index]
-			  || CONTAINING_RGN (b->index)
-			  != CONTAINING_RGN (BB_TO_BLOCK (src)));
-	      if (!glat_start[b->index]
-		  || REGNO_REG_SET_P (glat_start[b->index], regno))
-		{
-		  return 0;
-		}
+	      gcc_assert (!t || (CONTAINING_RGN (b->index)
+				 != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+	      if (t || REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno))
+		return 0;
 	    }
 	}
     }
@@ -1626,7 +1624,7 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (glat_start[b->index], regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno + j);
 		}
 	    }
 	}
@@ -1636,7 +1634,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (glat_start[b->index], regno);
+	      SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno);
 	    }
 	}
     }
@@ -1916,7 +1914,7 @@ static int sched_n_insns;
 /* Implementations of the sched_info functions for region scheduling.  */
 static void init_ready_list (void);
 static int can_schedule_ready_p (rtx);
-static void begin_schedule_ready (struct df *, rtx, rtx);
+static void begin_schedule_ready (rtx, rtx);
 static ds_t new_ready (rtx, ds_t);
 static int schedule_more_p (void);
 static const char *rgn_print_insn (rtx, int);
@@ -1930,9 +1928,6 @@ static void extend_regions (void);
 static void add_block1 (basic_block, basic_block);
 static void fix_recovery_cfg (int, int, int);
 static basic_block advance_target_bb (basic_block, rtx);
-#ifdef ENABLE_CHECKING
-static int region_head_or_leaf_p (basic_block, int);
-#endif
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -2031,8 +2026,7 @@ can_schedule_ready_p (rtx insn)
    can_schedule_ready_p () differs from the one passed to
    begin_schedule_ready ().  */
 static void
-begin_schedule_ready (struct df *df ATTRIBUTE_UNUSED, 
-		      rtx insn, rtx last ATTRIBUTE_UNUSED)
+begin_schedule_ready (rtx insn, rtx last ATTRIBUTE_UNUSED)
 {
   /* An interblock motion?  */
   if (INSN_BB (insn) != target_bb)
@@ -2199,13 +2193,7 @@ static struct sched_info region_sched_info =
   add_block1,
   advance_target_bb,
   fix_recovery_cfg,
-#ifdef ENABLE_CHECKING
-  region_head_or_leaf_p,
-#endif
-  SCHED_RGN | USE_GLAT
-#ifdef ENABLE_CHECKING
-  | DETACH_LIFE_INFO
-#endif
+  SCHED_RGN
 };
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
@@ -2629,7 +2617,7 @@ sched_is_disabled_for_current_region_p (void)
    scheduled after its flow predecessors.  */
 
 static void
-schedule_region (struct df *df, int rgn)
+schedule_region (int rgn)
 {
   basic_block block;
   edge_iterator ei;
@@ -2812,7 +2800,7 @@ schedule_region (struct df *df, int rgn)
       current_sched_info->queue_must_finish_empty = current_nr_blocks == 1;
 
       curr_bb = first_bb;
-      schedule_block (df, &curr_bb, rgn_n_insns);
+      schedule_block (&curr_bb, rgn_n_insns);
       gcc_assert (EBB_FIRST_BB (bb) == first_bb);
       sched_rgn_n_insns += sched_n_insns;
 
@@ -2897,7 +2885,6 @@ void
 schedule_insns (void)
 {
   int rgn;
-  struct df *df;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2917,7 +2904,11 @@ schedule_insns (void)
   df_live_add_problem (df);
   df_ri_add_problem (df);
   df_analyze (df);
-  sched_init (df);
+
+  sched_init ();
+
+  bitmap_initialize (&not_in_df, 0);
+  bitmap_clear (&not_in_df);
 
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
@@ -2930,7 +2921,7 @@ schedule_insns (void)
   
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (df, rgn);
+    schedule_region (rgn);
   
   free(ebb_head);
   /* Reposition the prologue and epilogue notes in case we moved the
@@ -2960,6 +2951,8 @@ schedule_insns (void)
   free (rgn_bb_table);
   free (block_to_bb);
   free (containing_rgn);
+
+  bitmap_clear (&not_in_df);
 
   sched_finish ();
 }
@@ -2997,6 +2990,8 @@ static void
 add_block1 (basic_block bb, basic_block after)
 {
   extend_regions ();
+
+  bitmap_set_bit (&not_in_df, bb->index);
 
   if (after == 0 || after == EXIT_BLOCK_PTR)
     {
@@ -3109,35 +3104,6 @@ advance_target_bb (basic_block bb, rtx insn)
 	      && BLOCK_TO_BB (bb->next_bb->index) == target_bb);
   return bb->next_bb;
 }
-
-#ifdef ENABLE_CHECKING
-/* Return non zero, if BB is head or leaf (depending of LEAF_P) block in
-   current region.  For more information please refer to
-   sched-int.h: struct sched_info: region_head_or_leaf_p.  */
-static int
-region_head_or_leaf_p (basic_block bb, int leaf_p)
-{
-  if (!leaf_p)    
-    return bb->index == rgn_bb_table[RGN_BLOCKS (CONTAINING_RGN (bb->index))];
-  else
-    {
-      int i;
-      edge e;
-      edge_iterator ei;
-      
-      i = CONTAINING_RGN (bb->index);
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR
-            && CONTAINING_RGN (e->dest->index) == i
-	    /* except self-loop.  */
-	    && e->dest != bb)
-	  return 0;
-      
-      return 1;
-    }
-}
-#endif /* ENABLE_CHECKING  */
 
 #endif
 

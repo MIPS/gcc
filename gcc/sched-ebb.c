@@ -52,15 +52,13 @@ static int n_insns;
 
 /* Set of blocks, that already have their dependencies calculated.  */
 static bitmap_head dont_calc_deps;
-/* Set of basic blocks, that are ebb heads of tails respectively.  */
-static bitmap_head ebb_head, ebb_tail;
 
 /* Last basic block in current ebb.  */
 static basic_block last_bb;
 
 /* Implementations of the sched_info functions for region scheduling.  */
 static void init_ready_list (void);
-static void begin_schedule_ready (struct df *, rtx, rtx);
+static void begin_schedule_ready (rtx, rtx);
 static int schedule_more_p (void);
 static const char *ebb_print_insn (rtx, int);
 static int rank (rtx, rtx);
@@ -68,16 +66,12 @@ static int contributes_to_priority (rtx, rtx);
 static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
 static basic_block earliest_block_with_similiar_load (basic_block, rtx);
 static void add_deps_for_risky_insns (rtx, rtx);
-static basic_block schedule_ebb (struct df *, rtx, rtx);
+static basic_block schedule_ebb (rtx, rtx);
 
 static void add_remove_insn (rtx, int);
 static void add_block1 (basic_block, basic_block);
 static basic_block advance_target_bb (basic_block, rtx);
 static void fix_recovery_cfg (int, int, int);
-
-#ifdef ENABLE_CHECKING
-static int ebb_head_or_leaf_p (basic_block, int);
-#endif
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -119,7 +113,7 @@ init_ready_list (void)
 
 /* INSN is being scheduled after LAST.  Update counters.  */
 static void
-begin_schedule_ready (struct df *df, rtx insn, rtx last)
+begin_schedule_ready (rtx insn, rtx last)
 {
   sched_n_insns++;
 
@@ -176,7 +170,7 @@ begin_schedule_ready (struct df *df, rtx insn, rtx last)
       current_sched_info->next_tail = NEXT_INSN (BB_END (bb));
       gcc_assert (current_sched_info->next_tail);
 
-      add_block (df, bb, last_bb);
+      add_block (bb, last_bb);
       gcc_assert (last_bb == bb);
     }
 }
@@ -225,6 +219,8 @@ contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
   return 1;
 }
 
+static struct df *df;
+
  /* INSN is a JUMP_INSN, COND_SET is the set of registers that are
     conditionally set before INSN.  Store the set of registers that
     must be considered as used by this jump in USED and that of
@@ -245,9 +241,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_and (set, glat_start [e->dest->index], cond_set);
+      bitmap_and (set, DF_LIVE_IN (df, e->dest), cond_set);
     else
-      bitmap_ior_into (used, glat_start [e->dest->index]);
+      bitmap_ior_into (used, DF_LIVE_IN (df, e->dest));
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -273,12 +269,9 @@ static struct sched_info ebb_sched_info =
   add_block1,
   advance_target_bb,
   fix_recovery_cfg,
-#ifdef ENABLE_CHECKING
-  ebb_head_or_leaf_p,
-#endif
-  /* We need to DETACH_LIVE_INFO to be able to create new basic blocks.
-     See begin_schedule_ready ().  */
-  SCHED_EBB | USE_GLAT | DETACH_LIFE_INFO
+  SCHED_EBB
+  /* We can create new blocks in begin_schedule_ready ().  */
+  | NEW_BBS
 };
 
 /* Returns the earliest block in EBB currently being processed where a
@@ -434,7 +427,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
    and TAIL.  */
 
 static basic_block
-schedule_ebb (struct df *df, rtx head, rtx tail)
+schedule_ebb (rtx head, rtx tail)
 {
   basic_block first_bb, target_bb;
   struct deps tmp_deps;
@@ -510,7 +503,7 @@ schedule_ebb (struct df *df, rtx head, rtx tail)
   current_sched_info->queue_must_finish_empty = 1;
 
   target_bb = first_bb;
-  schedule_block (df, &target_bb, n_insns);
+  schedule_block (&target_bb, n_insns);
 
   /* We might pack all instructions into fewer blocks,
      so we may made some of them empty.  Can't assert (b == last_bb).  */
@@ -543,7 +536,6 @@ schedule_ebbs (void)
   basic_block bb;
   int probability_cutoff;
   rtx tail;
-  struct df *df;
 
   if (profile_info && flag_branch_probabilities)
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK);
@@ -566,17 +558,13 @@ schedule_ebbs (void)
   df_live_add_problem (df);
   df_ri_add_problem (df);
   df_analyze (df);
-  sched_init (df);
+  sched_init ();
 
   compute_bb_for_insn ();
 
   /* Initialize DONT_CALC_DEPS and ebb-{start, end} markers.  */
   bitmap_initialize (&dont_calc_deps, 0);
   bitmap_clear (&dont_calc_deps);
-  bitmap_initialize (&ebb_head, 0);
-  bitmap_clear (&ebb_head);
-  bitmap_initialize (&ebb_tail, 0);
-  bitmap_clear (&ebb_tail);
 
   /* Schedule every region in the subroutine.  */
   FOR_EACH_BB (bb)
@@ -615,19 +603,12 @@ schedule_ebbs (void)
 	    break;
 	}
 
-      bitmap_set_bit (&ebb_head, BLOCK_NUM (head));
-      bb = schedule_ebb (df, head, tail);
-      bitmap_set_bit (&ebb_tail, bb->index);
+      bb = schedule_ebb (head, tail);
     }
   bitmap_clear (&dont_calc_deps);
 
-  gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO);
-
   /* Updating register live information.  */
   allocate_reg_life_data ();
-
-  bitmap_clear (&ebb_head);
-  bitmap_clear (&ebb_tail);
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
@@ -700,17 +681,3 @@ fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi, int jump_bb_nexti)
   if (jump_bb_nexti == last_bb->index)
     last_bb = BASIC_BLOCK (jump_bbi);
 }
-
-#ifdef ENABLE_CHECKING
-/* Return non zero, if BB is first or last (depending of LEAF_P) block in
-   current ebb.  For more information please refer to
-   sched-int.h: struct sched_info: region_head_or_leaf_p.  */
-static int
-ebb_head_or_leaf_p (basic_block bb, int leaf_p)
-{
-  if (!leaf_p)    
-    return bitmap_bit_p (&ebb_head, bb->index);
-  else
-    return bitmap_bit_p (&ebb_tail, bb->index);
-}
-#endif /* ENABLE_CHECKING  */

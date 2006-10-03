@@ -199,7 +199,7 @@ struct sched_info
   /* Called to notify frontend that instruction is being scheduled.
      The first parameter - instruction to scheduled, the second parameter -
      last scheduled instruction.  */
-  void (*begin_schedule_ready) (struct df *, rtx, rtx);
+  void (*begin_schedule_ready) (rtx, rtx);
 
   /* Called to notify frontend, that new basic block is being added.
      The first parameter - new basic block.
@@ -221,16 +221,6 @@ struct sched_info
      The third parameter - index of basic block, that follows the second
      parameter.  */
   void (*fix_recovery_cfg) (int, int, int);
-
-#ifdef ENABLE_CHECKING
-  /* If the second parameter is zero, return nonzero, if block is head of the
-     region.
-     If the second parameter is nonzero, return nonzero, if block is leaf of
-     the region.
-     global_live_at_start should not change in region heads and
-     global_live_at_end should not change in region leafs due to scheduling.  */
-  int (*region_head_or_leaf_p) (basic_block, int);
-#endif
 
   /* ??? FIXME: should use straight bitfields inside sched_info instead of
      this flag field.  */
@@ -337,10 +327,6 @@ struct haifa_insn_data
 };
 
 extern struct haifa_insn_data *h_i_d;
-/* Used only if (current_sched_info->flags & USE_GLAT) != 0.
-   These regsets store global_live_at_{start, end} information
-   for each basic block.  */
-extern regset *glat_start, *glat_end;
 
 /* Accessor macros for h_i_d.  There are more in haifa-sched.c and
    sched-rgn.c.  */
@@ -490,13 +476,8 @@ enum SCHED_FLAGS {
   DO_SPECULATION = USE_DEPS_LIST << 1,
   SCHED_RGN = DO_SPECULATION << 1,
   SCHED_EBB = SCHED_RGN << 1,
-  /* Detach register live information from basic block headers.
-     This is necessary to invoke functions, that change CFG (e.g. split_edge).
-     Requires USE_GLAT.  */
-  DETACH_LIFE_INFO = SCHED_EBB << 1,
-  /* Save register live information from basic block headers to
-     glat_{start, end} arrays.  */
-  USE_GLAT = DETACH_LIFE_INFO << 1
+  /* Scheduler can possible create new basic blocks.  Used for assertions.  */
+  NEW_BBS = SCHED_EBB << 1
 };
 
 enum SPEC_SCHED_FLAGS {
@@ -629,13 +610,13 @@ extern void rm_other_notes (rtx, rtx);
 extern int insn_cost (rtx, rtx, rtx);
 extern int set_priorities (rtx, rtx);
 
-extern void schedule_block (struct df *, basic_block *, int);
-extern void sched_init (struct df *);
+extern void schedule_block (basic_block *, int);
+extern void sched_init (void);
 extern void sched_finish (void);
 
 extern int try_ready (rtx);
 extern void * xrecalloc (void *, size_t, size_t, size_t);
 extern void unlink_bb_notes (basic_block, basic_block);
-extern void add_block (struct df *, basic_block, basic_block);
+extern void add_block (basic_block, basic_block);
 
 #endif /* GCC_SCHED_INT_H */

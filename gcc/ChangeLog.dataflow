@@ -1,3 +1,36 @@
+2006-10-03  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+ 	* sched-ebb.c (ebb_head, ebb_tail, ebb_head_or_leaf_p): Removed.
+	(begin_schedule_ready, schedule_ebb, ebb_head_or_leaf_p): Remove
+	unnecessary argument, update all callers.
+	(ebb_sched_info): Update initializer.
+	(df): New static variable to keep dataflow info.
+	(compute_jump_reg_dependencies): Use it instead of glat.
+ 	* haifa-sched.c (glat_start, glat_end, glat_size, init_glat,
+	init_glat1, free_glat): Removed.
+	(generate_recovery_code, begin_speculative_block,
+	add_to_speculative_block, init_before_recovery, 
+	create_recovery_block, create_check_block_twin, 
+	schedule_block, sched_init, add_block): Remove
+	unnecessary argument, update all callers.
+ 	* modulo-sched.c (sms_sched_info): Update initializer.
+	(sms_schedule): Update call to sched_init ().
+ 	* sched-int.h (struct sched_info): Remove unnecessary argument and
+	update all callers of field 'begin_schedule_ready'.  Remove field
+	'region_head_or_leaf_p'.
+	(glat_start, glat_end): Remove prototypes.
+	(enum SCHED_FLAGS): Remove USE_GLAT, DETACH_LIFE_INFO.  Use NEW_BBS
+	instead.
+	(schedule_block, sched_init, add_block, schedule_region): Update
+	prototypes.
+	* sched-rgn.c (df, not_in_df): New static variables.
+	(check_live_1, update_live_1, add_block1): Use them instead of glat.
+	(begin_schedule_read, schedule_region): Remove unnecessary argument,
+	update all callers.
+	(region_head_or_leaf_p): Remove.
+	(region_sched_info): Update initializer.
+ 	* config/ia64/ia64.c (set_sched_flags): Use NEW_BBS instead of
+	DETACH_LIFE_INFO.
+
 2006-10-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-scan.c (df_ref_record, df_insn_refs_record,
 	df_bb_refs_record, df_refs_record, df_record_entry_block_defs):

@@ -6733,11 +6733,12 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	    mask |= BE_IN_CONTROL;
 	}
 
-      gcc_assert (*flags & USE_GLAT);
-
       if (mask)
 	{
-	  *flags |= USE_DEPS_LIST | DETACH_LIFE_INFO | DO_SPECULATION;
+	  *flags |= USE_DEPS_LIST | DO_SPECULATION;
+
+	  if (mask & BE_IN_SPEC)
+	    *flags |= NEW_BBS;
 	  
 	  spec_info->mask = mask;
 	  spec_info->flags = 0;

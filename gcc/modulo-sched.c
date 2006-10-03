@@ -259,9 +259,6 @@ static struct sched_info sms_sched_info =
   0, 0, 0,
 
   NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-  NULL,
-#endif
   0
 };
 
@@ -941,7 +938,7 @@ sms_schedule (void)
   df_ri_add_problem (df);
   df_chain_add_problem (df);
   df_analyze (df);
-  sched_init (df);
+  sched_init ();
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
