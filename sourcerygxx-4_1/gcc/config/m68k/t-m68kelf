@@ -12,18 +12,19 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 	echo '#define EXTFLOAT' > xfgnulib.c
 	cat $(srcdir)/config/m68k/fpgnulib.c >> xfgnulib.c
 
-MULTILIB_OPTIONS = mcpu=5206/mcpu=5206e/mcpu=5207/mcpu=5211/mcpu=5307/mcpu=532x/mcpu=5407/mcpu=547x mhard-float/msoft-float
-MULTILIB_DIRNAMES = m5206 m5206e m5207 m5211 m5307 m532x m5407 m547x hardfp softfp
+MULTILIB_OPTIONS = mcpu=5206/mcpu=5206e/mcpu=5208/mcpu=5213/mcpu=5307/mcpu=5329/mcpu=5407/mcpu=5475 mhard-float/msoft-float
+MULTILIB_DIRNAMES = m5206 m5206e m5208 m5211 m5307 m5329 m5407 m5475 hardfp softfp
 
-MULTILIB_EXCEPTIONS = mcpu?5206/msoft-float mcpu?5206/mhard-float \
+MULTILIB_EXCEPTIONS := msoft-float mhard-float
+
+MULTILIB_EXCEPTIONS += mcpu?5206/msoft-float mcpu?5206/mhard-float \
 		      mcpu?5206e/msoft-float mcpu?5206e/mhard-float \
-		      mcpu?5207/msoft-float mcpu?5207/mhard-float \
-		      mcpu?5211/msoft-float mcpu?5211/mhard-float \
+		      mcpu?5208/msoft-float mcpu?5208/mhard-float \
+		      mcpu?5213/msoft-float mcpu?5213/mhard-float \
 		      mcpu?5307/msoft-float mcpu?5307/mhard-float \
-		      mcpu?532x/msoft-float mcpu?532x/mhard-float \
+		      mcpu?5329/msoft-float mcpu?5329/mhard-float \
 		      mcpu?5407/msoft-float mcpu?5407/mhard-float \
-		      mcpu?547x/mhard-float \
-		      msoft-float mhard-float
+		      mcpu?5475/mhard-float
 
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib

@@ -1,3 +1,13 @@
+2006-10-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/t-mlib-matches (MULTILIB_MATCHES): Correct AWK
+	script for updated m68k-cores.def file.
+	* config/m68k/t-m68kelf (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_EXCEPTIONS): Adjust for updated m68k-cores.def file.
+	* config/m68k/t-uclinux (MULTILIB_OPTIONS,
+	MULTILIB_DIRNAMES): Likewise.
+
 2006-10-03  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
