@@ -1066,6 +1066,20 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 			tmake_file="${tmake_file} i386/t-linux64"
 			need_64bit_hwint=yes
+			# FIXME: -m64 for i[34567]86-*-* should be allowed just
+			# like -m32 for x86_64-*-*.
+			case X"${with_cpu}" in
+			Xgeneric|Xnocona|Xx86-64|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+				;;
+			X)
+				with_cpu=generic
+				;;
+			*)
+				echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
+				echo "generic nocona x86-64 k8 opteron athlon64 athlon-fx" 1>&2
+				exit 1
+				;;
+			esac
 		else
 			tm_file="${tm_file} i386/linux.h"
 		fi
@@ -1175,6 +1189,20 @@ i[34567]86-*-solaris2*)
 		tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 		tmake_file="$tmake_file i386/t-sol2-10"
 		need_64bit_hwint=yes
+		# FIXME: -m64 for i[34567]86-*-* should be allowed just
+		# like -m32 for x86_64-*-*.
+		case X"${with_cpu}" in
+		Xgeneric|Xnocona|Xx86-64|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+			;;
+		X)
+			with_cpu=generic
+			;;
+		*)
+			echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
+			echo "generic nocona x86-64 k8 opteron athlon64 athlon-fx" 1>&2
+			exit 1
+			;;
+		esac
 		# Solaris 2.10 provides crt1.o, crti.o, crtn.o, and gcrt1.o as 
 		# part of the base system.
 		extra_parts="gmon.o crtbegin.o crtend.o"
@@ -2396,6 +2424,9 @@ if test x$with_cpu = x ; then
       # A Cirrus ARM variant.
       with_cpu="ep9312"
       ;;
+    i386-*-*)
+      with_cpu=i386
+      ;;
     i486-*-*)
       with_cpu=i486
       ;;
@@ -2447,15 +2478,26 @@ if test x$with_cpu = x ; then
         pentium_m-*)
           with_cpu=pentium-m
           ;;
+        pentiumpro-*)
+          with_cpu=pentiumpro
+          ;;
         *)
-          if test x$need_64bit_hwint = x; then
-            with_cpu=pentiumpro
-          fi
+          with_cpu=generic
           ;;
       esac
       ;;
     x86_64-*-*)
-      with_cpu=k8
+      case ${target_noncanonical} in
+        k8-*|opteron-*|athlon_64-*)
+          with_cpu=k8
+          ;;
+        nocona-*)
+          with_cpu=nocona
+          ;;
+        *)
+          with_cpu=generic
+          ;;
+      esac
       ;;
     alphaev6[78]*-*-*)
       with_cpu=ev67
@@ -2690,13 +2732,21 @@ case "${target}" in
 		for which in arch cpu tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | i386 | i486 \
+			i386 | i486 \
 			| i586 | pentium | pentium-mmx | winchip-c6 | winchip2 \
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
-			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
-			| athlon64 | athlon-fx | prescott | pentium-m \
-			| pentium4m | pentium3m| nocona)
+			| athlon-4 | athlon-xp | athlon-mp \
+			| prescott | pentium-m | pentium4m | pentium3m)
+				case "${target}" in
+				  x86_64-*-*)
+				      echo "CPU given in --with-$which=$val doesn't support 64bit mode." 1>&2
+				      exit 1
+				      ;;
+				esac
+				# OK
+				;;
+			"" | k8 | opteron | athlon64 | athlon-fx | nocona | generic)
 				# OK
 				;;
 			*)

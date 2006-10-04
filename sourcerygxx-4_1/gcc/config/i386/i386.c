@@ -65,15 +65,23 @@ Boston, MA 02110-1301, USA.  */
 /* Processor costs (relative to an add) */
 static const
 struct processor_costs size_cost = {	/* costs for tunning for size */
-  2,					/* cost of an add instruction */
-  3,					/* cost of a lea instruction */
-  2,					/* variable shift costs */
-  3,					/* constant shift costs */
-  {3, 3, 3, 3, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (2),			/* cost of an add instruction */
+  COSTS_N_INSNS (3),			/* cost of a lea instruction */
+  COSTS_N_INSNS (2),			/* variable shift costs */
+  COSTS_N_INSNS (3),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (3),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (3),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {3, 3, 3, 3, 5},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  3,					/* cost of movzx */
+  {COSTS_N_INSNS (3),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (3),			/*                          HI */
+   COSTS_N_INSNS (3),			/*                          SI */
+   COSTS_N_INSNS (3),			/*                          DI */
+   COSTS_N_INSNS (5)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (3),			/* cost of movzx */
   0,					/* "large" insn */
   2,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -99,26 +107,34 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  2,					/* cost of FADD and FSUB insns.  */
-  2,					/* cost of FMUL instruction.  */
-  2,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  2,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (2),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FSQRT instruction.  */
 };
 
 /* Processor costs (relative to an add) */
 static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  3,					/* variable shift costs */
-  2,					/* constant shift costs */
-  {6, 6, 6, 6, 6},			/* cost of starting a multiply */
-  1,					/* cost of multiply per each bit set */
-  {23, 23, 23, 23, 23},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (3),			/* variable shift costs */
+  COSTS_N_INSNS (2),			/* constant shift costs */
+  {COSTS_N_INSNS (6),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (6),			/*                               HI */
+   COSTS_N_INSNS (6),			/*                               SI */
+   COSTS_N_INSNS (6),			/*                               DI */
+   COSTS_N_INSNS (6)},			/*                               other */
+  COSTS_N_INSNS (1),			/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (23),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (23),			/*                          HI */
+   COSTS_N_INSNS (23),			/*                          SI */
+   COSTS_N_INSNS (23),			/*                          DI */
+   COSTS_N_INSNS (23)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   15,					/* "large" insn */
   3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -144,25 +160,33 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  23,					/* cost of FADD and FSUB insns.  */
-  27,					/* cost of FMUL instruction.  */
-  88,					/* cost of FDIV instruction.  */
-  22,					/* cost of FABS instruction.  */
-  24,					/* cost of FCHS instruction.  */
-  122,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (23),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (27),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (88),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (22),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (24),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (122),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs i486_cost = {	/* 486 specific costs */
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  3,					/* variable shift costs */
-  2,					/* constant shift costs */
-  {12, 12, 12, 12, 12},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (3),			/* variable shift costs */
+  COSTS_N_INSNS (2),			/* constant shift costs */
+  {COSTS_N_INSNS (12),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (12),			/*                               HI */
+   COSTS_N_INSNS (12),			/*                               SI */
+   COSTS_N_INSNS (12),			/*                               DI */
+   COSTS_N_INSNS (12)},			/*                               other */
   1,					/* cost of multiply per each bit set */
-  {40, 40, 40, 40, 40},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (40),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (40),			/*                          HI */
+   COSTS_N_INSNS (40),			/*                          SI */
+   COSTS_N_INSNS (40),			/*                          DI */
+   COSTS_N_INSNS (40)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   15,					/* "large" insn */
   3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -188,25 +212,33 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  8,					/* cost of FADD and FSUB insns.  */
-  16,					/* cost of FMUL instruction.  */
-  73,					/* cost of FDIV instruction.  */
-  3,					/* cost of FABS instruction.  */
-  3,					/* cost of FCHS instruction.  */
-  83,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (16),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (73),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (83),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentium_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  4,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {11, 11, 11, 11, 11},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (4),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (11),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (11),			/*                               HI */
+   COSTS_N_INSNS (11),			/*                               SI */
+   COSTS_N_INSNS (11),			/*                               DI */
+   COSTS_N_INSNS (11)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {25, 25, 25, 25, 25},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (25),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (25),			/*                          HI */
+   COSTS_N_INSNS (25),			/*                          SI */
+   COSTS_N_INSNS (25),			/*                          DI */
+   COSTS_N_INSNS (25)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
   6,					/* MOVE_RATIO */
   6,					/* cost for loading QImode using movzbl */
@@ -232,25 +264,33 @@ struct processor_costs pentium_cost = {
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  3,					/* cost of FADD and FSUB insns.  */
-  3,					/* cost of FMUL instruction.  */
-  39,					/* cost of FDIV instruction.  */
-  1,					/* cost of FABS instruction.  */
-  1,					/* cost of FCHS instruction.  */
-  70,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (3),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (39),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (1),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (1),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (70),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentiumpro_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {4, 4, 4, 4, 4},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (4),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (4),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (4)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {17, 17, 17, 17, 17},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (17),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (17),			/*                          HI */
+   COSTS_N_INSNS (17),			/*                          SI */
+   COSTS_N_INSNS (17),			/*                          DI */
+   COSTS_N_INSNS (17)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   6,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -276,25 +316,33 @@ struct processor_costs pentiumpro_cost = {
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  3,					/* cost of FADD and FSUB insns.  */
-  5,					/* cost of FMUL instruction.  */
-  56,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  56,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (5),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs k6_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {3, 3, 3, 3, 3},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (3),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (3),			/*                               DI */
+   COSTS_N_INSNS (3)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 18, 18, 18, 18},			/* cost of a divide/mod */
-  2,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (18),			/*                          HI */
+   COSTS_N_INSNS (18),			/*                          SI */
+   COSTS_N_INSNS (18),			/*                          DI */
+   COSTS_N_INSNS (18)},			/*                          other */
+  COSTS_N_INSNS (2),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
   4,					/* MOVE_RATIO */
   3,					/* cost for loading QImode using movzbl */
@@ -320,25 +368,33 @@ struct processor_costs k6_cost = {
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  2,					/* cost of FADD and FSUB insns.  */
-  2,					/* cost of FMUL instruction.  */
-  56,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  56,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (2),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs athlon_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {5, 5, 5, 5, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (5),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (5),			/*                               HI */
+   COSTS_N_INSNS (5),			/*                               SI */
+   COSTS_N_INSNS (5),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -364,25 +420,33 @@ struct processor_costs athlon_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   5,					/* Branch cost */
-  4,					/* cost of FADD and FSUB insns.  */
-  4,					/* cost of FMUL instruction.  */
-  24,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  35,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (24),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs k8_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {3, 4, 3, 4, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -408,25 +472,33 @@ struct processor_costs k8_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   5,					/* Branch cost */
-  4,					/* cost of FADD and FSUB insns.  */
-  4,					/* cost of FMUL instruction.  */
-  19,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  35,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (19),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentium4_cost = {
-  1,					/* cost of an add instruction */
-  3,					/* cost of a lea instruction */
-  4,					/* variable shift costs */
-  4,					/* constant shift costs */
-  {15, 15, 15, 15, 15},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (3),			/* cost of a lea instruction */
+  COSTS_N_INSNS (4),			/* variable shift costs */
+  COSTS_N_INSNS (4),			/* constant shift costs */
+  {COSTS_N_INSNS (15),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (15),			/*                               HI */
+   COSTS_N_INSNS (15),			/*                               SI */
+   COSTS_N_INSNS (15),			/*                               DI */
+   COSTS_N_INSNS (15)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {56, 56, 56, 56, 56},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (56),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (56),			/*                          HI */
+   COSTS_N_INSNS (56),			/*                          SI */
+   COSTS_N_INSNS (56),			/*                          DI */
+   COSTS_N_INSNS (56)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   16,					/* "large" insn */
   6,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -452,25 +524,33 @@ struct processor_costs pentium4_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  5,					/* cost of FADD and FSUB insns.  */
-  7,					/* cost of FMUL instruction.  */
-  43,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  43,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (5),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (7),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (43),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (43),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs nocona_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {10, 10, 10, 10, 10},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (10),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (10),			/*                               HI */
+   COSTS_N_INSNS (10),			/*                               SI */
+   COSTS_N_INSNS (10),			/*                               DI */
+   COSTS_N_INSNS (10)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {66, 66, 66, 66, 66},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (66),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (66),			/*                          HI */
+   COSTS_N_INSNS (66),			/*                          SI */
+   COSTS_N_INSNS (66),			/*                          DI */
+   COSTS_N_INSNS (66)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   16,					/* "large" insn */
   17,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -496,12 +576,124 @@ struct processor_costs nocona_cost = {
   128,					/* size of prefetch block */
   8,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  6,					/* cost of FADD and FSUB insns.  */
-  8,					/* cost of FMUL instruction.  */
-  40,					/* cost of FDIV instruction.  */
-  3,					/* cost of FABS instruction.  */
-  3,					/* cost of FCHS instruction.  */
-  44,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (6),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (44),			/* cost of FSQRT instruction.  */
+};
+
+/* Generic64 should produce code tuned for Nocona and K8.  */
+static const
+struct processor_costs generic64_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  /* On all chips taken into consideration lea is 2 cycles and more.  With
+     this cost however our current implementation of synth_mult results in
+     use of unnecesary temporary registers causing regression on several
+     SPECfp benchmarks.  */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  /* Benchmarks shows large regressions on K8 sixtrack benchmark when this value
+     is increased to perhaps more appropriate value of 5.  */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+};
+
+/* Generic32 should produce code tuned for Athlon, PPro, Pentium4, Nocona and K8.  */
+static const
+struct processor_costs generic32_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
 };
 
 const struct processor_costs *ix86_cost = &pentium_cost;
@@ -517,53 +709,81 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_K8  (1<<PROCESSOR_K8)
 #define m_ATHLON_K8  (m_K8 | m_ATHLON)
 #define m_NOCONA  (1<<PROCESSOR_NOCONA)
+#define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
+#define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
+#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
-const int x86_use_leave = m_386 | m_K6 | m_ATHLON_K8;
-const int x86_push_memory = m_386 | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+/* Generic instruction choice should be common subset of supported CPUs
+   (PPro/PENT4/NOCONA/Athlon/K8).  */
+
+/* Leave is not affecting Nocona SPEC2000 results negatively, so enabling for
+   Generic64 seems like good code size tradeoff.  We can't enable it for 32bit
+   generic because it is not working well with PPro base chips.  */
+const int x86_use_leave = m_386 | m_K6 | m_ATHLON_K8 | m_GENERIC64;
+const int x86_push_memory = m_386 | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
 const int x86_zero_extend_with_and = m_486 | m_PENT;
-const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA /* m_386 | m_K6 */;
+const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA | m_GENERIC /* m_386 | m_K6 */;
 const int x86_double_with_add = ~m_386;
 const int x86_use_bit_test = m_386;
-const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
-const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6 | m_GENERIC;
+const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA; 
 const int x86_fisttp = m_NOCONA;
 const int x86_3dnow_a = m_ATHLON_K8;
-const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
 /* Branch hints were put in P4 based on simulation result. But
    after P4 was made, no performance benefit was observed with
    branch hints. It also increases the code size. As the result,
    icc never generates branch hints.  */
 const int x86_branch_hints = 0;
-const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
+const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC32; /*m_GENERIC | m_ATHLON_K8 ? */
+/* We probably ought to watch for partial register stalls on Generic32
+   compilation setting as well.  However in current implementation the
+   partial register stalls are not eliminated very well - they can
+   be introduced via subregs synthetized by combine and can happen
+   in caller/callee saving sequences.
+   Because this option pays back little on PPro based chips and is in conflict
+   with partial reg. dependencies used by Athlon/P4 based chips, it is better
+   to leave it off for generic32 for now.  */
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_himode_fiop = m_386 | m_486 | m_K6;
-const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT);
+const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT | m_GENERIC);
 const int x86_use_mov0 = m_K6;
-const int x86_use_cltd = ~(m_PENT | m_K6);
+const int x86_use_cltd = ~(m_PENT | m_K6 | m_GENERIC);
 const int x86_read_modify_write = ~m_PENT;
 const int x86_read_modify = ~(m_PENT | m_PPRO);
 const int x86_split_long_moves = m_PPRO;
-const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON_K8;
+const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON_K8 | m_GENERIC; /* m_PENT4 ? */
 const int x86_fast_prefix = ~(m_PENT | m_486 | m_386);
 const int x86_single_stringop = m_386 | m_PENT4 | m_NOCONA;
 const int x86_qimode_math = ~(0);
 const int x86_promote_qi_regs = 0;
+/* On PPro this flag is meant to avoid partial register stalls.  Just like
+   the x86_partial_reg_stall this option might be considered for Generic32
+   if our scheme for avoiding partial stalls was more effective.  */
 const int x86_himode_math = ~(m_PPRO);
 const int x86_promote_hi_regs = m_PPRO;
-const int x86_sub_esp_4 = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA;
-const int x86_sub_esp_8 = m_ATHLON_K8 | m_PPRO | m_386 | m_486 | m_PENT4 | m_NOCONA;
-const int x86_add_esp_4 = m_ATHLON_K8 | m_K6 | m_PENT4 | m_NOCONA;
-const int x86_add_esp_8 = m_ATHLON_K8 | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4 | m_NOCONA;
-const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO);
-const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO;
-const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO;
-const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO;
-const int x86_decompose_lea = m_PENT4 | m_NOCONA;
+const int x86_sub_esp_4 = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_sub_esp_8 = m_ATHLON_K8 | m_PPRO | m_386 | m_486 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_add_esp_4 = m_ATHLON_K8 | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_add_esp_8 = m_ATHLON_K8 | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC);
+const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC;
+const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
+const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_shift1 = ~m_486;
-const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_sse_partial_reg_dependency = m_PENT4 | m_NOCONA | m_PPRO;
+const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+/* In Generic model we have an confict here in between PPro/Pentium4 based chips
+   that thread 128bit SSE registers as single units versus K8 based chips that
+   divide SSE registers to two 64bit halves.
+   x86_sse_partial_reg_dependency promote all store destinations to be 128bit
+   to allow register renaming on 128bit SSE units, but usually results in one
+   extra microop on 64bit SSE units.  Experimental results shows that disabling
+   this option on P4 brings over 20% SPECfp regression, while enabling it on
+   K8 brings roughly 2.4% regression that can be partly masked by careful scheduling
+   of moves.  */
+const int x86_sse_partial_reg_dependency = m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC;
 /* Set for machines where the type and dependencies are resolved on SSE
    register parts instead of whole registers, so we may maintain just
    lower part of scalar values in proper format leaving the upper part
@@ -573,21 +793,23 @@ const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4 | m_NOCONA;
 const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
+const int x86_use_incdec = ~(m_PENT4 | m_NOCONA | m_GENERIC);
 
 /* ??? Allowing interunit moves makes it all too easy for the compiler to put
    integer data in xmm registers.  Which results in pretty abysmal code.  */
 const int x86_inter_unit_moves = 0 /* ~(m_ATHLON_K8) */;
 
-const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPRO;
+const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC32;
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
-const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
+const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT | m_GENERIC;
 const int x86_use_bt = m_ATHLON_K8;
 /* Compare and exchange was added for 80486.  */
 const int x86_cmpxchg = ~m_386;
 /* Exchange and add was added for 80486.  */
 const int x86_xadd = ~m_386;
+const int x86_pad_returns = m_ATHLON_K8 | m_GENERIC;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -1205,7 +1427,9 @@ override_options (void)
       {&athlon_cost, 0, 0, 16, 7, 16, 7, 16},
       {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0},
       {&k8_cost, 0, 0, 16, 7, 16, 7, 16},
-      {&nocona_cost, 0, 0, 0, 0, 0, 0, 0}
+      {&nocona_cost, 0, 0, 0, 0, 0, 0, 0},
+      {&generic32_cost, 0, 0, 16, 7, 16, 7, 16},
+      {&generic64_cost, 0, 0, 16, 7, 16, 7, 16}
     };
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
@@ -1273,6 +1497,8 @@ override_options (void)
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
       {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+      {"generic32", PROCESSOR_GENERIC32, 0 /* flags are only used for -march switch.  */ },
+      {"generic64", PROCESSOR_GENERIC64, PTA_64BIT /* flags are only used for -march switch.  */ },
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
@@ -1302,15 +1528,52 @@ override_options (void)
 	flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
     }
 
-  if (!ix86_tune_string && ix86_arch_string)
-    ix86_tune_string = ix86_arch_string;
-  if (!ix86_tune_string)
+  /* Need to check -mtune=generic first.  */
+  if (ix86_tune_string)
     {
-      ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
-      ix86_tune_defaulted = 1;
+      if (!strcmp (ix86_tune_string, "generic")
+	  || !strcmp (ix86_tune_string, "i686"))
+	{
+	  if (TARGET_64BIT)
+	    ix86_tune_string = "generic64";
+	  else
+	    ix86_tune_string = "generic32";
+	}
+      else if (!strncmp (ix86_tune_string, "generic", 7))
+	error ("bad value (%s) for -mtune= switch", ix86_tune_string);
     }
+  else
+    {
+      if (ix86_arch_string)
+	ix86_tune_string = ix86_arch_string;
+      if (!ix86_tune_string)
+	{
+	  ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
+	  ix86_tune_defaulted = 1;
+	}
+
+      /* ix86_tune_string is set to ix86_arch_string or defaulted.  We
+	 need to use a sensible tune option.  */
+      if (!strcmp (ix86_tune_string, "generic")
+	  || !strcmp (ix86_tune_string, "x86-64")
+	  || !strcmp (ix86_tune_string, "i686"))
+	{
+	  if (TARGET_64BIT)
+	    ix86_tune_string = "generic64";
+	  else
+	    ix86_tune_string = "generic32";
+	}
+    }
+  if (!strcmp (ix86_tune_string, "x86-64"))
+    warning (OPT_Wdeprecated, "-mtune=x86-64 is deprecated.  Use -mtune=k8 or "
+	     "-mtune=generic instead as appropriate.");
+
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
+  if (!strcmp (ix86_arch_string, "generic"))
+    error ("generic CPU can be used only for -mtune= switch");
+  if (!strncmp (ix86_arch_string, "generic", 7))
+    error ("bad value (%s) for -march= switch", ix86_arch_string);
 
   if (ix86_cmodel_string != 0)
     {
@@ -13031,6 +13294,8 @@ ix86_issue_rate (void)
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
     case PROCESSOR_NOCONA:
+    case PROCESSOR_GENERIC32:
+    case PROCESSOR_GENERIC64:
       return 3;
 
     default:
@@ -13223,6 +13488,8 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
+    case PROCESSOR_GENERIC32:
+    case PROCESSOR_GENERIC64:
       memory = get_attr_memory (insn);
 
       /* Show ability of reorder buffer to hide latency of load by executing
@@ -16355,13 +16622,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && GET_MODE (XEXP (x, 0)) == SImode)
 	*total = 1;
       else if (TARGET_ZERO_EXTEND_WITH_AND)
-	*total = COSTS_N_INSNS (ix86_cost->add);
+	*total = ix86_cost->add;
       else
-	*total = COSTS_N_INSNS (ix86_cost->movzx);
+	*total = ix86_cost->movzx;
       return false;
 
     case SIGN_EXTEND:
-      *total = COSTS_N_INSNS (ix86_cost->movsx);
+      *total = ix86_cost->movsx;
       return false;
 
     case ASHIFT:
@@ -16371,13 +16638,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  HOST_WIDE_INT value = INTVAL (XEXP (x, 1));
 	  if (value == 1)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->add);
+	      *total = ix86_cost->add;
 	      return false;
 	    }
 	  if ((value == 2 || value == 3)
 	      && ix86_cost->lea <= ix86_cost->shift_const)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->lea);
+	      *total = ix86_cost->lea;
 	      return false;
 	    }
 	}
@@ -16392,31 +16659,31 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {
 	      if (INTVAL (XEXP (x, 1)) > 32)
-		*total = COSTS_N_INSNS(ix86_cost->shift_const + 2);
+		*total = ix86_cost->shift_const + COSTS_N_INSNS (2);
 	      else
-		*total = COSTS_N_INSNS(ix86_cost->shift_const * 2);
+		*total = ix86_cost->shift_const * 2;
 	    }
 	  else
 	    {
 	      if (GET_CODE (XEXP (x, 1)) == AND)
-		*total = COSTS_N_INSNS(ix86_cost->shift_var * 2);
+		*total = ix86_cost->shift_var * 2;
 	      else
-		*total = COSTS_N_INSNS(ix86_cost->shift_var * 6 + 2);
+		*total = ix86_cost->shift_var * 6 + COSTS_N_INSNS (2);
 	    }
 	}
       else
 	{
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
-	    *total = COSTS_N_INSNS (ix86_cost->shift_const);
+	    *total = ix86_cost->shift_const;
 	  else
-	    *total = COSTS_N_INSNS (ix86_cost->shift_var);
+	    *total = ix86_cost->shift_var;
 	}
       return false;
 
     case MULT:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fmul);
+	  *total = ix86_cost->fmul;
 	  return false;
 	}
       else
@@ -16457,9 +16724,9 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	        op0 = XEXP (op0, 0), mode = GET_MODE (op0);
 	    }
 
-  	  *total = COSTS_N_INSNS (ix86_cost->mult_init[MODE_INDEX (mode)]
-			          + nbits * ix86_cost->mult_bit)
-	           + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code);
+  	  *total = (ix86_cost->mult_init[MODE_INDEX (mode)]
+		    + nbits * ix86_cost->mult_bit
+	            + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code));
 
           return true;
 	}
@@ -16469,14 +16736,14 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MOD:
     case UMOD:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fdiv);
+	*total = ix86_cost->fdiv;
       else
-	*total = COSTS_N_INSNS (ix86_cost->divide[MODE_INDEX (mode)]);
+	*total = ix86_cost->divide[MODE_INDEX (mode)];
       return false;
 
     case PLUS:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fadd);
+	*total = ix86_cost->fadd;
       else if (GET_MODE_CLASS (mode) == MODE_INT
 	       && GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (Pmode))
 	{
@@ -16488,7 +16755,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (XEXP (x, 0), 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = COSTS_N_INSNS (ix86_cost->lea);
+		  *total = ix86_cost->lea;
 		  *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
 		  *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
 				      outer_code);
@@ -16502,7 +16769,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (x, 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = COSTS_N_INSNS (ix86_cost->lea);
+		  *total = ix86_cost->lea;
 		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
 		  *total += rtx_cost (XEXP (x, 1), outer_code);
 		  return true;
@@ -16510,7 +16777,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    }
 	  else if (GET_CODE (XEXP (x, 0)) == PLUS)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->lea);
+	      *total = ix86_cost->lea;
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
 	      *total += rtx_cost (XEXP (x, 1), outer_code);
@@ -16522,7 +16789,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MINUS:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fadd);
+	  *total = ix86_cost->fadd;
 	  return false;
 	}
       /* FALLTHRU */
@@ -16532,7 +16799,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case XOR:
       if (!TARGET_64BIT && mode == DImode)
 	{
-	  *total = (COSTS_N_INSNS (ix86_cost->add) * 2
+	  *total = (ix86_cost->add * 2
 		    + (rtx_cost (XEXP (x, 0), outer_code)
 		       << (GET_MODE (XEXP (x, 0)) != DImode))
 		    + (rtx_cost (XEXP (x, 1), outer_code)
@@ -16544,16 +16811,16 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case NEG:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fchs);
+	  *total = ix86_cost->fchs;
 	  return false;
 	}
       /* FALLTHRU */
 
     case NOT:
       if (!TARGET_64BIT && mode == DImode)
-	*total = COSTS_N_INSNS (ix86_cost->add * 2);
+	*total = ix86_cost->add * 2;
       else
-	*total = COSTS_N_INSNS (ix86_cost->add);
+	*total = ix86_cost->add;
       return false;
 
     case COMPARE:
@@ -16564,7 +16831,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	{
 	  /* This kind of construct is implemented using test[bwl].
 	     Treat it as if we had an AND.  */
-	  *total = (COSTS_N_INSNS (ix86_cost->add)
+	  *total = (ix86_cost->add
 		    + rtx_cost (XEXP (XEXP (x, 0), 0), outer_code)
 		    + rtx_cost (const1_rtx, outer_code));
 	  return true;
@@ -16580,12 +16847,12 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case ABS:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fabs);
+	*total = ix86_cost->fabs;
       return false;
 
     case SQRT:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fsqrt);
+	*total = ix86_cost->fsqrt;
       return false;
 
     case UNSPEC:
@@ -17191,7 +17458,7 @@ ix86_pad_returns (void)
 static void
 ix86_reorg (void)
 {
-  if (TARGET_ATHLON_K8 && optimize && !optimize_size)
+  if (TARGET_PAD_RETURNS && optimize && !optimize_size)
     ix86_pad_returns ();
   if (TARGET_FOUR_JUMP_LIMIT && optimize && !optimize_size)
     ix86_avoid_jump_misspredicts ();
