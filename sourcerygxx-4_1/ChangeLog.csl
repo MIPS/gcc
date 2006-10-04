@@ -1,5 +1,12 @@
 2006-10-04  Joseph Myers  <joseph@codesourcery.com>
 
+	Backport:
+	2006-07-24  Uros Bizjak  <uros@kss-loka.si>
+	* gcc.dg/visibility-11.c: Enlarge test array to 1024 bytes to
+	avoid memcpy optimization.
+
+2006-10-04  Joseph Myers  <joseph@codesourcery.com>
+
 	gcc/
 	* config.gcc: Handle tuning for bi-arch i[34567]86-*-linux* like
 	that for i[34567]86-*-solaris2.1[0-9]*.

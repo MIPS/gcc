@@ -4,7 +4,7 @@
 
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-require-visibility "" } */
-/* { dg-options "-Os -fpic" }
+/* { dg-options "-Os -fpic" } */
 /* { dg-final { scan-assembler "memcpy@PLT" } } */
 
 #pragma GCC visibility push(hidden)
@@ -12,7 +12,7 @@
 extern void* memcpy (void *, const void *, __SIZE_TYPE__);
 #pragma GCC visibility pop
 
-struct a { int a[10]; };
+struct a { int a[1024]; };
 
 extern void *bar (struct a *, struct a *, int);
 
