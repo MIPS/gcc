@@ -1,3 +1,19 @@
+2006-10-04  Andrew Haley  <aph@redhat.com>
+
+	* builtins.c (java_builtins): Add compareAndSwapInt,
+	compareAndSwapLong, compareAndSwapObject, putOrderedInt,
+	putOrderedLong, putOrderedObject, putIntVolatile, putLongVolatile,
+	putObjectVolatile, getObjectVolatile, getIntVolatile,
+	getLongVolatile, getLong.
+	(UNMARSHAL3): New macro.
+	(UNMARSHAL4): Likewise.
+	(UNMARSHAL5): Likewise.
+	(build_arglist_for_builtin): New function.
+	(build_addr_sum, build_check_this): New functions.
+	(putObject_builtin. compareAndSwapInt_builtin,
+	compareAndSwapLong_builtin, compareAndSwapObject_builtin,
+	putVolatile_builtin, getVolatile_builtin): New builtins.
+
 2006-06-08  Andrew Haley  <aph@redhat.com>
  
 	* expr.c (build_field_ref): Pass NULL_TREE as SPECIAL arg to
