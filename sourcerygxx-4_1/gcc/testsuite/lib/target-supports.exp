@@ -996,7 +996,8 @@ proc check_effective_target_vect_cmdline_needed { } {
     } else {
 	set et_vect_cmdline_needed_saved 1
 	if { [istarget ia64-*-*]
-	      || [istarget x86_64-*-*] } {
+	     || (([istarget x86_64-*-*] || [istarget i?86-*-*])
+		 && [check_effective_target_lp64])} {
 	   set et_vect_cmdline_needed_saved 0
 	}
     }
