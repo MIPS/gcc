@@ -1,3 +1,10 @@
+2006-10-05  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Avoid caching
+	across change of target.
+
 2006-10-05  Richard Sandiford  <richard@codesourcery.com>
 
 	Backport from mainline:
