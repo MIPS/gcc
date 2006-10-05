@@ -487,12 +487,11 @@ default_internal_arg_pointer (void)
      considered fixed even though it is not marked as such.  */
   if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
        || ! (fixed_regs[ARG_POINTER_REGNUM]
-             || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
     return copy_to_reg (virtual_incoming_args_rtx);
   else
     return virtual_incoming_args_rtx;
 }
-
 
 enum reg_class
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,

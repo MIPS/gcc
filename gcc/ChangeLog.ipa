@@ -1,3 +1,14 @@
+2006-10-05  Jan Hubicka  <jh@suse.cz>
+
+	* c-pretty-print.c: Synchronize with mainline.
+	* cfgrtl.c: Synchronize with mainline.
+	* cgraphunit.c: Synchronize with mainline.
+	* fix-header.c: Synchronize with mainline.
+	* sched-deps.c: Synchronize with mainline.
+	* targhooks.c: Synchronize with mainline.
+	* tree.c: Synchronize with mainline.
+	* var-tracking.c: Synchronize with mainline.
+
 2006-10-04  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rev 117459).

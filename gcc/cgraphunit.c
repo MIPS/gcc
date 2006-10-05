@@ -1889,6 +1889,7 @@ save_inline_function_body (struct cgraph_node *node)
 
       first_clone = cgraph_clone_node (node, node->count, 0, false);
       first_clone->needed = 0;
+      first_clone->reachable = 1;
       /* Recursively clone all bodies.  */
       for (e = first_clone->callees; e; e = e->next_callee)
 	if (!e->inline_failed)
