@@ -2995,14 +2995,14 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 2);
 
-  if (code == MODIFY_EXPR && DECL_GIMPLIFIED (current_function_decl))
+  if (code == MODIFY_EXPR && cfun && cfun->gimplified)
     {
       /* WTF?  We should be talking GIMPLE_MODIFY_STMT by now.  */
       gcc_unreachable ();
     }
 
-  /* For now let's be lazy; later we must rewrite all build2 calls to
-     build2_gimple calls.  */
+  /* FIXME tuples: For now let's be lazy; later we must rewrite all
+     build2 calls to build2_gimple calls.  */
   if (TREE_CODE_CLASS (code) == tcc_gimple_stmt)
     return build2_gimple (code, arg0, arg1);
 

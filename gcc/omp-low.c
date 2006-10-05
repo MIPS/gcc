@@ -3995,7 +3995,7 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
 
      We just need to make sure that VAL1, VAL2 and VAL3 are lowered
      using the .omp_data_s mapping, if needed.  */
-  rhs_p = &TREE_OPERAND (OMP_FOR_INIT (stmt), 1);
+  rhs_p = &GIMPLE_STMT_OPERAND (OMP_FOR_INIT (stmt), 1);
   if (!is_gimple_min_invariant (*rhs_p))
     *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
 
@@ -4003,7 +4003,7 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
   if (!is_gimple_min_invariant (*rhs_p))
     *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
 
-  rhs_p = &TREE_OPERAND (TREE_OPERAND (OMP_FOR_INCR (stmt), 1), 1);
+  rhs_p = &TREE_OPERAND (GIMPLE_STMT_OPERAND (OMP_FOR_INCR (stmt), 1), 1);
   if (!is_gimple_min_invariant (*rhs_p))
     *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
 

@@ -419,7 +419,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (node == NULL_TREE)
     return spc;
 
-  is_expr = EXPR_P (node);
+  is_expr = EXPR_P (node) || GIMPLE_STMT_P (node);
 
   if (TREE_CODE (node) != ERROR_MARK
       && is_gimple_stmt (node)

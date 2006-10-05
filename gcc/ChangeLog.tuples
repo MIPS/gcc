@@ -1,3 +1,48 @@
+2006-10-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-complex.c (expand_complex_libcall): Adjust for
+	GIMPLE_MODIFY_STMT.
+	(expand_complex_comparison): Same.
+	* tree-pretty-print.c (dump_generic_node): Is_expr should include
+	GIMPLE_STMT_P statements.
+	* value-prof.c (tree_divmod_fixed_value_transform): Adjust for
+	GIMPLE_MODIFY_STMT.
+	(tree_mod_pow2_value_transform): Same.
+	(tree_mod_subtract_transform): Same.
+	* tree.c (build2_stat): Check for gimplified function in cfun.
+	* tree.h (DECL_GIMPLIFIED): Delete.
+	(struct tree_function_decl): Remove gimplified_flag.
+	* omp-low.c (lower_omp_for): Adjust for GIMPLE_MODIFY_STMT.
+	* cp/cp-gimplify.c (cp_gimplify_expr): Adjust for GIMPLE_MODIFY_STMT.
+	(cxx_omp_clause_apply_fn): Adjust for GIMPLE_MODIFY_STMT.
+	(cxx_omp_clause_copy_ctor): Same.
+	(cxx_omp_clause_assign_op): Same.
+	* c-pretty-print.c (pp_c_conditional_expression): Same.
+	(pp_c_expression): Same.
+	* langhooks.c (lhd_omp_predetermined_sharing): Same.
+	* function.h (struct function): Add gimplified field.
+	* tree-if-conv.c (add_to_dst_predicate_list): Adjust for
+	GIMPLE_MODIFY_STMT.
+	(find_phi_replacement_condition): Same.
+	* gimplify.c (gimplify_modify_expr_to_memcpy): Same.
+	(gimplify_modify_expr_to_memset): Same.
+	(gimplify_init_ctor_eval_range): Same.
+	(gimplify_modify_expr_complex_part): Same.
+	(tree_to_gimple_tuple): Same.
+	(gimplify_modify_expr): Same.
+	(gimple_push_cleanup): Same.
+	(gimplify_omp_for): Same.
+	(gimplify_omp_atomic_pipeline): Same.
+	(gimplify_omp_atomic_mutex): Same.
+	(gimplify_expr): Same.
+	(gimplify_one_sizepos): Same.
+	(gimplify_function_tree): Same.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Same.
+	(vect_recog_widen_sum_pattern): Same.
+	* tree-vect-transform.c (get_initial_def_for_reduction): Same.
+	(vect_create_epilog_for_reduction): Same.
+	(vectorizable_reduction): Same.
+
 2006-09-28  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree-ssa-math-opts.c (replace_reciprocal): Use GIMPLE_STMT_OPERAND.

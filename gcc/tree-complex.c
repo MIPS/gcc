@@ -893,7 +893,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
   args = tree_cons (NULL, ar, args);
 
   stmt = bsi_stmt (*bsi);
-  type = TREE_TYPE (TREE_OPERAND (stmt, 1));
+  type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
 
   mode = TYPE_MODE (type);
   gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
@@ -905,13 +905,13 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
     gcc_unreachable ();
   fn = built_in_decls[bcode];
 
-  TREE_OPERAND (stmt, 1)
+  GIMPLE_STMT_OPERAND (stmt, 1)
     = build3 (CALL_EXPR, type, build_fold_addr_expr (fn), args, NULL);
   update_stmt (stmt);
 
   if (in_ssa_p)
     {
-      tree lhs = TREE_OPERAND (stmt, 0);
+      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       type = TREE_TYPE (type);
       update_complex_components (bsi, stmt,
 				 build1 (REALPART_EXPR, type, lhs),
@@ -1307,8 +1307,8 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
       expr = TREE_OPERAND (stmt, 0);
       /* FALLTHRU */
     case GIMPLE_MODIFY_STMT:
-      type = TREE_TYPE (TREE_OPERAND (expr, 1));
-      TREE_OPERAND (expr, 1) = fold_convert (type, cc);
+      type = TREE_TYPE (GIMPLE_STMT_OPERAND (expr, 1));
+      GIMPLE_STMT_OPERAND (expr, 1) = fold_convert (type, cc);
       break;
     case COND_EXPR:
       TREE_OPERAND (stmt, 0) = cc;

@@ -647,7 +647,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *scalar_def)
   tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
   int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
   int nelements;
-  enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
+  enum tree_code code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1));
   tree type = TREE_TYPE (init_val);
   tree def;
   tree vec, t = NULL_TREE;
@@ -783,7 +783,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   tree epilog_stmt;
   tree new_scalar_dest, exit_phi;
   tree bitsize, bitpos, bytesize; 
-  enum tree_code code = TREE_CODE (TREE_OPERAND (stmt, 1));
+  enum tree_code code = TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1));
   tree scalar_initial_def;
   tree vec_initial_def;
   tree orig_name;
@@ -793,7 +793,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   tree reduction_op;
   tree orig_stmt;
   tree use_stmt;
-  tree operation = TREE_OPERAND (stmt, 1);
+  tree operation = GIMPLE_STMT_OPERAND (stmt, 1);
   int op_type;
   
   op_type = TREE_CODE_LENGTH (TREE_CODE (operation));
@@ -880,8 +880,8 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
       gcc_assert (STMT_VINFO_IN_PATTERN_P (stmt_vinfo));
       gcc_assert (STMT_VINFO_RELATED_STMT (stmt_vinfo) == stmt);
     }
-  code = TREE_CODE (TREE_OPERAND (orig_stmt, 1));
-  scalar_dest = TREE_OPERAND (orig_stmt, 0);
+  code = TREE_CODE (GIMPLE_STMT_OPERAND (orig_stmt, 1));
+  scalar_dest = GIMPLE_STMT_OPERAND (orig_stmt, 0);
   scalar_type = TREE_TYPE (scalar_dest);
   new_scalar_dest = vect_create_destination_var (scalar_dest, NULL);
   bitsize = TYPE_SIZE (scalar_type);
@@ -1303,7 +1303,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     {
       /* This is a reduction pattern: get the vectype from the type of the
          reduction variable, and get the tree-code from orig_stmt.  */
-      orig_code = TREE_CODE (TREE_OPERAND (orig_stmt, 1));
+      orig_code = TREE_CODE (GIMPLE_STMT_OPERAND (orig_stmt, 1));
       vectype = get_vectype_for_scalar_type (TREE_TYPE (def));
       vec_mode = TYPE_MODE (vectype);
     }

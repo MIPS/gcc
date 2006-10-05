@@ -49,14 +49,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "optabs.h"
 #include "pointer-set.h"
 
-/* FIXME tuples: This file needs major surgery.  We should ideally be building
-   GIMPLE_MODIFY_STMTs everywhere (ala build2(GIMPLE_MODIFY_STMT...)) instead
-   of building MODIFY_EXPRs and letting the recursion of gimplification take
-   care of it.  Of course, this will require careful analysis of what is
-   expecting to deal with MODIFY_EXPRs and what is expecting to deal with
-   newly built GIMPLE_MODIFY_STMT.  Oh well, lazy man's way now... let
-   recursion fix it :-).  */
-
 
 enum gimplify_omp_var_data
 {
@@ -2559,8 +2551,8 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value)
 {
   tree args, t, to, to_ptr, from;
 
-  to = TREE_OPERAND (*expr_p, 0);
-  from = TREE_OPERAND (*expr_p, 1);
+  to = PROTECTED_TREE_OPERAND (*expr_p, 0);
+  from = PROTECTED_TREE_OPERAND (*expr_p, 1);
 
   args = tree_cons (NULL, size, NULL);
 
@@ -2591,7 +2583,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value)
 {
   tree args, t, to, to_ptr;
 
-  to = TREE_OPERAND (*expr_p, 0);
+  to = PROTECTED_TREE_OPERAND (*expr_p, 0);
 
   args = tree_cons (NULL, size, NULL);
 
@@ -2755,7 +2747,8 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
   var = create_tmp_var (var_type, NULL);
-  append_to_statement_list (build2 (MODIFY_EXPR, var_type, var, lower), pre_p);
+  append_to_statement_list (build2 (GIMPLE_MODIFY_STMT, var_type, var, lower),
+			    pre_p);
 
   /* Add the loop entry label.  */
   append_to_statement_list (build1 (LABEL_EXPR,
@@ -2776,7 +2769,7 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 			     pre_p, cleared);
   else
-    append_to_statement_list (build2 (MODIFY_EXPR, TREE_TYPE (cref),
+    append_to_statement_list (build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (cref),
 				      cref, value),
 			      pre_p);
 
@@ -2791,7 +2784,7 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
 		    pre_p);
 
   /* Otherwise, increment the index var...  */
-  append_to_statement_list (build2 (MODIFY_EXPR, var_type, var,
+  append_to_statement_list (build2 (GIMPLE_MODIFY_STMT, var_type, var,
 				    build2 (PLUS_EXPR, var_type, var,
 					    fold_convert (var_type,
 							  integer_one_node))),
@@ -3466,8 +3459,8 @@ gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
   enum tree_code code, ocode;
   tree lhs, rhs, new_rhs, other, realpart, imagpart;
 
-  lhs = TREE_OPERAND (*expr_p, 0);
-  rhs = TREE_OPERAND (*expr_p, 1);
+  lhs = PROTECTED_TREE_OPERAND (*expr_p, 0);
+  rhs = PROTECTED_TREE_OPERAND (*expr_p, 1);
   code = TREE_CODE (lhs);
   lhs = TREE_OPERAND (lhs, 0);
 
@@ -3483,8 +3476,8 @@ gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
   else
     new_rhs = build2 (COMPLEX_EXPR, TREE_TYPE (lhs), realpart, imagpart);
 
-  TREE_OPERAND (*expr_p, 0) = lhs;
-  TREE_OPERAND (*expr_p, 1) = new_rhs;
+  PROTECTED_TREE_OPERAND (*expr_p, 0) = lhs;
+  PROTECTED_TREE_OPERAND (*expr_p, 1) = new_rhs;
 
   if (want_value)
     {
@@ -3540,7 +3533,7 @@ tree_to_gimple_tuple (tree *tp)
         return;
       }
     default:
-      gcc_unreachable ();
+      break;
     }
 }
 
@@ -3569,6 +3562,10 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == GIMPLE_MODIFY_STMT
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
+
+  /* FIXME tuples: We need to gimplify into GIMPLE_MODIFY_STMT right
+     away, so the helper functions below can be made to only handle
+     GIMPLE_MODIFY_STMT's, not MODIFY_EXPR as well.  */
 
   /* For zero sized types only gimplify the left hand side and right hand side
      as statements and throw away the assignment.  */
@@ -4238,9 +4235,9 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, tree *pre_p)
       */
 
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
-      tree ffalse = build2 (MODIFY_EXPR, void_type_node, flag,
+      tree ffalse = build2 (GIMPLE_MODIFY_STMT, void_type_node, flag,
 			    boolean_false_node);
-      tree ftrue = build2 (MODIFY_EXPR, void_type_node, flag,
+      tree ftrue = build2 (GIMPLE_MODIFY_STMT, void_type_node, flag,
 			   boolean_true_node);
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
       wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
@@ -4953,6 +4950,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
+  tree_to_gimple_tuple (&OMP_FOR_INIT (for_stmt));
+
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
   gcc_assert (TREE_OPERAND (t, 0) == decl);
@@ -4960,6 +4959,7 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
+  tree_to_gimple_tuple (&OMP_FOR_INCR (for_stmt));
   t = OMP_FOR_INCR (for_stmt);
   switch (TREE_CODE (t))
     {
@@ -4973,13 +4973,13 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
       goto build_modify;
     build_modify:
       t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
-      t = build2 (MODIFY_EXPR, void_type_node, decl, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, decl, t);
       OMP_FOR_INCR (for_stmt) = t;
       break;
       
-    case MODIFY_EXPR:
-      gcc_assert (TREE_OPERAND (t, 0) == decl);
-      t = TREE_OPERAND (t, 1);
+    case GIMPLE_MODIFY_STMT:
+      gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == decl);
+      t = GIMPLE_STMT_OPERAND (t, 1);
       switch (TREE_CODE (t))
 	{
 	case PLUS_EXPR:
@@ -5189,7 +5189,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
     return GS_ERROR;
 
   x = build_fold_indirect_ref (addr);
-  x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
+  x = build2 (GIMPLE_MODIFY_STMT, void_type_node, oldval, x);
   gimplify_and_add (x, pre_p);
 
   /* For floating-point values, we'll need to view-convert them to integers
@@ -5207,7 +5207,7 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
       newival = create_tmp_var (itype, NULL);
 
       x = build1 (VIEW_CONVERT_EXPR, itype, oldval);
-      x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
+      x = build2 (GIMPLE_MODIFY_STMT, void_type_node, oldival, x);
       gimplify_and_add (x, pre_p);
       iaddr = fold_convert (build_pointer_type (itype), addr);
     }
@@ -5218,17 +5218,17 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
   x = build1 (LABEL_EXPR, void_type_node, label);
   gimplify_and_add (x, pre_p);
 
-  x = build2 (MODIFY_EXPR, void_type_node, newval, rhs);
+  x = build2 (GIMPLE_MODIFY_STMT, void_type_node, newval, rhs);
   gimplify_and_add (x, pre_p);
 
   if (newval != newival)
     {
       x = build1 (VIEW_CONVERT_EXPR, itype, newval);
-      x = build2 (MODIFY_EXPR, void_type_node, newival, x);
+      x = build2 (GIMPLE_MODIFY_STMT, void_type_node, newival, x);
       gimplify_and_add (x, pre_p);
     }
 
-  x = build2 (MODIFY_EXPR, void_type_node, oldival2,
+  x = build2 (GIMPLE_MODIFY_STMT, void_type_node, oldival2,
 	      fold_convert (itype, oldival));
   gimplify_and_add (x, pre_p);
 
@@ -5238,14 +5238,14 @@ gimplify_omp_atomic_pipeline (tree *expr_p, tree *pre_p, tree addr,
   x = build_function_call_expr (cmpxchg, args);
   if (oldval == oldival)
     x = fold_convert (type, x);
-  x = build2 (MODIFY_EXPR, void_type_node, oldival, x);
+  x = build2 (GIMPLE_MODIFY_STMT, void_type_node, oldival, x);
   gimplify_and_add (x, pre_p);
 
   /* For floating point, be prepared for the loop backedge.  */
   if (oldval != oldival)
     {
       x = build1 (VIEW_CONVERT_EXPR, type, oldival);
-      x = build2 (MODIFY_EXPR, void_type_node, oldval, x);
+      x = build2 (GIMPLE_MODIFY_STMT, void_type_node, oldval, x);
       gimplify_and_add (x, pre_p);
     }
 
@@ -5283,7 +5283,7 @@ gimplify_omp_atomic_mutex (tree *expr_p, tree *pre_p, tree addr, tree rhs)
   gimplify_and_add (t, pre_p);
 
   t = build_fold_indirect_ref (addr);
-  t = build2 (MODIFY_EXPR, void_type_node, t, rhs);
+  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, t, rhs);
   gimplify_and_add (t, pre_p);
   
   t = built_in_decls[BUILT_IN_GOMP_ATOMIC_END];
@@ -5952,7 +5952,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	     given a TREE_ADDRESSABLE type.  */
 	  tree tmp = create_tmp_var_raw (type, "vol");
 	  gimple_add_tmp_var (tmp);
-	  *expr_p = build2 (MODIFY_EXPR, type, tmp, *expr_p);
+	  *expr_p = build2 (GIMPLE_MODIFY_STMT, type, tmp, *expr_p);
 	}
       else
 	/* We can't do anything useful with a volatile reference to
@@ -6170,7 +6170,7 @@ gimplify_one_sizepos (tree *expr_p, tree *stmt_p)
 
       *expr_p = create_tmp_var (type, NULL);
       tmp = build1 (NOP_EXPR, type, expr);
-      tmp = build2 (MODIFY_EXPR, type, *expr_p, tmp);
+      tmp = build2 (GIMPLE_MODIFY_STMT, type, *expr_p, tmp);
       if (EXPR_HAS_LOCATION (expr))
 	SET_EXPR_LOCUS (tmp, EXPR_LOCUS (expr));
       else
@@ -6393,7 +6393,7 @@ gimplify_function_tree (tree fndecl)
       DECL_SAVED_TREE (fndecl) = bind;
     }
 
-  DECL_GIMPLIFIED (current_function_decl) = 1;
+  cfun->gimplified = true;
   current_function_decl = oldfn;
   cfun = oldfn ? DECL_STRUCT_FUNCTION (oldfn) : NULL;
 }

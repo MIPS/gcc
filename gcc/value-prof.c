@@ -326,7 +326,7 @@ tree_divmod_fixed_value_transform (tree stmt)
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
-  TREE_OPERAND (modify, 1) = result;
+  GIMPLE_STMT_OPERAND (modify, 1) = result;
 
   return true;
 }
@@ -484,7 +484,7 @@ tree_mod_pow2_value_transform (tree stmt)
 
   result = tree_mod_pow2 (stmt, op, op1, op2, prob, count, all);
 
-  TREE_OPERAND (modify, 1) = result;
+  GIMPLE_STMT_OPERAND (modify, 1) = result;
 
   return true;
 }
@@ -686,7 +686,7 @@ tree_mod_subtract_transform (tree stmt)
 			    histogram->hvalue.counters[0], 
 			    histogram->hvalue.counters[1], all);
 
-  TREE_OPERAND (modify, 1) = result;
+  GIMPLE_STMT_OPERAND (modify, 1) = result;
 
   return true;
 }

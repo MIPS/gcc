@@ -636,7 +636,7 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
 		    unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-      new_cond = TREE_OPERAND (tmp_stmt, 0);
+      new_cond = GIMPLE_STMT_OPERAND (tmp_stmt, 0);
     }
   add_to_predicate_list (bb, new_cond);
   return new_cond;
@@ -743,7 +743,7 @@ find_phi_replacement_condition (struct loop *loop,
 
       new_stmt = ifc_temp_var (TREE_TYPE (*cond), unshare_expr (*cond));
       bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-      *cond = TREE_OPERAND (new_stmt, 0);
+      *cond = GIMPLE_STMT_OPERAND (new_stmt, 0);
     }
 
   gcc_assert (*cond);

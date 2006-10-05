@@ -3116,10 +3116,6 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
-/* Nonzero in a FUNCTION_DECL if it has been high level gimplified.  */
-#define DECL_GIMPLIFIED(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.gimplified_flag)
-
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3144,10 +3140,6 @@ struct tree_function_decl GTY(())
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_limit_stack : 1;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
-  /* This bit is temporarily here to mark when a function has been
-     gimplified, so we can make sure we're not creating non GIMPLE tuples
-     after gimplification.  */
-  unsigned gimplified_flag : 1;
 
   struct function *f;
 };
