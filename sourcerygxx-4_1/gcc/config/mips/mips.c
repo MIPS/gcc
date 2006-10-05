@@ -10669,9 +10669,9 @@ mips_expand_builtin_compare (enum mips_builtin_type builtin_type,
       target_if_equal = const0_rtx;
       target_if_unequal = const1_rtx;
       if (builtin_type == MIPS_BUILTIN_CMP_UPPER)
-	cmp_result = simplify_gen_subreg (CCmode, cmp_result, CCV2mode, 4);
+	cmp_result = gen_single_cc (cmp_result, const1_rtx);
       else if (builtin_type == MIPS_BUILTIN_CMP_LOWER)
-	cmp_result = simplify_gen_subreg (CCmode, cmp_result, CCV2mode, 0);
+	cmp_result = gen_single_cc (cmp_result, const0_rtx);
     }
 
   /* First assume that CMP_RESULT == CMP_VALUE.  */

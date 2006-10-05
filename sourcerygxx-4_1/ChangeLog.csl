@@ -1,3 +1,12 @@
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/mips/mips.c (mips_expand_builtin_compare): Use gen_single_cc
+	as the condition for __builtin_mips_upper_* or __builtin_mips_lower_*.
+	* config/mips/mips.md (UNSPEC_SINGLE_CC): New constant.
+	* config/mips/mips-ps-3d.md (single_cc): New expander.
+	(*branch_upper_lower, *branch_upper_lower_inverted): New patterns.
+
 2006-10-04  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/testsuite/

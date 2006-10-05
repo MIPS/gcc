@@ -434,6 +434,64 @@
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
+; Used to access one register in a CCV2 pair.  Operand 0 is the register
+; pair and operand 1 is the index of the register we want (a CONST_INT).
+(define_expand "single_cc"
+  [(unspec:CC [(match_operand 0) (match_operand 1)] UNSPEC_SINGLE_CC)])
+
+; This is a normal floating-point branch pattern, but rather than check
+; a single CCmode register, it checks one register in a CCV2 pair.
+; Operand 2 is the register pair and operand 3 is the index of the
+; register we want.
+(define_insn "*branch_upper_lower"
+  [(set (pc)
+        (if_then_else
+	 (match_operator 0 "equality_operator"
+	    [(unspec:CC [(match_operand:CCV2 2 "register_operand" "z")
+			 (match_operand 3 "const_int_operand")]
+			UNSPEC_SINGLE_CC)
+	     (const_int 0)])
+	 (label_ref (match_operand 1 "" ""))
+	 (pc)))]
+  "TARGET_HARD_FLOAT"
+{
+  operands[2]
+    = gen_rtx_REG (CCmode, REGNO (operands[2]) + INTVAL (operands[3]));
+  return mips_output_conditional_branch (insn,
+					 operands,
+					 /*two_operands_p=*/0,
+					 /*float_p=*/1,
+					 /*inverted_p=*/0,
+					 get_attr_length (insn));
+}
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
+
+; As above, but with the sense of the condition reversed.
+(define_insn "*branch_upper_lower_inverted"
+  [(set (pc)
+        (if_then_else
+	 (match_operator 0 "equality_operator"
+	    [(unspec:CC [(match_operand:CCV2 2 "register_operand" "z")
+			 (match_operand 3 "const_int_operand")]
+			UNSPEC_SINGLE_CC)
+	     (const_int 0)])
+	 (pc)
+	 (label_ref (match_operand 1 "" ""))))]
+  "TARGET_HARD_FLOAT"
+{
+  operands[2]
+    = gen_rtx_REG (CCmode, REGNO (operands[2]) + INTVAL (operands[3]));
+  return mips_output_conditional_branch (insn,
+					 operands,
+					 /*two_operands_p=*/0,
+					 /*float_p=*/1,
+					 /*inverted_p=*/1,
+					 get_attr_length (insn));
+}
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
+
 ;----------------------------------------------------------------------------
 ; Floating Point Reduced Precision Reciprocal Square Root Instructions.
 ;----------------------------------------------------------------------------
