@@ -1,5 +1,32 @@
 2006-10-05  Richard Sandiford  <richard@codesourcery.com>
 
+	Backport from mainline:
+
+	gcc/
+	2006-09-20  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (CODE_FOR_mips_abs_ps): Delete.
+	* config/mips/mips.md (UNSPEC_ABS_PS): New constant.
+	(UNSPEC_RSQRT1, UNSPEC_RSQRT2, UNSPEC_RECIP1, UNSPEC_RECIP2)
+	(UNSPEC_SINGLE_CC, UNSPEC_SCC): Bump values by 1.
+	(*nmadd<mode>, *nmadd<mode>_fastmath): Require !HONOR_NANS.
+	(*nmsub<mode>, *nmsub<mode>_fastmath): Likewise.
+	(abs<mode>2, neg<mode>2): Likewise.
+	* config/mips/mips-ps-3d.md (mips_abs_ps): New define_expand.
+	(*mips_abs_ps): New define_insn.
+
+	gcc/testsuite/
+	2006-09-20  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.target/mips/mips-ps-type.c: Add -ffinite-math-only.
+	* gcc.target/mips/nmadd-2.c: Likewise.
+	* gcc.target/mips/mips-ps-6.c: New test.
+	* gcc.target/mips/neg-abs-1.c: Likewise.
+	* gcc.target/mips/neg-abs-2.c: Likewise.
+	* gcc.target/mips/nmadd-3.c: New test.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
 	gcc/
 	* config/mips/mips.c (mips_offset_within_object_p): Delete
 	declaration.
