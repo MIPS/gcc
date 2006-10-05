@@ -267,7 +267,6 @@ struct mips_sim;
 
 static enum mips_symbol_type mips_classify_symbol (rtx);
 static void mips_split_const (rtx, rtx *, HOST_WIDE_INT *);
-static bool mips_offset_within_object_p (rtx, HOST_WIDE_INT);
 static bool mips_valid_base_register_p (rtx, enum machine_mode, int);
 static bool mips_symbolic_address_p (enum mips_symbol_type, enum machine_mode);
 static bool mips_classify_address (struct mips_address_info *, rtx,

@@ -1,6 +1,12 @@
 2006-10-05  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/mips/mips.c (mips_offset_within_object_p): Delete
+	declaration.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/mips/mips.c (mips_expand_builtin_compare): Use gen_single_cc
 	as the condition for __builtin_mips_upper_* or __builtin_mips_lower_*.
 	* config/mips/mips.md (UNSPEC_SINGLE_CC): New constant.
