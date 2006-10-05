@@ -752,6 +752,114 @@ create_outofssa_var_map (coalesce_list_p cl)
   return map;
 }
 
+/* This prepresents a conflict graph.  Implemented as an array of bitmaps.  
+   A full matrix isused for conflicts rather than just upper triangular form.
+   this make sit much simpler and faster to perform conflict merges.  */
+
+typedef struct ssa_conflicts_d
+{
+  unsigned size;
+  bitmap *conflicts;
+} * ssa_conflicts_p;
+
+
+/* Return a empty new conflict graph for SIZE elements.  */
+
+static inline ssa_conflicts_p
+ssa_conflicts_new (unsigned size)
+{
+  ssa_conflicts_p ptr;
+
+  ptr = XNEW (struct ssa_conflicts_d);
+  ptr->conflicts = XCNEWVEC (bitmap, size);
+  ptr->size = size;
+  return ptr;
+}
+
+
+/* Free storage for conflict graph PTR.  */
+
+static inline void
+ssa_conflicts_delete (ssa_conflicts_p ptr)
+{
+  unsigned x;
+  for (x = 0; x < ptr->size; x++)
+    if (ptr->conflicts[x])
+      BITMAP_FREE (ptr->conflicts[x]);
+
+  free (ptr->conflicts);
+  free (ptr);
+}
+
+
+/* Test if elements X and Y conflict in graph PTR.  */
+
+static inline bool
+ssa_conflicts_test_p (ssa_conflicts_p ptr, unsigned x, unsigned y)
+{
+  bitmap b;
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (x < ptr->size);
+  gcc_assert (y < ptr->size);
+  gcc_assert (x != y);
+#endif
+
+  b = ptr->conflicts[x];
+  if (b)
+    return bitmap_bit_p (b, y);
+  else
+    return false;
+}
+
+
+/* Add a conflict with Y to the bitmap for X in graph PTR.  */
+
+static inline void
+ssa_conflicts_add_one (ssa_conflicts_p ptr, unsigned x, unsigned y)
+{
+  /* If there are no conflicts yet, allocate the bitmap and set bit.  */
+  if (!ptr->conflicts[x])
+    ptr->conflicts[x] = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (ptr->conflicts[x], y);
+}
+
+
+/* Add conflicts between X and Y in graph PTR.  */
+
+static inline void
+ssa_conflicts_add (ssa_conflicts_p ptr, unsigned x, unsigned y)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (x < ptr->size);
+  gcc_assert (y < ptr->size);
+  gcc_assert (x != y);
+#endif
+  ssa_conflicts_add_one (ptr, x, y);
+  ssa_conflicts_add_one (ptr, y, x);
+}
+
+
+/* Merge all Y's conflict into X in graph PTR.  */
+
+static inline void
+ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
+{
+  unsigned z;
+  bitmap_iterator bi;
+
+  gcc_assert (x != y);
+  if (!(ptr->conflicts[y]))
+    return;
+
+  /* Add a conflict for every one Y has.  */
+  EXECUTE_IF_SET_IN_BITMAP (ptr->conflicts[y], 0, z, bi)
+    ssa_conflicts_add (ptr, z, x);
+
+  /* Won't be referencing this bitmap again.  */
+  BITMAP_FREE (ptr->conflicts[y]);
+}
+
 
 /* This structure is used to efficiently record the current status of live 
    SSA_NAMES when building a conflict graph.  
@@ -860,7 +968,7 @@ live_track_process_use (live_track_p ptr, tree use)
    variable, conflicts will be added to GRAPH.  */
 
 static inline void
-live_track_process_def (live_track_p ptr, tree def, conflict_graph graph)
+live_track_process_def (live_track_p ptr, tree def, ssa_conflicts_p graph)
 {
   int p, root;
   bitmap b;
@@ -880,7 +988,7 @@ live_track_process_def (live_track_p ptr, tree def, conflict_graph graph)
   if (!bitmap_empty_p (b))
     {
       EXECUTE_IF_SET_IN_BITMAP (b, 0, x, bi)
-        conflict_graph_add (graph, p, x);
+        ssa_conflicts_add (graph, p, x);
     }
 }
 
@@ -903,40 +1011,19 @@ live_track_init (live_track_p ptr, bitmap init)
 }
 
 
-/* This routine will add conflicts between any partitions which are still 
-   live and share the same base variable.  When finished, no partition will
-   be marked as live.  */
+/* This routine will clear all live partitions in PTR.   */
 
-static void
-live_track_add_conflicts (live_track_p ptr, conflict_graph graph)
+static inline void
+live_track_clear_conflicts (live_track_p ptr)
 {
-  unsigned x, p;
   int root, lim;
-  bitmap_iterator bi;
   bitmap b;
 
   lim = num_basevars (ptr->map);
   for (root = 0; root < lim; root++)
     {
       b = ptr->base_live[root];
-      if (bitmap_empty_p (b))
-        continue;
-
-      /* Get the first partition that is live, and remove it fr the list.  */
-      p = bitmap_first_set_bit (b);
-      bitmap_clear_bit (b, p);
-
-      /* While the bitmap is not empty, add conflicts between p and everything
-         else that is live.  */
-      while (!bitmap_empty_p (b))
-        {
-	  EXECUTE_IF_SET_IN_BITMAP (b, 0, x, bi)
-	    conflict_graph_add (graph, p, x);
-
-	  /* Now get the first bit again, and clear it, and cycle.  */
-	  p = bitmap_first_set_bit (b);
-	  bitmap_clear_bit (b, p);
-	}
+      bitmap_clear (b);
     }
 }
 
@@ -946,17 +1033,17 @@ live_track_add_conflicts (live_track_p ptr, conflict_graph graph)
    conflict graph.  Only conflicts between ssa_name partitions with the same 
    base variableare added.  */
 
-static conflict_graph
+static ssa_conflicts_p
 build_ssa_conflict_graph (tree_live_info_p liveinfo)
 {
-  conflict_graph graph;
+  ssa_conflicts_p graph;
   var_map map;
   basic_block bb;
   ssa_op_iter iter;
   live_track_p live;
 
   map = live_var_map (liveinfo);
-  graph = conflict_graph_new (num_var_partitions (map));
+  graph = ssa_conflicts_new (num_var_partitions (map));
 
   live = new_live_track (map);
 
@@ -1008,8 +1095,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	    live_track_process_def (live, result, graph);
 	}
 
-      /* Anything which is still live at this point interferes.  */
-     live_track_add_conflicts (live, graph);
+     live_track_clear_conflicts (live);
     }
 
   delete_live_track (live);
@@ -1036,8 +1122,8 @@ fail_abnormal_edge_coalesce (int x, int y)
    GRAPH.  Debug output is sent to DEBUG if it is non-NULL.  */
 
 static void
-coalesce_partitions (var_map map, conflict_graph graph,
-		      coalesce_list_p cl, FILE *debug)
+coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl, 
+		     FILE *debug)
 {
   int x, y, z;
   int p1,p2;
@@ -1072,7 +1158,7 @@ coalesce_partitions (var_map map, conflict_graph graph,
       if (debug)
 	fprintf (debug, " [map: %d, %d] ", p1, p2);
 
-      if (!conflict_graph_conflict_p (graph, p1, p2))
+      if (!ssa_conflicts_test_p (graph, p1, p2))
 	{
 	  var1 = partition_to_var (map, p1);
 	  var2 = partition_to_var (map, p2);
@@ -1089,9 +1175,9 @@ coalesce_partitions (var_map map, conflict_graph graph,
 	  /* z is the new combined partition.  Remove the other partition from 
 	     the list, and merge the conflicts.  */
 	  if (z == p1)
-	    conflict_graph_merge_regs (graph, p1, p2);
+	    ssa_conflicts_merge (graph, p1, p2);
 	  else
-	    conflict_graph_merge_regs (graph, p2, p1);
+	    ssa_conflicts_merge (graph, p2, p1);
 
 	  if (debug)
 	    fprintf (debug, ": Success -> %d\n", z);
@@ -1115,7 +1201,7 @@ coalesce_ssa_name (void)
 {
   unsigned num, x;
   tree_live_info_p liveinfo;
-  conflict_graph graph;
+  ssa_conflicts_p graph;
   coalesce_list_p cl;
   var_map map;
 
@@ -1186,7 +1272,7 @@ coalesce_ssa_name (void)
 						   : NULL));
 
   delete_coalesce_list (cl);
-  conflict_graph_delete (graph);
+  ssa_conflicts_delete (graph);
 
   return map;
 }

@@ -1,3 +1,18 @@
+2006-10-05  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-outof-ssa.c (struct ssa_conflicts_d): New.  SSA conflict graph.
+	(ssa_conflicts_new): New.  Create an SSA conflict graph.
+	(ssa_conflicts_delete): New.  Delete an SSA conflict graph.
+	(ssa_conflicts_test_p): New.  Test for conflicts.
+	(ssa_conflicts_add_one): New.  Add a single conflict.
+	(ssa_conflicts_add): New.  Add a conflict pair.
+	(ssa_conflicts_merge): New.  Merge conflicts.
+	(live_track_process_def,): Use ssa_conflicts.
+	(live_track_clear_conflicts): Rename from live_track_add_conflicts, and
+	simply clear the conflicts.
+	(build_ssa_conflict_graph, coalesce_partitions, coalesce_ssa_name): Use
+	ssa_conflicts.
+
 2006-09-29  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-outof-ssa.c (coalesce_ssa_name): Remove a coalesce list dump, and
