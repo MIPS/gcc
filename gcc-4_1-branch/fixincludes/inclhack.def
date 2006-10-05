@@ -1268,6 +1268,69 @@ fix = {
 };
 
 
+/*  glibc-2.3.5 defines pthread mutex initializers incorrectly,
+ *  so we replace them with versions that correspond to the
+ *  definition.
+ */
+fix = {
+    hackname = glibc_mutex_init;
+    files    = pthread.h;
+    select   = '\{ *\{ *0, *\} *\}';
+    sed      = "/define[ \t]\\+PTHREAD_MUTEX_INITIALIZER[ \t]*\\\\/,+1"
+               "s/{ { 0, } }/{ { 0, 0, 0, 0, 0, 0 } }/";
+    sed      = "s/{ \\(0, 0, 0, 0, PTHREAD_MUTEX_\\(RECURSIVE\\|ERRORCHECK\\|ADAPTIVE\\)_NP\\) }/{ \\1, 0 }/";
+    sed      = "s/{ \\(0, 0, 0, PTHREAD_MUTEX_\\(RECURSIVE\\|ERRORCHECK\\|ADAPTIVE\\)_NP\\) }/{ \\1, 0, 0 }/";
+    sed      = "/define[ \t]\\+PTHREAD_RWLOCK_INITIALIZER[ \t]*\\\\/"
+               "N;s/^[ \t]*#[ \t]*"
+               "\\(define[ \t]\\+PTHREAD_RWLOCK_INITIALIZER[ \t]*\\\\\\)\\n"
+               "[ \t]*{ { 0, } }/# if __WORDSIZE == 64\\n"
+               "#  \\1\\n"
+               "  { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }\\n"
+               "# else\\n"
+               "#  \\1\\n"
+               "  { { 0, 0, 0, 0, 0, 0, 0, 0 } }\\n"
+               "# endif/";
+    sed      = "s/{ \\(0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP\\) }/{ \\1, 0 }/";
+    sed      = "/define[ \t]\\+PTHREAD_COND_INITIALIZER/"
+               "s/{ { 0, } }/{ { 0, 0, 0, 0, 0, (void *) 0, 0, 0 } }/";
+
+    test_text = <<- _EOText_
+#define PTHREAD_MUTEX_INITIALIZER \\
+  { { 0, } }
+#ifdef __USE_GNU
+# if __WORDSIZE == 64
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP } }
+#  define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_ERRORCHECK_NP } }
+#  define PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, PTHREAD_MUTEX_ADAPTIVE_NP } }
+# else
+#  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_RECURSIVE_NP } }
+#  define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_ERRORCHECK_NP } }
+#  define PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP \\
+  { { 0, 0, 0, PTHREAD_MUTEX_ADAPTIVE_NP } }
+# endif
+#endif
+# define PTHREAD_RWLOCK_INITIALIZER \\
+  { { 0, } }
+# ifdef __USE_GNU
+#  if __WORDSIZE == 64
+#   define PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,					      \\
+      PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP } }
+#  else
+#   define PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP \\
+  { { 0, 0, 0, 0, 0, 0, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP } }
+#  endif
+# endif
+#define PTHREAD_COND_INITIALIZER { { 0, } }
+_EOText_;
+};
+
+
 /*
  * Fix these files to use the types we think they should for
  * ptrdiff_t, size_t, and wchar_t.
@@ -2952,18 +3015,31 @@ fix = {
     hackname = solaris_mutex_init_2;
     select = '@\(#\)pthread.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
     files = pthread.h;
+    /*
+     * On Solaris 10, this fix is unnecessary because upad64_t is
+     * always defined correctly regardless of the definition of the
+     * __STDC__ macro.  The first "mach" pattern matches up to
+     * solaris9.  The second "mach" pattern will not match any two (or
+     * more) digit solaris version, but it will match e.g. 2.5.1.
+     */
+    mach = '*-*-solaris2.[0-9]', '*-*-solaris2.[0-9][!0-9]*';
     c_fix = format;
     c_fix_arg = "#if __STDC__ - 0 == 0 && !defined(_NO_LONGLONG)\n"
                 "%0\n"
                 "#else\n"
-                "%1, {0}}%3\n"
+                "%1, {0}}%4\n"
                 "#endif";
-    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+\\{.*)"
+    c_fix_arg = "(^#define[ \t]+PTHREAD_(MUTEX|COND)_INITIALIZER[ \t]+"
+                "(|/\*.*\*/[ \t]*\\\\\n[ \t]*)\\{.*)"
                 ",[ \t]*0\\}" "(|[ \t].*)$";
     test_text =
     '#ident "@(#)pthread.h  1.26  98/04/12 SMI"'"\n"
     "#define PTHREAD_MUTEX_INITIALIZER\t{{{0},0}, {{{0}}}, 0}\n"
-    "#define PTHREAD_COND_INITIALIZER\t{{{0}, 0}, 0}\t/* DEFAULTCV */";
+    "#define PTHREAD_COND_INITIALIZER\t{{{0}, 0}, 0}\t/* DEFAULTCV */\n"
+    "#define	PTHREAD_MUTEX_INITIALIZER		/* = DEFAULTMUTEX */	\\\\\n"
+    "	{{0, 0, 0, DEFAULT_TYPE, _MUTEX_MAGIC}, {{{0}}}, 0}\n"
+    "#define	PTHREAD_COND_INITIALIZER		/* = DEFAULTCV */	\\\\\n"
+    "	{{{0, 0, 0, 0}, DEFAULT_TYPE, _COND_MAGIC}, 0}";
 };
 
 
@@ -3027,7 +3103,7 @@ fix = {
     /*
      * On Solaris 10, this fix is unnecessary because upad64_t is
      * always defined correctly regardless of the definition of the
-     * __STDC__ macro.  The first "match" pattern matches up to
+     * __STDC__ macro.  The first "mach" pattern matches up to
      * solaris9.  The second "mach" pattern will not match any two (or
      * more) digit solaris version, but it will match e.g. 2.5.1.
      */

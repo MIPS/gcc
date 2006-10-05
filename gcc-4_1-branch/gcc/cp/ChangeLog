@@ -1,3 +1,27 @@
+2006-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29138
+	* decl2.c (grokfield): Don't handle access declarations here.
+	* parser.c (cp_parser_using_declaration): Handle access
+	declarations too.
+	(cp_parser_block_declaration): Adjust calls to
+	cp_parser_using_declaration.
+	(cp_parser_member_declaration): Likewise.  Use
+	cp_parser_using_declaration to look for access_declarations.
+
+2006-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29226
+	* typeck.c (cxx_sizeof_or_alignof_type): Tidy.  In templates, do
+	not try to actually evaluate sizeof for a VLA type.
+
+2006-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29080
+	* parser.c (cp_parser_postfix_dot_deref_expression): Use
+	BASELINK_ACCESS_BINFO as the qualifying scope when calling
+	adjust_result_of_qualified_name_lookup. 
+
 2006-09-22  Jason Merrill  <jason@redhat.com>
 
 	PR c++/28996
