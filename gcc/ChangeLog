@@ -1,5 +1,17 @@
 2006-10-05  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-ssa-coalesce.c: New.  Split coalescing code from tree-outof-ssa.c
+	and tree-ssa-live.[ch].
+	* tree-ssa-live.c (partition_view_bitmap): Rename from 
+	partition_view_coalesce, and remove references to the coalesce list.
+	Move coalescing code to tree-ssa-coalesce.c.  Reduce includes.
+	* tree-ssa-live.h: Move coalesce code to tree-ssa-coalesce.c.
+	* tree-ssa-ter.c: Reduce number of #includes.
+	* tree-outof-ssa.c: Move coalesce code.  Reduce include files.
+	* Makefile.in: Add tree-ssa-coalesce.o and adjust include lists.
+
+2006-10-05  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-outof-ssa.c (struct ssa_conflicts_d): New.  SSA conflict graph.
 	(ssa_conflicts_new): New.  Create an SSA conflict graph.
 	(ssa_conflicts_delete): New.  Delete an SSA conflict graph.

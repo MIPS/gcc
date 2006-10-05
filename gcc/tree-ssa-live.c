@@ -24,21 +24,12 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "flags.h"
-#include "basic-block.h"
-#include "function.h"
 #include "diagnostic.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-gimple.h"
-#include "tree-inline.h"
-#include "varray.h"
-#include "timevar.h"
-#include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "toplev.h"
-#include "vecprim.h"
 
 #ifdef ENABLE_CHECKING
 static void  verify_live_on_entry (tree_live_info_p);
@@ -357,26 +348,26 @@ partition_view_normal (var_map map, bool want_bases)
 }
 
 
-/* Create a partition view in MAP which includes just paritions which occur in 
-   the coalesce list CL. If WANT_BASES is true, create the base variable map 
+/* Create a partition view in MAP which includes just partitions which occur in 
+   the bitmap ONLY. If WANT_BASES is true, create the base variable map 
    as well.  */
 
 extern void
-partition_view_coalesce (var_map map, coalesce_list_p cl, bool want_bases)
+partition_view_bitmap (var_map map, bitmap only, bool want_bases)
 {
   bitmap used;
-  bitmap coals = BITMAP_ALLOC (NULL);
+  bitmap new_partitions = BITMAP_ALLOC (NULL);
   unsigned x, p;
   bitmap_iterator bi;
 
   used = partition_view_init (map);
-  EXECUTE_IF_SET_IN_BITMAP (cl->present, 0, x, bi)
+  EXECUTE_IF_SET_IN_BITMAP (only, 0, x, bi)
     {
       p = partition_find (map->var_partition, x);
       gcc_assert (bitmap_bit_p (used, p));
-      bitmap_set_bit (coals, p);
+      bitmap_set_bit (new_partitions, p);
     }
-  partition_view_fini (map, coals);
+  partition_view_fini (map, new_partitions);
 
   BITMAP_FREE (used);
   if (want_bases)
@@ -781,316 +772,6 @@ calculate_live_ranges (var_map map)
 
   calculate_live_on_exit (live);
   return live;
-}
-
-
-#define COALESCE_HASH_FN(R1, R2) ((R2) * ((R2) - 1) / 2 + (R1))
-
-/* Hash function for coalesce list.  Calculate hash for PAIR.   */
-
-unsigned int 
-coalesce_pair_map_hash (const void *pair)
-{
-  hashval_t a = (hashval_t)(((coalesce_pair_p)pair)->first_element);
-  hashval_t b = (hashval_t)(((coalesce_pair_p)pair)->second_element);
-
-  return COALESCE_HASH_FN (a,b);
-}
-
-
-/* Equality function for coalesce list hash table.  Compare PAIR1 and PAIR2,
-   returning TRUE if the two pairs are equivilent. */
-
-int 
-coalesce_pair_map_eq (const void *pair1, const void *pair2)
-{
-  coalesce_pair_p p1 = (coalesce_pair_p) pair1;
-  coalesce_pair_p p2 = (coalesce_pair_p) pair2;
-
-  return (p1->first_element == p2->first_element
-	  && p1->second_element == p2->second_element);
-}
-
-
-/* Create a new empty coalesce list object and return it.  */
-
-coalesce_list_p 
-create_coalesce_list (void)
-{
-  coalesce_list_p list;
-  unsigned size = num_ssa_names * 3;
-
-  if (size < 40) 
-    size = 40;
-
-  list = (coalesce_list_p) xmalloc (sizeof (struct coalesce_list_d));
-  list->list = htab_create (size, coalesce_pair_map_hash,
-  			    coalesce_pair_map_eq, NULL);
-  list->sorted = NULL;
-  list->num_sorted = 0;
-  list->present = BITMAP_ALLOC (NULL);
-  return list;
-}
-
-
-/* Delete coalesce list CL.  */
-
-void 
-delete_coalesce_list (coalesce_list_p cl)
-{
-  htab_delete (cl->list);
-  if (cl->sorted)
-    free (cl->sorted);
-  BITMAP_FREE (cl->present);
-  gcc_assert (cl->num_sorted == 0);
-  free (cl);
-}
-
-
-/* Find a matching coalesce pair object in CL for the pair P1 and P2.  If 
-   one isn't found, return NULL if CREATE is false, otherwise create a new 
-   coalesce pair object and return it.  */
-
-static coalesce_pair_p
-find_coalesce_pair (coalesce_list_p cl, int p1, int p2, bool create)
-{
-  struct coalesce_pair p, *pair;
-  void **slot;
-  unsigned int hash;
-    
-  /* Normalize so that p1 is the smaller value.  */
-  if (p2 < p1)
-    {
-      p.first_element = p2;
-      p.second_element = p1;
-    }
-  else
-    {
-      p.first_element = p1;
-      p.second_element = p2;
-    }
-  
-  
-  hash = coalesce_pair_map_hash (&p);
-  pair = (struct coalesce_pair *) htab_find_with_hash (cl->list, &p, hash);
-
-  if (create && !pair)
-    {
-      gcc_assert (cl->sorted == NULL);
-      bitmap_set_bit (cl->present, p1);
-      bitmap_set_bit (cl->present, p2);
-      pair = xmalloc (sizeof (struct coalesce_pair));
-      pair->first_element = p.first_element;
-      pair->second_element = p.second_element;
-      pair->cost = 0;
-      slot = htab_find_slot_with_hash (cl->list, pair, hash, INSERT);
-      *(struct coalesce_pair **)slot = pair;
-    }
-
-  return pair;
-}
-
-
-/* Return cost of execution of copy instruction with FREQUENCY
-   possibly on CRITICAL edge and in HOT basic block.  */
-
-int
-coalesce_cost (int frequency, bool hot, bool critical)
-{
-  /* Base costs on BB frequencies bounded by 1.  */
-  int cost = frequency;
-
-  if (!cost)
-    cost = 1;
-  if (optimize_size || hot)
-    cost = 1;
-
-  /* Inserting copy on critical edge costs more than inserting it elsewhere.  */
-  if (critical)
-    cost *= 2;
-  return cost;
-}
-
-
-
-/* Add a coalesce between P1 and P2 in list CL with a cost of VALUE.  */
-
-void 
-add_coalesce (coalesce_list_p cl, int p1, int p2,
-	      int value)
-{
-  coalesce_pair_p node;
-
-  gcc_assert (cl->sorted == NULL);
-  if (p1 == p2)
-    return;
-
-  node = find_coalesce_pair (cl, p1, p2, true);
-
-  /* Once the value is MUST_COALESCE_COST, leave it that way.  */
-  if (node->cost != MUST_COALESCE_COST)
-    {
-      if (value == MUST_COALESCE_COST)
-	node->cost = value;
-      else
-	node->cost += value;
-    }
-}
-
-
-/* Comparison function to allow qsort to sort P1 and P2 in Ascendiong order.  */
-
-static
-int compare_pairs (const void *p1, const void *p2)
-{
-  return (*(coalesce_pair_p *)p1)->cost - (*(coalesce_pair_p *)p2)->cost;
-}
-
-
-/* Return the number of unique coalesce pairs in CL.  */
-
-static inline int
-num_coalesce_pairs (coalesce_list_p cl)
-{
-  return htab_elements (cl->list);
-}
-
-
-/* Iterator over hash table pairs.  */
-typedef struct
-{
-  htab_iterator hti;
-} coalesce_pair_iterator;
-
-
-/* Return first partition pair from list CL, initializing iterator ITER.  */
-
-static inline coalesce_pair_p
-first_coalesce_pair (coalesce_list_p cl, coalesce_pair_iterator *iter)
-{
-  coalesce_pair_p pair;
-
-  pair = (coalesce_pair_p) first_htab_element (&(iter->hti), cl->list);
-  return pair;
-}
-
-
-/* Return TRUE if there are no more partitions in for ITER to process.  */
-
-static inline bool
-end_coalesce_pair_p (coalesce_pair_iterator *iter)
-{
-  return end_htab_p (&(iter->hti));
-}
-
-
-/* Return the next parttition pair to be visited by ITER.  */
-
-static inline coalesce_pair_p
-next_coalesce_pair (coalesce_pair_iterator *iter)
-{
-  coalesce_pair_p pair;
-
-  pair = (coalesce_pair_p) next_htab_element (&(iter->hti));
-  return pair;
-}
-
-
-/* Iterate over CL using ITER, returning values in PAIR.  */
-
-#define FOR_EACH_PARTITION_PAIR(PAIR, ITER, CL)		\
-  for ((PAIR) = first_coalesce_pair ((CL), &(ITER));	\
-       !end_coalesce_pair_p (&(ITER));			\
-       (PAIR) = next_coalesce_pair (&(ITER)))
-
-
-/* Prepare CL for removal of preferred pairs.  When finished they are sorted
-   in order from most important coalesce to least important.  */
-
-void
-sort_coalesce_list (coalesce_list_p cl)
-{
-  unsigned x, num;
-  coalesce_pair_p p;
-  coalesce_pair_iterator ppi;
-
-  gcc_assert (cl->sorted == NULL);
-
-  num = num_coalesce_pairs (cl);
-  cl->num_sorted = num;
-  if (num == 0)
-    return;
-
-  /* Allocate a vector for the pair pointers.  */
-  cl->sorted = XNEWVEC (coalesce_pair_p, num);
-
-  /* Populate the vector with pointers to the pairs.  */
-  x = 0;
-  FOR_EACH_PARTITION_PAIR (p, ppi, cl)
-    cl->sorted[x++] = p;
-  gcc_assert (x == num);
-
-  /* Already sorted.  */
-  if (num == 1)
-    return;
-
-  /* If there are only 2, just pick swap them if the order isn't correct.  */
-  if (num == 2)
-    {
-      if (cl->sorted[0]->cost > cl->sorted[1]->cost)
-        {
-	  p = cl->sorted[0];
-	  cl->sorted[0] = cl->sorted[1];
-	  cl->sorted[1] = p;
-	}
-      return;
-    }
-
-  /* Only call qsort if there are more than 2 items.  */
-  if (num > 2)
-      qsort (cl->sorted, num, sizeof (coalesce_pair_p), compare_pairs);
-}
-
-
-/* Send debug info for coalesce list CL to file F.  */
-
-void 
-dump_coalesce_list (FILE *f, coalesce_list_p cl)
-{
-  coalesce_pair_p node;
-  coalesce_pair_iterator ppi;
-  int x;
-  tree var;
-
-  if (cl->sorted == NULL)
-    {
-      fprintf (f, "Coalesce List:\n");
-      FOR_EACH_PARTITION_PAIR (node, ppi, cl)
-        {
-	  tree var1 = ssa_name (node->first_element);
-	  tree var2 = ssa_name (node->second_element);
-	  print_generic_expr (f, var1, TDF_SLIM);
-	  fprintf (f, " <-> ");
-	  print_generic_expr (f, var2, TDF_SLIM);
-	  fprintf (f, "  (%1d), ", node->cost);
-	  fprintf (f, "\n");
-	}
-    }
-  else
-    {
-      fprintf (f, "Sorted Coalesce list:\n");
-      for (x = cl->num_sorted - 1 ; x >=0; x--)
-        {
-	  node = cl->sorted[x];
-	  fprintf (f, "(%d) ", node->cost);
-	  var = ssa_name (node->first_element);
-	  print_generic_expr (f, var, TDF_SLIM);
-	  fprintf (f, " <-> ");
-	  var = ssa_name (node->second_element);
-	  print_generic_expr (f, var, TDF_SLIM);
-	  fprintf (f, "\n");
-	}
-    }
 }
 
 

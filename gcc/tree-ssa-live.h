@@ -90,15 +90,13 @@ typedef struct _var_map
 /* Value used to represent no partition number.  */
 #define NO_PARTITION		-1
 
-struct coalesce_list_d;
-
 extern var_map init_var_map (int);
 extern void delete_var_map (var_map);
 extern void dump_var_map (FILE *, var_map);
 extern int var_union (var_map, tree, tree);
 extern void change_partition_var (var_map, tree, int);
 extern void partition_view_normal (var_map, bool);
-extern void partition_view_coalesce(var_map, struct coalesce_list_d *, bool);
+extern void partition_view_bitmap (var_map, bitmap, bool);
 #ifdef ENABLE_CHECKING
 extern void register_ssa_partition_check (tree ssa_var);
 #endif
@@ -358,104 +356,8 @@ make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
   bitmap_set_bit (live->global, p);
 }
 
-
-
-/* This set of routines implements a coalesce_list. This is an object which
-   is used to track pairs of ssa_names which are desirable to coalesce
-   together to avoid copies.  Costs are associated with each pair, and when 
-   all desired information has been collected, the object can be used to 
-   order the pairs for processing.  */
-
-/* This structure defines a pair entry.  */
-
-typedef struct coalesce_pair
-{
-  int first_element;
-  int second_element;
-  int cost;
-} * coalesce_pair_p;
-
-extern unsigned int coalesce_pair_map_hash (const void *);
-extern int coalesce_pair_map_eq (const void *, const void *);
-
-/* This structure maintains the list of coalesce pairs.  */
-
-typedef struct coalesce_list_d 
-{
-  htab_t list;			/* Hash table.  */
-  coalesce_pair_p *sorted;	/* List when sorted.  */
-  int num_sorted;		/* Number in the sorted list.  */
-  bitmap present;		/* True if element number is in the list.  */
-} *coalesce_list_p;
-
-#define NO_BEST_COALESCE	-1
-#define MUST_COALESCE_COST	INT_MAX
-
-extern coalesce_list_p create_coalesce_list (void);
-extern void delete_coalesce_list (coalesce_list_p);
-extern void add_coalesce (coalesce_list_p, int, int, int);
-extern int coalesce_cost (int, bool, bool);
-extern void sort_coalesce_list (coalesce_list_p);
-extern void dump_coalesce_list (FILE *, coalesce_list_p);
-
-
-/* Return true if V is present in CL.  */
-
-static inline bool 
-version_in_coalesce_list_p (coalesce_list_p cl, int v)
-{
-  return bitmap_bit_p (cl->present, v);
-}
-
-
-/* Return the cost of executing a copy instruction in basic block BB.  */
-
-static inline int 
-coalesce_cost_bb (basic_block bb)
-{
-  return coalesce_cost (bb->frequency, maybe_hot_bb_p (bb), false);
-}
-
-
-/* Return the cost of executing a copy instruction on edge E.  */
-
-static inline int 
-coalesce_cost_edge (edge e)
-{
-  if (e->flags & EDGE_ABNORMAL)
-    return MUST_COALESCE_COST;
-
-  return coalesce_cost (EDGE_FREQUENCY (e), 
-			maybe_hot_bb_p (e->src), 
-			EDGE_CRITICAL_P (e));
-}
-
-
-/* Retrieve the most expensive remaining pair to coalesce from CL.  Returns the 
-   2 elements via P1 and P2.  Their calculated cost is returned by the function.
-   NO_BEST_COALESCE is returned if the coalesce list is empty.  */
-
-static inline int
-pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
-{
-  coalesce_pair_p node;
-  int ret;
-
-  if (cl->sorted == NULL)
-    return NO_BEST_COALESCE;
-
-  if (cl->num_sorted == 0)
-    return NO_BEST_COALESCE;
-
-  node = cl->sorted[--(cl->num_sorted)];
-  *p1 = node->first_element;
-  *p2 = node->second_element;
-  ret = node->cost;
-  free (node);
-
-  return ret;
-}
-
+/* From tree-ssa-coalesce.c  */
+extern var_map coalesce_ssa_name (void);
 
 /* From tree-ssa-ter.c  */
 extern tree *find_replaceable_exprs (var_map);
