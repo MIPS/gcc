@@ -1451,8 +1451,8 @@ static tree cp_parser_builtin_offsetof
 
 static void cp_parser_statement
   (cp_parser *, tree, bool);
-static tree cp_parser_labeled_statement
-  (cp_parser *, tree, bool);
+static void cp_parser_label_for_labeled_statement
+  (cp_parser *);
 static tree cp_parser_expression_statement
   (cp_parser *, tree);
 static tree cp_parser_compound_statement
@@ -1518,8 +1518,8 @@ static tree cp_parser_qualified_namespace_specifier
   (cp_parser *);
 static void cp_parser_namespace_alias_definition
   (cp_parser *);
-static void cp_parser_using_declaration
-  (cp_parser *);
+static bool cp_parser_using_declaration
+  (cp_parser *, bool);
 static void cp_parser_using_directive
   (cp_parser *);
 static void cp_parser_asm_definition
@@ -3632,6 +3632,17 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	{
 	  /* Grab the nested-name-specifier and continue the loop.  */
 	  cp_parser_pre_parsed_nested_name_specifier (parser);
+	  /* If we originally encountered this nested-name-specifier
+	     with IS_DECLARATION set to false, we will not have
+	     resolved TYPENAME_TYPEs, so we must do so here.  */
+	  if (is_declaration
+	      && TREE_CODE (parser->scope) == TYPENAME_TYPE)
+	    {
+	      new_scope = resolve_typename_type (parser->scope,
+						 /*only_current_p=*/false);
+	      if (new_scope != error_mark_node)
+		parser->scope = new_scope;
+	    }
 	  success = true;
 	  continue;
 	}
@@ -4593,7 +4604,7 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	    }
 	  if (scope && name && BASELINK_P (name))
 	    adjust_result_of_qualified_name_lookup
-	      (name, BINFO_TYPE (BASELINK_BINFO (name)), scope);
+	      (name, BINFO_TYPE (BASELINK_ACCESS_BINFO (name)), scope);
 	  postfix_expression
 	    = finish_class_member_access_expr (postfix_expression, name,
 					       template_p);
@@ -6117,9 +6128,11 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	{
 	case RID_CASE:
 	case RID_DEFAULT:
-	  statement = cp_parser_labeled_statement (parser, in_statement_expr,
-						   in_compound);
-	  break;
+	  /* Looks like a labeled-statement with a case label.
+	     Parse the label, and then use tail recursion to parse
+	     the statement.  */
+	  cp_parser_label_for_labeled_statement (parser);
+	  goto restart;
 
 	case RID_IF:
 	case RID_SWITCH:
@@ -6164,8 +6177,13 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	 labeled-statement.  */
       token = cp_lexer_peek_nth_token (parser->lexer, 2);
       if (token->type == CPP_COLON)
-	statement = cp_parser_labeled_statement (parser, in_statement_expr,
-						 in_compound);
+	{
+	  /* Looks like a labeled-statement with an ordinary label.
+	     Parse the label, and then use tail recursion to parse
+	     the statement.  */
+	  cp_parser_label_for_labeled_statement (parser);
+	  goto restart;
+	}
     }
   /* Anything that starts with a `{' must be a compound-statement.  */
   else if (token->type == CPP_OPEN_BRACE)
@@ -6215,30 +6233,23 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
     SET_EXPR_LOCATION (statement, statement_location);
 }
 
-/* Parse a labeled-statement.
+/* Parse the label for a labeled-statement, i.e.
 
-   labeled-statement:
-     identifier : statement
-     case constant-expression : statement
-     default : statement
+   identifier :
+   case constant-expression :
+   default :
 
    GNU Extension:
+   case constant-expression ... constant-expression : statement
 
-   labeled-statement:
-     case constant-expression ... constant-expression : statement
+   When a label is parsed without errors, the label is added to the
+   parse tree by the finish_* functions, so this function doesn't
+   have to return the label.  */
 
-   Returns the new CASE_LABEL_EXPR, for a `case' or `default' label.
-   For an ordinary label, returns a LABEL_EXPR.
-
-   IN_COMPOUND is as for cp_parser_statement: true when we're nested
-   inside a compound.  */
-
-static tree
-cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
-			     bool in_compound)
+static void
+cp_parser_label_for_labeled_statement (cp_parser* parser)
 {
   cp_token *token;
-  tree statement = error_mark_node;
 
   /* The next token should be an identifier.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -6246,7 +6257,7 @@ cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
       && token->type != CPP_KEYWORD)
     {
       cp_parser_error (parser, "expected labeled-statement");
-      return error_mark_node;
+      return;
     }
 
   switch (token->keyword)
@@ -6279,7 +6290,7 @@ cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
 	  expr_hi = NULL_TREE;
 
 	if (parser->in_switch_statement_p)
-	  statement = finish_case_label (expr, expr_hi);
+	  finish_case_label (expr, expr_hi);
 	else
 	  error ("case label %qE not within a switch statement", expr);
       }
@@ -6290,24 +6301,19 @@ cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,
       cp_lexer_consume_token (parser->lexer);
 
       if (parser->in_switch_statement_p)
-	statement = finish_case_label (NULL_TREE, NULL_TREE);
+	finish_case_label (NULL_TREE, NULL_TREE);
       else
 	error ("case label not within a switch statement");
       break;
 
     default:
       /* Anything else must be an ordinary label.  */
-      statement = finish_label_stmt (cp_parser_identifier (parser));
+      finish_label_stmt (cp_parser_identifier (parser));
       break;
     }
 
   /* Require the `:' token.  */
   cp_parser_require (parser, CPP_COLON, "`:'");
-  /* Parse the labeled statement.  */
-  cp_parser_statement (parser, in_statement_expr, in_compound);
-
-  /* Return the label, in the case of a `case' or `default' label.  */
-  return statement;
 }
 
 /* Parse an expression-statement.
@@ -7189,7 +7195,8 @@ cp_parser_block_declaration (cp_parser *parser,
 	cp_parser_using_directive (parser);
       /* Otherwise, it's a using-declaration.  */
       else
-	cp_parser_using_declaration (parser);
+	cp_parser_using_declaration (parser,
+				     /*access_declaration_p=*/false);
     }
   /* If the next keyword is `__label__' we have a label declaration.  */
   else if (token1->keyword == RID_LABEL)
@@ -9460,7 +9467,13 @@ cp_parser_explicit_specialization (cp_parser* parser)
   else
     need_lang_pop = false;
   /* Let the front end know that we are beginning a specialization.  */
-  begin_specialization ();
+  if (!begin_specialization ())
+    {
+      end_specialization ();
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return;
+    }
+
   /* If the next keyword is `template', we need to figure out whether
      or not we're looking a template-declaration.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
@@ -10581,14 +10594,21 @@ cp_parser_qualified_namespace_specifier (cp_parser* parser)
   return cp_parser_namespace_name (parser);
 }
 
-/* Parse a using-declaration.
+/* Parse a using-declaration, or, if ACCESS_DECLARATION_P is true, an
+   access declaration.
 
    using-declaration:
      using typename [opt] :: [opt] nested-name-specifier unqualified-id ;
-     using :: unqualified-id ;  */
+     using :: unqualified-id ;  
 
-static void
-cp_parser_using_declaration (cp_parser* parser)
+   access-declaration:
+     qualified-id ;  
+
+   */
+
+static bool
+cp_parser_using_declaration (cp_parser* parser, 
+			     bool access_declaration_p)
 {
   cp_token *token;
   bool typename_p = false;
@@ -10597,18 +10617,23 @@ cp_parser_using_declaration (cp_parser* parser)
   tree identifier;
   tree qscope;
 
-  /* Look for the `using' keyword.  */
-  cp_parser_require_keyword (parser, RID_USING, "`using'");
-
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (parser->lexer);
-  /* See if it's `typename'.  */
-  if (token->keyword == RID_TYPENAME)
+  if (access_declaration_p)
+    cp_parser_parse_tentatively (parser);
+  else
     {
-      /* Remember that we've seen it.  */
-      typename_p = true;
-      /* Consume the `typename' token.  */
-      cp_lexer_consume_token (parser->lexer);
+      /* Look for the `using' keyword.  */
+      cp_parser_require_keyword (parser, RID_USING, "`using'");
+      
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      /* See if it's `typename'.  */
+      if (token->keyword == RID_TYPENAME)
+	{
+	  /* Remember that we've seen it.  */
+	  typename_p = true;
+	  /* Consume the `typename' token.  */
+	  cp_lexer_consume_token (parser->lexer);
+	}
     }
 
   /* Look for the optional global scope qualification.  */
@@ -10641,6 +10666,14 @@ cp_parser_using_declaration (cp_parser* parser)
 					 /*check_dependency_p=*/true,
 					 /*declarator_p=*/true,
 					 /*optional_p=*/false);
+
+  if (access_declaration_p)
+    {
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+	cp_parser_simulate_error (parser);
+      if (!cp_parser_parse_definitely (parser))
+	return false;
+    }
 
   /* The function we call to handle a using-declaration is different
      depending on what scope we are in.  */
@@ -10675,6 +10708,8 @@ cp_parser_using_declaration (cp_parser* parser)
 
   /* Look for the final `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  
+  return true;
 }
 
 /* Parse a using-directive.
@@ -13550,8 +13585,8 @@ cp_parser_member_declaration (cp_parser* parser)
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
     {
       /* Parse the using-declaration.  */
-      cp_parser_using_declaration (parser);
-
+      cp_parser_using_declaration (parser,
+				   /*access_declaration_p=*/false);
       return;
     }
 
@@ -13570,6 +13605,9 @@ cp_parser_member_declaration (cp_parser* parser)
 	}
       return;
     }
+
+  if (cp_parser_using_declaration (parser, /*access_declaration=*/true))
+    return;
 
   /* Parse the decl-specifier-seq.  */
   cp_parser_decl_specifier_seq (parser,

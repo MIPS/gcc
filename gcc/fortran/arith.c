@@ -75,6 +75,7 @@ gfc_set_model (mpfr_t x)
   mpfr_set_default_prec (mpfr_get_prec (x));
 }
 
+#if MPFR_VERSION_MAJOR < 2 || (MPFR_VERSION_MAJOR == 2 && MPFR_VERSION_MINOR < 2)
 /* Calculate atan2 (y, x)
 
 atan2(y, x) = atan(y/x)				if x > 0,
@@ -124,7 +125,7 @@ arctangent2 (mpfr_t y, mpfr_t x, mpfr_t result)
 
   mpfr_clear (t);
 }
-
+#endif
 
 /* Given an arithmetic error code, return a pointer to a string that
    explains the error.  */
@@ -350,6 +351,10 @@ gfc_check_integer_range (mpz_t p, int kind)
         result = ARITH_ASYMMETRIC;
     }
 
+
+  if (gfc_option.flag_range_check == 0)
+    return result;
+
   if (mpz_cmp (p, gfc_integer_kinds[i].min_int) < 0
       || mpz_cmp (p, gfc_integer_kinds[i].huge) > 0)
     result = ARITH_OVERFLOW;
@@ -407,6 +412,7 @@ gfc_check_real_range (mpfr_t p, int kind)
     }
   else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
     {
+#if MPFR_VERSION_MAJOR < 2 || (MPFR_VERSION_MAJOR == 2 && MPFR_VERSION_MINOR < 2)
       /* MPFR operates on a number with a given precision and enormous
 	exponential range.  To represent subnormal numbers, the exponent is
 	allowed to become smaller than emin, but always retains the full
@@ -428,13 +434,32 @@ gfc_check_real_range (mpfr_t p, int kind)
       sprintf (s, "0.%sE%d", bin, (int) e);
       mpfr_set_str (q, s, gfc_real_kinds[i].radix, GMP_RNDN);
 
+      gfc_free (s);
+      gfc_free (bin);
+#else
+      mp_exp_t emin, emax;
+      int en;
+
+      /* Save current values of emin and emax.  */
+      emin = mpfr_get_emin ();
+      emax = mpfr_get_emax ();
+
+      /* Set emin and emax for the current model number.  */
+      en = gfc_real_kinds[i].min_exponent - gfc_real_kinds[i].digits + 1;
+      mpfr_set_emin ((mp_exp_t) en);
+      mpfr_set_emax ((mp_exp_t) gfc_real_kinds[i].max_exponent);
+      mpfr_subnormalize (q, 0, GFC_RND_MODE);
+
+      /* Reset emin and emax.  */
+      mpfr_set_emin (emin);
+      mpfr_set_emax (emax);
+#endif
+
+      /* Copy sign if needed.  */
       if (mpfr_sgn (p) < 0)
 	mpfr_neg (p, q, GMP_RNDN);
       else
 	mpfr_set (p, q, GMP_RNDN);
-
-      gfc_free (s);
-      gfc_free (bin);
 
       retval = ARITH_OK;
     }

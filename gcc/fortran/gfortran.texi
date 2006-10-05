@@ -933,12 +933,19 @@ the @code{DATA} statement, and it is expected to be assigned to an
 @code{INTEGER} variable.  @command{gfortran} permits a BOZ to appear
 in any initialization expression as well as assignment statements.
 
-The use of a BOZ literal constant to initialize a @code{REAL} variable will 
-lead to confusion.  A BOZ literal constant is converted to an
-@code{INTEGER} with the kind type with the largest decimal representation
-before a conversion to a @code{REAL} variable.  That is, one should not
-expect a bitwise copy of the BOZ literal constant to be assigned to the
-@code{REAL}.
+Attempts to use a BOZ literal constant to do a bitwise initialization of a
+variable can lead to confusion.  A BOZ literal constant is converted to an
+@code{INTEGER} value with the kind type with the largest decimal representation,
+and this value is then converted numerically to the type and kind of the
+variable in question.  Thus, one should not expect a bitwise copy of the BOZ
+literal constant to be assigned to a @code{REAL} variable.
+
+Similarly, initializing an @code{INTEGER} variable with a statement such as
+@code{DATA i/Z'FFFFFFFF'/} will produce an integer overflow rather than the
+desired result of @math{-1} when @code{i} is a 32-bit integer on a system that
+supports 64-bit integers.  The @samp{-fno-range-check} option can be used as 
+a workaround for legacy code that initializes integers in this manner.
+
 
 @node Real array indices
 @section Real array indices
@@ -1074,30 +1081,9 @@ address is cast to an integer type:
         ipt = loc(ar)  ! Makes arpte is an alias for ar
         arpte(1) = 1.0 ! Sets ar(1) to 1.0
 @end smallexample
-The pointer can also be set by a call to a malloc-type
-function.  There is no malloc intrinsic implemented as part of the
-Cray pointer extension, but it might be a useful future addition to
-@command{gfortran}.  Even without an intrinsic malloc function,
-dynamic memory allocation can be combined with Cray pointers by
-calling a short C function:
-@smallexample
-mymalloc.c:
+The pointer can also be set by a call to the @code{MALLOC} intrinsic
+(see @ref{MALLOC}).
 
-        void mymalloc_(void **ptr, int *nbytes)
-        @{
-            *ptr = malloc(*nbytes);
-            return;
-        @}
-
-caller.f:
-
-        program caller
-        integer ipinfo;
-        real*4 data
-        pointer (ipdata, data(1024))
-        call mymalloc(ipdata,4*1024)
-        end
-@end smallexample
 Cray pointees often are used to alias an existing variable.  For
 example:
 @smallexample
@@ -1370,7 +1356,8 @@ available.
 @itemize
 @item 
 Intrinsics @code{command_argument_count}, @code{get_command},
-@code{get_command_argument}, and @code{get_environment_variable}.
+@code{get_command_argument}, @code{get_environment_variable}, and
+@code{move_alloc}.
 
 @item 
 @cindex Array constructors
@@ -1397,14 +1384,17 @@ Support for the declaration of enumeration constants via the
 
 @item
 @cindex TR 15581
-The following parts of TR 15581:
+TR 15581:
 @itemize
 @item
 @cindex @code{ALLOCATABLE} dummy arguments
-The @code{ALLOCATABLE} attribute for dummy arguments.
+@code{ALLOCATABLE} dummy arguments.
 @item
 @cindex @code{ALLOCATABLE} function results
 @code{ALLOCATABLE} function results
+@item
+@cindex @code{ALLOCATABLE} components of derived types
+@code{ALLOCATABLE} components of derived types
 @end itemize
 
 @item

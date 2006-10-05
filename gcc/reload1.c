@@ -1167,6 +1167,20 @@ reload (rtx first, int global)
       {
 	rtx *pnote;
 
+	/* Clean up invalid ASMs so that they don't confuse later passes.
+	   See PR 21299.  */
+	if (asm_noperands (PATTERN (insn)) >= 0)
+	  {
+	    extract_insn (insn);
+	    if (!constrain_operands (1))
+	      {
+		error_for_asm (insn,
+			       "%<asm%> operand has impossible constraints");
+		delete_insn (insn);
+		continue;
+	      }
+	  }
+
 	if (CALL_P (insn))
 	  replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
 			      VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
@@ -1982,8 +1996,11 @@ alter_reg (int i, int from_reg)
       && reg_equiv_memory_loc[i] == 0)
     {
       rtx x;
+      enum machine_mode mode = GET_MODE (regno_reg_rtx[i]);
       unsigned int inherent_size = PSEUDO_REGNO_BYTES (i);
+      unsigned int inherent_align = GET_MODE_ALIGNMENT (mode);
       unsigned int total_size = MAX (inherent_size, reg_max_ref_width[i]);
+      unsigned int min_align = reg_max_ref_width[i] * BITS_PER_UNIT;
       int adjust = 0;
 
       /* Each pseudo reg has an inherent size which comes from its own mode,
@@ -1997,8 +2014,9 @@ alter_reg (int i, int from_reg)
       if (from_reg == -1)
 	{
 	  /* No known place to spill from => no slot to reuse.  */
-	  x = assign_stack_local (GET_MODE (regno_reg_rtx[i]), total_size,
-				  inherent_size == total_size ? 0 : -1);
+	  x = assign_stack_local (mode, total_size,
+				  min_align > inherent_align
+				  || total_size > inherent_size ? -1 : 0);
 	  if (BYTES_BIG_ENDIAN)
 	    /* Cancel the  big-endian correction done in assign_stack_local.
 	       Get the address of the beginning of the slot.
@@ -2014,7 +2032,8 @@ alter_reg (int i, int from_reg)
       else if (spill_stack_slot[from_reg] != 0
 	       && spill_stack_slot_width[from_reg] >= total_size
 	       && (GET_MODE_SIZE (GET_MODE (spill_stack_slot[from_reg]))
-		   >= inherent_size))
+		   >= inherent_size)
+	       && MEM_ALIGN (spill_stack_slot[from_reg]) >= min_align)
 	x = spill_stack_slot[from_reg];
 
       /* Allocate a bigger slot.  */
@@ -2022,7 +2041,6 @@ alter_reg (int i, int from_reg)
 	{
 	  /* Compute maximum size needed, both for inherent size
 	     and for total size.  */
-	  enum machine_mode mode = GET_MODE (regno_reg_rtx[i]);
 	  rtx stack_slot;
 
 	  if (spill_stack_slot[from_reg])
@@ -2032,11 +2050,14 @@ alter_reg (int i, int from_reg)
 		mode = GET_MODE (spill_stack_slot[from_reg]);
 	      if (spill_stack_slot_width[from_reg] > total_size)
 		total_size = spill_stack_slot_width[from_reg];
+	      if (MEM_ALIGN (spill_stack_slot[from_reg]) > min_align)
+		min_align = MEM_ALIGN (spill_stack_slot[from_reg]);
 	    }
 
 	  /* Make a slot with that size.  */
 	  x = assign_stack_local (mode, total_size,
-				  inherent_size == total_size ? 0 : -1);
+				  min_align > inherent_align
+				  || total_size > inherent_size ? -1 : 0);
 	  stack_slot = x;
 
 	  /* All pseudos mapped to this slot can alias each other.  */
@@ -3814,7 +3835,8 @@ scan_paradoxical_subregs (rtx x)
 
     case SUBREG:
       if (REG_P (SUBREG_REG (x))
-	  && GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+	  && (GET_MODE_SIZE (GET_MODE (x))
+	      > reg_max_ref_width[REGNO (SUBREG_REG (x))]))
 	reg_max_ref_width[REGNO (SUBREG_REG (x))]
 	  = GET_MODE_SIZE (GET_MODE (x));
       return;
@@ -8177,7 +8199,7 @@ static rtx
 inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 {
   /* REG or MEM to be copied and incremented.  */
-  rtx incloc = XEXP (value, 0);
+  rtx incloc = find_replacement (&XEXP (value, 0));
   /* Nonzero if increment after copying.  */
   int post = (GET_CODE (value) == POST_DEC || GET_CODE (value) == POST_INC
 	      || GET_CODE (value) == POST_MODIFY);
@@ -8186,7 +8208,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
   rtx add_insn;
   int code;
   rtx store;
-  rtx real_in = in == value ? XEXP (in, 0) : in;
+  rtx real_in = in == value ? incloc : in;
 
   /* No hard register is equivalent to this register after
      inc/dec operation.  If REG_LAST_RELOAD_REG were nonzero,
@@ -8198,7 +8220,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
   if (GET_CODE (value) == PRE_MODIFY || GET_CODE (value) == POST_MODIFY)
     {
       gcc_assert (GET_CODE (XEXP (value, 1)) == PLUS);
-      inc = XEXP (XEXP (value, 1), 1);
+      inc = find_replacement (&XEXP (XEXP (value, 1), 1));
     }
   else
     {

@@ -1866,6 +1866,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       TREE_PUBLIC (decl) = 0;
       TREE_USED (decl) = 1;
       GFC_DECL_RESULT (decl) = 1;
+      TREE_ADDRESSABLE (decl) = 1;
 
       layout_decl (decl, 0);
 
@@ -2883,12 +2884,14 @@ generate_local_decl (gfc_symbol * sym)
       if (sym->attr.referenced)
         gfc_get_symbol_decl (sym);
       else if (sym->attr.dummy && warn_unused_parameter)
-            warning (0, "unused parameter %qs", sym->name);
+	gfc_warning ("Unused parameter %s declared at %L", sym->name,
+		     &sym->declared_at);
       /* Warn for unused variables, but not if they're inside a common
 	 block or are use-associated.  */
       else if (warn_unused_variable
 	       && !(sym->attr.in_common || sym->attr.use_assoc))
-	warning (0, "unused variable %qs", sym->name); 
+	gfc_warning ("Unused variable %s declared at %L", sym->name,
+		     &sym->declared_at);
       /* For variable length CHARACTER parameters, the PARM_DECL already
 	 references the length variable, so force gfc_get_symbol_decl
 	 even when not referenced.  If optimize > 0, it will be optimized

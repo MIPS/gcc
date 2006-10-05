@@ -2424,7 +2424,7 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
       src = SET_SRC (set);
       if (!REG_P (dest)
 	  || (SMALL_REGISTER_CLASSES && HARD_REGISTER_P (dest)))
-	return false;
+	return FALSE;
 
       if (!CONSTANT_P (src) && !register_operand (src, VOIDmode))
 	return FALSE;
@@ -2433,6 +2433,14 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
 	return FALSE;
 
       if (may_trap_p (src) || may_trap_p (dest))
+	return FALSE;
+
+      /* Don't try to handle this if the source register was
+	 modified earlier in the block.  */
+      if ((REG_P (src)
+	   && vals[REGNO (src)] != NULL)
+	  || (GET_CODE (src) == SUBREG && REG_P (SUBREG_REG (src))
+	      && vals[REGNO (SUBREG_REG (src))] != NULL))
 	return FALSE;
 
       /* Don't try to handle this if the destination register was
@@ -3559,6 +3567,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
   /* Find the extent of the real code in the merge block.  */
   head = BB_HEAD (merge_bb);
   end = BB_END (merge_bb);
+
+  /* If merge_bb ends with a tablejump, predicating/moving insn's
+     into test_bb and then deleting merge_bb will result in the jumptable
+     that follows merge_bb being removed along with merge_bb and then we
+     get an unresolved reference to the jumptable.  */
+  if (tablejump_p (end, NULL, NULL))
+    return FALSE;
 
   if (LABEL_P (head))
     head = NEXT_INSN (head);

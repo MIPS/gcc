@@ -142,7 +142,7 @@ static tree most_specialized_class (tree, tree);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
 static tree tsubst_arg_types (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_function_type (tree, tree, tsubst_flags_t, tree);
-static void check_specialization_scope (void);
+static bool check_specialization_scope (void);
 static tree process_partial_specialization (tree);
 static void set_current_access_from_decl (tree);
 static void check_default_tmpl_args (tree, tree, int, int);
@@ -535,9 +535,10 @@ begin_template_parm_list (void)
 }
 
 /* This routine is called when a specialization is declared.  If it is
-   invalid to declare a specialization here, an error is reported.  */
+   invalid to declare a specialization here, an error is reported and
+   false is returned, otherwise this routine will return true.  */
 
-static void
+static bool
 check_specialization_scope (void)
 {
   tree scope = current_scope ();
@@ -552,7 +553,10 @@ check_specialization_scope (void)
      shall be declared in the namespace of which the class template
      is a member.  */
   if (scope && TREE_CODE (scope) != NAMESPACE_DECL)
-    error ("explicit specialization in non-namespace scope %qD", scope);
+    {
+      error ("explicit specialization in non-namespace scope %qD", scope);
+      return false;
+    }
 
   /* [temp.expl.spec]
 
@@ -563,17 +567,22 @@ check_specialization_scope (void)
      explicitly specialize a class member template if its enclosing
      class templates are not explicitly specialized as well.  */
   if (current_template_parms)
-    error ("enclosing class templates are not explicitly specialized");
+    {
+      error ("enclosing class templates are not explicitly specialized");
+      return false;
+    }
+
+  return true;
 }
 
 /* We've just seen template <>.  */
 
-void
+bool
 begin_specialization (void)
 {
   begin_scope (sk_template_spec, NULL);
   note_template_header (1);
-  check_specialization_scope ();
+  return check_specialization_scope ();
 }
 
 /* Called at then end of processing a declaration preceded by
@@ -3315,7 +3324,7 @@ push_template_decl (tree decl)
      template <class T> struct S;
      template <class T> struct S {};  */
 
-void
+bool
 redeclare_class_template (tree type, tree parms)
 {
   tree tmpl;
@@ -3325,7 +3334,7 @@ redeclare_class_template (tree type, tree parms)
   if (!TYPE_TEMPLATE_INFO (type))
     {
       error ("%qT is not a template type", type);
-      return;
+      return false;
     }
 
   tmpl = TYPE_TI_TEMPLATE (type);
@@ -3333,13 +3342,13 @@ redeclare_class_template (tree type, tree parms)
     /* The type is nested in some template class.  Nothing to worry
        about here; there are no new template parameters for the nested
        type.  */
-    return;
+    return true;
 
   if (!parms)
     {
       error ("template specifiers not specified in declaration of %qD",
 	     tmpl);
-      return;
+      return false;
     }
 
   parms = INNERMOST_TEMPLATE_PARMS (parms);
@@ -3351,7 +3360,7 @@ redeclare_class_template (tree type, tree parms)
       error ("used %d template parameter(s) instead of %d",
 	     TREE_VEC_LENGTH (tmpl_parms),
 	     TREE_VEC_LENGTH (parms));
-      return;
+      return false;
     }
 
   for (i = 0; i < TREE_VEC_LENGTH (tmpl_parms); ++i)
@@ -3379,7 +3388,7 @@ redeclare_class_template (tree type, tree parms)
 	{
 	  error ("template parameter %q+#D", tmpl_parm);
 	  error ("redeclared here as %q#D", parm);
-	  return;
+	  return false;
 	}
 
       if (tmpl_default != NULL_TREE && parm_default != NULL_TREE)
@@ -3390,7 +3399,7 @@ redeclare_class_template (tree type, tree parms)
 	     by two different declarations in the same scope.  */
 	  error ("redefinition of default argument for %q#D", parm);
 	  error ("%J  original definition appeared here", tmpl_parm);
-	  return;
+	  return false;
 	}
 
       if (parm_default != NULL_TREE)
@@ -3402,6 +3411,8 @@ redeclare_class_template (tree type, tree parms)
 	   parameters for any members.  */
 	TREE_PURPOSE (TREE_VEC_ELT (parms, i)) = tmpl_default;
     }
+
+    return true;
 }
 
 /* Simplify EXPR if it is a non-dependent expression.  Returns the
@@ -7768,15 +7779,15 @@ tsubst_baselink (tree baselink, tree object_type,
     tree template_args = 0;
     bool template_id_p = false;
 
-    /* A baselink indicates a function from a base class.  The
-       BASELINK_ACCESS_BINFO and BASELINK_BINFO are going to have
-       non-dependent types; otherwise, the lookup could not have
-       succeeded.  However, they may indicate bases of the template
-       class, rather than the instantiated class.
-
-       In addition, lookups that were not ambiguous before may be
-       ambiguous now.  Therefore, we perform the lookup again.  */
+    /* A baselink indicates a function from a base class.  Both the
+       BASELINK_ACCESS_BINFO and the base class referenced may
+       indicate bases of the template class, rather than the
+       instantiated class.  In addition, lookups that were not
+       ambiguous before may be ambiguous now.  Therefore, we perform
+       the lookup again.  */
     qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (baselink));
+    qualifying_scope = tsubst (qualifying_scope, args,
+			       complain, in_decl);
     fns = BASELINK_FUNCTIONS (baselink);
     optype = BASELINK_OPTYPE (baselink);
     if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)

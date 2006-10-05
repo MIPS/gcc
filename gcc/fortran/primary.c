@@ -1084,6 +1084,10 @@ match_sym_complex_part (gfc_expr ** result)
       return MATCH_ERROR;
     }
 
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: PARAMETER symbol in "
+		      "complex constant at %C") == FAILURE)
+    return MATCH_ERROR;
+
   switch (sym->value->ts.type)
     {
     case BT_REAL:
@@ -2282,6 +2286,17 @@ match_variable (gfc_expr ** result, int equiv_flag, int host_flag)
   gfc_expr *expr;
   locus where;
   match m;
+
+  /* Since nothing has any business being an lvalue in a module
+     specification block, an interface block or a contains section,
+     we force the changed_symbols mechanism to work by setting
+     host_flag to 0. This prevents valid symbols that have the name
+     of keywords, such as 'end', being turned into variables by
+     failed matching to assignments for, eg., END INTERFACE.  */
+  if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_INTERFACE
+      || gfc_current_state () == COMP_CONTAINS)
+    host_flag = 0;
 
   m = gfc_match_sym_tree (&st, host_flag);
   if (m != MATCH_YES)

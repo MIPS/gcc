@@ -3745,7 +3745,8 @@ shadow_tag (cp_decl_specifier_seq *declspecs)
 
     }
 
-  maybe_process_partial_specialization (t);
+  if (maybe_process_partial_specialization (t) == error_mark_node)
+    return NULL_TREE;
 
   /* This is where the variables in an anonymous union are
      declared.  An anonymous union declaration looks like:
@@ -7116,7 +7117,11 @@ grokdeclarator (const cp_declarator *declarator,
   /* If there were multiple types specified in the decl-specifier-seq,
      issue an error message.  */
   if (declspecs->multiple_types_p)
-    error ("two or more data types in declaration of %qs", name);
+    {
+      error ("two or more data types in declaration of %qs", name);
+      return error_mark_node;
+    }
+
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
@@ -9707,7 +9712,10 @@ xref_tag (enum tag_types tag_code, tree name,
   else
     {
       if (template_header_p && IS_AGGR_TYPE (t))
-	redeclare_class_template (t, current_template_parms);
+        {
+	  if (!redeclare_class_template (t, current_template_parms))
+            POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
+        }
       else if (!processing_template_decl
 	       && CLASS_TYPE_P (t)
 	       && CLASSTYPE_IS_TEMPLATE (t))

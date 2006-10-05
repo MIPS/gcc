@@ -37,7 +37,6 @@
 
 #include <algorithm>
 #include <bits/concept_check.h>
-#include <bits/cpp_type_traits.h>
 #include <cmath>
 #include <debug/debug.h>
 #include <iterator>
@@ -46,6 +45,7 @@
 #include <tr1/type_traits>
 #include <tr1/cmath>
 #include <fstream>
+#include <ext/type_traits.h>
 
 namespace std
 {
@@ -64,17 +64,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    */
   namespace
   {
-    // Type selectors -- are these already implemented elsewhere?
-    template<bool, typename _TpTrue, typename _TpFalse>
-      struct _Select
-      { typedef _TpTrue _Type; };
-
-    template<typename _TpTrue, typename _TpFalse>
-      struct _Select<false, _TpTrue, _TpFalse>
-      { typedef _TpFalse _Type; };
-
-    template<typename _UIntType, int __w, bool = 
-	     __w < std::numeric_limits<_UIntType>::digits>
+    template<typename _UIntType, int __w, 
+	     bool = __w < std::numeric_limits<_UIntType>::digits>
       struct _Shift
       { static const _UIntType __value = 0; };
 
@@ -92,11 +83,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       __mod(_Tp __x)
       { return _Mod<_Tp, __a, __c, __m, __m == 0>::__calc(__x); }
 
-    template<typename _ValueT>
-      struct _To_Unsigned_Type;
-
-    typedef _Select<(sizeof(unsigned) == 4),
-		    unsigned, unsigned long>::_Type _UInt32Type;
+    typedef __gnu_cxx::__conditional_type<(sizeof(unsigned) == 4),
+		    unsigned, unsigned long>::__type _UInt32Type;
   } // anonymous namespace
 
     /*
@@ -193,9 +181,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       typedef typename _Dist::result_type            result_type;
 
       // tr1:5.1.1 table 5.1 requirement
-      typedef typename std::__enable_if<result_type,
-					is_arithmetic<result_type>::value
-        >::__type _IsValidType;
+      typedef typename __gnu_cxx::__enable_if<
+	is_arithmetic<result_type>::value, result_type>::__type _IsValidType;
 
     public:
       /**
@@ -277,20 +264,19 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * @addtogroup tr1_random_generators Random Number Generators
    * @ingroup tr1_random
    *
-   * These classes define objects which provide random or pseudorandom numbers,
-   * either from a discrete or a continuous interval.  The random number
-   * generator supplied as a part of this library are all uniform random number
-   * generators which provide a sequence of random number uniformly distributed
-   * over their range.
+   * These classes define objects which provide random or pseudorandom
+   * numbers, either from a discrete or a continuous interval.  The
+   * random number generator supplied as a part of this library are
+   * all uniform random number generators which provide a sequence of
+   * random number uniformly distributed over their range.
    *
-   * A number generator is a function object with an operator() that takes zero
-   * arguments and returns a number.
+   * A number generator is a function object with an operator() that
+   * takes zero arguments and returns a number.
    *
-   * A compliant random number generator must satisy the following requirements.
-   * <table border=1 cellpadding=10 cellspacing=0>
+   * A compliant random number generator must satisy the following
+   * requirements.  <table border=1 cellpadding=10 cellspacing=0>
    * <caption align=top>Random Number Generator Requirements</caption>
-   * <tr><td>To be documented.</td></tr>
-   * </table>
+   * <tr><td>To be documented.</td></tr> </table>
    * 
    * @{
    */
@@ -309,21 +295,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    *
    * The size of the state is @f$ 1 @f$.
    */
-  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
-    class linear_congruential;
-
-  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const linear_congruential<_UIntType, __a, __c, __m>& __lcr);
-
-  template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       linear_congruential<_UIntType, __a, __c, __m>& __lcr);
-
   template<class _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
     class linear_congruential
     {
@@ -520,29 +491,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
   template<class _UIntType, int __w, int __n, int __m, int __r,
 	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
 	   _UIntType __c, int __l>
-    class mersenne_twister;
-
-  template<class _UIntType, int __w, int __n, int __m, int __r,
-	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
-	   _UIntType __c, int __l,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const mersenne_twister<_UIntType, __w, __n, __m,
-	       __r, __a, __u, __s, __b, __t, __c, __l>& __x);
-
-  template<class _UIntType, int __w, int __n, int __m, int __r,
-	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
-	   _UIntType __c, int __l,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       mersenne_twister<_UIntType, __w, __n, __m,
-	       __r, __a, __u, __s, __b, __t, __c, __l>& __x);
-
-  template<class _UIntType, int __w, int __n, int __m, int __r,
-	   _UIntType __a, int __u, int __s, _UIntType __b, int __t,
-	   _UIntType __c, int __l>
     class mersenne_twister
     {
       __glibcxx_class_requires(_UIntType, _UnsignedIntegerConcept)
@@ -704,8 +652,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * This is a model of a Generalized Fibonacci discrete random number
    * generator, sometimes referred to as the SWC generator.
    *
-   * A discrete random number generator that produces pseudorandom numbers using
-   * @f$x_{i}\leftarrow(x_{i - s} - x_{i - r} - carry_{i-1}) \bmod m @f$.
+   * A discrete random number generator that produces pseudorandom
+   * numbers using @f$x_{i}\leftarrow(x_{i - s} - x_{i - r} -
+   * carry_{i-1}) \bmod m @f$.
    *
    * The size of the state is @f$ r @f$
    * and the maximum period of the generator is @f$ m^r - m^s -1 @f$.
@@ -719,21 +668,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * @var _M_p     Current index of x(i - r).
    * @endif
    */
-  template<typename _IntType, _IntType __m, int __s, int __r>
-    class subtract_with_carry;
-
-  template<typename _IntType, _IntType __m, int __s, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const subtract_with_carry<_IntType, __m, __s, __r>& __x);
-
-  template<typename _IntType, _IntType __m, int __s, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       subtract_with_carry<_IntType, __m, __s, __r>& __x);
-
   template<typename _IntType, _IntType __m, int __s, int __r>
     class subtract_with_carry
     {
@@ -777,13 +711,13 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       /**
        * Seeds the initial state @f$ x_0 @f$ of the random number generator.
        *
-       * N1688[4.19] modifies this as follows.
-       * If @p __value == 0, sets value to 19780503.  In any case, with a linear
+       * N1688[4.19] modifies this as follows.  If @p __value == 0,
+       * sets value to 19780503.  In any case, with a linear
        * congruential generator lcg(i) having parameters @f$ m_{lcg} =
-       * 2147483563, a_{lcg} = 40014, c_{lcg} = 0, and lcg(0) = value @f$, sets
-       * @f$ x_{-r} \dots x_{-1} @f$ to
-       * @f$ lcg(1) \bmod m \dots lcg(r) \bmod m @f$ respectively.
-       * If @f$ x_{-1} = 0 @f$ set carry to 1, otherwise sets carry to 0.
+       * 2147483563, a_{lcg} = 40014, c_{lcg} = 0, and lcg(0) = value
+       * @f$, sets @f$ x_{-r} \dots x_{-1} @f$ to @f$ lcg(1) \bmod m
+       * \dots lcg(r) \bmod m @f$ respectively.  If @f$ x_{-1} = 0 @f$
+       * set carry to 1, otherwise sets carry to 0.
        */
       void
       seed(unsigned long __value = 19780503);
@@ -893,7 +827,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
         seed(_Gen& __g, false_type);
 
     private:
-      typedef typename _To_Unsigned_Type<_IntType>::_Type _UIntType;
+      typedef typename __gnu_cxx::__add_unsigned<_IntType>::__type _UIntType;
 
       _UIntType  _M_x[long_lag];
       _UIntType  _M_carry;
@@ -911,21 +845,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * @var _M_npows Precomputed negative powers of 2.   
    * @endif
    */
-  template<typename _RealType, int __w, int __s, int __r>
-    class subtract_with_carry_01;
-
-  template<typename _RealType, int __w, int __s, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const subtract_with_carry_01<_RealType, __w, __s, __r>& __x);
-
-  template<typename _RealType, int __w, int __s, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       subtract_with_carry_01<_RealType, __w, __s, __r>& __x);
-
   template<typename _RealType, int __w, int __s, int __r>
     class subtract_with_carry_01
     {
@@ -1014,7 +933,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * Compares two % subtract_with_carry_01 random number generator objects
        * of the same type for equality.
        *
-       * @param __lhs A % subtract_with_carry_01 random number generator object.
+       * @param __lhs A % subtract_with_carry_01 random number
+       *              generator object.
        * @param __rhs Another % subtract_with_carry_01 random number generator
        *              object.
        *
@@ -1035,7 +955,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * Compares two % subtract_with_carry_01 random number generator objects
        * of the same type for inequality.
        *
-       * @param __lhs A % subtract_with_carry_01 random number generator object.
+       * @param __lhs A % subtract_with_carry_01 random number
+       *              generator object.
+       *
        * @param __rhs Another % subtract_with_carry_01 random number generator
        *              object.
        *
@@ -1114,22 +1036,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    *
    * 0 <= @p __r <= @p __p
    */
-  template<class _UniformRandomNumberGenerator, int __p, int __r>
-    class discard_block;
-
-  template<class _UniformRandomNumberGenerator, int __p, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const discard_block<_UniformRandomNumberGenerator,
-	       __p, __r>& __x);
-
-  template<class _UniformRandomNumberGenerator, int __p, int __r,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       discard_block<_UniformRandomNumberGenerator, __p, __r>& __x);
-
   template<class _UniformRandomNumberGenerator, int __p, int __r>
     class discard_block
     {
@@ -1337,26 +1243,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    */
   template<class _UniformRandomNumberGenerator1, int __s1,
 	   class _UniformRandomNumberGenerator2, int __s2>
-    class xor_combine;
-
-  template<class _UniformRandomNumberGenerator1, int __s1,
-	   class _UniformRandomNumberGenerator2, int __s2,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const xor_combine<_UniformRandomNumberGenerator1, __s1,
-	       _UniformRandomNumberGenerator2, __s2>& __x);
-
-  template<class _UniformRandomNumberGenerator1, int __s1,
-	   class _UniformRandomNumberGenerator2, int __s2,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       xor_combine<_UniformRandomNumberGenerator1, __s1,
-	       _UniformRandomNumberGenerator2, __s2>& __x);
-
-  template<class _UniformRandomNumberGenerator1, int __s1,
-	   class _UniformRandomNumberGenerator2, int __s2>
     class xor_combine
     {
       // __glibcxx_class_requires(typename _UniformRandomNumberGenerator1::
@@ -1376,8 +1262,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 
     public:
       /** The type of the generated random value. */
-      typedef typename _Select<(sizeof(_Result_type1) > sizeof(_Result_type2)),
-	_Result_type1, _Result_type2>::_Type result_type;
+      typedef typename __gnu_cxx::__conditional_type<(sizeof(_Result_type1)
+						      > sizeof(_Result_type2)),
+	_Result_type1, _Result_type2>::__type result_type;
 
       // parameter values
       static const int shift1 = __s1;
@@ -1424,7 +1311,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       base2() const
       { return _M_b2; }
 
-      // XXX Per N2032, but aren't always right...
       result_type
       min() const
       { return 0; }
@@ -1436,9 +1322,13 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       /**
        * Gets the next random number in the sequence.
        */
+      // NB: Not exactly the TR1 formula, per N2079 instead.
       result_type
       operator()()
-      { return ((_M_b1() << shift1) ^ (_M_b2() << shift2)); }
+      {
+	return ((result_type(_M_b1() - _M_b1.min()) << shift1)
+		^ (result_type(_M_b2() - _M_b2.min()) << shift2));
+      }
 
       /**
        * Compares two %xor_combine random number generator objects of
@@ -1511,6 +1401,9 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       void
       _M_initialize_max();
 
+      result_type
+      _M_initialize_max_aux(result_type, result_type, int);
+
       base1_type  _M_b1;
       base2_type  _M_b2;
       result_type _M_max;
@@ -1518,8 +1411,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 
 
   /**
-   * A standard interface to a platform-specific non-deterministic random number
-   * generator (if any are available).
+   * A standard interface to a platform-specific non-deterministic
+   * random number generator (if any are available).
    */
   class random_device
   {
@@ -1626,19 +1519,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * probability throughout the range.
    */
   template<typename _IntType = int>
-    class uniform_int;
-
-  template<typename _IntType, typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const uniform_int<_IntType>& __x);
-
-  template<typename _IntType, typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       uniform_int<_IntType>& __x);
-
-  template<typename _IntType>
     class uniform_int
     {
       __glibcxx_class_requires(_IntType, _IntegerConcept)
@@ -1768,13 +1648,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * Generates a sequence of true and false values with likelihood @f$ p @f$
    * that true will come up and @f$ (1 - p) @f$ that false will appear.
    */
-  class bernoulli_distribution;
-
-  template<typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const bernoulli_distribution& __x);
-
   class bernoulli_distribution
   {
   public:
@@ -1865,15 +1738,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * distribution.
    */
   template<typename _IntType = int, typename _RealType = double>
-    class geometric_distribution;
-
-  template<typename _IntType, typename _RealType,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const geometric_distribution<_IntType, _RealType>& __x);
-
-  template<typename _IntType, typename _RealType>
     class geometric_distribution
     {
     public:
@@ -1961,21 +1825,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * parameter of the distribution.
    */
   template<typename _IntType = int, typename _RealType = double>
-    class poisson_distribution;
-
-  template<typename _IntType, typename _RealType,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const poisson_distribution<_IntType, _RealType>& __x);
-
-  template<typename _IntType, typename _RealType,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       poisson_distribution<_IntType, _RealType>& __x);
-
-  template<typename _IntType, typename _RealType>
     class poisson_distribution
     {
     public:
@@ -2063,21 +1912,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * and @f$ p @f$ are the parameters of the distribution.
    */
   template<typename _IntType = int, typename _RealType = double>
-    class binomial_distribution;
-
-  template<typename _IntType, typename _RealType,
-	   typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const binomial_distribution<_IntType, _RealType>& __x);
-
-  template<typename _IntType, typename _RealType,
-	   typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       binomial_distribution<_IntType, _RealType>& __x);
-
-  template<typename _IntType, typename _RealType>
     class binomial_distribution
     {
     public:
@@ -2091,7 +1925,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 			    const _RealType& __p = _RealType(0.5))
       : _M_t(__t), _M_p(__p), _M_nd()
       {
-	_GLIBCXX_DEBUG_ASSERT((_M_t >= 0) && (_M_p >= 0.0) && (_M_p <= 1.0));	
+	_GLIBCXX_DEBUG_ASSERT((_M_t >= 0) && (_M_p >= 0.0) && (_M_p <= 1.0));
 	_M_initialize();
       }
 
@@ -2186,19 +2020,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * deliver number in the range [0, 1).
    */
   template<typename _RealType = double>
-    class uniform_real;
-  
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const uniform_real<_RealType>& __x);
-
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       uniform_real<_RealType>& __x);
-
-  template<typename _RealType>
     class uniform_real
     {
     public:
@@ -2288,14 +2109,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * </table>
    */
   template<typename _RealType = double>
-    class exponential_distribution;
-
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const exponential_distribution<_RealType>& __x);
-
-  template<typename _RealType>
     class exponential_distribution
     {
     public:
@@ -2355,7 +2168,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
        * @p __x from the input stream @p __is.
        *
        * @param __is An input stream.
-       * @param __x  A %exponential_distribution random number generator engine.
+       * @param __x A %exponential_distribution random number
+       *            generator engine.
        *
        * @returns The input stream with @p __x extracted or in an error state.
        */
@@ -2378,19 +2192,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    *            e^{- \frac{{x - mean}^ {2}}{2 \sigma ^ {2}} } @f$.
    */
   template<typename _RealType = double>
-    class normal_distribution;
-
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const normal_distribution<_RealType>& __x);
-
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_istream<_CharT, _Traits>&
-    operator>>(std::basic_istream<_CharT, _Traits>& __is,
-	       normal_distribution<_RealType>& __x);
-
-  template<typename _RealType>
     class normal_distribution
     {
     public:
@@ -2480,14 +2281,6 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
    * @f$ p(x) = \frac{1}{\Gamma(\alpha)} x^{\alpha - 1} e^{-x} } @f$.
    */
   template<typename _RealType = double>
-    class gamma_distribution;
-
-  template<typename _RealType, typename _CharT, typename _Traits>
-    std::basic_ostream<_CharT, _Traits>&
-    operator<<(std::basic_ostream<_CharT, _Traits>& __os,
-	       const gamma_distribution<_RealType>& __x);
-
-  template<typename _RealType>
     class gamma_distribution
     {
     public:

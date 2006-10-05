@@ -1,3 +1,186 @@
+2006-10-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java
+	(<clinit>): Reorder the static initializers.
+
+2006-10-02  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java
+	(checkConnect): Reinstated.
+	(loopbackAddress): Ensure initialized from non-null object.
+
+2006-09-30  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (prepared): Change type to pc_t.
+	(insn_index): Define for both DIRECT_THREADED and bytecode interpreters.
+	* interpret.cc [!DIRECT_THREADED] (POKEI): Fix typo.
+	(insn_index): Implement for bytecode interpreter.
+	* interpret-run.cc [!DIRECT_THREADED] (AVAL1U): Add _Jv_Linker class
+	qualifier to resolve_pool_entry.
+	[!DIRECT_THREADED] (AVAL2U): Likewise.
+	[!DIRECT_THREADED] bytecode() cannot be called without an object.
+	Changed all typos.
+	[!DIRECT_THREADED] Likewise for defining_class.
+
+2006-09-26  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/26792:
+	* exception.cc (PERSONALITY_FUNCTION): use _Unwind_GetIP
+	if HAVE_GETIPINFO not defined.
+	* stacktrace.cc (_Jv_StackTrace::UnwindTraceFn): Likewise.
+	(_Jv_StackTrace::getLineNumberForFrame): Likewise.
+	* configure.ac: use GCC_CHECK_UNWIND_GETIPINFO.
+	* aclocal.m4, configure, include/config.h.in, Makefile.in:
+	Rebuilt.
+
+2006-09-27  Tom Tromey  <tromey@redhat.com>
+
+	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=201712
+	* java/util/Locale.java (hashcode): No longer transient.
+	(writeObject): Use ObjectOutputStream.PutField and
+	defaultWriteObject.
+	(readObject): Use defaultReadObject.
+
+2006-09-25  Keith Seitz  <keiths@redhat.com>
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java
+	(_jdwp_suspend_counts): New private variable.
+	* gnu/classpath/jdwp/natVMVirtualMachine.cc
+	(initialize): Initialize _jdwp_suspend_counts.
+	(suspendThread): Implement.
+	(resumeThread): Implement.
+	(getSuspendCount): Implement.
+
+2006-09-22  Marco Trudel  <mtrudel@gmx.ch>
+
+	* jvmti.cc (_Jv_JVMTI_GetErrorName): Now static.  Marked JNICALL.
+
+2006-09-21  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_DisposeEnvironment): Check for enabled
+	events.
+	(check_enabled_event): New function.
+	(check_enabled_events): New function.
+	(post_event): New function.
+	(_Jv_JVMTI_SetEventNotificationMode): New function.
+	(_Jv_JVMTI_SetEventCallbacks): New function.
+	(_Jv_JVMTI_Interface): Define SetEventNotificationMode and
+	SetEventCallbacks members.
+	* include/jvmti-int.h: New file.
+	* include/jvmti_md.h (EVENT_SLOTS) [__GCJ_JNI_IMP__]: Define.
+	(_CLASSPATH_JVMTIENV_CONTENTS) [__GCJ_JNI_IMPL__]: Define.
+	* testsuite/libjava.jvmti/events.java: New file.
+	* testsuite/libjava.jvmti/events.out: New file.
+	* testsuite/libjava.jvmti/natevents.cc: New file. 
+
+2006-09-21  Sandro Tolaini  <tolaini@libero.it>
+
+	* configure.ac: Don't use darwin-signal.h as signal handler for
+	Darwin/i386.
+	* configure.host: Enable Darwin/i386 as a supported host, with no
+	signal unwinding.
+
+2006-09-20  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_CreateRawMonitor): Use _Jv_MallocUnchked
+	and return JVMTI_ERROR_OUT_OF_MEMORY if necessary.
+	(_Jv_JVMTI_GetClassMethods): Likewise.
+	(_Jv_JVMTI_GetClassLoaderClasses): Likewise.
+	(_Jv_JVMTI_GetJNIFunctionTable): Likewise.
+	(_Jv_JVMTI_GetSystemProperty): Likewise.
+
+2006-09-20  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (_Jv_JVMTI_GetErrorName): New function.
+	(_Jv_JVMTI_Interface): Define GetErrorName member.
+	* testsuite/libjava.jvmti/geterrorname.java: New file.
+	* testsuite/libjava.jvmti/geterrorname.out: New file.
+	* testsuite/libjava.jvmti/natgeterrorname.cc: New file.
+
+2006-09-20  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Mostly merged with Classpath.
+	* java/net/VMInetAddress.java: New file.
+	* sources.am, Makefile.in: Rebuilt.
+
+	* java/net/natVMNetworkInterfacePosix.cc
+	(getInterfaces): Create InetAddress objects using
+	InetAddress.getByAddress.
+	* gnu/java/net/natPlainSocketImplPosix.cc
+	(accept, getOption): Likewise.
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc
+	(peekData, receive, getLocalAddress): Likewise.
+
+2006-09-19  Keith Seitz  <keiths@redhat.com>
+
+	* testsuite/libjava.jvmti/jvmti.exp: New file.
+
+2006-09-19  Keith Seitz  <keiths@redhat.com>
+
+	* jvmti.cc (THREAD_DEFAULT_TO_CURRENT): Clarify parameter list.
+	(THREAD_CHECK_VALID): Likewise.
+	(THREAD_CHECK_ALIVE): Likewise.
+	(_Jv_JVMTI_SuspendThread): Call THREAD_CHECK_VALID on a Thread not
+	jthread.
+	(_Jv_JVMTI_ResumeThread): Likewise.
+	(_Jv_JVMTI_InterruptThread): Likewise.
+
+	(_Jv_JVMTI_DisposeEnvironment): Probably unwise to dereference an object
+	that was just freed.
+
+2006-09-19  Mark Wielaard  <mark@klomp.org>
+
+	Fixes bug #29137
+	* java/util/logging/LogManager.java (addLogger): Always check for
+	existing children of a new Logger.
+
+2006-09-19  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/logging/LogManager.java: Re-merged with Classpath.
+
+2006-09-18  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+
+2006-09-18  Petr Salinger  <Petr.Salinger@seznam.cz>
+
+	* configure.host: Handle kfreebsd.
+
+2006-09-18  Petr Salinger  <Petr.Salinger@seznam.cz>
+
+	* configure: Rebuilt.
+	* shlibpath.m4: Handle GNU/kFreeBSD.
+
+2006-09-14  Tom Tromey  <tromey@redhat.com>
+
+	PR boehm-gc/29068:
+	* boehm.cc (_Jv_GCAttachThread): Disable on Solaris.
+	(_Jv_GCDetachThread): Likewise.
+
+2006-09-14  Andreas Schwab  <schwab@suse.de>
+
+	* posix-threads.cc: Include "posix.h".
+
+2006-09-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* posix.cc (_Jv_platform_nanotime): Return nanoseconds, not
+	microseconds; use gettimeofday when available.
+	* posix-threads.cc (_Jv_CondWait): Improve accuracy and range of
+	timeout calculation.
+	* testsuite/libjava.lang/Thread_Sleep_2.java: New.
+	* testsuite/libjava.lang/Thread_Sleep_2.out: New.
+	* testsuite/libjava.lang/Thread_Sleep_2.xfail: New.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/29013:
+	* testsuite/libjava.lang/PR29013.out: Likewise.
+	* testsuite/libjava.lang/PR29013.java: New file.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.exp (load_gcc_lib): Removed.
+
 2006-09-07  Matthias Klose  <doko@debian.org>
 
 	* Makefile.am (AM_CXXFLAGS): Remove duplicate define.

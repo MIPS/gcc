@@ -223,6 +223,11 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
 				 nelts, integer_one_node);
       else
 	max_index = array_type_nelts (type);
+
+      /* If we have an error_mark here, we should just return error mark
+	 as we don't know the size of the array yet.  */
+      if (max_index == error_mark_node)
+	return error_mark_node;
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
 
       /* A zero-sized array, which is accepted as an extension, will
@@ -2070,7 +2075,8 @@ build_new (tree placement, tree type, tree nelts, tree init,
   tree orig_nelts;
   tree orig_init;
 
-  if (placement == error_mark_node || type == error_mark_node)
+  if (placement == error_mark_node || type == error_mark_node
+      || init == error_mark_node)
     return error_mark_node;
 
   orig_placement = placement;

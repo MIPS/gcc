@@ -4086,7 +4086,7 @@ extern void maybe_begin_member_template_processing (tree);
 extern void maybe_end_member_template_processing (void);
 extern tree finish_member_template_decl		(tree);
 extern void begin_template_parm_list		(void);
-extern void begin_specialization		(void);
+extern bool begin_specialization		(void);
 extern void reset_specialization		(void);
 extern void end_specialization			(void);
 extern void begin_explicit_instantiation	(void);
@@ -4097,7 +4097,7 @@ extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
-extern void redeclare_class_template		(tree, tree);
+extern bool redeclare_class_template		(tree, tree);
 extern tree lookup_template_class		(tree, tree, tree, tree,
 						 int, tsubst_flags_t);
 extern tree lookup_template_function		(tree, tree);

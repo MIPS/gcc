@@ -1,3 +1,29 @@
+2006-09-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* configure.in: Check for GMP 4.1 or newer.  Check for MPFR 2.2.0 
+	or newer.
+	* configure: Regenerated.
+
+2006-09-27  Dave Brolley  <brolley@redhat.com>
+
+	* configure.in (RUNTEST): Look for 'runtest' in the source tree by using
+	$s instead of $r.
+	* configure: Regenerated.
+
+2006-09-26  Thiemo Seufer  <ths@mips.com>
+
+	* configure.in: Remove redundant handling of mips*-dec-bsd*. Likewise
+	for mipstx39-*-*. Disable libgloss for mips64*-*-linux*.
+	* configure: Regenerate.
+
+2006-09-24  Graeme Peterson <gridly@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Remove myself.
+
+2006-09-22  Chao-ying Fu  <fu@mips.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2006-09-10  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* MAINTAINERS: Add self as soft-fp maintainer.

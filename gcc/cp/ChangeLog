@@ -1,3 +1,104 @@
+2006-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29020
+	* friend.c (do_friend): Improve comments; add assertion.
+	* parser.c (cp_parser_nested_name_specifier_opt): Resolve
+	typenames for qualified names used in declarations, even when
+	caching qualified name lookup.
+
+	PR c++/29138
+	* decl2.c (grokfield): Don't handle access declarations here.
+	* parser.c (cp_parser_using_declaration): Handle access
+	declarations too.
+	(cp_parser_block_declaration): Adjust calls to
+	cp_parser_using_declaration.
+	(cp_parser_member_declaration): Likewise.  Use
+	cp_parser_using_declaration to look for access_declarations.
+
+2006-10-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/29291
+	* init.c (build_new): Check for invalid init.
+
+2006-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29226
+	* typeck.c (cxx_sizeof_or_alignof_type): Tidy.  In templates, do
+	not try to actually evaluate sizeof for a VLA type.
+
+2006-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29105
+	* pt.c (tsubst_baselink): Substituteinto the qualifying scope.
+	* semantics.c (baselink_for_fns): Build a baselink, even when
+	processing a template.
+
+	PR c++/29080
+	* parser.c (cp_parser_postfix_dot_deref_expression): Use
+	BASELINK_ACCESS_BINFO as the qualifying scope when calling
+	adjust_result_of_qualified_name_lookup. 
+
+2006-09-25  Lee Millward  <lee.millward@codesourcery.com>
+
+        PR c++/27329
+        PR c++/26938
+        * cp-tree.h (redeclare_class_template): Adjust declaration
+        to return bool instead of void.
+        * pt.c (redeclare_class_template): Update definition.
+	Return false on error.
+        * decl.c (xref_tag): Return error_mark_node if
+	redeclare_class_template returned false.
+
+	PR c++/27667
+        * cp-tree.h (begin_specialization): Return bool 
+	instead of void.
+        * pt.c (check_specialization_scope): Likwise. 
+	Adjust comment. Return false if a specialization 
+	isn't permitted in the current scope.
+        (begin_specialization): Use the return value of  
+        check_specialization_scope.
+        * parser.c (cp_parser_explicit_specialization): If
+        begin_specialization returned false, skip the rest 
+	of the specialization.
+	
+2006-09-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29016
+	* typeck.c (build_unary_op): Don't form an ADDR_EXPR around a
+	BASELINK.
+
+2006-09-21  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/28861
+	* decl.c (shadow_tag): Return error_mark_node
+        if maybe_process_partial_specialization failed.
+
+	PR c++/28303
+        * decl.c (grokdeclarator): Return error_mark_node on
+        declaration with two or more data types.
+	
+2006-09-20  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/27650
+	* class.c (check_for_override): Remove dllimport from virtual
+	methods.
+
+2006-09-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c++/29087
+	* parser.c (cp_parser_labeled_statement): Return nothing.  Do
+	not take in_statement_expr and in_compound as arguments.  Rename
+	to cp_parser_label_for_labeled_statement.  Parse only the label,
+	not the statement.
+	(cp_parser_statement): Parse the statement of a labeled-statement
+	from here, using tail recursion.
+
+2006-09-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/29002
+	* init.c (build_zero_init): If we have an error mark node for
+	the array size, return.
+
 2006-09-10  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/28991
