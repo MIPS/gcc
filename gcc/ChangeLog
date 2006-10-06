@@ -1,5 +1,19 @@
 2006-10-06  Andrew MacLeod  <amacleod@redhat.com>
 	
+	* tree-ssa-coalesce.c (struct coalesce_list_d): Remove present bitmap.
+	(version_in_coalesce_list_p): Delete.
+	(create_coalesce_list): Don't initialize 'present' bitmap.
+	(delete_coalesce_list): Don't free 'present' bitmap.
+	(find_coalesce_pair): Don't set 'present' bitmap.
+	(create_outofssa_var_map: Don't add abnormal pairs to coalesce list.
+	Update copy_used_in bitmap.
+	(attempt_coalesce): New.  Split out from coalesce_partitions.
+	(coalesce_partitions): Coalesce abnormal edges first, then coalesce 
+	list.
+	(coalesce_ssa_name): shuffles some orderig around.
+
+2006-10-06  Andrew MacLeod  <amacleod@redhat.com>
+	
 	* tree-ssa-coalesce.c (ssa_conflicts_test_p): Avoid bit test when able.
 	(ssa_conflicts_merge): Be more efficient when possible.
 
