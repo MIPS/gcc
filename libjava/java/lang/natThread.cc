@@ -44,6 +44,7 @@ java::lang::Thread::initialize_native (void)
   natThread *nt = (natThread *) _Jv_AllocBytes (sizeof (natThread));
   
   state = JV_NEW;
+  nt->alive_flag = THREAD_DEAD;
 
   data = (gnu::gcj::RawDataManaged *) nt;
   
@@ -104,32 +105,33 @@ java::lang::Thread::holdsLock (jobject obj)
   return !_Jv_ObjectCheckMonitor (obj);
 }
 
+jboolean
+java::lang::Thread::isAlive (void)
+{
+  natThread *nt = (natThread *) data;
+  return nt->alive_flag != (obj_addr_t)THREAD_DEAD;
+}
+
 void
 java::lang::Thread::interrupt (void)
 {
   checkAccess ();
 
+  natThread *nt = (natThread *) data;
+
   // If a thread is in state ALIVE, we atomically set it to state
   // SIGNALED and send it a signal.  Once we've sent it the signal, we
   // set its state back to ALIVE.
-  if (__sync_bool_compare_and_swap 
-      (&alive_flag, Thread::THREAD_ALIVE, Thread::THREAD_SIGNALED))
+  if (compare_and_swap 
+      (&nt->alive_flag, Thread::THREAD_ALIVE, Thread::THREAD_SIGNALED))
     {
-      natThread *nt = (natThread *) data;
-
       _Jv_ThreadInterrupt (nt->thread);
-      __sync_bool_compare_and_swap 
-	(&alive_flag, THREAD_SIGNALED, Thread::THREAD_ALIVE);
+      compare_and_swap 
+	(&nt->alive_flag, THREAD_SIGNALED, Thread::THREAD_ALIVE);
 
       // Even though we've interrupted this thread, it might still be
       // parked.
-      if (__sync_bool_compare_and_swap 
-	  (&parkPermit, Thread::THREAD_PARK_PARKED, Thread::THREAD_PARK_RUNNING))
-	{
-	  pthread_mutex_lock (&nt->park_mutex);
-	  pthread_cond_signal (&nt->park_cond);
-	  pthread_mutex_unlock (&nt->park_mutex);
-	}
+      _Jv_ThreadUnpark (this);
     }
 }
 
@@ -209,10 +211,10 @@ java::lang::Thread::sleep (jlong millis, jint nanos)
 void
 java::lang::Thread::finish_ ()
 {
-  parkPermit = THREAD_PARK_DEAD;
   __sync_synchronize();
   natThread *nt = (natThread *) data;
   
+  nt->park_permit = THREAD_PARK_DEAD;
   group->removeThread (this);
 
 #ifdef ENABLE_JVMPI  
@@ -240,7 +242,7 @@ java::lang::Thread::finish_ ()
 
   {
     JvSynchronize sync (this);
-    alive_flag = THREAD_DEAD;
+    nt->alive_flag = THREAD_DEAD;
     state = JV_TERMINATED;
   }
 
@@ -342,10 +344,10 @@ java::lang::Thread::start (void)
   if (!startable_flag)
     throw new IllegalThreadStateException;
 
-  alive_flag = THREAD_ALIVE;
+  natThread *nt = (natThread *) data;
+  nt->alive_flag = THREAD_ALIVE;
   startable_flag = false;
   state = JV_RUNNABLE;
-  natThread *nt = (natThread *) data;
   _Jv_ThreadStart (this, nt->thread, (_Jv_ThreadStartFunc *) &_Jv_ThreadRun);
 }
 
@@ -455,9 +457,9 @@ _Jv_AttachCurrentThread(java::lang::Thread* thread)
   if (thread == NULL || thread->startable_flag == false)
     return -1;
   thread->startable_flag = false;
-  thread->alive_flag = ::java::lang::Thread::THREAD_ALIVE;
-  thread->state = JV_RUNNABLE;
   natThread *nt = (natThread *) thread->data;
+  nt->alive_flag = ::java::lang::Thread::THREAD_ALIVE;
+  thread->state = JV_RUNNABLE;
   _Jv_ThreadRegister (nt->thread);
   return 0;
 }

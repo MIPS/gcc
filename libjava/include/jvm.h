@@ -32,6 +32,8 @@ details.  */
 
 #include <java/lang/Thread.h>
 
+#include <sysdep/locks.h>
+
 /* Macro for possible unused arguments.  */
 #define MAYBE_UNUSED __attribute__((__unused__))
 
@@ -750,13 +752,20 @@ public:
 // the Thread class.
 struct natThread
 {
+  // A thread is either alive, dead, or being sent a signal; if it is
+  // being sent a signal, it is also alive.  Thus, if you want to know
+  // if a thread is alive, it is sufficient to test alive_status !=
+  // THREAD_DEAD.
+  volatile obj_addr_t alive_flag;
+
   // These are used to interrupt sleep and join calls.  We can share a
   // condition variable here since it only ever gets notified when the thread
   // exits.
   _Jv_Mutex_t join_mutex;
   _Jv_ConditionVariable_t join_cond;
 
-  // These are used by Unsafe.park() and Unsafe.unpark().  
+  // These are used by Unsafe.park() and Unsafe.unpark().
+  volatile obj_addr_t park_permit;
   pthread_mutex_t park_mutex;
   pthread_cond_t park_cond;
 

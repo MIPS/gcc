@@ -1,3 +1,34 @@
+2006-10-06  Andrew Haley  <aph@redhat.com>
+
+	* posix-threads.cc (_Jv_ThreadUnpark, _Jv_ThreadPark): Moved here
+	from sun/misc/natUnsafe.cc.
+	* sun/misc/natUnsafe.cc (class spinlock): New class.
+	(compareAndSwap): New methods.
+	(compareAndSwapInt, compareAndSwapLong, compareAndSwapObject) 
+	(putOrderedLong, putLongVolatile, putObjectVolatile, putLong) 
+	(getIntVolatile, getObjectVolatile, getLong, getLongVolatile):
+	Rewrite to use gcj's own atomic functions rather than gcc
+	builtins.
+	(unpark): Moved to posix-threads.cc
+	(park): Likewise.
+	* include/jvm.h (struct natThread::alive_flag): Moved here from
+	Thread.java.
+	(struct natThread): Likewise.
+	* include/posix-threads.h: (_Jv_ThreadUnpark, _Jv_ThreadPark):
+	moved here from sun/misc/natUnsafe.cc.
+	* java/lang/natThread.cc (initialize_native): Set alive_flag here.
+	(isAlive): Moved here from Thread.java.
+	(interrupt): alive_flag is now in the natThread structure.
+	(interrupt): Call _Jv_ThreadUnpark().
+	(finish_): parkPermit and alive_flag are now in the natThread
+	structure.
+	(start): LIkewise.
+	(_Jv_AttachCurrentThread): Likewise.
+	* java/lang/Thread.java (alive_flag): Remove.
+	(parkPermit): Likewise.
+	(Thread): Don't set alive_flag.
+	(isAlive): Make native.
+	
 2006-09-13  Andrew Haley  <aph@redhat.com>
 
 	* Makefile.am: Add sun/reflect/natReflection.cc.

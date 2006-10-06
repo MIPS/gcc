@@ -1,3 +1,10 @@
+2006-10-06  Andrew Haley  <aph@redhat.com>
+
+	* builtins.c (compareAndSwapInt_builtin): Check that we really do
+	have a compare_and_swap builtin.
+	(compareAndSwapLong_builtin): Likewise.
+	(compareAndSwapObject_builtin): Likewise.
+
 2006-10-04  Andrew Haley  <aph@redhat.com>
 
 	* builtins.c (java_builtins): Add compareAndSwapInt,

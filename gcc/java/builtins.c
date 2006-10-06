@@ -36,7 +36,10 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include <stdarg.h>
 #include "convert.h"
-
+#include "rtl.h"
+#include "insn-codes.h"
+#include "expr.h"
+#include "optabs.h"
 
 static tree max_builtin (tree, tree);
 static tree min_builtin (tree, tree);
@@ -299,56 +302,75 @@ static tree
 compareAndSwapInt_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 			   tree method_arguments)
 {
-  tree newarglist, addr, stmt;
-  UNMARSHAL5 (method_arguments);
+  enum machine_mode mode = TYPE_MODE (int_type_node);
+  if (sync_compare_and_swap_cc[mode] != CODE_FOR_nothing 
+      || sync_compare_and_swap[mode] != CODE_FOR_nothing)
+    {
+      tree newarglist, addr, stmt;
+      UNMARSHAL5 (method_arguments);
 
-  addr = build_addr_sum (int_type_node, obj_arg, offset_arg);
+      addr = build_addr_sum (int_type_node, obj_arg, offset_arg);
 
-  newarglist 
-    = build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
-  stmt = (build_function_call_expr
-	  (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_4],
-	   newarglist));
+      newarglist 
+	= build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
+      stmt = (build_function_call_expr
+	      (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_4],
+	       newarglist));
 
-  return build_check_this (stmt, this_arg);
+      return build_check_this (stmt, this_arg);
+    }
+  return NULL_TREE;
 }
 
 static tree
 compareAndSwapLong_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 			    tree method_arguments)
 {
-  tree newarglist, addr, stmt;
-  UNMARSHAL5 (method_arguments);
+  enum machine_mode mode = TYPE_MODE (long_type_node);
+  if (sync_compare_and_swap_cc[mode] != CODE_FOR_nothing 
+      || sync_compare_and_swap[mode] != CODE_FOR_nothing)
+    {
+      tree newarglist, addr, stmt;
+      UNMARSHAL5 (method_arguments);
 
-  addr = build_addr_sum (long_type_node, obj_arg, offset_arg);
+      addr = build_addr_sum (long_type_node, obj_arg, offset_arg);
 
-  newarglist 
-    = build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
-  stmt = (build_function_call_expr
-	  (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_8],
-	   newarglist));
+      newarglist 
+	= build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
+      stmt = (build_function_call_expr
+	      (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_8],
+	       newarglist));
 
-  return build_check_this (stmt, this_arg);
+      return build_check_this (stmt, this_arg);
+    }
+  return NULL_TREE;
 }
-
 static tree
 compareAndSwapObject_builtin (tree method_return_type ATTRIBUTE_UNUSED, 
 			      tree method_arguments)
 {
-  tree newarglist, addr, stmt;
-  UNMARSHAL5 (method_arguments);
+  enum machine_mode mode = TYPE_MODE (ptr_type_node);
+  if (sync_compare_and_swap_cc[mode] != CODE_FOR_nothing 
+      || sync_compare_and_swap[mode] != CODE_FOR_nothing)
+  {
+    tree newarglist, addr, stmt;
+    UNMARSHAL5 (method_arguments);
 
-  addr = build_addr_sum (value_type, obj_arg, offset_arg);
+    int builtin = (POINTER_SIZE == 32 
+		   ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
+		   : BUILT_IN_BOOL_COMPARE_AND_SWAP_8);
 
-  newarglist 
-    = build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
-  stmt = (build_function_call_expr
-	  (built_in_decls[POINTER_SIZE == 32 
-			  ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
-			  : BUILT_IN_BOOL_COMPARE_AND_SWAP_8],
-	   newarglist));
+    addr = build_addr_sum (value_type, obj_arg, offset_arg);
 
-  return build_check_this (stmt, this_arg);
+    newarglist 
+      = build_arglist_for_builtin (addr, expected_arg, value_arg, NULL_TREE);
+    stmt = (build_function_call_expr
+	    (built_in_decls[builtin],
+	     newarglist));
+
+    return build_check_this (stmt, this_arg);
+  }
+  return NULL_TREE;
 }
 
 static tree
@@ -366,7 +388,7 @@ putVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
   newarglist = NULL_TREE;
   stmt = (build_function_call_expr
 	  (built_in_decls[BUILT_IN_SYNCHRONIZE],
-			  newarglist));
+	   newarglist));
   modify_stmt = fold_build2 (MODIFY_EXPR, value_type,
 			     build_java_indirect_ref (value_type, addr,
 						      flag_check_references),
@@ -392,7 +414,7 @@ getVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
   newarglist = NULL_TREE;
   stmt = (build_function_call_expr
 	  (built_in_decls[BUILT_IN_SYNCHRONIZE],
-			  newarglist));
+	   newarglist));
   
   tmp = build_decl (VAR_DECL, NULL, method_return_type);
   DECL_IGNORED_P (tmp) = 1;
@@ -525,7 +547,6 @@ initialize_builtins (void)
 		  boolean_ftype_boolean_boolean,
 		  "__builtin_expect",
 		  BUILTIN_CONST | BUILTIN_NOTHROW);
-
   define_builtin (BUILT_IN_BOOL_COMPARE_AND_SWAP_4, 
 		  "__sync_bool_compare_and_swap_4",
 		  build_function_type_list (boolean_type_node,
@@ -533,7 +554,6 @@ initialize_builtins (void)
 					    build_pointer_type (int_type_node),
 					    int_type_node, NULL_TREE), 
 		  "__sync_bool_compare_and_swap_4", 0);
-		  
   define_builtin (BUILT_IN_BOOL_COMPARE_AND_SWAP_8, 
 		  "__sync_bool_compare_and_swap_8",
 		  build_function_type_list (boolean_type_node,
@@ -541,11 +561,10 @@ initialize_builtins (void)
 					    build_pointer_type (long_type_node),
 					    int_type_node, NULL_TREE), 
 		  "__sync_bool_compare_and_swap_8", 0);
-		  
   define_builtin (BUILT_IN_SYNCHRONIZE, "__sync_synchronize",
 		  build_function_type (void_type_node, void_list_node),
 		  "__sync_synchronize", BUILTIN_NOTHROW);
-
+  
   build_common_builtin_nodes ();
 }
 

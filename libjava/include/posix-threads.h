@@ -342,4 +342,7 @@ void _Jv_ThreadWait (void);
 
 void _Jv_ThreadInterrupt (_Jv_Thread_t *data);
 
+void _Jv_ThreadUnpark (::java::lang::Thread *thread);
+void _Jv_ThreadPark (jboolean isAbsolute, jlong time);
+
 #endif /* __JV_POSIX_THREADS__ */

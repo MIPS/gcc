@@ -135,7 +135,6 @@ public class Thread implements Runnable
   private static final byte THREAD_DEAD = 0;
   private static final byte THREAD_ALIVE = 1;
   private static final byte THREAD_SIGNALED = 2;
-  private volatile byte alive_flag;
 
   private boolean startable_flag;
 
@@ -171,7 +170,6 @@ public class Thread implements Runnable
   static final byte THREAD_PARK_PERMIT = 1;
   static final byte THREAD_PARK_PARKED = 2;
   static final byte THREAD_PARK_DEAD = 3;
-  byte  parkPermit;
 
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
@@ -395,7 +393,6 @@ public class Thread implements Runnable
       
     data = null;
     interrupt_flag = false;
-    alive_flag = THREAD_DEAD;
     startable_flag = true;
 
     if (current != null)
@@ -606,10 +603,7 @@ public class Thread implements Runnable
    *
    * @return whether this Thread is alive
    */
-  public final synchronized boolean isAlive()
-  {
-    return alive_flag != THREAD_DEAD;
-  }
+  public final native boolean isAlive();
 
   /**
    * Tell whether this is a daemon Thread or not.
