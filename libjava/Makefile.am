@@ -382,8 +382,11 @@ generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
 
 MYGCJH = gcjh1
 
-$(generic_header_files):
+$(generic_header_files): gcjh.stamp
+
+gcjh.stamp: classpath/lib/compile-classes
 	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
+	echo > gcjh.stamp
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \

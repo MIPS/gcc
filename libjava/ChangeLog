@@ -1,3 +1,10 @@
+2006-10-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29278:
+	* Makefile.in: Rebuilt.
+	* Makefile.am ($(generic_header_files)): Depend on gcjh.stamp.
+	(gcjh.stamp): New target.
+
 2006-10-06  Andrew Haley  <aph@redhat.com>
 
 	* posix-threads.cc (_Jv_ThreadUnpark, _Jv_ThreadPark): Moved here

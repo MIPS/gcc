@@ -10891,8 +10891,11 @@ sun/reflect/misc.list: $(sun_reflect_misc_source_files)
 
 -include sun/reflect/misc.deps
 
-$(generic_header_files):
+$(generic_header_files): gcjh.stamp
+
+gcjh.stamp: classpath/lib/compile-classes
 	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
+	echo > gcjh.stamp
 
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
