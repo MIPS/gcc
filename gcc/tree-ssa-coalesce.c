@@ -731,7 +731,8 @@ ssa_conflicts_test_p (ssa_conflicts_p ptr, unsigned x, unsigned y)
 
   b = ptr->conflicts[x];
   if (b)
-    return bitmap_bit_p (b, y);
+    /* Avoid the lookup if Y has no conflicts.  */
+    return ptr->conflicts[y] ? bitmap_bit_p (b, y) : false;
   else
     return false;
 }
@@ -776,12 +777,25 @@ ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
   if (!(ptr->conflicts[y]))
     return;
 
-  /* Add a conflict for every one Y has.  */
+  /* Add a conflict between X and every one Y has.  If the bitmap doesn't
+     exist, then it has already been coalesced, and we dont need to add a 
+     conflict.  */
   EXECUTE_IF_SET_IN_BITMAP (ptr->conflicts[y], 0, z, bi)
-    ssa_conflicts_add (ptr, z, x);
+    if (ptr->conflicts[z])
+      bitmap_set_bit (ptr->conflicts[z], x);
 
-  /* Won't be referencing this bitmap again.  */
-  BITMAP_FREE (ptr->conflicts[y]);
+  if (ptr->conflicts[x])
+    {
+      /* If X has conflicts, add Y's to X.  */
+      bitmap_ior_into (ptr->conflicts[x], ptr->conflicts[y]);
+      BITMAP_FREE (ptr->conflicts[y]);
+    }
+  else
+    {
+      /* If X has no conflicts, simply use Y's.  */
+      ptr->conflicts[x] = ptr->conflicts[y];
+      ptr->conflicts[y] = NULL;
+    }
 }
 
 

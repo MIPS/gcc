@@ -1,3 +1,8 @@
+2006-10-06  Andrew MacLeod  <amacleod@redhat.com>
+	
+	* tree-ssa-coalesce.c (ssa_conflicts_test_p): Avoid bit test when able.
+	(ssa_conflicts_merge): Be more efficient when possible.
+
 2006-10-05  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa-coalesce.c: New.  Split coalescing code from tree-outof-ssa.c
