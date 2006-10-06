@@ -3568,9 +3568,7 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    case PRE_INC:
-    case PRE_DEC:
-      return TARGET_UPDATE;
+    /* Auto-increment cases are now treated generically in recog.c.  */
 
     default:
       break;
