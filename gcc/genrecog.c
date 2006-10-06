@@ -739,7 +739,7 @@ process_define_peephole2 (rtx insn)
 {
   rtx x;
   const char *c_test = XSTR (insn, 1);
-  struct decision *last;
+  struct decision *last = NULL;
   struct decision_test *test, **place;
   struct decision_head *next, head = { NULL, NULL };
   char c_test_pos[2];
