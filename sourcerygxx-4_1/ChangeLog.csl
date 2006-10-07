@@ -1,3 +1,85 @@
+2006-10-07  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* libgcc-std.ver (GCC_4.2.0): New version.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* unwind-dw2.c (struct _Unwind_Context): Add signal_frame field.
+	(extract_cie_info): Handle S flag in augmentation string.
+	(execute_cfa_program): If context->signal_frame, execute also
+	fs->pc == context->ra instructions.
+	(uw_frame_state_for): If context->signal_frame, don't subtract one
+	from context->ra to find FDE.
+	(uw_update_context_1): Set context->signal_frame to
+	fs->signal_frame.
+	(_Unwind_GetIPInfo): New function.
+	* unwind-dw2.h (_Unwind_FrameState): Add signal_frame field.
+	* unwind-c.c (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* unwind-sjlj.c (_Unwind_GetIPInfo): New function.
+	* unwind-generic.h (_Unwind_GetIPInfo): New prototype.
+	* unwind-compat.c (_Unwind_GetIPInfo): New function.
+	* libgcc-std.ver (_Unwind_GetIPInfo): Export @@GCC_4.2.0.
+	* config/ia64/unwind-ia64.c (_Unwind_GetIPInfo): New function.
+	* config/arm/unwind-arm.h (_Unwind_GetIPInfo): Define.
+	* config/i386/linux-unwind.h (x86_fallback_frame_state,
+	x86_64_fallback_frame_state): Set fs->signal_frame.
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Likewise.
+	(MD_FROB_UPDATE_CONTEXT): Define unconditionally.
+	(frob_update_context): Likewise.  Workaround missing S flag in
+	Linux 2.6.12 - 2.6.16 kernel vDSOs.
+	* config/s390/linux-unwind.h (s390_fallback_frame_state): Likewise.
+	Remove the psw_addr + 1 hack.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Use
+	_Unwind_GetIPInfo instead of _Unwind_GetIP.
+
+	2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+	* exception.cc (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* include/i386-signal.h (MAKE_THROW_FRAME): Change into empty macro.
+	(HANDLE_DIVIDE_OVERFLOW): Don't adjust _res->eip if falling through
+	to throw.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	* include/powerpc-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+
+	2006-03-03  Jakub Jelinek  <jakub@redhat.com>
+	* config/arm/unwind-arm.h (_Unwind_GetIPInfo): Fix pasto.
+
+	2006-07-21  Steve Ellcey  <sje@cup.hp.com>
+	* unwind_ipinfo.m4: New.
+
+	2006-07-21  Steve Ellcey  <sje@cup.hp.com>
+	* configure.ac: Use GCC_CHECK_UNWIND_GETIPINFO to
+	define HAVE_GETIPINFO.
+	* aclocal.m4: Add include of ../config/unwind_ipinfo.m4.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* libsupc++/eh_personality.cc: Check HAVE_GETIPINFO.
+
+	2006-09-26  Jack Howarth  <howarth@bromo.med.uc.edu>
+	* exception.cc (PERSONALITY_FUNCTION): use _Unwind_GetIP
+	if HAVE_GETIPINFO not defined.
+	* configure.ac: use GCC_CHECK_UNWIND_GETIPINFO.
+	* aclocal.m4, configure, include/config.h.in, Makefile.in:
+	Rebuilt.
+
+	2006-10-03  Geoffrey Keating  <geoffk@apple.com>
+	* config/i386/darwin-libgcc.10.5.ver: Update to symbol list for
+	current Leopard versions.
+	* config/rs6000/darwin-libgcc.10.5.ver: Likewise.
+
 2006-10-05  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/testsuite/

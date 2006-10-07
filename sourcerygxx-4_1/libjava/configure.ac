@@ -1447,6 +1447,8 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
+# For _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
 
 here=`${PWDCMD-pwd}`
 AC_SUBST(here)

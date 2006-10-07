@@ -115,6 +115,9 @@
 /* Define if gethostname is declared in <unistd.h>. */
 #undef HAVE_GETHOSTNAME_DECL
 
+/* Define if _Unwind_GetIPInfo is available. */
+#undef HAVE_GETIPINFO
+
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 

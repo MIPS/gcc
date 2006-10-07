@@ -365,6 +365,7 @@ PERSONALITY_FUNCTION (int version,
   int handler_switch_value;
   void* thrown_ptr = ue_header + 1;
   bool foreign_exception;
+  int ip_before_insn = 0;
 
 #ifdef __ARM_EABI_UNWINDER__
   _Unwind_Action actions;
@@ -431,7 +432,13 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-  ip = _Unwind_GetIP (context) - 1;
+#ifdef HAVE_GETIPINFO
+  ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+#else
+  ip = _Unwind_GetIP (context);
+#endif
+  if (! ip_before_insn)
+    --ip;
   landing_pad = 0;
   action_record = 0;
   handler_switch_value = 0;

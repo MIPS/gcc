@@ -160,6 +160,9 @@ if $GLIBCXX_IS_NATIVE; then
   # For TLS support.
   GCC_CHECK_TLS
 
+  # For _Unwind_GetIPInfo.
+  GCC_CHECK_UNWIND_GETIPINFO
+
   AC_LC_MESSAGES
 
   AC_TRY_COMPILE(
@@ -275,6 +278,9 @@ else
     AC_DEFINE(HAVE_TANL)
     AC_DEFINE(HAVE_TANHL)
   fi
+
+  # Assume we have _Unwind_GetIPInfo for cross-compiles.
+  AC_DEFINE(HAVE_GETIPINFO)
 
 fi
 
