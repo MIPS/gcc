@@ -39,7 +39,7 @@ using namespace std;
 typedef int test_type;
 
 // The number of iterations to be performed.
-int iterations = 10000;
+int iterations = 2000;
 
 // The number of values to insert in the container, 32 will cause 5
 // (re)allocations to be performed (sizes 4, 8, 16, 32 and 64)

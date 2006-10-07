@@ -1,3 +1,8 @@
+2006-10-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	libstdc++-v3/testsuite/
+	* 23_containers/set/modifiers/16728.cc (iterations): Reduce to 2000.
+
 2006-10-07  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
