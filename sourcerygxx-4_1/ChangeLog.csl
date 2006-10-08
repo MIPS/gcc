@@ -1,5 +1,10 @@
 2006-10-07  Nathan Sidwell  <nathan@codesourcery.com>
 
+	gcc/testsuite/
+	* g++.old-deja/g++.jason/thunk2.C: Remove dg-bogus for m68k.
+	* g++.old-deja/g++.pt/static11.C: Replace xfail by target requirement.
+	* lib/target-supports.exp (check_effective_target_unwrapped): New.
+
 	libstdc++-v3/testsuite/
 	* 23_containers/set/modifiers/16728.cc (iterations): Reduce to 2000.
 
