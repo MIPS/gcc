@@ -79,17 +79,21 @@ static void free_edge (edge);
 /* Called once at initialization time.  */
 
 void
-init_flow (void)
+init_flow (struct function *the_fun)
 {
-  if (!cfun->cfg)
+  if (!the_fun->cfg)
     cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
   n_edges = 0;
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
-  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
-  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
-  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
+    = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
+    = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb 
+    = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
+  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->prev_bb 
+    = ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun);
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure

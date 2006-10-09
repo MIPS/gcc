@@ -397,9 +397,12 @@ struct control_flow_graph GTY(())
 #define n_edges_for_function(FN)	     ((FN)->cfg->x_n_edges)
 #define last_basic_block_for_function(FN)    ((FN)->cfg->x_last_basic_block)
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
+#define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
   (VEC_index (basic_block, basic_block_info_for_function(FN), (N)))
+#define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
+  (VEC_replace (basic_block, basic_block_info_for_function(FN), (N), (BB)))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -882,7 +885,7 @@ extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
 
 /* In flow.c */
-extern void init_flow (void);
+extern void init_flow (struct function *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);

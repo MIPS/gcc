@@ -967,7 +967,7 @@ C_OBJS = c-lang.o stub-objc.o $(C_AND_OBJC_OBJS)
 
 # Language-independent object files.
 OBJS-common = \
- lto-function-out.o                                                                 \
+ lto-function-out.o lto-stream-debug.o                                     \
  double-int.o tree-chrec.o tree-scalar-evolution.o tree-data-ref.o	   \
  tree-cfg.o tree-dfa.o tree-eh.o tree-ssa.o tree-optimize.o tree-gimple.o  \
  gimplify.o tree-pretty-print.o tree-into-ssa.o				   \
@@ -1804,6 +1804,9 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
+lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   toplev.h $(FLAGS_H) $(PARAMS_H) input.h debug.h $(LTO_TAGS_H) \
+   lto-tree-flags.def lto-tree-tags.def 
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \

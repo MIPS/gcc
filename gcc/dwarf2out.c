@@ -3987,6 +3987,12 @@ static GTY(()) int label_num;
    within the current function.  */
 static HOST_WIDE_INT frame_pointer_fb_offset;
 
+/* Cached DIE used to represent the void type for LTO processing.  Normally
+   the void type is represented as the absence of a type attribute, but LTO
+   needs an explicit cookie.  See lto_type_ref.  */
+
+static GTY(()) dw_die_ref lto_void_type_die;
+
 /* Forward declarations for functions defined in this file.  */
 
 static int is_pseudo_reg (rtx);
@@ -5029,12 +5035,16 @@ AT_string_form (dw_attr_ref a)
   struct indirect_string_node *node;
   unsigned int len;
   char label[32];
-
   gcc_assert (a && AT_class (a) == dw_val_class_str);
 
   node = a->dw_attr_val.v.val_str;
   if (node->form)
     return node->form;
+
+  /* FIXME!!! This is a temp hack to not use the string table because
+     the current lto code does not do this yet.  */
+  if (flag_generate_lto)
+    return node->form = DW_FORM_string;
 
   len = strlen (node->str) + 1;
 
@@ -13845,6 +13855,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
       switch_to_section (unlikely_text_section ());
       ASM_OUTPUT_LABEL (asm_out_file, cold_text_section_label);
     }
+
+  lto_void_type_die = NULL;
 }
 
 /* A helper function for dwarf2out_finish called through
@@ -14331,7 +14343,7 @@ lto_init_ref (tree scope ATTRIBUTE_UNUSED,
      multiple sections, SCOPE will be used to figure out the section
      and corresponding BASE_LABEL.  */
   ref->section = 0;
-  ref->base_label = ".debug_info";
+  ref->base_label = debug_info_section_label;
   ref->label = NULL;
 }
 
@@ -14344,24 +14356,39 @@ lto_type_ref (tree type, lto_out_ref *ref)
 
   gcc_assert (TYPE_P (type));
 
-  /* Check to see if we already have a DIE.  */
-  die = lookup_type_die (type);
-  /* Create the DIE, if it does not already exist.  */
-  if (!die)
+  scope = TYPE_CONTEXT (type);
+  if (scope)
     {
-      scope = TYPE_CONTEXT (type);
-      if (scope)
-	{
-	  /* We do not yet support lexically scoped types.  */
-	  sorry ("nested types are not supported by LTO");
-	  scope_die = NULL;
-	}
-      else
-	scope_die = comp_unit_die;
-      gen_type_die (type, scope_die);
-      die = lookup_type_die (type);
+      /* We do not yet support lexically scoped types.  */
+      sorry ("nested types are not supported by LTO");
+      scope_die = NULL;
     }
+  else
+    scope_die = comp_unit_die;
+  
+  /* The void type is normally treated as the absence of a DWARF
+     type attribute when emitting normal debugging information, but for
+     LTO purposes we need to emit an explicit DIE for it.  The DWARF spec
+     suggests using DW_TAG_unspecified_type for this purpose, so that's
+     what we'll do.  */
+  
+  if (TREE_CODE (type) == VOID_TYPE)
+    {
+      if (!lto_void_type_die)
+  	{
+	  lto_void_type_die =
+	    new_die (DW_TAG_unspecified_type, scope_die, type);
+	  add_name_attribute (lto_void_type_die, "void");
+  	}
+      die = lto_void_type_die;
+    }
+  else
+    die = modified_type_die (type,
+ 			     TYPE_READONLY (type),
+ 			     TYPE_VOLATILE (type),
+ 			     scope_die);
   gcc_assert (die);
+  
   /* Make sure the DIE has a label.  */
   assign_symbol_name (die);
   /* Construct the reference.  */

@@ -955,6 +955,14 @@ common_handle_option (size_t scode, const char *arg, int value,
       flag_unroll_loops_set = true;
       break;
 
+    case OPT_flto:
+      /* FIXME: This is most surely the wrong thing to do because it
+	 will depend on the order of the options on the command line.
+	 However, if you specify -flto, you must have dwarf2 debugging
+	 records.  */  
+      set_debug_level (DWARF2_DEBUG, false, "2");
+      break;
+
     case OPT_g:
       set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, arg);
       break;

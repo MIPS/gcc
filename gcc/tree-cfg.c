@@ -126,7 +126,7 @@ void
 init_empty_tree_cfg (void)
 {
   /* Initialize the basic block array.  */
-  init_flow ();
+  init_flow (cfun);
   profile_status = PROFILE_ABSENT;
   n_basic_blocks = NUM_FIXED_BLOCKS;
   last_basic_block = NUM_FIXED_BLOCKS;

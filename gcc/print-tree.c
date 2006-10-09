@@ -198,21 +198,25 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       return;
     }
 
-  hash = ((unsigned long) node) % HASH_SIZE;
-
-  /* If node is in the table, just mention its address.  */
-  for (b = table[hash]; b; b = b->next)
-    if (b->node == node)
-      {
-	print_node_brief (file, prefix, node, indent);
-	return;
-      }
-
-  /* Add this node to the table.  */
-  b = XNEW (struct bucket);
-  b->node = node;
-  b->next = table[hash];
-  table[hash] = b;
+  /* Allow this function to be called if the table is not there.  */
+  if (table)
+    {
+      hash = ((unsigned long) node) % HASH_SIZE;
+      
+      /* If node is in the table, just mention its address.  */
+      for (b = table[hash]; b; b = b->next)
+	if (b->node == node)
+	  {
+	    print_node_brief (file, prefix, node, indent);
+	    return;
+	  }
+      
+      /* Add this node to the table.  */
+      b = XNEW (struct bucket);
+      b->node = node;
+      b->next = table[hash];
+      table[hash] = b;
+    }
 
   /* Indent to the specified column, since this is the long form.  */
   indent_to (file, indent);

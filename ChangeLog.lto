@@ -1,3 +1,85 @@
+2006-10-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+	* gcc/tree-pretty-print.c: Fixed comment rot.
+	* gcc/lto-function-out.c (lto_flags_needed_for): New global.
+	(decl_slot): Changed slot_num to signed.
+	(output_block.named_label_stream,
+	output_block.debug_decl_stream,
+	output_block.debug_label_stream,
+	output_block.debug_main_stream): New fields.
+	(output_zero, output_sleb128_stream, output_string, output_real,
+	output_integer, output_tree_flags, output_type_ref,
+	output_record_start, output_expr_operand, output_local_vars,
+	output_bb, output_function):
+	Reordered output to accomodate new stream debugging.
+	(output_uleb128_stream): Fixed sign bug and added stream
+	debugging.
+	(output_decl_index): Fixed precedence problem.
+	(output_label_ref, output_named_labels, debug_out_fun): New function.
+	(output_eh_must_not_throw, output_bb): Disabled serialization
+	of eh regions.
+	(output_constructor): Updated protocol to add missing fields.
+	(output_expr_operand): Added NULL SET_NAME macro.
+	(produce_asm, output_function): Added many more fields to the
+	lto header.
+	(produce_asm): Added dumping of types used.
+	(lto_static_init): Added initialization of
+	lto_flags_needed_for and LTO_tag_names.
+	Changed initialization for lto_types_needed_for.
+	(lto_output): Added checking of flag_generate_lto.
+	(pass_ipa_lto_out): Fixed copy rot. 
+	* gcc/cfg.c (init_flow): Added the_fun parameter and generalized.
+	* gcc/dwarf2out.c (dw_die_ref lto_void_type_die): New variable.
+	(AT_string_form): Now checks flag_generate_lto to keep from using 
+	string table.
+	(dwarf2out_init): Initialized lto_void_type_die.
+	(lto_init_ref): Initialized ref->base_label to the proper
+	value and made integers and void types work.
+	* gcc/opts.c (common_handle_option): Set debug level when -flto is set.
+	* gcc/lto-tree-tags.def (MAP_EXPR_TAGS, SET_NAME): New macros.
+	(MODIFY_EXPR, VAR_DECL, WITH_SIZE_EXPR): Changed encoding.
+	* gcc/lto-tags.h: Changed version number.  Renumbered many LTO_* tags.
+	(num_local_decls, num_named_labels, num_unnamed_labels,
+	debug_decl_size, debug_label_size, debug_main_size): New fields of 
+	lto_function_header.
+	(LTO_SECTION_NAME_PREFIX): Changed.
+	(LTO_STREAM_DEBUGGING, LTO_DEBUG_INDENT,
+	LTO_DEBUG_INDENT_TOKEN(value), LTO_DEBUG_INTEGER,
+	LTO_DEBUG_STRING, LTO_DEBUG_TOKEN, LTO_DEBUG_UNDENT,
+	LTO_DEBUG_WIDE): New macros for stream debugging.
+	(lto_debug_context): New structure.
+	(lto_debug_indent, lto_debug_indent_token,
+	lto_debug_integer, lto_debug_string,
+	lto_debug_token, lto_debug_undent, lto_debug_wide): New stream
+	debugging functions.
+	* gcc/lto/lto.c (lto_read_form): Added DF_FORM_strp case.
+	(lto_read_unspecified_type_DIE): New function.
+	(lto_read_DIE): Added lto_read_unspecified_type_DIE to table.
+	(lto_resolve_type_ref): Properly initialized new_context.
+	* gcc/lto/lto-read.c (tag_to_expr, input_block): New structure. 
+	(num_flags_for_code): New array.
+	(types, local_decls, labels, strings, strings_len, 
+	int num_named_labels): New fields to fun_in.
+	(input_expr_operand, input_1_unsigned, input_uleb128,
+	input_sleb128, input_string_internal, input_string, 
+	input_real, input_integer, input_record_start, input_list,
+	init_cfg, finalize_cfg, get_label_decl, get_type_ref,
+	process_flags, input_expr_operand, input_labels, input_local_vars,
+	input_eh_regions, make_new_block, input_bb, input_function,
+	lto_static_init_local, dump_debug_stream, debug_out_fun): 
+	New function.
+	(input_globals): Renamed from load globals.
+	(lto_read_function_body): Rewritten.
+	* gcc/print_tree.c (print_node): Fixed rot that keeps this from
+	being called externally.
+	* common.opt (flto): New flag.
+	* gcc/lto-stream-debug.c: New file.
+	* gcc/Makefile.in (lto-stream-debug): New clause.
+	* gcc/basic-block.h (profile_status_for_function, 
+	SET_BASIC_BLOCK_FOR_FUNCTION): New macros.
+	* gcc/tree-cfg.c (init_empty_tree_cfg): Added cfun parameter
+	to init_flow call.
+
 2006-10-01  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_check_HOST_WIDE_INT_val): New.
