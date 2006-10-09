@@ -1,5 +1,10 @@
 2006-10-09  Aldy Hernandez  <aldyh@redhat.com>
 
+	tree-inline.c (copy_bb): Check for GIMPLE_MODIFY_STMT, and adjust
+	accordingly.
+
+2006-10-09  Aldy Hernandez  <aldyh@redhat.com>
+
         * tree.h (TREE_CHAIN, TREE_TYPE): Add versions for non GCC or not
 	enable checking.
         Also, add __extension__ to GCC versions.
