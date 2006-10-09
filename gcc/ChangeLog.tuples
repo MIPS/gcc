@@ -1,9 +1,11 @@
 2006-10-09  Aldy Hernandez  <aldyh@redhat.com>
 
-        * tree.h (TREE_CHAIN, TREE_TYPE): Add versions for non GCC or not enable checking.
+        * tree.h (TREE_CHAIN, TREE_TYPE): Add versions for non GCC or not
+	enable checking.
         Also, add __extension__ to GCC versions.
         * tree-mudflap.c (mf_xform_derefs_1): Add parentheses around TREE_TYPE.
-        * tree-inline.c (copy_tree_r): Initialize chain to assuage the warning patrol.
+        * tree-inline.c (copy_tree_r): Initialize chain to assuage the warning
+	patrol.
 
 2006-10-05  Aldy Hernandez  <aldyh@redhat.com>
 
