@@ -2321,7 +2321,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
-      tree chain, new;
+      tree chain = NULL_TREE, new;
 
       if (!GIMPLE_TUPLE_P (*tp))
 	chain = TREE_CHAIN (*tp);

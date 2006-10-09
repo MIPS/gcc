@@ -815,6 +815,31 @@ enum tree_node_structure_enum {
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
 
+/* Nodes are chained together for many purposes.
+   Types are chained together to record them for being output to the debugger
+   (see the function `chain_type').
+   Decls in the same scope are chained together to record the contents
+   of the scope.
+   Statement nodes for successive statements used to be chained together.
+   Often lists of things are represented by TREE_LIST nodes that
+   are chained together.  */
+
+#define TREE_CHAIN(NODE) __extension__ \
+(*({const tree __t = (NODE);					\
+    if (GIMPLE_TUPLE_P (__t))					\
+      gcc_unreachable ();					\
+    &__t->common.chain; }))
+
+/* In all nodes that are expressions, this is the data type of the expression.
+   In POINTER_TYPE nodes, this is the type that the pointer points to.
+   In ARRAY_TYPE nodes, this is the type of the elements.
+   In VECTOR_TYPE nodes, this is the type of the elements.  */
+#define TREE_TYPE(NODE) __extension__ \
+(*({const tree __t = (NODE);					\
+    if (GIMPLE_TUPLE_P (__t))					\
+      gcc_unreachable ();					\
+    &__t->common.type; }))
+
 extern void tree_contains_struct_check_failed (const tree,
 					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
@@ -882,6 +907,9 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 
+#define TREE_CHAIN(NODE) ((NODE)->common.chain)
+#define TREE_TYPE(NODE) ((NODE)->common.type)
+
 #endif
 
 #define TREE_BLOCK(NODE)		*(tree_block (NODE))
@@ -929,16 +957,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 
 #define PROTECTED_TREE_TYPE(NODE) *(protected_tree_type ((NODE)))
 
-/* In all nodes that are expressions, this is the data type of the expression.
-   In POINTER_TYPE nodes, this is the type that the pointer points to.
-   In ARRAY_TYPE nodes, this is the type of the elements.
-   In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) \
-(*({  const tree __t = (NODE);					\
-    if (GIMPLE_TUPLE_P (__t))					\
-        gcc_unreachable ();					\
-      &__t->common.type; }))
-
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
 #define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
@@ -946,21 +964,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
 #define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
-
-/* Nodes are chained together for many purposes.
-   Types are chained together to record them for being output to the debugger
-   (see the function `chain_type').
-   Decls in the same scope are chained together to record the contents
-   of the scope.
-   Statement nodes for successive statements used to be chained together.
-   Often lists of things are represented by TREE_LIST nodes that
-   are chained together.  */
-
-#define TREE_CHAIN(NODE) \
-(*({  const tree __t = (NODE);					\
-      if (GIMPLE_TUPLE_P (__t))					\
-        gcc_unreachable ();					\
-      &__t->common.chain; }))
 
 /* Given an expression as a tree, strip any NON_LVALUE_EXPRs and NOP_EXPRs
    that don't change the machine mode.  */
