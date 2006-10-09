@@ -1,3 +1,8 @@
+2006-10-09  Andrew Haley  <aph@redhat.com>
+
+	* win32-threads.cc (_Jv_ThreadUnpark, _Jv_ThreadPark): New
+	functions.
+
 2006-10-06  Tom Tromey  <tromey@redhat.com>
 
 	PR libgcj/29278:

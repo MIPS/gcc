@@ -419,3 +419,40 @@ _Jv_ThreadInterrupt (_Jv_Thread_t *data)
   SetEvent (data->interrupt_event);
   LeaveCriticalSection (&data->interrupt_mutex);
 }
+
+/**
+ * Releases the block on a thread created by _Jv_ThreadPark().  This
+ * method can also be used to terminate a blockage caused by a prior
+ * call to park.  This operation is unsafe, as the thread must be
+ * guaranteed to be live.
+ *
+ * @param thread the thread to unblock.
+ */
+
+void
+_Jv_ThreadUnpark (::java::lang::Thread *thread)
+{
+  // WRITEME:
+}
+
+/**
+ * Blocks the thread until a matching _Jv_ThreadUnpark() occurs, the
+ * thread is interrupted or the optional timeout expires.  If an
+ * unpark call has already occurred, this also counts.  A timeout
+ * value of zero is defined as no timeout.  When isAbsolute is true,
+ * the timeout is in milliseconds relative to the epoch.  Otherwise,
+ * the value is the number of nanoseconds which must occur before
+ * timeout.  This call may also return spuriously (i.e.  for no
+ * apparent reason).
+ *
+ * @param isAbsolute true if the timeout is specified in milliseconds from
+ *                   the epoch.
+ * @param time either the number of nanoseconds to wait, or a time in
+ *             milliseconds from the epoch to wait for.
+ */
+
+void
+_Jv_ThreadPark (jboolean isAbsolute, jlong time)
+{
+  // WRITEME:
+}
