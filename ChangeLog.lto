@@ -1,5 +1,13 @@
 2006-10-10  Sandra Loosemore  <sandra@codesourcery.com>
 
+	* gcc/lto/lto.c (lto_read_comp_unit_header): Add sanity check
+	on cu_pointer_size.
+	(lto_read_form): DW_FORM_addr data size is controlled by the
+	cu_pointer_size in the compilation unit header, not the dwarf64/32
+	file attribute.
+
+2006-10-10  Sandra Loosemore  <sandra@codesourcery.com>
+
 	* gcc/dwarf2out.c (base_type_die): Add DW_AT_bit_size and
 	DW_AT_bit_offset attributes for integral types with a precision
 	smaller than the bit size of their containing object.
