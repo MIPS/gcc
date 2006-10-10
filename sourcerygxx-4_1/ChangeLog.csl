@@ -1,3 +1,12 @@
+2006-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
+	2006-10-09  Steve Ellcey  <sje@cup.hp.com>
+	* unwind-c.c (PERSONALITY_FUNCTION): Ifdef use of _Unwind_GetIPInfo.
+	* configure.ac (HAVE_GETIPINFO): Check for _Unwind_GetIPInfo.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
 2006-10-07  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
