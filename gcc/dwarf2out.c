@@ -8108,6 +8108,7 @@ base_type_die (tree type)
 {
   dw_die_ref base_type_result;
   enum dwarf_type encoding;
+  int byte_size;
 
   if (TREE_CODE (type) == ERROR_MARK || TREE_CODE (type) == VOID_TYPE)
     return 0;
@@ -8160,9 +8161,20 @@ base_type_die (tree type)
   if (! TYPE_NAME (type))
     add_name_attribute (base_type_result, "__unknown__");
 
-  add_AT_unsigned (base_type_result, DW_AT_byte_size,
-		   int_size_in_bytes (type));
+  byte_size = int_size_in_bytes (type);
+  add_AT_unsigned (base_type_result, DW_AT_byte_size, byte_size);
   add_AT_unsigned (base_type_result, DW_AT_encoding, encoding);
+
+  /* Emit extra information for integral types whose precision is less
+     than the bit width of their containing object.  */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TYPE_PRECISION (type) < byte_size * BITS_PER_UNIT)
+    {
+      add_AT_unsigned (base_type_result, DW_AT_bit_size,
+		       TYPE_PRECISION (type));
+      add_AT_unsigned (base_type_result, DW_AT_bit_offset,
+		       byte_size * BITS_PER_UNIT - TYPE_PRECISION (type));
+    }
 
   return base_type_result;
 }

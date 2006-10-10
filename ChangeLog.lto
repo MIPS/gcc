@@ -1,3 +1,11 @@
+2006-10-10  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/dwarf2out.c (base_type_die): Add DW_AT_bit_size and
+	DW_AT_bit_offset attributes for integral types with a precision
+	smaller than the bit size of their containing object.
+	* gcc/lto/lto.c (lto_read_base_type_DIE): Do the inverse when
+	constructing integral types.
+
 2006-10-09  Kenneth Zadeck <zadeck@naturalbridge.com>
 	    Sandra Loosemore  <sandra@codesourcery.com>
 	* gcc/tree-pretty-print.c: Fixed comment rot.
