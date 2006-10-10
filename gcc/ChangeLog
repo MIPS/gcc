@@ -1,4 +1,68 @@
+2006-10-10	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c (is_constructor): Simplified
+	(is_java_allocator): Replaced with is_memory_allocation; simplified to
+	compare pointers with the front-end.
+	(allocator_count, allocators): Removed
+
+	(is_pointer_arithmetic, update_connection_graph_from_pointer_arithmetic):
+	Merged into check_pointer_arithmetic_stmt.
+
+	(update_connection_graph_from_pointer_dereference)
+	(is_pointer_dereference): Merged into check_pointer_dereference_stmt.
+
+	(is_cast_stmt, update_connection_graph_from_cast): Merged into
+	check_cast_stmt.
+
+	(is_reference_copy_stmt, update_connection_graph_from_reference_copy):
+	Merged into check_reference_copy_stmt.
+
+	(is_pointer_return, update_connection_graph_from_return): Merged into
+	check_return_stmt.
+
+	(update_connection_graph_from_assignment_from_array)
+	(is_assignment_from_array): Merged into check_assignment_from_array_stmt
+
+	(check_assignment_from_data_array_stmt): New
+	
+	(insert_reference, insert_return, (insert_assignment_from_field)
+	(insert_assignment_to_field): New
+
+	(update_connection_graph_from_assignment_to_indirect_array_ref)
+	(is_assignment_to_indirect_array_ref): Merged into
+	check_assignment_to_data_array_stmt.
+
+	(update_connection_graph_from_assignment_from_field)
+	(is_assignment_from_field): Merged into check_assignment_from_field_stmt
+
+	(update_connection_graph_from_assignment_to_field)
+	(is_assignment_to_field): Merged into check_assignment_to_field_stmt
+
+	(update_connection_graph_from_assignment_from_vtable)
+	(is_assignment_from_vtable): Merged into check_vtable_stmt
+	
+	(is_null_pointer_exception): Merged into
+	check_null_pointer_exception_stmt with logic from
+	update_connection_graph_from_statement
+
+	(update_connection_graph_from_statement): Formatting changes, and calling
+	new functions
+
+	(replace_with_alloca): Use the calculated size, rather than 128
+
+	* congraph.c (new_con_graph): Don't automatically add return_node
+	(con_graph_dump): Identify nodes by integer, rather than address in dump.
+	Print return nodes properly
+	(add_return_node): Use the passed id instead of the graph as id.
+	(add_node): Add indexing for dumping
+	(get_points_to): Fix circular list problem
+	(get_field_nodes): Fix circular list problem
+	(get_terminal_nodes): Fix circular list problem, add all fields lazily
+	(link_length, clear_links, in_link_list): New
+
+
 2006-10-02	Paul Biggar	<paul.biggar@gmail.com>
+
 	* ipa-stack-allocate.c (is_assignment_from_array)
 	(update_connection_graph_from_assignment_from_array)
 	(is_assignment_from_vtable): Check for pointer type
@@ -169,7 +233,7 @@
 	is_array_allocation and is_null_pointer_exception
 	(replace_array_with_alloca): New function (not properly tested)
 	(process_function): Moved alloca logic into new function
-	(replace_With_alloca): New function. Moved logic from process_function
+	(replace_with_alloca): New function. Moved logic from process_function
 	(add_actual_parameters): Rename parameter_list variable to arg_list
 	(execute_ipa_stack_allocate): Added pretty printing of declarations
 	* con_graph.c (get_points_to): Minor formatting

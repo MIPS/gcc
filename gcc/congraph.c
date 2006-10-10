@@ -26,6 +26,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
  *			graph
  * --------------------------------------------------- */
 
+/* I used to identify nodes in the dumps by using their address. This is
+ * unreliable and doesnt lend itself well to regression. Instead, use the
+ * order in which they are created, which appears to be fairly constant */
+static int dump_index = 1;
+
 static bool
 is_actual_type (con_node node)
 {
@@ -41,11 +46,8 @@ new_con_graph (const char *filename, tree function, con_graph next)
   gcc_assert (result);
 
   result->filename = filename;
-
-  result->return_node = add_return_node (result);
   result->function = function;
   result->next = next;
-
 
   return result;
 }
@@ -80,7 +82,7 @@ con_graph_dump (con_graph cg)
     {
       if (node->escape == EA_NO_ESCAPE)
 	{
-	  fprintf (out, " [ %p ]\n", (void *) node);
+	  fprintf (out, " [ %d ]\n", node->dump_index);
 	}
     }
   fprintf (out, ") { background: yellow; }\n\n");
@@ -91,7 +93,7 @@ con_graph_dump (con_graph cg)
     {
       if (node->escape != EA_NO_ESCAPE)
 	{
-	  fprintf (out, " [ %p ]\n", (void *) node);
+	  fprintf (out, " [ %d ]\n", node->dump_index);
 	}
     }
   fprintf (out, ") { background: lightblue; }\n\n");
@@ -120,7 +122,7 @@ con_graph_dump_node (con_node node, FILE * out)
 
   /* guarantees that there is a node printed for each node in
    * the graph */
-  fprintf (out, "[ %p ] ", (void *) node);
+  fprintf (out, "[ %d ] ", node->dump_index);
   fprintf (out, "{ ");
   fprintf (out, "size: 1,1; ");
 
@@ -148,11 +150,8 @@ con_graph_dump_node (con_node node, FILE * out)
     case OBJECT_NODE:
     case LOCAL_NODE:
     case GLOBAL_NODE:
-      print_generic_expr (out, node->id, 0);
-      break;
-
     case RETURN_NODE:
-      fprintf (out, "RETURN");
+      print_generic_expr (out, node->id, 0);
       break;
 
     default:
@@ -229,7 +228,7 @@ con_graph_dump_edge (con_edge edge, FILE * out)
   gcc_assert (target);
 
   /* print the source */
-  fprintf (out, "[ %p ] ", (void *) source);
+  fprintf (out, "[ %d ] ", source->dump_index);
 
   /* draw the edge */
   fprintf (out, " -> ");
@@ -252,7 +251,7 @@ con_graph_dump_edge (con_edge edge, FILE * out)
     }
 
   /* print the target */
-  fprintf (out, "[ %p ] ", (void *) target);
+  fprintf (out, "[ %d ] ", target->dump_index);
 
   fprintf (out, "\n");
 }
@@ -357,19 +356,19 @@ add_field_node (con_graph cg, tree id)
 /* create this function's return node, used to merge other return
  * values */
 con_node
-add_return_node (con_graph cg)
+add_return_node (con_graph cg, tree id)
 {
   con_node node;
   gcc_assert (cg);
+  gcc_assert (cg->return_node == NULL);
 
   node = new_con_node ();
-  /* HACK TODO this is very bold. fix it */
-  /* so that it wont be the same as another id */
-  node->id = (tree) cg;
+  node->id = id;
   node->type = RETURN_NODE;
   node->escape = EA_ARG_ESCAPE;
   node->phantom = true;
   add_node (cg, node);
+  cg->return_node = node;
   return node;
 }
 
@@ -421,6 +420,9 @@ add_node (con_graph cg, con_node node)
 
   /* remove this later, this is just for debugging */
   node->graph = cg;
+
+  node->dump_index = dump_index;
+  dump_index++;
 }
 
 
@@ -669,6 +671,7 @@ get_points_to (con_node node)
 {
   con_edge edge;
   con_node result = NULL;
+  con_node end_of_list = NULL;
 
   gcc_assert (node);
   gcc_assert (node->type != OBJECT_NODE);
@@ -691,12 +694,35 @@ get_points_to (con_node node)
 	  new_result = get_points_to (edge->target);
 	}
 
-      /* new list or append to list */
-      if (result)
-	result->next_link = new_result;
-      else
-	result = new_result;
+      if (new_result)
+	{
+	  /* new list or append to list */
+	  if (result)
+	    {
+	      end_of_list->next_link = new_result;
+	    }
+	  else
+	    {
+	      result = new_result; /* this can be NULL */
+	      end_of_list = result;
+	    }
+
+
+	  /* this maintains the end-of-list pointer, and marks the last object
+	   * as having a next_link. It doesnt have a next_link, but if it goes
+	   * unmarked, we end up with duplicate nodes above. This HACK is
+	   * undone at the end of the function */
+	  while (end_of_list->next_link)
+	    {
+	      NEXT_LINK (end_of_list);
+	    }
+	  end_of_list->next_link = result;
+	}
     }
+
+  /* make the list non-cyclic again */
+  if (end_of_list)
+      end_of_list->next_link = NULL;
   return result;
 }
 
@@ -755,7 +781,9 @@ get_field_nodes (con_node node, tree field_id)
 	  /* add it to the result list */
 	  if (edge->target->id == field_id)
 	    {
-	      if (result != NULL)
+	      /* TODO does this leave a possability of a circular list, or
+	       * should we check the entire list */
+	      if (result && result != edge->target)
 		{
 		  edge->target->next_link = result;
 		}
@@ -767,23 +795,20 @@ get_field_nodes (con_node node, tree field_id)
 	    }
 	}
 
-      /* there must be a field of this type (unless its a phantom) */
-      gcc_assert (field_found || node->phantom);
 
-      /* lazily add the phantom field */
-      if (node->phantom && !field_found)
+      /* lazily add the field */
+      if (!field_found)
 	{
 	  con_node field;
 	  gcc_assert (get_existing_field_node (node->graph, field_id, node) == NULL);
 	  field = add_field_node (node->graph, field_id);
-	  field->phantom = true;
-	  add_edge (node, field);
-	  if (result != NULL) 
-	    {
-	      field->next_link = result;
-	    }
-	  result = field;
 
+	  if (node->phantom) field->phantom = true;
+	  add_edge (node, field);
+
+	  /* link it on the front */
+	  field->next_link = result;
+	  result = field;
 	}
 
 
@@ -861,6 +886,7 @@ get_terminal_nodes (con_node node)
 {
   con_edge edge;
   con_node result = NULL;
+  con_node end_of_list = NULL;
 
   gcc_assert (node);
   gcc_assert (node->type != OBJECT_NODE);
@@ -872,10 +898,14 @@ get_terminal_nodes (con_node node)
 
       if (is_reference_node (edge->target))
 	{
+	      /* end of the line */
 	  if (edge->target->out == NULL)
 	    {
-	      /* end of the line */
-	      new_result = edge->target;
+	      /* check we dont have it already */
+	      if (edge->target->next_link == NULL)
+		{
+		  new_result = edge->target;
+		}
 	    }
 	  else
 	    {
@@ -888,13 +918,34 @@ get_terminal_nodes (con_node node)
 	  /* object node - do nothing */
 	}
 
-      /* TODO it may be that new_result == node. Then what? */
       if (new_result)
 	{
 	  /* new list or append to list */
-	  new_result->next_link = result;
-	  result = new_result;
+	  if (result)
+	    {
+	      end_of_list->next_link = new_result;
+	    }
+	  else
+	    {
+	      result = new_result; /* this can be NULL */
+	      end_of_list = result;
+	    }
+
+
+	  /* this maintains the end-of-list pointer, and marks the last object
+	   * as having a next_link. It doesnt have a next_link, but if it goes
+	   * unmarked, we end up with duplicate nodes above. This HACK is
+	   * undone at the end of the function */
+	  while (end_of_list->next_link)
+	    {
+	      NEXT_LINK (end_of_list);
+	    }
+	  end_of_list->next_link = result;
 	}
+	
+      /* make the list non-cyclic again */
+      if (end_of_list)
+	end_of_list->next_link = NULL;
     }
 
   /* this can return null */
@@ -1212,6 +1263,7 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(FUNCTION_CALL_WITH_RETURN);
 	  HANDLE(CONSTRUCTOR_STMT);
 	  HANDLE(INDIRECT_FUNCTION_CALL);
+	  HANDLE(INDIRECT_FUNCTION_CALL_WITH_RETURN);
 	  HANDLE(REFERENCE_COPY);
 	  HANDLE(CAST);
 	  HANDLE(ASSIGNMENT_FROM_FIELD);
@@ -1225,6 +1277,7 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(IGNORED_COND_EXPR);
 	  HANDLE(IGNORED_UNKNOWN);
 	  HANDLE(ASSIGNMENT_FROM_ARRAY);
+	  HANDLE(ASSIGNMENT_FROM_DATA_ARRAY);
 	  HANDLE(POINTER_ARITHMETIC);
 	  HANDLE(POINTER_DEREFERENCE);
 	  HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
@@ -1248,4 +1301,43 @@ set_escape_state (con_node node, enum ea_escape_state state)
     {
       node->escape = state;
     }
+}
+
+int 
+link_length (con_node node)
+{
+  int result = 0;
+  gcc_assert (node);
+  while (node)
+    {
+      result++;
+      NEXT_LINK (node);
+    }
+  gcc_assert (result > 0);
+  return result;
+}
+
+void 
+clear_links (con_node node)
+{
+  con_node current = node;
+  gcc_assert (current);
+  while (current)
+    {
+      con_node next = current->next_link;
+      current->next_link = NULL;
+      current = next;
+    }
+  assert_all_next_link_free (node->graph);
+}
+
+bool
+in_link_list (con_node list, con_node subject)
+{
+  while (list)
+    {
+      if (list == subject) return true;
+      NEXT_LINK (list);
+    }
+  return false;
 }

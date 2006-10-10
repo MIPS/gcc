@@ -28,8 +28,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "diagnostic.h"
 
-#define NEXT_LINK_CLEAR(A) do { con_node next = (A)->next_link; (A)->next_link = NULL; (A) = next; } while (0)
-
 enum con_node_type
 {
   LOCAL_NODE = 101,
@@ -54,6 +52,7 @@ enum statement_type
   FUNCTION_CALL_WITH_RETURN,
   CONSTRUCTOR_STMT,
   INDIRECT_FUNCTION_CALL,
+  INDIRECT_FUNCTION_CALL_WITH_RETURN,
   REFERENCE_COPY,
   CAST,
   ASSIGNMENT_FROM_FIELD,
@@ -67,6 +66,7 @@ enum statement_type
   IGNORED_COND_EXPR,
   IGNORED_UNKNOWN,
   ASSIGNMENT_FROM_ARRAY,
+  ASSIGNMENT_FROM_DATA_ARRAY,
   POINTER_ARITHMETIC,
   POINTER_DEREFERENCE,
   IGNORED_ASSIGNMENT_TO_NULL,
@@ -173,6 +173,8 @@ struct _con_node
   /* the id used by the caller/callee */
   tree call_id;
 
+  int dump_index;
+
 };
 
 
@@ -252,7 +254,7 @@ con_node add_global_node (con_graph cg, tree id);
 con_node add_local_node (con_graph cg, tree id);
 
 /* add a new return node, identified by id, and return the node */
-con_node add_return_node (con_graph cg);
+con_node add_return_node (con_graph cg, tree id);
 
 /* add the given node to the connection graph */
 void add_node (con_graph cg, con_node node);
@@ -393,4 +395,20 @@ con_node get_matching_node_in_caller (con_graph cg,
 void set_stmt_type (con_graph cg, tree stmt, enum statement_type type);
 stmt_type_list get_stmt_type (con_graph cg, tree stmt);
 void print_stmt_type (con_graph cg, FILE* file, tree stmt);
+
+/* TODO Faster and safer as inline functions */
+/* NEXT_LINK_CLEAR clears a node's next_link field, then replaces it with
+ * it's next field */
+#define NEXT_LINK_CLEAR(A) do { con_node next = (A)->next_link; (A)->next_link = NULL; (A) = next; } while (0)
+#define NEXT_LINK(A) do { (A) = (A)->next_link; } while (0)
+
+/* return the number of linked nodes from node, including node */
+int link_length (con_node node);
+
+/* clear the next_link field for all linked nodes in the list */
+void clear_links (con_node node);
+
+bool in_link_list (con_node list, con_node subject);
+
+
 #endif /* _CON_GRAPH_H */

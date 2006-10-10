@@ -21,11 +21,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 /*
- * TODO when I switch to flow sensitive, its even harder without SSA
- * TODO i think the phantom-ness is unnecessary
- * TODO throw
  * TODO remove terminal nodes incomming deferred edges according to
  * toplas03, Sect 4.2
+ * TODO you must propagate before you bypass
  */
 
 #include "config.h"
@@ -47,12 +45,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "congraph.h"
 #include "java/java-tree.h"
 
+void dump_escape_function (con_graph cg, FILE*, FILE*);
+
 #define UNHIDE_IT
 #ifdef UNHIDE_IT
 
 static FILE* debug;
 static FILE* dump;
-void dump_escape_function (con_graph cg, FILE*, FILE*);
 
 static tree
 LHS (tree stmt)
@@ -74,45 +73,30 @@ RHS (tree stmt)
 static bool
 is_constructor (tree stmt)
 {
-  if (TREE_CODE (stmt) == CALL_EXPR
-      && (VOID_TYPE_P (TREE_TYPE (stmt))))
-    {
-      tree addr_expr = TREE_OPERAND (stmt, 0);
-      if (TREE_CODE (addr_expr) == ADDR_EXPR)
-	{
-	  tree func_decl = TREE_OPERAND (addr_expr, 0);
-	  const char *name =
-	    IDENTIFIER_POINTER (DECL_NAME (func_decl));
-	  if (strcmp (name, "<init>") == 0)
-	    return true;
-	}
-    }
-  return false;
+  tree addr_expr, func_decl;
+  return TREE_CODE (stmt) == CALL_EXPR
+      && VOID_TYPE_P (TREE_TYPE (stmt))
+      && TREE_CODE (addr_expr = LHS (stmt)) == ADDR_EXPR
+      && TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
+      && DECL_NAME (func_decl) == get_identifier ("<init>");
 }
 
 
 static tree
 get_constructor_function (tree stmt)
 {
+  tree result;
   gcc_assert (is_constructor (stmt));
 
-  if (TREE_CODE (stmt) == CALL_EXPR
-      && (VOID_TYPE_P (TREE_TYPE (stmt))))
-    {
-      tree addr_expr = TREE_OPERAND (stmt, 0);
-      if (TREE_CODE (addr_expr) == ADDR_EXPR)
-	{
-	  tree result = TREE_OPERAND (addr_expr, 0);
-	  gcc_assert (result);
-	  return result;
-	}
-    }
-  gcc_unreachable ();
+  result = LHS (LHS (stmt));
+  gcc_assert (result);
+  return result;
 }
 
 static bool
 is_suitable_decl (tree decl)
 {
+  gcc_assert (decl);
   return TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL;
 }
 
@@ -134,23 +118,6 @@ is_pointer_type (tree stmt)
   return POINTER_TYPE_P (TREE_TYPE (stmt));
 }
 
-static bool
-is_pointer_arithmetic (tree stmt)
-{
-  return TREE_CODE (stmt) == MODIFY_EXPR 
-    && is_pointer_type (stmt) 
-    && TREE_CODE (RHS (stmt)) == PLUS_EXPR;
-}
-
-static bool
-is_pointer_dereference (tree stmt)
-{
-  return TREE_CODE (stmt) == MODIFY_EXPR 
-    && is_pointer_type (stmt) 
-    && TREE_CODE (RHS (stmt)) == INDIRECT_REF
-    && is_suitable_decl (LHS (RHS (stmt)));
-}
-
 /* this is supposed to work in theory, but doesnt
 static bool
 is_memory_allocation (tree stmt)
@@ -159,69 +126,40 @@ is_memory_allocation (tree stmt)
 }
 */
 
-static int allocator_count = 2;
-static tree allocators[2];
+static bool
+is_java_allocator (tree func_decl)
+{
+  return func_decl == alloc_no_finalizer_node
+    || func_decl == soft_anewarray_node;
+}
 
 
 static bool
 is_memory_allocation (tree stmt)
 {
-  /* java doesnt support allocating to non-pointer types, but this is
-   * here in case I dont notice for the migration to c++ */
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && (POINTER_TYPE_P (TREE_TYPE (stmt))))
-    {
-      tree rhs = RHS (stmt);
-
-      if (TREE_CODE (rhs) == CALL_EXPR)
-	{
-	  tree addr_expr = TREE_OPERAND (rhs, 0);
-	  if (TREE_CODE (addr_expr) == ADDR_EXPR)
-	    {
-	      tree func_decl = TREE_OPERAND (addr_expr, 0);
-	      int i;
-	      for (i = 0; i < allocator_count; i++)
-		{
-		  if (func_decl == allocators[i])
-		    {
-		      return true;
-		    }
-		}
-	    }
-	}
-    }
-  return false;
-}
-
-static bool
-is_assignment_from_array (tree stmt)
-{
+  tree call_expr, addr_expr, func_decl;
   return TREE_CODE (stmt) == MODIFY_EXPR
     && is_pointer_type (stmt)
-    && TREE_CODE (RHS (stmt)) == ARRAY_REF;
+    && TREE_CODE (call_expr = RHS (stmt)) == CALL_EXPR
+    && TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
+    && TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
+    && is_java_allocator (func_decl);
 }
 
 static bool
-is_assignment_from_vtable (tree stmt)
+check_null_pointer_exception_stmt (con_graph cg, tree stmt)
 {
-  return TREE_CODE (stmt) == MODIFY_EXPR
-    && is_pointer_type (stmt)
-    && TREE_CODE (RHS (stmt)) == COMPONENT_REF
-    && TREE_CODE (RHS (RHS (stmt))) == FIELD_DECL
-    && strcmp ("vtable", IDENTIFIER_POINTER (DECL_NAME (
-							RHS (RHS (stmt))))) == 0;
-}
-
-static bool
-is_null_pointer_exception (tree stmt)
-{
-  if (TREE_CODE (stmt) == CALL_EXPR
-    && LHS (LHS (stmt)) == soft_nullpointer_node)
+  /* _Jv_ThrowNullPointerException () */
+  /* dont do anything, since nothing escapes here */
+  tree addr_expr;
+  if (!(TREE_CODE (stmt) == CALL_EXPR
+      && TREE_CODE (addr_expr = LHS (stmt)) == ADDR_EXPR
+      && LHS (addr_expr) == soft_nullpointer_node))
     {
-      gcc_assert (TREE_OPERAND (stmt, 1) == NULL);
-      return true;
+      return false;
     }
-  return false;
+  set_stmt_type (cg, stmt, IGNORED_NULL_POINTER_EXCEPTION);
+  return true;
 }
 
 static bool
@@ -234,45 +172,29 @@ is_assignment_to_array (tree stmt)
 static bool
 is_array_allocation (tree stmt)
 {
-  return (TREE_CODE (stmt) == MODIFY_EXPR
+  tree call_expr, addr_expr, func_decl;
+  return TREE_CODE (stmt) == MODIFY_EXPR
       && is_pointer_type (stmt)
-      && TREE_CODE (RHS (stmt)) == CALL_EXPR
-      && LHS (LHS (RHS (stmt))) == soft_anewarray_node);
+      && TREE_CODE (call_expr = RHS (stmt)) == CALL_EXPR
+      && TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
+      && TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
+      && func_decl == soft_anewarray_node;
 }
 
-static bool
-is_cast_stmt (tree stmt)
-{
-  return TREE_CODE (stmt) == MODIFY_EXPR 
-	  && is_pointer_type (stmt) 
-	  && is_suitable_decl (LHS (stmt)) 
-	  && TREE_CODE (RHS (stmt)) == NOP_EXPR
-	  && is_suitable_decl (LHS (RHS (stmt)));
-}
-static bool
-is_reference_copy_stmt (tree stmt)
-{
-  return TREE_CODE (stmt) == MODIFY_EXPR 
-	  && is_pointer_type (stmt) 
-	  && is_suitable_decl (LHS (stmt)) 
-	  && is_suitable_decl (RHS (stmt));
-}
-
-/* refering to pointer and reference as the same */
-static bool
-is_pointer_return (tree stmt)
-{
-  /* return stmts may have a MODIFY_EXPR, which has the type in it's
-   * first operand*/
-  return TREE_CODE (stmt) == RETURN_EXPR 
-    && TREE_OPERAND (stmt, 0)
-    && is_pointer_type (LHS (stmt));
-}
 static bool
 is_indirect_function_call (tree stmt)
 {
   return TREE_CODE (stmt) == CALL_EXPR
     && is_suitable_decl (LHS (stmt));
+}
+
+static bool
+is_indirect_function_call_with_return_value (tree stmt)
+{
+  return TREE_CODE (stmt) == MODIFY_EXPR 
+    && is_pointer_type (stmt) 
+    && TREE_CODE (RHS (stmt)) == CALL_EXPR
+    && is_suitable_decl (LHS (RHS (stmt)));
 }
 
 static bool
@@ -287,30 +209,6 @@ is_function_call_with_return_value (tree stmt)
   return TREE_CODE (stmt) == MODIFY_EXPR 
     && is_pointer_type (stmt) &&
     TREE_CODE (RHS (stmt)) == CALL_EXPR;
-}
-
-static bool
-is_assignment_to_field (tree stmt)
-{
-  return is_pointer_type (stmt)
-    && TREE_CODE (stmt) == MODIFY_EXPR
-    && TREE_CODE (LHS (stmt)) == COMPONENT_REF
-    && is_suitable_decl (RHS (stmt));
-
-}
-
-static bool
-is_assignment_to_indirect_array_ref (tree stmt)
-{
-  return is_pointer_type (stmt)
-    && TREE_CODE (stmt) == MODIFY_EXPR
-    && TREE_CODE (LHS (stmt)) == ARRAY_REF
-    && is_suitable_decl (RHS (stmt))
-    && TREE_CODE (LHS (LHS (stmt))) == COMPONENT_REF
-    && TREE_CODE (RHS (LHS (stmt))) == INTEGER_CST
-    && TREE_CODE (LHS (LHS (LHS (stmt)))) == INDIRECT_REF
-    && TREE_CODE (RHS (LHS (LHS (stmt)))) == FIELD_DECL
-    && is_suitable_decl (LHS (LHS (LHS (LHS (stmt)))));
 }
 
 static bool
@@ -329,16 +227,6 @@ is_assignment_to_null (tree stmt)
     && is_pointer_type (stmt)
     && is_pointer_type (LHS (stmt)) 
     && is_null (RHS (stmt));
-}
-
-static bool
-is_assignment_from_field (tree stmt)
-{
-  return is_pointer_type (stmt)
-    && TREE_CODE (stmt) == MODIFY_EXPR
-    && is_suitable_decl (LHS (stmt))
-    && TREE_CODE (RHS (stmt)) == COMPONENT_REF;
-
 }
 
 static void
@@ -426,7 +314,7 @@ update_connection_graph_from_memory_allocation (con_graph cg, tree stmt)
   /* p = jv_AllocNoFinalizer(type) */
   tree type_name;
   tree p_name;
-  tree f_name;
+/*  tree f_name; */
   con_node object;
   con_node p;
 
@@ -469,38 +357,142 @@ update_connection_graph_from_memory_allocation (con_graph cg, tree stmt)
   if (get_edge (p, object) == NULL)
     add_edge (p, object);
 
-
-  /* add fields */
-  f_name = TREE_CHAIN (TYPE_FIELDS (TREE_TYPE (TREE_TYPE (stmt))));
-
-  while (f_name)
-    {
-      /* dont add static fields */
-      if (TREE_CODE (f_name) == FIELD_DECL)
-	{
-	  /* add the field */
-	  con_node field = get_existing_field_node (cg, f_name, object);
-
-	  /* only add edges which arent already there */
-	  if (!field)
-	    {
-	      field = add_field_node (cg, f_name);
-	      add_edge (object, field);
-	    }
-
-	  gcc_assert (field);
-
-	}
-
-      /* get the next field */
-      f_name = TREE_CHAIN (f_name);
-    }
-
-  /* done MEMORY ALLOCATION */
 }
 
-static void
-update_connection_graph_from_pointer_arithmetic (con_graph cg, tree stmt)
+static con_node
+insert_reference (con_graph cg, tree p_name, tree q_name, bool killing)
+{
+  con_node p, q;
+  gcc_assert (cg);
+  gcc_assert (p_name);
+  gcc_assert (q_name);
+
+  p = get_existing_node (cg, p_name);
+  if (p == NULL) p = add_local_node (cg, p_name);
+  gcc_assert (p);
+
+  q = get_existing_node (cg, q_name);
+  if (q == NULL) q = add_local_node (cg, q_name);
+  gcc_assert (q);
+
+  if (killing)
+    {
+      /* do a bypass */
+    }
+
+  /* add an edge */
+  if (get_edge (p, q) == NULL)
+    add_edge (p, q);
+
+  /* link the nodes and return them */
+  assert_all_next_link_free (cg);
+  p->next_link = q;
+  return p;
+}
+
+static con_node
+insert_assignment_from_field (con_graph cg, tree p_name, tree q_name, tree f_name, tree stmt_id, tree type, bool killing)
+{
+  con_node p, q, u, v;
+  con_node terminal, phantom;
+  int num_u;
+
+  gcc_assert (cg);
+  gcc_assert (p_name && q_name && f_name && stmt_id && type);
+
+  p = get_existing_node (cg, p_name);
+  if (p == NULL) p = add_local_node (cg, p_name);
+  gcc_assert (p);
+
+  q = get_existing_node (cg, q_name);
+  if (q == NULL) q = add_local_node (cg, q_name);
+  gcc_assert (q);
+
+  assert_all_next_link_free (cg);
+
+  /* we dont exactly follow the recommendations from Choi99. In
+   * particular, the paper alleges that you only use phantom nodes if
+   * there are no points to nodes, but in reality, there can be both at
+   * the same time.  */
+
+  /* get the objects pointed to be q */
+  u = get_points_to (q);
+
+  /* there may also be nodes pointed to by q which don't end up as an
+   * object. These need to point to phantom objects */
+  terminal = get_terminal_nodes (q);
+
+  /* this is a lonely node */
+  if (terminal == NULL && u == NULL)
+    {
+      gcc_assert (q->out == NULL);
+      terminal = q;
+    }
+
+  /* get the phantom node ready, if needed */
+  if (terminal)
+    {
+      phantom = get_existing_node (cg, stmt_id); /* 1-limited */
+      if (phantom == NULL)
+	{
+	  phantom = add_object_node (cg, stmt_id, type);
+	  phantom->phantom = true;
+	}
+      gcc_assert (phantom->phantom);
+
+      /* add the phantom the the list of u */
+      if (!in_link_list(u, phantom))
+	{
+	  phantom->next_link = u;
+	  u = phantom;
+	}
+    }
+
+  /* make the terminal nodes point to the node */
+  while (terminal)
+    {
+      if (terminal != phantom) /* this would be pointless otherwise */
+	  add_edge (terminal, phantom);
+
+      NEXT_LINK_CLEAR (terminal);
+    }
+
+  /* get the field nodes of the pointed-to objects */
+  num_u = link_length (u);
+  v = get_field_nodes (u, f_name);
+  gcc_assert (num_u == link_length (v));
+  gcc_assert (v != NULL);
+
+
+  /* we need to do bypassing befor we add the extra edges */
+  if (killing)
+    {
+      /* TODO: bypassing */
+    }
+
+
+  /* we need to return v, so keep track of the first in the list */
+  q->next_link = v;
+
+  /* add deferred edges representing the assignment p = q.f */
+  while (v)
+    {
+      if (get_edge (p, v) == NULL)
+	add_edge (p, v);
+
+      NEXT_LINK (v); /* dont break the links, we're going to return it */
+    }
+
+  /* link together p, q, and all f */
+  p->next_link = q;
+  /* q is already linked to v */
+  /* the 'v' are linked together */
+  return p;
+}
+
+
+static bool
+check_pointer_arithmetic_stmt (con_graph cg, tree stmt)
 {
   /* make p global, link it to q */
   /* p = q + x:
@@ -510,46 +502,34 @@ update_connection_graph_from_pointer_arithmetic (con_graph cg, tree stmt)
    *     var_decl - q
    *     integer_cst - x
    */
-  tree p_name;
-  tree q_name;
-  con_node p;
-  con_node q;
+  tree p_name, q_name, plus_expr;
+  con_node p, q;
 
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == PLUS_EXPR);
-  gcc_assert (is_suitable_decl (LHS (RHS (stmt))));
-  gcc_assert (TREE_CODE (RHS (RHS (stmt))) == INTEGER_CST);
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR 
+    && is_pointer_type (stmt)
+    && is_suitable_decl (p_name = LHS (stmt))
+    && TREE_CODE (plus_expr = RHS (stmt)) == PLUS_EXPR
+    && is_suitable_decl (q_name = LHS (plus_expr))
+    && TREE_CODE (RHS (plus_expr)) == INTEGER_CST))
+    {
+      return false;
+    }
 
   set_stmt_type (cg, stmt, POINTER_ARITHMETIC);
 
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
-
-  p = get_existing_node (cg, p_name);
-  if (p == NULL)
-    p = add_local_node (cg, p_name);
-  gcc_assert (p);
+  p = insert_reference (cg, p_name, q_name, false);
   p->escape = EA_GLOBAL_ESCAPE;
 
-
-  q_name = LHS (RHS (stmt));
-  gcc_assert (q_name);
-
-  q = get_existing_node (cg, q_name);
-  if (q == NULL)
-    q = add_local_node (cg, q_name);
-  gcc_assert (q);
+  q = p->next_link;
   q->escape = EA_GLOBAL_ESCAPE;
 
-
-  if (get_edge (p, q) == NULL)
-    add_edge (p, q);
-
+  clear_links (p);
+  return true;
 }
 
-static void
-update_connection_graph_from_pointer_dereference (con_graph cg, tree stmt)
+
+static bool
+check_pointer_dereference_stmt (con_graph cg, tree stmt)
 {
   /* a link from q to p */
   /* p = *q:
@@ -558,44 +538,28 @@ update_connection_graph_from_pointer_dereference (con_graph cg, tree stmt)
    *   indirect_ref
    *     var_decl - q
    */
-  tree p_name;
-  tree q_name;
-  con_node p;
+  tree p_name, q_name, indirect_ref;
   con_node q;
 
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == INDIRECT_REF);
-  gcc_assert (is_suitable_decl (LHS (RHS (stmt))));
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR 
+    && is_pointer_type (stmt) 
+    && is_suitable_decl (p_name = LHS (stmt))
+    && TREE_CODE (indirect_ref = RHS (stmt)) == INDIRECT_REF
+    && is_suitable_decl (q_name = LHS (indirect_ref))))
+    {
+      return false;
+    }
 
   set_stmt_type (cg, stmt, POINTER_DEREFERENCE);
 
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
+  q = insert_reference (cg, q_name, p_name, true);
+  clear_links (q); /* we dont need these for anything */
 
-  p = get_existing_node (cg, p_name);
-  if (p == NULL)
-    p = add_local_node (cg, p_name);
-  gcc_assert (p);
-
-
-  q_name = LHS (RHS (stmt));
-  gcc_assert (q_name);
-
-  q = get_existing_node (cg, q_name);
-  if (q == NULL)
-    q = add_local_node (cg, q_name);
-  gcc_assert (q);
-
-
-  /* from q to p this time */
-  if (get_edge (q, p) == NULL)
-    add_edge (q, p);
-
+  return true;
 }
 
-static void
-update_connection_graph_from_cast (con_graph cg, tree stmt)
+static bool
+check_cast_stmt (con_graph cg, tree stmt)
 {
   /* TODO lots of killing references (due to iteration) */
   /* p = (x*) q:
@@ -604,165 +568,102 @@ update_connection_graph_from_cast (con_graph cg, tree stmt)
    *   nop_expr
    *     var_decl - q
    */
-  tree p_name;
-  tree q_name;
+
+  tree p_name, q_name, nop_expr;
   con_node p;
-  con_node q;
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR 
+	&& is_pointer_type (stmt) 
+	&& is_suitable_decl (p_name = LHS (stmt)) 
+	&& TREE_CODE (nop_expr = RHS (stmt)) == NOP_EXPR
+	&& is_suitable_decl (q_name = LHS (nop_expr))))
+    {
+      return false;
+    }
 
   set_stmt_type (cg, stmt, CAST);
-  /* ----------------------------------------
-   *      get detail from the tree
-   * ----------------------------------------*/
-
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == NOP_EXPR);
-  gcc_assert (is_suitable_decl (LHS (RHS (stmt))));
-
-  /* get the name of the lvalue */
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
-
-  /* get the name of the rvalue name */
-  q_name = LHS (RHS (stmt));
-  gcc_assert (q_name);
-
-  /* ----------------------------------------
-   *      get the nodes from the graph
-   * ----------------------------------------*/
-
-  /* bypass is necessary because of multiple iterations */
-  p = get_existing_node (cg, p_name);
-  if (p)
-    {
-      /*bypass_node (r); */
-      /* no longer SSA, so these can exist */
-    }
-  else
-    {
-      /* add the lvalue node */
-      p = add_local_node (cg, p_name);
-    }
-
-  /* get the rvalue node from the graph */
-  q = get_existing_node (cg, q_name);
-
-  /* it may be that the rvalue is a parameter to the function, in
-   * which case the node doesnt exist yet (there are also cases in
-   * which the rhs hasnt been seen before */
-  if (q == NULL)
-    {
-      /* add it to the graph */
-      q = add_local_node (cg, q_name);
-    }
-
-  gcc_assert (q);
-
-  if (get_edge (p, q) == NULL)
-    add_edge (p, q);
-
-  /* done REFERENCE COPY */
-
+  p = insert_reference (cg, p_name, q_name, true);
+  clear_links (p); /* we dont need these for anything */
+  return true;
 }
 
-static void
-update_connection_graph_from_reference_copy (con_graph cg, tree stmt)
+static bool
+check_reference_copy_stmt (con_graph cg, tree stmt)
 {
   /* TODO lots of killing references (due to iteration) */
   /* p = q:
    * modify_expr
-   *   parm_decl - p
+   *   var_decl - p
    *   var_decl - q
    */
-  tree p_name;
-  tree q_name;
+  tree p_name, q_name;
   con_node p;
-  con_node q;
+
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR 
+	&& is_pointer_type (stmt) 
+	&& is_suitable_decl (p_name = LHS (stmt)) 
+	&& is_suitable_decl (q_name = RHS (stmt))))
+    {
+      return false;
+    }
 
   set_stmt_type (cg, stmt, REFERENCE_COPY);
-  /* ----------------------------------------
-   *      get detail from the tree
-   * ----------------------------------------*/
-
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (is_suitable_decl (RHS (stmt)));
-
-  /* get the name of the lvalue */
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
-
-  /* get the name of the rvalue name */
-  q_name = RHS (stmt);
-  gcc_assert (q_name);
-
-  /* ----------------------------------------
-   *      get the nodes from the graph
-   * ----------------------------------------*/
-
-  /* bypass is necessary because of multiple iterations */
-  p = get_existing_node (cg, p_name);
-  if (p)
-    {
-      /*bypass_node (r); */
-      /* no longer SSA, so these can exist */
-    }
-  else
-    {
-      /* add the lvalue node */
-      p = add_local_node (cg, p_name);
-    }
-
-  /* get the rvalue node from the graph */
-  q = get_existing_node (cg, q_name);
-
-  /* it may be that the rvalue is a parameter to the function, in
-   * which case the node doesnt exist yet (there are also cases in
-   * which the rhs hasnt been seen before */
-  if (q == NULL)
-    {
-      /* add it to the graph */
-      q = add_local_node (cg, q_name);
-    }
-
-  gcc_assert (q);
-
-  if (get_edge (p, q) == NULL)
-    add_edge (p, q);
-
-  /* done REFERENCE COPY */
-
+  p = insert_reference (cg, p_name, q_name, true);
+  clear_links (p); /* we dont need these for anything */
+  return true;
 }
 
-static void
-update_connection_graph_from_return (con_graph cg, tree stmt)
+static con_node
+insert_return (con_graph cg, tree return_name, tree r_name)
 {
-  /* return u; */
-  tree r_name;
-  con_node r;
-
-  set_stmt_type (cg, stmt, RETURN);
-
-  /* not using LHS cause it isnt really a lhs */
-  r_name = TREE_OPERAND (TREE_OPERAND (stmt, 0), 0);
+  con_node r, return_node;
+  gcc_assert (cg);
   gcc_assert (r_name);
+  gcc_assert (return_name);
 
   r = get_existing_node (cg, r_name);
-  if (r)
+  if (r == NULL) r = add_local_node (cg, r_name);
+  gcc_assert (r);
+  r->escape = EA_ARG_ESCAPE;
+
+  return_node = cg->return_node;
+  if (return_node == NULL) return_node = add_return_node (cg,
+							  return_name);
+  gcc_assert (return_node->id == return_name);
+  gcc_assert (cg->return_node);
+
+  if (get_edge (return_node, r) == NULL)
+    add_edge (return_node, r);
+
+  return r;
+}
+
+static bool
+check_return_stmt (con_graph cg, tree stmt)
+{
+  /* return u:
+   * return_expr (void)
+   *   modify_expr
+   *     result_decl - result_decl
+   *     var_decl - r
+   */
+  tree r_name, result_decl;
+  tree modify_expr;
+  con_node r;
+
+  if (!(TREE_CODE (stmt) == RETURN_EXPR
+	&& TREE_OPERAND (stmt, 0) /* dont match null cases */
+	&& TREE_CODE (modify_expr = LHS (stmt)) == MODIFY_EXPR
+	&& is_pointer_type (modify_expr)
+	&& TREE_CODE (result_decl = LHS (modify_expr)) == RESULT_DECL
+	&& is_suitable_decl (r_name = RHS (modify_expr))))
     {
-      /* bypass_node (r); */
-      /* gcc_unreachable(); */
-    }
-  else
-    {
-      r = add_local_node (cg, r_name);
-      r->escape = EA_ARG_ESCAPE;
+      return false;
     }
 
-  if (get_edge (cg->return_node, r) == NULL)
-    add_edge (cg->return_node, r);
-
-  /* RETURN_STMT */
+  set_stmt_type (cg, stmt, RETURN);
+  r = insert_return (cg, result_decl, r_name);
+  assert_all_next_link_free (cg);
+  return true;
 }
 
 static void
@@ -776,16 +677,51 @@ update_connection_graph_from_indirect_function_call (con_graph cg, tree stmt)
    */
   tree T;
   tree argument_list;
+  tree r_name;
+  con_node r;
+  tree call_expr;
 
-  gcc_assert (TREE_CODE (stmt) == CALL_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == TREE_LIST);
 
-  set_stmt_type (cg, stmt, INDIRECT_FUNCTION_CALL);
+  if (is_indirect_function_call_with_return_value (stmt))
+    {
+      /* get the name of the lvalue */
+      r_name = LHS (stmt);
+      gcc_assert (r_name);
 
-  T = LHS (stmt);
+      /* ----------------------------------------
+       *      get the nodes from the graph
+       * ----------------------------------------*/
+
+      r = get_existing_node (cg, r_name);
+      /* TODO should use DECL_RESULT here, and use that as R
+       * instead of lhs. arrow then from lhs to r? */
+      if (r)
+	{
+	  /* bypass_node (r); */
+	  /* gcc_unreachable(); */
+	}
+      else
+	{
+	  r = add_local_node (cg, r_name);
+	  r->escape = EA_ARG_ESCAPE;
+	}
+      call_expr = RHS (stmt);
+      set_stmt_type (cg, stmt, INDIRECT_FUNCTION_CALL_WITH_RETURN);
+    }
+  else
+    {
+      set_stmt_type (cg, stmt, INDIRECT_FUNCTION_CALL);
+
+      call_expr = stmt;
+    }
+
+  gcc_assert (TREE_CODE (call_expr) == CALL_EXPR);
+  gcc_assert (is_suitable_decl (LHS (call_expr)));
+  gcc_assert (TREE_CODE (RHS (call_expr)) == TREE_LIST);
+
+  T = LHS (call_expr);
   gcc_assert (T);
-  argument_list = RHS (stmt);
+  argument_list = RHS (call_expr);
   gcc_assert (argument_list);
 
   /* We make all of these nodes GLOBAL_ESCAPE. Since we dont have the
@@ -943,228 +879,66 @@ update_connection_graph_from_function_call (con_graph cg, tree stmt)
    * CONSTRUCTOR */
 }
 
-static void
-update_connection_graph_from_assignment_from_array (con_graph cg, tree stmt)
+static bool
+check_assignment_from_data_array_stmt (con_graph cg, tree stmt)
 {
-  /* deal with this as if it were p = q; (except for killing, can't bypass
-   * here */
-
-  /* p = q[x]: 
+  /* this is a mix of assignment from field, and assignment from array */
+  /* p = q.data[x]
    * modify_expr
    *   var_decl - p
    *   array_ref
-   *     var_decl - q
-   *     integer_cst */
-  tree p_name;
-  tree q_name;
+   *     component_ref
+   *	   indirect_ref
+   *	     var_decl - q
+   *	   field_decl - f (aka data)
+   *	 integer_cst - x
+   */
+  tree p_name, q_name, f_name;
+  tree array_ref, component_ref, indirect_ref;
   con_node p;
-  con_node q;
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& is_suitable_decl (p_name = LHS (stmt))
+	&& TREE_CODE (array_ref = RHS (stmt)) == ARRAY_REF
+	&& TREE_CODE (component_ref = LHS (array_ref)) == COMPONENT_REF
+	&& TREE_CODE (indirect_ref = LHS (component_ref)) == INDIRECT_REF
+	&& is_suitable_decl (q_name = LHS (indirect_ref))
+	&& TREE_CODE (f_name = RHS (component_ref)) == FIELD_DECL
+	&& DECL_NAME (f_name) == get_identifier ("data")))
+    {
+      return false;
+    }
 
-  gcc_assert (is_pointer_type (stmt));
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == ARRAY_REF);
-  gcc_assert (is_suitable_decl (LHS (RHS (stmt))));
-  gcc_assert (TREE_CODE (RHS (RHS (stmt))) == INTEGER_CST);
+  set_stmt_type (cg, stmt, ASSIGNMENT_FROM_DATA_ARRAY);
+  p = insert_assignment_from_field (cg, p_name, q_name, f_name, stmt,
+				    TREE_TYPE (indirect_ref), true);
 
-  set_stmt_type (cg, stmt, ASSIGNMENT_FROM_ARRAY);
-
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
-
-  p = get_existing_node (cg, p_name);
-  if (p == NULL)
-    p = add_local_node (cg, p_name);
-  gcc_assert (p);
-
-
-  q_name = LHS (RHS (stmt));
-  gcc_assert (q_name);
-
-  q = get_existing_node (cg, q_name);
-  if (q == NULL)
-    q = add_local_node (cg, q_name);
-  gcc_assert (q);
-
-  if (get_edge (p, q) == NULL)
-    add_edge (p, q);
-
+  clear_links (p);
+  return true;
 }
 
-static void
-update_connection_graph_from_assignment_to_indirect_array_ref (con_graph cg, tree stmt)
+/* you might think this returns p, then the fs, then q, but it really
+ * returns p, then q, then all fs. It means q is easy to access, as you
+ * dont have to iterate over the f list to get it */
+static con_node
+insert_assignment_to_field (con_graph cg, tree p_name, tree q_name, tree f_name, tree stmt_id, tree type, bool killing)
 {
-  /* this is a mix of assignment to field, and assignment to array */
-  /* p.f[x] = q:
-   * modify_expr
-   *   array_ref
-   *     component_ref
-   *       indirect_ref
-   *         var_decl - p
-   *       field_decl - f
-   *     integer_cst - x
-   *   var_decl
-   */
-  tree p_name;
-  tree f_name;
-  tree q_name;
-  tree lhs;
-  tree indirect_ref;
-  con_node p;
-  con_node q;
-  con_node u;
-  con_node v;
-  con_node terminal;
-  con_node phantom;
+  con_node p, q, u, v;
+  con_node terminal, phantom;
+  int num_u;
 
-  set_stmt_type (cg, stmt, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
-  /* ----------------------------------------
-   *      get detail from the tree
-   * ----------------------------------------*/
-
-
-  /* get the lvalue reference and its field */
-  /* get to the field ref and ignore the array */
-  lhs = LHS (TREE_OPERAND (stmt, 0));
-  indirect_ref = TREE_OPERAND (lhs, 0);
-  p_name = TREE_OPERAND (indirect_ref, 0);
-  f_name = TREE_OPERAND (lhs, 1);
-
-  gcc_assert (p_name);
-  gcc_assert (f_name);
-
-  /* get the rvalue */
-  q_name = TREE_OPERAND (stmt, 1);
-  gcc_assert (q_name);
-
-
-  /* ----------------------------------------
-   *      get the nodes from the graph
-   * ----------------------------------------*/
+  gcc_assert (cg);
+  gcc_assert (p_name && q_name && f_name && stmt_id && type);
 
   p = get_existing_node (cg, p_name);
+  if (p == NULL) p = add_local_node (cg, p_name);
   gcc_assert (p);
 
-  /* note that we dont bypass here, as Choi99 says we can't
-   * kill p.f.  Not sure why though... */
-
   q = get_existing_node (cg, q_name);
+  if (q == NULL) q = add_local_node (cg, q_name);
   gcc_assert (q);
-
-  /* if u doesnt point to anything, (say it's passed in as a
-   * parameter), create phantom object nodes for it */
-  u = get_points_to (p);
-  terminal = get_terminal_nodes (q);
-
-  /* this is a lonely node */
-  if (terminal == NULL && u == NULL)
-    {
-      gcc_assert (q->out == NULL);
-      terminal = q;
-    }
-
-  /* get the phantom node ready, if needed */
-  if (terminal)
-    {
-      phantom = get_existing_node (cg, stmt); /* 1-limited */
-      if (phantom == NULL)
-	{
-	  con_node field;
-	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
-	  phantom->phantom = true;
-
-	  /* add a field node for it */
-	  field = add_field_node (cg, f_name);
-	  field->phantom = true;
-	  add_edge (phantom, field);
-	}
-      gcc_assert (phantom->phantom);
-
-      /* add the phantom the the list of u */
-      phantom->next_link = u;
-      u = phantom;
-    }
-
-  /* make the terminal nodes point to the node */
-  while (terminal)
-    {
-      if (terminal != phantom) /* this would be pointless otherwise */
-	  add_edge (terminal, phantom);
-
-      NEXT_LINK_CLEAR (terminal);
-    }
-
-  /* get the field nodes of the pointed-to objects */
-  v = get_field_nodes (u, f_name);
-  gcc_assert (v != NULL); /* even phantom nodes have this field */
-
-  /* do not bypass, this isnt a killing assignment */
-
-
-  /* add deferred edges */
-  while (v)
-    {
-      if (get_edge (v, q) == NULL)
-	add_edge (v, q);
-
-      NEXT_LINK_CLEAR (v);
-    }
 
   assert_all_next_link_free (cg);
-
-
-  /* done ASSIGNMENT TO FIELD */
-}
-
-static void
-update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
-{
-  /* TODO look at 'may definitions' to expand this */
-  /* p.f = q */
-  tree p_name;
-  tree f_name;
-  tree q_name;
-  tree lhs;
-  tree indirect_ref;
-  con_node p;
-  con_node q;
-  con_node u;
-  con_node v;
-  con_node terminal;
-  con_node phantom;
-
-  set_stmt_type (cg, stmt, ASSIGNMENT_TO_FIELD);
-  /* ----------------------------------------
-   *      get detail from the tree
-   * ----------------------------------------*/
-
-
-  /* get the lvalue reference and its field */
-  lhs = TREE_OPERAND (stmt, 0);
-  indirect_ref = TREE_OPERAND (lhs, 0);
-  p_name = TREE_OPERAND (indirect_ref, 0);
-  f_name = TREE_OPERAND (lhs, 1);
-
-  gcc_assert (p_name);
-  gcc_assert (f_name);
-
-  /* get the rvalue */
-  q_name = TREE_OPERAND (stmt, 1);
-  gcc_assert (q_name);
-
-
-  /* ----------------------------------------
-   *      get the nodes from the graph
-   * ----------------------------------------*/
-
-  p = get_existing_node (cg, p_name);
-  gcc_assert (p);
-
-  /* note that we dont bypass here, as Choi99 says we can't
-   * kill p.f.  Not sure why though... */
-
-  q = get_existing_node (cg, q_name);
-  gcc_assert (q);
 
   /* we dont exactly follow the recommendations from Choi99. In
    * particular, the paper alleges that you only use phantom nodes if
@@ -1183,25 +957,21 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
   /* get the phantom node ready, if needed */
   if (terminal)
     {
-      phantom = get_existing_node (cg, stmt); /* 1-limited */
+      phantom = get_existing_node (cg, stmt_id); /* 1-limited */
       if (phantom == NULL)
 	{
-	  con_node field;
-	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
+	  phantom = add_object_node (cg, stmt_id, type);
 	  phantom->phantom = true;
-
-	  /* add a field node for it */
-	  gcc_assert (get_existing_field_node (cg, f_name, phantom) == NULL);
-	  field = add_field_node (cg, f_name);
-	  field->phantom = true;
-	  add_edge (phantom, field);
 	}
       gcc_assert (phantom->phantom);
 
       /* add the phantom the the list of u */
       gcc_assert (phantom->next_link == NULL);
-      phantom->next_link = u;
-      u = phantom;
+      if (!in_link_list(u, phantom))
+	{
+	  phantom->next_link = u;
+	  u = phantom;
+	}
     }
 
   /* make the terminal nodes point to the node */
@@ -1214,12 +984,22 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
     }
 
   /* get the field nodes of the pointed-to objects */
+  num_u = link_length (u);
   v = get_field_nodes (u, f_name);
+  gcc_assert (num_u == link_length (v));
   gcc_assert (v != NULL); /* even phantom nodes have this field */
 
   
+  /* note that we dont bypass here, as Choi99 says we can't
+   * kill p.f.  Not sure why though... */
   /* do not bypass, this isnt a killing assignment */
+  if (killing)
+    {
+      /* TODO: bypassing */
+    }
 
+  /* we need to return v, so keep track of the first in the list */
+  q->next_link = v;
 
   /* add deferred edges */
   while (v)
@@ -1227,157 +1007,163 @@ update_connection_graph_from_assignment_to_field (con_graph cg, tree stmt)
       if (get_edge (v, q) == NULL)
 	add_edge (v, q);
 
-      NEXT_LINK_CLEAR (v);
+      NEXT_LINK (v);
     }
 
-  assert_all_next_link_free (cg);
-
-
-  /* done ASSIGNMENT TO FIELD */
+  /* link together p, q, and all f */
+  p->next_link = q;
+  return p;
 }
 
-static void
-update_connection_graph_from_assignment_from_field (con_graph cg, tree stmt)
+static bool
+check_assignment_from_array_stmt (con_graph cg, tree stmt)
 {
-  /* p = q.f */
-  tree p_name;
-  tree rhs;
-  tree indirect_ref;
-  tree q_name;
-  tree f_name;
+  /* deal with this as if it were p = q; (except it's non-killing)
+   * here */
+
+  /* p = q[x]: 
+   * modify_expr
+   *   var_decl - p
+   *   array_ref
+   *     var_decl - q
+   *     integer_cst */
+
+  tree p_name, q_name, array_ref;
   con_node p;
-  con_node q;
-  con_node u;
-  con_node v;
-  con_node terminal;
-  con_node phantom;
+
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+    && is_pointer_type (stmt)
+    && is_suitable_decl (p_name = LHS (stmt))
+    && TREE_CODE (array_ref = RHS (stmt)) == ARRAY_REF
+    && is_suitable_decl (q_name = RHS (array_ref))
+    && TREE_CODE (RHS (array_ref)) == INTEGER_CST))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_FROM_ARRAY);
+  p = insert_reference (cg, p_name, q_name, false);
+  clear_links (p); /* we dont need these for anything */
+  return true;
+
+}
+
+static bool
+check_assignment_to_data_array_stmt (con_graph cg, tree stmt)
+{
+  /* this is a mix of assignment to field, and assignment to array */
+  /* p.data[x] = q:
+   * modify_expr
+   *   array_ref
+   *     component_ref
+   *       indirect_ref
+   *         var_decl - p
+   *       field_decl - f (aka data)
+   *     integer_cst - x
+   *   var_decl - q
+   */
+  tree p_name, q_name, f_name;
+  tree array_ref, component_ref, indirect_ref;
+  con_node p;
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& TREE_CODE (array_ref = LHS (stmt)) == ARRAY_REF
+	&& TREE_CODE (component_ref = LHS (array_ref)) == COMPONENT_REF
+	&& TREE_CODE (indirect_ref = LHS (component_ref)) == INDIRECT_REF
+	&& is_suitable_decl (p_name = LHS (indirect_ref))
+	&& TREE_CODE (f_name = RHS (component_ref)) == FIELD_DECL
+	&& DECL_NAME (f_name) == get_identifier ("data")
+	&& is_suitable_decl (q_name = RHS (stmt))))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+  p = insert_assignment_to_field (cg, p_name, q_name, f_name, stmt,
+				  TREE_TYPE (indirect_ref), false);
+  clear_links (p);
+  return true;
+}
+
+
+static bool
+check_assignment_to_field_stmt (con_graph cg, tree stmt)
+{
+  /* p.f = q */
+  /* modify_expr
+   *   component_ref
+   *     indirect_ref
+   *       var_decl - p
+   *     field_decl - f
+   *   var_decl - q
+   */
+  tree p_name, f_name, q_name;
+  tree indirect_ref, component_ref;
+  con_node p;
+
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& TREE_CODE (component_ref = LHS (stmt)) == COMPONENT_REF
+	&& TREE_CODE (indirect_ref = LHS (component_ref)) == INDIRECT_REF
+	&& is_suitable_decl (p_name = LHS (indirect_ref))
+	&& TREE_CODE (f_name = RHS (component_ref)) == FIELD_DECL
+	&& is_suitable_decl (q_name = RHS (stmt))))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_TO_FIELD);
+
+  p = insert_assignment_to_field (cg, p_name, q_name, f_name, stmt,
+				  TREE_TYPE (indirect_ref), true);
+  clear_links (p);
+  return true;
+}
+
+
+
+static bool
+check_assignment_from_field_stmt (con_graph cg, tree stmt)
+{
+  /* p = q.f:
+   * modify_expr
+   *   var_decl - p
+   *   component_ref
+   *     indirect_ref
+   *       var_decl - q
+   *     field_decl - vtable
+   */
+
+  tree p_name, q_name, f_name;
+  tree component_ref, indirect_ref;
+  con_node p;
+
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& is_suitable_decl (p_name = LHS (stmt))
+	&& TREE_CODE (component_ref = RHS (stmt)) == COMPONENT_REF
+	&& TREE_CODE (indirect_ref = LHS (component_ref)) == INDIRECT_REF
+	&& is_suitable_decl (q_name = LHS (indirect_ref))
+	&& TREE_CODE (f_name = RHS (component_ref)) == FIELD_DECL))
+    {
+      return false;
+    }
 
   set_stmt_type (cg, stmt, ASSIGNMENT_FROM_FIELD);
+  /* TODO: I think we can get rid of type, since we'll do the fields
+   * lazily soon */
+  p = insert_assignment_from_field (cg, p_name, q_name, f_name, stmt, TREE_TYPE (indirect_ref), true);
+  clear_links (p);
 
-  /* ----------------------------------------
-   *      get detail from the tree
-   * ----------------------------------------*/
-
-  /* get the id of the lvalue */
-  p_name = TREE_OPERAND (stmt, 0);
-  gcc_assert (p_name);
-
-  /* get the id of the rvalue reference */
-  rhs = TREE_OPERAND (stmt, 1);
-  indirect_ref = TREE_OPERAND (rhs, 0);
-  q_name = TREE_OPERAND (indirect_ref, 0);
-  gcc_assert (q_name);
-
-  /* get the field name - Note that the field name is shared
-   * by all the objects containing this field */
-  f_name = TREE_OPERAND (rhs, 1);
-  gcc_assert (f_name);
-
-
-  /* ----------------------------------------
-   *      get the nodes from the graph
-   * ----------------------------------------*/
-
-
-  /* if the source exists, bypass it */
-  p = get_existing_node (cg, p_name);
-  if (p)
-    {
-      /* no longer SSA, so these can exist */
-      /*bypass_node (p); */
-    }
-  else
-    {
-      /* add the lhs node */
-      p = add_local_node (cg, p_name);
-    }
-  gcc_assert (p);
-
-
-  q = get_existing_node (cg, q_name);
-
-  /* it may be that the rvalue is a parameter to this function, in
-   * which case the node doesnt exist yet */
-  if (q == NULL)
-    {
-      /* add it to the graph */
-      q = add_local_node (cg, q_name);
-      q->phantom = true;
-    }
-
-
-  /* get the objects pointed to be q */
-  u = get_points_to (q);
-  terminal = get_terminal_nodes (q);
-
-  /* this is a lonely node */
-  if (terminal == NULL && u == NULL)
-    {
-      gcc_assert (q->out == NULL);
-      terminal = q;
-    }
-
-  /* get the phantom node ready, if needed */
-  if (terminal)
-    {
-      phantom = get_existing_node (cg, stmt); /* 1-limited */
-      if (phantom == NULL)
-	{
-	  con_node field;
-	  phantom = add_object_node (cg, stmt, TREE_TYPE (indirect_ref));
-	  phantom->phantom = true;
-
-	  /* add a field node for it */
-	  field = add_field_node (cg, f_name);
-	  field->phantom = true;
-	  add_edge (phantom, field);
-	}
-      gcc_assert (phantom->phantom);
-
-      /* add the phantom the the list of u */
-      phantom->next_link = u;
-      u = phantom;
-    }
-
-  /* make the terminal nodes point to the node */
-  while (terminal)
-    {
-      if (terminal != phantom) /* this would be pointless otherwise */
-	  add_edge (terminal, phantom);
-
-      NEXT_LINK_CLEAR (terminal);
-    }
-
-  /* get the field nodes of the pointed-to objects */
-  v = get_field_nodes (u, f_name);
-  gcc_assert (v != NULL); /* even phantom nodes have this field */
-
-  /* TODO check for flow-sensitive */
-
-  /* its important to bypass late, otherwise a = a.b will
-   * fail */
-
-  /* bypass_node (p); */
-
-  /* add deferred edges */
-  while (v)
-    {
-      if (get_edge (p, v) == NULL)
-	add_edge (p, v);
-
-      NEXT_LINK_CLEAR (v);
-    }
-
-  assert_all_next_link_free (cg);
-
-  /* done ASSIGNMENT FROM FIELD */
+  return true;
 
 }
 
-static void
-update_connection_graph_from_assignment_from_vtable (con_graph cg, tree stmt)
+static bool
+check_vtable_stmt (con_graph cg, tree stmt)
 {
-  /* take the lhs, make it global, add an edge to the rhs */
+  /* note that we dont need access to the field nodes, so theres no need
+   * to go searching for objects corresponding to them, here */
 
   /* p = q.vtable:
    * modify_expr
@@ -1387,46 +1173,26 @@ update_connection_graph_from_assignment_from_vtable (con_graph cg, tree stmt)
    *       var_decl - q
    *     field_decl - vtable
    */
-
-  /* note that we dont need access to the field nodes, so theres no need
-   * to go searching for objects corresponding to them, here */
-  tree p_name;
-  tree q_name;
+  tree p_name, q_name, component_ref, indirect_ref, field_decl;
   con_node p;
-  con_node q;
-
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
-  gcc_assert (is_suitable_decl (LHS (stmt)));
-  gcc_assert (TREE_CODE (RHS (stmt)) == COMPONENT_REF);
-  gcc_assert (TREE_CODE (LHS (RHS (stmt))) == INDIRECT_REF);
-  gcc_assert (TREE_CODE (RHS (RHS (stmt))) == FIELD_DECL);
-  gcc_assert (is_suitable_decl (LHS (LHS (RHS (stmt)))));
-
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& is_suitable_decl (p_name = LHS (stmt))
+	&& TREE_CODE (component_ref = RHS (stmt)) == COMPONENT_REF
+	&& TREE_CODE (indirect_ref = LHS (component_ref)) == INDIRECT_REF
+	&& is_suitable_decl (q_name = LHS (indirect_ref))
+	&& TREE_CODE (field_decl = RHS (component_ref)) == FIELD_DECL
+	&& DECL_NAME (field_decl) == get_identifier ("vtable")))
+    {
+      return false;
+    }
   set_stmt_type (cg, stmt, ASSIGNMENT_FROM_VTABLE);
 
-  /* lhs */
-  p_name = LHS (stmt);
-  gcc_assert (p_name);
-
-  p = get_existing_node (cg, p_name);
-  if (p == NULL)
-    {
-      p = add_local_node (cg, p_name);
-    }
+  /* this is a sticky situation, so we're choosing a BOTTOM solution */
+  p = insert_reference (cg, p_name, q_name, false);
   p->escape = EA_GLOBAL_ESCAPE;
-
-  /* get the object */
-  q_name = LHS (LHS (RHS (stmt)));
-  gcc_assert (q_name);
-  q = get_existing_node (cg, q_name);
-  if (q == NULL)
-    {
-      q = add_local_node (cg, q_name);
-    }
-
-  if (get_edge (p, q) == NULL)
-    add_edge (p, q);
-
+  clear_links (p);
+  return true;
 }
 
 static void
@@ -1437,97 +1203,85 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 
   /* recognize all the statement types, and update the connection
    * graph accordingly */
+
+  /* memory allocation */
   if (is_memory_allocation (stmt))
     update_connection_graph_from_memory_allocation (cg, stmt);
-
-  else if (is_cast_stmt (stmt))
-    update_connection_graph_from_cast (cg, stmt);
-
-  else if (is_reference_copy_stmt (stmt))
-    update_connection_graph_from_reference_copy (cg, stmt);
-
-  else if (is_pointer_return (stmt))
-    update_connection_graph_from_return (cg, stmt);
-
-  else if (is_indirect_function_call (stmt))
-    update_connection_graph_from_indirect_function_call (cg, stmt);
-
-  /* this goes before function call */
-  else if (is_null_pointer_exception (stmt))
-    {
-      set_stmt_type (cg, stmt, IGNORED_NULL_POINTER_EXCEPTION);
-      /* dont need to do anything, as it doesnt reference any var */
-    }
 
   else if (is_array_allocation (stmt))
     {
       update_connection_graph_from_array_allocation (cg, stmt);
     }
 
-  else if (is_function_call (stmt)
-	   || is_function_call_with_return_value (stmt)
-	   || is_constructor (stmt))
-    update_connection_graph_from_function_call (cg, stmt);
-
-  /* this must come before assignment_to_field, or it wont hit */
-  else if (is_assignment_from_vtable (stmt))
-    update_connection_graph_from_assignment_from_vtable (cg, stmt);
-
-  else if (is_assignment_to_field (stmt))
-    update_connection_graph_from_assignment_to_field (cg, stmt);
-    
-  else if (is_assignment_from_field (stmt))
-    update_connection_graph_from_assignment_from_field (cg, stmt);
-    
+  /* reference copies */
+  else if (check_cast_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_reference_copy_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_return_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_pointer_dereference_stmt (cg, stmt)) { /* NOP */ }
   else if (is_assignment_to_null (stmt))
     {
+      /* this comes in array, field, and reference copy varieties, so need
+       * to work it into the framework */
       /* TODO this becomes relevent in flow-sensitive */
       set_stmt_type (cg, stmt, IGNORED_ASSIGNMENT_TO_NULL);
 
       /* Done ASSIGNMENT TO NULL */
     }
-  else if (is_assignment_from_array (stmt))
-    update_connection_graph_from_assignment_from_array (cg, stmt);
 
-  else if (is_assignment_to_indirect_array_ref (stmt))
-    update_connection_graph_from_assignment_to_indirect_array_ref (cg, stmt);
+
+  /* exceptions - put these before function calls */
+  else if (check_null_pointer_exception_stmt (cg, stmt)) { /* NOP */ }
+
+
+  /* function calls - direct and indirect */
+  else if (is_indirect_function_call (stmt)
+	   || is_indirect_function_call_with_return_value (stmt))
+    update_connection_graph_from_indirect_function_call (cg, stmt);
+
+  else if (is_function_call (stmt)
+	   || is_function_call_with_return_value (stmt)
+	   || is_constructor (stmt))
+    update_connection_graph_from_function_call (cg, stmt);
+
+
+    /* fields */
+  /* this must come before assignment_to_field, or it wont hit */
+  else if (check_vtable_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_to_field_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_from_field_stmt (cg, stmt)) { /* NOP */ }
+
+  /* arrays */
+  else if (check_assignment_from_array_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_from_data_array_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_to_data_array_stmt (cg, stmt)) { /* NOP */ }
 
   else if (is_assignment_to_array (stmt))
       /* TODO */ gcc_unreachable ();
-    
-  else if (is_pointer_dereference (stmt))
-    update_connection_graph_from_pointer_dereference (cg, stmt);
+   
 
-  else if (is_pointer_arithmetic (stmt))
-    update_connection_graph_from_pointer_arithmetic (cg, stmt);
+  /* awfulness */
+  else if (check_pointer_arithmetic_stmt (cg, stmt)) { /* NOP */ }
 
+  /* ignored */
   else
     {
-      if (TREE_CODE (stmt) == RETURN_EXPR
-	  && VOID_TYPE_P (TREE_TYPE (stmt)))
-	{
+      if (TREE_CODE (stmt) == RETURN_EXPR && VOID_TYPE_P (TREE_TYPE
+							  (stmt)))
 	  set_stmt_type (cg, stmt, IGNORED_RETURNING_VOID);
-	}
 
       if (! is_pointer_type (stmt))
-	{
 	  set_stmt_type (cg, stmt, IGNORED_NOT_A_POINTER);
-	}
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
-	{
 	  set_stmt_type (cg, stmt, IGNORED_LABEL_EXPR);
-	}
 
       if (TREE_CODE (stmt) == COND_EXPR)
-	{
 	  set_stmt_type (cg, stmt, IGNORED_COND_EXPR);
-	}
 
       if (get_stmt_type (cg, stmt) == NULL)
 	{
 	  set_stmt_type (cg, stmt, IGNORED_UNKNOWN);
-	  gcc_unreachable ();	/* as if */
+/*	  gcc_unreachable ();*/	/* as if */
 	}
 
     }
@@ -1720,7 +1474,7 @@ replace_with_alloca (con_node node)
 
 
   /* obj = alloca (tmp) */
-  args = tree_cons (NULL_TREE, build_int_cst (NULL_TREE, 128), NULL_TREE);
+  args = tree_cons (NULL_TREE, parm1, NULL_TREE);
 
   type = TREE_TYPE (TREE_TYPE (alloca_func));
   alloca_func_call = build_function_call_expr (alloca_func, args);
@@ -1786,9 +1540,6 @@ process_function (con_graph cg, tree function)
   gcc_assert (cg);
   gcc_assert (function);
   gcc_assert (cg->function);
-
-  allocators[0] = alloc_no_finalizer_node;
-  allocators[1] = soft_anewarray_node;
 
   /* add the phantom actual parameters (Choi99 Sect. 4.1) */
   add_actual_parameters (cg, function);
@@ -1907,7 +1658,6 @@ process_function (con_graph cg, tree function)
 
 }
 
-#endif /* UNHIDE_IT */
 
 static unsigned int
 execute_ipa_stack_allocate (void)
@@ -1927,8 +1677,10 @@ execute_ipa_stack_allocate (void)
   pretty_printer debug_buffer;
   pretty_printer dump_buffer;
 
-  debug = fopen ("testing/debug_log", "w");
-  dump = fopen ("testing/dump_log", "w");
+  debug = fopen ("debug_log", "w");
+  dump = fopen ("dump_log", "w");
+  gcc_assert (debug);
+  gcc_assert (dump);
 
   pp_construct (&debug_buffer, NULL, 0);
   pp_construct (&dump_buffer, NULL, 0);
@@ -1972,7 +1724,7 @@ execute_ipa_stack_allocate (void)
 
 
 	  /* set up this function's connection graph */
-	  cg = new_con_graph (concat ("testing/graphs/", current_function_name (),
+	  cg = new_con_graph (concat ("graphs/", current_function_name (),
 				      (IDENTIFIER_POINTER
 				       (DECL_ASSEMBLER_NAME
 					(current_function_decl))), ".graph",
@@ -2019,6 +1771,17 @@ execute_ipa_stack_allocate (void)
   fclose (dump);
   return 0;
 }
+
+#else
+
+static unsigned int
+execute_ipa_stack_allocate (void)
+{
+  return 0;
+}
+
+#endif /* UNHIDE_IT */
+
 
 static bool
 gate_ipa_stack_allocate (void)
