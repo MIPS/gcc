@@ -1,3 +1,15 @@
+2006-10-10  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-flow-inline.h (single_imm_use_p): New.  Check for single use.
+	* tree-ssa-coalesce.c (struct cost_one_pair_d): New.  Linked list pair.
+	(struct coalesce_list_d): Add list of "cost one" coalesces.
+	(pop_cost_one_pair): New.  Get a pair from the cost_one list.
+	(pop_best_coalesce): Get cost_one pair when coalesce table is empty.
+	(create_coalesce_list, delete_coalesce_list): Handle cost_one list.
+	(add_cost_one_coalesce): New.  Add a pair to the cost_one list.
+	(create_outofssa_var_map): Call add_cost_one_coalesce.
+	(coalesce_partitions): Initialize variables.
+
 2006-10-06  Andrew MacLeod  <amacleod@redhat.com>
 	
 	* tree-ssa-coalesce.c (struct coalesce_list_d): Remove present bitmap.

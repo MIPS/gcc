@@ -49,6 +49,13 @@ typedef struct coalesce_pair
   int cost;
 } * coalesce_pair_p;
 
+typedef struct cost_one_pair_d
+{
+  int first_element;
+  int second_element;
+  struct cost_one_pair_d *next;
+} * cost_one_pair_p;
+
 /* This structure maintains the list of coalesce pairs.  */
 
 typedef struct coalesce_list_d 
@@ -56,6 +63,7 @@ typedef struct coalesce_list_d
   htab_t list;			/* Hash table.  */
   coalesce_pair_p *sorted;	/* List when sorted.  */
   int num_sorted;		/* Number in the sorted list.  */
+  cost_one_pair_p cost_one_list;/* Single use coalesces with cost 1.  */
 } *coalesce_list_p;
 
 #define NO_BEST_COALESCE	-1
@@ -106,6 +114,28 @@ coalesce_cost_edge (edge e)
 }
 
 
+/* Retrieve a pair to coalesce from the cost_one_list in CL.  Returns the 
+   2 elements via P1 and P2.  1 is returned by the function if there is a pair,
+   NO_BEST_COALESCE is returned if there aren't any.  */
+
+static inline int
+pop_cost_one_pair (coalesce_list_p cl, int *p1, int *p2)
+{
+  cost_one_pair_p ptr;
+
+  ptr = cl->cost_one_list;
+  if (!ptr)
+    return NO_BEST_COALESCE;
+
+  *p1 = ptr->first_element;
+  *p2 = ptr->second_element;
+  cl->cost_one_list = ptr->next;
+
+  free (ptr);
+
+  return 1;
+}
+
 /* Retrieve the most expensive remaining pair to coalesce from CL.  Returns the 
    2 elements via P1 and P2.  Their calculated cost is returned by the function.
    NO_BEST_COALESCE is returned if the coalesce list is empty.  */
@@ -117,10 +147,10 @@ pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
   int ret;
 
   if (cl->sorted == NULL)
-    return NO_BEST_COALESCE;
+    return pop_cost_one_pair (cl, p1, p2);
 
   if (cl->num_sorted == 0)
-    return NO_BEST_COALESCE;
+    return pop_cost_one_pair (cl, p1, p2);
 
   node = cl->sorted[--(cl->num_sorted)];
   *p1 = node->first_element;
@@ -176,6 +206,7 @@ create_coalesce_list (void)
   			    coalesce_pair_map_eq, NULL);
   list->sorted = NULL;
   list->num_sorted = 0;
+  list->cost_one_list = NULL;
   return list;
 }
 
@@ -185,6 +216,7 @@ create_coalesce_list (void)
 static inline void 
 delete_coalesce_list (coalesce_list_p cl)
 {
+  gcc_assert (cl->cost_one_list == NULL);
   htab_delete (cl->list);
   if (cl->sorted)
     free (cl->sorted);
@@ -232,6 +264,18 @@ find_coalesce_pair (coalesce_list_p cl, int p1, int p2, bool create)
     }
 
   return pair;
+}
+
+static inline void
+add_cost_one_coalesce (coalesce_list_p cl, int p1, int p2)
+{
+  cost_one_pair_p pair;
+
+  pair = xmalloc (sizeof (struct cost_one_pair_d));
+  pair->first_element = p1;
+  pair->second_element = p2;
+  pair->next = cl->cost_one_list;
+  cl->cost_one_list = pair;
 }
 
 
@@ -896,7 +940,10 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  if ((e->flags & EDGE_ABNORMAL) == 0)
 		    {
 		      int cost = coalesce_cost_edge (e);
-		      add_coalesce (cl, ver, SSA_NAME_VERSION (arg), cost);
+		      if (cost == 1 && single_imm_use_p (arg))
+		        add_cost_one_coalesce (cl, ver, SSA_NAME_VERSION (arg));
+		      else
+			add_coalesce (cl, ver, SSA_NAME_VERSION (arg), cost);
 		    }
 		}
 	      else
@@ -1130,7 +1177,7 @@ static void
 coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl, 
 		     FILE *debug)
 {
-  int x, y;
+  int x = 0, y = 0;
   tree var1, var2, phi;
   int cost;
   basic_block bb;
