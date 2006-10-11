@@ -87,14 +87,14 @@ do_niy (pretty_printer *buffer, tree node)
 void
 debug_generic_expr (tree t)
 {
-  print_generic_expr (stderr, t, TDF_VOPS|TDF_UID);
+  print_generic_expr (stderr, t, TDF_VOPS|TDF_MEMSYMS);
   fprintf (stderr, "\n");
 }
 
 void
 debug_generic_stmt (tree t)
 {
-  print_generic_stmt (stderr, t, TDF_VOPS|TDF_UID);
+  print_generic_stmt (stderr, t, TDF_VOPS|TDF_MEMSYMS);
   fprintf (stderr, "\n");
 }
 
@@ -103,7 +103,7 @@ debug_tree_chain (tree t)
 {
   while (t)
   {
-    print_generic_expr (stderr, t, TDF_VOPS|TDF_UID);
+    print_generic_expr (stderr, t, TDF_VOPS|TDF_MEMSYMS|TDF_UID);
     fprintf(stderr, " ");
     t = TREE_CHAIN (t);
   }
@@ -402,6 +402,33 @@ dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 }
 
 
+/* Dump the set of decls SYMS.  BUFFER, SPC and FLAGS are as in
+   dump_generic_node.  */
+
+static void
+dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
+{
+  unsigned i;
+  bitmap_iterator bi;
+
+  if (syms == NULL)
+    pp_string (buffer, "NIL");
+  else
+    {
+      pp_string (buffer, " { ");
+
+      EXECUTE_IF_SET_IN_BITMAP (syms, 0, i, bi)
+	{
+	  tree sym = referenced_var_lookup (i);
+	  dump_generic_node (buffer, sym, 0, flags, false);
+	  pp_string (buffer, " ");
+	}
+
+      pp_string (buffer, "}");
+    }
+}
+
+
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
    FLAGS specifies details to show in the dump (see TDF_* in tree.h).  If
    IS_STMT is true, the object printed is considered to be a statement
@@ -423,7 +450,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   if (TREE_CODE (node) != ERROR_MARK
       && is_gimple_stmt (node)
-      && (flags & TDF_VOPS)
+      && (flags & (TDF_VOPS|TDF_MEMSYMS))
       && stmt_ann (node)
       && TREE_CODE (node) != PHI_NODE)
     dump_vops (buffer, node, spc, flags);
@@ -1624,6 +1651,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      pp_string (buffer, ", ");
 	  }
 	pp_string (buffer, ">;");
+
+	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
+	  dump_symbols (buffer, get_loads_and_stores (node)->stores, flags);
       }
       break;
 
@@ -2572,18 +2602,22 @@ newline_and_indent (pretty_printer *buffer, int spc)
   INDENT (spc);
 }
 
+
 static void
 dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
   struct vdef_optype_d *vdefs;
   struct vuse_optype_d *vuses;
   size_t i, n;
+  mem_syms_map_t syms;
 
-  if (!ssa_operands_active ())
+  if (!ssa_operands_active () || !stmt_references_memory_p (stmt))
     return;
 
+  syms = (flags & TDF_MEMSYMS) ? get_loads_and_stores (stmt) : NULL;
+
   vuses = VUSE_OPS (stmt);
-  while (vuses)
+  if (vuses)
     {
       pp_string (buffer, "# VUSE <");
 
@@ -2596,12 +2630,16 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 	}
 
       pp_string (buffer, ">");
-      newline_and_indent (buffer, spc);
       vuses = vuses->next;
+
+      if (syms)
+	dump_symbols (buffer, syms->loads, flags);
+
+      newline_and_indent (buffer, spc);
     }
 
   vdefs = VDEF_OPS (stmt);
-  while (vdefs)
+  if (vdefs)
     {
       pp_string (buffer, "# ");
       dump_generic_node (buffer, VDEF_RESULT (vdefs), spc + 2, flags, false);
@@ -2616,8 +2654,12 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 	}
 
       pp_string (buffer, ">");
-      newline_and_indent (buffer, spc);
       vdefs = vdefs->next;
+
+      if (syms)
+	dump_symbols (buffer, syms->stores, flags);
+
+      newline_and_indent (buffer, spc);
     }
 }
 

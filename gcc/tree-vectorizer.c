@@ -182,7 +182,7 @@ unsigned int vect_loops_num;
 static LOC vect_loop_location;
 
 /* Bitmap of virtual variables to be renamed.  */
-bitmap vect_vnames_to_rename;
+bitmap vect_memsyms_to_rename;
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -526,20 +526,29 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
        orig_phi && update_phi;
        orig_phi = PHI_CHAIN (orig_phi), update_phi = PHI_CHAIN (update_phi))
     {
-      /* Virtual phi; Mark it for renaming. We actually want to call
+      tree sym;
+
+      /* Virtual PHI.  Mark it for renaming. We actually want to call
 	 mar_sym_for_renaming, but since all ssa renaming datastructures
-	 are going to be freed before we get to call ssa_upate, we just
+	 are going to be freed before we get to call update_ssa, we just
 	 record this name for now in a bitmap, and will mark it for
 	 renaming later.  */
       name = PHI_RESULT (orig_phi);
-      if (!is_gimple_reg (SSA_NAME_VAR (name)))
-        bitmap_set_bit (vect_vnames_to_rename, SSA_NAME_VERSION (name));
+      sym = SSA_NAME_VAR (name);
+      if (sym != mem_var && !is_gimple_reg (sym))
+        bitmap_set_bit (vect_memsyms_to_rename, DECL_UID (sym));
 
       /** 1. Handle new-merge-point phis  **/
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
-      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
-                                 new_merge_bb);
+      sym = SSA_NAME_VAR (PHI_RESULT (orig_phi));
+      if (sym == mem_var)
+	{
+	  bitmap syms = get_loads_and_stores (orig_phi)->stores;
+	  new_phi = create_factored_phi_node (sym, new_merge_bb, syms);
+	}
+      else
+	new_phi = create_phi_node (sym, new_merge_bb);
 
       /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
             of LOOP. Set the two phi args in NEW_PHI for these edges:  */
@@ -556,45 +565,54 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       update_phi2 = new_phi;
 
 
-      /** 2. Handle loop-closed-ssa-form phis  **/
+      if (is_gimple_reg (PHI_RESULT (orig_phi)))
+	{
+	  /** 2. Handle loop-closed-ssa-form phis  **/
 
-      /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
-      new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
-                                 *new_exit_bb);
+	  /* 2.1. Generate new phi node in NEW_EXIT_BB:  */
+	  new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+	      *new_exit_bb);
 
-      /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of the loop.  */
-      add_phi_arg (new_phi, loop_arg, loop->single_exit);
+	  /* 2.2. NEW_EXIT_BB has one incoming edge: the exit-edge of
+	     the loop.  */
+	  add_phi_arg (new_phi, loop_arg, loop->single_exit);
 
-      /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
-      gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) == loop_arg);
-      SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx, PHI_RESULT (new_phi));
+	  /* 2.3. Update phi in successor of NEW_EXIT_BB:  */
+	  gcc_assert (PHI_ARG_DEF_FROM_EDGE (update_phi2, new_exit_e) 
+	              == loop_arg);
+	  SET_PHI_ARG_DEF (update_phi2, new_exit_e->dest_idx,
+	                   PHI_RESULT (new_phi));
 
-      /* 2.4. Record the newly created name with set_current_def.
-         We want to find a name such that
-                name = get_current_def (orig_loop_name)
-         and to set its current definition as follows:
-                set_current_def (name, new_phi_name)
+	  /* 2.4. Record the newly created name with set_current_def.
+	     We want to find a name such that
+	     name = get_current_def (orig_loop_name)
+	     and to set its current definition as follows:
+	     set_current_def (name, new_phi_name)
 
-         If LOOP is a new loop then loop_arg is already the name we're
-         looking for. If LOOP is the original loop, then loop_arg is
-         the orig_loop_name and the relevant name is recorded in its
-         current reaching definition.  */
-      if (is_new_loop)
-        current_new_name = loop_arg;
-      else
-        {
-          current_new_name = get_current_def (loop_arg);
-	  /* current_def is not available only if the variable does not
-	     change inside the loop, in which case we also don't care
-	     about recording a current_def for it because we won't be
-	     trying to create loop-exit-phis for it.  */
-	  if (!current_new_name)
-	    continue;
-        }
-      gcc_assert (get_current_def (current_new_name) == NULL_TREE);
+	     If LOOP is a new loop then loop_arg is already the name we're
+	     looking for. If LOOP is the original loop, then loop_arg is
+	     the orig_loop_name and the relevant name is recorded in its
+	     current reaching definition.  */
 
-      set_current_def (current_new_name, PHI_RESULT (new_phi));
-      bitmap_set_bit (*defs, SSA_NAME_VERSION (current_new_name));
+	  if (is_new_loop)
+	    current_new_name = loop_arg;
+	  else
+	    {
+	      current_new_name = get_current_def (loop_arg);
+
+	      /* current_def is not available only if the variable
+		 does not change inside the loop, in which case we
+		 also don't care about recording a current_def for it
+		 because we won't be trying to create loop-exit-phis
+		 for it.  */
+	      if (!current_new_name)
+		continue;
+	    }
+	  gcc_assert (get_current_def (current_new_name) == NULL_TREE);
+
+	  set_current_def (current_new_name, PHI_RESULT (new_phi));
+	  bitmap_set_bit (*defs, SSA_NAME_VERSION (current_new_name));
+	}
     }
 
   set_phi_nodes (new_merge_bb, phi_reverse (phi_nodes (new_merge_bb)));
@@ -2037,7 +2055,7 @@ vectorize_loops (struct loops *loops)
 
   /* Allocate the bitmap that records which virtual variables that 
      need to be renamed.  */
-  vect_vnames_to_rename = BITMAP_ALLOC (NULL);
+  vect_memsyms_to_rename = BITMAP_ALLOC (NULL);
 
   /*  ----------- Analyze loops. -----------  */
 
@@ -2070,7 +2088,7 @@ vectorize_loops (struct loops *loops)
 
   /*  ----------- Finalize. -----------  */
 
-  BITMAP_FREE (vect_vnames_to_rename);
+  BITMAP_FREE (vect_memsyms_to_rename);
 
   for (i = 1; i < vect_loops_num; i++)
     {

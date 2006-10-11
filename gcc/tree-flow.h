@@ -294,6 +294,10 @@ struct stmt_ann_d GTY(())
      and local addressable variables.  */
   unsigned makes_clobbering_call : 1;
 
+  /* Nonzero if the statement references memory (at least one of its
+     expressions contains a non-register operand).  */
+  unsigned references_memory : 1;
+
   /* Basic block that contains this statement.  */
   basic_block bb;
 
@@ -647,9 +651,10 @@ extern tree default_def_fn (struct function *, tree);
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
+extern tree create_factored_phi_node (tree, basic_block, bitmap);
 extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
-extern void remove_phi_node (tree, tree);
+extern void remove_phi_node (tree, tree, bool);
 extern tree phi_reverse (tree);
 
 /* In gimple-low.c  */

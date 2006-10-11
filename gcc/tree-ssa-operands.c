@@ -162,7 +162,7 @@ static vuse_optype_p free_vuses = NULL;
 static vdef_optype_p free_vdefs = NULL;
 
 /* Sets of symbols loaded and stored by a statement.  These sets are
-   only used when the operand scanner is called via get_loads_and_stores.  */
+   only used when the operand scanner is called via update_loads_and_stores.  */
 static bitmap loaded_syms = NULL;
 static bitmap stored_syms = NULL;
 
@@ -203,6 +203,40 @@ DEF_VEC_ALLOC_P(scb_t,heap);
    pop_stmt_changes pop a buffer off of the stack and compute the set
    of changes for the popped statement.  */
 static VEC(scb_t,heap) *scb_stack;
+
+/* Table, indexed by statement, for symbols loaded and stored by
+   statements that reference memory.  */
+static htab_t mem_syms_tbl;
+
+/* Hashing and equality functions for MEM_SYMS_TBL.  */
+
+static hashval_t
+mem_syms_hash (const void *p)
+{
+  return htab_hash_pointer ((const void *)((const mem_syms_map_t)p)->stmt);
+}
+
+static int
+mem_syms_eq (const void *p1, const void *p2)
+{
+  return ((const mem_syms_map_t)p1)->stmt == ((const mem_syms_map_t)p2)->stmt;
+}
+
+static void
+mem_syms_free (void *p)
+{
+  bitmap loads = ((mem_syms_map_t)p)->loads;
+  bitmap stores = ((mem_syms_map_t)p)->stores;
+  bool shared_p = loads == stores;
+
+  BITMAP_FREE (loads);
+
+  /* PHI nodes share loads/stores sets.  Avoid freeing them twice.  */
+  if (!shared_p)
+    BITMAP_FREE (stores);
+
+  free (p);
+}
 
 
 /* Return true if the parser should just gather symbols loaded/stored
@@ -297,9 +331,11 @@ init_ssa_operands (void)
   build_vuses = VEC_alloc (tree, heap, 25);
   build_vdefs = VEC_alloc (tree, heap, 25);
   scb_stack = VEC_alloc (scb_t, heap, 20);
-
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
+  gcc_assert (mem_syms_tbl == NULL);
+  mem_syms_tbl = htab_create (200, mem_syms_hash, mem_syms_eq, mem_syms_free);
+
   ops_active = true;
 }
 
@@ -329,6 +365,9 @@ fini_ssa_operands (void)
       operand_memory = operand_memory->next;
       ggc_free (ptr);
     }
+
+  htab_delete (mem_syms_tbl);
+  mem_syms_tbl = NULL;
 
   ops_active = false;
 }
@@ -1049,6 +1088,12 @@ append_vuse (void)
 static inline void
 add_virtual_operator (int flags)
 {
+  /* If no alias information exists, we are not going to build the
+     virtual SSA form, so adding a VDEF/VUSE operator will only upset
+     the SSA verifier because its operands will not be renamed.  */
+  if (!aliases_computed_p)
+    return;
+
   /* If we are inside an ADDR_EXPR, then VAR is not being referenced
      but used to compute address arithmetic.  */
   if (flags & opf_no_vops)
@@ -1071,7 +1116,7 @@ add_virtual_operator (int flags)
 static bool
 access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
 			   HOST_WIDE_INT size)
-{  
+{
   bool offsetgtz = offset > 0;
   unsigned HOST_WIDE_INT uoffset = (unsigned HOST_WIDE_INT) offset;
   tree base = ref ? get_base_address (ref) : NULL;
@@ -1240,9 +1285,9 @@ add_mem_symbol (tree decl, int flags)
     flags &= ~opf_def;
 
   uid = DECL_UID (decl);
-  if (flags & opf_def)
+  if (stored_syms && (flags & opf_def))
     bitmap_set_bit (stored_syms, uid);
-  else
+  else if (loaded_syms)
     bitmap_set_bit (loaded_syms, uid);
 }
 
@@ -1330,10 +1375,6 @@ get_mem_symbols_in_indirect_ref (tree expr, int flags, tree full_ref,
   struct ptr_info_def *pi = NULL;
   tree *pptr = &TREE_OPERAND (expr, 0);
   tree ptr = *pptr;
-
-  /* If we don't have aliasing information, do nothing.  */
-  if (!aliases_computed_p)
-    return;
 
   /* No symbols referenced if PTR is not a variable.  */
   if (!SSA_VAR_P (ptr))
@@ -1654,13 +1695,21 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
       /* .MEM should not be found in the code.  */
       gcc_assert (var != mem_var);
 
-      /* When gathering loads and stores, look for the symbols
-	 associated with VAR, otherwise add the virtual operator
-	 indicated by FLAGS.  */
+      /* Mark the statement as having memory operands.  */
+      s_ann->references_memory = true;
+
       if (gathering_loads_stores ())
-	add_mem_symbols_in_decl (var, flags);
+	{
+	  /* When gathering loads and stores, look for the symbols
+	     associated with VAR, otherwise add the virtual operator
+	     indicated by FLAGS. */
+	  add_mem_symbols_in_decl (var, flags);
+	}
       else
-	add_virtual_operator (flags);
+	{
+	  /* Otherwise, add a virtual operator for .MEM.  */
+	  add_virtual_operator (flags);
+	}
     }
 }
 
@@ -1686,6 +1735,8 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   tree ptr = *pptr;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
+  s_ann->references_memory = true;
+
   /* If the dereference is volatile, mark the statement accordingly.  */
   if (TREE_THIS_VOLATILE (expr))
     s_ann->has_volatile_ops = true;
@@ -1700,27 +1751,20 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 
   if (SSA_VAR_P (ptr))
     {
-      /* Only add a reference to .MEM if we have alias information
-	 available.  Otherwise, the SSA renamer will try to access the
-	 aliased symbols associated with this pointer dereference and
-	 find nothing.  */
-      if (aliases_computed_p)
+      tree tag;
+
+      if (TREE_CODE (ptr) == SSA_NAME
+	  && SSA_NAME_PTR_INFO (ptr)
+	  && SSA_NAME_PTR_INFO (ptr)->name_mem_tag)
+	tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
+      else
 	{
-	  tree tag;
-
-	  if (TREE_CODE (ptr) == SSA_NAME
-	      && SSA_NAME_PTR_INFO (ptr)
-	      && SSA_NAME_PTR_INFO (ptr)->name_mem_tag)
-	    tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
-	  else
-	    {
-	      tree sym = DECL_P (ptr) ? ptr : SSA_NAME_VAR (ptr);
-	      tag = var_ann (sym)->symbol_mem_tag;
-	    }
-
-	  if (tag)
-	    add_virtual_operator (flags);
+	  tree sym = DECL_P (ptr) ? ptr : SSA_NAME_VAR (ptr);
+	  tag = var_ann (sym)->symbol_mem_tag;
 	}
+
+      if (tag)
+	add_virtual_operator (flags);
     }
   else if (TREE_CODE (ptr) == INTEGER_CST)
     {
@@ -1749,6 +1793,9 @@ static void
 get_tmr_operands (tree stmt, tree expr, int flags)
 {
   tree tag;
+  stmt_ann_t ann = stmt_ann (stmt);
+
+  ann->references_memory = 1;
 
   /* When gathering memory symbols, there is no need to keep analyzing
      the rest of the expression.  */
@@ -1763,10 +1810,7 @@ get_tmr_operands (tree stmt, tree expr, int flags)
   get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
 
   if (TMR_SYMBOL (expr))
-    {
-      stmt_ann_t ann = stmt_ann (stmt);
-      add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
-    }
+    add_to_addressable_set (TMR_SYMBOL (expr), &ann->addresses_taken);
 
   tag = TMR_TAG (expr);
   if (!tag)
@@ -1787,6 +1831,8 @@ get_call_expr_operands (tree stmt, tree expr)
 {
   tree op;
   int call_flags = call_expr_flags (expr);
+
+  stmt_ann (stmt)->references_memory = true;
 
   if (!bitmap_empty_p (call_clobbered_vars) && !(call_flags & ECF_NOVOPS))
     {
@@ -1880,6 +1926,8 @@ get_asm_expr_operands (tree stmt)
       {
 	unsigned i;
 	bitmap_iterator bi;
+
+	s_ann->references_memory = true;
 
 	EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
 	  {
@@ -2246,9 +2294,13 @@ build_ssa_operands (tree stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
   
-  /* Initially assume that the statement has no volatile operands.  */
+  /* Initially assume that the statement has no volatile operands and
+     makes no memory references.  */
   if (ann)
-    ann->has_volatile_ops = false;
+    {
+      ann->has_volatile_ops = false;
+      ann->references_memory = false;
+    }
 
   start_ssa_stmt_operands ();
 
@@ -2257,6 +2309,11 @@ build_ssa_operands (tree stmt)
   operand_build_sort_virtual (build_vdefs);
 
   finalize_ssa_stmt_operands (stmt);
+
+  /* For added safety, assume that statements with volatile operands
+     also reference memory.  */
+  if (ann->has_volatile_ops)
+    ann->references_memory = true;
 }
 
 
@@ -2269,6 +2326,182 @@ free_ssa_operands (stmt_operands_p ops)
   ops->use_ops = NULL;
   ops->vdef_ops = NULL;
   ops->vuse_ops = NULL;
+}
+
+
+/* Lookup in MEM_SYMS_TBL a slot corresponding to STMT.  Create a new
+   one if needed.  */
+
+mem_syms_map_t
+get_loads_and_stores (tree stmt)
+{
+  struct mem_syms_map_d m, *mp;
+  void **slot;
+
+  gcc_assert (mem_syms_tbl);
+  gcc_assert (stmt_references_memory_p (stmt));
+
+  m.stmt = stmt;
+  slot = htab_find_slot (mem_syms_tbl, (void *) &m, INSERT);
+  if (*slot == NULL)
+    {
+      mp = XNEW (struct mem_syms_map_d);
+      mp->stmt = stmt;
+      mp->loads = BITMAP_ALLOC (NULL);
+
+      if (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  tree lhs_sym;
+
+	  /* PHI nodes load and store the same symbols.  */
+	  mp->stores = mp->loads;
+
+	  /* Non-factored PHI nodes load and store exactly one symbol.  */
+	  lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
+	  if (lhs_sym != mem_var)
+	    bitmap_set_bit (mp->stores, DECL_UID (lhs_sym));
+	}
+      else
+	mp->stores = BITMAP_ALLOC (NULL);
+
+      *slot = (void *) mp;
+    }
+  else
+    mp = (mem_syms_map_t) *slot;
+
+  return mp;
+}
+
+
+/* Delete the loads and stores sets associated with STMT.  */
+
+void
+delete_loads_and_stores (tree stmt)
+{
+  if (mem_syms_tbl)
+    {
+      struct mem_syms_map_d m;
+      void **slot;
+
+      m.stmt = stmt;
+      slot = htab_find_slot (mem_syms_tbl, (void *) &m, NO_INSERT);
+      if (slot)
+	htab_remove_elt (mem_syms_tbl, *slot);
+    }
+}
+
+
+/* Add LOADS and STORES to the corresponding sets in STMT. 
+
+   NOTE: Not to be used lightly.  This is generally used by the SSA
+	 renamer to initialize the factored symbols sets for factoring
+	 PHI nodes.  */
+
+void
+add_loads_and_stores (tree stmt, bitmap loads, bitmap stores)
+{
+  mem_syms_map_t mp = get_loads_and_stores (stmt);
+
+  if (loads)
+    bitmap_ior_into (mp->loads, loads);
+
+  if (stores)
+    bitmap_ior_into (mp->stores, stores);
+}
+
+
+/* Move the sets of loads and stores from OLD_STMT into NEW_STMT.
+   Remove the entry for OLD_STMT.  */
+
+void
+move_loads_and_stores (tree new_stmt, tree old_stmt)
+{
+  void **slot;
+  mem_syms_map_t old_mp, new_mp;
+
+  gcc_assert (TREE_CODE (new_stmt) == TREE_CODE (old_stmt));
+
+  old_mp = get_loads_and_stores (old_stmt);
+  new_mp = get_loads_and_stores (new_stmt);
+
+  bitmap_copy (new_mp->loads, old_mp->loads);
+
+  /* PHI nodes share their loads and stores sets.  */
+  if (TREE_CODE (new_stmt) != PHI_NODE)
+    bitmap_copy (new_mp->stores, old_mp->stores);
+
+  slot = htab_find_slot (mem_syms_tbl, (void *) old_mp, NO_INSERT);
+  htab_remove_elt (mem_syms_tbl, *slot);
+}
+
+
+/* Update the sets of symbols loaded and stored by STMT.
+
+   FIXME, if the statement has a store, we should use the SSA name on
+   its LHS as the index into an array.  Only use hashing for
+   statements that only have a load operation.  */
+
+static void
+update_loads_and_stores (tree stmt)
+{
+  mem_syms_map_t mp;
+
+  memset (&clobber_stats, 0, sizeof (clobber_stats));
+
+  mp = get_loads_and_stores (stmt);
+
+  if (mp->loads)
+    bitmap_clear (mp->loads);
+  else
+    mp->loads = BITMAP_ALLOC (NULL);
+
+  if (mp->stores)
+    bitmap_clear (mp->stores);
+  else
+    mp->stores = BITMAP_ALLOC (NULL);
+
+  /* Point the internal loaded/stored sets to the ones provided.  */
+  loaded_syms = mp->loads;
+  stored_syms = mp->stores;
+
+  /* Parse the statement.  We don't really care for its operands, so
+     there's no need to initialize anything.  If any operand was added
+     to the cache, it is discarded.
+
+     FIXME, unnecessary.  A single call to parse_ssa_operands should
+     do everything.  */
+  gcc_assert (loaded_syms || stored_syms);
+  parse_ssa_operands (stmt);
+  truncate_ssa_stmt_operands ();
+
+  /* We don't need the symbol sets anymore.  */
+  loaded_syms = NULL;
+  stored_syms = NULL;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    dump_loads_and_stores (dump_file, stmt);
+
+  if (mp->loads && bitmap_empty_p (mp->loads))
+    BITMAP_FREE (mp->loads);
+
+  if (mp->stores && bitmap_empty_p (mp->stores))
+    BITMAP_FREE (mp->stores);
+
+  if (dump_file && (dump_flags & TDF_STATS))
+    {
+      fprintf (dump_file, "Original clobbered vars:           %d\n",
+	       clobber_stats.clobbered_vars);
+      fprintf (dump_file, "Static write clobbers avoided:     %d\n",
+	       clobber_stats.static_write_clobbers_avoided);
+      fprintf (dump_file, "Static read clobbers avoided:      %d\n",
+	       clobber_stats.static_read_clobbers_avoided);
+      fprintf (dump_file, "Unescapable clobbers avoided:      %d\n",
+	       clobber_stats.unescapable_clobbers_avoided);
+      fprintf (dump_file, "Original read-only clobbers:       %d\n",
+	       clobber_stats.readonly_clobbers);
+      fprintf (dump_file, "Static read-only clobbers avoided: %d\n",
+	       clobber_stats.static_readonly_clobbers_avoided);
+    }
 }
 
 
@@ -2288,17 +2521,22 @@ update_stmt_operands (tree stmt)
      _DECL.  This indicates a bug in the gimplifier.  */
   gcc_assert (!SSA_VAR_P (stmt));
 
-  gcc_assert (ann->modified);
-
-  /* This cannot be called from get_loads_and_stores.  */
+  /* This cannot be called from update_loads_and_stores.  */
   gcc_assert (!gathering_loads_stores ());
 
   timevar_push (TV_TREE_OPS);
 
+  gcc_assert (ann->modified);
   build_ssa_operands (stmt);
-
-  /* Clear the modified bit for STMT.  */
   ann->modified = 0;
+
+  /* If the statement makes memory references, collect symbols
+     referenced by it.
+     
+     FIXME, we should stop scanning the statement twice.  With a
+     single scan we should get both operands and symbols.  */
+  if (stmt_references_memory_p (stmt))
+    update_loads_and_stores (stmt);
 
   timevar_pop (TV_TREE_OPS);
 }
@@ -2626,50 +2864,32 @@ debug_immediate_uses_for (tree var)
   dump_immediate_uses_for (stderr, var);
 }
 
-void debug_loads_and_stores (tree);
-void dump_loads_and_stores (FILE *, tree, bitmap, bitmap);
 
-
-/* Dump symbols loaded and stored by STMT to FILE.  If LOADS and
-   STORES are given, the statement is not scanned.  */
+/* Dump symbols loaded and stored by STMT to FILE.  */
 
 void
-dump_loads_and_stores (FILE *file, tree stmt, bitmap loads, bitmap stores)
+dump_loads_and_stores (FILE *file, tree stmt)
 {
-  unsigned i;
-  bitmap_iterator bi;
-  bool free_memory_p = false;
+  mem_syms_map_t mp;
 
-  if (loads == NULL && stores == NULL)
-    {
-      loads = BITMAP_ALLOC (NULL);
-      stores = BITMAP_ALLOC (NULL);
-      get_loads_and_stores (stmt, loads, stores);
-      free_memory_p = true;
-    }
-
-  fprintf (file, "\n\n");
   print_generic_stmt (file, stmt, TDF_VOPS);
-  fprintf (file, "\tLOADS:  { ");
-  EXECUTE_IF_SET_IN_BITMAP (loads, 0, i, bi)
-    {
-      print_generic_expr (file, referenced_var (i), 0);
-      fprintf (file, " ");
-    }
-  fprintf (file, "}\n");
 
-  fprintf (file, "\tSTORES: { ");
-  EXECUTE_IF_SET_IN_BITMAP (stores, 0, i, bi)
-    {
-      print_generic_expr (file, referenced_var (i), 0);
-      fprintf (file, " ");
-    }
-  fprintf (file, "}\n");
+  mp = get_loads_and_stores (stmt);
 
-  if (free_memory_p)
+  if (TREE_CODE (stmt) == PHI_NODE)
     {
-      BITMAP_FREE (loads);
-      BITMAP_FREE (stores);
+      fprintf (file, "\tLOADS/STORES: ");
+      dump_decl_set (file, mp->loads);
+      if (mp->loads != mp->stores)
+	fprintf (file, "\n\tWARNING.  LOADS and STORES sets not shared.\n");
+    }
+  else
+    {
+      fprintf (file, "\tLOADS:  ");
+      dump_decl_set (file, mp->loads);
+
+      fprintf (file, "\tSTORES: ");
+      dump_decl_set (file, mp->stores);
     }
 }
 
@@ -2679,104 +2899,7 @@ dump_loads_and_stores (FILE *file, tree stmt, bitmap loads, bitmap stores)
 void
 debug_loads_and_stores (tree stmt)
 {
-  dump_loads_and_stores (stderr, stmt, NULL, NULL);
-}
-
-
-/* Collect all the symbols loaded and stored by the arguments of PHI
-   node PHI.  Store the sets in LOADS and STORES respectively.  */
-
-static void
-get_loads_and_stores_for_phi (tree phi, bitmap loads, bitmap stores)
-{
-  int i;
-  tree lhs = PHI_RESULT (phi);
-
-  gcc_assert (!is_gimple_reg (lhs));
-
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-    {
-      tree sym, arg;
-
-      arg = PHI_ARG_DEF (phi, i);
-
-      /* Avoid infinite recursion.  */
-      if (arg == lhs)
-	continue;
-
-      sym = SSA_NAME_VAR (arg);
-
-      if (sym == mem_var)
-	{
-	  /* Recurse for an memory factored SSA name.  */
-	  get_loads_and_stores (SSA_NAME_DEF_STMT (arg), loads, stores);
-	}
-      else
-	{
-	  /* Otherwise, this PHI node will both load and store the
-	     underlying symbol for ARG.  */
-	  bitmap_set_bit (loads, DECL_UID (sym));
-	  bitmap_set_bit (stores, DECL_UID (sym));
-	}
-    }
-}
-
-
-
-
-/* Add to LOADED the set of symbols loaded by STMT and add to STORED
-   the set of symbols stored by STMT.  Both sets must be allocated by
-   the caller.  FIXME, should allow for either set to be NULL.  */
-
-void
-get_loads_and_stores (tree stmt, bitmap loads, bitmap stores)
-{
-  gcc_assert (loads && stores);
-  memset (&clobber_stats, 0, sizeof (clobber_stats));
-
-  if (TREE_CODE (stmt) != PHI_NODE)
-    {
-      gcc_assert (stmt_references_memory_p (stmt));
-
-      /* Point the internal loaded/stored sets to the ones provided.  */
-      loaded_syms = loads;
-      stored_syms = stores;
-
-      /* Parse the statement.  We don't really care for its operands, so
-	 there's no need to initialize anything.  If any operand was added
-	 to the cache, it is discarded.  */
-      parse_ssa_operands (stmt);
-      truncate_ssa_stmt_operands ();
-
-      /* We don't need the symbol sets anymore.  */
-      loaded_syms = NULL;
-      stored_syms = NULL;
-    }
-  else
-    {
-      /* PHI nodes need special treatment.  A PHI node loads/stores
-	 all the symbols loaded/stored by its arguments.  */
-      get_loads_and_stores_for_phi (stmt, loads, stores);
-    }
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_loads_and_stores (dump_file, stmt, loads, stores);
-
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      fprintf (dump_file, "Original clobbered vars:           %d\n",
-	       clobber_stats.clobbered_vars);
-      fprintf (dump_file, "Static write clobbers avoided:     %d\n",
-	       clobber_stats.static_write_clobbers_avoided);
-      fprintf (dump_file, "Static read clobbers avoided:      %d\n",
-	       clobber_stats.static_read_clobbers_avoided);
-      fprintf (dump_file, "Unescapable clobbers avoided:      %d\n",
-	       clobber_stats.unescapable_clobbers_avoided);
-      fprintf (dump_file, "Original read-only clobbers:       %d\n",
-	       clobber_stats.readonly_clobbers);
-      fprintf (dump_file, "Static read-only clobbers avoided: %d\n",
-	       clobber_stats.static_readonly_clobbers_avoided);
-    }
+  dump_loads_and_stores (stderr, stmt);
 }
 
 
@@ -2806,38 +2929,50 @@ push_stmt_changes (tree *stmt_p)
 
   if (stmt_references_memory_p (stmt))
     {
+      mem_syms_map_t mp;
+
       buf->loads = BITMAP_ALLOC (NULL);
       buf->stores = BITMAP_ALLOC (NULL);
-      get_loads_and_stores (stmt, buf->loads, buf->stores);
+
+      mp = get_loads_and_stores (stmt);
+
+      if (mp->loads)
+	bitmap_copy (buf->loads, mp->loads);
+
+      if (mp->stores)
+	bitmap_copy (buf->stores, mp->stores);
     }
 
   VEC_safe_push (scb_t, heap, scb_stack, buf);
 }
 
 
-/* Given two sets S1 and S2, mark the symbols in S1 U S2 for renaming
-   if S1 != S2.  Sets S1 and S2 may be overwritten by this function.  */
+/* Given two sets S1 and S2, mark the symbols that differ in S1 and S2
+   for renaming.  The set to mark for renaming is (S1 & ~S2) | (S2 & ~S1).  */
 
 static void
 mark_difference_for_renaming (bitmap s1, bitmap s2)
 {
-  bitmap tmp = NULL;
-
   if (s1 == NULL && s2 == NULL)
     return;
 
   if (s1 && s2 == NULL)
-    tmp = s1;
+    mark_set_for_renaming (s1);
   else if (s1 == NULL && s2)
-    tmp = s2;
+    mark_set_for_renaming (s2);
   else if (!bitmap_equal_p (s1, s2))
     {
-      tmp = s1;
-      bitmap_ior_into (tmp, s2);
-    }
+      bitmap t1 = BITMAP_ALLOC (NULL);
+      bitmap t2 = BITMAP_ALLOC (NULL);
 
-  if (tmp)
-    mark_set_for_renaming (tmp);
+      bitmap_and_compl (t1, s1, s2);
+      bitmap_and_compl (t2, s2, s1);
+      bitmap_ior_into (t1, t2);
+      mark_set_for_renaming (t1);
+
+      BITMAP_FREE (t1);
+      BITMAP_FREE (t2);
+    }
 }
 
 
@@ -2850,6 +2985,7 @@ pop_stmt_changes (tree *stmt_p)
 {
   tree op, stmt;
   ssa_op_iter iter;
+  mem_syms_map_t mp;
   bitmap loads, stores;
   scb_t buf;
 
@@ -2872,9 +3008,9 @@ pop_stmt_changes (tree *stmt_p)
   loads = stores = NULL;
   if (stmt_references_memory_p (stmt))
     {
-      loads = BITMAP_ALLOC (NULL);
-      stores = BITMAP_ALLOC (NULL);
-      get_loads_and_stores (stmt, loads, stores);
+      mp = get_loads_and_stores (stmt);
+      loads = mp->loads;
+      stores = mp->stores;
     }
 
   /* If LOADS is different from BUF->LOADS, the affected
@@ -2908,9 +3044,24 @@ pop_stmt_changes (tree *stmt_p)
   BITMAP_FREE (buf->stores);
   buf->stmt_p = NULL;
   free (buf);
+}
 
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
+
+/* Returns true if statement STMT may access memory.  */
+
+bool
+stmt_references_memory_p (tree stmt)
+{
+  if (!ops_active)
+    return false;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      tree lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
+      return lhs_sym == mem_var || !is_gimple_reg (lhs_sym);
+    }
+
+  return stmt_ann (stmt)->references_memory;
 }
 
 #include "gt-tree-ssa-operands.h"

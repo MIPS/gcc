@@ -188,11 +188,14 @@ extern void dump_immediate_uses (FILE *file);
 extern void dump_immediate_uses_for (FILE *file, tree var);
 extern void debug_immediate_uses (void);
 extern void debug_immediate_uses_for (tree var);
+extern void debug_loads_and_stores (tree);
+extern void dump_loads_and_stores (FILE *, tree);
+extern void dump_decl_set (FILE *, bitmap);
+extern void debug_decl_set (bitmap);
 
 extern bool ssa_operands_active (void);
 
 extern void add_to_addressable_set (tree, bitmap *);
-extern void get_loads_and_stores (tree, bitmap, bitmap);
 extern void push_stmt_changes (tree *);
 extern void pop_stmt_changes (tree *);
 
@@ -323,5 +326,20 @@ typedef struct ssa_operand_iterator_d
 
 /* This macro counts the number of operands in STMT matching FLAGS.  */
 #define NUM_SSA_OPERANDS(STMT, FLAGS)	num_ssa_operands (STMT, FLAGS)
+
+/* Mapping between a statement and the symbols referenced by it.  */
+struct mem_syms_map_d
+{
+  tree stmt;
+  bitmap loads;
+  bitmap stores;
+};
+
+typedef struct mem_syms_map_d *mem_syms_map_t;
+
+extern mem_syms_map_t get_loads_and_stores (tree);
+extern void add_loads_and_stores (tree, bitmap, bitmap);
+extern void move_loads_and_stores (tree, tree);
+extern void delete_loads_and_stores (tree);
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

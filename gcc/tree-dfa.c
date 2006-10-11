@@ -768,18 +768,9 @@ mark_symbols_for_renaming (tree stmt)
 
   if (stmt_references_memory_p (stmt))
     {
-      bitmap loads, stores;
-
-      loads = BITMAP_ALLOC (NULL);
-      stores = BITMAP_ALLOC (NULL);
-
-      get_loads_and_stores (stmt, loads, stores);
-
-      mark_set_for_renaming (loads);
-      mark_set_for_renaming (stores);
-
-      BITMAP_FREE (loads);
-      BITMAP_FREE (stores);
+      mem_syms_map_t mp = get_loads_and_stores (stmt);
+      mark_set_for_renaming (mp->loads);
+      mark_set_for_renaming (mp->stores);
     }
 
   /* Mark all the GIMPLE register operands for renaming.  */

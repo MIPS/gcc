@@ -1301,7 +1301,7 @@ replace_uses_by (tree name, tree val)
 	}
     }
 
-  gcc_assert (num_imm_uses (name) == 0);
+  gcc_assert (zero_imm_uses_p (name));
 
   /* Also update the trees stored in loop structures.  */
   if (current_loops)
@@ -1356,13 +1356,12 @@ tree_merge_blocks (basic_block a, basic_block b)
 	     appear as arguments of the phi nodes.  */
 	  copy = build2 (MODIFY_EXPR, void_type_node, def, use);
 	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
-	  SET_PHI_RESULT (phi, NULL_TREE);
 	  SSA_NAME_DEF_STMT (def) = copy;
 	}
       else
 	replace_uses_by (def, use);
 
-      remove_phi_node (phi, NULL);
+      remove_phi_node (phi, NULL, false);
     }
 
   /* Ensure that B follows A.  */
@@ -1990,7 +1989,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
   while (phi)
     {
       tree next = PHI_CHAIN (phi);
-      remove_phi_node (phi, NULL_TREE);
+      remove_phi_node (phi, NULL_TREE, true);
       phi = next;
     }
 
@@ -2253,7 +2252,7 @@ find_case_label_for_value (tree switch_expr, tree val)
 void
 tree_dump_bb (basic_block bb, FILE *outf, int indent)
 {
-  dump_generic_bb (outf, bb, indent, TDF_VOPS);
+  dump_generic_bb (outf, bb, indent, TDF_VOPS|TDF_MEMSYMS);
 }
 
 
@@ -2863,6 +2862,9 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
   mark_stmt_modified (t);
   if (remove_eh_info)
     remove_stmt_from_eh_region (t);
+
+  if (stmt_references_memory_p (t))
+    delete_loads_and_stores (t);
 }
 
 
@@ -2929,6 +2931,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
     }
 
   delink_stmt_imm_use (orig_stmt);
+  if (stmt_references_memory_p (orig_stmt))
+    delete_loads_and_stores (orig_stmt);
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
   update_modified_stmts (stmt);
@@ -3945,12 +3949,20 @@ tree_make_forwarder_block (edge fallthru)
   if (single_pred_p (bb))
     return;
 
-  /* If we redirected a branch we must create new phi nodes at the
+  /* If we redirected a branch we must create new PHI nodes at the
      start of BB.  */
   for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
       var = PHI_RESULT (phi);
-      new_phi = create_phi_node (var, bb);
+
+      if (SSA_NAME_VAR (var) == mem_var)
+	{
+	  bitmap syms = get_loads_and_stores (phi)->stores;
+	  new_phi = create_factored_phi_node (var, bb, syms);
+	}
+      else
+	new_phi = create_phi_node (var, bb);
+
       SSA_NAME_DEF_STMT (var) = new_phi;
       SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
       add_phi_arg (new_phi, PHI_RESULT (phi), fallthru);
@@ -4251,7 +4263,18 @@ tree_duplicate_bb (basic_block bb)
      the incoming edges have not been setup yet.  */
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
-      tree copy = create_phi_node (PHI_RESULT (phi), new_bb);
+      tree lhs = PHI_RESULT (phi);
+      tree lhs_sym = SSA_NAME_VAR (lhs);
+      tree copy;
+
+      if (lhs_sym == mem_var)
+	{
+	  bitmap syms = get_loads_and_stores (phi)->stores;
+	  copy = create_factored_phi_node (PHI_RESULT (phi), new_bb, syms);
+	}
+      else
+	copy = create_phi_node (PHI_RESULT (phi), new_bb);
+
       create_new_def_for (PHI_RESULT (copy), copy, PHI_RESULT_PTR (copy));
     }
 

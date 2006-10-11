@@ -1669,7 +1669,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   ssa_op_iter iter;
   tree def, def_stmt;
   enum vect_def_type dt;
-  bitmap loads, stores;
+  mem_syms_map_t mp;
 
   /* Is vectorizable store? */
 
@@ -1736,13 +1736,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VDEF)
     SSA_NAME_DEF_STMT (def) = *vec_stmt;
 
-  loads = BITMAP_ALLOC (NULL);
-  stores = BITMAP_ALLOC (NULL);
-  get_loads_and_stores (stmt, loads, stores);
-  mark_set_for_renaming (loads);
-  mark_set_for_renaming (stores);
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
+  mp = get_loads_and_stores (stmt);
+  mark_set_for_renaming (mp->loads);
+  mark_set_for_renaming (mp->stores);
 
   return true;
 }
@@ -2976,8 +2972,6 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   int i;
   tree ratio = NULL;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  bitmap_iterator bi;
-  unsigned int j;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -3040,7 +3034,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 
   /* CHECKME: we wouldn't need this if we called update_ssa once
      for all loops.  */
-  bitmap_zero (vect_vnames_to_rename);
+  bitmap_zero (vect_memsyms_to_rename);
 
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
@@ -3127,8 +3121,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 
   slpeel_make_loop_iterate_ntimes (loop, ratio);
 
-  EXECUTE_IF_SET_IN_BITMAP (vect_vnames_to_rename, 0, j, bi)
-    mark_sym_for_renaming (SSA_NAME_VAR (ssa_name (j)));
+  mark_set_for_renaming (vect_memsyms_to_rename);
 
   /* The memory tags and pointers in vectorized statements need to
      have their SSA forms updated.  FIXME, why can't this be delayed

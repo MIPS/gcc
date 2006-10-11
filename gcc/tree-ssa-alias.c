@@ -513,7 +513,6 @@ compute_may_aliases (void)
      avoid invalid transformations on them.  */
   maybe_create_global_var (ai);
 
-
   /* If the program contains ref-all pointers, finalize may-alias information
      for them.  This pass needs to be run after call-clobbering information
      has been computed.  */
@@ -761,6 +760,15 @@ init_alias_info (void)
 		bitmap_clear (pi->pt_vars);
 	    }
 	}
+    }
+  else
+    {
+      /* If this is the first time we compute aliasing information,
+	 every non-register symbol will need to be put into SSA form
+	 (the initial SSA form only operates on GIMPLE registers).  */
+      FOR_EACH_REFERENCED_VAR (var, rvi)
+	if (!is_gimple_reg (var))
+	  mark_sym_for_renaming (var);
     }
 
   /* Next time, we will need to reset alias information.  */
@@ -1287,11 +1295,12 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
       /* Global variables and addressable locals may be aliased.  Create an
          entry in ADDRESSABLE_VARS for VAR.  */
-      if (may_be_aliased (var)	  
-	  && (!var_can_have_subvars (var) 
-	      || get_subvars_for_var (var) == NULL))
+      if (may_be_aliased (var))
 	{
-	  create_alias_map_for (var, ai);
+	  if (!var_can_have_subvars (var)
+	      || get_subvars_for_var (var) == NULL)
+	    create_alias_map_for (var, ai);
+
 	  mark_sym_for_renaming (var);
 	}
 
@@ -1354,6 +1363,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	    }
 	}
     }
+
   VEC_free (tree, heap, varvec);
 }
 
@@ -2018,16 +2028,8 @@ dump_points_to_info_for (FILE *file, tree ptr)
 
       if (pi->pt_vars)
 	{
-	  unsigned ix;
-	  bitmap_iterator bi;
-
-	  fprintf (file, ", points-to vars: { ");
-	  EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, ix, bi)
-	    {
-	      print_generic_expr (file, referenced_var (ix), dump_flags);
-	      fprintf (file, " ");
-	    }
-	  fprintf (file, "}");
+	  fprintf (file, ", points-to vars: ");
+	  dump_decl_set (file, pi->pt_vars);
 	}
     }
 

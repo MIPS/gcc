@@ -1,3 +1,168 @@
+2006-10-11  Diego Novillo  <dnovillo@redhat.com>
+
+	NOTE: WIP.  With these changes, the branch does not bootstrap.
+
+	* tree-ssa-operands.h (dump_loads_and_stores,
+	debug_loads_and_stores, dump_decl_set, debug_decl_set):
+	Declare.
+	(struct mem_syms_map_d): Declare.
+	(mem_syms_map_t): Declare.
+	(add_loads_and_stores, move_loads_and_stores,
+	delete_loads_and_stores): Declare.
+	* tree-into-ssa.c (struct ssa_name_info): Add field
+	'reached_syms'.
+	(syms_stored_in_bb): New local variable.
+	(syms_with_phi_in_bb): New local variable.
+	(syms_to_factor_in_bb): New local variable.
+	(struct unfactored_phis_d): Declare.
+	(unfactored_phis_t): Declare.
+	(first_unfactored_phi): New local variable.
+	(last_unfactored_phi): New local variable.
+	(unfactored_phis): New local variable.
+	(last_dom_num): New local variable.
+	(mem_syms_tbl): Remove.
+	(dump_stored_syms): New.
+	(debug_stored_syms): New.
+	(dump_unfactored_phis): New.
+	(debug_unfactored_phis): New.
+	(dump_unfactored_phi): New.
+	(debug_unfactored_phi): New.
+	(get_dom_num): New.
+	(get_name_dom_num): New.
+	(set_next_dom_num): New.
+	(unfactored_phis_hash): New.
+	(unfactored_phis_eq): New.
+	(unfactored_phis): New.
+	(mem_syms_hash): Remove.
+	(mem_syms_eq): Remove.
+	(mem_syms_free): Remove.
+	(add_syms_with_phi): New.
+	(add_stored_syms): New.
+	(add_stored_sym): New.
+	(mark_def_sites): Do not process statements that reference
+	memory.
+	(compute_idf): Rename from find_idf.
+	When inserting PHI nodes for .MEM, determine set of symbols to
+	associate initially using SYMS_STORED_IN_BB and
+	SYMS_WITH_PHI_IN_BB.
+	(insert_phi_nodes_for): Call create_factored_phi_node if
+	needed.
+	(insert_phi_nodes): Likewise.
+	(rewrite_memory_stmt): Remove.
+	(rewrite_update_init_block): Call set_next_dom_num.
+	PHI nodes for .MEM become the current definition for every
+	symbol factored in them.
+	(preserve_needed_names_in_vops): Remove.
+	(rewrite_vops): New.
+	(rewrite_update_stmt_vops): Call it.
+	(rewrite_update_stmt): Call set_next_dom_num.
+	(add_reached_sym): New.
+	(lookup_unfactored_phi): New.
+	(get_unfactored_phi): New.
+	(split_factored_phi): New.
+	(replace_factored_phi_argument): New.
+	(rewrite_update_phi_arguments): Call it.
+	(init_ssa_renamer): Initialize last_dom_num,
+	syms_stored_in_bb, syms_with_phi_in_bb, syms_to_factor_in_bb.
+	(fini_ssa_renamer): Deallocate syms_stored_in_bb,
+	syms_with_phi_in_bb, syms_to_factor_in_bb.
+	(prepare_block_for_update): Fill-in syms_with_phi_in_bb and
+	syms_stored_in_bb.
+	(delete_update_ssa): Deallocate unfactored_phis and
+	blocks_with_phis_to_rewrite.
+	(add_to_fixup_queues): New.
+	(compute_currdefs_for): New.
+	(fixup_unfactored_phis): New.
+	(update_ssa): Insert PHI nodes for .MEM separately.
+	Do not try to insert PHI nodes for memory symbols.
+	Call fixup_unfactored_phis.
+	* tree-dump.c (dump_options): Add entry for "memsyms".
+	* tree-pretty-print.c (debug_generic_expr): Add flag
+	TDF_MEMSYMS.
+	(debug_tree_chain): Likewise.
+	(dump_symbols): New.
+	(dump_generic_node): Call it if TDF_MEMSYMS is given.
+	(dump_vops): Likewise.
+	* tree-ssa-loop-manip.c (split_loop_exit_edge): Ignore memory
+	symbols.
+	* tree-pass.h (TDF_MEMSYMS): Define.
+	* bitmap.c (bitmap_singleton_p): New.
+	* bitmap.h (bitmap_singleton_p): Declare.
+	* tree-phinodes.c (release_phi_node): Call
+	delete_loads_and_stores.
+	(resize_phi_node): Call move_loads_and_stores.
+	(create_phi_node_1): New.
+	(create_phi_node): Call it.
+	(create_factored_phi_node): New.
+	(remove_phi_node): Add new boolean argument RELEASE_LHS_P.  If
+	it is true, call release_ssa_name.
+	Update all callers.
+	* tree-ssa-alias.c (init_alias_info): The first time aliases
+	are computed mark every memory symbol to be renamed.
+	(setup_pointers_and_addressables):
+	(dump_points_to_info_for):
+	* timevar.def (TV_TREE_SSA_PHI_UNFACTOR): New.
+	(TV_TREE_SSA_FIX_UNFACTORED_UD): New.
+	* tree-vectorizer.c (slpeel_update_phi_nodes_for_guard1): Only
+	handle LCSSA PHIs for GIMPLE registers.
+	* tree-vectorizer.h (vect_memsyms_to_rename): Rename from
+	vect_vnames_to_rename.  Update all users.
+	* tree-flow-inline.h (zero_imm_uses_p): New.
+	* tree-ssa.c (verify_ssa_name): Do not verify sub-variables
+	for memory symbols.
+	Verify that every memory name uses the canonical MEM_0
+	definition.
+	(verify_use): Add argument SYMS_IN_FACTORED_PHIS.  Update all
+	users.
+	Add verification for PHI nodes that reference memory.
+	(stmt_references_memory_p): Move to tree-ssa-operands.c
+	(walk_use_def_chains_1): Guard against NULL PHI arguments.
+	* tree-ssa-loop-prefetch.c (SSA_NAME_VAR): Remove.
+	* tree-flow.h (struct stmt_ann_d): Add bitfield
+	references_memory.
+	(create_factored_phi_node): Declare.
+	* tree-cfg.c 
+	(bsi_remove): Call delete_loads_and_stores if needed.
+	(bsi_replace): Likewise.
+	(tree_make_forwarder_block): Call create_factored_phi_node if
+	needed.
+	(tree_duplicate_bb): Likewise.
+	* tree-ssanames.c (release_defs): Remove assertion against
+	.MEM.
+	* tree-ssa-operands.c (mem_syms_tbl): New local variable.
+	(mem_syms_hash): New.
+	(mem_syms_eq): New.
+	(mem_syms_free): New.
+	(init_ssa_operands): Intialize mem_syms_tbl.
+	(fini_ssa_operands): Delete mem_syms_tbl.
+	(add_virtual_operator): Do nothing if aliases_computed_p is
+	false.
+	(add_mem_symbol): Do nothing if stored_syms is not set.
+	(get_mem_symbols_in_indirect_ref): Process statement even if
+	aliases have not been computed.
+	(add_stmt_operand): Mark statement as referencing memory if
+	needed.
+	(get_indirect_ref_operands): Likewise.
+	(get_tmr_operands): Likewise.
+	(get_call_expr_operands): Likewise.
+	(get_asm_expr_operands): Likewise.
+	(build_ssa_operands): Initialize references_memory annotation
+	to false.
+	If has_volatile_ops has been marked by the parser, also set
+	references_memory.
+	(get_loads_and_stores): Change interface to return sets of
+	loads and stores in a structure.  Update all callers.
+	(delete_loads_and_stores): New.
+	(add_loads_and_stores): New.
+	(move_loads_and_stores): New.
+	(update_loads_and_stores): New.
+	(update_stmt_operands): Call update_loads_and_stores if
+	needed.
+	(mark_difference_for_renaming): Compute difference without
+	clobbering the input sets.
+	(stmt_references_memory_p): Move from tree-ssa.c.  Check the
+	statement annotation.
+
 2006-07-07  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2006-07-06 (@115232).

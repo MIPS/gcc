@@ -493,6 +493,13 @@ num_imm_uses (tree var)
   return num;
 }
 
+/* Return true if VAR has no immediate uses.  */
+static inline bool
+zero_imm_uses_p (tree var)
+{
+  ssa_use_operand_t *ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  return (ptr == ptr->next);
+}
 
 /* Return the tree pointer to by USE.  */ 
 static inline tree

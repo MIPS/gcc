@@ -3159,12 +3159,9 @@ update_alias_info (tree stmt, struct alias_info *ai)
   /* Mark variables in VDEF operands as being written to.  */
   if (stmt_references_memory_p (stmt))
     {
-      bitmap loads = BITMAP_ALLOC (NULL);
-      bitmap stores = BITMAP_ALLOC (NULL);
-      get_loads_and_stores (stmt, loads, stores);
-      bitmap_ior_into (ai->written_vars, stores);
-      BITMAP_FREE (loads);
-      BITMAP_FREE (stores);
+      mem_syms_map_t mp = get_loads_and_stores (stmt);
+      if (mp->stores)
+	bitmap_ior_into (ai->written_vars, mp->stores);
     }
 }
 
@@ -4489,10 +4486,10 @@ compute_points_to_sets (struct alias_info *ai)
 	{
 	  tree stmt = bsi_stmt (bsi);
 	  find_func_aliases (stmt);
-	      /* Update various related attributes like escaped
-		 addresses, pointer dereferences for loads and stores.
-		 This is used when creating name tags and alias
-		 sets.  */
+
+	  /* Update various related attributes like escaped addresses,
+	     pointer dereferences for loads and stores.  This is used
+	     when creating name tags and alias sets.  */
 	  update_alias_info (stmt, ai);
 	}
     }

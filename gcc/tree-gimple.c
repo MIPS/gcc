@@ -374,7 +374,7 @@ is_gimple_val (tree t)
   /* FIXME make these decls.  That can happen only when we expose the
      entire landing-pad construct at the tree level.  */
   if (TREE_CODE (t) == EXC_PTR_EXPR || TREE_CODE (t) == FILTER_EXPR)
-    return 1;
+    return true;
 
   return (is_gimple_variable (t) || is_gimple_min_invariant (t));
 }

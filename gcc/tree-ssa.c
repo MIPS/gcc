@@ -76,7 +76,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   return e;
 }
 
-/* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
+/* Add PHI arguments queued in PENDING_STMT list on edge E to edge
    E->dest.  */
 
 void
@@ -136,10 +136,21 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
+#if 0
   if (is_virtual && var_ann (SSA_NAME_VAR (ssa_name)) 
       && get_subvars_for_var (SSA_NAME_VAR (ssa_name)) != NULL)
     {
       error ("found real variable when subvariables should have appeared");
+      return true;
+    }
+#endif
+
+  /* All the memory SSA names must use the same default definition.  */
+  if (is_virtual
+      && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
+      && SSA_NAME_VAR (ssa_name) != mem_var)
+    {
+      error ("the default definition of a memory symbol should be .MEM_0(D)");
       return true;
     }
 
@@ -252,6 +263,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
     }
 
   if (check_abnormal
+      && ssa_name != default_def (mem_var)
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name))
     {
       error ("SSA_NAME_OCCURS_IN_ABNORMAL_PHI should be set");
@@ -294,16 +306,23 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
 /* Return true if any of the arguments for PHI node PHI at block BB is
    malformed.
 
-   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
-      numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
-      block in that array slot contains the definition of SSA_NAME.  */
+   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
+      version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
+      it means that the block in that array slot contains the
+      definition of SSA_NAME.
+
+   SYMS_IN_FACTORED_PHIS contains the set of collected symbols found
+      in factored PHI nodes.  No symbol should be in more than one
+      factored PHI node.  */
 
 static bool
-verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
+verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
+		 bitmap syms_in_factored_phis)
 {
   edge e;
   bool err = false;
   unsigned i, phi_num_args = PHI_NUM_ARGS (phi);
+  mem_syms_map_t syms_phi = NULL;
 
   if (EDGE_COUNT (bb->preds) != phi_num_args)
     {
@@ -312,11 +331,52 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       goto error;
     }
 
+  if (stmt_references_memory_p (phi))
+    {
+      bitmap_iterator bi;
+      unsigned i;
+      
+      syms_phi = get_loads_and_stores (phi);
+      if (syms_phi->loads != syms_phi->stores)
+	{
+	  error ("Sets of loads and stores should be shared");
+	  err = true;
+	  goto error;
+	}
+
+      EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
+	if (is_gimple_reg (referenced_var (i)))
+	  {
+	    error ("Found GIMPLE register in set of stored memory symbols");
+	    fprintf (stderr, "Symbol: ");
+	    print_generic_stmt (stderr, referenced_var (i), 0);
+	    err = true;
+	  }
+
+      /* If this PHI node has no uses, then it doesn't matter if it
+	 factors symbols in common with another PHI node.  */
+      if (num_imm_uses (PHI_RESULT (phi)) > 0
+	  && bitmap_intersect_p (syms_phi->stores, syms_in_factored_phis))
+	{
+	  bitmap tmp = BITMAP_ALLOC (NULL);
+	  bitmap_and (tmp, syms_phi->stores, syms_in_factored_phis);
+	  error ("Found symbols factored by more than one PHI node in the "
+	         "same block");
+	  dump_decl_set (stderr, tmp);
+	  BITMAP_FREE (tmp);
+	  err = true;
+	}
+      else
+	bitmap_ior_into (syms_in_factored_phis, syms_phi->stores);
+
+      if (err)
+	goto error;
+    }
+
   for (i = 0; i < phi_num_args; i++)
     {
       use_operand_p op_p = PHI_ARG_DEF_PTR (phi, i);
       tree op = USE_FROM_PTR (op_p);
-
 
       e = EDGE_PRED (bb, i);
 
@@ -336,8 +396,11 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	}
 
       if (TREE_CODE (op) == SSA_NAME)
-	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op_p,
-			  phi, e->flags & EDGE_ABNORMAL,
+	err = verify_use (e->src,
+	                  definition_block[SSA_NAME_VERSION (op)],
+			  op_p,
+			  phi,
+			  e->flags & EDGE_ABNORMAL,
 			  !is_gimple_reg (PHI_RESULT (phi)),
 			  NULL);
 
@@ -360,7 +423,7 @@ error:
   if (err)
     {
       fprintf (stderr, "for PHI node\n");
-      print_generic_stmt (stderr, phi, TDF_VOPS);
+      print_generic_stmt (stderr, phi, TDF_VOPS|TDF_MEMSYMS);
     }
 
 
@@ -713,6 +776,7 @@ verify_ssa (bool check_modified_stmt)
       tree phi;
       edge_iterator ei;
       block_stmt_iterator bsi;
+      bitmap factored_syms;
 
       /* Make sure that all edges have a clear 'aux' field.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -726,13 +790,20 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
+      factored_syms = BITMAP_ALLOC (NULL);
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  if (verify_phi_args (phi, bb, definition_block))
-	    goto err;
+	  if (verify_phi_args (phi, bb, definition_block, factored_syms))
+	    {
+	      BITMAP_FREE (factored_syms);
+	      goto err;
+	    }
+
 	  bitmap_set_bit (names_defined_in_bb,
 			  SSA_NAME_VERSION (PHI_RESULT (phi)));
 	}
+
+      BITMAP_FREE (factored_syms);
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -785,7 +856,8 @@ verify_ssa (bool check_modified_stmt)
     }
 
   /* Finally, verify alias information.  */
-  verify_alias_info ();
+  if (aliases_computed_p)
+    verify_alias_info ();
 
   free (definition_block);
 
@@ -1032,20 +1104,6 @@ tree_ssa_useless_type_conversion (tree expr)
 }
 
 
-/* Returns true if statement STMT may access memory.  */
-
-bool
-stmt_references_memory_p (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-
-  if (ann->has_volatile_ops)
-    return true;
-
-  return (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
-}
-
-
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
    
@@ -1091,7 +1149,10 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
       for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	{
 	  tree arg = PHI_ARG_DEF (def_stmt, i);
-	  if (TREE_CODE (arg) == SSA_NAME
+
+	  /* ARG may be NULL for newly introduced PHI nodes.  */
+	  if (arg
+	      && TREE_CODE (arg) == SSA_NAME
 	      && walk_use_def_chains_1 (arg, fn, data, visited, is_dfs))
 	    return true;
 	}
@@ -1128,7 +1189,6 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 
    If IS_DFS is false, the two steps above are done in reverse order
    (i.e., a breadth-first search).  */
-
 
 void
 walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,

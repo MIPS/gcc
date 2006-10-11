@@ -579,6 +579,38 @@ bitmap_count_bits (bitmap a)
 }
 
 
+/* Return true if bitmap A is a singleton set (i.e., it contains only
+   one element).  */
+
+bool
+bitmap_singleton_p (bitmap a)
+{
+  bitmap_element *elt;
+  unsigned long count = 0;
+  unsigned ix;
+
+  if (bitmap_empty_p (a))
+    return false;
+
+  /* If there are more than two entries in the list, the set cannot be
+     a singleton.  */
+  if (a->first->next)
+    return false;
+
+  for (count = 0, ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)
+    {
+#if GCC_VERSION >= 3400
+      count += __builtin_popcountl (a->first->bits[ix]);
+#else
+      count += bitmap_popcount (a->first->bits[ix]);
+#endif
+      if (count > 1)
+	return false;
+    }
+
+  return true;
+}
+
 
 /* Return the bit number of the first set bit in the bitmap.  The
    bitmap must be non-empty.  */

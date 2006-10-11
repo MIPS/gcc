@@ -103,6 +103,9 @@ extern bool bitmap_intersect_compl_p (bitmap, bitmap);
 /* Count the number of bits set in the bitmap.  */
 extern unsigned long bitmap_count_bits (bitmap);
 
+/* Determine whether a bitmap is a singleton set.  */
+extern bool bitmap_singleton_p (bitmap);
+
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants
    are three operand versions that to not destroy the source bitmaps.

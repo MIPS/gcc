@@ -457,11 +457,11 @@ split_loop_exit_edge (edge exit)
 
       /* If the argument of the phi node is a constant, we do not need
 	 to keep it inside loop.  */
-      if (TREE_CODE (name) != SSA_NAME)
+      if (TREE_CODE (name) != SSA_NAME || !is_gimple_reg (name))
 	continue;
 
       /* Otherwise create an auxiliary phi node that will copy the value
-	 of the ssa name out of the loop.  */
+	 of the SSA name out of the loop.  */
       new_name = duplicate_ssa_name (name, NULL);
       new_phi = create_phi_node (new_name, bb);
       SSA_NAME_DEF_STMT (new_name) = new_phi;

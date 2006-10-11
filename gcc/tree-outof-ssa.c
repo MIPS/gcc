@@ -1119,7 +1119,7 @@ eliminate_virtual_phis (void)
 		    }
 		}
 #endif
-	      remove_phi_node (phi, NULL_TREE);
+	      remove_phi_node (phi, NULL_TREE, true);
 	    }
 	}
     }
@@ -2394,13 +2394,13 @@ remove_ssa_form (var_map map, int flags)
   if (values)
     free (values);
 
-  /* Remove phi nodes which have been translated back to real variables.  */
+  /* Remove PHI nodes which have been translated back to real variables.  */
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = next)
 	{
 	  next = PHI_CHAIN (phi);
-	  remove_phi_node (phi, NULL_TREE);
+	  remove_phi_node (phi, NULL_TREE, true);
 	}
     }
 

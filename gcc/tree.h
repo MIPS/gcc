@@ -1771,7 +1771,7 @@ struct tree_phi_node GTY(())
   int num_args;
   int capacity;
 
-  /* Basic block to that the phi node belongs.  */
+  /* Basic block holding this PHI node.  */
   struct basic_block_def *bb;
 
   /* Arguments of the PHI node.  These are maintained in the same

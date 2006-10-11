@@ -916,22 +916,16 @@ free_mem_ref_locs (struct mem_ref_loc *mem_refs)
 static void
 rewrite_mem_refs (tree tmp_var, struct mem_ref_loc *mem_refs)
 {
-  bitmap loads = BITMAP_ALLOC (NULL);
-  bitmap stores = BITMAP_ALLOC (NULL);
+  mem_syms_map_t mp;
 
   for (; mem_refs; mem_refs = mem_refs->next)
     {
-      bitmap_clear (loads);
-      bitmap_clear (stores);
-      get_loads_and_stores (mem_refs->stmt, loads, stores);
-      mark_set_for_renaming (stores);
-      mark_set_for_renaming (loads);
+      mp = get_loads_and_stores (mem_refs->stmt);
+      mark_set_for_renaming (mp->stores);
+      mark_set_for_renaming (mp->loads);
       *mem_refs->ref = tmp_var;
       update_stmt (mem_refs->stmt);
     }
-
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
 }
 
 /* The name and the length of the currently generated variable
@@ -1217,13 +1211,10 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
   PTR *slot;
   struct mem_ref *ref = NULL;
   bool is_stored;
-  bitmap loads, stores;
+  mem_syms_map_t mp;
 
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return;
-
-  loads = BITMAP_ALLOC (NULL);
-  stores = BITMAP_ALLOC (NULL);
 
   /* Recognize MEM = (SSA_NAME | invariant) and SSA_NAME = MEM patterns.  */
   if (TREE_CODE (stmt) != MODIFY_EXPR)
@@ -1277,20 +1268,25 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     }
   ref->is_stored |= is_stored;
 
-  get_loads_and_stores (stmt, loads, stores);
-  bitmap_ior_into (ref->vops, loads);
-  bitmap_ior_into (ref->vops, stores);
+  mp = get_loads_and_stores (stmt);
+
+  if (mp->loads)
+    bitmap_ior_into (ref->vops, mp->loads);
+
+  if (mp->stores)
+    bitmap_ior_into (ref->vops, mp->stores);
+
   record_mem_ref_loc (&ref->locs, stmt, mem);
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
   return;
 
 fail:
-  get_loads_and_stores (stmt, loads, stores);
-  bitmap_ior_into (clobbered_vops, loads);
-  bitmap_ior_into (clobbered_vops, stores);
-  BITMAP_FREE (loads);
-  BITMAP_FREE (stores);
+  mp = get_loads_and_stores (stmt);
+
+  if (mp->loads)
+    bitmap_ior_into (clobbered_vops, mp->loads);
+
+  if (mp->stores)
+    bitmap_ior_into (clobbered_vops, mp->stores);
 }
 
 /* Gathers memory references in LOOP.  Notes vops accessed through unrecognized

@@ -233,6 +233,7 @@ make_phi_node (tree var, int len)
       imm->next = NULL;
       imm->stmt = phi;
     }
+
   return phi;
 }
 
@@ -251,6 +252,8 @@ release_phi_node (tree phi)
       imm = &(PHI_ARG_IMM_USE_NODE (phi, x));
       delink_imm_use (imm);
     }
+
+  delete_loads_and_stores (phi);
 
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
@@ -301,6 +304,8 @@ resize_phi_node (tree *phi, int len)
       imm->stmt = new_phi;
     }
 
+  if (stmt_references_memory_p (*phi))
+    move_loads_and_stores (new_phi, *phi);
 
   *phi = new_phi;
 }
@@ -343,10 +348,11 @@ reserve_phi_args_for_new_edge (basic_block bb)
     }
 }
 
+
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
-tree
-create_phi_node (tree var, basic_block bb)
+static tree
+create_phi_node_1 (tree var, basic_block bb)
 {
   tree phi;
 
@@ -361,6 +367,42 @@ create_phi_node (tree var, basic_block bb)
 
   return phi;
 }
+
+
+/* Create a new PHI node for variable VAR at basic block BB.  */
+
+tree
+create_phi_node (tree var, basic_block bb)
+{
+#if defined ENABLE_CHECKING
+  /* Factored PHI nodes should be created using create_factored_phi_node.  */
+  tree sym = (TREE_CODE (var) == SSA_NAME) ? SSA_NAME_VAR (var) : var;
+  gcc_assert (sym != mem_var);
+#endif
+
+  return create_phi_node_1 (var, bb);
+}
+
+
+/* Create a factored PHI node at basic block BB.  Associate it with
+   the set of symbols SYMS.  VAR must be either .MEM or an SSA name
+   for .MEM.  */
+
+tree
+create_factored_phi_node (tree var, basic_block bb, bitmap syms)
+{
+  tree phi;
+
+  gcc_assert (var == mem_var || SSA_NAME_VAR (var) == mem_var);
+
+  phi = create_phi_node_1 (var, bb);
+
+  if (syms)
+    add_loads_and_stores (phi, syms, syms);
+
+  return phi;
+}
+
 
 /* Add a new argument to PHI node PHI.  DEF is the incoming reaching
    definition and E is the edge through which DEF reaches PHI.  The new
@@ -394,6 +436,7 @@ add_phi_arg (tree phi, tree def, edge e)
   SET_PHI_ARG_DEF (phi, e->dest_idx, def);
 }
 
+
 /* Remove the Ith argument from PHI's argument list.  This routine
    implements removal by swapping the last alternative with the
    alternative we want to delete and then shrinking the vector, which
@@ -405,7 +448,6 @@ remove_phi_arg_num (tree phi, int i)
   int num_elem = PHI_NUM_ARGS (phi);
 
   gcc_assert (i < num_elem);
-
 
   /* Delink the item which is being removed.  */
   delink_imm_use (&(PHI_ARG_IMM_USE_NODE (phi, i)));
@@ -428,6 +470,7 @@ remove_phi_arg_num (tree phi, int i)
   PHI_NUM_ARGS (phi)--;
 }
 
+
 /* Remove all PHI arguments associated with edge E.  */
 
 void
@@ -439,11 +482,14 @@ remove_phi_args (edge e)
     remove_phi_arg_num (phi, e->dest_idx);
 }
 
+
 /* Remove PHI node PHI from basic block BB.  If PREV is non-NULL, it is
-   used as the node immediately before PHI in the linked list.  */
+   used as the node immediately before PHI in the linked list.  If
+   RELEASE_LHS_P is true, the LHS of this PHI node is released into
+   the free pool of SSA names.  */
 
 void
-remove_phi_node (tree phi, tree prev)
+remove_phi_node (tree phi, tree prev, bool release_lhs_p)
 {
   tree *loc;
 
@@ -465,7 +511,8 @@ remove_phi_node (tree phi, tree prev)
   /* If we are deleting the PHI node, then we should release the
      SSA_NAME node so that it can be reused.  */
   release_phi_node (phi);
-  release_ssa_name (PHI_RESULT (phi));
+  if (release_lhs_p)
+    release_ssa_name (PHI_RESULT (phi));
 }
 
 

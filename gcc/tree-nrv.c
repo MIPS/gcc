@@ -263,7 +263,7 @@ execute_return_slot_opt (void)
 	      && stmt_references_memory_p (stmt)
 	      && aggregate_value_p (call, call))
 	    {
-	      bitmap loads, stores;
+	      mem_syms_map_t mp;
 	      unsigned i;
 	      bitmap_iterator bi;
 
@@ -271,12 +271,11 @@ execute_return_slot_opt (void)
 		 asking whether it is call clobbered.  When the LHS isn't a
 		 simple decl, we need to check the VDEFs, so it's simplest
 		 to just loop through all the stored symbols.  */
-	      loads = BITMAP_ALLOC (NULL);
-	      stores = BITMAP_ALLOC (NULL);
-	      get_loads_and_stores (stmt, loads, stores);
-	      EXECUTE_IF_SET_IN_BITMAP (stores, 0, i, bi)
-		if (is_call_clobbered (referenced_var (i)))
-		  goto unsafe;
+	      mp = get_loads_and_stores (stmt);
+	      if (mp->stores)
+		EXECUTE_IF_SET_IN_BITMAP (mp->stores, 0, i, bi)
+		  if (is_call_clobbered (referenced_var (i)))
+		    goto unsafe;
 
 	      /* No defs are call clobbered, so the optimization is safe.  */
 	      CALL_EXPR_RETURN_SLOT_OPT (call) = 1;
@@ -284,9 +283,7 @@ execute_return_slot_opt (void)
 	      /* This is too late to mark the target addressable like we do
 		 in gimplify_modify_expr_rhs, but that's OK; anything that
 		 wasn't already addressable was handled there.  */
-	      unsafe:
-	      BITMAP_FREE (stores);
-	      BITMAP_FREE (loads);
+	      unsafe: ;
 	    }
 	}
     }
