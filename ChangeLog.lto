@@ -1,3 +1,8 @@
+2006-10-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc/lto/lto.c (lto_read_typedef_DIE): Treat missing type attribute
+	as void instead of error, for compatibility with dwarf2out.c behavior.
+
 2006-10-10  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_read_comp_unit_header): Add sanity check
