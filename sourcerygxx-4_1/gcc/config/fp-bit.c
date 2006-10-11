@@ -160,14 +160,15 @@ INLINE
 static int
 isnan ( fp_number_type *  x)
 {
-  return x->class == CLASS_SNAN || x->class == CLASS_QNAN;
+  return __builtin_expect (x->class == CLASS_SNAN || x->class == CLASS_QNAN,
+			   0);
 }
 
 INLINE
 static int
 isinf ( fp_number_type *  x)
 {
-  return x->class == CLASS_INFINITY;
+  return __builtin_expect (x->class == CLASS_INFINITY, 0);
 }
 
 #endif /* NO_NANS */
@@ -184,6 +185,22 @@ static void
 flip_sign ( fp_number_type *  x)
 {
   x->sign = !x->sign;
+}
+
+/* Count leading zeroes in N.  */
+INLINE
+static int
+clzusi (USItype n)
+{
+  extern int __clzsi2 (USItype);
+  if (sizeof (USItype) == sizeof (unsigned int))
+    return __builtin_clz (n);
+  else if (sizeof (USItype) == sizeof (unsigned long))
+    return __builtin_clzl (n);
+  else if (sizeof (USItype) == sizeof (unsigned long long))
+    return __builtin_clzll (n);
+  else
+    return __clzsi2 (n);
 }
 
 extern FLO_type pack_d ( fp_number_type * );
@@ -233,7 +250,7 @@ pack_d ( fp_number_type *  src)
     }
   else
     {
-      if (src->normal_exp < NORMAL_EXPMIN)
+      if (__builtin_expect (src->normal_exp < NORMAL_EXPMIN, 0))
 	{
 #ifdef NO_DENORMALS
 	  /* Go straight to a zero representation if denormals are not
@@ -280,7 +297,7 @@ pack_d ( fp_number_type *  src)
 #endif /* NO_DENORMALS */
 	}
       else if (!LARGEST_EXPONENT_IS_NORMAL (FRAC_NBITS)
-	       && src->normal_exp > EXPBIAS)
+	       && __builtin_expect (src->normal_exp > EXPBIAS, 0))
 	{
 	  exp = EXPMAX;
 	  fraction = 0;
@@ -544,7 +561,8 @@ unpack_d (FLO_union_type * src, fp_number_type * dst)
 	  dst->fraction.ll = fraction;
 	}
     }
-  else if (!LARGEST_EXPONENT_IS_NORMAL (FRAC_NBITS) && exp == EXPMAX)
+  else if (!LARGEST_EXPONENT_IS_NORMAL (FRAC_NBITS)
+	   && __builtin_expect (exp == EXPMAX, 0))
     {
       /* Huge exponent*/
       if (fraction == 0)
@@ -633,6 +651,7 @@ _fpadd_parts (fp_number_type * a,
      they're the same */
   {
     int diff;
+    int sdiff;
 
     a_normal_exp = a->normal_exp;
     b_normal_exp = b->normal_exp;
@@ -640,21 +659,21 @@ _fpadd_parts (fp_number_type * a,
     b_fraction = b->fraction.ll;
 
     diff = a_normal_exp - b_normal_exp;
+    sdiff = diff;
 
     if (diff < 0)
       diff = -diff;
     if (diff < FRAC_NBITS)
       {
-	/* ??? This does shifts one bit at a time.  Optimize.  */
-	while (a_normal_exp > b_normal_exp)
+	if (sdiff > 0)
 	  {
-	    b_normal_exp++;
-	    LSHIFT (b_fraction);
+	    b_normal_exp += diff;
+	    LSHIFT (b_fraction, diff);
 	  }
-	while (b_normal_exp > a_normal_exp)
+	else if (sdiff < 0)
 	  {
-	    a_normal_exp++;
-	    LSHIFT (a_fraction);
+	    a_normal_exp += diff;
+	    LSHIFT (a_fraction, diff);
 	  }
       }
     else
@@ -715,7 +734,7 @@ _fpadd_parts (fp_number_type * a,
 
   if (tmp->fraction.ll >= IMPLICIT_2)
     {
-      LSHIFT (tmp->fraction.ll);
+      LSHIFT (tmp->fraction.ll, 1);
       tmp->normal_exp++;
     }
   return tmp;
@@ -1334,6 +1353,8 @@ si_to_float (SItype arg_a)
     }
   else
     {
+      USItype uarg;
+      int shift;
       in.normal_exp = FRACBITS + NGARDS;
       if (in.sign) 
 	{
@@ -1343,15 +1364,17 @@ si_to_float (SItype arg_a)
 	    {
 	      return (FLO_type)(- MAX_SI_INT - 1);
 	    }
-	  in.fraction.ll = (-arg_a);
+	  uarg = (-arg_a);
 	}
       else
-	in.fraction.ll = arg_a;
+	uarg = arg_a;
 
-      while (in.fraction.ll < ((fractype)1 << (FRACBITS + NGARDS)))
+      in.fraction.ll = uarg;
+      shift = clzusi (uarg) - (BITS_PER_SI - 1 - FRACBITS - NGARDS);
+      if (shift > 0)
 	{
-	  in.fraction.ll <<= 1;
-	  in.normal_exp -= 1;
+	  in.fraction.ll <<= shift;
+	  in.normal_exp -= shift;
 	}
     }
   return pack_d (&in);
@@ -1371,19 +1394,23 @@ usi_to_float (USItype arg_a)
     }
   else
     {
+      int shift;
       in.class = CLASS_NUMBER;
       in.normal_exp = FRACBITS + NGARDS;
       in.fraction.ll = arg_a;
 
-      while (in.fraction.ll > ((fractype)1 << (FRACBITS + NGARDS)))
-        {
-          in.fraction.ll >>= 1;
-          in.normal_exp += 1;
-        }
-      while (in.fraction.ll < ((fractype)1 << (FRACBITS + NGARDS)))
+      shift = clzusi (arg_a) - (BITS_PER_SI - 1 - FRACBITS - NGARDS);
+      if (shift < 0)
 	{
-	  in.fraction.ll <<= 1;
-	  in.normal_exp -= 1;
+	  fractype guard = in.fraction.ll & (((fractype)1 << -shift) - 1);
+	  in.fraction.ll >>= -shift;
+	  in.fraction.ll |= (guard != 0);
+	  in.normal_exp -= shift;
+	}
+      else if (shift > 0)
+	{
+	  in.fraction.ll <<= shift;
+	  in.normal_exp -= shift;
 	}
     }
   return pack_d (&in);

@@ -1,6 +1,146 @@
 2006-10-10  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.c (clzusi): New function.
+	(si_to_float, usi_to_float): Use it to compute proper shift.
+	(usi_to_float): Preserve guard bits when shifting right.
+	* libgcc2.c (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): New functions.
+	* libgcc2.h (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): Declare.
+	* mklibgcc.in (lib2funcs): Add _floatundidf, _floatundisf,
+	_floatundixf, and _floatunditf.
+	* optabs.c (expand_float): If target does not define a pattern for
+	signed or unsigned conversion, use an unsigned libcall instead of
+	a signed one.
+	(init_optabs): Initialize ufloat_optab.
+
+	2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.c-torture/execute/floatunsisf-1.c: New test.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Use _q_utoq for
+	unsigned conversions from SImode to TFmode.
+
+	2005-11-25  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/ppc64-fp.c (__floatunditf): New function.
+	(__floatundidf, __floatundisf): Likewise.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/sparc/sparc.c (sparc_init_libfuncs): Use _Q_utoq and
+	_Q_ulltoq for unsigned conversions from SImode and DImode to
+	TFmode.
+
+	2005-11-25  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-float.c,
+	gcc.dg/torture/fp-int-convert-double.c,
+	gcc.dg/torture/fp-int-convert-long-double.c,
+	gcc.dg/torture/fp-int-convert-timode.c,
+	gcc.dg/torture/fp-int-convert-float80.c,
+	gcc.dg/torture/fp-int-convert-float80-timode.c,
+	gcc.dg/torture/fp-int-convert-float128.c,
+	gcc.dg/torture/fp-int-convert-float128-timode.c,
+	gcc.dg/torture/fp-int-convert.h: New files.
+
+	2005-11-27  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/floatunsisf.c, config/floatunsidf.c,
+	config/floatunsixf.c, config/floatunsitf.c: New files.
+	* config/ia64/t-hpux: Add floatunsitf.c.
+	* config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvxuf_dbl_to_quad for unsigned DImode-to-TFmode conversion.
+
+	2005-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.h (LSHIFT): Take shift count parameter.
+	* config/fp-bit.c (_fpadd_parts): Shift in one go instead of one
+	bit at a time.
+
+	2005-11-28  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/fp-bit.c (isnan, isinf, pack_d, unpack_d): Use
+	__builtin_expect.
+
+	2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-timode.c: XFAIL only on lp64
+	targets.
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: XFAIL also for
+	LP64 ia64.
+
+	2005-12-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+	* pa/pa.c (pa_hpux_init_libfuncs): Add _U_Qfcnvxf_usgl_to_quad and
+	_U_Qfcnvxf_udbl_to_quad to set of initialized libfuncs.
+	* pa/quadlib.c (_U_Qfcnvxf_usgl_to_quad, _U_Qfcnvxf_udbl_to_quad): New
+	functions.
+
+	2005-12-05  Joseph S. Myers  <joseph@codesourcery.com>
+	* doc/libgcc.texi (__floatunsisf, __floatunsidf, __floatunsitf,
+	__floatunsixf, __floatundisf, __floatundidf, __floatunditf,
+	__floatundixf, __floatuntisf, __floatuntidf, __floatuntitf,
+	__floatuntixf, __powisf2, __powidf2, __powixf2, __mulsc3,
+	__muldc3, __multc3, __mulxc3, __divsc3, __divdc3, __divtc3,
+	__divxc3): Document.
+
+	2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+	* libgcc2.h (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Define.
+	* libgcc2.c (__floatdixf, __floatundixf, __floatditf,
+	__floatunditf): Use #error if type sizes don't match requirements
+	of implementation.
+	(__floatdisf, __floatdidf): Unify.  Possibly use XFmode or TFmode
+	as wider floating-point type.  Use #error if type sizes don't
+	match requirements of implementation.  Avoid overflow in computing
+	Wtype_MAXp1_F * Wtype_MAXp1_F.  When special casing conversion,
+	shift one more bit.  Cast 1 to DWtype or UDWtype for shifting.
+	(__floatundisf, __floatundidf): Likewise.
+	* config/ia64/hpux.h (XF_SIZE, TF_SIZE): Define.
+	* config/ia64/ia64.c (ia64_init_libfuncs): Use
+	_U_Qfcnvfxt_quad_to_quad and _U_Qfcnvxf_quad_to_quad for
+	TFmode-TImode conversions.
+	* doc/tm.texi (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Document.
+
+	2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc.dg/torture/fp-int-convert-timode.c: Only XFAIL for LP64 IA64
+	HP-UX.
+
+	2005-12-21  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Add _floatundidf and
+	_floatundisf.
+
+	2005-12-28  Alan Modra  <amodra@bigpond.net.au>
+	* gcc.dg/torture/fp-int-convert-timode.c: Don't test IBM
+	Extended Double long doubles or repeat tests when long double is
+	the same size as double.
+
+	2006-01-05  Richard Earnshaw  <rearnsha@arm.com>
+	* arm/t-netbsd (LIB2FUNCS_EXTRA): Define.
+
+	2006-01-20  Alan Modra  <amodra@bigpond.net.au>
+	* libgcc2.c (__floatdisf, __floatdidf): Don't use IBM Extended
+	Double TFmode.
+	(__floatundisf, __floatundidf): Likewise.
+	* libgcc2.h (IS_IBM_EXTENDED): Define.
+
+	2006-04-18  Joseph S. Myers  <joseph@codesourcery.com>
+	* config/soft-fp: New directory.  From glibc.
+	* config/soft-fp/t-softfp: New.
+	* config/soft-fp/README: New.
+	* mklibgcc.in: Handle LIB2FUNCS_EXCLUDE.
+	* Makefile.in (LIB2FUNCS_EXCLUDE, SFP_MACHINE): New.
+	(libgcc.mk): Pass LIB2FUNCS_EXCLUDE.
+	(LIBGCC_DEPS): Add $(SFP_MACHINE).
+	* config.gcc: Use rs6000/t-fprules-fpbit or
+	rs6000/t-fprules-softfp and soft-fp/t-softfp together with
+	rs6000/t-fprules.
+	* config/rs6000/sfp-machine.h: New.  Based on glibc.
+	* config/rs6000/t-fprules-fpbit, config/rs6000/t-fprules-softfp:
+	New.
+	* config/rs6000/t-fprules: Remove fp-bit rules.
+	* config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Use +=.
+	* config/rs6000/t-linux64: Likewise.  Remove duplicates from
+	LIB2FUNCS_EXTRA.  Remove fp-bit rules.
+	(softfp_wrap_start, softfp_wrap_end): New.
+
+2006-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport:
 	2006-10-09  Steve Ellcey  <sje@cup.hp.com>
 	* unwind-c.c (PERSONALITY_FUNCTION): Ifdef use of _Unwind_GetIPInfo.
 	* configure.ac (HAVE_GETIPINFO): Check for _Unwind_GetIPInfo.
