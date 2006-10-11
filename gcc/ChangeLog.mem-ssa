@@ -1,5 +1,26 @@
 2006-10-11  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-into-ssa.c (regs_to_rename): New local variable.
+	(rewrite_update_stmt_vops): Discard names that factor no symbols.
+	(init_ssa_renamer): Initialize regs_to_rename.
+	(prepare_block_for_update): Remove from factored PHI nodes
+	symbols that have been promoted to registers.
+	(init_update_ssa): Allocate regs_to_rename.
+	(delete_update_ssa): Delete it.
+	(add_to_fixup_queues): Move immediate use iteration ...
+	(add_imm_uses_to_fixup_queues): ... here.
+	Update callers.
+	(fixup_unfactored_phis): Set abnormal flags for replaced PHI
+	arguments.
+	When processing PHI nodes add children PHI nodes to fixup queues.
+	(update_ssa): Move dumping code before call to
+	fixup_unfactored_phis.
+	* bitmap.c (bitmap_count_bits): Remove unused variable.
+	* tree-ssa.c (verify_phi_args): Only check factored PHI nodes
+	for duplicate symbols.
+
+2006-10-11  Diego Novillo  <dnovillo@redhat.com>
+
 	NOTE: WIP.  With these changes, the branch does not bootstrap.
 
 	* tree-ssa-operands.h (dump_loads_and_stores,
