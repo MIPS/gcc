@@ -117,6 +117,10 @@ static sbitmap new_ssa_names;
    time.  */
 static bitmap syms_to_rename;
 
+/* Subset of SYMS_TO_RENAME.  Contains all the GIMPLE register symbols
+   that have been marked for renaming.  */
+static bitmap regs_to_rename;
+
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
    released after we finish updating the SSA web.  */
@@ -2248,31 +2252,55 @@ rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
 
       bitmap_and_compl_into (old_rdefs, rdefs);
 
+      /* Determine which of the existing SSA names in VOPS can be
+	 discarded.  */
       EXECUTE_IF_SET_IN_BITMAP (old_rdefs, 0, i, bi)
 	{
 	  tree name = ssa_name (i);
 
-	  /* 1- Names in OLD_RDEFS that are marked for release or
-	        stale are discarded.
-
-	     2- .MEM's default definition is always kept.
-
-	     3- If a name in OLD_RDEFS only matches symbols that have been
-	        marked for renaming, then those symbols have already been
-		matched above by their current reaching definition
-		(i.e., by one of the names in RDEFS), therefore they
-		need to be discarded.  */
 	  if (name_marked_for_release_p (name) || stale_ssa_name_p (name))
-	    continue;
+	    {
+	      /* Names in OLD_RDEFS that are marked for release or
+		 stale are discarded.  */
+	      continue;
+	    }
 	  else if (name == default_def (mem_var))
-	    bitmap_set_bit (rdefs, i);
+	    {
+	      /* .MEM's default definition is always kept.  */
+	      bitmap_set_bit (rdefs, i);
+	    }
+	  else if (is_gimple_reg (name))
+	    {
+	      /* Names that have been promoted to be GIMPLE registers
+		 are discarded, as they clearly do not belong in
+		 virtual operands anymore.  */
+	      gcc_assert (symbol_marked_for_renaming (SSA_NAME_VAR (name)));
+	      continue;
+	    }
+	  else if (!dominated_by_p (CDI_DOMINATORS, bb_for_stmt (stmt),
+		                    bb_for_stmt (SSA_NAME_DEF_STMT (name))))
+	    {
+	      /* If NAME's definition statement no longer dominates
+		 STMT, then it clearly cannot reach it anymore.  */
+	      continue;
+	    }
 	  else
 	    {
+	      /* If a name in OLD_RDEFS only matches symbols that have
+		 been marked for renaming, then those symbols have
+		 already been matched above by their current reaching
+		 definition (i.e., by one of the names in RDEFS),
+		 therefore they need to be discarded.  */
 	      bitmap syms;
 	      syms = get_loads_and_stores (SSA_NAME_DEF_STMT (name))->stores;
 
-	      if (bitmap_intersect_p (syms, syms_to_rename)
-		  && !bitmap_intersect_p (syms, unmarked_syms))
+	      if (bitmap_empty_p (syms))
+		{
+		  /* If NAME factors no symbols, it must be discarded.  */
+		  continue;
+		}
+	      else if (bitmap_intersect_p (syms, syms_to_rename)
+		       && !bitmap_intersect_p (syms, unmarked_syms))
 		{
 		  /* If NAME factors symbols marked for renaming but
 		     it does not factor any symbols in UNMARKED_SYMS,
@@ -2931,10 +2959,10 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what, sbitmap blocks)
   walk_data.dom_direction = CDI_DOMINATORS;
   walk_data.interesting_blocks = blocks;
 
-  if (what == REWRITE_UPDATE)
-    walk_data.before_dom_children_before_stmts = rewrite_update_init_block;
-  else
+  if (what == REWRITE_ALL)
     walk_data.before_dom_children_before_stmts = rewrite_initialize_block;
+  else
+    walk_data.before_dom_children_before_stmts = rewrite_update_init_block;
 
   if (what == REWRITE_ALL)
     walk_data.before_dom_children_walk_stmts = rewrite_stmt;
@@ -3084,6 +3112,20 @@ init_ssa_renamer (void)
      fixup_unfactored_phis).  Dominance numbering starts at 2.
      Dominance number 1 is reserved for .MEM's default definition.  */
   last_dom_num = 2;
+
+  /* If there are symbols to rename, identify those symbols that are
+     GIMPLE registers into the set REGS_TO_RENAME.  This is used to
+     prune store sets for memory symbols that have been promoted to
+     registers (see prepare_block_for_update).  */
+  if (syms_to_rename)
+    {
+      unsigned i;
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
+	if (is_gimple_reg (referenced_var (i)))
+	  bitmap_set_bit (regs_to_rename, i);
+    }
 }
 
 
@@ -3309,15 +3351,10 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
 	  if (bitmap_intersect_p (stores, syms_to_rename))
 	    {
-	      bitmap_iterator bi;
-	      unsigned i;
-
 	      /* If symbols currently factored by PHI have been promoted
 		 to registers, remove them from the set of factored
 		 symbols.  */
-	      EXECUTE_IF_SET_IN_BITMAP (stores, 0, i, bi)
-		if (is_gimple_reg (referenced_var (i)))
-		  bitmap_clear_bit (stores, i);
+	      bitmap_and_compl_into (stores, regs_to_rename);
 
 	      add_stored_syms (stores, bb->index);
 	      add_syms_with_phi (stores, bb->index);
@@ -3647,6 +3684,7 @@ init_update_ssa (void)
   need_to_initialize_update_ssa_p = false;
   need_to_update_vops_p = false;
   syms_to_rename = BITMAP_ALLOC (NULL);
+  regs_to_rename = BITMAP_ALLOC (NULL);
   names_to_release = NULL;
   stale_ssa_names = NULL;
   memset (&update_ssa_stats, 0, sizeof (update_ssa_stats));
@@ -3675,6 +3713,7 @@ delete_update_ssa (void)
   need_to_initialize_update_ssa_p = true;
   need_to_update_vops_p = false;
   BITMAP_FREE (syms_to_rename);
+  BITMAP_FREE (regs_to_rename);
   BITMAP_FREE (update_ssa_stats.virtual_symbols);
   BITMAP_FREE (stale_ssa_names);
 
@@ -4184,6 +4223,27 @@ replace_stale_ssa_names (void)
 }
 
 
+/* Add STMT to *PHI_QUEUE_P or *STMT_QUEUE_P accordingly.
+   STMTS_ADDED is the set of statements that have already been added
+   to one of the queues.  */
+
+static void
+add_to_fixup_queues (tree stmt, VEC(tree, heap) **phi_queue_p,
+		     VEC(tree, heap) **stmt_queue_p, htab_t stmts_added)
+{
+  void **slot;
+
+  slot = htab_find_slot (stmts_added, stmt, INSERT);
+  if (*slot == NULL)
+    {
+      if (TREE_CODE (stmt) == PHI_NODE)
+	VEC_safe_push (tree, heap, *phi_queue_p, stmt);
+      else
+	VEC_safe_push (tree, heap, *stmt_queue_p, stmt);
+
+      *slot = stmt;
+    }
+}
 
 /* Helper for fixup_unfactored_phis.  Add all the immediate uses for
    SSA name PHI_LHS to *PHI_QUEUE_P or *STMT_QUEUE_P accordingly.
@@ -4191,28 +4251,16 @@ replace_stale_ssa_names (void)
    to one of the queues.  */
 
 static void
-add_to_fixup_queues (tree phi_lhs,
-                     VEC(tree, heap) **phi_queue_p,
-                     VEC(tree, heap) **stmt_queue_p,
-		     htab_t stmts_added)
+add_imm_uses_to_fixup_queues (tree phi_lhs,
+			      VEC(tree, heap) **phi_queue_p,
+			      VEC(tree, heap) **stmt_queue_p,
+			      htab_t stmts_added)
 {
   imm_use_iterator imm_iter;
-  void **slot;
   tree stmt;
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, phi_lhs)
-    {
-      slot = htab_find_slot (stmts_added, stmt, INSERT);
-      if (*slot == NULL)
-	{
-	  if (TREE_CODE (stmt) == PHI_NODE)
-	    VEC_safe_push (tree, heap, *phi_queue_p, stmt);
-	  else
-	    VEC_safe_push (tree, heap, *stmt_queue_p, stmt);
-
-	  *slot = stmt;
-	}
-    }
+    add_to_fixup_queues (stmt, phi_queue_p, stmt_queue_p, stmts_added);
 }
 
 
@@ -4316,8 +4364,8 @@ fixup_unfactored_phis (void)
   stmts_added = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
 
   for (n = first_unfactored_phi; n; n = n->next)
-    add_to_fixup_queues (PHI_RESULT (n->phi), &phi_queue, &stmt_queue,
-			 stmts_added);
+    add_imm_uses_to_fixup_queues (PHI_RESULT (n->phi), &phi_queue, &stmt_queue,
+			          stmts_added);
 
   /* PHI nodes in PHI_QUEUE may need to be split, and they may also
      cause more PHI nodes to be split in turn.  */
@@ -4326,12 +4374,13 @@ fixup_unfactored_phis (void)
       int j;
       tree phi = VEC_index (tree, phi_queue, stmt_ix);
       tree phi_lhs = PHI_RESULT (phi);
-      bool split_p = false;
+      bool split_p;
 
       /* One or more arguments of PHI will be an unfactored PHI
 	 node.  Compute CURRDEF for all the symbols stored by that
 	 argument (and its children PHI nodes), and rewrite
 	 PHI's argument.  */
+      split_p = false;
       for (j = 0; j < PHI_NUM_ARGS (phi); j++)
 	{
 	  tree arg, arg_phi;
@@ -4362,16 +4411,30 @@ fixup_unfactored_phis (void)
 	      sym = SSA_NAME_VAR (PHI_RESULT (phi));
 	      if (sym == mem_var)
 		split_p |= replace_factored_phi_argument (phi, e, e->dest);
-	      else
+	      else if (symbol_marked_for_renaming (sym))
 		replace_use (arg_p, sym);
+
+	      /* Set abnormal flags for ARG.  */
+	      if (e->flags & EDGE_ABNORMAL)
+		SSA_NAME_OCCURS_IN_ABNORMAL_PHI (USE_FROM_PTR (arg_p)) = 1;
 	    }
 	}
 
       /* If we had to split PHI while examining its arguments, add
 	 PHI's immediate uses to the fixup queues.  */
       if (split_p)
-	add_to_fixup_queues (PHI_RESULT (phi), &phi_queue, &stmt_queue,
-			     stmts_added);
+	{
+	  unfactored_phis_t n;
+	  unsigned i;
+
+	  add_imm_uses_to_fixup_queues (PHI_RESULT (phi), &phi_queue,
+	                                &stmt_queue, stmts_added);
+
+	  n = lookup_unfactored_phi (phi);
+	  for (i = 0; i < VEC_length (tree, n->children); i++)
+	    add_to_fixup_queues (VEC_index (tree, n->children, i), &phi_queue,
+		                 NULL, stmts_added);
+	}
 
       /* Allow PHI to be added to the fixup queues again.  In the case
 	 of loops, two or more PHI nodes could be in a dependency
@@ -4714,17 +4777,6 @@ update_ssa (unsigned update_flags)
 
   sbitmap_free (tmp);
 
-  /* If the update process generated stale SSA names, their immediate
-     uses need to be replaced with the new name that was created in
-     their stead.  */
-  if (names_to_release || stale_ssa_names)
-    replace_stale_ssa_names ();
-
-  /* If the renamer had to split factored PHI nodes, we need to adjust
-     the immediate uses for the split PHI nodes.  */
-  if (unfactored_phis)
-    fixup_unfactored_phis ();
-
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -4753,6 +4805,17 @@ update_ssa (unsigned update_flags)
 
       fprintf (dump_file, "\n\n");
     }
+
+  /* If the update process generated stale SSA names, their immediate
+     uses need to be replaced with the new name that was created in
+     their stead.  */
+  if (names_to_release || stale_ssa_names)
+    replace_stale_ssa_names ();
+
+  /* If the renamer had to split factored PHI nodes, we need to adjust
+     the immediate uses for the split PHI nodes.  */
+  if (unfactored_phis)
+    fixup_unfactored_phis ();
 
   /* Free allocated memory.  */
 done:

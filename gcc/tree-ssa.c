@@ -353,10 +353,13 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	    err = true;
 	  }
 
-      /* If this PHI node has no uses, then it doesn't matter if it
-	 factors symbols in common with another PHI node.  */
-      if (num_imm_uses (PHI_RESULT (phi)) > 0
-	  && bitmap_intersect_p (syms_phi->stores, syms_in_factored_phis))
+      /* Factored PHI nodes should not factor symbols that already
+	 have PHI nodes in this block.  However, if this PHI node has
+	 no uses, then it doesn't matter if it factors symbols in
+	 common with another PHI node.  */
+      if (SSA_NAME_VAR (PHI_RESULT (phi)) == mem_var
+	  && !zero_imm_uses_p (PHI_RESULT (phi))
+ 	  && bitmap_intersect_p (syms_phi->stores, syms_in_factored_phis))
 	{
 	  bitmap tmp = BITMAP_ALLOC (NULL);
 	  bitmap_and (tmp, syms_phi->stores, syms_in_factored_phis);

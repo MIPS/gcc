@@ -585,7 +585,6 @@ bitmap_count_bits (bitmap a)
 bool
 bitmap_singleton_p (bitmap a)
 {
-  bitmap_element *elt;
   unsigned long count = 0;
   unsigned ix;
 
