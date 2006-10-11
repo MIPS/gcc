@@ -1,6 +1,3 @@
-java/lang/EcosProcess.java
-java/lang/Win32Process.java
-java/lang/PosixProcess.java
 gnu/java/nio/charset/iconv
 java/util/zip/DeflaterConstants.java
 java/util/zip/DeflaterEngine.java

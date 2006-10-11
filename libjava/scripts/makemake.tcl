@@ -271,9 +271,11 @@ proc emit_package_rule {package} {
   set lname $base.list
   set dname $base.deps
 
-  # A special case due to an apparent compiler bug.
   if {$pkgname == "java/lang"} {
-    set omit "| tr ' ' '\\n' | fgrep -v Object.class | fgrep -v Class.class "
+    # Object and Class are special cases due to an apparent compiler
+    # bug.  Process is a special case because we don't build all
+    # concrete implementations of Process on all platforms.
+    set omit "| tr ' ' '\\n' | fgrep -v Object.class | fgrep -v Class.class | grep -v '\[^/\]Process' "
   } else {
     set omit ""
   }
@@ -291,6 +293,22 @@ proc emit_package_rule {package} {
       && $pkgname != "gnu/gcj/tools/gcj_dbtool"} {
     lappend package_files $lname
   }
+}
+
+# Emit a package-like rule for a platform-specific Process
+# implementation.
+proc emit_process_package_rule {platform} {
+  set base "java/process-$platform"
+  set lname $base.list
+  set dname $base.deps
+
+  puts "$lname: java/lang/${platform}Process.java"
+  puts "\t@\$(mkinstalldirs) \$(dir \$@)"
+  puts "\techo classpath/lib/java/lang/${platform}Process*.class > $lname"
+  puts ""
+  puts "-include $dname"
+  puts ""
+  puts ""
 }
 
 # Emit a source file variable for a package, and corresponding header
@@ -379,7 +397,6 @@ scan_packages classpath/resource
 # when scanning classpath.
 scan_packages .
 # Files created by the build.
-classify_source_file . java/lang/ConcreteProcess.java
 classify_source_file classpath gnu/java/locale/LocaleData.java
 classify_source_file classpath gnu/classpath/Configuration.java
 
@@ -407,6 +424,10 @@ foreach package [lsort [array names package_map]] {
     error "unrecognized type: $package_map($package)"
   }
 }
+
+emit_process_package_rule Ecos
+emit_process_package_rule Win32
+emit_process_package_rule Posix
 
 pp_var all_packages_source_files $package_files
 pp_var ordinary_header_files $header_vars "\$(" ")"

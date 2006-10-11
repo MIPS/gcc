@@ -1,3 +1,31 @@
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* gcj/javaprims.h: Updated.
+	* sources.am, Makefile.in: Rebuilt.
+	* standard.omit.in: Removed process source files.
+	* scripts/makemake.tcl: Removed ConcreteProcess special case.
+	(emit_package_rule): Also special-case Process.
+	(emit_process_package_rule): New proc.
+	* Makefile.am (inner_nat_headers): Removed
+	PLATFORM_INNER_NAT_HDRS.
+	* configure: Rebuilt.
+	* configure.ac (PLATFORM_INNER_NAT_HDRS): Removed subst.
+	Don't create ConcreteProcess.java link.
+	(PLATFORM): New subst.
+	* java/lang/natWin32Process.cc: Updated.
+	* java/lang/natPosixProcess.cc: Updated.
+	* java/lang/natEcosProcess.cc: Updated.
+	* java/lang/Win32Process.java (Win32Process): Renamed from
+	ConcreteProcess.
+	* java/lang/EcosProcess.java (EcosProcess): Renamed from
+	ConcreteProcess.
+	* java/lang/PosixProcess.java (PosixProcess): Renamed from
+	ConcreteProcess.
+	* include/win32.h (_Jv_platform_process): New define.
+	* java/lang/natRuntime.cc (execInternal): Use
+	_Jv_platform_process.
+	* include/posix.h (_Jv_platform_process): New define.
+
 2006-10-09  Andrew Haley  <aph@redhat.com>
 
 	* win32-threads.cc (_Jv_ThreadUnpark, _Jv_ThreadPark): New

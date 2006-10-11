@@ -612,7 +612,6 @@ AC_ARG_WITH(ecos,
 TARGET_ECOS="$with_ecos"
 )
 
-PLATFORM_INNER_NAT_HDRS=
 case "$TARGET_ECOS" in
    no) case "$host" in
       *mingw*)
@@ -625,7 +624,6 @@ case "$TARGET_ECOS" in
             PLATFORM=Posix
 	    PLATFORMNET=Posix
 	    PLATFORMH=posix.h
-	    PLATFORM_INNER_NAT_HDRS='java/lang/ConcreteProcess$$ProcessManager.h'
       ;;
       esac
       ;;
@@ -636,7 +634,7 @@ case "$TARGET_ECOS" in
       PLATFORMH=posix.h
       ;;
 esac
-AC_SUBST(PLATFORM_INNER_NAT_HDRS)
+AC_SUBST(PLATFORM)
 AC_CONFIG_LINKS(include/platform.h:include/$PLATFORMH)
 
 AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1,
@@ -671,9 +669,8 @@ test -d java/io || mkdir java/io
 test -d gnu || mkdir gnu
 AC_CONFIG_LINKS(java/io/natFile.cc:java/io/natFile${FILE-${PLATFORM}}.cc)
 
-# Likewise for ConcreteProcess.java and natConcreteProcess.cc.
+# Likewise for natConcreteProcess.cc.
 test -d java/lang || mkdir java/lang
-AC_CONFIG_LINKS(java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java)
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
 # Likewise for natInetAddress.cc and natVMNetworkInterface.cc.

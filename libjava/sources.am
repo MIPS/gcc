@@ -4403,9 +4403,9 @@ classpath/java/lang/CloneNotSupportedException.java \
 classpath/java/lang/Cloneable.java \
 classpath/java/lang/Comparable.java \
 classpath/java/lang/Compiler.java \
-java/lang/ConcreteProcess.java \
 classpath/java/lang/Deprecated.java \
 classpath/java/lang/Double.java \
+java/lang/EcosProcess.java \
 classpath/java/lang/Enum.java \
 classpath/java/lang/EnumConstantNotPresentException.java \
 classpath/java/lang/Error.java \
@@ -4443,6 +4443,7 @@ java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
 classpath/java/lang/Override.java \
 java/lang/Package.java \
+java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
 java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
@@ -4480,13 +4481,14 @@ java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
-classpath/java/lang/Void.java
+classpath/java/lang/Void.java \
+java/lang/Win32Process.java
 
 java_lang_header_files = $(filter-out java/lang/Object.h java/lang/Class.h,$(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_source_files))))
 
 java/lang.list: $(java_lang_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class > java/lang.list
+	echo classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | grep -v '[^/]Process' > java/lang.list
 
 -include java/lang.deps
 
@@ -8045,6 +8047,27 @@ sun/reflect/misc.list: $(sun_reflect_misc_source_files)
 	echo classpath/lib/sun/reflect/misc/*.class > sun/reflect/misc.list
 
 -include sun/reflect/misc.deps
+
+
+java/process-Ecos.list: java/lang/EcosProcess.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/EcosProcess*.class > java/process-Ecos.list
+
+-include java/process-Ecos.deps
+
+
+java/process-Win32.list: java/lang/Win32Process.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/Win32Process*.class > java/process-Win32.list
+
+-include java/process-Win32.deps
+
+
+java/process-Posix.list: java/lang/PosixProcess.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/PosixProcess*.class > java/process-Posix.list
+
+-include java/process-Posix.deps
 
 
 

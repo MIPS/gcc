@@ -162,11 +162,9 @@ extern "Java"
       class Cloneable;
       class Comparable;
       class Compiler;
-      class ConcreteProcess;
-      class ConcreteProcess$EOFInputStream;
-      class ConcreteProcess$ProcessManager;
       class Deprecated;
       class Double;
+      class EcosProcess;
       class Enum;
       class EnumConstantNotPresentException;
       class Error;
@@ -204,6 +202,9 @@ extern "Java"
       class OutOfMemoryError;
       class Override;
       class Package;
+      class PosixProcess;
+      class PosixProcess$EOFInputStream;
+      class PosixProcess$ProcessManager;
       class Process;
       class ProcessBuilder;
       class Readable;
@@ -250,6 +251,7 @@ extern "Java"
       class VerifyError;
       class VirtualMachineError;
       class Void;
+      class Win32Process;
       namespace annotation
       {
         class Annotation;

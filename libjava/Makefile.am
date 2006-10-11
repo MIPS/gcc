@@ -232,11 +232,15 @@ libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
 	java/lang/Object.lo \
 	java/lang/Class.lo \
+	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
 	$(LIBMAGIC) $(LIBFFI) $(ZLIBS) $(GCLIBS)
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
+	java/lang/Object.lo \
+	java/lang/Class.lo \
+	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
@@ -398,8 +402,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
-	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
-	$(PLATFORM_INNER_NAT_HDRS)
+	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
 
 nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)

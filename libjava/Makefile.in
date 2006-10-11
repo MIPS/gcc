@@ -92,9 +92,8 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 CONFIG_HEADER = $(top_builddir)/include/config.h \
 	$(top_builddir)/gcj/libgcj-config.h
 CONFIG_CLEAN_FILES = libgcj.pc libgcj.spec libgcj-test.spec \
-	scripts/jar java/io/natFile.cc java/lang/ConcreteProcess.java \
-	java/lang/natConcreteProcess.cc java/net/natInetAddress.cc \
-	java/net/natVMNetworkInterface.cc \
+	scripts/jar java/io/natFile.cc java/lang/natConcreteProcess.cc \
+	java/net/natInetAddress.cc java/net/natVMNetworkInterface.cc \
 	gnu/java/net/natPlainSocketImpl.cc \
 	gnu/java/net/natPlainDatagramSocketImpl.cc \
 	gnu/java/nio/natPipeImpl.cc gnu/java/nio/natSelectorImpl.cc \
@@ -583,7 +582,7 @@ PANGOFT2_LIBS = @PANGOFT2_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
-PLATFORM_INNER_NAT_HDRS = @PLATFORM_INNER_NAT_HDRS@
+PLATFORM = @PLATFORM@
 QT_AWT_FALSE = @QT_AWT_FALSE@
 QT_AWT_TRUE = @QT_AWT_TRUE@
 RANLIB = @RANLIB@
@@ -817,12 +816,16 @@ libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
 	java/lang/Object.lo \
 	java/lang/Class.lo \
+	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(bc_objects) \
 	$(propertyo_files) \
 	$(LIBMAGIC) $(LIBFFI) $(ZLIBS) $(GCLIBS)
 
 libgcj_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
+	java/lang/Object.lo \
+	java/lang/Class.lo \
+	java/process-$(PLATFORM).lo \
 	$(all_packages_source_files:.list=.lo) \
 	$(LIBLTDL) $(libgcj_la_LIBADD)
 
@@ -4010,9 +4013,9 @@ classpath/java/lang/CloneNotSupportedException.java \
 classpath/java/lang/Cloneable.java \
 classpath/java/lang/Comparable.java \
 classpath/java/lang/Compiler.java \
-java/lang/ConcreteProcess.java \
 classpath/java/lang/Deprecated.java \
 classpath/java/lang/Double.java \
+java/lang/EcosProcess.java \
 classpath/java/lang/Enum.java \
 classpath/java/lang/EnumConstantNotPresentException.java \
 classpath/java/lang/Error.java \
@@ -4050,6 +4053,7 @@ java/lang/Object.java \
 classpath/java/lang/OutOfMemoryError.java \
 classpath/java/lang/Override.java \
 java/lang/Package.java \
+java/lang/PosixProcess.java \
 classpath/java/lang/Process.java \
 java/lang/ProcessBuilder.java \
 classpath/java/lang/Readable.java \
@@ -4087,7 +4091,8 @@ java/lang/VMSecurityManager.java \
 java/lang/VMThrowable.java \
 classpath/java/lang/VerifyError.java \
 classpath/java/lang/VirtualMachineError.java \
-classpath/java/lang/Void.java
+classpath/java/lang/Void.java \
+java/lang/Win32Process.java
 
 java_lang_header_files = $(filter-out java/lang/Object.h java/lang/Class.h,$(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_lang_source_files))))
 java_lang_annotation_source_files = \
@@ -7461,8 +7466,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
-	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
-	$(PLATFORM_INNER_NAT_HDRS)
+	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
 
 nat_headers = $(ordinary_header_files) $(inner_nat_headers)
 nat_headers_install = $(ordinary_header_files)
@@ -10330,7 +10334,7 @@ java/io.list: $(java_io_source_files)
 
 java/lang.list: $(java_lang_source_files)
 	@$(mkinstalldirs) $(dir $@)
-	echo classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class > java/lang.list
+	echo classpath/lib/java/lang/*.class | tr ' ' '\n' | fgrep -v Object.class | fgrep -v Class.class | grep -v '[^/]Process' > java/lang.list
 
 -include java/lang.deps
 
@@ -10890,6 +10894,24 @@ sun/reflect/misc.list: $(sun_reflect_misc_source_files)
 	echo classpath/lib/sun/reflect/misc/*.class > sun/reflect/misc.list
 
 -include sun/reflect/misc.deps
+
+java/process-Ecos.list: java/lang/EcosProcess.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/EcosProcess*.class > java/process-Ecos.list
+
+-include java/process-Ecos.deps
+
+java/process-Win32.list: java/lang/Win32Process.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/Win32Process*.class > java/process-Win32.list
+
+-include java/process-Win32.deps
+
+java/process-Posix.list: java/lang/PosixProcess.java
+	@$(mkinstalldirs) $(dir $@)
+	echo classpath/lib/java/lang/PosixProcess*.class > java/process-Posix.list
+
+-include java/process-Posix.deps
 
 $(generic_header_files): gcjh.stamp
 
