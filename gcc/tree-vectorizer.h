@@ -127,9 +127,6 @@ typedef struct _loop_vec_info {
   /* All data dependences in the loop.  */
   varray_type ddrs;
 
-  /* Data Dependence Relations to be solved by Alias Loop Versioning */
-  VEC (ddr_p, heap) *may_misalias_ddrs;
-
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
   VEC(tree,heap) *may_misalign_stmts;
@@ -151,9 +148,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_INT_NITERS(L)      (TREE_INT_CST_LOW ((L)->num_iters))
 #define LOOP_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
 #define LOOP_VINFO_UNALIGNED_DR(L)    (L)->unaligned_dr
+#define LOOP_VINFO_MAY_MISALIGN_STMTS(L) (L)->may_misalign_stmts
 #define LOOP_VINFO_LOC(L)             (L)->loop_line_number
-#define LOOP_VINFO_MAY_MISALIGN_STMTS(L)	(L)->may_misalign_stmts
-#define LOOP_VINFO_MAY_MISALIAS_DDRS(L)        	(L)->may_misalias_ddrs
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)                     \
 (host_integerp ((L)->num_iters,0)                        \

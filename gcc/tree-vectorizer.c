@@ -1430,12 +1430,12 @@ new_loop_vec_info (struct loop *loop)
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DATAREFS (res), 20, "loop_datarefs");
   VARRAY_GENERIC_PTR_INIT (LOOP_VINFO_DDRS (res), 20, "loop_ddrs");
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
-  LOOP_VINFO_MAY_MISALIGN_STMTS (res) =
-    VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
-  LOOP_VINFO_MAY_MISALIAS_DDRS (res) =
-    VEC_alloc (ddr_p, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
+    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
+
   return res;
 }
+
 
 /* Function destroy_loop_vec_info.
  
@@ -1493,7 +1493,6 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   varray_clear (LOOP_VINFO_DATAREFS (loop_vinfo));
   varray_clear (LOOP_VINFO_DDRS (loop_vinfo));
   VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
-  VEC_free (ddr_p, heap, LOOP_VINFO_MAY_MISALIAS_DDRS (loop_vinfo));
 
   free (loop_vinfo);
 }

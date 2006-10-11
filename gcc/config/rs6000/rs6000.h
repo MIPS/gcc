@@ -538,8 +538,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Align vectors to 128 bits.  Align SPE vectors and E500 v2 doubles to
    64 bits.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
-  ((TARGET_ALTIVEC && TREE_CODE (TYPE) == ARRAY_TYPE) ? 128 \
-   : TREE_CODE (TYPE) == VECTOR_TYPE ? (TARGET_SPE_ABI ? 64 : 128)	\
+  (TREE_CODE (TYPE) == VECTOR_TYPE ? (TARGET_SPE_ABI ? 64 : 128)	\
    : (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\

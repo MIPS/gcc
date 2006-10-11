@@ -128,254 +128,8 @@ static bool pred_blocks_visited_p (basic_block, bitmap *);
 static basic_block * get_loop_body_in_if_conv_order (const struct loop *loop);
 static bool bb_with_exit_edge_p (struct loop *, basic_block);
 
-static bool store_movable_loop_p (struct loop *loop);
-static bool store_movable_modify_expr_p (tree m_expr);
-static bool last_store_found (basic_block bb, block_stmt_iterator * bsi_out);
-
-
 /* List of basic blocks in if-conversion-suitable order.  */
 static basic_block *ifc_bbs;
-
-
-/* scan BB and find a store stmt. If found, return true and BSI_OUT
-   points to the stmt, return false oterwise. */
-
-static bool
-last_store_found (basic_block bb, block_stmt_iterator * bsi_out)
-{
-  block_stmt_iterator bsi;
-
-  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
-    {
-      tree stmt;
-
-      stmt = bsi_stmt (bsi);
-      if (TREE_CODE (stmt) == MODIFY_EXPR
-	   && !is_gimple_reg (TREE_OPERAND (stmt, 0)))
-	{
-	  *bsi_out = bsi;
-	  return true;
-	}
-    }
-  return false;
-}
-
-/* remove all PHI nodes with uses of VAR */
-static void
-remove_all_phi_uses (tree var)
-{
-  use_operand_p use_p;
-  imm_use_iterator itr;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "SM:         ***** remove_all_phi_uses called with var:\n");
-      print_generic_stmt_indented (dump_file, var, TDF_DETAILS | TDF_VOPS, 8);
-    }
-
-  FOR_EACH_IMM_USE_SAFE (use_p, itr, var)
-  {
-    tree usestmt = USE_STMT (use_p);
-    
-    if (TREE_CODE (usestmt) == PHI_NODE)
-      {
-	tree phi_def = PHI_RESULT (usestmt);
-
-	remove_all_phi_uses (phi_def);
-	remove_phi_node (usestmt, NULL_TREE);
-      }
-  }
-  mark_sym_for_renaming (SSA_NAME_VAR (var));
-}
-
-/* remove (store) statement pointed by iterator BSI.
-   remove all PHI nodes with uses of def of the store. */
-
-static void
-remove_store (block_stmt_iterator *bsi)
-{
-  use_operand_p use_p;
-  def_operand_p def_p;
-  use_operand_p kill_p;
-  ssa_op_iter itr;
-  tree stmt;
-
-  stmt = bsi_stmt (*bsi);
-
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, itr)
-    remove_all_phi_uses (DEF_FROM_PTR (def_p));
-
-  FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, kill_p, stmt, itr)
-    remove_all_phi_uses (DEF_FROM_PTR (def_p));
-
-  bsi_remove (bsi);
-}
-
-/* move store statement ipointed by BLACK_BSI and WHITE_BSI
-   from both clauses of if to the SINK_BB. */
-
-static void
-sink_store (basic_block sink_bb, block_stmt_iterator * black_bsi,
-	    block_stmt_iterator * white_bsi)
-{
-  tree var, type, lhs;
-  tree black_stmt, white_stmt, black_rhs, white_rhs;
-  tree new_black_stmt, new_white_stmt, new_sink_stmt;
-  block_stmt_iterator sink_bsi;
-
-  sink_bsi = bsi_start (sink_bb);
-  /* we assume that lhs of black and white stmts are same */
-
-  black_stmt = bsi_stmt (*black_bsi);  
-  white_stmt = bsi_stmt (*white_bsi);
-
-  lhs = TREE_OPERAND (black_stmt, 0);
-  type = TREE_TYPE (lhs);
-  black_rhs = TREE_OPERAND (black_stmt, 1);
-  white_rhs = TREE_OPERAND (white_stmt, 1);
-
-  /* Create new temporary variable.  */
-  var = create_tmp_var (type, "_ifcsm_");
-  add_referenced_tmp_var (var);
-  mark_sym_for_renaming (var);
-
-  new_black_stmt = build2 (MODIFY_EXPR, type, var, unshare_expr (black_rhs));
-  new_white_stmt = build2 (MODIFY_EXPR, type, var, unshare_expr (white_rhs));
-
-  bsi_insert_before (black_bsi, new_black_stmt, BSI_SAME_STMT);
-  bsi_insert_before (white_bsi, new_white_stmt, BSI_SAME_STMT);
-
-  remove_store (black_bsi);
-  remove_store (white_bsi);
-
-  new_sink_stmt = build2 (MODIFY_EXPR, type, unshare_expr (lhs), var);
-  bsi_insert_after (&sink_bsi, new_sink_stmt, BSI_NEW_STMT);
-}
-
-/* Main entry point if store motion.
-   Apply store-motion to the LOOP */
-static void
-store_motion (struct loop *loop)
-{
-  unsigned int i;
-  basic_block *bbs;
-
-  bbs = get_loop_body (loop);
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      basic_block bb = bbs[i];
-      basic_block black_bb = NULL;
-      basic_block white_bb = NULL;
-      tree black_store_stmt;
-      tree white_store_stmt;
-      block_stmt_iterator black_store_bsi;
-      block_stmt_iterator white_store_bsi;
-
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: process bb --- [%d] ---\n", bb->index);
-
-      if (bb == loop->header)
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "SM: don't apply: this bb is loop header\n");
-	  continue;
-	}
-
-      if (!dominated_by_p (CDI_POST_DOMINATORS, loop->header, bb))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "SM: don't apply: this bb is not post-dominator of header\n");
-	  continue;
-	}
-
-      if (EDGE_COUNT (bb->preds) != 2)
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "SM: don't apply: this bb is post dominator of header\n");
-	  continue;
-	}
-
-      black_bb = (EDGE_PRED (bb, 0))->src;
-      white_bb = (EDGE_PRED (bb, 1))->src;
-
-      if (!single_succ_p (black_bb))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "SM: don't apply: first previous bb has no single successor\n");
-	  continue;
-	}
-
-      if (!single_succ_p (black_bb))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "SM: don't apply: second previous bb has no single successor\n");
-	  continue;
-	}
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "    sink candidate bb ......... %d\n",
-		   bb->index);
-	  fprintf (dump_file, "    black prev bb ............. %d\n",
-		   black_bb->index);
-	  fprintf (dump_file, "    white prev bb ............. %d\n",
-		   white_bb->index);
-	}
-
-      if (!last_store_found (black_bb, &black_store_bsi))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "SM: don't apply: no stores in black bb\n");
-	  continue;
-	}
-
-      if (!last_store_found (white_bb, &white_store_bsi))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "SM: don't apply: no stores in white bb\n");
-	  continue;
-
-	}
-
-      while (last_store_found (black_bb, &black_store_bsi)
-             && last_store_found (white_bb, &white_store_bsi))
-        {
-
-	  black_store_stmt = bsi_stmt (black_store_bsi);
-	  white_store_stmt = bsi_stmt (white_store_bsi);
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Found black store stmt:\n");
-	      print_generic_stmt_indented (dump_file, black_store_stmt,
-					  TDF_DETAILS | TDF_VOPS, 16);
-	      fprintf (dump_file, "Found white store stmt:\n");
-	      print_generic_stmt_indented (dump_file, white_store_stmt,
-					  TDF_DETAILS | TDF_VOPS, 16);
-	    }
-
-	  if (!operand_equal_p (TREE_OPERAND (black_store_stmt, 0),
-				TREE_OPERAND (white_store_stmt, 0), 0))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "SM: don't apply: stores are not same\n");
-	      break;
-
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "SM: going to perform sinking of this pair of stores\n");
-
-	  sink_store (bb, &black_store_bsi, &white_store_bsi);
-	}
-    }
-  free (bbs);
-}
 
 /* Main entry point.
    Apply if-conversion to the LOOP. Return true if successful otherwise return
@@ -391,25 +145,8 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
   block_stmt_iterator itr;
   tree cond;
   unsigned int i;
-  extern void dump_tree_ssa (FILE *);
 
   ifc_bbs = NULL;
-
-  if (!store_movable_loop_p (loop))
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,"SM: store motion cannot be applied\n");
-      if (ifc_bbs)
-	{
-	  free (ifc_bbs);
-  ifc_bbs = NULL;
-	}
-      free_dominance_info (CDI_POST_DOMINATORS);
-      return false;
-    }
-
-  store_motion (loop);
-  update_ssa (TODO_update_ssa);
 
   /* if-conversion is not appropriate for all loops. First, check if loop  is
      if-convertible or not.  */
@@ -596,34 +333,6 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
   return true;
 }
 
-/*  Return true if M_EXPR is eligible for store motion */
-static bool
-store_movable_modify_expr_p (tree m_expr)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "-------------------------\n");
-      print_generic_stmt (dump_file, m_expr, TDF_SLIM);
-    }
-
-  /* Be conservative and do not handle immovable expressions.  */
-  if (movement_possibility (m_expr) == MOVE_IMPOSSIBLE)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: stmt is not movable. Don't take risk\n");
-      return false;
-    }
-
-  if (TREE_CODE (TREE_OPERAND (m_expr, 1)) == CALL_EXPR)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: CALL_EXPR - don't perform store motion\n");
-      return false;
-    }
-
-  return true;
-}
-
 /* Return true, if M_EXPR is if-convertible.
    MODIFY_EXPR is not if-convertible if,
    - It is not movable.
@@ -649,18 +358,13 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
       return false;
     }
 
-  /* See if it needs speculative loading or not.
-     TODO: check if speculative loadin is indeed allowed. */
-  if (flag_tree_vectorize == 0)
+  /* See if it needs speculative loading or not.  */
+  if (bb != loop->header
+      && tree_could_trap_p (TREE_OPERAND (m_expr, 1)))
     {
-      if (bb != loop->header
-	      && !dominated_by_p (CDI_POST_DOMINATORS, loop->header, bb)
-	  && tree_could_trap_p (TREE_OPERAND (m_expr, 1)))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "tree could trap...\n");
-	  return false;
-	}
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "tree could trap...\n");
+      return false;
     }
 
   if (TREE_CODE (TREE_OPERAND (m_expr, 1)) == CALL_EXPR)
@@ -672,7 +376,7 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
 
   if (TREE_CODE (TREE_OPERAND (m_expr, 0)) != SSA_NAME
       && bb != loop->header
-      && !dominated_by_p (CDI_POST_DOMINATORS, loop->header, bb))
+      && !bb_with_exit_edge_p (loop, bb))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -682,37 +386,6 @@ if_convertible_modify_expr_p (struct loop *loop, basic_block bb, tree m_expr)
       return false;
     }
 
-  return true;
-}
-
-/* Return true if STMT is eligible for store motion. */
-static bool
-store_movable_stmt_p (tree stmt)
-{
-  switch (TREE_CODE (stmt))
-    {
-    case LABEL_EXPR:
-      break;
-
-    case MODIFY_EXPR:
-
-      if (!store_movable_modify_expr_p (stmt))
-	return false;
-      break;
-
-    case COND_EXPR:
-      break;
-
-    default:
-      /* Don't know what to do with 'em so don't do anything.  */
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "SM: don't know what to do\n");
-	  print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	}
-      return false;
-      break;
-    }
 
   return true;
 }
@@ -809,109 +482,6 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
   return true;
 }
 
-/* Return true if LOOP is eligible for store motion pass. */
-static bool
-store_movable_loop_p (struct loop *loop)
-{
-  tree phi;
-  basic_block bb;
-  block_stmt_iterator itr;
-  unsigned int i;
-  edge e;
-  edge_iterator ei;
-  basic_block exit_bb = NULL;
-
-  /* Handle only inner most loop.  */
-  if (!loop || loop->inner)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: not inner most loop\n");
-      return false;
-    }
-
-  /* If only one block, no need for if-conversion.  */
-  if (loop->num_nodes <= 2)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: less than 2 basic blocks\n");
-      return false;
-    }
-
-  /* More than one loop exit is too much to handle.  */
-  if (!loop->single_exit)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "SM: multiple exits\n");
-      return false;
-    }
-
-  /* ??? Check target's vector conditional operation support for vectorizer.  */
-
-  /* If one of the loop header's edge is exit edge then do not apply
-     if-conversion.  */
-  FOR_EACH_EDGE (e, ei, loop->header->succs)
-    {
-      if (loop_exit_edge_p (loop, e))
-        {
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "SM: one of the loop header's edge is exit edge\n");
-	  return false;
-	}
-    }
-
-  calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
-
-  /* Allow statements that can be handled during if-conversion.  */
-  ifc_bbs = get_loop_body_in_if_conv_order (loop);
-  if (!ifc_bbs)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,"SM: Irreducible loop\n");
-      free_dominance_info (CDI_POST_DOMINATORS);
-      return false;
-    }
-
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      bb = ifc_bbs[i];
-
-      /* What about phi nodes ? */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-        {
-	  if (bb != loop->header && PHI_NUM_ARGS (phi) != 2)
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "SM: More than two phi node args.\n");
-	      return false;
-	    }
-	}
-
-      if (!if_convertible_bb_p (loop, bb, exit_bb))
-      {
-	if (dump_file && (dump_flags & TDF_DETAILS))
-	  fprintf (dump_file, "SM: bb is not suitable for if convert.\n");
-	return false;
-      }
-
-      /* Check statements.  */
-      for (itr = bsi_start (bb); !bsi_end_p (itr); bsi_next (&itr))
-	if (!store_movable_stmt_p (bsi_stmt (itr)))
-	  return false;
-      /* ??? Check data dependency for vectorizer.  */
-
-      if (bb_with_exit_edge_p (loop, bb))
-	exit_bb = bb;
-    }
-
-  /* OK. Did not find any potential issues so go ahead in if-convert
-     this loop. Now there is no looking back.  */
-  if (dump_file)
-    fprintf (dump_file,"SM: Applying store motion\n");
-
-  return true;
-}
-
-
 /* Return true, iff LOOP is if-convertible.
    LOOP is if-convertible if,
    - It is innermost.
@@ -968,7 +538,8 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
 	return false;
     }
 
-  calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
   /* Allow statements that can be handled during if-conversion.  */
   ifc_bbs = get_loop_body_in_if_conv_order (loop);
@@ -1415,6 +986,9 @@ ifc_temp_var (tree type, tree exp)
   const char *name = "_ifc_";
   tree var, stmt, new_name;
 
+  if (is_gimple_reg (exp))
+    return exp;
+
   /* Create new temporary variable.  */
   var = create_tmp_var (type, name);
   add_referenced_tmp_var (var);
@@ -1531,10 +1105,6 @@ main_tree_if_conversion (void)
 {
   unsigned i, loop_num;
   struct loop *loop;
-  extern void dump_tree_ssa (FILE *);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_tree_ssa (dump_file);
 
   if (!current_loops)
     return;

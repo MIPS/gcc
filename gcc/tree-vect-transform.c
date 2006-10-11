@@ -4731,158 +4731,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
                  and_tmp_name, ptrsize_zero);
 }
 
-/* Remove duplicate pairs from MAY_MISALIAS_DDRS_P 
-   the list of ddrs which may misallign */
-static void
-remove_same_pairs (VEC (ddr_p, heap) ** may_misalias_ddrs_p)
-{
-  VEC (ddr_p, heap) * ddrs;
-  unsigned i, j;
 
-  ddrs = *may_misalias_ddrs_p;
-
-  for (i = 0; i < VEC_length (ddr_p, ddrs); )
-    {
-      bool found;
-      ddr_p ddr_i;
-
-      ddr_i = VEC_index (ddr_p, ddrs, i);
-      found = false;
-
-      for (j = 0; j < i; j++)
-        {
-	  tree dref_A_i, dref_B_i, dref_A_j, dref_B_j;
-	  ddr_p ddr_j;
-	  ddr_j = VEC_index (ddr_p, ddrs, j);
-
-	  dref_A_i = DR_REF (DDR_A (ddr_i));
-	  dref_B_i = DR_REF (DDR_B (ddr_i));
-	  dref_A_j = DR_REF (DDR_A (ddr_j));
-	  dref_B_j = DR_REF (DDR_B (ddr_j));
-
-	  if ((operand_equal_p (dref_A_i, dref_A_j, 0)
-	      && operand_equal_p (dref_B_i, dref_B_j, 0))
-	      || (operand_equal_p (dref_A_i, dref_B_j, 0)
-		  && operand_equal_p (dref_B_i, dref_A_j, 0)))
-	    {
-	      if (vect_print_dump_info (REPORT_DR_DETAILS))
-		{
-		  fprintf (vect_dump,
-			  "ALV: found same pair of data references ");
-		  print_generic_expr (vect_dump, dref_A_i, TDF_SLIM);
-		  fprintf (vect_dump, " and ");
-		  print_generic_expr (vect_dump, dref_B_i, TDF_SLIM);
-		}
-	      found = true;
-	      break;
-	    }
-	}
-      
-      if (found)
-      {
-	VEC_ordered_remove (ddr_p, ddrs, i);
-	continue;
-      }
-      i++;
-    }
-
-    /* CHECKME: do we indeed need this? */
-    *may_misalias_ddrs_p = ddrs;
-}
-
-
-/* Function vect_create_cond_for_alias_checks.
-
-   Create a conditional expression that represents the alignment checks for
-   all of data references (array element references) whose alignment must be
-   checked at runtime.
-
-   Input:
-   LOOP_VINFO - fields of the loop information are used.
-                LOOP_VINFO_MAY_MISALIAS_STMTS contains the refs to be checked.
-
-   Output:
-   COND_EXPR_STMT_LIST - statements needed to construct the conditional
-                         expression.
-   The returned value is the conditional expression to be used in the if
-   statement that controls which version of the loop gets executed at runtime.
-*/
-
-static tree
-vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
-				   tree * cond_expr_stmt_list)
-{
-  VEC (ddr_p, heap) * may_misalias_ddrs
-    = LOOP_VINFO_MAY_MISALIAS_DDRS (loop_vinfo);
-  unsigned int i;
-  ddr_p ddr;
-  tree cond_expr = NULL_TREE;
-  tree part_cond_expr;
-  tree int_cst_32 = build_int_cst (NULL_TREE, 32);
-  /* Create expression
-     ((store_ptr_0 + offset) < load_ptr_0)
-     || (load_ptr_0 + offset) < store_ptr_0))
-     &&         
-     ...
-     &&
-     ((store_ptr_n + offset) < load_ptr_n)
-     || (load_ptr_n + offset) < store_ptr_n))
-   */
-
-  remove_same_pairs (&may_misalias_ddrs);
-
-  for (i = 0; VEC_iterate (ddr_p, may_misalias_ddrs, i, ddr); i++)
-    {
-      tree stmt_a = DR_STMT (DDR_A (ddr));
-      tree stmt_b = DR_STMT (DDR_B (ddr));
-
-      tree addr_base_a;
-      tree addr_base_b;
-
-      if (vect_print_dump_info (REPORT_DR_DETAILS))
-	{
-	  fprintf (vect_dump,
-		   "ALV: create runtime check for data references ");
-	  print_generic_expr (vect_dump, DR_REF (DDR_A (ddr)), TDF_SLIM);
-	  fprintf (vect_dump, " and ");
-	  print_generic_expr (vect_dump, DR_REF (DDR_B (ddr)), TDF_SLIM);
-	}
-
-      addr_base_a =
-        vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE);
-      addr_base_b =
-        vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE);
-
-     if (vect_print_dump_info (REPORT_DR_DETAILS))
-       {
-	  fprintf (vect_dump, "ALV: PAIR [%d] - ", i);
-	  print_generic_expr (vect_dump, addr_base_a, TDF_SLIM);
-	  fprintf (vect_dump, " and ");
-	  print_generic_expr (vect_dump, addr_base_b, TDF_SLIM);
-       }
- 
-      part_cond_expr = 
-         build2(GE_EXPR, boolean_type_node,
-           build1 (ABS_EXPR, integer_type_node,
-             build2(MINUS_EXPR, integer_type_node,
-                addr_base_a, addr_base_b)),
-           int_cst_32);
-
-      if (cond_expr)
-        {
-	  cond_expr = build2 (TRUTH_AND_EXPR, boolean_type_node,
-	                        cond_expr, part_cond_expr);
-	}
-      else
-        {
-	  cond_expr = part_cond_expr;
-	}
-
-    }
-    return cond_expr;
-}
 /* Function vect_transform_loop.
 
    The analysis phase has determined that the loop is vectorizable.
@@ -4919,9 +4768,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
     {
       struct loop *nloop;
       tree cond_expr;
-      tree alias_cond_expr;
       tree cond_expr_stmt_list = NULL_TREE;
-      tree gimplify_stmt_list;
       basic_block condition_bb;
       block_stmt_iterator cond_exp_bsi;
       basic_block merge_bb;
@@ -4929,28 +4776,8 @@ vect_transform_loop (loop_vec_info loop_vinfo,
       edge new_exit_e, e;
       tree orig_phi, new_phi, arg;
 
-      cond_expr =
-        vect_create_cond_for_align_checks (loop_vinfo, &cond_expr_stmt_list);
-
-      alias_cond_expr =
-	vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr_stmt_list);
-
-      if (alias_cond_expr)
-	{
-	  cond_expr =
-	    fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond_expr,
-			 alias_cond_expr);
-	}
-
-      cond_expr =
-        build2 (NE_EXPR, boolean_type_node, cond_expr, integer_zero_node);
-
-      cond_expr =
-	force_gimple_operand (cond_expr, &gimplify_stmt_list, false,
-			      NULL_TREE);
-
-      append_to_statement_list (gimplify_stmt_list, &cond_expr_stmt_list);
-
+      cond_expr = vect_create_cond_for_align_checks (loop_vinfo,
+                                                     &cond_expr_stmt_list);
       initialize_original_copy_tables ();
       nloop = loop_version (loops, loop, cond_expr, &condition_bb, true);
       free_original_copy_tables();

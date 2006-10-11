@@ -11486,7 +11486,6 @@ get_vec_cmp_insn (enum rtx_code code,
     case GE:
       if (dest_mode == V4SImode && op_mode == V4SFmode)
 	return UNSPEC_VCMPGEFP;
-      break;
     case GT:
       if (dest_mode == V16QImode && op_mode == V16QImode)
 	return UNSPEC_VCMPGTSB;

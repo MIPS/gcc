@@ -62,7 +62,7 @@ static bool vect_stmt_relevant_p
   (tree, loop_vec_info, enum vect_relevant *, bool *);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_analyze_data_ref_dependence
-  (struct data_dependence_relation *, loop_vec_info);
+  (struct data_dependence_relation *, loop_vec_info, bool);
 static bool vect_compute_data_ref_alignment (struct data_reference *); 
 static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
@@ -73,8 +73,7 @@ static void vect_check_interleaving
 static void vect_update_interleaving_chain 
   (struct data_reference *, struct data_reference *);
 static bool vect_equal_offsets (tree, tree);
-static void vect_mark_for_alv (struct data_dependence_relation *,
-			       loop_vec_info);
+static bool vect_check_dependences (struct data_dependence_relation *);
 
 /* Function vect_determine_vectorization_factor
 
@@ -200,6 +199,10 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
           if (!vectorization_factor 
 	      || (nunits > vectorization_factor))
 	    vectorization_factor = nunits;
+#if 0
+          gcc_assert (GET_MODE_SIZE (TYPE_MODE (scalar_type))
+                        * vectorization_factor == UNITS_PER_SIMD_WORD);
+#endif
         }
     }
 
@@ -872,7 +875,8 @@ vect_check_interleaving (struct data_reference *dra,
 
 static bool
 vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
-                                  loop_vec_info loop_vinfo)
+                                  loop_vec_info loop_vinfo,
+				  bool check_interleaving)
 {
   unsigned int i;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -887,17 +891,21 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
   unsigned int loop_depth;
          
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+    {
+      /* Independent data accesses.  */
+      if (!check_interleaving)
+	vect_check_interleaving (dra, drb);
       return false;
-
+    }
   if ((DR_IS_READ (dra) && DR_IS_READ (drb)) || dra == drb)
     return false;
 
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     {
-      if (vect_print_dump_info (REPORT_DR_DETAILS))
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
         {
           fprintf (vect_dump,
-                   "can't determine dependence between ");
+                   "not vectorized: can't determine dependence between ");
           print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
           fprintf (vect_dump, " and ");
           print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
@@ -907,9 +915,9 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 
   if (DDR_NUM_DIST_VECTS (ddr) == 0)
     {
-      if (vect_print_dump_info (REPORT_DR_DETAILS))
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
         {
-          fprintf (vect_dump, "bad dist vector for ");
+          fprintf (vect_dump, "not vectorized: bad dist vector for ");
           print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
           fprintf (vect_dump, " and ");
           print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
@@ -954,10 +962,10 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	  continue;
 	}
 
-      if (vect_print_dump_info (REPORT_DR_DETAILS))
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 	{
 	  fprintf (vect_dump,
-		   "possible dependence between data-refs ");
+		   "not vectorized: possible dependence between data-refs ");
 	  print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
 	  fprintf (vect_dump, " and ");
 	  print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
@@ -969,22 +977,34 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
   return false;
 }
 
-/* Save DDR in LOOP_VINFO list of ddrs which may misallign and
-   has to be treated by run-time test. */
-static void
-vect_mark_for_alv (struct data_dependence_relation *ddr,
-		   loop_vec_info loop_vinfo)
+/* Function vect_check_dependences.
+          
+   Check if there is a store-store or load-store dependence between data-refs
+   in DDR.  
+*/
+
+static bool
+vect_check_dependences (struct data_dependence_relation *ddr)
 {
+  struct data_reference *dra = DDR_A (ddr);
+  struct data_reference *drb = DDR_B (ddr);
+         
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known || dra == drb)
+    /* Independent or same data accesses.  */
+    return false;
+  
+  if (DR_IS_READ (dra) == DR_IS_READ (drb) && DR_IS_READ (dra))
+    /* Two loads.  */
+    return false;
+
   if (vect_print_dump_info (REPORT_DR_DETAILS))
     {
-      fprintf (vect_dump, "alias loop versioning will resolve store/load dependence between ");
-      print_generic_expr (vect_dump, DR_REF (DDR_A (ddr)), TDF_SLIM);
+      fprintf (vect_dump, "possible store and store/load dependence between ");
+      print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
       fprintf (vect_dump, " and ");
-      print_generic_expr (vect_dump, DR_REF (DDR_B (ddr)), TDF_SLIM);
+      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
     }
-    
-  VEC_safe_push (ddr_p, heap, LOOP_VINFO_MAY_MISALIAS_DDRS (loop_vinfo), ddr);
-	
+  return true;
 }
 
 /* Function vect_analyze_data_ref_dependences.
@@ -997,24 +1017,31 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
 {
   unsigned int i;
   varray_type ddrs = LOOP_VINFO_DDRS (loop_vinfo);
+  bool check_interleaving = false;
 
   if (vect_print_dump_info (REPORT_DETAILS)) 
     fprintf (vect_dump, "=== vect_analyze_dependences ===");
      
+  /* We allow interleaving only if there are no store-store and load-store
+     dependencies in the loop.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ddrs); i++)
     {
       struct data_dependence_relation *ddr = VARRAY_GENERIC_PTR (ddrs, i);
-      struct data_reference *dra = DDR_A (ddr);
-      struct data_reference *drb = DDR_B (ddr);
      
-      vect_check_interleaving (dra, drb);
-     
-      /* add to list of ddrs to be resolved by alias loop versioning if
-         we cannot prove their independence */
-      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo))
-        {
-          vect_mark_for_alv (ddr, loop_vinfo);
+      if (vect_check_dependences (ddr))
+	{
+	  check_interleaving = true;
+	  break;
 	}
+    }
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ddrs); i++)
+    {
+      struct data_dependence_relation *ddr = VARRAY_GENERIC_PTR (ddrs, i);
+     
+      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, 
+					    check_interleaving))
+        return false;
     }
   return true;
 }
@@ -1360,7 +1387,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool do_peeling = false;
   bool do_versioning = false;
   bool stat;
-  int vect_versioning_for_alias_required;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_enhance_data_refs_alignment ===");
@@ -1454,10 +1480,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
   /* Often peeling for alignment will require peeling for loop-bound, which in 
      turn requires that we know how to adjust the loop ivs after the loop.  */
-  vect_versioning_for_alias_required =
-    (VEC_length (ddr_p, LOOP_VINFO_MAY_MISALIAS_DDRS (loop_vinfo)) > 0);
-  if (vect_versioning_for_alias_required
-      || !vect_can_advance_ivs_p (loop_vinfo))
+  if (!vect_can_advance_ivs_p (loop_vinfo))
     do_peeling = false;
 
   if (do_peeling)

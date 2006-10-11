@@ -1,3 +1,10 @@
+2006-10-11  Victor Kaplansky   <victork@il.ibm.com>
+
+	Reverted three pathes:
+	* 113654 2006-05-09  Victor Kaplansky   <victork@il.ibm.com>
+	* 113597 2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
+	* 133596 2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
+
 2006-09-28  Ira Rosen  <irar@il.ibm.com>
 
 	* targhooks.c (interleave_vectorize_builtin_extract_evenodd):
