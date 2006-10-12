@@ -1,5 +1,10 @@
 2006-10-12  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-into-ssa.c (add_new_name_mapping): Fix handling of
+	.MEM -> .MEM mappings.
+
+2006-10-12  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c (insert_phi_nodes_for): Create factored PHI
 	nodes using the set of stores from the SSA name being
 	replaced.

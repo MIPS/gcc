@@ -803,17 +803,16 @@ add_new_name_mapping (tree new, tree old)
     }
 
   /* If this mapping is for virtual names, we will need to update
-     virtual operands.  Ignore .MEM as it is not a symbol that
-     can be put into SSA form independently.  If the heuristic for
-     renaming the virtual symbols from scratch is enabled, it will
-     want to put .MEM into SSA form from scratch, and that cannot be
-     done.  */
-  if (!is_gimple_reg (new) && SSA_NAME_VAR (new) != mem_var)
+     virtual operands.  If this is a mapping for .MEM, then we gather
+     the symbols associated with each name.  */
+  if (!is_gimple_reg (new))
     {
       tree sym;
       size_t uid;
 
       need_to_update_vops_p = true;
+      update_ssa_stats.num_virtual_mappings++;
+      update_ssa_stats.num_virtual_symbols++;
 
       /* Keep counts of virtual mappings and symbols to use in the
 	 virtual mapping heuristic.  If we have large numbers of
@@ -822,12 +821,26 @@ add_new_name_mapping (tree new, tree old)
 	 Otherwise, the insertion of PHI nodes for each of the old
 	 names in these mappings will be very slow.  */
       sym = SSA_NAME_VAR (new);
-      uid = DECL_UID (sym);
-      update_ssa_stats.num_virtual_mappings++;
-      if (!bitmap_bit_p (update_ssa_stats.virtual_symbols, uid))
+      if (sym != mem_var)
 	{
+	  uid = DECL_UID (sym);
 	  bitmap_set_bit (update_ssa_stats.virtual_symbols, uid);
-	  update_ssa_stats.num_virtual_symbols++;
+	}
+      else
+	{
+	  bitmap s;
+
+	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (old))->loads;
+	  if (s)
+	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
+
+	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (old))->stores;
+	  if (s)
+	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
+
+	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (new))->stores;
+	  if (s)
+	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
 	}
     }
 
