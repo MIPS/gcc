@@ -339,37 +339,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  goto error;
 	}
 
-      if (bitmap_empty_p (syms_phi->stores)
-	  && !zero_imm_uses_p (PHI_RESULT (phi)))
-	{
-	  use_operand_p use_p;
-	  imm_use_iterator iter;
-	  tree lhs = PHI_RESULT (phi);
-
-	  /* A PHI node that factors no symbols is harmless unless it
-	     reaches a memory statement that references symbols.  If
-	     PHI is in a dead chain of PHI nodes then it doesn't
-	     matter as they will be removed by DCE.  */
-	  FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
-	    {
-	      tree stmt = USE_STMT (use_p);
-	      if (TREE_CODE (stmt) != PHI_NODE)
-		err = true;
-	      else
-		{
-		  bitmap s = get_loads_and_stores (stmt)->stores;
-		  if (!bitmap_empty_p (s))
-		    err = true;
-		}
-
-	      if (err)
-		{
-		  error ("Found a live memory PHI with no factored symbols");
-		  break;
-		}
-	    }
-	}
-
       EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
 	if (is_gimple_reg (referenced_var (i)))
 	  {

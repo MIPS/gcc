@@ -1,5 +1,10 @@
 2006-10-12  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa.c (verify_phi_args): Do not complain for memory PHI
+	nodes with no associated symbols.
+
+2006-10-12  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c (add_new_name_mapping): Fix handling of
 	.MEM -> .MEM mappings.
 
