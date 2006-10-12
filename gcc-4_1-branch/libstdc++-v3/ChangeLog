@@ -1,3 +1,41 @@
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/29095
+        * libsupc++/cxxabi.h (__cxa_cdtor_type): Explicit "C" linkage.
+        * config/cpu/arm/cxxabi_tweaks.h: Same.
+        * config/cpu/generic/cxxabi_tweaks.h: Same.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29368
+	* include/bits/basic_string.h: Adjust rfind documentation.
+	* include/ext/vstring.h: Likewise.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29354
+	* include/bits/sstream.tcc (basic_stringbuf<>::seekpos(pos_type,
+	ios_base::openmode)): Allow for seek to pos_type(off_type(0))
+	when the stream is empty.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/29354.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekpos/wchar_t/29354.cc: New.
+
+2006-09-29  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* acinclude.m4 (enable_symvers): Default to no if unable to link.
+	* configure: Regenerate.
+
+2006-09-25  Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/29224
+	* include/tr1/functional_iterate.h: Avoid -Wshadow warnings.
+
+2006-09-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29179
+	* include/ext/mt_allocator.h (__pool_base): Adjust/extend
+	documentation in comments.
+
 2006-09-25  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport:

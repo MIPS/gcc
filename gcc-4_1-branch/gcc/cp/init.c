@@ -179,7 +179,8 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
        items with static storage duration that are not otherwise
        initialized are initialized to zero.  */
     ;
-  else if (SCALAR_TYPE_P (type))
+  else if (SCALAR_TYPE_P (type)
+	   || TREE_CODE (type) == COMPLEX_TYPE)
     init = convert (type, integer_zero_node);
   else if (CLASS_TYPE_P (type))
     {
@@ -223,6 +224,11 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
 				 nelts, integer_one_node);
       else
 	max_index = array_type_nelts (type);
+
+      /* If we have an error_mark here, we should just return error mark
+	 as we don't know the size of the array yet.  */
+      if (max_index == error_mark_node)
+	return error_mark_node;
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
 
       /* A zero-sized array, which is accepted as an extension, will
@@ -249,6 +255,8 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       /* Build a constructor to contain the initializations.  */
       init = build_constructor (type, v);
     }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    init = fold_convert (type, integer_zero_node);
   else
     gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
 

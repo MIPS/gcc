@@ -2539,7 +2539,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde = &fde_table[fde_table_in_use++];
   fde->decl = current_function_decl;
   fde->dw_fde_begin = dup_label;
-  fde->dw_fde_current_label = NULL;
+  fde->dw_fde_current_label = dup_label;
   fde->dw_fde_hot_section_label = NULL;
   fde->dw_fde_hot_section_end_label = NULL;
   fde->dw_fde_unlikely_section_label = NULL;
@@ -9109,6 +9109,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       /* FALLTHRU */
 
     case RESULT_DECL:
+    case FUNCTION_DECL:
       {
 	rtx rtl = rtl_for_decl_location (loc);
 

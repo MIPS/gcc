@@ -1,3 +1,126 @@
+2006-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-config.h: Ensure we use -std=c99 on solaris2.
+	* gcc.dg/torture/builtin-convert-1.c,
+	gcc.dg/torture/builtin-convert-2.c,
+	gcc.dg/torture/builtin-convert-3.c,
+	gcc.dg/torture/builtin-power-1.c: Use -std=c99 on solaris2.
+	* gcc.dg/builtins-18.c: Always use link_error(), which is
+	prototyped.
+
+	Backport:
+	2006-03-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/builtins-config.h (Solaris case): Define HAVE_C99_RUNTIME
+	if _STDC_C99 is defined.
+	* gcc.dg/builtins-18.c: Pass -std=c99 on Solaris.
+	* gcc.dg/builtins-20.c: Likewise.
+	* gcc.dg/builtins-53.c: Likewise.
+
+2006-10-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/29002
+	* g++.dg/init/array22.C: New test.
+	* g++.dg/init/array23.C: New test.
+
+2006-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/28302
+	* g++.dg/ext/vector3.C: New test.
+
+2006-10-06  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc.c-torture/compile/sync-2.c: New test.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/28924
+	* gcc.c-torture/compile/20061005-1.c: New test.
+
+2006-10-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/28450
+	* g++.dg/ext/vector4.C: New test.
+	* g++.dg/ext/complex1.C: New test.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29290
+	* gfortran.dg/loop_nest_1.f90: New test.
+
+	PR target/29198
+	* gcc.dg/tls/opt-12.c: New test.
+
+	PR fortran/28415
+	* gfortran.dg/save_2.f90: New test.
+
+2006-10-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/28349
+	* testsuite/g++.dg/warn/var-args1.C: New test.
+
+2006-10-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Handle i?86-*-* the
+	same as x86_64-*-*; check for LP64.
+
+2006-10-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR debug/28980
+	* gcc.c-torture/compile/debugvlafunction-1.c: New test.
+
+2006-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/27490
+	* gcc.dg/sizeof-2.c: New testcase.
+
+	PR c/27489
+	* gcc.dg/switch-A.c: New testcase.
+
+2006-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/28952
+	* gcc.dg/vect/pr28952.c: New test.
+
+2006-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29138
+	* g++.dg/inherit/access8.C: New test.
+	* g++.dg/template/dtor4.C: Tweak error messages.
+
+2006-10-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/28862
+	* gcc.c-torture/compile/vector-align-1.c: New test.
+
+2006-10-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/29195
+	* objc/compile/method-1.m: New test.
+
+2006-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29226
+	* g++.dg/template/vla1.C: New test.
+
+2006-10-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/18791
+	* gfortran.dg/specifics_1.f90: New test.
+	* gfortran.fortran-torture/execute/specifics.f90: Add tests for
+	complex specifics.
+
+2006-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/29154
+	* gcc.c-torture/execute/20060929-1.c: New test.
+
+2006-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29080
+	* g++.dg/template/member7.C: New test.
+
 2006-09-20  Steven Bosscher  <steven@gcc.gnu.org>
 
 	PR middle-end/26983

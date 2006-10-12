@@ -1,3 +1,110 @@
+2006-10-06  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/28490
+	Backport from mainline
+	2006-09-15  Jim Wilson  <wilson@specifix.com>
+	2006-09-19  Steve Ellcey  <sje@cup.hp.com>
+	* config/ia64/ia64.c (ia64_legitimate_constant_p): Allow function
+        pointers as legitimate constants.  Handle symbol offsets same as
+	they are handled in ia64_expand_move and move_operand.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-loop-linear.c (linear_transform_loops): Don't forget to
+	free DEPENDENCE_RELATIONS and DATAREFS.
+
+	PR target/28924
+	* builtins.c (expand_builtin_sync_operation,
+	expand_builtin_compare_and_swap, expand_builtin_lock_test_and_set):
+	Use convert_to_mode to handle promoted arguments.
+
+2006-10-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/sync.md ("sync_add<mode>", "sync_sub<mode>",
+	"sync_ior<mode>", "sync_and<mode>", "sync_xor<mode>"):
+	Use <modeconstraint> instead of "r" as operand 1 constraint.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29290
+	* tree-loop-linear.c (linear_transform_loops): Bail if loop_nest has
+	multiple exits.
+
+	PR target/29198
+	* config/i386/i386.c (legitimize_pic_address): Reject TLS symbols.
+	* config/i386/predicates.md (local_symbolic_operand): Likewise.
+
+2006-10-05  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline
+	2006-09-11  Guenter Roeck  <guenter@roeck-us.net>
+		    David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/27287
+	* config/rs6000/spe.md (frob_df_di): Remove %H.
+	(frob_di_df): Remove %H.  Change evmergelo to mr.
+	(frob_di_df_2): Remove %H.  Change evldd to two loads.
+
+2006-10-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR debug/28980
+	* dwarf2out.c (loc_descriptor_from_tree_1): Handle
+	FUNCTION_DECL.
+
+2006-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/27490
+	PR c/27489
+	* c-typeck.c (build_compound_expr): If the second expression
+	is an error mark, then just return an error mark instead of
+	creating a COMPOUND_EXPR.
+
+2006-10-04  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/28952
+	* tree-vect-transform.c (vectorizable_condition): Move the check
+	for the type after the check for simple condition.
+
+2006-10-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/28862
+	* stor-layout.c (relayout_decl): Don't zero the alignment if it
+	was set by the user.
+
+2006-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2006-02-20  Angel Nunez Mencias  <anunez@de.ibm.com>
+
+	* config/s390/s390.c (legitimize_pic_address): Assertions checking
+	for non tls symbols added.
+	(legitimize_address): Do nothing for PLUS expressions if one of the
+	addends is a tls symbol reference.
+
+2006-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/29154
+	* gimplify.c (gimplify_self_mod_expr): Run inner expression's post
+	side effects after the outer expression's post side effects.
+
+2006-09-27  Paul Brook  <paul@codesourcery.com>
+
+	PR target/29230
+	Backport from mainline.
+	* config/arm/arm.md (arith_adjacentmem): Handle large offsets.
+
+2006-09-25  Matthias Klose  <doko@debian.org>
+
+	* doc/invoke.texi: Add missing full stop.
+
+2006-09-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR debug/29132
+	Backport from mainline
+	* dwarf2out.c (dwarf2out_begin_prologue): Initialise the current label,
+	dw_fde_current_label, to be the start of the function, i.e. the same
+	value as dw_fde_begin.
+
 2006-10-12  David Edelsohn  <dje@watson.ibm.com>
 	    Steve Munroe  <sjmunroe@us.ibm.com>
 
@@ -279,6 +386,8 @@
 
 2006-09-06  Matthias Klose  <doko@debian.org>
 
+	PR bootstrap/26764
+	PR bootstrap/27334
 	* Makefile.in (s-macro_list): Conform to POSIX rules in single quoted
 	strings.
 
