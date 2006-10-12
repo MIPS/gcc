@@ -1,3 +1,15 @@
+2006-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in, include/config.h.in, configure:
+	Rebuilt.
+	* Makefile.am (nat_source_files): Added natConfiguration.cc.
+	* gnu/classpath/natConfiguration.cc: New file.
+	* configure.ac (AWT_TOOLKIT): New define.
+	(LIBGCJ_PREFIX): Likewise.
+	* gnu/classpath/Configuration.java: New file.
+	* sources.am: Rebuilt.
+	* scripts/makemake.tcl: Don't special case Configuration.java.
+
 2006-10-10  Tom Tromey  <tromey@redhat.com>
 
 	* gcj/javaprims.h: Updated.

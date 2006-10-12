@@ -261,7 +261,8 @@ am__DEPENDENCIES_3 = $(patsubst classpath/resource/%,%,$(addsuffix \
 am__DEPENDENCIES_4 =
 am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc \
 	stacktrace.cc link.cc defineclass.cc interpret.cc verify.cc \
-	gnu/classpath/natSystemProperties.cc gnu/gcj/natCore.cc \
+	gnu/classpath/natSystemProperties.cc \
+	gnu/classpath/natConfiguration.cc gnu/gcj/natCore.cc \
 	gnu/gcj/convert/JIS0208_to_Unicode.cc \
 	gnu/gcj/convert/JIS0212_to_Unicode.cc \
 	gnu/gcj/convert/Unicode_to_JIS.cc gnu/gcj/convert/natIconv.cc \
@@ -317,7 +318,8 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc exception.cc \
 	win32.cc darwin.cc posix-threads.cc win32-threads.cc \
 	no-threads.cc
 am__objects_2 = gnu/classpath/natSystemProperties.lo \
-	gnu/gcj/natCore.lo gnu/gcj/convert/JIS0208_to_Unicode.lo \
+	gnu/classpath/natConfiguration.lo gnu/gcj/natCore.lo \
+	gnu/gcj/convert/JIS0208_to_Unicode.lo \
 	gnu/gcj/convert/JIS0212_to_Unicode.lo \
 	gnu/gcj/convert/Unicode_to_JIS.lo gnu/gcj/convert/natIconv.lo \
 	gnu/gcj/convert/natInput_EUCJIS.lo \
@@ -1064,7 +1066,7 @@ gnu/awt/xlib/XToolkit.java
 
 gnu_awt_xlib_header_files = $(patsubst %.java,%.h,$(gnu_awt_xlib_source_files))
 gnu_classpath_source_files = \
-classpath/gnu/classpath/Configuration.java \
+gnu/classpath/Configuration.java \
 classpath/gnu/classpath/NotImplementedException.java \
 classpath/gnu/classpath/Pointer.java \
 classpath/gnu/classpath/Pointer32.java \
@@ -7519,6 +7521,7 @@ grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 nat_source_files = \
 gnu/classpath/natSystemProperties.cc \
+gnu/classpath/natConfiguration.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
@@ -7817,6 +7820,8 @@ gnu/classpath/$(DEPDIR)/$(am__dirstamp):
 	@$(mkdir_p) gnu/classpath/$(DEPDIR)
 	@: > gnu/classpath/$(DEPDIR)/$(am__dirstamp)
 gnu/classpath/natSystemProperties.lo: gnu/classpath/$(am__dirstamp) \
+	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
+gnu/classpath/natConfiguration.lo: gnu/classpath/$(am__dirstamp) \
 	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/$(am__dirstamp):
 	@$(mkdir_p) gnu/gcj
@@ -8234,6 +8239,8 @@ uninstall-binSCRIPTS:
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f gnu/classpath/natConfiguration.$(OBJEXT)
+	-rm -f gnu/classpath/natConfiguration.lo
 	-rm -f gnu/classpath/natSystemProperties.$(OBJEXT)
 	-rm -f gnu/classpath/natSystemProperties.lo
 	-rm -f gnu/gcj/convert/JIS0208_to_Unicode.$(OBJEXT)
@@ -8449,6 +8456,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/verify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/win32-threads.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/win32.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natConfiguration.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natSystemProperties.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/$(DEPDIR)/natCore.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/gcj/convert/$(DEPDIR)/JIS0208_to_Unicode.Plo@am__quote@

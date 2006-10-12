@@ -220,7 +220,7 @@ gnu/awt/xlib.list: $(gnu_awt_xlib_source_files)
 
 
 gnu_classpath_source_files = \
-classpath/gnu/classpath/Configuration.java \
+gnu/classpath/Configuration.java \
 classpath/gnu/classpath/NotImplementedException.java \
 classpath/gnu/classpath/Pointer.java \
 classpath/gnu/classpath/Pointer32.java \

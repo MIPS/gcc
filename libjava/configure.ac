@@ -265,6 +265,10 @@ AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
 AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 AM_CONDITIONAL(X_AWT, test "$use_x_awt" = yes)
 
+AC_DEFINE_UNQUOTED(AWT_TOOLKIT, "$TOOLKIT", [Name of default AWT toolkit])
+
+AC_DEFINE_UNQUOTED(LIBGCJ_PREFIX, "$prefix", [Installation prefix])
+
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then

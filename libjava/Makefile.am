@@ -660,6 +660,7 @@ grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
 gnu/classpath/natSystemProperties.cc \
+gnu/classpath/natConfiguration.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
