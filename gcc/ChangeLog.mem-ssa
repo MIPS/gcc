@@ -1,3 +1,13 @@
+2006-10-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (insert_phi_nodes_for): Create factored PHI
+	nodes using the set of stores from the SSA name being
+	replaced.
+	* tree-ssa.c (verify_use): Remove argument
+	syms_in_factored_phis.  Update users.
+	(verify_phi_args): Reject memory PHI nodes with empty factored
+	sets unless they are in a dead chain of nodes.
+
 2006-10-11  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (regs_to_rename): New local variable.

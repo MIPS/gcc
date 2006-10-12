@@ -1186,7 +1186,10 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 
 	  gcc_assert (update_p);
 	  if (SSA_NAME_VAR (var) == mem_var)
-	    phi = create_factored_phi_node (var, bb, NULL);
+	    {
+	      bitmap s = get_loads_and_stores (SSA_NAME_DEF_STMT (var))->stores;
+	      phi = create_factored_phi_node (var, bb, s);
+	    }
 	  else
 	    phi = create_phi_node (var, bb);
 

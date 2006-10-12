@@ -309,15 +309,10 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
       version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
       it means that the block in that array slot contains the
-      definition of SSA_NAME.
-
-   SYMS_IN_FACTORED_PHIS contains the set of collected symbols found
-      in factored PHI nodes.  No symbol should be in more than one
-      factored PHI node.  */
+      definition of SSA_NAME.  */
 
 static bool
-verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
-		 bitmap syms_in_factored_phis)
+verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
@@ -344,6 +339,37 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	  goto error;
 	}
 
+      if (bitmap_empty_p (syms_phi->stores)
+	  && !zero_imm_uses_p (PHI_RESULT (phi)))
+	{
+	  use_operand_p use_p;
+	  imm_use_iterator iter;
+	  tree lhs = PHI_RESULT (phi);
+
+	  /* A PHI node that factors no symbols is harmless unless it
+	     reaches a memory statement that references symbols.  If
+	     PHI is in a dead chain of PHI nodes then it doesn't
+	     matter as they will be removed by DCE.  */
+	  FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
+	    {
+	      tree stmt = USE_STMT (use_p);
+	      if (TREE_CODE (stmt) != PHI_NODE)
+		err = true;
+	      else
+		{
+		  bitmap s = get_loads_and_stores (stmt)->stores;
+		  if (!bitmap_empty_p (s))
+		    err = true;
+		}
+
+	      if (err)
+		{
+		  error ("Found a live memory PHI with no factored symbols");
+		  break;
+		}
+	    }
+	}
+
       EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
 	if (is_gimple_reg (referenced_var (i)))
 	  {
@@ -352,25 +378,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	    print_generic_stmt (stderr, referenced_var (i), 0);
 	    err = true;
 	  }
-
-      /* Factored PHI nodes should not factor symbols that already
-	 have PHI nodes in this block.  However, if this PHI node has
-	 no uses, then it doesn't matter if it factors symbols in
-	 common with another PHI node.  */
-      if (SSA_NAME_VAR (PHI_RESULT (phi)) == mem_var
-	  && !zero_imm_uses_p (PHI_RESULT (phi))
- 	  && bitmap_intersect_p (syms_phi->stores, syms_in_factored_phis))
-	{
-	  bitmap tmp = BITMAP_ALLOC (NULL);
-	  bitmap_and (tmp, syms_phi->stores, syms_in_factored_phis);
-	  error ("Found symbols factored by more than one PHI node in the "
-	         "same block");
-	  dump_decl_set (stderr, tmp);
-	  BITMAP_FREE (tmp);
-	  err = true;
-	}
-      else
-	bitmap_ior_into (syms_in_factored_phis, syms_phi->stores);
 
       if (err)
 	goto error;
@@ -779,7 +786,6 @@ verify_ssa (bool check_modified_stmt)
       tree phi;
       edge_iterator ei;
       block_stmt_iterator bsi;
-      bitmap factored_syms;
 
       /* Make sure that all edges have a clear 'aux' field.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -793,20 +799,14 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      factored_syms = BITMAP_ALLOC (NULL);
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  if (verify_phi_args (phi, bb, definition_block, factored_syms))
-	    {
-	      BITMAP_FREE (factored_syms);
-	      goto err;
-	    }
+	  if (verify_phi_args (phi, bb, definition_block))
+	    goto err;
 
 	  bitmap_set_bit (names_defined_in_bb,
 			  SSA_NAME_VERSION (PHI_RESULT (phi)));
 	}
-
-      BITMAP_FREE (factored_syms);
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
