@@ -26,14 +26,11 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "target.h"
 #include "tree.h"
 #include "java-tree.h"
 #include "tree-dump.h"
 #include "tree-gimple.h"
 #include "toplev.h"
-#include "rtl.h" /* For decl_default_tls_model.  */
-#include "jcf.h"
 
 static tree java_gimplify_labeled_block_expr (tree);
 static tree java_gimplify_exit_block_expr (tree);
@@ -269,77 +266,14 @@ java_gimplify_component_ref (tree *expr_p, tree *pre_p, tree *post_p)
   return GS_UNHANDLED;
 }
   
-static enum gimplify_status
-java_maybe_replace_init_expr (tree *modify_expr_p,
-			      tree *pre_p ATTRIBUTE_UNUSED, 
-			      tree *post_p ATTRIBUTE_UNUSED)
-{
-  tree modify_expr = *modify_expr_p;
-  tree lhs = TREE_OPERAND (modify_expr, 0);
-  tree lhs_type = TREE_TYPE (lhs);
-  tree name = NULL_TREE;
-  tree fdecl, arg_list;
-
-  if (targetm.have_tls
-      && TREE_CODE (lhs) == VAR_DECL
-      && TREE_CODE (lhs_type) == POINTER_TYPE
-      && FIELD_STATIC (lhs)
-      && ((name = DECL_NAME (TYPE_NAME (TREE_TYPE (lhs_type)))) 
-	  == get_identifier ("java.lang.ThreadLocal"))
-      && (fdecl = find_tls_thunk (lhs)) != NULL_TREE)
-    {
-      tree call_expr;
-      tree rhs = TREE_OPERAND (modify_expr, 1);
-      enum gimplify_status stat;
-      tree maybe_method
-	= lookup_java_method (TREE_TYPE (lhs_type), 
-			      get_identifier ("setTLS"),
-			      get_identifier ("(Lgnu/gcj/RawData;)V"));
-      if (! maybe_method /* && ! flag_verify_invocations */)
-	{
-	  maybe_method
-	    = add_method (TREE_TYPE (lhs_type), ACC_FINAL|ACC_PRIVATE, 
-			  get_identifier ("setTLS"), 
-			  get_identifier ("(Lgnu/gcj/RawData;)V"));
-	  DECL_EXTERNAL (maybe_method) = 1;
-	}
-/*       IDENTIFIER_GLOBAL_VALUE (name) = NULL_TREE; */
-      stat = gimplify_expr (&rhs, pre_p, post_p,
-			    is_gimple_formal_tmp_var, fb_rvalue);
-      if (stat == GS_ERROR)
-	return stat;
-
-      arg_list = tree_cons (NULL_TREE, rhs, build_tree_list (NULL_TREE, 
-							     build_address_of (fdecl)));
-
-      call_expr = build3 (CALL_EXPR, void_type_node,
-			  build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (maybe_method)), 
-/* 				  build_invokevirtual (invoke_build_dtable (0, arg_list), */
-/* 						       maybe_method, */
-/* 						       integer_one_node) */
-				  build_known_method_ref (maybe_method, TREE_TYPE (maybe_method),
-							  DECL_CONTEXT (maybe_method),
-							  get_identifier ("(Lgnu/gcj/RawData;)V"),
-							  arg_list, integer_one_node)),
-			  arg_list,
-			  NULL_TREE);
-      TREE_OPERAND (modify_expr, 1) = build2 (COMPOUND_EXPR, TREE_TYPE (rhs), call_expr, rhs);
-    }
-
-  return GS_UNHANDLED;
-}
 
 static enum gimplify_status
 java_gimplify_modify_expr (tree *modify_expr_p, tree *pre_p, tree *post_p)
 {
   tree modify_expr = *modify_expr_p;
-  tree lhs, lhs_type, rhs;
-
-  java_maybe_replace_init_expr (&modify_expr, pre_p, post_p);
-
-  lhs = TREE_OPERAND (modify_expr, 0);
-  rhs = TREE_OPERAND (modify_expr, 1);
-  lhs_type = TREE_TYPE (lhs);
+  tree lhs = TREE_OPERAND (modify_expr, 0);
+  tree rhs = TREE_OPERAND (modify_expr, 1);
+  tree lhs_type = TREE_TYPE (lhs);
 
   if (CLASS_FROM_SOURCE_P (output_class)
       && TREE_CODE (lhs) == COMPONENT_REF

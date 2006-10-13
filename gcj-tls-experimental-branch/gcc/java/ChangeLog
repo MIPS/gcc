@@ -1,3 +1,11 @@
+2006-10-13  Andrew Haley  <aph@redhat.com>
+
+	* java-gimplify.c: Revert last changes.
+	* java-tree.h: Likewise.
+	* jcf-parse.c: Likewise.
+	* parse.y: Likewise.
+	* class.c: Likewise.
+
 2006-09-01  Andrew Haley  <aph@redhat.com>
 
 	* class.c (find_tls_thunk): New function.

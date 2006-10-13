@@ -65,7 +65,6 @@ static int assume_compiled (const char *);
 static tree build_symbol_entry (tree, tree);
 static tree emit_assertion_table (tree);
 static void register_class (void);
-static void build_tls_thunk (tree decl);
 
 struct obstack temporary_obstack;
 
@@ -1617,96 +1616,6 @@ supers_all_compiled (tree type)
   return 1;
 }
 
-tree 
-find_tls_thunk (tree decl)
-{
-  char *buf = alloca (4096);
-  tree id;
-  
-  sprintf (buf, "_Jv_thread_local_thunk_%s_%s", 
-	   IDENTIFIER_POINTER (DECL_NAME (decl)), 
-	   IDENTIFIER_POINTER (mangled_classname ("", DECL_CONTEXT (decl))));
-  id = get_identifier (buf);
-  return id ? IDENTIFIER_GLOBAL_VALUE (id) : NULL_TREE;
-}
-
-void
-build_tls_thunks (tree class)
-{
-  tree field;
-
-  if (targetm.have_tls)
-    for (field = TYPE_FIELDS (class); field != NULL_TREE; field = TREE_CHAIN (field))
-      {
-	if (TREE_CODE (field) == VAR_DECL
-	    && TREE_CODE (TREE_TYPE (field)) == POINTER_TYPE
-	    && FIELD_STATIC (field)
-	    && ((DECL_NAME (TYPE_NAME (TREE_TYPE (TREE_TYPE (field)))))
-		== get_identifier ("java.lang.ThreadLocal")))
-	  build_tls_thunk (field);
-      }      
-}
-
-static void
-build_tls_thunk (tree decl)
-{
-  tree fdecl, vdecl;
-  char *buf = alloca (4096);
-  tree stmts;
-  tree_stmt_iterator it;
-  tree ret_stmt;
-  tree result_decl;
-  tree function_identifier;
-  tree buf_type = make_node (RECORD_TYPE);
-
-  {
-    tree id_field = build_decl (FIELD_DECL, NULL_TREE, long_type_node);
-    tree ptr_field = build_decl (FIELD_DECL, NULL_TREE, ptr_type_node);
-    TYPE_FIELDS (buf_type) = id_field;
-    TREE_CHAIN (id_field) = ptr_field;
-    layout_type (buf_type);
-  }
-
-  sprintf (buf, "_Jv_thread_local_%s_%s", 
-	   IDENTIFIER_POINTER (DECL_NAME (decl)), 
-	   IDENTIFIER_POINTER (mangled_classname ("", DECL_CONTEXT (decl))));
-  vdecl = build_decl (VAR_DECL, get_identifier (buf), buf_type);
-  DECL_TLS_MODEL (vdecl) = decl_default_tls_model (vdecl);
-  TREE_STATIC (vdecl) = 1;
-  DECL_IGNORED_P (vdecl) = 1;
-  DECL_ARTIFICIAL (vdecl) = 1;
-  rest_of_decl_compilation (vdecl, 1, 0);
-
-  sprintf (buf, "_Jv_thread_local_thunk_%s_%s", 
-	   IDENTIFIER_POINTER (DECL_NAME (decl)), 
-	   IDENTIFIER_POINTER (mangled_classname ("", DECL_CONTEXT (decl))));
-  function_identifier = get_identifier (buf);
-  fdecl = build_decl (FUNCTION_DECL, function_identifier,
-		      build_function_type_list (ptr_type_node, 
-						void_type_node, 
-						NULL_TREE));
-  IDENTIFIER_GLOBAL_VALUE (function_identifier) = fdecl;
-  result_decl = build_result_decl (fdecl);
-
-  ret_stmt
-    = build1 (RETURN_EXPR, ptr_type_node, 
-	      (build2 (MODIFY_EXPR, ptr_type_node,
-		       result_decl,
-		       fold_convert (ptr_type_node, 
-				     build_address_of (vdecl)))));
-
-  stmts = make_node (STATEMENT_LIST);
-  it = tsi_last (stmts);
-  tsi_link_after (&it, ret_stmt, TSI_CONTINUE_LINKING);
-  TREE_TYPE (stmts) = void_type_node;
-
-  DECL_SAVED_TREE (fdecl) = stmts;
-  DECL_INITIAL (fdecl) = make_node (BLOCK);
-  
-  java_genericize (fdecl);
-  cgraph_finalize_function (fdecl, false);
-}
-
 void
 make_class_data (tree type)
 {
@@ -1737,7 +1646,6 @@ make_class_data (tree type)
       to where objects actually point at, following new g++ ABI. */
   tree dtable_start_offset = build_int_cst (NULL_TREE,
 					    2 * POINTER_SIZE / BITS_PER_UNIT);
-  tree first_field;
 
   this_class_addr = build_static_class_ref (type);
   decl = TREE_OPERAND (this_class_addr, 0);
@@ -1759,16 +1667,13 @@ make_class_data (tree type)
 	class_dtable_decl = dtable_decl;
     }
 
-  /* Find the first real field.  */
-  first_field = TYPE_FIELDS (type);
-  while (first_field && DECL_ARTIFICIAL (first_field))
-    first_field = TREE_CHAIN (first_field);  /* Skip dummy fields.  */
-  if (first_field && DECL_NAME (first_field) == NULL_TREE)
-    first_field = TREE_CHAIN (first_field);  /* Skip dummy field 
-						for inherited data. */
-
   /* Build Field array. */
-  for (field = first_field; field != NULL_TREE; field = TREE_CHAIN (field))
+  field = TYPE_FIELDS (type);
+  while (field && DECL_ARTIFICIAL (field))
+    field = TREE_CHAIN (field);  /* Skip dummy fields.  */
+  if (field && DECL_NAME (field) == NULL_TREE)
+    field = TREE_CHAIN (field);  /* Skip dummy field for inherited data. */
+  for ( ;  field != NULL_TREE;  field = TREE_CHAIN (field))
     {
       if (! DECL_ARTIFICIAL (field))
 	{

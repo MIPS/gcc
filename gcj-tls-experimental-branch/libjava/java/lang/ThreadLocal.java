@@ -100,6 +100,7 @@ public class ThreadLocal
    */
   public ThreadLocal()
   {
+    constructNative();
   }
 
   /**
@@ -125,7 +126,7 @@ public class ThreadLocal
    */
   public native Object get();
 
-  private final Object slowGet()
+  private final Object internalGet()
   {
     Map map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
@@ -149,7 +150,7 @@ public class ThreadLocal
    */
   public native void set(Object value);
 
-  private final void slowSet(Object value)
+  private final void internalSet(Object value)
   {
     Map map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
@@ -164,27 +165,15 @@ public class ThreadLocal
    */
   public native void remove();
 
-  private final void slowRemove()
+  private final void internalRemove()
   {
     Map map = Thread.getThreadLocals();
     map.remove(this);
   }
 
-  private final void setTLS(gnu.gcj.RawData p)
-  {
-    synchronized (sentinel)
-      {
-	if (counter == 0)
-	  // We've run out of unique TLS IDs.  Fall back to using slow
-	  // TLS.
-	  return;
-	id = counter++;
-	TLSPointer = p;
-      }	
-  }
+  protected native void finalize () throws Throwable;
 
-  static private long counter = 1;
+  private native void constructNative();
 
   private gnu.gcj.RawData TLSPointer;
-  private long id;
 }
