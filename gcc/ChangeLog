@@ -1,3 +1,25 @@
+2006-10-13	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c (check_pointer_arithmetic_stmt): Allow for
+	minus_expr aswell.
+	(check_assignment_from_exception_object)
+	(check_assignment_to_exception_object): New
+	(check_assignment_from_array_stmt): Fixed q_name bug in entry condition.
+	(update_connection_graph_from_statement): Add calls to
+	check_assignment_from_exception_object and
+	check_assignment_to_exception_object. Uncommmented gcc_unreachable if the
+	type statement type is unmatched.
+	(replace_array_with_alloca): Commented out. Doesnt work properly
+	(execute_ipa_stack_allocate): Changed log to append, rather than write
+
+	* congraph.c (inline_constructor_graph): Handle objects and their fields
+	properly.
+	(print_stmt_type): Add enums ASSIGNMENT_TO_EXCEPTION and
+	ASSIGNMENT_FROM_EXCEPTION
+
+	* congraph.h (statement_type): Add enums ASSIGNMENT_TO_EXCEPTION and
+	ASSIGNMENT_FROM_EXCEPTION
+
 2006-10-10	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c (is_constructor): Simplified

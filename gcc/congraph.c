@@ -1077,10 +1077,24 @@ inline_constructor_graph (con_graph cg,
   gcc_assert (constructor_graph);
   gcc_assert (cg);
   gcc_assert (call_id);
+
+  /* field nodes must have their owner already present in the caller. So
+   * add the objects first */
+  for (node = constructor_graph->root; node; node = node->next)
+    {
+      if (node->type == OBJECT_NODE)
+	{
+	  con_node result = add_object_node (cg, node->id, node->class_id);
+	  result->call_id = call_id;
+	  result->phantom = node->phantom;
+	}
+    }
+
+  /* now add everything except the objects */
   for (node = constructor_graph->root; node; node = node->next)
     {
       con_node result = NULL;
-
+      con_node owner;
       switch (node->type)
 	{
 	case LOCAL_NODE:
@@ -1088,14 +1102,14 @@ inline_constructor_graph (con_graph cg,
 	  result->call_id = call_id;
 	  break;
 
-	case OBJECT_NODE:
-	  result = add_object_node (cg, node->id, node->class_id);
-	  result->call_id = call_id;
-	  break;
-
 	case FIELD_NODE:
+	  /* find this node's owner, without which we cant find it later */
+	  owner = get_matching_node_in_caller (cg, node->owner,
+							call_id);
+	  gcc_assert (owner);
 	  result = add_field_node (cg, node->id);
 	  result->call_id = call_id;
+	  add_edge (owner, result);
 	  break;
 
 	case GLOBAL_NODE:
@@ -1107,6 +1121,7 @@ inline_constructor_graph (con_graph cg,
 	  /* TODO make it so these arent added */
 	  gcc_assert (node->out == NULL);
 	  gcc_assert (node->in == NULL);
+	  gcc_unreachable(); /* i think */
 	  break;
 
 	case CALLEE_ACTUAL_NODE:
@@ -1115,17 +1130,20 @@ inline_constructor_graph (con_graph cg,
 
 
 	case CALLER_ACTUAL_NODE:
-	  result =
-	    add_caller_actual_node (cg, node->id, node->index,
-				    node->call_id);
+	  result = add_caller_actual_node (cg, node->id, node->index,
+					   node->call_id);
 	  break;
 
+	case OBJECT_NODE:
+	  /* handled above */
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
 
-      if (result && node->phantom)
-	{
-	  result->phantom = true;
-	}
+      if (result)
+	result->phantom = node->phantom;
     }
 
   for (node = constructor_graph->root; node; node = node->next)
@@ -1133,6 +1151,8 @@ inline_constructor_graph (con_graph cg,
       con_edge edge;
       for (edge = node->out; edge; edge = edge->next_out)
 	{
+	  /* field nodes will already have their edges with thier owners,
+	   * which were added above */
 	  con_node source, target;
 	  source = get_matching_node_in_caller (cg, edge->source,
 						call_id);
@@ -1144,9 +1164,17 @@ inline_constructor_graph (con_graph cg,
 	    {
 	      /* we override the old state */
 	      /* TODO what if it was global? */
+	      gcc_assert (target->escape != EA_GLOBAL_ESCAPE);
 	      target->escape = EA_NO_ESCAPE;
 	    }
-	  add_edge (source, target);
+	  if (source->type == OBJECT_NODE && target->type == FIELD_NODE)
+	    {
+	      gcc_assert (get_edge (source, target));
+	    }
+	    else
+	    {
+	      add_edge (source, target);
+	    }
 	}
     }
 }
@@ -1269,6 +1297,8 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(ASSIGNMENT_FROM_FIELD);
 	  HANDLE(ASSIGNMENT_TO_FIELD);
 	  HANDLE(ASSIGNMENT_FROM_VTABLE);
+	  HANDLE(ASSIGNMENT_FROM_EXCEPTION);
+	  HANDLE(ASSIGNMENT_TO_EXCEPTION);
 	  HANDLE(RETURN);
 	  HANDLE(MEMORY_ALLOCATION);
 	  HANDLE(IGNORED_RETURNING_VOID);

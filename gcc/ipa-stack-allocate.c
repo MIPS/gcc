@@ -495,10 +495,11 @@ static bool
 check_pointer_arithmetic_stmt (con_graph cg, tree stmt)
 {
   /* make p global, link it to q */
-  /* p = q + x:
+  /* p = q + x     or
+   * p = q - x:
    * modify_expr
    *   var_decl - p
-   *   plus_expr
+   *   plus_expr (or minus_expr)
    *     var_decl - q
    *     integer_cst - x
    */
@@ -508,7 +509,8 @@ check_pointer_arithmetic_stmt (con_graph cg, tree stmt)
   if (!(TREE_CODE (stmt) == MODIFY_EXPR 
     && is_pointer_type (stmt)
     && is_suitable_decl (p_name = LHS (stmt))
-    && TREE_CODE (plus_expr = RHS (stmt)) == PLUS_EXPR
+    && ((TREE_CODE (plus_expr = RHS (stmt)) == PLUS_EXPR) || (TREE_CODE (plus_expr) == MINUS_EXPR))
+    /* should be able to use BINARY_CLASS_P here */
     && is_suitable_decl (q_name = LHS (plus_expr))
     && TREE_CODE (RHS (plus_expr)) == INTEGER_CST))
     {
@@ -1016,6 +1018,55 @@ insert_assignment_to_field (con_graph cg, tree p_name, tree q_name, tree f_name,
 }
 
 static bool
+check_assignment_to_exception_object (con_graph cg, tree stmt)
+{
+  /* p = exception:
+   * modify_expr
+   *   var_decl - p
+   *   exc_ptr_expr - q */
+  tree p_name, q_name;
+  con_node p;
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& TREE_CODE (p_name = LHS (stmt)) == EXC_PTR_EXPR
+	&& is_suitable_decl (q_name = RHS (stmt))))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_TO_EXCEPTION);
+  p = insert_reference (cg, p_name, q_name, false);
+  p->escape = EA_GLOBAL_ESCAPE;
+  clear_links (p);
+  return true;
+}
+
+static bool
+check_assignment_from_exception_object (con_graph cg, tree stmt)
+{
+  /* p = exception:
+   * modify_expr
+   *   var_decl - p
+   *   exc_ptr_expr - q */
+  tree p_name, q_name;
+  con_node p, q;
+  if (!(TREE_CODE (stmt) == MODIFY_EXPR
+	&& is_pointer_type (stmt)
+	&& is_suitable_decl (p_name = LHS (stmt))
+	&& TREE_CODE (q_name = RHS (stmt)) == EXC_PTR_EXPR))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, stmt, ASSIGNMENT_FROM_EXCEPTION);
+  p = insert_reference (cg, p_name, q_name, false);
+  q = p->next_link;
+  q->escape = EA_GLOBAL_ESCAPE;
+  clear_links (p);
+  return true;
+}
+
+static bool
 check_assignment_from_array_stmt (con_graph cg, tree stmt)
 {
   /* deal with this as if it were p = q; (except it's non-killing)
@@ -1026,7 +1077,7 @@ check_assignment_from_array_stmt (con_graph cg, tree stmt)
    *   var_decl - p
    *   array_ref
    *     var_decl - q
-   *     integer_cst */
+   *     integer_cst - x*/
 
   tree p_name, q_name, array_ref;
   con_node p;
@@ -1035,7 +1086,7 @@ check_assignment_from_array_stmt (con_graph cg, tree stmt)
     && is_pointer_type (stmt)
     && is_suitable_decl (p_name = LHS (stmt))
     && TREE_CODE (array_ref = RHS (stmt)) == ARRAY_REF
-    && is_suitable_decl (q_name = RHS (array_ref))
+    && is_suitable_decl (q_name = LHS (array_ref))
     && TREE_CODE (RHS (array_ref)) == INTEGER_CST))
     {
       return false;
@@ -1231,6 +1282,8 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 
   /* exceptions - put these before function calls */
   else if (check_null_pointer_exception_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_from_exception_object (cg, stmt)) { /* NOP */ }
+  else if (check_assignment_to_exception_object (cg, stmt)) { /* NOP */ }
 
 
   /* function calls - direct and indirect */
@@ -1281,7 +1334,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
       if (get_stmt_type (cg, stmt) == NULL)
 	{
 	  set_stmt_type (cg, stmt, IGNORED_UNKNOWN);
-/*	  gcc_unreachable ();*/	/* as if */
+	  gcc_unreachable ();	/* as if */
 	}
 
     }
@@ -1290,6 +1343,12 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 static void
 replace_array_with_alloca (con_node node)
 {
+  if (node == NULL)
+    {
+      gcc_unreachable ();
+    }
+  return;
+#if 0  
   tree type, alloca_func_call, new_alloca_stmt;
   tree new_jv_func_call_stmt;
 
@@ -1428,6 +1487,8 @@ replace_array_with_alloca (con_node node)
   bsi_insert_before (&bsi, new_alloca_stmt, BSI_SAME_STMT); 
   bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT); 
   bsi_remove(&bsi, true);
+
+#endif
 }
 
 static void
@@ -1677,8 +1738,8 @@ execute_ipa_stack_allocate (void)
   pretty_printer debug_buffer;
   pretty_printer dump_buffer;
 
-  debug = fopen ("debug_log", "w");
-  dump = fopen ("dump_log", "w");
+  debug = fopen ("debug_log", "a");
+  dump = fopen ("dump_log", "a");
   gcc_assert (debug);
   gcc_assert (dump);
 
