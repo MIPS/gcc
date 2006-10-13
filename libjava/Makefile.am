@@ -712,6 +712,7 @@ java/lang/natStringBuffer.cc \
 java/lang/natStringBuilder.cc \
 java/lang/natSystem.cc \
 java/lang/natThread.cc \
+java/lang/natThreadLocal.cc \
 java/lang/natVMClassLoader.cc \
 java/lang/natVMSecurityManager.cc \
 java/lang/natVMThrowable.cc \

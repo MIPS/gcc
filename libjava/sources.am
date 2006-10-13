@@ -4466,7 +4466,7 @@ java/lang/System.java \
 java/lang/Thread.java \
 classpath/java/lang/ThreadDeath.java \
 classpath/java/lang/ThreadGroup.java \
-classpath/java/lang/ThreadLocal.java \
+java/lang/ThreadLocal.java \
 classpath/java/lang/Throwable.java \
 classpath/java/lang/TypeNotPresentException.java \
 classpath/java/lang/UnknownError.java \

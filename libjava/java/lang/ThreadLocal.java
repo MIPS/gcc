@@ -1,5 +1,5 @@
 /* ThreadLocal -- a variable with a unique value per thread
-   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -100,6 +100,7 @@ public class ThreadLocal<T>
    */
   public ThreadLocal()
   {
+    constructNative();
   }
 
   /**
@@ -123,7 +124,9 @@ public class ThreadLocal<T>
    *
    * @return the value of the variable in this thread
    */
-  public T get()
+  public native T get();
+
+  private final Object internalGet()
   {
     Map<ThreadLocal<T>,T> map = (Map<ThreadLocal<T>,T>) Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
@@ -145,7 +148,9 @@ public class ThreadLocal<T>
    *
    * @param value the value to set this thread's view of the variable to
    */
-  public void set(T value)
+  public native void set(T value);
+
+  private final void internalSet(Object value)
   {
     Map map = Thread.getThreadLocals();
     // Note that we don't have to synchronize, as only this thread will
@@ -158,9 +163,17 @@ public class ThreadLocal<T>
    * currently executing Thread.
    * @since 1.5
    */
-  public void remove()
+  public native void remove();
+
+  private final void internalRemove()
   {
     Map map = Thread.getThreadLocals();
     map.remove(this);
   }
+
+  protected native void finalize () throws Throwable;
+
+  private native void constructNative();
+
+  private gnu.gcj.RawData TLSPointer;
 }

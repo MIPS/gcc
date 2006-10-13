@@ -1,3 +1,11 @@
+2006-10-12  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natThreadLocal.cc: New file.
+	* java/lang/ThreadLocal.java: Rewrite to use native TLS.
+	* Makefile.am: Add java/lang/natThreadLocal.cc.
+	* sources.am: Move classpath/java/lang/ThreadLocal.java to
+	java/lang/ThreadLocal.java.
+
 2006-10-11  Tom Tromey  <tromey@redhat.com>
 
 	* sources.am, Makefile.in, include/config.h.in, configure:
