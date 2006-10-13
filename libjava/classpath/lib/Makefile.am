@@ -16,10 +16,10 @@ compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
 if FOUND_GCJ
-## This should never be used when gcj is the compiler.
 ## See the compile-classes target.
 ## There's no point in warning, and we always want debug info.
-JAVAC = $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath '' --classpath $(compile_classpath) -d . @classes
+## GCJ LOCAL: use srcdir
+JAVAC = $(GCJ) -C -g -w --encoding=UTF-8 -bootclasspath '' --classpath $(compile_classpath) -d $(srcdir) @classes
 else
 if FOUND_JIKES
 JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
@@ -162,7 +162,9 @@ $(JAVA_DEPEND): genclasses
 # 	touch compile-classes
 # else
 compile-classes: classes $(JAVA_SRCS) Makefile
+if MAINTAINER_MODE
 	$(JAVAC)
+endif
 	touch compile-classes
 # endif
 

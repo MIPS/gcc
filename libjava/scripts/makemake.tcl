@@ -245,7 +245,7 @@ proc emit_bc_rule {package} {
   if {[info exists exclusion_map($package)]} {
     set omit "| grep -v $exclusion_map($package)"
   }
-  puts  "\t@find classpath/lib/$package -name '*.class'${omit} > $tname"
+  puts  "\t@find \$(srcdir)/classpath/lib/$package -name '*.class'${omit} > $tname"
   puts "\t\$(LTGCJCOMPILE) -fjni -findirect-dispatch -fno-indirect-classes -c -o $loname @$tname"
   puts "\t@rm -f $tname"
   puts ""
@@ -283,7 +283,7 @@ proc emit_package_rule {package} {
   # A rule to make the phony file we are going to compile.
   puts "$lname: \$($varname)"
   puts "\t@\$(mkinstalldirs) \$(dir \$@)"
-  puts "\techo classpath/lib/$package/*.class $omit> $lname"
+  puts "\techo \$(srcdir)/classpath/lib/$package/*.class $omit> $lname"
   puts ""
   puts "-include $dname"
   puts ""
@@ -304,7 +304,7 @@ proc emit_process_package_rule {platform} {
 
   puts "$lname: java/lang/${platform}Process.java"
   puts "\t@\$(mkinstalldirs) \$(dir \$@)"
-  puts "\techo classpath/lib/java/lang/${platform}Process*.class > $lname"
+  puts "\techo \$(srcdir)/classpath/lib/java/lang/${platform}Process*.class > $lname"
   puts ""
   puts "-include $dname"
   puts ""

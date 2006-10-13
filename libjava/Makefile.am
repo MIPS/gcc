@@ -163,7 +163,7 @@ AM_CPPFLAGS = -I$(top_srcdir) \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
-BOOTCLASSPATH = $(here)/classpath/lib
+BOOTCLASSPATH = $(srcdir)/classpath/lib
 
 ## ################################################################
 
@@ -324,8 +324,10 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
 libgcj-$(gcc_version).jar: classpath/lib/compile-classes
-	cd classpath/lib; $(JAR) -cfM \
-	    ../../libgcj-$(gcc_version).jar gnu java javax org sun
+## Note that this now omits the property files.
+## It doesn't matter since we don't use the jar at runtime.
+	here=`pwd`; cd $(srcdir)/classpath/lib; $(JAR) -cfM \
+	    $$here/libgcj-$(gcc_version).jar gnu java javax org sun
 
 CLEANFILES = libgcj-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
@@ -389,7 +391,10 @@ MYGCJH = gcjh1
 $(generic_header_files): gcjh.stamp
 
 gcjh.stamp: classpath/lib/compile-classes
-	$(MYGCJH) --cni --all classpath/lib --cmdfile=$(srcdir)/headers.txt
+if MAINTAINER_MODE
+	$(MYGCJH) --cni --all $(srcdir)/classpath/lib \
+	    --cmdfile=$(srcdir)/headers.txt -d $(srcdir) --force
+endif
 	echo > gcjh.stamp
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
@@ -456,16 +461,16 @@ install-data-local:
 	done
 	$(INSTALL_DATA) $(srcdir)/java/util/logging/logging.properties $(DESTDIR)$(propdir)/logging.properties
 ## Install inner class headers.
-	$(INSTALL_DATA) 'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
-	$(INSTALL_DATA) 'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
-	$(INSTALL_DATA) 'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
-	$(INSTALL_DATA) 'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
+	$(INSTALL_DATA) $(srcdir)/'java/io/ObjectOutputStream$$PutField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) $(srcdir)/'java/io/ObjectInputStream$$GetField.h' $(DESTDIR)$(gxx_include_dir)/java/io/
+	$(INSTALL_DATA) $(srcdir)/'java/nio/channels/Pipe$$SinkChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) $(srcdir)/'java/nio/channels/Pipe$$SourceChannel.h' $(DESTDIR)$(gxx_include_dir)/java/nio/channels/
+	$(INSTALL_DATA) $(srcdir)/'java/lang/reflect/Proxy$$ProxyData.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) $(srcdir)/'java/lang/reflect/Proxy$$ProxyType.h' $(DESTDIR)$(gxx_include_dir)/java/lang/reflect/
+	$(INSTALL_DATA) $(srcdir)/'gnu/java/net/PlainSocketImpl$$SocketInputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) $(srcdir)/'gnu/java/net/PlainSocketImpl$$SocketOutputStream.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/net/
+	$(INSTALL_DATA) $(srcdir)/'gnu/java/nio/PipeImpl$$SinkChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
+	$(INSTALL_DATA) $(srcdir)/'gnu/java/nio/PipeImpl$$SourceChannelImpl.h' $(DESTDIR)$(gxx_include_dir)/gnu/java/nio/
 ## Don't install java/nio/DirectByteBufferImpl$$ReadWrite.h here. It's for internal use only.
 
 

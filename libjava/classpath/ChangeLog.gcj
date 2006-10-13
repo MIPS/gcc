@@ -1,3 +1,9 @@
+2006-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (JAVAC): Put classes in srcdir.
+	(compile-classes): Conditional on MAINTAINER_MODE.
+
 2006-07-18  Tom Tromey  <tromey@redhat.com>
 
 	* lib/Makefile.in: Rebuilt.
