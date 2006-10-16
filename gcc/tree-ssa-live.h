@@ -49,8 +49,17 @@ typedef struct _var_map
   int *ref_count;
 } *var_map;
 
-#define VAR_ANN_PARTITION(ann) (ann->partition)
-#define VAR_ANN_ROOT_INDEX(ann) (ann->root_index)
+/* Hash table used by root_var_init and mapping from variables to
+   partitions.  */
+
+struct int_int_map
+{
+  int from, to;
+};
+
+extern htab_t var_partition_map;
+extern bitmap out_of_ssa;
+struct int_int_map *int_int_map_find_or_insert (htab_t, int);
 
 #define NO_PARTITION		-1
 
@@ -135,7 +144,7 @@ static inline tree version_to_var (var_map map, int version)
 static inline int
 var_to_partition (var_map map, tree var)
 {
-  var_ann_t ann;
+  struct int_int_map *part_map;
   int part;
 
   if (TREE_CODE (var) == SSA_NAME)
@@ -146,9 +155,12 @@ var_to_partition (var_map map, tree var)
     }
   else
     {
-      ann = var_ann (var);
-      if (ann->out_of_ssa_tag)
-	part = VAR_ANN_PARTITION (ann);
+      if (bitmap_bit_p (out_of_ssa, DECL_UID (var)))
+	{
+	  part_map = int_int_map_find_or_insert (var_partition_map,
+						 DECL_UID (var));
+	  part = part_map->to;
+	}
       else
         part = NO_PARTITION;
     }
@@ -713,5 +725,7 @@ extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p,
 extern void coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
 				  coalesce_list_p cl, FILE *);
 
+void init_var_partition_map (void);
+void delete_var_partition_map (void);
 
 #endif /* _TREE_SSA_LIVE_H  */

@@ -1,3 +1,112 @@
+2006-10-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_SECTIONS_SWITCH
+	and extra arguments of OMP_SECTIONS and OMP_CONTINUE.
+	* tree.h (OMP_DIRECTIVE_P): Add OMP_SECTIONS_SWITCH.
+	(OMP_SECTIONS_CONTROL): New macro.
+	* tree-pass.h (pass_expand_omp_O0): Declare.
+	* omp-low.c (find_omp_clause): Export.
+	(copy_var_decl): New function.
+	(omp_copy_decl_2): Use copy_var_decl.
+	(build_omp_barrier): Do not gimplify the result.
+	(lower_rec_input_clauses): Gimplify result of build_omp_barrier.
+	(extract_omp_for_data, expand_parallel_call, expand_omp_parallel,
+	expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk, expand_omp_for, expand_omp_sections,
+	expand_omp_single): Work on ssa form.
+	(is_combined_parallel): Adjust for the cfg changes.
+	(build_omp_regions_1): Handle OMP_SECTIONS_SWITCH.
+	(gate_expand_omp_O0, pass_expand_omp_O0): New pass structure.
+	(lower_omp_sections): Emit OMP_SECTIONS_SWITCH.  Add arguments to
+	OMP_CONTINUE and OMP_SECTIONS.
+	(lower_omp_for): Regimplify OMP_CLAUSE_SCHEDULE_CHUNK_EXPR.
+	Add arguments to OMP_CONTINUE.
+	* tree-gimple.c (is_gimple_stmt): Add OMP_SECTIONS_SWITCH.
+	* tree-ssa-alias.c (is_escape_site): Handle OMP_PARALLEL.
+	(remove_phis_for): New function.
+	(setup_pointers_and_addressables): Call remove_phis_for.
+	* gimple-low.c (lower_stmt): Handle OMP_SECTIONS_SWITCH.
+	* tree-parloops.c (mark_virtual_ops_for_renaming): Moved to tree-cfg.c.
+	(mark_call_virtual_operands): Exported.
+	(extract_loop_to_function): Move some parts to go_out_of_ssa.
+	* tree.def (OMP_SECTIONS): Change number of operands to 3.
+	(OMP_SECTIONS_SWITCH): New code.
+	(OMP_CONTINUE): Change number of operands to 2.
+	* tree-inline.c (estimate_num_insns_1): Handle OMP_SECTIONS_SWITCH.
+	* tree-outof-ssa.c (go_out_of_ssa): Take new function as an argument.
+	Remove references to variables from the old function, and clear
+	their annotations.
+	(create_temp): Do not record the variable as referenced.
+	* tree-flow.h (copy_var_decl, find_omp_clause,
+	mark_virtual_ops_for_renaming, mark_call_virtual_operands): Declare.
+	(go_out_of_ssa, force_gimple_operand_bsi): Declaration changed.
+	* tree-cfg.c (make_edges): Generate more precise cfg for OMP
+	constructs.
+	(tree_redirect_edge_and_branch): Handle OMP codes.
+	(replace_by_duplicate_decl, mark_virtual_ops_in_region): New functions.
+	(new_label_mapper): Use XNEW.
+	(move_stmt_r, move_block_to_fn, move_sese_region_to_fn): Copy the
+	region to clear decls.
+	(mark_virtual_ops_for_renaming): Moved from tree-parloops.c.
+	* passes.c (init_optimization_passes): Move pass_expand_omp to
+	pass_all_optimizations.  Use pass_expand_omp_O0 instead of it.
+	* tree-ssa-operands.c (get_expr_operands): Record operands of
+	OMP constructs.
+	* fortran/trans-openmp.c (gfc_trans_omp_sections): Use build3 for
+	OMP_SECTIONS.
+	* gimplify.c (gimplify_omp_for): Ensure that the control variable
+	is gimple reg.
+
+	* gimplify.c (force_gimple_operand_bsi):  Add arguments to specify
+	direction of insertion.
+	* tree-scalar-evolution.c (scev_const_prop): Change arguments to
+	force_gimple_operand_bsi.
+	* tree-ssa-address.c (gimplify_mem_ref_parts, create_mem_ref): Ditto.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
+	* tree-profile.c (prepare_instrumented_value,
+	tree_gen_interval_profiler, tree_gen_pow2_profiler,
+	tree_gen_one_value_profiler): Ditto.
+	* tree-ssa-reassoc.c (negate_value): Ditto.
+
+	* tree-flow-inline.h (set_is_used): Removed.
+	* tree-ssa-live.c (var_partition_map, out_of_ssa): New variables.
+	(int_int_map_eq, int_int_map_hash, delete_var_partition_map,
+	init_var_partition_map, int_int_map_find_or_insert): New functions.
+	(change_partition_var, mark_all_vars_used, mark_all_vars_used_1,
+	remove_unused_locals, create_ssa_var_map, root_var_init): Do not
+	use variable annotations.
+	* tree-ssa-live.h (VAR_ANN_PARTITION, VAR_ANN_ROOT_INDEX): Removed.
+	(struct int_int_map, var_partition_map, out_of_ssa,
+	int_int_map_find_or_insert, init_var_partition_map,
+	delete_var_partition_map): Declare.
+	(var_to_partition): Do not use variable annotations.
+	* tree-outof-ssa.c (insert_copy_on_edge, coalesce_ssa_name,
+	assign_vars, replace_use_variable, replace_def_variable,
+	rewrite_out_of_ssa): Do not use variable annotations.
+	* tree-flow.h (struct var_ann_d): Removed out_of_ssa_tag,
+	root_var_processed, partition and root_index.
+	(set_is_used): Declaration removed.
+
+	* testsuite/gcc.dg/gomp/for-13.c,
+	testsuite/gcc.dg/gomp/critical-1.c,
+	testsuite/gcc.dg/gomp/critical-3.c,
+	testsuite/gcc.dg/gomp/ordered-1.c,
+	testsuite/gcc.dg/gomp/for-4.c,
+	testsuite/gcc.dg/gomp/for-6.c,
+	testsuite/gcc.dg/gomp/master-3.c,
+	testsuite/gcc.dg/gomp/for-8.c,
+	testsuite/gcc.dg/gomp/for-10.c,
+	testsuite/gcc.dg/gomp/for-5.c,
+	testsuite/gcc.dg/gomp/for-7.c,
+	testsuite/gcc.dg/gomp/for-9.c,
+	testsuite/g++.dg/gomp/for-4.C,
+	testsuite/g++.dg/gomp/for-5.C,
+	testsuite/g++.dg/gomp/for-6.C,
+	testsuite/g++.dg/gomp/for-7.C,
+	testsuite/g++.dg/gomp/for-8.C,
+	testsuite/g++.dg/gomp/for-9.C,
+	testsuite/g++.dg/gomp/for-10.C): Add -O1 flag.
+
 2006-10-01  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-parloops.c (eliminate_local_variables_1): Handle addresses of

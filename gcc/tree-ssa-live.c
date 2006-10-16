@@ -40,6 +40,12 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "vecprim.h"
 
+/* Records partition for a variable.  */
+htab_t var_partition_map;
+
+/* Records variables seen by out of ssa pass.  */
+bitmap out_of_ssa;
+
 static void live_worklist (tree_live_info_p, int *, int);
 static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, bitmap, tree);
@@ -49,6 +55,26 @@ static inline void register_ssa_partition (var_map, tree, bool);
 static inline void add_conflicts_if_valid (tpa_p, conflict_graph,
 					   var_map, bitmap, tree);
 static partition_pair_p find_partition_pair (coalesce_list_p, int, int, bool);
+
+/* Hash table used by root_var_init and mapping from variables to
+   partitions.  */
+
+static int
+int_int_map_eq (const void *aa, const void *bb)
+{
+  struct int_int_map *a = (struct int_int_map *) aa;
+  struct int_int_map *b = (struct int_int_map *) bb;
+
+  return a->from == b->from;
+}
+
+static hashval_t
+int_int_map_hash (const void *aa)
+{
+  struct int_int_map *a = (struct int_int_map *) aa;
+
+  return (hashval_t) a->from;
+}
 
 /* This is where the mapping from SSA version number to real storage variable
    is tracked.  
@@ -100,6 +126,14 @@ delete_var_map (var_map map)
   free (map);
 }
 
+/* Free mapping from vars to partitions.  */
+
+void
+delete_var_partition_map (void)
+{
+  htab_delete (var_partition_map);
+  BITMAP_FREE (out_of_ssa);
+}
 
 /* This function will combine the partitions in MAP for VAR1 and VAR2.  It 
    Returns the partition which represents the new partition.  If the two 
@@ -276,26 +310,27 @@ compact_var_map (var_map map, int flags)
 void 
 change_partition_var (var_map map, tree var, int part)
 {
-  var_ann_t ann;
+  struct int_int_map *part_map;
 
   gcc_assert (TREE_CODE (var) != SSA_NAME);
 
-  ann = var_ann (var);
-  ann->out_of_ssa_tag = 1;
-  VAR_ANN_PARTITION (ann) = part;
+  part_map = int_int_map_find_or_insert (var_partition_map, DECL_UID (var));
+  bitmap_set_bit (out_of_ssa, DECL_UID (var));
+  part_map->to = part;
   if (map->compact_to_partition)
     map->partition_to_var[map->compact_to_partition[part]] = var;
 }
 
-static inline void mark_all_vars_used (tree *);
+static inline void mark_all_vars_used (tree *, bitmap);
 
 /* Helper function for mark_all_vars_used, called via walk_tree.  */
 
 static tree
 mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
-		      void *data ATTRIBUTE_UNUSED)
+		      void *data)
 {
   tree t = *tp;
+  bitmap used = data;
 
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
@@ -304,9 +339,9 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
      fields that do not contain vars.  */
   if (TREE_CODE (t) == TARGET_MEM_REF)
     {
-      mark_all_vars_used (&TMR_SYMBOL (t));
-      mark_all_vars_used (&TMR_BASE (t));
-      mark_all_vars_used (&TMR_INDEX (t));
+      mark_all_vars_used (&TMR_SYMBOL (t), used);
+      mark_all_vars_used (&TMR_BASE (t), used);
+      mark_all_vars_used (&TMR_INDEX (t), used);
       *walk_subtrees = 0;
       return NULL;
     }
@@ -314,7 +349,7 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
   /* Only need to mark VAR_DECLS; parameters and return results are not
      eliminated as unused.  */
   if (TREE_CODE (t) == VAR_DECL)
-    set_is_used (t);
+    bitmap_set_bit (used, DECL_UID (t));
 
   if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
@@ -326,9 +361,9 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
    eliminated during the tree->rtl conversion process.  */
 
 static inline void
-mark_all_vars_used (tree *expr_p)
+mark_all_vars_used (tree *expr_p, bitmap used)
 {
-  walk_tree (expr_p, mark_all_vars_used_1, NULL, NULL);
+  walk_tree (expr_p, mark_all_vars_used_1, used, NULL);
 }
 
 
@@ -338,16 +373,8 @@ void
 remove_unused_locals (void)
 {
   basic_block bb;
-  tree t, *cell;
-
-  /* Assume all locals are unused.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
-    {
-      tree var = TREE_VALUE (t);
-      if (TREE_CODE (var) != FUNCTION_DECL
-	  && var_ann (var))
-	var_ann (var)->used = false;
-    }
+  tree *cell;
+  bitmap used_vars = BITMAP_ALLOC (NULL);
 
   /* Walk the CFG marking all referenced symbols.  */
   FOR_EACH_BB (bb)
@@ -357,7 +384,7 @@ remove_unused_locals (void)
 
       /* Walk the statements.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	mark_all_vars_used (bsi_stmt_ptr (bsi));
+	mark_all_vars_used (bsi_stmt_ptr (bsi), used_vars);
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
         {
@@ -369,12 +396,12 @@ remove_unused_locals (void)
 	    continue;
 
           def = PHI_RESULT (phi);
-          mark_all_vars_used (&def);
+          mark_all_vars_used (&def, used_vars);
 
           FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_ALL_USES)
             {
 	      tree arg = USE_FROM_PTR (arg_p);
-	      mark_all_vars_used (&arg);
+	      mark_all_vars_used (&arg, used_vars);
             }
         }
     }
@@ -383,11 +410,9 @@ remove_unused_locals (void)
   for (cell = &cfun->unexpanded_var_list; *cell; )
     {
       tree var = TREE_VALUE (*cell);
-      var_ann_t ann;
 
       if (TREE_CODE (var) != FUNCTION_DECL
-	  && (!(ann = var_ann (var))
-	      || !ann->used))
+	  && !bitmap_bit_p (used_vars, DECL_UID (var)))
 	{
 	  *cell = TREE_CHAIN (*cell);
 	  continue;
@@ -395,6 +420,17 @@ remove_unused_locals (void)
 
       cell = &TREE_CHAIN (*cell);
     }
+
+  BITMAP_FREE (used_vars);
+}
+
+/* Initialize mapping from vars to partitions.  */
+
+void
+init_var_partition_map (void)
+{
+  out_of_ssa = BITMAP_ALLOC (NULL);
+  var_partition_map = htab_create (10, int_int_map_hash, int_int_map_eq, free);
 }
 
 /* This function looks through the program and uses FLAGS to determine what 
@@ -442,8 +478,6 @@ create_ssa_var_map (int flags)
 	      arg = PHI_ARG_DEF (phi, i);
 	      if (TREE_CODE (arg) == SSA_NAME)
 		register_ssa_partition (map, arg, true);
-
-	      mark_all_vars_used (&PHI_ARG_DEF_TREE (phi, i));
 	    }
 	}
 
@@ -480,8 +514,6 @@ create_ssa_var_map (int flags)
 	    }
 
 #endif /* ENABLE_CHECKING */
-
-	  mark_all_vars_used (bsi_stmt_ptr (bsi));
 	}
     }
 
@@ -999,6 +1031,25 @@ tpa_compact (tpa_p tpa)
   return last;
 }
 
+/* Finds or creates element with key WHAT in WHERE.  */
+
+struct int_int_map *
+int_int_map_find_or_insert (htab_t where, int what)
+{
+  void **loc;
+  struct int_int_map *nelt, temp;
+
+  temp.from = what;
+  loc = htab_find_slot_with_hash (where, &temp, what, INSERT);
+  if (*loc)
+    return *loc;
+
+  nelt = XNEW (struct int_int_map);
+  nelt->from = what;
+  nelt->to = 0;
+  *loc = nelt;
+  return nelt;
+}
 
 /* Initialize a root_var object with SSA partitions from MAP which are based 
    on each root variable.  */
@@ -1010,8 +1061,10 @@ root_var_init (var_map map)
   int num_partitions = num_var_partitions (map);
   int x, p;
   tree t;
-  var_ann_t ann;
   sbitmap seen;
+  bitmap root_var_processed;
+  htab_t var_root_index;
+  struct int_int_map *root_index;
 
   rv = tpa_init (map);
   if (!rv)
@@ -1019,6 +1072,8 @@ root_var_init (var_map map)
 
   seen = sbitmap_alloc (num_partitions);
   sbitmap_zero (seen);
+  root_var_processed = BITMAP_ALLOC (NULL);
+  var_root_index = htab_create (10, int_int_map_hash, int_int_map_eq, free);
 
   /* Start at the end and work towards the front. This will provide a list
      that is ordered from smallest to largest.  */
@@ -1040,30 +1095,25 @@ root_var_init (var_map map)
       SET_BIT (seen, p);
       if (TREE_CODE (t) == SSA_NAME)
 	t = SSA_NAME_VAR (t);
-      ann = var_ann (t);
-      if (ann->root_var_processed)
-        {
+      root_index = int_int_map_find_or_insert (var_root_index, DECL_UID (t));
+      if (bitmap_bit_p (root_var_processed, DECL_UID (t)))
+	{
 	  rv->next_partition[p] = VEC_index (int, rv->first_partition, 
-					     VAR_ANN_ROOT_INDEX (ann));
-	  VEC_replace (int, rv->first_partition, VAR_ANN_ROOT_INDEX (ann), p);
+					     root_index->to);
+	  VEC_replace (int, rv->first_partition, root_index->to, p);
 	}
       else
         {
-	  ann->root_var_processed = 1;
-	  VAR_ANN_ROOT_INDEX (ann) = rv->num_trees++;
+	  bitmap_set_bit (root_var_processed, DECL_UID (t));
+	  root_index->to = rv->num_trees++;
 	  VEC_safe_push (tree, heap, rv->trees, t);
 	  VEC_safe_push (int, heap, rv->first_partition, p);
 	}
-      rv->partition_to_tree_map[p] = VAR_ANN_ROOT_INDEX (ann);
+      rv->partition_to_tree_map[p] = root_index->to;
     }
 
-  /* Reset the out_of_ssa_tag flag on each variable for later use.  */
-  for (x = 0; x < rv->num_trees; x++)
-    {
-      t = VEC_index (tree, rv->trees, x);
-      var_ann (t)->root_var_processed = 0;
-    }
-
+  BITMAP_FREE (root_var_processed);
+  htab_delete (var_root_index);
   sbitmap_free (seen);
   return rv;
 }

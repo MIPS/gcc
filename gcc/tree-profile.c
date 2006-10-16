@@ -125,7 +125,7 @@ prepare_instrumented_value (block_stmt_iterator *bsi,
 {
   tree val = value->hvalue.value;
   return force_gimple_operand_bsi (bsi, fold_convert (gcov_type_node, val),
-				   true, NULL_TREE);
+				   true, NULL_TREE, true, BSI_SAME_STMT);
 }
 
 /* Output instructions as GIMPLE trees to increment the interval histogram 
@@ -144,7 +144,7 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
   
   ref_ptr = force_gimple_operand_bsi (&bsi,
 				      build_addr (ref, current_function_decl),
-				      true, NULL_TREE);
+				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   args = tree_cons (NULL_TREE, ref_ptr,
 		    tree_cons (NULL_TREE, val,
@@ -169,7 +169,7 @@ tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
   
   ref_ptr = force_gimple_operand_bsi (&bsi,
 				      build_addr (ref, current_function_decl),
-				      true, NULL_TREE);
+				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   args = tree_cons (NULL_TREE, ref_ptr,
 		    tree_cons (NULL_TREE, val,
@@ -192,7 +192,7 @@ tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
   
   ref_ptr = force_gimple_operand_bsi (&bsi,
 				      build_addr (ref, current_function_decl),
-				      true, NULL_TREE);
+				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   args = tree_cons (NULL_TREE, ref_ptr,
 		    tree_cons (NULL_TREE, val,

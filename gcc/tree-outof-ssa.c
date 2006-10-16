@@ -168,14 +168,7 @@ create_temp (tree t)
     }
   DECL_ARTIFICIAL (tmp) = DECL_ARTIFICIAL (t);
   DECL_IGNORED_P (tmp) = DECL_IGNORED_P (t);
-  add_referenced_var (tmp);
-
-  /* add_referenced_var will create the annotation and set up some
-     of the flags in the annotation.  However, some flags we need to
-     inherit from our original variable.  */
-  var_ann (tmp)->symbol_mem_tag = var_ann (t)->symbol_mem_tag;
-  if (is_call_clobbered (t))
-    mark_call_clobbered (tmp, var_ann (t)->escape_mask);
+  DECL_COMPLEX_GIMPLE_REG_P (tmp) = DECL_COMPLEX_GIMPLE_REG_P (t);
 
   return tmp;
 }
@@ -190,12 +183,9 @@ insert_copy_on_edge (edge e, tree dest, tree src)
   tree copy;
 
   copy = build2 (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
-  set_is_used (dest);
 
   if (TREE_CODE (src) == ADDR_EXPR)
     src = TREE_OPERAND (src, 0);
-  if (TREE_CODE (src) == VAR_DECL || TREE_CODE (src) == PARM_DECL)
-    set_is_used (src);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -885,13 +875,12 @@ coalesce_ssa_name (var_map map, int flags)
   EXECUTE_IF_SET_IN_SBITMAP (live, 0, x, sbi)
     {
       tree var = root_var (rv, root_var_find (rv, x));
-      var_ann_t ann = var_ann (var);
       /* If these aren't already coalesced...  */
       if (partition_to_var (map, x) != var)
 	{
 	  /* This root variable should have not already been assigned
 	     to another partition which is not coalesced with this one.  */
-	  gcc_assert (!ann->out_of_ssa_tag);
+	  gcc_assert (!bitmap_bit_p (out_of_ssa, DECL_UID (var)));
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -938,7 +927,6 @@ assign_vars (var_map map)
 {
   int x, i, num, rep;
   tree t, var;
-  var_ann_t ann;
   root_var_p rv;
 
   rv = root_var_init (map);
@@ -957,8 +945,7 @@ assign_vars (var_map map)
 	  /* Coalescing will already have verified that more than one
 	     partition doesn't have the same root variable. Simply marked
 	     the variable as assigned.  */
-	  ann = var_ann (var);
-	  ann->out_of_ssa_tag = 1;
+	  bitmap_set_bit (out_of_ssa, DECL_UID (var));
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "partition %d has variable ", x);
@@ -973,7 +960,6 @@ assign_vars (var_map map)
   for (x = 0; x < num; x++)
     {
       var = root_var (rv, x);
-      ann = var_ann (var);
       for (i = root_var_first_partition (rv, x);
 	   i != ROOT_VAR_NONE;
 	   i = root_var_next_partition (rv, i))
@@ -985,7 +971,7 @@ assign_vars (var_map map)
 
 	  rep = var_to_partition (map, t);
 	  
-	  if (!ann->out_of_ssa_tag)
+	  if (!bitmap_bit_p (out_of_ssa, DECL_UID (var)))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		print_exprs (dump_file, "", t, "  --> ", var, "\n");
@@ -999,7 +985,6 @@ assign_vars (var_map map)
 
 	  var = create_temp (t);
 	  change_partition_var (map, var, rep);
-	  ann = var_ann (var);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1043,7 +1028,6 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
   if (new_var)
     {
       SET_USE (p, new_var);
-      set_is_used (new_var);
       return true;
     }
   return false;
@@ -1079,7 +1063,6 @@ replace_def_variable (var_map map, def_operand_p def_p, tree *expr)
   if (new_var)
     {
       SET_DEF (def_p, new_var);
-      set_is_used (new_var);
       return true;
     }
   return false;
@@ -2497,19 +2480,59 @@ insert_backedge_copies (void)
     }
 }
 
-/* Rewrites the current function out of SSA form, leaving it in gimple
+/* Rewrites the function FUN out of SSA form, leaving it in gimple
    and not freeing any structures.  */
 
 void
-go_out_of_ssa (void)
+go_out_of_ssa (tree fun)
 {
   var_map map;
+  struct function *act_cfun = cfun;
+  tree act_decl = current_function_decl;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  stmt_ann_t ann;
+  use_operand_p use;
+  tree stmt;
+  ssa_op_iter oi;
 
+  cfun = DECL_STRUCT_FUNCTION (fun);
+  current_function_decl = fun;
+
+  init_var_partition_map ();
   insert_backedge_copies ();
   eliminate_virtual_phis ();
   map = create_ssa_var_map (0);
   remove_ssa_form (map, 0);
   delete_var_map (map);
+  delete_var_partition_map ();
+
+  /* Clean the annotations from the variables.  Go_out_of_ssa is called
+     on code split from the current function, operands of the statements are
+     allocated from the local caches, so we cannot preserve them.  Even if
+     we could, it probably would not be safe due to possible changes to the
+     information stored in the annotations.  */
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi);
+	  FOR_EACH_SSA_USE_OPERAND (use, stmt, oi,
+				    SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+	    {
+	      delink_imm_use (use);
+	    }
+
+	  ann = stmt_ann (bsi_stmt (bsi));
+	  memset (ann, 0, sizeof (struct stmt_ann_d));
+	  ann->common.type = STMT_ANN;
+	  ann->modified = 1;
+	  ann->bb = bb;
+	}
+    }
+
+  cfun = act_cfun;
+  current_function_decl = act_decl;
 }
 
 /* Take the current function out of SSA form, as described in
@@ -2522,6 +2545,8 @@ rewrite_out_of_ssa (void)
   var_map map;
   int var_flags = 0;
   int ssa_flags = 0;
+
+  init_var_partition_map ();
 
   /* If elimination of a PHI requires inserting a copy on a backedge,
      then we will have to split the backedge which has numerous
@@ -2560,6 +2585,8 @@ rewrite_out_of_ssa (void)
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
+
+  delete_var_partition_map ();
 
   in_ssa_p = false;
   return 0;

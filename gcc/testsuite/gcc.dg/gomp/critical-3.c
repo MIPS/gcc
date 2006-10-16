@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-fopenmp -fdump-tree-ompexp" }
+// { dg-options "-fopenmp -O1 -fdump-tree-ompexp" }
 
 void bar(void);
 void foo(void)

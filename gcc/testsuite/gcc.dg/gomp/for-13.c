@@ -2,7 +2,7 @@
 // for iteration variable as private.
 
 // { dg-do compile }
-// { dg-options "-fopenmp -fdump-tree-ompexp" }
+// { dg-options "-fopenmp -O1 -fdump-tree-ompexp" }
 
 extern void bar(int);
 void foo(void)

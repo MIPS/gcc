@@ -585,16 +585,6 @@ phi_arg_index_from_use (use_operand_p use)
  return index;
 }
 
-/* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
-
-static inline void
-set_is_used (tree var)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->used = 1;
-}
-
-
 /*  -----------------------------------------------------------------------  */
 
 /* Return true if T is an executable statement.  */

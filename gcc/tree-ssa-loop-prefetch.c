@@ -832,7 +832,8 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
   n_prefetches = ((unroll_factor + ref->prefetch_mod - 1)
 		  / ref->prefetch_mod);
   addr_base = build_fold_addr_expr_with_type (ref->mem, ptr_type_node);
-  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base), true, NULL);
+  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base), true, NULL,
+					true, BSI_SAME_STMT);
 
   for (ap = 0; ap < n_prefetches; ap++)
     {
@@ -840,7 +841,8 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
       delta = (ahead + ap * ref->prefetch_mod) * ref->group->step;
       addr = fold_build2 (PLUS_EXPR, ptr_type_node,
 			  addr_base, build_int_cst (ptr_type_node, delta));
-      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL);
+      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL,
+				       true, BSI_SAME_STMT);
 
       /* Create the prefetch instruction.  */
       write_p = ref->write_p ? integer_one_node : integer_zero_node;

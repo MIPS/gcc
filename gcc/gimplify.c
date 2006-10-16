@@ -4866,8 +4866,9 @@ gimplify_omp_parallel (tree *expr_p, tree *pre_p)
 static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
-  tree for_stmt, decl, t;
+  tree for_stmt, decl, var, t;
   enum gimplify_status ret = 0;
+  tree body, init_decl = NULL_TREE;
 
   for_stmt = *expr_p;
 
@@ -4885,12 +4886,27 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
+  /* If DECL is not a gimple register, create a temporary variable to act as an
+     iteration counter.  This is valid, since DECL cannot be modified in the
+     body of the loop.  */
+  if (!is_gimple_reg (decl))
+    {
+      var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
+      TREE_OPERAND (t, 0) = var;
+
+      init_decl = build2 (MODIFY_EXPR, void_type_node, decl, var);
+      omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
+    }
+  else
+    var = decl;
+
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
   gcc_assert (TREE_OPERAND (t, 0) == decl);
+  TREE_OPERAND (t, 0) = var;
 
   ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
@@ -4907,13 +4923,15 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
       t = build_int_cst (TREE_TYPE (decl), -1);
       goto build_modify;
     build_modify:
-      t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
-      t = build2 (MODIFY_EXPR, void_type_node, decl, t);
+      t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
+      t = build2 (MODIFY_EXPR, void_type_node, var, t);
       OMP_FOR_INCR (for_stmt) = t;
       break;
       
     case MODIFY_EXPR:
       gcc_assert (TREE_OPERAND (t, 0) == decl);
+      TREE_OPERAND (t, 0) = var;
+
       t = TREE_OPERAND (t, 1);
       switch (TREE_CODE (t))
 	{
@@ -4921,11 +4939,12 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	  if (TREE_OPERAND (t, 1) == decl)
 	    {
 	      TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
-	      TREE_OPERAND (t, 0) = decl;
+	      TREE_OPERAND (t, 0) = var;
 	      break;
 	    }
 	case MINUS_EXPR:
 	  gcc_assert (TREE_OPERAND (t, 0) == decl);
+	  TREE_OPERAND (t, 0) = var;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -4939,7 +4958,14 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
       gcc_unreachable ();
     }
 
-  gimplify_to_stmt_list (&OMP_FOR_BODY (for_stmt));
+  body = OMP_FOR_BODY (for_stmt);
+  gimplify_to_stmt_list (&body);
+  t = alloc_stmt_list ();
+  if (init_decl)
+    append_to_statement_list (init_decl, &t);
+  append_to_statement_list (body, &t);
+  OMP_FOR_BODY (for_stmt) = t;
+
   gimplify_adjust_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
 
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
@@ -6372,17 +6398,34 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 }
 
 /* Invokes force_gimple_operand for EXPR with parameters SIMPLE_P and VAR.  If
-   some statements are produced, emits them before BSI.  */
+   some statements are produced, emits them before BSI.  If BEFORE is true.
+   the statements are appended before BSI, otherwise they are appended after
+   it.  M specifies the way BSI moves after insertion (BSI_SAME_STMT or
+   BSI_CONTINUE_LINKING are the usual values).  */
 
 tree
 force_gimple_operand_bsi (block_stmt_iterator *bsi, tree expr,
-			  bool simple_p, tree var)
+			  bool simple_p, tree var, bool before,
+			  enum bsi_iterator_update m)
 {
   tree stmts;
 
   expr = force_gimple_operand (expr, &stmts, simple_p, var);
   if (stmts)
-    bsi_insert_before (bsi, stmts, BSI_SAME_STMT);
+    {
+      tree_stmt_iterator tsi;
+
+      if (in_ssa_p)
+	{
+	  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+	    mark_new_vars_to_rename (tsi_stmt (tsi));
+	}
+
+      if (before)
+	bsi_insert_before (bsi, stmts, m);
+      else
+	bsi_insert_after (bsi, stmts, m);
+    }
 
   return expr;
 }

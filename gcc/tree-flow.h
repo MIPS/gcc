@@ -157,13 +157,6 @@ struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
-  /* Used by the out of SSA pass to determine whether this variable has
-     been seen yet or not.  */
-  unsigned out_of_ssa_tag : 1;
-
-  /* Used when building root_var structures in tree_ssa_live.[ch].  */
-  unsigned root_var_processed : 1;
-
   /* Nonzero if this variable is in the alias set of another variable.  */
   unsigned is_aliased : 1;
 
@@ -192,13 +185,6 @@ struct var_ann_d GTY(())
 
   /* Variables that may alias this variable.  */
   VEC(tree, gc) *may_aliases;
-
-  /* Used when going out of SSA form to indicate which partition this
-     variable represents storage for.  */
-  unsigned partition;
-
-  /* Used by the root-var object in tree-ssa-live.[ch].  */
-  unsigned root_index;
 
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
@@ -548,6 +534,8 @@ extern struct omp_region *root_omp_region;
 extern struct omp_region *new_omp_region (basic_block, enum tree_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
+tree copy_var_decl (tree, tree, tree);
+tree find_omp_clause (tree, enum tree_code);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes
@@ -637,6 +625,8 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
 extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
+void mark_virtual_ops_for_renaming (tree);
+void mark_call_virtual_operands (void);
 
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
@@ -713,7 +703,7 @@ void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
-void go_out_of_ssa (void);
+void go_out_of_ssa (tree);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
@@ -889,7 +879,6 @@ enum escape_type
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree, unsigned int);
-static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (tree);
 
 /* In tree-eh.c  */
@@ -947,7 +936,8 @@ extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);
-tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
+tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
+			       bool, enum bsi_iterator_update);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);

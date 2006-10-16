@@ -1618,6 +1618,42 @@ create_alias_map_for (tree var, struct alias_info *ai)
   ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
 }
 
+/* Removes phi nodes for variables in VARS.  */
+
+static void
+remove_phis_for (bitmap vars)
+{
+  basic_block bb;
+  tree phi, prev, next, var;
+
+  FOR_EACH_BB (bb)
+    {
+      prev = NULL_TREE;
+      for (phi = phi_nodes (bb); phi; phi = next)
+	{
+	  next = PHI_CHAIN (phi);
+	  var = SSA_NAME_VAR (PHI_RESULT (phi));
+	  if (!bitmap_bit_p (vars, DECL_UID (var)))
+	    {
+	      prev = phi;
+	      continue;
+	    }
+
+#ifdef ENABLE_CHECKING
+	  {
+	    int i;
+
+	    /* Verify that all the arguments of the phi node are the uses
+	       of VAR.  */
+	    for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	      gcc_assert (SSA_NAME_VAR (PHI_ARG_DEF (phi, i)) == var);
+	  }
+#endif
+
+	  remove_phi_node (phi, prev);
+	}
+    }
+}
 
 /* Create memory tags for all the dereferenced pointers and build the
    ADDRESSABLE_VARS and POINTERS arrays used for building the may-alias
@@ -1633,6 +1669,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
   tree var;
   VEC (tree, heap) *varvec = NULL;
   safe_referenced_var_iterator srvi;
+  bitmap new_gimple_regs = BITMAP_ALLOC (NULL);
 
   /* Size up the arrays ADDRESSABLE_VARS and POINTERS.  */
   num_addressable_vars = num_pointers = 0;
@@ -1722,7 +1759,11 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		 addressable bit, so that it can be optimized as a
 		 regular variable.  */
 	      if (okay_to_mark)
-		mark_non_addressable (var);
+		{
+		  mark_non_addressable (var);
+		  if (is_gimple_reg (var))
+		    bitmap_set_bit (new_gimple_regs, DECL_UID (var));
+		}
 	    }
 	}
 
@@ -1796,6 +1837,16 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	}
     }
   VEC_free (tree, heap, varvec);
+
+  /* We want to remove the phi nodes for variables that used to be addressable,
+     but now are gimple registers.  There are usually many superfluous phis for
+     such variables; also, keeping these nodes would make the variables appear
+     to be live in greater part of cfg than they really are, which causes
+     problems for omp_expand pass.  */
+     
+  if (!bitmap_empty_p (new_gimple_regs))
+    remove_phis_for (new_gimple_regs);
+  BITMAP_FREE (new_gimple_regs);
 }
 
 
@@ -2122,6 +2173,12 @@ is_escape_site (tree stmt, struct alias_info *ai)
 	  return ESCAPE_TO_PURE_CONST;
 	}
 
+      return ESCAPE_TO_CALL;
+    }
+  else if (TREE_CODE (stmt) == OMP_PARALLEL)
+    {
+      /* OMP_PARALLEL expands to a call whose argument is address of
+	 OMP_PARALLEL_DATA_ARG.  */
       return ESCAPE_TO_CALL;
     }
   else if (TREE_CODE (stmt) == ASM_EXPR)

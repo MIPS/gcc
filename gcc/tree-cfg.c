@@ -535,6 +535,10 @@ make_edges (void)
 
 	    case OMP_SECTIONS:
 	      cur_region = new_omp_region (bb, code, cur_region);
+	      fallthru = true;
+	      break;
+
+	    case OMP_SECTIONS_SWITCH:
 	      fallthru = false;
 	      break;
 
@@ -551,31 +555,42 @@ make_edges (void)
 	      switch (cur_region->type)
 		{
 		case OMP_FOR:
-		  /* ??? Technically there should be a some sort of loopback
-		     edge here, but it goes to a block that doesn't exist yet,
-		     and without it, updating the ssa form would be a real
-		     bear.  Fortunately, we don't yet do ssa before expanding
-		     these nodes.  */
+		  /* Make the loopback edge.  */
+		  make_edge (bb, single_succ (cur_region->entry), 0);
+	      
+		  /* Create an edge from OMP_FOR to exit, which corresponds to
+		     the case that the body of the loop is not executed at
+		     all.  */
+		  make_edge (cur_region->entry, bb->next_bb, 0);
+		  fallthru = true;
 		  break;
 
 		case OMP_SECTIONS:
 		  /* Wire up the edges into and out of the nested sections.  */
-		  /* ??? Similarly wrt loopback.  */
 		  {
+		    basic_block switch_bb = single_succ (cur_region->entry);
+
 		    struct omp_region *i;
 		    for (i = cur_region->inner; i ; i = i->next)
 		      {
 			gcc_assert (i->type == OMP_SECTION);
-			make_edge (cur_region->entry, i->entry, 0);
+			make_edge (switch_bb, i->entry, 0);
 			make_edge (i->exit, bb, EDGE_FALLTHRU);
 		      }
+
+		    /* Make the loopback edge to the block with
+		       OMP_SECTIONS_SWITCH.  */
+		    make_edge (bb, switch_bb, 0);
+
+		    /* Make the edge from the switch to exit.  */
+		    make_edge (switch_bb, bb->next_bb, 0);
+		    fallthru = false;
 		  }
 		  break;
 
 		default:
 		  gcc_unreachable ();
 		}
-	      fallthru = true;
 	      break;
 
 	    default:
@@ -4157,6 +4172,13 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       e->flags |= EDGE_FALLTHRU;
       break;
 
+    case OMP_RETURN:
+    case OMP_CONTINUE:
+    case OMP_SECTIONS_SWITCH:
+    case OMP_FOR:
+      /* The edges from OMP constructs can be simply redirected.  */
+      break;
+
     default:
       /* Otherwise it must be a fallthru edge, and we don't need to
 	 do anything besides redirecting it.  */
@@ -4561,13 +4583,69 @@ gather_blocks_in_sese_region (basic_block entry, basic_block exit,
     }
 }
 
+/* Replaces *TP with a duplicate (belonging to function TO_CONTEXT).
+   The duplicates are recorded in VARS_MAP.  */
+
+static void
+replace_by_duplicate_decl (tree *tp, htab_t vars_map, tree to_context)
+{
+  tree t = *tp, new_t, ddef;
+  struct function *f = DECL_STRUCT_FUNCTION (to_context);
+  struct tree_map in, *out;
+  void **loc;
+
+  in.from = t;
+  loc = htab_find_slot_with_hash (vars_map, &in, DECL_UID (t), INSERT);
+
+  if (!*loc)
+    {
+      if (SSA_VAR_P (t))
+	{
+	  new_t = copy_var_decl (t, DECL_NAME (t), TREE_TYPE (t));
+	  f->unexpanded_var_list
+		  = tree_cons (NULL_TREE, new_t, f->unexpanded_var_list);
+      
+	  ddef = default_def (t);
+	  if (ddef)
+	    set_default_def (new_t, ddef);
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (t) == CONST_DECL);
+	  new_t = copy_node (t);
+	}
+      DECL_CONTEXT (new_t) = to_context;
+
+      out = XNEW (struct tree_map);
+      out->hash = DECL_UID (t);
+      out->from = t;
+      out->to = new_t;
+      *loc = out;
+
+      /* Enter the duplicate as a key to the hashtable as well, since
+	 SSA names are shared, and we want to avoid replacing their
+	 variables repeatedly.  */
+      in.from = new_t;
+      loc = htab_find_slot_with_hash (vars_map, &in, DECL_UID (new_t), INSERT);
+      gcc_assert (!*loc);
+      out = XNEW (struct tree_map);
+      out->hash = DECL_UID (new_t);
+      out->from = new_t;
+      out->to = new_t;
+      *loc = out;
+    }
+  else
+    new_t = ((struct tree_map *) *loc)->to;
+
+  *tp = new_t;
+}
 
 struct move_stmt_d
 {
   tree block;
   tree from_context;
   tree to_context;
-  bitmap vars_to_remove;
+  htab_t vars_map;
   htab_t new_label_map;
   bool remap_decls_p;
 };
@@ -4580,7 +4658,7 @@ static tree
 move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 {
   struct move_stmt_d *p = (struct move_stmt_d *) data;
-  tree t = *tp;
+  tree t = *tp, *dp;
 
   if (p->block && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t))))
     TREE_BLOCK (t) = p->block;
@@ -4605,7 +4683,12 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	   || TREE_CODE (t) == SSA_NAME)
     {
       if (TREE_CODE (t) == SSA_NAME)
-	t = SSA_NAME_VAR (t);
+	{
+	  dp = &SSA_NAME_VAR (t);
+	  t = SSA_NAME_VAR (t);
+	}
+      else
+	dp = tp;
 
       if (TREE_CODE (t) == LABEL_DECL)
 	{
@@ -4622,23 +4705,16 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	}
       else if (p->remap_decls_p)
 	{
-	  DECL_CONTEXT (t) = p->to_context;
-
-	  if (TREE_CODE (t) == VAR_DECL)
-	    {
-	      struct function *f = DECL_STRUCT_FUNCTION (p->to_context);
-
-	      if (!bitmap_bit_p (p->vars_to_remove, DECL_UID (t)))
-		{
-		  f->unexpanded_var_list
-			  = tree_cons (0, t, f->unexpanded_var_list);
-
-		  /* Mark T to be removed from the original function,
-		     otherwise it will be given a DECL_RTL when the
-		     original function is expanded.  */
-		  bitmap_set_bit (p->vars_to_remove, DECL_UID (t));
-		}
-	    }
+	  /* Replace T with its duplicate.  T should no longer appear in the
+	     parent function, so this looks wasteful; however, it may appear
+	     in referenced_vars, and more importantly, as virtual operands of
+	     statements, and in alias lists of other variables.  It would be
+	     quite difficult to expunge it from all those places.  ??? It might
+	     suffice to do this for addressable variables.  */
+	  if ((TREE_CODE (t) == VAR_DECL
+	       && !is_global_var (t))
+	      || TREE_CODE (t) == CONST_DECL)
+	    replace_by_duplicate_decl (dp, p->vars_map, p->to_context);
 	}
     }
   else if (TYPE_P (t))
@@ -4647,6 +4723,56 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Marks all virtual operands of statement STMT for renaming.  */
+
+void
+mark_virtual_ops_for_renaming (tree stmt)
+{
+  ssa_op_iter iter;
+  tree var;
+
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      var = PHI_RESULT (stmt);
+      if (is_gimple_reg (var))
+	return;
+
+      if (TREE_CODE (var) == SSA_NAME)
+	var = SSA_NAME_VAR (var);
+      mark_sym_for_renaming (var);
+      return;
+    }
+
+  update_stmt (stmt);
+
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
+    {
+      if (TREE_CODE (var) == SSA_NAME)
+	var = SSA_NAME_VAR (var);
+      mark_sym_for_renaming (var);
+    }
+}
+
+/* Marks virtual operands of all statements in basic blocks BBS for
+   renaming.  */
+
+static void
+mark_virtual_ops_in_region (VEC(basic_block,heap) *bbs)
+{
+  tree phi;
+  block_stmt_iterator bsi;
+  basic_block bb;
+  unsigned i;
+
+  for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
+    {
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	mark_virtual_ops_for_renaming (phi);
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	mark_virtual_ops_for_renaming (bsi_stmt (bsi));
+    }
+}
 
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
@@ -4655,13 +4781,13 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
    If UPDATE_EDGE_COUNT_P is true, the edge counts on both CFGs is
    updated to reflect the moved edges.
 
-   On exit, local variables that need to be removed from
-   CFUN->UNEXPANDED_VAR_LIST will have been added to VARS_TO_REMOVE.  */
+   The local variables are remapped to new instances, VARS_MAP is used
+   to record the mapping.  */
 
 static void
 move_block_to_fn (struct function *dest_cfun, basic_block bb,
 		  basic_block after, bool update_edge_count_p,
-		  bitmap vars_to_remove, htab_t new_label_map, int eh_offset)
+		  htab_t vars_map, htab_t new_label_map, int eh_offset)
 {
   struct control_flow_graph *cfg;
   edge_iterator ei;
@@ -4670,6 +4796,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   struct move_stmt_d d;
   unsigned old_len, new_len;
   basic_block *addr;
+  tree phi;
 
   /* Remove BB from dominance structures.  */
   delete_from_dominance_info (CDI_DOMINATORS, bb);
@@ -4707,20 +4834,41 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   VEC_replace (basic_block, cfg->x_basic_block_info,
                bb->index, bb);
 
+  /* Remap the variables in phi nodes.  */
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+    {
+      use_operand_p use;
+      tree op = PHI_RESULT (phi);
+      ssa_op_iter oi;
+
+      if (!is_gimple_reg (op))
+	continue;
+
+      replace_by_duplicate_decl (&SSA_NAME_VAR (op), vars_map,
+				 dest_cfun->decl);
+      FOR_EACH_PHI_ARG (use, phi, oi, SSA_OP_USE)
+	{
+	  op = USE_FROM_PTR (use);
+	  if (TREE_CODE (op) == SSA_NAME)
+	    replace_by_duplicate_decl (&SSA_NAME_VAR (op), vars_map,
+				       dest_cfun->decl);
+	}
+    }
+
   /* The statements in BB need to be associated with a new TREE_BLOCK.
      Labels need to be associated with a new label-to-block map.  */
   memset (&d, 0, sizeof (d));
-  d.vars_to_remove = vars_to_remove;
+  d.vars_map = vars_map;
+  d.from_context = cfun->decl;
+  d.to_context = dest_cfun->decl;
+  d.new_label_map = new_label_map;
 
   for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
     {
       tree stmt = bsi_stmt (si);
       int region;
 
-      d.from_context = cfun->decl;
-      d.to_context = dest_cfun->decl;
       d.remap_decls_p = true;
-      d.new_label_map = new_label_map;
       if (TREE_BLOCK (stmt))
 	d.block = DECL_INITIAL (dest_cfun->decl);
 
@@ -4809,7 +4957,7 @@ new_label_mapper (tree decl, void *data)
 
   gcc_assert (TREE_CODE (decl) == LABEL_DECL);
 
-  m = xmalloc (sizeof (struct tree_map));
+  m = XNEW (struct tree_map);
   m->hash = DECL_UID (decl);
   m->from = decl;
   m->to = create_artificial_label ();
@@ -4852,8 +5000,7 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   unsigned i, num_entry_edges, num_exit_edges;
   edge e;
   edge_iterator ei;
-  bitmap vars_to_remove;
-  htab_t new_label_map;
+  htab_t new_label_map, vars_map;
 
   saved_cfun = cfun;
 
@@ -4946,44 +5093,28 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
 
   cfun = saved_cfun;
 
+  /* The ssa form for virtual operands in the source function will have to
+     be repaired.  We do not care for the real operands -- the sese region
+     must be closed with respect to those.  */
+  mark_virtual_ops_in_region (bbs);
+
   /* Move blocks from BBS into DEST_CFUN.  */
   gcc_assert (VEC_length (basic_block, bbs) >= 2);
   after = dest_cfun->cfg->x_entry_block_ptr;
-  vars_to_remove = BITMAP_ALLOC (NULL);
+  vars_map = htab_create (17, tree_map_hash, tree_map_eq, free);
   for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
     {
       /* No need to update edge counts on the last block.  It has
 	 already been updated earlier when we detached the region from
 	 the original CFG.  */
-      move_block_to_fn (dest_cfun, bb, after, bb != exit_bb, vars_to_remove,
+      move_block_to_fn (dest_cfun, bb, after, bb != exit_bb, vars_map,
 	                new_label_map, eh_offset);
       after = bb;
     }
 
   if (new_label_map)
     htab_delete (new_label_map);
-
-  /* Remove the variables marked in VARS_TO_REMOVE from
-     CFUN->UNEXPANDED_VAR_LIST.  Otherwise, they will be given a
-     DECL_RTL in the context of CFUN.  */
-  if (!bitmap_empty_p (vars_to_remove))
-    {
-      tree *p;
-
-      for (p = &cfun->unexpanded_var_list; *p; )
-	{
-	  tree var = TREE_VALUE (*p);
-	  if (bitmap_bit_p (vars_to_remove, DECL_UID (var)))
-	    {
-	      *p = TREE_CHAIN (*p);
-	      continue;
-	    }
-
-	  p = &TREE_CHAIN (*p);
-	}
-    }
-
-  BITMAP_FREE (vars_to_remove);
+  htab_delete (vars_map);
 
   /* Rewire the entry and exit blocks.  The successor to the entry
      block turns into the successor of DEST_FN's ENTRY_BLOCK_PTR in

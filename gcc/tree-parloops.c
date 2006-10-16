@@ -174,36 +174,6 @@ loop_parallel_p (struct loop *loop, struct tree_niter_desc *niter)
   return ret;
 }
 
-/* Marks all virtual operands of statement STMT for renaming.  */
-
-static void
-mark_virtual_ops_for_renaming (tree stmt)
-{
-  ssa_op_iter iter;
-  tree var;
-
-  if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      var = PHI_RESULT (stmt);
-      if (is_gimple_reg (var))
-	return;
-
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
-      mark_sym_for_renaming (var);
-      return;
-    }
-
-  update_stmt (stmt);
-
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_VIRTUALS)
-    {
-      if (TREE_CODE (var) == SSA_NAME)
-	var = SSA_NAME_VAR (var);
-      mark_sym_for_renaming (var);
-    }
-}
-
 /* Calls mark_virtual_ops_for_renaming for all members of LIST.  */
 
 static void
@@ -217,7 +187,7 @@ mark_virtual_ops_for_renaming_list (tree list)
 
 /* Marks operands of calls for renaming.  */
 
-static void
+void
 mark_call_virtual_operands (void)
 {
   basic_block bb;
@@ -950,7 +920,7 @@ extract_loop_to_function (struct loop *loop, tree arg_struct, tree *loop_fn)
 {
   basic_block bb_to = loop_split_edge_with (loop->single_exit, NULL);
   basic_block bb_from = loop_preheader_edge (loop)->src;
-  basic_block repl_bb, bb;
+  basic_block repl_bb;
   tree arg, narg, stmt;
   struct function *act_cfun = cfun;
   tree act_decl = current_function_decl;
@@ -958,7 +928,6 @@ extract_loop_to_function (struct loop *loop, tree arg_struct, tree *loop_fn)
   basic_block *body = get_loop_body (loop);
   struct loop *outer = loop->outer;
   unsigned i, n = loop->num_nodes;
-  stmt_ann_t ann;
 
   cancel_loop_tree (current_loops, loop);
   for (i = 0; i < n; i++)
@@ -993,26 +962,10 @@ extract_loop_to_function (struct loop *loop, tree arg_struct, tree *loop_fn)
       SSA_NAME_DEF_STMT (arg_struct) = stmt;
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
     }
-
-  go_out_of_ssa ();
-
-  /* Let us pretend that we have never seen the statements before.  The
-     operands of the statements are allocated from the local caches, so
-     we cannot preserve them.  */
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  ann = stmt_ann (bsi_stmt (bsi));
-	  memset (ann, 0, sizeof (struct stmt_ann_d));
-	  ann->common.type = STMT_ANN;
-	  ann->modified = 1;
-	  ann->bb = bb;
-	}
-    }
-
   cfun = act_cfun;
   current_function_decl = act_decl;
+
+  go_out_of_ssa (*loop_fn);
 
   return repl_bb;
 }
