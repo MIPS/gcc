@@ -1036,11 +1036,11 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return INT_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
 
   /* The float registers can only hold floating modes and DImode.
-     This also excludes decimal float modes.  */
+     This excludes the 32-bit decimal float mode for now.  */
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
-       && !DECIMAL_FLOAT_MODE_P (mode)
+       && mode != SDmode
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);
@@ -3480,6 +3480,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && !ALTIVEC_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
       && mode != TFmode
+      && mode != TDmode
       /* Restrict addressing for DI because of our SUBREG hackery.  */
       && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
       && TARGET_UPDATE
@@ -4005,6 +4006,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
+    case DDmode:
     case DFmode:
     case SFmode:
       if (CONSTANT_P (operands[1])
@@ -4217,7 +4219,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE,TYPE)		\
   (SCALAR_FLOAT_MODE_P (MODE)			\
-   && !DECIMAL_FLOAT_MODE_P (MODE)		\
+   && (MODE) != SDmode				\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -4459,7 +4461,7 @@ function_arg_boundary (enum machine_mode mode, tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
-	      && mode == TFmode)))
+	      && (mode == TFmode || mode == TDmode))))
     return 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
@@ -4694,14 +4696,20 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && (mode == SFmode || mode == DFmode
+	      || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
-	  if (cum->fregno + (mode == TFmode ? 1 : 0) <= FP_ARG_V4_MAX_REG)
+	  /* Must use an odd/even register pair.  */
+	  if (mode == TDmode && !(cum->fregno % 2))
+	    cum->fregno++;
+
+	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	      <= FP_ARG_V4_MAX_REG)
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || mode == TFmode)
+	      if (mode == DFmode || mode == TFmode || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
 	    }
@@ -4753,7 +4761,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words = align_words + n_words;
 
       if (SCALAR_FLOAT_MODE_P (mode)
-	  && !DECIMAL_FLOAT_MODE_P (mode)
+	  && mode != SDmode
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 
@@ -5227,10 +5235,11 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (abi == ABI_V4)
     {
       if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && (mode == SFmode || mode == DFmode
+	  && (mode == SFmode || mode == DFmode || mode == DDmode || mode == TDmode
 	      || (mode == TFmode && !TARGET_IEEEQUAD)))
 	{
-	  if (cum->fregno + (mode == TFmode ? 1 : 0) <= FP_ARG_V4_MAX_REG)
+	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
 	  else
 	    return NULL_RTX;
@@ -5273,10 +5282,11 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    {
 	      /* Currently, we only ever need one reg here because complex
 		 doubles are split.  */
-	      gcc_assert (cum->fregno == FP_ARG_MAX_REG && fmode == TFmode);
+	      gcc_assert (cum->fregno == FP_ARG_MAX_REG
+			  && (fmode == TFmode || fmode == TDmode));
 
 	      /* Long double split over regs and memory.  */
-	      fmode = DFmode;
+	      fmode = DECIMAL_FLOAT_MODE_P (fmode) ? DDmode : DFmode;
 	    }
 
 	  /* Do we also need to pass this arg in the parameter save
@@ -5886,7 +5896,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   if (TARGET_HARD_FLOAT && TARGET_FPRS
       && (TYPE_MODE (type) == SFmode
 	  || TYPE_MODE (type) == DFmode
-	  || TYPE_MODE (type) == TFmode))
+	  || TYPE_MODE (type) == TFmode
+	  || TYPE_MODE (type) == DDmode
+	  || TYPE_MODE (type) == TDmode))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
@@ -12415,7 +12427,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
   mode = GET_MODE (dst);
   nregs = hard_regno_nregs[reg][mode];
   if (FP_REGNO_P (reg))
-    reg_mode = DFmode;
+    reg_mode = DECIMAL_FLOAT_MODE_P (mode) ? DDmode : DFmode;
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
   else
@@ -19027,7 +19039,28 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     mode = TYPE_MODE (valtype);
 
   if (DECIMAL_FLOAT_MODE_P (mode))
-    regno = GP_ARG_RETURN;
+    {
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  switch (mode)
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case SDmode:
+	      regno = GP_ARG_RETURN;
+	      break;
+	    case DDmode:
+	      regno = FP_ARG_RETURN;
+	      break;
+	    case TDmode:
+	      /* Use f2:f3 specified by the ABI.  */
+	      regno = FP_ARG_RETURN + 1;
+	      break;
+	    }
+	}
+      else
+	regno = GP_ARG_RETURN;
+    }
   else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -19068,7 +19101,28 @@ rs6000_libcall_value (enum machine_mode mode)
     }
 
   if (DECIMAL_FLOAT_MODE_P (mode))
-    regno = GP_ARG_RETURN;
+    {
+      if (TARGET_HARD_FLOAT && TARGET_FPRS)
+	{
+	  switch (mode)
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case SDmode:
+	      regno = GP_ARG_RETURN;
+	      break;
+	    case DDmode:
+	      regno = FP_ARG_RETURN;
+	      break;
+	    case TDmode:
+	      /* Use f2:f3 specified by the ABI.  */
+	      regno = FP_ARG_RETURN + 1;
+	      break;
+	    }
+	}
+      else
+	regno = GP_ARG_RETURN;
+    }
   else if (SCALAR_FLOAT_MODE_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;

@@ -1,3 +1,20 @@
+2006-10-16  Ben Elliston  <bje@au1.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow decimal
+	float arg in FP reg.
+	(rs6000_legitimate_address): Handle decimal float modes in FP regs.
+	(rs6000_emit_move): Ditto.
+	(USE_FP_FOR_ARG_P): Allow decimal float arg in FP reg.
+	(function_arg_boundary): Ditto.
+	(function_arg_advance): Ditto.
+	(function_arg): Ditto.
+	(rs6000_gimplify_va_arg): Ditto.
+	(rs6000_split_multireg_move): Ditto.
+	(rs6000_function_value): Support decimal float return value in FP reg.
+	(rs6000_libcall_value): Ditto.
+	* config/rs6000/rs6000.md (movdd, movtd): New.
+
 2006-10-13  Janis Johnson  <janis187@us.ibm.com>
 
 	Backport from mainline.
