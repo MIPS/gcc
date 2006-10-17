@@ -1,5 +1,12 @@
 2006-10-17  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/natClass.cc (parseAnnotationElement): Expect a utf8
+	constant in the "string" case.
+	* defineclass.cc (handleAnnotationElement): Expect a utf8 constant
+	in the "string" case.
+
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
 	* configure, Makefile.in: Rebuilt.
 	* Makefile.am (install-exec-hook): Now unconditional.  Rename ecjx
 	if needed.

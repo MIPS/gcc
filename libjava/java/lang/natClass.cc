@@ -1142,7 +1142,9 @@ parseAnnotationElement(jclass klass, _Jv_Constants *pool,
     case 's':
       {
 	int cindex = read_u2 (bytes, last);
-	check_constant (pool, cindex, JV_CONSTANT_String);
+	// Despite what the JVM spec says, compilers generate a Utf8
+	// constant here, not a String.
+	check_constant (pool, cindex, JV_CONSTANT_Utf8);
 	result = _Jv_Linker::resolve_pool_entry (klass, cindex).string;
       }
       break;

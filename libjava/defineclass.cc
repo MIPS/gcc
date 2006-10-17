@@ -526,8 +526,10 @@ _Jv_ClassReader::handleAnnotationElement()
     case 's':
       {
 	int index = read2u();
-	check_tag (index, JV_CONSTANT_String);
-	prepare_pool_entry (index, JV_CONSTANT_String);
+	// Despite what the JVM spec says, compilers generate a Utf8
+	// constant here, not a String.
+	check_tag (index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (index, JV_CONSTANT_Utf8);
       }
       break;
 

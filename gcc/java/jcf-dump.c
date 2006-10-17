@@ -499,8 +499,10 @@ print_element_value (FILE *stream, JCF *jcf, int level)
     case 's':
       {
 	uint16 cindex = JCF_readu2 (jcf);
+	/* Despite what the JVM spec says, compilers generate a Utf8
+	   constant here, not a String.  */
 	print_constant_terse_with_index (stream, jcf, cindex,
-					 CONSTANT_String);
+					 CONSTANT_Utf8);
       }
       break;
 
