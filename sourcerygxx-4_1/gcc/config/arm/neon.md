@@ -3262,8 +3262,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VLD3A))
    (set (match_operand:SI 2 "s_register_operand" "=r")
-        (plus (match_dup 3)
-              (const_int 24)))]
+        (plus:SI (match_dup 3)
+		 (const_int 24)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[0]);
@@ -3283,8 +3283,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VLD3B))
    (set (match_operand:SI 2 "s_register_operand" "=r")
-        (plus (match_dup 3)
-              (const_int 24)))]
+        (plus:SI (match_dup 3)
+		 (const_int 24)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[0]);
@@ -3403,8 +3403,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VST3A))
    (set (match_operand:SI 0 "s_register_operand" "=r")
-        (plus (match_dup 1)
-              (const_int 24)))]
+        (plus:SI (match_dup 1)
+		 (const_int 24)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[2]);
@@ -3423,8 +3423,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VST3B))
    (set (match_operand:SI 0 "s_register_operand" "=r")
-        (plus (match_dup 1)
-              (const_int 24)))]
+        (plus:SI (match_dup 1)
+		 (const_int 24)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[2]);
@@ -3521,8 +3521,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VLD4A))
    (set (match_operand:SI 2 "s_register_operand" "=r")
-        (plus (match_dup 3)
-              (const_int 32)))]
+        (plus:SI (match_dup 3)
+		 (const_int 32)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[0]);
@@ -3543,8 +3543,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VLD4B))
    (set (match_operand:SI 2 "s_register_operand" "=r")
-        (plus (match_dup 3)
-              (const_int 32)))]
+        (plus:SI (match_dup 3)
+		 (const_int 32)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[0]);
@@ -3668,8 +3668,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VST4A))
    (set (match_operand:SI 0 "s_register_operand" "=r")
-        (plus (match_dup 1)
-              (const_int 32)))]
+        (plus:SI (match_dup 1)
+		 (const_int 32)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[2]);
@@ -3689,8 +3689,8 @@
                     (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
                    UNSPEC_VST4B))
    (set (match_operand:SI 0 "s_register_operand" "=r")
-        (plus (match_dup 1)
-              (const_int 32)))]
+        (plus:SI (match_dup 1)
+		 (const_int 32)))]
   "TARGET_NEON"
 {
   int regno = REGNO (operands[2]);

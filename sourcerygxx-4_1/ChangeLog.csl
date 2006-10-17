@@ -1,3 +1,10 @@
+2007-10-17  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/neon.h (neon_vld3qa<mode>, neon_vld3qb<mode>,
+	neon_vst3qa<mode>, neon_vst3qb>mode>, neon_vld4qa<mode>,
+	neon_vld4qb<mode>, neon_vst4qa<mode>, neon_vst4qb<mode>): Add missing
+	mode.
+
 2006-10-17  Paul Brook  <paul@codesourcery.com>
 
 	gcc/
