@@ -165,7 +165,6 @@ static int int_cst_hash_eq (const void *, const void *);
 static void print_type_hash_statistics (void);
 static void print_debug_expr_statistics (void);
 static void print_value_expr_statistics (void);
-static tree make_vector_type (tree, int, enum machine_mode);
 static int type_hash_marked_p (const void *);
 static unsigned int type_hash_list (tree, hashval_t);
 static unsigned int attribute_hash_list (tree, hashval_t);
@@ -1159,6 +1158,47 @@ build_complex (tree type, tree real, tree imag)
   TREE_CONSTANT_OVERFLOW (t)
     = TREE_CONSTANT_OVERFLOW (real) | TREE_CONSTANT_OVERFLOW (imag);
   return t;
+}
+
+/* Return a constant of arithmetic type TYPE which is the
+   multiplicative identity of the set TYPE.  */
+
+tree
+build_one_cst (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+    case INTEGER_TYPE: case ENUMERAL_TYPE: case BOOLEAN_TYPE:
+    case POINTER_TYPE: case REFERENCE_TYPE:
+    case OFFSET_TYPE:
+      return build_int_cst (type, 1);
+
+    case REAL_TYPE:
+      return build_real (type, dconst1);
+
+    case VECTOR_TYPE:
+      {
+	tree scalar, cst;
+	int i;
+
+	scalar = build_one_cst (TREE_TYPE (type));
+
+	/* Create 'vect_cst_ = {cst,cst,...,cst}'  */
+	cst = NULL_TREE;
+	for (i = TYPE_VECTOR_SUBPARTS (type); --i >= 0; )
+	  cst = tree_cons (NULL_TREE, scalar, cst);
+
+	return build_vector (type, cst);
+      }
+
+    case COMPLEX_TYPE:
+      return build_complex (type,
+			    build_one_cst (TREE_TYPE (type)),
+			    fold_convert (TREE_TYPE (type), integer_zero_node));
+
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Build a BINFO with LEN language slots.  */
@@ -2882,11 +2922,11 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
       break;
 
     default:
-      if (TREE_CODE_CLASS (code) == tcc_unary
+      if ((TREE_CODE_CLASS (code) == tcc_unary || code == VIEW_CONVERT_EXPR)
 	  && node && !TYPE_P (node)
 	  && TREE_CONSTANT (node))
 	TREE_CONSTANT (t) = 1;
-      if (TREE_CODE_CLASS (code) == tcc_unary
+      if ((TREE_CODE_CLASS (code) == tcc_unary || code == VIEW_CONVERT_EXPR)
 	  && node && TREE_INVARIANT (node))
 	TREE_INVARIANT (t) = 1;
       if (TREE_CODE_CLASS (code) == tcc_reference
@@ -3315,12 +3355,12 @@ iterative_hash_host_wide_int (HOST_WIDE_INT val, hashval_t val2)
 }
 
 /* Return a type like TTYPE except that its TYPE_ATTRIBUTE
-   is ATTRIBUTE.
+   is ATTRIBUTE and its qualifiers are QUALS.
 
    Record such modified types already made so we don't make duplicates.  */
 
-tree
-build_type_attribute_variant (tree ttype, tree attribute)
+static tree
+build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 {
   if (! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
@@ -3371,12 +3411,24 @@ build_type_attribute_variant (tree ttype, tree attribute)
 	}
 
       ntype = type_hash_canon (hashcode, ntype);
-      ttype = build_qualified_type (ntype, TYPE_QUALS (ttype));
+      ttype = build_qualified_type (ntype, quals);
     }
 
   return ttype;
 }
 
+
+/* Return a type like TTYPE except that its TYPE_ATTRIBUTE
+   is ATTRIBUTE.
+
+   Record such modified types already made so we don't make duplicates.  */
+
+tree
+build_type_attribute_variant (tree ttype, tree attribute)
+{
+  return build_type_attribute_qual_variant (ttype, attribute,
+					    TYPE_QUALS (ttype));
+}
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,
    or zero if not.
@@ -3408,7 +3460,6 @@ is_attribute_with_length_p (const char *attr, int attr_len, tree ident)
       gcc_assert (attr[1] == '_');
       gcc_assert (attr[attr_len - 2] == '_');
       gcc_assert (attr[attr_len - 1] == '_');
-      gcc_assert (attr[1] == '_');
       if (ident_len == attr_len - 4
 	  && strncmp (attr + 2, p, attr_len - 4) == 0)
 	return 1;
@@ -3458,6 +3509,28 @@ lookup_attribute (const char *attr_name, tree list)
   return NULL_TREE;
 }
 
+/* Remove any instances of attribute ATTR_NAME in LIST and return the
+   modified list.  */
+
+tree
+remove_attribute (const char *attr_name, tree list)
+{
+  tree *p;
+  size_t attr_len = strlen (attr_name);
+
+  for (p = &list; *p; )
+    {
+      tree l = *p;
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
+	*p = TREE_CHAIN (l);
+      else
+	p = &TREE_CHAIN (l);
+    }
+
+  return list;
+}
+
 /* Return an attribute list that is the union of a1 and a2.  */
 
 tree
@@ -3492,7 +3565,17 @@ merge_attributes (tree a1, tree a2)
 		   a = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (a2)),
 					 TREE_CHAIN (a)))
 		{
-		  if (simple_cst_equal (TREE_VALUE (a), TREE_VALUE (a2)) == 1)
+		  if (TREE_VALUE (a) != NULL
+		      && TREE_CODE (TREE_VALUE (a)) == TREE_LIST
+		      && TREE_VALUE (a2) != NULL
+		      && TREE_CODE (TREE_VALUE (a2)) == TREE_LIST)
+		    {
+		      if (simple_cst_list_equal (TREE_VALUE (a),
+						 TREE_VALUE (a2)) == 1)
+			break;
+		    }
+		  else if (simple_cst_equal (TREE_VALUE (a),
+					     TREE_VALUE (a2)) == 1)
 		    break;
 		}
 	      if (a == NULL_TREE)
@@ -3644,9 +3727,18 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       return NULL_TREE;
     }
 
+  if (TREE_CODE (node) != FUNCTION_DECL
+      && TREE_CODE (node) != VAR_DECL)
+    {
+      *no_add_attrs = true;
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
+      return NULL_TREE;
+    }
+
   /* Report error on dllimport ambiguities seen now before they cause
      any damage.  */
-  if (is_attribute_p ("dllimport", name))
+  else if (is_attribute_p ("dllimport", name))
     {
       /* Honor any target-specific overrides. */ 
       if (!targetm.valid_dllimport_attribute_p (node))
@@ -4303,14 +4395,20 @@ attribute_list_contained (tree l1, tree l2)
 	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
 				    TREE_CHAIN (attr)))
 	{
-	  if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) == 1)
+	  if (TREE_VALUE (t2) != NULL
+	      && TREE_CODE (TREE_VALUE (t2)) == TREE_LIST
+	      && TREE_VALUE (attr) != NULL
+	      && TREE_CODE (TREE_VALUE (attr)) == TREE_LIST)
+	    {
+	      if (simple_cst_list_equal (TREE_VALUE (t2),
+					 TREE_VALUE (attr)) == 1)
+		break;
+	    }
+	  else if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) == 1)
 	    break;
 	}
 
       if (attr == 0)
-	return 0;
-
-      if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) != 1)
 	return 0;
     }
 
@@ -5095,7 +5193,11 @@ build_array_type (tree elt_type, tree index_type)
   
   if (index_type == 0)
     {
-      layout_type (t);
+      tree save = t;
+      hashcode = iterative_hash_object (TYPE_HASH (elt_type), hashcode);
+      t = type_hash_canon (hashcode, t);
+      if (save == t)
+	layout_type (t);
       return t;
     }
 
@@ -6293,8 +6395,18 @@ omp_clause_operand_check_failed (int idx, tree t, const char *file,
 static tree
 make_vector_type (tree innertype, int nunits, enum machine_mode mode)
 {
-  tree t = make_node (VECTOR_TYPE);
+  tree t;
+  hashval_t hashcode = 0;
 
+  /* Build a main variant, based on the main variant of the inner type, then
+     use it to build the variant we return.  */
+  if (TYPE_ATTRIBUTES (innertype) || TYPE_QUALS (innertype))
+    return build_type_attribute_qual_variant (
+	    make_vector_type (TYPE_MAIN_VARIANT (innertype), nunits, mode),
+	    TYPE_ATTRIBUTES (innertype),
+	    TYPE_QUALS (innertype));
+
+  t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   TYPE_MODE (t) = mode;
@@ -6319,17 +6431,10 @@ make_vector_type (tree innertype, int nunits, enum machine_mode mode)
     TYPE_UID (rt) = TYPE_UID (t);
   }
 
-  /* Build our main variant, based on the main variant of the inner type.  */
-  if (TYPE_MAIN_VARIANT (innertype) != innertype)
-    {
-      tree innertype_main_variant = TYPE_MAIN_VARIANT (innertype);
-      unsigned int hash = TYPE_HASH (innertype_main_variant);
-      TYPE_MAIN_VARIANT (t)
-        = type_hash_canon (hash, make_vector_type (innertype_main_variant,
-						   nunits, mode));
-    }
-
-  return t;
+  hashcode = iterative_hash_host_wide_int (VECTOR_TYPE, hashcode);
+  hashcode = iterative_hash_host_wide_int (mode, hashcode);
+  hashcode = iterative_hash_object (TYPE_HASH (innertype), hashcode);
+  return type_hash_canon (hashcode, t);
 }
 
 static tree
@@ -6623,6 +6728,26 @@ build_common_builtin_nodes (void)
 			"__builtin_nonlocal_goto",
 			ECF_NORETURN | ECF_NOTHROW);
 
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, ptr_type_node, tmp);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_setjmp_setup", ftype,
+			BUILT_IN_SETJMP_SETUP,
+			"__builtin_setjmp_setup", ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  ftype = build_function_type (ptr_type_node, tmp);
+  local_define_builtin ("__builtin_setjmp_dispatcher", ftype,
+			BUILT_IN_SETJMP_DISPATCHER,
+			"__builtin_setjmp_dispatcher",
+			ECF_PURE | ECF_NOTHROW);
+
+  tmp = tree_cons (NULL_TREE, ptr_type_node, void_list_node);
+  ftype = build_function_type (void_type_node, tmp);
+  local_define_builtin ("__builtin_setjmp_receiver", ftype,
+			BUILT_IN_SETJMP_RECEIVER,
+			"__builtin_setjmp_receiver", ECF_NOTHROW);
+
   ftype = build_function_type (ptr_type_node, void_list_node);
   local_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 			"__builtin_stack_save", ECF_NOTHROW);
@@ -6771,6 +6896,7 @@ build_vector_type (tree innertype, int nunits)
 {
   return make_vector_type (innertype, nunits, VOIDmode);
 }
+
 
 /* Build RESX_EXPR with given REGION_NUMBER.  */
 tree

@@ -1,3 +1,7 @@
+2006-10-16  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2006-10-16 (@117796).
+
 2006-10-12  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.c (verify_phi_args): Do not complain for memory PHI

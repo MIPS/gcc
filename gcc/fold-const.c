@@ -6727,7 +6727,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
   else
     {
       arg00 = arg0;
-      arg01 = fold_convert (type, integer_one_node);
+      arg01 = build_one_cst (type);
     }
   if (TREE_CODE (arg1) == MULT_EXPR)
     {
@@ -6737,7 +6737,7 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
   else
     {
       arg10 = arg1;
-      arg11 = fold_convert (type, integer_one_node);
+      arg11 = build_one_cst (type);
     }
   same = NULL_TREE;
 
@@ -10289,7 +10289,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	  && 0 != (tem = const_binop (TREE_CODE (arg0) == PLUS_EXPR
 				      ? MINUS_EXPR : PLUS_EXPR,
-				      arg1, TREE_OPERAND (arg0, 1), 0))
+				      fold_convert (TREE_TYPE (arg0), arg1),
+				      TREE_OPERAND (arg0, 1), 0))
 	  && ! TREE_CONSTANT_OVERFLOW (tem))
 	return fold_build2 (code, type, TREE_OPERAND (arg0, 0), tem);
 

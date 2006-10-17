@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -1229,6 +1229,12 @@ AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
 AC_ARG_WITH(system-libunwind,
 [  --with-system-libunwind use installed libunwind])
 
+# config.gcc also contains tests of with_system_libunwind.
+if test x$with_system_libunwind = xyes; then
+        AC_DEFINE(HAVE_GETIPINFO, 1,
+[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+fi
+
 # --------------------------------------------------------
 # Build, host, and target specific configuration fragments
 # --------------------------------------------------------
@@ -1437,6 +1443,20 @@ if test x$enable___cxa_atexit = xyes || \
       This is essential for fully standards-compliant handling of
       destructors, but requires __cxa_atexit in libc.])
   fi
+fi
+
+use_getipinfo=yes
+if test x$with_system_libunwind = xyes; then
+   if test x$host = x$target; then
+     AC_SEARCH_LIBS(_Unwind_GetIPInfo, unwind,, [use_getipinfo=no])
+   fi
+fi
+GCC_TARGET_TEMPLATE(HAVE_GETIPINFO)
+if test x$use_getipinfo = xyes; then
+   AC_DEFINE(HAVE_GETIPINFO, 1,
+	[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+else
+   echo "The system unwind library does not support _Unwind_GetIPInfo."
 fi
 
 # Look for a file containing extra machine modes.
@@ -2815,6 +2835,12 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_CMOV_SUN_SYNTAX, 1,
         [Define if your assembler supports the Sun syntax for cmov.])])
 
+    gcc_GAS_CHECK_FEATURE([ffreep mnemonic],
+      gcc_cv_as_ix86_ffreep,,,
+      [ffreep %st(1)],,
+      [AC_DEFINE(HAVE_AS_IX86_FFREEP, 1,
+        [Define if your assembler supports the ffreep mnemonic.])])
+
     # This one is used unconditionally by i386.[ch]; it is to be defined
     # to 1 if the feature is present, 0 otherwise.
     gcc_GAS_CHECK_FEATURE([GOTOFF in data],
@@ -2955,7 +2981,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3444,7 +3470,7 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi html \
+	install-common install-man install-info dvi pdf html \
 	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"

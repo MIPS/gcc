@@ -1209,7 +1209,8 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
     }
   else
     {
-      gcc_assert (IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)));
+      if (!IS_AGGR_TYPE_CODE (TREE_CODE (xbasetype)))
+	return NULL_TREE;
       type = xbasetype;
       xbasetype = NULL_TREE;
     }
@@ -1252,8 +1253,26 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
   /* [class.access]
 
      In the case of overloaded function names, access control is
-     applied to the function selected by overloaded resolution.  */
-  if (rval && protect && !is_overloaded_fn (rval))
+     applied to the function selected by overloaded resolution.  
+
+     We cannot check here, even if RVAL is only a single non-static
+     member function, since we do not know what the "this" pointer
+     will be.  For:
+
+        class A { protected: void f(); };
+        class B : public A { 
+          void g(A *p) {
+            f(); // OK
+            p->f(); // Not OK.
+          }
+        };
+
+    only the first call to "f" is valid.  However, if the function is
+    static, we can check.  */
+  if (rval && protect 
+      && !really_overloaded_fn (rval)
+      && !(TREE_CODE (rval) == FUNCTION_DECL
+	   && DECL_NONSTATIC_MEMBER_FUNCTION_P (rval)))
     perform_or_defer_access_check (basetype_path, rval);
 
   if (errstr && protect)
@@ -1480,13 +1499,12 @@ adjust_result_of_qualified_name_lookup (tree decl,
 					tree context_class)
 {
   if (context_class && context_class != error_mark_node
+      && CLASS_TYPE_P (context_class)
       && CLASS_TYPE_P (qualifying_scope)
       && DERIVED_FROM_P (qualifying_scope, context_class)
       && BASELINK_P (decl))
     {
       tree base;
-
-      gcc_assert (CLASS_TYPE_P (context_class));
 
       /* Look for the QUALIFYING_SCOPE as a base of the CONTEXT_CLASS.
 	 Because we do not yet know which function will be chosen by

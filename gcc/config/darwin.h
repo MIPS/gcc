@@ -127,14 +127,18 @@ extern GTY(()) int darwin_ms_struct;
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
+  { "-fapple-kext", "-fapple-kext -static -Wa,-static" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
-  { "-framework", "-Xlinker -framework -Xlinker" },  \
+  { "-findirect-virtual-calls", "-fapple-kext" }, \
   { "-flat_namespace", "-Zflat_namespace" },  \
   { "-force_cpusubtype_ALL", "-Zforce_cpusubtype_ALL" },  \
   { "-force_flat_namespace", "-Zforce_flat_namespace" },  \
+  { "-framework", "-Xlinker -framework -Xlinker" },  \
+  { "-fterminated-vtables", "-fapple-kext" }, \
   { "-image_base", "-Zimage_base" },  \
   { "-init", "-Zinit" },  \
   { "-install_name", "-Zinstall_name" },  \
+  { "-mkernel", "-mkernel -static -Wa,-static" }, \
   { "-multiply_defined_unused", "-Zmultiplydefinedunused" },  \
   { "-multiply_defined", "-Zmultiply_defined" },  \
   { "-multi_module", "-Zmulti_module" },  \
@@ -142,6 +146,11 @@ extern GTY(()) int darwin_ms_struct;
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
+
+#define SUBSUBTARGET_OVERRIDE_OPTIONS					\
+  do {									\
+    darwin_override_options ();						\
+  } while (0)
 
 /* These compiler options take n arguments.  */
 
@@ -188,11 +197,24 @@ extern GTY(()) int darwin_ms_struct;
    !strcmp (STR, "dylinker_install_name") ? 1 : \
    0)
 
+#define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {                        \
+    if (flag_mkernel || flag_apple_kext)				\
+      {									\
+	if (flag_use_cxa_atexit == 2)					\
+	  flag_use_cxa_atexit = 0;					\
+	/* kexts should always be built without the coalesced sections	\
+	   because the kernel loader doesn't grok such sections.  */	\
+	flag_weak = 0;							\
+	/* No RTTI in kexts.  */					\
+	flag_rtti = 0;							\
+      }									\
+  } while (0)
+
 /* Machine dependent cpp options.  Don't add more options here, add
    them to darwin_cpp_builtins in darwin-c.c.  */
 
 #undef	CPP_SPEC
-#define CPP_SPEC "%{static:%{!dynamic:-D__STATIC__}}%{!static:-D__DYNAMIC__}"
+#define CPP_SPEC ""
 
 /* This is mostly a clone of the standard LINK_COMMAND_SPEC, plus
    precomp, libtool, and fat build additions.  Also we
@@ -213,6 +235,13 @@ extern GTY(()) int darwin_ms_struct;
     %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
+
+#ifdef TARGET_SYSTEM_ROOT
+#define LINK_SYSROOT_SPEC \
+  "%{isysroot*:-syslibroot %*;:-syslibroot " TARGET_SYSTEM_ROOT "}"
+#else
+#define LINK_SYSROOT_SPEC "%{isysroot*:-syslibroot %*}"
+#endif
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes).  Options that can only go to one of libtool
@@ -282,7 +311,7 @@ extern GTY(()) int darwin_ms_struct;
    %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
-   %{isysroot*:-syslibroot %*} \
+   " LINK_SYSROOT_SPEC " \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -686,6 +715,8 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
+  { "apple_kext_compatibility", 0, 0, false, true, false,		     \
+    darwin_handle_kext_attribute },					     \
   { "weak_import", 0, 0, true, false, false,				     \
     darwin_handle_weak_import_attribute }
 
@@ -698,7 +729,9 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* Set on a symbol with SYMBOL_FLAG_FUNCTION or
    MACHO_SYMBOL_FLAG_VARIABLE to indicate that the function or
-   variable has been defined in this translation unit.  */
+   variable has been defined in this translation unit.
+   When porting Mach-O to new architectures you need to make
+   sure these aren't clobbered by the backend.  */
 
 #define MACHO_SYMBOL_FLAG_VARIABLE (SYMBOL_FLAG_MACH_DEP)
 #define MACHO_SYMBOL_FLAG_DEFINED ((SYMBOL_FLAG_MACH_DEP) << 1)
@@ -825,6 +858,11 @@ enum machopic_addr_class {
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
 
+/* Handle pragma weak and pragma pack.  */
+#define HANDLE_SYSV_PRAGMA 1
+
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
+
 #define DARWIN_REGISTER_TARGET_PRAGMAS()			\
   do {								\
     c_register_pragma (0, "mark", darwin_pragma_ignore);	\
@@ -873,5 +911,50 @@ void add_framework_path (char *);
 #else
 #define TARGET_ASM_OUTPUT_ANCHOR NULL
 #endif
+
+/* Attempt to turn on execute permission for the stack.  This may be
+    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    if the target machine can change execute permissions on a page).
+
+    There is no way to query the execute permission of the stack, so
+    we always issue the mprotect() call.
+
+    Unfortunately it is not possible to make this namespace-clean.
+
+    Also note that no errors should be emitted by this code; it is
+    considered dangerous for library calls to send messages to
+    stdout/stderr.  */
+
+#define ENABLE_EXECUTE_STACK                                            \
+extern void __enable_execute_stack (void *);                            \
+void                                                                    \
+__enable_execute_stack (void *addr)                                     \
+{                                                                       \
+   extern int mprotect (void *, size_t, int);                           \
+   extern int getpagesize (void);					\
+   static int size;                                                     \
+   static long mask;                                                    \
+                                                                        \
+   char *page, *end;                                                    \
+                                                                        \
+   if (size == 0)                                                       \
+     {                                                                  \
+       size = getpagesize();						\
+       mask = ~((long) size - 1);                                       \
+     }                                                                  \
+                                                                        \
+   page = (char *) (((long) addr) & mask);                              \
+   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
+                                                                        \
+   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
+   (void) mprotect (page, end - page, 7);                               \
+}
+
+/* For Apple KEXTs, we make the constructors return this to match gcc
+   2.95.  */
+#define TARGET_CXX_CDTOR_RETURNS_THIS (darwin_kextabi_p)
+extern int flag_mkernel;
+extern int flag_apple_kext;
+#define TARGET_KEXTABI flag_apple_kext
 
 #endif /* CONFIG_DARWIN_H */

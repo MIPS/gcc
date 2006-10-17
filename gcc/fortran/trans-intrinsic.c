@@ -129,7 +129,9 @@ static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
   /* Functions in libgfortran.  */
   LIBF_FUNCTION (FRACTION, "fraction", false),
   LIBF_FUNCTION (NEAREST, "nearest", false),
+  LIBF_FUNCTION (RRSPACING, "rrspacing", false),
   LIBF_FUNCTION (SET_EXPONENT, "set_exponent", false),
+  LIBF_FUNCTION (SPACING, "spacing", false),
 
   /* End the list.  */
   LIBF_FUNCTION (NONE, NULL, false)
@@ -590,12 +592,18 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 
   if (m->libm_name)
     {
-      gcc_assert (ts->kind == 4 || ts->kind == 8 || ts->kind == 10
-                 || ts->kind == 16);
-      snprintf (name, sizeof (name), "%s%s%s",
-		ts->type == BT_COMPLEX ? "c" : "",
-		m->name,
-		ts->kind == 4 ? "f" : "");
+      if (ts->kind == 4)
+	snprintf (name, sizeof (name), "%s%s%s",
+		ts->type == BT_COMPLEX ? "c" : "", m->name, "f");
+      else if (ts->kind == 8)
+	snprintf (name, sizeof (name), "%s%s",
+		ts->type == BT_COMPLEX ? "c" : "", m->name);
+      else
+	{
+	  gcc_assert (ts->kind == 10 || ts->kind == 16);
+	  snprintf (name, sizeof (name), "%s%s%s",
+		ts->type == BT_COMPLEX ? "c" : "", m->name, "l");
+	}
     }
   else
     {
@@ -702,9 +710,13 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   tree type;
   tree bound;
   tree tmp;
-  tree cond;
+  tree cond, cond1, cond2, cond3, size;
+  tree ubound;
+  tree lbound;
   gfc_se argse;
   gfc_ss *ss;
+  gfc_array_spec * as;
+  gfc_ref *ref;
   int i;
 
   arg = expr->value.function.actual;
@@ -765,10 +777,111 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
         }
     }
 
-  if (upper)
-    se->expr = gfc_conv_descriptor_ubound(desc, bound);
+  ubound = gfc_conv_descriptor_ubound (desc, bound);
+  lbound = gfc_conv_descriptor_lbound (desc, bound);
+  
+  /* Follow any component references.  */
+  if (arg->expr->expr_type == EXPR_VARIABLE
+      || arg->expr->expr_type == EXPR_CONSTANT)
+    {
+      as = arg->expr->symtree->n.sym->as;
+      for (ref = arg->expr->ref; ref; ref = ref->next)
+	{
+	  switch (ref->type)
+	    {
+	    case REF_COMPONENT:
+	      as = ref->u.c.component->as;
+	      continue;
+
+	    case REF_SUBSTRING:
+	      continue;
+
+	    case REF_ARRAY:
+	      {
+		switch (ref->u.ar.type)
+		  {
+		  case AR_ELEMENT:
+		  case AR_SECTION:
+		  case AR_UNKNOWN:
+		    as = NULL;
+		    continue;
+
+		  case AR_FULL:
+		    break;
+		  }
+	      }
+	    }
+	}
+    }
   else
-    se->expr = gfc_conv_descriptor_lbound(desc, bound);
+    as = NULL;
+
+  /* 13.14.53: Result value for LBOUND
+
+     Case (i): For an array section or for an array expression other than a
+               whole array or array structure component, LBOUND(ARRAY, DIM)
+               has the value 1.  For a whole array or array structure
+               component, LBOUND(ARRAY, DIM) has the value:
+                 (a) equal to the lower bound for subscript DIM of ARRAY if
+                     dimension DIM of ARRAY does not have extent zero
+                     or if ARRAY is an assumed-size array of rank DIM,
+              or (b) 1 otherwise.
+
+     13.14.113: Result value for UBOUND
+
+     Case (i): For an array section or for an array expression other than a
+               whole array or array structure component, UBOUND(ARRAY, DIM)
+               has the value equal to the number of elements in the given
+               dimension; otherwise, it has a value equal to the upper bound
+               for subscript DIM of ARRAY if dimension DIM of ARRAY does
+               not have size zero and has value zero if dimension DIM has
+               size zero.  */
+
+  if (as)
+    {
+      tree stride = gfc_conv_descriptor_stride (desc, bound);
+      cond1 = fold_build2 (GE_EXPR, boolean_type_node, ubound, lbound);
+      cond2 = fold_build2 (LE_EXPR, boolean_type_node, ubound, lbound);
+      cond3 = fold_build2 (GT_EXPR, boolean_type_node, stride,
+			   gfc_index_zero_node);
+
+      if (upper)
+	{
+	  cond = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
+	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond, cond2);
+
+	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
+				  ubound, gfc_index_zero_node);
+	}
+      else
+	{
+	  if (as->type == AS_ASSUMED_SIZE)
+	    cond = fold_build2 (EQ_EXPR, boolean_type_node, bound,
+				build_int_cst (TREE_TYPE (bound),
+					       arg->expr->rank));
+	  else
+	    cond = boolean_false_node;
+
+	  cond1 = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, cond3, cond1);
+	  cond1 = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond1, cond2);
+
+	  cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, cond, cond1);
+
+	  se->expr = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
+				  lbound, gfc_index_one_node);
+	}
+    }
+  else
+    {
+      if (upper)
+        {
+	  size = fold_build2 (MINUS_EXPR, gfc_array_index_type, ubound, lbound);
+	  se->expr = fold_build2 (PLUS_EXPR, gfc_array_index_type, size,
+				  gfc_index_one_node);
+	}
+      else
+	se->expr = gfc_index_one_node;
+    }
 
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = convert (type, se->expr);
@@ -2110,6 +2223,22 @@ gfc_conv_intrinsic_ibits (gfc_se * se, gfc_expr * expr)
   se->expr = fold_build2 (BIT_AND_EXPR, type, tmp, mask);
 }
 
+/* RSHIFT (I, SHIFT) = I >> SHIFT
+   LSHIFT (I, SHIFT) = I << SHIFT  */
+static void
+gfc_conv_intrinsic_rlshift (gfc_se * se, gfc_expr * expr, int right_shift)
+{
+  tree arg;
+  tree arg2;
+
+  arg = gfc_conv_intrinsic_function_args (se, expr);
+  arg2 = TREE_VALUE (TREE_CHAIN (arg));
+  arg = TREE_VALUE (arg);
+
+  se->expr = fold_build2 (right_shift ? RSHIFT_EXPR : LSHIFT_EXPR,
+			  TREE_TYPE (arg), arg, arg2);
+}
+
 /* ISHFT (I, SHIFT) = (abs (shift) >= BIT_SIZE (i))
                         ? 0
 	 	        : ((shift >= 0) ? i << shift : i >> -shift)
@@ -2981,203 +3110,6 @@ gfc_conv_intrinsic_verify (gfc_se * se, gfc_expr * expr)
   se->expr = convert (type, se->expr);
 }
 
-/* Prepare components and related information of a real number which is
-   the first argument of a elemental functions to manipulate reals.  */
-
-static void
-prepare_arg_info (gfc_se * se, gfc_expr * expr,
-		  real_compnt_info * rcs, int all)
-{
-   tree arg;
-   tree masktype;
-   tree tmp;
-   tree wbits;
-   tree one;
-   tree exponent, fraction;
-   int n;
-   gfc_expr *a1;
-
-   if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT)
-     gfc_todo_error ("Non-IEEE floating format");
-
-   gcc_assert (expr->expr_type == EXPR_FUNCTION);
-
-   arg = gfc_conv_intrinsic_function_args (se, expr);
-   arg = TREE_VALUE (arg);
-   rcs->type = TREE_TYPE (arg);
-
-   /* Force arg'type to integer by unaffected convert  */
-   a1 = expr->value.function.actual->expr;
-   masktype = gfc_get_int_type (a1->ts.kind);
-   rcs->mtype = masktype;
-   tmp = build1 (VIEW_CONVERT_EXPR, masktype, arg);
-   arg = gfc_create_var (masktype, "arg");
-   gfc_add_modify_expr(&se->pre, arg, tmp);
-   rcs->arg = arg;
-
-   /* Calculate the numbers of bits of exponent, fraction and word  */
-   n = gfc_validate_kind (a1->ts.type, a1->ts.kind, false);
-   tmp = build_int_cst (NULL_TREE, gfc_real_kinds[n].digits - 1);
-   rcs->fdigits = convert (masktype, tmp);
-   wbits = build_int_cst (NULL_TREE, TYPE_PRECISION (rcs->type) - 1);
-   wbits = convert (masktype, wbits);
-   rcs->edigits = fold_build2 (MINUS_EXPR, masktype, wbits, tmp);
-
-   /* Form masks for exponent/fraction/sign  */
-   one = gfc_build_const (masktype, integer_one_node);
-   rcs->smask = fold_build2 (LSHIFT_EXPR, masktype, one, wbits);
-   rcs->f1 = fold_build2 (LSHIFT_EXPR, masktype, one, rcs->fdigits);
-   rcs->emask = fold_build2 (MINUS_EXPR, masktype, rcs->smask, rcs->f1);
-   rcs->fmask = fold_build2 (MINUS_EXPR, masktype, rcs->f1, one);
-   /* Form bias.  */
-   tmp = fold_build2 (MINUS_EXPR, masktype, rcs->edigits, one);
-   tmp = fold_build2 (LSHIFT_EXPR, masktype, one, tmp);
-   rcs->bias = fold_build2 (MINUS_EXPR, masktype, tmp ,one);
-
-   if (all)
-     {
-       /* exponent, and fraction  */
-       tmp = build2 (BIT_AND_EXPR, masktype, arg, rcs->emask);
-       tmp = build2 (RSHIFT_EXPR, masktype, tmp, rcs->fdigits);
-       exponent = gfc_create_var (masktype, "exponent");
-       gfc_add_modify_expr(&se->pre, exponent, tmp);
-       rcs->expn = exponent;
-
-       tmp = build2 (BIT_AND_EXPR, masktype, arg, rcs->fmask);
-       fraction = gfc_create_var (masktype, "fraction");
-       gfc_add_modify_expr(&se->pre, fraction, tmp);
-       rcs->frac = fraction;
-     }
-}
-
-/* Build a call to __builtin_clz.  */
-
-static tree
-call_builtin_clz (tree result_type, tree op0)
-{
-  tree fn, parms, call;
-  enum machine_mode op0_mode = TYPE_MODE (TREE_TYPE (op0));
-
-  if (op0_mode == TYPE_MODE (integer_type_node))
-    fn = built_in_decls[BUILT_IN_CLZ];
-  else if (op0_mode == TYPE_MODE (long_integer_type_node))
-    fn = built_in_decls[BUILT_IN_CLZL];
-  else if (op0_mode == TYPE_MODE (long_long_integer_type_node))
-    fn = built_in_decls[BUILT_IN_CLZLL];
-  else
-    gcc_unreachable ();
-
-  parms = tree_cons (NULL, op0, NULL);
-  call = build_function_call_expr (fn, parms);
-
-  return convert (result_type, call);
-}
-
-
-/* Generate code for SPACING (X) intrinsic function.
-   SPACING (X) = POW (2, e-p)
-
-   We generate:
-
-    t = expn - fdigits // e - p.
-    res = t << fdigits // Form the exponent. Fraction is zero.
-    if (t < 0) // The result is out of range. Denormalized case.
-      res = tiny(X)
- */
-
-static void
-gfc_conv_intrinsic_spacing (gfc_se * se, gfc_expr * expr)
-{
-   tree arg;
-   tree masktype;
-   tree tmp, t1, cond;
-   tree tiny, zero;
-   tree fdigits;
-   real_compnt_info rcs;
-
-   prepare_arg_info (se, expr, &rcs, 0);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-   fdigits = rcs.fdigits;
-   tiny = rcs.f1;
-   zero = gfc_build_const (masktype, integer_zero_node);
-   tmp = build2 (BIT_AND_EXPR, masktype, rcs.emask, arg);
-   tmp = build2 (RSHIFT_EXPR, masktype, tmp, fdigits);
-   tmp = build2 (MINUS_EXPR, masktype, tmp, fdigits);
-   cond = build2 (LE_EXPR, boolean_type_node, tmp, zero);
-   t1 = build2 (LSHIFT_EXPR, masktype, tmp, fdigits);
-   tmp = build3 (COND_EXPR, masktype, cond, tiny, t1);
-   tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
-
-   se->expr = tmp;
-}
-
-/* Generate code for RRSPACING (X) intrinsic function.
-   RRSPACING (X) = |X * POW (2, -e)| * POW (2, p) = |FRACTION (X)| * POW (2, p)
-
-   So the result's exponent is p. And if X is normalized, X's fraction part
-   is the result's fraction. If X is denormalized, to get the X's fraction we
-   shift X's fraction part to left until the first '1' is removed.
-
-   We generate:
-
-    if (expn == 0 && frac == 0)
-       res = 0;
-    else
-    {
-       // edigits is the number of exponent bits. Add the sign bit.
-       sedigits = edigits + 1;
-
-       if (expn == 0) // Denormalized case.
-       {
-         t1 = leadzero (frac);
-         frac = frac << (t1 + 1); //Remove the first '1'.
-         frac = frac >> (sedigits); //Form the fraction.
-       }
-
-       //fdigits is the number of fraction bits. Form the exponent.
-       t = bias + fdigits;
-
-       res = (t << fdigits) | frac;
-    }
-*/
-
-static void
-gfc_conv_intrinsic_rrspacing (gfc_se * se, gfc_expr * expr)
-{
-   tree masktype;
-   tree tmp, t1, t2, cond, cond2;
-   tree one, zero;
-   tree fdigits, fraction;
-   real_compnt_info rcs;
-
-   prepare_arg_info (se, expr, &rcs, 1);
-   masktype = rcs.mtype;
-   fdigits = rcs.fdigits;
-   fraction = rcs.frac;
-   one = gfc_build_const (masktype, integer_one_node);
-   zero = gfc_build_const (masktype, integer_zero_node);
-   t2 = fold_build2 (PLUS_EXPR, masktype, rcs.edigits, one);
-
-   t1 = call_builtin_clz (masktype, fraction);
-   tmp = build2 (PLUS_EXPR, masktype, t1, one);
-   tmp = build2 (LSHIFT_EXPR, masktype, fraction, tmp);
-   tmp = build2 (RSHIFT_EXPR, masktype, tmp, t2);
-   cond = build2 (EQ_EXPR, boolean_type_node, rcs.expn, zero);
-   fraction = build3 (COND_EXPR, masktype, cond, tmp, fraction);
-
-   tmp = fold_build2 (PLUS_EXPR, masktype, rcs.bias, fdigits);
-   tmp = fold_build2 (LSHIFT_EXPR, masktype, tmp, fdigits);
-   tmp = build2 (BIT_IOR_EXPR, masktype, tmp, fraction);
-
-   cond2 = build2 (EQ_EXPR, boolean_type_node, rcs.frac, zero);
-   cond = build2 (TRUTH_ANDIF_EXPR, boolean_type_node, cond, cond2);
-   tmp = build3 (COND_EXPR, masktype, cond,
-		 build_int_cst (masktype, 0), tmp);
-
-   tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
-   se->expr = tmp;
-}
 
 /* Generate code for SELECTED_INT_KIND (R) intrinsic function.  */
 
@@ -3398,14 +3330,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_exponent (se, expr);
       break;
 
-    case GFC_ISYM_SPACING:
-      gfc_conv_intrinsic_spacing (se, expr);
-      break;
-
-    case GFC_ISYM_RRSPACING:
-      gfc_conv_intrinsic_rrspacing (se, expr);
-      break;
-
     case GFC_ISYM_SCAN:
       gfc_conv_intrinsic_scan (se, expr);
       break;
@@ -3477,6 +3401,9 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       /* Integer conversions are handled separately to make sure we get the
          correct rounding mode.  */
     case GFC_ISYM_INT:
+    case GFC_ISYM_INT2:
+    case GFC_ISYM_INT8:
+    case GFC_ISYM_LONG:
       gfc_conv_intrinsic_int (se, expr, FIX_TRUNC_EXPR);
       break;
 
@@ -3576,6 +3503,14 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_IOR:
       gfc_conv_intrinsic_bitop (se, expr, BIT_IOR_EXPR);
+      break;
+
+    case GFC_ISYM_LSHIFT:
+      gfc_conv_intrinsic_rlshift (se, expr, 0);
+      break;
+
+    case GFC_ISYM_RSHIFT:
+      gfc_conv_intrinsic_rlshift (se, expr, 1);
       break;
 
     case GFC_ISYM_ISHFT:
@@ -3713,7 +3648,9 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_loc (se, expr);
       break;
 
+    case GFC_ISYM_ACCESS:
     case GFC_ISYM_CHDIR:
+    case GFC_ISYM_CHMOD:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_FGET:
     case GFC_ISYM_FGETC:
@@ -3732,8 +3669,11 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_IRAND:
     case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
+    case GFC_ISYM_LSTAT:
     case GFC_ISYM_MALLOC:
     case GFC_ISYM_MATMUL:
+    case GFC_ISYM_MCLOCK:
+    case GFC_ISYM_MCLOCK8:
     case GFC_ISYM_RAND:
     case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:
