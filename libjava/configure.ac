@@ -452,6 +452,23 @@ if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
 
+
+install_ecj_jar=no
+ECJ_BUILD_JAR=
+ECJ_JAR=
+AC_ARG_WITH(ecj-jar,
+	AS_HELP_STRING([--with-ecj-jar=FILE], [use preinstalled ecj jar]),
+	[ECJ_JAR=$withval],
+	[if test -f $libgcj_basedir/../ecj.jar; then
+	   ECJ_BUILD_JAR=$libgcj_basedir/../ecj.jar
+	   ECJ_JAR='$(jardir)/ecj.jar'
+	   install_ecj_jar=yes
+	 fi])
+AC_SUBST(ECJ_BUILD_JAR)
+AC_SUBST(ECJ_JAR)
+AM_CONDITIONAL(BUILD_ECJ1, test "$ECJ_JAR" != "")
+AM_CONDITIONAL(INSTALL_ECJ_JAR, test $install_ecj_jar = yes)
+
 AC_ARG_WITH(java-home,
   AS_HELP_STRING([--with-java-home=DIRECTORY],
                  [value of java.home system property]),

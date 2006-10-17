@@ -1584,6 +1584,12 @@ JvRunMain (jclass klass, int argc, const char **argv)
   _Jv_RunMain (klass, NULL, argc, argv, false);
 }
 
+void
+JvRunMainName (const char *name, int argc, const char **argv)
+{
+  _Jv_RunMain (NULL, name, argc, argv, false);
+}
+
 
 
 // Parse a string and return a heap size.

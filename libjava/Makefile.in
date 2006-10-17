@@ -44,19 +44,21 @@ target_triplet = @target@
 @USE_LIBGCJ_BC_TRUE@am__append_2 = libgcj_bc.la
 @XLIB_AWT_TRUE@am__append_3 = lib-gnu-awt-xlib.la
 @QT_AWT_TRUE@am__append_4 = lib-gnu-java-awt-peer-qt.la
+@INSTALL_ECJ_JAR_TRUE@am__append_5 = $(ECJ_BUILD_JAR)
 @NATIVE_TRUE@bin_PROGRAMS = jv-convert$(EXEEXT) gij$(EXEEXT) \
 @NATIVE_TRUE@	grmic$(EXEEXT) grmiregistry$(EXEEXT) \
 @NATIVE_TRUE@	gcj-dbtool$(EXEEXT)
-@BASH_JAR_TRUE@am__append_5 = scripts/jar
-@USING_GCC_TRUE@am__append_6 = $(WARNINGS)
-@USING_BOEHMGC_TRUE@am__append_7 = boehm.cc
-@USING_NOGC_TRUE@am__append_8 = nogc.cc
-@USING_POSIX_PLATFORM_TRUE@am__append_9 = posix.cc
-@USING_WIN32_PLATFORM_TRUE@am__append_10 = win32.cc
-@USING_DARWIN_CRT_TRUE@am__append_11 = darwin.cc
-@USING_POSIX_THREADS_TRUE@am__append_12 = posix-threads.cc
-@USING_WIN32_THREADS_TRUE@am__append_13 = win32-threads.cc
-@USING_NO_THREADS_TRUE@am__append_14 = no-threads.cc
+@BUILD_ECJ1_TRUE@toolexec_PROGRAMS = ecjx$(EXEEXT)
+@BASH_JAR_TRUE@am__append_6 = scripts/jar
+@USING_GCC_TRUE@am__append_7 = $(WARNINGS)
+@USING_BOEHMGC_TRUE@am__append_8 = boehm.cc
+@USING_NOGC_TRUE@am__append_9 = nogc.cc
+@USING_POSIX_PLATFORM_TRUE@am__append_10 = posix.cc
+@USING_WIN32_PLATFORM_TRUE@am__append_11 = win32.cc
+@USING_DARWIN_CRT_TRUE@am__append_12 = darwin.cc
+@USING_POSIX_THREADS_TRUE@am__append_13 = posix-threads.cc
+@USING_WIN32_THREADS_TRUE@am__append_14 = win32-threads.cc
+@USING_NO_THREADS_TRUE@am__append_15 = no-threads.cc
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../config.guess $(srcdir)/../config.sub \
 	$(srcdir)/../depcomp $(srcdir)/../install-sh \
@@ -68,7 +70,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(top_srcdir)/scripts/jar.in COPYING ChangeLog NEWS THANKS
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@noinst_PROGRAMS =  \
 @MAINTAINER_MODE_TRUE@@NATIVE_TRUE@	gen-from-JIS$(EXEEXT)
-@XLIB_AWT_TRUE@am__append_15 = $(xlib_nat_headers)
+@XLIB_AWT_TRUE@am__append_16 = $(xlib_nat_headers)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
@@ -106,9 +108,9 @@ am__vpath_adj = case $$p in \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" \
-	"$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" \
-	"$(DESTDIR)$(toolexecmainlibdir)"
+	"$(DESTDIR)$(toolexecdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" \
+	"$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(toolexecmainlibdir)"
 toolexeclibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 am__dirstamp = $(am__leading_dot)dirstamp
@@ -391,7 +393,10 @@ libgcj_bc_la_OBJECTS = $(am_libgcj_bc_la_OBJECTS)
 am_libgij_la_OBJECTS = gij.lo
 libgij_la_OBJECTS = $(am_libgij_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS)
+toolexecPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(bin_PROGRAMS) $(noinst_PROGRAMS) $(toolexec_PROGRAMS)
+am_ecjx_OBJECTS =
+ecjx_OBJECTS = $(am_ecjx_OBJECTS)
 am_gcj_dbtool_OBJECTS = gnu/gcj/tools/gcj_dbtool/natMain.$(OBJEXT)
 gcj_dbtool_OBJECTS = $(am_gcj_dbtool_OBJECTS)
 am__gen_from_JIS_SOURCES_DIST = gnu/gcj/convert/gen-from-JIS.c \
@@ -436,13 +441,13 @@ GCJLD = $(GCJ)
 SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
 	$(lib_gnu_java_awt_peer_qt_la_SOURCES) $(libgcj_la_SOURCES) \
 	$(EXTRA_libgcj_la_SOURCES) $(libgcj_bc_la_SOURCES) \
-	$(libgij_la_SOURCES) $(gcj_dbtool_SOURCES) \
+	$(libgij_la_SOURCES) $(ecjx_SOURCES) $(gcj_dbtool_SOURCES) \
 	$(gen_from_JIS_SOURCES) $(gij_SOURCES) $(grmic_SOURCES) \
 	$(grmiregistry_SOURCES) $(jv_convert_SOURCES)
 DIST_SOURCES = $(lib_gnu_awt_xlib_la_SOURCES) \
 	$(lib_gnu_java_awt_peer_qt_la_SOURCES) \
 	$(am__libgcj_la_SOURCES_DIST) $(EXTRA_libgcj_la_SOURCES) \
-	$(libgcj_bc_la_SOURCES) $(libgij_la_SOURCES) \
+	$(libgcj_bc_la_SOURCES) $(libgij_la_SOURCES) $(ecjx_SOURCES) \
 	$(gcj_dbtool_SOURCES) $(am__gen_from_JIS_SOURCES_DIST) \
 	$(gij_SOURCES) $(grmic_SOURCES) $(grmiregistry_SOURCES) \
 	$(jv_convert_SOURCES)
@@ -486,6 +491,8 @@ AWK = @AWK@
 BACKTRACESPEC = @BACKTRACESPEC@
 BASH_JAR_FALSE = @BASH_JAR_FALSE@
 BASH_JAR_TRUE = @BASH_JAR_TRUE@
+BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
+BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
 CAIRO_CFLAGS = @CAIRO_CFLAGS@
 CAIRO_LIBS = @CAIRO_LIBS@
 CC = @CC@
@@ -507,6 +514,8 @@ DIVIDESPEC = @DIVIDESPEC@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
+ECJ_BUILD_JAR = @ECJ_BUILD_JAR@
+ECJ_JAR = @ECJ_JAR@
 EGREP = @EGREP@
 EXCEPTIONSPEC = @EXCEPTIONSPEC@
 EXEEXT = @EXEEXT@
@@ -531,6 +540,8 @@ HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
 IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_ECJ_JAR_FALSE = @INSTALL_ECJ_JAR_FALSE@
+INSTALL_ECJ_JAR_TRUE = @INSTALL_ECJ_JAR_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -730,7 +741,7 @@ toolexecmainlib_DATA = libgcj.spec
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libgcj.pc
 jardir = $(datadir)/java
-jar_DATA = libgcj-$(gcc_version).jar
+jar_DATA = libgcj-$(gcc_version).jar $(am__append_5)
 @JAVA_HOME_SET_FALSE@JAVA_HOME_DIR = $(prefix)
 @JAVA_HOME_SET_TRUE@JAVA_HOME_DIR = $(JAVA_HOME)
 @JAVA_HOME_SET_FALSE@BOOT_CLASS_PATH_DIR = $(jardir)/$(jar_DATA)
@@ -740,7 +751,7 @@ propdir = $(libdir)
 db_name = classmap.db
 db_pathtail = gcj-$(gcc_version)/$(db_name)
 @NATIVE_TRUE@dbexec_DATA = $(db_name)
-bin_SCRIPTS = addr2name.awk $(am__append_5)
+bin_SCRIPTS = addr2name.awk $(am__append_6)
 GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated
 GCJLINK = $(LIBTOOL) --tag=GCJ --mode=link $(GCJ) -L$(here) $(JC1FLAGS) \
           $(LDFLAGS) -o $@
@@ -778,7 +789,7 @@ AM_GCJFLAGS = \
 	--encoding=UTF-8 \
 	-Wno-deprecated -fbootstrap-classes
 
-AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_6)
+AM_CFLAGS = @LIBGCJ_CFLAGS@ $(am__append_7)
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 JCFLAGS = -g
 JC1FLAGS = @LIBGCJ_JAVAFLAGS@ $(GCJFLAGS)
@@ -802,9 +813,9 @@ libgij_la_LDFLAGS = -rpath $(toolexeclibdir) \
 
 libgcj_la_SOURCES = prims.cc jni.cc exception.cc stacktrace.cc link.cc \
 	defineclass.cc interpret.cc verify.cc $(nat_source_files) \
-	$(am__append_7) $(am__append_8) $(am__append_9) \
-	$(am__append_10) $(am__append_11) $(am__append_12) \
-	$(am__append_13) $(am__append_14)
+	$(am__append_8) $(am__append_9) $(am__append_10) \
+	$(am__append_11) $(am__append_12) $(am__append_13) \
+	$(am__append_14) $(am__append_15)
 nat_files = $(nat_source_files:.cc=.lo)
 xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 
@@ -7519,6 +7530,14 @@ grmiregistry_LDFLAGS = --main=gnu.java.rmi.registry.RegistryImpl \
 grmiregistry_LINK = $(GCJLINK)
 grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+ecjx_SOURCES = 
+ecjx_LDFLAGS = -findirect-dispatch \
+	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain \
+	-Djava.class.path=$(ECJ_JAR)
+
+ecjx_LINK = $(GCJLINK)
+ecjx_LDADD = -L$(here)/.libs libgcj.la
+ecjx_DEPENDENCIES = libgcj.la libgcj.spec
 nat_source_files = \
 gnu/classpath/natSystemProperties.cc \
 gnu/classpath/natConfiguration.cc \
@@ -7620,7 +7639,7 @@ gnu/gcj/xlib/natXImage.cc \
 gnu/gcj/xlib/natXUnmapEvent.cc
 
 sourcesdir = $(jardir)
-headers_to_make = $(nat_headers) $(am__append_15)
+headers_to_make = $(nat_headers) $(am__append_16)
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
@@ -8188,6 +8207,37 @@ clean-noinstPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+install-toolexecPROGRAMS: $(toolexec_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	test -z "$(toolexecdir)" || $(mkdir_p) "$(DESTDIR)$(toolexecdir)"
+	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+	     || test -f $$p1 \
+	  ; then \
+	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(toolexecPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toolexecdir)/$$f'"; \
+	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(toolexecPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toolexecdir)/$$f" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-toolexecPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+	  echo " rm -f '$(DESTDIR)$(toolexecdir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(toolexecdir)/$$f"; \
+	done
+
+clean-toolexecPROGRAMS:
+	@list='$(toolexec_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
+ecjx$(EXEEXT): $(ecjx_OBJECTS) $(ecjx_DEPENDENCIES) 
+	@rm -f ecjx$(EXEEXT)
+	$(ecjx_LINK) $(ecjx_LDFLAGS) $(ecjx_OBJECTS) $(ecjx_LDADD) $(LIBS)
 gnu/gcj/tools/gcj_dbtool/$(am__dirstamp):
 	@$(mkdir_p) gnu/gcj/tools/gcj_dbtool
 	@: > gnu/gcj/tools/gcj_dbtool/$(am__dirstamp)
@@ -9159,7 +9209,7 @@ check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(DATA)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
+	for dir in "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(toolexecdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(dbexecdir)" "$(DESTDIR)$(jardir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(toolexecmainlibdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-recursive
@@ -9246,12 +9296,11 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@USE_LIBGCJ_BC_FALSE@install-exec-hook:
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-generic clean-libtool \
-	clean-noinstPROGRAMS clean-toolexeclibLTLIBRARIES \
-	mostlyclean-am
+	clean-noinstPROGRAMS clean-toolexecPROGRAMS \
+	clean-toolexeclibLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -9274,8 +9323,8 @@ install-data-am: install-data-local install-jarDATA \
 	install-pkgconfigDATA
 
 install-exec-am: install-binPROGRAMS install-binSCRIPTS \
-	install-dbexecDATA install-toolexeclibLTLIBRARIES \
-	install-toolexecmainlibDATA
+	install-dbexecDATA install-toolexecPROGRAMS \
+	install-toolexeclibLTLIBRARIES install-toolexecmainlibDATA
 	@$(NORMAL_INSTALL)
 	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 
@@ -9307,14 +9356,14 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 	uninstall-dbexecDATA uninstall-info-am uninstall-jarDATA \
-	uninstall-pkgconfigDATA uninstall-toolexeclibLTLIBRARIES \
-	uninstall-toolexecmainlibDATA
+	uninstall-pkgconfigDATA uninstall-toolexecPROGRAMS \
+	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
 	check-am clean clean-binPROGRAMS clean-generic clean-libtool \
-	clean-noinstPROGRAMS clean-recursive \
+	clean-noinstPROGRAMS clean-recursive clean-toolexecPROGRAMS \
 	clean-toolexeclibLTLIBRARIES ctags ctags-recursive dist \
 	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
 	distcheck distclean distclean-compile distclean-generic \
@@ -9325,7 +9374,7 @@ uninstall-info: uninstall-info-recursive
 	install-data-am install-data-local install-dbexecDATA \
 	install-exec install-exec-am install-exec-hook install-info \
 	install-info-am install-jarDATA install-man \
-	install-pkgconfigDATA install-strip \
+	install-pkgconfigDATA install-strip install-toolexecPROGRAMS \
 	install-toolexeclibLTLIBRARIES install-toolexecmainlibDATA \
 	installcheck installcheck-am installdirs installdirs-am \
 	maintainer-clean maintainer-clean-generic \
@@ -9335,7 +9384,8 @@ uninstall-info: uninstall-info-recursive
 	uninstall uninstall-am uninstall-binPROGRAMS \
 	uninstall-binSCRIPTS uninstall-dbexecDATA uninstall-info-am \
 	uninstall-jarDATA uninstall-pkgconfigDATA \
-	uninstall-toolexeclibLTLIBRARIES uninstall-toolexecmainlibDATA
+	uninstall-toolexecPROGRAMS uninstall-toolexeclibLTLIBRARIES \
+	uninstall-toolexecmainlibDATA
 
 
 $(db_name): gcj-dbtool$(EXEEXT)
@@ -10937,7 +10987,7 @@ gcjh.stamp: classpath/lib/compile-classes
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
-@USE_LIBGCJ_BC_TRUE@install-exec-hook: install-toolexeclibLTLIBRARIES
+install-exec-hook: install-toolexeclibLTLIBRARIES install-toolexecPROGRAMS
 @USE_LIBGCJ_BC_TRUE@	@echo Installing dummy lib libgcj_bc.so.1.0.0; \
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.so; \
 @USE_LIBGCJ_BC_TRUE@	mv $(toolexeclibdir)/libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so; \
@@ -10946,6 +10996,7 @@ $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	$(LN_S) libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so.1; \
 @USE_LIBGCJ_BC_TRUE@	rm $(toolexeclibdir)/libgcj_bc.la;
+@BUILD_ECJ1_TRUE@	mv $(DESTDIR)$(toolexecdir)/ecjx $(DESTDIR)$(toolexecdir)/ecj1
 
 install-data-local:
 	$(PRE_INSTALL)

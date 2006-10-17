@@ -413,6 +413,8 @@ void _Jv_FreeMethodCache ();
 void _Jv_SetStackSize (const char *arg);
 
 extern "C" void JvRunMain (jclass klass, int argc, const char **argv);
+extern "C" void JvRunMainName (const char *name, int argc, const char **argv);
+
 void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 		  bool is_jar);
 

@@ -1,3 +1,7 @@
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
+	* download_ecj: New file.
+
 2006-06-02  Richard Earnshaw  <rearnsha@arm.com>
 	    Mike Stump  <mrs@apple.com>
 

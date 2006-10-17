@@ -1,3 +1,20 @@
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
+	* configure, Makefile.in: Rebuilt.
+	* Makefile.am (install-exec-hook): Now unconditional.  Rename ecjx
+	if needed.
+	(jar_DATA): Add ecj jar when needed.
+	(toolexec_PROGRAMS): New variable.
+	(ecjx_SOURCES, ecjx_LDFLAGS, ecjx_LDADD, ecjx_DEPENDENCIES):
+	Likewise.
+	* prims.cc (JvRunMainName): New function.
+	* include/jvm.h (JvRunMainName): Declare.
+	* configure.ac: Added --with-ecj-jar.
+	(ECJ_JAR): New subst.
+	(ECJ_BUILD_JAR): Likewise.
+	(INSTALL_ECJ_JAR): New conditional.
+	(BUILD_ECJ1): Likewise.
+
 2006-10-13  Tom Tromey  <tromey@redhat.com>
 
 	* HACKING: Updated.

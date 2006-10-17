@@ -53,6 +53,9 @@ pkgconfig_DATA = libgcj.pc
 
 jardir = $(datadir)/java
 jar_DATA = libgcj-$(gcc_version).jar
+if INSTALL_ECJ_JAR
+jar_DATA += $(ECJ_BUILD_JAR)
+endif
 
 if JAVA_HOME_SET
 JAVA_HOME_DIR = $(JAVA_HOME)
@@ -82,6 +85,13 @@ dbexec_DATA = $(db_name)
 endif
 
 bin_SCRIPTS = addr2name.awk
+
+if BUILD_ECJ1
+## We build ecjx and not ecj1 because in one mode, ecjx will not work
+## until after 'make install', and we don't want it to be picked up in
+## the build tree by gcj via a -B option.
+toolexec_PROGRAMS = ecjx
+endif
 
 ## ################################################################
 
@@ -420,12 +430,12 @@ extra_headers = java/lang/Object.h java/lang/Class.h
 $(extra_headers) $(srcdir)/java/lang/Object.h $(srcdir)/java/lang/Class.h:
 	@:
 
+install-exec-hook: install-toolexeclibLTLIBRARIES install-toolexecPROGRAMS
 ## Support for libgcj_bc: dummy shared library used only at link-time.
 if USE_LIBGCJ_BC
 ## Install libgcj_bc dummy lib in the target directory. We also need to delete
 ## libtool's .la file, this prevents libtool resetting the lib again 
 ## later.
-install-exec-hook: install-toolexeclibLTLIBRARIES
 	@echo Installing dummy lib libgcj_bc.so.1.0.0; \
 	rm $(toolexeclibdir)/libgcj_bc.so; \
 	mv $(toolexeclibdir)/libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so; \
@@ -434,6 +444,9 @@ install-exec-hook: install-toolexeclibLTLIBRARIES
 	rm $(toolexeclibdir)/libgcj_bc.so.1; \
 	$(LN_S) libgcj_bc.so.1.0.0 $(toolexeclibdir)/libgcj_bc.so.1; \
 	rm $(toolexeclibdir)/libgcj_bc.la;
+endif
+if BUILD_ECJ1
+	mv $(DESTDIR)$(toolexecdir)/ecjx $(DESTDIR)$(toolexecdir)/ecj1
 endif
 
 ## Install the headers.  It is fairly ugly that we have to do this by
@@ -659,6 +672,18 @@ grmiregistry_LDADD = -L$(here)/.libs libgcj.la
 ## Depend on the spec file to make sure it is up to date before
 ## linking this program.
 grmiregistry_DEPENDENCIES = libgcj.la libgcj.spec
+
+## Build an ecjx from a .jar.
+ecjx_SOURCES =
+## We use the BC ABI here so that we don't need to compile ecj.jar.
+## Hopefully the user has compiled it into his system .db.
+## However, even if not it will run reasonably quickly.
+ecjx_LDFLAGS = -findirect-dispatch \
+	--main=org.eclipse.jdt.internal.compiler.batch.GCCMain \
+	-Djava.class.path=$(ECJ_JAR)
+ecjx_LINK = $(GCJLINK)
+ecjx_LDADD = -L$(here)/.libs libgcj.la
+ecjx_DEPENDENCIES = libgcj.la libgcj.spec
 
 ## ################################################################
 

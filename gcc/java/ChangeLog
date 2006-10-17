@@ -1,3 +1,9 @@
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
+	* jvgenmain.c (main): Handle -findirect-dispatch.
+	* jvspec.c (jvgenmain_spec): Pass -findirect-dispatch to
+	jvgenmain.
+
 2006-10-06  Andrew Haley  <aph@redhat.com>
 
 	* builtins.c (compareAndSwapInt_builtin): Check that we really do

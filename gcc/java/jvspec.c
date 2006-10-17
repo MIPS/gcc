@@ -59,7 +59,7 @@ int lang_specific_extra_outfiles = 0;
 int shared_libgcc = 1;
 
 static const char jvgenmain_spec[] =
-  "jvgenmain %{D*} %b %m.i |\n\
+  "jvgenmain %{findirect-dispatch} %{D*} %b %m.i |\n\
    cc1 %m.i %1 \
 		   %{!Q:-quiet} -dumpbase %b.c %{d*} %{m*} %{a*}\
 		   %{g*} %{O*} \
