@@ -14608,19 +14608,19 @@ arm_init_neon_builtins (void)
 #define void_TN void_type_node
 
 #define TYPE2(A,B) \
-  tree A##_##ftype##_##B = build_function_type_list (A##_TN, B##_TN, NULL);
+  tree A##_##ftype##_##B = build_function_type_list (A##_TN, B##_TN, NULL)
 #define TYPE3(A,B,C) \
   tree A##_##ftype##_##B##_##C = build_function_type_list (A##_TN, B##_TN, \
-    C##_TN, NULL);
+    C##_TN, NULL)
 #define TYPE4(A,B,C,D) \
   tree A##_##ftype##_##B##_##C##_##D = build_function_type_list (A##_TN, \
-    B##_TN, C##_TN, D##_TN, NULL);
+    B##_TN, C##_TN, D##_TN, NULL)
 #define TYPE5(A,B,C,D,E) \
   tree A##_##ftype##_##B##_##C##_##D##_##E = build_function_type_list (A##_TN, \
-    B##_TN, C##_TN, D##_TN, E##_TN, NULL);
+    B##_TN, C##_TN, D##_TN, E##_TN, NULL)
 #define TYPE6(A,B,C,D,E,F) \
   tree A##_##ftype##_##B##_##C##_##D##_##E##_##F = build_function_type_list \
-    (A##_TN, B##_TN, C##_TN, D##_TN, E##_TN, F##_TN, NULL);
+    (A##_TN, B##_TN, C##_TN, D##_TN, E##_TN, F##_TN, NULL)
 
   unsigned int i, fcode = ARM_BUILTIN_NEON_BASE;
 
@@ -15360,6 +15360,10 @@ arm_init_neon_builtins (void)
     build_function_type_list (void_type_node, float_pointer_node,
 			      intXI_type_node, intSI_type_node, NULL);
 
+  tree reinterp_ftype_dreg[5][5];
+  tree reinterp_ftype_qreg[5][5];
+  tree dreg_types[5], qreg_types[5];
+  
   /* Define typedefs which exactly correspond to the modes we are basing vector
      types on.  */
   (*lang_hooks.types.register_builtin_type) (intQI_type_node,
@@ -15395,10 +15399,6 @@ arm_init_neon_builtins (void)
   (*lang_hooks.types.register_builtin_type) (intXI_type_node,
 					     "__builtin_neon_xi");
 
-  tree reinterp_ftype_dreg[5][5];
-  tree reinterp_ftype_qreg[5][5];
-  tree dreg_types[5], qreg_types[5];
-  
   dreg_types[0] = V8QI_type_node;
   dreg_types[1] = V4HI_type_node;
   dreg_types[2] = V2SI_type_node;

@@ -1,3 +1,9 @@
+2006-10-17  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_init_neon_builtins): Remove superfluous
+	semicolons.  Move declarations before code.
+
 2007-10-17  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/neon.h (neon_vld3qa<mode>, neon_vld3qb<mode>,
