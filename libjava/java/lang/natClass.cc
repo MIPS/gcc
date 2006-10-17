@@ -68,6 +68,9 @@ details.  */
 #include <java/lang/Boolean.h>
 #include <java/lang/annotation/Annotation.h>
 #include <java/util/HashMap.h>
+#include <java/util/Map.h>
+#include <sun/reflect/annotation/AnnotationInvocationHandler.h>
+#include <java/lang/Enum.h>
 
 #include <java-cpool.h>
 #include <java-interp.h>
@@ -1145,30 +1148,39 @@ parseAnnotationElement(jclass klass, _Jv_Constants *pool,
 	// Despite what the JVM spec says, compilers generate a Utf8
 	// constant here, not a String.
 	check_constant (pool, cindex, JV_CONSTANT_Utf8);
-	result = _Jv_Linker::resolve_pool_entry (klass, cindex).string;
+	result = pool->data[cindex].utf8->toString();
       }
       break;
     case 'e':
       {
-	// FIXME
-// 	uint16 type_name_index = JCF_readu2 (jcf);
-// 	uint16 const_name_index = JCF_readu2 (jcf);
+	int type_name_index = read_u2 (bytes, last);
+	check_constant (pool, type_name_index, JV_CONSTANT_Utf8);
+ 	int const_name_index = read_u2 (bytes, last);
+	check_constant (pool, const_name_index, JV_CONSTANT_Utf8);
+
+	_Jv_Utf8Const *u_name = pool->data[type_name_index].utf8;
+	_Jv_Utf8Const *e_name = pool->data[const_name_index].utf8;
+
+	// FIXME: throw correct exceptions at the correct times.
+	jclass e_class = _Jv_FindClassFromSignature(u_name->chars(),
+						    klass->getClassLoaderInternal());
+	result = ::java::lang::Enum::valueOf(e_class, e_name->toString());
       }
       break;
     case 'c':
       {
-	// FIXME: should be a Utf8 here!
 	int cindex = read_u2 (bytes, last);
-	check_constant (pool, cindex, JV_CONSTANT_Class);
-	try
-	  {
-	    result
-	      = _Jv_Linker::resolve_pool_entry (klass, cindex, false).clazz;
-	  }
-	catch (NoClassDefFoundError *err)
-	  {
-	    throw new TypeNotPresentException(err->getMessage(), err);
-	  }
+	check_constant (pool, cindex, JV_CONSTANT_Utf8);
+	_Jv_Utf8Const *u_name = pool->data[cindex].utf8;
+	jclass anno_class
+	  = _Jv_FindClassFromSignatureNoException(u_name->chars(),
+						  klass->getClassLoaderInternal());
+	// FIXME: not correct: we should lazily do this when trying to
+	// read the element.  This means that
+	// AnnotationInvocationHandler needs to have a special case.
+	if (! anno_class)
+	  // FIXME: original exception...
+	  throw new TypeNotPresentException(u_name->toString(), NULL);
       }
       break;
     case '@':
@@ -1197,7 +1209,11 @@ parseAnnotation(jclass klass, _Jv_Constants *pool,
 {
   int type_index = read_u2 (bytes, last);
   check_constant (pool, type_index, JV_CONSTANT_Utf8);
-  jclass anno_class = NULL; // FIXME ... and share code with 'c' case
+
+  _Jv_Utf8Const *u_name = pool->data[type_index].utf8;
+  jclass anno_class = _Jv_FindClassFromSignatureNoException(u_name->chars(),
+							    klass->getClassLoaderInternal());
+  // FIXME: what to do if anno_class==NULL?
 
   ::java::util::HashMap *hmap = new ::java::util::HashMap();
   int npairs = read_u2 (bytes, last);
@@ -1210,9 +1226,9 @@ parseAnnotation(jclass klass, _Jv_Constants *pool,
       // FIXME: any checks needed for name?
       hmap->put(name, value);
     }
-  // FIXME: use AnnotationInvocationHandler here.
-  // FIXME: add a static method to it for creation, that handles defaults.
-  return NULL;
+  using namespace ::sun::reflect::annotation;
+  return AnnotationInvocationHandler::create (anno_class,
+					      (::java::util::Map *) hmap);
 }
 
 static jobjectArray
@@ -1259,18 +1275,18 @@ java::lang::Class::getMethodDefaultValue(::java::lang::reflect::Method *meth)
 
   while (true)
     {
-      int kind = read_u1 (bytes);
-      if (kind == JV_DONE_ATTR)
+      int type = read_u1 (bytes);
+      if (type == JV_DONE_ATTR)
 	return NULL;
       int len = read_4 (bytes);
       unsigned char *next = bytes + len;
-      if (kind != JV_METHOD_ATTR)
+      if (type != JV_METHOD_ATTR)
 	{
 	  bytes = next;
 	  continue;
 	}
-      int type = read_u1 (bytes, next);
-      if (type != JV_ANNOTATION_DEFAULT_KIND)
+      int kind = read_u1 (bytes, next);
+      if (kind != JV_ANNOTATION_DEFAULT_KIND)
 	{
 	  bytes = next;
 	  continue;

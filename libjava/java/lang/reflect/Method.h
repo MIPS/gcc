@@ -43,6 +43,7 @@ public:
   JArray< ::java::lang::reflect::Type * > * getGenericParameterTypes();
   ::java::lang::reflect::Type * getGenericReturnType();
   ::java::lang::Object * getDefaultValue();
+  ::java::lang::annotation::Annotation * getAnnotation(::java::lang::Class *);
   JArray< ::java::lang::annotation::Annotation * > * getDeclaredAnnotations();
   JArray< JArray< ::java::lang::annotation::Annotation * > * > * getParameterAnnotations();
 private:

@@ -1,3 +1,10 @@
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
+	* sun/reflect/annotation/AnnotationInvocationHandler.java
+	(invoke): Clone array values before return.
+	(create): New method.
+	(arrayClone): Likewise.
+
 2006-10-12  Tom Tromey  <tromey@redhat.com>
 
 	* lib/Makefile.in: Rebuilt.

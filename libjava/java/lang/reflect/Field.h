@@ -62,6 +62,7 @@ public:
   void setFloat(::java::lang::Object *, jfloat);
   void setDouble(::java::lang::Object *, jdouble);
   ::java::lang::reflect::Type * getGenericType();
+  ::java::lang::annotation::Annotation * getAnnotation(::java::lang::Class *);
   JArray< ::java::lang::annotation::Annotation * > * getDeclaredAnnotations();
 private:
   JArray< ::java::lang::annotation::Annotation * > * getDeclaredAnnotationsInternal();

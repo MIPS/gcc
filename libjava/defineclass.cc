@@ -577,6 +577,7 @@ _Jv_ClassReader::handleAnnotation()
     {
       int name_index = read2u();
       check_tag (name_index, JV_CONSTANT_Utf8);
+      prepare_pool_entry (name_index, JV_CONSTANT_Utf8);
       handleAnnotationElement();
     }
 }
@@ -608,9 +609,9 @@ _Jv_ClassReader::handleMemberAnnotations(jv_attr_type member_type,
   if (member_type != JV_CLASS_ATTR)
     newLen += 2;
   stream->writeInt(newLen);
+  stream->writeByte(JV_ANNOTATIONS_KIND);
   if (member_type != JV_CLASS_ATTR)
     stream->writeShort(member_index);
-  stream->writeByte(JV_ANNOTATIONS_KIND);
   // Write the data as-is.
   stream->write(input_data, input_offset + orig_pos, len);
 }

@@ -46,7 +46,6 @@ java::lang::reflect::Field::getSignature()
 anno_a_t
 java::lang::reflect::Field::getDeclaredAnnotationsInternal()
 {
-  anno_a_t result;
   return (anno_a_t) declaringClass->getDeclaredAnnotations(this);
 }
 

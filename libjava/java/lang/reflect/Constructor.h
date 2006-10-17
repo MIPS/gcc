@@ -42,6 +42,7 @@ private:
 public:
   JArray< ::java::lang::reflect::Type * > * getGenericExceptionTypes();
   JArray< ::java::lang::reflect::Type * > * getGenericParameterTypes();
+  ::java::lang::annotation::Annotation * getAnnotation(::java::lang::Class *);
   JArray< ::java::lang::annotation::Annotation * > * getDeclaredAnnotations();
   JArray< JArray< ::java::lang::annotation::Annotation * > * > * getParameterAnnotations();
 private:

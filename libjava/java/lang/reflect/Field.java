@@ -734,6 +734,15 @@ public final class Field
     return p.getFieldType();
   }
 
+  public <T extends Annotation> T getAnnotation(Class<T> annoClass)
+  {
+    Annotation[] annos = getDeclaredAnnotations();
+    for (int i = 0; i < annos.length; ++i)
+      if (annos[i].annotationType() == annoClass)
+	return (T) annos[i];
+    return null;
+  }
+
   public Annotation[] getDeclaredAnnotations()
   {
     Annotation[] result = getDeclaredAnnotationsInternal();

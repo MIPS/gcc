@@ -1,5 +1,27 @@
 2006-10-17  Tom Tromey  <tromey@redhat.com>
 
+	* defineclass.cc (handleMemberAnnotations): Write member index
+	after 'kind'.
+	(handleAnnotation): Call prepare_pool_entry.
+	* java/lang/reflect/natMethod.cc (getDeclaredAnnotationsInternal):
+	Removed unused variable.
+	(getParameterAnnotationsInternal): Likewise.
+	* java/lang/reflect/natField.cc (getDeclaredAnnotationsInternal):
+	Removed unused variable.
+	* java/lang/reflect/natConstructor.cc
+	(getDeclaredAnnotationsInternal): Removed unused variable.
+	(getParameterAnnotationsInternal): Likewise.
+	* java/lang/natClass.cc (parseAnnotation): Create annotation.
+	(parseAnnotationElement): Handle 'c' and 'e' cases more
+	correctly.
+	(getMethodDefaultValue): Fixed variable names.
+	(parseAnnotationElement): Create String for 's' entry.
+	* java/lang/reflect/Constructor.java (getAnnotation): New method.
+	* java/lang/reflect/Field.java (getAnnotation): New method.
+	* java/lang/reflect/Method.java (getAnnotation): New method.
+
+2006-10-17  Tom Tromey  <tromey@redhat.com>
+
 	* java/lang/natClass.cc (parseAnnotationElement): Expect a utf8
 	constant in the "string" case.
 	* defineclass.cc (handleAnnotationElement): Expect a utf8 constant

@@ -41,14 +41,12 @@ java::lang::reflect::Constructor::getSignature()
 anno_a_t
 java::lang::reflect::Constructor::getDeclaredAnnotationsInternal()
 {
-  anno_a_t result;
   return (anno_a_t) declaringClass->getDeclaredAnnotations(this, false);
 }
 
 anno_aa_t
 java::lang::reflect::Constructor::getParameterAnnotationsInternal()
 {
-  anno_aa_t result;
   return (anno_aa_t) declaringClass->getDeclaredAnnotations(this, true);
 }
 
