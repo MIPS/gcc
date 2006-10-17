@@ -199,11 +199,17 @@
 ;; Narrowable modes.
 (define_mode_macro VN [V8HI V4SI V2DI])
 
-;; All supported vector modes (except those with 64-bit integer elements).
-(define_mode_macro VDQ [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF])
+;; All supported vector modes (except singleton DImode).
+(define_mode_macro VDQ [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DI])
 
-;; Supported integer vector modes (not 64 bit).
-(define_mode_macro VDQI [V8QI V16QI V4HI V8HI V2SI V4SI])
+;; All supported vector modes (except those with 64-bit integer elements).
+(define_mode_macro VDQW [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF])
+
+;; Supported integer vector modes (not 64 bit elements).
+(define_mode_macro VDQIW [V8QI V16QI V4HI V8HI V2SI V4SI])
+
+;; Supported integer vector modes (not singleton DI)
+(define_mode_macro VDQI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
 
 ;; Vector modes, including 64-bit integer elements.
 (define_mode_macro VDQX [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF DI V2DI])
@@ -397,7 +403,7 @@
 			   (V4HI "") (V8HI "")
                            (V2SI "") (V4SI "")
                            (V2SF "") (V4SF "")
-                           (DI "_64") (V2DI "_64")])
+                           (DI "_neon") (V2DI "")])
 
 ;; FIXME: Attributes are probably borked.
 (define_insn "*neon_mov<mode>"
@@ -634,6 +640,24 @@
 }
   [(set_attr "predicable" "yes")])
 
+(define_insn "vec_setv2di"
+  [(set (match_operand:V2DI 0 "s_register_operand" "+w")
+        (vec_merge:V2DI
+          (match_operand:V2DI 3 "s_register_operand" "0")
+          (vec_duplicate:V2DI
+            (match_operand:DI 1 "s_register_operand" "r"))
+          (ashift:SI (const_int 1)
+		     (match_operand:SI 2 "immediate_operand" "i"))))]
+  "TARGET_NEON"
+{
+  int regno = REGNO (operands[0]) + INTVAL (operands[2]);
+  
+  operands[0] = gen_rtx_REG (DImode, regno);
+  
+  return "vmov%?.64\t%P0, %Q1, %R1";
+}
+  [(set_attr "predicable" "yes")])
+
 (define_insn "vec_extract<mode>"
   [(set (match_operand:<V_elem> 0 "s_register_operand" "=r")
         (vec_select:<V_elem>
@@ -659,6 +683,21 @@
   operands[2] = GEN_INT (elt);
   
   return "vmov%?.<V_uf_sclr>\t%0, %P1[%c2]";
+}
+  [(set_attr "predicable" "yes")])
+
+(define_insn "vec_extractv2di"
+  [(set (match_operand:DI 0 "s_register_operand" "=r")
+	(vec_select:DI
+          (match_operand:V2DI 1 "s_register_operand" "w")
+          (parallel [(match_operand:SI 2 "immediate_operand" "i")])))]
+  "TARGET_NEON"
+{
+  int regno = REGNO (operands[1]) + INTVAL (operands[2]);
+  
+  operands[1] = gen_rtx_REG (DImode, regno);
+  
+  return "vmov%?.64\t%Q0, %R0, %P1";
 }
   [(set_attr "predicable" "yes")])
 
@@ -715,18 +754,18 @@
     }
 })
 
-(define_insn "ior<mode>3_64"
-  [(set (match_operand:V64 0 "s_register_operand" "=w,w")
-	(unspec:V64 [(match_operand:V64 1 "s_register_operand" "w,0")
-		     (match_operand:V64 2 "neon_logic_op2" "w,Dl")]
+(define_insn "iordi3_neon"
+  [(set (match_operand:DI 0 "s_register_operand" "=w,w")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "w,0")
+		    (match_operand:DI 2 "neon_logic_op2" "w,Dl")]
                     UNSPEC_VORR))]
   "TARGET_NEON"
 {
   switch (which_alternative)
     {
-    case 0: return "vorr\t%<V_reg>0, %<V_reg>1, %<V_reg>2";
+    case 0: return "vorr\t%P0, %P1, %P2";
     case 1: return neon_output_logic_immediate ("vorr", &operands[2],
-		     <MODE>mode, 0, VALID_NEON_QREG_MODE (<MODE>mode));
+		     DImode, 0, VALID_NEON_QREG_MODE (DImode));
     default: gcc_unreachable ();
     }
 })
@@ -751,18 +790,18 @@
     }
 })
 
-(define_insn "and<mode>3_64"
-  [(set (match_operand:V64 0 "s_register_operand" "=w,w")
-	(unspec:V64 [(match_operand:V64 1 "s_register_operand" "w,0")
-		     (match_operand:V64 2 "neon_inv_logic_op2" "w,DL")]
+(define_insn "anddi3_neon"
+  [(set (match_operand:DI 0 "s_register_operand" "=w,w")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "w,0")
+		    (match_operand:DI 2 "neon_inv_logic_op2" "w,DL")]
                     UNSPEC_VAND))]
   "TARGET_NEON"
 {
   switch (which_alternative)
     {
-    case 0: return "vand\t%<V_reg>0, %<V_reg>1, %<V_reg>2";
+    case 0: return "vand\t%P0, %P1, %P2";
     case 1: return neon_output_logic_immediate ("vand", &operands[2],
-    		     <MODE>mode, 1, VALID_NEON_QREG_MODE (<MODE>mode));
+    		     DImode, 1, VALID_NEON_QREG_MODE (DImode));
     default: gcc_unreachable ();
     }
 })
@@ -774,13 +813,13 @@
   "TARGET_NEON"
   "vorn\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
-(define_insn "orn<mode>3_neon"
-  [(set (match_operand:V64 0 "s_register_operand" "=w")
-	(unspec:V64 [(match_operand:V64 1 "s_register_operand" "w")
-		     (match_operand:V64 2 "s_register_operand" "w")]
+(define_insn "orndi3_neon"
+  [(set (match_operand:DI 0 "s_register_operand" "=w")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "w")
+		    (match_operand:DI 2 "s_register_operand" "w")]
                     UNSPEC_VORN))]
   "TARGET_NEON"
-  "vorn\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
+  "vorn\t%P0, %P1, %P2")
 
 (define_insn "bic<mode>3_neon"
   [(set (match_operand:VDQ 0 "s_register_operand" "=w")
@@ -789,13 +828,13 @@
   "TARGET_NEON"
   "vbic\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
-(define_insn "bic<mode>3_neon"
-  [(set (match_operand:V64 0 "s_register_operand" "=w")
-	(unspec:V64 [(match_operand:V64 1 "s_register_operand" "w")
-		     (match_operand:V64 2 "s_register_operand" "w")]
+(define_insn "bicdi3_neon"
+  [(set (match_operand:DI 0 "s_register_operand" "=w")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "w")
+		     (match_operand:DI 2 "s_register_operand" "w")]
                     UNSPEC_VBIC))]
   "TARGET_NEON"
-  "vbic\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
+  "vbic\t%P0, %P1, %P2")
 
 (define_insn "xor<mode>3"
   [(set (match_operand:VDQ 0 "s_register_operand" "=w")
@@ -804,13 +843,13 @@
   "TARGET_NEON"
   "veor\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
-(define_insn "xor<mode>3_64"
-  [(set (match_operand:V64 0 "s_register_operand" "=w")
-	(unspec:V64 [(match_operand:V64 1 "s_register_operand" "w")
-		     (match_operand:V64 2 "s_register_operand" "w")]
+(define_insn "xordi3_neon"
+  [(set (match_operand:DI 0 "s_register_operand" "=w")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "w")
+		     (match_operand:DI 2 "s_register_operand" "w")]
                     UNSPEC_VEOR))]
   "TARGET_NEON"
-  "veor\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
+  "veor\t%P0, %P1, %P2")
 
 (define_insn "one_cmpl<mode>2"
   [(set (match_operand:VDQ 0 "s_register_operand" "=w")
@@ -819,49 +858,53 @@
   "vmvn\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "abs<mode>2"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(abs:VDQ (match_operand:VDQ 1 "s_register_operand" "w")))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(abs:VDQW (match_operand:VDQW 1 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "neg<mode>2"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(neg:VDQ (match_operand:VDQ 1 "s_register_operand" "w")))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(neg:VDQW (match_operand:VDQW 1 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vneg.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "*umin<mode>3_neon"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(umin:VDQI (match_operand:VDQI 1 "s_register_operand" "w")
-		   (match_operand:VDQI 2 "s_register_operand" "w")))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(umin:VDQIW (match_operand:VDQIW 1 "s_register_operand" "w")
+		    (match_operand:VDQIW 2 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vmin.<V_u_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "*umax<mode>3_neon"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(umax:VDQI (match_operand:VDQI 1 "s_register_operand" "w")
-		   (match_operand:VDQI 2 "s_register_operand" "w")))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(umax:VDQIW (match_operand:VDQIW 1 "s_register_operand" "w")
+		    (match_operand:VDQIW 2 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vmax.<V_u_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "*smin<mode>3_neon"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(smin:VDQ (match_operand:VDQ 1 "s_register_operand" "w")
-		  (match_operand:VDQ 2 "s_register_operand" "w")))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(smin:VDQW (match_operand:VDQW 1 "s_register_operand" "w")
+		   (match_operand:VDQW 2 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vmin.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "*smax<mode>3_neon"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(smax:VDQ (match_operand:VDQ 1 "s_register_operand" "w")
-		  (match_operand:VDQ 2 "s_register_operand" "w")))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(smax:VDQW (match_operand:VDQW 1 "s_register_operand" "w")
+		   (match_operand:VDQW 2 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vmax.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
+; TODO: V2DI shifts are current disabled because there are bugs in the
+; generic vectorizer code.  It ends up creating a V2DI constructor with
+; SImode elements.
+
 (define_insn "ashl<mode>3"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-       (ashift:VDQI (match_operand:VDQI 1 "s_register_operand" "w")
-                    (match_operand:VDQI 2 "s_register_operand" "w")))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(ashift:VDQIW (match_operand:VDQIW 1 "s_register_operand" "w")
+		      (match_operand:VDQIW 2 "s_register_operand" "w")))]
   "TARGET_NEON"
   "vshl.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
@@ -890,9 +933,9 @@
   "vshl.<V_u_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_expand "ashr<mode>3"
-  [(set (match_operand:VDQI 0 "s_register_operand" "")
-	(ashiftrt:VDQI (match_operand:VDQI 1 "s_register_operand" "")
-		       (match_operand:VDQI 2 "s_register_operand" "")))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "")
+	(ashiftrt:VDQIW (match_operand:VDQIW 1 "s_register_operand" "")
+			(match_operand:VDQIW 2 "s_register_operand" "")))]
   "TARGET_NEON"
 {
   rtx neg = gen_reg_rtx (<MODE>mode);
@@ -904,9 +947,9 @@
 })
 
 (define_expand "lshr<mode>3"
-  [(set (match_operand:VDQI 0 "s_register_operand" "")
-	(lshiftrt:VDQI (match_operand:VDQI 1 "s_register_operand" "")
-		       (match_operand:VDQI 2 "s_register_operand" "")))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "")
+	(lshiftrt:VDQIW (match_operand:VDQIW 1 "s_register_operand" "")
+			(match_operand:VDQIW 2 "s_register_operand" "")))]
   "TARGET_NEON"
 {
   rtx neg = gen_reg_rtx (<MODE>mode);
@@ -1390,11 +1433,11 @@
 ; vhadd and vrhadd.
 
 (define_insn "neon_vhadd<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-        (unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-		      (match_operand:VDQI 2 "s_register_operand" "w")
-                      (match_operand:SI 3 "immediate_operand" "i")]
-                     UNSPEC_VHADD))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+        (unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:VDQIW 2 "s_register_operand" "w")
+		       (match_operand:SI 3 "immediate_operand" "i")]
+		      UNSPEC_VHADD))]
   "TARGET_NEON"
   "v%O3hadd.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
@@ -1417,19 +1460,19 @@
   "v%O3addhn.<V_if_elem>\t%P0, %q1, %q2")
 
 (define_insn "neon_vmul<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "w")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-                     (match_operand:SI 3 "immediate_operand" "i")]
-                    UNSPEC_VMUL))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "w")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:SI 3 "immediate_operand" "i")]
+		     UNSPEC_VMUL))]
   "TARGET_NEON"
   "vmul.%F3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vmla<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "0")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-		     (match_operand:VDQ 3 "s_register_operand" "w")
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "0")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:VDQW 3 "s_register_operand" "w")
                      (match_operand:SI 4 "immediate_operand" "i")]
                     UNSPEC_VMLA))]
   "TARGET_NEON"
@@ -1446,10 +1489,10 @@
   "vmlal.%T4%#<V_sz_elem>\t%q0, %P2, %P3")
 
 (define_insn "neon_vmls<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "0")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-		     (match_operand:VDQ 3 "s_register_operand" "w")
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "0")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:VDQW 3 "s_register_operand" "w")
                      (match_operand:SI 4 "immediate_operand" "i")]
                     UNSPEC_VMLS))]
   "TARGET_NEON"
@@ -1535,7 +1578,7 @@
         (unspec:<V_widen> [(match_operand:<V_widen> 1 "s_register_operand" "w")
 		           (match_operand:VDI 2 "s_register_operand" "w")
                            (match_operand:SI 3 "immediate_operand" "i")]
-                          UNSPEC_VSUBW))]
+			  UNSPEC_VSUBW))]
   "TARGET_NEON"
   "vsubw.%T3%#<V_sz_elem>\t%q0, %q1, %P2")
 
@@ -1544,16 +1587,16 @@
         (unspec:VDQIX [(match_operand:VDQIX 1 "s_register_operand" "w")
 		       (match_operand:VDQIX 2 "s_register_operand" "w")
                        (match_operand:SI 3 "immediate_operand" "i")]
-                     UNSPEC_VQSUB))]
+		      UNSPEC_VQSUB))]
   "TARGET_NEON"
   "vqsub.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vhsub<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-        (unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-		      (match_operand:VDQI 2 "s_register_operand" "w")
-                      (match_operand:SI 3 "immediate_operand" "i")]
-                     UNSPEC_VHSUB))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+        (unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:VDQIW 2 "s_register_operand" "w")
+                       (match_operand:SI 3 "immediate_operand" "i")]
+		      UNSPEC_VHSUB))]
   "TARGET_NEON"
   "vhsub.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
@@ -1568,8 +1611,8 @@
 
 (define_insn "neon_vceq<mode>"
   [(set (match_operand:<V_cmp_result> 0 "s_register_operand" "=w")
-        (unspec:<V_cmp_result> [(match_operand:VDQ 1 "s_register_operand" "w")
-		                (match_operand:VDQ 2 "s_register_operand" "w")
+        (unspec:<V_cmp_result> [(match_operand:VDQW 1 "s_register_operand" "w")
+		                (match_operand:VDQW 2 "s_register_operand" "w")
                                 (match_operand:SI 3 "immediate_operand" "i")]
                                UNSPEC_VCEQ))]
   "TARGET_NEON"
@@ -1577,8 +1620,8 @@
 
 (define_insn "neon_vcge<mode>"
   [(set (match_operand:<V_cmp_result> 0 "s_register_operand" "=w")
-        (unspec:<V_cmp_result> [(match_operand:VDQ 1 "s_register_operand" "w")
-		                (match_operand:VDQ 2 "s_register_operand" "w")
+        (unspec:<V_cmp_result> [(match_operand:VDQW 1 "s_register_operand" "w")
+		                (match_operand:VDQW 2 "s_register_operand" "w")
                                 (match_operand:SI 3 "immediate_operand" "i")]
                                UNSPEC_VCGE))]
   "TARGET_NEON"
@@ -1586,8 +1629,8 @@
 
 (define_insn "neon_vcgt<mode>"
   [(set (match_operand:<V_cmp_result> 0 "s_register_operand" "=w")
-        (unspec:<V_cmp_result> [(match_operand:VDQ 1 "s_register_operand" "w")
-		                (match_operand:VDQ 2 "s_register_operand" "w")
+        (unspec:<V_cmp_result> [(match_operand:VDQW 1 "s_register_operand" "w")
+		                (match_operand:VDQW 2 "s_register_operand" "w")
                                 (match_operand:SI 3 "immediate_operand" "i")]
                                UNSPEC_VCGT))]
   "TARGET_NEON"
@@ -1612,20 +1655,20 @@
   "vacgt.<V_if_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vtst<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-        (unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-		      (match_operand:VDQI 2 "s_register_operand" "w")
-                      (match_operand:SI 3 "immediate_operand" "i")]
-                     UNSPEC_VTST))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+        (unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:VDQIW 2 "s_register_operand" "w")
+                       (match_operand:SI 3 "immediate_operand" "i")]
+		      UNSPEC_VTST))]
   "TARGET_NEON"
   "vtst.<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vabd<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "w")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-                     (match_operand:SI 3 "immediate_operand" "i")]
-                    UNSPEC_VABD))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "w")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:SI 3 "immediate_operand" "i")]
+		     UNSPEC_VABD))]
   "TARGET_NEON"
   "vabd.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
@@ -1639,12 +1682,12 @@
   "vabdl.%T3%#<V_sz_elem>\t%q0, %P1, %P2")
 
 (define_insn "neon_vaba<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-        (unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "0")
-		      (match_operand:VDQI 2 "s_register_operand" "w")
-		      (match_operand:VDQI 3 "s_register_operand" "w")
-                      (match_operand:SI 4 "immediate_operand" "i")]
-                     UNSPEC_VABA))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+        (unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "0")
+		       (match_operand:VDQIW 2 "s_register_operand" "w")
+		       (match_operand:VDQIW 3 "s_register_operand" "w")
+                       (match_operand:SI 4 "immediate_operand" "i")]
+		      UNSPEC_VABA))]
   "TARGET_NEON"
   "vaba.%T4%#<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %<V_reg>3")
 
@@ -1659,20 +1702,20 @@
   "vabal.%T4%#<V_sz_elem>\t%q0, %P2, %P3")
 
 (define_insn "neon_vmax<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "w")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-                     (match_operand:SI 3 "immediate_operand" "i")]
-                    UNSPEC_VMAX))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "w")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:SI 3 "immediate_operand" "i")]
+                     UNSPEC_VMAX))]
   "TARGET_NEON"
   "vmax.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vmin<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "w")
-		     (match_operand:VDQ 2 "s_register_operand" "w")
-                     (match_operand:SI 3 "immediate_operand" "i")]
-                    UNSPEC_VMIN))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "w")
+		      (match_operand:VDQW 2 "s_register_operand" "w")
+		      (match_operand:SI 3 "immediate_operand" "i")]
+                     UNSPEC_VMIN))]
   "TARGET_NEON"
   "vmin.%T3%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
@@ -1690,7 +1733,7 @@
 
 (define_insn "neon_vpaddl<mode>"
   [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
-        (unspec:<V_double_width> [(match_operand:VDQI 1 "s_register_operand" "w")
+        (unspec:<V_double_width> [(match_operand:VDQIW 1 "s_register_operand" "w")
                                   (match_operand:SI 2 "immediate_operand" "i")]
                                  UNSPEC_VPADDL))]
   "TARGET_NEON"
@@ -1699,7 +1742,7 @@
 (define_insn "neon_vpadal<mode>"
   [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
         (unspec:<V_double_width> [(match_operand:<V_double_width> 1 "s_register_operand" "0")
-                                  (match_operand:VDQI 2 "s_register_operand" "w")
+                                  (match_operand:VDQIW 2 "s_register_operand" "w")
                                   (match_operand:SI 3 "immediate_operand" "i")]
                                  UNSPEC_VPADAL))]
   "TARGET_NEON"
@@ -1742,24 +1785,24 @@
   "vrsqrts.<V_if_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2")
 
 (define_insn "neon_vabs<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "w")
-		     (match_operand:SI 2 "immediate_operand" "i")]
-                    UNSPEC_VABS))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "w")
+		      (match_operand:SI 2 "immediate_operand" "i")]
+                     UNSPEC_VABS))]
   "TARGET_NEON"
   "vabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "neon_vqabs<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-		      (match_operand:SI 2 "immediate_operand" "i")]
-                    UNSPEC_VQABS))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:SI 2 "immediate_operand" "i")]
+		      UNSPEC_VQABS))]
   "TARGET_NEON"
   "vqabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_expand "neon_vneg<mode>"
-  [(match_operand:VDQ 0 "s_register_operand" "")
-   (match_operand:VDQ 1 "s_register_operand" "")
+  [(match_operand:VDQW 0 "s_register_operand" "")
+   (match_operand:VDQW 1 "s_register_operand" "")
    (match_operand:SI 2 "immediate_operand" "")]
   "TARGET_NEON"
 {
@@ -1768,26 +1811,26 @@
 })
 
 (define_insn "neon_vqneg<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-                      (match_operand:SI 2 "immediate_operand" "i")]
-                     UNSPEC_VQNEG))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:SI 2 "immediate_operand" "i")]
+		      UNSPEC_VQNEG))]
   "TARGET_NEON"
   "vqneg.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "neon_vcls<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-                      (match_operand:SI 2 "immediate_operand" "i")]
-                     UNSPEC_VCLS))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:SI 2 "immediate_operand" "i")]
+		      UNSPEC_VCLS))]
   "TARGET_NEON"
   "vcls.<V_s_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_insn "neon_vclz<mode>"
-  [(set (match_operand:VDQI 0 "s_register_operand" "=w")
-	(unspec:VDQI [(match_operand:VDQI 1 "s_register_operand" "w")
-                      (match_operand:SI 2 "immediate_operand" "i")]
-                     UNSPEC_VCLZ))]
+  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
+	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
+		       (match_operand:SI 2 "immediate_operand" "i")]
+		      UNSPEC_VCLZ))]
   "TARGET_NEON"
   "vclz.<V_if_elem>\t%<V_reg>0, %<V_reg>1")
 
@@ -1816,8 +1859,8 @@
   "vrsqrte.<V_u_elem>\t%<V_reg>0, %<V_reg>1")
 
 (define_expand "neon_vmvn<mode>"
-  [(match_operand:VDQI 0 "s_register_operand" "")
-   (match_operand:VDQI 1 "s_register_operand" "")
+  [(match_operand:VDQIW 0 "s_register_operand" "")
+   (match_operand:VDQIW 1 "s_register_operand" "")
    (match_operand:SI 2 "immediate_operand" "")]
   "TARGET_NEON"
 {
@@ -1971,8 +2014,8 @@
 })
 
 (define_insn "neon_vdup_n<mode>"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(unspec:VDQ [(match_operand:<V_elem> 1 "s_register_operand" "r")]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(unspec:VDQW [(match_operand:<V_elem> 1 "s_register_operand" "r")]
                     UNSPEC_VDUP_N))]
   "TARGET_NEON"
   "vdup%?.<V_sz_elem>\t%<V_reg>0, %1"
@@ -2752,19 +2795,19 @@
 })
 
 (define_insn "neon_vtrn<mode>_internal"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "0")]
-                    UNSPEC_VTRN1))
-   (set (match_operand:VDQ 2 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 3 "s_register_operand" "2")]
-		    UNSPEC_VTRN2))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "0")]
+		     UNSPEC_VTRN1))
+   (set (match_operand:VDQW 2 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 3 "s_register_operand" "2")]
+		     UNSPEC_VTRN2))]
   "TARGET_NEON"
   "vtrn.<V_sz_elem>\t%<V_reg>0, %<V_reg>2")
 
 (define_expand "neon_vtrn<mode>"
   [(match_operand:SI 0 "s_register_operand" "r")
-   (match_operand:VDQ 1 "s_register_operand" "w")
-   (match_operand:VDQ 2 "s_register_operand" "w")]
+   (match_operand:VDQW 1 "s_register_operand" "w")
+   (match_operand:VDQW 2 "s_register_operand" "w")]
   "TARGET_NEON"
 {
   neon_emit_pair_result_insn (<MODE>mode, gen_neon_vtrn<mode>_internal,
@@ -2773,19 +2816,19 @@
 })
 
 (define_insn "neon_vzip<mode>_internal"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "0")]
-                    UNSPEC_VZIP1))
-   (set (match_operand:VDQ 2 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 3 "s_register_operand" "2")]
-		    UNSPEC_VZIP2))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "0")]
+		     UNSPEC_VZIP1))
+   (set (match_operand:VDQW 2 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 3 "s_register_operand" "2")]
+		     UNSPEC_VZIP2))]
   "TARGET_NEON"
   "vzip.<V_sz_elem>\t%<V_reg>0, %<V_reg>2")
 
 (define_expand "neon_vzip<mode>"
   [(match_operand:SI 0 "s_register_operand" "r")
-   (match_operand:VDQ 1 "s_register_operand" "w")
-   (match_operand:VDQ 2 "s_register_operand" "w")]
+   (match_operand:VDQW 1 "s_register_operand" "w")
+   (match_operand:VDQW 2 "s_register_operand" "w")]
   "TARGET_NEON"
 {
   neon_emit_pair_result_insn (<MODE>mode, gen_neon_vzip<mode>_internal,
@@ -2794,19 +2837,19 @@
 })
 
 (define_insn "neon_vuzp<mode>_internal"
-  [(set (match_operand:VDQ 0 "s_register_operand" "=w")
-	(unspec:VDQ [(match_operand:VDQ 1 "s_register_operand" "0")]
-                    UNSPEC_VUZP1))
-   (set (match_operand:VDQ 2 "s_register_operand" "=w")
-        (unspec:VDQ [(match_operand:VDQ 3 "s_register_operand" "2")]
-		    UNSPEC_VUZP2))]
+  [(set (match_operand:VDQW 0 "s_register_operand" "=w")
+	(unspec:VDQW [(match_operand:VDQW 1 "s_register_operand" "0")]
+                     UNSPEC_VUZP1))
+   (set (match_operand:VDQW 2 "s_register_operand" "=w")
+        (unspec:VDQW [(match_operand:VDQW 3 "s_register_operand" "2")]
+		     UNSPEC_VUZP2))]
   "TARGET_NEON"
   "vuzp.<V_sz_elem>\t%<V_reg>0, %<V_reg>2")
 
 (define_expand "neon_vuzp<mode>"
   [(match_operand:SI 0 "s_register_operand" "r")
-   (match_operand:VDQ 1 "s_register_operand" "w")
-   (match_operand:VDQ 2 "s_register_operand" "w")]
+   (match_operand:VDQW 1 "s_register_operand" "w")
+   (match_operand:VDQW 2 "s_register_operand" "w")]
   "TARGET_NEON"
 {
   neon_emit_pair_result_insn (<MODE>mode, gen_neon_vuzp<mode>_internal,

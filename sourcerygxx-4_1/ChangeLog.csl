@@ -1,3 +1,29 @@
+2006-10-17  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/vec-common.md (VALLW, VINTW): New mode macros.
+	(mul<mode>3, smin<mode>3, umin<mode>3, smax<mode>2, umax<mode3>):
+	Use them.
+	* config/arm/neon.md (VDQ, VDQI): Add V2DI.
+	(QDQW, VDQIW): New mode macros.
+	(V_suf64): Only suffix DImode.
+	(vec_setv2di, vec_extractv2di): New insns.
+	(ior<mode>3_64): Rename to iordi3_neon.
+	(and<mode>3_64): Rename to anddi3_neon.
+	(orn<mode>3_64): Rename to orndi3_neon.
+	(bic<mode>3_64): Rename to bicdi3_neon.
+	(xor<mode>3_64): Rename to xordi3_neon.
+	(abs<mode2>, neg<mode>2, umin<mode>3, umax<mode>3, smin<mode>3,
+	smax<mode>3, ashl<mode>3, ashr<mode>3, lshr<mode>3, neon_vhadd<mode>,
+	neon_vmul<mode>, neon_vmla<mode>, neon_vmls<mode>, neon_vqsub<mode>,
+	neon_vhsub<mode>, neon_vceq<mode>, neon_vcgt<mode>, neon_vtst<mode>,
+	neon_vabd<mode>, neon_vaba<mode>, neon_vmax<mode>, neon_vmin<mode>,
+	neon_vpadd<mode>, neon_vpaddl<mode>, neon_vabs<mode>,
+	neon_vqabs<mode>, neon_vqneg<mode>, neon_vcls<mode>, neon_vclz<mode>,
+	neon_vmvn<mode>, neon_vdup_n<mode>, neon_vtrn<mode>_internal,
+	neon_vtrn<mode>, neon_vzip<mode>_internal, neon_vzip<mode>,
+	neon_vuzp<mode>_internal, neon_vuzp<mode>): Use VDQW and VDQIW.
+	
 2006-10-11  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
