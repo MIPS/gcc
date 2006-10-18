@@ -1,3 +1,11 @@
+2006-10-18  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/dfp-bug-001.c: New.
+	* gcc.dg/dfp/dfp-bug-002.c: New.
+	* gcc.dg/dfp/dfp-bug-003.c: New.
+	* gcc.dg/dfp/dfp-bug-004.c: New.
+	* gcc.dg/dfp/dfp-bug-005.c: New.
+
 2006-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.dg/builtins-config.h: Ensure we use -std=c99 on solaris2.
