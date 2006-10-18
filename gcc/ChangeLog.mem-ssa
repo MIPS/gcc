@@ -1,3 +1,11 @@
+2006-10-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-stdarg.c (check_all_va_list_escapes): Remove unused
+	locals 'loads' and 'stores'.
+	If the statement references memory and any of its loaded or
+	stored symbols are in the escaping set, move on to the next
+	statement.
+
 2006-10-16  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2006-10-16 (@117796).
