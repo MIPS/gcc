@@ -89,7 +89,7 @@ public final class Field
   // The Class (or primitive TYPE) of this field.
   private Class type;
 
-  private static final int FIELD_MODIFIERS
+  static final int FIELD_MODIFIERS
     = Modifier.FINAL | Modifier.PRIVATE | Modifier.PROTECTED
       | Modifier.PUBLIC | Modifier.STATIC | Modifier.TRANSIENT
       | Modifier.VOLATILE;

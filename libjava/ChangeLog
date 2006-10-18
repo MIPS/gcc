@@ -1,3 +1,19 @@
+2006-10-18  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/28203:
+	* java/lang/Class.java (getAnnotations): Rewrote.
+	* java/lang/reflect/Method.java (METHOD_MODIFIERS): Now
+	package-private.
+	* java/lang/reflect/Field.java (FIELD_MODIFIERS): Now
+	package-private.
+	* gcj/field.h (_Jv_FIELD_CONSTANT_VALUE): Removed.
+	* defineclass.cc (handleConstantValueAttribute): Added found_value
+	argument.  Don't use _Jv_FIELD_CONSTANT_VALUE.
+	(read_one_field_attribute): Updated.
+	(read_fields): Likewise.
+	(handleField): Mask with FIELD_MODIFIERS, not ALL_FLAGS.
+	(handleMethod): Mask with METHOD_MODIFIERS, not ALL_FLAGS.
+
 2006-10-17  Tom Tromey  <tromey@redhat.com>
 
 	* defineclass.cc (handleMemberAnnotations): Write member index

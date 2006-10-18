@@ -83,6 +83,7 @@ private:
   ::java::lang::String * name;
   jint offset;
   ::java::lang::Class * type;
+public: // actually package-private
   static const jint FIELD_MODIFIERS = 223;
 public:
   static ::java::lang::Class class$;

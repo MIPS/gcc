@@ -39,6 +39,8 @@ details.  */
 #include <java/lang/ClassCircularityError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/lang/reflect/Field.h>
+#include <java/lang/reflect/Method.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/io/DataOutputStream.h>
 #include <java/io/ByteArrayOutputStream.h>
@@ -281,7 +283,7 @@ struct _Jv_ClassReader
   void read_one_class_attribute ();
   void read_one_method_attribute (int method);
   void read_one_code_attribute (int method);
-  void read_one_field_attribute (int field);
+  void read_one_field_attribute (int field, bool *);
   void throw_class_format_error (const char *msg);
 
   void handleEnclosingMethod(int);
@@ -305,7 +307,7 @@ struct _Jv_ClassReader
   void handleFieldsBegin (int);
   void handleField (int, int, int, int);
   void handleFieldsEnd ();
-  void handleConstantValueAttribute (int,int);
+  void handleConstantValueAttribute (int, int, bool *);
   void handleMethodsBegin (int);
   void handleMethod (int, int, int, int);
   void handleMethodsEnd ();
@@ -722,9 +724,10 @@ void _Jv_ClassReader::read_fields ()
 
       handleField (i, access_flags, name_index, descriptor_index);
 
+      bool found_value = false;
       for (int j = 0; j < attributes_count; j++)
 	{
-	  read_one_field_attribute (i);
+	  read_one_field_attribute (i, &found_value);
 	}
     }
 
@@ -742,7 +745,8 @@ _Jv_ClassReader::is_attribute_name (int index, const char *name)
     return !memcmp (bytes+offsets[index]+2, name, len);
 }
 
-void _Jv_ClassReader::read_one_field_attribute (int field_index)
+void _Jv_ClassReader::read_one_field_attribute (int field_index,
+						bool *found_value)
 {
   int name = read2u ();
   int length = read4 ();
@@ -759,7 +763,7 @@ void _Jv_ClassReader::read_one_field_attribute (int field_index)
 	      || tags[cv] == JV_CONSTANT_Double
 	      || tags[cv] == JV_CONSTANT_String))
 	{
-	  handleConstantValueAttribute (field_index, cv);
+	  handleConstantValueAttribute (field_index, cv, found_value);
 	}
       else
 	{
@@ -1420,7 +1424,9 @@ void _Jv_ClassReader::handleField (int field_no,
   field->name      = field_name;
 
   // Ignore flags we don't know about.  
-  field->flags = flags & Modifier::ALL_FLAGS;
+  field->flags = flags & (Field::FIELD_MODIFIERS
+			  | Modifier::SYNTHETIC
+			  | Modifier::ENUM);
 
   _Jv_Utf8Const* sig = pool_data[desc].utf8;
 
@@ -1461,7 +1467,8 @@ void _Jv_ClassReader::handleField (int field_no,
 
 
 void _Jv_ClassReader::handleConstantValueAttribute (int field_index, 
-						    int value)
+						    int value,
+						    bool *found_value)
 {
   using namespace java::lang::reflect;
 
@@ -1476,10 +1483,10 @@ void _Jv_ClassReader::handleConstantValueAttribute (int field_index,
     }
 
   // do not allow multiple constant fields!
-  if (field->flags & _Jv_FIELD_CONSTANT_VALUE)
+  if (*found_value)
     throw_class_format_error ("field has multiple ConstantValue attributes");
 
-  field->flags |= _Jv_FIELD_CONSTANT_VALUE;
+  *found_value = true;
   def_interp->field_initializers[field_index] = value;
 
   /* type check the initializer */
@@ -1573,7 +1580,10 @@ void _Jv_ClassReader::handleMethod
   method->signature = pool_data[desc].utf8;
 
   // ignore unknown flags
-  method->accflags = accflags & Modifier::ALL_FLAGS;
+  method->accflags = accflags & (Method::METHOD_MODIFIERS
+				 | Modifier::BRIDGE
+				 | Modifier::SYNTHETIC
+				 | Modifier::VARARGS);
 
   // Initialize...
   method->ncode = 0;

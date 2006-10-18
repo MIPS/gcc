@@ -51,7 +51,7 @@ import java.lang.annotation.Annotation;
 public final class Method
   extends AccessibleObject implements Member, GenericDeclaration
 {
-  private static final int METHOD_MODIFIERS
+  static final int METHOD_MODIFIERS
     = Modifier.ABSTRACT | Modifier.FINAL | Modifier.NATIVE
       | Modifier.PRIVATE | Modifier.PROTECTED | Modifier.PUBLIC
       | Modifier.STATIC | Modifier.STRICT | Modifier.SYNCHRONIZED;

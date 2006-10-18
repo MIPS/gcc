@@ -52,8 +52,8 @@ private:
   void getType();
 public: // actually package-private
   static void appendClassName(::java::lang::StringBuffer *, ::java::lang::Class *);
-private:
   static const jint METHOD_MODIFIERS = 3391;
+private:
   ::java::lang::Class * __attribute__((aligned(__alignof__( ::java::lang::reflect::AccessibleObject)))) declaringClass;
   JArray< ::java::lang::Class * > * exception_types;
   ::java::lang::String * name;
