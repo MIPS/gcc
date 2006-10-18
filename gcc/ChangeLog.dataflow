@@ -1,4 +1,9 @@
+2006-10-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* final.c (pass_no_new_pseudos): Don't set pass name.
+
 2006-10-03  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
  	* sched-ebb.c (ebb_head, ebb_tail, ebb_head_or_leaf_p): Removed.
 	(begin_schedule_ready, schedule_ebb, ebb_head_or_leaf_p): Remove
 	unnecessary argument, update all callers.

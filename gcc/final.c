@@ -4086,7 +4086,7 @@ rest_of_no_new_pseudos (void)
 
 struct tree_opt_pass pass_no_new_pseudos =
 {
-  "set_no_new_pseudos",                 /* name */
+  NULL,			                /* name */
   NULL,                                 /* gate */
   rest_of_no_new_pseudos,               /* execute */
   NULL,                                 /* sub */
