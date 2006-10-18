@@ -1,17 +1,17 @@
 #include "scalar-return-dfp_x.h"
 
-T(d32, _Decimal32, 1.2df)
+T(d128, _Decimal128, 123.456dl)
 
 #undef T
 
 void
-scalar_return_dfp_1_x ()
+scalar_return_dfp_3_x ()
 {
 DEBUG_INIT
 
 #define T(NAME) testit##NAME ();
 
-T(d32)
+T(d128)
 
 DEBUG_FINI
 

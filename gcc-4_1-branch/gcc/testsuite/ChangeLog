@@ -1,5 +1,28 @@
 2006-10-18  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/compat/scalar-by-value-dfp_x.h: Move use of macros to individual test files.
+	* gcc.dg/compat/scalar-by-value-dfp_y.h: Ditto.
+	* gcc.dg/compat/scalar-return-dfp_x.h: Ditto.
+	* gcc.dg/compat/scalar-return-dfp_y.h: Ditto.
+	* gcc.dg/compat/scalar-by-value-dfp-1_main.c: Rename called function.
+	* gcc.dg/compat/scalar-return-dfp-1_main.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-dfp-1_x.c: Use macros defined in .h file.
+	* gcc.dg/compat/scalar-by-value-dfp-1_y.c: Ditto.
+	* gcc.dg/compat/scalar-return-dfp-1_x.c: Ditto.
+	* gcc.dg/compat/scalar-return-dfp-1_y.c: Ditto.
+	* gcc.dg/compat/scalar-by-value-dfp-2_main.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-2_x.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-2_y.c: New.
+	* gcc.dg/compat/scalar-return-dfp-2_main.c: New.
+	* gcc.dg/compat/scalar-return-dfp-2_x.c: New.
+	* gcc.dg/compat/scalar-return-dfp-2_y.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-3_main.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-3_x.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-3_y.c: New.
+	* gcc.dg/compat/scalar-return-dfp-3_main.c: New.
+	* gcc.dg/compat/scalar-return-dfp-3_x.c: New.
+	* gcc.dg/compat/scalar-return-dfp-3_y.c: New.
+
 	* gcc.dg/compat/scalar-by-value-dfp_x.c: Rename to
 	* gcc.dg/compat/scalar-by-value-dfp_x.h: ... this.
 	* gcc.dg/compat/scalar-by-value-dfp_y.c: Rename to

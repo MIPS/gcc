@@ -1,22 +1,21 @@
-#include "scalar-return-dfp_x.h"
+#include "scalar-by-value-dfp_x.h"
 
-T(d32, _Decimal32, 1.2df)
+T(d64, _Decimal64, 12.34dd)
 
 #undef T
 
 void
-scalar_return_dfp_1_x ()
+scalar_by_value_dfp_2_x ()
 {
 DEBUG_INIT
 
 #define T(NAME) testit##NAME ();
 
-T(d32)
+T(d64)
 
 DEBUG_FINI
 
 if (fails != 0)
   abort ();
-
 #undef T
 }

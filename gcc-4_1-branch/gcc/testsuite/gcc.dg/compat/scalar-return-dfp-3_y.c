@@ -1,3 +1,3 @@
 #include "scalar-return-dfp_y.h"
 
-T(d32, _Decimal32, 1.2df)
+T(d128, _Decimal128, 123.456dl)

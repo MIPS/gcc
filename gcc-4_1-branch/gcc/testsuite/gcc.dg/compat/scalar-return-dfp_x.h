@@ -82,28 +82,3 @@ testit##NAME (void)						\
     }								\
   DEBUG_NL;							\
 }
-
-T(d32, _Decimal32, 1.2df)
-T(d64, _Decimal64, 12.34dd)
-T(d128, _Decimal128, 123.456dl)
-
-#undef T
-
-void
-scalar_return_dfp_x ()
-{
-DEBUG_INIT
-
-#define T(NAME) testit##NAME ();
-
-T(d32)
-T(d64)
-T(d128)
-
-DEBUG_FINI
-
-if (fails != 0)
-  abort ();
-
-#undef T
-}

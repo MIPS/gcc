@@ -61,7 +61,3 @@ testva##NAME (int n, ...)					\
   va_end (ap);							\
   return rslt;							\
 }
-
-T(d32, _Decimal32, 1.2df)
-T(d64, _Decimal64, 12.34dd)
-T(d128, _Decimal128, 123.456dl)
