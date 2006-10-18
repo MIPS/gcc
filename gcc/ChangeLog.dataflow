@@ -1,7 +1,11 @@
-2006-10-16  Paolo Bonzini  <bonzini@gnu.org>
+2006-10-18  Paolo Bonzini  <bonzini@gnu.org>
 
 	* stack-ptr-mod.c (pass_stack_ptr_mod): Don't set pass name.
 	* final.c (pass_no_new_pseudos): Don't set pass name.
+
+	* fwprop.c (all_uses_available_at): Use DF_REF_REG.
+	(forward_propagate_into): Discard artificial defs/uses.
+	(pass_rtl_fwprop_addr): Add TODO_df_finish.
 
 2006-10-03  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 

@@ -551,7 +551,7 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
       for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
-        if (rtx_equal_p (use->reg, def_reg))
+        if (rtx_equal_p (DF_REF_REG (use), def_reg))
           return false;
     }
   else
@@ -848,6 +848,8 @@ forward_propagate_into (struct df_ref *use)
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
     return;
+  if (DF_REF_FLAGS (use) & DF_REF_ARTIFICIAL)
+    return;
 
   /* Only consider uses that have a single definition.  */
   defs = DF_REF_CHAIN (use);
@@ -856,6 +858,8 @@ forward_propagate_into (struct df_ref *use)
 
   def = defs->ref;
   if (DF_REF_FLAGS (def) & DF_REF_READ_WRITE)
+    return;
+  if (DF_REF_FLAGS (def) & DF_REF_ARTIFICIAL)
     return;
 
   /* Do not propagate loop invariant definitions inside the loop if
@@ -1027,6 +1031,7 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
