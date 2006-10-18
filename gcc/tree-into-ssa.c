@@ -121,6 +121,10 @@ static bitmap syms_to_rename;
    that have been marked for renaming.  */
 static bitmap regs_to_rename;
 
+/* Subset of SYMS_TO_RENAME.  Contains all the memory symbols
+   that have been marked for renaming.  */
+static bitmap mem_syms_to_rename;
+
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
    released after we finish updating the SSA web.  */
@@ -270,18 +274,9 @@ enum rewrite_mode {
 DEF_VEC_P(bitmap);
 DEF_VEC_ALLOC_P(bitmap,heap);
 
-/* Array of sets of memory symbols modified by memory store operations
-   in each basic block.  */
-static bitmap *syms_stored_in_bb;
-
 /* Array of sets of memory symbols that already contain a PHI node in
    each basic block.  */
 static bitmap *syms_with_phi_in_bb;
-
-/* Array of sets of memory symbols that need a factored PHI node in
-   each basic block.  When inserting new factored PHI nodes, these
-   sets are the initial sets of symbols factored by those PHI nodes.  */
-static bitmap *syms_to_factor_in_bb;
 
 /* When a factored PHI node P has arguments with multiple reaching
    definitions it needs to be split into multiple PHI nodes to hold
@@ -342,8 +337,8 @@ extern void dump_defs_stack (FILE *, int);
 extern void debug_defs_stack (int);
 extern void dump_currdefs (FILE *);
 extern void debug_currdefs (void);
-extern void dump_stored_syms (FILE *);
-extern void debug_stored_syms (void);
+extern void dump_syms_with_phi (FILE *);
+extern void debug_syms_with_phi (void);
 extern void dump_unfactored_phis (FILE *);
 extern void debug_unfactored_phis (void);
 extern void dump_unfactored_phi (FILE *, tree);
@@ -896,36 +891,6 @@ add_sym_with_phi (tree sym, unsigned to)
 }
 
 
-/* Add SYMS to the stored symbols for basic block TO.  */
-
-static void
-add_stored_syms (bitmap syms, unsigned to)
-{
-  if (syms_stored_in_bb[to] == NULL)
-    syms_stored_in_bb[to] = BITMAP_ALLOC (NULL);
-
-  bitmap_ior_into (syms_stored_in_bb[to], syms);
-
-  /* For placing factored PHI nodes, we are only interested in
-     considering those symbols that are marked for renaming.
-     Otherwise, we will be placing unnecessary factored PHI nodes.  */
-  if (!bitmap_empty_p (syms_to_rename))
-    bitmap_and_into (syms_stored_in_bb[to], syms_to_rename);
-}
-
-
-/* Add SYM to the stored symbols for basic block TO.  */
-
-static void
-add_stored_sym (tree sym, unsigned to)
-{
-  if (syms_stored_in_bb[to] == NULL)
-    syms_stored_in_bb[to] = BITMAP_ALLOC (NULL);
-
-  bitmap_set_bit (syms_stored_in_bb[to], DECL_UID (sym));
-}
-
-
 /* Call back for walk_dominator_tree used to collect definition sites
    for every variable in the function.  For every statement S in block
    BB:
@@ -1213,7 +1178,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
    allocated for the return value.  */
 
 static bitmap
-compute_idf (tree var, bitmap def_blocks, bitmap *dfs)
+compute_idf (bitmap def_blocks, bitmap *dfs)
 {
   bitmap_iterator bi;
   unsigned bb_index, i;
@@ -1245,45 +1210,6 @@ compute_idf (tree var, bitmap def_blocks, bitmap *dfs)
 	 may have disappeared by CFG cleanup calls.  In this case,
 	 we may pull a non-existing block from the work stack.  */
       gcc_assert (bb_index < (unsigned) last_basic_block);
-
-      /* When inserting PHI nodes for .MEM, we have to determine what
-	 set of symbols should be initially associated to each PHI
-	 node.  For every block I in the dominance frontier of
-	 BB_INDEX, we compute this initial set as the set of symbols
-	 stored in BB_INDEX minus the set of symbols that already have
-	 a PHI node in I:
-
-	 SYMS_TO_FACTOR_IN_BB[I] += SYMS_STORED_IN_BB[BB_INDEX]
-	                            - SYMS_WITH_PHI_IN_BB[I]
-
-	 We then add the resulting set to the set of symbols stored in
-	 I, as the factored PHI node to be added will be a store
-	 operation for this set.  */
-      if (var == mem_var && syms_stored_in_bb[bb_index])
-	{
-	  bitmap b = BITMAP_ALLOC (NULL);
-
-	  EXECUTE_IF_SET_IN_BITMAP (dfs[bb_index], 0, i, bi)
-	    {
-	      if (syms_to_factor_in_bb[i] == NULL)
-		syms_to_factor_in_bb[i] = BITMAP_ALLOC (NULL);
-
-	      if (syms_with_phi_in_bb[i])
-		{
-		  bitmap_and_compl (b,
-				    syms_stored_in_bb[bb_index],
-		                    syms_with_phi_in_bb[i]);
-		  bitmap_ior_into (syms_to_factor_in_bb[i], b);
-		}
-	      else
-		bitmap_ior_into (syms_to_factor_in_bb[i],
-		                 syms_stored_in_bb[bb_index]);
-
-	      add_stored_syms (syms_to_factor_in_bb[i], i);
-	    }
-
-	  BITMAP_FREE (b);
-	}
 
       EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index], phi_insertion_points,
 	                              0, i, bi)
@@ -1381,6 +1307,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
   basic_block bb;
   bitmap_iterator bi;
   struct def_blocks_d *def_map;
+  bitmap pruned_syms = NULL;
 
   def_map = find_def_blocks_for (var);
   gcc_assert (def_map);
@@ -1391,6 +1318,9 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
   /* Remove obviously useless phi nodes.  */
   prune_unused_phi_nodes (phi_insertion_points, def_map->def_blocks,
 			  def_map->livein_blocks);
+
+  if (var == mem_var)
+    pruned_syms = BITMAP_ALLOC (NULL);
 
   /* And insert the PHI nodes.  */
   EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index, bi)
@@ -1439,10 +1369,27 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
       else
 	{
+	  bool use_pruned_p;
+	  bitmap syms;
+
 	  /* Initially, a factored PHI node in block BB is associated
-	     with all the symbols that need to be factored in BB (as
-	     computed in prepare_block_for_update and find_idf).  */
-	  bitmap syms = syms_to_factor_in_bb[bb->index];
+	     with all the memory symbols marked for renaming.  If BB
+	     already has PHI nodes for some symbols in
+	     MEM_SYMS_TO_RENAME, prune this initial set to avoid
+	     confusion during renaming.  */
+	  if (syms_with_phi_in_bb[bb->index]
+	      && bitmap_intersect_p (mem_syms_to_rename,
+				     syms_with_phi_in_bb[bb->index]))
+	    {
+	      bitmap_and_compl (pruned_syms,
+		                mem_syms_to_rename,
+				syms_with_phi_in_bb[bb->index]);
+	      use_pruned_p = true;
+	    }
+	  else
+	    use_pruned_p = false;
+
+	  syms = (use_pruned_p) ? pruned_syms : mem_syms_to_rename;
 	  if (bitmap_singleton_p (syms))
 	    {
 	      tree sym = referenced_var_lookup (bitmap_first_set_bit (syms));
@@ -1455,6 +1402,8 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
       REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
       mark_phi_for_rewrite (bb, phi);
     }
+
+  BITMAP_FREE (pruned_syms);
 }
 
 
@@ -1481,7 +1430,7 @@ insert_phi_nodes (bitmap *dfs)
 
       if (get_phi_state (var) != NEED_PHI_STATE_NO)
 	{
-	  idf = compute_idf (var, def_map->def_blocks, dfs);
+	  idf = compute_idf (def_map->def_blocks, dfs);
 	  insert_phi_nodes_for (var, idf, false);
 	  BITMAP_FREE (idf);
 	}
@@ -1872,41 +1821,25 @@ debug_currdefs (void)
 }
 
 
-/* Dump symbols stored in each basic block on FILE.  */
+/* Dump symbols with PHI nodes on FILE.  */
 
 void
-dump_stored_syms (FILE *file)
+dump_syms_with_phi (FILE *file)
 {
   basic_block bb;
 
-  if (syms_stored_in_bb == NULL
-      && syms_with_phi_in_bb == NULL
-      && syms_to_factor_in_bb == NULL)
+  if (syms_with_phi_in_bb == NULL)
     return;
 
-  fprintf (file, "\n\nMemory symbols stored in each block\n\n");
+  fprintf (file, "\n\nMemory symbols with existing PHI nodes\n\n");
   FOR_EACH_BB (bb)
     {
       bool newline_p = false;
-
-      if (syms_stored_in_bb && syms_stored_in_bb[bb->index])
-	{
-	  fprintf (file, "SYMS_STORED_IN_BB[%d]  = ", bb->index);
-	  dump_decl_set (file, syms_stored_in_bb[bb->index]);
-	  newline_p = true;
-	}
 
       if (syms_with_phi_in_bb && syms_with_phi_in_bb[bb->index])
 	{
 	  fprintf (file, "SYMS_WITH_PHI_IN_BB[%d]  = ", bb->index);
 	  dump_decl_set (file, syms_with_phi_in_bb[bb->index]);
-	  newline_p = true;
-	}
-
-      if (syms_to_factor_in_bb && syms_to_factor_in_bb[bb->index])
-	{
-	  fprintf (file, "SYMS_TO_FACTOR_IN_BB[%d]  = ", bb->index);
-	  dump_decl_set (file, syms_to_factor_in_bb[bb->index]);
 	  newline_p = true;
 	}
 
@@ -1916,12 +1849,12 @@ dump_stored_syms (FILE *file)
 }
 
 
-/* Dump symbols stored in each basic block on stderr.  */
+/* Dump symbols with PHI nodes on stderr.  */
 
 void
-debug_stored_syms (void)
+debug_syms_with_phi (void)
 {
-  dump_stored_syms (stderr);
+  dump_syms_with_phi (stderr);
 }
 
 
@@ -1977,7 +1910,7 @@ dump_tree_ssa (FILE *file)
   dump_def_blocks (file);
   dump_defs_stack (file, -1);
   dump_currdefs (file);
-  dump_stored_syms (file);
+  dump_syms_with_phi (file);
   dump_unfactored_phis (file);
   dump_tree_ssa_stats (file);
 }
@@ -2819,7 +2752,7 @@ get_unfactored_phi (tree phi)
    When we initially compute PHI node placements, memory symbols are
    all treated as the single object named .MEM.  Each PHI node is then
    associated with a default set of symbols initialized from the sets
-   of stored symbols in the feeding basic blocks (SYMS_TO_FACTOR_IN_BB).
+   of memory symbols marked for renaming (MEM_SYMS_TO_RENAME).
 
    This grouping allows PHI placement to be efficient at the expense
    of accuracy.  For a given incoming edge E, it may happen that not
@@ -3324,17 +3257,8 @@ init_ssa_renamer (void)
   FOR_EACH_REFERENCED_VAR(var, rvi)
     set_current_def (var, NULL_TREE);
 
-  /* Allocate the array of bitmaps that hold the symbols that have
-     been stored in each basic block.  This is used to compute what
-     symbols are associated with factored PHI nodes for .MEM.  */
-  gcc_assert (syms_stored_in_bb == NULL);
-  syms_stored_in_bb = XCNEWVEC (bitmap, last_basic_block);
-
   gcc_assert (syms_with_phi_in_bb == NULL);
   syms_with_phi_in_bb = XCNEWVEC (bitmap, last_basic_block);
-
-  gcc_assert (syms_to_factor_in_bb == NULL);
-  syms_to_factor_in_bb = XCNEWVEC (bitmap, last_basic_block);
 
   /* Dominance numbers are assigned to memory SSA names and are used
      whenever factored PHI nodes have been split (see
@@ -3343,9 +3267,8 @@ init_ssa_renamer (void)
   last_dom_num = 2;
 
   /* If there are symbols to rename, identify those symbols that are
-     GIMPLE registers into the set REGS_TO_RENAME.  This is used to
-     prune store sets for memory symbols that have been promoted to
-     registers (see prepare_block_for_update).  */
+     GIMPLE registers into the set REGS_TO_RENAME and those that are
+     memory symbols into the set MEM_SYMS_TO_RENAME.  */
   if (syms_to_rename)
     {
       unsigned i;
@@ -3354,6 +3277,9 @@ init_ssa_renamer (void)
       EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
 	if (is_gimple_reg (referenced_var (i)))
 	  bitmap_set_bit (regs_to_rename, i);
+
+      /* Memory symbols are those not in REGS_TO_RENAME.  */
+      bitmap_and_compl (mem_syms_to_rename, syms_to_rename, regs_to_rename);
     }
 }
 
@@ -3371,28 +3297,12 @@ fini_ssa_renamer (void)
       def_blocks = NULL;
     }
 
-  if (syms_stored_in_bb)
-    {
-      FOR_EACH_BB (bb)
-	BITMAP_FREE (syms_stored_in_bb[bb->index]);
-      free (syms_stored_in_bb);
-      syms_stored_in_bb = NULL;
-    }
-
   if (syms_with_phi_in_bb)
     {
       FOR_EACH_BB (bb)
 	BITMAP_FREE (syms_with_phi_in_bb[bb->index]);
       free (syms_with_phi_in_bb);
       syms_with_phi_in_bb = NULL;
-    }
-
-  if (syms_to_factor_in_bb)
-    {
-      FOR_EACH_BB (bb)
-	BITMAP_FREE (syms_to_factor_in_bb[bb->index]);
-      free (syms_to_factor_in_bb);
-      syms_to_factor_in_bb = NULL;
     }
 
   in_ssa_p = true;
@@ -3587,7 +3497,6 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 		 symbols.  */
 	      bitmap_and_compl_into (stores, regs_to_rename);
 
-	      add_stored_syms (stores, bb->index);
 	      add_syms_with_phi (stores, bb->index);
 	      mark_use_interesting (mem_var, phi, bb, insert_phi_p);
 	      mark_def_interesting (mem_var, phi, bb, insert_phi_p);
@@ -3611,7 +3520,6 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
 	      if (!is_gimple_reg (lhs_sym))
 		{
-		  add_stored_sym (lhs_sym, bb->index);
 		  add_sym_with_phi (lhs_sym, bb->index);
 		  mark_use_interesting (mem_var, phi, bb, insert_phi_p);
 		  mark_def_interesting (mem_var, phi, bb, insert_phi_p);
@@ -3661,11 +3569,6 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	    {
 	      mark_use_interesting (mem_var, stmt, bb, insert_phi_p);
 	      mark_def_interesting (mem_var, stmt, bb, insert_phi_p);
-
-	      /* Add all the stored symbols to SYMS_STORED_IN_BB[BB->INDEX].
-		 This will be used to determine what symbols are
-		 affected by factored PHI nodes for .MEM.  */
-	      add_stored_syms (syms->stores, bb->index);
 	    }
 
 	  if (syms->loads
@@ -3899,6 +3802,7 @@ init_update_ssa (void)
   need_to_update_vops_p = false;
   syms_to_rename = BITMAP_ALLOC (NULL);
   regs_to_rename = BITMAP_ALLOC (NULL);
+  mem_syms_to_rename = BITMAP_ALLOC (NULL);
   names_to_release = NULL;
   stale_ssa_names = NULL;
   memset (&update_ssa_stats, 0, sizeof (update_ssa_stats));
@@ -3928,6 +3832,7 @@ delete_update_ssa (void)
   need_to_update_vops_p = false;
   BITMAP_FREE (syms_to_rename);
   BITMAP_FREE (regs_to_rename);
+  BITMAP_FREE (mem_syms_to_rename);
   BITMAP_FREE (update_ssa_stats.virtual_symbols);
   BITMAP_FREE (stale_ssa_names);
 
@@ -4205,11 +4110,8 @@ insert_updated_phi_nodes_for (tree var, bitmap *dfs, bitmap blocks,
   if (db == NULL || bitmap_empty_p (db->def_blocks))
     return;
 
-  /* Compute the initial iterated dominance frontier.  If VAR is .MEM,
-     computing the IDF will also fill-in the array SYMS_TO_FACTOR_IN_BB
-     so that newly added PHI nodes can be filled in with the initial
-     set of symbols factored in them.  */
-  idf = compute_idf (var, db->def_blocks, dfs);
+  /* Compute the initial iterated dominance frontier.  */
+  idf = compute_idf (db->def_blocks, dfs);
   pruned_idf = BITMAP_ALLOC (NULL);
 
   if (TREE_CODE (var) == SSA_NAME)

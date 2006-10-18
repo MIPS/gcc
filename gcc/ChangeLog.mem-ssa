@@ -1,3 +1,23 @@
+2006-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (mem_syms_to_rename): New local variable.
+	(syms_stored_in_bb): Remove.  Update all users.
+	(syms_to_factor_in_bb): Remove.  Update all users.
+	(dump_syms_with_phi): Rename from dump_stored_syms.
+	(debug_syms_with_phi): Rename from debug_stored_syms.
+	(add_stored_syms): Remove.  Update all users.
+	(add_stored_sym): Remove.  Update all users.
+	(compute_idf): Remove first argument.  Update all users.
+	Do not propagate sets of stored symbols to dominance frontier.
+	(insert_phi_nodes_for): When creating factored PHI nodes, use
+	the symbols in MEM_SYMS_TO_RENAME to initialize the set of
+	factored symbols.  Prune the set with SYMS_WITH_PHI_IN_BB if
+	necessary.
+	(init_ssa_renamer): Set MEM_SYMS_TO_RENAME from SYMS_TO_RENAME
+	and REGS_TO_RENAME.
+	(init_update_ssa): Allocate MEM_SYMS_TO_RENAME.
+	(delete_update_ssa): Free MEM_SYMS_TO_RENAME.
+
 2006-10-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-stdarg.c (check_all_va_list_escapes): Remove unused
