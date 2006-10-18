@@ -760,6 +760,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
       x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
       x = build2 (MODIFY_EXPR, inner_type, x, r);
       bsi_insert_before (bsi, x, BSI_SAME_STMT);
+      mark_symbols_for_renaming (x);
 
       if (stmt == bsi_stmt (*bsi))
 	{

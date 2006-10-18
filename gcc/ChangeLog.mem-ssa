@@ -1,5 +1,10 @@
 2006-10-18  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-complex.c (expand_complex_move): Mark symbols for
+	renaming on the newly created assignment.
+
+2006-10-18  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c (mem_syms_to_rename): New local variable.
 	(syms_stored_in_bb): Remove.  Update all users.
 	(syms_to_factor_in_bb): Remove.  Update all users.
