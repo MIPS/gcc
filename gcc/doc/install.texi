@@ -421,6 +421,16 @@ Useful when submitting patches for the GCC source code.
 Necessary when applying patches, created with @command{diff}, to one's
 own sources.
 
+@item ecj1
+
+If you wish to modify @file{.java} files in libjava, you will need to
+configure with @code{--enable-maintainer-mode}, and you will need to
+have an executable named @code{ecj1} on your path.  This executable
+should run the Eclipse Java compiler via the GCC-specific entry point.
+You can download a suitable jar from
+@uref{ftp://sources.redhat.com/pub/java/}, or by running the script
+@file{contrib/download_ecj}.
+
 @end table
 
 @html
@@ -1091,14 +1101,6 @@ particularly useful if you intend to use several versions of GCC in
 parallel.  This is currently supported by @samp{libgfortran},
 @samp{libjava}, @samp{libmudflap}, @samp{libstdc++}, and @samp{libobjc}.
 
-@item --with-java-home=@var{dirname}
-This @samp{libjava} option overrides the default value of the
-@samp{java.home} system property.  It is also used to set
-@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
-default @samp{java.home} is set to @file{@var{prefix}} and
-@samp{sun.boot.class.path} to
-@file{@var{datadir}/java/libgcj-@var{version}.jar}.
-
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
 their runtime libraries should be built.  For a list of valid values for
@@ -1409,6 +1411,32 @@ The following options apply to building @samp{libgcj}.
 @subsubheading General Options
 
 @table @code
+@item --with-java-home=@var{dirname}
+This @samp{libjava} option overrides the default value of the
+@samp{java.home} system property.  It is also used to set
+@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
+default @samp{java.home} is set to @file{@var{prefix}} and
+@samp{sun.boot.class.path} to
+@file{@var{datadir}/java/libgcj-@var{version}.jar}.
+
+@item --with-ecj-jar=@var{filename}
+This option can be used to specify the location of an external ``ecj''
+jar; that is, the jar file containing the Eclipse Java compiler.  A
+specially modified version of this compiler is used by @samp{gcj} to
+parse @file{.java} source files.  If this option is given, the
+@samp{libjava} build will create and install an @file{ecj1} executable
+which uses this jar file at runtime.
+
+If this option is not given, but an @file{ecj.jar} file is found in
+the topmost source tree at configure time, then the @samp{libgcj}
+build will create and install @file{ecj1}, and will also install the
+discovered @file{ecj.jar} into a suitable place in the install tree.
+
+If @file{ecj1} is not installed, then the user will have to supply one
+on his path in order for @samp{gcj} to properly parse @file{.java}
+source files.  A suitable jar is available from
+@uref{ftp://sources.redhat.com/pub/java}.
+
 @item --disable-getenv-properties
 Don't set system properties from @env{GCJ_PROPERTIES}.
 
