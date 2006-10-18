@@ -1,5 +1,22 @@
 2006-10-18  Janis Johnson  <janis187@us.ibm.com>
 
+	* gcc.dg/compat/scalar-by-value-dfp_x.c: Rename to
+	* gcc.dg/compat/scalar-by-value-dfp_x.h: ... this.
+	* gcc.dg/compat/scalar-by-value-dfp_y.c: Rename to
+	* gcc.dg/compat/scalar-by-value-dfp_y.h: ... this
+	* gcc.dg/compat/scalar-by-value-dfp_main.c: Rename to
+	* gcc.dg/compat/scalar-by-value-dfp-1_main.c: ... this
+	* gcc.dg/compat/scalar-by-value-dfp-1_x.c: New.
+	* gcc.dg/compat/scalar-by-value-dfp-1_y.c: New.
+	* gcc.dg/compat/scalar-return-dfp_x.c: Rename to
+	* gcc.dg/compat/scalar-return-dfp_x.h: ... this.
+	* gcc.dg/compat/scalar-return-dfp_y.c: Rename to
+	* gcc.dg/compat/scalar-return-dfp_y.h: ... this
+	* gcc.dg/compat/scalar-return-dfp_main.c: Rename to
+	* gcc.dg/compat/scalar-return-dfp-1_main.c: ... this
+	* gcc.dg/compat/scalar-return-dfp-1_x.c: New.
+	* gcc.dg/compat/scalar-return-dfp-1_y.c: New.
+
 	* gcc.dg/dfp/dfp-bug-001.c: New.
 	* gcc.dg/dfp/dfp-bug-002.c: New.
 	* gcc.dg/dfp/dfp-bug-003.c: New.
