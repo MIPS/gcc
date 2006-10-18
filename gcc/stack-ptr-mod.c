@@ -90,7 +90,7 @@ rest_of_handle_stack_ptr_mod (void)
 
 struct tree_opt_pass pass_stack_ptr_mod =
 {
-  "stack-ptr-mod",                      /* name */
+  NULL,		                        /* name */
   NULL,                                 /* gate */
   rest_of_handle_stack_ptr_mod,         /* execute */
   NULL,                                 /* sub */

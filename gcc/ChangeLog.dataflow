@@ -1,5 +1,6 @@
 2006-10-16  Paolo Bonzini  <bonzini@gnu.org>
 
+	* stack-ptr-mod.c (pass_stack_ptr_mod): Don't set pass name.
 	* final.c (pass_no_new_pseudos): Don't set pass name.
 
 2006-10-03  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
