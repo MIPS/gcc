@@ -702,15 +702,34 @@ __transfer_from_trampoline ()					\
 
 /* Macros to check register numbers against specific register classes.  */
 
-#define REGNO_MODE_OK_FOR_INDEX_P(REGNO, MODE) \
-(MODE_OK_FOR_INDEX_P (MODE) \
- && ((REGNO) < 16 || (unsigned) reg_renumber[REGNO] < 16))
-#define REGNO_OK_FOR_BASE_P(REGNO) \
-(((REGNO) ^ 010) < 8 || (unsigned) (reg_renumber[REGNO] ^ 010) < 8)
-#define REGNO_OK_FOR_DATA_P(REGNO) \
-((REGNO) < 8 || (unsigned) reg_renumber[REGNO] < 8)
-#define REGNO_OK_FOR_FP_P(REGNO) \
-(((REGNO) ^ 020) < 8 || (unsigned) (reg_renumber[REGNO] ^ 020) < 8)
+/* True for data registers, D0 through D7.  */
+#define DATA_REGNO_P(REGNO) ((REGNO) < 8)
+
+/* True for address registers, A0 through A7.  */
+#define ADDRESS_REGNO_P(REGNO) (((REGNO) ^ 010) < 8)
+
+/* True for integer registers, D0 through D7 and A0 through A7.  */
+#define INT_REGNO_P(REGNO) ((REGNO) < 16)
+
+/* True for floating point registers, FP0 through FP7.  */
+#define FP_REGNO_P(REGNO) (((REGNO) ^ 020) < 8)
+
+#define REGNO_MODE_OK_FOR_INDEX_P(REGNO, MODE)			\
+  (MODE_OK_FOR_INDEX_P (MODE)					\
+   && (INT_REGNO_P (REGNO)					\
+       || INT_REGNO_P ((unsigned) reg_renumber[REGNO])))
+
+#define REGNO_OK_FOR_BASE_P(REGNO)			\
+  (ADDRESS_REGNO_P (REGNO)				\
+   || ADDRESS_REGNO_P ((unsigned) reg_renumber[REGNO]))
+
+#define REGNO_OK_FOR_DATA_P(REGNO)			\
+  (DATA_REGNO_P (REGNO)					\
+   || DATA_REGNO_P ((unsigned) reg_renumber[REGNO]))
+
+#define REGNO_OK_FOR_FP_P(REGNO)			\
+  (FP_REGNO_P (REGNO)					\
+   || FP_REGNO_P ((unsigned) reg_renumber[REGNO]))
 
 /* Now macros that check whether X is a register and also,
    strictly, whether it is in a specified class.
