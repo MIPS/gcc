@@ -1,3 +1,212 @@
+2006-10-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: ostream bits 2)
+	* include/std/std_ostream.h (basic_ostream<>::_M_insert(const
+	char_type*, streamsize)): New.
+	(basic_ostream<>::_M_write(char_type, streamsize)): Likewise.
+	(operator<<(basic_ostream<>&, _CharT), operator<<(basic_ostream<>&,
+	char), operator<<(basic_ostream<>&, const _CharT*),
+	operator<<(basic_ostream<>&, const char*)): Use the latter.
+	* include/bits/ostream.tcc (basic_ostream<>::_M_insert(const
+	char_type*, streamsize)): Define.
+	(operator<<(basic_ostream<>&, const char*)): Use the latter.
+	(operator<<(basic_ostream<>&, _CharT), operator<<(basic_ostream<>&,
+	char), operator<<(basic_ostream<>&, const _CharT*),
+	operator<<(basic_ostream<>&, const char*),
+	operator<<(basic_ostream<>&, const basic_string<>&)): Remove.
+	* include/bits/basic_string.h (operator<<(basic_ostream<>&,
+	const basic_string<>&)): Use the latter, implement DR 586.
+	* config/abi/pre/gnu.ver: Adjust, export the new _M_insert.
+	* docs/html/ext/howto.html: Add an entry for DR 586.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/
+	28277.cc: New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/
+	28277.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/
+	28277-3.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/
+	28277-4.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-2.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-3.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-4.cc: Likewise.
+
+2006-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 44.
+
+2006-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29426
+	* libsupc++/guard.cc (get_static_mutex): New. 
+	(mutex_wrapper::mutex_wrapper): Use it to get properly initialized
+	recursive mutex without ordering issues.
+
+	* src/locale_init.cc (__get_locale_mutex): No need to
+	uglify. Change to get_locale_mutex.
+	
+2006-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_put/put/char/11.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/11.cc: Likewise.
+
+2006-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Link
+	libtestc++.a, not a bunch of object files.
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29118
+	* src/locale_init.cc (__get_locale_mutex): New. 
+	(locale::locale): Use it.
+	(locale::global): Use it.	
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29095
+	* libsupc++/cxxabi.h (__cxa_cdtor_type): Explicit "C" linkage.
+	* config/cpu/arm/cxxabi_tweaks.h: Same.
+	* config/cpu/generic/cxxabi_tweaks.h: Same.
+	* testsuite/abi: Add.
+	* testsuite/abi/header_cxxabi.cc: New.
+	* testsuite/demangle: Move...
+	* testsuite/abi/demangle: ...here.
+	* testsuite/libstdc++-dg/conformance.exp: Adjust testsuite file
+	calculation.
+	* scripts/create_testsuite_files: Same.
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): New.
+	(libstdc++-dg-test): Use it.
+	
+2006-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: __add_grouping)
+	* include/bits/locale_facets.tcc (__add_grouping<>(_CharT*, _CharT,
+	const char*, size_t, const _CharT*, const _CharT*)): Rewrite in
+	non-recursive form.
+
+2006-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: money_put bits)
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert(iter_type,
+	ios_base&, char_type, const string_type&)): Avoid __builtin_alloca
+	with no limit, do the work in place.
+
+	* include/bits/locale_facets.tcc (money_put<>::do_put(iter_type,
+	bool, ios_base&, char_type, long double)): Avoid unnecessary
+	__builtin_alloca, do the work in place.
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/globals_io.cc (_GLIBCXX_once): Remove, unused.
+	(_GLIBCXX_mutex): Same.
+	(_GLIBCXX_mutex_addres): Same.
+	(_GLIBCXX_mutex_init): Same.
+	(_GLIBCXX_mutex_address_init): Same.
+
+2006-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: money_get bits)
+	* include/bits/locale_facets.tcc (money_get<>::do_get(iter_type,
+	iter_type, bool, ios_base&, ios_base::iostate&, string_type&)):
+	Avoid __builtin_alloca with no limit, do the work in place.
+
+2006-10-07  Ion Gaztanaga  <igaztanaga@gmail.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::erase(const _Key&)): Don't
+	call std::distance unnecessarily.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29368
+	* include/bits/basic_string.h: Adjust rfind documentation.
+	* include/ext/vstring.h: Likewise.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29354
+	* include/bits/sstream.tcc (basic_stringbuf<>::seekpos(pos_type,
+	ios_base::openmode)): Allow for seek to pos_type(off_type(0))
+	when the stream is empty.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/29354.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekpos/wchar_t/29354.cc: New.
+
+2006-10-04  Benjamin Kosnik  <bkoz@redhat.com>
+	    Mike Stump  <mrs@apple.com>
+	
+	* testsuite/27_io/ios_base/storage/2.cc: Fail on Darwin 8.[0-4].* only.
+	* testsuite/23_containers/vector/resize/1.cc: Same.
+
+2006-10-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/performance/priority_queue/mem_usage/
+	pop_test.hpp: Correct typo.
+	* testsuite/util/performance/assoc/mem_usage/
+	multimap_insert_test.hpp: Same.
+	* testsuite/util/performance/assoc/mem_usage/erase_test.hpp: Same.
+
+2006-10-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_allocator.h (allocation_tracker): To
+	tracker_allocator_counter.
+	(allocation_tracker::allocationTotal): To get_allocation_count.
+	(allocation_tracker::deallocationTotal): To get_deallocation_count.
+	(allocation_tracker::constructCount): To get_construct_count.
+	(allocation_tracker::destructCount): To get_destruct_count.	
+	(allocation_tracker::resetCounts): To reset.
+	(tracker_alloc): To tracker_allocator.
+	* testsuite/util/performance/mem: Remove.
+	* testsuite/util/performance/mem/mem_track_allocator_base.hpp: Remove.
+	* testsuite/util/performance/mem/mem_track_allocator.hpp: Remove.
+	* testsuite/27_io/basic_stringbuf/4.cc: Adjust for new names
+	or includes.
+	* testsuite/ext/hash_set/check_construct_destroy.cc: Same.
+	* testsuite/ext/slist/check_construct_destroy.cc: Same.
+	* testsuite/performance/ext/pb_ds/
+	hash_random_int_erase_mem_usage.cc: Same.
+	* testsuite/performance/ext/pb_ds/multimap_text_insert_mem_usage.hpp
+	* testsuite/performance/ext/pb_ds/
+	priority_queue_text_pop_mem_usage.cc: Same.
+	* testsuite/23_containers/vector/capacity/2.cc: Same.
+	* testsuite/23_containers/vector/cons/4.cc: Same.
+	* testsuite/23_containers/vector/check_construct_destroy.cc: Same.
+	* testsuite/23_containers/deque/cons/2.cc: Same.
+	* testsuite/23_containers/deque/check_construct_destroy.cc: Same.
+	* testsuite/23_containers/list/check_construct_destroy.cc: Same.
+	* testsuite/23_containers/set/check_construct_destroy.cc: Same.
+	* testsuite/util/testsuite_allocator.h
+	* testsuite/util/performance/priority_queue/mem_usage/pop_test.hpp
+	* testsuite/util/performance/assoc/mem_usage/multimap_insert_test.hpp
+	* testsuite/util/performance/assoc/mem_usage/erase_test.hpp
+	* testsuite/util/testsuite_allocator.cc: Same.
+	
+2006-10-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/native_type/priority_queue/native_pq_tag.hpp: Remove.
+	* testsuite/util/statistic/sample_var.hpp: Rename to...
+	* testsuite/util/statistic/sample_variance.hpp: ... this.
+	* testsuite/util/statistic/res_recorder.hpp: Rename to...
+	* testsuite/util/statistic/result_recorder.hpp: ... this.
+	* testsuite/util/statistic/sample_mean.hpp: Format.
+	* testsuite/util/statistic/sample_mean_confidence_checker.hpp: Same.
+	* testsuite/util/regression/trait/priority_queue/trait.hpp: Same.
+	* testsuite/util/regression/trait/erase_if_fn.hpp: Same.
+	* testsuite/util/regression/trait/assoc/trait.hpp: Same.
+	* testsuite/util/native_type/priority_queue/
+	native_priority_queue.hpp: Same.
+	* testsuite/util/native_type/assoc/native_tree_tag.hpp: Same.
+	* testsuite/util/native_type/assoc/native_hash_tag.hpp: Same.
+	* testsuite/util/native_type/assoc/native_hash_map.hpp: Same.
+	* testsuite/util/performance/priority_queue/timing/join_test.hpp: Same.
+	* testsuite/util/performance/priority_queue/timing/
+	modify_test.hpp: Same.
+	* testsuite/util/performance/assoc/timing/
+	subscript_insert_test.hpp: Same.
+	* testsuite/util/performance/time/timing_test_base.hpp: Same.
+
 2006-10-02  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/rc_string_base.h (_M_compare<wchar_t>):

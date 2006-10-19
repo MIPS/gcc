@@ -1,3 +1,42 @@
+2006-10-12  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti-int.h (JVMTI): Declare all members "extern".
+	* jvmti.cc (JVMTI): Define.
+
+2006-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Use mkinstalldirs.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties):
+	Removed obsolete comment.
+
+2006-10-10  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpMethod::get_insn): Declare.
+	(_Jv_InterpMethod::set_insn): Declare.
+	* interpret.cc (_Jv_InterpMethod::get_insn): New method.
+	(_Jv_InterpMethod::get_insn): New method.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* prims.cc (_Jv_PrependVersionedLibdir): Use
+	_Jv_platform_path_separator.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29205:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Install the .pc file.
+	(pkgconfig_DATA): Removed.
+
+2006-10-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java
+	(<clinit>): Reorder the static initializers.
+
 2006-10-02  Gary Benson  <gbenson@redhat.com>
 
 	* java/net/InetAddress.java

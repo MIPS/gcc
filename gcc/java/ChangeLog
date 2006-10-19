@@ -1,3 +1,7 @@
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "java.pdf", "gcj.pdf" target support.
+
 2006-09-25  Paul Biggar  <paul.biggar@gmail.com>
 
 	* decl.c (java_init_decl_processing): Added init_new_array_node.

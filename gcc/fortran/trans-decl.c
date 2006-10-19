@@ -511,7 +511,14 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   /* Keep variables larger than max-stack-var-size off stack.  */
   if (!sym->ns->proc_name->attr.recursive
       && INTEGER_CST_P (DECL_SIZE_UNIT (decl))
-      && !gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl)))
+      && !gfc_can_put_var_on_stack (DECL_SIZE_UNIT (decl))
+	 /* Put variable length auto array pointers always into stack.  */
+      && (TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE
+	  || sym->attr.dimension == 0
+	  || sym->as->type != AS_EXPLICIT
+	  || sym->attr.pointer
+	  || sym->attr.allocatable)
+      && !DECL_ARTIFICIAL (decl))
     TREE_STATIC (decl) = 1;
 
   /* Handle threadprivate variables.  */
@@ -957,6 +964,9 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	GFC_DECL_PACKED_ARRAY (decl) = 1;
     }
 
+  if (sym->ts.type == BT_DERIVED && sym->ts.derived->attr.alloc_comp)
+    gfc_defer_symbol_init (sym);
+
   gfc_finish_var_decl (decl, sym);
 
   if (sym->ts.type == BT_CHARACTER)
@@ -1068,9 +1078,14 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	isym->resolve.f1 (&e, &argexpr);
       else
 	{
-	  /* All specific intrinsics take one or two arguments.  */
-	  gcc_assert (isym->formal->next->next == NULL);
-	  isym->resolve.f2 (&e, &argexpr, NULL);
+	  if (isym->formal->next->next == NULL)
+	    isym->resolve.f2 (&e, &argexpr, NULL);
+	  else
+	    {
+	      /* All specific intrinsics take less than 4 arguments.  */
+	      gcc_assert (isym->formal->next->next->next == NULL);
+	      isym->resolve.f3 (&e, &argexpr, NULL, NULL);
+	    }
 	}
 
       if (gfc_option.flag_f2c
@@ -1866,6 +1881,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       TREE_PUBLIC (decl) = 0;
       TREE_USED (decl) = 1;
       GFC_DECL_RESULT (decl) = 1;
+      TREE_ADDRESSABLE (decl) = 1;
 
       layout_decl (decl, 0);
 
@@ -2559,6 +2575,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)
     {
+      bool sym_has_alloc_comp = (sym->ts.type == BT_DERIVED)
+				   && sym->ts.derived->attr.alloc_comp;
       if (sym->attr.dimension)
 	{
 	  switch (sym->as->type)
@@ -2601,13 +2619,18 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      break;
 
 	    case AS_DEFERRED:
-	      fnbody = gfc_trans_deferred_array (sym, fnbody);
+	      if (!sym_has_alloc_comp)
+		fnbody = gfc_trans_deferred_array (sym, fnbody);
 	      break;
 
 	    default:
 	      gcc_unreachable ();
 	    }
+	  if (sym_has_alloc_comp)
+	    fnbody = gfc_trans_deferred_array (sym, fnbody);
 	}
+      else if (sym_has_alloc_comp)
+	fnbody = gfc_trans_deferred_array (sym, fnbody);
       else if (sym->ts.type == BT_CHARACTER)
 	{
 	  gfc_get_backend_locus (&loc);
@@ -2959,10 +2982,12 @@ gfc_generate_function_code (gfc_namespace * ns)
   tree old_context;
   tree decl;
   tree tmp;
+  tree tmp2;
   stmtblock_t block;
   stmtblock_t body;
   tree result;
   gfc_symbol *sym;
+  int rank;
 
   sym = ns->proc_name;
 
@@ -3122,7 +3147,6 @@ gfc_generate_function_code (gfc_namespace * ns)
   tmp = gfc_finish_block (&body);
   /* Add code to create and cleanup arrays.  */
   tmp = gfc_trans_deferred_vars (sym, tmp);
-  gfc_add_expr_to_block (&block, tmp);
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node)
     {
@@ -3137,7 +3161,18 @@ gfc_generate_function_code (gfc_namespace * ns)
       else
 	result = sym->result->backend_decl;
 
-      if (result == NULL_TREE)
+      if (result != NULL_TREE && sym->attr.function
+	    && sym->ts.type == BT_DERIVED
+	    && sym->ts.derived->attr.alloc_comp)
+	{
+	  rank = sym->as ? sym->as->rank : 0;
+	  tmp2 = gfc_nullify_alloc_comp (sym->ts.derived, result, rank);
+	  gfc_add_expr_to_block (&block, tmp2);
+	}
+
+     gfc_add_expr_to_block (&block, tmp);
+
+     if (result == NULL_TREE)
 	warning (0, "Function return value not set");
       else
 	{
@@ -3148,6 +3183,9 @@ gfc_generate_function_code (gfc_namespace * ns)
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
+  else
+    gfc_add_expr_to_block (&block, tmp);
+
 
   /* Add all the decls we created during processing.  */
   decl = saved_function_decls;

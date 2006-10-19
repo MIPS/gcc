@@ -1,3 +1,36 @@
+2006-10-19	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c: Reordered functions by catagory
+	(is_constructor): Made more precise
+	(is_java_allocator) : Removed
+	(is_array_allocation) : Removed
+	(is_assignment_to_array): Removed
+
+	(is_function_call, is_function_call_with_return_value): Removed
+	(is_indirect_function_call, is_indirect_function_call_with_return_value):
+	Removed
+
+	(insert_indirect_function_call): New
+	(insert_function_call): New
+	(check_array_allocation): New
+	(check_memory_allocation): New
+	(check_function_call_with_return_value): New
+	(check_indirect_function_call_with_return_value): New
+	(check_function_call): New
+
+	(update_connection_graph_from_array_allocation): Removed
+	(update_connection_graph_from_memory_allocation): Removed
+	(update_connection_graph_from_indirect_function_call): Removed
+	(update_connection_graph_from_function_call): Removed
+
+	* congraph.c (con_graph_dump): Remove assert_all_next_link_free call
+	(existing_local_node): New 
+	(get_points_to_and_terminals): New 
+
+	* congraph.h (statement_type): Add ARRAY_MEMORY_ALLOCATION enum.
+	(get_points_to_and_terminals): Add declaration
+	(existing_local_node): Add declaration
+
 2006-10-13	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c (check_pointer_arithmetic_stmt): Allow for
@@ -19,6 +52,30 @@
 
 	* congraph.h (statement_type): Add enums ASSIGNMENT_TO_EXCEPTION and
 	ASSIGNMENT_FROM_EXCEPTION
+
+2006-10-12  Jan Hubicka  <jh@suse.cz>
+
+	PR c/28419
+	* c-decl.c (c_make_fname_decl): Do not segfault in case where
+	current_function_decl is set but current_function_scope is not.
+
+2006-10-12  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.md (eh_return): Call emit_jump_insn instead of
+	emit_insn to emit eh_return_internal instruction.
+	(eh_return_internal): Explicitly set pc.
+
+2006-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/28230
+	* tree-vrp.c (vrp_int_const_binop): Move flag_wrapv handling
+	to the correct place.
+
+2006-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR inline-asm/29119
+	* gimplify.c (gimplify_asm_expr): Mark the gimplified lvalue
+	addressable.
 
 2006-10-10	Paul Biggar	<paul.biggar@gmail.com>
 
@@ -82,6 +139,271 @@
 	(get_terminal_nodes): Fix circular list problem, add all fields lazily
 	(link_length, clear_links, in_link_list): New
 
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* configure.ac: Added pdf to "Make-hooks"
+	* Makefile.in: Added TEXI2PDF definition, and various pdf-file
+	targets and *.pdf file patterns in cleanup targets.
+	* configure: Regenerated.
+
+2006-10-10  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/predicates.md: New file.
+	* config/avr/avr.md: Include it.
+	(REG_SP): New constant.
+	(peepholes): Use predicates.
+	(sbrx_branch, sbrx_and_branchhi, sbrx_and_branchsi, branch, rvbranch,
+	difficult_branch,  difficult_rvbranch, cbi, sbi, sbix_branch,
+	sbix_branch_bit7, sbix_branch_tmp, sbix_branch_tmp_bit7): Ditto.
+
+2006-10-10  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.c (mips_save_restore_reg): Use gen_frame_mem to
+	avoid alias set 0.
+
+2006-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/29272
+	* builtins.c (var_decl_component_p): New function.
+	(fold_builtin_memset, fold_builtin_memory_op): Restrict
+	single entry optimization to variables and components thereof.
+
+2006-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/29323
+	* except.c (set_nothrow_function_flags): For functions
+	that do not bind local bail out early.
+
+2006-10-10  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -m to the
+	-mdlmzb option.
+
+2006-10-09  Richard Henderson  <rth@redhat.com>
+
+	Revert emutls patch.
+
+2006-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/29254
+	* cgraphunit.c (verify_cgraph_node): Bail out on earlier
+	errors.
+
+2006-10-09  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/27880
+	* unwind-c.c (PERSONALITY_FUNCTION): Ifdef use of _Unwind_GetIPInfo.
+	* configure.ac (HAVE_GETIPINFO): Check for _Unwind_GetIPInfo.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2006-10-09  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-mudflap.c (mf_xform_derefs_1): Add parentheses around TREE_TYPE.
+
+2006-10-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (mips_legitimize_tls_address): Implement
+	all TLS models in the same way as local exec if !TARGET_ABICALLS.
+	Remove stray newline.
+
+2006-10-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (mips_classify_symbol): Do not return
+	SYMBOL_SMALL_DATA if SYMBOL_REF_WEAK.
+	(mips_in_small_data_p): Tweak comments.
+
+2006-10-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/elf.h (HANDLE_PRAGMA_PUSH_POP): Define.
+
+2006-10-07  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gimplify.c, sched-int.h: Fix comment typos.
+
+	* sched-int.h: Fix comment typos.
+
+2006-10-06  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	* sched-int.h (IS_SPECULATION_CHECK_P, IS_SPECULATION_SIMPLE_CHECK_P):
+	New macros.
+	* sched-ebb.c (begin_schedule_ready): Use them.
+	* haifa-sched.c (schedule_insn, move_insn, try_ready,
+	add_to_speculative_block, create_check_block_twin, speculate_insn,
+	fix_jump_move, move_block_after_check): Ditto.
+	* sched-rgn.c (new_ready): Ditto.
+
+2006-10-06  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
+
+	PR rtl-optimization/29128
+	* sched-int.h (IS_SPECULATION_BRANCHY_CHECK_P): New macro.
+	* sched-ebb.c (advance_target_bb): Use it to fix condition to
+	allow interblock movement of speculation checks.
+
+2006-10-06  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR middle-end/29256
+	* tree-ssa-loop-ivopts.c (determine_base_object): Handle pointers
+	casted to integer type.
+	(get_address_cost): Decrease cost of [symbol + index] addressing modes
+	if they are significantly more expensive than [reg + index] ones.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29330
+	* tree-data-ref.c (free_data_ref): Use DR_FREE_ACCESS_FNS macro.
+	(initialize_data_dependence_relation): Clear DDR_LOOP_NEST pointer
+	on newly allocated ddrs.
+	(find_loop_nest_1, find_loop_nest): Change LOOP_NEST to a pointer
+	to VEC (loop_p, heap) pointer.
+	(compute_data_dependences_for_loop): Adjust caller.
+	(free_dependence_relations): Free DDR_LOOP_NEST.
+
+	* tree-loop-linear.c (linear_transform_loops): Don't forget to
+	free DEPENDENCE_RELATIONS and DATAREFS.
+
+	PR target/28924
+	* builtins.c (expand_builtin_sync_operation,
+	expand_builtin_compare_and_swap, expand_builtin_lock_test_and_set):
+	Use convert_to_mode to handle promoted arguments.
+
+2006-10-06  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* print-tree.c (print_node_brief, print_node): Print sign of Inf.
+
+2006-10-06  J"orn Rennecke  <joern.rennecke@st.com>
+
+	* config/sh/sh.h (LIBGCC2_DOUBLE_TYPE_SIZE): Define.
+
+2006-10-05  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/sync.md ("sync_add<mode>", "sync_sub<mode>",
+	"sync_ior<mode>", "sync_and<mode>", "sync_xor<mode>"):
+	Use <modeconstraint> instead of "r" as operand 1 constraint.
+
+2006-10-06  Olivier Hainque  <hainque@adacore.com>
+	
+	* gimplify.c (gimplify_type_sizes) [POINTER_TYPE, REFERENCE_TYPE]:
+	Don't recurse on the pointed-to type.
+	* c-decl.c (grokdeclarator) [cdk_pointer]: If we are in a NORMAL or
+	DECL context, attach an artificial TYPE_DECL to anonymous pointed-to
+	types with components of variable size.
+
+2006-10-06  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	config/i386/mingw32.h (GOMP_SELF_SPECS): Add -mthreads for openmp.
+
+2006-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29290
+	* tree-loop-linear.c (linear_transform_loops): Bail if loop_nest has
+	multiple exits.
+
+	PR target/29198
+	* config/i386/i386.c (legitimize_pic_address): Reject TLS symbols.
+	* config/i386/predicates.md (local_symbolic_operand): Likewise.
+
+	PR c/29091
+	* varasm.c (output_constant): If TREE_VECTOR_CST_ELTS chain is shorter than
+	the number of vector elements fill the rest with zeros.
+
+2006-10-05  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (mips_pass_by_reference): Do not return false
+	for EABI if type is NULL.  Use a size check based on GET_MODE_SIZE
+	instead.
+
+2006-10-05  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (subsi3): Lose expander, change previously
+	unnamed pattern into subsi3.  Use correct constraints/predicates.
+	* config/bfin/bfin.h (CONST_OK_FOR_K): Handle "KN7".
+	* config/bfin/predicates.md (reg_or_neg7bit_operand_p): New.
+
+2006-10-05  Ira Rosen  <irar@il.ibm.com>
+
+	* doc/loop.texi: Add data references analysis description.
+
+2006-10-04  Brooks Moses  <bmoses@stanford.edu>
+
+	* doc/gcov.texi: Add formatting to "Invoking gcov" section head.
+
+2006-10-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (libgcc.mk, LIBGCC_DEPS): Add emutls.c.
+        * builtin-types.def (BT_WORD): Make unsigned.
+        (BT_FN_VOID_PTR_WORD_WORD_PTR): New.
+        * builtins.def (BUILT_IN_EMUTLS_GET_ADDRESS): New.
+        (BUILT_IN_EMUTLS_REGISTER_COMMON): New.
+        * c-decl.c (grokdeclarator): Don't error if !have_tls.
+        * c-parser.c (c_parser_omp_threadprivate): Likewise.
+	* cgraph.c (decide_is_variable_needed): Look at force_output.
+	Recurse for emulated tls.
+	* cgraphunit.c (cgraph_varpool_remove_unreferenced_decls): Remove
+	checks redundant with decide_is_variable_needed.
+	(cgraph_build_static_cdtor): Do cgraph_varpool_assemble_pending_decls.
+        * dwarf2out.c (loc_descriptor_from_tree_1): Don't do anything for
+        emulated tls.
+        * expr.c (emutls_var_address): New.
+	(expand_expr_real_1): Expand emulated tls.
+	(expand_expr_addr_expr_1): Likewise.
+        * libgcc-std.ver: Add __emutls_get_address, __emutls_register_common.
+        * output.h (emutls_finish): Declare.
+        * toplev.c (compile_file): Call it.
+	* tree-ssa-address.c (gen_addr_rtx): Check for const-ness of the
+	address before wrapping in CONST.
+        * varasm.c (emutls_htab, emutls_object_type): New.
+        (EMUTLS_VAR_PREFIX, EMUTLS_TMPL_PREFIX): New.
+	(get_emutls_object_name, get_emutls_object_type): New.
+	(get_emutls_init_templ_addr, emutls_decl): New.
+	(emutls_common_1, emutls_finish): New.
+        (assemble_variable): When emulating tls, swap decls; generate 
+	constructor for the emutls objects.
+	(do_assemble_alias): When emulating tls, swap decl and target name.
+        (default_encode_section_info): Don't add SYMBOL_FLAG_TLS_SHIFT
+        for emulated tls.
+	* emutls.c: New file.
+        * config/sparc/sol2.h (ASM_DECLARE_OBJECT_NAME): Only emit
+        tls_object for real tls.
+
+2006-10-04  Zack Weinberg  <zackw@panix.com>
+
+	Fix bug in constraint-check generator, reported by Rask Ingemann
+	Lambertsen:
+	* genpreds.c (add_constraint): Don't remove anything from the
+	expression here.
+	(write_tm_constrs_h): Detect whether "op" argument is used, and
+	mark it ARG_UNUSED if it isn't.
+	(write_insn_const_int_ok_for_constraint): Skip the part of the
+	expression that would test whether "op" (which is not available
+	here) is a CONST_INT.
+
+2006-10-04  Ryan Mansfield  <rmansfield@qnx.com>
+
+	PR c++/28448
+	* doc/invoke.texi (fdiagnostics-show-option): Fix typos.
+
+2006-10-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/i386/darwin-libgcc.10.5.ver: Update to symbol list for
+	current Leopard versions.
+	* config/rs6000/darwin-libgcc.10.5.ver: Likewise.
+
+2006-10-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* doc/install.texi: Fix typos.
+
+2006-10-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* builtins.c (expand_builtin_return_addr): Deal with FRAME_ADDR_RTX.
+	* doc/tm.texi (Basic Stack Layout): Document FRAME_ADDR_RTX.
+	* config/sparc/sparc.h (FRAME_ADDR_RTX): Define.
+
+2006-10-02  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* unwind-dw2-fde-darwin.c (getsectdatafromheader_64): Fix first
+	arg to be struct mach_header_64* instead.
 
 2006-10-02	Paul Biggar	<paul.biggar@gmail.com>
 
@@ -113,7 +435,7 @@
 2006-10-01  Ryan Mansfield  <rmansfield@qnx.com>
 
 	PR c/20533
-	* doc/extend.texi: Add used variable attribute description. 
+	* doc/extend.texi: Add used variable attribute description.
 
 2006-09-30  Joseph S. Myers  <joseph@codesourcery.com>
 
@@ -4280,7 +4602,7 @@
 	range of a REG_DEAD register.
 
 2006-18-05  Joerg Wunsch <j.gnu@uriah.heep.sax.de>
-            Anatoly Sokolov <aesok@post.ru>
+	    Anatoly Sokolov <aesok@post.ru>
 
 	* config/avr/avr.c (avr_mcu_types): Add support for attiny261,
 	attiny461, attiny861, attiny25, attiny45, attiny85, attiny24,
@@ -4397,7 +4719,7 @@
 	* config/pa/pa-linux.h (STRING_ASM_OP): Prepend and append a tab.
 
 2006-05-19  Daniel Berlin  <dberlin@dberlin.org>
-            Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	PR rtl-optimization/26855
 
@@ -6795,6 +7117,9 @@
 2006-04-04  Matthias Klose  <doko@debian.org>
 
 	* Makefile.in (unprotoize.o): Same dependencies as for protoize.o.
+
+	PR bootstrap/26764
+	PR bootstrap/27334
 	* Makefile.in (s-macro_list): Conform to POSIX rules in single quoted
 	strings.
 

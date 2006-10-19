@@ -558,14 +558,14 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
 #endif
 
   /* Some machines need special handling before we can access
-     arbitrary frames.  For example, on the sparc, we must first flush
+     arbitrary frames.  For example, on the SPARC, we must first flush
      all register windows to the stack.  */
 #ifdef SETUP_FRAME_ADDRESSES
   if (count > 0)
     SETUP_FRAME_ADDRESSES ();
 #endif
 
-  /* On the sparc, the return address is not in the frame, it is in a
+  /* On the SPARC, the return address is not in the frame, it is in a
      register.  There is no way to access it off of the current frame
      pointer, but it can be accessed off the previous frame pointer by
      reading the value from the register window save area.  */
@@ -587,12 +587,16 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
       tem = copy_to_reg (tem);
     }
 
-  /* For __builtin_frame_address, return what we've got.  */
+  /* For __builtin_frame_address, return what we've got.  But, on
+     the SPARC for example, we may have to add a bias.  */
   if (fndecl_code == BUILT_IN_FRAME_ADDRESS)
+#ifdef FRAME_ADDR_RTX
+    return FRAME_ADDR_RTX (tem);
+#else
     return tem;
+#endif
 
-  /* For __builtin_return_address, Get the return address from that
-     frame.  */
+  /* For __builtin_return_address, get the return address from that frame.  */
 #ifdef RETURN_ADDR_RTX
   tem = RETURN_ADDR_RTX (count, tem);
 #else
@@ -5490,6 +5494,8 @@ expand_builtin_sync_operation (enum machine_mode mode, tree arglist,
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
+  val = convert_to_mode (mode, val, 1);
 
   if (ignore)
     return expand_sync_operation (mem, val, code);
@@ -5513,9 +5519,13 @@ expand_builtin_compare_and_swap (enum machine_mode mode, tree arglist,
 
   arglist = TREE_CHAIN (arglist);
   old_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
+  /* If OLD_VAL is promoted to a wider mode, convert it back to MODE.  */
+  old_val = convert_to_mode (mode, old_val, 1);
 
   arglist = TREE_CHAIN (arglist);
   new_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
+  /* If NEW_VAL is promoted to a wider mode, convert it back to MODE.  */
+  new_val = convert_to_mode (mode, new_val, 1);
 
   if (is_bool)
     return expand_bool_compare_and_swap (mem, old_val, new_val, target);
@@ -5540,6 +5550,8 @@ expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
+  /* If VAL is promoted to a wider mode, convert it back to MODE.  */
+  val = convert_to_mode (mode, val, 1);
 
   return expand_sync_lock_test_and_set (mem, val, target);
 }
@@ -7881,6 +7893,17 @@ fold_builtin_exponent (tree fndecl, tree arglist,
   return 0;
 }
 
+/* Return true if VAR is a VAR_DECL or a component thereof.  */
+
+static bool
+var_decl_component_p (tree var)
+{
+  tree inner = var;
+  while (handled_component_p (inner))
+    inner = TREE_OPERAND (inner, 0);
+  return SSA_VAR_P (inner);
+}
+
 /* Fold function call to builtin memset.  Return
    NULL_TREE if no simplification can be made.  */
 
@@ -7919,6 +7942,9 @@ fold_builtin_memset (tree arglist, tree type, bool ignore)
 
   if (!INTEGRAL_TYPE_P (TREE_TYPE (var))
       && !POINTER_TYPE_P (TREE_TYPE (var)))
+    return 0;
+
+  if (! var_decl_component_p (var))
     return 0;
 
   length = tree_low_cst (len, 1);
@@ -8032,6 +8058,9 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
 	  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (destvar)))
 	return 0;
 
+      if (! var_decl_component_p (destvar))
+	return 0;
+
       srcvar = src;
       STRIP_NOPS (srcvar);
       if (TREE_CODE (srcvar) != ADDR_EXPR)
@@ -8044,6 +8073,9 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
       if (!INTEGRAL_TYPE_P (TREE_TYPE (srcvar))
 	  && !POINTER_TYPE_P (TREE_TYPE (srcvar))
 	  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (srcvar)))
+	return 0;
+
+      if (! var_decl_component_p (srcvar))
 	return 0;
 
       length = tree_low_cst (len, 1);

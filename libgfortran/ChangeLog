@@ -1,3 +1,94 @@
+2006-10-06  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/15441
+	PR fortran/29312
+	* configure.ac: Add HAVE_LDEXPF, HAVE_LDEXP, and HAVE_LDEXPL
+	* m4/spacing.m4: New file.  Use new HAVE_* defines.
+	* m4/rrspacing.m4: Ditto.
+	* Makefile.am: Handle new files.
+	* configure: Regenerated.
+	* Makefile.in: Ditto.
+	* config.h.in: Ditto.
+	* generated/spacing_r4.c: Generated.
+	* generated/spacing_r8.c: Ditto.
+	* generated/spacing_r10.c: Ditto.
+	* generated/spacing_r16.c: Ditto.
+	* generated/rrspacing_r4.c: Ditto.
+	* generated/rrspacing_r8.c: Ditto.
+	* generated/rrspacing_r10.c: Ditto.
+	* generated/rrspacing_r16.c: Ditto.
+
+2006-10-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* intrinsics/hyper.c: Remove file.
+	* intrinsics/c99_functions.c: Add fallback functions asinhf,
+	acoshf and atanhf.
+	* Makefile.am: Remove file intrinsics/hyper.c.
+	* Makefile.in: Regenerate.
+
+2006-10-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* c99_protos.h: Correctly protect definitions of prototypes for
+	asinhf, acoshf and atanhf to be the same as in intrinsics/hyper.c.
+
+2006-10-08  Paul Thomas  <pault@gcc.gnu.org>
+	    Erik Edelmann  <edelmann@gcc.gnu.org>
+
+	PR libgfortran/20541
+	* Makefile.in : Add move_alloc.
+	* intrinsics/move_alloc.c: New function.
+	* Makefile.am : Add move_alloc.
+
+2006-10-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/26540
+	* intrinsics/signal.c (signal_sub, signal_sub_int): Use intptr_t
+	if available to cast function pointers to int and back.
+	* configure.ac: Check for intptr_t.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2006-10-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/16580
+	PR fortran/29288
+	* libgfortran/Makefile.am: Add the new files to the build
+	process, and rules to build them.
+	* libgfortran/Makefile.in: Regenerate.
+	* libgfortran/m4/misc_specifics.m4: New file.
+	* libgfortran/m4/specific.m4: Add new special cases for function
+	with complex argument and real result, like abs_c* and aimag_c*.
+	* libgfortran/intrinsics/f2c_specifics.F90: Add specifics for
+	AIMAG, ASINH, ACOSH and ATANH.
+	* libgfortran/generated/_aimag_c4.F90: New file.
+	* libgfortran/generated/_aimag_c8.F90: New file.
+	* libgfortran/generated/_asinh_r10.F90: New file.
+	* libgfortran/generated/_acosh_r16.F90: New file.
+	* libgfortran/generated/_aimag_c10.F90: New file.
+	* libgfortran/generated/_atanh_r16.F90: New file.
+	* libgfortran/generated/_acosh_r4.F90: New file.
+	* libgfortran/generated/_acosh_r8.F90: New file.
+	* libgfortran/generated/_asinh_r4.F90: New file.
+	* libgfortran/generated/_asinh_r8.F90: New file.
+	* libgfortran/generated/_asinh_r16.F90: New file.
+	* libgfortran/generated/_atanh_r4.F90: New file.
+	* libgfortran/generated/_atanh_r8.F90: New file.
+	* libgfortran/generated/_acosh_r10.F90: New file.
+	* libgfortran/generated/misc_specifics.F90: New file.
+	* libgfortran/generated/_aimag_c16.F90: New file.
+	* libgfortran/generated/_atanh_r10.F90: New file.
+
+2006-10-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* acinclude.m4 (HAVE_ATTRIBUTE_ALIAS): Remove __USER_LABEL_PREFIX__
+	from test.
+	* configure: Regenerate.
+
+2006-10-05  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* Makefile.am: Use $(M4) instead of m4.
+	* Makefile.in: Regenerated.
+
 2006-10-01  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	* libgfortran.h: Add prototype for internal_unpack_c16.
@@ -24,7 +115,7 @@
 	* intrinsics/cpu_time.c:  Add cpu_time_10 and cpu_time_16 routines.
 
 2006-09-28  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
-
+D
 	* Makefile.am: Install libgfortranbegin inside compiler libraries
 	directory instead of system libraries directory.
 	* Makefile.in: Regenerate.

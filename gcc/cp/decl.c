@@ -3854,8 +3854,7 @@ start_decl (const cp_declarator *declarator,
 
       case FUNCTION_DECL:
 	error ("function %q#D is initialized like a variable", decl);
-	initialized = 0;
-	break;
+	return error_mark_node;
 
       default:
 	break;
@@ -4703,32 +4702,46 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 
   if (type == error_mark_node)
     /* We will have already complained.  */
-    init = NULL_TREE;
-  else if (init && COMPLETE_TYPE_P (type)
-	   && !TREE_CONSTANT (TYPE_SIZE (type)))
+    return NULL_TREE;
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      error ("variable-sized object %qD may not be initialized", decl);
-      init = NULL_TREE;
+      tree element_type = TREE_TYPE (type);
+
+      /* The array type itself need not be complete, because the
+	 initializer may tell us how many elements are in the array.
+	 But, the elements of the array must be complete.  */
+      if (!COMPLETE_TYPE_P (complete_type (element_type)))
+	{
+	  error ("elements of array %q#D have incomplete type", decl);
+	  return NULL_TREE;
+	}
+      /* It is not valid to initialize an a VLA.  */
+      if (init
+	  && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
+	      || !TREE_CONSTANT (TYPE_SIZE (element_type))))
+	{
+	  error ("variable-sized object %qD may not be initialized", decl);
+	  return NULL_TREE;
+	}
     }
-  else if (TREE_CODE (type) == ARRAY_TYPE
-	   && !COMPLETE_TYPE_P (complete_type (TREE_TYPE (type))))
-    {
-      error ("elements of array %q#D have incomplete type", decl);
-      init = NULL_TREE;
-    }
-  else if (TREE_CODE (type) != ARRAY_TYPE && !COMPLETE_TYPE_P (type))
+  else if (!COMPLETE_TYPE_P (type))
     {
       error ("%qD has incomplete type", decl);
       TREE_TYPE (decl) = error_mark_node;
-      init = NULL_TREE;
+      return NULL_TREE;
     }
-  else if (!CP_AGGREGATE_TYPE_P (type)
-	   && init && BRACE_ENCLOSED_INITIALIZER_P (init)
-	   && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) != 1)
+  else
+    /* There is no way to make a variable-sized class type in GNU C++.  */
+    gcc_assert (TREE_CONSTANT (TYPE_SIZE (type)));
+  
+  if (!CP_AGGREGATE_TYPE_P (type)
+      && init && BRACE_ENCLOSED_INITIALIZER_P (init)
+      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) != 1)
     {
       error ("scalar object %qD requires one element in initializer", decl);
       TREE_TYPE (decl) = error_mark_node;
-      init = NULL_TREE;
+      return NULL_TREE;
     }
 
   if (TREE_CODE (decl) == CONST_DECL)
@@ -6796,7 +6809,7 @@ check_var_type (tree identifier, tree type)
 	}
       else
 	error ("variable or field declared void");
-      type = integer_type_node;
+      type = error_mark_node;
     }
 
   return type;
@@ -7402,9 +7415,9 @@ grokdeclarator (const cp_declarator *declarator,
 
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
-  if (declspecs->multiple_storage_classes_p)
+  if (declspecs->conflicting_specifiers_p)
     {
-      error ("multiple storage classes in declaration of %qs", name);
+      error ("conflicting specifiers in declaration of %qs", name);
       storage_class = sc_none;
     }
   else if (thread_p
@@ -8164,7 +8177,11 @@ grokdeclarator (const cp_declarator *declarator,
   /* We don't check parameter types here because we can emit a better
      error message later.  */
   if (decl_context != PARM)
-    type = check_var_type (unqualified_id, type);
+    {
+      type = check_var_type (unqualified_id, type);
+      if (type == error_mark_node)
+        return error_mark_node;
+    }
 
   /* Now create the decl, which may be a VAR_DECL, a PARM_DECL
      or a FUNCTION_DECL, depending on DECL_CONTEXT and TYPE.  */
@@ -11096,7 +11113,8 @@ finish_function (int flags)
   /* If this function can't throw any exceptions, remember that.  */
   if (!processing_template_decl
       && !cp_function_chain->can_throw
-      && !flag_non_call_exceptions)
+      && !flag_non_call_exceptions
+      && targetm.binds_local_p (fndecl))
     TREE_NOTHROW (fndecl) = 1;
 
   /* This must come after expand_function_end because cleanups might

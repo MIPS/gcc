@@ -1,3 +1,96 @@
+2006-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28506
+	* parser.c (function_declarator_p): New function.
+	(cp_parser_init_declarator): Use it.
+	(cp_parser_member_declaration): Likewise.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29318
+	* rtti.c (get_tinfo_decl): Refuse to create type info objects for
+	variably modified types.
+
+2006-10-12 Lee Millward <lee.millward@codesourcery.com>
+
+       PR c++/27961
+       * decl.c (start_decl): Return error_mark_node if a
+       function is initialized like a variable.
+       (check_var_type): If a variable of field is declared void,
+       set the type to error_mark_node.
+       (grokdeclarator): Check the return type of check_var_type.
+       * class.c (finish_struct_1): Robustify.
+	
+2006-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29175
+	* decl.c (check_initializer): Issue errors about trying to
+	initialize arrays whose elements have variable size.
+
+2006-10-11  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/29024
+        * cp-tree (struct cp_decl_specifier_seq): Rename to 
+        conflicting_specifiers_p
+        * parser.c (cp_parser_set_storage_class): Set
+        conflicting_specifiers_p for the input decl specifier 
+        if a typedef specifier is present. Rename uses of
+        multiple_specifiers_p to conflicting_specifiers_p.
+        (cp_parser_decl_specifier_seq) <RID_TYPEDEF>: If a storage 
+        class specifier has already been set for this declaration, 
+        set conflicting_specifiers_p to true on the decl_specs.
+        * decl.c (grokdeclarator): Rename uses of
+        multiple_specifiers_p to conflicting_specifiers_p.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "c++.pdf" target support.
+
+2006-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/29323
+	* decl.c (finish_function): Set TREE_NOTHROW only for
+	functions that bind local.
+
+2006-10-09  Richard Henderson  <rth@redhat.com>
+
+	Revert emutls patch.
+
+2006-10-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (grokvardecl): Don't error if !have_tls.
+	(grokdeclarator): Likewise.
+	* parser.c (cp_parser_omp_threadprivate): Likewise.
+
+2006-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29020
+	* friend.c (do_friend): Improve comments; add assertion.
+	* parser.c (cp_parser_nested_name_specifier_opt): Resolve
+	typenames for qualified names used in declarations, even when
+	caching qualified name lookup.
+
+	PR c++/29138
+	* decl2.c (grokfield): Don't handle access declarations here.
+	* parser.c (cp_parser_using_declaration): Handle access
+	declarations too.
+	(cp_parser_block_declaration): Adjust calls to
+	cp_parser_using_declaration.
+	(cp_parser_member_declaration): Likewise.  Use
+	cp_parser_using_declaration to look for access_declarations.
+
+2006-10-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/29291
+	* init.c (build_new): Check for invalid init.
+
+2006-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29226
+	* typeck.c (cxx_sizeof_or_alignof_type): Tidy.  In templates, do
+	not try to actually evaluate sizeof for a VLA type.
+
 2006-10-01  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/29105

@@ -64,7 +64,9 @@ con_graph_dump (con_graph cg)
   gcc_assert (cg);
   gcc_assert (cg->function);
   gcc_assert (cg->filename);
-  assert_all_next_link_free (cg);
+
+  /* occasionally want to dump graphs that arent complete */
+  /*assert_all_next_link_free (cg); */
 
   out = fopen (cg->filename, "w");
   gcc_assert (out);
@@ -440,6 +442,19 @@ con_node
 get_existing_node (con_graph cg, tree id)
 {
   return get_existing_node_with_call_id (cg, id, NULL);
+}
+
+con_node
+existing_local_node (con_graph cg, tree id)
+{
+  con_node result = get_existing_node (cg, id);
+  if (result == NULL)
+    {
+      result = add_local_node (cg, id);
+    }
+  gcc_assert (result);
+  /* the node doesnt have to be null if it exists already */
+  return result;
 }
 
 con_node
@@ -1301,6 +1316,7 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(ASSIGNMENT_TO_EXCEPTION);
 	  HANDLE(RETURN);
 	  HANDLE(MEMORY_ALLOCATION);
+	  HANDLE(ARRAY_MEMORY_ALLOCATION);
 	  HANDLE(IGNORED_RETURNING_VOID);
 	  HANDLE(IGNORED_NOT_A_POINTER);
 	  HANDLE(IGNORED_LABEL_EXPR);
@@ -1370,4 +1386,60 @@ in_link_list (con_node list, con_node subject)
       NEXT_LINK (list);
     }
   return false;
+}
+
+con_node
+get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree type)
+{
+  con_node u, terminal, phantom;
+
+  /* This comes from the end of section 3 in Choi 99, though we dont
+   * exactly follow the recommendations. In particular, the paper alleges
+   * that you only use phantom nodes if there are no points to nodes, but
+   * in reality, there can be both at the same time.  */
+
+  /* get the objects pointed */
+  u = get_points_to (source);
+
+  /* there may also be nodes which don't end up as an object. These need
+   * to point to phantom objects */
+  terminal = get_terminal_nodes (source);
+
+  /* this is a lonely node */
+  if (terminal == NULL && u == NULL)
+    {
+      gcc_assert (source->out == NULL);
+      terminal = source;
+    }
+
+  /* get the phantom node ready, if needed */
+  if (terminal)
+    {
+      phantom = get_existing_node (cg, stmt_id); /* 1-limited */
+      if (phantom == NULL)
+	{
+	  phantom = add_object_node (cg, stmt_id, type);
+	  phantom->phantom = true;
+	}
+      gcc_assert (phantom->phantom);
+
+      /* add the phantom the the list of u */
+      if (!in_link_list(u, phantom))
+	{
+	  phantom->next_link = u;
+	  u = phantom;
+	}
+
+      /* make the terminal nodes point to the node */
+      while (terminal)
+	{
+	  if (terminal != phantom) /* this would be pointless otherwise */
+	    add_edge (terminal, phantom);
+
+	  NEXT_LINK_CLEAR (terminal);
+	}
+    }
+
+  return u;
+
 }

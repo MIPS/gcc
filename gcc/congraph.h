@@ -62,6 +62,7 @@ enum statement_type
   ASSIGNMENT_TO_EXCEPTION,
   RETURN,
   MEMORY_ALLOCATION,
+  ARRAY_MEMORY_ALLOCATION,
   IGNORED_RETURNING_VOID,
   IGNORED_NOT_A_POINTER,
   IGNORED_LABEL_EXPR,
@@ -269,6 +270,10 @@ con_node new_con_node (void);
 /* Get the node with the specified id from cg */
 con_node get_existing_node (con_graph cg, tree id);
 
+/* Get the node with the specified id from cg, or add it if it doesnt
+ * exist */
+con_node existing_local_node (con_graph cg, tree id);
+
 /* As above, but also with it's call_id set */
 con_node get_existing_node_with_call_id (con_graph cg,
 					 tree id, tree call_id);
@@ -398,7 +403,6 @@ void set_stmt_type (con_graph cg, tree stmt, enum statement_type type);
 stmt_type_list get_stmt_type (con_graph cg, tree stmt);
 void print_stmt_type (con_graph cg, FILE* file, tree stmt);
 
-/* TODO Faster and safer as inline functions */
 /* NEXT_LINK_CLEAR clears a node's next_link field, then replaces it with
  * it's next field */
 #define NEXT_LINK_CLEAR(A) do { con_node next = (A)->next_link; (A)->next_link = NULL; (A) = next; } while (0)
@@ -412,5 +416,7 @@ void clear_links (con_node node);
 
 bool in_link_list (con_node list, con_node subject);
 
+con_node get_points_to_and_terminals (con_graph cg, con_node source, tree
+				      stmt_id, tree type);
 
 #endif /* _CON_GRAPH_H */

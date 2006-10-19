@@ -1,5 +1,6 @@
-/* Wrapper for systems without the C99 acosh(), asinh(), and atanh() functions
-   Copyright (C) 2005 Free Software Foundation, Inc.
+/* Implementation of the RRSPACING intrinsic
+   Copyright 2006 Free Software Foundation, Inc.
+   Contributed by Steven G. Kargl <kargl@gcc.gnu.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -31,26 +32,22 @@ Boston, MA 02110-1301, USA.  */
 #include <math.h>
 #include "libgfortran.h"
 
-#if HAVE_ACOSH && !HAVE_ACOSHF
-float
-acoshf (float x)
-{
-  return (float) acosh ((double) x);
-}
-#endif
 
-#if HAVE_ASINH && !HAVE_ASINHF
-float
-asinhf (float x)
-{
-  return (float) asinh ((double) x);
-}
-#endif
+#if defined (HAVE_GFC_REAL_4) && defined (HAVE_FABSF) && defined (HAVE_FREXPF) && defined (HAVE_LDEXPF)
 
-#if HAVE_ATANH && !HAVE_ATANHF
-float
-atanhf (float x)
+extern GFC_REAL_4 rrspacing_r4 (GFC_REAL_4 s, int p);
+export_proto(rrspacing_r4);
+
+GFC_REAL_4
+rrspacing_r4 (GFC_REAL_4 s, int p)
 {
-  return (float) atanh ((double) x);
+  int e;
+  GFC_REAL_4 x;
+  x = fabsf (s);
+  if (x == 0.)
+    return 0.;
+  frexpf (s, &e);
+  return ldexpf (x, p - e);
 }
+
 #endif

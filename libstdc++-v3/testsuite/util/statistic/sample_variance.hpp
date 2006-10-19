@@ -40,77 +40,52 @@
 // warranty.
 
 /**
- * @file mem_track_allocator_base.hpp
- * Contains a base for a memory-tracking allocator used for tests.
+ * @file sample_variance.hpp
+ * Contains a function for calculating a sample variance
  */
 
-#ifndef PB_DS_MEM_TRACK_ALLOCATOR_BASE_HPP
-#define PB_DS_MEM_TRACK_ALLOCATOR_BASE_HPP
+#ifndef PB_DS_SAMPLE_VAR_HPP
+#define PB_DS_SAMPLE_VAR_HPP
 
-#include <cassert>
+#include <list>
+#include <numeric>
+#include <math.h>
+#include <iterator>
 
 namespace pb_ds
 {
-
   namespace test
   {
-
     namespace detail
     {
+#define PB_DS_VTYPE typename std::iterator_traits<It>::value_type
 
-      struct total_holder
+      template<typename It>
+      PB_DS_VTYPE
+      sample_variance(It b, It e, PB_DS_VTYPE sm)
       {
-        total_holder() : m_total(0)
-	{ }
+	PB_DS_VTYPE ss = 0;
+	size_t num_res = 0;
 
-	size_t m_total;
-      };
+	while (b != e)
+	  {
+	    const PB_DS_VTYPE d =* b - sm;
+	    ss += d*  d;
+	    ++num_res;
+	    ++b;
+	  }
 
-      class mem_track_allocator_base
-      {
-      public:
-	static void
-        inc(size_t size);
+	if (num_res == 1)
+	  return 0;
 
-	static void
-        dec(size_t size);
-
-	static size_t
-        get_total();
-
-      private:
-	static total_holder s_total_holder;
-      };
-
-      total_holder mem_track_allocator_base::s_total_holder;
-
-      void
-      mem_track_allocator_base::
-      inc(size_t size)
-      {
-	s_total_holder.m_total += size;
+	return ::sqrt(ss / (num_res - 1));
       }
 
-      void
-      mem_track_allocator_base::
-      dec(size_t size)
-      {
-	assert(s_total_holder.m_total >= size);
-
-	s_total_holder.m_total -= size;
-      }
-
-      size_t
-      mem_track_allocator_base::
-      get_total()
-      {
-	return (s_total_holder.m_total);
-      }
+#undef PB_DS_VTYPE
 
     } // namespace detail
-
   } // namespace test
-
 } // namespace pb_ds
 
-#endif // #ifndef PB_DS_MEM_TRACK_ALLOCATOR_BASE_HPP
+#endif 
+
