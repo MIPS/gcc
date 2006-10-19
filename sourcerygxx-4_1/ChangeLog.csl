@@ -1,3 +1,10 @@
+2006-10-19  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (all_architectures): Add iWMMXt2 entry.
+	* config/arm/arm-cores.def: New ARM_CORE entry for iWMMXt2.
+	* config/arm/arm-tune.md: Regenerate.
+
 2006-10-19  Kazu Hirata  <kazu@codesourcery.com>
 
 	gcc/
