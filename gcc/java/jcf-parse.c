@@ -1140,9 +1140,6 @@ parse_class_file (void)
       end_java_method ();
     }
 
-  if (flag_emit_class_files)
-    write_classfile (current_class);
-
   finish_class ();
 
   (*debug_hooks->end_source_file) (LOCATION_LINE (save_location));

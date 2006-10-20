@@ -102,7 +102,7 @@ JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/verify-glue.o java/verify-impl.o \
   java/zextract.o java/jcf-io.o java/win32-host.o java/jcf-parse.o java/mangle.o \
   java/mangle_name.o java/builtins.o java/resource.o \
-  java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
+  java/buffer.o java/check-init.o java/jcf-depend.o \
   java/jcf-path.o java/boehm.o java/java-gimplify.o
 
 JVSCAN_OBJS = java/parse-scan.o java/jv-scan.o version.o intl.o
@@ -289,9 +289,6 @@ java/jcf-depend.o: java/jcf-depend.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 java/jcf-parse.o: java/jcf-parse.c $(CONFIG_H) $(JAVA_TREE_H) flags.h \
   input.h java/java-except.h $(SYSTEM_H) coretypes.h $(TM_H) toplev.h \
   java/parse.h $(GGC_H) debug.h real.h gt-java-jcf-parse.h $(TM_P_H)
-java/jcf-write.o: java/jcf-write.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
-  $(RTL_H) java/java-opcodes.h java/parse.h java/buffer.h $(SYSTEM_H) \
-  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-jcf-write.h $(TM_P_H)
 java/jv-scan.o: java/jv-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   version.h intl.h
 java/jvgenmain.o: java/jvgenmain.c $(CONFIG_H) $(JAVA_TREE_H) $(SYSTEM_H) \

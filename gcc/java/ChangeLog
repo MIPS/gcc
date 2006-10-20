@@ -1,5 +1,18 @@
 2006-10-20  Tom Tromey  <tromey@redhat.com>
 
+	* lang.c (java_handle_option): Don't use
+	jcf_write_base_directory.
+	* jcf.h (jcf_write_base_directory): Removed.
+	* parse.y (java_expand_classes): Don't call write_classfile.
+	* config-lang.in (gtfiles): Removed jcf-write.c.
+	* Make-lang.in (JAVA_OBJS): Removed jcf-write.o.
+	(java/jcf-write.o): Removed.
+	* jcf-parse.c (parse_class_file): Don't call write_classfile.
+	* java-tree.h (write_classfile): Removed declaration.
+	* jcf-write.c: Removed.
+
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
 	* Make-lang.in (java): Removed gjnih, gcjh.
 	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
 	(GCJH_OBJS): Removed.

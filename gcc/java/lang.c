@@ -337,7 +337,7 @@ java_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_foutput_class_dir_:
-      jcf_write_base_directory = arg;
+      /* FIXME: remove; this is handled by ecj1 now.  */
       break;
 
     case OPT_version:

@@ -9397,9 +9397,7 @@ java_expand_classes (void)
 	   current = TREE_CHAIN (current))
 	{
 	  output_class = current_class = TREE_TYPE (TREE_VALUE (current));
-	  if (flag_emit_class_files)
-	    write_classfile (current_class);
-	  else if (! flag_syntax_only)
+	  if (! flag_emit_class_files && ! flag_syntax_only)
 	    java_expand_method_bodies (current_class);
 	}
     }
