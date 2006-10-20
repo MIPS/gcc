@@ -43,18 +43,16 @@
 # Actual names to use when installing a native compiler.
 JAVA_INSTALL_NAME := $(shell echo gcj|sed '$(program_transform_name)')
 JAVA_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcj|sed '$(program_transform_name)')
-GCJH_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcjh|sed '$(program_transform_name)')
 
 GCJ = gcj
 
 # Define the names for selecting java in LANGUAGES.
 java: jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) \
-      gcjh$(exeext) jv-scan$(exeext) jcf-dump$(exeext) \
-      gjnih$(exeext)
+      jv-scan$(exeext) jcf-dump$(exeext)
 
 # Define the name of target independent tools to be installed in $(bindir)
 # Names are subject to changes
-JAVA_TARGET_INDEPENDENT_BIN_TOOLS = gcjh gjnih jv-scan jcf-dump
+JAVA_TARGET_INDEPENDENT_BIN_TOOLS = jv-scan jcf-dump
 
 # Tell GNU make to ignore these if they exist.
 .PHONY: java
@@ -107,14 +105,6 @@ JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
   java/jcf-write.o java/buffer.o java/check-init.o java/jcf-depend.o \
   java/jcf-path.o java/boehm.o java/java-gimplify.o
 
-GCJH_OBJS = java/gjavah.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
-  java/win32-host.o java/zextract.o version.o errors.o ggc-none.o \
-  intl.o
-
-GJNIH_OBJS = java/gjavah-jni.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
-  java/win32-host.o java/zextract.o version.o errors.o \
-  ggc-none.o intl.o
-
 JVSCAN_OBJS = java/parse-scan.o java/jv-scan.o version.o intl.o
 
 JCFDUMP_OBJS = java/jcf-dump.o java/jcf-io.o java/jcf-depend.o java/jcf-path.o \
@@ -136,14 +126,6 @@ jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS)
 	rm -f $@
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 		$(JAVA_OBJS) $(BACKEND) $(ZLIB) $(LIBICONV) $(LIBS)
-
-gcjh$(exeext): $(GCJH_OBJS) $(LIBDEPS)
-	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GCJH_OBJS) $(CPPLIBS) $(ZLIB) $(LIBS)
-
-gjnih$(exeext): $(GJNIH_OBJS) $(LIBDEPS)
-	rm -f $@
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(GJNIH_OBJS) $(CPPLIBS) $(ZLIB) $(LIBS)
 
 jv-scan$(exeext): $(JVSCAN_OBJS) $(LIBDEPS)
 	rm -f $@
@@ -179,9 +161,9 @@ java.srcinfo: doc/gcj.info
 
 java.dvi: doc/gcj.dvi
 java.html: $(htmldir)/java/index.html
-JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
+JAVA_MANFILES = doc/gcj.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
                 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
-		doc/gcj-dbtool.1 doc/gjnih.1
+		doc/gcj-dbtool.1
 
 java.man: $(JAVA_MANFILES)
 
@@ -191,14 +173,10 @@ java.srcman: $(JAVA_MANFILES)
 check-java :
 
 # Install hooks:
-# jc1, gcj, jvgenmain, and gcjh are installed elsewhere as part
+# jc1, gcj, and jvgenmain are installed elsewhere as part
 # of $(COMPILERS).
 
 # Install gcj as well as the target-independent tools.
-# For a native build, we special-case gcjh and also install
-# its explicitly-prefixed variant. This allows us to write
-# portable makefiles for both cross builds (where gcjh *must*
-# be explicitly prefixed) and native builds.
 java.install-common: installdirs
 	-if [ -f $(GCJ)$(exeext) ]; then \
 	  rm -f $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext); \
@@ -218,13 +196,6 @@ java.install-common: installdirs
 	    rm -f $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    $(INSTALL_PROGRAM) $$tool$(exeext) $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
 	    chmod a+x $(DESTDIR)$(bindir)/$$tool_transformed_name$(exeext); \
-	    if [ -f $(GCJ)-cross$(exeext) ]; then \
-	      true; \
-	    elif [ $$tool = gcjh ]; then \
-	      rm -f $(DESTDIR)$(bindir)/$(GCJH_TARGET_INSTALL_NAME)$(exeext); \
-	      ( cd $(DESTDIR)$(bindir) && \
-	        $(LN) $$tool_transformed_name$(exeext) $(GCJH_TARGET_INSTALL_NAME)$(exeext) ); \
-	    fi; \
           fi ; \
        done
 
@@ -233,8 +204,6 @@ java.install-man:
 java.uninstall:
 	-rm -rf $(DESTDIR)$(bindir)/$(JAVA_INSTALL_NAME)$(exeext)
 	-rm -rf $(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext)
-	-rm -rf $(DESTDIR)$(man1dir)/gcjh$(man1ext)
-	-rm -rf $(DESTDIR)$(man1dir)/gjnih$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jv-scan$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/jcf-dump$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gij$(man1ext)
@@ -252,14 +221,14 @@ java.mostlyclean:
 	-rm -f java/parse.c java/parse-scan.c
 	-rm -f java/*$(objext) $(DEMANGLER_PROG)
 	-rm -f java/*$(coverageexts)
-	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) gcjh$(exeext) \
-          gjnih$(exeext) jv-scan$(exeext) jcf-dump$(exeext) s-java
+	-rm -f jc1$(exeext) $(GCJ)$(exeext) jvgenmain$(exeext) \
+          jv-scan$(exeext) jcf-dump$(exeext) s-java
 java.clean:
 java.distclean:
 	-rm -f java/config.status java/Makefile
 	-rm -f java/parse.output java/y.tab.c
 java.maintainer-clean:
-	-rm -f $(docobjdir)/gcj.1 $(docobjdir)/gcjh.1 $(docobjdir)/gjnih.1
+	-rm -f $(docobjdir)/gcj.1
 	-rm -f $(docobjdir)/jv-scan.1 $(docobjdir)/jcf-dump.1
 	-rm -f $(docobjdir)/gij.1
 	-rm -f $(docobjdir)/jv-convert.1
@@ -291,9 +260,6 @@ JAVA_LEX_C = java/lex.c java/keyword.h java/chartables.h
 java/jcf-dump.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(JAVA_TREE_H) \
   java/jcf-dump.c java/jcf-reader.c java/jcf.h java/javaop.h java/javaop.def \
   version.h $(GGC_H) intl.h
-java/gjavah.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(JAVA_TREE_H) \
-  java/gjavah.c java/jcf-reader.c java/jcf.h java/javaop.h version.h $(GGC_H) \
-  intl.h
 java/boehm.o: java/boehm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(TREE_H) $(JAVA_TREE_H) java/parse.h toplev.h
 java/buffer.o: java/buffer.c $(CONFIG_H) java/buffer.h $(SYSTEM_H) coretypes.h \
@@ -373,14 +339,6 @@ java/jcf-path.o: java/jcf-path.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 	  -DDEFAULT_TARGET_VERSION=\"$(version)\" \
 	  $(srcdir)/java/jcf-path.c $(OUTPUT_OPTION)
 
-# create gjnih's object
-java/gjavah-jni.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(JAVA_TREE_H) \
-  java/gjavah.c java/jcf-reader.c java/jcf.h java/javaop.h version.h $(GGC_H) \
-  intl.h
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(ZLIBINC) \
-		-DJNI_DEFAULT=1 \
-		$(srcdir)/java/gjavah.c $(OUTPUT_OPTION)
-
 TEXI_JAVA_FILES = java/gcj.texi $(gcc_docdir)/include/fdl.texi		\
 	 $(gcc_docdir)/include/gpl.texi $(gcc_docdir)/include/gcc-common.texi   \
 	 gcc-vers.texi
@@ -400,15 +358,11 @@ $(htmldir)/java/index.html: $(TEXI_JAVA_FILES)
 	rm -f $(@D)/*
 	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/java -o $(@D) $<
 
-.INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
-  jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod gjnih.pod
+.INTERMEDIATE: gcj.pod jv-scan.pod jcf-dump.pod gij.pod \
+  jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod
 
 gcj.pod: java/gcj.texi
 	-$(TEXI2POD) -D gcj < $< > $@
-gcjh.pod: java/gcj.texi
-	-$(TEXI2POD) -D gcjh < $< > $@
-gjnih.pod: java/gcj.texi
-	-$(TEXI2POD) -D gjnih < $< > $@
 jv-scan.pod: java/gcj.texi
 	-$(TEXI2POD) -D jv-scan < $< > $@
 jcf-dump.pod: java/gcj.texi

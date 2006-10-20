@@ -1,3 +1,25 @@
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java): Removed gjnih, gcjh.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
+	(GCJH_OBJS): Removed.
+	(GJNIH_OBJS): Likewise.
+	(gjnih$(exeext)): Likewise.
+	(gcjh$(exeext)): Likewise.
+	(JAVA_MANFILES): Removed gcjh.1, gjnih.1.
+	(java.install-common): Don't special case gcjh.
+	(java.uninstall): Don't mention gcjh, gjnih.
+	(java.mostlyclean): Likewise.
+	(java.maintainer-clean): Likewise.
+	(.INTERMEDIATE): Likewise.
+	(gcjh.pod): Removed.
+	(gjnih.pod): Likewise.
+	(GCJH_TARGET_INSTALL_NAME): Removed.
+	(java/gjavah-jni.o): Removed.
+	(java/gjavah.o): Likewise.
+	* config-lang.in (stagestuff): Removed gjnih, gcjh.
+	* gjavah.c: Removed.
+
 2006-10-17  Tom Tromey  <tromey@redhat.com>
 
 	* jcf-dump.c (print_element_value): Expect a utf8 constant in the
