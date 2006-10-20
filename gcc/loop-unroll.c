@@ -84,9 +84,6 @@ struct iv_to_split
 			   XEXP (XEXP (single_set, loc[0]), loc[1]).  */ 
 };
 
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
-
 /* Information about accumulators to expand.  */
 
 struct var_to_expand
@@ -236,22 +233,15 @@ loop_exit_at_end_p (struct loop *loop)
 static void
 peel_loops_completely (struct loops *loops, int flags)
 {
-  struct loop *loop, *next;
+  struct loop *loop;
+  unsigned i;
 
-  loop = loops->tree_root;
-  while (loop->inner)
-    loop = loop->inner;
-
-  while (loop != loops->tree_root)
+  /* Scan the loops, the inner ones first.  */
+  for (i = loops->num - 1; i > 0; i--)
     {
-      if (loop->next)
-	{
-	  next = loop->next;
-	  while (next->inner)
-	    next = next->inner;
-	}
-      else
-	next = loop->outer;
+      loop = loops->parray[i];
+      if (!loop)
+	continue;
 
       loop->lpt_decision.decision = LPT_NONE;
 
@@ -274,7 +264,6 @@ peel_loops_completely (struct loops *loops, int flags)
 	  verify_loop_structure (loops);
 #endif
 	}
-      loop = next;
     }
 }
 
@@ -507,7 +496,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
       if (desc->noloop_assumptions)
 	RESET_BIT (wont_exit, 1);
 
-      remove_edges = xcalloc (npeel, sizeof (edge));
+      remove_edges = XCNEWVEC (edge, npeel);
       n_remove_edges = 0;
 
       if (flag_split_ivs_in_unroller)
@@ -692,7 +681,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
 
-  remove_edges = xcalloc (max_unroll + exit_mod + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + exit_mod + 1);
   n_remove_edges = 0;
   if (flag_split_ivs_in_unroller 
       || flag_variable_expansion_in_unroller)
@@ -964,7 +953,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
   
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
   n_dom_bbs = 0;
 
   body = get_loop_body (loop);
@@ -1022,7 +1011,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   /* Precondition the loop.  */
   loop_split_edge_with (loop_preheader_edge (loop), init_code);
 
-  remove_edges = xcalloc (max_unroll + n_peel + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + n_peel + 1);
   n_remove_edges = 0;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
@@ -1167,6 +1156,9 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 	     ";; Unrolled loop %d times, counting # of iterations "
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
+
+  if (dom_bbs)
+    free (dom_bbs);
 }
 
 /* Decide whether to simply peel LOOP and how much.  */
@@ -1474,7 +1466,7 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
 static hashval_t
 si_info_hash (const void *ivts)
 {
-  return htab_hash_pointer (((struct iv_to_split *) ivts)->insn);
+  return (hashval_t) INSN_UID (((struct iv_to_split *) ivts)->insn);
 }
 
 /* An equality functions for information about insns to split.  */
@@ -1493,7 +1485,7 @@ si_info_eq (const void *ivts1, const void *ivts2)
 static hashval_t
 ve_info_hash (const void *ves)
 {
-  return htab_hash_pointer (((struct var_to_expand *) ves)->insn);
+  return (hashval_t) INSN_UID (((struct var_to_expand *) ves)->insn);
 }
 
 /* Return true if IVTS1 and IVTS2 (which are really both of type 
@@ -1613,7 +1605,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
     return NULL;
   
   /* Record the accumulator to expand.  */
-  ves = xmalloc (sizeof (struct var_to_expand));
+  ves = XNEW (struct var_to_expand);
   ves->insn = insn;
   ves->var_expansions = VEC_alloc (rtx, heap, 1);
   ves->reg = copy_rtx (dest);
@@ -1670,14 +1662,24 @@ analyze_iv_to_split_insn (rtx insn)
     return NULL;
 
   ok = iv_analyze_result (insn, dest, &iv);
-  gcc_assert (ok);
+
+  /* This used to be an assert under the assumption that if biv_p returns
+     true that iv_analyze_result must also return true.  However, that
+     assumption is not strictly correct as evidenced by pr25569.
+
+     Returning NULL when iv_analyze_result returns false is safe and
+     avoids the problems in pr25569 until the iv_analyze_* routines
+     can be fixed, which is apparently hard and time consuming
+     according to their author.  */
+  if (! ok)
+    return NULL;
 
   if (iv.step == const0_rtx
       || iv.mode != iv.extend_mode)
     return NULL;
 
   /* Record the insn to split.  */
-  ivts = xmalloc (sizeof (struct iv_to_split));
+  ivts = XNEW (struct iv_to_split);
   ivts->insn = insn;
   ivts->base_var = NULL_RTX;
   ivts->step = iv.step;
@@ -1697,7 +1699,7 @@ analyze_insns_in_loop (struct loop *loop)
 {
   basic_block *body, bb;
   unsigned i, num_edges = 0;
-  struct opt_info *opt_info = xcalloc (1, sizeof (struct opt_info));
+  struct opt_info *opt_info = XCNEW (struct opt_info);
   rtx insn;
   struct iv_to_split *ivts = NULL;
   struct var_to_expand *ves = NULL;

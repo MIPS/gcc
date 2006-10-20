@@ -111,6 +111,9 @@
 /* Define to 1 if you have the <gconv.h> header file. */
 #undef HAVE_GCONV_H
 
+/* Define if _Unwind_GetIPInfo is available. */
+#undef HAVE_GETIPINFO
+
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 
@@ -285,6 +288,9 @@
 
 /* Define to 1 if you have the `sqrtl' function. */
 #undef HAVE_SQRTL
+
+/* Define to 1 if you have the <stdbool.h> header file. */
+#undef HAVE_STDBOOL_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -652,6 +658,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define if builtin atomic operations are supported on this host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS
+
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS
 
@@ -660,6 +669,9 @@
 
 /* Define to 1 if a full hosted library is built, or 0 if freestanding. */
 #undef _GLIBCXX_HOSTED
+
+/* Define if compatibility should be provided for -mlong-double-64. */
+#undef _GLIBCXX_LONG_DOUBLE_COMPAT
 
 /* Define if ptrdiff_t is int. */
 #undef _GLIBCXX_PTRDIFF_T_IS_INT
@@ -707,9 +719,21 @@
    namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_FENV_TR1
 
+/* Define if C99 functions in <inttypes.h> should be imported in
+   <tr1/cinttypes> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_INTTYPES_TR1
+
 /* Define if C99 functions or macros in <math.h> should be imported in <cmath>
    in namespace std. */
 #undef _GLIBCXX_USE_C99_MATH
+
+/* Define if C99 functions or macros in <math.h> should be imported in
+   <tr1/cmath> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_MATH_TR1
+
+/* Define if C99 types in <stdint.h> should be imported in <tr1/cstdint> in
+   namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_STDINT_TR1
 
 /* Define if iconv and related functions exist and are usable. */
 #undef _GLIBCXX_USE_ICONV
@@ -722,6 +746,10 @@
 
 /* Define if NLS translations are to be used. */
 #undef _GLIBCXX_USE_NLS
+
+/* Define if dev/random and dev/urandom are available for the random_device of
+   TR1 (Chapter 5.1). */
+#undef _GLIBCXX_USE_RANDOM_TR1
 
 /* Define if code specialized for wchar_t should be used. */
 #undef _GLIBCXX_USE_WCHAR_T

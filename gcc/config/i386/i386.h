@@ -142,7 +142,7 @@ extern const struct processor_costs *ix86_cost;
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
+extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_himode_fiop, x86_use_simode_fiop;
@@ -164,6 +164,7 @@ extern const int x86_use_bt;
 extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
 extern const int x86_use_incdec;
 extern const int x86_pad_returns;
+extern const int x86_partial_flag_reg_stall;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -174,14 +175,14 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
-#define TARGET_FISTTP (((x86_fisttp & (1 << ix86_arch)) || TARGET_SSE3) \
-			&& TARGET_80387)
+#define TARGET_FISTTP (TARGET_SSE3 && TARGET_80387)
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
 #define TARGET_USE_SAHF ((x86_use_sahf & TUNEMASK) && !TARGET_64BIT)
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
+#define TARGET_PARTIAL_FLAG_REG_STALL (x86_partial_flag_reg_stall & TUNEMASK)
 #define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
 #define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
@@ -273,16 +274,29 @@ extern int x86_prefetch_sse;
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
   optimization_options ((LEVEL), (SIZE))
 
-/* Support for configure-time defaults of some command line options.  */
+/* -march=native handling only makes sense with compiler running on
+   an x86 or x86_64 chip.  If changing this condition, also change
+   the condition in driver-i386.c.  */
+#if defined(__i386__) || defined(__x86_64__)
+/* In driver-i386.c.  */
+extern const char *host_detect_local_cpu (int argc, const char **argv);
+#define EXTRA_SPEC_FUNCTIONS \
+  { "local_cpu_detect", host_detect_local_cpu },
+#define HAVE_LOCAL_CPU_DETECT
+#endif
+
+/* Support for configure-time defaults of some command line options.
+   The order here is important so that -march doesn't squash the
+   tune or cpu values.  */
 #define OPTION_DEFAULT_SPECS \
-  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
   {"tune", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
-  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }
+  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
+  {"arch", "%{!march=*:-march=%(VALUE)}"}
 
 /* Specs for the compiler proper */
 
 #ifndef CC1_CPU_SPEC
-#define CC1_CPU_SPEC "\
+#define CC1_CPU_SPEC_1 "\
 %{!mtune*: \
 %{m386:mtune=i386 \
 %n`-m386' is deprecated. Use `-march=i386' or `-mtune=i386' instead.\n} \
@@ -299,6 +313,14 @@ extern int x86_prefetch_sse;
 %n`-mintel-syntax' is deprecated. Use `-masm=intel' instead.\n} \
 %{mno-intel-syntax:-masm=att \
 %n`-mno-intel-syntax' is deprecated. Use `-masm=att' instead.\n}"
+
+#ifndef HAVE_LOCAL_CPU_DETECT
+#define CC1_CPU_SPEC CC1_CPU_SPEC_1
+#else
+#define CC1_CPU_SPEC CC1_CPU_SPEC_1 \
+"%{march=native:%<march=native %:local_cpu_detect(arch)} \
+%{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
+#endif
 #endif
 
 /* Target CPU builtins.  */
@@ -667,7 +689,9 @@ extern int x86_prefetch_sse;
 
 #define STACK_REGS
 #define IS_STACK_MODE(MODE)					\
-  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode)	\
+  (((MODE) == SFmode && (!TARGET_SSE || !TARGET_SSE_MATH))	\
+   || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
+   || (MODE) == XFmode)
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1194,92 +1218,6 @@ enum reg_class
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
 
-/* Unused letters:
-    B                 TU W   
-          h jk          vw  z
-*/
-
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_LETTER(C)	\
-  ((C) == 'r' ? GENERAL_REGS :					\
-   (C) == 'R' ? LEGACY_REGS :					\
-   (C) == 'q' ? TARGET_64BIT ? GENERAL_REGS : Q_REGS :		\
-   (C) == 'Q' ? Q_REGS :					\
-   (C) == 'f' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FLOAT_REGS					\
-		 : NO_REGS) :					\
-   (C) == 't' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FP_TOP_REG					\
-		 : NO_REGS) :					\
-   (C) == 'u' ? (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387	\
-		 ? FP_SECOND_REG				\
-		 : NO_REGS) :					\
-   (C) == 'a' ? AREG :						\
-   (C) == 'b' ? BREG :						\
-   (C) == 'c' ? CREG :						\
-   (C) == 'd' ? DREG :						\
-   (C) == 'x' ? TARGET_SSE ? SSE_REGS : NO_REGS :		\
-   (C) == 'Y' ? TARGET_SSE2? SSE_REGS : NO_REGS :		\
-   (C) == 'y' ? TARGET_MMX ? MMX_REGS : NO_REGS :		\
-   (C) == 'A' ? AD_REGS :					\
-   (C) == 'D' ? DIREG :						\
-   (C) == 'S' ? SIREG :						\
-   (C) == 'l' ? INDEX_REGS :					\
-   NO_REGS)
-
-/* The letters I, J, K, L, M, N, and O in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C.
-
-   I is for non-DImode shifts.
-   J is for DImode shifts.
-   K is for signed imm8 operands.
-   L is for andsi as zero-extending move.
-   M is for shifts that can be executed by the "lea" opcode.
-   N is for immediate operands for out/in instructions (0-255)
-   O is for TImode shifts.
-   */
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)				\
-  ((C) == 'I' ? (VALUE) >= 0 && (VALUE) <= 31			\
-   : (C) == 'J' ? (VALUE) >= 0 && (VALUE) <= 63			\
-   : (C) == 'K' ? (VALUE) >= -128 && (VALUE) <= 127		\
-   : (C) == 'L' ? (VALUE) == 0xff || (VALUE) == 0xffff		\
-   : (C) == 'M' ? (VALUE) >= 0 && (VALUE) <= 3			\
-   : (C) == 'N' ? (VALUE) >= 0 && (VALUE) <= 255		\
-   : (C) == 'O' ? (VALUE) >= 0 && (VALUE) <= 127		\
-   : 0)
-
-/* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself.  We allow constants even if
-   TARGET_387 isn't set, because the stack register converter may need to
-   load 0.0 into the function value register.  */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)  \
-  ((C) == 'G' ? standard_80387_constant_p (VALUE) \
-   : 0)
-
-/* A C expression that defines the optional machine-dependent
-   constraint letters that can be used to segregate specific types of
-   operands, usually memory references, for the target machine.  Any
-   letter that is not elsewhere defined and not matched by
-   `REG_CLASS_FROM_LETTER' may be used.  Normally this macro will not
-   be defined.
-
-   If it is required for a particular target machine, it should
-   return 1 if VALUE corresponds to the operand type represented by
-   the constraint letter C.  If C is not defined as an extra
-   constraint, the value returned should be 0 regardless of VALUE.  */
-
-#define EXTRA_CONSTRAINT(VALUE, D)					\
-  ((D) == 'e' ? x86_64_immediate_operand (VALUE, VOIDmode)		\
-   : (D) == 'Z' ? x86_64_zext_immediate_operand (VALUE, VOIDmode)	\
-   : (D) == 'C' ? standard_sse_constant_p (VALUE)			\
-   : 0)
-
 /* Place additional restrictions on the register class to use when it
    is necessary to be able to hold a value of mode MODE in a reload
    register for which class CLASS would ordinarily be used.  */
@@ -1305,6 +1243,12 @@ enum reg_class
 
 #define PREFERRED_RELOAD_CLASS(X, CLASS) \
    ix86_preferred_reload_class ((X), (CLASS))
+
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+
+#define PREFERRED_OUTPUT_RELOAD_CLASS(X, CLASS) \
+   ix86_preferred_output_reload_class ((X), (CLASS))
 
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */
@@ -2069,11 +2013,13 @@ do {									\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   ix86_output_addr_diff_elt ((FILE), (VALUE), (REL))
 
-/* Under some conditions we need jump tables in the text section, because
-   the assembler cannot handle label differences between sections.  */
+/* Under some conditions we need jump tables in the text section,
+   because the assembler cannot handle label differences between
+   sections.  This is the case for x86_64 on Mach-O for example.  */
 
 #define JUMP_TABLES_IN_TEXT_SECTION \
-  (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
+  (flag_pic && ((TARGET_MACHO && TARGET_64BIT) \
+   || (!TARGET_64BIT && !HAVE_AS_GOTOFF_IN_DATA)))
 
 /* Switch to init or fini section via SECTION_OP, emit a call to FUNC,
    and switch back.  For x86 we do this only to save a few bytes that
@@ -2206,7 +2152,7 @@ enum ix86_entity
   MAX_386_ENTITIES
 };
 
-enum ix86_stack_slot 
+enum ix86_stack_slot
 {
   SLOT_TEMP = 0,
   SLOT_CW_STORED,

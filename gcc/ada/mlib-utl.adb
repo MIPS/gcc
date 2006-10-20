@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2002-2005, AdaCore                     --
+--                     Copyright (C) 2002-2006, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,7 +38,7 @@ package body MLib.Utl is
 
    Initialized : Boolean := False;
 
-   Gcc_Name : constant String := "gcc";
+   Gcc_Name : constant String := Osint.Program_Name ("gcc").all;
    Gcc_Exec : OS_Lib.String_Access;
 
    Ar_Name    : OS_Lib.String_Access;
@@ -60,10 +60,8 @@ package body MLib.Utl is
       Full_Output_File : constant String :=
                              Ext_To (Output_File, Archive_Ext);
 
-      Arguments : OS_Lib.Argument_List_Access;
-
-      Success   : Boolean;
-
+      Arguments   : OS_Lib.Argument_List_Access;
+      Success     : Boolean;
       Line_Length : Natural := 0;
 
    begin
@@ -128,8 +126,8 @@ package body MLib.Utl is
    -- Delete_File --
    -----------------
 
-   procedure Delete_File (Filename : in String) is
-      File   : constant String := Filename & ASCII.Nul;
+   procedure Delete_File (Filename : String) is
+      File    : constant String := Filename & ASCII.Nul;
       Success : Boolean;
 
    begin
@@ -174,7 +172,8 @@ package body MLib.Utl is
       Lib_Opt : constant OS_Lib.String_Access :=
                   new String'(Dynamic_Option);
 
-      Driver  : String_Access;
+      Driver    : String_Access;
+
    begin
       Utl.Initialize;
 
@@ -258,7 +257,7 @@ package body MLib.Utl is
 
          --  ar
 
-         Ar_Name := new String'(Archive_Builder);
+         Ar_Name := Osint.Program_Name (Archive_Builder);
          Ar_Exec := OS_Lib.Locate_Exec_On_Path (Ar_Name.all);
 
          if Ar_Exec = null then
@@ -273,7 +272,7 @@ package body MLib.Utl is
 
          --  ranlib
 
-         Ranlib_Name := new String'(Archive_Indexer);
+         Ranlib_Name := Osint.Program_Name (Archive_Indexer);
 
          if Ranlib_Name'Length > 0 then
             Ranlib_Exec := OS_Lib.Locate_Exec_On_Path (Ranlib_Name.all);

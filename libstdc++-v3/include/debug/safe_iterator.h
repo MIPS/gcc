@@ -1,6 +1,6 @@
 // Safe iterator implementation  -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -37,10 +37,8 @@
 #include <debug/formatter.h>
 #include <debug/safe_base.h>
 #include <bits/stl_pair.h>
-#include <bits/cpp_type_traits.h>
+#include <ext/type_traits.h>
 
-namespace std
-{
 namespace __gnu_debug
 {
   /** Iterators that derive from _Safe_iterator_base but that aren't
@@ -88,7 +86,7 @@ namespace __gnu_debug
 	return __is_same<const_iterator, _Safe_iterator>::value;
       }
 
-      typedef iterator_traits<_Iterator> _Traits;
+      typedef std::iterator_traits<_Iterator> _Traits;
 
     public:
       typedef _Iterator                           _Base_iterator;
@@ -138,11 +136,9 @@ namespace __gnu_debug
       template<typename _MutableIterator>
         _Safe_iterator(
           const _Safe_iterator<_MutableIterator,
-          typename std::__enable_if<
-                     _Sequence,
-                     (std::__are_same<_MutableIterator,
-                      typename _Sequence::iterator::_Base_iterator>::__value)
-                   >::__type>& __x)
+          typename __gnu_cxx::__enable_if<(std::__are_same<_MutableIterator,
+                      typename _Sequence::iterator::_Base_iterator>::__value),
+                   _Sequence>::__type>& __x)
 	: _Safe_iterator_base(__x, _M_constant()), _M_current(__x.base())
         {
 	  _GLIBCXX_DEBUG_VERIFY(!__x._M_singular(),
@@ -360,16 +356,16 @@ namespace __gnu_debug
      *	precision.
     */
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs)
       {
-        typedef typename iterator_traits<_Iterator1>::iterator_category
+        typedef typename std::iterator_traits<_Iterator1>::iterator_category
 	  _Category;
         return _M_get_distance(__lhs, __rhs, _Category());
       }
 
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs,
 		      std::random_access_iterator_tag)
       {
@@ -377,7 +373,7 @@ namespace __gnu_debug
       }
 
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs,
 		    std::forward_iterator_tag)
       {
@@ -628,7 +624,6 @@ namespace __gnu_debug
 	      const _Safe_iterator<_Iterator, _Sequence>& __i)
     { return __i + __n; }
 } // namespace __gnu_debug
-} // namespace std
 
 #ifndef _GLIBCXX_EXPORT_TEMPLATE
 #  include <debug/safe_iterator.tcc>

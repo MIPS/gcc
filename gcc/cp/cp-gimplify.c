@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -37,30 +37,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 enum bc_t { bc_break = 0, bc_continue = 1 };
 
-static struct cp_gimplify_ctx
-{
-  /* Stack of labels which are targets for "break" or "continue",
-     linked through TREE_CHAIN.  */
-  tree current_label[2];
-} *ctxp;
-
-static void
-push_context (void)
-{
-  gcc_assert (!ctxp);
-  ctxp = ((struct cp_gimplify_ctx *)
-	  xcalloc (1, sizeof (struct cp_gimplify_ctx)));
-}
-
-static void
-pop_context (void)
-{
-  gcc_assert (ctxp
-	      && !ctxp->current_label[0]
-	      && !ctxp->current_label[1]);
-  free (ctxp);
-  ctxp = NULL;
-}
+/* Stack of labels which are targets for "break" or "continue",
+   linked through TREE_CHAIN.  */
+static tree bc_label[2];
 
 /* Begin a scope which can be exited by a break or continue statement.  BC
    indicates which.
@@ -71,8 +50,8 @@ static tree
 begin_bc_block (enum bc_t bc)
 {
   tree label = create_artificial_label ();
-  TREE_CHAIN (label) = ctxp->current_label[bc];
-  ctxp->current_label[bc] = label;
+  TREE_CHAIN (label) = bc_label[bc];
+  bc_label[bc] = label;
   return label;
 }
 
@@ -86,7 +65,7 @@ begin_bc_block (enum bc_t bc)
 static tree
 finish_bc_block (enum bc_t bc, tree label, tree body)
 {
-  gcc_assert (label == ctxp->current_label[bc]);
+  gcc_assert (label == bc_label[bc]);
 
   if (TREE_USED (label))
     {
@@ -99,7 +78,7 @@ finish_bc_block (enum bc_t bc, tree label, tree body)
       body = sl;
     }
 
-  ctxp->current_label[bc] = TREE_CHAIN (label);
+  bc_label[bc] = TREE_CHAIN (label);
   TREE_CHAIN (label) = NULL_TREE;
   return body;
 }
@@ -110,7 +89,7 @@ finish_bc_block (enum bc_t bc, tree label, tree body)
 static tree
 build_bc_goto (enum bc_t bc)
 {
-  tree label = ctxp->current_label[bc];
+  tree label = bc_label[bc];
 
   if (label == NULL_TREE)
     {
@@ -338,6 +317,36 @@ gimplify_switch_stmt (tree *stmt_p)
   *stmt_p = finish_bc_block (bc_break, break_block, *stmt_p);
 }
 
+/* Hook into the middle of gimplifying an OMP_FOR node.  This is required
+   in order to properly gimplify CONTINUE statements.  Here we merely
+   manage the continue stack; the rest of the job is performed by the
+   regular gimplifier.  */
+
+static enum gimplify_status
+cp_gimplify_omp_for (tree *expr_p)
+{
+  tree for_stmt = *expr_p;
+  tree cont_block;
+
+  /* Protect ourselves from recursion.  */
+  if (OMP_FOR_GIMPLIFYING_P (for_stmt))
+    return GS_UNHANDLED;
+  OMP_FOR_GIMPLIFYING_P (for_stmt) = 1;
+
+  /* Note that while technically the continue label is enabled too soon
+     here, we should have already diagnosed invalid continues nested within
+     statement expressions within the INIT, COND, or INCR expressions.  */
+  cont_block = begin_bc_block (bc_continue);
+
+  gimplify_stmt (expr_p);
+
+  OMP_FOR_BODY (for_stmt)
+    = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
+  OMP_FOR_GIMPLIFYING_P (for_stmt) = 0;
+
+  return GS_ALL_DONE;
+}
+
 /*  Gimplify an EXPR_STMT node.  */
 
 static void
@@ -361,7 +370,7 @@ gimplify_expr_stmt (tree *stmt_p)
 	  if (!IS_EMPTY_STMT (stmt)
 	      && !VOID_TYPE_P (TREE_TYPE (stmt))
 	      && !TREE_NO_WARNING (stmt))
-	    warning (0, "statement with no effect");
+	    warning (OPT_Wextra, "statement with no effect");
 	}
       else if (warn_unused_value)
 	warn_if_unused_value (stmt, input_location);
@@ -382,18 +391,15 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   tree to = TREE_OPERAND (*expr_p, 0);
   tree sub;
 
-  /* If we are initializing something from a TARGET_EXPR, strip the
-     TARGET_EXPR and initialize it directly.  */
   /* What about code that pulls out the temp and uses it elsewhere?  I
      think that such code never uses the TARGET_EXPR as an initializer.  If
      I'm wrong, we'll abort because the temp won't have any RTL.  In that
      case, I guess we'll need to replace references somehow.  */
   if (TREE_CODE (from) == TARGET_EXPR)
     from = TARGET_EXPR_INITIAL (from);
-  if (TREE_CODE (from) == CLEANUP_POINT_EXPR)
-    from = TREE_OPERAND (from, 0);
 
-  /* Look through any COMPOUND_EXPRs.  */
+  /* Look through any COMPOUND_EXPRs, since build_compound_expr pushes them
+     inside the TARGET_EXPR.  */
   sub = expr_last (from);
 
   /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
@@ -477,8 +483,10 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_OK;
       break;
 
+      /* We used to do this for MODIFY_EXPR as well, but that's unsafe; the
+	 LHS of an assignment might also be involved in the RHS, as in bug
+	 25979.  */
     case INIT_EXPR:
-    case MODIFY_EXPR:
       cp_gimplify_init_expr (expr_p, pre_p, post_p);
       ret = GS_OK;
       break;
@@ -541,6 +549,10 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_ALL_DONE;
       break;
 
+    case OMP_FOR:
+      ret = cp_gimplify_omp_for (expr_p);
+      break;
+
     case CONTINUE_STMT:
       *expr_p = build_bc_goto (bc_continue);
       ret = GS_ALL_DONE;
@@ -586,6 +598,24 @@ is_invisiref_parm (tree t)
 	  && DECL_BY_REFERENCE (t));
 }
 
+/* Return true if the uid in both int tree maps are equal.  */
+
+int
+cxx_int_tree_map_eq (const void *va, const void *vb)
+{
+  const struct cxx_int_tree_map *a = (const struct cxx_int_tree_map *) va;
+  const struct cxx_int_tree_map *b = (const struct cxx_int_tree_map *) vb;
+  return (a->uid == b->uid);
+}
+
+/* Hash a UID in a cxx_int_tree_map.  */
+
+unsigned int
+cxx_int_tree_map_hash (const void *item)
+{
+  return ((const struct cxx_int_tree_map *)item)->uid;
+}
+
 /* Perform any pre-gimplification lowering of C++ front end trees to
    GENERIC.  */
 
@@ -598,11 +628,30 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
   if (is_invisiref_parm (stmt)
       /* Don't dereference parms in a thunk, pass the references through. */
       && !(DECL_THUNK_P (current_function_decl)
-           && TREE_CODE (stmt) == PARM_DECL))
+	   && TREE_CODE (stmt) == PARM_DECL))
     {
       *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
       return NULL;
+    }
+
+  /* Map block scope extern declarations to visible declarations with the
+     same name and type in outer scopes if any.  */
+  if (cp_function_chain->extern_decl_map
+      && (TREE_CODE (stmt) == FUNCTION_DECL || TREE_CODE (stmt) == VAR_DECL)
+      && DECL_EXTERNAL (stmt))
+    {
+      struct cxx_int_tree_map *h, in;
+      in.uid = DECL_UID (stmt);
+      h = (struct cxx_int_tree_map *)
+	  htab_find_with_hash (cp_function_chain->extern_decl_map,
+			       &in, in.uid);
+      if (h)
+	{
+	  *stmt_p = h->to;
+	  *walk_subtrees = 0;
+	  return NULL;
+	}
     }
 
   /* Other than invisiref parms, don't walk the same tree twice.  */
@@ -684,7 +733,183 @@ cp_genericize (tree fndecl)
   pointer_set_destroy (p_set);
 
   /* Do everything else.  */
-  push_context ();
   c_genericize (fndecl);
-  pop_context ();
+
+  gcc_assert (bc_label[bc_break] == NULL);
+  gcc_assert (bc_label[bc_continue] == NULL);
+}
+
+/* Build code to apply FN to each member of ARG1 and ARG2.  FN may be
+   NULL if there is in fact nothing to do.  ARG2 may be null if FN
+   actually only takes one argument.  */
+
+static tree
+cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
+{
+  tree defparm, parm;
+  int i;
+
+  if (fn == NULL)
+    return NULL;
+
+  defparm = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn)));
+  if (arg2)
+    defparm = TREE_CHAIN (defparm);
+
+  if (TREE_CODE (TREE_TYPE (arg1)) == ARRAY_TYPE)
+    {
+      tree inner_type = TREE_TYPE (arg1);
+      tree start1, end1, p1;
+      tree start2 = NULL, p2 = NULL;
+      tree ret = NULL, lab, t;
+
+      start1 = arg1;
+      start2 = arg2;
+      do
+	{
+	  inner_type = TREE_TYPE (inner_type);
+	  start1 = build4 (ARRAY_REF, inner_type, start1,
+			   size_zero_node, NULL, NULL);
+	  if (arg2)
+	    start2 = build4 (ARRAY_REF, inner_type, start2,
+			     size_zero_node, NULL, NULL);
+	}
+      while (TREE_CODE (inner_type) == ARRAY_TYPE);
+      start1 = build_fold_addr_expr (start1);
+      if (arg2)
+	start2 = build_fold_addr_expr (start2);
+
+      end1 = TYPE_SIZE_UNIT (TREE_TYPE (arg1));
+      end1 = fold_convert (TREE_TYPE (start1), end1);
+      end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
+
+      p1 = create_tmp_var (TREE_TYPE (start1), NULL);
+      t = build2 (MODIFY_EXPR, void_type_node, p1, start1);
+      append_to_statement_list (t, &ret);
+
+      if (arg2)
+	{
+	  p2 = create_tmp_var (TREE_TYPE (start2), NULL);
+	  t = build2 (MODIFY_EXPR, void_type_node, p2, start2);
+	  append_to_statement_list (t, &ret);
+	}
+
+      lab = create_artificial_label ();
+      t = build1 (LABEL_EXPR, void_type_node, lab);
+      append_to_statement_list (t, &ret);
+
+      t = tree_cons (NULL, p1, NULL);
+      if (arg2)
+	t = tree_cons (NULL, p2, t);
+      /* Handle default arguments.  */
+      i = 1 + (arg2 != NULL);
+      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm))
+	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
+						  TREE_PURPOSE (parm),
+						  fn, i++), t);
+      t = build_call (fn, nreverse (t));
+      append_to_statement_list (t, &ret);
+
+      t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
+      t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
+      t = build2 (MODIFY_EXPR, void_type_node, p1, t);
+      append_to_statement_list (t, &ret);
+
+      if (arg2)
+	{
+	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
+	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
+	  t = build2 (MODIFY_EXPR, void_type_node, p2, t);
+	  append_to_statement_list (t, &ret);
+	}
+
+      t = build2 (NE_EXPR, boolean_type_node, p1, end1);
+      t = build3 (COND_EXPR, void_type_node, t, build_and_jump (&lab), NULL);
+      append_to_statement_list (t, &ret);
+
+      return ret;
+    }
+  else
+    {
+      tree t = tree_cons (NULL, build_fold_addr_expr (arg1), NULL);
+      if (arg2)
+	t = tree_cons (NULL, build_fold_addr_expr (arg2), t);
+      /* Handle default arguments.  */
+      i = 1 + (arg2 != NULL);
+      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm))
+	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
+						  TREE_PURPOSE (parm),
+						  fn, i++), t);
+      return build_call (fn, nreverse (t));
+    }
+}
+
+/* Return code to initialize DECL with its default constructor, or
+   NULL if there's nothing to do.  */
+
+tree
+cxx_omp_clause_default_ctor (tree clause, tree decl)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), decl, NULL);
+
+  return ret;
+}
+
+/* Return code to initialize DST with a copy constructor from SRC.  */
+
+tree
+cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), dst, src);
+  if (ret == NULL)
+    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+
+  return ret;
+}
+
+/* Similarly, except use an assignment operator instead.  */
+
+tree
+cxx_omp_clause_assign_op (tree clause, tree dst, tree src)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 2), dst, src);
+  if (ret == NULL)
+    ret = build2 (MODIFY_EXPR, void_type_node, dst, src);
+
+  return ret;
+}
+
+/* Return code to destroy DECL.  */
+
+tree
+cxx_omp_clause_dtor (tree clause, tree decl)
+{
+  tree info = CP_OMP_CLAUSE_INFO (clause);
+  tree ret = NULL;
+
+  if (info)
+    ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 1), decl, NULL);
+
+  return ret;
+}
+
+/* True if OpenMP should privatize what this DECL points to rather
+   than the DECL itself.  */
+
+bool
+cxx_omp_privatize_by_reference (tree decl)
+{
+  return TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl);
 }

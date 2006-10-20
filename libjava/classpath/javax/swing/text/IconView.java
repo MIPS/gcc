@@ -44,7 +44,6 @@ import java.awt.Shape;
 
 import javax.swing.Icon;
 import javax.swing.JTextPane;
-import javax.swing.SwingConstants;
 
 /**
  * A View that can render an icon. This view is created by the
@@ -130,8 +129,6 @@ public class IconView
     throws BadLocationException
   {
     Element el = getElement();
-    if (pos < el.getStartOffset() || pos >= el.getEndOffset())
-      throw new BadLocationException("Illegal offset for this view", pos);
     Rectangle r = a.getBounds();
     Icon icon = StyleConstants.getIcon(el.getAttributes());
     return new Rectangle(r.x, r.y, icon.getIconWidth(), icon.getIconHeight());
@@ -158,4 +155,21 @@ public class IconView
     return el.getStartOffset();
   }
 
+  /**
+   * Returns the alignment for this view. This will be 1.0 for the Y_AXIS,
+   * and the super behaviour for the X_AXIS.
+   *
+   * @param axis the axis for which to calculate the alignment
+   *
+   * @return the alignment
+   */
+  public float getAlignment(int axis)
+  {
+    float align;
+    if (axis == Y_AXIS)
+      align = 1.0F;
+    else
+      align = super.getAlignment(axis);
+    return align;
+  }
 }

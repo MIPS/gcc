@@ -1,5 +1,6 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -240,7 +241,7 @@ insn_sets_btr_p (rtx insn, int check_const, int *regno)
 	  && TEST_HARD_REG_BIT (all_btrs, REGNO (dest)))
 	{
 	  gcc_assert (!btr_referenced_p (src, NULL));
-	  
+
 	  if (!check_const || CONSTANT_P (src))
 	    {
 	      if (regno)
@@ -779,12 +780,12 @@ static void
 build_btr_def_use_webs (fibheap_t all_btr_defs)
 {
   const int max_uid = get_max_uid ();
-  btr_def  *def_array   = xcalloc (max_uid, sizeof (btr_def));
-  btr_user *use_array   = xcalloc (max_uid, sizeof (btr_user));
+  btr_def  *def_array   = XCNEWVEC (btr_def, max_uid);
+  btr_user *use_array   = XCNEWVEC (btr_user, max_uid);
   sbitmap *btr_defset   = sbitmap_vector_alloc (
 			   (last_btr - first_btr) + 1, max_uid);
   sbitmap *bb_gen      = sbitmap_vector_alloc (n_basic_blocks, max_uid);
-  HARD_REG_SET *btrs_written = xcalloc (n_basic_blocks, sizeof (HARD_REG_SET));
+  HARD_REG_SET *btrs_written = XCNEWVEC (HARD_REG_SET, n_basic_blocks);
   sbitmap *bb_kill;
   sbitmap *bb_out;
 
@@ -903,7 +904,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 {
   basic_block *worklist, *tos;
 
-  tos = worklist = xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+  tos = worklist = XNEWVEC (basic_block, n_basic_blocks + 1);
 
   if (dominated_by_p (CDI_DOMINATORS, new_bb, head_bb))
     {
@@ -911,6 +912,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	{
 	  if (full_range)
 	    IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[new_bb->index]);
+	  free (tos);
 	  return;
 	}
       *tos++ = new_bb;
@@ -922,12 +924,12 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
       int new_block = new_bb->index;
 
       gcc_assert (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb));
-  
+
       IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[head_bb->index]);
       bitmap_set_bit (live_range, new_block);
       /* A previous btr migration could have caused a register to be
-        live just at the end of new_block which we need in full, so
-        use trs_live_at_end even if full_range is set.  */
+	live just at the end of new_block which we need in full, so
+	use trs_live_at_end even if full_range is set.  */
       IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live_at_end[new_block]);
       if (full_range)
 	IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[new_block]);
@@ -1190,7 +1192,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
       insp = BB_END (b);
       for (insp = BB_END (b); ! INSN_P (insp); insp = PREV_INSN (insp))
 	gcc_assert (insp != BB_HEAD (b));
-      
+
       if (JUMP_P (insp) || can_throw_internal (insp))
 	insp = PREV_INSN (insp);
     }
@@ -1337,6 +1339,15 @@ migrate_btr_def (btr_def def, int min_cost)
       /* Try to move the instruction that sets the target register into
 	 basic block TRY.  */
       int try_freq = basic_block_freq (try);
+      edge_iterator ei;
+      edge e;
+
+      /* If TRY has abnormal edges, skip it.  */
+      FOR_EACH_EDGE (e, ei, try->succs)
+	if (e->flags & EDGE_COMPLEX)
+	  break;
+      if (e)
+	continue;
 
       if (dump_file)
 	fprintf (dump_file, "trying block %d ...", try->index);
@@ -1467,7 +1478,7 @@ branch_target_load_optimize (bool after_prologue_epilogue_gen)
       cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
 #endif
 
-      life_analysis (NULL, 0);
+      life_analysis (0);
 
       /* Dominator info is also needed for migrate_btr_def.  */
       calculate_dominance_info (CDI_DOMINATORS);
@@ -1489,7 +1500,7 @@ gate_handle_branch_target_load_optimize (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_branch_target_load_optimize (void)
 {
   static int warned = 0;
@@ -1502,12 +1513,13 @@ rest_of_handle_branch_target_load_optimize (void)
       && !warned)
     {
       warning (0, "branch target register load optimization is not intended "
-                  "to be run twice");
+		  "to be run twice");
 
       warned = 1;
     }
 
   branch_target_load_optimize (epilogue_completed);
+  return 0;
 }
 
 struct tree_opt_pass pass_branch_target_load_optimize =
@@ -1518,7 +1530,7 @@ struct tree_opt_pass pass_branch_target_load_optimize =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,		                        /* tv_id */
+  0,					/* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

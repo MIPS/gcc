@@ -50,11 +50,21 @@ static struct bucket **table;
 void
 debug_tree (tree node)
 {
-  table = xcalloc (HASH_SIZE, sizeof (struct bucket *));
+  table = XCNEWVEC (struct bucket *, HASH_SIZE);
   print_node (stderr, "", node, 0);
   free (table);
   table = 0;
   putc ('\n', stderr);
+}
+
+/* Print PREFIX and ADDR to FILE.  */
+void
+dump_addr (FILE *file, const char *prefix, void *addr)
+{
+  if (flag_dump_noaddr || flag_dump_unnumbered)
+    fprintf (file, "%s#", prefix);
+  else
+    fprintf (file, "%s%p", prefix, addr);
 }
 
 /* Print a node in brief fashion, with just the code, address and name.  */
@@ -73,8 +83,8 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s %p",
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (char *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   if (class == tcc_declaration)
     {
@@ -128,7 +138,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 
       d = TREE_REAL_CST (node);
       if (REAL_VALUE_ISINF (d))
-	fprintf (file, " Inf");
+	fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
       else if (REAL_VALUE_ISNAN (d))
 	fprintf (file, " Nan");
       else
@@ -209,7 +219,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       }
 
   /* Add this node to the table.  */
-  b = xmalloc (sizeof (struct bucket));
+  b = XNEW (struct bucket);
   b->node = node;
   b->next = table[hash];
   table[hash] = b;
@@ -218,8 +228,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s %p",
-	   prefix, tree_code_name[(int) TREE_CODE (node)], (void *) node);
+  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  dump_addr (file, " ", node);
 
   /* Print the name, if any.  */
   if (class == tcc_declaration)
@@ -458,6 +468,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  print_node (file, "offset", DECL_FIELD_OFFSET (node), indent + 4);
 	  print_node (file, "bit offset", DECL_FIELD_BIT_OFFSET (node),
 		      indent + 4);
+	  if (DECL_BIT_FIELD_TYPE (node))
+	    print_node (file, "bit_field_type", DECL_BIT_FIELD_TYPE (node),
+			indent + 4);
 	}
 
       print_node_brief (file, "context", DECL_CONTEXT (node), indent + 4);
@@ -502,14 +515,22 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
 	  indent_to (file, indent + 4);
-	  fprintf (file, "saved-insns %p",
-		   (void *) DECL_STRUCT_FUNCTION (node));
+	  dump_addr (file, "saved-insns ", DECL_STRUCT_FUNCTION (node));
 	}
 
       if ((TREE_CODE (node) == VAR_DECL || TREE_CODE (node) == PARM_DECL)
 	  && DECL_HAS_VALUE_EXPR_P (node))
 	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
 
+      if (TREE_CODE (node) == STRUCT_FIELD_TAG)
+	{
+	  fprintf (file, " sft size " HOST_WIDE_INT_PRINT_DEC, 
+		   SFT_SIZE (node));
+	  fprintf (file, " sft offset " HOST_WIDE_INT_PRINT_DEC,
+		   SFT_OFFSET (node));
+	  print_node_brief (file, "parent var", SFT_PARENT_VAR (node), 
+			    indent + 4);
+	}
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -688,7 +709,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    d = TREE_REAL_CST (node);
 	    if (REAL_VALUE_ISINF (d))
-	      fprintf (file, " Inf");
+	      fprintf (file,  REAL_VALUE_NEGATIVE (d) ? " -Inf" : " Inf");
 	    else if (REAL_VALUE_ISNAN (d))
 	      fprintf (file, " Nan");
 	    else
@@ -766,15 +787,16 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
     	case STATEMENT_LIST:
-	  fprintf (file, " head %p tail %p stmts",
-		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
+	  dump_addr (file, " head ", node->stmt_list.head);
+	  dump_addr (file, " tail ", node->stmt_list.tail);
+	  fprintf (file, " stmts");
 	  {
 	    tree_stmt_iterator i;
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
 	      {
 		/* Not printing the addresses of the (not-a-tree)
 		   'struct tree_stmt_list_node's.  */
-		fprintf (file, " %p", (void *)tsi_stmt (i));
+		dump_addr (file, " ", tsi_stmt (i));
 	      }
 	    fprintf (file, "\n");
 	    for (i = tsi_start (node); !tsi_end_p (i); tsi_next (&i))
@@ -810,18 +832,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fprintf (file, " in-free-list");
 
 	  if (SSA_NAME_PTR_INFO (node)
-	      || SSA_NAME_VALUE (node)
-	      || SSA_NAME_AUX (node))
+	      || SSA_NAME_VALUE (node))
 	    {
 	      indent_to (file, indent + 3);
 	      if (SSA_NAME_PTR_INFO (node))
-		fprintf (file, " ptr-info %p",
-			 (void *) SSA_NAME_PTR_INFO (node));
+		dump_addr (file, " ptr-info ", SSA_NAME_PTR_INFO (node));
 	      if (SSA_NAME_VALUE (node))
-		fprintf (file, " value %p",
-			 (void *) SSA_NAME_VALUE (node));
-	      if (SSA_NAME_AUX (node))
-		fprintf (file, " aux %p", SSA_NAME_AUX (node));
+		dump_addr (file, " value ", SSA_NAME_VALUE (node));
 	    }
 	  break;
 

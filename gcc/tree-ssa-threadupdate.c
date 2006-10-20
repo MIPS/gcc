@@ -1,5 +1,5 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -131,8 +131,6 @@ struct redirection_data
 /* Main data structure to hold information for duplicates of BB.  */
 static htab_t redirection_data;
 
-bool rediscover_loops_after_threading;
-
 /* Data structure of information to pass to hash table traversal routines.  */
 struct local_info
 {
@@ -253,7 +251,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
 
  /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct redirection_data));
+  elt = XNEW (struct redirection_data);
   elt->outgoing_edge = e;
   elt->dup_block = NULL;
   elt->do_not_duplicate = false;
@@ -274,7 +272,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
   if (*slot == NULL)
     {
       *slot = (void *)elt;
-      elt->incoming_edges = xmalloc (sizeof (struct el));
+      elt->incoming_edges = XNEW (struct el);
       elt->incoming_edges->e = incoming_edge;
       elt->incoming_edges->next = NULL;
       return elt;
@@ -293,7 +291,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
 	 to the list of incoming edges associated with E.  */
       if (insert)
 	{
-          struct el *el = xmalloc (sizeof (struct el));
+          struct el *el = XNEW (struct el);
 	  el->next = elt->incoming_edges;
 	  el->e = incoming_edge;
 	  elt->incoming_edges = el;
@@ -654,6 +652,33 @@ redirect_edges (void **slot, void *data)
   return 1;
 }
 
+/* Return true if this block has no executable statements other than
+   a simple ctrl flow instruction.  When the number of outgoing edges
+   is one, this is equivalent to a "forwarder" block.  */
+
+static bool
+redirection_block_p (basic_block bb)
+{
+  block_stmt_iterator bsi;
+
+  /* Advance to the first executable statement.  */
+  bsi = bsi_start (bb);
+  while (!bsi_end_p (bsi)
+          && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
+              || IS_EMPTY_STMT (bsi_stmt (bsi))))
+    bsi_next (&bsi);
+
+  /* Check if this is an empty block.  */
+  if (bsi_end_p (bsi))
+    return true;
+
+  /* Test that we've reached the terminating control statement.  */
+  return bsi_stmt (bsi)
+	 && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
+	     || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
+	     || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR);
+}
+
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB
    is reached via one or more specific incoming edges, we know which
    outgoing edge from BB will be traversed.
@@ -701,6 +726,17 @@ thread_block (basic_block bb)
      be threaded to a duplicate of BB.  */
   bool all = true;
 
+  /* If optimizing for size, only thread this block if we don't have
+     to duplicate it or it's an otherwise empty redirection block.  */
+  if (optimize_size
+      && EDGE_COUNT (bb->preds) > 1
+      && !redirection_block_p (bb))
+    {
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	e->aux = NULL;
+      return false;
+    }
+
   /* To avoid scanning a linear array for the element we need we instead
      use a hash table.  For normal code there should be no noticeable
      difference.  However, if we have a block with a large number of
@@ -734,30 +770,6 @@ thread_block (basic_block bb)
 	  edge e2 = e->aux;
 	  update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
 					   e->count, e->aux);
-
-	  /* If we thread to a loop exit edge, then we will need to 
-	     rediscover the loop exit edges.  While it may seem that
-	     the new edge is a loop exit edge, that is not the case.
-	     Consider threading the edge (5,6) to E in the CFG on the
-	     left which creates the CFG on the right:
-
-
-                      0<--+            0<---+
-                     / \  |           / \   |
-                    1   2 |          1   2  |
-                   / \  | |         / \  |  |
-                  3   4 | |        3   4 6--+
-                   \ /  | |         \ /
-                    5   | |          5
-                     \ /  |          |
-                      6---+          E
-                      |
-                      E
-
-	     After threading, the edge (0, 1)  is the loop exit edge and
-	     the nodes 0, 2, 6 are the only nodes in the loop.  */
-	  if (e2->flags & EDGE_LOOP_EXIT)
-	    rediscover_loops_after_threading = true;
 
 	  /* Insert the outgoing edge into the hash table if it is not
 	     already in the hash table.  */
@@ -811,7 +823,7 @@ thread_block (basic_block bb)
 }
 
 /* Walk through the registered jump threads and convert them into a
-   form convienent for this pass.
+   form convenient for this pass.
 
    Any block which has incoming edges threaded to outgoing edges
    will have its entry in THREADED_BLOCK set.
@@ -859,7 +871,6 @@ thread_through_all_blocks (void)
     return false;
 
   threaded_blocks = BITMAP_ALLOC (NULL);
-  rediscover_loops_after_threading = false;
   memset (&thread_stats, 0, sizeof (thread_stats));
 
   mark_threaded_blocks (threaded_blocks);

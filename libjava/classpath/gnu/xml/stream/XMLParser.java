@@ -56,6 +56,8 @@ package gnu.xml.stream;
 import java.io.BufferedInputStream;
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
@@ -86,6 +88,8 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 
 import gnu.java.net.CRLFInputStream;
+import gnu.classpath.debug.TeeInputStream;
+import gnu.classpath.debug.TeeReader;
 
 /**
  * An XML parser.
@@ -136,6 +140,10 @@ public class XMLParser
   final static int ATTRIBUTE_DEFAULT_IMPLIED = 32;
   final static int ATTRIBUTE_DEFAULT_REQUIRED = 33;
   final static int ATTRIBUTE_DEFAULT_FIXED = 34;
+
+  // -- additional event types --
+  final static int START_ENTITY = 50;
+  final static int END_ENTITY = 51;
 
   /**
    * The current input.
@@ -318,6 +326,12 @@ public class XMLParser
   private final boolean baseAware;
 
   /**
+   * Whether to report extended event types (START_ENTITY and END_ENTITY)
+   * in addition to the standard event types. Used by the SAX parser.
+   */
+  private final boolean extendedEventTypes;
+
+  /**
    * The reporter to receive parsing warnings.
    */
   final XMLReporter reporter;
@@ -389,6 +403,7 @@ public class XMLParser
                    boolean supportDTD,
                    boolean baseAware,
                    boolean stringInterning,
+                   boolean extendedEventTypes,
                    XMLReporter reporter,
                    XMLResolver resolver)
   {
@@ -400,6 +415,7 @@ public class XMLParser
     this.supportDTD = supportDTD;
     this.baseAware = baseAware;
     this.stringInterning = stringInterning;
+    this.extendedEventTypes = extendedEventTypes;
     this.reporter = reporter;
     this.resolver = resolver;
     if (validating)
@@ -407,6 +423,21 @@ public class XMLParser
         validationStack = new LinkedList();
         ids = new HashSet();
         idrefs = new HashSet();
+      }
+    String debug = System.getProperty("gnu.xml.debug.input");
+    if (debug != null)
+      {
+        try
+          {
+            File file = File.createTempFile(debug, ".xml");
+            in = new TeeInputStream(in, new FileOutputStream(file));
+          }
+        catch (IOException e)
+          {
+            RuntimeException e2 = new RuntimeException();
+            e2.initCause(e);
+            throw e2;
+          }
       }
     pushInput(new Input(in, null, null, systemId, null, null, false, true));
   }
@@ -446,6 +477,7 @@ public class XMLParser
                    boolean supportDTD,
                    boolean baseAware,
                    boolean stringInterning,
+                   boolean extendedEventTypes,
                    XMLReporter reporter,
                    XMLResolver resolver)
   {
@@ -457,6 +489,7 @@ public class XMLParser
     this.supportDTD = supportDTD;
     this.baseAware = baseAware;
     this.stringInterning = stringInterning;
+    this.extendedEventTypes = extendedEventTypes;
     this.reporter = reporter;
     this.resolver = resolver;
     if (validating)
@@ -464,6 +497,21 @@ public class XMLParser
         validationStack = new LinkedList();
         ids = new HashSet();
         idrefs = new HashSet();
+      }
+    String debug = System.getProperty("gnu.xml.debug.input");
+    if (debug != null)
+      {
+        try
+          {
+            File file = File.createTempFile(debug, ".xml");
+            reader = new TeeReader(reader, new FileWriter(file));
+          }
+        catch (IOException e)
+          {
+            RuntimeException e2 = new RuntimeException();
+            e2.initCause(e);
+            throw e2;
+          }
       }
     pushInput(new Input(null, reader, null, systemId, null, null, false, true));
   }
@@ -561,7 +609,7 @@ public class XMLParser
     return attrs.size();
   }
 
-  public String getAttributeName(int index)
+  public String getAttributeLocalName(int index)
   {
     Attribute a = (Attribute) attrs.get(index);
     return a.localName;
@@ -579,7 +627,7 @@ public class XMLParser
     return a.prefix;
   }
 
-  public QName getAttributeQName(int index)
+  public QName getAttributeName(int index)
   {
     Attribute a = (Attribute) attrs.get(index);
     String namespaceURI = getNamespaceURI(a.prefix);
@@ -710,7 +758,7 @@ public class XMLParser
 
   public int getNamespaceCount()
   {
-    if (!namespaceAware)
+    if (!namespaceAware || namespaces.isEmpty())
       return 0;
     switch (event)
       {
@@ -984,10 +1032,10 @@ public class XMLParser
     if (event == XMLStreamConstants.END_ELEMENT)
       {
         // Pop namespace context
-        if (namespaceAware)
+        if (namespaceAware && !namespaces.isEmpty())
           namespaces.removeFirst();
         // Pop base context
-        if (baseAware)
+        if (baseAware && !bases.isEmpty())
           bases.removeFirst();
       }
     if (!startEntityStack.isEmpty())
@@ -995,16 +1043,16 @@ public class XMLParser
         String entityName = (String) startEntityStack.removeFirst();
         buf.setLength(0);
         buf.append(entityName);
-        event = XMLStreamConstants.START_ENTITY;
-        return event;
+        event = START_ENTITY;
+        return extendedEventTypes ? event : next();
       }
     else if (!endEntityStack.isEmpty())
       {
         String entityName = (String) endEntityStack.removeFirst();
         buf.setLength(0);
         buf.append(entityName);
-        event = XMLStreamConstants.END_ENTITY;
-        return event;
+        event = END_ENTITY;
+        return extendedEventTypes ? event : next();
       }
     try
       {
@@ -1318,6 +1366,15 @@ public class XMLParser
         return false;
       }
     count += l2;
+    // check the characters we received first before doing additional reads
+    for (int i = 0; i < count; i++)
+      {
+        if (chars[i] != tmpBuf[i])
+          {
+            reset();
+            return false;
+          }
+      }
     while (count < len)
       {
         // force read
@@ -1327,15 +1384,14 @@ public class XMLParser
             reset();
             return false;
           }
-        tmpBuf[count++] = (char) c;
-      }
-    for (int i = 0; i < len; i++)
-      {
-        if (chars[i] != tmpBuf[i])
+        tmpBuf[count] = (char) c;
+        // check each character as it is read
+        if (chars[count] != tmpBuf[count])
           {
             reset();
             return false;
           }
+        count++;
       }
     return true;
   }
@@ -1484,7 +1540,6 @@ public class XMLParser
   {
     if (!externalEntities)
       return;
-    InputStream in = null;
     String url = absolutize(input.systemId, ids.systemId);
     // Check for recursion
     for (Iterator i = inputStack.iterator(); i.hasNext(); )
@@ -1497,12 +1552,13 @@ public class XMLParser
       }
     if (name == null || "".equals(name))
       report = false;
-    if (in == null && url != null && resolver != null)
+    InputStream in = null;
+    if (resolver != null)
       {
-        if (resolver instanceof XMLResolver2)
-          in = ((XMLResolver2) resolver).resolve(ids.publicId, url);
-        else
-          in = resolver.resolve(url);
+        Object obj = resolver.resolveEntity(ids.publicId, url, getXMLBase(),
+                                            null);
+        if (obj instanceof InputStream)
+          in = (InputStream) obj;
       }
     if (in == null)
       in = resolve(url);
@@ -1535,12 +1591,13 @@ public class XMLParser
    * @param base the current base URL
    * @param href the (absolute or relative) URL to resolve
    */
-  static String absolutize(String base, String href)
+  public static String absolutize(String base, String href)
+    throws MalformedURLException
   {
     if (href == null)
       return null;
     int ci = href.indexOf(':');
-    if (ci > 1 && isLowercaseAscii(href.substring(0, ci)))
+    if (ci > 1 && isURLScheme(href.substring(0, ci)))
       {
         // href is absolute already
         return href;
@@ -1565,40 +1622,23 @@ public class XMLParser
         if (!base.endsWith("/"))
           base += "/";
       }
-    if (href.startsWith("/"))
-      {
-        if (base.startsWith("file:"))
-          return "file://" + href;
-        int i = base.indexOf("://");
-        if (i != -1)
-          {
-            i = base.indexOf('/', i + 3);
-            if (i != -1)
-              base = base.substring(0, i);
-          }
-      }
-    else
-      {
-        while (href.startsWith(".."))
-          {
-            int i = base.lastIndexOf('/', base.length() - 2);
-            if (i != -1)
-              base = base.substring(0, i + 1);
-            href = href.substring(2);
-            if (href.startsWith("/"))
-              href = href.substring(1);
-          }
-      }
-    return base + href;
+    return new URL(new URL(base), href).toString();
   }
 
-  private static boolean isLowercaseAscii(String text)
+  /**
+   * Indicates whether the specified characters match the scheme portion of
+   * a URL.
+   * @see RFC 1738 section 2.1
+   */
+  private static boolean isURLScheme(String text)
   {
     int len = text.length();
     for (int i = 0; i < len; i++)
       {
         char c = text.charAt(i);
-        if (c < 97 || c > 122)
+        if (c == '+' || c == '.' || c == '-')
+          continue;
+        if (c < 65 || (c > 90 && c < 97) || c > 122)
           return false;
       }
     return true;
@@ -1607,7 +1647,7 @@ public class XMLParser
   /**
    * Returns an input stream for the given URL.
    */
-  private InputStream resolve(String url)
+  static InputStream resolve(String url)
     throws IOException
   {
     try
@@ -1617,6 +1657,12 @@ public class XMLParser
     catch (MalformedURLException e)
       {
         return null;
+      }
+    catch (IOException e)
+      {
+        IOException e2 = new IOException("error resolving " + url);
+        e2.initCause(e);
+        throw e2;
       }
   }
 
@@ -1891,7 +1937,10 @@ public class XMLParser
     throws IOException, XMLStreamException
   {
     requireWhitespace();
+    boolean saved = expandPE;
+    expandPE = (inputStack.size() > 1);
     String name = readNmtoken(true);
+    expandPE = saved;
     requireWhitespace();
     readContentspec(name);
     skipWhitespace();
@@ -2106,7 +2155,10 @@ public class XMLParser
     throws IOException, XMLStreamException
   {
     requireWhitespace();
+    boolean saved = expandPE;
+    expandPE = (inputStack.size() > 1);
     String elementName = readNmtoken(true);
+    expandPE = saved;
     boolean white = tryWhitespace();
     while (!tryRead('>'))
       {
@@ -2419,11 +2471,11 @@ public class XMLParser
               }
             else
               {
-                if (!isNameStartCharacter(cp[0]))
+                if (!isNameStartCharacter(cp[0], input.xml11))
                   error("malformed reference in entity value", value);
                 for (int i = 1; i < cp.length; i++)
                   {
-                    if (!isNameCharacter(cp[i]))
+                    if (!isNameCharacter(cp[i], input.xml11))
                       error("malformed reference in entity value", value);
                   }
               }
@@ -2838,8 +2890,6 @@ public class XMLParser
           error("Duplicate default namespace declaration");
         if (XMLConstants.XML_NS_URI.equals(attr.value))
           error("can't bind XML namespace");
-        if ("".equals(attr.value) && !input.xml11)
-          error("illegal use of 1.1-style prefix unbinding in 1.0 document");
         ctx.put(XMLConstants.DEFAULT_NS_PREFIX, attr.value);
         return true;
       }
@@ -3087,7 +3137,15 @@ public class XMLParser
                 break;
               case 0x3c: // '<'
                 reset();
-                read(tmpBuf, 0, i);
+                // read i characters
+                int count = 0, remaining = i;
+                do
+                  {
+                    int r = read(tmpBuf, 0, remaining);
+                    count += r;
+                    remaining -= r;
+                  }
+                while (count < i);
                 i = len;
                 if (coalescing && tryRead(TEST_CDATA))
                   readUntil(TEST_END_CDATA); // read CDATA section into buf
@@ -3258,15 +3316,7 @@ public class XMLParser
                       reset();
                     char[] ref = readCharacterRef(hex ? 16 : 10);
                     for (int i = 0; i < ref.length; i++)
-                      {
-                        char x = ref[i];
-                        if ((flags & (LIT_ATTRIBUTE | LIT_PUBID)) != 0 &&
-                            (x == 0x0a || x == 0x0d))
-                          x = 0x20; // normalize
-                        else if ((flags & LIT_ATTRIBUTE) != 0 && x == 0x09)
-                          x = 0x20; // normalize
-                        literalBuf.append(x);
-                      }
+                      literalBuf.append(ref[i]);
                     entities = true;
                     continue;
                   }
@@ -3469,13 +3519,13 @@ public class XMLParser
     int c = readCh();
     if (isName)
       {
-        if (!isNameStartCharacter(c))
+        if (!isNameStartCharacter(c, input.xml11))
           error("not a name start character",
                 "U+" + Integer.toHexString(c));
       }
     else
       {
-        if (!isNameCharacter(c))
+        if (!isNameCharacter(c, input.xml11))
           error("not a name character",
                 "U+" + Integer.toHexString(c));
       }
@@ -3510,7 +3560,7 @@ public class XMLParser
             reset();
             return intern(buf.toString());
           default:
-            if (!isNameCharacter(c))
+            if (!isNameCharacter(c, input.xml11))
               error("not a name character",
                     "U+" + Integer.toHexString(c));
             else
@@ -3523,10 +3573,10 @@ public class XMLParser
   /**
    * Indicates whether the specified Unicode character is an XML 1.1 Char.
    */
-  private boolean isXML11Char(int c)
+  public static boolean isXML11Char(int c)
   {
     return ((c >= 0x0001 && c <= 0xD7FF) ||
-            (c >= 0xE000 && c < 0xFFFD) || // NB exclude 0xfffd
+            (c >= 0xE000 && c < 0xFFFE) ||
             (c >= 0x10000 && c <= 0x10FFFF));
   }
 
@@ -3534,7 +3584,7 @@ public class XMLParser
    * Indicates whether the specified Unicode character is an XML 1.1
    * RestrictedChar.
    */
-  private boolean isXML11RestrictedChar(int c)
+  public static boolean isXML11RestrictedChar(int c)
   {
     return ((c >= 0x0001 && c <= 0x0008) ||
             (c >= 0x000B && c <= 0x000C) ||
@@ -3556,17 +3606,17 @@ public class XMLParser
           return false;
         if (isName)
           {
-            if (!isNameStartCharacter(cp[0]))
+            if (!isNameStartCharacter(cp[0], input.xml11))
               return false;
           }
         else
           {
-            if (!isNameCharacter(cp[0]))
+            if (!isNameCharacter(cp[0], input.xml11))
               return false;
           }
         for (int i = 1; i < cp.length; i++)
           {
-            if (!isNameCharacter(cp[i]))
+            if (!isNameCharacter(cp[i], input.xml11))
               return false;
           }
         return true;
@@ -3581,9 +3631,9 @@ public class XMLParser
    * Indicates whether the specified Unicode character is a Name start
    * character.
    */
-  private boolean isNameStartCharacter(int c)
+  public static boolean isNameStartCharacter(int c, boolean xml11)
   {
-    if (input.xml11)
+    if (xml11)
       return ((c >= 0x0041 && c <= 0x005a) ||
               (c >= 0x0061 && c <= 0x007a) ||
               c == 0x3a |
@@ -3608,9 +3658,9 @@ public class XMLParser
    * Indicates whether the specified Unicode character is a Name non-initial
    * character.
    */
-  private boolean isNameCharacter(int c)
+  public static boolean isNameCharacter(int c, boolean xml11)
   {
-    if (input.xml11)
+    if (xml11)
       return ((c >= 0x0041 && c <= 0x005a) ||
               (c >= 0x0061 && c <= 0x007a) ||
               (c >= 0x0030 && c <= 0x0039) ||
@@ -4006,7 +4056,7 @@ public class XMLParser
   public static boolean isChar(int c)
   {
     return (c >= 0x20 && c < 0xd800) ||
-      (c >= 0xe00 && c < 0xfffd) || // NB exclude 0xfffd
+      (c >= 0xe00 && c < 0xfffe) ||
       (c >= 0x10000 && c < 0x110000) ||
       c == 0xa || c == 0x9 || c == 0xd;
   }
@@ -4242,96 +4292,131 @@ public class XMLParser
   public static void main(String[] args)
     throws Exception
   {
+    boolean validating = false;
+    boolean namespaceAware = false;
     boolean xIncludeAware = false;
-    if (args.length > 1 && "-x".equals(args[1]))
-      xIncludeAware = true;
-    XMLParser p = new XMLParser(new java.io.FileInputStream(args[0]),
-                                absolutize(null, args[0]),
-                                true, // validating
-                                true, // namespaceAware
-                                true, // coalescing,
-                                true, // replaceERefs
-                                true, // externalEntities
-                                true, // supportDTD
-                                true, // baseAware
-                                true, // stringInterning
-                                null,
-                                null);
-    XMLStreamReader reader = p;
-    if (xIncludeAware)
-      reader = new XIncludeFilter(p, args[0], true, true, true);
-    try
+    int pos = 0;
+    while (pos < args.length && args[pos].startsWith("-"))
       {
-        int event;
-        //do
-        while (reader.hasNext())
+        if ("-x".equals(args[pos]))
+          xIncludeAware = true;
+        else if ("-v".equals(args[pos]))
+          validating = true;
+        else if ("-n".equals(args[pos]))
+          namespaceAware = true;
+        pos++;
+      }
+    if (pos >= args.length)
+      {
+        System.out.println("Syntax: XMLParser [-n] [-v] [-x] <file> [<file2> [...]]");
+        System.out.println("\t-n: use namespace aware mode");
+        System.out.println("\t-v: use validating parser");
+        System.out.println("\t-x: use XInclude aware mode");
+        System.exit(2);
+      }
+    while (pos < args.length)
+      {
+        XMLParser p = new XMLParser(new java.io.FileInputStream(args[pos]),
+                                    absolutize(null, args[pos]),
+                                    validating, // validating
+                                    namespaceAware, // namespaceAware
+                                    true, // coalescing,
+                                    true, // replaceERefs
+                                    true, // externalEntities
+                                    true, // supportDTD
+                                    true, // baseAware
+                                    true, // stringInterning
+                                    true, // extendedEventTypes
+                                    null,
+                                    null);
+        XMLStreamReader reader = p;
+        if (xIncludeAware)
+          reader = new XIncludeFilter(p, args[pos], true, true, true);
+        try
           {
-            event = reader.next();
-            Location loc = reader.getLocation();
-            System.out.print(loc.getLineNumber()+":"+loc.getColumnNumber()+" ");
-            switch (event)
+            int event;
+            //do
+            while (reader.hasNext())
               {
-              case XMLStreamConstants.START_DOCUMENT:
-                System.out.println("START_DOCUMENT version="+reader.getVersion()+
-                                   " encoding="+reader.getEncoding());
-                break;
-              case XMLStreamConstants.END_DOCUMENT:
-                System.out.println("END_DOCUMENT");
-                break;
-              case XMLStreamConstants.START_ELEMENT:
-                System.out.println("START_ELEMENT "+reader.getName());
-                int l = reader.getNamespaceCount();
-                for (int i = 0; i < l; i++)
-                  System.out.println("\tnamespace "+reader.getNamespacePrefix(i)+
-                                     "='"+reader.getNamespaceURI(i)+"'");
-                l = reader.getAttributeCount();
-                for (int i = 0; i < l; i++)
-                  System.out.println("\tattribute "+reader.getAttributeQName(i)+
-                                     "='"+reader.getAttributeValue(i)+"'");
-                break;
-              case XMLStreamConstants.END_ELEMENT:
-                System.out.println("END_ELEMENT "+reader.getName());
-                break;
-              case XMLStreamConstants.CHARACTERS:
-                System.out.println("CHARACTERS '"+encodeText(reader.getText())+"'");
-                break;
-              case XMLStreamConstants.CDATA:
-                System.out.println("CDATA '"+encodeText(reader.getText())+"'");
-                break;
-              case XMLStreamConstants.SPACE:
-                System.out.println("SPACE '"+encodeText(reader.getText())+"'");
-                break;
-              case XMLStreamConstants.DTD:
-                System.out.println("DTD "+reader.getText());
-                break;
-              case XMLStreamConstants.ENTITY_REFERENCE:
-                System.out.println("ENTITY_REFERENCE "+reader.getText());
-                break;
-              case XMLStreamConstants.COMMENT:
-                System.out.println("COMMENT '"+encodeText(reader.getText())+"'");
-                break;
-              case XMLStreamConstants.PROCESSING_INSTRUCTION:
-                System.out.println("PROCESSING_INSTRUCTION "+reader.getPITarget()+
-                                   " "+reader.getPIData());
-                break;
-              case XMLStreamConstants.START_ENTITY:
-                System.out.println("START_ENTITY "+reader.getText());
-                break;
-              case XMLStreamConstants.END_ENTITY:
-                System.out.println("END_ENTITY "+reader.getText());
-                break;
-              default:
-                System.out.println("Unknown event: "+event);
+                event = reader.next();
+                Location loc = reader.getLocation();
+                System.out.print(loc.getLineNumber() + ":" + 
+                                 loc.getColumnNumber() + " ");
+                switch (event)
+                  {
+                  case XMLStreamConstants.START_DOCUMENT:
+                    System.out.println("START_DOCUMENT version=" +
+                                       reader.getVersion() +
+                                       " encoding=" +
+                                       reader.getEncoding());
+                    break;
+                  case XMLStreamConstants.END_DOCUMENT:
+                    System.out.println("END_DOCUMENT");
+                    break;
+                  case XMLStreamConstants.START_ELEMENT:
+                    System.out.println("START_ELEMENT " +
+                                       reader.getName());
+                    int l = reader.getNamespaceCount();
+                    for (int i = 0; i < l; i++)
+                      System.out.println("\tnamespace " +
+                                         reader.getNamespacePrefix(i) + "='" +
+                                         reader.getNamespaceURI(i)+"'");
+                    l = reader.getAttributeCount();
+                    for (int i = 0; i < l; i++)
+                      System.out.println("\tattribute " +
+                                         reader.getAttributeName(i) + "='" +
+                                         reader.getAttributeValue(i) + "'");
+                    break;
+                  case XMLStreamConstants.END_ELEMENT:
+                    System.out.println("END_ELEMENT " + reader.getName());
+                    break;
+                  case XMLStreamConstants.CHARACTERS:
+                    System.out.println("CHARACTERS '" +
+                                       encodeText(reader.getText()) + "'");
+                    break;
+                  case XMLStreamConstants.CDATA:
+                    System.out.println("CDATA '" +
+                                       encodeText(reader.getText()) + "'");
+                    break;
+                  case XMLStreamConstants.SPACE:
+                    System.out.println("SPACE '" +
+                                       encodeText(reader.getText()) + "'");
+                    break;
+                  case XMLStreamConstants.DTD:
+                    System.out.println("DTD " + reader.getText());
+                    break;
+                  case XMLStreamConstants.ENTITY_REFERENCE:
+                    System.out.println("ENTITY_REFERENCE " + reader.getText());
+                    break;
+                  case XMLStreamConstants.COMMENT:
+                    System.out.println("COMMENT '" +
+                                       encodeText(reader.getText()) + "'");
+                    break;
+                  case XMLStreamConstants.PROCESSING_INSTRUCTION:
+                    System.out.println("PROCESSING_INSTRUCTION " +
+                                       reader.getPITarget() + " " +
+                                       reader.getPIData());
+                    break;
+                  case START_ENTITY:
+                    System.out.println("START_ENTITY " + reader.getText());
+                    break;
+                  case END_ENTITY:
+                    System.out.println("END_ENTITY " + reader.getText());
+                    break;
+                  default:
+                    System.out.println("Unknown event: " + event);
+                  }
               }
           }
-      }
-    catch (XMLStreamException e)
-      {
-        Location l = reader.getLocation();
-        System.out.println("At line "+l.getLineNumber()+
-                           ", column "+l.getColumnNumber()+
-                           " of "+l.getLocationURI());
-        throw e;
+        catch (XMLStreamException e)
+          {
+            Location l = reader.getLocation();
+            System.out.println("At line "+l.getLineNumber()+
+                               ", column "+l.getColumnNumber()+
+                               " of "+l.getSystemId());
+            throw e;
+          }
+        pos++;
       }
   }
 
@@ -4939,19 +5024,6 @@ public class XMLParser
   }
 
   /**
-   * Compatibility interface that can be used to resolve based on a public
-   * ID, not just an URL.
-   */
-  interface XMLResolver2
-    extends XMLResolver
-  {
-
-    InputStream resolve(String publicId, String systemId)
-      throws XMLStreamException;
-
-  }
-
-  /**
    * An XML input source.
    */
   static class Input
@@ -4969,6 +5041,7 @@ public class XMLParser
     Reader reader;
     UnicodeReader unicodeReader;
     boolean initialized;
+    boolean encodingDetected;
     String inputEncoding;
     boolean xml11;
 
@@ -5019,7 +5092,12 @@ public class XMLParser
       return line;
     }
 
-    public String getLocationURI()
+    public String getPublicId()
+    {
+      return publicId;
+    }
+
+    public String getSystemId()
     {
       return systemId;
     }
@@ -5037,7 +5115,6 @@ public class XMLParser
     void mark(int len)
       throws IOException
     {
-      //System.out.println("  mark:"+len);
       markOffset = offset;
       markLine = line;
       markColumn = column;
@@ -5080,7 +5157,9 @@ public class XMLParser
     {
       int ret;
       if (unicodeReader != null)
-        ret = unicodeReader.read(b, off, len);
+        {
+          ret = unicodeReader.read(b, off, len);
+        }
       else
         {
           byte[] b2 = new byte[len];
@@ -5173,6 +5252,7 @@ public class XMLParser
           in.read();
           in.read();
           setInputEncoding("UTF-32BE");
+          encodingDetected = true;
         }
       else if (equals(SIGNATURE_UCS_4_4321, signature))
         {
@@ -5181,6 +5261,7 @@ public class XMLParser
           in.read();
           in.read();
           setInputEncoding("UTF-32LE");
+          encodingDetected = true;
         }
       else if (equals(SIGNATURE_UCS_4_2143, signature) ||
                equals(SIGNATURE_UCS_4_3412, signature))
@@ -5192,12 +5273,14 @@ public class XMLParser
           in.read();
           in.read();
           setInputEncoding("UTF-16BE");
+          encodingDetected = true;
         }
       else if (equals(SIGNATURE_UCS_2_21, signature))
         {
           in.read();
           in.read();
           setInputEncoding("UTF-16LE");
+          encodingDetected = true;
         }
       else if (equals(SIGNATURE_UCS_2_12_NOBOM, signature))
         {
@@ -5220,6 +5303,7 @@ public class XMLParser
           in.read();
           in.read();
           setInputEncoding("UTF-8");
+          encodingDetected = true;
         }
     }
 
@@ -5241,7 +5325,7 @@ public class XMLParser
       if ("UTF-16".equalsIgnoreCase(encoding) &&
           inputEncoding.startsWith("UTF-16"))
         return;
-      if (reader != null)
+      if (encodingDetected)
         throw new UnsupportedEncodingException("document is not in its " +
                                                "declared encoding " +
                                                inputEncoding +

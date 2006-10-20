@@ -1,15 +1,3 @@
-dnl Check whether the target supports TLS.
-AC_DEFUN([LIBGOMP_CHECK_TLS], [
-  LIBGOMP_ENABLE(tls, yes, [Use thread-local storage])
-  AC_CACHE_CHECK([whether the target supports thread-local storage],
-		 have_tls, [
-    AC_TRY_COMPILE([__thread int foo;],
-		   [], have_tls=$enable_tls, have_tls=no)])
-  if test $have_tls = yes; then
-    AC_DEFINE(HAVE_TLS, 1,
-	      [Define to 1 if the target supports thread-local storage.])
-  fi])
-
 dnl ----------------------------------------------------------------------
 dnl This whole bit snagged from libgfortran.
 
@@ -59,11 +47,8 @@ AC_DEFUN([LIBGOMP_CHECK_ATTRIBUTE_ALIAS], [
   AC_CACHE_CHECK([whether the target supports symbol aliases],
 		 have_attribute_alias, [
   AC_TRY_LINK([
-#define ULP	STR1(__USER_LABEL_PREFIX__)
-#define STR1(x)	STR2(x)
-#define STR2(x)	#x
 void foo(void) { }
-extern void bar(void) __attribute__((alias(ULP "foo")));],
+extern void bar(void) __attribute__((alias("foo")));],
     [bar();], have_attribute_alias=yes, have_attribute_alias=no)])
   if test $have_attribute_alias = yes; then
     AC_DEFINE(HAVE_ATTRIBUTE_ALIAS, 1,

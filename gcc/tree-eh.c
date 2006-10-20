@@ -1671,7 +1671,7 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
     }
 }
 
-static void
+static unsigned int
 lower_eh_constructs (void)
 {
   struct leh_state null_state;
@@ -1687,6 +1687,7 @@ lower_eh_constructs (void)
   htab_delete (finally_tree);
 
   collect_eh_region_array ();
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_eh =
@@ -1700,7 +1701,7 @@ struct tree_opt_pass pass_lower_eh =
   TV_TREE_EH,				/* tv_id */
   PROP_gimple_lcf,			/* properties_required */
   PROP_gimple_leh,			/* properties_provided */
-  PROP_gimple_lcf,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
@@ -1888,13 +1889,14 @@ tree_could_trap_p (tree expr)
       goto restart;
 
     case ARRAY_RANGE_REF:
-      /* Let us be conservative here for now.  We might be checking bounds of
-	 the access similarly to the case below.  */
-      if (!TREE_THIS_NOTRAP (expr))
+      base = TREE_OPERAND (expr, 0);
+      if (tree_could_trap_p (base))
 	return true;
 
-      base = TREE_OPERAND (expr, 0);
-      return tree_could_trap_p (base);
+      if (TREE_THIS_NOTRAP (expr))
+	return false;
+
+      return !range_in_array_bounds_p (expr);
 
     case ARRAY_REF:
       base = TREE_OPERAND (expr, 0);

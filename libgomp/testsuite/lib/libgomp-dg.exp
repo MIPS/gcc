@@ -14,6 +14,7 @@ load_gcc_lib target-supports.exp
 load_gcc_lib target-supports-dg.exp
 load_gcc_lib scanasm.exp
 load_gcc_lib scandump.exp
+load_gcc_lib scanrtl.exp
 load_gcc_lib scantree.exp
 load_gcc_lib scanipa.exp
 load_gcc_lib prune.exp
@@ -40,7 +41,6 @@ if [info exists TOOL_OPTIONS] {
 } else {
     set multilibs [get_multilibs]
 }
-set blddir [lookfor_file $multilibs libgomp]
 
 proc libgomp_init { args } {
     global srcdir blddir objdir tool_root_dir
@@ -57,6 +57,8 @@ proc libgomp_init { args } {
     global lang_test_file
     global lang_library_path
     global lang_link_flags
+
+    set blddir [lookfor_file [get_multilibs] libgomp]
 
     # We set LC_ALL and LANG to C so that we get the same error
     # messages as expected.
@@ -93,14 +95,29 @@ proc libgomp_init { args } {
     # Compute what needs to be put into LD_LIBRARY_PATH
     set ld_library_path ".:${blddir}/.libs"
 
-    if {$gccdir != ""} {
-	append ld_library_path ":${gccdir}"
-    }
-
     if { [info exists lang_test_file] && [file exists "${blddir}/"] } {
 	append ld_library_path ":${blddir}/${lang_library_path}"
     }
-    append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
+
+    # Compute what needs to be added to the existing LD_LIBRARY_PATH.
+    if {$gccdir != ""} {
+	append ld_library_path ":${gccdir}"
+	set compiler [lindex $GCC_UNDER_TEST 0]
+
+	if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	  foreach i "[exec $compiler --print-multi-lib]" {
+	    set mldir ""
+	    regexp -- "\[a-z0-9=_/\.-\]*;" $i mldir
+	    set mldir [string trimright $mldir "\;@"]
+	    if { "$mldir" == "." } {
+	      continue
+	    }
+	    if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+	      append ld_library_path ":${gccdir}/${mldir}"
+	    }
+	  }
+	}
+    }
     set_ld_library_path_env_vars
 
     set ALWAYS_CFLAGS ""

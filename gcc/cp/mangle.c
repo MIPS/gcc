@@ -1,7 +1,7 @@
 /* Name mangling for the 3.0 C++ ABI.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
-   Written by Alex Samuel <sameul@codesourcery.com>
+   Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
 
@@ -44,9 +44,7 @@
      mangle_vtbl_for_type:		virtual table data
      mangle_vtt_for_type:		VTT data
      mangle_ctor_vtbl_for_type:		`C-in-B' constructor virtual table data
-     mangle_thunk:			thunk function or entry
-
-*/
+     mangle_thunk:			thunk function or entry  */
 
 #include "config.h"
 #include "system.h"
@@ -2025,6 +2023,12 @@ write_expression (tree expr)
       code = TREE_CODE (expr);
     }
 
+  if (code == BASELINK)
+    {
+      expr = BASELINK_FUNCTIONS (expr);
+      code = TREE_CODE (expr);
+    }
+
   /* Handle pointers-to-members by making them look like expression
      nodes.  */
   if (code == PTRMEM_CST)
@@ -2526,7 +2530,7 @@ static inline const char *
 finish_mangling (const bool warn)
 {
   if (warn_abi && warn && G.need_abi_warning)
-    warning (0, "the mangled name of %qD will change in a future "
+    warning (OPT_Wabi, "the mangled name of %qD will change in a future "
 	     "version of GCC",
 	     G.entity);
 
@@ -2741,8 +2745,7 @@ mangle_call_offset (const tree fixed_offset, const tree virtual_offset)
 
    <special-name> ::= T <call-offset> <base encoding>
 		  ::= Tc <this_adjust call-offset> <result_adjust call-offset>
-					<base encoding>
-*/
+					<base encoding>  */
 
 tree
 mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
@@ -2818,6 +2821,9 @@ mangle_conv_op_name_for_type (const tree type)
 {
   void **slot;
   tree identifier;
+
+  if (type == error_mark_node)
+    return error_mark_node;
 
   if (conv_type_names == NULL)
     conv_type_names = htab_create_ggc (31, &hash_type, &compare_type, NULL);

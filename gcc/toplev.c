@@ -1,6 +1,7 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -162,6 +163,16 @@ struct file_stack *input_file_stack;
 
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
+
+/* Record of input_file_stack at each tick.  */
+typedef struct file_stack *fs_p;
+DEF_VEC_P(fs_p);
+DEF_VEC_ALLOC_P(fs_p,heap);
+static VEC(fs_p,heap) *input_file_stack_history;
+
+/* Whether input_file_stack has been restored to a previous state (in
+   which case there should be no more pushing).  */
+static bool input_file_stack_restored;
 
 /* Name to use as base of names for dump output files.  */
 
@@ -516,6 +527,12 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   return atoi (p);
 }
 
+/* When compiling with a recent enough GCC, we use the GNU C "extern inline"
+   for floor_log2 and exact_log2; see toplev.h.  That construct, however,
+   conflicts with the ISO C++ One Definition Rule.   */
+
+#if GCC_VERSION < 3004 || !defined (__cplusplus)
+
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.  */
 
@@ -565,6 +582,8 @@ exact_log2 (unsigned HOST_WIDE_INT x)
   return floor_log2 (x);
 #endif
 }
+
+#endif /*  GCC_VERSION < 3004 || !defined (__cplusplus)  */
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  In case the
@@ -942,7 +961,11 @@ push_srcloc (const char *file, int line)
 {
   struct file_stack *fs;
 
-  fs = xmalloc (sizeof (struct file_stack));
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
+  fs = XNEW (struct file_stack);
   fs->location = input_location;
   fs->next = input_file_stack;
 #ifdef USE_MAPPED_LOCATION
@@ -953,6 +976,7 @@ push_srcloc (const char *file, int line)
 #endif
   input_file_stack = fs;
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
 }
 
 /* Pop the top entry off the stack of presently open source files.
@@ -964,11 +988,30 @@ pop_srcloc (void)
 {
   struct file_stack *fs;
 
+  gcc_assert (!input_file_stack_restored);
+  if (input_file_stack_tick == (int) ((1U << INPUT_FILE_STACK_BITS) - 1))
+    sorry ("GCC supports only %d input file changes", input_file_stack_tick);
+
   fs = input_file_stack;
   input_location = fs->location;
   input_file_stack = fs->next;
-  free (fs);
   input_file_stack_tick++;
+  VEC_safe_push (fs_p, heap, input_file_stack_history, input_file_stack);
+}
+
+/* Restore the input file stack to its state as of TICK, for the sake
+   of diagnostics after processing the whole input.  Once this has
+   been called, push_srcloc and pop_srcloc may no longer be
+   called.  */
+void
+restore_input_file_stack (int tick)
+{
+  if (tick == 0)
+    input_file_stack = NULL;
+  else
+    input_file_stack = VEC_index (fs_p, input_file_stack_history, tick - 1);
+  input_file_stack_tick = tick;
+  input_file_stack_restored = true;
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -997,7 +1040,7 @@ compile_file (void)
      what's left of the symbol table output.  */
   timevar_pop (TV_PARSE);
 
-  if (flag_syntax_only)
+  if (flag_syntax_only || errorcount || sorrycount)
     return;
 
   lang_hooks.decls.final_write_globals ();
@@ -1013,6 +1056,9 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  output_shared_constant_pool ();
+  output_object_blocks ();
+
   /* Write out any pending weak symbol declarations.  */
 
   weak_finish ();
@@ -1020,7 +1066,7 @@ compile_file (void)
   /* Do dbx symbols.  */
   timevar_push (TV_SYMOUT);
 
-#ifdef DWARF2_UNWIND_INFO
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_finish ();
 #endif
@@ -1233,7 +1279,7 @@ init_asm_output (const char *name)
       if (asm_file_name == 0)
 	{
 	  int len = strlen (dump_base_name);
-	  char *dumpname = xmalloc (len + 6);
+	  char *dumpname = XNEWVEC (char, len + 6);
 	  memcpy (dumpname, dump_base_name, len + 1);
 	  strip_off_ending (dumpname, len);
 	  strcat (dumpname, ".s");
@@ -1299,7 +1345,7 @@ default_get_pch_validity (size_t *len)
     if (option_affects_pch_p (i, &state))
       *len += state.size;
 
-  result = r = xmalloc (*len);
+  result = r = XNEWVEC (char, *len);
   r[0] = flag_pic;
   r[1] = flag_pie;
   r += 2;
@@ -1489,6 +1535,20 @@ general_init (const char *argv0)
   init_optimization_passes ();
 }
 
+/* Return true if the current target supports -fsection-anchors.  */
+
+static bool
+target_supports_section_anchors_p (void)
+{
+  if (targetm.min_anchor_offset == 0 && targetm.max_anchor_offset == 0)
+    return false;
+
+  if (targetm.asm_out.output_anchor == NULL)
+    return false;
+
+  return true;
+}
+
 /* Process the options that have been parsed.  */
 static void
 process_options (void)
@@ -1510,6 +1570,13 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  if (flag_section_anchors && !target_supports_section_anchors_p ())
+    {
+      warning (OPT_fsection_anchors,
+	       "this target does not support %qs", "-fsection-anchors");
+      flag_section_anchors = 0;
+    }
 
   if (flag_short_enums == 2)
     flag_short_enums = targetm.default_short_enums ();
@@ -1559,19 +1626,6 @@ process_options (void)
   if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
-  /* If explicitly asked to run new loop optimizer, switch off the old
-     one.  */
-  if (flag_loop_optimize2)
-    flag_loop_optimize = 0;
-
-  /* Enable new loop optimizer pass if any of its optimizations is called.  */
-  if (flag_move_loop_invariants
-      || flag_unswitch_loops
-      || flag_peel_loops
-      || flag_unroll_loops
-      || flag_branch_on_count_reg)
-    flag_loop_optimize2 = 1;
-
   if (flag_non_call_exceptions)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
@@ -1581,6 +1635,9 @@ process_options (void)
      interface.  */
   if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
     flag_unit_at_a_time = 0;
+
+  if (!flag_unit_at_a_time)
+    flag_section_anchors = 0;
 
   if (flag_value_profile_transformations)
     flag_profile_values = 1;
@@ -1760,8 +1817,10 @@ process_options (void)
     }
 
 #ifndef OBJECT_FORMAT_ELF
+#ifndef OBJECT_FORMAT_MACHO
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning (0, "-ffunction-sections may affect debugging on some targets");
+#endif
 #endif
 
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
@@ -1811,7 +1870,6 @@ backend_init (void)
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
-  init_loop ();
   init_reload ();
   init_varasm_once ();
 
@@ -1860,7 +1918,7 @@ lang_dependent_init (const char *name)
      predefined types.  */
   timevar_push (TV_SYMOUT);
 
-#ifdef DWARF2_UNWIND_INFO
+#if defined DWARF2_DEBUGGING_INFO || defined DWARF2_UNWIND_INFO
   if (dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif

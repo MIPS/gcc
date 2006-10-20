@@ -100,10 +100,11 @@ struct tree_opt_pass pass_early_local_passes =
    because after the tree optimizers have run such cleanups may
    be necessary.  */
 
-static void 
+static unsigned int
 execute_cleanup_cfg_pre_ipa (void)
 {
   cleanup_tree_cfg ();
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_cfg =
@@ -129,13 +130,14 @@ struct tree_opt_pass pass_cleanup_cfg =
    because after the tree optimizers have run such cleanups may
    be necessary.  */
 
-static void 
+static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
   fold_cond_expr_cond ();
   cleanup_tree_cfg ();
   cleanup_dead_labels ();
   group_case_labels ();
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
@@ -158,7 +160,7 @@ struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 /* Pass: do the actions required to finish with tree-ssa optimization
    passes.  */
 
-static void
+static unsigned int
 execute_free_datastructures (void)
 {
   /* ??? This isn't the right place for this.  Worse, it got computed
@@ -169,6 +171,7 @@ execute_free_datastructures (void)
   /* Remove the ssa structures.  Do it here since this includes statement
      annotations that need to be intact during disband_implicit_edges.  */
   delete_tree_ssa ();
+  return 0;
 }
 
 struct tree_opt_pass pass_free_datastructures =
@@ -189,7 +192,7 @@ struct tree_opt_pass pass_free_datastructures =
 };
 /* Pass: free cfg annotations.  */
 
-static void
+static unsigned int
 execute_free_cfg_annotations (void)
 {
   basic_block bb;
@@ -215,6 +218,7 @@ execute_free_cfg_annotations (void)
      the integrity of statements in the EH throw table.  */
   verify_eh_throw_table_statements ();
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_free_cfg_annotations =
@@ -233,11 +237,28 @@ struct tree_opt_pass pass_free_cfg_annotations =
   0,					/* todo_flags_finish */
   0					/* letter */
 };
-/* Pass: fixup_cfg - IPA passes or compilation of earlier functions might've
-   changed some properties - such as marked functions nothrow.  Remove now
-   redundant edges and basic blocks.  */
 
-static void
+/* Return true if BB has at least one abnormal outgoing edge.  */
+
+static inline bool
+has_abnormal_outgoing_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_ABNORMAL)
+      return true;
+
+  return false;
+}
+
+/* Pass: fixup_cfg.  IPA passes, compilation of earlier functions or inlining
+   might have changed some properties, such as marked functions nothrow or
+   added calls that can potentially go to non-local labels.  Remove redundant
+   edges and basic blocks, and create new ones if necessary.  */
+
+static unsigned int
 execute_fixup_cfg (void)
 {
   basic_block bb;
@@ -258,8 +279,38 @@ execute_fixup_cfg (void)
 	  }
 	tree_purge_dead_eh_edges (bb);
       }
-    
+
+  if (current_function_has_nonlocal_label)
+    FOR_EACH_BB (bb)
+      {
+	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	  {
+	    tree stmt = bsi_stmt (bsi);
+	    if (tree_can_make_abnormal_goto (stmt))
+	      {
+		if (stmt == bsi_stmt (bsi_last (bb)))
+		  {
+		    if (!has_abnormal_outgoing_edge_p (bb))
+		      make_abnormal_goto_edges (bb, true);
+		  }
+		else
+		  {
+		    edge e = split_block (bb, stmt);
+		    bb = e->src;
+		    make_abnormal_goto_edges (bb, true);
+		  }
+		break;
+	      }
+	  }
+      }
+
   cleanup_tree_cfg ();
+
+  /* Dump a textual representation of the flowgraph.  */
+  if (dump_file)
+    dump_tree_cfg (dump_file, dump_flags);
+
+  return 0;
 }
 
 struct tree_opt_pass pass_fixup_cfg =
@@ -275,18 +326,19 @@ struct tree_opt_pass pass_fixup_cfg =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  0,					/* todo_flags_finish */
   0					/* letter */
 };
 
 /* Do the actions required to initialize internal data structures used
    in tree-ssa optimization passes.  */
 
-static void
+static unsigned int
 execute_init_datastructures (void)
 {
   /* Allocate hash tables, arrays and other structures.  */
   init_tree_ssa ();
+  return 0;
 }
 
 struct tree_opt_pass pass_init_datastructures =
@@ -387,15 +439,14 @@ tree_rest_of_compilation (tree fndecl)
 	  timevar_pop (TV_INTEGRATION);
 	}
     }
-  /* We are not going to maintain the cgraph edges up to date.
-     Kill it so it won't confuse us.  */
-  while (node->callees)
+  /* In non-unit-at-a-time we must mark all referenced functions as needed.
+     */
+  if (!flag_unit_at_a_time)
     {
-      /* In non-unit-at-a-time we must mark all referenced functions as needed.
-         */
-      if (node->callees->callee->analyzed && !flag_unit_at_a_time)
-        cgraph_mark_needed_node (node->callees->callee);
-      cgraph_remove_edge (node->callees);
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	if (e->callee->analyzed)
+          cgraph_mark_needed_node (e->callee);
     }
 
   /* We are not going to maintain the cgraph edges up to date.

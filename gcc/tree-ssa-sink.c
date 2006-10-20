@@ -168,7 +168,7 @@ is_hidden_global_store (tree stmt)
 	 variable.
 
 	 Therefore, we check the base address of the LHS.  If the
-	 address is a pointer, we check if its name tag or type tag is
+	 address is a pointer, we check if its name tag or symbol tag is
 	 a global variable.  Otherwise, we check if the base variable
 	 is a global.  */
       lhs = TREE_OPERAND (stmt, 0);
@@ -194,12 +194,12 @@ is_hidden_global_store (tree stmt)
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
 	  tree nmt = (pi) ? pi->name_mem_tag : NULL_TREE;
-	  tree tmt = var_ann (SSA_NAME_VAR (ptr))->type_mem_tag;
+	  tree smt = var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
 
-	  /* If either the name tag or the type tag for PTR is a
+	  /* If either the name tag or the symbol tag for PTR is a
 	     global variable, then the store is necessary.  */
 	  if ((nmt && is_global_var (nmt))
-	      || (tmt && is_global_var (tmt)))
+	      || (smt && is_global_var (smt)))
 	    {
 	      return true;
 	    }
@@ -522,7 +522,8 @@ sink_code_in_bb (basic_block bb)
 static void
 execute_sink_code (void)
 {
-  struct loops *loops = loop_optimizer_init (dump_file);
+  struct loops *loops = loop_optimizer_init (LOOPS_NORMAL);
+
   connect_infinite_loops_to_exit ();
   memset (&sink_stats, 0, sizeof (sink_stats));
   calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
@@ -531,15 +532,16 @@ execute_sink_code (void)
     fprintf (dump_file, "Sunk statements:%d\n", sink_stats.sunk);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
-  loop_optimizer_finalize (loops, dump_file);
+  loop_optimizer_finalize (loops);
 }
 
 /* Gate and execute functions for PRE.  */
 
-static void
+static unsigned int
 do_sink (void)
 {
   execute_sink_code ();
+  return 0;
 }
 
 static bool

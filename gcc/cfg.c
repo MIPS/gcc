@@ -528,17 +528,13 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
 }
 
 void
-dump_flow_info (FILE *file)
+dump_flow_info (FILE *file, int flags)
 {
   basic_block bb;
 
-  if (file == dump_file
-      && (dump_flags & TDF_SLIM)
-      && !(dump_flags & TDF_DETAILS))
-    return;
-
   /* There are no pseudo registers after reload.  Don't dump them.  */
-  if (reg_n_info && !reload_completed)
+  if (reg_n_info && !reload_completed
+      && (flags & TDF_DETAILS) != 0)
     {
       unsigned int i, max = max_reg_num ();
       fprintf (file, "%d registers.\n", max);
@@ -589,7 +585,7 @@ dump_flow_info (FILE *file)
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
     {
-      dump_bb_info (bb, true, true, TDF_DETAILS, "", file);
+      dump_bb_info (bb, true, true, flags, "", file);
       check_bb_profile (bb, file);
     }
 
@@ -599,7 +595,7 @@ dump_flow_info (FILE *file)
 void
 debug_flow_info (void)
 {
-  dump_flow_info (stderr);
+  dump_flow_info (stderr, TDF_DETAILS);
 }
 
 void
@@ -687,7 +683,7 @@ alloc_aux_for_blocks (int size)
   else
     /* Check whether AUX data are still allocated.  */
     gcc_assert (!first_block_aux_obj);
-  
+
   first_block_aux_obj = obstack_alloc (&block_aux_obstack, 0);
   if (size)
     {
@@ -865,7 +861,7 @@ brief_dump_cfg (FILE *file)
 
 /* An edge originally destinating BB of FREQUENCY and COUNT has been proved to
    leave the block by TAKEN_EDGE.  Update profile of BB such that edge E can be
-   redirected to destination of TAKEN_EDGE. 
+   redirected to destination of TAKEN_EDGE.
 
    This function may leave the profile inconsistent in the case TAKEN_EDGE
    frequency or count is believed to be lower than FREQUENCY or COUNT
@@ -976,8 +972,8 @@ scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
    by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
    function but considerably slower.  */
 void
-scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
-			         gcov_type den)
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num,
+				 gcov_type den)
 {
   int i;
   edge e;

@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -196,6 +197,30 @@ struct processor_costs ultrasparc3_costs = {
   0, /* shift penalty */
 };
 
+static const
+struct processor_costs niagara_costs = {
+  COSTS_N_INSNS (3), /* int load */
+  COSTS_N_INSNS (3), /* int signed load */
+  COSTS_N_INSNS (3), /* int zeroed load */
+  COSTS_N_INSNS (9), /* float load */
+  COSTS_N_INSNS (8), /* fmov, fneg, fabs */
+  COSTS_N_INSNS (8), /* fadd, fsub */
+  COSTS_N_INSNS (26), /* fcmp */
+  COSTS_N_INSNS (8), /* fmov, fmovr */
+  COSTS_N_INSNS (29), /* fmul */
+  COSTS_N_INSNS (54), /* fdivs */
+  COSTS_N_INSNS (83), /* fdivd */
+  COSTS_N_INSNS (100), /* fsqrts - not implemented in hardware */
+  COSTS_N_INSNS (100), /* fsqrtd - not implemented in hardware */
+  COSTS_N_INSNS (11), /* imul */
+  COSTS_N_INSNS (11), /* imulX */
+  0, /* imul bit factor */
+  COSTS_N_INSNS (72), /* idiv */
+  COSTS_N_INSNS (72), /* idivX */
+  COSTS_N_INSNS (1), /* movcc/movr */
+  0, /* shift penalty */
+};
+
 const struct processor_costs *sparc_costs = &cypress_costs;
 
 #ifdef HAVE_AS_RELAX_OPTION
@@ -368,6 +393,9 @@ static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+static const char *sparc_mangle_fundamental_type (tree);
+#endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -527,6 +555,11 @@ static bool fpu_option_set = false;
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -588,6 +621,7 @@ sparc_override_options (void)
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
     { TARGET_CPU_ultrasparc3, "ultrasparc3" },
+    { TARGET_CPU_niagara, "niagara" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -623,6 +657,8 @@ sparc_override_options (void)
     /* TI ultrasparc III */
     /* ??? Check if %y issue still holds true in ultra3.  */
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
+    /* UltraSPARC T1 */
+    { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -732,7 +768,8 @@ sparc_override_options (void)
   /* Supply a default value for align_functions.  */
   if (align_functions == 0
       && (sparc_cpu == PROCESSOR_ULTRASPARC
-	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3
+	  || sparc_cpu == PROCESSOR_NIAGARA))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -781,7 +818,15 @@ sparc_override_options (void)
     case PROCESSOR_ULTRASPARC3:
       sparc_costs = &ultrasparc3_costs;
       break;
+    case PROCESSOR_NIAGARA:
+      sparc_costs = &niagara_costs;
+      break;
     };
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
@@ -2407,26 +2452,34 @@ empty_delay_slot (rtx insn)
 int
 tls_call_delay (rtx trial)
 {
-  rtx pat, unspec;
+  rtx pat;
 
   /* Binutils allows
-     call __tls_get_addr, %tgd_call (foo)
-      add %l7, %o0, %o0, %tgd_add (foo)
+       call __tls_get_addr, %tgd_call (foo)
+        add %l7, %o0, %o0, %tgd_add (foo)
      while Sun as/ld does not.  */
   if (TARGET_GNU_TLS || !TARGET_TLS)
     return 1;
 
   pat = PATTERN (trial);
-  if (GET_CODE (pat) != SET || GET_CODE (SET_DEST (pat)) != PLUS)
-    return 1;
 
-  unspec = XEXP (SET_DEST (pat), 1);
-  if (GET_CODE (unspec) != UNSPEC
-      || (XINT (unspec, 1) != UNSPEC_TLSGD
-	  && XINT (unspec, 1) != UNSPEC_TLSLDM))
-    return 1;
+  /* We must reject tgd_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSGD)))
+     and tldm_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSLDM)))
+     for Sun as/ld.  */
+  if (GET_CODE (pat) == SET
+      && GET_CODE (SET_SRC (pat)) == PLUS)
+    {
+      rtx unspec = XEXP (SET_SRC (pat), 1);
 
-  return 0;
+      if (GET_CODE (unspec) == UNSPEC
+	  && (XINT (unspec, 1) == UNSPEC_TLSGD
+	      || XINT (unspec, 1) == UNSPEC_TLSLDM))
+	return 0;
+    }
+
+  return 1;
 }
 
 /* Return nonzero if TRIAL, an insn, can be combined with a 'restore'
@@ -3693,7 +3746,10 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
-	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	  /* %g7 is used as TLS base register, use #ignore
+	     for it instead of #scratch.  */
+	  fprintf (file, "\t.register\t%%g%d, #%s\n", i,
+		   i == 7 ? "ignore" : "scratch");
 	}
       if (i == 3) i = 5;
     }
@@ -4503,7 +4559,10 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 
       gcc_assert (mode == BLKmode);
 
-      if (TARGET_ARCH32 || !type || (TREE_CODE (type) == UNION_TYPE))
+      if (TARGET_ARCH32
+	  || !type
+	  || (TREE_CODE (type) != VECTOR_TYPE
+	      && TREE_CODE (type) != RECORD_TYPE))
 	{
 	  if (slotno >= SPARC_INT_ARG_MAX)
 	    return -1;
@@ -5017,45 +5076,19 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 		 : SPARC_OUTGOING_INT_ARG_FIRST);
   int slotno, regno, padding;
   enum mode_class mclass = GET_MODE_CLASS (mode);
-  rtx reg;
 
   slotno = function_arg_slotno (cum, mode, type, named, incoming_p,
 				&regno, &padding);
-
   if (slotno == -1)
     return 0;
 
-  if (TARGET_ARCH32)
-    {
-      reg = gen_rtx_REG (mode, regno);
-      return reg;
-    }
-    
-  if (type && TREE_CODE (type) == RECORD_TYPE)
-    {
-      /* Structures up to 16 bytes in size are passed in arg slots on the
-	 stack and are promoted to registers where possible.  */
-
-      gcc_assert (int_size_in_bytes (type) <= 16);
-
-      return function_arg_record_value (type, mode, slotno, named, regbase);
-    }
-  else if (type && TREE_CODE (type) == UNION_TYPE)
+  /* Vector types deserve special treatment because they are polymorphic wrt
+     their mode, depending upon whether VIS instructions are enabled.  */
+  if (type && TREE_CODE (type) == VECTOR_TYPE)
     {
       HOST_WIDE_INT size = int_size_in_bytes (type);
-
-      gcc_assert (size <= 16);
-
-      return function_arg_union_value (size, mode, slotno, regno);
-    }
-  else if (type && TREE_CODE (type) == VECTOR_TYPE)
-    {
-      /* Vector types deserve special treatment because they are
-	 polymorphic wrt their mode, depending upon whether VIS
-	 instructions are enabled.  */
-      HOST_WIDE_INT size = int_size_in_bytes (type);
-
-      gcc_assert (size <= 16);
+      gcc_assert ((TARGET_ARCH32 && size <= 8)
+		  || (TARGET_ARCH64 && size <= 16));
 
       if (mode == BLKmode)
 	return function_arg_vector_value (size,
@@ -5065,14 +5098,36 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 	mclass = MODE_FLOAT;
     }
 
+  if (TARGET_ARCH32)
+    return gen_rtx_REG (mode, regno);
+
+  /* Structures up to 16 bytes in size are passed in arg slots on the stack
+     and are promoted to registers if possible.  */
+  if (type && TREE_CODE (type) == RECORD_TYPE)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      gcc_assert (size <= 16);
+
+      return function_arg_record_value (type, mode, slotno, named, regbase);
+    }
+
+  /* Unions up to 16 bytes in size are passed in integer registers.  */
+  else if (type && TREE_CODE (type) == UNION_TYPE)
+    {
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      gcc_assert (size <= 16);
+
+      return function_arg_union_value (size, mode, slotno, regno);
+    }
+
   /* v9 fp args in reg slots beyond the int reg slots get passed in regs
      but also have the slot allocated for them.
      If no prototype is in scope fp values in register slots get passed
      in two places, either fp regs and int regs or fp regs and memory.  */
-  if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
-      && SPARC_FP_REG_P (regno))
+  else if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
+	   && SPARC_FP_REG_P (regno))
     {
-      reg = gen_rtx_REG (mode, regno);
+      rtx reg = gen_rtx_REG (mode, regno);
       if (cum->prototype_p || cum->libcall_p)
 	{
 	  /* "* 2" because fp reg numbers are recorded in 4 byte
@@ -5133,13 +5188,18 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 	    }
 	}
     }
-  else
+
+  /* All other aggregate types are passed in an integer register in a mode
+     corresponding to the size of the type.  */
+  else if (type && AGGREGATE_TYPE_P (type))
     {
-      /* Scalar or complex int.  */
-      reg = gen_rtx_REG (mode, regno);
+      HOST_WIDE_INT size = int_size_in_bytes (type);
+      gcc_assert (size <= 16);
+
+      mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
     }
 
-  return reg;
+  return gen_rtx_REG (mode, regno);
 }
 
 /* For an arg passed partly in registers and partly in memory,
@@ -5215,7 +5275,6 @@ sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 			 bool named ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
-    {
     /* Original SPARC 32-bit ABI says that structures and unions,
        and quad-precision floats are passed by reference.  For Pascal,
        also pass arrays by reference.  All other base types are passed
@@ -5230,19 +5289,17 @@ sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
        integers are passed like floats of the same size, that is in
        registers up to 8 bytes.  Pass all vector floats by reference
        like structure and unions.  */
-      return ((type && (AGGREGATE_TYPE_P (type) || VECTOR_FLOAT_TYPE_P (type)))
-	      || mode == SCmode
-	      /* Catch CDImode, TFmode, DCmode and TCmode.  */
-	      || GET_MODE_SIZE (mode) > 8
-	      || (type
-		  && TREE_CODE (type) == VECTOR_TYPE
-		  && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
-    }
+    return ((type && (AGGREGATE_TYPE_P (type) || VECTOR_FLOAT_TYPE_P (type)))
+	    || mode == SCmode
+	    /* Catch CDImode, TFmode, DCmode and TCmode.  */
+	    || GET_MODE_SIZE (mode) > 8
+	    || (type
+		&& TREE_CODE (type) == VECTOR_TYPE
+		&& (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8));
   else
-    {
     /* Original SPARC 64-bit ABI says that structures and unions
        smaller than 16 bytes are passed in registers, as well as
-       all other base types.  For Pascal, pass arrays by reference.
+       all other base types.
        
        Extended ABI (as implemented by the Sun compiler) says that
        complex floats are passed in registers up to 16 bytes.  Pass
@@ -5253,13 +5310,11 @@ sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
        integers are passed like floats of the same size, that is in
        registers (up to 16 bytes).  Pass all vector floats like structure
        and unions.  */
-      return ((type && TREE_CODE (type) == ARRAY_TYPE)
-	      || (type
-		  && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == VECTOR_TYPE)
-		  && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 16)
-	      /* Catch CTImode and TCmode.  */
-	      || GET_MODE_SIZE (mode) > 16);
-    }
+    return ((type
+	     && (AGGREGATE_TYPE_P (type) || TREE_CODE (type) == VECTOR_TYPE)
+	     && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 16)
+	    /* Catch CTImode and TCmode.  */
+	    || GET_MODE_SIZE (mode) > 16);
 }
 
 /* Handle the FUNCTION_ARG_ADVANCE macro.
@@ -5369,7 +5424,7 @@ sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
    Return where to find the structure return value address.  */
 
 static rtx
-sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
+sparc_struct_value_rtx (tree fndecl, int incoming)
 {
   if (TARGET_ARCH64)
     return 0;
@@ -5383,6 +5438,46 @@ sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
       else
 	mem = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
 						 STRUCT_VALUE_OFFSET));
+
+      /* Only follow the SPARC ABI for fixed-size structure returns. 
+         Variable size structure returns are handled per the normal 
+         procedures in GCC. This is enabled by -mstd-struct-return */
+      if (incoming == 2 
+	  && sparc_std_struct_return
+	  && TYPE_SIZE_UNIT (TREE_TYPE (fndecl))
+	  && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (fndecl))) == INTEGER_CST)
+	{
+	  /* We must check and adjust the return address, as it is
+	     optional as to whether the return object is really
+	     provided.  */
+	  rtx ret_rtx = gen_rtx_REG (Pmode, 31);
+	  rtx scratch = gen_reg_rtx (SImode);
+	  rtx endlab = gen_label_rtx (); 
+
+	  /* Calculate the return object size */
+	  tree size = TYPE_SIZE_UNIT (TREE_TYPE (fndecl));
+	  rtx size_rtx = GEN_INT (TREE_INT_CST_LOW (size) & 0xfff);
+	  /* Construct a temporary return value */
+	  rtx temp_val = assign_stack_local (Pmode, TREE_INT_CST_LOW (size), 0);
+
+	  /* Implement SPARC 32-bit psABI callee returns struck checking
+	     requirements: 
+	    
+	      Fetch the instruction where we will return to and see if
+	     it's an unimp instruction (the most significant 10 bits
+	     will be zero).  */
+	  emit_move_insn (scratch, gen_rtx_MEM (SImode,
+						plus_constant (ret_rtx, 8)));
+	  /* Assume the size is valid and pre-adjust */
+	  emit_insn (gen_add3_insn (ret_rtx, ret_rtx, GEN_INT (4)));
+	  emit_cmp_and_jump_insns (scratch, size_rtx, EQ, const0_rtx, SImode, 0, endlab);
+	  emit_insn (gen_sub3_insn (ret_rtx, ret_rtx, GEN_INT (4)));
+	  /* Assign stack temp: 
+	     Write the address of the memory pointed to by temp_val into
+	     the memory pointed to by mem */
+	  emit_move_insn (mem, XEXP (temp_val, 0));
+	  emit_label (endlab);
+	}
 
       set_mem_alias_set (mem, struct_value_alias_set);
       return mem;
@@ -5403,13 +5498,11 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
   enum mode_class mclass = GET_MODE_CLASS (mode);
   int regno;
 
+  /* Vector types deserve special treatment because they are polymorphic wrt
+     their mode, depending upon whether VIS instructions are enabled.  */
   if (type && TREE_CODE (type) == VECTOR_TYPE)
     {
-      /* Vector types deserve special treatment because they are
-	 polymorphic wrt their mode, depending upon whether VIS
-	 instructions are enabled.  */
       HOST_WIDE_INT size = int_size_in_bytes (type);
-
       gcc_assert ((TARGET_ARCH32 && size <= 8)
 		  || (TARGET_ARCH64 && size <= 32));
 
@@ -5420,34 +5513,41 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
       else
 	mclass = MODE_FLOAT;
     }
-  else if (type && TARGET_ARCH64)
+
+  if (TARGET_ARCH64 && type)
     {
+      /* Structures up to 32 bytes in size are returned in registers.  */
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
-	  /* Structures up to 32 bytes in size are passed in registers,
-	     promoted to fp registers where possible.  */
-
-	  gcc_assert (int_size_in_bytes (type) <= 32);
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
+	  gcc_assert (size <= 32);
 
 	  return function_arg_record_value (type, mode, 0, 1, regbase);
 	}
+
+      /* Unions up to 32 bytes in size are returned in integer registers.  */
       else if (TREE_CODE (type) == UNION_TYPE)
 	{
 	  HOST_WIDE_INT size = int_size_in_bytes (type);
-
 	  gcc_assert (size <= 32);
 
 	  return function_arg_union_value (size, mode, 0, regbase);
 	}
+
+      /* Objects that require it are returned in FP registers.  */
+      else if (mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
+	;
+
+      /* All other aggregate types are returned in an integer register in a
+	 mode corresponding to the size of the type.  */
       else if (AGGREGATE_TYPE_P (type))
 	{
 	  /* All other aggregate types are passed in an integer register
 	     in a mode corresponding to the size of the type.  */
-	  HOST_WIDE_INT bytes = int_size_in_bytes (type);
+	  HOST_WIDE_INT size = int_size_in_bytes (type);
+	  gcc_assert (size <= 32);
 
-	  gcc_assert (bytes <= 32);
-
-	  mode = mode_for_size (bytes * BITS_PER_UNIT, MODE_INT, 0);
+	  mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
 
 	  /* ??? We probably should have made the same ABI change in
 	     3.4.0 as the one we made for unions.   The latter was
@@ -5459,17 +5559,17 @@ function_value (tree type, enum machine_mode mode, int incoming_p)
 	     try to be unduly clever, and simply follow the ABI
 	     for unions in that case.  */
 	  if (mode == BLKmode)
-	    return function_arg_union_value (bytes, mode, 0, regbase);
+	    return function_arg_union_value (size, mode, 0, regbase);
 	  else
 	    mclass = MODE_INT;
 	}
-      else if (mclass == MODE_INT
-	       && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+
+      /* This must match PROMOTE_FUNCTION_MODE.  */
+      else if (mclass == MODE_INT && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
 	mode = word_mode;
     }
 
-  if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT)
-      && TARGET_FPU)
+  if ((mclass == MODE_FLOAT || mclass == MODE_COMPLEX_FLOAT) && TARGET_FPU)
     regno = SPARC_FP_ARG_FIRST;
   else
     regno = regbase;
@@ -6583,9 +6683,14 @@ print_operand (FILE *file, rtx x, int code)
 	 so we have to account for it.  This insn is used in the 32-bit ABI
 	 when calling a function that returns a non zero-sized structure. The
 	 64-bit ABI doesn't have it.  Be careful to have this test be the same
-	 as that used on the call.  */
+	 as that used on the call. The exception here is that when 
+	 sparc_std_struct_return is enabled, the psABI is followed exactly
+	 and the adjustment is made by the code in sparc_struct_value_rtx. 
+	 The call emitted is the same when sparc_std_struct_return is 
+	 present. */
      if (! TARGET_ARCH64
 	 && current_function_returns_struct
+	 && ! sparc_std_struct_return
 	 && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
 	     == INTEGER_CST)
 	 && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl))))
@@ -7001,8 +7106,7 @@ sparc_type_code (register tree type)
 	  return (qualifiers | 7);	/* Who knows? */
 
 	case VECTOR_TYPE:
-	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
-	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
+	case BOOLEAN_TYPE:	/* Boolean truth value type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -7075,7 +7179,8 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
      aligned on a 16 byte boundary so one flush clears it all.  */
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 
@@ -7117,7 +7222,8 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 
   /* Call __enable_execute_stack after writing onto the stack to make sure
@@ -7297,6 +7403,8 @@ sparc_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sparc_use_sched_lookahead (void)
 {
+  if (sparc_cpu == PROCESSOR_NIAGARA)
+    return 0;
   if (sparc_cpu == PROCESSOR_ULTRASPARC
       || sparc_cpu == PROCESSOR_ULTRASPARC3)
     return 4;
@@ -7312,6 +7420,7 @@ sparc_issue_rate (void)
 {
   switch (sparc_cpu)
     {
+    case PROCESSOR_NIAGARA:
     default:
       return 1;
     case PROCESSOR_V9:
@@ -7885,7 +7994,7 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
-      op[arg_count] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      op[arg_count] = expand_normal (arg);
 
       if (! (*insn_data[icode].operand[arg_count].predicate) (op[arg_count],
 							      mode[arg_count]))
@@ -8378,16 +8487,24 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
-/* Emit the sequence of insns SEQ while preserving the registers.  */
+/* Emit the sequence of insns SEQ while preserving the registers REG and REG2.
+   This is achieved by means of a manual dynamic stack space allocation in
+   the current frame.  We make the assumption that SEQ doesn't contain any
+   function calls, with the possible exception of calls to the PIC helper.  */
 
 static void
 emit_and_preserve (rtx seq, rtx reg, rtx reg2)
 {
-  /* STACK_BOUNDARY guarantees that this is a 2-word slot.  */
-  rtx slot = gen_rtx_MEM (word_mode,
-			  plus_constant (stack_pointer_rtx, SPARC_STACK_BIAS));
+  /* We must preserve the lowest 16 words for the register save area.  */
+  HOST_WIDE_INT offset = 16*UNITS_PER_WORD;
+  /* We really need only 2 words of fresh stack space.  */
+  HOST_WIDE_INT size = SPARC_STACK_ALIGN (offset + 2*UNITS_PER_WORD);
 
-  emit_insn (gen_stack_pointer_dec (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
+  rtx slot
+    = gen_rtx_MEM (word_mode, plus_constant (stack_pointer_rtx,
+					     SPARC_STACK_BIAS + offset));
+
+  emit_insn (gen_stack_pointer_dec (GEN_INT (size)));
   emit_insn (gen_rtx_SET (VOIDmode, slot, reg));
   if (reg2)
     emit_insn (gen_rtx_SET (VOIDmode,
@@ -8399,7 +8516,7 @@ emit_and_preserve (rtx seq, rtx reg, rtx reg2)
 			    reg2,
 			    adjust_address (slot, word_mode, UNITS_PER_WORD)));
   emit_insn (gen_rtx_SET (VOIDmode, reg, slot));
-  emit_insn (gen_stack_pointer_inc (GEN_INT (STACK_BOUNDARY/BITS_PER_UNIT)));
+  emit_insn (gen_stack_pointer_inc (GEN_INT (size)));
 }
 
 /* Output the assembler code for a thunk function.  THUNK_DECL is the
@@ -8710,6 +8827,22 @@ sparc_file_end (void)
     file_end_indicate_exec_stack ();
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+sparc_mangle_fundamental_type (tree type)
+{
+  if (!TARGET_64BIT
+      && TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
    compare and swap on the word containing the byte or half-word.  */
 
@@ -8736,6 +8869,7 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
 			  gen_rtx_AND (SImode, addr1, GEN_INT (3))));
 
   memsi = gen_rtx_MEM (SImode, addr);
+  set_mem_alias_set (memsi, ALIAS_SET_MEMORY_BARRIER);
   MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
 
   val = force_reg (SImode, memsi);

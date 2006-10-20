@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -41,6 +41,10 @@ Waliasing
 Fortran
 Warn about possible aliasing of dummy arguments
 
+Wampersand
+Fortran
+Warn about missing ampersand in continued character constants
+
 Wconversion
 Fortran
 Warn about implicit conversion
@@ -61,13 +65,17 @@ Wsurprising
 Fortran
 Warn about \"suspicious\" constructs
 
+Wtabs
+Fortran
+Permit nonconforming uses of the tab character
+
 Wunderflow
 Fortran
 Warn about underflow of numerical constant expressions
 
-Wunused-labels
-Fortran
-Warn when a label is unused
+fall-intrinsics
+Fortran RejectNegative
+All intrinsics procedures are available regardless of selected standard
 
 fautomatic
 Fortran
@@ -117,6 +125,10 @@ ffree-form
 Fortran RejectNegative
 Assume that the source file is free form
 
+fopenmp
+Fortran
+Enable OpenMP
+
 funderscoring
 Fortran
 Append underscores to externally visible names
@@ -165,6 +177,10 @@ fno-backend
 Fortran RejectNegative
 Don't generate code, just do syntax and semantics checking
 
+frange-check
+Fortran
+Enable range checking during compilation
+
 fpack-derived
 Fortran
 Try to layout derived types as compact as possible
@@ -204,5 +220,29 @@ Accept extensions to support legacy code
 fshort-enums
 Fortran
 Use the narrowest integer type possible for enumeration types
+
+fconvert=little-endian
+Fortran RejectNegative
+Use little-endian format for unformatted files
+
+fconvert=big-endian
+Fortran RejectNegative
+Use big-endian format for unformatted files
+
+fconvert=native
+Fortran RejectNegative
+Use native format for unformatted files
+
+fconvert=swap
+Fortran RejectNegative
+Swap endianness for unformatted files
+
+frecord-marker=4
+Fortran RejectNegative
+Use a 4-byte record marker for unformatted files
+
+frecord-marker=8
+Fortran RejectNegative
+Use an 8-byte record marker for unformatted files
 
 ; This comment is to ensure we retain the blank line above.

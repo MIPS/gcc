@@ -24,15 +24,15 @@ tree gfc_array_deallocate (tree, tree);
 
 /* Generate code to initialize an allocate an array.  Statements are added to
    se, which should contain an expression for the array descriptor.  */
-void gfc_array_allocate (gfc_se *, gfc_ref *, tree);
+bool gfc_array_allocate (gfc_se *, gfc_expr *, tree);
 
 /* Allow the bounds of a loop to be set from a callee's array spec.  */
 void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 					  gfc_se *, gfc_array_spec *);
 
-/* Generate code to allocate a temporary array.  */
-tree gfc_trans_allocate_temp_array (stmtblock_t *, stmtblock_t *,
-				    gfc_loopinfo *, gfc_ss_info *, tree, bool);
+/* Generate code to create a temporary array.  */
+tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_loopinfo *,
+                                  gfc_ss_info *, tree, bool, bool, bool, bool);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -41,6 +41,17 @@ tree gfc_trans_auto_array_allocation (tree, gfc_symbol *, tree);
 tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 /* Generate entry and exit code for g77 calling convention arrays.  */
 tree gfc_trans_g77_array (gfc_symbol *, tree);
+/* Generate code to deallocate an array, if it is allocated.  */
+tree gfc_trans_dealloc_allocated (tree);
+
+tree gfc_duplicate_allocatable(tree dest, tree src, tree type, int rank);
+
+tree gfc_nullify_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_deallocate_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_copy_alloc_comp (gfc_symbol *, tree, tree, int);
+
 /* Add initialization for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */
@@ -84,7 +95,7 @@ void gfc_conv_resolve_dependencies (gfc_loopinfo *, gfc_ss *, gfc_ss *);
 tree gfc_build_null_descriptor (tree);
 
 /* Get a single array element.  */
-void gfc_conv_array_ref (gfc_se *, gfc_array_ref *);
+void gfc_conv_array_ref (gfc_se *, gfc_array_ref *, gfc_symbol *, locus *);
 /* Translate a reference to a temporary array.  */
 void gfc_conv_tmp_array_ref (gfc_se * se);
 /* Translate a reference to an array temporary.  */
@@ -114,9 +125,6 @@ tree gfc_conv_descriptor_dtype (tree);
 tree gfc_conv_descriptor_stride (tree, tree);
 tree gfc_conv_descriptor_lbound (tree, tree);
 tree gfc_conv_descriptor_ubound (tree, tree);
-
-/* Dependency checking for WHERE and FORALL.  */
-int gfc_check_dependency (gfc_expr *, gfc_expr *, gfc_expr **, int);
 
 /* Add pre-loop scalarization code for intrinsic functions which require
    special handling.  */

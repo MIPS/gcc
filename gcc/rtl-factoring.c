@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "timevar.h"
 #include "output.h"
+#include "addresses.h"
 
 /* Sequence abstraction:
 
@@ -125,7 +126,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    TODO:
    - Use REG_ALLOC_ORDER when choosing link register.
    - Handle JUMP_INSNs. Also handle volatile function calls (handle them
-     simmilar to unconditional jumps.)
+     similar to unconditional jumps.)
    - Test command line option -fpic.
 */
 
@@ -227,7 +228,7 @@ typedef struct seq_block_def
   struct seq_block_def *next_seq_block;
 } *seq_block;
 
-/* Contains same sequence candidates for futher searching.  */
+/* Contains same sequence candidates for further searching.  */
 typedef struct hash_bucket_def
 {
   /* The hash value of the group.  */
@@ -689,8 +690,9 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 #ifdef REGNO_OK_FOR_INDIRECT_JUMP_P
         || (!REGNO_OK_FOR_INDIRECT_JUMP_P (i, Pmode))
 #else
-        || (!REGNO_MODE_OK_FOR_BASE_P (i, Pmode))
-        || (!reg_class_subset_p (REGNO_REG_CLASS (i), BASE_REG_CLASS))
+        || (!ok_for_base_p_1 (i, Pmode, MEM, SCRATCH))
+        || (!reg_class_subset_p (REGNO_REG_CLASS (i),
+				 base_reg_class (VOIDmode, MEM, SCRATCH)))
 #endif
         || (hascall && call_used_regs[i])
         || (!call_used_regs[i] && !regs_ever_live[i]))
@@ -888,7 +890,7 @@ determine_seq_blocks (void)
         }
 
       /* Ensure that SB contains a seq_block with the appropriate length.
-         Insert a new seq_block if neccessary.  */
+         Insert a new seq_block if necessary.  */
       if (!seq_blocks || ((*mseq)->abstracted_length < seq_blocks->length))
         {
           sb = (seq_block) xmalloc (sizeof (struct seq_block_def));
@@ -979,7 +981,7 @@ split_blocks_after_seqs (void)
     }
 }
 
-/* Splits the best pattern sequence accoring to SEQ_BLOCKS. Emits pseudo-call
+/* Splits the best pattern sequence according to SEQ_BLOCKS. Emits pseudo-call
    and -return insns before and after the sequence.  */
 
 static void
@@ -1373,7 +1375,7 @@ rtl_seqabstr (void)
   /* Iterate until there are no sequences to abstract.  */
   for (iter = 1;; iter++)
     {
-      /* Recompute gain for sequences if neccessary and select sequence with
+      /* Recompute gain for sequences if necessary and select sequence with
          biggest gain.  */
       recompute_gain ();
       if (!pattern_seqs)
@@ -1394,9 +1396,8 @@ rtl_seqabstr (void)
       /* Update notes.  */
       count_or_remove_death_notes (NULL, 1);
 
-      life_analysis (dump_file, PROP_DEATH_NOTES |
-                                PROP_SCAN_DEAD_CODE |
-                                PROP_KILL_DEAD_CODE);
+      life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
+		     | PROP_KILL_DEAD_CODE);
 
       /* Extra cleanup.  */
       cleanup_cfg (CLEANUP_EXPENSIVE |
@@ -1415,12 +1416,10 @@ gate_rtl_seqabstr (void)
 
 /* The entry point of the sequence abstraction algorithm.  */
 
-static void
+static unsigned int
 rest_of_rtl_seqabstr (void)
 {
-  life_analysis (dump_file, PROP_DEATH_NOTES |
-                            PROP_SCAN_DEAD_CODE |
-                            PROP_KILL_DEAD_CODE);
+  life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
 
   cleanup_cfg (CLEANUP_EXPENSIVE |
                CLEANUP_UPDATE_LIFE |
@@ -1428,6 +1427,7 @@ rest_of_rtl_seqabstr (void)
 
   /* Abstract out common insn sequences. */
   rtl_seqabstr ();
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_seqabstr = {

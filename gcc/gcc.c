@@ -86,6 +86,7 @@ compilation is specified by a string called a "spec".  */
 #include "prefix.h"
 #include "gcc.h"
 #include "flags.h"
+#include "opts.h"
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -330,6 +331,7 @@ static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
 static void perror_with_name (const char *);
+static void fatal_ice (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
@@ -699,8 +701,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %{fopenmp:%:include(libgomp.spec)%(link_gomp)}\
-    %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
+    %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -1594,6 +1596,9 @@ static const struct spec_function static_spec_functions[] =
   { "replace-outfile",		replace_outfile_spec_function },
   { "version-compare",		version_compare_spec_function },
   { "include",			include_spec_function },
+#ifdef EXTRA_SPEC_FUNCTIONS
+  EXTRA_SPEC_FUNCTIONS
+#endif
   { 0, 0 }
 };
 
@@ -1823,7 +1828,7 @@ set_spec (const char *name, const char *spec)
   if (!sl)
     {
       /* Not found - make it.  */
-      sl = xmalloc (sizeof (struct spec_list));
+      sl = XNEW (struct spec_list);
       sl->name = xstrdup (name);
       sl->name_len = name_len;
       sl->ptr_spec = &sl->ptr;
@@ -1906,7 +1911,7 @@ static void
 alloc_args (void)
 {
   argbuf_length = 10;
-  argbuf = xmalloc (argbuf_length * sizeof (const char *));
+  argbuf = XNEWVEC (const char *, argbuf_length);
 }
 
 /* Clear out the vector of arguments (after a command is executed).  */
@@ -1965,14 +1970,14 @@ load_specs (const char *filename)
     pfatal_with_name (filename);
 
   /* Read contents of file into BUFFER.  */
-  buffer = xmalloc ((unsigned) statbuf.st_size + 1);
+  buffer = XNEWVEC (char, statbuf.st_size + 1);
   readlen = read (desc, buffer, (unsigned) statbuf.st_size);
   if (readlen < 0)
     pfatal_with_name (filename);
   buffer[readlen] = 0;
   close (desc);
 
-  specs = xmalloc (readlen + 1);
+  specs = XNEWVEC (char, readlen + 1);
   specs_p = specs;
   for (buffer_p = buffer; buffer_p && *buffer_p; buffer_p++)
     {
@@ -2288,7 +2293,7 @@ record_temp_file (const char *filename, int always_delete, int fail_delete)
 	if (! strcmp (name, temp->name))
 	  goto already1;
 
-      temp = xmalloc (sizeof (struct temp_file));
+      temp = XNEW (struct temp_file);
       temp->next = always_delete_queue;
       temp->name = name;
       always_delete_queue = temp;
@@ -2303,7 +2308,7 @@ record_temp_file (const char *filename, int always_delete, int fail_delete)
 	if (! strcmp (name, temp->name))
 	  goto already2;
 
-      temp = xmalloc (sizeof (struct temp_file));
+      temp = XNEW (struct temp_file);
       temp->next = failure_delete_queue;
       temp->name = name;
       failure_delete_queue = temp;
@@ -2434,7 +2439,7 @@ for_each_path (const struct path_prefix *paths,
 	    len += suffix_len;
 	  else
 	    len += multi_os_dir_len;
-	  path = xmalloc (len);
+	  path = XNEWVEC (char, len);
 	}
 
       for (pl = paths->plist; pl != 0; pl = pl->next)
@@ -2732,7 +2737,7 @@ add_prefix (struct path_prefix *pprefix, const char *prefix,
   if (len > pprefix->max_len)
     pprefix->max_len = len;
 
-  pl = xmalloc (sizeof (struct prefix_list));
+  pl = XNEW (struct prefix_list);
   pl->prefix = prefix;
   pl->require_machine_suffix = require_machine_suffix;
   pl->priority = priority;
@@ -2991,12 +2996,12 @@ execute (void)
 	      }
 	    else
 #endif
-	      fatal ("\
+	      fatal_ice ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
 See %s for instructions.",
-		     strsignal (WTERMSIG (status)), commands[i].prog,
-		     bug_report_url);
+		 	strsignal (WTERMSIG (status)), commands[i].prog,
+		 	bug_report_url);
 	  }
 	else if (WIFEXITED (status)
 		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
@@ -3187,7 +3192,7 @@ display_help (void)
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
   fputs (_("\
   --sysroot=<directory>    Use <directory> as the root directory for headers\n\
-                           for headers and libraries\n"), stdout);
+                           and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3220,7 +3225,7 @@ add_preprocessor_option (const char *option, int len)
   n_preprocessor_options++;
 
   if (! preprocessor_options)
-    preprocessor_options = xmalloc (n_preprocessor_options * sizeof (char *));
+    preprocessor_options = XNEWVEC (char *, n_preprocessor_options);
   else
     preprocessor_options = xrealloc (preprocessor_options,
 				     n_preprocessor_options * sizeof (char *));
@@ -3235,7 +3240,7 @@ add_assembler_option (const char *option, int len)
   n_assembler_options++;
 
   if (! assembler_options)
-    assembler_options = xmalloc (n_assembler_options * sizeof (char *));
+    assembler_options = XNEWVEC (char *, n_assembler_options);
   else
     assembler_options = xrealloc (assembler_options,
 				  n_assembler_options * sizeof (char *));
@@ -3249,7 +3254,7 @@ add_linker_option (const char *option, int len)
   n_linker_options++;
 
   if (! linker_options)
-    linker_options = xmalloc (n_linker_options * sizeof (char *));
+    linker_options = XNEWVEC (char *, n_linker_options);
   else
     linker_options = xrealloc (linker_options,
 			       n_linker_options * sizeof (char *));
@@ -3271,7 +3276,7 @@ process_command (int argc, const char **argv)
   int lang_n_infiles = 0;
 #ifdef MODIFY_TARGET_NAME
   int is_modify_target_name;
-  int j;
+  unsigned int j;
 #endif
 
   GET_ENVIRONMENT (gcc_exec_prefix, "GCC_EXEC_PREFIX");
@@ -3369,9 +3374,17 @@ process_command (int argc, const char **argv)
 	putenv (concat ("GCC_EXEC_PREFIX=", gcc_exec_prefix, NULL));
     }
   else
-    gcc_libexec_prefix = make_relative_prefix (gcc_exec_prefix,
-					       standard_exec_prefix,
-					       standard_libexec_prefix);
+    {
+      /* make_relative_prefix requires a program name, but
+	 GCC_EXEC_PREFIX is typically a directory name with a trailing
+	 / (which is ignored by make_relative_prefix), so append a
+	 program name.  */
+      char *tmp_prefix = concat (gcc_exec_prefix, "gcc", NULL);
+      gcc_libexec_prefix = make_relative_prefix (tmp_prefix,
+						 standard_exec_prefix,
+						 standard_libexec_prefix);
+      free (tmp_prefix);
+    }
 #else
 #endif
 
@@ -3679,7 +3692,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
       else if (strcmp (argv[i], "-specs") == 0)
 	{
-	  struct user_specs *user = xmalloc (sizeof (struct user_specs));
+	  struct user_specs *user = XNEW (struct user_specs);
 	  if (++i >= argc)
 	    fatal ("argument to '-specs' is missing");
 
@@ -3693,7 +3706,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
       else if (strncmp (argv[i], "-specs=", 7) == 0)
 	{
-	  struct user_specs *user = xmalloc (sizeof (struct user_specs));
+	  struct user_specs *user = XNEW (struct user_specs);
 	  if (strlen (argv[i]) == 7)
 	    fatal ("argument to '-specs=' is missing");
 
@@ -3760,7 +3773,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		if (! IS_DIR_SEPARATOR (value [len - 1])
 		    && is_directory (value, false))
 		  {
-		    char *tmp = xmalloc (len + 2);
+		    char *tmp = XNEWVEC (char, len + 2);
 		    strcpy (tmp, value);
 		    tmp[len] = DIR_SEPARATOR;
 		    tmp[++ len] = 0;
@@ -4007,8 +4020,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
   /* Then create the space for the vectors and scan again.  */
 
-  switches = xmalloc ((n_switches + 1) * sizeof (struct switchstr));
-  infiles = xmalloc ((n_infiles + 1) * sizeof (struct infile));
+  switches = XNEWVEC (struct switchstr, n_switches + 1);
+  infiles = XNEWVEC (struct infile, n_infiles + 1);
   n_switches = 0;
   n_infiles = 0;
   last_language_n_infiles = -1;
@@ -4158,7 +4171,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      if (i + n_args >= argc)
 		fatal ("argument to '-%s' is missing", p);
 	      switches[n_switches].args
-		= xmalloc ((n_args + 1) * sizeof(const char *));
+		= XNEWVEC (const char *, n_args + 1);
 	      while (j < n_args)
 		switches[n_switches].args[j++] = argv[++i];
 	      /* Null-terminate the vector.  */
@@ -4168,12 +4181,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	    {
 	      /* On some systems, ld cannot handle some options without
 		 a space.  So split the option from its argument.  */
-	      char *part1 = xmalloc (2);
+	      char *part1 = XNEWVEC (char, 2);
 	      part1[0] = c;
 	      part1[1] = '\0';
 
 	      switches[n_switches].part1 = part1;
-	      switches[n_switches].args = xmalloc (2 * sizeof (const char *));
+	      switches[n_switches].args = XNEWVEC (const char *, 2);
 	      switches[n_switches].args[0] = xstrdup (p+1);
 	      switches[n_switches].args[1] = 0;
 	    }
@@ -4816,7 +4829,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    else
 		      {
 			saved_suffix
-			  = xmalloc (suffix_length
+			  = XNEWVEC (char, suffix_length
 				     + strlen (TARGET_OBJECT_SUFFIX));
 			strncpy (saved_suffix, suffix, suffix_length);
 			strcpy (saved_suffix + suffix_length,
@@ -6080,6 +6093,8 @@ main (int argc, char **argv)
 
   expandargv (&argc, &argv);
 
+  prune_options (&argc, &argv);
+
 #ifdef GCC_DRIVER_HOST_INITIALIZATION
   /* Perform host dependent initialization when needed.  */
   GCC_DRIVER_HOST_INITIALIZATION;
@@ -6471,11 +6486,11 @@ main (int argc, char **argv)
 
   i = n_infiles;
   i += lang_specific_extra_outfiles;
-  outfiles = xcalloc (i, sizeof (char *));
+  outfiles = XCNEWVEC (const char *, i);
 
   /* Record which files were specified explicitly as link input.  */
 
-  explicit_link_files = xcalloc (1, n_infiles);
+  explicit_link_files = XCNEWVEC (char, n_infiles);
 
   if (combine_flag)
     combine_inputs = true;
@@ -6786,7 +6801,7 @@ lookup_compiler (const char *name, size_t length, const char *language)
 static char *
 save_string (const char *s, int len)
 {
-  char *result = xmalloc (len + 1);
+  char *result = XNEWVEC (char, len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;
@@ -6812,10 +6827,25 @@ perror_with_name (const char *name)
 void
 fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal gcc abort in %s, at %s:%d", func, file, line);
+  fatal_ice ("internal gcc abort in %s, at %s:%d", func, file, line);
 }
 
 /* Output an error message and exit.  */
+
+void
+fatal_ice (const char *cmsgid, ...)
+{
+  va_list ap;
+
+  va_start (ap, cmsgid);
+
+  fprintf (stderr, "%s: ", programname);
+  vfprintf (stderr, _(cmsgid), ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  delete_temp_files ();
+  exit (pass_exit_codes ? ICE_EXIT_CODE : 1);
+}
 
 void
 fatal (const char *cmsgid, ...)
@@ -7036,8 +7066,7 @@ used_arg (const char *p, int len)
 	 xmalloc from calling fatal, and prevents us from re-executing this
 	 block of code.  */
       mswitches
-	= xmalloc (sizeof (struct mswitchstr)
-		   * (n_mdswitches + (n_switches ? n_switches : 1)));
+	= XNEWVEC (struct mswitchstr, n_mdswitches + (n_switches ? n_switches : 1));
       for (i = 0; i < n_switches; i++)
 	if (switches[i].live_cond != SWITCH_IGNORE)
 	  {
@@ -7164,7 +7193,7 @@ set_multilib_dir (void)
     {
       int i = 0;
 
-      mdswitches = xmalloc (sizeof (struct mdswitchstr) * n_mdswitches);
+      mdswitches = XNEWVEC (struct mdswitchstr, n_mdswitches);
       for (start = multilib_defaults; *start != '\0'; start = end + 1)
 	{
 	  while (*start == ' ' || *start == '\t')
@@ -7326,7 +7355,7 @@ set_multilib_dir (void)
 	  if (this_path_len != 1
 	      || this_path[0] != '.')
 	    {
-	      char *new_multilib_dir = xmalloc (this_path_len + 1);
+	      char *new_multilib_dir = XNEWVEC (char, this_path_len + 1);
 	      char *q;
 
 	      strncpy (new_multilib_dir, this_path, this_path_len);
@@ -7347,7 +7376,7 @@ set_multilib_dir (void)
 	    q++;
 	  if (q < end)
 	    {
-	      char *new_multilib_os_dir = xmalloc (end - q);
+	      char *new_multilib_os_dir = XNEWVEC (char, end - q);
 	      memcpy (new_multilib_os_dir, q + 1, end - q - 1);
 	      new_multilib_os_dir[end - q - 1] = '\0';
 	      multilib_os_dir = new_multilib_os_dir;

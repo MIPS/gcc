@@ -26,7 +26,7 @@
  * None of this is safe with dlclose and incremental collection.
  * But then not much of anything is safe in the presence of dlclose.
  */
-#if defined(__linux__) && !defined(_GNU_SOURCE)
+#if (defined(__linux__) || defined(__GLIBC__)) && !defined(_GNU_SOURCE)
     /* Can't test LINUX, since this must be define before other includes */
 #   define _GNU_SOURCE
 #endif
@@ -118,6 +118,17 @@
 #      endif
 #    endif
 #  endif
+
+/* An user-supplied routine that is called to dtermine if a DSO must
+   be scanned by the gc.  */
+static int (*GC_has_static_roots)(const char *, void *, size_t);
+/* Register the routine.  */
+void
+GC_register_has_static_roots_callback 
+  (int (*callback)(const char *, void *, size_t))
+{
+  GC_has_static_roots = callback;
+}
 
 #if defined(SUNOS5DL) && !defined(USE_PROC_FOR_LIBRARIES)
 
@@ -371,7 +382,7 @@ GC_bool GC_register_main_static_data()
 {
   return FALSE;
 }
-  
+
 # define HAVE_REGISTER_MAIN_STATIC_DATA
 
 #endif /* USE_PROC_FOR_LIBRARIES */
@@ -381,7 +392,7 @@ GC_bool GC_register_main_static_data()
 /* For glibc 2.2.4+.  Unfortunately, it doesn't work for older	*/
 /* versions.  Thanks to Jakub Jelinek for most of the code.	*/
 
-# if defined(LINUX) /* Are others OK here, too? */ \
+# if (defined(LINUX) || defined (__GLIBC__)) /* Are others OK here, too? */ \
      && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
          || (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG))) 
 
@@ -411,6 +422,11 @@ static int GC_register_dynlib_callback(info, size, ptr)
 	{
 	  if( !(p->p_flags & PF_W) ) break;
 	  start = ((char *)(p->p_vaddr)) + info->dlpi_addr;
+
+	  if (GC_has_static_roots 
+	      && !GC_has_static_roots(info->dlpi_name, start, p->p_memsz))
+	    break;
+
 	  GC_add_roots_inner(start, start + p->p_memsz, TRUE);
 	}
       break;
@@ -844,6 +860,9 @@ void GC_register_dynamic_libraries()
   }
 # endif /* DEBUG_VIRTUALQUERY */
 
+  extern GC_bool GC_wnt;  /* Is Windows NT derivative.		*/
+  			  /* Defined and set in os_dep.c.	*/
+
   void GC_register_dynamic_libraries()
   {
     MEMORY_BASIC_INFORMATION buf;
@@ -885,7 +904,12 @@ void GC_register_dynamic_libraries()
 		 * !is_frame_buffer(p, buf.RegionSize, buf.Type)
 		 * instead of just checking for MEM_IMAGE.
 		 * If something breaks, change it back. */
-		&& buf.Type == MEM_IMAGE) {  
+		/* There is some evidence that we cannot always
+		 * ignore MEM_PRIVATE sections under Windows ME
+		 * and predecessors.  Hence we now also check for
+		 * that case.	*/
+		&& (buf.Type == MEM_IMAGE ||
+		    !GC_wnt && buf.Type == MEM_PRIVATE)) {  
 #	        ifdef DEBUG_VIRTUALQUERY
 	          GC_dump_meminfo(&buf);
 #	        endif

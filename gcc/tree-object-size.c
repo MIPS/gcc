@@ -1,5 +1,5 @@
 /* __builtin_object_size (ptr, object_size_type) computation
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -50,7 +50,7 @@ static void expr_object_size (struct object_size_info *, tree, tree);
 static bool merge_object_sizes (struct object_size_info *, tree, tree,
 				unsigned HOST_WIDE_INT);
 static bool plus_expr_object_size (struct object_size_info *, tree, tree);
-static void compute_object_sizes (void);
+static unsigned int compute_object_sizes (void);
 static void init_offset_limit (void);
 static void check_for_plus_in_loops (struct object_size_info *, tree);
 static void check_for_plus_in_loops_1 (struct object_size_info *, tree,
@@ -134,7 +134,7 @@ compute_object_offset (tree expr, tree var)
 	  code = MINUS_EXPR;
 	  t = fold_build1 (NEGATE_EXPR, TREE_TYPE (t), t);
 	}
-      t = convert (sizetype, t);
+      t = fold_convert (sizetype, t);
       off = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (TREE_TYPE (expr)), t);
       break;
 
@@ -386,8 +386,8 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		 E.g. p = &buf[0]; while (cond) p = p + 4;  */
 	      if (object_size_type & 2)
 		{
-		  osi.depths = xcalloc (num_ssa_names, sizeof (unsigned int));
-		  osi.stack = xmalloc (num_ssa_names * sizeof (unsigned int));
+		  osi.depths = XCNEWVEC (unsigned int, num_ssa_names);
+		  osi.stack = XNEWVEC (unsigned int, num_ssa_names);
 		  osi.tos = osi.stack;
 		  osi.pass = 1;
 		  /* collect_object_sizes_for is changing
@@ -595,7 +595,7 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 	{
 	  unsigned HOST_WIDE_INT off = tree_low_cst (op1, 1);
 
-	  bytes = compute_builtin_object_size (value, object_size_type);
+	  bytes = compute_builtin_object_size (op0, object_size_type);
 	  if (off > offset_limit)
 	    bytes = unknown[object_size_type];
 	  else if (off > bytes)
@@ -956,8 +956,7 @@ init_object_sizes (void)
 
   for (object_size_type = 0; object_size_type <= 3; object_size_type++)
     {
-      object_sizes[object_size_type]
-	= xmalloc (num_ssa_names * sizeof (HOST_WIDE_INT));
+      object_sizes[object_size_type] = XNEWVEC (unsigned HOST_WIDE_INT, num_ssa_names);
       computed[object_size_type] = BITMAP_ALLOC (NULL);
     }
 
@@ -983,7 +982,7 @@ fini_object_sizes (void)
 
 /* Simple pass to optimize all __builtin_object_size () builtins.  */
 
-static void
+static unsigned int
 compute_object_sizes (void)
 {
   basic_block bb;
@@ -1055,6 +1054,7 @@ compute_object_sizes (void)
     }
 
   fini_object_sizes ();
+  return 0;
 }
 
 struct tree_opt_pass pass_object_sizes =

@@ -125,6 +125,15 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   ## other macros from doing the same.  This should be automated.)  -pme
   need_libmath=no
 
+  # Check for uClibc since Linux platforms use different configuration
+  # directories depending on the C library in use.
+  AC_EGREP_CPP([_using_uclibc], [
+  #include <stdio.h>
+  #if __UCLIBC__
+    _using_uclibc
+  #endif
+  ], uclibc=yes, uclibc=no)
+
   # Find platform-specific directories containing configuration info.
   # Also possibly modify flags used elsewhere, as needed by the platform.
   GLIBCXX_CHECK_HOST
@@ -665,6 +674,8 @@ dnl
 dnl Assumes cross_compiling bits already done, and with_cross_host in
 dnl particular.
 dnl
+dnl This logic must match gcc/configure.ac's setting of gcc_gxx_include_dir.
+dnl config/gxx-include-dir.m4 must be kept consistant with this as well.
 AC_DEFUN([GLIBCXX_EXPORT_INSTALL_INFO], [
   glibcxx_toolexecdir=no
   glibcxx_toolexeclibdir=no
@@ -696,7 +707,13 @@ AC_DEFUN([GLIBCXX_EXPORT_INSTALL_INFO], [
 
   # Default case for install directory for include files.
   if test $version_specific_libs = no && test $gxx_include_dir = no; then
-    gxx_include_dir='${prefix}/include/c++/${gcc_version}'
+    gxx_include_dir='include/c++/${gcc_version}'
+    if test -n "$with_cross_host" && 
+       test x"$with_cross_host" != x"no"; then	
+      gxx_include_dir='${prefix}/${target_alias}/'"$gxx_include_dir"
+    else
+      gxx_include_dir='${prefix}/'"$gxx_include_dir"
+    fi
   fi
 
   # Version-specific runtime libs processing.
@@ -787,18 +804,6 @@ dnl  +  If 'C99' stuff is not available, ignores DEFAULT and sets `no'.
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_C99], [
   GLIBCXX_ENABLE(c99,$1,,[turns on ISO/IEC 9899:1999 support])
-
-  # Test wchar.h for mbstate_t, which is needed for char_traits and fpos
-  # even if C99 support is turned off.
-  AC_CHECK_HEADERS(wchar.h, ac_has_wchar_h=yes, ac_has_wchar_h=no)
-  AC_MSG_CHECKING([for mbstate_t])
-  AC_TRY_COMPILE([#include <wchar.h>],
-  [mbstate_t teststate;],
-  have_mbstate_t=yes, have_mbstate_t=no)
-  AC_MSG_RESULT($have_mbstate_t)
-  if test x"$have_mbstate_t" = xyes; then
-    AC_DEFINE(HAVE_MBSTATE_T,1,[Define if mbstate_t exists in wchar.h.])
-  fi
 
   if test x"$enable_c99" = x"yes"; then
 
@@ -924,74 +929,17 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   ])
   AC_MSG_RESULT($ac_c99_stdlib)
 
-  # Check for the existence in <wchar.h> of wcstoull, WEOF, etc.
-  AC_CHECK_HEADERS(wctype.h, ac_has_wctype_h=yes, ac_has_wctype_h=no)
+  # Check for the existence in <wchar.h> of wcstold, etc.
   ac_c99_wchar=no;
   if test x"$ac_has_wchar_h" = xyes &&
      test x"$ac_has_wctype_h" = xyes; then
+    AC_MSG_CHECKING([for ISO C99 support in <wchar.h>])	
     AC_TRY_COMPILE([#include <wchar.h>
-                    #include <stddef.h>
-                    wint_t i;
-		    long l = WEOF;
-		    long j = WCHAR_MIN;
-		    long k = WCHAR_MAX;
                     namespace test
                     {
-		      using ::btowc;
-		      using ::fgetwc;
-		      using ::fgetws;
-		      using ::fputwc;
-		      using ::fputws;
-		      using ::fwide;
-		      using ::fwprintf; 
-		      using ::fwscanf;
-		      using ::getwc;
-		      using ::getwchar;
-		      using ::mbrlen; 
-		      using ::mbrtowc; 
-		      using ::mbsinit; 
-		      using ::mbsrtowcs; 
-		      using ::putwc;
-		      using ::putwchar;
-		      using ::swprintf; 
-		      using ::swscanf; 
-		      using ::ungetwc;
-		      using ::vfwprintf; 
-		      using ::vswprintf; 
-		      using ::vwprintf; 
-		      using ::wcrtomb; 
-		      using ::wcscat; 
-		      using ::wcschr; 
-		      using ::wcscmp; 
-		      using ::wcscoll; 
-		      using ::wcscpy; 
-		      using ::wcscspn; 
-		      using ::wcsftime; 
-		      using ::wcslen;
-		      using ::wcsncat; 
-		      using ::wcsncmp; 
-		      using ::wcsncpy; 
-		      using ::wcspbrk;
-		      using ::wcsrchr; 
-		      using ::wcsrtombs; 
-		      using ::wcsspn; 
-		      using ::wcsstr;
-		      using ::wcstod; 
-		      using ::wcstok; 
-		      using ::wcstol;
 		      using ::wcstold;
 		      using ::wcstoll;
-		      using ::wcstoul; 
 		      using ::wcstoull;
-		      using ::wcsxfrm; 
-		      using ::wctob; 
-		      using ::wmemchr;
-		      using ::wmemcmp;
-		      using ::wmemcpy;
-		      using ::wmemmove;
-		      using ::wmemset;
-		      using ::wprintf; 
-		      using ::wscanf; 
 		    }
 		   ],[],[ac_c99_wchar=yes], [ac_c99_wchar=no])
 
@@ -1022,7 +970,6 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
  	    	   [AC_DEFINE(HAVE_ISWBLANK,1,
 			[Defined if iswblank exists.])],[])
 
-    AC_MSG_CHECKING([for ISO C99 support in <wchar.h>])
     AC_MSG_RESULT($ac_c99_wchar)
   fi
 
@@ -1099,7 +1046,8 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
   AC_CACHE_VAL(ac_c99_ctype_tr1, [
   AC_TRY_COMPILE([#include <ctype.h>],
 	         [int ch;
-	          isblank(ch);
+	          int ret;
+	          ret = isblank(ch);
 		 ],[ac_c99_ctype_tr1=yes], [ac_c99_ctype_tr1=no])
   ])
   AC_MSG_RESULT($ac_c99_ctype_tr1)
@@ -1118,17 +1066,18 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	           [int except, mode;
 	            fexcept_t* pflag;
                     fenv_t* penv;
-	            feclearexcept(except);
-                    fegetexceptflag(pflag, except);
-	            feraiseexcept(except);
-	            fesetexceptflag(pflag, except);
-	            fetestexcept(except);
-	            fegetround();
-	            fesetround(mode);
-	            fegetenv(penv);
-	            feholdexcept(penv);
-	            fesetenv(penv);
-	            feupdateenv(penv);
+	            int ret;
+	            ret = feclearexcept(except);
+	            ret = fegetexceptflag(pflag, except);
+	            ret = feraiseexcept(except);
+	            ret = fesetexceptflag(pflag, except);
+	            ret = fetestexcept(except);
+	            ret = fegetround();
+	            ret = fesetround(mode);
+	            ret = fegetenv(penv);
+	            ret = feholdexcept(penv);
+	            ret = fesetenv(penv);
+	            ret = feupdateenv(penv);
 		   ],[ac_c99_fenv_tr1=yes], [ac_c99_fenv_tr1=no])
   fi
   AC_MSG_RESULT($ac_c99_fenv_tr1)
@@ -1138,9 +1087,221 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	      <tr1/cfenv> in namespace std::tr1.])
   fi
 
+  # Check for the existence of <stdint.h> types.
+  AC_MSG_CHECKING([for ISO C99 support to TR1 in <stdint.h>])
+  AC_CACHE_VAL(ac_c99_stdint_tr1, [
+  AC_TRY_COMPILE([#include <stdint.h>],
+	         [typedef int8_t          my_int8_t;
+	          typedef int16_t         my_int16_t;
+	          typedef int32_t         my_int32_t;
+	          typedef int64_t         my_int64_t;
+	          typedef int_fast8_t     my_int_fast8_t;
+	          typedef int_fast16_t    my_int_fast16_t;
+	          typedef int_fast32_t    my_int_fast32_t;
+	          typedef int_fast64_t    my_int_fast64_t;	
+	          typedef int_least8_t    my_int_least8_t;
+	          typedef int_least16_t   my_int_least16_t;
+	          typedef int_least32_t   my_int_least32_t;
+	          typedef int_least64_t   my_int_least64_t;
+		  typedef intmax_t        my_intmax_t;
+		  typedef intptr_t        my_intptr_t;
+	          typedef uint8_t         my_uint8_t;
+	          typedef uint16_t        my_uint16_t;
+	          typedef uint32_t        my_uint32_t;
+	          typedef uint64_t        my_uint64_t;
+	          typedef uint_fast8_t    my_uint_fast8_t;
+	          typedef uint_fast16_t   my_uint_fast16_t;
+	          typedef uint_fast32_t   my_uint_fast32_t;
+	          typedef uint_fast64_t   my_uint_fast64_t;	
+	          typedef uint_least8_t   my_uint_least8_t;
+	          typedef uint_least16_t  my_uint_least16_t;
+	          typedef uint_least32_t  my_uint_least32_t;
+	          typedef uint_least64_t  my_uint_least64_t;
+		  typedef uintmax_t       my_uintmax_t;
+		  typedef uintptr_t       my_uintptr_t;
+		 ],[ac_c99_stdint_tr1=yes], [ac_c99_stdint_tr1=no])
+  ])
+  AC_MSG_RESULT($ac_c99_stdint_tr1)
+  if test x"$ac_c99_stdint_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_STDINT_TR1, 1,
+              [Define if C99 types in <stdint.h> should be imported in
+	      <tr1/cstdint> in namespace std::tr1.])
+  fi
+
+  # Check for the existence of <math.h> functions.
+  AC_MSG_CHECKING([for ISO C99 support to TR1 in <math.h>])
+  AC_CACHE_VAL(ac_c99_math_tr1, [
+  AC_TRY_COMPILE([#include <math.h>],
+	         [typedef double_t  my_double_t;
+	          typedef float_t   my_float_t;
+	          acosh(0.0);
+	          acoshf(0.0f);
+	          acoshl(0.0l);
+	          asinh(0.0);
+	          asinhf(0.0f);
+	          asinhl(0.0l);
+	          atanh(0.0);
+	          atanhf(0.0f);
+	          atanhl(0.0l);
+	          cbrt(0.0);
+	          cbrtf(0.0f);
+	          cbrtl(0.0l);
+	          copysign(0.0, 0.0);
+	          copysignf(0.0f, 0.0f);
+	          copysignl(0.0l, 0.0l);
+	          erf(0.0);
+	          erff(0.0f);
+	          erfl(0.0l);
+	          erfc(0.0);
+	          erfcf(0.0f);
+	          erfcl(0.0l);
+	          exp2(0.0);
+	          exp2f(0.0f);
+	          exp2l(0.0l);
+	          expm1(0.0);
+	          expm1f(0.0f);
+	          expm1l(0.0l);
+	          fdim(0.0, 0.0);
+	          fdimf(0.0f, 0.0f);
+	          fdiml(0.0l, 0.0l);
+	          fma(0.0, 0.0, 0.0);
+	          fmaf(0.0f, 0.0f, 0.0f);
+	          fmal(0.0l, 0.0l, 0.0l);
+	          fmax(0.0, 0.0);
+	          fmaxf(0.0f, 0.0f);
+	          fmaxl(0.0l, 0.0l);
+	          fmin(0.0, 0.0);
+	          fminf(0.0f, 0.0f);
+	          fminl(0.0l, 0.0l);
+	          hypot(0.0, 0.0);
+	          hypotf(0.0f, 0.0f);
+	          hypotl(0.0l, 0.0l);
+	          ilogb(0.0);
+	          ilogbf(0.0f);
+	          ilogbl(0.0l);
+	          lgamma(0.0);
+	          lgammaf(0.0f);
+	          lgammal(0.0l);
+	          llrint(0.0);
+	          llrintf(0.0f);
+	          llrintl(0.0l);
+	          llround(0.0);
+	          llroundf(0.0f);
+	          llroundl(0.0l);
+	          log1p(0.0);
+	          log1pf(0.0f);
+	          log1pl(0.0l);
+	          log2(0.0);
+	          log2f(0.0f);
+	          log2l(0.0l);
+	          logb(0.0);
+	          logbf(0.0f);
+	          logbl(0.0l);
+	          lrint(0.0);
+	          lrintf(0.0f);
+	          lrintl(0.0l);
+	          lround(0.0);
+	          lroundf(0.0f);
+	          lroundl(0.0l);
+	          nan(0);
+	          nanf(0);
+	          nanl(0);
+	          nearbyint(0.0);
+	          nearbyintf(0.0f);
+	          nearbyintl(0.0l);
+	          nextafter(0.0, 0.0);
+	          nextafterf(0.0f, 0.0f);
+	          nextafterl(0.0l, 0.0l);
+	          nexttoward(0.0, 0.0);
+	          nexttowardf(0.0f, 0.0f);
+	          nexttowardl(0.0l, 0.0l);
+	          remainder(0.0, 0.0);
+	          remainderf(0.0f, 0.0f);
+	          remainderl(0.0l, 0.0l);
+	          remquo(0.0, 0.0, 0);
+	          remquo(0.0f, 0.0f, 0);
+	          remquo(0.0l, 0.0l, 0);
+	          rint(0.0);
+	          rintf(0.0f);
+	          rintl(0.0l);
+	          round(0.0);
+	          roundf(0.0f);
+	          roundl(0.0l);
+	          scalbln(0.0, 0l);
+	          scalblnf(0.0f, 0l);
+	          scalblnl(0.0l, 0l);
+	          scalbn(0.0, 0);
+	          scalbnf(0.0f, 0);
+	          scalbnl(0.0l, 0);
+	          tgamma(0.0);
+	          tgammaf(0.0f);
+	          tgammal(0.0l);
+	          trunc(0.0);
+	          truncf(0.0f);
+	          truncl(0.0l);
+		 ],[ac_c99_math_tr1=yes], [ac_c99_math_tr1=no])
+  ])
+  AC_MSG_RESULT($ac_c99_math_tr1)
+  if test x"$ac_c99_math_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_MATH_TR1, 1,
+              [Define if C99 functions or macros in <math.h> should be imported
+              in <tr1/cmath> in namespace std::tr1.])
+  fi
+
+  # Check for the existence of <inttypes.h> functions (NB: doesn't make
+  # sense if the previous check fails, per C99, 7.8/1).
+  ac_c99_inttypes_tr1=no;
+  if test x"$ac_c99_stdint_tr1" = x"yes"; then
+    AC_MSG_CHECKING([for ISO C99 support to TR1 in <inttypes.h>])
+    AC_TRY_COMPILE([#include <inttypes.h>],
+	           [intmax_t i, numer, denom, base;
+	            const char* s;
+	            char** endptr;
+	            intmax_t ret = imaxabs(i);
+	            imaxdiv_t dret = imaxdiv(numer, denom);
+	            ret = strtoimax(s, endptr, base);
+	            uintmax_t uret = strtoumax(s, endptr, base);
+        	   ],[ac_c99_inttypes_tr1=yes], [ac_c99_inttypes_tr1=no])
+  fi
+  AC_MSG_RESULT($ac_c99_inttypes_tr1)
+  if test x"$ac_c99_inttypes_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_INTTYPES_TR1, 1,
+              [Define if C99 functions in <inttypes.h> should be imported in
+              <tr1/cinttypes> in namespace std::tr1.])
+  fi
+
+  # Check for the existence of the <stdbool.h> header.	
+  AC_CHECK_HEADERS(stdbool.h)
+
   AC_LANG_RESTORE
 ])
 
+dnl
+dnl Check whether "dev/random" and "dev/urandom" are available for the
+dnl random_device of "TR1" (Chapter 5.1, "Random number generation").
+dnl
+AC_DEFUN([GLIBCXX_CHECK_RANDOM_TR1], [
+
+  AC_MSG_CHECKING([for "dev/random" and "dev/urandom" for TR1 random_device])
+  AC_CACHE_VAL(ac_random_tr1, [
+  AC_TRY_RUN([#include <stdio.h>
+	      int main()
+	      {
+                return !(fopen("/dev/random", "r")
+                         && fopen("/dev/urandom", "r"));
+	      }	      
+	     ],
+             [ac_random_tr1=yes], [ac_random_tr1=no],
+	     [ac_random_tr1=no])
+  ])
+  AC_MSG_RESULT($ac_random_tr1)
+  if test x"$ac_random_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_RANDOM_TR1, 1,
+              [Define if dev/random and dev/urandom are available for
+	       the random_device of TR1 (Chapter 5.1).])
+  fi
+
+])
 
 dnl
 dnl Check for what type of C headers to use.
@@ -1646,14 +1807,107 @@ dnl --disable-wchar_t leaves _GLIBCXX_USE_WCHAR_T undefined
 dnl  +  Usage:  GLIBCXX_ENABLE_WCHAR_T[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.
 dnl
-dnl Necessary support (probed along with C99 support) must also be present.
+dnl Necessary support must also be present.
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_WCHAR_T], [
   GLIBCXX_ENABLE(wchar_t,$1,,[enable template specializations for 'wchar_t'])
-  if test x"$ac_c99_wchar" = x"yes" && test x"$enable_wchar_t" = x"yes"; then
+
+  # Test wchar.h for mbstate_t, which is needed for char_traits and fpos.
+  AC_CHECK_HEADERS(wchar.h, ac_has_wchar_h=yes, ac_has_wchar_h=no)
+  AC_MSG_CHECKING([for mbstate_t])
+  AC_TRY_COMPILE([#include <wchar.h>],
+  [mbstate_t teststate;],
+  have_mbstate_t=yes, have_mbstate_t=no)
+  AC_MSG_RESULT($have_mbstate_t)
+  if test x"$have_mbstate_t" = xyes; then
+    AC_DEFINE(HAVE_MBSTATE_T,1,[Define if mbstate_t exists in wchar.h.])
+  fi
+
+  # Test it always, for use in GLIBCXX_ENABLE_C99, together with
+  # ac_has_wchar_h.
+  AC_CHECK_HEADERS(wctype.h, ac_has_wctype_h=yes, ac_has_wctype_h=no)
+  
+  if test x"$enable_wchar_t" = x"yes"; then
+
+    AC_LANG_SAVE
+    AC_LANG_CPLUSPLUS
+    
+    if test x"$ac_has_wchar_h" = xyes &&
+       test x"$ac_has_wctype_h" = xyes; then
+      AC_TRY_COMPILE([#include <wchar.h>
+                      #include <stddef.h>
+                      wint_t i;
+		      long l = WEOF;
+		      long j = WCHAR_MIN;
+		      long k = WCHAR_MAX;
+                      namespace test
+                      {
+			using ::btowc;
+			using ::fgetwc;
+			using ::fgetws;
+			using ::fputwc;
+			using ::fputws;
+			using ::fwide;
+			using ::fwprintf; 
+			using ::fwscanf;
+			using ::getwc;
+			using ::getwchar;
+ 			using ::mbrlen; 
+			using ::mbrtowc; 
+			using ::mbsinit; 
+			using ::mbsrtowcs; 
+			using ::putwc;
+			using ::putwchar;
+			using ::swprintf; 
+			using ::swscanf; 
+			using ::ungetwc;
+			using ::vfwprintf; 
+			using ::vswprintf; 
+			using ::vwprintf; 
+			using ::wcrtomb; 
+			using ::wcscat; 
+			using ::wcschr; 
+			using ::wcscmp; 
+			using ::wcscoll; 
+			using ::wcscpy; 
+			using ::wcscspn; 
+			using ::wcsftime; 
+			using ::wcslen;
+			using ::wcsncat; 
+			using ::wcsncmp; 
+			using ::wcsncpy; 
+			using ::wcspbrk;
+			using ::wcsrchr; 
+			using ::wcsrtombs; 
+			using ::wcsspn; 
+			using ::wcsstr;
+			using ::wcstod; 
+			using ::wcstok; 
+			using ::wcstol;
+			using ::wcstoul; 
+			using ::wcsxfrm; 
+			using ::wctob; 
+			using ::wmemchr;
+			using ::wmemcmp;
+			using ::wmemcpy;
+			using ::wmemmove;
+			using ::wmemset;
+			using ::wprintf; 
+			using ::wscanf; 
+		      }
+		     ],[],[], [enable_wchar_t=no])
+    else
+      enable_wchar_t=no
+    fi
+
+    AC_LANG_RESTORE
+  fi
+
+  if test x"$enable_wchar_t" = x"yes"; then
     AC_DEFINE(_GLIBCXX_USE_WCHAR_T, 1,
               [Define if code specialized for wchar_t should be used.])
   fi
+
   AC_MSG_CHECKING([for enabled wchar_t specializations])
   AC_MSG_RESULT([$enable_wchar_t])
 ])
@@ -1705,11 +1959,74 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
 
   GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
-    glibcxx_PCHFLAGS="-include bits/stdc++.h"
+    glibcxx_PCHFLAGS="-include bits/stdtr1c++.h"
   else
     glibcxx_PCHFLAGS=""
   fi
   AC_SUBST(glibcxx_PCHFLAGS)
+])
+
+
+dnl
+dnl Check for atomic builtins.
+dnl See:
+dnl http://gcc.gnu.org/onlinedocs/gcc/Atomic-Builtins.html#Atomic-Builtins
+dnl
+dnl This checks to see if the host supports the compiler-generated
+dnl builtins for atomic operations. Note, this is intended to be an
+dnl all-or-nothing switch, so all the atomic operations that are used
+dnl should be checked.
+dnl
+dnl Note:
+dnl libgomp and libgfortran do this with a link test, instead of an asm test.
+dnl see: CHECK_SYNC_FETCH_AND_ADD
+dnl
+dnl Defines:
+dnl  _GLIBCXX_ATOMIC_BUILTINS if the compiler on this target supports atomics.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
+  AC_MSG_CHECKING([for atomic builtins])
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+
+  # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
+    cat > conftest.$ac_ext << EOF
+[#]line __oline__ "configure"
+int main()
+{
+  // NB: _Atomic_word not necessarily int. 
+  typedef int atomic_type;
+  atomic_type c1;
+  atomic_type c2;
+  const atomic_type c3(0);
+  if (__sync_fetch_and_add(&c1, c2) == c3)
+    {
+      // Do something.
+    }
+   return 0;
+}
+EOF
+    old_CXXFLAGS="$CXXFLAGS"
+    CXXFLAGS=-S
+    if AC_TRY_EVAL(ac_compile); then
+      if grep __sync_fetch_and_add conftest.s >/dev/null 2>&1 ; then
+        enable_atomic_builtins=no
+      else
+      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS, 1,
+        [Define if builtin atomic operations are supported on this host.])
+        enable_atomic_builtins=yes
+	atomicity_dir=cpu/generic/atomicity_builtins
+      fi
+    fi
+    CXXFLAGS="$old_CXXFLAGS"
+    rm -f conftest*
+
+   # Now, if still generic, set to mutex.
+  if test $atomicity_dir = "cpu/generic" ; then
+	atomicity_dir=cpu/generic/atomicity_mutex
+  fi
+ AC_LANG_RESTORE
+ AC_MSG_RESULT($enable_atomic_builtins)
 ])
 
 
@@ -1785,6 +2102,38 @@ EOF
 
 
 dnl
+dnl Allow visibility attributes to be used on namespaces, objects, etc.
+dnl
+dnl --enable-visibility enables attempt to use visibility attributes.
+dnl --disable-visibility turns off all use of visibility attributes.
+dnl  +  Usage:  GLIBCXX_ENABLE_VISIBILITY[(DEFAULT)]
+dnl       Where DEFAULT is 'yes'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_VISIBILITY], [
+GLIBCXX_ENABLE(visibility,$1,,[enables visibility safe usage])
+
+if test x$enable_visibility = xyes ; then
+  dnl all hail libgfortran
+  dnl Check whether the target supports hidden visibility.
+  AC_CACHE_CHECK([whether the target supports hidden visibility],
+		 have_attribute_visibility, [
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Werror"
+  AC_TRY_COMPILE([void __attribute__((visibility("hidden"))) foo(void) { }],
+		 [], have_attribute_visibility=yes,
+		 have_attribute_visibility=no)
+  CFLAGS="$save_CFLAGS"])
+  if test $have_attribute_visibility = no; then
+    enable_visibility=no
+  fi
+fi
+
+GLIBCXX_CONDITIONAL(ENABLE_VISIBILITY, test $enable_visibility = yes)
+AC_MSG_NOTICE([visibility supported: $enable_visibility])
+])
+
+
+dnl
 dnl Add version tags to symbols in shared library (or not), additionally
 dnl marking other symbols as private/local (or not).
 dnl
@@ -1809,7 +2158,7 @@ AC_REQUIRE([GLIBCXX_CHECK_LINKER_FEATURES])
 
 # Turn a 'yes' into a suitable default.
 if test x$enable_symvers = xyes ; then
-  if test $enable_shared = no || test "x$LD" = x ; then
+  if test $enable_shared = no || test "x$LD" = x || test x$gcc_no_link = xyes; then
     enable_symvers=no
   else
     if test $with_gnu_ld = yes ; then

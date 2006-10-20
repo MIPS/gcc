@@ -122,10 +122,10 @@ typedef struct _loop_vec_info {
   int ptr_mask;
 
   /* All data references in the loop.  */
-  varray_type datarefs;
+  VEC (data_reference_p, heap) *datarefs;
 
   /* All data dependences in the loop.  */
-  varray_type ddrs;
+  VEC (ddr_p, heap) *ddrs;
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
@@ -208,7 +208,7 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* Used for various bookeeping purposes, generally holding a pointer to 
+  /* Used for various bookkeeping purposes, generally holding a pointer to 
      some other stmt S that is in some way "related" to this stmt. 
      Current use of this field is:
         If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 
@@ -242,11 +242,11 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_SAME_ALIGN_REFS(S)     (S)->same_align_refs
 #define STMT_VINFO_DEF_TYPE(S)            (S)->def_type
 
-static inline void set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info);
+static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
 
 static inline void
-set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info)
+set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info)
 {
   if (ann)
     ann->common.aux = (char *) stmt_info;
@@ -255,7 +255,7 @@ set_stmt_info (tree_ann_t ann, stmt_vec_info stmt_info)
 static inline stmt_vec_info
 vinfo_for_stmt (tree stmt)
 {
-  tree_ann_t ann = tree_ann (stmt);
+  stmt_ann_t ann = stmt_ann (stmt);
   return ann ? (stmt_vec_info) ann->common.aux : NULL;
 }
 

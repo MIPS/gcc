@@ -630,14 +630,28 @@ cselib_hash_rtx (rtx x, int create)
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
-      hash
-	+= ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
+      /* We don't hash on the address of the CODE_LABEL to avoid bootstrap
+	 differences and differences between each stage's debugging dumps.  */
+      hash += (((unsigned int) LABEL_REF << 7)
+	       + CODE_LABEL_NUMBER (XEXP (x, 0)));
       return hash ? hash : (unsigned int) LABEL_REF;
 
     case SYMBOL_REF:
-      hash
-	+= ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
-      return hash ? hash : (unsigned int) SYMBOL_REF;
+      {
+	/* Don't hash on the symbol's address to avoid bootstrap differences.
+	   Different hash values may cause expressions to be recorded in
+	   different orders and thus different registers to be used in the
+	   final assembler.  This also avoids differences in the dump files
+	   between various stages.  */
+	unsigned int h = 0;
+	const unsigned char *p = (const unsigned char *) XSTR (x, 0);
+
+	while (*p)
+	  h += (h << 7) + *p++; /* ??? revisit */
+
+	hash += ((unsigned int) SYMBOL_REF << 7) + h;
+	return hash ? hash : (unsigned int) SYMBOL_REF;
+      }
 
     case PRE_DEC:
     case PRE_INC:
@@ -1437,7 +1451,11 @@ cselib_process_insn (rtx insn)
     cselib_current_insn_in_libcall = false;
   cselib_current_insn = 0;
 
-  if (n_useless_values > MAX_USELESS_VALUES)
+  if (n_useless_values > MAX_USELESS_VALUES
+      /* remove_useless_values is linear in the hash table size.  Avoid
+         quadratic behaviour for very large hashtables with very few
+	 useless elements.  */
+      && (unsigned int)n_useless_values > cselib_hash_table->n_elements / 4)
     remove_useless_values ();
 }
 
@@ -1453,8 +1471,7 @@ cselib_init (bool record_memory)
 				         sizeof (struct elt_loc_list), 10);
   cselib_val_pool = create_alloc_pool ("cselib_val_list", 
 				       sizeof (cselib_val), 10);
-  value_pool = create_alloc_pool ("value", 
-				  RTX_SIZE (VALUE), 100);
+  value_pool = create_alloc_pool ("value", RTX_CODE_SIZE (VALUE), 100);
   cselib_record_memory = record_memory;
   /* This is only created once.  */
   if (! callmem)
@@ -1472,9 +1489,9 @@ cselib_init (bool record_memory)
       /* Some space for newly emit instructions so we don't end up
 	 reallocating in between passes.  */
       reg_values_size = cselib_nregs + (63 + cselib_nregs) / 16;
-      reg_values = xcalloc (reg_values_size, sizeof (reg_values));
+      reg_values = XCNEWVEC (struct elt_list *, reg_values_size);
     }
-  used_regs = xmalloc (sizeof (*used_regs) * cselib_nregs);
+  used_regs = XNEWVEC (unsigned int, cselib_nregs);
   n_used_regs = 0;
   cselib_hash_table = htab_create (31, get_value_hash,
 				   entry_and_rtx_equal_p, NULL);

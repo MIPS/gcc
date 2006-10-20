@@ -80,7 +80,7 @@ static tree tree_may_unswitch_on (basic_block, struct loop *);
 
 /* Main entry point.  Perform loop unswitching on all suitable LOOPS.  */
 
-void
+unsigned int
 tree_ssa_unswitch_loops (struct loops *loops)
 {
   int i, num;
@@ -104,7 +104,8 @@ tree_ssa_unswitch_loops (struct loops *loops)
     }
 
   if (changed)
-    cleanup_tree_cfg_loop ();
+    return TODO_cleanup_cfg;
+  return 0;
 }
 
 /* Checks whether we can unswitch LOOP on condition at end of BB -- one of its
@@ -255,6 +256,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
   if (!nloop)
     {
       free_original_copy_tables ();
+      free (bbs);
       return changed;
     }
 
@@ -265,6 +267,7 @@ tree_unswitch_single_loop (struct loops *loops, struct loop *loop, int num)
   /* Invoke itself on modified loops.  */
   tree_unswitch_single_loop (loops, nloop, num + 1);
   tree_unswitch_single_loop (loops, loop, num + 1);
+  free (bbs);
   return true;
 }
 

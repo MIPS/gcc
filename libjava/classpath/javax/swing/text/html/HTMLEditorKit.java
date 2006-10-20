@@ -39,6 +39,8 @@ exception statement from your version. */
 package javax.swing.text.html;
 
 
+import gnu.classpath.NotImplementedException;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -56,17 +58,11 @@ import javax.accessibility.AccessibleContext;
 
 import javax.swing.Action;
 import javax.swing.JEditorPane;
-import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.BoxView;
-import javax.swing.text.ComponentView;
 import javax.swing.text.Document;
 import javax.swing.text.EditorKit;
 import javax.swing.text.Element;
-import javax.swing.text.IconView;
-import javax.swing.text.LabelView;
 import javax.swing.text.MutableAttributeSet;
-import javax.swing.text.ParagraphView;
 import javax.swing.text.StyleConstants;
 import javax.swing.text.StyleContext;
 import javax.swing.text.StyledEditorKit;
@@ -74,6 +70,11 @@ import javax.swing.text.TextAction;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 import javax.swing.text.html.parser.ParserDelegator;
+
+/* Move these imports here after javax.swing.text.html to make it compile
+   with jikes.  */
+import gnu.javax.swing.text.html.parser.GnuParserDelegator;
+import gnu.javax.swing.text.html.parser.HTML_401Swing;
 
 /**
  * @author Lillian Angel (langel at redhat dot com)
@@ -304,6 +305,7 @@ public class HTMLEditorKit
                                       Element insertElement,
                                       String html, HTML.Tag parentTag,
                                       HTML.Tag addTag)
+        throws NotImplementedException
       {
         /*
         As its name implies, this protected method is used when HTML is inserted at a
@@ -532,8 +534,8 @@ public class HTMLEditorKit
     public View create(Element element)
     {
       View view = null;
-      Object attr = element.getAttributes().getAttribute(
-                                StyleConstants.NameAttribute);
+      Object attr =
+        element.getAttributes().getAttribute(StyleConstants.NameAttribute);
       if (attr instanceof HTML.Tag)
         {
           HTML.Tag tag = (HTML.Tag) attr;
@@ -551,21 +553,27 @@ public class HTMLEditorKit
                    || tag.equals(HTML.Tag.BLOCKQUOTE)
                    || tag.equals(HTML.Tag.PRE))
             view = new BlockView(element, View.Y_AXIS);
-          
-          // FIXME: Uncomment when the views have been implemented
-         /* else if (tag.equals(HTML.Tag.CONTENT))
-            view = new InlineView(element); 
-          else if (tag.equals(HTML.Tag.MENU) || tag.equals(HTML.Tag.DIR)
-                   || tag.equals(HTML.Tag.UL) || tag.equals(HTML.Tag.OL))
-            view = new ListView(element);
           else if (tag.equals(HTML.Tag.IMG))
             view = new ImageView(element);
+          
+          // FIXME: Uncomment when the views have been implemented
+          else if (tag.equals(HTML.Tag.CONTENT))
+            view = new InlineView(element);
+          else if (tag == HTML.Tag.HEAD)
+            view = new NullView(element);
+          else if (tag.equals(HTML.Tag.TABLE))
+            view = new javax.swing.text.html.TableView(element);
+          else if (tag.equals(HTML.Tag.TD))
+            view = new ParagraphView(element);
           else if (tag.equals(HTML.Tag.HR))
             view = new HRuleView(element);
           else if (tag.equals(HTML.Tag.BR))
             view = new BRView(element);
-          else if (tag.equals(HTML.Tag.TABLE))
-            view = new TableView(element);
+
+          /*
+          else if (tag.equals(HTML.Tag.MENU) || tag.equals(HTML.Tag.DIR)
+                   || tag.equals(HTML.Tag.UL) || tag.equals(HTML.Tag.OL))
+            view = new ListView(element);
           else if (tag.equals(HTML.Tag.INPUT) || tag.equals(HTML.Tag.SELECT)
                    || tag.equals(HTML.Tag.TEXTAREA))
             view = new FormView(element);
@@ -575,21 +583,11 @@ public class HTMLEditorKit
             view = new FrameSetView(element);
           else if (tag.equals(HTML.Tag.FRAME))
             view = new FrameView(element); */
-        }      
-      
+        }
       if (view == null)
         {
-          String name = element.getName();
-          if (name.equals(AbstractDocument.ContentElementName))
-            view = new LabelView(element);
-          else if (name.equals(AbstractDocument.ParagraphElementName))
-            view = new ParagraphView(element);
-          else if (name.equals(AbstractDocument.SectionElementName))
-            view = new BoxView(element, View.Y_AXIS);
-          else if (name.equals(StyleConstants.ComponentElementName))
-            view = new ComponentView(element);
-          else if (name.equals(StyleConstants.IconElementName))
-            view = new IconView(element);
+          System.err.println("missing tag->view mapping for: " + element);
+          view = new NullView(element);
         }
       return view;
     }
@@ -893,7 +891,9 @@ public class HTMLEditorKit
   protected Parser getParser()
   {
     if (parser == null)
-      parser = new ParserDelegator();
+      {
+        parser = new GnuParserDelegator(HTML_401Swing.getInstance());
+      }
     return parser;
   }
   
@@ -958,7 +958,8 @@ public class HTMLEditorKit
           throw new IOException("Parser is null.");
         
         HTMLDocument hd = ((HTMLDocument) doc);
-        hd.setBase(editorPane.getPage());
+        if (editorPane != null)
+          hd.setBase(editorPane.getPage());
         ParserCallback pc = hd.getReader(pos);
         
         // FIXME: What should ignoreCharSet be set to?

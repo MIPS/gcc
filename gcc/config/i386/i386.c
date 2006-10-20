@@ -49,6 +49,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cgraph.h"
 #include "tree-gimple.h"
 #include "dwarf2.h"
+#include "tm-constrs.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -67,7 +68,7 @@ Boston, MA 02110-1301, USA.  */
 #define COSTS_N_BYTES(N) ((N) * 2)
 
 static const
-struct processor_costs size_cost = {	/* costs for tunning for size */
+struct processor_costs size_cost = {	/* costs for tuning for size */
   COSTS_N_BYTES (2),			/* cost of an add instruction */
   COSTS_N_BYTES (3),			/* cost of a lea instruction */
   COSTS_N_BYTES (2),			/* variable shift costs */
@@ -95,7 +96,8 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 2},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {2, 2, 2},				/* cost of loading integer registers */
+  {2, 2, 2},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   3,					/* cost of moving MMX register */
   {3, 3},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -148,7 +150,8 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8},				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -200,7 +203,8 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8},				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -252,7 +256,8 @@ struct processor_costs pentium_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   8,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -304,7 +309,8 @@ struct processor_costs pentiumpro_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -356,7 +362,8 @@ struct processor_costs k6_cost = {
   4,					/* cost of reg,reg fld/fst */
   {6, 6, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4},				/* cost of loading integer registers */
+  {4, 4, 4},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -408,7 +415,8 @@ struct processor_costs athlon_cost = {
   4,					/* cost of reg,reg fld/fst */
   {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 4},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -460,7 +468,8 @@ struct processor_costs k8_cost = {
   4,					/* cost of reg,reg fld/fst */
   {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {3, 3},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -512,7 +521,8 @@ struct processor_costs pentium4_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -564,7 +574,8 @@ struct processor_costs nocona_cost = {
   3,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4},				/* cost of loading integer registers */
+  {4, 4, 4},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   6,					/* cost of moving MMX register */
   {12, 12},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -593,7 +604,7 @@ struct processor_costs generic64_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   /* On all chips taken into consideration lea is 2 cycles and more.  With
      this cost however our current implementation of synth_mult results in
-     use of unnecesary temporary registers causing regression on several
+     use of unnecessary temporary registers causing regression on several
      SPECfp benchmarks.  */
   COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
   COSTS_N_INSNS (1),			/* variable shift costs */
@@ -621,7 +632,8 @@ struct processor_costs generic64_cost = {
   4,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -676,7 +688,8 @@ struct processor_costs generic32_cost = {
   4,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -729,8 +742,7 @@ const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA | m_GENERIC /* m_
 const int x86_double_with_add = ~m_386;
 const int x86_use_bit_test = m_386;
 const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6 | m_GENERIC;
-const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA; 
-const int x86_fisttp = m_NOCONA;
+const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_3dnow_a = m_ATHLON_K8;
 const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
 /* Branch hints were put in P4 based on simulation result. But
@@ -742,12 +754,13 @@ const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC32; /*m_G
 /* We probably ought to watch for partial register stalls on Generic32
    compilation setting as well.  However in current implementation the
    partial register stalls are not eliminated very well - they can
-   be introduced via subregs synthetized by combine and can happen
+   be introduced via subregs synthesized by combine and can happen
    in caller/callee saving sequences.
    Because this option pays back little on PPro based chips and is in conflict
    with partial reg. dependencies used by Athlon/P4 based chips, it is better
    to leave it off for generic32 for now.  */
 const int x86_partial_reg_stall = m_PPRO;
+const int x86_partial_flag_reg_stall = m_GENERIC;
 const int x86_use_himode_fiop = m_386 | m_486 | m_K6;
 const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT | m_GENERIC);
 const int x86_use_mov0 = m_K6;
@@ -777,7 +790,7 @@ const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
-/* In Generic model we have an confict here in between PPro/Pentium4 based chips
+/* In Generic model we have an conflict here in between PPro/Pentium4 based chips
    that thread 128bit SSE registers as single units versus K8 based chips that
    divide SSE registers to two 64bit halves.
    x86_sse_partial_reg_dependency promote all store destinations to be 128bit
@@ -1036,6 +1049,10 @@ int x86_prefetch_sse;
 /* ix86_regparm_string as a number */
 static int ix86_regparm;
 
+/* -mstackrealign option */
+extern int ix86_force_align_arg_pointer;
+static const char ix86_force_align_arg_pointer_string[] = "force_align_arg_pointer";
+
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
 
@@ -1067,8 +1084,8 @@ static rtx get_thread_pointer (int);
 static rtx legitimize_tls_address (rtx, enum tls_model, int);
 static void get_pc_thunk_name (char [32], unsigned int);
 static rtx gen_push (rtx);
-static int ix86_flags_dependant (rtx, rtx, enum attr_type);
-static int ix86_agi_dependant (rtx, rtx, enum attr_type);
+static int ix86_flags_dependent (rtx, rtx, enum attr_type);
+static int ix86_agi_dependent (rtx, rtx, enum attr_type);
 static struct machine_function * ix86_init_machine_status (void);
 static int ix86_split_to_parts (rtx, rtx *, enum machine_mode);
 static int ix86_nsaved_regs (void);
@@ -1095,6 +1112,7 @@ static tree ix86_build_builtin_va_list (void);
 static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ix86_scalar_mode_supported_p (enum machine_mode);
 static bool ix86_vector_mode_supported_p (enum machine_mode);
 
 static int ix86_address_cost (rtx);
@@ -1253,6 +1271,8 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_rtx_true
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS ix86_delegitimize_address
@@ -1319,6 +1339,9 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P ix86_scalar_mode_supported_p
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
@@ -1514,12 +1537,21 @@ override_options (void)
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
+#ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
+  SUBSUBTARGET_OVERRIDE_OPTIONS;
+#endif
+
+  /* -fPIC is the default for x86_64.  */
+  if (TARGET_MACHO && TARGET_64BIT)
+    flag_pic = 2;
+
   /* Set the default values for switches whose default depends on TARGET_64BIT
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
     {
+      /* Mach-O doesn't support omitting the frame pointer for now.  */
       if (flag_omit_frame_pointer == 2)
-	flag_omit_frame_pointer = 1;
+	flag_omit_frame_pointer = (TARGET_MACHO ? 0 : 1);
       if (flag_asynchronous_unwind_tables == 2)
 	flag_asynchronous_unwind_tables = 1;
       if (flag_pcc_struct_return == 2)
@@ -1539,7 +1571,11 @@ override_options (void)
   if (ix86_tune_string)
     {
       if (!strcmp (ix86_tune_string, "generic")
-	  || !strcmp (ix86_tune_string, "i686"))
+	  || !strcmp (ix86_tune_string, "i686")
+	  /* As special support for cross compilers we read -mtune=native
+	     as -mtune=generic.  With native compilers we won't see the
+	     -mtune=native, as it was changed by the driver.  */
+	  || !strcmp (ix86_tune_string, "native"))
 	{
 	  if (TARGET_64BIT)
 	    ix86_tune_string = "generic64";
@@ -1771,22 +1807,6 @@ override_options (void)
       align_functions = processor_target_table[ix86_tune].align_func;
     }
 
-  /* Validate -mpreferred-stack-boundary= value, or provide default.
-     The default of 128 bits is for Pentium III's SSE __m128, but we
-     don't want additional code to keep the stack aligned when
-     optimizing for code size.  */
-  ix86_preferred_stack_boundary = ((TARGET_64BIT || TARGET_MACHO || !optimize_size)
-				   ? 128 : 32);
-  if (ix86_preferred_stack_boundary_string)
-    {
-      i = atoi (ix86_preferred_stack_boundary_string);
-      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
-	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 4 : 2);
-      else
-	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
-    }
-
   /* Validate -mbranch-cost= value, or provide default.  */
   ix86_branch_cost = ix86_cost->branch_cost;
   if (ix86_branch_cost_string)
@@ -1879,6 +1899,21 @@ override_options (void)
          when programmer takes care to stack from being destroyed.  */
       if (!(target_flags_explicit & MASK_NO_RED_ZONE))
         target_flags |= MASK_NO_RED_ZONE;
+    }
+
+  /* Validate -mpreferred-stack-boundary= value, or provide default.
+     The default of 128 bits is for Pentium III's SSE __m128.  We can't
+     change it because of optimize_size.  Otherwise, we can't mix object
+     files compiled with -Os and -On.  */
+  ix86_preferred_stack_boundary = 128;
+  if (ix86_preferred_stack_boundary_string)
+    {
+      i = atoi (ix86_preferred_stack_boundary_string);
+      if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
+	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
+	       TARGET_64BIT ? 4 : 2);
+      else
+	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
 
   /* Accept -msseregparm only if at least SSE support is enabled.  */
@@ -2185,6 +2220,9 @@ const struct attribute_spec ix86_attribute_table[] =
   /* Sseregparm attribute says we are using x86_64 calling conventions
      for FP arguments.  */
   { "sseregparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
+  /* force_align_arg_pointer says this function realigns the stack at entry.  */
+  { (const char *)&ix86_force_align_arg_pointer_string, 0, 0,
+    false, true,  true, ix86_handle_cconv_attribute },
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport", 0, 0, false, false, false, handle_dll_attribute },
   { "dllexport", 0, 0, false, false, false, handle_dll_attribute },
@@ -2211,7 +2249,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
-  if (!TARGET_64BIT && flag_pic && (!decl || TREE_PUBLIC (decl)))
+  if (!TARGET_64BIT && flag_pic && (!decl || !targetm.binds_local_p (decl)))
     return false;
 
   if (decl)
@@ -2325,6 +2363,15 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 	  warning (OPT_Wattributes, "argument to %qs attribute larger than %d",
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
+	}
+
+      if (!TARGET_64BIT
+	  && lookup_attribute (ix86_force_align_arg_pointer_string,
+			       TYPE_ATTRIBUTES (*node))
+	  && compare_tree_int (cst, REGPARM_MAX-1))
+	{
+	  error ("%s functions limited to %d register parameters",
+		 ix86_force_align_arg_pointer_string, REGPARM_MAX-1);
 	}
 
       return NULL_TREE;
@@ -2465,6 +2512,18 @@ ix86_function_regparm (tree type, tree decl)
 	      if (local_regparm == 3
 		  && decl_function_context (decl)
 		  && !DECL_NO_STATIC_CHAIN (decl))
+		local_regparm = 2;
+	      /* If the function realigns its stackpointer, the
+		 prologue will clobber %ecx.  If we've already
+		 generated code for the callee, the callee
+		 DECL_STRUCT_FUNCTION is gone, so we fall back to
+		 scanning the attributes for the self-realigning
+		 property.  */
+	      if ((DECL_STRUCT_FUNCTION (decl)
+		   && DECL_STRUCT_FUNCTION (decl)->machine->force_align_arg_pointer)
+		  || (!DECL_STRUCT_FUNCTION (decl)
+		      && lookup_attribute (ix86_force_align_arg_pointer_string,
+					   TYPE_ATTRIBUTES (TREE_TYPE (decl)))))
 		local_regparm = 2;
 	      /* Each global register variable increases register preassure,
 		 so the more global reg vars there are, the smaller regparm
@@ -2733,7 +2792,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
    When we have only some of our vector isa extensions enabled, then there
    are some modes for which vector_mode_supported_p is false.  For these
    modes, the generic vector support in gcc will choose some non-vector mode
-   in order to implement the type.  By computing the natural mode, we'll 
+   in order to implement the type.  By computing the natural mode, we'll
    select the proper ABI location for the operand and not depend on whatever
    the middle-end decides to do with these vector types.  */
 
@@ -2925,6 +2984,9 @@ classify_argument (enum machine_mode mode, tree type,
 		{
 		  int num;
 
+		  if (TREE_TYPE (field) == error_mark_node)
+		    continue;
+
 		  /* Bitfields are always classified as integer.  Handle them
 		     early, since later code would consider them to be
 		     misaligned integers.  */
@@ -2972,10 +3034,10 @@ classify_argument (enum machine_mode mode, tree type,
 	      subclasses[0] = X86_64_SSE_CLASS;
 	    if (subclasses[0] == X86_64_INTEGERSI_CLASS && bytes != 4)
 	      subclasses[0] = X86_64_INTEGER_CLASS;
-	    
+
 	    for (i = 0; i < words; i++)
 	      classes[i] = subclasses[i % num];
-	    
+
 	    break;
 	  }
 	case UNION_TYPE:
@@ -2991,6 +3053,10 @@ classify_argument (enum machine_mode mode, tree type,
 	      if (TREE_CODE (field) == FIELD_DECL)
 		{
 		  int num;
+
+		  if (TREE_TYPE (field) == error_mark_node)
+		    continue;
+
 		  num = classify_argument (TYPE_MODE (TREE_TYPE (field)),
 					   TREE_TYPE (field), subclasses,
 					   bit_offset);
@@ -3053,6 +3119,14 @@ classify_argument (enum machine_mode mode, tree type,
   /* Classification of atomic types.  */
   switch (mode)
     {
+    case SDmode:
+    case DDmode:
+      classes[0] = X86_64_SSE_CLASS;
+      return 1;
+    case TDmode:
+      classes[0] = X86_64_SSE_CLASS;
+      classes[1] = X86_64_SSEUP_CLASS;
+      return 2;
     case DImode:
     case SImode:
     case HImode:
@@ -3121,12 +3195,12 @@ classify_argument (enum machine_mode mode, tree type,
       return 0;
     default:
       gcc_assert (VECTOR_MODE_P (mode));
-      
+
       if (bytes > 16)
 	return 0;
-      
+
       gcc_assert (GET_MODE_CLASS (GET_MODE_INNER (mode)) == MODE_INT);
-      
+
       if (bit_offset + GET_MODE_BITSIZE (mode) <= 32)
 	classes[0] = X86_64_INTEGERSI_CLASS;
       else
@@ -3185,6 +3259,11 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     tree type, int in_return, int nintregs, int nsseregs,
 		     const int *intreg, int sse_regno)
 {
+  /* The following variables hold the static issued_error state.  */
+  static bool issued_sse_arg_error;
+  static bool issued_sse_ret_error;
+  static bool issued_x87_ret_error;
+
   enum machine_mode tmpmode;
   int bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
@@ -3223,17 +3302,37 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
      some less clueful developer tries to use floating-point anyway.  */
   if (needed_sseregs && !TARGET_SSE)
     {
-      static bool issued_error;
-      if (!issued_error)
+      if (in_return)
 	{
-	  issued_error = true;
-	  if (in_return)
-	    error ("SSE register return with SSE disabled");
-	  else
-	    error ("SSE register argument with SSE disabled");
+	  if (!issued_sse_ret_error)
+	    {
+	      error ("SSE register return with SSE disabled");
+	      issued_sse_ret_error = true;
+	    }
+	}
+      else if (!issued_sse_arg_error)
+	{
+	  error ("SSE register argument with SSE disabled");
+	  issued_sse_arg_error = true;
 	}
       return NULL;
     }
+
+  /* Likewise, error if the ABI requires us to return values in the
+     x87 registers and the user specified -mno-80387.  */
+  if (!TARGET_80387 && in_return)
+    for (i = 0; i < n; i++)
+      if (class[i] == X86_64_X87_CLASS
+	  || class[i] == X86_64_X87UP_CLASS
+	  || class[i] == X86_64_COMPLEX_X87_CLASS)
+	{
+	  if (!issued_x87_ret_error)
+	    {
+	      error ("x87 register return with x87 disabled");
+	      issued_x87_ret_error = true;
+	    }
+	  return NULL;
+	}
 
   /* First construct simple cases.  Avoid SCmode, since we want to use
      single register to pass this type.  */
@@ -3635,12 +3734,12 @@ contains_128bit_aligned_vector_p (tree type)
 	case QUAL_UNION_TYPE:
 	  {
 	    tree field;
-	    
+
 	    if (TYPE_BINFO (type))
 	      {
 		tree binfo, base_binfo;
 		int i;
-		
+
 		for (binfo = TYPE_BINFO (type), i = 0;
 		     BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 		  if (contains_128bit_aligned_vector_p
@@ -3662,7 +3761,7 @@ contains_128bit_aligned_vector_p (tree type)
 	  if (contains_128bit_aligned_vector_p (TREE_TYPE (type)))
 	    return true;
 	  break;
-	  
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -3796,6 +3895,9 @@ ix86_return_in_memory (tree type)
   if (mode == XFmode)
     return 0;
 
+  if (mode == TDmode)
+    return 1;
+
   if (size > 12)
     return 1;
   return 0;
@@ -3861,6 +3963,9 @@ ix86_libcall_value (enum machine_mode mode)
 	case DFmode:
 	case DCmode:
 	case TFmode:
+	case SDmode:
+	case DDmode:
+	case TDmode:
 	  return gen_rtx_REG (mode, FIRST_SSE_REG);
 	case XFmode:
 	case XCmode:
@@ -3883,14 +3988,20 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
   gcc_assert (!TARGET_64BIT);
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
-     we prevent this case when mmx is not available.  */
-  if ((VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8))
-    return FIRST_MMX_REG;
+     we normally prevent this case when mmx is not available.  However
+     some ABIs may require the result to be returned like DImode.  */
+  if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8)
+    return TARGET_MMX ? FIRST_MMX_REG : 0;
 
   /* 16-byte vector modes in %xmm0.  See ix86_return_in_memory for where
-     we prevent this case when sse is not available.  */
+     we prevent this case when sse is not available.  However some ABIs
+     may require the result to be returned like integer TImode.  */
   if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
-    return FIRST_SSE_REG;
+    return TARGET_SSE ? FIRST_SSE_REG : 0;
+
+  /* Decimal floating point values can go in %eax, unlike other float modes.  */
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
   if (!SCALAR_FLOAT_MODE_P (mode) || !TARGET_FLOAT_RETURNS_IN_80387)
@@ -4068,6 +4179,7 @@ ix86_va_start (tree valist, rtx nextarg)
   HOST_WIDE_INT words, n_gpr, n_fpr;
   tree f_gpr, f_fpr, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, t;
+  tree type;
 
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT)
@@ -4098,26 +4210,29 @@ ix86_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-		  build_int_cst (NULL_TREE, n_gpr * 8));
+      type = TREE_TYPE (gpr);
+      t = build2 (MODIFY_EXPR, type, gpr,
+		  build_int_cst (type, n_gpr * 8));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-		  build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
+      type = TREE_TYPE (fpr);
+      t = build2 (MODIFY_EXPR, type, fpr,
+		  build_int_cst (type, n_fpr * 16 + 8*REGPARM_MAX));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   /* Find the overflow area.  */
-  t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+  type = TREE_TYPE (ovf);
+  t = make_tree (type, virtual_incoming_args_rtx);
   if (words != 0)
-    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
-	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+    t = build2 (PLUS_EXPR, type, t,
+	        build_int_cst (type, words * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -4125,8 +4240,9 @@ ix86_va_start (tree valist, rtx nextarg)
     {
       /* Find the register save area.
 	 Prologue of the function save it right above stack frame.  */
-      t = make_tree (TREE_TYPE (sav), frame_pointer_rtx);
-      t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      type = TREE_TYPE (sav);
+      t = make_tree (type, frame_pointer_rtx);
+      t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -4516,14 +4632,60 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
+/* Return 1 if mode is a valid mode for sse.  */
+static int
+standard_sse_mode_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case V16QImode:
+    case V8HImode:
+    case V4SImode:
+    case V2DImode:
+    case V4SFmode:
+    case V2DFmode:
+      return 1;
+
+    default:
+      return 0;
+    }
+}
+
 /* Return 1 if X is FP constant we can load to SSE register w/o using memory.
  */
 int
 standard_sse_constant_p (rtx x)
 {
-  if (x == const0_rtx)
+  enum machine_mode mode = GET_MODE (x);
+
+  if (x == const0_rtx || x == CONST0_RTX (GET_MODE (x)))
     return 1;
-  return (x == CONST0_RTX (GET_MODE (x)));
+  if (vector_all_ones_operand (x, mode)
+      && standard_sse_mode_p (mode))
+    return TARGET_SSE2 ? 2 : -1;
+
+  return 0;
+}
+
+/* Return the opcode of the special instruction to be used to load
+   the constant X.  */
+
+const char *
+standard_sse_constant_opcode (rtx insn, rtx x)
+{
+  switch (standard_sse_constant_p (x))
+    {
+    case 1:
+      if (get_attr_mode (insn) == MODE_V4SF)
+        return "xorps\t%0, %0";
+      else if (get_attr_mode (insn) == MODE_V2DF)
+        return "xorpd\t%0, %0";
+      else
+        return "pxor\t%0, %0";
+    case 2:
+      return "pcmpeqd\t%0, %0";
+    }
+  gcc_unreachable ();
 }
 
 /* Returns 1 if OP contains a symbol reference */
@@ -4633,6 +4795,8 @@ static int pic_labels_used;
 static void
 get_pc_thunk_name (char name[32], unsigned int regno)
 {
+  gcc_assert (!TARGET_64BIT);
+
   if (USE_HIDDEN_LINKONCE)
     sprintf (name, "__i686.get_pc_thunk.%s", reg_names[regno]);
   else
@@ -4872,7 +5036,7 @@ ix86_initial_elimination_offset (int from, int to)
 
       if (from == ARG_POINTER_REGNUM)
 	return frame.stack_pointer_offset;
-      
+
       gcc_assert (from == FRAME_POINTER_REGNUM);
       return frame.stack_pointer_offset - frame.frame_pointer_offset;
     }
@@ -5115,11 +5279,28 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
 static rtx
 ix86_internal_arg_pointer (void)
 {
-  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-      && DECL_NAME (current_function_decl)
-      && MAIN_NAME_P (DECL_NAME (current_function_decl))
-      && DECL_FILE_SCOPE_P (current_function_decl))
+  bool has_force_align_arg_pointer =
+    (0 != lookup_attribute (ix86_force_align_arg_pointer_string,
+			    TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))));
+  if ((FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+       && DECL_NAME (current_function_decl)
+       && MAIN_NAME_P (DECL_NAME (current_function_decl))
+       && DECL_FILE_SCOPE_P (current_function_decl))
+      || ix86_force_align_arg_pointer
+      || has_force_align_arg_pointer)
     {
+      /* Nested functions can't realign the stack due to a register
+	 conflict.  */
+      if (DECL_CONTEXT (current_function_decl)
+	  && TREE_CODE (DECL_CONTEXT (current_function_decl)) == FUNCTION_DECL)
+	{
+	  if (ix86_force_align_arg_pointer)
+	    warning (0, "-mstackrealign ignored for nested functions");
+	  if (has_force_align_arg_pointer)
+	    error ("%s not supported for nested functions",
+		   ix86_force_align_arg_pointer_string);
+	  return virtual_incoming_args_rtx;
+	}
       cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
       return copy_to_reg (cfun->machine->force_align_arg_pointer);
     }
@@ -5195,7 +5376,7 @@ ix86_expand_prologue (void)
       /* And here we cheat like madmen with the unwind info.  We force the
 	 cfa register back to sp+4, which is exactly what it was at the
 	 start of the function.  Re-pushing the return address results in
-	 the return at the same spot relative to the cfa, and thus is 
+	 the return at the same spot relative to the cfa, and thus is
 	 correct wrt the unwind info.  */
       x = cfun->machine->force_align_arg_pointer;
       x = gen_frame_mem (Pmode, plus_constant (x, -4));
@@ -5531,6 +5712,23 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 {
   if (pic_offset_table_rtx)
     REGNO (pic_offset_table_rtx) = REAL_PIC_OFFSET_TABLE_REGNUM;
+#if TARGET_MACHO
+  /* Mach-O doesn't support labels at the end of objects, so if
+     it looks like we might want one, insert a NOP.  */
+  {
+    rtx insn = get_last_insn ();
+    while (insn
+	   && NOTE_P (insn)
+	   && NOTE_LINE_NUMBER (insn) != NOTE_INSN_DELETED_LABEL)
+      insn = PREV_INSN (insn);
+    if (insn
+	&& (LABEL_P (insn)
+	    || (NOTE_P (insn)
+		&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED_LABEL)))
+      fputs ("\tnop\n", file);
+  }
+#endif
+
 }
 
 /* Extract the parts of an RTL expression that is a valid memory address
@@ -5868,6 +6066,18 @@ legitimate_constant_p (rtx x)
 	return false;
       break;
 
+    case CONST_DOUBLE:
+      if (GET_MODE (x) == TImode
+	  && x != CONST0_RTX (TImode)
+          && !TARGET_64BIT)
+	return false;
+      break;
+
+    case CONST_VECTOR:
+      if (x == CONST0_RTX (GET_MODE (x)))
+	return true;
+      return false;
+
     default:
       break;
     }
@@ -5883,6 +6093,17 @@ legitimate_constant_p (rtx x)
 static bool
 ix86_cannot_force_const_mem (rtx x)
 {
+  /* We can always put integral constants and vectors in memory.  */
+  switch (GET_CODE (x))
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+    case CONST_VECTOR:
+      return false;
+
+    default:
+      break;
+    }
   return !legitimate_constant_p (x);
 }
 
@@ -5962,7 +6183,7 @@ legitimate_pic_address_disp_p (rtx disp)
 	  if (GET_CODE (op1) != CONST_INT
 	      || INTVAL (op1) >= 16*1024*1024
 	      || INTVAL (op1) < -16*1024*1024)
-	    break;
+            break;
 	  if (GET_CODE (op0) == LABEL_REF)
 	    return true;
 	  if (GET_CODE (op0) != SYMBOL_REF)
@@ -6097,7 +6318,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
     {
       rtx reg;
       reason_rtx = base;
-  
+
       if (REG_P (base))
   	reg = base;
       else if (GET_CODE (base) == SUBREG
@@ -6197,7 +6418,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	      goto is_legitimate_pic;
 	    reason = "64bit address unspec";
 	    goto report_error;
- 
+
 	  case UNSPEC_GOTPCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -6214,12 +6435,16 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	    goto report_error;
 	  }
 
-      else if (flag_pic && (SYMBOLIC_CONST (disp)
+      else if (SYMBOLIC_CONST (disp)
+	       && (flag_pic
+		   || (TARGET_MACHO
 #if TARGET_MACHO
-			    && !machopic_operand_p (disp)
+		       && MACHOPIC_INDIRECT
+		       && !machopic_operand_p (disp)
 #endif
-			    ))
+	       )))
 	{
+
 	is_legitimate_pic:
 	  if (TARGET_64BIT && (index || base))
 	    {
@@ -6332,10 +6557,13 @@ legitimize_pic_address (rtx orig, rtx reg)
   rtx base;
 
 #if TARGET_MACHO
-  if (reg == 0)
-    reg = gen_reg_rtx (Pmode);
-  /* Use the generic Mach-O PIC machinery.  */
-  return machopic_legitimize_pic_address (orig, GET_MODE (orig), reg);
+  if (TARGET_MACHO && !TARGET_64BIT)
+    {
+      if (reg == 0)
+	reg = gen_reg_rtx (Pmode);
+      /* Use the generic Mach-O PIC machinery.  */
+      return machopic_legitimize_pic_address (orig, GET_MODE (orig), reg);
+    }
 #endif
 
   if (TARGET_64BIT && legitimate_pic_address_disp_p (addr))
@@ -6399,7 +6627,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new = reg;
 	}
     }
-  else if (GET_CODE (addr) == SYMBOL_REF)
+  else if (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (addr) == 0)
     {
       if (TARGET_64BIT)
 	{
@@ -6604,15 +6832,22 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  rtx x = ix86_tls_module_base ();
 
-	  base = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, base));
-
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV,
+			       gen_rtx_MINUS (Pmode, x, tp));
 	}
 
       off = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, x), UNSPEC_DTPOFF);
       off = gen_rtx_CONST (Pmode, off);
 
       dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, base, off));
+
+      if (TARGET_GNU2_TLS)
+	{
+	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
+
+	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	}
+
       break;
 
     case TLS_MODEL_INITIAL_EXEC:
@@ -6950,7 +7185,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  putc ('+', file);
 	  output_pic_addr_const (file, XEXP (x, 1), code);
 	}
-      else 
+      else
 	{
 	  gcc_assert (GET_CODE (XEXP (x, 1)) == CONST_INT);
 	  output_pic_addr_const (file, XEXP (x, 1), code);
@@ -7042,12 +7277,24 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize PIC+GOTOFF and turn it back
-   into a direct symbol reference.  */
+   into a direct symbol reference.
+
+   On Darwin, this is necessary to avoid a crash, because Darwin
+   has a different PIC label for each routine but the DWARF debugging
+   information is not associated with any particular routine, so it's
+   necessary to remove references to the PIC label from RTL stored by
+   the DWARF output code.  */
 
 static rtx
 ix86_delegitimize_address (rtx orig_x)
 {
-  rtx x = orig_x, y;
+  rtx x = orig_x;
+  /* reg_addend is NULL or a multiple of some register.  */
+  rtx reg_addend = NULL_RTX;
+  /* const_addend is NULL or a const_int.  */
+  rtx const_addend = NULL_RTX;
+  /* This is the result, or NULL.  */
+  rtx result = NULL_RTX;
 
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -7069,51 +7316,52 @@ ix86_delegitimize_address (rtx orig_x)
   if (GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
     /* %ebx + GOT/GOTOFF */
-    y = NULL;
+    ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
-      y = XEXP (x, 0);
-      if (GET_CODE (XEXP (y, 0)) == REG
-	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 1);
-      else if (GET_CODE (XEXP (y, 1)) == REG
-	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 0);
+      reg_addend = XEXP (x, 0);
+      if (GET_CODE (XEXP (reg_addend, 0)) == REG
+	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 1);
+      else if (GET_CODE (XEXP (reg_addend, 1)) == REG
+	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
-      if (GET_CODE (y) != REG
-	  && GET_CODE (y) != MULT
-	  && GET_CODE (y) != ASHIFT)
+      if (GET_CODE (reg_addend) != REG
+	  && GET_CODE (reg_addend) != MULT
+	  && GET_CODE (reg_addend) != ASHIFT)
 	return orig_x;
     }
   else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      const_addend = XEXP (x, 1);
+      x = XEXP (x, 0);
+    }
+
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
-    {
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
-      return XVECEXP (x, 0, 0);
-    }
+    result = XVECEXP (x, 0, 0);
 
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == UNSPEC
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
-	      && GET_CODE (orig_x) != MEM)))
-    {
-      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
+  if (TARGET_MACHO && darwin_local_data_pic (x)
+      && GET_CODE (orig_x) != MEM)
+    result = XEXP (x, 0);
 
-  return orig_x;
+  if (! result)
+    return orig_x;
+
+  if (const_addend)
+    result = gen_rtx_PLUS (Pmode, result, const_addend);
+  if (reg_addend)
+    result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  return result;
 }
 
 static void
@@ -8357,7 +8605,7 @@ emit_i387_cw_initialization (int mode)
 	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
 	  slot = SLOT_CW_CEIL;
 	  break;
- 
+
 	case I387_CW_MASK_PM:
 	  /* mask precision exception for nearbyint() */
 	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
@@ -8412,6 +8660,34 @@ output_fix_trunc (rtx insn, rtx *operands, int fisttp)
   return "";
 }
 
+/* Output code for x87 ffreep insn.  The OPNO argument, which may only
+   have the values zero or one, indicates the ffreep insn's operand
+   from the OPERANDS array.  */
+
+static const char *
+output_387_ffreep (rtx *operands ATTRIBUTE_UNUSED, int opno)
+{
+  if (TARGET_USE_FFREEP)
+#if HAVE_AS_IX86_FFREEP
+    return opno ? "ffreep\t%y1" : "ffreep\t%y0";
+#else
+    switch (REGNO (operands[opno]))
+      {
+      case FIRST_STACK_REG + 0: return ".word\t0xc0df";
+      case FIRST_STACK_REG + 1: return ".word\t0xc1df";
+      case FIRST_STACK_REG + 2: return ".word\t0xc2df";
+      case FIRST_STACK_REG + 3: return ".word\t0xc3df";
+      case FIRST_STACK_REG + 4: return ".word\t0xc4df";
+      case FIRST_STACK_REG + 5: return ".word\t0xc5df";
+      case FIRST_STACK_REG + 6: return ".word\t0xc6df";
+      case FIRST_STACK_REG + 7: return ".word\t0xc7df";
+      }
+#endif
+
+  return opno ? "fstp\t%y1" : "fstp\t%y0";
+}
+
+
 /* Output code for INSN to compare OPERANDS.  EFLAGS_P is 1 when fcomi
    should be used.  UNORDERED_P is true when fucom should be used.  */
 
@@ -8456,7 +8732,7 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
       if (stack_top_dies)
 	{
 	  output_asm_insn ("ftst\n\tfnstsw\t%0", operands);
-	  return TARGET_USE_FFREEP ? "ffreep\t%y1" : "fstp\t%y1";
+	  return output_387_ffreep (operands, 1);
 	}
       else
 	return "ftst\n\tfnstsw\t%0";
@@ -8479,7 +8755,7 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 	    output_asm_insn ("fucomip\t{%y1, %0|%0, %y1}", operands);
 	  else
 	    output_asm_insn ("fcomip\t{%y1, %0|%0, %y1}", operands);
-	  return TARGET_USE_FFREEP ? "ffreep\t%y0" : "fstp\t%y0";
+	  return output_387_ffreep (operands, 0);
 	}
       else
 	{
@@ -8649,27 +8925,32 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 
   if (flag_pic && mode == Pmode && symbolic_operand (op1, Pmode))
     {
-#if TARGET_MACHO
-      if (MACHOPIC_PURE)
+      if (TARGET_MACHO && !TARGET_64BIT)
 	{
-	  rtx temp = ((reload_in_progress
-		       || ((op0 && GET_CODE (op0) == REG)
-			   && mode == Pmode))
-		      ? op0 : gen_reg_rtx (Pmode));
-	  op1 = machopic_indirect_data_reference (op1, temp);
-	  op1 = machopic_legitimize_pic_address (op1, mode,
-						 temp == op1 ? 0 : temp);
+#if TARGET_MACHO
+	  if (MACHOPIC_PURE)
+	    {
+	      rtx temp = ((reload_in_progress
+			   || ((op0 && GET_CODE (op0) == REG)
+			       && mode == Pmode))
+			  ? op0 : gen_reg_rtx (Pmode));
+	      op1 = machopic_indirect_data_reference (op1, temp);
+	      op1 = machopic_legitimize_pic_address (op1, mode,
+						     temp == op1 ? 0 : temp);
+	    }
+	  else if (MACHOPIC_INDIRECT)
+	    op1 = machopic_indirect_data_reference (op1, 0);
+	  if (op0 == op1)
+	    return;
+#endif
 	}
-      else if (MACHOPIC_INDIRECT)
-	op1 = machopic_indirect_data_reference (op1, 0);
-      if (op0 == op1)
-	return;
-#else
-      if (GET_CODE (op0) == MEM)
-	op1 = force_reg (Pmode, op1);
-      else 
-	op1 = legitimize_address (op1, op1, Pmode);
-#endif /* TARGET_MACHO */
+      else
+	{
+	  if (GET_CODE (op0) == MEM)
+	    op1 = force_reg (Pmode, op1);
+	  else
+	    op1 = legitimize_address (op1, op1, Pmode);
+	}
     }
   else
     {
@@ -8728,7 +9009,8 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
      to handle some of them more efficiently.  */
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (op0, mode)
-      && CONSTANT_P (op1) && op1 != CONST0_RTX (mode))
+      && CONSTANT_P (op1)
+      && standard_sse_constant_p (op1) <= 0)
     op1 = validize_mem (force_const_mem (mode, op1));
 
   /* Make operand1 a register if it isn't already.  */
@@ -8743,7 +9025,7 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
 }
 
-/* Implement the movmisalign patterns for SSE.  Non-SSE modes go 
+/* Implement the movmisalign patterns for SSE.  Non-SSE modes go
    straight to ix86_expand_vector_move.  */
 
 void
@@ -9158,22 +9440,17 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
   if (use_sse)
     mask = ix86_build_signbit_mask (elt_mode, vector_mode, code == ABS);
   else
-    {
-      /* When not using SSE, we don't use the mask, but prefer to keep the
-	 same general form of the insn pattern to reduce duplication when
-	 it comes time to split.  */
-      mask = const0_rtx;
-    }
+    mask = NULL_RTX;
 
   dst = operands[0];
   src = operands[1];
 
   /* If the destination is memory, and we don't have matching source
-     operands, do things in registers.  */
+     operands or we're using the x87, do things in registers.  */
   matching_memory = false;
   if (MEM_P (dst))
     {
-      if (rtx_equal_p (dst, src))
+      if (use_sse && rtx_equal_p (dst, src))
 	matching_memory = true;
       else
 	dst = gen_reg_rtx (mode);
@@ -9191,9 +9468,15 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
     {
       set = gen_rtx_fmt_e (code, mode, src);
       set = gen_rtx_SET (VOIDmode, dst, set);
-      use = gen_rtx_USE (VOIDmode, mask);
-      clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
-      emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (3, set, use, clob)));
+      if (mask)
+        {
+          use = gen_rtx_USE (VOIDmode, mask);
+          clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
+          emit_insn (gen_rtx_PARALLEL (VOIDmode,
+				       gen_rtvec (3, set, use, clob)));
+        }
+      else
+	emit_insn (set);
     }
 
   if (dst != operands[0])
@@ -10045,6 +10328,12 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 {
   rtx tmp;
 
+  /* If we have emitted a compare insn, go straight to simple.
+     ix86_expand_compare won't emit anything if ix86_compare_emitted
+     is non NULL.  */
+  if (ix86_compare_emitted)
+    goto simple;
+
   switch (GET_MODE (ix86_compare_op0))
     {
     case QImode:
@@ -10377,7 +10666,7 @@ ix86_expand_carry_flag_compare (enum rtx_code code, rtx op0, rtx op1, rtx *pop)
   enum machine_mode mode =
     GET_MODE (op0) != VOIDmode ? GET_MODE (op0) : GET_MODE (op1);
 
-  /* Do not handle DImode compares that go trought special path.  Also we can't
+  /* Do not handle DImode compares that go through special path.  Also we can't
      deal with FP compares yet.  This is possible to add.  */
   if (mode == (TARGET_64BIT ? TImode : DImode))
     return false;
@@ -11349,6 +11638,8 @@ ix86_expand_int_vcond (rtx operands[])
      tricks to turn this into a signed comparison against 0.  */
   if (code == GTU)
     {
+      cop0 = force_reg (mode, cop0);
+
       switch (mode)
 	{
 	case V4SImode:
@@ -11518,9 +11809,9 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
     {
       /* The only non-offsetable memories we handle are pushes.  */
       int ok = push_operand (operand, VOIDmode);
-      
+
       gcc_assert (ok);
-      
+
       operand = copy_rtx (operand);
       PUT_MODE (operand, Pmode);
       parts[0] = parts[1] = parts[2] = operand;
@@ -11778,7 +12069,7 @@ ix86_split_long_move (rtx operands[])
 		default:
 		  gcc_unreachable ();
 		}
-	      
+
 	      if (GET_MODE (part[1][0]) == SImode)
 		part[1][0] = part[1][1];
 	    }
@@ -11943,7 +12234,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
 	  ix86_expand_clear (low[0]);
 	  ix86_expand_clear (high[0]);
 	  emit_insn (gen_testqi_ccz_1 (operands[2], GEN_INT (single_width)));
-	  
+
 	  d = gen_lowpart (QImode, low[0]);
 	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
 	  s = gen_rtx_EQ (QImode, flags, const0_rtx);
@@ -13059,15 +13350,21 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     pop = NULL;
   gcc_assert (!TARGET_64BIT || !pop);
 
+  if (TARGET_MACHO && !TARGET_64BIT)
+    {
 #if TARGET_MACHO
-  if (flag_pic && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
-    fnaddr = machopic_indirect_call_target (fnaddr);
-#else
-  /* Static functions and indirect calls don't need the pic register.  */
-  if (! TARGET_64BIT && flag_pic
-      && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
-      && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
-    use_reg (&use, pic_offset_table_rtx);
+      if (flag_pic && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
+	fnaddr = machopic_indirect_call_target (fnaddr);
+#endif
+    }
+  else
+    {
+      /* Static functions and indirect calls don't need the pic register.  */
+      if (! TARGET_64BIT && flag_pic
+	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
+	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
+	use_reg (&use, pic_offset_table_rtx);
+    }
 
   if (TARGET_64BIT && INTVAL (callarg2) >= 0)
     {
@@ -13075,7 +13372,6 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       emit_move_insn (al, callarg2);
       use_reg (&use, al);
     }
-#endif /* TARGET_MACHO */
 
   if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
@@ -13244,9 +13540,7 @@ memory_address_length (rtx addr)
       /* Find the length of the displacement constant.  */
       if (disp)
 	{
-	  if (GET_CODE (disp) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K')
-	      && base)
+	  if (base && satisfies_constraint_K (disp))
 	    len = 1;
 	  else
 	    len = 4;
@@ -13279,9 +13573,7 @@ ix86_attr_length_immediate_default (rtx insn, int shortform)
     if (CONSTANT_P (recog_data.operand[i]))
       {
 	gcc_assert (!len);
-	if (shortform
-	    && GET_CODE (recog_data.operand[i]) == CONST_INT
-	    && CONST_OK_FOR_LETTER_P (INTVAL (recog_data.operand[i]), 'K'))
+	if (shortform && satisfies_constraint_K (recog_data.operand[i]))
 	  len = 1;
 	else
 	  {
@@ -13364,7 +13656,7 @@ ix86_issue_rate (void)
    by DEP_INSN and nothing set by DEP_INSN.  */
 
 static int
-ix86_flags_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
 {
   rtx set, set2;
 
@@ -13409,7 +13701,7 @@ ix86_flags_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
    address with operands set by DEP_INSN.  */
 
 static int
-ix86_agi_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_agi_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
 {
   rtx addr;
 
@@ -13420,9 +13712,9 @@ ix86_agi_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
 
       if (GET_CODE (addr) == PARALLEL)
 	addr = XVECEXP (addr, 0, 0);
-      
+
       gcc_assert (GET_CODE (addr) == SET);
-      
+
       addr = SET_SRC (addr);
     }
   else
@@ -13467,17 +13759,17 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     {
     case PROCESSOR_PENTIUM:
       /* Address Generation Interlock adds a cycle of latency.  */
-      if (ix86_agi_dependant (insn, dep_insn, insn_type))
+      if (ix86_agi_dependent (insn, dep_insn, insn_type))
 	cost += 1;
 
       /* ??? Compares pair with jump/setcc.  */
-      if (ix86_flags_dependant (insn, dep_insn, insn_type))
+      if (ix86_flags_dependent (insn, dep_insn, insn_type))
 	cost = 0;
 
       /* Floating point stores require value to be ready one cycle earlier.  */
       if (insn_type == TYPE_FMOV
 	  && get_attr_memory (insn) == MEMORY_STORE
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	cost += 1;
       break;
 
@@ -13500,7 +13792,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -13529,7 +13821,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -13553,7 +13845,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  enum attr_unit unit = get_attr_unit (insn);
 	  int loadcost = 3;
@@ -15248,7 +15540,7 @@ ix86_init_mmx_sse_builtins (void)
 				    integer_type_node, NULL_TREE);
   def_builtin (MASK_SSE, "__builtin_ia32_vec_set_v8hi",
 	       ftype, IX86_BUILTIN_VEC_SET_V8HI);
-  
+
   ftype = build_function_type_list (V4HI_type_node, V4HI_type_node,
 				    intHI_type_node,
 				    integer_type_node, NULL_TREE);
@@ -15275,8 +15567,8 @@ ix86_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
   rtx pat, xops[3];
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
@@ -15343,8 +15635,8 @@ ix86_expand_store_builtin (enum insn_code icode, tree arglist)
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode mode0 = insn_data[icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[icode].operand[1].mode;
 
@@ -15368,7 +15660,7 @@ ix86_expand_unop_builtin (enum insn_code icode, tree arglist,
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -15403,7 +15695,7 @@ ix86_expand_unop1_builtin (enum insn_code icode, tree arglist, rtx target)
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op1, op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1, op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -15439,8 +15731,8 @@ ix86_expand_sse_compare (const struct builtin_description *d, tree arglist,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   rtx op2;
   enum machine_mode tmode = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[d->icode].operand[1].mode;
@@ -15491,8 +15783,8 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree arglist,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   rtx op2;
   enum machine_mode mode0 = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[d->icode].operand[1].mode;
@@ -15561,7 +15853,7 @@ get_element_number (tree vec_type, tree arg)
    instructions from inside the compiler, we can't allow the use of MMX
    registers unless the user explicitly asks for it.  So we do *not* define
    vec_set/vec_extract/vec_init patterns for MMX modes in mmx.md.  Instead
-   we have builtins invoked by mmintrin.h that gives us license to emit 
+   we have builtins invoked by mmintrin.h that gives us license to emit
    these sorts of instructions.  */
 
 static rtx
@@ -15576,7 +15868,7 @@ ix86_expand_vec_init_builtin (tree type, tree arglist, rtx target)
 
   for (i = 0; i < n_elt; ++i, arglist = TREE_CHAIN (arglist))
     {
-      rtx x = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+      rtx x = expand_normal (TREE_VALUE (arglist));
       RTVEC_ELT (v, i) = gen_lowpart (inner_mode, x);
     }
 
@@ -15604,7 +15896,7 @@ ix86_expand_vec_ext_builtin (tree arglist, rtx target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
 
-  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  op0 = expand_normal (arg0);
   elt = get_element_number (TREE_TYPE (arg0), arg1);
 
   tmode = TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0)));
@@ -15696,9 +15988,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg1 = TREE_VALUE (arglist);
       arg2 = TREE_VALUE (TREE_CHAIN (arglist));
       arg0 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       mode0 = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15741,8 +16033,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse2_loadlpd);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -15765,8 +16057,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse_storelps);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       mode0 = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
 
@@ -15785,7 +16077,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return ix86_expand_store_builtin (CODE_FOR_sse_movntdi, arglist);
 
     case IX86_BUILTIN_LDMXCSR:
-      op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (TREE_VALUE (arglist));
       target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
@@ -15804,9 +16096,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -15843,8 +16135,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_mmx_pshufw);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15873,8 +16165,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse2_lshrti3);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15991,7 +16283,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_CLFLUSH:
 	arg0 = TREE_VALUE (arglist);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_normal (arg0);
 	icode = CODE_FOR_sse2_clflush;
 	if (! (*insn_data[icode].operand[0].predicate) (op0, Pmode))
 	    op0 = copy_to_mode_reg (Pmode, op0);
@@ -16015,23 +16307,26 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       if (!REG_P (op0))
-	op0 = copy_to_mode_reg (SImode, op0);
+	op0 = copy_to_mode_reg (Pmode, op0);
       if (!REG_P (op1))
 	op1 = copy_to_mode_reg (SImode, op1);
       if (!REG_P (op2))
 	op2 = copy_to_mode_reg (SImode, op2);
-      emit_insn (gen_sse3_monitor (op0, op1, op2));
+      if (!TARGET_64BIT)
+	emit_insn (gen_sse3_monitor (op0, op1, op2));
+      else
+	emit_insn (gen_sse3_monitor64 (op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_MWAIT:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       if (!REG_P (op0))
 	op0 = copy_to_mode_reg (SImode, op0);
       if (!REG_P (op1))
@@ -16095,7 +16390,7 @@ rtx
 ix86_force_to_memory (enum machine_mode mode, rtx operand)
 {
   rtx result;
-  
+
   gcc_assert (reload_completed);
   if (TARGET_RED_ZONE)
     {
@@ -16195,14 +16490,27 @@ ix86_free_from_memory (enum machine_mode mode)
 enum reg_class
 ix86_preferred_reload_class (rtx x, enum reg_class class)
 {
-  /* We're only allowed to return a subclass of CLASS.  Many of the 
+  enum machine_mode mode = GET_MODE (x);
+
+  /* We're only allowed to return a subclass of CLASS.  Many of the
      following checks fail for NO_REGS, so eliminate that early.  */
   if (class == NO_REGS)
     return NO_REGS;
 
   /* All classes can load zeros.  */
-  if (x == CONST0_RTX (GET_MODE (x)))
+  if (x == CONST0_RTX (mode))
     return class;
+
+  /* Force constants into memory if we are loading a (nonzero) constant into
+     an MMX or SSE register.  This is because there are no MMX/SSE instructions
+     to load from a constant.  */
+  if (CONSTANT_P (x)
+      && (MAYBE_MMX_CLASS_P (class) || MAYBE_SSE_CLASS_P (class)))
+    return NO_REGS;
+
+  /* Prefer SSE regs only, if we can use them for math.  */
+  if (TARGET_SSE_MATH && !TARGET_MIX_SSE_I387 && SSE_FLOAT_MODE_P (mode))
+    return SSE_CLASS_P (class) ? class : NO_REGS;
 
   /* Floating-point constants need more complex checks.  */
   if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != VOIDmode)
@@ -16215,8 +16523,6 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
 	 zero above.  We only want to wind up preferring 80387 registers if
 	 we plan on doing computation with them.  */
       if (TARGET_80387
-	  && (TARGET_MIX_SSE_I387 
-	      || !(TARGET_SSE_MATH && SSE_FLOAT_MODE_P (GET_MODE (x))))
 	  && standard_80387_constant_p (x))
 	{
 	  /* Limit class to non-sse.  */
@@ -16232,10 +16538,6 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
 
       return NO_REGS;
     }
-  if (MAYBE_MMX_CLASS_P (class) && CONSTANT_P (x))
-    return NO_REGS;
-  if (MAYBE_SSE_CLASS_P (class) && CONSTANT_P (x))
-    return NO_REGS;
 
   /* Generally when we see PLUS here, it's the function invariant
      (plus soft-fp const_int).  Which can only be computed into general
@@ -16252,6 +16554,33 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
       if (reg_class_subset_p (Q_REGS, class))
 	return Q_REGS;
       return NO_REGS;
+    }
+
+  return class;
+}
+
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+enum reg_class
+ix86_preferred_output_reload_class (rtx x, enum reg_class class)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  /* Restrict the output reload class to the register bank that we are doing
+     math on.  If we would like not to return a subset of CLASS, reject this
+     alternative: if reload cannot do this, it will still use its choice.  */
+  mode = GET_MODE (x);
+  if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
+    return MAYBE_SSE_CLASS_P (class) ? SSE_REGS : NO_REGS;
+
+  if (TARGET_80387 && SCALAR_FLOAT_MODE_P (mode))
+    {
+      if (class == FP_TOP_SSE_REGS)
+	return FP_TOP_REG;
+      else if (class == FP_SECOND_SSE_REGS)
+	return FP_SECOND_REG;
+      else
+	return FLOAT_CLASS_P (class) ? class : NO_REGS;
     }
 
   return class;
@@ -16298,7 +16627,7 @@ ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
       if (!TARGET_SSE2)
 	return true;
 
-      /* If the target says that inter-unit moves are more expensive 
+      /* If the target says that inter-unit moves are more expensive
 	 than moving through memory, then don't generate them.  */
       if (!TARGET_INTER_UNIT_MOVES && !optimize_size)
 	return true;
@@ -16308,7 +16637,7 @@ ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
 	return true;
 
       /* ??? For the cost of one register reformat penalty, we could use
-	 the same instructions to move SFmode and DFmode data, but the 
+	 the same instructions to move SFmode and DFmode data, but the
 	 relevant move patterns don't support those alternatives.  */
       if (mode == SFmode || mode == DFmode)
 	return true;
@@ -16342,7 +16671,7 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
 	return true;
 
       /* Vector registers do not support subreg with nonzero offsets, which
-	 are otherwise valid for integer registers.  Since we can't see 
+	 are otherwise valid for integer registers.  Since we can't see
 	 whether we have a nonzero offset from here, prohibit all
          nonparadoxical subregs changing size.  */
       if (GET_MODE_SIZE (to) < GET_MODE_SIZE (from))
@@ -16453,7 +16782,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   else if (VALID_FP_MODE_P (mode))
     return 1;
   /* Lots of MMX code casts 8 byte vector modes to DImode.  If we then go
-     on to use that value in smaller contexts, this can easily force a 
+     on to use that value in smaller contexts, this can easily force a
      pseudo to be allocated to GENERAL_REGS.  Since this is no worse than
      supporting DImode, allow it.  */
   else if (VALID_MMX_REG_MODE_3DNOW (mode) || VALID_MMX_REG_MODE (mode))
@@ -16462,7 +16791,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   return 0;
 }
 
-/* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a 
+/* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a
    tieable integer mode.  */
 
 static bool
@@ -16510,7 +16839,7 @@ ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
   if (mode2 == DFmode)
     return mode1 == SFmode;
 
-  /* If MODE2 is only appropriate for an SSE register, then tie with 
+  /* If MODE2 is only appropriate for an SSE register, then tie with
      any other mode acceptable to SSE registers.  */
   if (GET_MODE_SIZE (mode2) >= 8
       && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode2))
@@ -16894,7 +17223,22 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (!TARGET_SSE_MATH
 	  || mode == XFmode
 	  || (mode == DFmode && !TARGET_SSE2))
-	*total = 0;
+	/* For standard 80387 constants, raise the cost to prevent
+	   compress_float_constant() to generate load from memory.  */
+	switch (standard_80387_constant_p (XEXP (x, 0)))
+	  {
+	  case -1:
+	  case 0:
+	    *total = 0;
+	    break;
+	  case 1: /* 0.0 */
+	    *total = 1;
+	    break;
+	  default:
+	    *total = (x86_ext_80387_constants & TUNEMASK
+		      || optimize_size
+		      ? 1 : 0);
+	  }
       return false;
 
     case ABS:
@@ -16931,6 +17275,9 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   char *binder_name, *symbol_name, lazy_ptr_name[32];
   int label = ++current_machopic_label_num;
 
+  /* For 64-bit we shouldn't get here.  */
+  gcc_assert (!TARGET_64BIT);
+
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
   symb = (*targetm.strip_name_encoding) (symb);
 
@@ -16954,24 +17301,24 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
   if (MACHOPIC_PURE)
     {
-      fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%eax\n", label, label);
-      fprintf (file, "\tmovl %s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
-      fprintf (file, "\tjmp %%edx\n");
+      fprintf (file, "\tcall\tLPC$%d\nLPC$%d:\tpopl\t%%eax\n", label, label);
+      fprintf (file, "\tmovl\t%s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
+      fprintf (file, "\tjmp\t*%%edx\n");
     }
   else
-    fprintf (file, "\tjmp *%s\n", lazy_ptr_name);
+    fprintf (file, "\tjmp\t*%s\n", lazy_ptr_name);
 
   fprintf (file, "%s:\n", binder_name);
 
   if (MACHOPIC_PURE)
     {
-      fprintf (file, "\tlea %s-LPC$%d(%%eax),%%eax\n", lazy_ptr_name, label);
-      fprintf (file, "\tpushl %%eax\n");
+      fprintf (file, "\tlea\t%s-LPC$%d(%%eax),%%eax\n", lazy_ptr_name, label);
+      fprintf (file, "\tpushl\t%%eax\n");
     }
   else
-    fprintf (file, "\t pushl $%s\n", lazy_ptr_name);
+    fprintf (file, "\tpushl\t$%s\n", lazy_ptr_name);
 
-  fprintf (file, "\tjmp dyld_stub_binding_helper\n");
+  fprintf (file, "\tjmp\tdyld_stub_binding_helper\n");
 
   switch_to_section (darwin_sections[machopic_lazy_symbol_ptr_section]);
   fprintf (file, "%s:\n", lazy_ptr_name);
@@ -17286,6 +17633,9 @@ static void
 x86_file_start (void)
 {
   default_file_start ();
+#if TARGET_MACHO
+  darwin_file_start ();
+#endif
   if (X86_FILE_START_VERSION_DIRECTIVE)
     fputs ("\t.version\t\"01.01\"\n", asm_out_file);
   if (X86_FILE_START_FLTUSED)
@@ -17608,7 +17958,7 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
     {
     case V2SImode:
     case V2SFmode:
-      if (!mmx_ok && !TARGET_SSE)
+      if (!mmx_ok)
 	return false;
       /* FALLTHRU */
 
@@ -17648,11 +17998,66 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
       wvmode = V4HImode;
       goto widen;
     case V8HImode:
+      if (TARGET_SSE2)
+	{
+	  rtx tmp1, tmp2;
+	  /* Extend HImode to SImode using a paradoxical SUBREG.  */
+	  tmp1 = gen_reg_rtx (SImode);
+	  emit_move_insn (tmp1, gen_lowpart (SImode, val));
+	  /* Insert the SImode value as low element of V4SImode vector. */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  tmp1 = gen_rtx_VEC_MERGE (V4SImode,
+				    gen_rtx_VEC_DUPLICATE (V4SImode, tmp1),
+				    CONST0_RTX (V4SImode),
+				    const1_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp2, tmp1));
+	  /* Cast the V4SImode vector back to a V8HImode vector.  */
+	  tmp1 = gen_reg_rtx (V8HImode);
+	  emit_move_insn (tmp1, gen_lowpart (V8HImode, tmp2));
+	  /* Duplicate the low short through the whole low SImode word.  */
+	  emit_insn (gen_sse2_punpcklwd (tmp1, tmp1, tmp1));
+	  /* Cast the V8HImode vector back to a V4SImode vector.  */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  emit_move_insn (tmp2, gen_lowpart (V4SImode, tmp1));
+	  /* Replicate the low element of the V4SImode vector.  */
+	  emit_insn (gen_sse2_pshufd (tmp2, tmp2, const0_rtx));
+	  /* Cast the V2SImode back to V8HImode, and store in target.  */
+	  emit_move_insn (target, gen_lowpart (V8HImode, tmp2));
+	  return true;
+	}
       smode = HImode;
       wsmode = SImode;
       wvmode = V4SImode;
       goto widen;
     case V16QImode:
+      if (TARGET_SSE2)
+	{
+	  rtx tmp1, tmp2;
+	  /* Extend QImode to SImode using a paradoxical SUBREG.  */
+	  tmp1 = gen_reg_rtx (SImode);
+	  emit_move_insn (tmp1, gen_lowpart (SImode, val));
+	  /* Insert the SImode value as low element of V4SImode vector. */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  tmp1 = gen_rtx_VEC_MERGE (V4SImode,
+				    gen_rtx_VEC_DUPLICATE (V4SImode, tmp1),
+				    CONST0_RTX (V4SImode),
+				    const1_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp2, tmp1));
+	  /* Cast the V4SImode vector back to a V16QImode vector.  */
+	  tmp1 = gen_reg_rtx (V16QImode);
+	  emit_move_insn (tmp1, gen_lowpart (V16QImode, tmp2));
+	  /* Duplicate the low byte through the whole low SImode word.  */
+	  emit_insn (gen_sse2_punpcklbw (tmp1, tmp1, tmp1));
+	  emit_insn (gen_sse2_punpcklbw (tmp1, tmp1, tmp1));
+	  /* Cast the V16QImode vector back to a V4SImode vector.  */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  emit_move_insn (tmp2, gen_lowpart (V4SImode, tmp1));
+	  /* Replicate the low element of the V4SImode vector.  */
+	  emit_insn (gen_sse2_pshufd (tmp2, tmp2, const0_rtx));
+	  /* Cast the V2SImode back to V16QImode, and store in target.  */
+	  emit_move_insn (target, gen_lowpart (V16QImode, tmp2));
+	  return true;
+	}
       smode = QImode;
       wsmode = HImode;
       wvmode = V8HImode;
@@ -17677,26 +18082,29 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
 }
 
 /* A subroutine of ix86_expand_vector_init.  Store into TARGET a vector
-   whose low element is VAR, and other elements are zero.  Return true
+   whose ONE_VAR element is VAR, and other elements are zero.  Return true
    if successful.  */
 
 static bool
-ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
-				     rtx target, rtx var)
+ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
+				     rtx target, rtx var, int one_var)
 {
   enum machine_mode vsimode;
-  rtx x;
+  rtx new_target;
+  rtx x, tmp;
 
   switch (mode)
     {
     case V2SFmode:
     case V2SImode:
-      if (!mmx_ok && !TARGET_SSE)
+      if (!mmx_ok)
 	return false;
       /* FALLTHRU */
 
     case V2DFmode:
     case V2DImode:
+      if (one_var != 0)
+	return false;
       var = force_reg (GET_MODE_INNER (mode), var);
       x = gen_rtx_VEC_CONCAT (mode, var, CONST0_RTX (GET_MODE_INNER (mode)));
       emit_insn (gen_rtx_SET (VOIDmode, target, x));
@@ -17704,10 +18112,55 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
 
     case V4SFmode:
     case V4SImode:
+      if (!REG_P (target) || REGNO (target) < FIRST_PSEUDO_REGISTER)
+	new_target = gen_reg_rtx (mode);
+      else
+	new_target = target;
       var = force_reg (GET_MODE_INNER (mode), var);
       x = gen_rtx_VEC_DUPLICATE (mode, var);
       x = gen_rtx_VEC_MERGE (mode, x, CONST0_RTX (mode), const1_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, target, x));
+      emit_insn (gen_rtx_SET (VOIDmode, new_target, x));
+      if (one_var != 0)
+	{
+	  /* We need to shuffle the value to the correct position, so
+	     create a new pseudo to store the intermediate result.  */
+
+	  /* With SSE2, we can use the integer shuffle insns.  */
+	  if (mode != V4SFmode && TARGET_SSE2)
+	    {
+	      emit_insn (gen_sse2_pshufd_1 (new_target, new_target,
+					    GEN_INT (1),
+					    GEN_INT (one_var == 1 ? 0 : 1),
+					    GEN_INT (one_var == 2 ? 0 : 1),
+					    GEN_INT (one_var == 3 ? 0 : 1)));
+	      if (target != new_target)
+		emit_move_insn (target, new_target);
+	      return true;
+	    }
+
+	  /* Otherwise convert the intermediate result to V4SFmode and
+	     use the SSE1 shuffle instructions.  */
+	  if (mode != V4SFmode)
+	    {
+	      tmp = gen_reg_rtx (V4SFmode);
+	      emit_move_insn (tmp, gen_lowpart (V4SFmode, new_target));
+	    }
+	  else
+	    tmp = new_target;
+
+	  emit_insn (gen_sse_shufps_1 (tmp, tmp, tmp,
+				       GEN_INT (1),
+				       GEN_INT (one_var == 1 ? 0 : 1),
+				       GEN_INT (one_var == 2 ? 0+4 : 1+4),
+				       GEN_INT (one_var == 3 ? 0+4 : 1+4)));
+
+	  if (mode != V4SFmode)
+	    emit_move_insn (target, gen_lowpart (V4SImode, tmp));
+	  else if (tmp != target)
+	    emit_move_insn (target, tmp);
+	}
+      else if (target != new_target)
+	emit_move_insn (target, new_target);
       return true;
 
     case V8HImode:
@@ -17721,11 +18174,15 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
       vsimode = V2SImode;
       goto widen;
     widen:
+      if (one_var != 0)
+	return false;
+
       /* Zero extend the variable element to SImode and recurse.  */
       var = convert_modes (SImode, GET_MODE_INNER (mode), var, true);
 
       x = gen_reg_rtx (vsimode);
-      if (!ix86_expand_vector_init_low_nonzero (mmx_ok, vsimode, x, var))
+      if (!ix86_expand_vector_init_one_nonzero (mmx_ok, vsimode, x,
+						var, one_var))
 	gcc_unreachable ();
 
       emit_move_insn (target, gen_lowpart (mode, x));
@@ -17880,7 +18337,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
       if (!register_operand (op1, half_mode))
 	op1 = force_reg (half_mode, op1);
 
-      emit_insn (gen_rtx_SET (VOIDmode, target, 
+      emit_insn (gen_rtx_SET (VOIDmode, target,
 			      gen_rtx_VEC_CONCAT (mode, op0, op1)));
     }
   else
@@ -17940,7 +18397,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
     }
 }
 
-/* Initialize vector TARGET via VALS.  Suppress the use of MMX 
+/* Initialize vector TARGET via VALS.  Suppress the use of MMX
    instructions unless MMX_OK is true.  */
 
 void
@@ -17982,9 +18439,10 @@ ix86_expand_vector_init (bool mmx_ok, rtx target, rtx vals)
      the pool and overwritten via move later.  */
   if (n_var == 1)
     {
-      if (all_const_zero && one_var == 0
-	  && ix86_expand_vector_init_low_nonzero (mmx_ok, mode, target,
-						  XVECEXP (vals, 0, 0)))
+      if (all_const_zero
+	  && ix86_expand_vector_init_one_nonzero (mmx_ok, mode, target,
+						  XVECEXP (vals, 0, one_var),
+						  one_var))
 	return;
 
       if (ix86_expand_vector_init_one_var (mmx_ok, mode, target, vals, one_var))
@@ -18303,6 +18761,16 @@ ix86_expand_reduc_v4sf (rtx (*fn) (rtx, rtx, rtx), rtx dest, rtx in)
   emit_insn (fn (dest, tmp2, tmp3));
 }
 
+/* Target hook for scalar_mode_supported_p.  */
+static bool
+ix86_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
+}
+
 /* Implements target hook vector_mode_supported_p.  */
 static bool
 ix86_vector_mode_supported_p (enum machine_mode mode)
@@ -18399,9 +18867,8 @@ output_387_reg_move (rtx insn, rtx *operands)
   if (REG_P (operands[1])
       && find_regno_note (insn, REG_DEAD, REGNO (operands[1])))
     {
-      if (REGNO (operands[0]) == FIRST_STACK_REG
-	  && TARGET_USE_FFREEP)
-	return "ffreep\t%y0";
+      if (REGNO (operands[0]) == FIRST_STACK_REG)
+	return output_387_ffreep (operands, 0);
       return "fstp\t%y0";
     }
   if (STACK_TOP_P (operands[0]))
@@ -18535,7 +19002,7 @@ asm_preferred_eh_data_format (int code, int global)
 {
   if (flag_pic)
     {
-int type = DW_EH_PE_sdata8;
+      int type = DW_EH_PE_sdata8;
       if (!TARGET_64BIT
 	  || ix86_cmodel == CM_SMALL_PIC
 	  || (ix86_cmodel == CM_MEDIUM_PIC && (global || code)))

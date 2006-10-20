@@ -663,10 +663,15 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
    Try to forward propagate the ADDR_EXPR into the use USE_STMT.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
    node or for recovery of array indexing from pointer arithmetic.
-   Return true, if the propagation was successful.  */
+   
+   CHANGED is an optional pointer to a boolean variable set to true if
+   either the LHS or RHS was changed in the USE_STMT.  
+
+   Return true if the propagation was successful (the propagation can
+   be not totally successful, yet things may have been changed).  */
 
 static bool
-forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
+forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
 {
   tree name = TREE_OPERAND (stmt, 0);
   tree lhs, rhs, array_ref;
@@ -686,6 +691,8 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
       TREE_OPERAND (lhs, 0) = unshare_expr (TREE_OPERAND (stmt, 1));
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
+      if (changed)
+	*changed = true;
     }
 
   /* Trivial case.  The use statement could be a trivial copy.  We
@@ -699,6 +706,8 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
     {
       TREE_OPERAND (use_stmt, 1) = unshare_expr (TREE_OPERAND (stmt, 1));
       tidy_after_forward_propagate_addr (use_stmt);
+      if (changed)
+	*changed = true;
       return true;
     }
 
@@ -719,6 +728,8 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
       TREE_OPERAND (rhs, 0) = unshare_expr (TREE_OPERAND (stmt, 1));
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
+      if (changed)
+	*changed = true;
       return true;
     }
 
@@ -751,6 +762,8 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
       if (fold_stmt_inplace (use_stmt))
 	{
 	  tidy_after_forward_propagate_addr (use_stmt);
+	  if (changed)
+	    *changed = true;
 	  return true;
 	}
       else
@@ -771,9 +784,14 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
 	 different type than their operands.  */
       && lang_hooks.types_compatible_p (TREE_TYPE (name), TREE_TYPE (rhs)))
     {
+      bool res;
       tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 1));
-      return forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
-							       stmt, use_stmt);
+      
+      res = forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
+							      stmt, use_stmt);
+      if (res && changed)
+	*changed = true;
+      return res;
     }
 	      
   /* Same as the previous case, except the operands of the PLUS_EXPR
@@ -784,14 +802,20 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
 	 different type than their operands.  */
       && lang_hooks.types_compatible_p (TREE_TYPE (name), TREE_TYPE (rhs)))
     {
+      bool res;
       tree offset_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-      return forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
-							       stmt, use_stmt);
+      res = forward_propagate_addr_into_variable_array_index (offset_stmt, lhs,
+							      stmt, use_stmt);
+      if (res && changed)
+	*changed = true;
+      return res;
     }
   return false;
 }
 
 /* STMT is a statement of the form SSA_NAME = ADDR_EXPR <whatever>.
+   SOME is a pointer to a boolean value indicating whether we
+   propagated the address expression anywhere.
 
    Try to forward propagate the ADDR_EXPR into all uses of the SSA_NAME.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
@@ -799,17 +823,17 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
    Returns true, if all uses have been propagated into.  */
 
 static bool
-forward_propagate_addr_expr (tree stmt)
+forward_propagate_addr_expr (tree stmt, bool *some)
 {
   int stmt_loop_depth = bb_for_stmt (stmt)->loop_depth;
   tree name = TREE_OPERAND (stmt, 0);
-  use_operand_p imm_use;
   imm_use_iterator iter;
+  tree use_stmt;
   bool all = true;
 
-  FOR_EACH_IMM_USE_SAFE (imm_use, iter, name)
+  FOR_EACH_IMM_USE_STMT (use_stmt, iter, name)
     {
-      tree use_stmt = USE_STMT (imm_use);
+      bool result;
 
       /* If the use is not in a simple assignment statement, then
 	 there is nothing we can do.  */
@@ -827,8 +851,10 @@ forward_propagate_addr_expr (tree stmt)
 	  all = false;
 	  continue;
 	}
-
-      all = forward_propagate_addr_expr_1 (stmt, use_stmt) && all;
+      
+      result = forward_propagate_addr_expr_1 (stmt, use_stmt, some);
+      *some |= result;
+      all &= result;
     }
 
   return all;
@@ -927,10 +953,11 @@ simplify_switch_expr (tree stmt)
 
 /* Main entry point for the forward propagation optimizer.  */
 
-static void
+static unsigned int
 tree_ssa_forward_propagate_single_use_vars (void)
 {
   basic_block bb;
+  unsigned int todoflags = 0;
 
   cfg_changed = false;
 
@@ -959,10 +986,13 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
 	      if (TREE_CODE (rhs) == ADDR_EXPR)
 		{
-		  if (forward_propagate_addr_expr (stmt))
+		  bool some = false;
+		  if (forward_propagate_addr_expr (stmt, &some))
 		    bsi_remove (&bsi, true);
 		  else
 		    bsi_next (&bsi);
+		  if (some)
+		    todoflags |= TODO_update_smt_usage;
 		}
 	      else if ((TREE_CODE (rhs) == BIT_NOT_EXPR
 		        || TREE_CODE (rhs) == NEGATE_EXPR)
@@ -991,6 +1021,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
   if (cfg_changed)
     cleanup_tree_cfg ();
+  return todoflags;
 }
 
 
@@ -1011,9 +1042,10 @@ struct tree_opt_pass pass_forwprop = {
   PROP_cfg | PROP_ssa
     | PROP_alias,		/* properties_required */
   0,				/* properties_provided */
-  0,				/* properties_destroyed */
+  PROP_smt_usage,		/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_dump_func /* todo_flags_finish */
+  | TODO_ggc_collect
   | TODO_update_ssa | TODO_verify_ssa,
   0					/* letter */
 };

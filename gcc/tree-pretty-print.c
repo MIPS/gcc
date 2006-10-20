@@ -101,7 +101,12 @@ debug_generic_stmt (tree t)
 void
 debug_tree_chain (tree t)
 {
-  print_generic_expr (stderr, t, TDF_VOPS|TDF_UID|TDF_CHAIN);
+  while (t)
+  {
+    print_generic_expr (stderr, t, TDF_VOPS|TDF_UID);
+    fprintf(stderr, " ");
+    t = TREE_CHAIN (t);
+  }
   fprintf (stderr, "\n");
 }
 
@@ -160,32 +165,20 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
 {
   tree t = node;
 
-  while (t)
+  if (DECL_NAME (t))
+    pp_tree_identifier (buffer, DECL_NAME (t));
+  if ((flags & TDF_UID)
+      || DECL_NAME (t) == NULL_TREE)
     {
-      if (DECL_NAME (t))
-	pp_tree_identifier (buffer, DECL_NAME (t));
-
-      if ((flags & TDF_UID)
-	  || DECL_NAME (t) == NULL_TREE)
-	{
-	  if (TREE_CODE (t) == LABEL_DECL
-	      && LABEL_DECL_UID (t) != -1)
-	    pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
-		LABEL_DECL_UID (t));
-	  else
-	    {
-	      char c = TREE_CODE (t) == CONST_DECL ? 'C' : 'D';
-	      pp_printf (buffer, "%c.%u", c, DECL_UID (t));
-	    }
-	}
-
-      if (flags & TDF_CHAIN)
-	{
-	  t = TREE_CHAIN (t);
-	  pp_string (buffer, " ");
-	}
+      if (TREE_CODE (t) == LABEL_DECL
+          && LABEL_DECL_UID (t) != -1)
+        pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
+		   LABEL_DECL_UID (t));
       else
-	t = NULL_TREE;
+	{
+	  char c = TREE_CODE (t) == CONST_DECL ? 'C' : 'D';
+	  pp_printf (buffer, "%c.%u", c, DECL_UID (t));
+	}
     }
 }
 
@@ -508,7 +501,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VECTOR_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       {
 	unsigned int quals = TYPE_QUALS (node);
 	enum tree_code_class class;
@@ -855,7 +847,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       break;
 
-    case TYPE_MEMORY_TAG:
+    case SYMBOL_MEMORY_TAG:
     case NAME_MEMORY_TAG:
     case STRUCT_FIELD_TAG:
     case VAR_DECL:
@@ -1565,8 +1557,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case RESX_EXPR:
-      pp_string (buffer, "resx");
-      /* ??? Any sensible way to present the eh region?  */
+      pp_string (buffer, "resx ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       break;
 
     case ASM_EXPR:
@@ -1830,8 +1822,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_omp_clauses (buffer, OMP_SINGLE_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
-    case OMP_RETURN_EXPR:
+    case OMP_RETURN:
       pp_string (buffer, "OMP_RETURN");
+      if (OMP_RETURN_NOWAIT (node))
+	pp_string (buffer, " [nowait]");
+      is_expr = false;
+      break;
+
+    case OMP_CONTINUE:
+      pp_string (buffer, "OMP_CONTINUE");
       is_expr = false;
       break;
 
@@ -2513,9 +2512,7 @@ pretty_print_string (pretty_printer *buffer, const char *str)
 	  pp_string (buffer, "\\'");
 	  break;
 
-	case '\0':
-	  pp_string (buffer, "\\0");
-	  break;
+	  /* No need to handle \0; the loop terminates on \0.  */
 
 	case '\1':
 	  pp_string (buffer, "\\1");

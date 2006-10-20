@@ -46,6 +46,7 @@ extern void machopic_asm_out_destructor (rtx, int);
 
 extern void machopic_define_symbol (rtx);
 extern void darwin_encode_section_info (tree, rtx, int);
+extern void darwin_set_default_type_attributes (tree);
 
 #endif /* TREE_CODE */
 
@@ -65,11 +66,14 @@ extern void darwin_emit_except_table_label (FILE *);
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
+extern void darwin_pragma_ms_struct (struct cpp_reader *);
 
+extern void darwin_file_start (void);
 extern void darwin_file_end (void);
 
 extern void darwin_mark_decl_preserved (const char *);
 
+extern tree darwin_handle_kext_attribute (tree *, tree, tree, int, bool *);
 extern tree darwin_handle_weak_import_attribute (tree *node, tree name,
 						 tree args, int flags,
 						 bool * no_add_attrs);
@@ -78,5 +82,10 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+extern void darwin_asm_output_dwarf_offset (FILE *, int, const char *,
+					    section *);
 extern bool darwin_binds_local_p (tree);
 extern void darwin_cpp_builtins (struct cpp_reader *);
+extern void darwin_asm_output_anchor (rtx symbol);
+extern bool darwin_kextabi_p (void);
+extern void darwin_override_options (void);

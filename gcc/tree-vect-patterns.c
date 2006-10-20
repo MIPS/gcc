@@ -41,7 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "recog.h"
 #include "toplev.h"
 
-/* Funcion prototypes */
+/* Function prototypes */
 static void vect_pattern_recog_1 
   (tree (* ) (tree, tree *, tree *), block_stmt_iterator);
 static bool widened_name_p (tree, tree, tree *, tree *);
@@ -133,7 +133,7 @@ widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt)
      S7  sum_1 = prod + sum_0;
 
    where 'TYPE1' is exactly double the size of type 'type', and 'TYPE2' is the 
-   same size of 'TYPE1' or bigger. This is a sepcial case of a reduction 
+   same size of 'TYPE1' or bigger. This is a special case of a reduction 
    computation.
       
    Input:
@@ -243,7 +243,8 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   gcc_assert (stmt_vinfo);
-  gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
+  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
+    return NULL;
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MULT_EXPR)
     return NULL;
@@ -356,7 +357,7 @@ vect_recog_widen_mult_pattern (tree last_stmt ATTRIBUTE_UNUSED,
 
    where type 'TYPE' is at least double the size of type 'type', i.e - we're 
    summing elements of type 'type' into an accumulator of type 'TYPE'. This is
-   a sepcial case of a reduction computation.
+   a special case of a reduction computation.
 
    Input:
 
@@ -454,7 +455,7 @@ vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out)
    If 'TYPE_OUT' is also returned by PATTERN_RECOG_FUNC, we check that it fits
    to the available target pattern.
 
-   This function also does some bookeeping, as explained in the documentation 
+   This function also does some bookkeeping, as explained in the documentation 
    for vect_recog_pattern.  */
 
 static void
@@ -515,13 +516,13 @@ vect_pattern_recog_1 (
   code = TREE_CODE (pattern_expr);
   pattern_type = TREE_TYPE (pattern_expr);
   var = create_tmp_var (pattern_type, "patt");
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
   var_name = make_ssa_name (var, NULL_TREE);
   pattern_expr = build2 (MODIFY_EXPR, void_type_node, var_name, pattern_expr);
   SSA_NAME_DEF_STMT (var_name) = pattern_expr;
   bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);
   ann = stmt_ann (pattern_expr);
-  set_stmt_info ((tree_ann_t)ann, new_stmt_vec_info (pattern_expr, loop_vinfo));
+  set_stmt_info (ann, new_stmt_vec_info (pattern_expr, loop_vinfo));
   pattern_stmt_info = vinfo_for_stmt (pattern_expr);
   
   STMT_VINFO_RELATED_STMT (pattern_stmt_info) = stmt;
@@ -577,7 +578,7 @@ vect_pattern_recog_1 (
    remain irrelevant unless used by stmts other than S4.
 
    If vectorization succeeds, vect_transform_stmt will skip over {S1,S2,S3}
-   (because they are marked as irrelevent). It will vectorize S6, and record
+   (because they are marked as irrelevant). It will vectorize S6, and record
    a pointer to the new vector stmt VS6 both from S6 (as usual), and also 
    from S4. We do that so that when we get to vectorizing stmts that use the
    def of S4 (like S5 that uses a_0), we'll know where to take the relevant

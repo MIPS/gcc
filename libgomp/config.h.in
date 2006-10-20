@@ -9,6 +9,9 @@
 /* Define to 1 if the target supports __attribute__((visibility(...))). */
 #undef HAVE_ATTRIBUTE_VISIBILITY
 
+/* Define if the POSIX Semaphores do not work on your system. */
+#undef HAVE_BROKEN_POSIX_SEMAPHORES
+
 /* Define to 1 if you have the `clock_gettime' function. */
 #undef HAVE_CLOCK_GETTIME
 
@@ -74,6 +77,21 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* The size of a `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* The size of a `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of a `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of a `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
+/* The size of a `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -137,7 +137,7 @@ static const char *last_filename;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
-  
+
 extern const int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
@@ -380,7 +380,7 @@ init_insn_lengths (void)
 }
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
-   get its actual length.  Otherwise, use FALLBACK_FN to calcualte the
+   get its actual length.  Otherwise, use FALLBACK_FN to calculate the
    length.  */
 static inline int
 get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
@@ -679,7 +679,7 @@ insn_current_reference_address (rtx branch)
 /* Compute branch alignments based on frequency information in the
    CFG.  */
 
-static void
+static unsigned int
 compute_alignments (void)
 {
   int log, max_skip, max_log;
@@ -693,12 +693,11 @@ compute_alignments (void)
 
   max_labelno = max_label_num ();
   min_labelno = get_first_label_num ();
-  label_align = xcalloc (max_labelno - min_labelno + 1,
-			 sizeof (struct label_alignment));
+  label_align = XCNEWVEC (struct label_alignment, max_labelno - min_labelno + 1);
 
   /* If not optimizing or optimizing for size, don't assign any alignments.  */
   if (! optimize || optimize_size)
-    return;
+    return 0;
 
   FOR_EACH_BB (bb)
     {
@@ -761,6 +760,7 @@ compute_alignments (void)
       LABEL_TO_ALIGNMENT (label) = max_log;
       LABEL_TO_MAX_SKIP (label) = max_skip;
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_compute_alignments =
@@ -816,8 +816,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
   /* Free uid_shuid before reallocating it.  */
   free (uid_shuid);
-  
-  uid_shuid = xmalloc (max_uid * sizeof *uid_shuid);
+
+  uid_shuid = XNEWVEC (int, max_uid);
 
   if (max_labelno != max_label_num ())
     {
@@ -856,14 +856,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       INSN_SHUID (insn) = i++;
       if (INSN_P (insn))
-	{
-	  /* reorg might make the first insn of a loop being run once only,
-             and delete the label in front of it.  Then we want to apply
-             the loop alignment to the new label created by reorg, which
-             is separated by the former loop start insn from the
-	     NOTE_INSN_LOOP_BEG.  */
-	}
-      else if (LABEL_P (insn))
+	continue;
+
+      if (LABEL_P (insn))
 	{
 	  rtx next;
 
@@ -926,20 +921,20 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #ifdef HAVE_ATTR_length
 
   /* Allocate the rest of the arrays.  */
-  insn_lengths = xmalloc (max_uid * sizeof (*insn_lengths));
+  insn_lengths = XNEWVEC (int, max_uid);
   insn_lengths_max_uid = max_uid;
   /* Syntax errors can lead to labels being outside of the main insn stream.
      Initialize insn_addresses, so that we get reproducible results.  */
   INSN_ADDRESSES_ALLOC (max_uid);
 
-  varying_length = xcalloc (max_uid, sizeof (char));
+  varying_length = XCNEWVEC (char, max_uid);
 
   /* Initialize uid_align.  We scan instructions
      from end to start, and keep in align_tab[n] the last seen insn
      that does an alignment of at least n+1, i.e. the successor
      in the alignment chain for an insn that does / has a known
      alignment of n.  */
-  uid_align = xcalloc (max_uid, sizeof *uid_align);
+  uid_align = XCNEWVEC (rtx, max_uid);
 
   for (i = MAX_CODE_ALIGN; --i >= 0;)
     align_tab[i] = NULL_RTX;
@@ -1422,7 +1417,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
      function.  */
   if (write_symbols)
     {
-      remove_unnecessary_notes ();
       reemit_insn_block_notes ();
       number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
@@ -1703,8 +1697,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
-	case NOTE_INSN_LOOP_BEG:
-	case NOTE_INSN_LOOP_END:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
@@ -1715,9 +1707,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  (*debug_hooks->switch_text_section) ();
 	  switch_to_section (current_function_section ());
 	  break;
-	  
+
 	case NOTE_INSN_BASIC_BLOCK:
-	  
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
@@ -1961,6 +1952,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	int insn_code_number;
 	const char *template;
 
+#ifdef HAVE_conditional_execution
+	/* Reset this early so it is correct for ASM statements.  */
+	current_insn_predicate = NULL_RTX;
+#endif
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
@@ -2396,8 +2391,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_conditional_execution
 	if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	  current_insn_predicate = COND_EXEC_TEST (PATTERN (insn));
-	else
-	  current_insn_predicate = NULL_RTX;
 #endif
 
 #ifdef HAVE_cc0
@@ -3057,7 +3050,7 @@ output_asm_insn (const char *template, rtx *operands)
 	    int letter = *p++;
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 
 	    if (endptr == p)
@@ -3102,7 +3095,7 @@ output_asm_insn (const char *template, rtx *operands)
 	  {
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
@@ -3676,7 +3669,7 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  
+
   gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
@@ -3852,7 +3845,7 @@ debug_flush_symbol_queue (void)
 
   for (i = 0; i < symbol_queue_index; ++i)
     {
-      /* If we pushed queued symbols then such symbols are must be
+      /* If we pushed queued symbols then such symbols must be
          output no matter what anyone else says.  Specifically,
          we need to make sure dbxout_symbol() thinks the symbol was
          used and also we need to override TYPE_DECL_SUPPRESS_DEBUG
@@ -3904,7 +3897,7 @@ debug_free_queue (void)
 }
 
 /* Turn the RTL into assembly.  */
-static void
+static unsigned int
 rest_of_handle_final (void)
 {
   rtx x;
@@ -3959,6 +3952,7 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+  return 0;
 }
 
 struct tree_opt_pass pass_final =
@@ -3979,13 +3973,14 @@ struct tree_opt_pass pass_final =
 };
 
 
-static void
+static unsigned int
 rest_of_handle_shorten_branches (void)
 {
   /* Shorten branches.  */
   shorten_branches (get_insns ());
+  return 0;
 }
- 
+
 struct tree_opt_pass pass_shorten_branches =
 {
   "shorten",                            /* name */
@@ -4004,7 +3999,7 @@ struct tree_opt_pass pass_shorten_branches =
 };
 
 
-static void
+static unsigned int
 rest_of_clean_state (void)
 {
   rtx insn, next;
@@ -4032,6 +4027,9 @@ rest_of_clean_state (void)
   epilogue_completed = 0;
   flow2_completed = 0;
   no_new_pseudos = 0;
+#ifdef STACK_REGS
+  regstack_completed = 0;
+#endif
 
   /* Clear out the insn_length contents now that they are no
      longer valid.  */
@@ -4066,6 +4064,7 @@ rest_of_clean_state (void)
   /* We're done with this function.  Free up memory if we can.  */
   free_after_parsing (cfun);
   free_after_compilation (cfun);
+  return 0;
 }
 
 struct tree_opt_pass pass_clean_state =

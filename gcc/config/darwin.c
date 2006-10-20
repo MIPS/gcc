@@ -79,6 +79,9 @@ Boston, MA 02110-1301, USA.  */
 /* Section names.  */
 section * darwin_sections[NUM_DARWIN_SECTIONS];
 
+/* True if we're setting __attribute__ ((ms_struct)).  */
+int darwin_ms_struct = false;
+
 /* A get_unnamed_section callback used to switch to an ObjC section.
    DIRECTIVE is as for output_section_asm_op.  */
 
@@ -1133,6 +1136,11 @@ machopic_select_section (tree exp, int reloc,
 	       TREE_INT_CST_LOW (size) == 8 &&
 	       TREE_INT_CST_HIGH (size) == 0)
 	return darwin_sections[literal8_section];
+      else if (TARGET_64BIT
+	       && TREE_CODE (size) == INTEGER_CST
+	       && TREE_INT_CST_LOW (size) == 16
+	       && TREE_INT_CST_HIGH (size) == 0)
+	return darwin_sections[literal16_section];
       else
 	return base_section;
     }
@@ -1231,6 +1239,12 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal4_section];
+  else if (TARGET_64BIT
+	   && GET_MODE_SIZE (mode) == 16
+	   && (GET_CODE (x) == CONST_INT
+	       || GET_CODE (x) == CONST_DOUBLE
+	       || GET_CODE (x) == CONST_VECTOR))
+    return darwin_sections[literal16_section];
   else if (MACHOPIC_INDIRECT
 	   && (GET_CODE (x) == SYMBOL_REF
 	       || GET_CODE (x) == CONST
@@ -1289,6 +1303,42 @@ darwin_unique_section (tree decl ATTRIBUTE_UNUSED, int reloc ATTRIBUTE_UNUSED)
   /* Darwin does not use unique sections.  */
 }
 
+/* Handle __attribute__ ((apple_kext_compatibility)).
+   This only applies to darwin kexts for 2.95 compatibility -- it shrinks the
+   vtable for classes with this attribute (and their descendants) by not
+   outputting the new 3.0 nondeleting destructor.  This means that such
+   objects CANNOT be allocated on the stack or as globals UNLESS they have
+   a completely empty `operator delete'.
+   Luckily, this fits in with the Darwin kext model.
+
+   This attribute also disables gcc3's potential overlaying of derived
+   class data members on the padding at the end of the base class.  */
+
+tree
+darwin_handle_kext_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED,
+			      bool *no_add_attrs)
+{
+  /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
+  if (! TARGET_KEXTABI)
+    {
+      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+	       "only when compiling a kext", IDENTIFIER_POINTER (name));
+
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (*node) != RECORD_TYPE)
+    {
+      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+	       "only to C++ classes", IDENTIFIER_POINTER (name));
+
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "weak_import" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -1324,35 +1374,23 @@ no_dead_strip (FILE *file, const char *lab)
 void
 darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
 {
-  tree id = DECL_ASSEMBLER_NAME (decl)
-    ? DECL_ASSEMBLER_NAME (decl)
-    : DECL_NAME (decl);
-
-  const char *prefix = user_label_prefix;
-
-  const char *base = IDENTIFIER_POINTER (id);
-  unsigned int base_len = IDENTIFIER_LENGTH (id);
-
-  const char *suffix = ".eh";
-
-  int need_quotes = name_needs_quotes (base);
-  int quotes_len = need_quotes ? 2 : 0;
+  const char *base;
   char *lab;
+  bool need_quotes;
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    base = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  else
+    base = IDENTIFIER_POINTER (DECL_NAME (decl));
+
+  base = targetm.strip_name_encoding (base);
+  need_quotes = name_needs_quotes (base);
 
   if (! for_eh)
-    suffix = ".eh1";
+    return;
 
-  lab = xmalloc (strlen (prefix)
-		 + base_len + strlen (suffix) + quotes_len + 1);
-  lab[0] = '\0';
-
-  if (need_quotes)
-    strcat(lab, "\"");
-  strcat(lab, prefix);
-  strcat(lab, base);
-  strcat(lab, suffix);
-  if (need_quotes)
-    strcat(lab, "\"");
+  lab = concat (need_quotes ? "\"" : "", user_label_prefix, base, ".eh",
+		need_quotes ? "\"" : "", NULL);
 
   if (TREE_PUBLIC (decl))
     fprintf (file, "\t%s %s\n",
@@ -1457,6 +1495,63 @@ darwin_asm_output_dwarf_delta (FILE *file, int size,
     fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }
 
+/* Output labels for the start of the DWARF sections if necessary.  */
+void
+darwin_file_start (void)
+{
+  if (write_symbols == DWARF2_DEBUG)
+    {
+      static const char * const debugnames[] =
+	{
+	  DEBUG_FRAME_SECTION,
+	  DEBUG_INFO_SECTION,
+	  DEBUG_ABBREV_SECTION,
+	  DEBUG_ARANGES_SECTION,
+	  DEBUG_MACINFO_SECTION,
+	  DEBUG_LINE_SECTION,
+	  DEBUG_LOC_SECTION,
+	  DEBUG_PUBNAMES_SECTION,
+	  DEBUG_STR_SECTION,
+	  DEBUG_RANGES_SECTION
+	};
+      size_t i;
+
+      for (i = 0; i < ARRAY_SIZE (debugnames); i++)
+	{
+	  int namelen;
+
+	  switch_to_section (get_section (debugnames[i], SECTION_DEBUG, NULL));
+
+	  gcc_assert (strncmp (debugnames[i], "__DWARF,", 8) == 0);
+	  gcc_assert (strchr (debugnames[i] + 8, ','));
+
+	  namelen = strchr (debugnames[i] + 8, ',') - (debugnames[i] + 8);
+	  fprintf (asm_out_file, "Lsection%.*s:\n", namelen, debugnames[i] + 8);
+	}
+    }
+}
+
+/* Output an offset in a DWARF section on Darwin.  On Darwin, DWARF section
+   offsets are not represented using relocs in .o files; either the
+   section never leaves the .o file, or the linker or other tool is
+   responsible for parsing the DWARF and updating the offsets.  */
+
+void
+darwin_asm_output_dwarf_offset (FILE *file, int size, const char * lab,
+				section *base)
+{
+  char sname[64];
+  int namelen;
+
+  gcc_assert (base->common.flags & SECTION_NAMED);
+  gcc_assert (strncmp (base->named.name, "__DWARF,", 8) == 0);
+  gcc_assert (strchr (base->named.name + 8, ','));
+
+  namelen = strchr (base->named.name + 8, ',') - (base->named.name + 8);
+  sprintf (sname, "*Lsection%.*s", namelen, base->named.name + 8);
+  darwin_asm_output_dwarf_delta (file, size, lab, sname);
+}
+
 void
 darwin_file_end (void)
 {
@@ -1470,13 +1565,74 @@ darwin_file_end (void)
   fprintf (asm_out_file, "\t.subsections_via_symbols\n");
 }
 
+/* TODO: Add a language hook for identifying if a decl is a vtable.  */
+#define DARWIN_VTABLE_P(DECL) 0
+
 /* Cross-module name binding.  Darwin does not support overriding
-   functions at dynamic-link time.  */
+   functions at dynamic-link time, except for vtables in kexts.  */
 
 bool
 darwin_binds_local_p (tree decl)
 {
-  return default_binds_local_p_1 (decl, 0);
+  return default_binds_local_p_1 (decl,
+				  TARGET_KEXTABI && DARWIN_VTABLE_P (decl));
+}
+
+#if 0
+/* See TARGET_ASM_OUTPUT_ANCHOR for why we can't do this yet.  */
+/* The Darwin's implementation of TARGET_ASM_OUTPUT_ANCHOR.  Define the
+   anchor relative to ".", the current section position.  We cannot use
+   the default one because ASM_OUTPUT_DEF is wrong for Darwin.  */
+
+void
+darwin_asm_output_anchor (rtx symbol)
+{
+  fprintf (asm_out_file, "\t.set\t");
+  assemble_name (asm_out_file, XSTR (symbol, 0));
+  fprintf (asm_out_file, ", . + " HOST_WIDE_INT_PRINT_DEC "\n",
+	   SYMBOL_REF_BLOCK_OFFSET (symbol));
+}
+#endif
+
+/* Set the darwin specific attributes on TYPE.  */
+void
+darwin_set_default_type_attributes (tree type)
+{
+  if (darwin_ms_struct
+      && TREE_CODE (type) == RECORD_TYPE)
+    TYPE_ATTRIBUTES (type) = tree_cons (get_identifier ("ms_struct"),
+                                        NULL_TREE,
+                                        TYPE_ATTRIBUTES (type));
+}
+
+/* True, iff we're generating code for loadable kernel extentions.  */
+
+bool
+darwin_kextabi_p (void) {
+  return flag_apple_kext;
+}
+
+void
+darwin_override_options (void)
+{
+  if (flag_apple_kext && strcmp (lang_hooks.name, "GNU C++") != 0)
+    {
+      warning (0, "command line option %<-fapple-kext%> is only valid for C++");
+      flag_apple_kext = 0;
+    }
+  if (flag_mkernel || flag_apple_kext)
+    {
+      /* -mkernel implies -fapple-kext for C++ */
+      if (strcmp (lang_hooks.name, "GNU C++") == 0)
+	flag_apple_kext = 1;
+
+      flag_no_common = 1;
+
+      /* No EH in kexts.  */
+      flag_exceptions = 0;
+      /* No -fnon-call-exceptions data in kexts.  */
+      flag_non_call_exceptions = 0;
+    }
 }
 
 #include "gt-darwin.h"

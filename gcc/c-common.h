@@ -82,9 +82,9 @@ enum rid
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
   RID_TEMPLATE, RID_NULL,     RID_CATCH,
   RID_DELETE,   RID_FALSE,    RID_NAMESPACE,
-  RID_NEW,      RID_OFFSETOF, RID_OPERATOR, 
-  RID_THIS,     RID_THROW,    RID_TRUE,     
-  RID_TRY,      RID_TYPENAME, RID_TYPEID,   
+  RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
+  RID_THIS,     RID_THROW,    RID_TRUE,
+  RID_TRY,      RID_TYPENAME, RID_TYPEID,
   RID_USING,
 
   /* casts */
@@ -94,7 +94,7 @@ enum rid
   RID_AT_ENCODE,   RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
-  RID_AT_PROTOCOL, RID_AT_SELECTOR,  
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,
   RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
   RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
   RID_AT_INTERFACE,
@@ -156,7 +156,7 @@ enum c_tree_index
     CTI_PRETTY_FUNCTION_NAME_DECL,
     CTI_C99_FUNCTION_NAME_DECL,
     CTI_SAVED_FUNCTION_NAME_DECLS,
-    
+
     CTI_VOID_ZERO,
 
     CTI_NULL,
@@ -290,7 +290,6 @@ extern void (*lang_post_pch_load) (void);
 
 extern void push_file_scope (void);
 extern void pop_file_scope (void);
-extern int yyparse (void);
 extern stmt_tree current_stmt_tree (void);
 extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
@@ -304,8 +303,8 @@ extern tree build_indirect_ref (tree, const char *);
 extern int c_expand_decl (tree);
 
 extern int field_decl_cmp (const void *, const void *);
-extern void resort_sorted_fields (void *, void *, gt_pointer_operator, 
-                                  void *);
+extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
+				  void *);
 extern bool has_c_linkage (tree decl);
 
 /* Switches common to the C front ends.  */
@@ -406,14 +405,9 @@ extern int flag_const_strings;
 
 extern int flag_signed_bitfields;
 
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
+/* Warn about #pragma directives that are not recognized.  */
 
-extern int warn_write_strings;
-
-/* Warn about #pragma directives that are not recognized.  */      
-
-extern int warn_unknown_pragmas; /* Tri state variable.  */  
+extern int warn_unknown_pragmas; /* Tri state variable.  */
 
 /* Warn about format/argument anomalies in calls to formatted I/O functions
    (*printf, *scanf, strftime, strfmon, etc.).  */
@@ -554,6 +548,11 @@ extern int flag_working_directory;
 
 extern int flag_use_cxa_atexit;
 
+/* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
+   logic.  */
+
+extern int flag_use_cxa_get_exception_ptr;
+
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
 
@@ -644,6 +643,7 @@ extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
+extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
 extern tree c_sizeof_or_alignof_type (tree, bool, int);
@@ -658,7 +658,6 @@ extern void strict_aliasing_warning(tree, tree, tree);
 extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void unsigned_conversion_warning (tree, tree);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
 
@@ -760,6 +759,11 @@ extern tree build_unary_op (enum tree_code, tree, int);
 extern tree build_binary_op (enum tree_code, tree, tree, int);
 extern tree perform_integral_promotions (tree);
 
+/* These functions must be defined by each front-end which implements
+   a variant of the C language.  They are used by port files.  */
+
+extern tree default_conversion (tree);
+
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
 
@@ -826,7 +830,7 @@ extern void c_warn_unused_result (tree *);
 
 extern void verify_sequence_points (tree);
 
-extern tree fold_offsetof (tree);
+extern tree fold_offsetof (tree, tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
    Used to select diagnostic messages in lvalue_error and
@@ -944,7 +948,7 @@ extern tree c_finish_omp_master (tree);
 extern tree c_finish_omp_critical (tree, tree);
 extern tree c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
-extern void c_finish_omp_atomic (enum tree_code, tree, tree);
+extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
 extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);

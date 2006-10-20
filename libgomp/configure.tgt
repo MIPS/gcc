@@ -86,6 +86,15 @@ fi
 # Other system configury
 case "${target}" in
 
+  *-*-hpux11*)
+	# HPUX v11.x requires -lrt to resolve sem_init in libgomp.la
+	XLDFLAGS="${XLDFLAGS} -lrt"
+	;;
+
+  *-*-mingw32*)
+	config_path="mingw32 posix"
+	;;
+
   *)
 	;;
 

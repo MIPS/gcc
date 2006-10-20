@@ -35,7 +35,7 @@
 #define _TR1_CCTYPE 1
 
 #include <bits/c++config.h>
-#include <ctype.h>
+#include <cctype>
 
 #if _GLIBCXX_USE_C99_CTYPE_TR1
 

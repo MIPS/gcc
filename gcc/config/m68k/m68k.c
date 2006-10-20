@@ -1006,26 +1006,26 @@ m68k_output_function_epilogue (FILE *stream,
 	    {
 	      int offset;
 
-	      /* stack already has registers in it.  Find the offset from
-		 the bottom of stack to where the FP registers go */
+	      /* Stack already has registers in it.  Find the offset from
+		 the bottom of stack to where the FP registers go.  */
 	      if (current_frame.reg_no <= 2)
 		offset = 0;
 	      else
 		offset = current_frame.reg_no * 4;
 	      if (offset)
-		 asm_fprintf (stream,
-			     "\tfmovem %Rsp@(%wd), %I0x%x\n",
+		asm_fprintf (stream,
+			     "\tfmovem %Rsp@(%d), %I0x%x\n",
 			     offset, current_frame.fpu_rev_mask);
 	      else
-		 asm_fprintf (stream,
+		asm_fprintf (stream,
 			     "\tfmovem %Rsp@, %I0x%x\n",
 			     current_frame.fpu_rev_mask);
 	    }
-	   else
-		  asm_fprintf (stream, MOTOROLA ?
-			       "\tfmovm (%Rsp)+,%I0x%x\n" :
-			       "\tfmovem %Rsp@+,%I0x%x\n",
-			       current_frame.fpu_rev_mask);
+	  else
+	    asm_fprintf (stream, MOTOROLA ?
+			 "\tfmovm (%Rsp)+,%I0x%x\n" :
+			 "\tfmovem %Rsp@+,%I0x%x\n",
+			 current_frame.fpu_rev_mask);
 	}
       else
 	{
@@ -2342,7 +2342,7 @@ fp_reg_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
    normally.
 
    Note SCRATCH_REG may not be in the proper mode depending on how it
-   will be used.  This routine is resposible for creating a new copy
+   will be used.  This routine is responsible for creating a new copy
    of SCRATCH_REG in the proper mode.  */
 
 int
@@ -3647,7 +3647,7 @@ m68k_regno_mode_ok (int regno, enum machine_mode mode)
 /* Return floating point values in a 68881 register.  This makes 68881 code
    a little bit faster.  It also makes -msoft-float code incompatible with
    hard-float code, so people have to be careful not to mix the two.
-   For ColdFire it was decided the ABI incopmatibility is undesirable.
+   For ColdFire it was decided the ABI incompatibility is undesirable.
    If there is need for a hard-float ABI it is probably worth doing it
    properly and also passing function arguments in FP registers.  */
 rtx

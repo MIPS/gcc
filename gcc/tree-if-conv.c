@@ -102,7 +102,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 
 /* local function prototypes */
-static void main_tree_if_conversion (void);
+static unsigned int main_tree_if_conversion (void);
 static tree tree_if_convert_stmt (struct loop *loop, tree, tree,
 				  block_stmt_iterator *);
 static void tree_if_convert_cond_expr (struct loop *, tree, tree,
@@ -666,7 +666,7 @@ find_phi_replacement_condition (struct loop *loop,
 {
   basic_block first_bb = NULL;
   basic_block second_bb = NULL;
-  tree tmp_cond;
+  tree tmp_cond, new_stmts;
 
   gcc_assert (EDGE_COUNT (bb->preds) == 2);
   first_bb = (EDGE_PRED (bb, 0))->src;
@@ -732,13 +732,15 @@ find_phi_replacement_condition (struct loop *loop,
      value as condition. Various targets use different means to communicate
      condition in vector compare operation. Using gimple value allows compiler
      to emit vector compare and select RTL without exposing compare's result.  */
+  *cond = force_gimple_operand (*cond, &new_stmts, false, NULL_TREE);
+  if (new_stmts)
+    bsi_insert_before (bsi, new_stmts, BSI_SAME_STMT);
   if (!is_gimple_reg (*cond) && !is_gimple_condexpr (*cond))
     {
       tree new_stmt;
 
       new_stmt = ifc_temp_var (TREE_TYPE (*cond), unshare_expr (*cond));
-      bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-      bsi_next (bsi);
+      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
       *cond = TREE_OPERAND (new_stmt, 0);
     }
 
@@ -804,9 +806,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
 
   /* Insert using iterator.  */
-  bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-  bsi_next (bsi);
-
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
   update_stmt (new_stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -866,69 +866,73 @@ combine_blocks (struct loop *loop)
   basic_block bb, exit_bb, merge_target_bb;
   unsigned int orig_loop_num_nodes = loop->num_nodes;
   unsigned int i;
-  unsigned int n_exits;
+  edge e;
+  edge_iterator ei;
 
-  get_loop_exit_edges (loop, &n_exits);
   /* Process phi nodes to prepare blocks for merge.  */
   process_phi_nodes (loop);
 
+  /* Merge basic blocks.  First remove all the edges in the loop, except
+     for those from the exit block.  */
   exit_bb = NULL;
+  for (i = 0; i < orig_loop_num_nodes; i++)
+    {
+      bb = ifc_bbs[i];
+      if (bb_with_exit_edge_p (loop, bb))
+	{
+	  exit_bb = bb;
+	  break;
+	}
+    }
+  gcc_assert (exit_bb != loop->latch);
 
-  /* Merge basic blocks */
+  for (i = 1; i < orig_loop_num_nodes; i++)
+    {
+      bb = ifc_bbs[i];
+
+      for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei));)
+	{
+	  if (e->src == exit_bb)
+	    ei_next (&ei);
+	  else
+	    remove_edge (e);
+	}
+    }
+
+  if (exit_bb != NULL)
+    {
+      if (exit_bb != loop->header)
+	{
+	  /* Connect this node with loop header.  */
+	  make_edge (loop->header, exit_bb, EDGE_FALLTHRU);
+	  set_immediate_dominator (CDI_DOMINATORS, exit_bb, loop->header);
+	}
+
+      /* Redirect non-exit edges to loop->latch.  */
+      FOR_EACH_EDGE (e, ei, exit_bb->succs)
+	{
+	  if (!loop_exit_edge_p (loop, e))
+	    redirect_edge_and_branch (e, loop->latch);
+	}
+      set_immediate_dominator (CDI_DOMINATORS, loop->latch, exit_bb);
+    }
+  else
+    {
+      /* If the loop does not have exit then reconnect header and latch.  */
+      make_edge (loop->header, loop->latch, EDGE_FALLTHRU);
+      set_immediate_dominator (CDI_DOMINATORS, loop->latch, loop->header);
+    }
+
   merge_target_bb = loop->header;
   for (i = 1; i < orig_loop_num_nodes; i++)
     {
-      edge e;
       block_stmt_iterator bsi;
       tree_stmt_iterator last;
 
       bb = ifc_bbs[i];
 
-      if (!exit_bb && bb_with_exit_edge_p (loop, bb))
-	  exit_bb = bb;
-
-      if (bb == exit_bb)
-	{
-	  edge_iterator ei;
-
-	  /* Connect this node with loop header.  */
-	  make_edge (ifc_bbs[0], bb, EDGE_FALLTHRU);
-	  set_immediate_dominator (CDI_DOMINATORS, bb, ifc_bbs[0]);
-
-	  if (exit_bb != loop->latch)
-	    {
-	      /* Redirect non-exit edge to loop->latch.  */
-	      FOR_EACH_EDGE (e, ei, bb->succs)
-		{
-		  if (!loop_exit_edge_p (loop, e))
-		    {
-		      redirect_edge_and_branch (e, loop->latch);
-		      set_immediate_dominator (CDI_DOMINATORS, loop->latch, bb);
-		    }
-		}
-	    }
-	  continue;
-	}
-
-      if (bb == loop->latch && empty_block_p (bb))
+      if (bb == exit_bb || bb == loop->latch)
 	continue;
-
-      /* It is time to remove this basic block.	 First remove edges.  */
-      while (EDGE_COUNT (bb->preds) > 0)
-	remove_edge (EDGE_PRED (bb, 0));
-
-      /* This is loop latch and loop does not have exit then do not
- 	 delete this basic block. Just remove its PREDS and reconnect 
- 	 loop->header and loop->latch blocks.  */
-      if (bb == loop->latch && n_exits == 0)
- 	{
- 	  make_edge (loop->header, loop->latch, EDGE_FALLTHRU);
- 	  set_immediate_dominator (CDI_DOMINATORS, loop->latch, loop->header);
-	  continue;
- 	}
-
-      while (EDGE_COUNT (bb->succs) > 0)
-	remove_edge (EDGE_SUCC (bb, 0));
 
       /* Remove labels and make stmts member of loop->header.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
@@ -954,8 +958,6 @@ combine_blocks (struct loop *loop)
 	delete_from_dominance_info (CDI_POST_DOMINATORS, bb);
 
       /* Remove basic block.  */
-      if (bb == loop->latch)
-	loop->latch = merge_target_bb;
       remove_bb_from_loops (bb);
       expunge_block (bb);
     }
@@ -964,15 +966,11 @@ combine_blocks (struct loop *loop)
      This reduces number of basic blocks to 2. Auto vectorizer addresses
      loops with two nodes only.  FIXME: Use cleanup_tree_cfg().  */
   if (exit_bb
-      && loop->header != loop->latch
-      && exit_bb != loop->latch 
-      && empty_block_p (loop->latch))
+      && exit_bb != loop->header
+      && can_merge_blocks_p (loop->header, exit_bb))
     {
-      if (can_merge_blocks_p (loop->header, exit_bb))
-	{
-	  remove_bb_from_loops (exit_bb);
-	  merge_blocks (loop->header, exit_bb);
-	}
+      remove_bb_from_loops (exit_bb);
+      merge_blocks (loop->header, exit_bb);
     }
 }
 
@@ -990,7 +988,7 @@ ifc_temp_var (tree type, tree exp)
 
   /* Create new temporary variable.  */
   var = create_tmp_var (type, name);
-  add_referenced_tmp_var (var);
+  add_referenced_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
   stmt = build2 (MODIFY_EXPR, type, var, exp);
@@ -1038,7 +1036,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
-  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
 
   blocks_in_bfs_order = get_loop_body_in_bfs_order (loop);
@@ -1099,14 +1097,14 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
 
 /* Tree if-conversion pass management.  */
 
-static void
+static unsigned int
 main_tree_if_conversion (void)
 {
   unsigned i, loop_num;
   struct loop *loop;
 
   if (!current_loops)
-    return;
+    return 0;
 
   loop_num = current_loops->num;
   for (i = 0; i < loop_num; i++)
@@ -1117,7 +1115,7 @@ main_tree_if_conversion (void)
 
       tree_if_conversion (loop, true);
     }
-
+  return 0;
 }
 
 static bool

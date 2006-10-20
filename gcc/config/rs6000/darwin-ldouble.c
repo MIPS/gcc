@@ -49,7 +49,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
    This code currently assumes big-endian.  */
 
-#if !_SOFT_FLOAT && (defined (__MACH__) || defined (__powerpc64__) || defined (__powerpc__) || defined (_AIX))
+#if (!defined (__NO_FPRS__) && !defined (__LITTLE_ENDIAN__) \
+     && (defined (__MACH__) || defined (__powerpc__) || defined (_AIX)))
 
 #define fabs(x) __builtin_fabs(x)
 #define isless(x, y) __builtin_isless (x, y)
@@ -117,8 +118,12 @@ __gcc_qadd (double a, double aa, double c, double cc)
     {
       q = a - z;
       zz = q + c + (a - (q + z)) + aa + cc;
-      xh = z + zz;
 
+      /* Keep -0 result.  */
+      if (zz == 0.0)
+	return z;
+
+      xh = z + zz;
       if (nonfinite (xh))
 	return xh;
 

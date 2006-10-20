@@ -1,6 +1,6 @@
 // Position types -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -129,20 +129,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       state() const
       { return _M_state; }
 
-      // The standard only requires that operator== must be an
-      // equivalence relation. In this implementation two fpos<StateT>
-      // objects belong to the same equivalence class if the contained
-      // offsets compare equal.
-      /// Test if equivalent to another position.
-      bool
-      operator==(const fpos& __other) const
-      { return _M_off == __other._M_off; }
-
-      /// Test if not equivalent to another position.
-      bool
-      operator!=(const fpos& __other) const
-      { return _M_off != __other._M_off; }
-
       // The standard requires that this operator must be defined, but
       // gives no semantics. In this implemenation it just adds it's
       // argument to the stored offset and returns *this.
@@ -202,6 +188,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator-(const fpos& __other) const
       { return _M_off - __other._M_off; }
     };
+
+  // The standard only requires that operator== must be an
+  // equivalence relation. In this implementation two fpos<StateT>
+  // objects belong to the same equivalence class if the contained
+  // offsets compare equal.
+  /// Test if equivalent to another position.
+  template<typename _StateT>
+    inline bool
+    operator==(const fpos<_StateT>& __lhs, const fpos<_StateT>& __rhs)
+    { return streamoff(__lhs) == streamoff(__rhs); }
+
+  template<typename _StateT>
+    inline bool
+    operator!=(const fpos<_StateT>& __lhs, const fpos<_StateT>& __rhs)
+    { return streamoff(__lhs) != streamoff(__rhs); }
 
   // Clauses 21.1.3.1 and 21.1.3.2 describe streampos and wstreampos
   // as implementation defined types, but clause 27.2 requires that

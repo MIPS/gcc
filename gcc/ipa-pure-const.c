@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "target.h"
 
 static struct pointer_set_t *visited_nodes;
 
@@ -490,7 +491,7 @@ scan_function (tree *tp,
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  funct_state l = xcalloc (1, sizeof (struct funct_state_d));
+  funct_state l = XCNEW (struct funct_state_d);
   tree decl = fn->decl;
   struct ipa_dfs_info * w_info = fn->aux;
 
@@ -499,9 +500,11 @@ analyze_function (struct cgraph_node *fn)
   l->pure_const_state = IPA_CONST;
   l->state_set_in_source = false;
 
-  /* If this is a volatile function, do not touch this unless it has
-     been marked as const or pure by the front end.  */
-  if (TREE_THIS_VOLATILE (decl))
+  /* If this function does not return normally or does not bind local,
+     do not touch this unless it has been marked as const or pure by the
+     front end.  */
+  if (TREE_THIS_VOLATILE (decl)
+      || !targetm.binds_local_p (decl))
     {
       l->pure_const_state = IPA_NEITHER;
       return;
@@ -572,13 +575,13 @@ analyze_function (struct cgraph_node *fn)
    on the local information that was produced by ipa_analyze_function
    and ipa_analyze_variable.  */
 
-static void
+static unsigned int
 static_execute (void)
 {
   struct cgraph_node *node;
   struct cgraph_node *w;
   struct cgraph_node **order =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int order_pos = order_pos = ipa_utils_reduced_inorder (order, true, false);
   int i;
   struct ipa_dfs_info * w_info;
@@ -703,6 +706,7 @@ static_execute (void)
       }
 
   free (order);
+  return 0;
 }
 
 static bool

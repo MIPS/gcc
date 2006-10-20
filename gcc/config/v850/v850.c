@@ -117,6 +117,11 @@ static GTY(()) section *zbss_section;
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION  v850_select_section
 
+/* The assembler supports switchable .bss sections, but
+   v850_select_section doesn't yet make use of them.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
+
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO v850_encode_section_info
 
@@ -1065,7 +1070,7 @@ ep_memory_operand (rtx op, enum machine_mode mode, int unsigned_load)
   int mask;
 
   /* If we are not using the EP register on a per-function basis
-     then do not allow this optimisation at all.  This is to
+     then do not allow this optimization at all.  This is to
      prevent the use of the SLD/SST instructions which cannot be
      guaranteed to work properly due to a hardware bug.  */
   if (!TARGET_EP)

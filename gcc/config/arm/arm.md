@@ -309,6 +309,7 @@
 ;; Predicates
 
 (include "predicates.md")
+(include "constraints.md")
 
 ;;---------------------------------------------------------------------------
 ;; Pipeline descriptions
@@ -2481,7 +2482,7 @@
     (clobber (reg:CC CC_REGNUM))])]
   "TARGET_ARM"
   "
-  if (operands[2] == const0_rtx)
+  if (operands[2] == const0_rtx || operands[2] == constm1_rtx)
     {
       /* No need for a clobber of the condition code register here.  */
       emit_insn (gen_rtx_SET (VOIDmode, operands[0],
@@ -2497,6 +2498,15 @@
 		 (const_int 0)))]
   "TARGET_ARM"
   "bic%?\\t%0, %1, %1, asr #31"
+  [(set_attr "predicable" "yes")]
+)
+
+(define_insn "*smax_m1"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(smax:SI (match_operand:SI 1 "s_register_operand" "r")
+		 (const_int -1)))]
+  "TARGET_ARM"
+  "orr%?\\t%0, %1, %1, asr #31"
   [(set_attr "predicable" "yes")]
 )
 
@@ -4434,7 +4444,7 @@
 (define_split 
   [(set (match_operand:SI 0 "register_operand" "")
 	(match_operand:SI 1 "const_int_operand" ""))]
-  "TARGET_THUMB && CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'J')"
+  "TARGET_THUMB && satisfies_constraint_J (operands[1])"
   [(set (match_dup 0) (match_dup 1))
    (set (match_dup 0) (neg:SI (match_dup 0)))]
   "operands[1] = GEN_INT (- INTVAL (operands[1]));"
@@ -4443,7 +4453,7 @@
 (define_split 
   [(set (match_operand:SI 0 "register_operand" "")
 	(match_operand:SI 1 "const_int_operand" ""))]
-  "TARGET_THUMB && CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'K')"
+  "TARGET_THUMB && satisfies_constraint_K (operands[1])"
   [(set (match_dup 0) (match_dup 1))
    (set (match_dup 0) (ashift:SI (match_dup 0) (match_dup 2)))]
   "
@@ -4896,7 +4906,7 @@
 	    operands[1] = force_reg (HImode, operands[1]);
         }
       else if (GET_CODE (operands[1]) == CONST_INT
-	        && !CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'I'))
+	        && !satisfies_constraint_I (operands[1]))
         {
 	  /* Handle loading a large integer during reload.  */
 
@@ -5129,7 +5139,7 @@
     }
   else if (TARGET_THUMB
 	   && GET_CODE (operands[1]) == CONST_INT
-	   && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
+	   && !satisfies_constraint_I (operands[1]))
     {
       /* Handle loading a large integer during reload.  */
 
@@ -5993,6 +6003,50 @@
   op[0] = operands[4];
   op[1] = operands[1];
   op[2] = GEN_INT (32 - 1 - INTVAL (operands[2]));
+
+  output_asm_insn (\"lsl\\t%0, %1, %2\", op);
+  switch (get_attr_length (insn))
+    {
+    case 4:  return \"b%d0\\t%l3\";
+    case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
+    default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    }
+  }"
+  [(set (attr "far_jump")
+        (if_then_else
+	    (eq_attr "length" "8")
+	    (const_string "yes")
+            (const_string "no")))
+   (set (attr "length") 
+        (if_then_else
+	    (and (ge (minus (match_dup 3) (pc)) (const_int -250))
+	         (le (minus (match_dup 3) (pc)) (const_int 256)))
+	    (const_int 4)
+	    (if_then_else
+	        (and (ge (minus (match_dup 3) (pc)) (const_int -2040))
+		     (le (minus (match_dup 3) (pc)) (const_int 2048)))
+		(const_int 6)
+		(const_int 8))))]
+)
+  
+(define_insn "*tlobits_cbranch"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "equality_operator"
+	  [(zero_extract:SI (match_operand:SI 1 "s_register_operand" "l")
+			    (match_operand:SI 2 "const_int_operand" "i")
+			    (const_int 0))
+	   (const_int 0)])
+	 (label_ref (match_operand 3 "" ""))
+	 (pc)))
+   (clobber (match_scratch:SI 4 "=l"))]
+  "TARGET_THUMB"
+  "*
+  {
+  rtx op[3];
+  op[0] = operands[4];
+  op[1] = operands[1];
+  op[2] = GEN_INT (32 - INTVAL (operands[2]));
 
   output_asm_insn (\"lsl\\t%0, %1, %2\", op);
   switch (get_attr_length (insn))
@@ -9454,14 +9508,14 @@
     ldm[0] = base_reg;
     if (val1 !=0 && val2 != 0)
       {
+	rtx ops[3];
+
 	if (val1 == 4 || val2 == 4)
 	  /* Other val must be 8, since we know they are adjacent and neither
 	     is zero.  */
 	  output_asm_insn (\"ldm%?ib\\t%0, {%1, %2}\", ldm);
-	else
+	else if (const_ok_for_arm (val1) || const_ok_for_arm (-val1))
 	  {
-	    rtx ops[3];
-
 	    ldm[0] = ops[0] = operands[4];
 	    ops[1] = base_reg;
 	    ops[2] = GEN_INT (val1);
@@ -9470,6 +9524,17 @@
 	      output_asm_insn (\"ldm%?ia\\t%0, {%1, %2}\", ldm);
 	    else
 	      output_asm_insn (\"ldm%?da\\t%0, {%1, %2}\", ldm);
+	  }
+	else
+	  {
+	    /* Offset is out of range for a single add, so use two ldr.  */
+	    ops[0] = ldm[1];
+	    ops[1] = base_reg;
+	    ops[2] = GEN_INT (val1);
+	    output_asm_insn (\"ldr%?\\t%0, [%1, %2]\", ops);
+	    ops[0] = ldm[2];
+	    ops[2] = GEN_INT (val2);
+	    output_asm_insn (\"ldr%?\\t%0, [%1, %2]\", ops);
 	  }
       }
     else if (val1 != 0)

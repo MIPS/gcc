@@ -163,7 +163,6 @@ static void aof_file_start (void);
 static void aof_file_end (void);
 static void aof_asm_init_sections (void);
 #endif
-static rtx arm_struct_value_rtx (tree, int);
 static void arm_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int *, int);
 static bool arm_pass_by_reference (CUMULATIVE_ARGS *,
@@ -300,9 +299,6 @@ static bool arm_tls_symbol_p (rtx x);
 #undef TARGET_ARG_PARTIAL_BYTES
 #define TARGET_ARG_PARTIAL_BYTES arm_arg_partial_bytes
 
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX arm_struct_value_rtx
-
 #undef  TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS arm_setup_incoming_varargs
 
@@ -311,6 +307,9 @@ static bool arm_tls_symbol_p (rtx x);
 
 #undef TARGET_ALIGN_ANON_BITFIELD
 #define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
+
+#undef TARGET_NARROW_VOLATILE_BITFIELD
+#define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false
 
 #undef TARGET_CXX_GUARD_TYPE
 #define TARGET_CXX_GUARD_TYPE arm_cxx_guard_type
@@ -627,7 +626,7 @@ static struct arm_cpu_select arm_select[] =
 #define ARM_OPT_SET_ARCH 1
 #define ARM_OPT_SET_TUNE 2
 
-/* The name of the proprocessor macro to define for this architecture.  */
+/* The name of the preprocessor macro to define for this architecture.  */
 
 char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
@@ -1226,6 +1225,12 @@ arm_override_options (void)
 
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
+
+  /* FPA and iWMMXt are incompatible because the insn encodings overlap.
+     VFP and iWMMXt can theoretically coexist, but it's unlikely such silicon
+     will ever exist.  GCC makes no attempt to support this combination.  */
+  if (TARGET_IWMMXT && !TARGET_SOFT_FLOAT)
+    sorry ("iWMMXt and hardware floating point");
 
   /* If soft-float is specified then don't use FPU.  */
   if (TARGET_SOFT_FLOAT)
@@ -2660,7 +2665,7 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 			  tree fndecl ATTRIBUTE_UNUSED)
 {
   /* On the ARM, the offset starts at 0.  */
-  pcum->nregs = ((fntype && aggregate_value_p (TREE_TYPE (fntype), fntype)) ? 1 : 0);
+  pcum->nregs = 0;
   pcum->iwmmxt_nregs = 0;
   pcum->can_split = true;
 
@@ -2797,7 +2802,7 @@ arm_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 /* Encode the current state of the #pragma [no_]long_calls.  */
 typedef enum
 {
-  OFF,		/* No #pramgma [no_]long_calls is in effect.  */
+  OFF,		/* No #pragma [no_]long_calls is in effect.  */
   LONG,		/* #pragma long_calls is in effect.  */
   SHORT		/* #pragma no_long_calls is in effect.  */
 } arm_pragma_enum;
@@ -4460,6 +4465,14 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       /* Fall through */
 
     case PLUS:
+      if (GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  extra_cost = rtx_cost (XEXP (x, 0), code);
+	  if (!REG_OR_SUBREG_REG (XEXP (x, 1)))
+	    extra_cost += 4 * ARM_NUM_REGS (mode);
+	  return extra_cost;
+	}
+
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
@@ -6748,7 +6761,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
   if (TARGET_THUMB
       && GET_MODE (x) == SImode
       && (op == EQ || op == NE)
-      && (GET_CODE (x) == ZERO_EXTRACT))
+      && GET_CODE (x) == ZERO_EXTRACT
+      && XEXP (x, 1) == const1_rtx)
     return CC_Nmode;
 
   /* An operation that sets the condition codes as a side-effect, the
@@ -7307,6 +7321,7 @@ struct minipool_fixup
 static Mnode *	minipool_vector_head;
 static Mnode *	minipool_vector_tail;
 static rtx	minipool_vector_label;
+static int	minipool_pad;
 
 /* The linked list of all minipool fixes required for this function.  */
 Mfix * 		minipool_fix_head;
@@ -7418,16 +7433,16 @@ add_minipool_forward_ref (Mfix *fix)
   /* If set, max_mp is the first pool_entry that has a lower
      constraint than the one we are trying to add.  */
   Mnode *       max_mp = NULL;
-  HOST_WIDE_INT max_address = fix->address + fix->forwards;
+  HOST_WIDE_INT max_address = fix->address + fix->forwards - minipool_pad;
   Mnode *       mp;
 
-  /* If this fix's address is greater than the address of the first
-     entry, then we can't put the fix in this pool.  We subtract the
-     size of the current fix to ensure that if the table is fully
-     packed we still have enough room to insert this value by shuffling
-     the other fixes forwards.  */
+  /* If the minipool starts before the end of FIX->INSN then this FIX
+     can not be placed into the current pool.  Furthermore, adding the
+     new constant pool entry may cause the pool to start FIX_SIZE bytes
+     earlier.  */
   if (minipool_vector_head &&
-      fix->address >= minipool_vector_head->max_address - fix->fix_size)
+      (fix->address + get_attr_length (fix->insn)
+       >= minipool_vector_head->max_address - fix->fix_size))
     return NULL;
 
   /* Scan the pool to see if a constant with the same value has
@@ -7473,7 +7488,7 @@ add_minipool_forward_ref (Mfix *fix)
      any existing entry.  Otherwise, we insert the new fix before
      MAX_MP and, if necessary, adjust the constraints on the other
      entries.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -7671,7 +7686,7 @@ add_minipool_backward_ref (Mfix *fix)
     }
 
   /* We need to create a new entry.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -7870,8 +7885,10 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
   HOST_WIDE_INT count = 0;
   rtx barrier;
   rtx from = fix->insn;
-  rtx selected = from;
+  /* The instruction after which we will insert the jump.  */
+  rtx selected = NULL;
   int selected_cost;
+  /* The address at which the jump instruction will be placed.  */
   HOST_WIDE_INT selected_address;
   Mfix * new_fix;
   HOST_WIDE_INT max_count = max_address - fix->address;
@@ -7903,7 +7920,8 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 	     still put the pool after the table.  */
 	  new_cost = arm_barrier_cost (from);
 
-	  if (count < max_count && new_cost <= selected_cost)
+	  if (count < max_count 
+	      && (!selected || new_cost <= selected_cost))
 	    {
 	      selected = tmp;
 	      selected_cost = new_cost;
@@ -7917,7 +7935,8 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
       new_cost = arm_barrier_cost (from);
 
-      if (count < max_count && new_cost <= selected_cost)
+      if (count < max_count
+	  && (!selected || new_cost <= selected_cost))
 	{
 	  selected = from;
 	  selected_cost = new_cost;
@@ -7926,6 +7945,9 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
       from = NEXT_INSN (from);
     }
+
+  /* Make sure that we found a place to insert the jump.  */
+  gcc_assert (selected);
 
   /* Create a new JUMP_INSN that branches around a barrier.  */
   from = emit_jump_insn_after (gen_jump (label), selected);
@@ -7996,12 +8018,11 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
      to generate duff assembly code.  */
   gcc_assert (fix->forwards || fix->backwards);
 
-  /* With AAPCS/iWMMXt enabled, the pool is aligned to an 8-byte boundary.
-     So there might be an empty word before the start of the pool.
-     Hence we reduce the forward range by 4 to allow for this
-     possibility.  */
+  /* If an entry requires 8-byte alignment then assume all constant pools
+     require 4 bytes of padding.  Trying to do this later on a per-pool
+     basis is awkward because existing pool entries have to be modified.  */
   if (ARM_DOUBLEWORD_ALIGN && fix->fix_size == 8)
-    fix->forwards -= 4;
+    minipool_pad = 4;
 
   if (dump_file)
     {
@@ -8178,6 +8199,7 @@ arm_reorg (void)
      scan it properly.  */
   insn = get_insns ();
   gcc_assert (GET_CODE (insn) == NOTE);
+  minipool_pad = 0;
 
   /* Scan all the insns and record the operands that will need fixing.  */
   for (insn = next_nonnote_insn (insn); insn; insn = next_nonnote_insn (insn))
@@ -8277,9 +8299,11 @@ arm_reorg (void)
 	  /* Check that there isn't another fix that is in range that
 	     we couldn't fit into this pool because the pool was
 	     already too large: we need to put the pool before such an
-	     instruction.  */
+	     instruction.  The pool itself may come just after the
+	     fix because create_fix_barrier also allows space for a
+	     jump instruction.  */
 	  if (ftmp->address < max_address)
-	    max_address = ftmp->address;
+	    max_address = ftmp->address + 1;
 
 	  last_barrier = create_fix_barrier (last_added_fix, max_address);
 	}
@@ -10997,11 +11021,19 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'S':
       {
 	HOST_WIDE_INT val;
-	const char * shift = shift_op (x, &val);
+	const char *shift;
+
+	if (!shift_operator (x, SImode))
+	  {
+	    output_operand_lossage ("invalid shift operand");
+	    break;
+	  }
+
+	shift = shift_op (x, &val);
 
 	if (shift)
 	  {
-	    fprintf (stream, ", %s ", shift_op (x, &val));
+	    fprintf (stream, ", %s ", shift);
 	    if (val == -1)
 	      arm_print_operand (stream, XEXP (x, 1), 0);
 	    else
@@ -12540,8 +12572,8 @@ arm_expand_binop_builtin (enum insn_code icode,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
@@ -12578,7 +12610,7 @@ arm_expand_unop_builtin (enum insn_code icode,
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -12651,8 +12683,8 @@ arm_expand_builtin (tree exp,
 
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12684,9 +12716,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12715,14 +12747,14 @@ arm_expand_builtin (tree exp,
     case ARM_BUILTIN_SETWCX:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = force_reg (SImode, expand_expr (arg0, NULL_RTX, VOIDmode, 0));
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = force_reg (SImode, expand_normal (arg0));
+      op1 = expand_normal (arg1);
       emit_insn (gen_iwmmxt_tmcr (op1, op0));
       return 0;
 
     case ARM_BUILTIN_GETWCX:
       arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
       target = gen_reg_rtx (SImode);
       emit_insn (gen_iwmmxt_tmrc (target, op0));
       return target;
@@ -12731,8 +12763,8 @@ arm_expand_builtin (tree exp,
       icode = CODE_FOR_iwmmxt_wshufh;
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -12786,9 +12818,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -14681,6 +14713,7 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 {
   static int thunk_label = 0;
   char label[256];
+  char labelpc[256];
   int mi_delta = delta;
   const char *const mi_op = mi_delta < 0 ? "sub" : "add";
   int shift = 0;
@@ -14695,6 +14728,23 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       fputs ("\tldr\tr12, ", file);
       assemble_name (file, label);
       fputc ('\n', file);
+      if (flag_pic)
+	{
+	  /* If we are generating PIC, the ldr instruction below loads
+	     "(target - 7) - .LTHUNKPCn" into r12.  The pc reads as
+	     the address of the add + 8, so we have:
+
+	     r12 = (target - 7) - .LTHUNKPCn + (.LTHUNKPCn + 8)
+	         = target + 1.
+
+	     Note that we have "+ 1" because some versions of GNU ld
+	     don't set the low bit of the result for R_ARM_REL32
+	     relocations against thumb function symbols.  */
+	  ASM_GENERATE_INTERNAL_LABEL (labelpc, "LTHUNKPC", labelno);
+	  assemble_name (file, labelpc);
+	  fputs (":\n", file);
+	  fputs ("\tadd\tr12, pc, r12\n", file);
+	}
     }
   while (mi_delta != 0)
     {
@@ -14715,7 +14765,20 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       ASM_OUTPUT_ALIGN (file, 2);
       assemble_name (file, label);
       fputs (":\n", file);
-      assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
+      if (flag_pic)
+	{
+	  /* Output ".word .LTHUNKn-7-.LTHUNKPCn".  */
+	  rtx tem = XEXP (DECL_RTL (function), 0);
+	  tem = gen_rtx_PLUS (GET_MODE (tem), tem, GEN_INT (-7));
+	  tem = gen_rtx_MINUS (GET_MODE (tem),
+			       tem,
+			       gen_rtx_SYMBOL_REF (Pmode,
+						   ggc_strdup (labelpc)));
+	  assemble_integer (tem, 4, BITS_PER_WORD, 1);
+	}
+      else
+	/* Output ".word .LTHUNKn".  */
+	assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
     }
   else
     {
@@ -14782,25 +14845,6 @@ arm_output_load_gr (rtx *operands)
   output_asm_insn ("ldr%?\t%0, [sp], #4\t@ End of GR load expansion", & reg);
 
   return "";
-}
-
-static rtx
-arm_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
-		      int incoming ATTRIBUTE_UNUSED)
-{
-#if 0
-  /* FIXME: The ARM backend has special code to handle structure
-	 returns, and will reserve its own hidden first argument.  So
-	 if this macro is enabled a *second* hidden argument will be
-	 reserved, which will break binary compatibility with old
-	 toolchains and also thunk handling.  One day this should be
-	 fixed.  */
-  return 0;
-#else
-  /* Register in which address to store a structure value
-     is passed to a function.  */
-  return gen_rtx_REG (Pmode, ARG_REGISTER (1));
-#endif
 }
 
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.
@@ -15378,6 +15422,15 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 	{
 	  /* Move from sp to reg.  */
 	  asm_fprintf (asm_out_file, "\t.movsp %r\n", REGNO (e0));
+	}
+     else if (GET_CODE (e1) == PLUS
+	      && GET_CODE (XEXP (e1, 0)) == REG
+	      && REGNO (XEXP (e1, 0)) == SP_REGNUM
+	      && GET_CODE (XEXP (e1, 1)) == CONST_INT)
+	{
+	  /* Set reg to offset from sp.  */
+	  asm_fprintf (asm_out_file, "\t.movsp %r, #%d\n",
+		       REGNO (e0), (int)INTVAL(XEXP (e1, 1)));
 	}
       else
 	abort ();

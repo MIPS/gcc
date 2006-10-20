@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 
 static tree cp_convert_to_pointer (tree, tree, bool);
 static tree convert_to_pointer_force (tree, tree);
+static tree build_type_conversion (tree, tree);
 static tree build_up_reference (tree, tree, int, tree);
 static void warn_ref_binding (tree, tree, tree);
 
@@ -280,7 +281,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
     }
 
   if (type_unknown_p (expr))
-    return instantiate_type (type, expr, tf_error | tf_warning);
+    return instantiate_type (type, expr, tf_warning_or_error);
 
   error ("cannot convert %qE from type %qT to type %qT",
 	 expr, intype, type);
@@ -364,7 +365,7 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
 
       /* Process the initializer for the declaration.  */
       DECL_INITIAL (arg) = targ;
-      cp_finish_decl (arg, targ, NULL_TREE,
+      cp_finish_decl (arg, targ, /*init_const_expr_p=*/false, NULL_TREE,
 		      LOOKUP_ONLYCONVERTING|DIRECT_BIND);
     }
   else if (!(flags & DIRECT_BIND) && ! lvalue_p (arg))
@@ -451,7 +452,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       && TREE_TYPE (expr) == unknown_type_node)
     expr = instantiate_type (type, expr,
 			     (flags & LOOKUP_COMPLAIN)
-			     ? tf_error | tf_warning : tf_none);
+			     ? tf_warning_or_error : tf_none);
 
   if (expr == error_mark_node)
     return error_mark_node;
@@ -459,6 +460,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
   intype = TREE_TYPE (expr);
 
   gcc_assert (TREE_CODE (intype) != REFERENCE_TYPE);
+  gcc_assert (TREE_CODE (reftype) == REFERENCE_TYPE);
 
   intype = TYPE_MAIN_VARIANT (intype);
 
@@ -862,14 +864,17 @@ convert_to_void (tree expr, const char *implicit)
 	int is_volatile = TYPE_VOLATILE (type);
 	int is_complete = COMPLETE_TYPE_P (complete_type (type));
 
+	/* Can't load the value if we don't know the type.  */
 	if (is_volatile && !is_complete)
 	  warning (0, "object of incomplete type %qT will not be accessed in %s",
 		   type, implicit ? implicit : "void context");
-	else if (is_reference && is_volatile)
+	/* Don't load the value if this is an implicit dereference, or if
+	   the type needs to be handled by ctors/dtors.  */
+	else if (is_volatile && (is_reference || TREE_ADDRESSABLE (type)))
 	  warning (0, "object of type %qT will not be accessed in %s",
 		   TREE_TYPE (TREE_OPERAND (expr, 0)),
 		   implicit ? implicit : "void context");
-	if (is_reference || !is_volatile || !is_complete)
+	if (is_reference || !is_volatile || !is_complete || TREE_ADDRESSABLE (type))
 	  expr = TREE_OPERAND (expr, 0);
 
 	break;
@@ -887,6 +892,25 @@ convert_to_void (tree expr, const char *implicit)
 	break;
       }
 
+    case TARGET_EXPR:
+      /* Don't bother with the temporary object returned from a function if
+	 we don't use it and don't need to destroy it.  We'll still
+	 allocate space for it in expand_call or declare_return_variable,
+	 but we don't need to track it through all the tree phases.  */
+      if (TARGET_EXPR_IMPLICIT_P (expr)
+	  && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (expr)))
+	{
+	  tree init = TARGET_EXPR_INITIAL (expr);
+	  if (TREE_CODE (init) == AGGR_INIT_EXPR
+	      && !AGGR_INIT_VIA_CTOR_P (init))
+	    {
+	      tree fn = TREE_OPERAND (init, 0);
+	      expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+			     fn, TREE_OPERAND (init, 1), NULL_TREE);
+	    }
+	}
+      break;
+
     default:;
     }
   {
@@ -903,9 +927,13 @@ convert_to_void (tree expr, const char *implicit)
 	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
-      /* Only warn when there is no &.  */
-      warning (0, "%s is a reference, not call, to function %qE",
-		  implicit, expr);
+      {
+	/* Only warn when there is no &.  */
+	warning (0, "%s is a reference, not call, to function %qE",
+		 implicit, expr);
+	if (TREE_CODE (expr) == COMPONENT_REF)
+	  expr = TREE_OPERAND (expr, 0);
+      }
   }
 
   if (expr != error_mark_node && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -918,7 +946,7 @@ convert_to_void (tree expr, const char *implicit)
 	  /* The middle end does not warn about expressions that have
 	     been explicitly cast to void, so we must do so here.  */
 	  if (!TREE_SIDE_EFFECTS (expr))
-	    warning (0, "%s has no effect", implicit);
+	    warning (OPT_Wunused_value, "%s has no effect", implicit);
 	  else
 	    {
 	      tree e;
@@ -950,11 +978,13 @@ convert_to_void (tree expr, const char *implicit)
 			    || code == PREINCREMENT_EXPR
 			    || code == POSTDECREMENT_EXPR
 			    || code == POSTINCREMENT_EXPR)))
-		warning (0, "value computed is not used");
+		warning (OPT_Wunused_value, "value computed is not used");
 	    }
 	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);
     }
+  if (! TREE_SIDE_EFFECTS (expr))
+    expr = void_zero_node;
   return expr;
 }
 
@@ -1035,7 +1065,7 @@ convert_force (tree type, tree expr, int convtype)
    that doesn't do it.  This will probably wait for an overloading rewrite.
    (jason 8/9/95)  */
 
-tree
+static tree
 build_type_conversion (tree xtype, tree expr)
 {
   /* C++: check to see if we can convert this aggregate type

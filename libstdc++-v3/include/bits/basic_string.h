@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -42,7 +42,7 @@
 
 #pragma GCC system_header
 
-#include <bits/atomicity.h>
+#include <ext/atomicity.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
@@ -232,7 +232,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
 #endif
-	    if (__gnu_cxx::__exchange_and_add(&this->_M_refcount, -1) <= 0)
+	    if (__gnu_cxx::__exchange_and_add_dispatch(&this->_M_refcount,
+						       -1) <= 0)
 	      _M_destroy(__a);
 	}  // XXX MT
 
@@ -245,7 +246,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
 #endif
-            __gnu_cxx::__atomic_add(&this->_M_refcount, 1);
+            __gnu_cxx::__atomic_add_dispatch(&this->_M_refcount, 1);
 	  return _M_refdata();
 	}  // XXX MT
 
@@ -1626,7 +1627,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a C string.
        *  @param s  C string to locate.
-       *  @param pos  Index of character to start search at (default 0).
+       *  @param pos  Index of character to start search at (default end).
        *  @return  Index of start of  last occurrence.
        *
        *  Starting from @a pos, searches backward for the value of @a s within
@@ -1643,7 +1644,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.
@@ -2393,9 +2394,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  writing a C string.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_ostream<_CharT, _Traits>&
+    inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __os,
-	       const basic_string<_CharT, _Traits, _Alloc>& __str);
+	       const basic_string<_CharT, _Traits, _Alloc>& __str)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 586. string inserter not a formatted function
+      return __os._M_insert(__str.data(), __str.size());
+    }
 
   /**
    *  @brief  Read a line from stream into a string.
@@ -2430,8 +2436,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_istream<_CharT, _Traits>&
     getline(basic_istream<_CharT, _Traits>& __is,
-	    basic_string<_CharT, _Traits, _Alloc>& __str);
-    
+	    basic_string<_CharT, _Traits, _Alloc>& __str)
+    { return getline(__is, __str, __is.widen('\n')); }
+
   template<>
     basic_istream<char>&
     getline(basic_istream<char>& __in, basic_string<char>& __str,

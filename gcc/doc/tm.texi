@@ -1,5 +1,5 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
-@c 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -33,11 +33,13 @@ through the macros defined in the @file{.h} file.
 * Type Layout::         Defining sizes and properties of basic user data types.
 * Registers::           Naming and describing the hardware registers.
 * Register Classes::    Defining the classes of hardware registers.
+* Old Constraints::     The old way to define machine-specific constraints.
 * Stack and Calling::   Defining which way the stack grows and by how much.
 * Varargs::		Defining the varargs macros.
 * Trampolines::         Code set up at run time to enter a nested function.
 * Library Calls::       Controlling how library routines are implicitly called.
 * Addressing Modes::    Defining addressing modes valid for memory operands.
+* Anchored Addresses::  Defining how @option{-fsection-anchors} should work.
 * Condition Code::      Defining how insns update the condition code.
 * Costs::               Defining relative costs of different operations.
 * Scheduling::          Adjusting the behavior of the instruction scheduler.
@@ -777,6 +779,13 @@ Don't use this macro to turn on various extra optimizations for
 @option{-O}.  That is what @code{OPTIMIZATION_OPTIONS} is for.
 @end defmac
 
+@defmac C_COMMON_OVERRIDE_OPTIONS
+This is similar to @code{OVERRIDE_OPTIONS} but is only used in the C
+language frontends (C, Objective-C, C++, Objective-C++) and so can be
+used to alter option flag variables which only exist in those
+frontends.
+@end defmac
+
 @defmac OPTIMIZATION_OPTIONS (@var{level}, @var{size})
 Some machines may desire to change what optimizations are performed for
 various optimization levels.   This macro, if defined, is executed once
@@ -1006,8 +1015,8 @@ This target hook should return @code{true} if the promotion described by
 @code{PROMOTE_FUNCTION_MODE} should be done for the return value of
 functions.
 
-If this target hook returns @code{true}, @code{FUNCTION_VALUE} must
-perform the same promotions done by @code{PROMOTE_FUNCTION_MODE}.
+If this target hook returns @code{true}, @code{TARGET_FUNCTION_VALUE}
+must perform the same promotions done by @code{PROMOTE_FUNCTION_MODE}.
 @end deftypefn
 
 @defmac PARM_BOUNDARY
@@ -1210,6 +1219,14 @@ When @code{PCC_BITFIELD_TYPE_MATTERS} is true this hook will determine
 whether unnamed bitfields affect the alignment of the containing
 structure.  The hook should return true if the structure should inherit
 the alignment requirements of an unnamed bitfield's type.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_NARROW_VOLATILE_BITFIELDS (void)
+This target hook should return @code{true} if accesses to volatile bitfields
+should use the narrowest mode possible.  It should return @code{false} if
+these accesses should use the bitfield container type.
+
+The default is @code{!TARGET_STRICT_ALIGN}.
 @end deftypefn
 
 @defmac MEMBER_TYPE_FORCES_BLK (@var{field}, @var{mode})
@@ -2285,41 +2302,21 @@ register address.  You should define this macro if base plus index
 addresses have different requirements than other base register uses.
 @end defmac
 
+@defmac MODE_CODE_BASE_REG_CLASS (@var{mode}, @var{outer_code}, @var{index_code})
+A C expression whose value is the register class to which a valid
+base register must belong.  @var{outer_code} and @var{index_code} define the
+context in which the base register occurs.  @var{outer_code} is the code of
+the immediately enclosing expression (@code{MEM} for the top level of an
+address, @code{ADDRESS} for something that occurs in an
+@code{address_operand}).  @var{index_code} is the code of the corresponding
+index expression if @var{outer_code} is @code{PLUS}; @code{SCRATCH} otherwise.
+@end defmac
+
 @defmac INDEX_REG_CLASS
 A macro whose definition is the name of the class to which a valid
 index register must belong.  An index register is one used in an
 address where its value is either multiplied by a scale factor or
 added to another register (as well as added to a displacement).
-@end defmac
-
-@defmac CONSTRAINT_LEN (@var{char}, @var{str})
-For the constraint at the start of @var{str}, which starts with the letter
-@var{c}, return the length.  This allows you to have register class /
-constant / extra constraints that are longer than a single letter;
-you don't need to define this macro if you can do with single-letter
-constraints only.  The definition of this macro should use
-DEFAULT_CONSTRAINT_LEN for all the characters that you don't want
-to handle specially.
-There are some sanity checks in genoutput.c that check the constraint lengths
-for the md file, so you can also use this macro to help you while you are
-transitioning from a byzantine single-letter-constraint scheme: when you
-return a negative length for a constraint you want to re-use, genoutput
-will complain about every instance where it is used in the md file.
-@end defmac
-
-@defmac REG_CLASS_FROM_LETTER (@var{char})
-A C expression which defines the machine-dependent operand constraint
-letters for register classes.  If @var{char} is such a letter, the
-value should be the register class corresponding to it.  Otherwise,
-the value should be @code{NO_REGS}.  The register letter @samp{r},
-corresponding to class @code{GENERAL_REGS}, will not be passed
-to this macro; you do not need to handle it.
-@end defmac
-
-@defmac REG_CLASS_FROM_CONSTRAINT (@var{char}, @var{str})
-Like @code{REG_CLASS_FROM_LETTER}, but you also get the constraint string
-passed in @var{str}, so that you can use suffixes to distinguish between
-different variants.
 @end defmac
 
 @defmac REGNO_OK_FOR_BASE_P (@var{num})
@@ -2335,7 +2332,9 @@ that expression may examine the mode of the memory reference in
 @var{mode}.  You should define this macro if the mode of the memory
 reference affects whether a register may be used as a base register.  If
 you define this macro, the compiler will use it instead of
-@code{REGNO_OK_FOR_BASE_P}.
+@code{REGNO_OK_FOR_BASE_P}.  The mode may be @code{VOIDmode} for addresses
+that appear outside a @code{MEM}, i.e. as an @code{address_operand}.
+
 @end defmac
 
 @defmac REGNO_MODE_OK_FOR_REG_BASE_P (@var{num}, @var{mode})
@@ -2345,6 +2344,20 @@ memory in mode @var{mode}.  It may be either a suitable hard register or a
 pseudo register that has been allocated such a hard register.  You should
 define this macro if base plus index addresses have different requirements
 than other base register uses.
+
+Use of this macro is deprecated; please use the more general
+@code{REGNO_MODE_CODE_OK_FOR_BASE_P}.
+@end defmac
+
+@defmac REGNO_MODE_CODE_OK_FOR_BASE_P (@var{num}, @var{mode}, @var{outer_code}, @var{index_code})
+A C expression that is just like @code{REGNO_MODE_OK_FOR_BASE_P}, except that
+that expression may examine the context in which the register appears in the
+memory reference.  @var{outer_code} is the code of the immediately enclosing
+expression (@code{MEM} if at the top level of the address, @code{ADDRESS} for
+something that occurs in an @code{address_operand}).  @var{index_code} is the
+code of the corresponding index expression if @var{outer_code} is @code{PLUS};
+@code{SCRATCH} otherwise.  The mode may be @code{VOIDmode} for addresses
+that appear outside a @code{MEM}, i.e. as an @code{address_operand}.
 @end defmac
 
 @defmac REGNO_OK_FOR_INDEX_P (@var{num})
@@ -2391,12 +2404,22 @@ register, so @code{PREFERRED_RELOAD_CLASS} returns @code{NO_REGS} when
 into any kind of register, code generation will be better if
 @code{LEGITIMATE_CONSTANT_P} makes the constant illegitimate instead
 of using @code{PREFERRED_RELOAD_CLASS}.
+
+If an insn has pseudos in it after register allocation, reload will go
+through the alternatives and call repeatedly @code{PREFERRED_RELOAD_CLASS}
+to find the best one.  Returning @code{NO_REGS}, in this case, makes
+reload add a @code{!} in front of the constraint: the x86 back-end uses
+this feature to discourage usage of 387 registers when math is done in
+the SSE registers (and vice versa).
 @end defmac
 
 @defmac PREFERRED_OUTPUT_RELOAD_CLASS (@var{x}, @var{class})
 Like @code{PREFERRED_RELOAD_CLASS}, but for output reloads instead of
 input reloads.  If you don't define this macro, the default is to use
 @var{class}, unchanged.
+
+You can also use @code{PREFERRED_OUTPUT_RELOAD_CLASS} to discourage
+reload from using some alternatives, like @code{PREFERRED_RELOAD_CLASS}.
 @end defmac
 
 @defmac LIMIT_RELOAD_CLASS (@var{mode}, @var{class})
@@ -2674,8 +2697,45 @@ as below:
 @end smallexample
 @end defmac
 
-Three other special macros describe which operands fit which constraint
-letters.
+@node Old Constraints
+@section Obsolete Macros for Defining Constraints
+@cindex defining constraints, obsolete method
+@cindex constraints, defining, obsolete method
+
+Machine-specific constraints can be defined with these macros instead
+of the machine description constructs described in @ref{Define
+Constraints}.  This mechanism is obsolete.  New ports should not use
+it; old ports should convert to the new mechanism.
+
+@defmac CONSTRAINT_LEN (@var{char}, @var{str})
+For the constraint at the start of @var{str}, which starts with the letter
+@var{c}, return the length.  This allows you to have register class /
+constant / extra constraints that are longer than a single letter;
+you don't need to define this macro if you can do with single-letter
+constraints only.  The definition of this macro should use
+DEFAULT_CONSTRAINT_LEN for all the characters that you don't want
+to handle specially.
+There are some sanity checks in genoutput.c that check the constraint lengths
+for the md file, so you can also use this macro to help you while you are
+transitioning from a byzantine single-letter-constraint scheme: when you
+return a negative length for a constraint you want to re-use, genoutput
+will complain about every instance where it is used in the md file.
+@end defmac
+
+@defmac REG_CLASS_FROM_LETTER (@var{char})
+A C expression which defines the machine-dependent operand constraint
+letters for register classes.  If @var{char} is such a letter, the
+value should be the register class corresponding to it.  Otherwise,
+the value should be @code{NO_REGS}.  The register letter @samp{r},
+corresponding to class @code{GENERAL_REGS}, will not be passed
+to this macro; you do not need to handle it.
+@end defmac
+
+@defmac REG_CLASS_FROM_CONSTRAINT (@var{char}, @var{str})
+Like @code{REG_CLASS_FROM_LETTER}, but you also get the constraint string
+passed in @var{str}, so that you can use suffixes to distinguish between
+different variants.
+@end defmac
 
 @defmac CONST_OK_FOR_LETTER_P (@var{value}, @var{c})
 A C expression that defines the machine-dependent operand constraint
@@ -2935,6 +2995,14 @@ machines.  One reason you may need to define this target hook is if
 @code{hard_frame_pointer_rtx} is the appropriate value on your machine.
 @end deftypefn
 
+@defmac FRAME_ADDR_RTX (@var{frameaddr})
+A C expression whose value is RTL representing the value of the frame
+address for the current frame.  @var{frameaddr} is the frame pointer
+of the current frame.  This is used for __builtin_frame_address.
+You need only define this macro if the frame address is not the same
+as the frame pointer.  Most machines do not need to define it.
+@end defmac
+
 @defmac RETURN_ADDR_RTX (@var{count}, @var{frameaddr})
 A C expression whose value is RTL representing the value of the return
 address for the frame @var{count} steps up from the current frame, after
@@ -3030,7 +3098,7 @@ DWARF 2.
 @defmac FRAME_POINTER_CFA_OFFSET (@var{fundecl})
 If defined, a C expression whose value is an integer giving the offset
 in bytes from the frame pointer to the canonical frame address (cfa).
-The final value should conincide with that calculated by
+The final value should coincide with that calculated by
 @code{INCOMING_FRAME_SP_OFFSET}.
 
 Normally the CFA is calculated as an offset from the argument pointer,
@@ -3040,6 +3108,13 @@ defined, it implies that the virtual register instantiation should be
 based on the frame pointer instead of the argument pointer.  Only one
 of @code{FRAME_POINTER_CFA_OFFSET} and @code{ARG_POINTER_CFA_OFFSET}
 should be defined.
+@end defmac
+
+@defmac CFA_FRAME_BASE_OFFSET (@var{fundecl})
+If defined, a C expression whose value is an integer giving the offset
+in bytes from the canonical frame address (cfa) to the frame base used
+in DWARF 2 debug information.  The default is zero.  A different value
+may reduce the size of debug information on some ports.
 @end defmac
 
 @node Exception Handling
@@ -3961,23 +4036,28 @@ must have move patterns for this mode.
 This section discusses the macros that control returning scalars as
 values---values that can fit in registers.
 
-@defmac FUNCTION_VALUE (@var{valtype}, @var{func})
-A C expression to create an RTX representing the place where a
-function returns a value of data type @var{valtype}.  @var{valtype} is
-a tree node representing a data type.  Write @code{TYPE_MODE
-(@var{valtype})} to get the machine mode used to represent that type.
-On many machines, only the mode is relevant.  (Actually, on most
-machines, scalar values are returned in the same place regardless of
-mode).
+@deftypefn {Target Hook} rtx TARGET_FUNCTION_VALUE (tree @var{ret_type}, tree @var{fn_decl_or_type}, bool @var{outgoing})
 
-The value of the expression is usually a @code{reg} RTX for the hard
-register where the return value is stored.  The value can also be a
-@code{parallel} RTX, if the return value is in multiple places.  See
-@code{FUNCTION_ARG} for an explanation of the @code{parallel} form.
+Define this to return an RTX representing the place where a function
+returns or receives a value of data type @var{ret_type}, a tree node
+node representing a data type.  @var{fn_decl_or_type} is a tree node
+representing @code{FUNCTION_DECL} or @code{FUNCTION_TYPE} of a
+function being called.  If @var{outgoing} is false, the hook should
+compute the register in which the caller will see the return value.
+Otherwise, the hook should return an RTX representing the place where
+a function returns a value.
 
-If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply the same
-promotion rules specified in @code{PROMOTE_MODE} if @var{valtype} is a
-scalar type.
+On many machines, only @code{TYPE_MODE (@var{ret_type})} is relevant.
+(Actually, on most machines, scalar values are returned in the same
+place regardless of mode.)  The value of the expression is usually a
+@code{reg} RTX for the hard register where the return value is stored.
+The value can also be a @code{parallel} RTX, if the return value is in
+multiple places.  See @code{FUNCTION_ARG} for an explanation of the
+@code{parallel} form.
+
+If @code{TARGET_PROMOTE_FUNCTION_RETURN} returns true, you must apply
+the same promotion rules specified in @code{PROMOTE_MODE} if
+@var{valtype} is a scalar type.
 
 If the precise function being called is known, @var{func} is a tree
 node (@code{FUNCTION_DECL}) for it; otherwise, @var{func} is a null
@@ -3985,27 +4065,24 @@ pointer.  This makes it possible to use a different value-returning
 convention for specific functions when all their calls are
 known.
 
-@code{FUNCTION_VALUE} is not used for return vales with aggregate data
-types, because these are returned in another way.  See
+Some target machines have ``register windows'' so that the register in
+which a function returns its value is not the same as the one in which
+the caller sees the value.  For such machines, you should return
+different RTX depending on @var{outgoing}.
+
+@code{TARGET_FUNCTION_VALUE} is not used for return values with
+aggregate data types, because these are returned in another way.  See
 @code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
+@end deftypefn
+
+@defmac FUNCTION_VALUE (@var{valtype}, @var{func})
+This macro has been deprecated.  Use @code{TARGET_FUNCTION_VALUE} for
+a new target instead.
 @end defmac
 
 @defmac FUNCTION_OUTGOING_VALUE (@var{valtype}, @var{func})
-Define this macro if the target machine has ``register windows''
-so that the register in which a function returns its value is not
-the same as the one in which the caller sees the value.
-
-For such machines, @code{FUNCTION_VALUE} computes the register in which
-the caller will see the value.  @code{FUNCTION_OUTGOING_VALUE} should be
-defined in a similar fashion to tell the function where to put the
-value.
-
-If @code{FUNCTION_OUTGOING_VALUE} is not defined,
-@code{FUNCTION_VALUE} serves both purposes.
-
-@code{FUNCTION_OUTGOING_VALUE} is not used for return vales with
-aggregate data types, because these are returned in another way.  See
-@code{TARGET_STRUCT_VALUE_RTX} and related macros, below.
+This macro has been deprecated.  Use @code{TARGET_FUNCTION_VALUE} for
+a new target instead.
 @end defmac
 
 @defmac LIBCALL_VALUE (@var{mode})
@@ -4056,10 +4133,11 @@ at the most significant end of a register (in other words, if they are
 padded at the least significant end).  You can assume that @var{type}
 is returned in a register; the caller is required to check this.
 
-Note that the register provided by @code{FUNCTION_VALUE} must be able
-to hold the complete return value.  For example, if a 1-, 2- or 3-byte
-structure is returned at the most significant end of a 4-byte register,
-@code{FUNCTION_VALUE} should provide an @code{SImode} rtx.
+Note that the register provided by @code{TARGET_FUNCTION_VALUE} must
+be able to hold the complete return value.  For example, if a 1-, 2-
+or 3-byte structure is returned at the most significant end of a
+4-byte register, @code{TARGET_FUNCTION_VALUE} should provide an
+@code{SImode} rtx.
 @end deftypefn
 
 @node Aggregate Return
@@ -4070,10 +4148,11 @@ structure is returned at the most significant end of a 4-byte register,
 @cindex structure value address
 
 When a function value's mode is @code{BLKmode} (and in some other
-cases), the value is not returned according to @code{FUNCTION_VALUE}
-(@pxref{Scalar Return}).  Instead, the caller passes the address of a
-block of memory in which the value should be stored.  This address
-is called the @dfn{structure value address}.
+cases), the value is not returned according to
+@code{TARGET_FUNCTION_VALUE} (@pxref{Scalar Return}).  Instead, the
+caller passes the address of a block of memory in which the value
+should be stored.  This address is called the @dfn{structure value
+address}.
 
 This section describes how to control returning structure values in
 memory.
@@ -4120,12 +4199,15 @@ On some architectures the place where the structure value address
 is found by the called function is not the same place that the
 caller put it.  This can be due to register windows, or it could
 be because the function prologue moves it to a different place.
-@var{incoming} is @code{true} when the location is needed in
-the context of the called function, and @code{false} in the context of
+@var{incoming} is @code{1} or @code{2} when the location is needed in
+the context of the called function, and @code{0} in the context of
 the caller.
 
-If @var{incoming} is @code{true} and the address is to be found on the
-stack, return a @code{mem} which refers to the frame pointer.
+If @var{incoming} is nonzero and the address is to be found on the
+stack, return a @code{mem} which refers to the frame pointer. If
+@var{incoming} is @code{2}, the result is being used to fetch the
+structure value address at the beginning of a function.  If you need
+to emit adjusting code, you should do it at this point.
 @end deftypefn
 
 @defmac PCC_STATIC_STRUCT_RETURN
@@ -4331,7 +4413,7 @@ compiler knows this regardless of @code{EXIT_IGNORE_STACK}.
 @defmac EPILOGUE_USES (@var{regno})
 Define this macro as a C expression that is nonzero for registers that are
 used by the epilogue or the @samp{return} pattern.  The stack and frame
-pointer registers are already be assumed to be used as needed.
+pointer registers are already assumed to be used as needed.
 @end defmac
 
 @defmac EH_USES (@var{regno})
@@ -5033,48 +5115,6 @@ into the @code{symbol_ref}, and then check for it here.  When you see a
 Format}.
 @end defmac
 
-@defmac REG_OK_FOR_BASE_P (@var{x})
-A C expression that is nonzero if @var{x} (assumed to be a @code{reg}
-RTX) is valid for use as a base register.  For hard registers, it
-should always accept those which the hardware permits and reject the
-others.  Whether the macro accepts or rejects pseudo registers must be
-controlled by @code{REG_OK_STRICT} as described above.  This usually
-requires two variant definitions, of which @code{REG_OK_STRICT}
-controls the one actually used.
-@end defmac
-
-@defmac REG_MODE_OK_FOR_BASE_P (@var{x}, @var{mode})
-A C expression that is just like @code{REG_OK_FOR_BASE_P}, except that
-that expression may examine the mode of the memory reference in
-@var{mode}.  You should define this macro if the mode of the memory
-reference affects whether a register may be used as a base register.  If
-you define this macro, the compiler will use it instead of
-@code{REG_OK_FOR_BASE_P}.
-@end defmac
-
-@defmac REG_MODE_OK_FOR_REG_BASE_P (@var{x}, @var{mode})
-A C expression which is nonzero if @var{x} (assumed to be a @code{reg} RTX)
-is suitable for use as a base register in base plus index operand addresses,
-accessing memory in mode @var{mode}.  It may be either a suitable hard
-register or a pseudo register that has been allocated such a hard register.
-You should define this macro if base plus index addresses have different
-requirements than other base register uses.
-@end defmac
-
-@defmac REG_OK_FOR_INDEX_P (@var{x})
-A C expression that is nonzero if @var{x} (assumed to be a @code{reg}
-RTX) is valid for use as an index register.
-
-The difference between an index register and a base register is that
-the index register may be scaled.  If an address involves the sum of
-two registers, neither one of them scaled, then either one may be
-labeled the ``base'' and the other the ``index''; but whichever
-labeling is used must fit the machine's constraints of which registers
-may serve in each capacity.  The compiler will try both labelings,
-looking for one that is valid, and will reload one or both registers
-only if neither labeling works.
-@end defmac
-
 @defmac FIND_BASE_TERM (@var{x})
 A C expression to determine the base term of address @var{x}.
 This macro is used in only one place: `find_base_term' in alias.c.
@@ -5207,6 +5247,14 @@ holding the constant.  This restriction is often true of addresses
 of TLS symbols for various targets.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_USE_BLOCKS_FOR_CONSTANT_P (enum machine_mode @var{mode}, rtx @var{x})
+This hook should return true if pool entries for constant @var{x} can
+be placed in an @code{object_block} structure.  @var{mode} is the mode
+of @var{x}.
+
+The default version returns false for all constants.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD (void)
 This hook should return the DECL of a function @var{f} that given an
 address @var{addr} as an argument returns a mask @var{m} that can be
@@ -5234,6 +5282,76 @@ described above.
 If this hook is not defined, then @var{addr} will be used as
 the argument @var{OFF} to @code{REALIGN_LOAD}, in which case the low
 log2(@var{VS})-1 bits of @var{addr} will be considered.
+@end deftypefn
+
+@node Anchored Addresses
+@section Anchored Addresses
+@cindex anchored addresses
+@cindex @option{-fsection-anchors}
+
+GCC usually addresses every static object as a separate entity.
+For example, if we have:
+
+@smallexample
+static int a, b, c;
+int foo (void) @{ return a + b + c; @}
+@end smallexample
+
+the code for @code{foo} will usually calculate three separate symbolic
+addresses: those of @code{a}, @code{b} and @code{c}.  On some targets,
+it would be better to calculate just one symbolic address and access
+the three variables relative to it.  The equivalent pseudocode would
+be something like:
+
+@smallexample
+int foo (void)
+@{
+  register int *xr = &x;
+  return xr[&a - &x] + xr[&b - &x] + xr[&c - &x];
+@}
+@end smallexample
+
+(which isn't valid C).  We refer to shared addresses like @code{x} as
+``section anchors''.  Their use is controlled by @option{-fsection-anchors}.
+
+The hooks below describe the target properties that GCC needs to know
+in order to make effective use of section anchors.  It won't use
+section anchors at all unless either @code{TARGET_MIN_ANCHOR_OFFSET}
+or @code{TARGET_MAX_ANCHOR_OFFSET} is set to a nonzero value.
+
+@deftypevar {Target Hook} HOST_WIDE_INT TARGET_MIN_ANCHOR_OFFSET
+The minimum offset that should be applied to a section anchor.
+On most targets, it should be the smallest offset that can be
+applied to a base register while still giving a legitimate address
+for every mode.  The default value is 0.
+@end deftypevar
+
+@deftypevar {Target Hook} HOST_WIDE_INT TARGET_MAX_ANCHOR_OFFSET
+Like @code{TARGET_MIN_ANCHOR_OFFSET}, but the maximum (inclusive)
+offset that should be applied to section anchors.  The default
+value is 0.
+@end deftypevar
+
+@deftypefn {Target Hook} void TARGET_ASM_OUTPUT_ANCHOR (rtx @var{x})
+Write the assembly code to define section anchor @var{x}, which is a
+@code{SYMBOL_REF} for which @samp{SYMBOL_REF_ANCHOR_P (@var{x})} is true.
+The hook is called with the assembly output position set to the beginning
+of @code{SYMBOL_REF_BLOCK (@var{x})}.
+
+If @code{ASM_OUTPUT_DEF} is available, the hook's default definition uses
+it to define the symbol as @samp{. + SYMBOL_REF_BLOCK_OFFSET (@var{x})}.
+If @code{ASM_OUTPUT_DEF} is not available, the hook's default definition
+is @code{NULL}, which disables the use of section anchors altogether.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_USE_ANCHORS_FOR_SYMBOL_P (rtx @var{x})
+Return true if GCC should attempt to use anchors to access @code{SYMBOL_REF}
+@var{x}.  You can assume @samp{SYMBOL_REF_HAS_BLOCK_INFO_P (@var{x})} and
+@samp{!SYMBOL_REF_ANCHOR_P (@var{x})}.
+
+The default version is correct for most targets, but you might need to
+intercept this hook to handle things like target-specific attributes
+or target-specific sections.
 @end deftypefn
 
 @node Condition Code
@@ -5737,8 +5855,8 @@ acceptable, you could use the hook to modify them too.  See also
 
 @deftypefn {Target Hook} int TARGET_SCHED_ADJUST_PRIORITY (rtx @var{insn}, int @var{priority})
 This hook adjusts the integer scheduling priority @var{priority} of
-@var{insn}.  It should return the new priority.  Reduce the priority to
-execute @var{insn} earlier, increase the priority to execute @var{insn}
+@var{insn}.  It should return the new priority.  Increase the priority to
+execute @var{insn} earlier, reduce the priority to execute @var{insn}
 later.  Do not define this hook if you do not need to adjust the
 scheduling priorities of insns.
 @end deftypefn
@@ -5913,6 +6031,70 @@ closer to one another---i.e., closer than the dependence distance;  however,
 not in cases of "costly dependences", which this hooks allows to define.
 @end deftypefn
 
+@deftypefn {Target Hook} int TARGET_SCHED_ADJUST_COST_2 (rtx @var{insn}, int @var{dep_type}, rtx @var{dep_insn}, int @var{cost})
+This hook is a modified version of @samp{TARGET_SCHED_ADJUST_COST}.  Instead
+of passing dependence as a second parameter, it passes a type of that
+dependence.  This is useful to calculate cost of dependence between insns
+not having the corresponding link.  If @samp{TARGET_SCHED_ADJUST_COST_2} is
+defined it is used instead of @samp{TARGET_SCHED_ADJUST_COST}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_H_I_D_EXTENDED (void)
+This hook is called by the insn scheduler after emitting a new instruction to
+the instruction stream.  The hook notifies a target backend to extend its
+per instruction data structures.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_SPECULATE_INSN (rtx @var{insn}, int @var{request}, rtx *@var{new_pat})
+This hook is called by the insn scheduler when @var{insn} has only
+speculative dependencies and therefore can be scheduled speculatively.
+The hook is used to check if the pattern of @var{insn} has a speculative
+version and, in case of successful check, to generate that speculative
+pattern.  The hook should return 1, if the instruction has a speculative form,
+or -1, if it doesn't.  @var{request} describes the type of requested
+speculation.  If the return value equals 1 then @var{new_pat} is assigned
+the generated speculative pattern.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_NEEDS_BLOCK_P (rtx @var{insn})
+This hook is called by the insn scheduler during generation of recovery code
+for @var{insn}.  It should return nonzero, if the corresponding check
+instruction should branch to recovery code, or zero otherwise.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_SCHED_GEN_CHECK (rtx @var{insn}, rtx @var{label}, int @var{mutate_p})
+This hook is called by the insn scheduler to generate a pattern for recovery
+check instruction.  If @var{mutate_p} is zero, then @var{insn} is a
+speculative instruction for which the check should be generated.
+@var{label} is either a label of a basic block, where recovery code should
+be emitted, or a null pointer, when requested check doesn't branch to
+recovery code (a simple check).  If @var{mutate_p} is nonzero, then
+a pattern for a branchy check corresponding to a simple check denoted by
+@var{insn} should be generated.  In this case @var{label} can't be null.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD_SPEC (rtx @var{insn})
+This hook is used as a workaround for
+@samp{TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD} not being
+called on the first instruction of the ready list.  The hook is used to
+discard speculative instruction that stand first in the ready list from
+being scheduled on the current cycle.  For non-speculative instructions,
+the hook should always return nonzero.  For example, in the ia64 backend
+the hook is used to cancel data speculative insns when the ALAT table
+is nearly full.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_SCHED_SET_SCHED_FLAGS (unsigned int *@var{flags}, spec_info_t @var{spec_info})
+This hook is used by the insn scheduler to find out what features should be
+enabled/used.  @var{flags} initially may have either the SCHED_RGN or SCHED_EBB
+bit set.  This denotes the scheduler pass for which the data should be
+provided.  The target backend should modify @var{flags} by modifying
+the bits corresponding to the following features: USE_DEPS_LIST, USE_GLAT,
+DETACH_LIFE_INFO, and DO_SPECULATION.  For the DO_SPECULATION feature
+an additional structure @var{spec_info} should be filled by the target.
+The structure describes speculation types that can be used in the scheduler.
+@end deftypefn
+
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
 @c the above section title is WAY too long.  maybe cut the part between
@@ -6045,6 +6227,19 @@ sections.  By default, this macro uses a simple function call.  Some
 ports need hand-crafted assembly code to avoid dependencies on
 registers initialized in the function prologue or to ensure that
 constant pools don't end up too far way in the text section.
+@end defmac
+
+@defmac TARGET_LIBGCC_SDATA_SECTION
+If defined, a string which names the section into which small
+variables defined in crtstuff and libgcc should go.  This is useful
+when the target has options for optimizing access to small data, and
+you want the crtstuff and libgcc routines to be conservative in what
+they expect of your application yet liberal in what your application
+expects.  For example, for targets with a @code{.sdata} section (like
+MIPS), you could compile crtstuff with @code{-G 0} so that it doesn't
+require small data support from your application, but use this macro
+to put small data into @code{.sdata} so that your application can
+access these variables whether it uses small data or not.
 @end defmac
 
 @defmac FORCE_CODE_SECTION_ALIGN
@@ -6376,13 +6571,20 @@ specify an alignment within the section directive need pay attention to
 This flag is true if the target supports @code{TARGET_ASM_NAMED_SECTION}.
 @end deftypefn
 
+@anchor{TARGET_HAVE_SWITCHABLE_BSS_SECTIONS}
+@deftypefn {Target Hook} bool TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+This flag is true if we can create zeroed data by switching to a BSS
+section and then using @code{ASM_OUTPUT_SKIP} to allocate the space.
+This is true on most ELF targets.
+@end deftypefn
+
 @deftypefn {Target Hook} {unsigned int} TARGET_SECTION_TYPE_FLAGS (tree @var{decl}, const char *@var{name}, int @var{reloc})
 Choose a set of section attributes for use by @code{TARGET_ASM_NAMED_SECTION}
 based on a variable or function decl, a section name, and whether or not the
 declaration's initializer may contain runtime relocations.  @var{decl} may be
  null, in which case read-write data should be assumed.
 
-The default version if this function handles choosing code vs data,
+The default version of this function handles choosing code vs data,
 read-only vs read-write data, and @code{flag_pic}.  You should only
 need to override this if your target has special flags that might be
 set via @code{__attribute__}.
@@ -6592,12 +6794,6 @@ in place of both @code{ASM_OUTPUT_COMMON} and
 the variable's decl in order to chose what to output.
 @end defmac
 
-@defmac ASM_OUTPUT_SHARED_COMMON (@var{stream}, @var{name}, @var{size}, @var{rounded})
-If defined, it is similar to @code{ASM_OUTPUT_COMMON}, except that it
-is used when @var{name} is shared.  If not defined, @code{ASM_OUTPUT_COMMON}
-will be used.
-@end defmac
-
 @defmac ASM_OUTPUT_BSS (@var{stream}, @var{decl}, @var{name}, @var{size}, @var{rounded})
 A C statement (sans semicolon) to output to the stdio stream
 @var{stream} the assembler definition of uninitialized global @var{decl} named
@@ -6610,13 +6806,17 @@ defining this macro.  If unable, use the expression
 before and after that, output the additional assembler syntax for defining
 the name, and a newline.
 
-This macro controls how the assembler definitions of uninitialized global
-variables are output.  This macro exists to properly support languages like
-C++ which do not have @code{common} data.  However, this macro currently
-is not defined for all targets.  If this macro and
-@code{ASM_OUTPUT_ALIGNED_BSS} are not defined then @code{ASM_OUTPUT_COMMON}
-or @code{ASM_OUTPUT_ALIGNED_COMMON} or
-@code{ASM_OUTPUT_ALIGNED_DECL_COMMON} is used.
+There are two ways of handling global BSS.  One is to define either
+this macro or its aligned counterpart, @code{ASM_OUTPUT_ALIGNED_BSS}.
+The other is to have @code{TARGET_ASM_SELECT_SECTION} return a
+switchable BSS section (@pxref{TARGET_HAVE_SWITCHABLE_BSS_SECTIONS}).
+You do not need to do both.
+
+Some languages do not have @code{common} data, and require a
+non-common form of global BSS in order to handle uninitialized globals
+efficiently.  C++ is one example of this.  However, if the target does
+not support global BSS, the front end may choose to make globals
+common in order to save space in the object file.
 @end defmac
 
 @defmac ASM_OUTPUT_ALIGNED_BSS (@var{stream}, @var{decl}, @var{name}, @var{size}, @var{alignment})
@@ -6628,12 +6828,6 @@ as the number of bits.
 
 Try to use function @code{asm_output_aligned_bss} defined in file
 @file{varasm.c} when defining this macro.
-@end defmac
-
-@defmac ASM_OUTPUT_SHARED_BSS (@var{stream}, @var{decl}, @var{name}, @var{size}, @var{rounded})
-If defined, it is similar to @code{ASM_OUTPUT_BSS}, except that it
-is used when @var{name} is shared.  If not defined, @code{ASM_OUTPUT_BSS}
-will be used.
 @end defmac
 
 @defmac ASM_OUTPUT_LOCAL (@var{stream}, @var{name}, @var{size}, @var{rounded})
@@ -6665,12 +6859,6 @@ is no corresponding variable.  If you define this macro, GCC will use it
 in place of both @code{ASM_OUTPUT_DECL} and
 @code{ASM_OUTPUT_ALIGNED_DECL}.  Define this macro when you need to see
 the variable's decl in order to chose what to output.
-@end defmac
-
-@defmac ASM_OUTPUT_SHARED_LOCAL (@var{stream}, @var{name}, @var{size}, @var{rounded})
-If defined, it is similar to @code{ASM_OUTPUT_LOCAL}, except that it
-is used when @var{name} is shared.  If not defined, @code{ASM_OUTPUT_LOCAL}
-will be used.
 @end defmac
 
 @node Label Output
@@ -7744,8 +7932,7 @@ Define this macro to 0 if your target supports DWARF 2 frame unwind
 information, but it does not yet work with exception handling.
 Otherwise, if your target supports this information (if it defines
 @samp{INCOMING_RETURN_ADDR_RTX} and either @samp{UNALIGNED_INT_ASM_OP}
-or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of
-1.
+or @samp{OBJECT_FORMAT_ELF}), GCC will provide a default definition of 1.
 
 If @code{TARGET_UNWIND_INFO} is defined, the target specific unwinder
 will be used in all cases.  Defining this macro will enable the generation
@@ -7753,7 +7940,8 @@ of DWARF 2 frame debugging information.
 
 If @code{TARGET_UNWIND_INFO} is not defined, and this macro is defined to 1,
 the DWARF 2 unwinder will be the default exception handling mechanism;
-otherwise, @code{setjmp}/@code{longjmp} will be used by default.
+otherwise, the @code{setjmp}/@code{longjmp}-based scheme will be used by
+default.
 @end defmac
 
 @defmac TARGET_UNWIND_INFO
@@ -7761,7 +7949,7 @@ Define this macro if your target has ABI specified unwind tables.  Usually
 these will be output by @code{TARGET_UNWIND_EMIT}.
 @end defmac
 
-@deftypevar {Target Hook} bool TARGET_UNWID_TABLES_DEFAULT
+@deftypevar {Target Hook} bool TARGET_UNWIND_TABLES_DEFAULT
 This variable should be set to @code{true} if the target ABI requires unwinding
 tables even when exceptions are not used.
 @end deftypevar
@@ -7769,8 +7957,14 @@ tables even when exceptions are not used.
 @defmac MUST_USE_SJLJ_EXCEPTIONS
 This macro need only be defined if @code{DWARF2_UNWIND_INFO} is
 runtime-variable.  In that case, @file{except.h} cannot correctly
-determine the corresponding definition of
-@code{MUST_USE_SJLJ_EXCEPTIONS}, so the target must provide it directly.
+determine the corresponding definition of @code{MUST_USE_SJLJ_EXCEPTIONS},
+so the target must provide it directly.
+@end defmac
+
+@defmac DONT_USE_BUILTIN_SETJMP
+Define this macro to 1 if the @code{setjmp}/@code{longjmp}-based scheme
+should use the @code{setjmp}/@code{longjmp} functions from the C library
+instead of the @code{__builtin_setjmp}/@code{__builtin_longjmp} machinery.
 @end defmac
 
 @defmac DWARF_CIE_DATA_ALIGNMENT
@@ -8266,18 +8460,18 @@ tables, and hence is desirable if it works.
 
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
-between the two given labels, using an integer of the given size.
+@var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
 @end defmac
 
-@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label})
+@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{section})
 A C statement to issue assembly directives that create a
-section-relative reference to the given label, using an integer of the
-given size.
+section-relative reference to the given @var{label}, using an integer of the
+given @var{size}.  The label is known to be defined in the given @var{section}.
 @end defmac
 
 @defmac ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
 A C statement to issue assembly directives that create a self-relative
-reference to the given label, using an integer of the given size.
+reference to the given @var{label}, using an integer of the given @var{size}.
 @end defmac
 
 @deftypefn {Target Hook} void TARGET_ASM_OUTPUT_DWARF_DTPREL (FILE *@var{FILE}, int @var{size}, rtx @var{x})
@@ -8980,6 +9174,34 @@ If this is the case, making @code{TRULY_NOOP_TRUNCATION} return 0 in
 such cases may improve things.
 @end defmac
 
+@deftypefn {Target Hook} int TARGET_MODE_REP_EXTENDED (enum machine_mode @var{mode}, enum machine_mode @var{rep_mode})
+The representation of an integral mode can be such that the values
+are always extended to a wider integral mode.  Return
+@code{SIGN_EXTEND} if values of @var{mode} are represented in
+sign-extended form to @var{rep_mode}.  Return @code{UNKNOWN}
+otherwise.  (Currently, none of the targets use zero-extended
+representation this way so unlike @code{LOAD_EXTEND_OP},
+@code{TARGET_MODE_REP_EXTENDED} is expected to return either
+@code{SIGN_EXTEND} or @code{UNKNOWN}.  Also no target extends
+@var{mode} to @var{mode_rep} so that @var{mode_rep} is not the next
+widest integral mode and currently we take advantage of this fact.)
+
+Similarly to @code{LOAD_EXTEND_OP} you may return a non-@code{UNKNOWN}
+value even if the extension is not performed on certain hard registers
+as long as for the @code{REGNO_REG_CLASS} of these hard registers
+@code{CANNOT_CHANGE_MODE_CLASS} returns nonzero.
+
+Note that @code{TARGET_MODE_REP_EXTENDED} and @code{LOAD_EXTEND_OP}
+describe two related properties.  If you define
+@code{TARGET_MODE_REP_EXTENDED (mode, word_mode)} you probably also want
+to define @code{LOAD_EXTEND_OP (mode)} to return the same type of
+extension.
+
+In order to enforce the representation of @code{mode},
+@code{TRULY_NOOP_TRUNCATION} should return false when truncating to
+@code{mode}.
+@end deftypefn
+
 @defmac STORE_FLAG_VALUE
 A C expression describing the value returned by a comparison operator
 with an integral mode and stored by a store-flag instruction
@@ -9269,7 +9491,7 @@ arguments of @samp{#pragma pack}.
 @defmac TARGET_DEFAULT_PACK_STRUCT
 If your target requires a structure packing default other than 0 (meaning
 the machine default), define this macro to the necessary value (in bytes).
-This must be a value that would also valid to be used with
+This must be a value that would also be valid to use with
 @samp{#pragma pack()} (that is, a small power of two).
 @end defmac
 
@@ -9337,7 +9559,7 @@ It should return the result of the last @code{tree_cons} used to add a
 clobber.  The @var{outputs}, @var{inputs} and @var{clobber} lists are the
 corresponding parameters to the asm and may be inspected to avoid
 clobbering a register that is an input or output of the asm.  You can use
-@code{decl_overlaps_hard_reg_set_p}, declared in @file{tree.h}, to test
+@code{tree_overlaps_hard_reg_set}, declared in @file{tree.h}, to test
 for overlap with regards to asm-declared registers.
 @end deftypefn
 
@@ -9706,4 +9928,9 @@ the front end.
 This macro determines whether to use the JCR section to register Java
 classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
 SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
+@end defmac
+
+@defmac OBJC_JBLEN
+This macro determines the size of the objective C jump buffer for the
+NeXT runtime. By default, OBJC_JBLEN is defined to an innocuous value.
 @end defmac

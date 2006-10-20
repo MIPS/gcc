@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
+#include "tree-scalar-evolution.h"
 
 /* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
 
@@ -157,19 +158,24 @@ cleanup_control_flow (void)
     {
       bsi = bsi_last (bb);
 
+      /* If the last statement of the block could throw and now cannot,
+	 we need to prune cfg.  */
+      tree_purge_dead_eh_edges (bb);
+
       if (bsi_end_p (bsi))
 	continue;
 
       stmt = bsi_stmt (bsi);
+
       if (TREE_CODE (stmt) == COND_EXPR
 	  || TREE_CODE (stmt) == SWITCH_EXPR)
 	retval |= cleanup_control_expr_graph (bb, bsi);
-
       /* If we had a computed goto which has a compile-time determinable
 	 destination, then we can eliminate the goto.  */
-      if (TREE_CODE (stmt) == GOTO_EXPR
-	  && TREE_CODE (GOTO_DESTINATION (stmt)) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (GOTO_DESTINATION (stmt), 0)) == LABEL_DECL)
+      else if (TREE_CODE (stmt) == GOTO_EXPR
+	       && TREE_CODE (GOTO_DESTINATION (stmt)) == ADDR_EXPR
+	       && (TREE_CODE (TREE_OPERAND (GOTO_DESTINATION (stmt), 0))
+		   == LABEL_DECL))
 	{
 	  edge e;
 	  tree label;
@@ -213,7 +219,7 @@ cleanup_control_flow (void)
 
       /* Check for indirect calls that have been turned into
 	 noreturn calls.  */
-      if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
+      else if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
 	{
 	  free_dominance_info (CDI_DOMINATORS);
 	  retval = true;
@@ -233,6 +239,9 @@ static bool
 tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 {
   block_stmt_iterator bsi;
+  edge_iterator ei;
+  edge e, succ;
+  basic_block dest;
 
   /* BB must have a single outgoing edge.  */
   if (single_succ_p (bb) != 1
@@ -282,6 +291,22 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
       if (dest->loop_father->header == dest)
 	return false;
+    }
+
+  /* If we have an EH edge leaving this block, make sure that the
+     destination of this block has only one predecessor.  This ensures
+     that we don't get into the situation where we try to remove two
+     forwarders that go to the same basic block but are handlers for
+     different EH regions.  */
+  succ = single_succ_edge (bb);
+  dest = succ->dest;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_EH)
+        {
+	  if (!single_pred_p (dest))
+	    return false;
+	}
     }
 
   return true;
@@ -470,7 +495,7 @@ cleanup_forwarder_blocks (void)
 {
   basic_block bb;
   bool changed = false;
-  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
 
   FOR_EACH_BB (bb)
@@ -559,23 +584,26 @@ cleanup_tree_cfg (void)
 void
 cleanup_tree_cfg_loop (void)
 {
-  bitmap changed_bbs = BITMAP_ALLOC (NULL);
+  bool changed = cleanup_tree_cfg ();
 
-  cleanup_tree_cfg ();
+  if (changed)
+    {
+      bitmap changed_bbs = BITMAP_ALLOC (NULL);
+      fix_loop_structure (current_loops, changed_bbs);
+      calculate_dominance_info (CDI_DOMINATORS);
 
-  fix_loop_structure (current_loops, changed_bbs);
-  calculate_dominance_info (CDI_DOMINATORS);
+      /* This usually does nothing.  But sometimes parts of cfg that originally
+	 were inside a loop get out of it due to edge removal (since they
+	 become unreachable by back edges from latch).  */
+      rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
 
-  /* This usually does nothing.  But sometimes parts of cfg that originally
-     were inside a loop get out of it due to edge removal (since they
-     become unreachable by back edges from latch).  */
-  rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
-
-  BITMAP_FREE (changed_bbs);
+      BITMAP_FREE (changed_bbs);
 
 #ifdef ENABLE_CHECKING
-  verify_loop_structure (current_loops);
+      verify_loop_structure (current_loops);
 #endif
+      scev_reset ();
+    }
 }
 
 /* Merge the PHI nodes at BB into those at BB's sole successor.  */
@@ -708,10 +736,10 @@ remove_forwarder_block_with_phi (basic_block bb)
 <L10>:;
 */
 
-static void
+static unsigned int
 merge_phi_nodes (void)
 {
-  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
   basic_block bb;
 
@@ -756,13 +784,12 @@ merge_phi_nodes (void)
 	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree result = PHI_RESULT (phi);
-	      int num_uses = num_imm_uses (result);
 	      use_operand_p imm_use;
 	      tree use_stmt;
 
 	      /* If the PHI's result is never used, then we can just
 		 ignore it.  */
-	      if (num_uses == 0)
+	      if (has_zero_uses (result))
 		continue;
 
 	      /* Get the single use of the result of this PHI node.  */
@@ -773,7 +800,7 @@ merge_phi_nodes (void)
 		break;
 	    }
 
-	  /* If the loop above iterated thorugh all the PHI nodes
+	  /* If the loop above iterated through all the PHI nodes
 	     in BB, then we can merge the PHIs from BB into DEST.  */
 	  if (!phi)
 	    *current++ = bb;
@@ -788,6 +815,7 @@ merge_phi_nodes (void)
     }
 
   free (worklist);
+  return 0;
 }
 
 static bool

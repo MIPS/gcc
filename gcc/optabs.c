@@ -959,8 +959,10 @@ expand_doubleword_shift (enum machine_mode op1_mode, optab binoptab,
   subword_label = gen_label_rtx ();
   done_label = gen_label_rtx ();
 
+  NO_DEFER_POP;
   do_compare_rtx_and_jump (cmp1, cmp2, cmp_code, false, op1_mode,
 			   0, 0, subword_label);
+  OK_DEFER_POP;
 
   if (!expand_superword_shift (binoptab, outof_input, superword_op1,
 			       outof_target, into_target,
@@ -1558,7 +1560,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	  if (expand_doubleword_shift (op1_mode, binoptab,
 				       outof_input, into_input, op1,
 				       outof_target, into_target,
-				       unsignedp, methods, shift_mask))
+				       unsignedp, next_methods, shift_mask))
 	    {
 	      insns = get_insns ();
 	      end_sequence ();
@@ -2898,15 +2900,8 @@ expand_abs (enum machine_mode mode, rtx op0, rtx target,
   emit_move_insn (target, op0);
   NO_DEFER_POP;
 
-  /* If this mode is an integer too wide to compare properly,
-     compare word by word.  Rely on CSE to optimize constant cases.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      && ! can_compare_p (GE, mode, ccp_jump))
-    do_jump_by_parts_greater_rtx (mode, 0, target, const0_rtx,
-				  NULL_RTX, op1);
-  else
-    do_compare_rtx_and_jump (target, CONST0_RTX (mode), GE, 0, mode,
-			     NULL_RTX, NULL_RTX, op1);
+  do_compare_rtx_and_jump (target, CONST0_RTX (mode), GE, 0, mode,
+			   NULL_RTX, NULL_RTX, op1);
 
   op0 = expand_unop (mode, result_unsignedp ? neg_optab : negv_optab,
                      target, target, 0);
@@ -3225,6 +3220,38 @@ no_conflict_move_test (rtx dest, rtx set, void *p0)
     p->must_stay = true;
 }
 
+/* Encapsulate the block starting at FIRST and ending with LAST, which is
+   logically equivalent to EQUIV, so it gets manipulated as a unit if it
+   is possible to do so.  */
+
+static void
+maybe_encapsulate_block (rtx first, rtx last, rtx equiv)
+{
+  if (!flag_non_call_exceptions || !may_trap_p (equiv))
+    {
+      /* We can't attach the REG_LIBCALL and REG_RETVAL notes when the
+	 encapsulated region would not be in one basic block, i.e. when
+	 there is a control_flow_insn_p insn between FIRST and LAST.  */
+      bool attach_libcall_retval_notes = true;
+      rtx insn, next = NEXT_INSN (last);
+
+      for (insn = first; insn != next; insn = NEXT_INSN (insn))
+	if (control_flow_insn_p (insn))
+	  {
+	    attach_libcall_retval_notes = false;
+	    break;
+	  }
+
+      if (attach_libcall_retval_notes)
+	{
+	  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
+						 REG_NOTES (first));
+	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+						REG_NOTES (last));
+	}
+    }
+}
+
 /* Emit code to perform a series of operations on a multi-word quantity, one
    word at a time.
 
@@ -3346,10 +3373,7 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
   else
     first = NEXT_INSN (prev);
 
-  /* Encapsulate the block so it gets manipulated as a unit.  */
-  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-					 REG_NOTES (first));
-  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
+  maybe_encapsulate_block (first, last, equiv);
 
   return last;
 }
@@ -3503,30 +3527,7 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
   else
     first = NEXT_INSN (prev);
 
-  /* Encapsulate the block so it gets manipulated as a unit.  */
-  if (!flag_non_call_exceptions || !may_trap_p (equiv))
-    {
-      /* We can't attach the REG_LIBCALL and REG_RETVAL notes
-	 when the encapsulated region would not be in one basic block,
-	 i.e. when there is a control_flow_insn_p insn between FIRST and LAST.
-       */
-      bool attach_libcall_retval_notes = true;
-      next = NEXT_INSN (last);
-      for (insn = first; insn != next; insn = NEXT_INSN (insn))
-	if (control_flow_insn_p (insn))
-	  {
-	    attach_libcall_retval_notes = false;
-	    break;
-	  }
-
-      if (attach_libcall_retval_notes)
-	{
-	  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-						 REG_NOTES (first));
-	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
-						REG_NOTES (last));
-	}
-    }
+  maybe_encapsulate_block (first, last, equiv);
 }
 
 /* Nonzero if we can perform a comparison of mode MODE straightforwardly.
@@ -3711,18 +3712,24 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       result = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST_MAKE_BLOCK,
 					word_mode, 2, x, mode, y, mode);
 
+      /* There are two kinds of comparison routines. Biased routines
+	 return 0/1/2, and unbiased routines return -1/0/1. Other parts
+	 of gcc expect that the comparison operation is equivalent
+	 to the modified comparison. For signed comparisons compare the 
+	 result against 1 in the biased case, and zero in the unbiased
+	 case. For unsigned comparisons always compare against 1 after
+	 biasing the unbiased result by adding 1. This gives us a way to
+	 represent LTU. */
       *px = result;
       *pmode = word_mode;
-      if (TARGET_LIB_INT_CMP_BIASED)
-	/* Integer comparison returns a result that must be compared
-	   against 1, so that even if we do an unsigned compare
-	   afterward, there is still a value that can represent the
-	   result "less than".  */
-	*py = const1_rtx;
-      else
+      *py = const1_rtx;
+
+      if (!TARGET_LIB_INT_CMP_BIASED)
 	{
-	  *py = const0_rtx;
-	  *punsignedp = 1;
+	  if (*punsignedp)
+	    *px = plus_constant (result, 1);  
+	  else
+	    *py = const0_rtx;
 	}
       return;
     }
@@ -4742,7 +4749,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
      This is not needed.  Consider, for instance conversion from SFmode
      into DImode.
 
-     The hot path trought the code is dealing with inputs smaller than 2^63
+     The hot path through the code is dealing with inputs smaller than 2^63
      and doing just the conversion, so there is no bits to lose.
 
      In the other path we know the value is positive in the range 2^63..2^64-1

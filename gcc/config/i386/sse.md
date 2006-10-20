@@ -59,16 +59,13 @@
 
 (define_insn "*mov<mode>_internal"
   [(set (match_operand:SSEMODEI 0 "nonimmediate_operand" "=x,x ,m")
-	(match_operand:SSEMODEI 1 "vector_move_operand"  "C ,xm,x"))]
+	(match_operand:SSEMODEI 1 "nonimmediate_or_sse_const_operand"  "C ,xm,x"))]
   "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
 {
   switch (which_alternative)
     {
     case 0:
-      if (get_attr_mode (insn) == MODE_V4SF)
-	return "xorps\t%0, %0";
-      else
-	return "pxor\t%0, %0";
+      return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
       if (get_attr_mode (insn) == MODE_V4SF)
@@ -101,12 +98,20 @@
 
 (define_insn "*movv4sf_internal"
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "=x,x,m")
-	(match_operand:V4SF 1 "vector_move_operand" "C,xm,x"))]
+	(match_operand:V4SF 1 "nonimmediate_or_sse_const_operand" "C,xm,x"))]
   "TARGET_SSE"
-  "@
-   xorps\t%0, %0
-   movaps\t{%1, %0|%0, %1}
-   movaps\t{%1, %0|%0, %1}"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return standard_sse_constant_opcode (insn, operands[1]);
+    case 1:
+    case 2:
+      return "movaps\t{%1, %0|%0, %1}";
+    default:
+      abort();
+    }
+}
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set_attr "mode" "V4SF")])
 
@@ -135,16 +140,13 @@
 
 (define_insn "*movv2df_internal"
   [(set (match_operand:V2DF 0 "nonimmediate_operand" "=x,x,m")
-	(match_operand:V2DF 1 "vector_move_operand" "C,xm,x"))]
+	(match_operand:V2DF 1 "nonimmediate_or_sse_const_operand" "C,xm,x"))]
   "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
 {
   switch (which_alternative)
     {
     case 0:
-      if (get_attr_mode (insn) == MODE_V4SF)
-	return "xorps\t%0, %0";
-      else
-	return "xorpd\t%0, %0";
+      return standard_sse_constant_opcode (insn, operands[1]);
     case 1:
     case 2:
       if (get_attr_mode (insn) == MODE_V4SF)
@@ -2289,6 +2291,36 @@
   operands[0] = adjust_address (operands[0], DFmode, 8);
 })
 
+;; Not sure these two are ever used, but it doesn't hurt to have
+;; them. -aoliva
+(define_insn "*vec_extractv2df_1_sse"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DF
+	  (match_operand:V2DF 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   movhlps\t{%1, %0|%0, %1}
+   movlps\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
+
+(define_insn "*vec_extractv2df_0_sse"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DF
+	  (match_operand:V2DF 1 "nonimmediate_operand" "x,x,m")
+	  (parallel [(const_int 0)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movlps\t{%1, %0|%0, %1}
+   movaps\t{%1, %0|%0, %1}
+   movlps\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
+
 (define_insn "sse2_movsd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"   "=x,x,m,x,x,o")
 	(vec_merge:V2DF
@@ -3942,7 +3974,10 @@
 		     (match_operand:SI 1 "register_operand" "c")]
 		    UNSPECV_MWAIT)]
   "TARGET_SSE3"
-  "mwait\t%0, %1"
+;; 64bit version is "mwait %rax,%rcx". But only lower 32bits are used.
+;; Since 32bit register operands are implicitly zero extended to 64bit,
+;; we only need to set up 32bit registers.
+  "mwait"
   [(set_attr "length" "3")])
 
 (define_insn "sse3_monitor"
@@ -3950,6 +3985,18 @@
 		     (match_operand:SI 1 "register_operand" "c")
 		     (match_operand:SI 2 "register_operand" "d")]
 		    UNSPECV_MONITOR)]
-  "TARGET_SSE3"
+  "TARGET_SSE3 && !TARGET_64BIT"
   "monitor\t%0, %1, %2"
+  [(set_attr "length" "3")])
+
+(define_insn "sse3_monitor64"
+  [(unspec_volatile [(match_operand:DI 0 "register_operand" "a")
+		     (match_operand:SI 1 "register_operand" "c")
+		     (match_operand:SI 2 "register_operand" "d")]
+		    UNSPECV_MONITOR)]
+  "TARGET_SSE3 && TARGET_64BIT"
+;; 64bit version is "monitor %rax,%rcx,%rdx". But only lower 32bits in
+;; RCX and RDX are used.  Since 32bit register operands are implicitly
+;; zero extended to 64bit, we only need to set up 32bit registers.
+  "monitor"
   [(set_attr "length" "3")])

@@ -1,5 +1,5 @@
 /* SAXParser.java -- 
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -92,8 +92,7 @@ import org.xml.sax.ext.Locator2;
  */
 public class SAXParser
   extends javax.xml.parsers.SAXParser
-  implements XMLReader, Attributes2, Locator2, XMLReporter,
-             XMLParser.XMLResolver2
+  implements XMLReader, Attributes2, Locator2, XMLReporter, XMLResolver
 {
 
   ContentHandler contentHandler;
@@ -323,6 +322,7 @@ public class SAXParser
                              supportDTD,
                              baseAware,
                              stringInterning,
+                             true,
                              this,
                              this);
     else
@@ -338,6 +338,7 @@ public class SAXParser
                                  supportDTD,
                                  baseAware,
                                  stringInterning,
+                                 true,
                                  this,
                                  this);
       }
@@ -357,6 +358,7 @@ public class SAXParser
                                supportDTD,
                                baseAware,
                                stringInterning,
+                               true,
                                this,
                                this);
       }
@@ -486,14 +488,14 @@ public class SAXParser
                     contentHandler.processingInstruction(target, data);
                   }
                 break;
-              case XMLStreamConstants.START_ENTITY:
+              case XMLParser.START_ENTITY:
                 if (lexicalHandler != null)
                   {
                     String name = reader.getText();
                     lexicalHandler.startEntity(name);
                   }
                 break;
-              case XMLStreamConstants.END_ENTITY:
+              case XMLParser.END_ENTITY:
                 if (lexicalHandler != null)
                   {
                     String name = reader.getText();
@@ -649,24 +651,36 @@ public class SAXParser
                   lexicalHandler.endDTD();
               }
           }
-      }
-    catch (XMLStreamException e)
-      {
-        if (!startDocumentDone && contentHandler != null)
-          contentHandler.startDocument();
-        SAXParseException e2 = new SAXParseException(e.getMessage(), this);
-        e2.initCause(e);
-        if (errorHandler != null)
-          errorHandler.fatalError(e2);
-        if (contentHandler != null)
-          contentHandler.endDocument();
-        throw e2;
-      }
-    finally
-      {
+        reset();
         if (opened)
           in.close();
+      }
+    catch (Exception e)
+      {
+        SAXParseException e2 = new SAXParseException(e.getMessage(), this);
+        e2.initCause(e);
+        try
+          {
+            if (!startDocumentDone && contentHandler != null)
+              contentHandler.startDocument();
+            if (errorHandler != null)
+              errorHandler.fatalError(e2);
+            if (contentHandler != null)
+              contentHandler.endDocument();
+          }
+        catch (SAXException sex)
+          {
+            // Ignored, we will rethrow the original exception.
+          }
         reset();
+        if (opened)
+          in.close();
+        if (e instanceof SAXException)
+          throw (SAXException) e;
+        if (e instanceof IOException)
+          throw (IOException) e;
+        else
+          throw e2;
       }
   }
 
@@ -685,7 +699,7 @@ public class SAXParser
     int ac = reader.getAttributeCount();
     for (int i = 0; i < ac; i++)
       {
-        QName aname = reader.getAttributeQName(i);
+        QName aname = reader.getAttributeName(i);
         if ("space".equals(aname.getLocalPart()) &&
             XMLConstants.XML_NS_URI.equals(aname.getNamespaceURI()))
           {
@@ -726,7 +740,7 @@ public class SAXParser
     int len = reader.getAttributeCount();
     for (int i = 0; i < len; i++)
       {
-        QName q = reader.getAttributeQName(i);
+        QName q = reader.getAttributeName(i);
         String localName = q.getLocalPart();
         String prefix = q.getPrefix();
         String qn = ("".equals(prefix)) ? localName : prefix + ":" + localName;
@@ -741,7 +755,7 @@ public class SAXParser
     int len = reader.getAttributeCount();
     for (int i = 0; i < len; i++)
       {
-        QName q = reader.getAttributeQName(i);
+        QName q = reader.getAttributeName(i);
         String ln = q.getLocalPart();
         String u = q.getNamespaceURI();
         if (u == null && uri != null)
@@ -761,12 +775,12 @@ public class SAXParser
 
   public String getLocalName(int index)
   {
-    return reader.getAttributeName(index);
+    return reader.getAttributeLocalName(index);
   }
 
   public String getQName(int index)
   {
-    QName q = reader.getAttributeQName(index);
+    QName q = reader.getAttributeName(index);
     String localName = q.getLocalPart();
     String prefix = q.getPrefix();
     return ("".equals(prefix)) ? localName : prefix + ":" + localName;
@@ -864,13 +878,14 @@ public class SAXParser
 
   public String getPublicId()
   {
-    return null;
+    Location l = reader.getLocation();
+    return l.getPublicId();
   }
 
   public String getSystemId()
   {
     Location l = reader.getLocation();
-    return l.getLocationURI();
+    return l.getSystemId();
   }
   
   public String getEncoding()
@@ -885,13 +900,8 @@ public class SAXParser
 
   // -- XMLResolver --
   
-  public InputStream resolve(String uri)
-    throws XMLStreamException
-  {
-    return resolve(null, uri);
-  }
-
-  public InputStream resolve(String publicId, String systemId)
+  public Object resolveEntity(String publicId, String systemId,
+                              String baseURI, String namespace)
     throws XMLStreamException
   {
     if (entityResolver != null)
@@ -901,7 +911,16 @@ public class SAXParser
             InputSource input =
               entityResolver.resolveEntity(publicId, systemId);
             if (input != null)
-              return input.getByteStream();
+              {
+                InputStream in = input.getByteStream();
+                if (in == null)
+                  {
+                    String newSystemId = input.getSystemId();
+                    if (newSystemId != null && !newSystemId.equals(systemId))
+                      in = XMLParser.resolve(newSystemId);
+                  }
+                return in;
+              }
           }
         catch (SAXException e)
           {
@@ -957,10 +976,56 @@ public class SAXParser
   public static void main(String[] args)
     throws Exception
   {
-    SAXParser parser = new SAXParser();
-    InputSource input = new InputSource(args[0]);
-    parser.parse(input, new org.xml.sax.helpers.DefaultHandler());
-    
+    boolean validating = false;
+    boolean namespaceAware = false;
+    boolean xIncludeAware = false;
+    boolean expectCallbackClass = false;
+    String callbackClass = null;
+    int pos = 0;
+    while (pos < args.length && (args[pos].startsWith("-") || expectCallbackClass))
+      {
+        if ("-x".equals(args[pos]))
+          xIncludeAware = true;
+        else if ("-v".equals(args[pos]))
+          validating = true;
+        else if ("-n".equals(args[pos]))
+          namespaceAware = true;
+        else if ("-c".equals(args[pos]))
+          expectCallbackClass = true;
+        else if (expectCallbackClass)
+          {
+            callbackClass = args[pos];
+            expectCallbackClass = false;
+          }
+        pos++;
+      }
+    if (pos >= args.length || expectCallbackClass)
+      {
+        System.out.println("Syntax: SAXParser [-n] [-v] [-x] [-c <class>] <file> [<file2> [...]]");
+        System.out.println("\t-n: use namespace aware mode");
+        System.out.println("\t-v: use validating parser");
+        System.out.println("\t-x: use XInclude aware mode");
+        System.out.println("\t-c <class>: use specified class as callback handler (must have a no-arg public constructor)");
+        System.exit(2);
+      }
+    while (pos < args.length)
+      {
+        ContentHandler handler = null;
+        if (callbackClass != null)
+          {
+            Class t = Class.forName(callbackClass);
+            handler = (ContentHandler) t.newInstance();
+          }
+        else
+          handler = new org.xml.sax.helpers.DefaultHandler();
+        SAXParser parser = new SAXParser(validating, namespaceAware,
+                                         xIncludeAware);
+        InputSource input = new InputSource(args[pos]);
+        XMLReader reader = parser.getXMLReader();
+        reader.setContentHandler(handler);
+        reader.parse(input);
+        pos++;
+      }
   }
   
 }

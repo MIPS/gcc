@@ -46,7 +46,7 @@ Boston, MA 02110-1301, USA.  */
    re-distribute it when the conditional expands into multiple conditionals.
    This is however difficult to do.  */
 static void
-add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
+add_reg_br_prob_note (rtx last, int probability)
 {
   if (profile_status == PROFILE_ABSENT)
     return;
@@ -58,7 +58,9 @@ add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
 	if (!any_condjump_p (last)
 	    || !JUMP_P (NEXT_INSN (last))
 	    || !simplejump_p (NEXT_INSN (last))
+	    || !NEXT_INSN (NEXT_INSN (last))
 	    || !BARRIER_P (NEXT_INSN (NEXT_INSN (last)))
+	    || !NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))
 	    || !LABEL_P (NEXT_INSN (NEXT_INSN (NEXT_INSN (last))))
 	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
 	  goto failed;
@@ -191,6 +193,9 @@ alloc_stack_frame_space (HOST_WIDE_INT size, HOST_WIDE_INT align)
       new_frame_offset += size;
     }
   frame_offset = new_frame_offset;
+
+  if (frame_offset_overflow (frame_offset, cfun->decl))
+    frame_offset = offset = 0;
 
   return offset;
 }
@@ -345,10 +350,18 @@ stack_var_size_cmp (const void *a, const void *b)
 {
   HOST_WIDE_INT sa = stack_vars[*(const size_t *)a].size;
   HOST_WIDE_INT sb = stack_vars[*(const size_t *)b].size;
+  unsigned int uida = DECL_UID (stack_vars[*(const size_t *)a].decl);
+  unsigned int uidb = DECL_UID (stack_vars[*(const size_t *)b].decl);
 
   if (sa < sb)
     return -1;
   if (sa > sb)
+    return 1;
+  /* For stack variables of the same size use the uid of the decl
+     to make the sort stable.  */
+  if (uida < uidb)
+    return -1;
+  if (uida > uidb)
     return 1;
   return 0;
 }
@@ -510,7 +523,7 @@ expand_one_stack_var_at (tree decl, HOST_WIDE_INT offset)
 {
   HOST_WIDE_INT align;
   rtx x;
-  
+
   /* If this fails, we've overflowed the stack frame.  Error nicely?  */
   gcc_assert (offset == trunc_int_for_mode (offset, Pmode));
 
@@ -554,7 +567,7 @@ expand_stack_vars (bool (*pred) (tree))
       if (DECL_RTL (stack_vars[i].decl) != pc_rtx)
 	continue;
 
-      /* Check the predicate to see whether this variable should be 
+      /* Check the predicate to see whether this variable should be
 	 allocated in this pass.  */
       if (pred && !pred (stack_vars[i].decl))
 	continue;
@@ -671,7 +684,7 @@ expand_one_error_var (tree var)
   SET_DECL_RTL (var, x);
 }
 
-/* A subroutine of expand_one_var.  VAR is a variable that will be 
+/* A subroutine of expand_one_var.  VAR is a variable that will be
    allocated to the local stack frame.  Return true if we wish to
    add VAR to STACK_VARS so that it will be coalesced with other
    variables.  Return false to allocate VAR immediately.
@@ -696,7 +709,7 @@ defer_stack_allocation (tree var, bool toplevel)
 
   /* Without optimization, *most* variables are allocated from the
      stack, which makes the quadratic problem large exactly when we
-     want compilation to proceed as quickly as possible.  On the 
+     want compilation to proceed as quickly as possible.  On the
      other hand, we don't want the function's stack frame size to
      get completely out of hand.  So we avoid adding scalars and
      "small" aggregates to the list at all.  */
@@ -751,7 +764,12 @@ expand_used_vars_for_block (tree block, bool toplevel)
 
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
-    if (TREE_USED (t))
+    if (TREE_USED (t)
+	/* Force local static variables to be output when marked by
+	   used attribute.  For unit-at-a-time, cgraph code already takes
+	   care of this.  */
+	|| (!flag_unit_at_a_time && TREE_STATIC (t)
+	    && DECL_PRESERVE_P (t)))
       expand_one_var (t, toplevel);
 
   this_sv_num = stack_vars_num;
@@ -761,7 +779,7 @@ expand_used_vars_for_block (tree block, bool toplevel)
     expand_used_vars_for_block (t, false);
 
   /* Since we do not track exact variable lifetimes (which is not even
-     possible for varibles whose address escapes), we mirror the block
+     possible for variables whose address escapes), we mirror the block
      tree in the interference graph.  Here we cause all variables at this
      level, and all sublevels, to conflict.  Do make certain that a
      variable conflicts with itself.  */
@@ -998,16 +1016,16 @@ expand_used_vars (void)
   if (stack_vars_num > 0)
     {
       /* Due to the way alias sets work, no variables with non-conflicting
-	 alias sets may be assigned the same address.  Add conflicts to 
+	 alias sets may be assigned the same address.  Add conflicts to
 	 reflect this.  */
       add_alias_set_conflicts ();
 
-      /* If stack protection is enabled, we don't share space between 
+      /* If stack protection is enabled, we don't share space between
 	 vulnerable data and non-vulnerable data.  */
       if (flag_stack_protect)
 	add_stack_protection_conflicts ();
 
-      /* Now that we have collected all stack variables, and have computed a 
+      /* Now that we have collected all stack variables, and have computed a
 	 minimal interference graph, attempt to save some stack space.  */
       partition_stack_vars ();
       if (dump_file)
@@ -1026,7 +1044,7 @@ expand_used_vars (void)
     {
       /* Reorder decls to be protected by iterating over the variables
 	 array multiple times, and allocating out of each phase in turn.  */
-      /* ??? We could probably integrate this into the qsort we did 
+      /* ??? We could probably integrate this into the qsort we did
 	 earlier, such that we naturally see these variables first,
 	 and thus naturally allocate things in the right order.  */
       if (has_protected_decls)
@@ -1113,7 +1131,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   if (TREE_CODE (then_exp) == GOTO_EXPR && IS_EMPTY_STMT (else_exp))
     {
       jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
-      add_reg_br_prob_note (dump_file, last, true_edge->probability);
+      add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (EXPR_LOCUS (then_exp))
 	emit_line_note (*(EXPR_LOCUS (then_exp)));
@@ -1122,7 +1140,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
     {
       jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
-      add_reg_br_prob_note (dump_file, last, false_edge->probability);
+      add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (EXPR_LOCUS (else_exp))
 	emit_line_note (*(EXPR_LOCUS (else_exp)));
@@ -1132,7 +1150,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 	      && TREE_CODE (else_exp) == GOTO_EXPR);
 
   jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
-  add_reg_br_prob_note (dump_file, last, true_edge->probability);
+  add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
   expand_expr (else_exp, const0_rtx, VOIDmode, 0);
 
@@ -1155,7 +1173,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   update_bb_for_insn (new_bb);
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
-  
+
   if (EXPR_LOCUS (else_exp))
     emit_line_note (*(EXPR_LOCUS (else_exp)));
 
@@ -1218,9 +1236,9 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 	      e->dest->count -= e->count;
 	      e->dest->frequency -= EDGE_FREQUENCY (e);
 	      if (e->dest->count < 0)
-	        e->dest->count = 0;
+		e->dest->count = 0;
 	      if (e->dest->frequency < 0)
-	        e->dest->frequency = 0;
+		e->dest->frequency = 0;
 	    }
 	  count += e->count;
 	  probability += e->probability;
@@ -1272,7 +1290,7 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
-expand_gimple_basic_block (basic_block bb, FILE * dump_file)
+expand_gimple_basic_block (basic_block bb)
 {
   block_stmt_iterator bsi = bsi_start (bb);
   tree stmt = NULL;
@@ -1300,7 +1318,7 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       expand_expr_stmt (stmt);
 
       /* Java emits line number notes in the top of labels.
-         ??? Make this go away once line number notes are obsoleted.  */
+	 ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
@@ -1320,8 +1338,8 @@ expand_gimple_basic_block (basic_block bb, FILE * dump_file)
       e->flags &= ~EDGE_EXECUTABLE;
 
       /* At the moment not all abnormal edges match the RTL representation.
-         It is safe to remove them here as find_many_sub_basic_blocks will
-         rediscover them.  In the future we should get this fixed properly.  */
+	 It is safe to remove them here as find_many_sub_basic_blocks will
+	 rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
       else
@@ -1489,7 +1507,7 @@ construct_exit_block (void)
   FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
     if (e2 != e)
       {
-        e->count -= e2->count;
+	e->count -= e2->count;
 	exit_block->count -= e2->count;
 	exit_block->frequency -= EDGE_FREQUENCY (e2);
       }
@@ -1502,7 +1520,7 @@ construct_exit_block (void)
   update_bb_for_insn (exit_block);
 }
 
-/* Helper function for discover_nonconstant_array_refs. 
+/* Helper function for discover_nonconstant_array_refs.
    Look for ARRAY_REF nodes with non-constant indexes and mark them
    addressable.  */
 
@@ -1572,11 +1590,13 @@ discover_nonconstant_array_refs (void)
    confuse the CFG hooks, so be careful to not manipulate CFG during
    the expansion.  */
 
-static void
+static unsigned int
 tree_expand_cfg (void)
 {
   basic_block bb, init_block;
   sbitmap blocks;
+  edge_iterator ei;
+  edge e;
 
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
@@ -1620,8 +1640,13 @@ tree_expand_cfg (void)
 
   init_block = construct_init_block ();
 
+  /* Clear EDGE_EXECUTABLE on the entry edge(s).  It is cleaned from the
+     remaining edges in expand_gimple_basic_block.  */
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+    e->flags &= ~EDGE_EXECUTABLE;
+
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
-    bb = expand_gimple_basic_block (bb, dump_file);
+    bb = expand_gimple_basic_block (bb);
 
   construct_exit_block ();
 
@@ -1665,15 +1690,15 @@ tree_expand_cfg (void)
 
   /* If we're emitting a nested function, make sure its parent gets
      emitted as well.  Doing otherwise confuses debug info.  */
-  {   
+  {
     tree parent;
     for (parent = DECL_CONTEXT (current_function_decl);
-         parent != NULL_TREE;
-         parent = get_containing_scope (parent))
+	 parent != NULL_TREE;
+	 parent = get_containing_scope (parent))
       if (TREE_CODE (parent) == FUNCTION_DECL)
-        TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
+	TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (parent)) = 1;
   }
-    
+
   /* We are now committed to emitting code for this function.  Do any
      preparation, such as emitting abstract debug info for the inline
      before it gets mangled by optimization.  */
@@ -1685,21 +1710,22 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
+  return 0;
 }
 
 struct tree_opt_pass pass_expand =
 {
-  "expand",		                /* name */
+  "expand",				/* name */
   NULL,                                 /* gate */
-  tree_expand_cfg,	                /* execute */
+  tree_expand_cfg,			/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_EXPAND,		                /* tv_id */
+  TV_EXPAND,				/* tv_id */
   /* ??? If TER is enabled, we actually receive GENERIC.  */
   PROP_gimple_leh | PROP_cfg,           /* properties_required */
   PROP_rtl,                             /* properties_provided */
-  PROP_gimple_leh,			/* properties_destroyed */
+  PROP_trees,				/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'r'					/* letter */

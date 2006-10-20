@@ -1,5 +1,5 @@
 /* Glue to interface gcj with bytecode verifier.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -252,8 +252,7 @@ char
 vfy_get_primitive_char (vfy_jclass klass)
 {
   tree sig;
-  if (! vfy_is_primitive (klass))
-    abort ();
+  gcc_assert (vfy_is_primitive (klass));
   sig = build_java_signature (klass);
   return (IDENTIFIER_POINTER (sig))[0];
 }
@@ -296,8 +295,7 @@ vfy_jclass
 vfy_get_component_type (vfy_jclass klass)
 {
   vfy_jclass k;
-  if (! vfy_is_array (klass))
-    abort ();
+  gcc_assert (vfy_is_array (klass));
   k = TYPE_ARRAY_ELEMENT (klass);
   if (TREE_CODE (k) == POINTER_TYPE)
     k = TREE_TYPE (k);
@@ -328,6 +326,12 @@ vfy_object_type (void)
   vfy_jclass k;
   k = object_type_node;
   return k;
+}
+
+vfy_jclass
+vfy_class_type (void)
+{
+  return class_type_node;
 }
 
 vfy_jclass

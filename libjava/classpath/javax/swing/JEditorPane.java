@@ -1,5 +1,5 @@
 /* JEditorPane.java --
-   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006,  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.awt.Container;
 import java.awt.Dimension;
 import java.io.IOException;
 import java.io.InputStream;
@@ -537,8 +538,8 @@ public class JEditorPane extends JTextComponent
 
   public JEditorPane(URL url) throws IOException
   {
-    init ();
-    setEditorKit (createEditorKitForContentType("text/html"));;
+    init();
+    setEditorKit(createEditorKitForContentType("text/html"));;
     setPage(url);
   }
   
@@ -580,7 +581,7 @@ public class JEditorPane extends JTextComponent
     // TODO: Have to handle the case where a ClassLoader was specified
     // when the EditorKit was registered
     EditorKit e = null;
-    String className = (String)registerMap.get(type);
+    String className = (String) registerMap.get(type);
     if (className != null)
       {
         try
@@ -682,27 +683,59 @@ public class JEditorPane extends JTextComponent
   }
 
   /**
-   * Returns the preferred size for the JEditorPane.  
+   * Returns the preferred size for the JEditorPane. This is implemented to
+   * return the super's preferred size, unless one of
+   * {@link #getScrollableTracksViewportHeight()} or
+   * {@link #getScrollableTracksViewportWidth()} returns <code>true</code>,
+   * in which case the preferred width and/or height is replaced by the UI's
+   * minimum size.
+   *
+   * @return the preferred size for the JEditorPane
    */
   public Dimension getPreferredSize()
   {
-    return super.getPreferredSize();
+    Dimension pref = super.getPreferredSize();
+    if (getScrollableTracksViewportWidth())
+      pref.width = getUI().getMinimumSize(this).width;
+    if (getScrollableTracksViewportHeight())
+      pref.height = getUI().getMinimumSize(this).height;
+    return pref;
   }
 
+  /**
+   * Returns <code>true</code> when a Viewport should force the height of
+   * this component to match the viewport height. This is implemented to return
+   * <code>true</code> when  the parent is an instance of JViewport and
+   * the viewport height > the UI's minimum height.
+   *
+   * @return <code>true</code> when a Viewport should force the height of
+   *         this component to match the viewport height
+   */
   public boolean getScrollableTracksViewportHeight()
   {
-  /*  Container parent = getParent();
-    return (parent instanceof JViewport &&
-        parent.isValid());*/
-    return isValid();
+    // Tests show that this returns true when the parent is a JViewport
+    // and has a height > minimum UI height.
+    Container parent = getParent();
+    return parent instanceof JViewport
+           && parent.getHeight() > getUI().getMinimumSize(this).height;
   }
 
+  /**
+   * Returns <code>true</code> when a Viewport should force the width of
+   * this component to match the viewport width. This is implemented to return
+   * <code>true</code> when  the parent is an instance of JViewport and
+   * the viewport width > the UI's minimum width.
+   *
+   * @return <code>true</code> when a Viewport should force the width of
+   *         this component to match the viewport width
+   */
   public boolean getScrollableTracksViewportWidth()
   {
-    /*Container parent = getParent();
-    return (parent instanceof JViewport &&
-        parent.isValid());*/
-    return isValid();
+    // Tests show that this returns true when the parent is a JViewport
+    // and has a width > minimum UI width.
+    Container parent = getParent();
+    return parent != null && parent instanceof JViewport
+           && parent.getWidth() > getUI().getMinimumSize(this).width;
   }
 
   public URL getPage()
@@ -893,7 +926,7 @@ public class JEditorPane extends JTextComponent
       // Remove the current content.
       Document doc = getDocument();
       doc.remove(0, doc.getLength());
-      if (t == null || t == "")
+      if (t == null || t.equals(""))
         return;
       
       // Let the EditorKit read the text into the Document.

@@ -161,7 +161,7 @@ public class Popup
       super(owner, contents, x, y);
 
       this.contents = contents;
-      window = new JWindow();
+      window = new JWindow(SwingUtilities.getWindowAncestor(owner));
       window.getContentPane().add(contents);
       window.setLocation(x, y);
       window.setFocusableWindowState(false);
@@ -285,6 +285,7 @@ public class Popup
       Point layeredPaneLoc = layeredPane.getLocationOnScreen();
       panel.setLocation(x - layeredPaneLoc.x, y - layeredPaneLoc.y);
       layeredPane.add(panel, JLayeredPane.POPUP_LAYER);
+      panel.repaint();
     }
 
     /**

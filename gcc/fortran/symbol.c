@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "parse.h"
 
@@ -251,6 +252,13 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 
 #define conf(a, b) if (attr->a && attr->b) { a1 = a; a2 = b; goto conflict; }
 #define conf2(a) if (attr->a) { a2 = a; goto conflict; }
+#define conf_std(a, b, std) if (attr->a && attr->b)\
+                              {\
+                                a1 = a;\
+                                a2 = b;\
+                                standard = std;\
+                                goto conflict_std;\
+                              }
 
 static try
 check_conflict (symbol_attribute * attr, const char * name, locus * where)
@@ -265,8 +273,10 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
     *use_assoc = "USE ASSOCIATED", *cray_pointer = "CRAY POINTER",
     *cray_pointee = "CRAY POINTEE", *data = "DATA";
+  static const char *threadprivate = "THREADPRIVATE";
 
   const char *a1, *a2;
+  int standard;
 
   if (where == NULL)
     where = &gfc_current_locus;
@@ -308,10 +318,12 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     }
 
   conf (dummy, save);
+  conf (dummy, threadprivate);
   conf (pointer, target);
   conf (pointer, external);
   conf (pointer, intrinsic);
   conf (pointer, elemental);
+  conf (allocatable, elemental);
 
   conf (target, external);
   conf (target, intrinsic);
@@ -326,9 +338,9 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
     }
 
   conf (allocatable, pointer);
-  conf (allocatable, dummy);	/* TODO: Allowed in Fortran 200x.  */
-  conf (allocatable, function);	/* TODO: Allowed in Fortran 200x.  */
-  conf (allocatable, result);	/* TODO: Allowed in Fortran 200x.  */
+  conf_std (allocatable, dummy, GFC_STD_F2003);
+  conf_std (allocatable, function, GFC_STD_F2003);
+  conf_std (allocatable, result, GFC_STD_F2003);
   conf (elemental, recursive);
 
   conf (in_common, dummy);
@@ -347,6 +359,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (in_equivalence, result);
   conf (in_equivalence, entry);
   conf (in_equivalence, allocatable);
+  conf (in_equivalence, threadprivate);
 
   conf (in_namelist, pointer);
   conf (in_namelist, allocatable);
@@ -373,14 +386,12 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (cray_pointee, optional);
   conf (cray_pointee, dummy);
   conf (cray_pointee, target);
-  conf (cray_pointee, external);
   conf (cray_pointee, intrinsic);
   conf (cray_pointee, pointer);
-  conf (cray_pointee, function);
-  conf (cray_pointee, subroutine);
   conf (cray_pointee, entry);
   conf (cray_pointee, in_common);
   conf (cray_pointee, in_equivalence);
+  conf (cray_pointee, threadprivate);
 
   conf (data, dummy);
   conf (data, function);
@@ -417,6 +428,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (optional);
       conf2 (function);
       conf2 (subroutine);
+      conf2 (threadprivate);
       break;
 
     case FL_VARIABLE:
@@ -435,6 +447,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 	  conf2(result);
 	  conf2(in_namelist);
 	  conf2(function);
+	  conf2(threadprivate);
 	}
 
       switch (attr->proc)
@@ -452,6 +465,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 	  conf2 (result);
 	  conf2 (in_common);
 	  conf2 (save);
+	  conf2 (threadprivate);
 	  break;
 
 	default:
@@ -472,6 +486,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (entry);
       conf2 (function);
       conf2 (subroutine);
+      conf2 (threadprivate);
 
       if (attr->intent != INTENT_UNKNOWN)
 	{
@@ -493,6 +508,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (dummy);
       conf2 (in_common);
       conf2 (save);
+      conf2 (threadprivate);
       break;
 
     default:
@@ -510,10 +526,25 @@ conflict:
 	       a1, a2, name, where);
 
   return FAILURE;
+
+conflict_std:
+  if (name == NULL)
+    {
+      return gfc_notify_std (standard, "In the selected standard, %s attribute "
+                             "conflicts with %s attribute at %L", a1, a2,
+                             where);
+    }
+  else
+    {
+      return gfc_notify_std (standard, "In the selected standard, %s attribute "
+                             "conflicts with %s attribute in '%s' at %L",
+                             a1, a2, name, where);
+    }
 }
 
 #undef conf
 #undef conf2
+#undef conf_std
 
 
 /* Mark a symbol as referenced.  */
@@ -595,7 +626,8 @@ duplicate_attr (const char *attr, locus * where)
 /* Called from decl.c (attr_decl1) to check attributes, when declared separately.  */
 
 try
-gfc_add_attribute (symbol_attribute * attr, locus * where, uint attr_intent)
+gfc_add_attribute (symbol_attribute * attr, locus * where,
+		   unsigned int attr_intent)
 {
 
   if (check_used (attr, NULL, where)
@@ -777,6 +809,23 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
     }
 
   attr->save = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+try
+gfc_add_threadprivate (symbol_attribute * attr, const char *name, locus * where)
+{
+  if (check_used (attr, name, where))
+    return FAILURE;
+
+  if (attr->threadprivate)
+    {
+      duplicate_attr ("THREADPRIVATE", where);
+      return FAILURE;
+    }
+
+  attr->threadprivate = 1;
   return check_conflict (attr, name, where);
 }
 
@@ -1130,9 +1179,18 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 
   if (sym->ts.type != BT_UNKNOWN)
     {
-      gfc_error ("Symbol '%s' at %L already has basic type of %s", sym->name,
-		 where, gfc_basic_typename (sym->ts.type));
-      return FAILURE;
+      const char *msg = "Symbol '%s' at %L already has basic type of %s";
+      if (!(sym->ts.type == ts->type
+	     && (sym->attr.flavor == FL_PROCEDURE || sym->attr.result))
+	   || gfc_notification_std (GFC_STD_GNU) == ERROR
+	   || pedantic)
+	{
+	  gfc_error (msg, sym->name, where, gfc_basic_typename (sym->ts.type));
+	  return FAILURE;
+	}
+      else if (gfc_notify_std (GFC_STD_GNU, msg, sym->name, where,
+			       gfc_basic_typename (sym->ts.type)) == FAILURE)
+	  return FAILURE;
     }
 
   flavor = sym->attr.flavor;
@@ -1190,6 +1248,8 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
   if (src->pointer && gfc_add_pointer (dest, where) == FAILURE)
     goto fail;
   if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
+    goto fail;
+  if (src->threadprivate && gfc_add_threadprivate (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->target && gfc_add_target (dest, where) == FAILURE)
     goto fail;
@@ -1463,6 +1523,7 @@ gfc_set_component_attr (gfc_component * c, symbol_attribute * attr)
 
   c->dimension = attr->dimension;
   c->pointer = attr->pointer;
+  c->allocatable = attr->allocatable;
 }
 
 
@@ -1476,6 +1537,7 @@ gfc_get_component_attr (symbol_attribute * attr, gfc_component * c)
   gfc_clear_attr (attr);
   attr->dimension = c->dimension;
   attr->pointer = c->pointer;
+  attr->allocatable = c->allocatable;
 }
 
 
@@ -2395,6 +2457,31 @@ gfc_free_dt_list (gfc_dt_list * dt)
 }
 
 
+/* Free the gfc_equiv_info's.  */
+
+static void
+gfc_free_equiv_infos (gfc_equiv_info * s)
+{
+  if (s == NULL)
+    return;
+  gfc_free_equiv_infos (s->next);
+  gfc_free (s);
+}
+
+
+/* Free the gfc_equiv_lists.  */
+
+static void
+gfc_free_equiv_lists (gfc_equiv_list * l)
+{
+  if (l == NULL)
+    return;
+  gfc_free_equiv_lists (l->next);
+  gfc_free_equiv_infos (l->equiv);
+  gfc_free (l);
+}
+
+
 /* Free a namespace structure and everything below it.  Interface
    lists associated with intrinsic operators are not freed.  These are
    taken care of when a specific name is freed.  */
@@ -2430,6 +2517,7 @@ gfc_free_namespace (gfc_namespace * ns)
   free_st_labels (ns->st_labels);
 
   gfc_free_equiv (ns->equiv);
+  gfc_free_equiv_lists (ns->equiv_lists);
 
   gfc_free_dt_list (ns->derived_types);
 

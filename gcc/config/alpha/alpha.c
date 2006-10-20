@@ -235,6 +235,21 @@ alpha_handle_option (size_t code, const char *arg, int value)
   return true;
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+alpha_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* Parse target option strings.  */
 
 void
@@ -501,6 +516,11 @@ override_options (void)
       REAL_MODE_FORMAT (DFmode) = &vax_g_format;
       REAL_MODE_FORMAT (TFmode) = NULL;
     }
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -2104,9 +2124,12 @@ alpha_legitimate_constant_p (rtx x)
     {
     case CONST:
     case LABEL_REF:
-    case SYMBOL_REF:
     case HIGH:
       return true;
+
+    case SYMBOL_REF:
+      /* TLS symbols are never valid.  */
+      return SYMBOL_REF_TLS_MODEL (x) == 0;
 
     case CONST_DOUBLE:
       if (x == CONST0_RTX (mode))
@@ -7387,6 +7410,7 @@ alpha_does_function_need_gp (void)
 
   for (; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn)
+	&& ! JUMP_TABLE_DATA_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
 	&& GET_CODE (PATTERN (insn)) != CLOBBER
 	&& get_attr_usegp (insn))
@@ -7812,6 +7836,10 @@ alpha_start_function (FILE *file, const char *fnname,
   HOST_WIDE_INT sa_size;
   /* Complete stack size needed.  */
   unsigned HOST_WIDE_INT frame_size;
+  /* The maximum debuggable frame size (512 Kbytes using Tru64 as).  */
+  unsigned HOST_WIDE_INT max_frame_size = TARGET_ABI_OSF && !TARGET_GAS
+					  ? 524288
+					  : 1UL << 31;
   /* Offset from base reg to register save area.  */
   HOST_WIDE_INT reg_offset;
   char *entry_label = (char *) alloca (strlen (fnname) + 6);
@@ -7936,7 +7964,7 @@ alpha_start_function (FILE *file, const char *fnname,
     fprintf (file, "\t.frame $%d," HOST_WIDE_INT_PRINT_DEC ",$26,%d\n",
 	     (frame_pointer_needed
 	      ? HARD_FRAME_POINTER_REGNUM : STACK_POINTER_REGNUM),
-	     frame_size >= (1UL << 31) ? 0 : frame_size,
+	     frame_size >= max_frame_size ? 0 : frame_size,
 	     current_function_pretend_args_size);
 
   /* Describe which registers were spilled.  */
@@ -7958,7 +7986,7 @@ alpha_start_function (FILE *file, const char *fnname,
       if (imask)
 	{
 	  fprintf (file, "\t.mask 0x%lx," HOST_WIDE_INT_PRINT_DEC "\n", imask,
-		   frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
+		   frame_size >= max_frame_size ? 0 : reg_offset - frame_size);
 
 	  for (i = 0; i < 32; ++i)
 	    if (imask & (1UL << i))
@@ -7967,7 +7995,7 @@ alpha_start_function (FILE *file, const char *fnname,
 
       if (fmask)
 	fprintf (file, "\t.fmask 0x%lx," HOST_WIDE_INT_PRINT_DEC "\n", fmask,
-		 frame_size >= (1UL << 31) ? 0 : reg_offset - frame_size);
+		 frame_size >= max_frame_size ? 0 : reg_offset - frame_size);
     }
 
 #if TARGET_ABI_OPEN_VMS
@@ -10721,6 +10749,11 @@ alpha_init_libfuncs (void)
   (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION alpha_handle_option
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE alpha_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

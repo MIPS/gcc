@@ -40,6 +40,7 @@ exception statement from your version. */
 #define _JAVANET_LOADED 
 
 #include <jni.h>
+#include "jcl.h"
 
 /*************************************************************************/
 
@@ -50,6 +51,7 @@ exception statement from your version. */
 /* Exception Classes */
 #define BIND_EXCEPTION "java/net/BindException"
 #define IO_EXCEPTION "java/io/IOException"
+#define CONNECT_EXCEPTION "java/net/ConnectException"
 #define SOCKET_EXCEPTION "java/net/SocketException"
 #define UNKNOWN_HOST_EXCEPTION "java/net/UnknownHostException"
 
@@ -68,19 +70,6 @@ exception statement from your version. */
 
 /* Internal option identifiers. Not needed for JDK compatibility */
 #define SOCKOPT_IP_TTL 7777
-
-/*************************************************************************/
-
-/*
- * Macros
- */
-
-/* Simple debug macro */
-#ifdef DEBUG
-#define DBG(x) fprintf(stderr, (x));
-#else
-#define DBG(x)
-#endif
 
 /*************************************************************************/
 

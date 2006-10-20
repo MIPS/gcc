@@ -25,7 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <cpplib.h> /* For enum cpp_ttype.  */
 
 /* Pragma identifiers built in to the front end parsers.  Identifiers
-   for anciliary handlers will follow these.  */
+   for ancillary handlers will follow these.  */
 typedef enum pragma_kind {
   PRAGMA_NONE = 0,
 
@@ -75,6 +75,8 @@ extern struct cpp_reader* parse_in;
    visibility is not supported on the host OS platform the
    statements are ignored.  */
 #define HANDLE_PRAGMA_VISIBILITY 1
+extern void push_visibility (const char *);
+extern void pop_visibility (void);
 
 extern void init_pragma (void);
 
@@ -97,7 +99,7 @@ extern enum cpp_ttype pragma_lex (tree *);
    having enum cpp_ttype declared.  */
 extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
 
-/* If 1, then lex strings into the execution character set.  
+/* If 1, then lex strings into the execution character set.
    If 0, lex strings into the host character set.
    If -1, lex both, and chain them together, such that the former
    is the TREE_CHAIN of the latter.  */

@@ -74,8 +74,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
       // Data Member (public):
-      // NB: This is an unsigned type, and thus represents the maximum
-      // size that the allocator can hold.
       ///  Value returned by various member functions when they fail.
       static const size_type	npos = static_cast<size_type>(-1);
 
@@ -409,7 +407,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
        */
       void
       clear()
-      { this->_M_erase(size_type(0), this->size()); }
+      { this->_M_clear(); }
 
       /**
        *  Returns true if the %string is empty.  Equivalent to *this == "".
@@ -449,7 +447,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < this->size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < this->size());
 	this->_M_leak();
 	return this->_M_data()[__pos];
       }
@@ -1362,7 +1363,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       /**
        *  @brief  Find last position of a C string.
        *  @param s  C string to locate.
-       *  @param pos  Index of character to start search at (default 0).
+       *  @param pos  Index of character to start search at (default end).
        *  @return  Index of start of  last occurrence.
        *
        *  Starting from @a pos, searches backward for the value of @a s within
@@ -1379,7 +1380,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.

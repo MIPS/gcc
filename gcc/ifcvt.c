@@ -1,5 +1,5 @@
 /* If-conversion support.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -153,14 +153,16 @@ cheap_bb_rtx_cost_p (basic_block bb, int max_cost)
 
 	  /* If this instruction is the load or set of a "stack" register,
 	     such as a floating point register on x87, then the cost of
-	     speculatively executing this instruction needs to include
-	     the additional cost of popping this register off of the
-	     register stack.  */
+	     speculatively executing this insn may need to include
+	     the additional cost of popping its result off of the
+	     register stack.  Unfortunately, correctly recognizing and
+	     accounting for this additional overhead is tricky, so for
+	     now we simply prohibit such speculative execution.  */
 #ifdef STACK_REGS
 	  {
 	    rtx set = single_set (insn);
 	    if (set && STACK_REG_P (SET_DEST (set)))
-	      cost += COSTS_N_INSNS (1);
+	      return false;
 	  }
 #endif
 
@@ -702,47 +704,76 @@ noce_emit_move_insn (rtx x, rtx y)
       end_sequence();
 
       if (recog_memoized (insn) <= 0)
-	switch (GET_RTX_CLASS (GET_CODE (y)))
-	  {
-	  case RTX_UNARY:
-	    ot = code_to_optab[GET_CODE (y)];
-	    if (ot)
-	      {
-		start_sequence ();
-		target = expand_unop (GET_MODE (y), ot, XEXP (y, 0), x, 0);
-		if (target != NULL_RTX)
-		  {
-		    if (target != x)
-		      emit_move_insn (x, target);
-		    seq = get_insns ();
-		  }
-		end_sequence ();
-	      }
-	    break;
+	{
+	  if (GET_CODE (x) == ZERO_EXTRACT)
+	    {
+	      rtx op = XEXP (x, 0);
+	      unsigned HOST_WIDE_INT size = INTVAL (XEXP (x, 1));
+	      unsigned HOST_WIDE_INT start = INTVAL (XEXP (x, 2));
 
-	  case RTX_BIN_ARITH:
-	  case RTX_COMM_ARITH:
-	    ot = code_to_optab[GET_CODE (y)];
-	    if (ot)
-	      {
-		start_sequence ();
-		target = expand_binop (GET_MODE (y), ot,
-				       XEXP (y, 0), XEXP (y, 1),
-				       x, 0, OPTAB_DIRECT);
-		if (target != NULL_RTX)
-		  {
-		    if (target != x)
-		      emit_move_insn (x, target);
-		    seq = get_insns ();
-		  }
-		end_sequence ();
-	      }
-	    break;
+	      /* store_bit_field expects START to be relative to 
+		 BYTES_BIG_ENDIAN and adjusts this value for machines with 
+		 BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN.  In order to be able to 
+		 invoke store_bit_field again it is necessary to have the START
+		 value from the first call.  */
+	      if (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+		{
+		  if (MEM_P (op))
+		    start = BITS_PER_UNIT - start - size;
+		  else
+		    {
+		      gcc_assert (REG_P (op));
+		      start = BITS_PER_WORD - start - size;
+		    }
+		}
 
-	  default:
-	    break;
-	  }
+	      gcc_assert (start < (MEM_P (op) ? BITS_PER_UNIT : BITS_PER_WORD));
+	      store_bit_field (op, size, start, GET_MODE (x), y);
+	      return;
+	    }
 
+	  switch (GET_RTX_CLASS (GET_CODE (y)))
+	    {
+	    case RTX_UNARY:
+	      ot = code_to_optab[GET_CODE (y)];
+	      if (ot)
+		{
+		  start_sequence ();
+		  target = expand_unop (GET_MODE (y), ot, XEXP (y, 0), x, 0);
+		  if (target != NULL_RTX)
+		    {
+		      if (target != x)
+			emit_move_insn (x, target);
+		      seq = get_insns ();
+		    }
+		  end_sequence ();
+		}
+	      break;
+	      
+	    case RTX_BIN_ARITH:
+	    case RTX_COMM_ARITH:
+	      ot = code_to_optab[GET_CODE (y)];
+	      if (ot)
+		{
+		  start_sequence ();
+		  target = expand_binop (GET_MODE (y), ot,
+					 XEXP (y, 0), XEXP (y, 1),
+					 x, 0, OPTAB_DIRECT);
+		  if (target != NULL_RTX)
+		    {
+		      if (target != x)
+			  emit_move_insn (x, target);
+		      seq = get_insns ();
+		    }
+		  end_sequence ();
+		}
+	      break;
+	      
+	    default:
+	      break;
+	    }
+	}
+      
       emit_insn (seq);
       return;
     }
@@ -2231,6 +2262,12 @@ noce_process_if_block (struct ce_if_block * ce_info)
     {
       if (no_new_pseudos || GET_MODE (x) == BLKmode)
 	return FALSE;
+
+      if (GET_MODE (x) == ZERO_EXTRACT 
+	  && (GET_CODE (XEXP (x, 1)) != CONST_INT 
+	      || GET_CODE (XEXP (x, 2)) != CONST_INT))
+	return FALSE;
+	  
       x = gen_reg_rtx (GET_MODE (GET_CODE (x) == STRICT_LOW_PART
 				 ? XEXP (x, 0) : x));
     }
@@ -2387,7 +2424,7 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
       src = SET_SRC (set);
       if (!REG_P (dest)
 	  || (SMALL_REGISTER_CLASSES && HARD_REGISTER_P (dest)))
-	return false;
+	return FALSE;
 
       if (!CONSTANT_P (src) && !register_operand (src, VOIDmode))
 	return FALSE;
@@ -2396,6 +2433,14 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
 	return FALSE;
 
       if (may_trap_p (src) || may_trap_p (dest))
+	return FALSE;
+
+      /* Don't try to handle this if the source register was
+	 modified earlier in the block.  */
+      if ((REG_P (src)
+	   && vals[REGNO (src)] != NULL)
+	  || (GET_CODE (src) == SUBREG && REG_P (SUBREG_REG (src))
+	      && vals[REGNO (SUBREG_REG (src))] != NULL))
 	return FALSE;
 
       /* Don't try to handle this if the destination register was
@@ -3523,6 +3568,13 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
   head = BB_HEAD (merge_bb);
   end = BB_END (merge_bb);
 
+  /* If merge_bb ends with a tablejump, predicating/moving insn's
+     into test_bb and then deleting merge_bb will result in the jumptable
+     that follows merge_bb being removed along with merge_bb and then we
+     get an unresolved reference to the jumptable.  */
+  if (tablejump_p (end, NULL, NULL))
+    return FALSE;
+
   if (LABEL_P (head))
     head = NEXT_INSN (head);
   if (NOTE_P (head))
@@ -3896,13 +3948,13 @@ gate_handle_if_conversion (void)
 }
 
 /* If-conversion and CFG cleanup.  */
-static void
+static unsigned int
 rest_of_handle_if_conversion (void)
 {
   if (flag_if_conversion)
     {
       if (dump_file)
-        dump_flow_info (dump_file);
+        dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num ());
       if_convert (0);
@@ -3912,6 +3964,7 @@ rest_of_handle_if_conversion (void)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
   timevar_pop (TV_JUMP);
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_ifcvt =
@@ -3940,12 +3993,13 @@ gate_handle_if_after_combine (void)
 
 /* Rerun if-conversion, as combine may have simplified things enough
    to now meet sequence length restrictions.  */
-static void
+static unsigned int
 rest_of_handle_if_after_combine (void)
 {
   no_new_pseudos = 0;
   if_convert (1);
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_if_after_combine =
@@ -3973,7 +4027,7 @@ gate_handle_if_after_reload (void)
   return (optimize > 0);
 }
 
-static void
+static unsigned int
 rest_of_handle_if_after_reload (void)
 {
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
@@ -3983,6 +4037,7 @@ rest_of_handle_if_after_reload (void)
                | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
   if (flag_if_conversion2)
     if_convert (1);
+  return 0;
 }
 
 

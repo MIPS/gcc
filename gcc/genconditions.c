@@ -87,7 +87,8 @@ write_header (void)
 #include \"hard-reg-set.h\"\n\
 #include \"resource.h\"\n\
 #include \"toplev.h\"\n\
-#include \"reload.h\"\n");
+#include \"reload.h\"\n\
+#include \"tm-constrs.h\"\n");
 
   if (saw_eh_return)
     puts ("#define HAVE_eh_return 1");
@@ -160,12 +161,12 @@ struct c_test\n\
    vary at run time.  It works in 3.0.1 and later; 3.0 only when not\n\
    optimizing.  */\n\
 \n\
-static const struct c_test insn_conditions[] = {\n\
-#if GCC_VERSION >= 3001\n");
+#if GCC_VERSION >= 3001\n\
+static const struct c_test insn_conditions[] = {\n");
 
   traverse_c_tests (write_one_condition, 0);
 
-  puts ("\n#endif /* gcc >= 3.0.1 */\n};\n");
+  puts ("\n};\n#endif /* gcc >= 3.0.1 */\n");
 }
 
 /* Emit code which will convert the C-format table to a
@@ -181,6 +182,7 @@ write_writer (void)
 	"  unsigned int i;\n"
         "  const char *p;\n"
         "  puts (\"(define_conditions [\");\n"
+	"#if GCC_VERSION >= 3001\n"
 	"  for (i = 0; i < ARRAY_SIZE (insn_conditions); i++)\n"
 	"    {\n"
 	"      printf (\"  (%d \\\"\", insn_conditions[i].value);\n"
@@ -196,6 +198,7 @@ write_writer (void)
 	"        }\n"
         "      puts (\"\\\")\");\n"
         "    }\n"
+	"#endif /* gcc >= 3.0.1 */\n"
 	"  puts (\"])\");\n"
         "  fflush (stdout);\n"
         "return ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE;\n"

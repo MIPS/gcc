@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -59,33 +59,62 @@ typedef pthread_mutex_t __gthread_recursive_mutex_t;
 #endif
 
 #if SUPPORTS_WEAK && GTHREAD_USE_WEAK
-# define __gthrw(name) \
-  static __typeof(name) __gthrw_ ## name __attribute__ ((__weakref__(#name)));
+# define __gthrw2(name,name2,type) \
+  static __typeof(type) name __attribute__ ((__weakref__(#name2)));
 # define __gthrw_(name) __gthrw_ ## name
 #else
-# define __gthrw(name)
+# define __gthrw2(name,name2,type)
 # define __gthrw_(name) name
 #endif
 
+/* Typically, __gthrw_foo is a weak reference to symbol foo.  */
+#define __gthrw(name) __gthrw2(__gthrw_ ## name,name,name)
+
+/* On Tru64, /usr/include/pthread.h uses #pragma extern_prefix "__" to
+   map a subset of the POSIX pthread API to mangled versions of their
+   names.  */
+#if defined(__osf__) && defined(_PTHREAD_USE_MANGLED_NAMES_)
+#define __gthrw3(name) __gthrw2(__gthrw_ ## name, __ ## name, name)
+__gthrw3(pthread_once)
+__gthrw3(pthread_getspecific)
+__gthrw3(pthread_setspecific)
+__gthrw3(pthread_create)
+__gthrw3(pthread_cancel)
+__gthrw3(pthread_mutex_lock)
+__gthrw3(pthread_mutex_trylock)
+__gthrw3(pthread_mutex_unlock)
+__gthrw3(pthread_mutex_init)
+#else
 __gthrw(pthread_once)
-__gthrw(pthread_key_create)
-__gthrw(pthread_key_delete)
 __gthrw(pthread_getspecific)
 __gthrw(pthread_setspecific)
 __gthrw(pthread_create)
 __gthrw(pthread_cancel)
-
 __gthrw(pthread_mutex_lock)
 __gthrw(pthread_mutex_trylock)
 __gthrw(pthread_mutex_unlock)
+__gthrw(pthread_mutex_init)
+#endif
+
+__gthrw(pthread_key_create)
+__gthrw(pthread_key_delete)
 __gthrw(pthread_mutexattr_init)
 __gthrw(pthread_mutexattr_settype)
 __gthrw(pthread_mutexattr_destroy)
 
-__gthrw(pthread_mutex_init)
 
 #if defined(_LIBOBJC) || defined(_LIBOBJC_WEAK)
 /* Objective-C.  */
+#if defined(__osf__) && defined(_PTHREAD_USE_MANGLED_NAMES_)
+__gthrw3(pthread_cond_broadcast)
+__gthrw3(pthread_cond_destroy)
+__gthrw3(pthread_cond_init)
+__gthrw3(pthread_cond_signal)
+__gthrw3(pthread_cond_wait)
+__gthrw3(pthread_exit)
+__gthrw3(pthread_mutex_destroy)
+__gthrw3(pthread_self)
+#else
 __gthrw(pthread_cond_broadcast)
 __gthrw(pthread_cond_destroy)
 __gthrw(pthread_cond_init)
@@ -94,6 +123,7 @@ __gthrw(pthread_cond_wait)
 __gthrw(pthread_exit)
 __gthrw(pthread_mutex_destroy)
 __gthrw(pthread_self)
+#endif /* __osf__ && _PTHREAD_USE_MANGLED_NAMES_ */
 #ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
 __gthrw(sched_get_priority_max)

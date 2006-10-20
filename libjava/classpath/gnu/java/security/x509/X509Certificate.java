@@ -40,7 +40,6 @@ package gnu.java.security.x509;
 
 import gnu.classpath.debug.Component;
 import gnu.classpath.debug.SystemLogger;
-
 import gnu.java.security.OID;
 import gnu.java.security.der.BitString;
 import gnu.java.security.der.DER;
@@ -88,8 +87,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.security.auth.x500.X500Principal;
@@ -555,7 +552,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
     // Certificate ::= SEQUENCE {
     DERValue cert = der.read();
     logger.log (Component.X509, "start Certificate  len == {0}",
-                new Integer (cert.getLength()));
+                Integer.valueOf(cert.getLength()));
 
     this.encoded = cert.getEncoded();
     if (!cert.isConstructed())
@@ -571,7 +568,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     tbsCertBytes = tbsCert.getEncoded();
     logger.log (Component.X509, "start TBSCertificate  len == {0}",
-                new Integer (tbsCert.getLength()));
+                Integer.valueOf(tbsCert.getLength()));
 
     // Version ::= INTEGER [0] { v1(0), v2(1), v3(2) }
     DERValue val = der.read();
@@ -585,7 +582,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
         version = 1;
       }
     logger.log (Component.X509, "read version == {0}",
-                new Integer (version));
+                Integer.valueOf(version));
 
     // SerialNumber ::= INTEGER
     serialNo = (BigInteger) val.getValue();
@@ -599,7 +596,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     int certAlgLen = val.getLength();
     logger.log (Component.X509, "start AlgorithmIdentifier  len == {0}",
-                new Integer (certAlgLen));
+                Integer.valueOf(certAlgLen));
     val = der.read();
 
     //   algorithm    OBJECT IDENTIFIER,
@@ -661,10 +658,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
     der.skip(spki.getLength());
     logger.log (Component.X509, "read subjectPublicKey == {0}", subjectKey);
 
-    if (version > 1)
-      {
-        val = der.read();
-      }
+    val = der.read();
     if (version >= 2 && val.getTagClass() != DER.UNIVERSAL && val.getTag() == 1)
       {
         byte[] b = (byte[]) val.getValue();
@@ -683,20 +677,20 @@ public class X509Certificate extends java.security.cert.X509Certificate
       {
         val = der.read();
         logger.log (Component.X509, "start Extensions  len == {0}",
-                    new Integer (val.getLength()));
+                    Integer.valueOf(val.getLength()));
         int len = 0;
         while (len < val.getLength())
           {
             DERValue ext = der.read();
             logger.log (Component.X509, "start extension  len == {0}",
-                        new Integer (ext.getLength()));
+                        Integer.valueOf(ext.getLength()));
             Extension e = new Extension(ext.getEncoded());
             extensions.put(e.getOid(), e);
             der.skip(ext.getLength());
             len += ext.getEncodedLength();
             logger.log (Component.X509, "read extension {0} == {1}",
                         new Object[] { e.getOid (), e });
-            logger.log (Component.X509, "count == {0}", new Integer (len));
+            logger.log (Component.X509, "count == {0}", Integer.valueOf(len));
           }
 
         val = der.read ();
@@ -709,7 +703,7 @@ public class X509Certificate extends java.security.cert.X509Certificate
       }
     int sigAlgLen = val.getLength();
     logger.log (Component.X509, "start AlgorithmIdentifier  len == {0}",
-                new Integer (sigAlgLen));
+                Integer.valueOf(sigAlgLen));
     val = der.read();
     sigAlgId = (OID) val.getValue();
     logger.log (Component.X509, "read algorithm id == {0}", sigAlgId);

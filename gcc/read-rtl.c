@@ -437,7 +437,7 @@ apply_macro_to_rtx (rtx original, struct mapping *macro, int value,
   /* Create a shallow copy of ORIGINAL.  */
   bellwether_code = BELLWETHER_CODE (GET_CODE (original));
   x = rtx_alloc (bellwether_code);
-  memcpy (x, original, RTX_SIZE (bellwether_code));
+  memcpy (x, original, RTX_CODE_SIZE (bellwether_code));
 
   /* Change the mode or code itself.  */
   group = macro->group;
@@ -886,7 +886,7 @@ read_name (char *str, FILE *infile)
   p = str;
   while (1)
     {
-      if (c == ' ' || c == '\n' || c == '\t' || c == '\f' || c == '\r')
+      if (c == ' ' || c == '\n' || c == '\t' || c == '\f' || c == '\r' || c == EOF)
 	break;
       if (c == ':' || c == ')' || c == ']' || c == '"' || c == '/'
 	  || c == '(' || c == '[')

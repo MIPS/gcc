@@ -1,6 +1,6 @@
 /* Utility routines for data type conversion for GCC.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1997, 1998,
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,27 +33,35 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "langhooks.h"
 #include "real.h"
-/* Convert EXPR to some pointer or reference type TYPE.
 
+/* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
    in other cases error is called.  */
 
 tree
 convert_to_pointer (tree type, tree expr)
 {
+  if (TREE_TYPE (expr) == type)
+    return expr;
+
   if (integer_zerop (expr))
-    return build_int_cst (type, 0);
+    {
+      tree t = build_int_cst (type, 0);
+      if (TREE_OVERFLOW (expr) || TREE_CONSTANT_OVERFLOW (expr))
+	t = force_fit_type (t, 0, TREE_OVERFLOW (expr),
+			    TREE_CONSTANT_OVERFLOW (expr));
+      return t;
+    }
 
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return build1 (NOP_EXPR, type, expr);
+      return fold_build1 (NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       if (TYPE_PRECISION (TREE_TYPE (expr)) != POINTER_SIZE)
 	expr = fold_build1 (NOP_EXPR,
                             lang_hooks.types.type_for_size (POINTER_SIZE, 0),
@@ -307,13 +315,16 @@ convert_to_real (tree type, tree expr)
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case REAL_TYPE:
-      return build1 (flag_float_store ? CONVERT_EXPR : NOP_EXPR,
-		     type, expr);
+      /* Ignore the conversion if we don't need to store intermediate
+	 results and neither type is a decimal float.  */
+      return build1 ((flag_float_store
+		     || DECIMAL_FLOAT_TYPE_P (type)
+		     || DECIMAL_FLOAT_TYPE_P (itype))
+		     ? CONVERT_EXPR : NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       return build1 (FLOAT_EXPR, type, expr);
 
     case COMPLEX_TYPE:
@@ -377,27 +388,36 @@ convert_to_integer (tree type, tree expr)
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_FLOOR):
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_ROUND):
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LROUND);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_RINT):
@@ -406,10 +426,13 @@ convert_to_integer (tree type, tree expr)
 	    break;
 	  /* ... Fall through ...  */
 	CASE_FLT_FN (BUILT_IN_NEARBYINT):
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-            fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
-	  else
-            fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_TRUNC):
@@ -447,7 +470,6 @@ convert_to_integer (tree type, tree expr)
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       /* If this is a logical operation, which just returns 0 or 1, we can
 	 change the type of the expression.  */
 
@@ -465,6 +487,7 @@ convert_to_integer (tree type, tree expr)
       else if (outprec >= inprec)
 	{
 	  enum tree_code code;
+	  tree tem;
 
 	  /* If the precision of the EXPR's type is K bits and the
 	     destination mode has more bits, and the sign is changing,
@@ -482,7 +505,13 @@ convert_to_integer (tree type, tree expr)
 	  else
 	    code = NOP_EXPR;
 
-	  return fold_build1 (code, type, expr);
+	  tem = fold_unary (code, type, expr);
+	  if (tem)
+	    return tem;
+
+	  tem = build1 (code, type, expr);
+	  TREE_NO_WARNING (tem) = 1;
+	  return tem;
 	}
 
       /* If TYPE is an enumeral type or a type with a precision less
@@ -729,7 +758,6 @@ convert_to_complex (tree type, tree expr)
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       return build2 (COMPLEX_EXPR, type, convert (subtype, expr),
 		     convert (subtype, integer_zero_node));
 
