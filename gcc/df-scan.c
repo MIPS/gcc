@@ -99,7 +99,7 @@ static struct df_ref *df_ref_create_structure (struct dataflow *, rtx, rtx *,
 					       enum df_ref_flags);
 static void df_record_entry_block_defs (struct dataflow *);
 static void df_record_exit_block_uses (struct dataflow *);
-static void df_grow_reg_info (struct dataflow *, struct df_ref_info *);
+static void df_grow_reg_info (struct dataflow *);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
 static void df_grow_insn_info (struct df *);
 
@@ -132,17 +132,26 @@ df_scan_free_internal (struct dataflow *dflow)
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
 
-  free (df->def_info.regs);
   free (df->def_info.refs);
+  free (df->def_info.begin);
   memset (&df->def_info, 0, (sizeof (struct df_ref_info)));
 
-  free (df->use_info.regs);
   free (df->use_info.refs);
+  free (df->use_info.begin);
   memset (&df->use_info, 0, (sizeof (struct df_ref_info)));
+
+  free (df->def_regs);
+  df->def_regs = NULL;
+  free (df->use_regs);
+  df->use_regs = NULL;
+  free (df->eq_use_regs);
+  df->eq_use_regs = NULL;
+  df->regs_size = 0;
+  DF_REG_SIZE(df) = 0;
 
   free (df->insns);
   df->insns = NULL;
-  df->insns_size = 0;
+  DF_INSN_SIZE (df) = 0;
 
   free (dflow->block_info);
   dflow->block_info = NULL;
@@ -247,10 +256,8 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
 			 sizeof (struct df_link), block_size);
 
   insn_num += insn_num / 4; 
-  df_grow_reg_info (dflow, &df->def_info);
+  df_grow_reg_info (dflow);
   df_grow_ref_info (&df->def_info, insn_num);
-
-  df_grow_reg_info (dflow, &df->use_info);
   df_grow_ref_info (&df->use_info, insn_num *2);
 
   df_grow_insn_info (df);
@@ -365,30 +372,49 @@ df_scan_add_problem (struct df *df)
    filled with reg_info structures.  */
 
 static void 
-df_grow_reg_info (struct dataflow *dflow, struct df_ref_info *ref_info)
+df_grow_reg_info (struct dataflow *dflow)
 {
+  struct df *df = dflow->df;
   unsigned int max_reg = max_reg_num ();
   unsigned int new_size = max_reg;
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
   unsigned int i;
 
-  if (ref_info->regs_size < new_size)
+  if (df->regs_size < new_size)
     {
       new_size += new_size / 4;
-      ref_info->regs = xrealloc (ref_info->regs, 
-				 new_size *sizeof (struct df_reg_info*));
-      ref_info->regs_size = new_size;
+      df->def_regs = xrealloc (df->def_regs, 
+			       new_size *sizeof (struct df_reg_info*));
+      df->use_regs = xrealloc (df->use_regs, 
+			       new_size *sizeof (struct df_reg_info*));
+      df->eq_use_regs = xrealloc (df->eq_use_regs, 
+				  new_size *sizeof (struct df_reg_info*));
+      df->def_info.begin = xrealloc (df->def_info.begin, 
+				      new_size *sizeof (int));
+      df->use_info.begin = xrealloc (df->use_info.begin, 
+				      new_size *sizeof (int));
+      df->regs_size = new_size;
     }
 
-  for (i = ref_info->regs_inited; i < max_reg; i++)
+  for (i = df->regs_inited; i < max_reg; i++)
     {
-      struct df_reg_info *reg_info = pool_alloc (problem_data->reg_pool);
+      struct df_reg_info *reg_info;
+
+      reg_info = pool_alloc (problem_data->reg_pool);
       memset (reg_info, 0, sizeof (struct df_reg_info));
-      ref_info->regs[i] = reg_info;
+      df->def_regs[i] = reg_info;
+      reg_info = pool_alloc (problem_data->reg_pool);
+      memset (reg_info, 0, sizeof (struct df_reg_info));
+      df->use_regs[i] = reg_info;
+      reg_info = pool_alloc (problem_data->reg_pool);
+      memset (reg_info, 0, sizeof (struct df_reg_info));
+      df->eq_use_regs[i] = reg_info;
+      df->def_info.begin[i] = 0;
+      df->use_info.begin[i] = 0;
     }
   
-  ref_info->regs_inited = max_reg;
+  df->regs_inited = max_reg;
 }
 
 
@@ -416,14 +442,14 @@ static void
 df_grow_insn_info (struct df *df)
 {
   unsigned int new_size = get_max_uid () + 1;
-  if (df->insns_size < new_size)
+  if (DF_INSN_SIZE (df) < new_size)
     {
       new_size += new_size / 4;
       df->insns = xrealloc (df->insns, 
 			    new_size *sizeof (struct df_insn_info *));
       memset (df->insns + df->insns_size, 0,
-	      (new_size - df->insns_size) *sizeof (struct df_insn_info *));
-      df->insns_size = new_size;
+	      (new_size - DF_INSN_SIZE (df)) *sizeof (struct df_insn_info *));
+      DF_INSN_SIZE (df) = new_size;
     }
 }
 
@@ -445,8 +471,10 @@ df_rescan_blocks (struct df *df, bitmap blocks)
   struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   basic_block bb;
 
-  df->def_info.refs_organized = false;
-  df->use_info.refs_organized = false;
+  df->def_info.refs_organized_with_eq_uses = false;
+  df->def_info.refs_organized_alone = false;
+  df->use_info.refs_organized_with_eq_uses = false;
+  df->use_info.refs_organized_alone = false;
 
   if (blocks)
     {
@@ -459,10 +487,9 @@ df_rescan_blocks (struct df *df, bitmap blocks)
       unsigned int insn_num = get_max_uid () + 1;
       insn_num += insn_num / 4;
 
-      df_grow_reg_info (dflow, &df->def_info);
+      df_grow_reg_info (dflow);
+
       df_grow_ref_info (&df->def_info, insn_num);
-      
-      df_grow_reg_info (dflow, &df->use_info);
       df_grow_ref_info (&df->use_info, insn_num *2);
       
       df_grow_insn_info (df);
@@ -557,8 +584,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
   struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   struct df_scan_bb_info *bb_info;
   
-  df_grow_reg_info (dflow, &df->use_info);
-  df_grow_reg_info (dflow, &df->def_info);
+  df_grow_reg_info (dflow);
   df_grow_bb_info (dflow);
   
   /* Make sure there is the bb_info for this block.  */
@@ -680,14 +706,15 @@ df_reg_chain_unlink (struct dataflow *dflow, struct df_ref *ref)
   if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
     {
       reg_info = DF_REG_DEF_GET (df, DF_REF_REGNO (ref));
-      df->def_info.bitmap_size--;
       if (df->def_info.refs && (id < df->def_info.refs_size))
 	DF_DEFS_SET (df, id, NULL);
     }
   else 
     {
-      reg_info = DF_REG_USE_GET (df, DF_REF_REGNO (ref));
-      df->use_info.bitmap_size--;
+      if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
+	reg_info = DF_REG_EQ_USE_GET (df, DF_REF_REGNO (ref));
+      else
+	reg_info = DF_REG_USE_GET (df, DF_REF_REGNO (ref));
       if (df->use_info.refs && (id < df->use_info.refs_size))
 	DF_USES_SET (df, id, NULL);
     }
@@ -749,6 +776,9 @@ df_ref_remove (struct df *df, struct df_ref *ref)
 	  bb_info->artificial_uses 
 	    = df_ref_unlink (bb_info->artificial_uses, ref);
 	}
+      else if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
+	DF_INSN_UID_EQ_USES (df, DF_REF_INSN_UID (ref))
+	  = df_ref_unlink (DF_INSN_UID_EQ_USES (df, DF_REF_INSN_UID (ref)), ref);
       else
 	DF_INSN_UID_USES (df, DF_REF_INSN_UID (ref))
 	  = df_ref_unlink (DF_INSN_UID_USES (df, DF_REF_INSN_UID (ref)), ref);
@@ -792,7 +822,7 @@ df_insn_refs_delete (struct dataflow *dflow, rtx insn)
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
 
-  if (uid < df->insns_size)
+  if (uid < DF_INSN_SIZE (df))
     insn_info = DF_INSN_UID_GET (df, uid);
 
   if (insn_info)
@@ -819,6 +849,10 @@ df_insn_refs_delete (struct dataflow *dflow, rtx insn)
 	ref = df_reg_chain_unlink (dflow, ref);
       
       ref = insn_info->uses;
+      while (ref) 
+	ref = df_reg_chain_unlink (dflow, ref);
+
+      ref = insn_info->eq_uses;
       while (ref) 
 	ref = df_reg_chain_unlink (dflow, ref);
 
@@ -882,16 +916,16 @@ df_refs_delete (struct dataflow *dflow, bitmap blocks)
 /* Take build ref table for either the uses or defs from the reg-use
    or reg-def chains.  */ 
 
-void 
-df_reorganize_refs (struct df_ref_info *ref_info)
+static void 
+df_reorganize_refs (struct df *df,
+		    struct df_ref_info *ref_info,
+		    struct df_reg_info **reg1_info,
+		    struct df_reg_info **reg2_info)
 {
-  unsigned int m = ref_info->regs_inited;
+  unsigned int m = df->regs_inited;
   unsigned int regno;
   unsigned int offset = 0;
   unsigned int size = 0;
-
-  if (ref_info->refs_organized)
-    return;
 
   if (ref_info->refs_size < ref_info->bitmap_size)
     {  
@@ -901,21 +935,30 @@ df_reorganize_refs (struct df_ref_info *ref_info)
 
   for (regno = 0; regno < m; regno++)
     {
-      struct df_reg_info *reg_info = ref_info->regs[regno];
-      int count = 0;
-      if (reg_info)
+      struct df_reg_info *reg_info = reg1_info[regno];
+      struct df_ref *ref = reg_info->reg_chain;
+      ref_info->begin[regno] = offset;
+      while (ref) 
 	{
-	  struct df_ref *ref = reg_info->reg_chain;
-	  reg_info->begin = offset;
+	  ref_info->refs[offset] = ref;
+	  DF_REF_ID (ref) = offset++;
+	  ref = DF_REF_NEXT_REG (ref);
+	  gcc_assert (size < ref_info->refs_size);
+	  size++;
+	}
+      if (reg2_info)
+	{
+	  reg_info = reg2_info[regno];
+	  gcc_assert (reg_info);
+	  ref = reg_info->reg_chain;
 	  while (ref) 
 	    {
 	      ref_info->refs[offset] = ref;
 	      DF_REF_ID (ref) = offset++;
 	      ref = DF_REF_NEXT_REG (ref);
-	      count++;
+	      gcc_assert (size < ref_info->refs_size);
 	      size++;
 	    }
-	  reg_info->n_refs = count;
 	}
     }
 
@@ -923,8 +966,43 @@ df_reorganize_refs (struct df_ref_info *ref_info)
      reset it now that we have squished out all of the empty
      slots.  */
   ref_info->bitmap_size = size;
-  ref_info->refs_organized = true;
+  if (reg2_info)
+    {
+      ref_info->refs_organized_with_eq_uses = true;
+      ref_info->refs_organized_alone = false;
+    }
+  else
+    {
+      ref_info->refs_organized_with_eq_uses = false;
+      ref_info->refs_organized_alone = true;
+    }
   ref_info->add_refs_inline = true;
+}
+
+
+/* If the use refs in DF are not organized, reorganize them.  */
+
+void 
+df_maybe_reorganize_use_refs (struct df *df)
+{
+  if (df->changeable_flags & DF_EQ_NOTES)
+    {
+      if (!df->use_info.refs_organized_with_eq_uses)
+	df_reorganize_refs (df, &df->use_info, 
+			    df->use_regs, df->eq_use_regs);
+    }
+  else if (!df->use_info.refs_organized_alone)
+    df_reorganize_refs (df, &df->use_info, df->use_regs, NULL);
+}
+
+
+/* If the def refs in DF are not organized, reorganize them.  */
+
+void 
+df_maybe_reorganize_def_refs (struct df *df)
+{
+  if (!df->def_info.refs_organized_alone)
+    df_reorganize_refs (df, &df->def_info, df->def_regs, NULL);
 }
 
 
@@ -969,21 +1047,22 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 	
 	/* Add the ref to the reg_def chain.  */
 	df_reg_chain_create (reg_info, this_ref);
-	DF_REF_ID (this_ref) = df->def_info.bitmap_size;
+
+	DF_REF_ID (this_ref) = DF_DEFS_SIZE (df);
 	if (df->def_info.add_refs_inline)
 	  {
 	    if (DF_DEFS_SIZE (df) >= df->def_info.refs_size)
 	      {
-		int new_size = df->def_info.bitmap_size 
-		  + df->def_info.bitmap_size / 4;
+		int new_size = DF_DEFS_SIZE (df) 
+		  + DF_DEFS_SIZE (df) / 4;
 		df_grow_ref_info (&df->def_info, new_size);
 	      }
 	    /* Add the ref to the big array of defs.  */
-	    DF_DEFS_SET (df, df->def_info.bitmap_size, this_ref);
-	    df->def_info.refs_organized = false;
+	    DF_DEFS_SET (df, DF_DEFS_SIZE (df), this_ref);
+	    df->def_info.refs_organized_alone = false;
 	  }
 	
-	df->def_info.bitmap_size++;
+	DF_DEFS_SIZE (df)++;
 	
 	if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
 	  {
@@ -994,8 +1073,8 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 	  }
 	else
 	  {
-	    this_ref->next_ref = DF_INSN_GET (df, insn)->defs;
-	    DF_INSN_GET (df, insn)->defs = this_ref;
+	    this_ref->next_ref = DF_INSN_DEFS (df, insn);
+	    DF_INSN_DEFS (df, insn) = this_ref;
 	  }
       }
       break;
@@ -1004,26 +1083,32 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
     case DF_REF_REG_MEM_STORE:
     case DF_REF_REG_USE:
       {
-	struct df_reg_info *reg_info = DF_REG_USE_GET (df, regno);
+	struct df_reg_info *reg_info;
+	if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
+	  reg_info = DF_REG_EQ_USE_GET (df, regno);
+	else
+	  reg_info = DF_REG_USE_GET (df, regno);
+
 	reg_info->n_refs++;
-	
 	/* Add the ref to the reg_use chain.  */
 	df_reg_chain_create (reg_info, this_ref);
-	DF_REF_ID (this_ref) = df->use_info.bitmap_size;
+
+	DF_REF_ID (this_ref) = DF_USES_SIZE (df);
 	if (df->use_info.add_refs_inline)
 	  {
 	    if (DF_USES_SIZE (df) >= df->use_info.refs_size)
 	      {
-		int new_size = df->use_info.bitmap_size 
-		  + df->use_info.bitmap_size / 4;
+		int new_size = DF_USES_SIZE (df) 
+		  + DF_USES_SIZE (df) / 4;
 		df_grow_ref_info (&df->use_info, new_size);
 	      }
 	    /* Add the ref to the big array of defs.  */
-	    DF_USES_SET (df, df->use_info.bitmap_size, this_ref);
-	    df->use_info.refs_organized = false;
+	    DF_USES_SET (df, DF_USES_SIZE (df), this_ref);
+	    df->use_info.refs_organized_with_eq_uses = false;
+	    df->use_info.refs_organized_alone = false;
 	  }
 	
-	df->use_info.bitmap_size++;
+	DF_USES_SIZE (df)++;
 	if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
 	  {
 	    struct df_scan_bb_info *bb_info 
@@ -1033,8 +1118,16 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 	  }
 	else
 	  {
-	    this_ref->next_ref = DF_INSN_GET (df, insn)->uses;
-	    DF_INSN_GET (df, insn)->uses = this_ref;
+	    if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
+	      {
+		this_ref->next_ref = DF_INSN_EQ_USES (df, insn);
+		DF_INSN_EQ_USES (df, insn) = this_ref;
+	      }
+	    else
+	      {
+		this_ref->next_ref = DF_INSN_USES (df, insn);
+		DF_INSN_USES (df, insn) = this_ref;
+	      }
 	  }
       }
       break;
@@ -1534,20 +1627,19 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
       /* Record register defs.  */
       df_defs_record (dflow, PATTERN (insn), bb, insn, 0);
 
-      if (df->permanent_flags & DF_EQUIV_NOTES)
-	for (note = REG_NOTES (insn); note;
-	     note = XEXP (note, 1))
-	  {
-	    switch (REG_NOTE_KIND (note))
-	      {
-	      case REG_EQUIV:
-	      case REG_EQUAL:
-		df_uses_record (dflow, &XEXP (note, 0), DF_REF_REG_USE,
-				bb, insn, DF_REF_IN_NOTE);
-	      default:
-		break;
-	      }
-	  }
+      for (note = REG_NOTES (insn); note;
+	   note = XEXP (note, 1))
+	{
+	  switch (REG_NOTE_KIND (note))
+	    {
+	    case REG_EQUIV:
+	    case REG_EQUAL:
+	      df_uses_record (dflow, &XEXP (note, 0), DF_REF_REG_USE,
+			      bb, insn, DF_REF_IN_NOTE);
+	    default:
+	      break;
+	    }
+	}
 
       if (CALL_P (insn))
 	{

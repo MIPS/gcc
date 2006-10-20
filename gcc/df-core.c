@@ -66,7 +66,6 @@ and frees up any allocated memory.
 There are three flags that can be passed to df_init, each of these
 flags controls the scanning of the rtl:
 
-DF_EQUIV_NOTES marks the uses present in EQUIV/EQUAL notes.
 DF_SUBREGS return subregs rather than the inner reg.
 
 
@@ -225,14 +224,21 @@ There are 4 ways to obtain access to refs:
      Artificial defs occur at the end of the entry block.  These arise
      from registers that are live at entry to the function.
 
-2) All of the uses and defs associated with each pseudo or hard
-   register are linked in a bidirectional chain.  These are called
-   reg-use or reg_def chains.
+2) There are three types of refs: defs, uses and eq_uses.  (Eq_uses are 
+   uses that appear inside a REG_EQUAL or REG_EQUIV note.)
 
-   The first use (or def) for a register can be obtained using the
-   DF_REG_USE_GET macro (or DF_REG_DEF_GET macro).  Subsequent uses
-   for the same regno can be obtained by following the next_reg field
-   of the ref.
+   All of the eq_uses, uses and defs associated with each pseudo or
+   hard register may be linked in a bidirectional chain.  These are
+   called reg-use or reg_def chains.  If the changeable flag
+   DF_EQ_NOTES is set when the chains are built, the eq_uses will be
+   treated like uses.  If it is not set they are ignored.  
+
+   The first use, eq_use or def for a register can be obtained using
+   the DF_REG_USE_CHAIN, DF_REG_EQ_USE_CHAIN or DF_REG_DEF_CHAIN
+   macros.  Subsequent uses for the same regno can be obtained by
+   following the next_reg field of the ref.  The number of elements in
+   each of the chains can be found by using the DF_REG_USE_COUNT,
+   DF_REG_EQ_USE_COUNT or DF_REG_DEF_COUNT macros.
 
    In previous versions of this code, these chains were ordered.  It
    has not been practical to continue this practice.
@@ -948,9 +954,14 @@ df_bb_regno_last_use_find (struct df *df, basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (use = DF_INSN_UID_GET (df, uid)->uses; use; use = use->next_ref)
+      for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
 	if (DF_REF_REGNO (use) == regno)
 	  return use;
+
+      if (df->changeable_flags & DF_EQ_NOTES)
+	for (use = DF_INSN_UID_EQ_USES (df, uid); use; use = use->next_ref)
+	  if (DF_REF_REGNO (use) == regno)
+	    return use;
     }
   return NULL;
 }
@@ -971,7 +982,7 @@ df_bb_regno_first_def_find (struct df *df, basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
+      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
 	if (DF_REF_REGNO (def) == regno)
 	  return def;
     }
@@ -994,7 +1005,7 @@ df_bb_regno_last_def_find (struct df *df, basic_block bb, unsigned int regno)
 	continue;
 
       uid = INSN_UID (insn);
-      for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
+      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
 	if (DF_REF_REGNO (def) == regno)
 	  return def;
     }
@@ -1011,7 +1022,7 @@ df_insn_regno_def_p (struct df *df, rtx insn, unsigned int regno)
   struct df_ref *def;
 
   uid = INSN_UID (insn);
-  for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
+  for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
     if (DF_REF_REGNO (def) == regno)
       return true;
   
@@ -1033,7 +1044,7 @@ df_find_def (struct df *df, rtx insn, rtx reg)
   gcc_assert (REG_P (reg));
 
   uid = INSN_UID (insn);
-  for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
+  for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
     if (rtx_equal_p (DF_REF_REAL_REG (def), reg))
       return def;
 
@@ -1064,9 +1075,13 @@ df_find_use (struct df *df, rtx insn, rtx reg)
   gcc_assert (REG_P (reg));
 
   uid = INSN_UID (insn);
-  for (use = DF_INSN_UID_GET (df, uid)->uses; use; use = use->next_ref)
+  for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
     if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
       return use; 
+  if (df->changeable_flags & DF_EQ_NOTES)
+    for (use = DF_INSN_UID_EQ_USES (df, uid); use; use = use->next_ref)
+      if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
+	return use; 
 
   return NULL;
 }
@@ -1116,7 +1131,7 @@ df_dump_start (struct df *df, FILE *file)
   fprintf (file, "\n\n%s\n", current_function_name ());
   fprintf (file, "\nDataflow summary:\n");
   fprintf (file, "def_info->bitmap_size = %d, use_info->bitmap_size = %d\n",
-	   df->def_info.bitmap_size, df->use_info.bitmap_size);
+	   DF_DEFS_SIZE (df), DF_USES_SIZE (df));
 
   for (i = 0; i < df->num_problems_defined; i++)
     {
@@ -1244,6 +1259,8 @@ df_insn_uid_debug (struct df *df, unsigned int uid,
     bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (df, uid));
   else if (DF_INSN_UID_USES(df, uid))
     bbi = DF_REF_BBNO (DF_INSN_UID_USES (df, uid));
+  else if (DF_INSN_UID_EQ_USES(df, uid))
+    bbi = DF_REF_BBNO (DF_INSN_UID_EQ_USES (df, uid));
   else
     bbi = -1;
 
@@ -1260,6 +1277,12 @@ df_insn_uid_debug (struct df *df, unsigned int uid,
     {
       fprintf (file, " uses ");
       df_refs_chain_dump (DF_INSN_UID_USES (df, uid), follow_chain, file);
+    }
+
+  if (DF_INSN_UID_EQ_USES (df, uid))
+    {
+      fprintf (file, " uses ");
+      df_refs_chain_dump (DF_INSN_UID_EQ_USES (df, uid), follow_chain, file);
     }
 
   if (DF_INSN_UID_MWS (df, uid))
@@ -1288,6 +1311,8 @@ df_insn_debug_regno (struct df *df, rtx insn, FILE *file)
     bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (df, uid));
   else if (DF_INSN_UID_USES(df, uid))
     bbi = DF_REF_BBNO (DF_INSN_UID_USES (df, uid));
+  else if (DF_INSN_UID_EQ_USES(df, uid))
+    bbi = DF_REF_BBNO (DF_INSN_UID_EQ_USES (df, uid));
   else
     bbi = -1;
 
@@ -1297,6 +1322,9 @@ df_insn_debug_regno (struct df *df, rtx insn, FILE *file)
     
   fprintf (file, " uses ");
   df_regs_chain_dump (df, DF_INSN_UID_USES (df, uid), file);
+
+  fprintf (file, " eq_uses ");
+  df_regs_chain_dump (df, DF_INSN_UID_EQ_USES (df, uid), file);
   fprintf (file, "\n");
 }
 
@@ -1304,9 +1332,11 @@ void
 df_regno_debug (struct df *df, unsigned int regno, FILE *file)
 {
   fprintf (file, "reg %d defs ", regno);
-  df_regs_chain_dump (df, DF_REG_DEF_GET (df, regno)->reg_chain, file);
+  df_regs_chain_dump (df, DF_REG_DEF_CHAIN (df, regno), file);
   fprintf (file, " uses ");
-  df_regs_chain_dump (df, DF_REG_USE_GET (df, regno)->reg_chain, file);
+  df_regs_chain_dump (df, DF_REG_USE_CHAIN (df, regno), file);
+  fprintf (file, " eq_uses ");
+  df_regs_chain_dump (df, DF_REG_EQ_USE_CHAIN (df, regno), file);
   fprintf (file, "\n");
 }
 

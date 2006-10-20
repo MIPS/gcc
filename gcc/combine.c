@@ -12830,7 +12830,7 @@ create_log_links (void)
 	  /* Log links are created only once.  */
 	  gcc_assert (!LOG_LINKS (insn));
 
-          for (def = DF_INSN_GET (df, insn)->defs; def; def = def->next_ref)
+          for (def = DF_INSN_DEFS (df, insn); def; def = def->next_ref)
             {
               int regno = DF_REF_REGNO (def);
               rtx use_insn;
@@ -12873,7 +12873,7 @@ create_log_links (void)
               next_use[regno] = NULL_RTX;
             }
 
-          for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
+          for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
             {
               int regno = DF_REF_REGNO (use);
 

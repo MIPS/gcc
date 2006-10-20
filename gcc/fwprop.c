@@ -473,7 +473,7 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
   /* Check if the reg in USE has only one definition.  We already
      know that this definition reaches use, or we wouldn't be here.  */
   regno = DF_REF_REGNO (use);
-  def = DF_REG_DEF_GET (df, regno)->reg_chain;
+  def = DF_REG_DEF_CHAIN (df, regno);
   if (def && (def->next_reg == NULL))
     return false;
 
@@ -553,12 +553,18 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
       for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
         if (rtx_equal_p (DF_REF_REG (use), def_reg))
           return false;
+      for (use = DF_INSN_EQ_USES (df, def_insn); use; use = use->next_ref)
+        if (rtx_equal_p (use->reg, def_reg))
+          return false;
     }
   else
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
       for (use = DF_INSN_USES (df, def_insn); use; use = use->next_ref)
+	if (use_killed_between (use, def_insn, target_insn))
+	  return false;
+      for (use = DF_INSN_EQ_USES (df, def_insn); use; use = use->next_ref)
 	if (use_killed_between (use, def_insn, target_insn))
 	  return false;
     }
@@ -676,8 +682,10 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       /* Unlink the use that we changed.  */
       df_ref_remove (df, use);
       if (!CONSTANT_P (new))
-	update_df (insn, loc, DF_INSN_USES (df, def_insn), type, flags);
-
+	{
+	  update_df (insn, loc, DF_INSN_USES (df, def_insn), type, flags);
+	  update_df (insn, loc, DF_INSN_EQ_USES (df, def_insn), type, flags);
+	}
       return true;
     }
   else
@@ -697,8 +705,12 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 						REG_NOTES (insn));
 
           if (!CONSTANT_P (new))
-	    update_df (insn, loc, DF_INSN_USES (df, def_insn),
-		       type, DF_REF_IN_NOTE);
+	    {
+	      update_df (insn, loc, DF_INSN_USES (df, def_insn),
+			 type, DF_REF_IN_NOTE);
+	      update_df (insn, loc, DF_INSN_EQ_USES (df, def_insn),
+			 type, DF_REF_IN_NOTE);
+	    }
 	}
 
       return false;
@@ -907,7 +919,7 @@ fwprop_init (void)
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
-  df = df_init (DF_SUBREGS + DF_EQUIV_NOTES + DF_UD_CHAIN, 0);
+  df = df_init (DF_SUBREGS + DF_UD_CHAIN, DF_EQ_NOTES);
   df_chain_add_problem (df);
   df_analyze (df);
 }
@@ -954,7 +966,7 @@ fwprop (void)
      Do not forward propagate addresses into loops until after unrolling.
      CSE did so because it was able to fix its own mess, but we are not.  */
 
-  df_reorganize_refs (&df->use_info);
+  df_maybe_reorganize_use_refs (df);
   for (i = 0; i < DF_USES_SIZE (df); i++)
     {
       struct df_ref *use = DF_USES_GET (df, i);
@@ -1003,7 +1015,7 @@ fwprop_addr (void)
 
   /* Go through all the uses.  update_df will create new ones at the
      end, and we'll go through them as well.  */
-  df_reorganize_refs (&df->use_info);
+  df_maybe_reorganize_use_refs (df);
   for (i = 0; i < DF_USES_SIZE (df); i++)
     {
       struct df_ref *use = DF_USES_GET (df, i);

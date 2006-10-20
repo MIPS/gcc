@@ -1331,8 +1331,7 @@ static void
 see_initialize_data_structures (void)
 {
   /* Build the df object. */
-  df = df_init (DF_EQUIV_NOTES + DF_SUBREGS + DF_DU_CHAIN + DF_UD_CHAIN, 0);
-  df_rd_add_problem (df);
+  df = df_init (DF_DU_CHAIN + DF_UD_CHAIN, DF_EQ_NOTES);
   df_chain_add_problem (df);
   df_analyze (df);
 
@@ -3339,7 +3338,6 @@ see_update_uses_relevancy (void)
 
   for (i = 0; i < uses_num; i++)
     {
-
       insn = DF_REF_INSN (DF_USES_GET (df, i));
       reg = DF_REF_REAL_REG (DF_USES_GET (df, i));
 

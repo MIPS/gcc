@@ -684,6 +684,49 @@ record_use (struct def *def, rtx *use, rtx insn)
   def->n_uses++;
 }
 
+/* Finds the invariants USE depends on and store them to the DEPENDS_ON
+   bitmap.  Returns true if all dependencies of USE are known to be
+   loop invariants, false otherwise.  */
+
+static bool
+check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
+{
+  struct df_ref *def;
+  basic_block def_bb;
+  struct df_link *defs;
+  struct def *def_data;
+  struct invariant *inv;
+  
+  if (use->flags & DF_REF_READ_WRITE)
+    return false;
+  
+  defs = DF_REF_CHAIN (use);
+  if (!defs)
+    return true;
+  
+  if (defs->next)
+    return false;
+  
+  def = defs->ref;
+  inv = DF_REF_DATA (def);
+  if (!inv)
+    return false;
+  
+  def_data = inv->def;
+  gcc_assert (def_data != NULL);
+  
+  def_bb = DF_REF_BB (def);
+  /* Note that in case bb == def_bb, we know that the definition dominates
+     insn, because def has DF_REF_DATA defined and we process the insns
+     in the basic block bb sequentially.  */
+  if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
+    return false;
+  
+  bitmap_set_bit (depends_on, def_data->invno);
+  return true;
+}
+
+
 /* Finds the invariants INSN depends on and store them to the DEPENDS_ON
    bitmap.  Returns true if all dependencies of INSN are known to be
    loop invariants, false otherwise.  */
@@ -691,42 +734,16 @@ record_use (struct def *def, rtx *use, rtx insn)
 static bool
 check_dependencies (rtx insn, bitmap depends_on)
 {
-  struct df_link *defs;
-  struct df_ref *use, *def;
-  basic_block bb = BLOCK_FOR_INSN (insn), def_bb;
-  struct def *def_data;
-  struct invariant *inv;
+  struct df_ref *use;
+  basic_block bb = BLOCK_FOR_INSN (insn);
 
-  for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
-    {
-      if (use->flags & DF_REF_READ_WRITE)
-	return false;
-
-      defs = DF_REF_CHAIN (use);
-      if (!defs)
-	continue;
-
-      if (defs->next)
-	return false;
-
-      def = defs->ref;
-      inv = DF_REF_DATA (def);
-      if (!inv)
-	return false;
-
-      def_data = inv->def;
-      gcc_assert (def_data != NULL);
-
-      def_bb = DF_REF_BB (def);
-      /* Note that in case bb == def_bb, we know that the definition dominates
-	 insn, because def has DF_REF_DATA defined and we process the insns
-	 in the basic block bb sequentially.  */
-      if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
-	return false;
-
-      bitmap_set_bit (depends_on, def_data->invno);
-    }
-
+  for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
+    if (!check_dependency (bb, use, depends_on))
+      return false;
+  for (use = DF_INSN_EQ_USES (df, insn); use; use = use->next_ref)
+    if (!check_dependency (bb, use, depends_on))
+      return false;
+	
   return true;
 }
 
@@ -807,7 +824,13 @@ record_uses (rtx insn)
   struct df_ref *use;
   struct invariant *inv;
 
-  for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
+  for (use = DF_INSN_USES (df, insn); use; use = use->next_ref)
+    {
+      inv = invariant_for_use (use);
+      if (inv)
+	record_use (inv->def, DF_REF_LOC (use), DF_REF_INSN (use));
+    }
+  for (use = DF_INSN_EQ_USES (df, insn); use; use = use->next_ref)
     {
       inv = invariant_for_use (use);
       if (inv)
@@ -1319,7 +1342,7 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-  df = df_init (DF_EQUIV_NOTES + DF_UD_CHAIN, 0);
+  df = df_init (DF_UD_CHAIN, DF_EQ_NOTES);
   df_chain_add_problem (df);
  
   /* Process the loops, innermost first.  */

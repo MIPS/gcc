@@ -91,7 +91,8 @@ enum df_ref_flags
        bottom of the block.  This is never set for regular refs.  */
     DF_REF_AT_TOP = 8,
 
-    /* This flag is set if the use is inside a REG_EQUAL note.  */
+    /* This flag is set if the use is inside a REG_EQUAL or REG_EQUIV
+       note.  */
     DF_REF_IN_NOTE = 16,
 
     /* This flag is set if this ref, generally a def, may clobber the
@@ -259,21 +260,14 @@ struct df_insn_info
   struct df_ref *defs;	        /* Head of insn-def chain.  */
   struct df_ref *uses;	        /* Head of insn-use chain.  */
   struct df_mw_hardreg *mw_hardregs;   
+  /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
+  struct df_ref *eq_uses;       
   /* ???? The following luid field should be considered private so that
      we can change it on the fly to accommodate new insns?  */
   int luid;			/* Logical UID.  */
   bool contains_asm;            /* Contains an asm instruction.  */
 };
 
-
-/* Two of these structures are allocated for every pseudo reg, one for
-   the uses and one for the defs.  */
-struct df_reg_info
-{
-  struct df_ref *reg_chain;     /* Head of reg-use or def chain.  */
-  unsigned int begin;           /* First def_index for this pseudo.  */
-  unsigned int n_refs;          /* Number of refs or defs for this pseudo.  */
-};
 
 /* Define a register reference structure.  One of these is allocated
    for every register reference (use or def).  Note some register
@@ -314,37 +308,17 @@ struct df_link
   struct df_link *next;
 };
 
-/* Two of these structures are allocated, one for the uses and one for
-   the defs.  */
-struct df_ref_info
-{
-  struct df_reg_info **regs;    /* Array indexed by pseudo regno. */
-  unsigned int regs_size;       /* Size of currently allocated regs table.  */
-  unsigned int regs_inited;     /* Number of regs with reg_infos allocated.  */
-  struct df_ref **refs;         /* Ref table, indexed by id.  */
-  unsigned int refs_size;       /* Size of currently allocated refs table.  */
-  unsigned int bitmap_size;	/* Number of refs seen.  */
-
-  /* True if refs table is organized so that every reference for a
-     pseudo is contiguous.  */
-  bool refs_organized;
-  /* True if the next refs should be added immediately or false to
-     defer to later to reorganize the table.  */
-  bool add_refs_inline; 
-};
-
 
 enum df_permanent_flags 
 {
   /* Scanning flags.  */
-  DF_EQUIV_NOTES   =  1, /* Mark uses present in EQUIV/EQUAL notes.  */
-  DF_SUBREGS       =  2, /* Return subregs rather than the inner reg.  */
+  DF_SUBREGS       =  1, /* Return subregs rather than the inner reg.  */
   /* Flags that control the building of chains.  */
-  DF_DU_CHAIN      =  4, /* Build DU chains.  */  
-  DF_UD_CHAIN      =  8, /* Build UD chains.  */
+  DF_DU_CHAIN      =  2, /* Build DU chains.  */  
+  DF_UD_CHAIN      =  4, /* Build UD chains.  */
   /* Flag to control the building of register info.  */
-  DF_RI_LIFE       = 16, /* Build register info.  */
-  DF_RI_SETJMP     = 32  /* Build pseudos that cross setjmp info.  */
+  DF_RI_LIFE       =  8, /* Build register info.  */
+  DF_RI_SETJMP     = 16  /* Build pseudos that cross setjmp info.  */
 };
 
 enum df_changeable_flags 
@@ -352,9 +326,39 @@ enum df_changeable_flags
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
   DF_LR_RUN_DCE    = 1,  /* Run DCE.  */
-  DF_NO_HARD_REGS  = 2   /* Skip hard registers in RD and CHAIN Building.  */
+  DF_NO_HARD_REGS  = 2,  /* Skip hard registers in RD and CHAIN Building.  */
+  DF_EQ_NOTES      = 4   /* Build chains with uses present in EQUIV/EQUAL notes. */
 };
 
+/* Two of these structures are inline in df, one for the uses and one
+   for the defs.  */
+struct df_ref_info
+{
+  struct df_ref **refs;         /* Ref table, indexed by id.  */
+  unsigned int *begin;          /* First ref_index for this pseudo.  */
+  unsigned int refs_size;       /* Size of currently allocated refs table.  */
+  unsigned int bitmap_size;	/* Number of refs seen.  */
+
+  /* True if refs table is organized so that every reference for a
+     pseudo is contiguous.  */
+  bool refs_organized_alone;
+  /* True if the next refs should be added immediately or false to
+     defer to later to reorganize the table.  */
+  bool refs_organized_with_eq_uses;
+  /* True if the next refs should be added immediately or false to
+     defer to later to reorganize the table.  */
+  bool add_refs_inline; 
+};
+
+/* Three of these structures are allocated for every pseudo reg. One
+   for the uses, one for the eq_uses and one for the defs.  */
+struct df_reg_info
+{
+  /* Head of chain for refs of that type and regno.  */
+  struct df_ref *reg_chain;
+  /* Number of refs in the chain.  */
+  unsigned int n_refs;
+};
 
 /*----------------------------------------------------------------------------
    Problem data for the scanning dataflow problem.  Unlike the other
@@ -392,6 +396,16 @@ struct df
      to keep getting it from there.  */
   struct df_ref_info def_info;   /* Def info.  */
   struct df_ref_info use_info;   /* Use info.  */
+
+  /* The following three arrays are allocated in parallel.   They contain
+     the sets of refs of each type for each reg.  */
+  struct df_reg_info **def_regs;       /* Def reg info.  */
+  struct df_reg_info **use_regs;       /* Eq_use reg info.  */
+  struct df_reg_info **eq_use_regs;    /* Eq_use info.  */
+  unsigned int regs_size;       /* Size of currently allocated regs table.  */
+  unsigned int regs_inited;     /* Number of regs with reg_infos allocated.  */
+
+
   struct df_insn_info **insns;   /* Insn table, indexed by insn UID.  */
   unsigned int insns_size;       /* Size of insn table.  */
   bitmap hardware_regs_used;     /* The set of hardware registers used.  */
@@ -477,19 +491,26 @@ struct df
 #define DF_DEFS_SIZE(DF) ((DF)->def_info.bitmap_size)
 #define DF_DEFS_GET(DF,ID) ((DF)->def_info.refs[(ID)])
 #define DF_DEFS_SET(DF,ID,VAL) ((DF)->def_info.refs[(ID)]=(VAL))
+#define DF_DEFS_COUNT(DF,ID) (DF_REG_DEF_COUNT(DF,ID))
+#define DF_DEFS_BEGIN(DF,ID) ((DF)->def_info.begin[(ID)])
 #define DF_USES_SIZE(DF) ((DF)->use_info.bitmap_size)
 #define DF_USES_GET(DF,ID) ((DF)->use_info.refs[(ID)])
 #define DF_USES_SET(DF,ID,VAL) ((DF)->use_info.refs[(ID)]=(VAL))
+#define DF_USES_COUNT(DF,ID) (DF_REG_USE_COUNT(DF,ID)+DF_REG_EQ_USE_COUNT(DF,ID))
+#define DF_USES_BEGIN(DF,ID) ((DF)->use_info.begin[(ID)])
 
 /* Macros to access the register information from scan dataflow record.  */
 
-#define DF_REG_SIZE(DF) ((DF)->def_info.regs_inited)
-#define DF_REG_DEF_GET(DF, REG) ((DF)->def_info.regs[(REG)])
-#define DF_REG_DEF_SET(DF, REG, VAL) ((DF)->def_info.regs[(REG)]=(VAL))
-#define DF_REG_DEF_COUNT(DF, REG) ((DF)->def_info.regs[(REG)]->n_refs)
-#define DF_REG_USE_GET(DF, REG) ((DF)->use_info.regs[(REG)])
-#define DF_REG_USE_SET(DF, REG, VAL) ((DF)->use_info.regs[(REG)]=(VAL))
-#define DF_REG_USE_COUNT(DF, REG) ((DF)->use_info.regs[(REG)]->n_refs)
+#define DF_REG_SIZE(DF) ((DF)->regs_inited)
+#define DF_REG_DEF_GET(DF,REG) ((DF)->def_regs[(REG)])
+#define DF_REG_DEF_CHAIN(DF,REG) ((DF)->def_regs[(REG)]->reg_chain)
+#define DF_REG_DEF_COUNT(DF,REG) ((DF)->def_regs[(REG)]->n_refs)
+#define DF_REG_USE_GET(DF,REG) ((DF)->use_regs[(REG)])
+#define DF_REG_USE_CHAIN(DF,REG) ((DF)->use_regs[(REG)]->reg_chain)
+#define DF_REG_USE_COUNT(DF,REG) ((DF)->use_regs[(REG)]->n_refs)
+#define DF_REG_EQ_USE_GET(DF,REG) ((DF)->eq_use_regs[(REG)])
+#define DF_REG_EQ_USE_CHAIN(DF,REG) ((DF)->eq_use_regs[(REG)]->reg_chain)
+#define DF_REG_EQ_USE_COUNT(DF,REG) ((DF)->eq_use_regs[(REG)]->n_refs)
 
 /* Macros to access the elements within the reg_info structure table.  */
 
@@ -504,15 +525,17 @@ struct df
 #define DF_INSN_GET(DF,INSN) ((DF)->insns[(INSN_UID(INSN))])
 #define DF_INSN_SET(DF,INSN,VAL) ((DF)->insns[(INSN_UID (INSN))]=(VAL))
 #define DF_INSN_CONTAINS_ASM(DF, INSN) (DF_INSN_GET(DF,INSN)->contains_asm)
-#define DF_INSN_LUID(DF, INSN) (DF_INSN_GET(DF,INSN)->luid)
-#define DF_INSN_DEFS(DF, INSN) (DF_INSN_GET(DF,INSN)->defs)
-#define DF_INSN_USES(DF, INSN) (DF_INSN_GET(DF,INSN)->uses)
+#define DF_INSN_LUID(DF,INSN) (DF_INSN_GET(DF,INSN)->luid)
+#define DF_INSN_DEFS(DF,INSN) (DF_INSN_GET(DF,INSN)->defs)
+#define DF_INSN_USES(DF,INSN) (DF_INSN_GET(DF,INSN)->uses)
+#define DF_INSN_EQ_USES(DF,INSN) (DF_INSN_GET(DF,INSN)->eq_uses)
 
 #define DF_INSN_UID_GET(DF,UID) ((DF)->insns[(UID)])
-#define DF_INSN_UID_LUID(DF, INSN) (DF_INSN_UID_GET(DF,INSN)->luid)
-#define DF_INSN_UID_DEFS(DF, INSN) (DF_INSN_UID_GET(DF,INSN)->defs)
-#define DF_INSN_UID_USES(DF, INSN) (DF_INSN_UID_GET(DF,INSN)->uses)
-#define DF_INSN_UID_MWS(DF, INSN) (DF_INSN_UID_GET(DF,INSN)->mw_hardregs)
+#define DF_INSN_UID_LUID(DF,INSN) (DF_INSN_UID_GET(DF,INSN)->luid)
+#define DF_INSN_UID_DEFS(DF,INSN) (DF_INSN_UID_GET(DF,INSN)->defs)
+#define DF_INSN_UID_USES(DF,INSN) (DF_INSN_UID_GET(DF,INSN)->uses)
+#define DF_INSN_UID_EQ_USES(DF,INSN) (DF_INSN_UID_GET(DF,INSN)->eq_uses)
+#define DF_INSN_UID_MWS(DF,INSN) (DF_INSN_UID_GET(DF,INSN)->mw_hardregs)
 
 /* This is a bitmap copy of regs_invalidated_by_call so that we can
    easily add it into bitmaps, etc. */ 
@@ -723,7 +746,8 @@ extern void df_refs_delete (struct dataflow *, bitmap);
 extern void df_insn_refs_record (struct dataflow *, basic_block, rtx);
 extern bool df_has_eh_preds (basic_block);
 extern void df_recompute_luids (struct df *, basic_block);
-extern void df_reorganize_refs (struct df_ref_info *);
+extern void df_maybe_reorganize_use_refs (struct df *);
+extern void df_maybe_reorganize_def_refs (struct df *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
 

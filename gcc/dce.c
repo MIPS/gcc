@@ -490,7 +490,7 @@ dce_process_block (basic_block bb, bool redo_out)
 		libcall_start = NULL;
 		libcall_id = -1;
 	      }
-	    for (def = DF_INSN_GET (dce_df, insn)->defs; 
+	    for (def = DF_INSN_DEFS (dce_df, insn); 
 		 def; def = def->next_ref)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
 		{
@@ -518,14 +518,14 @@ dce_process_block (basic_block bb, bool redo_out)
 	
 	/* No matter if the instruction is needed or not, we remove
 	   any regno in the defs from the live set.  */
-	for (def = DF_INSN_GET (dce_df, insn)->defs; def; def = def->next_ref)
+	for (def = DF_INSN_DEFS (dce_df, insn); def; def = def->next_ref)
 	  {
 	    unsigned int regno = DF_REF_REGNO (def);
 	    if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	      bitmap_clear_bit (local_live, regno);
 	  }
 	if (marked_insn_p (insn))
-	  for (use = DF_INSN_GET (dce_df, insn)->uses; 
+	  for (use = DF_INSN_USES (dce_df, insn); 
 	       use; use = use->next_ref)
 	    {
 	      unsigned int regno = DF_REF_REGNO (use);

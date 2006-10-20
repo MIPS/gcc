@@ -109,18 +109,21 @@ union_defs (struct df *df, struct df_ref *use, struct web_entry *def_entry,
   rtx insn = DF_REF_INSN (use);
   struct df_link *link = DF_REF_CHAIN (use);
   struct df_ref *use_link;
+  struct df_ref *eq_use_link;
   struct df_ref *def_link;
   rtx set;
 
   if (insn)
     {
       use_link = DF_INSN_USES (df, insn);
+      eq_use_link = DF_INSN_EQ_USES (df, insn);
       def_link = DF_INSN_DEFS (df, insn);
       set = single_set (insn);
     }
   else
     {
       use_link = NULL;
+      eq_use_link = NULL;
       def_link = NULL;
       set = NULL;
     }
@@ -137,6 +140,15 @@ union_defs (struct df *df, struct df_ref *use, struct web_entry *def_entry,
  	(*fun) (use_entry + DF_REF_ID (use),
  		use_entry + DF_REF_ID (use_link));
       use_link = use_link->next_ref;
+    }
+
+  while (eq_use_link)
+    {
+      if (use != eq_use_link
+	  && DF_REF_REAL_REG (use) == DF_REF_REAL_REG (eq_use_link))
+ 	(*fun) (use_entry + DF_REF_ID (use),
+ 		use_entry + DF_REF_ID (eq_use_link));
+      eq_use_link = eq_use_link->next_ref;
     }
 
   /* Recognize trivial noop moves and attempt to keep them as noop.
@@ -253,11 +265,11 @@ web_main (void)
   int max = max_reg_num ();
   char *used;
 
-  df = df_init (DF_EQUIV_NOTES + DF_UD_CHAIN, DF_NO_HARD_REGS);
+  df = df_init (DF_UD_CHAIN, DF_NO_HARD_REGS + DF_EQ_NOTES);
   df_chain_add_problem (df);
   df_analyze (df);
-  df_reorganize_refs (&df->def_info);
-  df_reorganize_refs (&df->use_info);
+  df_maybe_reorganize_def_refs (df);
+  df_maybe_reorganize_use_refs (df);
 
   def_entry = XCNEWVEC (struct web_entry, DF_DEFS_SIZE (df));
   use_entry = XCNEWVEC (struct web_entry, DF_USES_SIZE (df));

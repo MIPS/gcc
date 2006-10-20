@@ -471,8 +471,9 @@ df_ru_bb_local_compute_process_def (struct dataflow *dflow,
 	  && (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))))
 	{
 	  unsigned int regno = DF_REF_REGNO (def);
-	  unsigned int begin = DF_REG_USE_GET (df, regno)->begin;
-	  unsigned int n_uses = DF_REG_USE_GET (df, regno)->n_refs;
+	  unsigned int begin = DF_USES_BEGIN (df, regno);
+	  unsigned int n_uses = DF_USES_COUNT (df, regno);
+
 	  if (!bitmap_bit_p (seen_in_block, regno))
 	    {
 	      /* The first def for regno in the insn, causes the kill
@@ -557,6 +558,10 @@ df_ru_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
       df_ru_bb_local_compute_process_use (bb_info, 
 					  DF_INSN_UID_USES (df, uid), 0);
 
+      if (df->changeable_flags & DF_EQ_NOTES)
+	df_ru_bb_local_compute_process_use (bb_info, 
+					    DF_INSN_UID_EQ_USES (df, uid), 0);
+
       df_ru_bb_local_compute_process_def (dflow, bb_info, 
 					  DF_INSN_UID_DEFS (df, uid), 0);
 
@@ -591,8 +596,7 @@ df_ru_local_compute (struct dataflow *dflow,
 
   df_set_seen ();
 
-  if (!df->use_info.refs_organized)
-    df_reorganize_refs (&df->use_info);
+  df_maybe_reorganize_use_refs (df);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
@@ -602,13 +606,13 @@ df_ru_local_compute (struct dataflow *dflow,
   /* Set up the knockout bit vectors to be applied across EH_EDGES.  */
   EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, regno, bi)
     {
-      struct df_reg_info *reg_info = DF_REG_USE_GET (df, regno);
-      if (reg_info->n_refs > DF_SPARSE_THRESHOLD)
+      if (DF_USES_COUNT (df, regno) > DF_SPARSE_THRESHOLD)
 	bitmap_set_bit (sparse_invalidated, regno);
       else
 	{
 	  bitmap defs = df_ref_bitmap (problem_data->use_sites, regno, 
-				       reg_info->begin, reg_info->n_refs);
+				       DF_USES_BEGIN (df, regno), 
+				       DF_USES_COUNT (df, regno));
 	  bitmap_ior_into (dense_invalidated, defs);
 	}
     }
@@ -659,8 +663,8 @@ df_ru_confluence_n (struct dataflow *dflow, edge e)
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
 	{
  	  bitmap_clear_range (tmp, 
- 			      DF_REG_USE_GET (df, regno)->begin, 
- 			      DF_REG_USE_GET (df, regno)->n_refs);
+ 			      DF_USES_BEGIN (df, regno), 
+ 			      DF_USES_COUNT (df, regno));
 	}
       bitmap_ior_into (op1, tmp);
       BITMAP_FREE (tmp);
@@ -695,8 +699,8 @@ df_ru_transfer_function (struct dataflow *dflow, int bb_index)
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
 	  bitmap_clear_range (tmp, 
- 			      DF_REG_USE_GET (df, regno)->begin, 
- 			      DF_REG_USE_GET (df, regno)->n_refs);
+ 			      DF_USES_BEGIN (df, regno), 
+ 			      DF_USES_COUNT (df, regno));
 	}
       bitmap_and_compl_into (tmp, kill);
       bitmap_ior_into (tmp, gen);
@@ -780,10 +784,10 @@ df_ru_start_dump (struct dataflow *dflow, FILE *file)
   dump_bitmap (file, problem_data->dense_invalidated_by_call);
   
   for (regno = 0; regno < m; regno++)
-    if (DF_REG_USE_GET (df, regno)->n_refs)
+    if (DF_USES_COUNT (df, regno))
       fprintf (file, "%d[%d,%d] ", regno, 
-	       DF_REG_USE_GET (df, regno)->begin, 
-	       DF_REG_USE_GET (df, regno)->n_refs);
+	       DF_USES_BEGIN (df, regno), 
+	       DF_USES_COUNT (df, regno));
   fprintf (file, "\n");
 }
 
@@ -1027,8 +1031,8 @@ df_rd_bb_local_compute_process_def (struct dataflow *dflow,
       if (top_flag == (DF_REF_FLAGS (def) & DF_REF_AT_TOP))
 	{
 	  unsigned int regno = DF_REF_REGNO (def);
-	  unsigned int begin = DF_REG_DEF_GET (df, regno)->begin;
-	  unsigned int n_defs = DF_REG_DEF_GET (df, regno)->n_refs;
+	  unsigned int begin = DF_DEFS_BEGIN (df, regno);
+	  unsigned int n_defs = DF_DEFS_COUNT (df, regno);
 	  
 	  if ((!(df->changeable_flags & DF_NO_HARD_REGS))
 	      || (regno >= FIRST_PSEUDO_REGISTER))
@@ -1143,8 +1147,7 @@ df_rd_local_compute (struct dataflow *dflow,
 
   df_set_seen ();
 
-  if (!df->def_info.refs_organized)
-    df_reorganize_refs (&df->def_info);
+  df_maybe_reorganize_def_refs (df);
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
@@ -1154,15 +1157,13 @@ df_rd_local_compute (struct dataflow *dflow,
   /* Set up the knockout bit vectors to be applied across EH_EDGES.  */
   EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, regno, bi)
     {
-      struct df_reg_info *reg_info = DF_REG_DEF_GET (df, regno);
-      if (reg_info->n_refs > DF_SPARSE_THRESHOLD)
-	{
-	  bitmap_set_bit (sparse_invalidated, regno);
-	}
+      if (DF_DEFS_COUNT (df, regno) > DF_SPARSE_THRESHOLD)
+	bitmap_set_bit (sparse_invalidated, regno);
       else
 	{
 	  bitmap defs = df_ref_bitmap (problem_data->def_sites, regno, 
-				       reg_info->begin, reg_info->n_refs);
+				       DF_DEFS_BEGIN (df, regno), 
+				       DF_DEFS_COUNT (df, regno));
 	  bitmap_ior_into (dense_invalidated, defs);
 	}
     }
@@ -1212,8 +1213,8 @@ df_rd_confluence_n (struct dataflow *dflow, edge e)
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
  	{
  	  bitmap_clear_range (tmp, 
- 			      DF_REG_DEF_GET (df, regno)->begin, 
- 			      DF_REG_DEF_GET (df, regno)->n_refs);
+ 			      DF_DEFS_BEGIN (df, regno), 
+ 			      DF_DEFS_COUNT (df, regno));
 	}
       bitmap_ior_into (op1, tmp);
       BITMAP_FREE (tmp);
@@ -1248,8 +1249,8 @@ df_rd_transfer_function (struct dataflow *dflow, int bb_index)
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
 	  bitmap_clear_range (tmp, 
-			      DF_REG_DEF_GET (df, regno)->begin, 
-			      DF_REG_DEF_GET (df, regno)->n_refs);
+			      DF_DEFS_BEGIN (df, regno), 
+			      DF_DEFS_COUNT (df, regno));
 	}
       bitmap_and_compl_into (tmp, kill);
       bitmap_ior_into (tmp, gen);
@@ -1333,10 +1334,10 @@ df_rd_start_dump (struct dataflow *dflow, FILE *file)
   dump_bitmap (file, problem_data->dense_invalidated_by_call);
 
   for (regno = 0; regno < m; regno++)
-    if (DF_REG_DEF_GET (df, regno)->n_refs)
+    if (DF_DEFS_COUNT (df, regno))
       fprintf (file, "%d[%d,%d] ", regno, 
-	       DF_REG_DEF_GET (df, regno)->begin, 
-	       DF_REG_DEF_GET (df, regno)->n_refs);
+	       DF_DEFS_BEGIN (df, regno), 
+	       DF_DEFS_COUNT (df, regno));
   fprintf (file, "\n");
 
 }
@@ -3099,24 +3100,22 @@ df_chain_alloc (struct dataflow *dflow,
 
   if (df->permanent_flags & DF_DU_CHAIN)
     {
-      if (!df->def_info.refs_organized)
-	df_reorganize_refs (&df->def_info);
-      
+      df_maybe_reorganize_def_refs (df);
       /* Clear out the pointers from the refs.  */
       for (i = 0; i < DF_DEFS_SIZE (df); i++)
 	{
-	  struct df_ref *ref = df->def_info.refs[i];
+	  struct df_ref *ref = DF_DEFS_GET(df, i);
 	  DF_REF_CHAIN (ref) = NULL;
 	}
     }
   
   if (df->permanent_flags & DF_UD_CHAIN)
     {
-      if (!df->use_info.refs_organized)
-	df_reorganize_refs (&df->use_info);
+      df_maybe_reorganize_use_refs (df);
+      /* Clear out the pointers from the refs.  */
       for (i = 0; i < DF_USES_SIZE (df); i++)
 	{
-	  struct df_ref *ref = df->use_info.refs[i];
+	  struct df_ref *ref = DF_USES_GET (df, i);
 	  DF_REF_CHAIN (ref) = NULL;
 	}
     }
@@ -3133,7 +3132,7 @@ df_chain_insn_reset (struct dataflow *dflow, rtx insn)
   struct df_insn_info *insn_info = NULL;
   struct df_ref *ref;
 
-  if (uid < df->insns_size)
+  if (uid < DF_INSN_SIZE (df))
     insn_info = DF_INSN_UID_GET (df, uid);
 
   if (insn_info)
@@ -3151,6 +3150,12 @@ df_chain_insn_reset (struct dataflow *dflow, rtx insn)
       if (df->permanent_flags & DF_UD_CHAIN)
 	{
 	  ref = insn_info->uses;
+	  while (ref) 
+	    {
+	      ref->chain = NULL;
+	      ref = ref->next_ref;
+	    }
+	  ref = insn_info->eq_uses;
 	  while (ref) 
 	    {
 	      ref->chain = NULL;
@@ -3246,12 +3251,12 @@ df_chain_create_bb_process_use (struct dataflow *dflow,
       if ((!(df->changeable_flags & DF_NO_HARD_REGS))
 	  || (uregno >= FIRST_PSEUDO_REGISTER))
 	{
-	  int count = DF_REG_DEF_GET (df, uregno)->n_refs;
+	  int count = DF_DEFS_COUNT (df, uregno);
 	  if (count)
 	    {
 	      if (top_flag == (DF_REF_FLAGS (use) & DF_REF_AT_TOP))
 		{
-		  unsigned int first_index = DF_REG_DEF_GET (df, uregno)->begin;
+		  unsigned int first_index = DF_DEFS_BEGIN (df, uregno);
 		  unsigned int last_index = first_index + count - 1;
 		  
 		  EXECUTE_IF_SET_IN_BITMAP (local_rd, first_index, def_index, bi)
@@ -3314,8 +3319,8 @@ df_chain_create_bb (struct dataflow *dflow,
 	unsigned int dregno = DF_REF_REGNO (def);
 	if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	  bitmap_clear_range (cpy, 
-			      DF_REG_DEF_GET (df, dregno)->begin, 
-			      DF_REG_DEF_GET (df, dregno)->n_refs);
+			      DF_DEFS_BEGIN (df, dregno), 
+			      DF_DEFS_COUNT (df, dregno));
 	bitmap_set_bit (cpy, DF_REF_ID (def));
       }
   
@@ -3334,6 +3339,11 @@ df_chain_create_bb (struct dataflow *dflow,
       df_chain_create_bb_process_use (dflow, cpy,
 				     DF_INSN_UID_USES (df, uid), 0);
 
+      if (df->changeable_flags & DF_EQ_NOTES)
+	df_chain_create_bb_process_use (dflow, cpy,
+					DF_INSN_UID_EQ_USES (df, uid), 0);
+
+
       /* Since we are going forwards, process the defs second.  This
          pass only changes the bits in cpy.  */
       for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
@@ -3344,8 +3354,8 @@ df_chain_create_bb (struct dataflow *dflow,
 	    {
 	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		bitmap_clear_range (cpy, 
-				    DF_REG_DEF_GET (df, dregno)->begin, 
-				    DF_REG_DEF_GET (df, dregno)->n_refs);
+				    DF_DEFS_BEGIN (df, dregno), 
+				    DF_DEFS_COUNT (df, dregno));
 	      if (!(DF_REF_FLAGS (def) 
 		    & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
 		bitmap_set_bit (cpy, DF_REF_ID (def));
@@ -3401,7 +3411,7 @@ df_chain_start_dump (struct dataflow *dflow, FILE *file)
   if (df->permanent_flags & DF_DU_CHAIN)
     {
       fprintf (file, "Def-use chains:\n");
-      for (j = 0; j < df->def_info.bitmap_size; j++)
+      for (j = 0; j < DF_DEFS_SIZE (df); j++)
 	{
 	  struct df_ref *def = DF_DEFS_GET (df, j);
 	  if (def)
@@ -3424,7 +3434,7 @@ df_chain_start_dump (struct dataflow *dflow, FILE *file)
   if (df->permanent_flags & DF_UD_CHAIN)
     {
       fprintf (file, "Use-def chains:\n");
-      for (j = 0; j < df->use_info.bitmap_size; j++)
+      for (j = 0; j < DF_USES_SIZE (df); j++)
 	{
 	  struct df_ref *use = DF_USES_GET (df, j);
 	  if (use)

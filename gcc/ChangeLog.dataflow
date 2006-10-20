@@ -1,3 +1,82 @@
+2006-10-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (schedule_ebbs): Changed flags to df_init.
+	* fwprop.c (use_killed_between): Changed to use proper macros.
+	(All_uses_available_at, try_fwprop_subst): Added support for
+	separated reg_equiv/equal df_refs.
+	(fwprop_init): Changed flags to df_init.
+	(fwprop, fwprop_addr): Changed call to df_reorganize_refs to
+	df_maybe_reorganize_use_refs.
+	* see.c (see_initialize_data_structures): Changed flags to
+	df_init.
+	* ddg.c (build_inter_loop_deps): Now skips refs with
+	reg_equal/equiv notes.
+	* modulo-sched.c (sms_schedule): Changed flags to df_init.
+	* web.c (union_defs): Added support for separated reg_equiv/equal
+	df_refs.
+	(web_main): Changed flags to df_init and changed call to
+	df_reorganize_refs to df_maybe_reorganize_(use|def)_refs.
+	* loop_invariant.c (check_dependency): New function split out from
+	check_dependencies.
+	(record_uses): Added support for separated reg_equiv/equal
+	df_refs.
+	(move_loop_invariants): Changed flags to df_init.
+	* loop-iv.c (iv_analysis_loop_init): Changed flags to df_init.
+	(latch_dominating_def): Changed to use proper macros.
+	* combine.c (create_log_links): Ditto.
+	* sched-rgn.c (schedule_insns): Changed flags to df_init.
+	* dce.c (dce_process_block): Changed to use proper macros.
+	* df.h (df_insn_info.eq_uses): New field.
+	(DF_EQUIV_NOTES): Deleted permanent_flag.
+	(DF_EQ_NOTES): New changeable_flag.
+	(df_ref_info.regs_size, df_ref_info.regs_inited): Moved to df
+	structure.
+	(df.def_regs, df.use_regs, df.eq_use_regs): New fields.
+	(df_ref_info.begin): Moved from df_reg_info.
+	(DF_DEFS_COUNT, DF_DEFS_BEGIN, DF_DEFS_COUNT, DF_DEFS_BEGIN,
+	DF_REG_EQ_USE_GET, DF_REG_EQ_USE_CHAIN, DF_REG_EQ_USE_COUNT): New
+	macros.
+	(DF_REG_SIZE, DF_REG_DEF_GET, DF_REG_DEF_CHAIN, DF_REG_DEF_COUNT,
+	DF_REG_USE_GET, DF_REG_USE_CHAIN, DF_REG_USE_COUNT): Redefined.
+	(df_reorganize_refs): Split into df_maybe_reorganize_use_refs and
+	df_maybe_reorganize_def_refs.  
+	(df_ref_info.refs_organized): Split into refs_organized_alone and 
+	refs_organized_with_eq_uses.
+	* df-problems.c (df_ru_bb_local_compute_process_def,
+	df_ru_local_compute, df_ru_confluence_n, df_ru_transfer_function,
+	df_ru_start_dump, df_rd_bb_local_compute_process_def,
+	df_rd_local_compute, df_rd_confluence_n, df_rd_transfer_function,
+	df_rd_start_dump, df_chain_alloc, df_chain_insn_reset,
+	df_chain_create_bb_process_use, df_chain_create_bb,
+	df_chain_start_dump): Changed to use proper macros.
+	(df_ru_bb_local_compute, df_chain_insn_reset, df_chain_create_bb):
+	Added support for separated reg_equiv/equal df_refs.
+	(df_ru_local_compute, df_rd_local_compute, df_chain_alloc): Split
+	into df_maybe_reorganize_use_refs and
+	df_maybe_reorganize_def_refs.
+	* df-scan.c (df_grow_reg_info, df_rescan_blocks, df_ref_create):
+	Changed to process all data structures dependent on number of
+	registers at once.
+	(df_scan_free_internal, df_scan_alloc): Changed to process new
+	data structures properly.
+	(df_rescan_blocks): Split into refs_organized_alone and
+	refs_organized_with_eq_uses.
+	(df_reg_chain_unlink): Remove decrement of bitmap_size fields.
+	(df_reg_chain_unlink, df_insn_refs_delete,
+	df_ref_create_structure): Changed to use proper macros.
+	(df_reg_chain_unlink, df_ref_remove, df_insn_refs_delete,
+	df_reorganize_refs, df_ref_create_structure, df_insn_refs_record):
+	Added support for separated reg_equiv/equal df_refs.
+	(df_maybe_reorganize_use_refs, df_maybe_reorganize_def_refs): New
+	functions.
+	* df-core.c (df_bb_regno_last_use_find,
+	df_bb_regno_first_def_find, df_bb_regno_last_def_find,
+	df_insn_regno_def_p, df_find_def, df_find_use, df_dump_start,
+	df_regno_debug): Changed to use proper macros.
+	(df_find_use, df_insn_uid_debug, df_insn_uid_debug,
+	df_insn_debug_regno, df_insn_debug_regno): Added support for
+	separated reg_equiv/equal df_refs.
+
+	
 2006-10-18  Paolo Bonzini  <bonzini@gnu.org>
 
 	* stack-ptr-mod.c (pass_stack_ptr_mod): Don't set pass name.

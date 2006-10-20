@@ -334,10 +334,10 @@ build_inter_loop_deps (struct df *df, ddg_ptr g)
   EXECUTE_IF_SET_IN_BITMAP (ru_bb_info->kill, 0, u_num, bi)
     {
       struct df_ref *use = DF_USES_GET (df, u_num);
-
-      /* We are interested in uses of this BB.  */
-      if (BLOCK_FOR_INSN (use->insn) == g->bb)
-      	add_deps_for_use (g, df, use);
+      if (!(DF_REF_FLAGS (use) & DF_REF_IN_NOTE))
+	/* We are interested in uses of this BB.  */
+	if (BLOCK_FOR_INSN (use->insn) == g->bb)
+	  add_deps_for_use (g, df, use);
     }
 }
 
