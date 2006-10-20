@@ -1,3 +1,9 @@
+2006-10-20  Joseph Myers  <joseph@codesourcery.com>
+
+	fixincludes/
+	* inclhack.def (AAB_fd_zero_asm_posix_types_h): Bypass on x86_64.
+	* fixincl.x: Regenerate.
+
 2006-10-20  Mark Mitchell  <mark@codesourcery.com>
             Joseph Myers  <joseph@codesourcery.com>
             Mark Shinwell  <shinwell@codesourcery.com>
