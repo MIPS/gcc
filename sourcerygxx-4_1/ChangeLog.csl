@@ -1,3 +1,9 @@
+2006-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+	    Kazu Hirata  <kazu@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (link, unlink): New.
+
 2006-10-20  Joseph Myers  <joseph@codesourcery.com>
 
 	fixincludes/
