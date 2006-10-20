@@ -136,15 +136,6 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-#if 0
-  if (is_virtual && var_ann (SSA_NAME_VAR (ssa_name)) 
-      && get_subvars_for_var (SSA_NAME_VAR (ssa_name)) != NULL)
-    {
-      error ("found real variable when subvariables should have appeared");
-      return true;
-    }
-#endif
-
   /* All the memory SSA names must use the same default definition.  */
   if (is_virtual
       && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
@@ -317,7 +308,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
   edge e;
   bool err = false;
   unsigned i, phi_num_args = PHI_NUM_ARGS (phi);
-  mem_syms_map_t syms_phi = NULL;
 
   if (EDGE_COUNT (bb->preds) != phi_num_args)
     {
@@ -330,13 +320,22 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
     {
       bitmap_iterator bi;
       unsigned i;
+      tree lhs;
+      mem_syms_map_t syms_phi;
       
+      lhs = PHI_RESULT (phi);
       syms_phi = get_loads_and_stores (phi);
       if (syms_phi->loads != syms_phi->stores)
 	{
 	  error ("Sets of loads and stores should be shared");
 	  err = true;
 	  goto error;
+	}
+
+      if (syms_phi->stores == NULL || bitmap_empty_p (syms_phi->stores))
+	{
+	  error ("Found memory PHI node with no associated symbols");
+	  err = true;
 	}
 
       EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
@@ -347,6 +346,13 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	    print_generic_stmt (stderr, referenced_var (i), 0);
 	    err = true;
 	  }
+
+      if (SSA_NAME_VAR (lhs) == mem_var
+	  && bitmap_singleton_p (syms_phi->stores))
+	{
+	  error ("Found factored PHI node associated to only one symbol");
+	  err = true;
+	}
 
       if (err)
 	goto error;

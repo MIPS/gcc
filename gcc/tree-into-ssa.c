@@ -3485,18 +3485,34 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
     {
       tree lhs = PHI_RESULT (phi);
       tree lhs_sym = SSA_NAME_VAR (lhs);
+      bitmap stores = NULL;
+
+      /* If this is a factored PHI node and some of the factored
+	 symbols have been promoted to registers, they must be removed
+	 from the set.  */
+      if (lhs_sym == mem_var)
+	{
+	  stores = get_loads_and_stores (phi)->stores;
+	  bitmap_and_compl_into (stores, regs_to_rename);
+	  
+	  if (bitmap_empty_p (stores) || bitmap_singleton_p (stores))
+	    {
+	      /* If we unfactored this PHI node, add it to the list of
+		 unfactored nodes to be processed after renaming.  The
+		 PHI node is not otherwise interesting, so continue to
+		 the next one.  */
+	      get_unfactored_phi (phi);
+	      continue;
+	    }
+	}
 
       if (lhs_sym == mem_var)
 	{
-	  bitmap stores = get_loads_and_stores (phi)->stores;
-
-	  if (bitmap_intersect_p (stores, syms_to_rename))
+	  /* If we didn't turn PHI into a regular memory PHI above,
+	     and symbols in STORES are marked for renaming, mark this
+	     as an interesting site for .MEM.  */
+	  if (bitmap_intersect_p (stores, mem_syms_to_rename))
 	    {
-	      /* If symbols currently factored by PHI have been promoted
-		 to registers, remove them from the set of factored
-		 symbols.  */
-	      bitmap_and_compl_into (stores, regs_to_rename);
-
 	      add_syms_with_phi (stores, bb->index);
 	      mark_use_interesting (mem_var, phi, bb, insert_phi_p);
 	      mark_def_interesting (mem_var, phi, bb, insert_phi_p);
@@ -4312,19 +4328,29 @@ replace_stale_ssa_names (void)
     }
 
 
-  /* Replace every stale name with the new name created for the VDEF
-     of its original defining statement.  */
+  /* Replace every stale name with the new name created for the LHS of
+     its original defining statement.  */
   if (stale_ssa_names)
     EXECUTE_IF_SET_IN_BITMAP (stale_ssa_names, 0, i, bi)
       {
 	/* The replacement name for every stale SSA name is the new
 	   LHS of the VDEF operator in the original defining
 	   statement.  */
-	tree use_stmt, old_name, new_name;
+	tree use_stmt, old_name, new_name, def_stmt;
 	imm_use_iterator iter;
 
 	old_name = ssa_name (i);
-	new_name = VDEF_RESULT (VDEF_OPS (SSA_NAME_DEF_STMT (old_name)));
+	def_stmt = SSA_NAME_DEF_STMT (old_name);
+	if (TREE_CODE (def_stmt) == PHI_NODE)
+	  new_name = PHI_RESULT (def_stmt);
+	else
+	  new_name = VDEF_RESULT (VDEF_OPS (def_stmt));
+
+	/* Note that we cannot just overwrite the EH flag in NEW_NAME.
+	   If NEW_NAME is already in an abnormal PHI but OLD_NAME
+	   wasn't, then we will be clearing the flag on NEW_NAME.  */
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name) 
+	  |= SSA_NAME_OCCURS_IN_ABNORMAL_PHI (old_name);
 
 	FOR_EACH_IMM_USE_STMT (use_stmt, iter, old_name)
 	  {
@@ -4638,6 +4664,28 @@ fixup_unfactored_phis (void)
 	rewrite_update_memory_stmt (stmt, false);
     }
 
+  for (n = first_unfactored_phi; n; n = n->next)
+    {
+      bitmap phi_syms = get_loads_and_stores (n->phi)->stores;
+      tree phi_lhs = PHI_RESULT (n->phi);
+
+      if (bitmap_singleton_p (phi_syms))
+	{
+	  /* We have completely unfactored this PHI node, it no longer
+	     needs a .MEM symbol on its LHS.  Note that using
+	     replace_ssa_name_symbol is not a problem in this case because
+	     .MEM is never marked for renaming (and thus we cannot get
+	     confused when looking up operands to rename).  */
+	  tree sym = referenced_var_lookup (bitmap_first_set_bit (phi_syms));
+	  replace_ssa_name_symbol (phi_lhs, sym);
+	}
+      else if (bitmap_empty_p (phi_syms))
+	{
+	  /* If this PHI node factors no symbols, it can be eliminated.  */
+	  remove_phi_node (n->phi, NULL, true);
+	}
+    }
+
   VEC_free (tree, heap, phi_queue);
   VEC_free (tree, heap, stmt_queue);
   htab_delete (stmts_added);
@@ -4922,16 +4970,16 @@ update_ssa (unsigned update_flags)
       fprintf (dump_file, "\n\n");
     }
 
+  /* If the renamer had to split factored PHI nodes, we need to adjust
+     the immediate uses for the split PHI nodes.  */
+  if (unfactored_phis)
+    fixup_unfactored_phis ();
+
   /* If the update process generated stale SSA names, their immediate
      uses need to be replaced with the new name that was created in
      their stead.  */
   if (names_to_release || stale_ssa_names)
     replace_stale_ssa_names ();
-
-  /* If the renamer had to split factored PHI nodes, we need to adjust
-     the immediate uses for the split PHI nodes.  */
-  if (unfactored_phis)
-    fixup_unfactored_phis ();
 
   /* Free allocated memory.  */
 done:

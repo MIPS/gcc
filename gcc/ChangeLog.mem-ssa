@@ -1,5 +1,31 @@
 2006-10-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-into-ssa.c (prepare_block_for_update): If a factored
+	PHI node is now completely unfactored, add it to the list of
+	unfactored PHI nodes to process after renaming.
+	(replace_stale_ssa_names): Handle stale SSA names that come
+	from PHI nodes.
+	Update SSA_NAME_OCCURS_IN_ABNORMAL_PHI for the new name if
+	necessary.
+	(fixup_unfactored_phis): Remove unfactored PHI nodes that end
+	up with no factored symbols.
+	Convert to regular memory PHI nodes those factored PHI nodes
+	that end up factoring a single symbol.
+	(update_ssa): Call fixup_unfactored_phis before
+	replace_stale_ssa_names.
+	* tree-phinodes.c (create_factored_phi_node): Do not allow
+	empty symbol sets.
+	* tree-ssa.c (verify_ssa_name): Remove #if0 code.
+	(verify_phi_args): Check that every memory PHI has a set of
+	symbols.
+	Check that factored PHI nodes factor more than one symbol.
+	* tree-cfg.c (bsi_remove): Always call delete_loads_and_stores.
+	(bsi_replace): Likewise.
+	* tree-ssa-operands.c (dump_immediate_uses_for): Add
+	TDF_MEMSYMS when dumping memory statements.
+
+2006-10-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-dce.c: Remove forward declarations for static
 	functions.  Re-arrange functions bodies as needed.
 	(find_obviously_necessary_stmts): Never mark PHI nodes as
