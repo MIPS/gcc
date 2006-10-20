@@ -1,3 +1,21 @@
+2006-10-20  Mark Mitchell  <mark@codesourcery.com>
+            Joseph Myers  <joseph@codesourcery.com>
+            Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config.gcc (arm-wrs-linux-gnueabi, i586-wrs-linux-gnu,
+	mips-wrs-linux-gnu, powerpc-wrs-linux-gnu): New configurations.
+	* config/arm/t-wrs-linux, config/arm/wrs-linux.h,
+	config/mips/t-wrs-linux, config/mips/wrs-linux.h,
+	config/rs6000/t-wrs-linux, config/rs6000/wrs-linux.h: New files.
+	* config/rs6000/rs6000.h (OPTION_DEFAULT_SPECS): Allow for
+	-te500v2.
+	* config/rs6000/sysv4.h (CC1_EXTRA_SPEC): Define and use.
+
+	libcpp/
+	* configure.ac (i[34567]86-wrs-linux*): Set need_64bit_hwint=yes.
+	* configure: Regenerate.
+
 2006-10-20  Richard Sandiford  <richard@codesourcery.com>
             Joseph Myers  <joseph@codesourcery.com>
 

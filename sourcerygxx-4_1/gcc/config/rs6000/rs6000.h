@@ -264,7 +264,7 @@ enum group_termination
    --with-float is ignored if -mhard-float or -msoft-float are
     specified.  */
 #define OPTION_DEFAULT_SPECS \
-  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
+  {"cpu", "%{!te500v2:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
 

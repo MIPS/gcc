@@ -696,6 +696,14 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	    need_64bit_hwint=yes
 	    # The EABI requires the use of __cxa_atexit.
 	    default_use_cxa_atexit=yes
+	    case  ${target} in
+	    arm-wrs-linux-gnueabi) 
+		tm_file="$tm_file arm/wrs-linux.h"
+		tmake_file="$tmake_file arm/t-wrs-linux"
+		tm_defines="$tm_defines TARGET_FLEXLM"
+		;;
+            *) ;;
+            esac
 	    ;;
 	*)
 	    tmake_file="$tmake_file arm/t-linux"
@@ -1082,6 +1090,13 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			esac
 		else
 			tm_file="${tm_file} i386/linux.h"
+			case ${target} in
+			*-wrs-linux*)
+				tm_file="${tm_file} i386/x86-64.h"
+				tm_defines="${tm_defines} TARGET_BI_ARCH=1 TARGET_FLEXLM"
+				need_64bit_hwint=yes
+				;;
+			esac
 		fi
 		;;
 	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
@@ -1545,6 +1560,11 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 target_cpu_default="MASK_SOFT_FLOAT"
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
                 ;;
+	mips-wrs-linux-gnu) 
+		tmake_file="$tmake_file mips/t-wrs-linux"
+		tm_file="$tm_file mips/wrs-linux.h"
+		tm_defines="$tm_defines TARGET_FLEXLM"
+		;;
         esac
 	;;
 mips*-*-openbsd*)
@@ -1673,7 +1693,7 @@ pdp11-*-*)
 #	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-fprules-fpbit "
 #	extra_headers=
 #	;;
-powerpc64-*-linux*)
+powerpc64-*-linux*|powerpc-wrs-linux-gnu)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	test x$with_cpu != x || cpu_is_64bit=yes
 	test x$cpu_is_64bit != xyes || tm_file="${tm_file} rs6000/default64.h"
@@ -1682,7 +1702,19 @@ powerpc64-*-linux*)
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
 	extra_options="${extra_options} rs6000/sysv4.opt rs6000/linux64.opt"
-	tmake_file="rs6000/t-fprules ${tmake_file} rs6000/t-ppccomm rs6000/t-linux64 rs6000/t-fprules-softfp soft-fp/t-softfp"
+	tmake_file="rs6000/t-fprules ${tmake_file} rs6000/t-ppccomm"
+	case ${target} in
+	powerpc-wrs-linux-gnu)
+		# This configuration does not use t-linux64, as there
+	        # are no 64-bit multilibs.  
+		tm_file="$tm_file rs6000/wrs-linux.h"
+		tmake_file="$tmake_file rs6000/t-wrs-linux rs6000/t-fprules-softfp soft-fp/t-softfp"
+		tm_defines="$tm_defines TARGET_FLEXLM"
+		;;
+	*)
+		tmake_file="$tmake_file rs6000/t-linux64 rs6000/t-fprules-softfp soft-fp/t-softfp"
+		;;
+	esac
 	;;
 powerpc64-*-gnu*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux64.h rs6000/gnu.h"

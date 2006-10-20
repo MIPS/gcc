@@ -754,6 +754,9 @@ extern int fixuplabelno;
 #define CC1_SECURE_PLT_DEFAULT_SPEC ""
 #endif
 
+#undef CC1_EXTRA_SPEC
+#define CC1_EXTRA_SPEC ""
+
 /* Pass -G xxx to the compiler and set correct endian mode.  */
 #define	CC1_SPEC "%{G*} \
 %{mlittle|mlittle-endian: %(cc1_endian_little);           \
@@ -778,7 +781,7 @@ extern int fixuplabelno;
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
 %{!mbss-plt: %{!msecure-plt: %(cc1_secure_plt_default)}} \
-%{profile: -p}"
+%{profile: -p}" CC1_EXTRA_SPEC
 
 /* Don't put -Y P,<path> for cross compilers.  */
 #ifndef CROSS_COMPILE
