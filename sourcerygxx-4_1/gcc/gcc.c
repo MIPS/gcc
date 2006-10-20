@@ -222,6 +222,22 @@ static int combine_flag = 0;
 
 static int use_pipes;
 
+#ifdef TARGET_FLEXLM
+/* WRS LOCAL
+   Nonzero means to pay attention to the result of the license manager.  */
+
+static int license_me_flag;
+
+/* WRS LOCAL
+   True if the -p option should be passed to the get_feature command.  */
+
+static int feature_proxy_flag = 1;
+
+/* WRS LOCAL true if get_feature should _not_ be invoked.  */
+
+static bool no_license;
+#endif
+
 /* The compiler version.  */
 
 static const char *compiler_version;
@@ -3640,6 +3656,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  verbose_only_flag++;
 	  verbose_flag++;
 	}
+#ifdef TARGET_FLEXLM
+      else if (strcmp (argv[i], "-flicense-me") == 0)
+	license_me_flag = 1;  /* WRS LOCAL */
+      else if (strcmp (argv[i], "-ffeature-proxy") == 0)
+	feature_proxy_flag = 1;  /* WRS LOCAL */
+      else if (strcmp (argv[i], "-fno-feature-proxy") == 0)
+	feature_proxy_flag = 0;  /* WRS LOCAL */
+#endif
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  const char *p = &argv[i][1];
@@ -3773,6 +3797,21 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		argv[i] = convert_filename (argv[i], ! have_c, 0);
 #endif
 	      goto normal_switch;
+
+	      /* WRS LOCAL only invoke get_feature if we are running
+		 the compiler proper.  */
+#ifdef TARGET_FLEXLM
+	    case 'E':
+	      if (argv[i][2] == '\0')
+	        no_license = 1;
+	      goto normal_switch;
+
+	    case 'M':
+	      if (argv[i][2] == '\0'
+		  || (argv[i][2] == 'M' && argv[i][3] == '\0'))
+		no_license = 1;
+	      goto normal_switch;
+#endif
 
 	    default:
 	    normal_switch:
@@ -3960,6 +3999,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	;
       else if (! strcmp (argv[i], "-fhelp"))
 	;
+#ifdef TARGET_FLEXLM
+      else if (! strcmp (argv[i], "-flicense-me"))
+	;
+      else if (! strcmp (argv[i], "-ffeature-proxy"))
+	;
+      else if (! strcmp (argv[i], "-fno-feature-proxy"))
+	;
+#endif
       else if (! strncmp (argv[i], "--sysroot=", strlen ("--sysroot=")))
 	{
 	  target_system_root = argv[i] + strlen ("--sysroot=");
@@ -6059,6 +6106,9 @@ main (int argc, const char **argv)
   char *specs_file;
   const char *p;
   struct user_specs *uptr;
+#ifdef TARGET_FLEXLM
+  int pid = 0;
+#endif /* defined(TARGET_FLEXLM) */
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))
@@ -6594,11 +6644,76 @@ main (int argc, const char **argv)
 	    }
 	  else
 	    {
-	      value = do_spec (input_file_compiler->spec);
+	      value = 0;
+
+#ifdef TARGET_FLEXLM
+	      if (!no_license)
+		{
+		  /* WRS SPR 85973, log the use of the compiler.  We do
+		     this by fork/execing a program that talks to the
+		     license manager daemon.  The license client library
+		     must remain separate from the GPL, and this method
+		     of doing so is explicitly blessed by the FSF's GPL
+		     FAQ.  */
+		  const char *argv[10];
+		  const char **p;
+		  char *ptr;
+		  char *err_fmt, *err_arg;
+
+		  p = argv;
+		  *p++ = "get_feature";
+		  if (feature_proxy_flag)
+		    *p++ = "-p";
+		  *p++ = "-co";
+		  *p++ = xstrdup (DEFAULT_TARGET_MACHINE);
+		  *p++ = "-v";
+		  *p++ = "3.3";
+		  *p++ = "gnu";
+		  *p++ = infiles[i].language;
+		  *p++ = (license_me_flag ? "-flicense-me" : "");
+		  *p++ = 0;
+
+		  ptr = find_a_file (&exec_prefixes, argv[0], X_OK, 0);
+
+		  pid = pexecute (ptr ? ptr : argv[0], (char **)argv,
+				  programname, temp_filename,
+				  &err_fmt, &err_arg,
+				  PEXECUTE_FIRST | PEXECUTE_LAST
+				  | (ptr ? 0 : PEXECUTE_SEARCH)
+				  | (verbose_flag ? PEXECUTE_VERBOSE : 0));
+		  if (pid < 0)
+		    value = -1;
+
+		  if (ptr)
+		    free (ptr);
+		}
+#endif /* defined(TARGET_FLEXLM) */
+
+	      /* Now do the compile.  */
+	      if (!value)
+		value = do_spec (input_file_compiler->spec);
 	      infiles[i].compiled = true;
 	      if (value < 0)
 		this_file_error = 1;
 	    }
+
+#ifdef TARGET_FLEXLM
+	  /* The license manager should have finished its work by now.
+	     WRS SPR 99246 If the license option is in use, and the manager
+	     has returned an error, delete the output files.  */
+	  if (!no_license && pid > 0)
+	    {
+	      int status;
+	      pwait (pid, &status, 0);
+	      if (license_me_flag
+		  && (!WIFEXITED (status) || WEXITSTATUS (status)))
+		{
+		  this_file_error = 1;
+		  error ("no license is available at this time, "
+			 "or your license server is not accessible");
+		}
+	    }
+#endif /* defined(TARGET_FLEXLM) */
 	}
 
       /* If this file's name does not contain a recognized suffix,
