@@ -82,7 +82,7 @@ proc find_jvscan {} {
 
 # Find `gcjh'.
 proc find_gcjh {} {
-    return [libjava_find_program gcjh]
+    return [libjava_find_program gjavah]
 }
 
 proc find_javac {} {

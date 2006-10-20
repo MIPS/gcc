@@ -28,6 +28,8 @@ proc gcj_cni_compile_cxx_to_o {file {options {}}} {
 
 # Build header files given name of .java file.  Return 0 on failure.
 proc gcj_cni_build_headers {file} {
+  global libgcj_jar
+
   set gcjh [find_gcjh]
   set jvscan [find_jvscan]
 
@@ -40,8 +42,10 @@ proc gcj_cni_build_headers {file} {
   }
 
   foreach file [split $class_out] {
+    set cmd "$gcjh -cni -force -classpath .:$libgcj_jar $file"
+    verbose $cmd
     set x [string trim [libjava_prune_warnings \
-			  [lindex [local_exec "$gcjh $file" "" "" 300] 1]]]
+			  [lindex [local_exec $cmd "" "" 300] 1]]]
     if {$x != ""} {
       verbose "local_exec failed: $x" 2
       fail "$file header generation"

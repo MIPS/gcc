@@ -60,10 +60,16 @@ proc gcj_jni_compile_c_to_so {file {options {}}} {
 
 # Build a header file from a .class file.  Return 0 on failure.
 proc gcj_jni_build_header {file} {
+  global libgcj_jar
+
   set gcjh [find_gcjh]
   set file [file rootname $file]
+
+  set cmd "$gcjh -jni -force -classpath .:$libgcj_jar $file"
+  verbose $cmd
+
   set x [string trim [libjava_prune_warnings \
-			[lindex [local_exec "$gcjh -jni $file" "" "" 300] 1]]]
+			[lindex [local_exec $cmd "" "" 300] 1]]]
   if {$x != ""} {
     verbose "local_exec failed: $x" 2
     fail "$file header generation"

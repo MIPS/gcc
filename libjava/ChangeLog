@@ -1,3 +1,13 @@
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jni/jni.exp (gcj_jni_build_header): Use
+	-force.
+	* testsuite/lib/libjava.exp (find_gcjh): Find 'gjavah' instead.
+	* testsuite/libjava.cni/cni.exp (gcj_cni_build_headers): Pass -cni
+	and -force to gcjh.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (MYGCJH): Use gjavah.
+
 2006-10-18  Tom Tromey  <tromey@redhat.com>
 
 	PR classpath/28203:

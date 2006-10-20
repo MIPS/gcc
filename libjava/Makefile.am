@@ -396,7 +396,7 @@ omitted_headers = java/lang/ClassLoader.h java/lang/Thread.h \
 
 generic_header_files = $(ordinary_header_files) $(xlib_nat_headers)
 
-MYGCJH = gcjh1
+MYGCJH = gjavah
 
 $(generic_header_files): gcjh.stamp
 
