@@ -1,3 +1,12 @@
+2006-10-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-dce.c: Remove forward declarations for static
+	functions.  Re-arrange functions bodies as needed.
+	(find_obviously_necessary_stmts): Never mark PHI nodes as
+	obviously necessary.
+	(mark_operand_necessary): Remove argument PHIONLY.  Update
+	users.
+
 2006-10-18  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-complex.c (expand_complex_move): Mark symbols for
