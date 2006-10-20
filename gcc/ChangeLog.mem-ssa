@@ -1,5 +1,11 @@
 2006-10-20  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-into-ssa.c (fixup_unfactored_phis): Do not release the
+	LHS of removed PHIs right away.  Add the LHS to the list of
+	names to be released after renaming.
+
+2006-10-20  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-into-ssa.c (prepare_block_for_update): If a factored
 	PHI node is now completely unfactored, add it to the list of
 	unfactored PHI nodes to process after renaming.

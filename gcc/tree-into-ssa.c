@@ -4681,8 +4681,11 @@ fixup_unfactored_phis (void)
 	}
       else if (bitmap_empty_p (phi_syms))
 	{
-	  /* If this PHI node factors no symbols, it can be eliminated.  */
-	  remove_phi_node (n->phi, NULL, true);
+	  /* If this PHI node factors no symbols, it can be
+	     eliminated.  Remove it and arrange for its LHS to be
+	     replaced with .MEM's default definition after renaming.  */
+	  remove_phi_node (n->phi, NULL, false);
+	  release_ssa_name_after_update_ssa (PHI_RESULT (n->phi));
 	}
     }
 
