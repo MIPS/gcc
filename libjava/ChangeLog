@@ -1,3 +1,10 @@
+2006-10-21  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.lang/PR260.out: Rewrote for 1.5.
+	* testsuite/libjava.lang/pr179.out: Rewrote for 1.5.
+	* testsuite/libjava.lang/pr179.java: Updated comments.
+	* testsuite/libjava.compile/inner_1.xfail: Removed.
+
 2006-10-20  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libjava.cni/cni.exp (gcj_cni_build_headers): Don't use
