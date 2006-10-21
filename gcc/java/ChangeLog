@@ -1,5 +1,34 @@
 2006-10-20  Tom Tromey  <tromey@redhat.com>
 
+	* gcj.texi (Top): Don't mention jv-scan.
+	(Invoking gcj): Likewise.
+	(Invoking gcjh): Likewise.
+	(Invoking gjnih): Likewise.
+	(Invoking gij): Likewise.
+	(Invoking gcj-dbtool): Likewise.
+	(Invoking jv-scan): Removed.
+	* parse-scan.y: Removed.
+	* jv-scan.c: Removed.
+	* config-lang.in (stagestuff): Don't mention jv-scan.
+	* Make-lang.in (java): Removed jv-scan.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
+	(JVSCAN_OBJS): Removed.
+	(jv-scan$(exeext)): Likewise.
+	(JAVA_MANFILES): Removed jv-scan.1.
+	(java.uninstall): Don't mention jv-scan.
+	(java.mostlyclean): Likewise.
+	(java.maintainer-clean): Likewise.
+	(.INTERMEDIATE): Likewise.
+	(java/jv-scan.o): Removed.
+	(jv-scan.pod): Likewise.
+	(java.srcextra): Don't mention parse-scan.c.
+	(java.mostlyclean): Likewise.
+	(java/parse-scan.c): Removed.
+	(java/parse-scan.o-warn): Removed.
+	(java/parse-scan.o): Removed.
+
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
 	* lang.c (java_handle_option): Don't use
 	jcf_write_base_directory.
 	* jcf.h (jcf_write_base_directory): Removed.

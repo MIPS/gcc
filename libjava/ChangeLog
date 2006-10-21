@@ -1,5 +1,12 @@
 2006-10-20  Tom Tromey  <tromey@redhat.com>
 
+	* testsuite/libjava.cni/cni.exp (gcj_cni_build_headers): Don't use
+	jv-scan.
+	* testsuite/lib/libjava.exp (test_libjava_from_javac): Removed.
+	(find_jvscan): Removed.
+
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
 	* testsuite/libjava.jni/jni.exp (gcj_jni_build_header): Use
 	-force.
 	* testsuite/lib/libjava.exp (find_gcjh): Find 'gjavah' instead.

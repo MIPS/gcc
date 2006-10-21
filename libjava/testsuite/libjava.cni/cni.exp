@@ -31,29 +31,23 @@ proc gcj_cni_build_headers {file} {
   global libgcj_jar
 
   set gcjh [find_gcjh]
-  set jvscan [find_jvscan]
 
-  set class_out [string trim \
-		   [libjava_prune_warnings \
-		      [lindex [local_exec "$jvscan --encoding=UTF-8 $file --list-class" "" "" 300] 1]]]
-  if {[string match "*parse error*" $class_out]} {
-    fail "$file header generation"
+  # Currently we only build a header file for the main class from the
+  # .java file.  If we need more than this, we'll have to figure
+  # something out.
+  set main [file rootname [file tail $file]]
+
+  set cmd "$gcjh -cni -force -classpath .:$libgcj_jar $main"
+  verbose $cmd
+  set x [string trim [libjava_prune_warnings \
+			[lindex [local_exec $cmd "" "" 300] 1]]]
+  if {$x != ""} {
+    verbose "local_exec failed: $x" 2
+    fail "$main header generation"
     return 0
   }
 
-  foreach file [split $class_out] {
-    set cmd "$gcjh -cni -force -classpath .:$libgcj_jar $file"
-    verbose $cmd
-    set x [string trim [libjava_prune_warnings \
-			  [lindex [local_exec $cmd "" "" 300] 1]]]
-    if {$x != ""} {
-      verbose "local_exec failed: $x" 2
-      fail "$file header generation"
-      return 0
-    }
-  }
-
-  pass "$file header generation"
+  pass "$main header generation"
   return 1
 }
 
