@@ -3778,6 +3778,13 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
 	    && INTVAL (index) > -1024
 	    && (INTVAL (index) & 3) == 0);
 
+  if (TARGET_NEON
+      && (VALID_NEON_DREG_MODE (mode) || VALID_NEON_QREG_MODE (mode)))
+    return (code == CONST_INT
+	    && INTVAL (index) < 1016
+	    && INTVAL (index) > -1024
+	    && (INTVAL (index) & 3) == 0);
+
   if (arm_address_register_rtx_p (index, strict_p)
       && (GET_MODE_SIZE (mode) <= 4))
     return 1;
