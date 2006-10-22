@@ -1,3 +1,110 @@
+2006-10-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (UNSPEC_LDQQU): Renamed to ...
+	(UNSPEC_LDDQU): This.
+	* config/i386/sse.md (sse3_lddqu): Updated.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (expand_builtin_int_roundingfn_2): New function.
+	(expand_builtin): Use it to expand lrint instead of
+	expand_builtin_mathfn.
+
+2006-10-21  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/28252
+	* builtins.c (fold_builtin): Fold pow(x,1.0/3.0) as cbrt(x) if
+	flag_unsafe_math_optimizations is set.
+
+2006-10-21  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/19398
+	* config/i386/i386.md (fix_trunc?f?i_sse): Add peephole2
+	patterns to use memory input operand in x87->mem->XMM
+	reload sequences.  Skip transformation for TARGET_K8.
+
+2006-10-21  Uros Bizjak  <uros@kss-loka.si>
+
+	* config/i386/i386.md (extendsfdf2, extendsfxf2, extenddfxf2): Do not
+	force operand1 to register if both operands are memory operands.
+	(*extendsfdf2_mixed, *extendsfdf2_sse, *extendsfdf2_i387)
+	(*extendsfxf2_i387, *extenddfxf2_i387): Do not disable pattern
+	if both operands are memory operands.
+	(truncdfsf2): Do not force operand1 to register if both operands
+	are memory operands.
+
+2006-10-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (LIBS): Add $(GMPLIBS).
+	* doc/install.texi: Update GMP and MPFR requirements.
+	* doc/sourcebuild.texi (need_gmp): Delete.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/3511
+	* tree-ssa-pre.c (phi_translate): Fold CALL_EXPRs that
+	got new invariant arguments during PHI translation.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26898
+	* fold-const.c (fold_comparison): Fold signed comparisons
+	of the form X +- C1 CMP Y +- C2.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	PR target/19116
+	* config/i386/i386.c (override_options): Do not set MASK_IEEE_FP
+	if flag_unsafe_math_optimizations is specified.  We have
+	flag_finite_math_only for that.
+	* config/i386/i386.md (sqrtxf2): Do not require TARGET_IEEE_FP
+	or flag_unsafe_math_optimizations.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (fold_builtin_classify): Fix typo.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/28796
+	* simplify-rtx.c (simplify_const_relational_operation):
+	Do not constant-fold ORDERED and UNORDERED for
+	flag_unsafe_math_optimizations but only we do not need to
+	honor NaNs for the given mode.
+
+2006-10-21  Richard Guenther  <rguenther@suse.de>
+
+	PR target/29512
+	* config/i386/i386.c (classify_argument): Remove redundant
+	walking of the BINFOs.
+	(contains_128bit_aligned_vector_p): Likewise.
+
+2006-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Set to 4.3.0.
+
+2006-10-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (DECL_PTA_ARTIFICIAL): Remove.
+	(tree_decl_with_vis): Remove artificial_pta_var flag.
+	* tree-flow.h (referenced_var_check_and_insert): Expose.
+	(nonlocal_all): New prototype.
+	* tree-ssa-structalias.c (nonlocal_for_type): Remove.
+	(nonlocal_all): Make global.
+	(nonlocal_lookup): Remove.
+	(nonlocal_insert): Ditto.
+	(create_nonlocal_var): Do not call nonlocal_insert.
+	(get_nonlocal_id_for_type): Remove.
+	(find_global_initializers): Mark new vars we find for renaming.
+	(intra_create_variable_infos): Only create one nonlocal.
+	(expand_nonlocal_solutions): Remove.
+	(compute_points_to_sets): Don't call it.
+	(ipa_pta_execute): Ditto.
+	(init_alias_heapvars): Don't create nonlocal_for_type.
+	(delete_alias_heapvars): Don't remove it.
+	* tree-ssa-operands.c (access_can_touch_variable): Don't prune
+	nonlocal_all.
+
 2006-10-19  Brooks Moses  <bmoses@stanford.edu>
 
 	* doc/install.texi (Downloading GCC): Clarify mention of
