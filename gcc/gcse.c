@@ -339,7 +339,7 @@ struct occr
    [one could build a mapping table without holes afterwards though].
    Someday I'll perform the computation and figure it out.  */
 
-struct hash_table
+struct expr_hash_table
 {
   /* The table itself.
      This is an array of `expr_hash_table_size' elements.  */
@@ -356,10 +356,10 @@ struct hash_table
 };
 
 /* Expression hash table.  */
-static struct hash_table expr_hash_table;
+static struct expr_hash_table expr_hash_table;
 
 /* Copy propagation hash table.  */
-static struct hash_table set_hash_table;
+static struct expr_hash_table set_hash_table;
 
 /* Mapping of uids to cuids.
    Only real insns get cuids.  */
@@ -524,10 +524,10 @@ static void free_reg_set_mem (void);
 static void record_one_set (int, rtx);
 static void record_set_info (rtx, rtx, void *);
 static void compute_sets (void);
-static void hash_scan_insn (rtx, struct hash_table *, int);
-static void hash_scan_set (rtx, rtx, struct hash_table *);
-static void hash_scan_clobber (rtx, rtx, struct hash_table *);
-static void hash_scan_call (rtx, rtx, struct hash_table *);
+static void hash_scan_insn (rtx, struct expr_hash_table *, int);
+static void hash_scan_set (rtx, rtx, struct expr_hash_table *);
+static void hash_scan_clobber (rtx, rtx, struct expr_hash_table *);
+static void hash_scan_call (rtx, rtx, struct expr_hash_table *);
 static int want_to_gcse_p (rtx);
 static bool can_assign_to_reg_p (rtx);
 static bool gcse_constant_p (rtx);
@@ -535,20 +535,20 @@ static int oprs_unchanged_p (rtx, rtx, int);
 static int oprs_anticipatable_p (rtx, rtx);
 static int oprs_available_p (rtx, rtx);
 static void insert_expr_in_table (rtx, enum machine_mode, rtx, int, int,
-				  struct hash_table *);
-static void insert_set_in_table (rtx, rtx, struct hash_table *);
+				  struct expr_hash_table *);
+static void insert_set_in_table (rtx, rtx, struct expr_hash_table *);
 static unsigned int hash_expr (rtx, enum machine_mode, int *, int);
 static unsigned int hash_set (int, int);
 static int expr_equiv_p (rtx, rtx);
 static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
 static void record_last_set_info (rtx, rtx, void *);
-static void compute_hash_table (struct hash_table *);
-static void alloc_hash_table (int, struct hash_table *, int);
-static void free_hash_table (struct hash_table *);
-static void compute_hash_table_work (struct hash_table *);
-static void dump_hash_table (FILE *, const char *, struct hash_table *);
-static struct expr *lookup_set (unsigned int, struct hash_table *);
+static void compute_hash_table (struct expr_hash_table *);
+static void alloc_hash_table (int, struct expr_hash_table *, int);
+static void free_hash_table (struct expr_hash_table *);
+static void compute_hash_table_work (struct expr_hash_table *);
+static void dump_hash_table (FILE *, const char *, struct expr_hash_table *);
+static struct expr *lookup_set (unsigned int, struct expr_hash_table *);
 static struct expr *next_set (unsigned int, struct expr *);
 static void reset_opr_set_tables (void);
 static int oprs_not_set_p (rtx, rtx);
@@ -561,7 +561,7 @@ static void free_cprop_mem (void);
 static void compute_transp (rtx, int, sbitmap *, int);
 static void compute_transpout (void);
 static void compute_local_properties (sbitmap *, sbitmap *, sbitmap *,
-				      struct hash_table *);
+				      struct expr_hash_table *);
 static void compute_cprop_data (void);
 static void find_used_regs (rtx *, void *);
 static int try_replace_reg (rtx, rtx, rtx);
@@ -701,7 +701,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
   pass = 0;
   initial_bytes_used = bytes_used;
   max_pass_bytes = 0;
-  gcse_obstack_bottom = gcse_alloc (1);
+  gcse_obstack_bottom = (char *) gcse_alloc (1);
   changed = 1;
   while (changed && pass < MAX_GCSE_PASSES)
     {
@@ -736,8 +736,8 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 	  if (changed)
 	    {
 	      free_modify_mem_tables ();
-	      modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
-	      canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
+	      modify_mem_list = (rtx *) gcalloc (last_basic_block, sizeof (rtx));
+	      canon_modify_mem_list = (rtx *) gcalloc (last_basic_block, sizeof (rtx));
 	    }
 	  free_reg_set_mem ();
 	  alloc_reg_set_mem (max_reg_num ());
@@ -928,7 +928,7 @@ alloc_gcse_mem (void)
      but we should never see those anyway, so this is OK.)  */
 
   max_uid = get_max_uid ();
-  uid_cuid = gcalloc (max_uid + 1, sizeof (int));
+  uid_cuid = (int *) gcalloc (max_uid + 1, sizeof (int));
   i = 0;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
@@ -942,7 +942,7 @@ alloc_gcse_mem (void)
   /* Create a table mapping cuids to insns.  */
 
   max_cuid = i;
-  cuid_insn = gcalloc (max_cuid + 1, sizeof (rtx));
+  cuid_insn = (rtx *) gcalloc (max_cuid + 1, sizeof (rtx));
   i = 0;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
@@ -956,8 +956,8 @@ alloc_gcse_mem (void)
   reg_set_in_block = sbitmap_vector_alloc (last_basic_block, max_gcse_regno);
   /* Allocate array to keep a list of insns which modify memory in each
      basic block.  */
-  modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
-  canon_modify_mem_list = gcalloc (last_basic_block, sizeof (rtx));
+  modify_mem_list = (rtx *) gcalloc (last_basic_block, sizeof (rtx));
+  canon_modify_mem_list = (rtx *) gcalloc (last_basic_block, sizeof (rtx));
   modify_mem_list_set = BITMAP_ALLOC (NULL);
   blocks_with_calls = BITMAP_ALLOC (NULL);
 }
@@ -1007,7 +1007,7 @@ free_gcse_mem (void)
 
 static void
 compute_local_properties (sbitmap *transp, sbitmap *comp, sbitmap *antloc,
-			  struct hash_table *table)
+			  struct expr_hash_table *table)
 {
   unsigned int i;
 
@@ -1082,7 +1082,7 @@ static void
 alloc_reg_set_mem (int n_regs)
 {
   reg_set_table_size = n_regs + REG_SET_TABLE_SLOP;
-  reg_set_table = gcalloc (reg_set_table_size, sizeof (struct reg_set *));
+  reg_set_table = (struct reg_set **) gcalloc (reg_set_table_size, sizeof (struct reg_set *));
 
   gcc_obstack_init (&reg_set_obstack);
 }
@@ -1107,14 +1107,14 @@ record_one_set (int regno, rtx insn)
     {
       int new_size = regno + REG_SET_TABLE_SLOP;
 
-      reg_set_table = grealloc (reg_set_table,
+      reg_set_table = (struct reg_set **) grealloc (reg_set_table,
 				new_size * sizeof (struct reg_set *));
       memset (reg_set_table + reg_set_table_size, 0,
 	      (new_size - reg_set_table_size) * sizeof (struct reg_set *));
       reg_set_table_size = new_size;
     }
 
-  new_reg_info = obstack_alloc (&reg_set_obstack, sizeof (struct reg_set));
+  new_reg_info = (struct reg_set *) obstack_alloc (&reg_set_obstack, sizeof (struct reg_set));
   bytes_used += sizeof (struct reg_set);
   new_reg_info->bb_index = BLOCK_NUM (insn);
   new_reg_info->next = reg_set_table[regno];
@@ -1485,7 +1485,7 @@ expr_equiv_p (rtx x, rtx y)
 
 static void
 insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
-		      int avail_p, struct hash_table *table)
+		      int avail_p, struct expr_hash_table *table)
 {
   int found, do_not_record_p;
   unsigned int hash;
@@ -1513,7 +1513,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
 
   if (! found)
     {
-      cur_expr = gcse_alloc (sizeof (struct expr));
+      cur_expr = (struct expr *) gcse_alloc (sizeof (struct expr));
       bytes_used += sizeof (struct expr);
       if (table->table[hash] == NULL)
 	/* This is the first pattern that hashed to this index.  */
@@ -1546,7 +1546,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
       else
 	{
 	  /* First occurrence of this expression in this basic block.  */
-	  antic_occr = gcse_alloc (sizeof (struct occr));
+	  antic_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
 	  bytes_used += sizeof (struct occr);
 	  antic_occr->insn = insn;
 	  antic_occr->next = cur_expr->antic_occr;
@@ -1570,7 +1570,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
       else
 	{
 	  /* First occurrence of this expression in this basic block.  */
-	  avail_occr = gcse_alloc (sizeof (struct occr));
+	  avail_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
 	  bytes_used += sizeof (struct occr);
 	  avail_occr->insn = insn;
 	  avail_occr->next = cur_expr->avail_occr;
@@ -1586,7 +1586,7 @@ insert_expr_in_table (rtx x, enum machine_mode mode, rtx insn, int antic_p,
    basic block.  */
 
 static void
-insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
+insert_set_in_table (rtx x, rtx insn, struct expr_hash_table *table)
 {
   int found;
   unsigned int hash;
@@ -1610,7 +1610,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
 
   if (! found)
     {
-      cur_expr = gcse_alloc (sizeof (struct expr));
+      cur_expr = (struct expr *) gcse_alloc (sizeof (struct expr));
       bytes_used += sizeof (struct expr);
       if (table->table[hash] == NULL)
 	/* This is the first pattern that hashed to this index.  */
@@ -1643,7 +1643,7 @@ insert_set_in_table (rtx x, rtx insn, struct hash_table *table)
   else
     {
       /* First occurrence of this expression in this basic block.  */
-      cur_occr = gcse_alloc (sizeof (struct occr));
+      cur_occr = (struct occr *) gcse_alloc (sizeof (struct occr));
       bytes_used += sizeof (struct occr);
 
 	  cur_occr->insn = insn;
@@ -1681,7 +1681,7 @@ gcse_constant_p (rtx x)
    expression one).  */
 
 static void
-hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
+hash_scan_set (rtx pat, rtx insn, struct expr_hash_table *table)
 {
   rtx src = SET_SRC (pat);
   rtx dest = SET_DEST (pat);
@@ -1803,14 +1803,14 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 
 static void
 hash_scan_clobber (rtx x ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED,
-		   struct hash_table *table ATTRIBUTE_UNUSED)
+		   struct expr_hash_table *table ATTRIBUTE_UNUSED)
 {
   /* Currently nothing to do.  */
 }
 
 static void
 hash_scan_call (rtx x ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED,
-		struct hash_table *table ATTRIBUTE_UNUSED)
+		struct expr_hash_table *table ATTRIBUTE_UNUSED)
 {
   /* Currently nothing to do.  */
 }
@@ -1829,7 +1829,7 @@ hash_scan_call (rtx x ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED,
    not record any expressions.  */
 
 static void
-hash_scan_insn (rtx insn, struct hash_table *table, int in_libcall_block)
+hash_scan_insn (rtx insn, struct expr_hash_table *table, int in_libcall_block)
 {
   rtx pat = PATTERN (insn);
   int i;
@@ -1862,7 +1862,7 @@ hash_scan_insn (rtx insn, struct hash_table *table, int in_libcall_block)
 }
 
 static void
-dump_hash_table (FILE *file, const char *name, struct hash_table *table)
+dump_hash_table (FILE *file, const char *name, struct expr_hash_table *table)
 {
   int i;
   /* Flattened out table, so it's printed in proper order.  */
@@ -1870,8 +1870,8 @@ dump_hash_table (FILE *file, const char *name, struct hash_table *table)
   unsigned int *hash_val;
   struct expr *expr;
 
-  flat_table = xcalloc (table->n_elems, sizeof (struct expr *));
-  hash_val = xmalloc (table->n_elems * sizeof (unsigned int));
+  flat_table = XCNEWVEC (struct expr *, table->n_elems);
+  hash_val = XNEWVEC (unsigned int, table->n_elems);
 
   for (i = 0; i < (int) table->size; i++)
     for (expr = table->table[i]; expr != NULL; expr = expr->next_same_hash)
@@ -1958,9 +1958,9 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, rtx unused1 ATTRIBUTE_UNUSED,
   bb = BLOCK_NUM (insn);
 
   canon_modify_mem_list[bb] =
-    alloc_EXPR_LIST (VOIDmode, dest_addr, canon_modify_mem_list[bb]);
+    alloc_EXPR_LIST (REG_DEP_TRUE, dest_addr, canon_modify_mem_list[bb]);
   canon_modify_mem_list[bb] =
-    alloc_EXPR_LIST (VOIDmode, dest, canon_modify_mem_list[bb]);
+    alloc_EXPR_LIST (REG_DEP_TRUE, dest, canon_modify_mem_list[bb]);
 }
 
 /* Record memory modification information for INSN.  We do not actually care
@@ -2027,7 +2027,7 @@ record_last_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
    TABLE is the table computed.  */
 
 static void
-compute_hash_table_work (struct hash_table *table)
+compute_hash_table_work (struct expr_hash_table *table)
 {
   unsigned int i;
 
@@ -2040,7 +2040,7 @@ compute_hash_table_work (struct hash_table *table)
   /* re-Cache any INSN_LIST nodes we have allocated.  */
   clear_modify_mem_tables ();
   /* Some working arrays used to track first and last set in each block.  */
-  reg_avail_info = gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
+  reg_avail_info = (struct reg_avail_info *) gmalloc (max_gcse_regno * sizeof (struct reg_avail_info));
 
   for (i = 0; i < max_gcse_regno; ++i)
     reg_avail_info[i].last_bb = NULL;
@@ -2105,7 +2105,7 @@ compute_hash_table_work (struct hash_table *table)
    be created.  */
 
 static void
-alloc_hash_table (int n_insns, struct hash_table *table, int set_p)
+alloc_hash_table (int n_insns, struct expr_hash_table *table, int set_p)
 {
   int n;
 
@@ -2118,14 +2118,14 @@ alloc_hash_table (int n_insns, struct hash_table *table, int set_p)
      ??? Later take some measurements.  */
   table->size |= 1;
   n = table->size * sizeof (struct expr *);
-  table->table = gmalloc (n);
+  table->table = (struct expr **) gmalloc (n);
   table->set_p = set_p;
 }
 
 /* Free things allocated by alloc_hash_table.  */
 
 static void
-free_hash_table (struct hash_table *table)
+free_hash_table (struct expr_hash_table *table)
 {
   free (table->table);
 }
@@ -2134,7 +2134,7 @@ free_hash_table (struct hash_table *table)
    expression hash table.  */
 
 static void
-compute_hash_table (struct hash_table *table)
+compute_hash_table (struct expr_hash_table *table)
 {
   /* Initialize count of number of entries in hash table.  */
   table->n_elems = 0;
@@ -2149,7 +2149,7 @@ compute_hash_table (struct hash_table *table)
    table entry, or NULL if not found.  */
 
 static struct expr *
-lookup_set (unsigned int regno, struct hash_table *table)
+lookup_set (unsigned int regno, struct expr_hash_table *table)
 {
   unsigned int hash = hash_set (regno, table->size);
   struct expr *expr;
@@ -2772,7 +2772,7 @@ find_avail_set (int regno, rtx insn)
 static int
 cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
 {
-  rtx new, set_src, note_src;
+  rtx fresh, set_src, note_src;
   rtx set = pc_set (jump);
   rtx note = find_reg_equal_equiv_note (jump);
 
@@ -2804,22 +2804,22 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
   else
     setcc = NULL_RTX;
 
-  new = simplify_replace_rtx (set_src, from, src);
+  fresh = simplify_replace_rtx (set_src, from, src);
 
   /* If no simplification can be made, then try the next register.  */
-  if (rtx_equal_p (new, SET_SRC (set)))
+  if (rtx_equal_p (fresh, SET_SRC (set)))
     return 0;
 
   /* If this is now a no-op delete it, otherwise this must be a valid insn.  */
-  if (new == pc_rtx)
+  if (fresh == pc_rtx)
     delete_insn (jump);
   else
     {
       /* Ensure the value computed inside the jump insn to be equivalent
          to one computed by setcc.  */
-      if (setcc && modified_in_p (new, setcc))
+      if (setcc && modified_in_p (fresh, setcc))
 	return 0;
-      if (! validate_change (jump, &SET_SRC (set), new, 0))
+      if (! validate_change (jump, &SET_SRC (set), fresh, 0))
 	{
 	  /* When (some) constants are not valid in a comparison, and there
 	     are two registers to be replaced by constants before the entire
@@ -2830,8 +2830,8 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
 	     we need to attach a note to the branch itself to make this
 	     optimization work.  */
 
-	  if (!rtx_equal_p (new, note_src))
-	    set_unique_reg_note (jump, REG_EQUAL, copy_rtx (new));
+	  if (!rtx_equal_p (fresh, note_src))
+	    set_unique_reg_note (jump, REG_EQUAL, copy_rtx (fresh));
 	  return 0;
 	}
 
@@ -3344,7 +3344,7 @@ find_implicit_sets (void)
 {
   basic_block bb, dest;
   unsigned int count;
-  rtx cond, new;
+  rtx cond, fresh;
 
   count = 0;
   FOR_EACH_BB (bb)
@@ -3365,9 +3365,9 @@ find_implicit_sets (void)
 	    if (dest && single_pred_p (dest)
 		&& dest != EXIT_BLOCK_PTR)
 	      {
-		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
+		fresh = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
 					     XEXP (cond, 1));
-		implicit_sets[dest->index] = new;
+		implicit_sets[dest->index] = fresh;
 		if (dump_file)
 		  {
 		    fprintf(dump_file, "Implicit set of reg %d in ",
@@ -3576,7 +3576,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  unsigned int regno = REGNO (reg_used->reg_rtx);
 	  basic_block dest, old_dest;
 	  struct expr *set;
-	  rtx src, new;
+	  rtx src, fresh;
 
 	  if (regno >= max_gcse_regno)
 	    continue;
@@ -3597,7 +3597,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 					  SET_DEST (PATTERN (setcc)),
 					  SET_SRC (PATTERN (setcc)));
 
-	  new = simplify_replace_rtx (src, reg_used->reg_rtx,
+	  fresh = simplify_replace_rtx (src, reg_used->reg_rtx,
 				      SET_SRC (set->expr));
 
 	  /* Jump bypassing may have already placed instructions on
@@ -3605,14 +3605,14 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	     has instructions associated with it, as these insns won't
 	     get executed if the incoming edge is redirected.  */
 
-	  if (new == pc_rtx)
+	  if (fresh == pc_rtx)
 	    {
 	      edest = FALLTHRU_EDGE (bb);
 	      dest = edest->insns.r ? NULL : edest->dest;
 	    }
-	  else if (GET_CODE (new) == LABEL_REF)
+	  else if (GET_CODE (fresh) == LABEL_REF)
 	    {
-	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
+	      dest = BLOCK_FOR_INSN (XEXP (fresh, 0));
 	      /* Don't bypass edges containing instructions.  */
 	      edest = find_edge (bb, dest);
 	      if (edest && edest->insns.r)
@@ -4373,7 +4373,7 @@ pre_insert_copies (void)
 static rtx
 gcse_emit_move_after (rtx src, rtx dest, rtx insn)
 {
-  rtx new;
+  rtx fresh;
   rtx set = single_set (insn), set2;
   rtx note;
   rtx eqv;
@@ -4381,20 +4381,20 @@ gcse_emit_move_after (rtx src, rtx dest, rtx insn)
   /* This should never fail since we're creating a reg->reg copy
      we've verified to be valid.  */
 
-  new = emit_insn_after (gen_move_insn (dest, src), insn);
+  fresh = emit_insn_after (gen_move_insn (dest, src), insn);
 
   /* Note the equivalence for local CSE pass.  */
-  set2 = single_set (new);
+  set2 = single_set (fresh);
   if (!set2 || !rtx_equal_p (SET_DEST (set2), dest))
-    return new;
+    return fresh;
   if ((note = find_reg_equal_equiv_note (insn)))
     eqv = XEXP (note, 0);
   else
     eqv = SET_SRC (set);
 
-  set_unique_reg_note (new, REG_EQUAL, copy_insn_1 (eqv));
+  set_unique_reg_note (fresh, REG_EQUAL, copy_insn_1 (eqv));
 
-  return new;
+  return fresh;
 }
 
 /* Delete redundant computations.
@@ -5031,14 +5031,15 @@ static hashval_t
 pre_ldst_expr_hash (const void *p)
 {
   int do_not_record_p = 0;
-  const struct ls_expr *x = p;
+  const struct ls_expr *x = (const struct ls_expr *) p;
   return hash_rtx (x->pattern, GET_MODE (x->pattern), &do_not_record_p, NULL, false);
 }
 
 static int
 pre_ldst_expr_eq (const void *p1, const void *p2)
 {
-  const struct ls_expr *ptr1 = p1, *ptr2 = p2;
+  const struct ls_expr *ptr1 = (const struct ls_expr *) p1;
+  const struct ls_expr *ptr2 = (const struct ls_expr *) p2;
   return expr_equiv_p (ptr1->pattern, ptr2->pattern);
 }
 
@@ -5160,7 +5161,7 @@ find_rtx_in_ldst (rtx x)
   slot = htab_find_slot (pre_ldst_table, &e, NO_INSERT);
   if (!slot || ((struct ls_expr *)*slot)->invalid)
     return NULL;
-  return *slot;
+  return (struct ls_expr *) *slot;
 }
 
 /* Assign each element of the list of mems a monotonically increasing value.  */
@@ -5414,7 +5415,7 @@ update_ld_motion_stores (struct expr * expr)
 	  rtx pat = PATTERN (insn);
 	  rtx src = SET_SRC (pat);
 	  rtx reg = expr->reaching_reg;
-	  rtx copy, new;
+	  rtx copy, fresh;
 
 	  /* If we've already copied it, continue.  */
 	  if (expr->reaching_reg == src)
@@ -5430,8 +5431,8 @@ update_ld_motion_stores (struct expr * expr)
 	    }
 
 	  copy = gen_move_insn ( reg, copy_rtx (SET_SRC (pat)));
-	  new = emit_insn_before (copy, insn);
-	  record_one_set (REGNO (reg), new);
+	  fresh = emit_insn_before (copy, insn);
+	  record_one_set (REGNO (reg), fresh);
 	  SET_SRC (pat) = reg;
 
 	  /* un-recognize this pattern since it's probably different now.  */
@@ -5467,7 +5468,7 @@ static void
 reg_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED,
 	      void *data)
 {
-  sbitmap bb_reg = data;
+  sbitmap bb_reg = (sbitmap) data;
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -5487,7 +5488,7 @@ static void
 reg_clear_last_set (rtx dest, rtx setter ATTRIBUTE_UNUSED,
 	      void *data)
 {
-  int *dead_vec = data;
+  int *dead_vec = (int *) data;
 
   if (GET_CODE (dest) == SUBREG)
     dest = SUBREG_REG (dest);
@@ -5541,7 +5542,7 @@ extract_mentioned_regs_helper (rtx x, rtx accum)
   switch (code)
     {
     case REG:
-      return alloc_EXPR_LIST (0, x, accum);
+      return alloc_EXPR_LIST (REG_DEP_TRUE, x, accum);
 
     case MEM:
       x = XEXP (x, 0);

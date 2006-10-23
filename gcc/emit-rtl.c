@@ -308,7 +308,7 @@ get_mem_attrs (HOST_WIDE_INT alias, tree expr, rtx offset, rtx size,
       memcpy (*slot, &attrs, sizeof (mem_attrs));
     }
 
-  return *slot;
+  return (mem_attrs *) *slot;
 }
 
 /* Returns a hash code for X (which is a really a reg_attrs *).  */
@@ -357,7 +357,7 @@ get_reg_attrs (tree decl, int offset)
       memcpy (*slot, &attrs, sizeof (reg_attrs));
     }
 
-  return *slot;
+  return (reg_attrs *) *slot;
 }
 
 /* Generate a new REG rtx.  Make sure ORIGINAL_REGNO is set properly, and
@@ -728,7 +728,7 @@ gen_rtvec (int n, ...)
   if (n == 0)
     return NULL_RTVEC;		/* Don't allocate an empty rtvec...	*/
 
-  vector = alloca (n * sizeof (rtx));
+  vector = (rtx *) alloca (n * sizeof (rtx));
 
   for (i = 0; i < n; i++)
     vector[i] = va_arg (p, rtx);
@@ -793,14 +793,14 @@ gen_reg_rtx (enum machine_mode mode)
   if (reg_rtx_no == f->emit->regno_pointer_align_length)
     {
       int old_size = f->emit->regno_pointer_align_length;
-      char *new;
+      char *tmp;
       rtx *new1;
 
-      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
-      memset (new + old_size, 0, old_size);
-      f->emit->regno_pointer_align = (unsigned char *) new;
+      tmp = (char *) ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
+      memset (tmp + old_size, 0, old_size);
+      f->emit->regno_pointer_align = (unsigned char *) tmp;
 
-      new1 = ggc_realloc (f->emit->x_regno_reg_rtx,
+      new1 = (rtx *) ggc_realloc (f->emit->x_regno_reg_rtx,
 			  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
@@ -819,7 +819,7 @@ gen_reg_rtx (enum machine_mode mode)
 rtx
 gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int offset)
 {
-  rtx new = gen_rtx_REG (mode, regno);
+  rtx tmp = gen_rtx_REG (mode, regno);
   tree decl;
   HOST_WIDE_INT var_size;
 
@@ -903,9 +903,9 @@ gen_rtx_REG_offset (rtx reg, enum machine_mode mode, unsigned int regno, int off
 	}
     }
 
-  REG_ATTRS (new) = get_reg_attrs (REG_EXPR (reg),
+  REG_ATTRS (tmp) = get_reg_attrs (REG_EXPR (reg),
 				   REG_OFFSET (reg) + offset);
-  return new;
+  return tmp;
 }
 
 /* Set the decl for MEM to DECL.  */
@@ -1306,18 +1306,18 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
   /* Form a new MEM at the requested address.  */
   if (MEM_P (op))
     {
-      rtx new = adjust_address_nv (op, word_mode, offset * UNITS_PER_WORD);
+      rtx tmp = adjust_address_nv (op, word_mode, offset * UNITS_PER_WORD);
 
       if (! validate_address)
-	return new;
+	return tmp;
 
       else if (reload_completed)
 	{
-	  if (! strict_memory_address_p (word_mode, XEXP (new, 0)))
+	  if (! strict_memory_address_p (word_mode, XEXP (tmp, 0)))
 	    return 0;
 	}
       else
-	return replace_equiv_address (new, XEXP (new, 0));
+	return replace_equiv_address (tmp, XEXP (tmp, 0));
     }
 
   /* Rest can be handled by simplify_subreg.  */
@@ -1767,7 +1767,7 @@ set_mem_size (rtx mem, rtx size)
 static rtx
 change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 {
-  rtx new;
+  rtx tmp;
 
   gcc_assert (MEM_P (memref));
   if (mode == VOIDmode)
@@ -1789,9 +1789,9 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
   if (rtx_equal_p (addr, XEXP (memref, 0)) && mode == GET_MODE (memref))
     return memref;
 
-  new = gen_rtx_MEM (mode, addr);
-  MEM_COPY_ATTRIBUTES (new, memref);
-  return new;
+  tmp = gen_rtx_MEM (mode, addr);
+  MEM_COPY_ATTRIBUTES (tmp, memref);
+  return tmp;
 }
 
 /* Like change_address_1 with VALIDATE nonzero, but we are not saying in what
@@ -1800,31 +1800,31 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 rtx
 change_address (rtx memref, enum machine_mode mode, rtx addr)
 {
-  rtx new = change_address_1 (memref, mode, addr, 1), size;
-  enum machine_mode mmode = GET_MODE (new);
+  rtx tmp = change_address_1 (memref, mode, addr, 1), size;
+  enum machine_mode mmode = GET_MODE (tmp);
   unsigned int align;
 
   size = mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode));
   align = mmode == BLKmode ? BITS_PER_UNIT : GET_MODE_ALIGNMENT (mmode);
 
   /* If there are no changes, just return the original memory reference.  */
-  if (new == memref)
+  if (tmp == memref)
     {
       if (MEM_ATTRS (memref) == 0
 	  || (MEM_EXPR (memref) == NULL
 	      && MEM_OFFSET (memref) == NULL
 	      && MEM_SIZE (memref) == size
 	      && MEM_ALIGN (memref) == align))
-	return new;
+	return tmp;
 
-      new = gen_rtx_MEM (mmode, XEXP (memref, 0));
-      MEM_COPY_ATTRIBUTES (new, memref);
+      tmp = gen_rtx_MEM (mmode, XEXP (memref, 0));
+      MEM_COPY_ATTRIBUTES (tmp, memref);
     }
 
-  MEM_ATTRS (new)
+  MEM_ATTRS (tmp)
     = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, size, align, mmode);
 
-  return new;
+  return tmp;
 }
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -1838,7 +1838,7 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 		  int validate, int adjust)
 {
   rtx addr = XEXP (memref, 0);
-  rtx new;
+  rtx tmp;
   rtx memoffset = MEM_OFFSET (memref);
   rtx size = 0;
   unsigned int memalign = MEM_ALIGN (memref);
@@ -1867,7 +1867,7 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 	addr = plus_constant (addr, offset);
     }
 
-  new = change_address_1 (memref, mode, addr, validate);
+  tmp = change_address_1 (memref, mode, addr, validate);
 
   /* Compute the new values of the memory attributes due to this adjustment.
      We add the offsets and update the alignment.  */
@@ -1883,17 +1883,17 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 	     (unsigned HOST_WIDE_INT) (offset & -offset) * BITS_PER_UNIT);
 
   /* We can compute the size in a number of ways.  */
-  if (GET_MODE (new) != BLKmode)
-    size = GEN_INT (GET_MODE_SIZE (GET_MODE (new)));
+  if (GET_MODE (tmp) != BLKmode)
+    size = GEN_INT (GET_MODE_SIZE (GET_MODE (tmp)));
   else if (MEM_SIZE (memref))
     size = plus_constant (MEM_SIZE (memref), -offset);
 
-  MEM_ATTRS (new) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
-				   memoffset, size, memalign, GET_MODE (new));
+  MEM_ATTRS (tmp) = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref),
+				   memoffset, size, memalign, GET_MODE (tmp));
 
   /* At some point, we should validate that this offset is within the object,
      if all the appropriate values are known.  */
-  return new;
+  return tmp;
 }
 
 /* Return a memory reference like MEMREF, but with its mode changed
@@ -1916,9 +1916,9 @@ adjust_automodify_address_1 (rtx memref, enum machine_mode mode, rtx addr,
 rtx
 offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
 {
-  rtx new, addr = XEXP (memref, 0);
+  rtx tmp, addr = XEXP (memref, 0);
 
-  new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+  tmp = simplify_gen_binary (PLUS, Pmode, addr, offset);
 
   /* At this point we don't know _why_ the address is invalid.  It
      could have secondary memory references, multiplies or anything.
@@ -1927,28 +1927,28 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
      being able to recognize the magic around pic_offset_table_rtx.
      This stuff is fragile, and is yet another example of why it is
      bad to expose PIC machinery too early.  */
-  if (! memory_address_p (GET_MODE (memref), new)
+  if (! memory_address_p (GET_MODE (memref), tmp)
       && GET_CODE (addr) == PLUS
       && XEXP (addr, 0) == pic_offset_table_rtx)
     {
       addr = force_reg (GET_MODE (addr), addr);
-      new = simplify_gen_binary (PLUS, Pmode, addr, offset);
+      tmp = simplify_gen_binary (PLUS, Pmode, addr, offset);
     }
 
-  update_temp_slot_address (XEXP (memref, 0), new);
-  new = change_address_1 (memref, VOIDmode, new, 1);
+  update_temp_slot_address (XEXP (memref, 0), tmp);
+  tmp = change_address_1 (memref, VOIDmode, tmp, 1);
 
   /* If there are no changes, just return the original memory reference.  */
-  if (new == memref)
-    return new;
+  if (tmp == memref)
+    return tmp;
 
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
-  MEM_ATTRS (new)
+  MEM_ATTRS (tmp)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
 		     MIN (MEM_ALIGN (memref), pow2 * BITS_PER_UNIT),
-		     GET_MODE (new));
-  return new;
+		     GET_MODE (tmp));
+  return tmp;
 }
 
 /* Return a memory reference like MEMREF, but with its address changed to
@@ -1981,14 +1981,14 @@ replace_equiv_address_nv (rtx memref, rtx addr)
 rtx
 widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 {
-  rtx new = adjust_address_1 (memref, mode, offset, 1, 1);
-  tree expr = MEM_EXPR (new);
-  rtx memoffset = MEM_OFFSET (new);
+  rtx tmp = adjust_address_1 (memref, mode, offset, 1, 1);
+  tree expr = MEM_EXPR (tmp);
+  rtx memoffset = MEM_OFFSET (tmp);
   unsigned int size = GET_MODE_SIZE (mode);
 
   /* If there are no changes, just return the original memory reference.  */
-  if (new == memref)
-    return new;
+  if (tmp == memref)
+    return tmp;
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
@@ -2050,10 +2050,10 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
   /* The widened memory may alias other stuff, so zap the alias set.  */
   /* ??? Maybe use get_alias_set on any remaining expression.  */
 
-  MEM_ATTRS (new) = get_mem_attrs (0, expr, memoffset, GEN_INT (size),
-				   MEM_ALIGN (new), mode);
+  MEM_ATTRS (tmp) = get_mem_attrs (0, expr, memoffset, GEN_INT (size),
+				   MEM_ALIGN (tmp), mode);
 
-  return new;
+  return tmp;
 }
 
 /* Return a newly created CODE_LABEL rtx with a unique label number.  */
@@ -4679,7 +4679,7 @@ start_sequence (void)
       free_sequence_stack = tem->next;
     }
   else
-    tem = ggc_alloc (sizeof (struct sequence_stack));
+    tem = (struct sequence_stack *) ggc_alloc (sizeof (struct sequence_stack));
 
   tem->next = seq_stack;
   tem->first = first_insn;
@@ -4966,7 +4966,7 @@ init_emit (void)
 {
   struct function *f = cfun;
 
-  f->emit = ggc_alloc (sizeof (struct emit_status));
+  f->emit = (struct emit_status *) ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   cur_insn_uid = 1;
@@ -4980,11 +4980,11 @@ init_emit (void)
   f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
   f->emit->regno_pointer_align
-    = ggc_alloc_cleared (f->emit->regno_pointer_align_length
+    = (unsigned char *) ggc_alloc_cleared (f->emit->regno_pointer_align_length
 			 * sizeof (unsigned char));
 
   regno_reg_rtx
-    = ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
+    = (rtx *) ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,
@@ -5080,6 +5080,25 @@ gen_rtx_CONST_VECTOR (enum machine_mode mode, rtvec v)
     }
 
   return gen_rtx_raw_CONST_VECTOR (mode, v);
+}
+
+#if 0
+#define gen_rtx_EXPR_LIST(MODE, ARG0, ARG1) \
+  gen_rtx_fmt_ee (EXPR_LIST, (enum machine_mode)(MODE), (ARG0), (ARG1))
+#define gen_rtx_INSN_LIST(MODE, ARG0, ARG1) \
+  gen_rtx_fmt_ue (INSN_LIST, (enum machine_mode)(MODE), (ARG0), (ARG1))
+#endif
+
+rtx
+gen_rtx_EXPR_LIST (enum reg_note note, rtx arg0, rtx arg1)
+{
+  return gen_rtx_raw_EXPR_LIST ((enum machine_mode) note, arg0, arg1);
+}
+
+rtx
+gen_rtx_INSN_LIST (enum reg_note note, rtx arg0, rtx arg1)
+{
+  return gen_rtx_raw_INSN_LIST ((enum machine_mode) note, arg0, arg1);
 }
 
 /* Create some permanent unique rtl objects shared between all functions.
@@ -5301,26 +5320,26 @@ init_emit_once (int line_numbers)
 rtx
 emit_copy_of_insn_after (rtx insn, rtx after)
 {
-  rtx new;
+  rtx tmp;
   rtx note1, note2, link;
 
   switch (GET_CODE (insn))
     {
     case INSN:
-      new = emit_insn_after (copy_insn (PATTERN (insn)), after);
+      tmp = emit_insn_after (copy_insn (PATTERN (insn)), after);
       break;
 
     case JUMP_INSN:
-      new = emit_jump_insn_after (copy_insn (PATTERN (insn)), after);
+      tmp = emit_jump_insn_after (copy_insn (PATTERN (insn)), after);
       break;
 
     case CALL_INSN:
-      new = emit_call_insn_after (copy_insn (PATTERN (insn)), after);
+      tmp = emit_call_insn_after (copy_insn (PATTERN (insn)), after);
       if (CALL_INSN_FUNCTION_USAGE (insn))
-	CALL_INSN_FUNCTION_USAGE (new)
+	CALL_INSN_FUNCTION_USAGE (tmp)
 	  = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));
-      SIBLING_CALL_P (new) = SIBLING_CALL_P (insn);
-      CONST_OR_PURE_CALL_P (new) = CONST_OR_PURE_CALL_P (insn);
+      SIBLING_CALL_P (tmp) = SIBLING_CALL_P (insn);
+      CONST_OR_PURE_CALL_P (tmp) = CONST_OR_PURE_CALL_P (insn);
       break;
 
     default:
@@ -5328,14 +5347,14 @@ emit_copy_of_insn_after (rtx insn, rtx after)
     }
 
   /* Update LABEL_NUSES.  */
-  mark_jump_label (PATTERN (new), new, 0);
+  mark_jump_label (PATTERN (tmp), tmp, 0);
 
-  INSN_LOCATOR (new) = INSN_LOCATOR (insn);
+  INSN_LOCATOR (tmp) = INSN_LOCATOR (insn);
 
   /* If the old insn is frame related, then so is the new one.  This is
      primarily needed for IA-64 unwind info which marks epilogue insns,
      which may be duplicated by the basic block reordering code.  */
-  RTX_FRAME_RELATED_P (new) = RTX_FRAME_RELATED_P (insn);
+  RTX_FRAME_RELATED_P (tmp) = RTX_FRAME_RELATED_P (insn);
 
   /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
      make them.  */
@@ -5343,28 +5362,28 @@ emit_copy_of_insn_after (rtx insn, rtx after)
     if (REG_NOTE_KIND (link) != REG_LABEL)
       {
 	if (GET_CODE (link) == EXPR_LIST)
-	  REG_NOTES (new)
+	  REG_NOTES (tmp)
 	    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
 					      XEXP (link, 0),
-					      REG_NOTES (new)));
+					      REG_NOTES (tmp)));
 	else
-	  REG_NOTES (new)
+	  REG_NOTES (tmp)
 	    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
 					      XEXP (link, 0),
-					      REG_NOTES (new)));
+					      REG_NOTES (tmp)));
       }
 
   /* Fix the libcall sequences.  */
-  if ((note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
+  if ((note1 = find_reg_note (tmp, REG_RETVAL, NULL_RTX)) != NULL)
     {
-      rtx p = new;
+      rtx p = tmp;
       while ((note2 = find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
 	p = PREV_INSN (p);
       XEXP (note1, 0) = p;
-      XEXP (note2, 0) = new;
+      XEXP (note2, 0) = tmp;
     }
-  INSN_CODE (new) = INSN_CODE (insn);
-  return new;
+  INSN_CODE (tmp) = INSN_CODE (insn);
+  return tmp;
 }
 
 static GTY((deletable)) rtx hard_reg_clobbers [NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];

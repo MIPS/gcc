@@ -117,12 +117,12 @@ extern int warn_strict_aliasing;
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
-extern int in_system_header;
+extern bool in_system_header;
 
 /* Nonzero for -dp: annotate the assembly with a comment describing the
    pattern and alternative used.  */
 
-extern int flag_print_asm_name;
+extern bool flag_print_asm_name;
 
 /* Now the symbols that are set with `-f' switches.  */
 
@@ -152,7 +152,7 @@ extern int flag_really_no_inline;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
-extern int rtl_dump_and_exit;
+extern bool rtl_dump_and_exit;
 
 /* Nonzero means we should save auxiliary info into a .X file.  */
 
@@ -238,7 +238,7 @@ extern enum graph_dump_types graph_dump_format;
 
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
-extern int flag_detailed_statistics;
+extern bool flag_detailed_statistics;
 
 /* Nonzero means that we defer emitting functions until they are actually
    used.  */

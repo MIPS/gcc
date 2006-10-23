@@ -28,6 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "statistics.h"
 #include "vec.h"
 
+#ifndef TREE_CODE_DEFINED
 /* Codes of tree nodes */
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
@@ -40,6 +41,7 @@ enum tree_code {
 };
 
 #undef DEFTREECODE
+#endif
 
 extern unsigned char tree_contains_struct[256][64];
 #define CODE_CONTAINS_STRUCT(CODE, STRUCT) (tree_contains_struct[(CODE)][(STRUCT)])
@@ -215,6 +217,8 @@ extern const char *const built_in_class_names[4];
 #define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) ENUM,
 enum built_in_function
 {
+  BUILT_IN_NONE,
+
 #include "builtins.def"
 
   /* Complex division routines in libgcc.  These are done via builtins

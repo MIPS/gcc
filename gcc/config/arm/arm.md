@@ -4824,12 +4824,12 @@
 			   && GET_CODE (base = XEXP (base, 0)) == REG))
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 32)
 		    {
-		      rtx new;
+		      rtx tmp;
 
-		      new = widen_memory_access (operands[1], SImode,
+		      tmp = widen_memory_access (operands[1], SImode,
 						 ((INTVAL (offset) & ~3)
 						  - INTVAL (offset)));
-		      emit_insn (gen_movsi (reg, new));
+		      emit_insn (gen_movsi (reg, tmp));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
 			{
@@ -8037,7 +8037,7 @@
 	if (REGNO (src) == R0_REGNUM)
 	  src = gen_rtx_REG (TImode, R0_REGNUM);
 
-        XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (VOIDmode, src,
+        XVECEXP (par, 0, i) = gen_rtx_EXPR_LIST (REG_DEP_TRUE, src,
 						 GEN_INT (size));
         size += GET_MODE_SIZE (GET_MODE (src));
       }

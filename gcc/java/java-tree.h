@@ -31,15 +31,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "hashtab.h"
 
-/* Java language-specific tree codes.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
-enum java_tree_code {
-  __DUMMY = LAST_AND_UNUSED_TREE_CODE,
-#include "java-tree.def"
-  LAST_JAVA_TREE_CODE
-};
-#undef DEFTREECODE
-
 struct JCF;
 
 /* Usage of TREE_LANG_FLAG_?:
@@ -926,7 +917,7 @@ union lang_tree_node
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
     {								\
       DECL_LANG_SPECIFIC ((T))					\
-	= ggc_alloc_cleared (sizeof (struct lang_decl));	\
+	= (struct lang_decl *) ggc_alloc_cleared (sizeof (struct lang_decl));	\
       DECL_LANG_SPECIFIC (T)->desc = LANG_DECL_VAR;		\
     }
 
@@ -1055,7 +1046,7 @@ struct lang_decl GTY(())
 #define MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC(T) \
   if (TYPE_LANG_SPECIFIC ((T)) == NULL)		\
      TYPE_LANG_SPECIFIC ((T))			\
-     = ggc_alloc_cleared (sizeof (struct lang_type));
+     = (struct lang_type *) ggc_alloc_cleared (sizeof (struct lang_type));
 
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC (T)->finit_stmt_list)
 #define TYPE_CLINIT_STMT_LIST(T) (TYPE_LANG_SPECIFIC (T)->clinit_stmt_list)
@@ -1402,7 +1393,9 @@ extern void gen_indirect_dispatch_tables (tree type);
 extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
 
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
+extern tree builtin_function (const char *, tree,
+			      enum built_in_function,
+			      enum built_in_class,
 			      const char *, tree);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)

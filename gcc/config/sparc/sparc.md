@@ -128,25 +128,25 @@
 
 ;; True if branch/call has empty delay slot and will emit a nop in it
 (define_attr "empty_delay_slot" "false,true"
-  (symbol_ref "empty_delay_slot (insn)"))
+  (symbol_ref "(enum attr_empty_delay_slot)empty_delay_slot (insn)"))
 
 (define_attr "branch_type" "none,icc,fcc,reg"
   (const_string "none"))
 
 (define_attr "pic" "false,true"
-  (symbol_ref "flag_pic != 0"))
+  (symbol_ref "(enum attr_pic)(flag_pic != 0)"))
 
 (define_attr "calls_alloca" "false,true"
-  (symbol_ref "current_function_calls_alloca != 0"))
+  (symbol_ref "(enum attr_calls_alloca)(current_function_calls_alloca != 0)"))
 
 (define_attr "calls_eh_return" "false,true"
-   (symbol_ref "current_function_calls_eh_return !=0 "))
+   (symbol_ref "(enum attr_calls_eh_return)(current_function_calls_eh_return !=0)"))
    
 (define_attr "leaf_function" "false,true"
-  (symbol_ref "current_function_uses_only_leaf_regs != 0"))
+  (symbol_ref "(enum attr_leaf_function)(current_function_uses_only_leaf_regs != 0)"))
 
 (define_attr "delayed_branch" "false,true"
-  (symbol_ref "flag_delayed_branch != 0"))
+  (symbol_ref "(enum attr_delayed_branch)(flag_delayed_branch != 0)"))
 
 ;; Length (in # of insns).
 ;; Beware that setting a length greater or equal to 3 for conditional branches
@@ -240,7 +240,7 @@
 
 ;; Attributes for instruction and branch scheduling
 (define_attr "tls_call_delay" "false,true"
-  (symbol_ref "tls_call_delay (insn)"))
+  (symbol_ref "(enum attr_tls_call_delay)tls_call_delay (insn)"))
 
 (define_attr "in_call_delay" "false,true"
   (cond [(eq_attr "type" "uncond_branch,branch,call,sibcall,call_no_delay_slot,multi")
@@ -255,10 +255,10 @@
 		      (const_string "false"))))
 
 (define_attr "eligible_for_sibcall_delay" "false,true"
-  (symbol_ref "eligible_for_sibcall_delay (insn)"))
+  (symbol_ref "(enum attr_eligible_for_sibcall_delay)eligible_for_sibcall_delay (insn)"))
 
 (define_attr "eligible_for_return_delay" "false,true"
-  (symbol_ref "eligible_for_return_delay (insn)"))
+  (symbol_ref "(enum attr_eligible_for_return_delay)eligible_for_return_delay (insn)"))
 
 ;; ??? !v9: Should implement the notion of predelay slots for floating-point
 ;; branches.  This would allow us to remove the nop always inserted before

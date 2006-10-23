@@ -86,9 +86,6 @@
 #undef LIB_SPEC
 #define LIB_SPEC ""
 
-#undef LINK_SPEC
-#define LINK_SPEC ""
-
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC ""
 

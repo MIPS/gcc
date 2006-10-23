@@ -80,7 +80,7 @@
 struct var_map_elt GTY(())
 {
   tree old;
-  tree new;
+  tree fresh;
 };
 
 struct nesting_info GTY ((chain_next ("%h.next")))
@@ -306,14 +306,14 @@ lookup_field_for_decl (struct nesting_info *info, tree decl,
   
       elt = GGC_NEW (struct var_map_elt);
       elt->old = decl;
-      elt->new = field;
+      elt->fresh = field;
       *slot = elt;
 
       if (TREE_CODE (decl) == PARM_DECL)
 	info->any_parm_remapped = true;
     }
   else
-    field = elt ? elt->new : NULL;
+    field = elt ? elt->fresh : NULL;
 
   return field;
 }
@@ -492,13 +492,13 @@ lookup_tramp_for_decl (struct nesting_info *info, tree decl,
 
       elt = GGC_NEW (struct var_map_elt);
       elt->old = decl;
-      elt->new = field;
+      elt->fresh = field;
       *slot = elt;
 
       info->any_tramp_created = true;
     }
   else
-    field = elt ? elt->new : NULL;
+    field = elt ? elt->fresh : NULL;
 
   return field;
 } 
@@ -827,10 +827,10 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
 
   dummy.old = decl;
   slot = htab_find_slot (info->var_map, &dummy, INSERT);
-  elt = *slot;
+  elt = (struct var_map_elt *) *slot;
 
   if (elt)
-    return elt->new;
+    return elt->fresh;
 
   target_context = decl_function_context (decl);
 
@@ -874,9 +874,9 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = (struct var_map_elt *) ggc_alloc (sizeof (*elt));
   elt->old = decl;
-  elt->new = new_decl;
+  elt->fresh = new_decl;
   *slot = elt;
 
   TREE_CHAIN (new_decl) = info->debug_var_chain;
@@ -899,7 +899,7 @@ static tree
 convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   tree t = *tp;
   tree save_local_var_chain;
   bitmap save_suppress;
@@ -991,7 +991,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 	       where we only accept variables (and min_invariant, presumably),
 	       then compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
+	      *tp = tsi_gimplify_val ((struct nesting_info *) wi->info, t, &wi->tsi);
 	  }
       }
       break;
@@ -1088,7 +1088,7 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
 static bool
 convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   bool need_chain = false;
   tree clause, decl;
   int dummy;
@@ -1158,10 +1158,10 @@ get_local_debug_decl (struct nesting_info *info, tree decl, tree field)
 
   dummy.old = decl;
   slot = htab_find_slot (info->var_map, &dummy, INSERT);
-  elt = *slot;
+  elt = (struct var_map_elt *) *slot;
 
   if (elt)
-    return elt->new;
+    return elt->fresh;
 
   /* Make sure frame_decl gets created.  */
   (void) get_frame_type (info);
@@ -1182,9 +1182,9 @@ get_local_debug_decl (struct nesting_info *info, tree decl, tree field)
   SET_DECL_VALUE_EXPR (new_decl, x);
   DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
 
-  elt = ggc_alloc (sizeof (*elt));
+  elt = (struct var_map_elt *) ggc_alloc (sizeof (*elt));
   elt->old = decl;
-  elt->new = new_decl;
+  elt->fresh = new_decl;
   *slot = elt;
 
   TREE_CHAIN (new_decl) = info->debug_var_chain;
@@ -1206,7 +1206,7 @@ static tree
 convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   tree t = *tp, field, x;
   bool save_val_only;
   tree save_local_var_chain;
@@ -1276,7 +1276,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 	  /* If we are in a context where we only accept values, then
 	     compute the address into a temporary.  */
 	  if (save_val_only)
-	    *tp = tsi_gimplify_val (wi->info, t, &wi->tsi);
+	    *tp = tsi_gimplify_val ((struct nesting_info *) wi->info, t, &wi->tsi);
 	}
       break;
 
@@ -1374,7 +1374,7 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
 static bool
 convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   bool need_frame = false;
   tree clause, decl;
   int dummy;
@@ -1443,7 +1443,7 @@ static tree
 convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info, *i;
+  struct nesting_info *info = (struct nesting_info *) wi->info, *i;
   tree t = *tp, label, new_label, target_context, x, arg, field;
   struct var_map_elt *elt, dummy;
   void **slot;
@@ -1478,11 +1478,11 @@ convert_nl_goto_reference (tree *tp, int *walk_subtrees, void *data)
 
       elt = GGC_NEW (struct var_map_elt); 
       elt->old = label;
-      elt->new = new_label;
+      elt->fresh = new_label;
       *slot = elt;
     }
   else
-    new_label = elt->new;
+    new_label = elt->fresh;
   
   /* Build: __builtin_nl_goto(new_label, &chain->nl_goto_field).  */
   field = get_nl_goto_field (i);
@@ -1511,7 +1511,7 @@ static tree
 convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   tree t = *tp, label, new_label, x;
   struct var_map_elt *elt, dummy;
   tree_stmt_iterator tmp_tsi;
@@ -1525,7 +1525,7 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   elt = (struct var_map_elt *) htab_find (info->var_map, &dummy);
   if (!elt)
     return NULL_TREE;
-  new_label = elt->new;
+  new_label = elt->fresh;
 
   /* If there's any possibility that the previous statement falls through,
      then we must branch around the new non-local label.  */
@@ -1550,7 +1550,7 @@ static tree
 convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info, *i;
+  struct nesting_info *info = (struct nesting_info *) wi->info, *i;
   tree t = *tp, decl, target_context, x, arg;
 
   *walk_subtrees = 0;
@@ -1625,7 +1625,7 @@ static tree
 convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nesting_info *info = wi->info;
+  struct nesting_info *info = (struct nesting_info *) wi->info;
   tree t = *tp, decl, target_context;
   char save_static_chain_added;
   int i;

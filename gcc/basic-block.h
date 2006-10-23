@@ -355,6 +355,12 @@ enum bb_flags
 #define BB_COPY_PARTITION(dstbb, srcbb) \
   BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
+enum profile_status {
+  PROFILE_ABSENT,
+  PROFILE_GUESSED,
+  PROFILE_READ
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -382,11 +388,7 @@ struct control_flow_graph GTY(())
      only used for the tree CFG.  */
   VEC(basic_block,gc) *x_label_to_block_map;
 
-  enum profile_status {
-    PROFILE_ABSENT,
-    PROFILE_GUESSED,
-    PROFILE_READ
-  } x_profile_status;
+  enum profile_status x_profile_status;
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */

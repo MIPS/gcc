@@ -251,7 +251,7 @@ gfc_simplify_achar (gfc_expr * e)
   result = gfc_constant_result (BT_CHARACTER, gfc_default_character_kind,
 				&e->where);
 
-  result->value.character.string = gfc_getmem (2);
+  result->value.character.string = (char *)gfc_getmem (2);
 
   result->value.character.length = 1;
   result->value.character.string[0] = ascii_table[index];
@@ -319,7 +319,7 @@ gfc_simplify_adjustl (gfc_expr * e)
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
 
   result->value.character.length = len;
-  result->value.character.string = gfc_getmem (len + 1);
+  result->value.character.string = (char *)gfc_getmem (len + 1);
 
   for (count = 0, i = 0; i < len; ++i)
     {
@@ -361,7 +361,7 @@ gfc_simplify_adjustr (gfc_expr * e)
   result = gfc_constant_result (BT_CHARACTER, e->ts.kind, &e->where);
 
   result->value.character.length = len;
-  result->value.character.string = gfc_getmem (len + 1);
+  result->value.character.string = (char *)gfc_getmem (len + 1);
 
   for (count = 0, i = len - 1; i >= 0; --i)
     {
@@ -694,7 +694,7 @@ gfc_simplify_char (gfc_expr * e, gfc_expr * k)
   result = gfc_constant_result (BT_CHARACTER, kind, &e->where);
 
   result->value.character.length = 1;
-  result->value.character.string = gfc_getmem (2);
+  result->value.character.string = (char *)gfc_getmem (2);
 
   result->value.character.string[0] = c;
   result->value.character.string[1] = '\0';	/* For debugger */
@@ -1324,7 +1324,7 @@ gfc_simplify_ibits (gfc_expr * x, gfc_expr * y, gfc_expr * z)
 
   result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
 
-  bits = gfc_getmem (bitsize * sizeof (int));
+  bits = (int *)gfc_getmem (bitsize * sizeof (int));
 
   for (i = 0; i < bitsize; i++)
     bits[i] = 0;
@@ -1781,7 +1781,7 @@ gfc_simplify_ishft (gfc_expr * e, gfc_expr * s)
       return range_check (result, "ISHFT");
     }
   
-  bits = gfc_getmem (isize * sizeof (int));
+  bits = (int *)gfc_getmem (isize * sizeof (int));
 
   for (i = 0; i < isize; i++)
     bits[i] = mpz_tstbit (e->value.integer, i);
@@ -1870,7 +1870,7 @@ gfc_simplify_ishftc (gfc_expr * e, gfc_expr * s, gfc_expr * sz)
       return result;
     }
 
-  bits = gfc_getmem (isize * sizeof (int));
+  bits = (int *)gfc_getmem (isize * sizeof (int));
 
   for (i = 0; i < isize; i++)
     bits[i] = mpz_tstbit (e->value.integer, i);
@@ -2855,14 +2855,14 @@ gfc_simplify_repeat (gfc_expr * e, gfc_expr * n)
 
   if (ncopies == 0)
     {
-      result->value.character.string = gfc_getmem (1);
+      result->value.character.string = (char *)gfc_getmem (1);
       result->value.character.length = 0;
       result->value.character.string[0] = '\0';
       return result;
     }
 
   result->value.character.length = nlen;
-  result->value.character.string = gfc_getmem (nlen + 1);
+  result->value.character.string = (char *)gfc_getmem (nlen + 1);
 
   for (i = 0; i < ncopies; i++)
     for (j = 0; j < len; j++)
@@ -3453,7 +3453,7 @@ gfc_simplify_shape (gfc_expr * source)
   gfc_expr *result, *e, *f;
   gfc_array_ref *ar;
   int n;
-  try t;
+  check t;
 
   if (source->rank == 0 || source->expr_type != EXPR_VARIABLE)
     return NULL;
@@ -3934,7 +3934,7 @@ gfc_simplify_trim (gfc_expr * e)
   lentrim = len - count;
 
   result->value.character.length = lentrim;
-  result->value.character.string = gfc_getmem (lentrim + 1);
+  result->value.character.string = (char *)gfc_getmem (lentrim + 1);
 
   for (i = 0; i < lentrim; i++)
     result->value.character.string[i] = e->value.character.string[i];

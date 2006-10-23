@@ -747,7 +747,7 @@ pop_state (void)
 
 /* Try to find the given state in the state stack.  */
 
-try
+check
 gfc_find_state (gfc_compile_state state)
 {
   gfc_state_data *p;
@@ -1369,19 +1369,20 @@ unexpected_statement (gfc_statement st)
 
 */
 
+enum order_state
+{ ORDER_START, ORDER_USE, ORDER_IMPLICIT_NONE, ORDER_IMPLICIT,
+  ORDER_SPEC, ORDER_EXEC
+};
+
 typedef struct
 {
-  enum
-  { ORDER_START, ORDER_USE, ORDER_IMPLICIT_NONE, ORDER_IMPLICIT,
-    ORDER_SPEC, ORDER_EXEC
-  }
-  state;
+  enum order_state state;
   gfc_statement last_statement;
   locus where;
 }
 st_state;
 
-static try
+static check
 verify_st_order (st_state * p, gfc_statement st)
 {
 
@@ -3115,7 +3116,7 @@ add_global_program (void)
 
 /* Top level parser.  */
 
-try
+check
 gfc_parse_file (void)
 {
   int seen_program, errors_before, errors;

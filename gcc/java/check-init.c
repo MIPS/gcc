@@ -29,6 +29,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "java-tree-code.h"
 #include "tree.h"
 #include "flags.h" /* Needed for optimize. */
 #include "java-tree.h"
@@ -111,7 +112,7 @@ static tree get_variable_decl (tree);
 static void final_assign_error (tree);
 static void check_final_reassigned (tree, words);
 
-#define ALLOC_WORDS(NUM) (xmalloc ((NUM) * sizeof (word)))
+#define ALLOC_WORDS(NUM) ((words)xmalloc ((NUM) * sizeof (word)))
 #define FREE_WORDS(PTR) (free (PTR))
 
 /* DECLARE_BUFFERS is used to allocate NUMBUFFER bit sets, each of
@@ -125,7 +126,7 @@ static void check_final_reassigned (tree, words);
 
 #define DECLARE_BUFFERS(BUFFER, NUMBUFFERS) \
   word BUFFER##_short[2 * NUMBUFFERS]; \
-  words BUFFER = ALLOC_BUFFER(BUFFER##_short, NUMBUFFERS * num_current_words)
+  words BUFFER = (words)ALLOC_BUFFER(BUFFER##_short, NUMBUFFERS * num_current_words)
 
 #define RELEASE_BUFFERS(BUFFER) \
   FREE_BUFFER(BUFFER, BUFFER##_short)

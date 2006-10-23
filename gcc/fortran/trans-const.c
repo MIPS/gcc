@@ -111,7 +111,7 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
 
   if (len > slen)
     {
-      s = gfc_getmem (len);
+      s = (char *)gfc_getmem (len);
       memcpy (s, expr->value.character.string, slen);
       memset (&s[slen], ' ', len - slen);
       str = gfc_build_string_const (len, s);

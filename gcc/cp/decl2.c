@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -1597,7 +1598,7 @@ constrain_visibility (tree decl, int visibility)
   else if (visibility > DECL_VISIBILITY (decl)
 	   && !DECL_VISIBILITY_SPECIFIED (decl))
     {
-      DECL_VISIBILITY (decl) = visibility;
+      DECL_VISIBILITY (decl) = (enum symbol_visibility) visibility;
       return true;
     }
   return false;

@@ -41,7 +41,6 @@ Boston, MA 02110-1301, USA.  */
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC ""
 
-#undef	RELATIVE_PREFIX_NOT_LINKDIR
 #undef	LIBGCC_SPEC
 
 #define TARGET_OS_CPP_BUILTINS()					\

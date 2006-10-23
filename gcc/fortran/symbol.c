@@ -137,7 +137,7 @@ gfc_clear_new_implicit (void)
 
 /* Prepare for a new implicit range.  Sets flags in new_flag[].  */
 
-try
+check
 gfc_add_new_implicit_range (int c1, int c2)
 {
   int i;
@@ -164,7 +164,7 @@ gfc_add_new_implicit_range (int c1, int c2)
 /* Add a matched implicit range for gfc_set_implicit().  Check if merging
    the new implicit types back into the existing types will work.  */
 
-try
+check
 gfc_merge_new_implicit (gfc_typespec * ts)
 {
   int i;
@@ -216,7 +216,7 @@ gfc_get_default_type (gfc_symbol * sym, gfc_namespace * ns)
    letter of its name.  Fails if the letter in question has no default
    type.  */
 
-try
+check
 gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
 {
   gfc_typespec *ts;
@@ -260,15 +260,15 @@ gfc_set_default_type (gfc_symbol * sym, int error_flag, gfc_namespace * ns)
                                 goto conflict_std;\
                               }
 
-static try
+static check
 check_conflict (symbol_attribute * attr, const char * name, locus * where)
 {
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
     *intrinsic = "INTRINSIC", *allocatable = "ALLOCATABLE",
-    *elemental = "ELEMENTAL", *private = "PRIVATE", *recursive = "RECURSIVE",
+    *elemental = "ELEMENTAL", *priv = "PRIVATE", *recursive = "RECURSIVE",
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
-    *public = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
+    *pub = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
     *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
     *use_assoc = "USE ASSOCIATED", *cray_pointer = "CRAY POINTER",
@@ -302,9 +302,9 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       if (attr->optional)
 	a1 = optional;
       if (attr->access == ACCESS_PRIVATE)
-	a1 = private;
+	a1 = priv;
       if (attr->access == ACCESS_PUBLIC)
-	a1 = public;
+	a1 = pub;
       if (attr->intent != INTENT_UNKNOWN)
 	a1 = intent;
 
@@ -625,7 +625,7 @@ duplicate_attr (const char *attr, locus * where)
 
 /* Called from decl.c (attr_decl1) to check attributes, when declared separately.  */
 
-try
+check
 gfc_add_attribute (symbol_attribute * attr, locus * where,
 		   unsigned int attr_intent)
 {
@@ -637,7 +637,7 @@ gfc_add_attribute (symbol_attribute * attr, locus * where,
   return check_conflict (attr, NULL, where);
 }
 
-try
+check
 gfc_add_allocatable (symbol_attribute * attr, locus * where)
 {
 
@@ -655,7 +655,7 @@ gfc_add_allocatable (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_dimension (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -673,7 +673,7 @@ gfc_add_dimension (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_external (symbol_attribute * attr, locus * where)
 {
 
@@ -692,7 +692,7 @@ gfc_add_external (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_intrinsic (symbol_attribute * attr, locus * where)
 {
 
@@ -711,7 +711,7 @@ gfc_add_intrinsic (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_optional (symbol_attribute * attr, locus * where)
 {
 
@@ -729,7 +729,7 @@ gfc_add_optional (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_pointer (symbol_attribute * attr, locus * where)
 {
 
@@ -741,7 +741,7 @@ gfc_add_pointer (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_cray_pointer (symbol_attribute * attr, locus * where)
 {
 
@@ -753,7 +753,7 @@ gfc_add_cray_pointer (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_cray_pointee (symbol_attribute * attr, locus * where)
 {
 
@@ -772,7 +772,7 @@ gfc_add_cray_pointee (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_result (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -784,7 +784,7 @@ gfc_add_result (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -813,7 +813,7 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_threadprivate (symbol_attribute * attr, const char *name, locus * where)
 {
   if (check_used (attr, name, where))
@@ -830,7 +830,7 @@ gfc_add_threadprivate (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_target (symbol_attribute * attr, locus * where)
 {
 
@@ -848,7 +848,7 @@ gfc_add_target (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_dummy (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -861,7 +861,7 @@ gfc_add_dummy (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -879,7 +879,7 @@ gfc_add_in_common (symbol_attribute * attr, const char *name, locus * where)
   return gfc_add_flavor (attr, FL_VARIABLE, name, where);
 }
 
-try
+check
 gfc_add_in_equivalence (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -895,7 +895,7 @@ gfc_add_in_equivalence (symbol_attribute * attr, const char *name, locus * where
 }
 
 
-try
+check
 gfc_add_data (symbol_attribute *attr, const char *name, locus *where)
 {
 
@@ -907,7 +907,7 @@ gfc_add_data (symbol_attribute *attr, const char *name, locus *where)
 }
 
 
-try
+check
 gfc_add_in_namelist (symbol_attribute * attr, const char *name,
 		     locus * where)
 {
@@ -917,7 +917,7 @@ gfc_add_in_namelist (symbol_attribute * attr, const char *name,
 }
 
 
-try
+check
 gfc_add_sequence (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -929,7 +929,7 @@ gfc_add_sequence (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_elemental (symbol_attribute * attr, locus * where)
 {
 
@@ -941,7 +941,7 @@ gfc_add_elemental (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_pure (symbol_attribute * attr, locus * where)
 {
 
@@ -953,7 +953,7 @@ gfc_add_pure (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_recursive (symbol_attribute * attr, locus * where)
 {
 
@@ -965,7 +965,7 @@ gfc_add_recursive (symbol_attribute * attr, locus * where)
 }
 
 
-try
+check
 gfc_add_entry (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -983,7 +983,7 @@ gfc_add_entry (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_function (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -996,7 +996,7 @@ gfc_add_function (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_subroutine (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -1009,7 +1009,7 @@ gfc_add_subroutine (symbol_attribute * attr, const char *name, locus * where)
 }
 
 
-try
+check
 gfc_add_generic (symbol_attribute * attr, const char *name, locus * where)
 {
 
@@ -1025,7 +1025,7 @@ gfc_add_generic (symbol_attribute * attr, const char *name, locus * where)
 /* Flavors are special because some flavors are not what Fortran
    considers attributes and can be reaffirmed multiple times.  */
 
-try
+check
 gfc_add_flavor (symbol_attribute * attr, sym_flavor f, const char *name,
 		locus * where)
 {
@@ -1056,7 +1056,7 @@ gfc_add_flavor (symbol_attribute * attr, sym_flavor f, const char *name,
 }
 
 
-try
+check
 gfc_add_procedure (symbol_attribute * attr, procedure_type t,
 		   const char *name, locus * where)
 {
@@ -1092,7 +1092,7 @@ gfc_add_procedure (symbol_attribute * attr, procedure_type t,
 }
 
 
-try
+check
 gfc_add_intent (symbol_attribute * attr, sym_intent intent, locus * where)
 {
 
@@ -1118,7 +1118,7 @@ gfc_add_intent (symbol_attribute * attr, sym_intent intent, locus * where)
 
 /* No checks for use-association in public and private statements.  */
 
-try
+check
 gfc_add_access (symbol_attribute * attr, gfc_access access,
 		const char *name, locus * where)
 {
@@ -1137,7 +1137,7 @@ gfc_add_access (symbol_attribute * attr, gfc_access access,
 }
 
 
-try
+check
 gfc_add_explicit_interface (gfc_symbol * sym, ifsrc source,
 			    gfc_formal_arglist * formal, locus * where)
 {
@@ -1165,7 +1165,7 @@ gfc_add_explicit_interface (gfc_symbol * sym, ifsrc source,
 
 /* Add a type to a symbol.  */
 
-try
+check
 gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 {
   sym_flavor flavor;
@@ -1221,7 +1221,7 @@ gfc_clear_attr (symbol_attribute * attr)
 /* Check for missing attributes in the new symbol.  Currently does
    nothing, but it's not clear that it is unnecessary yet.  */
 
-try
+check
 gfc_missing_attr (symbol_attribute * attr ATTRIBUTE_UNUSED,
 		  locus * where ATTRIBUTE_UNUSED)
 {
@@ -1234,7 +1234,7 @@ gfc_missing_attr (symbol_attribute * attr ATTRIBUTE_UNUSED,
    attributes have a lot of side-effects but cannot be present given
    where we are called from, so we ignore some bits.  */
 
-try
+check
 gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
 {
 
@@ -1329,7 +1329,7 @@ fail:
    already present.  On success, the component pointer is modified to
    point to the additional component structure.  */
 
-try
+check
 gfc_add_component (gfc_symbol * sym, const char *name, gfc_component ** component)
 {
   gfc_component *p, *tail;
@@ -1612,7 +1612,7 @@ gfc_get_st_label (int labelno)
 	lp = lp->right;
     }
 
-  lp = gfc_getmem (sizeof (gfc_st_label));
+  lp = (gfc_st_label *)gfc_getmem (sizeof (gfc_st_label));
 
   lp->value = labelno;
   lp->defined = ST_LABEL_UNKNOWN;
@@ -1676,12 +1676,12 @@ gfc_define_st_label (gfc_st_label * lp, gfc_sl_type type, locus * label_locus)
    updating the unknown state.  Returns FAILURE if something goes
    wrong.  */
 
-try
+check
 gfc_reference_st_label (gfc_st_label * lp, gfc_sl_type type)
 {
   gfc_sl_type label_type;
   int labelno;
-  try rc;
+  check rc;
 
   if (lp == NULL)
     return SUCCESS;
@@ -1746,10 +1746,10 @@ gfc_get_namespace (gfc_namespace * parent, int parent_types)
 {
   gfc_namespace *ns;
   gfc_typespec *ts;
-  gfc_intrinsic_op in;
+  int in;
   int i;
 
-  ns = gfc_getmem (sizeof (gfc_namespace));
+  ns = (gfc_namespace *)gfc_getmem (sizeof (gfc_namespace));
   ns->sym_root = NULL;
   ns->uop_root = NULL;
   ns->default_access = ACCESS_UNKNOWN;
@@ -1816,7 +1816,7 @@ gfc_new_symtree (gfc_symtree ** root, const char *name)
 {
   gfc_symtree *st;
 
-  st = gfc_getmem (sizeof (gfc_symtree));
+  st = (gfc_symtree *)gfc_getmem (sizeof (gfc_symtree));
   st->name = gfc_get_string (name);
 
   gfc_insert_bbt (root, st, compare_symtree);
@@ -1877,7 +1877,7 @@ gfc_get_uop (const char *name)
 
   st = gfc_new_symtree (&gfc_current_ns->uop_root, name);
 
-  uop = st->n.uop = gfc_getmem (sizeof (gfc_user_op));
+  uop = st->n.uop = (gfc_user_op *)gfc_getmem (sizeof (gfc_user_op));
   uop->name = gfc_get_string (name);
   uop->access = ACCESS_UNKNOWN;
   uop->ns = gfc_current_ns;
@@ -1936,7 +1936,7 @@ gfc_new_symbol (const char *name, gfc_namespace * ns)
 {
   gfc_symbol *p;
 
-  p = gfc_getmem (sizeof (gfc_symbol));
+  p = (gfc_symbol *)gfc_getmem (sizeof (gfc_symbol));
 
   gfc_clear_ts (&p->ts);
   gfc_clear_attr (&p->attr);
@@ -2033,10 +2033,10 @@ static void
 save_symbol_data (gfc_symbol * sym)
 {
 
-  if (sym->new || sym->old_symbol != NULL)
+  if (sym->fresh || sym->old_symbol != NULL)
     return;
 
-  sym->old_symbol = gfc_getmem (sizeof (gfc_symbol));
+  sym->old_symbol = (gfc_symbol *)gfc_getmem (sizeof (gfc_symbol));
   *(sym->old_symbol) = *sym;
 
   sym->tlink = changed_syms;
@@ -2077,7 +2077,7 @@ gfc_get_sym_tree (const char *name, gfc_namespace * ns, gfc_symtree ** result)
       p->old_symbol = NULL;
       p->tlink = changed_syms;
       p->mark = 1;
-      p->new = 1;
+      p->fresh = 1;
       changed_syms = p;
 
       st = gfc_new_symtree (&ns->sym_root, name);
@@ -2222,7 +2222,7 @@ gfc_undo_symbols (void)
     {
       q = p->tlink;
 
-      if (p->new)
+      if (p->fresh)
 	{
 	  /* Symbol was new.  */
 	  delete_symtree (&p->ns->sym_root, p->name);
@@ -2331,7 +2331,7 @@ gfc_commit_symbols (void)
       q = p->tlink;
       p->tlink = NULL;
       p->mark = 0;
-      p->new = 0;
+      p->fresh = 0;
 
       free_old_symbol (p);
     }
@@ -2361,7 +2361,7 @@ gfc_commit_symbol (gfc_symbol * sym)
 
   sym->tlink = NULL;
   sym->mark = 0;
-  sym->new = 0;
+  sym->fresh = 0;
 
   free_old_symbol (sym);
 }
@@ -2396,7 +2396,7 @@ free_uop_tree (gfc_symtree * uop_tree)
   free_uop_tree (uop_tree->left);
   free_uop_tree (uop_tree->right);
 
-  gfc_free_interface (uop_tree->n.uop->operator);
+  gfc_free_interface (uop_tree->n.uop->foperator);
 
   gfc_free (uop_tree->n.uop);
   gfc_free (uop_tree);
@@ -2491,7 +2491,7 @@ gfc_free_namespace (gfc_namespace * ns)
 {
   gfc_charlen *cl, *cl2;
   gfc_namespace *p, *q;
-  gfc_intrinsic_op i;
+  int i;
 
   if (ns == NULL)
     return;
@@ -2522,7 +2522,7 @@ gfc_free_namespace (gfc_namespace * ns)
   gfc_free_dt_list (ns->derived_types);
 
   for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
-    gfc_free_interface (ns->operator[i]);
+    gfc_free_interface (ns->foperator[i]);
 
   gfc_free_data (ns->data);
   p = ns->contained;
@@ -2724,7 +2724,7 @@ gfc_get_gsymbol (const char *name)
   if (s != NULL)
     return s;
 
-  s = gfc_getmem (sizeof (gfc_gsymbol));
+  s = (gfc_gsymbol *)gfc_getmem (sizeof (gfc_gsymbol));
   s->type = GSYM_UNKNOWN;
   s->name = gfc_get_string (name);
 

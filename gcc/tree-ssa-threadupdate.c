@@ -514,7 +514,7 @@ prune_undesirable_thread_requests (basic_block bb)
 
 	  /* If the incoming edge threads to the loop exit, then it
 	     is clearly safe.  */
-	  e2 = e->aux;
+	  e2 = (edge) e->aux;
 	  if (e2 && (e2->flags & EDGE_LOOP_EXIT))
 	    continue;
 
@@ -554,7 +554,7 @@ prune_undesirable_thread_requests (basic_block bb)
 	  if (e->flags & EDGE_DFS_BACK)
 	    continue;
 
-	  e2 = e->aux;
+	  e2 = (edge) e->aux;
 
 	  /* If this incoming edge was not threaded, then there is
 	     nothing to do.  */
@@ -767,9 +767,9 @@ thread_block (basic_block bb)
 	}
       else
 	{
-	  edge e2 = e->aux;
+	  edge e2 = (edge) e->aux;
 	  update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-					   e->count, e->aux);
+					   e->count, (edge) e->aux);
 
 	  /* Insert the outgoing edge into the hash table if it is not
 	     already in the hash table.  */
@@ -783,7 +783,7 @@ thread_block (basic_block bb)
      DO_NOT_DUPLICATE attribute.  */
   if (all)
     {
-      edge e = EDGE_PRED (bb, 0)->aux;
+      edge e = (edge) EDGE_PRED (bb, 0)->aux;
       lookup_redirection_data (e, NULL, NO_INSERT)->do_not_duplicate = true;
     }
 

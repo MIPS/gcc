@@ -181,11 +181,11 @@ variable_def:
 storage typename NAME init_opt SEMICOLON {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $3;
+  tok = (struct prod_token_parm_item *) $3;
   prod = make_production (PROD_VARIABLE_NAME, tok);
   SYMBOL_TABLE_NAME (prod) = tok;
-  EXPRESSION_TYPE (prod) = $2;
-  VAR_INIT (prod) = $4;
+  EXPRESSION_TYPE (prod) = (struct prod_token_parm_item *) $2;
+  VAR_INIT (prod) = (struct prod_token_parm_item *) $4;
   NUMERIC_TYPE (prod) =
     NUMERIC_TYPE (( (struct prod_token_parm_item *)EXPRESSION_TYPE (prod)));
   ensure_not_void (NUMERIC_TYPE (prod), tok);
@@ -193,7 +193,7 @@ storage typename NAME init_opt SEMICOLON {
     {
       YYERROR;
     }
-  STORAGE_CLASS_TOKEN (prod) = $1;
+  STORAGE_CLASS_TOKEN (prod) = (struct prod_token_parm_item *) $1;
   set_storage (prod);
 
   if (VAR_INIT (prod))
@@ -234,10 +234,10 @@ typename NAME {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
   struct prod_token_parm_item *prod2;
-  tok = $2;
+  tok = (struct prod_token_parm_item *) $2;
   prod = make_production (PROD_VARIABLE_NAME, tok);
-  SYMBOL_TABLE_NAME (prod) = $2;
-  EXPRESSION_TYPE (prod) = $1;
+  SYMBOL_TABLE_NAME (prod) = (struct prod_token_parm_item *) $2;
+  EXPRESSION_TYPE (prod) = (struct prod_token_parm_item *) $1;
   NUMERIC_TYPE (prod) =
     NUMERIC_TYPE (( (struct prod_token_parm_item *)EXPRESSION_TYPE (prod)));
   ensure_not_void (NUMERIC_TYPE (prod), tok);
@@ -261,15 +261,15 @@ storage typename NAME LEFT_PARENTHESIS parameters_opt RIGHT_PARENTHESIS SEMICOLO
   struct prod_token_parm_item *this_parms;
   struct prod_token_parm_item *this_parm;
   struct prod_token_parm_item *this_parm_var;
-  tok = $3;
-  prod = make_production (PROD_FUNCTION_NAME, $3);
-  SYMBOL_TABLE_NAME (prod) = $3;
-  EXPRESSION_TYPE (prod) = $2;
+  tok = (struct prod_token_parm_item *) $3;
+  prod = make_production (PROD_FUNCTION_NAME, (struct prod_token_parm_item *)$3);
+  SYMBOL_TABLE_NAME (prod) = (struct prod_token_parm_item *)$3;
+  EXPRESSION_TYPE (prod) = (struct prod_token_parm_item *)$2;
   NUMERIC_TYPE (prod) =
     NUMERIC_TYPE (( (struct prod_token_parm_item *)EXPRESSION_TYPE (prod)));
-  PARAMETERS (prod) = reverse_prod_list ($5);
+  PARAMETERS (prod) = reverse_prod_list ((struct prod_token_parm_item *)$5);
   insert_tree_name (prod);
-  STORAGE_CLASS_TOKEN (prod) = $1;
+  STORAGE_CLASS_TOKEN (prod) = (struct prod_token_parm_item *)$1;
   set_storage (prod);
   switch (STORAGE_CLASS (prod))
     {
@@ -300,7 +300,7 @@ storage typename NAME LEFT_PARENTHESIS parameters_opt RIGHT_PARENTHESIS SEMICOLO
       gcc_assert (this_parm_var->category == production_category);
       gcc_assert (this_parm_var->tp.pro.main_token);
 
-      this_parms = my_malloc (sizeof (struct prod_token_parm_item));
+      this_parms = (struct prod_token_parm_item *)my_malloc (sizeof (struct prod_token_parm_item));
 
       this_parms->tp.par.variable_name =
 	this_parm_var->tp.pro.main_token->tp.tok.chars;
@@ -347,7 +347,7 @@ NAME LEFT_BRACE {
   struct prod_token_parm_item *proto;
   struct prod_token_parm_item search_prod;
   struct prod_token_parm_item *tok;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   SYMBOL_TABLE_NAME ((&search_prod)) = tok;
   search_prod.category = token_category;
   current_function = proto = lookup_tree_name (&search_prod);
@@ -365,7 +365,7 @@ NAME LEFT_BRACE {
 
 variable_defs_opt statements_opt RIGHT_BRACE {
   struct prod_token_parm_item *tok;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   tree_code_create_function_wrapup (tok->tp.tok.location);
   current_function = NULL;
 }
@@ -402,7 +402,7 @@ typename:
 INT {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_TYPE_NAME, tok);
   NUMERIC_TYPE (prod) = SIGNED_INT;
   prod->tp.pro.code = tree_code_get_type (NUMERIC_TYPE (prod));
@@ -411,7 +411,7 @@ INT {
 |UNSIGNED INT {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_TYPE_NAME, tok);
   NUMERIC_TYPE (prod) = UNSIGNED_INT;
   prod->tp.pro.code = tree_code_get_type (NUMERIC_TYPE (prod));
@@ -420,7 +420,7 @@ INT {
 |CHAR {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_TYPE_NAME, tok);
   NUMERIC_TYPE (prod) = SIGNED_CHAR;
   prod->tp.pro.code = tree_code_get_type (NUMERIC_TYPE (prod));
@@ -429,7 +429,7 @@ INT {
 |UNSIGNED CHAR {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_TYPE_NAME, tok);
   NUMERIC_TYPE (prod) = UNSIGNED_CHAR;
   prod->tp.pro.code = tree_code_get_type (NUMERIC_TYPE (prod));
@@ -438,7 +438,7 @@ INT {
 |VOID {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *prod;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_TYPE_NAME, tok);
   NUMERIC_TYPE (prod) = VOID_TYPE;
   prod->tp.pro.code = tree_code_get_type (NUMERIC_TYPE (prod));
@@ -462,8 +462,8 @@ parameter {
 }
 |parameters COMMA parameter {
   struct prod_token_parm_item *prod1;
-  prod1 = $3;
-  prod1->tp.pro.next = $1; /* Insert in reverse order.  */
+  prod1 = (struct prod_token_parm_item *)$3;
+  prod1->tp.pro.next = (struct prod_token_parm_item *)$1; /* Insert in reverse order.  */
   $$ = prod1;
 }
 ;
@@ -480,7 +480,7 @@ statement {
 statement:
 expression SEMICOLON {
   struct prod_token_parm_item *exp;
-  exp = $1;
+  exp = (struct prod_token_parm_item *)$1;
   tree_code_output_expression_statement (exp->tp.pro.code,
 					 exp->tp.pro.main_token->tp.tok.location);
 }
@@ -496,8 +496,8 @@ if_statement:
 IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS {
   struct prod_token_parm_item *tok;
   struct prod_token_parm_item *exp;
-  tok = $1;
-  exp = $3;
+  tok = (struct prod_token_parm_item *)$1;
+  exp = (struct prod_token_parm_item *)$3;
   ensure_not_void (NUMERIC_TYPE (exp), exp->tp.pro.main_token);
   tree_code_if_start (exp->tp.pro.code, tok->tp.tok.location);
 }
@@ -506,12 +506,12 @@ LEFT_BRACE variable_defs_opt statements_opt RIGHT_BRACE {
 }
 ELSE {
   struct prod_token_parm_item *tok;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   tree_code_if_else (tok->tp.tok.location);
 }
 LEFT_BRACE variable_defs_opt statements_opt RIGHT_BRACE {
   struct prod_token_parm_item *tok;
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   tree_code_if_end (tok->tp.tok.location);
 }
 ;
@@ -520,8 +520,8 @@ LEFT_BRACE variable_defs_opt statements_opt RIGHT_BRACE {
 return:
 tl_RETURN expression_opt {
   struct prod_token_parm_item *type_prod;
-  struct prod_token_parm_item *ret_tok = $1;
-  struct prod_token_parm_item *exp = $2;
+  struct prod_token_parm_item *ret_tok = (struct prod_token_parm_item *)$1;
+  struct prod_token_parm_item *exp = (struct prod_token_parm_item *)$2;
 
   type_prod = EXPRESSION_TYPE (current_function);
   if (NUMERIC_TYPE (type_prod) == VOID_TYPE)
@@ -558,7 +558,7 @@ expression_opt:
 }
 |expression {
   struct prod_token_parm_item *exp;
-  exp = $1;
+  exp = (struct prod_token_parm_item *)$1;
   gcc_assert (exp->tp.pro.code);
 
   $$ = $1;
@@ -567,33 +567,33 @@ expression_opt:
 
 expression:
 INTEGER {
-  $$ = make_integer_constant ($1);
+  $$ = make_integer_constant ((struct prod_token_parm_item *)$1);
 }
 |variable_ref {
   $$ = $1;
 }
 |expression tl_PLUS expression {
-  struct prod_token_parm_item *tok = $2;
-  struct prod_token_parm_item *op1 = $1;
-  struct prod_token_parm_item *op2 = $3;
+  struct prod_token_parm_item *tok = (struct prod_token_parm_item *)$2;
+  struct prod_token_parm_item *op1 = (struct prod_token_parm_item *)$1;
+  struct prod_token_parm_item *op2 = (struct prod_token_parm_item *)$3;
   int type_code = get_common_type (op1, op2);
   if (!type_code)
     YYERROR;
   $$ = make_plus_expression (tok, op1, op2, type_code, EXP_PLUS);
 }
 |expression tl_MINUS expression %prec tl_PLUS {
-  struct prod_token_parm_item *tok = $2;
-  struct prod_token_parm_item *op1 = $1;
-  struct prod_token_parm_item *op2 = $3;
+  struct prod_token_parm_item *tok = (struct prod_token_parm_item *)$2;
+  struct prod_token_parm_item *op1 = (struct prod_token_parm_item *)$1;
+  struct prod_token_parm_item *op2 = (struct prod_token_parm_item *)$3;
   int type_code = get_common_type (op1, op2);
   if (!type_code)
     YYERROR;
   $$ = make_plus_expression (tok, op1, op2, type_code, EXP_MINUS);
 }
 |expression EQUALS expression {
-  struct prod_token_parm_item *tok = $2;
-  struct prod_token_parm_item *op1 = $1;
-  struct prod_token_parm_item *op2 = $3;
+  struct prod_token_parm_item *tok = (struct prod_token_parm_item *)$2;
+  struct prod_token_parm_item *op1 = (struct prod_token_parm_item *)$1;
+  struct prod_token_parm_item *op2 = (struct prod_token_parm_item *)$3;
   int type_code = NUMERIC_TYPE (op1);
   if (!type_code)
     YYERROR;
@@ -601,9 +601,9 @@ INTEGER {
      (tok, op1, op2, type_code, EXP_EQUALS);
 }
 |variable_ref ASSIGN expression {
-  struct prod_token_parm_item *tok = $2;
-  struct prod_token_parm_item *op1 = $1;
-  struct prod_token_parm_item *op2 = $3;
+  struct prod_token_parm_item *tok = (struct prod_token_parm_item *)$2;
+  struct prod_token_parm_item *op1 = (struct prod_token_parm_item *)$1;
+  struct prod_token_parm_item *op2 = (struct prod_token_parm_item *)$3;
   int type_code = NUMERIC_TYPE (op1);
   if (!type_code)
     YYERROR;
@@ -629,10 +629,10 @@ NAME LEFT_PARENTHESIS expressions_with_commas_opt RIGHT_PARENTHESIS {
   tree parms;
   tree type;
 
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   prod = make_production (PROD_FUNCTION_INVOCATION, tok);
   SYMBOL_TABLE_NAME (prod) = tok;
-  PARAMETERS (prod) = reverse_prod_list ($3);
+  PARAMETERS (prod) = reverse_prod_list ((struct prod_token_parm_item *)$3);
   SYMBOL_TABLE_NAME ((&search_prod)) = tok;
   search_prod.category = token_category;
   proto = lookup_tree_name (&search_prod);
@@ -694,15 +694,15 @@ $$ = 0
 expressions_with_commas:
 expression {
   struct prod_token_parm_item *exp;
-  exp = $1;
+  exp = (struct prod_token_parm_item *)$1;
   ensure_not_void (NUMERIC_TYPE (exp), exp->tp.pro.main_token);
   $$ = $1;
 }
 |expressions_with_commas COMMA expression {
   struct prod_token_parm_item *exp;
-  exp = $3;
+  exp = (struct prod_token_parm_item *)$3;
   ensure_not_void (NUMERIC_TYPE (exp), exp->tp.pro.main_token);
-  exp->tp.pro.next = $1; /* Reverse order.  */
+  exp->tp.pro.next = (struct prod_token_parm_item *)$1; /* Reverse order.  */
   $$ = exp;
 }
 ;
@@ -715,7 +715,7 @@ NAME {
   struct prod_token_parm_item *tok;
   tree type;
 
-  tok = $1;
+  tok = (struct prod_token_parm_item *)$1;
   SYMBOL_TABLE_NAME ((&search_prod)) = tok;
   search_prod.category = token_category;
   symbol_table_entry = lookup_tree_name (&search_prod);
@@ -731,7 +731,7 @@ NAME {
   type = tree_code_get_type (NUMERIC_TYPE (prod));
   if (!NUMERIC_TYPE (prod))
     YYERROR;
-  OP1 (prod) = $1;
+  OP1 (prod) = (struct prod_token_parm_item *)$1;
 
   prod->tp.pro.code =
     tree_code_get_expression (EXP_REFERENCE, type,
@@ -758,7 +758,7 @@ ASSIGN init_element {
 
 init_element:
 INTEGER {
-  $$ = make_integer_constant ($1);
+  $$ = make_integer_constant ((struct prod_token_parm_item *)$1);
 }
 ;
 
@@ -773,7 +773,7 @@ print_token (FILE *file, unsigned int type ATTRIBUTE_UNUSED, YYSTYPE value)
   struct prod_token_parm_item *tok;
   unsigned int  ix;
 
-  tok  =  value;
+  tok  =  (struct prod_token_parm_item *)value;
   fprintf (file, "%d \"", LOCATION_LINE (tok->tp.tok.location));
   for (ix  =  0; ix < tok->tp.tok.length; ix++)
     fprintf (file, "%c", tok->tp.tok.chars[ix]);
@@ -787,7 +787,7 @@ yyerror (const char *error_message)
 {
   struct prod_token_parm_item *tok;
 
-  tok = yylval;
+  tok = (struct prod_token_parm_item *)yylval;
   if (tok)
     error ("%H%s", &tok->tp.tok.location, error_message);
   else

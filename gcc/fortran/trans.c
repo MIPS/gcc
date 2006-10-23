@@ -411,7 +411,7 @@ gfc_add_block_to_block (stmtblock_t * block, stmtblock_t * append)
 void
 gfc_get_backend_locus (locus * loc)
 {
-  loc->lb = gfc_getmem (sizeof (gfc_linebuf));    
+  loc->lb = (gfc_linebuf *)gfc_getmem (sizeof (gfc_linebuf));    
 #ifdef USE_MAPPED_LOCATION
   loc->lb->location = input_location;
 #else

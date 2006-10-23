@@ -273,10 +273,6 @@ extern int dot_symbols;
 #define SETUP_FRAME_ADDRESSES() \
   do { if (TARGET_64BIT) rs6000_aix_emit_builtin_unwind_init (); } while (0)
 
-/* Override svr4.h  */
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 /* Linux doesn't support saving and restoring 64-bit regs in a 32-bit
    process.  */
 #define OS_MISSING_POWERPC64 !TARGET_64BIT
@@ -311,12 +307,6 @@ extern int dot_symbols;
 
 #undef  CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
-
-/* The GNU C++ standard library currently requires _GNU_SOURCE being
-   defined on glibc-based systems. This temporary hack accomplishes this,
-   it should go away as soon as libstdc++-v3 has a real fix.  */
-#undef  CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 #undef  LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"

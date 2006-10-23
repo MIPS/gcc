@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "output.h"
@@ -4231,7 +4232,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-      pedwarn ("invalid conversion from %qT to %qT", TREE_TYPE (expr), totype);
+      pedwarn ("invalid conversion from %q#T to %q#T", TREE_TYPE (expr), totype);
       if (fn)
 	pedwarn ("  initializing argument %P of %qD", argnum, fn);
       return cp_convert (totype, expr);
@@ -5067,7 +5068,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
       java_iface_lookup_fn
 	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+			    BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'.

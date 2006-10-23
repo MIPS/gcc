@@ -2240,6 +2240,7 @@ extern int frame_pointer_needed;
 
 enum rs6000_builtins
 {
+  ALTIVEC_BUILTIN_none,
   /* AltiVec builtins.  */
   ALTIVEC_BUILTIN_ST_INTERNAL_4si,
   ALTIVEC_BUILTIN_LD_INTERNAL_4si,

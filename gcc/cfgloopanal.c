@@ -52,10 +52,10 @@ just_once_each_iteration_p (const struct loop *loop, basic_block bb)
 
 /* Structure representing edge of a graph.  */
 
-struct edge
+struct edge_s
 {
   int src, dest;	/* Source and destination.  */
-  struct edge *pred_next, *succ_next;
+  struct edge_s *pred_next, *succ_next;
 			/* Next edge in predecessor and successor lists.  */
   void *data;		/* Data attached to the edge.  */
 };
@@ -64,7 +64,7 @@ struct edge
 
 struct vertex
 {
-  struct edge *pred, *succ;
+  struct edge_s *pred, *succ;
 			/* Lists of predecessors and successors.  */
   int component;	/* Number of dfs restarts before reaching the
 			   vertex.  */
@@ -88,7 +88,7 @@ void
 dump_graph (FILE *f, struct graph *g)
 {
   int i;
-  struct edge *e;
+  struct edge_s *e;
 
   for (i = 0; i < g->n_vertices; i++)
     {
@@ -126,7 +126,7 @@ new_graph (int n_vertices)
 static void
 add_edge (struct graph *g, int f, int t, void *data)
 {
-  struct edge *e = xmalloc (sizeof (struct edge));
+  struct edge_s *e = XNEW (struct edge_s);
 
   e->src = f;
   e->dest = t;
@@ -147,8 +147,8 @@ static void
 dfs (struct graph *g, int *qs, int nq, int *qt, bool forward)
 {
   int i, tick = 0, v, comp = 0, top;
-  struct edge *e;
-  struct edge **stack = xmalloc (sizeof (struct edge *) * g->n_vertices);
+  struct edge_s *e;
+  struct edge_s **stack = XNEWVEC (struct edge_s *, g->n_vertices);
 
   for (i = 0; i < g->n_vertices; i++)
     {
@@ -205,9 +205,9 @@ dfs (struct graph *g, int *qs, int nq, int *qt, bool forward)
    same scc.  */
 
 static void
-check_irred (struct graph *g, struct edge *e)
+check_irred (struct graph *g, struct edge_s *e)
 {
-  edge real = e->data;
+  edge real = (edge) e->data;
 
   /* All edges should lead from a component with higher number to the
      one with lower one.  */
@@ -225,9 +225,9 @@ check_irred (struct graph *g, struct edge *e)
 
 static void
 for_each_edge (struct graph *g,
-	       void (callback) (struct graph *, struct edge *))
+	       void (callback) (struct graph *, struct edge_s *))
 {
-  struct edge *e;
+  struct edge_s *e;
   int i;
 
   for (i = 0; i < g->n_vertices; i++)
@@ -240,7 +240,7 @@ for_each_edge (struct graph *g,
 static void
 free_graph (struct graph *g)
 {
-  struct edge *e, *n;
+  struct edge_s *e, *n;
   int i;
 
   for (i = 0; i < g->n_vertices; i++)

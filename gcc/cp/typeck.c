@@ -30,6 +30,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -2182,10 +2183,10 @@ finish_class_member_access_expr (tree object, tree name, bool template_p)
 
       if (is_template_id)
 	{
-	  tree template = member;
+	  tree templ = member;
 
-	  if (BASELINK_P (template))
-	    template = lookup_template_function (template, template_args);
+	  if (BASELINK_P (templ))
+	    templ = lookup_template_function (templ, template_args);
 	  else
 	    {
 	      error ("%qD is not a member template function", name);

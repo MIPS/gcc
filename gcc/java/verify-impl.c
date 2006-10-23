@@ -983,7 +983,7 @@ copy_state_with_stack (state *s, state *orig, int max_stack, int max_locals)
 static state *
 make_state_copy (state *orig, int max_stack, int max_locals)
 {
-  state *s = vfy_alloc (sizeof (state));
+  state *s = (state *) vfy_alloc (sizeof (state));
   copy_state_with_stack (s, orig, max_stack, max_locals);
   return s;
 }
@@ -991,7 +991,7 @@ make_state_copy (state *orig, int max_stack, int max_locals)
 static state *
 make_state (int max_stack, int max_locals)
 {
-  state *s = vfy_alloc (sizeof (state));
+  state *s = (state *) vfy_alloc (sizeof (state));
   init_state_with_stack (s, max_stack, max_locals);
   return s;
 }
@@ -1385,7 +1385,7 @@ add_new_state (int npc, state *old_state)
   debug_print_state (new_state, "New", npc, current_method->max_stack,
 		    current_method->max_locals);
 
-  nlink = vfy_alloc (sizeof (state_list));
+  nlink = (state_list *) vfy_alloc (sizeof (state_list));
   nlink->val = new_state;
   nlink->next = vfr->states[npc];
   vfr->states[npc] = nlink;
@@ -1946,7 +1946,7 @@ check_pool_index (int index)
 static type
 check_class_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1963,7 +1963,7 @@ check_class_constant (int index)
 static type
 check_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -1987,7 +1987,7 @@ check_constant (int index)
 static type
 check_wide_constant (int index)
 {
-  type t = { 0, 0, 0 };
+  type t = { void_type, 0, 0 };
   vfy_constants *pool;
 
   check_pool_index (index);
@@ -3023,7 +3023,7 @@ verify_instructions_0 (void)
 
 	case op_newarray:
 	  {
-	    int atype = get_byte ();
+	    enum type_val atype = (enum type_val) get_byte ();
 	    type t;
 	    /* We intentionally have chosen constants to make this
 	       valid.  */

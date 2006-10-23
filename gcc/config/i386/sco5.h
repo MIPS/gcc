@@ -150,17 +150,7 @@ Boston, MA 02110-1301, USA.  */
    link so that -lintl will work for other systems. The same goes for
    header files. We want /usr/gnu/include searched for before the system
    header files. Hence the -isystem /usr/gnu/include in the CPP_SPEC.
-   We get /usr/gnu/lib first by virtue of the MD_STARTFILE_PREFIX below.
 */
-
-#define MD_STARTFILE_PREFIX	"/usr/gnu/lib/"
-#define MD_STARTFILE_PREFIX_1	"/usr/ccs/lib/"
-
-#if USE_GAS
-# define MD_EXEC_PREFIX		"/usr/gnu/bin/"
-#else
-# define MD_EXEC_PREFIX		"/usr/ccs/bin/elf/"
-#endif
 
 /* Always use the system linker, please.  */
 #ifndef DEFAULT_LINKER

@@ -246,7 +246,7 @@ find_or_create_group (struct mem_ref_group **groups, tree base,
 	break;
     }
 
-  group = xcalloc (1, sizeof (struct mem_ref_group));
+  group = XCNEW(struct mem_ref_group);
   group->base = base;
   group->step = step;
   group->refs = NULL;
@@ -283,7 +283,7 @@ record_ref (struct mem_ref_group *group, tree stmt, tree mem,
 	return;
     }
 
-  (*aref) = xcalloc (1, sizeof (struct mem_ref));
+  (*aref) = XCNEW(struct mem_ref);
   (*aref)->stmt = stmt;
   (*aref)->mem = mem;
   (*aref)->delta = delta;
@@ -334,7 +334,7 @@ struct ar_data
 static bool
 idx_analyze_ref (tree base, tree *index, void *data)
 {
-  struct ar_data *ar_data = data;
+  struct ar_data *ar_data = (struct ar_data *) data;
   tree ibase, step, stepsize;
   HOST_WIDE_INT istep, idelta = 0, imult = 1;
   affine_iv iv;

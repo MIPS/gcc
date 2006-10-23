@@ -140,7 +140,7 @@ static mustdef_optype_p free_mustdefs = NULL;
       if (ret)						\
 	free_##TYPE##s = ret->next;			\
       else						\
-	ret = ssa_operand_alloc (sizeof (*ret));	\
+	ret = (TYPE##_optype_p) ssa_operand_alloc (sizeof (*ret));	\
       (OP) = ret;					\
     } while (0) 
 
@@ -387,11 +387,11 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
 static inline void
 add_def_op (tree *op, def_optype_p *last)
 {
-  def_optype_p new;
+  def_optype_p tmp;
 
-  ALLOC_OPTYPE (new, def);
-  DEF_OP_PTR (new) = op;
-  APPEND_OP_AFTER (new, *last);  
+  ALLOC_OPTYPE (tmp, def);
+  DEF_OP_PTR (tmp) = op;
+  APPEND_OP_AFTER (tmp, *last);  
 }
 
 /* Adds OP to the list of uses of statement STMT after LAST, and moves
@@ -400,11 +400,11 @@ add_def_op (tree *op, def_optype_p *last)
 static inline void
 add_use_op (tree stmt, tree *op, use_optype_p *last)
 {
-  use_optype_p new;
+  use_optype_p tmp;
 
-  ALLOC_OPTYPE (new, use);
-  INITIALIZE_USE (USE_OP_PTR (new), op, stmt);
-  APPEND_OP_AFTER (new, *last);  
+  ALLOC_OPTYPE (tmp, use);
+  INITIALIZE_USE (USE_OP_PTR (tmp), op, stmt);
+  APPEND_OP_AFTER (tmp, *last);  
 }
 
 /* Adds OP to the list of vuses of statement STMT after LAST, and moves
@@ -413,12 +413,12 @@ add_use_op (tree stmt, tree *op, use_optype_p *last)
 static inline void
 add_vuse_op (tree stmt, tree op, vuse_optype_p *last)
 {
-  vuse_optype_p new;
+  vuse_optype_p tmp;
 
-  ALLOC_OPTYPE (new, vuse);
-  VUSE_OP (new) = op;
-  INITIALIZE_USE (VUSE_OP_PTR (new), &VUSE_OP (new), stmt);
-  APPEND_OP_AFTER (new, *last);  
+  ALLOC_OPTYPE (tmp, vuse);
+  VUSE_OP (tmp) = op;
+  INITIALIZE_USE (VUSE_OP_PTR (tmp), &VUSE_OP (tmp), stmt);
+  APPEND_OP_AFTER (tmp, *last);  
 }
 
 /* Adds OP to the list of maydefs of statement STMT after LAST, and moves
@@ -427,13 +427,13 @@ add_vuse_op (tree stmt, tree op, vuse_optype_p *last)
 static inline void
 add_maydef_op (tree stmt, tree op, maydef_optype_p *last)
 {
-  maydef_optype_p new;
+  maydef_optype_p tmp;
 
-  ALLOC_OPTYPE (new, maydef);
-  MAYDEF_RESULT (new) = op;
-  MAYDEF_OP (new) = op;
-  INITIALIZE_USE (MAYDEF_OP_PTR (new), &MAYDEF_OP (new), stmt);
-  APPEND_OP_AFTER (new, *last);  
+  ALLOC_OPTYPE (tmp, maydef);
+  MAYDEF_RESULT (tmp) = op;
+  MAYDEF_OP (tmp) = op;
+  INITIALIZE_USE (MAYDEF_OP_PTR (tmp), &MAYDEF_OP (tmp), stmt);
+  APPEND_OP_AFTER (tmp, *last);  
 }
 
 /* Adds OP to the list of mustdefs of statement STMT after LAST, and moves
@@ -442,13 +442,13 @@ add_maydef_op (tree stmt, tree op, maydef_optype_p *last)
 static inline void
 add_mustdef_op (tree stmt, tree op, mustdef_optype_p *last)
 {
-  mustdef_optype_p new;
+  mustdef_optype_p tmp;
 
-  ALLOC_OPTYPE (new, mustdef);
-  MUSTDEF_RESULT (new) = op;
-  MUSTDEF_KILL (new) = op;
-  INITIALIZE_USE (MUSTDEF_KILL_PTR (new), &MUSTDEF_KILL (new), stmt);
-  APPEND_OP_AFTER (new, *last);
+  ALLOC_OPTYPE (tmp, mustdef);
+  MUSTDEF_RESULT (tmp) = op;
+  MUSTDEF_KILL (tmp) = op;
+  INITIALIZE_USE (MUSTDEF_KILL_PTR (tmp), &MUSTDEF_KILL (tmp), stmt);
+  APPEND_OP_AFTER (tmp, *last);
 }
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
@@ -1836,7 +1836,7 @@ static void
 get_expr_operands (tree stmt, tree *expr_p, int flags)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class tcc;
   tree expr = *expr_p;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
@@ -1844,7 +1844,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     return;
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  tcc = TREE_CODE_CLASS (code);
 
   switch (code)
     {
@@ -2069,11 +2069,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     default:
-      if (class == tcc_unary)
+      if (tcc == tcc_unary)
 	goto do_unary;
-      if (class == tcc_binary || class == tcc_comparison)
+      if (tcc == tcc_binary || tcc == tcc_comparison)
 	goto do_binary;
-      if (class == tcc_constant || class == tcc_type)
+      if (tcc == tcc_constant || tcc == tcc_type)
 	return;
     }
 

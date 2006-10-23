@@ -33,7 +33,8 @@ enum br_predictor
 enum prediction
 {
    NOT_TAKEN,
-   TAKEN
+   TAKEN,
+   NO_PREDICTION
 };
 
 extern void predict_insn_def (rtx, enum br_predictor, enum prediction);

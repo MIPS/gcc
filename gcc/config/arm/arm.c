@@ -57,7 +57,47 @@
 typedef struct minipool_node    Mnode;
 typedef struct minipool_fixup   Mfix;
 
-const struct attribute_spec arm_attribute_table[];
+static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
+#endif
+
+/* Table of machine attributes.  */
+const struct attribute_spec arm_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  /* Function calls made to this symbol must be done indirectly, because
+     it may lie outside of the 26 bit addressing range of a normal function
+     call.  */
+  { "long_call",    0, 0, false, true,  true,  NULL },
+  /* Whereas these functions are always known to reside within the 26 bit
+     addressing range.  */
+  { "short_call",   0, 0, false, true,  true,  NULL },
+  /* Interrupt Service Routines have special prologue and epilogue requirements.  */
+  { "isr",          0, 1, false, false, false, arm_handle_isr_attribute },
+  { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute },
+  { "naked",        0, 0, true,  false, false, arm_handle_fndecl_attribute },
+#ifdef ARM_PE
+  /* ARM/PE has three new attributes:
+     interfacearm - ?
+     dllexport - for exporting a function/variable that will live in a dll
+     dllimport - for importing a function/variable from a dll
+
+     Microsoft allows multiple declspecs in one __declspec, separating
+     them with spaces.  We do NOT support this.  Instead, use __declspec
+     multiple times.
+  */
+  { "dllimport",    0, 0, true,  false, false, NULL },
+  { "dllexport",    0, 0, true,  false, false, NULL },
+  { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute },
+#elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
+  { "dllimport",    0, 0, false, false, false, handle_dll_attribute },
+  { "dllexport",    0, 0, false, false, false, handle_dll_attribute },
+  { "notshared",    0, 0, false, true, false, arm_handle_notshared_attribute },
+#endif
+  { NULL,           0, 0, false, false, false, NULL }
+};
 
 /* Forward function declarations.  */
 static arm_stack_offsets *arm_get_frame_offsets (void);
@@ -107,11 +147,6 @@ static unsigned long arm_compute_save_reg0_reg12_mask (void);
 static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
-static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
-#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
-static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
-#endif
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void thumb_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -655,12 +690,12 @@ static const struct fpu_desc all_fpus[] =
 static const enum fputype fp_model_for_fpu[] =
 {
   /* No FP hardware.  */
-  ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
-  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA  */
-  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU2  */
-  ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU3  */
-  ARM_FP_MODEL_MAVERICK,	/* FPUTYPE_MAVERICK  */
-  ARM_FP_MODEL_VFP		/* FPUTYPE_VFP  */
+  (enum fputype) ARM_FP_MODEL_UNKNOWN,		/* FPUTYPE_NONE  */
+  (enum fputype) ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA  */
+  (enum fputype) ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU2  */
+  (enum fputype) ARM_FP_MODEL_FPA,		/* FPUTYPE_FPA_EMU3  */
+  (enum fputype) ARM_FP_MODEL_MAVERICK,		/* FPUTYPE_MAVERICK  */
+  (enum fputype) ARM_FP_MODEL_VFP		/* FPUTYPE_VFP  */
 };
 
 
@@ -943,13 +978,13 @@ arm_override_options (void)
       unsigned int        sought;
       enum processor_type cpu;
 
-      cpu = TARGET_CPU_DEFAULT;
+      cpu = (enum processor_type) TARGET_CPU_DEFAULT;
       if (cpu == arm_none)
 	{
 #ifdef SUBTARGET_CPU_DEFAULT
 	  /* Use the subtarget default CPU if none was specified by
 	     configure.  */
-	  cpu = SUBTARGET_CPU_DEFAULT;
+	  cpu = (enum processor_type) SUBTARGET_CPU_DEFAULT;
 #endif
 	  /* Default to ARM6.  */
 	  if (cpu == arm_none)
@@ -1172,7 +1207,7 @@ arm_override_options (void)
 	    {
 	      arm_fpu_arch = all_fpus[i].fpu;
 	      arm_fpu_tune = arm_fpu_arch;
-	      arm_fp_model = fp_model_for_fpu[arm_fpu_arch];
+	      arm_fp_model = (enum arm_fp_model)fp_model_for_fpu[arm_fpu_arch];
 	      break;
 	    }
 	}
@@ -1201,7 +1236,7 @@ arm_override_options (void)
 	arm_fpu_tune = FPUTYPE_FPA;
       else
 	arm_fpu_tune = arm_fpu_arch;
-      arm_fp_model = fp_model_for_fpu[arm_fpu_arch];
+      arm_fp_model = (enum arm_fp_model)fp_model_for_fpu[arm_fpu_arch];
       gcc_assert (arm_fp_model != ARM_FP_MODEL_UNKNOWN);
     }
 
@@ -2827,41 +2862,6 @@ arm_pr_long_calls_off (struct cpp_reader * pfile ATTRIBUTE_UNUSED)
   arm_pragma_long_calls = OFF;
 }
 
-/* Table of machine attributes.  */
-const struct attribute_spec arm_attribute_table[] =
-{
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  /* Function calls made to this symbol must be done indirectly, because
-     it may lie outside of the 26 bit addressing range of a normal function
-     call.  */
-  { "long_call",    0, 0, false, true,  true,  NULL },
-  /* Whereas these functions are always known to reside within the 26 bit
-     addressing range.  */
-  { "short_call",   0, 0, false, true,  true,  NULL },
-  /* Interrupt Service Routines have special prologue and epilogue requirements.  */
-  { "isr",          0, 1, false, false, false, arm_handle_isr_attribute },
-  { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute },
-  { "naked",        0, 0, true,  false, false, arm_handle_fndecl_attribute },
-#ifdef ARM_PE
-  /* ARM/PE has three new attributes:
-     interfacearm - ?
-     dllexport - for exporting a function/variable that will live in a dll
-     dllimport - for importing a function/variable from a dll
-
-     Microsoft allows multiple declspecs in one __declspec, separating
-     them with spaces.  We do NOT support this.  Instead, use __declspec
-     multiple times.
-  */
-  { "dllimport",    0, 0, true,  false, false, NULL },
-  { "dllexport",    0, 0, true,  false, false, NULL },
-  { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute },
-#elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
-  { "dllimport",    0, 0, false, false, false, handle_dll_attribute },
-  { "dllexport",    0, 0, false, false, false, handle_dll_attribute },
-  { "notshared",    0, 0, false, true, false, arm_handle_notshared_attribute },
-#endif
-  { NULL,           0, 0, false, false, false, NULL }
-};
 
 /* Handle an attribute requiring a FUNCTION_DECL;
    arguments as in struct attribute_spec.handler.  */
@@ -3021,7 +3021,7 @@ arm_encode_call_attribute (tree decl, int flag)
   if (DECL_WEAK (decl) && flag == SHORT_CALL_FLAG_CHAR)
     return;
 
-  newstr = alloca (len + 2);
+  newstr = (char *) alloca (len + 2);
   newstr[0] = flag;
   strcpy (newstr + 1, str);
 
@@ -4185,7 +4185,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4202,7 +4202,7 @@ thumb_legitimize_reload_address (rtx *x_p,
 
       x = copy_rtx (x);
       push_reload (orig_x, NULL_RTX, x_p, NULL, MODE_BASE_REG_CLASS (mode),
-		   Pmode, VOIDmode, 0, 0, opnum, type);
+		   Pmode, VOIDmode, 0, 0, opnum, (enum reload_type) type);
       return x;
     }
 
@@ -4625,8 +4625,8 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
 }
 
 /* RTX costs when optimizing for size.  */
-static bool
-arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
+static inline bool
+do_arm_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -4845,10 +4845,16 @@ arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
+static bool
+arm_size_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+    return do_arm_size_rtx_costs (x, (enum rtx_code)code, (enum rtx_code)outer_code, total);
+}
+
 /* RTX costs for cores with a slow MUL implementation.  */
 
-static bool
-arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+static inline bool
+do_arm_slowmul_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -4898,11 +4904,16 @@ arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
+static bool
+arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+    return do_arm_slowmul_rtx_costs (x, (enum rtx_code)code, (enum rtx_code)outer_code, total);
+}
 
 /* RTX cost for cores with a fast multiply unit (M variants).  */
 
-static bool
-arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+static inline bool
+do_arm_fastmul_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -4964,11 +4975,16 @@ arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
+static bool
+arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+    return do_arm_fastmul_rtx_costs (x, (enum rtx_code)code, (enum rtx_code)outer_code, total);
+}
 
 /* RTX cost for XScale CPUs.  */
 
-static bool
-arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
+static inline bool
+do_arm_xscale_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
 
@@ -5045,11 +5061,16 @@ arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
     }
 }
 
+static bool
+arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+    return do_arm_xscale_rtx_costs (x, (enum rtx_code)code, (enum rtx_code)outer_code, total);
+}
 
 /* RTX costs for 9e (and later) cores.  */
 
-static bool
-arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
+static inline bool
+do_arm_9e_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code, int *total)
 {
   enum machine_mode mode = GET_MODE (x);
   int nonreg_cost;
@@ -5110,6 +5131,13 @@ arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
       return true;
     }
 }
+
+static bool
+arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+    return do_arm_9e_rtx_costs (x, (enum rtx_code)code, (enum rtx_code)outer_code, total);
+}
+
 /* All address computations that can be done are free, but rtx cost returns
    the same for practically all of them.  So we weight the different types
    of address here in the order (most pref first):
@@ -5788,7 +5816,7 @@ adjacent_mem_locations (rtx a, rtx b)
       /* Don't accept any offset that will require multiple
 	 instructions to handle, since this would cause the
 	 arith_adjacentmem pattern to output an overlong sequence.  */
-      if (!const_ok_for_op (PLUS, val0) || !const_ok_for_op (PLUS, val1))
+      if (!const_ok_for_op (PLUS, (enum rtx_code) val0) || !const_ok_for_op (PLUS, (enum rtx_code) val1))
 	return 0;
 
       /* Don't allow an eliminable register: register elimination can make
@@ -11429,7 +11457,7 @@ get_arm_condition_code (rtx comparison)
 
       if (comp_code == EQ)
 	return ARM_INVERSE_CONDITION_CODE (code);
-      return code;
+      return (enum arm_cond_code) code;
 
     case CC_NOOVmode:
       switch (comp_code)
@@ -11936,7 +11964,7 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
 	  && regno <= LAST_FPA_REGNUM);
 }
 
-int
+enum reg_class
 arm_regno_class (int regno)
 {
   if (TARGET_THUMB)
@@ -12079,7 +12107,7 @@ static const struct builtin_description bdesc_2arg[] =
 {
 #define IWMMXT_BUILTIN(code, string, builtin) \
   { FL_IWMMXT, CODE_FOR_##code, "__builtin_arm_" string, \
-    ARM_BUILTIN_##builtin, 0, 0 },
+    ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN (addv8qi3, "waddb", WADDB)
   IWMMXT_BUILTIN (addv4hi3, "waddh", WADDH)
@@ -12141,7 +12169,7 @@ static const struct builtin_description bdesc_2arg[] =
   IWMMXT_BUILTIN (iwmmxt_wmaddu, "wmaddu", WMADDU)
 
 #define IWMMXT_BUILTIN2(code, builtin) \
-  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, 0, 0 },
+  { FL_IWMMXT, CODE_FOR_##code, NULL, ARM_BUILTIN_##builtin, UNKNOWN, 0 },
 
   IWMMXT_BUILTIN2 (iwmmxt_wpackhss, WPACKHSS)
   IWMMXT_BUILTIN2 (iwmmxt_wpackwss, WPACKWSS)
@@ -12430,99 +12458,99 @@ arm_init_iwmmxt_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_mbuiltin (d->mask, d->name, type, d->code);
+      def_mbuiltin (d->mask, d->name, type, (enum built_in_function)d->code);
     }
 
   /* Add the remaining MMX insns with somewhat more complicated types.  */
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wzero", di_ftype_void, ARM_BUILTIN_WZERO);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_setwcx", void_ftype_int_int, ARM_BUILTIN_SETWCX);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_getwcx", int_ftype_int, ARM_BUILTIN_GETWCX);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wzero", di_ftype_void, (enum built_in_function)ARM_BUILTIN_WZERO);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_setwcx", void_ftype_int_int, (enum built_in_function)ARM_BUILTIN_SETWCX);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_getwcx", int_ftype_int, (enum built_in_function)ARM_BUILTIN_GETWCX);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllh", v4hi_ftype_v4hi_di, ARM_BUILTIN_WSLLH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllw", v2si_ftype_v2si_di, ARM_BUILTIN_WSLLW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wslld", di_ftype_di_di, ARM_BUILTIN_WSLLD);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllhi", v4hi_ftype_v4hi_int, ARM_BUILTIN_WSLLHI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllwi", v2si_ftype_v2si_int, ARM_BUILTIN_WSLLWI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wslldi", di_ftype_di_int, ARM_BUILTIN_WSLLDI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllh", v4hi_ftype_v4hi_di, (enum built_in_function)ARM_BUILTIN_WSLLH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllw", v2si_ftype_v2si_di, (enum built_in_function)ARM_BUILTIN_WSLLW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wslld", di_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WSLLD);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllhi", v4hi_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_WSLLHI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsllwi", v2si_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_WSLLWI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wslldi", di_ftype_di_int, (enum built_in_function)ARM_BUILTIN_WSLLDI);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlh", v4hi_ftype_v4hi_di, ARM_BUILTIN_WSRLH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlw", v2si_ftype_v2si_di, ARM_BUILTIN_WSRLW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrld", di_ftype_di_di, ARM_BUILTIN_WSRLD);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlhi", v4hi_ftype_v4hi_int, ARM_BUILTIN_WSRLHI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlwi", v2si_ftype_v2si_int, ARM_BUILTIN_WSRLWI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrldi", di_ftype_di_int, ARM_BUILTIN_WSRLDI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlh", v4hi_ftype_v4hi_di, (enum built_in_function)ARM_BUILTIN_WSRLH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlw", v2si_ftype_v2si_di, (enum built_in_function)ARM_BUILTIN_WSRLW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrld", di_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WSRLD);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlhi", v4hi_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_WSRLHI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrlwi", v2si_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_WSRLWI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrldi", di_ftype_di_int, (enum built_in_function)ARM_BUILTIN_WSRLDI);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrah", v4hi_ftype_v4hi_di, ARM_BUILTIN_WSRAH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsraw", v2si_ftype_v2si_di, ARM_BUILTIN_WSRAW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrad", di_ftype_di_di, ARM_BUILTIN_WSRAD);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrahi", v4hi_ftype_v4hi_int, ARM_BUILTIN_WSRAHI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrawi", v2si_ftype_v2si_int, ARM_BUILTIN_WSRAWI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsradi", di_ftype_di_int, ARM_BUILTIN_WSRADI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrah", v4hi_ftype_v4hi_di, (enum built_in_function)ARM_BUILTIN_WSRAH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsraw", v2si_ftype_v2si_di, (enum built_in_function)ARM_BUILTIN_WSRAW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrad", di_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WSRAD);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrahi", v4hi_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_WSRAHI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsrawi", v2si_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_WSRAWI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsradi", di_ftype_di_int, (enum built_in_function)ARM_BUILTIN_WSRADI);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorh", v4hi_ftype_v4hi_di, ARM_BUILTIN_WRORH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorw", v2si_ftype_v2si_di, ARM_BUILTIN_WRORW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrord", di_ftype_di_di, ARM_BUILTIN_WRORD);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorhi", v4hi_ftype_v4hi_int, ARM_BUILTIN_WRORHI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorwi", v2si_ftype_v2si_int, ARM_BUILTIN_WRORWI);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrordi", di_ftype_di_int, ARM_BUILTIN_WRORDI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorh", v4hi_ftype_v4hi_di, (enum built_in_function)ARM_BUILTIN_WRORH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorw", v2si_ftype_v2si_di, (enum built_in_function)ARM_BUILTIN_WRORW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrord", di_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WRORD);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorhi", v4hi_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_WRORHI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrorwi", v2si_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_WRORWI);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wrordi", di_ftype_di_int, (enum built_in_function)ARM_BUILTIN_WRORDI);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wshufh", v4hi_ftype_v4hi_int, ARM_BUILTIN_WSHUFH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wshufh", v4hi_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_WSHUFH);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadb", v2si_ftype_v8qi_v8qi, ARM_BUILTIN_WSADB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadh", v2si_ftype_v4hi_v4hi, ARM_BUILTIN_WSADH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadbz", v2si_ftype_v8qi_v8qi, ARM_BUILTIN_WSADBZ);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadhz", v2si_ftype_v4hi_v4hi, ARM_BUILTIN_WSADHZ);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadb", v2si_ftype_v8qi_v8qi, (enum built_in_function)ARM_BUILTIN_WSADB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadh", v2si_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WSADH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadbz", v2si_ftype_v8qi_v8qi, (enum built_in_function)ARM_BUILTIN_WSADBZ);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wsadhz", v2si_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WSADHZ);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsb", int_ftype_v8qi_int, ARM_BUILTIN_TEXTRMSB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsh", int_ftype_v4hi_int, ARM_BUILTIN_TEXTRMSH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsw", int_ftype_v2si_int, ARM_BUILTIN_TEXTRMSW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmub", int_ftype_v8qi_int, ARM_BUILTIN_TEXTRMUB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmuh", int_ftype_v4hi_int, ARM_BUILTIN_TEXTRMUH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmuw", int_ftype_v2si_int, ARM_BUILTIN_TEXTRMUW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrb", v8qi_ftype_v8qi_int_int, ARM_BUILTIN_TINSRB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrh", v4hi_ftype_v4hi_int_int, ARM_BUILTIN_TINSRH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrw", v2si_ftype_v2si_int_int, ARM_BUILTIN_TINSRW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsb", int_ftype_v8qi_int, (enum built_in_function)ARM_BUILTIN_TEXTRMSB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsh", int_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_TEXTRMSH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmsw", int_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_TEXTRMSW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmub", int_ftype_v8qi_int, (enum built_in_function)ARM_BUILTIN_TEXTRMUB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmuh", int_ftype_v4hi_int, (enum built_in_function)ARM_BUILTIN_TEXTRMUH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_textrmuw", int_ftype_v2si_int, (enum built_in_function)ARM_BUILTIN_TEXTRMUW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrb", v8qi_ftype_v8qi_int_int, (enum built_in_function)ARM_BUILTIN_TINSRB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrh", v4hi_ftype_v4hi_int_int, (enum built_in_function)ARM_BUILTIN_TINSRH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tinsrw", v2si_ftype_v2si_int_int, (enum built_in_function)ARM_BUILTIN_TINSRW);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_waccb", di_ftype_v8qi, ARM_BUILTIN_WACCB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wacch", di_ftype_v4hi, ARM_BUILTIN_WACCH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_waccw", di_ftype_v2si, ARM_BUILTIN_WACCW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_waccb", di_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_WACCB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wacch", di_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_WACCH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_waccw", di_ftype_v2si, (enum built_in_function)ARM_BUILTIN_WACCW);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskb", int_ftype_v8qi, ARM_BUILTIN_TMOVMSKB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskh", int_ftype_v4hi, ARM_BUILTIN_TMOVMSKH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskw", int_ftype_v2si, ARM_BUILTIN_TMOVMSKW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskb", int_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_TMOVMSKB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskh", int_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_TMOVMSKH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmovmskw", int_ftype_v2si, (enum built_in_function)ARM_BUILTIN_TMOVMSKW);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackhss", v8qi_ftype_v4hi_v4hi, ARM_BUILTIN_WPACKHSS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackhus", v8qi_ftype_v4hi_v4hi, ARM_BUILTIN_WPACKHUS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackwus", v4hi_ftype_v2si_v2si, ARM_BUILTIN_WPACKWUS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackwss", v4hi_ftype_v2si_v2si, ARM_BUILTIN_WPACKWSS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackdus", v2si_ftype_di_di, ARM_BUILTIN_WPACKDUS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackdss", v2si_ftype_di_di, ARM_BUILTIN_WPACKDSS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackhss", v8qi_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WPACKHSS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackhus", v8qi_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WPACKHUS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackwus", v4hi_ftype_v2si_v2si, (enum built_in_function)ARM_BUILTIN_WPACKWUS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackwss", v4hi_ftype_v2si_v2si, (enum built_in_function)ARM_BUILTIN_WPACKWSS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackdus", v2si_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WPACKDUS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wpackdss", v2si_ftype_di_di, (enum built_in_function)ARM_BUILTIN_WPACKDSS);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehub", v4hi_ftype_v8qi, ARM_BUILTIN_WUNPCKEHUB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehuh", v2si_ftype_v4hi, ARM_BUILTIN_WUNPCKEHUH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehuw", di_ftype_v2si, ARM_BUILTIN_WUNPCKEHUW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsb", v4hi_ftype_v8qi, ARM_BUILTIN_WUNPCKEHSB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsh", v2si_ftype_v4hi, ARM_BUILTIN_WUNPCKEHSH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsw", di_ftype_v2si, ARM_BUILTIN_WUNPCKEHSW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelub", v4hi_ftype_v8qi, ARM_BUILTIN_WUNPCKELUB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckeluh", v2si_ftype_v4hi, ARM_BUILTIN_WUNPCKELUH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckeluw", di_ftype_v2si, ARM_BUILTIN_WUNPCKELUW);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsb", v4hi_ftype_v8qi, ARM_BUILTIN_WUNPCKELSB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsh", v2si_ftype_v4hi, ARM_BUILTIN_WUNPCKELSH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsw", di_ftype_v2si, ARM_BUILTIN_WUNPCKELSW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehub", v4hi_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_WUNPCKEHUB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehuh", v2si_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_WUNPCKEHUH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehuw", di_ftype_v2si, (enum built_in_function)ARM_BUILTIN_WUNPCKEHUW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsb", v4hi_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_WUNPCKEHSB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsh", v2si_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_WUNPCKEHSH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckehsw", di_ftype_v2si, (enum built_in_function)ARM_BUILTIN_WUNPCKEHSW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelub", v4hi_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_WUNPCKELUB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckeluh", v2si_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_WUNPCKELUH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckeluw", di_ftype_v2si, (enum built_in_function)ARM_BUILTIN_WUNPCKELUW);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsb", v4hi_ftype_v8qi, (enum built_in_function)ARM_BUILTIN_WUNPCKELSB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsh", v2si_ftype_v4hi, (enum built_in_function)ARM_BUILTIN_WUNPCKELSH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wunpckelsw", di_ftype_v2si, (enum built_in_function)ARM_BUILTIN_WUNPCKELSW);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacs", di_ftype_di_v4hi_v4hi, ARM_BUILTIN_WMACS);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacsz", di_ftype_v4hi_v4hi, ARM_BUILTIN_WMACSZ);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacu", di_ftype_di_v4hi_v4hi, ARM_BUILTIN_WMACU);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacuz", di_ftype_v4hi_v4hi, ARM_BUILTIN_WMACUZ);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacs", di_ftype_di_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WMACS);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacsz", di_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WMACSZ);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacu", di_ftype_di_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WMACU);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_wmacuz", di_ftype_v4hi_v4hi, (enum built_in_function)ARM_BUILTIN_WMACUZ);
 
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_walign", v8qi_ftype_v8qi_v8qi_int, ARM_BUILTIN_WALIGN);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmia", di_ftype_di_int_int, ARM_BUILTIN_TMIA);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiaph", di_ftype_di_int_int, ARM_BUILTIN_TMIAPH);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiabb", di_ftype_di_int_int, ARM_BUILTIN_TMIABB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiabt", di_ftype_di_int_int, ARM_BUILTIN_TMIABT);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiatb", di_ftype_di_int_int, ARM_BUILTIN_TMIATB);
-  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiatt", di_ftype_di_int_int, ARM_BUILTIN_TMIATT);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_walign", v8qi_ftype_v8qi_v8qi_int, (enum built_in_function)ARM_BUILTIN_WALIGN);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmia", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIA);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiaph", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIAPH);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiabb", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIABB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiabt", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIABT);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiatb", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIATB);
+  def_mbuiltin (FL_IWMMXT, "__builtin_arm_tmiatt", di_ftype_di_int_int, (enum built_in_function)ARM_BUILTIN_TMIATT);
 }
 
 static void
@@ -12534,7 +12562,7 @@ arm_init_tls_builtins (void)
 
   ftype = build_function_type (ptr_type_node, void_list_node);
   lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			       (enum built_in_function)ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
 			       NULL, const_nothrow);
 }
 
@@ -15518,7 +15546,7 @@ arm_emit_tls_decoration (FILE *fp, rtx x)
   rtx val;
 
   val = XVECEXP (x, 0, 0);
-  reloc = INTVAL (XVECEXP (x, 0, 1));
+  reloc = (enum tls_reloc) INTVAL (XVECEXP (x, 0, 1));
 
   output_addr_const (fp, val);
 

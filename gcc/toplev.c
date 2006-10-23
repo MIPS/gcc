@@ -155,7 +155,7 @@ location_t input_location;
 struct line_maps line_table;
 
 /* Nonzero if it is unsafe to create any new pseudo registers.  */
-int no_new_pseudos;
+bool no_new_pseudos;
 
 /* Stack of currently pending input files.  */
 
@@ -203,8 +203,8 @@ static const struct gcc_debug_hooks *default_debug_hooks;
 
 /* Other flags saying which kinds of debugging dump have been requested.  */
 
-int rtl_dump_and_exit;
-int flag_print_asm_name;
+bool rtl_dump_and_exit;
+bool flag_print_asm_name;
 enum graph_dump_types graph_dump_format;
 
 /* Name for output file of assembly code, specified with -o.  */
@@ -238,11 +238,11 @@ const char * current_function_func_begin_label;
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
-int in_system_header = 0;
+bool in_system_header = false;
 
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
-int flag_detailed_statistics = 0;
+bool flag_detailed_statistics = false;
 
 /* A random sequence of characters, unless overridden by user.  */
 const char *flag_random_seed;
@@ -1112,17 +1112,17 @@ decode_d_option (const char *arg)
 	flag_debug_asm = 1;
 	break;
       case 'p':
-	flag_print_asm_name = 1;
+	flag_print_asm_name = true;
 	break;
       case 'P':
 	flag_dump_rtl_in_asm = 1;
-	flag_print_asm_name = 1;
+	flag_print_asm_name = true;
 	break;
       case 'v':
 	graph_dump_format = vcg;
 	break;
       case 'x':
-	rtl_dump_and_exit = 1;
+	rtl_dump_and_exit = true;
 	break;
       case 'y':
 	set_yydebug = 1;

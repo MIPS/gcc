@@ -9427,9 +9427,9 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   unsigned int this_parmno;
   unsigned int this_regno;
 
-  reload_completed = 1;
-  epilogue_completed = 1;
-  no_new_pseudos = 1;
+  reload_completed = true;
+  epilogue_completed = true;
+  no_new_pseudos = true;
   reset_block_changes ();
 
   /* Set things up as ia64_expand_prologue might.  */
@@ -9537,8 +9537,8 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   SIBLING_CALL_P (insn) = 1;
 
   /* Code generation for calls relies on splitting.  */
-  reload_completed = 1;
-  epilogue_completed = 1;
+  reload_completed = true;
+  epilogue_completed = true;
   try_split (PATTERN (insn), insn, 0);
 
   emit_barrier ();
@@ -9556,9 +9556,9 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   final (insn, file, 1);
   final_end_function ();
 
-  reload_completed = 0;
-  epilogue_completed = 0;
-  no_new_pseudos = 0;
+  reload_completed = false;
+  epilogue_completed = false;
+  no_new_pseudos = false;
 }
 
 /* Worker function for TARGET_STRUCT_VALUE_RTX.  */

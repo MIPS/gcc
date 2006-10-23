@@ -171,7 +171,7 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
       bb = ifc_bbs [i];
 
       /* Update condition using predicate list.  */
-      cond = bb->aux;
+      cond = (tree) bb->aux;
 
       /* Process all statements in this basic block.
 	 Remove conditional expression, if any, and annotate
@@ -587,7 +587,7 @@ if_convertible_loop_p (struct loop *loop, bool for_vectorizer ATTRIBUTE_UNUSED)
 static void
 add_to_predicate_list (basic_block bb, tree new_cond)
 {
-  tree cond = bb->aux;
+  tree cond = (tree) bb->aux;
 
   if (cond)
     cond = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
@@ -697,7 +697,7 @@ find_phi_replacement_condition (struct loop *loop,
         See PR23115.  */
 
   /* Select condition that is not TRUTH_NOT_EXPR.  */
-  tmp_cond = first_bb->aux;
+  tmp_cond = (tree) first_bb->aux;
   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
     {
       basic_block tmp_bb;
@@ -711,7 +711,7 @@ find_phi_replacement_condition (struct loop *loop,
   if (first_bb == loop->header
       || dominated_by_p (CDI_DOMINATORS, second_bb, first_bb))
     {
-      tmp_cond = second_bb->aux;
+      tmp_cond = (tree) second_bb->aux;
       if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
 	{
 	  /* Select non loop header condition but do not switch basic blocks.  */
@@ -721,12 +721,12 @@ find_phi_replacement_condition (struct loop *loop,
 	{
 	  /* Select non loop header condition.  */
 	  first_bb = second_bb;
-	  *cond = first_bb->aux;
+	  *cond = (tree) first_bb->aux;
 	}
     }
   else
     /* FIRST_BB is not loop header */
-    *cond = first_bb->aux;
+    *cond = (tree) first_bb->aux;
 
   /* Create temp. for the condition. Vectorizer prefers to have gimple
      value as condition. Various targets use different means to communicate

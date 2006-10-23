@@ -27,6 +27,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "jcf.h"
+#include "java-tree-code.h"
 #include "tree.h"
 #include "real.h"
 #include "java-tree.h"
@@ -304,7 +305,7 @@ static void perform_relocations (struct jcf_partial *);
 static void init_jcf_state (struct jcf_partial *, struct obstack *);
 static void init_jcf_method (struct jcf_partial *, tree);
 static void release_jcf_state (struct jcf_partial *);
-static int get_classfile_modifiers (tree class);
+static int get_classfile_modifiers (tree);
 static struct chunk * generate_classfile (tree, struct jcf_partial *);
 static struct jcf_handler *alloc_handler (struct jcf_block *,
 					  struct jcf_block *,
@@ -385,10 +386,10 @@ static struct chunk *
 alloc_chunk (struct chunk *last, unsigned char *data,
 	     int size, struct obstack *work)
 {
-  struct chunk *chunk = obstack_alloc (work, sizeof(struct chunk));
+  struct chunk *chunk = (struct chunk *)obstack_alloc (work, sizeof(struct chunk));
 
   if (data == NULL && size > 0)
-    data = obstack_alloc (work, size);
+    data = (unsigned char *)obstack_alloc (work, size);
 
   chunk->next = NULL;
   chunk->data = data;
@@ -431,7 +432,7 @@ static struct jcf_block *
 gen_jcf_label (struct jcf_partial *state)
 {
   struct jcf_block *block
-    = obstack_alloc (state->chunk_obstack, sizeof (struct jcf_block));
+    = (struct jcf_block*)obstack_alloc (state->chunk_obstack, sizeof (struct jcf_block));
   block->next =	NULL;
   block->linenumber = -1;
   block->pc = UNDEFINED_PC;
@@ -515,7 +516,7 @@ alloc_handler (struct jcf_block *start_label, struct jcf_block *end_label,
 	       struct jcf_partial *state)
 {
   struct jcf_handler *handler
-    = obstack_alloc (state->chunk_obstack, sizeof (struct jcf_handler));
+    = (struct jcf_handler *)obstack_alloc (state->chunk_obstack, sizeof (struct jcf_handler));
   handler->start_label = start_label;
   handler->end_label = end_label;
   handler->handler_label = get_jcf_label_here (state);
@@ -572,7 +573,7 @@ localvar_alloc (tree decl, struct jcf_partial *state)
       ptr = (struct localvar_info**) state->localvars.data + index;
       state->localvars.ptr = (unsigned char *) (ptr + 1 + wide);
     }
-  info = obstack_alloc (state->chunk_obstack, sizeof (struct localvar_info));
+  info = (struct localvar_info *)obstack_alloc (state->chunk_obstack, sizeof (struct localvar_info));
   ptr[0] = info;
   if (wide)
     ptr[1] = (struct localvar_info *)(~0);
@@ -1023,7 +1024,7 @@ emit_reloc (HOST_WIDE_INT value, int kind,
 	    struct jcf_block *target, struct jcf_partial *state)
 {
   struct jcf_relocation *reloc
-    = obstack_alloc (state->chunk_obstack, sizeof (struct jcf_relocation));
+    = (struct jcf_relocation *)obstack_alloc (state->chunk_obstack, sizeof (struct jcf_relocation));
   struct jcf_block *block = state->last_block;
   reloc->next = block->u.relocations;
   block->u.relocations = reloc;
@@ -1158,12 +1159,12 @@ generate_bytecode_conditional (tree exp,
     compare_1:
       /* Assuming op is one of the 2-operand if_icmp<COND> instructions,
 	 set it to the corresponding 1-operand if<COND> instructions. */
-      op = op - 6;
+      op = (enum java_opcode) (op - 6);
       /* FALLTHROUGH */
     compare_2:
       /* The opcodes with their inverses are allocated in pairs.
 	 E.g.  The inverse of if_icmplt (161) is if_icmpge (162). */
-      negop = (op & 1) ? op + 1 : op - 1;
+      negop = (enum java_opcode)((op & 1) ? op + 1 : op - 1);
     compare_2_ptr:
       if (true_branch_first)
 	{
@@ -1243,8 +1244,8 @@ generate_bytecode_conditional (tree exp,
 	    {
 	      generate_bytecode_insns (integer_zerop (exp0) ? exp1 : exp0,
 				       STACK_TARGET, state);
-	      op = op + (OPCODE_ifnull - OPCODE_if_acmpeq);
-	      negop = (op & 1) ? op - 1 : op + 1;
+	      op = (enum java_opcode)(op + (OPCODE_ifnull - OPCODE_if_acmpeq));
+	      negop = (enum java_opcode)((op & 1) ? op - 1 : op + 1);
 	      NOTE_POP (1);
 	      goto compare_2_ptr;
 	    }
@@ -1293,11 +1294,11 @@ generate_bytecode_conditional (tree exp,
 		{
 		case OPCODE_if_icmplt:
 		case OPCODE_if_icmpge:
-		  op += 2;
+		  op = (enum java_opcode) (op + 2);
 		  break;
 		case OPCODE_if_icmpgt:
 		case OPCODE_if_icmple:
-		  op -= 2;
+		  op = (enum java_opcode) (op - 2);
 		  break;
 		default:
 		  break;
@@ -1553,7 +1554,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       generate_bytecode_insns (TREE_OPERAND (exp, 1), target, state);
       if (target != IGNORE_TARGET)
 	{
-	  jopcode = OPCODE_iaload + adjust_typed_op (type, 7);
+	  jopcode = (enum java_opcode) (OPCODE_iaload + adjust_typed_op (type, 7));
 	  RESERVE(1);
 	  OP1 (jopcode);
 	  if (! TYPE_IS_WIDE (type))
@@ -1640,7 +1641,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       {
 	struct jcf_switch_state *sw_state = state->sw_state;
 	struct jcf_relocation *reloc
-	  = obstack_alloc (state->chunk_obstack, sizeof (struct jcf_relocation));
+	  = (struct jcf_relocation *) obstack_alloc (state->chunk_obstack, sizeof (struct jcf_relocation));
 	HOST_WIDE_INT case_value = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
 	reloc->kind = 0;
 	reloc->label = get_jcf_label_here (state);
@@ -1934,7 +1935,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	  generate_bytecode_insns (TREE_OPERAND (exp, 1), STACK_TARGET, state);
 	  emit_dup (2, 0, state);
 	  /* Stack:  ..., array, index, array, index. */
-	  jopcode = OPCODE_iaload + adjust_typed_op (TREE_TYPE (exp), 7);
+	  jopcode = (enum java_opcode)(OPCODE_iaload + adjust_typed_op (TREE_TYPE (exp), 7));
 	  RESERVE(1);
 	  OP1 (jopcode);
 	  NOTE_POP (2-size);
@@ -1956,8 +1957,8 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       /* Stack, if COMPONENT_REF:  ..., [result, ] objectref, oldvalue. */
       /* Stack, otherwise:  ..., [result, ] oldvalue. */
       generate_bytecode_insns (arg, STACK_TARGET, state);
-      emit_binop ((value >= 0 ? OPCODE_iadd : OPCODE_isub)
-		  + adjust_typed_op (type, 3),
+      emit_binop ((enum java_opcode)((value >= 0 ? OPCODE_iadd : OPCODE_isub)
+		  + adjust_typed_op (type, 3)),
 		  type, state);
       if (target != IGNORE_TARGET && ! post_op)
 	emit_dup (size, offset, state);
@@ -2066,7 +2067,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 		   stack, so that we can load the old value.  */
 		emit_dup (2, 0, state);
 		NOTE_POP (2);
-		jopcode = OPCODE_iaload + adjust_typed_op (TREE_TYPE (lhs), 7);
+		jopcode = (enum java_opcode) (OPCODE_iaload + adjust_typed_op (TREE_TYPE (lhs), 7));
 		RESERVE (1);
 		OP1 (jopcode);
 		NOTE_PUSH (TYPE_IS_WIDE (TREE_TYPE (lhs)) ? 2 : 1);
@@ -2112,7 +2113,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	}
       else if (TREE_CODE (exp) == ARRAY_REF)
 	{
-	  jopcode = OPCODE_iastore + adjust_typed_op (TREE_TYPE (exp), 7);
+	  jopcode = (enum java_opcode) (OPCODE_iastore + adjust_typed_op (TREE_TYPE (exp), 7));
 	  RESERVE (1);
 	  OP1 (jopcode);
 	  NOTE_POP (TYPE_IS_WIDE (TREE_TYPE (exp)) ? 4 : 3);
@@ -2151,7 +2152,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
     {
       tree arg0 = TREE_OPERAND (exp, 0);
       tree arg1 = TREE_OPERAND (exp, 1);
-      jopcode += adjust_typed_op (type, 3);
+      jopcode = (enum java_opcode)(jopcode + adjust_typed_op (type, 3));
       if (arg0 != NULL_TREE && operand_equal_p (arg0, arg1, 0))
 	{
 	  /* fold may (e.g) convert 2*x to x+x. */
@@ -2193,7 +2194,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       break;
     case NEGATE_EXPR:
       jopcode = OPCODE_ineg;
-      jopcode += adjust_typed_op (type, 3);
+      jopcode = (enum java_opcode)(jopcode + adjust_typed_op (type, 3));
       generate_bytecode_insns (TREE_OPERAND (exp, 0), target, state);
       if (target == STACK_TARGET)
 	emit_unop (jopcode, type, state);
@@ -2479,7 +2480,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	    OP2 (index);
 	  }
 	offset = 0;
-	jopcode = OPCODE_iastore + adjust_typed_op (element_type, 7);
+	jopcode = (enum java_opcode) (OPCODE_iastore + adjust_typed_op (element_type, 7));
 	FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
 	  {
 	    int save_SP = state->code_SP;
@@ -2515,9 +2516,9 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
       }					     
     case NEW_CLASS_EXPR:
       {
-	tree class = TREE_TYPE (TREE_TYPE (exp));
+	tree jclass = TREE_TYPE (TREE_TYPE (exp));
 	int need_result = target != IGNORE_TARGET;
-	int index = find_class_constant (&state->cpool, class);
+	int index = find_class_constant (&state->cpool, jclass);
 	RESERVE (4);
 	OP1 (OPCODE_new);
 	OP2 (index);
@@ -2779,7 +2780,7 @@ perform_relocations (struct jcf_partial *state)
       unsigned char *old_ptr = old_buffer + old_size;
       if (new_size != old_size)
 	{
-	  chunk->data = obstack_alloc (state->chunk_obstack, new_size);
+	  chunk->data = (unsigned char *) obstack_alloc (state->chunk_obstack, new_size);
 	  chunk->size = new_size;
 	}
       new_ptr = chunk->data + new_size;
@@ -2910,13 +2911,13 @@ release_jcf_state (struct jcf_partial *state)
    access_flags field of the class file header.  */
 
 static int
-get_classfile_modifiers (tree class)
+get_classfile_modifiers (tree jclass)
 {
   /* These are the flags which are valid class file modifiers. 
      See JVMS2 S4.1.  */
   int valid_toplevel_class_flags = (ACC_PUBLIC | ACC_FINAL | ACC_SUPER | 
 				    ACC_INTERFACE | ACC_ABSTRACT);
-  int flags = get_access_flags (class);
+  int flags = get_access_flags (jclass);
 
   /* ACC_SUPER should always be set, except for interfaces.  */
   if (! (flags & ACC_INTERFACE))
@@ -3286,7 +3287,7 @@ generate_classfile (tree clas, struct jcf_partial *state)
 
   /* New finally generate the contents of the constant pool chunk. */
   i = count_constant_pool_bytes (&state->cpool);
-  ptr = obstack_alloc (state->chunk_obstack, i);
+  ptr = (unsigned char *)obstack_alloc (state->chunk_obstack, i);
   cpool_chunk->data = ptr;
   cpool_chunk->size = i;
   write_constant_pool (&state->cpool, ptr, i);
@@ -3323,12 +3324,12 @@ append_deprecated_attribute (struct jcf_partial *state)
 }
 
 static void
-append_gcj_attribute (struct jcf_partial *state, tree class)
+append_gcj_attribute (struct jcf_partial *state, tree jclass)
 {
   unsigned char *ptr;
   int i;
 
-  if (class != object_type_node)
+  if (jclass != object_type_node)
     return;
 
   ptr = append_chunk (NULL, 6, state); /* 2+4 */
@@ -3340,14 +3341,14 @@ append_gcj_attribute (struct jcf_partial *state, tree class)
 
 static tree InnerClasses_node;
 static void
-append_innerclasses_attribute (struct jcf_partial *state, tree class)
+append_innerclasses_attribute (struct jcf_partial *state, tree jclass)
 {
-  tree orig_decl = TYPE_NAME (class);
+  tree orig_decl = TYPE_NAME (jclass);
   tree current, decl;
   int length = 0, i;
   unsigned char *ptr, *length_marker, *number_marker;
 
-  if (!INNER_CLASS_TYPE_P (class) && !DECL_INNER_CLASS_LIST (orig_decl))
+  if (!INNER_CLASS_TYPE_P (jclass) && !DECL_INNER_CLASS_LIST (orig_decl))
     return;
 
   ptr = append_chunk (NULL, 8, state); /* 2+4+2 */
@@ -3363,11 +3364,11 @@ append_innerclasses_attribute (struct jcf_partial *state, tree class)
 
   /* Generate the entries: all inner classes visible from the one we
      process: itself, up and down. */
-  while (class && INNER_CLASS_TYPE_P (class))
+  while (jclass && INNER_CLASS_TYPE_P (jclass))
     {
       const char *n;
 
-      decl = TYPE_NAME (class);
+      decl = TYPE_NAME (jclass);
       n = IDENTIFIER_POINTER (DECL_NAME (decl)) + 
 	IDENTIFIER_LENGTH (DECL_NAME (decl));
 
@@ -3376,7 +3377,7 @@ append_innerclasses_attribute (struct jcf_partial *state, tree class)
       append_innerclasses_attribute_entry (state, decl, get_identifier (n));
       length++;
 
-      class = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (class)));
+      jclass = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (jclass)));
     }
 
   decl = orig_decl;

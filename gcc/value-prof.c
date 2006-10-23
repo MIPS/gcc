@@ -117,7 +117,7 @@ tree_value_profile_transformations (void)
 	{
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = get_stmt_ann (stmt);
-	  histogram_value th = ann->histograms;
+	  histogram_value th = (histogram_value) ann->histograms;
 	  if (!th)
 	    continue;
 
@@ -286,7 +286,7 @@ tree_divmod_fixed_value_transform (tree stmt)
   if (!ann->histograms)
     return false;
 
-  for (histogram = ann->histograms; histogram; histogram = histogram->hvalue.next)
+  for (histogram = (histogram_value) ann->histograms; histogram; histogram = histogram->hvalue.next)
     if (histogram->type == HIST_TYPE_SINGLE_VALUE)
       break;
 
@@ -453,7 +453,7 @@ tree_mod_pow2_value_transform (tree stmt)
   if (!ann->histograms)
     return false;
 
-  for (histogram = ann->histograms; histogram; histogram = histogram->hvalue.next)
+  for (histogram = (histogram_value) ann->histograms; histogram; histogram = histogram->hvalue.next)
     if (histogram->type == HIST_TYPE_POW2)
       break;
 
@@ -636,7 +636,7 @@ tree_mod_subtract_transform (tree stmt)
   if (!ann->histograms)
     return false;
 
-  for (histogram = ann->histograms; histogram; histogram = histogram->hvalue.next)
+  for (histogram = (histogram_value) ann->histograms; histogram; histogram = histogram->hvalue.next)
     if (histogram->type == HIST_TYPE_INTERVAL)
       break;
 
@@ -734,7 +734,7 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 	{
 	  /* Check for the case where the divisor is the same value most
 	     of the time.  */
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = (histogram_value) ggc_alloc (sizeof (*hist));
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_SINGLE_VALUE;
@@ -747,13 +747,13 @@ tree_divmod_values_to_profile (tree stmt, histogram_values *values)
 	  && TYPE_UNSIGNED (type))
 	{
           /* Check for a special case where the divisor is power of 2.  */
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = (histogram_value) ggc_alloc (sizeof (*hist));
 	  hist->hvalue.value = divisor;
 	  hist->hvalue.stmt = stmt;
 	  hist->type = HIST_TYPE_POW2;
 	  VEC_quick_push (histogram_value, *values, hist);
 
-	  hist = ggc_alloc (sizeof (*hist));
+	  hist = (histogram_value) ggc_alloc (sizeof (*hist));
 	  hist->hvalue.stmt = stmt;
 	  hist->hvalue.value
 		  = build2 (TRUNC_DIV_EXPR, type, op0, divisor);

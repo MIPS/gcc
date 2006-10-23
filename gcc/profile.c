@@ -655,7 +655,7 @@ compute_value_histograms (histogram_values values)
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      hist->hvalue.next = ann->histograms;
+      hist->hvalue.next = (struct histogram_value_t *) ann->histograms;
       ann->histograms = hist;
       hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
@@ -802,8 +802,8 @@ branch_prob (void)
 		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
 #endif
 	    {
-	      basic_block new = split_edge (e);
-	      single_succ_edge (new)->goto_locus = e->goto_locus;
+	      basic_block bb = split_edge (e);
+	      single_succ_edge (bb)->goto_locus = e->goto_locus;
 	    }
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)

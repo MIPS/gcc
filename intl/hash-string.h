@@ -36,8 +36,7 @@
 static unsigned long int hash_string PARAMS ((const char *__str_param));
 
 static inline unsigned long int
-hash_string (str_param)
-     const char *str_param;
+hash_string (const char *str_param)
 {
   unsigned long int hval, g;
   const char *str = str_param;

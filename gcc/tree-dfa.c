@@ -162,7 +162,7 @@ create_function_ann (tree t)
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = (function_ann_t) ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = FUNCTION_ANN;

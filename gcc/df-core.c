@@ -875,7 +875,7 @@ df_compact_blocks (struct df *df)
   basic_block bb;
   void **problem_temps;
   int size = last_basic_block *sizeof (void *);
-  problem_temps = xmalloc (size);
+  problem_temps = (void **) xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)
     {

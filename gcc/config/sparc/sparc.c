@@ -659,7 +659,7 @@ sparc_override_options (void)
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     /* UltraSPARC T1 */
     { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
-    { 0, 0, 0, 0 }
+    { 0, PROCESSOR_NONT, 0, 0 }
   };
   const struct cpu_table *cpu;
   const struct sparc_cpu_select *sel;
@@ -697,7 +697,7 @@ sparc_override_options (void)
 	  if (cmodel->name == NULL)
 	    error ("bad value (%s) for -mcmodel= switch", sparc_cmodel_string);
 	  else
-	    sparc_cmodel = cmodel->value;
+	    sparc_cmodel = (enum cmodel)cmodel->value;
 	}
       else
 	error ("-mcmodel= is not supported on 32 bit systems");
@@ -820,6 +820,8 @@ sparc_override_options (void)
       break;
     case PROCESSOR_NIAGARA:
       sparc_costs = &niagara_costs;
+      break;
+    case PROCESSOR_NONE:
       break;
     };
 
@@ -3089,7 +3091,7 @@ legitimize_tls_address (rtx addr)
 						   addr, const1_rtx));
 	  }
         CALL_INSN_FUNCTION_USAGE (insn)
-	  = gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_USE (VOIDmode, o0),
+	  = gen_rtx_EXPR_LIST (REG_DEP_TRUE, gen_rtx_USE (VOIDmode, o0),
 			       CALL_INSN_FUNCTION_USAGE (insn));
 	insn = get_insns ();
 	end_sequence ();
@@ -3119,7 +3121,7 @@ legitimize_tls_address (rtx addr)
 						    const1_rtx));
 	  }
         CALL_INSN_FUNCTION_USAGE (insn)
-	  = gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_USE (VOIDmode, o0),
+	  = gen_rtx_EXPR_LIST (REG_DEP_TRUE, gen_rtx_USE (VOIDmode, o0),
 			       CALL_INSN_FUNCTION_USAGE (insn));
 	insn = get_insns ();
 	end_sequence ();
@@ -4774,7 +4776,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
       regno = parms->regbase + this_slotno;
       reg = gen_rtx_REG (mode, regno);
       XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-	= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (intoffset));
+	= gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg, GEN_INT (intoffset));
 
       this_slotno += 1;
       intoffset = (intoffset | (UNITS_PER_WORD-1)) + 1;
@@ -4862,7 +4864,7 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 	      reg = gen_rtx_REG (mode, regno);
 	      pos = bitpos / BITS_PER_UNIT;
 	      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
+		= gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg, GEN_INT (pos));
 	      parms->nregs += 1;
 	      while (--nregs > 0)
 		{
@@ -4870,7 +4872,7 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
 	  	  reg = gen_rtx_REG (mode, regno);
 		  pos += GET_MODE_SIZE (mode);
 		  XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		    = gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
+		    = gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg, GEN_INT (pos));
 		  parms->nregs += 1;
 		}
 	    }
@@ -4971,7 +4973,7 @@ function_arg_record_value (tree type, enum machine_mode mode,
      are not at the beginning of the structure.  */
   if (parms.stack)
     XVECEXP (parms.ret, 0, 0)
-      = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
+      = gen_rtx_EXPR_LIST (REG_DEP_TRUE, NULL_RTX, const0_rtx);
 
   /* Fill in the entries.  */
   parms.nregs = 0;
@@ -5013,7 +5015,7 @@ function_arg_union_value (int size, enum machine_mode mode, int slotno,
     {
       /* Unions are passed left-justified.  */
       XVECEXP (regs, 0, i)
-	= gen_rtx_EXPR_LIST (VOIDmode,
+	= gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			     gen_rtx_REG (word_mode, regno),
 			     GEN_INT (UNITS_PER_WORD * i));
       regno++;
@@ -5043,7 +5045,7 @@ function_arg_vector_value (int size, enum machine_mode base_mode, int regno)
   for (i = 0; i < nregs; i++)
     {
       XVECEXP (regs, 0, i)
-	= gen_rtx_EXPR_LIST (VOIDmode,
+	= gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			     gen_rtx_REG (base_mode, regno),
 			     GEN_INT (base_mode_size * i));
       regno += base_mode_size / 4;
@@ -5175,15 +5177,15 @@ function_arg (const struct sparc_args *cum, enum machine_mode mode,
 	      intreg = (SPARC_OUTGOING_INT_ARG_FIRST
 			+ (regno - SPARC_FP_ARG_FIRST) / 2);
 
-	      v0 = gen_rtx_EXPR_LIST (VOIDmode, reg, const0_rtx);
-	      v1 = gen_rtx_EXPR_LIST (VOIDmode, gen_rtx_REG (mode, intreg),
+	      v0 = gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg, const0_rtx);
+	      v1 = gen_rtx_EXPR_LIST (REG_DEP_TRUE, gen_rtx_REG (mode, intreg),
 				      const0_rtx);
 	      return gen_rtx_PARALLEL (mode, gen_rtvec (2, v0, v1));
 	    }
 	  else
 	    {
-	      v0 = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
-	      v1 = gen_rtx_EXPR_LIST (VOIDmode, reg, const0_rtx);
+	      v0 = gen_rtx_EXPR_LIST (REG_DEP_TRUE, NULL_RTX, const0_rtx);
+	      v1 = gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg, const0_rtx);
 	      return gen_rtx_PARALLEL (mode, gen_rtvec (2, v0, v1));
 	    }
 	}
@@ -7507,12 +7509,12 @@ static GTY(()) rtx sparc_addr_list;
 void
 sparc_defer_case_vector (rtx lab, rtx vec, int diff)
 {
-  vec = gen_rtx_EXPR_LIST (VOIDmode, lab, vec);
+  vec = gen_rtx_EXPR_LIST (REG_DEP_TRUE, lab, vec);
   if (diff)
     sparc_addr_diff_list
-      = gen_rtx_EXPR_LIST (VOIDmode, vec, sparc_addr_diff_list);
+      = gen_rtx_EXPR_LIST (REG_DEP_TRUE, vec, sparc_addr_diff_list);
   else
-    sparc_addr_list = gen_rtx_EXPR_LIST (VOIDmode, vec, sparc_addr_list);
+    sparc_addr_list = gen_rtx_EXPR_LIST (REG_DEP_TRUE, vec, sparc_addr_list);
 }
 
 static void 
@@ -7918,49 +7920,49 @@ sparc_vis_init_builtins (void)
 					            intDI_type_node, 0);
 
   /* Packing and expanding vectors.  */
-  def_builtin ("__builtin_vis_fpack16", CODE_FOR_fpack16_vis, v4qi_ftype_v4hi);
-  def_builtin ("__builtin_vis_fpack32", CODE_FOR_fpack32_vis,
+  def_builtin ("__builtin_vis_fpack16", (enum built_in_function)CODE_FOR_fpack16_vis, v4qi_ftype_v4hi);
+  def_builtin ("__builtin_vis_fpack32", (enum built_in_function)CODE_FOR_fpack32_vis,
 	       v8qi_ftype_v2si_v8qi);
-  def_builtin ("__builtin_vis_fpackfix", CODE_FOR_fpackfix_vis,
+  def_builtin ("__builtin_vis_fpackfix", (enum built_in_function)CODE_FOR_fpackfix_vis,
 	       v2hi_ftype_v2si);
-  def_builtin ("__builtin_vis_fexpand", CODE_FOR_fexpand_vis, v4hi_ftype_v4qi);
-  def_builtin ("__builtin_vis_fpmerge", CODE_FOR_fpmerge_vis,
+  def_builtin ("__builtin_vis_fexpand", (enum built_in_function)CODE_FOR_fexpand_vis, v4hi_ftype_v4qi);
+  def_builtin ("__builtin_vis_fpmerge", (enum built_in_function)CODE_FOR_fpmerge_vis,
 	       v8qi_ftype_v4qi_v4qi);
 
   /* Multiplications.  */
-  def_builtin ("__builtin_vis_fmul8x16", CODE_FOR_fmul8x16_vis,
+  def_builtin ("__builtin_vis_fmul8x16", (enum built_in_function)CODE_FOR_fmul8x16_vis,
 	       v4hi_ftype_v4qi_v4hi);
-  def_builtin ("__builtin_vis_fmul8x16au", CODE_FOR_fmul8x16au_vis,
+  def_builtin ("__builtin_vis_fmul8x16au", (enum built_in_function)CODE_FOR_fmul8x16au_vis,
 	       v4hi_ftype_v4qi_v2hi);
-  def_builtin ("__builtin_vis_fmul8x16al", CODE_FOR_fmul8x16al_vis,
+  def_builtin ("__builtin_vis_fmul8x16al", (enum built_in_function)CODE_FOR_fmul8x16al_vis,
 	       v4hi_ftype_v4qi_v2hi);
-  def_builtin ("__builtin_vis_fmul8sux16", CODE_FOR_fmul8sux16_vis,
+  def_builtin ("__builtin_vis_fmul8sux16", (enum built_in_function)CODE_FOR_fmul8sux16_vis,
 	       v4hi_ftype_v8qi_v4hi);
-  def_builtin ("__builtin_vis_fmul8ulx16", CODE_FOR_fmul8ulx16_vis,
+  def_builtin ("__builtin_vis_fmul8ulx16", (enum built_in_function)CODE_FOR_fmul8ulx16_vis,
 	       v4hi_ftype_v8qi_v4hi);
-  def_builtin ("__builtin_vis_fmuld8sux16", CODE_FOR_fmuld8sux16_vis,
+  def_builtin ("__builtin_vis_fmuld8sux16", (enum built_in_function)CODE_FOR_fmuld8sux16_vis,
 	       v2si_ftype_v4qi_v2hi);
-  def_builtin ("__builtin_vis_fmuld8ulx16", CODE_FOR_fmuld8ulx16_vis,
+  def_builtin ("__builtin_vis_fmuld8ulx16", (enum built_in_function)CODE_FOR_fmuld8ulx16_vis,
 	       v2si_ftype_v4qi_v2hi);
 
   /* Data aligning.  */
-  def_builtin ("__builtin_vis_faligndatav4hi", CODE_FOR_faligndatav4hi_vis,
+  def_builtin ("__builtin_vis_faligndatav4hi", (enum built_in_function)CODE_FOR_faligndatav4hi_vis,
 	       v4hi_ftype_v4hi_v4hi);
-  def_builtin ("__builtin_vis_faligndatav8qi", CODE_FOR_faligndatav8qi_vis,
+  def_builtin ("__builtin_vis_faligndatav8qi", (enum built_in_function)CODE_FOR_faligndatav8qi_vis,
 	       v8qi_ftype_v8qi_v8qi);
-  def_builtin ("__builtin_vis_faligndatav2si", CODE_FOR_faligndatav2si_vis,
+  def_builtin ("__builtin_vis_faligndatav2si", (enum built_in_function)CODE_FOR_faligndatav2si_vis,
 	       v2si_ftype_v2si_v2si);
-  def_builtin ("__builtin_vis_faligndatadi", CODE_FOR_faligndatadi_vis,
+  def_builtin ("__builtin_vis_faligndatadi", (enum built_in_function)CODE_FOR_faligndatadi_vis,
                di_ftype_di_di);
   if (TARGET_ARCH64)
-    def_builtin ("__builtin_vis_alignaddr", CODE_FOR_alignaddrdi_vis,
+    def_builtin ("__builtin_vis_alignaddr", (enum built_in_function)CODE_FOR_alignaddrdi_vis,
 	         ptr_ftype_ptr_di);
   else
-    def_builtin ("__builtin_vis_alignaddr", CODE_FOR_alignaddrsi_vis,
+    def_builtin ("__builtin_vis_alignaddr", (enum built_in_function)CODE_FOR_alignaddrsi_vis,
 	         ptr_ftype_ptr_si);
 
   /* Pixel distance.  */
-  def_builtin ("__builtin_vis_pdist", CODE_FOR_pdist_vis,
+  def_builtin ("__builtin_vis_pdist", (enum built_in_function)CODE_FOR_pdist_vis,
 	       di_ftype_v8qi_v8qi_di);
 }
 
@@ -8530,12 +8532,12 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 		       HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		       tree function)
 {
-  rtx this, insn, funexp;
+  rtx it, insn, funexp;
   unsigned int int_arg_first;
 
-  reload_completed = 1;
-  epilogue_completed = 1;
-  no_new_pseudos = 1;
+  reload_completed = true;
+  epilogue_completed = true;
+  no_new_pseudos = true;
   reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -8563,9 +8565,9 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Find the "this" pointer.  Normally in %o0, but in ARCH64 if the function
      returns a structure, the structure return pointer is there instead.  */
   if (TARGET_ARCH64 && aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
-    this = gen_rtx_REG (Pmode, int_arg_first + 1);
+    it = gen_rtx_REG (Pmode, int_arg_first + 1);
   else
-    this = gen_rtx_REG (Pmode, int_arg_first);
+    it = gen_rtx_REG (Pmode, int_arg_first);
 
   /* Add DELTA.  When possible use a plain add, otherwise load it into
      a register first.  */
@@ -8581,7 +8583,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 	}
 
       /* THIS += DELTA.  */
-      emit_insn (gen_add2_insn (this, delta_rtx));
+      emit_insn (gen_add2_insn (it, delta_rtx));
     }
 
   /* Add the word at address (*THIS + VCALL_OFFSET).  */
@@ -8593,7 +8595,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       gcc_assert (vcall_offset < 0);
 
       /* SCRATCH = *THIS.  */
-      emit_move_insn (scratch, gen_rtx_MEM (Pmode, this));
+      emit_move_insn (scratch, gen_rtx_MEM (Pmode, it));
 
       /* Prepare for adding VCALL_OFFSET.  The difficulty is that we
 	 may not have any available scratch register at this point.  */
@@ -8633,7 +8635,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 							  vcall_offset_rtx)));
 
       /* THIS += *(*THIS + VCALL_OFFSET).  */
-      emit_insn (gen_add2_insn (this, scratch));
+      emit_insn (gen_add2_insn (it, scratch));
     }
 
   /* Generate a tail call to the target function.  */
@@ -8720,9 +8722,9 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final (insn, file, 1);
   final_end_function ();
 
-  reload_completed = 0;
-  epilogue_completed = 0;
-  no_new_pseudos = 0;
+  reload_completed = false;
+  epilogue_completed = false;
+  no_new_pseudos = false;
 }
 
 /* Return true if sparc_output_mi_thunk would be able to output the
@@ -8743,7 +8745,7 @@ sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
 static struct machine_function *
 sparc_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return (struct machine_function *) ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Locate some local-dynamic symbol still in use by this function

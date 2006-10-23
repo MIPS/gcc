@@ -26,6 +26,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "java-tree-code.h"
 #include "tree.h"
 #include "java-tree.h"
 #include "tree-dump.h"
@@ -453,7 +454,7 @@ java_gimplify_try_expr (tree try_expr)
 {
   tree body = TREE_OPERAND (try_expr, 0);
   tree handler = TREE_OPERAND (try_expr, 1);
-  tree catch = NULL_TREE;
+  tree catch_tree = NULL_TREE;
 
   /* Build a CATCH_EXPR for each handler.  */
   while (handler)
@@ -463,13 +464,13 @@ java_gimplify_try_expr (tree try_expr)
       tree expr = build2 (CATCH_EXPR, void_type_node,
 			  prepare_eh_table_type (catch_type),
 			  handler);
-      if (catch)
-	catch = build2 (COMPOUND_EXPR, void_type_node, catch, expr);
+      if (catch_tree)
+	catch_tree = build2 (COMPOUND_EXPR, void_type_node, catch_tree, expr);
       else
-	catch = expr;
+	catch_tree = expr;
       handler = TREE_CHAIN (handler);
     }
-  return build2 (TRY_CATCH_EXPR, void_type_node, body, catch);
+  return build2 (TRY_CATCH_EXPR, void_type_node, body, catch_tree);
 }
 
 /* Dump a tree of some kind.  This is a convenience wrapper for the

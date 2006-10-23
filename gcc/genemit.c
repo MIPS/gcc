@@ -358,16 +358,16 @@ gen_insn (rtx insn, int lineno)
 	      for (j = i + 1; j < XVECLEN (insn, 1); j++)
 		{
 		  rtx old = XEXP (XVECEXP (p->pattern, 1, j), 0);
-		  rtx new = XEXP (XVECEXP (insn, 1, j), 0);
+		  rtx fresh = XEXP (XVECEXP (insn, 1, j), 0);
 
 		  /* OLD and NEW are the same if both are to be a SCRATCH
 		     of the same mode,
 		     or if both are registers of the same mode and number.  */
-		  if (! (GET_MODE (old) == GET_MODE (new)
+		  if (! (GET_MODE (old) == GET_MODE (fresh)
 			 && ((GET_CODE (old) == MATCH_SCRATCH
-			      && GET_CODE (new) == MATCH_SCRATCH)
-			     || (REG_P (old) && REG_P (new)
-				 && REGNO (old) == REGNO (new)))))
+			      && GET_CODE (fresh) == MATCH_SCRATCH)
+			     || (REG_P (old) && REG_P (fresh)
+				 && REGNO (old) == REGNO (fresh)))))
 		    break;
 		}
 

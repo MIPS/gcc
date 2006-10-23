@@ -530,35 +530,35 @@ do {									\
       = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;		\
   if (TARGET_SH2E && !flag_finite_math_only)				\
     target_flags |= MASK_IEEE;						\
-  sh_cpu = CPU_SH1;							\
+  sh_cpu = (enum processor_type) CPU_SH1;				\
   assembler_dialect = 0;						\
   if (TARGET_SH2)							\
-    sh_cpu = CPU_SH2;							\
+    sh_cpu = (enum processor_type) CPU_SH2;				\
   if (TARGET_SH2E)							\
-    sh_cpu = CPU_SH2E;							\
+    sh_cpu = (enum processor_type) CPU_SH2E;				\
   if (TARGET_SH2A)							\
     {									\
-      sh_cpu = CPU_SH2A;						\
+      sh_cpu = (enum processor_type) CPU_SH2A;				\
       if (TARGET_SH2A_DOUBLE)						\
         target_flags |= MASK_FMOVD;					\
     }									\
   if (TARGET_SH3)							\
-    sh_cpu = CPU_SH3;							\
+    sh_cpu = (enum processor_type) CPU_SH3;				\
   if (TARGET_SH3E)							\
-    sh_cpu = CPU_SH3E;							\
+    sh_cpu = (enum processor_type) CPU_SH3E;				\
   if (TARGET_SH4)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4;							\
+      sh_cpu = (enum processor_type) CPU_SH4;				\
     }									\
   if (TARGET_SH4A_ARCH)							\
     {									\
       assembler_dialect = 1;						\
-      sh_cpu = CPU_SH4A;						\
+      sh_cpu = (enum processor_type) CPU_SH4A;				\
     }									\
   if (TARGET_SH5)							\
     {									\
-      sh_cpu = CPU_SH5;							\
+      sh_cpu = (enum processor_type) CPU_SH5;				\
       target_flags |= MASK_ALIGN_DOUBLE;				\
       if (TARGET_SHMEDIA_FPU)						\
 	target_flags |= MASK_FMOVD;					\
@@ -2105,14 +2105,14 @@ struct sh_args {
    ((MODE),								\
     gen_rtvec (2,							\
 	       gen_rtx_EXPR_LIST					\
-	       (VOIDmode,						\
+	       (REG_DEP_TRUE,						\
 		((CUM).arg_count[(int) SH_ARG_INT] < NPARM_REGS (SImode) \
 		 ? gen_rtx_REG ((MODE), FIRST_FP_PARM_REG		\
 				+ (CUM).arg_count[(int) SH_ARG_FLOAT])	\
 		 : NULL_RTX),						\
 		const0_rtx),						\
 	       gen_rtx_EXPR_LIST					\
-	       (VOIDmode,						\
+	       (REG_DEP_TRUE,						\
 		((CUM).arg_count[(int) SH_ARG_INT] < NPARM_REGS (SImode) \
 		 ? gen_rtx_REG ((MODE), FIRST_PARM_REG			\
 				+ (CUM).arg_count[(int) SH_ARG_INT])	\
@@ -2134,10 +2134,10 @@ struct sh_args {
    : gen_rtx_PARALLEL ((MODE),						\
 		       gen_rtvec (2,					\
 				  gen_rtx_EXPR_LIST			\
-				  (VOIDmode, NULL_RTX,			\
+				  (REG_DEP_TRUE, NULL_RTX,		\
 				   const0_rtx),				\
 				  gen_rtx_EXPR_LIST			\
-				  (VOIDmode, gen_rtx_REG ((MODE),	\
+				  (REG_DEP_TRUE, gen_rtx_REG ((MODE),	\
 							  (REG)),	\
 				   const0_rtx))))
 

@@ -156,7 +156,7 @@ find_conv (gfc_typespec * from, gfc_typespec * to)
    and call the proper check function rather than forcing each
    function to manipulate the argument list.  */
 
-static try
+static check
 do_check (gfc_intrinsic_sym * specific, gfc_actual_arglist * arg)
 {
   gfc_expr *a1, *a2, *a3, *a4, *a5;
@@ -320,7 +320,7 @@ add_sym (const char *name, int elemental, int actual_ok, bt type, int kind,
 static void
 add_sym_0 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind, int standard,
-		       try (*check)(void),
+		       check (*check)(void),
 		       gfc_expr *(*simplify)(void),
 	   void (*resolve)(gfc_expr *))
 {
@@ -363,7 +363,7 @@ add_sym_0s (const char * name, int standard,
 static void
 add_sym_1 (const char *name, int elemental, int actual_ok, bt type,
 	   int kind, int standard,
-	   try (*check)(gfc_expr *),
+	   check (*check)(gfc_expr *),
 	   gfc_expr *(*simplify)(gfc_expr *),
 	   void (*resolve)(gfc_expr *,gfc_expr *),
 	   const char* a1, bt type1, int kind1, int optional1)
@@ -388,7 +388,7 @@ add_sym_1 (const char *name, int elemental, int actual_ok, bt type,
 static void
 add_sym_1s (const char *name, int elemental, bt type,
 			int kind, int standard,
-			try (*check)(gfc_expr *),
+			check (*check)(gfc_expr *),
 			gfc_expr *(*simplify)(gfc_expr *),
 			void (*resolve)(gfc_code *),
 	    const char* a1, bt type1, int kind1, int optional1)
@@ -413,7 +413,7 @@ add_sym_1s (const char *name, int elemental, bt type,
 static void
 add_sym_1m (const char *name, int elemental, int actual_ok, bt type,
 			int kind, int standard,
-			try (*check)(gfc_actual_arglist *),
+			check (*check)(gfc_actual_arglist *),
 			gfc_expr *(*simplify)(gfc_expr *),
 			void (*resolve)(gfc_expr *,gfc_actual_arglist *),
 			const char* a1, bt type1, int kind1, int optional1,
@@ -440,7 +440,7 @@ add_sym_1m (const char *name, int elemental, int actual_ok, bt type,
 static void
 add_sym_2 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind, int standard,
-		       try (*check)(gfc_expr *,gfc_expr *),
+		       check (*check)(gfc_expr *,gfc_expr *),
 		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *),
 		       void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *),
 		       const char* a1, bt type1, int kind1, int optional1,
@@ -467,7 +467,7 @@ add_sym_2 (const char *name, int elemental, int actual_ok, bt type,
 static void
 add_sym_2s (const char *name, int elemental, bt type,
 			int kind, int standard,
-		       try (*check)(gfc_expr *,gfc_expr *),
+		       check (*check)(gfc_expr *,gfc_expr *),
 		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *),
 		       void (*resolve)(gfc_code *),
 		       const char* a1, bt type1, int kind1, int optional1,
@@ -494,7 +494,7 @@ add_sym_2s (const char *name, int elemental, bt type,
 static void
 add_sym_3 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind, int standard,
-		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *),
+		       check (*check)(gfc_expr *,gfc_expr *,gfc_expr *),
 		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *),
 		       void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
 		       const char* a1, bt type1, int kind1, int optional1,
@@ -523,7 +523,7 @@ add_sym_3 (const char *name, int elemental, int actual_ok, bt type,
 static void
 add_sym_3ml (const char *name, int elemental, 
 			 int actual_ok, bt type, int kind, int standard,
-			 try (*check)(gfc_actual_arglist *),
+			 check (*check)(gfc_actual_arglist *),
 			 gfc_expr*(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *),
 			 void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
 			 const char* a1, bt type1, int kind1, int optional1,
@@ -552,7 +552,7 @@ add_sym_3ml (const char *name, int elemental,
 static void
 add_sym_3red (const char *name, int elemental, 
                           int actual_ok, bt type, int kind, int standard,
-                          try (*check)(gfc_actual_arglist *),
+                          check (*check)(gfc_actual_arglist *),
                           gfc_expr*(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *),
                           void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
                           const char* a1, bt type1, int kind1, int optional1,
@@ -581,7 +581,7 @@ add_sym_3red (const char *name, int elemental,
 static void
 add_sym_3s (const char *name, int elemental, bt type,
 			int kind, int standard,
-		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *),
+		       check (*check)(gfc_expr *,gfc_expr *,gfc_expr *),
 		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *),
 		       void (*resolve)(gfc_code *),
 		       const char* a1, bt type1, int kind1, int optional1,
@@ -610,7 +610,7 @@ add_sym_3s (const char *name, int elemental, bt type,
 static void
 add_sym_4 (const char *name, int elemental, int actual_ok, bt type,
 		       int kind, int standard,
-		       try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+		       check (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
 		       gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
 		       void (*resolve)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
 		       const char* a1, bt type1, int kind1, int optional1,
@@ -641,7 +641,7 @@ add_sym_4 (const char *name, int elemental, int actual_ok, bt type,
 static void
 add_sym_4s (const char *name, int elemental,
 			bt type, int kind, int standard,
-    try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+    check (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
     gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
     void (*resolve)(gfc_code *),
     const char* a1, bt type1, int kind1, int optional1,
@@ -672,7 +672,7 @@ add_sym_4s (const char *name, int elemental,
 static void
 add_sym_5s (const char *name, int elemental,
  bt type, int kind, int standard,
- try (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
+ check (*check)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
  gfc_expr *(*simplify)(gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *,gfc_expr *),
  void (*resolve)(gfc_code *),
  const char* a1, bt type1, int kind1, int optional1,
@@ -2732,13 +2732,13 @@ gfc_intrinsic_init_1 (void)
   sizing = SZ_CONVS;
   add_conversions ();
 
-  functions = gfc_getmem (sizeof (gfc_intrinsic_sym) * (nfunc + nsub)
+  functions = (gfc_intrinsic_sym*)gfc_getmem (sizeof (gfc_intrinsic_sym) * (nfunc + nsub)
 			  + sizeof (gfc_intrinsic_arg) * nargs);
 
   next_sym = functions;
   subroutines = functions + nfunc;
 
-  conversion = gfc_getmem (sizeof (gfc_intrinsic_sym) * nconv);
+  conversion = (gfc_intrinsic_sym *)gfc_getmem (sizeof (gfc_intrinsic_sym) * nconv);
 
   next_arg = ((gfc_intrinsic_arg *) (subroutines + nsub)) - 1;
 
@@ -2814,7 +2814,7 @@ remove_nullargs (gfc_actual_arglist ** ap)
    wrong (say, a missing required argument) we abort sorting and
    return FAILURE.  */
 
-static try
+static check
 sort_actual (const char *name, gfc_actual_arglist ** ap,
 	     gfc_intrinsic_arg * formal, locus * where)
 {
@@ -2926,7 +2926,7 @@ do_sort:
    list.  The lists are checked for agreement of type.  We don't check
    for arrayness here.  */
 
-static try
+static check
 check_arglist (gfc_actual_arglist ** ap, gfc_intrinsic_sym * sym,
 	       int error_flag)
 {
@@ -3050,7 +3050,7 @@ resolve_intrinsic (gfc_intrinsic_sym * specific, gfc_expr * e)
    of the simplification, SUCCESS if the simplification worked, even
    if nothing has changed in the expression itself.  */
 
-static try
+static check
 do_simplify (gfc_intrinsic_sym * specific, gfc_expr * e)
 {
   gfc_expr *result, *a1, *a2, *a3, *a4, *a5;
@@ -3188,12 +3188,12 @@ init_arglist (gfc_intrinsic_sym * isym)
    intrinsic's formal argument list.  Return SUCCESS if the expression
    and intrinsic match, FAILURE otherwise.  */
 
-static try
+static check
 check_specific (gfc_intrinsic_sym * specific, gfc_expr * expr, int error_flag)
 {
   gfc_actual_arglist *arg, **ap;
   int r;
-  try t;
+  check t;
 
   ap = &expr->value.function.actual;
 
@@ -3478,7 +3478,7 @@ fail:
 
 /* Call gfc_convert_type() with warning enabled.  */
 
-try
+check
 gfc_convert_type (gfc_expr * expr, gfc_typespec * ts, int eflag)
 {
   return gfc_convert_type_warn (expr, ts, eflag, 1);
@@ -3495,14 +3495,14 @@ gfc_convert_type (gfc_expr * expr, gfc_typespec * ts, int eflag)
 
    'wflag' controls the warning related to conversion.  */
 
-try
+check
 gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
 		       int wflag)
 {
   gfc_intrinsic_sym *sym;
   gfc_typespec from_ts;
   locus old_where;
-  gfc_expr *new;
+  gfc_expr *fresh;
   int rank;
   mpz_t *shape;
 
@@ -3546,17 +3546,17 @@ gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
   rank = expr->rank;
   shape = expr->shape;
 
-  new = gfc_get_expr ();
-  *new = *expr;
+  fresh = gfc_get_expr ();
+  *fresh = *expr;
 
-  new = gfc_build_conversion (new);
-  new->value.function.name = sym->lib_name;
-  new->value.function.isym = sym;
-  new->where = old_where;
-  new->rank = rank;
-  new->shape = gfc_copy_shape (shape, rank);
+  fresh = gfc_build_conversion (fresh);
+  fresh->value.function.name = sym->lib_name;
+  fresh->value.function.isym = sym;
+  fresh->where = old_where;
+  fresh->rank = rank;
+  fresh->shape = gfc_copy_shape (shape, rank);
 
-  gfc_get_ha_sym_tree (sym->name, &new->symtree);
+  gfc_get_ha_sym_tree (sym->name, &fresh->symtree);
   new->symtree->n.sym->ts = *ts;
   new->symtree->n.sym->attr.flavor = FL_PROCEDURE;
   new->symtree->n.sym->attr.function = 1;
@@ -3564,12 +3564,12 @@ gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
   new->symtree->n.sym->attr.elemental = 1;
   new->symtree->n.sym->attr.pure = 1;
   new->symtree->n.sym->attr.referenced = 1;
-  gfc_intrinsic_symbol(new->symtree->n.sym);
-  gfc_commit_symbol (new->symtree->n.sym);
+  gfc_intrinsic_symbol(fresh->symtree->n.sym);
+  gfc_commit_symbol (fresh->symtree->n.sym);
 
-  *expr = *new;
+  *expr = *fresh;
 
-  gfc_free (new);
+  gfc_free (fresh);
   expr->ts = *ts;
 
   if (gfc_is_constant_expr (expr->value.function.actual->expr)

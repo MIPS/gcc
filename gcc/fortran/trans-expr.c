@@ -968,7 +968,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
 
   checkstring = 0;
   lop = 0;
-  switch (expr->value.op.operator)
+  switch (expr->value.op.foperator)
     {
     case INTRINSIC_UPLUS:
     case INTRINSIC_PARENTHESES:
@@ -1227,8 +1227,8 @@ gfc_free_interface_mapping (gfc_interface_mapping * mapping)
   for (sym = mapping->syms; sym; sym = nextsym)
     {
       nextsym = sym->next;
-      gfc_free_symbol (sym->new->n.sym);
-      gfc_free (sym->new);
+      gfc_free_symbol (sym->fresh->n.sym);
+      gfc_free (sym->fresh);
       gfc_free (sym);
     }
   for (cl = mapping->charlens; cl; cl = nextcl)
@@ -1247,14 +1247,14 @@ static gfc_charlen *
 gfc_get_interface_mapping_charlen (gfc_interface_mapping * mapping,
 				   gfc_charlen * cl)
 {
-  gfc_charlen *new;
+  gfc_charlen *fresh;
 
-  new = gfc_get_charlen ();
-  new->next = mapping->charlens;
-  new->length = gfc_copy_expr (cl->length);
+  fresh = gfc_get_charlen ();
+  fresh->next = mapping->charlens;
+  fresh->length = gfc_copy_expr (cl->length);
 
-  mapping->charlens = new;
-  return new;
+  mapping->charlens = fresh;
+  return fresh;
 }
 
 
@@ -1351,10 +1351,10 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   gcc_assert (new_symtree == root);
 
   /* Create a dummy->actual mapping.  */
-  sm = gfc_getmem (sizeof (*sm));
+  sm = (gfc_interface_sym_mapping *)gfc_getmem (sizeof (*sm));
   sm->next = mapping->syms;
   sm->old = sym;
-  sm->new = new_symtree;
+  sm->fresh = new_symtree;
   mapping->syms = sm;
 
   /* Stabilize the argument's value.  */
@@ -1438,10 +1438,10 @@ gfc_finish_interface_mapping (gfc_interface_mapping * mapping,
   gfc_se se;
 
   for (sym = mapping->syms; sym; sym = sym->next)
-    if (sym->new->n.sym->ts.type == BT_CHARACTER
-	&& !sym->new->n.sym->ts.cl->backend_decl)
+    if (sym->fresh->n.sym->ts.type == BT_CHARACTER
+	&& !sym->fresh->n.sym->ts.cl->backend_decl)
       {
-	expr = sym->new->n.sym->ts.cl->length;
+	expr = sym->fresh->n.sym->ts.cl->length;
 	gfc_apply_interface_mapping_to_expr (mapping, expr);
 	gfc_init_se (&se, NULL);
 	gfc_conv_expr (&se, expr);
@@ -1450,7 +1450,7 @@ gfc_finish_interface_mapping (gfc_interface_mapping * mapping,
 	gfc_add_block_to_block (pre, &se.pre);
 	gfc_add_block_to_block (post, &se.post);
 
-	sym->new->n.sym->ts.cl->backend_decl = se.expr;
+	sym->fresh->n.sym->ts.cl->backend_decl = se.expr;
       }
 }
 
@@ -1537,7 +1537,7 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
   if (expr->symtree)
     for (sym = mapping->syms; sym; sym = sym->next)
       if (sym->old == expr->symtree->n.sym)
-	expr->symtree = sym->new;
+	expr->symtree = sym->fresh;
 
   /* ...and to subexpressions in expr->value.  */
   switch (expr->expr_type)
@@ -1556,7 +1556,7 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
     case EXPR_FUNCTION:
       for (sym = mapping->syms; sym; sym = sym->next)
 	if (sym->old == expr->value.function.esym)
-	  expr->value.function.esym = sym->new->n.sym;
+	  expr->value.function.esym = sym->fresh->n.sym;
 
       for (actual = expr->value.function.actual; actual; actual = actual->next)
 	gfc_apply_interface_mapping_to_expr (mapping, actual->expr);

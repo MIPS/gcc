@@ -27,8 +27,6 @@ Boston, MA 02110-1301, USA.  */
 
 #define STANDARD_INCLUDE_COMPONENT "UWIN"
 #define SYSTEM_INCLUDE_DIR "/usr/gnu/include"
-#undef MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX "/usr/gnu/lib/"
 
 #undef MAYBE_UWIN_CPP_BUILTINS
 #define MAYBE_UWIN_CPP_BUILTINS()			\

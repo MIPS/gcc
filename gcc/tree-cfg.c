@@ -2833,7 +2833,7 @@ bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
   update_modified_stmts (t);
-  tsi_link_before (&i->tsi, t, m);
+  tsi_link_before (&i->tsi, t, (enum tsi_iterator_update) m);
 }
 
 
@@ -2846,7 +2846,7 @@ bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
   update_modified_stmts (t);
-  tsi_link_after (&i->tsi, t, m);
+  tsi_link_after (&i->tsi, t, (enum tsi_iterator_update) m);
 }
 
 
@@ -4603,7 +4603,7 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	    {
 	      struct tree_map in, *out;
 	      in.from = t;
-	      out = htab_find_with_hash (p->new_label_map, &in, DECL_UID (t));
+	      out = (struct tree_map *) htab_find_with_hash (p->new_label_map, &in, DECL_UID (t));
 	      if (out)
 		*tp = t = out->to;
 	    }
@@ -4792,7 +4792,7 @@ new_label_mapper (tree decl, void *data)
 
   gcc_assert (TREE_CODE (decl) == LABEL_DECL);
 
-  m = xmalloc (sizeof (struct tree_map));
+  m = XNEW (struct tree_map);
   m->hash = DECL_UID (decl);
   m->from = decl;
   m->to = create_artificial_label ();

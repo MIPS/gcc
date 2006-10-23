@@ -250,9 +250,7 @@ static void *root;
 /* Function to compare two entries in the table of known translations.  */
 static int transcmp PARAMS ((const void *p1, const void *p2));
 static int
-transcmp (p1, p2)
-     const void *p1;
-     const void *p2;
+transcmp (const void *p1, const void *p2)
 {
   const struct known_translation_t *s1;
   const struct known_translation_t *s2;
@@ -285,6 +283,7 @@ transcmp (p1, p2)
 
 /* Name of the default domain used for gettext(3) prior any call to
    textdomain(3).  The default value for this is "messages".  */
+extern const char _nl_default_default_domain[] attribute_hidden;
 const char _nl_default_default_domain[] attribute_hidden = "messages";
 
 /* Value used as the default domain for gettext(3).  */
@@ -295,6 +294,7 @@ const char *_nl_current_default_domain attribute_hidden
 #if defined __EMX__
 extern const char _nl_default_dirname[];
 #else
+extern const char _nl_default_dirname[];
 const char _nl_default_dirname[] = LOCALEDIR;
 INTVARDEF (_nl_default_dirname)
 #endif
@@ -424,13 +424,8 @@ static int enable_secure;
    CATEGORY locale and, if PLURAL is nonzero, search over string
    depending on the plural form determined by N.  */
 char *
-DCIGETTEXT (domainname, msgid1, msgid2, plural, n, category)
-     const char *domainname;
-     const char *msgid1;
-     const char *msgid2;
-     int plural;
-     unsigned long int n;
-     int category;
+DCIGETTEXT (const char *domainname, const char *msgid1, const char *msgid2,
+	int plural, unsigned long int n, int category)
 {
 #ifndef HAVE_ALLOCA
   struct block_list *block_list = NULL;
@@ -571,7 +566,7 @@ DCIGETTEXT (domainname, msgid1, msgid2, plural, n, category)
 				 + domainname_len + 5);
   ADD_BLOCK (block_list, xdomainname);
 
-  stpcpy (mempcpy (stpcpy (stpcpy (xdomainname, categoryname), "/"),
+  stpcpy ((char *) mempcpy (stpcpy (stpcpy (xdomainname, categoryname), "/"),
 		  domainname, domainname_len),
 	  ".mo");
 
@@ -658,7 +653,7 @@ DCIGETTEXT (domainname, msgid1, msgid2, plural, n, category)
 		  if (newp != NULL)
 		    {
 		      newp->domainname =
-			mempcpy (newp->msgid, msgid1, msgid_len);
+			(char *) mempcpy (newp->msgid, msgid1, msgid_len);
 		      memcpy (newp->domainname, domainname, domainname_len + 1);
 		      newp->category = category;
 		      newp->counter = _nl_msg_cat_cntr;
@@ -724,11 +719,8 @@ DCIGETTEXT (domainname, msgid1, msgid2, plural, n, category)
 
 char *
 internal_function
-_nl_find_msg (domain_file, domainbinding, msgid, lengthp)
-     struct loaded_l10nfile *domain_file;
-     struct binding *domainbinding;
-     const char *msgid;
-     size_t *lengthp;
+_nl_find_msg (struct loaded_l10nfile *domain_file,
+	struct binding *domainbinding, const char *msgid, size_t *lengthp)
 {
   struct loaded_domain *domain;
   nls_uint32 nstrings;
@@ -1035,11 +1027,8 @@ _nl_find_msg (domain_file, domainbinding, msgid, lengthp)
 /* Look up a plural variant.  */
 static char *
 internal_function
-plural_lookup (domain, n, translation, translation_len)
-     struct loaded_l10nfile *domain;
-     unsigned long int n;
-     const char *translation;
-     size_t translation_len;
+plural_lookup (struct loaded_l10nfile *domain, unsigned long int n,
+	const char *translation, size_t translation_len)
 {
   struct loaded_domain *domaindata = (struct loaded_domain *) domain->data;
   unsigned long int index;
@@ -1076,8 +1065,7 @@ plural_lookup (domain, n, translation, translation_len)
 /* Return string representation of locale CATEGORY.  */
 static const char *
 internal_function
-category_to_name (category)
-     int category;
+category_to_name (int category)
 {
   const char *retval;
 
@@ -1137,9 +1125,7 @@ category_to_name (category)
 /* Guess value of current locale from value of the environment variables.  */
 static const char *
 internal_function
-guess_category_value (category, categoryname)
-     int category;
-     const char *categoryname;
+guess_category_value (int category, const char *categoryname)
 {
   const char *language;
   const char *retval;
@@ -1192,10 +1178,7 @@ stpcpy (dest, src)
 
 #if !_LIBC && !HAVE_MEMPCPY
 static void *
-mempcpy (dest, src, n)
-     void *dest;
-     const void *src;
-     size_t n;
+mempcpy (void *dest, const void *src, size_t n)
 {
   return (void *) ((char *) memcpy (dest, src, n) + n);
 }

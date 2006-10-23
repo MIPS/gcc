@@ -574,7 +574,12 @@ number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
   if (code == GE_EXPR || code == GT_EXPR
       || (code == NE_EXPR && zero_p (iv0->step)))
     {
-      SWAP (iv0, iv1);
+      affine_iv *tmp;
+
+      tmp = iv0;
+      iv0 = iv1;
+      iv1 = tmp;
+
       code = swap_tree_comparison (code);
     }
 
@@ -672,7 +677,7 @@ number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
 /* Substitute NEW for OLD in EXPR and fold the result.  */
 
 static tree
-simplify_replace_tree (tree expr, tree old, tree new)
+simplify_replace_tree (tree expr, tree old, tree out)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, se;
@@ -682,7 +687,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
 
   if (expr == old
       || operand_equal_p (expr, old, 0))
-    return unshare_expr (new);
+    return unshare_expr (out);
 
   if (!EXPR_P (expr))
     return expr;
@@ -691,7 +696,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
   for (i = 0; i < n; i++)
     {
       e = TREE_OPERAND (expr, i);
-      se = simplify_replace_tree (e, old, new);
+      se = simplify_replace_tree (e, old, out);
       if (e == se)
 	continue;
 
@@ -1658,7 +1663,7 @@ derive_constant_upper_bound (tree val, tree additional)
 void
 record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
 {
-  struct nb_iter_bound *elt = xmalloc (sizeof (struct nb_iter_bound));
+  struct nb_iter_bound *elt = XNEW (struct nb_iter_bound);
   double_int i_bound = derive_constant_upper_bound (bound, additional);
   tree c_bound = double_int_to_tree (unsigned_type_for (TREE_TYPE (bound)),
 				     i_bound);

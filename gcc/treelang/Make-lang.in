@@ -84,6 +84,7 @@ tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
 	treelang/lex.o treelang/parse.o \
+	tree-mudflap.o \
 	$(BACKEND) $(LIBS) attribs.o
 
 # Create the compiler driver treelang.

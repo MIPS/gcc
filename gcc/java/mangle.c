@@ -631,13 +631,13 @@ compression_table_add (tree type)
 {
   if (compression_next == TREE_VEC_LENGTH (compression_table))
     {
-      tree new = make_tree_vec (2*compression_next);
+      tree tmp = make_tree_vec (2*compression_next);
       int i;
 
       for (i = 0; i < compression_next; i++)
-	TREE_VEC_ELT (new, i) = TREE_VEC_ELT (compression_table, i);
+	TREE_VEC_ELT (tmp, i) = TREE_VEC_ELT (compression_table, i);
 
-      compression_table = new;
+      compression_table = tmp;
     }
   TREE_VEC_ELT (compression_table, compression_next++) = type;
 }

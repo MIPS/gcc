@@ -908,7 +908,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
     }
   else
     {
-      enum tree_code shift_code = 0;
+      enum tree_code shift_code = ERROR_MARK;
       bool have_whole_vector_shift = true;
       int bit_offset;
       int element_bitsize = tree_low_cst (bitsize, 1);
@@ -1141,7 +1141,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree operation;
-  enum tree_code code, orig_code, epilog_reduc_code = 0;
+  enum tree_code code, orig_code, epilog_reduc_code = ERROR_MARK;
   enum machine_mode vec_mode;
   int op_type;
   optab optab, reduc_optab;
@@ -1313,13 +1313,13 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "no optab for reduction.");
-      epilog_reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = (enum tree_code) NUM_TREE_CODES;
     }
   if (reduc_optab->handlers[(int) vec_mode].insn_code == CODE_FOR_nothing)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "reduc op not supported by target.");
-      epilog_reduc_code = NUM_TREE_CODES;
+      epilog_reduc_code = (enum tree_code) NUM_TREE_CODES;
     }
  
   if (!vec_stmt) /* transformation not required.  */

@@ -1688,7 +1688,7 @@ sdbout_init (const char *input_file_name ATTRIBUTE_UNUSED)
 #else  /* SDB_DEBUGGING_INFO */
 
 /* This should never be used, but its address is needed for comparisons.  */
-const struct gcc_debug_hooks sdb_debug_hooks;
+struct gcc_debug_hooks sdb_debug_hooks;
 
 #endif /* SDB_DEBUGGING_INFO */
 

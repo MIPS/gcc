@@ -68,6 +68,13 @@ typedef struct secondary_reload_info
   int t_icode; /* Actually an enum insn_code - see above.  */
 } secondary_reload_info;
 
+struct asm_int_op
+{
+  const char *hi;
+  const char *si;
+  const char *di;
+  const char *ti;
+};
 
 struct gcc_target
 {
@@ -79,13 +86,7 @@ struct gcc_target
 
     /* Assembler instructions for creating various kinds of integer object.  */
     const char *byte_op;
-    struct asm_int_op
-    {
-      const char *hi;
-      const char *si;
-      const char *di;
-      const char *ti;
-    } aligned_op, unaligned_op;
+    struct asm_int_op aligned_op, unaligned_op;
 
     /* Try to output the assembler code for an integer object whose
        value is given by X.  SIZE is the size of the object in bytes and

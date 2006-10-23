@@ -212,7 +212,7 @@ double_int_divmod (double_int a, double_int b, bool uns, unsigned code,
 {
   double_int ret;
 
-  div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
+  div_and_round_double ((enum tree_code) code, uns, a.low, a.high, b.low, b.high,
 			&ret.low, &ret.high, &mod->low, &mod->high);
   return ret;
 }

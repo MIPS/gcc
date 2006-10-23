@@ -46,9 +46,6 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (MIPS GNU/Linux with ELF)");
 #endif
 
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 /* If we don't set MASK_ABICALLS, we can't default to PIC.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT MASK_ABICALLS

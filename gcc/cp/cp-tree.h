@@ -841,15 +841,6 @@ struct language_function GTY(())
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
-/* C++ language-specific tree codes.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
-enum cplus_tree_code {
-  CP_DUMMY_TREE_CODE = LAST_C_TREE_CODE,
-#include "cp-tree.def"
-  LAST_CPLUS_TREE_CODE
-};
-#undef DEFTREECODE
-
 /* TRUE if a tree code represents a statement.  */
 extern bool statement_code_p[MAX_TREE_CODES];
 
@@ -956,10 +947,10 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is uniquely derived from PARENT. Ignores
    accessibility.  */
 #define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_unique | ba_quiet, NULL) != NULL_TREE)
+  (lookup_base ((TYPE), (PARENT), (enum base_access) (ba_unique | ba_quiet), NULL) != NULL_TREE)
 /* Nonzero iff TYPE is publicly & uniquely derived from PARENT.  */
 #define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_ignore_scope | ba_check | ba_quiet, \
+  (lookup_base ((TYPE), (PARENT), (enum base_access) (ba_ignore_scope | ba_check | ba_quiet), \
 		NULL) != NULL_TREE)
 
 /* Gives the visibility specification for a class type.  */
@@ -3943,7 +3934,7 @@ extern tree register_dtor_fn			(tree);
 extern tmpl_spec_kind current_tmpl_spec_kind	(int);
 extern tree cp_fname_init			(const char *, tree *);
 extern tree builtin_function			(const char *name, tree type,
-						 int code,
+						 enum built_in_function code,
 						 enum built_in_class cl,
 						 const char *libname,
 						 tree attrs);

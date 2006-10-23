@@ -55,7 +55,7 @@ static void unloop (struct loops *, struct loop *, bool *);
 static bool
 rpe_enum_p (basic_block bb, void *data)
 {
-  return dominated_by_p (CDI_DOMINATORS, bb, data);
+  return dominated_by_p (CDI_DOMINATORS, bb, (basic_block) data);
 }
 
 /* Remove basic blocks BBS from loop structure and dominance info,
@@ -626,7 +626,7 @@ fix_loop_placements (struct loops *loops, struct loop *loop,
 static void
 place_new_loop (struct loops *loops, struct loop *loop)
 {
-  loops->parray =
+  loops->parray = (struct loop **)
     xrealloc (loops->parray, (loops->num + 1) * sizeof (struct loop *));
   loops->parray[loops->num] = loop;
 

@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
    the cpu attribute in the mips.md machine description.  */
 
 enum processor_type {
+  PROCESSOR_NONE,
   PROCESSOR_R3000,
   PROCESSOR_4KC,
   PROCESSOR_4KP,
@@ -2098,7 +2099,7 @@ typedef struct mips_args {
   /* ??? Should check the return value for errors.  */			    \
   if (mips_cache_flush_func && mips_cache_flush_func[0])		    \
     emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),   \
-		       0, VOIDmode, 3, ADDR, Pmode,			    \
+		       LCT_NORMAL, VOIDmode, 3, ADDR, Pmode,		    \
 		       GEN_INT (TRAMPOLINE_SIZE), TYPE_MODE (integer_type_node),\
 		       GEN_INT (3), TYPE_MODE (integer_type_node));	    \
 }

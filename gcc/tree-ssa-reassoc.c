@@ -206,7 +206,7 @@ static void
 insert_operand_rank (tree e, unsigned int rank)
 {
   void **slot;
-  operand_entry_t new_pair = pool_alloc (operand_entry_pool);
+  operand_entry_t new_pair = (operand_entry_t) pool_alloc (operand_entry_pool);
 
   new_pair->op = e;
   new_pair->rank = rank;
@@ -364,7 +364,7 @@ sort_by_operand_rank (const void *pa, const void *pb)
 static void
 add_to_ops_vec (VEC(operand_entry_t, heap) **ops, tree op)
 {
-  operand_entry_t oe = pool_alloc (operand_entry_pool);
+  operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
 
   oe->op = op;
   oe->rank = get_rank (op);

@@ -101,20 +101,6 @@ Boston, MA 02110-1301, USA.  */
 #undef STANDARD_STARTFILE_PREFIX_2
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/pa20_64/"
 
-/* Under hpux11 the normal location of the various pa20_64 *crt*.o files
-   is the /usr/ccs/lib/pa20_64 directory.  Some files may also be in the
-   /opt/langtools/lib/pa20_64 directory.  */
-
-#ifndef CROSS_COMPILE
-#undef MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX "/usr/ccs/lib/pa20_64/"
-#endif
-
-#ifndef CROSS_COMPILE
-#undef MD_STARTFILE_PREFIX_1
-#define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/pa20_64/"
-#endif
-
 /* This macro specifies the biggest alignment supported by the object
    file format of this machine.
 

@@ -27,6 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "obstack.h"
@@ -1512,13 +1513,13 @@ adjust_result_of_qualified_name_lookup (tree decl,
 	 or ambiguity -- in either case, the choice of a static member
 	 function might make the usage valid.  */
       base = lookup_base (context_class, qualifying_scope,
-			  ba_unique | ba_quiet, NULL);
+			  (enum base_access) (ba_unique | ba_quiet), NULL);
       if (base)
 	{
 	  BASELINK_ACCESS_BINFO (decl) = base;
 	  BASELINK_BINFO (decl)
 	    = lookup_base (base, BINFO_TYPE (BASELINK_BINFO (decl)),
-			   ba_unique | ba_quiet,
+			   (enum base_access) (ba_unique | ba_quiet),
 			   NULL);
 	}
     }
@@ -1845,7 +1846,7 @@ check_final_overrider (tree overrider, tree basefn)
       if (CLASS_TYPE_P (base_return) && CLASS_TYPE_P (over_return))
 	{
 	  tree binfo = lookup_base (over_return, base_return,
-				    ba_check | ba_quiet, NULL);
+				    (enum base_access) (ba_check | ba_quiet), NULL);
 
 	  if (!binfo)
 	    fail = 1;

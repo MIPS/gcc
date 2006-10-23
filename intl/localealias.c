@@ -148,8 +148,7 @@ static int alias_compare PARAMS ((const struct alias_map *map1,
 
 
 const char *
-_nl_expand_alias (name)
-    const char *name;
+_nl_expand_alias (const char *name)
 {
   static const char *locale_alias_path;
   struct alias_map *retval;
@@ -215,9 +214,7 @@ _nl_expand_alias (name)
 
 static size_t
 internal_function
-read_alias_file (fname, fname_len)
-     const char *fname;
-     int fname_len;
+read_alias_file (const char *fname, int fname_len)
 {
   FILE *fp;
   char *full_fname;
@@ -333,11 +330,11 @@ read_alias_file (fname, fname_len)
 		  string_space_max = new_size;
 		}
 
-	      map[nmap].alias = memcpy (&string_space[string_space_act],
+	      map[nmap].alias = (const char *) memcpy (&string_space[string_space_act],
 					alias, alias_len);
 	      string_space_act += alias_len;
 
-	      map[nmap].value = memcpy (&string_space[string_space_act],
+	      map[nmap].value = (const char *) memcpy (&string_space[string_space_act],
 					value, value_len);
 	      string_space_act += value_len;
 
@@ -387,9 +384,7 @@ extend_alias_table ()
 
 
 static int
-alias_compare (map1, map2)
-     const struct alias_map *map1;
-     const struct alias_map *map2;
+alias_compare (const struct alias_map *map1, const struct alias_map *map2)
 {
 #if defined _LIBC || defined HAVE_STRCASECMP
   return strcasecmp (map1->alias, map2->alias);

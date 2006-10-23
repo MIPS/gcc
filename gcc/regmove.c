@@ -62,9 +62,11 @@ static void optimize_reg_copy_3 (rtx, rtx, rtx);
 static void copy_src_to_dest (rtx, rtx, rtx, int);
 static int *regmove_bb_head;
 
+enum match_use { READ, WRITE, READWRITE };
+
 struct match {
   int with[MAX_RECOG_OPERANDS];
-  enum { READ, WRITE, READWRITE } use[MAX_RECOG_OPERANDS];
+  enum match_use use[MAX_RECOG_OPERANDS];
   int commutative[MAX_RECOG_OPERANDS];
   int early_clobber[MAX_RECOG_OPERANDS];
 };
@@ -78,14 +80,13 @@ static int find_matches (rtx, struct match *);
 static void replace_in_call_usage (rtx *, unsigned int, rtx, rtx);
 static int fixup_match_1 (rtx, rtx, rtx, rtx, rtx, int, int, int);
 static int stable_and_no_regs_but_for_p (rtx, rtx, rtx);
-static int regclass_compatible_p (int, int);
 static int replacement_quality (rtx);
 static int fixup_match_2 (rtx, rtx, rtx, rtx);
 
 /* Return nonzero if registers with CLASS1 and CLASS2 can be merged without
    causing too much register allocation problems.  */
 static int
-regclass_compatible_p (int class0, int class1)
+regclass_compatible_p (enum reg_class class0, enum reg_class class1)
 {
   return (class0 == class1
 	  || (reg_class_subset_p (class0, class1)
@@ -141,7 +142,7 @@ try_auto_increment (rtx insn, rtx inc_insn, rtx inc_insn_set, rtx reg,
 		     changed.  */
 		  rtx note = find_reg_note (insn, REG_DEAD, reg);
 		  if (note)
-		    PUT_MODE (note, REG_UNUSED);
+		    PUT_MODE (note, (enum machine_mode) REG_UNUSED);
 
 		  REG_NOTES (insn)
 		    = gen_rtx_EXPR_LIST (REG_INC,
@@ -867,7 +868,7 @@ reg_is_remote_constant_p (rtx reg, rtx insn)
   if (!reg_set_in_bb)
     {
       max_reg_computed = max = max_reg_num ();
-      reg_set_in_bb = xcalloc (max, sizeof (*reg_set_in_bb));
+      reg_set_in_bb = XCNEWVEC(basic_block, max);
 
       FOR_EACH_BB (bb)
 	for (p = BB_HEAD (bb); p != NEXT_INSN (BB_END (bb));
@@ -1505,12 +1506,12 @@ regmove_optimize (rtx f, int nregs)
   FOR_EACH_BB (bb)
     {
       rtx end = BB_END (bb);
-      rtx new = end;
-      rtx next = NEXT_INSN (new);
+      rtx fresh = (rtx) end;
+      rtx next = NEXT_INSN (fresh);
       while (next != 0 && INSN_UID (next) >= old_max_uid
 	     && (bb->next_bb == EXIT_BLOCK_PTR || BB_HEAD (bb->next_bb) != next))
-	new = next, next = NEXT_INSN (new);
-      BB_END (bb) = new;
+	fresh = next, next = NEXT_INSN (fresh);
+      BB_END (bb) = fresh;
     }
 
  done:
@@ -2177,14 +2178,14 @@ single_set_for_csa (rtx insn)
 
   for (i = 1; i < XVECLEN (tmp, 0); ++i)
     {
-      rtx this = XVECEXP (tmp, 0, i);
+      rtx it = XVECEXP (tmp, 0, i);
 
       /* The special case is allowing a no-op set.  */
-      if (GET_CODE (this) == SET
-	  && SET_SRC (this) == SET_DEST (this))
+      if (GET_CODE (it) == SET
+	  && SET_SRC (it) == SET_DEST (it))
 	;
-      else if (GET_CODE (this) != CLOBBER
-	       && GET_CODE (this) != USE)
+      else if (GET_CODE (it) != CLOBBER
+	       && GET_CODE (it) != USE)
 	return NULL_RTX;
     }
 

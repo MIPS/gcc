@@ -2246,11 +2246,6 @@ EOF
     gcc_cv_as_eh_frame=no
   fi])
 
-if test $gcc_cv_as_eh_frame = buggy; then
-  AC_DEFINE(USE_AS_TRADITIONAL_FORMAT, 1,
-  [Define if your assembler mis-optimizes .eh_frame data.])
-fi
-
 gcc_GAS_CHECK_FEATURE(section merging support, gcc_cv_as_shf_merge,
  [elf,2,12,0], [--fatal-warnings],
  [.section .rodata.str, "aMS", @progbits, 1])

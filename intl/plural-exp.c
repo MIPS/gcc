@@ -96,10 +96,8 @@ init_germanic_plural ()
 
 void
 internal_function
-EXTRACT_PLURAL_EXPRESSION (nullentry, pluralp, npluralsp)
-     const char *nullentry;
-     struct expression **pluralp;
-     unsigned long int *npluralsp;
+EXTRACT_PLURAL_EXPRESSION (const char *nullentry,
+     struct expression **pluralp, unsigned long int *npluralsp)
 {
   if (nullentry != NULL)
     {

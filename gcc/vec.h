@@ -531,12 +531,12 @@ static inline int VEC_OP (T,base,iterate)			  	  \
 {									  \
   if (vec_ && ix_ < vec_->num)						  \
     {									  \
-      *ptr = vec_->vec[ix_];						  \
+      *ptr = (T) vec_->vec[ix_];					  \
       return 1;								  \
     }									  \
   else									  \
     {									  \
-      *ptr = 0;								  \
+      *ptr = (T) 0;							  \
       return 0;								  \
     }									  \
 }									  \

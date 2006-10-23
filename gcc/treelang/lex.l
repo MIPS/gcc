@@ -263,7 +263,7 @@ void
 update_yylval (int a)
 {
   struct prod_token_parm_item * tok;
-  tok = yylval;
+  tok = (struct prod_token_parm_item *) yylval;
   
   tok->category = token_category;
   tok->type = a;

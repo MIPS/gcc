@@ -75,21 +75,23 @@ struct decision_head
    their equality (or lack thereof) does affect tree merging so
    it is convenient to keep them here.  */
 
+enum decision_type
+{
+  DT_num_insns,
+  DT_mode, DT_code, DT_veclen,
+  DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
+  DT_const_int,
+  DT_veclen_ge, DT_dup, DT_pred, DT_c_test,
+  DT_accept_op, DT_accept_insn
+};
+
 struct decision_test
 {
   /* A linked list through the tests attached to a node.  */
   struct decision_test *next;
 
   /* These types are roughly in the order in which we'd like to test them.  */
-  enum decision_type
-    {
-      DT_num_insns,
-      DT_mode, DT_code, DT_veclen,
-      DT_elt_zero_int, DT_elt_one_int, DT_elt_zero_wide, DT_elt_zero_wide_safe,
-      DT_const_int,
-      DT_veclen_ge, DT_dup, DT_pred, DT_c_test,
-      DT_accept_op, DT_accept_insn
-    } type;
+  enum decision_type type;
 
   union
   {
@@ -366,7 +368,7 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
 static void
 process_define_predicate (rtx desc)
 {
-  struct pred_data *pred = xcalloc (sizeof (struct pred_data), 1);
+  struct pred_data *pred = XCNEW (struct pred_data);
   char codes[NUM_RTX_CODE];
   bool seen_one = false;
   int i;
@@ -395,7 +397,7 @@ process_define_predicate (rtx desc)
 	  pred->singleton = UNKNOWN;
 	else
 	  {
-	    pred->singleton = i;
+	    pred->singleton = (enum rtx_code) i;
 	    seen_one = true;
 	  }
       }
@@ -493,14 +495,14 @@ extern void debug_decision_list
 static struct decision *
 new_decision (const char *position, struct decision_head *last)
 {
-  struct decision *new = xcalloc (1, sizeof (struct decision));
+  struct decision *n = XCNEW (struct decision);
 
-  new->success = *last;
-  new->position = xstrdup (position);
-  new->number = next_number++;
+  n->success = *last;
+  n->position = xstrdup (position);
+  n->number = next_number++;
 
-  last->first = last->last = new;
-  return new;
+  last->first = last->last = n;
+  return n;
 }
 
 /* Create a new test and link it in at PLACE.  */
@@ -896,7 +898,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 		 enum routine_type insn_type, int top)
 {
   RTX_CODE code;
-  struct decision *this, *sub;
+  struct decision *it, *sub;
   struct decision_test *test;
   struct decision_test **place;
   char *subpos;
@@ -909,12 +911,12 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
   if (depth > max_depth)
     max_depth = depth;
 
-  subpos = xmalloc (depth + 2);
+  subpos = XNEWVEC (char, depth + 2);
   strcpy (subpos, position);
   subpos[depth + 1] = 0;
 
-  sub = this = new_decision (position, last);
-  place = &this->tests;
+  sub = it = new_decision (position, last);
+  place = &it->tests;
 
  restart:
   mode = GET_MODE (pattern);
@@ -1161,20 +1163,20 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
      before any of the nodes we may have added above.  */
   if (code != UNKNOWN)
     {
-      place = &this->tests;
+      place = &it->tests;
       test = new_decision_test (DT_code, &place);
       test->u.code = code;
     }
 
   if (mode != VOIDmode)
     {
-      place = &this->tests;
+      place = &it->tests;
       test = new_decision_test (DT_mode, &place);
       test->u.mode = mode;
     }
 
   /* If we didn't insert any tests or accept nodes, hork.  */
-  gcc_assert (this->tests);
+  gcc_assert (it->tests);
 
  ret:
   free (subpos);
@@ -1262,7 +1264,7 @@ maybe_both_true_2 (struct decision_test *d1, struct decision_test *d2)
 	  else if (d2->type == DT_pred && d2->u.pred.data)
 	    {
 	      bool common = false;
-	      enum rtx_code c;
+	      int c;
 
 	      for (c = 0; c < NUM_RTX_CODE; c++)
 		if (d1->u.pred.data->codes[c] && d2->u.pred.data->codes[c])
@@ -1611,7 +1613,7 @@ factor_tests (struct decision_head *head)
   for (first = head->first; first && first->next; first = next)
     {
       enum decision_type type;
-      struct decision *new, *old_last;
+      struct decision *n, *old_last;
 
       type = first->tests->type;
       next = first->next;
@@ -1634,8 +1636,8 @@ factor_tests (struct decision_head *head)
          below our first test.  */
       if (first->tests->next != NULL)
 	{
-	  new = new_decision (first->position, &first->success);
-	  new->tests = first->tests->next;
+	  n = new_decision (first->position, &first->success);
+	  n->tests = first->tests->next;
 	  first->tests->next = NULL;
 	}
 
@@ -1652,14 +1654,14 @@ factor_tests (struct decision_head *head)
 
 	  if (next->tests->next != NULL)
 	    {
-	      new = new_decision (next->position, &next->success);
-	      new->tests = next->tests->next;
+	      n = new_decision (next->position, &next->success);
+	      n->tests = next->tests->next;
 	      next->tests->next = NULL;
 	    }
-	  new = next;
+	  n = next;
 	  next = next->next;
-	  new->next = NULL;
-	  h.first = h.last = new;
+	  n->next = NULL;
+	  h.first = h.last = n;
 
 	  merge_trees (head, &h);
 	}
@@ -1940,7 +1942,7 @@ write_switch (struct decision *start, int depth)
       while (p && p->tests->type == DT_pred && p->tests->u.pred.data)
 	{
 	  const struct pred_data *data = p->tests->u.pred.data;
-	  RTX_CODE c;
+	  int c;
 	  for (c = 0; c < NUM_RTX_CODE; c++)
 	    if (codemap[c] && data->codes[c])
 	      goto pred_done;
@@ -1949,7 +1951,7 @@ write_switch (struct decision *start, int depth)
 	    if (data->codes[c])
 	      {
 		fputs ("    case ", stdout);
-		print_code (c);
+		print_code ((RTX_CODE) c);
 		fputs (":\n", stdout);
 		codemap[c] = 1;
 	      }
@@ -2636,25 +2638,25 @@ make_insn_sequence (rtx insn, enum routine_type type)
 
 	  if (i != XVECLEN (x, 0))
 	    {
-	      rtx new;
+	      rtx n;
 	      struct decision_head clobber_head;
 
 	      /* Build a similar insn without the clobbers.  */
 	      if (i == 1)
-		new = XVECEXP (x, 0, 0);
+		n = XVECEXP (x, 0, 0);
 	      else
 		{
 		  int j;
 
-		  new = rtx_alloc (PARALLEL);
-		  XVEC (new, 0) = rtvec_alloc (i);
+		  n = rtx_alloc (PARALLEL);
+		  XVEC (n, 0) = rtvec_alloc (i);
 		  for (j = i - 1; j >= 0; j--)
-		    XVECEXP (new, 0, j) = XVECEXP (x, 0, j);
+		    XVECEXP (n, 0, j) = XVECEXP (x, 0, j);
 		}
 
 	      /* Recognize it.  */
 	      memset (&clobber_head, 0, sizeof(clobber_head));
-	      last = add_to_sequence (new, &clobber_head, "", type, 1);
+	      last = add_to_sequence (n, &clobber_head, "", type, 1);
 
 	      /* Find the end of the test chain on the last node.  */
 	      for (test = last->tests; test->next; test = test->next)

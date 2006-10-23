@@ -30,9 +30,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
 
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 #undef TARGET_VERSION
 #define TARGET_VERSION fputs (" (Xtensa/ELF)", stderr);
 

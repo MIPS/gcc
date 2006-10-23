@@ -274,7 +274,7 @@ tree_predict_edge (edge e, enum br_predictor predictor, int probability)
   if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
       && flag_guess_branch_prob && optimize)
     {
-      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+      struct edge_prediction *i = (struct edge_prediction *) ggc_alloc (sizeof (struct edge_prediction));
 
       i->ep_next = e->src->predictions;
       e->src->predictions = i;
@@ -407,7 +407,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
   rtx *pnote;
   rtx note;
   int best_probability = PROB_EVEN;
-  int best_predictor = END_PREDICTORS;
+  enum br_predictor best_predictor = END_PREDICTORS;
   int combined_probability = REG_BR_PROB_BASE / 2;
   int d;
   bool first_match = false;
@@ -430,7 +430,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
   for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
     if (REG_NOTE_KIND (note) == REG_BR_PRED)
       {
-	int predictor = INTVAL (XEXP (XEXP (note, 0), 0));
+	enum br_predictor predictor = (enum br_predictor) INTVAL (XEXP (XEXP (note, 0), 0));
 	int probability = INTVAL (XEXP (XEXP (note, 0), 1));
 
 	found = true;
@@ -476,7 +476,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
     {
       if (REG_NOTE_KIND (*pnote) == REG_BR_PRED)
 	{
-	  int predictor = INTVAL (XEXP (XEXP (*pnote, 0), 0));
+	  enum br_predictor predictor = (enum br_predictor) INTVAL (XEXP (XEXP (*pnote, 0), 0));
 	  int probability = INTVAL (XEXP (XEXP (*pnote, 0), 1));
 
 	  dump_prediction (dump_file, predictor, probability, bb,
@@ -520,7 +520,7 @@ static void
 combine_predictions_for_bb (basic_block bb)
 {
   int best_probability = PROB_EVEN;
-  int best_predictor = END_PREDICTORS;
+  enum br_predictor best_predictor = END_PREDICTORS;
   int combined_probability = REG_BR_PROB_BASE / 2;
   int d;
   bool first_match = false;
@@ -564,7 +564,7 @@ combine_predictions_for_bb (basic_block bb)
      by predictor with smallest index.  */
   for (pred = bb->predictions; pred; pred = pred->ep_next)
     {
-      int predictor = pred->ep_predictor;
+      enum br_predictor predictor = pred->ep_predictor;
       int probability = pred->ep_probability;
 
       if (pred->ep_edge != first)
@@ -610,7 +610,7 @@ combine_predictions_for_bb (basic_block bb)
 
   for (pred = bb->predictions; pred; pred = pred->ep_next)
     {
-      int predictor = pred->ep_predictor;
+      enum br_predictor predictor = pred->ep_predictor;
       int probability = pred->ep_probability;
 
       if (pred->ep_edge != EDGE_SUCC (bb, 0))

@@ -2357,7 +2357,7 @@ xstormy16_expand_builtin(tree exp, rtx target,
 
   for (a = 0; a < 10 && argtree; a++)
     {
-      args[a] = expand_expr (TREE_VALUE (argtree), NULL_RTX, VOIDmode, 0);
+      args[a] = expand_normal (TREE_VALUE (argtree));
       argtree = TREE_CHAIN (argtree);
     }
 

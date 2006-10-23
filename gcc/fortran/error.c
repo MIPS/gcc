@@ -73,7 +73,7 @@ error_char (char c)
 	    cur_error_buffer->allocated
 	    ? cur_error_buffer->allocated * 2 : 1000;
 	  cur_error_buffer->message
-	    = xrealloc (cur_error_buffer->message,
+	    = (char *)xrealloc (cur_error_buffer->message,
 			cur_error_buffer->allocated);
 	}
       cur_error_buffer->message[cur_error_buffer->index++] = c;
@@ -90,7 +90,7 @@ error_char (char c)
 	  if (index + 1 >= allocated)
 	    {
 	      allocated = allocated ? allocated * 2 : 1000;
-	      line = xrealloc (line, allocated);
+	      line = (char *)xrealloc (line, allocated);
 	    }
 	  line[index++] = c;
 	  if (c == '\n')
@@ -504,7 +504,7 @@ gfc_notification_std (int std)
    standard does not contain the requested bits.  Return FAILURE if
    an error is generated.  */
 
-try
+check
 gfc_notify_std (int std, const char *nocmsgid, ...)
 {
   va_list argp;

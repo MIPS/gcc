@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "c-tree-code.h"
 #include "tree.h"
 #include "langhooks.h"
 #include "c-tree.h"
@@ -2258,7 +2259,7 @@ build_function_call (tree function, tree params)
     }
 
   if (fundecl && TREE_THIS_VOLATILE (fundecl))
-    current_function_returns_abnormally = 1;
+    current_function_returns_abnormally = true;
 
   /* fntype now gets the type of function pointed to.  */
   fntype = TREE_TYPE (fntype);
@@ -6973,7 +6974,7 @@ c_finish_return (tree retval)
 
   if (!retval)
     {
-      current_function_returns_null = 1;
+      current_function_returns_null = true;
       if ((warn_return_type || flag_isoc99)
 	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
 	{
@@ -6984,7 +6985,7 @@ c_finish_return (tree retval)
     }
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
     {
-      current_function_returns_null = 1;
+      current_function_returns_null = true;
       if (pedantic || TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
 	pedwarn ("%<return%> with a value, in function returning void");
     }
@@ -6995,7 +6996,7 @@ c_finish_return (tree retval)
       tree res = DECL_RESULT (current_function_decl);
       tree inner;
 
-      current_function_returns_value = 1;
+      current_function_returns_value = true;
       if (t == error_mark_node)
 	return NULL_TREE;
 

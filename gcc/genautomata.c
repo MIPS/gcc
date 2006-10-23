@@ -1248,7 +1248,7 @@ gen_cpu_unit (rtx def)
     fatal ("invalid string `%s' in define_cpu_unit", XSTR (def, 0));
   for (i = 0; i < vect_length; i++)
     {
-      decl = create_node (sizeof (struct decl));
+      decl = (struct decl *) create_node (sizeof (struct decl));
       decl->mode = dm_unit;
       decl->pos = 0;
       DECL_UNIT (decl)->name = check_name (str_cpu_units [i], decl->pos);
@@ -1278,7 +1278,7 @@ gen_query_cpu_unit (rtx def)
     fatal ("invalid string `%s' in define_query_cpu_unit", XSTR (def, 0));
   for (i = 0; i < vect_length; i++)
     {
-      decl = create_node (sizeof (struct decl));
+      decl = (struct decl *) create_node (sizeof (struct decl));
       decl->mode = dm_unit;
       decl->pos = 0;
       DECL_UNIT (decl)->name = check_name (str_cpu_units [i], decl->pos);
@@ -1312,7 +1312,7 @@ gen_bypass (rtx def)
   for (i = 0; i < out_length; i++)
     for (j = 0; j < in_length; j++)
       {
-	decl = create_node (sizeof (struct decl));
+	decl = (struct decl *) create_node (sizeof (struct decl));
 	decl->mode = dm_bypass;
 	decl->pos = 0;
 	DECL_BYPASS (decl)->latency = XINT (def, 0);
@@ -1347,7 +1347,7 @@ gen_excl_set (rtx def)
   if (second_str_cpu_units == NULL)
     fatal ("invalid second string `%s' in exclusion_set", XSTR (def, 1));
   length += first_vect_length;
-  decl = create_node (sizeof (struct decl) + (length - 1) * sizeof (char *));
+  decl = (struct decl *) create_node (sizeof (struct decl) + (length - 1) * sizeof (char *));
   decl->mode = dm_excl;
   decl->pos = 0;
   DECL_EXCL (decl)->all_names_num = length;
@@ -1400,14 +1400,14 @@ gen_presence_absence_set (rtx def, int presence_p, int final_p)
 	    : (final_p
 	       ? "invalid second string `%s' in final_absence_set"
 	       : "invalid second string `%s' in absence_set")), XSTR (def, 1));
-  str_patterns = obstack_alloc (&irp, patterns_length * sizeof (char **));
+  str_patterns = (char ***) obstack_alloc (&irp, patterns_length * sizeof (char **));
   for (i = 0; i < patterns_length; i++)
     {
       str_patterns [i] = get_str_vect (str_pattern_lists [i],
 				       &length, ' ', FALSE);
       gcc_assert (str_patterns [i]);
     }
-  decl = create_node (sizeof (struct decl));
+  decl = (struct decl *) create_node (sizeof (struct decl));
   decl->pos = 0;
   if (presence_p)
     {
@@ -1492,7 +1492,7 @@ gen_automaton (rtx def)
     fatal ("invalid string `%s' in define_automaton", XSTR (def, 0));
   for (i = 0; i < vect_length; i++)
     {
-      decl = create_node (sizeof (struct decl));
+      decl = (struct decl *) create_node (sizeof (struct decl));
       decl->mode = dm_automaton;
       decl->pos = 0;
       DECL_AUTOMATON (decl)->name = check_name (str_automata [i], decl->pos);
@@ -1543,19 +1543,19 @@ gen_regexp_el (const char *str)
       len = strlen (str);
       if (str [len - 1] != ')')
 	fatal ("garbage after ) in reservation `%s'", reserv_str);
-      dstr = alloca (len - 1);
+      dstr = (char *) alloca (len - 1);
       memcpy (dstr, str + 1, len - 2);
       dstr [len-2] = '\0';
       regexp = gen_regexp_sequence (dstr);
     }
   else if (strcmp (str, NOTHING_NAME) == 0)
     {
-      regexp = create_node (sizeof (struct decl));
+      regexp = (struct regexp *) create_node (sizeof (struct decl));
       regexp->mode = rm_nothing;
     }
   else
     {
-      regexp = create_node (sizeof (struct decl));
+      regexp = (struct regexp *) create_node (sizeof (struct decl));
       regexp->mode = rm_unit;
       REGEXP_UNIT (regexp)->name = str;
     }
@@ -1580,7 +1580,7 @@ gen_regexp_repeat (const char *str)
       regexp = gen_regexp_el (repeat_vect [0]);
       for (i = 1; i < els_num; i++)
 	{
-	  repeat = create_node (sizeof (struct regexp));
+	  repeat = (struct regexp *) create_node (sizeof (struct regexp));
 	  repeat->mode = rm_repeat;
 	  REGEXP_REPEAT (repeat)->regexp = regexp;
 	  REGEXP_REPEAT (repeat)->repeat_num = atoi (repeat_vect [i]);
@@ -1609,7 +1609,7 @@ gen_regexp_allof (const char *str)
     fatal ("invalid `%s' in reservation `%s'", str, reserv_str);
   if (els_num > 1)
     {
-      allof = create_node (sizeof (struct regexp)
+      allof = (struct regexp *) create_node (sizeof (struct regexp)
 			   + sizeof (regexp_t) * (els_num - 1));
       allof->mode = rm_allof;
       REGEXP_ALLOF (allof)->regexps_num = els_num;
@@ -1635,7 +1635,7 @@ gen_regexp_oneof (const char *str)
     fatal ("invalid `%s' in reservation `%s'", str, reserv_str);
   if (els_num > 1)
     {
-      oneof = create_node (sizeof (struct regexp)
+      oneof = (struct regexp *) create_node (sizeof (struct regexp)
 			   + sizeof (regexp_t) * (els_num - 1));
       oneof->mode = rm_oneof;
       REGEXP_ONEOF (oneof)->regexps_num = els_num;
@@ -1659,7 +1659,7 @@ gen_regexp_sequence (const char *str)
   sequence_vect = get_str_vect (str, &els_num, ',', TRUE);
   if (els_num > 1)
     {
-      sequence = create_node (sizeof (struct regexp)
+      sequence = (struct regexp *) create_node (sizeof (struct regexp)
 			      + sizeof (regexp_t) * (els_num - 1));
       sequence->mode = rm_sequence;
       REGEXP_SEQUENCE (sequence)->regexps_num = els_num;
@@ -1690,7 +1690,7 @@ gen_reserv (rtx def)
 {
   decl_t decl;
 
-  decl = create_node (sizeof (struct decl));
+  decl = (struct decl *) create_node (sizeof (struct decl));
   decl->mode = dm_reserv;
   decl->pos = 0;
   DECL_RESERV (decl)->name = check_name (XSTR (def, 0), decl->pos);
@@ -1708,7 +1708,7 @@ gen_insn_reserv (rtx def)
 {
   decl_t decl;
 
-  decl = create_node (sizeof (struct decl));
+  decl = (struct decl *) create_node (sizeof (struct decl));
   decl->mode = dm_insn_reserv;
   decl->pos = 0;
   DECL_INSN_RESERV (decl)->name
@@ -1785,7 +1785,7 @@ insert_automaton_decl (decl_t automaton_decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (automaton_decl_table, automaton_decl, 1);
+  entry_ptr = htab_find_slot (automaton_decl_table, automaton_decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) automaton_decl;
   return (decl_t) *entry_ptr;
@@ -1884,7 +1884,7 @@ insert_insn_decl (decl_t insn_decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (insn_decl_table, insn_decl, 1);
+  entry_ptr = htab_find_slot (insn_decl_table, insn_decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) insn_decl;
   return (decl_t) *entry_ptr;
@@ -1985,7 +1985,7 @@ insert_decl (decl_t decl)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (decl_table, decl, 1);
+  entry_ptr = htab_find_slot (decl_table, decl, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) decl;
   return (decl_t) *entry_ptr;
@@ -2056,7 +2056,7 @@ process_excls (char **names, int num, pos_t excl_pos ATTRIBUTE_UNUSED)
 	error ("`%s' in exclusion is not unit", names [i]);
       else
 	{
-	  new_el = create_node (sizeof (struct unit_set_el));
+	  new_el = (unit_set_el_t) create_node (sizeof (struct unit_set_el));
 	  new_el->unit_decl = DECL_UNIT (decl_in_table);
 	  new_el->next_unit_set_el = NULL;
 	  if (last_el == NULL)
@@ -2109,7 +2109,7 @@ add_excls (unit_set_el_t dest_list, unit_set_el_t source_list,
 	if (curr_el == NULL)
 	  {
 	    /* Element not found - insert.  */
-	    copy = copy_node (src, sizeof (*src));
+	    copy = (unit_set_el_t) copy_node (src, sizeof (*src));
 	    copy->next_unit_set_el = NULL;
 	    if (prev_el == NULL)
 	      dst->unit_decl->excl_list = copy;
@@ -2156,7 +2156,7 @@ process_presence_absence_names (char **names, int num,
 		   : "`%s' in absence set is not unit")), names [i]);
       else
 	{
-	  new_el = create_node (sizeof (struct unit_set_el));
+	  new_el = (unit_set_el_t) create_node (sizeof (struct unit_set_el));
 	  new_el->unit_decl = DECL_UNIT (decl_in_table);
 	  new_el->next_unit_set_el = NULL;
 	  if (last_el == NULL)
@@ -2191,7 +2191,7 @@ process_presence_absence_patterns (char ***patterns, int num,
     {
       for (j = 0; patterns [i] [j] != NULL; j++)
 	;
-      new_el = create_node (sizeof (struct pattern_set_el)
+      new_el = (pattern_set_el_t) create_node (sizeof (struct pattern_set_el)
 			    + sizeof (struct unit_decl *) * j);
       new_el->unit_decls
 	= (struct unit_decl **) ((char *) new_el
@@ -2338,7 +2338,7 @@ add_presence_absence (unit_set_el_t dest_list,
 		     prev_el != NULL && prev_el->next_pattern_set_el != NULL;
 		     prev_el = prev_el->next_pattern_set_el)
 		  ;
-		copy = copy_node (pat, sizeof (*pat));
+		copy = (pattern_set_el_t) copy_node (pat, sizeof (*pat));
 		copy->next_pattern_set_el = NULL;
 		if (prev_el == NULL)
 		  {
@@ -2668,7 +2668,7 @@ process_regexp (regexp_t regexp)
 
 	  case dm_reserv:
 	    DECL_RESERV (decl_in_table)->reserv_is_used = 1;
-	    new_regexp = create_node (sizeof (struct regexp));
+	    new_regexp = (struct regexp *) create_node (sizeof (struct regexp));
 	    new_regexp->mode = rm_reserv;
 	    new_regexp->pos = regexp->pos;
 	    REGEXP_RESERV (new_regexp)->name = REGEXP_UNIT (regexp)->name;
@@ -3109,7 +3109,7 @@ static decl_t advance_cycle_insn_decl;
 static void
 add_advance_cycle_insn_decl (void)
 {
-  advance_cycle_insn_decl = create_node (sizeof (struct decl));
+  advance_cycle_insn_decl = (struct decl *) create_node (sizeof (struct decl));
   advance_cycle_insn_decl->mode = dm_insn_reserv;
   advance_cycle_insn_decl->pos = no_pos;
   DECL_INSN_RESERV (advance_cycle_insn_decl)->regexp = NULL;
@@ -3152,7 +3152,7 @@ get_free_alt_state (void)
 #ifndef NDEBUG
       allocated_alt_states_num++;
 #endif
-      result = create_node (sizeof (struct alt_state));
+      result = (struct alt_state *) create_node (sizeof (struct alt_state));
     }
   result->state = NULL;
   result->next_alt_state = NULL;
@@ -3628,7 +3628,7 @@ get_free_state (int with_reservs, automaton_t automaton)
 #ifndef NDEBUG
       allocated_states_num++;
 #endif
-      result = create_node (sizeof (struct state));
+      result = (struct state *) create_node (sizeof (struct state));
       result->automaton = automaton;
       result->first_out_arc = NULL;
       result->unique_num = curr_unique_state_num;
@@ -3719,7 +3719,7 @@ insert_state (state_t state)
 {
   void **entry_ptr;
 
-  entry_ptr = htab_find_slot (state_table, (void *) state, 1);
+  entry_ptr = htab_find_slot (state_table, (void *) state, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) state;
   return (state_t) *entry_ptr;
@@ -3896,7 +3896,7 @@ add_arc (state_t from_state, state_t to_state, ainsn_t ainsn)
 #ifndef NDEBUG
       allocated_arcs_num++;
 #endif
-      new_arc = create_node (sizeof (struct arc));
+      new_arc = (struct arc *) create_node (sizeof (struct arc));
       new_arc->to_state = NULL;
       new_arc->insn = NULL;
       new_arc->next_out_arc = NULL;
@@ -3970,7 +3970,7 @@ get_free_automata_list_el (void)
 	= first_free_automata_list_el->next_automata_list_el;
     }
   else
-    result = create_node (sizeof (struct automata_list_el));
+    result = (struct automata_list_el *) create_node (sizeof (struct automata_list_el));
   result->automaton = NULL;
   result->next_automata_list_el = NULL;
   return result;
@@ -4074,8 +4074,8 @@ automata_list_finish (void)
 
   if (current_automata_list == NULL)
     return NULL;
-  entry_ptr = htab_find_slot (automata_list_table,
-			      (void *) current_automata_list, 1);
+  entry_ptr = (void **) htab_find_slot (automata_list_table,
+			      (void *) current_automata_list, INSERT);
   if (*entry_ptr == NULL)
     *entry_ptr = (void *) current_automata_list;
   else
@@ -4197,7 +4197,7 @@ form_reserv_sets_list (pattern_set_el_t pattern_list)
   prev = first = NULL;
   for (el = pattern_list; el != NULL; el = el->next_pattern_set_el)
     {
-      curr = create_node (sizeof (struct pattern_reserv));
+      curr = (struct pattern_reserv *) create_node (sizeof (struct pattern_reserv));
       curr->reserv = alloc_empty_reserv_sets ();
       curr->next_pattern_reserv = NULL;
       for (i = 0; i < el->units_num; i++)
@@ -4368,17 +4368,17 @@ copy_insn_regexp (regexp_t regexp)
       break;
 
     case rm_unit:
-      result = copy_node (regexp, sizeof (struct regexp));
+      result = (struct regexp *) copy_node (regexp, sizeof (struct regexp));
       break;
 
     case rm_repeat:
-      result = copy_node (regexp, sizeof (struct regexp));
+      result = (struct regexp *) copy_node (regexp, sizeof (struct regexp));
       REGEXP_REPEAT (result)->regexp
         = copy_insn_regexp (REGEXP_REPEAT (regexp)->regexp);
       break;
 
     case rm_sequence:
-      result = copy_node (regexp,
+      result = (struct regexp *) copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
 			  * (REGEXP_SEQUENCE (regexp)->regexps_num - 1));
       for (i = 0; i <REGEXP_SEQUENCE (regexp)->regexps_num; i++)
@@ -4387,7 +4387,7 @@ copy_insn_regexp (regexp_t regexp)
       break;
 
     case rm_allof:
-      result = copy_node (regexp,
+      result = (struct regexp *) copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
 			  * (REGEXP_ALLOF (regexp)->regexps_num - 1));
       for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
@@ -4396,7 +4396,7 @@ copy_insn_regexp (regexp_t regexp)
       break;
 
     case rm_oneof:
-      result = copy_node (regexp,
+      result = (struct regexp *) copy_node (regexp,
                           sizeof (struct regexp) + sizeof (regexp_t)
 			  * (REGEXP_ONEOF (regexp)->regexps_num - 1));
       for (i = 0; i < REGEXP_ONEOF (regexp)->regexps_num; i++)
@@ -4405,7 +4405,7 @@ copy_insn_regexp (regexp_t regexp)
       break;
 
     case rm_nothing:
-      result = copy_node (regexp, sizeof (struct regexp));
+      result = (struct regexp *) copy_node (regexp, sizeof (struct regexp));
       break;
 
     default:
@@ -4434,7 +4434,7 @@ transform_1 (regexp_t regexp)
       gcc_assert (repeat_num > 1);
       operand = REGEXP_REPEAT (regexp)->regexp;
       pos = regexp->mode;
-      regexp = create_node (sizeof (struct regexp) + sizeof (regexp_t)
+      regexp = (struct regexp *) create_node (sizeof (struct regexp) + sizeof (regexp_t)
 			    * (repeat_num - 1));
       regexp->mode = rm_sequence;
       regexp->pos = pos;
@@ -4471,7 +4471,7 @@ transform_2 (regexp_t regexp)
 	{
 	  gcc_assert (REGEXP_SEQUENCE (sequence)->regexps_num > 1
 		      && REGEXP_SEQUENCE (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
                                 + sizeof (regexp_t)
 				* (REGEXP_SEQUENCE (regexp)->regexps_num
                                    + REGEXP_SEQUENCE (sequence)->regexps_num
@@ -4515,7 +4515,7 @@ transform_2 (regexp_t regexp)
 	{
 	  gcc_assert (REGEXP_ALLOF (allof)->regexps_num > 1
 		      && REGEXP_ALLOF (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
                                 + sizeof (regexp_t)
 				* (REGEXP_ALLOF (regexp)->regexps_num
                                    + REGEXP_ALLOF (allof)->regexps_num - 2));
@@ -4558,7 +4558,7 @@ transform_2 (regexp_t regexp)
 	{
 	  gcc_assert (REGEXP_ONEOF (oneof)->regexps_num > 1
 		      && REGEXP_ONEOF (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
 				* (REGEXP_ONEOF (regexp)->regexps_num
                                    + REGEXP_ONEOF (oneof)->regexps_num - 2));
@@ -4613,7 +4613,7 @@ transform_3 (regexp_t regexp)
 	{
 	  gcc_assert (REGEXP_ONEOF (oneof)->regexps_num > 1
 		      && REGEXP_SEQUENCE (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
 				* (REGEXP_ONEOF (oneof)->regexps_num - 1));
 	  result->mode = rm_oneof;
@@ -4623,7 +4623,7 @@ transform_3 (regexp_t regexp)
 	  for (i = 0; i < REGEXP_ONEOF (result)->regexps_num; i++)
 	    {
 	      sequence
-                = create_node (sizeof (struct regexp)
+                = (struct regexp *) create_node (sizeof (struct regexp)
                                + sizeof (regexp_t)
                                * (REGEXP_SEQUENCE (regexp)->regexps_num - 1));
 	      sequence->mode = rm_sequence;
@@ -4665,7 +4665,7 @@ transform_3 (regexp_t regexp)
 	{
 	  gcc_assert (REGEXP_ONEOF (oneof)->regexps_num > 1
 		      && REGEXP_ALLOF (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t)
 				* (REGEXP_ONEOF (oneof)->regexps_num - 1));
 	  result->mode = rm_oneof;
@@ -4675,7 +4675,7 @@ transform_3 (regexp_t regexp)
 	  for (i = 0; i < REGEXP_ONEOF (result)->regexps_num; i++)
 	    {
 	      allof
-		= create_node (sizeof (struct regexp)
+		= (struct regexp *) create_node (sizeof (struct regexp)
                                + sizeof (regexp_t)
 			       * (REGEXP_ALLOF (regexp)->regexps_num - 1));
 	      allof->mode = rm_allof;
@@ -4720,7 +4720,7 @@ transform_3 (regexp_t regexp)
 	{
 	  gcc_assert (max_seq_length != 1
 		      && REGEXP_ALLOF (regexp)->regexps_num > 1);
-	  result = create_node (sizeof (struct regexp)
+	  result = (struct regexp *) create_node (sizeof (struct regexp)
 				+ sizeof (regexp_t) * (max_seq_length - 1));
 	  result->mode = rm_sequence;
 	  result->pos = regexp->pos;
@@ -4758,7 +4758,7 @@ transform_3 (regexp_t regexp)
 		REGEXP_SEQUENCE (result)->regexps [i] = allof_op;
 	      else
 		{
-		  allof = create_node (sizeof (struct regexp)
+		  allof = (struct regexp *) create_node (sizeof (struct regexp)
 				       + sizeof (regexp_t)
 				       * (allof_length - 1));
 		  allof->mode = rm_allof;
@@ -5675,7 +5675,7 @@ cache_presence (state_t state)
   sz = (description->query_units_num + sizeof (int) * CHAR_BIT - 1)
         / (sizeof (int) * CHAR_BIT);
   
-  state->presence_signature = create_node (sz * sizeof (int));
+  state->presence_signature = (unsigned int *) create_node (sz * sizeof (int));
   for (i = 0; i < description->units_num; i++)
     if (units_array [i]->query_p)
       {
@@ -6403,7 +6403,7 @@ create_ainsns (void)
       decl = description->decls [i];
       if (decl->mode == dm_insn_reserv)
 	{
-	  curr_ainsn = create_node (sizeof (struct ainsn));
+	  curr_ainsn = (struct ainsn *) create_node (sizeof (struct ainsn));
 	  curr_ainsn->insn_reserv_decl = DECL_INSN_RESERV (decl);
 	  curr_ainsn->important_p = FALSE;
 	  curr_ainsn->next_ainsn = NULL;
@@ -6461,7 +6461,7 @@ create_automata (void)
            curr_automaton_num < automata_num;
            curr_automaton_num++, prev_automaton = curr_automaton)
         {
-	  curr_automaton = create_node (sizeof (struct automaton));
+	  curr_automaton = (struct automaton *) create_node (sizeof (struct automaton));
 	  curr_automaton->ainsn_list = create_ainsns ();
 	  curr_automaton->corresponding_automaton_decl = NULL;
 	  curr_automaton->next_automaton = NULL;
@@ -6482,7 +6482,7 @@ create_automata (void)
 	  if (decl->mode == dm_automaton
 	      && DECL_AUTOMATON (decl)->automaton_is_used)
 	    {
-	      curr_automaton = create_node (sizeof (struct automaton));
+	      curr_automaton = (struct automaton *) create_node (sizeof (struct automaton));
 	      curr_automaton->ainsn_list = create_ainsns ();
 	      curr_automaton->corresponding_automaton_decl
 		= DECL_AUTOMATON (decl);
@@ -6499,7 +6499,7 @@ create_automata (void)
 	}
       if (curr_automaton_num == 0)
 	{
-	  curr_automaton = create_node (sizeof (struct automaton));
+	  curr_automaton = (struct automaton *) create_node (sizeof (struct automaton));
 	  curr_automaton->ainsn_list = create_ainsns ();
 	  curr_automaton->corresponding_automaton_decl = NULL;
 	  curr_automaton->next_automaton = NULL;
@@ -7040,7 +7040,7 @@ create_state_ainsn_table (automaton_t automaton)
   int full_vect_length;
   int i;
 
-  tab = create_node (sizeof (struct state_ainsn_table));
+  tab = (state_ainsn_table_t) create_node (sizeof (struct state_ainsn_table));
   tab->automaton = automaton;
 
   tab->comb_vect  = VEC_alloc (vect_el_t,heap, 10000);
@@ -7954,7 +7954,7 @@ dfa_insn_code_enlarge (int uid)\n\
 {\n\
   int i = %s;\n\
   %s = 2 * uid;\n\
-  %s = xrealloc (%s,\n\
+  %s = (int *) xrealloc (%s,\n\
                  %s * sizeof(int));\n\
   for (; i < %s; i++)\n\
     %s[i] = -1;\n}\n\n",
@@ -8000,8 +8000,9 @@ output_trans_func (void)
   fprintf (output_file, "{\n  int %s;\n", INTERNAL_INSN_CODE_NAME);
   output_internal_insn_code_evaluation (INSN_PARAMETER_NAME,
 					INTERNAL_INSN_CODE_NAME, -1);
-  fprintf (output_file, "  return %s (%s, %s);\n}\n\n",
-	   INTERNAL_TRANSITION_FUNC_NAME, INTERNAL_INSN_CODE_NAME, STATE_NAME);
+  fprintf (output_file, "  return %s (%s, (struct %s *) %s);\n}\n\n",
+	   INTERNAL_TRANSITION_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
+	   CHIP_NAME, STATE_NAME);
 }
 
 /* Output function `min_issue_delay'.  */
@@ -8019,9 +8020,9 @@ output_min_issue_delay_func (void)
 	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
   fprintf (output_file, "    }\n  else\n    %s = %s;\n",
 	   INTERNAL_INSN_CODE_NAME, ADVANCE_CYCLE_VALUE_NAME);
-  fprintf (output_file, "\n  return %s (%s, %s);\n",
+  fprintf (output_file, "\n  return %s (%s, (struct %s *) %s);\n",
 	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
-	   STATE_NAME);
+	   CHIP_NAME, STATE_NAME);
   fprintf (output_file, "}\n\n");
 }
 
@@ -8054,8 +8055,8 @@ output_dead_lock_func (void)
 {
   fprintf (output_file, "int\n%s (%s %s)\n",
 	   DEAD_LOCK_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME);
-  fprintf (output_file, "{\n  return %s (%s);\n}\n\n",
-	   INTERNAL_DEAD_LOCK_FUNC_NAME, STATE_NAME);
+  fprintf (output_file, "{\n  return %s ((struct %s *) %s);\n}\n\n",
+	   INTERNAL_DEAD_LOCK_FUNC_NAME, CHIP_NAME, STATE_NAME);
 }
 
 /* Output function `internal_reset'.  */
@@ -8082,8 +8083,8 @@ output_reset_func (void)
 {
   fprintf (output_file, "void\n%s (%s %s)\n",
 	   RESET_FUNC_NAME, STATE_TYPE_NAME, STATE_NAME);
-  fprintf (output_file, "{\n  %s (%s);\n}\n\n", INTERNAL_RESET_FUNC_NAME,
-	   STATE_NAME);
+  fprintf (output_file, "{\n  %s ((struct %s *) %s);\n}\n\n", INTERNAL_RESET_FUNC_NAME,
+	   CHIP_NAME, STATE_NAME);
 }
 
 /* Output function `min_insn_conflict_delay'.  */
@@ -8330,7 +8331,7 @@ output_get_cpu_unit_code_func (void)
 	   LOW_VARIABLE_NAME, MIDDLE_VARIABLE_NAME, HIGH_VARIABLE_NAME);
   fprintf (output_file, "  static struct %s %s [] =\n    {\n",
 	   NAME_CODE_STRUCT_NAME, NAME_CODE_TABLE_NAME);
-  units = xmalloc (sizeof (unit_decl_t) * description->units_num);
+  units = XNEWVEC (unit_decl_t, description->units_num);
   memcpy (units, units_array, sizeof (unit_decl_t) * description->units_num);
   qsort (units, description->units_num, sizeof (unit_decl_t), units_cmp);
   for (i = 0; i < description->units_num; i++)
@@ -8426,7 +8427,7 @@ output_dfa_start_func (void)
   fprintf (output_file,
 	   "void\n%s (void)\n{\n  %s = get_max_uid ();\n",
 	   DFA_START_FUNC_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
-  fprintf (output_file, "  %s = xmalloc (%s * sizeof (int));\n",
+  fprintf (output_file, "  %s = (int *) xmalloc (%s * sizeof (int));\n",
 	   DFA_INSN_CODES_VARIABLE_NAME, DFA_INSN_CODES_LENGTH_VARIABLE_NAME);
   fprintf (output_file, "  %s ();\n}\n\n", DFA_CLEAN_INSN_CACHE_FUNC_NAME);
 }
@@ -9106,7 +9107,7 @@ expand_automata (void)
 {
   int i;
 
-  description = create_node (sizeof (struct description)
+  description = (struct description *) create_node (sizeof (struct description)
 			     /* One entry for cycle advancing insn.  */
 			     + sizeof (decl_t) * VEC_length (decl_t, decls));
   description->decls_num = VEC_length (decl_t, decls);

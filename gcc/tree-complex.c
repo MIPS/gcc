@@ -67,7 +67,7 @@ cvc_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = htab_find_with_hash (complex_variable_components, &in, uid);
+  h = (struct int_tree_map *) htab_find_with_hash (complex_variable_components, &in, uid);
   return h ? h->to : NULL;
 }
  
@@ -135,7 +135,7 @@ find_lattice_value (tree t)
 
   r = some_nonzerop (real);
   i = some_nonzerop (imag);
-  ret = r*ONLY_REAL + i*ONLY_IMAG;
+  ret = (complex_lattice_t) (r*ONLY_REAL + i*ONLY_IMAG);
 
   /* ??? On occasion we could do better than mapping 0+0i to real, but we
      certainly don't want to leave it UNINITIALIZED, which eventually gets
@@ -297,7 +297,7 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 
       /* We've set up the lattice values such that IOR neatly
 	 models addition.  */
-      new_l = op1_l | op2_l;
+      new_l = (complex_lattice_t) (op1_l | op2_l);
       break;
 
     case MULT_EXPR:
@@ -324,10 +324,10 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 	     numbers are of opposite kind, the result is imaginary,
 	     otherwise the result is real. The add/subtract translates
 	     the real/imag from/to 0/1; the ^ performs the comparison.  */
-	  new_l = ((op1_l - ONLY_REAL) ^ (op2_l - ONLY_REAL)) + ONLY_REAL;
+	  new_l = (complex_lattice_t) (((op1_l - ONLY_REAL) ^ (op2_l - ONLY_REAL)) + ONLY_REAL);
 
 	  /* Don't allow the lattice value to flip-flop indefinitely.  */
-	  new_l |= old_l;
+	  new_l = (complex_lattice_t) (new_l | old_l);
 	}
       break;
 
@@ -368,7 +368,7 @@ complex_visit_phi (tree phi)
   /* We've set up the lattice values such that IOR neatly models PHI meet.  */
   new_l = UNINITIALIZED;
   for (i = PHI_NUM_ARGS (phi) - 1; i >= 0; --i)
-    new_l |= find_lattice_value (PHI_ARG_DEF (phi, i));
+    new_l = (complex_lattice_t) (new_l | find_lattice_value (PHI_ARG_DEF (phi, i)));
 
   ver = SSA_NAME_VERSION (lhs);
   old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
@@ -899,9 +899,9 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
   mode = TYPE_MODE (type);
   gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
   if (code == MULT_EXPR)
-    bcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+    bcode = (enum built_in_function) (BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT);
   else if (code == RDIV_EXPR)
-    bcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+    bcode = (enum built_in_function) (BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT);
   else
     gcc_unreachable ();
   fn = built_in_decls[bcode];

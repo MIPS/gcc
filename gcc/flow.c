@@ -174,7 +174,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define MAX_LIVENESS_ROUNDS 20
 
 /* Nonzero if the second flow pass has completed.  */
-int flow2_completed;
+bool flow2_completed;
 
 /* Maximum register number used in this function, plus one.  */
 
@@ -2578,7 +2578,7 @@ add_to_mem_set_list (struct propagate_block_info *pbi, rtx mem)
       if (pbi->flags & PROP_AUTOINC)
 	mem = shallow_copy_rtx (mem);
 #endif
-      pbi->mem_set_list = alloc_EXPR_LIST (0, mem, pbi->mem_set_list);
+      pbi->mem_set_list = alloc_EXPR_LIST (REG_DEP_TRUE, mem, pbi->mem_set_list);
       pbi->mem_set_list_len++;
     }
 }
@@ -2591,7 +2591,7 @@ static int
 invalidate_mems_from_autoinc (rtx *px, void *data)
 {
   rtx x = *px;
-  struct propagate_block_info *pbi = data;
+  struct propagate_block_info *pbi = (struct propagate_block_info *) data;
 
   if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
     {
@@ -3246,7 +3246,7 @@ ior_reg_cond (rtx old, rtx x, int add)
 	return old;
       if (! add)
 	return NULL;
-      return gen_rtx_IOR (0, old, x);
+      return gen_rtx_IOR (VOIDmode, old, x);
     }
 
   switch (GET_CODE (old))
@@ -3257,26 +3257,26 @@ ior_reg_cond (rtx old, rtx x, int add)
       if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const0_rtx)
-	    return op1 ? op1 : gen_rtx_IOR (0, XEXP (old, 1), x);
+	    return op1 ? op1 : gen_rtx_IOR (VOIDmode, XEXP (old, 1), x);
 	  if (op1 == const0_rtx)
-	    return op0 ? op0 : gen_rtx_IOR (0, XEXP (old, 0), x);
+	    return op0 ? op0 : gen_rtx_IOR (VOIDmode, XEXP (old, 0), x);
 	  if (op0 == const1_rtx || op1 == const1_rtx)
 	    return const1_rtx;
 	  if (op0 == NULL)
-	    op0 = gen_rtx_IOR (0, XEXP (old, 0), x);
+	    op0 = gen_rtx_IOR (VOIDmode, XEXP (old, 0), x);
 	  else if (rtx_equal_p (x, op0))
 	    /* (x | A) | x ~ (x | A).  */
 	    return old;
 	  if (op1 == NULL)
-	    op1 = gen_rtx_IOR (0, XEXP (old, 1), x);
+	    op1 = gen_rtx_IOR (VOIDmode, XEXP (old, 1), x);
 	  else if (rtx_equal_p (x, op1))
 	    /* (A | x) | x ~ (A | x).  */
 	    return old;
-	  return gen_rtx_IOR (0, op0, op1);
+	  return gen_rtx_IOR (VOIDmode, op0, op1);
 	}
       if (! add)
 	return NULL;
-      return gen_rtx_IOR (0, old, x);
+      return gen_rtx_IOR (VOIDmode, old, x);
 
     case AND:
       op0 = ior_reg_cond (XEXP (old, 0), x, 0);
@@ -3284,26 +3284,26 @@ ior_reg_cond (rtx old, rtx x, int add)
       if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const1_rtx)
-	    return op1 ? op1 : gen_rtx_IOR (0, XEXP (old, 1), x);
+	    return op1 ? op1 : gen_rtx_IOR (VOIDmode, XEXP (old, 1), x);
 	  if (op1 == const1_rtx)
-	    return op0 ? op0 : gen_rtx_IOR (0, XEXP (old, 0), x);
+	    return op0 ? op0 : gen_rtx_IOR (VOIDmode, XEXP (old, 0), x);
 	  if (op0 == const0_rtx || op1 == const0_rtx)
 	    return const0_rtx;
 	  if (op0 == NULL)
-	    op0 = gen_rtx_IOR (0, XEXP (old, 0), x);
+	    op0 = gen_rtx_IOR (VOIDmode, XEXP (old, 0), x);
 	  else if (rtx_equal_p (x, op0))
 	    /* (x & A) | x ~ x.  */
 	    return op0;
 	  if (op1 == NULL)
-	    op1 = gen_rtx_IOR (0, XEXP (old, 1), x);
+	    op1 = gen_rtx_IOR (VOIDmode, XEXP (old, 1), x);
 	  else if (rtx_equal_p (x, op1))
 	    /* (A & x) | x ~ x.  */
 	    return op1;
-	  return gen_rtx_AND (0, op0, op1);
+	  return gen_rtx_AND (VOIDmode, op0, op1);
 	}
       if (! add)
 	return NULL;
-      return gen_rtx_IOR (0, old, x);
+      return gen_rtx_IOR (VOIDmode, old, x);
 
     case NOT:
       op0 = and_reg_cond (XEXP (old, 0), not_reg_cond (x), 0);
@@ -3311,7 +3311,7 @@ ior_reg_cond (rtx old, rtx x, int add)
 	return not_reg_cond (op0);
       if (! add)
 	return NULL;
-      return gen_rtx_IOR (0, old, x);
+      return gen_rtx_IOR (VOIDmode, old, x);
 
     default:
       gcc_unreachable ();
@@ -3335,7 +3335,7 @@ not_reg_cond (rtx x)
       return gen_rtx_fmt_ee (reversed_comparison_code (x, NULL),
 			     VOIDmode, XEXP (x, 0), const0_rtx);
     }
-  return gen_rtx_NOT (0, x);
+  return gen_rtx_NOT (VOIDmode, x);
 }
 
 static rtx
@@ -3354,7 +3354,7 @@ and_reg_cond (rtx old, rtx x, int add)
 	return old;
       if (! add)
 	return NULL;
-      return gen_rtx_AND (0, old, x);
+      return gen_rtx_AND (VOIDmode, old, x);
     }
 
   switch (GET_CODE (old))
@@ -3365,26 +3365,26 @@ and_reg_cond (rtx old, rtx x, int add)
       if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const0_rtx)
-	    return op1 ? op1 : gen_rtx_AND (0, XEXP (old, 1), x);
+	    return op1 ? op1 : gen_rtx_AND (VOIDmode, XEXP (old, 1), x);
 	  if (op1 == const0_rtx)
-	    return op0 ? op0 : gen_rtx_AND (0, XEXP (old, 0), x);
+	    return op0 ? op0 : gen_rtx_AND (VOIDmode, XEXP (old, 0), x);
 	  if (op0 == const1_rtx || op1 == const1_rtx)
 	    return const1_rtx;
 	  if (op0 == NULL)
-	    op0 = gen_rtx_AND (0, XEXP (old, 0), x);
+	    op0 = gen_rtx_AND (VOIDmode, XEXP (old, 0), x);
 	  else if (rtx_equal_p (x, op0))
 	    /* (x | A) & x ~ x.  */
 	    return op0;
 	  if (op1 == NULL)
-	    op1 = gen_rtx_AND (0, XEXP (old, 1), x);
+	    op1 = gen_rtx_AND (VOIDmode, XEXP (old, 1), x);
 	  else if (rtx_equal_p (x, op1))
 	    /* (A | x) & x ~ x.  */
 	    return op1;
-	  return gen_rtx_IOR (0, op0, op1);
+	  return gen_rtx_IOR (VOIDmode, op0, op1);
 	}
       if (! add)
 	return NULL;
-      return gen_rtx_AND (0, old, x);
+      return gen_rtx_AND (VOIDmode, old, x);
 
     case AND:
       op0 = and_reg_cond (XEXP (old, 0), x, 0);
@@ -3392,26 +3392,26 @@ and_reg_cond (rtx old, rtx x, int add)
       if (op0 != NULL || op1 != NULL)
 	{
 	  if (op0 == const1_rtx)
-	    return op1 ? op1 : gen_rtx_AND (0, XEXP (old, 1), x);
+	    return op1 ? op1 : gen_rtx_AND (VOIDmode, XEXP (old, 1), x);
 	  if (op1 == const1_rtx)
-	    return op0 ? op0 : gen_rtx_AND (0, XEXP (old, 0), x);
+	    return op0 ? op0 : gen_rtx_AND (VOIDmode, XEXP (old, 0), x);
 	  if (op0 == const0_rtx || op1 == const0_rtx)
 	    return const0_rtx;
 	  if (op0 == NULL)
-	    op0 = gen_rtx_AND (0, XEXP (old, 0), x);
+	    op0 = gen_rtx_AND (VOIDmode, XEXP (old, 0), x);
 	  else if (rtx_equal_p (x, op0))
 	    /* (x & A) & x ~ (x & A).  */
 	    return old;
 	  if (op1 == NULL)
-	    op1 = gen_rtx_AND (0, XEXP (old, 1), x);
+	    op1 = gen_rtx_AND (VOIDmode, XEXP (old, 1), x);
 	  else if (rtx_equal_p (x, op1))
 	    /* (A & x) & x ~ (A & x).  */
 	    return old;
-	  return gen_rtx_AND (0, op0, op1);
+	  return gen_rtx_AND (VOIDmode, op0, op1);
 	}
       if (! add)
 	return NULL;
-      return gen_rtx_AND (0, old, x);
+      return gen_rtx_AND (VOIDmode, old, x);
 
     case NOT:
       op0 = ior_reg_cond (XEXP (old, 0), not_reg_cond (x), 0);
@@ -3419,7 +3419,7 @@ and_reg_cond (rtx old, rtx x, int add)
 	return not_reg_cond (op0);
       if (! add)
 	return NULL;
-      return gen_rtx_AND (0, old, x);
+      return gen_rtx_AND (VOIDmode, old, x);
 
     default:
       gcc_unreachable ();
@@ -3456,7 +3456,7 @@ elim_reg_cond (rtx x, unsigned int regno)
 	return op0;
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return x;
-      return gen_rtx_AND (0, op0, op1);
+      return gen_rtx_AND (VOIDmode, op0, op1);
 
     case IOR:
       op0 = elim_reg_cond (XEXP (x, 0), regno);
@@ -3469,7 +3469,7 @@ elim_reg_cond (rtx x, unsigned int regno)
 	return op0;
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return x;
-      return gen_rtx_IOR (0, op0, op1);
+      return gen_rtx_IOR (VOIDmode, op0, op1);
 
     case NOT:
       op0 = elim_reg_cond (XEXP (x, 0), regno);
@@ -4714,7 +4714,7 @@ rest_of_handle_life (void)
         }
     }
 
-  no_new_pseudos = 1;
+  no_new_pseudos = true;
   return 0;
 }
 
@@ -4756,8 +4756,8 @@ rest_of_handle_flow2 (void)
      it and the rest of the code and also allows delayed branch
      scheduling to operate in the epilogue.  */
   thread_prologue_and_epilogue_insns (get_insns ());
-  epilogue_completed = 1;
-  flow2_completed = 1;
+  epilogue_completed = true;
+  flow2_completed = true;
   return 0;
 }
 

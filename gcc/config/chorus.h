@@ -36,6 +36,3 @@ Boston, MA 02110-1301, USA.  */
 /* Type used for wchar_t, as a string used in a declaration.  */
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
-
-#undef LINK_SPEC
-#define LINK_SPEC ""

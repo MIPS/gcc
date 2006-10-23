@@ -79,8 +79,8 @@ jcf_filbuf_from_stdio (JCF *jcf, int count)
       JCF_u4 old_read_end = jcf->read_end - jcf->buffer;
       JCF_u4 old_size = jcf->buffer_end - jcf->buffer;
       JCF_u4 new_size = (old_size == 0 ? 2000 : 2 * old_size) + count;
-      unsigned char *new_buffer = jcf->buffer == NULL ? ALLOC (new_size)
-	: REALLOC (jcf->buffer, new_size);
+      unsigned char *new_buffer =  (unsigned char *) (jcf->buffer == NULL ? XNEWVEC (unsigned char, new_size)
+	: xrealloc (jcf->buffer, new_size));
       jcf->buffer = new_buffer;
       jcf->buffer_end = new_buffer + new_size;
       jcf->read_ptr = new_buffer + old_read_ptr;
@@ -116,7 +116,7 @@ opendir_in_zip (const char *zipfile, int is_system)
 	return zipf;
     }
 
-  zipf = ALLOC (sizeof (struct ZipFile) + strlen (zipfile) + 1);
+  zipf = (struct ZipFile *) xmalloc (sizeof (struct ZipFile) + strlen (zipfile) + 1);
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
@@ -291,7 +291,11 @@ compare_path (const void *key, const void *entry)
 /* Returns nonzero if ENTRY names a .java or .class file.  */
 
 static int
+#ifdef __APPLE__
+java_or_class_file (struct dirent *entry)
+#else
 java_or_class_file (const struct dirent *entry)
+#endif
 {
   const char *base = lbasename (entry->d_name);
   return (fnmatch ("*.java", base, 0) == 0 || 
@@ -392,7 +396,7 @@ caching_stat (char *filename, struct stat *buf)
 	 to (void *) and use __extension__ so that either way it is
 	 quietly accepted.  FIXME: scandir is not in POSIX.  */
       dent->num_files = __extension__ scandir (filename, &dent->files, 
-					       (void *) java_or_class_file, 
+					       java_or_class_file, 
 					       alphasort);
       *slot = dent;
     }
@@ -441,7 +445,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 	    int source_ok)
 {
   int fd;
-  int i, k, java = -1, class = -1;
+  int i, k, java = -1, jclass = -1;
   struct stat java_buf, class_buf;
   char *dep_file;
   void *entry;
@@ -466,17 +470,17 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   /* Allocate and zero out the buffer, since we don't explicitly put a
      null pointer when we're copying it below.  */
   buflen = jcf_path_max_len () + classname_length + 10;
-  buffer = ALLOC (buflen);
+  buffer = XNEWVEC (char, buflen);
   memset (buffer, 0, buflen);
 
-  java_buffer = alloca (buflen);
+  java_buffer = (char *) alloca (buflen);
 
   jcf->java_source = 0;
 
   for (entry = jcf_path_start (); entry != NULL; entry = jcf_path_next (entry))
     {
       const char *path_name = jcf_path_name (entry);
-      if (class != 0)
+      if (jclass != 0)
 	{
 	  int dir_len;
 
@@ -519,7 +523,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 	      else
 		continue;
 	    }
-	  class = caching_stat(buffer, &class_buf);
+	  jclass = caching_stat(buffer, &class_buf);
 	}
 
       if (source_ok)
@@ -543,18 +547,18 @@ find_class (const char *classname, int classname_length, JCF *jcf,
      source file instead.
      There should be a flag to allow people have the class file picked
      up no matter what. FIXME. */
-  if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
+  if (! java && ! jclass && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
 	warning (0, "source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
-      class = -1;
+      jclass = -1;
     }
 
   if (! java)
     dep_file = java_buffer;
   else
     dep_file = buffer;
-  if (!class)
+  if (!jclass)
     {
       SOURCE_FRONTEND_DEBUG ((stderr, "[Class selected: %s]\n",
 			      classname+classname_length-

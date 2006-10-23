@@ -142,8 +142,8 @@ recog_memoized (rtx insn)
 }
 #endif
 
-/* Nonzero means volatile operands are recognized.  */
-extern int volatile_ok;
+/* True means volatile operands are recognized.  */
+extern bool volatile_ok;
 
 /* Set by constrain_operands to the number of the alternative that
    matched.  */

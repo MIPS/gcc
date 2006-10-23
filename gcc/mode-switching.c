@@ -541,8 +541,8 @@ optimize_mode_switching (void)
   for (i = 0; i < max_num_modes; i++)
     {
       int current_mode[N_ENTITIES];
-      sbitmap *delete;
-      sbitmap *insert;
+      sbitmap *del;
+      sbitmap *ins;
 
       /* Set the anticipatable and computing arrays.  */
       sbitmap_vector_zero (antic, last_basic_block);
@@ -568,7 +568,7 @@ optimize_mode_switching (void)
       FOR_EACH_BB (bb)
 	sbitmap_not (kill[bb->index], transp[bb->index]);
       edge_list = pre_edge_lcm (n_entities, transp, comp, antic,
-				kill, &insert, &delete);
+				kill, &ins, &del);
 
       for (j = n_entities - 1; j >= 0; j--)
 	{
@@ -592,7 +592,7 @@ optimize_mode_switching (void)
 
 	      eg->aux = 0;
 
-	      if (! TEST_BIT (insert[e], j))
+	      if (! TEST_BIT (ins[e], j))
 		continue;
 
 	      eg->aux = (void *)1;
@@ -620,7 +620,7 @@ optimize_mode_switching (void)
 	    }
 
 	  FOR_EACH_BB_REVERSE (bb)
-	    if (TEST_BIT (delete[bb->index], j))
+	    if (TEST_BIT (del[bb->index], j))
 	      {
 		make_preds_opaque (bb, j);
 		/* Cancel the 'deleted' mode set.  */
@@ -628,8 +628,8 @@ optimize_mode_switching (void)
 	      }
 	}
 
-      sbitmap_vector_free (delete);
-      sbitmap_vector_free (insert);
+      sbitmap_vector_free (del);
+      sbitmap_vector_free (ins);
       clear_aux_for_edges ();
       free_edge_list (edge_list);
     }
@@ -716,9 +716,9 @@ static unsigned int
 rest_of_handle_mode_switching (void)
 {
 #ifdef OPTIMIZE_MODE_SWITCHING
-  no_new_pseudos = 0;
+  no_new_pseudos = false;
   optimize_mode_switching ();
-  no_new_pseudos = 1;
+  no_new_pseudos = true;
 #endif /* OPTIMIZE_MODE_SWITCHING */
   return 0;
 }

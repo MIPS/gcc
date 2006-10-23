@@ -625,7 +625,7 @@ static rtx last_scheduled_insn;
    This is the number of cycles between instruction issue and
    instruction results.  */
 
-HAIFA_INLINE int
+int
 insn_cost (rtx insn, rtx link, rtx used)
 {
   return insn_cost1 (insn, used ? REG_NOTE_KIND (link) : REG_NOTE_MAX,
@@ -1433,7 +1433,7 @@ save_line_notes (int b, rtx head, rtx tail)
 void
 restore_line_notes (rtx head, rtx tail)
 {
-  rtx line, note, prev, new;
+  rtx line, note, prev, fresh;
   int added_notes = 0;
   rtx next_tail, insn;
 
@@ -1487,9 +1487,9 @@ restore_line_notes (rtx head, rtx tail)
 	else
 	  {
 	    added_notes++;
-	    new = emit_note_after (NOTE_LINE_NUMBER (note), prev);
+	    fresh = emit_note_after (NOTE_LINE_NUMBER (note), prev);
 #ifndef USE_MAPPED_LOCATION
-	    NOTE_SOURCE_FILE (new) = NOTE_SOURCE_FILE (note);
+	    NOTE_SOURCE_FILE (fresh) = NOTE_SOURCE_FILE (note);
 #endif
 	  }
       }
@@ -1925,7 +1925,7 @@ reemit_notes (rtx insn)
     {
       if (REG_NOTE_KIND (note) == REG_SAVE_NOTE)
 	{
-	  enum insn_note note_type = INTVAL (XEXP (note, 0));
+	  enum insn_note note_type = (enum insn_note) INTVAL (XEXP (note, 0));
 
 	  last = emit_note_before (note_type, last);
 	  remove_note (insn, note);
@@ -2318,7 +2318,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
   q_ptr = 0;
   q_size = 0;
 
-  insn_queue = alloca ((max_insn_queue_index + 1) * sizeof (rtx));
+  insn_queue = (rtx *) alloca ((max_insn_queue_index + 1) * sizeof (rtx));
   memset (insn_queue, 0, (max_insn_queue_index + 1) * sizeof (rtx));
 
   /* Start just before the beginning of time.  */
@@ -3273,7 +3273,7 @@ extend_h_i_d (void)
      pseudos which do not cross calls.  */
   int new_max_uid = get_max_uid() + 1;  
 
-  h_i_d = xrecalloc (h_i_d, new_max_uid, old_max_uid, sizeof (*h_i_d));
+  h_i_d = (struct haifa_insn_data*) xrecalloc (h_i_d, new_max_uid, old_max_uid, sizeof (*h_i_d));
   old_max_uid = new_max_uid;
 
   if (targetm.sched.h_i_d_extended)
@@ -3290,7 +3290,7 @@ extend_ready (int n_new_insns)
   readyp->veclen = rgn_n_insns + n_new_insns + 1 + issue_rate;
   readyp->vec = XRESIZEVEC (rtx, readyp->vec, readyp->veclen);
  
-  ready_try = xrecalloc (ready_try, rgn_n_insns + n_new_insns + 1,
+  ready_try = (char *) xrecalloc (ready_try, rgn_n_insns + n_new_insns + 1,
 			 rgn_n_insns + 1, sizeof (char));
 
   rgn_n_insns += n_new_insns;
@@ -4139,7 +4139,7 @@ unlink_bb_notes (basic_block first, basic_block last)
   if (first == last)
     return;
 
-  bb_header = xmalloc (last_basic_block * sizeof (*bb_header));
+  bb_header = XNEWVEC (rtx, last_basic_block);
 
   /* Make a sentinel.  */
   if (last->next_bb != EXIT_BLOCK_PTR)
@@ -4229,7 +4229,7 @@ extend_bb (basic_block bb)
          This must be computed and saved now, because after a basic block's
          predecessor has been scheduled, it is impossible to accurately
          determine the correct line number for the first insn of the block.  */
-      line_note_head = xrecalloc (line_note_head, last_basic_block, 
+      line_note_head = (rtx *) xrecalloc (line_note_head, last_basic_block, 
 				  old_last_basic_block,
 				  sizeof (*line_note_head));
 
@@ -4244,9 +4244,9 @@ extend_bb (basic_block bb)
 
   if (current_sched_info->flags & USE_GLAT)
     {
-      glat_start = xrealloc (glat_start,
+      glat_start = (regset *) xrealloc (glat_start,
                              last_basic_block * sizeof (*glat_start));
-      glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
+      glat_end = (regset *) xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
     }
 
   /* The following is done to keep current_sched_info->next_tail non null.  */

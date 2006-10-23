@@ -127,10 +127,6 @@ Boston, MA 02110-1301, USA.  */
   while (0)
 
 
-/* Clean up after the generic MIPS/ELF configuration.  */
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 /* Extra specs we need.  */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS						\

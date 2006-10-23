@@ -40,11 +40,16 @@ Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA. 
 #include "libiberty.h"
 #include "floatformat.h"
 
+#ifdef __APPLE__
+#undef INFINITY
+#define INFINITY 1e38f
+#else
 #ifndef INFINITY
 #ifdef HUGE_VAL
 #define INFINITY HUGE_VAL
 #else
 #define INFINITY (1.0 / 0.0)
+#endif
 #endif
 #endif
 

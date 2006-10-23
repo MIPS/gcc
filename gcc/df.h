@@ -70,6 +70,7 @@ enum df_ref_type {DF_REF_REG_DEF, DF_REF_REG_USE, DF_REF_REG_MEM_LOAD,
 
 enum df_ref_flags
   {
+    DF_REF_NONE = 0,
     /* Read-modify-write refs generate both a use and a def and
        these are marked with this flag to show that they are not
        independent.  */

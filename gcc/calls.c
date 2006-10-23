@@ -363,7 +363,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
   if (ecf_flags & ECF_PURE)
     call_fusage
       = gen_rtx_EXPR_LIST
-	(VOIDmode,
+	(REG_DEP_TRUE,
 	 gen_rtx_USE (VOIDmode,
 		      gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode))),
 	 call_fusage);
@@ -413,7 +413,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
     {
       if (!already_popped)
 	CALL_INSN_FUNCTION_USAGE (call_insn)
-	  = gen_rtx_EXPR_LIST (VOIDmode,
+	  = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			       gen_rtx_CLOBBER (VOIDmode, stack_pointer_rtx),
 			       CALL_INSN_FUNCTION_USAGE (call_insn));
       rounded_stack_size -= n_popped;
@@ -2101,7 +2101,7 @@ expand_call (tree exp, rtx target, int ignore)
     n_named_args = num_actuals;
 
   /* Make a vector to hold all the information about each arg.  */
-  args = alloca (num_actuals * sizeof (struct arg_data));
+  args = (struct arg_data *) alloca (num_actuals * sizeof (struct arg_data));
   memset (args, 0, num_actuals * sizeof (struct arg_data));
 
   /* Build up entries in the ARGS array, compute the size of the
@@ -2578,7 +2578,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    if (flags & ECF_CONST
 		&& args[i].stack
 		&& args[i].value == args[i].stack)
-	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+	      call_fusage = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 					       gen_rtx_USE (VOIDmode,
 							    args[i].value),
 					       call_fusage);
@@ -2735,12 +2735,12 @@ expand_call (tree exp, rtx target, int ignore)
 		     mentions all the arguments in order as well as
 		     the function name.  */
 		  for (i = 0; i < num_actuals; i++)
-		    note = gen_rtx_EXPR_LIST (VOIDmode,
+		    note = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 					      args[i].initial_value, note);
-		  note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
+		  note = gen_rtx_EXPR_LIST (REG_DEP_TRUE, funexp, note);
 
 		  if (flags & ECF_PURE)
-		    note = gen_rtx_EXPR_LIST (VOIDmode,
+		    note = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			gen_rtx_USE (VOIDmode,
 				     gen_rtx_MEM (BLKmode,
 						  gen_rtx_SCRATCH (VOIDmode))),
@@ -3341,7 +3341,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      of the full argument passing conventions to limit complexity here since
      library functions shouldn't have many args.  */
 
-  argvec = alloca ((nargs + 1) * sizeof (struct arg));
+  argvec = (struct arg *) alloca ((nargs + 1) * sizeof (struct arg));
   memset (argvec, 0, (nargs + 1) * sizeof (struct arg));
 
 #ifdef INIT_CUMULATIVE_LIBCALL_ARGS
@@ -3403,7 +3403,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   for (; count < nargs; count++)
     {
       rtx val = va_arg (p, rtx);
-      enum machine_mode mode = va_arg (p, enum machine_mode);
+      enum machine_mode mode = (enum machine_mode) va_arg (p, int);
 
       /* We cannot convert the arg value to the mode the library wants here;
 	 must do it earlier where we know the signedness of the arg.  */
@@ -3448,11 +3448,11 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      emit_move_insn (slot, val);
 	    }
 
-	  call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+	  call_fusage = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 					   gen_rtx_USE (VOIDmode, slot),
 					   call_fusage);
 	  if (must_copy)
-	    call_fusage = gen_rtx_EXPR_LIST (VOIDmode,
+	    call_fusage = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 					     gen_rtx_CLOBBER (VOIDmode,
 							      slot),
 					     call_fusage);
@@ -3698,7 +3698,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 				    gen_rtx_SCRATCH (Pmode));
 	      use = gen_rtx_MEM (argvec[argnum].mode, use);
 	      use = gen_rtx_USE (VOIDmode, use);
-	      call_fusage = gen_rtx_EXPR_LIST (VOIDmode, use, call_fusage);
+	      call_fusage = gen_rtx_EXPR_LIST (REG_DEP_TRUE, use, call_fusage);
 	    }
 	}
     }
@@ -3843,14 +3843,14 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  /* Construct an "equal form" for the value which mentions all the
 	     arguments in order as well as the function name.  */
 	  for (i = 0; i < nargs; i++)
-	    note = gen_rtx_EXPR_LIST (VOIDmode, argvec[i].value, note);
-	  note = gen_rtx_EXPR_LIST (VOIDmode, fun, note);
+	    note = gen_rtx_EXPR_LIST (REG_DEP_TRUE, argvec[i].value, note);
+	  note = gen_rtx_EXPR_LIST (REG_DEP_TRUE, fun, note);
 
 	  insns = get_insns ();
 	  end_sequence ();
 
 	  if (flags & ECF_PURE)
-	    note = gen_rtx_EXPR_LIST (VOIDmode,
+	    note = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			gen_rtx_USE (VOIDmode,
 				     gen_rtx_MEM (BLKmode,
 						  gen_rtx_SCRATCH (VOIDmode))),
@@ -4216,7 +4216,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		    - int_size_in_bytes (TREE_TYPE (pval))
 		    + partial);
 	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
-				  NULL_RTX, TYPE_MODE (sizetype), 0);
+				  NULL_RTX, TYPE_MODE (sizetype), EXPAND_NORMAL);
 	}
 
       parm_align = arg->locate.boundary;

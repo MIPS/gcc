@@ -366,9 +366,9 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
     } while (repeat);
 
   /* We found the condition we can unswitch on.  */
-  conds = alloc_EXPR_LIST (0, cond, cond_checked);
+  conds = alloc_EXPR_LIST (REG_DEP_TRUE, cond, cond_checked);
   if (rcond)
-    rconds = alloc_EXPR_LIST (0, rcond, cond_checked);
+    rconds = alloc_EXPR_LIST (REG_DEP_TRUE, rcond, cond_checked);
   else
     rconds = cond_checked;
 

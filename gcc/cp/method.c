@@ -27,6 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "rtl.h"

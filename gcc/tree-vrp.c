@@ -4268,9 +4268,9 @@ simplify_cond_using_ranges (tree stmt)
 	 able to simplify this conditional. */
       if (vr->type == VR_RANGE)
 	{
-	  tree new = test_for_singularity (cond_code, op0, op1, vr);
+	  tree tmp = test_for_singularity (cond_code, op0, op1, vr);
 
-	  if (new)
+	  if (tmp)
 	    {
 	      if (dump_file)
 		{
@@ -4280,7 +4280,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build2 (EQ_EXPR, boolean_type_node, op0, new);
+		= build2 (EQ_EXPR, boolean_type_node, op0, tmp);
 	      update_stmt (stmt);
 
 	      if (dump_file)
@@ -4296,9 +4296,9 @@ simplify_cond_using_ranges (tree stmt)
 	     with integral types here, so no need to worry about
 	     issues with inverting FP comparisons.  */
 	  cond_code = invert_tree_comparison (cond_code, false);
-	  new = test_for_singularity (cond_code, op0, op1, vr);
+	  tmp = test_for_singularity (cond_code, op0, op1, vr);
 
-	  if (new)
+	  if (tmp)
 	    {
 	      if (dump_file)
 		{
@@ -4308,7 +4308,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build2 (NE_EXPR, boolean_type_node, op0, new);
+		= build2 (NE_EXPR, boolean_type_node, op0, tmp);
 	      update_stmt (stmt);
 
 	      if (dump_file)

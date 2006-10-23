@@ -691,7 +691,7 @@ find_rgns (void)
       extend_regions_p = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS) > 0;
       if (extend_regions_p)
         {
-          degree1 = xmalloc (last_basic_block * sizeof (int));
+          degree1 = XNEWVEC(int, last_basic_block);
           extended_rgn_header = sbitmap_alloc (last_basic_block);
           sbitmap_zero (extended_rgn_header);
 	}
@@ -981,7 +981,7 @@ gather_region_statistics (int **rsp)
 
       if (nr_blocks > a_sz)
 	{	 
-	  a = xrealloc (a, nr_blocks * sizeof (*a));
+	  a = (int *) xrealloc (a, nr_blocks * sizeof (*a));
 	  do
 	    a[a_sz++] = 0;
 	  while (a_sz != nr_blocks);
@@ -1038,9 +1038,9 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 
   max_iter = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS);
 
-  max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
+  max_hdr = XNEWVEC (int, last_basic_block);
 
-  order = xmalloc (last_basic_block * sizeof (*order));
+  order = XNEWVEC (int, last_basic_block);
   post_order_compute (order, false);
 
   for (i = nblocks - 1; i >= 0; i--)
@@ -2383,10 +2383,10 @@ static struct deps *bb_deps;
 static rtx
 concat_INSN_LIST (rtx copy, rtx old)
 {
-  rtx new = old;
+  rtx tmp = old;
   for (; copy ; copy = XEXP (copy, 1))
-    new = alloc_INSN_LIST (XEXP (copy, 0), new);
-  return new;
+    tmp = alloc_INSN_LIST (XEXP (copy, 0), tmp);
+  return tmp;
 }
 
 static void
@@ -2399,7 +2399,7 @@ concat_insn_mem_list (rtx copy_insns, rtx copy_mems, rtx *old_insns_p,
   while (copy_insns)
     {
       new_insns = alloc_INSN_LIST (XEXP (copy_insns, 0), new_insns);
-      new_mems = alloc_EXPR_LIST (VOIDmode, XEXP (copy_mems, 0), new_mems);
+      new_mems = alloc_EXPR_LIST (REG_DEP_TRUE, XEXP (copy_mems, 0), new_mems);
       copy_insns = XEXP (copy_insns, 1);
       copy_mems = XEXP (copy_mems, 1);
     }
@@ -2654,7 +2654,7 @@ schedule_region (int rgn)
   current_blocks = RGN_BLOCKS (rgn);
   
   /* See comments in add_block1, for what reasons we allocate +1 element.  */ 
-  ebb_head = xrealloc (ebb_head, (current_nr_blocks + 1) * sizeof (*ebb_head));
+  ebb_head = (int *) xrealloc (ebb_head, (current_nr_blocks + 1) * sizeof (*ebb_head));
   for (bb = 0; bb <= current_nr_blocks; bb++)
     ebb_head[bb] = current_blocks + bb;
 
@@ -3051,7 +3051,7 @@ schedule_insns (void)
 
   if (sched_verbose)
     {
-      if (reload_completed == 0 && flag_schedule_interblock)
+      if (!reload_completed && flag_schedule_interblock)
 	{
 	  fprintf (sched_dump,
 		   "\n;; Procedure interblock/speculative motions == %d/%d \n",
@@ -3129,7 +3129,7 @@ add_block1 (basic_block bb, basic_block after)
       if (CHECK_DEAD_NOTES)
         {
           sbitmap blocks = sbitmap_alloc (last_basic_block);
-          deaths_in_region = xrealloc (deaths_in_region, nr_regions *
+          deaths_in_region = (int *) xrealloc (deaths_in_region, nr_regions *
 				       sizeof (*deaths_in_region));
 
           check_dead_notes1 (nr_regions - 1, blocks);

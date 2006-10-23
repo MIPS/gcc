@@ -55,7 +55,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifdef CROSS_COMPILE
 #undef OBJECT_FORMAT_COFF
-#undef MD_EXEC_PREFIX
 #undef REAL_LD_FILE_NAME
 #undef REAL_NM_FILE_NAME
 #undef REAL_STRIP_FILE_NAME
@@ -819,9 +818,9 @@ main (int argc, char **argv)
   /* Do not invoke xcalloc before this point, since locale needs to be
      set first, in case a diagnostic is issued.  */
 
-  ld1 = (const char **)(ld1_argv = xcalloc(sizeof (char *), argc+4));
-  ld2 = (const char **)(ld2_argv = xcalloc(sizeof (char *), argc+11));
-  object = (const char **)(object_lst = xcalloc(sizeof (char *), argc));
+  ld1 = (const char **)(ld1_argv = (char **) xcalloc(sizeof (char *), argc+4));
+  ld2 = (const char **)(ld2_argv = (char **) xcalloc(sizeof (char *), argc+11));
+  object = (const char **)(object_lst = (char **) xcalloc(sizeof (char *), argc));
 
 #ifdef DEBUG
   debug = 1;
@@ -848,7 +847,7 @@ main (int argc, char **argv)
 #endif
 
   obstack_begin (&temporary_obstack, 0);
-  temporary_firstobj = obstack_alloc (&temporary_obstack, 0);
+  temporary_firstobj = (char *) obstack_alloc (&temporary_obstack, 0);
 
 #ifndef HAVE_LD_DEMANGLE
   current_demangling_style = auto_demangling;
@@ -866,7 +865,7 @@ main (int argc, char **argv)
      -fno-exceptions -w */
   num_c_args += 5;
 
-  c_ptr = (const char **) (c_argv = xcalloc (sizeof (char *), num_c_args));
+  c_ptr = (const char **) (c_argv = (char **) xcalloc (sizeof (char *), num_c_args));
 
   if (argc < 2)
     fatal ("no arguments");
@@ -1599,7 +1598,7 @@ static long sequence_number = 0;
 static void
 add_to_list (struct head *head_ptr, const char *name)
 {
-  struct id *newid = xcalloc (sizeof (struct id) + strlen (name), 1);
+  struct id *newid = (struct id *) xcalloc (sizeof (struct id) + strlen (name), 1);
   struct id *p;
   strcpy (newid->name, name);
 

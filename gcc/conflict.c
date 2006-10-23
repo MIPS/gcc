@@ -201,7 +201,7 @@ conflict_graph_add (conflict_graph graph, int reg1, int reg2)
 
   /* Allocate an arc.  */
   arc
-    = obstack_alloc (&graph->arc_obstack,
+    = (conflict_graph_arc) obstack_alloc (&graph->arc_obstack,
 		     sizeof (struct conflict_graph_arc_def));
   
   /* Record the reg numbers.  */

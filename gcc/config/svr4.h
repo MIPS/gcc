@@ -81,22 +81,6 @@ Boston, MA 02110-1301, USA.
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
-/* Under svr4, the normal location of the `ld' and `as' programs is the
-   /usr/ccs/bin directory.  */
-
-#ifndef CROSS_COMPILE
-#undef  MD_EXEC_PREFIX
-#define MD_EXEC_PREFIX "/usr/ccs/bin/"
-#endif
-
-/* Under svr4, the normal location of the various *crt*.o files is the
-   /usr/ccs/lib directory.  */
-
-#ifndef CROSS_COMPILE
-#undef  MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX "/usr/ccs/lib/"
-#endif
-
 /* Provide a LIB_SPEC appropriate for svr4.  Here we tack on the default
    standard C library (unless we are building a shared library).  */
 

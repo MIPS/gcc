@@ -29,6 +29,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "java-tree-code.h"
 #include "tree.h"
 #include "input.h"
 #include "rtl.h"
@@ -420,7 +421,7 @@ put_decl_string (const char *str, int len)
       else
 	{
 	  decl_buflen *= 2;
-	  decl_buf = xrealloc (decl_buf, decl_buflen);
+	  decl_buf = (char *) xrealloc (decl_buf, decl_buflen);
 	}
     }
   strcpy (decl_buf + decl_bufpos, str);

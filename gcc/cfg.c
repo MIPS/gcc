@@ -82,11 +82,11 @@ void
 init_flow (void)
 {
   if (!cfun->cfg)
-    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
+    cfun->cfg = (struct control_flow_graph *) ggc_alloc_cleared (sizeof (struct control_flow_graph));
   n_edges = 0;
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  ENTRY_BLOCK_PTR = (struct basic_block_def *) ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
+  EXIT_BLOCK_PTR = (struct basic_block_def *) ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -133,7 +133,7 @@ basic_block
 alloc_block (void)
 {
   basic_block bb;
-  bb = ggc_alloc_cleared (sizeof (*bb));
+  bb = (basic_block) ggc_alloc_cleared (sizeof (*bb));
   return bb;
 }
 
@@ -263,7 +263,7 @@ edge
 unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
-  e = ggc_alloc_cleared (sizeof (*e));
+  e = (edge) ggc_alloc_cleared (sizeof (*e));
   n_edges++;
 
   e->src = src;
@@ -541,7 +541,7 @@ dump_flow_info (FILE *file, int flags)
       for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
-	    enum reg_class class, altclass;
+	    enum reg_class cls, alt;
 
 	    fprintf (file, "\nRegister %d used %d times across %d insns",
 		     i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
@@ -562,18 +562,18 @@ dump_flow_info (FILE *file, int flags)
 		&& PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	      fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
 
-	    class = reg_preferred_class (i);
-	    altclass = reg_alternate_class (i);
-	    if (class != GENERAL_REGS || altclass != ALL_REGS)
+	    cls = reg_preferred_class (i);
+	    alt = reg_alternate_class (i);
+	    if (cls != GENERAL_REGS || alt != ALL_REGS)
 	      {
-		if (altclass == ALL_REGS || class == ALL_REGS)
-		  fprintf (file, "; pref %s", reg_class_names[(int) class]);
-		else if (altclass == NO_REGS)
-		  fprintf (file, "; %s or none", reg_class_names[(int) class]);
+		if (alt == ALL_REGS || cls == ALL_REGS)
+		  fprintf (file, "; pref %s", reg_class_names[cls]);
+		else if (alt == NO_REGS)
+		  fprintf (file, "; %s or none", reg_class_names[cls]);
 		else
 		  fprintf (file, "; pref %s, else %s",
-			   reg_class_names[(int) class],
-			   reg_class_names[(int) altclass]);
+			   reg_class_names[cls],
+			   reg_class_names[alt]);
 	      }
 
 	    if (regno_reg_rtx[i] != NULL && REG_POINTER (regno_reg_rtx[i]))
@@ -658,7 +658,7 @@ static void *first_edge_aux_obj = 0;
 /* Allocate a memory block of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_blocks.  */
 
-inline void
+void
 alloc_aux_for_block (basic_block bb, int size)
 {
   /* Verify that aux field is clear.  */
@@ -721,7 +721,7 @@ free_aux_for_blocks (void)
 /* Allocate a memory edge of SIZE as BB->aux.  The obstack must
    be first initialized by alloc_aux_for_edges.  */
 
-inline void
+void
 alloc_aux_for_edge (edge e, int size)
 {
   /* Verify that aux field is clear.  */
@@ -1089,7 +1089,7 @@ set_bb_original (basic_block bb, basic_block original)
 	(*slot)->index2 = original->index;
       else
 	{
-	  *slot = pool_alloc (original_copy_bb_pool);
+	  *slot = (struct htab_bb_copy_original_entry *) pool_alloc (original_copy_bb_pool);
 	  (*slot)->index1 = bb->index;
 	  (*slot)->index2 = original->index;
 	}
@@ -1131,7 +1131,7 @@ set_bb_copy (basic_block bb, basic_block copy)
 	(*slot)->index2 = copy->index;
       else
 	{
-	  *slot = pool_alloc (original_copy_bb_pool);
+	  *slot = (struct htab_bb_copy_original_entry *) pool_alloc (original_copy_bb_pool);
 	  (*slot)->index1 = bb->index;
 	  (*slot)->index2 = copy->index;
 	}

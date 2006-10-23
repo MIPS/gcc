@@ -41,6 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "c-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "langhooks.h"
@@ -350,7 +351,7 @@ c_lex_one_token (c_token *token)
 
 	if (C_IS_RESERVED_WORD (token->value))
 	  {
-	    enum rid rid_code = C_RID_CODE (token->value);
+	    enum rid rid_code = (enum rid) C_RID_CODE (token->value);
 
 	    if (c_dialect_objc ())
 	      {
@@ -404,7 +405,7 @@ c_lex_one_token (c_token *token)
     case CPP_AT_NAME:
       /* This only happens in Objective-C; it must be a keyword.  */
       token->type = CPP_KEYWORD;
-      token->keyword = C_RID_CODE (token->value);
+      token->keyword = (enum rid) C_RID_CODE (token->value);
       break;
     case CPP_COLON:
     case CPP_COMMA:
@@ -416,7 +417,7 @@ c_lex_one_token (c_token *token)
       break;
     case CPP_PRAGMA:
       /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
-      token->pragma_kind = TREE_INT_CST_LOW (token->value);
+      token->pragma_kind = (enum pragma_kind) TREE_INT_CST_LOW (token->value);
       token->value = NULL;
       break;
     default:
@@ -6177,7 +6178,7 @@ static tree
 c_parser_objc_type_name (c_parser *parser)
 {
   tree quals = NULL_TREE;
-  struct c_type_name *typename = NULL;
+  struct c_type_name *type_name = NULL;
   tree type = NULL_TREE;
   while (true)
     {
@@ -6197,9 +6198,9 @@ c_parser_objc_type_name (c_parser *parser)
 	break;
     }
   if (c_parser_next_token_starts_typename (parser))
-    typename = c_parser_type_name (parser);
-  if (typename)
-    type = groktypename (typename);
+    type_name = c_parser_type_name (parser);
+  if (type_name)
+    type = groktypename (type_name);
   return build_tree_list (quals, type);
 }
 
@@ -6761,7 +6762,7 @@ c_parser_omp_variable_list (c_parser *parser, enum omp_clause_code kind,
    common case for omp clauses.  */
 
 static tree
-c_parser_omp_var_list_parens (c_parser *parser, enum tree_code kind, tree list)
+c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind, tree list)
 {
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
@@ -6834,7 +6835,7 @@ c_parser_omp_clause_default (c_parser *parser, tree list)
   if (kind == OMP_CLAUSE_DEFAULT_UNSPECIFIED)
     return list;
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_DEFAULT, "default");
+  check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_DEFAULT, "default");
   c = build_omp_clause (OMP_CLAUSE_DEFAULT);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_DEFAULT_KIND (c) = kind;
@@ -6862,7 +6863,7 @@ c_parser_omp_clause_if (c_parser *parser, tree list)
       tree t = c_parser_paren_condition (parser);
       tree c;
 
-      check_no_duplicate_clause (list, OMP_CLAUSE_IF, "if");
+      check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_IF, "if");
 
       c = build_omp_clause (OMP_CLAUSE_IF);
       OMP_CLAUSE_IF_EXPR (c) = t;
@@ -6892,7 +6893,7 @@ c_parser_omp_clause_nowait (c_parser *parser ATTRIBUTE_UNUSED, tree list)
 {
   tree c;
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_NOWAIT, "nowait");
+  check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_NOWAIT, "nowait");
 
   c = build_omp_clause (OMP_CLAUSE_NOWAIT);
   OMP_CLAUSE_CHAIN (c) = list;
@@ -6926,7 +6927,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
 	  t = integer_one_node;
 	}
 
-      check_no_duplicate_clause (list, OMP_CLAUSE_NUM_THREADS, "num_threads");
+      check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_NUM_THREADS, "num_threads");
 
       c = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
       OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
@@ -6945,7 +6946,7 @@ c_parser_omp_clause_ordered (c_parser *parser ATTRIBUTE_UNUSED, tree list)
 {
   tree c;
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_ORDERED, "ordered");
+  check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_ORDERED, "ordered");
 
   c = build_omp_clause (OMP_CLAUSE_ORDERED);
   OMP_CLAUSE_CHAIN (c) = list;
@@ -7096,7 +7097,7 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
     c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 			       "expected %<,%> or %<)%>");
 
-  check_no_duplicate_clause (list, OMP_CLAUSE_SCHEDULE, "schedule");
+  check_no_duplicate_clause (list, (enum tree_code) OMP_CLAUSE_SCHEDULE, "schedule");
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 
@@ -7364,7 +7365,7 @@ c_parser_omp_flush (c_parser *parser)
 {
   c_parser_consume_pragma (parser);
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
-    c_parser_omp_var_list_parens (parser, 0, NULL);
+    c_parser_omp_var_list_parens (parser, (enum omp_clause_code) ERROR_MARK, NULL);
   else if (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
     c_parser_error (parser, "expected %<(%> or end of line");
   c_parser_skip_to_pragma_eol (parser);
@@ -7799,7 +7800,7 @@ c_parser_omp_threadprivate (c_parser *parser)
   tree vars, t;
 
   c_parser_consume_pragma (parser);
-  vars = c_parser_omp_var_list_parens (parser, 0, NULL);
+  vars = c_parser_omp_var_list_parens (parser, (enum omp_clause_code) ERROR_MARK, NULL);
 
   if (!targetm.have_tls)
     sorry ("threadprivate variables not supported in this target");

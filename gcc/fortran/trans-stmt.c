@@ -1353,7 +1353,7 @@ gfc_trans_character_select (gfc_code *code)
     d->n = n++;
 
   if (n != 0)
-    labels = gfc_getmem (n * sizeof (tree));
+    labels = (tree *)gfc_getmem (n * sizeof (tree));
   else
     labels = NULL;
 

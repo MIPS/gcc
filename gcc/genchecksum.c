@@ -57,6 +57,7 @@ dosum (const char *file)
       exit (1);
     }
 
+  fputs ("extern const unsigned char executable_checksum[16];", stdout);
   fputs ("const unsigned char executable_checksum[16] = { ", stdout);
   for (i = 0; i < 16; i++)
     printf ("%#02x%s", result[i], i == 15 ? " };\n" : ", ");

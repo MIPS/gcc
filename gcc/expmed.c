@@ -137,7 +137,7 @@ init_expmed (void)
   int m, n;
   enum machine_mode mode, wider_mode;
 
-  zero_cost = rtx_cost (const0_rtx, 0);
+  zero_cost = rtx_cost (const0_rtx, UNKNOWN);
 
   for (m = 1; m < MAX_BITS_PER_WORD; m++)
     {
@@ -646,9 +646,9 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       rtx last = get_last_insn ();
       rtx pat;
       enum machine_mode maxmode = mode_for_extraction (EP_insv, 3);
-      int save_volatile_ok = volatile_ok;
+      bool save_volatile_ok = volatile_ok;
 
-      volatile_ok = 1;
+      volatile_ok = true;
 
       /* If this machine's insv can only insert into a register, copy OP0
 	 into a register and save it back later.  */
@@ -1405,8 +1405,8 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
 	  if (MEM_P (xop0))
 	    {
-	      int save_volatile_ok = volatile_ok;
-	      volatile_ok = 1;
+	      bool save_volatile_ok = volatile_ok;
+	      volatile_ok = true;
 
 	      /* Is the memory operand acceptable?  */
 	      if (! ((*insn_data[(int) CODE_FOR_extzv].operand[1].predicate)
@@ -2188,7 +2188,7 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
   rtx op1, temp = 0;
   int left = (code == LSHIFT_EXPR || code == LROTATE_EXPR);
   int rotate = (code == LROTATE_EXPR || code == RROTATE_EXPR);
-  int try;
+  int check;
 
   /* Previously detected shift-counts computed by NEGATE_EXPR
      and shifted in the other direction; but that does not work
@@ -2231,13 +2231,13 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
       return shifted;
     }
 
-  for (try = 0; temp == 0 && try < 3; try++)
+  for (check = 0; temp == 0 && check < 3; check++)
     {
       enum optab_methods methods;
 
-      if (try == 0)
+      if (check == 0)
 	methods = OPTAB_DIRECT;
-      else if (try == 1)
+      else if (check == 1)
 	methods = OPTAB_WIDEN;
       else
 	methods = OPTAB_LIB_WIDEN;
@@ -2507,8 +2507,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 
   /* We'll be needing a couple extra algorithm structures now.  */
 
-  alg_in = alloca (sizeof (struct algorithm));
-  best_alg = alloca (sizeof (struct algorithm));
+  alg_in = (struct algorithm *)  alloca (sizeof (struct algorithm));
+  best_alg = (struct algorithm *) alloca (sizeof (struct algorithm));
   best_cost = *cost_limit;
 
   /* Compute the hash index.  */

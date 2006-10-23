@@ -677,7 +677,7 @@ attrs_list_insert (attrs *listp, tree decl, HOST_WIDE_INT offset, rtx loc)
 {
   attrs list;
 
-  list = pool_alloc (attrs_pool);
+  list = (attrs) pool_alloc (attrs_pool);
   list->loc = loc;
   list->decl = decl;
   list->offset = offset;
@@ -695,7 +695,7 @@ attrs_list_copy (attrs *dstp, attrs src)
   attrs_list_clear (dstp);
   for (; src; src = src->next)
     {
-      n = pool_alloc (attrs_pool);
+      n = (attrs) pool_alloc (attrs_pool);
       n->loc = src->loc;
       n->decl = src->decl;
       n->offset = src->offset;
@@ -733,7 +733,7 @@ unshare_variable (dataflow_set *set, variable var)
   variable new_var;
   int i;
 
-  new_var = pool_alloc (var_pool);
+  new_var = (variable) pool_alloc (var_pool);
   new_var->decl = var->decl;
   new_var->refcount = 1;
   var->refcount--;
@@ -750,7 +750,7 @@ unshare_variable (dataflow_set *set, variable var)
 	{
 	  location_chain new_lc;
 
-	  new_lc = pool_alloc (loc_chain_pool);
+	  new_lc = (location_chain) pool_alloc (loc_chain_pool);
 	  new_lc->next = NULL;
 	  new_lc->loc = node->loc;
 
@@ -1029,8 +1029,8 @@ struct variable_union_info
 static int
 variable_union_info_cmp_pos (const void *n1, const void *n2)
 {
-  const struct variable_union_info *i1 = n1;
-  const struct variable_union_info *i2 = n2;
+  const struct variable_union_info *i1 = (const struct variable_union_info *) n1;
+  const struct variable_union_info *i2 = (const struct variable_union_info *) n2;
 
   if (i1->pos != i2->pos)
     return i1->pos - i2->pos;
@@ -1192,7 +1192,7 @@ variable_union (void **slot, void *data)
 		  location_chain new_node;
 
 		  /* Copy the location from SRC.  */
-		  new_node = pool_alloc (loc_chain_pool);
+		  new_node = (location_chain) pool_alloc (loc_chain_pool);
 		  new_node->loc = node->loc;
 		  vui[n].lc = new_node;
 		  vui[n].pos_src = ii;
@@ -1238,7 +1238,7 @@ variable_union (void **slot, void *data)
 	    {
 	      location_chain new_lc;
 
-	      new_lc = pool_alloc (loc_chain_pool);
+	      new_lc = (location_chain) pool_alloc (loc_chain_pool);
 	      new_lc->next = NULL;
 	      new_lc->loc = node->loc;
 
@@ -1350,7 +1350,7 @@ dataflow_set_different_1 (void **slot, void *data)
   variable var1, var2;
 
   var1 = *(variable *) slot;
-  var2 = htab_find_with_hash (htab, var1->decl,
+  var2 = (variable) htab_find_with_hash (htab, var1->decl,
 			      VARIABLE_HASH_VAL (var1->decl));
   if (!var2)
     {
@@ -1382,7 +1382,7 @@ dataflow_set_different_2 (void **slot, void *data)
   variable var1, var2;
 
   var1 = *(variable *) slot;
-  var2 = htab_find_with_hash (htab, var1->decl,
+  var2 = (variable) htab_find_with_hash (htab, var1->decl,
 			      VARIABLE_HASH_VAL (var1->decl));
   if (!var2)
     {
@@ -1841,7 +1841,7 @@ vt_find_locations (void)
 
       while (!fibheap_empty (worklist))
 	{
-	  bb = fibheap_extract_min (worklist);
+	  bb = (basic_block) fibheap_extract_min (worklist);
 	  RESET_BIT (in_worklist, bb->index);
 	  if (!TEST_BIT (visited, bb->index))
 	    {
@@ -2009,7 +2009,7 @@ variable_was_changed (variable var, htab_t htab)
 	  variable empty_var;
 	  void **old;
 
-	  empty_var = pool_alloc (var_pool);
+	  empty_var = (variable) pool_alloc (var_pool);
 	  empty_var->decl = var->decl;
 	  empty_var->refcount = 1;
 	  empty_var->n_var_parts = 0;
@@ -2089,7 +2089,7 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
   if (!*slot)
     {
       /* Create new variable information.  */
-      var = pool_alloc (var_pool);
+      var = (variable) pool_alloc (var_pool);
       var->decl = decl;
       var->refcount = 1;
       var->n_var_parts = 1;
@@ -2169,7 +2169,7 @@ set_variable_part (dataflow_set *set, rtx loc, tree decl, HOST_WIDE_INT offset)
     }
 
   /* Add the location to the beginning.  */
-  node = pool_alloc (loc_chain_pool);
+  node = (location_chain) pool_alloc (loc_chain_pool);
   node->loc = loc;
   node->next = var->var_part[pos].loc_chain;
   var->var_part[pos].loc_chain = node;
@@ -2455,7 +2455,7 @@ emit_note_insn_var_location (void **varp, void *data)
   else if (n_var_parts == 1)
     {
       rtx expr_list
-	= gen_rtx_EXPR_LIST (VOIDmode, loc[0], GEN_INT (offsets[0]));
+	= gen_rtx_EXPR_LIST (REG_DEP_TRUE, loc[0], GEN_INT (offsets[0]));
 
       NOTE_VAR_LOCATION (note) = gen_rtx_VAR_LOCATION (VOIDmode, var->decl,
 						       expr_list);
@@ -2466,7 +2466,7 @@ emit_note_insn_var_location (void **varp, void *data)
 
       for (i = 0; i < n_var_parts; i++)
 	loc[i]
-	  = gen_rtx_EXPR_LIST (VOIDmode, loc[i], GEN_INT (offsets[i]));
+	  = gen_rtx_EXPR_LIST (REG_DEP_TRUE, loc[i], GEN_INT (offsets[i]));
 
       parallel = gen_rtx_PARALLEL (VOIDmode,
 				   gen_rtvec_v (n_var_parts, loc));
@@ -2512,7 +2512,7 @@ emit_notes_for_differences_1 (void **slot, void *data)
   variable old_var, new_var;
 
   old_var = *(variable *) slot;
-  new_var = htab_find_with_hash (new_vars, old_var->decl,
+  new_var = (variable) htab_find_with_hash (new_vars, old_var->decl,
 				 VARIABLE_HASH_VAL (old_var->decl));
 
   if (!new_var)
@@ -2520,7 +2520,7 @@ emit_notes_for_differences_1 (void **slot, void *data)
       /* Variable has disappeared.  */
       variable empty_var;
 
-      empty_var = pool_alloc (var_pool);
+      empty_var = (variable) pool_alloc (var_pool);
       empty_var->decl = old_var->decl;
       empty_var->refcount = 1;
       empty_var->n_var_parts = 0;
@@ -2545,7 +2545,7 @@ emit_notes_for_differences_2 (void **slot, void *data)
   variable old_var, new_var;
 
   new_var = *(variable *) slot;
-  old_var = htab_find_with_hash (old_vars, new_var->decl,
+  old_var = (variable) htab_find_with_hash (old_vars, new_var->decl,
 				 VARIABLE_HASH_VAL (new_var->decl));
   if (!old_var)
     {

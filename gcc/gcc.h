@@ -79,4 +79,7 @@ extern int lang_specific_extra_outfiles;
 
 extern const char **outfiles;
 
+/* Flag set by cppspec.c to true.  */
+extern bool is_cpp_driver;
+
 #endif /* ! GCC_GCC_H */

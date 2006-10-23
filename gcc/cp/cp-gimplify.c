@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "c-common.h"
@@ -579,7 +580,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     default:
-      ret = c_gimplify_expr (expr_p, pre_p, post_p);
+      ret = (enum gimplify_status) c_gimplify_expr (expr_p, pre_p, post_p);
       break;
     }
 

@@ -246,7 +246,7 @@ invariant_for_use (struct df_ref *use)
   def_bb = DF_REF_BB (def);
   if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     return NULL;
-  return DF_REF_DATA (def);
+  return (struct invariant *) DF_REF_DATA (def);
 }
 
 /* Computes hash value for invariant expression X in INSN.  */
@@ -397,7 +397,7 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
 static hashval_t
 hash_invariant_expr (const void *e)
 {
-  const struct invariant_expr_entry *entry = e;
+  const struct invariant_expr_entry *entry = (const struct invariant_expr_entry *) e;
 
   return entry->hash;
 }
@@ -407,8 +407,8 @@ hash_invariant_expr (const void *e)
 static int
 eq_invariant_expr (const void *e1, const void *e2)
 {
-  const struct invariant_expr_entry *entry1 = e1;
-  const struct invariant_expr_entry *entry2 = e2;
+  const struct invariant_expr_entry *entry1 = (const struct invariant_expr_entry *) e1;
+  const struct invariant_expr_entry *entry2 = (const struct invariant_expr_entry *) e2;
 
   if (entry1->mode != entry2->mode)
     return 0;
@@ -434,7 +434,7 @@ find_or_insert_inv (htab_t eq, rtx expr, enum machine_mode mode,
   pentry.inv = inv;
   pentry.mode = mode;
   slot = htab_find_slot_with_hash (eq, &pentry, hash, INSERT);
-  entry = *slot;
+  entry = (struct invariant_expr_entry *) *slot;
 
   if (entry)
     return entry->inv;
@@ -710,7 +710,7 @@ check_dependencies (rtx insn, bitmap depends_on)
 	return false;
 
       def = defs->ref;
-      inv = DF_REF_DATA (def);
+      inv = (struct invariant *) DF_REF_DATA (def);
       if (!inv)
 	return false;
 
@@ -1267,7 +1267,7 @@ free_inv_motion_data (void)
       if (!ref)
 	continue;
 
-      inv = DF_REF_DATA (ref);
+      inv = (struct invariant *) DF_REF_DATA (ref);
       if (!inv)
 	continue;
 

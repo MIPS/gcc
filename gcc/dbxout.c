@@ -986,7 +986,7 @@ dbxout_init (const char *input_file_name)
   tree syms = lang_hooks.decls.getdecls ();
 
   typevec_len = 100;
-  typevec = ggc_calloc (typevec_len, sizeof typevec[0]);
+  typevec = (struct typeinfo *) ggc_calloc (typevec_len, sizeof typevec[0]);
 
   /* stabstr_ob contains one string, which will be just fine with
      1-byte alignment.  */
@@ -1695,7 +1695,7 @@ dbxout_type (tree type, int full)
       if (next_type_number == typevec_len)
 	{
 	  typevec
-	    = ggc_realloc (typevec, (typevec_len * 2 * sizeof typevec[0]));
+	    = (struct typeinfo *) ggc_realloc (typevec, (typevec_len * 2 * sizeof typevec[0]));
 	  memset (typevec + typevec_len, 0, typevec_len * sizeof typevec[0]);
 	  typevec_len *= 2;
 	}
@@ -2375,8 +2375,8 @@ dbxout_expand_expr (tree expr)
 static int
 output_used_types_helper (void **slot, void *data)
 {
-  tree type = *slot;
-  VEC(tree, heap) **types_p = data;
+  tree type = (tree) *slot;
+  VEC(tree, heap) **types_p = (VEC_tree_heap**)data;
 
   if ((TREE_CODE (type) == RECORD_TYPE
        || TREE_CODE (type) == UNION_TYPE
@@ -2776,7 +2776,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       if (!decl_rtl)
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
 
-      decl_rtl = eliminate_regs (decl_rtl, 0, NULL_RTX);
+      decl_rtl = eliminate_regs (decl_rtl, VOIDmode, NULL_RTX);
 #ifdef LEAF_REG_REMAP
       if (current_function_uses_only_leaf_regs)
 	leaf_renumber_regs_insn (decl_rtl);
@@ -3120,8 +3120,8 @@ dbxout_parms (tree parms)
 	/* Perform any necessary register eliminations on the parameter's rtl,
 	   so that the debugging output will be accurate.  */
 	DECL_INCOMING_RTL (parms)
-	  = eliminate_regs (DECL_INCOMING_RTL (parms), 0, NULL_RTX);
-	SET_DECL_RTL (parms, eliminate_regs (DECL_RTL (parms), 0, NULL_RTX));
+	  = eliminate_regs (DECL_INCOMING_RTL (parms), VOIDmode, NULL_RTX);
+	SET_DECL_RTL (parms, eliminate_regs (DECL_RTL (parms), VOIDmode, NULL_RTX));
 #ifdef LEAF_REG_REMAP
 	if (current_function_uses_only_leaf_regs)
 	  {

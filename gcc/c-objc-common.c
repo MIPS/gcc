@@ -22,6 +22,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "c-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "insn-config.h"

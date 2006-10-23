@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "intl.h"
+#include "c-tree-code.h"
 #include "tree.h"
 #include "flags.h"
 #include "output.h"
@@ -3043,8 +3044,6 @@ enum c_builtin_type
   BT_LAST
 };
 
-typedef enum c_builtin_type builtin_type;
-
 /* A temporary array for c_common_nodes_and_builtins.  Used in
    communication with def_fn_type.  */
 static tree builtin_types[(int) BT_LAST + 1];
@@ -3059,7 +3058,7 @@ static tree builtin_types[(int) BT_LAST + 1];
    should be error_mark_node.  */
 
 static void
-def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
+def_fn_type (enum c_builtin_type def, enum c_builtin_type ret, bool var, int n, ...)
 {
   tree args = NULL, t;
   va_list list;
@@ -3068,7 +3067,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   va_start (list, n);
   for (i = 0; i < n; ++i)
     {
-      builtin_type a = va_arg (list, builtin_type);
+      enum c_builtin_type a = (enum c_builtin_type) va_arg (list, int);
       t = builtin_types[a];
       if (t == error_mark_node)
 	goto egress;
@@ -3976,7 +3975,7 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 	   literal, then return the variable.  */
 	tree decl = COMPOUND_LITERAL_EXPR_DECL (exp);
 	emit_local_var (decl);
-	return expand_expr_real (decl, target, tmode, modifier, alt_rtl);
+	return expand_expr_real (decl, target, tmode, (enum expand_modifier) modifier, alt_rtl);
       }
 
     default:

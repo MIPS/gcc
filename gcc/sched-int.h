@@ -43,6 +43,17 @@ typedef int ds_t;
 typedef int dw_t;
 
 /* Describe state of dependencies used during sched_analyze phase.  */
+struct deps_reg
+{
+  rtx uses;
+  rtx sets;
+  rtx clobbers;
+  int uses_length;
+  int clobbers_length;
+};
+
+enum post_call_type { not_post_call, post_call, post_call_initial };
+
 struct deps
 {
   /* The *_insns and *_mems are paired lists.  Each pending memory operation
@@ -100,7 +111,7 @@ struct deps
 
   /* Used to keep post-call pseudo/hard reg movements together with
      the call.  */
-  enum { not_post_call, post_call, post_call_initial } in_post_call_group_p;
+  enum post_call_type in_post_call_group_p;
 
   /* Set to the tail insn of the outermost libcall block.
 
@@ -116,14 +127,7 @@ struct deps
      N within the current basic block; or zero, if there is no
      such insn.  Needed for new registers which may be introduced
      by splitting insns.  */
-  struct deps_reg
-    {
-      rtx uses;
-      rtx sets;
-      rtx clobbers;
-      int uses_length;
-      int clobbers_length;
-    } *reg_last;
+  struct deps_reg *reg_last;
 
   /* Element N is set for each register that has any nonzero element
      in reg_last[N].{uses,sets,clobbers}.  */
@@ -487,6 +491,7 @@ enum SPEC_TYPES_OFFSETS {
    is already present and nothing has been changed; a dependence type
    has been changed; brand new dependence has been created.  */
 enum DEPS_ADJUST_RESULT {
+  DEP_NONE = 0,
   DEP_PRESENT = 1,
   DEP_CHANGED = 2,
   DEP_CREATED = 3

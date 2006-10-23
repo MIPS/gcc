@@ -682,13 +682,13 @@ bool
 contains_abnormal_ssa_name_p (tree expr)
 {
   enum tree_code code;
-  enum tree_code_class class;
+  enum tree_code_class cls;
 
   if (!expr)
     return false;
 
   code = TREE_CODE (expr);
-  class = TREE_CODE_CLASS (code);
+  cls = TREE_CODE_CLASS (code);
 
   if (code == SSA_NAME)
     return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
@@ -702,7 +702,7 @@ contains_abnormal_ssa_name_p (tree expr)
 			    idx_contains_abnormal_ssa_name_p,
 			    NULL);
 
-  switch (class)
+  switch (cls)
     {
     case tcc_binary:
     case tcc_comparison:
@@ -741,7 +741,7 @@ struct nfe_cache_elt
 static hashval_t
 nfe_hash (const void *e)
 {
-  const struct nfe_cache_elt *elt = e;
+  const struct nfe_cache_elt *elt = (struct nfe_cache_elt *) e;
 
   return htab_hash_pointer (elt->exit);
 }
@@ -751,7 +751,7 @@ nfe_hash (const void *e)
 static int
 nfe_eq (const void *e1, const void *e2)
 {
-  const struct nfe_cache_elt *elt1 = e1;
+  const struct nfe_cache_elt *elt1 = (struct nfe_cache_elt *) e1;
 
   return elt1->exit == e2;
 }
@@ -772,7 +772,7 @@ niter_for_exit (struct ivopts_data *data, edge exit)
 
   if (!*slot)
     {
-      nfe_desc = xmalloc (sizeof (struct nfe_cache_elt));
+      nfe_desc = XNEW (struct nfe_cache_elt);
       nfe_desc->exit = exit;
 
       /* Try to determine number of iterations.  We must know it
@@ -789,7 +789,7 @@ niter_for_exit (struct ivopts_data *data, edge exit)
 	nfe_desc->niter = NULL_TREE;
     }
   else
-    nfe_desc = *slot;
+    nfe_desc = (struct nfe_cache_elt *) *slot;
 
   return nfe_desc->niter;
 }
@@ -1339,7 +1339,7 @@ struct ifs_ivopts_data
 static bool
 idx_find_step (tree base, tree *idx, void *data)
 {
-  struct ifs_ivopts_data *dta = data;
+  struct ifs_ivopts_data *dta = (struct ifs_ivopts_data *) data;
   struct iv *iv;
   tree step, iv_base, iv_step, lbound, off;
   struct loop *loop = dta->ivopts_data->current_loop;
@@ -1424,11 +1424,11 @@ static bool
 idx_record_use (tree base, tree *idx,
 		void *data)
 {
-  find_interesting_uses_op (data, *idx);
+  find_interesting_uses_op ((struct ivopts_data *) data, *idx);
   if (TREE_CODE (base) == ARRAY_REF)
     {
-      find_interesting_uses_op (data, array_ref_element_size (base));
-      find_interesting_uses_op (data, array_ref_low_bound (base));
+      find_interesting_uses_op ((struct ivopts_data *) data, array_ref_element_size (base));
+      find_interesting_uses_op ((struct ivopts_data *) data, array_ref_low_bound (base));
     }
   return true;
 }
@@ -1950,7 +1950,7 @@ static struct ivopts_data *fd_ivopts_data;
 static tree
 find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
 {
-  bitmap *depends_on = data;
+  bitmap *depends_on = (bitmap *) data;
   struct version_info *info;
 
   if (TREE_CODE (*expr_p) != SSA_NAME)
@@ -2452,7 +2452,7 @@ prepare_decl_rtl (tree *expr_p, int *ws, void *data)
 {
   tree obj = NULL_TREE;
   rtx x = NULL_RTX;
-  int *regno = data;
+  int *regno = (int *) data;
 
   switch (TREE_CODE (*expr_p))
     {
@@ -3261,7 +3261,7 @@ struct mbc_entry
 static hashval_t
 mbc_entry_hash (const void *entry)
 {
-  const struct mbc_entry *e = entry;
+  const struct mbc_entry *e = (const struct mbc_entry *) entry;
 
   return 57 * (hashval_t) e->mode + (hashval_t) (e->cst % 877);
 }
@@ -3271,8 +3271,8 @@ mbc_entry_hash (const void *entry)
 static int
 mbc_entry_eq (const void *entry1, const void *entry2)
 {
-  const struct mbc_entry *e1 = entry1;
-  const struct mbc_entry *e2 = entry2;
+  const struct mbc_entry *e1 = (struct mbc_entry *) entry1;
+  const struct mbc_entry *e2 = (struct mbc_entry *) entry2;
 
   return (e1->mode == e2->mode
 	  && e1->cst == e2->cst);

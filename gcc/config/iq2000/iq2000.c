@@ -2587,7 +2587,7 @@ expand_one_builtin (enum insn_code icode, rtx target, tree arglist,
     {
       arg[i] = TREE_VALUE (arglist);
       arglist = TREE_CHAIN (arglist);
-      op[i] = expand_expr (arg[i], NULL_RTX, VOIDmode, 0);
+      op[i] = expand_normal (arg[i]);
       mode[i] = insn_data[icode].operand[i].mode;
       if (code[i] == CONST_INT && GET_CODE (op[i]) != CONST_INT)
 	error ("argument %qd is not a constant", i + 1);

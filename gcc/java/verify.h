@@ -27,11 +27,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_VERIFY_H
 #define GCC_VERIFY_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "system.h"
 #include "coretypes.h"
 #include "jcf.h"
@@ -156,9 +151,5 @@ typedef enum
 #define JV_CONSTANT_Methodref CONSTANT_Methodref
 
 int verify_method (vfy_method *meth);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* ! GCC_VERIFY_H */

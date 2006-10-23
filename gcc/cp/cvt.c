@@ -30,6 +30,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "flags.h"
 #include "cp-tree.h"
@@ -951,7 +952,7 @@ convert_to_void (tree expr, const char *implicit)
 	    {
 	      tree e;
 	      enum tree_code code;
-	      enum tree_code_class class;
+	      enum tree_code_class tcc;
 
 	      e = expr;
 	      /* We might like to warn about (say) "(int) f()", as the
@@ -968,10 +969,10 @@ convert_to_void (tree expr, const char *implicit)
 		e = TREE_OPERAND (e, 0);
 
 	      code = TREE_CODE (e);
-	      class = TREE_CODE_CLASS (code);
-	      if (class == tcc_comparison
-		   || class == tcc_unary
-		   || (class == tcc_binary
+	      tcc = TREE_CODE_CLASS (code);
+	      if (tcc == tcc_comparison
+		   || tcc == tcc_unary
+		   || (tcc == tcc_binary
 		       && !(code == MODIFY_EXPR
 			    || code == INIT_EXPR
 			    || code == PREDECREMENT_EXPR

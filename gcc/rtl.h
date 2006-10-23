@@ -1751,7 +1751,7 @@ void free_INSN_LIST_list		(rtx *);
 void free_EXPR_LIST_node		(rtx);
 void free_INSN_LIST_node		(rtx);
 rtx alloc_INSN_LIST			(rtx, rtx);
-rtx alloc_EXPR_LIST			(int, rtx, rtx);
+rtx alloc_EXPR_LIST			(enum reg_note, rtx, rtx);
 void free_DEPS_LIST_list (rtx *);
 rtx alloc_DEPS_LIST (rtx, rtx, int);
 void remove_free_DEPS_LIST_elem (rtx, rtx *);
@@ -1888,6 +1888,9 @@ extern rtx gen_rtx_REG (enum machine_mode, unsigned);
 extern rtx gen_rtx_SUBREG (enum machine_mode, rtx, int);
 extern rtx gen_rtx_MEM (enum machine_mode, rtx);
 
+extern rtx gen_rtx_EXPR_LIST (enum reg_note, rtx, rtx);
+extern rtx gen_rtx_INSN_LIST (enum reg_note, rtx, rtx);
+
 #define GEN_INT(N)  gen_rtx_CONST_INT (VOIDmode, (N))
 
 /* Virtual registers are used during RTL generation to refer to locations into
@@ -1957,17 +1960,14 @@ extern rtx gen_rtx_MEM (enum machine_mode, rtx);
 extern rtx output_constant_def (tree, int);
 extern rtx lookup_constant_def (tree);
 
-/* Nonzero after the second flow pass has completed.
-   Set to 1 or 0 by toplev.c  */
-extern int flow2_completed;
+/* True after the second flow pass has completed. */
+extern bool flow2_completed;
 
-/* Nonzero after end of reload pass.
-   Set to 1 or 0 by reload1.c.  */
+/* True after end of reload pass. Set by reload1.c.  */
+extern bool reload_completed;
 
-extern int reload_completed;
-
-/* Nonzero after thread_prologue_and_epilogue_insns has run.  */
-extern int epilogue_completed;
+/* True after thread_prologue_and_epilogue_insns has run.  */
+extern bool epilogue_completed;
 
 /* Set to 1 while reload_as_needed is operating.
    Required by some machines to handle any generated moves differently.  */
@@ -1988,9 +1988,9 @@ extern int regstack_completed;
    the same indirect address eventually.  */
 extern int cse_not_expected;
 
-/* Set to nonzero before life analysis to indicate that it is unsafe to
+/* Set to true before life analysis to indicate that it is unsafe to
    generate any new pseudo registers.  */
-extern int no_new_pseudos;
+extern bool no_new_pseudos;
 
 /* Translates rtx code to tree code, for those codes needed by
    REAL_ARITHMETIC.  The function returns an int because the caller may not

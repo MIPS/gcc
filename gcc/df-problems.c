@@ -66,7 +66,7 @@ struct df_link *
 df_chain_create (struct dataflow *dflow, struct df_ref *src, struct df_ref *dst)
 {
   struct df_link *head = DF_REF_CHAIN (src);
-  struct df_link *link = pool_alloc (dflow->block_pool);;
+  struct df_link *link = (struct df_link *) pool_alloc (dflow->block_pool);;
   
   DF_REF_CHAIN (src) = link;
   link->next = head;
@@ -189,7 +189,7 @@ df_grow_bb_info (struct dataflow *dflow)
   if (dflow->block_info_size < new_size)
     {
       new_size += new_size / 4;
-      dflow->block_info = xrealloc (dflow->block_info, 
+      dflow->block_info = (void **) xrealloc (dflow->block_info, 
 				    new_size *sizeof (void*));
       memset (dflow->block_info + dflow->block_info_size, 0,
 	      (new_size - dflow->block_info_size) *sizeof (void *));
@@ -401,7 +401,7 @@ df_ru_alloc (struct dataflow *dflow,
       if (problem_data->use_sites_size < reg_size)
 	{
 	  problem_data->use_sites 
-	    = xrealloc (problem_data->use_sites, reg_size * sizeof (bitmap));
+	    = (bitmap *) xrealloc (problem_data->use_sites, reg_size * sizeof (bitmap));
 	  memset (problem_data->use_sites + problem_data->use_sites_size, 0,
 		  (reg_size - problem_data->use_sites_size) * sizeof (bitmap));
 	  problem_data->use_sites_size = reg_size;
@@ -551,10 +551,10 @@ df_ru_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
 	continue;
 
       df_ru_bb_local_compute_process_use (bb_info, 
-					  DF_INSN_UID_USES (df, uid), 0);
+					  DF_INSN_UID_USES (df, uid), DF_REF_NONE);
 
       df_ru_bb_local_compute_process_def (dflow, bb_info, 
-					  DF_INSN_UID_DEFS (df, uid), 0);
+					  DF_INSN_UID_DEFS (df, uid), DF_REF_NONE);
 
       bitmap_ior_into (seen_in_block, seen_in_insn);
       bitmap_clear (seen_in_insn);
@@ -562,10 +562,10 @@ df_ru_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
 
   /* Process the hardware registers that are always live.  */
   df_ru_bb_local_compute_process_use (bb_info, 
-				      df_get_artificial_uses (df, bb_index), 0);
+				      df_get_artificial_uses (df, bb_index), DF_REF_NONE);
 
   df_ru_bb_local_compute_process_def (dflow, bb_info, 
-				      df_get_artificial_defs (df, bb_index), 0);
+				      df_get_artificial_defs (df, bb_index), DF_REF_NONE);
 }
 
 
@@ -941,7 +941,7 @@ df_rd_alloc (struct dataflow *dflow,
       if (problem_data->def_sites_size < reg_size)
 	{
 	  problem_data->def_sites 
-	    = xrealloc (problem_data->def_sites, reg_size *sizeof (bitmap));
+	    = (bitmap *) xrealloc (problem_data->def_sites, reg_size *sizeof (bitmap));
 	  memset (problem_data->def_sites + problem_data->def_sites_size, 0,
 		  (reg_size - problem_data->def_sites_size) *sizeof (bitmap));
 	  problem_data->def_sites_size = reg_size;
@@ -1061,7 +1061,7 @@ df_rd_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
   bitmap_clear (seen_in_insn);
 
   df_rd_bb_local_compute_process_def (dflow, bb_info, 
-				      df_get_artificial_defs (df, bb_index), 0);
+				      df_get_artificial_defs (df, bb_index), DF_REF_NONE);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
@@ -1071,7 +1071,7 @@ df_rd_bb_local_compute (struct dataflow *dflow, unsigned int bb_index)
 	continue;
 
       df_rd_bb_local_compute_process_def (dflow, bb_info, 
-					  DF_INSN_UID_DEFS (df, uid), 0);
+					  DF_INSN_UID_DEFS (df, uid), DF_REF_NONE);
 
       /* This complex dance with the two bitmaps is required because
 	 instructions can assign twice to the same pseudo.  This
@@ -2312,10 +2312,10 @@ df_urec_check_earlyclobber (rtx insn)
       char c;
       bool amp_p;
       int i;
-      enum reg_class class;
+      enum reg_class regclass;
       const char *p = recog_data.constraints[opno];
 
-      class = NO_REGS;
+      regclass = NO_REGS;
       amp_p = false;
       for (;;)
 	{
@@ -2341,7 +2341,7 @@ df_urec_check_earlyclobber (rtx insn)
 	      break;
 	    case '\0':
 	    case ',':
-	      if (amp_p && class != NO_REGS)
+	      if (amp_p && regclass != NO_REGS)
 		{
 		  int rc;
 
@@ -2350,28 +2350,28 @@ df_urec_check_earlyclobber (rtx insn)
 		       VEC_iterate (int, earlyclobber_regclass, i, rc);
 		       i++)
 		    {
-		      if (rc == (int) class)
+		      if ((enum reg_class) rc == regclass)
 			goto found_rc;
 		    }
 
 		  /* We use VEC_quick_push here because
 		     earlyclobber_regclass holds no more than
 		     N_REG_CLASSES elements. */
-		  VEC_quick_push (int, earlyclobber_regclass, (int) class);
+		  VEC_quick_push (int, earlyclobber_regclass, (int) regclass);
 		found_rc:
 		  ;
 		}
 	      
 	      amp_p = false;
-	      class = NO_REGS;
+	      regclass = NO_REGS;
 	      break;
 
 	    case 'r':
-	      class = GENERAL_REGS;
+	      regclass = GENERAL_REGS;
 	      break;
 
 	    default:
-	      class = REG_CLASS_FROM_CONSTRAINT (c, p);
+	      regclass = REG_CLASS_FROM_CONSTRAINT (c, p);
 	      break;
 	    }
 	  if (c == '\0')
@@ -2414,9 +2414,9 @@ df_urec_mark_reg_use_for_earlyclobber (rtx *x, void *data)
       alt_class = reg_alternate_class (regno);
       for (i = 0; VEC_iterate (int, earlyclobber_regclass, i, rc); i++)
 	{
-	  if (reg_classes_intersect_p (rc, pref_class)
+	  if (reg_classes_intersect_p ((enum reg_class) rc, pref_class)
 	      || (rc != NO_REGS
-		  && reg_classes_intersect_p (rc, alt_class)))
+		  && reg_classes_intersect_p ((enum reg_class) rc, alt_class)))
 	    {
 	      bitmap_set_bit (bb_info->earlyclobber, regno);
 	      break;
@@ -2995,7 +2995,7 @@ df_chain_create_bb (struct dataflow *dflow,
 	 in the cpy vector.  */
       
       df_chain_create_bb_process_use (dflow, cpy,
-				     DF_INSN_UID_USES (df, uid), 0);
+				     DF_INSN_UID_USES (df, uid), DF_REF_NONE);
 
       /* Since we are going forwards, process the defs second.  This
          pass only changes the bits in cpy.  */
@@ -3015,7 +3015,7 @@ df_chain_create_bb (struct dataflow *dflow,
   /* Create the chains for the artificial uses of the hard registers
      at the end of the block.  */
   df_chain_create_bb_process_use (dflow, cpy,
-				  df_get_artificial_uses (df, bb->index), 0);
+				  df_get_artificial_uses (df, bb->index), DF_REF_NONE);
 }
 
 /* Create def-use chains from reaching use bitmaps for basic blocks

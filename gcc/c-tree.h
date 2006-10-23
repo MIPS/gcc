@@ -380,11 +380,11 @@ struct language_function GTY(())
   tree x_cont_label;
   struct c_switch * GTY((skip)) x_switch_stack;
   struct c_arg_info * GTY((skip)) arg_info;
-  int returns_value;
-  int returns_null;
-  int returns_abnormally;
-  int warn_about_return_type;
-  int extern_inline;
+  bool returns_value;
+  bool returns_null;
+  bool returns_abnormally;
+  bool warn_about_return_type;
+  bool extern_inline;
 };
 
 /* Save lists of labels used or defined in particular contexts.
@@ -474,7 +474,9 @@ extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
 							struct c_declarator *,
 							bool);
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
+extern tree builtin_function (const char *, tree,
+			      enum built_in_function,
+			      enum built_in_class,
 			      const char *, tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
@@ -589,20 +591,20 @@ extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (tree, tree);
 extern tree c_finish_omp_clauses (tree);
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a return statement that specifies a return value is seen.  */
 
-extern int current_function_returns_value;
+extern bool current_function_returns_value;
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a return statement with no argument is seen.  */
 
-extern int current_function_returns_null;
+extern bool current_function_returns_null;
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a call to a noreturn function is seen.  */
 
-extern int current_function_returns_abnormally;
+extern bool current_function_returns_abnormally;
 
 /* Nonzero means we are reading code that came from a system header file.  */
 

@@ -41,7 +41,7 @@ enum mode_class { MODE_CLASSES, MAX_MODE_CLASS };
 /* Get the general kind of object that mode MODE represents
    (integer, floating, complex, etc.)  */
 
-extern const unsigned char mode_class[NUM_MACHINE_MODES];
+extern const enum mode_class mode_class[NUM_MACHINE_MODES];
 #define GET_MODE_CLASS(MODE)  mode_class[MODE]
 
 /* Nonzero if MODE is an integral mode.  */
@@ -108,7 +108,7 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 
 /* Return the mode of the inner elements in a vector.  */
 
-extern const unsigned char mode_inner[NUM_MACHINE_MODES];
+extern const enum machine_mode mode_inner[NUM_MACHINE_MODES];
 #define GET_MODE_INNER(MODE) mode_inner[MODE]
 
 /* Get the size in bytes of the basic parts of an object of mode MODE.  */
@@ -125,10 +125,10 @@ extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
 
 /* Get the next wider natural mode (eg, QI -> HI -> SI -> DI -> TI).  */
 
-extern const unsigned char mode_wider[NUM_MACHINE_MODES];
+extern const enum machine_mode mode_wider[NUM_MACHINE_MODES];
 #define GET_MODE_WIDER_MODE(MODE) mode_wider[MODE]
 
-extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
+extern const enum machine_mode mode_2xwider[NUM_MACHINE_MODES];
 #define GET_MODE_2XWIDER_MODE(MODE) mode_2xwider[MODE]
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
@@ -163,7 +163,7 @@ extern unsigned get_mode_alignment (enum machine_mode);
 
 /* For each class, get the narrowest mode in that class.  */
 
-extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
+extern const enum machine_mode class_narrowest_mode[MAX_MODE_CLASS];
 #define GET_CLASS_NARROWEST_MODE(CLASS) class_narrowest_mode[CLASS]
 
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD

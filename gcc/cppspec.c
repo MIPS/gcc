@@ -78,9 +78,8 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   int i, j, quote = 0;
   const char **new_argv;
   int new_argc;
-  extern int is_cpp_driver;
 
-  is_cpp_driver = 1;
+  is_cpp_driver = true;
 
   /* First pass.  If we see an -S or -c, barf.  If we see an input file,
      turn off read_stdin.  If we see a second input file, it is actually

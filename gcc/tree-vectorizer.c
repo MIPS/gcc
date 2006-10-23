@@ -1276,9 +1276,9 @@ vect_set_verbosity_level (const char *val)
 
    vl = atoi (val);
    if (vl < MAX_VERBOSITY_LEVEL)
-     vect_verbosity_level = vl;
+     vect_verbosity_level = (enum verbosity_levels) vl;
    else
-     vect_verbosity_level = MAX_VERBOSITY_LEVEL - 1;
+     vect_verbosity_level = (enum verbosity_levels) (MAX_VERBOSITY_LEVEL - 1);
 }
 
 
@@ -1597,7 +1597,7 @@ enum dr_alignment_support
 vect_supportable_dr_alignment (struct data_reference *dr)
 {
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr)));
-  enum machine_mode mode = (int) TYPE_MODE (vectype);
+  enum machine_mode mode = TYPE_MODE (vectype);
 
   if (aligned_access_p (dr))
     return dr_aligned;
@@ -2083,7 +2083,7 @@ vectorize_loops (struct loops *loops)
 
       if (!loop)
 	continue;
-      loop_vinfo = loop->aux;
+      loop_vinfo = (loop_vec_info) loop->aux;
       destroy_loop_vec_info (loop_vinfo);
       loop->aux = NULL;
     }

@@ -40,9 +40,6 @@ Boston, MA 02110-1301, USA.  */
     }						\
   while (0)
 
-#undef THREAD_MODEL_SPEC
-#define THREAD_MODEL_SPEC "posix"
-
 #ifdef CROSS_COMPILE
 #define SYSROOT_SUFFIX_SPEC "x86"
 #endif

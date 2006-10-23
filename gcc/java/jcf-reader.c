@@ -273,8 +273,8 @@ jcf_parse_constant_pool (JCF* jcf)
 {
   int i, n;
   JPOOL_SIZE (jcf) = (JCF_FILL (jcf, 2), JCF_readu2 (jcf));
-  jcf->cpool.tags = ggc_alloc (JPOOL_SIZE (jcf));
-  jcf->cpool.data = ggc_alloc (sizeof (jword) * JPOOL_SIZE (jcf));
+  jcf->cpool.tags = (uint8 *) ggc_alloc (JPOOL_SIZE (jcf));
+  jcf->cpool.data = (union cpool_entry *) ggc_alloc (sizeof (jword) * JPOOL_SIZE (jcf));
   jcf->cpool.tags[0] = 0;
 #ifdef HANDLE_START_CONSTANT_POOL
   HANDLE_START_CONSTANT_POOL (JPOOL_SIZE (jcf));

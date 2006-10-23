@@ -127,7 +127,7 @@ options_convert;
 
 typedef enum
 { SUCCESS = 1, FAILURE }
-try;
+check;
 
 /* This is returned by gfc_notification_std to know if, given the flags
    that were given (-std=, -pedantic) we should issue an error, a warning
@@ -615,7 +615,7 @@ typedef struct gfc_charlen
 }
 gfc_charlen;
 
-#define gfc_get_charlen() gfc_getmem(sizeof(gfc_charlen))
+#define gfc_get_charlen() ((gfc_charlen *)gfc_getmem(sizeof(gfc_charlen)))
 
 /* Type specification structure.  FIXME: derived and cl could be union???  */
 typedef struct
@@ -643,7 +643,7 @@ typedef struct
 }
 gfc_array_spec;
 
-#define gfc_get_array_spec() gfc_getmem(sizeof(gfc_array_spec))
+#define gfc_get_array_spec() ((gfc_array_spec *)gfc_getmem(sizeof(gfc_array_spec)))
 
 
 /* Components of derived types.  */
@@ -662,7 +662,7 @@ typedef struct gfc_component
 }
 gfc_component;
 
-#define gfc_get_component() gfc_getmem(sizeof(gfc_component))
+#define gfc_get_component() ((gfc_component *)gfc_getmem(sizeof(gfc_component)))
 
 /* Formal argument lists are lists of symbols.  */
 typedef struct gfc_formal_arglist
@@ -674,7 +674,7 @@ typedef struct gfc_formal_arglist
 }
 gfc_formal_arglist;
 
-#define gfc_get_formal_arglist() gfc_getmem(sizeof(gfc_formal_arglist))
+#define gfc_get_formal_arglist() ((gfc_formal_arglist *)gfc_getmem(sizeof(gfc_formal_arglist)))
 
 
 /* The gfc_actual_arglist structure is for actual arguments.  */
@@ -694,7 +694,7 @@ typedef struct gfc_actual_arglist
 }
 gfc_actual_arglist;
 
-#define gfc_get_actual_arglist() gfc_getmem(sizeof(gfc_actual_arglist))
+#define gfc_get_actual_arglist() ((gfc_actual_arglist *)gfc_getmem(sizeof(gfc_actual_arglist)))
 
 
 /* Because a symbol can belong to multiple namelists, they must be
@@ -706,7 +706,7 @@ typedef struct gfc_namelist
 }
 gfc_namelist;
 
-#define gfc_get_namelist() gfc_getmem(sizeof(gfc_namelist))
+#define gfc_get_namelist() ((gfc_namelist*)gfc_getmem(sizeof(gfc_namelist)))
 
 enum
 {
@@ -733,6 +733,23 @@ enum
   OMP_LIST_NUM
 };
 
+enum omp_sched_kind
+{
+  OMP_SCHED_NONE,
+  OMP_SCHED_STATIC,
+  OMP_SCHED_DYNAMIC,
+  OMP_SCHED_GUIDED,
+  OMP_SCHED_RUNTIME
+};
+
+enum omp_default_sharing
+{
+  OMP_DEFAULT_UNKNOWN,
+  OMP_DEFAULT_NONE,
+  OMP_DEFAULT_PRIVATE,
+  OMP_DEFAULT_SHARED
+};
+
 /* Because a symbol can belong to multiple namelists, they must be
    linked externally to the symbol itself.  */
 typedef struct gfc_omp_clauses
@@ -740,22 +757,9 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *if_expr;
   struct gfc_expr *num_threads;
   gfc_namelist *lists[OMP_LIST_NUM];
-  enum
-    {
-      OMP_SCHED_NONE,
-      OMP_SCHED_STATIC,
-      OMP_SCHED_DYNAMIC,
-      OMP_SCHED_GUIDED,
-      OMP_SCHED_RUNTIME
-    } sched_kind;
+  enum omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
-  enum
-    {
-      OMP_DEFAULT_UNKNOWN,
-      OMP_DEFAULT_NONE,
-      OMP_DEFAULT_PRIVATE,
-      OMP_DEFAULT_SHARED
-    } default_sharing;
+  enum omp_default_sharing default_sharing;
   bool nowait, ordered;
 }
 gfc_omp_clauses;
@@ -793,7 +797,7 @@ typedef struct gfc_interface
 }
 gfc_interface;
 
-#define gfc_get_interface() gfc_getmem(sizeof(gfc_interface))
+#define gfc_get_interface() ((gfc_interface *)gfc_getmem(sizeof(gfc_interface)))
 
 
 /* User operator nodes.  These are like stripped down symbols.  */
@@ -801,7 +805,7 @@ typedef struct
 {
   const char *name;
 
-  gfc_interface *operator;
+  gfc_interface *foperator;
   struct gfc_namespace *ns;
   gfc_access access;
 }
@@ -863,7 +867,7 @@ typedef struct gfc_symbol
      the old symbol.  */
 
   struct gfc_symbol *old_symbol, *tlink;
-  unsigned mark:1, new:1;
+  unsigned mark:1, fresh:1;
   /* Nonzero if all equivalences associated with this symbol have been
      processed.  */
   unsigned equiv_built:1;
@@ -888,7 +892,7 @@ typedef struct gfc_common_head
 }
 gfc_common_head;
 
-#define gfc_get_common_head() gfc_getmem(sizeof(gfc_common_head))
+#define gfc_get_common_head() ((gfc_common_head *)gfc_getmem(sizeof(gfc_common_head)))
 
 
 /* A list of all the alternate entry points for a procedure.  */
@@ -907,7 +911,7 @@ typedef struct gfc_entry_list
 gfc_entry_list;
 
 #define gfc_get_entry_list() \
-  (gfc_entry_list *) gfc_getmem(sizeof(gfc_entry_list))
+  ((gfc_entry_list *) gfc_getmem(sizeof(gfc_entry_list)))
 
 /* Within a namespace, symbols are pointed to by symtree nodes that
    are linked together in a balanced binary tree.  There can be
@@ -938,7 +942,7 @@ typedef struct gfc_dt_list
 }
 gfc_dt_list;
 
-#define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
+#define gfc_get_dt_list() ((gfc_dt_list *)gfc_getmem(sizeof(gfc_dt_list)))
 
 
 /* A namespace describes the contents of procedure, module or
@@ -971,7 +975,7 @@ typedef struct gfc_namespace
   /* Points to the equivalence groups produced by trans_common.  */
   struct gfc_equiv_list *equiv_lists;
 
-  gfc_interface *operator[GFC_INTRINSIC_OPS];
+  gfc_interface *foperator[GFC_INTRINSIC_OPS];
 
   /* Points to the parent namespace, i.e. the namespace of a module or
      procedure in which the procedure belonging to this namespace is
@@ -1017,13 +1021,22 @@ extern gfc_namespace *gfc_current_ns;
    this to detect collisions already when parsing.
    TODO: Extend to verify procedure calls.  */
 
+enum fortran_gsym {
+    GSYM_UNKNOWN=1,
+    GSYM_PROGRAM,
+    GSYM_FUNCTION,
+    GSYM_SUBROUTINE,
+    GSYM_MODULE,
+    GSYM_COMMON,
+    GSYM_BLOCK_DATA
+};
+
 typedef struct gfc_gsymbol
 {
   BBT_HEADER(gfc_gsymbol);
 
   const char *name;
-  enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
-        GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
+  enum fortran_gsym type;
 
   int defined, used;
   locus where;
@@ -1047,6 +1060,13 @@ extern gfc_interface_info current_interface;
 
 
 /* Array reference.  */
+enum fortran_dimen_type {
+    DIMEN_ELEMENT = 1,
+    DIMEN_RANGE,
+    DIMEN_VECTOR,
+    DIMEN_UNKNOWN
+};
+
 typedef struct gfc_array_ref
 {
   ar_type type;
@@ -1058,15 +1078,13 @@ typedef struct gfc_array_ref
   struct gfc_expr *start[GFC_MAX_DIMENSIONS], *end[GFC_MAX_DIMENSIONS],
     *stride[GFC_MAX_DIMENSIONS];
 
-  enum
-  { DIMEN_ELEMENT = 1, DIMEN_RANGE, DIMEN_VECTOR, DIMEN_UNKNOWN }
-  dimen_type[GFC_MAX_DIMENSIONS];
+  enum fortran_dimen_type dimen_type[GFC_MAX_DIMENSIONS];
 
   struct gfc_expr *offset;
 }
 gfc_array_ref;
 
-#define gfc_get_array_ref() gfc_getmem(sizeof(gfc_array_ref))
+#define gfc_get_array_ref() ((gfc_array_ref *)gfc_getmem(sizeof(gfc_array_ref)))
 
 
 /* Component reference nodes.  A variable is stored as an expression
@@ -1108,7 +1126,7 @@ typedef struct gfc_ref
 }
 gfc_ref;
 
-#define gfc_get_ref() gfc_getmem(sizeof(gfc_ref))
+#define gfc_get_ref() ((gfc_ref *)gfc_getmem(sizeof(gfc_ref)))
 
 
 /* Structures representing intrinsic symbols and their arguments lists.  */
@@ -1135,16 +1153,16 @@ gfc_intrinsic_arg;
 
 typedef union
 {
-  try (*f0)(void);
-  try (*f1)(struct gfc_expr *);
-  try (*f1m)(gfc_actual_arglist *);
-  try (*f2)(struct gfc_expr *, struct gfc_expr *);
-  try (*f3)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *);
-  try (*f3ml)(gfc_actual_arglist *);
-  try (*f3red)(gfc_actual_arglist *);
-  try (*f4)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
+  check (*f0)(void);
+  check (*f1)(struct gfc_expr *);
+  check (*f1m)(gfc_actual_arglist *);
+  check (*f2)(struct gfc_expr *, struct gfc_expr *);
+  check (*f3)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *);
+  check (*f3ml)(gfc_actual_arglist *);
+  check (*f3red)(gfc_actual_arglist *);
+  check (*f4)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
 	    struct gfc_expr *);
-  try (*f5)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
+  check (*f5)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
 	    struct gfc_expr *, struct gfc_expr *);
 }
 gfc_check_f;
@@ -1266,7 +1284,7 @@ typedef struct gfc_expr
 
     struct
     {
-      gfc_intrinsic_op operator;
+      gfc_intrinsic_op foperator;
       gfc_user_op *uop;
       struct gfc_expr *op1, *op2;
     }
@@ -1366,7 +1384,7 @@ typedef struct gfc_equiv
 }
 gfc_equiv;
 
-#define gfc_get_equiv() gfc_getmem(sizeof(gfc_equiv))
+#define gfc_get_equiv() ((gfc_equiv *)gfc_getmem(sizeof(gfc_equiv)))
 
 /* Holds a single equivalence member after processing.  */
 typedef struct gfc_equiv_info
@@ -1418,7 +1436,7 @@ typedef struct gfc_case
 }
 gfc_case;
 
-#define gfc_get_case() gfc_getmem(sizeof(gfc_case))
+#define gfc_get_case() ((gfc_case *)gfc_getmem(sizeof(gfc_case)))
 
 
 typedef struct
@@ -1427,7 +1445,7 @@ typedef struct
 }
 gfc_iterator;
 
-#define gfc_get_iterator() gfc_getmem(sizeof(gfc_iterator))
+#define gfc_get_iterator() ((gfc_iterator *)gfc_getmem(sizeof(gfc_iterator)))
 
 
 /* Allocation structure for ALLOCATE, DEALLOCATE and NULLIFY statements.  */
@@ -1439,7 +1457,7 @@ typedef struct gfc_alloc
 }
 gfc_alloc;
 
-#define gfc_get_alloc() gfc_getmem(sizeof(gfc_alloc))
+#define gfc_get_alloc() ((gfc_alloc *)gfc_getmem(sizeof(gfc_alloc)))
 
 
 typedef struct
@@ -1596,9 +1614,9 @@ typedef struct gfc_data
 }
 gfc_data;
 
-#define gfc_get_data_variable() gfc_getmem(sizeof(gfc_data_variable))
-#define gfc_get_data_value() gfc_getmem(sizeof(gfc_data_value))
-#define gfc_get_data() gfc_getmem(sizeof(gfc_data))
+#define gfc_get_data_variable() ((gfc_data_variable *)gfc_getmem(sizeof(gfc_data_variable)))
+#define gfc_get_data_value() ((gfc_data_value *)gfc_getmem(sizeof(gfc_data_value)))
+#define gfc_get_data() ((gfc_data *)gfc_getmem(sizeof(gfc_data)))
 
 
 /* Structure for holding compile options */
@@ -1731,7 +1749,7 @@ int gfc_next_char (void);
 int gfc_peek_char (void);
 void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
-try gfc_new_file (void);
+check gfc_new_file (void);
 const char * gfc_read_orig_filename (const char *, const char **);
 
 extern gfc_source_form gfc_current_form;
@@ -1792,7 +1810,7 @@ void gfc_clear_error (void);
 int gfc_error_check (void);
 
 notification gfc_notification_std (int);
-try gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
+check gfc_notify_std (int, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 /* A general purpose syntax error.  */
 #define gfc_syntax_error(ST)	\
@@ -1828,62 +1846,62 @@ extern int gfc_intio_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
-try gfc_add_new_implicit_range (int, int);
-try gfc_merge_new_implicit (gfc_typespec *);
+check gfc_add_new_implicit_range (int, int);
+check gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (void);
 
 gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
-try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
+check gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
 
 void gfc_set_component_attr (gfc_component *, symbol_attribute *);
 void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
-try gfc_add_attribute (symbol_attribute *, locus *, unsigned int);
-try gfc_add_allocatable (symbol_attribute *, locus *);
-try gfc_add_dimension (symbol_attribute *, const char *, locus *);
-try gfc_add_external (symbol_attribute *, locus *);
-try gfc_add_intrinsic (symbol_attribute *, locus *);
-try gfc_add_optional (symbol_attribute *, locus *);
-try gfc_add_pointer (symbol_attribute *, locus *);
-try gfc_add_cray_pointer (symbol_attribute *, locus *);
-try gfc_add_cray_pointee (symbol_attribute *, locus *);
-try gfc_mod_pointee_as (gfc_array_spec *as);
-try gfc_add_result (symbol_attribute *, const char *, locus *);
-try gfc_add_save (symbol_attribute *, const char *, locus *);
-try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
-try gfc_add_saved_common (symbol_attribute *, locus *);
-try gfc_add_target (symbol_attribute *, locus *);
-try gfc_add_dummy (symbol_attribute *, const char *, locus *);
-try gfc_add_generic (symbol_attribute *, const char *, locus *);
-try gfc_add_common (symbol_attribute *, locus *);
-try gfc_add_in_common (symbol_attribute *, const char *, locus *);
-try gfc_add_in_equivalence (symbol_attribute *, const char *, locus *);
-try gfc_add_data (symbol_attribute *, const char *, locus *);
-try gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
-try gfc_add_sequence (symbol_attribute *, const char *, locus *);
-try gfc_add_elemental (symbol_attribute *, locus *);
-try gfc_add_pure (symbol_attribute *, locus *);
-try gfc_add_recursive (symbol_attribute *, locus *);
-try gfc_add_function (symbol_attribute *, const char *, locus *);
-try gfc_add_subroutine (symbol_attribute *, const char *, locus *);
+check gfc_add_attribute (symbol_attribute *, locus *, unsigned int);
+check gfc_add_allocatable (symbol_attribute *, locus *);
+check gfc_add_dimension (symbol_attribute *, const char *, locus *);
+check gfc_add_external (symbol_attribute *, locus *);
+check gfc_add_intrinsic (symbol_attribute *, locus *);
+check gfc_add_optional (symbol_attribute *, locus *);
+check gfc_add_pointer (symbol_attribute *, locus *);
+check gfc_add_cray_pointer (symbol_attribute *, locus *);
+check gfc_add_cray_pointee (symbol_attribute *, locus *);
+check gfc_mod_pointee_as (gfc_array_spec *as);
+check gfc_add_result (symbol_attribute *, const char *, locus *);
+check gfc_add_save (symbol_attribute *, const char *, locus *);
+check gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
+check gfc_add_saved_common (symbol_attribute *, locus *);
+check gfc_add_target (symbol_attribute *, locus *);
+check gfc_add_dummy (symbol_attribute *, const char *, locus *);
+check gfc_add_generic (symbol_attribute *, const char *, locus *);
+check gfc_add_common (symbol_attribute *, locus *);
+check gfc_add_in_common (symbol_attribute *, const char *, locus *);
+check gfc_add_in_equivalence (symbol_attribute *, const char *, locus *);
+check gfc_add_data (symbol_attribute *, const char *, locus *);
+check gfc_add_in_namelist (symbol_attribute *, const char *, locus *);
+check gfc_add_sequence (symbol_attribute *, const char *, locus *);
+check gfc_add_elemental (symbol_attribute *, locus *);
+check gfc_add_pure (symbol_attribute *, locus *);
+check gfc_add_recursive (symbol_attribute *, locus *);
+check gfc_add_function (symbol_attribute *, const char *, locus *);
+check gfc_add_subroutine (symbol_attribute *, const char *, locus *);
 
-try gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
-try gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
-try gfc_add_entry (symbol_attribute *, const char *, locus *);
-try gfc_add_procedure (symbol_attribute *, procedure_type,
+check gfc_add_access (symbol_attribute *, gfc_access, const char *, locus *);
+check gfc_add_flavor (symbol_attribute *, sym_flavor, const char *, locus *);
+check gfc_add_entry (symbol_attribute *, const char *, locus *);
+check gfc_add_procedure (symbol_attribute *, procedure_type,
 		       const char *, locus *);
-try gfc_add_intent (symbol_attribute *, sym_intent, locus *);
-try gfc_add_explicit_interface (gfc_symbol *, ifsrc,
+check gfc_add_intent (symbol_attribute *, sym_intent, locus *);
+check gfc_add_explicit_interface (gfc_symbol *, ifsrc,
 				gfc_formal_arglist *, locus *);
-try gfc_add_type (gfc_symbol *, gfc_typespec *, locus *);
+check gfc_add_type (gfc_symbol *, gfc_typespec *, locus *);
 
 void gfc_clear_attr (symbol_attribute *);
-try gfc_missing_attr (symbol_attribute *, locus *);
-try gfc_copy_attr (symbol_attribute *, symbol_attribute *, locus *);
+check gfc_missing_attr (symbol_attribute *, locus *);
+check gfc_copy_attr (symbol_attribute *, symbol_attribute *, locus *);
 
-try gfc_add_component (gfc_symbol *, const char *, gfc_component **);
+check gfc_add_component (gfc_symbol *, const char *, gfc_component **);
 gfc_symbol *gfc_use_derived (gfc_symbol *);
 gfc_symtree *gfc_use_derived_tree (gfc_symtree *);
 gfc_component *gfc_find_component (gfc_symbol *, const char *);
@@ -1891,7 +1909,7 @@ gfc_component *gfc_find_component (gfc_symbol *, const char *);
 gfc_st_label *gfc_get_st_label (int);
 void gfc_free_st_label (gfc_st_label *);
 void gfc_define_st_label (gfc_st_label *, gfc_sl_type, locus *);
-try gfc_reference_st_label (gfc_st_label *, gfc_sl_type);
+check gfc_reference_st_label (gfc_st_label *, gfc_sl_type);
 
 gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
@@ -1941,8 +1959,8 @@ void gfc_intrinsic_done_1 (void);
 
 char gfc_type_letter (bt);
 gfc_symbol * gfc_get_intrinsic_sub_symbol (const char *);
-try gfc_convert_type (gfc_expr *, gfc_typespec *, int);
-try gfc_convert_type_warn (gfc_expr *, gfc_typespec *, int, int);
+check gfc_convert_type (gfc_expr *, gfc_typespec *, int);
+check gfc_convert_type_warn (gfc_expr *, gfc_typespec *, int, int);
 int gfc_generic_intrinsic (const char *);
 int gfc_specific_intrinsic (const char *);
 int gfc_intrinsic_name (const char *, int);
@@ -1984,7 +2002,7 @@ gfc_expr *gfc_build_conversion (gfc_expr *);
 void gfc_free_ref_list (gfc_ref *);
 void gfc_type_convert_binary (gfc_expr *);
 int gfc_is_constant_expr (gfc_expr *);
-try gfc_simplify_expr (gfc_expr *, int);
+check gfc_simplify_expr (gfc_expr *, int);
 int gfc_has_vector_index (gfc_expr *);
 
 gfc_expr *gfc_get_expr (void);
@@ -1996,15 +2014,15 @@ mpz_t *gfc_copy_shape (mpz_t *, int);
 mpz_t *gfc_copy_shape_excluding (mpz_t *, int, gfc_expr *);
 gfc_expr *gfc_copy_expr (gfc_expr *);
 
-try gfc_specification_expr (gfc_expr *);
+check gfc_specification_expr (gfc_expr *);
 
 int gfc_numeric_ts (gfc_typespec *);
 int gfc_kind_max (gfc_expr *, gfc_expr *);
 
-try gfc_check_conformance (const char *, gfc_expr *, gfc_expr *);
-try gfc_check_assign (gfc_expr *, gfc_expr *, int);
-try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
-try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
+check gfc_check_conformance (const char *, gfc_expr *, gfc_expr *);
+check gfc_check_assign (gfc_expr *, gfc_expr *, int);
+check gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
+check gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 
 gfc_expr *gfc_default_initializer (gfc_typespec *);
 gfc_expr *gfc_get_variable_expr (gfc_symtree *);
@@ -2021,24 +2039,24 @@ void gfc_free_statement (gfc_code *);
 void gfc_free_statements (gfc_code *);
 
 /* resolve.c */
-try gfc_resolve_expr (gfc_expr *);
+check gfc_resolve_expr (gfc_expr *);
 void gfc_resolve (gfc_namespace *);
 void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
-try gfc_resolve_iterator (gfc_iterator *, bool);
-try gfc_resolve_index (gfc_expr *, int);
-try gfc_resolve_dim_arg (gfc_expr *);
+check gfc_resolve_iterator (gfc_iterator *, bool);
+check gfc_resolve_index (gfc_expr *, int);
+check gfc_resolve_dim_arg (gfc_expr *);
 int gfc_is_formal_arg (void);
 
 /* array.c */
 void gfc_free_array_spec (gfc_array_spec *);
 gfc_array_ref *gfc_copy_array_ref (gfc_array_ref *);
 
-try gfc_set_array_spec (gfc_symbol *, gfc_array_spec *, locus *);
+check gfc_set_array_spec (gfc_symbol *, gfc_array_spec *, locus *);
 gfc_array_spec *gfc_copy_array_spec (gfc_array_spec *);
-try gfc_resolve_array_spec (gfc_array_spec *, int);
+check gfc_resolve_array_spec (gfc_array_spec *, int);
 
 int gfc_compare_array_spec (gfc_array_spec *, gfc_array_spec *);
 
@@ -2046,24 +2064,24 @@ gfc_expr *gfc_start_constructor (bt, int, locus *);
 void gfc_append_constructor (gfc_expr *, gfc_expr *);
 void gfc_free_constructor (gfc_constructor *);
 void gfc_simplify_iterator_var (gfc_expr *);
-try gfc_expand_constructor (gfc_expr *);
+check gfc_expand_constructor (gfc_expr *);
 int gfc_constant_ac (gfc_expr *);
 int gfc_expanded_ac (gfc_expr *);
 void gfc_resolve_character_array_constructor (gfc_expr *);
-try gfc_resolve_array_constructor (gfc_expr *);
-try gfc_check_constructor_type (gfc_expr *);
-try gfc_check_iter_variable (gfc_expr *);
-try gfc_check_constructor (gfc_expr *, try (*)(gfc_expr *));
+check gfc_resolve_array_constructor (gfc_expr *);
+check gfc_check_constructor_type (gfc_expr *);
+check gfc_check_iter_variable (gfc_expr *);
+check gfc_check_constructor (gfc_expr *, try (*)(gfc_expr *));
 gfc_constructor *gfc_copy_constructor (gfc_constructor * src);
 gfc_expr *gfc_get_array_element (gfc_expr *, int);
-try gfc_array_size (gfc_expr *, mpz_t *);
-try gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
-try gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
+check gfc_array_size (gfc_expr *, mpz_t *);
+check gfc_array_dimen_size (gfc_expr *, int, mpz_t *);
+check gfc_array_ref_shape (gfc_array_ref *, mpz_t *);
 gfc_array_ref *gfc_find_array_ref (gfc_expr *);
 void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
 gfc_constructor *gfc_get_constructor (void);
 tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
-try spec_size (gfc_array_spec *, mpz_t *);
+check spec_size (gfc_array_spec *, mpz_t *);
 int gfc_is_compile_time_shape (gfc_array_spec *);
 
 /* interface.c -- FIXME: some of these should be in symbol.c */
@@ -2074,24 +2092,24 @@ void gfc_check_interfaces (gfc_namespace *);
 void gfc_procedure_use (gfc_symbol *, gfc_actual_arglist **, locus *);
 gfc_symbol *gfc_search_interface (gfc_interface *, int,
 				  gfc_actual_arglist **);
-try gfc_extend_expr (gfc_expr *);
+check gfc_extend_expr (gfc_expr *);
 void gfc_free_formal_arglist (gfc_formal_arglist *);
-try gfc_extend_assign (gfc_code *, gfc_namespace *);
-try gfc_add_interface (gfc_symbol * sym);
+check gfc_extend_assign (gfc_code *, gfc_namespace *);
+check gfc_add_interface (gfc_symbol * sym);
 
 /* io.c */
 extern gfc_st_label format_asterisk;
 
 void gfc_free_open (gfc_open *);
-try gfc_resolve_open (gfc_open *);
+check gfc_resolve_open (gfc_open *);
 void gfc_free_close (gfc_close *);
-try gfc_resolve_close (gfc_close *);
+check gfc_resolve_close (gfc_close *);
 void gfc_free_filepos (gfc_filepos *);
-try gfc_resolve_filepos (gfc_filepos *);
+check gfc_resolve_filepos (gfc_filepos *);
 void gfc_free_inquire (gfc_inquire *);
-try gfc_resolve_inquire (gfc_inquire *);
+check gfc_resolve_inquire (gfc_inquire *);
 void gfc_free_dt (gfc_dt *);
-try gfc_resolve_dt (gfc_dt *);
+check gfc_resolve_dt (gfc_dt *);
 
 /* module.c */
 void gfc_module_init_2 (void);
@@ -2129,7 +2147,7 @@ void gfc_show_symbol (gfc_symbol *);
 void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */
-try gfc_parse_file (void);
+check gfc_parse_file (void);
 void global_used (gfc_gsymbol *, locus *);
 
 /* dependency.c */

@@ -1272,7 +1272,7 @@ get_class_name (void)
     obstack_grow0 (&name_stack, current_class_context->name,
 		   strlen (current_class_context->name));
 
-  result = xstrdup (obstack_finish (&name_stack));
+  result = (char *)xstrdup ((const char *)obstack_finish (&name_stack));
   obstack_free (&name_stack, NULL);
 
   return result;

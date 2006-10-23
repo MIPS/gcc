@@ -273,7 +273,7 @@ ident_subst (const char* old_name,
   int prefix_len = strlen (prefix);
   int suffix_len = strlen (suffix);
   int i = prefix_len + old_length + suffix_len + 1;
-  char *buffer = alloca (i);
+  char *buffer = (char *) alloca (i);
 
   strcpy (buffer, prefix);
   for (i = 0; i < old_length; i++)
@@ -353,11 +353,11 @@ unmangle_classname (const char *name, int name_length)
 #define GEN_TABLE(TABLE, NAME, TABLE_TYPE, TYPE)			\
 do									\
 {									\
-  const char *typename = IDENTIFIER_POINTER (mangled_classname ("", TYPE)); \
-  char *buf = alloca (strlen (typename) + strlen (#NAME "_syms_") + 1);	\
+  const char *type_name = IDENTIFIER_POINTER (mangled_classname ("", TYPE)); \
+  char *buf = (char *) alloca (strlen (type_name) + strlen (#NAME "_syms_") + 1);	\
   tree decl;								\
 									\
-  sprintf (buf, #NAME "_%s", typename);					\
+  sprintf (buf, #NAME "_%s", type_name);					\
   TYPE_## TABLE ##_DECL (type) = decl =					\
     build_decl (VAR_DECL, get_identifier (buf), TABLE_TYPE);		\
   DECL_EXTERNAL (decl) = 1;						\
@@ -369,7 +369,7 @@ do									\
   pushdecl (decl);							\
   MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);				\
   DECL_OWNER (decl) = TYPE;						\
-  sprintf (buf, #NAME "_syms_%s", typename);				\
+  sprintf (buf, #NAME "_syms_%s", type_name);				\
   TYPE_## TABLE ##_SYMS_DECL (TYPE) =					\
     build_decl (VAR_DECL, get_identifier (buf), symbols_array_type);	\
   TREE_STATIC (TYPE_## TABLE ##_SYMS_DECL (TYPE)) = 1;			\
@@ -383,13 +383,13 @@ while (0)
 void
 gen_indirect_dispatch_tables (tree type)
 {
-  const char *typename = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+  const char *type_name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
   {  
     tree field = NULL;
-    char *buf = alloca (strlen (typename) + strlen ("_catch_classes_") + 1);
+    char *buf = (char *) alloca (strlen (type_name) + strlen ("_catch_classes_") + 1);
     tree catch_class_type = make_node (RECORD_TYPE);
 
-    sprintf (buf, "_catch_classes_%s", typename);
+    sprintf (buf, "_catch_classes_%s", type_name);
     PUSH_FIELD (catch_class_type, field, "address", utf8const_ptr_type);
     PUSH_FIELD (catch_class_type, field, "classname", ptr_type_node);
     FINISH_RECORD (catch_class_type);
@@ -706,7 +706,7 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
   DECL_CONTEXT (fndecl) = this_class;
 
   DECL_LANG_SPECIFIC (fndecl)
-    = ggc_alloc_cleared (sizeof (struct lang_decl));
+    = (struct lang_decl *) ggc_alloc_cleared (sizeof (struct lang_decl));
   DECL_LANG_SPECIFIC (fndecl)->desc = LANG_DECL_FUNC;
 
   /* Initialize the static initializer test table.  */
@@ -772,14 +772,14 @@ add_method (tree this_class, int access_flags, tree name, tree method_sig)
 }
 
 tree
-add_field (tree class, tree name, tree field_type, int flags)
+add_field (tree class_stmt, tree name, tree field_type, int flags)
 {
   int is_static = (flags & ACC_STATIC) != 0;
   tree field;
   field = build_decl (is_static ? VAR_DECL : FIELD_DECL, name, field_type);
-  TREE_CHAIN (field) = TYPE_FIELDS (class);
-  TYPE_FIELDS (class) = field;
-  DECL_CONTEXT (field) = class;
+  TREE_CHAIN (field) = TYPE_FIELDS (class_stmt);
+  TYPE_FIELDS (class_stmt) = field;
+  DECL_CONTEXT (field) = class_stmt;
 
   if (flags & ACC_PUBLIC) FIELD_PUBLIC (field) = 1;
   if (flags & ACC_PROTECTED) FIELD_PROTECTED (field) = 1;
@@ -1119,7 +1119,7 @@ build_fieldref_cache_entry (int index, tree fdecl ATTRIBUTE_UNUSED)
 {
   tree decl, decl_name;
   const char *name = IDENTIFIER_POINTER (mangled_classname ("_cpool_", output_class));
-  char *buf = alloca (strlen (name) + 20);
+  char *buf = (char *) alloca (strlen (name) + 20);
   sprintf (buf, "%s_%d_ref", name, index);
   decl_name = get_identifier (buf);
   decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
@@ -1283,8 +1283,8 @@ make_local_function_alias (tree method)
   tree alias;
   
   const char *method_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (method));
-  char *name = alloca (strlen (method_name) + 2);
-  char *buf = alloca (strlen (method_name) + 128);
+  char *name = (char *) alloca (strlen (method_name) + 2);
+  char *buf = (char *) alloca (strlen (method_name) + 128);
 
   /* Only create aliases for local functions.  */
   if (DECL_EXTERNAL (method))
@@ -2057,42 +2057,42 @@ finish_class (void)
    return 0 if we cannot assume that CLASS is compiled.
    Returns 1 for primitive and 0 for array types.  */
 int
-is_compiled_class (tree class)
+is_compiled_class (tree cclass)
 {
   int seen_in_zip;
-  if (TREE_CODE (class) == POINTER_TYPE)
-    class = TREE_TYPE (class);
-  if (TREE_CODE (class) != RECORD_TYPE)  /* Primitive types are static. */
+  if (TREE_CODE (cclass) == POINTER_TYPE)
+    cclass = TREE_TYPE (cclass);
+  if (TREE_CODE (cclass) != RECORD_TYPE)  /* Primitive types are static. */
     return 1;
-  if (TYPE_ARRAY_P (class))
+  if (TYPE_ARRAY_P (cclass))
     return 0;
-  if (class == current_class)
+  if (cclass == current_class)
     return 2;
 
-  seen_in_zip = (TYPE_JCF (class) && JCF_SEEN_IN_ZIP (TYPE_JCF (class)));
-  if (CLASS_FROM_CURRENTLY_COMPILED_P (class) || seen_in_zip)
+  seen_in_zip = (TYPE_JCF (cclass) && JCF_SEEN_IN_ZIP (TYPE_JCF (cclass)));
+  if (CLASS_FROM_CURRENTLY_COMPILED_P (cclass) || seen_in_zip)
     {
       /* The class was seen in the current ZIP file and will be
 	 available as a compiled class in the future but may not have
 	 been loaded already. Load it if necessary. This prevent
 	 build_class_ref () from crashing. */
 
-      if (seen_in_zip && !CLASS_LOADED_P (class))
-        load_class (class, 1);
+      if (seen_in_zip && !CLASS_LOADED_P (cclass))
+        load_class (cclass, 1);
 
       /* We return 2 for class seen in ZIP and class from files
          belonging to the same compilation unit */
       return 2;
     }
 
-  if (assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (class)))))
+  if (assume_compiled (IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (cclass)))))
     {
-      if (!CLASS_LOADED_P (class))
+      if (!CLASS_LOADED_P (cclass))
 	{
-	  if (CLASS_FROM_SOURCE_P (class))
-	    safe_layout_class (class);
+	  if (CLASS_FROM_SOURCE_P (cclass))
+	    safe_layout_class (cclass);
 	  else
-	    load_class (class, 1);
+	    load_class (cclass, 1);
 	}
       return 1;
     }
@@ -2261,7 +2261,7 @@ layout_class (tree this_class)
 	  obstack_grow (&temporary_obstack, buffer, strlen (buffer));
 	}
       obstack_1grow (&temporary_obstack, '\0');
-      report = obstack_finish (&temporary_obstack);
+      report = (char *) obstack_finish (&temporary_obstack);
       cyclic_inheritance_report = ggc_strdup (report);
       obstack_free (&temporary_obstack, report);
       TYPE_SIZE (this_class) = error_mark_node;
@@ -2854,11 +2854,11 @@ add_assertion_table_entry (void **htab_entry, void *ptr)
 /* Generate the type assertion table for CLASS, and return its DECL.  */
 
 static tree
-emit_assertion_table (tree class)
+emit_assertion_table (tree aclass)
 {
   tree null_entry, ctor, table_decl;
   tree list = NULL_TREE;
-  htab_t assertions_htab = TYPE_ASSERTIONS (class);
+  htab_t assertions_htab = TYPE_ASSERTIONS (aclass);
 
   /* Iterate through the hash table.  */
   htab_traverse (assertions_htab, add_assertion_table_entry, &list);
@@ -2876,7 +2876,7 @@ emit_assertion_table (tree class)
   list = nreverse (list);
   ctor = build_constructor_from_list (assertion_table_type, list);
 
-  table_decl = build_decl (VAR_DECL, mangled_classname ("_type_assert_", class),
+  table_decl = build_decl (VAR_DECL, mangled_classname ("_type_assert_", aclass),
 			   assertion_table_type);
 
   TREE_STATIC (table_decl) = 1;
@@ -2927,7 +2927,7 @@ java_treetreehash_find (htab_t ht, tree t)
 {
   struct treetreehash_entry *e;
   hashval_t hv = JAVA_TREEHASHHASH_H (t);
-  e = htab_find_with_hash (ht, t, hv);
+  e = (struct treetreehash_entry *) htab_find_with_hash (ht, t, hv);
   if (e == NULL)
     return NULL;
   else
@@ -2944,7 +2944,7 @@ java_treetreehash_new (htab_t ht, tree t)
   e = htab_find_slot_with_hash (ht, t, hv, INSERT);
   if (*e == NULL)
     {
-      tthe = (*ht->alloc_f) (1, sizeof (*tthe));
+      tthe = (struct treetreehash_entry *) (*ht->alloc_f) (1, sizeof (*tthe));
       tthe->key = t;
       *e = tthe;
     }
@@ -2974,7 +2974,7 @@ split_qualified_name (tree *left, tree *right, tree source)
   char *p, *base;
   int l = IDENTIFIER_LENGTH (source);
 
-  base = alloca (l + 1);
+  base = (char *) alloca (l + 1);
   memcpy (base, IDENTIFIER_POINTER (source), l + 1);
 
   /* Breakdown NAME into REMAINDER . IDENTIFIER.  */

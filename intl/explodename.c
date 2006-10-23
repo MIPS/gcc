@@ -38,8 +38,7 @@
 /* @@ end of prolog @@ */
 
 char *
-_nl_find_language (name)
-     const char *name;
+_nl_find_language (const char *name)
 {
   while (name[0] != '\0' && name[0] != '_' && name[0] != '@'
 	 && name[0] != '+' && name[0] != ',')
@@ -50,17 +49,10 @@ _nl_find_language (name)
 
 
 int
-_nl_explode_name (name, language, modifier, territory, codeset,
-		  normalized_codeset, special, sponsor, revision)
-     char *name;
-     const char **language;
-     const char **modifier;
-     const char **territory;
-     const char **codeset;
-     const char **normalized_codeset;
-     const char **special;
-     const char **sponsor;
-     const char **revision;
+_nl_explode_name (char *name, const char **language, const char **modifier,
+	const char **territory, const char **codeset,
+	const char **normalized_codeset, const char **special,
+	const char **sponsor, const char **revision)
 {
   enum { undecided, xpg, cen } syntax;
   char *cp;

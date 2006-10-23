@@ -457,7 +457,7 @@ find_equivalent_equality_comparison (tree cond)
 	{
 	  tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
 	  tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
-	  tree new;
+	  tree tmp;
 
 	  if (TYPE_PRECISION (def_rhs_inner_type)
 	      > TYPE_PRECISION (TREE_TYPE (def_rhs)))
@@ -480,11 +480,11 @@ find_equivalent_equality_comparison (tree cond)
 	     If that is true, the build and return new equivalent
 	     condition which uses the source of the typecast and the
 	     new constant (which has only changed its type).  */
-	  new = fold_build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
-	  STRIP_USELESS_TYPE_CONVERSION (new);
-	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
+	  tmp = fold_build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
+	  STRIP_USELESS_TYPE_CONVERSION (tmp);
+	  if (is_gimple_val (tmp) && tree_int_cst_equal (tmp, op1))
 	    return build2 (TREE_CODE (cond), TREE_TYPE (cond),
-			   def_rhs_inner, new);
+			   def_rhs_inner, tmp);
 	}
     }
   return NULL;

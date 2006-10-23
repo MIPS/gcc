@@ -206,20 +206,20 @@ syntax:
 /* Build an operator expression node.  */
 
 static gfc_expr *
-build_node (gfc_intrinsic_op operator, locus * where,
+build_node (gfc_intrinsic_op op, locus * where,
 	    gfc_expr * op1, gfc_expr * op2)
 {
-  gfc_expr *new;
+  gfc_expr *tmp;
 
-  new = gfc_get_expr ();
-  new->expr_type = EXPR_OP;
-  new->value.op.operator = operator;
-  new->where = *where;
+  tmp = gfc_get_expr ();
+  tmp->expr_type = EXPR_OP;
+  tmp->value.op.foperator = op;
+  tmp->where = *where;
 
-  new->value.op.op1 = op1;
-  new->value.op.op2 = op2;
+  tmp->value.op.op1 = op1;
+  tmp->value.op.op2 = op2;
 
-  return new;
+  return tmp;
 }
 
 

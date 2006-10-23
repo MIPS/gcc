@@ -801,7 +801,7 @@ update_equiv_regs (void)
 
   reg_equiv = XCNEWVEC (struct equivalence, max_regno);
   INIT_REG_SET (&cleared_regs);
-  reg_equiv_init = ggc_alloc_cleared (max_regno * sizeof (rtx));
+  reg_equiv_init = (rtx *) ggc_alloc_cleared (max_regno * sizeof (rtx));
   reg_equiv_init_size = max_regno;
 
   init_alias_analysis ();
@@ -868,7 +868,7 @@ update_equiv_regs (void)
 	      /* Record for reload that this is an equivalencing insn.  */
 	      if (rtx_equal_p (src, XEXP (note, 0)))
 		reg_equiv_init[regno]
-		  = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv_init[regno]);
+		  = gen_rtx_INSN_LIST (REG_DEP_TRUE, insn, reg_equiv_init[regno]);
 
 	      /* Continue normally in case this is a candidate for
 		 replacements.  */
@@ -926,7 +926,7 @@ update_equiv_regs (void)
 	    }
 	  /* Record this insn as initializing this register.  */
 	  reg_equiv[regno].init_insns
-	    = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv[regno].init_insns);
+	    = gen_rtx_INSN_LIST (REG_DEP_TRUE, insn, reg_equiv[regno].init_insns);
 
 	  /* If this register is known to be equal to a constant, record that
 	     it is always equivalent to the constant.  */
@@ -965,7 +965,7 @@ update_equiv_regs (void)
 		 equivalencing insn.  */
 	      if (!reg_equiv[regno].is_arg_equivalence)
 		reg_equiv_init[regno]
-		  = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv_init[regno]);
+		  = gen_rtx_INSN_LIST (REG_DEP_TRUE, insn, reg_equiv_init[regno]);
 
 	      /* Record whether or not we created a REG_EQUIV note for a LABEL_REF.
 		 We might end up substituting the LABEL_REF for uses of the
@@ -1066,7 +1066,7 @@ update_equiv_regs (void)
 	      /* This insn makes the equivalence, not the one initializing
 		 the register.  */
 	      reg_equiv_init[regno]
-		= gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX);
+		= gen_rtx_INSN_LIST (REG_DEP_TRUE, insn, NULL_RTX);
 	    }
 	}
     }
@@ -1198,7 +1198,7 @@ update_equiv_regs (void)
 		      SET_REGNO_REG_SET (&cleared_regs, regno);
 		      clear_regnos++;
 		      reg_equiv_init[regno]
-			= gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);
+			= gen_rtx_INSN_LIST (REG_DEP_TRUE, new_insn, NULL_RTX);
 		    }
 		}
 	    }
@@ -2055,11 +2055,11 @@ combine_regs (rtx usedreg, rtx setreg, int may_save_copy, int insn_number,
    True if REG's reg class either contains or is contained in CLASS.  */
 
 static int
-reg_meets_class_p (int reg, enum reg_class class)
+reg_meets_class_p (int reg, enum reg_class kind)
 {
   enum reg_class rclass = reg_preferred_class (reg);
-  return (reg_class_subset_p (rclass, class)
-	  || reg_class_subset_p (class, rclass));
+  return (reg_class_subset_p (rclass, kind)
+	  || reg_class_subset_p (kind, rclass));
 }
 
 /* Update the class of QTYNO assuming that REG is being tied to it.  */
@@ -2210,7 +2210,7 @@ wipe_dead_reg (rtx reg, int output_p)
    register is available.  If not, return -1.  */
 
 static int
-find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
+find_free_reg (enum reg_class kind, enum machine_mode mode, int qtyno,
 	       int accept_call_clobbered, int just_try_suggested,
 	       int born_index, int dead_index)
 {
@@ -2242,7 +2242,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
   for (ins = born_index; ins < dead_index; ins++)
     IOR_HARD_REG_SET (used, regs_live_at[ins]);
 
-  IOR_COMPL_HARD_REG_SET (used, reg_class_contents[(int) class]);
+  IOR_COMPL_HARD_REG_SET (used, reg_class_contents[kind]);
 
   /* Don't use the frame pointer reg in local-alloc even if
      we may omit the frame pointer, because if we do that and then we
@@ -2329,7 +2329,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
     {
       /* Don't try the copy-suggested regs again.  */
       qty_phys_num_copy_sugg[qtyno] = 0;
-      return find_free_reg (class, mode, qtyno, accept_call_clobbered, 1,
+      return find_free_reg (kind, mode, qtyno, accept_call_clobbered, 1,
 			    born_index, dead_index);
     }
 
@@ -2346,7 +2346,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
       && CALLER_SAVE_PROFITABLE (qty[qtyno].n_refs,
 				 qty[qtyno].n_calls_crossed))
     {
-      i = find_free_reg (class, mode, qtyno, 1, 0, born_index, dead_index);
+      i = find_free_reg (kind, mode, qtyno, 1, 0, born_index, dead_index);
       if (i >= 0)
 	caller_save_needed = 1;
       return i;

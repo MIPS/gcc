@@ -132,19 +132,19 @@ gfc_add_include_path (const char *path)
   dir = include_dirs;
   if (!dir)
     {
-      dir = include_dirs = gfc_getmem (sizeof (gfc_directorylist));
+      dir = include_dirs = (gfc_directorylist *)gfc_getmem (sizeof (gfc_directorylist));
     }
   else
     {
       while (dir->next)
 	dir = dir->next;
 
-      dir->next = gfc_getmem (sizeof (gfc_directorylist));
+      dir->next = (gfc_directorylist *)gfc_getmem (sizeof (gfc_directorylist));
       dir = dir->next;
     }
 
   dir->next = NULL;
-  dir->path = gfc_getmem (strlen (p) + 2);
+  dir->path = (char *)gfc_getmem (strlen (p) + 2);
   strcpy (dir->path, p);
   strcat (dir->path, "/");	/* make '/' last character */
 }
@@ -983,7 +983,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
       else
 	buflen = GFC_MAX_LINE;
 
-      *pbuf = gfc_getmem (buflen + 1);
+      *pbuf = (char *)gfc_getmem (buflen + 1);
     }
 
   i = 0;
@@ -1084,7 +1084,7 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	      /* Reallocate line buffer to double size to hold the
 		overlong line.  */
 	      buflen = buflen * 2;
-	      *pbuf = xrealloc (*pbuf, buflen + 1);
+	      *pbuf = (char *)xrealloc (*pbuf, buflen + 1);
 	      buffer = (*pbuf)+i;
 	    }
 	}
@@ -1130,9 +1130,9 @@ get_file (const char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
 {
   gfc_file *f;
 
-  f = gfc_getmem (sizeof (gfc_file));
+  f = (gfc_file *)gfc_getmem (sizeof (gfc_file));
 
-  f->filename = gfc_getmem (strlen (name) + 1);
+  f->filename = (char *)gfc_getmem (strlen (name) + 1);
   strcpy (f->filename, name);
 
   f->next = file_head;
@@ -1214,7 +1214,7 @@ preprocessor_line (char *c)
   if (unescape)
     {
       char *s = filename;
-      char *d = gfc_getmem (c - filename - unescape);
+      char *d = (char *)gfc_getmem (c - filename - unescape);
 
       filename = d;
       while (*s)
@@ -1275,7 +1275,7 @@ preprocessor_line (char *c)
   if (strcmp (current_file->filename, filename) != 0)
     {
       gfc_free (current_file->filename);
-      current_file->filename = gfc_getmem (strlen (filename) + 1);
+      current_file->filename = (char *)gfc_getmem (strlen (filename) + 1);
       strcpy (current_file->filename, filename);
     }
 
@@ -1292,7 +1292,7 @@ preprocessor_line (char *c)
 }
 
 
-static try load_file (const char *, bool);
+static check load_file (const char *, bool);
 
 /* include_line()-- Checks a line buffer to see if it is an include
    line.  If so, we call load_file() recursively to load the included
@@ -1367,7 +1367,7 @@ include_line (char *line)
 
 /* Load a file into memory by calling load_line until the file ends.  */
 
-static try
+static check
 load_file (const char *filename, bool initial)
 {
   char *line;
@@ -1455,7 +1455,7 @@ load_file (const char *filename, bool initial)
 
       /* Add line.  */
 
-      b = gfc_getmem (gfc_linebuf_header_size + len + 1);
+      b = (gfc_linebuf *)gfc_getmem (gfc_linebuf_header_size + len + 1);
 
 #ifdef USE_MAPPED_LOCATION
       b->location
@@ -1493,10 +1493,10 @@ load_file (const char *filename, bool initial)
    it tries to determine the source form from the filename, defaulting
    to free form.  */
 
-try
+check
 gfc_new_file (void)
 {
-  try result;
+  check result;
 
   result = load_file (gfc_source_file, true);
 
@@ -1545,7 +1545,7 @@ unescape_filename (const char *ptr)
 
   /* Undo effects of cpp_quote_string.  */
   s = ptr;
-  d = gfc_getmem (p + 1 - ptr - unescape);
+  d = (char *)gfc_getmem (p + 1 - ptr - unescape);
   ret = d;
 
   while (s != p)
@@ -1616,7 +1616,7 @@ gfc_read_orig_filename (const char *filename, const char **canon_source_file)
 
   if (! IS_ABSOLUTE_PATH (filename))
     {
-      char *p = gfc_getmem (len + strlen (filename));
+      char *p = (char *)gfc_getmem (len + strlen (filename));
 
       memcpy (p, dirname, len - 2);
       p[len - 2] = '/';

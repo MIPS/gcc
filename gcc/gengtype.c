@@ -1038,7 +1038,7 @@ create_file (const char *name, const char *oname)
     "Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA\n",
     "02110-1301, USA.  */\n",
     "\n",
-    "/* This file is machine generated.  Do not edit.  */\n"
+    "/* This file is generated using gengtype.  Do not edit.  */\n"
   };
   outf_p f;
   size_t i;
@@ -2746,9 +2746,6 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
 
   if (wtd->param_prefix)
     {
-      oprintf (f, "static void gt_%sa_%s\n", wtd->param_prefix, v->name);
-      oprintf (f,
-       "    (void *, void *, gt_pointer_operator, void *);\n");
       oprintf (f, "static void gt_%sa_%s (ATTRIBUTE_UNUSED void *this_obj,\n",
 	       wtd->param_prefix, v->name);
       oprintf (d.of,
@@ -2763,8 +2760,6 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
     }
 
   d.opt = v->opt;
-  oprintf (f, "static void gt_%sa_%s (void *);\n",
-	   wtd->prefix, v->name);
   oprintf (f, "static void\ngt_%sa_%s (ATTRIBUTE_UNUSED void *x_p)\n",
 	   wtd->prefix, v->name);
   oprintf (f, "{\n");
@@ -2860,6 +2855,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "extern const struct ggc_root_tab gt_ggc_r_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[];\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_r_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -2894,6 +2892,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "extern const struct ggc_root_tab gt_ggc_rd_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[];\n");
 	  oprintf (f, "const struct ggc_root_tab gt_ggc_rd_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -2938,6 +2939,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "extern const struct ggc_cache_tab gt_ggc_rc_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[];\n");
 	  oprintf (f, "const struct ggc_cache_tab gt_ggc_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -2974,6 +2978,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "extern const struct ggc_root_tab gt_pch_rc_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[];\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rc_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");
@@ -3010,6 +3017,9 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
+	  oprintf (f, "extern const struct ggc_root_tab gt_pch_rs_");
+	  put_mangled_filename (f, v->line.file);
+	  oprintf (f, "[];\n");
 	  oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
 	  put_mangled_filename (f, v->line.file);
 	  oprintf (f, "[] = {\n");

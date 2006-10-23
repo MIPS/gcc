@@ -519,6 +519,7 @@ extern enum cmodel sparc_cmodel;
 /* Processor type.
    These must match the values for the cpu attribute in sparc.md.  */
 enum processor_type {
+  PROCESSOR_NONE,
   PROCESSOR_V7,
   PROCESSOR_CYPRESS,
   PROCESSOR_V8,

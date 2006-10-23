@@ -455,7 +455,7 @@ sra_hash_tree (tree t)
 static hashval_t
 sra_elt_hash (const void *x)
 {
-  const struct sra_elt *e = x;
+  const struct sra_elt *e = (const struct sra_elt *) x;
   const struct sra_elt *p;
   hashval_t h;
 
@@ -476,8 +476,8 @@ sra_elt_hash (const void *x)
 static int
 sra_elt_eq (const void *x, const void *y)
 {
-  const struct sra_elt *a = x;
-  const struct sra_elt *b = y;
+  const struct sra_elt *a = (const struct sra_elt *) x;
+  const struct sra_elt *b = (const struct sra_elt *) y;
   tree ae, be;
 
   if (a->parent != b->parent)
@@ -544,7 +544,7 @@ lookup_element (struct sra_elt *parent, tree child, tree type,
   elt = *slot;
   if (!elt && insert == INSERT)
     {
-      *slot = elt = obstack_alloc (&sra_obstack, sizeof (*elt));
+      *slot = elt = (struct sra_elt *) obstack_alloc (&sra_obstack, sizeof (*elt));
       memset (elt, 0, sizeof (*elt));
 
       elt->parent = parent;

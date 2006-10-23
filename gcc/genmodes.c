@@ -921,7 +921,7 @@ emit_mode_class (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("unsigned char", "mode_class", "NUM_MACHINE_MODES");
+  print_decl ("enum mode_class", "mode_class", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)
     tagged_printf ("%s", mode_class_names[m->cl], m->name);
@@ -981,7 +981,7 @@ emit_mode_wider (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("unsigned char", "mode_wider", "NUM_MACHINE_MODES");
+  print_decl ("enum machine_mode", "mode_wider", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)
     tagged_printf ("%smode",
@@ -989,7 +989,7 @@ emit_mode_wider (void)
 		   m->name);
 
   print_closer ();
-  print_decl ("unsigned char", "mode_2xwider", "NUM_MACHINE_MODES");
+  print_decl ("enum machine_mode", "mode_2xwider", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)
     {
@@ -1054,7 +1054,7 @@ emit_mode_inner (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("unsigned char", "mode_inner", "NUM_MACHINE_MODES");
+  print_decl ("enum machine_mode", "mode_inner", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)
     tagged_printf ("%smode",
@@ -1085,7 +1085,7 @@ emit_class_narrowest_mode (void)
 {
   int c;
 
-  print_decl ("unsigned char", "class_narrowest_mode", "MAX_MODE_CLASS");
+  print_decl ("enum machine_mode", "class_narrowest_mode", "MAX_MODE_CLASS");
 
   for (c = 0; c < MAX_MODE_CLASS; c++)
     /* Bleah, all this to get the comment right for MIN_MODE_INT.  */

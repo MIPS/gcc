@@ -424,7 +424,7 @@ gfc_show_expr (gfc_expr * p)
 
     case EXPR_OP:
       gfc_status ("(");
-      switch (p->value.op.operator)
+      switch (p->value.op.foperator)
 	{
 	case INTRINSIC_UPLUS:
 	  gfc_status ("U+ ");
@@ -707,7 +707,7 @@ show_uop (gfc_user_op * uop)
   show_indent ();
   gfc_status ("%s:", uop->name);
 
-  for (intr = uop->operator; intr; intr = intr->next)
+  for (intr = uop->foperator; intr; intr = intr->next)
     gfc_status (" %s", intr->sym->name);
 }
 
@@ -1707,7 +1707,7 @@ gfc_show_namespace (gfc_namespace * ns)
 {
   gfc_interface *intr;
   gfc_namespace *save;
-  gfc_intrinsic_op op;
+  int op;
   gfc_equiv *eq;
   int i;
 
@@ -1751,7 +1751,7 @@ gfc_show_namespace (gfc_namespace * ns)
       for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; op++)
 	{
 	  /* User operator interfaces */
-	  intr = ns->operator[op];
+	  intr = ns->foperator[op];
 	  if (intr == NULL)
 	    continue;
 

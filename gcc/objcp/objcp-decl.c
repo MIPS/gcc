@@ -24,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "objc-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"

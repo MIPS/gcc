@@ -46,12 +46,6 @@ Boston, MA 02110-1301, USA.  */
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s crtn.o%s"
 
-/* Defined in svr4.h for host compilers.  */
-/* #define MD_EXEC_PREFIX "" */
-
-/* Defined in svr4.h for host compilers.  */
-/* #define MD_STARTFILE_PREFIX "" */
-
 
 /* Run-time target specifications */
 

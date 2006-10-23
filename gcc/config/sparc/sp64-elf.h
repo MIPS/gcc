@@ -39,9 +39,6 @@ Boston, MA 02110-1301, USA.  */
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "-D__svr4__"
 
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{v:-V} -s %{fpic|fPIC|fpie|fPIE:-K PIC} \

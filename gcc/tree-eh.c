@@ -298,6 +298,13 @@ struct leh_state
   struct leh_tf_state *tf;
 };
 
+struct goto_queue_node {
+  tree stmt;
+  tree repl_stmt;
+  tree cont_stmt;
+  int index;
+};
+
 struct leh_tf_state
 {
   /* Pointer to the TRY_FINALLY node under discussion.  The try_finally_expr
@@ -315,12 +322,7 @@ struct leh_tf_state
 
   /* The GOTO_QUEUE is is an array of GOTO_EXPR and RETURN_EXPR statements
      that are seen to escape this TRY_FINALLY_EXPR node.  */
-  struct goto_queue_node {
-    tree stmt;
-    tree repl_stmt;
-    tree cont_stmt;
-    int index;
-  } *goto_queue;
+  struct goto_queue_node *goto_queue;
   size_t goto_queue_size;
   size_t goto_queue_active;
 
@@ -385,13 +387,13 @@ static void
 replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
 				tree_stmt_iterator *tsi)
 {
-  tree new, one, label;
+  tree fresh, one, label;
 
-  new = find_goto_replacement (tf, *tp);
-  if (!new)
+  fresh = find_goto_replacement (tf, *tp);
+  if (!fresh)
     return;
 
-  one = expr_only (new);
+  one = expr_only (fresh);
   if (one && TREE_CODE (one) == GOTO_EXPR)
     {
       *tp = one;
@@ -402,7 +404,7 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
   *tp = build_and_jump (&LABEL_EXPR_LABEL (label));
 
   tsi_link_after (tsi, label, TSI_CONTINUE_LINKING);
-  tsi_link_after (tsi, new, TSI_CONTINUE_LINKING);
+  tsi_link_after (tsi, fresh, TSI_CONTINUE_LINKING);
 }
 
 /* The real work of replace_goto_queue.  Returns with TSI updated to
@@ -627,7 +629,7 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	case MODIFY_EXPR:
 	  {
 	    tree result = TREE_OPERAND (ret_expr, 0);
-	    tree new, old = TREE_OPERAND (ret_expr, 1);
+	    tree fresh, old = TREE_OPERAND (ret_expr, 1);
 
 	    if (!*return_value_p)
 	      {
@@ -638,21 +640,21 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 		    worry about magic return semantics, so we need to use a
 		    temporary to hold the value until we're actually ready
 		    to return.  */
-		  new = result;
+		  fresh = result;
 		else
-		  new = create_tmp_var (TREE_TYPE (old), "rettmp");
-		*return_value_p = new;
+		  fresh = create_tmp_var (TREE_TYPE (old), "rettmp");
+		*return_value_p = fresh;
 	      }
 	    else
-	      new = *return_value_p;
+	      fresh = *return_value_p;
 
-	    x = build2 (MODIFY_EXPR, TREE_TYPE (new), new, old);
+	    x = build2 (MODIFY_EXPR, TREE_TYPE (fresh), fresh, old);
 	    append_to_statement_list (x, &q->repl_stmt);
 
-	    if (new == result)
+	    if (fresh == result)
 	      x = result;
 	    else
-	      x = build2 (MODIFY_EXPR, TREE_TYPE (result), result, new);
+	      x = build2 (MODIFY_EXPR, TREE_TYPE (result), result, fresh);
 	    q->cont_stmt = build1 (RETURN_EXPR, void_type_node, x);
 	  }
 
@@ -1455,14 +1457,14 @@ lower_catch (struct leh_state *state, tree *tp)
   for (i = tsi_start (TREE_OPERAND (*tp, 1)); !tsi_end_p (i); )
     {
       struct eh_region *catch_region;
-      tree catch, x, eh_label;
+      tree catch_tree, x, eh_label;
 
-      catch = tsi_stmt (i);
-      catch_region = gen_eh_region_catch (try_region, CATCH_TYPES (catch));
+      catch_tree = tsi_stmt (i);
+      catch_region = gen_eh_region_catch (try_region, CATCH_TYPES (catch_tree));
 
       this_state.cur_region = catch_region;
       this_state.prev_try = state->prev_try;
-      lower_eh_constructs_1 (&this_state, &CATCH_BODY (catch));
+      lower_eh_constructs_1 (&this_state, &CATCH_BODY (catch_tree));
 
       eh_label = create_artificial_label ();
       set_eh_region_tree_label (catch_region, eh_label);
@@ -1470,16 +1472,16 @@ lower_catch (struct leh_state *state, tree *tp)
       x = build1 (LABEL_EXPR, void_type_node, eh_label);
       tsi_link_before (&i, x, TSI_SAME_STMT);
 
-      if (block_may_fallthru (CATCH_BODY (catch)))
+      if (block_may_fallthru (CATCH_BODY (catch_tree)))
 	{
 	  if (!out_label)
 	    out_label = create_artificial_label ();
 
 	  x = build1 (GOTO_EXPR, void_type_node, out_label);
-	  append_to_statement_list (x, &CATCH_BODY (catch));
+	  append_to_statement_list (x, &CATCH_BODY (catch_tree));
 	}
 
-      tsi_link_before (&i, CATCH_BODY (catch), TSI_SAME_STMT);
+      tsi_link_before (&i, CATCH_BODY (catch_tree), TSI_SAME_STMT);
       tsi_delink (&i);
     }
 

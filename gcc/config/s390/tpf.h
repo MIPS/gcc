@@ -91,10 +91,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #undef CC1_SPEC
 #define CC1_SPEC "%{!fverbose-asm: -fverbose-asm}"
 
-/* The GNU C++ standard library requires that these macros be defined.  */
-#undef CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
-
 #undef ASM_SPEC
 #define ASM_SPEC "%{m31&m64}%{mesa&mzarch}%{march=*} \
                   -alshd=%b.lst"

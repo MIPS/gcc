@@ -48,9 +48,6 @@ Boston, MA 02110-1301, USA.  */
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC ""
 
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 /* Inherited from sp64-elf.  */
 #undef NO_IMPLICIT_EXTERN_C
 

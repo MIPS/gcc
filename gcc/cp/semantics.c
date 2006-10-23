@@ -29,6 +29,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "c-common.h"
@@ -2321,7 +2322,7 @@ finish_template_type (tree name, tree args, int entering_scope)
 
   decl = lookup_template_class (name, args,
 				NULL_TREE, NULL_TREE, entering_scope,
-				tf_warning_or_error | tf_user);
+				(enum tsubst_flags_t) (tf_warning_or_error | tf_user));
   if (decl != error_mark_node)
     decl = TYPE_STUB_DECL (decl);
 
@@ -3424,7 +3425,7 @@ finish_omp_clauses (tree clauses)
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
-      enum tree_code c_kind = OMP_CLAUSE_CODE (c);
+      enum tree_code c_kind = (enum tree_code) OMP_CLAUSE_CODE (c);
       bool remove = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;

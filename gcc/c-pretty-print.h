@@ -22,7 +22,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_C_PRETTY_PRINTER
 #define GCC_C_PRETTY_PRINTER
 
-#include "tree.h"
 #include "c-common.h"
 #include "pretty-print.h"
 

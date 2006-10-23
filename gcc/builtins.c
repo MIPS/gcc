@@ -1252,7 +1252,7 @@ result_vector (int savep, rtx result)
   int regno, size, align, nelts;
   enum machine_mode mode;
   rtx reg, mem;
-  rtx *savevec = alloca (FIRST_PSEUDO_REGISTER * sizeof (rtx));
+  rtx *savevec = (rtx *) alloca (FIRST_PSEUDO_REGISTER * sizeof (rtx));
 
   size = nelts = 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1862,7 +1862,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2111,7 +2111,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2270,7 +2270,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2363,7 +2363,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
 	  exp = build_function_call_expr (fndecl, arglist);
 	}
 
-      op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+      op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
       start_sequence ();
 
@@ -2634,7 +2634,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 		  && powi_cost (n) <= POWI_MAX_MULTS))
 	    {
 	      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-	      rtx op = expand_expr (arg0, subtarget, VOIDmode, 0);
+	      rtx op = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
 	      op = force_reg (mode, op);
 	      return expand_powi (op, mode, n);
 	    }
@@ -2682,7 +2682,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
 	      || (! optimize_size
 		  && powi_cost (n) <= POWI_MAX_MULTS)))
 	{
-	  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
+	  op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
 	  op0 = force_reg (mode, op0);
 	  return expand_powi (op0, mode, n);
 	}
@@ -2696,10 +2696,10 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   if (target == NULL_RTX)
     target = gen_reg_rtx (mode);
 
-  op0 = expand_expr (arg0, subtarget, mode, 0);
+  op0 = expand_expr (arg0, subtarget, mode, EXPAND_NORMAL);
   if (GET_MODE (op0) != mode)
     op0 = convert_to_mode (mode, op0, 0);
-  op1 = expand_expr (arg1, 0, mode2, 0);
+  op1 = expand_expr (arg1, 0, mode2, EXPAND_NORMAL);
   if (GET_MODE (op1) != mode2)
     op1 = convert_to_mode (mode2, op1, 0);
 
@@ -3450,7 +3450,7 @@ builtin_memset_read_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
 			 enum machine_mode mode)
 {
   const char *c = (const char *) data;
-  char *p = alloca (GET_MODE_SIZE (mode));
+  char *p = (char *) alloca (GET_MODE_SIZE (mode));
 
   memset (p, *c, GET_MODE_SIZE (mode));
 
@@ -3474,7 +3474,7 @@ builtin_memset_gen_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
   if (size == 1)
     return (rtx) data;
 
-  p = alloca (size);
+  p = (char *) alloca (size);
   memset (p, 1, size);
   coeff = c_readstr (p, mode);
 
@@ -4685,7 +4685,7 @@ expand_builtin_unop (enum machine_mode target_mode, tree arglist, rtx target,
     return 0;
 
   /* Compute the argument.  */
-  op0 = expand_expr (TREE_VALUE (arglist), subtarget, VOIDmode, 0);
+  op0 = expand_expr (TREE_VALUE (arglist), subtarget, VOIDmode, EXPAND_NORMAL);
   /* Compute op, into TARGET if possible.
      Set TARGET to wherever the result comes back.  */
   target = expand_unop (TYPE_MODE (TREE_TYPE (TREE_VALUE (arglist))),
@@ -4803,21 +4803,21 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	      rtx ifelse = SET_SRC (pc_set (insn));
 	      rtx then_dest = XEXP (ifelse, 1);
 	      rtx else_dest = XEXP (ifelse, 2);
-	      int taken = -1;
+	      enum prediction taken = NO_PREDICTION;
 
 	      /* First check if we recognize any of the labels.  */
 	      if (GET_CODE (then_dest) == LABEL_REF
 		  && XEXP (then_dest, 0) == if_true_label)
-		taken = 1;
+		taken = TAKEN;
 	      else if (GET_CODE (then_dest) == LABEL_REF
 		       && XEXP (then_dest, 0) == if_false_label)
-		taken = 0;
+		taken = NOT_TAKEN;
 	      else if (GET_CODE (else_dest) == LABEL_REF
 		       && XEXP (else_dest, 0) == if_false_label)
-		taken = 1;
+		taken = TAKEN;
 	      else if (GET_CODE (else_dest) == LABEL_REF
 		       && XEXP (else_dest, 0) == if_true_label)
-		taken = 0;
+		taken = NOT_TAKEN;
 	      /* Otherwise check where we drop through.  */
 	      else if (else_dest == pc_rtx)
 		{
@@ -4833,9 +4833,9 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
 		  /* TEMP is either a CODE_LABEL, NULL_RTX or something
 		     else that can't possibly match either target label.  */
 		  if (temp == if_false_label)
-		    taken = 1;
+		    taken = TAKEN;
 		  else if (temp == if_true_label)
-		    taken = 0;
+		    taken = NOT_TAKEN;
 		}
 	      else if (then_dest == pc_rtx)
 		{
@@ -4849,17 +4849,17 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
 		    temp = next;
 
 		  if (temp == if_false_label)
-		    taken = 0;
+		    taken = NOT_TAKEN;
 		  else if (temp == if_true_label)
-		    taken = 1;
+		    taken = TAKEN;
 		}
 
-	      if (taken != -1)
+	      if (taken != NO_PREDICTION)
 		{
 		  /* If the test is expected to fail, reverse the
 		     probabilities.  */
 		  if (integer_zerop (arg1))
-		    taken = 1 - taken;
+		    taken = (taken == TAKEN ? NOT_TAKEN : TAKEN);
 		  predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
 		}
 	    }
@@ -4901,7 +4901,7 @@ expand_builtin_fabs (tree arglist, rtx target, rtx subtarget)
 
   arg = TREE_VALUE (arglist);
   mode = TYPE_MODE (TREE_TYPE (arg));
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
   return expand_abs (mode, op0, target, 0, safe_from_p (target, arg, 1));
 }
 
@@ -5040,7 +5040,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
-	      char *newstr = alloca (len);
+	      char *newstr = (char *) alloca (len);
 	      memcpy (newstr, fmt_str, len - 1);
 	      newstr[len - 1] = 0;
 
@@ -5257,18 +5257,18 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_profile_func (bool exitp)
 {
-  rtx this, which;
+  rtx it, which;
 
-  this = DECL_RTL (current_function_decl);
-  gcc_assert (MEM_P (this));
-  this = XEXP (this, 0);
+  it = DECL_RTL (current_function_decl);
+  gcc_assert (MEM_P (it));
+  it = XEXP (it, 0);
 
   if (exitp)
     which = profile_function_exit_libfunc;
   else
     which = profile_function_entry_libfunc;
 
-  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
+  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, it, Pmode,
 		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
 						 0),
 		     Pmode);
@@ -6132,7 +6132,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  /* This is copied from the handling of non-local gotos.  */
 	  expand_builtin_setjmp_setup (buf_addr, label_r);
 	  nonlocal_goto_handler_labels
-	    = gen_rtx_EXPR_LIST (VOIDmode, label_r,
+	    = gen_rtx_EXPR_LIST (REG_DEP_TRUE, label_r,
 				 nonlocal_goto_handler_labels);
 	  /* ??? Do not let expand_label treat us as such since we would
 	     not want to be both on the list of non-local labels and on
@@ -9308,7 +9308,7 @@ validate_arglist (tree arglist, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
+      code = (enum tree_code) va_arg (ap, int);
       switch (code)
 	{
 	case 0:
@@ -11066,7 +11066,7 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
-	      char *newstr = alloca (len);
+	      char *newstr = (char *) alloca (len);
 	      memcpy (newstr, str, len - 1);
 	      newstr[len - 1] = 0;
 

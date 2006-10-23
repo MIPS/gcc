@@ -1256,7 +1256,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	  {
 	    tree t;
 
-	    newexpr = pool_alloc (reference_node_pool);
+	    newexpr = (tree) pool_alloc (reference_node_pool);
 	    memcpy (newexpr, expr, tree_size (expr));
 	    TREE_OPERAND (newexpr, 0) = get_value_handle (newop0);
 	    if (TREE_CODE (expr) == ARRAY_REF)
@@ -1956,7 +1956,7 @@ compute_rvuse_and_antic_safe (void)
   bool changed = true;
   unsigned int *first_store_uid;
 
-  first_store_uid = xcalloc (n_basic_blocks, sizeof (unsigned int));
+  first_store_uid = XCNEWVEC (unsigned int, n_basic_blocks);
 
   compute_vuse_representatives ();
 
@@ -3168,7 +3168,7 @@ poolify_tree (tree node)
     {
     case INDIRECT_REF:
       {
-	tree temp = pool_alloc (reference_node_pool);
+	tree temp = (tree) pool_alloc (reference_node_pool);
 	memcpy (temp, node, tree_size (node));
 	TREE_OPERAND (temp, 0) = poolify_tree (TREE_OPERAND (temp, 0));
 	return temp;
@@ -3176,7 +3176,7 @@ poolify_tree (tree node)
       break;
     case MODIFY_EXPR:
       {
-	tree temp = pool_alloc (modify_expr_node_pool);
+	tree temp = (tree) pool_alloc (modify_expr_node_pool);
 	memcpy (temp, node, tree_size (node));
 	TREE_OPERAND (temp, 0) = poolify_tree (TREE_OPERAND (temp, 0));
 	TREE_OPERAND (temp, 1) = poolify_tree (TREE_OPERAND (temp, 1));
@@ -3251,7 +3251,7 @@ insert_fake_stores (void)
 	      def_operand_p defp;
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
-	      tree new;
+	      tree tmp;
 	      bool notokay = false;
 
 	      FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_VIRTUAL_DEFS)
@@ -3273,16 +3273,16 @@ insert_fake_stores (void)
 		  get_var_ann (storetemp);
 		}
 
-	      new = poolify_modify_expr (TREE_TYPE (stmt), storetemp, lhs);
+	      tmp = poolify_modify_expr (TREE_TYPE (stmt), storetemp, lhs);
 
-	      lhs = make_ssa_name (storetemp, new);
-	      TREE_OPERAND (new, 0) = lhs;
-	      create_ssa_artficial_load_stmt (new, stmt);
+	      lhs = make_ssa_name (storetemp, tmp);
+	      TREE_OPERAND (tmp, 0) = lhs;
+	      create_ssa_artficial_load_stmt (tmp, stmt);
 
-	      NECESSARY (new) = 0;
-	      VEC_safe_push (tree, heap, inserted_exprs, new);
-	      VEC_safe_push (tree, heap, need_creation, new);
-	      bsi_insert_after (&bsi, new, BSI_NEW_STMT);
+	      NECESSARY (tmp) = 0;
+	      VEC_safe_push (tree, heap, inserted_exprs, tmp);
+	      VEC_safe_push (tree, heap, need_creation, tmp);
+	      bsi_insert_after (&bsi, tmp, BSI_NEW_STMT);
 	    }
 	}
     }

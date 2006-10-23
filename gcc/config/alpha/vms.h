@@ -353,9 +353,6 @@ do {									\
 #define NAME__MAIN "__gccmain"
 #define SYMBOL__MAIN __gccmain
 
-#define MD_EXEC_PREFIX "/gnu/lib/gcc-lib/"
-#define MD_STARTFILE_PREFIX "/gnu/lib/gcc-lib/"
-
 /* Specify the list of include file directories.  */
 #define INCLUDE_DEFAULTS		   \
 {					   \

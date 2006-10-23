@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "flags.h"
 #include "expr.h"
@@ -109,7 +110,7 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
     {
     case PTRMEM_CST:
       return expand_expr (cplus_expand_constant (exp),
-			  target, tmode, modifier);
+			  target, tmode, (enum expand_modifier) modifier);
 
     case OFFSET_REF:
       /* Offset refs should not make it through to here.  */
@@ -121,7 +122,7 @@ cxx_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier,
 
     case BASELINK:
       return expand_expr (BASELINK_FUNCTIONS (exp), target, tmode,
-			  modifier);
+			  (enum expand_modifier) modifier);
 
     default:
       return c_expand_expr (exp, target, tmode, modifier, alt_rtl);

@@ -118,7 +118,7 @@ static tree maybe_lookup_decl_in_outer_ctx (tree, omp_context *);
 /* Find an OpenMP clause of type KIND within CLAUSES.  */
 
 static tree
-find_omp_clause (tree clauses, enum tree_code kind)
+find_omp_clause (tree clauses, enum omp_clause_code kind)
 {
   for (; clauses ; clauses = OMP_CLAUSE_CHAIN (clauses))
     if (OMP_CLAUSE_CODE (clauses) == kind)
@@ -757,7 +757,7 @@ debug_all_omp_regions (void)
 struct omp_region *
 new_omp_region (basic_block bb, enum tree_code type, struct omp_region *parent)
 {
-  struct omp_region *region = xcalloc (1, sizeof (*region));
+  struct omp_region *region = XCNEW(struct omp_region);
 
   region->outer = parent;
   region->entry = bb;
@@ -1081,7 +1081,7 @@ create_omp_child_function_name (void)
   size_t len = IDENTIFIER_LENGTH (name);
   char *tmp_name, *prefix;
 
-  prefix = alloca (len + sizeof ("_omp_fn"));
+  prefix = (char *) alloca (len + sizeof ("_omp_fn"));
   memcpy (prefix, IDENTIFIER_POINTER (name), len);
   strcpy (prefix + len, "_omp_fn");
 #ifndef NO_DOT_IN_LABEL
@@ -1328,8 +1328,8 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
 static tree
 scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
-  omp_context *ctx = wi->info;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  omp_context *ctx = (omp_context *) wi->info;
   tree t = *tp;
 
   if (EXPR_HAS_LOCATION (t))
@@ -3110,7 +3110,7 @@ expand_omp_for (struct omp_region *region)
       int fn_index = fd.sched_kind + fd.have_ordered * 4;
       int start_ix = BUILT_IN_GOMP_LOOP_STATIC_START + fn_index;
       int next_ix = BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index;
-      expand_omp_for_generic (region, &fd, start_ix, next_ix);
+      expand_omp_for_generic (region, &fd, (enum built_in_function) start_ix, (enum built_in_function) next_ix);
     }
 
   pop_gimplify_context (NULL);
@@ -4139,8 +4139,8 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
 static tree
 lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
-  omp_context *ctx = wi->info;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  omp_context *ctx = (omp_context *) wi->info;
   tree t = *tp;
 
   /* If we have issued syntax errors, avoid doing any heavy lifting.
@@ -4343,7 +4343,7 @@ diagnose_sb_0 (tree *stmt_p, tree branch_ctx, tree label_ctx)
 static tree
 diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   tree context = (tree) wi->info;
   tree inner_context;
   tree t = *tp;
@@ -4397,7 +4397,7 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
 static tree
 diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   tree context = (tree) wi->info;
   splay_tree_node n;
   tree t = *tp;

@@ -522,9 +522,9 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 #endif
 
   if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
+    t = (tree) ggc_alloc_zone_pass_stat (length, &tree_id_zone);
   else
-    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+    t = (tree) ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -612,7 +612,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = (tree) ggc_alloc_zone_pass_stat (length, &tree_zone);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -887,7 +887,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
       TREE_TYPE (int_cst_node) = type;
 
       slot = htab_find_slot (int_cst_hash_table, int_cst_node, INSERT);
-      t = *slot;
+      t = (tree) *slot;
       if (!t)
 	{
 	  /* Insert this one into the hash table.  */
@@ -1067,7 +1067,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
      Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
-  dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
+  dp = (REAL_VALUE_TYPE *) ggc_alloc (sizeof (REAL_VALUE_TYPE));
   memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
 
   TREE_TYPE (v) = type;
@@ -1215,7 +1215,7 @@ make_tree_binfo_stat (unsigned base_binfos MEM_STAT_DECL)
   tree_node_sizes[(int) binfo_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = (tree) ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, offsetof (struct tree_binfo, base_binfos));
 
@@ -1240,7 +1240,7 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = (tree) ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -1706,7 +1706,7 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  node = ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
+  node = (tree) ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -2331,7 +2331,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 {
   enum tree_code code = TREE_CODE (exp);
   tree op0, op1, op2, op3;
-  tree new;
+  tree res;
   tree inner;
 
   /* We handle TREE_LIST and COMPONENT_REF separately.  */
@@ -2364,7 +2364,7 @@ substitute_in_expr (tree exp, tree f, tree r)
      if (op0 == TREE_OPERAND (exp, 0))
        return exp;
 
-     new = fold_build3 (COMPONENT_REF, TREE_TYPE (exp),
+     res = fold_build3 (COMPONENT_REF, TREE_TYPE (exp),
 			op0, TREE_OPERAND (exp, 1), NULL_TREE);
    }
   else
@@ -2390,7 +2390,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	    if (op0 == TREE_OPERAND (exp, 0))
 	      return exp;
 
-	    new = fold_build1 (code, TREE_TYPE (exp), op0);
+	    res = fold_build1 (code, TREE_TYPE (exp), op0);
 	    break;
 
 	  case 2:
@@ -2400,7 +2400,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1))
 	      return exp;
 
-	    new = fold_build2 (code, TREE_TYPE (exp), op0, op1);
+	    res = fold_build2 (code, TREE_TYPE (exp), op0, op1);
 	    break;
 
 	  case 3:
@@ -2412,7 +2412,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 		&& op2 == TREE_OPERAND (exp, 2))
 	      return exp;
 
-	    new = fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
+	    res = fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
 	    break;
 
 	  case 4:
@@ -2426,7 +2426,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 		&& op3 == TREE_OPERAND (exp, 3))
 	      return exp;
 
-	    new = fold (build4 (code, TREE_TYPE (exp), op0, op1, op2, op3));
+	    res = fold (build4 (code, TREE_TYPE (exp), op0, op1, op2, op3));
 	    break;
 
 	  default:
@@ -2438,8 +2438,8 @@ substitute_in_expr (tree exp, tree f, tree r)
 	gcc_unreachable ();
       }
 
-  TREE_READONLY (new) = TREE_READONLY (exp);
-  return new;
+  TREE_READONLY (res) = TREE_READONLY (exp);
+  return res;
 }
 
 /* Similar, but look for a PLACEHOLDER_EXPR in EXP and find a replacement
@@ -2876,7 +2876,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 1);
 
-  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = (tree) ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, sizeof (struct tree_common));
 
@@ -3263,7 +3263,7 @@ annotate_with_file_line (tree node, const char *file, int line)
       return;
     }
 
-  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
+  SET_EXPR_LOCUS (node, (location_t *) ggc_alloc (sizeof (location_t)));
   EXPR_LINENO (node) = line;
   EXPR_FILENAME (node) = file;
   last_annotated_node = EXPR_LOCUS (node);
@@ -3622,7 +3622,7 @@ merge_decl_attributes (tree olddecl, tree newdecl)
    The second instance of `foo' nullifies the dllimport.  */
 
 tree
-merge_dllimport_decl_attributes (tree old, tree new)
+merge_dllimport_decl_attributes (tree old, tree n)
 {
   tree a;
   int delete_dllimport_p = 1;
@@ -3633,16 +3633,16 @@ merge_dllimport_decl_attributes (tree old, tree new)
      is not dllimport'd.  We also remove a `new' dllimport if the old list
      contains dllexport:  dllexport always overrides dllimport, regardless
      of the order of declaration.  */     
-  if (!VAR_OR_FUNCTION_DECL_P (new))
+  if (!VAR_OR_FUNCTION_DECL_P (n))
     delete_dllimport_p = 0;
-  else if (DECL_DLLIMPORT_P (new)
+  else if (DECL_DLLIMPORT_P (n)
      	   && lookup_attribute ("dllexport", DECL_ATTRIBUTES (old)))
     { 
-      DECL_DLLIMPORT_P (new) = 0;
+      DECL_DLLIMPORT_P (n) = 0;
       warning (OPT_Wattributes, "%q+D already declared with dllexport attribute: "
-	      "dllimport ignored", new);
+	      "dllimport ignored", n);
     }
-  else if (DECL_DLLIMPORT_P (old) && !DECL_DLLIMPORT_P (new))
+  else if (DECL_DLLIMPORT_P (old) && !DECL_DLLIMPORT_P (n))
     {
       /* Warn about overriding a symbol that has already been used. eg:
            extern int __attribute__ ((dllimport)) foo;
@@ -3652,7 +3652,7 @@ merge_dllimport_decl_attributes (tree old, tree new)
       if (TREE_USED (old))
 	{
 	  warning (0, "%q+D redeclared without dllimport attribute "
-		   "after being referenced with dll linkage", new);
+		   "after being referenced with dll linkage", n);
 	  /* If we have used a variable's address with dllimport linkage,
 	      keep the old DECL_DLLIMPORT_P flag: the ADDR_EXPR using the
 	      decl may already have had TREE_INVARIANT and TREE_CONSTANT
@@ -3660,20 +3660,20 @@ merge_dllimport_decl_attributes (tree old, tree new)
 	      We still remove the attribute so that assembler code refers
 	      to '&foo rather than '_imp__foo'.  */
 	  if (TREE_CODE (old) == VAR_DECL && TREE_ADDRESSABLE (old))
-	    DECL_DLLIMPORT_P (new) = 1;
+	    DECL_DLLIMPORT_P (n) = 1;
 	}
 
       /* Let an inline definition silently override the external reference,
 	 but otherwise warn about attribute inconsistency.  */ 
-      else if (TREE_CODE (new) == VAR_DECL
-	       || !DECL_DECLARED_INLINE_P (new))
+      else if (TREE_CODE (n) == VAR_DECL
+	       || !DECL_DECLARED_INLINE_P (n))
 	warning (OPT_Wattributes, "%q+D redeclared without dllimport attribute: "
-		  "previous dllimport ignored", new);
+		  "previous dllimport ignored", n);
     }
   else
     delete_dllimport_p = 0;
 
-  a = merge_attributes (DECL_ATTRIBUTES (old), DECL_ATTRIBUTES (new));
+  a = merge_attributes (DECL_ATTRIBUTES (old), DECL_ATTRIBUTES (n));
 
   if (delete_dllimport_p) 
     {
@@ -3904,7 +3904,8 @@ build_variant_type_copy (tree type)
 int
 tree_map_eq (const void *va, const void *vb)
 {
-  const struct tree_map  *a = va, *b = vb;
+  const struct tree_map *a = (const struct tree_map *) va;
+  const struct tree_map *b = (const struct tree_map *) vb;
   return (a->from == b->from);
 }
 
@@ -3933,7 +3934,8 @@ tree_map_marked_p (const void *p)
 static int
 tree_int_map_eq (const void *va, const void *vb)
 {
-  const struct tree_int_map  *a = va, *b = vb;
+  const struct tree_int_map *a = (const struct tree_int_map *) va;
+  const struct tree_int_map *b = (const struct tree_int_map *) vb;
   return (a->from == b->from);
 }
 
@@ -3964,7 +3966,7 @@ decl_init_priority_lookup (tree from)
   struct tree_int_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (init_priority_for_decl, 
+  h = (struct tree_int_map *) htab_find_with_hash (init_priority_for_decl, 
 			   &in, htab_hash_pointer (from));
   if (h)
     return h->to;
@@ -3979,7 +3981,7 @@ decl_init_priority_insert (tree from, unsigned short to)
   struct tree_int_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_int_map));
+  h = (struct tree_int_map *) ggc_alloc (sizeof (struct tree_int_map));
   h->from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (init_priority_for_decl, h, 
@@ -3996,7 +3998,7 @@ decl_restrict_base_lookup (tree from)
   struct tree_map in;
 
   in.from = from;
-  h = htab_find_with_hash (restrict_base_for_decl, &in,
+  h = (struct tree_map *) htab_find_with_hash (restrict_base_for_decl, &in,
 			   htab_hash_pointer (from));
   return h ? h->to : NULL_TREE;
 }
@@ -4009,7 +4011,7 @@ decl_restrict_base_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = (struct tree_map *) ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -4061,7 +4063,7 @@ decl_debug_expr_lookup (tree from)
   struct tree_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (debug_expr_for_decl, &in, htab_hash_pointer (from));
+  h = (struct tree_map *) htab_find_with_hash (debug_expr_for_decl, &in, htab_hash_pointer (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -4075,7 +4077,7 @@ decl_debug_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = (struct tree_map *) ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -4091,7 +4093,7 @@ decl_value_expr_lookup (tree from)
   struct tree_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (value_expr_for_decl, &in, htab_hash_pointer (from));
+  h = (struct tree_map *) htab_find_with_hash (value_expr_for_decl, &in, htab_hash_pointer (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -4105,7 +4107,7 @@ decl_value_expr_insert (tree from, tree to)
   struct tree_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
+  h = (struct tree_map *) ggc_alloc (sizeof (struct tree_map));
   h->hash = htab_hash_pointer (from);
   h->from = from;
   h->to = to;
@@ -4140,7 +4142,8 @@ type_hash_list (tree list, hashval_t hashcode)
 static int
 type_hash_eq (const void *va, const void *vb)
 {
-  const struct type_hash *a = va, *b = vb;
+  const struct type_hash *a = (const struct type_hash *) va;
+  const struct type_hash *b = (const struct type_hash *) vb;
 
   /* First test the things that are the same for all types.  */
   if (a->hash != b->hash
@@ -4249,7 +4252,7 @@ type_hash_lookup (hashval_t hashcode, tree type)
   in.hash = hashcode;
   in.type = type;
 
-  h = htab_find_with_hash (type_hash_table, &in, hashcode);
+  h = (struct type_hash *) htab_find_with_hash (type_hash_table, &in, hashcode);
   if (h)
     return h->type;
   return NULL_TREE;
@@ -4264,7 +4267,7 @@ type_hash_add (hashval_t hashcode, tree type)
   struct type_hash *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct type_hash));
+  h = (struct type_hash *) ggc_alloc (sizeof (struct type_hash));
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);
@@ -4833,7 +4836,7 @@ iterative_hash_expr (tree t, hashval_t val)
 {
   int i;
   enum tree_code code;
-  char class;
+  enum tree_code_class tcc;
 
   if (t == NULL_TREE)
     return iterative_hash_pointer (t, val);
@@ -4897,16 +4900,16 @@ iterative_hash_expr (tree t, hashval_t val)
 	}
       /* else FALL THROUGH */
     default:
-      class = TREE_CODE_CLASS (code);
+      tcc = TREE_CODE_CLASS (code);
 
-      if (class == tcc_declaration)
+      if (tcc == tcc_declaration)
 	{
 	  /* DECL's have a unique ID */
 	  val = iterative_hash_host_wide_int (DECL_UID (t), val);
 	}
       else
 	{
-	  gcc_assert (IS_EXPR_CODE_CLASS (class));
+	  gcc_assert (IS_EXPR_CODE_CLASS (tcc));
 	  
 	  val = iterative_hash_object (code, val);
 
@@ -6063,7 +6066,7 @@ get_file_function_name_long (const char *type)
 	  if (! file)
 	    file = input_filename;
 
-	  q = alloca (strlen (p) + 10);
+	  q = (char *) alloca (strlen (p) + 10);
 	  sprintf (q, "%s_%08X", p, crc32_string (0, file));
 
 	  p = q;
@@ -6083,7 +6086,7 @@ get_file_function_name_long (const char *type)
 	file = input_filename;
 
       len = strlen (file);
-      q = alloca (9 * 2 + len + 1);
+      q = (char *) alloca (9 * 2 + len + 1);
       memcpy (q, file, len + 1);
       clean_symbol_name (q);
 
@@ -6093,7 +6096,7 @@ get_file_function_name_long (const char *type)
       p = q;
     }
 
-  buf = alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p) + strlen (type));
+  buf = (char *) alloca (sizeof (FILE_FUNCTION_FORMAT) + strlen (p) + strlen (type));
 
   /* Set up the name of the file-level functions we may need.
      Use a global object (which is already required to be unique over
@@ -6142,7 +6145,7 @@ tree_check_failed (const tree node, const char *file,
     {
       va_start (args, function);
       length += strlen ("expected ");
-      buffer = alloca (length);
+      buffer = (char *) alloca (length);
       length = 0;
       while ((code = va_arg (args, int)))
 	{
@@ -6181,7 +6184,7 @@ tree_not_check_failed (const tree node, const char *file,
     length += 4 + strlen (tree_code_name[code]);
   va_end (args);
   va_start (args, function);
-  buffer = alloca (length);
+  buffer = (char *) alloca (length);
   length = 0;
   while ((code = va_arg (args, int)))
     {
@@ -6224,16 +6227,16 @@ tree_range_check_failed (const tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum tree_code c;
+  int c;
 
-  for (c = c1; c <= c2; ++c)
+  for (c = c1; c <= (int) c2; ++c)
     length += 4 + strlen (tree_code_name[c]);
 
   length += strlen ("expected ");
-  buffer = alloca (length);
+  buffer = (char *) alloca (length);
   length = 0;
 
-  for (c = c1; c <= c2; ++c)
+  for (c = c1; c <= (int) c2; ++c)
     {
       const char *prefix = length ? " or " : "expected ";
 
@@ -6285,16 +6288,16 @@ omp_clause_range_check_failed (const tree node, const char *file, int line,
 {
   char *buffer;
   unsigned length = 0;
-  enum omp_clause_code c;
+  int c;
 
-  for (c = c1; c <= c2; ++c)
+  for (c = c1; c <= (int) c2; ++c)
     length += 4 + strlen (omp_clause_code_name[c]);
 
   length += strlen ("expected ");
-  buffer = alloca (length);
+  buffer = (char *) alloca (length);
   length = 0;
 
-  for (c = c1; c <= c2; ++c)
+  for (c = c1; c <= (int) c2; ++c)
     {
       const char *prefix = length ? " or " : "expected ";
 
@@ -6769,7 +6772,7 @@ build_common_builtin_nodes (void)
      complex.  Further, we can do slightly better with folding these 
      beasties if the real and complex parts of the arguments are separate.  */
   {
-    enum machine_mode mode;
+    int mode;
 
     for (mode = MIN_MODE_COMPLEX_FLOAT; mode <= MAX_MODE_COMPLEX_FLOAT; ++mode)
       {
@@ -6778,7 +6781,7 @@ build_common_builtin_nodes (void)
 	enum built_in_function mcode, dcode;
 	tree type, inner_type;
 
-	type = lang_hooks.types.type_for_mode (mode, 0);
+	type = lang_hooks.types.type_for_mode ((enum machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);
@@ -6789,8 +6792,8 @@ build_common_builtin_nodes (void)
 	tmp = tree_cons (NULL_TREE, inner_type, tmp);
 	ftype = build_function_type (type, tmp);
 
-        mcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
-        dcode = BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
+        mcode = (enum built_in_function) (BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT);
+        dcode = (enum built_in_function) (BUILT_IN_COMPLEX_DIV_MIN + mode - MIN_MODE_COMPLEX_FLOAT);
 
         for (p = GET_MODE_NAME (mode), q = mode_name_buf; *p; p++, q++)
 	  *q = TOLOWER (*p);
@@ -6976,7 +6979,7 @@ build_omp_clause (enum omp_clause_code code)
   length = omp_clause_num_ops[code];
   size = (sizeof (struct tree_omp_clause) + (length - 1) * sizeof (tree));
 
-  t = ggc_alloc (size);
+  t = (tree) ggc_alloc (size);
   memset (t, 0, size);
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);

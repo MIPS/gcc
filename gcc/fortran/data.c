@@ -45,7 +45,7 @@ get_array_index (gfc_array_ref * ar, mpz_t * offset)
 {
   gfc_expr *e;
   int i;
-  try re;
+  check re;
   mpz_t delta;
   mpz_t tmp;
 
@@ -155,7 +155,7 @@ create_character_intializer (gfc_expr * init, gfc_typespec * ts,
       init->expr_type = EXPR_CONSTANT;
       init->ts = *ts;
       
-      dest = gfc_getmem (len);
+      dest = (char *) gfc_getmem (len);
       init->value.character.length = len;
       init->value.character.string = dest;
       /* Blank the string if we're only setting a substring.  */

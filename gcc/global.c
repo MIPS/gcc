@@ -1052,7 +1052,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
   int i, best_reg, pass;
   HARD_REG_SET used, used1, used2;
 
-  enum reg_class class = (alt_regs_p
+  enum reg_class regclass = (alt_regs_p
 			  ? reg_alternate_class (allocno[num].reg)
 			  : reg_preferred_class (allocno[num].reg));
   enum machine_mode mode = PSEUDO_REGNO_MODE (allocno[num].reg);
@@ -1069,7 +1069,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
   if (losers)
     IOR_HARD_REG_SET (used1, losers);
 
-  IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[(int) class]);
+  IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[regclass]);
   COPY_HARD_REG_SET (used2, used1);
 
   IOR_HARD_REG_SET (used1, allocno[num].hard_reg_conflicts);
@@ -2082,7 +2082,7 @@ allocate_bb_info (void)
   bitmap_obstack_initialize (&greg_obstack); 
   FOR_EACH_BB (bb)
     {
-      bb_info = bb->aux;
+      bb_info = (struct bb_info *) bb->aux;
       bb_info->earlyclobber = BITMAP_ALLOC (&greg_obstack);
       bb_info->avloc = BITMAP_ALLOC (&greg_obstack);
       bb_info->killed = BITMAP_ALLOC (&greg_obstack);
@@ -2110,7 +2110,7 @@ static void
 mark_reg_change (rtx reg, rtx setter, void *data)
 {
   int regno;
-  basic_block bb = data;
+  basic_block bb = (basic_block) data;
   struct bb_info *bb_info = BB_INFO (bb);
 
   if (GET_CODE (reg) == SUBREG)
@@ -2151,10 +2151,10 @@ check_earlyclobber (rtx insn)
       char c;
       bool amp_p;
       int i;
-      enum reg_class class;
+      enum reg_class regclass;
       const char *p = recog_data.constraints[opno];
 
-      class = NO_REGS;
+      regclass = NO_REGS;
       amp_p = false;
       for (;;)
 	{
@@ -2180,7 +2180,7 @@ check_earlyclobber (rtx insn)
 	      break;
 	    case '\0':
 	    case ',':
-	      if (amp_p && class != NO_REGS)
+	      if (amp_p && regclass != NO_REGS)
 		{
 		  int rc;
 
@@ -2189,28 +2189,28 @@ check_earlyclobber (rtx insn)
 		       VEC_iterate (int, earlyclobber_regclass, i, rc);
 		       i++)
 		    {
-		      if (rc == (int) class)
+		      if ((enum reg_class) rc == regclass)
 			goto found_rc;
 		    }
 
 		  /* We use VEC_quick_push here because
 		     earlyclobber_regclass holds no more than
 		     N_REG_CLASSES elements. */
-		  VEC_quick_push (int, earlyclobber_regclass, (int) class);
+		  VEC_quick_push (int, earlyclobber_regclass, regclass);
 		found_rc:
 		  ;
 		}
 	      
 	      amp_p = false;
-	      class = NO_REGS;
+	      regclass = NO_REGS;
 	      break;
 
 	    case 'r':
-	      class = GENERAL_REGS;
+	      regclass = GENERAL_REGS;
 	      break;
 
 	    default:
-	      class = REG_CLASS_FROM_CONSTRAINT (c, p);
+	      regclass = REG_CLASS_FROM_CONSTRAINT (c, p);
 	      break;
 	    }
 	  if (c == '\0')
@@ -2232,7 +2232,7 @@ mark_reg_use_for_earlyclobber (rtx *x, void *data ATTRIBUTE_UNUSED)
 {
   enum reg_class pref_class, alt_class;
   int i, regno;
-  basic_block bb = data;
+  basic_block bb = (basic_block) data;
   struct bb_info *bb_info = BB_INFO (bb);
 
   if (REG_P (*x) && REGNO (*x) >= FIRST_PSEUDO_REGISTER)
@@ -2247,9 +2247,9 @@ mark_reg_use_for_earlyclobber (rtx *x, void *data ATTRIBUTE_UNUSED)
       alt_class = reg_alternate_class (regno);
       for (i = 0; VEC_iterate (int, earlyclobber_regclass, i, rc); i++)
 	{
-	  if (reg_classes_intersect_p (rc, pref_class)
+	  if (reg_classes_intersect_p ((enum reg_class) rc, pref_class)
 	      || (rc != NO_REGS
-		  && reg_classes_intersect_p (rc, alt_class)))
+		  && reg_classes_intersect_p ((enum reg_class) rc, alt_class)))
 	    {
 	      bitmap_set_bit (bb_info->earlyclobber, regno);
 	      break;
@@ -2519,7 +2519,7 @@ rest_of_handle_global_alloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+  if (dump_enabled_p ((enum tree_dump_index) pass_global_alloc.static_pass_number))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);

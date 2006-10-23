@@ -225,10 +225,10 @@ static GTY(()) struct string_pool_data * spd;
 void
 gt_pch_save_stringpool (void)
 {
-  spd = ggc_alloc (sizeof (*spd));
+  spd = (struct string_pool_data *) ggc_alloc (sizeof (*spd));
   spd->nslots = ident_hash->nslots;
   spd->nelements = ident_hash->nelements;
-  spd->entries = ggc_alloc (sizeof (spd->entries[0]) * spd->nslots);
+  spd->entries = (struct ht_identifier **) ggc_alloc (sizeof (spd->entries[0]) * spd->nslots);
   memcpy (spd->entries, ident_hash->entries,
 	  spd->nslots * sizeof (spd->entries[0]));
 }

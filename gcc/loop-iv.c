@@ -795,7 +795,7 @@ record_iv (struct df_ref *def, struct rtx_iv *iv)
 static bool
 analyzed_for_bivness_p (rtx def, struct rtx_iv *iv)
 {
-  struct biv_entry *biv = htab_find_with_hash (bivs, def, REGNO (def));
+  struct biv_entry *biv = (struct biv_entry *) htab_find_with_hash (bivs, def, REGNO (def));
 
   if (!biv)
     return false;
@@ -1334,7 +1334,7 @@ altered_reg_used (rtx *reg, void *alt)
   if (!REG_P (*reg))
     return 0;
 
-  return REGNO_REG_SET_P (alt, REGNO (*reg));
+  return REGNO_REG_SET_P ((bitmap) alt, REGNO (*reg));
 }
 
 /* Marks registers altered by EXPR in set ALT.  */
@@ -1347,7 +1347,7 @@ mark_altered (rtx expr, rtx by ATTRIBUTE_UNUSED, void *alt)
   if (!REG_P (expr))
     return;
 
-  SET_REGNO_REG_SET (alt, REGNO (expr));
+  SET_REGNO_REG_SET ((bitmap) alt, REGNO (expr));
 }
 
 /* Checks whether RHS is simple enough to process.  */
@@ -1831,10 +1831,10 @@ shorten_into_mode (struct rtx_iv *iv, enum machine_mode mode,
       case LTU:
 	if (cond_under != const0_rtx)
 	  desc->infinite =
-		  alloc_EXPR_LIST (0, cond_under, desc->infinite);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_under, desc->infinite);
 	if (cond_over != const0_rtx)
 	  desc->noloop_assumptions =
-		  alloc_EXPR_LIST (0, cond_over, desc->noloop_assumptions);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_over, desc->noloop_assumptions);
 	break;
 
       case GE:
@@ -1843,19 +1843,19 @@ shorten_into_mode (struct rtx_iv *iv, enum machine_mode mode,
       case GTU:
 	if (cond_over != const0_rtx)
 	  desc->infinite =
-		  alloc_EXPR_LIST (0, cond_over, desc->infinite);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_over, desc->infinite);
 	if (cond_under != const0_rtx)
 	  desc->noloop_assumptions =
-		  alloc_EXPR_LIST (0, cond_under, desc->noloop_assumptions);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_under, desc->noloop_assumptions);
 	break;
 
       case NE:
 	if (cond_over != const0_rtx)
 	  desc->infinite =
-		  alloc_EXPR_LIST (0, cond_over, desc->infinite);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_over, desc->infinite);
 	if (cond_under != const0_rtx)
 	  desc->infinite =
-		  alloc_EXPR_LIST (0, cond_under, desc->infinite);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, cond_under, desc->infinite);
 	break;
 
       default:
@@ -2158,7 +2158,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 
 	if (assumption != const0_rtx)
 	  desc->noloop_assumptions =
-		  alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+		  alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->noloop_assumptions);
 	cond = (cond == LT) ? LE : LEU;
 
 	/* It will be useful to be able to tell the difference once more in
@@ -2177,7 +2177,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	  if (rtx_equal_p (tmp, mode_mmin))
 	    {
 	      desc->infinite =
-		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, const_true_rtx, NULL_RTX);
 	      /* Fill in the remaining fields somehow.  */
 	      goto zero_iter_simplify;
 	    }
@@ -2188,7 +2188,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	  if (rtx_equal_p (tmp, mode_mmax))
 	    {
 	      desc->infinite =
-		      alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, const_true_rtx, NULL_RTX);
 	      /* Fill in the remaining fields somehow.  */
 	      goto zero_iter_simplify;
 	    }
@@ -2265,10 +2265,10 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 		 computed overflows, the cycle is infinite.  Otherwise it
 		 is nontrivial to compute the number of iterations.  */
 	      if (step_is_pow2)
-		desc->infinite = alloc_EXPR_LIST (0, may_not_xform,
+		desc->infinite = alloc_EXPR_LIST (REG_DEP_TRUE, may_not_xform,
 						  desc->infinite);
 	      else
-		desc->assumptions = alloc_EXPR_LIST (0, may_xform,
+		desc->assumptions = alloc_EXPR_LIST (REG_DEP_TRUE, may_xform,
 						     desc->assumptions);
 	    }
 
@@ -2304,7 +2304,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	    goto zero_iter_simplify;
 	  else if (assumption != const0_rtx)
 	    desc->noloop_assumptions =
-		    alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+		    alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->noloop_assumptions);
 	  cond = NE;
 	}
     }
@@ -2342,7 +2342,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       tmp1 = lowpart_subreg (mode, iv1.base, comp_mode);
       tmp = simplify_gen_binary (UMOD, mode, tmp1, GEN_INT (d));
       assumption = simplify_gen_relational (NE, SImode, mode, tmp, const0_rtx);
-      desc->infinite = alloc_EXPR_LIST (0, assumption, desc->infinite);
+      desc->infinite = alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->infinite);
 
       tmp = simplify_gen_binary (UDIV, mode, tmp1, GEN_INT (d));
       inv = inverse (s, size);
@@ -2381,14 +2381,14 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	      tmp = simplify_gen_relational (cond, SImode, mode, t0, t1);
 	      assumption = simplify_gen_binary (AND, SImode, assumption, tmp);
 	      desc->infinite =
-		      alloc_EXPR_LIST (0, assumption, desc->infinite);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->infinite);
 	    }
 	  else
 	    {
 	      assumption = simplify_gen_relational (cond, SImode, mode,
 						    tmp1, bound);
 	      desc->assumptions =
-		      alloc_EXPR_LIST (0, assumption, desc->assumptions);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->assumptions);
 	    }
 
 	  tmp = simplify_gen_binary (PLUS, comp_mode, iv1.base, iv0.step);
@@ -2425,14 +2425,14 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	      tmp = simplify_gen_relational (cond, SImode, mode, t0, t1);
 	      assumption = simplify_gen_binary (AND, SImode, assumption, tmp);
 	      desc->infinite =
-		      alloc_EXPR_LIST (0, assumption, desc->infinite);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->infinite);
 	    }
 	  else
 	    {
 	      assumption = simplify_gen_relational (cond, SImode, mode,
 						    bound, tmp0);
 	      desc->assumptions =
-		      alloc_EXPR_LIST (0, assumption, desc->assumptions);
+		      alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->assumptions);
 	    }
 
 	  tmp = simplify_gen_binary (PLUS, comp_mode, iv0.base, iv1.step);
@@ -2447,7 +2447,7 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 	goto zero_iter_simplify;
       else if (assumption != const0_rtx)
 	desc->noloop_assumptions =
-		alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+		alloc_EXPR_LIST (REG_DEP_TRUE, assumption, desc->noloop_assumptions);
       delta = simplify_gen_binary (UDIV, mode, delta, step);
       desc->niter_expr = delta;
     }

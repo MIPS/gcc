@@ -160,7 +160,7 @@ force_label_rtx (tree label)
   else
     p = cfun;
 
-  p->expr->x_forced_labels = gen_rtx_EXPR_LIST (VOIDmode, ref,
+  p->expr->x_forced_labels = gen_rtx_EXPR_LIST (REG_DEP_TRUE, ref,
 						p->expr->x_forced_labels);
   return ref;
 }
@@ -216,12 +216,12 @@ expand_label (tree label)
     {
       expand_nl_goto_receiver ();
       nonlocal_goto_handler_labels
-	= gen_rtx_EXPR_LIST (VOIDmode, label_r,
+	= gen_rtx_EXPR_LIST (REG_DEP_TRUE, label_r,
 			     nonlocal_goto_handler_labels);
     }
 
   if (FORCED_LABEL (label))
-    forced_labels = gen_rtx_EXPR_LIST (VOIDmode, label_r, forced_labels);
+    forced_labels = gen_rtx_EXPR_LIST (REG_DEP_TRUE, label_r, forced_labels);
 
   if (DECL_NONLOCAL (label) || FORCED_LABEL (label))
     maybe_set_first_label_num (label_r);
@@ -333,7 +333,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 		 *p, operand_num);
 
       /* Make a copy of the constraint.  */
-      buf = alloca (c_len + 1);
+      buf = (char *) alloca (c_len + 1);
       strcpy (buf, constraint);
       /* Swap the first character and the `=' or `+'.  */
       buf[p - constraint] = buf[0];
@@ -565,7 +565,7 @@ decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
 			      void *data)
 {
   tree decl = *declp;
-  const HARD_REG_SET *regs = data;
+  const HARD_REG_SET *regs = (const HARD_REG_SET *) data;
 
   if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -656,13 +656,13 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
   tree t;
   int i;
   /* Vector of RTX's of evaluated output operands.  */
-  rtx *output_rtx = alloca (noutputs * sizeof (rtx));
-  int *inout_opnum = alloca (noutputs * sizeof (int));
-  rtx *real_output_rtx = alloca (noutputs * sizeof (rtx));
+  rtx *output_rtx = (rtx *) alloca (noutputs * sizeof (rtx));
+  int *inout_opnum = (int *) alloca (noutputs * sizeof (int));
+  rtx *real_output_rtx = (rtx *) alloca (noutputs * sizeof (rtx));
   enum machine_mode *inout_mode
-    = alloca (noutputs * sizeof (enum machine_mode));
+    = (enum machine_mode *) alloca (noutputs * sizeof (enum machine_mode));
   const char **constraints
-    = alloca ((noutputs + ninputs) * sizeof (const char *));
+    = (const char **) alloca ((noutputs + ninputs) * sizeof (const char *));
   int old_generating_concat_p = generating_concat_p;
 
   /* An ASM with no outputs needs to be treated as volatile, for now.  */
@@ -1357,7 +1357,7 @@ expand_expr_stmt (tree exp)
   rtx value;
   tree type;
 
-  value = expand_expr (exp, const0_rtx, VOIDmode, 0);
+  value = expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
   type = TREE_TYPE (exp);
 
   /* If all we do is reference a volatile value in memory,
@@ -1611,7 +1611,7 @@ expand_return (tree retval)
       int n_regs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
       unsigned int bitsize
 	= MIN (TYPE_ALIGN (TREE_TYPE (retval_rhs)), BITS_PER_WORD);
-      rtx *result_pseudos = alloca (sizeof (rtx) * n_regs);
+      rtx *result_pseudos = (rtx *) alloca (sizeof (rtx) * n_regs);
       rtx result_reg, src = NULL_RTX, dst = NULL_RTX;
       rtx result_val = expand_normal (retval_rhs);
       enum machine_mode tmpmode, result_reg_mode;
@@ -1718,7 +1718,7 @@ expand_return (tree retval)
       tree nt = build_qualified_type (ot, TYPE_QUALS (ot) | TYPE_QUAL_CONST);
 
       val = assign_temp (nt, 0, 0, 1);
-      val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
+      val = expand_expr (retval_rhs, val, GET_MODE (val), EXPAND_NORMAL);
       val = force_not_mem (val);
       /* Return the calculated value.  */
       expand_value_return (val);
@@ -1726,7 +1726,7 @@ expand_return (tree retval)
   else
     {
       /* No hard reg used; calculate value into hard return reg.  */
-      expand_expr (retval, const0_rtx, VOIDmode, 0);
+      expand_expr (retval, const0_rtx, VOIDmode, EXPAND_NORMAL);
       expand_value_return (result_rtl);
     }
 }
@@ -2124,7 +2124,7 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 
   /* Add this label to the chain.  Make sure to drop overflow flags.  */
-  r = ggc_alloc (sizeof (struct case_node));
+  r = (struct case_node *) ggc_alloc (sizeof (struct case_node));
   r->low = build_int_cst_wide (TREE_TYPE (low), TREE_INT_CST_LOW (low),
 			       TREE_INT_CST_HIGH (low));
   r->high = build_int_cst_wide (TREE_TYPE (high), TREE_INT_CST_LOW (high),
@@ -2186,8 +2186,8 @@ bool lshift_cheap_p (void)
 static int
 case_bit_test_cmp (const void *p1, const void *p2)
 {
-  const struct case_bit_test *d1 = p1;
-  const struct case_bit_test *d2 = p2;
+  const struct case_bit_test *d1 = (const struct case_bit_test *) p1;
+  const struct case_bit_test *d2 = (const struct case_bit_test *) p2;
 
   if (d2->bits != d1->bits)
     return d2->bits - d1->bits;
@@ -2537,7 +2537,7 @@ expand_case (tree exp)
 	  /* Get table of labels to jump to, in order of case index.  */
 
 	  ncases = tree_low_cst (range, 0) + 1;
-	  labelvec = alloca (ncases * sizeof (rtx));
+	  labelvec = (rtx *) alloca (ncases * sizeof (rtx));
 	  memset (labelvec, 0, ncases * sizeof (rtx));
 
 	  for (n = case_list; n; n = n->right)

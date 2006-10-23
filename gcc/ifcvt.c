@@ -3996,9 +3996,9 @@ gate_handle_if_after_combine (void)
 static unsigned int
 rest_of_handle_if_after_combine (void)
 {
-  no_new_pseudos = 0;
+  no_new_pseudos = false;
   if_convert (1);
-  no_new_pseudos = 1;
+  no_new_pseudos = true;
   return 0;
 }
 

@@ -48,8 +48,8 @@ set_constant_entry (CPool *cpool, int index, int tag, jword value)
   if (cpool->data == NULL)
     {
       cpool->capacity = 100;
-      cpool->tags = ggc_alloc_cleared (sizeof(uint8) * cpool->capacity);
-      cpool->data = ggc_alloc_cleared (sizeof(union cpool_entry)
+      cpool->tags = (uint8 *) ggc_alloc_cleared (sizeof(uint8) * cpool->capacity);
+      cpool->data = (union cpool_entry *) ggc_alloc_cleared (sizeof(union cpool_entry)
 				       * cpool->capacity);
       cpool->count = 1;
     }
@@ -59,9 +59,9 @@ set_constant_entry (CPool *cpool, int index, int tag, jword value)
       cpool->capacity *= 2;
       if (index >= cpool->capacity)
 	cpool->capacity = index + 10;
-      cpool->tags = ggc_realloc (cpool->tags, 
+      cpool->tags = (uint8 *) ggc_realloc (cpool->tags, 
 				 sizeof(uint8) * cpool->capacity);
-      cpool->data = ggc_realloc (cpool->data,
+      cpool->data = (union cpool_entry *) ggc_realloc (cpool->data,
 				 sizeof(union cpool_entry) * cpool->capacity);
 
       /* Make sure GC never sees uninitialized tag values.  */
@@ -330,14 +330,14 @@ get_tag_node (int tag)
 /* Given a class, return its constant pool, creating one if necessary.  */
 
 static CPool *
-cpool_for_class (tree class)
+cpool_for_class (tree jclass)
 {
-  CPool *cpool = TYPE_CPOOL (class);
+  CPool *cpool = TYPE_CPOOL (jclass);
 
   if (cpool == NULL)
     {
-      cpool = ggc_alloc_cleared (sizeof (struct CPool));
-      TYPE_CPOOL (class) = cpool;
+      cpool = (struct CPool *) ggc_alloc_cleared (sizeof (struct CPool));
+      TYPE_CPOOL (jclass) = cpool;
     }
   return cpool;
 }
@@ -377,9 +377,9 @@ find_name_and_type_constant_tree (CPool *cpool, tree name, tree type)
    Return the index of the entry.  */
 
 int
-alloc_constant_fieldref (tree class, tree decl)
+alloc_constant_fieldref (tree jclass, tree decl)
 {
-  CPool *outgoing_cpool = cpool_for_class (class);
+  CPool *outgoing_cpool = cpool_for_class (jclass);
   int class_index 
     = find_tree_constant (outgoing_cpool, CONSTANT_Class, 
 			  DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl))));

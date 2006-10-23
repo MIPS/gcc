@@ -144,7 +144,7 @@ gen_lowpart_if_possible (enum machine_mode mode, rtx x)
     {
       /* This is the only other case we handle.  */
       int offset = 0;
-      rtx new;
+      rtx n;
 
       if (WORDS_BIG_ENDIAN)
 	offset = (MAX (GET_MODE_SIZE (GET_MODE (x)), UNITS_PER_WORD)
@@ -155,11 +155,11 @@ gen_lowpart_if_possible (enum machine_mode mode, rtx x)
 	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
 		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (x))));
 
-      new = adjust_address_nv (x, mode, offset);
-      if (! memory_address_p (mode, XEXP (new, 0)))
+      n = adjust_address_nv (x, mode, offset);
+      if (! memory_address_p (mode, XEXP (n, 0)))
 	return 0;
 
-      return new;
+      return n;
     }
   else if (mode != GET_MODE (x) && GET_MODE (x) != VOIDmode)
     return gen_lowpart_SUBREG (mode, x);

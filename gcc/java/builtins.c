@@ -70,9 +70,9 @@ struct builtin_record GTY(())
 
 static GTY(()) struct builtin_record java_builtins[] =
 {
-  { { "java.lang.Math" }, { "min" }, min_builtin, 0 },
-  { { "java.lang.Math" }, { "max" }, max_builtin, 0 },
-  { { "java.lang.Math" }, { "abs" }, abs_builtin, 0 },
+  { { "java.lang.Math" }, { "min" }, min_builtin, BUILT_IN_NONE },
+  { { "java.lang.Math" }, { "max" }, max_builtin, BUILT_IN_NONE },
+  { { "java.lang.Math" }, { "abs" }, abs_builtin, BUILT_IN_NONE },
   { { "java.lang.Math" }, { "acos" }, NULL, BUILT_IN_ACOS },
   { { "java.lang.Math" }, { "asin" }, NULL, BUILT_IN_ASIN },
   { { "java.lang.Math" }, { "atan" }, NULL, BUILT_IN_ATAN },
@@ -86,10 +86,10 @@ static GTY(()) struct builtin_record java_builtins[] =
   { { "java.lang.Math" }, { "sin" }, NULL, BUILT_IN_SIN },
   { { "java.lang.Math" }, { "sqrt" }, NULL, BUILT_IN_SQRT },
   { { "java.lang.Math" }, { "tan" }, NULL, BUILT_IN_TAN },
-  { { "java.lang.Float" }, { "intBitsToFloat" }, convert_real, 0 },
-  { { "java.lang.Double" }, { "longBitsToDouble" }, convert_real, 0 },
-  { { "java.lang.Float" }, { "floatToRawIntBits" }, convert_real, 0 },
-  { { "java.lang.Double" }, { "doubleToRawLongBits" }, convert_real, 0 },
+  { { "java.lang.Float" }, { "intBitsToFloat" }, convert_real, BUILT_IN_NONE },
+  { { "java.lang.Double" }, { "longBitsToDouble" }, convert_real, BUILT_IN_NONE },
+  { { "java.lang.Float" }, { "floatToRawIntBits" }, convert_real, BUILT_IN_NONE },
+  { { "java.lang.Double" }, { "doubleToRawLongBits" }, convert_real, BUILT_IN_NONE },
   { { NULL }, { NULL }, NULL, END_BUILTINS }
 };
 

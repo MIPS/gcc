@@ -231,7 +231,7 @@ my_malloc (size_t size)
 struct prod_token_parm_item*
 lookup_tree_name (struct prod_token_parm_item *prod)
 {
-  struct prod_token_parm_item *this;
+  struct prod_token_parm_item *it;
   struct prod_token_parm_item *this_tok;
   struct prod_token_parm_item *tok;
 
@@ -240,10 +240,10 @@ lookup_tree_name (struct prod_token_parm_item *prod)
   tok = SYMBOL_TABLE_NAME (prod);
   sanity_check (tok);
   
-  for (this = symbol_table; this; this = this->tp.pro.next)
+  for (it = symbol_table; it; it = it->tp.pro.next)
     {
-      sanity_check (this);
-      this_tok = this->tp.pro.main_token;
+      sanity_check (it);
+      this_tok = it->tp.pro.main_token;
       sanity_check (this_tok);
       if (tok->tp.tok.length != this_tok->tp.tok.length) 
         continue;
@@ -254,8 +254,8 @@ lookup_tree_name (struct prod_token_parm_item *prod)
       if (option_parser_trace)
         fprintf (stderr, "Found symbol %s (%i:%i) as %i \n",
 		 tok->tp.tok.chars, LOCATION_LINE (tok->tp.tok.location),
-		 tok->tp.tok.charno, NUMERIC_TYPE (this));
-      return this;
+		 tok->tp.tok.charno, NUMERIC_TYPE (it));
+      return it;
     }
 
   if (option_parser_trace)
@@ -291,7 +291,7 @@ struct prod_token_parm_item *
 make_production (int type, struct prod_token_parm_item *main_tok)
 {
   struct prod_token_parm_item *prod;
-  prod = my_malloc (sizeof (struct prod_token_parm_item));
+  prod = (struct prod_token_parm_item *) my_malloc (sizeof (struct prod_token_parm_item));
   prod->category = production_category;
   prod->type = type;
   prod->tp.pro.main_token = main_tok;

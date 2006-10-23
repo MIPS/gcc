@@ -24,6 +24,7 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "name-lookup.h"
@@ -3179,18 +3180,18 @@ namespace_ancestor (tree ns1, tree ns2)
 /* Process a namespace-alias declaration.  */
 
 void
-do_namespace_alias (tree alias, tree namespace)
+do_namespace_alias (tree alias, tree ns)
 {
-  if (namespace == error_mark_node)
+  if (ns == error_mark_node)
     return;
 
-  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
+  gcc_assert (TREE_CODE (ns) == NAMESPACE_DECL);
 
-  namespace = ORIGINAL_NAMESPACE (namespace);
+  ns = ORIGINAL_NAMESPACE (ns);
 
   /* Build the alias.  */
   alias = build_lang_decl (NAMESPACE_DECL, alias, void_type_node);
-  DECL_NAMESPACE_ALIAS (alias) = namespace;
+  DECL_NAMESPACE_ALIAS (alias) = ns;
   DECL_EXTERNAL (alias) = 1;
   DECL_CONTEXT (alias) = FROB_CONTEXT (current_scope ());
   pushdecl (alias);
@@ -3328,46 +3329,46 @@ do_toplevel_using_decl (tree decl, tree scope, tree name)
 /* Process a using-directive.  */
 
 void
-do_using_directive (tree namespace)
+do_using_directive (tree ns)
 {
   tree context = NULL_TREE;
 
-  if (namespace == error_mark_node)
+  if (ns == error_mark_node)
     return;
 
-  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
+  gcc_assert (TREE_CODE (ns) == NAMESPACE_DECL);
 
   if (building_stmt_tree ())
-    add_stmt (build_stmt (USING_STMT, namespace));
-  namespace = ORIGINAL_NAMESPACE (namespace);
+    add_stmt (build_stmt (USING_STMT, ns));
+  ns = ORIGINAL_NAMESPACE (ns);
 
   if (!toplevel_bindings_p ())
     {
-      push_using_directive (namespace);
+      push_using_directive (ns);
       context = current_scope ();
     }
   else
     {
       /* direct usage */
-      add_using_namespace (current_namespace, namespace, 0);
+      add_using_namespace (current_namespace, ns, 0);
       if (current_namespace != global_namespace)
 	context = current_namespace;
     }
 
   /* Emit debugging info.  */
   if (!processing_template_decl)
-    (*debug_hooks->imported_module_or_decl) (namespace, context);
+    (*debug_hooks->imported_module_or_decl) (ns, context);
 }
 
 /* Deal with a using-directive seen by the parser.  Currently we only
    handle attributes here, since they cannot appear inside a template.  */
 
 void
-parse_using_directive (tree namespace, tree attribs)
+parse_using_directive (tree ns, tree attribs)
 {
   tree a;
 
-  do_using_directive (namespace);
+  do_using_directive (ns);
 
   for (a = attribs; a; a = TREE_CHAIN (a))
     {
@@ -3376,14 +3377,14 @@ parse_using_directive (tree namespace, tree attribs)
 	{
 	  if (!toplevel_bindings_p ())
 	    error ("strong using only meaningful at namespace scope");
-	  else if (namespace != error_mark_node)
+	  else if (ns != error_mark_node)
 	    {
-	      if (!is_ancestor (current_namespace, namespace))
+	      if (!is_ancestor (current_namespace, ns))
 		error ("current namespace %qD does not enclose strongly used namespace %qD",
-		       current_namespace, namespace);
-	      DECL_NAMESPACE_ASSOCIATIONS (namespace)
+		       current_namespace, ns);
+	      DECL_NAMESPACE_ASSOCIATIONS (ns)
 		= tree_cons (current_namespace, 0,
-			     DECL_NAMESPACE_ASSOCIATIONS (namespace));
+			     DECL_NAMESPACE_ASSOCIATIONS (ns));
 	    }
 	}
       else
@@ -3478,13 +3479,13 @@ merge_functions (tree s1, tree s2)
    XXX I don't want to repeat the entire duplicate_decls here */
 
 static void
-ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
+ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *fresh,
 		int flags)
 {
   tree val, type;
   gcc_assert (old != NULL);
   /* Copy the value.  */
-  val = new->value;
+  val = fresh->value;
   if (val)
     switch (TREE_CODE (val))
       {
@@ -3523,12 +3524,12 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
       else
 	{
 	  old->value = tree_cons (NULL_TREE, old->value,
-				  build_tree_list (NULL_TREE, new->value));
+				  build_tree_list (NULL_TREE, fresh->value));
 	  TREE_TYPE (old->value) = error_mark_node;
 	}
     }
   /* ... and copy the type.  */
-  type = new->type;
+  type = fresh->type;
   if (LOOKUP_NAMESPACES_ONLY (flags))
     type = NULL_TREE;
   if (!old->type)
@@ -4600,21 +4601,21 @@ arg_assoc (struct arg_lookup *k, tree n)
 	 If T is a template-id, its associated namespaces and classes
 	 are the namespace in which the template is defined; for
 	 member templates, the member template's class...  */
-      tree template = TREE_OPERAND (n, 0);
+      tree templ = TREE_OPERAND (n, 0);
       tree args = TREE_OPERAND (n, 1);
       tree ctx;
       int ix;
 
-      if (TREE_CODE (template) == COMPONENT_REF)
-	template = TREE_OPERAND (template, 1);
+      if (TREE_CODE (templ) == COMPONENT_REF)
+	templ = TREE_OPERAND (templ, 1);
 
       /* First, the template.  There may actually be more than one if
 	 this is an overloaded function template.  But, in that case,
 	 we only need the first; all the functions will be in the same
 	 namespace.  */
-      template = OVL_CURRENT (template);
+      templ = OVL_CURRENT (templ);
 
-      ctx = CP_DECL_CONTEXT (template);
+      ctx = CP_DECL_CONTEXT (templ);
 
       if (TREE_CODE (ctx) == NAMESPACE_DECL)
 	{

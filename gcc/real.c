@@ -995,10 +995,10 @@ bool
 real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
 		 const REAL_VALUE_TYPE *op1)
 {
-  enum tree_code code = icode;
+  enum tree_code code = (enum tree_code) icode;
 
   if (op0->decimal || (op1 && op1->decimal))
-    return decimal_real_arithmetic (r, icode, op0, op1);
+    return decimal_real_arithmetic (r, code, op0, op1);
 
   switch (code)
     {
@@ -1067,7 +1067,7 @@ bool
 real_compare (int icode, const REAL_VALUE_TYPE *op0,
 	      const REAL_VALUE_TYPE *op1)
 {
-  enum tree_code code = icode;
+  enum tree_code code = (enum tree_code) icode;
 
   switch (code)
     {
@@ -1482,14 +1482,14 @@ real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig, size_t buf_size,
     }
 
   /* Bound the number of digits printed by the size of the representation.  */
-  max_digits = SIGNIFICAND_BITS * M_LOG10_2;
+  max_digits = (size_t) (SIGNIFICAND_BITS * M_LOG10_2);
   if (digits == 0 || digits > max_digits)
     digits = max_digits;
 
   /* Estimate the decimal exponent, and compute the length of the string it
      will print as.  Be conservative and add one to account for possible
      overflow or rounding error.  */
-  dec_exp = REAL_EXP (&r) * M_LOG10_2;
+  dec_exp = (size_t) (REAL_EXP (&r) * M_LOG10_2);
   for (max_digits = 1; dec_exp ; max_digits++)
     dec_exp /= 10;
 
@@ -2588,7 +2588,7 @@ significand_size (enum machine_mode mode)
 	 than the number of bits required to hold the largest coefficient
 	 of this mode.  */
       double log2_10 = 3.3219281;
-      return fmt->p * log2_10;
+      return (int) (fmt->p * log2_10);
     }
   return fmt->p * fmt->log2_b;
 }

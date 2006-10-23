@@ -174,7 +174,7 @@ static int max_uid;
 static int stop_search_p (rtx, int);
 static int resource_conflicts_p (struct resources *, struct resources *);
 static int insn_references_resource_p (rtx, struct resources *, int);
-static int insn_sets_resource_p (rtx, struct resources *, int);
+static int insn_sets_resource_p (rtx, struct resources *, enum mark_resource_type);
 static rtx find_end_label (void);
 static rtx emit_delay_sequence (rtx, rtx, int);
 static rtx add_to_delay_list (rtx, rtx);
@@ -312,7 +312,7 @@ insn_references_resource_p (rtx insn, struct resources *res,
 
 static int
 insn_sets_resource_p (rtx insn, struct resources *res,
-		      int include_delayed_effects)
+		      enum mark_resource_type include_delayed_effects)
 {
   struct resources insn_sets;
 
@@ -590,7 +590,7 @@ add_to_delay_list (rtx insn, rtx delay_list)
   if (delay_list == 0)
     {
       clear_hashed_info_for_insn (insn);
-      return gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX);
+      return gen_rtx_INSN_LIST (REG_DEP_TRUE, insn, NULL_RTX);
     }
 
   /* Otherwise this must be an INSN_LIST.  Add INSN to the end of the
@@ -1262,8 +1262,8 @@ steal_delay_list_from_target (rtx insn, rtx condition, rtx seq,
       int flags;
 
       if (insn_references_resource_p (trial, sets, 0)
-	  || insn_sets_resource_p (trial, needed, 0)
-	  || insn_sets_resource_p (trial, sets, 0)
+	  || insn_sets_resource_p (trial, needed, MARK_SRC_DEST)
+	  || insn_sets_resource_p (trial, sets, MARK_SRC_DEST)
 #ifdef HAVE_cc0
 	  /* If TRIAL sets CC0, we can't copy it, so we can't steal this
 	     delay list.  */
@@ -1286,7 +1286,7 @@ steal_delay_list_from_target (rtx insn, rtx condition, rtx seq,
 
       if (! must_annul
 	  && ((condition == const_true_rtx
-	       || (! insn_sets_resource_p (trial, other_needed, 0)
+	       || (! insn_sets_resource_p (trial, other_needed, MARK_SRC_DEST)
 		   && ! may_trap_or_fault_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, total_slots_filled, trial, flags)
 	  : (must_annul || (delay_list == NULL && new_delay_list == NULL))
@@ -1362,8 +1362,8 @@ steal_delay_list_from_fallthrough (rtx insn, rtx condition, rtx seq,
       /* If TRIAL sets CC0, stealing it will move it too far from the use
 	 of CC0.  */
       if (insn_references_resource_p (trial, sets, 0)
-	  || insn_sets_resource_p (trial, needed, 0)
-	  || insn_sets_resource_p (trial, sets, 0)
+	  || insn_sets_resource_p (trial, needed, MARK_SRC_DEST)
+	  || insn_sets_resource_p (trial, sets, MARK_SRC_DEST)
 #ifdef HAVE_cc0
 	  || sets_cc0_p (PATTERN (trial))
 #endif
@@ -1380,7 +1380,7 @@ steal_delay_list_from_fallthrough (rtx insn, rtx condition, rtx seq,
 
       if (! must_annul
 	  && ((condition == const_true_rtx
-	       || (! insn_sets_resource_p (trial, other_needed, 0)
+	       || (! insn_sets_resource_p (trial, other_needed, MARK_SRC_DEST)
 		   && ! may_trap_or_fault_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, *pslots_filled, trial, flags)
 	  : (must_annul || delay_list == NULL) && (must_annul = 1,
@@ -1461,8 +1461,8 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	  && ! sets_cc0_p (pat)
 #endif
 	  && ! insn_references_resource_p (trial, &set, 1)
-	  && ! insn_sets_resource_p (trial, &set, 1)
-	  && ! insn_sets_resource_p (trial, &needed, 1)
+	  && ! insn_sets_resource_p (trial, &set, MARK_SRC_DEST_CALL)
+	  && ! insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL)
 	  && (trial = try_split (pat, trial, 0)) != 0
 	  /* Update next_trial, in case try_split succeeded.  */
 	  && (next_trial = next_nonnote_insn (trial))
@@ -1484,7 +1484,7 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	      INSN_FROM_TARGET_P (next_to_match) = 0;
 	    }
 	  else
-	    merged_insns = gen_rtx_INSN_LIST (VOIDmode, trial, merged_insns);
+	    merged_insns = gen_rtx_INSN_LIST (REG_DEP_TRUE, trial, merged_insns);
 
 	  if (++slot_number == num_slots)
 	    break;
@@ -1515,8 +1515,8 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	  rtx dtrial = XVECEXP (pat, 0, i);
 
 	  if (! insn_references_resource_p (dtrial, &set, 1)
-	      && ! insn_sets_resource_p (dtrial, &set, 1)
-	      && ! insn_sets_resource_p (dtrial, &needed, 1)
+	      && ! insn_sets_resource_p (dtrial, &set, MARK_SRC_DEST_CALL)
+	      && ! insn_sets_resource_p (dtrial, &needed, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 	      && ! sets_cc0_p (PATTERN (dtrial))
 #endif
@@ -1525,16 +1525,16 @@ try_merge_delay_insns (rtx insn, rtx thread)
 	    {
 	      if (! annul_p)
 		{
-		  rtx new;
+		  rtx tmp;
 
 		  update_block (dtrial, thread);
-		  new = delete_from_delay_slot (dtrial);
+		  tmp = delete_from_delay_slot (dtrial);
 	          if (INSN_DELETED_P (thread))
-		    thread = new;
+		    thread = tmp;
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
 	      else
-		merged_insns = gen_rtx_INSN_LIST (SImode, dtrial,
+		merged_insns = gen_rtx_INSN_LIST (REG_SAVE_NOTE, dtrial,
 						  merged_insns);
 
 	      if (++slot_number == num_slots)
@@ -1561,14 +1561,14 @@ try_merge_delay_insns (rtx insn, rtx thread)
     {
       for (; merged_insns; merged_insns = XEXP (merged_insns, 1))
 	{
-	  if (GET_MODE (merged_insns) == SImode)
+	  if (GET_MODE (merged_insns) == REG_SAVE_NOTE)
 	    {
-	      rtx new;
+	      rtx tmp;
 
 	      update_block (XEXP (merged_insns, 0), thread);
-	      new = delete_from_delay_slot (XEXP (merged_insns, 0));
+	      tmp = delete_from_delay_slot (XEXP (merged_insns, 0));
 	      if (INSN_DELETED_P (thread))
-		thread = new;
+		thread = tmp;
 	    }
 	  else
 	    {
@@ -1695,8 +1695,8 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 #endif
       /* The insn requiring the delay may not set anything needed or set by
 	 INSN.  */
-      || insn_sets_resource_p (target_main, &needed, 1)
-      || insn_sets_resource_p (target_main, &set, 1))
+      || insn_sets_resource_p (target_main, &needed, MARK_SRC_DEST_CALL)
+      || insn_sets_resource_p (target_main, &set, MARK_SRC_DEST_CALL))
     return 0;
 
   /* Insns we pass may not set either NEEDED or SET, so merge them for
@@ -1710,14 +1710,14 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 
   while (delay_list)
     {
-      if (insn_sets_resource_p (XEXP (delay_list, 0), &needed, 1))
+      if (insn_sets_resource_p (XEXP (delay_list, 0), &needed, MARK_SRC_DEST_CALL))
 	return 0;
       delay_list = XEXP (delay_list, 1);
     }
 
   if (NONJUMP_INSN_P (target) && GET_CODE (PATTERN (target)) == SEQUENCE)
     for (i = 1; i < XVECLEN (PATTERN (target), 0); i++)
-      if (insn_sets_resource_p (XVECEXP (PATTERN (target), 0, i), &needed, 1))
+      if (insn_sets_resource_p (XVECEXP (PATTERN (target), 0, i), &needed, MARK_SRC_DEST_CALL))
 	return 0;
 
   /* Scan backwards until we reach a label or an insn that uses something
@@ -1776,13 +1776,13 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 		 we must stop if it sets anything needed or set by INSN.  */
 	      if ((! INSN_ANNULLED_BRANCH_P (XVECEXP (pat, 0, 0))
 		   || ! INSN_FROM_TARGET_P (candidate))
-		  && insn_sets_resource_p (candidate, &needed, 1))
+		  && insn_sets_resource_p (candidate, &needed, MARK_SRC_DEST_CALL))
 		return 0;
 	    }
 
 	  /* If the insn requiring the delay slot conflicts with INSN, we
 	     must stop.  */
-	  if (insn_sets_resource_p (XVECEXP (pat, 0, 0), &needed, 1))
+	  if (insn_sets_resource_p (XVECEXP (pat, 0, 0), &needed, MARK_SRC_DEST_CALL))
 	    return 0;
 	}
       else
@@ -1793,7 +1793,7 @@ redundant_insn (rtx insn, rtx target, rtx delay_list)
 	    return trial;
 
 	  /* Can't go any further if TRIAL conflicts with INSN.  */
-	  if (insn_sets_resource_p (trial, &needed, 1))
+	  if (insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL))
 	    return 0;
 	}
     }
@@ -2126,8 +2126,8 @@ fill_simple_delay_slots (int non_jumps_p)
 	      /* Check for resource conflict first, to avoid unnecessary
 		 splitting.  */
 	      if (! insn_references_resource_p (trial, &set, 1)
-		  && ! insn_sets_resource_p (trial, &set, 1)
-		  && ! insn_sets_resource_p (trial, &needed, 1)
+		  && ! insn_sets_resource_p (trial, &set, MARK_SRC_DEST_CALL)
+		  && ! insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 		  /* Can't separate set of cc0 from its use.  */
 		  && ! (reg_mentioned_p (cc0_rtx, pat) && ! sets_cc0_p (pat))
@@ -2144,7 +2144,7 @@ fill_simple_delay_slots (int non_jumps_p)
 			 tail, of the list.  */
 
 		      update_reg_dead_notes (trial, insn);
-		      delay_list = gen_rtx_INSN_LIST (VOIDmode,
+		      delay_list = gen_rtx_INSN_LIST (REG_DEP_TRUE,
 						      trial, delay_list);
 		      update_block (trial, trial);
 		      delete_related_insns (trial);
@@ -2268,8 +2268,8 @@ fill_simple_delay_slots (int non_jumps_p)
 		   split.  */
 		if (GET_CODE (pat) != SEQUENCE
 		    && ! insn_references_resource_p (trial, &set, 1)
-		    && ! insn_sets_resource_p (trial, &set, 1)
-		    && ! insn_sets_resource_p (trial, &needed, 1)
+		    && ! insn_sets_resource_p (trial, &set, MARK_SRC_DEST_CALL)
+		    && ! insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 		    && ! (reg_mentioned_p (cc0_rtx, pat) && ! sets_cc0_p (pat))
 #endif
@@ -2321,8 +2321,8 @@ fill_simple_delay_slots (int non_jumps_p)
 		    && GET_CODE (PATTERN (next_trial)) == SEQUENCE)
 	      && !JUMP_P (next_trial)
 	      && ! insn_references_resource_p (next_trial, &set, 1)
-	      && ! insn_sets_resource_p (next_trial, &set, 1)
-	      && ! insn_sets_resource_p (next_trial, &needed, 1)
+	      && ! insn_sets_resource_p (next_trial, &set, MARK_SRC_DEST_CALL)
+	      && ! insn_sets_resource_p (next_trial, &needed, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 	      && ! reg_mentioned_p (cc0_rtx, PATTERN (next_trial))
 #endif
@@ -2430,8 +2430,8 @@ fill_simple_delay_slots (int non_jumps_p)
 	continue;
 
       if (! insn_references_resource_p (trial, &set, 1)
-	  && ! insn_sets_resource_p (trial, &needed, 1)
-	  && ! insn_sets_resource_p (trial, &set, 1)
+	  && ! insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL)
+	  && ! insn_sets_resource_p (trial, &set, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 	  /* Don't want to mess with cc0 here.  */
 	  && ! reg_mentioned_p (cc0_rtx, pat)
@@ -2445,7 +2445,7 @@ fill_simple_delay_slots (int non_jumps_p)
 		 insns we find on the head of the list.  */
 
 	      current_function_epilogue_delay_list
-		= gen_rtx_INSN_LIST (VOIDmode, trial,
+		= gen_rtx_INSN_LIST (REG_DEP_TRUE, trial,
 				     current_function_epilogue_delay_list);
 	      mark_end_of_function_resources (trial, 1);
 	      update_block (trial, trial);
@@ -2563,8 +2563,8 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
       /* If TRIAL conflicts with the insns ahead of it, we lose.  Also,
 	 don't separate or copy insns that set and use CC0.  */
       if (! insn_references_resource_p (trial, &set, 1)
-	  && ! insn_sets_resource_p (trial, &set, 1)
-	  && ! insn_sets_resource_p (trial, &needed, 1)
+	  && ! insn_sets_resource_p (trial, &set, MARK_SRC_DEST_CALL)
+	  && ! insn_sets_resource_p (trial, &needed, MARK_SRC_DEST_CALL)
 #ifdef HAVE_cc0
 	  && ! (reg_mentioned_p (cc0_rtx, pat)
 		&& (! own_thread || ! sets_cc0_p (pat)))
@@ -2605,7 +2605,7 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 	     go into an annulled delay slot.  */
 	  if (!must_annul
 	      && (condition == const_true_rtx
-	          || (! insn_sets_resource_p (trial, &opposite_needed, 1)
+	          || (! insn_sets_resource_p (trial, &opposite_needed, MARK_SRC_DEST_CALL)
 		      && ! may_trap_or_fault_p (pat))))
 	    {
 	      old_trial = trial;
@@ -2694,8 +2694,8 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 			 may be branching to a location that has a
 			 redundant insn.  Skip any if so.  */
 		      while (new_thread && ! own_thread
-			     && ! insn_sets_resource_p (new_thread, &set, 1)
-			     && ! insn_sets_resource_p (new_thread, &needed, 1)
+			     && ! insn_sets_resource_p (new_thread, &set, MARK_SRC_DEST_CALL)
+			     && ! insn_sets_resource_p (new_thread, &needed, MARK_SRC_DEST_CALL)
 			     && ! insn_references_resource_p (new_thread,
 							      &set, 1)
 			     && (prior_insn
@@ -3555,7 +3555,7 @@ dbr_schedule (rtx first)
 	epilogue_insn = insn;
     }
 
-  uid_to_ruid = xmalloc ((max_uid + 1) * sizeof (int));
+  uid_to_ruid = XNEWVEC (int, max_uid + 1);
   for (i = 0, insn = first; insn; i++, insn = NEXT_INSN (insn))
     uid_to_ruid[INSN_UID (insn)] = i;
 
@@ -3563,7 +3563,7 @@ dbr_schedule (rtx first)
   if (unfilled_firstobj == 0)
     {
       gcc_obstack_init (&unfilled_slots_obstack);
-      unfilled_firstobj = obstack_alloc (&unfilled_slots_obstack, 0);
+      unfilled_firstobj = (rtx *)obstack_alloc (&unfilled_slots_obstack, 0);
     }
 
   for (insn = next_active_insn (first); insn; insn = next_active_insn (insn))
@@ -3638,7 +3638,7 @@ dbr_schedule (rtx first)
   obstack_free (&unfilled_slots_obstack, unfilled_firstobj);
 
   /* It is not clear why the line below is needed, but it does seem to be.  */
-  unfilled_firstobj = obstack_alloc (&unfilled_slots_obstack, 0);
+  unfilled_firstobj = (rtx *)obstack_alloc (&unfilled_slots_obstack, 0);
 
   if (dump_file)
     {

@@ -24,6 +24,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "real.h"
+#include "cp-tree-code.h"
+#include "tree.h"
 #include "cxx-pretty-print.h"
 #include "cp-tree.h"
 #include "toplev.h"

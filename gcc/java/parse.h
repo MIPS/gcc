@@ -254,7 +254,7 @@ extern void parse_error_context (tree cl, const char *gmsgid, ...) ATTRIBUTE_GCC
     obstack_grow (&temporary_obstack,					\
 		  IDENTIFIER_POINTER ((O)), IDENTIFIER_LENGTH ((O)));	\
     obstack_1grow (&temporary_obstack, '\0');				\
-    mangled_name = obstack_finish (&temporary_obstack);			\
+    mangled_name = (char *) obstack_finish (&temporary_obstack);			\
     (N) = get_identifier (mangled_name);				\
     obstack_free (&temporary_obstack, mangled_name);			\
   }
@@ -269,7 +269,7 @@ extern void parse_error_context (tree cl, const char *gmsgid, ...) ATTRIBUTE_GCC
     obstack_grow (&temporary_obstack, 					\
 		  IDENTIFIER_POINTER ((O)), IDENTIFIER_LENGTH ((O)));	\
     obstack_1grow (&temporary_obstack, '\0');				\
-    mangled_name = obstack_finish (&temporary_obstack);			\
+    mangled_name = (char *) obstack_finish (&temporary_obstack);	\
     (N) = get_identifier (mangled_name);				\
     obstack_free (&temporary_obstack, mangled_name);			\
   }
@@ -280,7 +280,7 @@ extern void parse_error_context (tree cl, const char *gmsgid, ...) ATTRIBUTE_GCC
     obstack_grow (&temporary_obstack, "parm$", 5);		\
     obstack_grow (&temporary_obstack, (S), strlen ((S)));	\
     obstack_1grow (&temporary_obstack, '\0');			\
-    mangled_name = obstack_finish (&temporary_obstack);			\
+    mangled_name = (char *) obstack_finish (&temporary_obstack);			\
     (N) = get_identifier (mangled_name);				\
     obstack_free (&temporary_obstack, mangled_name);			\
   }
@@ -519,7 +519,7 @@ typedef struct _jdep {
 #define JDEP_WFL(J)           ((J)->wfl)
 #define JDEP_MISC(J)          ((J)->misc)
 #define JDEP_ENCLOSING(J)     ((J)->enclosing)
-#define JDEP_CLASS(J)         ((J)->class)
+#define JDEP_CLASS(J)         ((J)->jclass)
 #define JDEP_APPLY_PATCH(J,P) (*(J)->patch = (P))
 #define JDEP_GET_PATCH(J)     ((J)->patch)
 #define JDEP_CHAIN(J)         ((J)->next)

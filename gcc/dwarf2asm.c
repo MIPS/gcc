@@ -709,7 +709,7 @@ static GTY(()) int dw2_const_labelno;
    the symbol can be shared across the entire application (or DSO).  */
 
 static rtx
-dw2_force_const_mem (rtx x, bool public)
+dw2_force_const_mem (rtx x, bool pub)
 {
   splay_tree_node node;
   const char *str;
@@ -728,9 +728,9 @@ dw2_force_const_mem (rtx x, bool public)
     {
       tree id;
 
-      if (public && USE_LINKONCE_INDIRECT)
+      if (pub && USE_LINKONCE_INDIRECT)
 	{
-	  char *ref_name = alloca (strlen (str) + sizeof "DW.ref.");
+	  char *ref_name = (char *) alloca (strlen (str) + sizeof "DW.ref.");
 
 	  sprintf (ref_name, "DW.ref.%s", str);
 	  id = get_identifier (ref_name);
@@ -802,7 +802,7 @@ dw2_output_indirect_constants (void)
    reference is shared across the entire application (or DSO).  */
 
 void
-dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool public,
+dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool pub,
 				 const char *comment, ...)
 {
   int size;
@@ -843,7 +843,7 @@ dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool public,
 	     the constant pool for this function.  Moreover, we'd like to
 	     share these constants across the entire unit of translation and
 	     even, if possible, across the entire application (or DSO).  */
-	  addr = dw2_force_const_mem (addr, public);
+	  addr = dw2_force_const_mem (addr, pub);
 	  encoding &= ~DW_EH_PE_indirect;
 	  goto restart;
 	}

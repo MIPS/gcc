@@ -23,73 +23,80 @@
 # include <config.h>
 #endif
 
+#if !HAVE_ICONV
+
+/* Provide our variant only if we don't use the systems iconv library.  This is
+ * consistant with the usage in loadmsgcat.c and prevents us from relying on
+ * link-time symbol resolution.
+ */
+
 /* Specification.  */
 #include "localcharset.h"
 
-#if HAVE_STDDEF_H
-# include <stddef.h>
-#endif
-
-#include <stdio.h>
-#if HAVE_STRING_H
-# include <string.h>
-#else
-# include <strings.h>
-#endif
-#if HAVE_STDLIB_H
-# include <stdlib.h>
-#endif
-
-#if defined _WIN32 || defined __WIN32__
-# undef WIN32   /* avoid warning on mingw32 */
-# define WIN32
-#endif
-
-#if defined __EMX__
-/* Assume EMX program runs on OS/2, even if compiled under DOS.  */
-# define OS2
-#endif
-
-#if !defined WIN32
-# if HAVE_LANGINFO_CODESET
-#  include <langinfo.h>
-# else
-#  if HAVE_SETLOCALE
-#   include <locale.h>
-#  endif
+# if HAVE_STDDEF_H
+#  include <stddef.h>
 # endif
-#elif defined WIN32
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
-#endif
-#if defined OS2
-# define INCL_DOS
-# include <os2.h>
-#endif
 
-#if ENABLE_RELOCATABLE
-# include "relocatable.h"
-#else
-# define relocate(pathname) (pathname)
-#endif
+# include <stdio.h>
+# if HAVE_STRING_H
+#  include <string.h>
+# else
+#  include <strings.h>
+# endif
+# if HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
 
-#if defined _WIN32 || defined __WIN32__ || defined __EMX__ || defined __DJGPP__
+# if defined _WIN32 || defined __WIN32__
+#  undef WIN32   /* avoid warning on mingw32 */
+#  define WIN32
+# endif
+
+# if defined __EMX__
+/* Assume EMX program runs on OS/2, even if compiled under DOS.  */
+#  define OS2
+# endif
+
+# if !defined WIN32
+#  if HAVE_LANGINFO_CODESET
+#   include <langinfo.h>
+#  else
+#   if HAVE_SETLOCALE
+#    include <locale.h>
+#   endif
+#  endif
+# elif defined WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+# endif
+# if defined OS2
+#  define INCL_DOS
+#  include <os2.h>
+# endif
+
+# if ENABLE_RELOCATABLE
+#  include "relocatable.h"
+# else
+#  define relocate(pathname) (pathname)
+# endif
+
+# if defined _WIN32 || defined __WIN32__ || defined __EMX__ || defined __DJGPP__
   /* Win32, OS/2, DOS */
-# define ISSLASH(C) ((C) == '/' || (C) == '\\')
-#endif
+#  define ISSLASH(C) ((C) == '/' || (C) == '\\')
+# endif
 
-#ifndef DIRECTORY_SEPARATOR
-# define DIRECTORY_SEPARATOR '/'
-#endif
+# ifndef DIRECTORY_SEPARATOR
+#  define DIRECTORY_SEPARATOR '/'
+# endif
 
-#ifndef ISSLASH
-# define ISSLASH(C) ((C) == DIRECTORY_SEPARATOR)
-#endif
+# ifndef ISSLASH
+#  define ISSLASH(C) ((C) == DIRECTORY_SEPARATOR)
+# endif
 
-#ifdef HAVE_GETC_UNLOCKED
-# undef getc
-# define getc getc_unlocked
-#endif
+# ifdef HAVE_GETC_UNLOCKED
+#  undef getc
+#  define getc getc_unlocked
+# endif
 
 /* The following static variable is declared 'volatile' to avoid a
    possible multithread problem in the function get_charset_aliases. If we
@@ -97,9 +104,9 @@
    'charset_aliases' simultaneously, both will produce the same value,
    and everything will be ok if the two assignments to 'charset_aliases'
    are atomic. But I don't know what will happen if the two assignments mix.  */
-#if __STDC__ != 1
-# define volatile /* empty */
-#endif
+# if __STDC__ != 1
+#  define volatile /* empty */
+# endif
 /* Pointer to the contents of the charset.alias file, if it has already been
    read, else NULL.  Its format is:
    ALIAS_1 '\0' CANONICAL_1 '\0' ... ALIAS_n '\0' CANONICAL_n '\0' '\0'  */
@@ -114,7 +121,7 @@ get_charset_aliases ()
   cp = charset_aliases;
   if (cp == NULL)
     {
-#if !(defined VMS || defined WIN32)
+# if !(defined VMS || defined WIN32)
       FILE *fp;
       const char *dir = relocate (LIBDIR);
       const char *base = "charset.alias";
@@ -202,9 +209,9 @@ get_charset_aliases ()
       if (file_name != NULL)
 	free (file_name);
 
-#else
+# else
 
-# if defined VMS
+#  if defined VMS
       /* To avoid the troubles of an extra file charset.alias_vms in the
 	 sources of many GNU packages, simply inline the aliases here.  */
       /* The list of encodings is taken from the OpenVMS 7.3-1 documentation
@@ -227,9 +234,9 @@ get_charset_aliases ()
 	   "DECHANZI" "\0" "GB2312" "\0"
 	   /* Korean */
 	   "DECKOREAN" "\0" "EUC-KR" "\0";
-# endif
+#  endif
 
-# if defined WIN32
+#  if defined WIN32
       /* To avoid the troubles of installing a separate file in the same
 	 directory as the DLL and of retrieving the DLL's directory at
 	 runtime, simply inline the aliases here.  */
@@ -249,8 +256,8 @@ get_charset_aliases ()
 	   "CP28598" "\0" "ISO-8859-8" "\0"
 	   "CP28599" "\0" "ISO-8859-9" "\0"
 	   "CP28605" "\0" "ISO-8859-15" "\0";
+#  endif
 # endif
-#endif
 
       charset_aliases = cp;
     }
@@ -264,23 +271,23 @@ get_charset_aliases ()
    If the canonical name cannot be determined, the result is a non-canonical
    name.  */
 
-#ifdef STATIC
+# ifdef STATIC
 STATIC
-#endif
+# endif
 const char *
 locale_charset ()
 {
   const char *codeset;
   const char *aliases;
 
-#if !(defined WIN32 || defined OS2)
+# if !(defined WIN32 || defined OS2)
 
-# if HAVE_LANGINFO_CODESET
+#  if HAVE_LANGINFO_CODESET
 
   /* Most systems support nl_langinfo (CODESET) nowadays.  */
   codeset = nl_langinfo (CODESET);
 
-# else
+#  else
 
   /* On old systems which lack it, use setlocale or getenv.  */
   const char *locale = NULL;
@@ -289,9 +296,9 @@ locale_charset ()
      (like SunOS 4 or DJGPP) have only the C locale.  Therefore we don't
      use setlocale here; it would return "C" when it doesn't support the
      locale name the user has set.  */
-#  if HAVE_SETLOCALE && 0
+#   if HAVE_SETLOCALE && 0
   locale = setlocale (LC_CTYPE, NULL);
-#  endif
+#   endif
   if (locale == NULL || locale[0] == '\0')
     {
       locale = getenv ("LC_ALL");
@@ -308,9 +315,9 @@ locale_charset ()
      through the charset.alias file.  */
   codeset = locale;
 
-# endif
+#  endif
 
-#elif defined WIN32
+# elif defined WIN32
 
   static char buf[2 + 10 + 1];
 
@@ -318,7 +325,7 @@ locale_charset ()
   sprintf (buf, "CP%u", GetACP ());
   codeset = buf;
 
-#elif defined OS2
+# elif defined OS2
 
   const char *locale;
   static char buf[2 + 10 + 1];
@@ -371,7 +378,7 @@ locale_charset ()
 	}
     }
 
-#endif
+# endif
 
   if (codeset == NULL)
     /* The canonical name cannot be determined.  */
@@ -396,3 +403,4 @@ locale_charset ()
 
   return codeset;
 }
+#endif

@@ -274,7 +274,7 @@ resolve_formal_arglists (gfc_namespace * ns)
 static void
 resolve_contained_fntype (gfc_symbol * sym, gfc_namespace * ns)
 {
-  try t;
+  check t;
 
   /* If this namespace is not a function, ignore it.  */
   if (! sym
@@ -587,12 +587,12 @@ resolve_contained_functions (gfc_namespace * ns)
 /* Resolve all of the elements of a structure constructor and make sure that
    the types are correct.  */
 
-static try
+static check
 resolve_structure_cons (gfc_expr * expr)
 {
   gfc_constructor *cons;
   gfc_component *comp;
-  try t;
+  check t;
   symbol_attribute a;
 
   t = SUCCESS;
@@ -819,7 +819,7 @@ resolve_assumed_size_actual (gfc_expr *e)
    that look like procedure arguments are really simple variable
    references.  */
 
-static try
+static check
 resolve_actual_arglist (gfc_actual_arglist * arg)
 {
   gfc_symbol *sym;
@@ -1147,7 +1147,7 @@ resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
 
   if (gsym->type == GSYM_UNKNOWN)
     {
-      gsym->type = type;
+      gsym->type = (enum fortran_gsym) type;
       gsym->where = *where;
     }
 
@@ -1196,7 +1196,7 @@ resolve_generic_f0 (gfc_expr * expr, gfc_symbol * sym)
 }
 
 
-static try
+static check
 resolve_generic_f (gfc_expr * expr)
 {
   gfc_symbol *sym;
@@ -1296,7 +1296,7 @@ found:
 }
 
 
-static try
+static check
 resolve_specific_f (gfc_expr * expr)
 {
   gfc_symbol *sym;
@@ -1330,7 +1330,7 @@ resolve_specific_f (gfc_expr * expr)
 
 /* Resolve a procedure call not known to be generic nor specific.  */
 
-static try
+static check
 resolve_unknown_f (gfc_expr * expr)
 {
   gfc_symbol *sym;
@@ -1425,13 +1425,13 @@ pure_function (gfc_expr * e, const char **name)
 /* TODO: Check procedure arguments so that an INTENT(IN) isn't passed
    to INTENT(OUT) or INTENT(INOUT).  */
 
-static try
+static check
 resolve_function (gfc_expr * expr)
 {
   gfc_actual_arglist *arg;
   gfc_symbol * sym;
   const char *name;
-  try t;
+  check t;
   int temp;
 
   sym = NULL;
@@ -1653,7 +1653,7 @@ resolve_generic_s0 (gfc_code * c, gfc_symbol * sym)
 }
 
 
-static try
+static check
 resolve_generic_s (gfc_code * c)
 {
   gfc_symbol *sym;
@@ -1747,7 +1747,7 @@ found:
 }
 
 
-static try
+static check
 resolve_specific_s (gfc_code * c)
 {
   gfc_symbol *sym;
@@ -1782,7 +1782,7 @@ resolve_specific_s (gfc_code * c)
 
 /* Resolve a subroutine call not known to be generic nor specific.  */
 
-static try
+static check
 resolve_unknown_s (gfc_code * c)
 {
   gfc_symbol *sym;
@@ -1821,10 +1821,10 @@ found:
    for functions, subroutines and functions are stored differently and this
    makes things awkward.  */
 
-static try
+static check
 resolve_call (gfc_code * c)
 {
-  try t;
+  check t;
 
   if (c->symtree && c->symtree->n.sym
 	&& c->symtree->n.sym->ts.type != BT_UNKNOWN)
@@ -1913,10 +1913,10 @@ resolve_call (gfc_code * c)
    if their shapes do not match.  If either op1->shape or op2->shape is
    NULL, return SUCCESS.  */
 
-static try
+static check
 compare_shapes (gfc_expr * op1, gfc_expr * op2)
 {
-  try t;
+  check t;
   int i;
 
   t = SUCCESS;
@@ -1941,16 +1941,16 @@ compare_shapes (gfc_expr * op1, gfc_expr * op2)
 /* Resolve an operator expression node.  This can involve replacing the
    operation with a user defined function call.  */
 
-static try
+static check
 resolve_operator (gfc_expr * e)
 {
   gfc_expr *op1, *op2;
   char msg[200];
-  try t;
+  check t;
 
   /* Resolve all subnodes-- give them types.  */
 
-  switch (e->value.op.operator)
+  switch (e->value.op.foperator)
     {
     default:
       if (gfc_resolve_expr (e->value.op.op2) == FAILURE)
@@ -1972,7 +1972,7 @@ resolve_operator (gfc_expr * e)
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
 
-  switch (e->value.op.operator)
+  switch (e->value.op.foperator)
     {
     case INTRINSIC_UPLUS:
     case INTRINSIC_UMINUS:
@@ -1985,7 +1985,7 @@ resolve_operator (gfc_expr * e)
 	}
 
       sprintf (msg, _("Operand of unary numeric operator '%s' at %%L is %s"),
-	       gfc_op2string (e->value.op.operator), gfc_typename (&e->ts));
+	       gfc_op2string (e->value.op.foperator), gfc_typename (&e->ts));
       goto bad_op;
 
     case INTRINSIC_PLUS:
@@ -2001,7 +2001,7 @@ resolve_operator (gfc_expr * e)
 
       sprintf (msg,
 	       _("Operands of binary numeric operator '%s' at %%L are %s/%s"),
-	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
+	       gfc_op2string (e->value.op.foperator), gfc_typename (&op1->ts),
 	       gfc_typename (&op2->ts));
       goto bad_op;
 
@@ -2034,7 +2034,7 @@ resolve_operator (gfc_expr * e)
 	}
 
       sprintf (msg, _("Operands of logical operator '%s' at %%L are %s/%s"),
-	       gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
+	       gfc_op2string (e->value.op.foperator), gfc_typename (&op1->ts),
 	       gfc_typename (&op2->ts));
 
       goto bad_op;
@@ -2084,12 +2084,12 @@ resolve_operator (gfc_expr * e)
       if (op1->ts.type == BT_LOGICAL && op2->ts.type == BT_LOGICAL)
 	sprintf (msg,
 	         _("Logicals at %%L must be compared with %s instead of %s"),
-		 e->value.op.operator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
-		 gfc_op2string (e->value.op.operator));
+		 e->value.op.foperator == INTRINSIC_EQ ? ".EQV." : ".NEQV.",
+		 gfc_op2string (e->value.op.foperator));
       else
 	sprintf (msg,
 	         _("Operands of comparison operator '%s' at %%L are %s/%s"),
-		 gfc_op2string (e->value.op.operator), gfc_typename (&op1->ts),
+		 gfc_op2string (e->value.op.foperator), gfc_typename (&op1->ts),
 		 gfc_typename (&op2->ts));
 
       goto bad_op;
@@ -2116,7 +2116,7 @@ resolve_operator (gfc_expr * e)
 
   t = SUCCESS;
 
-  switch (e->value.op.operator)
+  switch (e->value.op.foperator)
     {
     case INTRINSIC_PLUS:
     case INTRINSIC_MINUS:
@@ -2343,7 +2343,7 @@ compute_last_value_for_triplet (gfc_expr * start, gfc_expr * end,
 /* Compare a single dimension of an array reference to the array
    specification.  */
 
-static try
+static check
 check_dimension (int i, gfc_array_ref * ar, gfc_array_spec * as)
 {
   mpz_t last_value;
@@ -2423,7 +2423,7 @@ bound:
 
 /* Compare an array reference with an array specification.  */
 
-static try
+static check
 compare_spec_to_ref (gfc_array_ref * ar)
 {
   gfc_array_spec *as;
@@ -2462,7 +2462,7 @@ compare_spec_to_ref (gfc_array_ref * ar)
 
 /* Resolve one part of an array index.  */
 
-try
+check
 gfc_resolve_index (gfc_expr * index, int check_scalar)
 {
   gfc_typespec ts;
@@ -2506,7 +2506,7 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
 
 /* Resolve a dim argument to an intrinsic function.  */
 
-try
+check
 gfc_resolve_dim_arg (gfc_expr *dim)
 {
   if (dim == NULL)
@@ -2609,7 +2609,7 @@ find_array_spec (gfc_expr * e)
 
 /* Resolve an array reference.  */
 
-static try
+static check
 resolve_array_ref (gfc_array_ref * ar)
 {
   int i, check_scalar;
@@ -2670,7 +2670,7 @@ resolve_array_ref (gfc_array_ref * ar)
 }
 
 
-static try
+static check
 resolve_substring (gfc_ref * ref)
 {
 
@@ -2739,7 +2739,7 @@ resolve_substring (gfc_ref * ref)
 
 /* Resolve subtype references.  */
 
-static try
+static check
 resolve_ref (gfc_expr * expr)
 {
   int current_part_dimension, n_components, seen_part_dimension;
@@ -2930,7 +2930,7 @@ done:
 
 /* Resolve a variable expression.  */
 
-static try
+static check
 resolve_variable (gfc_expr * e)
 {
   gfc_symbol *sym;
@@ -3038,10 +3038,10 @@ resolve_variable (gfc_expr * e)
    with their operators, intrinsic operators are converted to function calls
    for overloaded types and unresolved function references are resolved.  */
 
-try
+check
 gfc_resolve_expr (gfc_expr * e)
 {
-  try t;
+  check t;
 
   if (e == NULL)
     return SUCCESS;
@@ -3114,7 +3114,7 @@ gfc_resolve_expr (gfc_expr * e)
 /* Resolve an expression from an iterator.  They must be scalar and have
    INTEGER or (optionally) REAL type.  */
 
-static try
+static check
 gfc_resolve_iterator_expr (gfc_expr * expr, bool real_ok,
 			   const char * name_msgid)
 {
@@ -3144,7 +3144,7 @@ gfc_resolve_iterator_expr (gfc_expr * expr, bool real_ok,
 /* Resolve the expressions in an iterator structure.  If REAL_OK is
    false allow only INTEGER type iterators, otherwise allow REAL types.  */
 
-try
+check
 gfc_resolve_iterator (gfc_iterator * iter, bool real_ok)
 {
 
@@ -3302,7 +3302,7 @@ derived_inaccessible (gfc_symbol *sym)
 /* Resolve the argument of a deallocate expression.  The expression must be
    a pointer or a full array.  */
 
-static try
+static check
 resolve_deallocate_expr (gfc_expr * e)
 {
   symbol_attribute attr;
@@ -3466,7 +3466,7 @@ expr_to_initialize (gfc_expr * e)
    checks to see whether the expression is OK or not.  The expression must
    have a trailing array reference that gives the size of the array.  */
 
-static try
+static check
 resolve_allocate_expr (gfc_expr * e, gfc_code * code)
 {
   int i, pointer, allocatable, dimension;
@@ -3821,7 +3821,7 @@ check_case_overlap (gfc_case * list)
    Makes sure that all case expressions are scalar constants of the same
    type.  Return FAILURE if anything is wrong.  */
 
-static try
+static check
 validate_case_label_expr (gfc_expr * e, gfc_expr * case_expr)
 {
   if (e == NULL) return SUCCESS;
@@ -3890,7 +3890,7 @@ resolve_select (gfc_code * code)
   int seen_logical;
   int ncases;
   bt type;
-  try t;
+  check t;
 
   if (code->expr == NULL)
     {
@@ -4308,12 +4308,12 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 
 /* Check whether EXPR1 has the same shape as EXPR2.  */
 
-static try
+static check
 resolve_where_shape (gfc_expr *expr1, gfc_expr *expr2)
 {
   mpz_t shape[GFC_MAX_DIMENSIONS];
   mpz_t shape2[GFC_MAX_DIMENSIONS];
-  try result = FAILURE;
+  check result = FAILURE;
   int i;
 
   /* Compare the rank.  */
@@ -4414,7 +4414,7 @@ resolve_where (gfc_code *code, gfc_expr *mask)
 
 /* Check whether the FORALL index appears in the expression or not.  */
 
-static try
+static check
 gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
 {
   gfc_array_ref ar;
@@ -4735,7 +4735,7 @@ static void resolve_code (gfc_code *, gfc_namespace *);
 void
 gfc_resolve_blocks (gfc_code * b, gfc_namespace * ns)
 {
-  try t;
+  check t;
 
   for (; b; b = b->block)
     {
@@ -4809,7 +4809,7 @@ resolve_code (gfc_code * code, gfc_namespace * ns)
   int forall_save;
   code_stack frame;
   gfc_alloc *a;
-  try t;
+  check t;
 
   frame.prev = cs_base;
   frame.head = code;
@@ -5157,7 +5157,7 @@ resolve_values (gfc_symbol * sym)
 
 /* Resolve an index expression.  */
 
-static try
+static check
 resolve_index_expr (gfc_expr * e)
 {
   if (gfc_resolve_expr (e) == FAILURE)
@@ -5174,7 +5174,7 @@ resolve_index_expr (gfc_expr * e)
 
 /* Resolve a charlen structure.  */
 
-static try
+static check
 resolve_charlen (gfc_charlen *cl)
 {
   if (cl->resolved)
@@ -5296,7 +5296,7 @@ apply_default_init (gfc_symbol *sym)
 
 /* Resolution of common features of flavors variable and procedure. */
 
-static try
+static check
 resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 {
   /* Constraints on deferred shape variable.  */
@@ -5336,7 +5336,7 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 
 /* Resolve symbols with flavor variable.  */
 
-static try
+static check
 resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 {
   int flag;
@@ -5507,7 +5507,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 
 /* Resolve a procedure.  */
 
-static try
+static check
 resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 {
   gfc_formal_arglist *arg;
@@ -5621,7 +5621,7 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 
 /* Resolve the components of a derived type.  */
 
-static try
+static check
 resolve_fl_derived (gfc_symbol *sym)
 {
   gfc_component *c;
@@ -5714,7 +5714,7 @@ resolve_fl_derived (gfc_symbol *sym)
 }
 
 
-static try
+static check
 resolve_fl_namelist (gfc_symbol *sym)
 {
   gfc_namelist *nl;
@@ -6064,7 +6064,7 @@ values;
 
 /* Advance the values structure to point to the next value in the data list.  */
 
-static try
+static check
 next_data_value (void)
 {
   while (values.left == 0)
@@ -6080,13 +6080,13 @@ next_data_value (void)
 }
 
 
-static try
+static check
 check_data_variable (gfc_data_variable * var, locus * where)
 {
   gfc_expr *e;
   mpz_t size;
   mpz_t offset;
-  try t;
+  check t;
   ar_type mark = AR_UNKNOWN;
   int i;
   mpz_t section_index[GFC_MAX_DIMENSIONS];
@@ -6234,11 +6234,11 @@ check_data_variable (gfc_data_variable * var, locus * where)
 }
 
 
-static try traverse_data_var (gfc_data_variable *, locus *);
+static check traverse_data_var (gfc_data_variable *, locus *);
 
 /* Iterate over a list of elements in a DATA statement.  */
 
-static try
+static check
 traverse_data_list (gfc_data_variable * var, locus * where)
 {
   mpz_t trip;
@@ -6289,10 +6289,10 @@ traverse_data_list (gfc_data_variable * var, locus * where)
 
 /* Type resolve variables in the variable list of a DATA statement.  */
 
-static try
+static check
 traverse_data_var (gfc_data_variable * var, locus * where)
 {
-  try t;
+  check t;
 
   for (; var; var = var->next)
     {
@@ -6313,7 +6313,7 @@ traverse_data_var (gfc_data_variable * var, locus * where)
    This is separate from the assignment checking because data lists should
    only be resolved once.  */
 
-static try
+static check
 resolve_data_variables (gfc_data_variable * d)
 {
   for (; d; d = d->next)
@@ -6515,7 +6515,7 @@ sequence_type (gfc_typespec ts)
 
 /* Resolve derived type EQUIVALENCE object.  */
 
-static try
+static check
 resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
 {
   gfc_symbol *d;

@@ -128,7 +128,7 @@ alloc_INSN_LIST (rtx val, rtx next)
       gcc_assert (GET_CODE (r) == INSN_LIST);
     }
   else
-    r = gen_rtx_INSN_LIST (VOIDmode, val, next);
+    r = gen_rtx_INSN_LIST (REG_DEP_TRUE, val, next);
 
   return r;
 }
@@ -137,7 +137,7 @@ alloc_INSN_LIST (rtx val, rtx next)
    node available, we'll use it, otherwise a call to gen_rtx_EXPR_LIST
    is made.  */
 rtx
-alloc_EXPR_LIST (int kind, rtx val, rtx next)
+alloc_EXPR_LIST (enum reg_note kind, rtx val, rtx next)
 {
   rtx r;
 

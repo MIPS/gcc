@@ -2344,32 +2344,32 @@ replace_rtx (rtx x, rtx from, rtx to)
 
   if (GET_CODE (x) == SUBREG)
     {
-      rtx new = replace_rtx (SUBREG_REG (x), from, to);
+      rtx tmp = replace_rtx (SUBREG_REG (x), from, to);
 
-      if (GET_CODE (new) == CONST_INT)
+      if (GET_CODE (tmp) == CONST_INT)
 	{
-	  x = simplify_subreg (GET_MODE (x), new,
+	  x = simplify_subreg (GET_MODE (x), tmp,
 			       GET_MODE (SUBREG_REG (x)),
 			       SUBREG_BYTE (x));
 	  gcc_assert (x);
 	}
       else
-	SUBREG_REG (x) = new;
+	SUBREG_REG (x) = tmp;
 
       return x;
     }
   else if (GET_CODE (x) == ZERO_EXTEND)
     {
-      rtx new = replace_rtx (XEXP (x, 0), from, to);
+      rtx tmp = replace_rtx (XEXP (x, 0), from, to);
 
-      if (GET_CODE (new) == CONST_INT)
+      if (GET_CODE (tmp) == CONST_INT)
 	{
 	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
-					new, GET_MODE (XEXP (x, 0)));
+					tmp, GET_MODE (XEXP (x, 0)));
 	  gcc_assert (x);
 	}
       else
-	XEXP (x, 0) = new;
+	XEXP (x, 0) = tmp;
 
       return x;
     }
@@ -3114,7 +3114,7 @@ struct parms_set_data
 static void
 parms_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  struct parms_set_data *d = data;
+  struct parms_set_data *d = (struct parms_set_data *) data;
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
     {
@@ -3506,12 +3506,12 @@ nonzero_bits1 (rtx x, enum machine_mode mode, rtx known_x,
 
       {
 	unsigned HOST_WIDE_INT nonzero_for_hook = nonzero;
-	rtx new = rtl_hooks.reg_nonzero_bits (x, mode, known_x,
+	rtx tmp = rtl_hooks.reg_nonzero_bits (x, mode, known_x,
 					      known_mode, known_ret,
 					      &nonzero_for_hook);
 
-	if (new)
-	  nonzero_for_hook &= cached_nonzero_bits (new, mode, known_x,
+	if (tmp)
+	  nonzero_for_hook &= cached_nonzero_bits (tmp, mode, known_x,
 						   known_mode, known_ret);
 
 	return nonzero_for_hook;
@@ -3991,12 +3991,12 @@ num_sign_bit_copies1 (rtx x, enum machine_mode mode, rtx known_x,
 
       {
 	unsigned int copies_for_hook = 1, copies = 1;
-	rtx new = rtl_hooks.reg_num_sign_bit_copies (x, mode, known_x,
+	rtx tmp = rtl_hooks.reg_num_sign_bit_copies (x, mode, known_x,
 						     known_mode, known_ret,
 						     &copies_for_hook);
 
-	if (new)
-	  copies = cached_num_sign_bit_copies (new, mode, known_x,
+	if (tmp)
+	  copies = cached_num_sign_bit_copies (tmp, mode, known_x,
 					       known_mode, known_ret);
 
 	if (copies > 1 || copies_for_hook > 1)

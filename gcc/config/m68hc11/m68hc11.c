@@ -1573,7 +1573,7 @@ expand_prologue (void)
   int regno;
   rtx scratch;
 
-  gcc_assert (reload_completed == 1);
+  gcc_assert (reload_completed);
 
   size = get_frame_size ();
 
@@ -1678,7 +1678,7 @@ expand_epilogue (void)
   int return_size;
   rtx scratch;
 
-  gcc_assert (reload_completed == 1);
+  gcc_assert (reload_completed);
 
   size = get_frame_size ();
 
@@ -5432,7 +5432,7 @@ m68hc11_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (outer_code == SET && x == const0_rtx)
 	 /* After reload, the reload_cse pass checks the cost to change
 	    a SET into a PLUS.  Make const0 cheap then.  */
-	*total = 1 - reload_completed;
+	*total = (reload_completed ? 0: 1);
       else
 	*total = 0;
       return true;

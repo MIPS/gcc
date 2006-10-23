@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -801,12 +802,12 @@ insert_block (tree block)
    itself, calling F for each.  The DATA is passed to F as well.  */
 
 static int
-walk_namespaces_r (tree namespace, walk_namespaces_fn f, void* data)
+walk_namespaces_r (tree ns, walk_namespaces_fn f, void* data)
 {
   int result = 0;
-  tree current = NAMESPACE_LEVEL (namespace)->namespaces;
+  tree current = NAMESPACE_LEVEL (ns)->namespaces;
 
-  result |= (*f) (namespace, data);
+  result |= (*f) (ns, data);
 
   for (; current; current = TREE_CHAIN (current))
     result |= walk_namespaces_r (current, f, data);
@@ -828,9 +829,9 @@ walk_namespaces (walk_namespaces_fn f, void* data)
    wrapup_global_declarations for this NAMESPACE.  */
 
 int
-wrapup_globals_for_namespace (tree namespace, void* data)
+wrapup_globals_for_namespace (tree ns, void* data)
 {
-  struct cp_binding_level *level = NAMESPACE_LEVEL (namespace);
+  struct cp_binding_level *level = NAMESPACE_LEVEL (ns);
   VEC(tree,gc) *statics = level->static_decls;
   tree *vec = VEC_address (tree, statics);
   int len = VEC_length (tree, statics);
@@ -2866,7 +2867,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
     return lookup_template_class (t, TREE_OPERAND (fullname, 1),
 				  NULL_TREE, context,
 				  /*entering_scope=*/0,
-				  tf_warning_or_error | tf_user);
+				  (enum tsubst_flags_t) (tf_warning_or_error | tf_user));
   
   if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
     t = TREE_TYPE (t);
@@ -3376,12 +3377,12 @@ builtin_function_1 (const char* name,
 		    tree type,
 		    tree context,
 		    enum built_in_function code,
-		    enum built_in_class class,
+		    enum built_in_class cl,
 		    const char* libname,
 		    tree attrs)
 {
   tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
-  DECL_BUILT_IN_CLASS (decl) = class;
+  DECL_BUILT_IN_CLASS (decl) = cl;
   DECL_FUNCTION_CODE (decl) = code;
   DECL_CONTEXT (decl) = context;
 
@@ -3427,7 +3428,7 @@ builtin_function_1 (const char* name,
 tree
 builtin_function (const char* name,
 		  tree type,
-		  int code,
+		  enum built_in_function code,
 		  enum built_in_class cl,
 		  const char* libname,
 		  tree attrs)
@@ -7354,7 +7355,7 @@ grokdeclarator (const cp_declarator *declarator,
     }
   type_quals |= cp_type_quals (type);
   type = cp_build_qualified_type_real
-    (type, type_quals, ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
+    (type, type_quals, (enum tsubst_flags_t) ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
 			 ? tf_ignore_bad_quals : 0) | tf_warning_or_error));
   /* We might have ignored or rejected some of the qualifiers.  */
   type_quals = cp_type_quals (type);
@@ -10031,7 +10032,7 @@ finish_enum (tree enumtype)
   int lowprec;
   int highprec;
   int precision;
-  integer_type_kind itk;
+  int itk;
   tree underlying_type = NULL_TREE;
 
   /* We built up the VALUES in reverse order.  */

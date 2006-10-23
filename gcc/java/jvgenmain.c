@@ -164,5 +164,5 @@ do_mangle_classname (const char *string)
   append_gpp_mangled_name (&ptr [-count], count);
   obstack_grow (mangle_obstack, "7class$$E", strlen ("7class$$E"));
   obstack_1grow (mangle_obstack, '\0');
-  return obstack_finish (mangle_obstack);
+  return (char *) obstack_finish (mangle_obstack);
 }

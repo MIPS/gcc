@@ -115,6 +115,17 @@ static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
+enum eh_region_type
+{
+  ERT_UNKNOWN = 0,
+  ERT_CLEANUP,
+  ERT_TRY,
+  ERT_CATCH,
+  ERT_ALLOWED_EXCEPTIONS,
+  ERT_MUST_NOT_THROW,
+  ERT_THROW
+};
+
 /* Describes one exception region.  */
 struct eh_region GTY(())
 {
@@ -133,25 +144,16 @@ struct eh_region GTY(())
   bitmap aka;
 
   /* Each region does exactly one thing.  */
-  enum eh_region_type
-  {
-    ERT_UNKNOWN = 0,
-    ERT_CLEANUP,
-    ERT_TRY,
-    ERT_CATCH,
-    ERT_ALLOWED_EXCEPTIONS,
-    ERT_MUST_NOT_THROW,
-    ERT_THROW
-  } type;
+  enum eh_region_type type;
 
   /* Holds the action to perform based on the preceding type.  */
   union eh_region_u {
     /* A list of catch blocks, a surrounding try block,
        and the label for continuing after a catch.  */
     struct eh_region_u_try {
-      struct eh_region *catch;
+      struct eh_region *ert_catch;
       struct eh_region *last_catch;
-    } GTY ((tag ("ERT_TRY"))) try;
+    } GTY ((tag ("ERT_TRY"))) ert_try;
 
     /* The list through the catch handlers, the list of type objects
        matched, and the list of associated filters.  */
@@ -160,7 +162,7 @@ struct eh_region GTY(())
       struct eh_region *prev_catch;
       tree type_list;
       tree filter_list;
-    } GTY ((tag ("ERT_CATCH"))) catch;
+    } GTY ((tag ("ERT_CATCH"))) ert_catch;
 
     /* A tree_list of allowed types.  */
     struct eh_region_u_allowed {
@@ -172,7 +174,7 @@ struct eh_region GTY(())
        for a throw.  */
     struct eh_region_u_throw {
       tree type;
-    } GTY ((tag ("ERT_THROW"))) throw;
+    } GTY ((tag ("ERT_THROW"))) ert_throw;
 
     /* Retain the cleanup expression even after expansion so that
        we can match up fixup regions.  */
@@ -199,7 +201,7 @@ struct eh_region GTY(())
   unsigned may_contain_throw : 1;
 };
 
-typedef struct eh_region *eh_region;
+typedef struct eh_region *eh_region_t;
 
 struct call_site_record GTY(())
 {
@@ -207,8 +209,8 @@ struct call_site_record GTY(())
   int action;
 };
 
-DEF_VEC_P(eh_region);
-DEF_VEC_ALLOC_P(eh_region, gc);
+DEF_VEC_P(eh_region_t);
+DEF_VEC_ALLOC_P(eh_region_t, gc);
 
 /* Used to save exception status for each function.  */
 struct eh_status GTY(())
@@ -217,7 +219,7 @@ struct eh_status GTY(())
   struct eh_region *region_tree;
 
   /* The same information as an indexable array.  */
-  VEC(eh_region,gc) *region_array;
+  VEC(eh_region_t, gc) *region_array;
 
   /* The most recently open region.  */
   struct eh_region *cur_region;
@@ -438,7 +440,7 @@ init_eh (void)
 void
 init_eh_for_function (void)
 {
-  cfun->eh = ggc_alloc_cleared (sizeof (struct eh_status));
+  cfun->eh = (struct eh_status *) ggc_alloc_cleared (sizeof (struct eh_status));
 }
 
 /* Routines to generate the exception tree somewhat directly.
@@ -448,30 +450,30 @@ init_eh_for_function (void)
 static struct eh_region *
 gen_eh_region (enum eh_region_type type, struct eh_region *outer)
 {
-  struct eh_region *new;
+  struct eh_region *ehr;
 
 #ifdef ENABLE_CHECKING
   gcc_assert (doing_eh (0));
 #endif
 
   /* Insert a new blank region as a leaf in the tree.  */
-  new = ggc_alloc_cleared (sizeof (*new));
-  new->type = type;
-  new->outer = outer;
+  ehr = (struct eh_region *) ggc_alloc_cleared (sizeof (*ehr));
+  ehr->type = type;
+  ehr->outer = outer;
   if (outer)
     {
-      new->next_peer = outer->inner;
-      outer->inner = new;
+      ehr->next_peer = outer->inner;
+      outer->inner = ehr;
     }
   else
     {
-      new->next_peer = cfun->eh->region_tree;
-      cfun->eh->region_tree = new;
+      ehr->next_peer = cfun->eh->region_tree;
+      cfun->eh->region_tree = ehr;
     }
 
-  new->region_number = ++cfun->eh->last_region_number;
+  ehr->region_number = ++cfun->eh->last_region_number;
 
-  return new;
+  return ehr;
 }
 
 struct eh_region *
@@ -508,14 +510,14 @@ gen_eh_region_catch (struct eh_region *t, tree type_or_list)
     }
 
   c = gen_eh_region (ERT_CATCH, t->outer);
-  c->u.catch.type_list = type_list;
-  l = t->u.try.last_catch;
-  c->u.catch.prev_catch = l;
+  c->u.ert_catch.type_list = type_list;
+  l = t->u.ert_try.last_catch;
+  c->u.ert_catch.prev_catch = l;
   if (l)
-    l->u.catch.next_catch = c;
+    l->u.ert_catch.next_catch = c;
   else
-    t->u.try.catch = c;
-  t->u.try.last_catch = c;
+    t->u.ert_try.ert_catch = c;
+  t->u.ert_try.last_catch = c;
 
   return c;
 }
@@ -566,7 +568,7 @@ void
 expand_resx_expr (tree exp)
 {
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
-  struct eh_region *reg = VEC_index (eh_region,
+  struct eh_region *reg = VEC_index (eh_region_t,
 				     cfun->eh->region_array, region_nr);
 
   gcc_assert (!reg->resume);
@@ -637,13 +639,13 @@ collect_eh_region_array (void)
   if (! i)
     return;
 
-  VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
+  VEC_safe_grow (eh_region_t, gc, cfun->eh->region_array,
 		 cfun->eh->last_region_number + 1);
-  VEC_replace (eh_region, cfun->eh->region_array, 0, 0);
+  VEC_replace (eh_region_t, cfun->eh->region_array, 0, 0);
 
   while (1)
     {
-      VEC_replace (eh_region, cfun->eh->region_array, i->region_number, i);
+      VEC_replace (eh_region_t, cfun->eh->region_array, i->region_number, i);
 
       /* If there are sub-regions, process them.  */
       if (i->inner)
@@ -674,12 +676,12 @@ remove_unreachable_regions (rtx insns)
   struct eh_region *r;
   rtx insn;
 
-  uid_region_num = xcalloc (get_max_uid (), sizeof(int));
-  reachable = xcalloc (cfun->eh->last_region_number + 1, sizeof(bool));
+  uid_region_num = XCNEWVEC (int, get_max_uid ());
+  reachable = XCNEWVEC (bool, cfun->eh->last_region_number + 1);
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
-      r = VEC_index (eh_region, cfun->eh->region_array, i);
+      r = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (!r || r->region_number != i)
 	continue;
 
@@ -700,7 +702,7 @@ remove_unreachable_regions (rtx insns)
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
-      r = VEC_index (eh_region, cfun->eh->region_array, i);
+      r = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (r && r->region_number == i && !reachable[i])
 	{
 	  bool kill_it = true;
@@ -725,7 +727,7 @@ remove_unreachable_regions (rtx insns)
 		/* TRY regions are reachable if any of its CATCH regions
 		   are reachable.  */
 		struct eh_region *c;
-		for (c = r->u.try.catch; c ; c = c->u.catch.next_catch)
+		for (c = r->u.ert_try.ert_catch; c ; c = c->u.ert_catch.next_catch)
 		  if (reachable[c->region_number])
 		    {
 		      kill_it = false;
@@ -763,7 +765,7 @@ convert_from_eh_region_ranges (void)
     {
       struct eh_region *region;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (region && region->tree_label)
 	region->label = DECL_RTL_IF_SET (region->tree_label);
     }
@@ -778,7 +780,7 @@ add_ehl_entry (rtx label, struct eh_region *region)
 
   LABEL_PRESERVE_P (label) = 1;
 
-  entry = ggc_alloc (sizeof (*entry));
+  entry = (struct ehl_map_entry *) ggc_alloc (sizeof (*entry));
   entry->label = label;
   entry->region = region;
 
@@ -818,7 +820,7 @@ find_exception_handler_labels (void)
       struct eh_region *region;
       rtx lab;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (! region || region->region_number != i)
 	continue;
       if (cfun->eh->built_landing_pads)
@@ -847,7 +849,7 @@ current_function_has_exception_handlers (void)
     {
       struct eh_region *region;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (region
 	  && region->region_number == i
 	  && region->type != ERT_THROW)
@@ -861,7 +863,7 @@ current_function_has_exception_handlers (void)
    for the minimum and maximum region numbers.  Update *MIN and *MAX.  */
 
 static void
-duplicate_eh_regions_0 (eh_region o, int *min, int *max)
+duplicate_eh_regions_0 (eh_region_t o, int *min, int *max)
 {
   if (o->region_number < *min)
     *min = o->region_number;
@@ -884,12 +886,12 @@ duplicate_eh_regions_0 (eh_region o, int *min, int *max)
    Root it at OUTER, and apply EH_OFFSET to the region number.  Don't worry
    about the other internal pointers just yet, just the tree-like pointers.  */
 
-static eh_region
-duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
+static eh_region_t
+duplicate_eh_regions_1 (eh_region_t old, eh_region_t outer, int eh_offset)
 {
-  eh_region ret, n;
+  eh_region_t ret, n;
 
-  ret = n = ggc_alloc (sizeof (struct eh_region));
+  ret = n = (eh_region_t) ggc_alloc (sizeof (struct eh_region));
 
   *n = *old;
   n->outer = outer;
@@ -897,7 +899,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
-  VEC_replace (eh_region, cfun->eh->region_array, n->region_number, n);
+  VEC_replace (eh_region_t, cfun->eh->region_array, n->region_number, n);
 
   if (old->inner)
     {
@@ -921,7 +923,7 @@ int
 duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 		      void *data, int copy_region, int outer_region)
 {
-  eh_region cur, prev_try, outer, *splice;
+  eh_region_t cur, prev_try, outer, *splice;
   int i, min_region, max_region, eh_offset, cfun_last_region_number;
   int num_regions;
 
@@ -937,7 +939,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
       min_region = INT_MAX;
       max_region = 0;
 
-      cur = VEC_index (eh_region, ifun->eh->region_array, copy_region);
+      cur = VEC_index (eh_region_t, ifun->eh->region_array, copy_region);
       duplicate_eh_regions_0 (cur, &min_region, &max_region);
     }
   else
@@ -947,22 +949,22 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   eh_offset = cfun_last_region_number + 1 - min_region;
 
   /* If we've not yet created a region array, do so now.  */
-  VEC_safe_grow (eh_region, gc, cfun->eh->region_array,
+  VEC_safe_grow (eh_region_t, gc, cfun->eh->region_array,
 		 cfun_last_region_number + 1 + num_regions);
   cfun->eh->last_region_number = max_region + eh_offset;
 
   /* We may have just allocated the array for the first time.
      Make sure that element zero is null.  */
-  VEC_replace (eh_region, cfun->eh->region_array, 0, 0);
+  VEC_replace (eh_region_t, cfun->eh->region_array, 0, 0);
 
   /* Zero all entries in the range allocated.  */
-  memset (VEC_address (eh_region, cfun->eh->region_array)
-	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region));
+  memset (VEC_address (eh_region_t, cfun->eh->region_array)
+	  + cfun_last_region_number + 1, 0, num_regions * sizeof (eh_region_t));
 
   /* Locate the spot at which to insert the new tree.  */
   if (outer_region > 0)
     {
-      outer = VEC_index (eh_region, cfun->eh->region_array, outer_region);
+      outer = VEC_index (eh_region_t, cfun->eh->region_array, outer_region);
       splice = &outer->inner;
     }
   else
@@ -976,12 +978,12 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
   /* Copy all the regions in the subtree.  */
   if (copy_region > 0)
     {
-      cur = VEC_index (eh_region, ifun->eh->region_array, copy_region);
+      cur = VEC_index (eh_region_t, ifun->eh->region_array, copy_region);
       *splice = duplicate_eh_regions_1 (cur, outer, eh_offset);
     }
   else
     {
-      eh_region n;
+      eh_region_t n;
 
       cur = ifun->eh->region_tree;
       *splice = n = duplicate_eh_regions_1 (cur, outer, eh_offset);
@@ -994,7 +996,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
 
   /* Remap all the labels in the new regions.  */
   for (i = cfun_last_region_number + 1;
-       VEC_iterate (eh_region, cfun->eh->region_array, i, cur); ++i)
+       VEC_iterate (eh_region_t, cfun->eh->region_array, i, cur); ++i)
     if (cur && cur->tree_label)
       cur->tree_label = map (cur->tree_label, data);
 
@@ -1002,7 +1004,7 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
      the prev_try short-cuts for ERT_CLEANUP regions.  */
   prev_try = NULL;
   if (outer_region > 0)
-    for (prev_try = VEC_index (eh_region, cfun->eh->region_array, outer_region);
+    for (prev_try = VEC_index (eh_region_t, cfun->eh->region_array, outer_region);
          prev_try && prev_try->type != ERT_TRY;
 	 prev_try = prev_try->outer)
       ;
@@ -1012,29 +1014,29 @@ duplicate_eh_regions (struct function *ifun, duplicate_eh_regions_map map,
      been copied too.  And since we renumbered them as a block, a simple
      bit of arithmetic finds us the index for the replacement region.  */
   for (i = cfun_last_region_number + 1;
-       VEC_iterate (eh_region, cfun->eh->region_array, i, cur); ++i)
+       VEC_iterate (eh_region_t, cfun->eh->region_array, i, cur); ++i)
     {
       if (cur == NULL)
 	continue;
 
 #define REMAP(REG) \
-	(REG) = VEC_index (eh_region, cfun->eh->region_array, \
+	(REG) = VEC_index (eh_region_t, cfun->eh->region_array, \
 			   (REG)->region_number + eh_offset)
 
       switch (cur->type)
 	{
 	case ERT_TRY:
-	  if (cur->u.try.catch)
-	    REMAP (cur->u.try.catch);
-	  if (cur->u.try.last_catch)
-	    REMAP (cur->u.try.last_catch);
+	  if (cur->u.ert_try.ert_catch)
+	    REMAP (cur->u.ert_try.ert_catch);
+	  if (cur->u.ert_try.last_catch)
+	    REMAP (cur->u.ert_try.last_catch);
 	  break;
 
 	case ERT_CATCH:
-	  if (cur->u.catch.next_catch)
-	    REMAP (cur->u.catch.next_catch);
-	  if (cur->u.catch.prev_catch)
-	    REMAP (cur->u.catch.prev_catch);
+	  if (cur->u.ert_catch.next_catch)
+	    REMAP (cur->u.ert_catch.next_catch);
+	  if (cur->u.ert_catch.prev_catch)
+	    REMAP (cur->u.ert_catch.prev_catch);
 	  break;
 
 	case ERT_CLEANUP:
@@ -1064,8 +1066,8 @@ eh_region_outer_p (struct function *ifun, int region_a, int region_b)
   gcc_assert (ifun->eh->last_region_number > 0);
   gcc_assert (ifun->eh->region_tree);
 
-  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
-  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
+  rp_a = VEC_index (eh_region_t, ifun->eh->region_array, region_a);
+  rp_b = VEC_index (eh_region_t, ifun->eh->region_array, region_b);
   gcc_assert (rp_a != NULL);
   gcc_assert (rp_b != NULL);
 
@@ -1092,8 +1094,8 @@ eh_region_outermost (struct function *ifun, int region_a, int region_b)
   gcc_assert (ifun->eh->last_region_number > 0);
   gcc_assert (ifun->eh->region_tree);
 
-  rp_a = VEC_index (eh_region, ifun->eh->region_array, region_a);
-  rp_b = VEC_index (eh_region, ifun->eh->region_array, region_b);
+  rp_a = VEC_index (eh_region_t, ifun->eh->region_array, region_a);
+  rp_b = VEC_index (eh_region_t, ifun->eh->region_array, region_b);
   gcc_assert (rp_a != NULL);
   gcc_assert (rp_b != NULL);
 
@@ -1314,7 +1316,7 @@ assign_filter_values (void)
     {
       struct eh_region *r;
 
-      r = VEC_index (eh_region, cfun->eh->region_array, i);
+      r = VEC_index (eh_region_t, cfun->eh->region_array, i);
 
       /* Mind we don't process a region more than once.  */
       if (!r || r->region_number != i)
@@ -1325,21 +1327,21 @@ assign_filter_values (void)
 	case ERT_CATCH:
 	  /* Whatever type_list is (NULL or true list), we build a list
 	     of filters for the region.  */
-	  r->u.catch.filter_list = NULL_TREE;
+	  r->u.ert_catch.filter_list = NULL_TREE;
 
-	  if (r->u.catch.type_list != NULL)
+	  if (r->u.ert_catch.type_list != NULL)
 	    {
 	      /* Get a filter value for each of the types caught and store
 		 them in the region's dedicated list.  */
-	      tree tp_node = r->u.catch.type_list;
+	      tree tp_node = r->u.ert_catch.type_list;
 
 	      for (;tp_node; tp_node = TREE_CHAIN (tp_node))
 		{
 		  int flt = add_ttypes_entry (ttypes, TREE_VALUE (tp_node));
 		  tree flt_node = build_int_cst (NULL_TREE, flt);
 
-		  r->u.catch.filter_list
-		    = tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+		  r->u.ert_catch.filter_list
+		    = tree_cons (NULL_TREE, flt_node, r->u.ert_catch.filter_list);
 		}
 	    }
 	  else
@@ -1349,8 +1351,8 @@ assign_filter_values (void)
 	      int flt = add_ttypes_entry (ttypes, NULL);
 	      tree flt_node = build_int_cst (NULL_TREE, flt);
 
-	      r->u.catch.filter_list
-		= tree_cons (NULL_TREE, flt_node, r->u.catch.filter_list);
+	      r->u.ert_catch.filter_list
+		= tree_cons (NULL_TREE, flt_node, r->u.ert_catch.filter_list);
 	    }
 
 	  break;
@@ -1410,7 +1412,7 @@ build_post_landing_pads (void)
       struct eh_region *region;
       rtx seq;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       /* Mind we don't process a region more than once.  */
       if (!region || region->region_number != i)
 	continue;
@@ -1435,17 +1437,17 @@ build_post_landing_pads (void)
 	     Rapid prototyping sez a sequence of ifs.  */
 	  {
 	    struct eh_region *c;
-	    for (c = region->u.try.catch; c ; c = c->u.catch.next_catch)
+	    for (c = region->u.ert_try.ert_catch; c ; c = c->u.ert_catch.next_catch)
 	      {
-		if (c->u.catch.type_list == NULL)
+		if (c->u.ert_catch.type_list == NULL)
 		  emit_jump (c->label);
 		else
 		  {
 		    /* Need for one cmp/jump per type caught. Each type
 		       list entry has a matching entry in the filter list
 		       (see assign_filter_values).  */
-		    tree tp_node = c->u.catch.type_list;
-		    tree flt_node = c->u.catch.filter_list;
+		    tree tp_node = c->u.ert_catch.type_list;
+		    tree flt_node = c->u.ert_catch.filter_list;
 
 		    for (; tp_node; )
 		      {
@@ -1472,7 +1474,7 @@ build_post_landing_pads (void)
 	  seq = get_insns ();
 	  end_sequence ();
 
-	  emit_to_new_bb_before (seq, region->u.try.catch->label);
+	  emit_to_new_bb_before (seq, region->u.ert_try.ert_catch->label);
 
 	  break;
 
@@ -1532,7 +1534,7 @@ connect_post_landing_pads (void)
       rtx seq;
       rtx barrier;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       /* Mind we don't process a region more than once.  */
       if (!region || region->region_number != i)
 	continue;
@@ -1609,7 +1611,7 @@ dw2_build_landing_pads (void)
       basic_block bb;
       edge e;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       /* Mind we don't process a region more than once.  */
       if (!region || region->region_number != i)
 	continue;
@@ -1681,12 +1683,12 @@ sjlj_find_directly_reachable_regions (struct sjlj_lp_info *lp_info)
       if (!note || INTVAL (XEXP (note, 0)) <= 0)
 	continue;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
+      region = VEC_index (eh_region_t, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
 
       type_thrown = NULL_TREE;
       if (region->type == ERT_THROW)
 	{
-	  type_thrown = region->u.throw.type;
+	  type_thrown = region->u.ert_throw.type;
 	  region = region->outer;
 	}
 
@@ -1723,7 +1725,7 @@ sjlj_assign_call_site_values (rtx dispatch_label, struct sjlj_lp_info *lp_info)
   for (i = cfun->eh->last_region_number; i > 0; --i)
     if (lp_info[i].directly_reachable)
       {
-	struct eh_region *r = VEC_index (eh_region, cfun->eh->region_array, i);
+	struct eh_region *r = VEC_index (eh_region_t, cfun->eh->region_array, i);
 
 	r->landing_pad = dispatch_label;
 	lp_info[i].action_index = collect_one_action_chain (ar_hash, r);
@@ -1810,7 +1812,7 @@ sjlj_mark_call_sites (struct sjlj_lp_info *lp_info)
 	  if (INTVAL (XEXP (note, 0)) <= 0)
 	    continue;
 
-	  region = VEC_index (eh_region, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
+	  region = VEC_index (eh_region_t, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
 	  this_call_site = lp_info[region->region_number].call_site_index;
 	}
 
@@ -2023,14 +2025,14 @@ sjlj_emit_dispatch_table (rtx dispatch_label, struct sjlj_lp_info *lp_info)
 
       emit_cmp_and_jump_insns (dispatch, GEN_INT (lp_info[i].dispatch_index),
 			       EQ, NULL_RTX, TYPE_MODE (integer_type_node), 0,
-	                       ((struct eh_region *)VEC_index (eh_region, cfun->eh->region_array, i))
+	                       ((struct eh_region *)VEC_index (eh_region_t, cfun->eh->region_array, i))
 				->post_landing_pad);
     }
 
   seq = get_insns ();
   end_sequence ();
 
-  before = (((struct eh_region *)VEC_index (eh_region, cfun->eh->region_array, first_reachable))
+  before = (((struct eh_region *)VEC_index (eh_region_t, cfun->eh->region_array, first_reachable))
 	    ->post_landing_pad);
 
   bb = emit_to_new_bb_before (seq, before);
@@ -2182,7 +2184,7 @@ remove_eh_handler (struct eh_region *region)
      list of alternate numbers by which we are known.  */
 
   outer = region->outer;
-  VEC_replace (eh_region, cfun->eh->region_array, region->region_number, outer);
+  VEC_replace (eh_region_t, cfun->eh->region_array, region->region_number, outer);
   if (region->aka)
     {
       unsigned i;
@@ -2190,7 +2192,7 @@ remove_eh_handler (struct eh_region *region)
 
       EXECUTE_IF_SET_IN_BITMAP (region->aka, 0, i, bi)
 	{
-          VEC_replace (eh_region, cfun->eh->region_array, i, outer);
+          VEC_replace (eh_region_t, cfun->eh->region_array, i, outer);
 	}
     }
 
@@ -2231,28 +2233,28 @@ remove_eh_handler (struct eh_region *region)
 
   if (region->type == ERT_CATCH)
     {
-      struct eh_region *try, *next, *prev;
+      struct eh_region *eh, *next, *prev;
 
-      for (try = region->next_peer;
-	   try->type == ERT_CATCH;
-	   try = try->next_peer)
+      for (eh = region->next_peer;
+	   eh->type == ERT_CATCH;
+	   eh = eh->next_peer)
 	continue;
-      gcc_assert (try->type == ERT_TRY);
+      gcc_assert (eh->type == ERT_TRY);
 
-      next = region->u.catch.next_catch;
-      prev = region->u.catch.prev_catch;
+      next = region->u.ert_catch.next_catch;
+      prev = region->u.ert_catch.prev_catch;
 
       if (next)
-	next->u.catch.prev_catch = prev;
+	next->u.ert_catch.prev_catch = prev;
       else
-	try->u.try.last_catch = prev;
+	eh->u.ert_try.last_catch = prev;
       if (prev)
-	prev->u.catch.next_catch = next;
+	prev->u.ert_catch.next_catch = next;
       else
 	{
-	  try->u.try.catch = next;
+	  eh->u.ert_try.ert_catch = next;
 	  if (! next)
-	    remove_eh_handler (try);
+	    remove_eh_handler (eh);
 	}
     }
 }
@@ -2326,7 +2328,7 @@ for_each_eh_region (void (*callback) (struct eh_region *))
     {
       struct eh_region *region;
 
-      region = VEC_index (eh_region, cfun->eh->region_array, i);
+      region = VEC_index (eh_region_t, cfun->eh->region_array, i);
       if (region)
 	(*callback) (region);
     }
@@ -2415,10 +2417,10 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	struct eh_region *c;
 	enum reachable_code ret = RNL_NOT_CAUGHT;
 
-	for (c = region->u.try.catch; c ; c = c->u.catch.next_catch)
+	for (c = region->u.ert_try.ert_catch; c ; c = c->u.ert_catch.next_catch)
 	  {
 	    /* A catch-all handler ends the search.  */
-	    if (c->u.catch.type_list == NULL)
+	    if (c->u.ert_catch.type_list == NULL)
 	      {
 		add_reachable_handler (info, region, c);
 		return RNL_CAUGHT;
@@ -2427,7 +2429,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	    if (type_thrown)
 	      {
 		/* If we have at least one type match, end the search.  */
-		tree tp_node = c->u.catch.type_list;
+		tree tp_node = c->u.ert_catch.type_list;
 
 		for (; tp_node; tp_node = TREE_CHAIN (tp_node))
 		  {
@@ -2465,7 +2467,7 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	      ret = RNL_MAYBE_CAUGHT;
 	    else
 	      {
-		tree tp_node = c->u.catch.type_list;
+		tree tp_node = c->u.ert_catch.type_list;
 		bool maybe_reachable = false;
 
 		/* Compute the potential reachability of this handler and
@@ -2576,7 +2578,7 @@ foreach_reachable_handler (int region_number, bool is_resx,
   info.callback = callback;
   info.callback_data = callback_data;
 
-  region = VEC_index (eh_region, cfun->eh->region_array, region_number);
+  region = VEC_index (eh_region_t, cfun->eh->region_array, region_number);
 
   type_thrown = NULL_TREE;
   if (is_resx)
@@ -2589,7 +2591,7 @@ foreach_reachable_handler (int region_number, bool is_resx,
     }
   else if (region->type == ERT_THROW)
     {
-      type_thrown = region->u.throw.type;
+      type_thrown = region->u.ert_throw.type;
       region = region->outer;
     }
 
@@ -2614,7 +2616,7 @@ foreach_reachable_handler (int region_number, bool is_resx,
 static void
 arh_to_landing_pad (struct eh_region *region, void *data)
 {
-  rtx *p_handlers = data;
+  rtx *p_handlers = (rtx *) data;
   if (! *p_handlers)
     *p_handlers = alloc_INSN_LIST (region->landing_pad, NULL_RTX);
 }
@@ -2622,7 +2624,7 @@ arh_to_landing_pad (struct eh_region *region, void *data)
 static void
 arh_to_label (struct eh_region *region, void *data)
 {
-  rtx *p_handlers = data;
+  rtx *p_handlers = (rtx *) data;
   *p_handlers = alloc_INSN_LIST (region->label, *p_handlers);
 }
 
@@ -2665,14 +2667,14 @@ can_throw_internal_1 (int region_number, bool is_resx)
   struct eh_region *region;
   tree type_thrown;
 
-  region = VEC_index (eh_region, cfun->eh->region_array, region_number);
+  region = VEC_index (eh_region_t, cfun->eh->region_array, region_number);
 
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
   else if (region->type == ERT_THROW)
     {
-      type_thrown = region->u.throw.type;
+      type_thrown = region->u.ert_throw.type;
       region = region->outer;
     }
 
@@ -2725,14 +2727,14 @@ can_throw_external_1 (int region_number, bool is_resx)
   struct eh_region *region;
   tree type_thrown;
 
-  region = VEC_index (eh_region, cfun->eh->region_array, region_number);
+  region = VEC_index (eh_region_t, cfun->eh->region_array, region_number);
 
   type_thrown = NULL_TREE;
   if (is_resx)
     region = region->outer;
   else if (region->type == ERT_THROW)
     {
-      type_thrown = region->u.throw.type;
+      type_thrown = region->u.ert_throw.type;
       region = region->outer;
     }
 
@@ -2897,7 +2899,7 @@ expand_builtin_eh_return_data_regno (tree arglist)
 rtx
 expand_builtin_extract_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, Pmode, EXPAND_NORMAL);
 
   if (GET_MODE (addr) != Pmode
       && GET_MODE (addr) != VOIDmode)
@@ -2929,7 +2931,7 @@ expand_builtin_extract_return_addr (tree addr_tree)
 rtx
 expand_builtin_frob_return_addr (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
 
   addr = convert_memory_address (Pmode, addr);
 
@@ -2951,7 +2953,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
   rtx tmp;
 
 #ifdef EH_RETURN_STACKADJ_RTX
-  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj, VOIDmode, 0);
+  tmp = expand_expr (stackadj_tree, cfun->eh->ehr_stackadj, VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_stackadj)
     cfun->eh->ehr_stackadj = copy_to_reg (tmp);
@@ -2959,7 +2961,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
     emit_move_insn (cfun->eh->ehr_stackadj, tmp);
 #endif
 
-  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, 0);
+  tmp = expand_expr (handler_tree, cfun->eh->ehr_handler, VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!cfun->eh->ehr_handler)
     cfun->eh->ehr_handler = copy_to_reg (tmp);
@@ -3017,7 +3019,7 @@ expand_eh_return (void)
 rtx
 expand_builtin_extend_pointer (tree addr_tree)
 {
-  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, 0);
+  rtx addr = expand_expr (addr_tree, NULL_RTX, ptr_mode, EXPAND_NORMAL);
   int extend;
 
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -3067,19 +3069,19 @@ action_record_hash (const void *pentry)
 static int
 add_action_record (htab_t ar_hash, int filter, int next)
 {
-  struct action_record **slot, *new, tmp;
+  struct action_record **slot, *ar, tmp;
 
   tmp.filter = filter;
   tmp.next = next;
   slot = (struct action_record **) htab_find_slot (ar_hash, &tmp, INSERT);
 
-  if ((new = *slot) == NULL)
+  if ((ar = *slot) == NULL)
     {
-      new = xmalloc (sizeof (*new));
-      new->offset = VARRAY_ACTIVE_SIZE (cfun->eh->action_record_data) + 1;
-      new->filter = filter;
-      new->next = next;
-      *slot = new;
+      ar = XNEW (struct action_record);
+      ar->offset = VARRAY_ACTIVE_SIZE (cfun->eh->action_record_data) + 1;
+      ar->filter = filter;
+      ar->next = next;
+      *slot = ar;
 
       /* The filter value goes in untouched.  The link to the next
 	 record is a "self-relative" byte offset, or zero to indicate
@@ -3092,7 +3094,7 @@ add_action_record (htab_t ar_hash, int filter, int next)
       push_sleb128 (&cfun->eh->action_record_data, next);
     }
 
-  return new->offset;
+  return ar->offset;
 }
 
 static int
@@ -3129,14 +3131,14 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
 	 search outer regions.  Use a magic -3 value to record
 	 that we haven't done the outer search.  */
       next = -3;
-      for (c = region->u.try.last_catch; c ; c = c->u.catch.prev_catch)
+      for (c = region->u.ert_try.last_catch; c ; c = c->u.ert_catch.prev_catch)
 	{
-	  if (c->u.catch.type_list == NULL)
+	  if (c->u.ert_catch.type_list == NULL)
 	    {
 	      /* Retrieve the filter from the head of the filter list
 		 where we have stored it (see assign_filter_values).  */
 	      int filter
-		= TREE_INT_CST_LOW (TREE_VALUE (c->u.catch.filter_list));
+		= TREE_INT_CST_LOW (TREE_VALUE (c->u.ert_catch.filter_list));
 
 	      next = add_action_record (ar_hash, filter, 0);
 	    }
@@ -3161,7 +3163,7 @@ collect_one_action_chain (htab_t ar_hash, struct eh_region *region)
 		    next = add_action_record (ar_hash, 0, 0);
 		}
 
-	      flt_node = c->u.catch.filter_list;
+	      flt_node = c->u.ert_catch.filter_list;
 	      for (; flt_node; flt_node = TREE_CHAIN (flt_node))
 		{
 		  int filter = TREE_INT_CST_LOW (TREE_VALUE (flt_node));
@@ -3216,7 +3218,7 @@ add_call_site (rtx landing_pad, int action)
   if (used >= size)
     {
       size = (size ? size * 2 : 64);
-      data = ggc_realloc (data, sizeof (*data) * size);
+      data = (struct call_site_record *) ggc_realloc (data, sizeof (*data) * size);
       cfun->eh->call_site_data = data;
       cfun->eh->call_site_data_size = size;
     }
@@ -3277,7 +3279,7 @@ convert_to_eh_region_ranges (void)
 	  {
 	    if (INTVAL (XEXP (note, 0)) <= 0)
 	      continue;
-	    region = VEC_index (eh_region, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
+	    region = VEC_index (eh_region_t, cfun->eh->region_array, INTVAL (XEXP (note, 0)));
 	    this_action = collect_one_action_chain (ar_hash, region);
 	  }
 
@@ -3557,7 +3559,7 @@ static void
 output_ttype (tree type, int tt_format, int tt_format_size)
 {
   rtx value;
-  bool public = true;
+  bool pub = true;
 
   if (type == NULL_TREE)
     value = const0_rtx;
@@ -3580,7 +3582,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 	      node = cgraph_varpool_node (type);
 	      if (node)
 		cgraph_varpool_mark_needed_node (node);
-	      public = TREE_PUBLIC (type);
+	      pub = TREE_PUBLIC (type);
 	    }
 	}
       else
@@ -3595,7 +3597,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     assemble_integer (value, tt_format_size,
 		      tt_format_size * BITS_PER_UNIT, 1);
   else
-    dw2_asm_output_encoded_addr_rtx (tt_format, value, public, NULL);
+    dw2_asm_output_encoded_addr_rtx (tt_format, value, pub, NULL);
 }
 
 void
@@ -3860,7 +3862,7 @@ verify_eh_tree (struct function *fun)
   if (! i)
     return;
   for (j = fun->eh->last_region_number; j > 0; --j)
-    if ((i = VEC_index (eh_region, cfun->eh->region_array, j)))
+    if ((i = VEC_index (eh_region_t, cfun->eh->region_array, j)))
       {
 	count++;
 	if (i->region_number != j)
@@ -3872,7 +3874,7 @@ verify_eh_tree (struct function *fun)
 
   while (1)
     {
-      if (VEC_index (eh_region, cfun->eh->region_array, i->region_number) != i)
+      if (VEC_index (eh_region_t, cfun->eh->region_array, i->region_number) != i)
 	{
 	  error ("region_array is corrupted for region %i", i->region_number);
 	  err = true;

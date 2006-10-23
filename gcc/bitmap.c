@@ -186,7 +186,7 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
 
 /* Clear a bitmap by freeing the linked list.  */
 
-inline void
+void
 bitmap_clear (bitmap head)
 {
   if (head->first)
@@ -240,7 +240,7 @@ bitmap_obstack_alloc (bitmap_obstack *bit_obstack)
     bit_obstack = &bitmap_default_obstack;
   map = bit_obstack->heads;
   if (map)
-    bit_obstack->heads = (void *)map->first;
+    bit_obstack->heads = (bitmap) map->first;
   else
     map = XOBNEW (&bit_obstack->obstack, bitmap_head);
   bitmap_initialize (map, bit_obstack);
@@ -269,7 +269,7 @@ bitmap_obstack_free (bitmap map)
   if (map)
     {
       bitmap_clear (map);
-      map->first = (void *)map->obstack->heads;
+      map->first = (bitmap_element *)map->obstack->heads;
       map->obstack->heads = map;
     }
 }

@@ -201,7 +201,7 @@ typedef struct gfc_ss
   unsigned useflags:2;
 }
 gfc_ss;
-#define gfc_get_ss() gfc_getmem(sizeof(gfc_ss))
+#define gfc_get_ss() ((gfc_ss *)gfc_getmem(sizeof(gfc_ss)))
 
 /* The contents of this aren't actually used.  A NULL SS chain indicates a
    scalar expression, so this pointer is used to terminate SS chains.  */
@@ -445,7 +445,9 @@ void pushlevel (int);
 tree poplevel (int, int, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
-tree builtin_function (const char *, tree, int, enum built_in_class,
+tree builtin_function (const char *, tree,
+		       enum built_in_function,
+		       enum built_in_class,
 		       const char *, tree);
 
 /* In trans-openmp.c */
@@ -646,7 +648,7 @@ typedef struct gfc_interface_sym_mapping
 {
   struct gfc_interface_sym_mapping *next;
   gfc_symbol *old;
-  gfc_symtree *new;
+  gfc_symtree *fresh;
 }
 gfc_interface_sym_mapping;
 

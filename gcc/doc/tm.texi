@@ -339,16 +339,6 @@ the very end of the command given to the linker.
 Do not define this macro if it does not need to do anything.
 @end defmac
 
-@defmac THREAD_MODEL_SPEC
-GCC @code{-v} will print the thread model GCC was configured to use.
-However, this doesn't work on platforms that are multilibbed on thread
-models, such as AIX 4.3.  On such platforms, define
-@code{THREAD_MODEL_SPEC} such that it evaluates to a string without
-blanks that names one of the recognized thread models.  @code{%*}, the
-default value of this macro, will expand to the value of
-@code{thread_file} set in @file{config.gcc}.
-@end defmac
-
 @defmac SYSROOT_SUFFIX_SPEC
 Define this macro to add a suffix to the target sysroot when GCC is
 configured with a sysroot.  This will cause GCC to search for usr/lib,
@@ -459,14 +449,6 @@ a @option{-B} prefix into a @option{-L} linker option if the prefix
 indicates an absolute file name.
 @end defmac
 
-@defmac MD_EXEC_PREFIX
-If defined, this macro is an additional prefix to try after
-@code{STANDARD_EXEC_PREFIX}.  @code{MD_EXEC_PREFIX} is not searched
-when the @option{-b} option is used, or the compiler is built as a cross
-compiler.  If you define @code{MD_EXEC_PREFIX}, then be sure to add it
-to the list of directories used to find the assembler in @file{configure.in}.
-@end defmac
-
 @defmac STANDARD_STARTFILE_PREFIX
 Define this macro as a C string constant if you wish to override the
 standard choice of @code{libdir} as the default prefix to
@@ -491,19 +473,6 @@ default prefix when searching for startup files such as @file{crt0.o}.
 is built as a cross compiler.
 @end defmac
 
-@defmac MD_STARTFILE_PREFIX
-If defined, this macro supplies an additional prefix to try after the
-standard prefixes.  @code{MD_EXEC_PREFIX} is not searched when the
-@option{-b} option is used, or when the compiler is built as a cross
-compiler.
-@end defmac
-
-@defmac MD_STARTFILE_PREFIX_1
-If defined, this macro supplies yet another prefix to try after the
-standard prefixes.  It is not searched when the @option{-b} option is
-used, or when the compiler is built as a cross compiler.
-@end defmac
-
 @defmac INIT_ENVIRONMENT
 Define this macro as a C string constant if you wish to set environment
 variables for programs called by the driver, such as the assembler and
@@ -519,31 +488,6 @@ comes before @code{SYSTEM_INCLUDE_DIR} in the search order.
 
 Cross compilers do not search either @file{/usr/local/include} or its
 replacement.
-@end defmac
-
-@defmac MODIFY_TARGET_NAME
-Define this macro if you wish to define command-line switches that
-modify the default target name.
-
-For each switch, you can include a string to be appended to the first
-part of the configuration name or a string to be deleted from the
-configuration name, if present.  The definition should be an initializer
-for an array of structures.  Each array element should have three
-elements: the switch name (a string constant, including the initial
-dash), one of the enumeration codes @code{ADD} or @code{DELETE} to
-indicate whether the string should be inserted or deleted, and the string
-to be inserted or deleted (a string constant).
-
-For example, on a machine where @samp{64} at the end of the
-configuration name denotes a 64-bit target and you want the @option{-32}
-and @option{-64} switches to select between 32- and 64-bit targets, you would
-code
-
-@smallexample
-#define MODIFY_TARGET_NAME \
-  @{ @{ "-32", DELETE, "64"@}, \
-     @{"-64", ADD, "64"@}@}
-@end smallexample
 @end defmac
 
 @defmac SYSTEM_INCLUDE_DIR
@@ -625,9 +569,6 @@ The macro @code{STANDARD_EXEC_PREFIX}.
 
 @item
 @file{/usr/lib/gcc/}.
-
-@item
-The macro @code{MD_EXEC_PREFIX}, if any.
 @end enumerate
 
 Here is the order of prefixes tried for startfiles:
@@ -648,12 +589,6 @@ The macro @code{STANDARD_EXEC_PREFIX}.
 
 @item
 @file{/usr/lib/gcc/}.
-
-@item
-The macro @code{MD_EXEC_PREFIX}, if any.
-
-@item
-The macro @code{MD_STARTFILE_PREFIX}, if any.
 
 @item
 The macro @code{STANDARD_STARTFILE_PREFIX}.

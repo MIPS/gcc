@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "objc-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -59,6 +60,7 @@ Boston, MA 02110-1301, USA.  */
 #include "flags.h"
 #include "langhooks.h"
 #include "objc-act.h"
+#include "tree-gimple.h"
 #include "input.h"
 #include "except.h"
 #include "function.h"
@@ -628,19 +630,19 @@ lookup_protocol_in_reflist (tree rproto_list, tree lproto)
 }
 
 void
-objc_start_class_interface (tree class, tree super_class, tree protos)
+objc_start_class_interface (tree cls, tree super_class, tree protos)
 {
   objc_interface_context
     = objc_ivar_context
-    = start_class (CLASS_INTERFACE_TYPE, class, super_class, protos);
+    = start_class (CLASS_INTERFACE_TYPE, cls, super_class, protos);
   objc_public_flag = 0;
 }
 
 void
-objc_start_category_interface (tree class, tree categ, tree protos)
+objc_start_category_interface (tree cls, tree categ, tree protos)
 {
   objc_interface_context
-    = start_class (CATEGORY_INTERFACE_TYPE, class, categ, protos);
+    = start_class (CATEGORY_INTERFACE_TYPE, cls, categ, protos);
   objc_ivar_chain
     = continue_class (objc_interface_context);
 }
@@ -667,19 +669,19 @@ objc_finish_interface (void)
 }
 
 void
-objc_start_class_implementation (tree class, tree super_class)
+objc_start_class_implementation (tree cls, tree super_class)
 {
   objc_implementation_context
     = objc_ivar_context
-    = start_class (CLASS_IMPLEMENTATION_TYPE, class, super_class, NULL_TREE);
+    = start_class (CLASS_IMPLEMENTATION_TYPE, cls, super_class, NULL_TREE);
   objc_public_flag = 0;
 }
 
 void
-objc_start_category_implementation (tree class, tree categ)
+objc_start_category_implementation (tree cls, tree categ)
 {
   objc_implementation_context
-    = start_class (CATEGORY_IMPLEMENTATION_TYPE, class, categ, NULL_TREE);
+    = start_class (CATEGORY_IMPLEMENTATION_TYPE, cls, categ, NULL_TREE);
   objc_ivar_chain
     = continue_class (objc_implementation_context);
 }
@@ -797,9 +799,9 @@ objc_is_class_id (tree type)
    SUPER_NAME (if any), and FIELDS indicated.  */
 
 static tree
-objc_build_struct (tree class, tree fields, tree super_name)
+objc_build_struct (tree cls, tree fields, tree super_name)
 {
-  tree name = CLASS_NAME (class);
+  tree name = CLASS_NAME (cls);
   tree s = start_struct (RECORD_TYPE, name);
   tree super = (super_name ? xref_tag (RECORD_TYPE, super_name) : NULL_TREE);
   tree t, objc_info = NULL_TREE;
@@ -859,7 +861,7 @@ objc_build_struct (tree class, tree fields, tree super_name)
 
   /* Point the struct at its related Objective-C class.  */
   INIT_TYPE_OBJC_INFO (s);
-  TYPE_OBJC_INTERFACE (s) = class;
+  TYPE_OBJC_INTERFACE (s) = cls;
 
   s = finish_struct (s, fields, NULL_TREE);
 
@@ -868,14 +870,14 @@ objc_build_struct (tree class, tree fields, tree super_name)
     {
       TYPE_OBJC_INFO (t) = TREE_VALUE (objc_info);
       /* Replace the IDENTIFIER_NODE with an actual @interface.  */
-      TYPE_OBJC_INTERFACE (t) = class;
+      TYPE_OBJC_INTERFACE (t) = cls;
     }
 
   /* Use TYPE_BINFO structures to point at the super class, if any.  */
   objc_xref_basetypes (s, super);
 
   /* Mark this struct as a class template.  */
-  CLASS_STATIC_TEMPLATE (class) = s;
+  CLASS_STATIC_TEMPLATE (cls) = s;
 
   return s;
 }
@@ -1496,7 +1498,7 @@ setup_string_decl (void)
   /* %s in format will provide room for terminating null */
   length = strlen (STRING_OBJECT_GLOBAL_FORMAT)
 	   + strlen (constant_string_class_name);
-  name = xmalloc (length);
+  name = XNEWVEC (char, length);
   sprintf (name, STRING_OBJECT_GLOBAL_FORMAT,
 	   constant_string_class_name);
   constant_string_global_id = get_identifier (name);
@@ -1617,16 +1619,16 @@ synth_module_prologue (void)
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     NULL_TREE)));
       umsg_decl = builtin_function (TAG_MSGSEND,
-				    type, 0, NOT_BUILT_IN,
+				    type, BUILT_IN_NONE, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
       umsg_nonnil_decl = builtin_function (TAG_MSGSEND_NONNIL,
-					   type, 0, NOT_BUILT_IN,
+					   type, BUILT_IN_NONE, NOT_BUILT_IN,
 					   NULL, NULL_TREE);
       umsg_stret_decl = builtin_function (TAG_MSGSEND_STRET,
-					  type, 0, NOT_BUILT_IN,
+					  type, BUILT_IN_NONE, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
       umsg_nonnil_stret_decl = builtin_function (TAG_MSGSEND_NONNIL_STRET,
-						 type, 0, NOT_BUILT_IN,
+						 type, BUILT_IN_NONE, NOT_BUILT_IN,
 						 NULL, NULL_TREE);
 
       /* These can throw, because the function that gets called can throw
@@ -1641,7 +1643,7 @@ synth_module_prologue (void)
 	   __attribute__ ((hard_coded_address (OFFS_MSGSEND_FAST))); */
 #ifdef OFFS_MSGSEND_FAST
       umsg_fast_decl = builtin_function (TAG_MSGSEND_FAST,
-					 type, 0, NOT_BUILT_IN,
+					 type, BUILT_IN_NONE, NOT_BUILT_IN,
 					 NULL, NULL_TREE);
       TREE_NOTHROW (umsg_fast_decl) = 0;
       DECL_ATTRIBUTES (umsg_fast_decl)
@@ -1661,10 +1663,10 @@ synth_module_prologue (void)
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     NULL_TREE)));
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
-					  type, 0, NOT_BUILT_IN,
+					  type, BUILT_IN_NONE, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
       umsg_super_stret_decl = builtin_function (TAG_MSGSENDSUPER_STRET,
-						type, 0, NOT_BUILT_IN, 0,
+						type, BUILT_IN_NONE, NOT_BUILT_IN, 0,
 						NULL_TREE);
       TREE_NOTHROW (umsg_super_decl) = 0;
       TREE_NOTHROW (umsg_super_stret_decl) = 0;
@@ -1688,7 +1690,7 @@ synth_module_prologue (void)
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     OBJC_VOID_AT_END)));
       umsg_decl = builtin_function (TAG_MSGSEND,
-				    type, 0, NOT_BUILT_IN,
+				    type, BUILT_IN_NONE, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
       TREE_NOTHROW (umsg_decl) = 0;
 
@@ -1699,7 +1701,7 @@ synth_module_prologue (void)
 					  tree_cons (NULL_TREE, objc_selector_type,
 						     OBJC_VOID_AT_END)));
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
-					  type, 0, NOT_BUILT_IN,
+					  type, BUILT_IN_NONE, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
       TREE_NOTHROW (umsg_super_decl) = 0;
 
@@ -1712,7 +1714,7 @@ synth_module_prologue (void)
 			       tree_cons (NULL_TREE, ptr_type_node,
 					  OBJC_VOID_AT_END));
       execclass_decl = builtin_function (TAG_EXECCLASS,
-					 type, 0, NOT_BUILT_IN,
+					 type, BUILT_IN_NONE, NOT_BUILT_IN,
 					 NULL, NULL_TREE);
     }
 
@@ -1724,13 +1726,13 @@ synth_module_prologue (void)
 					      OBJC_VOID_AT_END));
 
   objc_get_class_decl
-    = builtin_function (TAG_GETCLASS, type, 0, NOT_BUILT_IN,
+    = builtin_function (TAG_GETCLASS, type, BUILT_IN_NONE, NOT_BUILT_IN,
 			NULL, NULL_TREE);
 
   /* id objc_getMetaClass (const char *); */
 
   objc_get_meta_class_decl
-    = builtin_function (TAG_GETMETACLASS, type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_GETMETACLASS, type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
 
   build_class_template ();
   build_super_template ();
@@ -1925,12 +1927,12 @@ objc_build_string_object (tree string)
   /* Perhaps we already constructed a constant string just like this one? */
   key.literal = string;
   loc = htab_find_slot (string_htab, &key, INSERT);
-  desc = *loc;
+  desc = (struct string_descriptor *) *loc;
 
   if (!desc)
     {
       tree var;
-      *loc = desc = ggc_alloc (sizeof (*desc));
+      *loc = desc = (struct string_descriptor *) ggc_alloc (sizeof (*desc));
       desc->literal = string;
 
       /* GNU:    (NXConstantString *) & ((__builtin_ObjCString) { NULL, string, length })  */
@@ -2418,7 +2420,7 @@ static void
 generate_static_references (void)
 {
   tree decls = NULL_TREE, expr = NULL_TREE;
-  tree class_name, class, decl, initlist;
+  tree class_name, cls, decl, initlist;
   tree cl_chain, in_chain, type
     = build_array_type (build_pointer_type (void_type_node), NULL_TREE);
   int num_inst, num_class;
@@ -2437,8 +2439,8 @@ generate_static_references (void)
       decl = start_var_decl (type, buf);
 
       /* Output {class_name, ...}.  */
-      class = TREE_VALUE (cl_chain);
-      class_name = get_objc_string_decl (OBJC_TYPE_NAME (class), class_names);
+      cls = TREE_VALUE (cl_chain);
+      class_name = get_objc_string_decl (OBJC_TYPE_NAME (cls), class_names);
       initlist = build_tree_list (NULL_TREE,
 				  build_unary_op (ADDR_EXPR, class_name, 1));
 
@@ -3287,14 +3289,14 @@ static GTY ((param_is (struct interface_tuple))) htab_t interface_htab;
 static hashval_t
 hash_interface (const void *p)
 {
-  const struct interface_tuple *d = p;
+  const struct interface_tuple *d = (const struct interface_tuple *) p;
   return htab_hash_pointer (d->id);
 }
 
 static int
 eq_interface (const void *p1, const void *p2)
 {
-  const struct interface_tuple *d = p1;
+  const struct interface_tuple *d = (const struct interface_tuple *) p1;
   return d->id == p2;
 }
 
@@ -3749,7 +3751,7 @@ next_sjlj_build_try_catch_finally (void)
 void
 objc_begin_try_stmt (location_t try_locus, tree body)
 {
-  struct objc_try_context *c = xcalloc (1, sizeof (*c));
+  struct objc_try_context *c = XCNEW (struct objc_try_context);
   c->outer = cur_try_context;
   c->try_body = body;
   c->try_locus = try_locus;
@@ -3994,7 +3996,7 @@ build_next_objc_exception_stuff (void)
      'int _setjmp(jmp_buf);' */
   temp_type = build_function_type (integer_type_node, NULL_TREE);
   objc_setjmp_decl
-    = builtin_function (TAG_SETJMP, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_SETJMP, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
 
   /* id objc_exception_extract(struct _objc_exception_data *); */
   temp_type
@@ -4003,7 +4005,7 @@ build_next_objc_exception_stuff (void)
 				      build_pointer_type (objc_exception_data_template),
 				      OBJC_VOID_AT_END));
   objc_exception_extract_decl
-    = builtin_function (TAG_EXCEPTIONEXTRACT, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONEXTRACT, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
   /* void objc_exception_try_enter(struct _objc_exception_data *); */
   /* void objc_exception_try_exit(struct _objc_exception_data *); */
   temp_type
@@ -4012,9 +4014,9 @@ build_next_objc_exception_stuff (void)
 				      build_pointer_type (objc_exception_data_template),
 				      OBJC_VOID_AT_END));
   objc_exception_try_enter_decl
-    = builtin_function (TAG_EXCEPTIONTRYENTER, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONTRYENTER, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
   objc_exception_try_exit_decl
-    = builtin_function (TAG_EXCEPTIONTRYEXIT, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONTRYEXIT, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
 
   /* int objc_exception_match(id, id); */
   temp_type
@@ -4023,7 +4025,7 @@ build_next_objc_exception_stuff (void)
 				      tree_cons (NULL_TREE, objc_object_type,
 						 OBJC_VOID_AT_END)));
   objc_exception_match_decl
-    = builtin_function (TAG_EXCEPTIONMATCH, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+    = builtin_function (TAG_EXCEPTIONMATCH, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
 
   /* id objc_assign_ivar (id, id, unsigned int); */
   /* id objc_assign_ivar_Fast (id, id, unsigned int)
@@ -4037,11 +4039,11 @@ build_next_objc_exception_stuff (void)
 						  unsigned_type_node,
 						  OBJC_VOID_AT_END))));
   objc_assign_ivar_decl
-    = builtin_function (TAG_ASSIGNIVAR, temp_type, 0, NOT_BUILT_IN,
+    = builtin_function (TAG_ASSIGNIVAR, temp_type, BUILT_IN_NONE, NOT_BUILT_IN,
 			NULL, NULL_TREE);
 #ifdef OFFS_ASSIGNIVAR_FAST
   objc_assign_ivar_fast_decl
-    = builtin_function (TAG_ASSIGNIVAR_FAST, temp_type, 0,
+    = builtin_function (TAG_ASSIGNIVAR_FAST, temp_type, BUILT_IN_NONE,
 			NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_ATTRIBUTES (objc_assign_ivar_fast_decl)
     = tree_cons (get_identifier ("hard_coded_address"),
@@ -4059,9 +4061,9 @@ build_next_objc_exception_stuff (void)
 		    tree_cons (NULL_TREE, build_pointer_type (objc_object_type),
 			OBJC_VOID_AT_END)));
   objc_assign_global_decl
-	= builtin_function (TAG_ASSIGNGLOBAL, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+	= builtin_function (TAG_ASSIGNGLOBAL, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
   objc_assign_strong_cast_decl
-	= builtin_function (TAG_ASSIGNSTRONGCAST, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+	= builtin_function (TAG_ASSIGNSTRONGCAST, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL, NULL_TREE);
 }
 
 static void
@@ -4079,13 +4081,13 @@ build_objc_exception_stuff (void)
 				   tree_cons (NULL_TREE, objc_object_type,
 					      OBJC_VOID_AT_END));
   objc_exception_throw_decl
-    = builtin_function (TAG_EXCEPTIONTHROW, temp_type, 0, NOT_BUILT_IN, NULL,
+    = builtin_function (TAG_EXCEPTIONTHROW, temp_type, BUILT_IN_NONE, NOT_BUILT_IN, NULL,
 			noreturn_list);
   objc_sync_enter_decl
-    = builtin_function (TAG_SYNCENTER, temp_type, 0, NOT_BUILT_IN,
+    = builtin_function (TAG_SYNCENTER, temp_type, BUILT_IN_NONE, NOT_BUILT_IN,
 			NULL, nothrow_list);
   objc_sync_exit_decl
-    = builtin_function (TAG_SYNCEXIT, temp_type, 0, NOT_BUILT_IN,
+    = builtin_function (TAG_SYNCEXIT, temp_type, BUILT_IN_NONE, NOT_BUILT_IN,
 			NULL, nothrow_list);
 }
 
@@ -4098,13 +4100,13 @@ build_objc_exception_stuff (void)
    };  */
 
 static void
-build_private_template (tree class)
+build_private_template (tree cls)
 {
-  if (!CLASS_STATIC_TEMPLATE (class))
+  if (!CLASS_STATIC_TEMPLATE (cls))
     {
-      tree record = objc_build_struct (class,
-				       get_class_ivars (class, false),
-				       CLASS_SUPER_NAME (class));
+      tree record = objc_build_struct (cls,
+				       get_class_ivars (cls, false),
+				       CLASS_SUPER_NAME (cls));
 
       /* Set the TREE_USED bit for this struct, so that stab generator
 	 can emit stabs for this struct type.  */
@@ -4340,7 +4342,7 @@ encode_method_prototype (tree method_decl)
 
   finish_encoding:
   obstack_1grow (&util_obstack, '\0');
-  result = get_identifier (obstack_finish (&util_obstack));
+  result = get_identifier ((const char *) obstack_finish (&util_obstack));
   obstack_free (&util_obstack, util_firstobj);
   return result;
 }
@@ -5152,7 +5154,7 @@ build_ivar_list_initializer (tree type, tree field_decl)
       ivar
 	= tree_cons
 	  (NULL_TREE,
-	   add_objc_string (get_identifier (obstack_finish (&util_obstack)),
+	   add_objc_string (get_identifier ((const char *) obstack_finish (&util_obstack)),
 			    meth_var_types),
 	   ivar);
       obstack_free (&util_obstack, util_firstobj);
@@ -5642,9 +5644,9 @@ build_shared_structure_initializer (tree type, tree isa, tree super,
 /* Retrieve category interface CAT_NAME (if any) associated with CLASS.  */
 
 static inline tree
-lookup_category (tree class, tree cat_name)
+lookup_category (tree cls, tree cat_name)
 {
-  tree category = CLASS_CATEGORY_LIST (class);
+  tree category = CLASS_CATEGORY_LIST (cls);
 
   while (category && CLASS_SUPER_NAME (category) != cat_name)
     category = CLASS_CATEGORY_LIST (category);
@@ -6685,7 +6687,7 @@ objc_build_encode_expr (tree type)
   encode_type (type, obstack_object_size (&util_obstack),
 	       OBJC_ENCODE_INLINE_DEFS);
   obstack_1grow (&util_obstack, 0);    /* null terminate string */
-  string = obstack_finish (&util_obstack);
+  string = (const char *) obstack_finish (&util_obstack);
 
   /* Synthesize a string that represents the encoded struct/union.  */
   result = my_build_string (strlen (string) + 1, string);
@@ -6910,24 +6912,24 @@ add_method_to_hash_list (hash *hash_list, tree method)
 }
 
 static tree
-objc_add_method (tree class, tree method, int is_class)
+objc_add_method (tree cls, tree method, int is_class)
 {
   tree mth;
 
   if (!(mth = lookup_method (is_class
-			     ? CLASS_CLS_METHODS (class)
-			     : CLASS_NST_METHODS (class), method)))
+			     ? CLASS_CLS_METHODS (cls)
+			     : CLASS_NST_METHODS (cls), method)))
     {
       /* put method on list in reverse order */
       if (is_class)
 	{
-	  TREE_CHAIN (method) = CLASS_CLS_METHODS (class);
-	  CLASS_CLS_METHODS (class) = method;
+	  TREE_CHAIN (method) = CLASS_CLS_METHODS (cls);
+	  CLASS_CLS_METHODS (cls) = method;
 	}
       else
 	{
-	  TREE_CHAIN (method) = CLASS_NST_METHODS (class);
-	  CLASS_NST_METHODS (class) = method;
+	  TREE_CHAIN (method) = CLASS_NST_METHODS (cls);
+	  CLASS_NST_METHODS (cls) = method;
 	}
     }
   else
@@ -6937,8 +6939,8 @@ objc_add_method (tree class, tree method, int is_class)
 	 and/or return types. We do not do this for @implementations, because
 	 C/C++ will do it for us (i.e., there will be duplicate function
 	 definition errors).  */
-      if ((TREE_CODE (class) == CLASS_INTERFACE_TYPE
-	   || TREE_CODE (class) == CATEGORY_INTERFACE_TYPE)
+      if ((TREE_CODE (cls) == CLASS_INTERFACE_TYPE
+	   || TREE_CODE (cls) == CATEGORY_INTERFACE_TYPE)
 	  && !comp_proto_with_proto (method, mth, 1))
 	error ("duplicate declaration of method %<%c%s%>",
 		is_class ? '+' : '-',
@@ -6956,12 +6958,12 @@ objc_add_method (tree class, tree method, int is_class)
 	 instance methods listed in @protocol declarations to
 	 the class hash table, on the assumption that @protocols
 	 may be adopted by root classes or categories.  */
-      if (TREE_CODE (class) == CATEGORY_INTERFACE_TYPE
-	  || TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
-	class = lookup_interface (CLASS_NAME (class));
+      if (TREE_CODE (cls) == CATEGORY_INTERFACE_TYPE
+	  || TREE_CODE (cls) == CATEGORY_IMPLEMENTATION_TYPE)
+	cls = lookup_interface (CLASS_NAME (cls));
 
-      if (TREE_CODE (class) == PROTOCOL_INTERFACE_TYPE
-	  || !CLASS_SUPER_NAME (class))
+      if (TREE_CODE (cls) == PROTOCOL_INTERFACE_TYPE
+	  || !CLASS_SUPER_NAME (cls))
 	add_method_to_hash_list (cls_method_hash_list, method);
     }
 
@@ -6994,21 +6996,21 @@ add_class (tree class_name, tree name)
 }
 
 static void
-add_category (tree class, tree category)
+add_category (tree cls, tree category)
 {
   /* Put categories on list in reverse order.  */
-  tree cat = lookup_category (class, CLASS_SUPER_NAME (category));
+  tree cat = lookup_category (cls, CLASS_SUPER_NAME (category));
 
   if (cat)
     {
       warning (0, "duplicate interface declaration for category %<%s(%s)%>",
-	       IDENTIFIER_POINTER (CLASS_NAME (class)),
+	       IDENTIFIER_POINTER (CLASS_NAME (cls)),
 	       IDENTIFIER_POINTER (CLASS_SUPER_NAME (category)));
     }
   else
     {
-      CLASS_CATEGORY_LIST (category) = CLASS_CATEGORY_LIST (class);
-      CLASS_CATEGORY_LIST (class) = category;
+      CLASS_CATEGORY_LIST (category) = CLASS_CATEGORY_LIST (cls);
+      CLASS_CATEGORY_LIST (cls) = category;
     }
 }
 
@@ -7018,7 +7020,7 @@ add_category (tree class, tree category)
    PUBLIC is 1 for public, 0 for protected, and 2 for private.  */
 
 static tree
-add_instance_variable (tree class, int public, tree field_decl)
+add_instance_variable (tree cls, int pub, tree field_decl)
 {
   tree field_type = TREE_TYPE (field_decl);
   const char *ivar_name = DECL_NAME (field_decl)
@@ -7031,7 +7033,7 @@ add_instance_variable (tree class, int public, tree field_decl)
       error ("illegal reference type specified for instance variable %qs",
 	     ivar_name);
       /* Return class as is without adding this ivar.  */
-      return class;
+      return cls;
     }
 #endif
 
@@ -7041,7 +7043,7 @@ add_instance_variable (tree class, int public, tree field_decl)
     {
       error ("instance variable %qs has unknown size", ivar_name);
       /* Return class as is without adding this ivar.  */
-      return class;
+      return cls;
     }
 
 #ifdef OBJCPLUS
@@ -7087,7 +7089,7 @@ add_instance_variable (tree class, int public, tree field_decl)
 		     "for instance variable %qs",
 		     type_name, ivar_name);
 	      /* Return class as is without adding this ivar.  */
-	      return class;
+	      return cls;
 	    }
 
 	  /* User-defined constructors and destructors are not known to Obj-C
@@ -7108,7 +7110,7 @@ add_instance_variable (tree class, int public, tree field_decl)
 #endif
 
   /* Overload the public attribute, it is not used for FIELD_DECLs.  */
-  switch (public)
+  switch (pub)
     {
     case 0:
       TREE_PUBLIC (field_decl) = 0;
@@ -7130,9 +7132,9 @@ add_instance_variable (tree class, int public, tree field_decl)
 
     }
 
-  CLASS_RAW_IVARS (class) = chainon (CLASS_RAW_IVARS (class), field_decl);
+  CLASS_RAW_IVARS (cls) = chainon (CLASS_RAW_IVARS (cls), field_decl);
 
-  return class;
+  return cls;
 }
 
 static tree
@@ -7175,16 +7177,16 @@ objc_is_public (tree expr, tree identifier)
     {
       if (TYPE_HAS_OBJC_INFO (basetype) && TYPE_OBJC_INTERFACE (basetype))
 	{
-	  tree class = lookup_interface (OBJC_TYPE_NAME (basetype));
+	  tree cls = lookup_interface (OBJC_TYPE_NAME (basetype));
 
-	  if (!class)
+	  if (!cls)
 	    {
 	      error ("cannot find interface declaration for %qs",
 		     IDENTIFIER_POINTER (OBJC_TYPE_NAME (basetype)));
 	      return 0;
 	    }
 
-	  if ((decl = is_ivar (get_class_ivars (class, true), identifier)))
+	  if ((decl = is_ivar (get_class_ivars (cls, true), identifier)))
 	    {
 	      if (TREE_PUBLIC (decl))
 		return 1;
@@ -7205,13 +7207,13 @@ objc_is_public (tree expr, tree identifier)
 		  if (basetype == curtype
 		      || DERIVED_FROM_P (basetype, curtype))
 		    {
-		      int private = is_private (decl);
+		      bool priv = is_private (decl);
 
-		      if (private)
+		      if (priv)
 			error ("instance variable %qs is declared private",
 			       IDENTIFIER_POINTER (DECL_NAME (decl)));
 
-		      return !private;
+		      return !priv;
 		    }
 		}
 
@@ -7274,18 +7276,18 @@ check_methods (tree chain, tree list, int mtype)
 /* Check if CLASS, or its superclasses, explicitly conforms to PROTOCOL.  */
 
 static int
-conforms_to_protocol (tree class, tree protocol)
+conforms_to_protocol (tree cls, tree protocol)
 {
    if (TREE_CODE (protocol) == PROTOCOL_INTERFACE_TYPE)
      {
-       tree p = CLASS_PROTOCOL_LIST (class);
+       tree p = CLASS_PROTOCOL_LIST (cls);
        while (p && TREE_VALUE (p) != protocol)
 	 p = TREE_CHAIN (p);
 
        if (!p)
 	 {
-	   tree super = (CLASS_SUPER_NAME (class)
-			 ? lookup_interface (CLASS_SUPER_NAME (class))
+	   tree super = (CLASS_SUPER_NAME (cls)
+			 ? lookup_interface (CLASS_SUPER_NAME (cls))
 			 : NULL_TREE);
 	   int tmp = super ? conforms_to_protocol (super, protocol) : 0;
 	   if (!tmp)
@@ -7439,7 +7441,7 @@ static tree
 start_class (enum tree_code code, tree class_name, tree super_name,
 	     tree protocol_list)
 {
-  tree class, decl;
+  tree cls, decl;
 
 #ifdef OBJCPLUS
   if (current_namespace != global_namespace) {
@@ -7455,8 +7457,8 @@ start_class (enum tree_code code, tree class_name, tree super_name,
       objc_implementation_context = NULL_TREE;
     }
 
-  class = make_node (code);
-  TYPE_LANG_SLOT_1 (class) = make_tree_vec (CLASS_LANG_SLOT_ELTS);
+  cls = make_node (code);
+  TYPE_LANG_SLOT_1 (cls) = make_tree_vec (CLASS_LANG_SLOT_ELTS);
 
   /* Check for existence of the super class, if one was specified.  Note
      that we must have seen an @interface, not just a @class.  If we
@@ -7477,9 +7479,9 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	super_name = super;
     }
 
-  CLASS_NAME (class) = class_name;
-  CLASS_SUPER_NAME (class) = super_name;
-  CLASS_CLS_METHODS (class) = NULL_TREE;
+  CLASS_NAME (cls) = class_name;
+  CLASS_SUPER_NAME (cls) = super_name;
+  CLASS_CLS_METHODS (cls) = NULL_TREE;
 
   if (! objc_is_class_name (class_name)
       && (decl = lookup_name (class_name)))
@@ -7509,7 +7511,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
       /* Reset for multiple classes per file.  */
       method_slot = 0;
 
-      objc_implementation_context = class;
+      objc_implementation_context = cls;
 
       /* Lookup the interface for this implementation.  */
 
@@ -7552,10 +7554,10 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 #endif
         IDENTIFIER_POINTER (class_name));
       else
-        add_class (class, class_name);
+        add_class (cls, class_name);
 
       if (protocol_list)
-	CLASS_PROTOCOL_LIST (class)
+	CLASS_PROTOCOL_LIST (cls)
 	  = lookup_and_install_protocols (protocol_list);
     }
 
@@ -7574,10 +7576,10 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	  exit (FATAL_EXIT_CODE);
 	}
       else
-        add_category (class_category_is_assoc_with, class);
+        add_category (class_category_is_assoc_with, cls);
 
       if (protocol_list)
-	CLASS_PROTOCOL_LIST (class)
+	CLASS_PROTOCOL_LIST (cls)
 	  = lookup_and_install_protocols (protocol_list);
     }
 
@@ -7586,7 +7588,7 @@ start_class (enum tree_code code, tree class_name, tree super_name,
       /* Reset for multiple classes per file.  */
       method_slot = 0;
 
-      objc_implementation_context = class;
+      objc_implementation_context = cls;
 
       /* For a category, class_name is really the name of the class that
 	 the following set of methods will be associated with.  We must
@@ -7599,21 +7601,21 @@ start_class (enum tree_code code, tree class_name, tree super_name,
 	  exit (FATAL_EXIT_CODE);
         }
     }
-  return class;
+  return cls;
 }
 
 static tree
-continue_class (tree class)
+continue_class (tree cls)
 {
-  if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE
-      || TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
+  if (TREE_CODE (cls) == CLASS_IMPLEMENTATION_TYPE
+      || TREE_CODE (cls) == CATEGORY_IMPLEMENTATION_TYPE)
     {
       struct imp_entry *imp_entry;
 
       /* Check consistency of the instance variables.  */
 
-      if (CLASS_RAW_IVARS (class))
-	check_ivars (implementation_template, class);
+      if (CLASS_RAW_IVARS (cls))
+	check_ivars (implementation_template, cls);
 
       /* code generation */
 
@@ -7628,7 +7630,7 @@ continue_class (tree class)
       imp_entry = (struct imp_entry *) ggc_alloc (sizeof (struct imp_entry));
 
       imp_entry->next = imp_list;
-      imp_entry->imp_context = class;
+      imp_entry->imp_context = cls;
       imp_entry->imp_template = implementation_template;
 
       synth_forward_declarations ();
@@ -7638,7 +7640,7 @@ continue_class (tree class)
 
       /* Append to front and increment count.  */
       imp_list = imp_entry;
-      if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
+      if (TREE_CODE (cls) == CLASS_IMPLEMENTATION_TYPE)
 	imp_count++;
       else
 	cat_count++;
@@ -7650,13 +7652,13 @@ continue_class (tree class)
       return get_class_ivars (implementation_template, true);
     }
 
-  else if (TREE_CODE (class) == CLASS_INTERFACE_TYPE)
+  else if (TREE_CODE (cls) == CLASS_INTERFACE_TYPE)
     {
 #ifdef OBJCPLUS
       push_lang_context (lang_name_c);
 #endif /* OBJCPLUS */
 
-      build_private_template (class);
+      build_private_template (cls);
 
 #ifdef OBJCPLUS
       pop_lang_context ();
@@ -7672,9 +7674,9 @@ continue_class (tree class)
 /* This is called once we see the "@end" in an interface/implementation.  */
 
 static void
-finish_class (tree class)
+finish_class (tree cls)
 {
-  if (TREE_CODE (class) == CLASS_IMPLEMENTATION_TYPE)
+  if (TREE_CODE (cls) == CLASS_IMPLEMENTATION_TYPE)
     {
       /* All code generation is done in finish_objc.  */
 
@@ -7693,9 +7695,9 @@ finish_class (tree class)
 	}
     }
 
-  else if (TREE_CODE (class) == CATEGORY_IMPLEMENTATION_TYPE)
+  else if (TREE_CODE (cls) == CATEGORY_IMPLEMENTATION_TYPE)
     {
-      tree category = lookup_category (implementation_template, CLASS_SUPER_NAME (class));
+      tree category = lookup_category (implementation_template, CLASS_SUPER_NAME (cls));
 
       if (category)
 	{
@@ -8515,19 +8517,23 @@ objc_start_function (tree name, tree type, tree attrs,
 #else
   struct c_label_context_se *nstack_se;
   struct c_label_context_vm *nstack_vm;
+
+  current_function_returns_value = false;  /* Assume, until we see it does.  */
+  current_function_returns_null = false;
+  current_function_returns_abnormally = false;
+
   nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
   nstack_se->labels_def = NULL;
   nstack_se->labels_used = NULL;
   nstack_se->next = label_context_stack_se;
   label_context_stack_se = nstack_se;
+
   nstack_vm = XOBNEW (&parser_obstack, struct c_label_context_vm);
   nstack_vm->labels_def = NULL;
   nstack_vm->labels_used = NULL;
   nstack_vm->scope = 0;
   nstack_vm->next = label_context_stack_vm;
   label_context_stack_vm = nstack_vm;
-  current_function_returns_value = 0;  /* Assume, until we see it does.  */
-  current_function_returns_null = 0;
 
   decl_attributes (&fndecl, attrs, 0);
   announce_function (fndecl);
@@ -9464,7 +9470,7 @@ objc_rewrite_function_call (tree function, tree params)
    a function in OBJ_TYPE_REF_EXPR (presumably objc_msgSend or one
    of its cousins).  */
 
-enum gimplify_status
+int
 objc_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
   enum gimplify_status r0, r1;

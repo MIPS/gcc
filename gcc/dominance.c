@@ -681,12 +681,12 @@ get_immediate_dominator (enum cdi_direction dir, basic_block bb)
   if (!node->father)
     return NULL;
 
-  return node->father->data;
+  return (basic_block) node->father->data;
 }
 
 /* Set the immediate dominator of the block possibly removing
    existing edge.  NULL can be used to remove any edge.  */
-inline void
+void
 set_immediate_dominator (enum cdi_direction dir, basic_block bb,
 			 basic_block dominated_by)
 {
@@ -728,9 +728,9 @@ get_dominated_by (enum cdi_direction dir, basic_block bb, basic_block **bbs)
     n++;
 
   *bbs = XNEWVEC (basic_block, n);
-  (*bbs)[0] = son->data;
+  (*bbs)[0] = (basic_block) son->data;
   for (ason = son->right, n = 1; ason != son; ason = ason->right)
-    (*bbs)[n++] = ason->data;
+    (*bbs)[n++] = (basic_block) ason->data;
 
   return n;
 }
@@ -796,7 +796,7 @@ nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block b
   if (!bb2)
     return bb1;
 
-  return et_nca (bb1->dom[dir], bb2->dom[dir])->data;
+  return (basic_block) et_nca (bb1->dom[dir], bb2->dom[dir])->data;
 }
 
 
@@ -1079,7 +1079,7 @@ first_dom_son (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *son = bb->dom[dir]->son;
 
-  return son ? son->data : NULL;
+  return son ? (basic_block) son->data : NULL;
 }
 
 /* Returns the next dominance son after BB in the dominator or postdominator
@@ -1090,7 +1090,7 @@ next_dom_son (enum cdi_direction dir, basic_block bb)
 {
   struct et_node *next = bb->dom[dir]->right;
 
-  return next->father->son == next ? NULL : next->data;
+  return next->father->son == next ? NULL : (basic_block) next->data;
 }
 
 /* Returns true if dominance information for direction DIR is available.  */

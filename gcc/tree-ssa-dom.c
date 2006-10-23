@@ -569,7 +569,7 @@ dom_thread_across_edge (struct dom_walk_data *walk_data, edge e)
       walk_data->global_data = dummy_cond;
     }
 
-  thread_across_edge (walk_data->global_data, e, false,
+  thread_across_edge ((tree) walk_data->global_data, e, false,
 		      &const_and_copies_stack,
 		      simplify_stmt_for_jump_threading);
 }
@@ -1238,7 +1238,7 @@ cprop_into_successor_phis (basic_block bb)
       indx = e->dest_idx;
       for ( ; phi; phi = PHI_CHAIN (phi))
 	{
-	  tree new;
+	  tree fresh;
 	  use_operand_p orig_p;
 	  tree orig;
 
@@ -1251,13 +1251,13 @@ cprop_into_successor_phis (basic_block bb)
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */
-	  new = SSA_NAME_VALUE (orig);
-	  if (new
-	      && new != orig
-	      && (TREE_CODE (new) == SSA_NAME
-		  || is_gimple_min_invariant (new))
-	      && may_propagate_copy (orig, new))
-	    propagate_value (orig_p, new);
+	  fresh = SSA_NAME_VALUE (orig);
+	  if (fresh
+	      && fresh != orig
+	      && (TREE_CODE (fresh) == SSA_NAME
+		  || is_gimple_min_invariant (fresh))
+	      && may_propagate_copy (orig, fresh))
+	    propagate_value (orig_p, fresh);
 	}
     }
 }
@@ -1591,7 +1591,7 @@ record_equivalences_from_stmt (tree stmt,
       && !is_gimple_reg (lhs))
     {
       tree rhs = TREE_OPERAND (stmt, 1);
-      tree new;
+      tree fresh;
 
       /* FIXME: If the LHS of the assignment is a bitfield and the RHS
          is a constant, we need to adjust the constant to fit into the
@@ -1617,13 +1617,13 @@ record_equivalences_from_stmt (tree stmt,
       if (rhs)
 	{
 	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new = build2 (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
+	  fresh = build2 (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
 
-	  create_ssa_artficial_load_stmt (new, stmt);
+	  create_ssa_artficial_load_stmt (fresh, stmt);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
-	  lookup_avail_expr (new, true);
+	  lookup_avail_expr (fresh, true);
 	}
     }
 }

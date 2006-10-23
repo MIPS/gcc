@@ -735,8 +735,8 @@ int ggc_p = 1;
 tree
 builtin_function (const char *name,
 		  tree type,
-		  int function_code,
-		  enum built_in_class class,
+		  enum built_in_function function_code,
+		  enum built_in_class bi,
 		  const char *library_name,
 		  tree attrs)
 {
@@ -747,7 +747,7 @@ builtin_function (const char *name,
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
   make_decl_rtl (decl);
   pushdecl (decl);
-  DECL_BUILT_IN_CLASS (decl) = class;
+  DECL_BUILT_IN_CLASS (decl) = bi;
   DECL_FUNCTION_CODE (decl) = function_code;
 
   /* Possibly apply some default attributes to this built-in function.  */
@@ -773,7 +773,7 @@ gfc_define_builtin (const char * name,
 {
   tree decl;
 
-  decl = builtin_function (name, type, code, BUILT_IN_NORMAL,
+  decl = builtin_function (name, type, (enum built_in_function) code, BUILT_IN_NORMAL,
 			   library_name, NULL_TREE);
   if (const_p)
     TREE_READONLY (decl) = 1;

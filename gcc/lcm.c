@@ -351,13 +351,13 @@ compute_laterin (struct edge_list *edge_list, sbitmap *earliest,
 static void
 compute_insert_delete (struct edge_list *edge_list, sbitmap *antloc,
 		       sbitmap *later, sbitmap *laterin, sbitmap *insert,
-		       sbitmap *delete)
+		       sbitmap *del)
 {
   int x;
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], antloc[bb->index],
+    sbitmap_difference (del[bb->index], antloc[bb->index],
 			laterin[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
@@ -378,7 +378,7 @@ compute_insert_delete (struct edge_list *edge_list, sbitmap *antloc,
 struct edge_list *
 pre_edge_lcm (int n_exprs, sbitmap *transp,
 	      sbitmap *avloc, sbitmap *antloc, sbitmap *kill,
-	      sbitmap **insert, sbitmap **delete)
+	      sbitmap **insert, sbitmap **del)
 {
   sbitmap *antin, *antout, *earliest;
   sbitmap *avin, *avout;
@@ -451,8 +451,8 @@ pre_edge_lcm (int n_exprs, sbitmap *transp,
   sbitmap_vector_free (earliest);
 
   *insert = sbitmap_vector_alloc (num_edges, n_exprs);
-  *delete = sbitmap_vector_alloc (last_basic_block, n_exprs);
-  compute_insert_delete (edge_list, antloc, later, laterin, *insert, *delete);
+  *del = sbitmap_vector_alloc (last_basic_block, n_exprs);
+  compute_insert_delete (edge_list, antloc, later, laterin, *insert, *del);
 
   sbitmap_vector_free (laterin);
   sbitmap_vector_free (later);
@@ -461,7 +461,7 @@ pre_edge_lcm (int n_exprs, sbitmap *transp,
   if (dump_file)
     {
       dump_sbitmap_vector (dump_file, "pre_insert_map", "", *insert, num_edges);
-      dump_sbitmap_vector (dump_file, "pre_delete_map", "", *delete,
+      dump_sbitmap_vector (dump_file, "pre_delete_map", "", *del,
 			   last_basic_block);
     }
 #endif
@@ -685,13 +685,13 @@ compute_nearerout (struct edge_list *edge_list, sbitmap *farthest,
 static void
 compute_rev_insert_delete (struct edge_list *edge_list, sbitmap *st_avloc,
 			   sbitmap *nearer, sbitmap *nearerout,
-			   sbitmap *insert, sbitmap *delete)
+			   sbitmap *insert, sbitmap *del)
 {
   int x;
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    sbitmap_difference (delete[bb->index], st_avloc[bb->index],
+    sbitmap_difference (del[bb->index], st_avloc[bb->index],
 			nearerout[bb->index]);
 
   for (x = 0; x < NUM_EDGES (edge_list); x++)
@@ -712,7 +712,7 @@ compute_rev_insert_delete (struct edge_list *edge_list, sbitmap *st_avloc,
 struct edge_list *
 pre_edge_rev_lcm (int n_exprs, sbitmap *transp,
 		  sbitmap *st_avloc, sbitmap *st_antloc, sbitmap *kill,
-		  sbitmap **insert, sbitmap **delete)
+		  sbitmap **insert, sbitmap **del)
 {
   sbitmap *st_antin, *st_antout;
   sbitmap *st_avout, *st_avin, *farthest;
@@ -791,9 +791,9 @@ pre_edge_rev_lcm (int n_exprs, sbitmap *transp,
   sbitmap_vector_free (farthest);
 
   *insert = sbitmap_vector_alloc (num_edges, n_exprs);
-  *delete = sbitmap_vector_alloc (last_basic_block, n_exprs);
+  *del = sbitmap_vector_alloc (last_basic_block, n_exprs);
   compute_rev_insert_delete (edge_list, st_avloc, nearer, nearerout,
-			     *insert, *delete);
+			     *insert, *del);
 
   sbitmap_vector_free (nearerout);
   sbitmap_vector_free (nearer);
@@ -802,7 +802,7 @@ pre_edge_rev_lcm (int n_exprs, sbitmap *transp,
   if (dump_file)
     {
       dump_sbitmap_vector (dump_file, "pre_insert_map", "", *insert, num_edges);
-      dump_sbitmap_vector (dump_file, "pre_delete_map", "", *delete,
+      dump_sbitmap_vector (dump_file, "pre_delete_map", "", *del,
 			   last_basic_block);
     }
 #endif

@@ -411,7 +411,7 @@ format_lex (void)
    by itself, and we are checking it for validity.  The dual origin
    means that the warning message is a little less than great.  */
 
-static try
+static check
 check_format (void)
 {
   const char *posint_required	  = _("Positive width required");
@@ -423,7 +423,7 @@ check_format (void)
   format_token t, u;
   int level;
   int repeat;
-  try rv;
+  check rv;
 
   use_last_char = 0;
   saved_token = FMT_NONE;
@@ -896,7 +896,7 @@ gfc_match_format (void)
   e->ts.type = BT_CHARACTER;
   e->ts.kind = gfc_default_character_kind;
   e->where = start;
-  e->value.character.string = format_string = gfc_getmem(format_length+1);
+  e->value.character.string = format_string = (char *)gfc_getmem(format_length+1);
   e->value.character.length = format_length;
   gfc_statement_label->format = e;
 
@@ -1011,7 +1011,7 @@ match_ltag (const io_tag * tag, gfc_st_label ** label)
 
 /* Do expression resolution and type-checking on an expression tag.  */
 
-static try
+static check
 resolve_tag (const io_tag * tag, gfc_expr * e)
 {
 
@@ -1226,7 +1226,7 @@ gfc_free_open (gfc_open * open)
 
 /* Resolve everything in a gfc_open structure.  */
 
-try
+check
 gfc_resolve_open (gfc_open * open)
 {
 
@@ -1359,7 +1359,7 @@ gfc_match_open (void)
   if (m == MATCH_NO)
     return m;
 
-  open = gfc_getmem (sizeof (gfc_open));
+  open = (gfc_open *)gfc_getmem (sizeof (gfc_open));
 
   m = match_open_element (open);
 
@@ -1702,7 +1702,7 @@ gfc_match_close (void)
   if (m == MATCH_NO)
     return m;
 
-  close = gfc_getmem (sizeof (gfc_close));
+  close = (gfc_close *)gfc_getmem (sizeof (gfc_close));
 
   m = match_close_element (close);
 
@@ -1768,7 +1768,7 @@ cleanup:
 
 /* Resolve everything in a gfc_close structure.  */
 
-try
+check
 gfc_resolve_close (gfc_close * close)
 {
 
@@ -1830,7 +1830,7 @@ match_filepos (gfc_statement st, gfc_exec_op op)
   gfc_filepos *fp;
   match m;
 
-  fp = gfc_getmem (sizeof (gfc_filepos));
+  fp = (gfc_filepos *)gfc_getmem (sizeof (gfc_filepos));
 
   if (gfc_match_char ('(') == MATCH_NO)
     {
@@ -1894,7 +1894,7 @@ cleanup:
 }
 
 
-try
+check
 gfc_resolve_filepos (gfc_filepos * fp)
 {
 
@@ -2195,7 +2195,7 @@ gfc_free_dt (gfc_dt * dt)
 
 /* Resolve everything in a gfc_dt structure.  */
 
-try
+check
 gfc_resolve_dt (gfc_dt * dt)
 {
   gfc_expr *e;
@@ -2325,7 +2325,7 @@ static match match_io_element (io_kind k, gfc_code **);
 static match
 match_io_iterator (io_kind k, gfc_code ** result)
 {
-  gfc_code *head, *tail, *new;
+  gfc_code *head, *tail, *fresh;
   gfc_iterator *iter;
   locus old_loc;
   match m;
@@ -2361,7 +2361,7 @@ match_io_iterator (io_kind k, gfc_code ** result)
 	  break;
 	}
 
-      m = match_io_element (k, &new);
+      m = match_io_element (k, &fresh);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
@@ -2371,7 +2371,7 @@ match_io_iterator (io_kind k, gfc_code ** result)
 	  goto cleanup;
 	}
 
-      tail = gfc_append_code (tail, new);
+      tail = gfc_append_code (tail, fresh);
 
       if (gfc_match_char (',') != MATCH_YES)
 	{
@@ -2385,15 +2385,15 @@ match_io_iterator (io_kind k, gfc_code ** result)
   if (gfc_match_char (')') != MATCH_YES)
     goto syntax;
 
-  new = gfc_get_code ();
-  new->op = EXEC_DO;
-  new->ext.iterator = iter;
+  fresh = gfc_get_code ();
+  fresh->op = EXEC_DO;
+  fresh->ext.iterator = iter;
 
-  new->block = gfc_get_code ();
-  new->block->op = EXEC_DO;
-  new->block->next = head;
+  fresh->block = gfc_get_code ();
+  fresh->block->op = EXEC_DO;
+  fresh->block->next = head;
 
-  *result = new;
+  *result = fresh;
   return MATCH_YES;
 
 syntax:
@@ -2502,7 +2502,7 @@ match_io_element (io_kind k, gfc_code ** cpp)
 static match
 match_io_list (io_kind k, gfc_code ** head_p)
 {
-  gfc_code *head, *tail, *new;
+  gfc_code *head, *tail, *fresh;
   match m;
 
   *head_p = head = tail = NULL;
@@ -2511,15 +2511,15 @@ match_io_list (io_kind k, gfc_code ** head_p)
 
   for (;;)
     {
-      m = match_io_element (k, &new);
+      m = match_io_element (k, &fresh);
       if (m == MATCH_ERROR)
 	goto cleanup;
       if (m == MATCH_NO)
 	goto syntax;
 
-      tail = gfc_append_code (tail, new);
+      tail = gfc_append_code (tail, fresh);
       if (head == NULL)
-	head = new;
+	head = fresh;
 
       if (gfc_match_eos () == MATCH_YES)
 	break;
@@ -2743,7 +2743,7 @@ match_io (io_kind k)
 
   where = gfc_current_locus;
   comma_flag = 0;
-  current_dt = dt = gfc_getmem (sizeof (gfc_dt));
+  current_dt = dt = (gfc_dt *)gfc_getmem (sizeof (gfc_dt));
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     {
@@ -3070,7 +3070,7 @@ gfc_match_inquire (void)
   if (m == MATCH_NO)
     return m;
 
-  inquire = gfc_getmem (sizeof (gfc_inquire));
+  inquire = (gfc_inquire *)gfc_getmem (sizeof (gfc_inquire));
 
   loc = gfc_current_locus;
 
@@ -3175,7 +3175,7 @@ cleanup:
 
 /* Resolve everything in a gfc_inquire structure.  */
 
-try
+check
 gfc_resolve_inquire (gfc_inquire * inquire)
 {
 

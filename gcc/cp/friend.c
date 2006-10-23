@@ -23,6 +23,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "rtl.h"
 #include "expr.h"
@@ -60,15 +61,15 @@ is_friend (tree type, tree supplicant)
 	      tree friends = FRIEND_DECLS (list);
 	      for (; friends ; friends = TREE_CHAIN (friends))
 		{
-		  tree friend = TREE_VALUE (friends);
+		  tree fr = TREE_VALUE (friends);
 
-		  if (friend == NULL_TREE)
+		  if (fr == NULL_TREE)
 		    continue;
 
-		  if (supplicant == friend)
+		  if (supplicant == fr)
 		    return 1;
 
-		  if (is_specialization_of_friend (supplicant, friend))
+		  if (is_specialization_of_friend (supplicant, fr))
 		    return 1;
 		}
 	      break;

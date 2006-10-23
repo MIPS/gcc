@@ -38,9 +38,6 @@ Boston, MA 02110-1301, USA.  */
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-#undef MD_EXEC_PREFIX
-#undef MD_STARTFILE_PREFIX
-
 #if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
     || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc \
     || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3 \
@@ -85,10 +82,6 @@ Boston, MA 02110-1301, USA.  */
 #define ENDFILE_SPEC \
   "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s\
    %{ffast-math|funsafe-math-optimizations:crtfastmath.o%s}"
-
-/* The GNU C++ standard library requires that these macros be defined.  */
-#undef CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (sparc64 GNU/Linux with ELF)");

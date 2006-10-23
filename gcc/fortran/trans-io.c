@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 enum ioparam_type
 {
+  IOPARM_ptype_none,
   IOPARM_ptype_common,
   IOPARM_ptype_open,
   IOPARM_ptype_close,
@@ -50,6 +51,7 @@ enum ioparam_type
 
 enum iofield_type
 {
+  IOPARM_type_none,
   IOPARM_type_int4,
   IOPARM_type_intio,
   IOPARM_type_pint4,
@@ -105,7 +107,7 @@ static GTY(()) gfc_st_parameter_field st_parameter_field[] =
   { #name, mask, IOPARM_ptype_##param_type, IOPARM_type_##type, NULL, NULL },
 #include "ioparm.def"
 #undef IOPARM
-  { NULL, 0, 0, 0, NULL, NULL }
+  { NULL, 0, IOPARM_ptype_none, IOPARM_type_none, NULL, NULL }
 };
 
 /* Library I/O subroutines */
@@ -151,7 +153,7 @@ static stmtblock_t *dt_post_end_block;
 static void
 gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
 {
-  enum iofield type;
+  int type;
   gfc_st_parameter_field *p;
   char name[64];
   size_t len;
@@ -203,6 +205,7 @@ gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
 				       get_identifier (p->name),
 				       st_parameter[IOPARM_ptype_common].type);
 	  break;
+	case IOPARM_type_none:
 	case IOPARM_type_num:
 	  gcc_unreachable ();
 	}
@@ -221,7 +224,7 @@ gfc_build_io_library_fndecls (void)
   tree parm_type, dt_parm_type;
   tree gfc_c_int_type_node;
   HOST_WIDE_INT pad_size;
-  enum ioparam_type ptype;
+  int ptype;
 
   types[IOPARM_type_int4] = gfc_int4_type_node = gfc_get_int_type (4);
   types[IOPARM_type_intio] = gfc_intio_type_node
@@ -246,7 +249,7 @@ gfc_build_io_library_fndecls (void)
   gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
-    gfc_build_st_parameter (ptype, types);
+    gfc_build_st_parameter ((enum ioparam_type) ptype, types);
 
   /* Define the transfer functions.  */
 
@@ -1130,7 +1133,7 @@ gfc_new_nml_name_expr (const char * name)
    nml_name->ts.kind = gfc_default_character_kind;
    nml_name->ts.type = BT_CHARACTER;
    nml_name->value.character.length = strlen(name);
-   nml_name->value.character.string = gfc_getmem (strlen (name) + 1);
+   nml_name->value.character.string = (char *)gfc_getmem (strlen (name) + 1);
    strcpy (nml_name->value.character.string, name);
 
    return nml_name;

@@ -366,14 +366,14 @@ df_grow_reg_info (struct dataflow *dflow, struct df_ref_info *ref_info)
   if (ref_info->regs_size < new_size)
     {
       new_size += new_size / 4;
-      ref_info->regs = xrealloc (ref_info->regs, 
+      ref_info->regs = (struct df_reg_info **) xrealloc (ref_info->regs, 
 				 new_size *sizeof (struct df_reg_info*));
       ref_info->regs_size = new_size;
     }
 
   for (i = ref_info->regs_inited; i < max_reg; i++)
     {
-      struct df_reg_info *reg_info = pool_alloc (problem_data->reg_pool);
+      struct df_reg_info *reg_info = (struct df_reg_info *) pool_alloc (problem_data->reg_pool);
       memset (reg_info, 0, sizeof (struct df_reg_info));
       ref_info->regs[i] = reg_info;
     }
@@ -389,7 +389,7 @@ df_grow_ref_info (struct df_ref_info *ref_info, unsigned int new_size)
 {
   if (ref_info->refs_size < new_size)
     {
-      ref_info->refs = xrealloc (ref_info->refs, 
+      ref_info->refs = (struct df_ref **) xrealloc (ref_info->refs, 
 				 new_size *sizeof (struct df_ref *));
       memset (ref_info->refs + ref_info->refs_size, 0,
 	      (new_size - ref_info->refs_size) *sizeof (struct df_ref *));
@@ -409,7 +409,7 @@ df_grow_insn_info (struct df *df)
   if (df->insns_size < new_size)
     {
       new_size += new_size / 4;
-      df->insns = xrealloc (df->insns, 
+      df->insns = (struct df_insn_info **) xrealloc (df->insns, 
 			    new_size *sizeof (struct df_insn_info *));
       memset (df->insns + df->insns_size, 0,
 	      (new_size - df->insns_size) *sizeof (struct df_insn_info *));
@@ -763,7 +763,7 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
   struct df_insn_info *insn_rec = DF_INSN_GET (df, insn);
   if (!insn_rec)
     {
-      insn_rec = pool_alloc (problem_data->insn_pool);
+      insn_rec = (struct df_insn_info *) pool_alloc (problem_data->insn_pool);
       DF_INSN_SET (df, insn, insn_rec);
     }
   memset (insn_rec, 0, sizeof (struct df_insn_info));
@@ -939,7 +939,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
 
-  this_ref = pool_alloc (problem_data->ref_pool);
+  this_ref = (struct df_ref *) pool_alloc (problem_data->ref_pool);
   DF_REF_REG (this_ref) = reg;
   DF_REF_REGNO (this_ref) =  regno;
   DF_REF_LOC (this_ref) = loc;
@@ -1068,7 +1068,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
     {
       loc = &SUBREG_REG (reg);
       reg = *loc;
-      ref_flags |= DF_REF_STRIPPED;
+      ref_flags = (enum df_ref_flags) (ref_flags | DF_REF_STRIPPED);
     }
 
   regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
@@ -1102,9 +1102,9 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 	  /* Sets to a subreg of a multiword register are partial. 
 	     Sets to a non-subreg of a multiword register are not.  */
 	  if (GET_CODE (oldreg) == SUBREG)
-	    ref_flags |= DF_REF_PARTIAL;
-	  ref_flags |= DF_REF_MW_HARDREG;
-	  hardreg = pool_alloc (problem_data->mw_reg_pool);
+	    ref_flags = (enum df_ref_flags) (ref_flags | DF_REF_PARTIAL);
+	  ref_flags = (enum df_ref_flags) (ref_flags | DF_REF_MW_HARDREG);
+	  hardreg = (struct df_mw_hardreg *)pool_alloc (problem_data->mw_reg_pool);
 	  hardreg->next = insn_info->mw_hardregs;
 	  insn_info->mw_hardregs = hardreg;
 	  hardreg->type = ref_type;
@@ -1139,7 +1139,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 					 bb, insn, ref_type, ref_flags);
 	  if (hardreg)
 	    {
-	      struct df_link *link = pool_alloc (problem_data->mw_link_pool);
+	      struct df_link *link = (struct df_link *) pool_alloc (problem_data->mw_link_pool);
 
 	      link->next = hardreg->regs;
 	      link->ref = ref;
@@ -1205,7 +1205,7 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
 	      || GET_CODE (temp) == SET)
 	    df_def_record_1 (dflow, temp, bb, insn, 
 			     GET_CODE (temp) == CLOBBER 
-			     ? flags | DF_REF_MUST_CLOBBER : flags, 
+			     ? (enum df_ref_flags) (flags | DF_REF_MUST_CLOBBER) : flags, 
 			     record_live);
 	}
       return;
@@ -1230,7 +1230,7 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
       if (GET_CODE (dst) == STRICT_LOW_PART)
 	dst_in_strict_lowpart = true;
       dst = *loc;
-      flags |= DF_REF_READ_WRITE;
+      flags = (enum df_ref_flags) (flags | DF_REF_READ_WRITE);
 
     }
 
@@ -1239,7 +1239,7 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
   */
   if (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))
       && dst_in_strict_lowpart)
-    flags |= DF_REF_PARTIAL;
+    flags = (enum df_ref_flags) (flags | DF_REF_PARTIAL);
     
   if (REG_P (dst)
       || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
@@ -1259,7 +1259,7 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
     {
       /* Mark the single def within the pattern.  */
       df_def_record_1 (dflow, x, bb, insn, 
-		       code == CLOBBER ? DF_REF_MUST_CLOBBER : 0, true);
+		       code == CLOBBER ? DF_REF_MUST_CLOBBER : DF_REF_NONE, true);
     }
   else if (code == COND_EXEC)
     {
@@ -1315,12 +1315,12 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 
     case MEM:
       df_uses_record (dflow, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn,
-		      flags & DF_REF_IN_NOTE);
+		      (enum df_ref_flags) (flags & DF_REF_IN_NOTE));
       return;
 
     case SUBREG:
       /* While we're here, optimize this case.  */
-      flags |= DF_REF_PARTIAL;
+      flags = (enum df_ref_flags) (flags | DF_REF_PARTIAL);
       /* In case the SUBREG is not of a REG, do not optimize.  */
       if (!REG_P (SUBREG_REG (x)))
 	{
@@ -1347,7 +1347,7 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 		{
 		  df_uses_record (dflow, &SUBREG_REG (dst), 
 				  DF_REF_REG_USE, bb,
-				  insn, flags | DF_REF_READ_WRITE);
+				  insn, (enum df_ref_flags) (flags | DF_REF_READ_WRITE));
 		  break;
 		}
 	      /* Fall through.  */
@@ -1446,7 +1446,7 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case PRE_MODIFY:
     case POST_MODIFY:
       /* Catch the def of the register being modified.  */
-      flags |= DF_REF_READ_WRITE;
+      flags = (enum df_ref_flags) (flags | DF_REF_READ_WRITE);
       df_ref_record (dflow, XEXP (x, 0), &XEXP (x, 0), bb, insn, 
 		     DF_REF_REG_DEF, flags, true);
 
@@ -1552,7 +1552,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	      if (GET_CODE (XEXP (note, 0)) == USE)
 		df_uses_record (dflow, &XEXP (XEXP (note, 0), 0), 
 				DF_REF_REG_USE,
-				bb, insn, 0);
+				bb, insn, DF_REF_NONE);
               else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 		{
 		  df_defs_record (dflow, XEXP (note, 0), bb, insn);
@@ -1576,7 +1576,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	  /* The stack ptr is used (honorarily) by a CALL insn.  */
 	  df_uses_record (dflow, &regno_reg_rtx[STACK_POINTER_REGNUM],
 			  DF_REF_REG_USE, bb, insn, 
-			  0);
+			  DF_REF_NONE);
 
 	  if (dflow->flags & DF_HARD_REGS)
 	    {
@@ -1588,7 +1588,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 		if (global_regs[i])
 		  df_uses_record (dflow, &regno_reg_rtx[i],
 				  DF_REF_REG_USE, bb, insn, 
-				  0);
+				  DF_REF_NONE);
 	      EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
 	        df_ref_record (dflow, regno_reg_rtx[ui], &regno_reg_rtx[ui], bb, 
 			       insn, DF_REF_REG_DEF, DF_REF_MAY_CLOBBER, false);
@@ -1597,7 +1597,7 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 
       /* Record the register uses.  */
       df_uses_record (dflow, &PATTERN (insn),
-		      DF_REF_REG_USE, bb, insn, 0);
+		      DF_REF_REG_USE, bb, insn, DF_REF_NONE);
 
     }
 }
@@ -1665,7 +1665,7 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 	    break;
 	  df_ref_record (dflow, regno_reg_rtx[regno], &regno_reg_rtx[regno],
 			 bb, NULL,
-			 DF_REF_REG_DEF, DF_REF_ARTIFICIAL | DF_REF_AT_TOP,
+			 DF_REF_REG_DEF, (enum df_ref_flags) (DF_REF_ARTIFICIAL | DF_REF_AT_TOP),
 			 false);
 	}
     }

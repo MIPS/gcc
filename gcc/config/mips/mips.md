@@ -373,7 +373,11 @@
 
 ;; Is it a single instruction?
 (define_attr "single_insn" "no,yes"
-  (symbol_ref "get_attr_length (insn) == (TARGET_MIPS16 ? 2 : 4)"))
+  (const 
+   (if_then_else (eq (symbol_ref "get_attr_length (insn)") 
+		     (symbol_ref "(TARGET_MIPS16 ? 2 : 4)"))
+		 (const_string "yes")
+		 (const_string "no"))))
 
 ;; Can the instruction be put into a delay slot?
 (define_attr "can_delay" "no,yes"

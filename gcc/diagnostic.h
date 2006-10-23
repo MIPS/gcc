@@ -79,7 +79,7 @@ struct diagnostic_context
      the diagnostic should be changed to before reporting, or
      DK_UNSPECIFIED to leave it as the reported kind, or DK_IGNORED to
      not report it at all.  N_OPTS is from <options.h>.  */
-  char classify_diagnostic[N_OPTS];
+  diagnostic_t classify_diagnostic[N_OPTS];
 
   /* True if we should print the command line option which controls
      each diagnostic, if known.  */

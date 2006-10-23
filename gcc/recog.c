@@ -72,7 +72,7 @@ static rtx split_insn (rtx);
 
    init_recog and init_recog_no_volatile are responsible for setting this.  */
 
-int volatile_ok;
+bool volatile_ok;
 
 struct recog_data recog_data;
 
@@ -85,14 +85,14 @@ struct operand_alternative recog_op_alt[MAX_RECOG_OPERANDS][MAX_RECOG_ALTERNATIV
 
 int which_alternative;
 
-/* Nonzero after end of reload pass.
-   Set to 1 or 0 by toplev.c.
+/* True after end of reload pass.
+   Set by toplev.c.
    Controls the significance of (SUBREG (MEM)).  */
 
-int reload_completed;
+bool reload_completed;
 
-/* Nonzero after thread_prologue_and_epilogue_insns has run.  */
-int epilogue_completed;
+/* True after thread_prologue_and_epilogue_insns has run.  */
+bool epilogue_completed;
 
 /* Initialize data used by the function `recog'.
    This must be called once in the compilation of a function
@@ -101,13 +101,13 @@ int epilogue_completed;
 void
 init_recog_no_volatile (void)
 {
-  volatile_ok = 0;
+  volatile_ok = false;
 }
 
 void
 init_recog (void)
 {
-  volatile_ok = 1;
+  volatile_ok = true;
 }
 
 
@@ -137,8 +137,8 @@ check_asm_operands (rtx x)
   if (noperands == 0)
     return 1;
 
-  operands = alloca (noperands * sizeof (rtx));
-  constraints = alloca (noperands * sizeof (char *));
+  operands = (rtx *) alloca (noperands * sizeof (rtx));
+  constraints = (const char **) alloca (noperands * sizeof (char *));
 
   decode_asm_operands (x, operands, NULL, constraints, NULL);
 
@@ -191,16 +191,16 @@ static int num_changes = 0;
    Otherwise, perform the change and return 1.  */
 
 int
-validate_change (rtx object, rtx *loc, rtx new, int in_group)
+validate_change (rtx object, rtx *loc, rtx fresh, int in_group)
 {
   rtx old = *loc;
 
-  if (old == new || rtx_equal_p (old, new))
+  if (old == fresh || rtx_equal_p (old, fresh))
     return 1;
 
   gcc_assert (in_group != 0 || num_changes == 0);
 
-  *loc = new;
+  *loc = fresh;
 
   /* Save the information describing this change.  */
   if (num_changes >= changes_allocated)
@@ -212,7 +212,7 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
       else
 	changes_allocated *= 2;
 
-      changes = xrealloc (changes, sizeof (change_t) * changes_allocated);
+      changes = (change_t *) xrealloc (changes, sizeof (change_t) * changes_allocated);
     }
 
   changes[num_changes].object = object;
@@ -460,7 +460,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
   enum rtx_code code;
   enum machine_mode op0_mode = VOIDmode;
   int prev_changes = num_changes;
-  rtx new;
+  rtx fresh;
 
   if (!x)
     return;
@@ -568,25 +568,25 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
     case SIGN_EXTEND:
       if (GET_MODE (XEXP (x, 0)) == VOIDmode)
 	{
-	  new = simplify_gen_unary (code, GET_MODE (x), XEXP (x, 0),
+	  fresh = simplify_gen_unary (code, GET_MODE (x), XEXP (x, 0),
 				    op0_mode);
 	  /* If any of the above failed, substitute in something that
 	     we know won't be recognized.  */
-	  if (!new)
-	    new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-	  validate_change (object, loc, new, 1);
+	  if (!fresh)
+	    fresh = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+	  validate_change (object, loc, fresh, 1);
 	}
       break;
     case SUBREG:
       /* All subregs possible to simplify should be simplified.  */
-      new = simplify_subreg (GET_MODE (x), SUBREG_REG (x), op0_mode,
+      fresh = simplify_subreg (GET_MODE (x), SUBREG_REG (x), op0_mode,
 			     SUBREG_BYTE (x));
 
       /* Subregs of VOIDmode operands are incorrect.  */
-      if (!new && GET_MODE (SUBREG_REG (x)) == VOIDmode)
-	new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-      if (new)
-	validate_change (object, loc, new, 1);
+      if (!fresh && GET_MODE (SUBREG_REG (x)) == VOIDmode)
+	fresh = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+      if (fresh)
+	validate_change (object, loc, fresh, 1);
       break;
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
@@ -1474,7 +1474,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 {
   int i;
   int noperands;
-  const char *template = 0;
+  const char *templ = 0;
 
   if (GET_CODE (body) == SET && GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
     {
@@ -1505,7 +1505,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	constraints[0] = ASM_OPERANDS_OUTPUT_CONSTRAINT (asmop);
       if (modes)
 	modes[0] = GET_MODE (SET_DEST (body));
-      template = ASM_OPERANDS_TEMPLATE (asmop);
+      templ = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == ASM_OPERANDS)
     {
@@ -1527,7 +1527,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	  if (modes)
 	    modes[i] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
-      template = ASM_OPERANDS_TEMPLATE (asmop);
+      templ = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == PARALLEL
 	   && GET_CODE (XVECEXP (body, 0, 0)) == SET
@@ -1570,7 +1570,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	    modes[i + nout] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
 
-      template = ASM_OPERANDS_TEMPLATE (asmop);
+      templ = ASM_OPERANDS_TEMPLATE (asmop);
     }
   else if (GET_CODE (body) == PARALLEL
 	   && GET_CODE (XVECEXP (body, 0, 0)) == ASM_OPERANDS)
@@ -1592,10 +1592,10 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
 	    modes[i] = ASM_OPERANDS_INPUT_MODE (asmop, i);
 	}
 
-      template = ASM_OPERANDS_TEMPLATE (asmop);
+      templ = ASM_OPERANDS_TEMPLATE (asmop);
     }
 
-  return template;
+  return templ;
 }
 
 /* Check if an asm_operand matches its constraints.
@@ -2265,7 +2265,7 @@ preprocess_constraints (void)
 
 struct funny_match
 {
-  int this, other;
+  int it, other;
 };
 
 int
@@ -2404,7 +2404,7 @@ constrain_operands (int strict)
 		     output op is the one that will be printed.  */
 		  if (val == 2 && strict > 0)
 		    {
-		      funny_match[funny_match_index].this = opno;
+		      funny_match[funny_match_index].it = opno;
 		      funny_match[funny_match_index++].other = match;
 		    }
 		}
@@ -2637,7 +2637,7 @@ constrain_operands (int strict)
 	      while (--funny_match_index >= 0)
 		{
 		  recog_data.operand[funny_match[funny_match_index].other]
-		    = recog_data.operand[funny_match[funny_match_index].this];
+		    = recog_data.operand[funny_match[funny_match_index].it];
 		}
 
 	      return 1;
@@ -3088,7 +3088,7 @@ peephole2_optimize (void)
 	  prev = PREV_INSN (insn);
 	  if (INSN_P (insn))
 	    {
-	      rtx try, before_try, x;
+	      rtx check, before_try, x;
 	      int match_len;
 	      rtx note;
 	      bool was_call = false;
@@ -3109,13 +3109,13 @@ peephole2_optimize (void)
 		     substitution would lose the
 		     REG_FRAME_RELATED_EXPR that is attached.  */
 		  peep2_current_count = 0;
-		  try = NULL;
+		  check = NULL;
 		}
 	      else
 		/* Match the peephole.  */
-		try = peephole2_insns (PATTERN (insn), insn, &match_len);
+		check = peephole2_insns (PATTERN (insn), insn, &match_len);
 
-	      if (try != NULL)
+	      if (check != NULL)
 		{
 		  /* If we are splitting a CALL_INSN, look for the CALL_INSN
 		     in SEQ and copy our CALL_INSN_FUNCTION_USAGE and other
@@ -3133,7 +3133,7 @@ peephole2_optimize (void)
 			continue;
 		      was_call = true;
 
-		      new_insn = try;
+		      new_insn = check;
 		      while (new_insn != NULL_RTX)
 			{
 			  if (CALL_P (new_insn))
@@ -3182,7 +3182,7 @@ peephole2_optimize (void)
 					REG_EH_REGION, NULL_RTX);
 
 		  /* Replace the old sequence with the new.  */
-		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
+		  check = emit_insn_after_setloc (check, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
 		  delete_insn_chain (insn, peep2_insn_data[i].insn);
@@ -3197,7 +3197,7 @@ peephole2_optimize (void)
 			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			  break;
 
-		      for (x = try ; x != before_try ; x = PREV_INSN (x))
+		      for (x = check ; x != before_try ; x = PREV_INSN (x))
 			if (CALL_P (x)
 			    || (flag_non_call_exceptions
 				&& may_trap_p (PATTERN (x))
@@ -3262,7 +3262,7 @@ peephole2_optimize (void)
 		  COPY_REG_SET (live, peep2_insn_data[i].live_before);
 
 		  /* Update life information for the new sequence.  */
-		  x = try;
+		  x = check;
 		  do
 		    {
 		      if (INSN_P (x))
@@ -3288,7 +3288,7 @@ peephole2_optimize (void)
 
 		  /* If we generated a jump instruction, it won't have
 		     JUMP_LABEL set.  Recompute after we're done.  */
-		  for (x = try; x != before_try; x = PREV_INSN (x))
+		  for (x = check; x != before_try; x = PREV_INSN (x))
 		    if (JUMP_P (x))
 		      {
 		        do_rebuild_jump_labels = true;

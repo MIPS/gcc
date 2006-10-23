@@ -86,6 +86,13 @@ because filenames frequently hold indices/version numbers.
    returning less than, equal to or greater than zero if S1 is less than,
    equal to or greater than S2 (for more info, see the Glibc texinfo doc).  */
 
+#ifdef __cplusplus
+extern "C"
+#else
+extern
+#endif
+int strverscmp (const char *, const char *);
+
 int
 strverscmp (const char *s1, const char *s2)
 {

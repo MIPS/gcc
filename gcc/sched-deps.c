@@ -252,7 +252,7 @@ maybe_add_or_update_back_dep_1 (rtx insn, rtx elem, enum reg_note dep_type,
         /* INSN has an internal dependence, which we can't overcome.  */
         HAS_INTERNAL_DEP (insn) = 1;
 #endif
-      return 0;
+      return DEP_NONE;
     }
 
   return add_or_update_back_dep_1 (insn, elem, dep_type,
@@ -683,7 +683,7 @@ add_insn_mem_dependence (struct deps *deps, rtx *insn_list, rtx *mem_list,
       mem = shallow_copy_rtx (mem);
       XEXP (mem, 0) = cselib_subst_to_values (XEXP (mem, 0));
     }
-  link = alloc_EXPR_LIST (VOIDmode, canon_rtx (mem), *mem_list);
+  link = alloc_EXPR_LIST (REG_DEP_TRUE, canon_rtx (mem), *mem_list);
   *mem_list = link;
 
   deps->pending_lists_length++;
@@ -1682,15 +1682,15 @@ compute_forward_dependences (rtx head, rtx tail)
       
       if (current_sched_info->flags & DO_SPECULATION)
         {
-          rtx new = 0, link, next;
+          rtx tmp = 0, link, next;
 
           for (link = LOG_LINKS (insn); link; link = next)
             {
               next = XEXP (link, 1);
-              adjust_add_sorted_back_dep (insn, link, &new);
+              adjust_add_sorted_back_dep (insn, link, &tmp);
             }
 
-          LOG_LINKS (insn) = new;
+          LOG_LINKS (insn) = tmp;
         }
 
       for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))

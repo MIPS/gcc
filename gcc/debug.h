@@ -146,7 +146,7 @@ extern void debug_nothing_rtx (rtx);
 /* Hooks for various debug formats.  */
 extern const struct gcc_debug_hooks do_nothing_debug_hooks;
 extern const struct gcc_debug_hooks dbx_debug_hooks;
-extern const struct gcc_debug_hooks sdb_debug_hooks;
+extern struct gcc_debug_hooks sdb_debug_hooks;
 extern const struct gcc_debug_hooks xcoff_debug_hooks;
 extern const struct gcc_debug_hooks dwarf2_debug_hooks;
 extern const struct gcc_debug_hooks vmsdbg_debug_hooks;

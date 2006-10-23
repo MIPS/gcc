@@ -124,11 +124,11 @@ static bitmap names_to_release;
 /* For each block, the phi nodes that need to be rewritten are stored into
    these vectors.  */
 
-typedef VEC(tree, heap) *tree_vec;
-DEF_VEC_P (tree_vec);
-DEF_VEC_ALLOC_P (tree_vec, heap);
+typedef VEC(tree, heap) *tree_v;
+DEF_VEC_P (tree_v);
+DEF_VEC_ALLOC_P (tree_v, heap);
 
-static VEC(tree_vec, heap) *phis_to_rewrite;
+static VEC(tree_v, heap) *phis_to_rewrite;
 
 /* The bitmap of non-NULL elements of PHIS_TO_REWRITE.  */
 
@@ -287,7 +287,7 @@ get_ssa_name_ann (tree name)
   info = VEC_index (ssa_name_info_p, info_for_ssa_name, ver);
   if (info->age < current_info_for_ssa_name_age)
     {
-      info->need_phi_state = 0;
+      info->need_phi_state = NEED_PHI_STATE_UNKNOWN;
       info->current_def = NULL_TREE;
       info->age = current_info_for_ssa_name_age;
     }
@@ -596,12 +596,12 @@ repl_map_free (void *p)
 /* Return the names replaced by NEW (i.e., REPL_TBL[NEW].SET).  */
 
 static inline bitmap
-names_replaced_by (tree new)
+names_replaced_by (tree n)
 {
   struct repl_map_d m;
   void **slot;
 
-  m.name = new;
+  m.name = n;
   slot = htab_find_slot (repl_tbl, (void *) &m, NO_INSERT);
 
   /* If N was not registered in the replacement table, return NULL.  */
@@ -615,17 +615,17 @@ names_replaced_by (tree new)
 /* Add OLD to REPL_TBL[NEW].SET.  */
 
 static inline void
-add_to_repl_tbl (tree new, tree old)
+add_to_repl_tbl (tree n, tree old)
 {
   struct repl_map_d m, *mp;
   void **slot;
 
-  m.name = new;
+  m.name = n;
   slot = htab_find_slot (repl_tbl, (void *) &m, INSERT);
   if (*slot == NULL)
     {
       mp = XNEW (struct repl_map_d);
-      mp->name = new;
+      mp->name = n;
       mp->set = BITMAP_ALLOC (NULL);
       *slot = (void *) mp;
     }
@@ -642,12 +642,12 @@ add_to_repl_tbl (tree new, tree old)
    already formed SSA web.  */
 
 static void
-add_new_name_mapping (tree new, tree old)
+add_new_name_mapping (tree n, tree old)
 {
   timevar_push (TV_TREE_SSA_INCREMENTAL);
 
   /* OLD and NEW must be different SSA names for the same symbol.  */
-  gcc_assert (new != old && SSA_NAME_VAR (new) == SSA_NAME_VAR (old));
+  gcc_assert (n != old && SSA_NAME_VAR (n) == SSA_NAME_VAR (old));
 
   /* We may need to grow NEW_SSA_NAMES and OLD_SSA_NAMES because our
      caller may have created new names since the set was created.  */
@@ -660,7 +660,7 @@ add_new_name_mapping (tree new, tree old)
 
   /* If this mapping is for virtual names, we will need to update
      virtual operands.  */
-  if (!is_gimple_reg (new))
+  if (!is_gimple_reg (n))
     {
       tree sym;
       size_t uid;
@@ -673,7 +673,7 @@ add_new_name_mapping (tree new, tree old)
 	 will make more sense to rename the symbols from scratch.
 	 Otherwise, the insertion of PHI nodes for each of the old
 	 names in these mappings will be very slow.  */
-      sym = SSA_NAME_VAR (new);
+      sym = SSA_NAME_VAR (n);
       uid = DECL_UID (sym);
       update_ssa_stats.num_virtual_mappings++;
       if (!bitmap_bit_p (update_ssa_stats.virtual_symbols, uid))
@@ -684,16 +684,16 @@ add_new_name_mapping (tree new, tree old)
     }
 
   /* Update the REPL_TBL table.  */
-  add_to_repl_tbl (new, old);
+  add_to_repl_tbl (n, old);
 
   /* If OLD had already been registered as a new name, then all the
      names that OLD replaces should also be replaced by NEW.  */
   if (is_new_name (old))
-    bitmap_ior_into (names_replaced_by (new), names_replaced_by (old));
+    bitmap_ior_into (names_replaced_by (n), names_replaced_by (old));
 
   /* Register NEW and OLD in NEW_SSA_NAMES and OLD_SSA_NAMES,
      respectively.  */
-  SET_BIT (new_ssa_names, SSA_NAME_VERSION (new));
+  SET_BIT (new_ssa_names, SSA_NAME_VERSION (n));
   SET_BIT (old_ssa_names, SSA_NAME_VERSION (old));
 
   /* Update mapping counter to use in the virtual mapping heuristic.  */
@@ -797,8 +797,8 @@ struct dom_dfsnum
 static int
 cmp_dfsnum (const void *a, const void *b)
 {
-  const struct dom_dfsnum *da = a;
-  const struct dom_dfsnum *db = b;
+  const struct dom_dfsnum *da = (const struct dom_dfsnum *)a;
+  const struct dom_dfsnum *db = (const struct dom_dfsnum *)b;
 
   return (int) da->dfs_num - (int) db->dfs_num;
 }
@@ -1091,7 +1091,7 @@ get_default_def_for (tree sym)
 static void
 mark_phi_for_rewrite (basic_block bb, tree phi)
 {
-  tree_vec phis;
+  tree_v phis;
   unsigned i, idx = bb->index;
 
   if (REWRITE_THIS_STMT (phi))
@@ -1102,16 +1102,16 @@ mark_phi_for_rewrite (basic_block bb, tree phi)
     return;
 
   bitmap_set_bit (blocks_with_phis_to_rewrite, idx);
-  VEC_reserve (tree_vec, heap, phis_to_rewrite, last_basic_block + 1);
-  for (i = VEC_length (tree_vec, phis_to_rewrite); i <= idx; i++)
-    VEC_quick_push (tree_vec, phis_to_rewrite, NULL);
+  VEC_reserve (tree_v, heap, phis_to_rewrite, last_basic_block + 1);
+  for (i = VEC_length (tree_v, phis_to_rewrite); i <= idx; i++)
+    VEC_quick_push (tree_v, phis_to_rewrite, NULL);
 
-  phis = VEC_index (tree_vec, phis_to_rewrite, idx);
+  phis = VEC_index (tree_v, phis_to_rewrite, idx);
   if (!phis)
     phis = VEC_alloc (tree, heap, 10);
 
   VEC_safe_push (tree, heap, phis, phi);
-  VEC_replace (tree_vec, phis_to_rewrite, idx, phis);
+  VEC_replace (tree_v, phis_to_rewrite, idx, phis);
 }
 
 /* Insert PHI nodes for variable VAR using the iterated dominance
@@ -1858,12 +1858,12 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       tree phi;
-      tree_vec phis;
+      tree_v phis;
 
       if (!bitmap_bit_p (blocks_with_phis_to_rewrite, e->dest->index))
 	continue;
      
-      phis = VEC_index (tree_vec, phis_to_rewrite, e->dest->index);
+      phis = VEC_index (tree_v, phis_to_rewrite, e->dest->index);
       for (i = 0; VEC_iterate (tree, phis, i, phi); i++)
 	{
 	  tree arg;
@@ -2602,12 +2602,12 @@ create_new_def_for (tree old_name, tree stmt, def_operand_p def)
    update_ssa.  */
 
 void
-register_new_name_mapping (tree new, tree old)
+register_new_name_mapping (tree n, tree old)
 {
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 
-  add_new_name_mapping (new, old);
+  add_new_name_mapping (n, old);
 }
 
 
@@ -2961,7 +2961,7 @@ update_ssa (unsigned update_flags)
 
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
   if (!phis_to_rewrite)
-    phis_to_rewrite = VEC_alloc (tree_vec, heap, last_basic_block);
+    phis_to_rewrite = VEC_alloc (tree_v, heap, last_basic_block);
   blocks_to_update = BITMAP_ALLOC (NULL);
 
   /* Ensure that the dominance information is up-to-date.  */
@@ -3144,10 +3144,10 @@ update_ssa (unsigned update_flags)
 done:
   EXECUTE_IF_SET_IN_BITMAP (blocks_with_phis_to_rewrite, 0, i, bi)
     {
-      tree_vec phis = VEC_index (tree_vec, phis_to_rewrite, i);
+      tree_v phis = VEC_index (tree_v, phis_to_rewrite, i);
 
       VEC_free (tree, heap, phis);
-      VEC_replace (tree_vec, phis_to_rewrite, i, NULL);
+      VEC_replace (tree_v, phis_to_rewrite, i, NULL);
     }
   BITMAP_FREE (blocks_with_phis_to_rewrite);
   BITMAP_FREE (blocks_to_update);

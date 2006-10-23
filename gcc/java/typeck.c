@@ -731,9 +731,9 @@ lookup_java_method (tree searched_class, tree method_name,
 
 /* Return true iff CLASS (or its ancestors) has a method METHOD_NAME.  */
 int
-has_method (tree class, tree method_name)
+has_method (tree jclass, tree method_name)
 {
-  return lookup_do (class, SEARCH_INTERFACE,
+  return lookup_do (jclass, SEARCH_INTERFACE,
 		    method_name, NULL_TREE,
 		    build_null_signature) != NULL_TREE;
 }

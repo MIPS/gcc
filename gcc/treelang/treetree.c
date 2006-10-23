@@ -138,8 +138,9 @@ static tree pushdecl (tree decl);
 static tree* getstmtlist (void);
 
 /* Langhooks.  */
-static tree builtin_function (const char *name, tree type, int function_code,
-			      enum built_in_class class,
+static tree builtin_function (const char *name, tree type,
+			      enum built_in_function function_code,
+			      enum built_in_class cls,
 			      const char *library_name,
 			      tree attrs);
 extern const struct attribute_spec treelang_attribute_table[];
@@ -654,34 +655,34 @@ tree_code_get_expression (unsigned int exp_type,
 			  location_t loc)
 {
   tree ret1;
-  int operator;
+  enum tree_code op;
 
   switch (exp_type)
     {
     case EXP_ASSIGN:
       gcc_assert (op1 && op2);
-      operator = MODIFY_EXPR;
-      ret1 = fold_build2 (operator, void_type_node, op1,
+      op = MODIFY_EXPR;
+      ret1 = fold_build2 (op, void_type_node, op1,
                           fold_convert (TREE_TYPE (op1), op2));
 
       break;
 
     case EXP_PLUS:
-      operator = PLUS_EXPR;
+      op = PLUS_EXPR;
       goto binary_expression;
 
     case EXP_MINUS:
-      operator = MINUS_EXPR;
+      op = MINUS_EXPR;
       goto binary_expression;
 
     case EXP_EQUALS:
-      operator = EQ_EXPR;
+      op = EQ_EXPR;
       goto binary_expression;
 
     /* Expand a binary expression.  Ensure the operands are the right type.  */
     binary_expression:
       gcc_assert (op1 && op2);
-      ret1  =  fold_build2 (operator, type,
+      ret1  =  fold_build2 (op, type,
 			    fold_convert (type, op1),
 			    fold_convert (type, op2));
       break;
@@ -1237,8 +1238,8 @@ const struct attribute_spec treelang_attribute_table[] =
 */
 
 static tree
-builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class class, const char *library_name,
+builtin_function (const char *name, tree type, enum built_in_function function_code,
+		  enum built_in_class cls, const char *library_name,
 		  tree attrs)
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
@@ -1247,7 +1248,7 @@ builtin_function (const char *name, tree type, int function_code,
   if (library_name)
     SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
   pushdecl (decl);
-  DECL_BUILT_IN_CLASS (decl) = class;
+  DECL_BUILT_IN_CLASS (decl) = cls;
   DECL_FUNCTION_CODE (decl) = function_code;
 
   /* Possibly apply some default attributes to this built-in function.  */

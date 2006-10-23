@@ -48,21 +48,21 @@
 
 %union {
   unsigned long int num;
-  enum operator op;
+  enum eoperator op;
   struct expression *exp;
 }
 
 %{
 /* Prototypes for local functions.  */
-static struct expression *new_exp PARAMS ((int nargs, enum operator op,
+static struct expression *new_exp PARAMS ((int nargs, enum eoperator op,
 					   struct expression * const *args));
-static inline struct expression *new_exp_0 PARAMS ((enum operator op));
-static inline struct expression *new_exp_1 PARAMS ((enum operator op,
+static inline struct expression *new_exp_0 PARAMS ((enum eoperator op));
+static inline struct expression *new_exp_1 PARAMS ((enum eoperator op,
 						   struct expression *right));
-static struct expression *new_exp_2 PARAMS ((enum operator op,
+static struct expression *new_exp_2 PARAMS ((enum eoperator op,
 					     struct expression *left,
 					     struct expression *right));
-static inline struct expression *new_exp_3 PARAMS ((enum operator op,
+static inline struct expression *new_exp_3 PARAMS ((enum eoperator op,
 						   struct expression *bexp,
 						   struct expression *tbranch,
 						   struct expression *fbranch));
@@ -72,10 +72,7 @@ static void yyerror PARAMS ((const char *str));
 /* Allocation of expressions.  */
 
 static struct expression *
-new_exp (nargs, op, args)
-     int nargs;
-     enum operator op;
-     struct expression * const *args;
+new_exp (int nargs, enum eoperator op, struct expression * const *args)
 {
   int i;
   struct expression *newp;
@@ -104,16 +101,13 @@ new_exp (nargs, op, args)
 }
 
 static inline struct expression *
-new_exp_0 (op)
-     enum operator op;
+new_exp_0 (enum eoperator op)
 {
   return new_exp (0, op, NULL);
 }
 
 static inline struct expression *
-new_exp_1 (op, right)
-     enum operator op;
-     struct expression *right;
+new_exp_1 (enum eoperator op, struct expression *right)
 {
   struct expression *args[1];
 
@@ -122,10 +116,7 @@ new_exp_1 (op, right)
 }
 
 static struct expression *
-new_exp_2 (op, left, right)
-     enum operator op;
-     struct expression *left;
-     struct expression *right;
+new_exp_2 (enum eoperator op, struct expression *left, struct expression *right)
 {
   struct expression *args[2];
 
@@ -135,11 +126,8 @@ new_exp_2 (op, left, right)
 }
 
 static inline struct expression *
-new_exp_3 (op, bexp, tbranch, fbranch)
-     enum operator op;
-     struct expression *bexp;
-     struct expression *tbranch;
-     struct expression *fbranch;
+new_exp_3 (enum eoperator op, struct expression *bexp,
+     struct expression *tbranch, struct expression *fbranch)
 {
   struct expression *args[3];
 
@@ -230,8 +218,7 @@ exp:	  exp '?' exp ':' exp
 
 void
 internal_function
-FREE_EXPRESSION (exp)
-     struct expression *exp;
+FREE_EXPRESSION (struct expression *exp)
 {
   if (exp == NULL)
     return;
@@ -257,9 +244,7 @@ FREE_EXPRESSION (exp)
 
 
 static int
-yylex (lval, pexp)
-     YYSTYPE *lval;
-     const char **pexp;
+yylex (YYSTYPE *lval, const char **pexp)
 {
   const char *exp = *pexp;
   int result;
@@ -402,8 +387,7 @@ yylex (lval, pexp)
 
 
 static void
-yyerror (str)
-     const char *str;
+yyerror (const char *str)
 {
   /* Do nothing.  We don't print error messages here.  */
 }

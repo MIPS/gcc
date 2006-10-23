@@ -2379,11 +2379,11 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
   switch (code)
     {
     case TRUTH_AND_EXPR: case TRUTH_ANDIF_EXPR:
-      compcode = lcompcode & rcompcode;
+      compcode = (enum comparison_code) (lcompcode & rcompcode);
       break;
 
     case TRUTH_OR_EXPR: case TRUTH_ORIF_EXPR:
-      compcode = lcompcode | rcompcode;
+      compcode = (enum comparison_code) (lcompcode | rcompcode);
       break;
 
     default:
@@ -2394,7 +2394,7 @@ combine_comparisons (enum tree_code code, enum tree_code lcode,
     {
       /* Eliminate unordered comparisons, as well as LTGT and ORD
 	 which are not used unless the mode has NaNs.  */
-      compcode &= ~COMPCODE_UNORD;
+      compcode = (enum comparison_code) (compcode & ~COMPCODE_UNORD);
       if (compcode == COMPCODE_LTGT)
 	compcode = COMPCODE_NE;
       else if (compcode == COMPCODE_ORD)
@@ -2829,17 +2829,17 @@ static int
 twoval_comparison_p (tree arg, tree *cval1, tree *cval2, int *save_p)
 {
   enum tree_code code = TREE_CODE (arg);
-  enum tree_code_class class = TREE_CODE_CLASS (code);
+  enum tree_code_class kind = TREE_CODE_CLASS (code);
 
   /* We can handle some of the tcc_expression cases here.  */
-  if (class == tcc_expression && code == TRUTH_NOT_EXPR)
-    class = tcc_unary;
-  else if (class == tcc_expression
+  if (kind == tcc_expression && code == TRUTH_NOT_EXPR)
+    kind = tcc_unary;
+  else if (kind == tcc_expression
 	   && (code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR
 	       || code == COMPOUND_EXPR))
-    class = tcc_binary;
+    kind = tcc_binary;
 
-  else if (class == tcc_expression && code == SAVE_EXPR
+  else if (kind == tcc_expression && code == SAVE_EXPR
 	   && ! TREE_SIDE_EFFECTS (TREE_OPERAND (arg, 0)))
     {
       /* If we've already found a CVAL1 or CVAL2, this expression is
@@ -2847,11 +2847,11 @@ twoval_comparison_p (tree arg, tree *cval1, tree *cval2, int *save_p)
       if (*cval1 || *cval2)
 	return 0;
 
-      class = tcc_unary;
+      kind = tcc_unary;
       *save_p = 1;
     }
 
-  switch (class)
+  switch (kind)
     {
     case tcc_unary:
       return twoval_comparison_p (TREE_OPERAND (arg, 0), cval1, cval2, save_p);
@@ -2922,16 +2922,16 @@ eval_subst (tree arg, tree old0, tree new0, tree old1, tree new1)
 {
   tree type = TREE_TYPE (arg);
   enum tree_code code = TREE_CODE (arg);
-  enum tree_code_class class = TREE_CODE_CLASS (code);
+  enum tree_code_class kind = TREE_CODE_CLASS (code);
 
   /* We can handle some of the tcc_expression cases here.  */
-  if (class == tcc_expression && code == TRUTH_NOT_EXPR)
-    class = tcc_unary;
-  else if (class == tcc_expression
+  if (kind == tcc_expression && code == TRUTH_NOT_EXPR)
+    kind = tcc_unary;
+  else if (kind == tcc_expression
 	   && (code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR))
-    class = tcc_binary;
+    kind = tcc_binary;
 
-  switch (class)
+  switch (kind)
     {
     case tcc_unary:
       return fold_build1 (code, type,
@@ -7463,13 +7463,13 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	  && TREE_CODE (op0) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{
-	  tree and = op0;
-	  tree and0 = TREE_OPERAND (and, 0), and1 = TREE_OPERAND (and, 1);
+	  tree and_ = op0;
+	  tree and0 = TREE_OPERAND (and_, 0), and1 = TREE_OPERAND (and_, 1);
 	  int change = 0;
 
-	  if (TYPE_UNSIGNED (TREE_TYPE (and))
+	  if (TYPE_UNSIGNED (TREE_TYPE (and_))
 	      || (TYPE_PRECISION (type)
-		  <= TYPE_PRECISION (TREE_TYPE (and))))
+		  <= TYPE_PRECISION (TREE_TYPE (and_))))
 	    change = 1;
 	  else if (TYPE_PRECISION (TREE_TYPE (and1))
 		   <= HOST_BITS_PER_WIDE_INT

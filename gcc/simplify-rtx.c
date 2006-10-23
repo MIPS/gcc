@@ -3190,8 +3190,8 @@ struct simplify_plus_minus_op_data
 static int
 simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
 {
-  const struct simplify_plus_minus_op_data *d1 = p1;
-  const struct simplify_plus_minus_op_data *d2 = p2;
+  const struct simplify_plus_minus_op_data *d1 = (const struct simplify_plus_minus_op_data *) p1;
+  const struct simplify_plus_minus_op_data *d2 = (const struct simplify_plus_minus_op_data *) p2;
   int result;
 
   result = (commutative_operand_precedence (d2->op)

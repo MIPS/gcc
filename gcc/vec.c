@@ -106,8 +106,8 @@ void *
 vec_gc_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
 		   MEM_STAT_DECL)
 {
-  struct vec_prefix *pfx = vec;
-  unsigned alloc = alloc = calculate_allocation (pfx, reserve);
+  struct vec_prefix *pfx = (struct vec_prefix *)vec;
+  unsigned alloc = calculate_allocation (pfx, reserve);
   
   if (!alloc)
     return NULL;
@@ -136,7 +136,7 @@ void *
 vec_heap_o_reserve (void *vec, int reserve, size_t vec_offset, size_t elt_size
 		    MEM_STAT_DECL)
 {
-  struct vec_prefix *pfx = vec;
+  struct vec_prefix *pfx = (struct vec_prefix *) vec;
   unsigned alloc = calculate_allocation (pfx, reserve);
 
   if (!alloc)

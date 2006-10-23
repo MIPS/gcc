@@ -436,7 +436,9 @@ partition_stack_vars (void)
      C code at least) to declare all variables at the top of the function,
      and if we're not inlining, then all variables will be in the same scope.
      Take advantage of very fast libc routines for this scan.  */
+#ifndef __cplusplus
   gcc_assert (sizeof(bool) == sizeof(char));
+#endif
   if (memchr (stack_vars_conflict, false, stack_vars_conflict_alloc) == NULL)
     return;
 
@@ -1152,7 +1154,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
   add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
-  expand_expr (else_exp, const0_rtx, VOIDmode, 0);
+  expand_expr (else_exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   BB_END (bb) = last;
   if (BARRIER_P (BB_END (bb)))

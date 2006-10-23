@@ -830,7 +830,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       n_labels = max_labelno - min_labelno + 1;
       n_old_labels = old - min_labelno + 1;
 
-      label_align = xrealloc (label_align,
+      label_align = (struct label_alignment *) xrealloc (label_align,
 			      n_labels * sizeof (struct label_alignment));
 
       /* Range of labels grows monotonically in the function.  Failing here
@@ -1350,16 +1350,16 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 static int
 asm_insn_count (rtx body)
 {
-  const char *template;
+  const char *templ;
   int count = 1;
 
   if (GET_CODE (body) == ASM_INPUT)
-    template = XSTR (body, 0);
+    templ = XSTR (body, 0);
   else
-    template = decode_asm_operands (body, NULL, NULL, NULL, NULL);
+    templ = decode_asm_operands (body, NULL, NULL, NULL, NULL);
 
-  for (; *template; template++)
-    if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
+  for (; *templ; templ++)
+    if (IS_ASM_LOGICAL_LINE_SEPARATOR (*templ) || *templ == '\n')
       count++;
 
   return count;
@@ -1950,7 +1950,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       {
 	rtx body = PATTERN (insn);
 	int insn_code_number;
-	const char *template;
+	const char *templ;
 
 #ifdef HAVE_conditional_execution
 	/* Reset this early so it is correct for ASM statements.  */
@@ -2084,7 +2084,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	if (asm_noperands (body) >= 0)
 	  {
 	    unsigned int noperands = asm_noperands (body);
-	    rtx *ops = alloca (noperands * sizeof (rtx));
+	    rtx *ops = (rtx *) alloca (noperands * sizeof (rtx));
 	    const char *string;
 
 	    /* There's no telling what that did to the condition codes.  */
@@ -2412,12 +2412,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 
 	/* Find the proper template for this insn.  */
-	template = get_insn_template (insn_code_number, insn);
+	templ = get_insn_template (insn_code_number, insn);
 
 	/* If the C code returns 0, it means that it is a jump insn
 	   which follows a deleted test insn, and that test insn
 	   needs to be reinserted.  */
-	if (template == 0)
+	if (templ == 0)
 	  {
 	    rtx prev;
 
@@ -2440,12 +2440,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	/* If the template is the string "#", it means that this insn must
 	   be split.  */
-	if (template[0] == '#' && template[1] == '\0')
+	if (templ[0] == '#' && templ[1] == '\0')
 	  {
-	    rtx new = try_split (body, insn, 0);
+	    rtx tmp = try_split (body, insn, 0);
 
 	    /* If we didn't split the insn, go away.  */
-	    if (new == insn && PATTERN (new) == body)
+	    if (tmp == insn && PATTERN (tmp) == body)
 	      fatal_insn ("could not split insn", insn);
 
 #ifdef HAVE_ATTR_length
@@ -2455,7 +2455,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    gcc_unreachable ();
 #endif
 
-	    return new;
+	    return tmp;
 	  }
 
 #ifdef TARGET_UNWIND_INFO
@@ -2466,7 +2466,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 
 	/* Output assembler code from the template.  */
-	output_asm_insn (template, recog_data.operand);
+	output_asm_insn (templ, recog_data.operand);
 
 	/* If necessary, report the effect that the instruction has on
 	   the unwind info.   We've already done this for delay slots
@@ -2575,11 +2575,11 @@ alter_subreg (rtx *xp)
     }
   else
     {
-      rtx new = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
+      rtx tmp = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
 				 SUBREG_BYTE (x));
 
-      if (new != 0)
-	*xp = new;
+      if (tmp != 0)
+	*xp = tmp;
       else if (REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
@@ -2925,7 +2925,7 @@ output_asm_operand_names (rtx *operands, int *oporder, int nops)
       of the operand, with no other punctuation.  */
 
 void
-output_asm_insn (const char *template, rtx *operands)
+output_asm_insn (const char *templ, rtx *operands)
 {
   const char *p;
   int c;
@@ -2938,11 +2938,11 @@ output_asm_insn (const char *template, rtx *operands)
 
   /* An insn may return a null string template
      in a case where no assembler code is needed.  */
-  if (*template == 0)
+  if (*templ == '\0')
     return;
 
   memset (opoutput, 0, sizeof opoutput);
-  p = template;
+  p = templ;
   putc ('\t', asm_out_file);
 
 #ifdef ASM_OUTPUT_OPCODE
@@ -3877,7 +3877,7 @@ debug_queue_symbol (tree decl)
   if (symbol_queue_index >= symbol_queue_size)
     {
       symbol_queue_size += 10;
-      symbol_queue = xrealloc (symbol_queue,
+      symbol_queue = (tree *) xrealloc (symbol_queue,
 			       symbol_queue_size * sizeof (tree));
     }
 
@@ -4023,10 +4023,10 @@ rest_of_clean_state (void)
     sdbout_types (NULL_TREE);
 #endif
 
-  reload_completed = 0;
-  epilogue_completed = 0;
-  flow2_completed = 0;
-  no_new_pseudos = 0;
+  reload_completed = false;
+  epilogue_completed = false;
+  flow2_completed = false;
+  no_new_pseudos = false;
 #ifdef STACK_REGS
   regstack_completed = 0;
 #endif

@@ -449,10 +449,14 @@ extern int snprintf (char *, size_t, const char *, ...);
 extern int vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
-/* 1 if we have C99 designated initializers.  */
+/* 1 if we have C99 designated initializers.
+
+   ??? C99 designated initializers are not supported by most C++
+   compilers, including G++.  -- gdr, 2005-05-18  */
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
-  ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+  ((!defined(__cplusplus) && (GCC_VERSION >= 2007)) \
+   || (__STDC_VERSION__ >= 199901L))
 #endif
 
 #if HAVE_SYS_STAT_H

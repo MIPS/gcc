@@ -343,7 +343,7 @@ static void
 add_input_filename (const char *filename)
 {
   num_in_fnames++;
-  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
+  in_fnames = (const char **) xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
   in_fnames[num_in_fnames - 1] = filename;
 }
 
@@ -693,7 +693,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 	else
 	  {
 	    int kind = value ? DK_ERROR : DK_WARNING;
-	    diagnostic_classify_diagnostic (global_dc, option_index, kind);
+	    diagnostic_classify_diagnostic (global_dc, option_index, (diagnostic_t) kind);
 
 	    /* -Werror=foo implies -Wfoo.  */
 	    if (cl_options[option_index].var_type == CLVC_BOOLEAN
@@ -1142,11 +1142,11 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
   if (*arg == '\0')
     {
       if (!debug_info_level)
-	debug_info_level = 2;
+	debug_info_level = DINFO_LEVEL_NORMAL;
     }
   else
     {
-      debug_info_level = integral_argument (arg);
+      debug_info_level = (enum debug_info_level) integral_argument (arg);
       if (debug_info_level == (unsigned int) -1)
 	error ("unrecognised debug output level \"%s\"", arg);
       else if (debug_info_level > 3)
@@ -1236,14 +1236,15 @@ print_filtered_help (unsigned int flag)
   unsigned int i, len, filter, indent = 0;
   bool duplicates = false;
   const char *help, *opt, *tab;
-  static char *printed;
+  static bool *printed;
 
   if (flag == CL_COMMON || flag == CL_TARGET)
     {
       filter = flag;
       if (!printed)
-	printed = xmalloc (cl_options_count);
-      memset (printed, 0, cl_options_count);
+	printed = XCNEWVEC (bool, cl_options_count);
+      for (i = 0; i < cl_options_count; ++i)
+	  printed[i] = false;
     }
   else
     {
@@ -1442,7 +1443,7 @@ get_option_state (int option, struct cl_option_state *state)
       state->data = *(const char **) cl_options[option].flag_var;
       if (state->data == 0)
 	state->data = "";
-      state->size = strlen (state->data) + 1;
+      state->size = strlen ((char *) state->data) + 1;
       break;
     }
   return true;

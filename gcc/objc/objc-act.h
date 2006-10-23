@@ -22,9 +22,6 @@ Boston, MA 02110-1301, USA.  */
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
 
-/* For enum gimplify_status */
-#include "tree-gimple.h"
-
 /*** Language hooks ***/
 
 bool objc_init (void);
@@ -32,7 +29,7 @@ const char *objc_printable_name (tree, int);
 tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
-enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
+int objc_gimplify_expr (tree *, tree *, tree *);
 
 /* NB: The remaining public functions are prototyped in c-common.h, for the
    benefit of stub-objc.c and objc-act.c.  */
@@ -121,24 +118,6 @@ enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 	 && TYPE_OBJC_INTERFACE (TYPE))
 #define OBJC_TYPE_NAME(TYPE) TYPE_NAME(TYPE)
 #define OBJC_SET_TYPE_NAME(TYPE, NAME) (TYPE_NAME (TYPE) = NAME)
-
-/* Define the Objective-C or Objective-C++ language-specific tree codes.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
-enum objc_tree_code {
-#if defined (GCC_CP_TREE_H)
-  LAST_BASE_TREE_CODE = LAST_CPLUS_TREE_CODE,
-#else 
-#if defined (GCC_C_TREE_H)
-  LAST_BASE_TREE_CODE = LAST_C_TREE_CODE,
-#else
-  #error You must include <c-tree.h> or <cp/cp-tree.h> before <objc/objc-act.h>
-#endif
-#endif
-#include "objc-tree.def"
-  LAST_OBJC_TREE_CODE
-};
-#undef DEFTREECODE
 
 /* Hash tables to manage the global pool of method prototypes.  */
 

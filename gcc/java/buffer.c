@@ -44,7 +44,7 @@ buffer_grow (struct buffer *bufp, int size)
     {
       int index = bufp->ptr - bufp->data;
       size += 2 * (bufp->limit - bufp->data);
-      bufp->data = xrealloc (bufp->data, size);
+      bufp->data = (unsigned char *) xrealloc (bufp->data, size);
       bufp->ptr = bufp->data + index;
     }
   bufp->limit = bufp->data + size;

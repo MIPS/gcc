@@ -920,11 +920,11 @@ sms_schedule (void)
   /* Initialize issue_rate.  */
   if (targetm.sched.issue_rate)
     {
-      int temp = reload_completed;
+      bool tmp = reload_completed;
 
-      reload_completed = 1;
+      reload_completed = true;
       issue_rate = targetm.sched.issue_rate ();
-      reload_completed = temp;
+      reload_completed = tmp;
     }
   else
     issue_rate = 1;
@@ -2510,7 +2510,7 @@ rest_of_handle_sms (void)
   basic_block bb;
 
   /* We want to be able to create new pseudos.  */
-  no_new_pseudos = 0;
+  no_new_pseudos = false;
   /* Collect loop information to be used in SMS.  */
   cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
   sms_schedule ();
@@ -2524,7 +2524,7 @@ rest_of_handle_sms (void)
                      | PROP_KILL_DEAD_CODE
                      | PROP_SCAN_DEAD_CODE));
 
-  no_new_pseudos = 1;
+  no_new_pseudos = true;
 
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)

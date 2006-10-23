@@ -167,25 +167,25 @@ darkgrey\n  shape: ellipse" : "white",
 }
 
 static void
-draw_edge (FILE *fp, int from, int to, int bb_edge, int class)
+draw_edge (FILE *fp, int from, int to, int bb_edge, int kind)
 {
   const char * color;
   switch (graph_dump_format)
     {
     case vcg:
       color = "";
-      if (class == 2)
+      if (kind == 2)
 	color = "color: red ";
       else if (bb_edge)
 	color = "color: blue ";
-      else if (class == 3)
+      else if (kind == 3)
 	color = "color: green ";
       fprintf (fp,
 	       "edge: { sourcename: \"%s.%d\" targetname: \"%s.%d\" %s",
 	       current_function_name (), from,
 	       current_function_name (), to, color);
-      if (class)
-	fprintf (fp, "class: %d ", class);
+      if (kind)
+	fprintf (fp, "class: %d ", kind);
       fputs ("}\n", fp);
       break;
     case no_graph:
@@ -228,7 +228,7 @@ print_rtl_graph_with_bb (const char *base, rtx rtx_first)
   rtx tmp_rtx;
   size_t namelen = strlen (base);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + extlen);
+  char *buf = (char *) alloca (namelen + extlen);
   FILE *fp;
 
   if (basic_block_info == NULL)
@@ -391,7 +391,7 @@ clean_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + extlen);
+  char *buf = (char *) alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);
@@ -415,7 +415,7 @@ finish_graph_dump_file (const char *base)
 {
   size_t namelen = strlen (base);
   size_t extlen = strlen (graph_ext[graph_dump_format]) + 1;
-  char *buf = alloca (namelen + extlen);
+  char *buf = (char *) alloca (namelen + extlen);
   FILE *fp;
 
   memcpy (buf, base, namelen);

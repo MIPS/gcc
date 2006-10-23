@@ -24,6 +24,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -97,12 +98,12 @@ lvalue_p_1 (tree ref,
 	{
 	  /* Clear the ordinary bit.  If this object was a class
 	     rvalue we want to preserve that information.  */
-	  op1_lvalue_kind &= ~clk_ordinary;
+	  op1_lvalue_kind = (cp_lvalue_kind) (op1_lvalue_kind & ~clk_ordinary);
 	  /* The lvalue is for a bitfield.  */
-	  op1_lvalue_kind |= clk_bitfield;
+	  op1_lvalue_kind = (cp_lvalue_kind) (op1_lvalue_kind | clk_bitfield);
 	}
       else if (DECL_PACKED (TREE_OPERAND (ref, 1)))
-	op1_lvalue_kind |= clk_packed;
+	op1_lvalue_kind = (cp_lvalue_kind) (op1_lvalue_kind | clk_packed);
 
       return op1_lvalue_kind;
 
@@ -189,11 +190,11 @@ lvalue_p_1 (tree ref,
 
   /* Otherwise, it's an lvalue, and it has all the odd properties
      contributed by either operand.  */
-  op1_lvalue_kind = op1_lvalue_kind | op2_lvalue_kind;
+  op1_lvalue_kind = (cp_lvalue_kind) (op1_lvalue_kind | op2_lvalue_kind);
   /* It's not an ordinary lvalue if it involves either a bit-field or
      a class rvalue.  */
   if ((op1_lvalue_kind & ~clk_ordinary) != clk_none)
-    op1_lvalue_kind &= ~clk_ordinary;
+    op1_lvalue_kind = (cp_lvalue_kind) (op1_lvalue_kind & ~clk_ordinary);
   return op1_lvalue_kind;
 }
 
@@ -1694,7 +1695,7 @@ maybe_dummy_object (tree type, tree* binfop)
 
   if (current_class_type
       && (binfo = lookup_base (current_class_type, type,
-			       ba_unique | ba_quiet, NULL)))
+			       (enum base_access) (ba_unique | ba_quiet), NULL)))
     context = current_class_type;
   else
     {
@@ -2274,17 +2275,17 @@ stabilize_expr (tree exp, tree* initp)
   return exp;
 }
 
-/* Add NEW, an expression whose value we don't care about, after the
+/* Add FRESH, an expression whose value we don't care about, after the
    similar expression ORIG.  */
 
 tree
-add_stmt_to_compound (tree orig, tree new)
+add_stmt_to_compound (tree orig, tree fresh)
 {
-  if (!new || !TREE_SIDE_EFFECTS (new))
+  if (!fresh || !TREE_SIDE_EFFECTS (fresh))
     return orig;
   if (!orig || !TREE_SIDE_EFFECTS (orig))
-    return new;
-  return build2 (COMPOUND_EXPR, void_type_node, orig, new);
+    return fresh;
+  return build2 (COMPOUND_EXPR, void_type_node, orig, fresh);
 }
 
 /* Like stabilize_expr, but for a call whose arguments we want to

@@ -451,7 +451,8 @@ struct lang_hooks
      If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
      the name to be called if we can't opencode the function.  If
      ATTRS is nonzero, use that for the function's attribute list.  */
-  tree (*builtin_function) (const char *name, tree type, int function_code,
+  tree (*builtin_function) (const char *name, tree type,
+			    enum built_in_function function_code,
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 

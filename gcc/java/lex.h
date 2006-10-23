@@ -181,16 +181,16 @@ extern void java_destroy_lexer (java_lexer *);
 /* Build an operator tree node and return TOKEN */
 #define BUILD_OPERATOR(TOKEN)				\
   {							\
-    java_lval->operator.token = (TOKEN);		\
-    java_lval->operator.location = BUILD_LOCATION();	\
+    java_lval->joperator.token = (TOKEN);		\
+    java_lval->joperator.location = BUILD_LOCATION();	\
     return (TOKEN);					\
   }
 
 /* Build an operator tree node but return ASSIGN_ANY_TK */
 #define BUILD_OPERATOR2(TOKEN)				\
   {							\
-    java_lval->operator.token = (TOKEN);		\
-    java_lval->operator.location = BUILD_LOCATION();	\
+    java_lval->joperator.token = (TOKEN);		\
+    java_lval->joperator.location = BUILD_LOCATION();	\
     return ASSIGN_ANY_TK;				\
   }
 /* Set java_lval->node and TREE_TYPE(java_lval->node) in macros */

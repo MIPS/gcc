@@ -392,9 +392,9 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
   if (! constrain_operands (1))
     fatal_insn_not_found (insn);
 
-  alternative_reject = alloca (recog_data.n_alternatives * sizeof (int));
-  alternative_nregs = alloca (recog_data.n_alternatives * sizeof (int));
-  alternative_order = alloca (recog_data.n_alternatives * sizeof (int));
+  alternative_reject = (int *) alloca (recog_data.n_alternatives * sizeof (int));
+  alternative_nregs = (int *) alloca (recog_data.n_alternatives * sizeof (int));
+  alternative_order = (int *) alloca (recog_data.n_alternatives * sizeof (int));
   memset (alternative_reject, 0, recog_data.n_alternatives * sizeof (int));
   memset (alternative_nregs, 0, recog_data.n_alternatives * sizeof (int));
 
@@ -485,7 +485,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
       int regno;
       const char *p;
 
-      op_alt_regno[i] = alloca (recog_data.n_alternatives * sizeof (int));
+      op_alt_regno[i] = (int *) alloca (recog_data.n_alternatives * sizeof (int));
       for (j = 0; j < recog_data.n_alternatives; j++)
 	op_alt_regno[i][j] = -1;
 
@@ -516,7 +516,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	{
-	  int class = (int) NO_REGS;
+	  enum reg_class rc = NO_REGS;
 
 	  if (! TEST_HARD_REG_BIT (equiv_regs[i], regno))
 	    continue;
@@ -550,13 +550,13 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		  break;
 
 		case 'g': case 'r':
-		  class = reg_class_subunion[(int) class][(int) GENERAL_REGS];
+		  rc = reg_class_subunion[rc][(int) GENERAL_REGS];
 		  break;
 
 		default:
-		  class
+		  rc
 		    = (reg_class_subunion
-		       [(int) class]
+		       [rc]
 		       [(int) REG_CLASS_FROM_CONSTRAINT ((unsigned char) c, p)]);
 		  break;
 
@@ -566,7 +566,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		     alternative yet and the operand being replaced is not
 		     a cheap CONST_INT.  */
 		  if (op_alt_regno[i][j] == -1
-		      && reg_fits_class_p (testreg, class, 0, mode)
+		      && reg_fits_class_p (testreg, (enum reg_class) rc, 0, mode)
 		      && (GET_CODE (recog_data.operand[i]) != CONST_INT
 			  || (rtx_cost (recog_data.operand[i], SET)
 			      > rtx_cost (testreg, SET))))
@@ -575,7 +575,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		      op_alt_regno[i][j] = regno;
 		    }
 		  j++;
-		  class = (int) NO_REGS;
+		  rc = NO_REGS;
 		  break;
 		}
 	      p += CONSTRAINT_LEN (c, p);

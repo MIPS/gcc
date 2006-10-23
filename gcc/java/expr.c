@@ -29,6 +29,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "java-tree-code.h"
 #include "tree.h"
 #include "real.h"
 #include "rtl.h"
@@ -434,7 +435,7 @@ type_assertion_eq (const void * k1_p, const void * k2_p)
 static hashval_t
 type_assertion_hash (const void *p)
 {
-  const type_assertion *k_p = p;
+  const type_assertion *k_p = (const type_assertion *) p;
   hashval_t hash = iterative_hash (&k_p->assertion_code, sizeof
 				   k_p->assertion_code, 0);
   hash = iterative_hash (&k_p->op1, sizeof k_p->op1, hash);
@@ -449,13 +450,13 @@ type_assertion_hash (const void *p)
    specific to each assertion_code. */
 
 void
-add_type_assertion (tree class, int assertion_code, tree op1, tree op2)
+add_type_assertion (tree aclass, int assertion_code, tree op1, tree op2)
 {
   htab_t assertions_htab;
   type_assertion as;
   void **as_pp;
 
-  assertions_htab = TYPE_ASSERTIONS (class);
+  assertions_htab = TYPE_ASSERTIONS (aclass);
   if (assertions_htab == NULL)
     {
       assertions_htab = htab_create_ggc (7, type_assertion_hash, 
@@ -881,7 +882,7 @@ build_java_indirect_ref (tree type, tree expr, int check)
 tree
 build_java_arrayaccess (tree array, tree type, tree index)
 {
-  tree node, throw = NULL_TREE;
+  tree node, thr = NULL_TREE;
   tree data_field;
   tree ref;
   tree array_type = TREE_TYPE (TREE_TYPE (array));
@@ -908,17 +909,17 @@ build_java_arrayaccess (tree array, tree type, tree index)
 			  len);
       if (! integer_zerop (test))
 	{
-	  throw = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
+	  thr = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
 			  build_java_throw_out_of_bounds_exception (index));
 	  /* allows expansion within COMPOUND */
-	  TREE_SIDE_EFFECTS( throw ) = 1;
+	  TREE_SIDE_EFFECTS( thr ) = 1;
 	}
     }
 
   /* If checking bounds, wrap the index expr with a COMPOUND_EXPR in order
      to have the bounds check evaluated first. */
-  if (throw != NULL_TREE)
-    index = build2 (COMPOUND_EXPR, int_type_node, throw, index);
+  if (thr != NULL_TREE)
+    index = build2 (COMPOUND_EXPR, int_type_node, thr, index);
  
   data_field = lookup_field (&array_type, get_identifier ("data"));
 
@@ -2948,7 +2949,7 @@ note_instructions (JCF *jcf, tree method)
 
   JCF_SEEK (jcf, DECL_CODE_OFFSET (method));
   byte_ops = jcf->read_ptr;
-  instruction_bits = xrealloc (instruction_bits, length + 1);
+  instruction_bits = (char *) xrealloc (instruction_bits, length + 1);
   memset (instruction_bits, 0, length + 1);
 
   /* This pass figures out which PC can be the targets of jumps. */
@@ -3379,9 +3380,9 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   }
 #define ARRAY_NEW_MULTI()					\
   {								\
-    tree class = get_class_constant (current_jcf, IMMEDIATE_u2 );	\
+    tree aclass = get_class_constant (current_jcf, IMMEDIATE_u2 );	\
     int  ndims = IMMEDIATE_u1;					\
-    expand_java_multianewarray( class, ndims );			\
+    expand_java_multianewarray( aclass, ndims );			\
   }
 
 #define UNOP(OPERAND_TYPE, OPERAND_VALUE) \

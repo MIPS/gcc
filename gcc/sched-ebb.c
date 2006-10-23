@@ -332,7 +332,7 @@ earliest_block_with_similiar_load (basic_block last_block, rtx load_insn)
 		    /* insn2 not guaranteed to be a 1 base reg load.  */
 		    continue;
 
-		  for (bb = last_block; bb; bb = bb->aux)
+		  for (bb = last_block; bb; bb = (basic_block) bb->aux)
 		    if (insn2_block == bb)
 		      break;
 
@@ -354,7 +354,6 @@ static void
 add_deps_for_risky_insns (rtx head, rtx tail)
 {
   rtx insn, prev;
-  int class;
   rtx last_jump = NULL_RTX;
   rtx next_tail = NEXT_INSN (tail);
   basic_block last_block = NULL, bb;
@@ -369,9 +368,9 @@ add_deps_for_risky_insns (rtx head, rtx tail)
       }
     else if (INSN_P (insn) && last_jump != NULL_RTX)
       {
-	class = haifa_classify_insn (insn);
+	int cls = haifa_classify_insn (insn);
 	prev = last_jump;
-	switch (class)
+	switch (cls)
 	  {
 	  case PFREE_CANDIDATE:
 	    if (flag_schedule_speculative_load)
@@ -379,7 +378,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
 		bb = earliest_block_with_similiar_load (last_block, insn);
 		if (bb)
 		  {
-		    bb = bb->aux;
+		    bb = (basic_block) bb->aux;
 		    if (!bb)
 		      break;
 		    prev = BB_END (bb);
@@ -424,7 +423,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
   /* Maintain the invariant that bb->aux is clear after use.  */
   while (last_block)
     {
-      bb = last_block->aux;
+      bb = (basic_block) last_block->aux;
       last_block->aux = NULL;
       last_block = bb;
     }

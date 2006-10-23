@@ -530,7 +530,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
 	  if (lang_hooks.callgraph.analyze_expr)
 	    return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees,
-						      data);
+						      (tree) data);
 	}
       break;
 
@@ -556,7 +556,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	}
 
       if ((unsigned int) TREE_CODE (t) >= LAST_AND_UNUSED_TREE_CODE)
-	return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees, data);
+	return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees, (tree) data);
       break;
     }
 
@@ -1325,9 +1325,11 @@ cgraph_expand_all_functions (void)
 
 /* This is used to sort the node types by the cgraph order number.  */
 
+enum cgraph_order_kind { ORDER_UNDEFINED = 0, ORDER_FUNCTION, ORDER_VAR, ORDER_ASM };
+
 struct cgraph_order_sort
 {
-  enum { ORDER_UNDEFINED = 0, ORDER_FUNCTION, ORDER_VAR, ORDER_ASM } kind;
+  enum cgraph_order_kind kind;
   union
   {
     struct cgraph_node *f;

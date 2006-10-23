@@ -128,7 +128,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    However, this is no actual entry for alias set zero.  It is an
    error to attempt to explicitly construct a subset of zero.  */
 
-struct alias_set_entry GTY(())
+struct alias_set_entry_s GTY(())
 {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   HOST_WIDE_INT alias_set;
@@ -146,7 +146,7 @@ struct alias_set_entry GTY(())
      alias set the same as alias set zero.  */
   int has_zero_child;
 };
-typedef struct alias_set_entry *alias_set_entry;
+typedef struct alias_set_entry_s *alias_set_entry;
 
 static int rtx_equal_for_memref_p (rtx, rtx);
 static rtx find_symbolic_term (rtx);
@@ -670,7 +670,7 @@ record_alias_subset (HOST_WIDE_INT superset, HOST_WIDE_INT subset)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
-      superset_entry = ggc_alloc (sizeof (struct alias_set_entry));
+      superset_entry = (alias_set_entry) ggc_alloc (sizeof (struct alias_set_entry_s));
       superset_entry->alias_set = superset;
       superset_entry->children
 	= splay_tree_new_ggc (splay_tree_compare_ints);
@@ -2421,8 +2421,8 @@ init_alias_analysis (void)
   timevar_push (TV_ALIAS_ANALYSIS);
 
   reg_known_value_size = maxreg - FIRST_PSEUDO_REGISTER;
-  reg_known_value = ggc_calloc (reg_known_value_size, sizeof (rtx));
-  reg_known_equiv_p = xcalloc (reg_known_value_size, sizeof (bool));
+  reg_known_value = (rtx *) ggc_calloc (reg_known_value_size, sizeof (rtx));
+  reg_known_equiv_p = XCNEWVEC (bool, reg_known_value_size);
 
   /* If we have memory allocated from the previous run, use it.  */
   if (old_reg_base_value)

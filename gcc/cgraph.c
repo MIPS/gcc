@@ -317,7 +317,7 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   int n = 0;
 
   if (node->call_site_hash)
-    return htab_find_with_hash (node->call_site_hash, call_stmt,
+    return (struct cgraph_edge *) htab_find_with_hash (node->call_site_hash, call_stmt,
       				htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
@@ -1038,20 +1038,20 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 		   tree call_stmt, gcov_type count_scale, int loop_nest,
 		   bool update_original)
 {
-  struct cgraph_edge *new;
+  struct cgraph_edge *clone;
 
-  new = cgraph_create_edge (n, e->callee, call_stmt,
+  clone = cgraph_create_edge (n, e->callee, call_stmt,
 			    e->count * count_scale / REG_BR_PROB_BASE,
 			    e->loop_nest + loop_nest);
 
-  new->inline_failed = e->inline_failed;
+  clone->inline_failed = e->inline_failed;
   if (update_original)
     {
-      e->count -= new->count;
+      e->count -= clone->count;
       if (e->count < 0)
 	e->count = 0;
     }
-  return new;
+  return clone;
 }
 
 /* Create node representing clone of N executed COUNT times.  Decrease
@@ -1064,25 +1064,25 @@ struct cgraph_node *
 cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest,
 		   bool update_original)
 {
-  struct cgraph_node *new = cgraph_create_node ();
+  struct cgraph_node *clone = cgraph_create_node ();
   struct cgraph_edge *e;
   gcov_type count_scale;
 
-  new->decl = n->decl;
-  new->origin = n->origin;
-  if (new->origin)
+  clone->decl = n->decl;
+  clone->origin = n->origin;
+  if (clone->origin)
     {
-      new->next_nested = new->origin->nested;
-      new->origin->nested = new;
+      clone->next_nested = clone->origin->nested;
+      clone->origin->nested = clone;
     }
-  new->analyzed = n->analyzed;
-  new->local = n->local;
-  new->global = n->global;
-  new->rtl = n->rtl;
-  new->master_clone = n->master_clone;
-  new->count = count;
+  clone->analyzed = n->analyzed;
+  clone->local = n->local;
+  clone->global = n->global;
+  clone->rtl = n->rtl;
+  clone->master_clone = n->master_clone;
+  clone->count = count;
   if (n->count)
-    count_scale = new->count * REG_BR_PROB_BASE / n->count;
+    count_scale = clone->count * REG_BR_PROB_BASE / n->count;
   else
     count_scale = 0;
   if (update_original)
@@ -1093,16 +1093,16 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest,
     }
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_stmt, count_scale, loop_nest,
+    cgraph_clone_edge (e, clone, e->call_stmt, count_scale, loop_nest,
 		       update_original);
 
-  new->next_clone = n->next_clone;
-  new->prev_clone = n;
-  n->next_clone = new;
-  if (new->next_clone)
-    new->next_clone->prev_clone = new;
+  clone->next_clone = n->next_clone;
+  clone->prev_clone = n;
+  n->next_clone = clone;
+  if (clone->next_clone)
+    clone->next_clone->prev_clone = clone;
 
-  return new;
+  return clone;
 }
 
 /* Return true if N is an master_clone, (see cgraph_master_clone).  */

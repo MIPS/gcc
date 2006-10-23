@@ -93,25 +93,25 @@ rotate_right (gfc_bbt * t)
    aborts if we find a duplicate key.  */
 
 static gfc_bbt *
-insert (gfc_bbt * new, gfc_bbt * t, compare_fn compare)
+insert (gfc_bbt * bbt, gfc_bbt * t, compare_fn compare)
 {
   int c;
 
   if (t == NULL)
-    return new;
+    return bbt;
 
-  c = (*compare) (new, t);
+  c = (*compare) (bbt, t);
 
   if (c < 0)
     {
-      t->left = insert (new, t->left, compare);
+      t->left = insert (bbt, t->left, compare);
       if (t->priority < t->left->priority)
 	t = rotate_right (t);
     }
 
   else if (c > 0)
     {
-      t->right = insert (new, t->right, compare);
+      t->right = insert (bbt, t->right, compare);
       if (t->priority < t->right->priority)
 	t = rotate_left (t);
     }
@@ -128,12 +128,12 @@ insert (gfc_bbt * new, gfc_bbt * t, compare_fn compare)
    already exists.  */
 
 void
-gfc_insert_bbt (void *root, void *new, compare_fn compare)
+gfc_insert_bbt (void *root, void *bbt, compare_fn compare)
 {
   gfc_bbt **r, *n;
 
   r = (gfc_bbt **) root;
-  n = (gfc_bbt *) new;
+  n = (gfc_bbt *) bbt;
 
   n->priority = pseudo_random ();
   *r = insert (n, *r, compare);

@@ -27,6 +27,7 @@ Boston, MA 02110-1301, USA.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "cp-tree-code.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -583,7 +584,7 @@ build_vtbl_ref_1 (tree instance, tree idx)
   if (fixed_type && !cdtorp)
     {
       tree binfo = lookup_base (fixed_type, basetype,
-				ba_unique | ba_quiet, NULL);
+				(enum base_access) (ba_unique | ba_quiet), NULL);
       if (binfo)
 	vtbl = unshare_expr (BINFO_VTABLE (binfo));
     }
@@ -4462,7 +4463,7 @@ warn_about_ambiguous_bases (tree t)
     {
       basetype = BINFO_TYPE (base_binfo);
 
-      if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
+      if (!lookup_base (t, basetype, (enum base_access) (ba_unique | ba_quiet), NULL))
 	warning (0, "direct base %qT inaccessible in %qT due to ambiguity",
 		 basetype, t);
     }
@@ -4474,7 +4475,7 @@ warn_about_ambiguous_bases (tree t)
       {
 	basetype = BINFO_TYPE (binfo);
 
-	if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
+	if (!lookup_base (t, basetype, (enum base_access) (ba_unique | ba_quiet), NULL))
 	  warning (OPT_Wextra, "virtual base %qT inaccessible in %qT due to ambiguity",
 		   basetype, t);
       }
@@ -4624,7 +4625,7 @@ layout_class_type (tree t, tree *virtuals_p)
       if (DECL_C_BIT_FIELD (field)
 	  && INT_CST_LT (TYPE_SIZE (type), DECL_SIZE (field)))
 	{
-	  integer_type_kind itk;
+	  int itk;
 	  tree integer_type;
 	  bool was_unnamed_p = false;
 	  /* We must allocate the bits as if suitably aligned for the
@@ -5991,7 +5992,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
   tsubst_flags_t flags_in = flags;
   tree access_path = NULL_TREE;
 
-  flags &= ~tf_ptrmem_ok;
+  flags = (tsubst_flags_t) (flags & ~tf_ptrmem_ok);
 
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
@@ -6112,7 +6113,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
     case ADDR_EXPR:
     {
       if (PTRMEM_OK_P (rhs))
-	flags |= tf_ptrmem_ok;
+	flags = (tsubst_flags_t) (flags | tf_ptrmem_ok);
 
       return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
     }

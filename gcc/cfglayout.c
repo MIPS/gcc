@@ -600,7 +600,7 @@ fixup_reorder_chain (void)
 
   for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
        bb != 0;
-       bb = bb->aux, index++)
+       bb = (basic_block) bb->aux, index++)
     {
       if (bb->il.rtl->header)
 	{
@@ -646,7 +646,7 @@ fixup_reorder_chain (void)
   /* Now add jumps and labels as needed to match the blocks new
      outgoing edges.  */
 
-  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = bb->aux)
+  for (bb = ENTRY_BLOCK_PTR->next_bb; bb ; bb = (basic_block) bb->aux)
     {
       edge e_fall, e_taken, e;
       rtx bb_end_insn;
@@ -789,7 +789,7 @@ fixup_reorder_chain (void)
       fprintf (dump_file, "Reordered sequence:\n");
       for (bb = ENTRY_BLOCK_PTR->next_bb, index = NUM_FIXED_BLOCKS;
 	   bb;
-	   bb = bb->aux, index++)
+	   bb = (basic_block) bb->aux, index++)
 	{
 	  fprintf (dump_file, " %i ", index);
 	  if (get_bb_original (bb))
@@ -808,7 +808,7 @@ fixup_reorder_chain (void)
   bb = ENTRY_BLOCK_PTR->next_bb;
   index = NUM_FIXED_BLOCKS;
 
-  for (; bb; prev_bb = bb, bb = bb->aux, index ++)
+  for (; bb; prev_bb = bb, bb = (basic_block) bb->aux, index ++)
     {
       bb->index = index;
       SET_BASIC_BLOCK (index, bb);
@@ -896,11 +896,11 @@ fixup_fallthru_exit_predecessor (void)
 	}
 
       while (c->aux != bb)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb->aux;
       while (c->aux)
-	c = c->aux;
+	c = (basic_block) c->aux;
 
       c->aux = bb;
       bb->aux = NULL;

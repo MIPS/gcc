@@ -147,7 +147,9 @@ special_rtx (int idx)
 	  || strcmp (defs[idx].enumname, "REG") == 0
 	  || strcmp (defs[idx].enumname, "SUBREG") == 0
 	  || strcmp (defs[idx].enumname, "MEM") == 0
-	  || strcmp (defs[idx].enumname, "CONST_VECTOR") == 0);
+	  || strcmp (defs[idx].enumname, "CONST_VECTOR") == 0
+	  || strcmp (defs[idx].enumname, "EXPR_LIST") == 0
+	  || strcmp (defs[idx].enumname, "INSN_LIST") == 0);
 }
 
 /* Return nonzero if the RTL code given by index IDX is one that we should

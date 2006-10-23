@@ -247,6 +247,7 @@ enum mips_builtin_type
 /* Enumerates the codes above as MIPS_FP_COND_<X>.  */
 #define DECLARE_MIPS_COND(X) MIPS_FP_COND_ ## X
 enum mips_fp_condition {
+  MIPS_FP_COND_NONE,
   MIPS_FP_CONDITIONS (DECLARE_MIPS_COND)
 };
 
@@ -763,7 +764,7 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
   { "sr71000", PROCESSOR_SR71000, 64 },
 
   /* End marker */
-  { 0, 0, 0 }
+  { 0, PROCESSOR_NONE, 0 }
 };
 
 /* Default costs. If these are used for a processor we should look
@@ -3512,7 +3513,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   delta = bits / BITS_PER_UNIT;
 
   /* Allocate a buffer for the temporary registers.  */
-  regs = alloca (sizeof (rtx) * length / delta);
+  regs = (rtx *)alloca (sizeof (rtx) * length / delta);
 
   /* Load as many BITS-sized chunks as possible.  Use a normal load if
      the source has enough alignment, otherwise use left/right pairs.  */
@@ -3895,7 +3896,7 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		reg = gen_rtx_REG (DImode, GP_ARG_FIRST + info.reg_offset + i);
 
 	      XVECEXP (ret, 0, i)
-		= gen_rtx_EXPR_LIST (VOIDmode, reg,
+		= gen_rtx_EXPR_LIST (REG_DEP_TRUE, reg,
 				     GEN_INT (bitpos / BITS_PER_UNIT));
 
 	      bitpos += BITS_PER_WORD;
@@ -3926,10 +3927,10 @@ function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
       else
 	{
 	  gcc_assert (info.stack_words == 0);
-	  real = gen_rtx_EXPR_LIST (VOIDmode,
+	  real = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 				    gen_rtx_REG (inner, reg),
 				    const0_rtx);
-	  imag = gen_rtx_EXPR_LIST (VOIDmode,
+	  imag = gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 				    gen_rtx_REG (inner,
 						 reg + info.reg_words / 2),
 				    GEN_INT (GET_MODE_SIZE (inner)));
@@ -4986,7 +4987,7 @@ override_options (void)
        mode = (enum machine_mode) ((int)mode + 1))
     {
       register int size		     = GET_MODE_SIZE (mode);
-      register enum mode_class class = GET_MODE_CLASS (mode);
+      register enum mode_class cls = GET_MODE_CLASS (mode);
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	{
@@ -5016,8 +5017,8 @@ override_options (void)
 
 	  else if (FP_REG_P (regno))
 	    temp = ((regno % FP_INC) == 0)
-		    && (((class == MODE_FLOAT || class == MODE_COMPLEX_FLOAT
-			  || class == MODE_VECTOR_FLOAT)
+		    && (((cls == MODE_FLOAT || cls == MODE_COMPLEX_FLOAT
+			  || cls == MODE_VECTOR_FLOAT)
 			 && size <= UNITS_PER_FPVALUE)
 			/* Allow integer modes that fit into a single
 			   register.  We need to put integers into FPRs
@@ -5025,7 +5026,7 @@ override_options (void)
 			   We can't allow sizes smaller than a word,
 			   the FPU has no appropriate load/store
 			   instructions for those.  */
-			|| (class == MODE_INT
+			|| (cls == MODE_INT
 			    && size >= MIN_UNITS_PER_WORD
 			    && size <= UNITS_PER_FPREG)
 			/* Allow TFmode for CCmode reloads.  */
@@ -5038,7 +5039,7 @@ override_options (void)
 			    && size == 2 * UNITS_PER_WORD)));
 
 	  else if (ALL_COP_REG_P (regno))
-	    temp = (class == MODE_INT && size <= UNITS_PER_WORD);
+	    temp = (cls == MODE_INT && size <= UNITS_PER_WORD);
 	  else
 	    temp = 0;
 
@@ -7126,11 +7127,11 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 		      HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 		      tree function)
 {
-  rtx this, temp1, temp2, insn, fnaddr;
+  rtx it, temp1, temp2, insn, fnaddr;
 
   /* Pretend to be a post-reload pass while generating rtl.  */
-  no_new_pseudos = 1;
-  reload_completed = 1;
+  no_new_pseudos = true;
+  reload_completed = true;
   reset_block_changes ();
 
   /* Pick a global pointer for -mabicalls.  Use $15 rather than $28
@@ -7149,9 +7150,9 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Find out which register contains the "this" pointer.  */
   if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)), function))
-    this = gen_rtx_REG (Pmode, GP_ARG_FIRST + 1);
+    it = gen_rtx_REG (Pmode, GP_ARG_FIRST + 1);
   else
-    this = gen_rtx_REG (Pmode, GP_ARG_FIRST);
+    it = gen_rtx_REG (Pmode, GP_ARG_FIRST);
 
   /* Add DELTA to THIS.  */
   if (delta != 0)
@@ -7162,7 +7163,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 	  emit_move_insn (temp1, offset);
 	  offset = temp1;
 	}
-      emit_insn (gen_add3_insn (this, this, offset));
+      emit_insn (gen_add3_insn (it, it, offset));
     }
 
   /* If needed, add *(*THIS + VCALL_OFFSET) to THIS.  */
@@ -7171,14 +7172,14 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       rtx addr;
 
       /* Set TEMP1 to *THIS.  */
-      emit_move_insn (temp1, gen_rtx_MEM (Pmode, this));
+      emit_move_insn (temp1, gen_rtx_MEM (Pmode, it));
 
       /* Set ADDR to a legitimate address for *THIS + VCALL_OFFSET.  */
       addr = mips_add_offset (temp2, temp1, vcall_offset);
 
       /* Load the offset and add it to THIS.  */
       emit_move_insn (temp1, gen_rtx_MEM (Pmode, addr));
-      emit_insn (gen_add3_insn (this, this, temp1));
+      emit_insn (gen_add3_insn (it, it, temp1));
     }
 
   /* Jump to the target function.  Use a sibcall if direct jumps are
@@ -7225,8 +7226,8 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   /* Clean up the vars set above.  Note that final_end_function resets
      the global pointer for us.  */
-  reload_completed = 0;
-  no_new_pseudos = 0;
+  reload_completed = false;
+  no_new_pseudos = false;
 }
 
 /* Returns nonzero if X contains a SYMBOL_REF.  */
@@ -7468,10 +7469,10 @@ mips_return_fpr_pair (enum machine_mode mode,
   return gen_rtx_PARALLEL
     (mode,
      gen_rtvec (2,
-		gen_rtx_EXPR_LIST (VOIDmode,
+		gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 				   gen_rtx_REG (mode1, FP_RETURN),
 				   GEN_INT (offset1)),
-		gen_rtx_EXPR_LIST (VOIDmode,
+		gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 				   gen_rtx_REG (mode2, FP_RETURN + inc),
 				   GEN_INT (offset2))));
 
@@ -7591,7 +7592,7 @@ mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 
 bool
 mips_cannot_change_mode_class (enum machine_mode from,
-			       enum machine_mode to, enum reg_class class)
+			       enum machine_mode to, enum reg_class regclass)
 {
   if (MIN (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) <= UNITS_PER_WORD
       && MAX (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) > UNITS_PER_WORD)
@@ -7602,7 +7603,7 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	     registers, the first register always holds the low word.
 	     We therefore can't allow FPRs to change between single-word
 	     and multi-word modes.  */
-	  if (FP_INC > 1 && reg_classes_intersect_p (FP_REGS, class))
+	  if (FP_INC > 1 && reg_classes_intersect_p (FP_REGS, regclass))
 	    return true;
 	}
       else
@@ -7613,7 +7614,7 @@ mips_cannot_change_mode_class (enum machine_mode from,
 	     and multi-word modes.
 	     This rule applies to both the original HI/LO pair and the new
 	     DSP accumulators.  */
-	  if (reg_classes_intersect_p (ACC_REGS, class))
+	  if (reg_classes_intersect_p (ACC_REGS, regclass))
 	    return true;
 	}
     }
@@ -7624,7 +7625,7 @@ mips_cannot_change_mode_class (enum machine_mode from,
   if (TARGET_FLOAT64
       && from == SImode
       && GET_MODE_SIZE (to) >= UNITS_PER_WORD
-      && reg_classes_intersect_p (FP_REGS, class))
+      && reg_classes_intersect_p (FP_REGS, regclass))
     return true;
   return false;
 }
@@ -7648,23 +7649,23 @@ mips_dangerous_for_la25_p (rtx x)
 /* Implement PREFERRED_RELOAD_CLASS.  */
 
 enum reg_class
-mips_preferred_reload_class (rtx x, enum reg_class class)
+mips_preferred_reload_class (rtx x, enum reg_class cls)
 {
-  if (mips_dangerous_for_la25_p (x) && reg_class_subset_p (LEA_REGS, class))
+  if (mips_dangerous_for_la25_p (x) && reg_class_subset_p (LEA_REGS, cls))
     return LEA_REGS;
 
   if (TARGET_HARD_FLOAT
       && FLOAT_MODE_P (GET_MODE (x))
-      && reg_class_subset_p (FP_REGS, class))
+      && reg_class_subset_p (FP_REGS, cls))
     return FP_REGS;
 
-  if (reg_class_subset_p (GR_REGS, class))
-    class = GR_REGS;
+  if (reg_class_subset_p (GR_REGS, cls))
+    cls = GR_REGS;
 
-  if (TARGET_MIPS16 && reg_class_subset_p (M16_REGS, class))
-    class = M16_REGS;
+  if (TARGET_MIPS16 && reg_class_subset_p (M16_REGS, cls))
+    cls = M16_REGS;
 
-  return class;
+  return cls;
 }
 
 /* This function returns the register class required for a secondary
@@ -7674,7 +7675,7 @@ mips_preferred_reload_class (rtx x, enum reg_class class)
    NO_REGS means that no secondary register is required.  */
 
 enum reg_class
-mips_secondary_reload_class (enum reg_class class,
+mips_secondary_reload_class (enum reg_class cls,
 			     enum machine_mode mode, rtx x, int in_p)
 {
   enum reg_class gr_regs = TARGET_MIPS16 ? M16_REGS : GR_REGS;
@@ -7689,7 +7690,7 @@ mips_secondary_reload_class (enum reg_class class,
   if (mips_dangerous_for_la25_p (x))
     {
       gr_regs = LEA_REGS;
-      if (TEST_HARD_REG_BIT (reg_class_contents[(int) class], 25))
+      if (TEST_HARD_REG_BIT (reg_class_contents[(int) cls], 25))
 	return gr_regs;
     }
 
@@ -7697,7 +7698,7 @@ mips_secondary_reload_class (enum reg_class class,
      requires a general register.
      This rule applies to both the original HI/LO pair and the new
      DSP accumulators.  */
-  if (reg_class_subset_p (class, ACC_REGS))
+  if (reg_class_subset_p (cls, ACC_REGS))
     {
       if (TARGET_MIPS16 && in_p)
 	{
@@ -7713,14 +7714,14 @@ mips_secondary_reload_class (enum reg_class class,
 	  /* We can't really copy to HI or LO at all in mips16 mode.  */
 	  return M16_REGS;
 	}
-      return class == gr_regs ? NO_REGS : gr_regs;
+      return cls == gr_regs ? NO_REGS : gr_regs;
     }
 
   /* We can only copy a value to a condition code register from a
      floating point register, and even then we require a scratch
      floating point register.  We can only copy a value out of a
      condition code register into a general register.  */
-  if (class == ST_REGS)
+  if (cls == ST_REGS)
     {
       if (in_p)
 	return FP_REGS;
@@ -7730,10 +7731,10 @@ mips_secondary_reload_class (enum reg_class class,
     {
       if (! in_p)
 	return FP_REGS;
-      return class == gr_regs ? NO_REGS : gr_regs;
+      return cls == gr_regs ? NO_REGS : gr_regs;
     }
 
-  if (class == FP_REGS)
+  if (cls == FP_REGS)
     {
       if (MEM_P (x))
 	{
@@ -7768,7 +7769,7 @@ mips_secondary_reload_class (enum reg_class class,
      requires an M16_REG.  */
   if (TARGET_MIPS16)
     {
-      if (class != M16_REGS && class != M16_NA_REGS)
+      if (cls != M16_REGS && cls != M16_NA_REGS)
 	{
 	  if (gp_reg_p)
 	    return NO_REGS;
@@ -7776,7 +7777,7 @@ mips_secondary_reload_class (enum reg_class class,
 	}
       if (! gp_reg_p)
 	{
-	  if (class == M16_REGS || class == M16_NA_REGS)
+	  if (cls == M16_REGS || cls == M16_NA_REGS)
 	    return NO_REGS;
 	  return M16_REGS;
 	}
@@ -7797,10 +7798,9 @@ mips_secondary_reload_class (enum reg_class class,
    considered to be 4 bytes wide.  */
 
 int
-mips_class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,
-		      enum machine_mode mode)
+mips_class_max_nregs (enum reg_class cls, enum machine_mode mode)
 {
-  if (class == ST_REGS)
+  if (cls == ST_REGS)
     return (GET_MODE_SIZE (mode) + 3) / 4;
   else
     return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -8122,7 +8122,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
 
       /* Put the register usage information on the CALL.  */
       CALL_INSN_FUNCTION_USAGE (insn) =
-	gen_rtx_EXPR_LIST (VOIDmode,
+	gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			   gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 2)),
 			   CALL_INSN_FUNCTION_USAGE (insn));
 
@@ -8133,7 +8133,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
          code.  */
       if (fpret)
 	CALL_INSN_FUNCTION_USAGE (insn) =
-	  gen_rtx_EXPR_LIST (VOIDmode,
+	  gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			     gen_rtx_USE (VOIDmode,
 					  gen_rtx_REG (word_mode, 18)),
 			     CALL_INSN_FUNCTION_USAGE (insn));
@@ -8322,7 +8322,7 @@ build_mips16_call_stub (rtx retval, rtx fn, rtx arg_size, int fp_code)
       insn = emit_call_insn (insn);
 
       CALL_INSN_FUNCTION_USAGE (insn) =
-	gen_rtx_EXPR_LIST (VOIDmode,
+	gen_rtx_EXPR_LIST (REG_DEP_TRUE,
 			   gen_rtx_USE (VOIDmode, gen_rtx_REG (word_mode, 18)),
 			   CALL_INSN_FUNCTION_USAGE (insn));
 
@@ -8496,7 +8496,7 @@ mips16_insn_length (rtx insn)
 static int
 mips16_rewrite_pool_refs (rtx *x, void *data)
 {
-  struct mips16_constant_pool *pool = data;
+  struct mips16_constant_pool *pool = (struct mips16_constant_pool *)data;
   if (GET_CODE (*x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (*x))
     *x = gen_rtx_LABEL_REF (Pmode, add_constant (pool,
 						 get_pool_constant (*x),
@@ -8650,7 +8650,7 @@ static int
 mips_sim_wait_regs_2 (rtx *x, void *data)
 {
   if (REG_P (*x))
-    mips_sim_wait_reg (data, mips_sim_insn, *x);
+    mips_sim_wait_reg ((struct mips_sim *)data, mips_sim_insn, *x);
   return 0;
 }
 
@@ -8705,7 +8705,7 @@ mips_sim_record_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
   struct mips_sim *state;
   unsigned int i;
 
-  state = data;
+  state = (struct mips_sim *)data;
   if (REG_P (x))
     for (i = 0; i < HARD_REGNO_NREGS (REGNO (x), GET_MODE (x)); i++)
       {
@@ -9769,7 +9769,7 @@ static rtx vr4130_last_insn;
 static void
 vr4130_true_reg_dependence_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  rtx *insn_ptr = data;
+  rtx *insn_ptr = (rtx *)data;
   if (REG_P (x)
       && *insn_ptr != 0
       && reg_referenced_p (x, PATTERN (*insn_ptr)))
@@ -10029,7 +10029,7 @@ struct builtin_description
 /* Define a MIPS_BUILTIN_DIRECT function for instruction CODE_FOR_mips_<INSN>.
    FUNCTION_TYPE and TARGET_FLAGS are builtin_description fields.  */
 #define DIRECT_BUILTIN(INSN, FUNCTION_TYPE, TARGET_FLAGS)		\
-  { CODE_FOR_mips_ ## INSN, 0, "__builtin_mips_" #INSN,			\
+  { CODE_FOR_mips_ ## INSN, MIPS_FP_COND_NONE, "__builtin_mips_" #INSN,			\
     MIPS_BUILTIN_DIRECT, FUNCTION_TYPE, TARGET_FLAGS }
 
 /* Define __builtin_mips_<INSN>_<COND>_{s,d}, both of which require
@@ -10148,13 +10148,13 @@ static const struct builtin_description sb1_bdesc[] =
    CODE_FOR_mips_<INSN>.  FUNCTION_TYPE and TARGET_FLAGS are
    builtin_description fields.  */
 #define DIRECT_NO_TARGET_BUILTIN(INSN, FUNCTION_TYPE, TARGET_FLAGS)	\
-  { CODE_FOR_mips_ ## INSN, 0, "__builtin_mips_" #INSN,			\
+  { CODE_FOR_mips_ ## INSN, MIPS_FP_COND_NONE, "__builtin_mips_" #INSN,			\
     MIPS_BUILTIN_DIRECT_NO_TARGET, FUNCTION_TYPE, TARGET_FLAGS }
 
 /* Define __builtin_mips_bposge<VALUE>.  <VALUE> is 32 for the MIPS32 DSP
    branch instruction.  TARGET_FLAGS is a builtin_description field.  */
 #define BPOSGE_BUILTIN(VALUE, TARGET_FLAGS)				\
-  { CODE_FOR_mips_bposge, 0, "__builtin_mips_bposge" #VALUE,		\
+  { CODE_FOR_mips_bposge, MIPS_FP_COND_NONE, "__builtin_mips_bposge" #VALUE,		\
     MIPS_BUILTIN_BPOSGE ## VALUE, MIPS_SI_FTYPE_VOID, TARGET_FLAGS }
 
 static const struct builtin_description dsp_bdesc[] =
@@ -10603,7 +10603,7 @@ mips_init_builtins (void)
 	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
 	  if ((d->target_flags & target_flags) == d->target_flags)
 	    lang_hooks.builtin_function (d->name, types[d->function_type],
-					 d - m->bdesc + offset,
+					 (enum built_in_function) (d - m->bdesc + offset),
 					 BUILT_IN_MD, NULL, NULL);
       offset += m->size;
     }

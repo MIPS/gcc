@@ -1222,7 +1222,7 @@ cris_reload_address_legitimized (rtx x,
 				 int itype,
 				 int ind_levels ATTRIBUTE_UNUSED)
 {
-  enum reload_type type = itype;
+  enum reload_type type = (enum reload_type) itype;
   rtx op0, op1;
   rtx *op0p;
   rtx *op1p;
@@ -1698,14 +1698,14 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total)
           && GET_CODE (XEXP (x, 0)) != CONST_INT
           && !CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
 	{
-	  *total = (rtx_cost (XEXP (x, 0), outer_code) + 2
+	  *total = (rtx_cost (XEXP (x, 0), (enum rtx_code) outer_code) + 2
 		    + 2 * GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))));
 	  return true;
 	}
       return false;
 
     case ZERO_EXTEND: case SIGN_EXTEND:
-      *total = rtx_cost (XEXP (x, 0), outer_code);
+      *total = rtx_cost (XEXP (x, 0), (enum rtx_code) outer_code);
       return true;
 
     default:
@@ -2286,7 +2286,7 @@ cris_init_expanders (void)
 static struct machine_function *
 cris_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return (struct machine_function *) ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.

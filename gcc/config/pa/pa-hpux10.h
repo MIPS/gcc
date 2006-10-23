@@ -116,27 +116,6 @@ Boston, MA 02110-1301, USA.  */
      %{p:%{!pg:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:-lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
 
-#undef THREAD_MODEL_SPEC
-#define THREAD_MODEL_SPEC "%{!threads:single}%{threads:dce}"
-
-/* Under hpux10, the normal location of the `ld' and `as' programs is the
-   /usr/ccs/bin directory.  */
-
-#ifndef CROSS_COMPILE
-#undef MD_EXEC_PREFIX
-#define MD_EXEC_PREFIX "/usr/ccs/bin/"
-#endif
-
-/* Under hpux10, the normal location of the various *crt*.o files is
-   the /usr/ccs/lib directory.  However, the profiling files are in
-   /opt/langtools/lib.  */
-
-#ifndef CROSS_COMPILE
-#undef MD_STARTFILE_PREFIX
-#define MD_STARTFILE_PREFIX "/usr/ccs/lib/"
-#define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/"
-#endif
-
 /* hpux10 has the new HP assembler.  It's still lousy, but it's a whole lot
    better than the assembler shipped with older versions of hpux.  */
 #undef NEW_HP_ASSEMBLER

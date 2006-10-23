@@ -194,7 +194,7 @@ match_integer_constant (gfc_expr ** result, int signflag)
   if (length == -1)
     return MATCH_NO;
 
-  buffer = alloca (length + 1);
+  buffer = (char *)alloca (length + 1);
   memset (buffer, '\0', length + 1);
 
   gfc_gobble_whitespace ();
@@ -279,7 +279,7 @@ match_hollerith_constant (gfc_expr ** result)
 	  gfc_free_expr (e);
 	  e = gfc_constant_result (BT_HOLLERITH,
 		gfc_default_character_kind, &gfc_current_locus);
-	  e->value.character.string = gfc_getmem (num+1);
+	  e->value.character.string = (char *)gfc_getmem (num+1);
 	  memcpy (e->value.character.string, buffer, num);
 	  e->value.character.length = num;
 	  *result = e;
@@ -396,7 +396,7 @@ match_boz_constant (gfc_expr ** result)
 
   gfc_current_locus = old_loc;
 
-  buffer = alloca (length + 1);
+  buffer = (char *)alloca (length + 1);
   memset (buffer, '\0', length + 1);
 
   match_digits (0, radix, buffer);
@@ -538,7 +538,7 @@ done:
   gfc_current_locus = old_loc;
   gfc_gobble_whitespace ();
 
-  buffer = alloca (count + 1);
+  buffer = (char *)alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
   p = buffer;
@@ -981,7 +981,7 @@ got_delim:
   e->ts.kind = kind;
   e->where = start_locus;
 
-  e->value.character.string = p = gfc_getmem (length + 1);
+  e->value.character.string = p = (char *)gfc_getmem (length + 1);
   e->value.character.length = length;
 
   gfc_current_locus = start_locus;

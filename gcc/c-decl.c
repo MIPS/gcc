@@ -32,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "input.h"
 #include "tm.h"
 #include "intl.h"
+#include "c-tree-code.h"
 #include "tree.h"
 #include "tree-inline.h"
 #include "rtl.h"
@@ -73,10 +74,10 @@ enum decl_context
 
 /* Nonzero if we have seen an invalid cross reference
    to a struct, union, or enum, but not yet printed the message.  */
-tree pending_invalid_xref;
+static tree pending_invalid_xref;
 
 /* File and line to appear in the eventual error message.  */
-location_t pending_invalid_xref_location;
+static location_t pending_invalid_xref_location;
 
 /* True means we've initialized exception handling.  */
 bool c_eh_initialized_p;
@@ -134,29 +135,29 @@ static GTY(()) tree all_translation_units;
 /* A list of decls to be made automatically visible in each file scope.  */
 static GTY(()) tree visible_builtins;
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a return statement that specifies a return value is seen.  */
 
-int current_function_returns_value;
+bool current_function_returns_value;
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a return statement with no argument is seen.  */
 
-int current_function_returns_null;
+bool current_function_returns_null;
 
-/* Set to 0 at beginning of a function definition, set to 1 if
+/* Set to false at beginning of a function definition, set to true if
    a call to a noreturn function is seen.  */
 
-int current_function_returns_abnormally;
+bool current_function_returns_abnormally;
 
-/* Set to nonzero by `grokdeclarator' for a function
+/* Set to true by `grokdeclarator' for a function
    whose return type is defaulted, if warnings for this are desired.  */
 
-static int warn_about_return_type;
+static bool warn_about_return_type;
 
-/* Nonzero when starting a function declared `extern inline'.  */
+/* True when starting a function declared `extern inline'.  */
 
-static int current_extern_inline;
+static bool current_extern_inline;
 
 /* Nonzero when the current toplevel function contains a declaration
    of a nested function which is never defined.  */
@@ -2822,7 +2823,7 @@ c_make_fname_decl (tree id, int type_dep)
    ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
-builtin_function (const char *name, tree type, int function_code,
+builtin_function (const char *name, tree type, enum  built_in_function function_code,
 		  enum built_in_class cl, const char *library_name,
 		  tree attrs)
 {
@@ -3969,7 +3970,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	 prefer the former warning since it is more explicit.  */
       if ((warn_implicit_int || warn_return_type || flag_isoc99)
 	  && funcdef_flag)
-	warn_about_return_type = 1;
+	warn_about_return_type = true;
       else if (warn_implicit_int || flag_isoc99)
 	pedwarn_c99 ("type defaults to %<int%> in declaration of %qs", name);
     }
@@ -4781,7 +4782,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		DECL_INLINE (decl) = 1;
 		if (storage_class == csc_extern)
-		  current_extern_inline = 1;
+		  current_extern_inline = true;
 	      }
 	  }
 	/* If -finline-functions, assume it can be inlined.  This does
@@ -5973,11 +5974,11 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   struct c_label_context_se *nstack_se;
   struct c_label_context_vm *nstack_vm;
 
-  current_function_returns_value = 0;  /* Assume, until we see it does.  */
-  current_function_returns_null = 0;
-  current_function_returns_abnormally = 0;
-  warn_about_return_type = 0;
-  current_extern_inline = 0;
+  current_function_returns_value = false;  /* Assume, until we see it does.  */
+  current_function_returns_null = false;
+  current_function_returns_abnormally = false;
+  warn_about_return_type = false;
+  current_extern_inline = false;
   c_switch_stack = NULL;
 
   nstack_se = XOBNEW (&parser_obstack, struct c_label_context_se);
@@ -7150,7 +7151,7 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
   specs->declspecs_seen_p = true;
   gcc_assert (TREE_CODE (qual) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (qual));
-  i = C_RID_CODE (qual);
+  i = (enum rid) C_RID_CODE (qual);
   switch (i)
     {
     case RID_CONST:
@@ -7189,7 +7190,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
   /* Handle type specifier keywords.  */
   if (TREE_CODE (type) == IDENTIFIER_NODE && C_IS_RESERVED_WORD (type))
     {
-      enum rid i = C_RID_CODE (type);
+      enum rid i = (enum rid) C_RID_CODE (type);
       if (specs->type)
 	{
 	  error ("two or more data types in declaration specifiers");
@@ -7565,7 +7566,7 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
   specs->declspecs_seen_p = true;
   gcc_assert (TREE_CODE (scspec) == IDENTIFIER_NODE
 	      && C_IS_RESERVED_WORD (scspec));
-  i = C_RID_CODE (scspec);
+  i = (enum rid) C_RID_CODE (scspec);
   if (extra_warnings && specs->non_sc_seen_p)
     warning (OPT_Wextra, "%qE is not at beginning of declaration", scspec);
   switch (i)

@@ -1819,7 +1819,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
      so as to match the min_lval predicate.  Failure to do so may result
      in the creation of large aggregate temporaries.  */
   tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval,
-			fallback | fb_lvalue);
+			(fallback_t) (fallback | fb_lvalue));
   ret = MIN (ret, tret);
 
   /* And finally, the indices and operands to BIT_FIELD_REF.  During this
@@ -2048,14 +2048,14 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   if (decl && DECL_BUILT_IN (decl))
     {
       tree arglist = TREE_OPERAND (*expr_p, 1);
-      tree new = fold_builtin (decl, arglist, !want_value);
+      tree fb = fold_builtin (decl, arglist, !want_value);
 
-      if (new && new != *expr_p)
+      if (fb && fb != *expr_p)
 	{
 	  /* There was a transformation of this call which computes the
 	     same value, but in a more efficient way.  Return and try
 	     again.  */
-	  *expr_p = new;
+	  *expr_p = fb;
 	  return GS_OK;
 	}
 
@@ -2108,14 +2108,14 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
       if (decl && DECL_BUILT_IN (decl))
 	{
 	  tree arglist = TREE_OPERAND (*expr_p, 1);
-	  tree new = fold_builtin (decl, arglist, !want_value);
+	  tree fb = fold_builtin (decl, arglist, !want_value);
 
-	  if (new && new != *expr_p)
+	  if (fb && fb != *expr_p)
 	    {
 	      /* There was a transformation of this call which computes the
 		 same value, but in a more efficient way.  Return and try
 		 again.  */
-	      *expr_p = new;
+	      *expr_p = fb;
 	      return GS_OK;
 	    }
 	}
@@ -3044,20 +3044,20 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	    if (size > 0 && !can_move_by_pieces (size, align))
 	      {
-		tree new = create_tmp_var_raw (type, "C");
+		tree var = create_tmp_var_raw (type, "C");
 
-		gimple_add_tmp_var (new);
-		TREE_STATIC (new) = 1;
-		TREE_READONLY (new) = 1;
-		DECL_INITIAL (new) = ctor;
-		if (align > DECL_ALIGN (new))
+		gimple_add_tmp_var (var);
+		TREE_STATIC (var) = 1;
+		TREE_READONLY (var) = 1;
+		DECL_INITIAL (var) = ctor;
+		if (align > DECL_ALIGN (var))
 		  {
-		    DECL_ALIGN (new) = align;
-		    DECL_USER_ALIGN (new) = 1;
+		    DECL_ALIGN (var) = align;
+		    DECL_USER_ALIGN (var) = 1;
 		  }
-	        walk_tree (&DECL_INITIAL (new), force_labels_r, NULL, NULL);
+	        walk_tree (&DECL_INITIAL (var), force_labels_r, NULL, NULL);
 
-		TREE_OPERAND (*expr_p, 1) = new;
+		TREE_OPERAND (*expr_p, 1) = var;
 
 		/* This is no longer an assignment of a CONSTRUCTOR, but
 		   we still may have processing to do on the LHS.  So
@@ -3926,7 +3926,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
 
       tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 			    is_inout ? is_gimple_min_lval : is_gimple_lvalue,
-			    fb_lvalue | fb_mayfail);
+			    (fallback_t) (fb_lvalue | fb_mayfail));
       if (tret == GS_ERROR)
 	{
 	  error ("invalid lvalue in asm output %d", i);
@@ -4037,7 +4037,7 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       if (!allows_reg && allows_mem)
 	{
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
-				is_gimple_lvalue, fb_lvalue | fb_mayfail);
+				is_gimple_lvalue, (fallback_t) (fb_lvalue | fb_mayfail));
 	  lang_hooks.mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
@@ -4701,7 +4701,7 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	  break;
 
 	case OMP_CLAUSE_DEFAULT:
-	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (c);
+	  ctx->default_kind = (enum omp_clause_default_kind) OMP_CLAUSE_DEFAULT_KIND (c);
 	  break;
 
 	default:
@@ -4872,7 +4872,7 @@ static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
   tree for_stmt, decl, t;
-  enum gimplify_status ret = 0;
+  enum gimplify_status ret = GS_OK;
 
   for_stmt = *expr_p;
 
@@ -4890,15 +4890,15 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
-			NULL, is_gimple_val, fb_rvalue);
+  ret = (enum gimplify_status) (ret | gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+			NULL, is_gimple_val, fb_rvalue));
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
   gcc_assert (TREE_OPERAND (t, 0) == decl);
 
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
-			NULL, is_gimple_val, fb_rvalue);
+  ret = (enum gimplify_status) (ret | gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+			NULL, is_gimple_val, fb_rvalue));
 
   t = OMP_FOR_INCR (for_stmt);
   switch (TREE_CODE (t))
@@ -4936,8 +4936,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	  gcc_unreachable ();
 	}
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
-			    NULL, is_gimple_val, fb_rvalue);
+      ret = (enum gimplify_status) (ret |  gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+			    NULL, is_gimple_val, fb_rvalue));
       break;
 
     default:
@@ -5366,7 +5366,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	}
 
       /* Do any language-specific gimplification.  */
-      ret = lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
+      ret = (enum gimplify_status) lang_hooks.gimplify_expr (expr_p, pre_p, post_p);
       if (ret == GS_OK)
 	{
 	  if (*expr_p == NULL_TREE)

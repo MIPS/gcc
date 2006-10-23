@@ -493,7 +493,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   MEM_NOTRAP_P (x) = 1;
 
   function->x_stack_slot_list
-    = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
+    = gen_rtx_EXPR_LIST (REG_DEP_TRUE, x, function->x_stack_slot_list);
 
   if (frame_offset_overflow (function->x_frame_offset, function->decl))
     function->x_frame_offset = 0;
@@ -676,7 +676,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
 	  if (best_p->size - rounded_size >= alignment)
 	    {
-	      p = ggc_alloc (sizeof (struct temp_slot));
+	      p = (struct temp_slot *) ggc_alloc (sizeof (struct temp_slot));
 	      p->in_use = p->addr_taken = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
@@ -687,7 +687,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	      p->type = best_p->type;
 	      insert_slot_to_list (p, &avail_temp_slots);
 
-	      stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, p->slot,
+	      stack_slot_list = gen_rtx_EXPR_LIST (REG_DEP_TRUE, p->slot,
 						   stack_slot_list);
 
 	      best_p->size = rounded_size;
@@ -701,7 +701,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
-      p = ggc_alloc (sizeof (struct temp_slot));
+      p = (struct temp_slot *) ggc_alloc (sizeof (struct temp_slot));
 
       /* We are passing an explicit alignment request to assign_stack_local.
 	 One side effect of that is assign_stack_local will not round SIZE
@@ -759,7 +759,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
   /* Create a new MEM rtx to avoid clobbering MEM flags of old slots.  */
   slot = gen_rtx_MEM (mode, XEXP (p->slot, 0));
-  stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, slot, stack_slot_list);
+  stack_slot_list = gen_rtx_EXPR_LIST (REG_DEP_TRUE, slot, stack_slot_list);
 
   /* If we know the alias set for the memory that will be used, use
      it.  If there's no TYPE, then we don't know anything about the
@@ -966,11 +966,11 @@ find_temp_slot_from_address (rtx x)
    that previously was known by OLD.  */
 
 void
-update_temp_slot_address (rtx old, rtx new)
+update_temp_slot_address (rtx old, rtx fresh)
 {
   struct temp_slot *p;
 
-  if (rtx_equal_p (old, new))
+  if (rtx_equal_p (old, fresh))
     return;
 
   p = find_temp_slot_from_address (old);
@@ -985,36 +985,36 @@ update_temp_slot_address (rtx old, rtx new)
       if (GET_CODE (old) != PLUS)
 	return;
 
-      if (REG_P (new))
+      if (REG_P (fresh))
 	{
-	  update_temp_slot_address (XEXP (old, 0), new);
-	  update_temp_slot_address (XEXP (old, 1), new);
+	  update_temp_slot_address (XEXP (old, 0), fresh);
+	  update_temp_slot_address (XEXP (old, 1), fresh);
 	  return;
 	}
-      else if (GET_CODE (new) != PLUS)
+      else if (GET_CODE (fresh) != PLUS)
 	return;
 
-      if (rtx_equal_p (XEXP (old, 0), XEXP (new, 0)))
-	update_temp_slot_address (XEXP (old, 1), XEXP (new, 1));
-      else if (rtx_equal_p (XEXP (old, 1), XEXP (new, 0)))
-	update_temp_slot_address (XEXP (old, 0), XEXP (new, 1));
-      else if (rtx_equal_p (XEXP (old, 0), XEXP (new, 1)))
-	update_temp_slot_address (XEXP (old, 1), XEXP (new, 0));
-      else if (rtx_equal_p (XEXP (old, 1), XEXP (new, 1)))
-	update_temp_slot_address (XEXP (old, 0), XEXP (new, 0));
+      if (rtx_equal_p (XEXP (old, 0), XEXP (fresh, 0)))
+	update_temp_slot_address (XEXP (old, 1), XEXP (fresh, 1));
+      else if (rtx_equal_p (XEXP (old, 1), XEXP (fresh, 0)))
+	update_temp_slot_address (XEXP (old, 0), XEXP (fresh, 1));
+      else if (rtx_equal_p (XEXP (old, 0), XEXP (fresh, 1)))
+	update_temp_slot_address (XEXP (old, 1), XEXP (fresh, 0));
+      else if (rtx_equal_p (XEXP (old, 1), XEXP (fresh, 1)))
+	update_temp_slot_address (XEXP (old, 0), XEXP (fresh, 0));
 
       return;
     }
 
   /* Otherwise add an alias for the temp's address.  */
   else if (p->address == 0)
-    p->address = new;
+    p->address = fresh;
   else
     {
       if (GET_CODE (p->address) != EXPR_LIST)
-	p->address = gen_rtx_EXPR_LIST (VOIDmode, p->address, NULL_RTX);
+	p->address = gen_rtx_EXPR_LIST (REG_DEP_TRUE, p->address, NULL_RTX);
 
-      p->address = gen_rtx_EXPR_LIST (VOIDmode, new, p->address);
+      p->address = gen_rtx_EXPR_LIST (REG_DEP_TRUE, fresh, p->address);
     }
 }
 
@@ -1239,23 +1239,23 @@ static int cfa_offset;
 static rtx
 instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
 {
-  rtx new;
+  rtx fresh;
   HOST_WIDE_INT offset;
 
   if (x == virtual_incoming_args_rtx)
-    new = arg_pointer_rtx, offset = in_arg_offset;
+    fresh = arg_pointer_rtx, offset = in_arg_offset;
   else if (x == virtual_stack_vars_rtx)
-    new = frame_pointer_rtx, offset = var_offset;
+    fresh = frame_pointer_rtx, offset = var_offset;
   else if (x == virtual_stack_dynamic_rtx)
-    new = stack_pointer_rtx, offset = dynamic_offset;
+    fresh = stack_pointer_rtx, offset = dynamic_offset;
   else if (x == virtual_outgoing_args_rtx)
-    new = stack_pointer_rtx, offset = out_arg_offset;
+    fresh = stack_pointer_rtx, offset = out_arg_offset;
   else if (x == virtual_cfa_rtx)
     {
 #ifdef FRAME_POINTER_CFA_OFFSET
-      new = frame_pointer_rtx;
+      fresh = frame_pointer_rtx;
 #else
-      new = arg_pointer_rtx;
+      fresh = arg_pointer_rtx;
 #endif
       offset = cfa_offset;
     }
@@ -1263,7 +1263,7 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
     return NULL_RTX;
 
   *poffset = offset;
-  return new;
+  return fresh;
 }
 
 /* A subroutine of instantiate_virtual_regs, called via for_each_rtx.
@@ -1277,7 +1277,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
 {
   HOST_WIDE_INT offset;
   bool *changed = (bool *) data;
-  rtx x, new;
+  rtx x, fresh;
 
   x = *loc;
   if (x == 0)
@@ -1286,21 +1286,21 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
   switch (GET_CODE (x))
     {
     case REG:
-      new = instantiate_new_reg (x, &offset);
-      if (new)
+      fresh = instantiate_new_reg (x, &offset);
+      if (fresh)
 	{
-	  *loc = plus_constant (new, offset);
+	  *loc = plus_constant (fresh, offset);
 	  if (changed)
 	    *changed = true;
 	}
       return -1;
 
     case PLUS:
-      new = instantiate_new_reg (XEXP (x, 0), &offset);
-      if (new)
+      fresh = instantiate_new_reg (XEXP (x, 0), &offset);
+      if (fresh)
 	{
-	  new = plus_constant (new, offset);
-	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), new, XEXP (x, 1));
+	  fresh = plus_constant (fresh, offset);
+	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), fresh, XEXP (x, 1));
 	  if (changed)
 	    *changed = true;
 	  return -1;
@@ -1346,7 +1346,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
   HOST_WIDE_INT offset;
   int insn_code, i;
   bool any_change = false;
-  rtx set, new, x, seq;
+  rtx set, fresh, x, seq;
 
   /* There are some special cases to be handled first.  */
   set = single_set (insn);
@@ -1356,17 +1356,17 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	 to mean that the underlying register gets assigned the inverse
 	 transformation.  This is used, for example, in the handling of
 	 non-local gotos.  */
-      new = instantiate_new_reg (SET_DEST (set), &offset);
-      if (new)
+      fresh = instantiate_new_reg (SET_DEST (set), &offset);
+      if (fresh)
 	{
 	  start_sequence ();
 
 	  for_each_rtx (&SET_SRC (set), instantiate_virtual_regs_in_rtx, NULL);
-	  x = simplify_gen_binary (PLUS, GET_MODE (new), SET_SRC (set),
+	  x = simplify_gen_binary (PLUS, GET_MODE (fresh), SET_SRC (set),
 				   GEN_INT (-offset));
-	  x = force_operand (x, new);
-	  if (x != new)
-	    emit_move_insn (new, x);
+	  x = force_operand (x, fresh);
+	  if (x != fresh)
+	    emit_move_insn (fresh, x);
 
 	  seq = get_insns ();
 	  end_sequence ();
@@ -1380,15 +1380,15 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	 new add insn.  The difference between this and falling through
 	 to the generic case is avoiding a new pseudo and eliminating a
 	 move insn in the initial rtl stream.  */
-      new = instantiate_new_reg (SET_SRC (set), &offset);
-      if (new && offset != 0
+      fresh = instantiate_new_reg (SET_SRC (set), &offset);
+      if (fresh && offset != 0
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	{
 	  start_sequence ();
 
 	  x = expand_simple_binop (GET_MODE (SET_DEST (set)), PLUS,
-				   new, GEN_INT (offset), SET_DEST (set),
+				   fresh, GEN_INT (offset), SET_DEST (set),
 				   1, OPTAB_LIB_WIDEN);
 	  if (x != SET_DEST (set))
 	    emit_move_insn (SET_DEST (set), x);
@@ -1411,7 +1411,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  && recog_data.operand_loc[1] == &XEXP (SET_SRC (set), 0)
 	  && recog_data.operand_loc[2] == &XEXP (SET_SRC (set), 1)
 	  && GET_CODE (recog_data.operand[2]) == CONST_INT
-	  && (new = instantiate_new_reg (recog_data.operand[1], &offset)))
+	  && (fresh = instantiate_new_reg (recog_data.operand[1], &offset)))
 	{
 	  offset += INTVAL (recog_data.operand[2]);
 
@@ -1421,7 +1421,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
 	      start_sequence ();
-	      emit_move_insn (SET_DEST (set), new);
+	      emit_move_insn (SET_DEST (set), fresh);
 	      seq = get_insns ();
 	      end_sequence ();
 
@@ -1435,10 +1435,10 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  /* Using validate_change and apply_change_group here leaves
 	     recog_data in an invalid state.  Since we know exactly what
 	     we want to check, do those two by hand.  */
-	  if (safe_insn_predicate (insn_code, 1, new)
+	  if (safe_insn_predicate (insn_code, 1, fresh)
 	      && safe_insn_predicate (insn_code, 2, x))
 	    {
-	      *recog_data.operand_loc[1] = recog_data.operand[1] = new;
+	      *recog_data.operand_loc[1] = recog_data.operand[1] = fresh;
 	      *recog_data.operand_loc[2] = recog_data.operand[2] = x;
 	      any_change = true;
 
@@ -1479,11 +1479,11 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  break;
 
 	case REG:
-	  new = instantiate_new_reg (x, &offset);
-	  if (new == NULL)
+	  fresh = instantiate_new_reg (x, &offset);
+	  if (fresh == NULL)
 	    continue;
 	  if (offset == 0)
-	    x = new;
+	    x = fresh;
 	  else
 	    {
 	      start_sequence ();
@@ -1494,7 +1494,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      /* ??? Recognize address_operand and/or "p" constraints
 		 to see if (plus new offset) is a valid before we put
 		 this through expand_simple_binop.  */
-	      x = expand_simple_binop (GET_MODE (x), PLUS, new,
+	      x = expand_simple_binop (GET_MODE (x), PLUS, fresh,
 				       GEN_INT (offset), NULL_RTX,
 				       1, OPTAB_LIB_WIDEN);
 	      seq = get_insns ();
@@ -1504,21 +1504,21 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  break;
 
 	case SUBREG:
-	  new = instantiate_new_reg (SUBREG_REG (x), &offset);
-	  if (new == NULL)
+	  fresh = instantiate_new_reg (SUBREG_REG (x), &offset);
+	  if (fresh == NULL)
 	    continue;
 	  if (offset != 0)
 	    {
 	      start_sequence ();
-	      new = expand_simple_binop (GET_MODE (new), PLUS, new,
+	      fresh = expand_simple_binop (GET_MODE (fresh), PLUS, fresh,
 					 GEN_INT (offset), NULL_RTX,
 					 1, OPTAB_LIB_WIDEN);
 	      seq = get_insns ();
 	      end_sequence ();
 	      emit_insn_before (seq, insn);
 	    }
-	  x = simplify_gen_subreg (recog_data.operand_mode[i], new,
-				   GET_MODE (new), SUBREG_BYTE (x));
+	  x = simplify_gen_subreg (recog_data.operand_mode[i], fresh,
+				   GET_MODE (fresh), SUBREG_BYTE (x));
 	  break;
 
 	default:
@@ -3073,9 +3073,8 @@ assign_parms (tree fndecl)
 #ifdef ARGS_GROW_DOWNWARD
   current_function_arg_offset_rtx
     = (all.stack_args_size.var == 0 ? GEN_INT (-all.stack_args_size.constant)
-       : expand_expr (size_diffop (all.stack_args_size.var,
-				   size_int (-all.stack_args_size.constant)),
-		      NULL_RTX, VOIDmode, 0));
+       : expand_normal (size_diffop (all.stack_args_size.var,
+				   size_int (-all.stack_args_size.constant))));
 #else
   current_function_arg_offset_rtx = ARGS_SIZE_RTX (all.stack_args_size);
 #endif
@@ -3783,7 +3782,7 @@ allocate_struct_function (tree fndecl)
   tree result;
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
-  cfun = ggc_alloc_cleared (sizeof (struct function));
+  cfun = (struct function *) ggc_alloc_cleared (sizeof (struct function));
 
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
@@ -4987,7 +4986,7 @@ static void
 update_epilogue_consts (rtx dest, rtx x, void *data)
 {
   struct epi_info *p = (struct epi_info *) data;
-  rtx new;
+  rtx fresh;
 
   if (!REG_P (dest) || REGNO (dest) >= FIRST_PSEUDO_REGISTER)
     return;
@@ -5008,12 +5007,12 @@ update_epilogue_consts (rtx dest, rtx x, void *data)
 	   && REGNO (XEXP (SET_SRC (x), 0)) < FIRST_PSEUDO_REGISTER
 	   && p->const_equiv[REGNO (XEXP (SET_SRC (x), 0))] != 0
 	   && GET_CODE (XEXP (SET_SRC (x), 1)) == CONST_INT
-	   && 0 != (new = simplify_binary_operation
+	   && 0 != (fresh = simplify_binary_operation
 		    (GET_CODE (SET_SRC (x)), GET_MODE (dest),
 		     p->const_equiv[REGNO (XEXP (SET_SRC (x), 0))],
 		     XEXP (SET_SRC (x), 1)))
-	   && GET_CODE (new) == CONST_INT)
-    p->const_equiv[REGNO (dest)] = new;
+	   && GET_CODE (fresh) == CONST_INT)
+    p->const_equiv[REGNO (dest)] = fresh;
 
   /* Otherwise, we can't do anything with this value.  */
   else

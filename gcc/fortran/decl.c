@@ -187,21 +187,21 @@ syntax:
    variable-iterator list.  */
 
 static match
-var_element (gfc_data_variable * new)
+var_element (gfc_data_variable * var)
 {
   match m;
   gfc_symbol *sym;
 
-  memset (new, 0, sizeof (gfc_data_variable));
+  memset (var, 0, sizeof (gfc_data_variable));
 
   if (gfc_match_char ('(') == MATCH_YES)
-    return var_list (new);
+    return var_list (var);
 
-  m = gfc_match_variable (&new->expr, 0);
+  m = gfc_match_variable (&var->expr, 0);
   if (m != MATCH_YES)
     return m;
 
-  sym = new->expr->symtree->n.sym;
+  sym = var->expr->symtree->n.sym;
 
   if (!sym->attr.function && gfc_current_ns->parent && gfc_current_ns->parent == sym->ns)
     {
@@ -217,7 +217,7 @@ var_element (gfc_data_variable * new)
 			   sym->name) == FAILURE)
     return MATCH_ERROR;
 
-  if (gfc_add_data (&sym->attr, sym->name, &new->expr->where) == FAILURE)
+  if (gfc_add_data (&sym->attr, sym->name, &var->expr->where) == FAILURE)
     return MATCH_ERROR;
 
   return MATCH_YES;
@@ -229,7 +229,7 @@ var_element (gfc_data_variable * new)
 static match
 top_var_list (gfc_data * d)
 {
-  gfc_data_variable var, *tail, *new;
+  gfc_data_variable var, *tail, *tmp;
   match m;
 
   tail = NULL;
@@ -242,15 +242,15 @@ top_var_list (gfc_data * d)
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
 
-      new = gfc_get_data_variable ();
-      *new = var;
+      tmp = gfc_get_data_variable ();
+      *tmp = var;
 
       if (tail == NULL)
-	d->var = new;
+	d->var = tmp;
       else
-	tail->next = new;
+	tail->next = tmp;
 
-      tail = new;
+      tail = tmp;
 
       if (gfc_match_char ('/') == MATCH_YES)
 	break;
@@ -316,7 +316,7 @@ match_data_constant (gfc_expr ** result)
 static match
 top_val_list (gfc_data * data)
 {
-  gfc_data_value *new, *tail;
+  gfc_data_value *tmp, *tail;
   gfc_expr *expr;
   const char *msg;
   match m;
@@ -331,14 +331,14 @@ top_val_list (gfc_data * data)
       if (m == MATCH_ERROR)
 	return MATCH_ERROR;
 
-      new = gfc_get_data_value ();
+      tmp = gfc_get_data_value ();
 
       if (tail == NULL)
-	data->value = new;
+	data->value = tmp;
       else
-	tail->next = new;
+	tail->next = tmp;
 
-      tail = new;
+      tail = tmp;
 
       if (expr->ts.type != BT_INTEGER || gfc_match_char ('*') != MATCH_YES)
 	{
@@ -435,24 +435,24 @@ match_old_style_init (const char *name)
 match
 gfc_match_data (void)
 {
-  gfc_data *new;
+  gfc_data *tmp;
   match m;
 
   for (;;)
     {
-      new = gfc_get_data ();
-      new->where = gfc_current_locus;
+      tmp = gfc_get_data ();
+      tmp->where = gfc_current_locus;
 
-      m = top_var_list (new);
+      m = top_var_list (tmp);
       if (m != MATCH_YES)
 	goto cleanup;
 
-      m = top_val_list (new);
+      m = top_val_list (tmp);
       if (m != MATCH_YES)
 	goto cleanup;
 
-      new->next = gfc_current_ns->data;
-      gfc_current_ns->data = new;
+      tmp->next = gfc_current_ns->data;
+      gfc_current_ns->data = tmp;
 
       if (gfc_match_eos () == MATCH_YES)
 	break;
@@ -469,7 +469,7 @@ gfc_match_data (void)
   return MATCH_YES;
 
 cleanup:
-  gfc_free_data (new);
+  gfc_free_data (tmp);
   return MATCH_ERROR;
 }
 
@@ -626,7 +626,7 @@ get_proc_name (const char *name, gfc_symbol ** result,
 
   sym = *result;
 
-  if (sym && !sym->new && gfc_current_state () != COMP_INTERFACE)
+  if (sym && !sym->fresh && gfc_current_state () != COMP_INTERFACE)
     {
       /* Trap another encompassed procedure with the same name.  All
 	 these conditions are necessary to avoid picking up an entry
@@ -683,7 +683,7 @@ get_proc_name (const char *name, gfc_symbol ** result,
 /* Function called by variable_decl() that adds a name to the symbol
    table.  */
 
-static try
+static check
 build_sym (const char *name, gfc_charlen * cl,
 	   gfc_array_spec ** as, locus * var_locus)
 {
@@ -736,7 +736,7 @@ gfc_set_constant_character_len (int len, gfc_expr * expr)
   slen = expr->value.character.length;
   if (len != slen)
     {
-      s = gfc_getmem (len);
+      s = (char *)gfc_getmem (len);
       memcpy (s, expr->value.character.string, MIN (len, slen));
       if (len > slen)
 	memset (&s[slen], ' ', len - slen);
@@ -761,7 +761,7 @@ create_enum_history(gfc_symbol *sym, gfc_expr *init)
   enumerator_history *new_enum_history;
   gcc_assert (sym != NULL && init != NULL);
 
-  new_enum_history = gfc_getmem (sizeof (enumerator_history));
+  new_enum_history = (enumerator_history *)gfc_getmem (sizeof (enumerator_history));
 
   new_enum_history->sym = sym;
   new_enum_history->initializer = init;
@@ -806,7 +806,7 @@ gfc_free_enum_history(void)
 /* Function called by variable_decl() that adds an initialization
    expression to a symbol.  */
 
-static try
+static check
 add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 		      locus * var_locus)
 {
@@ -920,7 +920,7 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
 /* Function called by variable_decl() that adds a name to a structure
    being built.  */
 
-static try
+static check
 build_struct (const char *name, gfc_charlen * cl, gfc_expr ** init,
 	      gfc_array_spec ** as)
 {
@@ -1061,7 +1061,7 @@ variable_decl (int elem)
   gfc_charlen *cl;
   locus var_locus;
   match m;
-  try t;
+  check t;
   gfc_symbol *sym;
   locus old_locus;
 
@@ -1162,7 +1162,7 @@ variable_decl (int elem)
 		    gfc_internal_error ("Couldn't set pointee array spec.");
 	      
 		  /* Fix the array spec.  */
-		  m = gfc_mod_pointee_as (sym->as);  
+		  m = (match) gfc_mod_pointee_as (sym->as);  
 		  if (m == MATCH_ERROR)
 		    goto cleanup;
 		}
@@ -2035,10 +2035,10 @@ match_attr_spec (void)
 
   locus start, seen_at[NUM_DECL];
   int seen[NUM_DECL];
-  decl_types d;
+  int d;
   const char *attr;
   match m;
-  try t;
+  check t;
 
   gfc_clear_attr (&current_attr);
   start = gfc_current_locus;
@@ -2429,7 +2429,7 @@ loop:
 
 /* Copy attributes matched by match_prefix() to attributes on a symbol.  */
 
-static try
+static check
 copy_prefix (symbol_attribute * dest, locus * where)
 {
 
@@ -3289,7 +3289,7 @@ attr_decl1 (void)
   if (sym->attr.cray_pointee && sym->as != NULL)
     {
       /* Fix the array spec.  */
-      m = gfc_mod_pointee_as (sym->as);   	
+      m = (match) gfc_mod_pointee_as (sym->as);
       if (m == MATCH_ERROR)
 	goto cleanup;
     }
@@ -3465,7 +3465,7 @@ cray_pointer_decl (void)
 	{
 	  gfc_error ("Duplicate array spec for Cray pointee at %C.");
 	  gfc_free_array_spec (as);
-	  return MATCH_ERROR;
+	  return (match) MATCH_ERROR;
 	}
       
       as = NULL;
@@ -3473,7 +3473,7 @@ cray_pointer_decl (void)
       if (cpte->as != NULL)
 	{
 	  /* Fix array spec.  */
-	  m = gfc_mod_pointee_as (cpte->as);
+	  m = (match) gfc_mod_pointee_as (cpte->as);
 	  if (m == MATCH_ERROR)
 	    return m;
 	} 
@@ -3619,7 +3619,7 @@ access_attr_decl (gfc_statement st)
   interface_type type;
   gfc_user_op *uop;
   gfc_symbol *sym;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op op;
   match m;
 
   if (gfc_match (" ::") == MATCH_NO && gfc_match_space () == MATCH_NO)
@@ -3627,7 +3627,7 @@ access_attr_decl (gfc_statement st)
 
   for (;;)
     {
-      m = gfc_match_generic_spec (&type, name, &operator);
+      m = gfc_match_generic_spec (&type, name, &op);
       if (m == MATCH_NO)
 	goto syntax;
       if (m == MATCH_ERROR)
@@ -3651,15 +3651,15 @@ access_attr_decl (gfc_statement st)
 	  break;
 
 	case INTERFACE_INTRINSIC_OP:
-	  if (gfc_current_ns->operator_access[operator] == ACCESS_UNKNOWN)
+	  if (gfc_current_ns->operator_access[op] == ACCESS_UNKNOWN)
 	    {
-	      gfc_current_ns->operator_access[operator] =
+	      gfc_current_ns->operator_access[op] =
 		(st == ST_PUBLIC) ? ACCESS_PUBLIC : ACCESS_PRIVATE;
 	    }
 	  else
 	    {
 	      gfc_error ("Access specification of the %s operator at %C has "
-			 "already been specified", gfc_op2string (operator));
+			 "already been specified", gfc_op2string (op));
 	      goto done;
 	    }
 
@@ -4089,7 +4089,7 @@ loop:
    is the case. Since there is no bounds-checking for Cray Pointees,
    this will be okay.  */
 
-try
+check
 gfc_mod_pointee_as (gfc_array_spec *as)
 {
   as->cray_pointee = true; /* This will be useful to know later.  */
@@ -4102,9 +4102,9 @@ gfc_mod_pointee_as (gfc_array_spec *as)
   else if (as->type == AS_ASSUMED_SHAPE)
     {
       gfc_error ("Cray Pointee at %C cannot be assumed shape array");
-      return MATCH_ERROR;
+      return (check) MATCH_ERROR;
     }
-  return MATCH_YES;
+  return (check) MATCH_YES;
 }
 
 

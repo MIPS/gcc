@@ -247,7 +247,7 @@ expr_size (tree exp)
   else
     size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (lang_hooks.expr_size (exp), exp);
 
-  return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
+  return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), EXPAND_NORMAL);
 }
 
 /* Return a wide integer for the size in bytes of the value of EXP, or -1
@@ -887,10 +887,10 @@ round_push (rtx size)
 
   if (GET_CODE (size) == CONST_INT)
     {
-      HOST_WIDE_INT new = (INTVAL (size) + align - 1) / align * align;
+      HOST_WIDE_INT tmp = (INTVAL (size) + align - 1) / align * align;
 
-      if (INTVAL (size) != new)
-	size = GEN_INT (new);
+      if (INTVAL (size) != tmp)
+	size = GEN_INT (tmp);
     }
   else
     {
@@ -1152,10 +1152,10 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
 
       if (GET_CODE (size) == CONST_INT)
 	{
-	  HOST_WIDE_INT new = INTVAL (size) / align * align;
+	  HOST_WIDE_INT tmp = INTVAL (size) / align * align;
 
-	  if (INTVAL (size) != new)
-	    size = GEN_INT (new);
+	  if (INTVAL (size) != tmp)
+	    size = GEN_INT (tmp);
 	}
       else
 	{

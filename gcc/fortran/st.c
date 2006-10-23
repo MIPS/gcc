@@ -50,7 +50,7 @@ gfc_get_code (void)
 {
   gfc_code *c;
 
-  c = gfc_getmem (sizeof (gfc_code));
+  c = (gfc_code *)gfc_getmem (sizeof (gfc_code));
   c->loc = gfc_current_locus;
   return c;
 }
@@ -60,7 +60,7 @@ gfc_get_code (void)
    its tail, returning a pointer to the new tail.  */
 
 gfc_code *
-gfc_append_code (gfc_code * tail, gfc_code * new)
+gfc_append_code (gfc_code * tail, gfc_code * fresh)
 {
 
   if (tail != NULL)
@@ -68,13 +68,13 @@ gfc_append_code (gfc_code * tail, gfc_code * new)
       while (tail->next != NULL)
 	tail = tail->next;
 
-      tail->next = new;
+      tail->next = fresh;
     }
 
-  while (new->next != NULL)
-    new = new->next;
+  while (fresh->next != NULL)
+    fresh = fresh->next;
 
-  return new;
+  return fresh;
 }
 
 

@@ -526,7 +526,7 @@ execute_sink_code (void)
 
   connect_infinite_loops_to_exit ();
   memset (&sink_stats, 0, sizeof (sink_stats));
-  calculate_dominance_info (CDI_DOMINATORS | CDI_POST_DOMINATORS);
+  calculate_dominance_info ((enum cdi_direction) (CDI_DOMINATORS | CDI_POST_DOMINATORS));
   sink_code_in_bb (EXIT_BLOCK_PTR); 
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "Sunk statements:%d\n", sink_stats.sunk);

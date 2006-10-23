@@ -96,22 +96,22 @@ gfc_free_interface (gfc_interface * intr)
    minus respectively, leaving the rest unchanged.  */
 
 static gfc_intrinsic_op
-fold_unary (gfc_intrinsic_op operator)
+fold_unary (gfc_intrinsic_op foperator)
 {
 
-  switch (operator)
+  switch (foperator)
     {
     case INTRINSIC_UPLUS:
-      operator = INTRINSIC_PLUS;
+      foperator = INTRINSIC_PLUS;
       break;
     case INTRINSIC_UMINUS:
-      operator = INTRINSIC_MINUS;
+      foperator = INTRINSIC_MINUS;
       break;
     default:
       break;
     }
 
-  return operator;
+  return foperator;
 }
 
 
@@ -122,7 +122,7 @@ fold_unary (gfc_intrinsic_op operator)
 match
 gfc_match_generic_spec (interface_type * type,
 			char *name,
-			gfc_intrinsic_op *operator)
+			gfc_intrinsic_op *foperator)
 {
   char buffer[GFC_MAX_SYMBOL_LEN + 1];
   match m;
@@ -131,14 +131,14 @@ gfc_match_generic_spec (interface_type * type,
   if (gfc_match (" assignment ( = )") == MATCH_YES)
     {
       *type = INTERFACE_INTRINSIC_OP;
-      *operator = INTRINSIC_ASSIGN;
+      *foperator = INTRINSIC_ASSIGN;
       return MATCH_YES;
     }
 
   if (gfc_match (" operator ( %o )", &i) == MATCH_YES)
     {				/* Operator i/f */
       *type = INTERFACE_INTRINSIC_OP;
-      *operator = fold_unary (i);
+      *foperator = fold_unary (i);
       return MATCH_YES;
     }
 
@@ -185,12 +185,12 @@ gfc_match_interface (void)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   interface_type type;
   gfc_symbol *sym;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op foperator;
   match m;
 
   m = gfc_match_space ();
 
-  if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
+  if (gfc_match_generic_spec (&type, name, &foperator) == MATCH_ERROR)
     return MATCH_ERROR;
 
 
@@ -232,7 +232,7 @@ gfc_match_interface (void)
       break;
 
     case INTERFACE_INTRINSIC_OP:
-      current_interface.op = operator;
+      current_interface.op = foperator;
       break;
 
     case INTERFACE_NAMELESS:
@@ -251,12 +251,12 @@ gfc_match_end_interface (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
   interface_type type;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op foperator;
   match m;
 
   m = gfc_match_space ();
 
-  if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
+  if (gfc_match_generic_spec (&type, name, &foperator) == MATCH_ERROR)
     return MATCH_ERROR;
 
   /* If we're not looking at the end of the statement now, or if this
@@ -284,7 +284,7 @@ gfc_match_end_interface (void)
       break;
 
     case INTERFACE_INTRINSIC_OP:
-      if (type != current_interface.type || operator != current_interface.op)
+      if (type != current_interface.type || foperator != current_interface.op)
 	{
 
 	  if (current_interface.op == INTRINSIC_ASSIGN)
@@ -488,7 +488,7 @@ find_keyword_arg (const char *name, gfc_formal_arglist * f)
    interfaces for that operator are legal.  */
 
 static void
-check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
+check_operator_interface (gfc_interface * intr, gfc_intrinsic_op foperator)
 {
   gfc_formal_arglist *formal;
   sym_intent i1, i2;
@@ -530,7 +530,7 @@ check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
 
   sym = intr->sym;
 
-  if (operator == INTRINSIC_ASSIGN)
+  if (foperator == INTRINSIC_ASSIGN)
     {
       if (!sym->attr.subroutine)
 	{
@@ -568,7 +568,7 @@ check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
 	}
     }
 
-  switch (operator)
+  switch (foperator)
     {
     case INTRINSIC_PLUS:	/* Numeric unary or binary */
     case INTRINSIC_MINUS:
@@ -646,7 +646,7 @@ check_operator_interface (gfc_interface * intr, gfc_intrinsic_op operator)
     }
 
   /* Check intents on operator interfaces.  */
-  if (operator == INTRINSIC_ASSIGN)
+  if (foperator == INTRINSIC_ASSIGN)
     {
       if (i1 != INTENT_OUT && i1 != INTENT_INOUT)
 	gfc_error ("First argument of defined assignment at %L must be "
@@ -712,7 +712,7 @@ count_types_test (gfc_formal_arglist * f1, gfc_formal_arglist * f2)
 
   /* Build an array of integers that gives the same integer to
      arguments of the same type/rank.  */
-  arg = gfc_getmem (n1 * sizeof (arginfo));
+  arg = (arginfo *)gfc_getmem (n1 * sizeof (arginfo));
 
   f = f1;
   for (i = 0; i < n1; i++, f = f->next)
@@ -1030,7 +1030,7 @@ check_uop_interfaces (gfc_user_op * uop)
   gfc_namespace *ns;
 
   sprintf (interface_name, "operator interface '%s'", uop->name);
-  if (check_interface0 (uop->operator, interface_name))
+  if (check_interface0 (uop->foperator, interface_name))
     return;
 
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -1039,7 +1039,7 @@ check_uop_interfaces (gfc_user_op * uop)
       if (uop2 == NULL)
 	continue;
 
-      check_interface1 (uop->operator, uop2->operator, 0, interface_name);
+      check_interface1 (uop->foperator, uop2->foperator, 0, interface_name);
     }
 }
 
@@ -1054,7 +1054,7 @@ gfc_check_interfaces (gfc_namespace * ns)
 {
   gfc_namespace *old_ns, *ns2;
   char interface_name[100];
-  gfc_intrinsic_op i;
+  int i;
 
   old_ns = gfc_current_ns;
   gfc_current_ns = ns;
@@ -1074,13 +1074,13 @@ gfc_check_interfaces (gfc_namespace * ns)
 	sprintf (interface_name, "intrinsic '%s' operator",
 		 gfc_op2string (i));
 
-      if (check_interface0 (ns->operator[i], interface_name))
+      if (check_interface0 (ns->foperator[i], interface_name))
 	continue;
 
-      check_operator_interface (ns->operator[i], i);
+      check_operator_interface (ns->foperator[i], (gfc_intrinsic_op)i);
 
       for (ns2 = ns->parent; ns2; ns2 = ns2->parent)
-	if (check_interface1 (ns->operator[i], ns2->operator[i], 0,
+	if (check_interface1 (ns->foperator[i], ns2->foperator[i], 0,
 			      interface_name))
 	  break;
     }
@@ -1209,7 +1209,7 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 		       gfc_formal_arglist * formal,
 		       int ranks_must_agree, int is_elemental, locus * where)
 {
-  gfc_actual_arglist **new, *a, *actual, temp;
+  gfc_actual_arglist **fresh, *a, *actual, temp;
   gfc_formal_arglist *f;
   gfc_gsymbol *gsym;
   int i, n, na;
@@ -1224,10 +1224,10 @@ compare_actual_formal (gfc_actual_arglist ** ap,
   for (f = formal; f; f = f->next)
     n++;
 
-  new = (gfc_actual_arglist **) alloca (n * sizeof (gfc_actual_arglist *));
+  fresh = (gfc_actual_arglist **) alloca (n * sizeof (gfc_actual_arglist *));
 
   for (i = 0; i < n; i++)
-    new[i] = NULL;
+    fresh[i] = NULL;
 
   na = 0;
   f = formal;
@@ -1255,7 +1255,7 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	      return 0;
 	    }
 
-	  if (new[i] != NULL)
+	  if (fresh[i] != NULL)
 	    {
 	      if (where)
 		gfc_error
@@ -1387,14 +1387,14 @@ compare_actual_formal (gfc_actual_arglist ** ap,
       if (a == actual)
 	na = i;
 
-      new[i++] = a;
+      fresh[i++] = a;
     }
 
   /* Make sure missing actual arguments are optional.  */
   i = 0;
   for (f = formal; f; f = f->next, i++)
     {
-      if (new[i] != NULL)
+      if (fresh[i] != NULL)
 	continue;
       if (!f->sym->attr.optional)
 	{
@@ -1409,27 +1409,27 @@ compare_actual_formal (gfc_actual_arglist ** ap,
      argument list with null arguments in the right places.  The head
      of the list remains the head.  */
   for (i = 0; i < n; i++)
-    if (new[i] == NULL)
-      new[i] = gfc_get_actual_arglist ();
+    if (fresh[i] == NULL)
+      fresh[i] = gfc_get_actual_arglist ();
 
   if (na != 0)
     {
-      temp = *new[0];
-      *new[0] = *actual;
+      temp = *fresh[0];
+      *fresh[0] = *actual;
       *actual = temp;
 
-      a = new[0];
-      new[0] = new[na];
-      new[na] = a;
+      a = fresh[0];
+      fresh[0] = fresh[na];
+      fresh[na] = a;
     }
 
   for (i = 0; i < n - 1; i++)
-    new[i]->next = new[i + 1];
+    fresh[i]->next = fresh[i + 1];
 
-  new[i]->next = NULL;
+  fresh[i]->next = NULL;
 
   if (*ap == NULL && n > 0)
-    *ap = new[0];
+    *ap = fresh[0];
 
   /* Note the types of omitted optional arguments.  */
   for (a = actual, f = formal; a; a = a->next, f = f->next)
@@ -1485,7 +1485,7 @@ pair_cmp (const void *p1, const void *p2)
    refer to the same expression. The analysis is conservative.
    Returning FAILURE will produce no warning.  */
 
-static try
+static check
 compare_actual_expr (gfc_expr * e1, gfc_expr * e2)
 {
   const gfc_ref *r1, *r2;
@@ -1533,7 +1533,7 @@ compare_actual_expr (gfc_expr * e1, gfc_expr * e2)
    another, check that identical actual arguments aren't not
    associated with some incompatible INTENTs.  */
 
-static try
+static check
 check_some_aliasing (gfc_formal_arglist * f, gfc_actual_arglist * a)
 {
   sym_intent f1_intent, f2_intent;
@@ -1541,7 +1541,7 @@ check_some_aliasing (gfc_formal_arglist * f, gfc_actual_arglist * a)
   gfc_actual_arglist *a1;
   size_t n, i, j;
   argpair *p;
-  try t = SUCCESS;
+  check t = SUCCESS;
 
   n = 0;
   for (f1 = f, a1 = a;; f1 = f1->next, a1 = a1->next)
@@ -1602,7 +1602,7 @@ check_some_aliasing (gfc_formal_arglist * f, gfc_actual_arglist * a)
    another, check that they are compatible in the sense that intents
    are not mismatched.  */
 
-static try
+static check
 check_intents (gfc_formal_arglist * f, gfc_actual_arglist * a)
 {
   sym_intent a_intent, f_intent;
@@ -1768,7 +1768,7 @@ find_sym_in_symtree (gfc_symbol * sym)
    interface.  If one is found, the expression node is replaced with
    the appropriate function call.  */
 
-try
+check
 gfc_extend_expr (gfc_expr * e)
 {
   gfc_actual_arglist *actual;
@@ -1788,7 +1788,7 @@ gfc_extend_expr (gfc_expr * e)
       actual->next->expr = e->value.op.op2;
     }
 
-  i = fold_unary (e->value.op.operator);
+  i = fold_unary (e->value.op.foperator);
 
   if (i == INTRINSIC_USER)
     {
@@ -1798,7 +1798,7 @@ gfc_extend_expr (gfc_expr * e)
 	  if (uop == NULL)
 	    continue;
 
-	  sym = gfc_search_interface (uop->operator, 0, &actual);
+	  sym = gfc_search_interface (uop->foperator, 0, &actual);
 	  if (sym != NULL)
 	    break;
 	}
@@ -1807,7 +1807,7 @@ gfc_extend_expr (gfc_expr * e)
     {
       for (ns = gfc_current_ns; ns; ns = ns->parent)
 	{
-	  sym = gfc_search_interface (ns->operator[i], 0, &actual);
+	  sym = gfc_search_interface (ns->foperator[i], 0, &actual);
 	  if (sym != NULL)
 	    break;
 	}
@@ -1851,7 +1851,7 @@ gfc_extend_expr (gfc_expr * e)
    SUCCESS if the node was replaced.  On FAILURE, no error is
    generated.  */
 
-try
+check
 gfc_extend_assign (gfc_code * c, gfc_namespace * ns)
 {
   gfc_actual_arglist *actual;
@@ -1878,7 +1878,7 @@ gfc_extend_assign (gfc_code * c, gfc_namespace * ns)
 
   for (; ns; ns = ns->parent)
     {
-      sym = gfc_search_interface (ns->operator[INTRINSIC_ASSIGN], 1, &actual);
+      sym = gfc_search_interface (ns->foperator[INTRINSIC_ASSIGN], 1, &actual);
       if (sym != NULL)
 	break;
     }
@@ -1905,17 +1905,17 @@ gfc_extend_assign (gfc_code * c, gfc_namespace * ns)
    the given interface list.  Ambiguity isn't checked yet since module
    procedures can be present without interfaces.  */
 
-static try
-check_new_interface (gfc_interface * base, gfc_symbol * new)
+static check
+check_new_interface (gfc_interface * base, gfc_symbol * fresh)
 {
   gfc_interface *ip;
 
   for (ip = base; ip; ip = ip->next)
     {
-      if (ip->sym == new)
+      if (ip->sym == fresh)
 	{
 	  gfc_error ("Entity '%s' at %C is already present in the interface",
-		     new->name);
+		     fresh->name);
 	  return FAILURE;
 	}
     }
@@ -1926,8 +1926,8 @@ check_new_interface (gfc_interface * base, gfc_symbol * new)
 
 /* Add a symbol to the current interface.  */
 
-try
-gfc_add_interface (gfc_symbol * new)
+check
+gfc_add_interface (gfc_symbol * fresh)
 {
   gfc_interface **head, *intr;
   gfc_namespace *ns;
@@ -1940,11 +1940,11 @@ gfc_add_interface (gfc_symbol * new)
 
     case INTERFACE_INTRINSIC_OP:
       for (ns = current_interface.ns; ns; ns = ns->parent)
-	if (check_new_interface (ns->operator[current_interface.op], new)
+	if (check_new_interface (ns->foperator[current_interface.op], fresh)
 	    == FAILURE)
 	  return FAILURE;
 
-      head = &current_interface.ns->operator[current_interface.op];
+      head = &current_interface.ns->foperator[current_interface.op];
       break;
 
     case INTERFACE_GENERIC:
@@ -1954,7 +1954,7 @@ gfc_add_interface (gfc_symbol * new)
 	  if (sym == NULL)
 	    continue;
 
-	  if (check_new_interface (sym->generic, new) == FAILURE)
+	  if (check_new_interface (sym->generic, fresh) == FAILURE)
 	    return FAILURE;
 	}
 
@@ -1962,11 +1962,11 @@ gfc_add_interface (gfc_symbol * new)
       break;
 
     case INTERFACE_USER_OP:
-      if (check_new_interface (current_interface.uop->operator, new) ==
+      if (check_new_interface (current_interface.uop->foperator, fresh) ==
 	  FAILURE)
 	return FAILURE;
 
-      head = &current_interface.uop->operator;
+      head = &current_interface.uop->foperator;
       break;
 
     default:
@@ -1974,7 +1974,7 @@ gfc_add_interface (gfc_symbol * new)
     }
 
   intr = gfc_get_interface ();
-  intr->sym = new;
+  intr->sym = fresh;
   intr->where = gfc_current_locus;
 
   intr->next = *head;

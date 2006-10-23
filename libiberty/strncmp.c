@@ -15,6 +15,7 @@ Compares the first @var{n} bytes of two strings, returning a value as
 #include <ansidecl.h>
 #include <stddef.h>
 
+#ifndef __APPLE__
 int
 strncmp(const char *s1, const char *s2, register size_t n)
 {
@@ -31,3 +32,4 @@ strncmp(const char *s1, const char *s2, register size_t n)
     }
   return 0;
 }
+#endif

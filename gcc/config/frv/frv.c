@@ -8696,7 +8696,7 @@ frv_read_argument (tree *arglistptr)
 {
   tree next = TREE_VALUE (*arglistptr);
   *arglistptr = TREE_CHAIN (*arglistptr);
-  return expand_expr (next, NULL_RTX, VOIDmode, 0);
+  return expand_normal (next);
 }
 
 /* Like frv_read_argument, but interpret the argument as the number

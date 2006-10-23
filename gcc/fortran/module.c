@@ -104,6 +104,8 @@ fixup_t;
 
 
 /* Structure for holding extra info needed for pointers being read.  */
+enum symbol_state { UNUSED, NEEDED, USED };
+enum reference_state { UNREFERENCED = 0, NEEDS_WRITE, WRITTEN };
 
 typedef struct pointer_info
 {
@@ -124,9 +126,7 @@ typedef struct pointer_info
     {
       gfc_symbol *sym;
       char true_name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
-      enum
-      { UNUSED, NEEDED, USED }
-      state;
+      enum symbol_state state;
       int ns, referenced;
       module_locus where;
       fixup_t *stfixup;
@@ -137,9 +137,7 @@ typedef struct pointer_info
     struct
     {
       gfc_symbol *sym;
-      enum
-      { UNREFERENCED = 0, NEEDS_WRITE, WRITTEN }
-      state;
+      enum reference_state state;
     }
     wsym;
   }
@@ -158,7 +156,7 @@ typedef struct gfc_use_rename
   char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_use_rename *next;
   int found;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op foperator;
   locus where;
 }
 gfc_use_rename;
@@ -263,7 +261,7 @@ init_pi_tree (void)
   compare = (iomode == IO_INPUT) ? compare_integers : compare_pointers;
 
   /* Pointer 0 is the NULL pointer.  */
-  p = gfc_get_pointer_info ();
+  p = (pointer_info *)gfc_get_pointer_info ();
   p->u.pointer = NULL;
   p->integer = 0;
   p->type = P_OTHER;
@@ -271,7 +269,7 @@ init_pi_tree (void)
   gfc_insert_bbt (&pi_root, p, compare);
 
   /* Pointer 1 is the current namespace.  */
-  p = gfc_get_pointer_info ();
+  p = (pointer_info *)gfc_get_pointer_info ();
   p->u.pointer = gfc_current_ns;
   p->integer = 1;
   p->type = P_NAMESPACE;
@@ -315,7 +313,7 @@ get_pointer (void *gp)
     return p;
 
   /* Pointer doesn't have an integer.  Give it one.  */
-  p = gfc_get_pointer_info ();
+  p = (pointer_info *)gfc_get_pointer_info ();
 
   p->u.pointer = gp;
   p->integer = symbol_number++;
@@ -350,7 +348,7 @@ get_integer (int integer)
   if (p != NULL)
     return p;
 
-  p = gfc_get_pointer_info ();
+  p = (pointer_info *)gfc_get_pointer_info ();
   p->integer = integer;
   p->u.pointer = NULL;
 
@@ -442,17 +440,17 @@ add_fixup (int integer, void *gp)
 
   if (p->integer == 0 || p->u.pointer != NULL)
     {
-      cp = gp;
-      *cp = p->u.pointer;
+      cp = (char **)gp;
+      *cp = (char *)p->u.pointer;
     }
   else
     {
-      f = gfc_getmem (sizeof (fixup_t));
+      f = (fixup_t *)gfc_getmem (sizeof (fixup_t));
 
       f->next = p->fixup;
       p->fixup = f;
 
-      f->pointer = gp;
+      f->pointer = (void **)gp;
     }
 
   return p;
@@ -484,9 +482,9 @@ match
 gfc_match_use (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_use_rename *tail = NULL, *new;
+  gfc_use_rename *tail = NULL, *tmp;
   interface_type type;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op op;
   match m;
 
   m = gfc_match_name (module_name);
@@ -510,20 +508,20 @@ gfc_match_use (void)
   for (;;)
     {
       /* Get a new rename struct and add it to the rename list.  */
-      new = gfc_get_use_rename ();
-      new->where = gfc_current_locus;
-      new->found = 0;
+      tmp = (gfc_use_rename *)gfc_get_use_rename ();
+      tmp->where = gfc_current_locus;
+      tmp->found = 0;
 
       if (gfc_rename_list == NULL)
-	gfc_rename_list = new;
+	gfc_rename_list = tmp;
       else
-	tail->next = new;
-      tail = new;
+	tail->next = tmp;
+      tail = tmp;
 
       /* See what kind of interface we're dealing with.  Assume it is
          not an operator.  */
-      new->operator = INTRINSIC_NONE;
-      if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
+      tmp->foperator = INTRINSIC_NONE;
+      if (gfc_match_generic_spec (&type, name, &op) == MATCH_ERROR)
 	goto cleanup;
 
       switch (type)
@@ -538,12 +536,12 @@ gfc_match_use (void)
 	  if (only_flag)
 	    {
 	      if (m != MATCH_YES)
-		strcpy (new->use_name, name);
+		strcpy (tmp->use_name, name);
 	      else
 		{
-		  strcpy (new->local_name, name);
+		  strcpy (tmp->local_name, name);
 
-		  m = gfc_match_name (new->use_name);
+		  m = gfc_match_name (tmp->use_name);
 		  if (m == MATCH_NO)
 		    goto syntax;
 		  if (m == MATCH_ERROR)
@@ -554,9 +552,9 @@ gfc_match_use (void)
 	    {
 	      if (m != MATCH_YES)
 		goto syntax;
-	      strcpy (new->local_name, name);
+	      strcpy (tmp->local_name, name);
 
-	      m = gfc_match_name (new->use_name);
+	      m = gfc_match_name (tmp->use_name);
 	      if (m == MATCH_NO)
 		goto syntax;
 	      if (m == MATCH_ERROR)
@@ -566,11 +564,11 @@ gfc_match_use (void)
 	  break;
 
 	case INTERFACE_USER_OP:
-	  strcpy (new->use_name, name);
+	  strcpy (tmp->use_name, name);
 	  /* Fall through */
 
 	case INTERFACE_INTRINSIC_OP:
-	  new->operator = operator;
+	  tmp->foperator = op;
 	  break;
 	}
 
@@ -651,12 +649,12 @@ number_use_names (const char *name)
 /* Try to find the operator in the current list.  */
 
 static gfc_use_rename *
-find_use_operator (gfc_intrinsic_op operator)
+find_use_operator (gfc_intrinsic_op op)
 {
   gfc_use_rename *u;
 
   for (u = gfc_rename_list; u; u = u->next)
-    if (u->operator == operator)
+    if (u->foperator == op)
       return u;
 
   return NULL;
@@ -745,7 +743,7 @@ add_true_name (gfc_symbol * sym)
 {
   true_name *t;
 
-  t = gfc_getmem (sizeof (true_name));
+  t = (true_name *)gfc_getmem (sizeof (true_name));
   t->sym = sym;
 
   gfc_insert_bbt (&true_name_root, t, compare_true_names);
@@ -939,7 +937,7 @@ parse_string (void)
 
   set_module_locus (&start);
 
-  atom_string = p = gfc_getmem (len + 1);
+  atom_string = p = (char *)gfc_getmem (len + 1);
 
   for (; len > 0; len--)
     {
@@ -1233,7 +1231,7 @@ write_atom (atom_type atom, const void *v)
     {
     case ATOM_STRING:
     case ATOM_NAME:
-      p = v;
+      p = (char *)v;
       break;
 
     case ATOM_LPAREN:
@@ -2162,7 +2160,7 @@ mio_symtree_ref (gfc_symtree ** stp)
         }
       else
         {
-          f = gfc_getmem (sizeof (fixup_t));
+          f = (fixup_t *)gfc_getmem (sizeof (fixup_t));
 
           f->next = p->u.rsym.stfixup;
           p->u.rsym.stfixup = f;
@@ -2377,7 +2375,7 @@ mio_gmp_real (mpfr_t * real)
   else
     {
       p = mpfr_get_str (NULL, &exponent, 16, 0, *real, GFC_RND_MODE);
-      atom_string = gfc_getmem (strlen (p) + 20);
+      atom_string = (char *)gfc_getmem (strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
 
@@ -2527,10 +2525,10 @@ mio_expr (gfc_expr ** ep)
   switch (e->expr_type)
     {
     case EXPR_OP:
-      e->value.op.operator
-	= MIO_NAME(gfc_intrinsic_op) (e->value.op.operator, intrinsics);
+      e->value.op.foperator
+	= MIO_NAME(gfc_intrinsic_op) (e->value.op.foperator, intrinsics);
 
-      switch (e->value.op.operator)
+      switch (e->value.op.foperator)
 	{
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
@@ -2939,7 +2937,7 @@ load_operator_interfaces (void)
       else
 	{
 	  uop = gfc_get_uop (p);
-	  mio_interface_rest (&uop->operator);
+	  mio_interface_rest (&uop->foperator);
 	}
     }
 
@@ -3193,7 +3191,7 @@ read_module (void)
   module_locus operator_interfaces, user_operators;
   const char *p;
   char name[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_intrinsic_op i;
+  int i;
   int ambiguous, j, nuse, symbol;
   pointer_info *info;
   gfc_use_rename *u;
@@ -3335,7 +3333,7 @@ read_module (void)
 
       if (only_flag)
 	{
-	  u = find_use_operator (i);
+	  u = find_use_operator ((gfc_intrinsic_op) i);
 
 	  if (u == NULL)
 	    {
@@ -3346,7 +3344,7 @@ read_module (void)
 	  u->found = 1;
 	}
 
-      mio_interface (&gfc_current_ns->operator[i]);
+      mio_interface (&gfc_current_ns->foperator[i]);
     }
 
   mio_rparen ();
@@ -3377,14 +3375,14 @@ read_module (void)
       if (u->found)
 	continue;
 
-      if (u->operator == INTRINSIC_NONE)
+      if (u->foperator == INTRINSIC_NONE)
 	{
 	  gfc_error ("Symbol '%s' referenced at %L not found in module '%s'",
 		     u->use_name, &u->where, module_name);
 	  continue;
 	}
 
-      if (u->operator == INTRINSIC_USER)
+      if (u->foperator == INTRINSIC_USER)
 	{
 	  gfc_error
 	    ("User operator '%s' referenced at %L not found in module '%s'",
@@ -3394,7 +3392,7 @@ read_module (void)
 
       gfc_error
 	("Intrinsic operator '%s' referenced at %L not found in module "
-	 "'%s'", gfc_op2string (u->operator), &u->where, module_name);
+	 "'%s'", gfc_op2string (u->foperator), &u->where, module_name);
     }
 
   gfc_check_interfaces (gfc_current_ns);
@@ -3604,11 +3602,11 @@ write_operator (gfc_user_op * uop)
   static char nullstring[] = "";
   const char *p = nullstring;
 
-  if (uop->operator == NULL
+  if (uop->foperator == NULL
       || !gfc_check_access (uop->access, uop->ns->default_access))
     return;
 
-  mio_symbol_interface (&uop->name, &p, &uop->operator);
+  mio_symbol_interface (&uop->name, &p, &uop->foperator);
 }
 
 
@@ -3654,7 +3652,7 @@ write_symtree (gfc_symtree * st)
 static void
 write_module (void)
 {
-  gfc_intrinsic_op i;
+  int i;
 
   /* Write the operator interfaces.  */
   mio_lparen ();
@@ -3666,7 +3664,7 @@ write_module (void)
 
       mio_interface (gfc_check_access (gfc_current_ns->operator_access[i],
 				       gfc_current_ns->default_access)
-		     ? &gfc_current_ns->operator[i] : NULL);
+		     ? &gfc_current_ns->foperator[i] : NULL);
     }
 
   mio_rparen ();

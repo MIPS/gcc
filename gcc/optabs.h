@@ -45,22 +45,22 @@ struct optab_handlers GTY(())
   rtx libfunc;
 };
 
-struct optab GTY(())
+struct optab_s GTY(())
 {
   enum rtx_code code;
   struct optab_handlers handlers[NUM_MACHINE_MODES];
 };
-typedef struct optab * optab;
+typedef struct optab_s * optab;
 
 /* A convert_optab is for some sort of conversion operation between
    modes.  The first array index is the destination mode, the second
    is the source mode.  */
-struct convert_optab GTY(())
+struct convert_optab_s GTY(())
 {
   enum rtx_code code;
   struct optab_handlers handlers[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 };
-typedef struct convert_optab *convert_optab;
+typedef struct convert_optab_s *convert_optab;
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */

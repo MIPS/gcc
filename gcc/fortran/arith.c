@@ -1098,7 +1098,7 @@ gfc_arith_concat (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
 
   len = op1->value.character.length + op2->value.character.length;
 
-  result->value.character.string = gfc_getmem (len + 1);
+  result->value.character.string = (char *) gfc_getmem (len + 1);
   result->value.character.length = len;
 
   memcpy (result->value.character.string, op1->value.character.string,
@@ -1508,7 +1508,7 @@ eval_f;
    operands are array constructors.  */
 
 static gfc_expr *
-eval_intrinsic (gfc_intrinsic_op operator,
+eval_intrinsic (gfc_intrinsic_op foperator,
 		eval_f eval, gfc_expr * op1, gfc_expr * op2)
 {
   gfc_expr temp, *result;
@@ -1517,7 +1517,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
   gfc_clear_ts (&temp.ts);
 
-  switch (operator)
+  switch (foperator)
     {
     /* Logical unary  */
     case INTRINSIC_NOT:
@@ -1599,16 +1599,16 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
       temp.expr_type = EXPR_OP;
       gfc_clear_ts (&temp.ts);
-      temp.value.op.operator = operator;
+      temp.value.op.foperator = foperator;
 
       temp.value.op.op1 = op1;
       temp.value.op.op2 = op2;
 
       gfc_type_convert_binary (&temp);
 
-      if (operator == INTRINSIC_EQ || operator == INTRINSIC_NE
-	  || operator == INTRINSIC_GE || operator == INTRINSIC_GT
-	  || operator == INTRINSIC_LE || operator == INTRINSIC_LT)
+      if (foperator == INTRINSIC_EQ || foperator == INTRINSIC_NE
+	  || foperator == INTRINSIC_GE || foperator == INTRINSIC_GT
+	  || foperator == INTRINSIC_LE || foperator == INTRINSIC_LT)
 	{
 	  temp.ts.type = BT_LOGICAL;
 	  temp.ts.kind = gfc_default_logical_kind;
@@ -1636,7 +1636,7 @@ eval_intrinsic (gfc_intrinsic_op operator,
     }
 
   /* Try to combine the operators.  */
-  if (operator == INTRINSIC_POWER && op2->ts.type != BT_INTEGER)
+  if (foperator == INTRINSIC_POWER && op2->ts.type != BT_INTEGER)
     goto runtime;
 
   if (op1->from_H
@@ -1675,7 +1675,7 @@ runtime:
   result->ts = temp.ts;
 
   result->expr_type = EXPR_OP;
-  result->value.op.operator = operator;
+  result->value.op.foperator = foperator;
 
   result->value.op.op1 = op1;
   result->value.op.op2 = op2;
@@ -1689,12 +1689,12 @@ runtime:
 /* Modify type of expression for zero size array.  */
 
 static gfc_expr *
-eval_type_intrinsic0 (gfc_intrinsic_op operator, gfc_expr * op)
+eval_type_intrinsic0 (gfc_intrinsic_op foperator, gfc_expr * op)
 {
   if (op == NULL)
     gfc_internal_error ("eval_type_intrinsic0(): op NULL");
 
-  switch (operator)
+  switch (foperator)
     {
     case INTRINSIC_GE:
     case INTRINSIC_LT:
@@ -1750,7 +1750,7 @@ reduce_binary0 (gfc_expr * op1, gfc_expr * op2)
 
 
 static gfc_expr *
-eval_intrinsic_f2 (gfc_intrinsic_op operator,
+eval_intrinsic_f2 (gfc_intrinsic_op foperator,
 		   arith (*eval) (gfc_expr *, gfc_expr **),
 		   gfc_expr * op1, gfc_expr * op2)
 {
@@ -1760,22 +1760,22 @@ eval_intrinsic_f2 (gfc_intrinsic_op operator,
   if (op2 == NULL)
     {
       if (gfc_zero_size_array (op1))
-	return eval_type_intrinsic0 (operator, op1);
+	return eval_type_intrinsic0 (foperator, op1);
     }
   else
     {
       result = reduce_binary0 (op1, op2);
       if (result != NULL)
-	return eval_type_intrinsic0 (operator, result);
+	return eval_type_intrinsic0 (foperator, result);
     }
 
   f.f2 = eval;
-  return eval_intrinsic (operator, f, op1, op2);
+  return eval_intrinsic (foperator, f, op1, op2);
 }
 
 
 static gfc_expr *
-eval_intrinsic_f3 (gfc_intrinsic_op operator,
+eval_intrinsic_f3 (gfc_intrinsic_op foperator,
 		   arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 		   gfc_expr * op1, gfc_expr * op2)
 {
@@ -1784,10 +1784,10 @@ eval_intrinsic_f3 (gfc_intrinsic_op operator,
 
   result = reduce_binary0 (op1, op2);
   if (result != NULL)
-    return eval_type_intrinsic0(operator, result);
+    return eval_type_intrinsic0(foperator, result);
 
   f.f3 = eval;
-  return eval_intrinsic (operator, f, op1, op2);
+  return eval_intrinsic (foperator, f, op1, op2);
 }
 
 
@@ -2353,7 +2353,7 @@ gfc_hollerith2int (gfc_expr * src, int kind)
       gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
 		&src->where, gfc_typename(&result->ts));
     }
-  result->value.character.string = gfc_getmem (kind + 1);
+  result->value.character.string = (char *) gfc_getmem (kind + 1);
   memcpy (result->value.character.string, src->value.character.string,
 	MIN (kind, len));
 
@@ -2389,7 +2389,7 @@ gfc_hollerith2real (gfc_expr * src, int kind)
       gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
 		&src->where, gfc_typename(&result->ts));
     }
-  result->value.character.string = gfc_getmem (kind + 1);
+  result->value.character.string = (char *) gfc_getmem (kind + 1);
   memcpy (result->value.character.string, src->value.character.string,
 	MIN (kind, len));
 
@@ -2427,7 +2427,7 @@ gfc_hollerith2complex (gfc_expr * src, int kind)
       gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
 		&src->where, gfc_typename(&result->ts));
     }
-  result->value.character.string = gfc_getmem (kind + 1);
+  result->value.character.string = (char *) gfc_getmem (kind + 1);
   memcpy (result->value.character.string, src->value.character.string,
 	MIN (kind, len));
 
@@ -2479,7 +2479,7 @@ gfc_hollerith2logical (gfc_expr * src, int kind)
       gfc_warning ("The Hollerith constant at %L is too long to convert to %s",
 		&src->where, gfc_typename(&result->ts));
     }
-  result->value.character.string = gfc_getmem (kind + 1);
+  result->value.character.string = (char *) gfc_getmem (kind + 1);
   memcpy (result->value.character.string, src->value.character.string,
 	MIN (kind, len));
 

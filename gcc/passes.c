@@ -209,35 +209,35 @@ rest_of_type_compilation (tree type, int toplev)
 void
 finish_optimization_passes (void)
 {
-  enum tree_dump_index i;
+  int i;
   struct dump_file_info *dfi;
   char *name;
 
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      dump_file = dump_begin (pass_profile.static_pass_number, NULL);
+      dump_file = dump_begin ((enum tree_dump_index) pass_profile.static_pass_number, NULL);
       end_branch_prob ();
       if (dump_file)
-	dump_end (pass_profile.static_pass_number, dump_file);
+	dump_end ((enum tree_dump_index) pass_profile.static_pass_number, dump_file);
     }
 
   if (optimize > 0)
     {
-      dump_file = dump_begin (pass_combine.static_pass_number, NULL);
+      dump_file = dump_begin ((enum tree_dump_index) pass_combine.static_pass_number, NULL);
       if (dump_file)
 	{
 	  dump_combine_total_stats (dump_file);
-          dump_end (pass_combine.static_pass_number, dump_file);
+          dump_end ((enum tree_dump_index) pass_combine.static_pass_number, dump_file);
 	}
     }
 
   /* Do whatever is necessary to finish printing the graphs.  */
   if (graph_dump_format != no_graph)
-    for (i = TDI_end; (dfi = get_dump_file_info (i)) != NULL; ++i)
-      if (dump_initialized_p (i)
+    for (i = TDI_end; (dfi = get_dump_file_info ((enum tree_dump_index) i)) != NULL; ++i)
+      if (dump_initialized_p ((enum tree_dump_index) i)
 	  && (dfi->flags & TDF_GRAPH) != 0
-	  && (name = get_dump_file_name (i)) != NULL)
+	  && (name = get_dump_file_name ((enum tree_dump_index) i)) != NULL)
 	{
 	  finish_graph_dump_file (name);
 	  free (name);
@@ -385,10 +385,10 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
      pass is already in the list.  */
   if (pass->static_pass_number)
     {
-      struct tree_opt_pass *new;
+      struct tree_opt_pass *tmp;
 
-      new = xmalloc (sizeof (*new));
-      memcpy (new, pass, sizeof (*new));
+      tmp = XNEW (struct tree_opt_pass);
+      memcpy (tmp, pass, sizeof (*tmp));
 
       /* Indicate to register_dump_files that this pass has duplicates,
          and so it should rename the dump file.  The first instance will
@@ -397,10 +397,10 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
       if (pass->name)
         {
           pass->static_pass_number -= 1;
-          new->static_pass_number = -pass->static_pass_number;
+          tmp->static_pass_number = -pass->static_pass_number;
 	}
       
-      *list = new;
+      *list = tmp;
     }
   else
     {
@@ -840,9 +840,9 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
     {
-      initializing_dump = !dump_initialized_p (pass->static_pass_number);
-      dump_file_name = get_dump_file_name (pass->static_pass_number);
-      dump_file = dump_begin (pass->static_pass_number, &dump_flags);
+      initializing_dump = !dump_initialized_p ((enum tree_dump_index) pass->static_pass_number);
+      dump_file_name = get_dump_file_name ((enum tree_dump_index) pass->static_pass_number);
+      dump_file = dump_begin ((enum tree_dump_index) pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
 	{
 	  const char *dname, *aname;
@@ -862,7 +862,7 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id)
-    timevar_push (pass->tv_id);
+    timevar_push ((timevar_id_t) pass->tv_id);
 
   /* Do it!  */
   if (pass->execute)
@@ -873,7 +873,7 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   /* Stop timevar.  */
   if (pass->tv_id)
-    timevar_pop (pass->tv_id);
+    timevar_pop ((timevar_id_t ) pass->tv_id);
 
   curr_properties = (curr_properties | pass->properties_provided)
 		    & ~pass->properties_destroyed;
@@ -883,7 +883,7 @@ execute_one_pass (struct tree_opt_pass *pass)
       && graph_dump_format != no_graph
       && (curr_properties & (PROP_cfg | PROP_rtl)) == (PROP_cfg | PROP_rtl))
     {
-      get_dump_file_info (pass->static_pass_number)->flags |= TDF_GRAPH;
+      get_dump_file_info ((enum tree_dump_index) pass->static_pass_number)->flags |= TDF_GRAPH;
       dump_flags |= TDF_GRAPH;
       clean_graph_dump_file (dump_file_name);
     }
@@ -899,7 +899,7 @@ execute_one_pass (struct tree_opt_pass *pass)
     }
   if (dump_file)
     {
-      dump_end (pass->static_pass_number, dump_file);
+      dump_end ((enum tree_dump_index) pass->static_pass_number, dump_file);
       dump_file = NULL;
     }
 

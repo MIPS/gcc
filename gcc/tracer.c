@@ -240,7 +240,7 @@ tail_duplicate (void)
   while (traced_insns < cover_insns && nduplicated < max_dup_insns
          && !fibheap_empty (heap))
     {
-      basic_block bb = fibheap_extract_min (heap);
+      basic_block bb = (basic_block) fibheap_extract_min (heap);
       int n, pos;
 
       if (!bb)
@@ -330,7 +330,7 @@ layout_superblocks (void)
       edge_iterator ei;
       edge e, best = NULL;
       while (end->aux)
-	end = end->aux;
+	end = (basic_block) end->aux;
 
       FOR_EACH_EDGE (e, ei, end->succs)
 	if (e->dest != EXIT_BLOCK_PTR

@@ -153,7 +153,7 @@ gen_insn (rtx insn, int insn_code_number)
   /* Otherwise, make a new extraction method.  We stash the arrays
      after the extraction structure in memory.  */
 
-  p = xmalloc (sizeof (struct extraction)
+  p = (struct extraction *) xmalloc (sizeof (struct extraction)
 	       + op_count*sizeof (char *)
 	       + dup_count*sizeof (char *)
 	       + dup_count*sizeof (int));

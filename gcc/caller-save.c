@@ -112,7 +112,7 @@ init_caller_save (void)
   int offset;
   rtx address;
   int i, j;
-  enum machine_mode mode;
+  int mode;
   rtx savepat, restpat;
   rtx test_reg, test_mem;
   rtx saveinsn, restinsn;
@@ -194,15 +194,15 @@ init_caller_save (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (mode = 0 ; mode < MAX_MACHINE_MODE; mode++)
-      if (HARD_REGNO_MODE_OK (i, mode))
+      if (HARD_REGNO_MODE_OK (i, (enum machine_mode) mode))
 	{
 	  int ok;
 
 	  /* Update the register number and modes of the register
 	     and memory operand.  */
 	  REGNO (test_reg) = i;
-	  PUT_MODE (test_reg, mode);
-	  PUT_MODE (test_mem, mode);
+	  PUT_MODE (test_reg, (enum machine_mode) mode);
+	  PUT_MODE (test_mem, (enum machine_mode) mode);
 
 	  /* Force re-recognition of the modified insns.  */
 	  INSN_CODE (saveinsn) = -1;
@@ -500,7 +500,7 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   int regno, endregno, i;
   enum machine_mode mode = GET_MODE (reg);
-  HARD_REG_SET *this_insn_sets = data;
+  HARD_REG_SET *this_insn_sets = (HARD_REG_SET *) data;
 
   if (GET_CODE (reg) == SUBREG)
     {
@@ -641,7 +641,7 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
   rtx pat = NULL_RTX;
   int code;
   unsigned int numregs = 0;
-  struct insn_chain *new;
+  struct insn_chain *fresh;
   rtx mem;
 
   /* A common failure mode if register status is not correct in the
@@ -689,13 +689,13 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno), mem);
   code = reg_restore_code[regno][GET_MODE (mem)];
-  new = insert_one_insn (chain, before_p, code, pat);
+  fresh = insert_one_insn (chain, before_p, code, pat);
 
   /* Clear status for all registers we restored.  */
   for (k = 0; k < i; k++)
     {
       CLEAR_HARD_REG_BIT (hard_regs_saved, regno + k);
-      SET_REGNO_REG_SET (&new->dead_or_set, regno + k);
+      SET_REGNO_REG_SET (&fresh->dead_or_set, regno + k);
       n_regs_saved--;
     }
 
@@ -714,7 +714,7 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
   rtx pat = NULL_RTX;
   int code;
   unsigned int numregs = 0;
-  struct insn_chain *new;
+  struct insn_chain *fresh;
   rtx mem;
 
   /* A common failure mode if register status is not correct in the
@@ -761,13 +761,13 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno));
   code = reg_save_code[regno][GET_MODE (mem)];
-  new = insert_one_insn (chain, before_p, code, pat);
+  fresh = insert_one_insn (chain, before_p, code, pat);
 
   /* Set hard_regs_saved and dead_or_set for all the registers we saved.  */
   for (k = 0; k < numregs; k++)
     {
       SET_HARD_REG_BIT (hard_regs_saved, regno + k);
-      SET_REGNO_REG_SET (&new->dead_or_set, regno + k);
+      SET_REGNO_REG_SET (&fresh->dead_or_set, regno + k);
       n_regs_saved++;
     }
 
@@ -780,7 +780,7 @@ static struct insn_chain *
 insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 {
   rtx insn = chain->insn;
-  struct insn_chain *new;
+  struct insn_chain *fresh;
 
 #ifdef HAVE_cc0
   /* If INSN references CC0, put our insns in front of the insn that sets
@@ -795,23 +795,23 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
     chain = chain->prev, insn = chain->insn;
 #endif
 
-  new = new_insn_chain ();
+  fresh = new_insn_chain ();
   if (before_p)
     {
       rtx link;
 
-      new->prev = chain->prev;
-      if (new->prev != 0)
-	new->prev->next = new;
+      fresh->prev = chain->prev;
+      if (fresh->prev != 0)
+	fresh->prev->next = fresh;
       else
-	reload_insn_chain = new;
+	reload_insn_chain = fresh;
 
-      chain->prev = new;
-      new->next = chain;
-      new->insn = emit_insn_before (pat, insn);
+      chain->prev = fresh;
+      fresh->next = chain;
+      fresh->insn = emit_insn_before (pat, insn);
       /* ??? It would be nice if we could exclude the already / still saved
 	 registers from the live sets.  */
-      COPY_REG_SET (&new->live_throughout, &chain->live_throughout);
+      COPY_REG_SET (&fresh->live_throughout, &chain->live_throughout);
       /* Registers that die in CHAIN->INSN still live in the new insn.  */
       for (link = REG_NOTES (chain->insn); link; link = XEXP (link, 1))
 	{
@@ -828,36 +828,36 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 		continue;
 	      for (i = hard_regno_nregs[regno][GET_MODE (reg)] - 1;
 		   i >= 0; i--)
-		SET_REGNO_REG_SET (&new->live_throughout, regno + i);
+		SET_REGNO_REG_SET (&fresh->live_throughout, regno + i);
 	    }
 	}
-      CLEAR_REG_SET (&new->dead_or_set);
+      CLEAR_REG_SET (&fresh->dead_or_set);
       if (chain->insn == BB_HEAD (BASIC_BLOCK (chain->block)))
-	BB_HEAD (BASIC_BLOCK (chain->block)) = new->insn;
+	BB_HEAD (BASIC_BLOCK (chain->block)) = fresh->insn;
     }
   else
     {
-      new->next = chain->next;
-      if (new->next != 0)
-	new->next->prev = new;
-      chain->next = new;
-      new->prev = chain;
-      new->insn = emit_insn_after (pat, insn);
+      fresh->next = chain->next;
+      if (fresh->next != 0)
+	fresh->next->prev = fresh;
+      chain->next = fresh;
+      fresh->prev = chain;
+      fresh->insn = emit_insn_after (pat, insn);
       /* ??? It would be nice if we could exclude the already / still saved
 	 registers from the live sets, and observe REG_UNUSED notes.  */
-      COPY_REG_SET (&new->live_throughout, &chain->live_throughout);
+      COPY_REG_SET (&fresh->live_throughout, &chain->live_throughout);
       /* Registers that are set in CHAIN->INSN live in the new insn.
 	 (Unless there is a REG_UNUSED note for them, but we don't
 	  look for them here.) */
       note_stores (PATTERN (chain->insn), add_stored_regs,
-		   &new->live_throughout);
-      CLEAR_REG_SET (&new->dead_or_set);
+		   &fresh->live_throughout);
+      CLEAR_REG_SET (&fresh->dead_or_set);
       if (chain->insn == BB_END (BASIC_BLOCK (chain->block)))
-	BB_END (BASIC_BLOCK (chain->block)) = new->insn;
+	BB_END (BASIC_BLOCK (chain->block)) = fresh->insn;
     }
-  new->block = chain->block;
-  new->is_caller_save_insn = 1;
+  fresh->block = chain->block;
+  fresh->is_caller_save_insn = 1;
 
-  INSN_CODE (new->insn) = code;
-  return new;
+  INSN_CODE (fresh->insn) = code;
+  return fresh;
 }

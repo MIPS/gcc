@@ -1266,7 +1266,7 @@ do_java_lex (YYSTYPE *java_lval)
 	}
 
       obstack_1grow (&temporary_obstack, '\0');
-      string = obstack_finish (&temporary_obstack);
+      string = (char *) obstack_finish (&temporary_obstack);
 
       /* If we have something all ascii, we consider a keyword, a boolean
 	 literal, a null literal or an all ASCII identifier.  Otherwise,
@@ -1411,7 +1411,7 @@ do_java_lex (YYSTYPE *java_lval)
 	}
 
       obstack_1grow (&temporary_obstack, '\0');
-      string = obstack_finish (&temporary_obstack);
+      string = (char *) obstack_finish (&temporary_obstack);
 #ifndef JC1_LITE
       if (!no_error || (c != '"'))
 	java_lval->node = error_mark_node; /* FIXME: Requires further
@@ -1482,8 +1482,8 @@ do_java_lex (YYSTYPE *java_lval)
       return CP_TK;
     case '{':
 #ifndef JC1_LITE
-      java_lval->operator.token = OCB_TK;
-      java_lval->operator.location = BUILD_LOCATION();
+      java_lval->joperator.token = OCB_TK;
+      java_lval->joperator.location = BUILD_LOCATION();
 #ifdef USE_MAPPED_LOCATION
       if (ctxp->ccb_indent == 1)
 	ctxp->first_ccb_indent1 = input_location;
@@ -1497,8 +1497,8 @@ do_java_lex (YYSTYPE *java_lval)
     case '}':
       ctxp->ccb_indent--;
 #ifndef JC1_LITE
-      java_lval->operator.token = CCB_TK;
-      java_lval->operator.location = BUILD_LOCATION();
+      java_lval->joperator.token = CCB_TK;
+      java_lval->joperator.location = BUILD_LOCATION();
 #ifdef USE_MAPPED_LOCATION
       if (ctxp->ccb_indent == 1)
         ctxp->last_ccb_indent1 = input_location;
@@ -1904,7 +1904,7 @@ java_get_line_col (const char *filename ATTRIBUTE_UNUSED,
   obstack_grow0 (&temporary_obstack, "^", 1);
 
   fclose (fp);
-  return obstack_finish (&temporary_obstack);
+  return (char *) obstack_finish (&temporary_obstack);
 #endif
 }
 

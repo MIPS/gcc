@@ -603,7 +603,12 @@ extern int vsnprintf (char *, size_t, const char *, va_list) ATTRIBUTE_PRINTF(3,
 
 #if defined(HAVE_DECL_STRVERSCMP) && !HAVE_DECL_STRVERSCMP
 /* Compare version strings.  */
-extern int strverscmp (const char *, const char *);
+#ifdef __cplusplus
+extern "C"
+#else
+extern
+#endif
+int strverscmp (const char *, const char *);
 #endif
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))

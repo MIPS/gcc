@@ -438,7 +438,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
       for (edge = node->callers; edge; edge = edge->next_caller)
 	if (edge->aux)
 	  {
-	    fibheap_delete_node (heap, edge->aux);
+	    fibheap_delete_node (heap, (fibnode_t) edge->aux);
 	    edge->aux = NULL;
 	    if (edge->inline_failed)
 	      edge->inline_failed = failed_reason;
@@ -452,7 +452,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 	int badness = cgraph_edge_badness (edge);
 	if (edge->aux)
 	  {
-	    fibnode_t n = edge->aux;
+	    fibnode_t n = (fibnode_t) edge->aux;
 	    gcc_assert (n->data == edge);
 	    if (n->key == badness)
 	      continue;
@@ -460,7 +460,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 	    /* fibheap_replace_key only increase the keys.  */
 	    if (fibheap_replace_key (heap, n, badness))
 	      continue;
-	    fibheap_delete_node (heap, edge->aux);
+	    fibheap_delete_node (heap, (fibnode_t) edge->aux);
 	  }
 	edge->aux = fibheap_insert (heap, badness, edge);
       }
@@ -616,7 +616,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 	 && (cgraph_estimate_size_after_inlining (1, node, master_clone)
 	     <= limit))
     {
-      struct cgraph_edge *curr = fibheap_extract_min (heap);
+      struct cgraph_edge *curr = (struct cgraph_edge *) fibheap_extract_min (heap);
       struct cgraph_node *cnode;
 
       depth = 1;
@@ -749,7 +749,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	    edge->aux = fibheap_insert (heap, cgraph_edge_badness (edge), edge);
 	  }
     }
-  while (overall_insns <= max_insns && (edge = fibheap_extract_min (heap)))
+  while (overall_insns <= max_insns && (edge = (struct cgraph_edge *) fibheap_extract_min (heap)))
     {
       int old_insns = overall_insns;
       struct cgraph_node *where;
@@ -877,7 +877,7 @@ cgraph_decide_inlining_of_small_functions (void)
 		   overall_insns - old_insns);
 	}
     }
-  while ((edge = fibheap_extract_min (heap)) != NULL)
+  while ((edge = (struct cgraph_edge *) fibheap_extract_min (heap)) != NULL)
     {
       gcc_assert (edge->aux);
       edge->aux = NULL;
@@ -1193,7 +1193,7 @@ cgraph_early_inlining (void)
     gcc_assert (!node->aux);
 #endif
 
-  order = ggc_alloc (sizeof (*order) * cgraph_n_nodes);
+  order = (struct cgraph_node **) ggc_alloc (sizeof (*order) * cgraph_n_nodes);
   nnodes = cgraph_postorder (order);
   for (i = nnodes - 1; i >= 0; i--)
     {
