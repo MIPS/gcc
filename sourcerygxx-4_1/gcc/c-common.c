@@ -1014,7 +1014,8 @@ vector_types_convertible_p (tree t1, tree t2)
 	     && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE || 
 		 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
 	     && INTEGRAL_TYPE_P (TREE_TYPE (t1))
-		== INTEGRAL_TYPE_P (TREE_TYPE (t2)));
+		== INTEGRAL_TYPE_P (TREE_TYPE (t2))
+	     && TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2));
 }
 
 /* Convert EXPR to TYPE, warning about conversion problems with constants.

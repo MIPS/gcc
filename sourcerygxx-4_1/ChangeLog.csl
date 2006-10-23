@@ -1,3 +1,14 @@
+2006-10-23  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* c-common.c (vector_types_convertible_p): Check
+	TYPE_VECTOR_SUBPARTS when assessing convertibility.
+	
+	gcc/testsuite/
+	* g++.dg/conversion/simd1.C: Adjust dg-error directives.
+	* g++.dg/ext/attribute-test-2.C: Add "vs" member to union and
+	use it.
+
 2006-10-21  Paul Brook  <paul@codesourcery.com>
 
 	gcc/

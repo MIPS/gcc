@@ -30,6 +30,7 @@ public:
 union u {
               char f[16];
               vector unsigned int v;
+              vector short vs;
 } data;
 
 
@@ -37,7 +38,7 @@ vector_holder vh;
 
 int main()
 {
-  data.v = (__attribute__((vector_size(16))) short) vh;
+  data.vs = (__attribute__((vector_size(16))) short) vh;
   if (data.f[0] != 'a' || data.f[15] != 'd')
     abort(); 
   data.v = (__attribute__((vector_size(16))) int) vh;
