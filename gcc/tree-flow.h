@@ -714,6 +714,7 @@ void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, tree, def_operand_p);
 bool need_ssa_update_p (void);
 bool name_registered_for_update_p (tree);
+bool name_marked_for_release_p (tree);
 bitmap ssa_names_to_replace (void);
 void release_ssa_name_after_update_ssa (tree);
 void compute_global_livein (bitmap, bitmap);

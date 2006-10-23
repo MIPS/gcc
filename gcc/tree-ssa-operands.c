@@ -1309,8 +1309,10 @@ add_mem_symbols_in_decl (tree decl, int flags)
 {
   subvar_t svars;
 
-  /* GIMPLE registers should not be added as memory symbols.  */
-  gcc_assert (!is_gimple_reg (decl));
+  /* .MEM cannot be referenced directly in the code, so it should
+     never be added to a set of loads/stores.  Similarly, GIMPLE
+     registers should not be added as memory symbols.  */
+  gcc_assert (decl != mem_var && !is_gimple_reg (decl));
 
   /* If DECL has sub-variables, add them instead of DECL.  */
   if (var_can_have_subvars (decl) && (svars = get_subvars_for_var (decl)))
@@ -1487,7 +1489,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
   unsigned u;
   bitmap_iterator bi;
   bitmap not_read_b, not_written_b;
-  bool added_symbols_p, add_vdef_p, add_vuse_p;
+  bool add_vdef_p, add_vuse_p;
   
   /* Get info for local and module level statics.  There is a bit
      set for each static if the call being processed does not read
@@ -1496,7 +1498,6 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
   /* Check which call-clobbered variables may be modified by a call to
      CALLEE.  Add those affected to STORED_SYMS.  */
-  added_symbols_p = false;
   add_vdef_p = false;
   add_vuse_p = false;
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
@@ -1533,10 +1534,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
 	  if (call_flags & (ECF_CONST | ECF_PURE))
 	    {
 	      if (gathering_loads_stores ())
-		{
-		  added_symbols_p = true;
-		  add_mem_symbols_in_decl (var, opf_use);
-		}
+		add_mem_symbols_in_decl (var, opf_use);
 	      else
 		add_vuse_p = true;
 
@@ -1567,10 +1565,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
 	  if (!not_read)
 	    {
 	      if (gathering_loads_stores ())
-		{
-		  added_symbols_p = true;
-		  add_mem_symbols_in_decl (var, opf_use);
-		}
+		add_mem_symbols_in_decl (var, opf_use);
 	      else
 		add_vuse_p = true;
 	    }
@@ -1580,10 +1575,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
       else
 	{
 	  if (gathering_loads_stores ())
-	    {
-	      added_symbols_p = true;
-	      add_mem_symbols_in_decl (var, opf_def | opf_implicit);
-	    }
+	    add_mem_symbols_in_decl (var, opf_def | opf_implicit);
 	  else
 	    add_vdef_p = true;
 	}
@@ -1610,7 +1602,6 @@ add_call_read_mem_symbols (tree callee)
   unsigned u;
   bitmap_iterator bi;
   bitmap not_read_b;
-  bool added_symbols_p;
 
   /* Get info for local and module level statics.  There is a bit
      set for each static if the call being processed does not read
@@ -1619,7 +1610,6 @@ add_call_read_mem_symbols (tree callee)
 
   /* Check which call-clobbered variables may be read by a call to
      CALLEE.  Add those to LOADED_SYMS.  */
-  added_symbols_p = false;
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree real_var, var;
@@ -1648,10 +1638,7 @@ add_call_read_mem_symbols (tree callee)
 	}
 
       if (gathering_loads_stores ())
-	{
-	  added_symbols_p = true;
-	  add_mem_symbols_in_decl (var, opf_use);
-	}
+	add_mem_symbols_in_decl (var, opf_use);
       else
 	{
 	  /* If we have already decided to add a VUSE, there is no
@@ -1660,11 +1647,6 @@ add_call_read_mem_symbols (tree callee)
 	  return;
 	}
     }
-
-  /* Similarly to the logic in add_call_clobbered_mem_symbols, add a
-     load of .MEM if no symbols have been added.  */
-  if (gathering_loads_stores () && !added_symbols_p)
-    add_mem_symbol (mem_var, opf_use);
 }
 
 
@@ -3011,23 +2993,78 @@ pop_stmt_changes (tree *stmt_p)
 
   /* Determine whether any memory symbols need to be renamed.  If the
      sets of loads and stores are different after the statement is
-     modified, then the affected symbols need to be renamed.  */
+     modified, then the affected symbols need to be renamed.
+     
+     Note that it may be possible for the statement to not reference
+     memory anymore, but we still need to act on the differences in
+     the sets of symbols.  */
   loads = stores = NULL;
   if (stmt_references_memory_p (stmt))
     {
+      bitmap factored_by_stmt, factored_by_vops;
+      bool all_marked_p;
+
       mp = get_loads_and_stores (stmt);
       loads = mp->loads;
       stores = mp->stores;
+
+      /* Gather all the symbols factored by the virtual operands.
+	 Mark for renaming any symbol in STMT that is no longer
+	 factored by the operands.  */
+      factored_by_vops = BITMAP_ALLOC (NULL);
+      factored_by_stmt = BITMAP_ALLOC (NULL);
+
+      if (mp->loads)
+	bitmap_ior_into (factored_by_stmt, mp->loads);
+
+      if (mp->stores)
+	bitmap_ior_into (factored_by_stmt, mp->stores);
+
+      all_marked_p = false;
+
+      /* Gather all the symbols factored by the names in VOPS.  */
+      FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
+	{
+	  bitmap syms;
+
+	  /* .MEM_0 factors every symbol.  */
+	  if (op == default_def (mem_var))
+	    {
+	      all_marked_p = true;
+	      break;
+	    }
+
+	  /* If OP is not an SSA name or it has been released or it's
+	     marked to be released, skip it.  */
+	  if (DECL_P (op)
+	      || name_marked_for_release_p (op)
+	      || SSA_NAME_IN_FREE_LIST (op))
+	    continue;
+
+	  syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
+	  bitmap_ior_into (factored_by_vops, syms);
+	}
+
+      /* If we didn't find .MEM_0, all the symbols in FACTORED_BY_STMT
+	 that are not in FACTORED_BY_VOPS need to be renamed.  */
+      if (!all_marked_p)
+	{
+	  bitmap_and_compl_into (factored_by_stmt, factored_by_vops);
+	  mark_set_for_renaming (factored_by_stmt);
+	}
+
+      BITMAP_FREE (factored_by_vops);
+      BITMAP_FREE (factored_by_stmt);
     }
 
   /* If LOADS is different from BUF->LOADS, the affected
      symbols need to be marked for renaming.  */
   mark_difference_for_renaming (loads, buf->loads);
 
-  /* Similarly for STORES And BUF->STORES.  */
+  /* Similarly for STORES and BUF->STORES.  */
   mark_difference_for_renaming (stores, buf->stores);
 
-  /* Mark all the GIMPLE register operands for renaming.  */
+  /* Mark all the naked GIMPLE register operands for renaming.  */
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF|SSA_OP_USE)
     if (DECL_P (op))
       mark_sym_for_renaming (op);

@@ -394,10 +394,13 @@ create_factored_phi_node (tree var, basic_block bb, bitmap syms)
   tree phi;
 
   gcc_assert (var == mem_var || SSA_NAME_VAR (var) == mem_var);
-  gcc_assert (syms && !bitmap_empty_p (syms) && !bitmap_singleton_p (syms));
 
   phi = create_phi_node_1 (var, bb);
-  add_loads_and_stores (phi, syms, syms);
+  if (syms && !bitmap_empty_p (syms))
+    {
+      gcc_assert (!bitmap_singleton_p (syms));
+      add_loads_and_stores (phi, syms, syms);
+    }
 
   return phi;
 }
