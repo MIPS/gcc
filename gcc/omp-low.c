@@ -41,7 +41,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "ggc.h"
 #include "except.h"
-
+#include "cfgloop.h"
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two 
    phases.  The first phase scans the function looking for OMP statements
@@ -2573,6 +2573,8 @@ expand_omp_parallel (struct omp_region *region)
       gcc_assert (t && TREE_CODE (t) == OMP_PARALLEL);
       bsi_remove (&si, true);
       e = split_block (entry_bb, t);
+      if (current_loops)
+	add_bb_to_loop (e->dest, e->src->loop_father);
       entry_bb = e->dest;
       single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
@@ -2604,6 +2606,26 @@ expand_omp_parallel (struct omp_region *region)
 
   /* Fix up the ssa form.  */
   update_ssa (TODO_update_ssa_only_virtuals);
+}
+
+/* Marks operands of calls for renaming.  */
+
+static void
+mark_call_virtual_operands (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+  tree stmt;
+
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi);
+	  if (get_call_expr_in (stmt) != NULL_TREE)
+	    mark_new_vars_to_rename (stmt);
+	}
+    }
 }
 
 /* A subroutine of expand_omp_for.  Generate code for a parallel
@@ -2860,7 +2882,12 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   cont_bb = region->cont;
   gcc_assert (EDGE_COUNT (entry_bb->succs) == 2);
   gcc_assert (BRANCH_EDGE (entry_bb)->dest == FALLTHRU_EDGE (cont_bb)->dest);
-  seq_start_bb = split_edge (FALLTHRU_EDGE (entry_bb));
+
+  if (current_loops)
+    seq_start_bb = loop_split_edge_with (FALLTHRU_EDGE (entry_bb), NULL);
+  else
+    seq_start_bb = split_edge (FALLTHRU_EDGE (entry_bb));
+
   body_bb = single_succ (seq_start_bb);
   gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
   gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
@@ -3598,10 +3625,13 @@ expand_omp (struct omp_region *region)
 
 
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
-   block BB.  PARENT is the region that contains BB.  */
+   block BB.  PARENT is the region that contains BB.  If SINGLE_TREE is
+   true, the function ends once a single tree is built (otherwise, whole
+   forest of OMP constructs may be built).  */
 
 static void
-build_omp_regions_1 (basic_block bb, struct omp_region *parent)
+build_omp_regions_1 (basic_block bb, struct omp_region *parent,
+		     bool single_tree)
 {
   block_stmt_iterator si;
   tree stmt;
@@ -3650,12 +3680,44 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent)
 	}
     }
 
+  if (single_tree && !parent)
+    return;
+
   for (son = first_dom_son (CDI_DOMINATORS, bb);
        son;
        son = next_dom_son (CDI_DOMINATORS, son))
-    build_omp_regions_1 (son, parent);
+    build_omp_regions_1 (son, parent, single_tree);
 }
 
+/* Builds the tree of OMP regions rooted at ROOT, storing it to
+   root_omp_region.  */
+
+static void
+build_omp_regions_root (basic_block root)
+{
+  gcc_assert (root_omp_region == NULL);
+  build_omp_regions_1 (root, NULL, true);
+  gcc_assert (root_omp_region != NULL);
+}
+
+/* Expands piece of parallel code starting in HEAD.  */
+
+void
+omp_expand_local (basic_block head)
+{
+  build_omp_regions_root (head);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nOMP region tree\n\n");
+      dump_omp_region (dump_file, root_omp_region, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  remove_exit_barriers (root_omp_region);
+  expand_omp (root_omp_region);
+
+  free_omp_regions ();
+}
 
 /* Scan the CFG and build a tree of OMP regions.  Return the root of
    the OMP region tree.  */
@@ -3665,7 +3727,7 @@ build_omp_regions (void)
 {
   gcc_assert (root_omp_region == NULL);
   calculate_dominance_info (CDI_DOMINATORS);
-  build_omp_regions_1 (ENTRY_BLOCK_PTR, NULL);
+  build_omp_regions_1 (ENTRY_BLOCK_PTR, NULL, false);
 }
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */

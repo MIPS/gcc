@@ -121,8 +121,7 @@ loop_parallel_p (struct loop *loop, struct tree_niter_desc *niter)
     {
       tree val = PHI_ARG_DEF_FROM_EDGE (phi, exit);
 
-      if (is_gimple_reg (val)
-	  && !expr_invariant_in_loop_p (loop, val))
+      if (is_gimple_reg (val))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  FAILED: value used outside loop\n");
@@ -146,11 +145,18 @@ loop_parallel_p (struct loop *loop, struct tree_niter_desc *niter)
 	}
     }
 
-  datarefs = VEC_alloc (data_reference_p, heap, 10);
-  dependence_relations = VEC_alloc (ddr_p, heap, 10 * 10);
+  /* We need to version the loop to verify assumptions in runtime.  */
+  if (!can_duplicate_loop_p (loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  FAILED: cannot be duplicated\n");
+      return false;
+    }
 
   /* Check for problems with dependences.  If the loop can be reversed,
      the iterations are indepent.  */
+  datarefs = VEC_alloc (data_reference_p, heap, 10);
+  dependence_relations = VEC_alloc (ddr_p, heap, 10 * 10);
   compute_data_dependences_for_loop (loop, true, &datarefs,
 				     &dependence_relations);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -172,37 +178,6 @@ loop_parallel_p (struct loop *loop, struct tree_niter_desc *niter)
   free_data_refs (datarefs);
 
   return ret;
-}
-
-/* Calls mark_virtual_ops_for_renaming for all members of LIST.  */
-
-static void
-mark_virtual_ops_for_renaming_list (tree list)
-{
-  tree_stmt_iterator tsi;
-
-  for (tsi = tsi_start (list); !tsi_end_p (tsi); tsi_next (&tsi))
-    mark_virtual_ops_for_renaming (tsi_stmt (tsi));
-}
-
-/* Marks operands of calls for renaming.  */
-
-void
-mark_call_virtual_operands (void)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-  tree stmt;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  stmt = bsi_stmt (bsi);
-	  if (get_call_expr_in (stmt) != NULL_TREE)
-	    mark_new_vars_to_rename (stmt);
-	}
-    }
 }
 
 /* Assigns the address of VAR in TYPE to an ssa name, and returns this name.
@@ -376,6 +351,9 @@ separate_decls_in_loop_name (tree name,
   struct int_tree_map ielt, *nielt;
   struct name_to_copy_elt elt, *nelt;
   void **slot, **dslot;
+
+  if (TREE_CODE (name) != SSA_NAME)
+    return name;
 
   idx = SSA_NAME_VERSION (name);
   elt.version = idx;
@@ -559,16 +537,16 @@ bb1:
    `old' is stored to *ARG_STRUCT and `new' is stored to NEW_ARG_STRUCT.  The
    pointer `new' is intentionally not initialized (the loop will be split to a
    separate function later, and `new' will be initialized from its arguments).
-   *PER_THREAD is updated to the ssa name to that the value is loaded in
-   bb1.  A mapping of old to new copies is stored to *NAME_COPIES.  */
+   */
 
 static void
-separate_decls_in_loop (struct loop *loop, tree *per_thread,
-			tree *arg_struct, tree *new_arg_struct,
-			htab_t *name_copies)
+separate_decls_in_loop (struct loop *loop, tree *arg_struct,
+			tree *new_arg_struct)
 {
   basic_block bb1 = loop_split_edge_with (loop_preheader_edge (loop), NULL);
   basic_block bb0 = single_pred (bb1);
+  htab_t name_copies = htab_create (10, name_to_copy_elt_hash,
+				    name_to_copy_elt_eq, free);
   htab_t decl_copies = htab_create (10, int_tree_map_hash, int_tree_map_eq,
 				    free);
   basic_block bb, *body = get_loop_body (loop);
@@ -577,29 +555,21 @@ separate_decls_in_loop (struct loop *loop, tree *per_thread,
   block_stmt_iterator bsi;
   struct clsn_data clsn_data;
 
-  *name_copies = htab_create (10, name_to_copy_elt_hash,
-			      name_to_copy_elt_eq, free);
-
   /* Find and rename the ssa names defined outside of loop.  */
   for (i = 0; i < loop->num_nodes; i++)
     {
       bb = body[i];
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	separate_decls_in_loop_stmt (loop, phi, *name_copies, decl_copies);
+	separate_decls_in_loop_stmt (loop, phi, name_copies, decl_copies);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	separate_decls_in_loop_stmt (loop, bsi_stmt (bsi), *name_copies,
+	separate_decls_in_loop_stmt (loop, bsi_stmt (bsi), name_copies,
 				     decl_copies);
     }
-
-  if (TREE_CODE (*per_thread) == SSA_NAME)
-    *per_thread
-       = separate_decls_in_loop_name (*per_thread, *name_copies, decl_copies, 
-				      true);
   free (body);
 
-  if (htab_elements (*name_copies) == 0)
+  if (htab_elements (name_copies) == 0)
     {
       /* It may happen that there is nothing to copy (if there are only
 	 loop carried and external variables in the loop).  */
@@ -614,14 +584,14 @@ separate_decls_in_loop (struct loop *loop, tree *per_thread,
 			      type);
       TYPE_NAME (type) = type_name;
 
-      htab_traverse (*name_copies, add_field_for_name, type);
+      htab_traverse (name_copies, add_field_for_name, type);
       layout_type (type);
 
       /* Create the loads and stores.  */
       *arg_struct = create_tmp_var (type, ".paral_data_store");
-      add_referenced_var(*arg_struct);
+      add_referenced_var (*arg_struct);
       nvar = create_tmp_var (build_pointer_type (type), ".paral_data_load");
-      add_referenced_var(nvar);
+      add_referenced_var (nvar);
       *new_arg_struct = make_ssa_name (nvar, NULL_TREE);
 
       /* We should mark *arg_struct call clobbered.  However, this means
@@ -633,209 +603,12 @@ separate_decls_in_loop (struct loop *loop, tree *per_thread,
       clsn_data.load = *new_arg_struct;
       clsn_data.store_bb = bb0;
       clsn_data.load_bb = bb1;
-      htab_traverse (*name_copies, create_loads_and_stores_for_name,
+      htab_traverse (name_copies, create_loads_and_stores_for_name,
 		     &clsn_data);
     }
 
   htab_delete (decl_copies);
-}
-
-/* Replaces initial values of induction variables in LOOP to the start of the
-   PER_THREAD * (thread number - 1)-th iteration.  STEPS is the hashtable that
-   contains steps of each induction variable.  */
-
-static void
-shift_ivs_for_iteration (struct loop *loop, tree per_thread, htab_t steps)
-{
-  tree phi, name, step, ncopy, stmts, call, cdecl, type, init, delta, ninit;
-  edge entry = loop_preheader_edge (loop);
-  struct int_tree_map tem, *elt;
-  unsigned ver;
-  block_stmt_iterator bsi = bsi_last (entry->src);
-  use_operand_p init_p;
-
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
-    {
-      name = PHI_RESULT (phi);
-      if (!is_gimple_reg (name))
-	continue;
-
-      ver = SSA_NAME_VERSION (name);
-      tem.uid = ver;
-      elt = htab_find_with_hash (steps, &tem, ver);
-      step = elt->to;
-
-      init_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, entry);
-      init = USE_FROM_PTR (init_p);
-      type = TREE_TYPE (init);
-      cdecl = built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM];
-      call = fold_convert (type, build_function_call_expr (cdecl, NULL));
-      ncopy = build2 (MINUS_EXPR, type, call, build_int_cst (type, 1));
-      delta = fold_build2 (MULT_EXPR, type, unshare_expr (step), per_thread);
-      delta = fold_build2 (MULT_EXPR, type, delta, ncopy);
-      ninit = fold_build2 (PLUS_EXPR, type, init, delta);
-
-      ninit = force_gimple_operand (ninit, &stmts, true, NULL_TREE);
-      if (stmts)
-	bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
-
-      SET_USE (init_p, ninit);
-    }
-}
-
-/* Records steps of induction variables of LOOP to STEPS.  */
-
-static void
-record_steps (struct loop *loop, htab_t *steps)
-{
-  tree phi, name;
-  unsigned ver;
-  affine_iv iv;
-  bool ok;
-  void **slot;
-  struct int_tree_map tem, *elt;
-
-  *steps = htab_create (10, int_tree_map_hash, int_tree_map_eq, free);
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
-    {
-      name = PHI_RESULT (phi);
-      if (!is_gimple_reg (name))
-	continue;
-
-      ver = SSA_NAME_VERSION (name);
-      ok = simple_iv (loop, phi, name, &iv, true);
-      gcc_assert (ok);
-
-      tem.uid = ver;
-      slot = htab_find_slot_with_hash (*steps, &tem, ver, INSERT);
-      elt = XNEW (struct int_tree_map);
-      elt->uid = ver;
-      elt->to = iv.step;
-      *slot = elt;
-    }
-}
-
-/* Remaps ssa names in EXPR according to NAME_COPIES, and returns the updated
-   expression.  */
-
-static tree
-remap_ssa_names (tree expr, htab_t name_copies)
-{
-  struct name_to_copy_elt tem, *elt;
-  unsigned ver;
-  tree copied;
-  unsigned i, n;
-  tree nop;
-
-  if (TREE_CODE (expr) == SSA_NAME)
-    {
-      ver = SSA_NAME_VERSION (expr);
-      tem.version = ver;
-      elt = htab_find_with_hash (name_copies, &tem, ver);
-
-      return elt->new_name;
-    }
-
-  if (!EXPR_P (expr))
-    return unshare_expr (expr);
-
-  copied = copy_node (expr);
-  n = TREE_CODE_LENGTH (TREE_CODE (expr));
-
-  for (i = 0; i < n; i++)
-    {
-      nop = remap_ssa_names (TREE_OPERAND (expr, i), name_copies);
-      TREE_OPERAND (copied, i) = nop;
-    }
-
-  return copied;
-}
-
-/* Records steps for induction variables of NLOOP in STEPS, and remap the steps
-   of induction variables in LOOP according to NAME_COPIES.  */
-
-static void
-record_and_update_steps (struct loop *loop, struct loop *nloop, htab_t steps,
-			 htab_t name_copies)
-{
-  tree phi, nphi, name, nname;
-  unsigned ver, nver;
-  void **slot;
-  struct int_tree_map tem, *elt, *nelt;
-
-  /* The corresponding phi nodes in LOOP and in NLOOP should be in the same
-     order.  */
-  for (phi = phi_nodes (loop->header), nphi = phi_nodes (nloop->header); phi;
-       phi = PHI_CHAIN (phi), nphi = PHI_CHAIN (nphi))
-    {
-      name = PHI_RESULT (phi);
-      nname = PHI_RESULT (nphi);
-
-      if (!is_gimple_reg (name))
-	{
-	  gcc_assert (!is_gimple_reg (nname));
-	  continue;
-	}
-      gcc_assert (is_gimple_reg (nname));
-      ver = SSA_NAME_VERSION (name);
-      nver = SSA_NAME_VERSION (nname);
-
-      /* First copy the values from LOOP to NLOOP.  */
-      tem.uid = ver;
-      elt = htab_find_with_hash (steps, &tem, ver);
-      tem.uid = nver;
-      slot = htab_find_slot_with_hash (steps, &tem, nver, INSERT);
-      nelt = XNEW (struct int_tree_map);
-      nelt->uid = nver;
-      nelt->to = unshare_expr (elt->to);
-      *slot = nelt;
-
-      /* Then rewrite the old ones.  */
-      elt->to = remap_ssa_names (elt->to, name_copies);
-    }
-  gcc_assert (nphi == NULL_TREE);
-}
-
-/* Change the exit condition of LOOP so that it exits after PER_THREAD
-   iterations, and remove the old exit.  */
-
-static void
-change_exit_condition (struct loop *loop, tree per_thread)
-{
-  basic_block ex_bb = loop->single_exit->src;
-  basic_block ex_to = loop->single_exit->dest;
-  block_stmt_iterator bsi = bsi_last (ex_bb);
-  edge in_loop, e;
-  tree exit_stmt = bsi_stmt (bsi);
-  tree type = TREE_TYPE (per_thread);
-  tree iv, cond;
-
-  gcc_assert (TREE_CODE (exit_stmt) == COND_EXPR);
-  bsi_remove (&bsi, true);
-
-  in_loop = EDGE_SUCC (ex_bb, 0);
-  if (in_loop == loop->single_exit)
-    in_loop = EDGE_SUCC (ex_bb, 1);
-
-  remove_edge (loop->single_exit);
-  in_loop->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-  in_loop->flags |= EDGE_FALLTHRU;
-
-  e = single_pred_edge (loop_split_edge_with (loop_latch_edge (loop), NULL));
-  bsi = bsi_last (e->src);
-  create_iv (build_int_cst (type, 0), build_int_cst (type, 1), NULL_TREE,
-	     loop, &bsi, true, NULL, &iv);
-  cond = build3 (COND_EXPR, void_type_node,
-		 fold_build2 (LT_EXPR, boolean_type_node, iv, per_thread),
-		 build1 (GOTO_EXPR, void_type_node,
-			 tree_block_label (e->dest)),
-		 build1 (GOTO_EXPR, void_type_node,
-			 tree_block_label (ex_to)));
-  bsi_insert_after (&bsi, cond, BSI_NEW_STMT);
-
-  e->flags &= ~EDGE_FALLTHRU;
-  e->flags |= EDGE_TRUE_VALUE;
-  loop->single_exit = make_edge (e->src, ex_to, EDGE_FALSE_VALUE);
+  htab_delete (name_copies);
 }
 
 /* Bitmap containing uids of functions created by parallelization.  We cannot
@@ -910,182 +683,285 @@ create_loop_fn (void)
   return decl;
 }
 
-/* Extracts LOOP and its preheader to a separate function.  This function is
-   returned in LOOP_FN.  ARG_STRUCT is initialized in the new function from
-   an argument of the function.  The single basic block that replaces LOOP is
-   returned.  */
+/* Bases all the induction variables in LOOP on a single induction variable
+   (unsigned with base 0 and step 1), whose final value is compared with
+   NIT.  The induction variable is incremented in the loop latch.  */
 
-static basic_block
-extract_loop_to_function (struct loop *loop, tree arg_struct, tree *loop_fn)
+static void
+canonicalize_loop_ivs (struct loop *loop, tree nit)
 {
-  basic_block bb_to = loop_split_edge_with (loop->single_exit, NULL);
-  basic_block bb_from = loop_preheader_edge (loop)->src;
-  basic_block repl_bb;
-  tree arg, narg, stmt;
-  struct function *act_cfun = cfun;
-  tree act_decl = current_function_decl;
+  unsigned precision = TYPE_PRECISION (TREE_TYPE (nit));
+  tree phi, prev, res, type, var_before, val, atype, t, next;
   block_stmt_iterator bsi;
-  basic_block *body = get_loop_body (loop);
-  struct loop *outer = loop->outer;
-  unsigned i, n = loop->num_nodes;
-
-  cancel_loop_tree (current_loops, loop);
-  for (i = 0; i < n; i++)
-    remove_bb_from_loops (body[i]);
-  free (body);
-  remove_bb_from_loops (bb_from);
-  remove_bb_from_loops (bb_to);
-
-  bsi = bsi_last (bb_to);
-  bsi_insert_after (&bsi, build1 (RETURN_EXPR, void_type_node, NULL),
-		    BSI_NEW_STMT);
-
-  *loop_fn = create_loop_fn ();
-  repl_bb = move_sese_region_to_fn (DECL_STRUCT_FUNCTION (*loop_fn),
-				    bb_from, bb_to);
-  add_bb_to_loop (repl_bb, outer);
-
-  cfun = DECL_STRUCT_FUNCTION (*loop_fn);
-  current_function_decl = *loop_fn;
-
-  /* Initialize the arg_struct.  */
-  if (arg_struct)
-    {
-      arg = DECL_ARGUMENTS (*loop_fn);
-      add_referenced_var (arg);
-      narg = make_ssa_name (arg, build_empty_stmt ());
-      set_default_def (arg, narg);
-
-      bsi = bsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
-      stmt = build2 (MODIFY_EXPR, void_type_node, arg_struct,
-		     fold_convert (TREE_TYPE (arg_struct), narg));
-      SSA_NAME_DEF_STMT (arg_struct) = stmt;
-      bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
-    }
-  cfun = act_cfun;
-  current_function_decl = act_decl;
-
-  go_out_of_ssa (*loop_fn);
-
-  return repl_bb;
-}
-
-/* Emits the code to call LOOP_FN with argument ARG in N_THREADS threads
-   after BSI.  */
-
-static void
-call_in_parallel (block_stmt_iterator bsi, tree loop_fn, tree arg,
-		  unsigned n_threads)
-{
-  tree start_decl = built_in_decls[BUILT_IN_GOMP_PARALLEL_START];
-  tree args, stmts, adata;
-
-  args = tree_cons (NULL, build_int_cst (unsigned_type_node, n_threads),
-		    NULL);
-  if (arg)
-    {
-      adata = build_fold_addr_expr (arg);
-      mark_call_clobbered (arg, ESCAPE_TO_CALL);
-    }
-  else
-    adata = null_pointer_node;
-  args = tree_cons (NULL, adata, args);
-  args = tree_cons (NULL, build_fold_addr_expr (loop_fn), args);
-  force_gimple_operand (build_function_call_expr (start_decl, args),
-			&stmts, false, NULL_TREE);
-  mark_virtual_ops_for_renaming_list (stmts);
-  bsi_insert_after (&bsi, stmts, BSI_CONTINUE_LINKING);
-}
-
-/* Makes the induction variables in LOOP start at
-   (N_THREADS - 1) * PER_THREAD-th iteration when the LOOP is entered through
-   NEW_ENTRY.  STEPS describe the steps of induction variables in LOOP.  */
-
-static void
-shift_ivs_for_remaining_iterations (struct loop *loop, tree per_thread,
-				    unsigned n_threads, edge new_entry,
-				    htab_t steps)
-{
-  tree phi, name, nphi;
-  unsigned ver;
-  struct int_tree_map tem, *elt;
-  basic_block bb = new_entry->dest;
-  edge old_entry, entry;
-  tree stmts, new_init, init, pass, type, delta;
-  use_operand_p init_p;
-
-  old_entry = EDGE_PRED (bb, 0);
-  if (old_entry == new_entry)
-    old_entry = EDGE_PRED (bb, 1);
-  entry = loop_preheader_edge (loop);
+  bool ok;
+  affine_iv iv;
+  edge exit = single_dom_exit (loop);
 
   for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
-      name = PHI_RESULT (phi);
-      if (!is_gimple_reg (name))
-	continue;
+      res = PHI_RESULT (phi);
 
-      ver = SSA_NAME_VERSION (name);
-      tem.uid = ver;
-      elt = htab_find_with_hash (steps, &tem, ver);
-
-      nphi = create_phi_node (SSA_NAME_VAR (name), bb);
-      pass = PHI_RESULT (nphi);
-
-      init_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, entry);
-      init = USE_FROM_PTR (init_p);
-      SET_USE (init_p, pass);
-
-      add_phi_arg (nphi, init, old_entry);
-      type = TREE_TYPE (name);
-      delta = fold_build2 (MULT_EXPR, type,
-			   build_int_cst (type, n_threads -  1),
-			   per_thread);
-      delta = fold_build2 (MULT_EXPR, type, delta, unshare_expr (elt->to));
-      new_init = fold_build2 (PLUS_EXPR, type, init, delta);
-
-      new_init = force_gimple_operand (new_init, &stmts, true, NULL_TREE);
-      if (stmts)
-	bsi_insert_on_edge_immediate_loop (new_entry, stmts);
-      add_phi_arg (nphi, new_init, new_entry);
+      if (is_gimple_reg (res)
+	  && TYPE_PRECISION (TREE_TYPE (res)) > precision)
+	precision = TYPE_PRECISION (TREE_TYPE (res));
     }
+
+  type = lang_hooks.types.type_for_size (precision, 1);
+
+  bsi = bsi_last (loop->latch);
+  create_iv (build_int_cst_type (type, 0), build_int_cst (type, 1), NULL_TREE,
+	     loop, &bsi, true, &var_before, NULL);
+
+  bsi = bsi_after_labels (loop->header);
+  prev = NULL;
+  for (phi = phi_nodes (loop->header); phi; phi = next)
+    {
+      next = PHI_CHAIN (phi);
+      res = PHI_RESULT (phi);
+
+      if (!is_gimple_reg (res)
+	  || res == var_before)
+	{
+	  prev = phi;
+	  continue;
+	}
+      
+      ok = simple_iv (loop, phi, res, &iv, true);
+      gcc_assert (ok);
+
+      SET_PHI_RESULT (phi, NULL_TREE);
+      remove_phi_node (phi, prev);
+
+      atype = TREE_TYPE (res);
+      val = fold_build2 (PLUS_EXPR, atype,
+			 unshare_expr (iv.base),
+			 fold_build2 (MULT_EXPR, atype,
+				      unshare_expr (iv.step),
+				      fold_convert (atype, var_before)));
+      val = force_gimple_operand_bsi (&bsi, val, false, NULL_TREE, true,
+				      BSI_SAME_STMT);
+      t = build2 (MODIFY_EXPR, void_type_node, res, val);
+      bsi_insert_before (&bsi, t, BSI_SAME_STMT);
+      SSA_NAME_DEF_STMT (res) = t;
+    }
+
+  t = last_stmt (exit->src);
+  /* Make the loop exit if the control condition is not satisfied.  */
+  if (exit->flags & EDGE_TRUE_VALUE)
+    {
+      edge te, fe;
+
+      extract_true_false_edges_from_block (exit->src, &te, &fe);
+      te->flags = EDGE_FALSE_VALUE;
+      fe->flags = EDGE_TRUE_VALUE;
+    }
+  COND_EXPR_COND (t) = build2 (LT_EXPR, boolean_type_node, var_before, nit);
 }
 
-/* If PAR is true, emit the code on E to finalize the threads.  */
+/* Moves the exit condition of LOOP to the beginning of its header, and
+   duplicates the part of the last iteration that gets disabled to the
+   exit of the loop.  NIT is the number of iterations of the loop
+   (used to initialize the variables in the duplicated part).
+ 
+   TODO: the common case is that latch of the loop is empty and immediatelly
+   follows the loop exit.  In this case, it would be better not to copy the
+   body of the loop, but rather increase the number of iterations of the loop
+   by one.  This may need some additional preconditioning in case NIT = ~0.  */
 
 static void
-finalize_threads (edge e, tree par)
+transform_to_exit_first_loop (struct loop *loop, tree nit)
 {
-  basic_block cond_bb = loop_split_edge_with (e, NULL);
-  basic_block fin_bb = loop_split_edge_with (single_succ_edge (cond_bb), NULL);
-  basic_block cont_bb = single_succ (fin_bb);
-  block_stmt_iterator bsi = bsi_last (cond_bb);
-  tree decl = built_in_decls[BUILT_IN_GOMP_PARALLEL_END];
-  tree stmt = build_function_call_expr (decl, NULL);
-  edge te, fe, be;
-  tree phi;
+  basic_block *bbs, *nbbs, ex_bb, orig_header;
+  unsigned n;
+  bool ok;
+  edge exit = single_dom_exit (loop), hpred;
+  tree phi, nphi, cond, control, control_name, res, t, cond_stmt;
+  block_stmt_iterator bsi;
 
-  bsi_insert_after (&bsi,
-		    build3 (COND_EXPR, void_type_node,
-			    par,
-			    build1 (GOTO_EXPR, void_type_node,
-				    tree_block_label (fin_bb)),
-			    build1 (GOTO_EXPR, void_type_node,
-				    tree_block_label (cont_bb))),
-		    BSI_NEW_STMT);
-  te = single_succ_edge (cond_bb);
-  te->flags = EDGE_TRUE_VALUE;
-  be = single_succ_edge (fin_bb);
-  fe = make_edge (cond_bb, cont_bb, EDGE_FALSE_VALUE);
+  split_block_after_labels (loop->header);
+  orig_header = single_succ (loop->header);
+  hpred = single_succ_edge (loop->header);
+  add_bb_to_loop (orig_header, loop);
 
-  for (phi = phi_nodes (cont_bb); phi != NULL_TREE; phi = PHI_CHAIN (phi))
-    add_phi_arg (phi, PHI_ARG_DEF_FROM_EDGE (phi, be), fe);
+  cond_stmt = last_stmt (exit->src);
+  cond = COND_EXPR_COND (cond_stmt);
+  control = TREE_OPERAND (cond, 0);
+  gcc_assert (TREE_OPERAND (cond, 1) == nit);
 
-  set_immediate_dominator (CDI_DOMINATORS, cont_bb,
-			   recount_dominator (CDI_DOMINATORS, cont_bb));
-  bsi = bsi_last (fin_bb);
-  mark_virtual_ops_for_renaming (stmt);
-  bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
+  /* Make sure that we have phi nodes on exit for all loop header phis
+     (create_parallel_loop requires that).  */
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    {
+      res = PHI_RESULT (phi);
+      t = make_ssa_name (SSA_NAME_VAR (res), phi);
+      SET_PHI_RESULT (phi, t);
+
+      nphi = create_phi_node (res, orig_header);
+      SSA_NAME_DEF_STMT (res) = nphi;
+      add_phi_arg (nphi, t, hpred);
+
+      if (res == control)
+	{
+	  TREE_OPERAND (cond, 0) = t;
+	  update_stmt (cond_stmt);
+	  control = t;
+	}
+    }
+
+  bbs = get_loop_body_in_dom_order (loop);
+  for (n = 0; bbs[n] != exit->src; n++)
+    continue;
+  nbbs = XNEWVEC (basic_block, n);
+  ok = tree_duplicate_sese_tail (single_succ_edge (loop->header), exit,
+				 bbs + 1, n, nbbs);
+  gcc_assert (ok);
+  free (bbs);
+  ex_bb = nbbs[0];
+  free (nbbs);
+
+  /* The only gimple reg that should be copied out of the loop is the
+     control variable.  */
+  control_name = NULL_TREE;
+  for (phi = phi_nodes (ex_bb); phi; phi = PHI_CHAIN (phi))
+    {
+      res = PHI_RESULT (phi);
+      if (!is_gimple_reg (res))
+	continue;
+
+      gcc_assert (control_name == NULL_TREE
+		  && SSA_NAME_VAR (res) == SSA_NAME_VAR (control));
+      control_name = res;
+    }
+  gcc_assert (control_name != NULL_TREE);
+  phi = SSA_NAME_DEF_STMT (control_name);
+  SET_PHI_RESULT (phi, NULL_TREE);
+  remove_phi_node (phi, NULL_TREE);
+
+  /* Initialize the control variable to NIT.  */
+  bsi = bsi_after_labels (ex_bb);
+  t = build2 (MODIFY_EXPR, void_type_node, control_name, nit);
+  bsi_insert_before (&bsi, t, BSI_NEW_STMT);
+  SSA_NAME_DEF_STMT (control_name) = t;
+}
+
+/* Create the parallel constructs for LOOP as described in gen_parallel_loop.
+   LOOP_FN and DATA are the arguments of OMP_PARALLEL.
+   NEW_DATA is the variable that should be initialized from the argument
+   of LOOP_FN.  N_THREADS is the requested number of threads.  Returns the
+   basic block containing OMP_PARALLEL tree.  */
+
+static basic_block
+create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
+		      tree new_data, unsigned n_threads)
+{
+  block_stmt_iterator bsi;
+  basic_block bb, paral_bb, for_bb, ex_bb;
+  tree t, param, res;
+  tree cvar, cvar_init, initvar, cvar_next, cvar_base, cond, phi, type;
+  edge exit, nexit, guard, end, e;
+
+  /* Prepare the OMP_PARALLEL statement.  */
+  bb = loop_preheader_edge (loop)->src;
+  paral_bb = single_pred (bb);
+  bsi = bsi_last (paral_bb);
+
+  t = build_omp_clause (OMP_CLAUSE_NUM_THREADS);
+  OMP_CLAUSE_NUM_THREADS_EXPR (t)
+	  = build_int_cst (integer_type_node, n_threads);
+  t = build4 (OMP_PARALLEL, void_type_node, NULL_TREE, t,
+	      loop_fn, data);
+
+  bsi_insert_after (&bsi, t, BSI_NEW_STMT);
+
+  /* Initialize NEW_DATA.  */
+  if (data)
+    {
+      bsi = bsi_after_labels (bb);
+
+      param = make_ssa_name (DECL_ARGUMENTS (loop_fn), NULL_TREE);
+      t = build2 (MODIFY_EXPR, void_type_node, param, build_fold_addr_expr (data));
+      bsi_insert_before (&bsi, t, BSI_SAME_STMT);
+      SSA_NAME_DEF_STMT (param) = t;
+
+      t = build2 (MODIFY_EXPR, void_type_node, new_data,
+		  fold_convert (TREE_TYPE (new_data), param));
+      bsi_insert_before (&bsi, t, BSI_SAME_STMT);
+      SSA_NAME_DEF_STMT (new_data) = t;
+    }
+
+  /* Emit OMP_RETURN for OMP_PARALLEL.  */
+  bb = split_loop_exit_edge (single_dom_exit (loop));
+  bsi = bsi_last (bb);
+  bsi_insert_after (&bsi, make_node (OMP_RETURN), BSI_NEW_STMT);
+
+  /* Extract data for OMP_FOR.  */
+  gcc_assert (loop->header == single_dom_exit (loop)->src);
+  cond = COND_EXPR_COND (last_stmt (loop->header));
+
+  cvar = TREE_OPERAND (cond, 0);
+  cvar_base = SSA_NAME_VAR (cvar);
+  phi = SSA_NAME_DEF_STMT (cvar);
+  cvar_init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
+  initvar = make_ssa_name (cvar_base, NULL_TREE);
+  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, loop_preheader_edge (loop)),
+	   initvar);
+  cvar_next = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));
+
+  bsi = bsi_last (loop->latch);
+  gcc_assert (bsi_stmt (bsi) == SSA_NAME_DEF_STMT (cvar_next));
+  bsi_remove (&bsi, true);
+
+  /* Prepare cfg.  */
+  for_bb = loop_split_edge_with (loop_preheader_edge (loop), NULL);
+  ex_bb = split_loop_exit_edge (single_dom_exit (loop));
+  extract_true_false_edges_from_block (loop->header, &nexit, &exit);
+  gcc_assert (exit == single_dom_exit (loop));
+
+  guard = make_edge (for_bb, ex_bb, 0);
+  single_succ_edge (loop->latch)->flags = 0;
+  end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
+  for (phi = phi_nodes (ex_bb); phi; phi = PHI_CHAIN (phi))
+    {
+      res = PHI_RESULT (phi);
+      gcc_assert (!is_gimple_reg (phi));
+      t = SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit));
+      add_phi_arg (phi, PHI_ARG_DEF_FROM_EDGE (t, loop_preheader_edge (loop)),
+		   guard);
+      add_phi_arg (phi, PHI_ARG_DEF_FROM_EDGE (t, loop_latch_edge (loop)),
+		   end);
+    }
+  e = redirect_edge_and_branch (exit, nexit->dest);
+  PENDING_STMT (e) = NULL;
+
+  /* Emit OMP_FOR.  */
+  TREE_OPERAND (cond, 0) = cvar_base;
+  type = TREE_TYPE (cvar);
+  t = build_omp_clause (OMP_CLAUSE_SCHEDULE);
+  OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
+  t = build6 (OMP_FOR, void_type_node, NULL_TREE, t,
+	      build2 (MODIFY_EXPR, void_type_node, initvar, cvar_init),
+	      cond,
+	      build2 (MODIFY_EXPR, void_type_node,
+		      cvar_base,
+		      build2 (PLUS_EXPR, type,
+			      cvar_base,
+			      build_int_cst (type, 1))),
+	      NULL_TREE);
+  bsi = bsi_last (for_bb);
+  bsi_insert_after (&bsi, t, BSI_NEW_STMT);
+  SSA_NAME_DEF_STMT (initvar) = t;
+
+  /* Emit OMP_CONTINUE.  */
+  bsi = bsi_last (loop->latch);
+  t = build2 (OMP_CONTINUE, void_type_node, cvar_next, cvar);
+  bsi_insert_after (&bsi, t, BSI_NEW_STMT);
+  SSA_NAME_DEF_STMT (cvar_next) = t;
+
+  /* Emit OMP_RETURN for OMP_FOR.  */
+  bsi = bsi_last (ex_bb);
+  bsi_insert_after (&bsi, make_node (OMP_RETURN), BSI_NEW_STMT);
+
+  return paral_bb;
 }
 
 /* Generates code to execute the iterations of LOOP in N_THREADS threads in
@@ -1096,11 +972,9 @@ gen_parallel_loop (struct loop *loop, unsigned n_threads,
 		   struct tree_niter_desc *niter)
 {
   struct loop *nloop;
-  tree many_iterations_cond, type, per_thread, new_per_thread;
-  tree stmts, arg_struct, new_arg_struct, loop_fn, par_flag, phi;
-  basic_block repl_bb, npre;
-  htab_t steps, name_copies;
-  edge orig_entry;
+  tree many_iterations_cond, type, nit;
+  tree stmts, arg_struct, new_arg_struct;
+  basic_block parallel_head;
 
   /* From
 
@@ -1119,20 +993,24 @@ gen_parallel_loop (struct loop *loop, unsigned n_threads,
      we generate the following code:
 
      ---------------------------------------------------------------------
-     parallelized = false;
 
      if (MAY_BE_ZERO
 	 || NITER < MIN_PER_THREAD * N_THREADS)
-       goto rest;
+       goto original;
 
-     per_thread = NITER / N_THREADS;
-     store all local loop-invariant variables (including per_thread in case it
-       is not a constant) used in body of the loop to DATA.
-     __builtin_GOMP_parallel_start (loop_fn, &DATA, N_THREADS);
-     INIT += STEP * per_thread * (N_THREADS - 1);
-     parallelized = true;
+     BODY1;
+     store all local loop-invariant variables used in body of the loop to DATA.
+     OMP_PARALLEL (OMP_CLAUSE_NUM_THREADS (N_THREADS), LOOPFN, DATA);
+     load the variables from DATA.
+     OMP_FOR (IV = INIT; COND; IV += STEP) (OMP_CLAUSE_SCHEDULE (static))
+     BODY2;
+     BODY1;
+     OMP_CONTINUE;
+     OMP_RETURN		-- OMP_FOR
+     OMP_RETURN		-- OMP_PARALLEL
+     goto end;
 
-     rest:
+     original:
      loop
        {
 	 IV = phi (INIT, IV + STEP)
@@ -1142,35 +1020,9 @@ gen_parallel_loop (struct loop *loop, unsigned n_threads,
 	 BODY2;
        }
 
-     if (parallelized)
-       __builtin_GOMP_parallel_end ();
-     ---------------------------------------------------------------------
+     end:
 
-     With the function
-
-     ---------------------------------------------------------------------
-     void loop_fn (void *data)
-       {
-	 load all local loop-invariant variables used in body of the loop
-	   from data
-	 INIT += STEP * per_thread * (thread_id - 1);
-
-	 loop
-	   {
-	     IV = phi (INIT, IV + STEP)
-	     NEW_CTR = phi (0, NEW_CTR');
-	     BODY1;
-	     BODY2;
-	     NEW_CTR' = NEW_CTR + 1;
-	     if (NEW_CTR' == per_thread)
-	       return;
-	   }
-       }
-     ---------------------------------------------------------------------
    */
-
-  /* Record the steps of the induction variables.  */
-  record_steps (loop, &steps);
 
   /* Create two versions of the loop -- in the old one, we know that the
      number of iterations is large enough, and we will transform it into the
@@ -1178,17 +1030,21 @@ gen_parallel_loop (struct loop *loop, unsigned n_threads,
      remaining iterations.  */
   
   type = TREE_TYPE (niter->niter);
+  nit = force_gimple_operand (unshare_expr (niter->niter), &stmts, true,
+			      NULL_TREE);
+  if (stmts)
+    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+
   many_iterations_cond =
 	  fold_build2 (GE_EXPR, boolean_type_node,
-		       niter->niter,
-		       build_int_cst (type, MIN_PER_THREAD * n_threads));
+		       nit, build_int_cst (type, MIN_PER_THREAD * n_threads));
   many_iterations_cond
 	  = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-			 invert_truthvalue (niter->may_be_zero),
+			 invert_truthvalue (unshare_expr (niter->may_be_zero)),
 			 many_iterations_cond);
   many_iterations_cond
-	  = force_gimple_operand (unshare_expr (many_iterations_cond),
-				  &stmts, false, NULL_TREE);
+	  = force_gimple_operand (many_iterations_cond, &stmts,
+				  false, NULL_TREE);
   if (stmts)
     bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
   if (!is_gimple_condexpr (many_iterations_cond))
@@ -1205,74 +1061,34 @@ gen_parallel_loop (struct loop *loop, unsigned n_threads,
   update_ssa (TODO_update_ssa);
   free_original_copy_tables ();
 
-  /* Compute number of iterations per thread.  */
-  per_thread = fold_build2 (FLOOR_DIV_EXPR, type, niter->niter,
-			    build_int_cst (type, n_threads));
-  per_thread = force_gimple_operand (unshare_expr (per_thread), &stmts, true,
-				     NULL_TREE);
-  if (stmts)
-    bsi_insert_on_edge_immediate_loop (loop_preheader_edge (loop), stmts);
+  /* Base all the induction variables in LOOP on a single control one.  */
+  canonicalize_loop_ivs (loop, nit);
+
+  /* Ensure that the exit condition is the first statement in the loop.  */
+  transform_to_exit_first_loop (loop, nit);
 
   /* Eliminate the references to local variables from the loop.  */
   eliminate_local_variables (loop);
 
   /* In the old loop, move all variables non-local to the loop to a structure
      and back, and create separate decls for the variables used in loop.  */
-  new_per_thread = per_thread;
-  separate_decls_in_loop (loop, &new_per_thread, &arg_struct, &new_arg_struct,
-			  &name_copies);
+  separate_decls_in_loop (loop, &arg_struct, &new_arg_struct);
 
-  /* Record the steps of induction variables in the copy, and remap those
-     in the original loop.  */
-  record_and_update_steps (loop, nloop, steps, name_copies);
+  /* Create the parallel constructs.  */
+  parallel_head = create_parallel_loop (loop, create_loop_fn (), arg_struct,
+					new_arg_struct, n_threads);
 
-  /* Update the initial values of induction variables.  */
-  shift_ivs_for_iteration (loop, new_per_thread, steps);
-
-  /* Add the new exit condition.  */
-  change_exit_condition (loop, new_per_thread);
-
-  /* Split the loop to the new function.  */
-  repl_bb = extract_loop_to_function (loop, new_arg_struct, &loop_fn);
-  cgraph_add_new_function (loop_fn);
-
-  /* Call the builtin to run the function in several threads.  */
-  call_in_parallel (bsi_last (repl_bb), loop_fn, arg_struct, n_threads);
-
-  /* Redirect the exit edge to the versioned copy, and set the parallelized
-     flag.  */
-  par_flag = create_tmp_var (boolean_type_node, "parallelized");
-  add_referenced_var (par_flag);
-
-  npre = loop_preheader_edge (nloop)->src;
-  gcc_assert (phi_nodes (npre) == NULL);
-
-  orig_entry = single_pred_edge (npre);
-  redirect_edge_and_branch (single_succ_edge (repl_bb),
-			    loop_preheader_edge (nloop)->src);
-  phi = create_phi_node (par_flag, npre);
-  add_phi_arg (phi, boolean_false_node, orig_entry);
-  add_phi_arg (phi, boolean_true_node, single_succ_edge (repl_bb));
-  par_flag = PHI_RESULT (phi);
-
-  /* Update the initial values of induction variables in the versioned
-     copy.  */
-  shift_ivs_for_remaining_iterations (nloop, per_thread, n_threads,
-				      single_succ_edge (repl_bb), steps);
-
-  /* Finalize the threads after the loop if necessary.  */
-  finalize_threads (nloop->single_exit, par_flag);
-
-  htab_delete (name_copies);
-  htab_delete (steps);
   scev_reset ();
 
-  /* We created a new call clobbered variable.  This means every call in the
-     function gets a new virtual operand.  However, we cannot rerun alias
-     analysis after vectorizer (or at least, passes.c claims so), thus we
-     must mark them for renaming manually.  */
-  mark_call_virtual_operands ();
-  update_ssa (TODO_update_ssa_only_virtuals);
+  /* Cancel the loop (it is simpler to do it here rather than to teach the
+     expander to do it).  */
+  cancel_loop_tree (current_loops, loop);
+
+  /* Expand the parallel constructs.  We do it directly here instead of running
+     a separate expand_omp pass, since it is more efficient, and less likely to
+     cause troubles with further analyses not being able to deal with the
+     OMP trees.  */
+  omp_expand_local (parallel_head);
 }
 
 /* Detect parallel loops and generate parallel code using libgomp

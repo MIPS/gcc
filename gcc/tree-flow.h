@@ -534,6 +534,8 @@ extern struct omp_region *root_omp_region;
 extern struct omp_region *new_omp_region (basic_block, enum tree_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
+void omp_expand_local (basic_block);
+
 tree copy_var_decl (tree, tree, tree);
 tree find_omp_clause (tree, enum tree_code);
 
@@ -582,8 +584,9 @@ extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
+				      basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
-extern void add_phi_args_after_copy (basic_block *, unsigned);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -626,7 +629,6 @@ extern void add_referenced_var (tree);
 extern void mark_new_vars_to_rename (tree);
 extern void find_new_referenced_vars (tree *);
 void mark_virtual_ops_for_renaming (tree);
-void mark_call_virtual_operands (void);
 
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
@@ -819,7 +821,7 @@ void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
-void split_loop_exit_edge (edge);
+basic_block split_loop_exit_edge (edge);
 unsigned force_expr_to_var_cost (tree);
 basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
@@ -1016,4 +1018,5 @@ void swap_tree_operands (tree, tree *, tree *);
 
 extern void recalculate_used_alone (void);
 extern bool updating_used_alone;
+
 #endif /* _TREE_FLOW_H  */

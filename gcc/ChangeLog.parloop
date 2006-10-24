@@ -1,3 +1,45 @@
+2006-10-25  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-manip.c (split_loop_exit_edge): Return the new block.
+	* tree.c (build6_stat): New function.
+	* tree.h (build6_stat): Declare.
+	(build6): New macro.
+	* omp-low.c: Include cfgloop.h.
+	(mark_call_virtual_operands): Moved from tree-parloop.c.
+	(expand_omp_parallel, expand_omp_for_static_nochunk): Update loops.
+	(build_omp_regions_1): Enable finding the regions locally.
+	(build_omp_regions_root, omp_expand_local): New functions.
+	(build_omp_regions): Pass new argument to build_omp_regions_1.
+	* tree-parloops.c (loop_parallel_p): Require that there are no
+	loop exit phi nodes, and that the loop can be duplicated.
+	(mark_virtual_ops_for_renaming_list): Removed.
+	(mark_call_virtual_operands): Moved to omp-low.c.
+	(separate_decls_in_loop_name): Handle the case of non-SSA name
+	argument.
+	(separate_decls_in_loop): Do not return name_copies hashtable.
+	(shift_ivs_for_iteration, record_steps, remap_ssa_names,
+	record_and_update_steps, change_exit_condition,
+	extract_loop_to_function, call_in_parallel,
+	shift_ivs_for_remaining_iterations, finalize_threads): Removed.
+	(canonicalize_loop_ivs, transform_to_exit_first_loop,
+	create_parallel_loop): New functions.
+	(gen_parallel_loop): Use OMP tree codes.
+	* tree-flow.h (omp_expand_local, tree_duplicate_sese_tail): Declare.
+	(mark_call_virtual_operands, add_phi_args_after_copy): Declaration
+	removed.
+	(split_loop_exit_edge): Declaration changed.
+	* Makefile.in (omp-low.o): Add CFGLOOP_H dependency.
+	* tree-cfg.c (add_phi_args_after_copy_edge): New function.
+	(add_phi_args_after_copy_bb): Use add_phi_args_after_copy_edge.
+	(add_phi_args_after_copy): Made static.  Also copy arguments on
+	one additional edge.
+	(tree_duplicate_sese_region): Fix updating of frequencies.
+	Add argument to add_phi_args_after_copy call.
+	(tree_duplicate_sese_tail): New function.
+	(move_sese_region_to_fn): Update loops.
+
+	* testsuite/gcc.dg/tree-ssa/parallelization-1.c: Update outcome.
+
 2006-10-16  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* tree-pretty-print.c (dump_generic_node): Handle OMP_SECTIONS_SWITCH
