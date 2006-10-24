@@ -919,7 +919,7 @@ fwprop_init (void)
 
   /* Now set up the dataflow problem (we only want use-def chains) and
      put the dataflow solver to work.  */
-  df = df_init (DF_SUBREGS + DF_UD_CHAIN, DF_EQ_NOTES);
+  df = df_init (DF_UD_CHAIN, DF_EQ_NOTES);
   df_chain_add_problem (df);
   df_analyze (df);
 }

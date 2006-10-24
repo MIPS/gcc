@@ -265,7 +265,7 @@ add_deps_for_def (ddg_ptr g, struct df *df, struct df_ref *rd)
 
       /* Check if there are uses after RD.  */
       for (i = src_node->cuid + 1; i < g->num_nodes; i++)
-	 if (df_find_use (df, g->nodes[i].insn, rd->reg))
+	 if (df_find_use (df, g->nodes[i].insn, DF_REF_REG (rd)))
 	   return;
 
       dest_node = get_node_of_insn (g, def->insn);
@@ -298,7 +298,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct df_ref *use)
 
   /* Make sure there are no defs after USE.  */
   for (i = use_node->cuid + 1; i < g->num_nodes; i++)
-     if (df_find_def (df, g->nodes[i].insn, use->reg))
+     if (df_find_def (df, g->nodes[i].insn, DF_REF_REG (use)))
        return;
   /* We must not add ANTI dep when there is an intra-loop TRUE dep in
      the opposite direction. If the first_def reaches the USE then there is

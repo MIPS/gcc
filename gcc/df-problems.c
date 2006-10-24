@@ -1577,8 +1577,9 @@ df_lr_bb_local_compute (struct dataflow *dflow,
 		  && dregno < FIRST_PSEUDO_REGISTER)
 		{
 		  unsigned int i;
+		  enum machine_mode mode = GET_MODE (DF_REF_REAL_REG (def));
 		  unsigned int end = dregno 
-		    + hard_regno_nregs[dregno][GET_MODE (DF_REF_REG (def))] - 1;
+		    + hard_regno_nregs[dregno][mode] - 1;
 		  for (i = dregno; i <= end; ++i)
 		    regs_asm_clobbered[i] = 1;
 		}
@@ -3450,8 +3451,6 @@ df_chain_start_dump (struct dataflow *dflow, FILE *file)
 		       DF_REF_REGNO (use));
 	      if (use->flags & DF_REF_READ_WRITE)
 		fprintf (file, "read/write ");
-	      if (use->flags & DF_REF_STRIPPED)
-		fprintf (file, "stripped ");
 	      if (use->flags & DF_REF_IN_NOTE)
 		fprintf (file, "note ");
 	      df_chain_dump (DF_REF_CHAIN (use), file);
@@ -3845,8 +3844,7 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
 	    && (!bitmap_bit_p (artificial_uses, dregno)) 
 	    && (!df_ignore_stack_reg (dregno)))
     {
-      rtx reg = GET_CODE (*DF_REF_LOC (def)) == SUBREG ?
-	SUBREG_REG (*DF_REF_LOC (def)) : *DF_REF_LOC (def);
+      rtx reg = *DF_REF_REAL_LOC (def);
       rtx note = alloc_EXPR_LIST (REG_UNUSED, reg, REG_NOTES (insn));
       REG_NOTES (insn) = note;
 #ifdef REG_DEAD_DEBUGGING
@@ -4053,8 +4051,7 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 		   && (!(DF_REF_FLAGS (use) & DF_REF_READ_WRITE))
 		   && (!df_ignore_stack_reg (uregno)))
 		{
-		  rtx reg = GET_CODE (*DF_REF_LOC (use)) == SUBREG ?
-		    SUBREG_REG (*DF_REF_LOC (use)) : *DF_REF_LOC (use);
+		  rtx reg = *DF_REF_REAL_LOC (use);
 		  rtx note = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
 		  REG_NOTES (insn) = note;
 		  if (df->permanent_flags & DF_RI_LIFE)

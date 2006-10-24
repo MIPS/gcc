@@ -1043,10 +1043,14 @@ iv_analyze_def (struct df_ref *def, struct rtx_iv *iv)
   iv->base = NULL_RTX;
   iv->step = NULL_RTX;
 
-  set = single_set (insn);
-  if (!set || SET_DEST (set) != reg)
+  if (!REG_P (reg))
     return false;
 
+  set = single_set (insn);
+  if (!set)
+    return false;
+
+  gcc_assert (SET_DEST (set) == reg);
   rhs = find_reg_equal_equiv_note (insn);
   if (rhs)
     rhs = XEXP (rhs, 0);

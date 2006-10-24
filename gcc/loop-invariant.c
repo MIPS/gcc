@@ -673,8 +673,6 @@ record_use (struct def *def, rtx *use, rtx insn)
 {
   struct use *u = XNEW (struct use);
 
-  if (GET_CODE (*use) == SUBREG)
-    use = &SUBREG_REG (*use);
   gcc_assert (REG_P (*use));
 
   u->pos = use;
@@ -828,13 +826,13 @@ record_uses (rtx insn)
     {
       inv = invariant_for_use (use);
       if (inv)
-	record_use (inv->def, DF_REF_LOC (use), DF_REF_INSN (use));
+	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
     }
   for (use = DF_INSN_EQ_USES (df, insn); use; use = use->next_ref)
     {
       inv = invariant_for_use (use);
       if (inv)
-	record_use (inv->def, DF_REF_LOC (use), DF_REF_INSN (use));
+	record_use (inv->def, DF_REF_REAL_LOC (use), DF_REF_INSN (use));
     }
 }
 

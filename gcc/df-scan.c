@@ -1156,22 +1156,6 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 
   gcc_assert (REG_P (reg) || GET_CODE (reg) == SUBREG);
 
-  /* For the reg allocator we are interested in some SUBREG rtx's, but not
-     all.  Notably only those representing a word extraction from a multi-word
-     reg.  As written in the docu those should have the form
-     (subreg:SI (reg:M A) N), with size(SImode) > size(Mmode).
-     XXX Is that true?  We could also use the global word_mode variable.  */
-  if ((df->permanent_flags & DF_SUBREGS) == 0
-      && GET_CODE (reg) == SUBREG
-      && (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (word_mode)
-	  || GET_MODE_SIZE (GET_MODE (reg))
-	       >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (reg)))))
-    {
-      loc = &SUBREG_REG (reg);
-      reg = *loc;
-      ref_flags |= DF_REF_STRIPPED;
-    }
-
   regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {

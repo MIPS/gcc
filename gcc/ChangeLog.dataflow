@@ -1,4 +1,22 @@
+2006-10-24  Paolo Bonzini  <bonzinI@gnu.rg>
+
+	* ddg.c (add_deps_for_def, add_deps_for_use): Use accessor macros.
+	* df.h (DF_REF_STRIPPED, DF_SUBREGS): Remove.
+	* df-core.c: Don't document scanning flags.
+	* df-scan.c (df_ref_record): Always behave as if DF_SUBREGS was set.
+	* df-problems.c (df_lr_bb_local_compute): Strip SUBREGs with
+	DF_REF_REAL_REG.
+	(df_chain_start_dump): Don't dump DF_REF_STRIPPED.
+	(df_create_unused_note, df_ri_bb_compute): Don't "inline"
+	DF_REF_REAL_LOC.
+	* fwprop.c (fwprop_init): Do not pass DF_SUBREGS.
+	* loop-invariant.c (record_use): Don't strip SUBREGs.
+	(record_uses): Do it here with DF_REF_REAL_LOC.
+	* loop-iv.c (iv_analyze_def): Only allow REGs.  Replace previous
+	way to check for SUBREGs with an assertion.
+
 2006-10-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* sched-ebb.c (schedule_ebbs): Changed flags to df_init.
 	* fwprop.c (use_killed_between): Changed to use proper macros.
 	(All_uses_available_at, try_fwprop_subst): Added support for

@@ -63,11 +63,6 @@ DF_INIT simply creates a poor man's object (df) that needs to be
 passed to all the dataflow routines.  df_finish destroys this object
 and frees up any allocated memory.
 
-There are three flags that can be passed to df_init, each of these
-flags controls the scanning of the rtl:
-
-DF_SUBREGS return subregs rather than the inner reg.
-
 
 DF_ADD_PROBLEM adds a problem, defined by an instance to struct
 df_problem, to the set of problems solved in this instance of df.  All

@@ -76,11 +76,6 @@ enum df_ref_flags
        independent.  */
     DF_REF_READ_WRITE = 1,
 
-    /* This flag is set, if we stripped the subreg from the reference.
-       In this case we must make conservative guesses, at what the
-       outer mode was.  */
-    DF_REF_STRIPPED = 2,
-    
     /* If this flag is set, this is not a real definition/use, but an
        artificial one created to model always live registers, eh uses, etc.  */
     DF_REF_ARTIFICIAL = 4,
@@ -311,14 +306,12 @@ struct df_link
 
 enum df_permanent_flags 
 {
-  /* Scanning flags.  */
-  DF_SUBREGS       =  1, /* Return subregs rather than the inner reg.  */
   /* Flags that control the building of chains.  */
-  DF_DU_CHAIN      =  2, /* Build DU chains.  */  
-  DF_UD_CHAIN      =  4, /* Build UD chains.  */
+  DF_DU_CHAIN      =  1, /* Build DU chains.  */  
+  DF_UD_CHAIN      =  2, /* Build UD chains.  */
   /* Flag to control the building of register info.  */
-  DF_RI_LIFE       =  8, /* Build register info.  */
-  DF_RI_SETJMP     = 16  /* Build pseudos that cross setjmp info.  */
+  DF_RI_LIFE       =  4, /* Build register info.  */
+  DF_RI_SETJMP     =  8  /* Build pseudos that cross setjmp info.  */
 };
 
 enum df_changeable_flags 
