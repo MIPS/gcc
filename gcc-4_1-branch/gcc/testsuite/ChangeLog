@@ -1,3 +1,209 @@
+2006-10-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.dg/simd-5.c, gcc.dg/simd-6: New testcases.
+
+2006-10-24  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/29393
+	* gfortran.dg/initialize_2.f90: New.
+
+2006-10-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29284
+	* gfortran.dg/optional_assumed_charlen_1.f90: New test.
+
+	PR fortran/29321
+	PR fortran/29322
+	* gfortran.dg/missing_optional_dummy_2.f90: New test.
+
+	PR fortran/25091
+	PR fortran/25092
+	* gfortran.dg/entry_array_specs_1.f90: New test.
+
+2006-10-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29020
+	* g++.dg/template/friend48.C: New test.
+
+2006-10-23  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* g++.dg/other/s390-1.C: New testcase.
+
+2006-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20647
+	* g++.dg/abi/rtti3.C: New.
+
+2006-10-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/div-compare-1.c: New test.
+
+2006-10-19 Ira Rosen  <irar@il.ibm.com>
+
+	Backport from mainline:
+        2006-08-07  Victor Kaplansky <victork@il.ibm.com>
+        
+        PR tree-optimizations/26969
+        * gcc.dg/vect/vect.exp: Compile tests prefixed with
+        "unswitch-loops" with -funswitch-loops.
+        * gcc.dg/vect/unswitch-loops-pr26969.c: New test.
+
+2006-10-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-08-25  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/28829
+	* gcc.dg/pr26570.c: Fix testcase.
+
+2006-10-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-08-16  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR gcov/profile/26570
+	* gcc.dg/pr26570.c: New test.
+
+2006-10-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/27787
+	* g++.dg/template/typename10.C: New.
+	* g++.dg/template/lookup4.C: Remove bogus error marker.
+
+2006-10-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/26881
+	* gcc.dg/debug/pr26881.c: New test.
+
+2006-10-17  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-09-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/28906
+	* g++.dg/other/array3.C: New test.
+	* g++.dg/other/array4.C: New test.
+	* g++.dg/other/array5.C: New test.
+
+2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29435
+	* g++.dg/template/sizeof11.C: New test.
+
+2006-10-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2006-10-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pthread-init-2.c (dg-options): Define _POSIX_C_SOURCE=199506L
+	on Solaris 2.5.1 too.
+
+	2006-10-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/29300
+	* gcc.dg/pthread-init-2.c (dg-options): Define _POSIX_C_SOURCE=199506L
+	on hppa*-*-hpux*.
+
+	2006-10-03  Uros Bizjak  <uros@kss-loka.si>
+
+	* gcc-dg/pthread-init-common.h: Define _GNU_SOURCE. Add tests for
+	PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP,
+	PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP,
+	PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP and
+	PTHREAD_RWLOCK_WRITER_NONRECURSIVE_INITIALIZER_NP mutex initializers.
+
+	2006-09-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/pthread-init-1.c, pthread-init-2.c,
+	pthread-init-common.h: New.
+
+2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29408
+	* g++.dg/parse/dtor12.C: New test.
+
+2006-10-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+ 
+	PR fortran/29403
+	* gfortran.dg/print_1.f90: New test.
+
+2006-10-16  Richard Guenther  <rguenther@suse.de>
+
+	PR target/28960
+	Backport from mainline:
+	2006-08-23  Stuart Hastings  <stuart@apple.com>
+
+	PR target/28825
+	* gcc.target/i386/20060821-1.c: New.
+
+2006-10-16  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR inline-asm/29119
+	* gcc.dg/torture/pr29119.c: New testcase.
+
+2006-10-16  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-08-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c/27184
+	* gcc.dg/torture/pr27184.c: New test.
+
+2006-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/29091
+	* gcc.dg/pr29091.c: New test.
+
+2006-10-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/20491
+	gcc.dg/torture/asm-subreg-1.c: Skip on hppa*64*-*-*.
+
+2006-10-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Revert:
+	
+	* gcc.dg/builtins-config.h: Ensure we use -std=c99 on solaris2.
+	* gcc.dg/torture/builtin-convert-1.c,
+	gcc.dg/torture/builtin-convert-2.c,
+	gcc.dg/torture/builtin-convert-3.c,
+	gcc.dg/torture/builtin-power-1.c: Use -std=c99 on solaris2.
+	* gcc.dg/builtins-18.c: Always use link_error(), which is
+	prototyped.
+
+	Revert Backport:
+	2006-03-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/builtins-config.h (Solaris case): Define HAVE_C99_RUNTIME
+	if _STDC_C99 is defined.
+	* gcc.dg/builtins-18.c: Pass -std=c99 on Solaris.
+	* gcc.dg/builtins-20.c: Likewise.
+	* gcc.dg/builtins-53.c: Likewise.
+
+2006-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28506
+	* g++.dg/parse/pure1.C: New test.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29318
+	* g++.dg/ext/vla4.C: New test.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29175
+	* g++.dg/init/array24.C: New test.
+
 2006-10-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.dg/builtins-config.h: Ensure we use -std=c99 on solaris2.
