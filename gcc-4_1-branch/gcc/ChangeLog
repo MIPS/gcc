@@ -1,3 +1,24 @@
+2006-10-25  Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (movdd, movtd): Moved from here ...
+        * config/rs6000/dfp.md: ...to here. New file.
+	(movdd): Change to define_expand.
+	(movdd_hardfloat32): New pattern.
+	(movdd_softfloat32): Likewise.
+	(movdd_hardfloat64): Likewise.
+	(movdd_softfloat64): Likewise.
+	(movtd): Change to define_expand.
+	(movtd_internal): New pattern.
+        * config/rs6000/rs6000.c (rs6000_legitimize_address): Disallow TDmode.
+	(rs6000_legitimate_offset_address_p) Treat TDmode similarly to TFmode.
+	(rs6000_emit_move): Likewise.
+	(rs6000_legitimate_address): Likewise.
+	(rs6000_darwin64_record_arg_recurse): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.  Update comment.
+	(rs6000_output_function_epilogue): Treat DDmode and TDmode similarly
+	to DFmode and TFmode.
+
 2006-10-18  Pete Steinmetz <steinmtz@us.ibm.com>
 	    Peter Bergner <bergner@vnet.ibm.com>
 

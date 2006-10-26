@@ -2810,7 +2810,8 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
 
     case TFmode:
     case TImode:
-      if (mode == TFmode || !TARGET_POWERPC64)
+    case TDmode:
+      if (mode == TFmode || mode == TDmode || !TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
@@ -2965,7 +2966,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
 	       || (((mode != DImode && mode != DFmode) || TARGET_E500_DOUBLE)
-		   && mode != TFmode))
+		   && mode != TFmode && mode != TDmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -3432,10 +3433,11 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && DEFAULT_ABI == ABI_V4
       && !flag_pic
 #endif
-      /* Don't do this for TFmode, since the result isn't offsettable.
+      /* Don't do this for TFmode or TDmode, since the result isn't offsettable.
 	 The same goes for DImode without 64-bit gprs and DFmode
 	 without fprs.  */
       && mode != TFmode
+      && mode != TDmode
       && (mode != DImode || TARGET_POWERPC64)
       && (mode != DFmode || TARGET_POWERPC64
 	  || (TARGET_FPRS && TARGET_HARD_FLOAT)))
@@ -3505,8 +3507,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
    word aligned.
 
    For modes spanning multiple registers (DFmode in 32-bit GPRs,
-   32-bit DImode, TImode, TFmode), indexed addressing cannot be used because
-   adjacent memory cells are accessed by adding word-sized offsets
+   32-bit DImode, TImode, TFmode, TDmode), indexed addressing cannot be used
+   because adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */
 int
 rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
@@ -3549,6 +3551,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
     return 1;
   if (mode != TImode
       && mode != TFmode
+      && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
 	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
@@ -3888,7 +3891,7 @@ rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
 }
 
 /* Helper for the following.  Get rid of [r+r] memory refs
-   in cases where it won't work (TImode, TFmode).  */
+   in cases where it won't work (TImode, TFmode, TDmode).  */
 
 static void
 rs6000_eliminate_indexed_memrefs (rtx operands[2])
@@ -4050,6 +4053,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TFmode:
+    case TDmode:
       rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
@@ -5011,7 +5015,7 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, tree type,
 	      = gen_rtx_EXPR_LIST (VOIDmode,
 				   gen_rtx_REG (mode, cum->fregno++),
 				   GEN_INT (bitpos / BITS_PER_UNIT));
-	    if (mode == TFmode)
+	    if (mode == TFmode || mode == TDmode)
 	      cum->fregno++;
 	  }
 	else if (cum->named && USE_ALTIVEC_FOR_ARG_P (cum, mode, ftype, 1))
@@ -15454,7 +15458,9 @@ rs6000_output_function_epilogue (FILE *file,
 			  break;
 
 			case DFmode:
+			case DDmode:
 			case TFmode:
+			case TDmode:
 			  bits = 0x3;
 			  break;
 
@@ -19503,7 +19509,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    return mode == TFmode ? 4 : 2;
+    return (mode == TFmode || mode == TDmode) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else
