@@ -71,9 +71,9 @@
 })
 
 (define_expand "smin<mode>3"
-  [(set (match_operand:VINTW 0 "s_register_operand" "")
-	(smin:VINTW (match_operand:VINTW 1 "s_register_operand" "")
-		    (match_operand:VINTW 2 "s_register_operand" "")))]
+  [(set (match_operand:VALLW 0 "s_register_operand" "")
+	(smin:VALLW (match_operand:VALLW 1 "s_register_operand" "")
+		    (match_operand:VALLW 2 "s_register_operand" "")))]
   "TARGET_NEON
    || (TARGET_REALLY_IWMMXT && VALID_IWMMXT_REG_MODE (<MODE>mode))"
 {
@@ -89,9 +89,9 @@
 })
 
 (define_expand "smax<mode>3"
-  [(set (match_operand:VINTW 0 "s_register_operand" "")
-	(smax:VINTW (match_operand:VINTW 1 "s_register_operand" "")
-		    (match_operand:VINTW 2 "s_register_operand" "")))]
+  [(set (match_operand:VALLW 0 "s_register_operand" "")
+	(smax:VALLW (match_operand:VALLW 1 "s_register_operand" "")
+		    (match_operand:VALLW 2 "s_register_operand" "")))]
   "TARGET_NEON
    || (TARGET_REALLY_IWMMXT && VALID_IWMMXT_REG_MODE (<MODE>mode))"
 {
