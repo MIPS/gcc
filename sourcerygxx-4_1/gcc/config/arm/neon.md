@@ -1177,7 +1177,7 @@
 ; We have pairwise addition with wraparound semantics: we don't need to define
 ; reduc_splus_<mode> too.
 
-(define_expand "reduc_uplus_<mode>"
+(define_expand "reduc_splus_<mode>"
   [(match_operand:VD 0 "s_register_operand" "")
    (match_operand:VD 1 "s_register_operand" "")]
   "TARGET_NEON"
@@ -1187,7 +1187,7 @@
   DONE;
 })
 
-(define_expand "reduc_uplus_<mode>"
+(define_expand "reduc_splus_<mode>"
   [(match_operand:VQ 0 "s_register_operand" "")
    (match_operand:VQ 1 "s_register_operand" "")]
   "TARGET_NEON"
@@ -1196,9 +1196,27 @@
   rtx res_d = gen_reg_rtx (<V_HALF>mode);
   
   emit_insn (gen_quad_halves_plus<mode> (step1, operands[1]));
-  emit_insn (gen_reduc_uplus_<V_half> (res_d, step1));
+  emit_insn (gen_reduc_splus_<V_half> (res_d, step1));
   emit_insn (gen_move_lo_quad_<mode> (operands[0], res_d));
 
+  DONE;
+})
+
+(define_insn "reduc_splus_v2di"
+  [(set (match_operand:V2DI 0 "s_register_operand" "=w")
+	(unspec:V2DI [(match_operand:V2DI 1 "s_register_operand" "w")]
+		     UNSPEC_VPADD))]
+  "TARGET_NEON"
+  "vadd.i64\t%e0, %e1, %f1")
+
+;; NEON does not distinguish between signed and unsigned addition except on
+;; widening operations.
+(define_expand "reduc_uplus_<mode>"
+  [(match_operand:VDQI 0 "s_register_operand" "")
+   (match_operand:VDQI 1 "s_register_operand" "")]
+  "TARGET_NEON"
+{
+  emit_insn (gen_reduc_splus_<mode> (operands[0], operands[1]));
   DONE;
 })
 
