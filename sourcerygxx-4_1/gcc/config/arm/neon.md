@@ -1174,9 +1174,6 @@
 
 ;; Reduction operations
 
-; We have pairwise addition with wraparound semantics: we don't need to define
-; reduc_splus_<mode> too.
-
 (define_expand "reduc_splus_<mode>"
   [(match_operand:VD 0 "s_register_operand" "")
    (match_operand:VD 1 "s_register_operand" "")]
