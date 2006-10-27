@@ -6550,6 +6550,30 @@ vmulq_n_u32 (uint32x4_t __a, uint32_t __b)
   return __builtin_neon_vmul_nv4si ((int32x4_t) __a, (__builtin_neon_si) __b, 0);
 }
 
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vmull_n_s16 (int16x4_t __a, int16_t __b)
+{
+  return __builtin_neon_vmull_nv4hi (__a, (__builtin_neon_hi) __b, 1);
+}
+
+__extension__ static __inline int64x2_t __attribute__ ((__always_inline__))
+vmull_n_s32 (int32x2_t __a, int32_t __b)
+{
+  return __builtin_neon_vmull_nv2si (__a, (__builtin_neon_si) __b, 1);
+}
+
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
+vmull_n_u16 (uint16x4_t __a, uint16_t __b)
+{
+  return __builtin_neon_vmull_nv4hi ((int16x4_t) __a, (__builtin_neon_hi) __b, 0);
+}
+
+__extension__ static __inline uint64x2_t __attribute__ ((__always_inline__))
+vmull_n_u32 (uint32x2_t __a, uint32_t __b)
+{
+  return __builtin_neon_vmull_nv2si ((int32x2_t) __a, (__builtin_neon_si) __b, 0);
+}
+
 __extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
 vmla_n_s16 (int16x4_t __a, int16x4_t __b, int16_t __c)
 {
@@ -8338,14 +8362,6 @@ vld2_s32 (const int32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline int64x1x2_t __attribute__ ((__always_inline__))
-vld2_s64 (const int64_t * __a)
-{
-  union { int64x1x2_t __i; __builtin_neon_ti __o; } __rv;
-  __rv.__o = __builtin_neon_vld2di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline float32x2x2_t __attribute__ ((__always_inline__))
 vld2_f32 (const float32_t * __a)
 {
@@ -8378,14 +8394,6 @@ vld2_u32 (const uint32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline uint64x1x2_t __attribute__ ((__always_inline__))
-vld2_u64 (const uint64_t * __a)
-{
-  union { uint64x1x2_t __i; __builtin_neon_ti __o; } __rv;
-  __rv.__o = __builtin_neon_vld2di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline poly8x8x2_t __attribute__ ((__always_inline__))
 vld2_p8 (const poly8_t * __a)
 {
@@ -8399,6 +8407,22 @@ vld2_p16 (const poly16_t * __a)
 {
   union { poly16x4x2_t __i; __builtin_neon_ti __o; } __rv;
   __rv.__o = __builtin_neon_vld2v4hi ((const __builtin_neon_hi *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline int64x1x2_t __attribute__ ((__always_inline__))
+vld2_s64 (const int64_t * __a)
+{
+  union { int64x1x2_t __i; __builtin_neon_ti __o; } __rv;
+  __rv.__o = __builtin_neon_vld2di ((const __builtin_neon_di *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline uint64x1x2_t __attribute__ ((__always_inline__))
+vld2_u64 (const uint64_t * __a)
+{
+  union { uint64x1x2_t __i; __builtin_neon_ti __o; } __rv;
+  __rv.__o = __builtin_neon_vld2di ((const __builtin_neon_di *) __a);
   return __rv.__i;
 }
 
@@ -8719,13 +8743,6 @@ vst2_s32 (int32_t * __a, int32x2x2_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst2_s64 (int64_t * __a, int64x1x2_t __b)
-{
-  union { int64x1x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
-  return __builtin_neon_vst2di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst2_f32 (float32_t * __a, float32x2x2_t __b)
 {
   union { float32x2x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
@@ -8754,13 +8771,6 @@ vst2_u32 (uint32_t * __a, uint32x2x2_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst2_u64 (uint64_t * __a, uint64x1x2_t __b)
-{
-  union { uint64x1x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
-  return __builtin_neon_vst2di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst2_p8 (poly8_t * __a, poly8x8x2_t __b)
 {
   union { poly8x8x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
@@ -8772,6 +8782,20 @@ vst2_p16 (poly16_t * __a, poly16x4x2_t __b)
 {
   union { poly16x4x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
   return __builtin_neon_vst2v4hi ((__builtin_neon_hi *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst2_s64 (int64_t * __a, int64x1x2_t __b)
+{
+  union { int64x1x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
+  return __builtin_neon_vst2di ((__builtin_neon_di *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst2_u64 (uint64_t * __a, uint64x1x2_t __b)
+{
+  union { uint64x1x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
+  return __builtin_neon_vst2di ((__builtin_neon_di *) __a, __bu.__o);
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
@@ -8966,14 +8990,6 @@ vld3_s32 (const int32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline int64x1x3_t __attribute__ ((__always_inline__))
-vld3_s64 (const int64_t * __a)
-{
-  union { int64x1x3_t __i; __builtin_neon_ei __o; } __rv;
-  __rv.__o = __builtin_neon_vld3di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline float32x2x3_t __attribute__ ((__always_inline__))
 vld3_f32 (const float32_t * __a)
 {
@@ -9006,14 +9022,6 @@ vld3_u32 (const uint32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline uint64x1x3_t __attribute__ ((__always_inline__))
-vld3_u64 (const uint64_t * __a)
-{
-  union { uint64x1x3_t __i; __builtin_neon_ei __o; } __rv;
-  __rv.__o = __builtin_neon_vld3di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline poly8x8x3_t __attribute__ ((__always_inline__))
 vld3_p8 (const poly8_t * __a)
 {
@@ -9027,6 +9035,22 @@ vld3_p16 (const poly16_t * __a)
 {
   union { poly16x4x3_t __i; __builtin_neon_ei __o; } __rv;
   __rv.__o = __builtin_neon_vld3v4hi ((const __builtin_neon_hi *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline int64x1x3_t __attribute__ ((__always_inline__))
+vld3_s64 (const int64_t * __a)
+{
+  union { int64x1x3_t __i; __builtin_neon_ei __o; } __rv;
+  __rv.__o = __builtin_neon_vld3di ((const __builtin_neon_di *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline uint64x1x3_t __attribute__ ((__always_inline__))
+vld3_u64 (const uint64_t * __a)
+{
+  union { uint64x1x3_t __i; __builtin_neon_ei __o; } __rv;
+  __rv.__o = __builtin_neon_vld3di ((const __builtin_neon_di *) __a);
   return __rv.__i;
 }
 
@@ -9347,13 +9371,6 @@ vst3_s32 (int32_t * __a, int32x2x3_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst3_s64 (int64_t * __a, int64x1x3_t __b)
-{
-  union { int64x1x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
-  return __builtin_neon_vst3di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst3_f32 (float32_t * __a, float32x2x3_t __b)
 {
   union { float32x2x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
@@ -9382,13 +9399,6 @@ vst3_u32 (uint32_t * __a, uint32x2x3_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst3_u64 (uint64_t * __a, uint64x1x3_t __b)
-{
-  union { uint64x1x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
-  return __builtin_neon_vst3di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst3_p8 (poly8_t * __a, poly8x8x3_t __b)
 {
   union { poly8x8x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
@@ -9400,6 +9410,20 @@ vst3_p16 (poly16_t * __a, poly16x4x3_t __b)
 {
   union { poly16x4x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
   return __builtin_neon_vst3v4hi ((__builtin_neon_hi *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst3_s64 (int64_t * __a, int64x1x3_t __b)
+{
+  union { int64x1x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
+  return __builtin_neon_vst3di ((__builtin_neon_di *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst3_u64 (uint64_t * __a, uint64x1x3_t __b)
+{
+  union { uint64x1x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
+  return __builtin_neon_vst3di ((__builtin_neon_di *) __a, __bu.__o);
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
@@ -9594,14 +9618,6 @@ vld4_s32 (const int32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline int64x1x4_t __attribute__ ((__always_inline__))
-vld4_s64 (const int64_t * __a)
-{
-  union { int64x1x4_t __i; __builtin_neon_oi __o; } __rv;
-  __rv.__o = __builtin_neon_vld4di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline float32x2x4_t __attribute__ ((__always_inline__))
 vld4_f32 (const float32_t * __a)
 {
@@ -9634,14 +9650,6 @@ vld4_u32 (const uint32_t * __a)
   return __rv.__i;
 }
 
-__extension__ static __inline uint64x1x4_t __attribute__ ((__always_inline__))
-vld4_u64 (const uint64_t * __a)
-{
-  union { uint64x1x4_t __i; __builtin_neon_oi __o; } __rv;
-  __rv.__o = __builtin_neon_vld4di ((const __builtin_neon_di *) __a);
-  return __rv.__i;
-}
-
 __extension__ static __inline poly8x8x4_t __attribute__ ((__always_inline__))
 vld4_p8 (const poly8_t * __a)
 {
@@ -9655,6 +9663,22 @@ vld4_p16 (const poly16_t * __a)
 {
   union { poly16x4x4_t __i; __builtin_neon_oi __o; } __rv;
   __rv.__o = __builtin_neon_vld4v4hi ((const __builtin_neon_hi *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline int64x1x4_t __attribute__ ((__always_inline__))
+vld4_s64 (const int64_t * __a)
+{
+  union { int64x1x4_t __i; __builtin_neon_oi __o; } __rv;
+  __rv.__o = __builtin_neon_vld4di ((const __builtin_neon_di *) __a);
+  return __rv.__i;
+}
+
+__extension__ static __inline uint64x1x4_t __attribute__ ((__always_inline__))
+vld4_u64 (const uint64_t * __a)
+{
+  union { uint64x1x4_t __i; __builtin_neon_oi __o; } __rv;
+  __rv.__o = __builtin_neon_vld4di ((const __builtin_neon_di *) __a);
   return __rv.__i;
 }
 
@@ -9975,13 +9999,6 @@ vst4_s32 (int32_t * __a, int32x2x4_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst4_s64 (int64_t * __a, int64x1x4_t __b)
-{
-  union { int64x1x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
-  return __builtin_neon_vst4di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst4_f32 (float32_t * __a, float32x2x4_t __b)
 {
   union { float32x2x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
@@ -10010,13 +10027,6 @@ vst4_u32 (uint32_t * __a, uint32x2x4_t __b)
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))
-vst4_u64 (uint64_t * __a, uint64x1x4_t __b)
-{
-  union { uint64x1x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
-  return __builtin_neon_vst4di ((__builtin_neon_di *) __a, __bu.__o);
-}
-
-__extension__ static __inline void __attribute__ ((__always_inline__))
 vst4_p8 (poly8_t * __a, poly8x8x4_t __b)
 {
   union { poly8x8x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
@@ -10028,6 +10038,20 @@ vst4_p16 (poly16_t * __a, poly16x4x4_t __b)
 {
   union { poly16x4x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
   return __builtin_neon_vst4v4hi ((__builtin_neon_hi *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst4_s64 (int64_t * __a, int64x1x4_t __b)
+{
+  union { int64x1x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
+  return __builtin_neon_vst4di ((__builtin_neon_di *) __a, __bu.__o);
+}
+
+__extension__ static __inline void __attribute__ ((__always_inline__))
+vst4_u64 (uint64_t * __a, uint64x1x4_t __b)
+{
+  union { uint64x1x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
+  return __builtin_neon_vst4di ((__builtin_neon_di *) __a, __bu.__o);
 }
 
 __extension__ static __inline void __attribute__ ((__always_inline__))

@@ -4,6 +4,7 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target arm_neon_ok } */
 /* { dg-options "-O0 -mfpu=neon -mfloat-abi=softfp" } */
+
 #include "arm_neon.h"
 
 void test_vst1s16 (void)

@@ -1,3 +1,29 @@
+2006-10-27  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (neon_itype): Add NEON_SCALARMULL.
+	(neon_builtin_data): Add data for vmull_n.
+	(arm_init_neon_builtins): Add case for NEON_SCALARMULL.
+	(arm_expand_neon_builtin): Likewise.  Use gcc_unreachable instead
+	of returning NULL.
+	* config/arm/neon.md (UNSPEC_VMULL_LANE): New.
+	(define_insn "neon_vmull_lane<mode>"): New.
+	(define_expand "neon_vmull_n<mode>"): New.
+	* config/arm/neon.ml (opcode): Add Vmull_n.
+	(ops): Add data for Vmull_n.
+	* config/arm/neon-testgen.ml: Add extra line break.
+	* config/arm/arm_neon.h: Regenerate.
+	* config/arm/neon-docgen.ml (intrinsic_groups): Add entry for
+	Vmull.n.
+	(analyze_shape): Correct typo.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	
+	gcc/testsuite/
+	* gcc.target/arm/neon/vmull_nu16.c: New.
+	* gcc.target/arm/neon/vmull_nu32.c: New.
+	* gcc.target/arm/neon/vmull_ns16.c: New.
+	* gcc.target/arm/neon/vmull_ns32.c: New.
+
 2006-10-26  Paul Brook  <paul@codesourcery.com>
 
 	gcc/

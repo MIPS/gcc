@@ -157,7 +157,8 @@
    (UNSPEC_VPMAX 200)
    (UNSPEC_VPMIN 201)
    (UNSPEC_VRECPS 202)
-   (UNSPEC_VRSQRTS 203)])
+   (UNSPEC_VRSQRTS 203)
+   (UNSPEC_VMULL_LANE 204)])
 
 
 ;; Double-width vector modes.
@@ -2255,6 +2256,16 @@
   "TARGET_NEON"
   "vmul.<V_if_elem>\t%q0, %q1, %P2[%c3]")
 
+(define_insn "neon_vmull_lane<mode>"
+  [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
+	(unspec:<V_widen> [(match_operand:VMDI 1 "s_register_operand" "w")
+		           (match_operand:VMDI 2 "s_register_operand" "w")
+                           (match_operand:SI 3 "immediate_operand" "i")
+                           (match_operand:SI 4 "immediate_operand" "i")]
+                          UNSPEC_VMULL_LANE))]
+  "TARGET_NEON"
+  "vmull.<V_s_elem>\t%q0, %P1, %P2[%c3]")
+
 (define_insn "neon_vmla_lane<mode>"
   [(set (match_operand:VMD 0 "s_register_operand" "=w")
 	(unspec:VMD [(match_operand:VMD 1 "s_register_operand" "0")
@@ -2375,6 +2386,20 @@
   emit_insn (gen_neon_vset_lane<V_half> (tmp, operands[2], tmp, const0_rtx));
   emit_insn (gen_neon_vmul_lane<mode> (operands[0], operands[1], tmp,
 				       const0_rtx, const0_rtx));
+  DONE;
+})
+
+(define_expand "neon_vmull_n<mode>"
+  [(match_operand:<V_widen> 0 "s_register_operand" "")
+   (match_operand:VMDI 1 "s_register_operand" "")
+   (match_operand:<V_elem> 2 "s_register_operand" "")
+   (match_operand:SI 3 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  rtx tmp = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_neon_vset_lane<mode> (tmp, operands[2], tmp, const0_rtx));
+  emit_insn (gen_neon_vmull_lane<mode> (operands[0], operands[1], tmp,
+				        const0_rtx, const0_rtx));
   DONE;
 })
 

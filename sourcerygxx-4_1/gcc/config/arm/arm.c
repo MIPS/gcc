@@ -14300,6 +14300,7 @@ typedef enum {
   NEON_LANEMUL,
   NEON_LANEMAC,
   NEON_SCALARMUL,
+  NEON_SCALARMULL,
   NEON_SCALARMAC,
   NEON_CONVERT,
   NEON_FIXCONV,
@@ -14397,6 +14398,7 @@ static neon_builtin_datum neon_builtin_data[] =
   { VAR2 (TERNOP, vqdmlal, v4hi, v2si) },
   { VAR2 (TERNOP, vqdmlsl, v4hi, v2si) },
   { VAR3 (BINOP, vmull, v8qi, v4hi, v2si) },
+  { VAR2 (SCALARMULL, vmull_n, v4hi, v2si) },
   { VAR2 (BINOP, vqdmull, v4hi, v2si) },
   { VAR8 (BINOP, vshl, v8qi, v4hi, v2si, di, v16qi, v8hi, v4si, v2di) },
   { VAR8 (BINOP, vqshl, v8qi, v4hi, v2si, di, v16qi, v8hi, v4si, v2di) },
@@ -14889,6 +14891,9 @@ arm_init_neon_builtins (void)
   TYPE4 (v8hi, v8hi, hi, si);
   TYPE4 (v4si, v4si, si, si);
   TYPE4 (v4sf, v4sf, sf, si);
+
+  /* Long multiply by scalar.  */
+  TYPE4 (v4si, v4hi, hi, si);
 
   /* Multiply-accumulate etc. by scalar.  */
   TYPE5 (v4hi, v4hi, v4hi, hi, si);
@@ -16226,6 +16231,24 @@ arm_init_neon_builtins (void)
                 }
               break;
 
+	    case NEON_SCALARMULL:
+              switch (tmode)
+                {
+                case V4SImode:
+                  if (mode0 == V4HImode && mode1 == HImode)
+                    ftype = v4si_ftype_v4hi_hi_si;
+                  break;
+
+                case V2DImode:
+                  if (mode0 == V2SImode && mode1 == SImode)
+                    ftype = v2di_ftype_v2si_si_si;
+                  break;
+
+                default:
+                  gcc_unreachable ();
+                }
+              break;
+
 	    case NEON_SCALARMAC:
               {
                 gcc_assert (mode2 == GET_MODE_INNER (mode1));
@@ -17184,6 +17207,7 @@ arm_expand_neon_builtin (rtx target, int fcode, tree arglist)
     case NEON_BINOP:
     case NEON_SETLANE:
     case NEON_SCALARMUL:
+    case NEON_SCALARMULL:
     case NEON_SHIFTINSERT:
     case NEON_LOGICBINOP:
       return arm_expand_neon_args (target, icode, 1, arglist,
@@ -17271,7 +17295,7 @@ arm_expand_neon_builtin (rtx target, int fcode, tree arglist)
 	NEON_ARG_STOP);
     }
   
-  return NULL;
+  gcc_unreachable ();
 }
 
 /* Emit code to reinterpret one Neon type as another, without altering bits.  */

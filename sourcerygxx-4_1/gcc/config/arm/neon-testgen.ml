@@ -50,7 +50,7 @@ let emit_prologue chan test_name =
   Printf.fprintf chan "/* { dg-require-effective-target arm_neon_ok } */\n";
   Printf.fprintf chan
                  "/* { dg-options \"-O0 -mfpu=neon -mfloat-abi=softfp\" } */\n";
-  Printf.fprintf chan "#include \"arm_neon.h\"\n\n";
+  Printf.fprintf chan "\n#include \"arm_neon.h\"\n\n";
   Printf.fprintf chan "void test_%s (void)\n{\n" test_name
 
 (* Emit declarations of local variables that are going to be passed

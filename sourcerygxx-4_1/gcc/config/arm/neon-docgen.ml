@@ -139,6 +139,7 @@ let intrinsic_groups =
     "Multiply-accumulate, lane", single_opcode Vmla_lane;
     "Multiply-subtract, lane", single_opcode Vmls_lane;
     "Vector multiply by scalar", single_opcode Vmul_n;
+    "Vector long multiply by scalar", single_opcode Vmull_n;
     "Vector multiply-accumulate by scalar", single_opcode Vmla_n;
     "Vector multiply-subtract by scalar", single_opcode Vmls_n;
     "Vector extract", single_opcode Vext;
@@ -173,7 +174,7 @@ let rec analyze_shape shape =
   let rec analyze_shape_elt reg_no elt =
     match elt with
       Dreg -> "@var{d" ^ (string_of_int reg_no) ^ "}"
-    | Qreg -> "@var{d" ^ (string_of_int reg_no) ^ "}"
+    | Qreg -> "@var{q" ^ (string_of_int reg_no) ^ "}"
     | Corereg -> "@var{r" ^ (string_of_int reg_no) ^ "}"
     | Immed -> "#@var{0}"
     | VecArray (1, elt) ->

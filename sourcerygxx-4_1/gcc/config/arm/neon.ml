@@ -143,6 +143,7 @@ type opcode =
   | Vmul_n
   | Vmla_n
   | Vmls_n
+  | Vmull_n
   (* Unary ops.  *)
   | Vabs
   | Vneg
@@ -1136,6 +1137,12 @@ let ops =
              Disassembles_as [Use_operands [| Qreg; Qreg; Element_of_dreg |]]],
              Use_operands [| Qreg; Qreg; Corereg |], "vmulQ_n",
       sign_invar_2, [S16; S32; U16; U32; F32];
+
+    (* Vector long multiply by scalar.  *)
+    Vmull_n, [Instruction_name ["vmull"];
+              Disassembles_as [Use_operands [| Qreg; Dreg; Element_of_dreg |]]],
+              Wide_scalar, "vmull_n",
+      elts_same_2, [S16; S32; U16; U32];
 
     (* Vector multiply-accumulate by scalar.  *)
     Vmla_n, [InfoWord;
