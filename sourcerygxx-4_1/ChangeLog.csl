@@ -1,3 +1,19 @@
+2006-10-27  Joseph Myers  <joseph@codesourcery.com>
+            Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (get_compiler_messages): Append options
+	as a single list element.
+	(check_profiling_available): Return 0 for uClibc with -p or -pg.
+	(check_effective_target_arm_vfp_ok): New.
+	* lib/c-torture.exp: Load target-supports.exp.
+	* gcc.c-torture/execute/20030125-1.x: Disable test for uClibc.
+	* gcc.dg/arm-vfp1.c, gcc.target/arm/vfp-ldmdbd.c,
+	gcc.target/arm/vfp-ldmdbs.c, gcc.target/arm/vfp-ldmiad.c,
+	gcc.target/arm/vfp-ldmias.c, gcc.target/arm/vfp-stmdbd.c,
+	gcc.target/arm/vfp-stmdbs.c, gcc.target/arm/vfp-stmiad.c,
+	gcc.target/arm/vfp-stmias.c: Use arm_vfp_ok.
+
 2006-10-27  Mark Shinwell  <shinwell@codesourcery.com>
 
 	gcc/

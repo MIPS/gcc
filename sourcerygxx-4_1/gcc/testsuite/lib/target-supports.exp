@@ -30,7 +30,7 @@ proc get_compiler_messages {basename type contents args} {
     global tool
 
     if { [llength $args] > 0 } {
-	set options "additional_flags=[lindex $args 0]"
+	set options [list "additional_flags=[lindex $args 0]"]
     } else {
 	set options ""
     }
@@ -303,6 +303,13 @@ proc check_profiling_available { test_what } {
 
     # At present, there is no profiling support on NetWare.
     if { [istarget *-*-netware*] } {
+	return 0
+    }
+
+    # uClibc does not have gcrt1.o.
+    if { [check_effective_target_uclibc]
+	 && ([lindex $test_what 1] == "-p"
+	     || [lindex $test_what 1] == "-pg") } {
 	return 0
     }
 
@@ -1091,6 +1098,20 @@ proc check_effective_target_arm32 { } {
     }
     verbose "check_effective_target_arm32: returning $et_arm32_saved" 2
     return $et_arm32_saved
+}
+
+# Return 1 if this is an ARM target supporting -mfpu=vfp
+# -mfloat-abi=softfp.  Some multilibs may be incompatible with these
+# options.
+
+proc check_effective_target_arm_vfp_ok { } {
+    if { [check_effective_target_arm32] } {
+	return [check_no_compiler_messages arm_vfp_ok object {
+	    int dummy;
+	} "-mfpu=vfp -mfloat-abi=softfp"]
+    } else {
+	return 0
+    }
 }
 
 # Return 1 if this is an ARM target supporting -mfpu=neon

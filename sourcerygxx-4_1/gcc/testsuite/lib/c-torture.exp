@@ -18,6 +18,7 @@
 
 load_lib file-format.exp
 load_lib target-libpath.exp
+load_lib target-supports.exp
 
 # The default option list can be overridden by
 # TORTURE_OPTIONS="{ { list1 } ... { listN } }"
