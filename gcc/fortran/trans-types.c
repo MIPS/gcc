@@ -95,7 +95,7 @@ int gfc_c_int_kind;
 
 /* The kind size used for record offsets. If the target system supports
    kind=8, this will be set to 8, otherwise it is set to 4.  */
-int gfc_large_io_int_kind; 
+int gfc_intio_kind; 
 
 /* Query the target to determine which machine modes are available for
    computation.  Choose KIND numbers for them.  */
@@ -144,13 +144,13 @@ gfc_init_kinds (void)
       i_index += 1;
     }
 
-  /* Set the kind used to match GFC_LARGE_IO_INT in libgfortran.  This is 
+  /* Set the kind used to match GFC_INT_IO in libgfortran.  This is 
      used for large file access.  */
 
   if (saw_i8)
-    gfc_large_io_int_kind = 8;
+    gfc_intio_kind = 8;
   else
-    gfc_large_io_int_kind = 4;
+    gfc_intio_kind = 4;
 
   /* If we do not at least have kind = 4, everything is pointless.  */  
   gcc_assert(saw_i4);  
@@ -1477,19 +1477,25 @@ gfc_get_derived_type (gfc_symbol * derived)
     }
   else
     {
-      /* In a module, if an equal derived type is already available in the
-	 specification block, use its backend declaration and those of its
-	 components, rather than building anew so that potential dummy and
-	 actual arguments use the same TREE_TYPE.  Non-module structures,
-	 need to be built, if found, because the order of visits to the 
-	 namespaces is different.  */
+      /* If an equal derived type is already available in the parent namespace,
+	 use its backend declaration and those of its components, rather than
+	 building anew so that potential dummy and actual arguments use the
+	 same TREE_TYPE.  If an equal type is found without a backend_decl,
+	 build the parent version and use it in the current namespace.  */
 
-      for (ns = derived->ns->parent; ns; ns = ns->parent)
+      /* Derived types in an interface body obtain their parent reference
+	 through the proc_name symbol.  */
+      ns = derived->ns->parent ? derived->ns->parent
+			       : derived->ns->proc_name->ns;
+
+      for (; ns; ns = ns->parent)
 	{
 	  for (dt = ns->derived_types; dt; dt = dt->next)
 	    {
-	      if (derived->module == NULL
-		    && dt->derived->backend_decl == NULL
+	      if (dt->derived == derived)
+		continue;
+
+	      if (dt->derived->backend_decl == NULL
 		    && gfc_compare_derived_types (dt->derived, derived))
 		gfc_get_derived_type (dt->derived);
 
@@ -1547,7 +1553,7 @@ gfc_get_derived_type (gfc_symbol * derived)
          required.  */
       if (c->dimension)
 	{
-	  if (c->pointer)
+	  if (c->pointer || c->allocatable)
 	    {
 	      /* Pointers to arrays aren't actually pointer types.  The
 	         descriptors are separate, but the data is common.  */
@@ -1580,9 +1586,11 @@ gfc_get_derived_type (gfc_symbol * derived)
 
 other_equal_dts:
   /* Add this backend_decl to all the other, equal derived types and
-     their components in this namespace.  */
-  for (dt = derived->ns->derived_types; dt; dt = dt->next)
-    copy_dt_decls_ifequal (derived, dt->derived);
+     their components in this and sibling namespaces.  */
+
+  for (ns = derived->ns->sibling; ns; ns = ns->sibling)
+    for (dt = ns->derived_types; dt; dt = dt->next)
+      copy_dt_decls_ifequal (derived, dt->derived);
 
   return derived->backend_decl;
 }

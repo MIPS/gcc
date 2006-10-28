@@ -1076,6 +1076,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	    tree newexpr;
 	    tree vh = get_value_handle (expr);
 	    bool listchanged = false;
+	    bool invariantarg = false;
 	    VEC (tree, gc) *vuses = VALUE_HANDLE_VUSES (vh);
 	    VEC (tree, gc) *tvuses;
 
@@ -1134,10 +1135,26 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 		    if (newval != oldval)
 		      {
 			listchanged = true;
+			invariantarg |= is_gimple_min_invariant (newval);
 			TREE_VALUE (newwalker) = get_value_handle (newval);
 		      }
 		  }
 	      }
+
+	    /* In case of new invariant args we might try to fold the call
+	       again.  */
+	    if (invariantarg)
+	      {
+		tree tmp = fold_ternary (CALL_EXPR, TREE_TYPE (expr),
+					 newop0, newarglist, newop2);
+		if (tmp)
+		  {
+		    STRIP_TYPE_NOPS (tmp);
+		    if (is_gimple_min_invariant (tmp))
+		      return tmp;
+		  }
+	      }
+
 	    if (listchanged)
 	      vn_lookup_or_add (newarglist, NULL);
 
@@ -1151,7 +1168,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 		TREE_OPERAND (newexpr, 0) = newop0 == oldop0 ? oldop0 : get_value_handle (newop0);
 		TREE_OPERAND (newexpr, 1) = listchanged ? newarglist : oldarglist;
 		TREE_OPERAND (newexpr, 2) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
-		create_tree_ann (newexpr);
+		newexpr->common.ann = NULL;
 		vn_lookup_or_add_with_vuses (newexpr, tvuses);
 		expr = newexpr;
 		phi_trans_add (oldexpr, newexpr, pred, tvuses);
@@ -1260,7 +1277,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	      }
 	    else
 	      {
-		create_tree_ann (newexpr);
+		newexpr->common.ann = NULL;
 		vn_lookup_or_add_with_vuses (newexpr, newvuses);
 	      }
 	    expr = newexpr;
@@ -1302,7 +1319,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	      }
 	    else
 	      {
-		create_tree_ann (newexpr);
+		newexpr->common.ann = NULL;
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;
@@ -1335,7 +1352,7 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	      }
 	    else
 	      {
-		create_tree_ann (newexpr);
+		newexpr->common.ann = NULL;
 		vn_lookup_or_add (newexpr, NULL);
 	      }
 	    expr = newexpr;

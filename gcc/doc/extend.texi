@@ -33,7 +33,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Conditionals::        Omitting the middle operand of a @samp{?:} expression.
 * Long Long::		Double-word integers---@code{long long int}.
 * Complex::             Data types for complex numbers.
-* Decimal Float::	Decimal Floating Point.
+* Decimal Float::       Decimal Floating Types. 
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
@@ -816,8 +816,8 @@ variables are named @code{foo$real} and @code{foo$imag}.  You can
 examine and set these two fictitious variables with your debugger.
 
 @node Decimal Float
-@section Decimal Floating Point
-@cindex decimal floating point
+@section Decimal Floating Types
+@cindex decimal floating types
 @cindex @code{_Decimal32} data type
 @cindex @code{_Decimal64} data type
 @cindex @code{_Decimal128} data type
@@ -828,25 +828,41 @@ examine and set these two fictitious variables with your debugger.
 @cindex @code{DD} integer suffix
 @cindex @code{DL} integer suffix
 
-GNU C supports decimal floating point types in addition to the
-standard floating-point types.  This extension supports decimal
-floating-point arithmetic as defined in IEEE-754R, the proposed
-revision of IEEE-754.  The C language extension is defined in ISO/IEC
-DTR 24732, Draft 5.  Support for this functionality will change when
-it is accepted into the C standard and might change for new drafts
-of the proposal.  Calling conventions for any target might also change.
-Not all targets support decimal floating point.
+As an extension, the GNU C compiler supports decimal floating types as
+defined in the N1176 draft of ISO/IEC WDTR24732.  Support for decimal
+floating types in GCC will evolve as the draft technical report changes.
+Calling conventions for any target might also change.  Not all targets
+support decimal floating types.
 
-Support for decimal floating point includes the arithmetic operators
+The decimal floating types are @code{_Decimal32}, @code{_Decimal64}, and
+@code{_Decimal128}.  They use a radix of ten, unlike the floating types
+@code{float}, @code{double}, and @code{long double} whose radix is not
+specified by the C standard but is usually two.
+
+Support for decimal floating types includes the arithmetic operators
 add, subtract, multiply, divide; unary arithmetic operators;
 relational operators; equality operators; and conversions to and from
-integer and other floating-point types.  Use a suffix @samp{df} or
+integer and other floating types.  Use a suffix @samp{df} or
 @samp{DF} in a literal constant of type @code{_Decimal32}, @samp{dd}
 or @samp{DD} for @code{_Decimal64}, and @samp{dl} or @samp{DL} for
 @code{_Decimal128}.
 
-Passing a decimal floating-point value as an argument to a function
-without a prototype is undefined.
+GCC support of decimal float as specified by the draft technical report
+is incomplete:
+
+@itemize @bullet
+@item
+Translation time data type (TTDT) is not supported.
+
+@item
+Characteristics of decimal floating types are defined in header file
+@file{decfloat.h} rather than @file{float.h}.
+
+@item
+When the value of a decimal floating type cannot be represented in the
+integer type to which it is being converted, the result is undefined
+rather than the result value specified by the draft technical report.
+@end itemize
 
 Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
 are supported by the DWARF2 debug information format.
@@ -3159,6 +3175,10 @@ This attribute, attached to a variable, means that the variable is meant
 to be possibly unused.  GCC will not produce a warning for this
 variable.
 
+@item used
+This attribute, attached to a variable, means that the variable must be
+emitted even if it appears that the variable is not referenced.
+
 @item vector_size (@var{bytes})
 This attribute specifies the vector size for the variable, measured in
 bytes.  For example, the declaration:
@@ -3214,7 +3234,7 @@ The @code{weak} attribute is described in @xref{Function Attributes}.
 @item dllimport
 The @code{dllimport} attribute is described in @xref{Function Attributes}.
 
-@item dlexport
+@item dllexport
 The @code{dllexport} attribute is described in @xref{Function Attributes}.
 
 @end table
@@ -3374,11 +3394,14 @@ Here, @code{t5} will take up 2 bytes.
 
 @subsection PowerPC Variable Attributes
 
-Two attributes are currently defined for PowerPC configurations:
-@code{ms_struct} and @code{gcc_struct}.
+Three attributes currently are defined for PowerPC configurations:
+@code{altivec}, @code{ms_struct} and @code{gcc_struct}.
 
-For full documentation of these attributes please see the documentation
-in the @xref{i386 Variable Attributes}, section.
+For full documentation of the struct attributes please see the
+documentation in the @xref{i386 Variable Attributes}, section.
+
+For documentation of @code{altivec} attribute please see the
+documentation in the @xref{PowerPC Type Attributes}, section.
 
 @subsection Xstormy16 Variable Attributes
 
@@ -3674,7 +3697,6 @@ declaration, the above program would abort when compiled with
 above in recent GCC versions.
 
 @item visibility
-
 In C++, attribute visibility (@pxref{Function Attributes}) can also be
 applied to class, struct, union and enum types.  Unlike other type
 attributes, the attribute must appear between the initial keyword and
@@ -3710,6 +3732,7 @@ virtual table for @code{C} is not exported.  (You can use
 @code{__attribute__} instead of @code{__declspec} if you prefer, but
 most Symbian OS code uses @code{__declspec}.)
 
+@anchor{i386 Type Attributes}
 @subsection i386 Type Attributes
 
 Two attributes are currently defined for i386 configurations:
@@ -3734,6 +3757,30 @@ compilers to match the native Microsoft compiler.
 To specify multiple attributes, separate them by commas within the
 double parentheses: for example, @samp{__attribute__ ((aligned (16),
 packed))}.
+
+@anchor{PowerPC Type Attributes}
+@subsection PowerPC Type Attributes
+
+Three attributes currently are defined for PowerPC configurations:
+@code{altivec}, @code{ms_struct} and @code{gcc_struct}.
+
+For full documentation of the struct attributes please see the
+documentation in the @xref{i386 Type Attributes}, section.
+
+The @code{altivec} attribute allows one to declare AltiVec vector data
+types supported by the AltiVec Programming Interface Manual.  The
+attribute requires an argument to specify one of three vector types:
+@code{vector__}, @code{pixel__} (always followed by unsigned short),
+and @code{bool__} (always followed by unsigned).
+
+@smallexample
+__attribute__((altivec(vector__)))
+__attribute__((altivec(pixel__))) unsigned short
+__attribute__((altivec(bool__))) unsigned
+@end smallexample
+
+These attributes mainly are intended to support the @code{__vector},
+@code{__pixel}, and @code{__bool} AltiVec keywords.
 
 @node Inline
 @section An Inline Function is As Fast As a Macro
@@ -5690,7 +5737,7 @@ depending on the arguments' types.  For example:
 @smallexample
 #define foo(x)                                                  \
   (@{                                                           \
-    typeof (x) tmp;                                             \
+    typeof (x) tmp = (x);                                       \
     if (__builtin_types_compatible_p (typeof (x), long double)) \
       tmp = foo_long_double (tmp);                              \
     else if (__builtin_types_compatible_p (typeof (x), double)) \
@@ -6938,16 +6985,175 @@ Generates the @code{movhps} machine instruction as a store to memory.
 Generates the @code{movlps} machine instruction as a store to memory.
 @end table
 
+The following built-in functions are available when @option{-msse2} is used.
+All of them generate the machine instruction that is part of the name.
+
+@smallexample
+int __builtin_ia32_comisdeq (v2df, v2df)
+int __builtin_ia32_comisdlt (v2df, v2df)
+int __builtin_ia32_comisdle (v2df, v2df)
+int __builtin_ia32_comisdgt (v2df, v2df)
+int __builtin_ia32_comisdge (v2df, v2df)
+int __builtin_ia32_comisdneq (v2df, v2df)
+int __builtin_ia32_ucomisdeq (v2df, v2df)
+int __builtin_ia32_ucomisdlt (v2df, v2df)
+int __builtin_ia32_ucomisdle (v2df, v2df)
+int __builtin_ia32_ucomisdgt (v2df, v2df)
+int __builtin_ia32_ucomisdge (v2df, v2df)
+int __builtin_ia32_ucomisdneq (v2df, v2df)
+v2df __builtin_ia32_cmpeqpd (v2df, v2df)
+v2df __builtin_ia32_cmpltpd (v2df, v2df)
+v2df __builtin_ia32_cmplepd (v2df, v2df)
+v2df __builtin_ia32_cmpgtpd (v2df, v2df)
+v2df __builtin_ia32_cmpgepd (v2df, v2df)
+v2df __builtin_ia32_cmpunordpd (v2df, v2df)
+v2df __builtin_ia32_cmpneqpd (v2df, v2df)
+v2df __builtin_ia32_cmpnltpd (v2df, v2df)
+v2df __builtin_ia32_cmpnlepd (v2df, v2df)
+v2df __builtin_ia32_cmpngtpd (v2df, v2df)
+v2df __builtin_ia32_cmpngepd (v2df, v2df)
+v2df __builtin_ia32_cmpordpd (v2df, v2df)
+v2df __builtin_ia32_cmpeqsd (v2df, v2df)
+v2df __builtin_ia32_cmpltsd (v2df, v2df)
+v2df __builtin_ia32_cmplesd (v2df, v2df)
+v2df __builtin_ia32_cmpunordsd (v2df, v2df)
+v2df __builtin_ia32_cmpneqsd (v2df, v2df)
+v2df __builtin_ia32_cmpnltsd (v2df, v2df)
+v2df __builtin_ia32_cmpnlesd (v2df, v2df)
+v2df __builtin_ia32_cmpordsd (v2df, v2df)
+v2di __builtin_ia32_paddq (v2di, v2di)
+v2di __builtin_ia32_psubq (v2di, v2di)
+v2df __builtin_ia32_addpd (v2df, v2df)
+v2df __builtin_ia32_subpd (v2df, v2df)
+v2df __builtin_ia32_mulpd (v2df, v2df)
+v2df __builtin_ia32_divpd (v2df, v2df)
+v2df __builtin_ia32_addsd (v2df, v2df)
+v2df __builtin_ia32_subsd (v2df, v2df)
+v2df __builtin_ia32_mulsd (v2df, v2df)
+v2df __builtin_ia32_divsd (v2df, v2df)
+v2df __builtin_ia32_minpd (v2df, v2df)
+v2df __builtin_ia32_maxpd (v2df, v2df)
+v2df __builtin_ia32_minsd (v2df, v2df)
+v2df __builtin_ia32_maxsd (v2df, v2df)
+v2df __builtin_ia32_andpd (v2df, v2df)
+v2df __builtin_ia32_andnpd (v2df, v2df)
+v2df __builtin_ia32_orpd (v2df, v2df)
+v2df __builtin_ia32_xorpd (v2df, v2df)
+v2df __builtin_ia32_movsd (v2df, v2df)
+v2df __builtin_ia32_unpckhpd (v2df, v2df)
+v2df __builtin_ia32_unpcklpd (v2df, v2df)
+v16qi __builtin_ia32_paddb128 (v16qi, v16qi)
+v8hi __builtin_ia32_paddw128 (v8hi, v8hi)
+v4si __builtin_ia32_paddd128 (v4si, v4si)
+v2di __builtin_ia32_paddq128 (v2di, v2di)
+v16qi __builtin_ia32_psubb128 (v16qi, v16qi)
+v8hi __builtin_ia32_psubw128 (v8hi, v8hi)
+v4si __builtin_ia32_psubd128 (v4si, v4si)
+v2di __builtin_ia32_psubq128 (v2di, v2di)
+v8hi __builtin_ia32_pmullw128 (v8hi, v8hi)
+v8hi __builtin_ia32_pmulhw128 (v8hi, v8hi)
+v2di __builtin_ia32_pand128 (v2di, v2di)
+v2di __builtin_ia32_pandn128 (v2di, v2di)
+v2di __builtin_ia32_por128 (v2di, v2di)
+v2di __builtin_ia32_pxor128 (v2di, v2di)
+v16qi __builtin_ia32_pavgb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pavgw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pcmpeqb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pcmpeqw128 (v8hi, v8hi)
+v4si __builtin_ia32_pcmpeqd128 (v4si, v4si)
+v16qi __builtin_ia32_pcmpgtb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pcmpgtw128 (v8hi, v8hi)
+v4si __builtin_ia32_pcmpgtd128 (v4si, v4si)
+v16qi __builtin_ia32_pmaxub128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmaxsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pminub128 (v16qi, v16qi)
+v8hi __builtin_ia32_pminsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_punpckhbw128 (v16qi, v16qi)
+v8hi __builtin_ia32_punpckhwd128 (v8hi, v8hi)
+v4si __builtin_ia32_punpckhdq128 (v4si, v4si)
+v2di __builtin_ia32_punpckhqdq128 (v2di, v2di)
+v16qi __builtin_ia32_punpcklbw128 (v16qi, v16qi)
+v8hi __builtin_ia32_punpcklwd128 (v8hi, v8hi)
+v4si __builtin_ia32_punpckldq128 (v4si, v4si)
+v2di __builtin_ia32_punpcklqdq128 (v2di, v2di)
+v16qi __builtin_ia32_packsswb128 (v16qi, v16qi)
+v8hi __builtin_ia32_packssdw128 (v8hi, v8hi)
+v16qi __builtin_ia32_packuswb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmulhuw128 (v8hi, v8hi)
+void __builtin_ia32_maskmovdqu (v16qi, v16qi)
+v2df __builtin_ia32_loadupd (double *)
+void __builtin_ia32_storeupd (double *, v2df)
+v2df __builtin_ia32_loadhpd (v2df, double *)
+v2df __builtin_ia32_loadlpd (v2df, double *)
+int __builtin_ia32_movmskpd (v2df)
+int __builtin_ia32_pmovmskb128 (v16qi)
+void __builtin_ia32_movnti (int *, int)
+void __builtin_ia32_movntpd (double *, v2df)
+void __builtin_ia32_movntdq (v2df *, v2df)
+v4si __builtin_ia32_pshufd (v4si, int)
+v8hi __builtin_ia32_pshuflw (v8hi, int)
+v8hi __builtin_ia32_pshufhw (v8hi, int)
+v2di __builtin_ia32_psadbw128 (v16qi, v16qi)
+v2df __builtin_ia32_sqrtpd (v2df)
+v2df __builtin_ia32_sqrtsd (v2df)
+v2df __builtin_ia32_shufpd (v2df, v2df, int)
+v2df __builtin_ia32_cvtdq2pd (v4si)
+v4sf __builtin_ia32_cvtdq2ps (v4si)
+v4si __builtin_ia32_cvtpd2dq (v2df)
+v2si __builtin_ia32_cvtpd2pi (v2df)
+v4sf __builtin_ia32_cvtpd2ps (v2df)
+v4si __builtin_ia32_cvttpd2dq (v2df)
+v2si __builtin_ia32_cvttpd2pi (v2df)
+v2df __builtin_ia32_cvtpi2pd (v2si)
+int __builtin_ia32_cvtsd2si (v2df)
+int __builtin_ia32_cvttsd2si (v2df)
+long long __builtin_ia32_cvtsd2si64 (v2df)
+long long __builtin_ia32_cvttsd2si64 (v2df)
+v4si __builtin_ia32_cvtps2dq (v4sf)
+v2df __builtin_ia32_cvtps2pd (v4sf)
+v4si __builtin_ia32_cvttps2dq (v4sf)
+v2df __builtin_ia32_cvtsi2sd (v2df, int)
+v2df __builtin_ia32_cvtsi642sd (v2df, long long)
+v4sf __builtin_ia32_cvtsd2ss (v4sf, v2df)
+v2df __builtin_ia32_cvtss2sd (v2df, v4sf)
+void __builtin_ia32_clflush (const void *)
+void __builtin_ia32_lfence (void)
+void __builtin_ia32_mfence (void)
+v16qi __builtin_ia32_loaddqu (const char *)
+void __builtin_ia32_storedqu (char *, v16qi)
+unsigned long long __builtin_ia32_pmuludq (v2si, v2si)
+v2di __builtin_ia32_pmuludq128 (v4si, v4si)
+v8hi __builtin_ia32_psllw128 (v8hi, v2di)
+v4si __builtin_ia32_pslld128 (v4si, v2di)
+v2di __builtin_ia32_psllq128 (v4si, v2di)
+v8hi __builtin_ia32_psrlw128 (v8hi, v2di)
+v4si __builtin_ia32_psrld128 (v4si, v2di)
+v2di __builtin_ia32_psrlq128 (v2di, v2di)
+v8hi __builtin_ia32_psraw128 (v8hi, v2di)
+v4si __builtin_ia32_psrad128 (v4si, v2di)
+v2di __builtin_ia32_pslldqi128 (v2di, int)
+v8hi __builtin_ia32_psllwi128 (v8hi, int)
+v4si __builtin_ia32_pslldi128 (v4si, int)
+v2di __builtin_ia32_psllqi128 (v2di, int)
+v2di __builtin_ia32_psrldqi128 (v2di, int)
+v8hi __builtin_ia32_psrlwi128 (v8hi, int)
+v4si __builtin_ia32_psrldi128 (v4si, int)
+v2di __builtin_ia32_psrlqi128 (v2di, int)
+v8hi __builtin_ia32_psrawi128 (v8hi, int)
+v4si __builtin_ia32_psradi128 (v4si, int)
+v4si __builtin_ia32_pmaddwd128 (v8hi, v8hi)
+@end smallexample
+
 The following built-in functions are available when @option{-msse3} is used.
 All of them generate the machine instruction that is part of the name.
 
 @smallexample
 v2df __builtin_ia32_addsubpd (v2df, v2df)
-v2df __builtin_ia32_addsubps (v2df, v2df)
+v4sf __builtin_ia32_addsubps (v4sf, v4sf)
 v2df __builtin_ia32_haddpd (v2df, v2df)
-v2df __builtin_ia32_haddps (v2df, v2df)
+v4sf __builtin_ia32_haddps (v4sf, v4sf)
 v2df __builtin_ia32_hsubpd (v2df, v2df)
-v2df __builtin_ia32_hsubps (v2df, v2df)
+v4sf __builtin_ia32_hsubps (v4sf, v4sf)
 v16qi __builtin_ia32_lddqu (char const *)
 void __builtin_ia32_monitor (void *, unsigned int, unsigned int)
 v2df __builtin_ia32_movddup (v2df)
@@ -6962,6 +7168,52 @@ The following built-in functions are available when @option{-msse3} is used.
 @item v2df __builtin_ia32_loadddup (double const *)
 Generates the @code{movddup} machine instruction as a load from memory.
 @end table
+
+The following built-in functions are available when @option{-mssse3} is used.
+All of them generate the machine instruction that is part of the name
+with MMX registers.
+
+@smallexample
+v2si __builtin_ia32_phaddd (v2si, v2si)
+v4hi __builtin_ia32_phaddw (v4hi, v4hi)
+v4hi __builtin_ia32_phaddsw (v4hi, v4hi)
+v2si __builtin_ia32_phsubd (v2si, v2si)
+v4hi __builtin_ia32_phsubw (v4hi, v4hi)
+v4hi __builtin_ia32_phsubsw (v4hi, v4hi)
+v8qi __builtin_ia32_pmaddubsw (v8qi, v8qi)
+v4hi __builtin_ia32_pmulhrsw (v4hi, v4hi)
+v8qi __builtin_ia32_pshufb (v8qi, v8qi)
+v8qi __builtin_ia32_psignb (v8qi, v8qi)
+v2si __builtin_ia32_psignd (v2si, v2si)
+v4hi __builtin_ia32_psignw (v4hi, v4hi)
+long long __builtin_ia32_palignr (long long, long long, int)
+v8qi __builtin_ia32_pabsb (v8qi)
+v2si __builtin_ia32_pabsd (v2si)
+v4hi __builtin_ia32_pabsw (v4hi)
+@end smallexample
+
+The following built-in functions are available when @option{-mssse3} is used.
+All of them generate the machine instruction that is part of the name
+with SSE registers.
+
+@smallexample
+v4si __builtin_ia32_phaddd128 (v4si, v4si)
+v8hi __builtin_ia32_phaddw128 (v8hi, v8hi)
+v8hi __builtin_ia32_phaddsw128 (v8hi, v8hi)
+v4si __builtin_ia32_phsubd128 (v4si, v4si)
+v8hi __builtin_ia32_phsubw128 (v8hi, v8hi)
+v8hi __builtin_ia32_phsubsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pmaddubsw128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmulhrsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pshufb128 (v16qi, v16qi)
+v16qi __builtin_ia32_psignb128 (v16qi, v16qi)
+v4si __builtin_ia32_psignd128 (v4si, v4si)
+v8hi __builtin_ia32_psignw128 (v8hi, v8hi)
+v2di __builtin_ia32_palignr (v2di, v2di, int)
+v16qi __builtin_ia32_pabsb128 (v16qi)
+v4si __builtin_ia32_pabsd128 (v4si)
+v8hi __builtin_ia32_pabsw128 (v8hi)
+@end smallexample
 
 The following built-in functions are available when @option{-m3dnow} is used.
 All of them generate the machine instruction that is part of the name.

@@ -16,15 +16,8 @@ details.  */
 
 #include <java/security/VMAccessController.h>
 
-JArray<jobjectArray> *
+jobjectArray
 java::security::VMAccessController::getStack ()
 {
-  _Jv_StackTrace *trace = _Jv_StackTrace::GetStackTrace ();
-  return _Jv_StackTrace::GetClassMethodStack (trace);
-}
-
-jboolean
-java::security::VMAccessController::runtimeInitialized ()
-{
-  return gcj::runtimeInitialized;
+  return _Jv_StackTrace::GetAccessControlStack ();
 }

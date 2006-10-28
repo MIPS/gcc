@@ -1959,7 +1959,7 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
 
   GLIBCXX_CONDITIONAL(GLIBCXX_BUILD_PCH, test $enable_libstdcxx_pch = yes)
   if test $enable_libstdcxx_pch = yes; then
-    glibcxx_PCHFLAGS="-include bits/stdc++.h"
+    glibcxx_PCHFLAGS="-include bits/stdtr1c++.h"
   else
     glibcxx_PCHFLAGS=""
   fi
@@ -2007,7 +2007,7 @@ int main()
 }
 EOF
     old_CXXFLAGS="$CXXFLAGS"
-    CXXFLAGS="$CXXFLAGS -S"
+    CXXFLAGS=-S
     if AC_TRY_EVAL(ac_compile); then
       if grep __sync_fetch_and_add conftest.s >/dev/null 2>&1 ; then
         enable_atomic_builtins=no
@@ -2158,7 +2158,7 @@ AC_REQUIRE([GLIBCXX_CHECK_LINKER_FEATURES])
 
 # Turn a 'yes' into a suitable default.
 if test x$enable_symvers = xyes ; then
-  if test $enable_shared = no || test "x$LD" = x ; then
+  if test $enable_shared = no || test "x$LD" = x || test x$gcc_no_link = xyes; then
     enable_symvers=no
   else
     if test $with_gnu_ld = yes ; then

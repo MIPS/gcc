@@ -217,7 +217,7 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
 @gccoptlist{-fmessage-length=@var{n}  @gol
 -fdiagnostics-show-location=@r{[}once@r{|}every-line@r{]}} @gol
--fdiagnostics-show-options
+-fdiagnostics-show-option
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -470,7 +470,7 @@ Objective-C and Objective-C++ Dialects}.
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
 -whatsloaded -F -gused -gfull -mmacosx-version-min=@var{version} @gol
--mone-byte-bool}
+-mkernel -mone-byte-bool}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -533,7 +533,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -mssse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -694,6 +694,11 @@ See RS/6000 and PowerPC Options.
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
 -mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard}
 
+@emph{Score Options}
+@gccoptlist{-mel -mel @gol
+-mmac @gol
+-mscore5u -mscore7}
+ 
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
 -m4-nofpu  -m4-single-only  -m4-single  -m4 @gol
@@ -1569,7 +1574,9 @@ functions for use by the C++ runtime type identification features
 (@samp{dynamic_cast} and @samp{typeid}).  If you don't use those parts
 of the language, you can save some space by using this flag.  Note that
 exception handling uses the same information, but it will generate it as
-needed.
+needed. The @samp{dynamic_cast} operator can still be used for casts that
+do not require runtime type information, i.e. casts to @code{void *} or to
+unambiguous base classes.
 
 @item -fstats
 @opindex fstats
@@ -2234,8 +2241,8 @@ messages reporter to emit the same source location information (as
 prefix) for physical lines that result from the process of breaking
 a message which is too long to fit on a single line.
 
-@item -fdiagnostics-show-options
-@opindex fdiagnostics-show-options
+@item -fdiagnostics-show-option
+@opindex fdiagnostics-show-option
 This option instructs the diagnostic machinery to add text to each
 diagnostic emitted, which indicates which command line option directly
 controls that diagnostic, when such an option is known to the
@@ -2666,7 +2673,7 @@ To suppress this warning use the @samp{unused} attribute
 @item -Wunused-variable
 @opindex Wunused-variable
 Warn whenever a local variable or non-constant static variable is unused
-aside from its declaration
+aside from its declaration.
 This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @samp{unused} attribute
@@ -2872,6 +2879,12 @@ incorrect result when the signed value is converted to unsigned.
 An aggregate has an initializer which does not initialize all members.
 This warning can be independently controlled by
 @option{-Wmissing-field-initializers}.
+
+@item
+An initialized field without side effects is overridden when using
+designated initializers (@pxref{Designated Inits, , Designated
+Initializers}).  This warning can be independently controlled by
+@option{-Woverride-init}.
 
 @item
 A function parameter is declared without a type specifier in K&R-style
@@ -3291,14 +3304,26 @@ unable to be fixed to display these characters distinctly.
 
 @item -Wno-deprecated-declarations
 @opindex Wno-deprecated-declarations
-Do not warn about uses of functions, variables, and types marked as
-deprecated by using the @code{deprecated} attribute.
-(@pxref{Function Attributes}, @pxref{Variable Attributes},
-@pxref{Type Attributes}.)
+Do not warn about uses of functions (@pxref{Function Attributes}),
+variables (@pxref{Variable Attributes}), and types (@pxref{Type
+Attributes}) marked as deprecated by using the @code{deprecated}
+attribute.
 
 @item -Wno-overflow
 @opindex Wno-overflow
 Do not warn about compile-time overflow in constant expressions.
+
+@item -Woverride-init
+@opindex Woverride-init
+@opindex W
+@opindex Wextra
+Warn if an initialized field without side effects is overridden when
+using designated initializers (@pxref{Designated Inits, , Designated
+Initializers}).
+
+This warning is included in @option{-Wextra}.  To get other
+@option{-Wextra} warnings without this one, use @samp{-Wextra
+-Wno-override-init}.
 
 @item -Wpacked
 @opindex Wpacked
@@ -5986,7 +6011,7 @@ Specifies maximum number of instructions out-of-line copy of self recursive inli
 function can grow into by performing recursive inlining.
 
 For functions declared inline @option{--param max-inline-insns-recursive} is
-taken into acount.  For function not declared inline, recursive inlining
+taken into account.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-insns-recursive-auto} is used.  The
 default value is 450.
@@ -5996,7 +6021,7 @@ default value is 450.
 Specifies maximum recursion depth used by the recursive inlining.
 
 For functions declared inline @option{--param max-inline-recursive-depth} is
-taken into acount.  For function not declared inline, recursive inlining
+taken into account.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
 default value is 450.
@@ -6199,7 +6224,7 @@ compile time increase with probably slightly better performance.  The default
 value is 100.
 
 @item max-cselib-memory-locations
-The maximum number of memory locations cselib should take into acount.
+The maximum number of memory locations cselib should take into account.
 Increasing values mean more aggressive optimization, making the compile time
 increase with probably slightly better performance.  The default value is 500.
 
@@ -7299,6 +7324,7 @@ platform.
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
 * S/390 and zSeries Options::
+* Score Options::
 * SH Options::
 * SPARC Options::
 * System V Options::
@@ -8053,6 +8079,16 @@ is @var{version}.  Typical values of @var{version} include @code{10.1},
 
 The default for this option is to make choices that seem to be most
 useful.  
+
+@item -mkernel
+@opindex mkernel
+Enable kernel development mode.  The @option{-mkernel} option sets
+@option{-static}, @option{-fno-common}, @option{-fno-cxa-atexit},
+@option{-fno-exceptions}, @option{-fno-non-call-exceptions},
+@option{-fapple-kext}, @option{-fno-weak} and @option{-fno-rtti} where
+applicable.  This mode also sets @option{-mno-altivec},
+@option{-msoft-float}, @option{-fno-builtin} and
+@option{-mlong-branch} for PowerPC targets.
 
 @item -mone-byte-bool
 @opindex -mone-byte-bool
@@ -9254,6 +9290,8 @@ implemented for this chip.)
 @item c3-2
 Via C3-2 CPU with MMX and SSE instruction set support.  (No scheduling is
 implemented for this chip.)
+@item geode
+Embedded AMD CPU with MMX and 3dNOW! instruction set support.
 @end table
 
 While picking a specific @var{cpu-type} will schedule things appropriately
@@ -9503,15 +9541,13 @@ applicable to individual functions.
 @opindex mpreferred-stack-boundary
 Attempt to keep the stack boundary aligned to a 2 raised to @var{num}
 byte boundary.  If @option{-mpreferred-stack-boundary} is not specified,
-the default is 4 (16 bytes or 128 bits), except when optimizing for code
-size (@option{-Os}), in which case the default is the minimum correct
-alignment (4 bytes for x86, and 8 bytes for x86-64).
+the default is 4 (16 bytes or 128 bits).
 
 On Pentium and PentiumPro, @code{double} and @code{long double} values
 should be aligned to an 8 byte boundary (see @option{-malign-double}) or
 suffer significant run time performance penalties.  On Pentium III, the
-Streaming SIMD Extension (SSE) data type @code{__m128} suffers similar
-penalties if it is not 16 byte aligned.
+Streaming SIMD Extension (SSE) data type @code{__m128} may not work
+properly if it is not 16 byte aligned.
 
 To ensure proper alignment of this values on the stack, the stack boundary
 must be as aligned as that required by any value stored on the stack.
@@ -9534,6 +9570,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse2
 @item -msse3
 @itemx -mno-sse3
+@item -mssse3
+@itemx -mno-ssse3
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -9543,9 +9581,10 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of instructions in the MMX,
-SSE, SSE2 or 3DNow! extended instruction sets.  These extensions are
-also available as built-in functions: see @ref{X86 Built-in Functions},
-for details of the functions enabled and disabled by these switches.
+SSE, SSE2, SSE3, SSSE3 or 3DNow! extended instruction sets.
+These extensions are also available as built-in functions: see
+@ref{X86 Built-in Functions}, for details of the functions enabled and
+disabled by these switches.
 
 To have SSE/SSE2 instructions generated automatically from floating-point
 code (as opposed to 387 instructions), see @option{-mfpmath=sse}.
@@ -11330,7 +11369,7 @@ following options: @option{-maltivec}, @option{-mfprnd},
 @option{-mhard-float}, @option{-mmfcrf}, @option{-mmultiple},
 @option{-mnew-mnemonics}, @option{-mpopcntb}, @option{-mpower},
 @option{-mpower2}, @option{-mpowerpc64}, @option{-mpowerpc-gpopt},
-@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw}, @option{dlmzb}.
+@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw}, @option{-mdlmzb}.
 The particular options
 set for any particular CPU will vary between compiler versions,
 depending on what setting seems to produce optimal code for that CPU;
@@ -12132,6 +12171,34 @@ powers of 2 and @var{stack-size} has to be greater than @var{stack-guard} withou
 exceeding 64k.
 In order to be efficient the extra code makes the assumption that the stack starts
 at an address aligned to the value given by @var{stack-size}.
+@end table
+
+@node Score Options
+@subsection Score Options
+@cindex Score Options
+
+These options are defined for Score implementations:
+
+@table @gcctabopt
+@item -mel
+@opindex -mel
+Compile code for little endian mode. 
+
+@item -meb
+@opindex meb
+Compile code for big endian mode.  This is the default.
+
+@item -mmac
+@opindex mmac
+Enable the use of multiply-accumulate instructions. Disabled by default. 
+
+@item -mscore5u
+@opindex mscore5u
+Specify the SCORE5U of the target architecture.
+
+@item -mscore7
+@opindex mscore7
+Specify the SCORE7 of the target architecture. This is the default.
 @end table
 
 @node SH Options

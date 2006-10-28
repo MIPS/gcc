@@ -18,10 +18,12 @@ details.  */
 
 #include <stdio.h>
 
+#include <java/lang/Boolean.h>
 #include <java/lang/Class.h>
 #include <java/lang/Long.h>
+#include <java/security/AccessController.h>
 #include <java/util/ArrayList.h>
-#include <java/util/IdentityHashMap.h>
+#include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/java/lang/MainThread.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 #include <gnu/gcj/runtime/StringBuffer.h>
@@ -38,7 +40,7 @@ using namespace gnu::gcj::runtime;
 // NOTE: Currently this Map contradicts class GC for native classes. This map
 // (and the "new class stack") will need to use WeakReferences in order to 
 // enable native class GC.
-static java::util::IdentityHashMap *ncodeMap;
+java::util::IdentityHashMap *_Jv_StackTrace::ncodeMap;
 
 // Check the "class stack" for any classes initialized since we were last 
 // called, and add them to ncodeMap.
@@ -53,21 +55,20 @@ _Jv_StackTrace::UpdateNCodeMap ()
   
   jclass klass;
   while ((klass = _Jv_PopClass ()))
-    if (!_Jv_IsInterpretedClass (klass))
-      {
-	//printf ("got %s\n", klass->name->data);
-	for (int i = 0; i < klass->method_count; i++)
-	  {
-	    _Jv_Method *method = &klass->methods[i];
-	    void *ncode = method->ncode;
-	    // Add non-abstract methods to ncodeMap.
-	    if (ncode)
-	      {
-		ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
-		ncodeMap->put ((java::lang::Object *) ncode, klass);
-	      }
-	  }
-      }
+    {
+      //printf ("got %s\n", klass->name->data);
+      for (int i = 0; i < klass->method_count; i++)
+	{
+	  _Jv_Method *method = &klass->methods[i];
+	  void *ncode = method->ncode;
+	  // Add non-abstract methods to ncodeMap.
+	  if (ncode)
+	    {
+	      ncode = UNWRAP_FUNCTION_DESCRIPTOR (ncode);
+	      ncodeMap->put ((java::lang::Object *) ncode, klass);
+	    }
+	}
+    }
 }
 
 // Given a native frame, return the class which this code belongs 
@@ -82,7 +83,13 @@ _Jv_StackTrace::ClassForFrame (_Jv_StackFrame *frame)
 
   // look it up in ncodeMap
   if (frame->start_ip)
-    klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+    {
+      klass = (jclass) ncodeMap->get ((jobject) frame->start_ip);
+
+      // Exclude interpreted classes
+      if (klass != NULL && _Jv_IsInterpretedClass (klass))
+	klass = NULL;
+    }
 
   return klass;
 }
@@ -111,7 +118,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  void *interp_run = (void *) &_Jv_InterpMethod::run;
+  void *interp_run = NULL;
+  
+  if (::gnu::classpath::jdwp::Jdwp::isDebugging)
+  	interp_run = (void *) &_Jv_InterpMethod::run_debug;
+  else
+    interp_run = (void *) &_Jv_InterpMethod::run;
+  	
   if (func_addr == UNWRAP_FUNCTION_DESCRIPTOR (interp_run))
     {
       state->frames[pos].type = frame_interpreter;
@@ -122,6 +135,7 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
   else
 #endif
     {
+#ifdef HAVE_GETIPINFO
       _Unwind_Ptr ip;
       int ip_before_insn = 0;
       ip = _Unwind_GetIPInfo (context, &ip_before_insn);
@@ -130,9 +144,13 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
       // to ensure we get the correct line number for the call itself.
       if (! ip_before_insn)
 	--ip;
-
+#endif
       state->frames[pos].type = frame_native;
+#ifdef HAVE_GETIPINFO
       state->frames[pos].ip = (void *) ip;
+#else
+      state->frames[pos].ip = (void *) _Unwind_GetIP (context);
+#endif
       state->frames[pos].start_ip = func_addr;
     }
 
@@ -207,6 +225,12 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
         offset = (_Unwind_Ptr) ip;
       else
         offset = (_Unwind_Ptr) ip - (_Unwind_Ptr) info.base;
+
+#ifndef HAVE_GETIPINFO
+      // The unwinder gives us the return address. In order to get the right
+      // line number for the stack trace, roll it back a little.
+      offset -= 1;
+#endif
 
       finder->lookup (binaryName, (jlong) offset);
       *sourceFileName = finder->getSourceFile();
@@ -535,44 +559,74 @@ _Jv_StackTrace::GetFirstNonSystemClassLoader ()
   return NULL;
 }
 
-JArray<jobjectArray> *
-_Jv_StackTrace::GetClassMethodStack (_Jv_StackTrace *trace)
+struct AccessControlTraceData
 {
-  jint length = 0;
+  jint length;
+  jboolean privileged;
+};
+
+_Unwind_Reason_Code
+_Jv_StackTrace::accesscontrol_trace_fn (_Jv_UnwindState *state)
+{
+  AccessControlTraceData *trace_data = (AccessControlTraceData *)
+    state->trace_data;
+  _Jv_StackFrame *frame = &state->frames[state->pos];
+  FillInFrameInfo (frame);
+
+  if (!(frame->klass && frame->meth))
+    return _URC_NO_REASON;
+
+  trace_data->length++;
+
+  // If the previous frame was a call to doPrivileged, then this is
+  // the last frame we look at.
+  if (trace_data->privileged)
+    return _URC_NORMAL_STOP;
+  
+  if (frame->klass == &::java::security::AccessController::class$
+      && strcmp (frame->meth->name->chars(), "doPrivileged") == 0)
+    trace_data->privileged = true;
+
+  return _URC_NO_REASON;
+}
+
+jobjectArray
+_Jv_StackTrace::GetAccessControlStack (void)
+{
+  int trace_size = 100;
+  _Jv_StackFrame frames[trace_size];
+  _Jv_UnwindState state (trace_size);
+  state.frames = (_Jv_StackFrame *) &frames;
+
+  AccessControlTraceData trace_data;
+  trace_data.length = 0;
+  trace_data.privileged = false;
+  
+  state.trace_function = accesscontrol_trace_fn;
+  state.trace_data = (void *) &trace_data;
 
   UpdateNCodeMap();
-  for (int i = 0; i < trace->length; i++)
-    {
-      _Jv_StackFrame *frame = &trace->frames[i];
-      FillInFrameInfo (frame);
+  _Unwind_Backtrace (UnwindTraceFn, &state);
 
-      if (frame->klass && frame->meth)
-	length++;
-    }
-
-  jclass array_class = _Jv_GetArrayClass (&::java::lang::Object::class$, NULL);
-  JArray<jobjectArray> *result =
-    (JArray<jobjectArray> *) _Jv_NewObjectArray (2, array_class, NULL);
   JArray<jclass> *classes = (JArray<jclass> *)
-    _Jv_NewObjectArray (length, &::java::lang::Class::class$, NULL);
-  JArray<jstring> *methods = (JArray<jstring> *)
-    _Jv_NewObjectArray (length, &::java::lang::String::class$, NULL);
-  jclass  *c = elements (classes);
-  jstring *m = elements (methods);
+    _Jv_NewObjectArray (trace_data.length, &::java::lang::Class::class$, NULL);
+  jclass *c = elements (classes);
 
-  for (int i = 0, j = 0; i < trace->length; i++)
+  for (int i = 0, j = 0; i < state.pos; i++)
     {
-      _Jv_StackFrame *frame = &trace->frames[i];
+      _Jv_StackFrame *frame = &state.frames[i];
       if (!frame->klass || !frame->meth)
 	continue;
       c[j] = frame->klass;
-      m[j] = JvNewStringUTF (frame->meth->name->chars());
       j++;
     }
 
-  jobjectArray *elems = elements (result);
-  elems[0] = (jobjectArray) classes;
-  elems[1] = (jobjectArray) methods;
-
+  jobjectArray result =
+    (jobjectArray) _Jv_NewObjectArray (2, &::java::lang::Object::class$,
+					 NULL);
+  jobject *r = elements (result);
+  r[0] = (jobject) classes;
+  r[1] = (jobject) new Boolean (trace_data.privileged);
+  
   return result;
 }

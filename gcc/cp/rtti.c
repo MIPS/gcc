@@ -342,11 +342,10 @@ get_tinfo_decl (tree type)
   tree name;
   tree d;
 
-  if (COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
       error ("cannot create type information for type %qT because "
-	     "its size is variable",
+	     "it involves types of variable size",
 	     type);
       return error_mark_node;
     }
@@ -619,6 +618,13 @@ build_dynamic_cast_1 (tree type, tree expr)
 		}
 	    }
 
+	  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
+	  if (!flag_rtti)
+	    {
+	      error ("%<dynamic_cast%> not permitted with -fno-rtti");
+	      return error_mark_node;
+	    }
+
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
@@ -703,13 +709,6 @@ build_dynamic_cast (tree type, tree expr)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
-
-  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
-  if (!flag_rtti)
-    {
-      error ("%<dynamic_cast%> not permitted with -fno-rtti");
-      return error_mark_node;
-    }
 
   if (processing_template_decl)
     {
@@ -825,13 +824,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     DECL_TINFO_P (name_decl) = 1;
-    if (involves_incomplete_p (target))
-      {
-	TREE_PUBLIC (name_decl) = 0;
-	DECL_INTERFACE_KNOWN (name_decl) = 1;
-      }
-    else
-      set_linkage_according_to_type (target, name_decl);
+    set_linkage_according_to_type (target, name_decl);
     import_export_decl (name_decl);
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);

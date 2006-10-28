@@ -2791,7 +2791,16 @@ c_make_fname_decl (tree id, int type_dep)
 
   TREE_USED (decl) = 1;
 
-  if (current_function_decl)
+  if (current_function_decl
+      /* For invalid programs like this:
+        
+         void foo()
+         const char* p = __FUNCTION__;
+        
+	 the __FUNCTION__ is believed to appear in K&R style function
+	 parameter declarator.  In that case we still don't have
+	 function_scope.  */
+      && (!errorcount || current_function_scope))
     {
       DECL_CONTEXT (decl) = current_function_decl;
       bind (id, decl, current_function_scope,
@@ -2803,30 +2812,15 @@ c_make_fname_decl (tree id, int type_dep)
   return decl;
 }
 
-/* Return a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
-   FUNCTION_CODE tells later passes how to compile calls to this function.
-   See tree.h for its possible values.
-
-   If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  If
-   ATTRS is nonzero, use that for the function's attribute list.  */
-
 tree
-builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class cl, const char *library_name,
-		  tree attrs)
+c_builtin_function (tree decl)
 {
-  tree id = get_identifier (name);
-  tree decl = build_decl (FUNCTION_DECL, id, type);
-  TREE_PUBLIC (decl) = 1;
-  DECL_EXTERNAL (decl) = 1;
+  tree type = TREE_TYPE (decl);
+  tree   id = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (id);
   DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
-  DECL_BUILT_IN_CLASS (decl) = cl;
-  DECL_FUNCTION_CODE (decl) = function_code;
   C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
@@ -2840,12 +2834,6 @@ builtin_function (const char *name, tree type, int function_code,
       TREE_CHAIN (decl) = visible_builtins;
       visible_builtins = decl;
     }
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -4309,6 +4297,18 @@ grokdeclarator (const struct c_declarator *declarator,
 		    size_varies = 1;
 		  }
 	      }
+	    else if (decl_context == TYPENAME)
+	      {
+		if (array_parm_vla_unspec_p)
+		  {
+		    /* The error is printed elsewhere.  We use this to
+		       avoid messing up with incomplete array types of
+		       the same type, that would otherwise be modified
+		       below.  */
+		    itype = build_range_type (sizetype, size_zero_node,
+					      NULL_TREE);
+		  }
+	      }
 
 	     /* Complain about arrays of incomplete types.  */
 	    if (!COMPLETE_TYPE_P (type))
@@ -4317,12 +4317,23 @@ grokdeclarator (const struct c_declarator *declarator,
 		type = error_mark_node;
 	      }
 	    else
+	    /* When itype is NULL, a shared incomplete array type is
+	       returned for all array of a given type.  Elsewhere we
+	       make sure we don't complete that type before copying
+	       it, but here we want to make sure we don't ever
+	       modify the shared type, so we gcc_assert (itype)
+	       below.  */
 	      type = build_array_type (type, itype);
 
 	    if (type != error_mark_node)
 	      {
 		if (size_varies)
 		  {
+		    /* It is ok to modify type here even if itype is
+		       NULL: if size_varies, we're in a
+		       multi-dimensional array and the inner type has
+		       variable size, so the enclosing shared array type
+		       must too.  */
 		    if (size && TREE_CODE (size) == INTEGER_CST)
 		      type
 			= build_distinct_type_copy (TYPE_MAIN_VARIANT (type));
@@ -4334,11 +4345,13 @@ grokdeclarator (const struct c_declarator *declarator,
 		   zero.  */
 		if (size && integer_zerop (size))
 		  {
+		    gcc_assert (itype);
 		    TYPE_SIZE (type) = bitsize_zero_node;
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
 		  }
 		if (array_parm_vla_unspec_p)
 		  {
+		    gcc_assert (itype);
 		    /* The type is complete.  C99 6.7.5.2p4  */
 		    TYPE_SIZE (type) = bitsize_zero_node;
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
@@ -4395,6 +4408,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	       inner layer of declarator.  */
 	    arg_info = declarator->u.arg_info;
 	    arg_types = grokparms (arg_info, really_funcdef);
+	    if (really_funcdef)
+	      put_pending_sizes (arg_info->pending_sizes);
 
 	    /* Type qualifiers before the return type of the function
 	       qualify the return type, not the function type.  */
@@ -4443,6 +4458,40 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (type_quals)
 	      type = c_build_qualified_type (type, type_quals);
 	    size_varies = 0;
+
+	    /* When the pointed-to type involves components of variable size,
+	       care must be taken to ensure that the size evaluation code is
+	       emitted early enough to dominate all the possible later uses
+	       and late enough for the variables on which it depends to have
+	       been assigned.
+
+	       This is expected to happen automatically when the pointed-to
+	       type has a name/declaration of it's own, but special attention
+	       is required if the type is anonymous.
+
+	       We handle the NORMAL and FIELD contexts here by attaching an
+	       artificial TYPE_DECL to such pointed-to type.  This forces the
+	       sizes evaluation at a safe point and ensures it is not deferred
+	       until e.g. within a deeper conditional context.
+
+	       We expect nothing to be needed here for PARM or TYPENAME.
+	       Pushing a TYPE_DECL at this point for TYPENAME would actually
+	       be incorrect, as we might be in the middle of an expression
+	       with side effects on the pointed-to type size "arguments" prior
+	       to the pointer declaration point and the fake TYPE_DECL in the
+	       enclosing context would force the size evaluation prior to the
+	       side effects.  */
+
+	    if (!TYPE_NAME (type)
+		&& (decl_context == NORMAL || decl_context == FIELD)
+		&& variably_modified_type_p (type, NULL_TREE))
+	      {
+		tree decl = build_decl (TYPE_DECL, NULL_TREE, type);
+		DECL_ARTIFICIAL (decl) = 1;
+		pushdecl (decl);
+		finish_decl (decl, NULL_TREE, NULL_TREE);
+		TYPE_NAME (type) = decl;
+	      }
 
 	    type = build_pointer_type (type);
 
@@ -4495,21 +4544,6 @@ grokdeclarator (const struct c_declarator *declarator,
       if (declspecs->inline_p)
 	pedwarn ("typedef %q+D declared %<inline%>", decl);
       return decl;
-    }
-
-  /* Detect the case of an array type of unspecified size
-     which came, as such, direct from a typedef name.
-     We must copy the type, so that each identifier gets
-     a distinct type, so that each identifier's size can be
-     controlled separately by its own initializer.  */
-
-  if (type != 0 && typedef_type != 0
-      && TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == 0
-      && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (typedef_type))
-    {
-      type = build_array_type (TREE_TYPE (type), 0);
-      if (size_varies)
-	C_TYPE_VARIABLE_SIZE (type) = 1;
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -4971,6 +5005,7 @@ get_parm_info (bool ellipsis)
   arg_info->tags = 0;
   arg_info->types = 0;
   arg_info->others = 0;
+  arg_info->pending_sizes = 0;
   arg_info->had_vla_unspec = current_scope->had_vla_unspec;
 
   /* The bindings in this scope must not get put into a block.
@@ -5126,6 +5161,7 @@ get_parm_info (bool ellipsis)
   arg_info->tags = tags;
   arg_info->types = types;
   arg_info->others = others;
+  arg_info->pending_sizes = get_pending_sizes ();
   return arg_info;
 }
 
@@ -5981,6 +6017,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this definition isn't a prototype and we had a prototype declaration
      before, copy the arg type info from that prototype.  */
   old_decl = lookup_name_in_scope (DECL_NAME (decl1), current_scope);
+  if (old_decl && TREE_CODE (old_decl) != FUNCTION_DECL)
+    old_decl = 0;
   current_function_prototype_locus = UNKNOWN_LOCATION;
   current_function_prototype_built_in = false;
   current_function_prototype_arg_types = NULL_TREE;

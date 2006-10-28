@@ -148,10 +148,12 @@
   (UNSPEC_DIV_INV_M2	32)
   (UNSPEC_DIV_INV_M3	33)
   (UNSPEC_DIV_INV20	34)
+  (UNSPEC_DIV_INV_TABLE	37)
   (UNSPEC_ASHIFTRT	35)
   (UNSPEC_THUNK		36)
   (UNSPEC_SP_SET	40)
   (UNSPEC_SP_TEST	41)
+  (UNSPEC_MOVUA		42)
 
   ;; These are used with unspec_volatile.
   (UNSPECV_BLOCKAGE	0)
@@ -2244,6 +2246,34 @@
   DONE;
 }")
 
+;; operands: scratch, tab_base, tab_ix
+;; These are unspecs because we could generate an indexed addressing mode
+;; even if -m5-32media, where INDEX_REG_CLASS == NO_REGS, and this would
+;; confuse reload.  See PR27117.
+
+(define_insn "divsi_inv_qitable"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI (unspec:QI [(match_operand:DI 1 "register_operand" "r")
+				    (match_operand:DI 2 "register_operand" "r")]
+			 UNSPEC_DIV_INV_TABLE)))]
+  "TARGET_SHMEDIA"
+  "@
+	ldx.ub	%1, %2, %0"
+  [(set_attr "type" "load_media")
+   (set_attr "highpart" "user")])
+
+;; operands: scratch, tab_base, tab_ix
+(define_insn "divsi_inv_hitable"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(sign_extend:DI (unspec:HI [(match_operand:DI 1 "register_operand" "r")
+				    (match_operand:DI 2 "register_operand" "r")]
+			 UNSPEC_DIV_INV_TABLE)))]
+  "TARGET_SHMEDIA"
+  "@
+	ldx.w	%1, %2, %0"
+  [(set_attr "type" "load_media")
+   (set_attr "highpart" "user")])
+
 ;; operands: inv0, tab_base, tab_ix, norm32
 ;; scratch equiv in sdivsi3_2: r19, r21
 (define_expand "divsi_inv_m0"
@@ -2276,14 +2306,11 @@ norm32: r25
   rtx scratch0 = operands[4];
   rtx scratch0_si = simplify_gen_subreg (SImode, scratch0, DImode, SIDI_OFF);
   rtx scratch1 = operands[5];
-  rtx mem;
 
-  mem = gen_const_mem (QImode, gen_rtx_PLUS (DImode, tab_base, tab_ix));
-  emit_insn (gen_zero_extendqidi2 (scratch0, mem));
+  emit_insn (gen_divsi_inv_qitable (scratch0, tab_base, tab_ix));
   emit_insn (gen_ashldi3_media (scratch1, tab_ix, GEN_INT (1)));
   emit_insn (gen_mulsidi3_media (scratch0, norm32, scratch0_si));
-  mem = gen_const_mem (HImode, gen_rtx_PLUS (DImode, tab_base, scratch1));
-  emit_insn (gen_extendhidi2 (scratch1, mem));
+  emit_insn (gen_divsi_inv_hitable (scratch1, tab_base, scratch1));
   emit_insn (gen_ashrdi3_media (scratch0, scratch0, GEN_INT (24)));
   emit_insn (gen_subdisi3_media (inv0, scratch1, scratch0));
   DONE;
@@ -11121,8 +11148,8 @@ mov.l\\t1f,r0\\n\\
 
 (define_insn "movua"
   [(set (match_operand:SI 0 "register_operand" "=z")
-	(sign_extract:SI (match_operand:SI 1 "unaligned_load_operand" "Sua>")
-			 (const_int 32) (const_int 0)))]
+	(unspec:SI [(match_operand:BLK 1 "unaligned_load_operand" "Sua>")]
+		   UNSPEC_MOVUA))]
   "TARGET_SH4A_ARCH"
   "movua.l	%1,%0"
   [(set_attr "type" "movua")])
@@ -11155,8 +11182,9 @@ mov.l\\t1f,r0\\n\\
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
       && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
     {
-      emit_insn (gen_movua (operands[0],
-			    adjust_address (operands[1], SImode, 0)));
+      rtx src = adjust_address (operands[1], BLKmode, 0);
+      set_mem_size (src, GEN_INT (4));
+      emit_insn (gen_movua (operands[0], src));
       DONE;
     }
 
@@ -11175,8 +11203,9 @@ mov.l\\t1f,r0\\n\\
       && INTVAL (operands[3]) == -24 * (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
       && GET_CODE (operands[1]) == MEM && MEM_ALIGN (operands[1]) < 32)
     {
-      emit_insn (gen_movua (operands[0],
-			    adjust_address (operands[1], SImode, 0)));
+      rtx src = adjust_address (operands[1], BLKmode, 0);
+      set_mem_size (src, GEN_INT (4));
+      emit_insn (gen_movua (operands[0], src));
       DONE;
     }
 

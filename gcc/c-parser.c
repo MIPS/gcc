@@ -2164,7 +2164,19 @@ c_parser_typeof_specifier (c_parser *parser)
 	 is evaluated, this can be evaluated.  For now, we avoid
 	 evaluation when the context might.  */
       if (!skip_evaluation && was_vm)
-	c_finish_expr_stmt (expr.value);
+	{
+	  tree e = expr.value;
+
+	  /* If the expression is not of a type to which we cannot assign a line
+	     number, wrap the thing in a no-op NOP_EXPR.  */
+	  if (DECL_P (e) || CONSTANT_CLASS_P (e))
+	    e = build1 (NOP_EXPR, void_type_node, e);
+
+	  if (EXPR_P (e))
+	    SET_EXPR_LOCATION (e, input_location);
+
+	  add_stmt (e);
+	}
       pop_maybe_used (was_vm);
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -2525,6 +2537,7 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 	  ret->tags = 0;
 	  ret->types = list;
 	  ret->others = 0;
+	  ret->pending_sizes = 0;
 	  ret->had_vla_unspec = 0;
 	  c_parser_consume_token (parser);
 	  pop_scope ();
@@ -2567,6 +2580,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->tags = 0;
       ret->types = 0;
       ret->others = 0;
+      ret->pending_sizes = 0;
       ret->had_vla_unspec = 0;
       c_parser_consume_token (parser);
       return ret;
@@ -2577,6 +2591,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->parms = 0;
       ret->tags = 0;
       ret->others = 0;
+      ret->pending_sizes = 0;
       ret->had_vla_unspec = 0;
       /* Suppress -Wold-style-definition for this case.  */
       ret->types = error_mark_node;
@@ -2628,6 +2643,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	      ret->tags = 0;
 	      ret->types = 0;
 	      ret->others = 0;
+	      ret->pending_sizes = 0;
 	      ret->had_vla_unspec = 0;
 	      return ret;
 	    }
@@ -2654,6 +2670,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 		  ret->tags = 0;
 		  ret->types = 0;
 		  ret->others = 0;
+		  ret->pending_sizes = 0;
 		  ret->had_vla_unspec = 0;
 		  return ret;
 		}
@@ -3486,6 +3503,8 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  last_stmt = true;
 	  c_parser_statement_after_labels (parser);
 	}
+
+      parser->error = false;
     }
   if (last_label)
     error ("label at end of compound statement");
@@ -5189,7 +5208,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    if (type == error_mark_node)
 	      offsetof_ref = error_mark_node;
 	    else
-	      offsetof_ref = build1 (INDIRECT_REF, type, NULL);
+	      offsetof_ref = build1 (INDIRECT_REF, type, null_pointer_node);
 	    /* Parse the second argument to __builtin_offsetof.  We
 	       must have one identifier, and beyond that we want to
 	       accept sub structure and sub array references.  */
@@ -5231,7 +5250,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      c_parser_error (parser, "expected identifier");
 	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				       "expected %<)%>");
-	    expr.value = fold_offsetof (offsetof_ref);
+	    expr.value = fold_offsetof (offsetof_ref, NULL_TREE);
 	    expr.original_code = ERROR_MARK;
 	  }
 	  break;

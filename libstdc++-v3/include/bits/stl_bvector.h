@@ -144,11 +144,10 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       __n = __n % int(_S_word_bit);
       if (__n < 0)
 	{
-	  _M_offset = static_cast<unsigned int>(__n + int(_S_word_bit));
+	  __n += int(_S_word_bit);
 	  --_M_p;
 	}
-      else
-	_M_offset = static_cast<unsigned int>(__n);
+      _M_offset = static_cast<unsigned int>(__n);
     }
 
     bool
@@ -354,6 +353,26 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   operator+(ptrdiff_t __n, const _Bit_const_iterator& __x)
   { return __x + __n; }
 
+  inline void
+  __fill_bvector(_Bit_iterator __first, _Bit_iterator __last, bool __x)
+  {
+    for (; __first != __last; ++__first)
+      *__first = __x;
+  }
+
+  inline void
+  fill(_Bit_iterator __first, _Bit_iterator __last, const bool& __x)
+  {
+    if (__first._M_p != __last._M_p)
+      {
+	std::fill(__first._M_p + 1, __last._M_p, __x ? ~0 : 0);
+	__fill_bvector(__first, _Bit_iterator(__first._M_p + 1, 0), __x);
+	__fill_bvector(_Bit_iterator(__last._M_p, 0), __last, __x);
+      }
+    else
+      __fill_bvector(__first, __last, __x);
+  }
+
   template<class _Alloc>
     struct _Bvector_base
     {
@@ -479,7 +498,7 @@ template<typename _Alloc>
     : _Base(__x._M_get_Bit_allocator())
     {
       _M_initialize(__x.size());
-      std::copy(__x.begin(), __x.end(), this->_M_impl._M_start);
+      _M_copy_aligned(__x.begin(), __x.end(), this->_M_impl._M_start);
     }
 
     template<class _InputIterator>
@@ -503,8 +522,8 @@ template<typename _Alloc>
 	  this->_M_deallocate();
 	  _M_initialize(__x.size());
 	}
-      std::copy(__x.begin(), __x.end(), begin());
-      this->_M_impl._M_finish = begin() + difference_type(__x.size());
+      this->_M_impl._M_finish = _M_copy_aligned(__x.begin(), __x.end(),
+						begin());
       return *this;
     }
 
@@ -562,7 +581,11 @@ template<typename _Alloc>
 
     size_type
     max_size() const
-    { return size_type(-1); }
+    {
+      const size_type __asize = _M_get_Bit_allocator().max_size();
+      return (__asize <= size_type(-1) / int(_S_word_bit) ?
+	      __asize * int(_S_word_bit) : size_type(-1));
+    }
 
     size_type
     capacity() const
@@ -575,11 +598,17 @@ template<typename _Alloc>
 
     reference
     operator[](size_type __n)
-    { return *(begin() + difference_type(__n)); }
+    {
+      return *iterator(this->_M_impl._M_start._M_p
+		       + __n / int(_S_word_bit), __n % int(_S_word_bit));
+    }
 
     const_reference
     operator[](size_type __n) const
-    { return *(begin() + difference_type(__n)); }
+    {
+      return *const_iterator(this->_M_impl._M_start._M_p
+			     + __n / int(_S_word_bit), __n % int(_S_word_bit));
+    }
 
   protected:
     void
@@ -606,8 +635,8 @@ template<typename _Alloc>
       if (this->capacity() < __n)
 	{
 	  _Bit_type* __q = this->_M_allocate(__n);
-	  this->_M_impl._M_finish = std::copy(begin(), end(), 
-					      iterator(__q, 0));
+	  this->_M_impl._M_finish = _M_copy_aligned(begin(), end(),
+						    iterator(__q, 0));
 	  this->_M_deallocate();
 	  this->_M_impl._M_start = iterator(__q, 0);
 	  this->_M_impl._M_end_of_storage = (__q + (__n + int(_S_word_bit) - 1)
@@ -739,18 +768,14 @@ template<typename _Alloc>
 
    
   protected:
-
-    void
-    _M_fill(iterator __first, iterator __last, bool __x)
+    // Precondition: __first._M_offset == 0 && __result._M_offset == 0.
+    iterator
+    _M_copy_aligned(const_iterator __first, const_iterator __last,
+		    iterator __result)
     {
-      if (__first._M_p != __last._M_p)
-	{
-	  std::fill(__first._M_p + 1, __last._M_p, __x ? ~0 : 0);
-	  std::fill(__first, iterator(__first._M_p + 1, 0), __x);
-	  std::fill(iterator(__last._M_p, 0), __last, __x);
-	}
-      else
-	std::fill(__first, __last, __x);
+      _Bit_type* __q = std::copy(__first._M_p, __last._M_p, __result._M_p);
+      return std::copy(const_iterator(__last._M_p, 0), __last,
+		       iterator(__q, 0));
     }
 
     void
@@ -786,9 +811,6 @@ template<typename _Alloc>
       _M_initialize_range(_InputIterator __first, _InputIterator __last,
 			  std::input_iterator_tag)
       {
-	this->_M_impl._M_start = iterator();
-	this->_M_impl._M_finish = iterator();
-	this->_M_impl._M_end_of_storage = 0;
 	for (; __first != __last; ++__first)
 	  push_back(*__first);
       }
@@ -886,15 +908,16 @@ template<typename _Alloc>
 	{
 	  std::copy_backward(__position, end(),
 			     this->_M_impl._M_finish + difference_type(__n));
-	  _M_fill(__position, __position + difference_type(__n), __x);
+	  std::fill(__position, __position + difference_type(__n), __x);
 	  this->_M_impl._M_finish += difference_type(__n);
 	}
       else
 	{
 	  const size_type __len = size() + std::max(size(), __n);
 	  _Bit_type * __q = this->_M_allocate(__len);
-	  iterator __i = std::copy(begin(), __position, iterator(__q, 0));
-	  _M_fill(__i, __i + difference_type(__n), __x);
+	  iterator __i = _M_copy_aligned(begin(), __position,
+					 iterator(__q, 0));
+	  std::fill(__i, __i + difference_type(__n), __x);
 	  this->_M_impl._M_finish = std::copy(__position, end(),
 					      __i + difference_type(__n));
 	  this->_M_deallocate();
@@ -937,8 +960,8 @@ template<typename _Alloc>
 	      {
 		const size_type __len = size() + std::max(size(), __n);
 		_Bit_type * __q = this->_M_allocate(__len);
-		iterator __i = std::copy(begin(), __position,
-					 iterator(__q, 0));
+		iterator __i = _M_copy_aligned(begin(), __position,
+					       iterator(__q, 0));
 		__i = std::copy(__first, __last, __i);
 		this->_M_impl._M_finish = std::copy(__position, end(), __i);
 		this->_M_deallocate();
@@ -966,7 +989,8 @@ template<typename _Alloc>
 	  const size_type __len = size() ? 2 * size()
 	                                 : static_cast<size_type>(_S_word_bit);
 	  _Bit_type * __q = this->_M_allocate(__len);
-	  iterator __i = std::copy(begin(), __position, iterator(__q, 0));
+	  iterator __i = _M_copy_aligned(begin(), __position,
+					 iterator(__q, 0));
 	  *__i++ = __x;
 	  this->_M_impl._M_finish = std::copy(__position, end(), __i);
 	  this->_M_deallocate();

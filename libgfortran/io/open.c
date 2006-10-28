@@ -40,6 +40,7 @@ static const st_option access_opt[] = {
   {"sequential", ACCESS_SEQUENTIAL},
   {"direct", ACCESS_DIRECT},
   {"append", ACCESS_APPEND},
+  {"stream", ACCESS_STREAM},
   {NULL, 0}
 };
 
@@ -177,7 +178,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
       if (flags->pad != PAD_UNSPECIFIED)
 	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			"PAD paramter conflicts with UNFORMATTED form in "
+			"PAD parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
     }
 
@@ -214,7 +215,9 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       if (sseek (u->s, file_length (u->s)) == FAILURE)
 	goto seek_error;
 
-      u->current_record = 0;
+      if (flags->access != ACCESS_STREAM)
+	u->current_record = 0;
+
       u->endfile = AT_ENDFILE;	/* We are at the end.  */
       break;
 
@@ -281,7 +284,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       if (flags->form == FORM_UNFORMATTED)
 	{
 	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			  "PAD paramter conflicts with UNFORMATTED form in "
+			  "PAD parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
 	}
@@ -432,6 +435,13 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->access == ACCESS_DIRECT)
     u->maxrec = max_offset / u->recl;
+  
+  if (flags->access == ACCESS_STREAM)
+    {
+      u->maxrec = max_offset;
+      u->recl = 1;
+      u->strm_pos = 1;
+    }
 
   memmove (u->file, opp->file, opp->file_len);
   u->file_len = opp->file_len;

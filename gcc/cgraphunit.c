@@ -1,4 +1,4 @@
-/* Callgraph based intraprocedural optimizations.
+/* Callgraph based interprocedural optimizations.
    Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
@@ -20,7 +20,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
 /* This module implements main driver of compilation process as well as
-   few basic intraprocedural optimizers.
+   few basic interprocedural optimizers.
 
    The main scope of this file is to act as an interface in between
    tree based frontends and the backend (and middle end)
@@ -173,6 +173,9 @@ static void cgraph_expand_function (struct cgraph_node *);
 static tree record_reference (tree *, int *, void *);
 static void cgraph_output_pending_asms (void);
 static void cgraph_increase_alignment (void);
+
+/* Lists all assembled variables to be sent to debugger output later on.  */
+static GTY(()) struct cgraph_varpool_node *cgraph_varpool_assembled_nodes_queue;
 
 /* Records tree nodes seen in record_reference.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -694,6 +697,9 @@ verify_cgraph_node (struct cgraph_node *node)
   block_stmt_iterator bsi;
   bool error_found = false;
 
+  if (errorcount || sorrycount)
+    return;
+
   timevar_push (TV_CGRAPH_VERIFY);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
@@ -856,18 +862,7 @@ cgraph_varpool_assemble_decl (struct cgraph_varpool_node *node)
       && (TREE_CODE (decl) != VAR_DECL || !DECL_HAS_VALUE_EXPR_P (decl)))
     {
       assemble_variable (decl, 0, 1, 0);
-      /* Local static variables are never seen by check_global_declarations
-	 so we need to output debug info by hand.  */
-      if (DECL_CONTEXT (decl)
-	  && (TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
-	      || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
-	  && errorcount == 0 && sorrycount == 0)
-	{
-	  timevar_push (TV_SYMOUT);
-	  (*debug_hooks->global_decl) (decl);
-	  timevar_pop (TV_SYMOUT);
-	}
-      return true;
+      return TREE_ASM_WRITTEN (decl);
     }
 
   return false;
@@ -893,10 +888,38 @@ cgraph_varpool_assemble_pending_decls (void)
 
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
       if (cgraph_varpool_assemble_decl (node))
-	changed = true;
-      node->next_needed = NULL;
+	{
+	  changed = true;
+	  node->next_needed = cgraph_varpool_assembled_nodes_queue;
+	  cgraph_varpool_assembled_nodes_queue = node;
+	  node->finalized = 1;
+	}
+      else
+        node->next_needed = NULL;
     }
   return changed;
+}
+/* Output all variables enqueued to be assembled.  */
+static void
+cgraph_varpool_output_debug_info (void)
+{
+  timevar_push (TV_SYMOUT);
+  if (errorcount == 0 && sorrycount == 0)
+    while (cgraph_varpool_assembled_nodes_queue)
+      {
+	struct cgraph_varpool_node *node = cgraph_varpool_assembled_nodes_queue;
+
+	/* Local static variables are never seen by check_global_declarations
+	   so we need to output debug info by hand.  */
+	if (DECL_CONTEXT (node->decl)
+	    && (TREE_CODE (DECL_CONTEXT (node->decl)) == BLOCK
+		|| TREE_CODE (DECL_CONTEXT (node->decl)) == FUNCTION_DECL)
+	    && errorcount == 0 && sorrycount == 0)
+	     (*debug_hooks->global_decl) (node->decl);
+	cgraph_varpool_assembled_nodes_queue = node->next_needed;
+	node->next_needed = 0;
+      }
+  timevar_pop (TV_SYMOUT);
 }
 
 /* Output all asm statements we have stored up to be output.  */
@@ -928,7 +951,8 @@ cgraph_analyze_function (struct cgraph_node *node)
   cgraph_create_edges (node, decl);
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  node->local.self_insns = estimate_num_insns (decl);
+  if (!flag_unit_at_a_time)
+    node->local.self_insns = estimate_num_insns (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = lang_hooks.tree_inlining.disregard_inline_limits (decl);
@@ -985,9 +1009,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (node->local.finalized)
-	    cgraph_mark_needed_node (node);
-	  node->externally_visible = true;
+	  if (! TREE_PUBLIC (node->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     node->decl);
+	  else
+	    {
+	      if (node->local.finalized)
+		cgraph_mark_needed_node (node);
+	      node->local.externally_visible = true;
+	    }
 	}
     }
   for (vnode = cgraph_varpool_nodes; vnode != first_var; vnode = vnode->next)
@@ -1001,9 +1032,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (vnode->finalized)
-	    cgraph_varpool_mark_needed_node (vnode);
-	  vnode->externally_visible = true;
+	  if (! TREE_PUBLIC (vnode->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     vnode->decl);
+	  else
+	    {
+	      if (vnode->finalized)
+		cgraph_varpool_mark_needed_node (vnode);
+	      vnode->externally_visible = true;
+	    }
 	}
     }
 }
@@ -1017,6 +1055,7 @@ cgraph_finalize_compilation_unit (void)
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
   static struct cgraph_node *first_analyzed;
+  struct cgraph_node *first_processed = first_analyzed;
   static struct cgraph_varpool_node *first_analyzed_var;
 
   if (errorcount || sorrycount)
@@ -1028,6 +1067,7 @@ cgraph_finalize_compilation_unit (void)
     {
       cgraph_output_pending_asms ();
       cgraph_assemble_pending_functions ();
+      cgraph_varpool_output_debug_info ();
       return;
     }
 
@@ -1038,7 +1078,10 @@ cgraph_finalize_compilation_unit (void)
     }
 
   timevar_push (TV_CGRAPH);
-  process_function_and_variable_attributes (first_analyzed, first_analyzed_var);
+  process_function_and_variable_attributes (first_processed,
+					    first_analyzed_var);
+  first_processed = cgraph_nodes;
+  first_analyzed_var = cgraph_varpool_nodes;
   cgraph_varpool_analyze_pending_decls ();
   if (cgraph_dump_file)
     {
@@ -1080,11 +1123,16 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
+      /* We finalize local static variables during constructing callgraph
+         edges.  Process their attributes too.  */
+      process_function_and_variable_attributes (first_processed,
+						first_analyzed_var);
+      first_processed = cgraph_nodes;
+      first_analyzed_var = cgraph_varpool_nodes;
       cgraph_varpool_analyze_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
-
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
@@ -1124,7 +1172,6 @@ cgraph_finalize_compilation_unit (void)
       dump_cgraph (cgraph_dump_file);
     }
   first_analyzed = cgraph_nodes;
-  first_analyzed_var = cgraph_varpool_nodes;
   ggc_collect ();
   timevar_pop (TV_CGRAPH);
 }
@@ -1447,7 +1494,9 @@ cgraph_preserve_function_body_p (tree decl)
 {
   struct cgraph_node *node;
   if (!cgraph_global_info_ready)
-    return (DECL_INLINE (decl) && !flag_really_no_inline);
+    return (flag_really_no_inline
+	    ? lang_hooks.tree_inlining.disregard_inline_limits (decl)
+	    : DECL_INLINE (decl));
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
     if (node->global.inlined_to)
@@ -1480,6 +1529,7 @@ cgraph_optimize (void)
     {
       cgraph_output_pending_asms ();
       cgraph_varpool_assemble_pending_decls ();
+      cgraph_varpool_output_debug_info ();
       return;
     }
 
@@ -1491,7 +1541,7 @@ cgraph_optimize (void)
 
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
-    fprintf (stderr, "Performing intraprocedural optimizations\n");
+    fprintf (stderr, "Performing interprocedural optimizations\n");
 
   cgraph_function_and_variable_visibility ();
   if (cgraph_dump_file)
@@ -1536,6 +1586,7 @@ cgraph_optimize (void)
       cgraph_varpool_remove_unreferenced_decls ();
 
       cgraph_varpool_assemble_pending_decls ();
+      cgraph_varpool_output_debug_info ();
     }
 
   if (cgraph_dump_file)
@@ -1876,3 +1927,4 @@ save_inline_function_body (struct cgraph_node *node)
   return first_clone;
 }
 
+#include "gt-cgraphunit.h"

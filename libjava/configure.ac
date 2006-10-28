@@ -95,6 +95,17 @@ AC_ARG_ENABLE(plugin,
     [plugin_enabled=no]
 )
 
+AC_ARG_ENABLE(gconf-peer,
+  AS_HELP_STRING([--enable-gconf-peer],
+                 [compile GConf native peers for util.preferences]),
+    [case "$enableval" in
+      yes) gconf_enabled=yes ;;
+      no)  gconf_enabled=no ;;
+      *)   AC_MSG_ERROR([Unknown argument to enable/disable gconf-peer]);;
+     esac],
+    [gconf_enabled=no]
+)
+
 # It may not be safe to run linking tests in AC_PROG_CC/AC_PROG_CXX.
 GCC_NO_EXECUTABLES
 
@@ -345,6 +356,10 @@ ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
 if test "$plugin_enabled" != yes; then
   ac_configure_args="$ac_configure_args --disable-plugin"
+fi
+if test "$gconf_enabled" != yes; then
+  ac_configure_args="$ac_configure_args --disable-gconf-peer"
+  ac_configure_args="$ac_configure_args --enable-default-preferences-peer=gnu.java.util.prefs.FileBasedFactory"
 fi
 if test "$use_gtk_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-gtk-peer"
@@ -866,11 +881,18 @@ AC_SUBST(THREADCXXFLAGS)
 AM_CONDITIONAL(USING_POSIX_THREADS, test "$THREADS" = posix)
 AM_CONDITIONAL(USING_WIN32_THREADS, test "$THREADS" = win32)
 AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
+AM_CONDITIONAL(USE_LIBGCJ_BC, test "$use_libgcj_bc" = yes)
 
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_CONFIG_LINKS(sysdep/locks.h:sysdep/$sysdeps_dir/locks.h)
 AC_CONFIG_LINKS(sysdep/backtrace.h:$fallback_backtrace_h)
 AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
+
+LIBGCJ_SPEC="%{s-bc-abi:} -lgcj"
+if test "$use_libgcj_bc" = yes; then
+  LIBGCJ_SPEC="%{s-bc-abi:-lgcj_bc;:-lgcj}"
+fi
+AC_SUBST(LIBGCJ_SPEC)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
@@ -913,7 +935,8 @@ else
 		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate mmap])
+		   fork execvp pipe sigaction ftruncate mmap \
+		   getifaddrs])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
    # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
@@ -1272,11 +1295,9 @@ multi_os_directory=`$CC -print-multi-os-directory`
 case $multi_os_directory in
   .)
    dbexecdir='$(libdir)/gcj-$(gcc_version)' # Avoid /.
-   ac_configure_args="$ac_configure_args --with-native-libdir=\$\(libdir\)/gcj-`cat $srcdir/../gcc/BASE-VER`"
    ;;
   *)
    dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)'
-   ac_configure_args="$ac_configure_args --with-native-libdir=\$\(libdir\)/$multi_os_directory/gcj-`cat $srcdir/../gcc/BASE-VER`"
    ;;
 esac
 AC_SUBST(dbexecdir)
@@ -1301,7 +1322,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h sys/rw_lock.h])
+		  dirent.h sys/rw_lock.h ifaddrs.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1427,7 +1448,7 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- *-*-darwin*)
+ powerpc*-*-darwin*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -1458,6 +1479,9 @@ fi
 
 # See if we support thread-local storage.
 GCC_CHECK_TLS
+
+# For _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=

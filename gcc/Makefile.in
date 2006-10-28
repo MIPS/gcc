@@ -268,6 +268,7 @@ INSTALL_SCRIPT = @INSTALL@
 MAKEINFO = @MAKEINFO@
 MAKEINFOFLAGS = --no-split
 TEXI2DVI = texi2dvi
+TEXI2PDF = texi2pdf
 TEXI2HTML = $(MAKEINFO) --html
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
@@ -846,7 +847,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER)
+LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER) $(GMPLIBS)
 
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -1467,7 +1468,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) specs \
 	mv tmp-libgcc.mk libgcc.mk
 
 # All the things that might cause us to want to recompile bits of libgcc.
-LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
+LIBGCC_DEPS = $(GCC_PASSES) stmp-int-hdrs $(STMP_FIXPROTO) \
 	libgcc.mk $(srcdir)/libgcc2.c $(srcdir)/libgcov.c $(TCONFIG_H) \
 	$(MACHMODE_H) longlong.h gbl-ctors.h config.status $(srcdir)/libgcc2.h \
 	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
@@ -2295,7 +2296,8 @@ cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) toplev.h $(FLAGS_H) $(GGC_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
    $(TREE_FLOW_H) tree-pass.h $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
-   $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h
+   $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h \
+   gt-cgraphunit.h
 ipa.o : ipa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(CGRAPH_H) 
 ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) ipa-prop.h \
@@ -2350,7 +2352,7 @@ fwprop.o : fwprop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
   output.h $(DF_H) alloc-pool.h $(TIMEVAR_H) tree-pass.h
 see.o : see.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
-   $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h
+   $(DF_H) $(OBSTACK_H) $(TIMEVAR_H) tree-pass.h $(EXPR_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(REAL_H) insn-config.h $(GGC_H) \
    $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) $(FUNCTION_H) output.h toplev.h \
@@ -2889,7 +2891,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-reference.c $(srcdir)/tree-ssa-structalias.h \
   $(srcdir)/tree-ssa-structalias.c \
   $(srcdir)/c-pragma.h $(srcdir)/omp-low.c \
-  $(srcdir)/targhooks.c $(out_file) \
+  $(srcdir)/targhooks.c $(srcdir)/cgraphunit.c $(out_file) \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2902,8 +2904,7 @@ GTFILES_FILES_FILES_C = $(subst $(srcdir)/,, \
 GTFILES_FILES_FILES_H = $(addprefix gt-, \
 	$(subst /,-,$(GTFILES_FILES_FILES_C:.c=.h)))
 GTFILES_LANG_DIR_NAMES_H = $(foreach d,$(GTFILES_LANG_DIR_NAMES), gtype-$(d).h)
-ALL_GTFILES_H := $(shell echo $(GTFILES_FILES_FILES_H) \
-	$(GTFILES_LANG_DIR_NAMES_H) | tr ' ' '\n'  | sort -u)
+ALL_GTFILES_H := $(sort $(GTFILES_FILES_FILES_H) $(GTFILES_LANG_DIR_NAMES_H))
 
 $(ALL_GTFILES_H) : s-gtype ; @true
 
@@ -2921,7 +2922,7 @@ gt-tree-profile.h gt-tree-ssa-address.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
-gt-tree-ssa-structalias.h gt-ipa-inline.h \
+gt-tree-ssa-structalias.h gt-ipa-inline.h gt-cgraphunit.h \
 gt-stringpool.h gt-targhooks.h gt-omp-low.h : s-gtype ; @true
 
 define echo_quoted_to_gtyp
@@ -3401,7 +3402,8 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 rtl.texi md.texi tm.texi hostconfig.texi fragments.texi	\
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi	\
 	 gnu.texi gpl.texi fdl.texi contrib.texi languages.texi		\
-	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi
+	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
+	 loop.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi
 
@@ -3418,7 +3420,7 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 	mv -f $@T $@
 
 
-# The *.1, *.7, *.info, and *.dvi files are being generated from implicit
+# The *.1, *.7, *.info, *.dvi, and *.pdf files are being generated from implicit
 # patterns.  To use them, put each of the specific targets with its
 # specific dependencies but no build commands.
 
@@ -3445,6 +3447,11 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
+doc/cpp.pdf: $(TEXI_CPP_FILES)
+doc/gcc.pdf: $(TEXI_GCC_FILES)
+doc/gccint.pdf: $(TEXI_GCCINT_FILES)
+doc/cppinternals.pdf: $(TEXI_CPPINT_FILES)
+
 $(build_htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
 $(build_htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
 $(build_htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
@@ -3459,6 +3466,16 @@ doc/%.dvi: %.texi
 # Duplicate entry to handle renaming of gccinstall.dvi
 doc/gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 	$(TEXI2DVI) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+pdf:: doc/gcc.pdf doc/gccint.pdf doc/gccinstall.pdf doc/cpp.pdf \
+      doc/cppinternals.pdf lang.pdf
+
+doc/%.pdf: %.texi
+	$(TEXI2PDF) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+# Duplicate entry to handle renaming of gccinstall.pdf
+doc/gccinstall.pdf: $(TEXI_GCCINSTALL_FILES)
+	$(TEXI2PDF) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
 
 # List the directories or single hmtl files which are installed by
 # install-html. The lang.html file triggers language fragments to build
@@ -3602,6 +3619,7 @@ clean: mostlyclean lang.clean
 	-rm -f cs-*
 	-rm -rf libgcc
 	-rm -f doc/*.dvi
+	-rm -f doc/*.pdf
 # Delete the include directory.
 	-rm -rf include
 # Delete files used by the "multilib" facility (including libgcc subdirs).
@@ -3649,7 +3667,7 @@ maintainer-clean:
 	$(MAKE) lang.maintainer-clean distclean
 	-rm -f cpp.??s cpp.*aux
 	-rm -f gcc.??s gcc.*aux
-	-rm -f $(gcc_docdir)/*.info $(gcc_docdir)/*.1 $(gcc_docdir)/*.7 $(gcc_docdir)/*.dvi
+	-rm -f $(gcc_docdir)/*.info $(gcc_docdir)/*.1 $(gcc_docdir)/*.7 $(gcc_docdir)/*.dvi $(gcc_docdir)/*.pdf
 #
 # Entry points `install' and `uninstall'.
 # Also use `install-collect2' to install collect2 when the config files don't.

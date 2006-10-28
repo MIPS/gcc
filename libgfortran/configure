@@ -6898,8 +6898,9 @@ fi
   break
 done
 if test "$acx_cv_header_stdint" = stddef.h; then
-  acx_cv_header_stdint_kind="(lacks uintptr_t)"
+  acx_cv_header_stdint_kind="(lacks uintmax_t)"
   for i in stdint.h $inttype_headers; do
+    unset ac_cv_type_uintptr_t
     unset ac_cv_type_uint32_t
     unset ac_cv_type_uint64_t
     echo $ECHO_N "looking for an incomplete stdint.h in $i, $ECHO_C" >&6
@@ -7025,11 +7026,65 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_type_uint64_t" >&5
 echo "${ECHO_T}$ac_cv_type_uint64_t" >&6
-if test $ac_cv_type_uint64_t = yes; then
-  :
+
+    echo "$as_me:$LINENO: checking for uintptr_t" >&5
+echo $ECHO_N "checking for uintptr_t... $ECHO_C" >&6
+if test "${ac_cv_type_uintptr_t+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  acx_cv_header_stdint_kind="(lacks uintptr_t and uint64_t)"
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+#include <$i>
+
+int
+main ()
+{
+if ((uintptr_t *) 0)
+  return 0;
+if (sizeof (uintptr_t))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_uintptr_t=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_uintptr_t=no
 fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_uintptr_t" >&5
+echo "${ECHO_T}$ac_cv_type_uintptr_t" >&6
 
     break
   done
@@ -7162,11 +7217,6 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_type_u_int64_t" >&5
 echo "${ECHO_T}$ac_cv_type_u_int64_t" >&6
-if test $ac_cv_type_u_int64_t = yes; then
-  :
-else
-  acx_cv_header_stdint_kind="(u_intXX_t style, lacks u_int64_t)"
-fi
 
     break
   done
@@ -10037,7 +10087,8 @@ fi
 done
 
 
-for ac_func in wait
+
+for ac_func in wait setmode
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -10142,6 +10193,73 @@ _ACEOF
 
 fi
 done
+
+
+# Check for types
+echo "$as_me:$LINENO: checking for intptr_t" >&5
+echo $ECHO_N "checking for intptr_t... $ECHO_C" >&6
+if test "${ac_cv_type_intptr_t+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+if ((intptr_t *) 0)
+  return 0;
+if (sizeof (intptr_t))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_intptr_t=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_intptr_t=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_intptr_t" >&5
+echo "${ECHO_T}$ac_cv_type_intptr_t" >&6
+if test $ac_cv_type_intptr_t = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_INTPTR_T 1
+_ACEOF
+
+
+fi
 
 
 # Check libc for getgid, getpid, getuid
@@ -15226,6 +15344,237 @@ if test $ac_cv_lib_m_hypotl = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_HYPOTL 1
+_ACEOF
+
+fi
+
+echo "$as_me:$LINENO: checking for ldexpf in -lm" >&5
+echo $ECHO_N "checking for ldexpf in -lm... $ECHO_C" >&6
+if test "${ac_cv_lib_m_ldexpf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lm  $LIBS"
+if test x$gcc_no_link = xyes; then
+  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
+echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char ldexpf ();
+int
+main ()
+{
+ldexpf ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_m_ldexpf=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_m_ldexpf=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_m_ldexpf" >&5
+echo "${ECHO_T}$ac_cv_lib_m_ldexpf" >&6
+if test $ac_cv_lib_m_ldexpf = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LDEXPF 1
+_ACEOF
+
+fi
+
+echo "$as_me:$LINENO: checking for ldexp in -lm" >&5
+echo $ECHO_N "checking for ldexp in -lm... $ECHO_C" >&6
+if test "${ac_cv_lib_m_ldexp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lm  $LIBS"
+if test x$gcc_no_link = xyes; then
+  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
+echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char ldexp ();
+int
+main ()
+{
+ldexp ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_m_ldexp=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_m_ldexp=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_m_ldexp" >&5
+echo "${ECHO_T}$ac_cv_lib_m_ldexp" >&6
+if test $ac_cv_lib_m_ldexp = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LDEXP 1
+_ACEOF
+
+fi
+
+echo "$as_me:$LINENO: checking for ldexpl in -lm" >&5
+echo $ECHO_N "checking for ldexpl in -lm... $ECHO_C" >&6
+if test "${ac_cv_lib_m_ldexpl+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lm  $LIBS"
+if test x$gcc_no_link = xyes; then
+  { { echo "$as_me:$LINENO: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&5
+echo "$as_me: error: Link tests are not allowed after GCC_NO_EXECUTABLES." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char ldexpl ();
+int
+main ()
+{
+ldexpl ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_m_ldexpl=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_m_ldexpl=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_m_ldexpl" >&5
+echo "${ECHO_T}$ac_cv_lib_m_ldexpl" >&6
+if test $ac_cv_lib_m_ldexpl = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_LDEXPL 1
 _ACEOF
 
 fi
@@ -23161,11 +23510,8 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 
-#define ULP	STR1(__USER_LABEL_PREFIX__)
-#define STR1(x)	STR2(x)
-#define STR2(x)	#x
 void foo(void) { }
-extern void bar(void) __attribute__((alias(ULP "foo")));
+extern void bar(void) __attribute__((alias("foo")));
 int
 main ()
 {

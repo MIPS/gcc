@@ -23,6 +23,7 @@ details.  */
 #include <java/lang/StackTraceElement.h>
 #include <java/lang/Throwable.h>
 #include <java/lang/Thread.h>
+#include <java/util/IdentityHashMap.h>
 
 #include <gnu/gcj/runtime/NameFinder.h>
 
@@ -102,6 +103,7 @@ private:
   int length;
   _Jv_StackFrame frames[];
 
+  static java::util::IdentityHashMap *ncodeMap;
   static void UpdateNCodeMap ();
   static jclass ClassForFrame (_Jv_StackFrame *frame);
   static void FillInFrameInfo (_Jv_StackFrame *frame);
@@ -114,6 +116,7 @@ private:
     
   static _Unwind_Reason_Code calling_class_trace_fn (_Jv_UnwindState *state);
   static _Unwind_Reason_Code non_system_trace_fn (_Jv_UnwindState *state);
+  static _Unwind_Reason_Code accesscontrol_trace_fn (_Jv_UnwindState *state);
 
 public:
   static _Jv_StackTrace *GetStackTrace (void);
@@ -124,8 +127,9 @@ public:
   static void GetCallerInfo (jclass checkClass, jclass *, _Jv_Method **);
   static JArray<jclass> *GetClassContext (jclass checkClass);
   static ClassLoader *GetFirstNonSystemClassLoader (void);
-  static JArray<jobjectArray> *GetClassMethodStack (_Jv_StackTrace *trace);
-  
+  static jobjectArray GetAccessControlStack ();
+
+  friend jclass _Jv_GetMethodDeclaringClass (jmethodID);
 };
 
 // Information about a given address.

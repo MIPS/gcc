@@ -58,7 +58,9 @@ add_reg_br_prob_note (rtx last, int probability)
 	if (!any_condjump_p (last)
 	    || !JUMP_P (NEXT_INSN (last))
 	    || !simplejump_p (NEXT_INSN (last))
+	    || !NEXT_INSN (NEXT_INSN (last))
 	    || !BARRIER_P (NEXT_INSN (NEXT_INSN (last)))
+	    || !NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))
 	    || !LABEL_P (NEXT_INSN (NEXT_INSN (NEXT_INSN (last))))
 	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
 	  goto failed;
@@ -348,10 +350,18 @@ stack_var_size_cmp (const void *a, const void *b)
 {
   HOST_WIDE_INT sa = stack_vars[*(const size_t *)a].size;
   HOST_WIDE_INT sb = stack_vars[*(const size_t *)b].size;
+  unsigned int uida = DECL_UID (stack_vars[*(const size_t *)a].decl);
+  unsigned int uidb = DECL_UID (stack_vars[*(const size_t *)b].decl);
 
   if (sa < sb)
     return -1;
   if (sa > sb)
+    return 1;
+  /* For stack variables of the same size use the uid of the decl
+     to make the sort stable.  */
+  if (uida < uidb)
+    return -1;
+  if (uida > uidb)
     return 1;
   return 0;
 }
@@ -754,7 +764,12 @@ expand_used_vars_for_block (tree block, bool toplevel)
 
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
-    if (TREE_USED (t))
+    if (TREE_USED (t)
+	/* Force local static variables to be output when marked by
+	   used attribute.  For unit-at-a-time, cgraph code already takes
+	   care of this.  */
+	|| (!flag_unit_at_a_time && TREE_STATIC (t)
+	    && DECL_PRESERVE_P (t)))
       expand_one_var (t, toplevel);
 
   this_sv_num = stack_vars_num;

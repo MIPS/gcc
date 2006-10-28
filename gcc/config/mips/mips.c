@@ -1221,7 +1221,10 @@ mips_classify_symbol (rtx x)
 	return SYMBOL_SMALL_DATA;
     }
 
-  if (SYMBOL_REF_SMALL_P (x))
+  /* Do not use small-data accesses for weak symbols; they may end up
+     being zero.  */
+  if (SYMBOL_REF_SMALL_P (x)
+      && !SYMBOL_REF_WEAK (x))
     return SYMBOL_SMALL_DATA;
 
   if (TARGET_ABICALLS)
@@ -1279,12 +1282,13 @@ mips_split_const (rtx x, rtx *base, HOST_WIDE_INT *offset)
   *offset = 0;
 
   if (GET_CODE (x) == CONST)
-    x = XEXP (x, 0);
-
-  if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
     {
-      *offset += INTVAL (XEXP (x, 1));
       x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS && GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  *offset += INTVAL (XEXP (x, 1));
+	  x = XEXP (x, 0);
+	}
     }
   *base = x;
 }
@@ -2033,6 +2037,11 @@ mips_legitimize_tls_address (rtx loc)
   v1 = gen_rtx_REG (Pmode, GP_RETURN + 1);
 
   model = SYMBOL_REF_TLS_MODEL (loc);
+  /* Only TARGET_ABICALLS code can have more than one module; other
+     code must be be static and should not use a GOT.  All TLS models
+     reduce to local exec in this situation.  */
+  if (!TARGET_ABICALLS)
+    model = TLS_MODEL_LOCAL_EXEC;
 
   switch (model)
     {
@@ -2075,7 +2084,6 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     case TLS_MODEL_LOCAL_EXEC:
-
       if (Pmode == DImode)
 	emit_insn (gen_tls_get_tp_di (v1));
       else
@@ -4541,13 +4549,15 @@ bool
 mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
 {
   rtx left, right;
+  enum machine_mode mode;
 
   if (!mips_get_unaligned_mem (&dest, width, bitpos, &left, &right))
     return false;
 
-  src = gen_lowpart (mode_for_size (width, MODE_INT, 0), src);
+  mode = mode_for_size (width, MODE_INT, 0);
+  src = gen_lowpart (mode, src);
 
-  if (GET_MODE (src) == DImode)
+  if (mode == DImode)
     {
       emit_insn (gen_mov_sdl (dest, src, left));
       emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
@@ -4558,6 +4568,20 @@ mips_expand_unaligned_store (rtx dest, rtx src, unsigned int width, int bitpos)
       emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
     }
   return true;
+}
+
+/* Return true if X is a MEM with the same size as MODE.  */
+
+bool
+mips_mem_fits_mode_p (enum machine_mode mode, rtx x)
+{
+  rtx size;
+
+  if (!MEM_P (x))
+    return false;
+
+  size = MEM_SIZE (x);
+  return size && INTVAL (size) == GET_MODE_SIZE (mode);
 }
 
 /* Return true if (zero_extract OP SIZE POSITION) can be used as the
@@ -6505,7 +6529,7 @@ mips_save_restore_reg (enum machine_mode mode, int regno,
 {
   rtx mem;
 
-  mem = gen_rtx_MEM (mode, plus_constant (stack_pointer_rtx, offset));
+  mem = gen_frame_mem (mode, plus_constant (stack_pointer_rtx, offset));
 
   fn (gen_rtx_REG (mode, regno), mem);
 }
@@ -7297,8 +7321,10 @@ mips_function_rodata_section (tree decl)
   return data_section;
 }
 
-/* Implement TARGET_IN_SMALL_DATA_P.  Return true if it would be safe to
-   access DECL using %gp_rel(...)($gp).  */
+/* Implement TARGET_IN_SMALL_DATA_P.  This function controls whether
+   locally-defined objects go in a small data section.  It also controls
+   the setting of the SYMBOL_REF_SMALL_P flag, which in turn helps
+   mips_classify_symbol decide when to use %gp_rel(...)($gp) accesses.  */
 
 static bool
 mips_in_small_data_p (tree decl)
@@ -7540,10 +7566,10 @@ mips_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
       int size;
 
       /* ??? How should SCmode be handled?  */
-      if (type == NULL_TREE || mode == DImode || mode == DFmode)
+      if (mode == DImode || mode == DFmode)
 	return 0;
 
-      size = int_size_in_bytes (type);
+      size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
       return size == -1 || size > UNITS_PER_WORD;
     }
   else
@@ -10068,9 +10094,6 @@ struct builtin_description
   CMP_4S_BUILTINS (c, COND),						\
   CMP_4S_BUILTINS (cabs, COND)
 
-/* __builtin_mips_abs_ps() maps to the standard absM2 pattern.  */
-#define CODE_FOR_mips_abs_ps CODE_FOR_absv2sf2
-
 static const struct builtin_description mips_bdesc[] =
 {
   DIRECT_BUILTIN (pll_ps, MIPS_V2SF_FTYPE_V2SF_V2SF, MASK_PAIRED_SINGLE_FLOAT),
@@ -10580,9 +10603,9 @@ mips_init_builtins (void)
       if (m->proc == PROCESSOR_MAX || (m->proc == mips_arch))
 	for (d = m->bdesc; d < &m->bdesc[m->size]; d++)
 	  if ((d->target_flags & target_flags) == d->target_flags)
-	    lang_hooks.builtin_function (d->name, types[d->function_type],
-					 d - m->bdesc + offset,
-					 BUILT_IN_MD, NULL, NULL);
+	    add_builtin_function (d->name, types[d->function_type],
+				  d - m->bdesc + offset,
+				  BUILT_IN_MD, NULL, NULL);
       offset += m->size;
     }
 }

@@ -93,7 +93,6 @@ bits_srcdir = ${glibcxx_srcdir}/include/bits
 bits_builddir = ./bits
 bits_headers = \
 	${bits_srcdir}/allocator.h \
-	${bits_srcdir}/atomicity.h \
 	${bits_srcdir}/basic_ios.h \
 	${bits_srcdir}/basic_ios.tcc \
 	${bits_srcdir}/basic_string.h \
@@ -102,7 +101,6 @@ bits_headers = \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
-	${bits_srcdir}/concurrence.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/fstream.tcc \
@@ -206,7 +204,6 @@ pb_subdirs = \
 	${pb_builddir}/detail/pairing_heap_ \
 	${pb_builddir}/detail/splay_tree_ \
 	${pb_builddir}/detail/list_update_map_ \
-	${pb_builddir}/detail/typelist \
 	${pb_builddir}/detail/basic_tree_policy \
 	${pb_builddir}/detail/trie_policy \
 	${pb_builddir}/detail/gp_hash_table_map_ \
@@ -505,17 +502,6 @@ pb_headers7 = \
 	${pb_srcdir}/detail/trie_policy/sample_trie_node_update.hpp \
 	${pb_srcdir}/detail/trie_policy/string_trie_e_access_traits_imp.hpp \
 	${pb_srcdir}/detail/trie_policy/trie_policy_base.hpp \
-	${pb_srcdir}/detail/typelist_assoc_container.hpp \
-	${pb_srcdir}/detail/typelist.hpp \
-	${pb_srcdir}/detail/typelist/typelist_append.hpp \
-	${pb_srcdir}/detail/typelist/typelist_apply.hpp \
-	${pb_srcdir}/detail/typelist/typelist_assoc_container_find.hpp \
-	${pb_srcdir}/detail/typelist/typelist_at_index.hpp \
-	${pb_srcdir}/detail/typelist/typelist_contains.hpp \
-	${pb_srcdir}/detail/typelist/typelist_filter.hpp \
-	${pb_srcdir}/detail/typelist/typelist_flatten.hpp \
-	${pb_srcdir}/detail/typelist/typelist_transform.hpp \
-	${pb_srcdir}/detail/typelist/typelist_typelist_append.hpp \
 	${pb_srcdir}/detail/types_traits.hpp \
 	${pb_srcdir}/detail/type_utils.hpp \
 	${pb_srcdir}/detail/unordered_iterator/const_iterator.hpp \
@@ -529,9 +515,11 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext 
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/atomicity.h \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/codecvt_specializations.h \
+	${ext_srcdir}/concurrence.h \
 	${ext_srcdir}/debug_allocator.h \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
@@ -552,7 +540,9 @@ ext_headers = \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
+	${ext_srcdir}/throw_allocator.h \
 	${ext_srcdir}/typelist.h \
+	${ext_srcdir}/type_traits.h \
 	${ext_srcdir}/rc_string_base.h \
 	${ext_srcdir}/sso_string_base.h \
 	${ext_srcdir}/vstring.h \
@@ -609,6 +599,7 @@ tr1_headers = \
 	${tr1_srcdir}/stdlib.h \
 	${tr1_srcdir}/tgmath.h \
 	${tr1_srcdir}/tuple \
+	${tr1_srcdir}/tuple_defs.h \
 	${tr1_srcdir}/tuple_iterate.h \
 	${tr1_srcdir}/type_traits \
 	${tr1_srcdir}/type_traits_fwd.h \

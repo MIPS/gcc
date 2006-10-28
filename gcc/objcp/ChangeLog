@@ -1,3 +1,16 @@
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* objcp-decl.h (objcp_builtin_function): Remove.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added empty "obj-c++.pdf" target.
+
+2006-08-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* objcp-lang.c (objcp_tsubst_copy_and_build): Adjust call to
+	tsubst_copy_and_build.
+
 2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.

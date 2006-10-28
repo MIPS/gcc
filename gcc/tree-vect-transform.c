@@ -303,7 +303,7 @@ vect_create_data_ref_ptr (tree stmt,
   /* If tag is a variable (and NOT_A_TAG) than a new symbol memory
      tag must be created with tag added to its may alias list.  */
   if (!MTAG_P (tag))
-    new_type_alias (vect_ptr, tag);
+    new_type_alias (vect_ptr, tag, DR_REF (dr));
   else
     var_ann (vect_ptr)->symbol_mem_tag = tag;
 
@@ -351,7 +351,7 @@ vect_create_data_ref_ptr (tree stmt,
 		 NULL_TREE, loop, &incr_bsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = bsi_stmt (incr_bsi);
-      set_stmt_info ((tree_ann_t)stmt_ann (incr),
+      set_stmt_info (stmt_ann (incr),
 		     new_stmt_vec_info (incr, loop_vinfo));
 
       /* Copy the points-to information if it exists. */
@@ -1916,11 +1916,13 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  /* Create permutation mask, if required, in loop preheader.  */
 	  tree builtin_decl;
 	  params = build_tree_list (NULL_TREE, init_addr);
-	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
 	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
 	  new_stmt = build_function_call_expr (builtin_decl, params);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
-	  new_temp = make_ssa_name (vec_dest, new_stmt);
+	  vec_dest = vect_create_destination_var (scalar_dest,
+                                                  TREE_TYPE (new_stmt));
+          new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (vec_dest), vec_dest,
+                             new_stmt);
+          new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
 	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
 	  gcc_assert (!new_bb);
@@ -2117,12 +2119,12 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   then_clause = TREE_OPERAND (op, 1);
   else_clause = TREE_OPERAND (op, 2);
 
+  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
+    return false;
+
   /* We do not handle two different vector types for the condition
      and the values.  */
   if (TREE_TYPE (TREE_OPERAND (cond_expr, 0)) != TREE_TYPE (vectype))
-    return false;
-
-  if (!vect_is_simple_cond (cond_expr, loop_vinfo))
     return false;
 
   if (TREE_CODE (then_clause) == SSA_NAME)
@@ -3114,7 +3116,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	      /* Free the attached stmt_vec_info and remove the stmt.  */
 	      stmt_ann_t ann = stmt_ann (stmt);
 	      free (stmt_info);
-	      set_stmt_info ((tree_ann_t)ann, NULL);
+	      set_stmt_info (ann, NULL);
 	      bsi_remove (&si, true);
 	      continue;
 	    }

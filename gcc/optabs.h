@@ -98,7 +98,7 @@ enum optab_index
   OTI_umod,
   /* Floating point remainder functions */
   OTI_fmod,
-  OTI_drem,
+  OTI_remainder,
   /* Convert float to integer in float fmt */
   OTI_ftrunc,
 
@@ -196,7 +196,6 @@ enum optab_index
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
-  OTI_lrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -289,7 +288,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define smod_optab (optab_table[OTI_smod])
 #define umod_optab (optab_table[OTI_umod])
 #define fmod_optab (optab_table[OTI_fmod])
-#define drem_optab (optab_table[OTI_drem])
+#define remainder_optab (optab_table[OTI_remainder])
 #define ftrunc_optab (optab_table[OTI_ftrunc])
 #define and_optab (optab_table[OTI_and])
 #define ior_optab (optab_table[OTI_ior])
@@ -345,7 +344,6 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
-#define lrint_optab (optab_table[OTI_lrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
@@ -407,6 +405,9 @@ enum convert_optab_index
   COI_sfloat,
   COI_ufloat,
 
+  COI_lrint,
+  COI_lround,
+
   COI_MAX
 };
 
@@ -421,6 +422,8 @@ extern GTY(()) convert_optab convert_optab_table[COI_MAX];
 #define ufixtrunc_optab (convert_optab_table[COI_ufixtrunc])
 #define sfloat_optab (convert_optab_table[COI_sfloat])
 #define ufloat_optab (convert_optab_table[COI_ufloat])
+#define lrint_optab (convert_optab_table[COI_lrint])
+#define lround_optab (convert_optab_table[COI_lround])
 
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a
@@ -596,6 +599,9 @@ extern void expand_float (rtx, rtx, int);
 
 /* Generate code for a FIX_EXPR.  */
 extern void expand_fix (rtx, rtx, int);
+
+/* Generate code for float to integral conversion.  */
+extern bool expand_sfix_optab (rtx, rtx, convert_optab);
 
 /* Return tree if target supports vector operations for COND_EXPR.  */
 bool expand_vec_cond_expr_p (tree, enum machine_mode);

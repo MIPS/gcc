@@ -419,6 +419,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       TREE_CHAIN (x) = t;
       DECL_CONTEXT (x) = thunk_fndecl;
       SET_DECL_RTL (x, NULL_RTX);
+      DECL_HAS_VALUE_EXPR_P (x) = 0;
       t = x;
     }
   a = nreverse (t);
@@ -783,7 +784,7 @@ synthesize_method (tree fndecl)
       tree arg_chain = FUNCTION_FIRST_USER_PARMTYPE (fndecl);
       if (arg_chain != void_list_node)
 	do_build_copy_constructor (fndecl);
-      else if (TYPE_NEEDS_CONSTRUCTING (current_class_type))
+      else
 	finish_mem_initializers (NULL_TREE);
     }
 

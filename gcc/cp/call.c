@@ -39,6 +39,7 @@ Boston, MA 02110-1301, USA.  */
 #include "intl.h"
 #include "target.h"
 #include "convert.h"
+#include "langhooks.h"
 
 /* The various kinds of conversion.  */
 
@@ -4544,10 +4545,12 @@ build_x_va_arg (tree expr, tree type)
 
   if (! pod_type_p (type))
     {
+      /* Remove reference types so we don't ICE later on.  */
+      tree type1 = non_reference (type);
       /* Undefined behavior [expr.call] 5.2.2/7.  */
       warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
 	       "call will abort at runtime", type);
-      expr = convert (build_pointer_type (type), null_node);
+      expr = convert (build_pointer_type (type1), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
 		     call_builtin_trap (), expr);
       expr = build_indirect_ref (expr, NULL);
@@ -4847,6 +4850,12 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_VALUE (parm);
 
       conv = convs[i];
+
+      /* Don't make a copy here if build_call is going to.  */
+      if (conv->kind == ck_rvalue
+	  && !TREE_ADDRESSABLE (complete_type (type)))
+	conv = conv->u.next;
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 
@@ -5057,9 +5066,9 @@ build_java_interface_fn_ref (tree fn, tree instance)
 				     tree_cons (NULL_TREE, java_int_type_node,
 						endlink)));
       java_iface_lookup_fn
-	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
-			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+	= add_builtin_function ("_Jv_LookupInterfaceMethodIdx",
+				build_function_type (ptr_type_node, t),
+				0, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'.

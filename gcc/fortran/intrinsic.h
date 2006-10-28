@@ -1,6 +1,6 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -98,6 +98,7 @@ try gfc_check_merge (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_minloc_maxloc (gfc_actual_arglist *);
 try gfc_check_minval_maxval (gfc_actual_arglist *);
 try gfc_check_nearest (gfc_expr *, gfc_expr *);
+try gfc_check_new_line (gfc_expr *);
 try gfc_check_null (gfc_expr *);
 try gfc_check_pack (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_precision (gfc_expr *);
@@ -153,6 +154,7 @@ try gfc_check_free (gfc_expr *);
 try gfc_check_fstat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_gerror (gfc_expr *);
 try gfc_check_getlog (gfc_expr *);
+try gfc_check_move_alloc (gfc_expr *, gfc_expr *);
 try gfc_check_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 		      gfc_expr *);
 try gfc_check_random_number (gfc_expr *);
@@ -255,6 +257,7 @@ gfc_expr *gfc_simplify_modulo (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 			       gfc_expr *);
 gfc_expr *gfc_simplify_nearest (gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_new_line (gfc_expr *);
 gfc_expr *gfc_simplify_nint (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_null (gfc_expr *);
 gfc_expr *gfc_simplify_idnint (gfc_expr *);
@@ -357,6 +360,7 @@ void gfc_resolve_iand (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibclr (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibset (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_index_func (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ierrno (gfc_expr *);
 void gfc_resolve_ieor (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ichar (gfc_expr *, gfc_expr *);
