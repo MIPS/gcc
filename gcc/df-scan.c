@@ -82,15 +82,21 @@ bitmap df_invalidated_by_call = NULL;
 /* Initialize ur_in and ur_out as if all hard registers were partially
    available.  */
 
-static void df_ref_record (struct dataflow *, rtx, rtx *, 
-			   basic_block, rtx, enum df_ref_type,
-			   enum df_ref_flags, bool record_live);
-static void df_def_record_1 (struct dataflow *, rtx, basic_block, rtx,
-			     enum df_ref_flags, bool record_live);
-static void df_defs_record (struct dataflow *, rtx, basic_block, rtx,
-			    enum df_ref_flags);
-static void df_uses_record (struct dataflow *, rtx *, enum df_ref_type,
-			    basic_block, rtx, enum df_ref_flags);
+static struct df_ref * df_ref_record (struct dataflow *, 
+                                      struct df_ref *,
+                                      rtx, rtx *, 
+			              basic_block, rtx, enum df_ref_type, 
+                                      enum df_ref_flags, bool record_live);
+static struct df_ref * df_def_record_1 (struct dataflow *, struct df_ref *,
+                                        rtx, basic_block, rtx,
+			                enum df_ref_flags, bool record_live);
+static struct df_ref * df_defs_record (struct dataflow *,
+                                       struct df_ref *,
+                                       rtx, basic_block, rtx,
+			               enum df_ref_flags);
+static struct df_ref * df_uses_record (struct dataflow *, struct df_ref *,
+                                       rtx *, enum df_ref_type,
+			               basic_block, rtx, enum df_ref_flags);
 
 static void df_bb_refs_record (struct dataflow *, basic_block);
 static void df_refs_record (struct dataflow *, bitmap);
@@ -102,6 +108,33 @@ static void df_record_exit_block_uses (struct dataflow *);
 static void df_grow_reg_info (struct dataflow *);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
 static void df_grow_insn_info (struct df *);
+
+/* A structure to hold multiple return values from df_ref_find_chains.  */
+struct df_chains
+{
+  struct df_ref **ref_chain;
+  struct df_reg_info *reg_info;
+  struct df_ref_info *ref_info;
+};
+
+static struct df_chains df_ref_find_chains (struct dataflow *,
+		    			    struct df_ref *);
+static void df_ref_add_to_chains (struct dataflow *, 
+                                  struct df_ref *,
+                                  struct df_mw_hardreg *);
+static void df_refs_add_to_chains (struct dataflow *, rtx insn, struct df_ref *);
+
+#define DEBUG_DF_RESCAN
+#ifdef DEBUG_DF_RESCAN
+typedef bool (*df_ref_compare_func_t)(struct df_ref *, struct df_ref *);
+static bool df_ref_is_equal (struct df_ref *, struct df_ref *);
+static struct df_ref *df_ref_chain_find_ref (struct df_ref *, 
+                                             struct df_ref *, 
+                                             df_ref_compare_func_t);
+static struct df_ref *df_reg_chain_find_ref (struct df_ref *, 
+                                             struct df_ref *,
+                                             df_ref_compare_func_t);
+#endif /* DEBUG_DF_RESCAN */
 
 
 /*----------------------------------------------------------------------------
@@ -302,6 +335,7 @@ df_scan_free (struct dataflow *dflow)
   free (dflow);
 }
 
+/* Dump the preamble for DF_SCAN dump. */
 static void 
 df_scan_start_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUTE_UNUSED)
 {
@@ -327,6 +361,23 @@ df_scan_start_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUT
   fprintf (file, "\n");
 }
 
+/* Dump the bb_info for a given basic block. */
+static void 
+df_scan_start_block (struct dataflow *dflow, basic_block bb, FILE *file)
+{
+  struct df_scan_bb_info *bb_info
+    = df_scan_get_bb_info (dflow, bb->index);
+
+  if (bb_info)
+    {
+      fprintf (file, "bb %d artificial_defs: ", bb->index);
+      df_refs_chain_dump (bb_info->artificial_defs, true, file);
+      fprintf (file, "\nbb %d artificial_uses: ", bb->index);
+      df_refs_chain_dump (bb_info->artificial_uses, true, file);
+      fprintf (file, "\n");
+    }
+}
+
 static struct df_problem problem_SCAN =
 {
   DF_SCAN,                    /* Problem id.  */
@@ -343,7 +394,7 @@ static struct df_problem problem_SCAN =
   NULL,                       /* Finalize function.  */
   df_scan_free,               /* Free all of the problem information.  */
   df_scan_start_dump,         /* Debugging.  */
-  NULL,                       /* Debugging start block.  */
+  df_scan_start_block,        /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
   NULL                        /* Dependent problem.  */
 };
@@ -359,6 +410,7 @@ df_scan_add_problem (struct df *df)
   return df_add_problem (df, &problem_SCAN);
 }
 
+
 /*----------------------------------------------------------------------------
    Storage Allocation Utilities
 ----------------------------------------------------------------------------*/
@@ -434,6 +486,23 @@ df_grow_ref_info (struct df_ref_info *ref_info, unsigned int new_size)
 }
 
 
+/* Check and grow the ref information if necessary.
+   This routine guarantees bitmap_size + bitmap_add 
+   amount of entries in refs array.
+   It updates ref_info->refs_size only
+   and does not change ref_info->bitmap_size.  */
+
+static void
+df_check_and_grow_ref_info (struct df_ref_info *ref_info, 
+			    unsigned bitmap_addend)
+{
+  if (ref_info->refs_size < ref_info->bitmap_size + bitmap_addend)
+    {
+      int new_size = ref_info->bitmap_size + ref_info->bitmap_size / 4;
+      df_grow_ref_info (ref_info, new_size);
+    }
+}
+
 /* Grow the ref information.  If the current size is less than the
    number of instructions, grow to 25% more than the number of
    instructions.  */
@@ -464,7 +533,7 @@ df_grow_insn_info (struct df *df)
    df_set_blocks if BLOCKS is NULL);  */
 
 void
-df_rescan_blocks (struct df *df, bitmap blocks)
+df_scan_blocks (struct df *df, bitmap blocks)
 {
   bitmap local_blocks_to_scan = BITMAP_ALLOC (NULL);
 
@@ -560,6 +629,7 @@ df_rescan_blocks (struct df *df, bitmap blocks)
     }
 
   df_refs_record (dflow, local_blocks_to_scan);
+
 #if 0
   bitmap_print (stderr, local_blocks_to_scan, "scanning: ", "\n");
 #endif
@@ -581,6 +651,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags)
 {
+  struct df_ref *ref;
   struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   struct df_scan_bb_info *bb_info;
   
@@ -602,7 +673,10 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
   else
     df->use_info.add_refs_inline = true;
   
-  return df_ref_create_structure (dflow, reg, loc, bb, insn, ref_type, ref_flags);
+  ref = df_ref_create_structure (dflow, reg, loc, bb, insn, ref_type, ref_flags);
+  df_ref_add_to_chains (dflow, ref, NULL);
+
+  return ref;
 }
 
 
@@ -913,6 +987,7 @@ df_refs_delete (struct dataflow *dflow, bitmap blocks)
 }
 
 
+
 /* Take build ref table for either the uses or defs from the reg-use
    or reg-def chains.  */ 
 
@@ -927,11 +1002,7 @@ df_reorganize_refs (struct df *df,
   unsigned int offset = 0;
   unsigned int size = 0;
 
-  if (ref_info->refs_size < ref_info->bitmap_size)
-    {  
-      int new_size = ref_info->bitmap_size + ref_info->bitmap_size / 4;
-      df_grow_ref_info (ref_info, new_size);
-    }
+  df_check_and_grow_ref_info (ref_info, 0);
 
   for (regno = 0; regno < m; regno++)
     {
@@ -1005,13 +1076,254 @@ df_maybe_reorganize_def_refs (struct df *df)
     df_reorganize_refs (df, &df->def_info, df->def_regs, NULL);
 }
 
+#ifdef DEBUG_DF_RESCAN
+
+
+
+/* Return true if the contents of two df_ref's are identical.  */
+
+static bool
+df_ref_is_equal (struct df_ref *ref1, struct df_ref *ref2)
+{
+  return (ref1 == ref2) ||
+    (DF_REF_REG (ref1) == DF_REF_REG (ref2)
+      && DF_REF_REGNO (ref1) == DF_REF_REGNO (ref2)
+      && DF_REF_LOC (ref1) == DF_REF_LOC (ref2)
+      && DF_REF_INSN (ref1) == DF_REF_INSN (ref2)
+      && DF_REF_TYPE (ref1) == DF_REF_TYPE (ref2)
+      && DF_REF_FLAGS (ref1) == DF_REF_FLAGS (ref2)
+      && DF_REF_BB (ref1) == DF_REF_BB (ref2));
+}
+
+/* Return true if two df_ref pointers are identical. */
+static bool
+df_ref_is_pointer_equal (struct df_ref *ref1, struct df_ref *ref2)
+{
+  return ref1 == ref2;
+}
+
+/* Find a matching df_ref in the ref chain */
+static struct df_ref *
+df_ref_chain_find_ref (struct df_ref *chain, 
+                       struct df_ref *this_ref,
+                       df_ref_compare_func_t func)
+{
+  while (chain) 
+    {
+      if (func (this_ref, chain))
+        return chain;
+      chain = chain->next_ref;
+    }
+
+  return NULL;
+}
+
+/* Find a matching df_ref in the ref chain */
+static struct df_ref *
+df_reg_chain_find_ref (struct df_ref *chain, 
+                       struct df_ref *this_ref, 
+                       df_ref_compare_func_t func)
+{
+  while (chain) 
+    {
+      if (func (this_ref, chain))
+        return chain;
+      chain = chain->next_reg;
+    }
+
+  return NULL;
+}
+#endif /* DEBUG_DF_RESCAN */
+
+
+/* Append a new ref ITEM to the end of existing ref chain LAST_ELEMENT. 
+   LAST_ELEMENT should point to the last element of the existing chain.  */
+
+static struct df_ref *
+df_ref_chain_append (struct df_ref *last_element, struct df_ref *item)
+{
+  last_element->next_ref = item;
+  return item;
+}
+
+/* A convenience macro for chain append.  */
+#define DF_REF_CHAIN_APPEND(last, item) (last = df_ref_chain_append ((last), (item)))
+
 
 /*----------------------------------------------------------------------------
    Hard core instruction scanning code.  No external interfaces here,
    just a lot of routines that look inside insns.
 ----------------------------------------------------------------------------*/
 
-/* Create a ref and add it to the reg-def or reg-use chains.  */
+
+/* Return the appropriate chains this_ref belongs to. */
+
+static struct df_chains
+df_ref_find_chains (struct dataflow *dflow,
+		    struct df_ref *this_ref)
+{
+  struct df_chains chains;
+
+  struct df *df = dflow->df;
+  enum df_ref_type ref_type = DF_REF_TYPE (this_ref);
+  int regno = DF_REF_REGNO (this_ref);
+  rtx insn = DF_REF_INSN (this_ref);
+  basic_block bb = DF_REF_BB (this_ref);
+  bool is_artificial = DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL;
+  bool is_eq_use = DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE;
+  struct df_scan_bb_info *bb_info
+      = df_scan_get_bb_info (dflow, bb->index);
+
+  /* Find the appropriate ref_chain/reg_info/ref_info 
+     that this ref belongs to. */
+  switch (ref_type) 
+    {
+    case DF_REF_REG_DEF:
+        chains.ref_chain = (is_artificial) 
+            ? & bb_info->artificial_defs 
+            : & DF_INSN_DEFS (df, insn);
+        chains.reg_info = DF_REG_DEF_GET (df, regno);
+        chains.ref_info = & df->def_info;
+        break;
+    case DF_REF_REG_MEM_LOAD:
+    case DF_REF_REG_MEM_STORE:
+    case DF_REF_REG_USE:
+        chains.ref_chain = (is_artificial) 
+            ? & bb_info->artificial_uses 
+            : (is_eq_use) 
+	    ? & DF_INSN_EQ_USES (df, insn)
+	    : & DF_INSN_USES (df, insn);
+        chains.reg_info = (is_eq_use) 
+	  ? DF_REG_EQ_USE_GET (df, regno)
+	  : DF_REG_USE_GET (df, regno);
+        chains.ref_info = & df->use_info;
+        break;
+    default:
+        gcc_unreachable ();
+    }
+
+  return chains;
+}
+
+
+/* Add the new df_ref to appropriate ref/reg_info/ref_info chains.  */
+
+static void
+df_ref_add_to_chains (struct dataflow *dflow,
+                      struct df_ref *this_ref,
+                      struct df_mw_hardreg *hardreg)
+{
+  struct df_chains chains = df_ref_find_chains (dflow, this_ref);
+
+  struct df_ref **ref_chain = chains.ref_chain;
+  struct df_reg_info *reg_info = chains.reg_info;
+  struct df_ref_info *ref_info = chains.ref_info;
+
+  unsigned int regno;
+
+  /* Add to the ref chain */
+  this_ref->next_ref = *ref_chain;
+  *ref_chain = this_ref;
+
+  /* Add the ref to the reg_{def,use} chain.  */
+  reg_info->n_refs++;
+  df_reg_chain_create (reg_info, this_ref);
+
+  /* Add this_ref to the df->{use,def}_info */
+  DF_REF_ID (this_ref) = ref_info->bitmap_size;
+  if (ref_info->add_refs_inline)
+    {
+      df_check_and_grow_ref_info (ref_info, 1);
+
+      /* Add the ref to the big array of defs.  */
+      ref_info->refs[ref_info->bitmap_size] = this_ref;
+      ref_info->refs_organized_alone = false;
+      ref_info->refs_organized_with_eq_uses = false;
+    }
+  ref_info->bitmap_size++;
+
+  /* Update regs_ever_live if necessary. */
+  regno = ORIGINAL_REGNO (DF_REF_REG (this_ref));
+  if (regno < FIRST_PSEUDO_REGISTER)
+    {
+      if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF 
+          && DF_REF_FLAGS_IS_SET (this_ref, DF_REF_RECORD_LIVE))
+        regs_ever_live[regno] = 1;
+      else if ((DF_REF_TYPE (this_ref) == DF_REF_REG_USE 
+               || DF_REF_TYPE (this_ref) == DF_REF_REG_MEM_STORE
+               || DF_REF_TYPE (this_ref) == DF_REF_REG_MEM_LOAD)
+               && !DF_REF_FLAGS_IS_SET (this_ref, DF_REF_ARTIFICIAL))
+        {
+          /* Set regs_ever_live on uses of non-eliminable frame
+             pointers and arg pointers.  */
+          if (!(TEST_HARD_REG_BIT (elim_reg_set, regno)
+                 && (regno == FRAME_POINTER_REGNUM 
+                     || regno == ARG_POINTER_REGNUM)))
+            regs_ever_live[regno] = 1;
+        }
+    }
+
+  /* mw_hardreg has to be added to the hardreg chain as well. */
+  if (DF_REF_INSN (this_ref) && DF_REF_FLAGS_IS_SET (this_ref, DF_REF_MW_HARDREG))
+    {
+      struct df_scan_problem_data *problem_data
+        = (struct df_scan_problem_data *) dflow->problem_data;
+      struct df_link *link = pool_alloc (problem_data->mw_link_pool);
+
+      gcc_assert (hardreg);
+
+      link->next = hardreg->regs;
+      link->ref = this_ref;
+      hardreg->regs = link;
+    }
+}
+
+
+/* Add a chain of df_refs to appropriate ref chain/reg_info/ref_info chains
+   and update other necessary information */
+
+static void
+df_refs_add_to_chains (struct dataflow *dflow,
+                       rtx insn,
+                       struct df_ref *ref)
+{
+  struct df *df = dflow->df;
+  struct df_mw_hardreg *hardreg = NULL;
+  struct df_scan_problem_data *problem_data
+    = (struct df_scan_problem_data *) dflow->problem_data;
+
+  while (ref)
+    {
+      struct df_ref *nref = ref->next_ref;
+
+      if (DF_REF_FLAGS_IS_SET (ref, DF_REF_MW_HARDREG_GROUP)) 
+        {
+          /* A beginning of a group of mw hardregs */
+          struct df_insn_info *insn_info = DF_INSN_GET (df, insn);
+
+          hardreg = pool_alloc (problem_data->mw_reg_pool);
+          hardreg->next = insn_info->mw_hardregs;
+          insn_info->mw_hardregs = hardreg;
+          hardreg->type = DF_REF_TYPE (ref);
+          hardreg->flags = DF_REF_FLAGS (ref) & ~DF_REF_MW_HARDREG_GROUP;
+          hardreg->mw_reg = DF_REF_REG (ref);
+          hardreg->regs = NULL;
+
+          /* MW_HARDREG_GROUP ref is just a placeholder, so free the memory. */
+          pool_free (problem_data->ref_pool, ref);
+        }
+      else 
+        {
+          ref->next_ref = NULL;
+          df_ref_add_to_chains (dflow, ref, hardreg);
+        }
+
+      ref = nref;
+    }
+}
+
+
+/* Allocate a ref and initialize its fields. */
 
 static struct df_ref *
 df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
@@ -1020,7 +1332,6 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 			 enum df_ref_flags ref_flags)
 {
   struct df_ref *this_ref;
-  struct df *df = dflow->df;
   int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
@@ -1035,107 +1346,8 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
   DF_REF_FLAGS (this_ref) = ref_flags;
   DF_REF_DATA (this_ref) = NULL;
   DF_REF_BB (this_ref) = bb;
+  DF_REF_NEXT_REF (this_ref) = NULL;
 
-  /* Link the ref into the reg_def and reg_use chains and keep a count
-     of the instances.  */
-  switch (ref_type)
-    {
-    case DF_REF_REG_DEF:
-      {
-	struct df_reg_info *reg_info = DF_REG_DEF_GET (df, regno);
-	reg_info->n_refs++;
-	
-	/* Add the ref to the reg_def chain.  */
-	df_reg_chain_create (reg_info, this_ref);
-
-	DF_REF_ID (this_ref) = DF_DEFS_SIZE (df);
-	if (df->def_info.add_refs_inline)
-	  {
-	    if (DF_DEFS_SIZE (df) >= df->def_info.refs_size)
-	      {
-		int new_size = DF_DEFS_SIZE (df) 
-		  + DF_DEFS_SIZE (df) / 4;
-		df_grow_ref_info (&df->def_info, new_size);
-	      }
-	    /* Add the ref to the big array of defs.  */
-	    DF_DEFS_SET (df, DF_DEFS_SIZE (df), this_ref);
-	    df->def_info.refs_organized_alone = false;
-	  }
-	
-	DF_DEFS_SIZE (df)++;
-	
-	if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
-	  {
-	    struct df_scan_bb_info *bb_info 
-	      = df_scan_get_bb_info (dflow, bb->index);
-	    this_ref->next_ref = bb_info->artificial_defs;
-	    bb_info->artificial_defs = this_ref;
-	  }
-	else
-	  {
-	    this_ref->next_ref = DF_INSN_DEFS (df, insn);
-	    DF_INSN_DEFS (df, insn) = this_ref;
-	  }
-      }
-      break;
-
-    case DF_REF_REG_MEM_LOAD:
-    case DF_REF_REG_MEM_STORE:
-    case DF_REF_REG_USE:
-      {
-	struct df_reg_info *reg_info;
-	if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
-	  reg_info = DF_REG_EQ_USE_GET (df, regno);
-	else
-	  reg_info = DF_REG_USE_GET (df, regno);
-
-	reg_info->n_refs++;
-	/* Add the ref to the reg_use chain.  */
-	df_reg_chain_create (reg_info, this_ref);
-
-	DF_REF_ID (this_ref) = DF_USES_SIZE (df);
-	if (df->use_info.add_refs_inline)
-	  {
-	    if (DF_USES_SIZE (df) >= df->use_info.refs_size)
-	      {
-		int new_size = DF_USES_SIZE (df) 
-		  + DF_USES_SIZE (df) / 4;
-		df_grow_ref_info (&df->use_info, new_size);
-	      }
-	    /* Add the ref to the big array of defs.  */
-	    DF_USES_SET (df, DF_USES_SIZE (df), this_ref);
-	    df->use_info.refs_organized_with_eq_uses = false;
-	    df->use_info.refs_organized_alone = false;
-	  }
-	
-	DF_USES_SIZE (df)++;
-	if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
-	  {
-	    struct df_scan_bb_info *bb_info 
-	      = df_scan_get_bb_info (dflow, bb->index);
-	    this_ref->next_ref = bb_info->artificial_uses;
-	    bb_info->artificial_uses = this_ref;
-	  }
-	else
-	  {
-	    if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
-	      {
-		this_ref->next_ref = DF_INSN_EQ_USES (df, insn);
-		DF_INSN_EQ_USES (df, insn) = this_ref;
-	      }
-	    else
-	      {
-		this_ref->next_ref = DF_INSN_USES (df, insn);
-		DF_INSN_USES (df, insn) = this_ref;
-	      }
-	  }
-      }
-      break;
-
-    default:
-      gcc_unreachable ();
-
-    }
   return this_ref;
 }
 
@@ -1143,27 +1355,29 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 /* Create new references of type DF_REF_TYPE for each part of register REG
    at address LOC within INSN of BB.  */
 
-static void
-df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc, 
+static struct df_ref *
+df_ref_record (struct dataflow *dflow,
+               struct df_ref *insn_refs,
+               rtx reg, rtx *loc, 
 	       basic_block bb, rtx insn, 
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags, 
 	       bool record_live)
 {
-  struct df *df = dflow->df;
   rtx oldreg = reg;
   unsigned int regno;
 
   gcc_assert (REG_P (reg) || GET_CODE (reg) == SUBREG);
+
+  if (record_live)
+    ref_flags |= DF_REF_RECORD_LIVE;
 
   regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       unsigned int i;
       unsigned int endregno;
-      struct df_mw_hardreg *hardreg = NULL;
-      struct df_scan_problem_data *problem_data
-	= (struct df_scan_problem_data *) dflow->problem_data;
+      struct df_ref *ref;
 
       /* GET_MODE (reg) is correct here.  We do not want to go into a SUBREG
          for the mode, because we only want to add references to regs, which
@@ -1180,60 +1394,37 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 	  will enable us to easily build REG_DEAD and REG_UNUSED notes.  */
       if ((endregno != regno + 1) && insn)
 	{
-	  struct df_insn_info *insn_info = DF_INSN_GET (df, insn);
 	  /* Sets to a subreg of a multiword register are partial. 
 	     Sets to a non-subreg of a multiword register are not.  */
 	  if (GET_CODE (oldreg) == SUBREG)
 	    ref_flags |= DF_REF_PARTIAL;
 	  ref_flags |= DF_REF_MW_HARDREG;
-	  hardreg = pool_alloc (problem_data->mw_reg_pool);
-	  hardreg->next = insn_info->mw_hardregs;
-	  insn_info->mw_hardregs = hardreg;
-	  hardreg->type = ref_type;
-	  hardreg->flags = ref_flags;
-	  hardreg->mw_reg = reg;
-	  hardreg->regs = NULL;
 
+          /* This is a placeholder for grouping mw_hardreg sequence. */
+          ref = df_ref_create_structure (dflow, reg, loc,
+                                         bb, insn, ref_type, 
+                                         ref_flags | DF_REF_MW_HARDREG_GROUP);
+          DF_REF_REGNO (ref) = regno;
+          DF_REF_CHAIN_APPEND (insn_refs, ref);
 	}
 
       for (i = regno; i < endregno; i++)
 	{
-	  struct df_ref *ref;
-
-	  /* Calls are handled at call site because regs_ever_live
-	     doesn't include clobbered regs, only used ones.  */
-	  if (ref_type == DF_REF_REG_DEF && record_live)
-	    regs_ever_live[i] = 1;
-	  else if ((ref_type == DF_REF_REG_USE 
-		   || ref_type == DF_REF_REG_MEM_STORE
-		   || ref_type == DF_REF_REG_MEM_LOAD)
-		   && ((ref_flags & DF_REF_ARTIFICIAL) == 0))
-	    {
-	      /* Set regs_ever_live on uses of non-eliminable frame
-		 pointers and arg pointers.  */
-	      if (!(TEST_HARD_REG_BIT (elim_reg_set, regno)
-		     && (regno == FRAME_POINTER_REGNUM 
-			 || regno == ARG_POINTER_REGNUM)))
-		regs_ever_live[i] = 1;
-	    }
-
 	  ref = df_ref_create_structure (dflow, regno_reg_rtx[i], loc, 
 					 bb, insn, ref_type, ref_flags);
-	  if (hardreg)
-	    {
-	      struct df_link *link = pool_alloc (problem_data->mw_link_pool);
-
-	      link->next = hardreg->regs;
-	      link->ref = ref;
-	      hardreg->regs = link;
-	    }
+          gcc_assert ( ORIGINAL_REGNO (DF_REF_REG (ref)) == i);
+          DF_REF_CHAIN_APPEND (insn_refs, ref);
 	}
     }
   else
     {
-      df_ref_create_structure (dflow, reg, loc, 
-			       bb, insn, ref_type, ref_flags);
+      struct df_ref *ref;
+      ref = df_ref_create_structure (dflow, reg, loc, bb, insn, 
+                                     ref_type, ref_flags);
+      DF_REF_CHAIN_APPEND (insn_refs, ref);
     }
+
+  return insn_refs;
 }
 
 
@@ -1258,9 +1449,9 @@ df_read_modify_subreg_p (rtx x)
    Autoincrement/decrement definitions will be picked up by
    df_uses_record.  */
 
-static void
-df_def_record_1 (struct dataflow *dflow, rtx x, 
-		 basic_block bb, rtx insn, 
+static struct df_ref *
+df_def_record_1 (struct dataflow *dflow, struct df_ref *insn_refs,
+                 rtx x, basic_block bb, rtx insn, 
 		 enum df_ref_flags flags, bool record_live)
 {
   rtx *loc;
@@ -1285,12 +1476,13 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
 	  rtx temp = XVECEXP (dst, 0, i);
 	  if (GET_CODE (temp) == EXPR_LIST || GET_CODE (temp) == CLOBBER
 	      || GET_CODE (temp) == SET)
-	    df_def_record_1 (dflow, temp, bb, insn, 
+	    insn_refs = df_def_record_1 (dflow, insn_refs,
+                             temp, bb, insn, 
 			     GET_CODE (temp) == CLOBBER 
 			     ? flags | DF_REF_MUST_CLOBBER : flags, 
 			     record_live);
 	}
-      return;
+      return insn_refs;
     }
 
   /* Maybe, we should flag the use of STRICT_LOW_PART somehow.  It might
@@ -1325,30 +1517,34 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
     
   if (REG_P (dst)
       || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
-    df_ref_record (dflow, dst, loc, bb, insn, 
-		   DF_REF_REG_DEF, flags, record_live);
+    insn_refs = df_ref_record (dflow, insn_refs, 
+                   dst, loc, bb, insn, DF_REF_REG_DEF, flags, record_live);
+
+  return insn_refs;
 }
 
 
 /* Process all the registers defined in the pattern rtx, X.  */
 
-static void
-df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn,
-		enum df_ref_flags flags)
+static struct df_ref *
+df_defs_record (struct dataflow *dflow, struct df_ref *insn_refs, 
+                rtx x, basic_block bb, rtx insn, enum df_ref_flags flags)
 {
   RTX_CODE code = GET_CODE (x);
 
   if (code == SET || code == CLOBBER)
     {
       /* Mark the single def within the pattern.  */
-      df_def_record_1 (dflow, x, bb, insn, 
-		       code == CLOBBER ? DF_REF_MUST_CLOBBER | flags : flags, 
-		       true);
+      enum df_ref_flags clobber_flags = flags;
+      clobber_flags |= (code == CLOBBER) ? DF_REF_MUST_CLOBBER : 0;
+      insn_refs = df_def_record_1 (dflow, insn_refs, 
+                                   x, bb, insn, clobber_flags, true);
     }
   else if (code == COND_EXEC)
     {
-      df_defs_record  (dflow, COND_EXEC_CODE (x), bb, insn, 
-		       DF_REF_CONDITIONAL);
+      insn_refs = df_defs_record  (dflow, insn_refs, 
+                                   COND_EXEC_CODE (x), 
+                                   bb, insn, DF_REF_CONDITIONAL);
     }
   else if (code == PARALLEL)
     {
@@ -1356,16 +1552,20 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn,
 
       /* Mark the multiple defs within the pattern.  */
       for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	 df_defs_record (dflow, XVECEXP (x, 0, i), bb, insn,
-			 flags);
+	 insn_refs = df_defs_record (dflow, insn_refs, 
+                                     XVECEXP (x, 0, i), 
+                                     bb, insn, flags);
     }
+
+  return insn_refs;
 }
 
 
 /* Process all the registers used in the rtx at address LOC.  */
 
-static void
-df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
+static struct df_ref *
+df_uses_record (struct dataflow *dflow, struct df_ref *insn_refs,
+                rtx *loc, enum df_ref_type ref_type,
 		basic_block bb, rtx insn, enum df_ref_flags flags)
 {
   RTX_CODE code;
@@ -1373,7 +1573,7 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
  retry:
   x = *loc;
   if (!x)
-    return;
+    return insn_refs;
   code = GET_CODE (x);
   switch (code)
     {
@@ -1387,22 +1587,23 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case CC0:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-      return;
+      return insn_refs;
 
     case CLOBBER:
       /* If we are clobbering a MEM, mark any registers inside the address
 	 as being used.  */
       if (MEM_P (XEXP (x, 0)))
-	df_uses_record (dflow, &XEXP (XEXP (x, 0), 0),
-			DF_REF_REG_MEM_STORE, bb, insn, flags);
+	insn_refs = df_uses_record (dflow, insn_refs,
+                                    &XEXP (XEXP (x, 0), 0),
+			            DF_REF_REG_MEM_STORE, bb, insn, flags);
 
       /* If we're clobbering a REG then we have a def so ignore.  */
-      return;
+      return insn_refs;
 
     case MEM:
-      df_uses_record (dflow, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn,
-		      flags & DF_REF_IN_NOTE);
-      return;
+      return df_uses_record (dflow, insn_refs,
+                             &XEXP (x, 0), DF_REF_REG_MEM_LOAD, 
+                             bb, insn, flags & DF_REF_IN_NOTE);
 
     case SUBREG:
       /* While we're here, optimize this case.  */
@@ -1411,29 +1612,32 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
       if (!REG_P (SUBREG_REG (x)))
 	{
 	  loc = &SUBREG_REG (x);
-	  df_uses_record (dflow, loc, ref_type, bb, insn, flags);
-	  return;
+	  return df_uses_record (dflow, insn_refs, 
+                                 loc, ref_type, bb, insn, flags);
 	}
       /* ... Fall through ...  */
 
     case REG:
-      df_ref_record (dflow, x, loc, bb, insn, ref_type, flags, true);
-      return;
+      return df_ref_record (dflow, insn_refs, 
+                            x, loc, bb, insn, ref_type, flags, true);
 
     case SET:
       {
 	rtx dst = SET_DEST (x);
 	gcc_assert (!(flags & DF_REF_IN_NOTE));
-	df_uses_record (dflow, &SET_SRC (x), DF_REF_REG_USE, bb, insn, flags);
+	insn_refs = df_uses_record (dflow, insn_refs,
+                                    &SET_SRC (x), DF_REF_REG_USE, 
+                                    bb, insn, flags);
 
 	switch (GET_CODE (dst))
 	  {
 	    case SUBREG:
 	      if (df_read_modify_subreg_p (dst))
 		{
-		  df_uses_record (dflow, &SUBREG_REG (dst), 
-				  DF_REF_REG_USE, bb,
-				  insn, flags | DF_REF_READ_WRITE);
+		  insn_refs = df_uses_record (dflow, insn_refs,
+                                              &SUBREG_REG (dst), 
+				              DF_REF_REG_USE, bb, insn, 
+                                              flags | DF_REF_READ_WRITE);
 		  break;
 		}
 	      /* Fall through.  */
@@ -1444,9 +1648,10 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 	    case CC0:
 		break;
 	    case MEM:
-	      df_uses_record (dflow, &XEXP (dst, 0),
-			      DF_REF_REG_MEM_STORE,
-			      bb, insn, flags);
+	      insn_refs = df_uses_record (dflow, insn_refs, 
+                                          &XEXP (dst, 0),
+			                  DF_REF_REG_MEM_STORE,
+			                  bb, insn, flags);
 	      break;
 	    case STRICT_LOW_PART:
 	      {
@@ -1454,28 +1659,31 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 		/* A strict_low_part uses the whole REG and not just the
 		 SUBREG.  */
 		dst = XEXP (dst, 0);
-		df_uses_record (dflow, 
-				(GET_CODE (dst) == SUBREG) 
-				? &SUBREG_REG (dst) : temp, 
-				DF_REF_REG_USE, bb,
-				insn, DF_REF_READ_WRITE);
+		insn_refs = df_uses_record (dflow, insn_refs,
+				            (GET_CODE (dst) == SUBREG) 
+				             ? &SUBREG_REG (dst) : temp, 
+				            DF_REF_REG_USE, bb,
+				            insn, DF_REF_READ_WRITE);
 	      }
 	      break;
 	    case ZERO_EXTRACT:
 	    case SIGN_EXTRACT:
-	      df_uses_record (dflow, &XEXP (dst, 0), 
+	      insn_refs = df_uses_record (dflow, insn_refs,
+                              &XEXP (dst, 0), 
 			      DF_REF_REG_USE, bb, insn,
 			      DF_REF_READ_WRITE);
-	      df_uses_record (dflow, &XEXP (dst, 1), 
+	      insn_refs = df_uses_record (dflow, insn_refs,
+                              &XEXP (dst, 1), 
 			      DF_REF_REG_USE, bb, insn, flags);
-	      df_uses_record (dflow, &XEXP (dst, 2), 
+	      insn_refs = df_uses_record (dflow, insn_refs,
+                              &XEXP (dst, 2), 
 			      DF_REF_REG_USE, bb, insn, flags);
 	      dst = XEXP (dst, 0);
 	      break;
 	    default:
 	      gcc_unreachable ();
 	  }
-	return;
+	return insn_refs;
       }
 
     case RETURN:
@@ -1518,9 +1726,10 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 	    int j;
 
 	    for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (x); j++)
-	      df_uses_record (dflow, &ASM_OPERANDS_INPUT (x, j),
-			      DF_REF_REG_USE, bb, insn, flags);
-	    return;
+	      insn_refs = df_uses_record (dflow, insn_refs,
+                                          &ASM_OPERANDS_INPUT (x, j),
+			                  DF_REF_REG_USE, bb, insn, flags);
+	    return insn_refs;
 	  }
 	break;
       }
@@ -1533,8 +1742,9 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case POST_MODIFY:
       /* Catch the def of the register being modified.  */
       flags |= DF_REF_READ_WRITE | DF_REF_PRE_POST_MODIFY;
-      df_ref_record (dflow, XEXP (x, 0), &XEXP (x, 0), bb, insn, 
-		     DF_REF_REG_DEF, flags, true);
+      insn_refs = df_ref_record (dflow, insn_refs,
+                                 XEXP (x, 0), &XEXP (x, 0), bb, insn, 
+		                 DF_REF_REG_DEF, flags, true);
 
       /* ... Fall through to handle uses ...  */
 
@@ -1557,17 +1767,21 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 		loc = &XEXP (x, 0);
 		goto retry;
 	      }
-	    df_uses_record (dflow, &XEXP (x, i), ref_type, bb, insn, flags);
+	    insn_refs = df_uses_record (dflow, insn_refs, 
+                                        &XEXP (x, i), ref_type, bb, insn, flags);
 	  }
 	else if (fmt[i] == 'E')
 	  {
 	    int j;
 	    for (j = 0; j < XVECLEN (x, i); j++)
-	      df_uses_record (dflow, &XVECEXP (x, i, j), ref_type,
-			      bb, insn, flags);
+	      insn_refs = df_uses_record (dflow, insn_refs,
+                                          &XVECEXP (x, i, j), ref_type,
+			                  bb, insn, flags);
 	  }
       }
   }
+
+  return insn_refs;
 }
 
 /* Return true if *LOC contains an asm.  */
@@ -1592,6 +1806,88 @@ df_insn_contains_asm (rtx insn)
 }
 
 
+/* Collect all refs in the INSN. 
+   This function is free of any side-effect - 
+   it will create and return a list of df_ref's (chained through next_ref) 
+   without putting those refs into existing ref chains and reg chains. */
+
+static struct df_ref *
+df_insn_refs_collect (struct dataflow *dflow, basic_block bb, rtx insn) 
+{
+  struct df_ref dummy;
+  struct df_ref *insn_refs = &dummy;
+  rtx note;
+  unsigned int i;
+
+  DF_REF_NEXT_REF (insn_refs) = NULL;
+  
+  /* Record register defs.  */
+  insn_refs = df_defs_record (dflow, insn_refs, PATTERN (insn), bb, insn, 0);
+
+  /* Process REG_EQUIV/REG_EQUAL notes */
+  for (note = REG_NOTES (insn); note;
+       note = XEXP (note, 1))
+    {
+      switch (REG_NOTE_KIND (note))
+        {
+        case REG_EQUIV:
+        case REG_EQUAL:
+          insn_refs = df_uses_record (dflow, insn_refs,
+                                      &XEXP (note, 0), DF_REF_REG_USE,
+                                      bb, insn, DF_REF_IN_NOTE);
+        default:
+          break;
+        }
+    }
+
+  if (CALL_P (insn))
+    {
+      rtx note;
+      bitmap_iterator bi;
+      unsigned int ui;
+
+      /* Record the registers used to pass arguments, and explicitly
+         noted as clobbered.  */
+      for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
+           note = XEXP (note, 1))
+        {
+          if (GET_CODE (XEXP (note, 0)) == USE)
+            insn_refs = df_uses_record (dflow, insn_refs,
+                                        &XEXP (XEXP (note, 0), 0),
+                                        DF_REF_REG_USE,
+                                        bb, insn, 0);
+          else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
+            insn_refs = df_defs_record (dflow, insn_refs,
+                                        XEXP (note, 0), bb, insn, 0);
+        }
+
+      /* The stack ptr is used (honorarily) by a CALL insn.  */
+      insn_refs = df_uses_record (dflow, insn_refs,
+                                  &regno_reg_rtx[STACK_POINTER_REGNUM],
+                                  DF_REF_REG_USE, bb, insn, 
+                                  DF_REF_CALL_STACK_USAGE);
+
+      /* Calls may also reference any of the global registers,
+         so they are recorded as used.  */
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+        if (global_regs[i])
+          insn_refs = df_uses_record (dflow, insn_refs,
+                                      &regno_reg_rtx[i],
+                                      DF_REF_REG_USE, bb, insn, 0);
+      EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
+        insn_refs = df_ref_record (dflow, insn_refs,
+                                   regno_reg_rtx[ui], &regno_reg_rtx[ui], 
+                                   bb, insn, DF_REF_REG_DEF, 
+                                   DF_REF_MAY_CLOBBER, false);
+    }
+
+  /* Record the register uses.  */
+  insn_refs = df_uses_record (dflow, insn_refs,
+                              &PATTERN (insn), DF_REF_REG_USE, bb, insn, 0);
+
+  return DF_REF_NEXT_REF (&dummy);
+}
+
 
 /* Record all the refs for DF within INSN of basic block BB.  */
 
@@ -1599,89 +1895,48 @@ void
 df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 {
   struct df *df = dflow->df;
-  int i;
+  struct df_ref *insn_refs;
 
-  if (INSN_P (insn))
+  if (!INSN_P (insn))
+    return;
+
+  /* Collect all the refs in the insn */
+  insn_refs = df_insn_refs_collect (dflow, bb, insn);
+
+  /* Process the collected insn_refs chain here */
+  if (insn_refs)
+    df_refs_add_to_chains (dflow, insn, insn_refs);
+
+  /* Update reg_ever_live for call insn */
+  if (CALL_P (insn))
     {
       rtx note;
 
-      if (df_insn_contains_asm (insn))
-	DF_INSN_CONTAINS_ASM (df, insn) = true;
-      
-      /* Record register defs.  */
-      df_defs_record (dflow, PATTERN (insn), bb, insn, 0);
-
-      for (note = REG_NOTES (insn); note;
-	   note = XEXP (note, 1))
-	{
-	  switch (REG_NOTE_KIND (note))
-	    {
-	    case REG_EQUIV:
-	    case REG_EQUAL:
-	      df_uses_record (dflow, &XEXP (note, 0), DF_REF_REG_USE,
-			      bb, insn, DF_REF_IN_NOTE);
-	    default:
-	      break;
-	    }
-	}
-
-      if (CALL_P (insn))
-	{
-	  rtx note;
-	  bitmap_iterator bi;
-	  unsigned int ui;
-
-	  /* Record the registers used to pass arguments, and explicitly
-	     noted as clobbered.  */
-	  for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
-	       note = XEXP (note, 1))
-	    {
-	      if (GET_CODE (XEXP (note, 0)) == USE)
-		df_uses_record (dflow, &XEXP (XEXP (note, 0), 0), 
-				DF_REF_REG_USE,
-				bb, insn, 0);
-              else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
-		{
-		  df_defs_record (dflow, XEXP (note, 0), bb, insn, 0);
-		  if (REG_P (XEXP (XEXP (note, 0), 0)))
-		    {
-		      rtx reg = XEXP (XEXP (note, 0), 0);
-		      int regno_last;
-		      int regno_first;
-		      int i;
-		
-		      regno_last = regno_first = REGNO (reg);
-		      if (regno_first < FIRST_PSEUDO_REGISTER)
-			regno_last 
-			  += hard_regno_nregs[regno_first][GET_MODE (reg)] - 1;
-		      for (i = regno_first; i <= regno_last; i++)
-			regs_ever_live[i] = 1;
-		    }
-		}
-	    }
-
-	  /* The stack ptr is used (honorarily) by a CALL insn.  */
-	  df_uses_record (dflow, &regno_reg_rtx[STACK_POINTER_REGNUM],
-			  DF_REF_REG_USE, bb, insn, 
-			  DF_REF_CALL_STACK_USAGE);
-
-	  /* Calls may also reference any of the global registers,
-	     so they are recorded as used.  */
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (global_regs[i])
-	      df_uses_record (dflow, &regno_reg_rtx[i],
-			      DF_REF_REG_USE, bb, insn, 
-			      0);
-	  EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
-	    df_ref_record (dflow, regno_reg_rtx[ui], &regno_reg_rtx[ui], bb, 
-			   insn, DF_REF_REG_DEF, DF_REF_MAY_CLOBBER, false);
-	}
-
-      /* Record the register uses.  */
-      df_uses_record (dflow, &PATTERN (insn),
-		      DF_REF_REG_USE, bb, insn, 0);
-
+      /* Record the registers used to pass arguments, and explicitly
+         noted as clobbered.  */
+      for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
+           note = XEXP (note, 1))
+        {
+          rtx exp0 = XEXP (note, 0);
+          if (GET_CODE (exp0) == CLOBBER && REG_P (XEXP (exp0, 0)))
+            {
+              int regno_last;
+              int regno_first;
+              int i;
+              rtx reg = XEXP (exp0, 0);
+        
+              regno_last = regno_first = REGNO (reg);
+              if (regno_first < FIRST_PSEUDO_REGISTER)
+                regno_last 
+                  += hard_regno_nregs[regno_first][GET_MODE (reg)] - 1;
+              for (i = regno_first; i <= regno_last; i++)
+                regs_ever_live[i] = 1;
+            }
+        }
     }
+
+  if (df_insn_contains_asm (insn))
+    DF_INSN_CONTAINS_ASM (df, insn) = true;
 }
 
 
@@ -1721,38 +1976,17 @@ df_recompute_luids (struct df *df, basic_block bb)
     }
 }
 
+/* Collect all artificial refs at the block level
+   and return them as a newly created ref chain.  */
 
-/* Record all the refs within the basic block BB.  */
-
-static void
-df_bb_refs_record (struct dataflow *dflow, basic_block bb)
+static struct df_ref *
+df_bb_refs_collect (struct dataflow *dflow, basic_block bb)
 {
   struct df *df = dflow->df;
-  rtx insn;
-  int luid = 0;
-  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
+  struct df_ref dummy;
+  struct df_ref *bb_refs = &dummy;
 
-  /* Need to make sure that there is a record in the basic block info. */  
-  if (!bb_info)
-    {
-      bb_info = (struct df_scan_bb_info *) pool_alloc (dflow->block_pool);
-      df_scan_set_bb_info (dflow, bb->index, bb_info);
-      bb_info->artificial_defs = NULL;
-      bb_info->artificial_uses = NULL;
-    }
-
-  /* Scan the block an insn at a time from beginning to end.  */
-  FOR_BB_INSNS (bb, insn)
-    {
-      df_insn_create_insn_record (dflow, insn);
-      if (INSN_P (insn))
-	{
-	  /* Record defs within INSN.  */
-	  DF_INSN_LUID (df, insn) = luid++;
-	  df_insn_refs_record (dflow, bb, insn);
-	}
-      DF_INSN_LUID (df, insn) = luid;
-    }
+  DF_REF_NEXT_REF (bb_refs) = NULL;
 
 #ifdef EH_RETURN_DATA_REGNO
   if (df_has_eh_preds (bb))
@@ -1764,10 +1998,11 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 	  unsigned regno = EH_RETURN_DATA_REGNO (i);
 	  if (regno == INVALID_REGNUM)
 	    break;
-	  df_ref_record (dflow, regno_reg_rtx[regno], &regno_reg_rtx[regno],
-			 bb, NULL,
-			 DF_REF_REG_DEF, DF_REF_ARTIFICIAL | DF_REF_AT_TOP,
-			 false);
+	  bb_refs = df_ref_record (dflow, bb_refs,
+                                   regno_reg_rtx[regno], &regno_reg_rtx[regno],
+			           bb, NULL,
+			           DF_REF_REG_DEF, DF_REF_ARTIFICIAL | DF_REF_AT_TOP,
+			           false);
 	}
     }
 #endif
@@ -1790,9 +2025,10 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
          eh-receiver for all of the edges at once. */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (EH_USES (i))
-	  df_uses_record (dflow, &regno_reg_rtx[i], 
-			  DF_REF_REG_USE, bb, NULL,
-			  DF_REF_ARTIFICIAL | DF_REF_AT_TOP);
+	  bb_refs = df_uses_record (dflow, bb_refs,
+                                    &regno_reg_rtx[i], 
+			            DF_REF_REG_USE, bb, NULL,
+			            DF_REF_ARTIFICIAL | DF_REF_AT_TOP);
     }
 #endif
 
@@ -1806,9 +2042,117 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 
       EXECUTE_IF_SET_IN_BITMAP (au, 0, regno, bi)
 	{
-	  df_uses_record (dflow, &regno_reg_rtx[regno],
-			  DF_REF_REG_USE, bb, NULL, DF_REF_ARTIFICIAL);
+	  bb_refs = df_uses_record (dflow, bb_refs,
+                                    &regno_reg_rtx[regno],
+                                    DF_REF_REG_USE, bb, NULL,
+                                    DF_REF_ARTIFICIAL);
 	}
+    }
+
+  return DF_REF_NEXT_REF (&dummy);
+}
+
+
+/* Record all the refs within the basic block BB.  */
+
+static void
+df_bb_refs_record (struct dataflow *dflow, basic_block bb)
+{
+  struct df *df = dflow->df;
+  rtx insn;
+  int luid = 0;
+  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
+  struct df_ref *bb_refs;
+
+  /* Need to make sure that there is a record in the basic block info. */  
+  if (!bb_info)
+    {
+      bb_info = (struct df_scan_bb_info *) pool_alloc (dflow->block_pool);
+      df_scan_set_bb_info (dflow, bb->index, bb_info);
+      bb_info->artificial_defs = NULL;
+      bb_info->artificial_uses = NULL;
+    }
+
+  /* Scan the block an insn at a time from beginning to end.  */
+  FOR_BB_INSNS (bb, insn)
+    {
+      df_insn_create_insn_record (dflow, insn);
+      if (INSN_P (insn))
+	{
+	  /* Record refs within INSN.  */
+	  DF_INSN_LUID (df, insn) = luid++;
+	  df_insn_refs_record (dflow, bb, insn);
+	}
+      DF_INSN_LUID (df, insn) = luid;
+    }
+
+  /* Other block level artificial refs */
+  bb_refs = df_bb_refs_collect (dflow, bb);
+
+  if (bb_refs)
+    df_refs_add_to_chains (dflow, NULL, bb_refs);
+}
+
+
+/* Get the artificial use set for 
+   a regular (i.e. non-exit/non-entry) block. */
+
+static void
+df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
+{
+  bitmap_clear (regular_block_artificial_uses);
+
+  /* Before reload, there are a few registers that must be forced
+     live everywhere -- which might not already be the case for
+     blocks within infinite loops.  */
+  if (!reload_completed)
+    {
+      /* Any reference to any pseudo before reload is a potential
+	 reference of the frame pointer.  */
+      bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
+      
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+      /* Pseudos with argument area equivalences may require
+	 reloading via the argument pointer.  */
+      if (fixed_regs[ARG_POINTER_REGNUM])
+	bitmap_set_bit (regular_block_artificial_uses, ARG_POINTER_REGNUM);
+#endif
+      
+      /* Any constant, or pseudo with constant equivalences, may
+	 require reloading from memory using the pic register.  */
+      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+	bitmap_set_bit (regular_block_artificial_uses, PIC_OFFSET_TABLE_REGNUM);
+    }
+  /* The all-important stack pointer must always be live.  */
+  bitmap_set_bit (regular_block_artificial_uses, STACK_POINTER_REGNUM);
+}
+
+
+/* Get the artificial use set for an eh block. */
+
+static void
+df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
+{
+  bitmap_clear (eh_block_artificial_uses);
+
+  /* The following code (down thru the arg_pointer seting APPEARS
+     to be necessary because there is nothing that actually
+     describes what the exception handling code may actually need
+     to keep alive.  */
+  if (reload_completed)
+    {
+      if (frame_pointer_needed)
+	{
+	  bitmap_set_bit (eh_block_artificial_uses, FRAME_POINTER_REGNUM);
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+	  bitmap_set_bit (eh_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+#endif
+	}
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+      if (fixed_regs[ARG_POINTER_REGNUM])
+	bitmap_set_bit (eh_block_artificial_uses, ARG_POINTER_REGNUM);
+#endif
     }
 }
 
@@ -1822,62 +2166,20 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
   bitmap_iterator bi;
   struct df *df = dflow->df;
 
-  bitmap_clear (df->regular_block_artificial_uses);
-  bitmap_clear (df->eh_block_artificial_uses);
-
-  /* The following code (down thru the arg_pointer seting APPEARS
-     to be necessary because there is nothing that actually
-     describes what the exception handling code may actually need
-     to keep alive.  */
-  if (reload_completed)
-    {
-      if (frame_pointer_needed)
-	{
-	  bitmap_set_bit (df->eh_block_artificial_uses, FRAME_POINTER_REGNUM);
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	  bitmap_set_bit (df->eh_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
-#endif
-	}
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-      if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (df->eh_block_artificial_uses, ARG_POINTER_REGNUM);
-#endif
-    }
-  
-  /* Before reload, there are a few registers that must be forced
-     live everywhere -- which might not already be the case for
-     blocks within infinite loops.  */
-  if (!reload_completed)
-    {
-      /* Any reference to any pseudo before reload is a potential
-	 reference of the frame pointer.  */
-      bitmap_set_bit (df->regular_block_artificial_uses, FRAME_POINTER_REGNUM);
-      
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-      /* Pseudos with argument area equivalences may require
-	 reloading via the argument pointer.  */
-      if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (df->regular_block_artificial_uses, ARG_POINTER_REGNUM);
-#endif
-      
-      /* Any constant, or pseudo with constant equivalences, may
-	 require reloading from memory using the pic register.  */
-      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (df->regular_block_artificial_uses, PIC_OFFSET_TABLE_REGNUM);
-    }
-  /* The all-important stack pointer must always be live.  */
-  bitmap_set_bit (df->regular_block_artificial_uses, STACK_POINTER_REGNUM);
+  df_get_regular_block_artificial_uses (df->regular_block_artificial_uses);
+  df_get_eh_block_artificial_uses (df->eh_block_artificial_uses);
 
   bitmap_ior_into (df->eh_block_artificial_uses, 
 		   df->regular_block_artificial_uses);
 
+  /* Regular blocks */
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
     {
       basic_block bb = BASIC_BLOCK (bb_index);
       df_bb_refs_record (dflow, bb);
     }
 
+  /* ENTRY and EXIT blocks have special defs/uses.  */
   if (bitmap_bit_p (blocks, EXIT_BLOCK))
     df_record_exit_block_uses (dflow);
 
@@ -1886,9 +2188,11 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
 }
 
 
+
 /*----------------------------------------------------------------------------
    Specialized hard register scanning functions.
 ----------------------------------------------------------------------------*/
+
 
 /* Mark a register in SET.  Hard registers in large modes get all
    of their component registers set as well.  */
@@ -1911,26 +2215,23 @@ df_mark_reg (rtx reg, void *vset)
 }
 
 
-/* Record the (conservative) set of hard registers that are defined on
-   entry to the function.  */
+/* Set the bit for regs that are considered being defined at the entry. */
 
 static void
-df_record_entry_block_defs (struct dataflow *dflow)
+df_get_entry_block_defs (bitmap entry_block_defs)
 {
-  unsigned int i; 
-  bitmap_iterator bi;
   rtx r;
-  struct df *df = dflow->df;
+  int i;
 
-  bitmap_clear (df->entry_block_defs);
+  bitmap_clear (entry_block_defs);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (FUNCTION_ARG_REGNO_P (i))
 #ifdef INCOMING_REGNO
-	bitmap_set_bit (df->entry_block_defs, INCOMING_REGNO (i));
+	bitmap_set_bit (entry_block_defs, INCOMING_REGNO (i));
 #else
-	bitmap_set_bit (df->entry_block_defs, i);
+	bitmap_set_bit (entry_block_defs, i);
 #endif
     }
       
@@ -1942,43 +2243,43 @@ df_record_entry_block_defs (struct dataflow *dflow)
 	 pushes have some defining location.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if ((call_used_regs[i] == 0) && (regs_ever_live[i]))
-	  bitmap_set_bit (df->entry_block_defs, i);
+	  bitmap_set_bit (entry_block_defs, i);
     }
   else
     {
       /* The always important stack pointer.  */
-      bitmap_set_bit (df->entry_block_defs, STACK_POINTER_REGNUM);
+      bitmap_set_bit (entry_block_defs, STACK_POINTER_REGNUM);
 
 #ifdef INCOMING_RETURN_ADDR_RTX
       if (REG_P (INCOMING_RETURN_ADDR_RTX))
-	bitmap_set_bit (df->entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
+	bitmap_set_bit (entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
 #endif
             
       /* If STATIC_CHAIN_INCOMING_REGNUM == STATIC_CHAIN_REGNUM
 	 only STATIC_CHAIN_REGNUM is defined.  If they are different,
 	 we only care about the STATIC_CHAIN_INCOMING_REGNUM.  */
 #ifdef STATIC_CHAIN_INCOMING_REGNUM
-      bitmap_set_bit (df->entry_block_defs, STATIC_CHAIN_INCOMING_REGNUM);
+      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_INCOMING_REGNUM);
 #else 
 #ifdef STATIC_CHAIN_REGNUM
-      bitmap_set_bit (df->entry_block_defs, STATIC_CHAIN_REGNUM);
+      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_REGNUM);
 #endif
 #endif
       
       r = TARGET_STRUCT_VALUE_RTX (current_function_decl, true);
       if (r && REG_P (r))
-	bitmap_set_bit (df->entry_block_defs, REGNO (r));
+	bitmap_set_bit (entry_block_defs, REGNO (r));
     }
 
   if ((!reload_completed) || frame_pointer_needed)
     {
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
-      bitmap_set_bit (df->entry_block_defs, FRAME_POINTER_REGNUM);
+      bitmap_set_bit (entry_block_defs, FRAME_POINTER_REGNUM);
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
       /* If they are different, also mark the hard frame pointer as live.  */
       if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-	bitmap_set_bit (df->entry_block_defs, HARD_FRAME_POINTER_REGNUM);
+	bitmap_set_bit (entry_block_defs, HARD_FRAME_POINTER_REGNUM);
 #endif
     }
 
@@ -1991,7 +2292,7 @@ df_record_entry_block_defs (struct dataflow *dflow)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (EH_USES (i))
 	  {
-	    bitmap_set_bit (df->entry_block_defs, i);
+	    bitmap_set_bit (entry_block_defs, i);
 	  }
 #endif
       
@@ -1999,7 +2300,7 @@ df_record_entry_block_defs (struct dataflow *dflow)
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (df->entry_block_defs, ARG_POINTER_REGNUM);
+	bitmap_set_bit (entry_block_defs, ARG_POINTER_REGNUM);
 #endif
 	  
 #ifdef PIC_OFFSET_TABLE_REGNUM
@@ -2007,18 +2308,139 @@ df_record_entry_block_defs (struct dataflow *dflow)
 	 require reloading from memory using the pic register.  */
       if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (df->entry_block_defs, PIC_OFFSET_TABLE_REGNUM);
+	bitmap_set_bit (entry_block_defs, PIC_OFFSET_TABLE_REGNUM);
 #endif
     }
 
-  targetm.live_on_entry (df->entry_block_defs);
+  targetm.live_on_entry (entry_block_defs);
+}
+
+
+/* Record the (conservative) set of hard registers that are defined on
+   entry to the function.  */
+
+static void
+df_record_entry_block_defs (struct dataflow *dflow)
+{
+  unsigned int i; 
+  bitmap_iterator bi;
+  struct df *df = dflow->df;
+  struct df_ref dummy;
+  struct df_ref *bb_refs = &dummy;
+
+  DF_REF_NEXT_REF (bb_refs) = NULL;
+
+  df_get_entry_block_defs (df->entry_block_defs);
 
   EXECUTE_IF_SET_IN_BITMAP (df->entry_block_defs, 0, i, bi)
     {
-      df_ref_record (dflow, regno_reg_rtx[i], &regno_reg_rtx[i], 
-		     ENTRY_BLOCK_PTR, NULL, 
-		     DF_REF_REG_DEF, DF_REF_ARTIFICIAL , false);
+      bb_refs = df_ref_record (dflow, bb_refs, 
+                               regno_reg_rtx[i], &regno_reg_rtx[i], 
+                               ENTRY_BLOCK_PTR, NULL, 
+                               DF_REF_REG_DEF, DF_REF_ARTIFICIAL , false);
     }
+
+  /* Process bb_refs chain */
+  df_refs_add_to_chains (dflow, NULL, DF_REF_NEXT_REF (&dummy));
+}
+
+
+/* Set the bit for regs that are considered being used at the exit. */
+
+static void
+df_get_exit_block_uses (bitmap exit_block_uses)
+{
+  unsigned int i; 
+
+  bitmap_clear (exit_block_uses);
+  
+  /* If exiting needs the right stack value, consider the stack
+     pointer live at the end of the function.  */
+  if ((HAVE_epilogue && epilogue_completed)
+      || !EXIT_IGNORE_STACK
+      || (!FRAME_POINTER_REQUIRED
+	  && !current_function_calls_alloca
+	  && flag_omit_frame_pointer)
+      || current_function_sp_is_unchanging)
+    {
+      bitmap_set_bit (exit_block_uses, STACK_POINTER_REGNUM);
+    }
+  
+  /* Mark the frame pointer if needed at the end of the function.
+     If we end up eliminating it, it will be removed from the live
+     list of each basic block by reload.  */
+  
+  if ((!reload_completed) || frame_pointer_needed)
+    {
+      bitmap_set_bit (exit_block_uses, FRAME_POINTER_REGNUM);
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+      /* If they are different, also mark the hard frame pointer as live.  */
+      if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
+	bitmap_set_bit (exit_block_uses, HARD_FRAME_POINTER_REGNUM);
+#endif
+    }
+
+
+
+#ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
+  /* Many architectures have a GP register even without flag_pic.
+     Assume the pic register is not in use, or will be handled by
+     other means, if it is not fixed.  */
+  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+    bitmap_set_bit (exit_block_uses, PIC_OFFSET_TABLE_REGNUM);
+#endif
+  
+  /* Mark all global registers, and all registers used by the
+     epilogue as being live at the end of the function since they
+     may be referenced by our caller.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (global_regs[i] || EPILOGUE_USES (i))
+      bitmap_set_bit (exit_block_uses, i);
+  
+  if (HAVE_epilogue && epilogue_completed)
+    {
+      /* Mark all call-saved registers that we actually used.  */
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (regs_ever_live[i] && !LOCAL_REGNO (i)
+	    && !TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+	  bitmap_set_bit (exit_block_uses, i);
+    }
+  
+#ifdef EH_RETURN_DATA_REGNO
+  /* Mark the registers that will contain data for the handler.  */
+  if (reload_completed && current_function_calls_eh_return)
+    for (i = 0; ; ++i)
+      {
+	unsigned regno = EH_RETURN_DATA_REGNO (i);
+	if (regno == INVALID_REGNUM)
+	  break;
+	bitmap_set_bit (exit_block_uses, regno);
+      }
+#endif
+
+#ifdef EH_RETURN_STACKADJ_RTX
+  if ((!HAVE_epilogue || ! epilogue_completed)
+      && current_function_calls_eh_return)
+    {
+      rtx tmp = EH_RETURN_STACKADJ_RTX;
+      if (tmp && REG_P (tmp))
+	df_mark_reg (tmp, exit_block_uses);
+    }
+#endif
+
+#ifdef EH_RETURN_HANDLER_RTX
+  if ((!HAVE_epilogue || ! epilogue_completed)
+      && current_function_calls_eh_return)
+    {
+      rtx tmp = EH_RETURN_HANDLER_RTX;
+      if (tmp && REG_P (tmp))
+	df_mark_reg (tmp, exit_block_uses);
+    }
+#endif 
+  
+  /* Mark function return value.  */
+  diddle_return_value (df_mark_reg, (void*) exit_block_uses);
 }
 
 
@@ -2030,34 +2452,16 @@ df_record_exit_block_uses (struct dataflow *dflow)
   unsigned int i; 
   bitmap_iterator bi;
   struct df *df = dflow->df;
+  struct df_ref dummy;
+  struct df_ref *bb_refs = &dummy;
+  DF_REF_NEXT_REF (bb_refs) = NULL;
 
-  bitmap_clear (df->exit_block_uses);
-  
-  /* If exiting needs the right stack value, consider the stack
-     pointer live at the end of the function.  */
-  if ((HAVE_epilogue && epilogue_completed)
-      || !EXIT_IGNORE_STACK
-      || (!FRAME_POINTER_REQUIRED
-	  && !current_function_calls_alloca
-	  && flag_omit_frame_pointer)
-      || current_function_sp_is_unchanging)
-    {
-      bitmap_set_bit (df->exit_block_uses, STACK_POINTER_REGNUM);
-    }
-  
-  /* Mark the frame pointer if needed at the end of the function.
-     If we end up eliminating it, it will be removed from the live
-     list of each basic block by reload.  */
-  
-  if ((!reload_completed) || frame_pointer_needed)
-    {
-      bitmap_set_bit (df->exit_block_uses, FRAME_POINTER_REGNUM);
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-      /* If they are different, also mark the hard frame pointer as live.  */
-      if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-	bitmap_set_bit (df->exit_block_uses, HARD_FRAME_POINTER_REGNUM);
-#endif
-    }
+  df_get_exit_block_uses (df->exit_block_uses);
+
+  EXECUTE_IF_SET_IN_BITMAP (df->exit_block_uses, 0, i, bi)
+    bb_refs = df_uses_record (dflow, bb_refs, &regno_reg_rtx[i], 
+                              DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+                              DF_REF_ARTIFICIAL);
 
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
   /* It is deliberate that this is not put in the exit block uses but
@@ -2065,79 +2469,18 @@ df_record_exit_block_uses (struct dataflow *dflow)
   if (reload_completed 
       && df_has_eh_preds (EXIT_BLOCK_PTR)
       && fixed_regs[ARG_POINTER_REGNUM])
-    df_uses_record (dflow, &regno_reg_rtx[ARG_POINTER_REGNUM], 
-		    DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
-		    DF_REF_ARTIFICIAL);
+    bb_refs = df_uses_record (dflow, bb_refs,
+                              &regno_reg_rtx[ARG_POINTER_REGNUM], 
+                              DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+                              DF_REF_ARTIFICIAL);
 #endif
 
-
-#ifndef PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
-  /* Many architectures have a GP register even without flag_pic.
-     Assume the pic register is not in use, or will be handled by
-     other means, if it is not fixed.  */
-  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-    bitmap_set_bit (df->exit_block_uses, PIC_OFFSET_TABLE_REGNUM);
-#endif
-  
-  /* Mark all global registers, and all registers used by the
-     epilogue as being live at the end of the function since they
-     may be referenced by our caller.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (global_regs[i] || EPILOGUE_USES (i))
-      bitmap_set_bit (df->exit_block_uses, i);
-  
-  if (HAVE_epilogue && epilogue_completed)
-    {
-      /* Mark all call-saved registers that we actually used.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (regs_ever_live[i] && !LOCAL_REGNO (i)
-	    && !TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
-	  bitmap_set_bit (df->exit_block_uses, i);
-    }
-  
-#ifdef EH_RETURN_DATA_REGNO
-  /* Mark the registers that will contain data for the handler.  */
-  if (reload_completed && current_function_calls_eh_return)
-    for (i = 0; ; ++i)
-      {
-	unsigned regno = EH_RETURN_DATA_REGNO (i);
-	if (regno == INVALID_REGNUM)
-	  break;
-	bitmap_set_bit (df->exit_block_uses, regno);
-      }
-#endif
-
-#ifdef EH_RETURN_STACKADJ_RTX
-  if ((!HAVE_epilogue || ! epilogue_completed)
-      && current_function_calls_eh_return)
-    {
-      rtx tmp = EH_RETURN_STACKADJ_RTX;
-      if (tmp && REG_P (tmp))
-	df_mark_reg (tmp, df->exit_block_uses);
-    }
-#endif
-
-#ifdef EH_RETURN_HANDLER_RTX
-  if ((!HAVE_epilogue || ! epilogue_completed)
-      && current_function_calls_eh_return)
-    {
-      rtx tmp = EH_RETURN_HANDLER_RTX;
-      if (tmp && REG_P (tmp))
-	df_mark_reg (tmp, df->exit_block_uses);
-    }
-#endif 
-  
-  /* Mark function return value.  */
-  diddle_return_value (df_mark_reg, (void*) df->exit_block_uses);
-
-  EXECUTE_IF_SET_IN_BITMAP (df->exit_block_uses, 0, i, bi)
-    df_uses_record (dflow, &regno_reg_rtx[i], 
-		    DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
-		    DF_REF_ARTIFICIAL);
+  /* Process bb_refs chain */
+  df_refs_add_to_chains (dflow, NULL, DF_REF_NEXT_REF (&dummy));
 }
 
 static bool initialized = false;
+
 
 /* Initialize some platform specific structures.  */
 
@@ -2179,4 +2522,305 @@ df_hard_reg_init (void)
       bitmap_set_bit (df_invalidated_by_call, i);
   
   initialized = true;
+}
+
+
+/*----------------------------------------------------------------------------
+  Dataflow ref information verification functions.
+----------------------------------------------------------------------------*/
+
+
+/* Find the matching identical ref in the existing ref chain,
+   and return it if it is in various other chains/places that 
+   it's supposed to be in. Otherwise return NULL.   */
+
+static struct df_ref *
+df_ref_verify (struct dataflow *dflow,
+               struct df_ref *this_ref)
+{
+  struct df_chains chains = df_ref_find_chains (dflow, this_ref);
+
+  struct df_ref **ref_chain = chains.ref_chain;
+  struct df_reg_info *reg_info = chains.reg_info;
+  struct df_ref_info *ref_info = chains.ref_info;
+
+  struct df_ref *old_ref;
+
+  /* Verify the ref chain.  */
+  old_ref = df_ref_chain_find_ref (*ref_chain, this_ref, df_ref_is_equal);
+  if (!old_ref) 
+    return NULL;
+
+  /* Verify the reg chain.  */
+  old_ref = df_reg_chain_find_ref (reg_info->reg_chain, 
+                                   old_ref, df_ref_is_pointer_equal);
+  if (!old_ref) 
+    return NULL;
+
+  /* Verify ref_info->refs array.  */
+  if (ref_info->add_refs_inline
+      && (DF_REF_ID (old_ref) >= ref_info->refs_size
+          || ref_info->refs[DF_REF_ID (old_ref)] != old_ref))
+    return NULL;
+
+  return old_ref;
+}
+
+
+/* Returns true if all refs in the chain is marked as verified.  */
+
+static bool
+df_refs_verified (struct df_ref *ref)
+{
+  for (; ref; ref = DF_REF_NEXT_REF (ref))
+    if (!DF_REF_FLAGS_IS_SET (ref, DF_REF_VERIFIED))
+      return false;
+
+  return true;
+}
+
+
+/* Returns true if the refs of the insn hasn't changed. 
+   It will set DF_REF_VERIFIED for all verified refs.  */
+
+static bool
+df_ref_chain_verify (struct dataflow *dflow, struct df_ref *ref)
+{
+  for (; ref; ref = DF_REF_NEXT_REF (ref))
+    {
+      struct df_ref *oref = df_ref_verify (dflow, ref);
+      if (!oref)
+        return false;
+      /* Mark the found ref as VERIFIED.
+         This causes the OREF not to be matched again,
+         since newly created REF won't have VERIFIED bit set.  
+         That's exactly what we want to happen
+         to handle duplicate entries.  */
+      DF_REF_FLAGS_SET (oref, DF_REF_VERIFIED);
+    }
+
+  return true;
+}
+
+
+/* Return true if all refs of the insn are marked verified. 
+   Clear DF_REF_VERIFIED bit for *all* refs in the chain
+   regardless of the return value. */
+
+static bool
+df_reg_chain_clear_verified (struct df_ref *ref_chain)
+{
+  bool ret = true;
+  struct df_ref *ref;
+  for (ref = ref_chain; ref; ref = DF_REF_NEXT_REG (ref))
+    {
+      if (!DF_REF_FLAGS_IS_SET (ref, DF_REF_VERIFIED))
+        ret = false;
+      DF_REF_FLAGS (ref) &= ~DF_REF_VERIFIED;
+    }
+
+  return ret;
+}
+
+
+/* Return true if all refs in the basic block are correct and complete.
+   Due to df_ref_chain_verify, it will cause all refs
+   that are verified to have DF_REF_VERIFIED bit set.  */
+
+static bool
+df_bb_refs_verify (struct dataflow *dflow, basic_block bb)
+{
+  rtx insn;
+  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
+  struct df_ref *refs;
+
+  if (!bb_info)
+    return false;
+
+  /* Scan the block an insn at a time from beginning to end.  */
+  FOR_BB_INSNS (bb, insn)
+    {
+      if (!INSN_P (insn))
+        continue;
+      refs = df_insn_refs_collect (dflow, bb, insn);
+      if (!df_ref_chain_verify (dflow, refs))
+        return false;
+    }
+
+  /* Block level refs */
+  refs = df_bb_refs_collect (dflow, bb);
+  if (!df_ref_chain_verify (dflow, refs))
+    return false;
+
+
+  if (!df_refs_verified (bb_info->artificial_defs)
+      || !df_refs_verified (bb_info->artificial_uses))
+    return false;
+
+  return true;
+}
+
+
+/* Returns true if the exit block has correct and complete df_ref.  */
+
+static bool
+df_exit_block_verify (struct dataflow *dflow)
+{
+  unsigned int i;
+  bitmap_iterator bi;
+  struct df *df = dflow->df;
+  struct df_ref dummy;
+  struct df_ref *bb_refs = &dummy;
+  bitmap exit_block_uses = BITMAP_ALLOC (NULL);
+  bool is_eq;
+  struct df_scan_bb_info *bb_info;
+
+  DF_REF_NEXT_REF (bb_refs) = NULL;
+
+  df_get_exit_block_uses (exit_block_uses);
+
+  is_eq = bitmap_equal_p (exit_block_uses, df->exit_block_uses);
+  BITMAP_FREE (exit_block_uses);
+
+  if (!is_eq)
+    return false;
+
+  EXECUTE_IF_SET_IN_BITMAP (df->exit_block_uses, 0, i, bi)
+    bb_refs = df_uses_record (dflow, bb_refs, &regno_reg_rtx[i], 
+                              DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+                              DF_REF_ARTIFICIAL);
+
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+  /* It is deliberate that this is not put in the exit block uses but
+     I do not know why.  */
+  if (reload_completed 
+      && df_has_eh_preds (EXIT_BLOCK_PTR)
+      && fixed_regs[ARG_POINTER_REGNUM])
+    bb_refs = df_uses_record (dflow, bb_refs,
+                              &regno_reg_rtx[ARG_POINTER_REGNUM], 
+                              DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+                              DF_REF_ARTIFICIAL);
+#endif
+
+  if (!df_ref_chain_verify (dflow, bb_refs))
+    return false;
+
+  bb_info = df_scan_get_bb_info (dflow, EXIT_BLOCK);
+  if (!df_refs_verified (bb_info->artificial_defs)
+      || !df_refs_verified (bb_info->artificial_uses))
+    return false;
+
+  return true;
+}
+
+
+/* Returns true if the entry block has correct and complete df_ref.  */
+
+static bool
+df_entry_block_verify (struct dataflow *dflow)
+{
+  unsigned int i; 
+  bitmap_iterator bi;
+  struct df *df = dflow->df;
+  struct df_ref dummy;
+  struct df_ref *bb_refs = &dummy;
+  bitmap entry_block_defs = BITMAP_ALLOC (NULL);
+  bool is_eq;
+  struct df_scan_bb_info *bb_info;
+
+  DF_REF_NEXT_REF (bb_refs) = NULL;
+
+  df_get_entry_block_defs (entry_block_defs);
+
+  is_eq = bitmap_equal_p (entry_block_defs, df->entry_block_defs);
+  BITMAP_FREE (entry_block_defs);
+
+  if (!is_eq)
+    return false;
+
+  EXECUTE_IF_SET_IN_BITMAP (df->entry_block_defs, 0, i, bi)
+    {
+      bb_refs = df_ref_record (dflow, bb_refs, 
+                               regno_reg_rtx[i], &regno_reg_rtx[i], 
+                               ENTRY_BLOCK_PTR, NULL, 
+                               DF_REF_REG_DEF, DF_REF_ARTIFICIAL , false);
+    }
+
+  if (!df_ref_chain_verify (dflow, bb_refs))
+    return false;
+
+  bb_info = df_scan_get_bb_info (dflow, ENTRY_BLOCK);
+  if (!df_refs_verified (bb_info->artificial_defs)
+      || !df_refs_verified (bb_info->artificial_uses))
+    return false;
+
+  return true;
+}
+
+
+/* Return true if df_ref information for all insns 
+   in all blocks are correct and complete.  */
+
+bool
+df_verify_blocks (struct dataflow *dflow)
+{
+  unsigned int i;
+  basic_block bb;
+  struct df *df = dflow->df;
+  bitmap regular_block_artificial_uses = BITMAP_ALLOC (NULL);
+  bitmap eh_block_artificial_uses = BITMAP_ALLOC (NULL);
+  bool is_eq;
+  bool retval = true;
+
+  df_get_regular_block_artificial_uses (regular_block_artificial_uses);
+  df_get_eh_block_artificial_uses (eh_block_artificial_uses);
+
+  bitmap_ior_into (eh_block_artificial_uses, 
+		   regular_block_artificial_uses);
+
+  /* Check artificial_uses bitmaps didn't change. */
+  is_eq = bitmap_equal_p (regular_block_artificial_uses, 
+                          df->regular_block_artificial_uses);
+  BITMAP_FREE (regular_block_artificial_uses);
+  BITMAP_FREE (eh_block_artificial_uses);
+
+  if (!is_eq)
+    return false;
+
+  /* Verify each basic block. */
+  FOR_ALL_BB (bb)
+    {
+      retval = (retval && !df_bb_refs_verify (dflow, bb));
+      if (!retval)
+        break;
+    }
+
+  /* Verify exit block. */
+  retval = (retval && df_exit_block_verify (dflow));
+
+  /* Verify entry block. */
+  retval = (retval && df_entry_block_verify (dflow));
+
+  /* See if all reg chains are verified,
+     and also clear the DF_REF_VERIFIED bit. */
+
+  for (i = 0; i < DF_REG_SIZE (df); i++)
+    {
+      struct df_ref *ref;
+      
+      /* Note the order of operands of &&. 
+         We need to call reg_chain_clear_verified() *always*,
+         to make sure DF_REF_VERIFIED bit is cleared for all refs. */
+
+      ref = DF_REG_DEF_CHAIN (df, i);
+      retval = (df_reg_chain_clear_verified (ref) && retval);
+
+      ref = DF_REG_USE_CHAIN (df, i);
+      retval = (df_reg_chain_clear_verified (ref) && retval);
+
+      ref = DF_REG_EQ_USE_CHAIN (df, i);
+      retval = (df_reg_chain_clear_verified (ref) && retval);
+    }
+
+  return retval;
 }

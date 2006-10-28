@@ -74,28 +74,28 @@ enum df_ref_flags
     /* Read-modify-write refs generate both a use and a def and
        these are marked with this flag to show that they are not
        independent.  */
-    DF_REF_READ_WRITE = 1,
+    DF_REF_READ_WRITE = 1 << 0,
 
     /* If this flag is set, this is not a real definition/use, but an
        artificial one created to model always live registers, eh uses, etc.  */
-    DF_REF_ARTIFICIAL = 4,
+    DF_REF_ARTIFICIAL = 1 << 1,
 
     /* If this flag is set for an artificial use or def, that ref
        logically happens at the top of the block.  If it is not set
        for an artificial use or def, that ref logically happens at the
        bottom of the block.  This is never set for regular refs.  */
-    DF_REF_AT_TOP = 8,
+    DF_REF_AT_TOP = 1 << 2,
 
     /* This flag is set if the use is inside a REG_EQUAL or REG_EQUIV
        note.  */
-    DF_REF_IN_NOTE = 16,
+    DF_REF_IN_NOTE = 1 << 3,
 
     /* This flag is set if this ref, generally a def, may clobber the
        referenced register.  This is generally only set for hard
        registers that cross a call site.  With better information
        about calls, some of these could be changed in the future to
        DF_REF_MUST_CLOBBER.  */
-    DF_REF_MAY_CLOBBER = 32,
+    DF_REF_MAY_CLOBBER = 1 << 4,
 
     /* This flag is set if this ref, generally a def, is a real
        clobber. This is not currently set for registers live across a
@@ -106,25 +106,37 @@ enum df_ref_flags
        clobber is to a subreg.  So in order to tell if the clobber
        wipes out the entire register, it is necessary to also check
        the DF_REF_PARTIAL flag.  */
-    DF_REF_MUST_CLOBBER = 64,
+    DF_REF_MUST_CLOBBER = 1 << 5,
 
     /* This bit is true if this ref is part of a multiword hardreg.  */
-    DF_REF_MW_HARDREG = 128,
+    DF_REF_MW_HARDREG = 1 << 6,
 
     /* This flag is set if this ref is a partial use or def of the
        associated register.  */
-    DF_REF_PARTIAL = 256,
+    DF_REF_PARTIAL = 1 << 7,
     
     /* This flag is set if this ref occurs inside of a conditional
        execution instruction.  */
-    DF_REF_CONDITIONAL = 512,
+    DF_REF_CONDITIONAL = 1 << 8,
 
     /* This flag is set if this ref is inside a pre/post modify.  */
-    DF_REF_PRE_POST_MODIFY = 1024,
+    DF_REF_PRE_POST_MODIFY = 1 << 9,
 
     /* This flag is set if this ref is a usage of the stack pointer by
        a function call.  */
-    DF_REF_CALL_STACK_USAGE = 2048
+    DF_REF_CALL_STACK_USAGE = 1 << 10,
+
+    /* This flag is set when this ref is verified.
+       Used for verifying existing refs. */
+    DF_REF_VERIFIED = 1 << 11,
+
+    /* This flag is set when the ref should be 
+       recorded in regs_ever_live[] array. */
+    DF_REF_RECORD_LIVE = 1 << 12,
+
+    /* This flag is used internally to group
+       the hardregs. */
+    DF_REF_MW_HARDREG_GROUP = 1 << 13
   };
 
 
@@ -454,8 +466,8 @@ struct df
 #define DF_REF_REAL_REG(REF) (GET_CODE ((REF)->reg) == SUBREG \
 				? SUBREG_REG ((REF)->reg) : ((REF)->reg))
 #define DF_REF_REGNO(REF) ((REF)->regno)
-#define DF_REF_REAL_LOC(REF) (GET_CODE ((REF)->reg) == SUBREG \
-			        ? &SUBREG_REG ((REF)->reg) : ((REF)->loc))
+#define DF_REF_REAL_LOC(REF) (GET_CODE (*((REF)->loc)) == SUBREG \
+                               ? &SUBREG_REG (*((REF)->loc)) : ((REF)->loc))
 #define DF_REF_REG(REF) ((REF)->reg)
 #define DF_REF_LOC(REF) ((REF)->loc)
 #define DF_REF_BB(REF) ((REF)->bb)
@@ -466,6 +478,8 @@ struct df
 #define DF_REF_CHAIN(REF) ((REF)->chain)
 #define DF_REF_ID(REF) ((REF)->id)
 #define DF_REF_FLAGS(REF) ((REF)->flags)
+#define DF_REF_FLAGS_IS_SET(REF, v) ((DF_REF_FLAGS(REF) & (v)) != 0)
+#define DF_REF_FLAGS_SET(REF, v) (DF_REF_FLAGS(REF) |= (v))
 #define DF_REF_NEXT_REG(REF) ((REF)->next_reg)
 #define DF_REF_PREV_REG(REF) ((REF)->prev_reg)
 #define DF_REF_NEXT_REF(REF) ((REF)->next_ref)
@@ -725,7 +739,7 @@ extern bitmap df_ri_get_setjmp_crosses (struct df *);
 
 extern struct df_scan_bb_info *df_scan_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_scan_add_problem (struct df *);
-extern void df_rescan_blocks (struct df *, bitmap);
+extern void df_scan_blocks (struct df *, bitmap);
 extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
 extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
 extern struct df_ref *df_get_artificial_uses (struct df *, unsigned int);
@@ -743,6 +757,7 @@ extern void df_maybe_reorganize_use_refs (struct df *);
 extern void df_maybe_reorganize_def_refs (struct df *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
+extern bool df_verify_blocks (struct dataflow *);
 
 
 /* web */

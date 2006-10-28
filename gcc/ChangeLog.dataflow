@@ -1,3 +1,28 @@
+2006-10-28  Seongbae Park <seongbae.park@gmail.com>
+	* df.h (df_rescan_blocks): Renamed to df_scan_blocks.
+	* df-core.c (df_analyze): Use df_scan_blocks() instead.
+	* ifcvt.c (if_convert): Use df_scan_blocks() instead.
+	* df-scan.c 
+	(df_ref_record, df_def_record_1, df_defs_record, df_uses_record):
+	They are made side-effect free.
+	(df_ref_find_chains, df_ref_add_to_chains, df_refs_add_to_chains,
+	df_ref_is_equal, df_ref_chain_find_ref, df_reg_chain_find_ref,
+	df_scan_start_block, df_check_and_grow_ref_info,
+	df_insn_refs_collect, df_bb_refs_collect,
+	df_get_entry_block_defs, df_get_exit_block_uses,
+	df_ref_verify, df_refs_verified, df_ref_chain_verify,
+	df_reg_chain_clear_verified, df_bb_refs_verify, 
+	df_exit_block_verify, df_entry_block_verify, df_verify_blocks):
+	New functions.
+	(df_ref_create_structure): Initializes the fields
+	of df_ref and does not connect it to various chains.
+	(df_insn_refs_record, df_bb_refs_record, df_record_entry_block_defs,
+	 df_record_exit_block_uses, df_refs_record):
+	Separate side-effects (adding chains and updating regs_ever_live)
+	from traversing and finding the refs in the insn/basic block.
+	(df_ref_create): Separate calls for creating the ref and add it
+	to the chains.
+
 2006-10-24  Paolo Bonzini  <bonzinI@gnu.rg>
 
 	* ddg.c (add_deps_for_def, add_deps_for_use): Use accessor macros.

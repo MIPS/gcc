@@ -3919,7 +3919,7 @@ if_convert (void)
 	{
 	  /* If we are going to go around again, rescan the blocks
 	     that have changed.  */
-	  df_rescan_blocks (df, modified);
+	  df_scan_blocks (df, modified);
 	  bitmap_clear (modified);
 	}
 

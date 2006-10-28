@@ -49,7 +49,7 @@ Here is an example of using the dataflow routines.
 
       df_set_blocks (df, blocks);
 
-      df_rescan_blocks (df, blocks);
+      df_scan_blocks (df, blocks);
 
       df_analyze (df);
 
@@ -104,7 +104,7 @@ df_set_blocks, these blocks are added to the set of blocks.
 
 DF_ANALYZE causes all of the defined problems to be (re)solved.  It
 does not cause blocks to be (re)scanned at the rtl level unless no
-prior call is made to df_rescan_blocks.  When DF_ANALYZE is completes,
+prior call is made to df_scan_blocks.  When DF_ANALYZE is completes,
 the IN and OUT sets for each basic block contain the computer
 information.  The DF_*_BB_INFO macros can be used to access these
 bitvectors.
@@ -815,9 +815,9 @@ df_analyze (struct df *df)
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
 
-  /* No one called df_rescan_blocks, so do it.  */
+  /* No one called df_scan_blocks, so do it.  */
   if (!df->blocks_to_scan)
-    df_rescan_blocks (df, NULL);
+    df_scan_blocks (df, NULL);
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
