@@ -12,8 +12,8 @@ void test_vld1_laneu16 (void)
   uint16x4_t out_uint16x4_t;
   uint16x4_t arg1_uint16x4_t;
 
-  out_uint16x4_t = vld1_lane_u16 (0, arg1_uint16x4_t, 0);
+  out_uint16x4_t = vld1_lane_u16 (0, arg1_uint16x4_t, 1);
 }
 
-/* { dg-final { scan-assembler "vld1\.16\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[0\\\]\\\})|(\[dD\]\[0-9\]+\\\[0\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vld1\.16\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[\[0-9\]\\\]\\\})|(\[dD\]\[0-9\]+\\\[\[0-9\]\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

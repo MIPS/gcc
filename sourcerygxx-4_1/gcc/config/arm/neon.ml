@@ -144,6 +144,11 @@ type opcode =
   | Vmla_n
   | Vmls_n
   | Vmull_n
+  | Vmull_lane
+  | Vqdmull_n
+  | Vqdmull_lane
+  | Vqdmulh_n
+  | Vqdmulh_lane
   (* Unary ops.  *)
   | Vabs
   | Vneg
@@ -224,6 +229,11 @@ type features =
     (* Mark that the intrinsic yields no instructions, or expands to yield
        behaviour that the test generator cannot test.  *)
   | No_op
+    (* Mark that the intrinsic has constant arguments that cannot be set
+       to the defaults (zero for pointers and one otherwise) in the test
+       cases.  The function supplied must return the integer to be written
+       into the testcase for the argument number (0-based) supplied to it.  *)
+  | Const_valuator of (int -> int)
 
 exception MixedMode of elts * elts
 
@@ -595,6 +605,13 @@ let shift_insert shape elt =
     ~arity:(fun dst op1 op2 -> Arity3 (dst, dst, op1, op2)) shape elt in
   arity, bits_of_elt elt
 
+(* Get/set lane.  *)
+
+let get_lane shape elt =
+  let vtype = type_for_elt shape elt in
+  Arity2 (vtype 0, vtype 1, vtype 2),
+    (match elt with P8 -> U8 | P16 -> U16 | x -> x)
+
 let set_lane shape elt =
   let vtype = type_for_elt shape elt in
   Arity3 (vtype 0, vtype 1, vtype 2, vtype 3), bits_of_elt elt
@@ -928,22 +945,22 @@ let ops =
       [InfoWord; Disassembles_as [Use_operands [| Corereg; Element_of_dreg |]];
        Instruction_name ["vmov"]],
       Use_operands [| Corereg; Dreg; Immed |],
-      "vget_lane", elts_same_2, pf_su_8_32;
+      "vget_lane", get_lane, pf_su_8_32;
     Vget_lane,
       [InfoWord;
        Disassembles_as [Use_operands [| Corereg; Corereg; Dreg |]];
-       Instruction_name ["vmov"]],
+       Instruction_name ["vmov"]; Const_valuator (fun _ -> 0)],
       Use_operands [| Corereg; Dreg; Immed |],
       "vget_lane", notype_2, [S64; U64];
     Vget_lane,
       [InfoWord; Disassembles_as [Use_operands [| Corereg; Element_of_dreg |]];
        Instruction_name ["vmov"]],
       Use_operands [| Corereg; Qreg; Immed |],
-      "vgetQ_lane", elts_same_2, pf_su_8_32;
+      "vgetQ_lane", get_lane, pf_su_8_32;
     Vget_lane,
       [InfoWord;
        Disassembles_as [Use_operands [| Corereg; Corereg; Dreg |]];
-       Instruction_name ["vmov"]],
+       Instruction_name ["vmov"]; Const_valuator (fun _ -> 0)],
       Use_operands [| Corereg; Qreg; Immed |],
       "vgetQ_lane", notype_2, [S64; U64];
     
@@ -953,7 +970,7 @@ let ops =
       Use_operands [| Dreg; Corereg; Dreg; Immed |], "vset_lane",
       set_lane, pf_su_8_32;
     Vset_lane, [Disassembles_as [Use_operands [| Dreg; Corereg; Corereg |]];
-                Instruction_name ["vmov"]],
+                Instruction_name ["vmov"]; Const_valuator (fun _ -> 0)],
       Use_operands [| Dreg; Corereg; Dreg; Immed |], "vset_lane",
       set_lane_notype, [S64; U64];
     Vset_lane, [Disassembles_as [Use_operands [| Element_of_dreg; Corereg |]];
@@ -961,7 +978,7 @@ let ops =
       Use_operands [| Qreg; Corereg; Qreg; Immed |], "vsetQ_lane",
       set_lane, pf_su_8_32;
     Vset_lane, [Disassembles_as [Use_operands [| Dreg; Corereg; Corereg |]];
-                Instruction_name ["vmov"]],
+                Instruction_name ["vmov"]; Const_valuator (fun _ -> 0)],
       Use_operands [| Qreg; Corereg; Qreg; Immed |], "vsetQ_lane",
       set_lane_notype, [S64; U64];
       
@@ -1022,13 +1039,13 @@ let ops =
       [Disassembles_as [Use_operands [| Dreg; Element_of_dreg |]]],
       Unary_scalar Dreg, "vdup_lane", bits_2, pf_su_8_32;
     Vdup_lane,
-      [No_op],
+      [No_op; Const_valuator (fun _ -> 0)],
       Unary_scalar Dreg, "vdup_lane", bits_2, [S64; U64];
     Vdup_lane,
       [Disassembles_as [Use_operands [| Qreg; Element_of_dreg |]]],
       Unary_scalar Qreg, "vdupQ_lane", bits_2, pf_su_8_32;
     Vdup_lane,
-      [No_op],
+      [No_op; Const_valuator (fun _ -> 0)],
       Unary_scalar Qreg, "vdupQ_lane", bits_2, [S64; U64];
 
     (* Combining vectors.  *)
@@ -1127,7 +1144,27 @@ let ops =
       [S16; S32; U16; U32];
     Vmls_lane, [Saturating; Doubling], Wide_lane, "vqdmlsl_lane",
       elts_same_io_lane, [S16; S32];
-    
+
+    (* Long multiply, lane.  *)
+    Vmull_lane, [],
+      Wide_lane, "vmull_lane", elts_same_2_lane, [S16; S32; U16; U32];
+
+    (* Saturating doubling long multiply, lane.  *)
+    Vqdmull_lane, [Saturating; Doubling],
+      Wide_lane, "vqdmull_lane", elts_same_2_lane, [S16; S32];
+
+    (* Saturating doubling long multiply high, lane.  *)
+    Vqdmulh_lane, [Saturating; Halving],
+      By_scalar Qreg, "vqdmulhQ_lane", elts_same_2_lane, [S16; S32];
+    Vqdmulh_lane, [Saturating; Halving],
+      By_scalar Dreg, "vqdmulh_lane", elts_same_2_lane, [S16; S32];
+    Vqdmulh_lane, [Saturating; Halving; Rounding;
+		   Instruction_name ["vqrdmulh"]],
+      By_scalar Qreg, "vqRdmulhQ_lane", elts_same_2_lane, [S16; S32];
+    Vqdmulh_lane, [Saturating; Halving; Rounding;
+		   Instruction_name ["vqrdmulh"]],
+      By_scalar Dreg, "vqRdmulh_lane", elts_same_2_lane, [S16; S32];
+
     (* Vector multiply by scalar.  *)
     Vmul_n, [InfoWord;
              Disassembles_as [Use_operands [| Dreg; Dreg; Element_of_dreg |]]],
@@ -1143,6 +1180,37 @@ let ops =
               Disassembles_as [Use_operands [| Qreg; Dreg; Element_of_dreg |]]],
               Wide_scalar, "vmull_n",
       elts_same_2, [S16; S32; U16; U32];
+
+    (* Vector saturating doubling long multiply by scalar.  *)
+    Vqdmull_n, [Saturating; Doubling;
+	        Disassembles_as [Use_operands [| Qreg; Dreg;
+						 Element_of_dreg |]]],
+                Wide_scalar, "vqdmull_n",
+      elts_same_2, [S16; S32];
+
+    (* Vector saturating doubling long multiply high by scalar.  *)
+    Vqdmulh_n,
+      [Saturating; Halving; InfoWord;
+       Disassembles_as [Use_operands [| Qreg; Qreg; Element_of_dreg |]]],
+      Use_operands [| Qreg; Qreg; Corereg |],
+      "vqdmulhQ_n", elts_same_2, [S16; S32];
+    Vqdmulh_n,
+      [Saturating; Halving; InfoWord;
+       Disassembles_as [Use_operands [| Dreg; Dreg; Element_of_dreg |]]],
+      Use_operands [| Dreg; Dreg; Corereg |],
+      "vqdmulh_n", elts_same_2, [S16; S32];
+    Vqdmulh_n,
+      [Saturating; Halving; Rounding; InfoWord;
+       Instruction_name ["vqrdmulh"];
+       Disassembles_as [Use_operands [| Qreg; Qreg; Element_of_dreg |]]],
+      Use_operands [| Qreg; Qreg; Corereg |],
+      "vqRdmulhQ_n", elts_same_2, [S16; S32];
+    Vqdmulh_n,
+      [Saturating; Halving; Rounding; InfoWord;
+       Instruction_name ["vqrdmulh"];
+       Disassembles_as [Use_operands [| Dreg; Dreg; Element_of_dreg |]]],
+      Use_operands [| Dreg; Dreg; Corereg |],
+      "vqRdmulh_n", elts_same_2, [S16; S32];
 
     (* Vector multiply-accumulate by scalar.  *)
     Vmla_n, [InfoWord;
@@ -1171,9 +1239,11 @@ let ops =
       [S16; S32];
     
     (* Vector extract.  *)
-    Vext, [], Use_operands [| Dreg; Dreg; Dreg; Immed |], "vext", extend,
+    Vext, [Const_valuator (fun _ -> 0)],
+      Use_operands [| Dreg; Dreg; Dreg; Immed |], "vext", extend,
       pf_su_8_64;
-    Vext, [], Use_operands [| Qreg; Qreg; Qreg; Immed |], "vextQ", extend,
+    Vext, [Const_valuator (fun _ -> 0)],
+      Use_operands [| Qreg; Qreg; Qreg; Immed |], "vextQ", extend,
       pf_su_8_64;
       
     (* Reverse elements.  *)
@@ -1234,7 +1304,8 @@ let ops =
       "vld1_lane", bits_3, pf_su_8_32;
     Vldx_lane 1,
       [Disassembles_as [Use_operands [| VecArray (1, Dreg);
-                                        CstPtrTo Corereg |]]],
+                                        CstPtrTo Corereg |]];
+       Const_valuator (fun _ -> 0)],
       Use_operands [| Dreg; CstPtrTo Corereg; Dreg; Immed |],
       "vld1_lane", bits_3, [S64; U64];
     Vldx_lane 1,
@@ -1286,7 +1357,8 @@ let ops =
       "vst1_lane", store_3, pf_su_8_32;
     Vstx_lane 1, 
       [Disassembles_as [Use_operands [| VecArray (1, Dreg);
-                                        CstPtrTo Corereg |]]],
+                                        CstPtrTo Corereg |]];
+       Const_valuator (fun _ -> 0)],
       Use_operands [| PtrTo Corereg; Dreg; Immed |],
       "vst1_lane", store_3, [U64; S64];
     Vstx_lane 1,

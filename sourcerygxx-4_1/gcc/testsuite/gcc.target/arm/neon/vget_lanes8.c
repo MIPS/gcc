@@ -12,8 +12,8 @@ void test_vget_lanes8 (void)
   int8_t out_int8_t;
   int8x8_t arg0_int8x8_t;
 
-  out_int8_t = vget_lane_s8 (arg0_int8x8_t, 0);
+  out_int8_t = vget_lane_s8 (arg0_int8x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.s8\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.s8\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

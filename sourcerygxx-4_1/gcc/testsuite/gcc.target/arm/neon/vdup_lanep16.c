@@ -12,8 +12,8 @@ void test_vdup_lanep16 (void)
   poly16x4_t out_poly16x4_t;
   poly16x4_t arg0_poly16x4_t;
 
-  out_poly16x4_t = vdup_lane_p16 (arg0_poly16x4_t, 0);
+  out_poly16x4_t = vdup_lane_p16 (arg0_poly16x4_t, 1);
 }
 
-/* { dg-final { scan-assembler "vdup\.16\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vdup\.16\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

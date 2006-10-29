@@ -13,8 +13,8 @@ void test_vset_laneu8 (void)
   uint8_t arg0_uint8_t;
   uint8x8_t arg1_uint8x8_t;
 
-  out_uint8x8_t = vset_lane_u8 (arg0_uint8_t, arg1_uint8x8_t, 0);
+  out_uint8x8_t = vset_lane_u8 (arg0_uint8_t, arg1_uint8x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.8\[ 	\]+\[dD\]\[0-9\]+\\\[0\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.8\[ 	\]+\[dD\]\[0-9\]+\\\[\[0-9\]\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

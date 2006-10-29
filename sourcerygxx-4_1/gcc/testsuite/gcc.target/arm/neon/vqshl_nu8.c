@@ -12,7 +12,7 @@ void test_vqshl_nu8 (void)
   uint8x8_t out_uint8x8_t;
   uint8x8_t arg0_uint8x8_t;
 
-  out_uint8x8_t = vqshl_n_u8 (arg0_uint8x8_t, 0);
+  out_uint8x8_t = vqshl_n_u8 (arg0_uint8x8_t, 1);
 }
 
 /* { dg-final { scan-assembler "vqshl\.u8\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

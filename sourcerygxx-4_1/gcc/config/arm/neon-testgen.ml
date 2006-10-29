@@ -82,7 +82,7 @@ let emit_automatics chan c_types =
     | _ -> assert false
 
 (* Emit code to call an intrinsic.  *)
-let emit_call chan c_types name elt_ty =
+let emit_call chan const_valuator c_types name elt_ty =
   (if snd (List.hd c_types) <> "void" then
      Printf.fprintf chan "  out_%s = " (snd (List.hd c_types))
    else
@@ -92,7 +92,13 @@ let emit_call chan c_types name elt_ty =
     (* If the argument is of const type, then directly write in the
        constant now.  *)
     if List.mem Const flags then
-      Printf.fprintf chan "0"
+      match const_valuator with
+        None ->
+          if List.mem Pointer flags then
+            Printf.fprintf chan "0"
+          else
+            Printf.fprintf chan "1"
+      | Some f -> Printf.fprintf chan "%s" (string_of_int (f arg_number))
     else
       Printf.fprintf chan "arg%d_%s" arg_number ty
   in
@@ -168,11 +174,8 @@ let rec analyze_shape shape =
         "\\\\\\{((" ^ alt1 ^ ")|(" ^ alt2 ^ "))\\\\\\}"
     | (PtrTo elt | CstPtrTo elt) ->
       "\\\\\\[" ^ (analyze_shape_elt elt) ^ "\\\\\\]"
-      (* All constant parameters to intrinsics are currently set to zero,
-         which means we will always pick element zero in cases where we
-         emit instructions involving the following two shapes.  *)
-    | Element_of_dreg -> (analyze_shape_elt Dreg) ^ "\\\\\\[0\\\\\\]"
-    | Element_of_qreg -> (analyze_shape_elt Qreg) ^ "\\\\\\[0\\\\\\]"
+    | Element_of_dreg -> (analyze_shape_elt Dreg) ^ "\\\\\\[\\[0-9\\]+\\\\\\]"
+    | Element_of_qreg -> (analyze_shape_elt Qreg) ^ "\\\\\\[\\[0-9\\]+\\\\\\]"
     | All_elements_of_dreg -> (analyze_shape_elt Dreg) ^ "\\\\\\[\\\\\\]"
   in
     match shape with
@@ -211,6 +214,18 @@ let test_intrinsic dir opcode features shape name munge elt_ty =
   (* Work out what argument and return types the intrinsic has.  *)
   let c_arity, new_elt_ty = munge shape elt_ty in
   let c_types = check_types (strings_of_arity c_arity) in
+  (* Extract any constant valuator (a function specifying what constant
+     values are to be written into the intrinsic call) from the features
+     list.  *)
+  let const_valuator =
+    try
+      match (List.find (fun feature -> match feature with
+                                         Const_valuator _ -> true
+				       | _ -> false) features) with
+        Const_valuator f -> Some f
+      | _ -> assert false
+    with Not_found -> None
+  in
   (* Work out what instruction name(s) to expect.  *)
   let insns = get_insn_names features name in
   let no_suffix = (new_elt_ty = NoElts) in
@@ -246,7 +261,7 @@ let test_intrinsic dir opcode features shape name munge elt_ty =
     emit_automatics chan c_types;
     Printf.fprintf chan "\n";
     (* Emit the call to the intrinsic.  *)
-    emit_call chan c_types name elt_ty;
+    emit_call chan const_valuator c_types name elt_ty;
     (* Emit the function epilogue and the DejaGNU scan-assembler directives.  *)
     emit_epilogue chan features regexps;
     (* Close the test file.  *)

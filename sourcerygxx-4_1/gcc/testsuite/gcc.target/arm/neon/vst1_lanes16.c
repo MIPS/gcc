@@ -12,8 +12,8 @@ void test_vst1_lanes16 (void)
   int16_t *arg0_int16_t;
   int16x4_t arg1_int16x4_t;
 
-  vst1_lane_s16 (arg0_int16_t, arg1_int16x4_t, 0);
+  vst1_lane_s16 (arg0_int16_t, arg1_int16x4_t, 1);
 }
 
-/* { dg-final { scan-assembler "vst1\.16\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[0\\\]\\\})|(\[dD\]\[0-9\]+\\\[0\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vst1\.16\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[\[0-9\]\\\]\\\})|(\[dD\]\[0-9\]+\\\[\[0-9\]\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

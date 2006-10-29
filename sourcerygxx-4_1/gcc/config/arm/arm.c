@@ -12794,6 +12794,17 @@ arm_print_operand (FILE *stream, rtx x, int code)
       }
       return;
 
+    /* As for 'T', but emit 'u' instead of 'p'.  */
+    case 't':
+      {
+        HOST_WIDE_INT bits = INTVAL (x);
+        fputc ((bits & 1) != 0
+	       ? ((bits & 4) != 0 ? 'f' : 's')
+	       : 'u',
+	       stream);
+      }
+      return;
+
     /* Bit 1: rounding (vs none).  */
     case 'O':
       {
@@ -14298,9 +14309,12 @@ typedef enum {
   NEON_COMBINE,
   NEON_SPLIT,
   NEON_LANEMUL,
+  NEON_LANEMULL,
+  NEON_LANEMULH,
   NEON_LANEMAC,
   NEON_SCALARMUL,
   NEON_SCALARMULL,
+  NEON_SCALARMULH,
   NEON_SCALARMAC,
   NEON_CONVERT,
   NEON_FIXCONV,
@@ -14399,6 +14413,11 @@ static neon_builtin_datum neon_builtin_data[] =
   { VAR2 (TERNOP, vqdmlsl, v4hi, v2si) },
   { VAR3 (BINOP, vmull, v8qi, v4hi, v2si) },
   { VAR2 (SCALARMULL, vmull_n, v4hi, v2si) },
+  { VAR2 (LANEMULL, vmull_lane, v4hi, v2si) },
+  { VAR2 (SCALARMULL, vqdmull_n, v4hi, v2si) },
+  { VAR2 (LANEMULL, vqdmull_lane, v4hi, v2si) },
+  { VAR4 (SCALARMULH, vqdmulh_n, v4hi, v2si, v8hi, v4si) },
+  { VAR4 (LANEMULH, vqdmulh_lane, v4hi, v2si, v8hi, v4si) },
   { VAR2 (BINOP, vqdmull, v4hi, v2si) },
   { VAR8 (BINOP, vshl, v8qi, v4hi, v2si, di, v16qi, v8hi, v4si, v2di) },
   { VAR8 (BINOP, vqshl, v8qi, v4hi, v2si, di, v16qi, v8hi, v4si, v2di) },
@@ -14870,6 +14889,10 @@ arm_init_neon_builtins (void)
   TYPE5 (v8hi, v8hi, v4hi, si, si);
   TYPE5 (v4si, v4si, v2si, si, si);
   TYPE5 (v4sf, v4sf, v2sf, si, si);
+
+  /* Long multiply by scalar (lane).  */
+  TYPE5 (v4si, v4hi, v4hi, si, si);
+  TYPE5 (v2di, v2si, v2si, si, si);
 
   /* Multiply-accumulate etc. by scalar (lane).  */
   TYPE6 (v4hi, v4hi, v4hi, v4hi, si, si);
@@ -16133,6 +16156,62 @@ arm_init_neon_builtins (void)
               }
               break;
 
+	    case NEON_LANEMULL:
+              {
+                enum machine_mode mode3 = insn_data[icode].operand[4].mode;
+                gcc_assert (valid_neon_mode (mode0) && valid_neon_mode (mode1)
+			    && mode2 == SImode && mode3 == SImode);
+                switch (tmode)
+                  {
+                  case V4SImode:
+                    if (mode0 == V4HImode && mode1 == V4HImode)
+                      ftype = v4si_ftype_v4hi_v4hi_si_si;
+                    break;
+                  
+                  case V2DImode:
+                    if (mode0 == V2SImode && mode1 == V2SImode)
+                      ftype = v2di_ftype_v2si_v2si_si_si;
+                    break;
+                  
+                  default:
+                    gcc_unreachable ();
+                  }
+              }
+              break;
+
+	    case NEON_LANEMULH:
+              {
+                enum machine_mode mode3 = insn_data[icode].operand[4].mode;
+                gcc_assert (valid_neon_mode (mode0) && valid_neon_mode (mode1)
+			    && mode2 == SImode && mode3 == SImode);
+                switch (tmode)
+                  {
+                  case V4SImode:
+                    if (mode0 == V4SImode && mode1 == V2SImode)
+                      ftype = v4si_ftype_v4si_v2si_si_si;
+                    break;
+                  
+                  case V8HImode:
+                    if (mode0 == V8HImode && mode1 == V4HImode)
+                      ftype = v8hi_ftype_v8hi_v4hi_si_si;
+                    break;
+
+                  case V2SImode:
+                    if (mode0 == V2SImode && mode1 == V2SImode)
+                      ftype = v2si_ftype_v2si_v2si_si_si;
+                    break;
+                  
+                  case V4HImode:
+                    if (mode0 == V4HImode && mode1 == V4HImode)
+                      ftype = v4hi_ftype_v4hi_v4hi_si_si;
+                    break;
+                  
+                  default:
+                    gcc_unreachable ();
+                  }
+              }
+              break;
+
 	    case NEON_LANEMAC:
               {
                 enum machine_mode mode3 = insn_data[icode].operand[4].mode;
@@ -16247,6 +16326,36 @@ arm_init_neon_builtins (void)
                 default:
                   gcc_unreachable ();
                 }
+              break;
+
+	    case NEON_SCALARMULH:
+              {
+                switch (tmode)
+                  {
+                  case V4SImode:
+                    if (mode0 == V4SImode && mode1 == SImode)
+                      ftype = v4si_ftype_v4si_si_si;
+                    break;
+                  
+                  case V8HImode:
+                    if (mode0 == V8HImode && mode1 == HImode)
+                      ftype = v8hi_ftype_v8hi_hi_si;
+                    break;
+
+                  case V2SImode:
+                    if (mode0 == V2SImode && mode1 == SImode)
+                      ftype = v2si_ftype_v2si_si_si;
+                    break;
+                  
+                  case V4HImode:
+                    if (mode0 == V4HImode && mode1 == HImode)
+                      ftype = v4hi_ftype_v4hi_hi_si;
+                    break;
+                  
+                  default:
+                    gcc_unreachable ();
+                  }
+              }
               break;
 
 	    case NEON_SCALARMAC:
@@ -17208,6 +17317,7 @@ arm_expand_neon_builtin (rtx target, int fcode, tree arglist)
     case NEON_SETLANE:
     case NEON_SCALARMUL:
     case NEON_SCALARMULL:
+    case NEON_SCALARMULH:
     case NEON_SHIFTINSERT:
     case NEON_LOGICBINOP:
       return arm_expand_neon_args (target, icode, 1, arglist,
@@ -17247,6 +17357,8 @@ arm_expand_neon_builtin (rtx target, int fcode, tree arglist)
         NEON_ARG_STOP);
     
     case NEON_LANEMUL:
+    case NEON_LANEMULL:
+    case NEON_LANEMULH:
       return arm_expand_neon_args (target, icode, 1, arglist,
         NEON_ARG_COPY_TO_REG, NEON_ARG_COPY_TO_REG, NEON_ARG_CONSTANT,
         NEON_ARG_CONSTANT, NEON_ARG_STOP);

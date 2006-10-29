@@ -12,8 +12,8 @@ void test_vgetQ_laneu16 (void)
   uint16_t out_uint16_t;
   uint16x8_t arg0_uint16x8_t;
 
-  out_uint16_t = vgetq_lane_u16 (arg0_uint16x8_t, 0);
+  out_uint16_t = vgetq_lane_u16 (arg0_uint16x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.u16\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.u16\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

@@ -12,8 +12,8 @@ void test_vdupQ_lanes8 (void)
   int8x16_t out_int8x16_t;
   int8x8_t arg0_int8x8_t;
 
-  out_int8x16_t = vdupq_lane_s8 (arg0_int8x8_t, 0);
+  out_int8x16_t = vdupq_lane_s8 (arg0_int8x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vdup\.8\[ 	\]+\[qQ\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vdup\.8\[ 	\]+\[qQ\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

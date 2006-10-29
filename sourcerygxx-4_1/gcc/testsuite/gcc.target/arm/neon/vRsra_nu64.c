@@ -13,7 +13,7 @@ void test_vRsra_nu64 (void)
   uint64x1_t arg0_uint64x1_t;
   uint64x1_t arg1_uint64x1_t;
 
-  out_uint64x1_t = vrsra_n_u64 (arg0_uint64x1_t, arg1_uint64x1_t, 0);
+  out_uint64x1_t = vrsra_n_u64 (arg0_uint64x1_t, arg1_uint64x1_t, 1);
 }
 
 /* { dg-final { scan-assembler "vrsra\.u64\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

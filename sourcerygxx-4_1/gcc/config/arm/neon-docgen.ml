@@ -136,10 +136,17 @@ let intrinsic_groups =
     "Table lookup", tbl_opcode;
     "Extended table lookup", tbx_opcode;
     "Multiply, lane", single_opcode Vmul_lane;
+    "Long multiply, lane", single_opcode Vmull_lane;
+    "Saturating doubling long multiply, lane", single_opcode Vqdmull_lane;
+    "Saturating doubling multiply high, lane", single_opcode Vqdmulh_lane;
     "Multiply-accumulate, lane", single_opcode Vmla_lane;
     "Multiply-subtract, lane", single_opcode Vmls_lane;
     "Vector multiply by scalar", single_opcode Vmul_n;
     "Vector long multiply by scalar", single_opcode Vmull_n;
+    "Vector saturating doubling long multiply by scalar",
+      single_opcode Vqdmull_n;
+    "Vector saturating doubling multiply high by scalar",
+      single_opcode Vqdmulh_n;
     "Vector multiply-accumulate by scalar", single_opcode Vmla_n;
     "Vector multiply-subtract by scalar", single_opcode Vmls_n;
     "Vector extract", single_opcode Vext;

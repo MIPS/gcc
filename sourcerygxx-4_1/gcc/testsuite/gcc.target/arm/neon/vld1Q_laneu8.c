@@ -12,8 +12,8 @@ void test_vld1Q_laneu8 (void)
   uint8x16_t out_uint8x16_t;
   uint8x16_t arg1_uint8x16_t;
 
-  out_uint8x16_t = vld1q_lane_u8 (0, arg1_uint8x16_t, 0);
+  out_uint8x16_t = vld1q_lane_u8 (0, arg1_uint8x16_t, 1);
 }
 
-/* { dg-final { scan-assembler "vld1\.8\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[0\\\]\\\})|(\[dD\]\[0-9\]+\\\[0\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vld1\.8\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\[\[0-9\]\\\]\\\})|(\[dD\]\[0-9\]+\\\[\[0-9\]\\\])), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

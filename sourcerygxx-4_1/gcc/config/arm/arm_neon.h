@@ -6490,6 +6490,90 @@ vqdmlsl_lane_s32 (int64x2_t __a, int32x2_t __b, int32x2_t __c, const int __d)
   return __builtin_neon_vqdmlsl_lanev2si (__a, __b, __c, __d, 1);
 }
 
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vmull_lane_s16 (int16x4_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vmull_lanev4hi (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int64x2_t __attribute__ ((__always_inline__))
+vmull_lane_s32 (int32x2_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vmull_lanev2si (__a, __b, __c, 1);
+}
+
+__extension__ static __inline uint32x4_t __attribute__ ((__always_inline__))
+vmull_lane_u16 (uint16x4_t __a, uint16x4_t __b, const int __c)
+{
+  return __builtin_neon_vmull_lanev4hi ((int16x4_t) __a, (int16x4_t) __b, __c, 0);
+}
+
+__extension__ static __inline uint64x2_t __attribute__ ((__always_inline__))
+vmull_lane_u32 (uint32x2_t __a, uint32x2_t __b, const int __c)
+{
+  return __builtin_neon_vmull_lanev2si ((int32x2_t) __a, (int32x2_t) __b, __c, 0);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqdmull_lane_s16 (int16x4_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vqdmull_lanev4hi (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int64x2_t __attribute__ ((__always_inline__))
+vqdmull_lane_s32 (int32x2_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vqdmull_lanev2si (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
+vqdmulhq_lane_s16 (int16x8_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev8hi (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqdmulhq_lane_s32 (int32x4_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev4si (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
+vqdmulh_lane_s16 (int16x4_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev4hi (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
+vqdmulh_lane_s32 (int32x2_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev2si (__a, __b, __c, 1);
+}
+
+__extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
+vqrdmulhq_lane_s16 (int16x8_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev8hi (__a, __b, __c, 3);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqrdmulhq_lane_s32 (int32x4_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev4si (__a, __b, __c, 3);
+}
+
+__extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
+vqrdmulh_lane_s16 (int16x4_t __a, int16x4_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev4hi (__a, __b, __c, 3);
+}
+
+__extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
+vqrdmulh_lane_s32 (int32x2_t __a, int32x2_t __b, const int __c)
+{
+  return __builtin_neon_vqdmulh_lanev2si (__a, __b, __c, 3);
+}
+
 __extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
 vmul_n_s16 (int16x4_t __a, int16_t __b)
 {
@@ -6572,6 +6656,66 @@ __extension__ static __inline uint64x2_t __attribute__ ((__always_inline__))
 vmull_n_u32 (uint32x2_t __a, uint32_t __b)
 {
   return __builtin_neon_vmull_nv2si ((int32x2_t) __a, (__builtin_neon_si) __b, 0);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqdmull_n_s16 (int16x4_t __a, int16_t __b)
+{
+  return __builtin_neon_vqdmull_nv4hi (__a, (__builtin_neon_hi) __b, 1);
+}
+
+__extension__ static __inline int64x2_t __attribute__ ((__always_inline__))
+vqdmull_n_s32 (int32x2_t __a, int32_t __b)
+{
+  return __builtin_neon_vqdmull_nv2si (__a, (__builtin_neon_si) __b, 1);
+}
+
+__extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
+vqdmulhq_n_s16 (int16x8_t __a, int16_t __b)
+{
+  return __builtin_neon_vqdmulh_nv8hi (__a, (__builtin_neon_hi) __b, 1);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqdmulhq_n_s32 (int32x4_t __a, int32_t __b)
+{
+  return __builtin_neon_vqdmulh_nv4si (__a, (__builtin_neon_si) __b, 1);
+}
+
+__extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
+vqdmulh_n_s16 (int16x4_t __a, int16_t __b)
+{
+  return __builtin_neon_vqdmulh_nv4hi (__a, (__builtin_neon_hi) __b, 1);
+}
+
+__extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
+vqdmulh_n_s32 (int32x2_t __a, int32_t __b)
+{
+  return __builtin_neon_vqdmulh_nv2si (__a, (__builtin_neon_si) __b, 1);
+}
+
+__extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
+vqrdmulhq_n_s16 (int16x8_t __a, int16_t __b)
+{
+  return __builtin_neon_vqdmulh_nv8hi (__a, (__builtin_neon_hi) __b, 3);
+}
+
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqrdmulhq_n_s32 (int32x4_t __a, int32_t __b)
+{
+  return __builtin_neon_vqdmulh_nv4si (__a, (__builtin_neon_si) __b, 3);
+}
+
+__extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
+vqrdmulh_n_s16 (int16x4_t __a, int16_t __b)
+{
+  return __builtin_neon_vqdmulh_nv4hi (__a, (__builtin_neon_hi) __b, 3);
+}
+
+__extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
+vqrdmulh_n_s32 (int32x2_t __a, int32_t __b)
+{
+  return __builtin_neon_vqdmulh_nv2si (__a, (__builtin_neon_si) __b, 3);
 }
 
 __extension__ static __inline int16x4_t __attribute__ ((__always_inline__))

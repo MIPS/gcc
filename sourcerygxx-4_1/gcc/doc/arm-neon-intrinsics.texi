@@ -4738,13 +4738,13 @@
 
 @itemize @bullet
 @item poly16_t vget_lane_p16 (poly16x4_t, const int)
-@*@emph{Form of expected instruction(s):} @code{vmov.p16 @var{r0}, @var{d0}[@var{0}]}
+@*@emph{Form of expected instruction(s):} @code{vmov.u16 @var{r0}, @var{d0}[@var{0}]}
 @end itemize
 
 
 @itemize @bullet
 @item poly8_t vget_lane_p8 (poly8x8_t, const int)
-@*@emph{Form of expected instruction(s):} @code{vmov.p8 @var{r0}, @var{d0}[@var{0}]}
+@*@emph{Form of expected instruction(s):} @code{vmov.u8 @var{r0}, @var{d0}[@var{0}]}
 @end itemize
 
 
@@ -4804,13 +4804,13 @@
 
 @itemize @bullet
 @item poly16_t vgetq_lane_p16 (poly16x8_t, const int)
-@*@emph{Form of expected instruction(s):} @code{vmov.p16 @var{r0}, @var{d0}[@var{0}]}
+@*@emph{Form of expected instruction(s):} @code{vmov.u16 @var{r0}, @var{d0}[@var{0}]}
 @end itemize
 
 
 @itemize @bullet
 @item poly8_t vgetq_lane_p8 (poly8x16_t, const int)
-@*@emph{Form of expected instruction(s):} @code{vmov.p8 @var{r0}, @var{d0}[@var{0}]}
+@*@emph{Form of expected instruction(s):} @code{vmov.u8 @var{r0}, @var{d0}[@var{0}]}
 @end itemize
 
 
@@ -6053,6 +6053,102 @@
 
 
 
+@subsubsection Long multiply, lane
+
+@itemize @bullet
+@item uint64x2_t vmull_lane_u32 (uint32x2_t, uint32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vmull.u32 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item uint32x4_t vmull_lane_u16 (uint16x4_t, uint16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vmull.u16 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int64x2_t vmull_lane_s32 (int32x2_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vmull.s32 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x4_t vmull_lane_s16 (int16x4_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vmull.s16 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+
+
+@subsubsection Saturating doubling long multiply, lane
+
+@itemize @bullet
+@item int64x2_t vqdmull_lane_s32 (int32x2_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmull.s32 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x4_t vqdmull_lane_s16 (int16x4_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmull.s16 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+
+
+@subsubsection Saturating doubling multiply high, lane
+
+@itemize @bullet
+@item int32x4_t vqdmulhq_lane_s32 (int32x4_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s32 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x8_t vqdmulhq_lane_s16 (int16x8_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s16 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x2_t vqdmulh_lane_s32 (int32x2_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s32 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x4_t vqdmulh_lane_s16 (int16x4_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s16 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x4_t vqrdmulhq_lane_s32 (int32x4_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s32 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x8_t vqrdmulhq_lane_s16 (int16x8_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s16 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x2_t vqrdmulh_lane_s32 (int32x2_t, int32x2_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s32 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x4_t vqrdmulh_lane_s16 (int16x4_t, int16x4_t, const int)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s16 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+
+
 @subsubsection Multiply-accumulate, lane
 
 @itemize @bullet
@@ -6340,6 +6436,74 @@
 @itemize @bullet
 @item int32x4_t vmull_n_s16 (int16x4_t, int16_t)
 @*@emph{Form of expected instruction(s):} @code{vmull.s16 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+
+
+@subsubsection Vector saturating doubling long multiply by scalar
+
+@itemize @bullet
+@item int64x2_t vqdmull_n_s32 (int32x2_t, int32_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmull.s32 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x4_t vqdmull_n_s16 (int16x4_t, int16_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmull.s16 @var{q0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+
+
+@subsubsection Vector saturating doubling multiply high by scalar
+
+@itemize @bullet
+@item int32x4_t vqdmulhq_n_s32 (int32x4_t, int32_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s32 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x8_t vqdmulhq_n_s16 (int16x8_t, int16_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s16 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x2_t vqdmulh_n_s32 (int32x2_t, int32_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s32 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x4_t vqdmulh_n_s16 (int16x4_t, int16_t)
+@*@emph{Form of expected instruction(s):} @code{vqdmulh.s16 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x4_t vqrdmulhq_n_s32 (int32x4_t, int32_t)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s32 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x8_t vqrdmulhq_n_s16 (int16x8_t, int16_t)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s16 @var{q0}, @var{q0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int32x2_t vqrdmulh_n_s32 (int32x2_t, int32_t)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s32 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
+@end itemize
+
+
+@itemize @bullet
+@item int16x4_t vqrdmulh_n_s16 (int16x4_t, int16_t)
+@*@emph{Form of expected instruction(s):} @code{vqrdmulh.s16 @var{d0}, @var{d0}, @var{d0}[@var{0}]}
 @end itemize
 
 

@@ -13,8 +13,8 @@ void test_vsetQ_lanes16 (void)
   int16_t arg0_int16_t;
   int16x8_t arg1_int16x8_t;
 
-  out_int16x8_t = vsetq_lane_s16 (arg0_int16_t, arg1_int16x8_t, 0);
+  out_int16x8_t = vsetq_lane_s16 (arg0_int16_t, arg1_int16x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.16\[ 	\]+\[dD\]\[0-9\]+\\\[0\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.16\[ 	\]+\[dD\]\[0-9\]+\\\[\[0-9\]\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

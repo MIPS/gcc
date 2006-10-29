@@ -12,7 +12,7 @@ void test_vqshl_nu64 (void)
   uint64x1_t out_uint64x1_t;
   uint64x1_t arg0_uint64x1_t;
 
-  out_uint64x1_t = vqshl_n_u64 (arg0_uint64x1_t, 0);
+  out_uint64x1_t = vqshl_n_u64 (arg0_uint64x1_t, 1);
 }
 
 /* { dg-final { scan-assembler "vqshl\.u64\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

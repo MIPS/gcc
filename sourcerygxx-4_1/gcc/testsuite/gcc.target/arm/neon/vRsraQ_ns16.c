@@ -13,7 +13,7 @@ void test_vRsraQ_ns16 (void)
   int16x8_t arg0_int16x8_t;
   int16x8_t arg1_int16x8_t;
 
-  out_int16x8_t = vrsraq_n_s16 (arg0_int16x8_t, arg1_int16x8_t, 0);
+  out_int16x8_t = vrsraq_n_s16 (arg0_int16x8_t, arg1_int16x8_t, 1);
 }
 
 /* { dg-final { scan-assembler "vrsra\.s16\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

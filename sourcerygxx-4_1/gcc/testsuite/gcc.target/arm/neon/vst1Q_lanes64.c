@@ -12,7 +12,7 @@ void test_vst1Q_lanes64 (void)
   int64_t *arg0_int64_t;
   int64x2_t arg1_int64x2_t;
 
-  vst1q_lane_s64 (arg0_int64_t, arg1_int64x2_t, 0);
+  vst1q_lane_s64 (arg0_int64_t, arg1_int64x2_t, 1);
 }
 
 /* { dg-final { scan-assembler "vst1\.64\[ 	\]+((\\\{\[dD\]\[0-9\]+\\\})|(\[dD\]\[0-9\]+)), \\\[\[rR\]\[0-9\]+\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

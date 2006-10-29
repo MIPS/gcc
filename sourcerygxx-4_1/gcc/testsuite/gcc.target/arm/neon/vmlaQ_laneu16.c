@@ -14,8 +14,8 @@ void test_vmlaQ_laneu16 (void)
   uint16x8_t arg1_uint16x8_t;
   uint16x4_t arg2_uint16x4_t;
 
-  out_uint16x8_t = vmlaq_lane_u16 (arg0_uint16x8_t, arg1_uint16x8_t, arg2_uint16x4_t, 0);
+  out_uint16x8_t = vmlaq_lane_u16 (arg0_uint16x8_t, arg1_uint16x8_t, arg2_uint16x4_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmla\.i16\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmla\.i16\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

@@ -12,8 +12,8 @@ void test_vget_laneu8 (void)
   uint8_t out_uint8_t;
   uint8x8_t arg0_uint8x8_t;
 
-  out_uint8_t = vget_lane_u8 (arg0_uint8x8_t, 0);
+  out_uint8_t = vget_lane_u8 (arg0_uint8x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.u8\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.u8\[ 	\]+\[rR\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

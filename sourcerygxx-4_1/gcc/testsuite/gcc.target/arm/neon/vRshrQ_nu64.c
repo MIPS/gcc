@@ -12,7 +12,7 @@ void test_vRshrQ_nu64 (void)
   uint64x2_t out_uint64x2_t;
   uint64x2_t arg0_uint64x2_t;
 
-  out_uint64x2_t = vrshrq_n_u64 (arg0_uint64x2_t, 0);
+  out_uint64x2_t = vrshrq_n_u64 (arg0_uint64x2_t, 1);
 }
 
 /* { dg-final { scan-assembler "vrshr\.u64\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

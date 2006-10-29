@@ -13,8 +13,8 @@ void test_vset_laneu32 (void)
   uint32_t arg0_uint32_t;
   uint32x2_t arg1_uint32x2_t;
 
-  out_uint32x2_t = vset_lane_u32 (arg0_uint32_t, arg1_uint32x2_t, 0);
+  out_uint32x2_t = vset_lane_u32 (arg0_uint32_t, arg1_uint32x2_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.32\[ 	\]+\[dD\]\[0-9\]+\\\[0\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.32\[ 	\]+\[dD\]\[0-9\]+\\\[\[0-9\]\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

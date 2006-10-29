@@ -12,7 +12,7 @@ void test_vRshr_ns64 (void)
   int64x1_t out_int64x1_t;
   int64x1_t arg0_int64x1_t;
 
-  out_int64x1_t = vrshr_n_s64 (arg0_int64x1_t, 0);
+  out_int64x1_t = vrshr_n_s64 (arg0_int64x1_t, 1);
 }
 
 /* { dg-final { scan-assembler "vrshr\.s64\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

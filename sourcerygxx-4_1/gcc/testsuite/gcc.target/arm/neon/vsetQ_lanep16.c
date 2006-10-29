@@ -13,8 +13,8 @@ void test_vsetQ_lanep16 (void)
   poly16_t arg0_poly16_t;
   poly16x8_t arg1_poly16x8_t;
 
-  out_poly16x8_t = vsetq_lane_p16 (arg0_poly16_t, arg1_poly16x8_t, 0);
+  out_poly16x8_t = vsetq_lane_p16 (arg0_poly16_t, arg1_poly16x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vmov\.16\[ 	\]+\[dD\]\[0-9\]+\\\[0\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vmov\.16\[ 	\]+\[dD\]\[0-9\]+\\\[\[0-9\]\\\], \[rR\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

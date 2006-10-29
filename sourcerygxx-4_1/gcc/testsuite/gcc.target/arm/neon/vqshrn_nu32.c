@@ -12,7 +12,7 @@ void test_vqshrn_nu32 (void)
   uint16x4_t out_uint16x4_t;
   uint32x4_t arg0_uint32x4_t;
 
-  out_uint16x4_t = vqshrn_n_u32 (arg0_uint32x4_t, 0);
+  out_uint16x4_t = vqshrn_n_u32 (arg0_uint32x4_t, 1);
 }
 
 /* { dg-final { scan-assembler "vqshrn\.u32\[ 	\]+\[dD\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

@@ -12,7 +12,7 @@ void test_vshrn_ns64 (void)
   int32x2_t out_int32x2_t;
   int64x2_t arg0_int64x2_t;
 
-  out_int32x2_t = vshrn_n_s64 (arg0_int64x2_t, 0);
+  out_int32x2_t = vshrn_n_s64 (arg0_int64x2_t, 1);
 }
 
 /* { dg-final { scan-assembler "vshrn\.i64\[ 	\]+\[dD\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

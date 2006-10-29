@@ -12,7 +12,7 @@ void test_vRshrn_ns16 (void)
   int8x8_t out_int8x8_t;
   int16x8_t arg0_int16x8_t;
 
-  out_int8x8_t = vrshrn_n_s16 (arg0_int16x8_t, 0);
+  out_int8x8_t = vrshrn_n_s16 (arg0_int16x8_t, 1);
 }
 
 /* { dg-final { scan-assembler "vrshrn\.i16\[ 	\]+\[dD\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

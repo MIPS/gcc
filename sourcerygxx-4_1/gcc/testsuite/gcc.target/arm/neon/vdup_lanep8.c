@@ -12,8 +12,8 @@ void test_vdup_lanep8 (void)
   poly8x8_t out_poly8x8_t;
   poly8x8_t arg0_poly8x8_t;
 
-  out_poly8x8_t = vdup_lane_p8 (arg0_poly8x8_t, 0);
+  out_poly8x8_t = vdup_lane_p8 (arg0_poly8x8_t, 1);
 }
 
-/* { dg-final { scan-assembler "vdup\.8\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+\\\[0\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vdup\.8\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+\\\[\[0-9\]\\\]!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

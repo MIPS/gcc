@@ -13,7 +13,7 @@ void test_vsli_np8 (void)
   poly8x8_t arg0_poly8x8_t;
   poly8x8_t arg1_poly8x8_t;
 
-  out_poly8x8_t = vsli_n_p8 (arg0_poly8x8_t, arg1_poly8x8_t, 0);
+  out_poly8x8_t = vsli_n_p8 (arg0_poly8x8_t, arg1_poly8x8_t, 1);
 }
 
 /* { dg-final { scan-assembler "vsli\.8\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

@@ -12,7 +12,7 @@ void test_vqshluQ_ns64 (void)
   uint64x2_t out_uint64x2_t;
   int64x2_t arg0_int64x2_t;
 
-  out_uint64x2_t = vqshluq_n_s64 (arg0_int64x2_t, 0);
+  out_uint64x2_t = vqshluq_n_s64 (arg0_int64x2_t, 1);
 }
 
 /* { dg-final { scan-assembler "vqshlu\.s64\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

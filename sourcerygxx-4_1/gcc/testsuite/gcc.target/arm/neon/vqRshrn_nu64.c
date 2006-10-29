@@ -12,7 +12,7 @@ void test_vqRshrn_nu64 (void)
   uint32x2_t out_uint32x2_t;
   uint64x2_t arg0_uint64x2_t;
 
-  out_uint32x2_t = vqrshrn_n_u64 (arg0_uint64x2_t, 0);
+  out_uint32x2_t = vqrshrn_n_u64 (arg0_uint64x2_t, 1);
 }
 
 /* { dg-final { scan-assembler "vqrshrn\.u64\[ 	\]+\[dD\]\[0-9\]+, \[qQ\]\[0-9\]+, #\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

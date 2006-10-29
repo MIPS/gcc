@@ -158,7 +158,9 @@
    (UNSPEC_VPMIN 201)
    (UNSPEC_VRECPS 202)
    (UNSPEC_VRSQRTS 203)
-   (UNSPEC_VMULL_LANE 204)])
+   (UNSPEC_VMULL_LANE 204)
+   (UNSPEC_VQDMULL_LANE 205)
+   (UNSPEC_VQDMULH_LANE 206)])
 
 
 ;; Double-width vector modes.
@@ -1894,7 +1896,7 @@
                           (match_operand:SI 3 "immediate_operand" "i")]
                          UNSPEC_VGET_LANE))]
   "TARGET_NEON"
-  "vmov%?.%T3%#<V_sz_elem>\t%0, %P1[%c2]"
+  "vmov%?.%t3%#<V_sz_elem>\t%0, %P1[%c2]"
   [(set_attr "predicable" "yes")])
 
 ; Operand 2 (lane number) is ignored because we can only extract the zeroth lane
@@ -1928,7 +1930,7 @@
   ops[1] = gen_rtx_REG (<V_HALF>mode, regno + 2 * (elt / halfelts));
   ops[2] = GEN_INT (elt % halfelts);
   ops[3] = operands[3];
-  output_asm_insn ("vmov%?.%T3%#<V_sz_elem>\t%0, %P1[%c2]", ops);
+  output_asm_insn ("vmov%?.%t3%#<V_sz_elem>\t%0, %P1[%c2]", ops);
 
   return "";
 }
@@ -2264,7 +2266,37 @@
                            (match_operand:SI 4 "immediate_operand" "i")]
                           UNSPEC_VMULL_LANE))]
   "TARGET_NEON"
-  "vmull.<V_s_elem>\t%q0, %P1, %P2[%c3]")
+  "vmull.%T4%#<V_sz_elem>\t%q0, %P1, %P2[%c3]")
+
+(define_insn "neon_vqdmull_lane<mode>"
+  [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
+	(unspec:<V_widen> [(match_operand:VMDI 1 "s_register_operand" "w")
+		           (match_operand:VMDI 2 "s_register_operand" "w")
+                           (match_operand:SI 3 "immediate_operand" "i")
+                           (match_operand:SI 4 "immediate_operand" "i")]
+                          UNSPEC_VQDMULL_LANE))]
+  "TARGET_NEON"
+  "vqdmull.<V_s_elem>\t%q0, %P1, %P2[%c3]")
+
+(define_insn "neon_vqdmulh_lane<mode>"
+  [(set (match_operand:VMQI 0 "s_register_operand" "=w")
+	(unspec:VMQI [(match_operand:VMQI 1 "s_register_operand" "w")
+		      (match_operand:<V_HALF> 2 "s_register_operand" "w")
+                      (match_operand:SI 3 "immediate_operand" "i")
+                      (match_operand:SI 4 "immediate_operand" "i")]
+                      UNSPEC_VQDMULH_LANE))]
+  "TARGET_NEON"
+  "vq%O4dmulh.%T4%#<V_sz_elem>\t%q0, %q1, %P2[%c3]")
+
+(define_insn "neon_vqdmulh_lane<mode>"
+  [(set (match_operand:VMDI 0 "s_register_operand" "=w")
+	(unspec:VMDI [(match_operand:VMDI 1 "s_register_operand" "w")
+		      (match_operand:VMDI 2 "s_register_operand" "w")
+                      (match_operand:SI 3 "immediate_operand" "i")
+                      (match_operand:SI 4 "immediate_operand" "i")]
+                      UNSPEC_VQDMULH_LANE))]
+  "TARGET_NEON"
+  "vq%O4dmulh.%T4%#<V_sz_elem>\t%P0, %P1, %P2[%c3]")
 
 (define_insn "neon_vmla_lane<mode>"
   [(set (match_operand:VMD 0 "s_register_operand" "=w")
@@ -2399,7 +2431,49 @@
   rtx tmp = gen_reg_rtx (<MODE>mode);
   emit_insn (gen_neon_vset_lane<mode> (tmp, operands[2], tmp, const0_rtx));
   emit_insn (gen_neon_vmull_lane<mode> (operands[0], operands[1], tmp,
-				        const0_rtx, const0_rtx));
+				        const0_rtx, operands[3]));
+  DONE;
+})
+
+(define_expand "neon_vqdmull_n<mode>"
+  [(match_operand:<V_widen> 0 "s_register_operand" "")
+   (match_operand:VMDI 1 "s_register_operand" "")
+   (match_operand:<V_elem> 2 "s_register_operand" "")
+   (match_operand:SI 3 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  rtx tmp = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_neon_vset_lane<mode> (tmp, operands[2], tmp, const0_rtx));
+  emit_insn (gen_neon_vqdmull_lane<mode> (operands[0], operands[1], tmp,
+				          const0_rtx, const0_rtx));
+  DONE;
+})
+
+(define_expand "neon_vqdmulh_n<mode>"
+  [(match_operand:VMDI 0 "s_register_operand" "")
+   (match_operand:VMDI 1 "s_register_operand" "")
+   (match_operand:<V_elem> 2 "s_register_operand" "")
+   (match_operand:SI 3 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  rtx tmp = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_neon_vset_lane<mode> (tmp, operands[2], tmp, const0_rtx));
+  emit_insn (gen_neon_vqdmulh_lane<mode> (operands[0], operands[1], tmp,
+				          const0_rtx, operands[3]));
+  DONE;
+})
+
+(define_expand "neon_vqdmulh_n<mode>"
+  [(match_operand:VMQI 0 "s_register_operand" "")
+   (match_operand:VMQI 1 "s_register_operand" "")
+   (match_operand:<V_elem> 2 "s_register_operand" "")
+   (match_operand:SI 3 "immediate_operand" "")]
+  "TARGET_NEON"
+{
+  rtx tmp = gen_reg_rtx (<V_HALF>mode);
+  emit_insn (gen_neon_vset_lane<V_half> (tmp, operands[2], tmp, const0_rtx));
+  emit_insn (gen_neon_vqdmulh_lane<mode> (operands[0], operands[1], tmp,
+				          const0_rtx, operands[3]));
   DONE;
 })
 
