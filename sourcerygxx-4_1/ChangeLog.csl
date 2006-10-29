@@ -1,3 +1,13 @@
+2006-10-29  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
+	* testsuite/config/default.exp (${tool}_target_compile): Use
+	v3_target_compile.
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_function_available): Declare
+	function before calling.
+
 2006-10-27  Joseph Myers  <joseph@codesourcery.com>
             Richard Sandiford  <richard@codesourcery.com>
 
