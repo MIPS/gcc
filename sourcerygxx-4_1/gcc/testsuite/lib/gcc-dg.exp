@@ -381,8 +381,8 @@ proc cleanup-dump { suffix } {
 
 # Remove files kept by --save-temps for the current test.
 #
-# Currently this is only .i files, but more can be added if there are
-# tests generating them.
+# Currently this is only .i, .ii and .s files, but more can be added
+# if there are tests generating them.
 proc cleanup-saved-temps { } {
     global additional_sources
 
@@ -392,12 +392,14 @@ proc cleanup-saved-temps { } {
     upvar 2 name testcase
     remove-build-file "[file rootname [file tail $testcase]].ii"
     remove-build-file "[file rootname [file tail $testcase]].i"
+    remove-build-file "[file rootname [file tail $testcase]].s"
 
     # Clean up saved temp files for additional source files.
     if [info exists additional_sources] {
 	foreach srcfile $additional_sources {
             remove-build-file "[file rootname [file tail $srcfile]].ii"
             remove-build-file "[file rootname [file tail $srcfile]].i"
+            remove-build-file "[file rootname [file tail $srcfile]].s"
 	}
     }
 }

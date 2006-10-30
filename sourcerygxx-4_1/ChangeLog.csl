@@ -1,3 +1,15 @@
+2006-10-30  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/neon-testgen.ml (emit_prologue): Emit
+	"dg-do assemble" not "dg-do compile".  Emit "-save-temps".
+	(emit_epilogue): Emit cleanup-saved-temps call. Delete
+	unused code.
+
+	gcc/testsuite/
+	* lib/gcc-dg.exp (cleanup-saved-temps): Delete .s files.
+	* gcc.target/arm/neon/*.c: Regenerate.
+
 2006-10-30  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
