@@ -7583,7 +7583,7 @@ output_file_names (void)
 
       /* Skip all leading "./".  */
       f = VARRAY_CHAR_PTR (file_table, i);
-      while (f[0] == '.' && f[1] == '/')
+      while (f[0] == '.' && IS_DIR_SEPARATOR (f[1]))
 	f += 2;
 
       /* Create a new array entry.  */
@@ -7592,7 +7592,19 @@ output_file_names (void)
       files[i].file_idx = i;
 
       /* Search for the file name part.  */
-      f = strrchr (f, '/');
+      f = strrchr (f, DIR_SEPARATOR);
+#if defined (DIR_SEPARATOR_2)
+      {
+        char *g = strrchr (files[i].path, DIR_SEPARATOR_2);
+ 
+        if (g != NULL)
+          {
+            if (f == NULL || f < g)
+              f = g;
+          }
+      }
+#endif
+ 
       files[i].fname = f == NULL ? files[i].path : f + 1;
     }
 
@@ -12167,7 +12179,7 @@ gen_compile_unit_die (const char *filename)
     {
       add_name_attribute (die, filename);
       /* Don't add cwd for <built-in>.  */
-      if (filename[0] != DIR_SEPARATOR && filename[0] != '<')
+      if (!IS_ABSOLUTE_PATH (filename) && filename[0] != '<')
 	add_comp_dir_attribute (die);
     }
 
@@ -14068,13 +14080,13 @@ dwarf2out_finish (const char *filename)
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */
   add_name_attribute (comp_unit_die, filename);
-  if (filename[0] != DIR_SEPARATOR)
+  if (!IS_ABSOLUTE_PATH (filename))
     add_comp_dir_attribute (comp_unit_die);
   else if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
     {
       size_t i;
       for (i = 1; i < VARRAY_ACTIVE_SIZE (file_table); i++)
-	if (VARRAY_CHAR_PTR (file_table, i)[0] != DIR_SEPARATOR
+	if (!IS_ABSOLUTE_PATH (VARRAY_CHAR_PTR (file_table, i))
 	    /* Don't add cwd for <built-in>.  */
 	    && VARRAY_CHAR_PTR (file_table, i)[0] != '<')
 	  {
