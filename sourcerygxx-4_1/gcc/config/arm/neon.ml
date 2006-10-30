@@ -303,6 +303,12 @@ let non_signed_variant = function
   | U64 -> I64
   | x -> x
 
+let poly_unsigned_variant v =
+  let elclass = match elt_class v with
+    Poly -> Unsigned
+  | x -> x in
+  elt_of_class_width elclass (elt_width v)
+
 let widen_elt elt =
   let w = elt_width elt
   and c = elt_class elt in
@@ -488,11 +494,6 @@ let elts_same_io_lane =
 let elts_same_io =
   elts_same (fun vtype -> Arity3 (vtype 0, vtype 0, vtype 1, vtype 2))
 
-let elts_same_io_bits_suffix shape elt =
-  (fst (elts_same (fun vtype -> Arity3 (vtype 0, vtype 0, vtype 1, vtype 2))
-                  shape elt),
-   bits_of_elt elt)
-
 let elts_same_2_lane =
   elts_same (fun vtype -> Arity3 (vtype 0, vtype 1, vtype 2, vtype 3))
 
@@ -654,6 +655,17 @@ let make_bits_only func shape elt =
 let extend shape elt =
   let vtype = type_for_elt shape elt in
   Arity3 (vtype 0, vtype 1, vtype 2, vtype 3), bits_of_elt elt
+
+(* Table look-up operations. Operand 2 is signed/unsigned for signed/unsigned
+   integer ops respectively, or unsigned for polynomial ops.  *)
+
+let table mkarity shape elt =
+  let vtype = type_for_elt shape elt in
+  let op2 = type_for_elt shape (poly_unsigned_variant elt) 2 in
+  mkarity vtype op2, bits_of_elt elt
+
+let table_2 = table (fun vtype op2 -> Arity2 (vtype 0, vtype 1, op2))
+let table_io = table (fun vtype op2 -> Arity3 (vtype 0, vtype 0, vtype 1, op2))
 
 (* Operations where only bits matter.  *)
 
@@ -1097,33 +1109,31 @@ let ops =
     Vtbl 1,
       [Instruction_name ["vtbl"];
        Disassembles_as [Use_operands [| Dreg; VecArray (1, Dreg); Dreg |]]],
-      Use_operands [| Dreg; Dreg; Dreg |], "vtbl1", bits_2,
-      [U8; S8; P8];
+      Use_operands [| Dreg; Dreg; Dreg |], "vtbl1", table_2, [U8; S8; P8];
     Vtbl 2, [Instruction_name ["vtbl"]],
-      Use_operands [| Dreg; VecArray (2, Dreg); Dreg |], "vtbl2",
-      bits_2, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (2, Dreg); Dreg |], "vtbl2", table_2,
+      [U8; S8; P8];
     Vtbl 3, [Instruction_name ["vtbl"]],
-      Use_operands [| Dreg; VecArray (3, Dreg); Dreg |], "vtbl3",
-      bits_2, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (3, Dreg); Dreg |], "vtbl3", table_2,
+      [U8; S8; P8];
     Vtbl 4, [Instruction_name ["vtbl"]],
-      Use_operands [| Dreg; VecArray (4, Dreg); Dreg |], "vtbl4",
-      bits_2, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (4, Dreg); Dreg |], "vtbl4", table_2,
+      [U8; S8; P8];
     
     (* Extended table lookup.  *)
     Vtbx 1,
       [Instruction_name ["vtbx"];
        Disassembles_as [Use_operands [| Dreg; VecArray (1, Dreg); Dreg |]]],
-      Use_operands [| Dreg; Dreg; Dreg |], "vtbx1", elts_same_io_bits_suffix,
-      [U8; S8; P8];
+      Use_operands [| Dreg; Dreg; Dreg |], "vtbx1", table_io, [U8; S8; P8];
     Vtbx 2, [Instruction_name ["vtbx"]],
-      Use_operands [| Dreg; VecArray (2, Dreg); Dreg |], "vtbx2",
-      elts_same_io_bits_suffix, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (2, Dreg); Dreg |], "vtbx2", table_io,
+      [U8; S8; P8];
     Vtbx 3, [Instruction_name ["vtbx"]],
-      Use_operands [| Dreg; VecArray (3, Dreg); Dreg |], "vtbx3",
-      elts_same_io_bits_suffix, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (3, Dreg); Dreg |], "vtbx3", table_io,
+      [U8; S8; P8];
     Vtbx 4, [Instruction_name ["vtbx"]],
-      Use_operands [| Dreg; VecArray (4, Dreg); Dreg |], "vtbx4",
-      elts_same_io_bits_suffix, [U8; S8; P8];
+      Use_operands [| Dreg; VecArray (4, Dreg); Dreg |], "vtbx4", table_io,
+      [U8; S8; P8];
     
     (* Multiply, lane.  (note: these were undocumented at the time of
        writing).  *)

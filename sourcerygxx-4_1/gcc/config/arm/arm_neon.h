@@ -6089,7 +6089,7 @@ vtbl1_u8 (uint8x8_t __a, uint8x8_t __b)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbl1_p8 (poly8x8_t __a, poly8x8_t __b)
+vtbl1_p8 (poly8x8_t __a, uint8x8_t __b)
 {
   return __builtin_neon_vtbl1v8qi ((int8x8_t) __a, (int8x8_t) __b);
 }
@@ -6109,7 +6109,7 @@ vtbl2_u8 (uint8x8x2_t __a, uint8x8_t __b)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbl2_p8 (poly8x8x2_t __a, poly8x8_t __b)
+vtbl2_p8 (poly8x8x2_t __a, uint8x8_t __b)
 {
   union { poly8x8x2_t __i; __builtin_neon_ti __o; } __au = { __a };
   return __builtin_neon_vtbl2v8qi (__au.__o, (int8x8_t) __b);
@@ -6130,7 +6130,7 @@ vtbl3_u8 (uint8x8x3_t __a, uint8x8_t __b)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbl3_p8 (poly8x8x3_t __a, poly8x8_t __b)
+vtbl3_p8 (poly8x8x3_t __a, uint8x8_t __b)
 {
   union { poly8x8x3_t __i; __builtin_neon_ei __o; } __au = { __a };
   return __builtin_neon_vtbl3v8qi (__au.__o, (int8x8_t) __b);
@@ -6151,7 +6151,7 @@ vtbl4_u8 (uint8x8x4_t __a, uint8x8_t __b)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbl4_p8 (poly8x8x4_t __a, poly8x8_t __b)
+vtbl4_p8 (poly8x8x4_t __a, uint8x8_t __b)
 {
   union { poly8x8x4_t __i; __builtin_neon_oi __o; } __au = { __a };
   return __builtin_neon_vtbl4v8qi (__au.__o, (int8x8_t) __b);
@@ -6170,7 +6170,7 @@ vtbx1_u8 (uint8x8_t __a, uint8x8_t __b, uint8x8_t __c)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbx1_p8 (poly8x8_t __a, poly8x8_t __b, poly8x8_t __c)
+vtbx1_p8 (poly8x8_t __a, poly8x8_t __b, uint8x8_t __c)
 {
   return __builtin_neon_vtbx1v8qi ((int8x8_t) __a, (int8x8_t) __b, (int8x8_t) __c);
 }
@@ -6190,7 +6190,7 @@ vtbx2_u8 (uint8x8_t __a, uint8x8x2_t __b, uint8x8_t __c)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbx2_p8 (poly8x8_t __a, poly8x8x2_t __b, poly8x8_t __c)
+vtbx2_p8 (poly8x8_t __a, poly8x8x2_t __b, uint8x8_t __c)
 {
   union { poly8x8x2_t __i; __builtin_neon_ti __o; } __bu = { __b };
   return __builtin_neon_vtbx2v8qi ((int8x8_t) __a, __bu.__o, (int8x8_t) __c);
@@ -6211,7 +6211,7 @@ vtbx3_u8 (uint8x8_t __a, uint8x8x3_t __b, uint8x8_t __c)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbx3_p8 (poly8x8_t __a, poly8x8x3_t __b, poly8x8_t __c)
+vtbx3_p8 (poly8x8_t __a, poly8x8x3_t __b, uint8x8_t __c)
 {
   union { poly8x8x3_t __i; __builtin_neon_ei __o; } __bu = { __b };
   return __builtin_neon_vtbx3v8qi ((int8x8_t) __a, __bu.__o, (int8x8_t) __c);
@@ -6232,7 +6232,7 @@ vtbx4_u8 (uint8x8_t __a, uint8x8x4_t __b, uint8x8_t __c)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vtbx4_p8 (poly8x8_t __a, poly8x8x4_t __b, poly8x8_t __c)
+vtbx4_p8 (poly8x8_t __a, poly8x8x4_t __b, uint8x8_t __c)
 {
   union { poly8x8x4_t __i; __builtin_neon_oi __o; } __bu = { __b };
   return __builtin_neon_vtbx4v8qi ((int8x8_t) __a, __bu.__o, (int8x8_t) __c);

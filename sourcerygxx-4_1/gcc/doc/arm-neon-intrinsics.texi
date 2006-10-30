@@ -5840,7 +5840,7 @@
 @subsubsection Table lookup
 
 @itemize @bullet
-@item poly8x8_t vtbl1_p8 (poly8x8_t, poly8x8_t)
+@item poly8x8_t vtbl1_p8 (poly8x8_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbl.8 @var{d0}, @{@var{d0}@}, @var{d0}}
 @end itemize
 
@@ -5858,7 +5858,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbl2_p8 (poly8x8x2_t, poly8x8_t)
+@item poly8x8_t vtbl2_p8 (poly8x8x2_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbl.8 @var{d0}, @{@var{d0}, @var{d1}@}, @var{d0}}
 @end itemize
 
@@ -5876,7 +5876,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbl3_p8 (poly8x8x3_t, poly8x8_t)
+@item poly8x8_t vtbl3_p8 (poly8x8x3_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbl.8 @var{d0}, @{@var{d0}, @var{d1}, @var{d2}@}, @var{d0}}
 @end itemize
 
@@ -5894,7 +5894,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbl4_p8 (poly8x8x4_t, poly8x8_t)
+@item poly8x8_t vtbl4_p8 (poly8x8x4_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbl.8 @var{d0}, @{@var{d0}, @var{d1}, @var{d2}, @var{d3}@}, @var{d0}}
 @end itemize
 
@@ -5916,7 +5916,7 @@
 @subsubsection Extended table lookup
 
 @itemize @bullet
-@item poly8x8_t vtbx1_p8 (poly8x8_t, poly8x8_t, poly8x8_t)
+@item poly8x8_t vtbx1_p8 (poly8x8_t, poly8x8_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbx.8 @var{d0}, @{@var{d0}@}, @var{d0}}
 @end itemize
 
@@ -5934,7 +5934,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbx2_p8 (poly8x8_t, poly8x8x2_t, poly8x8_t)
+@item poly8x8_t vtbx2_p8 (poly8x8_t, poly8x8x2_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbx.8 @var{d0}, @{@var{d0}, @var{d1}@}, @var{d0}}
 @end itemize
 
@@ -5952,7 +5952,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbx3_p8 (poly8x8_t, poly8x8x3_t, poly8x8_t)
+@item poly8x8_t vtbx3_p8 (poly8x8_t, poly8x8x3_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbx.8 @var{d0}, @{@var{d0}, @var{d1}, @var{d2}@}, @var{d0}}
 @end itemize
 
@@ -5970,7 +5970,7 @@
 
 
 @itemize @bullet
-@item poly8x8_t vtbx4_p8 (poly8x8_t, poly8x8x4_t, poly8x8_t)
+@item poly8x8_t vtbx4_p8 (poly8x8_t, poly8x8x4_t, uint8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vtbx.8 @var{d0}, @{@var{d0}, @var{d1}, @var{d2}, @var{d3}@}, @var{d0}}
 @end itemize
 

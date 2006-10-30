@@ -12,9 +12,9 @@ void test_vtbx1p8 (void)
   poly8x8_t out_poly8x8_t;
   poly8x8_t arg0_poly8x8_t;
   poly8x8_t arg1_poly8x8_t;
-  poly8x8_t arg2_poly8x8_t;
+  uint8x8_t arg2_uint8x8_t;
 
-  out_poly8x8_t = vtbx1_p8 (arg0_poly8x8_t, arg1_poly8x8_t, arg2_poly8x8_t);
+  out_poly8x8_t = vtbx1_p8 (arg0_poly8x8_t, arg1_poly8x8_t, arg2_uint8x8_t);
 }
 
 /* { dg-final { scan-assembler "vtbx\.8\[ 	\]+\[dD\]\[0-9\]+, ((\\\{\[dD\]\[0-9\]+\\\})|(\[dD\]\[0-9\]+)), \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

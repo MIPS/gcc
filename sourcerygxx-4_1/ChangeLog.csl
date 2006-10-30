@@ -1,3 +1,16 @@
+2006-10-30  Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config/arm/neon.ml (poly_unsigned_variant): New function.
+	(elts_same_io_bits_suffix): Now unused, remove.
+	(table, table_2, table_io): New type munging functions for table
+	look-up operations.
+	(ops): Use table_2 and table_io for Vtbl, Vtbx instead of bits_2 and
+	elts_same_io_bits_suffix.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	* testsuite/gcc.target/arm/neon/*.c: Regenerate.
+
 2006-10-29  Julian Brown  <julian@codesourcery.com>
 
 	gcc/
