@@ -14934,13 +14934,13 @@ arm_init_neon_builtins (void)
   TYPE4 (v8qi, v8qi, v8qi, v8qi);
   TYPE4 (v4hi, v4hi, v4hi, v4hi);
   TYPE4 (v2si, v2si, v2si, v2si);
-  TYPE4 (v2sf, v2sf, v2sf, v2sf);
+  TYPE4 (v2sf, v2si, v2sf, v2sf);
   TYPE4 (di, di, di, di);
 
   TYPE4 (v16qi, v16qi, v16qi, v16qi);
   TYPE4 (v8hi, v8hi, v8hi, v8hi);
   TYPE4 (v4si, v4si, v4si, v4si);
-  TYPE4 (v4sf, v4sf, v4sf, v4sf);
+  TYPE4 (v4sf, v4si, v4sf, v4sf);
   TYPE4 (v2di, v2di, v2di, v2di);
 
   /* Shift immediate operations.  */
@@ -16407,18 +16407,21 @@ arm_init_neon_builtins (void)
               break;
 
 	    case NEON_SELECT:
-              gcc_assert (mode0 == mode1 && mode1 == mode2);
+              gcc_assert (mode1 == mode2
+                          && (mode0 == mode1
+                              || (mode0 == V2SImode && mode1 == V2SFmode)
+                              || (mode0 == V4SImode && mode1 == V4SFmode)));
               switch (tmode)
                 {
                 case V8QImode: ftype = v8qi_ftype_v8qi_v8qi_v8qi; break;
                 case V4HImode: ftype = v4hi_ftype_v4hi_v4hi_v4hi; break;
                 case V2SImode: ftype = v2si_ftype_v2si_v2si_v2si; break;
-                case V2SFmode: ftype = v2sf_ftype_v2sf_v2sf_v2sf; break;
+                case V2SFmode: ftype = v2sf_ftype_v2si_v2sf_v2sf; break;
                 case DImode: ftype = di_ftype_di_di_di; break;
                 case V16QImode: ftype = v16qi_ftype_v16qi_v16qi_v16qi; break;
                 case V8HImode: ftype = v8hi_ftype_v8hi_v8hi_v8hi; break;
                 case V4SImode: ftype = v4si_ftype_v4si_v4si_v4si; break;
-                case V4SFmode: ftype = v4sf_ftype_v4sf_v4sf_v4sf; break;
+                case V4SFmode: ftype = v4sf_ftype_v4si_v4sf_v4sf; break;
                 case V2DImode: ftype = v2di_ftype_v2di_v2di_v2di; break;
                 default: gcc_unreachable ();
                 }

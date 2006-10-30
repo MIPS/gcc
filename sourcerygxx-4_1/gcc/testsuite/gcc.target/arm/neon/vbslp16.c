@@ -10,11 +10,11 @@
 void test_vbslp16 (void)
 {
   poly16x4_t out_poly16x4_t;
-  poly16x4_t arg0_poly16x4_t;
+  uint16x4_t arg0_uint16x4_t;
   poly16x4_t arg1_poly16x4_t;
   poly16x4_t arg2_poly16x4_t;
 
-  out_poly16x4_t = vbsl_p16 (arg0_poly16x4_t, arg1_poly16x4_t, arg2_poly16x4_t);
+  out_poly16x4_t = vbsl_p16 (arg0_uint16x4_t, arg1_poly16x4_t, arg2_poly16x4_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

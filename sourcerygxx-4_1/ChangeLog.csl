@@ -1,3 +1,22 @@
+2006-10-29  Julian Brown  <julian@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_init_neon_builtins): Fix function types for
+	floating-point bit-select builtin operations.
+	* config/arm/neon.md (V_cmp_result): Add DI, V2DI modes.
+	(neon_vbsl<mode>): Turn into expander, and rename previous version
+	to...
+	(neon_vbsl<mode>_internal): New name for above insn pattern. Fix
+	order of arguments, and make mode of operand 1 integer for float
+	variants.
+	* config/arm/neon.ml (bit_select): Add type munging function for bit
+	selection ops.
+	(Vneg): Fix operand shape for vqnegq.
+	(Vbsl): Use bit_select not notype_3 for type munging function.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+	* testsuite/gcc.target/arm/neon/*.c: Regenerate.
+
 2006-10-29  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/

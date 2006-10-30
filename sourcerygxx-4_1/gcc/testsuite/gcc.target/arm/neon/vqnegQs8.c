@@ -9,11 +9,11 @@
 
 void test_vqnegQs8 (void)
 {
-  int8x8_t out_int8x8_t;
-  int8x8_t arg0_int8x8_t;
+  int8x16_t out_int8x16_t;
+  int8x16_t arg0_int8x16_t;
 
-  out_int8x8_t = vqnegq_s8 (arg0_int8x8_t);
+  out_int8x16_t = vqnegq_s8 (arg0_int8x16_t);
 }
 
-/* { dg-final { scan-assembler "vqneg\.s8\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vqneg\.s8\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

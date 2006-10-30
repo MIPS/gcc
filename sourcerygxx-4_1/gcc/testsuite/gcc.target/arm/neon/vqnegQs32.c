@@ -9,11 +9,11 @@
 
 void test_vqnegQs32 (void)
 {
-  int32x2_t out_int32x2_t;
-  int32x2_t arg0_int32x2_t;
+  int32x4_t out_int32x4_t;
+  int32x4_t arg0_int32x4_t;
 
-  out_int32x2_t = vqnegq_s32 (arg0_int32x2_t);
+  out_int32x4_t = vqnegq_s32 (arg0_int32x4_t);
 }
 
-/* { dg-final { scan-assembler "vqneg\.s32\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
+/* { dg-final { scan-assembler "vqneg\.s32\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
 

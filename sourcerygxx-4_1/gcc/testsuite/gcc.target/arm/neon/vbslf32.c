@@ -10,11 +10,11 @@
 void test_vbslf32 (void)
 {
   float32x2_t out_float32x2_t;
-  float32x2_t arg0_float32x2_t;
+  uint32x2_t arg0_uint32x2_t;
   float32x2_t arg1_float32x2_t;
   float32x2_t arg2_float32x2_t;
 
-  out_float32x2_t = vbsl_f32 (arg0_float32x2_t, arg1_float32x2_t, arg2_float32x2_t);
+  out_float32x2_t = vbsl_f32 (arg0_uint32x2_t, arg1_float32x2_t, arg2_float32x2_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

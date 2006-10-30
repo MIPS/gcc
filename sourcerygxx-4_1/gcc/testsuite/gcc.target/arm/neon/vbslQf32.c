@@ -10,11 +10,11 @@
 void test_vbslQf32 (void)
 {
   float32x4_t out_float32x4_t;
-  float32x4_t arg0_float32x4_t;
+  uint32x4_t arg0_uint32x4_t;
   float32x4_t arg1_float32x4_t;
   float32x4_t arg2_float32x4_t;
 
-  out_float32x4_t = vbslq_f32 (arg0_float32x4_t, arg1_float32x4_t, arg2_float32x4_t);
+  out_float32x4_t = vbslq_f32 (arg0_uint32x4_t, arg1_float32x4_t, arg2_float32x4_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

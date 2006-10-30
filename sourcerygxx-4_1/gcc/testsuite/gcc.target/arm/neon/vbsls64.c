@@ -10,11 +10,11 @@
 void test_vbsls64 (void)
 {
   int64x1_t out_int64x1_t;
-  int64x1_t arg0_int64x1_t;
+  uint64x1_t arg0_uint64x1_t;
   int64x1_t arg1_int64x1_t;
   int64x1_t arg2_int64x1_t;
 
-  out_int64x1_t = vbsl_s64 (arg0_int64x1_t, arg1_int64x1_t, arg2_int64x1_t);
+  out_int64x1_t = vbsl_s64 (arg0_uint64x1_t, arg1_int64x1_t, arg2_int64x1_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

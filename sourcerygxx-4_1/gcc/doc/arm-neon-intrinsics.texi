@@ -4373,20 +4373,20 @@
 
 
 @itemize @bullet
-@item int32x2_t vqnegq_s32 (int32x2_t)
-@*@emph{Form of expected instruction(s):} @code{vqneg.s32 @var{d0}, @var{d0}}
+@item int32x4_t vqnegq_s32 (int32x4_t)
+@*@emph{Form of expected instruction(s):} @code{vqneg.s32 @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item int16x4_t vqnegq_s16 (int16x4_t)
-@*@emph{Form of expected instruction(s):} @code{vqneg.s16 @var{d0}, @var{d0}}
+@item int16x8_t vqnegq_s16 (int16x8_t)
+@*@emph{Form of expected instruction(s):} @code{vqneg.s16 @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item int8x8_t vqnegq_s8 (int8x8_t)
-@*@emph{Form of expected instruction(s):} @code{vqneg.s8 @var{d0}, @var{d0}}
+@item int8x16_t vqnegq_s8 (int8x16_t)
+@*@emph{Form of expected instruction(s):} @code{vqneg.s8 @var{q0}, @var{q0}}
 @end itemize
 
 
@@ -7086,19 +7086,19 @@
 
 
 @itemize @bullet
-@item int32x2_t vbsl_s32 (int32x2_t, int32x2_t, int32x2_t)
+@item int32x2_t vbsl_s32 (uint32x2_t, int32x2_t, int32x2_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
 
 @itemize @bullet
-@item int16x4_t vbsl_s16 (int16x4_t, int16x4_t, int16x4_t)
+@item int16x4_t vbsl_s16 (uint16x4_t, int16x4_t, int16x4_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
 
 @itemize @bullet
-@item int8x8_t vbsl_s8 (int8x8_t, int8x8_t, int8x8_t)
+@item int8x8_t vbsl_s8 (uint8x8_t, int8x8_t, int8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
@@ -7110,25 +7110,25 @@
 
 
 @itemize @bullet
-@item int64x1_t vbsl_s64 (int64x1_t, int64x1_t, int64x1_t)
+@item int64x1_t vbsl_s64 (uint64x1_t, int64x1_t, int64x1_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
 
 @itemize @bullet
-@item float32x2_t vbsl_f32 (float32x2_t, float32x2_t, float32x2_t)
+@item float32x2_t vbsl_f32 (uint32x2_t, float32x2_t, float32x2_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
 
 @itemize @bullet
-@item poly16x4_t vbsl_p16 (poly16x4_t, poly16x4_t, poly16x4_t)
+@item poly16x4_t vbsl_p16 (uint16x4_t, poly16x4_t, poly16x4_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
 
 @itemize @bullet
-@item poly8x8_t vbsl_p8 (poly8x8_t, poly8x8_t, poly8x8_t)
+@item poly8x8_t vbsl_p8 (uint8x8_t, poly8x8_t, poly8x8_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbit @var{d0}, @var{d0}, @var{d0}} @emph{or} @code{vbif @var{d0}, @var{d0}, @var{d0}}
 @end itemize
 
@@ -7152,19 +7152,19 @@
 
 
 @itemize @bullet
-@item int32x4_t vbslq_s32 (int32x4_t, int32x4_t, int32x4_t)
+@item int32x4_t vbslq_s32 (uint32x4_t, int32x4_t, int32x4_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item int16x8_t vbslq_s16 (int16x8_t, int16x8_t, int16x8_t)
+@item int16x8_t vbslq_s16 (uint16x8_t, int16x8_t, int16x8_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item int8x16_t vbslq_s8 (int8x16_t, int8x16_t, int8x16_t)
+@item int8x16_t vbslq_s8 (uint8x16_t, int8x16_t, int8x16_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
@@ -7176,25 +7176,25 @@
 
 
 @itemize @bullet
-@item int64x2_t vbslq_s64 (int64x2_t, int64x2_t, int64x2_t)
+@item int64x2_t vbslq_s64 (uint64x2_t, int64x2_t, int64x2_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item float32x4_t vbslq_f32 (float32x4_t, float32x4_t, float32x4_t)
+@item float32x4_t vbslq_f32 (uint32x4_t, float32x4_t, float32x4_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item poly16x8_t vbslq_p16 (poly16x8_t, poly16x8_t, poly16x8_t)
+@item poly16x8_t vbslq_p16 (uint16x8_t, poly16x8_t, poly16x8_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 
 
 @itemize @bullet
-@item poly8x16_t vbslq_p8 (poly8x16_t, poly8x16_t, poly8x16_t)
+@item poly8x16_t vbslq_p8 (uint8x16_t, poly8x16_t, poly8x16_t)
 @*@emph{Form of expected instruction(s):} @code{vbsl @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbit @var{q0}, @var{q0}, @var{q0}} @emph{or} @code{vbif @var{q0}, @var{q0}, @var{q0}}
 @end itemize
 

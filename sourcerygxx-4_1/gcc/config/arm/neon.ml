@@ -678,6 +678,13 @@ let notype_1 = make_notype elts_same_1
 let notype_2 = make_notype elts_same_2
 let notype_3 = make_notype elts_same_3
 
+(* Bit-select operations (first operand is unsigned int).  *)
+
+let bit_select shape elt =
+  let vtype = type_for_elt shape elt
+  and itype = type_for_elt shape (unsigned_of_elt elt) in
+  Arity3 (vtype 0, itype 1, vtype 2, vtype 3), NoElts
+
 (* Common lists of supported element types.  *)
 
 let su_8_32 = [S8; S16; S32; U8; U16; U32]
@@ -914,7 +921,7 @@ let ops =
     Vneg, [], All (2, Dreg), "vneg", elts_same_1, [S8; S16; S32; F32];
     Vneg, [], All (2, Qreg), "vnegQ", elts_same_1, [S8; S16; S32; F32];
     Vneg, [Saturating], All (2, Dreg), "vqneg", elts_same_1, [S8; S16; S32];
-    Vneg, [Saturating], All (2, Dreg), "vqnegQ", elts_same_1, [S8; S16; S32];
+    Vneg, [Saturating], All (2, Qreg), "vqnegQ", elts_same_1, [S8; S16; S32];
     
     (* Bitwise not.  *)
     Vmvn, [], All (2, Dreg), "vmvn", notype_1, P8 :: su_8_32;
@@ -1258,12 +1265,12 @@ let ops =
     Vbsl,
       [Instruction_name ["vbsl"; "vbit"; "vbif"];
        Disassembles_as [Use_operands [| Dreg; Dreg; Dreg |]]],
-      Use_operands [| Dreg; Dreg; Dreg; Dreg |], "vbsl", notype_3,
+      Use_operands [| Dreg; Dreg; Dreg; Dreg |], "vbsl", bit_select,
       pf_su_8_64;
     Vbsl,
       [Instruction_name ["vbsl"; "vbit"; "vbif"];
        Disassembles_as [Use_operands [| Qreg; Qreg; Qreg |]]],
-      Use_operands [| Qreg; Qreg; Qreg; Qreg |], "vbslQ", notype_3,
+      Use_operands [| Qreg; Qreg; Qreg; Qreg |], "vbslQ", bit_select,
       pf_su_8_64;
     
     (* Transpose elements.  **NOTE** ReturnPtr goes some of the way towards

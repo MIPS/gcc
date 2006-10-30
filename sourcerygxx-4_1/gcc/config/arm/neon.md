@@ -329,11 +329,12 @@
 				  (V4HI "V2SI") (V8HI "V4SI")
 				  (V2SI "DI")   (V4SI "V2DI")])
 
-;; Mode of result of comparison operations.
+;; Mode of result of comparison operations (and bit-select operand 1).
 (define_mode_attr V_cmp_result [(V8QI "V8QI") (V16QI "V16QI")
 			        (V4HI "V4HI") (V8HI  "V8HI")
                                 (V2SI "V2SI") (V4SI  "V4SI")
-                                (V2SF "V2SI") (V4SF  "V4SI")])
+                                (V2SF "V2SI") (V4SF  "V4SI")
+                                (DI   "DI")   (V2DI  "V2DI")])
 
 ;; Get element type from double-width mode, for operations where we don't care
 ;; about signedness.
@@ -2632,23 +2633,35 @@
 
 ; vbsl_* intrinsics may compile to any of vbsl/vbif/vbit depending on register
 ; allocation. For an intrinsic of form:
-;   rD = vbsl_* (rN, rM, rS)
+;   rD = vbsl_* (rS, rN, rM)
 ; We can use any of:
 ;   vbsl rS, rN, rM  (if D = S)
 ;   vbit rD, rN, rS  (if D = M, so 1-bits in rS choose bits from rN, else rM)
 ;   vbif rD, rM, rS  (if D = N, so 0-bits in rS choose bits from rM, else rN)
 
-(define_insn "neon_vbsl<mode>"
+(define_insn "neon_vbsl<mode>_internal"
   [(set (match_operand:VDQX 0 "s_register_operand"		 "=w,w,w")
-	(unspec:VDQX [(match_operand:VDQX 1 "s_register_operand" " w,w,0")
-		      (match_operand:VDQX 2 "s_register_operand" " w,0,w")
-                      (match_operand:VDQX 3 "s_register_operand" " 0,w,w")]
+	(unspec:VDQX [(match_operand:VDQX 1 "s_register_operand" " 0,w,w")
+		      (match_operand:VDQX 2 "s_register_operand" " w,w,0")
+                      (match_operand:VDQX 3 "s_register_operand" " w,0,w")]
                      UNSPEC_VBSL))]
   "TARGET_NEON"
   "@
-  vbsl\t%<V_reg>0, %<V_reg>1, %<V_reg>2
-  vbit\t%<V_reg>0, %<V_reg>1, %<V_reg>3
-  vbif\t%<V_reg>0, %<V_reg>2, %<V_reg>3")
+  vbsl\t%<V_reg>0, %<V_reg>2, %<V_reg>3
+  vbit\t%<V_reg>0, %<V_reg>2, %<V_reg>1
+  vbif\t%<V_reg>0, %<V_reg>3, %<V_reg>1")
+
+(define_expand "neon_vbsl<mode>"
+  [(set (match_operand:VDQX 0 "s_register_operand" "")
+        (unspec:VDQX [(match_operand:<V_cmp_result> 1 "s_register_operand" "")
+                      (match_operand:VDQX 2 "s_register_operand" "")
+                      (match_operand:VDQX 3 "s_register_operand" "")]
+                     UNSPEC_VBSL))]
+  "TARGET_NEON"
+{
+  /* We can't alias operands together if they have different modes.  */
+  operands[1] = gen_lowpart (<MODE>mode, operands[1]);
+})
 
 (define_insn "neon_vshl<mode>"
   [(set (match_operand:VDQIX 0 "s_register_operand" "=w")

@@ -4636,22 +4636,22 @@ vqneg_s32 (int32x2_t __a)
   return __builtin_neon_vqnegv2si (__a, 1);
 }
 
-__extension__ static __inline int8x8_t __attribute__ ((__always_inline__))
-vqnegq_s8 (int8x8_t __a)
+__extension__ static __inline int8x16_t __attribute__ ((__always_inline__))
+vqnegq_s8 (int8x16_t __a)
 {
-  return __builtin_neon_vqnegv8qi (__a, 1);
+  return __builtin_neon_vqnegv16qi (__a, 1);
 }
 
-__extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
-vqnegq_s16 (int16x4_t __a)
+__extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
+vqnegq_s16 (int16x8_t __a)
 {
-  return __builtin_neon_vqnegv4hi (__a, 1);
+  return __builtin_neon_vqnegv8hi (__a, 1);
 }
 
-__extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
-vqnegq_s32 (int32x2_t __a)
+__extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
+vqnegq_s32 (int32x4_t __a)
 {
-  return __builtin_neon_vqnegv2si (__a, 1);
+  return __builtin_neon_vqnegv4si (__a, 1);
 }
 
 __extension__ static __inline int8x8_t __attribute__ ((__always_inline__))
@@ -7259,33 +7259,33 @@ vrev16q_p8 (poly8x16_t __a)
 }
 
 __extension__ static __inline int8x8_t __attribute__ ((__always_inline__))
-vbsl_s8 (int8x8_t __a, int8x8_t __b, int8x8_t __c)
+vbsl_s8 (uint8x8_t __a, int8x8_t __b, int8x8_t __c)
 {
-  return __builtin_neon_vbslv8qi (__a, __b, __c);
+  return __builtin_neon_vbslv8qi ((int8x8_t) __a, __b, __c);
 }
 
 __extension__ static __inline int16x4_t __attribute__ ((__always_inline__))
-vbsl_s16 (int16x4_t __a, int16x4_t __b, int16x4_t __c)
+vbsl_s16 (uint16x4_t __a, int16x4_t __b, int16x4_t __c)
 {
-  return __builtin_neon_vbslv4hi (__a, __b, __c);
+  return __builtin_neon_vbslv4hi ((int16x4_t) __a, __b, __c);
 }
 
 __extension__ static __inline int32x2_t __attribute__ ((__always_inline__))
-vbsl_s32 (int32x2_t __a, int32x2_t __b, int32x2_t __c)
+vbsl_s32 (uint32x2_t __a, int32x2_t __b, int32x2_t __c)
 {
-  return __builtin_neon_vbslv2si (__a, __b, __c);
+  return __builtin_neon_vbslv2si ((int32x2_t) __a, __b, __c);
 }
 
 __extension__ static __inline int64x1_t __attribute__ ((__always_inline__))
-vbsl_s64 (int64x1_t __a, int64x1_t __b, int64x1_t __c)
+vbsl_s64 (uint64x1_t __a, int64x1_t __b, int64x1_t __c)
 {
-  return __builtin_neon_vbsldi (__a, __b, __c);
+  return __builtin_neon_vbsldi ((int64x1_t) __a, __b, __c);
 }
 
 __extension__ static __inline float32x2_t __attribute__ ((__always_inline__))
-vbsl_f32 (float32x2_t __a, float32x2_t __b, float32x2_t __c)
+vbsl_f32 (uint32x2_t __a, float32x2_t __b, float32x2_t __c)
 {
-  return __builtin_neon_vbslv2sf (__a, __b, __c);
+  return __builtin_neon_vbslv2sf ((int32x2_t) __a, __b, __c);
 }
 
 __extension__ static __inline uint8x8_t __attribute__ ((__always_inline__))
@@ -7313,45 +7313,45 @@ vbsl_u64 (uint64x1_t __a, uint64x1_t __b, uint64x1_t __c)
 }
 
 __extension__ static __inline poly8x8_t __attribute__ ((__always_inline__))
-vbsl_p8 (poly8x8_t __a, poly8x8_t __b, poly8x8_t __c)
+vbsl_p8 (uint8x8_t __a, poly8x8_t __b, poly8x8_t __c)
 {
   return __builtin_neon_vbslv8qi ((int8x8_t) __a, (int8x8_t) __b, (int8x8_t) __c);
 }
 
 __extension__ static __inline poly16x4_t __attribute__ ((__always_inline__))
-vbsl_p16 (poly16x4_t __a, poly16x4_t __b, poly16x4_t __c)
+vbsl_p16 (uint16x4_t __a, poly16x4_t __b, poly16x4_t __c)
 {
   return __builtin_neon_vbslv4hi ((int16x4_t) __a, (int16x4_t) __b, (int16x4_t) __c);
 }
 
 __extension__ static __inline int8x16_t __attribute__ ((__always_inline__))
-vbslq_s8 (int8x16_t __a, int8x16_t __b, int8x16_t __c)
+vbslq_s8 (uint8x16_t __a, int8x16_t __b, int8x16_t __c)
 {
-  return __builtin_neon_vbslv16qi (__a, __b, __c);
+  return __builtin_neon_vbslv16qi ((int8x16_t) __a, __b, __c);
 }
 
 __extension__ static __inline int16x8_t __attribute__ ((__always_inline__))
-vbslq_s16 (int16x8_t __a, int16x8_t __b, int16x8_t __c)
+vbslq_s16 (uint16x8_t __a, int16x8_t __b, int16x8_t __c)
 {
-  return __builtin_neon_vbslv8hi (__a, __b, __c);
+  return __builtin_neon_vbslv8hi ((int16x8_t) __a, __b, __c);
 }
 
 __extension__ static __inline int32x4_t __attribute__ ((__always_inline__))
-vbslq_s32 (int32x4_t __a, int32x4_t __b, int32x4_t __c)
+vbslq_s32 (uint32x4_t __a, int32x4_t __b, int32x4_t __c)
 {
-  return __builtin_neon_vbslv4si (__a, __b, __c);
+  return __builtin_neon_vbslv4si ((int32x4_t) __a, __b, __c);
 }
 
 __extension__ static __inline int64x2_t __attribute__ ((__always_inline__))
-vbslq_s64 (int64x2_t __a, int64x2_t __b, int64x2_t __c)
+vbslq_s64 (uint64x2_t __a, int64x2_t __b, int64x2_t __c)
 {
-  return __builtin_neon_vbslv2di (__a, __b, __c);
+  return __builtin_neon_vbslv2di ((int64x2_t) __a, __b, __c);
 }
 
 __extension__ static __inline float32x4_t __attribute__ ((__always_inline__))
-vbslq_f32 (float32x4_t __a, float32x4_t __b, float32x4_t __c)
+vbslq_f32 (uint32x4_t __a, float32x4_t __b, float32x4_t __c)
 {
-  return __builtin_neon_vbslv4sf (__a, __b, __c);
+  return __builtin_neon_vbslv4sf ((int32x4_t) __a, __b, __c);
 }
 
 __extension__ static __inline uint8x16_t __attribute__ ((__always_inline__))
@@ -7379,13 +7379,13 @@ vbslq_u64 (uint64x2_t __a, uint64x2_t __b, uint64x2_t __c)
 }
 
 __extension__ static __inline poly8x16_t __attribute__ ((__always_inline__))
-vbslq_p8 (poly8x16_t __a, poly8x16_t __b, poly8x16_t __c)
+vbslq_p8 (uint8x16_t __a, poly8x16_t __b, poly8x16_t __c)
 {
   return __builtin_neon_vbslv16qi ((int8x16_t) __a, (int8x16_t) __b, (int8x16_t) __c);
 }
 
 __extension__ static __inline poly16x8_t __attribute__ ((__always_inline__))
-vbslq_p16 (poly16x8_t __a, poly16x8_t __b, poly16x8_t __c)
+vbslq_p16 (uint16x8_t __a, poly16x8_t __b, poly16x8_t __c)
 {
   return __builtin_neon_vbslv8hi ((int16x8_t) __a, (int16x8_t) __b, (int16x8_t) __c);
 }

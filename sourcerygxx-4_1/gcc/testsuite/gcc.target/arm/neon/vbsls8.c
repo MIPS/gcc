@@ -10,11 +10,11 @@
 void test_vbsls8 (void)
 {
   int8x8_t out_int8x8_t;
-  int8x8_t arg0_int8x8_t;
+  uint8x8_t arg0_uint8x8_t;
   int8x8_t arg1_int8x8_t;
   int8x8_t arg2_int8x8_t;
 
-  out_int8x8_t = vbsl_s8 (arg0_int8x8_t, arg1_int8x8_t, arg2_int8x8_t);
+  out_int8x8_t = vbsl_s8 (arg0_uint8x8_t, arg1_int8x8_t, arg2_int8x8_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[dD\]\[0-9\]+, \[dD\]\[0-9\]+, \[dD\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */

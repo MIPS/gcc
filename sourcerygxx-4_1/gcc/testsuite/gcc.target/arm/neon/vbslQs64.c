@@ -10,11 +10,11 @@
 void test_vbslQs64 (void)
 {
   int64x2_t out_int64x2_t;
-  int64x2_t arg0_int64x2_t;
+  uint64x2_t arg0_uint64x2_t;
   int64x2_t arg1_int64x2_t;
   int64x2_t arg2_int64x2_t;
 
-  out_int64x2_t = vbslq_s64 (arg0_int64x2_t, arg1_int64x2_t, arg2_int64x2_t);
+  out_int64x2_t = vbslq_s64 (arg0_uint64x2_t, arg1_int64x2_t, arg2_int64x2_t);
 }
 
 /* { dg-final { scan-assembler "((vbsl)|(vbit)|(vbif))\[ 	\]+\[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+, \[qQ\]\[0-9\]+!?\(\[ 	\]+@\[a-zA-Z0-9 \]+\)?\n" } } */
