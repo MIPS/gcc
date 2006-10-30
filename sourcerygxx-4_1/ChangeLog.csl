@@ -30,6 +30,43 @@
 	* doc/arm-neon-intrinsics.texi: Regenerate.
 	* testsuite/gcc.target/arm/neon/*.c: Regenerate.
 
+2006-10-29  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_print_operand): Handle new 't' case.
+	(neon_itype): Add NEON_LANEMUL{L,H} and NEON_SCALARMULH cases.
+	(neon_builtin_data): Add vmull_lane, vqdmull_n, vqdmull_lane,
+	vqdmulh_n and vqdmulh_lane entries.
+	(arm_init_neon_builtins): Add two TYPE5 entries.
+	Handle NEON_LANEMULL, NEON_LANEMULLH and NEON_SCALARMULH cases.
+	(arm_expand_neon_builtin): Handle NEON_LANEMULL, NEON_LANEMULLH
+	and NEON_SCALARMULH cases.
+	* config/arm/neon.md: Add UNSPEC_VMULL_LANE, UNSPEC_VQDMULL_LANE
+	and UNSPEC_VQDMULH_LANE unspec identifiers.  Use %t not %T when
+	dealing with vget_lane cases on polynomial vectors.  Add
+	expanders and instruction definitions for neon_vqdmull_lane,
+	neon_vqdmulh_lane, neon_vqdmull_n and neon_vqdmulh_n.
+	* config/arm/neon.ml (opcode): Add Vmull_lane, Vqdmull_n,
+	Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane constructors.
+	(features): Add Const_valuator constructor.
+	(get_lane): New function.
+	(ops): Use Const_valuator in cases where the test generator must
+	use constants other than the default.  Add entries for
+	Vmull_lane, Vqdmull_n, Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane.
+	* config/arm/neon-testgen.ml (emit_call): Add const_valuator
+	argument and use it.  Emit 1 as the default constant rather than 0.
+	(analyze_shape): Relax regexps for Element_of_dreg and
+	Element_of_qreg.
+	(test_intrinsic): Extract any Const_valuator functions from
+	feature lists; pass to emit_call.
+	* config/arm/neon-docgen.ml (intrinsic_groups): Add entries for
+	Vmull_lane, Vqdmull_n, Vqdmull_lane, Vqdmulh_n and Vqdmulh_lane.
+	* config/arm/arm_neon.h: Regenerate.
+	* doc/arm-neon-intrinsics.texi: Regenerate.
+
+	gcc/testsuite/
+	* gcc.target/arm/neon/*.c: Regenerate.
+
 2006-10-29  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/
