@@ -1,3 +1,49 @@
+2006-10-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*,
+	m68k-*-elf*, m68010-*-netbsdelf*, m68k*-*-netbsdelf*,
+	m68k*-*-openbsd*, m68k-*-rtems*): Use tm_file rather than
+	m68k/m68k.h and explicitly set MOTOROLA to 1.
+	m68k-*-uclinux*, m68k-*-linux*): Place m68k/m68k.h last, define
+	MOTOROLA to 1, remove obsolete comments.
+	* config/m68k/linux.h (TARGET_VERSION): Don't undef here.
+	(ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.  Remove unneeded %{Wa,*:%*} spec.
+	(REGISTER_PREFIX, LOCAL_LABEL_PREFIX, USER_LABEL_PREFIX,
+	SIZE_TYPE, CPP_SPEC, ASM_OUTPUT_ALIGN, FUNCTION_PROFILER,
+	FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL, FUNCTION_VALUE,
+	LIBCALL_VALUE): Remove undefs prior to setting them.
+	(WCHAR_TYPE, WCHAR_TYPE_SIZE, SIZE_TYPE, PTR_DIFFTYPE,
+	DBX_REGISTER_NUMBER): Remove definitions, the defaults are ok.
+	(TARGET_ASM_FILE_START_APP_OFF): Explicitly define to false
+	* config/m68k/m68k-none.h: Remove obsolete MULTILIB_DEFAULTS comment.
+	(ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.
+	* config/m68k/openbsd.h (ASM_SPEC): Replace with ...
+	(SUBTARGET_ASM_SPEC): ... this.
+	* config/m68k/m68k.h (MOTOROLA): Expect to be defined to a value,
+	if defined.
+	(ASM_CPU_SPEC, SUBTARGET_ASM_SPEC): New.
+	(ASM_SPEC): Define.
+	(EXTRA_SPECS): Add asm_cpu_spec, subtarget_asm_spec.
+	(CPP_SUBTARGET_SPEC): Remove.
+	(WCHAR_TYPE_SIZE): Set to BITS_PER_WORD.
+	(STACK_GROWS_DOWNWARD): Set to 1.
+	(SUBTARGET_EXTRA_SPECS): Remove.
+	(TARGET_VERSION, FUNCTION_VALUE,
+	LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P, NEEDS_UNTYPED_CALL,
+	FUNCTION_PROFILER, M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P,
+	REGISTER_PREFIX, LOCAL_LABEL_PREFIX,
+	TARGET_ASM_FILE_START_APP_OFF, ASM_GENERATE_INTERNAL_LABEL,
+	ASM_OUTPUT_ALIGN, ASM_OUTPUT_SKIP): Add protective #ifndefs
+	* config/m68k/uclinux.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Unconditionally define.
+
+	gcc/
+	* config/m68k/m68k.h (REGISTER_MOVE_COST): Simplify.
+	(RETURN_POPS_ARGS): Reformat to avoid long line.
+
 2006-10-30  Julian Brown  <julian@codesourcery.com>
 
 	gcc/

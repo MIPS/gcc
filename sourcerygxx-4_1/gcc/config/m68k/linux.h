@@ -20,7 +20,6 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
 /* Default to m68040.  */
@@ -29,22 +28,12 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_CPU_DEFAULT_SPEC "-mcpu=68040"
 #endif
 
-/* We override the ASM_SPEC from svr4.h because we must pass the right
-   cpu option to the assembler.  This can go away when we require the
-   assembler to suppor the .cpu directive.  */
+/* ASM_SPEC is set in m68k.h, so we have to set SUBTARGET_ASM_SPEC to
+   the svr4.h options.  We have to undef ASM_SPEC here, so that m68k.h
+   does not complain.  */
 #undef ASM_SPEC
-#define ASM_SPEC \
-  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-%{m68851}%{mno-68851}%{m68881}%{mno-68881}%{msoft-float:-mno-float}\
-%{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}\
-%{m68040}%{m68020-40:-m68040} %{m68020-60:-m68040}\
-%{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
-%{mcpu=*:-mcpu=%*}\
-%{march=*:-march=%*}\
-%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
- %{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
- %{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
- %{!mcpu=*:%{!march=*:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}}}}"
+#define SUBTARGET_ASM_SPEC \
+  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*}"
 
 /* Here are four prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.
@@ -55,33 +44,18 @@ Boston, MA 02110-1301, USA.  */
    is supposed to include this prefix. Also note that this is NOT an
    fprintf format string, it is a literal string */
 
-#undef REGISTER_PREFIX
 #define REGISTER_PREFIX "%"
 
 /* The prefix for local (compiler generated) labels.
    These labels will not appear in the symbol table.  */
 
-#undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
 
 /* The prefix to add to user-visible assembler symbols.  */
 
-#undef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 
 #define ASM_COMMENT_START "|"
-
-#undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
-
-#undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
-
-#undef WCHAR_TYPE
-#define WCHAR_TYPE "long int"
-
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
 
 /* Target OS builtins.  */
 #define TARGET_OS_CPP_BUILTINS()		\
@@ -98,7 +72,6 @@ Boston, MA 02110-1301, USA.  */
     }						\
   while (0)
 
-#undef CPP_SPEC
 #define CPP_SPEC \
   "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
@@ -120,7 +93,7 @@ Boston, MA 02110-1301, USA.  */
 
 #define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
 
-#undef	LINK_SPEC
+#undef LINK_SPEC
 #define LINK_SPEC "-m m68kelf %{shared} \
   %{!shared: \
     %{!static: \
@@ -155,7 +128,6 @@ Boston, MA 02110-1301, USA.  */
 /* This is how to output an assembler line that says to advance the
    location counter to a multiple of 2**LOG bytes.  */
 
-#undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)				\
   if ((LOG) > 0)						\
     fprintf ((FILE), "%s%u\n", ALIGN_ASM_OP, 1 << (LOG));
@@ -177,7 +149,6 @@ Boston, MA 02110-1301, USA.  */
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
-#undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO) \
 {									\
   asm_fprintf (FILE, "\tlea (%LLP%d,%Rpc),%Ra1\n", (LABELNO));		\
@@ -186,12 +157,6 @@ Boston, MA 02110-1301, USA.  */
   else									\
     fprintf (FILE, "\tjbsr _mcount\n");					\
 }
-
-/* How to renumber registers for dbx and gdb.
-   On the Sun-3, the floating point registers have numbers
-   18 to 25, not 16 to 23 as they do in the compiler.  */
-
-#define DBX_REGISTER_NUMBER(REGNO) ((REGNO) < 16 ? (REGNO) : (REGNO) + 2)
 
 /* Do not break .stabs pseudos into continuations.  */
 
@@ -202,14 +167,12 @@ Boston, MA 02110-1301, USA.  */
    pointer, or floating types, respectively.  Reject fp0 if not using
    a 68881 coprocessor.  */
 
-#undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
   ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.  */
 
-#undef NEEDS_UNTYPED_CALL
 #define NEEDS_UNTYPED_CALL 1
 
 /* Define how to generate (in the callee) the output value of a
@@ -219,7 +182,6 @@ Boston, MA 02110-1301, USA.  */
    FUNCTION_DECL; otherwise, FUNC is 0.  For m68k/SVR4 generate the
    result in d0, a0, or fp0 as appropriate.  */
 
-#undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
   m68k_function_value (VALTYPE, FUNC)
 
@@ -228,7 +190,6 @@ Boston, MA 02110-1301, USA.  */
    For m68k/SVR4 look for integer values in d0, pointer values in d0
    (returned in both d0 and a0), and floating values in fp0.  */
 
-#undef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)						\
   m68k_libcall_value (MODE)
 
@@ -276,6 +237,6 @@ Boston, MA 02110-1301, USA.  */
 
 /* glibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
-#undef TARGET_ASM_FILE_START_APP_OFF
+#define TARGET_ASM_FILE_START_APP_OFF false
 
 #define MD_UNWIND_SUPPORT "config/m68k/linux-unwind.h"

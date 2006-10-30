@@ -23,13 +23,15 @@ Boston, MA 02110-1301, USA.  */
    if-statements and ?: on it.  This way we have compile-time error checking
    for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
    to optimize away all constant tests.  */
-#ifdef MOTOROLA
-# undef MOTOROLA
-# define MOTOROLA 1  /* Use the Motorola assembly syntax.  */
-# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
+#if MOTOROLA  /* Use the Motorola assembly syntax.  */
+# ifndef TARGET_VERSION
+#  define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
+# endif
 #else
-# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
+# ifndef TARGET_VERSION
+#  define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
+# endif
 #endif
 
 /* Handle --with-cpu, --with-float default options from configure script.  */
@@ -45,11 +47,37 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_DEFAULT 0
 #endif
 
-
 #ifndef ASM_CPU_DEFAULT_SPEC
 #define ASM_CPU_DEFAULT_SPEC ""
 #endif
 
+
+/* Pass flags to gas indicating which type of processor we have.  This
+   can be simplified when we can rely on the assembler supporting .cpu
+   and .arch directives.  */
+
+#define ASM_CPU_SPEC "\
+%{m68851}%{mno-68851} %{m68881}%{mno-68881} %{msoft-float:-mno-float} \
+%{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}\
+%{m68040}%{m68020-40:-m68040}%{m68020-60:-m68040}\
+%{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
+%{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
+%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
+%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
+%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
+%{!mcpu=*:%{!march=*:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}}}} \
+"
+
+/* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
+   overridden by subtargets.  */
+#ifndef SUBTARGET_ASM_SPEC
+#define SUBTARGET_ASM_SPEC ""
+#endif
+
+/* We do not #undef this beforehand in order to detect it being
+   erronously #defined.  */
+#define ASM_SPEC "%(asm_cpu_spec) %(subtarget_asm_spec)"
+  
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
    is an initializer with a subgrouping for each command option.
@@ -62,10 +90,8 @@ Boston, MA 02110-1301, USA.  */
 
 #define EXTRA_SPECS					\
   { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
-  SUBTARGET_EXTRA_SPECS
-
-#define CPP_SUBTARGET_SPEC ""
-#define SUBTARGET_EXTRA_SPECS
+  { "asm_cpu_spec",	ASM_CPU_SPEC },			\
+  { "subtarget_asm_spec", SUBTARGET_ASM_SPEC }		\
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  FIXME:We
@@ -540,13 +566,11 @@ extern enum reg_class regno_reg_class[];
 
 /* Moves between fp regs and other regs are two insns.  */
 #define REGISTER_MOVE_COST(MODE, CLASS1, CLASS2)	\
-  (((CLASS1) == FP_REGS && (CLASS2) != FP_REGS)	        \
-    || ((CLASS2) == FP_REGS && (CLASS1) != FP_REGS)	\
-    ? 4 : 2)
+  ((((CLASS1) == FP_REGS) != ((CLASS2) == FP_REGS)) ? 4 : 2)
 
 /* Stack layout; function entry, exit and calling.  */
 
-#define STACK_GROWS_DOWNWARD
+#define STACK_GROWS_DOWNWARD 1
 #define FRAME_GROWS_DOWNWARD 1
 #define STARTING_FRAME_OFFSET 0
 
@@ -565,26 +589,34 @@ extern enum reg_class regno_reg_class[];
    standard Unix calling sequences.  If the option is not selected,
    the caller must always pop the args.  */
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE)   \
-  ((TARGET_RTD && (!(FUNDECL) || TREE_CODE (FUNDECL) != IDENTIFIER_NODE)	\
+  ((TARGET_RTD && (!(FUNDECL) || TREE_CODE (FUNDECL) != IDENTIFIER_NODE) \
     && (TYPE_ARG_TYPES (FUNTYPE) == 0				\
 	|| (TREE_VALUE (tree_last (TYPE_ARG_TYPES (FUNTYPE)))	\
 	    == void_type_node)))				\
    ? (SIZE) : 0)
 
-/* On the m68k the return value is always in D0.  */
+/* On the m68k the return value defaults to D0.  */
+#ifndef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
   gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+#endif
 
-/* On the m68k the return value is always in D0.  */
+/* On the m68k the return value defaults to D0.  */
+#ifndef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, 0)
+#endif
 
-/* On the m68k, D0 is the only register used.  */
+/* On the m68k, D0 is usually the only register used.  */
+#ifndef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#endif
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.
    XXX This macro is m68k specific and used only for m68kemb.h.  */
+#ifndef NEEDS_UNTYPED_CALL
 #define NEEDS_UNTYPED_CALL 0
+#endif
 
 /* On the m68k, all arguments are usually pushed on the stack.  */
 #define FUNCTION_ARG_REGNO_P(N) 0
@@ -605,8 +637,10 @@ extern enum reg_class regno_reg_class[];
 /* On the m68k all args are always pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
 
+#ifndef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
   asm_fprintf (FILE, "\tlea %LLP%d,%Ra0\n\tjsr mcount\n", (LABELNO))
+#endif
 
 #define EXIT_IGNORE_STACK 1
 
@@ -752,7 +786,9 @@ __transfer_from_trampoline ()					\
 
 /* True if SYMBOL + OFFSET constants must refer to something within
    SYMBOL's section.  */
+#ifndef M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
 #define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
+#endif
 
 #define MAX_REGS_PER_ADDRESS 2
 
@@ -912,11 +948,19 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define TEXT_SECTION_ASM_OP "\t.text"
 #define DATA_SECTION_ASM_OP "\t.data"
 #define GLOBAL_ASM_OP "\t.globl\t"
+#ifndef REGISTER_PREFIX
 #define REGISTER_PREFIX ""
+#endif
+#ifndef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ""
+#endif
+#ifndef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX "_"
+#endif
 #define IMMEDIATE_PREFIX "#"
+#ifndef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
+#endif
 
 #define REGISTER_NAMES \
 {REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\
@@ -1010,8 +1054,10 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define ASM_OUTPUT_LABELREF(FILE,NAME)	\
   asm_fprintf (FILE, "%U%s", NAME)
 
+#ifndef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
+#endif
 
 #define ASM_OUTPUT_REG_PUSH(FILE,REGNO)  \
   asm_fprintf (FILE, "\tmovel %s,%Rsp@-\n", reg_names[REGNO])
@@ -1028,12 +1074,16 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 /* We don't have a way to align to more than a two-byte boundary, so do the
    best we can and don't complain.  */
+#ifndef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
   if ((LOG) >= 1)			\
     fprintf (FILE, "\t.even\n");
+#endif
 
+#ifndef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (int)(SIZE))
+#endif
 
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs (".comm ", (FILE)),			\
