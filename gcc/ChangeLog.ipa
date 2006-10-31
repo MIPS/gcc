@@ -1,3 +1,21 @@
+2006-10-31  Razya Ladklesky  <razya@il.ibm.com>
+	    
+            * tree-inline.c (remap_decls): remap all TYPE_DECLs.
+            PR tree-optimization/29122
+	    * tree-inline.c (tree_function_versioning): Update DECL_ASSEMBLER_NAME 
+	      for the new version.  Assign NULL to DECL_RTL of the new version. 
+
+2006-10-31  Razya Ladelsky  <razya@il.ibm.com>
+
+        * testsuite/gcc.dg/matrix/matrix.exp: Test transposing testcases with profiling.
+        * testsuite/gcc.dg/matrix/transpose-1.c: New testcase.
+        * testsuite/gcc.dg/matrix/transpose-2.c: New testcase.
+        * testsuite/gcc.dg/matrix/transpose-3.c: New testcase.
+        * testsuite/gcc.dg/matrix/transpose-4.c: New testcase.
+        * testsuite/gcc.dg/matrix/transpose-5.c: New testcase.
+        * testsuite/gcc.dg/matrix/transpose-6.c: New testcase.
+
+
 2006-10-31  Razya Ladelsky  <razya@il.ibm.com>
 
         * matrix-reorg.c: (struct index_info) : Remove.

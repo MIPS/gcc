@@ -417,6 +417,7 @@ remap_decls (tree decls, copy_body_data *id)
          as we can't duplicate them or break one decl rule.  Go ahead and link
          them into unexpanded_var_list.  */
       if (!lang_hooks.tree_inlining.auto_var_in_fn_p (old_var, id->src_fn)
+          && TREE_CODE (old_var) != TYPE_DECL
 	  && !DECL_EXTERNAL (old_var))
 	{
 	  cfun->unexpanded_var_list = tree_cons (NULL_TREE, old_var,
@@ -3154,19 +3155,15 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
 
   DECL_ARTIFICIAL (new_decl) = 1;
   DECL_ABSTRACT_ORIGIN (new_decl) = DECL_ORIGIN (old_decl);
+  
 
   /* Generate a new name for the new version. */
   if (!update_clones)
-    DECL_NAME (new_decl) = create_tmp_var_name (NULL);
-  /* Create a new SYMBOL_REF rtx for the new name. */
-  if (DECL_RTL (old_decl) != NULL)
     {
-      SET_DECL_RTL (new_decl, copy_rtx (DECL_RTL (old_decl)));
-      XEXP (DECL_RTL (new_decl), 0) =
-	gen_rtx_SYMBOL_REF (GET_MODE (XEXP (DECL_RTL (old_decl), 0)),
-			    IDENTIFIER_POINTER (DECL_NAME (new_decl)));
+      DECL_NAME (new_decl) = create_tmp_var_name (NULL);
+      SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
+      SET_DECL_RTL (new_decl, NULL_RTX);
     }
-
   /* Prepare the data structures for the tree copy.  */
   memset (&id, 0, sizeof (id));
   
