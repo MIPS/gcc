@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-do run } */
 /* { dg-options "-O3 -fmatrix-flattening -fdump-ipa-mreorg"  } */
 
 
@@ -42,12 +43,14 @@ main (int argc, char **argv)
     }
   for (i = 0; i < ARCHnodes; i++)
     for (j = 0; j < 3; j++)
-      free (vel[i][j]);
+      if (i!=1 && j!=1)
+        free (vel[i][j]);
 
   for (i = 0; i < ARCHnodes; i++)
     free (vel[i]);
 
   free (vel);
+  return 0;
 }
 
 /*--------------------------------------------------------------------------*/
