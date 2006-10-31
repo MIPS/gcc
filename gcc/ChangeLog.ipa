@@ -1,3 +1,16 @@
+2006-10-31  Razya Ladelsky  <razya@il.ibm.com>
+
+        * matrix-reorg.c: (struct index_info) : Remove.
+        (struct access_site_info):  Add field  iterated_by_inner_most_loop_p
+        (struct matrix_info): Add dimension_size_orig.
+        Remove hottest_dim, reorg_failed_reason, flatten_p,
+        flatten_transpose_matrix_p,  flatten_decl.
+        (analyze_transpose, mat_free,  sort_dim_hot_level ): New function.
+        (check_transpose_p, analyze_transpose_p) : New static variables.
+        (record_access_alloc_site_info, check_allocation_function,
+        analyze_matrix_accesses, find_escaping_matrices_and_flatten,
+        transform_access_sites, matrix_reorg):  Add support for transposing.
+
 2006-10-05  Jan Hubicka  <jh@suse.cz>
 
 	* c-pretty-print.c: Synchronize with mainline.
