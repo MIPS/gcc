@@ -1,3 +1,11 @@
+2006-10-31  Paul Biggar  <paul.biggar@gmail.com>
+
+	* prims.cc (note_memory_usage): New function
+	(_Jv_makeUtf8Const, _Jv_AllocObjectNoFinalizer)
+	(_Jv_AllocObjectNoInitNoFinalizer, _Jv_AllocString, _Jv_AllocPtrFreeObject)
+	(_Jv_NewObjectArray, _Jv_InitNewObjectArray, _Jv_NewPrimArray)
+	(_Jv_InitObjectNoFinalizer): Added calls to note_memory_usage
+
 2006-10-12  Keith Seitz  <keiths@redhat.com>
 
 	* include/jvmti-int.h (JVMTI): Declare all members "extern".

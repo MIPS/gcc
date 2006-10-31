@@ -74,6 +74,14 @@ details.  */
 #include <ltdl.h>
 #endif
 
+
+void
+note_memory_usage (const char* note, jsize size)
+{
+//	static int output = fopen ("mem", "w");
+   fprintf (stderr, "%s%d\n", note, (int)size);
+}
+
 // Execution engine for compiled code.
 _Jv_CompiledEngine _Jv_soleCompiledEngine;
 
@@ -414,8 +422,9 @@ _Jv_makeUtf8Const (const char* s, int len)
 {
   if (len < 0)
     len = strlen (s);
-  Utf8Const* m
-    = (Utf8Const*) _Jv_AllocBytes (_Jv_Utf8Const::space_needed(s, len));
+  int size = _Jv_Utf8Const::space_needed(s, len);
+  note_memory_usage ("a", size);
+  Utf8Const* m = (Utf8Const*) _Jv_AllocBytes (size);
   m->init(s, len);
   return m;
 }
@@ -426,6 +435,7 @@ _Jv_makeUtf8Const (jstring string)
   jint hash = string->hashCode ();
   jint len = _Jv_GetStringUTFLength (string);
 
+  note_memory_usage ("b", sizeof(Utf8Const) + len + 1);
   Utf8Const* m = (Utf8Const*)
     _Jv_AllocBytes (sizeof(Utf8Const) + len + 1);
 
@@ -550,6 +560,7 @@ jobject
 _Jv_AllocObjectNoInitNoFinalizer (jclass klass)
 {
   jint size = klass->size ();
+  note_memory_usage ("c", size);
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
   return obj;
@@ -564,6 +575,7 @@ _Jv_AllocObjectNoFinalizer (jclass klass)
 
   _Jv_InitClass (klass);
   jint size = klass->size ();
+  note_memory_usage ("d", size);
   jobject obj = (jobject) _Jv_AllocObj (size, klass);
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
   return obj;
@@ -585,6 +597,7 @@ _Jv_InitObjectNoFinalizer (jclass klass, jobject obj)
    * here.  */
   jint size = klass->size ();
   memset (obj, 0, size);
+  note_memory_usage ("j", size);
   
   *(void **)obj = klass->vtable;
 
@@ -626,6 +639,7 @@ _Jv_AllocString(jsize len)
   // String needs no initialization, and there is no finalizer, so
   // we can go directly to the collector's allocator interface.
   jstring obj = (jstring) _Jv_AllocPtrFreeObj(sz, &String::class$);
+  note_memory_usage ("e", sz);
 
   obj->data = obj;
   obj->boffset = sizeof(java::lang::String);
@@ -648,6 +662,7 @@ _Jv_AllocPtrFreeObject (jclass klass)
   jint size = klass->size ();
 
   jobject obj = (jobject) _Jv_AllocPtrFreeObj (size, klass);
+  note_memory_usage ("f", size);
 
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
 
@@ -685,6 +700,7 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   jclass klass = _Jv_GetArrayClass (elementClass,
 				    elementClass->getClassLoaderInternal());
 
+  note_memory_usage ("g", size);
   obj = (jobjectArray) _Jv_AllocArray (size, klass);
   // Cast away const.
   jsize *lp = const_cast<jsize *> (&obj->length);
@@ -721,6 +737,7 @@ _Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj)
   // memory is already allocated by alloca
   jclass arrayClass = _Jv_GetArrayClass (elementClass,
 					 elementClass->getClassLoaderInternal());
+  note_memory_usage ("h", size);
 
   // zero the memory (the allocator would otherwise do this)
   memset (obj, 0, size);
@@ -749,6 +766,7 @@ _Jv_NewPrimArray (jclass eltype, jint count)
     throw no_memory;
 
   jclass klass = _Jv_GetArrayClass (eltype, 0);
+  note_memory_usage ("i", size + elsize * count);
 
 # ifdef JV_HASH_SYNCHRONIZATION
   // Since the vtable is always statically allocated,
@@ -1860,3 +1878,5 @@ _Jv_PrependVersionedLibdir (char* libpath)
 
   return retval;
 }
+
+

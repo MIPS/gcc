@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "timevar.h"
 #include "ggc.h"
+#include "hashtab.h"
 #include "langhooks.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
@@ -362,7 +363,7 @@ insert_indirect_function_call (con_graph cg, tree func_var, tree argument_list)
 
 
 
-/* returns each actual and argument node */
+/* returns each actual and argument node. Argument list can be null */
 static con_node
 insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt_id)
 {
@@ -370,7 +371,7 @@ insert_function_call (con_graph cg, tree function, tree argument_list, tree stmt
   con_node last_link = NULL;
   int i = 1;
   bool method_in_jv_object;
-  gcc_assert (cg && function && argument_list && stmt_id);
+  gcc_assert (cg && function && stmt_id);
   
   method_in_jv_object = (DECL_CONTEXT (function) == object_type_node);
 
@@ -527,6 +528,37 @@ check_memory_allocation (con_graph cg, tree modify_expr)
 }
 
 static bool
+check_indirect_goto (con_graph cg, tree modify_expr)
+{
+  /* make p global */
+  /* p = &*label
+   * modify_expr
+   *   var_decl - p
+   *   addr_expr
+   *     label_decl
+   */
+  tree p_name, addr_expr;
+  con_node p;
+
+  if (!(TREE_CODE (modify_expr) == MODIFY_EXPR 
+    && is_pointer_type (modify_expr)
+    && is_suitable_decl (p_name = LHS (modify_expr))
+    && ((TREE_CODE (addr_expr = RHS (modify_expr)) == ADDR_EXPR) 
+    && TREE_CODE (LHS (addr_expr)) == LABEL_DECL)))
+    {
+      return false;
+    }
+
+  set_stmt_type (cg, modify_expr, INDIRECT_GOTO);
+
+  p = get_existing_node (cg, p_name);
+  p->escape = EA_GLOBAL_ESCAPE;
+
+  assert_all_next_link_free (cg);
+  return true;
+}
+
+static bool
 check_pointer_arithmetic_stmt (con_graph cg, tree modify_expr)
 {
   /* make p global, link it to q */
@@ -671,7 +703,7 @@ check_return_stmt (con_graph cg, tree stmt)
 
   set_stmt_type (cg, stmt, RETURN);
   r = insert_return (cg, result_decl, r_name);
-  assert_all_next_link_free (cg);
+  /* no links to clear */
   return true;
 }
 
@@ -690,7 +722,7 @@ check_function_call_with_return_value (con_graph cg, tree modify_expr)
    *       tree-list -- arguments */
 
   /* any special calls have been taken care of already */
-  tree r_name, func_decl, arguments;
+  tree r_name, func_decl, arguments = NULL;
   tree call_expr, addr_expr;
   con_node arg_nodes, r;
 
@@ -699,12 +731,15 @@ check_function_call_with_return_value (con_graph cg, tree modify_expr)
 	&& is_suitable_decl (r_name = LHS (modify_expr)) 
 	&& TREE_CODE (call_expr = RHS (modify_expr)) == CALL_EXPR
 	&& TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
-	&& TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
-	&& TREE_CODE (arguments = RHS (call_expr)) == TREE_LIST))
+	&& TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL))
     {
       return false;
     }
   set_stmt_type (cg, modify_expr, FUNCTION_CALL_WITH_RETURN);
+
+  /* check for arguments */
+  if (TREE_OPERAND (call_expr, 1))
+      arguments = TREE_OPERAND (call_expr, 1);
 
   /* we dont actually link this to anything */
   r = existing_local_node (cg, r_name);
@@ -730,16 +765,20 @@ check_function_call (con_graph cg, tree call_expr)
    *     tree-list -- arguments */
 
   /* any special calls have been taken care of already */
-  tree func_decl, arguments;
+  tree func_decl, arguments = NULL;
   tree addr_expr;
   con_node arg_nodes;
 
   if (!(TREE_CODE (call_expr) == CALL_EXPR
 	&& TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
-	&& TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL
-	&& TREE_CODE (arguments = RHS (call_expr)) == TREE_LIST))
+	&& TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL))
     {
       return false;
+    }
+
+  if (TREE_OPERAND (call_expr, 1))
+    {
+      arguments = TREE_OPERAND (call_expr, 1);
     }
   if (is_constructor (call_expr))
     set_stmt_type (cg, call_expr, CONSTRUCTOR_STMT);
@@ -1411,22 +1450,26 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 
   /* awfulness */
   else if (check_pointer_arithmetic_stmt (cg, stmt)) { /* NOP */ }
+  else if (check_indirect_goto (cg, stmt)) { /* NOP */ }
 
   /* ignored */
   else
     {
-      if (TREE_CODE (stmt) == RETURN_EXPR && VOID_TYPE_P (TREE_TYPE
-							  (stmt)))
-	  set_stmt_type (cg, stmt, IGNORED_RETURNING_VOID);
-
-      if (! is_pointer_type (stmt))
-	  set_stmt_type (cg, stmt, IGNORED_NOT_A_POINTER);
-
-      if (TREE_CODE (stmt) == LABEL_EXPR)
-	  set_stmt_type (cg, stmt, IGNORED_LABEL_EXPR);
-
       if (TREE_CODE (stmt) == COND_EXPR)
-	  set_stmt_type (cg, stmt, IGNORED_COND_EXPR);
+	set_stmt_type (cg, stmt, IGNORED_COND_EXPR);
+
+      else if (TREE_CODE (stmt) == LABEL_EXPR)
+	set_stmt_type (cg, stmt, IGNORED_LABEL_EXPR);
+
+      else if (! is_pointer_type (stmt))
+	set_stmt_type (cg, stmt, IGNORED_NOT_A_POINTER);
+
+      else if (TREE_CODE (stmt) == RETURN_EXPR && VOID_TYPE_P (TREE_TYPE
+							       (stmt)))
+	set_stmt_type (cg, stmt, IGNORED_RETURNING_VOID);
+
+      else if (TREE_CODE (TREE_TYPE (TREE_TYPE (stmt))) == FUNCTION_TYPE)
+	set_stmt_type (cg, stmt, IGNORED_FUNCTION_POINTER);
 
       if (get_stmt_type (cg, stmt) == NULL)
 	{
@@ -1435,6 +1478,8 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
 	}
 
     }
+
+  assert_all_next_link_free (cg);
 }
 
 static void
@@ -1484,7 +1529,7 @@ process_function (con_graph cg, tree function)
       }
     }
 
-  
+
   /* inline the constructors */
   FOR_EACH_BB (bb)
   {
@@ -1511,6 +1556,7 @@ process_function (con_graph cg, tree function)
 	  }
       }
   }
+
 
   assert_all_next_link_free (cg);
 
@@ -1556,10 +1602,14 @@ process_function (con_graph cg, tree function)
 	   && node->phantom == false 
 	   && node->escape == EA_NO_ESCAPE)
 	{
-	  if (get_stmt_type (cg, node->id)->type == ARRAY_MEMORY_ALLOCATION)
-	    replace_array_with_alloca (node);
-	  else
-	    replace_with_alloca (node); 
+	  stmt_type_list type_list = get_stmt_type (cg, node->id);
+	  if (type_list)
+	    {
+	      if (type_list->type == MEMORY_ALLOCATION)
+		replace_with_alloca (node); 
+	      else
+		replace_array_with_alloca (node);
+	    }
 	}
     }
   dump_escape_function (cg, debug, dump);
@@ -1585,6 +1635,10 @@ execute_ipa_stack_allocate (void)
     TDF_GRAPH;
   pretty_printer debug_buffer;
   pretty_printer dump_buffer;
+
+  /* init the markers used to traverse the graph */
+  init_markers ();
+  init_node_hashtable ();
 
   debug = fopen ("debug_log", "a");
   dump = fopen ("dump_log", "a");
@@ -1626,19 +1680,30 @@ execute_ipa_stack_allocate (void)
       node = order[i];
       if (node->analyzed)
 	{
+	  char* filename;
+
 	  /* set up the current function */
 	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	  tree_register_cfg_hooks ();
 	  current_function_decl = node->decl;
 
-
 	  /* set up this function's connection graph */
-	  cg = new_con_graph (concat ("graphs/", current_function_name (),
-				      (IDENTIFIER_POINTER
-				       (DECL_ASSEMBLER_NAME
-					(current_function_decl))), ".graph",
-				      NULL), current_function_decl,
-			      last_cg);
+	  filename = concat ("graphs/", current_function_name (),
+			     (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME
+						  (current_function_decl))),
+			     ".graph", NULL);
+	  if (strnlen (filename, 237) >= 237) 
+	    {
+	      filename[230] = '.';
+	      filename[231] = 'g';
+	      filename[232] = 'r';
+	      filename[233] = 'a';
+	      filename[234] = 'p';
+	      filename[235] = 'h';
+	      filename[236] = '\0';
+	    }
+
+	  cg = new_con_graph (filename, current_function_decl, last_cg);
 
 	  /* fix up the next_cg list */
 	  last_cg = cg;

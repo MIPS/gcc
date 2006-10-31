@@ -21,10 +21,41 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA. */
 
 #include "congraph.h"
+#include "hashtab.h"
 
-/* ---------------------------------------------------
- *			graph
- * --------------------------------------------------- */
+/* -------------------------------------------------------------*
+ *			memory and hashtables			*
+ * -------------------------------------------------------------*/
+static htab_t node_hashtable;
+
+static hashval_t
+node_id_hash (const void *p)
+{
+  const con_node n = (con_node) p;
+  return htab_hash_pointer (n->id);
+}
+
+static int
+htab_con_node_eq (const void *p1, const void *p2)
+{
+  const con_node n1 = (con_node) p1;
+  const con_node n2 = (con_node) p2;
+  return (n1->id == n2->id 
+	  && n1->graph == n2->graph
+	  && n1->call_id == n2->call_id);
+}
+
+void
+init_node_hashtable (void)
+{
+  /* 9 was the average for the data I had on hand */
+  node_hashtable = htab_create (20, node_id_hash, htab_con_node_eq, free);
+}
+
+
+/* -------------------------------------------------------------*
+ *			graph					*
+ * -------------------------------------------------------------*/
 
 /* I used to identify nodes in the dumps by using their address. This is
  * unreliable and doesnt lend itself well to regression. Instead, use the
@@ -69,6 +100,8 @@ con_graph_dump (con_graph cg)
   /*assert_all_next_link_free (cg); */
 
   out = fopen (cg->filename, "w");
+  if (out == NULL)
+      fprintf(stderr, "%s\n", strerror(errno));
   gcc_assert (out);
 
   /* step 1 - print the nodes and attributes */
@@ -406,8 +439,9 @@ add_local_node (con_graph cg, tree id)
 void
 add_node (con_graph cg, con_node node)
 {
-  gcc_assert (cg);
-  gcc_assert (node);
+  struct _con_node finder;
+  void** slot;
+  gcc_assert (cg && node);
   gcc_assert (node->next == NULL);
 
   /* we search for id, which is duplicated in the case of field and
@@ -425,6 +459,12 @@ add_node (con_graph cg, con_node node)
 
   node->dump_index = dump_index;
   dump_index++;
+
+  /* put the node into the hashtable */
+  finder.id = node->id;
+  slot = htab_find_slot (node_hashtable, &finder, INSERT);
+  *slot = (void*) node;
+  
 }
 
 
@@ -460,26 +500,14 @@ existing_local_node (con_graph cg, tree id)
 con_node
 get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
 {
-  con_node node;
-  con_node result = NULL;
+  struct _con_node finder;
   gcc_assert (cg);
   gcc_assert (id);
-  for (node = cg->root; node != NULL; node = node->next)
-    {
-      /* an actual node has the same id, but a different type */
-      if (node->id == id && node->call_id == call_id
-	  && !is_actual_type (node))
-	{
-	  /* For field nodes use get_existing_field_nodes */
-	  gcc_assert (node->type != FIELD_NODE);
+  finder.graph = cg;
+  finder.id = id;
+  finder.call_id = call_id;
 
-	  /* check for dups */
-	  gcc_assert (result == NULL);
-	  result = node;
-	}
-    }
-
-  return result;
+  return htab_find (node_hashtable, &finder);
 }
 
 con_node
@@ -681,63 +709,58 @@ remove_con_edge (con_edge edge)
 
 }
 
+static con_node END_MARKER;
+static con_node NIL_MARKER;
+
+void
+init_markers (void)
+{
+  END_MARKER = new_con_node ();
+  NIL_MARKER = new_con_node ();
+}
+
 con_node
 get_points_to (con_node node)
 {
   con_edge edge;
   con_node result = NULL;
-  con_node end_of_list = NULL;
 
   gcc_assert (node);
-  gcc_assert (node->type != OBJECT_NODE);
+  gcc_assert (is_reference_node (node));
+  gcc_assert (node->next_link == NULL);
+
+  /* if there are outward nodes, but they point to objects or are
+   * circular, then we should return null */
+  node->next_link = NIL_MARKER;
 
   for (edge = node->out; edge != NULL; edge = edge->next_out)
     {
+      con_node next_node = edge->target;
       con_node new_result = NULL;
-
-      if (edge->target->type == OBJECT_NODE)
+      /* recurse more */
+      if (is_reference_node (next_node))
 	{
-	  /* its not already in the list */
-	  if (edge->target->next_link == NULL)
-	    {
-	      new_result = edge->target;
-	    }
+	  /* traversed nodes have their next_link set to NIL_MARKER */
+	  gcc_assert (next_node->next_link != END_MARKER);
+	  if (next_node->next_link != NIL_MARKER)
+	    new_result = get_points_to (next_node);
 	}
       else
 	{
-	  /* recurse */
-	  new_result = get_points_to (edge->target);
+	  /* already returned nodes have their next_link set to END_MARKER
+	   * */
+	  gcc_assert (next_node->next_link != NIL_MARKER);
+	  if (next_node->next_link == NULL)
+	    {
+	      new_result = next_node;
+	      new_result->next_link = END_MARKER;
+	    }
 	}
-
-      if (new_result)
-	{
-	  /* new list or append to list */
-	  if (result)
-	    {
-	      end_of_list->next_link = new_result;
-	    }
-	  else
-	    {
-	      result = new_result; /* this can be NULL */
-	      end_of_list = result;
-	    }
-
-
-	  /* this maintains the end-of-list pointer, and marks the last object
-	   * as having a next_link. It doesnt have a next_link, but if it goes
-	   * unmarked, we end up with duplicate nodes above. This HACK is
-	   * undone at the end of the function */
-	  while (end_of_list->next_link)
-	    {
-	      NEXT_LINK (end_of_list);
-	    }
-	  end_of_list->next_link = result;
-	}
+      result = merge_next_lists (result, new_result);
     }
-
-  /* make the list non-cyclic again */
-  if (end_of_list)
-      end_of_list->next_link = NULL;
+  gcc_assert (node->next_link == NIL_MARKER);
+  node->next_link = NULL;
+  gcc_assert (node != result);
   return result;
 }
 
@@ -901,71 +924,36 @@ get_terminal_nodes (con_node node)
 {
   con_edge edge;
   con_node result = NULL;
-  con_node end_of_list = NULL;
 
   gcc_assert (node);
-  gcc_assert (node->type != OBJECT_NODE);
+  gcc_assert (is_reference_node (node));
   gcc_assert (node->next_link == NULL);
+
+  /* if there are outward nodes, but they point to objects or are
+   * circular, then we should return null. Note that circular references
+   * ONLY occur when there is an object present. */
+
+  if (node->out == NULL)
+    {
+      node->next_link = END_MARKER;
+      return node;
+    }
+
+  node->next_link = NIL_MARKER;
 
   for (edge = node->out; edge != NULL; edge = edge->next_out)
     {
-      con_node new_result = NULL;
-
-      if (is_reference_node (edge->target))
+      con_node next_node = edge->target;
+      if (is_reference_node (next_node) && next_node->next_link == NULL)
 	{
-	      /* end of the line */
-	  if (edge->target->out == NULL)
-	    {
-	      /* check we dont have it already */
-	      if (edge->target->next_link == NULL)
-		{
-		  new_result = edge->target;
-		}
-	    }
-	  else
-	    {
-	      /* recurse */
-	      new_result = get_terminal_nodes (edge->target);
-	    }
+	  con_node new_result = get_terminal_nodes (next_node);
+	  result = merge_next_lists (result, new_result);
 	}
-      else
-	{
-	  /* object node - do nothing */
-	}
-
-      if (new_result)
-	{
-	  /* new list or append to list */
-	  if (result)
-	    {
-	      end_of_list->next_link = new_result;
-	    }
-	  else
-	    {
-	      result = new_result; /* this can be NULL */
-	      end_of_list = result;
-	    }
-
-
-	  /* this maintains the end-of-list pointer, and marks the last object
-	   * as having a next_link. It doesnt have a next_link, but if it goes
-	   * unmarked, we end up with duplicate nodes above. This HACK is
-	   * undone at the end of the function */
-	  while (end_of_list->next_link)
-	    {
-	      NEXT_LINK (end_of_list);
-	    }
-	  end_of_list->next_link = result;
-	}
-	
-      /* make the list non-cyclic again */
-      if (end_of_list)
-	end_of_list->next_link = NULL;
     }
-
-  /* this can return null */
+  gcc_assert (node->next_link == NIL_MARKER);
+  node->next_link = NULL;
+  gcc_assert (node != result);
   return result;
-
 }
 
 con_node
@@ -1080,7 +1068,22 @@ t (tree id)
 void
 d (con_node node)
 {
-  print_generic_stmt (stderr, node->id, 0);
+  if (node == NIL_MARKER)
+    {
+      fprintf (stderr, "NIL_MARKER\n");
+    }
+  else if (node == END_MARKER)
+    {
+      fprintf (stderr, "END_MARKER\n");
+    }
+  else if (node == NULL)
+    {
+      fprintf (stderr, "0x0\n");
+    }
+  else
+    {
+      print_generic_stmt (stderr, node->id, 0);
+    }
 }
 
 
@@ -1316,6 +1319,8 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(ASSIGNMENT_TO_EXCEPTION);
 	  HANDLE(RETURN);
 	  HANDLE(MEMORY_ALLOCATION);
+	  HANDLE(INDIRECT_GOTO);
+	  HANDLE(IGNORED_FUNCTION_POINTER);
 	  HANDLE(ARRAY_MEMORY_ALLOCATION);
 	  HANDLE(IGNORED_RETURNING_VOID);
 	  HANDLE(IGNORED_NOT_A_POINTER);
@@ -1389,9 +1394,50 @@ in_link_list (con_node list, con_node subject)
 }
 
 con_node
+merge_next_lists (con_node list1, con_node list2)
+{
+  con_node result = list1;
+  if (list1 == NULL && list2 == NULL)
+    return NULL;
+
+  if (list1 == NULL)
+    {
+      gcc_assert (last_link (list2) == END_MARKER);
+      return list2;
+    }
+  if (list2 == NULL)
+    {
+      gcc_assert (last_link (list1) == END_MARKER);
+      return list1;
+    }
+  gcc_assert (last_link (list1) == END_MARKER);
+  gcc_assert (last_link (list2) == END_MARKER);
+
+  while (list1->next_link 
+	 && list1->next_link != END_MARKER 
+	 && list1->next_link != NIL_MARKER)
+    {
+      NEXT_LINK (list1);
+    }
+  list1->next_link = list2;
+  return result;
+}
+
+con_node
+last_link (con_node node)
+{
+  while (node->next_link)
+    {
+      NEXT_LINK (node);
+    }
+  return node;
+}
+
+con_node
 get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree type)
 {
   con_node u, terminal, phantom;
+  con_node copy;
 
   /* This comes from the end of section 3 in Choi 99, though we dont
    * exactly follow the recommendations. In particular, the paper alleges
@@ -1402,7 +1448,8 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree t
   u = get_points_to (source);
 
   /* there may also be nodes which don't end up as an object. These need
-   * to point to phantom objects */
+   * to point to phantom objects. Note that the final node in this list
+   * points to END_MARKER */
   terminal = get_terminal_nodes (source);
 
   /* this is a lonely node */
@@ -1433,11 +1480,24 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree t
       /* make the terminal nodes point to the node */
       while (terminal)
 	{
-	  if (terminal != phantom) /* this would be pointless otherwise */
-	    add_edge (terminal, phantom);
+	  gcc_assert (terminal != phantom);
+	  add_edge (terminal, phantom);
+
+	  if (terminal->next_link == END_MARKER)
+	    terminal->next_link = NULL;
 
 	  NEXT_LINK_CLEAR (terminal);
 	}
+    }
+
+  /* the last node in u is still marked with an END_MARKER */
+  copy = u;
+  while (copy)
+    {
+      if (copy->next_link == END_MARKER)
+	copy->next_link = NULL;
+
+      NEXT_LINK (copy);
     }
 
   return u;

@@ -74,7 +74,9 @@ enum statement_type
   POINTER_DEREFERENCE,
   IGNORED_ASSIGNMENT_TO_NULL,
   ASSIGNMENT_TO_INDIRECT_ARRAY_REF,
-  IGNORED_NULL_POINTER_EXCEPTION
+  IGNORED_NULL_POINTER_EXCEPTION,
+  IGNORED_FUNCTION_POINTER,
+  INDIRECT_GOTO
 };
 
 /* This should be combined in the future with structure aliasing, but
@@ -415,8 +417,13 @@ int link_length (con_node node);
 void clear_links (con_node node);
 
 bool in_link_list (con_node list, con_node subject);
+con_node last_link (con_node node);
+con_node merge_next_lists (con_node list1, con_node list2);
 
 con_node get_points_to_and_terminals (con_graph cg, con_node source, tree
 				      stmt_id, tree type);
+
+void init_markers (void);
+void init_node_hashtable (void);
 
 #endif /* _CON_GRAPH_H */

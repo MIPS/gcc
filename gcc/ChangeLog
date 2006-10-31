@@ -1,5 +1,31 @@
 2006-10-19	Paul Biggar	<paul.biggar@gmail.com>
 
+	* ipa-stack-allocate.c (hashtab.h): Added header
+	(insert_function_call): Allow NULL argument_list
+	(check_indirect_goto): New function
+	(check_function_call_with_return_value): Allow cases with no arguments
+	(check_function_call): Allow cases with no arguments
+	(process_function): Shorten the dump filename to 230 or so characters. Add
+	calls to init_markers and init_node_hashtable
+
+	* con_graph.c (node_id_hash, htab_con_node_eq, init_node_hashtable)
+	(node_hashtable): New functions for hashtable
+	(add_node): Add nodes to hashtable
+	(get_existing_node_with_call_id): Search in hashtable insytead of linearly
+
+	(merge_next_lists, last_link, init_markers): New functions
+	(get_points_to, get_terminal_nodes, get_points_to_and_terminals): Use
+	NIL_MARKER and END_MARKER to avoid loops and duplicates once and for all
+
+	* con_graph.h (last_link, merge_next_lists, init_markers)
+	(init_node_hashtable): New declarations
+
+
+
+
+
+2006-10-19	Paul Biggar	<paul.biggar@gmail.com>
+
 	* ipa-stack-allocate.c: Reordered functions by catagory
 	(is_constructor): Made more precise
 	(is_java_allocator) : Removed
