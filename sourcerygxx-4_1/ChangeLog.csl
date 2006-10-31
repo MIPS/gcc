@@ -1,3 +1,9 @@
+2006-10-31  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.h (WCHAR_TYPE_SIZE): Define to BITS_PER_WORD
+	rather than 32, and explain why.
+
 2006-10-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	Backport from mainline:

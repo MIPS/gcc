@@ -306,7 +306,8 @@ Boston, MA 02110-1301, USA.  */
 
 /* Define these to avoid dependence on meaning of `int'.  */
 #define WCHAR_TYPE "long int"
-#define WCHAR_TYPE_SIZE 32
+/* Use BITS_PER_WORD rather than 32 to agree with svr4.h.  */
+#define WCHAR_TYPE_SIZE BITS_PER_WORD
 
 /* Maximum number of library IDs we permit with -mid-shared-library.  */
 #define MAX_LIBRARY_ID 255
