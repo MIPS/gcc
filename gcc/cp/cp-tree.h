@@ -3655,8 +3655,9 @@ typedef struct cp_decl_specifier_seq {
      decl-specifier-seq.  */
   BOOL_BITFIELD multiple_types_p : 1;
   /* True iff multiple storage classes were (erroneously) specified
-     for this decl-specifier-seq.  */
-  BOOL_BITFIELD multiple_storage_classes_p : 1;
+     for this decl-specifier-seq or a combination of a storage class
+     with a typedef specifier.  */
+  BOOL_BITFIELD conflicting_specifiers_p : 1;
   /* True iff at least one decl-specifier was found.  */
   BOOL_BITFIELD any_specifiers_p : 1;
   /* True iff "int" was explicitly provided.  */
@@ -3908,7 +3909,7 @@ extern int grok_ctor_properties			(tree, tree);
 extern bool grok_op_properties			(tree, bool);
 extern tree xref_tag				(enum tag_types, tree, tag_scope, bool);
 extern tree xref_tag_from_type			(tree, tree, tag_scope);
-extern void xref_basetypes			(tree, tree);
+extern bool xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree);
@@ -3941,11 +3942,7 @@ extern int nonstatic_local_decl_p		(tree);
 extern tree register_dtor_fn			(tree);
 extern tmpl_spec_kind current_tmpl_spec_kind	(int);
 extern tree cp_fname_init			(const char *, tree *);
-extern tree builtin_function			(const char *name, tree type,
-						 int code,
-						 enum built_in_class cl,
-						 const char *libname,
-						 tree attrs);
+extern tree cxx_builtin_function		(tree decl);
 extern tree check_elaborated_type_specifier	(enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static	(tree, tree);
 extern const char *cxx_comdat_group		(tree);

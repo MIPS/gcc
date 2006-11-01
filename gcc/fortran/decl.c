@@ -128,6 +128,21 @@ gfc_free_data (gfc_data * p)
 }
 
 
+/* Free all data in a namespace.  */
+static void
+gfc_free_data_all (gfc_namespace * ns)
+{
+  gfc_data *d;
+
+  for (;ns->data;)
+    {
+      d = ns->data->next;
+      gfc_free (ns->data);
+      ns->data = d;
+    }
+}
+
+
 static match var_element (gfc_data_variable *);
 
 /* Match a list of variables terminated by an iterator and a right
@@ -262,6 +277,7 @@ top_var_list (gfc_data * d)
 
 syntax:
   gfc_syntax_error (ST_DATA);
+  gfc_free_data_all (gfc_current_ns);
   return MATCH_ERROR;
 }
 
@@ -374,6 +390,7 @@ top_val_list (gfc_data * data)
 
 syntax:
   gfc_syntax_error (ST_DATA);
+  gfc_free_data_all (gfc_current_ns);
   return MATCH_ERROR;
 }
 
@@ -625,6 +642,7 @@ get_proc_name (const char *name, gfc_symbol ** result,
     rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
 
   sym = *result;
+  gfc_current_ns->refs++;
 
   if (sym && !sym->new && gfc_current_state () != COMP_INTERFACE)
     {
@@ -635,7 +653,8 @@ get_proc_name (const char *name, gfc_symbol ** result,
 	 accessible names.  */
       if (sym->attr.flavor != 0
 	    && sym->attr.proc != 0
-	    && sym->formal)
+	    && (sym->attr.subroutine || sym->attr.function)
+	    && sym->attr.if_source != IFSRC_UNKNOWN)
 	gfc_error_now ("Procedure '%s' at %C is already defined at %L",
 		       name, &sym->declared_at);
 
@@ -643,6 +662,7 @@ get_proc_name (const char *name, gfc_symbol ** result,
 	 signature for this is that ts.kind is set.  Legitimate
 	 references only set ts.type.  */
       if (sym->ts.kind != 0
+	    && !sym->attr.implicit_type
 	    && sym->attr.proc == 0
 	    && gfc_current_ns->parent != NULL
 	    && sym->attr.access == 0
@@ -962,14 +982,31 @@ build_struct (const char *name, gfc_charlen * cl, gfc_expr ** init,
 
   /* Check array components.  */
   if (!c->dimension)
-    return SUCCESS;
+    {
+      if (c->allocatable)
+	{
+	  gfc_error ("Allocatable component at %C must be an array");
+	  return FAILURE;
+	}
+      else
+	return SUCCESS;
+    }
 
   if (c->pointer)
     {
       if (c->as->type != AS_DEFERRED)
 	{
-	  gfc_error ("Pointer array component of structure at %C "
-		     "must have a deferred shape");
+	  gfc_error ("Pointer array component of structure at %C must have a "
+		     "deferred shape");
+	  return FAILURE;
+	}
+    }
+  else if (c->allocatable)
+    {
+      if (c->as->type != AS_DEFERRED)
+	{
+	  gfc_error ("Allocatable component of structure at %C must have a "
+		     "deferred shape");
 	  return FAILURE;
 	}
     }
@@ -1284,6 +1321,14 @@ variable_decl (int elem)
 	}
     }
 
+  if (initializer != NULL && current_attr.allocatable
+	&& gfc_current_state () == COMP_DERIVED)
+    {
+      gfc_error ("Initialization of allocatable component at %C is not allowed");
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
   /* Check if we are parsing an enumeration and if the current enumerator
      variable has an initializer or not. If it does not have an
      initializer, the initialization value of the previous enumerator 
@@ -1315,8 +1360,9 @@ variable_decl (int elem)
     t = add_init_expr_to_sym (name, &initializer, &var_locus);
   else
     {
-      if (current_ts.type == BT_DERIVED && !current_attr.pointer
-	  && !initializer)
+      if (current_ts.type == BT_DERIVED
+	    && !current_attr.pointer
+	    && !initializer)
 	initializer = gfc_default_initializer (&current_ts);
       t = build_struct (name, cl, &initializer, &as);
     }
@@ -2141,11 +2187,24 @@ match_attr_spec (void)
 	  && d != DECL_DIMENSION && d != DECL_POINTER
 	  && d != DECL_COLON && d != DECL_NONE)
 	{
-
-	  gfc_error ("Attribute at %L is not allowed in a TYPE definition",
-		     &seen_at[d]);
-	  m = MATCH_ERROR;
-	  goto cleanup;
+	  if (d == DECL_ALLOCATABLE)
+	    {
+	      if (gfc_notify_std (GFC_STD_F2003, 
+				   "In the selected standard, the ALLOCATABLE "
+				   "attribute at %C is not allowed in a TYPE "
+				   "definition") == FAILURE)         
+		{
+		  m = MATCH_ERROR;
+		  goto cleanup;
+		}
+            }
+          else
+	    {
+	      gfc_error ("Attribute at %L is not allowed in a TYPE definition",
+			  &seen_at[d]);
+	      m = MATCH_ERROR;
+	      goto cleanup;
+	    }
 	}
 
       if ((d == DECL_PRIVATE || d == DECL_PUBLIC)
@@ -2326,6 +2385,8 @@ ok:
 
   gfc_error ("Syntax error in data declaration at %C");
   m = MATCH_ERROR;
+
+  gfc_free_data_all (gfc_current_ns);
 
 cleanup:
   gfc_free_array_spec (current_as);
@@ -2640,7 +2701,9 @@ gfc_match_function_decl (void)
       || copy_prefix (&sym->attr, &sym->declared_at) == FAILURE)
     goto cleanup;
 
-  if (current_ts.type != BT_UNKNOWN && sym->ts.type != BT_UNKNOWN)
+  if (current_ts.type != BT_UNKNOWN
+	&& sym->ts.type != BT_UNKNOWN
+	&& !sym->attr.implicit_type)
     {
       gfc_error ("Function '%s' at %C already has a type of %s", name,
 		 gfc_basic_typename (sym->ts.type));

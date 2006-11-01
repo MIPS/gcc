@@ -268,6 +268,7 @@ INSTALL_SCRIPT = @INSTALL@
 MAKEINFO = @MAKEINFO@
 MAKEINFOFLAGS = --no-split
 TEXI2DVI = texi2dvi
+TEXI2PDF = texi2pdf
 TEXI2HTML = $(MAKEINFO) --html
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
@@ -845,7 +846,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER)
+LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(LIBDECNUMBER) $(GMPLIBS)
 
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -2881,8 +2882,7 @@ GTFILES_FILES_FILES_C = $(subst $(srcdir)/,, \
 GTFILES_FILES_FILES_H = $(addprefix gt-, \
 	$(subst /,-,$(GTFILES_FILES_FILES_C:.c=.h)))
 GTFILES_LANG_DIR_NAMES_H = $(foreach d,$(GTFILES_LANG_DIR_NAMES), gtype-$(d).h)
-ALL_GTFILES_H := $(shell echo $(GTFILES_FILES_FILES_H) \
-	$(GTFILES_LANG_DIR_NAMES_H) | tr ' ' '\n'  | sort -u)
+ALL_GTFILES_H := $(sort $(GTFILES_FILES_FILES_H) $(GTFILES_LANG_DIR_NAMES_H))
 
 $(ALL_GTFILES_H) : s-gtype ; @true
 
@@ -3398,7 +3398,7 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 	mv -f $@T $@
 
 
-# The *.1, *.7, *.info, and *.dvi files are being generated from implicit
+# The *.1, *.7, *.info, *.dvi, and *.pdf files are being generated from implicit
 # patterns.  To use them, put each of the specific targets with its
 # specific dependencies but no build commands.
 
@@ -3425,6 +3425,11 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
+doc/cpp.pdf: $(TEXI_CPP_FILES)
+doc/gcc.pdf: $(TEXI_GCC_FILES)
+doc/gccint.pdf: $(TEXI_GCCINT_FILES)
+doc/cppinternals.pdf: $(TEXI_CPPINT_FILES)
+
 $(build_htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
 $(build_htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
 $(build_htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
@@ -3439,6 +3444,16 @@ doc/%.dvi: %.texi
 # Duplicate entry to handle renaming of gccinstall.dvi
 doc/gccinstall.dvi: $(TEXI_GCCINSTALL_FILES)
 	$(TEXI2DVI) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+pdf:: doc/gcc.pdf doc/gccint.pdf doc/gccinstall.pdf doc/cpp.pdf \
+      doc/cppinternals.pdf lang.pdf
+
+doc/%.pdf: %.texi
+	$(TEXI2PDF) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
+
+# Duplicate entry to handle renaming of gccinstall.pdf
+doc/gccinstall.pdf: $(TEXI_GCCINSTALL_FILES)
+	$(TEXI2PDF) -I . -I $(abs_docdir) -I $(abs_docdir)/include -o $@ $<
 
 # List the directories or single hmtl files which are installed by
 # install-html. The lang.html file triggers language fragments to build
@@ -3582,6 +3597,7 @@ clean: mostlyclean lang.clean
 	-rm -f cs-*
 	-rm -rf libgcc
 	-rm -f doc/*.dvi
+	-rm -f doc/*.pdf
 # Delete the include directory.
 	-rm -rf include
 # Delete files used by the "multilib" facility (including libgcc subdirs).
@@ -3629,7 +3645,7 @@ maintainer-clean:
 	$(MAKE) lang.maintainer-clean distclean
 	-rm -f cpp.??s cpp.*aux
 	-rm -f gcc.??s gcc.*aux
-	-rm -f $(gcc_docdir)/*.info $(gcc_docdir)/*.1 $(gcc_docdir)/*.7 $(gcc_docdir)/*.dvi
+	-rm -f $(gcc_docdir)/*.info $(gcc_docdir)/*.1 $(gcc_docdir)/*.7 $(gcc_docdir)/*.dvi $(gcc_docdir)/*.pdf
 #
 # Entry points `install' and `uninstall'.
 # Also use `install-collect2' to install collect2 when the config files don't.

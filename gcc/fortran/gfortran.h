@@ -532,6 +532,9 @@ typedef struct
   /* Special attributes for Cray pointers, pointees.  */
   unsigned cray_pointer:1, cray_pointee:1;
 
+  /* The symbol is a derived type with allocatable components, possibly nested.
+   */
+  unsigned alloc_comp:1;
 }
 symbol_attribute;
 
@@ -649,7 +652,7 @@ typedef struct gfc_component
   const char *name;
   gfc_typespec ts;
 
-  int pointer, dimension;
+  int pointer, allocatable, dimension;
   gfc_array_spec *as;
 
   tree backend_decl;
@@ -1500,7 +1503,7 @@ typedef enum
 {
   EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
   EXEC_GOTO, EXEC_CALL, EXEC_ASSIGN_CALL, EXEC_RETURN, EXEC_ENTRY,
-  EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
+  EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE, EXEC_INIT_ASSIGN,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
   EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
@@ -1613,6 +1616,8 @@ typedef struct
      emits a fatal error.  */
   int fixed_line_length; /* maximum line length in fixed-form.  */
   int free_line_length; /* maximum line length in free-form.  */
+  int max_continue_fixed;
+  int max_continue_free;
   int max_identifier_length;
   int verbose;
 
@@ -1624,7 +1629,6 @@ typedef struct
   int warn_surprising;
   int warn_tabs;
   int warn_underflow;
-  int warn_unused_labels;
 
   int flag_all_intrinsics;
   int flag_default_double;
@@ -1644,6 +1648,8 @@ typedef struct
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
+  int flag_external_blas;
+  int blas_matmul_limit;
   int flag_cray_pointer;
   int flag_d_lines;
   int flag_openmp;
@@ -1938,6 +1944,7 @@ try gfc_convert_type_warn (gfc_expr *, gfc_typespec *, int, int);
 int gfc_generic_intrinsic (const char *);
 int gfc_specific_intrinsic (const char *);
 int gfc_intrinsic_name (const char *, int);
+int gfc_intrinsic_actual_ok (const char *, const bool);
 gfc_intrinsic_sym *gfc_find_function (const char *);
 
 match gfc_intrinsic_func_interface (gfc_expr *, int);
@@ -1969,6 +1976,7 @@ void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
 void gfc_free_actual_arglist (gfc_actual_arglist *);
 gfc_actual_arglist *gfc_copy_actual_arglist (gfc_actual_arglist *);
 const char *gfc_extract_int (gfc_expr *, int *);
+gfc_expr *gfc_expr_to_initialize (gfc_expr *);
 
 gfc_expr *gfc_build_conversion (gfc_expr *);
 void gfc_free_ref_list (gfc_ref *);
@@ -2103,7 +2111,20 @@ void gfc_insert_bbt (void *, void *, compare_fn);
 void gfc_delete_bbt (void *, void *, compare_fn);
 
 /* dump-parse-tree.c */
+void gfc_show_actual_arglist (gfc_actual_arglist *);
+void gfc_show_array_ref (gfc_array_ref *);
+void gfc_show_array_spec (gfc_array_spec *);
+void gfc_show_attr (symbol_attribute *);
+void gfc_show_code (int, gfc_code *);
+void gfc_show_components (gfc_symbol *);
+void gfc_show_constructor (gfc_constructor *);
+void gfc_show_equiv (gfc_equiv *);
+void gfc_show_expr (gfc_expr *);
+void gfc_show_namelist (gfc_namelist *);
 void gfc_show_namespace (gfc_namespace *);
+void gfc_show_ref (gfc_ref *);
+void gfc_show_symbol (gfc_symbol *);
+void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */
 try gfc_parse_file (void);

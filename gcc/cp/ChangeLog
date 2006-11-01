@@ -1,3 +1,233 @@
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	* typeck.c (build_unary_op): Fix indenting. Use G_().
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/29089
+	* typeck.c (build_unary_op): Duplicate warning message
+	for easier translation.
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/16307
+	* typeck.c (build_array_ref): Warn for char subscriptions
+	on pointers.
+
+2006-10-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c: Fix a comment typo.
+
+2006-10-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/29295
+	* typeck.c (build_unary_op): Use same_type_p when comparing to 
+	boolean type.
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/29033
+	* typeck.c (build_binary_op): Duplicate warning message
+	for better translation.
+
+2006-10-23  Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* decl.c (builtin_function_1): Move common code to
+	add_builtin_function.
+	(builtin_function): Rename to cxx_builtin_function.
+	Change the signature.
+	* call.c: Include langhooks.h.
+	(build_java_interface_fn_ref):  Replace calls to
+	builtin_function with add_builtin_function.
+	* Make-lang.in (cp/call.o): Depend on langhooks.h.
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION): Define as
+	cxx_builtin_function.
+	* cp-tree.h (builtin_function): Rename to cxx_builtin_function.
+	Change the signature.
+
+2006-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20647
+	* rtti.c (tinfo_base_init): The type info string is always global.
+
+2006-10-20  Lee Millward  <lee.millward@codesourcery.com>
+            Mark Mitchell <mark@codesourcery.com>
+
+        PR c++/28053
+        * decl2.c (grokbitfield): Detect invalid non-integral 
+        types earlier when possible.
+	
+2006-10-18  Mark Shinwell  <shinwell@codesourcery.com>
+
+	PR c++/26884
+	* typeck2.c (digest_init): Raise error upon attempts to
+	initialize arrays with variables.
+
+2006-10-17  Lee Millward  <lee.millward@codesourcery.com> 
+
+        PR c++/27952
+        * cp-tree.h (xref_basetypes): Return bool instead of void.
+        * decl.c (xref_basetypes): Adjust definition. Return false
+        if the class bases are invalid.
+        * parser.c (cp_parser_class_head): Check the return value
+        from xref_basetypes.
+	
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28261
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): Add
+	comment.
+
+	PR c++/28261
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): New
+	function.
+	(cp_parser_constructor_declarator_p): Use it.
+	(cp_parser_check_type_definition): Return a value indicating
+	whether or not the definition is valid.
+	(cp_parser_enum_specifier): Skip invalid enum definitions.
+
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29039
+	* typeck2.c (build_functional_cast): Don't zero-initialize
+	non-PODs; instead, call their constructors.
+	* method.c (synthesize_method): Always build mem-initializers, if
+	we're synthesizing the default constructor.
+
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27270
+	* decl.c (reshape_init_class): Move check for designated
+	to ...
+	* parser.c (cp_parser_initializer_list): ... here.
+	* pt.c (tsubst_copy_and_build): Use finish_compound_literal.
+
+2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27270
+	* typeck2.c (process_init_constructor_array): Reword comment.
+	* pt.c (tsubst_copy_and_built): Call reshape_init before calling
+	digest_init.
+
+	PR c++/29408
+	* parser.c (cp_parser_using_declaration): Stop parsing when
+	something goes wrong with an access declaration.
+
+	PR c++/29435
+	* typeck.c (cxx_sizeof_or_alignof_type): Complete non-dependent
+	types when their sizes are required.  Refine test for VLAs.
+
+	PR c++/28211
+	* parser.c (cp_parser_template_argument): Don't consider "&var" a
+	possible constant-expression.
+	* pt.c (convert_nontype_argument): Refine handling of arguments of
+	pointer type.
+
+2006-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28506
+	* parser.c (function_declarator_p): New function.
+	(cp_parser_init_declarator): Use it.
+	(cp_parser_member_declaration): Likewise.
+
+2006-10-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29318
+	* rtti.c (get_tinfo_decl): Refuse to create type info objects for
+	variably modified types.
+
+2006-10-12 Lee Millward <lee.millward@codesourcery.com>
+
+       PR c++/27961
+       * decl.c (start_decl): Return error_mark_node if a
+       function is initialized like a variable.
+       (check_var_type): If a variable of field is declared void,
+       set the type to error_mark_node.
+       (grokdeclarator): Check the return type of check_var_type.
+       * class.c (finish_struct_1): Robustify.
+	
+2006-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29175
+	* decl.c (check_initializer): Issue errors about trying to
+	initialize arrays whose elements have variable size.
+
+2006-10-11  Lee Millward  <lee.millward@codesourcery.com>
+
+	PR c++/29024
+        * cp-tree (struct cp_decl_specifier_seq): Rename to 
+        conflicting_specifiers_p
+        * parser.c (cp_parser_set_storage_class): Set
+        conflicting_specifiers_p for the input decl specifier 
+        if a typedef specifier is present. Rename uses of
+        multiple_specifiers_p to conflicting_specifiers_p.
+        (cp_parser_decl_specifier_seq) <RID_TYPEDEF>: If a storage 
+        class specifier has already been set for this declaration, 
+        set conflicting_specifiers_p to true on the decl_specs.
+        * decl.c (grokdeclarator): Rename uses of
+        multiple_specifiers_p to conflicting_specifiers_p.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "c++.pdf" target support.
+
+2006-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/29323
+	* decl.c (finish_function): Set TREE_NOTHROW only for
+	functions that bind local.
+
+2006-10-09  Richard Henderson  <rth@redhat.com>
+
+	Revert emutls patch.
+
+2006-10-04  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (grokvardecl): Don't error if !have_tls.
+	(grokdeclarator): Likewise.
+	* parser.c (cp_parser_omp_threadprivate): Likewise.
+
+2006-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29020
+	* friend.c (do_friend): Improve comments; add assertion.
+	* parser.c (cp_parser_nested_name_specifier_opt): Resolve
+	typenames for qualified names used in declarations, even when
+	caching qualified name lookup.
+
+	PR c++/29138
+	* decl2.c (grokfield): Don't handle access declarations here.
+	* parser.c (cp_parser_using_declaration): Handle access
+	declarations too.
+	(cp_parser_block_declaration): Adjust calls to
+	cp_parser_using_declaration.
+	(cp_parser_member_declaration): Likewise.  Use
+	cp_parser_using_declaration to look for access_declarations.
+
+2006-10-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/29291
+	* init.c (build_new): Check for invalid init.
+
+2006-10-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29226
+	* typeck.c (cxx_sizeof_or_alignof_type): Tidy.  In templates, do
+	not try to actually evaluate sizeof for a VLA type.
+
+2006-10-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29105
+	* pt.c (tsubst_baselink): Substituteinto the qualifying scope.
+	* semantics.c (baselink_for_fns): Build a baselink, even when
+	processing a template.
+
+	PR c++/29080
+	* parser.c (cp_parser_postfix_dot_deref_expression): Use
+	BASELINK_ACCESS_BINFO as the qualifying scope when calling
+	adjust_result_of_qualified_name_lookup. 
+
 2006-09-25  Lee Millward  <lee.millward@codesourcery.com>
 
         PR c++/27329

@@ -157,6 +157,16 @@ extern void ix86_emit_i387_log1p (rtx, rtx);
 
 extern enum rtx_code ix86_reverse_condition (enum rtx_code, enum machine_mode);
 
+extern void ix86_expand_lround (rtx, rtx);
+extern void ix86_expand_lfloorceil (rtx, rtx, bool);
+extern void ix86_expand_rint (rtx, rtx);
+extern void ix86_expand_floorceil (rtx, rtx, bool);
+extern void ix86_expand_floorceildf_32 (rtx, rtx, bool);
+extern void ix86_expand_round (rtx, rtx);
+extern void ix86_expand_rounddf_32 (rtx, rtx);
+extern void ix86_expand_trunc (rtx, rtx);
+extern void ix86_expand_truncdf_32 (rtx, rtx);
+
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);

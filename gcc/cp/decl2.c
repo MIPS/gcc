@@ -769,16 +769,6 @@ grokfield (const cp_declarator *declarator,
   const char *asmspec = 0;
   int flags = LOOKUP_ONLYCONVERTING;
 
-  if (!declspecs->any_specifiers_p
-      && declarator->kind == cdk_id
-      && declarator->u.id.qualifying_scope
-      && TYPE_P (declarator->u.id.qualifying_scope)
-      && IS_AGGR_TYPE (declarator->u.id.qualifying_scope)
-      && TREE_CODE (declarator->u.id.unqualified_name) == IDENTIFIER_NODE)
-    /* Access declaration */
-    return do_class_using_decl (declarator->u.id.qualifying_scope,
-				declarator->u.id.unqualified_name);
-
   if (init
       && TREE_CODE (init) == TREE_LIST
       && TREE_VALUE (init) == error_mark_node
@@ -955,6 +945,14 @@ grokbitfield (const cp_declarator *declarator,
   /* Pass friendly classes back.  */
   if (TREE_CODE (value) == VOID_TYPE)
     return void_type_node;
+
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (value))
+      && (POINTER_TYPE_P (value)
+          || !dependent_type_p (TREE_TYPE (value))))
+    {
+      error ("bit-field %qD with non-integral type", value);
+      return error_mark_node;
+    }
 
   if (TREE_CODE (value) == TYPE_DECL)
     {

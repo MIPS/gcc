@@ -1074,8 +1074,10 @@ expand_block_move (rtx *operands)
       while (copied + 4 <= bytes)
 	{
 	  rtx to = adjust_address (dest, SImode, copied);
-	  rtx from = adjust_automodify_address (src, SImode, src_addr, copied);
+	  rtx from = adjust_automodify_address (src, BLKmode,
+						src_addr, copied);
 
+	  set_mem_size (from, GEN_INT (4));
 	  emit_insn (gen_movua (temp, from));
 	  emit_move_insn (src_addr, plus_constant (src_addr, 4));
 	  emit_move_insn (to, temp);
@@ -9474,8 +9476,8 @@ sh_media_init_builtins (void)
 	  if (signature < SH_BLTIN_NUM_SHARED_SIGNATURES)
 	    shared[signature] = type;
 	}
-      lang_hooks.builtin_function (d->name, type, d - bdesc, BUILT_IN_MD,
-				   NULL, NULL_TREE);
+      add_builtin_function (d->name, type, d - bdesc, BUILT_IN_MD,
+			    NULL, NULL_TREE);
     }
 }
 

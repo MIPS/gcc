@@ -1329,15 +1329,14 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	return FALSE;
     }
   else
-    {
-      insn_cost = 0;
-    }
+    insn_cost = 0;
 
-  if (insn_b) {
-    insn_cost += insn_rtx_cost (PATTERN (insn_b));
-    if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
-      return FALSE;
-  }
+  if (insn_b)
+    {
+      insn_cost += insn_rtx_cost (PATTERN (insn_b));
+      if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
+        return FALSE;
+    }
 
   /* Possibly rearrange operands to make things come out more natural.  */
   if (reversed_comparison_code (if_info->cond, if_info->jump) != UNKNOWN)
@@ -2424,7 +2423,7 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
       src = SET_SRC (set);
       if (!REG_P (dest)
 	  || (SMALL_REGISTER_CLASSES && HARD_REGISTER_P (dest)))
-	return false;
+	return FALSE;
 
       if (!CONSTANT_P (src) && !register_operand (src, VOIDmode))
 	return FALSE;
@@ -2433,6 +2432,14 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
 	return FALSE;
 
       if (may_trap_p (src) || may_trap_p (dest))
+	return FALSE;
+
+      /* Don't try to handle this if the source register was
+	 modified earlier in the block.  */
+      if ((REG_P (src)
+	   && vals[REGNO (src)] != NULL)
+	  || (GET_CODE (src) == SUBREG && REG_P (SUBREG_REG (src))
+	      && vals[REGNO (SUBREG_REG (src))] != NULL))
 	return FALSE;
 
       /* Don't try to handle this if the destination register was

@@ -1363,6 +1363,8 @@ simplify_parameter_variable (gfc_expr * p, int type)
   if (e == NULL)
     return FAILURE;
 
+  e->rank = p->rank;
+
   /* Do not copy subobject refs for constant.  */
   if (e->expr_type != EXPR_CONSTANT && p->ref != NULL)
     e->ref = copy_ref (p->ref);
@@ -2406,7 +2408,7 @@ gfc_default_initializer (gfc_typespec *ts)
   /* See if we have a default initializer.  */
   for (c = ts->derived->components; c; c = c->next)
     {
-      if (c->initializer && init == NULL)
+      if ((c->initializer || c->allocatable) && init == NULL)
         init = gfc_get_expr ();
     }
 
@@ -2430,6 +2432,13 @@ gfc_default_initializer (gfc_typespec *ts)
 
       if (c->initializer)
         tail->expr = gfc_copy_expr (c->initializer);
+
+      if (c->allocatable)
+	{
+	  tail->expr = gfc_get_expr ();
+	  tail->expr->expr_type = EXPR_NULL;
+	  tail->expr->ts = c->ts;
+	}
     }
   return init;
 }

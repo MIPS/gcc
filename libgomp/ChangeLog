@@ -1,3 +1,33 @@
+2006-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/29629
+	* testsuite/libgomp.fortran/pr29629.f90: New test.
+
+2006-10-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR libgomp/29494
+	* configure.tgt: Use posix95 configuration for Solaris 2.5.1 and 2.6.
+	* config/posix95: New directory.
+	* config/posix95/omp-lock.h: New file.
+	* config/posix95/lock.c: Likewise.
+
+2006-10-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2006-10-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* testsuite/libgomp.c/barrier-1.c: Change timestamp tests from
+	'<' to '<='.
+
+2006-10-05  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* acinclude.m4 (HAVE_ATTRIBUTE_ALIAS): Remove __USER_LABEL_PREFIX__ from
+	test.
+	* configure: Regenerate.
+	* fortran.c  (ialias_redirect): Add __USER_LABEL_PREFIX__ to alias.
+
 2006-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/25261

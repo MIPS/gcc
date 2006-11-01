@@ -4719,12 +4719,14 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	   conversion.  */
 	inside_init = convert (type, inside_init);
 
-      if (require_constant && !flag_isoc99
+      if (require_constant
+	  && (code == VECTOR_TYPE || !flag_isoc99)
 	  && TREE_CODE (inside_init) == COMPOUND_LITERAL_EXPR)
 	{
 	  /* As an extension, allow initializing objects with static storage
 	     duration with compound literals (which are then treated just as
-	     the brace enclosed list they contain).  */
+	     the brace enclosed list they contain).  Also allow this for
+	     vectors, as we can only assign them with compound literals.  */
 	  tree decl = COMPOUND_LITERAL_EXPR_DECL (inside_init);
 	  inside_init = DECL_INITIAL (decl);
 	}
@@ -5737,6 +5739,8 @@ add_pending_init (tree purpose, tree value)
 	    {
 	      if (TREE_SIDE_EFFECTS (p->value))
 		warning_init ("initialized field with side-effects overwritten");
+	      else if (warn_override_init)
+		warning_init ("initialized field overwritten");
 	      p->value = value;
 	      return;
 	    }
@@ -5758,6 +5762,8 @@ add_pending_init (tree purpose, tree value)
 	    {
 	      if (TREE_SIDE_EFFECTS (p->value))
 		warning_init ("initialized field with side-effects overwritten");
+	      else if (warn_override_init)
+		warning_init ("initialized field overwritten");
 	      p->value = value;
 	      return;
 	    }
@@ -6230,6 +6236,8 @@ output_init_element (tree value, bool strict_string, tree type, tree field,
       if (TREE_SIDE_EFFECTS (VEC_last (constructor_elt,
 				       constructor_elements)->value))
 	warning_init ("initialized field with side-effects overwritten");
+      else if (warn_override_init)
+	warning_init ("initialized field overwritten");
 
       /* We can have just one union field set.  */
       constructor_elements = 0;

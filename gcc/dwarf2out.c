@@ -7657,7 +7657,7 @@ file_name_acquire (void ** slot, void *data)
 
   /* Skip all leading "./".  */
   f = d->filename;
-  while (f[0] == '.' && f[1] == '/')
+  while (f[0] == '.' && IS_DIR_SEPARATOR (f[1]))
     f += 2;
   
   /* Create a new array entry.  */
@@ -7666,7 +7666,19 @@ file_name_acquire (void ** slot, void *data)
   fi->file_idx = d;
   
   /* Search for the file name part.  */
-  f = strrchr (f, '/');
+  f = strrchr (f, DIR_SEPARATOR);
+#if defined (DIR_SEPARATOR_2)
+  {
+    char *g = strrchr (fi->path, DIR_SEPARATOR_2);
+
+    if (g != NULL)
+      {
+	if (f == NULL || f < g)
+	  f = g;
+      }
+  }
+#endif
+
   fi->fname = f == NULL ? fi->path : f + 1;
   return 1;
 }
@@ -12006,7 +12018,6 @@ gen_variable_die (tree decl, dw_die_ref context_die)
 	    add_AT_file (var_die, DW_AT_decl_file, file_index);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
-
 	    add_AT_unsigned (var_die, DW_AT_decl_line, s.line);
 	}
     }
@@ -12289,7 +12300,7 @@ gen_compile_unit_die (const char *filename)
     {
       add_name_attribute (die, filename);
       /* Don't add cwd for <built-in>.  */
-      if (filename[0] != DIR_SEPARATOR && filename[0] != '<')
+      if (!IS_ABSOLUTE_PATH (filename) && filename[0] != '<')
 	add_comp_dir_attribute (die);
     }
 
@@ -14035,35 +14046,36 @@ prune_unused_types_walk (dw_die_ref die)
   if (die->die_mark)
     return;
 
-  switch (die->die_tag) {
-  case DW_TAG_const_type:
-  case DW_TAG_packed_type:
-  case DW_TAG_pointer_type:
-  case DW_TAG_reference_type:
-  case DW_TAG_volatile_type:
-  case DW_TAG_typedef:
-  case DW_TAG_array_type:
-  case DW_TAG_structure_type:
-  case DW_TAG_union_type:
-  case DW_TAG_class_type:
-  case DW_TAG_friend:
-  case DW_TAG_variant_part:
-  case DW_TAG_enumeration_type:
-  case DW_TAG_subroutine_type:
-  case DW_TAG_string_type:
-  case DW_TAG_set_type:
-  case DW_TAG_subrange_type:
-  case DW_TAG_ptr_to_member_type:
-  case DW_TAG_file_type:
-    if (die->die_perennial_p)
+  switch (die->die_tag)
+    {
+    case DW_TAG_const_type:
+    case DW_TAG_packed_type:
+    case DW_TAG_pointer_type:
+    case DW_TAG_reference_type:
+    case DW_TAG_volatile_type:
+    case DW_TAG_typedef:
+    case DW_TAG_array_type:
+    case DW_TAG_structure_type:
+    case DW_TAG_union_type:
+    case DW_TAG_class_type:
+    case DW_TAG_friend:
+    case DW_TAG_variant_part:
+    case DW_TAG_enumeration_type:
+    case DW_TAG_subroutine_type:
+    case DW_TAG_string_type:
+    case DW_TAG_set_type:
+    case DW_TAG_subrange_type:
+    case DW_TAG_ptr_to_member_type:
+    case DW_TAG_file_type:
+      if (die->die_perennial_p)
+	break;
+
+      /* It's a type node --- don't mark it.  */
+      return;
+
+    default:
+      /* Mark everything else.  */
       break;
-
-    /* It's a type node --- don't mark it.  */
-    return;
-
-  default:
-    /* Mark everything else.  */
-    break;
   }
 
   die->die_mark = 1;
@@ -14189,7 +14201,7 @@ file_table_relative_p (void ** slot, void *param)
 {
   bool *p = param;
   struct dwarf_file_data *d = *slot;
-  if (d->emitted_number && d->filename[0] != DIR_SEPARATOR)
+  if (d->emitted_number && !IS_ABSOLUTE_PATH (d->filename))
     {
       *p = true;
       return 0;
@@ -14209,7 +14221,7 @@ dwarf2out_finish (const char *filename)
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */
   add_name_attribute (comp_unit_die, filename);
-  if (filename[0] != DIR_SEPARATOR)
+  if (!IS_ABSOLUTE_PATH (filename))
     add_comp_dir_attribute (comp_unit_die);
   else if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
     {

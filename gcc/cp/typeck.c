@@ -39,6 +39,7 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "toplev.h"
 #include "diagnostic.h"
+#include "intl.h"
 #include "target.h"
 #include "convert.h"
 #include "c-common.h"
@@ -1241,38 +1242,44 @@ compparms (tree parms1, tree parms2)
 tree
 cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
 {
-  enum tree_code type_code;
   tree value;
-  const char *op_name;
+  bool dependent_p;
 
   gcc_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR);
   if (type == error_mark_node)
     return error_mark_node;
 
-  if (dependent_type_p (type))
+  type = non_reference (type);
+  if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      if (complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of %qs to a member function", 
+		 operator_name_info[(int) op].name);
+      value = size_one_node;
+    }
+
+  dependent_p = dependent_type_p (type);
+  if (!dependent_p)
+    complete_type (type);
+  if (dependent_p
+      /* VLA types will have a non-constant size.  In the body of an
+	 uninstantiated template, we don't need to try to compute the
+	 value, because the sizeof expression is not an integral
+	 constant expression in that case.  And, if we do try to
+	 compute the value, we'll likely end up with SAVE_EXPRs, which
+	 the template substitution machinery does not expect to see.  */
+      || (processing_template_decl 
+	  && COMPLETE_TYPE_P (type)
+	  && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST))
     {
       value = build_min (op, size_type_node, type);
       TREE_READONLY (value) = 1;
       return value;
     }
 
-  op_name = operator_name_info[(int) op].name;
-
-  type = non_reference (type);
-  type_code = TREE_CODE (type);
-
-  if (type_code == METHOD_TYPE)
-    {
-      if (complain && (pedantic || warn_pointer_arith))
-	pedwarn ("invalid application of %qs to a member function", op_name);
-      value = size_one_node;
-    }
-  else
-    value = c_sizeof_or_alignof_type (complete_type (type),
-				      op == SIZEOF_EXPR,
-				      complain);
-
-  return value;
+  return c_sizeof_or_alignof_type (complete_type (type),
+				   op == SIZEOF_EXPR,
+				   complain);
 }
 
 /* Process a sizeof expression where the operand is an expression.  */
@@ -2483,6 +2490,8 @@ build_array_ref (tree array, tree idx)
 	return error_mark_node;
       }
 
+    warn_array_subscript_with_type_char (idx);
+
     return build_indirect_ref (cp_build_binary_op (PLUS_EXPR, ar, ind),
 			       "array indexing");
   }
@@ -3220,11 +3229,13 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  if (TREE_CODE (op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_lt (op1, integer_zero_node))
-		warning (0, "%s rotate count is negative",
-			 (code == LROTATE_EXPR) ? "left" : "right");
+		warning (0, (code == LROTATE_EXPR)
+                            ? G_("left rotate count is negative")
+                            : G_("right rotate count is negative"));
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
-		warning (0, "%s rotate count >= width of type",
-			 (code == LROTATE_EXPR) ? "left" : "right");
+		warning (0, (code == LROTATE_EXPR) 
+                            ? G_("left rotate count >= width of type")
+                            : G_("right rotate count >= width of type"));
 	    }
 	  /* Convert the shift-count to an integer, regardless of
 	     size of value being shifted.  */
@@ -4113,9 +4124,9 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
 	/* ARM $5.2.5 last annotation says this should be forbidden.  */
 	if (TREE_CODE (argtype) == ENUMERAL_TYPE)
-	  pedwarn ("ISO C++ forbids %sing an enum",
-		   (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
-		   ? "increment" : "decrement");
+	  pedwarn ((code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
+		   ? G_("ISO C++ forbids incrementing an enum")
+		   : G_("ISO C++ forbids decrementing an enum"));
 
 	/* Compute the increment.  */
 
@@ -4124,16 +4135,18 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	    tree type = complete_type (TREE_TYPE (argtype));
 
 	    if (!COMPLETE_OR_VOID_TYPE_P (type))
-	      error ("cannot %s a pointer to incomplete type %qT",
-		     ((code == PREINCREMENT_EXPR
-		       || code == POSTINCREMENT_EXPR)
-		      ? "increment" : "decrement"), TREE_TYPE (argtype));
+	      error (((code == PREINCREMENT_EXPR
+		       || code == POSTINCREMENT_EXPR))
+		     ? G_("cannot increment a pointer to incomplete type %qT")
+		     : G_("cannot decrement a pointer to incomplete type %qT"),
+                      TREE_TYPE (argtype));
 	    else if ((pedantic || warn_pointer_arith)
 		     && !TYPE_PTROB_P (argtype))
-	      pedwarn ("ISO C++ forbids %sing a pointer of type %qT",
-		       ((code == PREINCREMENT_EXPR
+	      pedwarn ((code == PREINCREMENT_EXPR
 			 || code == POSTINCREMENT_EXPR)
-			? "increment" : "decrement"), argtype);
+		       ? G_("ISO C++ forbids incrementing a pointer of type %qT")
+		       : G_("ISO C++ forbids decrementing a pointer of type %qT"),
+                        argtype);
 	    inc = cxx_sizeof_nowarn (TREE_TYPE (argtype));
 	  }
 	else
@@ -4186,7 +4199,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  return error_mark_node;
 
 	/* Forbid using -- on `bool'.  */
-	if (TREE_TYPE (arg) == boolean_type_node)
+	if (same_type_p (TREE_TYPE (arg), boolean_type_node))
 	  {
 	    if (code == POSTDECREMENT_EXPR || code == PREDECREMENT_EXPR)
 	      {

@@ -303,11 +303,12 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
 /* Also used to CALL subroutines.  */
-int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
+int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
+			    tree);
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
-tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, bt);
+tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, gfc_typespec, bool, bool);
 
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);
@@ -426,7 +427,7 @@ bool get_array_ctor_strlen (gfc_constructor *, tree *);
 void gfc_trans_runtime_check (tree, const char *, stmtblock_t *, locus *);
 
 /* Generate code for an assignment, includes scalarization.  */
-tree gfc_trans_assignment (gfc_expr *, gfc_expr *);
+tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
 
 /* Generate code for a pointer assignment.  */
 tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
@@ -445,8 +446,7 @@ void pushlevel (int);
 tree poplevel (int, int, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
-tree builtin_function (const char *, tree, int, enum built_in_class,
-		       const char *, tree);
+tree gfc_builtin_function (tree);
 
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (tree);
@@ -506,6 +506,12 @@ extern GTY(()) tree gfor_fndecl_math_exponent4;
 extern GTY(()) tree gfor_fndecl_math_exponent8;
 extern GTY(()) tree gfor_fndecl_math_exponent10;
 extern GTY(()) tree gfor_fndecl_math_exponent16;
+
+/* BLAS functions.  */
+extern GTY(()) tree gfor_fndecl_sgemm;
+extern GTY(()) tree gfor_fndecl_dgemm;
+extern GTY(()) tree gfor_fndecl_cgemm;
+extern GTY(()) tree gfor_fndecl_zgemm;
 
 /* String functions.  */
 extern GTY(()) tree gfor_fndecl_compare_string;

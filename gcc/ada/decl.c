@@ -2440,7 +2440,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       To break the circle we first build a dummy COMPONENT_REF which
 	       represents the "get to the parent" operation and initialize
 	       each of those discriminants to a COMPONENT_REF of the above
-	       dummy parent referencing the corresponding discrimant of the
+	       dummy parent referencing the corresponding discriminant of the
 	       base type of the parent subtype.  */
 	    gnu_get_parent = build3 (COMPONENT_REF, void_type_node,
 				     build0 (PLACEHOLDER_EXPR, gnu_type),
@@ -3768,11 +3768,20 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	if (TREE_CODE (gnu_return_type) == VOID_TYPE)
 	  pure_flag = false;
 
+	/* The semantics of "pure" in Ada essentially matches that of "const"
+	   in the back-end.  In particular, both properties are orthogonal to
+	   the "nothrow" property.  But this is true only if the EH circuitry
+	   is explicit in the internal representation of the back-end.  If we
+	   are to completely hide the EH circuitry from it, we need to declare
+	   that calls to pure Ada subprograms that can throw have side effects
+	   since they can trigger an "abnormal" transfer of control flow; thus
+	   they can be neither "const" nor "pure" in the back-end sense.  */
 	gnu_type
 	  = build_qualified_type (gnu_type,
-				  (TYPE_QUALS (gnu_type)
-				   | (TYPE_QUAL_CONST * pure_flag)
-				   | (TYPE_QUAL_VOLATILE * volatile_flag)));
+				  TYPE_QUALS (gnu_type)
+				  | (Exception_Mechanism == Back_End_Exceptions
+				     ? TYPE_QUAL_CONST * pure_flag : 0)
+				  | (TYPE_QUAL_VOLATILE * volatile_flag));
 
 	Sloc_to_locus (Sloc (gnat_entity), &input_location);
 
@@ -3841,6 +3850,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 					    inline_flag, public_flag,
 					    extern_flag, attr_list,
 					    gnat_entity);
+
 	    DECL_STUBBED_P (gnu_decl)
 	      = Convention (gnat_entity) == Convention_Stubbed;
 	  }

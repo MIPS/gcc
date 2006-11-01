@@ -1,3 +1,141 @@
+2006-10-28  Keith Seitz  <keiths@redhat.com>
+
+	* Makefile.am (nat_source_files): Add natBreakpoint.cc.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+	* gnu/gcj/jvmti/Breakpoint.java: New file.
+	* gnu/gcj/jvmti/natBreakpoint.java: New file.
+
+2006-10-27  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-stack.h (ncodeMap): Declare.
+	(_Jv_StackTrace): Make _Jv_GetMethodDeclaringClass friend.
+	* java/lang/Class.h (_Jv_GetMethodDeclaringClass): Declare.
+	* java/lang/natClass.cc (_Jv_GetMethodDeclaringClass): New
+	function.
+	* stacktrace.cc (ncodeMap): Redefine from file global to global
+	for class _Jv_StackTrace.
+	(_Jv_StackTrace::UpdateNCodeMap): Add interpreted classes, too,
+	so that _Jv_GetMethodDeclaringClass can find them all.
+	(_Jv_StackTrace::ClassForFrame): Exclude interpreted classes.
+	* jvmti.cc (_Jv_JVMTI_GetMethodDeclaringClass): New function.
+	(_Jv_JVMTI_Interface): Define GetMethodDeclaringClass function.
+
+2006-10-25  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* testsuite/libjava.jvmti/natevents.cc (do_callback_arg_tests): Replace
+	formatting modifiers %p with %#llx and cast the arguments.
+
+2006-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jvmti/natevents.cc (do_callback_arg_tests):
+	Correctly pass jvalues.
+
+2006-10-18  Tom Tromey  <tromey@redhat.com>
+	    Bryce McKinlay  <mckinlay@redhat.com>
+
+	* testsuite/libjava.jni/register2.java: New file.
+	* testsuite/libjava.jni/register2.out: New file.
+	* testsuite/libjava.jni/register2.c: New file.
+	* java/lang/natClass.cc (_Jv_GetClassNameUtf8): New function.
+	* java/lang/Class.h (_Jv_GetClassNameUtf8): Declare.
+	* jni.cc (struct NativeMethodCacheEntry): New struct.
+	(nathash): Changed type.
+	(hash): Updated.
+	(nathash_find_slot): Likewise.
+	(nathash_find): Likewise.
+	(natrehash): Likewise.
+	(nathash_add): Likewise.
+	(_Jv_JNI_RegisterNatives): Likewise.
+	(_Jv_LookupJNIMethod): Likewise.
+	Idea from Juerg Lehni <juerg@scratchdisk.com>
+
+2006-10-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/libjava.jvmti/natevents.cc (env): Delete.
+	(ExceptionCB): Fix types for printf arguments.
+	(ExceptionCatchCB): Likewise.
+	(SingleStepCB): Likewise.
+	(BreakpointCB): Likewise.
+	(FieldAccessCB): Likewise.
+	(FieldModificationCB): Likewise.
+	(CompiledMethodLoadCB): Likewise.
+
+2006-10-14  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-insns.h (enum java_code): Add op_breakpoint.
+	* include/java-interp.h (_Jv_InterpMethod): Declare breakpoint_insn.
+	[INTERPRETER]: Declare _Jv_InterpMethod::bp_insn_slot.
+	[!INTERPRETER]: Declare _Jv_InterpMethod::bp_insn_opcode.
+	(install_break): Declare.
+	* interpret.cc (breakpoint_insn): Define breakpoint insn.
+	(compile): Add op_breakpoint to "can't happen" cases.
+	[INTERPRETER] Initialize breakpoint insn if necessary.
+	(install_break): New method.
+	* interpret-run.cc: Add op_breakpoint to insn_targets.
+	Add insn_breakpoint label.
+	* verify.cc (branch_prepass): Add op_breakpoint to unrecognized
+	opcodes section of switch statement.
+	(verify_instructions_0): Likewise.
+
+2006-10-12  Keith Seitz  <keiths@redhat.com>
+
+	* include/jvmti-int.h (JVMTI): Declare all members "extern".
+	* jvmti.cc (JVMTI): Define.
+
+2006-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Use mkinstalldirs.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/classpath/natSystemProperties.cc (insertSystemProperties):
+	Removed obsolete comment.
+
+2006-10-10  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_InterpMethod::get_insn): Declare.
+	(_Jv_InterpMethod::set_insn): Declare.
+	* interpret.cc (_Jv_InterpMethod::get_insn): New method.
+	(_Jv_InterpMethod::get_insn): New method.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* prims.cc (_Jv_PrependVersionedLibdir): Use
+	_Jv_platform_path_separator.
+
+2006-10-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/29205:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Install the .pc file.
+	(pkgconfig_DATA): Removed.
+
+2006-10-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java
+	(<clinit>): Reorder the static initializers.
+
+2006-10-02  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java
+	(checkConnect): Reinstated.
+	(loopbackAddress): Ensure initialized from non-null object.
+
+2006-09-30  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (prepared): Change type to pc_t.
+	(insn_index): Define for both DIRECT_THREADED and bytecode interpreters.
+	* interpret.cc [!DIRECT_THREADED] (POKEI): Fix typo.
+	(insn_index): Implement for bytecode interpreter.
+	* interpret-run.cc [!DIRECT_THREADED] (AVAL1U): Add _Jv_Linker class
+	qualifier to resolve_pool_entry.
+	[!DIRECT_THREADED] (AVAL2U): Likewise.
+	[!DIRECT_THREADED] bytecode() cannot be called without an object.
+	Changed all typos.
+	[!DIRECT_THREADED] Likewise for defining_class.
+
 2006-09-26  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR target/26792:

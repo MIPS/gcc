@@ -184,6 +184,9 @@ struct var_ann_d GTY(())
      in the v_may_def list.  */
   unsigned in_v_may_def_list : 1;
 
+  /* True for HEAP and PARM_NOALIAS artificial variables.  */
+  unsigned is_heapvar : 1;
+
   /* An artificial variable representing the memory location pointed-to by
      all the pointer symbols that flow-insensitive alias analysis
      (mostly type-based) considers to be aliased.  If the variable is
@@ -341,6 +344,7 @@ static inline var_ann_t get_var_ann (tree);
 static inline function_ann_t function_ann (tree);
 static inline function_ann_t get_function_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
+static inline bool has_stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
@@ -425,6 +429,7 @@ extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
 extern GTY((param_is (struct int_tree_map))) htab_t default_defs;
 
 extern tree referenced_var_lookup (unsigned int);
+extern bool referenced_var_check_and_insert (tree);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
@@ -436,6 +441,10 @@ extern GTY(()) VEC(tree,gc) *ssa_names;
 
 /* Artificial variable used to model the effects of function calls.  */
 extern GTY(()) tree global_var;
+
+/* Artificial variable used to model the effects of nonlocal
+   variables.  */
+extern GTY(()) tree nonlocal_all;
 
 /* Call clobbered variables in the function.  If bit I is set, then
    REFERENCED_VARS (I) is call-clobbered.  */
@@ -564,6 +573,7 @@ extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
 extern bool simple_goto_p (tree);
+extern bool tree_can_make_abnormal_goto (tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
@@ -596,6 +606,7 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern bool tree_purge_dead_abnormal_call_edges (basic_block);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -607,6 +618,7 @@ extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
 extern void fold_cond_expr_cond (void);
+extern void make_abnormal_goto_edges (basic_block, bool);
 extern void replace_uses_by (tree, tree);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
@@ -909,7 +921,7 @@ void print_value_expressions (FILE *, tree);
 
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
-tree get_value_handle (tree);
+static inline tree get_value_handle (tree);
 hashval_t vn_compute (tree, hashval_t);
 void sort_vuses (VEC (tree, gc) *);
 tree vn_lookup_or_add (tree, tree);

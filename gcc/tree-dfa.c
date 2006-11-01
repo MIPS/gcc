@@ -140,8 +140,7 @@ create_var_ann (tree t)
 
   gcc_assert (t);
   gcc_assert (DECL_P (t));
-  gcc_assert (!t->base.ann
-      || t->base.ann->common.type == VAR_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == VAR_ANN);
 
   ann = GGC_CNEW (struct var_ann_d);
 
@@ -161,8 +160,7 @@ create_function_ann (tree t)
 
   gcc_assert (t);
   gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  gcc_assert (!t->base.ann
-      || t->base.ann->common.type == FUNCTION_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == FUNCTION_ANN);
 
   ann = ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
@@ -182,8 +180,7 @@ create_stmt_ann (tree t)
   stmt_ann_t ann;
 
   gcc_assert (is_gimple_stmt (t));
-  gcc_assert (!t->base.ann
-      || t->base.ann->common.type == STMT_ANN);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
 
   ann = GGC_CNEW (struct stmt_ann_d);
 
@@ -205,8 +202,7 @@ create_tree_common_ann (tree t)
   tree_ann_common_t ann;
 
   gcc_assert (t);
-  gcc_assert (!t->base.ann
-      || t->base.ann->common.type == TREE_ANN_COMMON);
+  gcc_assert (!t->base.ann || t->base.ann->common.type == TREE_ANN_COMMON);
 
   ann = GGC_CNEW (struct tree_ann_common_d);
 
@@ -625,7 +621,7 @@ referenced_var_lookup (unsigned int uid)
 /* Check if TO is in the referenced_vars hash table and insert it if not.  
    Return true if it required insertion.  */
 
-static bool
+bool
 referenced_var_check_and_insert (tree to)
 { 
   struct int_tree_map *h, in;

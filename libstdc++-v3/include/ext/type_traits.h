@@ -13,10 +13,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-// MA 02111-1307, USA.
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+// USA.
 
 // As a special exception, you may use this file as part of a free
 // software library without restriction.  Specifically, if other files
@@ -50,7 +50,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     struct __enable_if<true, _Tp>
     { typedef _Tp __type; };
 
-  // XXX What about std::tr1::true_type?
+
   // Conditional expression for types. If true, first, if false, second.
   template<bool _Cond, typename _Iftrue, typename _Iffalse>
     struct __conditional_type
@@ -61,13 +61,23 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     { typedef _Iffalse __type; };
 
 
-  // Given a builtin type, return the corresponding unsigned type.
-  template<typename _Value>
+  // Given an integral builtin type, return the corresponding unsigned type.
+  template<typename _Tp>
     struct __add_unsigned
-    { typedef _Value __type; };
+    { 
+    private:
+      typedef __enable_if<std::__is_integer<_Tp>::__value, _Tp> __if_type;
+      
+    public:
+      typedef typename __if_type::__type __type; 
+    };
 
   template<>
     struct __add_unsigned<char>
+    { typedef unsigned char __type; };
+
+  template<>
+    struct __add_unsigned<signed char>
     { typedef unsigned char __type; };
 
   template<>
@@ -82,20 +92,36 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     struct __add_unsigned<long>
     { typedef unsigned long __type; };
 
-#ifdef _GLIBCXX_USE_LONG_LONG
   template<>
     struct __add_unsigned<long long>
     { typedef unsigned long long __type; };
-#endif
 
-  // Given an builtin type, return the corresponding signed type.
-  template<typename _Value>
+  // Declare but don't define.
+  template<>
+    struct __add_unsigned<bool>;
+
+  template<>
+    struct __add_unsigned<wchar_t>;
+
+
+  // Given an integral builtin type, return the corresponding signed type.
+  template<typename _Tp>
     struct __remove_unsigned
-    { typedef _Value __type; };
+    { 
+    private:
+      typedef __enable_if<std::__is_integer<_Tp>::__value, _Tp> __if_type;
+      
+    public:
+      typedef typename __if_type::__type __type; 
+    };
+
+  template<>
+    struct __remove_unsigned<char>
+    { typedef signed char __type; };
 
   template<>
     struct __remove_unsigned<unsigned char>
-    { typedef char __type; };
+    { typedef signed char __type; };
 
   template<>
     struct __remove_unsigned<unsigned short>
@@ -109,22 +135,29 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     struct __remove_unsigned<unsigned long>
     { typedef long __type; };
 
-#ifdef _GLIBCXX_USE_LONG_LONG
   template<>
     struct __remove_unsigned<unsigned long long>
     { typedef long long __type; };
-#endif
+
+  // Declare but don't define.
+  template<>
+    struct __remove_unsigned<bool>;
+
+  template<>
+    struct __remove_unsigned<wchar_t>;
+
 
   // Compile time constants for builtin types.
   // Sadly std::numeric_limits member functions cannot be used for this.
-#define __glibcxx_signed(T) ((T)(-1) < 0)
-#define __glibcxx_digits(T) (sizeof(T) * __CHAR_BIT__ - __glibcxx_signed(T))
+#define __glibcxx_signed(_Tp) ((_Tp)(-1) < 0)
+#define __glibcxx_digits(_Tp) \
+  (sizeof(_Tp) * __CHAR_BIT__ - __glibcxx_signed(_Tp))
 
-#define __glibcxx_min(T) \
-  (__glibcxx_signed(T) ? (T)1 << __glibcxx_digits(T) : (T)0)
+#define __glibcxx_min(_Tp) \
+  (__glibcxx_signed(_Tp) ? (_Tp)1 << __glibcxx_digits(_Tp) : (_Tp)0)
 
-#define __glibcxx_max(T) \
-  (__glibcxx_signed(T) ? ((T)1 << __glibcxx_digits(T)) - 1 : ~(T)0)
+#define __glibcxx_max(_Tp) \
+  (__glibcxx_signed(_Tp) ? ((_Tp)1 << __glibcxx_digits(_Tp)) - 1 : ~(_Tp)0)
 
   template<typename _Value>
     struct __numeric_traits_integer

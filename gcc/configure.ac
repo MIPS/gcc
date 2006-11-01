@@ -1229,6 +1229,12 @@ AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
 AC_ARG_WITH(system-libunwind,
 [  --with-system-libunwind use installed libunwind])
 
+# config.gcc also contains tests of with_system_libunwind.
+if test x$with_system_libunwind = xyes; then
+        AC_DEFINE(HAVE_GETIPINFO, 1,
+[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+fi
+
 # --------------------------------------------------------
 # Build, host, and target specific configuration fragments
 # --------------------------------------------------------
@@ -1437,6 +1443,20 @@ if test x$enable___cxa_atexit = xyes || \
       This is essential for fully standards-compliant handling of
       destructors, but requires __cxa_atexit in libc.])
   fi
+fi
+
+use_getipinfo=yes
+if test x$with_system_libunwind = xyes; then
+   if test x$host = x$target; then
+     AC_SEARCH_LIBS(_Unwind_GetIPInfo, unwind,, [use_getipinfo=no])
+   fi
+fi
+GCC_TARGET_TEMPLATE(HAVE_GETIPINFO)
+if test x$use_getipinfo = xyes; then
+   AC_DEFINE(HAVE_GETIPINFO, 1,
+	[Define to 1 if system unwind library has _Unwind_GetIPInfo.])
+else
+   echo "The system unwind library does not support _Unwind_GetIPInfo."
 fi
 
 # Look for a file containing extra machine modes.
@@ -2932,6 +2952,10 @@ LCF0:
        then target_cpu_default=MASK_EXPLICIT_RELOCS
        else target_cpu_default="($target_cpu_default)|MASK_EXPLICIT_RELOCS"
        fi])
+    gcc_GAS_CHECK_FEATURE([-mno-shared support],
+      gcc_cv_as_mips_no_shared, [2,16,0], [-mno-shared], [nop],,
+      [AC_DEFINE(HAVE_AS_NO_SHARED, 1,
+		 [Define if the assembler understands -mno-shared.])])
     ;;
 esac
 
@@ -2961,7 +2985,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3098,6 +3122,49 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 [Define if your linker supports -pie option.])
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
+
+AC_MSG_CHECKING(linker EH-compatible garbage collection of sections)
+gcc_cv_ld_eh_gc_sections=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 17 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_eh_gc_sections=yes
+  fi
+elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_objdump != x ; then
+  cat > conftest.s <<EOF
+	.section	.text
+.globl _start
+        .type _start, @function
+_start:
+	.long foo
+	.size _start, .-_start
+	.section	.text.foo,"ax",@progbits
+	.type foo, @function
+foo:
+	.long 0
+	.size foo, .-foo
+	.section	.gcc_except_table.foo,"a",@progbits
+.L0:
+	.long 0
+	.section	.eh_frame,"a",@progbits
+	.long .L0
+EOF
+  if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1; then
+    if $gcc_cv_ld -o conftest conftest.o --entry=_start --gc-sections 2>&1 \
+	 | grep "gc-sections option ignored" > /dev/null; then
+      gcc_cv_ld_eh_gc_sections=no
+    elif $gcc_cv_objdump -h conftest | grep gcc_except_table > /dev/null; then
+      gcc_cv_ld_eh_gc_sections=yes
+    fi
+  fi
+  rm -f conftest.s conftest.o conftest
+fi
+if test x$gcc_cv_ld_eh_gc_sections = xyes; then
+	AC_DEFINE(HAVE_LD_EH_GC_SECTIONS, 1,
+  [Define if your linker supports garbage collection of
+   sections in presence of EH frames.])
+fi
+AC_MSG_RESULT($gcc_cv_ld_eh_gc_sections)
 
 # --------
 # UNSORTED
@@ -3450,7 +3517,7 @@ done
 rm -f Make-hooks
 touch Make-hooks
 target_list="all.cross start.encap rest.encap tags \
-	install-common install-man install-info dvi html \
+	install-common install-man install-info dvi pdf html \
 	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"

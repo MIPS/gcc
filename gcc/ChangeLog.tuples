@@ -1,6 +1,10 @@
+2006-11-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Merge from mainline at revision 118200.
+
 2006-10-09  Aldy Hernandez  <aldyh@redhat.com>
 
-	tree-inline.c (copy_bb): Check for GIMPLE_MODIFY_STMT, and adjust
+	* tree-inline.c (copy_bb): Check for GIMPLE_MODIFY_STMT, and adjust
 	accordingly.
 
 2006-10-09  Aldy Hernandez  <aldyh@redhat.com>

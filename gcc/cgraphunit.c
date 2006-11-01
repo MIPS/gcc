@@ -697,6 +697,9 @@ verify_cgraph_node (struct cgraph_node *node)
   block_stmt_iterator bsi;
   bool error_found = false;
 
+  if (errorcount || sorrycount)
+    return;
+
   timevar_push (TV_CGRAPH_VERIFY);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
@@ -1052,6 +1055,7 @@ cgraph_finalize_compilation_unit (void)
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
   static struct cgraph_node *first_analyzed;
+  struct cgraph_node *first_processed = first_analyzed;
   static struct cgraph_varpool_node *first_analyzed_var;
 
   if (errorcount || sorrycount)
@@ -1074,7 +1078,10 @@ cgraph_finalize_compilation_unit (void)
     }
 
   timevar_push (TV_CGRAPH);
-  process_function_and_variable_attributes (first_analyzed, first_analyzed_var);
+  process_function_and_variable_attributes (first_processed,
+					    first_analyzed_var);
+  first_processed = cgraph_nodes;
+  first_analyzed_var = cgraph_varpool_nodes;
   cgraph_varpool_analyze_pending_decls ();
   if (cgraph_dump_file)
     {
@@ -1116,11 +1123,16 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
+      /* We finalize local static variables during constructing callgraph
+         edges.  Process their attributes too.  */
+      process_function_and_variable_attributes (first_processed,
+						first_analyzed_var);
+      first_processed = cgraph_nodes;
+      first_analyzed_var = cgraph_varpool_nodes;
       cgraph_varpool_analyze_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
-
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
@@ -1160,7 +1172,6 @@ cgraph_finalize_compilation_unit (void)
       dump_cgraph (cgraph_dump_file);
     }
   first_analyzed = cgraph_nodes;
-  first_analyzed_var = cgraph_varpool_nodes;
   ggc_collect ();
   timevar_pop (TV_CGRAPH);
 }
@@ -1483,7 +1494,9 @@ cgraph_preserve_function_body_p (tree decl)
 {
   struct cgraph_node *node;
   if (!cgraph_global_info_ready)
-    return (DECL_INLINE (decl) && !flag_really_no_inline);
+    return (flag_really_no_inline
+	    ? lang_hooks.tree_inlining.disregard_inline_limits (decl)
+	    : DECL_INLINE (decl));
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
     if (node->global.inlined_to)

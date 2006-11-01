@@ -130,6 +130,7 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_486 (ix86_tune == PROCESSOR_I486)
 #define TARGET_PENTIUM (ix86_tune == PROCESSOR_PENTIUM)
 #define TARGET_PENTIUMPRO (ix86_tune == PROCESSOR_PENTIUMPRO)
+#define TARGET_GEODE (ix86_tune == PROCESSOR_GEODE)
 #define TARGET_K6 (ix86_tune == PROCESSOR_K6)
 #define TARGET_ATHLON (ix86_tune == PROCESSOR_ATHLON)
 #define TARGET_PENTIUM4 (ix86_tune == PROCESSOR_PENTIUM4)
@@ -375,6 +376,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	      break;						\
 	    }							\
 	}							\
+      else if (TARGET_GEODE)					\
+	{							\
+	  builtin_define ("__tune_geode__");			\
+	}							\
       else if (TARGET_K6)					\
 	{							\
 	  builtin_define ("__tune_k6__");			\
@@ -409,6 +414,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE2__");				\
       if (TARGET_SSE3)						\
 	builtin_define ("__SSE3__");				\
+      if (TARGET_SSSE3)						\
+	builtin_define ("__SSSE3__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -435,6 +442,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define ("__i686__");				\
 	  builtin_define ("__pentiumpro");			\
 	  builtin_define ("__pentiumpro__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_GEODE)			\
+	{							\
+	  builtin_define ("__geode");				\
+	  builtin_define ("__geode__");				\
 	}							\
       else if (ix86_arch == PROCESSOR_K6)			\
 	{							\
@@ -480,20 +492,21 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_CPU_DEFAULT_pentium2 5
 #define TARGET_CPU_DEFAULT_pentium3 6
 #define TARGET_CPU_DEFAULT_pentium4 7
-#define TARGET_CPU_DEFAULT_k6 8
-#define TARGET_CPU_DEFAULT_k6_2 9
-#define TARGET_CPU_DEFAULT_k6_3 10
-#define TARGET_CPU_DEFAULT_athlon 11
-#define TARGET_CPU_DEFAULT_athlon_sse 12
-#define TARGET_CPU_DEFAULT_k8 13
-#define TARGET_CPU_DEFAULT_pentium_m 14
-#define TARGET_CPU_DEFAULT_prescott 15
-#define TARGET_CPU_DEFAULT_nocona 16
-#define TARGET_CPU_DEFAULT_generic 17
+#define TARGET_CPU_DEFAULT_geode 8
+#define TARGET_CPU_DEFAULT_k6 9
+#define TARGET_CPU_DEFAULT_k6_2 10
+#define TARGET_CPU_DEFAULT_k6_3 11
+#define TARGET_CPU_DEFAULT_athlon 12
+#define TARGET_CPU_DEFAULT_athlon_sse 13
+#define TARGET_CPU_DEFAULT_k8 14
+#define TARGET_CPU_DEFAULT_pentium_m 15
+#define TARGET_CPU_DEFAULT_prescott 16
+#define TARGET_CPU_DEFAULT_nocona 17
+#define TARGET_CPU_DEFAULT_generic 18
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
-				  "pentium4", "k6", "k6-2", "k6-3",\
+                                  "pentium4", "geode", "k6", "k6-2", "k6-3", \
 				  "athlon", "athlon-4", "k8", \
 				  "pentium-m", "prescott", "nocona", \
 				  "generic"}
@@ -709,7 +722,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 53
+#define FIRST_PSEUDO_REGISTER 54
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER.  */
@@ -729,8 +742,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define FIXED_REGISTERS						\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
 {  0, 0, 0, 0, 0, 0, 0, 1, 0,  0,  0,  0,  0,  0,  0,  0,	\
-/*arg,flags,fpsr,dir,frame*/					\
-    1,    1,   1,  1,    1,					\
+/*arg,flags,fpsr,fpcr,dir,frame*/				\
+    1,    1,   1,   1,  1,    1,				\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
@@ -757,10 +770,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define CALL_USED_REGISTERS					\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
 {  1, 1, 1, 0, 3, 3, 0, 1, 1,  1,  1,  1,  1,  1,  1,  1,	\
-/*arg,flags,fpsr,dir,frame*/					\
-     1,   1,   1,  1,    1,					\
+/*arg,flags,fpsr,fpcr,dir,frame*/				\
+    1,   1,    1,   1,  1,    1,				\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
-     1,   1,   1,   1,   1,  1,    1,   1,			\
+     1,   1,   1,   1,   1,   1,   1,   1,			\
 /*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
      1,   1,   1,   1,   1,   1,   1,   1,			\
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
@@ -781,11 +794,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,\
    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,	\
    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,  \
-   48, 49, 50, 51, 52 }
+   48, 49, 50, 51, 52, 53 }
 
 /* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
-   we want to allocate SSE before x87 registers and vice vera.  */
+   we want to allocate SSE before x87 registers and vice versa.  */
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC x86_order_regs_for_local_alloc ()
 
@@ -938,7 +951,7 @@ do {									\
 #define HARD_FRAME_POINTER_REGNUM 6
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 20
+#define FRAME_POINTER_REGNUM 21
 
 /* First floating point reg */
 #define FIRST_FLOAT_REG 8
@@ -1051,7 +1064,7 @@ do {									\
    opcode needs reg %ebx.  But some systems pass args to the OS in ebx,
    and the "b" register constraint is useful in asms for syscalls.
 
-   The flags and fpsr registers are in no class.  */
+   The flags, fpsr and fpcr registers are in no class.  */
 
 enum reg_class
 {
@@ -1132,21 +1145,21 @@ enum reg_class
       { 0x10,     0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
       { 0x03,     0x0 },		/* AD_REGS */			\
       { 0x0f,     0x0 },		/* Q_REGS */			\
-  { 0x1100f0,  0x1fe0 },		/* NON_Q_REGS */		\
-      { 0x7f,  0x1fe0 },		/* INDEX_REGS */		\
-  { 0x1100ff,  0x0 },			/* LEGACY_REGS */		\
-  { 0x1100ff,  0x1fe0 },		/* GENERAL_REGS */		\
+  { 0x2100f0,  0x3fc0 },		/* NON_Q_REGS */		\
+      { 0x7f,  0x3fc0 },		/* INDEX_REGS */		\
+  { 0x2100ff,     0x0 },		/* LEGACY_REGS */		\
+  { 0x2100ff,  0x3fc0 },		/* GENERAL_REGS */		\
      { 0x100,     0x0 }, { 0x0200, 0x0 },/* FP_TOP_REG, FP_SECOND_REG */\
     { 0xff00,     0x0 },		/* FLOAT_REGS */		\
-{ 0x1fe00000,0x1fe000 },		/* SSE_REGS */			\
-{ 0xe0000000,    0x1f },		/* MMX_REGS */			\
-{ 0x1fe00100,0x1fe000 },		/* FP_TOP_SSE_REG */		\
-{ 0x1fe00200,0x1fe000 },		/* FP_SECOND_SSE_REG */		\
-{ 0x1fe0ff00,0x1fe000 },		/* FLOAT_SSE_REGS */		\
-   { 0x1ffff,  0x1fe0 },		/* FLOAT_INT_REGS */		\
-{ 0x1fe100ff,0x1fffe0 },		/* INT_SSE_REGS */		\
-{ 0x1fe1ffff,0x1fffe0 },		/* FLOAT_INT_SSE_REGS */	\
-{ 0xffffffff,0x1fffff }							\
+{ 0x3fc00000,0x3fc000 },		/* SSE_REGS */			\
+{ 0xc0000000,    0x3f },		/* MMX_REGS */			\
+{ 0x3fc00100,0x3fc000 },		/* FP_TOP_SSE_REG */		\
+{ 0x3fc00200,0x3fc000 },		/* FP_SECOND_SSE_REG */		\
+{ 0x3fc0ff00,0x3fc000 },		/* FLOAT_SSE_REGS */		\
+   { 0x1ffff,  0x3fc0 },		/* FLOAT_INT_REGS */		\
+{ 0x3fc100ff,0x3fffc0 },		/* INT_SSE_REGS */		\
+{ 0x3fc1ffff,0x3fffc0 },		/* FLOAT_INT_SSE_REGS */	\
+{ 0xffffffff,0x3fffff }							\
 }
 
 /* The same information, inverted:
@@ -1162,11 +1175,10 @@ enum reg_class
 
 #define SMALL_REGISTER_CLASSES 1
 
-#define QI_REG_P(X) \
-  (REG_P (X) && REGNO (X) < 4)
+#define QI_REG_P(X) (REG_P (X) && REGNO (X) < 4)
 
 #define GENERAL_REGNO_P(N) \
-  ((N) < 8 || REX_INT_REGNO_P (N))
+  ((N) <= STACK_POINTER_REGNUM || REX_INT_REGNO_P (N))
 
 #define GENERAL_REG_P(X) \
   (REG_P (X) && GENERAL_REGNO_P (REGNO (X)))
@@ -1174,39 +1186,38 @@ enum reg_class
 #define ANY_QI_REG_P(X) (TARGET_64BIT ? GENERAL_REG_P(X) : QI_REG_P (X))
 
 #define NON_QI_REG_P(X) \
-  (REG_P (X) && REGNO (X) >= 4 && REGNO (X) < FIRST_PSEUDO_REGISTER)
+  (REG_P (X) && IN_RANGE (REGNO (X), 4, FIRST_PSEUDO_REGISTER - 1))
 
-#define REX_INT_REGNO_P(N) ((N) >= FIRST_REX_INT_REG && (N) <= LAST_REX_INT_REG)
+#define REX_INT_REGNO_P(N) \
+  IN_RANGE ((N), FIRST_REX_INT_REG, LAST_REX_INT_REG)
 #define REX_INT_REG_P(X) (REG_P (X) && REX_INT_REGNO_P (REGNO (X)))
 
 #define FP_REG_P(X) (REG_P (X) && FP_REGNO_P (REGNO (X)))
-#define FP_REGNO_P(N) ((N) >= FIRST_STACK_REG && (N) <= LAST_STACK_REG)
+#define FP_REGNO_P(N) IN_RANGE ((N), FIRST_STACK_REG, LAST_STACK_REG)
 #define ANY_FP_REG_P(X) (REG_P (X) && ANY_FP_REGNO_P (REGNO (X)))
 #define ANY_FP_REGNO_P(N) (FP_REGNO_P (N) || SSE_REGNO_P (N))
 
-#define SSE_REGNO_P(N) \
-  (((N) >= FIRST_SSE_REG && (N) <= LAST_SSE_REG) \
-   || ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG))
+#define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))
+#define SSE_REGNO_P(N)						\
+  (IN_RANGE ((N), FIRST_SSE_REG, LAST_SSE_REG)			\
+   || REX_SSE_REGNO_P (N))
 
 #define REX_SSE_REGNO_P(N) \
-   ((N) >= FIRST_REX_SSE_REG && (N) <= LAST_REX_SSE_REG)
+  IN_RANGE ((N), FIRST_REX_SSE_REG, LAST_REX_SSE_REG)
 
 #define SSE_REGNO(N) \
   ((N) < 8 ? FIRST_SSE_REG + (N) : FIRST_REX_SSE_REG + (N) - 8)
-#define SSE_REG_P(N) (REG_P (N) && SSE_REGNO_P (REGNO (N)))
 
 #define SSE_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
 
-#define MMX_REGNO_P(N) ((N) >= FIRST_MMX_REG && (N) <= LAST_MMX_REG)
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
+#define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
 
-#define STACK_REG_P(XOP)		\
-  (REG_P (XOP) &&		       	\
-   REGNO (XOP) >= FIRST_STACK_REG &&	\
-   REGNO (XOP) <= LAST_STACK_REG)
-
-#define NON_STACK_REG_P(XOP) (REG_P (XOP) && ! STACK_REG_P (XOP))
+#define STACK_REG_P(XOP) (REG_P (XOP) && STACK_REGNO_P (REGNO (XOP)))
+#define NON_STACK_REG_P(XOP) \
+  (REG_P (XOP) && ! STACK_REGNO_P (REGNO (XOP)))
+#define STACK_REGNO_P(N) IN_RANGE ((N), FIRST_STACK_REG, LAST_STACK_REG)
 
 #define STACK_TOP_P(XOP) (REG_P (XOP) && REGNO (XOP) == FIRST_STACK_REG)
 
@@ -1554,21 +1565,15 @@ typedef struct ix86_args {
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) 					\
   ((REGNO) < STACK_POINTER_REGNUM 					\
-   || (REGNO >= FIRST_REX_INT_REG					\
-       && (REGNO) <= LAST_REX_INT_REG)					\
-   || ((unsigned) reg_renumber[(REGNO)] >= FIRST_REX_INT_REG		\
-       && (unsigned) reg_renumber[(REGNO)] <= LAST_REX_INT_REG)		\
-   || (unsigned) reg_renumber[(REGNO)] < STACK_POINTER_REGNUM)
+   || REX_INT_REGNO_P (REGNO)						\
+   || (unsigned) reg_renumber[(REGNO)] < STACK_POINTER_REGNUM		\
+   || REX_INT_REGNO_P ((unsigned) reg_renumber[(REGNO)]))
 
 #define REGNO_OK_FOR_BASE_P(REGNO) 					\
-  ((REGNO) <= STACK_POINTER_REGNUM 					\
+  (GENERAL_REGNO_P (REGNO)						\
    || (REGNO) == ARG_POINTER_REGNUM 					\
    || (REGNO) == FRAME_POINTER_REGNUM 					\
-   || (REGNO >= FIRST_REX_INT_REG					\
-       && (REGNO) <= LAST_REX_INT_REG)					\
-   || ((unsigned) reg_renumber[(REGNO)] >= FIRST_REX_INT_REG		\
-       && (unsigned) reg_renumber[(REGNO)] <= LAST_REX_INT_REG)		\
-   || (unsigned) reg_renumber[(REGNO)] <= STACK_POINTER_REGNUM)
+   || GENERAL_REGNO_P ((unsigned) reg_renumber[(REGNO)]))
 
 #define REGNO_OK_FOR_SIREG_P(REGNO) \
   ((REGNO) == 4 || reg_renumber[(REGNO)] == 4)
@@ -1592,16 +1597,13 @@ typedef struct ix86_args {
 /* Non strict versions, pseudos are ok.  */
 #define REG_OK_FOR_INDEX_NONSTRICT_P(X)					\
   (REGNO (X) < STACK_POINTER_REGNUM					\
-   || (REGNO (X) >= FIRST_REX_INT_REG					\
-       && REGNO (X) <= LAST_REX_INT_REG)				\
+   || REX_INT_REGNO_P (REGNO (X))					\
    || REGNO (X) >= FIRST_PSEUDO_REGISTER)
 
 #define REG_OK_FOR_BASE_NONSTRICT_P(X)					\
-  (REGNO (X) <= STACK_POINTER_REGNUM					\
+  (GENERAL_REGNO_P (REGNO (X))						\
    || REGNO (X) == ARG_POINTER_REGNUM					\
    || REGNO (X) == FRAME_POINTER_REGNUM 				\
-   || (REGNO (X) >= FIRST_REX_INT_REG					\
-       && REGNO (X) <= LAST_REX_INT_REG)				\
    || REGNO (X) >= FIRST_PSEUDO_REGISTER)
 
 /* Strict versions, hard registers only */
@@ -1906,9 +1908,9 @@ do {							\
 #define HI_REGISTER_NAMES						\
 {"ax","dx","cx","bx","si","di","bp","sp",				\
  "st","st(1)","st(2)","st(3)","st(4)","st(5)","st(6)","st(7)",		\
- "argp", "flags", "fpsr", "dirflag", "frame",				\
+ "argp", "flags", "fpsr", "fpcr", "dirflag", "frame",			\
  "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",		\
- "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7"	,		\
+ "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",		\
  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",			\
  "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"}
 
@@ -2065,6 +2067,7 @@ enum processor_type
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,
+  PROCESSOR_GEODE,
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
@@ -2210,7 +2213,7 @@ enum ix86_stack_slot
    ??? Maybe Pentium chips benefits from renaming, someone can try....  */
 
 #define HARD_REGNO_RENAME_OK(SRC, TARGET)  \
-   ((SRC) < FIRST_STACK_REG || (SRC) > LAST_STACK_REG)
+  (! IN_RANGE ((SRC), FIRST_STACK_REG, LAST_STACK_REG))
 
 
 #define DLL_IMPORT_EXPORT_PREFIX '#'

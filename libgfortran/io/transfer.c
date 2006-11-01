@@ -324,6 +324,13 @@ read_block (st_parameter_dt *dtp, int *length)
 	  return NULL;
 	}
 
+      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED)
+	{
+	  source = read_sf (dtp, length, 0);
+	  dtp->u.p.current_unit->strm_pos +=
+	    (gfc_offset) (*length + dtp->u.p.sf_seen_eor);
+	  return source;
+	}
       nread = *length;
       source = salloc_r (dtp->u.p.current_unit->s, &nread);
 
@@ -731,7 +738,7 @@ require_type (st_parameter_dt *dtp, bt expected, bt actual, const fnode *f)
 /* This subroutine is the main loop for a formatted data transfer
    statement.  It would be natural to implement this as a coroutine
    with the user program, but C makes that awkward.  We loop,
-   processesing format elements.  When we actually have to transfer
+   processing format elements.  When we actually have to transfer
    data instead of just setting flags, we return control to the user
    program which calls a subroutine that supplies the address and type
    of the next element, then comes back here to process it.  */
@@ -837,7 +844,9 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	case FMT_B:
 	  if (n == 0)
 	    goto need_data;
-	  if (require_type (dtp, BT_INTEGER, type, f))
+
+	  if (compile_options.allow_std < GFC_STD_GNU
+              && require_type (dtp, BT_INTEGER, type, f))
 	    return;
 
 	  if (dtp->u.p.mode == READING)
@@ -849,7 +858,11 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 
 	case FMT_O:
 	  if (n == 0)
-	    goto need_data;
+	    goto need_data; 
+
+	  if (compile_options.allow_std < GFC_STD_GNU
+              && require_type (dtp, BT_INTEGER, type, f))
+	    return;
 
 	  if (dtp->u.p.mode == READING)
 	    read_radix (dtp, f, p, len, 8);
@@ -861,6 +874,10 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	case FMT_Z:
 	  if (n == 0)
 	    goto need_data;
+
+	  if (compile_options.allow_std < GFC_STD_GNU
+              && require_type (dtp, BT_INTEGER, type, f))
+	    return;
 
 	  if (dtp->u.p.mode == READING)
 	    read_radix (dtp, f, p, len, 16);
@@ -1921,8 +1938,7 @@ next_record_r (st_parameter_dt *dtp)
 
   switch (current_mode (dtp))
     {
-    /* No records in STREAM I/O.  */
-    case FORMATTED_STREAM:
+    /* No records in unformatted STREAM I/O.  */
     case UNFORMATTED_STREAM:
       return;
     
@@ -1970,6 +1986,7 @@ next_record_r (st_parameter_dt *dtp)
 	}
       break;
 
+    case FORMATTED_STREAM:
     case FORMATTED_SEQUENTIAL:
       length = 1;
       /* sf_read has already terminated input because of an '\n'  */
@@ -2019,6 +2036,9 @@ next_record_r (st_parameter_dt *dtp)
 	      dtp->u.p.current_unit->endfile = AT_ENDFILE;
 	      break;
 	    }
+
+	  if (is_stream_io (dtp))
+	    dtp->u.p.current_unit->strm_pos++;
 	}
       while (*p != '\n');
 
@@ -2116,8 +2136,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 
   switch (current_mode (dtp))
     {
-    /* No records in STREAM I/O.  */
-    case FORMATTED_STREAM:
+    /* No records in unformatted STREAM I/O.  */
     case UNFORMATTED_STREAM:
       return;
 
@@ -2168,6 +2187,7 @@ next_record_w (st_parameter_dt *dtp, int done)
 
       break;
 
+    case FORMATTED_STREAM:
     case FORMATTED_SEQUENTIAL:
 
       if (is_internal_unit (dtp))
@@ -2241,8 +2261,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
-	  if (dtp->u.p.current_unit->bytes_left == 0)
-	    break;
 
 	  /* If this is the last call to next_record move to the farthest
 	  position reached in preparation for completing the record.
@@ -2266,6 +2284,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 #endif
 	  if (swrite (dtp->u.p.current_unit->s, &crlf[2-len], &len) != 0)
 	    goto io_error;
+	  
+	  if (is_stream_io (dtp))
+	    dtp->u.p.current_unit->strm_pos += len;
 	}
 
       break;
@@ -2284,9 +2305,6 @@ next_record_w (st_parameter_dt *dtp, int done)
 void
 next_record (st_parameter_dt *dtp, int done)
 {
-  if (is_stream_io (dtp))
-    return;
-
   gfc_offset fp; /* File position.  */
 
   dtp->u.p.current_unit->read_bad = 0;
@@ -2296,18 +2314,22 @@ next_record (st_parameter_dt *dtp, int done)
   else
     next_record_w (dtp, done);
 
-  /* keep position up to date for INQUIRE */
-  dtp->u.p.current_unit->flags.position = POSITION_ASIS;
-  dtp->u.p.current_unit->current_record = 0;
-  if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
-   {
-    fp = file_position (dtp->u.p.current_unit->s);
-    /* Calculate next record, rounding up partial records.  */
-    dtp->u.p.current_unit->last_record = (fp + dtp->u.p.current_unit->recl - 1)
-				/ dtp->u.p.current_unit->recl;
-   }
-  else
-    dtp->u.p.current_unit->last_record++;
+  if (!is_stream_io (dtp))
+    {
+      /* keep position up to date for INQUIRE */
+      dtp->u.p.current_unit->flags.position = POSITION_ASIS;
+      dtp->u.p.current_unit->current_record = 0;
+      if (dtp->u.p.current_unit->flags.access == ACCESS_DIRECT)
+	{
+	  fp = file_position (dtp->u.p.current_unit->s);
+	  /* Calculate next record, rounding up partial records.  */
+	  dtp->u.p.current_unit->last_record =
+	    (fp + dtp->u.p.current_unit->recl - 1) /
+	      dtp->u.p.current_unit->recl;
+	}
+      else
+	dtp->u.p.current_unit->last_record++;
+    }
 
   if (!done)
     pre_position (dtp);
@@ -2373,7 +2395,11 @@ finalize_transfer (st_parameter_dt *dtp)
       next_record (dtp, 1);
     }
   else
-    flush (dtp->u.p.current_unit->s);
+    {
+      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED)
+	next_record (dtp, 1);
+      flush (dtp->u.p.current_unit->s);
+    }
 
   sfree (dtp->u.p.current_unit->s);
 }

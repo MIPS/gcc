@@ -626,7 +626,7 @@ static struct arm_cpu_select arm_select[] =
 #define ARM_OPT_SET_ARCH 1
 #define ARM_OPT_SET_TUNE 2
 
-/* The name of the proprocessor macro to define for this architecture.  */
+/* The name of the preprocessor macro to define for this architecture.  */
 
 char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
@@ -4465,6 +4465,14 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       /* Fall through */
 
     case PLUS:
+      if (GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  extra_cost = rtx_cost (XEXP (x, 0), code);
+	  if (!REG_OR_SUBREG_REG (XEXP (x, 1)))
+	    extra_cost += 4 * ARM_NUM_REGS (mode);
+	  return extra_cost;
+	}
+
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	return (2 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 8)
 		+ ((REG_OR_SUBREG_REG (XEXP (x, 1))
@@ -12052,8 +12060,8 @@ arm_debugger_arg_offset (int value, rtx addr)
   do									\
     {									\
       if ((MASK) & insn_flags)						\
-        lang_hooks.builtin_function ((NAME), (TYPE), (CODE),		\
-				     BUILT_IN_MD, NULL, NULL_TREE);	\
+        add_builtin_function ((NAME), (TYPE), (CODE),			\
+			     BUILT_IN_MD, NULL, NULL_TREE);		\
     }									\
   while (0)
 
@@ -12525,9 +12533,9 @@ arm_init_tls_builtins (void)
   tree const_nothrow = tree_cons (get_identifier ("const"), NULL, nothrow);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
-  lang_hooks.builtin_function ("__builtin_thread_pointer", ftype,
-			       ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, const_nothrow);
+  add_builtin_function ("__builtin_thread_pointer", ftype,
+			ARM_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
+			NULL, const_nothrow);
 }
 
 static void

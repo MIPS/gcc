@@ -66,6 +66,24 @@ public class InetAddress implements Serializable
   private static final long serialVersionUID = 3286316764910316507L;
 
   /**
+   * Stores static localhost address object.
+   */
+  static InetAddress LOCALHOST;
+  static
+  {
+    try
+      {
+	LOCALHOST = getByAddress("localhost", new byte[] {127, 0, 0, 1});
+	// Some soon-to-be-removed native code synchronizes on this.
+	loopbackAddress = LOCALHOST;
+      }
+    catch (UnknownHostException e)
+      {
+	throw new RuntimeException("should never happen", e);
+      }
+  }    
+
+  /**
    * Dummy InetAddress, used to bind socket to any (all) network interfaces.
    */
   static InetAddress ANY_IF;
@@ -92,22 +110,6 @@ public class InetAddress implements Serializable
     ANY_IF.hostName = ANY_IF.getHostName();
   }
   
-  /**
-   * Stores static localhost address object.
-   */
-  static InetAddress LOCALHOST;
-  static
-  {
-    try
-      {
-	LOCALHOST = getByAddress("localhost", new byte[] {127, 0, 0, 1});
-      }
-    catch (UnknownHostException e)
-      {
-	throw new RuntimeException("should never happen", e);
-      }
-  }    
-
   /**
    * The Serialized Form specifies that an int 'address' is saved/restored.
    * This class uses a byte array internally so we'll just do the conversion
@@ -793,7 +795,7 @@ public class InetAddress implements Serializable
   static native String getLocalHostname();
 
   // Some soon-to-be-removed native code synchronizes on this.
-  static InetAddress loopbackAddress = LOCALHOST;
+  static InetAddress loopbackAddress;
   
   // Some soon-to-be-removed code uses this old and broken method.
   InetAddress(byte[] ipaddr, String hostname)
@@ -805,9 +807,13 @@ public class InetAddress implements Serializable
       family = getFamily(ipaddr);
   }
 
-  // Some soon-to-be-removed native code uses this old method.
+  // Some soon-to-be-removed native code uses these old methods.
   private static InetAddress[] allocArray (int count)
   {
     return new InetAddress [count];
   }  
+  private static SecurityException checkConnect (String hostname)
+  {
+    return null;
+  }
 }

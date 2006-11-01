@@ -2791,7 +2791,16 @@ c_make_fname_decl (tree id, int type_dep)
 
   TREE_USED (decl) = 1;
 
-  if (current_function_decl)
+  if (current_function_decl
+      /* For invalid programs like this:
+        
+         void foo()
+         const char* p = __FUNCTION__;
+        
+	 the __FUNCTION__ is believed to appear in K&R style function
+	 parameter declarator.  In that case we still don't have
+	 function_scope.  */
+      && (!errorcount || current_function_scope))
     {
       DECL_CONTEXT (decl) = current_function_decl;
       bind (id, decl, current_function_scope,
@@ -2803,30 +2812,15 @@ c_make_fname_decl (tree id, int type_dep)
   return decl;
 }
 
-/* Return a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
-   FUNCTION_CODE tells later passes how to compile calls to this function.
-   See tree.h for its possible values.
-
-   If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  If
-   ATTRS is nonzero, use that for the function's attribute list.  */
-
 tree
-builtin_function (const char *name, tree type, int function_code,
-		  enum built_in_class cl, const char *library_name,
-		  tree attrs)
+c_builtin_function (tree decl)
 {
-  tree id = get_identifier (name);
-  tree decl = build_decl (FUNCTION_DECL, id, type);
-  TREE_PUBLIC (decl) = 1;
-  DECL_EXTERNAL (decl) = 1;
+  tree type = TREE_TYPE (decl);
+  tree   id = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (id);
   DECL_LANG_SPECIFIC (decl) = GGC_CNEW (struct lang_decl);
-  DECL_BUILT_IN_CLASS (decl) = cl;
-  DECL_FUNCTION_CODE (decl) = function_code;
   C_DECL_BUILTIN_PROTOTYPE (decl) = (TYPE_ARG_TYPES (type) != 0);
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
 
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
@@ -2840,12 +2834,6 @@ builtin_function (const char *name, tree type, int function_code,
       TREE_CHAIN (decl) = visible_builtins;
       visible_builtins = decl;
     }
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -4470,6 +4458,40 @@ grokdeclarator (const struct c_declarator *declarator,
 	    if (type_quals)
 	      type = c_build_qualified_type (type, type_quals);
 	    size_varies = 0;
+
+	    /* When the pointed-to type involves components of variable size,
+	       care must be taken to ensure that the size evaluation code is
+	       emitted early enough to dominate all the possible later uses
+	       and late enough for the variables on which it depends to have
+	       been assigned.
+
+	       This is expected to happen automatically when the pointed-to
+	       type has a name/declaration of it's own, but special attention
+	       is required if the type is anonymous.
+
+	       We handle the NORMAL and FIELD contexts here by attaching an
+	       artificial TYPE_DECL to such pointed-to type.  This forces the
+	       sizes evaluation at a safe point and ensures it is not deferred
+	       until e.g. within a deeper conditional context.
+
+	       We expect nothing to be needed here for PARM or TYPENAME.
+	       Pushing a TYPE_DECL at this point for TYPENAME would actually
+	       be incorrect, as we might be in the middle of an expression
+	       with side effects on the pointed-to type size "arguments" prior
+	       to the pointer declaration point and the fake TYPE_DECL in the
+	       enclosing context would force the size evaluation prior to the
+	       side effects.  */
+
+	    if (!TYPE_NAME (type)
+		&& (decl_context == NORMAL || decl_context == FIELD)
+		&& variably_modified_type_p (type, NULL_TREE))
+	      {
+		tree decl = build_decl (TYPE_DECL, NULL_TREE, type);
+		DECL_ARTIFICIAL (decl) = 1;
+		pushdecl (decl);
+		finish_decl (decl, NULL_TREE, NULL_TREE);
+		TYPE_NAME (type) = decl;
+	      }
 
 	    type = build_pointer_type (type);
 

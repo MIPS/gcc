@@ -84,7 +84,7 @@ static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 
 /* Table of machine-independent internal attributes for Ada.  We support
-   this minimal set ot attributes to accomodate the Alpha back-end which
+   this minimal set of attributes to accommodate the Alpha back-end which
    unconditionally puts them on its builtins.  */
 const struct attribute_spec gnat_internal_attribute_table[] =
 {
@@ -518,6 +518,8 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
     (get_identifier ("system__soft_links__get_jmpbuf_address_soft"),
      NULL_TREE, build_function_type (jmpbuf_ptr_type, NULL_TREE),
      NULL_TREE, false, true, true, NULL, Empty);
+  /* Avoid creating superfluous edges to __builtin_setjmp receivers.  */
+  DECL_IS_PURE (get_jmpbuf_decl) = 1;
 
   set_jmpbuf_decl
     = create_subprog_decl
@@ -534,6 +536,8 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
      NULL_TREE,
      build_function_type (build_pointer_type (except_type_node), NULL_TREE),
      NULL_TREE, false, true, true, NULL, Empty);
+  /* Avoid creating superfluous edges to __builtin_setjmp receivers.  */
+  DECL_IS_PURE (get_excptr_decl) = 1;
 
   /* Functions that raise exceptions. */
   raise_nodefer_decl
@@ -1817,37 +1821,11 @@ gnat_gimplify_function (tree fndecl)
     gnat_gimplify_function (cgn->decl);
 }
 
-/* Return a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
-   FUNCTION_CODE tells later passes how to compile calls to this function.
-   See tree.h for its possible values.
-
-   If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  If
-   ATTRS is nonzero, use that for the function attribute list.  */
 
 tree
-builtin_function (const char *name, tree type, int function_code,
-                  enum built_in_class class, const char *library_name,
-                  tree attrs)
+gnat_builtin_function (tree decl)
 {
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
-
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
-
   gnat_pushdecl (decl, Empty);
-  DECL_BUILT_IN_CLASS (decl) = class;
-  DECL_FUNCTION_CODE (decl) = function_code;
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
-
   return decl;
 }
 

@@ -3655,10 +3655,46 @@ convert_nontype_argument (tree type, tree expr)
 
 	Here, we do not care about functions, as they are invalid anyway
 	for a parameter of type pointer-to-object.  */
-      bool constant_address_p =
-	(TREE_CODE (expr) == ADDR_EXPR
-	 || TREE_CODE (expr_type) == ARRAY_TYPE
-	 || (DECL_P (expr) && DECL_TEMPLATE_PARM_P (expr)));
+
+      if (DECL_P (expr) && DECL_TEMPLATE_PARM_P (expr))
+	/* Non-type template parameters are OK.  */
+	;
+      else if (TREE_CODE (expr) != ADDR_EXPR
+	       && TREE_CODE (expr_type) != ARRAY_TYPE)
+	{
+	  if (TREE_CODE (expr) == VAR_DECL)
+	    {
+	      error ("%qD is not a valid template argument "
+		     "because %qD is a variable, not the address of "
+		     "a variable",
+		     expr, expr);
+	      return NULL_TREE;
+	    }
+	  /* Other values, like integer constants, might be valid
+	     non-type arguments of some other type.  */
+	  return error_mark_node;
+	}
+      else
+	{
+	  tree decl;
+
+	  decl = ((TREE_CODE (expr) == ADDR_EXPR)
+		  ? TREE_OPERAND (expr, 0) : expr);
+	  if (TREE_CODE (decl) != VAR_DECL)
+	    {
+	      error ("%qE is not a valid template argument of type %qT "
+		     "because %qE is not a variable",
+		     expr, type, decl);
+	      return NULL_TREE;
+	    }
+	  else if (!DECL_EXTERNAL_LINKAGE_P (decl))
+	    {
+	      error ("%qE is not a valid template argument of type %qT "
+		     "because %qD does not have external linkage",
+		     expr, type, decl);
+	      return NULL_TREE;
+	    }
+	}
 
       expr = decay_conversion (expr);
       if (expr == error_mark_node)
@@ -3667,13 +3703,6 @@ convert_nontype_argument (tree type, tree expr)
       expr = perform_qualification_conversions (type, expr);
       if (expr == error_mark_node)
 	return error_mark_node;
-
-      if (!constant_address_p)
-	{
-	  error ("%qE is not a valid template argument for type %qT "
-		 "because it is not a constant pointer", expr, type);
-	  return NULL_TREE;
-	}
     }
   /* [temp.arg.nontype]/5, bullet 3
 
@@ -7779,15 +7808,15 @@ tsubst_baselink (tree baselink, tree object_type,
     tree template_args = 0;
     bool template_id_p = false;
 
-    /* A baselink indicates a function from a base class.  The
-       BASELINK_ACCESS_BINFO and BASELINK_BINFO are going to have
-       non-dependent types; otherwise, the lookup could not have
-       succeeded.  However, they may indicate bases of the template
-       class, rather than the instantiated class.
-
-       In addition, lookups that were not ambiguous before may be
-       ambiguous now.  Therefore, we perform the lookup again.  */
+    /* A baselink indicates a function from a base class.  Both the
+       BASELINK_ACCESS_BINFO and the base class referenced may
+       indicate bases of the template class, rather than the
+       instantiated class.  In addition, lookups that were not
+       ambiguous before may be ambiguous now.  Therefore, we perform
+       the lookup again.  */
     qualifying_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (baselink));
+    qualifying_scope = tsubst (qualifying_scope, args,
+			       complain, in_decl);
     fns = BASELINK_FUNCTIONS (baselink);
     optype = BASELINK_OPTYPE (baselink);
     if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
@@ -9294,7 +9323,6 @@ tsubst_copy_and_build (tree t,
 	VEC(constructor_elt,gc) *n;
 	constructor_elt *ce;
 	unsigned HOST_WIDE_INT idx;
-	tree r;
 	tree type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	bool process_index_p;
 
@@ -9318,12 +9346,10 @@ tsubst_copy_and_build (tree t,
 	    ce->value = RECUR (ce->value);
 	  }
 
-	r = build_constructor (NULL_TREE, n);
-	TREE_HAS_CONSTRUCTOR (r) = TREE_HAS_CONSTRUCTOR (t);
+	if (TREE_HAS_CONSTRUCTOR (t))
+	  return finish_compound_literal (type, n);
 
-	if (type)
-	  return digest_init (type, r);
-	return r;
+	return build_constructor (NULL_TREE, n);
       }
 
     case TYPEID_EXPR:

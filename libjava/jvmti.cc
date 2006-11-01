@@ -36,6 +36,45 @@ details.  */
 static void check_enabled_events (void);
 static void check_enabled_event (jvmtiEvent);
 
+namespace JVMTI
+{
+  bool VMInit = false;
+  bool VMDeath = false;
+  bool ThreadStart = false;
+  bool ThreadEnd = false;
+  bool ClassFileLoadHook = false;
+  bool ClassLoad = false;
+  bool ClassPrepare = false;
+  bool VMStart = false;
+  bool Exception = false;
+  bool ExceptionCatch = false;
+  bool SingleStep = false;
+  bool FramePop = false;
+  bool Breakpoint = false;
+  bool FieldAccess = false;
+  bool FieldModification = false;
+  bool MethodEntry = false;
+  bool MethodExit = false;
+  bool NativeMethodBind = false;
+  bool CompiledMethodLoad = false;
+  bool CompiledMethodUnload = false;
+  bool DynamicCodeGenerated = false;
+  bool DataDumpRequest = false;
+  bool reserved72 = false;
+  bool MonitorWait = false;
+  bool MonitorWaited = false;
+  bool MonitorContendedEnter = false;
+  bool MonitorContendedEntered = false;
+  bool reserved77 = false;
+  bool reserved78 = false;
+  bool reserved79 = false;
+  bool reserved80 = false;
+  bool GarbageCollectionStart = false;
+  bool GarbageCollectionFinish = false;
+  bool ObjectFree = false;
+  bool VMObjectAlloc = false;
+};
+
 extern struct JNINativeInterface _Jv_JNIFunctions;
 
 struct _Jv_rawMonitorID
@@ -424,6 +463,24 @@ _Jv_JVMTI_IsMethodSynthetic (MAYBE_UNUSED jvmtiEnv *env, jmethodID method,
   *result = ((method->accflags & java::lang::reflect::Modifier::SYNTHETIC)
 	     != 0);
   return JVMTI_ERROR_NONE;
+}
+
+static jvmtiError JNICALL
+_Jv_JVMTI_GetMethodDeclaringClass (MAYBE_UNUSED jvmtiEnv *env,
+				   jmethodID method,
+				   jclass *declaring_class_ptr)
+{
+  REQUIRE_PHASE (env, JVMTI_PHASE_LIVE);
+  NULL_CHECK (declaring_class_ptr);
+
+  jclass klass = _Jv_GetMethodDeclaringClass (method);
+  if (klass != NULL)
+    {
+      *declaring_class_ptr = klass;
+      return JVMTI_ERROR_NONE;
+    }
+
+  return JVMTI_ERROR_INVALID_METHODID;
 }
 
 static jvmtiError JNICALL
@@ -1248,7 +1305,7 @@ struct _Jv_jvmtiEnv _Jv_JVMTI_Interface =
   _Jv_JVMTI_GetFieldModifiers,	// GetFieldModifiers
   _Jv_JVMTI_IsFieldSynthetic,	// IsFieldSynthetic
   UNIMPLEMENTED,		// GetMethodName
-  UNIMPLEMENTED,		// GetMethodDeclaringClass
+  _Jv_JVMTI_GetMethodDeclaringClass,  // GetMethodDeclaringClass
   _Jv_JVMTI_GetMethodModifiers,	// GetMethodModifers
   RESERVED,			// reserved67
   UNIMPLEMENTED,		// GetMaxLocals

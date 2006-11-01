@@ -2710,11 +2710,14 @@ struct tree_decl_with_rtl GTY(())
 };
 
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
-   byte containing the bit closest to the beginning of the structure.  */
+   DECL_OFFSET_ALIGN-bit-sized word containing the bit closest to the beginning
+   of the structure.  */
 #define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.offset)
 
 /* In a FIELD_DECL, this is the offset, in bits, of the first bit of the
-   field from DECL_FIELD_OFFSET.  */
+   field from DECL_FIELD_OFFSET.  This field may be nonzero even for fields
+   that are not bit fields (since DECL_OFFSET_ALIGN may be larger than the
+   natural alignment of the field's type).  */
 #define DECL_FIELD_BIT_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.bit_offset)
 
 /* In a FIELD_DECL, this indicates whether the field was a bit-field and
@@ -3199,14 +3202,13 @@ struct tree_statement_list
   (VALUE_HANDLE_CHECK (NODE)->value_handle.vuses)
 
 /* Defined and used in tree-ssa-pre.c.  */
-struct value_set;
 
 struct tree_value_handle GTY(())
 {
   struct tree_common common;
 
   /* The set of expressions represented by this handle.  */
-  struct value_set * GTY ((skip)) expr_set;
+  struct bitmap_set * GTY ((skip)) expr_set;
 
   /* Unique ID for this value handle.  IDs are handed out in a
      conveniently dense form starting at 0, so that we can make
@@ -4273,14 +4275,20 @@ extern tree fold_indirect_ref_1 (tree, tree);
 
 extern tree force_fit_type (tree, int, bool, bool);
 
-extern int add_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern int add_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
+				 bool);
+#define add_double(l1,h1,l2,h2,lv,hv) \
+  add_double_with_sign (l1, h1, l2, h2, lv, hv, false)
 extern int neg_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
-extern int mul_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT, HOST_WIDE_INT,
-		       unsigned HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern int mul_double_with_sign (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT, HOST_WIDE_INT,
+				 unsigned HOST_WIDE_INT *, HOST_WIDE_INT *,
+				 bool);
+#define mul_double(l1,h1,l2,h2,lv,hv) \
+  mul_double_with_sign (l1, h1, l2, h2, lv, hv, false)
 extern void lshift_double (unsigned HOST_WIDE_INT, HOST_WIDE_INT,
 			   HOST_WIDE_INT, unsigned int,
 			   unsigned HOST_WIDE_INT *, HOST_WIDE_INT *, int);

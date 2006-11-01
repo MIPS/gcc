@@ -510,7 +510,6 @@ get_name (tree t)
 	{
 	case ADDR_EXPR:
 	  return get_name (TREE_OPERAND (stripped_decl, 0));
-	  break;
 	default:
 	  return NULL;
 	}
@@ -610,7 +609,7 @@ internal_get_tmp_var (tree val, tree *pre_p, tree *post_p, bool is_formal)
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
     DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
 
-  mod = build2 (INIT_EXPR, TREE_TYPE (t), t, val);
+  mod = build2 (INIT_EXPR, TREE_TYPE (t), t, unshare_expr (val));
 
   if (EXPR_HAS_LOCATION (val))
     SET_EXPR_LOCUS (mod, EXPR_LOCUS (val));
@@ -1899,7 +1898,7 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 			bool want_value)
 {
   enum tree_code code;
-  tree lhs, lvalue, rhs, t1;
+  tree lhs, lvalue, rhs, t1, post = NULL, *orig_post_p = post_p;
   bool postfix;
   enum tree_code arith_code;
   enum gimplify_status ret;
@@ -1915,6 +1914,11 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
     postfix = want_value;
   else
     postfix = false;
+
+  /* For postfix, make sure the inner expression's post side effects
+     are executed after side effects from this expression.  */
+  if (postfix)
+    post_p = &post;
 
   /* Add or subtract?  */
   if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
@@ -1946,7 +1950,8 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
   if (postfix)
     {
-      gimplify_and_add (t1, post_p);
+      gimplify_and_add (t1, orig_post_p);
+      append_to_statement_list (post, orig_post_p);
       *expr_p = lhs;
       return GS_ALL_DONE;
     }
@@ -2675,9 +2680,8 @@ gimplify_init_ctor_preeval (tree *expr_p, tree *pre_p, tree *post_p,
       return;
     }
 
-  /* We can't preevaluate if the type contains a placeholder.  */
-  if (type_contains_placeholder_p (TREE_TYPE (*expr_p)))
-    return;
+  /* If this is a variable sized type, we must remember the size.  */
+  maybe_with_size_expr (expr_p);
 
   /* Gimplify the constructor element to something appropriate for the rhs
      of a MODIFY_EXPR.  Given that we know the lhs is an aggregate, we know
@@ -4093,9 +4097,9 @@ gimplify_asm_expr (tree *expr_p, tree *pre_p, tree *post_p)
       /* If the operand is a memory input, it should be an lvalue.  */
       if (!allows_reg && allows_mem)
 	{
-	  lang_hooks.mark_addressable (TREE_VALUE (link));
 	  tret = gimplify_expr (&TREE_VALUE (link), pre_p, post_p,
 				is_gimple_lvalue, fb_lvalue | fb_mayfail);
+	  lang_hooks.mark_addressable (TREE_VALUE (link));
 	  if (tret == GS_ERROR)
 	    {
 	      error ("memory input %d is not directly addressable", i);
@@ -4929,7 +4933,7 @@ static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
   tree for_stmt, decl, t;
-  enum gimplify_status ret = 0;
+  enum gimplify_status ret = GS_OK;
 
   for_stmt = *expr_p;
 
@@ -6113,7 +6117,18 @@ gimplify_type_sizes (tree type, tree *list_p)
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      gimplify_type_sizes (TREE_TYPE (type), list_p);
+	/* We used to recurse on the pointed-to type here, which turned out to
+	   be incorrect because its definition might refer to variables not
+	   yet initialized at this point if a forward declaration is involved.
+
+	   It was actually useful for anonymous pointed-to types to ensure
+	   that the sizes evaluation dominates every possible later use of the
+	   values.  Restricting to such types here would be safe since there
+	   is no possible forward declaration around, but would introduce an
+	   undesirable middle-end semantic to anonymity.  We then defer to
+	   front-ends the responsibility of ensuring that the sizes are
+	   evaluated both early and late enough, e.g. by attaching artificial
+	   type declarations to the tree.  */
       break;
 
     default:
