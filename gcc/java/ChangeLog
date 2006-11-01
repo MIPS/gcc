@@ -1,3 +1,36 @@
+2006-11-01  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (field_offsets, bit_obstack): New variables.
+	(jcf_parse): Write end marker to annotation_data.
+	(java_parse_file): Create field_offsets bitmap.  Destroy it.
+	(annotation_grow, annotation_rewrite_byte) 
+	(annotation_rewrite_short, annotation_rewrite_int) 
+	(annotation_read_short, annotation_write_byte) 
+	(annotation_write_short, annotation_write_int) 
+	(handle_long_constant, handle_constant, handle_element_value) 
+	(handle_annotation, handle_annotations) 
+	(handle_annotation_attribute, rewrite_reflection_indexes) 
+	(handle_member_annotations, handle_parameter_annotations) 
+	(handle_default_annotation): New functions.
+	(HANDLE_RUNTIMEVISIBLEANNOTATIONS_ATTRIBUTE) 
+	(HANDLE_RUNTIMEINVISIBLEANNOTATIONS_ATTRIBUTE) 
+	(HANDLE_RUNTIMEVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE) 
+	(HANDLE_RUNTIMEINVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE) 
+	(HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE): New definitions.
+	* java-tree.h (enum jv_attr_type, enum jv_attr_kind): New. 
+	(TYPE_REFLECTION_DATA): New.
+	(TYPE_REFLECTION_DATASIZE): New.
+	* jcf.h (enum cpool_tag): Convert a bunch of #define constants to
+	an enum.
+	* jcf-reader.c (get_attribute): Pass field/method index and
+	attribute type to get_attribute().
+	* constants.c (find_class_or_string_constant): Make nonstatic.
+	(cpool_for_class): Likewise.
+	(build_constants_constructor): Separate string and scalar types.
+	* class.c (make_class_data): Generate field_indexes permutation.
+	Pass it to rewrite_reflection_indexes().
+	(make_class_data): Generate constructor for reflection_data field.
+
 2006-10-20  Tom Tromey  <tromey@redhat.com>
 
 	* gcj.texi (Top): Don't mention jv-scan.

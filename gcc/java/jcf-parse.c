@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "flags.h"
 #include "java-except.h"
 #include "input.h"
+#include "javaop.h"
 #include "java-tree.h"
 #include "toplev.h"
 #include "parse.h"
@@ -43,6 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "assert.h"
 #include "tm_p.h"
 #include "cgraph.h"
+#include "vecprim.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
@@ -96,6 +98,11 @@ static char **filenames;
 
 static struct ZipFile *localToFile;
 
+/* A map of byte offsets in the reflection data that are fields which
+   need renumbering.  */
+bitmap field_offsets;
+bitmap_obstack bit_obstack;
+
 /* Declarations of some functions used here.  */
 static void handle_innerclass_attribute (int count, JCF *);
 static tree give_name_to_class (JCF *jcf, int index);
@@ -111,6 +118,7 @@ static void handle_deprecated (void);
 static void set_source_filename (JCF *, int);
 static void jcf_parse (struct JCF*);
 static void load_inner_classes (tree);
+static void handle_annotation (JCF *jcf, int level);
 
 /* Handle "Deprecated" attribute.  */
 static void
@@ -369,6 +377,436 @@ set_source_filename (JCF *jcf, int index)
   if (current_class == main_class) main_input_filename = sfname;
 }
 
+
+
+
+/* Annotation handling.  
+
+   The technique we use here is to copy the annotation data directly
+   from the input class file into the ouput file.  We don't decode the
+   data at all, merely rewriting constant indexes whenever we come
+   across them: this is necessary becasue the constant pool in the
+   output file isn't the same as the constant pool in in the input.
+
+   The main advantage of this technique is that the resulting
+   annotation data is pointer-free, so it doesn't have to be relocated
+   at startup time.  As a consequence of this, annotations have no
+   peformance impact unless they are used.  Also, this representation
+   is very dense.  */
+
+
+/* Expand TYPE_REFLECTION_DATA by DELTA bytes.  Return the address of
+   the start of the newly allocated region.  */
+
+static unsigned char*
+annotation_grow (int delta)
+{
+  unsigned char **data = &TYPE_REFLECTION_DATA (current_class);
+  long *datasize = &TYPE_REFLECTION_DATASIZE (current_class);
+  long len = *datasize;
+
+  if (*data == NULL)
+    {
+      *data = xmalloc (delta);
+    }
+  else
+    {
+      int newlen = *datasize + delta;
+      if (floor_log2 (newlen) != floor_log2 (*datasize))
+	*data = xrealloc (*data,  2 << (floor_log2 (newlen)));
+    }
+  *datasize += delta;
+  return *data + len;
+}
+
+/* annotation_rewrite_TYPE.  Rewrite various int types at p.  Use Java
+   byte order (i.e. big endian.)  */
+
+static void
+annotation_rewrite_byte (unsigned int n, unsigned char *p)
+{
+  p[0] = n;
+}
+
+static void
+annotation_rewrite_short (unsigned int n, unsigned char *p)
+{
+  p[0] = n>>8;
+  p[1] = n;
+}
+
+static void
+annotation_rewrite_int (unsigned int n, unsigned char *p)
+{
+  p[0] = n>>24;
+  p[1] = n>>16;
+  p[2] = n>>8;
+  p[3] = n;
+}
+
+/* Read a 16-bit unsigned int in Java byte order (i.e. big
+   endian.)  */
+
+static uint16
+annotation_read_short (unsigned char *p)
+{
+  uint16 tmp = p[0];
+  tmp = (tmp << 8) | p[1];
+  return tmp;
+}
+
+/* annotation_write_TYPE.  Rewrite various int types, appending them
+   to TYPE_REFLECTION_DATA.  Use Java byte order (i.e. big
+   endian.)  */
+
+static void
+annotation_write_byte (unsigned int n)
+{
+  annotation_rewrite_byte (n, annotation_grow (1));
+}
+
+static void
+annotation_write_short (unsigned int n)
+{
+  annotation_rewrite_short (n, annotation_grow (2));
+}
+
+static void
+annotation_write_int (unsigned int n)
+{
+  annotation_rewrite_int (n, annotation_grow (4));
+}
+
+/* Create a 64-bit constant in the constant pool.
+
+   This is used for both integer and floating-point types.  As a
+   consequence, it will not work if the target floating-point format
+   is anything other than IEEE-754.  While this is arguably a bug, the
+   runtime library makes exactly the same assumption and it's unlikely
+   that Java will ever run on a non-IEEE machine.  */
+
+static int 
+handle_long_constant (JCF *jcf, CPool *cpool, enum cpool_tag kind,
+		    int index, bool big_endian)
+{
+  /* If we're on a 64-bit platform we can fit a long or double
+     into the same space as a jword.  */
+  if (POINTER_SIZE >= 64)
+    index = find_constant1 (cpool, kind, JPOOL_LONG (jcf, index));
+
+  /* In a compiled program the constant pool is in native word
+     order.  How weird is that???  */
+  else if (big_endian)
+    index = find_constant2 (cpool, kind,
+			    JPOOL_INT (jcf, index), 
+			    JPOOL_INT (jcf, index+1));
+  else
+    index = find_constant2 (cpool, kind,
+			    JPOOL_INT (jcf, index+1), 
+			    JPOOL_INT (jcf, index));
+  
+  return index;
+}
+
+/* Given a class file and an index into its constant pool, create an
+   entry in the outgoing constant pool for the same item.  */
+
+static uint16
+handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
+{
+  enum cpool_tag kind;
+  CPool *cpool = cpool_for_class (output_class);
+  
+  if (! CPOOL_INDEX_IN_RANGE (&jcf->cpool, index))
+    error ("<constant pool index %d not in range>", index);
+  
+  kind = JPOOL_TAG (jcf, index);
+
+  if (kind != purpose)
+    {
+      if (purpose == CONSTANT_Class
+	  && kind == CONSTANT_Utf8)
+	;
+      else
+	error ("<constant pool index %d unexpected type", index);
+    }
+
+  switch (kind)
+    {
+    case CONSTANT_Utf8:
+      {
+	tree utf8 = get_constant (jcf, index);
+
+	if (purpose == CONSTANT_Class)
+	  /* Create a constant pool entry for a type.  This one has
+	     '.' rather than '/' because it isn't going into a class
+	     file, it's going into a compiled object.
+	     
+	     This has to match the logic in
+	     _Jv_ClassReader::prepare_pool_entry().  */
+	  utf8 = identifier_subst (utf8, "", '/', '.', "");
+
+	index = alloc_name_constant (kind, utf8);
+      }
+      break;
+
+    case CONSTANT_Long:
+      index = handle_long_constant (jcf, cpool, kind, index, 
+				    WORDS_BIG_ENDIAN);
+      break;
+      
+    case CONSTANT_Double:
+      index = handle_long_constant (jcf, cpool, kind, index, 
+				    FLOAT_WORDS_BIG_ENDIAN);
+      break;
+
+    case CONSTANT_Float:
+    case CONSTANT_Integer:
+      index = find_constant1 (cpool, kind, JPOOL_INT (jcf, index));
+      break;
+      
+    default:
+      abort ();
+    }
+  
+  return index;
+}
+
+/* Read an element_value structure from an annotation in JCF.  Return
+   the constant pool index for the resulting constant pool entry.  */
+
+static int
+handle_element_value (JCF *jcf, int level)
+{
+  uint8 tag = JCF_readu (jcf);
+  int index = 0;
+
+  annotation_write_byte (tag);
+  switch (tag)
+    {
+    case 'B':
+    case 'C':
+    case 'S':
+    case 'Z':
+    case 'I':
+      {
+	uint16 cindex = JCF_readu2 (jcf);
+	index = handle_constant (jcf, cindex,
+				 CONSTANT_Integer);
+	annotation_write_short (index);
+      }
+      break;
+    case 'D':
+      {
+	uint16 cindex = JCF_readu2 (jcf);
+	index = handle_constant (jcf, cindex,
+				 CONSTANT_Double);
+	annotation_write_short (index);
+      }
+      break;
+    case 'F':
+      {
+	uint16 cindex = JCF_readu2 (jcf);
+	index = handle_constant (jcf, cindex,
+				 CONSTANT_Float);
+	annotation_write_short (index);
+      }
+      break;
+    case 'J':
+      {
+	uint16 cindex = JCF_readu2 (jcf);
+	index = handle_constant (jcf, cindex,
+				 CONSTANT_Long);
+	annotation_write_short (index);
+      }
+      break;
+    case 's':
+      {
+	uint16 cindex = JCF_readu2 (jcf);
+	/* Despite what the JVM spec says, compilers generate a Utf8
+	   constant here, not a String.  */
+	index = handle_constant (jcf, cindex,
+				 CONSTANT_Utf8);
+	annotation_write_short (index);
+      }
+      break;
+
+    case 'e':
+      {
+	uint16 type_name_index = JCF_readu2 (jcf);
+	uint16 const_name_index = JCF_readu2 (jcf);
+	index = handle_constant (jcf, type_name_index,
+				 CONSTANT_Class);
+	annotation_write_short (index);
+	index = handle_constant (jcf, const_name_index,
+				 CONSTANT_Utf8);
+	annotation_write_short (index);
+     }
+      break;
+    case 'c':
+      {
+	uint16 class_info_index = JCF_readu2 (jcf);
+	index = handle_constant (jcf, class_info_index,
+				 CONSTANT_Class);
+	annotation_write_short (index);
+      }
+      break;
+    case '@':
+      {
+	handle_annotation (jcf, level + 1);
+      }
+      break;
+    case '[':
+      {
+	uint16 n_array_elts = JCF_readu2 (jcf);
+	annotation_write_short (n_array_elts);
+	while (n_array_elts--)
+	  handle_element_value (jcf, level + 1);
+      }
+      break;
+    default:
+      abort();
+      break;
+    }
+  return index;
+}
+
+/* Read an annotation structure from JCF.  Write it to the
+   reflection_data field of the outgoing class.  */
+
+static void
+handle_annotation (JCF *jcf, int level)
+{
+  uint16 type_index = JCF_readu2 (jcf);
+  uint16 npairs = JCF_readu2 (jcf);
+  int index = handle_constant (jcf, type_index,
+			       CONSTANT_Class);
+  annotation_write_short (index);
+  annotation_write_short (npairs);
+  while (npairs--)
+    {
+      uint16 name_index = JCF_readu2 (jcf);
+      index = handle_constant (jcf, name_index,
+			       CONSTANT_Utf8);
+      annotation_write_short (index);
+      handle_element_value (jcf, level + 2);
+    }
+}
+
+/* Read an annotation count from JCF, and write the following
+   annotatons to the reflection_data field of the outgoing class.  */
+
+static void
+handle_annotations (JCF *jcf, int level)
+{
+  uint16 num = JCF_readu2 (jcf);
+  annotation_write_short (num);
+  while (num--)
+    handle_annotation (jcf, level);
+}
+
+/* As handle_annotations(), but perform a sanity check that we write
+   the same number of bytes that we were expecting.  */
+
+static void
+handle_annotation_attribute (int ATTRIBUTE_UNUSED index, JCF *jcf, 
+			     long length)
+{
+  long old_datasize = TYPE_REFLECTION_DATASIZE (current_class);
+
+  handle_annotations (jcf, 0);
+
+  gcc_assert (old_datasize + length
+	      == TYPE_REFLECTION_DATASIZE (current_class));
+}
+
+/* gcj permutes its fields array after generating annotation_data, so
+   we have to fixup field indexes for fields that have moved.  Given
+   ARG, a VEC_int, fixup the field indexes in the reflection_data of
+   the outgoing class.  We use field_offsets to tell us where the
+   fixups must go.  */
+
+void
+rewrite_reflection_indexes (void *arg)
+{
+  bitmap_iterator bi;
+  unsigned int offset;
+  VEC(int, heap) *map = arg;
+  unsigned char *data = TYPE_REFLECTION_DATA (current_class);
+
+  EXECUTE_IF_SET_IN_BITMAP (field_offsets, 0, offset, bi)
+    {
+      uint16 index = annotation_read_short (data + offset);
+      annotation_rewrite_short (VEC_index (int, map, index), data + offset);
+    }
+}
+
+/* Read the RuntimeVisibleAnnotations from JCF and write them to the
+   reflection_data of the outgoing class.  */
+
+static void
+handle_member_annotations (int member_index, JCF *jcf, 
+			   const unsigned char *name ATTRIBUTE_UNUSED, 
+			   long len, jv_attr_type member_type)
+{
+  int new_len = len + 1;
+  annotation_write_byte (member_type);
+  if (member_type != JV_CLASS_ATTR)
+    new_len += 2;
+  annotation_write_int (new_len);
+  annotation_write_byte (JV_ANNOTATIONS_KIND);
+  if (member_type == JV_FIELD_ATTR)
+    bitmap_set_bit (field_offsets, TYPE_REFLECTION_DATASIZE (current_class));
+  if (member_type != JV_CLASS_ATTR)
+    annotation_write_short (member_index);
+  handle_annotation_attribute (member_index, jcf, len);
+}
+
+/* Read the RuntimeVisibleParameterAnnotations from JCF and write them
+   to the reflection_data of the outgoing class.  */
+
+static void
+handle_parameter_annotations (int member_index, JCF *jcf, 
+			      const unsigned char *name ATTRIBUTE_UNUSED, 
+			      long len, jv_attr_type member_type)
+{
+  int new_len = len + 1;
+  uint8 num;
+  annotation_write_byte (member_type);
+  if (member_type != JV_CLASS_ATTR)
+    new_len += 2;
+  annotation_write_int (new_len);
+  annotation_write_byte (JV_PARAMETER_ANNOTATIONS_KIND);
+  if (member_type != JV_CLASS_ATTR)
+    annotation_write_short (member_index);
+  num = JCF_readu (jcf);
+  annotation_write_byte (num);
+  while (num--)
+    handle_annotations (jcf, 0);
+}
+
+
+/* Read the AnnotationDefault data from JCF and write them to the
+   reflection_data of the outgoing class.  */
+
+static void
+handle_default_annotation (int member_index, JCF *jcf, 
+			   const unsigned char *name ATTRIBUTE_UNUSED, 
+			   long len, jv_attr_type member_type)
+{
+  int new_len = len + 1;
+  annotation_write_byte (member_type);
+  if (member_type != JV_CLASS_ATTR)
+    new_len += 2;
+  annotation_write_int (new_len);
+  annotation_write_byte (JV_ANNOTATION_DEFAULT_KIND);
+  if (member_type != JV_CLASS_ATTR)
+    annotation_write_short (member_index);
+  handle_element_value (jcf, 0);
+}
+
+
+
 #define HANDLE_SOURCEFILE(INDEX) set_source_filename (jcf, INDEX)
 
 #define HANDLE_CLASS_INFO(ACCESS_FLAGS, THIS, SUPER, INTERFACES_COUNT) \
@@ -460,6 +898,31 @@ set_source_filename (JCF *jcf, int index)
 { 						\
   if (current_class == object_type_node)	\
     jcf->right_zip = 1;				\
+}
+
+#define HANDLE_RUNTIMEVISIBLEANNOTATIONS_ATTRIBUTE()			\
+{									\
+  handle_member_annotations (index, jcf, name_data, attribute_length, attr_type); \
+}
+
+#define HANDLE_RUNTIMEINVISIBLEANNOTATIONS_ATTRIBUTE()	\
+{							\
+  JCF_SKIP(jcf, attribute_length);			\
+}
+
+#define HANDLE_RUNTIMEVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE()		\
+{									\
+  handle_parameter_annotations (index, jcf, name_data, attribute_length, attr_type); \
+}
+
+#define HANDLE_RUNTIMEINVISIBLEPARAMETERANNOTATIONS_ATTRIBUTE()	\
+{								\
+  JCF_SKIP(jcf, attribute_length);				\
+}
+
+#define HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE()				\
+{									\
+  handle_default_annotation (index, jcf, name_data, attribute_length, attr_type); \
 }
 
 #include "jcf-reader.c"
@@ -972,6 +1435,10 @@ jcf_parse (JCF* jcf)
   code = jcf_parse_final_attributes (jcf);
   if (code != 0)
     fatal_error ("error while parsing final attributes");
+
+  if (TYPE_REFLECTION_DATA (current_class))
+    annotation_write_byte (JV_DONE_ATTR);
+
 #ifdef USE_MAPPED_LOCATION
   linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
 #endif
@@ -1255,6 +1722,9 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   FILE *finput = NULL;
   int in_quotes = 0;
  
+  bitmap_obstack_initialize (&bit_obstack);
+  field_offsets = BITMAP_ALLOC (&bit_obstack);
+
   if (flag_filelist_file)
     {
       int avail = 2000;
@@ -1504,6 +1974,8 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	}
     }
   input_location = save_location;
+
+  bitmap_obstack_release (&bit_obstack);
 
   java_expand_classes ();
   if (java_report_errors () || flag_syntax_only)

@@ -34,11 +34,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 static void set_constant_entry (CPool *, int, int, jword);
 static int find_tree_constant (CPool *, int, tree);
-static int find_class_or_string_constant (CPool *, int, tree);
 static int find_name_and_type_constant (CPool *, tree, tree);
 static tree get_tag_node (int);
 static tree build_constant_data_ref (void);
-static CPool *cpool_for_class (tree);
 
 /* Set the INDEX'th constant in CPOOL to have the given TAG and VALUE. */
 
@@ -134,7 +132,7 @@ find_utf8_constant (CPool *cpool, tree name)
   return find_tree_constant (cpool, CONSTANT_Utf8, name);
 }
 
-static int
+int
 find_class_or_string_constant (CPool *cpool, int tag, tree name)
 {
   jword j = find_utf8_constant (cpool, name);
@@ -329,7 +327,7 @@ get_tag_node (int tag)
 
 /* Given a class, return its constant pool, creating one if necessary.  */
 
-static CPool *
+CPool *
 cpool_for_class (tree class)
 {
   CPool *cpool = TYPE_CPOOL (class);
@@ -495,11 +493,20 @@ build_constants_constructor (void)
   tree tags_list = NULL_TREE;
   tree data_list = NULL_TREE;
   int i;
+
   for (i = outgoing_cpool->count;  --i > 0; )
     switch (outgoing_cpool->tags[i])
       {
+      case CONSTANT_None:  /* The second half of a Double or Long on a
+			      32-bit target.  */
       case CONSTANT_Fieldref:
       case CONSTANT_NameAndType:
+      case CONSTANT_Float:
+      case CONSTANT_Integer:
+      case CONSTANT_Double:
+      case CONSTANT_Long:
+      case CONSTANT_Methodref:
+      case CONSTANT_InterfaceMethodref:
 	{
 	  unsigned HOST_WIDE_INT temp = outgoing_cpool->data[i].w;
 
@@ -522,7 +529,11 @@ build_constants_constructor (void)
 			 data_list);
 	}
 	break;
-      default:
+
+      case CONSTANT_Class:
+      case CONSTANT_String:
+      case CONSTANT_Unicode:
+      case CONSTANT_Utf8:
 	tags_list
 	  = tree_cons (NULL_TREE, get_tag_node (outgoing_cpool->tags[i]),
 		       tags_list);
@@ -530,6 +541,9 @@ build_constants_constructor (void)
 	  = tree_cons (NULL_TREE, build_utf8_ref (outgoing_cpool->data[i].t),
 		       data_list);
 	break;
+
+      default:
+	gcc_assert (false);
       }
   if (outgoing_cpool->count > 0)
     {

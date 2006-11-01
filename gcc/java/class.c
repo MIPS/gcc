@@ -46,6 +46,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
+#include "vecprim.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -1641,6 +1642,8 @@ make_class_data (tree type)
       to where objects actually point at, following new g++ ABI. */
   tree dtable_start_offset = build_int_cst (NULL_TREE,
 					    2 * POINTER_SIZE / BITS_PER_UNIT);
+  VEC(int, heap) *field_indexes;
+  tree first_real_field;
 
   this_class_addr = build_static_class_ref (type);
   decl = TREE_OPERAND (this_class_addr, 0);
@@ -1681,7 +1684,54 @@ make_class_data (tree type)
     field = TREE_CHAIN (field);  /* Skip dummy fields.  */
   if (field && DECL_NAME (field) == NULL_TREE)
     field = TREE_CHAIN (field);  /* Skip dummy field for inherited data. */
-  for ( ;  field != NULL_TREE;  field = TREE_CHAIN (field))
+  first_real_field = field;
+
+  /* First count static and instance fields.  */
+  for ( ; field != NULL_TREE; field = TREE_CHAIN (field))
+    {
+      if (! DECL_ARTIFICIAL (field))
+	{
+	  if (FIELD_STATIC (field))
+	    static_field_count++;
+	  else if (uses_jv_markobj || !flag_reduced_reflection)
+	    instance_field_count++;
+	}
+    }
+  field_count = static_field_count + instance_field_count;
+  field_indexes = VEC_alloc (int, heap, field_count);
+  
+  /* gcj sorts fields so that static fields come first, followed by
+     instance fields.  Unfortunately, by the time this takes place we
+     have already generated the reflection_data for this class, and
+     that data contians indexes into the fields.  So, we generate a
+     permutation that maps each original field index to its final
+     position.  Then we pass this permutation to
+     rewrite_reflection_indexes(), which fixes up the reflection
+     data.  */
+  {
+    int i;
+    int static_count = 0;
+    int instance_count = static_field_count;
+    int field_index;
+
+    for (i = 0, field = first_real_field; 
+	 field != NULL_TREE; 
+	 field = TREE_CHAIN (field), i++)
+    {
+      if (! DECL_ARTIFICIAL (field))
+	{
+	  field_index = 0;
+	  if (FIELD_STATIC (field))
+	    field_index = static_count++;
+	  else if (uses_jv_markobj || !flag_reduced_reflection)
+	    field_index = instance_count++;
+	  VEC_quick_push (int, field_indexes, field_index);
+	}
+    }
+  }
+
+  for (field = first_real_field; field != NULL_TREE; 
+       field = TREE_CHAIN (field))
     {
       if (! DECL_ARTIFICIAL (field))
 	{
@@ -1691,7 +1741,6 @@ make_class_data (tree type)
                  as it is used in the creation of the field itself. */
               tree init = make_field_value (field);
 	      tree initial = DECL_INITIAL (field);
-	      static_field_count++;
 	      static_fields = tree_cons (NULL_TREE, init, static_fields);
 	      /* If the initial value is a string constant,
 		 prevent output_constant from trying to assemble the value. */
@@ -1704,12 +1753,11 @@ make_class_data (tree type)
 	  else if (uses_jv_markobj || !flag_reduced_reflection)
 	    {
               tree init = make_field_value (field);
-	      instance_field_count++;
 	      instance_fields = tree_cons (NULL_TREE, init, instance_fields);
 	    }
 	}
     }
-  field_count = static_field_count + instance_field_count;
+
   if (field_count > 0)
     {
       static_fields = nreverse (static_fields);
@@ -2008,7 +2056,48 @@ make_class_data (tree type)
   PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "aux_info", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "engine", null_pointer_node);
-  PUSH_FIELD_VALUE (cons, "reflection_data", null_pointer_node);
+
+  if (TYPE_REFLECTION_DATA (current_class))
+    {
+      int i;
+      int count = TYPE_REFLECTION_DATASIZE (current_class);
+      VEC (constructor_elt, gc) *v
+	= VEC_alloc (constructor_elt, gc, count);
+      unsigned char *data = TYPE_REFLECTION_DATA (current_class);
+      tree max_index = build_int_cst (sizetype, count);
+      tree index = build_index_type (max_index);
+      tree type = build_array_type (unsigned_byte_type_node, index);
+      char buf[64];
+      tree array;
+      static int reflection_data_count;
+
+      sprintf (buf, "_reflection_data_%d", reflection_data_count++);
+      array = build_decl (VAR_DECL, get_identifier (buf), type);
+
+      rewrite_reflection_indexes (field_indexes);
+
+      for (i = 0; i < count; i++)
+	{
+	  constructor_elt *elt = VEC_quick_push (constructor_elt, v, NULL);
+ 	  elt->index = build_int_cst (sizetype, i);
+	  elt->value = build_int_cstu (byte_type_node, data[i]);
+	}
+
+      DECL_INITIAL (array) = build_constructor (type, v);
+      TREE_STATIC (array) = 1;
+      DECL_ARTIFICIAL (array) = 1;
+      DECL_IGNORED_P (array) = 1;
+      TREE_READONLY (array) = 1;
+      TREE_CONSTANT (array) = 1;
+      rest_of_decl_compilation (array, 1, 0);
+      
+      PUSH_FIELD_VALUE (cons, "reflection_data", build_address_of (array));
+
+      free (data);
+      TYPE_REFLECTION_DATA (current_class) = NULL;
+    }
+  else
+    PUSH_FIELD_VALUE (cons, "reflection_data", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 

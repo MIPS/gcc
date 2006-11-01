@@ -993,7 +993,7 @@ struct treetreehash_entry GTY(())
   tree value;
 };
 
-/* These represent the possible assertion_code's that can be emitted in the
+/* These represent the possible assertion_codes that can be emitted in the
    type assertion table.  */
 enum
 {
@@ -1001,6 +1001,28 @@ enum
   JV_ASSERT_TYPES_COMPATIBLE = 1, /* Operand A is assignable to Operand B.  */
   JV_ASSERT_IS_INSTANTIABLE = 2   /* Operand A is an instantiable class.  */
 };
+
+/* Annotation types used in the reflection_data.  See
+   java.lang.Class.getDeclaredAnnotations() in the runtime library for
+   an example of how these are used.  */
+
+typedef enum
+{
+  JV_CLASS_ATTR,
+  JV_METHOD_ATTR,
+  JV_FIELD_ATTR,
+  JV_DONE_ATTR
+} jv_attr_type;
+
+typedef enum
+{
+  JV_INNER_CLASSES_KIND,
+  JV_ENCLOSING_METHOD_KIND,
+  JV_SIGNATURE_KIND,
+  JV_ANNOTATIONS_KIND,
+  JV_PARAMETER_ANNOTATIONS_KIND,
+  JV_ANNOTATION_DEFAULT_KIND
+} jv_attr_kind;
 
 typedef struct type_assertion GTY(())
 {
@@ -1095,6 +1117,10 @@ struct lang_decl GTY(())
 #define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
 #define TYPE_PACKAGE(T)     	 (TYPE_LANG_SPECIFIC (T)->package)
 
+#define TYPE_REFLECTION_DATA(T)	 (TYPE_LANG_SPECIFIC (T)->reflection_data)
+#define TYPE_REFLECTION_DATASIZE(T)					\
+				(TYPE_LANG_SPECIFIC (T)->reflection_datasize)
+
 struct lang_type GTY(())
 {
   tree signature;
@@ -1145,11 +1171,17 @@ struct lang_type GTY(())
   tree package;			/* IDENTIFIER_NODE for package this class is
   				   a member of.  */
 
+  unsigned char* GTY((skip)) reflection_data;	/* The raw reflection
+						   data for this
+						   class.  */
+  long reflection_datasize;	/* The size of the raw reflection data
+				   for this class, in bytes.  */
+
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */
   unsigned strictfp:1;		/* `strictfp' class.  */
   unsigned assertions:1;	/* Any method uses `assert'.  */
-  unsigned dummy_class:1;		/* Not a real class, just a placeholder.  */
+  unsigned dummy_class:1;	/* Not a real class, just a placeholder.  */
 };
 
 #define JCF_u4 unsigned long
@@ -1295,6 +1327,8 @@ extern char *print_int_node (tree);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
+extern struct CPool *cpool_for_class (tree);
+extern int find_class_or_string_constant (struct CPool *, int, tree);
 
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl_function_level (tree);
@@ -1407,6 +1441,7 @@ extern tree builtin_function (const char *, tree, int, enum built_in_class,
 
 extern void java_read_sourcefilenames (const char *fsource_filename);
 
+extern void rewrite_reflection_indexes (void *);
 
 #define DECL_FINAL(DECL) DECL_LANG_FLAG_3 (DECL)
 

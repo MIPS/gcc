@@ -28,12 +28,12 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "zipfile.h"
 
-static int get_attribute (JCF *);
+static int get_attribute (JCF *, int, jv_attr_type);
 static int jcf_parse_preamble (JCF *);
 static int jcf_parse_constant_pool (JCF *);
 static void jcf_parse_class (JCF *);
 static int jcf_parse_fields (JCF *);
-static int jcf_parse_one_method (JCF *);
+static int jcf_parse_one_method (JCF *, int);
 static int jcf_parse_methods (JCF *);
 static int jcf_parse_final_attributes (JCF *);
 #ifdef NEED_PEEK_ATTRIBUTE
@@ -103,7 +103,7 @@ skip_attribute (JCF *jcf, int number_of_attribute)
 #endif
 
 static int
-get_attribute (JCF *jcf)
+get_attribute (JCF *jcf, int index, jv_attr_type attr_type)
 {
   uint16 attribute_name = (JCF_FILL (jcf, 6), JCF_readu2 (jcf));
   uint32 attribute_length = JCF_readu4 (jcf);
@@ -168,7 +168,7 @@ get_attribute (JCF *jcf)
       attributes_count = JCF_readu2 (jcf);
       for (j = 0; j < attributes_count; j++)
 	{
-	  int code = get_attribute (jcf);
+	  int code = get_attribute (jcf, index, JV_METHOD_ATTR);
 	  if (code != 0)
 	    return code;
 	}
@@ -441,7 +441,7 @@ jcf_parse_fields (JCF* jcf)
 #endif
       for (j = 0; j < attribute_count; j++)
 	{
-	  int code = get_attribute (jcf);
+	  int code = get_attribute (jcf, i, JV_FIELD_ATTR);
 	  if (code != 0)
 	    return code;
 	}
@@ -458,7 +458,7 @@ jcf_parse_fields (JCF* jcf)
 /* Read methods. */
 
 static int
-jcf_parse_one_method (JCF* jcf)
+jcf_parse_one_method (JCF* jcf, int index)
 {
   int i;
   uint16 access_flags = (JCF_FILL (jcf, 8), JCF_readu2 (jcf));
@@ -470,7 +470,7 @@ jcf_parse_one_method (JCF* jcf)
 #endif
   for (i = 0; i < attribute_count; i++)
     {
-      int code = get_attribute (jcf);
+      int code = get_attribute (jcf, index, JV_METHOD_ATTR);
       if (code != 0)
 	return code;
     }
@@ -492,7 +492,7 @@ jcf_parse_methods (JCF* jcf)
 #endif
   for (i = 0; i < methods_count; i++)
     {
-      int code = jcf_parse_one_method (jcf);
+      int code = jcf_parse_one_method (jcf, i);
       if (code != 0)
 	return code;
     }
@@ -513,7 +513,7 @@ jcf_parse_final_attributes (JCF *jcf)
 #endif
   for (i = 0; i < attributes_count; i++)
     {
-      int code = get_attribute (jcf);
+      int code = get_attribute (jcf, i, JV_CLASS_ATTR);
       if (code != 0)
 	return code;
     }
