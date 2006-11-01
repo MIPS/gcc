@@ -17023,7 +17023,6 @@ rs6000_issue_rate (void)
   case CPU_POWER4:
   case CPU_POWER5:
   case CPU_POWER6:
-  case CPU_POWER6X:
     return 5;
   default:
     return 1;

@@ -1,3 +1,10 @@
+2006-11-01  Peter Bergner <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: (RS/6000 and PowerPC Options): Typo: change -mfpgpr
+	to -mmfpgpr.
+	* config/rs6000/rs6000.md (define_attr "cpu"): Remove power6x.
+	* config/rs6000/rs6000.c (rs6000_issue_rate): Remove CPU_POWER6X.
+
 2006-10-25  Peter Bergner <bergner@vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (movdd, movtd): Moved from here ...

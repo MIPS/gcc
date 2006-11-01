@@ -10915,7 +10915,7 @@ architecture.
 The @option{-mfprnd} option allows GCC to generate the FP round to
 integer instructions implemented on the POWER5+ processor and other
 processors that support the PowerPC V2.03 architecture.
-The @option{-mfpgpr} option allows GCC to generate the FP move to/from
+The @option{-mmfpgpr} option allows GCC to generate the FP move to/from
 general purpose register instructions implemented on the POWER6X
 processor and other processors that support the extended PowerPC V2.05
 architecture.
