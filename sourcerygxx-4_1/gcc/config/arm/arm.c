@@ -11885,7 +11885,7 @@ arm_save_coproc_regs(void)
   unsigned start_reg;
   rtx insn;
 
-  for (reg = FIRST_IWMMXT_REGNUM; reg <= LAST_IWMMXT_REGNUM; reg++)
+  for (reg = LAST_IWMMXT_REGNUM; reg >= FIRST_IWMMXT_REGNUM; reg--)
     if (regs_ever_live[reg] && ! call_used_regs [reg])
       {
 	insn = gen_rtx_PRE_DEC (V2SImode, stack_pointer_rtx);
