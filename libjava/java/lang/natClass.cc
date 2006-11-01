@@ -1181,6 +1181,7 @@ parseAnnotationElement(jclass klass, _Jv_Constants *pool,
 	if (! anno_class)
 	  // FIXME: original exception...
 	  throw new TypeNotPresentException(u_name->toString(), NULL);
+	result = anno_class;
       }
       break;
     case '@':
