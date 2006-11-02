@@ -1,6 +1,12 @@
 2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68020-*-elf*, m68k-*-elf*): Add m68k/t-m68kbare to
+	tmake_file.
+	* config/m68k/t-m68kelf: Remove pieces common to t-m68kbare.
+	* config/t-slibgcc-elf-ver: Remove. It is unused.
+
+	gcc/
 	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*,
 	m68k-*-elf*, m68010-*-netbsdelf*, m68k*-*-netbsdelf*,
 	m68k*-*-openbsd*, m68k-*-linux*, m68k-*-rtems*, m68k-*-uclinux*):
