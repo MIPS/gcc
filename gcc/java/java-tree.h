@@ -901,6 +901,7 @@ union lang_tree_node
 /* True if NODE is a final field. */
 #define FINAL_VARIABLE_P(NODE) (FIELD_FINAL (NODE) && !FIELD_STATIC (NODE))
 /* True if NODE is a class final field. */
+#define FIELD_ENUM(DECL)	    (DECL_LANG_SPECIFIC (DECL)->u.v.field_enum)
 #define CLASS_FINAL_VARIABLE_P(NODE) \
   (FIELD_FINAL (NODE) && FIELD_STATIC (NODE))
 /* True if NODE is a class initialization flag. This macro accesses
@@ -1052,6 +1053,7 @@ struct lang_decl_var GTY(())
   unsigned int local_slot : 1;	/* Decl is a temporary in the stack frame.  */
   unsigned int class_field : 1; /* Decl needs mangle_class_field.  */
   unsigned int vtable : 1;	/* Decl needs mangle_vtable.  */
+  unsigned int field_enum:1;	/* Field is an enum.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1095,6 +1097,7 @@ struct lang_decl GTY(())
 #define TYPE_PRIVATE_INNER_CLASS(T) (TYPE_LANG_SPECIFIC (T)->pic)
 #define TYPE_PROTECTED_INNER_CLASS(T) (TYPE_LANG_SPECIFIC (T)->poic)
 #define TYPE_STRICTFP(T) (TYPE_LANG_SPECIFIC (T)->strictfp)
+#define TYPE_ENUM(T) 		(TYPE_LANG_SPECIFIC (T)->enum_class)
 #define TYPE_USES_ASSERTIONS(T) (TYPE_LANG_SPECIFIC (T)->assertions)
 
 #define TYPE_ATABLE_METHODS(T)   (TYPE_LANG_SPECIFIC (T)->atable_methods)
@@ -1182,6 +1185,7 @@ struct lang_type GTY(())
   unsigned strictfp:1;		/* `strictfp' class.  */
   unsigned assertions:1;	/* Any method uses `assert'.  */
   unsigned dummy_class:1;	/* Not a real class, just a placeholder.  */
+  unsigned enum_class:1;	/* Class is an enum type.  */
 };
 
 #define JCF_u4 unsigned long
@@ -1503,6 +1507,7 @@ extern void rewrite_reflection_indexes (void *);
 #define CLASS_PRIVATE(DECL)	(TYPE_PRIVATE_INNER_CLASS (TREE_TYPE (DECL)))
 #define CLASS_PROTECTED(DECL)	(TYPE_PROTECTED_INNER_CLASS (TREE_TYPE (DECL)))
 #define CLASS_STRICTFP(DECL)	(TYPE_STRICTFP (TREE_TYPE (DECL)))
+#define CLASS_ENUM(DECL)	(TYPE_ENUM (TREE_TYPE (DECL)))
 #define CLASS_USES_ASSERTIONS(DECL) (TYPE_USES_ASSERTIONS (TREE_TYPE (DECL)))
 
 /* @deprecated marker flag on methods, fields and classes */

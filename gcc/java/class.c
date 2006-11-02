@@ -498,6 +498,7 @@ set_class_decl_access_flags (int access_flags, tree class_decl)
   if (access_flags & ACC_PRIVATE)   CLASS_PRIVATE (class_decl) = 1;
   if (access_flags & ACC_PROTECTED) CLASS_PROTECTED (class_decl) = 1;
   if (access_flags & ACC_STRICT)    CLASS_STRICTFP (class_decl) = 1;
+  if (access_flags & ACC_ENUM)      CLASS_ENUM (class_decl) = 1;
 }
 
 /* Return length of inheritance chain of CLAS, where java.lang.Object is 0,
@@ -781,6 +782,7 @@ add_field (tree class, tree name, tree field_type, int flags)
   TREE_CHAIN (field) = TYPE_FIELDS (class);
   TYPE_FIELDS (class) = field;
   DECL_CONTEXT (field) = class;
+  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (field);
 
   if (flags & ACC_PUBLIC) FIELD_PUBLIC (field) = 1;
   if (flags & ACC_PROTECTED) FIELD_PROTECTED (field) = 1;
@@ -788,6 +790,7 @@ add_field (tree class, tree name, tree field_type, int flags)
   if (flags & ACC_FINAL) FIELD_FINAL (field) = 1;
   if (flags & ACC_VOLATILE) FIELD_VOLATILE (field) = 1;
   if (flags & ACC_TRANSIENT) FIELD_TRANSIENT (field) = 1;
+  if (flags & ACC_ENUM) FIELD_ENUM (field) = 1;
   if (is_static)
     {
       FIELD_STATIC (field) = 1;
@@ -1215,6 +1218,8 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_VOLATILE;
       if (FIELD_TRANSIENT (decl))
 	access_flags |= ACC_TRANSIENT;
+      if (FIELD_ENUM (decl))
+	access_flags |= ACC_ENUM;
       return access_flags;
     }
   if (TREE_CODE (decl) == TYPE_DECL)
@@ -1237,6 +1242,8 @@ get_access_flags_from_decl (tree decl)
 	access_flags |= ACC_PROTECTED;
       if (CLASS_STRICTFP (decl))
 	access_flags |= ACC_STRICT;
+      if (CLASS_ENUM (decl))
+	access_flags |= ACC_ENUM;
       return access_flags;
     }
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -2088,7 +2095,7 @@ make_class_data (tree type)
       DECL_ARTIFICIAL (array) = 1;
       DECL_IGNORED_P (array) = 1;
       TREE_READONLY (array) = 1;
-      TREE_CONSTANT (array) = 1;
+      TREE_CONSTANT (DECL_INITIAL (array)) = 1;
       rest_of_decl_compilation (array, 1, 0);
       
       PUSH_FIELD_VALUE (cons, "reflection_data", build_address_of (array));

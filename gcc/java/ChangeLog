@@ -1,3 +1,15 @@
+2006-11-02  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (FIELD_ENUM): New.
+	(lang_decl_var.field_enum): New.
+	(lang_type.enum_class): New.
+	(CLASS_ENUM): New.
+	* class.c (set_class_decl_access_flags): Handle enum types.
+	(add_field): Handle enum fields.
+	(get_access_flags_from_decl): Likewise.
+
+	* class.c (make_class_data): Put reflection_data into rodata.
+
 2006-11-01  Andrew Haley  <aph@redhat.com>
 
 	* jcf-parse.c (field_offsets, bit_obstack): New variables.
