@@ -47,10 +47,6 @@ Boston, MA 02110-1301, USA.  */
 #define TARGET_DEFAULT 0
 #endif
 
-#ifndef ASM_CPU_DEFAULT_SPEC
-#define ASM_CPU_DEFAULT_SPEC ""
-#endif
-
 
 /* Pass flags to gas indicating which type of processor we have.  This
    can be simplified when we can rely on the assembler supporting .cpu
@@ -62,10 +58,6 @@ Boston, MA 02110-1301, USA.  */
 %{m68040}%{m68020-40:-m68040}%{m68020-60:-m68040}\
 %{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
 %{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
-%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
-%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
-%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
-%{!mcpu=*:%{!march=*:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}}}} \
 "
 
 /* SUBTARGET_ASM_SPEC is always passed to the assembler.  It may be
@@ -89,7 +81,6 @@ Boston, MA 02110-1301, USA.  */
    Do not define this macro if it does not need to do anything.  */
 
 #define EXTRA_SPECS					\
-  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
   { "asm_cpu_spec",	ASM_CPU_SPEC },			\
   { "subtarget_asm_spec", SUBTARGET_ASM_SPEC }		\
 

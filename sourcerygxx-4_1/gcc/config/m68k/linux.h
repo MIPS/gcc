@@ -22,12 +22,6 @@ Boston, MA 02110-1301, USA.  */
 
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
-/* Default to m68040.  */
-#ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_m68040
-#define ASM_CPU_DEFAULT_SPEC "-mcpu=68040"
-#endif
-
 /* ASM_SPEC is set in m68k.h, so we have to set SUBTARGET_ASM_SPEC to
    the svr4.h options.  We have to undef ASM_SPEC here, so that m68k.h
    does not complain.  */

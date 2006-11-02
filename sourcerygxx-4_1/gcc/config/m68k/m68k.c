@@ -266,6 +266,7 @@ const char *m68k_symbolic_jump;
 #define FL_ISA_APLUS (1 << 15)
 #define FL_ISA_B     (1 << 16)
 #define FL_ISA_C     (1 << 17)
+#define FL_MMU 	     0   /* Used by multilib machinery.  */
 
 /* Base flags for 68k ISAs.  */
 #define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
@@ -541,23 +542,8 @@ override_options (void)
 	}
     }
 
-  if (flags == 0)
-    {
-      unsigned int defaultcpu = TARGET_CPU_DEFAULT;
-
-      if (defaultcpu == TARGET_CPU_invalid)
-	{
-#ifdef SUBTARGET_CPU_DEFAULT
-          defaultcpu = SUBTARGET_CPU_DEFAULT;
-#endif
-	  if (defaultcpu == TARGET_CPU_invalid)
-	    defaultcpu = m68020;
-	}
-      current_cpu = &all_cores[defaultcpu];
-      flags = all_cores[defaultcpu].flags;
-      uarch = all_cores[defaultcpu].microarch;
-      target_cpu = all_cores[defaultcpu].core;
-    }
+  /* We should always have an explicit CPU setting.  */
+  gcc_assert (flags);
 
   /* Override tuning. This should never alter the ISA used.  */
   if (tuning != -1)

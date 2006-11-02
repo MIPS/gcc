@@ -12,12 +12,10 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 	echo '#define EXTFLOAT' > xfgnulib.c
 	cat $(srcdir)/config/m68k/fpgnulib.c >> xfgnulib.c
 
-MULTILIB_OPTIONS = mcpu=68000/mcpu=68020/mcpu=5206/mcpu=cpu32/mcpu=68040/mcpu=68060 mhard-float/msoft-float
-MULTILIB_DIRNAMES = m68000 m68020 m5206 mcpu32 m68040 m68060 hardfp softfp
-MULTILIB_EXCEPTIONS = mcpu=68000/msoft-float mcpu=5206/mhard-float \
-		      mcpu=5200/msoft-float mcpu=cpu32/mhard-float \
-		      mcpu=cpu32/msoft-float mcpu=68040/mhard-float \
-		      mcpu=68060/mhard-float
-
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib
+
+# Add soft float
+M68K_MLIB_DIRNAMES += softfp
+M68K_MLIB_OPTIONS += msoft-float
+

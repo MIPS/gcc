@@ -1,3 +1,40 @@
+2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k-*-aout*, m68k-*-coff*, m68020-*-elf*,
+	m68k-*-elf*, m68010-*-netbsdelf*, m68k*-*-netbsdelf*,
+	m68k*-*-openbsd*, m68k-*-linux*, m68k-*-rtems*, m68k-*-uclinux*):
+	Remove t-mlib-matches from tmake_file.  Add default_m68k_cpu &
+	default_cf_cpu.
+	(m68k-*-*): Process with_arch to select arch family. Set default
+	cpu depending on with_arch.  Remove uclinux & linux coldfire cpu
+	overrides. Append architecture family & t-mlibs make file
+	fragments to tmake_file.
+	* config/m68k/linux.h (TARGET_CPU_DEFAULT, ASM_CPU_DEFAULT_SPEC):
+	Remove.
+	* config/m68k/m68k-none.h: Likewise.
+	* config/m68k/t-m68k: New.
+	* config/m68k/t-cf: New.
+	* config/m68k/m68k-cores.def: Add FL_MMU to MMU systems.
+	* config/m68k/t-mlib-matches: Remove.
+	* config/m68k/t-mlibs: New.
+	* config/m68k/t-m68kelf: Remove MULTILIB settings here.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Add soft float
+	* config/m68k/t-m68kbare: Remove MULTILIB settings here.
+	(M68K_MLIB_DIRNAMES, M68K_MLIB_OPTIONS): Add soft float
+	* config/m68k/t-uclinux: Remove MULTILIB settings here.
+	(M68K_MLIB_CPU): Require no MMU.
+	(M68K_MLIB_OPTIONS, M68K_MLIB_DIRNAMES): Add
+	msep-data/mid-shared-library.
+	(sysroot-suffix.h): New target, moved from t-mlib-matches.
+	* config/m68k/t-linux: Remove MULTILIB settings here.
+	(M68K_MLIB_CPU): Require MMU.
+	* config/m68k/m68k.c (FL_MMU): Define.
+	(override_options): Always default to m68020.
+	* config/m68k/m68k.h (ASM_CPU_DEFAULT_SPEC): Remove.
+	(ASM_CPU_SPEC): Remove asm_cpu_default setting.
+	(EXTRA_SPECS): Likewise.
+
 2006-11-01  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/

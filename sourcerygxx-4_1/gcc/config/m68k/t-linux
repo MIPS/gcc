@@ -12,5 +12,8 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 	echo '#define EXTFLOAT' > xfgnulib.c
 	cat $(srcdir)/config/m68k/fpgnulib.c >> xfgnulib.c
 
+# Only cpus with an mmu
+M68K_MLIB_CPU += && match(FLAGS, "FL_MMU")
+
 # crti and crtn are provided by glibc.
 EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o
