@@ -52,6 +52,12 @@
 #endif
 
 
+/* Define to 1 to enable fixed-point arithmetic extension to C. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_FIXED_POINT
+#endif
+
+
 /* Define if you want fold checked that it never destructs its argument. This
    is quite expensive. */
 #ifndef USED_FOR_TARGET

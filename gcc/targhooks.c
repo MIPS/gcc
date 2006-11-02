@@ -295,6 +295,14 @@ default_decimal_float_supported_p (void)
   return ENABLE_DECIMAL_FLOAT;
 }
 
+/* True if the target supports fixed-point arithmetic.  */
+
+bool
+default_fixed_point_supported_p (void)
+{
+  return ENABLE_FIXED_POINT;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
   

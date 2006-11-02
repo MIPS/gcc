@@ -1,3 +1,16 @@
+2006-11-01  Chao-ying Fu  <fu@mips.com>
+
+	* configure.ac (--enable-fixed-point): New to enable fixed-point
+	arithmetic extension to C.
+	* configure, config.in: Regenerate.
+	* targhooks.h (default_fixed_point_supported_p): Declare.
+	* targhooks.c (default_fixed_point_supported_p): Define.
+	* target-def.h (TARGET_FIXED_POINT_SUPPORTED_P): New.
+	(TARGET_INITIALIZER): Add TARGET_FIXED_POINT_SUPPORTED_P.
+	* target.h (gcc_target): Add fixed_point_supported_p.
+	* doc/install.texi (Configuration): Add --enable-fixed-point.
+	* doc/tm.texi (TARGET_FIXED_POINT_SUPPORTED_P): Add.
+
 2006-10-30  Dirk Mueller  <dmueller@suse.de>
 
 	* c-common.h (strict_aliasing_warning): Fix whitespace.
