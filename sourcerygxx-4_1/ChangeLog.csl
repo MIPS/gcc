@@ -1,3 +1,12 @@
+2006-11-02  Vladimir Prus  <vladimir@codesourcery.com>
+
+	Backport from mainline:
+	2006-11-01  Chris Johns <chris@contemporary.net.au>
+	
+	PR bootstrap/28400
+	* Makefile.in (install-driver): Use exeext when installing
+	$target-gcc-$version.
+
 2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
