@@ -1770,7 +1770,7 @@ typedef struct
   (CUM).nargs += 1;					\
   if (arm_vector_mode_supported_p (MODE)	       	\
       && (CUM).named_count > (CUM).nargs		\
-      && TARGET_IWMMXT)					\
+      && TARGET_IWMMXT_ABI)				\
     (CUM).iwmmxt_nregs += 1;				\
   else							\
     (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)
