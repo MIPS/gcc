@@ -1,3 +1,9 @@
+2006-11-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ada/ada-tree.h (lang_tree_node): Handle gimple tuples.
+	* ada/trans.c (gnat_gimplify_expr): Replace MODIFY_EXPR with
+	GIMPLE_MODIFY_STMT.
+
 2006-11-01  Aldy Hernandez  <aldyh@redhat.com>
 
 	* Merge from mainline at revision 118200.
