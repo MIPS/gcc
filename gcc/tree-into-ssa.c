@@ -228,6 +228,14 @@ struct ssa_name_info
      try to use it outside that function, as its contents are only
      valid within that context.  */
   bitmap reached_syms;
+
+  /* Factored symbols.  This is the set of symbols that are stored by
+     the name's original definition statement.  This is used when
+     handling SSA name mappings for .MEM.  When an SSA name O is being
+     replaced, the definition statement for O may have been removed,
+     so when the replacement mapping for O is initially created, we
+     cache the factored symbols in add_new_name_mapping.  */
+  bitmap factored_syms;
 };
 
 /* The information associated with names.  */
@@ -373,6 +381,7 @@ get_ssa_name_ann (tree name)
       info->current_def = NULL_TREE;
       info->age = current_info_for_ssa_name_age;
       info->reached_syms = NULL;
+      info->factored_syms = NULL;
     }
 
   return info;
@@ -703,6 +712,20 @@ repl_map_eq (const void *p1, const void *p2)
 static void
 repl_map_free (void *p)
 {
+  unsigned i;
+  bitmap_iterator bi;
+  struct repl_map_d *m = (struct repl_map_d *) p;
+
+  EXECUTE_IF_SET_IN_BITMAP (m->set, 0, i, bi)
+    {
+      tree n = ssa_name (i);
+      if (SSA_NAME_VAR (n) == mem_var)
+	{
+	  ssa_name_info_p ann = get_ssa_name_ann (n);
+	  BITMAP_FREE (ann->factored_syms);
+	}
+    }
+
   BITMAP_FREE (((struct repl_map_d *)p)->set);
   free (p);
 }
@@ -823,19 +846,35 @@ add_new_name_mapping (tree new, tree old)
 	}
       else
 	{
-	  bitmap s;
+	  mem_syms_map_t oldsyms, newsyms;
+	  bitmap vs;
 
-	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (old))->loads;
-	  if (s)
-	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
+	  vs = update_ssa_stats.virtual_symbols;
+	  oldsyms = get_loads_and_stores (SSA_NAME_DEF_STMT (old));
+	  newsyms = get_loads_and_stores (SSA_NAME_DEF_STMT (new));
 
-	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (old))->stores;
-	  if (s)
-	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
+	  if (oldsyms->loads)
+	    bitmap_ior_into (vs, oldsyms->loads);
 
-	  s = get_loads_and_stores (SSA_NAME_DEF_STMT (new))->stores;
-	  if (s)
-	    bitmap_ior_into (update_ssa_stats.virtual_symbols, s);
+	  if (oldsyms->stores)
+	    {
+	      ssa_name_info_p old_ann;
+
+	      bitmap_ior_into (vs, oldsyms->stores);
+
+	      /* Collect the symbols factored in OLD's defining
+		 statement to prevent losing them when/if the
+		 statement is removed.  */
+	      old_ann = get_ssa_name_ann (old);
+	      if (old_ann->factored_syms == NULL)
+		{
+		  old_ann->factored_syms = BITMAP_ALLOC (NULL);
+		  bitmap_ior_into (old_ann->factored_syms, oldsyms->stores);
+		}
+	    }
+
+	  if (newsyms->stores)
+	    bitmap_ior_into (vs, newsyms->stores);
 	}
     }
 
@@ -1342,7 +1381,10 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 
 	  gcc_assert (update_p);
 	  if (SSA_NAME_VAR (var) == mem_var)
-	    phi = create_factored_phi_node (var, bb, NULL);
+	    {
+	      ssa_name_info_p ann = get_ssa_name_ann (var);
+	      phi = create_factored_phi_node (var, bb, ann->factored_syms);
+	    }
 	  else
 	    phi = create_phi_node (var, bb);
 
@@ -1392,12 +1434,17 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	      tree sym = referenced_var_lookup (bitmap_first_set_bit (syms));
 	      phi = create_phi_node (sym, bb);
 	    }
-	  else
+	  else if (!bitmap_empty_p (syms))
 	    phi = create_factored_phi_node (mem_var, bb, syms);
 	}
 
-      REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
-      mark_phi_for_rewrite (bb, phi);
+      /* PHI nodes are not always created.  Factored PHI nodes that
+	 would factor an empty set are never created.  */
+      if (phi)
+	{
+	  REGISTER_DEFS_IN_THIS_STMT (phi) = 1;
+	  mark_phi_for_rewrite (bb, phi);
+	}
     }
 
   BITMAP_FREE (pruned_syms);
@@ -2190,43 +2237,6 @@ rewrite_update_fini_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 }
 
 
-/* Replace the operand pointed to by USE_P with RDEF current reaching
-   definition.  */
-
-static void
-replace_use (use_operand_p use_p, tree rdef)
-{
-  tree use = USE_FROM_PTR (use_p);
-  SET_USE (use_p, rdef);
-
-  if (use
-      && TREE_CODE (use) == SSA_NAME
-      && SSA_NAME_VAR (use) == mem_var
-      && is_old_name (use)
-      && SSA_NAME_VAR (rdef) == mem_var
-      && TREE_CODE (SSA_NAME_DEF_STMT (rdef)) == PHI_NODE)
-    {
-      /* If RDEF's definition is a factored memory PHI node P that was
-	 created by SSA name mappings, then when P was created, the
-	 renamer did not know what symbols where going to be factored
-	 by P.  We discover this set as we rename the statements
-	 reached by P. So, at every statement where we replace an old
-	 name, we need to back-fill the set of symbols factored by P
-	 with the set of symbols loaded by USE's statement.  */
-      tree rdef_stmt = SSA_NAME_DEF_STMT (rdef);
-      bitmap rdef_stores = get_loads_and_stores (rdef_stmt)->stores;
-      tree use_stmt = USE_STMT (use_p);
-      mem_syms_map_t use_syms = get_loads_and_stores (use_stmt);
-
-      if (use_syms->loads)
-	bitmap_ior_into (rdef_stores, use_syms->loads);
-
-      if (use_syms->stores)
-	bitmap_ior_into (rdef_stores, use_syms->stores);
-    }
-}
-
-
 /* If the operand pointed to by USE_P is a name in OLD_SSA_NAMES or
    it is a symbol marked for renaming, replace it with USE_P's current
    reaching definition.  */
@@ -2252,7 +2262,7 @@ maybe_replace_use (use_operand_p use_p)
     }
 
   if (rdef && rdef != use)
-    replace_use (use_p, rdef);
+    SET_USE (use_p, rdef);
 }
 
 
@@ -2364,7 +2374,7 @@ rewrite_vops (tree stmt, bitmap rdefs, int which_vops)
       vuses = realloc_vuse (vuses, num_rdefs);
       j = 0;
       EXECUTE_IF_SET_IN_BITMAP (rdefs, 0, i, bi)
-	replace_use (VUSE_OP_PTR (vuses, j++), ssa_name (i));
+	SET_USE (VUSE_OP_PTR (vuses, j++), ssa_name (i));
     }
   else
     {
@@ -2382,7 +2392,7 @@ rewrite_vops (tree stmt, bitmap rdefs, int which_vops)
       vdefs = realloc_vdef (vdefs, num_rdefs);
       j = 0;
       EXECUTE_IF_SET_IN_BITMAP (rdefs, 0, i, bi)
-	replace_use (VDEF_OP_PTR (vdefs, j++), ssa_name (i));
+	SET_USE (VDEF_OP_PTR (vdefs, j++), ssa_name (i));
 
       SET_DEF (VDEF_RESULT_PTR (vdefs), lhs);
     }
@@ -2606,13 +2616,13 @@ rewrite_update_memory_stmt (tree stmt, bool set_currdef_p)
   rdefs = BITMAP_ALLOC (NULL);
 
   /* Rewrite loaded symbols marked for renaming.  */
-  if (syms->loads)
+  if (syms->loads && bitmap_intersect_p (syms->loads, syms_to_rename))
     {
       rewrite_update_stmt_vops (stmt, syms->loads, rdefs, SSA_OP_VUSE);
       bitmap_clear (rdefs);
     }
 
-  if (syms->stores)
+  if (syms->stores && bitmap_intersect_p (syms->stores, syms_to_rename))
     {
       /* Rewrite stored symbols marked for renaming.  */
       rewrite_update_stmt_vops (stmt, syms->stores, rdefs, SSA_OP_VMAYUSE);
@@ -2872,7 +2882,7 @@ split_factored_phi (tree phi, edge e, basic_block bb, bitmap phi_syms,
 
       /* Set the the argument corresponding to edge E.  */
       new_arg_p = PHI_ARG_DEF_PTR_FROM_EDGE (new_phi, e);
-      replace_use (new_arg_p, rdef);
+      SET_USE (new_arg_p, rdef);
 
       /* Set abnormal flags to NEW_PHI and its argument.  */
       if (e->flags & EDGE_ABNORMAL)
@@ -2901,9 +2911,9 @@ split_factored_phi (tree phi, edge e, basic_block bb, bitmap phi_syms,
 	    arg = USE_FROM_PTR (arg_p);
 	    new_arg_p = PHI_ARG_DEF_PTR_FROM_EDGE (new_phi, f);
 	    if (arg != phi_lhs)
-	      replace_use (new_arg_p, USE_FROM_PTR (arg_p));
+	      SET_USE (new_arg_p, USE_FROM_PTR (arg_p));
 	    else
-	      replace_use (new_arg_p, PHI_RESULT (new_phi));
+	      SET_USE (new_arg_p, PHI_RESULT (new_phi));
 	  }
 
       /* The symbols reached by RDEF are now factored in NEW_PHI.
@@ -2947,7 +2957,7 @@ replace_factored_phi_argument (tree phi, edge e, basic_block bb)
       use_operand_p arg_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
       tree arg = USE_FROM_PTR (arg_p);
       if (arg == NULL)
-	replace_use (arg_p, get_default_def_for (mem_var));
+	SET_USE (arg_p, get_default_def_for (mem_var));
 
       return false;
     }
@@ -2996,7 +3006,7 @@ replace_factored_phi_argument (tree phi, edge e, basic_block bb)
 
   /* The argument corresponding to edge E is replaced with the first
      reaching definition we found for PHI_SYMS.  */
-  replace_use (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), first_rdef);
+  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), first_rdef);
   BITMAP_FREE (get_ssa_name_ann (first_rdef)->reached_syms);
 
   /* If we found multiple reaching definitions, we have to split PHI
@@ -3057,7 +3067,7 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	  if (arg && TREE_CODE (arg) == SSA_NAME && is_old_name (arg))
 	    {
 	      /* Process old SSA names first.  */
-	      replace_use (arg_p, get_reaching_def (arg));
+	      SET_USE (arg_p, get_reaching_def (arg));
 	    }
 	  else if (lhs_sym == mem_var)
 	    {
@@ -3085,7 +3095,7 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		arg_sym = SSA_NAME_VAR (arg);
 
 	      if (symbol_marked_for_renaming (arg_sym))
-		replace_use (arg_p, get_reaching_def (arg_sym));
+		SET_USE (arg_p, get_reaching_def (arg_sym));
 	    }
 
 	  if (e->flags & EDGE_ABNORMAL)
@@ -3280,31 +3290,6 @@ init_ssa_renamer (void)
 
   FOR_EACH_REFERENCED_VAR(var, rvi)
     set_current_def (var, NULL_TREE);
-
-  gcc_assert (syms_with_phi_in_bb == NULL);
-  syms_with_phi_in_bb = XCNEWVEC (bitmap, last_basic_block);
-
-  /* Dominance numbers are assigned to memory SSA names and are used
-     whenever factored PHI nodes have been split (see
-     fixup_unfactored_phis).  Dominance numbering starts at 2.
-     Dominance number 1 is reserved for .MEM's default definition.  */
-  last_dom_num = 2;
-
-  /* If there are symbols to rename, identify those symbols that are
-     GIMPLE registers into the set REGS_TO_RENAME and those that are
-     memory symbols into the set MEM_SYMS_TO_RENAME.  */
-  if (syms_to_rename)
-    {
-      unsigned i;
-      bitmap_iterator bi;
-
-      EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
-	if (is_gimple_reg (referenced_var (i)))
-	  bitmap_set_bit (regs_to_rename, i);
-
-      /* Memory symbols are those not in REGS_TO_RENAME.  */
-      bitmap_and_compl (mem_syms_to_rename, syms_to_rename, regs_to_rename);
-    }
 }
 
 
@@ -3435,6 +3420,16 @@ mark_def_interesting (tree var, tree stmt, basic_block bb, bool insert_phi_p)
     {
       bool is_phi_p = TREE_CODE (stmt) == PHI_NODE;
 
+      /* If STMT is a PHI node for a regular memory symbol, and VAR is
+	 .MEM then prevent set_def_block from marking this as an
+	 existing PHI node for .MEM.  Otherwise, the renamer may miss
+	 adding a factored PHI node in some corner cases.  See
+	 prepare_block_for_update for more details.  */
+      if (is_phi_p
+	  && var == mem_var
+	  && SSA_NAME_VAR (PHI_RESULT (stmt)) != mem_var)
+	is_phi_p = false;
+
       set_def_block (var, bb, is_phi_p);
 
       /* If VAR is an SSA name in NEW_SSA_NAMES, this is a definition
@@ -3511,14 +3506,19 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       tree lhs_sym = SSA_NAME_VAR (lhs);
       bitmap stores = NULL;
 
-      /* If this is a factored PHI node and some of the factored
-	 symbols have been promoted to registers, they must be removed
-	 from the set.  */
       if (lhs_sym == mem_var)
 	{
+	  /* If this is a factored PHI node and some of the factored
+	     symbols have been promoted to registers, they must be
+	     removed from the set.  */
 	  stores = get_loads_and_stores (phi)->stores;
 	  bitmap_and_compl_into (stores, regs_to_rename);
-	  
+
+	  /* Add factored symbols to the set of symbols in BB that are
+	     already associated with a PHI node.  This prevents adding
+	     duplicate PHI nodes for these symbols during renaming.  */
+	  add_syms_with_phi (stores, bb->index);
+
 	  if (bitmap_empty_p (stores) || bitmap_singleton_p (stores))
 	    {
 	      /* If we unfactored this PHI node, add it to the list of
@@ -3526,44 +3526,74 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 		 PHI node is not otherwise interesting, so continue to
 		 the next one.  */
 	      get_unfactored_phi (phi);
-	      continue;
 	    }
-	}
-
-      if (lhs_sym == mem_var)
-	{
-	  /* If we didn't turn PHI into a regular memory PHI above,
-	     and symbols in STORES are marked for renaming, mark this
-	     as an interesting site for .MEM.  */
-	  if (bitmap_intersect_p (stores, mem_syms_to_rename))
+	  else if (bitmap_intersect_p (stores, mem_syms_to_rename))
 	    {
-	      add_syms_with_phi (stores, bb->index);
+	      /* If we didn't turn PHI into a regular memory PHI
+		 above, and symbols in STORES are marked for renaming,
+		 mark this as an interesting site for .MEM.  */
 	      mark_use_interesting (mem_var, phi, bb, insert_phi_p);
 	      mark_def_interesting (mem_var, phi, bb, insert_phi_p);
 	    }
 	}
       else if (symbol_marked_for_renaming (lhs_sym))
 	{
-	  mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
-
-	  /* Mark the uses in PHI nodes as interesting.  It would be
-	     more correct to process the arguments of the PHI nodes of
-	     the successor edges of BB at the end of
-	     prepare_block_for_update, however, that turns out to be
-	     significantly more expensive.  Doing it here is
-	     conservatively correct -- it may only cause us to believe
-	     a value to be live in a block that also contains its
-	     definition, and thus insert a few more PHI nodes for it.  */
-	  FOR_EACH_EDGE (e, ei, bb->preds)
+	  if (is_gimple_reg (lhs_sym))
 	    {
-	      mark_use_interesting (lhs_sym, phi, e->src, insert_phi_p);
+	      mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
 
-	      if (!is_gimple_reg (lhs_sym))
-		{
-		  add_sym_with_phi (lhs_sym, bb->index);
-		  mark_use_interesting (mem_var, phi, bb, insert_phi_p);
-		  mark_def_interesting (mem_var, phi, bb, insert_phi_p);
-		}
+	      /* Mark the uses in PHI nodes as interesting.  It would
+		 be more accurate to process the arguments of the PHI
+		 nodes of the successor edges of BB at the end of
+		 prepare_block_for_update, however, that turns out to
+		 be significantly more expensive.  Doing it here is
+		 conservatively correct -- it may only cause us to
+		 believe a value to be live in a block that also
+		 contains its definition, and thus insert a few more
+		 PHI nodes for it.  */
+	      FOR_EACH_EDGE (e, ei, bb->preds)
+		mark_use_interesting (lhs_sym, phi, e->src, insert_phi_p);
+	    }
+	  else
+	    {
+	      /* Memory symbols are handled similarly but with two key
+		 differences:
+
+		 1- This PHI node is a definition site for .MEM and
+		    *not* for the symbol LHS_SYM (see the handling of
+		    regular statements below).
+
+		 2- The existence of this PHI node should not, in
+		    principle, block the addition of a .MEM PHI node
+		    in this block.  Suppose that there are three
+		    memory symbols marked for renaming {a, b, c} and
+		    this block only contains a PHI node for 'a'.
+		    
+		    	a_5 = PHI < ... >
+
+		    Since a_5 is considered a definition site for .MEM
+		    (because 'a' is a memory symbol),
+		    mark_def_interesting will add this block to the
+		    set of PHI_BLOCKS for .MEM.  But this will block
+		    the renamer from adding a .MEM PHI node to factor
+		    'b' and 'c'.
+
+		    This is prevented by mark_def_interesting by
+		    noticing that this PHI node is being marked as a
+		    definition for .MEM but the LHS is a regular
+		    memory symbol.
+
+		    Duplicate PHI nodes for memory symbols are
+		    detected using the SYMS_WITH_PHI_IN_BB.  */
+	      mark_def_interesting (mem_var, phi, bb, insert_phi_p);
+	      FOR_EACH_EDGE (e, ei, bb->preds)
+		mark_use_interesting (mem_var, phi, e->src, insert_phi_p);
+
+	      /* Add LHS_SYM to the set of symbols in BB that are
+		 already associated with a PHI node.  This prevents
+		 adding duplicate PHI nodes for these symbols during
+		 renaming.  */
+	      add_sym_with_phi (lhs_sym, bb->index);
 	    }
 	}
     }
@@ -4233,6 +4263,9 @@ insert_updated_phi_nodes_for (tree var, bitmap *dfs, bitmap blocks,
 static bool
 switch_virtuals_to_full_rewrite_p (void)
 {
+  if (update_ssa_stats.num_virtual_mappings > 0)
+    return true;
+
   if (update_ssa_stats.num_virtual_mappings < (unsigned) MIN_VIRTUAL_MAPPINGS)
     return false;
 
@@ -4346,7 +4379,7 @@ replace_stale_ssa_names (void)
 	    {
 	      use_operand_p use_p;
 	      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-		replace_use (use_p, new_name);
+		SET_USE (use_p, new_name);
 	    }
 	}
     }
@@ -4381,7 +4414,7 @@ replace_stale_ssa_names (void)
 	    use_operand_p use_p;
 
 	    FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-	      replace_use (use_p, new_name);
+	      SET_USE (use_p, new_name);
 	  }
 
 	release_ssa_name_after_update_ssa (old_name);
@@ -4587,7 +4620,7 @@ fixup_unfactored_phis (void)
 	      if (sym == mem_var)
 		split_p |= replace_factored_phi_argument (phi, e, e->dest);
 	      else if (symbol_marked_for_renaming (sym))
-		replace_use (arg_p, get_reaching_def (sym));
+		SET_USE (arg_p, get_reaching_def (sym));
 
 	      /* Set abnormal flags for ARG.  */
 	      if (e->flags & EDGE_ABNORMAL)
@@ -4809,9 +4842,6 @@ update_ssa (unsigned update_flags)
 
   timevar_push (TV_TREE_SSA_INCREMENTAL);
 
-  /* Initialize internal data needed by the renamer.  */
-  init_ssa_renamer ();
-
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
   if (!phis_to_rewrite)
     phis_to_rewrite = VEC_alloc (tree_vec, heap, last_basic_block);
@@ -4859,6 +4889,31 @@ update_ssa (unsigned update_flags)
      mappings include lots of virtual names.  */
   if (insert_phi_p && switch_virtuals_to_full_rewrite_p ())
     switch_virtuals_to_full_rewrite ();
+
+  gcc_assert (syms_with_phi_in_bb == NULL);
+  syms_with_phi_in_bb = XCNEWVEC (bitmap, last_basic_block);
+
+  /* Dominance numbers are assigned to memory SSA names and are used
+     whenever factored PHI nodes have been split (see
+     fixup_unfactored_phis).  Dominance numbering starts at 2.
+     Dominance number 1 is reserved for .MEM's default definition.  */
+  last_dom_num = 2;
+
+  /* If there are symbols to rename, identify those symbols that are
+     GIMPLE registers into the set REGS_TO_RENAME and those that are
+     memory symbols into the set MEM_SYMS_TO_RENAME.  */
+  if (!bitmap_empty_p (syms_to_rename))
+    {
+      unsigned i;
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
+	if (is_gimple_reg (referenced_var (i)))
+	  bitmap_set_bit (regs_to_rename, i);
+
+      /* Memory symbols are those not in REGS_TO_RENAME.  */
+      bitmap_and_compl (mem_syms_to_rename, syms_to_rename, regs_to_rename);
+    }
 
   /* If there are names defined in the replacement table, prepare
      definition and use sites for all the names in NEW_SSA_NAMES and

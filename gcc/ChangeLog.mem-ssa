@@ -1,3 +1,39 @@
+2006-11-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (struct ssa_name_info): Add field 'factored_syms'.
+	(get_ssa_name_ann): Initialize it.
+	(repl_map_free): Free it.
+	(add_new_name_mapping): Collect stored memory symbols from
+	OLD's definition statement and add them to 'factored_syms' in
+	OLD's annotation.
+	(insert_phi_nodes_for): Initialize set of symbols for factored
+	PHI nodes using the factored symbols stored in VAR's
+	annotation.
+	Do not create PHI nodes with empty factored sets.
+	(replace_use): Remove.
+	Update every caller to use SET_USE instead.
+	(rewrite_update_memory_stmt): Only rewrite virtual operands
+	that affect symbols marked for renaming.
+	(init_ssa_renamer): Move initialization of
+	syms_with_phi_in_bb, last_dom_num, regs_to_rename and
+	mem_syms_to_rename ...
+	(update_ssa): ... here.
+	Do not call init_ssa_renamer.
+	(mark_def_interesting): Prevent PHI nodes for memory symbols
+	to mark the holding block as a PHI block form .MEM.
+	(prepare_block_for_update): Fix logic for adding symbols to
+	syms_with_phi_in_bb.
+	When processing PHI nodes for regular symbols, consider the
+	PHI node as an interesting site for .MEM, not for the symbol.
+	(switch_virtuals_to_full_rewrite_p): Always force rewriting
+	memory symbols from scratch.
+	* tree-phinodes.c (create_factored_phi_node): Assert that the
+	set of factored symbols is not empty.
+	* tree-ssa.c (verify_phi_args): Add argument
+	PHI_FACTORED_SYMS.  Update callers.
+	Check that no factored PHI factors symbols that already have
+	other PHIs in the block.
+
 2006-10-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (insert_phi_nodes_for): PHI nodes for

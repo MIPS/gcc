@@ -300,10 +300,14 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
       version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
       it means that the block in that array slot contains the
-      definition of SSA_NAME.  */
+      definition of SSA_NAME.
+
+   PHI_FACTORED_SYMS is the set of symbols factored by previous PHI
+      nodes in BB.  */
 
 static bool
-verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
+verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
+                 bitmap phi_factored_syms)
 {
   edge e;
   bool err = false;
@@ -353,6 +357,23 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	  error ("Found factored PHI node associated to only one symbol");
 	  err = true;
 	}
+
+      if (bitmap_intersect_p (syms_phi->stores, phi_factored_syms))
+	{
+	  bitmap set = BITMAP_ALLOC (NULL);
+	  bitmap_and (set, syms_phi->stores, phi_factored_syms);
+	  error ("Found more than one memory PHI node associated to the "
+	         "same symbol(s)");
+	  fprintf (stderr, "Symbols: ");
+	  dump_decl_set (stderr, set);
+	  BITMAP_FREE (set);
+	  err = true;
+	}
+
+      /* If this is a factored PHI node, collect the factored symbols
+	 to check if they are factored multiple times.  */
+      if (SSA_NAME_VAR (lhs) == mem_var)
+	bitmap_ior_into (phi_factored_syms, syms_phi->stores);
 
       if (err)
 	goto error;
@@ -810,6 +831,7 @@ verify_ssa (bool check_modified_stmt)
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
+  bitmap phi_factored_syms = BITMAP_ALLOC (NULL);
 
   gcc_assert (!need_ssa_update_p ());
 
@@ -862,12 +884,13 @@ verify_ssa (bool check_modified_stmt)
       /* Verify the arguments for every PHI node in the block.  */
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  if (verify_phi_args (phi, bb, definition_block))
+	  if (verify_phi_args (phi, bb, definition_block, phi_factored_syms))
 	    goto err;
 
 	  bitmap_set_bit (names_defined_in_bb,
 			  SSA_NAME_VERSION (PHI_RESULT (phi)));
 	}
+      bitmap_clear (phi_factored_syms);
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -942,6 +965,7 @@ verify_ssa (bool check_modified_stmt)
     dom_computed[CDI_DOMINATORS] = orig_dom_state;
   
   BITMAP_FREE (names_defined_in_bb);
+  BITMAP_FREE (phi_factored_syms);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 
