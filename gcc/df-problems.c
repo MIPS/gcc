@@ -2882,6 +2882,7 @@ df_urec_init (struct dataflow *dflow, bitmap all_blocks)
 
 /* Or in the stack regs, hard regs and early clobber regs into the the
    ur_in sets of all of the blocks.  */
+ 
 
 static void
 df_urec_local_finalize (struct dataflow *dflow, bitmap all_blocks)
@@ -2968,6 +2969,30 @@ df_urec_transfer_function (struct dataflow *dflow, int bb_index)
   return bitmap_ior_and_compl (out, gen, in, kill);
 }
 
+
+/* Get the live regset at the point just before
+   the first insn in the basic block B. 
+
+   df_urec_bb_info:in is the "in" set of the traditional dataflow sense
+   which is the confluence of out sets of all predecessor blocks.
+   The difference from "in" set is from the artificial defs at the top
+   (e.g. exception handling dispatch block, which can have
+   a few registers defined by the runtime) - which is NOT included
+   in the "in" set before this function but is included after.  */
+
+void
+df_urec_get_live_at_top (struct df *df, basic_block b, bitmap top)
+{
+  struct df_ref *ref;
+
+  bitmap_ior_into (top, DF_RA_LIVE_IN (df, b));
+
+  /* artificial_defs at TOP has to be included in "in" set.  */
+  for (ref = df_get_artificial_defs (df, b->index);
+       ref; ref = DF_REF_NEXT_REF (ref))
+    if (DF_REF_FLAGS_IS_SET (ref, DF_REF_AT_TOP))
+      bitmap_set_bit (top, DF_REF_REGNO (ref));
+}
 
 /* Free all storage associated with the problem.  */
 

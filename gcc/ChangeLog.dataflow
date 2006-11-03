@@ -1,3 +1,13 @@
+2006-11-03  Seongbae Park <seongbae.park@gmail.com>
+	* global.c (global_conflicts): Use df_urec_get_live_at_top ()
+	instead of DF_RA_LIVE_IN ().
+	* function.h: Add a declaration for current_function_assembler_name().
+	* function.c (current_function_assembler_name):  New function.
+	(thread_prologue_and_epilogue_insns): Insert rtx_USE when profiling.
+	* df.h (DF_REF_FLAGS_CLEAR): New macro.
+	(df_urec_get_live_at_top): New function declaration.
+	* df-problems.c (df_urec_get_live_at_top): New function.
+
 2006-10-28  Seongbae Park <seongbae.park@gmail.com>
 	* df.h (df_rescan_blocks): Renamed to df_scan_blocks.
 	* df-core.c (df_analyze): Use df_scan_blocks() instead.

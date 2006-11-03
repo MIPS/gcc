@@ -667,9 +667,11 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = DF_RA_LIVE_IN (ra_df, b);
+	regset old = ALLOC_REG_SET (&reg_obstack);
 	int ax = 0;
 	reg_set_iterator rsi;
+
+        df_urec_get_live_at_top (ra_df, b, old);
 
 	REG_SET_TO_HARD_REG_SET (hard_regs_live, old);
 	EXECUTE_IF_SET_IN_REG_SET (old, FIRST_PSEUDO_REGISTER, i, rsi)
@@ -683,6 +685,8 @@ global_conflicts (void)
 	    else if ((a = reg_renumber[i]) >= 0)
 	      mark_reg_live_nc (a, PSEUDO_REGNO_MODE (i));
 	  }
+
+        FREE_REG_SET (old);
 
 	/* Record that each allocno now live conflicts with each hard reg
 	   now live.

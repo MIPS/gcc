@@ -480,6 +480,7 @@ struct df
 #define DF_REF_FLAGS(REF) ((REF)->flags)
 #define DF_REF_FLAGS_IS_SET(REF, v) ((DF_REF_FLAGS(REF) & (v)) != 0)
 #define DF_REF_FLAGS_SET(REF, v) (DF_REF_FLAGS(REF) |= (v))
+#define DF_REF_FLAGS_CLEAR(REF, v) (DF_REF_FLAGS(REF) &= ~(v))
 #define DF_REF_NEXT_REG(REF) ((REF)->next_reg)
 #define DF_REF_PREV_REG(REF) ((REF)->prev_reg)
 #define DF_REF_NEXT_REF(REF) ((REF)->next_ref)
@@ -648,7 +649,8 @@ struct df_urec_bb_info
   bitmap gen;
 
   /* The results of the dataflow problem.  */
-  bitmap in;    /* At the top of the block.  */
+  bitmap in;    /* At the top of the block. 
+                   See df_urec_local_finalize for caveat.  */
   bitmap out;   /* At the bottom of the block.  */
 };
 
@@ -734,6 +736,8 @@ extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned 
 extern struct dataflow *df_chain_add_problem (struct df *);
 extern struct dataflow *df_ri_add_problem (struct df *);
 extern bitmap df_ri_get_setjmp_crosses (struct df *);
+
+extern void df_urec_get_live_at_top (struct df *, basic_block, bitmap);
 
 /* Functions defined in df-scan.c.  */
 
