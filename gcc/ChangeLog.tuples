@@ -1,3 +1,25 @@
+2006-11-03  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gimplify.c (gimplify_omp_for): Allow gimple statements.
+        * tree-outof-ssa.c (check_replaceable): Use PROTECTED_TREE_OPERAND.
+        * fold-const.c (fold_binary): Allow gimple statements.
+        (fold): Same.
+        * fortran/trans-array.c (gfc_conv_descriptor_data_set_internal):
+        Rename from gfc_conv_descriptor_data_set.
+        Call gfc_add_modify instead of gfc_add_modify_expr.
+        * fortran/trans-array.h (gfc_conv_descriptor_data_set_internal):
+        Rename from gfc_conv_descriptor_data_set.
+        (gfc_conv_descriptor_data_set): New macro.
+        (gfc_conv_descriptor_data_set_tuples): New macros.
+        * fortran/trans-openmp.c (gfc_omp_clause_default_ctor): Call
+        gfc_conv_descriptor_data_set_tuples.
+        * fortran/trans.c (gfc_add_modify): Rename from gfc_add_modify_expr.
+        Generate GIMPLE_MODIFY_STMT when appropriate.
+        * fortran/trans.h (gfc_add_modify): Rename from gfc_add_modify_expr.
+        (gfc_add_modify_expr): New macro.
+        (gfc_add_modify_stmt): New macro.
+        * fortran/f95-lang.c (lang_tree_node): Handle gimple statements.
+
 2006-11-02  Aldy Hernandez  <aldyh@redhat.com>
 
 	* ada/ada-tree.h (lang_tree_node): Handle gimple tuples.

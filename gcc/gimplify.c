@@ -4940,8 +4940,9 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false, false);
 
   t = OMP_FOR_INIT (for_stmt);
-  gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-  decl = TREE_OPERAND (t, 0);
+  gcc_assert (TREE_CODE (t) == MODIFY_EXPR
+	      || TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+  decl = PROTECTED_TREE_OPERAND (t, 0);
   gcc_assert (DECL_P (decl));
   gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
 
@@ -4951,16 +4952,18 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+  ret |= gimplify_expr (&PROTECTED_TREE_OPERAND (t, 1),
+			&OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
   tree_to_gimple_tuple (&OMP_FOR_INIT (for_stmt));
 
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
-  gcc_assert (TREE_OPERAND (t, 0) == decl);
+  gcc_assert (PROTECTED_TREE_OPERAND (t, 0) == decl);
 
-  ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
+  ret |= gimplify_expr (&PROTECTED_TREE_OPERAND (t, 1),
+			&OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
 
   tree_to_gimple_tuple (&OMP_FOR_INCR (for_stmt));

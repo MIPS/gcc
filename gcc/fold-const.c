@@ -8433,7 +8433,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
   tree arg0, arg1, tem;
   tree t1 = NULL_TREE;
 
-  gcc_assert (IS_EXPR_CODE_CLASS (kind)
+  gcc_assert ((IS_EXPR_CODE_CLASS (kind)
+	       || IS_GIMPLE_STMT_CODE_CLASS (kind))
 	      && TREE_CODE_LENGTH (code) == 2
 	      && op0 != NULL_TREE
 	      && op1 != NULL_TREE);
@@ -11534,7 +11535,8 @@ fold (tree expr)
   if (kind == tcc_constant)
     return t;
 
-  if (IS_EXPR_CODE_CLASS (kind))
+  if (IS_EXPR_CODE_CLASS (kind)
+      || IS_GIMPLE_STMT_CODE_CLASS (kind))
     {
       tree type = TREE_TYPE (t);
       tree op0, op1, op2;

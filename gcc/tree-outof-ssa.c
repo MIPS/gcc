@@ -1574,7 +1574,8 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
-  if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (stmt, 1))))
+  if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE
+					(PROTECTED_TREE_OPERAND (stmt, 1))))
     return false;
 
   /* Calls to functions with side-effects cannot be replaced.  */
