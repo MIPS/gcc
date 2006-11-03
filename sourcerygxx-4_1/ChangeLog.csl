@@ -1,3 +1,15 @@
+2006-11-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config.gcc (m68k): Add t-floatlib to tmake_file.  Prepend the
+	t-$m68k_arch_family fragment.
+	* config/m68k/fpgnulib.c: Only build extended float when not
+	coldfire.
+	* config/m68k/t-m68kbare: Remove float routine definitions.
+	* config/m68k/t-linux: Likewise.
+	* config/m68k/t-uclinux: Likewise.
+	* config/m68k/t-floatlib: New.
+
 2006-11-02  Vladimir Prus  <vladimir@codesourcery.com>
 
 	Backport from mainline:

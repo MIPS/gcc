@@ -379,6 +379,10 @@ __fixsfsi (float a1)
 
 #else /* EXTFLOAT */
 
+/* We do not need these routines for coldfire, as it has no extended
+   float format. */
+#if !defined (__mcoldfire__)
+
 /* Primitive extended precision floating point support.
 
    We assume all numbers are normalized, don't do any rounding, etc.  */
@@ -587,4 +591,5 @@ __gexf2 (long double x1, long double x2)
   return __cmpdf2 ((double) x1, (double) x2);
 }
 
+#endif /* !__mcoldfire__ */
 #endif /* EXTFLOAT */
