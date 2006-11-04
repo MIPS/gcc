@@ -1,3 +1,13 @@
+2006-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+        * java/java-tree.h (lang_tree_node): Handle gimple tuples.
+        (EXPR_WFL_EMIT_LINE_NOTE): Look inside base.
+        (EXPR_WFL_LINECOL): Use EXPR_LOCUS macro instead of exp.locus.
+        * java/java-gimplify.c (java_gimplify_expr): Comment on why we do
+        not handle GIMPLE_MODIFY_STMT in the switch statement.
+        (java_gimplify_modify_expr): Call build2 with GIMPLE_MODIFY_STMT.
+        (java_gimplify_new_array_init): Same.
+
 2006-11-03  Aldy Hernandez  <aldyh@redhat.com>
 
         * gimplify.c (gimplify_omp_for): Allow gimple statements.
