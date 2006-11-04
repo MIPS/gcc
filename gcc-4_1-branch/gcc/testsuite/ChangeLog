@@ -1,3 +1,57 @@
+2006-11-03  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/29067
+	* gfortran.dg/pr29067.f: New test.
+
+2006-11-02  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc++.dg/tree-ssa/pr27891.c: New test.
+
+2006-11-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp, gcc.dg/arm-vfp1.c: Revert previous
+	patch.
+
+2006-11-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20061101-1.c: New test.
+
+2006-11-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-attr-1.c: Don't test gamma/lgamma.
+	* gcc.dg/torture/builtin-convert-1.c: Don't test lgamma.
+
+2006-10-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/20061031-1.c: New test.
+
+2006-10-31  Joseph Myers  <joseph@codesourcery.com>
+            Richard Sandiford  <richard@codesourcery.com>
+
+	* lib/target-supports.exp (get_compiler_messages): Append options
+	as a single list element.
+	(check_effective_target_arm_vfp_ok): New.
+	* gcc.dg/arm-vfp1.c: Use arm_vfp_ok.
+
+2006-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29637
+	* gcc.dg/pr29637.c: New test.
+
+2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/29563
+	* gfortran.dg/arrayio_9.f90: New test.
+	* gfortran.dg/arrayio_19.f90: New test.
+
+2006-10-26  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20061026.c: New testcase.
+
+2006-10-25  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/pthread-init-2.c: Define _POSIX_C_SOURCE on ia64 HP-UX.
+
 2006-10-25  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.dg/simd-5.c, gcc.dg/simd-6: New testcases.

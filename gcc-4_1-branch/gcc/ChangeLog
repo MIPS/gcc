@@ -1,8 +1,77 @@
+2006-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (sparc-sun-solaris2*): Update GMP/MPFR build
+	instructions.
+	(sparc64-sun-solaris2*): Likewise.
+
+2006-11-02  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27891
+	* tree-ssa-loop-ivopts.c (rewrite_use_outer): Do not insert code
+	on abnormal edge.
+
+2006-11-01  David Edelsohn  <edelsohn@gnu.org>
+	    Ian Lance Taylor  <ian@airs.com>
+
+	PR middle-end/29250
+	* expr.c (expand_expr_real_1) <NON_LVALUE_EXPR, NOP_EXPR,
+	CONVERT_EXPR>: Change EXPAND_SUM modifier to EXPAND_NORMAL when
+	recursing.
+
+2006-11-01  Chris Johns <chris@contemporary.net.au>
+
+	PR bootstrap/28400
+	* Makefile.in (install-driver): Use exeext when installing
+	$target-gcc-$version.
+	
+2006-11-01  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28970
+	* loop.c (loop_giv_reduce_benefit): Take the max of the addition
+	cost on all the increments of the BIV.
+
+2006-11-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.def (gamma, lgamma): Use ATTR_MATHFN_FPROUNDING_STORE.
+
+2006-10-31  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/29631
+	* loop.c (basic_induction_var): Add new parameter inner_mode.
+	<PLUS>: If set, convert the increment to it before sign-extending.
+	<CONST_INT>: Likewise.
+	<SUBREG>: Set it.
+	<ASHIFTRT>: Likewise.  Return 0 if flag_wrapv.
+	(check_insn_for_bivs): Pass VOIDmode as inner_mode to above.
+
+2006-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29637
+	* tree.c (make_vector_type): Don't recurse if TYPE_MAIN_VARIANT
+	of the innertype is the innertype itself.
+
+2006-10-28 Uros Bizjak <uros@kss-loka.si>
+
+	PR target/29377
+	* config/h8300/h8300.c (h8300_emit_stack_adjustment): Change "size"
+	argument to HOST_WIDE_INT.  Update function prototype.
+	(round_frame_size): Change return type to HOST_WIDE_INT.  Change
+	"size" argument to HOST_WIDE_INT.  Update function prototype.
+
+2006-10-26  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_init_frame_layout): Check positive
+	frame_size.
+
+2006-10-25  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/hpux.h: Define _INCLUDE__STDC_A1_SOURCE in C++.
+	Add unix98.o to link line.
+
 2006-10-25  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR c/29092
-
-        * c-typeck.c (digest_init): Always allow initializing vectors
+	* c-typeck.c (digest_init): Always allow initializing vectors
 	that have static storage duration with compound literals.
 	* tree.c (build_type_attribute_qual_variant): New, based on
 	build_type_attribute_variant.
@@ -31,12 +100,12 @@
 
 2006-10-19 Ira Rosen  <irar@il.ibm.com>
 
-        Backport from mainline:
-        2006-08-07  Victor Kaplansky <victork@il.ibm.com>
+	Backport from mainline:
+	2006-08-07  Victor Kaplansky <victork@il.ibm.com>
 
-        PR tree-optimization/26969
-        * tree-vect-analyze.c (vect_analyze_loop_form): Add check of latch
-        with an empty list of PHIs.
+	PR tree-optimization/26969
+	* tree-vect-analyze.c (vect_analyze_loop_form): Add check of latch
+	with an empty list of PHIs.
 
 2006-10-18  Richard Guenther  <rguenther@suse.de>
 
@@ -154,7 +223,7 @@
 	2006-09-15  Jim Wilson  <wilson@specifix.com>
 	2006-09-19  Steve Ellcey  <sje@cup.hp.com>
 	* config/ia64/ia64.c (ia64_legitimate_constant_p): Allow function
-        pointers as legitimate constants.  Handle symbol offsets same as
+	pointers as legitimate constants.  Handle symbol offsets same as
 	they are handled in ia64_expand_move and move_operand.
 
 2006-10-06  Jakub Jelinek  <jakub@redhat.com>
@@ -918,7 +987,7 @@
 	Backport from mainline
 	2006-07-14  Eliot Dresselhaus  <eliot@sonic.net>
 
-        PR target/27287
+	PR target/27287
 	* config/rs6000/spe.md (frob_di_df_2): Add m->r alternative.
 
 	2006-07-06  David Edelsohn  <edelsohn@gnu.org>
@@ -1026,9 +1095,9 @@
 
 2006-07-20  Richard Henderson  <rth@redhat.com>
 
-        PR 27889
-        * tree-nested.c (create_tmp_var_for): Set DECL_COMPLEX_GIMPLE_REG_P
-        if needed.
+	PR 27889
+	* tree-nested.c (create_tmp_var_for): Set DECL_COMPLEX_GIMPLE_REG_P
+	if needed.
 
 2006-07-20  Paul Brook  <paul@codesourcery.com>
 
@@ -1290,11 +1359,11 @@
 
 2006-06-21  Richard Henderson  <rth@redhat.com>
 
-        PR target/26347
-        PR target/27082
-        * config/alpha/predicates.md (small_symbolic_operand): Deny weak
-        symbols.
-        (global_symbolic_operand): Allow weak symbols, even if local_p.
+	PR target/26347
+	PR target/27082
+	* config/alpha/predicates.md (small_symbolic_operand): Deny weak
+	symbols.
+	(global_symbolic_operand): Allow weak symbols, even if local_p.
 
 2006-06-21  Richard Guenther  <rguenther@suse.de>
 
@@ -1362,10 +1431,10 @@
 
 2006-06-13  Paolo Bonzini  <bonzini@gnu.org>
 
-        PR middle-end/27733
-        * expmed.c (struct alg_hash_entry): Fix type of field T
-        to match synth_mult argument.
-        (NUM_ALG_HASH_ENTRIES): Make it bigger for 64-bit HOST_WIDE_INT.
+	PR middle-end/27733
+	* expmed.c (struct alg_hash_entry): Fix type of field T
+	to match synth_mult argument.
+	(NUM_ALG_HASH_ENTRIES): Make it bigger for 64-bit HOST_WIDE_INT.
 
 2006-06-12  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
