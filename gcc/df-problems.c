@@ -1885,11 +1885,11 @@ df_lr_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
       
   fprintf (file, "lr  in  \t");
-  dump_bitmap (file, bb_info->in);
+  df_print_regset (file, bb_info->in);
   fprintf (file, "lr  use \t");
-  dump_bitmap (file, bb_info->use);
+  df_print_regset (file, bb_info->use);
   fprintf (file, "lr  def \t");
-  dump_bitmap (file, bb_info->def);
+  df_print_regset (file, bb_info->def);
 }  
 
 
@@ -1903,7 +1903,7 @@ df_lr_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
   
   fprintf (file, "lr  out \t");
-  dump_bitmap (file, bb_info->out);
+  df_print_regset (file, bb_info->out);
 }  
 
 
@@ -2207,11 +2207,11 @@ df_ur_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
       
   fprintf (file, "ur  in  \t");
-  dump_bitmap (file, bb_info->in);
+  df_print_regset (file, bb_info->in);
   fprintf (file, "ur  gen \t");
-  dump_bitmap (file, bb_info->gen);
+  df_print_regset (file, bb_info->gen);
   fprintf (file, "ur  kill\t");
-  dump_bitmap (file, bb_info->kill);
+  df_print_regset (file, bb_info->kill);
 }
 
 
@@ -2225,7 +2225,7 @@ df_ur_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
       
   fprintf (file, "ur  out \t");
-  dump_bitmap (file, bb_info->out);
+  df_print_regset (file, bb_info->out);
 }
 
 
@@ -2405,7 +2405,7 @@ df_live_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
   
   fprintf (file, "live  in  \t");
-  dump_bitmap (file, bb_info->in);
+  df_print_regset (file, bb_info->in);
 }
 
 
@@ -2419,7 +2419,7 @@ df_live_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
   
   fprintf (file, "live  out  \t");
-  dump_bitmap (file, bb_info->out);
+  df_print_regset (file, bb_info->out);
 }
 
 
@@ -3036,13 +3036,13 @@ df_urec_top_dump (struct dataflow *dflow, basic_block bb, FILE *file)
     return;
       
   fprintf (file, "urec  in  \t");
-  dump_bitmap (file, bb_info->in);
+  df_print_regset (file, bb_info->in);
   fprintf (file, "urec  gen \t");
-  dump_bitmap (file, bb_info->gen);
+  df_print_regset (file, bb_info->gen);
   fprintf (file, "urec  kill\t");
-  dump_bitmap (file, bb_info->kill);
+  df_print_regset (file, bb_info->kill);
   fprintf (file, "urec  ec\t");
-  dump_bitmap (file, bb_info->earlyclobber);
+  df_print_regset (file, bb_info->earlyclobber);
 }
 
 
@@ -3055,7 +3055,7 @@ df_urec_bottom_dump (struct dataflow *dflow, basic_block bb, FILE *file)
   if (!bb_info || !bb_info->out)
     return;
   fprintf (file, "urec  out \t");
-  dump_bitmap (file, bb_info->out);
+  df_print_regset (file, bb_info->out);
 }
 
 
@@ -3565,6 +3565,9 @@ df_ri_alloc (struct dataflow *dflow,
   struct df * df = dflow->df;
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
+
+  if (df->changeable_flags & DF_RI_NO_UPDATE)
+    return;
 
   if (!dflow->problem_data)
     {
@@ -4140,6 +4143,9 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   bitmap setjmp_crosses = NULL;
   struct df_ri_problem_data *problem_data =
     (struct df_ri_problem_data *) dflow->problem_data;
+
+  if (df->changeable_flags & DF_RI_NO_UPDATE)
+    return;
 
   if (df->permanent_flags & DF_RI_LIFE)
     {

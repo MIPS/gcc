@@ -332,7 +332,8 @@ enum df_changeable_flags
   /* Flag to control the running of dce as a side effect of building LR.  */
   DF_LR_RUN_DCE    = 1,  /* Run DCE.  */
   DF_NO_HARD_REGS  = 2,  /* Skip hard registers in RD and CHAIN Building.  */
-  DF_EQ_NOTES      = 4   /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_EQ_NOTES      = 4,  /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_RI_NO_UPDATE  = 8   /* Do not update the register info when df_analyze is run.  */
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -687,6 +688,7 @@ extern bool df_reg_defined (struct df *, rtx, rtx);
 extern struct df_ref *df_find_use (struct df *, rtx, rtx);
 extern bool df_reg_used (struct df *, rtx, rtx);
 extern void df_iterative_dataflow (struct dataflow *, bitmap, bitmap, int *, int, bool);
+extern void df_print_regset (FILE *file, bitmap r);
 extern void df_dump (struct df *, FILE *);
 extern void df_dump_start (struct df *, FILE *);
 extern void df_dump_top (struct df *, basic_block, FILE *);

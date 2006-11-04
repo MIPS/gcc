@@ -1643,7 +1643,14 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 	  
 	  if ((bb = start[INSN_UID (tmp_rtx)]) != NULL)
 	    {
-	      fprintf (outf, ";; Start of basic block %d\n", bb->index);
+	      edge e;
+	      edge_iterator ei;
+	      
+	      fprintf (outf, ";; Start of basic block (");
+	      FOR_EACH_EDGE (e, ei, bb->preds)
+		fprintf (outf, " %d", e->src->index);
+	      fprintf (outf, ") -> %d\n", bb->index);
+
 	      if (df)
 		{
 		  df_dump_top (df, bb, outf);
@@ -1662,7 +1669,14 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
 
 	  if ((bb = end[INSN_UID (tmp_rtx)]) != NULL)
 	    {
-	      fprintf (outf, ";; End of basic block %d\n", bb->index);
+	      edge e;
+	      edge_iterator ei;
+
+	      fprintf (outf, ";; End of basic block %d -> (", bb->index);
+	      FOR_EACH_EDGE (e, ei, bb->succs)
+		fprintf (outf, " %d", e->dest->index);
+	      fprintf (outf, ")\n");
+
 	      if (df)
 		{
 		  df_dump_bottom (df, bb, outf);

@@ -343,21 +343,26 @@ df_scan_start_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUT
   int i;
 
   fprintf (file, "  invalidated by call \t");
-  dump_bitmap (file, df_invalidated_by_call);
+  df_print_regset (file, df_invalidated_by_call);
   fprintf (file, "  hardware regs used \t");
-  dump_bitmap (file, df->hardware_regs_used);
+  df_print_regset (file, df->hardware_regs_used);
   fprintf (file, "  regular block artificial uses \t");
-  dump_bitmap (file, df->regular_block_artificial_uses);
+  df_print_regset (file, df->regular_block_artificial_uses);
   fprintf (file, "  eh block artificial uses \t");
-  dump_bitmap (file, df->eh_block_artificial_uses);
+  df_print_regset (file, df->eh_block_artificial_uses);
   fprintf (file, "  entry block defs \t");
-  dump_bitmap (file, df->entry_block_defs);
+  df_print_regset (file, df->entry_block_defs);
   fprintf (file, "  exit block uses \t");
-  dump_bitmap (file, df->exit_block_uses);
+  df_print_regset (file, df->exit_block_uses);
   fprintf (file, "  regs ever live \t");
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (regs_ever_live[i])
-      fprintf (file, "%d ", i);
+      {
+	fprintf (file, " %d", i);
+	if (i < FIRST_PSEUDO_REGISTER)
+	  fprintf (file, " [%s]", reg_names[i]);
+      }
+
   fprintf (file, "\n");
 }
 

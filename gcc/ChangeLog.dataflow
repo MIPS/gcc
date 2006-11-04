@@ -1,3 +1,19 @@
+2006-11-04  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-scan.c (df_scan_start_dump): Changed print routine to print
+	hard register names.
+	* df-core.c (df_print_regset): New function.
+	* global.c (global_alloc): Do not recompute register infomation
+	when recomputing dataflow.
+	* df.h (DF_RI_NO_UPDATE): New flag.  
+	* df-problems.c (df_lr_top_dump, df_lr_bottom_dump,
+	df_ur_top_dump, df_ur_bottom_dump, df_live_top_dump,
+	df_live_bottom_dump, df_urec_top_dump, df_urec_bottom_dump): 
+	Changed to use df_print_regset.
+	(df_ri_alloc, df_ri_compute): Changed to not update if
+	DF_RI_NO_UPDATE flag.
+	* cfgrtl.c (print_rtl_with_bb): Changed to print preds and
+	successor blocks in dump file.
+	
 2006-11-03  Seongbae Park <seongbae.park@gmail.com>
 	* global.c (global_conflicts): Use df_urec_get_live_at_top ()
 	instead of DF_RA_LIVE_IN ().

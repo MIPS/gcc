@@ -333,6 +333,9 @@ global_alloc (void)
   compact_blocks ();
 
   max_allocno = 0;
+  /* Do not recompute the register info.  Local_alloc has played with
+     this in a way that global expects.  */
+  df_set_flags (ra_df, DF_RI_NO_UPDATE);
   df_analyze (ra_df);
 
   /* A machine may have certain hard registers that
@@ -490,6 +493,18 @@ global_alloc (void)
     if (regs_ever_live[i])
       local_reg_n_refs[i] = 0, local_reg_freq[i] = 0;
 
+  if (dump_file)
+    {
+      for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
+	{
+	  fprintf (dump_file, "%d REG_N_REFS=%d, REG_FREQ=%d, REG_LIVE_LENGTH=%d\n", 
+		   (int)i, REG_N_REFS (i), REG_FREQ (i), REG_LIVE_LENGTH (i));
+	}
+      fprintf (dump_file, "regs_ever_live =");
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	fprintf (dump_file, " %d", (int)i);
+      fprintf (dump_file, "\n");
+    }
   allocno_row_words = (max_allocno + INT_BITS - 1) / INT_BITS;
 
   /* We used to use alloca here, but the size of what it would try to

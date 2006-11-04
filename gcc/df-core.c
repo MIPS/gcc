@@ -1095,6 +1095,31 @@ df_reg_used (struct df *df, rtx insn, rtx reg)
    Debugging and printing functions.
 ----------------------------------------------------------------------------*/
 
+
+/* Write information about registers and basic blocks into FILE.
+   This is part of making a debugging dump.  */
+
+void
+df_print_regset (FILE *file, bitmap r)
+{
+  unsigned int i;
+  bitmap_iterator bi;
+
+  if (r == NULL)
+    fputs (" (nil)", file);
+  else
+    {
+      EXECUTE_IF_SET_IN_BITMAP (r, 0, i, bi)
+	{
+	  fprintf (file, " %d", i);
+	  if (i < FIRST_PSEUDO_REGISTER)
+	    fprintf (file, " [%s]", reg_names[i]);
+	}
+    }
+  fprintf (file, "\n");
+}
+
+
 /* Dump dataflow info.  */
 void
 df_dump (struct df *df, FILE *file)
