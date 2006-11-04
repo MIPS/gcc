@@ -66,7 +66,11 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 /* Nonzero if MODE is a vector mode.  */
 #define VECTOR_MODE_P(MODE)			\
   (GET_MODE_CLASS (MODE) == MODE_VECTOR_INT	\
-   || GET_MODE_CLASS (MODE) == MODE_VECTOR_FLOAT)
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_FLOAT	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_FRACT	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_UFRACT	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_ACCUM	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_UACCUM)
 
 /* Nonzero if MODE is a scalar integral mode.  */
 #define SCALAR_INT_MODE_P(MODE)			\
@@ -82,12 +86,55 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define DECIMAL_FLOAT_MODE_P(MODE)		\
   (GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT)
 
+/* Nonzero if MODE is a fract mode.  */
+#define FRACT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FRACT)
+
+/* Nonzero if MODE is a ufract mode.  */
+#define UFRACT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_UFRACT)
+
+/* Nonzero if MODE is a fract or ufract mode.  */
+#define ALL_FRACT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FRACT || GET_MODE_CLASS (MODE) == MODE_UFRACT)
+
+/* Nonzero if MODE is a accum mode.  */
+#define ACCUM_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_ACCUM)
+
+/* Nonzero if MODE is a uaccum mode.  */
+#define UACCUM_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_UACCUM)
+
+/* Nonzero if MODE is a accum or uaccum mode.  */
+#define ALL_ACCUM_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_ACCUM || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+
+/* Nonzero if MODE is a fract or accum mode.  */
+#define SIGNED_FIXED_POINT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FRACT || GET_MODE_CLASS (MODE) == MODE_ACCUM)
+
+/* Nonzero if MODE is a ufract or uaccum mode.  */
+#define UNSIGNED_FIXED_POINT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_UFRACT || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+
+/* Nonzero if MODE is a fract, ufract, accum or uaccum mode.  */
+#define ALL_FIXED_POINT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FRACT		\
+   || GET_MODE_CLASS (MODE) == MODE_UFRACT	\
+   || GET_MODE_CLASS (MODE) == MODE_ACCUM	\
+   || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+
 /* Nonzero if CLASS modes can be widened.  */
 #define CLASS_HAS_WIDER_MODES_P(CLASS)         \
   (CLASS == MODE_INT                           \
    || CLASS == MODE_FLOAT                      \
    || CLASS == MODE_DECIMAL_FLOAT              \
-   || CLASS == MODE_COMPLEX_FLOAT)
+   || CLASS == MODE_COMPLEX_FLOAT              \
+   || CLASS == MODE_FRACT                      \
+   || CLASS == MODE_UFRACT                     \
+   || CLASS == MODE_ACCUM                      \
+   || CLASS == MODE_UACCUM)
 
 /* Get the size in bytes and bits of an object of mode MODE.  */
 
@@ -98,6 +145,14 @@ extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
 /* Get the number of value bits of an object of mode MODE.  */
 extern const unsigned short mode_precision[NUM_MACHINE_MODES];
 #define GET_MODE_PRECISION(MODE)  mode_precision[MODE]
+
+/* Get the number of integral bits of an object of mode MODE.  */
+extern CONST_MODE_IBIT unsigned char mode_ibit[NUM_MACHINE_MODES];
+#define GET_MODE_IBIT(MODE) mode_ibit[MODE]
+
+/* Get the number of fractional bits of an object of mode MODE.  */
+extern CONST_MODE_FBIT unsigned char mode_fbit[NUM_MACHINE_MODES];
+#define GET_MODE_FBIT(MODE) mode_fbit[MODE]
 
 /* Get a bitmask containing 1 for all bits in a word
    that fit within mode MODE.  */
