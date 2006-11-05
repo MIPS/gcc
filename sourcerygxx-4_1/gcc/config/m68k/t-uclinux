@@ -8,9 +8,6 @@ M68K_MLIB_CPU += && !match(FLAGS, "FL_MMU")
 M68K_MLIB_OPTIONS += msep-data/mid-shared-library
 M68K_MLIB_DIRNAMES += msep-data mid-shared-library
 
-LIBGCC = stmp-multilib
-INSTALL_LIBGCC = install-multilib
-
 # This rule uses MULTILIB_MATCHES to generate a definition of
 # SYSROOT_SUFFIX_SPEC.
 sysroot-suffix.h: $(srcdir)/config/m68k/print-sysroot-suffix.sh

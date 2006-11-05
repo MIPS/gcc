@@ -27,9 +27,7 @@ M68K_MLIB_DEFAULT := $(call M68K_AWK,\
 	MLIB)
 
 ifeq ($(filter m$(M68K_MLIB_DEFAULT),$(M68K_MLIB_CPUS)),)
-all::
-	echo "Error default cpu '$(target_cpu_default)' is not in multilib set '$(M68K_MLIB_CPUS)'" 1>&2
-	exit 1
+$(error Error default cpu '$(target_cpu_default)' is not in multilib set '$(M68K_MLIB_CPUS)')
 endif
 
 MULTILIB_DIRNAMES := $(filter-out m$(M68K_MLIB_DEFAULT),$(M68K_MLIB_CPUS))
@@ -83,3 +81,6 @@ endif
 # Finally remove the default CPU from the explicit exceptions.
 MULTILIB_EXCEPTIONS := \
 	$(patsubst mcpu=$(M68K_MLIB_DEFAULT)/%,%,$(MULTILIB_EXCEPTIONS))
+
+LIBGCC = stmp-multilib
+INSTALL_LIBGCC = install-multilib

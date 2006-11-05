@@ -1,6 +1,3 @@
-LIBGCC = stmp-multilib
-INSTALL_LIBGCC = install-multilib
-
 # Add soft float
 M68K_MLIB_DIRNAMES += softfp
 M68K_MLIB_OPTIONS += msoft-float
