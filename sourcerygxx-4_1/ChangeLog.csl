@@ -1,5 +1,13 @@
 2006-11-05  Joseph Myers  <joseph@codesourcery.com>
 
+	libstdc++-v3/
+	* testsuite/21_strings/basic_string/capacity/wchar_t/18654.cc,
+	testsuite/27_io/basic_stringbuf/overflow/char/1.cc,
+	testsuite/27_io/basic_stringbuf/overflow/wchar_t/1.cc: XFAIL on
+	arm-wrs-linux-gnueabi.
+
+2006-11-05  Joseph Myers  <joseph@codesourcery.com>
+
 	gcc/
 	* config/arm/wrs-linux.h (CC1_SPEC): Disallow option combinations
 	with no multilib built.

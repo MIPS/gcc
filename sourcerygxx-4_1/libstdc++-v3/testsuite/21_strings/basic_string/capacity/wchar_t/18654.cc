@@ -20,6 +20,8 @@
 
 // 21.3.3 string capacity
 
+// { dg-do run { xfail arm-wrs-linux-gnueabi } }
+
 #include <string>
 #include <testsuite_hooks.h>
 
