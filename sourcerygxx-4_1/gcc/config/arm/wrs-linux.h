@@ -26,12 +26,15 @@ Boston, MA 02110-1301, USA.  */
 /* Add a -tiwmmxt option for convenience in generating multilibs.
    This option generates big-endian IWMMXT code.  */
 #undef CC1_SPEC
-#define CC1_SPEC "				\
- %{tarm926ej-s:	-mcpu=arm926ej-s ;		\
-   tiwmmxt:     -mcpu=iwmmxt ;			\
-   tiwmmxt2:    -mcpu=iwmmxt ;			\
-   txscale:     -mcpu=xscale -mbig-endian ;	\
-   tarm920t:    -mcpu=arm920t }			\
+#define CC1_SPEC "							\
+ %{tarm926ej-s:	-mcpu=arm926ej-s ;					\
+   tiwmmxt:     -mcpu=iwmmxt ;						\
+   tiwmmxt2:    -mcpu=iwmmxt ;						\
+   txscale:     -mcpu=xscale -mbig-endian ;				\
+   tarm920t:    -mcpu=arm920t }						\
+ %{muclibc:%{!mglibc:%{mfloat-abi=softfp:%euClibc VFP multilib not provided}}} \
+ %{txscale:%{mfloat-abi=softfp:%eXScale VFP multilib not provided}}	\
+ %{tarm920t:%{mfloat-abi=softfp:%eARM920T VFP multilib not provided}}	\
  %{profile:-p}"
 
 /* Since the ARM926EJ-S is the default processor, we do not need to
