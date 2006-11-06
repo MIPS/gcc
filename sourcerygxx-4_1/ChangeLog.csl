@@ -1,6 +1,10 @@
 2006-11-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/
+	* lib/dg-pch.exp (dg-pch): Don't expect .s files if there are
+	dg-errors expected.
+
+	gcc/testsuite/
 	* lib/gcc-dg.exp (cleanup-saved-temps): Add optional list of
 	suffixes not to delete.
 	* gcc.dg/pch/save-temps-1.c: Don't delete ".s" temp.
