@@ -1,3 +1,11 @@
+2006-11-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/gcc-dg.exp (cleanup-saved-temps): Add optional list of
+	suffixes not to delete.
+	* gcc.dg/pch/save-temps-1.c: Don't delete ".s" temp.
+	* g++.dg/pch/pch.C: Likewise.
+
 2006-11-05  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/
