@@ -104,7 +104,7 @@ bitmap field_offsets;
 bitmap_obstack bit_obstack;
 
 /* Declarations of some functions used here.  */
-static void handle_innerclass_attribute (int count, JCF *);
+static void handle_innerclass_attribute (int count, JCF *, int len);
 static tree give_name_to_class (JCF *jcf, int index);
 static char *compute_class_name (struct ZipDirectory *zdir);
 static int classify_zip_file (struct ZipDirectory *zdir);
@@ -517,12 +517,15 @@ handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
   enum cpool_tag kind;
   CPool *cpool = cpool_for_class (output_class);
   
+  if (index == 0)
+    return 0;
+
   if (! CPOOL_INDEX_IN_RANGE (&jcf->cpool, index))
     error ("<constant pool index %d not in range>", index);
   
   kind = JPOOL_TAG (jcf, index);
 
-  if (kind != purpose)
+  if ((kind & ~CONSTANT_ResolvedFlag) != purpose)
     {
       if (purpose == CONSTANT_Class
 	  && kind == CONSTANT_Utf8)
@@ -533,19 +536,36 @@ handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
 
   switch (kind)
     {
+    case CONSTANT_Class:
+    case CONSTANT_ResolvedClass:
+      {
+	/* For some reason I know not the what of, class names in
+	   annotations are UTF-8 strings in the constant pool but
+	   class names in EnclosingMethod attributes are real class
+	   references.  Set CONSTANT_LazyFlag here so that the VM
+	   doesn't attempt to resolve them at class initialization
+	   time.  */
+	tree resolved_class, class_name;
+	resolved_class = get_class_constant (jcf, index);
+	class_name = build_internal_class_name (resolved_class);
+	index = alloc_name_constant (CONSTANT_Class | CONSTANT_LazyFlag,
+				     (unmangle_classname 
+				      (IDENTIFIER_POINTER(class_name),
+				       IDENTIFIER_LENGTH(class_name))));
+	break;
+      }
     case CONSTANT_Utf8:
       {
 	tree utf8 = get_constant (jcf, index);
-
 	if (purpose == CONSTANT_Class)
-	  /* Create a constant pool entry for a type.  This one has
-	     '.' rather than '/' because it isn't going into a class
-	     file, it's going into a compiled object.
+	  /* Create a constant pool entry for a type signature.  This
+	     one has '.' rather than '/' because it isn't going into a
+	     class file, it's going into a compiled object.
 	     
 	     This has to match the logic in
 	     _Jv_ClassReader::prepare_pool_entry().  */
-	  utf8 = identifier_subst (utf8, "", '/', '.', "");
-
+	  utf8 = unmangle_classname (IDENTIFIER_POINTER(utf8),
+				     IDENTIFIER_LENGTH(utf8));
 	index = alloc_name_constant (kind, utf8);
       }
       break;
@@ -565,6 +585,17 @@ handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
       index = find_constant1 (cpool, kind, JPOOL_INT (jcf, index));
       break;
       
+    case CONSTANT_NameAndType:
+      {
+	uint16 name = JPOOL_USHORT1 (jcf, index);
+	uint16 sig = JPOOL_USHORT2 (jcf, index);
+	uint32 name_index = handle_constant (jcf, name, CONSTANT_Utf8);
+	uint32 sig_index = handle_constant (jcf, sig, CONSTANT_Class);
+	jword new_index = (name_index << 16) | sig_index;
+	index = find_constant1 (cpool, kind, new_index);
+      }
+      break;
+
     default:
       abort ();
     }
@@ -805,6 +836,54 @@ handle_default_annotation (int member_index, JCF *jcf,
   handle_element_value (jcf, 0);
 }
 
+/* As above, for the EnclosingMethod attribute.  */
+
+static void
+handle_enclosingmethod_attribute (int member_index, JCF *jcf, 
+			   const unsigned char *name ATTRIBUTE_UNUSED, 
+			   long len, jv_attr_type member_type)
+{
+  int new_len = len + 1;
+  uint16 index;
+  annotation_write_byte (member_type);
+  if (member_type != JV_CLASS_ATTR)
+    new_len += 2;
+  annotation_write_int (new_len);
+  annotation_write_byte (JV_ENCLOSING_METHOD_KIND);
+  if (member_type != JV_CLASS_ATTR)
+    annotation_write_short (member_index);
+
+  index = JCF_readu2 (jcf);
+  index = handle_constant (jcf, index, CONSTANT_Class);
+  annotation_write_short (index);
+
+  index = JCF_readu2 (jcf);
+  index = handle_constant (jcf, index, CONSTANT_NameAndType);
+  annotation_write_short (index);
+}
+
+/* As above, for the Signature attribute.  */
+
+static void
+handle_signature_attribute (int member_index, JCF *jcf, 
+			   const unsigned char *name ATTRIBUTE_UNUSED, 
+			   long len, jv_attr_type member_type)
+{
+  int new_len = len + 1;
+  uint16 index;
+  annotation_write_byte (member_type);
+  if (member_type != JV_CLASS_ATTR)
+    new_len += 2;
+  annotation_write_int (new_len);
+  annotation_write_byte (JV_SIGNATURE_KIND);
+  if (member_type != JV_CLASS_ATTR)
+    annotation_write_short (member_index);
+
+  index = JCF_readu2 (jcf);
+  index = handle_constant (jcf, index, CONSTANT_Utf8);
+  annotation_write_short (index);
+}
+  
 
 
 #define HANDLE_SOURCEFILE(INDEX) set_source_filename (jcf, INDEX)
@@ -882,7 +961,7 @@ handle_default_annotation (int member_index, JCF *jcf,
 /* Link seen inner classes to their outer context and register the
    inner class to its outer context. They will be later loaded.  */
 #define HANDLE_INNERCLASSES_ATTRIBUTE(COUNT) \
-  handle_innerclass_attribute (COUNT, jcf)
+  handle_innerclass_attribute (COUNT, jcf, attribute_length)
 
 #define HANDLE_SYNTHETIC_ATTRIBUTE()					\
 {									\
@@ -923,6 +1002,18 @@ handle_default_annotation (int member_index, JCF *jcf,
 #define HANDLE_ANNOTATIONDEFAULT_ATTRIBUTE()				\
 {									\
   handle_default_annotation (index, jcf, name_data, attribute_length, attr_type); \
+}
+
+#define HANDLE_ENCLOSINGMETHOD_ATTRIBUTE()				\
+{									\
+  handle_enclosingmethod_attribute (index, jcf, name_data,		\
+				    attribute_length, attr_type);	\
+}
+
+#define HANDLE_SIGNATURE_ATTRIBUTE()				\
+{								\
+  handle_signature_attribute (index, jcf, name_data,		\
+			      attribute_length, attr_type);	\
 }
 
 #include "jcf-reader.c"
@@ -1049,9 +1140,15 @@ get_name_constant (JCF *jcf, int index)
    the outer context with the newly resolved innerclass.  */
 
 static void
-handle_innerclass_attribute (int count, JCF *jcf)
+handle_innerclass_attribute (int count, JCF *jcf, int attribute_length)
 {
-  int c = (count);
+  int c = count;
+
+  annotation_write_byte (JV_CLASS_ATTR);
+  annotation_write_int (attribute_length+1);
+  annotation_write_byte (JV_INNER_CLASSES_KIND);
+  annotation_write_short (count);
+
   while (c--)
     {
       /* Read inner_class_info_index. This may be 0 */
@@ -1064,6 +1161,12 @@ handle_innerclass_attribute (int count, JCF *jcf)
       int ini = JCF_readu2 (jcf);
       /* Read the access flag. */
       int acc = JCF_readu2 (jcf);
+
+      annotation_write_short (handle_constant (jcf, icii, CONSTANT_Class));
+      annotation_write_short (handle_constant (jcf, ocii, CONSTANT_Class));
+      annotation_write_short (handle_constant (jcf, ini, CONSTANT_Utf8));
+      annotation_write_short (acc);
+
       /* If icii is 0, don't try to read the class. */
       if (icii >= 0)
 	{

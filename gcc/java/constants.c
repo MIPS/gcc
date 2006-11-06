@@ -495,7 +495,7 @@ build_constants_constructor (void)
   int i;
 
   for (i = outgoing_cpool->count;  --i > 0; )
-    switch (outgoing_cpool->tags[i])
+    switch (outgoing_cpool->tags[i] & ~CONSTANT_LazyFlag)
       {
       case CONSTANT_None:  /* The second half of a Double or Long on a
 			      32-bit target.  */

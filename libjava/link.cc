@@ -390,7 +390,7 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
   if ((pool->tags[index] & JV_CONSTANT_ResolvedFlag) != 0)
     return pool->data[index];
 
-  switch (pool->tags[index])
+  switch (pool->tags[index] & ~JV_CONSTANT_LazyFlag)
     {
     case JV_CONSTANT_Class:
       {

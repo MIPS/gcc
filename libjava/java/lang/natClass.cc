@@ -1058,7 +1058,8 @@ check_constant (_Jv_Constants *pool, jint cpool_index, jint type)
 {
   if (cpool_index <= 0 || cpool_index >= pool->size)
     throw new InternalError(JvNewStringLatin1("invalid constant pool index"));
-  if ((pool->tags[cpool_index] & ~JV_CONSTANT_ResolvedFlag) != type)
+  if ((pool->tags[cpool_index] & 
+	~(JV_CONSTANT_ResolvedFlag|JV_CONSTANT_LazyFlag)) != type)
     {
       ::java::lang::StringBuffer *sb = new ::java::lang::StringBuffer();
       sb->append(JvNewStringLatin1("expected pool constant "));

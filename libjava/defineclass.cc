@@ -277,7 +277,8 @@ struct _Jv_ClassReader
   /** and here goes the parser members defined out-of-line */
   void parse ();
   void read_constpool ();
-  void prepare_pool_entry (int index, unsigned char tag);
+  void prepare_pool_entry (int index, unsigned char tag,
+			   bool rewrite = true);
   void read_fields ();
   void read_methods ();
   void read_one_class_attribute ();
@@ -473,7 +474,7 @@ _Jv_ClassReader::handleGenericSignature (jv_attr_type type,
 
   int cpool_idx = read2u();
   check_tag (cpool_idx, JV_CONSTANT_Utf8);
-  prepare_pool_entry (cpool_idx, JV_CONSTANT_Utf8);
+  prepare_pool_entry (cpool_idx, JV_CONSTANT_Utf8, false);
 
   ::java::io::DataOutputStream *stream = get_reflection_stream ();
   stream->writeByte(type);
@@ -531,7 +532,7 @@ _Jv_ClassReader::handleAnnotationElement()
 	// Despite what the JVM spec says, compilers generate a Utf8
 	// constant here, not a String.
 	check_tag (index, JV_CONSTANT_Utf8);
-	prepare_pool_entry (index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (index, JV_CONSTANT_Utf8, false);
       }
       break;
 
@@ -542,7 +543,7 @@ _Jv_ClassReader::handleAnnotationElement()
 	check_tag (type_name_index, JV_CONSTANT_Utf8);
 	prepare_pool_entry (type_name_index, JV_CONSTANT_Utf8);
 	check_tag (const_name_index, JV_CONSTANT_Utf8);
-	prepare_pool_entry (const_name_index, JV_CONSTANT_Utf8);
+	prepare_pool_entry (const_name_index, JV_CONSTANT_Utf8, false);
       }
       break;
     case 'c':
@@ -579,7 +580,7 @@ _Jv_ClassReader::handleAnnotation()
     {
       int name_index = read2u();
       check_tag (name_index, JV_CONSTANT_Utf8);
-      prepare_pool_entry (name_index, JV_CONSTANT_Utf8);
+      prepare_pool_entry (name_index, JV_CONSTANT_Utf8, false);
       handleAnnotationElement();
     }
 }
@@ -955,7 +956,7 @@ void _Jv_ClassReader::read_one_class_attribute ()
     {
       int source_index = read2u ();
       check_tag (source_index, JV_CONSTANT_Utf8);
-      prepare_pool_entry (source_index, JV_CONSTANT_Utf8);
+      prepare_pool_entry (source_index, JV_CONSTANT_Utf8, false);
       def_interp->source_file_name = _Jv_NewStringUtf8Const
 	(def->constants.data[source_index].utf8);
     }
@@ -1041,9 +1042,15 @@ void _Jv_ClassReader::handleConstantPool ()
 }
 
 /* this is a recursive procedure, which will prepare pool entries as needed.
-   Which is how we avoid initializing those entries which go unused. */
+   Which is how we avoid initializing those entries which go unused. 
+   
+   REWRITE is true iff this pool entry is the Utf8 representation of a
+   class name or a signature.
+*/
+
 void
-_Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
+_Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag,
+				     bool rewrite)
 {
   /* these two, pool_data and pool_tags, point into the class
      structure we are currently defining */
@@ -1064,27 +1071,29 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
     {
     case JV_CONSTANT_Utf8: 
       {
-	// FIXME: this is very wrong.
-
-	// If we came here, it is because some other tag needs this
-	// utf8-entry for type information!  Thus, we translate /'s to .'s in
-	// order to accomondate gcj's internal representation.
-
 	int len = get2u (this_data);
-	char *buffer = (char*) __builtin_alloca (len);
 	char *s = ((char*) this_data)+2;
+	pool_tags[index] = JV_CONSTANT_Utf8;
 
-	/* FIXME: avoid using a buffer here */
+	if (! rewrite)
+	  {
+	    pool_data[index].utf8 = _Jv_makeUtf8Const (s, len);
+	    break;
+	  }
+
+	// If REWRITE is set, it is because some other tag needs this
+	// utf8-entry for type information: it is a class or a
+	// signature.  Thus, we translate /'s to .'s in order to
+	// accomondate gcj's internal representation.
+	char *buffer = (char*) __builtin_alloca (len);
 	for (int i = 0; i < len; i++)
 	  {
 	    if (s[i] == '/')
 	      buffer[i] = '.';
 	    else
-	      buffer[i] = (char) s[i];
+	      buffer[i] = s[i];
 	  }
-	
 	pool_data[index].utf8 = _Jv_makeUtf8Const (buffer, len);
-	pool_tags[index] = JV_CONSTANT_Utf8;
       }
       break;
 	    
@@ -1152,8 +1161,7 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 	_Jv_ushort type_index = get2u (this_data+2);
 
 	check_tag (name_index, JV_CONSTANT_Utf8);
-	prepare_pool_entry (name_index, JV_CONSTANT_Utf8);	    
-
+	prepare_pool_entry (name_index, JV_CONSTANT_Utf8, false);
 	check_tag (type_index, JV_CONSTANT_Utf8);
 	prepare_pool_entry (type_index, JV_CONSTANT_Utf8);
 
@@ -1572,7 +1580,7 @@ void _Jv_ClassReader::handleMethod
   _Jv_Method *method = &def->methods[mth_index];
 
   check_tag (name, JV_CONSTANT_Utf8);
-  prepare_pool_entry (name, JV_CONSTANT_Utf8);
+  prepare_pool_entry (name, JV_CONSTANT_Utf8, false);
   method->name = pool_data[name].utf8;
 
   check_tag (desc, JV_CONSTANT_Utf8);

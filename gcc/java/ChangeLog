@@ -1,3 +1,19 @@
+2006-11-06  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (CONSTANT_LazyFlag): New.
+	* constants.c (build_constants_constructor): Mask CONSTANT_LazyFlag.
+	* jcf-parse.c (handle_innerclass_attribute): Write attribute to
+	reflection_data.
+	(handle_constant): Return 0 for dummy cpool entries.
+	Handle constants of kind Class.
+	Handle constants of kind NameAndType.
+	(handle_enclosingmethod_attribute): New.
+	(handle_signature_attribute): New.
+	(HANDLE_ENCLOSINGMETHOD_ATTRIBUTE): New.
+	(HANDLE_SIGNATURE_ATTRIBUTE): New.
+	(handle_constant): Use unmangle_classname()rather than calling
+	identifier_subst() directly.
+
 2006-11-02  Andrew Haley  <aph@redhat.com>
 
 	* java-tree.h (FIELD_ENUM): New.

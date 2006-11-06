@@ -243,6 +243,11 @@ typedef struct CPool constant_pool;
 
 #define CONSTANT_ResolvedFlag 16
 
+/* Don't eagerly resolve this entry.  When this flag is set, constant
+   pool entries are resolved only at runtime when the entry is first
+   referred to.  */
+#define CONSTANT_LazyFlag 32
+
 /* The cpool->data[i] for a ResolvedString points to a STRING_CST. */
 #define CONSTANT_ResolvedString    (CONSTANT_String+CONSTANT_ResolvedFlag)
 
