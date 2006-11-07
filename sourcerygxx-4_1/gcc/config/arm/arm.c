@@ -13681,7 +13681,9 @@ arm_regno_class (int regno)
 
   if (IS_VFP_REGNUM (regno))
     {
-      if (regno >= FIRST_VFP_REGNUM && regno <= LAST_LO_VFP_REGNUM)
+      if (regno <= D7_VFP_REGNUM)
+	return VFP_D0_D7_REGS;
+      else if (regno <= LAST_LO_VFP_REGNUM)
         return VFP_LO_REGS;
       else
         return VFP_HI_REGS;

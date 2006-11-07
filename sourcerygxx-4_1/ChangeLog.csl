@@ -1,3 +1,19 @@
+2006-11-07  Mark Shinwell  <shinwell@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.h (enum reg_class): Add VFP_D0_D7_REGS.
+	(REG_CLASS_NAMES): Add entry corresponding to VFP_D0_D7_REGS.
+	(REG_CLASS_CONTENTS): Likewise.
+	(IS_VFP_CLASS): Add VFP_D0_D7_REGS case.
+	(REG_CLASS_FROM_LETTER): Add 'x' case.
+	(D7_VFP_REGNUM): New.
+	* config/arm/arm.c (arm_regno_class): Adjust for VFP_D0_D7_REGS.
+	* config/arm/neon.md (scalar_mul_constraint): New.
+	Use scalar_mul_constraint for operands corresponding to
+	scalars for scalar multiply operations (vmul_lane, vmull_lane,
+	vqdmull_lane, vqdmulh_lane, vmla_lane, vmlal_lane,
+	vqdmlal_lane, vmls_lane, vmlsl_lane and vqdmlsl_lane).
+
 2006-11-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/testsuite/

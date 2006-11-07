@@ -409,6 +409,14 @@
                            (V2SF "") (V4SF "")
                            (DI "_neon") (V2DI "")])
 
+;; Scalars to be presented to scalar multiplication instructions
+;; must satisfy the following constraints.
+;; 1. If the mode specifies 16-bit elements, the scalar must be in D0-D7.
+;; 2. If the mode specifies 32-bit elements, the scalar must be in D0-D15.
+;; This mode attribute is used to obtain the correct register constraints.
+(define_mode_attr scalar_mul_constraint [(V4HI "x") (V2SI "t") (V2SF "t")
+                                         (V8HI "x") (V4SI "t") (V4SF "t")])
+
 ;; FIXME: Attributes are probably borked.
 (define_insn "*neon_mov<mode>"
   [(set (match_operand:VD 0 "nonimmediate_operand"
@@ -2242,7 +2250,8 @@
 (define_insn "neon_vmul_lane<mode>"
   [(set (match_operand:VMD 0 "s_register_operand" "=w")
 	(unspec:VMD [(match_operand:VMD 1 "s_register_operand" "w")
-		     (match_operand:VMD 2 "s_register_operand" "w")
+		     (match_operand:VMD 2 "s_register_operand"
+                                        "<scalar_mul_constraint>")
                      (match_operand:SI 3 "immediate_operand" "i")
                      (match_operand:SI 4 "immediate_operand" "i")]
                     UNSPEC_VMUL_LANE))]
@@ -2252,7 +2261,8 @@
 (define_insn "neon_vmul_lane<mode>"
   [(set (match_operand:VMQ 0 "s_register_operand" "=w")
 	(unspec:VMQ [(match_operand:VMQ 1 "s_register_operand" "w")
-		     (match_operand:<V_HALF> 2 "s_register_operand" "w")
+		     (match_operand:<V_HALF> 2 "s_register_operand"
+                                             "<scalar_mul_constraint>")
                      (match_operand:SI 3 "immediate_operand" "i")
                      (match_operand:SI 4 "immediate_operand" "i")]
                     UNSPEC_VMUL_LANE))]
@@ -2262,7 +2272,8 @@
 (define_insn "neon_vmull_lane<mode>"
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:VMDI 1 "s_register_operand" "w")
-		           (match_operand:VMDI 2 "s_register_operand" "w")
+		           (match_operand:VMDI 2 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 3 "immediate_operand" "i")
                            (match_operand:SI 4 "immediate_operand" "i")]
                           UNSPEC_VMULL_LANE))]
@@ -2272,7 +2283,8 @@
 (define_insn "neon_vqdmull_lane<mode>"
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:VMDI 1 "s_register_operand" "w")
-		           (match_operand:VMDI 2 "s_register_operand" "w")
+		           (match_operand:VMDI 2 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 3 "immediate_operand" "i")
                            (match_operand:SI 4 "immediate_operand" "i")]
                           UNSPEC_VQDMULL_LANE))]
@@ -2282,7 +2294,8 @@
 (define_insn "neon_vqdmulh_lane<mode>"
   [(set (match_operand:VMQI 0 "s_register_operand" "=w")
 	(unspec:VMQI [(match_operand:VMQI 1 "s_register_operand" "w")
-		      (match_operand:<V_HALF> 2 "s_register_operand" "w")
+		      (match_operand:<V_HALF> 2 "s_register_operand"
+					      "<scalar_mul_constraint>")
                       (match_operand:SI 3 "immediate_operand" "i")
                       (match_operand:SI 4 "immediate_operand" "i")]
                       UNSPEC_VQDMULH_LANE))]
@@ -2292,7 +2305,8 @@
 (define_insn "neon_vqdmulh_lane<mode>"
   [(set (match_operand:VMDI 0 "s_register_operand" "=w")
 	(unspec:VMDI [(match_operand:VMDI 1 "s_register_operand" "w")
-		      (match_operand:VMDI 2 "s_register_operand" "w")
+		      (match_operand:VMDI 2 "s_register_operand"
+					  "<scalar_mul_constraint>")
                       (match_operand:SI 3 "immediate_operand" "i")
                       (match_operand:SI 4 "immediate_operand" "i")]
                       UNSPEC_VQDMULH_LANE))]
@@ -2303,7 +2317,8 @@
   [(set (match_operand:VMD 0 "s_register_operand" "=w")
 	(unspec:VMD [(match_operand:VMD 1 "s_register_operand" "0")
 		     (match_operand:VMD 2 "s_register_operand" "w")
-                     (match_operand:VMD 3 "s_register_operand" "w")
+                     (match_operand:VMD 3 "s_register_operand"
+					"<scalar_mul_constraint>")
                      (match_operand:SI 4 "immediate_operand" "i")
                      (match_operand:SI 5 "immediate_operand" "i")]
                      UNSPEC_VMLA_LANE))]
@@ -2314,7 +2329,8 @@
   [(set (match_operand:VMQ 0 "s_register_operand" "=w")
 	(unspec:VMQ [(match_operand:VMQ 1 "s_register_operand" "0")
 		     (match_operand:VMQ 2 "s_register_operand" "w")
-                     (match_operand:<V_HALF> 3 "s_register_operand" "w")
+                     (match_operand:<V_HALF> 3 "s_register_operand"
+					     "<scalar_mul_constraint>")
                      (match_operand:SI 4 "immediate_operand" "i")
                      (match_operand:SI 5 "immediate_operand" "i")]
                      UNSPEC_VMLA_LANE))]
@@ -2325,7 +2341,8 @@
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:<V_widen> 1 "s_register_operand" "0")
 			   (match_operand:VMDI 2 "s_register_operand" "w")
-                           (match_operand:VMDI 3 "s_register_operand" "w")
+                           (match_operand:VMDI 3 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 4 "immediate_operand" "i")
                            (match_operand:SI 5 "immediate_operand" "i")]
                           UNSPEC_VMLAL_LANE))]
@@ -2336,7 +2353,8 @@
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:<V_widen> 1 "s_register_operand" "0")
 			   (match_operand:VMDI 2 "s_register_operand" "w")
-                           (match_operand:VMDI 3 "s_register_operand" "w")
+                           (match_operand:VMDI 3 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 4 "immediate_operand" "i")
                            (match_operand:SI 5 "immediate_operand" "i")]
                           UNSPEC_VQDMLAL_LANE))]
@@ -2347,7 +2365,8 @@
   [(set (match_operand:VMD 0 "s_register_operand" "=w")
 	(unspec:VMD [(match_operand:VMD 1 "s_register_operand" "0")
 		     (match_operand:VMD 2 "s_register_operand" "w")
-                     (match_operand:VMD 3 "s_register_operand" "w")
+                     (match_operand:VMD 3 "s_register_operand"
+					"<scalar_mul_constraint>")
                      (match_operand:SI 4 "immediate_operand" "i")
                      (match_operand:SI 5 "immediate_operand" "i")]
                     UNSPEC_VMLS_LANE))]
@@ -2358,7 +2377,8 @@
   [(set (match_operand:VMQ 0 "s_register_operand" "=w")
 	(unspec:VMQ [(match_operand:VMQ 1 "s_register_operand" "0")
 		     (match_operand:VMQ 2 "s_register_operand" "w")
-                     (match_operand:<V_HALF> 3 "s_register_operand" "w")
+                     (match_operand:<V_HALF> 3 "s_register_operand"
+					     "<scalar_mul_constraint>")
                      (match_operand:SI 4 "immediate_operand" "i")
                      (match_operand:SI 5 "immediate_operand" "i")]
                     UNSPEC_VMLS_LANE))]
@@ -2369,7 +2389,8 @@
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:<V_widen> 1 "s_register_operand" "0")
 			   (match_operand:VMDI 2 "s_register_operand" "w")
-                           (match_operand:VMDI 3 "s_register_operand" "w")
+                           (match_operand:VMDI 3 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 4 "immediate_operand" "i")
                            (match_operand:SI 5 "immediate_operand" "i")]
                           UNSPEC_VMLSL_LANE))]
@@ -2380,7 +2401,8 @@
   [(set (match_operand:<V_widen> 0 "s_register_operand" "=w")
 	(unspec:<V_widen> [(match_operand:<V_widen> 1 "s_register_operand" "0")
 			   (match_operand:VMDI 2 "s_register_operand" "w")
-                           (match_operand:VMDI 3 "s_register_operand" "w")
+                           (match_operand:VMDI 3 "s_register_operand"
+					       "<scalar_mul_constraint>")
                            (match_operand:SI 4 "immediate_operand" "i")
                            (match_operand:SI 5 "immediate_operand" "i")]
                           UNSPEC_VQDMLSL_LANE))]

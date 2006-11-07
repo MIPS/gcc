@@ -929,6 +929,7 @@ extern int arm_structure_size_boundary;
   (((REGNUM) >= FIRST_CIRRUS_FP_REGNUM) && ((REGNUM) <= LAST_CIRRUS_FP_REGNUM))
 
 #define FIRST_VFP_REGNUM	63
+#define D7_VFP_REGNUM		78  /* Registers 77 and 78 == VFP reg D7.  */
 #define LAST_VFP_REGNUM		(TARGET_VFP3 ? 126 : 94)
 #define IS_VFP_REGNUM(REGNUM) \
   (((REGNUM) >= FIRST_VFP_REGNUM) && ((REGNUM) <= LAST_VFP_REGNUM))
@@ -1079,6 +1080,7 @@ enum reg_class
   NO_REGS,
   FPA_REGS,
   CIRRUS_REGS,
+  VFP_D0_D7_REGS,
   VFP_LO_REGS,
   VFP_HI_REGS,
   VFP_REGS,
@@ -1103,6 +1105,7 @@ enum reg_class
   "NO_REGS",		\
   "FPA_REGS",		\
   "CIRRUS_REGS",	\
+  "VFP_D0_D7_REGS",	\
   "VFP_LO_REGS",	\
   "VFP_HI_REGS",	\
   "VFP_REGS",		\
@@ -1126,6 +1129,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000 }, /* NO_REGS  */	\
   { 0x00FF0000, 0x00000000, 0x00000000, 0x00000000 }, /* FPA_REGS */	\
   { 0xF8000000, 0x000007FF, 0x00000000, 0x00000000 }, /* CIRRUS_REGS */	\
+  { 0x00000000, 0x80000000, 0x00007FFF, 0x00000000 }, /* VFP_D0_D7_REGS  */ \
   { 0x00000000, 0x80000000, 0x7FFFFFFF, 0x00000000 }, /* VFP_LO_REGS  */ \
   { 0x00000000, 0x00000000, 0x80000000, 0x7FFFFFFF }, /* VFP_HI_REGS  */ \
   { 0x00000000, 0x80000000, 0xFFFFFFFF, 0x7FFFFFFF }, /* VFP_REGS  */	\
@@ -1143,7 +1147,8 @@ enum reg_class
 
 /* Any of the VFP register classes.  */
 #define IS_VFP_CLASS(X) \
-  ((X) == VFP_LO_REGS || (X) == VFP_HI_REGS || (X) == VFP_REGS)
+  ((X) == VFP_D0_D7_REGS || (X) == VFP_LO_REGS \
+   || (X) == VFP_HI_REGS || (X) == VFP_REGS)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -1200,6 +1205,7 @@ enum reg_class
   (  (C) == 'f' ? FPA_REGS		\
    : (C) == 'v' ? CIRRUS_REGS		\
    : (C) == 'w' ? (TARGET_VFP3 ? VFP_REGS : VFP_LO_REGS) \
+   : (C) == 'x' ? VFP_D0_D7_REGS	\
    : (C) == 't' ? VFP_LO_REGS		\
    : (C) == 'y' ? IWMMXT_REGS		\
    : (C) == 'z' ? IWMMXT_GR_REGS	\
