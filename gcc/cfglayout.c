@@ -807,18 +807,19 @@ fixup_reorder_chain (void)
 
   prev_bb = ENTRY_BLOCK_PTR;
   bb = ENTRY_BLOCK_PTR->next_bb;
-  index = NUM_FIXED_BLOCKS;
 
-  for (; bb; prev_bb = bb, bb = bb->aux, index ++)
+  for (; bb; prev_bb = bb, bb = bb->aux)
     {
-      bb->index = index;
-      SET_BASIC_BLOCK (index, bb);
-
       bb->prev_bb = prev_bb;
       prev_bb->next_bb = bb;
     }
   prev_bb->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = prev_bb;
+
+  /* Now that the prev and next ptrs are in place, let compact_blocks
+     deal with the array and the indexes.  It knows how to keep the
+     dataflow up to date.  */
+  compact_blocks ();
 
   /* Annoying special case - jump around dead jumptables left in the code.  */
   FOR_EACH_BB (bb)
@@ -829,7 +830,7 @@ fixup_reorder_chain (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
-
+      
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }

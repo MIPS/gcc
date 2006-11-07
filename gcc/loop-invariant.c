@@ -121,6 +121,11 @@ struct invariant
   unsigned stamp;
 };
 
+/* Table of invariants indexed by the df_ref uid field.  */
+
+static unsigned int invariant_table_size = 0;
+static struct invariant ** invariant_table;
+
 /* Entry for hash table of invariant expressions.  */
 
 struct invariant_expr_entry
@@ -155,6 +160,22 @@ static VEC(invariant_p,heap) *invariants;
 /* The dataflow object.  */
 
 static struct df *df = NULL;
+
+/* Check the size of the invariant table and realloc if necessary.  */
+
+static void 
+check_invariant_table_size (void)
+{
+  if (invariant_table_size < DF_DEFS_SIZE(df))
+    {
+      unsigned int new_size = DF_DEFS_SIZE (df) + (DF_DEFS_SIZE (df) / 4);
+      invariant_table = xrealloc (invariant_table, 
+				  sizeof (struct rtx_iv *) * new_size);
+      memset (&invariant_table[invariant_table_size], 0, 
+	      (new_size - invariant_table_size) * sizeof (struct rtx_iv *));
+      invariant_table_size = new_size;
+    }
+}
 
 /* Test for possibility of invariantness of X.  */
 
@@ -240,13 +261,14 @@ invariant_for_use (struct df_ref *use)
   if (!defs || defs->next)
     return NULL;
   def = defs->ref;
-  if (!DF_REF_DATA (def))
+  check_invariant_table_size ();
+  if (!invariant_table[DF_REF_ID(def)])
     return NULL;
 
   def_bb = DF_REF_BB (def);
   if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     return NULL;
-  return DF_REF_DATA (def);
+  return invariant_table[DF_REF_ID(def)];
 }
 
 /* Computes hash value for invariant expression X in INSN.  */
@@ -618,6 +640,9 @@ find_defs (struct loop *loop, basic_block *body)
 
   df_set_blocks (df, blocks);
   df_analyze (df);
+
+  check_invariant_table_size ();
+
   BITMAP_FREE (blocks);
 }
 
@@ -706,7 +731,8 @@ check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
     return false;
   
   def = defs->ref;
-  inv = DF_REF_DATA (def);
+  check_invariant_table_size ();
+  inv = invariant_table[DF_REF_ID(def)];
   if (!inv)
     return false;
   
@@ -714,9 +740,10 @@ check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
   gcc_assert (def_data != NULL);
   
   def_bb = DF_REF_BB (def);
-  /* Note that in case bb == def_bb, we know that the definition dominates
-     insn, because def has DF_REF_DATA defined and we process the insns
-     in the basic block bb sequentially.  */
+  /* Note that in case bb == def_bb, we know that the definition
+     dominates insn, because def has invariant_table[DF_REF_ID(def)]
+     defined and we process the insns in the basic block bb
+     sequentially.  */
   if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     return false;
   
@@ -810,7 +837,8 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
   if (simple)
     {
       ref = df_find_def (df, insn, dest);
-      DF_REF_DATA (ref) = inv;
+      check_invariant_table_size ();
+      invariant_table[DF_REF_ID(ref)] = inv;
     }
 }
 
@@ -1282,22 +1310,19 @@ free_inv_motion_data (void)
   struct def *def;
   struct invariant *inv;
 
+  check_invariant_table_size ();
   for (i = 0; i < DF_DEFS_SIZE (df); i++)
     {
-      struct df_ref * ref = DF_DEFS_GET (df, i);
-      if (!ref)
-	continue;
-
-      inv = DF_REF_DATA (ref);
-      if (!inv)
-	continue;
-
-      def = inv->def;
-      gcc_assert (def != NULL);
-
-      free_use_list (def->uses);
-      free (def);
-      DF_REF_DATA (ref) = NULL;
+      inv = invariant_table[i];
+      if (inv)
+	{
+	  def = inv->def;
+	  gcc_assert (def != NULL);
+	  
+	  free_use_list (def->uses);
+	  free (def);
+	  invariant_table[i] = NULL;
+	}
     }
 
   for (i = 0; VEC_iterate (invariant_p, invariants, i, inv); i++)
@@ -1340,9 +1365,9 @@ move_loop_invariants (struct loops *loops)
 {
   struct loop *loop;
   unsigned i;
-  df = df_init (DF_UD_CHAIN, DF_EQ_NOTES);
+  df = df_init (DF_UD_CHAIN + DF_DU_CHAIN, DF_EQ_NOTES);
   df_chain_add_problem (df);
- 
+
   /* Process the loops, innermost first.  */
   loop = loops->tree_root;
   while (loop->inner)
@@ -1365,6 +1390,10 @@ move_loop_invariants (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     if (loops->parray[i])
       free_loop_data (loops->parray[i]);
+
+  free (invariant_table);
+  invariant_table = NULL;
+  invariant_table_size = 0;
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

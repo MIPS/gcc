@@ -1,3 +1,80 @@
+2006-11-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* cfg.c (compact_blocks): Make df aware when blocks are moved around. 
+	* auto-inc-dec.c (attempt_change): Removed explicit df updating.
+	* ifcvt.c (cond_exec_process_if_block,
+	noce_mem_write_may_trap_or_fault_p, noce_process_if_block,
+	cond_move_process_if_block, process_if_block, find_if_header):
+	Removed unused df parameter.
+	(merge_if_block, find_cond_trap, find_if_case_1, find_if_case_2):
+	Removed explicit df updating.
+	(if_convert): Rearranged calls to df.
+	(struct tree_opt_pass pass_rtl_ifcvt, pass_if_after_combine,
+	pass_if_after_reload): Added TODO_verify_flow.
+	* recog.c (delete_insn_chain_and_flow): Deleted function.
+	(peephole2_optimize): Removed unused dataflow problem and variable
+	and delete explicit df updating calls.
+	(pass_split_before_sched2): Added TODO_verify_flow.
+	* emit_rtl (add_insn_after, add_insn_before, remove_insn,
+	reorder_insns, emit_insn_after_1): Added explicit updating of df.
+	(set_insn_deleted): New function.
+	* loop_invariant.c (invariant_table_size, invariant_table): New
+	variables.
+	(check_invariant_table_size): New function.
+	(invariant_for_use, find_defs, check_dependency,
+	find_invariant_insn, free_inv_motion_data, move_loop_invariants):
+	Replaced DF_REF_DATA with invariant_table.
+	* loop-iv.c (clean_slate, iv_ref_table_size, iv_ref_table): New
+	variables.
+	(check_iv_ref_table_size): New function.
+	(clear_iv_info, iv_analysis_loop_init, record_iv, iv_analyze_def,
+	iv_analysis_done): Replaced DF_REF_DATA with iv_ref_table.
+	* cfglayout.c (fixup_reorder_chain): Now uses compact_blocks.
+	* rtl.h (SET_INSN_DELETED): now calls set_insn_deleted.
+	* Makefile.in: (emit-rtl.o): Now dependent on df.h.
+	* sched-rgn.c (pass_sched, pass_sched2): Added TODO_verify_flow.
+	* cfgrtl.c (rtl_delete_block, update_bb_for_insn,
+	rtl_merge_blocks, try_redirect_by_replacing_jump,
+	cfg_layout_merge_blocks): Added explicit updating of df.
+	* dce.c (delete_unmarked_insns): Removed df_delete parameter and
+	explicit updating of df info.
+	(rest_of_handle_dce, rest_of_handle_dse): Added call to
+	df_remove_problem.
+	(fast_dce, fast_dce, rest_of_handle_fast_dce, run_fast_df_dce):
+	Removed df_delete parameter.
+	* df-scan.c (df_scan_free_bb_info): Changed call.
+	(df_scan_alloc, df_scan_free): Added setting of out_of_date_transfer_functions.
+	(df_problem problem_SCAN): Added problem removal function.
+	(df_scan_blocks): Added calls to df_refs_delete and df_bb_delete.
+	(df_insn_create_insn_record): Added call to df_grow_insn_info.
+	(df_insn_refs_delete): Renamed to df_insn_delete and removed dflow
+	parameter.
+	(df_bb_refs_delete): Renamed to df_bb_delete and removed dflow
+	parameter.
+	(df_refs_delete): Deleted.
+	(df_insn_rescan, df_insn_change_bb): New function.
+	(df_ref_create_structure): Removed DF_REF_DATA.
+	* df-core.c (df_add_problem): Changed to use new form of problem
+	dependency.
+	(df_remove_problem): New function.
+	(df_set_blocks): Does a better job of updating the proper blocks.
+	(df_delete_basic_block): Removed df parameter and checks to see if
+	block already had infomation.
+	(df_get_bb_info): Returns NULL if no info was there.
+	(df_set_bb_info): Checks to make sure problem block information.
+	(df_mark_solutions_dirty, df_mark_bb_dirty, df_compact_blocks, 
+	df_bb_replace): New functions.
+	* df.h (df_remove_problem_function): New typedef.
+	(df_dependent_problem_function): Deleted typedef.
+	(df_problem): Added remove_problem_fun and dependent_problem and
+	deleted dependent_problem_fun.
+	(df_ref.data): Removed.
+	(df.out_of_date_transfer_functions, df.solutions_dirty): New
+	variables.
+	(DF_REF_DATA): Deleted macro.  
+	* df-problems.c (problem_RU, problem_RD, problem_LR, problem_UR,
+	problem_LIVE, problem_UREC, problem_CHAIN, problem_RI): Added
+	problem removal function and changed dependent_function.
+	
 2006-11-04  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-scan.c (df_scan_start_dump): Changed print routine to print
 	hard register names.

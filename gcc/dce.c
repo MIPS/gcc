@@ -212,11 +212,10 @@ init_dce (bool fast)
    DF_DELETE is true.  */
 
 static void
-delete_unmarked_insns (bool df_delete)
+delete_unmarked_insns (void)
 {
   basic_block bb;
   rtx insn, next;
-  struct dataflow *dflow = dce_df->problems_by_index[DF_SCAN];
 
   something_changed = false;
   FOR_EACH_BB (bb)
@@ -228,8 +227,6 @@ delete_unmarked_insns (bool df_delete)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
 	  /* XXX: This may need to be changed to delete_insn_and_edges */
 	  delete_insn (insn);
-	  if (df_delete)
-	    df_insn_refs_delete (dflow, insn);
 	  something_changed = true;
 	}
 }
@@ -362,6 +359,9 @@ rest_of_handle_dce (void)
   while (VEC_length (rtx, worklist) > 0)
     mark_reg_dependencies (VEC_pop (rtx, worklist));
 
+  /* df_remove_problem (dce_df, dce_df->problems_by_index[DF_RD]); */
+  df_remove_problem (dce_df, dce_df->problems_by_index[DF_CHAIN]);
+  delete_unmarked_insns ();
   end_dce ();
   return 0;
 }
@@ -559,7 +559,7 @@ dce_process_block (basic_block bb, bool redo_out)
 }
 
 static void
-fast_dce (bool df_delete)
+fast_dce (void)
 {
   int *postorder = df_get_postorder (dce_df);
   int n_blocks = df_get_n_blocks (dce_df);
@@ -624,7 +624,7 @@ fast_dce (bool df_delete)
 
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
-	  delete_unmarked_insns (df_delete);
+	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
@@ -644,7 +644,7 @@ fast_dce (bool df_delete)
       loop_count++;
     }
 
-  delete_unmarked_insns (df_delete);
+  delete_unmarked_insns ();
 
   BITMAP_FREE (processed);
   BITMAP_FREE (changed);
@@ -659,7 +659,7 @@ static unsigned int
 rest_of_handle_fast_dce (void)
 {
   init_dce (true);
-  fast_dce (false);
+  fast_dce ();
   end_fast_dce ();
   return 0;
 }
@@ -680,7 +680,7 @@ run_fast_df_dce (struct df *df)
 {
   dce_df = df;
   init_dce (true);
-  fast_dce (true);
+  fast_dce ();
   BITMAP_FREE (marked);
   BITMAP_FREE (marked_libcalls);
   dce_df = NULL;
@@ -1691,7 +1691,9 @@ rest_of_handle_dse (void)
       mark_reg_dependencies (insn);
       mark_dependent_stores (insn);
     }
-  delete_unmarked_insns (false);
+  /* df_remove_problem (dce_df, dce_df->problems_by_index[DF_RD]); */
+  df_remove_problem (dce_df, dce_df->problems_by_index[DF_CHAIN]);
+  delete_unmarked_insns ();
   if (stores.stores)
     {
       end_unmarked_stores ();

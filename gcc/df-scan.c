@@ -237,7 +237,7 @@ df_scan_free_bb_info (struct dataflow *dflow, basic_block bb, void *vbb_info)
   struct df_scan_bb_info *bb_info = (struct df_scan_bb_info *) vbb_info;
   if (bb_info)
     {
-      df_bb_refs_delete (dflow, bb->index);
+      df_bb_delete (bb->index);
       pool_free (dflow->block_pool, bb_info);
     }
 }
@@ -308,6 +308,7 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
       bb_info->artificial_uses = NULL;
     }
 
+  df->out_of_date_transfer_functions = BITMAP_ALLOC (NULL);
   df->hardware_regs_used = BITMAP_ALLOC (NULL);
   df->regular_block_artificial_uses = BITMAP_ALLOC (NULL);
   df->eh_block_artificial_uses = BITMAP_ALLOC (NULL);
@@ -331,6 +332,8 @@ df_scan_free (struct dataflow *dflow)
   
   if (df->blocks_to_analyze)
     BITMAP_FREE (df->blocks_to_analyze);
+
+  BITMAP_FREE (df->out_of_date_transfer_functions);
 
   free (dflow);
 }
@@ -398,6 +401,7 @@ static struct df_problem problem_SCAN =
   NULL,                       /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_scan_free,               /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   df_scan_start_dump,         /* Debugging.  */
   df_scan_start_block,        /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
@@ -491,11 +495,10 @@ df_grow_ref_info (struct df_ref_info *ref_info, unsigned int new_size)
 }
 
 
-/* Check and grow the ref information if necessary.
-   This routine guarantees bitmap_size + bitmap_add 
-   amount of entries in refs array.
-   It updates ref_info->refs_size only
-   and does not change ref_info->bitmap_size.  */
+/* Check and grow the ref information if necessary.  This routine
+   guarantees bitmap_size + BITMAP_ADDEND amount of entries in refs
+   array.  It updates ref_info->refs_size only and does not change
+   ref_info->bitmap_size.  */
 
 static void
 df_check_and_grow_ref_info (struct df_ref_info *ref_info, 
@@ -507,6 +510,7 @@ df_check_and_grow_ref_info (struct df_ref_info *ref_info,
       df_grow_ref_info (ref_info, new_size);
     }
 }
+
 
 /* Grow the ref information.  If the current size is less than the
    number of instructions, grow to 25% more than the number of
@@ -605,7 +609,10 @@ df_scan_blocks (struct df *df, bitmap blocks)
 	    BITMAP_FREE (blocks_to_reset);
 	}
 
-      df_refs_delete (dflow, local_blocks_to_scan);
+      EXECUTE_IF_SET_IN_BITMAP (local_blocks_to_scan, 0, bb_index, bi)
+	{
+	  df_bb_delete (bb_index);
+	}
 
       /* This may be a mistake, but if an explicit blocks is passed in
          and the set of blocks to analyze has been explicitly set, add
@@ -878,8 +885,10 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
   struct df *df = dflow->df;
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) dflow->problem_data;
+  struct df_insn_info *insn_rec;
 
-  struct df_insn_info *insn_rec = DF_INSN_GET (df, insn);
+  df_grow_insn_info (df);
+  insn_rec = DF_INSN_GET (df, insn);
   if (!insn_rec)
     {
       insn_rec = pool_alloc (problem_data->insn_pool);
@@ -892,14 +901,20 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
 /* Delete all of the refs information from INSN.  */
 
 void 
-df_insn_refs_delete (struct dataflow *dflow, rtx insn)
+df_insn_delete (rtx insn)
 {
-  struct df *df = dflow->df;
+  struct df *df = df_current_instance;
+  struct dataflow *dflow;
   unsigned int uid = INSN_UID (insn);
   struct df_insn_info *insn_info = NULL;
   struct df_ref *ref;
-  struct df_scan_problem_data *problem_data
-    = (struct df_scan_problem_data *) dflow->problem_data;
+  struct df_scan_problem_data *problem_data;
+
+  if (!df)
+    return;
+
+  dflow = df->problems_by_index[DF_SCAN];
+  problem_data = (struct df_scan_problem_data *) dflow->problem_data;
 
   if (uid < DF_INSN_SIZE (df))
     insn_info = DF_INSN_UID_GET (df, uid);
@@ -944,23 +959,32 @@ df_insn_refs_delete (struct dataflow *dflow, rtx insn)
 /* Delete all of the refs information from basic_block with BB_INDEX.  */
 
 void
-df_bb_refs_delete (struct dataflow *dflow, int bb_index)
+df_bb_delete (unsigned int bb_index)
 {
   struct df_ref *def;
   struct df_ref *use;
-
-  struct df_scan_bb_info *bb_info 
-    = df_scan_get_bb_info (dflow, bb_index);
+  struct df *df = df_current_instance;
+  struct dataflow *dflow;
+  struct df_scan_bb_info *bb_info = NULL; 
   rtx insn;
   basic_block bb = BASIC_BLOCK (bb_index);
+
+  if (!df)
+    return;
+
+  dflow = df->problems_by_index[DF_SCAN];
+
   FOR_BB_INSNS (bb, insn)
     {
       if (INSN_P (insn))
 	{
 	  /* Record defs within INSN.  */
-	  df_insn_refs_delete (dflow, insn);
+	  df_insn_delete (insn);
 	}
     }
+
+  if (bb_index < dflow->block_info_size)
+    bb_info = df_scan_get_bb_info (dflow, bb_index);
   
   /* Get rid of any artificial uses or defs.  */
   if (bb_info)
@@ -977,24 +1001,46 @@ df_bb_refs_delete (struct dataflow *dflow, int bb_index)
 }
 
 
-/* Delete all of the refs information from BLOCKS.  */
+/* Rescan INSN.  Return TRUE if the rescanning produced any changes.  */
 
-void 
-df_refs_delete (struct dataflow *dflow, bitmap blocks)
+bool 
+df_insn_rescan (rtx insn)
 {
-  bitmap_iterator bi;
-  unsigned int bb_index;
+  struct df *df = df_current_instance;
+  struct dataflow *dflow;
+  bool changed = true;
+  unsigned int uid = INSN_UID (insn);
+  struct df_insn_info *insn_info = NULL;
+  basic_block bb = BLOCK_FOR_INSN (insn);
 
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
-    {
-      df_bb_refs_delete (dflow, bb_index);
-    }
+  if (!df)
+    return false;
+
+  dflow = df->problems_by_index[DF_SCAN];
+  df_grow_bb_info (dflow);
+  df_grow_reg_info (dflow);
+
+  /* This is really bad code and will be replaced soon by Seongbae.  */
+
+  if (uid < DF_INSN_SIZE (df))
+    insn_info = DF_INSN_UID_GET (df, uid);
+  if (insn_info)
+    df_insn_delete (insn);
+
+  df_insn_create_insn_record (dflow, insn);
+
+  df_insn_refs_record (dflow, bb, insn); 
+  /* End of really bad code.  */
+
+  if (changed)
+    df_mark_bb_dirty (bb);
+  return changed;
 }
 
 
 
 /* Take build ref table for either the uses or defs from the reg-use
-   or reg-def chains.  */ 
+   or reg-def chains.  */
 
 static void 
 df_reorganize_refs (struct df *df,
@@ -1053,6 +1099,77 @@ df_reorganize_refs (struct df *df,
       ref_info->refs_organized_alone = true;
     }
   ref_info->add_refs_inline = true;
+}
+
+
+/* Change all of the basic block references in INSN to use the insn's
+   current basic block.  This function is called from routines that move 
+   instructions from one block to another.  */  
+
+void
+df_insn_change_bb (rtx insn)
+{
+  struct df *df = df_current_instance;
+  basic_block new_bb = BLOCK_FOR_INSN (insn);
+  basic_block old_bb = NULL;
+  struct df_insn_info *insn_info;
+  unsigned int uid = INSN_UID (insn);
+  bool changed = false;
+  struct df_ref *ref;
+
+  if (!df)
+    return;
+
+  if (uid < DF_INSN_SIZE (df))
+    insn_info = DF_INSN_UID_GET (df, uid);
+  else 
+    {
+      df_insn_rescan (insn);
+      return;
+    }
+
+  if (!insn_info)
+    {
+      df_insn_rescan (insn);
+      return;
+    }
+
+  for (ref = insn_info->defs; ref; ref = DF_REF_NEXT_REF (ref))
+    if (DF_REF_BB (ref) == new_bb)
+      return;
+    else
+      {
+	old_bb = DF_REF_BB (ref);
+	DF_REF_BB (ref) = new_bb;
+	changed = true;
+      }
+
+  for (ref = insn_info->uses; ref; ref = DF_REF_NEXT_REF (ref))
+    if (DF_REF_BB (ref) == new_bb)
+      return;
+    else
+      {
+	old_bb = DF_REF_BB (ref);
+	DF_REF_BB (ref) = new_bb;
+	changed = true;
+      }
+
+  for (ref = insn_info->eq_uses; ref; ref = DF_REF_NEXT_REF (ref))
+    if (DF_REF_BB (ref) == new_bb)
+      return;
+    else
+      {
+	old_bb = DF_REF_BB (ref);
+	DF_REF_BB (ref) = new_bb;
+	changed = true;
+      }
+
+  if (changed)
+    {
+      if (old_bb)
+	df_mark_bb_dirty (old_bb);
+      df_mark_bb_dirty (new_bb);
+    }
 }
 
 
@@ -1349,7 +1466,6 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
   DF_REF_CHAIN (this_ref) = NULL;
   DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
-  DF_REF_DATA (this_ref) = NULL;
   DF_REF_BB (this_ref) = bb;
   DF_REF_NEXT_REF (this_ref) = NULL;
 

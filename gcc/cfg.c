@@ -163,23 +163,28 @@ void
 compact_blocks (void)
 {
   int i;
-  basic_block bb;
 
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   
-  i = NUM_FIXED_BLOCKS;
-  FOR_EACH_BB (bb)
+  if (df_current_instance)
+    df_compact_blocks ();
+  else 
     {
-      SET_BASIC_BLOCK (i, bb);
-      bb->index = i;
-      i++;
-    }
-  gcc_assert (i == n_basic_blocks);
-  
-  for (; i < last_basic_block; i++)
-    SET_BASIC_BLOCK (i, NULL);
+      basic_block bb;
+      
+      i = NUM_FIXED_BLOCKS;
+      FOR_EACH_BB (bb)
+	{
+	  SET_BASIC_BLOCK (i, bb);
+	  bb->index = i;
+	  i++;
+	}
+      gcc_assert (i == n_basic_blocks);
 
+      for (; i < last_basic_block; i++)
+	SET_BASIC_BLOCK (i, NULL);
+    }
   last_basic_block = n_basic_blocks;
 }
 
@@ -1192,3 +1197,4 @@ get_bb_copy (basic_block bb)
   else
     return NULL;
 }
+

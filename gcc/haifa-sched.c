@@ -2523,7 +2523,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
             generate_recovery_code (insn);
 
 	  if (control_flow_insn_p (last_scheduled_insn)	     
-	      /* This is used to to switch basic blocks by request
+	      /* This is used to switch basic blocks by request
 		 from scheduler front-end (actually, sched-ebb.c only).
 		 This is used to process blocks with single fallthru
 		 edge.  If succeeding block has jump, it [jump] will try

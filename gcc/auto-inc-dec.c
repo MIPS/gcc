@@ -622,13 +622,9 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     }
 
   /* Recompute the df info for the insns that have changed. */
-  df_insn_refs_delete (scan_dflow, inc_insn.insn);
-  df_insn_create_insn_record (scan_dflow, inc_insn.insn);
+  delete_insn (inc_insn.insn);
 
-  SET_INSN_DELETED (inc_insn.insn);
-  df_insn_refs_delete (scan_dflow, mem_insn.insn);
-  df_insn_create_insn_record (scan_dflow, mem_insn.insn);
-  df_insn_refs_record (scan_dflow, bb, mem_insn.insn); 
+  df_insn_rescan (mem_insn.insn);
   if (mov_insn)
     {
       if (dump_file)
@@ -636,8 +632,7 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 	  fprintf (dump_file, "inserting mov ");
 	  dump_insn_slim (dump_file, mov_insn);
 	}
-      df_insn_create_insn_record (scan_dflow, mov_insn);
-      df_insn_refs_record (scan_dflow, bb, mov_insn); 
+      df_insn_rescan (scan_dflow, mov_insn);
     }
   df_recompute_luids (df, bb);
 

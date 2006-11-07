@@ -57,6 +57,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "debug.h"
 #include "langhooks.h"
 #include "tree-pass.h"
+#include "df.h"
 
 /* Commonly used modes.  */
 
@@ -3408,7 +3409,7 @@ add_insn_after (rtx insn, rtx after)
     {
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_insn_rescan (insn);
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEL.  */
       if (BB_END (bb) == after
@@ -3474,7 +3475,7 @@ add_insn_before (rtx insn, rtx before)
     {
       set_block_for_insn (insn, bb);
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_insn_rescan (insn);
       /* Should not happen as first in the BB is always either NOTE or
 	 LABEL.  */
       gcc_assert (BB_HEAD (bb) != insn
@@ -3489,6 +3490,20 @@ add_insn_before (rtx insn, rtx before)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
 }
 
+
+/* Replace insn with an deleted instruction note.  */
+
+void set_insn_deleted (rtx insn)
+{
+  df_insn_delete (insn);
+  PUT_CODE (insn, NOTE);
+#ifndef USE_MAPPED_LOCATION
+  NOTE_SOURCE_FILE (insn) = 0;
+#endif
+  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+}
+
+
 /* Remove an insn from its doubly-linked list.  This function knows how
    to handle sequences.  */
 void
@@ -3497,6 +3512,8 @@ remove_insn (rtx insn)
   rtx next = NEXT_INSN (insn);
   rtx prev = PREV_INSN (insn);
   basic_block bb;
+
+  df_insn_delete (insn);
 
   if (prev)
     {
@@ -3659,7 +3676,10 @@ reorder_insns (rtx from, rtx to, rtx after)
 
       for (x = from; x != NEXT_INSN (to); x = NEXT_INSN (x))
 	if (!BARRIER_P (x))
-	  set_block_for_insn (x, bb);
+	  {
+	    set_block_for_insn (x, bb);
+	    df_insn_change_bb (x);
+	  }
     }
 }
 
@@ -3902,9 +3922,15 @@ emit_insn_after_1 (rtx first, rtx after)
       bb->flags |= BB_DIRTY;
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
 	if (!BARRIER_P (last))
-	  set_block_for_insn (last, bb);
+	  {
+	    set_block_for_insn (last, bb);
+	    df_insn_rescan (last);
+	  }
       if (!BARRIER_P (last))
-	set_block_for_insn (last, bb);
+	{
+	  set_block_for_insn (last, bb);
+	  df_insn_rescan (last);
+	}
       if (BB_END (bb) == after)
 	BB_END (bb) = last;
     }

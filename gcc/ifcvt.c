@@ -92,16 +92,16 @@ static rtx last_active_insn (basic_block, int);
 static basic_block block_fallthru (basic_block);
 static int cond_exec_process_insns (ce_if_block_t *, rtx, rtx, rtx, rtx, int);
 static rtx cond_exec_get_condition (rtx);
-static int cond_exec_process_if_block (struct df *, bitmap, ce_if_block_t *, int);
+static int cond_exec_process_if_block (bitmap, ce_if_block_t *, int);
 static rtx noce_get_condition (rtx, rtx *);
 static int noce_operand_ok (rtx);
-static int noce_process_if_block (struct df *, bitmap, ce_if_block_t *);
-static int process_if_block (struct df *, bitmap, ce_if_block_t *);
-static void merge_if_block (struct df *, bitmap, ce_if_block_t *);
-static int find_cond_trap (struct df *, bitmap, basic_block, edge, edge);
+static int noce_process_if_block (bitmap, ce_if_block_t *);
+static int process_if_block (bitmap, ce_if_block_t *);
+static void merge_if_block (bitmap, ce_if_block_t *);
+static int find_cond_trap (bitmap, basic_block, edge, edge);
 static basic_block find_if_header (struct df *, bitmap, basic_block, int);
 static int block_jumps_and_fallthru_p (basic_block, basic_block);
-static int find_if_block (struct df *, bitmap, ce_if_block_t *);
+static int find_if_block (bitmap, ce_if_block_t *);
 static int find_if_case_1 (struct df *, bitmap, basic_block, edge, edge);
 static int find_if_case_2 (struct df *, bitmap, basic_block, edge, edge);
 static int find_memory (rtx *, void *);
@@ -369,7 +369,7 @@ cond_exec_get_condition (rtx jump)
    converting the block.  */
 
 static int
-cond_exec_process_if_block (struct df *df, bitmap modified, 
+cond_exec_process_if_block (bitmap modified, 
 			    ce_if_block_t * ce_info,
 			    /* if block information */int do_multiple_p)
 {
@@ -573,7 +573,7 @@ cond_exec_process_if_block (struct df *df, bitmap modified,
 	     n_insns, (n_insns == 1) ? " was" : "s were");
 
   /* Merge the blocks!  */
-  merge_if_block (df, modified, ce_info);
+  merge_if_block (modified, ce_info);
   cond_exec_changed_p = TRUE;
   return TRUE;
 
@@ -2166,7 +2166,7 @@ noce_mem_write_may_trap_or_fault_p (rtx mem)
    successful at converting the block.  */
 
 static int
-noce_process_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
+noce_process_if_block (bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;	/* test block */
   basic_block then_bb = ce_info->then_bb;	/* THEN */
@@ -2393,7 +2393,7 @@ noce_process_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_i
     }
 
   /* Merge the blocks!  */
-  merge_if_block (df, modified, ce_info);
+  merge_if_block (modified, ce_info);
 
   return TRUE;
 }
@@ -2469,7 +2469,7 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
    converting the block.  */
 
 static int
-cond_move_process_if_block (struct df *df, bitmap modified, 
+cond_move_process_if_block (bitmap modified, 
 			    struct ce_if_block *ce_info)
 {
   basic_block then_bb = ce_info->then_bb;
@@ -2631,7 +2631,7 @@ cond_move_process_if_block (struct df *df, bitmap modified,
     }
   delete_insn (jump);
 
-  merge_if_block (df, modified, ce_info);
+  merge_if_block (modified, ce_info);
 
   return TRUE;
 }
@@ -2640,15 +2640,14 @@ cond_move_process_if_block (struct df *df, bitmap modified,
    straight line code.  Return true if successful.  */
 
 static int
-process_if_block (struct df *df, bitmap modified, 
-		  struct ce_if_block * ce_info)
+process_if_block (bitmap modified, struct ce_if_block * ce_info)
 {
   if (! reload_completed
-      && noce_process_if_block (df, modified, ce_info))
+      && noce_process_if_block (modified, ce_info))
     return TRUE;
 
   if (HAVE_conditional_move
-      && cond_move_process_if_block (df, modified, ce_info))
+      && cond_move_process_if_block (modified, ce_info))
     return TRUE;
 
   if (HAVE_conditional_execution && reload_completed)
@@ -2657,14 +2656,14 @@ process_if_block (struct df *df, bitmap modified,
          || tests into the conditional code, and if that fails, go back and
          handle it without the && and ||, which at present handles the && case
          if there was no ELSE block.  */
-      if (cond_exec_process_if_block (df, modified, ce_info, TRUE))
+      if (cond_exec_process_if_block (modified, ce_info, TRUE))
 	return TRUE;
 
       if (ce_info->num_multiple_test_blocks)
 	{
 	  cancel_changes (0);
 
-	  if (cond_exec_process_if_block (df, modified, ce_info, FALSE))
+	  if (cond_exec_process_if_block (modified, ce_info, FALSE))
 	    return TRUE;
 	}
     }
@@ -2675,7 +2674,7 @@ process_if_block (struct df *df, bitmap modified,
 /* Merge the blocks and mark for local life update.  */
 
 static void
-merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
+merge_if_block (bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;	/* last test block */
   basic_block then_bb = ce_info->then_bb;	/* THEN */
@@ -2700,7 +2699,6 @@ merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
 	{
 	  bb = fallthru;
 	  fallthru = block_fallthru (bb);
-	  df_delete_basic_block (df, bb->index);
 	  merge_blocks (combo_bb, bb);
 	  num_true_changes++;
 	}
@@ -2713,7 +2711,6 @@ merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
 
   if (then_bb)
     {
-      df_delete_basic_block (df, then_bb->index);
       merge_blocks (combo_bb, then_bb);
       num_true_changes++;
     }
@@ -2723,7 +2720,6 @@ merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
      get their addresses taken.  */
   if (else_bb)
     {
-      df_delete_basic_block (df, else_bb->index);
       merge_blocks (combo_bb, else_bb);
       num_true_changes++;
     }
@@ -2766,7 +2762,6 @@ merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
     {
       /* We can merge the JOIN cleanly and update the dataflow try
 	 again on this pass.*/
-      df_delete_basic_block (df, join_bb->index);
       merge_blocks (combo_bb, join_bb);
       num_true_changes++;
     }
@@ -2844,11 +2839,11 @@ find_if_header (struct df *df, bitmap modified, basic_block test_bb, int pass)
   IFCVT_INIT_EXTRA_FIELDS (&ce_info);
 #endif
 
-  if (find_if_block (df, modified, &ce_info))
+  if (find_if_block (modified, &ce_info))
     goto success;
 
   if (HAVE_trap && HAVE_conditional_trap
-      && find_cond_trap (df, modified, test_bb, then_edge, else_edge))
+      && find_cond_trap (modified, test_bb, then_edge, else_edge))
     goto success;
 
   if (dom_computed[CDI_POST_DOMINATORS] >= DOM_NO_FAST_QUERY
@@ -2943,7 +2938,7 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
    Return TRUE if we were successful at converting the block.  */
 
 static int
-find_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
+find_if_block (bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;
   basic_block then_bb = ce_info->then_bb;
@@ -3148,14 +3143,14 @@ find_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
   ce_info->else_bb = else_bb;
   ce_info->join_bb = join_bb;
 
-  return process_if_block (df, modified, ce_info);
+  return process_if_block (modified, ce_info);
 }
 
 /* Convert a branch over a trap, or a branch
    to a trap, into a conditional trap.  */
 
 static int
-find_cond_trap (struct df *df, bitmap modified, 
+find_cond_trap (bitmap modified, 
 		basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
@@ -3219,10 +3214,7 @@ find_cond_trap (struct df *df, bitmap modified,
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
   if (EDGE_COUNT (trap_bb->preds) == 0)
-    {
-      df_delete_basic_block (df, trap_bb->index);
-      delete_basic_block (trap_bb);
-    }
+    delete_basic_block (trap_bb);
 
   bitmap_set_bit (modified, test_bb->index);
   bitmap_set_bit (modified, then_bb->index);
@@ -3239,7 +3231,7 @@ find_cond_trap (struct df *df, bitmap modified,
       new_ce_info.then_bb = NULL;
       new_ce_info.else_bb = NULL;
       new_ce_info.join_bb = other_bb;
-      merge_if_block (df, modified, &new_ce_info);
+      merge_if_block (modified, &new_ce_info);
     }
   else
     {
@@ -3441,7 +3433,6 @@ find_if_case_1 (struct df *df, bitmap modified,
   bitmap_set_bit (modified, else_bb->index);
 
   then_bb_index = then_bb->index;
-  df_delete_basic_block (df, then_bb_index);
   delete_basic_block (then_bb);
 
   /* Make rest of code believe that the newly created block is the THEN_BB
@@ -3450,7 +3441,7 @@ find_if_case_1 (struct df *df, bitmap modified,
     {
       int old_index = new_bb->index;
       new_bb->index = then_bb_index;
-      SET_BASIC_BLOCK (then_bb_index, new_bb);
+      df_bb_replace (then_bb_index, new_bb);
       bitmap_set_bit (modified, then_bb_index);
       SET_BASIC_BLOCK (old_index, NULL);
       /* Since the fallthru edge was redirected from test_bb to new_bb,
@@ -3543,7 +3534,6 @@ find_if_case_2 (struct df *df, bitmap modified,
 
   bitmap_set_bit (modified, test_bb->index);
   bitmap_set_bit (modified, then_bb->index);
-  df_delete_basic_block (df, else_bb->index);
   delete_basic_block (else_bb);
 
   num_true_changes++;
@@ -3869,9 +3859,7 @@ if_convert (void)
   basic_block bb;
   int pass;
   bitmap modified = BITMAP_ALLOC (NULL);
-  struct df * df = df_init (0, DF_LR_RUN_DCE);
-  df_lr_add_problem (df);
-  df_live_add_problem (df);
+  struct df * df;
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
@@ -3891,6 +3879,10 @@ if_convert (void)
   /* Compute postdominators if we think we'll use them.  */
   if (HAVE_conditional_execution)
     calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  df = df_init (0, DF_LR_RUN_DCE);
+  df_lr_add_problem (df);
+  df_live_add_problem (df);
 
   /* Go through each of the basic blocks looking for things to convert.  If we
      have conditional execution, we make multiple passes to allow us to handle
@@ -4007,6 +3999,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish |
+  TODO_verify_flow |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4044,6 +4037,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4079,8 +4073,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */
 };
-
-

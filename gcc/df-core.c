@@ -333,7 +333,7 @@ df_init (enum df_permanent_flags permanent_flags,
   return df;
 }
 
-/* Add PROBLEM to the DF instance.  */
+/* Add PROBLEM (and any dependent problems) to the DF instance.  */
 
 struct dataflow *
 df_add_problem (struct df *df, struct df_problem *problem)
@@ -341,8 +341,8 @@ df_add_problem (struct df *df, struct df_problem *problem)
   struct dataflow *dflow;
 
   /* First try to add the dependent problem. */
-  if (problem->dependent_problem_fun)
-    (problem->dependent_problem_fun) (df);
+  if (problem->dependent_problem)
+    df_add_problem (df, problem->dependent_problem);
 
   /* Check to see if this problem has already been defined.  If it
      has, just return that instance, if not, add it to the end of the
@@ -360,6 +360,40 @@ df_add_problem (struct df *df, struct df_problem *problem)
   df->problems_by_index[dflow->problem->id] = dflow;
 
   return dflow;
+}
+
+
+/* Delete a PROBLEM (and any problems that depend on this problem) to
+   the DF instance.  */
+
+void
+df_remove_problem (struct df *df, struct dataflow *dflow)
+{
+  struct df_problem *problem = dflow->problem;
+  int i;
+
+  gcc_assert (problem->remove_problem_fun);
+  df->problems_by_index[dflow->problem->id] = NULL;
+
+  /* Delete any problems that depended on this problem first.  */
+  for (i = 0; i < df->num_problems_defined; i++)
+    if (df->problems_in_order[i]->problem->dependent_problem == problem)
+      df_remove_problem (df, df->problems_in_order[i]);
+
+  /* Now remove this problem.  */
+  for (i = 0; i < df->num_problems_defined; i++)
+    if (df->problems_in_order[i] == dflow)
+      {
+	int j;
+	for (j = i + 1; j < df->num_problems_defined; j++)
+	  df->problems_in_order[j-1] = df->problems_in_order[j];
+	df->problems_in_order[j] = NULL;
+	df->num_problems_defined--;
+	break;
+      }
+
+  (problem->remove_problem_fun) (dflow);
+  free (dflow);
 }
 
 
@@ -416,9 +450,12 @@ df_set_blocks (struct df *df, bitmap blocks)
 		      basic_block bb = BASIC_BLOCK (bb_index);
 		      if (bb)
 			{
-			  dflow->problem->free_bb_fun
-			    (dflow, bb, df_get_bb_info (dflow, bb_index));
-			  df_set_bb_info (dflow, bb_index, NULL); 
+			  void *bb_info = df_get_bb_info (dflow, bb_index);
+			  if (bb_info)
+			    {
+			      dflow->problem->free_bb_fun (dflow, bb, bb_info);
+			      df_set_bb_info (dflow, bb_index, NULL);
+			    }
 			}
 		    }
 		}
@@ -475,19 +512,26 @@ df_set_blocks (struct df *df, bitmap blocks)
    problem will be reanalyzed.  */
 
 void
-df_delete_basic_block (struct df *df, int bb_index)
+df_delete_basic_block (int bb_index)
 {
+  struct df *df = df_current_instance;
   basic_block bb = BASIC_BLOCK (bb_index);
   int i;
+
+  if (!df)
+    return;
   
   for (i = 0; i < df->num_problems_defined; i++)
     {
       struct dataflow *dflow = df->problems_in_order[i];
       if (dflow->problem->free_bb_fun)
 	{
-	  dflow->problem->free_bb_fun 
-	    (dflow, bb, df_get_bb_info (dflow, bb_index)); 
-	  df_set_bb_info (dflow, bb_index, NULL);
+	  void *bb_info = df_get_bb_info (dflow, bb_index);
+	  if (bb_info)
+	    {
+	      dflow->problem->free_bb_fun (dflow, bb, bb_info); 
+	      df_set_bb_info (dflow, bb_index, NULL);
+	    }
 	}
     }
 }
@@ -916,6 +960,10 @@ df_simple_iterative_dataflow (enum df_flow_dir dir,
 static void *
 df_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  if (dflow->block_info == NULL)
+    return NULL;
+  if (index >= dflow->block_info_size)
+    return NULL;
   return (struct df_scan_bb_info *) dflow->block_info[index];
 }
 
@@ -926,8 +974,169 @@ static void
 df_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		void *bb_info)
 {
+  gcc_assert (dflow->block_info);
   dflow->block_info[index] = bb_info;
 }
+
+
+/* Mark the solutions as being out of date.  */
+
+void 
+df_mark_solutions_dirty (struct df *df)
+{
+  df->solutions_dirty = true;
+}
+
+
+/* Mark BB as needing it's transfer functions as being out of
+   date.  */
+
+void 
+df_mark_bb_dirty (basic_block bb)
+{
+  struct df *df = df_current_instance;
+
+  df_mark_solutions_dirty (df);
+  bitmap_set_bit (df->out_of_date_transfer_functions, bb->index);
+}
+
+
+/* Called from the rtl_compact_blocks to reorganize the problems basic
+   block info.  */
+
+void 
+df_compact_blocks (void)
+{
+  struct df *df = df_current_instance;
+  int i, p;
+  basic_block bb;
+  void **problem_temps;
+  int size = last_basic_block *sizeof (void *);
+  bitmap tmp = BITMAP_ALLOC (NULL);
+  problem_temps = xmalloc (size);
+
+  for (p = 0; p < df->num_problems_defined; p++)
+    {
+      struct dataflow *dflow = df->problems_in_order[p];
+      if (dflow->problem->free_bb_fun)
+	{
+	  df_grow_bb_info (dflow);
+	  memcpy (problem_temps, dflow->block_info, size);
+
+	  /* Copy the bb info from the problem tmps to the proper
+	     place in the block_info vector.  Null out the copied
+	     item.  */
+	  i = NUM_FIXED_BLOCKS;
+	  FOR_EACH_BB (bb) 
+	    {
+	      df_set_bb_info (dflow, i, problem_temps[bb->index]);
+	      problem_temps[bb->index] = NULL;
+	      i++;
+	    }
+	  memset (dflow->block_info + i, 0, 
+		  (last_basic_block - i) *sizeof (void *));
+
+	  /* Free any block infos that were not copied (and NULLed).
+	     These are from orphaned blocks.  */
+	  for (i = NUM_FIXED_BLOCKS; i < last_basic_block; i++)
+	    {
+	      basic_block bb = BASIC_BLOCK (i); 
+	      if (problem_temps[i] && bb)
+		dflow->problem->free_bb_fun
+		  (dflow, bb, problem_temps[i]);
+	    }
+	}
+    }
+
+  /* Shuffle the bits in the basic_block indexed arrays.  */
+
+  if (df->blocks_to_scan)
+    {
+      bitmap_copy (tmp, df->blocks_to_scan);
+      bitmap_clear (df->blocks_to_scan);
+      i = NUM_FIXED_BLOCKS;
+      FOR_EACH_BB (bb) 
+	{
+	  if (bitmap_bit_p (tmp, bb->index))
+	    bitmap_set_bit (df->blocks_to_scan, i);
+	  i++;
+	}
+    }
+
+  bitmap_copy (tmp, df->out_of_date_transfer_functions);
+  bitmap_clear (df->out_of_date_transfer_functions);
+  i = NUM_FIXED_BLOCKS;
+  FOR_EACH_BB (bb) 
+    {
+      if (bitmap_bit_p (tmp, bb->index))
+	bitmap_set_bit (df->out_of_date_transfer_functions, i);
+      i++;
+    }
+
+  if (df->blocks_to_analyze)
+    {
+      bitmap_copy (tmp, df->blocks_to_analyze);
+      bitmap_clear (df->blocks_to_analyze);
+      i = NUM_FIXED_BLOCKS;
+      FOR_EACH_BB (bb) 
+	{
+	  if (bitmap_bit_p (tmp, bb->index))
+	    bitmap_set_bit (df->blocks_to_analyze, i);
+	  i++;
+	}
+    }
+
+  BITMAP_FREE (tmp);
+
+  free (problem_temps);
+
+  i = NUM_FIXED_BLOCKS;
+  FOR_EACH_BB (bb) 
+    {
+      SET_BASIC_BLOCK (i, bb);
+      bb->index = i;
+      i++;
+    }
+
+  gcc_assert (i == n_basic_blocks);
+
+  for (; i < last_basic_block; i++)
+    SET_BASIC_BLOCK (i, NULL);
+}
+
+
+/* Shove NEW_BLOCK in at OLD_INDEX.  Called from ifcvt to hack a
+   block.  There is no excuse for people to do this kind of thing.  */
+
+void 
+df_bb_replace (int old_index, basic_block new_block)
+{
+  struct df *df = df_current_instance;
+  int p;
+  gcc_assert (df);
+
+  for (p = 0; p < df->num_problems_defined; p++)
+    {
+      struct dataflow *dflow = df->problems_in_order[p];
+      if (dflow->block_info)
+	{
+	  void *temp;
+
+	  df_grow_bb_info (dflow);
+
+	  /* The old switcheroo.  */
+
+	  temp = df_get_bb_info (dflow, old_index);
+	  df_set_bb_info (dflow, old_index, 
+			  df_get_bb_info (dflow, new_block->index));
+	  df_set_bb_info (dflow, new_block->index, temp);
+	}
+    }
+
+  SET_BASIC_BLOCK (old_index, new_block);
+  new_block->index = old_index;
+}
+
 
 /*----------------------------------------------------------------------------
    PUBLIC INTERFACES TO QUERY INFORMATION.

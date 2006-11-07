@@ -59,86 +59,6 @@ static bitmap seen_in_insn = NULL;
 /*----------------------------------------------------------------------------
    Public functions access functions for the dataflow problems.
 ----------------------------------------------------------------------------*/
-
-/* Create a du or ud chain from SRC to DST and link it into SRC.   */
-
-struct df_link *
-df_chain_create (struct dataflow *dflow, struct df_ref *src, struct df_ref *dst)
-{
-  struct df_link *head = DF_REF_CHAIN (src);
-  struct df_link *link = pool_alloc (dflow->block_pool);;
-  
-  DF_REF_CHAIN (src) = link;
-  link->next = head;
-  link->ref = dst;
-  return link;
-}
-
-
-/* Delete a du or ud chain for REF.  If LINK is NULL, delete all
-   chains for ref and check to see if the reverse chains can also be
-   deleted.  If LINK is not NULL it must be a link off of ref.  In
-   this case, the other end is not deleted.  */
-
-void
-df_chain_unlink (struct dataflow *dflow, struct df_ref *ref, struct df_link *link)
-{
-  struct df_link *chain = DF_REF_CHAIN (ref);
-  if (link)
-    {
-      /* Link was the first element in the chain.  */
-      if (chain == link)
-	DF_REF_CHAIN (ref) = link->next;
-      else
-	{
-	  /* Link is an internal element in the chain.  */
-	  struct df_link *prev = chain;
-	  while (chain)
-	    {
-	      if (chain == link)
-		{
-		  prev->next = chain->next;
-		  break;
-		}
-	      prev = chain;
-	      chain = chain->next;
-	    }
-	}
-      pool_free (dflow->block_pool, link);
-    }
-  else
-    {
-      /* If chain is NULL here, it was because of a recursive call
-	 when the other flavor of chains was not built.  Just run thru
-	 the entire chain calling the other side and then deleting the
-	 link.  */
-      while (chain)
-	{
-	  struct df_link *next = chain->next;
-	  /* Delete the other side if it exists.  */
-	  df_chain_unlink (dflow, chain->ref, chain);
-	  chain = next;
-	}
-    }
-}
-
-
-/* Copy the du or ud chain starting at FROM_REF and attach it to
-   TO_REF.  */ 
-
-void 
-df_chain_copy (struct dataflow *dflow, 
-	       struct df_ref *to_ref, 
-	       struct df_link *from_ref)
-{
-  while (from_ref)
-    {
-      df_chain_create (dflow, to_ref, from_ref->ref);
-      from_ref = from_ref->next;
-    }
-}
-
-
 /* Get the live in set for BB no matter what problem happens to be
    defined.  */
 
@@ -841,6 +761,7 @@ static struct df_problem problem_RU =
   df_ru_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ru_free,                 /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   df_ru_start_dump,           /* Debugging.  */
   df_ru_top_dump,             /* Debugging start block.  */
   df_ru_bottom_dump,          /* Debugging end block.  */
@@ -1391,6 +1312,7 @@ static struct df_problem problem_RD =
   df_rd_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_rd_free,                 /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   df_rd_start_dump,           /* Debugging.  */
   df_rd_top_dump,             /* Debugging start block.  */
   df_rd_bottom_dump,          /* Debugging end block.  */
@@ -1924,6 +1846,7 @@ static struct df_problem problem_LR =
   df_lr_transfer_function,    /* Transfer function.  */
   df_lr_local_finalize,       /* Finalize function.  */
   df_lr_free,                 /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_lr_top_dump,             /* Debugging start block.  */
   df_lr_bottom_dump,          /* Debugging end block.  */
@@ -2246,10 +2169,11 @@ static struct df_problem problem_UR =
   df_ur_transfer_function,    /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ur_free,                 /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_ur_top_dump,             /* Debugging start block.  */
   df_ur_bottom_dump,          /* Debugging end block.  */
-  df_lr_add_problem           /* Dependent problem.  */
+  &problem_LR                 /* Dependent problem.  */
 };
 
 
@@ -2440,10 +2364,11 @@ static struct df_problem problem_LIVE =
   NULL,                       /* Transfer function.  */
   df_live_local_finalize,     /* Finalize function.  */
   df_live_free,               /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_live_top_dump,           /* Debugging start block.  */
   df_live_bottom_dump,        /* Debugging end block.  */
-  df_ur_add_problem           /* Dependent problem.  */
+  &problem_UR                 /* Dependent problem.  */
 };
 
 
@@ -3076,10 +3001,11 @@ static struct df_problem problem_UREC =
   df_urec_transfer_function,  /* Transfer function.  */
   df_urec_local_finalize,     /* Finalize function.  */
   df_urec_free,               /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
   df_urec_top_dump,           /* Debugging start block.  */
   df_urec_bottom_dump,        /* Debugging end block.  */
-  df_lr_add_problem           /* Dependent problem.  */
+  &problem_LR                 /* Dependent problem.  */
 };
 
 
@@ -3105,6 +3031,82 @@ df_urec_add_problem (struct df *df)
    involve a single traversal of instructions and an examination of
    the reaching defs information (the dependent problem).
 ----------------------------------------------------------------------------*/
+
+
+
+/* Create a du or ud chain from SRC to DST and link it into SRC.   */
+
+struct df_link *
+df_chain_create (struct dataflow *dflow, struct df_ref *src, struct df_ref *dst)
+{
+  struct df_link *head = DF_REF_CHAIN (src);
+  struct df_link *link = pool_alloc (dflow->block_pool);;
+  
+  DF_REF_CHAIN (src) = link;
+  link->next = head;
+  link->ref = dst;
+  return link;
+}
+
+
+/* Delete a du or ud chain for REF.  If LINK is NULL, delete all
+   chains for ref and check to see if the reverse chains can also be
+   deleted.  If LINK is not NULL it must be a link off of ref.  In
+   this case, the other end is not deleted.  */
+
+void
+df_chain_unlink (struct dataflow *dflow, struct df_ref *ref, struct df_link *link)
+{
+  struct df_link *chain = DF_REF_CHAIN (ref);
+  if (link)
+    {
+      /* Link was the first element in the chain.  */
+      if (chain == link)
+	DF_REF_CHAIN (ref) = link->next;
+      else
+	{
+	  /* Link is an internal element in the chain.  */
+	  struct df_link *prev = chain;
+	  while (chain)
+	    {
+	      if (chain == link)
+		{
+		  prev->next = chain->next;
+		  break;
+		}
+	      prev = chain;
+	      chain = chain->next;
+	    }
+	}
+      DF_REF_CHAIN (ref) = NULL;
+      pool_free (dflow->block_pool, link);
+    }
+  else
+    while (chain)
+      {
+	struct df_link *next = chain->next;
+	/* Delete the other side if it exists.  */
+	df_chain_unlink (dflow, chain->ref, chain);
+	chain = next;
+      }
+}
+
+
+/* Copy the du or ud chain starting at FROM_REF and attach it to
+   TO_REF.  */ 
+
+void 
+df_chain_copy (struct dataflow *dflow, 
+	       struct df_ref *to_ref, 
+	       struct df_link *from_ref)
+{
+  while (from_ref)
+    {
+      df_chain_create (dflow, to_ref, from_ref->ref);
+      from_ref = from_ref->next;
+    }
+}
+
 
 /* Create def-use or use-def chains.  */
 
@@ -3416,6 +3418,23 @@ df_chain_finalize (struct dataflow *dflow, bitmap all_blocks)
 }
 
 
+/* Remove this problem from the stack of dataflow problems.  */
+
+static void
+df_chain_remove_problem (struct dataflow *dflow)
+{
+  basic_block bb;
+
+  FOR_ALL_BB (bb)
+    {
+      df_chain_bb_reset (dflow, bb->index);
+    }
+
+  free_alloc_pool (dflow->block_pool);
+  dflow->block_pool = NULL;
+}
+
+
 /* Free all storage associated with the problem.  */
 
 static void
@@ -3501,10 +3520,11 @@ static struct df_problem problem_CHAIN =
   NULL,                       /* Transfer function.  */
   df_chain_finalize,          /* Finalize function.  */
   df_chain_free,              /* Free all of the problem information.  */
+  df_chain_remove_problem,    /* Remove this problem from the stack of dataflow problems.  */
   df_chain_start_dump,        /* Debugging.  */
   NULL,                       /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
-  df_rd_add_problem           /* Dependent problem.  */
+  &problem_RD                 /* Dependent problem.  */
 };
 
 
@@ -4241,6 +4261,7 @@ static struct df_problem problem_RI =
   NULL,                       /* Transfer function.  */
   NULL,                       /* Finalize function.  */
   df_ri_free,                 /* Free all of the problem information.  */
+  NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   df_ri_start_dump,           /* Debugging.  */
   NULL,                       /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
@@ -4248,7 +4269,7 @@ static struct df_problem problem_RI =
   /* Technically this is only dependent on the live registers problem
      but it will produce information if built one of uninitialized
      register problems (UR, UREC) is also run.  */
-  df_lr_add_problem           /* Dependent problem.  */
+  &problem_LR                 /* Dependent problem.  */
 };
 
 

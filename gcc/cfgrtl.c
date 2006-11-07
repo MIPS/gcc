@@ -307,7 +307,6 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   update_bb_for_insn (bb);
   BB_SET_PARTITION (bb, BB_UNPARTITIONED);
 
-  
 
   /* Tag the block so that we know it has been used when considering
      other basic block notes.  */
@@ -342,7 +341,6 @@ rtl_create_basic_block (void *headp, void *endp, basic_block after)
 
   bb = create_basic_block_structure (head, end, NULL, after);
   bb->aux = NULL;
-
   return bb;
 }
 
@@ -390,6 +388,8 @@ rtl_delete_block (basic_block b)
   /* Selectively delete the entire chain.  */
   BB_HEAD (b) = NULL;
   delete_insn_chain (insn, end);
+
+  df_delete_basic_block (b->index);
 }
 
 /* Records the basic block struct in BLOCK_FOR_INSN for every insn.  */
@@ -473,7 +473,10 @@ update_bb_for_insn (basic_block bb)
   for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
       if (!BARRIER_P (insn))
-	set_block_for_insn (insn, bb);
+	{
+	  set_block_for_insn (insn, bb);
+	  df_insn_rescan (insn);
+	}
       if (insn == BB_END (bb))
 	break;
     }
@@ -622,16 +625,22 @@ rtl_merge_blocks (basic_block a, basic_block b)
       rtx x;
 
       for (x = a_end; x != b_end; x = NEXT_INSN (x))
-	set_block_for_insn (x, a);
+	{
+	  set_block_for_insn (x, a);
+	  df_insn_change_bb (x);
+	}
 
       set_block_for_insn (b_end, a);
+      df_insn_change_bb (b_end);
 
       a_end = b_end;
     }
 
+  df_delete_basic_block (b->index);
   BB_END (a) = a_end;
 
 }
+
 
 /* Return true when block A and B can be merged.  */
 static bool
@@ -829,7 +838,10 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
 
 	      for (tmp = NEXT_INSN (BB_END (src)); tmp != barrier;
 		   tmp = NEXT_INSN (tmp))
-		set_block_for_insn (tmp, src);
+		{
+		  set_block_for_insn (tmp, src);
+	      	  df_insn_change_bb (tmp);
+		}
 
 	      NEXT_INSN (PREV_INSN (new_insn)) = NEXT_INSN (new_insn);
 	      PREV_INSN (NEXT_INSN (new_insn)) = PREV_INSN (new_insn);
@@ -2608,7 +2620,11 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
       for (insn = BB_HEAD (b);
 	   insn != NEXT_INSN (BB_END (b));
 	   insn = NEXT_INSN (insn))
-	set_block_for_insn (insn, a);
+	{
+	  set_block_for_insn (insn, a);
+	  df_insn_change_bb (insn);
+	}
+
       insn = BB_HEAD (b);
       /* Skip possible DELETED_LABEL insn.  */
       if (!NOTE_INSN_BASIC_BLOCK_P (insn))
@@ -2618,6 +2634,8 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
       BB_END (a) = BB_END (b);
       delete_insn (insn);
     }
+
+  df_delete_basic_block (b->index);
 
   /* Possible tablejumps and barriers should appear after the block.  */
   if (b->il.rtl->footer)
@@ -3030,7 +3048,7 @@ struct cfg_hooks rtl_cfg_hooks = {
 /* We do not want to declare these functions in a header file, since they
    should only be used through the cfghooks interface, and we do not want to
    move them here since it would require also moving quite a lot of related
-   code.  */
+   code.  They are in cfglayout.c.  */
 extern bool cfg_layout_can_duplicate_bb_p (basic_block);
 extern basic_block cfg_layout_duplicate_bb (basic_block);
 

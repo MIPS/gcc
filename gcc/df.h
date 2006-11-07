@@ -182,15 +182,16 @@ typedef void (*df_finalizer_function) (struct dataflow*, bitmap);
 /* Function to free all of the problem specific datastructures.  */
 typedef void (*df_free_function) (struct dataflow *);
 
+/* Function to remove this problem from the stack of dataflow problems
+   without effecting the other problems in the stack except for those
+   that depend on this problem.  */
+typedef void (*df_remove_problem_function) (struct dataflow *);
+
 /* Function to dump basic block independent results to FILE.  */
 typedef void (*df_dump_problem_function) (struct dataflow *, FILE *);
 
 /* Function to dump top or bottom of basic block results to FILE.  */
 typedef void (*df_dump_bb_problem_function) (struct dataflow *, basic_block, FILE *);
-
-/* Function to add problem a dataflow problem that must be solved
-   before this problem can be solved.  */
-typedef struct dataflow * (*df_dependent_problem_function) (struct df *);
 
 /* The static description of a dataflow problem to solve.  See above
    typedefs for doc for the function fields.  */
@@ -211,10 +212,11 @@ struct df_problem {
   df_transfer_function trans_fun;
   df_finalizer_function finalize_fun;
   df_free_function free_fun;
+  df_remove_problem_function remove_problem_fun;
   df_dump_problem_function dump_start_fun;
   df_dump_bb_problem_function dump_top_fun;
   df_dump_bb_problem_function dump_bottom_fun;
-  df_dependent_problem_function dependent_problem_fun;
+  struct df_problem *dependent_problem;
 };
 
 
@@ -303,7 +305,6 @@ struct df_ref
   /* Each insn has two lists, one for the uses and one for the
      defs. This is the next field in either of these chains. */
   struct df_ref *next_ref; 
-  void *data;			/* The data assigned to it by user.  */
 };
 
 /* These links are used for two purposes:
@@ -366,6 +367,7 @@ struct df_reg_info
   unsigned int n_refs;
 };
 
+
 /*----------------------------------------------------------------------------
    Problem data for the scanning dataflow problem.  Unlike the other
    dataflow problems, the problem data for scanning is fully exposed and
@@ -396,6 +398,13 @@ struct df
   /* If not NULL, the subset of blocks of the program to be considered
      for analysis.  */ 
   bitmap blocks_to_analyze;
+
+  /* The set of blocks whose transfer functions are out of date.  */
+  bitmap out_of_date_transfer_functions;
+
+  /* True if the something has changed which invalidates the dataflow
+     solutions.  */
+  bool solutions_dirty;
 
   /* The following information is really the problem data for the
      scanning instance but it is used too often by the other problems
@@ -485,7 +494,6 @@ struct df
 #define DF_REF_NEXT_REG(REF) ((REF)->next_reg)
 #define DF_REF_PREV_REG(REF) ((REF)->prev_reg)
 #define DF_REF_NEXT_REF(REF) ((REF)->next_ref)
-#define DF_REF_DATA(REF) ((REF)->data)
 
 /* Macros to determine the reference type.  */
 
@@ -667,10 +675,11 @@ extern struct df *df_current_instance;
 
 extern struct df *df_init (enum df_permanent_flags, enum df_changeable_flags);
 extern struct dataflow *df_add_problem (struct df *, struct df_problem *);
+extern void df_remove_problem (struct df *, struct dataflow *);
 extern enum df_changeable_flags df_set_flags (struct df *, enum df_changeable_flags);
 extern enum df_changeable_flags df_clear_flags (struct df *, enum df_changeable_flags);
 extern void df_set_blocks (struct df*, bitmap);
-extern void df_delete_basic_block (struct df *, int);
+extern void df_delete_basic_block (int);
 extern void df_finish1 (struct df *);
 extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
@@ -679,6 +688,10 @@ extern int *df_get_postorder (struct df *);
 extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
 					  df_confluence_function_0, df_confluence_function_n,
 					  df_transfer_function, bitmap, int *, int);
+extern void df_mark_solutions_dirty (struct df *);
+extern void df_mark_bb_dirty (basic_block);
+extern void df_compact_blocks (void);
+extern void df_bb_replace (int, basic_block);
 extern struct df_ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
 extern struct df_ref *df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
@@ -753,12 +766,13 @@ extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
 extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *);
 extern void df_ref_remove (struct df *, struct df_ref *);
 extern void df_insn_create_insn_record (struct dataflow *, rtx);
-extern void df_insn_refs_delete (struct dataflow *, rtx);
-extern void df_bb_refs_delete (struct dataflow *, int);
-extern void df_refs_delete (struct dataflow *, bitmap);
+extern void df_insn_delete (rtx);
+extern void df_bb_delete (unsigned int);
+extern bool df_insn_rescan (rtx);
 extern void df_insn_refs_record (struct dataflow *, basic_block, rtx);
 extern bool df_has_eh_preds (basic_block);
 extern void df_recompute_luids (struct df *, basic_block);
+extern void df_insn_change_bb (rtx);
 extern void df_maybe_reorganize_use_refs (struct df *);
 extern void df_maybe_reorganize_def_refs (struct df *);
 extern void df_hard_reg_init (void);

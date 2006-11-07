@@ -2845,28 +2845,6 @@ peep2_find_free_register (int from, int to, const char *class_str,
   return NULL_RTX;
 }
 
-/* Delete dataflow info and insn from START to FINISH.  */
-
-static void
-delete_insn_chain_and_dflow (struct dataflow *dflow, rtx start, rtx finish)
-{
-  rtx next;
-  rtx orig_start = start;
-
-  while (1)
-    {
-      next = NEXT_INSN (start);
-      if (INSN_P (start))
-	df_insn_refs_delete (dflow, start);
-
-      if (start == finish)
-	break;
-      start = next;
-    }
-
-  delete_insn_chain (orig_start, finish);
-}
-
 /* Perform the peephole2 optimization pass.  */
 
 static void
@@ -2882,11 +2860,9 @@ peephole2_optimize (void)
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
   struct df * df = df_init (0, DF_LR_RUN_DCE);
-  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
 
   df_lr_add_problem (df);
   df_live_add_problem (df);
-  df_ru_add_problem (df);
   df_analyze (df);
 
   /* Initialize the regsets we're going to use.  */
@@ -3024,7 +3000,7 @@ peephole2_optimize (void)
 		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
-		  delete_insn_chain_and_dflow (dflow, insn, peep2_insn_data[i].insn);
+		  delete_insn_chain (insn, peep2_insn_data[i].insn);
 
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
@@ -3092,7 +3068,6 @@ peephole2_optimize (void)
 		  x = try;
 		  do
 		    {
-		      df_insn_create_insn_record (dflow, insn);
 		      if (INSN_P (x))
 			{
 			  if (--i < 0)
@@ -3101,20 +3076,13 @@ peephole2_optimize (void)
 			      && peep2_insn_data[i].insn == NULL_RTX)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
-			  df_insn_refs_record (dflow, bb, insn);
-			  df_lr_simulate_one_insn (df, bb, insn, live);
-#if 0
-			  propagate_one_insn (pbi, x);
-			  gcc_assert (bitmap_equal_p (livep, live));
-#endif
+			  df_insn_rescan (x);
+			  df_lr_simulate_one_insn (df, bb, x, live);
 			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
 		    }
 		  while (x != prev);
-
-		  /* ??? Should verify that LIVE now matches what we
-		     had before the new sequence.  */
 
 		  peep2_current = i;
 #endif
@@ -3302,7 +3270,7 @@ struct tree_opt_pass pass_split_all_insns =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+ TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -3408,6 +3376,7 @@ struct tree_opt_pass pass_split_before_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_verify_flow |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

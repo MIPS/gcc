@@ -832,20 +832,16 @@ extern const char * const reg_note_name[];
 /* Opaque data.  */
 #define NOTE_DATA(INSN)	        RTL_CHECKC1 (INSN, 4, NOTE)
 #define NOTE_DELETED_LABEL_NAME(INSN) XCSTR (INSN, 4, NOTE)
+#define SET_INSN_DELETED(INSN) set_insn_deleted (INSN);
 #ifdef USE_MAPPED_LOCATION
 #define NOTE_SOURCE_LOCATION(INSN) XCUINT (INSN, 5, NOTE)
 #define NOTE_EXPANDED_LOCATION(XLOC, INSN)	\
   (XLOC) = expand_location (NOTE_SOURCE_LOCATION (INSN))
-#define SET_INSN_DELETED(INSN) \
-  (PUT_CODE (INSN, NOTE), NOTE_LINE_NUMBER (INSN) = NOTE_INSN_DELETED)
 #else
 #define NOTE_EXPANDED_LOCATION(XLOC, INSN)	\
   ((XLOC).file = NOTE_SOURCE_FILE (INSN),	\
    (XLOC).line = NOTE_LINE_NUMBER (INSN))
 #define NOTE_SOURCE_FILE(INSN)	XCSTR (INSN, 4, NOTE)
-#define SET_INSN_DELETED(INSN) \
-  (PUT_CODE (INSN, NOTE),  NOTE_SOURCE_FILE (INSN) = 0, \
-   NOTE_LINE_NUMBER (INSN) = NOTE_INSN_DELETED)
 #endif
 #define NOTE_BLOCK(INSN)	XCTREE (INSN, 4, NOTE)
 #define NOTE_EH_HANDLER(INSN)	XCINT (INSN, 4, NOTE)
@@ -1654,6 +1650,7 @@ extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 
 /* In emit-rtl.c  */
 extern rtx set_unique_reg_note (rtx, enum reg_note, rtx);
+extern void set_insn_deleted (rtx);
 
 /* Functions in rtlanal.c */
 

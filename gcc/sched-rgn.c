@@ -3166,6 +3166,7 @@ struct tree_opt_pass pass_sched =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'S'                                   /* letter */
 };
@@ -3185,6 +3186,7 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'R'                                   /* letter */
 };

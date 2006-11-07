@@ -92,9 +92,16 @@ struct biv_entry
   struct rtx_iv iv;	/* Value of the biv.  */
 };
 
+static bool clean_slate = true;
+
+static unsigned int iv_ref_table_size = 0;
+
+/* Table of rtx_ivs indexed by the df_ref uid field.  */
+static struct rtx_iv ** iv_ref_table;
+
 /* Induction variable stored at the reference.  */
-#define DF_REF_IV(REF) ((struct rtx_iv *) DF_REF_DATA (REF))
-#define DF_REF_IV_SET(REF, IV) DF_REF_DATA (REF) = (IV)
+#define DF_REF_IV(REF) iv_ref_table[DF_REF_ID(REF)]
+#define DF_REF_IV_SET(REF, IV) iv_ref_table[DF_REF_ID(REF)] = (IV)
 
 /* The current loop.  */
 
@@ -172,6 +179,21 @@ lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 			      subreg_lowpart_offset (outer_mode, inner_mode));
 }
 
+static void 
+check_iv_ref_table_size (void)
+{
+  if (iv_ref_table_size < DF_DEFS_SIZE(df))
+    {
+      unsigned int new_size = DF_DEFS_SIZE (df) + (DF_DEFS_SIZE (df) / 4);
+      iv_ref_table = xrealloc (iv_ref_table, 
+			       sizeof (struct rtx_iv *) * new_size);
+      memset (&iv_ref_table[iv_ref_table_size], 0, 
+	      (new_size - iv_ref_table_size) * sizeof (struct rtx_iv *));
+      iv_ref_table_size = new_size;
+    }
+}
+
+
 /* Checks whether REG is a well-behaved register.  */
 
 static bool
@@ -206,16 +228,16 @@ clear_iv_info (void)
 {
   unsigned i, n_defs = DF_DEFS_SIZE (df);
   struct rtx_iv *iv;
-  struct df_ref *def;
 
+  check_iv_ref_table_size ();
   for (i = 0; i < n_defs; i++)
     {
-      def = DF_DEFS_GET (df, i);
-      iv = DF_REF_IV (def);
-      if (!iv)
-	continue;
-      free (iv);
-      DF_REF_IV_SET (def, NULL);
+      iv = iv_ref_table[i];
+      if (iv)
+	{
+	  free (iv);
+	  iv_ref_table[i] = NULL;
+	}
     }
 
   htab_empty (bivs);
@@ -245,16 +267,16 @@ iv_analysis_loop_init (struct loop *loop)
   basic_block *body = get_loop_body_in_dom_order (loop), bb;
   bitmap blocks = BITMAP_ALLOC (NULL);
   unsigned i;
-  bool first_time = (df == NULL);
 
   current_loop = loop;
 
   /* Clear the information from the analysis of the previous loop.  */
-  if (first_time)
+  if (clean_slate)
     {
-      df = df_init (DF_UD_CHAIN, DF_EQ_NOTES);
+      df = df_init (DF_UD_CHAIN + DF_DU_CHAIN, DF_EQ_NOTES);
       df_chain_add_problem (df);
       bivs = htab_create (10, biv_hash, biv_eq, free);
+      clean_slate = false;
     }
   else
     clear_iv_info ();
@@ -265,7 +287,8 @@ iv_analysis_loop_init (struct loop *loop)
       bitmap_set_bit (blocks, bb->index);
     }
   df_set_blocks (df, blocks);
-  df_analyze (df); 
+  df_analyze (df);
+  check_iv_ref_table_size ();
   BITMAP_FREE (blocks);
   free (body);
 }
@@ -785,6 +808,7 @@ record_iv (struct df_ref *def, struct rtx_iv *iv)
   struct rtx_iv *recorded_iv = XNEW (struct rtx_iv);
 
   *recorded_iv = *iv;
+  check_iv_ref_table_size ();
   DF_REF_IV_SET (def, recorded_iv);
 }
 
@@ -1030,7 +1054,8 @@ iv_analyze_def (struct df_ref *def, struct rtx_iv *iv)
       fprintf (dump_file, " in insn ");
       print_rtl_single (dump_file, insn);
     }
-
+  
+  check_iv_ref_table_size ();
   if (DF_REF_IV (def))
     {
       if (dump_file)
@@ -1238,9 +1263,12 @@ iv_analysis_done (void)
   if (df)
     {
       clear_iv_info ();
+      clean_slate = true;
       df_finish (df);
-      df = NULL;
       htab_delete (bivs);
+      free (iv_ref_table);
+      iv_ref_table = NULL;
+      iv_ref_table_size = 0;
       bivs = NULL;
     }
 }
