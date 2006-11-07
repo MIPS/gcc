@@ -310,6 +310,7 @@
 	DETACH_LIFE_INFO.
 
 2006-10-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-scan.c (df_ref_record, df_insn_refs_record,
 	df_bb_refs_record, df_refs_record, df_record_entry_block_defs):
 	Removed DF_HARD_REGS flag.
@@ -347,6 +348,7 @@
 	df_*_add_problems calls.
 	
 2006-09-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-scan.c (problem_SCAN): Removed flags.
 	(df_scan_add_problem): Ditto.
 	(df_ref_record, df_insn_refs_record, df_bb_refs_record,
@@ -921,6 +923,7 @@
 	(df_bb_regno_first_def_find, df_bb_regno_last_def_find): Likewise.
 
 2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* haifa-sched.c (glat_size): New variable.
         (sched-init, extend_bb): Properly initialized glat_start and
         glat_end.
@@ -933,6 +936,7 @@
 	df_urec_get_bb_info, df_urec_set_bb_info): Ditto. 
 
 2006-04-25  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* flow.c (rest_of_handle_life): Removed unnecessary code.
 	* df-scan.c (df_scan_free_internal, df_scan_free): Fixed
 	storage leak.
@@ -949,6 +953,7 @@
 	(fast_dce): Fixed storage leak.
 	
 2006-04-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* sched-ebb.c (schedule_ebbs): Updated register lifetime info.
 	* modulo-sched.c (sms_schedule): Ditto.
 	* sched-reg.c (schedule_insns): Ditto.
@@ -991,6 +996,7 @@
 	* rtl-profile.c: Removed.
 	
 2006-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_stack_ptr_mod, pass_initialize_subregs,
 	pass_reset_df): New.  
 	* flow.c (notice_stack_pointer_modification_1,
@@ -1009,6 +1015,7 @@
 	notice_stack_pointer_modification.
 		
 2006-04-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* ifcvt.c (rest_of_handle_if_after_combine): Removed flow
 	scaffolding.
 	* passes.c (init_optimization_passes): Moved clear_df to after
@@ -1016,6 +1023,7 @@
 	dce pass.
 	
 2006-04-18  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* mode-switching.c (optimize_mode_switching): Created local
 	instance of df and removed references to flow.
 	* regmove.c (mark_flags_life_zones, regmove_optimize): Ditto.
@@ -1030,6 +1038,7 @@
 	partition_blocks.
 		
 2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
 	(pass_recompute_reg_usage, recompute_reg_usage): Deleted.  *
 	sched-ebb.c (begin_schedule_ready, schedule_ebb,
@@ -1059,6 +1068,7 @@
 	schedulers.
 	
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df.h (shared_df): Removed.
 	(ra_df): New.
 	* core.c (shared_df): Removed.
@@ -1076,6 +1086,7 @@
 	copy.
 	
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_reset_df_after_reload): Removed.
 	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload): 
 	Removed.
@@ -1090,6 +1101,7 @@
 	flow with prologue_epilogue_df.
 	
 2006-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_flow2): Renamed to
 	pass_thread_prologue_and_epilogue.
 	* passes.c (pass_flow2): Ditto.
@@ -1117,6 +1129,7 @@
 	* Makefile.in (function.o): Added timevar.h.
 	
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* rtl-factoring (collect_pattern_seqs, clear_regs_live_in_seq,
 	recompute_gain_for_pattern_seq, clear_regs_live_in_seq,
 	recompute_gain, split_blocks_after_seqs, split_pattern_seq, 
@@ -1130,18 +1143,21 @@
 	* sched-rgn.c (rest_of_handle_sched2): Remove outdated calls.
 	
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* regmove.c (rest_of_handle_stack_adjustments): Removed all
 	references to flow.c and replaced with df.
 	* passes.c (init_optimization_passes): Moved clear_df before 
 	pass_stack_adjustments.
 
 2006-04-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* recog.c (delete_insn_chain_and_dflow): New function.
 	(peephole2_optimize): Replaced all flow references with df.  Added
 	local instance of df.
 	* passes.c (init_optimization_passes): Moved clear_df before peephole2.
 	
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* ifcvt.c (cond_exec_process_if_block, merge_if_block,
 	noce_process_if_block, cond_move_process_if_block,
 	process_if_block, find_if_header, find_cond_trap, find_if_case_1,
@@ -1161,6 +1177,7 @@
 	* tree-pass.h: Renamed cprop to cprop_hardreg.
 	
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* sched-ebb.c (schedule_ebbs): Removed code to update dataflow
 	after scheduling and removed unused parm from 
 	reposition_prologue_and_epilogue_notes.
@@ -1179,12 +1196,14 @@
 	* sched-int.h (check_reg_live): Removed.
 
 2006-04-10  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-core.c (reset_df_after_reload, clear_df): Added return to
 	make compatible with pass manager.
 	* dce.c (rest_of_handle_dce, rest_of_handle_fast_dce,
 	rest_of_handle_dse): Ditto.
 
 2006-04-09 Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* regrename.c (merge_overlapping_regs, regrename_optimize):
 	Threaded private instance of df.
 	(regrename_optimize): Created private instance of df, removed
@@ -1199,6 +1218,7 @@
 	moved clear_df pass closer to beginning.	
 
 2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* tree-pass.h (pass_split_after_reload, pass_branch_target_load_optimize1
 	pass_branch_target_load_optimize2): Added.
 	(pass_branch_target_load_optimize): Deleted.
@@ -1217,6 +1237,7 @@
 	rtl.h (branch_target_load_optimize): Removed.
 
 2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* sched-ebb.c (init_ready_list, can_schedule_ready_p, new_ready,
 	compute_jump_reg_dependencies, schedule_ebb, sched_analyze,
 	schedule_block): Changed to pass instance of df.
@@ -1251,6 +1272,7 @@
 	* reg-stack.c (rest_of_handle_stack_regs): Removed ifdefed out code.
 
 2006-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* recog.c (split_all_insns): Removed parameter and code to
 	update dataflow.
 	* sched-rgn.c (rest_of_handle_sched2): Removed parm to 
@@ -1269,6 +1291,7 @@
 
 2006-04-07  Daniel Berlin  <dberlin@dberlin.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* regoc.c (dbr_schedule): Added parm to call to df_lr_add_problem.
 	* ifcvt.c (if_convert): Ditto.
 	* modulo-sched.c (sms_schedule): Ditto.
@@ -1675,6 +1698,7 @@
 	df-core.c.
 
 2005-12-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* bitmap.c (bitmap_clear_range): Removed extra debugging. 
 
 2005-12-12  Paolo Bonzini  <bonzini@gnu.org>
@@ -1764,6 +1788,7 @@
 
 2005-11-01  Daniel Berlin  <dberlin@dberlin.org>
             Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* flow.c (update_life_info): Added debugging.
 	(init_propagate_block_info): Fixed typo.
 	* df.c (df_refs_unlink, df_ref_record_1, df_ref_record,
