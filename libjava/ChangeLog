@@ -1,3 +1,11 @@
+2006-11-07  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java (compileClass): Revert mistaken
+	change.
+
+	* java/lang/natVMClassLoader.cc (defineClass): Register the new
+	class with the initiating loader.
+
 2006-11-06  Andrew Haley  <aph@redhat.com>
 
 	* defineclass.cc (prepare_pool_entry): Be careful about which

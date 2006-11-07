@@ -187,8 +187,7 @@ final class VMCompiler
 				   ProtectionDomain domain)
   {
     if (precompiledMapFiles == null
-	&& (! useCompiler || ! canUseCompiler)
-	|| name.startsWith("$Proxy"))
+	&& (! useCompiler || ! canUseCompiler))
       return null;
 
     byte digest[];
