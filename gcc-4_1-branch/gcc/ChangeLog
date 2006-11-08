@@ -1,3 +1,12 @@
+2006-08-08  Pete Steinmetz <steinmtz@us.ibm.com>
+
+	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED): Added mode!=DFmode
+	and mode!=DImode conditions.
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Revert
+	rs6000_memory_move_cost if mf{t,f}gpr are available change.
+	* config/rs6000/rs6000.md (fix_truncdfsi2): Use gpc_reg_operand
+	constraint.
+
 2006-07-12  Pete Steinmetz <steinmtz@us.ibm.com>
 	    Peter Bergner <bergner@vnet.ibm.com>
 

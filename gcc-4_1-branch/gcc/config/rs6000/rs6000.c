@@ -19405,8 +19405,7 @@ rs6000_register_move_cost (enum machine_mode mode,
       if (! reg_classes_intersect_p (to, GENERAL_REGS))
 	from = to;
 
-      if ((from == FLOAT_REGS && (!TARGET_MFPGPR || !TARGET_POWERPC64))
-          || from == ALTIVEC_REGS)
+      if (from == FLOAT_REGS || from == ALTIVEC_REGS)
 	return (rs6000_memory_move_cost (mode, from, 0)
 		+ rs6000_memory_move_cost (mode, GENERAL_REGS, 0));
 
