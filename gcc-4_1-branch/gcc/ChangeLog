@@ -1,3 +1,17 @@
+2006-09-27  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config.gcc: Add cpu_type power6x.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6x.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	_ARCH_PWR6X, not _ARCH_PWR6, if features enabled.
+	* config/rs6000/rs6000.c (processor_target_table): Add power6x.
+	Remove MASK_MFPGPR from power6.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add power6x.
+	* config/rs6000/rs6000.opt (mmfpgpr): Fixup comment.
+	* doc/invoke.texi: Add cpu_type power6x
+	(RS/6000 and PowerPC Options): Modify -mmfpgpr to be
+	a power6x option.
+
 2006-08-08  Pete Steinmetz <steinmtz@us.ibm.com>
 
 	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED): Added mode!=DFmode
