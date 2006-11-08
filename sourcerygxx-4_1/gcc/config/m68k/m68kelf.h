@@ -56,12 +56,6 @@ Boston, MA 02110-1301, USA.  */
 #undef  IMMEDIATE_PREFIX
 #define IMMEDIATE_PREFIX "#"
 
-/* In the machine description we can't use %R, because it will not be seen
-   by ASM_FPRINTF.  (Isn't that a design bug?).  */
-
-#undef REGISTER_PREFIX_MD
-#define REGISTER_PREFIX_MD "%%"
-
 /* config/m68k.md has an explicit reference to the program counter,
    prefix this by the register prefix.  */
 

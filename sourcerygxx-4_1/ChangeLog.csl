@@ -1,3 +1,9 @@
+2006-11-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/coff.h (REGISTER_PREFIX_MD): Remove.
+	* config/m68k/m68kelf.h (REGISTER_PREFIX_MD): Remove.
+
 2006-11-07  Mark Shinwell  <shinwell@codesourcery.com>
 
 	gcc/
