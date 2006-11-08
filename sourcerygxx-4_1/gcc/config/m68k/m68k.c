@@ -861,6 +861,51 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
   return !call_used_regs[regno];
 }
 
+/* Initialize PIC_REGNO as a PIC reg.  */
+
+static void
+m68k_init_pic (FILE *stream, int pic_regno)
+{
+  if (TARGET_ID_SHARED_LIBRARY)
+    {
+      asm_fprintf (stream, "\tmovel %s@(%s), %s\n",
+		   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
+		   m68k_library_id_string,
+		   M68K_REGNAME(pic_regno));
+    }
+  else
+    {
+      if (MOTOROLA)
+	{
+	  if (m68k_arch_coldfire)
+	    {
+	      /* Load the full 32-bit PC-relative offset of
+		 _GLOBAL_OFFSET_TABLE_ into the PIC register, then use
+		 it to calculate the absolute value.  The offset and
+		 "lea" operation word together occupy 6 bytes.  */
+	      asm_fprintf (stream, "\tmove.l %I%U%s@GOTPC, %s\n",
+			   "_GLOBAL_OFFSET_TABLE_",
+			   M68K_REGNAME(pic_regno));
+	      asm_fprintf (stream, "\tlea (-6, %Rpc, %s), %s\n",
+			   M68K_REGNAME(pic_regno),
+			   M68K_REGNAME(pic_regno));
+	    }
+	  else
+	    asm_fprintf (stream, "\t%Olea (%Rpc, %U%s@GOTPC), %s\n",
+			 "_GLOBAL_OFFSET_TABLE_",
+			 M68K_REGNAME(pic_regno));
+	}
+      else
+	{
+	  asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
+		       M68K_REGNAME(pic_regno));
+	  asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
+		       M68K_REGNAME(pic_regno),
+		       M68K_REGNAME(pic_regno));
+	}
+    }
+}
+
 /* This function generates the assembly code for function entry.
    STREAM is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.  */
@@ -1100,47 +1145,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
   if (!TARGET_SEP_DATA && flag_pic &&
       (current_function_uses_pic_offset_table ||
         (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)))
-    {
-      if (TARGET_ID_SHARED_LIBRARY)
-	{
-	  asm_fprintf (stream, "\tmovel %s@(%s), %s\n",
-		       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
-		       m68k_library_id_string,
-		       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-	}
-      else
-	{
-	  if (MOTOROLA)
-	    {
-	      if (m68k_arch_coldfire)
-		{
-		  /* Load the full 32-bit PC-relative offset of
-		     _GLOBAL_OFFSET_TABLE_ into the PIC register,
-		     then use it to calculate the absolute value.
-		     The offset and "lea" operation word together
-		     occupy 6 bytes.  */
-		  asm_fprintf (stream, "\tmove.l %I%U%s@GOTPC, %s\n",
-			       "_GLOBAL_OFFSET_TABLE_",
-			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-		  asm_fprintf (stream, "\tlea (-6, %Rpc, %s), %s\n",
-			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
-			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-		}
-	      else
-		asm_fprintf (stream, "\t%Olea (%Rpc, %U%s@GOTPC), %s\n",
-			     "_GLOBAL_OFFSET_TABLE_",
-			     M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-	    }
-	  else
-	    {
-	      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
-			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-	      asm_fprintf (stream, "\tlea %Rpc@(0,%s:l),%s\n",
-			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
-			   M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
-	    }
-	}
-    }
+    m68k_init_pic (stream, PIC_OFFSET_TABLE_REGNUM);
 }
 
 /* Return true if this function's epilogue can be output as RTL.  */
@@ -4087,10 +4092,20 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
   fmt = m68k_symbolic_jump;
   if (m68k_symbolic_jump == NULL)
-    /* Thunks do not use the static chain register.  Use it as a
-       temporary register here.  */
-    fmt = "move.l %a0@GOT(%%a5), %%a0\n\tjmp (%%a0)";
+    {
+      /* Thunks do not use the static chain register.  Use it as a
+          temporary register here.  */
+      gcc_assert (flag_pic);
 
+      m68k_init_pic (file, STATIC_CHAIN_REGNUM);
+      /* We provide REGISTER_PREFIX here, because it is either empty
+	 or "%".  When it's "%" we want "%%" in the format string.  */
+      fmt = "move.l"
+	" %a0@GOT(" REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME "),"
+	" " REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME "\n"
+	"\tjmp ( "REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME ")";
+    }
+  
   output_asm_insn (fmt, xops);
 }
 

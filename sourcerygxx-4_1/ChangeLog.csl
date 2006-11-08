@@ -1,6 +1,20 @@
 2006-11-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68kelf.h (STATIC_CHAIN_REGNUM): Define.
+	(M68K_STATIC_CHAIN_REG_NAME): New.
+	* config/m68k/m68k.h (M68K_STATIC_CHAIN_REG_NAME): New.
+	(INITIALIZE_TRAMPOLINE): Use STATIC_CHAIN_REGNUM.
+	(__transfer_from_trampoline): Use M68K_STATIC_CHAIN_REG_NAME.
+	* config/m68k/m68k.c (m68k_init_pic): New, broken out of ...
+	(m68k_output_function_prologue): ... here.  Use it.
+	(m68k_output_mi_thunk): Initialize scratch PIC register if
+	needed.  Use STATIC_CHAIN_REGNUM & M68K_STATIC_CHAIN_REG_NAME.
+
+	gcc/testsuite/
+	* gcc.c-torture/execute/nestfunc-7.c: New.
+
+	gcc/
 	* config/m68k/coff.h (REGISTER_PREFIX_MD): Remove.
 	* config/m68k/m68kelf.h (REGISTER_PREFIX_MD): Remove.
 
