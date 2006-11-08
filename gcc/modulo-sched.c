@@ -1234,7 +1234,7 @@ sms_schedule (void)
 	      if (! flag_resched_modulo_sched)
 		g->bb->flags |= BB_DISABLE_SCHEDULE;
 	      /* The life-info is not valid any more.  */
-	      g->bb->flags |= BB_DIRTY;
+	      df_set_bb_dirty (g->bb);
 
 	      reg_move_replaces = generate_reg_moves (ps);
 	      if (dump_file)

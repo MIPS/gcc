@@ -49,7 +49,7 @@ Here is an example of using the dataflow routines.
 
       df_set_blocks (df, blocks);
 
-      df_scan_blocks (df, blocks);
+      df_scan_blocks (df);
 
       df_analyze (df);
 
@@ -850,7 +850,10 @@ df_analyze (struct df *df)
   bitmap current_all_blocks = BITMAP_ALLOC (NULL);
   int i;
   bool everything;
-
+  struct dataflow *scan_dflow = df->problems_by_index[DF_SCAN];
+  
+  df_scan_alloc (scan_dflow, NULL, NULL);
+  
   if (df->postorder)
     free (df->postorder);
   df->postorder = XNEWVEC (int, last_basic_block);
@@ -860,13 +863,10 @@ df_analyze (struct df *df)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
 
   /* No one called df_scan_blocks, so do it.  */
-  if (!df->blocks_to_scan)
-    df_scan_blocks (df, NULL);
+  df_scan_blocks (df);
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */
-  bitmap_and_into (df->blocks_to_scan, current_all_blocks);
-
   if (df->blocks_to_analyze)
     {
       everything = false;
@@ -886,17 +886,20 @@ df_analyze (struct df *df)
   for (i = 1; i < df->num_problems_defined; i++)
     df_analyze_problem (df->problems_in_order[i], 
 			df->blocks_to_analyze, df->blocks_to_analyze, 
-			df->blocks_to_scan,
+			df->blocks_to_analyze,
 			df->postorder, df->n_blocks, false);
 
   if (everything)
     {
       BITMAP_FREE (df->blocks_to_analyze);
       df->blocks_to_analyze = NULL;
+      bitmap_clear (df->out_of_date_transfer_functions);
     }
+  else
+    bitmap_and_compl_into (df->out_of_date_transfer_functions,
+			   df->blocks_to_analyze);
 
-  BITMAP_FREE (df->blocks_to_scan);
-  df->blocks_to_scan = NULL;
+  df->solutions_dirty = false;
 }
 
 
@@ -988,16 +991,31 @@ df_mark_solutions_dirty (struct df *df)
 }
 
 
+/* Return true if BB needs it's transfer functions recomputed.  */
+
+bool 
+df_get_bb_dirty (basic_block bb)
+{
+  struct df *df = df_current_instance;
+  if (df)
+    return bitmap_bit_p (df->out_of_date_transfer_functions, bb->index);
+  else 
+    return false;
+}
+
+
 /* Mark BB as needing it's transfer functions as being out of
    date.  */
 
 void 
-df_mark_bb_dirty (basic_block bb)
+df_set_bb_dirty (basic_block bb)
 {
   struct df *df = df_current_instance;
-
-  df_mark_solutions_dirty (df);
-  bitmap_set_bit (df->out_of_date_transfer_functions, bb->index);
+  if (df)
+    {
+      df_mark_solutions_dirty (df);
+      bitmap_set_bit (df->out_of_date_transfer_functions, bb->index);
+    }
 }
 
 
@@ -1050,19 +1068,6 @@ df_compact_blocks (void)
 
   /* Shuffle the bits in the basic_block indexed arrays.  */
 
-  if (df->blocks_to_scan)
-    {
-      bitmap_copy (tmp, df->blocks_to_scan);
-      bitmap_clear (df->blocks_to_scan);
-      i = NUM_FIXED_BLOCKS;
-      FOR_EACH_BB (bb) 
-	{
-	  if (bitmap_bit_p (tmp, bb->index))
-	    bitmap_set_bit (df->blocks_to_scan, i);
-	  i++;
-	}
-    }
-
   bitmap_copy (tmp, df->out_of_date_transfer_functions);
   bitmap_clear (df->out_of_date_transfer_functions);
   i = NUM_FIXED_BLOCKS;
@@ -1112,29 +1117,28 @@ void
 df_bb_replace (int old_index, basic_block new_block)
 {
   struct df *df = df_current_instance;
+  int new_block_index = new_block->index;
   int p;
+
   gcc_assert (df);
+  gcc_assert (BASIC_BLOCK (old_index) == NULL);
 
   for (p = 0; p < df->num_problems_defined; p++)
     {
       struct dataflow *dflow = df->problems_in_order[p];
       if (dflow->block_info)
 	{
-	  void *temp;
-
 	  df_grow_bb_info (dflow);
-
-	  /* The old switcheroo.  */
-
-	  temp = df_get_bb_info (dflow, old_index);
+	  gcc_assert (df_get_bb_info (dflow, old_index) == NULL);
 	  df_set_bb_info (dflow, old_index, 
-			  df_get_bb_info (dflow, new_block->index));
-	  df_set_bb_info (dflow, new_block->index, temp);
+			  df_get_bb_info (dflow, new_block_index));
 	}
     }
 
   SET_BASIC_BLOCK (old_index, new_block);
+  df_set_bb_dirty (BASIC_BLOCK (old_index));
   new_block->index = old_index;
+  SET_BASIC_BLOCK (new_block_index, NULL);
 }
 
 

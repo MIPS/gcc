@@ -540,6 +540,8 @@ rtl_split_block (basic_block bb, void *insnp)
   FOR_EACH_EDGE (e, ei, new_bb->succs)
     e->src = new_bb;
 
+  /* The new block starts off being dirty.  */
+  df_set_bb_dirty (bb);
   return new_bb;
 }
 
@@ -989,7 +991,7 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
 
   if ((ret = try_redirect_by_replacing_jump (e, target, false)) != NULL)
     {
-      src->flags |= BB_DIRTY;
+      df_set_bb_dirty (src);
       return ret;
     }
 
@@ -997,7 +999,7 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
   if (!ret)
     return NULL;
 
-  src->flags |= BB_DIRTY;
+  df_set_bb_dirty (src);
   return ret;
 }
 
@@ -1182,7 +1184,7 @@ rtl_redirect_edge_and_branch_force (edge e, basic_block target)
 
   /* In case the edge redirection failed, try to force it to be non-fallthru
      and redirect newly created simplejump.  */
-  e->src->flags |= BB_DIRTY;
+  df_set_bb_dirty (e->src);
   return force_nonfallthru_and_redirect (e, target);
 }
 
@@ -2164,7 +2166,7 @@ purge_dead_edges (basic_block bb)
 	}
 
       remove_edge (e);
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
       purged = true;
     }
 
@@ -2232,7 +2234,7 @@ purge_dead_edges (basic_block bb)
 	    }
 
 	  /* We do not need this edge.  */
-	  bb->flags |= BB_DIRTY;
+	  df_set_bb_dirty (bb);
 	  purged = true;
 	  remove_edge (e);
 	}
@@ -2304,7 +2306,7 @@ purge_dead_edges (basic_block bb)
     {
       if (!(e->flags & (EDGE_FALLTHRU | EDGE_FAKE)))
 	{
-	  bb->flags |= BB_DIRTY;
+	  df_set_bb_dirty (bb);
 	  remove_edge (e);
 	  purged = true;
 	}
@@ -2372,7 +2374,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->src != ENTRY_BLOCK_PTR
       && (ret = try_redirect_by_replacing_jump (e, dest, true)))
     {
-      src->flags |= BB_DIRTY;
+      df_set_bb_dirty (src);
       return ret;
     }
 
@@ -2383,7 +2385,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	fprintf (dump_file, "Redirecting entry edge from bb %i to %i\n",
 		 e->src->index, dest->index);
 
-      e->src->flags |= BB_DIRTY;
+      df_set_bb_dirty (e->src);
       redirect_edge_succ (e, dest);
       return e;
     }
@@ -2409,7 +2411,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  redirected = redirect_branch_edge (e, dest);
 	  gcc_assert (redirected);
 	  e->flags |= EDGE_FALLTHRU;
-	  e->src->flags |= BB_DIRTY;
+	  df_set_bb_dirty (e->src);
 	  return e;
 	}
       /* In case we are redirecting fallthru edge to the branch edge
@@ -2435,7 +2437,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
   /* We don't want simplejumps in the insn stream during cfglayout.  */
   gcc_assert (!simplejump_p (BB_END (src)));
 
-  src->flags |= BB_DIRTY;
+  df_set_bb_dirty (src);
   return ret;
 }
 

@@ -247,16 +247,15 @@ df_scan_free_bb_info (struct dataflow *dflow, basic_block bb, void *vbb_info)
    called when the problem is created or when the entire function is to
    be rescanned.  */
 
-static void 
-df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan, 
+void 
+df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan ATTRIBUTE_UNUSED, 
 	       bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   struct df *df = dflow->df;
   struct df_scan_problem_data *problem_data;
   unsigned int insn_num = get_max_uid () + 1;
   unsigned int block_size = 50;
-  unsigned int bb_index;
-  bitmap_iterator bi;
+  basic_block bb;
 
   /* Given the number of pools, this is really faster than tearing
      everything apart.  */
@@ -296,8 +295,9 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan,
   df_grow_insn_info (df);
   df_grow_bb_info (dflow);
 
-  EXECUTE_IF_SET_IN_BITMAP (blocks_to_rescan, 0, bb_index, bi)
+  FOR_ALL_BB (bb)
     {
+      unsigned int bb_index = bb->index;
       struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb_index);
       if (!bb_info)
 	{
@@ -327,9 +327,6 @@ df_scan_free (struct dataflow *dflow)
   if (dflow->problem_data)
     df_scan_free_internal (dflow);
 
-  if (df->blocks_to_scan)
-    BITMAP_FREE (df->blocks_to_scan);
-  
   if (df->blocks_to_analyze)
     BITMAP_FREE (df->blocks_to_analyze);
 
@@ -538,11 +535,11 @@ df_grow_insn_info (struct df *df)
    PUBLIC INTERFACES FOR SMALL GRAIN CHANGES TO SCANNING.
 ----------------------------------------------------------------------------*/
 
-/* Rescan some BLOCKS or all the blocks defined by the last call to
-   df_set_blocks if BLOCKS is NULL);  */
+/* Rescan all of the block_to_analyze or all of the blocks in the
+   function if df_set_blocks if blocks_to_analyze is NULL;  */
 
 void
-df_scan_blocks (struct df *df, bitmap blocks)
+df_scan_blocks (struct df *df)
 {
   bitmap local_blocks_to_scan = BITMAP_ALLOC (NULL);
 
@@ -554,102 +551,21 @@ df_scan_blocks (struct df *df, bitmap blocks)
   df->use_info.refs_organized_with_eq_uses = false;
   df->use_info.refs_organized_alone = false;
 
-  if (blocks)
-    {
-      int i;
-      unsigned int bb_index;
-      bitmap_iterator bi;
-      bool cleared_bits = false;
-
-      /* Need to assure that there are space in all of the tables.  */
-      unsigned int insn_num = get_max_uid () + 1;
-      insn_num += insn_num / 4;
-
-      df_grow_reg_info (dflow);
-
-      df_grow_ref_info (&df->def_info, insn_num);
-      df_grow_ref_info (&df->use_info, insn_num *2);
-      
-      df_grow_insn_info (df);
-      df_grow_bb_info (dflow);
-
-      bitmap_copy (local_blocks_to_scan, blocks);
-
-      EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
-	{
-	  basic_block bb = BASIC_BLOCK (bb_index);
-	  if (!bb)
-	    {
-	      bitmap_clear_bit (local_blocks_to_scan, bb_index);
-	      cleared_bits = true;
-	    }
-	}
-
-      if (cleared_bits)
-	bitmap_copy (blocks, local_blocks_to_scan);
-
-      df->def_info.add_refs_inline = true;
-      df->use_info.add_refs_inline = true;
-
-      for (i = df->num_problems_defined; i; i--)
-	{
-	  bitmap blocks_to_reset = NULL;
-	  if (dflow->problem->reset_fun)
-	    {
-	      if (!blocks_to_reset)
-		{
-		  blocks_to_reset = BITMAP_ALLOC (NULL);
-		  bitmap_copy (blocks_to_reset, local_blocks_to_scan);
-		  if (df->blocks_to_scan)
-		    bitmap_ior_into (blocks_to_reset, df->blocks_to_scan);
-		}
-	      dflow->problem->reset_fun (dflow, blocks_to_reset);
-	    }
-	  if (blocks_to_reset)
-	    BITMAP_FREE (blocks_to_reset);
-	}
-
-      EXECUTE_IF_SET_IN_BITMAP (local_blocks_to_scan, 0, bb_index, bi)
-	{
-	  df_bb_delete (bb_index);
-	}
-
-      /* This may be a mistake, but if an explicit blocks is passed in
-         and the set of blocks to analyze has been explicitly set, add
-         the extra blocks to blocks_to_analyze.  The alternative is to
-         put an assert here.  We do not want this to just go by
-         silently or else we may get storage leaks.  */
-      if (df->blocks_to_analyze)
-	bitmap_ior_into (df->blocks_to_analyze, blocks);
-    }
+  /* If we are going to do everything, just reallocate everything.
+     Most stuff is allocated in pools so this is faster than
+     walking it.  */
+  if (df->blocks_to_analyze)
+    bitmap_copy (local_blocks_to_scan, df->blocks_to_analyze);
   else
-    {
-      /* If we are going to do everything, just reallocate everything.
-	 Most stuff is allocated in pools so this is faster than
-	 walking it.  */
-      if (df->blocks_to_analyze)
-	bitmap_copy (local_blocks_to_scan, df->blocks_to_analyze);
-      else
-	FOR_ALL_BB (bb) 
-	  {
-	    bitmap_set_bit (local_blocks_to_scan, bb->index);
-	  }
-      df_scan_alloc (dflow, local_blocks_to_scan, NULL);
+    FOR_ALL_BB (bb) 
+      {
+	bitmap_set_bit (local_blocks_to_scan, bb->index);
+      }
 
-      df->def_info.add_refs_inline = false;
-      df->use_info.add_refs_inline = false;
-    }
-
+  df->def_info.add_refs_inline = false;
+  df->use_info.add_refs_inline = false;
   df_refs_record (dflow, local_blocks_to_scan);
 
-#if 0
-  bitmap_print (stderr, local_blocks_to_scan, "scanning: ", "\n");
-#endif
-      
-  if (!df->blocks_to_scan)
-    df->blocks_to_scan = BITMAP_ALLOC (NULL);
-
-  bitmap_ior_into (df->blocks_to_scan, local_blocks_to_scan); 
   BITMAP_FREE (local_blocks_to_scan);
 }
 
@@ -1033,7 +949,7 @@ df_insn_rescan (rtx insn)
   /* End of really bad code.  */
 
   if (changed)
-    df_mark_bb_dirty (bb);
+    df_set_bb_dirty (bb);
   return changed;
 }
 
@@ -1167,8 +1083,8 @@ df_insn_change_bb (rtx insn)
   if (changed)
     {
       if (old_bb)
-	df_mark_bb_dirty (old_bb);
-      df_mark_bb_dirty (new_bb);
+	df_set_bb_dirty (old_bb);
+      df_set_bb_dirty (new_bb);
     }
 }
 

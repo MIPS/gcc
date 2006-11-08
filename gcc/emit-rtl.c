@@ -3565,7 +3565,7 @@ remove_insn (rtx insn)
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
-	bb->flags |= BB_DIRTY;
+	df_set_bb_dirty (bb);
       if (BB_HEAD (bb) == insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole
@@ -3661,14 +3661,14 @@ reorder_insns (rtx from, rtx to, rtx after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
 
       if (!BARRIER_P (from)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (BB_END (bb2) == to)
 	    BB_END (bb2) = prev;
-	  bb2->flags |= BB_DIRTY;
+	  df_set_bb_dirty (bb2);
 	}
 
       if (BB_END (bb) == after)
@@ -3919,7 +3919,7 @@ emit_insn_after_1 (rtx first, rtx after)
   if (!BARRIER_P (after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
 	if (!BARRIER_P (last))
 	  {

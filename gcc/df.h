@@ -389,12 +389,6 @@ struct df
   struct dataflow *problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
   int num_problems_defined;
 
-  /* Set after calls to df_scan_blocks, this contains all of the
-     blocks that higher level problems must rescan before solving the
-     dataflow equations.  If this is NULL, the blocks_to_analyze is
-     used. */
-  bitmap blocks_to_scan;
-
   /* If not NULL, the subset of blocks of the program to be considered
      for analysis.  */ 
   bitmap blocks_to_analyze;
@@ -689,7 +683,8 @@ extern void df_simple_iterative_dataflow (enum df_flow_dir, df_init_function,
 					  df_confluence_function_0, df_confluence_function_n,
 					  df_transfer_function, bitmap, int *, int);
 extern void df_mark_solutions_dirty (struct df *);
-extern void df_mark_bb_dirty (basic_block);
+extern bool df_get_bb_dirty (basic_block);
+extern void df_set_bb_dirty (basic_block);
 extern void df_compact_blocks (void);
 extern void df_bb_replace (int, basic_block);
 extern struct df_ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
@@ -756,9 +751,10 @@ extern void df_urec_get_live_at_top (struct df *, basic_block, bitmap);
 
 /* Functions defined in df-scan.c.  */
 
+extern void df_scan_alloc (struct dataflow *, bitmap, bitmap);
 extern struct df_scan_bb_info *df_scan_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_scan_add_problem (struct df *);
-extern void df_scan_blocks (struct df *, bitmap);
+extern void df_scan_blocks (struct df *);
 extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
 extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
 extern struct df_ref *df_get_artificial_uses (struct df *, unsigned int);

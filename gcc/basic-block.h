@@ -292,10 +292,6 @@ DEF_VEC_ALLOC_P(basic_block,heap);
 
 enum bb_flags
 {
-
-  /* Set if insns in BB have are modified.  Used for updating liveness info.  */
-  BB_DIRTY = 1,
-
   /* Only set on blocks that have just been created by create_bb.  */
   BB_NEW = 2,
 

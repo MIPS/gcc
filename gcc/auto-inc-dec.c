@@ -450,7 +450,6 @@ static rtx * reg_next_use = NULL;
 static rtx * reg_next_inc_use = NULL;
 static rtx * reg_next_def = NULL;
 static struct df *df = NULL;
-static struct dataflow *scan_dflow = NULL;
 
 
 /* Move notes that match PATTERN to TO_INSN from FROM_INSN.  If
@@ -607,7 +606,8 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
 
       regno = REGNO (inc_insn.reg0);
       reg_next_use [regno] = mem_insn.insn;
-      if (reg_next_use [regno] == reg_next_inc_use[regno])
+      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+	  || (reg_next_inc_use[regno] == inc_insn.insn))
 	reg_next_inc_use[regno] = NULL;
       break;
 
@@ -619,20 +619,19 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     {
       regno = REGNO (inc_insn.reg1);
       reg_next_use [regno] = mem_insn.insn;
+      if ((reg_next_use [regno] == reg_next_inc_use[regno])
+	  || (reg_next_inc_use[regno] == inc_insn.insn))
+	reg_next_inc_use[regno] = NULL;
     }
 
   /* Recompute the df info for the insns that have changed. */
   delete_insn (inc_insn.insn);
 
   df_insn_rescan (mem_insn.insn);
-  if (mov_insn)
+  if (dump_file && mov_insn)
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "inserting mov ");
-	  dump_insn_slim (dump_file, mov_insn);
-	}
-      df_insn_rescan (scan_dflow, mov_insn);
+      fprintf (dump_file, "inserting mov ");
+      dump_insn_slim (dump_file, mov_insn);
     }
   df_recompute_luids (df, bb);
 
@@ -1098,11 +1097,11 @@ find_inc (bool first_try)
 		    = get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_use);
 		  if (other_insn && luid > DF_INSN_LUID (df, other_insn))
 		    return false;
-		  
+
 		  if (!rtx_equal_p (mem_insn.reg0, inc_insn.reg0))
 		    reverse_inc (); 
 		}
-	      
+
 	      other_insn 
 		= get_next_ref (REGNO (inc_insn.reg1), bb, reg_next_def);
 	      if (other_insn && luid > DF_INSN_LUID (df, other_insn))
@@ -1331,6 +1330,9 @@ merge_in_block (int max_reg, basic_block bb)
   struct df_ref *use;
   int success_in_block = 0;
 
+  if (dump_file)
+    fprintf (dump_file, "\n\nstarting bb %d\n", bb->index);
+
   FOR_BB_INSNS_REVERSE_SAFE (bb, insn, curr)
     {
       unsigned int uid = INSN_UID (insn);
@@ -1407,21 +1409,28 @@ merge_in_block (int max_reg, basic_block bb)
 	    success_in_block++;
 	}
       
-      /* Need to update next use.  */
-      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+      /* If the inc insn was merged with a mem, the inc insn is gone
+	 and there is noting to update.  */
+      if (DF_INSN_UID_GET(df, uid))
 	{
-	  reg_next_use[DF_REF_REGNO (def)] = NULL;
-	  reg_next_inc_use[DF_REF_REGNO (def)] = NULL;
-	  reg_next_def[DF_REF_REGNO (def)] = insn;
+	  /* Need to update next use.  */
+	  for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+	    {
+	      reg_next_use[DF_REF_REGNO (def)] = NULL;
+	      reg_next_inc_use[DF_REF_REGNO (def)] = NULL;
+	      reg_next_def[DF_REF_REGNO (def)] = insn;
+	    }
+	  
+	  for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
+	    {
+	      reg_next_use[DF_REF_REGNO (use)] = insn;
+	      reg_next_use[DF_REF_REGNO (use)] = insn;
+	      if (insn_is_add_or_inc)
+		reg_next_inc_use[DF_REF_REGNO (use)] = insn;
+	    }  
 	}
-      
-      for (use = DF_INSN_UID_USES (df, uid); use; use = use->next_ref)
-	{
-	  reg_next_use[DF_REF_REGNO (use)] = insn;
-	  reg_next_use[DF_REF_REGNO (use)] = insn;
-	  if (insn_is_add_or_inc)
-	    reg_next_inc_use[DF_REF_REGNO (use)] = insn;
-	}  
+      else if (dump_file)
+	fprintf (dump_file, "skipping update of deleted insn %d\n", uid);
     }
 
   /* If we were successful, try again.  There may have been several
@@ -1455,7 +1464,6 @@ rest_of_handle_auto_inc_dec (void)
   df = df_init (0, 0);
   df_live_add_problem (df);
   df_ri_add_problem (df);
-  scan_dflow = df->problems_by_index[DF_SCAN];
   df_analyze (df);
 
   reg_next_use = XCNEWVEC (rtx, max_reg);

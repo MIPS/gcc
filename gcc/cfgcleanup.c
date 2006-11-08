@@ -427,7 +427,7 @@ try_forward_edges (int mode, basic_block b)
       int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
-      bool may_thread = first_pass | (b->flags & BB_DIRTY);
+      bool may_thread = first_pass | df_get_bb_dirty (b);
 
       /* Skip complex edges because we don't know how to update them.
 
@@ -461,7 +461,7 @@ try_forward_edges (int mode, basic_block b)
 	{
 	  basic_block new_target = NULL;
 	  bool new_target_threaded = false;
-	  may_thread |= target->flags & BB_DIRTY;
+	  may_thread |= df_get_bb_dirty (target);
 
 	  if (FORWARDER_BLOCK_P (target)
 	      && !(single_succ_edge (target)->flags & EDGE_CROSSING)
@@ -651,7 +651,7 @@ merge_blocks_move_predecessor_nojumps (basic_block a, basic_block b)
   /* Scramble the insn chain.  */
   if (BB_END (a) != PREV_INSN (BB_HEAD (b)))
     reorder_insns_nobb (BB_HEAD (a), BB_END (a), PREV_INSN (BB_HEAD (b)));
-  a->flags |= BB_DIRTY;
+  df_set_bb_dirty (a);
 
   if (dump_file)
     fprintf (dump_file, "Moved block %d before %d and merged.\n",
@@ -1731,7 +1731,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
   redirect_to->count += src1->count;
   redirect_to->frequency += src1->frequency;
   /* We may have some registers visible through the block.  */
-  redirect_to->flags |= BB_DIRTY;
+  df_set_bb_dirty (redirect_to);
 
   /* Recompute the frequencies and counts of outgoing edges.  */
   FOR_EACH_EDGE (s, ei, redirect_to->succs)
@@ -1880,8 +1880,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(fallthru->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (fallthru->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, fallthru))
@@ -1930,8 +1930,8 @@ try_crossjump_bb (int mode, basic_block bb)
 	  /* If nothing changed since the last attempt, there is nothing
 	     we can do.  */
 	  if (!first_pass
-	      && (!(e->src->flags & BB_DIRTY)
-		  && !(e2->src->flags & BB_DIRTY)))
+	      && (!(df_get_bb_dirty (e->src))
+		  && !(df_get_bb_dirty (e2->src))))
 	    continue;
 
 	  if (try_crossjump_to_edge (mode, e, e2))

@@ -383,9 +383,9 @@ verify_changes (int num)
   return (i == num_changes);
 }
 
-/* A group of changes has previously been issued with validate_change and
-   verified with verify_changes.  Update the BB_DIRTY flags of the affected
-   blocks, and clear num_changes.  */
+/* A group of changes has previously been issued with validate_change
+   and verified with verify_changes.  Call df_set_bb_dirty of the
+   affected blocks, and clear num_changes.  */
 
 void
 confirm_change_group (void)
@@ -397,7 +397,7 @@ confirm_change_group (void)
     if (changes[i].object
 	&& INSN_P (changes[i].object)
 	&& (bb = BLOCK_FOR_INSN (changes[i].object)))
-      bb->flags |= BB_DIRTY;
+      df_set_bb_dirty (bb);
 
   num_changes = 0;
 }

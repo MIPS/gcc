@@ -1,3 +1,43 @@
+2006-11-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* auto-inc-dec.c (attempt_change): Added code to properly maintain
+	reg_next_inc_use when inc insns are deleted.
+	(merge_in_block): Added debugging and changed to skip deleted
+	instructions.
+	(scan_dflow): Removed variable.	
+	* df-scan.c (df_scan_alloc): Always processes entire function.
+	(df_scan_free): Removed df->blocks_to_scan.
+	(df_scan_blocks): Removed blocks_parameter.  Now scan entire
+	function.
+	(df_insn_rescan, df_insn_change_bb): Renamed df_mark_bb_dirty to
+	df_set_bb_dirty.
+	* df.h (blocks_to_scan): Removed variable.
+	* df-core.c (df_analyze): Add call to df_scan_alloc.  Removed
+	df->blocks_to_scan.
+	(df_get_bb_dirty): New function.
+	(df_mark_bb_dirty): Renamed to df_set_bb_dirty.
+	(df_compact_blocks): Removed df->blocks_to_scan.
+	(df_bb_replace): Added check to make sure there was no block at
+	old_index and fixed updating bugs.
+	* ifcvt.c (cond_exec_process_if_block,
+	noce_process_if_block, cond_move_process_if_block,
+	process_if_block, merge_if_block, find_if_header, 
+	find_cond_trap, find_if_case_1, find_if_case_2, if_convert):
+	Removed modified variable.
+	(find_if_header, find_cond_trap, find_if_case_1, find_if_case_2,
+	if_convert): Replaced BB_DIRTY with df_set_bb_dirty and 
+	df_get_bb_dirty.
+	* recog.c (confirm_change_group): Ditto.
+	* emit_rtl (remove_insn,, reorder_insns, emit_insn_after_1): Ditto.
+	* cfgcleanup.c (try_forward_edges, try_crossjump_to_edge,
+	merge_blocks_move_predecessor_nojumps, try_crossjump_bb): Ditto.
+      	* modulo-sched.c (sms_schedule): Ditto.
+	* cfgrtl.c (rtl_split_block, rtl_redirect_edge_and_branch,
+	rtl_redirect_edge_and_branch_force, purge_dead_edges, 
+	cfg_layout_redirect_edge_and_branch): Ditto.
+	* basic_block.h (BB_DIRTY): Removed.
+
+	
 2006-11-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* cfg.c (compact_blocks): Make df aware when blocks are moved around. 
