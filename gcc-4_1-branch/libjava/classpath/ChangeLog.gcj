@@ -1,3 +1,47 @@
+2006-11-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/Inet4Address.java
+	(FAMILY): Renamed to AF_INET.
+	(<init>, writeReplace): Reflect the above.
+	* java/net/Inet6Address.java
+	(FAMILY): Renamed to AF_INET6.
+	(<init>): Reflect the above.	
+
+2006-10-05  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(processHostport): Cope with IPv6 addresses with a
+	one-digit first component.
+
+2006-09-20  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Updated to latest.
+	* java/net/Inet4Address.java: Likewise.
+	* java/net/Inet6Address.java: Likewise.
+	* java/net/ResolverCache.java: Likewise.
+	* java/net/SocketPermission.java: Likewise.
+
+	* java/net/Inet4Address.java
+	(AF_INET): Renamed to FAMILY.
+	(<init>, writeReplace): Reflect the above.
+	* java/net/Inet6Address.java
+	(AF_INET6): Renamed to FAMILY.
+	(<init>): Reflect the above.
+
+2006-09-05  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(maybeBracketIPv6Address): Renamed to processHostport.
+	(processHostport): Also translate "" to "localhost".
+	(setHostPort): Remove special cases for empty hostport and for
+	extra colons in hostport (processHostport handles these now).
+	
+2006-08-29  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/SocketPermission.java
+	(maybeBracketIPv6Address): New method.
+	(<init>): Pass the hostport argument through the above.
+
 2006-10-10  Tom Tromey  <tromey@redhat.com>
 
 	PR classpath/29362:

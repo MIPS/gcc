@@ -665,7 +665,7 @@ AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.
 
 # Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
-AC_CONFIG_LINKS(java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc)
+AC_CONFIG_LINKS(java/net/natVMInetAddress.cc:java/net/natVMInetAddress${PLATFORMNET}.cc)
 AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.

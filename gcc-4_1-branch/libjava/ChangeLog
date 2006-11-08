@@ -1,3 +1,40 @@
+2006-11-03  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Removed.
+	* java/net/natInetAddressNoNet.cc: Likewise.
+	* java/net/natInetAddressPosix.cc: Likewise.
+	* java/net/natInetAddressWin32.cc: Likewise.
+	* java/net/VMInetAddress.java (getLocalHostname,
+	lookupInaddrAny, getHostByAddr, getHostByName,
+	aton): Replace glue methods with native ones.
+	* java/net/natVMInetAddressNoNet.cc: New file.
+	* java/net/natVMInetAddressPosix.cc: Likewise.
+	* java/net/natVMInetAddressWin32.cc: Likewise.
+	* Makefile.am, configure.ac: Reflect the above.
+	* sources.am, Makefile.in, configure: Rebuilt.
+
+	* java/net/natVMNetworkInterfaceWin32.cc
+	(winsock2GetRealNetworkInterfaces): Create InetAddress
+	objects using InetAddress.getByAddress.
+	* gnu/java/net/natPlainSocketImplWin32.cc
+	(accept, getOption): Likewise.
+	* gnu/java/net/natPlainDatagramSocketImplWin32.cc
+	(peekData, receive, getOption): Likewise.
+
+2006-09-20  Gary Benson  <gbenson@redhat.com>
+
+	* java/net/InetAddress.java: Mostly merged with Classpath.
+	* java/net/VMInetAddress.java: New file.
+	* sources.am, Makefile.in: Rebuilt.
+
+	* java/net/natVMNetworkInterfacePosix.cc
+	(getInterfaces): Create InetAddress objects using
+	InetAddress.getByAddress.
+	* gnu/java/net/natPlainSocketImplPosix.cc
+	(accept, getOption): Likewise.
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc
+	(peekData, receive, getLocalAddress): Likewise.
+
 2006-09-27  Tom Tromey  <tromey@redhat.com>
 
 	https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=201712
