@@ -214,7 +214,9 @@ enum c_typespec_keyword {
   cts_double,
   cts_dfloat32,
   cts_dfloat64,
-  cts_dfloat128
+  cts_dfloat128,
+  cts_fract,
+  cts_accum
 };
 
 /* A sequence of declaration specifiers in C.  */
@@ -282,6 +284,8 @@ struct c_declspecs {
   BOOL_BITFIELD volatile_p : 1;
   /* Whether "restrict" was specified.  */
   BOOL_BITFIELD restrict_p : 1;
+  /* Whether "_Sat" was specified.  */
+  BOOL_BITFIELD saturating_p : 1;
 };
 
 /* The various kinds of declarators in C.  */

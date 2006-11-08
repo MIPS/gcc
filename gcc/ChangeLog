@@ -1,3 +1,109 @@
+2006-11-07  Chao-ying Fu  <fu@mips.com>
+
+	* defaults.h (SHORT_FRACT_TYPE_SIZE, FRACT_TYPE_SIZE,
+	LONG_FRACT_TYPE_SIZE, LONG_LONG_FRACT_TYPE_SIZE,
+	SHORT_ACCUM_TYPE_SIZE, ACCUM_TYPE_SIZE, LONG_ACCUM_TYPE_SIZE,
+	LONG_LONG_ACCUM_TYPE_SIZE): Define.
+
+	* tree.def (FIXED_POINT_TYPE): New type.
+
+	* tree.h (struct tree_common): Add saturating_flag.
+	(TYPE_SATURATING): Define.
+	(TYPE_IBIT, TYPE_FBIT): Define.
+	(enum tree_index): Add new enumeration values
+	TI_SAT_SFRACT_TYPE, TI_SAT_FRACT_TYPE, TI_SAT_LFRACT_TYPE,
+	TI_SAT_LLFRACT_TYPE, TI_SAT_USFRACT_TYPE, TI_SAT_UFRACT_TYPE,
+	TI_SAT_ULFRACT_TYPE, TI_SAT_ULLFRACT_TYPE, TI_SFRACT_TYPE,
+	TI_FRACT_TYPE, TI_LFRACT_TYPE, TI_LLFRACT_TYPE, TI_USFRACT_TYPE,
+	TI_UFRACT_TYPE, TI_ULFRACT_TYPE, TI_ULLFRACT_TYPE,
+	TI_SAT_SACCUM_TYPE, TI_SAT_ACCUM_TYPE, TI_SAT_LACCUM_TYPE,
+	TI_SAT_LLACCUM_TYPE, TI_SAT_USACCUM_TYPE, TI_SAT_UACCUM_TYPE,
+	TI_SAT_ULACCUM_TYPE, TI_SAT_ULLACCUM_TYPE, TI_SACCUM_TYPE,
+	TI_ACCUM_TYPE, TI_LACCUM_TYPE, TI_LLACCUM_TYPE, TI_USACCUM_TYPE,
+	TI_UACCUM_TYPE, TI_ULACCUM_TYPE, TI_ULLACCUM_TYPE,
+	TI_QQ_TYPE, TI_HQ_TYPE,_TYPE, TI_SQ_TYPE, TI_DQ_TYPE, TI_TQ_TYPE,
+	TI_UQQ_TYPE, TI_UHQ_TYPE, TI_USQ_TYPE, TI_UDQ_TYPE, TI_UTQ_TYPE,
+	TI_SAT_QQ_TYPE, TI_SAT_HQ_TYPE, TI_SAT_SQ_TYPE, TI_SAT_DQ_TYPE,
+	TI_SAT_TQ_TYPE, TI_SAT_UQQ_TYPE, TI_SAT_UHQ_TYPE, TI_SAT_USQ_TYPE,
+	TI_SAT_UDQ_TYPE, TI_SAT_UTQ_TYPE, TI_HA_TYPE, TI_SA_TYPE, TI_DA_TYPE,
+	TI_TA_TYPE, TI_UHA_TYPE, TI_USA_TYPE, TI_UDA_TYPE, TI_UTA_TYPE,
+	TI_SAT_HA_TYPE, TI_SAT_SA_TYPE, TI_SAT_DA_TYPE, TI_SAT_TA_TYPE,
+	TI_SAT_UHA_TYPE, TI_SAT_USA_TYPE, TI_SAT_UDA_TYPE, TI_SAT_UTA_TYPE.
+	(sat_short_fract_type_node, sat_fract_type_node,
+	sat_long_fract_type_node, sat_long_long_fract_type_node,
+	sat_unsigned_short_fract_type_node, sat_unsigned_fract_type_node,
+	sat_unsigned_long_fract_type_node,
+	sat_unsigned_long_long_fract_type_node, short_fract_type_node,
+	fract_type_node, long_fract_type_node, long_long_fract_type_node,
+	unsigned_short_fract_type_node, unsigned_fract_type_node,
+	unsigned_long_fract_type_node, unsigned_long_long_fract_type_node,
+	sat_short_accum_type_node, sat_accum_type_node,
+	sat_long_accum_type_node, sat_long_long_accum_type_node,
+	sat_unsigned_short_accum_type_node, sat_unsigned_accum_type_node,
+	sat_unsigned_long_accum_type_node,
+	sat_unsigned_long_long_accum_type_node, short_accum_type_node,
+	accum_type_node, long_accum_type_node, long_long_accum_type_node,
+	unsigned_short_accum_type_node, unsigned_accum_type_node,
+	unsigned_long_accum_type_node, unsigned_long_long_accum_type_node,
+	qq_type_node, hq_type_node, sq_type_node, dq_type_node, tq_type_node,
+	uqq_type_node, uhq_type_node, usq_type_node, udq_type_node,
+	utq_type_node, sat_qq_type_node, sat_hq_type_node, sat_sq_type_node,
+	sat_dq_type_node, sat_tq_type_node, sat_uqq_type_node,
+	sat_uhq_type_node, sat_usq_type_node, sat_udq_type_node,
+	sat_utq_type_node, ha_type_node, sa_type_node, da_type_node
+	ta_type_node, uha_type_node, usa_type_node, uda_type_node, 
+	uta_type_node, sat_ha_type_node, sat_sa_type_node, sat_da_type_node,
+	sat_ta_type_node, sat_uha_type_node, sat_usa_type_node,
+	sat_uda_type_node, sat_uta_type_node): New macro.
+	(make_fract_type, make_accum_type, make_or_reuse_fract_type,
+	make_or_reuse_accum_type): Declare.
+	(make_signed_fract_type, make_unsigned_fract_type,
+	make_sat_signed_fract_type, make_sat_unsigned_fract_type,
+	make_signed_accum_type, make_unsigned_accum_type,
+	make_sat_signed_accum_type, make_sat_unsigned_accum_type,
+	make_or_reuse_signed_fract_type, make_or_reuse_unsigned_fract_type,
+	make_or_reuse_sat_signed_fract_type,
+	make_or_reuse_sat_unsigned_fract_type, make_or_reuse_signed_accum_type,
+	make_or_reuse_unsigned_accum_type, make_or_reuse_sat_signed_accum_type,
+	make_or_reuse_sat_unsigned_accum_type): New macro.
+
+	* tree.c (make_or_reuse_fract_type, make_or_reuse_accum_type): New.
+	(build_common_tree_nodes_2): Add fixed-point type nodes.
+
+	* stor-layout.c (int_mode_for_mode): Handle MODE_FRACT, MODE_UFRACT,
+	MODE_ACCUM, MODE_UACCUM, MODE_VECTOR_FRACT, MODE_VECTOR_UFRACT,
+	MODE_VECTOR_ACCUM, MODE_VECTOR_UACCUM.
+	(layout_type): Handle FIXED_POINT_TYPE.
+	(make_fract_type, make_accum_type): New.
+
+	* c-common.h (enum rid): Add new enumeration values RID_FRACT,
+	RID_ACCUM, RID_SAT.
+
+	* c-parser.c (reswords): Add _Fract, _Accum, _Sat.
+	(c_token_starts_typename): Handle RID_FRACT, RID_ACCUM, RID_SAT.
+	(c_token_starts_declspecs): Likewise.
+	(c_parser_attributes): Likewise.
+
+	* c-tree.h (enum c_typespec_keyword): Add cts_fract and cts_accum.
+	(c_declspecs): Add saturating_p.
+
+	* c-decl.c (build_null_declspecs): Initialize saturating_p.
+	(declspecs_add_qual): Handle RID_SAT.
+	(declspecs_add_type): Avoid using complex with _Fract or _Accum.
+	Handle RID_FRACT and RID_ACCUM.
+	(finish_declspecs): Handle cts_fract and cts_accum.
+
+	* dwarf2out.c (base_type_die): Use DW_ATE_signed_fixed or 
+	DW_ATE_unsigned_fixed to describe FIXED_POINT_TYPE.
+	(is_base_type): Add FIXED_POINT_TYPE.
+	(add_type_attribute): Handle FIXED_POINT_TYPE.
+	(gen_type_die): Handle FIXED_POINT_TYPE.
+
+	* targhooks.c (default_scalar_mode_supported_p): Handle
+	MODE_FRACT, MODE_UFRACT, MODE_ACCUM, MODE_UACCUM.
+
+	* doc/c-tree.texi (Types): Document FIXED_POINT_TYPE.
+
 2006-11-03  Chao-ying Fu  <fu@mips.com>
 
 	* genmodes.c (struct mode_data): Add ibit and fbit fields.

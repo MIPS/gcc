@@ -372,6 +372,7 @@ struct tree_common GTY(())
   unsigned protected_flag : 1;
   unsigned deprecated_flag : 1;
   unsigned invariant_flag : 1;
+  unsigned saturating_flag : 1;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -536,6 +537,11 @@ struct tree_common GTY(())
 
 	TREE_INVARIANT in
 	    all expressions.
+
+   saturating_flag:
+
+       TYPE_SATURATING in
+           all types
 
    nowarning_flag:
 
@@ -1229,6 +1235,9 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
    invocation, though not across different invocations.  May appear in
    any expression node.  */
 #define TREE_INVARIANT(NODE) ((NODE)->common.invariant_flag)
+
+/* In fixed-point types, means a saturating type.  */
+#define TYPE_SATURATING(NODE) ((NODE)->common.saturating_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) ((NODE)->common.lang_flag_0)
@@ -1928,6 +1937,8 @@ struct tree_block GTY(())
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type.context)
 #define TYPE_LANG_SPECIFIC(NODE) (TYPE_CHECK (NODE)->type.lang_specific)
+#define TYPE_IBIT(NODE) (GET_MODE_IBIT (TYPE_MODE (NODE)))
+#define TYPE_FBIT(NODE) (GET_MODE_FBIT (TYPE_MODE (NODE)))
 
 /* For a VECTOR_TYPE node, this describes a different type which is emitted
    in the debugging output.  We use this to describe a vector as a
@@ -3273,6 +3284,75 @@ enum tree_index
 
   TI_MAIN_IDENTIFIER,
 
+  TI_SAT_SFRACT_TYPE,
+  TI_SAT_FRACT_TYPE,
+  TI_SAT_LFRACT_TYPE,
+  TI_SAT_LLFRACT_TYPE,
+  TI_SAT_USFRACT_TYPE,
+  TI_SAT_UFRACT_TYPE,
+  TI_SAT_ULFRACT_TYPE,
+  TI_SAT_ULLFRACT_TYPE,
+  TI_SFRACT_TYPE,
+  TI_FRACT_TYPE,
+  TI_LFRACT_TYPE,
+  TI_LLFRACT_TYPE,
+  TI_USFRACT_TYPE,
+  TI_UFRACT_TYPE,
+  TI_ULFRACT_TYPE,
+  TI_ULLFRACT_TYPE,
+  TI_SAT_SACCUM_TYPE,
+  TI_SAT_ACCUM_TYPE,
+  TI_SAT_LACCUM_TYPE,
+  TI_SAT_LLACCUM_TYPE,
+  TI_SAT_USACCUM_TYPE,
+  TI_SAT_UACCUM_TYPE,
+  TI_SAT_ULACCUM_TYPE,
+  TI_SAT_ULLACCUM_TYPE,
+  TI_SACCUM_TYPE,
+  TI_ACCUM_TYPE,
+  TI_LACCUM_TYPE,
+  TI_LLACCUM_TYPE,
+  TI_USACCUM_TYPE,
+  TI_UACCUM_TYPE,
+  TI_ULACCUM_TYPE,
+  TI_ULLACCUM_TYPE,
+  TI_QQ_TYPE,
+  TI_HQ_TYPE,
+  TI_SQ_TYPE,
+  TI_DQ_TYPE,
+  TI_TQ_TYPE,
+  TI_UQQ_TYPE,
+  TI_UHQ_TYPE,
+  TI_USQ_TYPE,
+  TI_UDQ_TYPE,
+  TI_UTQ_TYPE,
+  TI_SAT_QQ_TYPE,
+  TI_SAT_HQ_TYPE,
+  TI_SAT_SQ_TYPE,
+  TI_SAT_DQ_TYPE,
+  TI_SAT_TQ_TYPE,
+  TI_SAT_UQQ_TYPE,
+  TI_SAT_UHQ_TYPE,
+  TI_SAT_USQ_TYPE,
+  TI_SAT_UDQ_TYPE,
+  TI_SAT_UTQ_TYPE,
+  TI_HA_TYPE,
+  TI_SA_TYPE,
+  TI_DA_TYPE,
+  TI_TA_TYPE,
+  TI_UHA_TYPE,
+  TI_USA_TYPE,
+  TI_UDA_TYPE,
+  TI_UTA_TYPE,
+  TI_SAT_HA_TYPE,
+  TI_SAT_SA_TYPE,
+  TI_SAT_DA_TYPE,
+  TI_SAT_TA_TYPE,
+  TI_SAT_UHA_TYPE,
+  TI_SAT_USA_TYPE,
+  TI_SAT_UDA_TYPE,
+  TI_SAT_UTA_TYPE,
+
   TI_MAX
 };
 
@@ -3348,6 +3428,84 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
 #define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
 #define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
+
+/* The fixed-point types.  */
+#define sat_short_fract_type_node       global_trees[TI_SAT_SFRACT_TYPE]
+#define sat_fract_type_node             global_trees[TI_SAT_FRACT_TYPE]
+#define sat_long_fract_type_node        global_trees[TI_SAT_LFRACT_TYPE]
+#define sat_long_long_fract_type_node   global_trees[TI_SAT_LLFRACT_TYPE]
+#define sat_unsigned_short_fract_type_node \
+					global_trees[TI_SAT_USFRACT_TYPE]
+#define sat_unsigned_fract_type_node    global_trees[TI_SAT_UFRACT_TYPE]
+#define sat_unsigned_long_fract_type_node \
+					global_trees[TI_SAT_ULFRACT_TYPE]
+#define sat_unsigned_long_long_fract_type_node \
+					global_trees[TI_SAT_ULLFRACT_TYPE]
+#define short_fract_type_node           global_trees[TI_SFRACT_TYPE]
+#define fract_type_node                 global_trees[TI_FRACT_TYPE]
+#define long_fract_type_node            global_trees[TI_LFRACT_TYPE]
+#define long_long_fract_type_node       global_trees[TI_LLFRACT_TYPE]
+#define unsigned_short_fract_type_node  global_trees[TI_USFRACT_TYPE]
+#define unsigned_fract_type_node        global_trees[TI_UFRACT_TYPE]
+#define unsigned_long_fract_type_node   global_trees[TI_ULFRACT_TYPE]
+#define unsigned_long_long_fract_type_node \
+					global_trees[TI_ULLFRACT_TYPE]
+#define sat_short_accum_type_node       global_trees[TI_SAT_SACCUM_TYPE]
+#define sat_accum_type_node             global_trees[TI_SAT_ACCUM_TYPE]
+#define sat_long_accum_type_node        global_trees[TI_SAT_LACCUM_TYPE]
+#define sat_long_long_accum_type_node   global_trees[TI_SAT_LLACCUM_TYPE]
+#define sat_unsigned_short_accum_type_node \
+					global_trees[TI_SAT_USACCUM_TYPE]
+#define sat_unsigned_accum_type_node    global_trees[TI_SAT_UACCUM_TYPE]
+#define sat_unsigned_long_accum_type_node \
+					global_trees[TI_SAT_ULACCUM_TYPE]
+#define sat_unsigned_long_long_accum_type_node \
+					global_trees[TI_SAT_ULLACCUM_TYPE]
+#define short_accum_type_node           global_trees[TI_SACCUM_TYPE]
+#define accum_type_node                 global_trees[TI_ACCUM_TYPE]
+#define long_accum_type_node            global_trees[TI_LACCUM_TYPE]
+#define long_long_accum_type_node       global_trees[TI_LLACCUM_TYPE]
+#define unsigned_short_accum_type_node  global_trees[TI_USACCUM_TYPE]
+#define unsigned_accum_type_node        global_trees[TI_UACCUM_TYPE]
+#define unsigned_long_accum_type_node   global_trees[TI_ULACCUM_TYPE]
+#define unsigned_long_long_accum_type_node \
+					global_trees[TI_ULLACCUM_TYPE]
+#define qq_type_node                    global_trees[TI_QQ_TYPE]
+#define hq_type_node                    global_trees[TI_HQ_TYPE]
+#define sq_type_node                    global_trees[TI_SQ_TYPE]
+#define dq_type_node                    global_trees[TI_DQ_TYPE]
+#define tq_type_node                    global_trees[TI_TQ_TYPE]
+#define uqq_type_node                   global_trees[TI_UQQ_TYPE]
+#define uhq_type_node                   global_trees[TI_UHQ_TYPE]
+#define usq_type_node                   global_trees[TI_USQ_TYPE]
+#define udq_type_node                   global_trees[TI_UDQ_TYPE]
+#define utq_type_node                   global_trees[TI_UTQ_TYPE]
+#define sat_qq_type_node                global_trees[TI_SAT_QQ_TYPE]
+#define sat_hq_type_node                global_trees[TI_SAT_HQ_TYPE]
+#define sat_sq_type_node                global_trees[TI_SAT_SQ_TYPE]
+#define sat_dq_type_node                global_trees[TI_SAT_DQ_TYPE]
+#define sat_tq_type_node                global_trees[TI_SAT_TQ_TYPE]
+#define sat_uqq_type_node               global_trees[TI_SAT_UQQ_TYPE]
+#define sat_uhq_type_node               global_trees[TI_SAT_UHQ_TYPE]
+#define sat_usq_type_node               global_trees[TI_SAT_USQ_TYPE]
+#define sat_udq_type_node               global_trees[TI_SAT_UDQ_TYPE]
+#define sat_utq_type_node               global_trees[TI_SAT_UTQ_TYPE]
+#define ha_type_node                    global_trees[TI_HA_TYPE]
+#define sa_type_node                    global_trees[TI_SA_TYPE]
+#define da_type_node                    global_trees[TI_DA_TYPE]
+#define ta_type_node                    global_trees[TI_TA_TYPE]
+#define uha_type_node                   global_trees[TI_UHA_TYPE]
+#define usa_type_node                   global_trees[TI_USA_TYPE]
+#define uda_type_node                   global_trees[TI_UDA_TYPE]
+#define uta_type_node                   global_trees[TI_UTA_TYPE]
+#define sat_ha_type_node                global_trees[TI_SAT_HA_TYPE]
+#define sat_sa_type_node                global_trees[TI_SAT_SA_TYPE]
+#define sat_da_type_node                global_trees[TI_SAT_DA_TYPE]
+#define sat_ta_type_node                global_trees[TI_SAT_TA_TYPE]
+#define sat_uha_type_node               global_trees[TI_SAT_UHA_TYPE]
+#define sat_usa_type_node               global_trees[TI_SAT_USA_TYPE]
+#define sat_uda_type_node               global_trees[TI_SAT_UDA_TYPE]
+#define sat_uta_type_node               global_trees[TI_SAT_UTA_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -3609,6 +3767,37 @@ extern int tree_int_cst_sign_bit (tree);
 extern int tree_expr_nonnegative_p (tree);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
+
+extern tree make_fract_type (int, int, int);
+extern tree make_accum_type (int, int, int);
+extern tree make_or_reuse_fract_type (unsigned int, int, int);
+extern tree make_or_reuse_accum_type (unsigned int, int, int);
+
+#define make_signed_fract_type(P) make_fract_type (P, 0, 0)
+#define make_unsigned_fract_type(P) make_fract_type (P, 1, 0)
+#define make_sat_signed_fract_type(P) make_fract_type (P, 0, 1)
+#define make_sat_unsigned_fract_type(P) make_fract_type (P, 1, 1)
+#define make_signed_accum_type(P) make_accum_type (P, 0, 0)
+#define make_unsigned_accum_type(P) make_accum_type (P, 1, 0)
+#define make_sat_signed_accum_type(P) make_accum_type (P, 0, 1)
+#define make_sat_unsigned_accum_type(P) make_accum_type (P, 1, 1)
+
+#define make_or_reuse_signed_fract_type(P) \
+		make_or_reuse_fract_type (P, 0, 0)
+#define make_or_reuse_unsigned_fract_type(P) \
+		make_or_reuse_fract_type (P, 1, 0)
+#define make_or_reuse_sat_signed_fract_type(P) \
+		make_or_reuse_fract_type (P, 0, 1)
+#define make_or_reuse_sat_unsigned_fract_type(P) \
+		make_or_reuse_fract_type (P, 1, 1)
+#define make_or_reuse_signed_accum_type(P) \
+		make_or_reuse_accum_type (P, 0, 0)
+#define make_or_reuse_unsigned_accum_type(P) \
+		make_or_reuse_accum_type (P, 1, 0)
+#define make_or_reuse_sat_signed_accum_type(P) \
+		make_or_reuse_accum_type (P, 0, 1)
+#define make_or_reuse_sat_unsigned_accum_type(P) \
+		make_or_reuse_accum_type (P, 1, 1)
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if

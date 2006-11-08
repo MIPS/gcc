@@ -7071,6 +7071,7 @@ build_null_declspecs (void)
   ret->const_p = false;
   ret->volatile_p = false;
   ret->restrict_p = false;
+  ret->saturating_p = false;
   return ret;
 }
 
@@ -7100,6 +7101,10 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
     case RID_RESTRICT:
       dupe = specs->restrict_p;
       specs->restrict_p = true;
+      break;
+    case RID_SAT:
+      dupe = specs->saturating_p;
+      specs->saturating_p = true;
       break;
     default:
       gcc_unreachable ();
@@ -7293,6 +7298,12 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_dfloat128)
 		error ("both %<complex%> and %<_Decimal128%> in "
 		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_fract)
+		error ("both %<complex%> and %<_Fract%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_accum)
+		error ("both %<complex%> and %<_Accum%> in "
+		       "declaration specifiers");
 	      else
 		specs->complex_p = true;
 	      break;
@@ -7439,6 +7450,26 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      if (pedantic)
 		pedwarn ("ISO C does not support decimal floating point");
 	      return specs;
+	    case RID_FRACT:
+	    case RID_ACCUM:
+	      {
+		const char *str;
+		if (i == RID_FRACT)
+		  {
+		    str = "_Fract";
+		    specs->typespec_word = cts_fract;
+		  }
+		else
+		  {
+		    str = "_Accum";
+		    specs->typespec_word = cts_accum;
+		  }
+		if (!targetm.fixed_point_supported_p ())
+		  error ("fixed-point types not supported for this target");
+		if (pedantic)
+		  pedwarn ("ISO C does not support fixed-point types");
+		return specs;
+	      }
 	    default:
 	      /* ObjC reserved word "id", handled below.  */
 	      break;
@@ -7727,6 +7758,88 @@ finish_declspecs (struct c_declspecs *specs)
 	specs->type = dfloat64_type_node;
       else
 	specs->type = dfloat128_type_node;
+      break;
+    case cts_fract:
+       gcc_assert (!specs->complex_p);
+       if (specs->saturating_p)
+	{
+	  if (specs->long_long_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_long_long_fract_type_node
+			  : sat_long_long_fract_type_node;
+	  else if (specs->long_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_long_fract_type_node
+			  : sat_long_fract_type_node;
+	  else if (specs->short_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_short_fract_type_node
+			  : sat_short_fract_type_node;
+	  else
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_fract_type_node
+			  : sat_fract_type_node;
+          }
+      else
+	{
+	  if (specs->long_long_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_long_long_fract_type_node
+			  : long_long_fract_type_node;
+	  else if (specs->long_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_long_fract_type_node
+			  : long_fract_type_node;
+	  else if (specs->short_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_short_fract_type_node
+			  : short_fract_type_node;
+	  else
+	    specs->type = specs->unsigned_p
+			  ? unsigned_fract_type_node
+			  : fract_type_node;
+          }
+      break;
+    case cts_accum:
+       gcc_assert (!specs->complex_p);
+       if (specs->saturating_p)
+	{
+	  if (specs->long_long_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_long_long_accum_type_node
+			  : sat_long_long_accum_type_node;
+	  else if (specs->long_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_long_accum_type_node
+			  : sat_long_accum_type_node;
+	  else if (specs->short_p)
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_short_accum_type_node
+			  : sat_short_accum_type_node;
+	  else
+	    specs->type = specs->unsigned_p
+			  ? sat_unsigned_accum_type_node
+			  : sat_accum_type_node;
+          }
+      else
+	{
+	  if (specs->long_long_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_long_long_accum_type_node
+			  : long_long_accum_type_node;
+	  else if (specs->long_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_long_accum_type_node
+			  : long_accum_type_node;
+	  else if (specs->short_p)
+	    specs->type = specs->unsigned_p
+			  ? unsigned_short_accum_type_node
+			  : short_accum_type_node;
+	  else
+	    specs->type = specs->unsigned_p
+			  ? unsigned_accum_type_node
+			  : accum_type_node;
+          }
       break;
     default:
       gcc_unreachable ();

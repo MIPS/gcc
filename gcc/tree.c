@@ -6464,6 +6464,76 @@ make_or_reuse_type (unsigned size, int unsignedp)
     return make_signed_type (size);
 }
 
+static tree
+make_or_reuse_fract_type (unsigned size, int unsignedp, int satp)
+{
+  if (satp)
+    {
+      if (size == SHORT_FRACT_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_short_fract_type_node
+			 : sat_short_fract_type_node;
+      if (size == FRACT_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_fract_type_node : sat_fract_type_node;
+      if (size == LONG_FRACT_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_long_fract_type_node
+			 : sat_long_fract_type_node;
+      if (size == LONG_LONG_FRACT_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_long_long_fract_type_node
+			 : sat_long_long_fract_type_node;
+    }
+  else
+    {
+      if (size == SHORT_FRACT_TYPE_SIZE)
+	return unsignedp ? unsigned_short_fract_type_node
+			 : short_fract_type_node;
+      if (size == FRACT_TYPE_SIZE)
+	return unsignedp ? unsigned_fract_type_node : fract_type_node;
+      if (size == LONG_FRACT_TYPE_SIZE)
+	return unsignedp ? unsigned_long_fract_type_node
+			 : long_fract_type_node;
+      if (size == LONG_LONG_FRACT_TYPE_SIZE)
+	return unsignedp ? unsigned_long_long_fract_type_node
+			 : long_long_fract_type_node;
+    }
+
+  make_fract_type (size, unsignedp, satp);
+}
+
+static tree
+make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
+{
+  if (satp)
+    {
+      if (size == SHORT_ACCUM_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_short_accum_type_node
+			 : sat_short_accum_type_node;
+      if (size == ACCUM_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_accum_type_node : sat_accum_type_node;
+      if (size == LONG_ACCUM_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_long_accum_type_node
+			 : sat_long_accum_type_node;
+      if (size == LONG_LONG_ACCUM_TYPE_SIZE)
+	return unsignedp ? sat_unsigned_long_long_accum_type_node
+			 : sat_long_long_accum_type_node;
+    }
+  else
+    {
+      if (size == SHORT_ACCUM_TYPE_SIZE)
+	return unsignedp ? unsigned_short_accum_type_node
+			 : short_accum_type_node;
+      if (size == ACCUM_TYPE_SIZE)
+	return unsignedp ? unsigned_accum_type_node : accum_type_node;
+      if (size == LONG_ACCUM_TYPE_SIZE)
+	return unsignedp ? unsigned_long_accum_type_node
+			 : long_accum_type_node;
+      if (size == LONG_LONG_ACCUM_TYPE_SIZE)
+	return unsignedp ? unsigned_long_long_accum_type_node
+			 : long_long_accum_type_node;
+    }
+
+  return make_accum_type (size, unsignedp, satp);
+}
+
 /* Create nodes for all integer types (and error_mark_node) using the sizes
    of C datatypes.  The caller should call set_sizetype soon after calling
    this function to select one of the types as sizetype.  */
@@ -6601,6 +6671,87 @@ build_common_tree_nodes_2 (int short_double)
   layout_type (dfloat128_type_node);
   TYPE_MODE (dfloat128_type_node) = TDmode;
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
+
+  /* Fixed-point types. */
+  sat_short_fract_type_node = make_sat_signed_fract_type (SHORT_FRACT_TYPE_SIZE);
+  sat_fract_type_node = make_sat_signed_fract_type (FRACT_TYPE_SIZE);
+  sat_long_fract_type_node = make_sat_signed_fract_type (LONG_FRACT_TYPE_SIZE);
+  sat_long_long_fract_type_node = make_sat_signed_fract_type (LONG_LONG_FRACT_TYPE_SIZE);
+  sat_unsigned_short_fract_type_node = make_sat_unsigned_fract_type (SHORT_FRACT_TYPE_SIZE);
+  sat_unsigned_fract_type_node = make_sat_unsigned_fract_type (FRACT_TYPE_SIZE);
+  sat_unsigned_long_fract_type_node = make_sat_unsigned_fract_type (LONG_FRACT_TYPE_SIZE);
+  sat_unsigned_long_long_fract_type_node = make_sat_unsigned_fract_type (LONG_LONG_FRACT_TYPE_SIZE);
+
+  short_fract_type_node = make_signed_fract_type (SHORT_FRACT_TYPE_SIZE);
+  fract_type_node = make_signed_fract_type (FRACT_TYPE_SIZE);
+  long_fract_type_node = make_signed_fract_type (LONG_FRACT_TYPE_SIZE);
+  long_long_fract_type_node = make_signed_fract_type (LONG_LONG_FRACT_TYPE_SIZE);
+  unsigned_short_fract_type_node = make_unsigned_fract_type (SHORT_FRACT_TYPE_SIZE);
+  unsigned_fract_type_node = make_unsigned_fract_type (FRACT_TYPE_SIZE);
+  unsigned_long_fract_type_node = make_unsigned_fract_type (LONG_FRACT_TYPE_SIZE);
+  unsigned_long_long_fract_type_node = make_unsigned_fract_type (LONG_LONG_FRACT_TYPE_SIZE);
+
+  sat_short_accum_type_node = make_sat_signed_accum_type (SHORT_ACCUM_TYPE_SIZE);
+  sat_accum_type_node = make_sat_signed_accum_type (ACCUM_TYPE_SIZE);
+  sat_long_accum_type_node = make_sat_signed_accum_type (LONG_ACCUM_TYPE_SIZE);
+  sat_long_long_accum_type_node = make_sat_signed_accum_type (LONG_LONG_ACCUM_TYPE_SIZE);
+  sat_unsigned_short_accum_type_node = make_sat_unsigned_accum_type (SHORT_ACCUM_TYPE_SIZE);
+  sat_unsigned_accum_type_node = make_sat_unsigned_accum_type (ACCUM_TYPE_SIZE);
+  sat_unsigned_long_accum_type_node = make_sat_unsigned_accum_type (LONG_ACCUM_TYPE_SIZE);
+  sat_unsigned_long_long_accum_type_node = make_sat_unsigned_accum_type (LONG_LONG_ACCUM_TYPE_SIZE);
+
+  short_accum_type_node = make_signed_accum_type (SHORT_ACCUM_TYPE_SIZE);
+  accum_type_node = make_signed_accum_type (ACCUM_TYPE_SIZE);
+  long_accum_type_node = make_signed_accum_type (LONG_ACCUM_TYPE_SIZE);
+  long_long_accum_type_node = make_signed_accum_type (LONG_LONG_ACCUM_TYPE_SIZE);
+  unsigned_short_accum_type_node = make_unsigned_accum_type (SHORT_ACCUM_TYPE_SIZE);
+  unsigned_accum_type_node = make_unsigned_accum_type (ACCUM_TYPE_SIZE);
+  unsigned_long_accum_type_node = make_unsigned_accum_type (LONG_ACCUM_TYPE_SIZE);
+  unsigned_long_long_accum_type_node = make_unsigned_accum_type (LONG_LONG_ACCUM_TYPE_SIZE);
+
+  qq_type_node = make_or_reuse_signed_fract_type (GET_MODE_BITSIZE (QQmode));
+  hq_type_node = make_or_reuse_signed_fract_type (GET_MODE_BITSIZE (HQmode));
+  sq_type_node = make_or_reuse_signed_fract_type (GET_MODE_BITSIZE (SQmode));
+  dq_type_node = make_or_reuse_signed_fract_type (GET_MODE_BITSIZE (DQmode));
+  tq_type_node = make_or_reuse_signed_fract_type (GET_MODE_BITSIZE (TQmode));
+
+  uqq_type_node = make_or_reuse_unsigned_fract_type (GET_MODE_BITSIZE (UQQmode));
+  uhq_type_node = make_or_reuse_unsigned_fract_type (GET_MODE_BITSIZE (UHQmode));
+  usq_type_node = make_or_reuse_unsigned_fract_type (GET_MODE_BITSIZE (USQmode));
+  udq_type_node = make_or_reuse_unsigned_fract_type (GET_MODE_BITSIZE (UDQmode));
+  utq_type_node = make_or_reuse_unsigned_fract_type (GET_MODE_BITSIZE (UTQmode));
+
+  sat_qq_type_node = make_or_reuse_sat_signed_fract_type (GET_MODE_BITSIZE (QQmode));
+  sat_hq_type_node = make_or_reuse_sat_signed_fract_type (GET_MODE_BITSIZE (HQmode));
+  sat_sq_type_node = make_or_reuse_sat_signed_fract_type (GET_MODE_BITSIZE (SQmode));
+  sat_dq_type_node = make_or_reuse_sat_signed_fract_type (GET_MODE_BITSIZE (DQmode));
+  sat_tq_type_node = make_or_reuse_sat_signed_fract_type (GET_MODE_BITSIZE (TQmode));
+
+  sat_uqq_type_node = make_or_reuse_sat_unsigned_fract_type (GET_MODE_BITSIZE (UQQmode));
+  sat_uhq_type_node = make_or_reuse_sat_unsigned_fract_type (GET_MODE_BITSIZE (UHQmode));
+  sat_usq_type_node = make_or_reuse_sat_unsigned_fract_type (GET_MODE_BITSIZE (USQmode));
+  sat_udq_type_node = make_or_reuse_sat_unsigned_fract_type (GET_MODE_BITSIZE (UDQmode));
+  sat_utq_type_node = make_or_reuse_sat_unsigned_fract_type (GET_MODE_BITSIZE (UTQmode));
+
+  ha_type_node = make_or_reuse_signed_accum_type (GET_MODE_BITSIZE (HAmode));
+  sa_type_node = make_or_reuse_signed_accum_type (GET_MODE_BITSIZE (SAmode));
+  da_type_node = make_or_reuse_signed_accum_type (GET_MODE_BITSIZE (DAmode));
+  ta_type_node = make_or_reuse_signed_accum_type (GET_MODE_BITSIZE (TAmode));
+
+  uha_type_node = make_or_reuse_unsigned_accum_type (GET_MODE_BITSIZE (UHAmode));
+  usa_type_node = make_or_reuse_unsigned_accum_type (GET_MODE_BITSIZE (USAmode));
+  uda_type_node = make_or_reuse_unsigned_accum_type (GET_MODE_BITSIZE (UDAmode));
+  uta_type_node = make_or_reuse_unsigned_accum_type (GET_MODE_BITSIZE (UTAmode));
+
+  sat_ha_type_node = make_or_reuse_sat_signed_accum_type (GET_MODE_BITSIZE (HAmode));
+  sat_sa_type_node = make_or_reuse_sat_signed_accum_type (GET_MODE_BITSIZE (SAmode));
+  sat_da_type_node = make_or_reuse_sat_signed_accum_type (GET_MODE_BITSIZE (DAmode));
+  sat_ta_type_node = make_or_reuse_sat_signed_accum_type (GET_MODE_BITSIZE (TAmode));
+
+  sat_uha_type_node = make_or_reuse_sat_unsigned_accum_type (GET_MODE_BITSIZE (UHAmode));
+  sat_usa_type_node = make_or_reuse_sat_unsigned_accum_type (GET_MODE_BITSIZE (USAmode));
+  sat_uda_type_node = make_or_reuse_sat_unsigned_accum_type (GET_MODE_BITSIZE (UDAmode));
+  sat_uta_type_node = make_or_reuse_sat_unsigned_accum_type (GET_MODE_BITSIZE (UTAmode));
 
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;

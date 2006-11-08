@@ -280,6 +280,10 @@ default_scalar_mode_supported_p (enum machine_mode mode)
       return false;
 
     case MODE_DECIMAL_FLOAT:
+    case MODE_FRACT:
+    case MODE_UFRACT:
+    case MODE_ACCUM:
+    case MODE_UACCUM:
       return false;
 
     default:

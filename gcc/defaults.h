@@ -455,6 +455,38 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define DECIMAL128_TYPE_SIZE 128
 #endif
 
+#ifndef SHORT_FRACT_TYPE_SIZE
+#define SHORT_FRACT_TYPE_SIZE 16
+#endif
+
+#ifndef FRACT_TYPE_SIZE
+#define FRACT_TYPE_SIZE 32
+#endif
+
+#ifndef LONG_FRACT_TYPE_SIZE
+#define LONG_FRACT_TYPE_SIZE 64
+#endif
+
+#ifndef LONG_LONG_FRACT_TYPE_SIZE
+#define LONG_LONG_FRACT_TYPE_SIZE 128
+#endif
+
+#ifndef SHORT_ACCUM_TYPE_SIZE
+#define SHORT_ACCUM_TYPE_SIZE 32
+#endif
+
+#ifndef ACCUM_TYPE_SIZE
+#define ACCUM_TYPE_SIZE 64
+#endif
+
+#ifndef LONG_ACCUM_TYPE_SIZE
+#define LONG_ACCUM_TYPE_SIZE 128
+#endif
+
+#ifndef LONG_LONG_ACCUM_TYPE_SIZE
+#define LONG_LONG_ACCUM_TYPE_SIZE 128
+#endif
+
 /* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */
 #ifndef POINTER_SIZE
 #define POINTER_SIZE BITS_PER_WORD

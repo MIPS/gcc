@@ -100,6 +100,9 @@ static const struct resword reswords[] =
   { "_Decimal32",       RID_DFLOAT32,  D_EXT },
   { "_Decimal64",       RID_DFLOAT64,  D_EXT },
   { "_Decimal128",      RID_DFLOAT128, D_EXT },
+  { "_Fract",           RID_FRACT,     D_EXT },
+  { "_Accum",           RID_ACCUM,     D_EXT },
+  { "_Sat",             RID_SAT,       D_EXT },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -516,6 +519,9 @@ c_token_starts_typename (c_token *token)
 	case RID_VOLATILE:
 	case RID_RESTRICT:
 	case RID_ATTRIBUTE:
+	case RID_FRACT:
+	case RID_ACCUM:
+	case RID_SAT:
 	  return true;
 	default:
 	  return false;
@@ -590,6 +596,9 @@ c_token_starts_declspecs (c_token *token)
 	case RID_VOLATILE:
 	case RID_RESTRICT:
 	case RID_ATTRIBUTE:
+	case RID_FRACT:
+	case RID_ACCUM:
+	case RID_SAT:
 	  return true;
 	default:
 	  return false;
@@ -1523,6 +1532,11 @@ c_parser_asm_definition (c_parser *parser)
      _Decimal32
      _Decimal64
      _Decimal128
+     _Fract
+     _Accum
+
+   type-qualifier:
+     _Sat
 
    Objective-C:
 
@@ -1625,6 +1639,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_DFLOAT64:
 	case RID_DFLOAT128:
 	case RID_BOOL:
+	case RID_FRACT:
+	case RID_ACCUM:
 	  if (!typespec_ok)
 	    goto out;
 	  attrs_ok = true;
@@ -1666,6 +1682,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_CONST:
 	case RID_VOLATILE:
 	case RID_RESTRICT:
+	case RID_SAT:
 	  attrs_ok = true;
 	  declspecs_add_qual (specs, c_parser_peek_token (parser)->value);
 	  c_parser_consume_token (parser);
@@ -2885,6 +2902,9 @@ c_parser_attributes (c_parser *parser)
 		case RID_DFLOAT64:
 		case RID_DFLOAT128:
 		case RID_BOOL:
+		case RID_FRACT:
+		case RID_ACCUM:
+		case RID_SAT:
 		  ok = true;
 		  break;
 		default:
