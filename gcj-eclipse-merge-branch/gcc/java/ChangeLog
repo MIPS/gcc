@@ -338,6 +338,175 @@
 	* jcf-path.c (jcf_path_compute): New function.
 	* jcf.h (jcf_path_compute): Declare.
 
+2006-10-23 Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* decl.c: Include langhooks.h.
+	(builtin_function): Remove.
+	(java_init_decl_processing): Replace calls to builtin_function
+	with add_builtin_function.
+	* Make-lang.in (jc1$(exeext)): Depend on and link with attribs.o.
+	(java/decl.o): Depend on langhooks.h.
+	* java-tree.h (builtin_function): Remove.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Make-lang.in: Added "java.pdf", "gcj.pdf" target support.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (push_value): Always flush quick stack.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/29013:
+	* jcf-write.c (generate_bytecode_insns) <CALL_EXPR>: Always note
+	the push of the called method's return result.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* jvspec.c (lang_specific_driver): Read spec file even if
+	-fsyntax-only.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28754:
+	* expr.c (expand_java_field_op): Initialize field's declaring
+	interface if necessary.
+
+2006-09-12  Tom Tromey  <tromey@redhat.com>
+
+	PR java/28892:
+	* expr.c (expand_java_field_op): No error for assignments not in
+	class initializer or constructor.
+
+2006-08-22  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (java_add_stmt): Give the statement list a type.
+
+2006-08-16  Jakub Jelinek  <jakub@redhat.com>
+	    Bryce McKinlay  <bryce@mckinlay.net.nz>
+
+	* jvspec.c (lang_specific_driver): Add -s-bc-abi when needed.
+
+2006-08-10  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR java/8923
+	* parse.y (build_incdec): Emit an error instead of an ICE if '++'
+	or '--' is used with a constant operand.
+	(java_complete_lhs): When processing a '++' or '--' expression,
+	don't call java_complete_tree but java_complete_lhs, so that a
+	static final variable operand is never replaced by its value. This
+	avoids an ICE later on.
+	(patch_unaryop): Fixed typo in comment.
+
+2006-07-28  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* Make-lang.in: Use $(HEADER_H) instead of header.h in dependencies.
+
+2006-07-12  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* builtins.c (check_for_builtin): If a builtin could result in a
+	direct call being generated, don't use it if flag_indirect_dispatch
+	is set.
+
+2006-07-12  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (Invocation): Corrections for Invocation API example.
+
+2006-07-04  Andrew Haley  <aph@redhat.com>
+
+	* class.c (build_fieldref_cache_entry): Set DECL_IGNORED_P on the
+	entry.
+
+2006-06-21  Andrew Haley  <aph@redhat.com>
+
+	* java-tree.h (update_aliases): Remove
+	* expr.c (expand_iinc): Remove call to update_aliases().
+	(STORE_INTERNAL): Likewise.
+	* decl.c (update_aliases, initialize_local_variable) 
+	(maybe_pushlevels): Set DECL_VALUE_EXPR for debugging decls.
+
+2006-06-19  Andrew Haley  <aph@redhat.com>
+
+	PR java/1305
+	PR java/27908
+	* expr.c (java_modify_addr_for_volatile): New function.
+	(expand_java_field_op): Handle volatile fields.
+	* java-gimplify.c (java_gimplify_component_ref): Call
+	java_modify_addr_for_volatile to give the field_ref the correct
+	volatile type.
+	(java_gimplify_modify_expr): Likewise.
+	* java-tree.h (java_modify_addr_for_volatile): New decl.
+
+2006-06-17  Karl Berry  <karl@gnu.org>
+
+	* gcj.texi (@dircategory): Use "Software development" instead
+	of "Programming", following the Free Software Directory.
+
+2006-06-16  Andrew Haley  <aph@redhat.com>
+
+	* class.c (make_class_data): When using flag_indirect_classes,
+	don't initialize the vtable of Class instances.
+
+2006-06-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/1305
+	PR java/27908
+	* builtins.c (initialize_builtins): Add __sync_synchronize().
+	* class.c (add_field): Mark volatile fields.
+	* java-gimplify.c (java_gimplify_expr): Call new functions to
+	handle self-modifying exprs and COMPONENT_REFs.
+	(java_gimplify_component_ref): New.
+	(java_gimplify_modify_expr): Add handling for volatiles.
+
+2006-06-08  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.user.realname.
+
+2006-06-08  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (build_field_ref): Pass NULL_TREE as SPECIAL arg to
+	get_symbol_table_index().
+	(maybe_rewrite_invocation): Set SPECIAL if we need to access a
+	private method.
+	(build_known_method_ref): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(get_symbol_table_index): Put SPECIAL in the TREE_PURPOSE field of
+	the method list.
+	(build_invokevirtual): New arg: special.  Pass it to
+	get_symbol_table_index.
+	(expand_invoke): New variable: special.
+	Pass it to maybe_rewrite_invocation().
+	Pass it to build_known_method_ref().
+	* class.c (build_symbol_entry): Add new arg: special.  Use it to
+	build the symbol table conbstructor.
+	(emit_symbol_table): Extract SPECIAL from the method list and pass
+	it to build_symbol_entry().
+	* parse.y (patch_invoke): Call maybe_rewrite_invocation() and set
+	special accordingly.
+
+2006-06-06  David Daney  <ddaney@avtrex.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.NameFinder.show_raw and
+	gnu.gcj.runtime.NameFinder.remove_unknown.
+
+2006-06-06  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (print_access_flags): Handle varargs, bridge,
+	synthetic, enum, annotation.
+	* jcf.h (ACC_BRIDGE): New macro.
+	(ACC_VARARGS): Likewise.
+	(ACC_SYNTHETIC): Likewise.
+	(ACC_ENUM): Likewise.
+	(ACC_ANNOTATION): Likewise.
+
+2006-06-06  Mike Stump  <mrs@apple.com>
+
+	* Make-lang.in: Rename to htmldir to build_htmldir to avoid
+	installing during build.
+
 2006-05-31  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* gcj.texi (Extensions): Document the new gcj-dbtool-based
@@ -573,7 +742,7 @@
 	PR java/25535
 	* constants.c (build_constants_constructor): move initializer into
 	first halfword on a 64-bit big-endian machine.
- 
+
 2006-02-04  Tom Tromey  <tromey@redhat.com>
 
 	PR java/25676:
@@ -732,7 +901,7 @@
 
 2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
 
-        * gcj.texi (gij options): Add -Xss documentation.
+	* gcj.texi (gij options): Add -Xss documentation.
 
 2005-11-08  Wil Mahan  <wmahan@gmail.com>
 
@@ -981,7 +1150,7 @@
 
 2005-07-07  Bryce McKinlay  <mckinlay@redhat.com>
 
-        PR java/21045
+	PR java/21045
 	* parse.y (add_exception_to_throws): New function.
 	(purge_unchecked_exceptions): Removed.
 	(get_constructor_super): Renamed from verify_constructor_super. Now
@@ -993,9 +1162,9 @@
 
 2005-07-05  Bryce McKinlay  <mckinlay@redhat.com>
 
-        PR java/19674
-        * parse.y (interface_member_declaration): Allow empty statements in
-        interface declarations.
+	PR java/19674
+	* parse.y (interface_member_declaration): Allow empty statements in
+	interface declarations.
 
 2005-07-05  Paolo Bonzini  <bonzini@gnu.org>
 
@@ -3701,7 +3870,7 @@
 2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* check-init.c (check_init): Handle binops UNLT_EXPR, UNLE_EXPR,
-    	UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, and LTGT_EXPR.
+	UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, and LTGT_EXPR.
 
 2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
 
@@ -9985,8 +10154,8 @@
 
 2000-10-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
-       * parse.h (INNER_ENCLOSING_SCOPE_CHECK): Check inherited type in
-       scope.
+	* parse.h (INNER_ENCLOSING_SCOPE_CHECK): Check inherited type in
+	scope.
 
 2000-10-24  Tom Tromey  <tromey@cygnus.com>
 
@@ -11192,8 +11361,8 @@
 
 2000-05-23  Bryce McKinlay  <bryce@albatross.co.nz>
 
-       * parse.y (patch_method_invocation): Don't try to lookup methods
-       in primitive types.
+	* parse.y (patch_method_invocation): Don't try to lookup methods
+	in primitive types.
 
 2000-05-02  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
@@ -14765,7 +14934,7 @@
 
 	* jcf-write.c (generate_bytecode_insns):  Handle __builtin_fmod, for %.
 
-  Tue Mar  9 11:52:08 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+Tue Mar  9 11:52:08 1999  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (method_header): Don't set ACC_ABSTRACT flags on
 	interfaces.

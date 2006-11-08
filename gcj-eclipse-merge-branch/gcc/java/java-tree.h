@@ -1262,7 +1262,6 @@ extern void set_java_signature (tree, tree);
 extern tree build_static_field_ref (tree);
 extern tree build_address_of (tree);
 extern tree find_local_variable (int index, tree type, int pc);
-extern void update_aliases (tree decl, int index, int pc);
 extern tree find_stack_slot (int index, tree type);
 extern tree build_prim_array_type (tree, HOST_WIDE_INT);
 extern tree build_java_array_type (tree, HOST_WIDE_INT);
@@ -1291,6 +1290,7 @@ extern tree build_invokeinterface (tree, tree);
 extern tree build_jni_stub (tree);
 extern tree invoke_build_dtable (int, tree);
 extern tree build_field_ref (tree, tree, tree);
+extern tree java_modify_addr_for_volatile (tree);
 extern void pushdecl_force_head (tree);
 extern tree build_java_binop (enum tree_code, tree, tree, tree);
 extern tree build_java_soft_divmod (enum tree_code, tree, tree, tree);
@@ -1444,9 +1444,6 @@ extern tree emit_catch_table (tree);
 extern void gen_indirect_dispatch_tables (tree type);
 extern int split_qualified_name (tree *left, tree *right, tree source);
 extern int in_same_package (tree, tree);
-
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
 
 extern void java_read_sourcefilenames (const char *fsource_filename);
 

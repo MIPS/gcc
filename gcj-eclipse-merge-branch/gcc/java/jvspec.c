@@ -346,7 +346,6 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  else if (strcmp (argv[i], "-fsyntax-only") == 0
 		   || strcmp (argv[i], "--syntax-only") == 0)
 	    {
-	      want_spec_file = 0;
 	      library = 0;
 	      will_link = 0;
 	      continue;

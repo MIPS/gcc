@@ -1458,7 +1458,6 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   constant_value = build_int_cst (NULL_TREE, ival);
   res = fold_build2 (PLUS_EXPR, int_type_node, local_var, constant_value);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
-  update_aliases (local_var, local_var_index, pc);
 }
 
 
@@ -2749,6 +2748,25 @@ build_jni_stub (tree method)
   return bind;
 }
 
+
+/* Given lvalue EXP, return a volatile expression that references the
+   same object.  */
+
+tree
+java_modify_addr_for_volatile (tree exp)
+{
+  tree exp_type = TREE_TYPE (exp);
+  tree v_type 
+    = build_qualified_type (exp_type,
+			    TYPE_QUALS (exp_type) | TYPE_QUAL_VOLATILE);
+  tree addr = build_fold_addr_expr (exp);
+  v_type = build_pointer_type (v_type);
+  addr = fold_convert (v_type, addr);
+  exp = build_fold_indirect_ref (addr);
+  return exp;
+}
+
+
 /* Expand an operation to extract from or store into a field.
    IS_STATIC is 1 iff the field is static.
    IS_PUTTING is 1 for putting into a field;  0 for getting from the field.
@@ -2772,6 +2790,7 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
   int is_error = 0;
   tree original_self_type = self_type;
   tree field_decl;
+  tree modify_expr;
   
   if (! CLASS_LOADED_P (self_type))
     load_class (self_type, 1);  
@@ -2792,6 +2811,13 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 				  field_type, flags); 
 	  DECL_ARTIFICIAL (field_decl) = 1;
 	  DECL_IGNORED_P (field_decl) = 1;
+#if 0
+	  /* FIXME: We should be pessimistic about volatility.  We
+	     don't know one way or another, but this is safe.
+	     However, doing this has bad effects on code quality.  We
+	     need to look at better ways to do this.  */
+	  TREE_THIS_VOLATILE (field_decl) = 1;
+#endif
 	}
       else
 	{      
@@ -2816,10 +2842,13 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
     }
 
   field_ref = build_field_ref (field_ref, self_type, field_name);
-  if (is_static && ! flag_indirect_dispatch)
+  if (is_static
+      && ! flag_indirect_dispatch)
     {
-      /* Initialize the declaring class of the field.  */
-      field_ref = build_class_init (DECL_CONTEXT (field_ref), field_ref);
+      tree context = DECL_CONTEXT (field_ref);
+      if (context != self_type && CLASS_INTERFACE (TYPE_NAME (context)))
+	field_ref = build_class_init (context, field_ref);
+      field_ref = build_class_init (self_type, field_ref);
     }
   if (is_putting)
     {
@@ -2829,27 +2858,49 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 	  if (DECL_CONTEXT (field_decl) != current_class)
             error ("assignment to final field %q+D not in field's class",
                    field_decl);
-	  else if (FIELD_STATIC (field_decl))
-	    {
-	      if (!DECL_CLINIT_P (current_function_decl))
-		warning (0, "assignment to final static field %q+D not in "
-                         "class initializer",
-                         field_decl);
-	    }
-	  else
-	    {
-	      tree cfndecl_name = DECL_NAME (current_function_decl);
-	      if (! DECL_CONSTRUCTOR_P (current_function_decl)
-		  && !ID_FINIT_P (cfndecl_name))
-                warning (0, "assignment to final field %q+D not in constructor",
-			 field_decl);
-	    }
-	}
-      java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
-			     field_ref, new_value));
+	  /* We used to check for assignments to final fields not
+	     occurring in the class initializer or in a constructor
+	     here.  However, this constraint doesn't seem to be
+	     enforced by the JVM.  */
+	}      
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr = build2 (MODIFY_EXPR, TREE_TYPE (field_ref),
+			    field_ref, new_value);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+      	  
+      java_add_stmt (modify_expr);
     }
   else
-    push_value (field_ref);
+    {
+      tree temp = build_decl (VAR_DECL, NULL_TREE, TREE_TYPE (field_ref));
+      java_add_local_var (temp);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	field_ref = java_modify_addr_for_volatile (field_ref);
+
+      modify_expr 
+	= build2 (MODIFY_EXPR, TREE_TYPE (field_ref), temp, field_ref);
+      java_add_stmt (modify_expr);
+
+      if (TREE_THIS_VOLATILE (field_decl))
+	java_add_stmt 
+	  (build3 
+	   (CALL_EXPR, void_type_node,
+	    build_address_of (built_in_decls[BUILT_IN_SYNCHRONIZE]),
+	    NULL_TREE, NULL_TREE));
+
+      push_value (temp);
+    }      
+  TREE_THIS_VOLATILE (field_ref) = TREE_THIS_VOLATILE (field_decl);
 }
 
 void
@@ -3362,7 +3413,6 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     decl = find_local_variable (index, type, oldpc);		\
     set_local_type (index, type);				\
     java_add_stmt (build2 (MODIFY_EXPR, type, decl, value));	\
-    update_aliases (decl, index, PC);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \
