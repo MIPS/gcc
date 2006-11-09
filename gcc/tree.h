@@ -372,8 +372,8 @@ struct tree_common GTY(())
   unsigned protected_flag : 1;
   unsigned deprecated_flag : 1;
   unsigned invariant_flag : 1;
-  unsigned saturating_flag : 1;
-
+  unsigned saturating_flag : 1; /* FIXME.  This new flag increases the size of
+				   tree_common by a full word.  */
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
   unsigned lang_flag_2 : 1;
@@ -3767,6 +3767,8 @@ extern int tree_int_cst_sign_bit (tree);
 extern int tree_expr_nonnegative_p (tree);
 extern bool may_negate_without_overflow_p (tree);
 extern tree get_inner_array_type (tree);
+
+/* Construct various nodes representing fract or accum data types.  */
 
 extern tree make_fract_type (int, int, int);
 extern tree make_accum_type (int, int, int);

@@ -1538,6 +1538,9 @@ c_parser_asm_definition (c_parser *parser)
    type-qualifier:
      _Sat
 
+  (_Fract, _Accum, and _Sat are new from ISO/IEC DTR 18037:
+   http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1021.pdf)
+
    Objective-C:
 
    type-specifier:

@@ -1,3 +1,13 @@
+2006-11-08  Chao-ying Fu  <fu@mips.com>
+
+	* tree.h (struct tree_common): Add a comment about that saturating_flag 
+	increases the size of tree_common by a full word.
+	(make_fract_type): Add a comment.
+	* tree.c (build_common_tree_nodes_2): Test fixed_point_supported_p to
+	build fixed-point tree nodes conditionally.
+	* c-parser.c (c_parser_declspecs): Add a comment for the link to
+	the DTR defining _Fract, _Accum, and _Sat.
+
 2006-11-07  Chao-ying Fu  <fu@mips.com>
 
 	* defaults.h (SHORT_FRACT_TYPE_SIZE, FRACT_TYPE_SIZE,
