@@ -59,9 +59,9 @@ Roberto Costa <roberto.costa@st.com>   */
 
 /* Per-function machine data.  */
 struct machine_function GTY(())
- {
-     char dummy;
- };
+{
+  char dummy;
+};
 
 static tree cil32_handle_function_attribute (tree *, tree, tree, int, bool *);
 static void cil32_file_start (void);
@@ -125,7 +125,7 @@ cil32_handle_function_attribute (tree *node, tree name,
     }
 
   if (strcmp (IDENTIFIER_POINTER (name), "pinvoke") == 0)
-      cil_add_pinvoke(*node);
+    cil_add_pinvoke(*node);
 
   return NULL_TREE;
 }
@@ -174,20 +174,30 @@ cil32_assemble_integer (rtx x ATTRIBUTE_UNUSED,
 }
 
 static tree cil32_builtin_va_arg_decl;
+tree cil32_is_LE_decl;
 
 static void
 cil32_init_builtins (void)
 {
+  tree arglist;
+  tree va_list_ptr_type_node = build_pointer_type (va_list_type_node);
 
-    tree arglist = build_tree_list (NULL_TREE, ptr_type_node);
-    arglist = tree_cons (NULL_TREE, va_list_type_node, arglist);
-    cil32_builtin_va_arg_decl = lang_hooks.builtin_function ("__builtin_va_arg",
-                                                             build_function_type (ptr_type_node,
-                                                                                  arglist),
-                                                             CIL32_BUILTIN_VA_ARG,
-                                                             BUILT_IN_MD,
-                                                             NULL,
-                                                             NULL_TREE);
+  arglist = build_tree_list (NULL_TREE, ptr_type_node);
+  arglist = tree_cons (NULL_TREE, va_list_ptr_type_node, arglist);
+  cil32_builtin_va_arg_decl = lang_hooks.builtin_function ("__builtin_va_arg",
+                                                           build_function_type (ptr_type_node,
+                                                                                arglist),
+                                                           CIL32_BUILTIN_VA_ARG,
+                                                           BUILT_IN_MD,
+                                                           NULL,
+                                                           NULL_TREE);
+  cil32_is_LE_decl = lang_hooks.builtin_function ("__builtin_isLittleEndian",
+                                                  build_function_type (integer_type_node,
+                                                                       NULL_TREE),
+                                                  CIL32_BUILTIN_IS_LITTLE_ENDIAN,
+                                                  BUILT_IN_MD,
+                                                  NULL,
+                                                  NULL_TREE);
 }
 
 static tree
@@ -213,13 +223,17 @@ cil32_build_builtin_va_list (void)
 static tree
 cil32_gimplify_va_arg (tree valist, tree type, tree *pre_p ATTRIBUTE_UNUSED, tree *post_p ATTRIBUTE_UNUSED)
 {
-    tree fcall;
-    tree ptr_type = build_pointer_type(type);
-    tree arglist = build_tree_list (NULL_TREE, build_int_cstu (ptr_type,0));
-    arglist = tree_cons (NULL_TREE, valist, arglist);
-    fcall = build_function_call_expr (cil32_builtin_va_arg_decl, arglist);
-    TREE_TYPE (fcall) = ptr_type;
-    return build1(INDIRECT_REF,type,fcall);
+  tree fcall;
+  tree ptr_type = build_pointer_type (type);
+  tree arglist = build_tree_list (NULL_TREE, build_int_cstu (ptr_type, 0));
+  arglist = tree_cons (NULL_TREE,
+                       build1 (ADDR_EXPR,
+                               build_pointer_type (va_list_type_node),
+                               valist),
+                       arglist);
+  fcall = build_function_call_expr (cil32_builtin_va_arg_decl, arglist);
+  TREE_TYPE (fcall) = ptr_type;
+  return build1 (INDIRECT_REF, type, fcall);
 }
 
 /* Target hook for vector_mode_supported_p.  */

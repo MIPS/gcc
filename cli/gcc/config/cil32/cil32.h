@@ -116,7 +116,7 @@ extern int target_flags;
 
 #define FIRST_PSEUDO_REGISTER (1)
 #define FIXED_REGISTERS {0}
-#define CALL_USED_REGISTERS {0}
+#define CALL_USED_REGISTERS {1}
 
 /* Node: Allocation Order */
 
@@ -528,8 +528,11 @@ extern struct tree_opt_pass pass_simp_cil;
 /* cil32 builtin ID */
 enum cil32_builtin
 {
-    CIL32_BUILTIN_VA_ARG
+  CIL32_BUILTIN_VA_ARG,
+  CIL32_BUILTIN_IS_LITTLE_ENDIAN
 };
+
+extern tree cil32_is_LE_decl;
 
 /*
  * Local variables:

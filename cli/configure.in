@@ -520,7 +520,7 @@ case "${target}" in
     ;;
   cil32-*-*)
     unsupported_languages="$unsupported_languages ada fortran java"
-    noconfigdirs="$noconfigdirs target-libssp target-libiberty target-libmudflap"
+    skipdirs="$skipdirs target-libssp target-libiberty target-libmudflap"
     ;;
   cris-*-* | crisv32-*-*)
     unsupported_languages="$unsupported_languages java"

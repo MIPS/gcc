@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 
 INSTALL_BINUTILS=yes
@@ -8,20 +8,15 @@ TARGET=cil32
 
 BUILD_DIR=${BUILD_DIR-`pwd`}
 SOURCE_DIR=${SOURCE_DIR-`dirname $0`}
-SOURCE_DIR=`cd $SOURCE_DIR; pwd`
 PREFIX=${PREFIX-`pwd`/newbuild}
-SYSROOT=${PREFIX}/${TARGET}
 LANGUAGES=c
-
-echo "DIRECTORIES:"
-echo "  BUILD_DIR:  " ${BUILD_DIR}
-echo "  SOURCE_DIR: " ${SOURCE_DIR}
-echo "  SYSROOT:    " ${SYSROOT}
-echo "  PREFIX:     " ${PREFIX}
 
 _help()
 {
     echo "Options:"
+    echo "         -src        : dir with the sources (default ${SOURCE_DIR})"
+    echo "         -build      : dir where to the the build (default ${BUILD_DIR})"
+    echo "         -prefix     : dir where to install (default ${PREFIX})"
     echo "         -binutils   : install of binutils (default)"
     echo "         -nobinutils : skip install of binutils"
     echo "         -gcc        : gcc build and installation (default)"
@@ -54,7 +49,7 @@ _binutils()
     echo "  CIL ASSEMBLER: " ${CIL_AS}
     echo "  CIL LINKER:    " ${CIL_LD}
 
-    echo
+    echo ""
     echo "Installing Bin Utils"
 
     cat > ${SYSROOT}/bin/tool_not_exist <<_EOF_
@@ -81,6 +76,9 @@ for i in "\$@" ; do
         -lm)
          ;;
         /tmp*)
+            PARAM="\${PARAM} /\${i}";
+         ;;
+        /exchange*)
             PARAM="\${PARAM} /\${i}";
          ;;
         *)
@@ -119,7 +117,7 @@ _EOF_
     cp ${SYSROOT}/bin/strings   ${PREFIX}/bin/${TARGET}-strings
     cp ${SYSROOT}/bin/strip     ${PREFIX}/bin/${TARGET}-strip
     
-    echo
+    echo ""
     echo "Installing vm wrappers"
 
     cat > ${PREFIX}/bin/${TARGET}-ilrun <<_EOF_
@@ -147,7 +145,7 @@ _EOF_
 
 _gcc()
 {
-    echo
+    echo ""
     echo "Configuring GCC"
 
     mkdir -p ${BUILD_DIR}/build-gcc
@@ -159,11 +157,11 @@ _gcc()
                             --prefix=${PREFIX} \
                             --with-local-prefix=${SYSROOT}
 
-    echo
+    echo ""
     echo "Building GCC"
     make all
 
-    echo
+    echo ""
     echo "Installing GCC"
     make install
 }
@@ -183,6 +181,15 @@ elif  [ "x$1" == x-binutils ] ; then
     INSTALL_BINUTILS=yes
 elif  [ "x$1" == x-gcc ] ; then
     INSTALL_GCC=yes
+elif  [ "x$1" == x-src ] ; then
+    SOURCE_DIR=$2
+    shift 1
+elif  [ "x$1" == x-build ] ; then
+    BUILD_DIR=$2
+    shift 1
+elif  [ "x$1" == x-prefix ] ; then
+    PREFIX=$2
+    shift 1
 else
     echo "Unrecognized option: " $1
     _help ;
@@ -191,6 +198,15 @@ fi
 
 shift 1
 done
+
+SOURCE_DIR=`cd $SOURCE_DIR; pwd`
+SYSROOT=${PREFIX}/${TARGET}
+
+echo "DIRECTORIES:"
+echo "  BUILD_DIR:  " ${BUILD_DIR}
+echo "  SOURCE_DIR: " ${SOURCE_DIR}
+echo "  SYSROOT:    " ${SYSROOT}
+echo "  PREFIX:     " ${PREFIX}
 
 PATH="${PREFIX}/bin:${PATH}"
 export PATH
@@ -201,7 +217,6 @@ if test "x${INSTALL_BINUTILS}" == "xyes"
 then
     _binutils
 fi
-
 
 
 if test "x${INSTALL_GCC}" == "xyes"

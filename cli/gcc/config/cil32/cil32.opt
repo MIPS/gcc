@@ -51,3 +51,11 @@ Emits the GIMPLE node as a CIL comment before the CIL sequence
 memit-external-assembly
 Target Mask(EMIT_EXTERNAL_ASSEMBLY)
 Emits all external symbols as if defined in an assembly called ExternalAssembly
+
+memit-vcg
+Target Mask(EMIT_VCG)
+Emits the functions in VCG format
+
+Wcil-missing-prototypes
+Target Var(warn_cil_missing_prototypes) Init(1)
+Warn about missing prototypes dangerous for CLI generation

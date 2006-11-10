@@ -53,13 +53,20 @@ namespace gcc4net {
 
 	public unsafe static void Startup() {
             Assembly assembly;
-            Type type;
+            MethodInfo initMethod = null;
 
             // Find the module that contains the "main" function.
             assembly = Assembly.GetEntryAssembly();
-            type = assembly.GetType("<Module>");
+
+            Type type = assembly.GetType("<Module>");
+            if (type != null)
+                initMethod = type.GetMethod(".init");
+            else {
+                Module module = assembly.GetModules()[0];
+                initMethod = module.GetMethod(".init");
+            }
+
             // Invoke the application's ".init" function, if present.
-            MethodInfo initMethod = type.GetMethod(".init");
             if(initMethod != null)
                 initMethod.Invoke(null, null);
         }
@@ -88,5 +95,13 @@ namespace gcc4net {
         public static long   __absti2(long a)              { return (a>=0) ? a : -a; }
         public static float  __abssf2(float a)             { return (a>=0) ? a : -a; }
         public static double __absdf2(double a)            { return (a>=0) ? a : -a; }
+
+        public static unsafe bool __isLittleEndian() {
+            // big endian:    3f f0 00 00 00 00 00 00
+            // little endian: 00 00 00 00 00 00 f0 3f
+            double d = 1.0;
+            byte*  b = (byte*)&d;
+            return b[0]==0;
+        }
     }
 }
