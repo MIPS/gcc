@@ -1,3 +1,44 @@
+2006-11-10  Seongbae Park <seongbae.park@gmail.com>
+
+	* fwprop.c (forward_propagate_into): Use DF_REF_IS_ARTIFICIAL()
+	instead of DF_REF_ARTIFICIAL flag.
+	* df-scan.c (df_ref_record, df_def_record_1): Remove record_live
+	(df_get_exit_block_use_set, df_get_entry_block_def_set):
+	Renamed from df_get_{exit_block_uses,entry_block_defs}.
+	(df_compute_regs_ever_live, df_ref_chain_change_bb,
+	df_ref_is_record_live, df_reg_chain_unmark, df_ref_chain_free): 
+	New functions.
+	(df_reg_chains): New structure
+	(df_ref_add_to_chains):
+	(df_scan_blocks): Add call to df_compute_regs_ever_live().
+	(df_ref_create): Remove record_live, and replace DF_REF_ARTIFICIAL
+	flag use with DF_REF_IS_ARTIFICIAL () macro.
+	(df_insn_rescan): Avoid marking blocks dirty if nothing changed.
+	(df_insn_change_bb): Refactored to use df_ref_change_bb.
+	(df_ref_is_equal): Now ignores DF_REF_MARKER flag.
+	(df_ref_chain_find_ref, df_reg_chain_find_reg): Fix the order of
+	parameters to the evaluation function.
+	(df_ref_find_chains): Avoid early evaluation of certain fields.
+	(df_ref_add_to_chains): Remove update to regs_ever_live.
+	(df_refs_add_to_chains): Use DF_REF_NEXT_REF macro.
+	(df_ref_record): Remove DF_REF_RECORD_LIVE.
+	(df_insn_refs_record): Now takes the reference list to be added as
+	an argument.
+	(df_bb_refs_record): Handles entry and exit block cases.
+	(df_bb_refs_collect): Removed DF_REF_ARTIFICIAL.
+	(df_refs_record): Scan entry and exit blocks first.
+	(df_ref_verify): Takes reg_chain cache as an argument, 
+	verifies hardreg chain.
+	(df_exit_block_bitmap_verify): Renamed from df_exit_block_verify
+	(df_entry-block_bitmap_verify): Renamed from df_entry_block_verify
+	(df_verify_blocks): Implement regchain cache. Assert immediately
+	when verification fails in any subfunctions.
+	* df.h (enum df_ref_flags): Remove DF_REF_ARTIFICIAL and renumber the
+	enum.
+	(DF_REF_IS_ARTIFICIAL, DF_REF_MARK, DF_REF_UNMARK, DF_REF_IS_MARKED,
+	DF_INSN_UID_SAFE_GET): New macros:
+
+
 2006-11-08  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* auto-inc-dec.c (attempt_change): Added code to properly maintain
