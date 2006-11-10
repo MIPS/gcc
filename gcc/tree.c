@@ -6496,7 +6496,7 @@ make_or_reuse_fract_type (unsigned size, int unsignedp, int satp)
 			 : long_long_fract_type_node;
     }
 
-  make_fract_type (size, unsignedp, satp);
+  return make_fract_type (size, unsignedp, satp);
 }
 
 static tree

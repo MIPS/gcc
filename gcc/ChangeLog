@@ -1,5 +1,9 @@
 2006-11-09  Chao-ying Fu  <fu@mips.com>
 
+	* tree.c (make_or_reuse_fract_type): Fix bug to return make_fract_type.
+
+2006-11-09  Chao-ying Fu  <fu@mips.com>
+
 	* machmode.h (SCALAR_FRACT_MODE_P, SCALAR_UFRACT_MODE_P,
 	ALL_SCALAR_FRACT_MODE_P, SCALAR_ACCUM_MODE_P, SCALAR_UACCUM_MODE_P,
 	ALL_SCALAR_ACCUM_MODE_P, SIGNED_SCALAR_FIXED_POINT_MODE_P,
