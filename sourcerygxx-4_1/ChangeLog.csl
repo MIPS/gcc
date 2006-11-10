@@ -1,3 +1,74 @@
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Merge from GCC 4.1 branch:
+
+	2006-06-01  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Consume all
+	fp regs if the last fp arg doesn't fit in regs.
+
+	2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+	* config/rs6000/altivec.md (UNSPEC_VSLW): Remove.
+	("altivec_vspltisw_v4sf", "altivec_vslw_v4sf"): Remove.
+	("mulv4sf3", "absv4sf3", "negv4sf3"): Adapt users to use
+	V4SImode temporaries and operations instead.
+
+	2006-06-06  Ulrich Weigand  <uweigand@de.ibm.com>
+	* gcc.dg/vmx/pr27842.c: New test.
+
+	2006-06-14  Roger Sayle  <roger@eyesopen.com>
+	* config/rs6000/rs6000.c (const_vector_elt_as_int): New function to
+	extract a CONST_VECTOR element and interpret it as an integer.
+	(vspltis_constant): Use const_vector_elt_as_int instead of the
+	macro CONST_VECTOR_ELT in order to handle FP vector modes.
+	* config/rs6000/predicates.md (easy_vector_const): Consider
+	floating point ALTIVEC_VECTOR_MODEs via easy_altivec_constant.
+
+	2006-07-03  Pete Steinmetz  <steinmtz@us.ibm.com>
+	Backport from mainline
+	* doc/invoke.texi: Add cpu_type power6.
+	* config.gcc: Add cpu_type power6.
+	* config/rs6000/rs6000.c (rs6000_override_options): Alias power6
+	to power5+ with Altivec.
+	* config/rs6000/aix52.h (ASM_CPU_SPEC): Add power6.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add power6.
+
+	2006-07-04  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (function_arg_boundary): Double-word align
+	128-bit IBM long doubles for ABI_V4.
+
+	2006-07-26  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	2006-07-14  Eliot Dresselhaus  <eliot@sonic.net>
+	* config/rs6000/spe.md (frob_di_df_2): Add m->r alternative.
+	2006-07-06  David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/rs6000.c (rs6000_legitimate_address): Do not allow
+	PRE_{INC,DEC} of TFmode.
+	2006-07-06  David Edelsohn  <edelsohn@gnu.org>
+		    Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (insvdi_rshift_rlwimi_p): Correct shiftop
+	bounds. Simplify.
+
+	2006-08-03  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Do
+	not reload a SPE symbol_ref into a lo_sum address.
+
+	2006-08-18  Joseph Myers  <joseph@codesourcery.com>
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): For SPE, only adjust
+	alignment of SPE vector types.
+
+	2006-08-25  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (print_operand): Only use e500 %y syntax
+	for 8 byte objects.
+
+	2006-10-05  David Edelsohn  <edelsohn@gnu.org>
+	Backport from mainline
+	2006-09-11  Guenter Roeck  <guenter@roeck-us.net>
+		    David Edelsohn  <edelsohn@gnu.org>
+	* config/rs6000/spe.md (frob_df_di): Remove %H.
+	(frob_di_df): Remove %H.  Change evmergelo to mr.
+	(frob_di_df_2): Remove %H.  Change evldd to two loads.
+
 2006-11-09  Joseph Myers  <joseph@codesourcery.com>
 
 	Apply from glibc Bugzilla:
