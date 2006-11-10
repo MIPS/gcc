@@ -1,3 +1,16 @@
+2006-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/
+	* config/soft-fp/op-4.c, config/soft-fp/op-common.h: Apply changes
+	from ppc-ld-nofpu-20060920.txt from glibc bug 2749:
+	2006-09-20  Steven Munroe  <sjmunroe@us.ibm.com>
+	            Joe Kerian  <jkerian@us.us.ibm.com>
+	* soft-fp/op-common.h (_FP_OVERFLOW_SEMIRAW): Always set inexact
+	and overflow for infinity.
+	(_FP_PACK_SEMIRAW): Update comment.  Do not round if NaN.
+	* soft-fp/op-4.h (__FP_FRAC_SUB_3, __FP_FRAC_SUB_4): Correct
+	borrow handling for high words.
+
 2006-11-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	gcc/
