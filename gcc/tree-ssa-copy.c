@@ -118,8 +118,8 @@ may_propagate_copy (tree dest, tree orig)
       && POINTER_TYPE_P (type_d)
       && POINTER_TYPE_P (type_o))
     {
-      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->symbol_mem_tag;
-      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->symbol_mem_tag;
+      tree mt_dest = symbol_mem_tag (SSA_NAME_VAR (dest));
+      tree mt_orig = symbol_mem_tag (SSA_NAME_VAR (orig));
       if (mt_dest && mt_orig && mt_dest != mt_orig)
 	return false;
       else if (!lang_hooks.types_compatible_p (type_d, type_o))

@@ -336,12 +336,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	  goto error;
 	}
 
-      if (syms_phi->stores == NULL || bitmap_empty_p (syms_phi->stores))
-	{
-	  error ("Found memory PHI node with no associated symbols");
-	  err = true;
-	}
-
       EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
 	if (is_gimple_reg (referenced_var (i)))
 	  {
@@ -350,13 +344,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	    print_generic_stmt (stderr, referenced_var (i), 0);
 	    err = true;
 	  }
-
-      if (SSA_NAME_VAR (lhs) == mem_var
-	  && bitmap_singleton_p (syms_phi->stores))
-	{
-	  error ("Found factored PHI node associated to only one symbol");
-	  err = true;
-	}
 
       if (bitmap_intersect_p (syms_phi->stores, phi_factored_syms))
 	{
@@ -607,7 +594,7 @@ verify_name_tags (void)
 
       /* Verify that alias set of PTR's symbol tag is a superset of the
 	 alias set of PTR's name tag.  */
-      smt = var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
+      smt = symbol_mem_tag (SSA_NAME_VAR (ptr));
       if (smt)
 	{
 	  size_t i;
@@ -732,92 +719,6 @@ verify_alias_info (void)
 }
 
 
-/* Verify that the definition statement for NAME has a non-empty set
-   of stored symbols and add them to ACCUM_SYMS.  SYMS is the set of
-   symbols being verified.  Return true if verification failed.  */
-
-static bool
-verify_symbols (tree name, bitmap syms, bitmap accum_syms)
-{
-  mem_syms_map_t mq;
-
-  /* Default names cover all the symbols referenced in the
-     statement.  */
-  if (name == default_def (SSA_NAME_VAR (name)))
-    {
-      bitmap_ior_into (accum_syms, syms);
-      return false;
-    }
-
-  mq = get_loads_and_stores (SSA_NAME_DEF_STMT (name));
-  if (mq->stores == NULL || bitmap_empty_p (mq->stores))
-    {
-      error ("Definition statement for SSA name");
-      print_generic_stmt (stderr, name, 0);
-      fprintf (stderr, "has no associated symbols in statement\n");
-      print_generic_stmt (stderr, SSA_NAME_DEF_STMT (name),
-			  TDF_VOPS|TDF_MEMSYMS);
-      return true;
-    }
-
-  bitmap_ior_into (accum_syms, mq->stores);
-
-  return false;
-}
-
-
-/* Verify the consistency of loads and stores sets versus virtual
-   operands.  If they are malformed, return true.  */
-
-static bool
-verify_loads_and_stores (tree stmt)
-{
-  ssa_op_iter iter;
-  tree name;
-  mem_syms_map_t mp = get_loads_and_stores (stmt);
-  bitmap syms = BITMAP_ALLOC (NULL);
-
-  /* FIXME.  At the moment, we are allowing names in the virtual
-     operands that by themselves do not affect any of the symbols in
-     STMT.  It would be possible to force these names to be cleaned up
-     by pop_stmt_changes, but for now this is harmless.  */
-
-  /* All the VUSE operands must factor the symbols loaded by the
-     statement.  */
-  if (mp->loads)
-    {
-      FOR_EACH_SSA_TREE_OPERAND (name, stmt, iter, SSA_OP_VUSE)
-	if (verify_symbols (name, mp->loads, syms))
-	  return true;
-
-      if (!bitmap_intersect_p (syms, mp->loads))
-	{
-	  error ("VUSE operands not associated with any loaded symbol");
-	  return true;
-	}
-    }
-
-
-  /* All the VDEF operands must factor the symbols stored by the
-     statement.  */
-  bitmap_clear (syms);
-  if (mp->stores)
-    {
-      FOR_EACH_SSA_TREE_OPERAND (name, stmt, iter, SSA_OP_VMAYUSE)
-	if (verify_symbols (name, mp->stores, syms))
-	  return true;
-
-      if (!bitmap_intersect_p (syms, mp->stores))
-	{
-	  error ("VDEF operands not associated with any stored symbol");
-	  return true;
-	}
-    }
-
-  return false;
-}
-
-
 /* Verify common invariants in the SSA web.
    TODO: verify the variable annotations.  */
 
@@ -937,15 +838,6 @@ verify_ssa (bool check_modified_stmt)
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
 	    bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
-
-	  if (aliases_computed_p
-	      && stmt_references_memory_p (stmt)
-	      && verify_loads_and_stores (stmt))
-	    {
-	      fprintf (stderr, "In statement\n");
-	      print_generic_stmt (stderr, stmt, TDF_VOPS|TDF_MEMSYMS);
-	      goto err;
-	    }
 	}
 
       bitmap_clear (names_defined_in_bb);

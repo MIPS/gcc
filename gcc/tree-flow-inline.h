@@ -601,9 +601,6 @@ set_is_used (tree var)
   ann->used = 1;
 }
 
-
-/*  -----------------------------------------------------------------------  */
-
 /* Return true if T is an executable statement.  */
 static inline bool
 is_exec_stmt (tree t)
@@ -749,6 +746,54 @@ loop_containing_stmt (tree stmt)
   return bb->loop_father;
 }
 
+
+/* Return the memory partition tag associated with symbol SYM.  */
+
+static inline tree
+memory_partition (tree sym)
+{
+  tree tag;
+
+  /* MPTs belong to their own partition.  */
+  if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
+    return sym;
+
+  gcc_assert (!is_gimple_reg (sym));
+  tag = get_var_ann (sym)->mpt;
+
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == MEMORY_PARTITION_TAG);
+#endif
+
+  return tag;
+}
+
+
+/* Set the memory tag associated with symbol SYM.  */
+
+static inline void
+set_memory_partition (tree sym, tree tag)
+{
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == MEMORY_PARTITION_TAG
+	        && !is_gimple_reg (sym));
+#endif
+
+  get_var_ann (sym)->mpt = tag;
+}
+
+/* Return true if NAME is a memory factoring SSA name (i.e., an SSA
+   name for .MEM or for a memory partition.  */
+
+static inline bool
+factoring_name_p (tree name)
+{
+  return SSA_NAME_VAR (name) == mem_var
+         || TREE_CODE (SSA_NAME_VAR (name)) == MEMORY_PARTITION_TAG;
+}
+
 /* Return true if VAR is a clobbered by function calls.  */
 static inline bool
 is_call_clobbered (tree var)
@@ -780,16 +825,6 @@ clear_call_clobbered (tree var)
   if (!MTAG_P (var))
     DECL_CALL_CLOBBERED (var) = false;
   bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
-}
-
-/* Mark variable VAR as being non-addressable.  */
-static inline void
-mark_non_addressable (tree var)
-{
-  if (!MTAG_P (var))
-    DECL_CALL_CLOBBERED (var) = false;
-  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
-  TREE_ADDRESSABLE (var) = 0;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -1596,6 +1631,35 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     }
   return false;
 
+}
+
+/* Return the memory tag associated with symbol SYM.  */
+
+static inline tree
+symbol_mem_tag (tree sym)
+{
+  tree tag = get_var_ann (sym)->symbol_mem_tag;
+
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  return tag;
+}
+
+
+/* Set the memory tag associated with symbol SYM.  */
+
+static inline void
+set_symbol_mem_tag (tree sym, tree tag)
+{
+#if defined ENABLE_CHECKING
+  if (tag)
+    gcc_assert (TREE_CODE (tag) == SYMBOL_MEMORY_TAG);
+#endif
+
+  get_var_ann (sym)->symbol_mem_tag = tag;
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

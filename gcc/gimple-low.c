@@ -252,6 +252,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case SIGMA_NODE:
       break;
 
     case MODIFY_EXPR:

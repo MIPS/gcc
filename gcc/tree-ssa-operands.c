@@ -208,6 +208,10 @@ static VEC(scb_t,heap) *scb_stack;
    statements that reference memory.  */
 static htab_t mem_syms_tbl;
 
+/* Table of memory partitions.  Indexed according to the partitioning
+   scheme defined in get_mpt_for.  */
+static VEC(tree,heap) *mpt_table;
+
 /* Hashing and equality functions for MEM_SYMS_TBL.  */
 
 static hashval_t
@@ -225,15 +229,34 @@ mem_syms_eq (const void *p1, const void *p2)
 static void
 mem_syms_free (void *p)
 {
-  bitmap loads = ((mem_syms_map_t)p)->loads;
-  bitmap stores = ((mem_syms_map_t)p)->stores;
-  bool shared_p = loads == stores;
+  tree stmt = ((mem_syms_map_t) p)->stmt;
+  bitmap loads = ((mem_syms_map_t) p)->loads;
+  bitmap stores = ((mem_syms_map_t) p)->stores;
 
-  BITMAP_FREE (loads);
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      /* Do not free loads for PHI nodes for memory partitions.
+	 These PHI nodes take their sets from the memory partition
+	 that they represent.  */
+      tree lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
+      if (TREE_CODE (lhs_sym) != MEMORY_PARTITION_TAG)
+	BITMAP_FREE (loads);
+    }
+  else if (TREE_CODE (stmt) == SIGMA_NODE)
+    {
+      /* SIGMA nodes always take their loads/stores sets from the
+	 associated memory partition, so they should not be
+	 deallocated.  */
+      ;
+    }
+  else
+    {
+      bool shared_p = (loads == stores);
 
-  /* PHI nodes share loads/stores sets.  Avoid freeing them twice.  */
-  if (!shared_p)
-    BITMAP_FREE (stores);
+      BITMAP_FREE (loads);
+      if (!shared_p)
+	BITMAP_FREE (stores);
+    }
 
   free (p);
 }
@@ -335,6 +358,7 @@ init_ssa_operands (void)
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
   gcc_assert (mem_syms_tbl == NULL);
   mem_syms_tbl = htab_create (200, mem_syms_hash, mem_syms_eq, mem_syms_free);
+  gcc_assert (mpt_table == NULL);
 
   ops_active = true;
 }
@@ -346,6 +370,9 @@ void
 fini_ssa_operands (void)
 {
   struct ssa_operand_memory_d *ptr;
+  unsigned ix;
+  tree mpt;
+
   VEC_free (tree, heap, build_defs);
   VEC_free (tree, heap, build_uses);
   VEC_free (tree, heap, build_vdefs);
@@ -368,6 +395,12 @@ fini_ssa_operands (void)
 
   htab_delete (mem_syms_tbl);
   mem_syms_tbl = NULL;
+
+  for (ix = 0; VEC_iterate (tree, mpt_table, ix, mpt); ix++)
+    if (mpt)
+      BITMAP_FREE (MPT_SYMBOLS (mpt));
+
+  VEC_free (tree, heap, mpt_table);
 
   ops_active = false;
 }
@@ -1314,9 +1347,9 @@ add_mem_symbols_in_decl (tree decl, int flags)
      registers should not be added as memory symbols.  */
   gcc_assert (decl != mem_var && !is_gimple_reg (decl));
 
-  /* If DECL has sub-variables, add them instead of DECL.  */
   if (var_can_have_subvars (decl) && (svars = get_subvars_for_var (decl)))
     {
+      /* If DECL has sub-variables, add them instead of DECL.  */
       subvar_t sv;
       for (sv = svars; sv; sv = sv->next)
 	add_mem_symbol (sv->var, flags);
@@ -1398,7 +1431,7 @@ get_mem_symbols_in_indirect_ref (tree expr, int flags, tree full_ref,
     }
   else
     {
-      var_ann_t ann;
+      tree tag;
 
       /* If PTR is not an SSA_NAME or it doesn't have a name
 	 tag, use its symbol memory tag.  */
@@ -1408,10 +1441,9 @@ get_mem_symbols_in_indirect_ref (tree expr, int flags, tree full_ref,
       /* If alias information has not been computed for PTR, it may
 	 not yet have a memory tag (e.g., when folding builtins new
 	 pointers get instantiated which force an alias pass).  */
-      ann = var_ann (ptr);
-      if (ann->symbol_mem_tag)
-	get_mem_symbols_in_tag (ann->symbol_mem_tag, flags, full_ref, offset,
-	                        size);
+      tag = symbol_mem_tag (ptr);
+      if (tag)
+	get_mem_symbols_in_tag (tag, flags, full_ref, offset, size);
     }
 }
 
@@ -1478,7 +1510,7 @@ get_mem_symbols_in_tmr (tree expr, int flags)
    add all the call-clobbered symbols that may be modified by a call
    to function CALLEE to the set STORED_SYMS.  CALL_FLAGS are the
    flags for the CALL_EXPR site.
-   
+
    If we are scanning for regular operands, add a VDEF operator if any
    call-clobbered symbol may be modified by CALLEE and add a VUSE
    operator if any call-clobbered symbol may be read by CALLEE.  */
@@ -1486,7 +1518,7 @@ get_mem_symbols_in_tmr (tree expr, int flags)
 static void
 add_call_clobbered_mem_symbols (tree callee, int call_flags)
 {
-  unsigned u;
+  unsigned i;
   bitmap_iterator bi;
   bitmap not_read_b, not_written_b;
   bool add_vdef_p, add_vuse_p;
@@ -1500,7 +1532,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
      CALLEE.  Add those affected to STORED_SYMS.  */
   add_vdef_p = false;
   add_vuse_p = false;
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
     {
       tree real_var, var;
       unsigned int escape_mask;
@@ -1512,7 +1544,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
       if (add_vdef_p && add_vuse_p)
 	break;
 
-      var = referenced_var_lookup (u);
+      var = referenced_var_lookup (i);
       escape_mask = var_ann (var)->escape_mask;
 
       /* Not read and not written are computed on regular vars, not
@@ -1599,7 +1631,7 @@ add_call_clobbered_mem_symbols (tree callee, int call_flags)
 static void
 add_call_read_mem_symbols (tree callee)
 {
-  unsigned u;
+  unsigned i;
   bitmap_iterator bi;
   bitmap not_read_b;
 
@@ -1610,7 +1642,7 @@ add_call_read_mem_symbols (tree callee)
 
   /* Check which call-clobbered variables may be read by a call to
      CALLEE.  Add those to LOADED_SYMS.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
+  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
     {
       tree real_var, var;
       bool not_read;
@@ -1618,7 +1650,7 @@ add_call_read_mem_symbols (tree callee)
 
       clobber_stats.readonly_clobbers++;
 
-      var = referenced_var (u);
+      var = referenced_var (i);
       ann = var_ann (var);
 
       /* Not read and not written are computed on regular vars, not
@@ -1749,7 +1781,7 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
       else
 	{
 	  tree sym = DECL_P (ptr) ? ptr : SSA_NAME_VAR (ptr);
-	  tag = var_ann (sym)->symbol_mem_tag;
+	  tag = symbol_mem_tag (sym);
 	}
 
       if (tag)
@@ -2262,7 +2294,19 @@ parse_ssa_operands (tree stmt)
     case CATCH_EXPR:
     case RESX_EXPR:
       /* These nodes contain no variable references.  */
-      break;
+     break;
+
+    case SIGMA_NODE:
+      {
+	/* A SIGMA operator creates a new name for all the symbols
+	   referenced by its partition operand.  */
+	stmt_ann (stmt)->references_memory = 1;
+	if (gathering_loads_stores ())
+	  bitmap_ior_into (stored_syms, MPT_SYMBOLS (SIGMA_MPT (stmt)));
+	else
+	  add_virtual_operator (opf_def);
+	break;
+      }
 
     default:
       /* Notice that if get_expr_operands tries to use &STMT as the
@@ -2336,22 +2380,39 @@ get_loads_and_stores (tree stmt)
     {
       mp = XNEW (struct mem_syms_map_d);
       mp->stmt = stmt;
-      mp->loads = BITMAP_ALLOC (NULL);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
 	  tree lhs_sym;
 
-	  /* PHI nodes load and store the same symbols.  */
-	  mp->stores = mp->loads;
-
 	  /* Non-factored PHI nodes load and store exactly one symbol.  */
 	  lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
-	  if (lhs_sym != mem_var)
-	    bitmap_set_bit (mp->stores, DECL_UID (lhs_sym));
+	  if (TREE_CODE (lhs_sym) == MEMORY_PARTITION_TAG)
+	      mp->loads = MPT_SYMBOLS (lhs_sym);
+	  else
+	    {
+	      mp->loads = BITMAP_ALLOC (NULL);
+
+	      /* .MEM PHIs do not factor any symbol.  */
+	      if (lhs_sym != mem_var)
+		bitmap_set_bit (mp->loads, DECL_UID (lhs_sym));
+	    }
+
+	  /* PHI nodes load and store the same symbols.  */
+	  mp->stores = mp->loads;
+	}
+      else if (TREE_CODE (stmt) == SIGMA_NODE)
+	{
+	  /* SIGMA nodes take their loads/stores sets directly from the
+	     associated partition.  */
+	  mp->loads = NULL;
+	  mp->stores = MPT_SYMBOLS (SIGMA_MPT (stmt));
 	}
       else
-	mp->stores = BITMAP_ALLOC (NULL);
+	{
+	  mp->loads = BITMAP_ALLOC (NULL);
+	  mp->stores = BITMAP_ALLOC (NULL);
+	}
 
       *slot = (void *) mp;
     }
@@ -2380,25 +2441,6 @@ delete_loads_and_stores (tree stmt)
 }
 
 
-/* Add LOADS and STORES to the corresponding sets in STMT. 
-
-   NOTE: Not to be used lightly.  This is generally used by the SSA
-	 renamer to initialize the factored symbols sets for factoring
-	 PHI nodes.  */
-
-void
-add_loads_and_stores (tree stmt, bitmap loads, bitmap stores)
-{
-  mem_syms_map_t mp = get_loads_and_stores (stmt);
-
-  if (loads)
-    bitmap_ior_into (mp->loads, loads);
-
-  if (stores)
-    bitmap_ior_into (mp->stores, stores);
-}
-
-
 /* Move the sets of loads and stores from OLD_STMT into NEW_STMT.
    Remove the entry for OLD_STMT.  */
 
@@ -2411,13 +2453,20 @@ move_loads_and_stores (tree new_stmt, tree old_stmt)
   gcc_assert (TREE_CODE (new_stmt) == TREE_CODE (old_stmt));
 
   old_mp = get_loads_and_stores (old_stmt);
-  new_mp = get_loads_and_stores (new_stmt);
 
-  bitmap_copy (new_mp->loads, old_mp->loads);
+  if (TREE_CODE (new_stmt) != SIGMA_NODE
+      && !(TREE_CODE (new_stmt) == PHI_NODE
+	   && TREE_CODE (SSA_NAME_VAR (PHI_RESULT (new_stmt)))
+	      == MEMORY_PARTITION_TAG))
+    {
+      new_mp = get_loads_and_stores (new_stmt);
 
-  /* PHI nodes share their loads and stores sets.  */
-  if (TREE_CODE (new_stmt) != PHI_NODE)
-    bitmap_copy (new_mp->stores, old_mp->stores);
+      bitmap_copy (new_mp->loads, old_mp->loads);
+
+      /* PHI nodes share their loads and stores sets.  */
+      if (TREE_CODE (new_stmt) != PHI_NODE)
+	bitmap_copy (new_mp->stores, old_mp->stores);
+    }
 
   slot = htab_find_slot (mem_syms_tbl, (void *) old_mp, NO_INSERT);
   htab_remove_elt (mem_syms_tbl, *slot);
@@ -2434,6 +2483,11 @@ static void
 update_loads_and_stores (tree stmt)
 {
   mem_syms_map_t mp;
+
+  /* SIGMA nodes do not need scanning, the set of loads and stores is
+     taken directly from the associated memory partition.  */
+  if (TREE_CODE (stmt) == SIGMA_NODE)
+    return;
 
   memset (&clobber_stats, 0, sizeof (clobber_stats));
 
@@ -3100,12 +3154,125 @@ stmt_references_memory_p (tree stmt)
     return false;
 
   if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      tree lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
-      return lhs_sym == mem_var || !is_gimple_reg (lhs_sym);
-    }
+    return !is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (stmt)));
 
   return stmt_ann (stmt)->references_memory;
+}
+
+
+/* Return the memory partition tag (MPT) associated with memory
+   symbol SYM.  From a correctness standpoint, memory partitions can
+   be assigned in any arbitrary fashion as long as these two rules are
+   observed:
+
+   1- Disjoint partitions.  Given two memory partitions MPT.i and
+      MPT.j, they must not contain symbols in common.
+
+   2- One-to-one mapping.  Every memory symbol S must belong to
+      exactly one partition.
+
+   Memory partitions are used when putting the program into Memory-SSA
+   form.  In particular, in Memory-SSA PHI nodes are not computed for
+   individual memory symbols.  They are computed for memory
+   partitions.  This reduces the amount of PHI nodes in the SSA graph
+   at the expense of precision (i.e., it makes unrelated stores affect
+   each other).
+   
+   However, it is possible to increase precision by changing this
+   partitioning scheme.  For instance, if the partitioning scheme is
+   such that get_mpt_for is the identity function (that is,
+   get_mpt_for (s) = s), this will result in ultimate precision at the
+   expense of huge SSA webs.
+
+   At the other extreme, a partitioning scheme that groups all the
+   symbols in the same set results in minimal SSA webs and almost
+   total loss of precision.  */
+
+tree
+get_mpt_for (tree sym)
+{
+  unsigned ix, old_len;
+  tree mpt;
+
+  /* Don't compute partitioning information if we already have.  */
+  mpt = memory_partition (sym);
+  if (mpt)
+    return mpt;
+
+  /* Determine the partitioning scheme.  By changing this code, you
+     can change the partitioning strategy, just make sure that the new
+     scheme follows the correctness conditions described above.  */
+  {
+    HOST_WIDE_INT sym_alias_set;
+    sym_alias_set = get_alias_set (sym);
+    for (ix = 0; VEC_iterate (tree, mpt_table, ix, mpt); ix++)
+      if (get_alias_set (mpt) == sym_alias_set)
+	break;
+  }
+#if 0
+  ix = DECL_UID (sym);
+#endif
+
+  /* Compute the MPT at slot IX.  */
+  old_len = VEC_length (tree, mpt_table);
+  if (ix >= old_len)
+    {
+      unsigned new_len = (unsigned) ix + 1;
+      tree *p;
+
+      VEC_safe_grow (tree, heap, mpt_table, new_len);
+      p = VEC_address (tree, mpt_table);
+      memset (&p[old_len], 0, sizeof (tree) * (new_len - old_len));
+    }
+
+  mpt = VEC_index (tree, mpt_table, ix);
+
+  if (mpt == NULL_TREE)
+    {
+      mpt = create_tag_raw (MEMORY_PARTITION_TAG, TREE_TYPE (sym), "MPT");
+      TREE_ADDRESSABLE (mpt) = 0;
+      add_referenced_var (mpt);
+      VEC_replace (tree, mpt_table, ix, mpt);
+      MPT_SYMBOLS (mpt) = BITMAP_ALLOC (NULL);
+      bitmap_set_bit (MPT_SYMBOLS (mpt), DECL_UID (mpt));
+    }
+
+  bitmap_set_bit (MPT_SYMBOLS (mpt), DECL_UID (sym));
+  set_memory_partition (sym, mpt);
+
+  return mpt;
+}
+
+
+/* Dump memory partition information to FILE.  */
+
+void
+dump_memory_partitions (FILE *file)
+{
+  unsigned i, npart;
+  tree mpt;
+
+  for (i = 0, npart = 0; VEC_iterate (tree, mpt_table, i, mpt); i++)
+    if (mpt)
+      {
+	bitmap syms = MPT_SYMBOLS (mpt);
+	fprintf (file, "#%u: ", i);
+	print_generic_expr (file, mpt, 0);
+	fprintf (file, ": %lu elements: ", bitmap_count_bits (syms));
+	dump_decl_set (file, syms);
+	npart++;
+      }
+
+  fprintf (file, "\n%u memory partitions\n", npart);
+}
+
+
+/* Dump memory partition information to stderr.  */
+
+void
+debug_memory_partitions (void)
+{
+  dump_memory_partitions (stderr);
 }
 
 #include "gt-tree-ssa-operands.h"

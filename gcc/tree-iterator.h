@@ -40,7 +40,7 @@ tsi_start (tree t)
 {
   tree_stmt_iterator i;
 
-  i.ptr = STATEMENT_LIST_HEAD (t);
+  i.ptr = (t) ? STATEMENT_LIST_HEAD (t) : NULL;
   i.container = t;
 
   return i;

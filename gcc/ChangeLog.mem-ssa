@@ -1,3 +1,130 @@
+2006-11-10  Diego Novillo  <dnovillo@redhat.com>
+
+	Initial support for memory partitions.
+	Reverted full dynamic grouping of memory PHIs.
+
+	* tree-ssa-operands.h (get_mpt_for): Declare.
+	(dump_memory_partitions): Declare.
+	(debug_memory_partitions): Declare.
+	* tree-into-ssa.c (mpt_to_rename): Declare.
+	(need_to_update_vops_p): Remove.
+	(sturct ssa_name_info): Remove fields 'reached_syms' and
+	'factored_syms'.
+	(syms_with_phi_in_bb): Remove.  Update all users.
+	(struct unfactored_phis_d): Likewise.
+	(first_unfactored_phi): Likewise.
+	(last_unfactored_phi): Likewise.
+	(unfactored_phis): Likewise.
+	(last_dom_num): Likewise.
+	(dump_syms_with_phi): Likewise.
+	(debug_syms_with_phi): Likewise.
+	(dump_unfactored_phis): Likewise.
+	(debug_unfactored_phis): Likewise.
+	(dump_unfactored_phi): Likewise.
+	(debug_unfactored_phi): Likewise.
+	(get_dom_num): Likewise.
+	(get_name_dom_num): Likewise.
+	(set_next_dom_num): Likewise.
+	(unfactored_phis_hash): Likewise.
+	(unfactored_phis_eq): Likewise.
+	(unfactored_phis_free): Likewise.
+	(add_syms_with_phi): Likewise.
+	(add_sym_with_phi): Likewise.
+	(add_reached_sym): Likewise.
+	(lookup_unfactored_phi): Likewise.
+	(get_unfactored_phi): Likewise.
+	(split_factored_phi): Likewise.
+	(add_to_fixup_queues): Likewise.
+	(add_imm_uses_to_fixup_queues): Likewise.
+	(compute_currdefs_for): Likewise.
+	(fixup_unfactored_phis): Likewise.
+	(rewrite_update_stmt_vops): Discard names for symbols not
+	loaded/stored by the statement.
+	(register_new_vdef_name): Use MPTs when setting the LHS for
+	SIGMA nodes.
+	(rewrite_update_memory_stmt): Remove argument SET_CURRDEF_P.
+	Update all users.
+	(replace_factored_phi_argument): When a PHI argument needs
+	more than one reaching definition, insert a SIGMA node in the
+	feeding block.
+	(prepare_block_for_update): If the last statement of the block
+	is a block terminator and stores to memory, add all the
+	memory partitions to its set of stores.
+	(init_update_ssa): Initialize MPT_TO_RENAME.
+	(delete_update_ssa): Free MPT_TO_RENAME.
+	(insert_updated_phi_nodes_for): Do not force full rewrite when
+	there are memory name mappings.
+	(update_ssa): Initializes MPT_TO_RENAME.
+	Insert PHI nodes for all the partitions in MPT_TO_RENAME.
+	* tree-pretty-print.c (dump_sigma_node): New.
+	(dump_generic_node): Do not call dump_vops on SIGMA_NODEs.
+	Handle SIGMA_NODE.
+	(dump_vops): Remove dead code.
+	* tree.c (init_ttree): Add MEMORY_PARTITION_TAG to
+	tree_contains_struct.
+	(tree_code_size): Handle MEMORY_PARTITION_TAG.
+	(tree_node_structure): Likewise.
+	* tree.h (MTAG_P): Likewise.
+	(SIGMA_MPT): Define.
+	(struct tree_memory_tag): Remove field 'old_used_alone'.
+	(SMT_OLD_USED_ALONE): Remove.
+	(struct tree_memory_partition_tag): Declare.
+	(MPT_SYMBOLS): Define.
+	(union tree_node): Add field 'mpt'.
+	* tree-phinodes.c (create_phi_node_1): Move body ...
+	(create_phi_node): ... here.
+	(create_factored_phi_node): Remove.
+	* tree-gimple.c (is_gimple_stmt): Handle SIGMA_NODE.
+	* tree-ssa-alias.c (mark_non_addressable): Move from
+	tree-flow-inline.h.
+	Remove the variable from its memory partition.
+	(compute_may_aliases): Compute memory partitions for memory
+	variables.
+	(setup_pointers_and_addressables): Remove variable N_VARS.
+	Mark the memory partition for renaming when a variable is
+	marked non-addressable.
+	* gimple-low.c (lower_stmt): Handle SIGMA_NODE.
+	* tree-ssa-sink.c (is_hidden_global_store): Return false on
+	SIGMA_NODEs.
+	* expr.c (expand_expr_real_1): Discard SIGMA_NODEs.
+	* timevar.def (TV_TREE_SSA_PHI_UNFACTOR): Remove.
+	(TV_TREE_SSA_FIX_UNFACTORED_UD): Remove.
+	* treestruct.def (TS_MEMORY_PARTITION_TAG): Define.
+	* tree-data-ref.c (find_data_references_in_loop): Ignore
+	SIGMA_NODE.
+	* tree-flow-inline.h (memory_partition): New.
+	(set_memory_partition): New.
+	(factoring_name_p): New.
+	(symbol_mem_tag): New.  Update all users that were accessing
+	the field 'symbol_mem_tag' directly.
+	(set_symbol_mem_tag): New.
+	* tree-vect-analyze.c (vect_stmt_relevant_p): Handle
+	SIGMA_NODE the same way as PHI_NODE.
+	* tree.def (MEMORY_PARTITION_TAG): Define.
+	(SIGMA_NODE): Define.
+	* tree-ssa-pre.c (pass_fre): Add TODO_update_ssa_only_virtuals.
+	* tree-ssa.c (verify_phi_args): Update verification of memory
+	PHI nodes.
+	(verify_symbols): Remove.
+	(verify_loads_and_stores): Remove.
+	* tree-inline.c (estimate_num_insns_1): Handle SIGMA_NODE.
+	* tree-iterator.h (tsi_start): If T is NULL set i.ptr to NULL.
+	* tree-flow.h (struct var_ann_d): Add field 'mpt'.
+	(create_tag_raw): Declare.
+	* tree-ssa-operands.c (mpt_table): Declare.
+	(mem_syms_free): Do not free loads/stores for SIGMA_NODEs nor
+	PHI_NODEs for memory partitions.
+	(init_ssa_operands): Assert that MPT_TABLE is NULL.
+	(fini_ssa_operands): Free MPT_TABLE.
+	(parse_ssa_operands): Handle SIGMA_NODE.
+	(get_loads_and_stores): Handle SIGMA_NODE.
+	(add_loads_and_stores): Remove.
+	(move_loads_and_stores): Handle SIGMA_NODE.
+	(update_loads_and_stores): Handle SIGMA_NODE.
+	(get_mpt_for): New.
+	(dump_memory_partitions): New.
+	(debug_memory_partitions): New.
+
 2006-11-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (struct ssa_name_info): Add field 'factored_syms'.

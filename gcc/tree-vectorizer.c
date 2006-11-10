@@ -542,13 +542,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 
       /* 1.1. Generate new phi node in NEW_MERGE_BB:  */
       sym = SSA_NAME_VAR (PHI_RESULT (orig_phi));
-      if (sym == mem_var)
-	{
-	  bitmap syms = get_loads_and_stores (orig_phi)->stores;
-	  new_phi = create_factored_phi_node (sym, new_merge_bb, syms);
-	}
-      else
-	new_phi = create_phi_node (sym, new_merge_bb);
+      new_phi = create_phi_node (sym, new_merge_bb);
 
       /* 1.2. NEW_MERGE_BB has two incoming edges: GUARD_EDGE and the exit-edge
             of LOOP. Set the two phi args in NEW_PHI for these edges:  */

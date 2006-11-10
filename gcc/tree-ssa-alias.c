@@ -131,6 +131,32 @@ bitmap addressable_vars;
    having to keep track of too many VDEF expressions at call sites.  */
 tree global_var;
 
+/* Mark variable VAR as being non-addressable.  */
+
+static void
+mark_non_addressable (tree var)
+{
+  tree mpt;
+
+  if (!TREE_ADDRESSABLE (var))
+    return;
+
+  mpt = memory_partition (var);
+
+  if (!MTAG_P (var))
+    DECL_CALL_CLOBBERED (var) = false;
+
+  bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
+  TREE_ADDRESSABLE (var) = 0;
+
+  if (mpt)
+    {
+      bitmap_clear_bit (MPT_SYMBOLS (mpt), DECL_UID (var));
+      set_memory_partition (var, NULL_TREE);
+    }
+}
+
+
 /* qsort comparison function to sort type/name tags by DECL_UID.  */
 
 static int
@@ -333,7 +359,7 @@ set_initial_properties (struct alias_info *ai)
   for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
-      var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
+      tree tag = symbol_mem_tag (SSA_NAME_VAR (ptr));
       
       if (pi->value_escapes_p)
 	{
@@ -342,8 +368,8 @@ set_initial_properties (struct alias_info *ai)
 	  if (pi->name_mem_tag)
 	    mark_call_clobbered (pi->name_mem_tag, pi->escape_mask);
 
-	  if (v_ann->symbol_mem_tag)
-	    mark_call_clobbered (v_ann->symbol_mem_tag, pi->escape_mask);
+	  if (tag)
+	    mark_call_clobbered (tag, pi->escape_mask);
 
 	  if (pi->pt_vars)
 	    {
@@ -358,9 +384,9 @@ set_initial_properties (struct alias_info *ai)
       /* If the name tag is call clobbered, so is the symbol tag
 	 associated with the base VAR_DECL.  */
       if (pi->name_mem_tag
-	  && v_ann->symbol_mem_tag
+	  && tag
 	  && is_call_clobbered (pi->name_mem_tag))
-	mark_call_clobbered (v_ann->symbol_mem_tag, pi->escape_mask);
+	mark_call_clobbered (tag, pi->escape_mask);
 
       /* Name tags and symbol tags that we don't know where they point
 	 to, might point to global memory, and thus, are clobbered.
@@ -379,10 +405,10 @@ set_initial_properties (struct alias_info *ai)
       
       if ((pi->pt_global_mem || pi->pt_anything) 
 	  && pi->is_dereferenced
-	  && v_ann->symbol_mem_tag)
+	  && tag)
 	{
-	  mark_call_clobbered (v_ann->symbol_mem_tag, ESCAPE_IS_GLOBAL);
-	  MTAG_GLOBAL (v_ann->symbol_mem_tag) = true;
+	  mark_call_clobbered (tag, ESCAPE_IS_GLOBAL);
+	  MTAG_GLOBAL (tag) = true;
 	}
     }
 }
@@ -531,6 +557,16 @@ compute_may_aliases (void)
 
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
+
+  /* Compute memory partitions for every memory variable.  */
+  {
+    referenced_var_iterator rvi;
+    tree var;
+
+    FOR_EACH_REFERENCED_VAR (var, rvi)
+      if (!is_gimple_reg (var))
+	get_mpt_for (var);
+  }
 
   {
     block_stmt_iterator bsi;
@@ -793,7 +829,7 @@ delete_alias_info (struct alias_info *ai)
   for (i = 0; i < ai->num_addressable_vars; i++)
     free (ai->addressable_vars[i]);
   
-  FOR_EACH_REFERENCED_VAR(var, rvi)
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
       var_ann_t ann = var_ann (var);
       NUM_REFERENCES_CLEAR (ann);
@@ -960,7 +996,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
     {
       unsigned j;
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
-      var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
+      tree tag = symbol_mem_tag (SSA_NAME_VAR (ptr));
       bitmap_iterator bi;
 
 
@@ -971,7 +1007,7 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
 	EXECUTE_IF_SET_IN_BITMAP (pi->pt_vars, 0, j, bi)
 	  {
 	    add_may_alias (pi->name_mem_tag, referenced_var (j));
-	    add_may_alias (v_ann->symbol_mem_tag, referenced_var (j));
+	    add_may_alias (tag, referenced_var (j));
 	  }
     }
 }
@@ -1003,7 +1039,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
     {
       size_t j;
       struct alias_map_d *p_map = ai->pointers[i];
-      tree tag = var_ann (p_map->var)->symbol_mem_tag;
+      tree tag = symbol_mem_tag (p_map->var);
       var_ann_t tag_ann = var_ann (tag);
       tree var;
 
@@ -1101,7 +1137,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
     {
       size_t j;
       struct alias_map_d *p_map1 = ai->pointers[i];
-      tree tag1 = var_ann (p_map1->var)->symbol_mem_tag;
+      tree tag1 = symbol_mem_tag (p_map1->var);
       bitmap may_aliases1 = p_map1->may_aliases;
 
       if (PTR_IS_REF_ALL (p_map1->var))
@@ -1110,7 +1146,7 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
       for (j = i + 1; j < ai->num_pointers; j++)
 	{
 	  struct alias_map_d *p_map2 = ai->pointers[j];
-	  tree tag2 = var_ann (p_map2->var)->symbol_mem_tag;
+	  tree tag2 = symbol_mem_tag (p_map2->var);
 	  bitmap may_aliases2 = p_map2->may_aliases;
 
 	  if (PTR_IS_REF_ALL (p_map2->var))
@@ -1182,7 +1218,7 @@ finalize_ref_all_pointers (struct alias_info *ai)
       tree ptr = ai->pointers[i]->var, tag;
       if (PTR_IS_REF_ALL (ptr))
 	continue;
-      tag = var_ann (ptr)->symbol_mem_tag;
+      tag = symbol_mem_tag (ptr);
       if (is_call_clobbered (tag))
 	add_may_alias (ai->ref_all_symbol_mem_tag, tag);
     }
@@ -1211,7 +1247,7 @@ create_alias_map_for (tree var, struct alias_info *ai)
 static void
 setup_pointers_and_addressables (struct alias_info *ai)
 {
-  size_t n_vars, num_addressable_vars, num_pointers;
+  size_t num_addressable_vars, num_pointers;
   referenced_var_iterator rvi;
   tree var;
   VEC (tree, heap) *varvec = NULL;
@@ -1245,11 +1281,6 @@ setup_pointers_and_addressables (struct alias_info *ai)
   ai->pointers = XCNEWVEC (struct alias_map_d *, num_pointers);
   ai->num_addressable_vars = 0;
   ai->num_pointers = 0;
-
-  /* Since we will be creating symbol memory tags within this loop,
-     cache the value of NUM_REFERENCED_VARS to avoid processing the
-     additional tags unnecessarily.  */
-  n_vars = num_referenced_vars;
 
   FOR_EACH_REFERENCED_VAR_SAFE (var, varvec, srvi)
     {
@@ -1305,7 +1336,15 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		 addressable bit, so that it can be optimized as a
 		 regular variable.  */
 	      if (okay_to_mark)
-		mark_non_addressable (var);
+		{
+		  /* The memory partition holding VAR will no longer
+		     contain VAR, and statements referencing it will need
+		     to be udpated.  */
+		  if (memory_partition (var))
+		    mark_sym_for_renaming (memory_partition (var));
+
+		  mark_non_addressable (var);
+		}
 	    }
 	}
 
@@ -1327,7 +1366,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	  if ((bitmap_bit_p (ai->dereferenced_ptrs_store, DECL_UID (var))
 	       || bitmap_bit_p (ai->dereferenced_ptrs_load, DECL_UID (var))))
 	    {
-	      tree tag;
+	      tree tag, old_tag;
 	      var_ann_t t_ann;
 
 	      /* If pointer VAR still doesn't have a memory tag
@@ -1345,11 +1384,12 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      /* Similarly, if pointer VAR used to have another type
 		 tag, we will need to process it in the renamer to
 		 remove the stale virtual operands.  */
-	      if (v_ann->symbol_mem_tag)
-		mark_sym_for_renaming (v_ann->symbol_mem_tag);
+	      old_tag = symbol_mem_tag (var);
+	      if (old_tag)
+		mark_sym_for_renaming (old_tag);
 
 	      /* Associate the tag with pointer VAR.  */
-	      v_ann->symbol_mem_tag = tag;
+	      set_symbol_mem_tag (var, tag);
 
 	      /* If pointer VAR has been used in a store operation,
 		 then its memory tag must be marked as written-to.  */
@@ -1369,12 +1409,11 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      /* The pointer has not been dereferenced.  If it had a
 		 symbol memory tag, remove it and mark the old tag for
 		 renaming to remove it out of the IL.  */
-	      var_ann_t ann = var_ann (var);
-	      tree tag = ann->symbol_mem_tag;
+	      tree tag = symbol_mem_tag (var);
 	      if (tag)
 		{
 		  mark_sym_for_renaming (tag);
-		  ann->symbol_mem_tag = NULL_TREE;
+		  set_symbol_mem_tag (var, NULL_TREE);
 		}
 	    }
 	}
@@ -1458,7 +1497,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   alias_stats.simple_queries++;
 
   /* By convention, a variable cannot alias itself.  */
-  mem = var_ann (ptr)->symbol_mem_tag;
+  mem = symbol_mem_tag (ptr);
   if (mem == var)
     {
       alias_stats.alias_noalias++;
@@ -1715,18 +1754,13 @@ is_escape_site (tree stmt, struct alias_info *ai)
 /* Create a new memory tag of type TYPE.
    Does NOT push it into the current binding.  */
 
-static tree
+tree
 create_tag_raw (enum tree_code code, tree type, const char *prefix)
 {
   tree tmp_var;
-  tree new_type;
 
-  /* Make the type of the variable writable.  */
-  new_type = build_type_variant (type, 0, 0);
-  TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
+  tmp_var = build_decl (code, create_tmp_var_name (prefix), type);
 
-  tmp_var = build_decl (code, create_tmp_var_name (prefix),
-			type);
   /* Make the variable writable.  */
   TREE_READONLY (tmp_var) = 0;
 
@@ -1746,7 +1780,6 @@ create_tag_raw (enum tree_code code, tree type, const char *prefix)
 static tree
 create_memory_tag (tree type, bool is_type_tag)
 {
-  var_ann_t ann;
   tree tag = create_tag_raw (is_type_tag ? SYMBOL_MEMORY_TAG : NAME_MEMORY_TAG,
 			     type, (is_type_tag) ? "SMT" : "NMT");
 
@@ -1757,8 +1790,7 @@ create_memory_tag (tree type, bool is_type_tag)
   /* Memory tags are by definition addressable.  */
   TREE_ADDRESSABLE (tag) = 1;
 
-  ann = get_var_ann (tag);
-  ann->symbol_mem_tag = NULL_TREE;
+  set_symbol_mem_tag (tag, NULL_TREE);
 
   /* Add the tag to the symbol table.  */
   add_referenced_var (tag);
@@ -1819,7 +1851,7 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   for (i = 0, tag = NULL_TREE; i < ai->num_pointers; i++)
     {
       struct alias_map_d *curr = ai->pointers[i];
-      tree curr_tag = var_ann (curr->var)->symbol_mem_tag;
+      tree curr_tag = symbol_mem_tag (curr->var);
       if (tag_set == curr->set)
 	{
 	  tag = curr_tag;
@@ -1836,10 +1868,9 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       /* If PTR did not have a symbol tag already, create a new SMT.*
 	 artificial variable representing the memory location
 	 pointed-to by PTR.  */
-      if (var_ann (ptr)->symbol_mem_tag == NULL_TREE)
+      tag = symbol_mem_tag (ptr);
+      if (tag == NULL_TREE)
 	tag = create_memory_tag (tag_type, true);
-      else
-	tag = var_ann (ptr)->symbol_mem_tag;
 
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
@@ -1938,11 +1969,8 @@ dump_alias_info (FILE *file)
   fprintf (file, "\nDereferenced pointers\n\n");
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      var_ann_t ann = var_ann (var);
-      if (ann->symbol_mem_tag)
-	dump_variable (file, var);
-    }
+    if (symbol_mem_tag (var))
+      dump_variable (file, var);
 
   fprintf (file, "\nSymbol memory tags\n\n");
   
@@ -2278,7 +2306,6 @@ add_may_alias_for_new_tag (tree tag, tree var)
 void
 new_type_alias (tree ptr, tree var, tree expr)
 {
-  var_ann_t p_ann = var_ann (ptr);
   tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
   tree tag;
   subvar_t svars;
@@ -2286,14 +2313,14 @@ new_type_alias (tree ptr, tree var, tree expr)
   HOST_WIDE_INT offset, size, maxsize;
   tree ref;
 
-  gcc_assert (p_ann->symbol_mem_tag == NULL_TREE);
+  gcc_assert (symbol_mem_tag (ptr) == NULL_TREE);
   gcc_assert (!MTAG_P (var));
 
   ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
   gcc_assert (ref);
 
   tag = create_memory_tag (tag_type, true);
-  p_ann->symbol_mem_tag = tag;
+  set_symbol_mem_tag (ptr, tag);
 
   /* Add VAR to the may-alias set of PTR's new symbol tag.  If VAR has
      subvars, add the subvars to the tag instead of the actual var.  */
@@ -2341,7 +2368,7 @@ new_type_alias (tree ptr, tree var, tree expr)
   else
     ali = add_may_alias_for_new_tag (tag, var);
 
-  p_ann->symbol_mem_tag = ali;
+  set_symbol_mem_tag (ptr, ali);
   TREE_READONLY (tag) = TREE_READONLY (var);
   MTAG_GLOBAL (tag) = is_global_var (var);
 }
@@ -2460,7 +2487,6 @@ static tree
 create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
 	    unsigned HOST_WIDE_INT size)
 {
-  var_ann_t ann;
   tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
   /* We need to copy the various flags from VAR to SUBVAR, so that
@@ -2473,8 +2499,7 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   TREE_ADDRESSABLE (subvar) = TREE_ADDRESSABLE (var);
 
   /* Add the new variable to REFERENCED_VARS.  */
-  ann = get_var_ann (subvar);
-  ann->symbol_mem_tag = NULL;  	
+  set_symbol_mem_tag (subvar, NULL);
   add_referenced_var (subvar);
   SFT_PARENT_VAR (subvar) = var;
   SFT_OFFSET (subvar) = offset;

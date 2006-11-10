@@ -351,8 +351,8 @@ reserve_phi_args_for_new_edge (basic_block bb)
 
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
-static tree
-create_phi_node_1 (tree var, basic_block bb)
+tree
+create_phi_node (tree var, basic_block bb)
 {
   tree phi;
 
@@ -364,41 +364,6 @@ create_phi_node_1 (tree var, basic_block bb)
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
-
-  return phi;
-}
-
-
-/* Create a new PHI node for variable VAR at basic block BB.  */
-
-tree
-create_phi_node (tree var, basic_block bb)
-{
-#if defined ENABLE_CHECKING
-  /* Factored PHI nodes should be created using create_factored_phi_node.  */
-  tree sym = (TREE_CODE (var) == SSA_NAME) ? SSA_NAME_VAR (var) : var;
-  gcc_assert (sym != mem_var);
-#endif
-
-  return create_phi_node_1 (var, bb);
-}
-
-
-/* Create a factored PHI node at basic block BB.  Associate it with
-   the set of symbols SYMS.  VAR must be either .MEM or an SSA name
-   for .MEM.  */
-
-tree
-create_factored_phi_node (tree var, basic_block bb, bitmap syms)
-{
-  tree phi;
-
-  gcc_assert (var == mem_var || SSA_NAME_VAR (var) == mem_var);
-
-  phi = create_phi_node_1 (var, bb);
-
-  gcc_assert (syms && !bitmap_empty_p (syms) && !bitmap_singleton_p (syms));
-  add_loads_and_stores (phi, syms, syms);
 
   return phi;
 }

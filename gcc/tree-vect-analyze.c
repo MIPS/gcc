@@ -1500,7 +1500,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
     *relevant_p = true;
 
   /* changing memory.  */
-  if (TREE_CODE (stmt) != PHI_NODE)
+  if (TREE_CODE (stmt) != PHI_NODE && TREE_CODE (stmt) != SIGMA_NODE)
     if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
       {
 	if (vect_print_dump_info (REPORT_DETAILS))

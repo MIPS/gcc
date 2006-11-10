@@ -429,6 +429,44 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
 }
 
 
+/* Dump SIGMA node SIGMA to BUFFER. SPC, FLAGS are as in
+   dump_generic_node.  */
+
+static void
+dump_sigma_node (pretty_printer *buffer, tree sigma, int spc, int flags)
+{
+  struct vdef_optype_d *vdefs;
+  int i;
+
+  if (ssa_operands_active ())
+    {
+      vdefs = VDEF_OPS (sigma);
+
+      dump_generic_node (buffer, VDEF_RESULT (vdefs), 0, 0, false);
+      pp_string (buffer, " = SIGMA <");
+
+      for (i = 0; i < VDEF_NUM (vdefs); i++)
+	{
+	  dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, flags, 0);
+	  if (i < VDEF_NUM (vdefs) - 1)
+	    pp_string (buffer, ", ");
+	}
+
+      pp_string (buffer, ">");
+
+      if (flags & TDF_MEMSYMS)
+	dump_symbols (buffer, get_loads_and_stores (sigma)->stores, flags);
+    }
+  else
+    {
+      dump_generic_node (buffer, SIGMA_MPT (sigma), 0, 0, false);
+      pp_string (buffer, " = SIGMA <");
+      dump_generic_node (buffer, SIGMA_MPT (sigma), 0, 0, false);
+      pp_string (buffer, ">");
+    }
+}
+
+
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
    FLAGS specifies details to show in the dump (see TDF_* in tree.h).  If
    IS_STMT is true, the object printed is considered to be a statement
@@ -452,7 +490,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       && is_gimple_stmt (node)
       && (flags & (TDF_VOPS|TDF_MEMSYMS))
       && stmt_ann (node)
-      && TREE_CODE (node) != PHI_NODE)
+      && TREE_CODE (node) != PHI_NODE
+      && TREE_CODE (node) != SIGMA_NODE)
     dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMTADDR))
@@ -881,6 +920,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case PARM_DECL:
     case FIELD_DECL:
     case NAMESPACE_DECL:
+    case MEMORY_PARTITION_TAG:
       dump_decl_name (buffer, node, flags);
       break;
 
@@ -1650,7 +1690,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	    if (i < PHI_NUM_ARGS (node) - 1)
 	      pp_string (buffer, ", ");
 	  }
-	pp_string (buffer, ">;");
+	pp_string (buffer, ">");
 
 	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
 	  dump_symbols (buffer, get_loads_and_stores (node)->stores, flags);
@@ -1946,6 +1986,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  }
       }
     break;
+
+    case SIGMA_NODE:
+      dump_sigma_node (buffer, node, spc, flags);
+      break;
 
     default:
       NIY;
@@ -2630,7 +2674,6 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 	}
 
       pp_string (buffer, ">");
-      vuses = vuses->next;
 
       if (syms)
 	dump_symbols (buffer, syms->loads, flags);
@@ -2654,7 +2697,6 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 	}
 
       pp_string (buffer, ">");
-      vdefs = vdefs->next;
 
       if (syms)
 	dump_symbols (buffer, syms->stores, flags);
@@ -2772,8 +2814,8 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
   pp_newline (buffer);
 }
 
-/* Dumps phi nodes of basic block BB to buffer BUFFER with details described by
-   FLAGS indented by INDENT spaces.  */
+/* Dump PHI nodes of basic block BB to BUFFER with details described
+   by FLAGS and indented by INDENT spaces.  */
 
 static void
 dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
@@ -2793,6 +2835,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
         }
     }
 }
+
 
 /* Dump jump to basic block BB that is represented implicitly in the cfg
    to BUFFER.  */

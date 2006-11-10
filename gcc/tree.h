@@ -106,7 +106,8 @@ extern const enum tree_code_class tree_code_type[];
 #define MTAG_P(CODE) \
   (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
    || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
-   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG)
+   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG	\
+   || TREE_CODE (CODE) == MEMORY_PARTITION_TAG)
 
 
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
@@ -1550,6 +1551,9 @@ struct tree_constructor GTY(())
 #define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
+/* SIGMA_NODE accessors.  */
+#define SIGMA_MPT(NODE)		TREE_OPERAND (SIGMA_NODE_CHECK (NODE), 0)
+
 /* OpenMP directive and clause accessors.  */
 
 #define OMP_BODY(NODE) \
@@ -1790,6 +1794,7 @@ struct tree_phi_node GTY(())
      order as predecessor edge vector BB->PREDS.  */
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
+
 
 #define OMP_CLAUSE_CODE(NODE)					\
 	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
@@ -2345,15 +2350,9 @@ struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
   unsigned int is_global:1;
-  unsigned int old_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
-
-/* This flag is used to temporarily store the old value of the used alone
-   flag when updating so we know whether to mark the symbol for
-   renaming.  */
-#define SMT_OLD_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.old_used_alone)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -2372,6 +2371,20 @@ struct tree_struct_field_tag GTY(())
 #define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
 #define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
 #define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
+
+/* Memory Partition Tags (MPTs) group memory symbols under one
+   common name for the purposes of placing memory PHI nodes.  */
+
+struct tree_memory_partition_tag GTY(())
+{
+  struct tree_memory_tag common;
+  
+  /* Set of symbols grouped under this MPT.  */
+  bitmap symbols;
+};
+
+#define MPT_SYMBOLS(NODE)	(MEMORY_PARTITION_TAG_CHECK (NODE)->mpt.symbols)
+
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an instance of, or else it is NULL indicating
@@ -3193,6 +3206,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
+  struct tree_memory_partition_tag GTY ((tag ("TS_MEMORY_PARTITION_TAG"))) mpt;
 };
 
 /* Standard named or nameless data types of the C compiler.  */

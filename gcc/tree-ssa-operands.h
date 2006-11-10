@@ -63,7 +63,7 @@ typedef struct vuse_vec_d
 } vuse_vec_t;
 typedef struct vuse_vec_d *vuse_vec_p;
 
-#define VUSE_VECT_NUM_ELEM(V)	(V).num_vuse
+#define VUSE_VECT_NUM_ELEM(V)		(V).num_vuse
 #define VUSE_VECT_ELEMENT_NC(V,X)	(V).uses[(X)]
 #define VUSE_ELEMENT_PTR_NC(V,X)	(&(VUSE_VECT_ELEMENT_NC ((V),(X)).use_ptr))
 #define VUSE_ELEMENT_VAR_NC(V,X)	(VUSE_VECT_ELEMENT_NC ((V),(X)).use_var)
@@ -338,8 +338,10 @@ struct mem_syms_map_d
 typedef struct mem_syms_map_d *mem_syms_map_t;
 
 extern mem_syms_map_t get_loads_and_stores (tree);
-extern void add_loads_and_stores (tree, bitmap, bitmap);
 extern void move_loads_and_stores (tree, tree);
 extern void delete_loads_and_stores (tree);
+extern tree get_mpt_for (tree);
+extern void dump_memory_partitions (FILE *);
+extern void debug_memory_partitions (void);
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

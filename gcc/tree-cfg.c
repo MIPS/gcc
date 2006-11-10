@@ -3978,15 +3978,7 @@ tree_make_forwarder_block (edge fallthru)
   for (phi = phi_nodes (dummy); phi; phi = PHI_CHAIN (phi))
     {
       var = PHI_RESULT (phi);
-
-      if (SSA_NAME_VAR (var) == mem_var)
-	{
-	  bitmap syms = get_loads_and_stores (phi)->stores;
-	  new_phi = create_factored_phi_node (var, bb, syms);
-	}
-      else
-	new_phi = create_phi_node (var, bb);
-
+      new_phi = create_phi_node (var, bb);
       SSA_NAME_DEF_STMT (var) = new_phi;
       SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
       add_phi_arg (new_phi, PHI_RESULT (phi), fallthru);
@@ -4292,18 +4284,7 @@ tree_duplicate_bb (basic_block bb)
      the incoming edges have not been setup yet.  */
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
-      tree lhs = PHI_RESULT (phi);
-      tree lhs_sym = SSA_NAME_VAR (lhs);
-      tree copy;
-
-      if (lhs_sym == mem_var)
-	{
-	  bitmap syms = get_loads_and_stores (phi)->stores;
-	  copy = create_factored_phi_node (PHI_RESULT (phi), new_bb, syms);
-	}
-      else
-	copy = create_phi_node (PHI_RESULT (phi), new_bb);
-
+      tree copy = create_phi_node (PHI_RESULT (phi), new_bb);
       create_new_def_for (PHI_RESULT (copy), copy, PHI_RESULT_PTR (copy));
     }
 

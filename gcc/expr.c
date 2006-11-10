@@ -8757,6 +8757,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	return target;
       }
 
+    case SIGMA_NODE:
+      return const0_rtx;
+
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,
 				     modifier, alt_rtl);

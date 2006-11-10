@@ -229,6 +229,7 @@ is_gimple_stmt (tree t)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case SIGMA_NODE:
       /* These are always void.  */
       return true;
 

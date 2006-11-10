@@ -185,6 +185,9 @@ struct var_ann_d GTY(())
      to convert to hash table?  */
   tree symbol_mem_tag;
 
+  /* Memory partition tag assigned to this symbol.  */
+  tree mpt;
+
   /* Variables that may alias this variable.  This may only be set on
      memory tags (NAME_MEMORY_TAG or TYPE_MEMORY_TAG).  FIXME, move to
      struct tree_memory_tag.  */
@@ -655,7 +658,6 @@ extern tree default_def_fn (struct function *, tree);
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
 extern tree create_phi_node (tree, basic_block);
-extern tree create_factored_phi_node (tree, basic_block, bitmap);
 extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, bool);
@@ -690,6 +692,7 @@ static inline bool var_can_have_subvars (tree);
 static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
 				   tree, bool *);
+extern tree create_tag_raw (enum tree_code, tree, const char *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */

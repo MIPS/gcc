@@ -239,6 +239,7 @@ tsi_delink (tree_stmt_iterator *i)
   i->ptr = next;
 }
 
+
 /* Move all statements in the statement list after I to a new
    statement list.  I itself is unchanged.  */
 

@@ -305,7 +305,7 @@ vect_create_data_ref_ptr (tree stmt,
   if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag, DR_REF (dr));
   else
-    var_ann (vect_ptr)->symbol_mem_tag = tag;
+    set_symbol_mem_tag (vect_ptr, tag);
 
   var_ann (vect_ptr)->subvars = DR_SUBVARS (dr);
 
