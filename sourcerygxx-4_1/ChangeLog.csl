@@ -1,5 +1,12 @@
 2006-11-10  Joseph Myers  <joseph@codesourcery.com>
 
+	libstdc++-v3/
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Loosen pattern for
+	ld version output.
+	* configure: Regenerate.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
 	Merge from GCC 4.1 branch:
 
 	2006-06-01  Alan Modra  <amodra@bigpond.net.au>
