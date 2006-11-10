@@ -187,8 +187,11 @@ check_version(symbol& test, bool added)
       known_versions.push_back("GLIBCXX_3.4.6");
       known_versions.push_back("GLIBCXX_3.4.7");
       known_versions.push_back("GLIBCXX_3.4.8");
+      known_versions.push_back("GLIBCXX_LDBL_3.4");
+      known_versions.push_back("GLIBCXX_LDBL_3.4.7");
       known_versions.push_back("CXXABI_1.3");
       known_versions.push_back("CXXABI_1.3.1");
+      known_versions.push_back("CXXABI_LDBL_1.3");
     }
   compat_list::iterator begin = known_versions.begin();
   compat_list::iterator end = known_versions.end();
@@ -224,9 +227,7 @@ check_version(symbol& test, bool added)
 	  // New version labels are ok. The rest are not.
 	  compat_list::iterator it2 = find(begin, end, test.name);
 	  if (it2 != end)
-	    {
-	      test.version_status = symbol::compatible;
-	    }
+	    test.version_status = symbol::compatible;
 	  else
 	    test.version_status = symbol::incompatible;
 	}
@@ -370,7 +371,7 @@ compare_symbols(const char* baseline_file, const char* test_file,
 	  added_names.erase(it);
 	}
       else
-	  missing_names.push_back(what);
+	missing_names.push_back(what);
     }
 
   // Check missing names for compatibility.
