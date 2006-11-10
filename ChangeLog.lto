@@ -1,3 +1,23 @@
+2006-11-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc/lto-function-out.c (produce_asm): Uncomment variable and
+	function emission.
+	* gcc/dwarf2out.c (lto_init_ref): Generate DIE symbols here.
+	Ensure DIEs are emitted.
+	(lto_type_ref): Adjust according.
+	(lto_var_ref): Implement.
+	(lto_fn_ref): Likewise.
+	* gcc/lto/lto.c (lto_die_ptr): New type.  Use it throughout.
+	(lto_read_compile_unit): Add DIE paramter to this and all other
+	DIE readers.
+	(lto_read_variable_formal_parameter_constant_DIE): Remember
+	variables.
+	(lto_read_subroutine_type_subprogram_DIE): Remember functions too.
+	(lto_read_DIE): Pass DIE to readers.
+	(lto_resolve_type_ref): Tweak.
+	(lto_resolve_var_ref): Implement.
+	(lto_resolve_fn_ref): Likewise.
+	
 2006-10-11  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc/lto/lto.c (lto_read_typedef_DIE): Treat missing type attribute

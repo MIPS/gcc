@@ -1607,13 +1607,7 @@ produce_asm (struct output_block *ob, tree function)
   /* Write the global type references.  */
   for (index = 0; VEC_iterate(tree, ob->fn_decls, index, decl); index++)
     {
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
-      lto_fn_ref (delc, &out_ref);
-#else
-      out_ref.section = 0;
-      out_ref.base_label = "0";
-      out_ref.label = "0";
-#endif
+      lto_fn_ref (decl, &out_ref);
       dw2_asm_output_data (8, out_ref.section, " ");
       dw2_asm_output_delta (8, out_ref.label,
 			    out_ref.base_label, " ");
@@ -1622,13 +1616,7 @@ produce_asm (struct output_block *ob, tree function)
   /* Write the global type references.  */
   for (index = 0; VEC_iterate(tree, ob->var_decls, index, decl); index++)
     {
-#ifdef GIMPLE_SYMBOL_TABLE_WORKS
       lto_var_ref (decl, &out_ref);
-#else
-      out_ref.section = 0;
-      out_ref.base_label = "0";
-      out_ref.label = "0";
-#endif
       dw2_asm_output_data (8, out_ref.section, " ");
       dw2_asm_output_delta (8, out_ref.label,
 			    out_ref.base_label, " ");

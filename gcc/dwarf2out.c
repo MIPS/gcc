@@ -14345,18 +14345,26 @@ dwarf2out_finish (const char *filename)
     htab_traverse (debug_str_hash, output_indirect_string, NULL);
 }
 
-/* Initialize REF.  SCOPE indicates the lexical scope containing the
-   entity being referenced.  */
+/* Initialize REF as a reference to DIE.  SCOPE is the lexical scope
+   containing the entity being referenced.  */
 static void
-lto_init_ref (tree scope ATTRIBUTE_UNUSED, 
-	      lto_out_ref *ref)
+lto_init_ref (lto_out_ref *ref,
+	      dw_die_ref die,
+	      tree scope ATTRIBUTE_UNUSED)
 {
+  /* We must be able to refer to DIE by name.  */
+  gcc_assert (die);
+  /* Make sure the DIE has a label.  */
+  assign_symbol_name (die);
+  gcc_assert (die->die_symbol);
+  /* Make sure the DIE is actually emitted.  */
+  die->die_perennial_p = 1;
   /* At present, we use only one DWARF section.  When we begin using
      multiple sections, SCOPE will be used to figure out the section
      and corresponding BASE_LABEL.  */
   ref->section = 0;
   ref->base_label = debug_info_section_label;
-  ref->label = NULL;
+  ref->label = die->die_symbol;
 }
 
 void 
@@ -14401,31 +14409,34 @@ lto_type_ref (tree type, lto_out_ref *ref)
  			     scope_die);
   gcc_assert (die);
   
-  /* Make sure the DIE has a label.  */
-  assign_symbol_name (die);
   /* Construct the reference.  */
-  lto_init_ref (scope, ref);
-  ref->label = die->die_symbol;
-
-  return;
+  lto_init_ref (ref, die, scope);
 }
 
 void 
-lto_var_ref (tree var ATTRIBUTE_UNUSED, 
-	     lto_out_ref *ref ATTRIBUTE_UNUSED)
+lto_var_ref (tree var,
+	     lto_out_ref *ref)
 {
+  dw_die_ref die;
+
   gcc_assert (TREE_CODE (var) == VAR_DECL);
-  /* Not yet implemented.  */
-  abort ();
+  /* Generate the DIE for VAR.  */
+  die = force_decl_die (var);
+  /* Construct the reference.  */
+  lto_init_ref (ref, die, DECL_CONTEXT (var));
 }
 
 void 
-lto_fn_ref (tree fn ATTRIBUTE_UNUSED, 
-	    lto_out_ref *ref ATTRIBUTE_UNUSED)
+lto_fn_ref (tree fn,
+	    lto_out_ref *ref)
 {
+  dw_die_ref die;
+
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
-  /* Not yet implemented.  */
-  abort ();
+  /* Generate the DIE for FN.  */
+  die = force_decl_die (fn);
+  /* Construct the reference.  */
+  lto_init_ref (ref, die, DECL_CONTEXT (fn));
 }
 
 #else
