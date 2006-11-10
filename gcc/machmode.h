@@ -86,44 +86,83 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define DECIMAL_FLOAT_MODE_P(MODE)		\
   (GET_MODE_CLASS (MODE) == MODE_DECIMAL_FLOAT)
 
-/* Nonzero if MODE is a fract mode.  */
-#define FRACT_MODE_P(MODE)		\
+/* Nonzero if MODE is a scalar fract mode.  */
+#define SCALAR_FRACT_MODE_P(MODE)	\
   (GET_MODE_CLASS (MODE) == MODE_FRACT)
 
-/* Nonzero if MODE is a ufract mode.  */
-#define UFRACT_MODE_P(MODE)		\
+/* Nonzero if MODE is a scalar ufract mode.  */
+#define SCALAR_UFRACT_MODE_P(MODE)	\
   (GET_MODE_CLASS (MODE) == MODE_UFRACT)
 
-/* Nonzero if MODE is a fract or ufract mode.  */
-#define ALL_FRACT_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_FRACT || GET_MODE_CLASS (MODE) == MODE_UFRACT)
+/* Nonzero if MODE is a scalar fract or ufract mode.  */
+#define ALL_SCALAR_FRACT_MODE_P(MODE)	\
+  (SCALAR_FRACT_MODE_P (MODE) || SCALAR_UFRACT_MODE_P (MODE))
 
-/* Nonzero if MODE is a accum mode.  */
-#define ACCUM_MODE_P(MODE)		\
+/* Nonzero if MODE is a scalar accum mode.  */
+#define SCALAR_ACCUM_MODE_P(MODE)	\
   (GET_MODE_CLASS (MODE) == MODE_ACCUM)
 
-/* Nonzero if MODE is a uaccum mode.  */
-#define UACCUM_MODE_P(MODE)		\
+/* Nonzero if MODE is a scalar uaccum mode.  */
+#define SCALAR_UACCUM_MODE_P(MODE)	\
   (GET_MODE_CLASS (MODE) == MODE_UACCUM)
 
-/* Nonzero if MODE is a accum or uaccum mode.  */
+/* Nonzero if MODE is a scalar accum or uaccum mode.  */
+#define ALL_SCALAR_ACCUM_MODE_P(MODE)	\
+  (SCALAR_ACCUM_MODE_P (MODE) || SCALAR_UACCUM_MODE_P (MODE))
+
+/* Nonzero if MODE is a scalar fract or accum mode.  */
+#define SIGNED_SCALAR_FIXED_POINT_MODE_P(MODE)	\
+  (SCALAR_FRACT_MODE_P (MODE) || SCALAR_ACCUM_MODE_P (MODE))
+
+/* Nonzero if MODE is a scalar ufract or uaccum mode.  */
+#define UNSIGNED_SCALAR_FIXED_POINT_MODE_P(MODE)	\
+  (SCALAR_UFRACT_MODE_P (MODE) || SCALAR_UACCUM_MODE_P (MODE))
+
+/* Nonzero if MODE is a scalar fract, ufract, accum or uaccum mode.  */
+#define ALL_SCALAR_FIXED_POINT_MODE_P(MODE)	\
+  (SIGNED_SCALAR_FIXED_POINT_MODE_P (MODE)	\
+   || UNSIGNED_SCALAR_FIXED_POINT_MODE_P (MODE))
+
+/* Nonzero if MODE is a scalar/vector fract mode.  */
+#define FRACT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_FRACT	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_FRACT)
+
+/* Nonzero if MODE is a scalar/vector ufract mode.  */
+#define UFRACT_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_UFRACT	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_UFRACT)
+
+/* Nonzero if MODE is a scalar/vector fract or ufract mode.  */
+#define ALL_FRACT_MODE_P(MODE)		\
+  (FRACT_MODE_P (MODE) || UFRACT_MODE_P (MODE))
+
+/* Nonzero if MODE is a scalar/vector accum mode.  */
+#define ACCUM_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_ACCUM	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_ACCUM)
+
+/* Nonzero if MODE is a scalar/vector uaccum mode.  */
+#define UACCUM_MODE_P(MODE)		\
+  (GET_MODE_CLASS (MODE) == MODE_UACCUM	\
+   || GET_MODE_CLASS (MODE) == MODE_VECTOR_UACCUM)
+
+/* Nonzero if MODE is a scalar/vector accum or uaccum mode.  */
 #define ALL_ACCUM_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_ACCUM || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+  (ACCUM_MODE_P (MODE) || UACCUM_MODE_P (MODE))
 
-/* Nonzero if MODE is a fract or accum mode.  */
+/* Nonzero if MODE is a scalar/vector fract or accum mode.  */
 #define SIGNED_FIXED_POINT_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_FRACT || GET_MODE_CLASS (MODE) == MODE_ACCUM)
+  (FRACT_MODE_P (MODE) || ACCUM_MODE_P (MODE))
 
-/* Nonzero if MODE is a ufract or uaccum mode.  */
-#define UNSIGNED_FIXED_POINT_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_UFRACT || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+/* Nonzero if MODE is a scalar/vector ufract or uaccum mode.  */
+#define UNSIGNED_FIXED_POINT_MODE_P(MODE)	\
+  (UFRACT_MODE_P (MODE) || UACCUM_MODE_P (MODE))
 
-/* Nonzero if MODE is a fract, ufract, accum or uaccum mode.  */
+/* Nonzero if MODE is a scalar/vector fract, ufract, accum or uaccum mode.  */
 #define ALL_FIXED_POINT_MODE_P(MODE)		\
-  (GET_MODE_CLASS (MODE) == MODE_FRACT		\
-   || GET_MODE_CLASS (MODE) == MODE_UFRACT	\
-   || GET_MODE_CLASS (MODE) == MODE_ACCUM	\
-   || GET_MODE_CLASS (MODE) == MODE_UACCUM)
+  (SIGNED_FIXED_POINT_MODE_P (MODE)		\
+   || UNSIGNED_FIXED_POINT_MODE_P (MODE))
 
 /* Nonzero if CLASS modes can be widened.  */
 #define CLASS_HAS_WIDER_MODES_P(CLASS)         \

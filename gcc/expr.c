@@ -9407,7 +9407,11 @@ vector_mode_valid_p (enum machine_mode mode)
 
   /* Doh!  What's going on?  */
   if (class != MODE_VECTOR_INT
-      && class != MODE_VECTOR_FLOAT)
+      && class != MODE_VECTOR_FLOAT
+      && class != MODE_VECTOR_FRACT
+      && class != MODE_VECTOR_UFRACT
+      && class != MODE_VECTOR_ACCUM
+      && class != MODE_VECTOR_UACCUM)
     return 0;
 
   /* Hardware support.  Woo hoo!  */

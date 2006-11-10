@@ -1696,7 +1696,9 @@ static GTY(()) tree registered_builtin_types;
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
-   then UNSIGNEDP selects between signed and unsigned types.  */
+   then UNSIGNEDP selects between signed and unsigned types.
+   If the mode is a fixed-point mode,
+   then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
 tree
 c_common_type_for_mode (enum machine_mode mode, int unsignedp)
@@ -1795,6 +1797,95 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
     return dfloat64_type_node;
   if (mode == TYPE_MODE (dfloat128_type_node))
     return dfloat128_type_node;
+
+  if (ALL_SCALAR_FIXED_POINT_MODE_P (mode))
+    {
+      if (mode == TYPE_MODE (short_fract_type_node))
+	return unsignedp ? sat_short_fract_type_node : short_fract_type_node;
+      if (mode == TYPE_MODE (fract_type_node))
+	return unsignedp ? sat_fract_type_node : fract_type_node;
+      if (mode == TYPE_MODE (long_fract_type_node))
+	return unsignedp ? sat_long_fract_type_node : long_fract_type_node;
+      if (mode == TYPE_MODE (long_long_fract_type_node))
+	return unsignedp ? sat_long_long_fract_type_node
+			 : long_long_fract_type_node;
+
+      if (mode == TYPE_MODE (unsigned_short_fract_type_node))
+	return unsignedp ? sat_unsigned_short_fract_type_node
+			 : unsigned_short_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_fract_type_node))
+	return unsignedp ? sat_unsigned_fract_type_node
+			 : unsigned_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_long_fract_type_node))
+	return unsignedp ? sat_unsigned_long_fract_type_node
+			 : unsigned_long_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_long_long_fract_type_node))
+	return unsignedp ? sat_unsigned_long_long_fract_type_node
+			 : unsigned_long_long_fract_type_node;
+
+      if (mode == TYPE_MODE (short_accum_type_node))
+	return unsignedp ? sat_short_accum_type_node : short_accum_type_node;
+      if (mode == TYPE_MODE (accum_type_node))
+	return unsignedp ? sat_accum_type_node : accum_type_node;
+      if (mode == TYPE_MODE (long_accum_type_node))
+	return unsignedp ? sat_long_accum_type_node : long_accum_type_node;
+      if (mode == TYPE_MODE (long_long_accum_type_node))
+	return unsignedp ? sat_long_long_accum_type_node
+			 : long_long_accum_type_node;
+
+      if (mode == TYPE_MODE (unsigned_short_accum_type_node))
+	return unsignedp ? sat_unsigned_short_accum_type_node
+			 : unsigned_short_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_accum_type_node))
+	return unsignedp ? sat_unsigned_accum_type_node
+			 : unsigned_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_accum_type_node))
+	return unsignedp ? sat_unsigned_long_accum_type_node
+			 : unsigned_long_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_long_accum_type_node))
+	return unsignedp ? sat_unsigned_long_long_accum_type_node
+			 : unsigned_long_long_accum_type_node;
+
+      if (mode == QQmode)
+	return unsignedp ? sat_qq_type_node : qq_type_node;
+      if (mode == HQmode)
+	return unsignedp ? sat_hq_type_node : hq_type_node;
+      if (mode == SQmode)
+	return unsignedp ? sat_sq_type_node : sq_type_node;
+      if (mode == DQmode)
+	return unsignedp ? sat_dq_type_node : dq_type_node;
+      if (mode == TQmode)
+	return unsignedp ? sat_tq_type_node : tq_type_node;
+
+      if (mode == UQQmode)
+	return unsignedp ? sat_uqq_type_node : uqq_type_node;
+      if (mode == UHQmode)
+	return unsignedp ? sat_uhq_type_node : uhq_type_node;
+      if (mode == USQmode)
+	return unsignedp ? sat_usq_type_node : usq_type_node;
+      if (mode == UDQmode)
+	return unsignedp ? sat_udq_type_node : udq_type_node;
+      if (mode == UTQmode)
+	return unsignedp ? sat_utq_type_node : utq_type_node;
+
+      if (mode == HAmode)
+	return unsignedp ? sat_ha_type_node : ha_type_node;
+      if (mode == SAmode)
+	return unsignedp ? sat_sa_type_node : sa_type_node;
+      if (mode == DAmode)
+	return unsignedp ? sat_da_type_node : da_type_node;
+      if (mode == TAmode)
+	return unsignedp ? sat_ta_type_node : ta_type_node;
+
+      if (mode == UHAmode)
+	return unsignedp ? sat_uha_type_node : uha_type_node;
+      if (mode == USAmode)
+	return unsignedp ? sat_usa_type_node : usa_type_node;
+      if (mode == UDAmode)
+	return unsignedp ? sat_uda_type_node : uda_type_node;
+      if (mode == UTAmode)
+	return unsignedp ? sat_uta_type_node : uta_type_node;
+    }
 
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
@@ -4564,6 +4655,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	case MODE_PARTIAL_INT:
 	case MODE_FLOAT:
 	case MODE_DECIMAL_FLOAT:
+	case MODE_FRACT:
+	case MODE_UFRACT:
+	case MODE_ACCUM:
+	case MODE_UACCUM:
 	  valid_mode = targetm.scalar_mode_supported_p (mode);
 	  break;
 
@@ -4574,6 +4669,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	case MODE_VECTOR_INT:
 	case MODE_VECTOR_FLOAT:
+	case MODE_VECTOR_FRACT:
+	case MODE_VECTOR_UFRACT:
+	case MODE_VECTOR_ACCUM:
+	case MODE_VECTOR_UACCUM:
 	  warning (OPT_Wattributes, "specifying vector types with "
 		   "__attribute__ ((mode)) is deprecated");
 	  warning (OPT_Wattributes,
@@ -4607,7 +4706,20 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	  typefm = fn (TREE_TYPE (type), mode, false);
 	}
       else
-	typefm = lang_hooks.types.type_for_mode (mode, TYPE_UNSIGNED (type));
+	{
+	  /* For fixed-point modes, we need to test if the signness of type
+	     and the machine mode are consistent.  */
+	  if (ALL_FIXED_POINT_MODE_P (mode)
+	      && TYPE_UNSIGNED (type) != UNSIGNED_FIXED_POINT_MODE_P (mode))
+	    {
+	      error ("signness of type and machine mode %qs don't match", p);
+	      return NULL_TREE;
+	    }
+	  /* For fixed-point modes, we need to pass saturating info.  */
+	  typefm = lang_hooks.types.type_for_mode (mode,
+			ALL_FIXED_POINT_MODE_P (mode) ? TYPE_SATURATING (type)
+						      : TYPE_UNSIGNED (type));
+	}
 
       if (typefm == NULL_TREE)
 	{
@@ -5306,7 +5418,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 
   if (TREE_CODE (type) == RECORD_TYPE
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
-	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
+	  && GET_MODE_CLASS (orig_mode) != MODE_INT
+	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))
     {
       error ("invalid vector type for attribute %qE", name);

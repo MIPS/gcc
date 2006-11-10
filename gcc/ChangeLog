@@ -1,3 +1,27 @@
+2006-11-09  Chao-ying Fu  <fu@mips.com>
+
+	* machmode.h (SCALAR_FRACT_MODE_P, SCALAR_UFRACT_MODE_P,
+	ALL_SCALAR_FRACT_MODE_P, SCALAR_ACCUM_MODE_P, SCALAR_UACCUM_MODE_P,
+	ALL_SCALAR_ACCUM_MODE_P, SIGNED_SCALAR_FIXED_POINT_MODE_P,
+	UNSIGNED_SCALAR_FIXED_POINT_MODE_P, ALL_SCALAR_FIXED_POINT_MODE_P):
+	New to test scalar fixed-point modes only.
+	(FRACT_MODE_P, UFRACT_MODE_P, ALL_FRACT_MODE_P, ACCUM_MODE_P,
+	UACCUM_MODE_P, ALL_ACCUM_MODE_P, SIGNED_FIXED_POINT_MODE_P,
+	UNSIGNED_FIXED_POINT_MODE_P, ALL_FIXED_POINT_MODE_P): Change to test
+	scalar or vector fixed-point modes.
+
+	* tree.c (build_vector_type_for_mode): Handle MODE_VECTOR_FRACT,
+	MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, MODE_VECTOR_UACCUM.
+
+	* expr.c (vector_mode_valid_p): Handle MODE_VECTOR_FRACT,
+	MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM, MODE_VECTOR_UACCUM.
+
+	* c-common.c (c_common_type_for_mode): Handle fixed-point modes to
+	return various saturating, non-saturating, signed and unsigned types.
+	(handle_mode_attribute): Handle fixed-point modes.  Need to check
+	if the signness of base type and fixed-point modes are consistent.
+	(handle_vector_size_attribute): Handle fixed-point modes.
+
 2006-11-08  Chao-ying Fu  <fu@mips.com>
 
 	* tree.h (struct tree_common): Add a comment about that saturating_flag 
