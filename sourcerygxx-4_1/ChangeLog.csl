@@ -1,5 +1,12 @@
 2006-11-10  Joseph Myers  <joseph@codesourcery.com>
 
+	Merge from GCC 4.1 branch:
+	2006-06-15  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.dg/vmx/pr27842.c: Remove dg-do directive; use default.
+	* gcc.dg/vmx/pr27006.c: Ditto.
+
+2006-11-10  Joseph Myers  <joseph@codesourcery.com>
+
 	libstdc++-v3/
 	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Loosen pattern for
 	ld version output.
