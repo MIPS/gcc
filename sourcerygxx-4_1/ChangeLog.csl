@@ -1,6 +1,12 @@
 2006-11-13  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/
+	* libsupc++/eh_globals.cc (__cxxabiv1::__cxa_get_globals):
+	Initialize propagatingExceptions if __ARM_EABI_UNWINDER__.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	libstdc++-v3/
 	* libsupc++/eh_personality.cc (empty_exception_spec): Define
 	separately in __ARM_EABI_UNWINDER__ case.
 
