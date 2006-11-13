@@ -193,6 +193,17 @@ restore_caught_exception(struct _Unwind_Exception* ue_header,
     }								\
   while (0)
 
+// Return true if the filter spec is empty, ie throw().
+
+static bool
+empty_exception_spec (lsda_header_info *info, _Unwind_Sword filter_value)
+{
+  const _Unwind_Word* e = ((const _Unwind_Word*) info->TType)
+			  - filter_value - 1;
+
+  return *e == 0;
+}
+
 #else
 typedef const std::type_info _throw_typet;
 
@@ -313,8 +324,6 @@ restore_caught_exception(struct _Unwind_Exception* ue_header,
 
 #define CONTINUE_UNWINDING return _URC_CONTINUE_UNWIND
 
-#endif // !__ARM_EABI_UNWINDER__
-
 // Return true if the filter spec is empty, ie throw().
 
 static bool
@@ -326,6 +335,8 @@ empty_exception_spec (lsda_header_info *info, _Unwind_Sword filter_value)
   e = read_uleb128 (e, &tmp);
   return tmp == 0;
 }
+
+#endif // !__ARM_EABI_UNWINDER__
 
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
