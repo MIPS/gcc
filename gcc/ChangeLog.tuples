@@ -1,3 +1,8 @@
+2006-11-13  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree-ssa-propagate.c (get_rhs): Use GIMPLE_MODIFY_STMT and
+        TREE_OPERAND when appropriate.
+
 2006-11-04  Aldy Hernandez  <aldyh@redhat.com>
 
         * java/java-tree.h (lang_tree_node): Handle gimple tuples.
