@@ -925,6 +925,7 @@ bool expressions_equal_p (tree, tree);
 static inline tree get_value_handle (tree);
 hashval_t vn_compute (tree, hashval_t);
 void sort_vuses (VEC (tree, gc) *);
+void sort_vuses_heap (VEC (tree, heap) *);
 tree vn_lookup_or_add (tree, tree);
 tree vn_lookup_or_add_with_vuses (tree, VEC (tree, gc) *);
 void vn_add (tree, tree);

@@ -1017,7 +1017,7 @@ OBJS-common = \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
  tree-ssa-structalias.o tree-object-size.o 				   \
- rtl-factoring.o
+ rtl-factoring.o tree-ssa-sccvn.o
 
 
 OBJS-md = $(out_object_file)
@@ -1917,6 +1917,11 @@ tree-ssa-copyrename.o : tree-ssa-copyrename.c $(TREE_FLOW_H) $(CONFIG_H) \
    bitmap.h $(FLAGS_H) $(HASHTAB_H) langhooks.h $(TREE_GIMPLE_H) \
    $(TREE_INLINE_H)
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
+   $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
+   $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H) \
+   alloc-pool.h $(BASIC_BLOCK_H) bitmap.h $(HASHTAB_H) $(TREE_GIMPLE_H) \
+   $(TREE_INLINE_H) tree-iterator.h
+tree-ssa-sccvn.o : tree-ssa-sccvn.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H) \
    alloc-pool.h $(BASIC_BLOCK_H) bitmap.h $(HASHTAB_H) $(TREE_GIMPLE_H) \

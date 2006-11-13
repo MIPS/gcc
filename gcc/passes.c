@@ -497,6 +497,7 @@ init_optimization_passes (void)
 
   /* Initial scalar cleanups.  */
   NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_scc_vn);
   NEXT_PASS (pass_fre);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_forwprop);

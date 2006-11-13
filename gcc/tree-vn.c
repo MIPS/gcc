@@ -393,6 +393,19 @@ sort_vuses (VEC (tree,gc) *vuses)
 	   vuses_compare);
 }
 
+/* Sort the VUSE array so that we can do equality comparisons
+   quicker on two vuse vecs.  */
+
+void 
+sort_vuses_heap (VEC (tree,heap) *vuses)
+{
+  if (VEC_length (tree, vuses) > 1)
+    qsort (VEC_address (tree, vuses),
+	   VEC_length (tree, vuses),
+	   sizeof (tree),
+	   vuses_compare);
+}
+
 /* Like vn_lookup, but creates a new value for expression EXPR, if
    EXPR doesn't already have a value.  Return the existing/created
    value for EXPR.  STMT represents the stmt associated with EXPR.  It is used
