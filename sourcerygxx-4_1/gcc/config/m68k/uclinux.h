@@ -54,6 +54,7 @@ Boston, MA 02110-1301, USA.  */
 	  /* Shared libraries and executables do not share	\
 	     typeinfo names.  */				\
 	  builtin_define ("__GXX_MERGED_TYPEINFO_NAMES=0");	\
+	  builtin_define ("__GXX_TYPEINFO_EQUALITY_INLINE=0");	\
 	}							\
     }								\
   while (0)
