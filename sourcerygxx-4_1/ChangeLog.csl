@@ -1,3 +1,18 @@
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	gcc/testsuite/
+	* gcc.dg/tree-ssa/stdarg-2.c, gcc.dg/tree-ssa/stdarg-4.c:
+	Condition PowerPC tests for saving FPRs on powerpc_fprs.
+	* gcc.target/powerpc/compress-float-ppc.c,
+	gcc.target/powerpc/compress-float-ppc-pic.c: Only test if
+	powerpc_fprs.
+	* gcc.target/powerpc/rs6000-power2-2.c: Only test if powerpc_fprs;
+	do not pass -mhard-float.
+
+	libstdc++-v3/
+	* testsuite/26_numerics/complex/13450.cc: Do not test long double
+	in IBM long double case.
+
 2006-11-13  Joseph Myers  <joseph@codesourcery.com>
 
 	libstdc++-v3/
