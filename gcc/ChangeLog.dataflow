@@ -1,4 +1,11 @@
 2006-11-14  Seongbae Park <seongbae.park@gmail.com>
+
+ 	* dbgcnt.c, dbgcnt.h: Added missing copyright notice. Now uses
+	dbgcnt.def for the list of counters.
+	* Makefile.in: Add missing dbgcnt.h header file dependencies.
+	* dbgcnt.def: New file.
+
+2006-11-14  Seongbae Park <seongbae.park@gmail.com>
 	
 	* tree-tailcall.c (execute_tail_recursion): Added dbg_cnt().
 	* df-scan.c (df_mw_hardreg_find_hardreg, df_get_conditional_uses,
