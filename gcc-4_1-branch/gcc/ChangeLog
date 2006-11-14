@@ -1,3 +1,51 @@
+2006-11-12  Jason Merrill  <jason@redhat.com>
+	    Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR middle-end/28915
+	* gimplify.c (gimplify_init_constructor): Don't reduce TREE_CONSTANT
+	vector ctors.
+	* tree-cfg.c (verify_expr): Don't look into TREE_CONSTANT
+	vector ctors.
+	* expmed.c (make_tree): Handle CONST, SYMBOL_REF.
+	* tree.c (build_vector): Handle non-_CST elements.
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (ld_vers): Parse GNU ld version 2.17.50.0.3-6 20060715
+	style versions.
+	* configure: Rebuilt.
+
+2006-11-13  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-10-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/21032
+	* convert.c (convert_to_real): Fold (float)-x to -(float)x
+	only if not flag_rounding_math.
+
+2006-11-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/28545
+	* tree-vrp.c (replace_uses_by_vrp): New function.
+	(remove_range_assertions): Use it.
+
+2006-11-12  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): Use builtin_define_std
+	instead of builtin_define for bfin and BFIN.
+
+2006-11-11  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (FUNCTION_PROFILER): Don't use LABELNO.
+	(NO_PROFILE_COUNTERS): Define as 1.
+
+2006-11-09  Janis Johnson  <janis187@us.ibm.com>
+
+	Backports from mainline.
+	* doc/sourcebuild.texi (Test Directives): Document dg-shouldfail,
+	output-exists and output-exists-not.
+
 2006-09-27  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config.gcc: Add cpu_type power6x.

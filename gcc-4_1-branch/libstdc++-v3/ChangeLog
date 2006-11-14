@@ -1,3 +1,13 @@
+2006-11-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/debug.cc (_Safe_sequence_base::_M_revalidate_singular): Fix
+	pasto, advance __iter only once per iteration.
+
+2006-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Prefer
+	strtold_l over __strtold_l if available.
+
 2006-10-30  Paolo Carlini  <pcarlini@suse.de>
 
 	* testsuite/tr1/6_containers/array/capacity/max_size.cc: Actually
