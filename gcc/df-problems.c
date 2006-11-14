@@ -3892,7 +3892,8 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
 	    && (!bitmap_bit_p (artificial_uses, dregno)) 
 	    && (!df_ignore_stack_reg (dregno)))
     {
-      rtx reg = *DF_REF_REAL_LOC (def);
+      rtx reg = (DF_REF_LOC (def)) 
+                ? *DF_REF_REAL_LOC (def): DF_REF_REG (def);
       rtx note = alloc_EXPR_LIST (REG_UNUSED, reg, REG_NOTES (insn));
       REG_NOTES (insn) = note;
 #ifdef REG_DEAD_DEBUGGING
@@ -4099,7 +4100,8 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 		   && (!(DF_REF_FLAGS (use) & DF_REF_READ_WRITE))
 		   && (!df_ignore_stack_reg (uregno)))
 		{
-		  rtx reg = *DF_REF_REAL_LOC (use);
+		  rtx reg = (DF_REF_LOC (use)) 
+                            ? *DF_REF_REAL_LOC (use) : DF_REF_REG (use);
 		  rtx note = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
 		  REG_NOTES (insn) = note;
 		  if (df->permanent_flags & DF_RI_LIFE)

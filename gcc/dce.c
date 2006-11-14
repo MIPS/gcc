@@ -205,6 +205,9 @@ init_dce (bool fast)
 	}
     }
 
+  if (dump_file)
+    df_dump (dce_df, dump_file);
+
   marked = BITMAP_ALLOC (NULL);
   marked_libcalls = BITMAP_ALLOC (NULL);
 }

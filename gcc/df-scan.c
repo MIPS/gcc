@@ -1354,6 +1354,20 @@ df_ref_add_to_chains (struct dataflow *dflow,
 }
 
 
+static struct df_mw_hardreg *
+df_mw_hardreg_find_hardreg (struct df_mw_hardreg *hardreg, struct df_ref *ref)
+{
+  for (; hardreg; hardreg = hardreg->next)
+    {
+      if (hardreg->type == DF_REF_TYPE (ref)
+          && hardreg->flags == (DF_REF_FLAGS (ref) & ~DF_REF_MW_HARDREG_GROUP)
+          && hardreg->mw_reg == DF_REF_REG (ref))
+        return hardreg;
+    }
+  return NULL;
+}
+
+
 /* Add a chain of df_refs to appropriate ref chain/reg_info/ref_info chains
    and update other necessary information */
 
@@ -1376,13 +1390,19 @@ df_refs_add_to_chains (struct dataflow *dflow,
           /* A beginning of a group of mw hardregs */
           struct df_insn_info *insn_info = DF_INSN_GET (df, insn);
 
-          hardreg = pool_alloc (problem_data->mw_reg_pool);
-          hardreg->next = insn_info->mw_hardregs;
-          insn_info->mw_hardregs = hardreg;
-          hardreg->type = DF_REF_TYPE (ref);
-          hardreg->flags = DF_REF_FLAGS (ref) & ~DF_REF_MW_HARDREG_GROUP;
-          hardreg->mw_reg = DF_REF_REG (ref);
-          hardreg->regs = NULL;
+          hardreg = df_mw_hardreg_find_hardreg (insn_info->mw_hardregs, 
+                                                ref);
+          if (hardreg == NULL) 
+            {
+              /* Matching hardreg group not found. Create one. */
+              hardreg = pool_alloc (problem_data->mw_reg_pool);
+              hardreg->next = insn_info->mw_hardregs;
+              insn_info->mw_hardregs = hardreg;
+              hardreg->type = DF_REF_TYPE (ref);
+              hardreg->flags = DF_REF_FLAGS (ref) & ~DF_REF_MW_HARDREG_GROUP;
+              hardreg->mw_reg = DF_REF_REG (ref);
+              hardreg->regs = NULL;
+            }
 
           /* MW_HARDREG_GROUP ref is just a placeholder, so free the memory. */
           pool_free (problem_data->ref_pool, ref);
@@ -1874,6 +1894,124 @@ df_insn_contains_asm (rtx insn)
 }
 
 
+
+/* For all DF_REF_CONDITIONAL defs, add a corresponding uses.  */
+
+static struct df_ref *
+df_get_conditional_uses (struct dataflow *dflow,
+                         struct df_ref *ref)
+{
+  struct df_ref dummy;
+  struct df_ref *uses = &dummy;
+
+  DF_REF_NEXT_REF (uses) = NULL;
+
+  for (; ref; ref = DF_REF_NEXT_REF (ref))
+    {
+      if (DF_REF_FLAGS_IS_SET (ref, DF_REF_CONDITIONAL))
+        {
+          struct df_ref *use;
+          enum df_ref_type t = DF_REF_TYPE (ref);
+          switch (t)
+            {
+              case DF_REF_REG_DEF:
+                t = DF_REF_REG_USE;
+                break;
+              case DF_REF_REG_MEM_STORE:
+                t = DF_REF_REG_MEM_LOAD;
+                break;
+              default:
+                /* Ignore non-defs. */
+                continue;
+            }
+          use = df_ref_create_structure (dflow,
+                                         DF_REF_REG (ref),
+                                         DF_REF_LOC (ref),
+                                         DF_REF_BB (ref),
+                                         DF_REF_INSN (ref),
+                                         t,
+                                         DF_REF_FLAGS (ref) & ~DF_REF_CONDITIONAL);
+          DF_REF_REGNO (use) = DF_REF_REGNO (ref);
+          DF_REF_CHAIN_APPEND (uses, use);
+        }
+    }
+
+  if (DF_REF_NEXT_REF (&dummy) == NULL) 
+    return NULL;
+
+
+  DF_REF_NEXT_REF (uses) = DF_REF_NEXT_REF (&dummy);
+  return uses;
+}
+
+
+/* Get call's extra defs and uses. */
+
+static struct df_ref *
+df_get_call_refs (struct dataflow *dflow, 
+                  struct df_ref *insn_refs, 
+                  basic_block bb, 
+                  rtx insn,
+                  enum df_ref_flags flags)
+{
+  rtx note;
+  bitmap_iterator bi;
+  unsigned int ui;
+  bool is_sibling_call;
+  unsigned int i;
+
+  /* Record the registers used to pass arguments, and explicitly
+     noted as clobbered.  */
+  for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
+       note = XEXP (note, 1))
+    {
+      if (GET_CODE (XEXP (note, 0)) == USE)
+        insn_refs = df_uses_record (dflow, insn_refs,
+                                    &XEXP (XEXP (note, 0), 0),
+                                    DF_REF_REG_USE,
+                                    bb, insn, flags);
+      else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
+        insn_refs = df_defs_record (dflow, insn_refs,
+                                    XEXP (note, 0), bb, insn, flags);
+    }
+
+  /* The stack ptr is used (honorarily) by a CALL insn.  */
+  insn_refs = df_ref_record (dflow, insn_refs,
+                             regno_reg_rtx[STACK_POINTER_REGNUM],
+                             NULL,
+                             bb, insn, 
+                             DF_REF_REG_USE, 
+                             DF_REF_CALL_STACK_USAGE | flags);
+
+  /* Calls may also reference any of the global registers,
+     so they are recorded as used.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (global_regs[i])
+      insn_refs = df_ref_record (dflow, insn_refs,
+                                 regno_reg_rtx[i],
+                                 NULL,
+                                 bb, insn, 
+                                 DF_REF_REG_USE, 
+                                 flags);
+
+  is_sibling_call = SIBLING_CALL_P (insn);
+  EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
+    {
+      if (!is_sibling_call
+          || !bitmap_bit_p (dflow->df->exit_block_uses, ui)
+          || refers_to_regno_p (ui, ui+1, 
+                                current_function_return_rtx, NULL))
+        insn_refs = df_ref_record (dflow, insn_refs,
+                                   regno_reg_rtx[ui], 
+                                   NULL,
+                                   bb, insn, 
+                                   DF_REF_REG_DEF, 
+                                   DF_REF_MAY_CLOBBER | flags);
+    }
+
+  return insn_refs;
+}
+
 /* Collect all refs in the INSN. 
    This function is free of any side-effect - 
    it will create and return a list of df_ref's (chained through next_ref) 
@@ -1884,8 +2022,8 @@ df_insn_refs_collect (struct dataflow *dflow, basic_block bb, rtx insn)
 {
   struct df_ref dummy;
   struct df_ref *insn_refs = &dummy;
+  struct df_ref *cond_uses;
   rtx note;
-  unsigned int i;
 
   DF_REF_NEXT_REF (insn_refs) = NULL;
   
@@ -1910,79 +2048,24 @@ df_insn_refs_collect (struct dataflow *dflow, basic_block bb, rtx insn)
 
   if (CALL_P (insn))
     {
-      rtx note;
-      bitmap_iterator bi;
-      unsigned int ui;
-      bool is_sibling_call;
-
-      /* Record the registers used to pass arguments, and explicitly
-         noted as clobbered.  */
-      for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
-           note = XEXP (note, 1))
-        {
-          if (GET_CODE (XEXP (note, 0)) == USE)
-            insn_refs = df_uses_record (dflow, insn_refs,
-                                        &XEXP (XEXP (note, 0), 0),
-                                        DF_REF_REG_USE,
-                                        bb, insn, 0);
-          else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
-            insn_refs = df_defs_record (dflow, insn_refs,
-                                        XEXP (note, 0), bb, insn, 0);
-        }
-
-      /* The stack ptr is used (honorarily) by a CALL insn.  */
-      insn_refs = df_ref_record (dflow, insn_refs,
-				 regno_reg_rtx[STACK_POINTER_REGNUM], NULL,
-				 bb, insn, DF_REF_REG_USE,
-				 DF_REF_CALL_STACK_USAGE);
-
-      /* Calls may also reference any of the global registers,
-         so they are recorded as used.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-        if (global_regs[i])
-          insn_refs = df_ref_record (dflow, insn_refs,
-				     regno_reg_rtx[i], NULL,
-				     bb, insn, DF_REF_REG_USE, 0);
-
-      is_sibling_call = SIBLING_CALL_P (insn);
-      EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
-        {
-          if (!is_sibling_call
-              || !bitmap_bit_p (dflow->df->exit_block_uses, ui)
-              || refers_to_regno_p (ui, ui+1, 
-                                    current_function_return_rtx, NULL))
-            insn_refs = df_ref_record (dflow, insn_refs,
-                                       regno_reg_rtx[ui], NULL, 
-                                       bb, insn, DF_REF_REG_DEF, 
-                                       DF_REF_MAY_CLOBBER);
-        }
-#if 0
-      if (SIBLING_CALL_P (insn))
-        {
-          struct df_ref *extra_refs = df_exit_block_uses_collect (dflow);
-          struct df_ref *ref;
-
-          /* Attach extra_refs at the end of insn_refs.  */
-          DF_REF_NEXT_REF (insn_refs) = extra_refs;
-
-          for (ref = extra_refs; ref; ref = DF_REF_NEXT_REF (ref))
-            {
-              /* This has implication on regs_ever_live marking,
-                 because what used to be only artificial uses are 
-                 now non-artificial uses. */
-              DF_REF_BB (ref) = bb;
-              DF_REF_INSN (ref) = insn;
-              DF_REF_FLAGS_SET (ref, DF_REF_ARTIFICIAL);
-              insn_refs = ref;
-            }
-          /* insn_refs now points to the last ref in the ref chain. */
-        }
-#endif
+       enum df_ref_flags extra_flags = (GET_CODE (PATTERN (insn)) == COND_EXEC) 
+                                ? DF_REF_CONDITIONAL : 0;
+       insn_refs = df_get_call_refs (dflow, insn_refs, bb, insn, extra_flags);
     }
 
   /* Record the register uses.  */
   insn_refs = df_uses_record (dflow, insn_refs,
                               &PATTERN (insn), DF_REF_REG_USE, bb, insn, 0);
+
+  /* DF_REF_CONDITIONAL needs corresponding USES. */
+  cond_uses = df_get_conditional_uses (dflow, DF_REF_NEXT_REF (&dummy));
+
+  if (cond_uses) 
+    {
+      DF_REF_NEXT_REF (insn_refs) = DF_REF_NEXT_REF (cond_uses);
+      DF_REF_NEXT_REF (cond_uses) = NULL;
+      insn_refs = cond_uses;
+    }
 
   return DF_REF_NEXT_REF (&dummy);
 }
@@ -2898,16 +2981,8 @@ df_insn_refs_verify (struct dataflow *dflow,
     {
       if (DF_REF_FLAGS_IS_SET (ref, DF_REF_MW_HARDREG_GROUP)) 
         {
-          for (hardreg = DF_INSN_GET (df, insn)->mw_hardregs; 
-               hardreg; 
-               hardreg = hardreg->next)
-            {
-              if (hardreg->type == DF_REF_TYPE (ref)
-                  && hardreg->flags == 
-                  (DF_REF_FLAGS (ref) & ~DF_REF_MW_HARDREG_GROUP)
-                  && hardreg->mw_reg == DF_REF_REG (ref))
-                break;
-            }
+          hardreg = DF_INSN_GET (df, insn)->mw_hardregs;
+          hardreg = df_mw_hardreg_find_hardreg (hardreg, ref);
           if (hardreg == NULL)
 	    {
 	      if (abort_if_fail)

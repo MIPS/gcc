@@ -1,3 +1,22 @@
+2006-11-14  Seongbae Park <seongbae.park@gmail.com>
+	
+	* tree-tailcall.c (execute_tail_recursion): Added dbg_cnt().
+	* df-scan.c (df_mw_hardreg_find_hardreg, df_get_conditional_uses,
+	df_get_call_refs):
+	New function.
+	(df_refs_add_to_chains): Don't add duplicate mw_hardreg.
+	(df_ins_refs_collect): Refactored to use df_get_conditional_uses
+	and df_get_call_refs.
+	(df_insn_refs_verify): Find the matching mw_hardreg.
+	* dbgcnt.c (dbg_cnt_process_opt): Fix a bug handling multiple
+	counters. Add a new debug counter tail_call.
+	* dbgcnt.h (enum debug_counter): Added a new counter tail_call.
+	* calls.c (expand_call): Check dbg_cnt(tail_call).
+	* df_problems.c (df_create_unused_note, df_ri_bb_compute):
+	Handle NULL LOC case.
+	* dce.c (init_dce): Add a debug dump.
+
+
 2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
 	
 	Merge from mainline:

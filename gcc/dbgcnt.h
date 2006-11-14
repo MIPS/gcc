@@ -1,5 +1,6 @@
 enum debug_counter {
    new_dce,
+   tail_call,
    debug_counter_number_of_counters
 };
 

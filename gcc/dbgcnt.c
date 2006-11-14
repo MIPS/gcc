@@ -13,7 +13,8 @@ struct string2counter_map {
 
 static struct string2counter_map map[debug_counter_number_of_counters] =
 {
-COUNTER(new_dce)
+COUNTER (new_dce),
+COUNTER (tail_call)
 };
 
 static int count[debug_counter_number_of_counters];
@@ -63,7 +64,9 @@ dbg_cnt_process_opt (const char *arg)
    while (comma)
      {
        colon = strchr (comma + 1, ':');
-       dbg_cnt_set_limit_by_name (comma + 1, colon - comma + 1, atoi (colon + 1));
+       if (colon == NULL || !(colon[1] >= '0' && colon[1] <= '9'))
+         return;
+       dbg_cnt_set_limit_by_name (comma + 1, colon - (comma + 1), atoi (colon + 1));
        comma = strchr (colon + 1, ',');
      }
 }
