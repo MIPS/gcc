@@ -870,7 +870,7 @@ coalesce_ssa_name (var_map map, int flags)
   for (x = 0 ; x < num; x++)
     {
       tree var = partition_to_var (map, x);
-      if (default_def (SSA_NAME_VAR (var)) == var)
+      if (SSA_NAME_IS_DEFAULT_DEF (var))
 	SET_BIT (live, x);
     }
 

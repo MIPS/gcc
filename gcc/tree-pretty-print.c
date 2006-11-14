@@ -1703,7 +1703,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
 	pp_string (buffer, "(ab)");
-      else if (node == default_def (SSA_NAME_VAR (node)))
+      else if (SSA_NAME_IS_DEFAULT_DEF (node))
 	pp_string (buffer, "(D)");
       break;
 

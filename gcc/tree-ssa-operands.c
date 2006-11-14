@@ -1457,7 +1457,7 @@ get_mem_symbols_in_aggregate (tree expr, int flags)
   HOST_WIDE_INT offset, size, maxsize;
 
   ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
-  if (SSA_VAR_P (ref))
+  if (SSA_VAR_P (ref) && !is_gimple_reg (ref))
     {
       bool added_symbols_p = false;
 
@@ -2298,13 +2298,15 @@ parse_ssa_operands (tree stmt)
 
     case SIGMA_NODE:
       {
-	/* A SIGMA operator creates a new name for all the symbols
-	   referenced by its partition operand.  */
+	/* A SIGMA operator creates a new name for all the memory
+	   symbols referenced by its partition operand.  */
 	stmt_ann (stmt)->references_memory = 1;
-	if (gathering_loads_stores ())
-	  bitmap_ior_into (stored_syms, MPT_SYMBOLS (SIGMA_MPT (stmt)));
-	else
-	  add_virtual_operator (opf_def);
+
+	/* SIGMA nodes take their stores and loads from the associated
+	   memory partition, so they should not be scanned for
+	   symbols.  */
+	gcc_assert (!gathering_loads_stores ());
+	add_virtual_operator (opf_def);
 	break;
       }
 
@@ -3056,7 +3058,6 @@ pop_stmt_changes (tree *stmt_p)
   if (stmt_references_memory_p (stmt))
     {
       bitmap factored_by_stmt, factored_by_vops;
-      bool all_marked_p;
 
       mp = get_loads_and_stores (stmt);
       loads = mp->loads;
@@ -3074,19 +3075,11 @@ pop_stmt_changes (tree *stmt_p)
       if (mp->stores)
 	bitmap_ior_into (factored_by_stmt, mp->stores);
 
-      all_marked_p = false;
-
       /* Gather all the symbols factored by the names in VOPS.  */
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
 	{
 	  bitmap syms;
-
-	  /* .MEM_0 factors every symbol.  */
-	  if (op == default_def (mem_var))
-	    {
-	      all_marked_p = true;
-	      break;
-	    }
+	  tree op_sym;
 
 	  /* If OP is not an SSA name or it has been released or it's
 	     marked to be released, skip it.  */
@@ -3095,17 +3088,22 @@ pop_stmt_changes (tree *stmt_p)
 	      || SSA_NAME_IN_FREE_LIST (op))
 	    continue;
 
-	  syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
-	  bitmap_ior_into (factored_by_vops, syms);
+	  op_sym = SSA_NAME_VAR (op);
+	  if (op_sym == mem_var)
+	    {
+	      syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
+	      bitmap_ior_into (factored_by_vops, syms);
+	    }
+	  else if (TREE_CODE (op_sym) == MEMORY_PARTITION_TAG)
+	    bitmap_ior_into (factored_by_vops, MPT_SYMBOLS (op_sym));
+	  else
+	    bitmap_set_bit (factored_by_vops, DECL_UID (SSA_NAME_VAR (op)));
 	}
 
-      /* If we didn't find .MEM_0, all the symbols in FACTORED_BY_STMT
-	 that are not in FACTORED_BY_VOPS need to be renamed.  */
-      if (!all_marked_p)
-	{
-	  bitmap_and_compl_into (factored_by_stmt, factored_by_vops);
-	  mark_set_for_renaming (factored_by_stmt);
-	}
+      /* All the symbols in FACTORED_BY_STMT that are not in
+	 FACTORED_BY_VOPS need to be renamed.  */
+      bitmap_and_compl_into (factored_by_stmt, factored_by_vops);
+      mark_set_for_renaming (factored_by_stmt);
 
       BITMAP_FREE (factored_by_vops);
       BITMAP_FREE (factored_by_stmt);
@@ -3206,7 +3204,7 @@ get_mpt_for (tree sym)
     HOST_WIDE_INT sym_alias_set;
     sym_alias_set = get_alias_set (sym);
     for (ix = 0; VEC_iterate (tree, mpt_table, ix, mpt); ix++)
-      if (get_alias_set (mpt) == sym_alias_set)
+      if (!alias_sets_conflict_p (get_alias_set (mpt), sym_alias_set))
 	break;
   }
 #if 0
@@ -3252,6 +3250,7 @@ dump_memory_partitions (FILE *file)
   unsigned i, npart;
   tree mpt;
 
+  fprintf (file, "\nMemory partitions\n\n");
   for (i = 0, npart = 0; VEC_iterate (tree, mpt_table, i, mpt); i++)
     if (mpt)
       {

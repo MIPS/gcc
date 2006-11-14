@@ -253,6 +253,8 @@ dump_referenced_vars (FILE *file)
       dump_variable (file, var);
       fprintf (file, "\n");
     }
+
+  dump_memory_partitions (file);
 }
 
 
@@ -675,6 +677,7 @@ set_default_def (tree var, tree def)
     }
   gcc_assert (TREE_CODE (def) == SSA_NAME);
   loc = htab_find_slot_with_hash (default_defs, &in, DECL_UID (var), INSERT);
+
   /* Default definition might be changed by tail call optimization.  */
   if (!*loc)
     {
@@ -686,8 +689,12 @@ set_default_def (tree var, tree def)
    else
     {
       h = (struct int_tree_map *) *loc;
+      SSA_NAME_IS_DEFAULT_DEF (h->to) = 0;
       h->to = def;
     }
+
+   /* Mark DEF as the default definition for VAR.  */
+   SSA_NAME_IS_DEFAULT_DEF (def) = 1;
 }
 
 /* Add VAR to the list of referenced variables if it isn't already there.  */

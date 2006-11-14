@@ -63,16 +63,31 @@ may_propagate_copy (tree dest, tree orig)
   tree type_d = TREE_TYPE (dest);
   tree type_o = TREE_TYPE (orig);
 
-  /* Handle copies between .MEM and memory symbols first.  They are
-     always OK, even though they may not be of compatible types.  Note
-     that we alway treat .MEM outside the usual symbol rules.  It
-     represents all of memory, and as such is compatible with any
-     symbol that needs to reside in memory.  */
-  if ((TREE_CODE (dest) == SSA_NAME && SSA_NAME_VAR (dest) == mem_var))
+  /* Handle copies between factoring symbols and regular memory
+     symbols.  They are always OK, even though they may not be of
+     compatible types.  For .MEM, all memory symbols are OK to copy.  */
+  if (TREE_CODE (dest) == SSA_NAME && SSA_NAME_VAR (dest) == mem_var)
     return TREE_CODE (orig) == SSA_NAME && !is_gimple_reg (orig);
-  else if (TREE_CODE (orig) == SSA_NAME && SSA_NAME_VAR (orig) == mem_var)
+
+  if (TREE_CODE (orig) == SSA_NAME && SSA_NAME_VAR (orig) == mem_var)
     return TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest);
 
+  /* For memory partitions, copies are OK as long as the memory symbol
+     belongs to the partition.  */
+  if (TREE_CODE (dest) == SSA_NAME
+      && TREE_CODE (SSA_NAME_VAR (dest)) == MEMORY_PARTITION_TAG)
+    return (TREE_CODE (orig) == SSA_NAME
+            && !is_gimple_reg (orig)
+	    && bitmap_bit_p (MPT_SYMBOLS (SSA_NAME_VAR (dest)),
+	                     DECL_UID (SSA_NAME_VAR (orig))));
+
+  if (TREE_CODE (orig) == SSA_NAME
+      && TREE_CODE (SSA_NAME_VAR (orig)) == MEMORY_PARTITION_TAG)
+    return (TREE_CODE (dest) == SSA_NAME
+            && !is_gimple_reg (dest)
+	    && bitmap_bit_p (MPT_SYMBOLS (SSA_NAME_VAR (orig)),
+	                     DECL_UID (SSA_NAME_VAR (dest))));
+  
   /* Do not copy between types for which we *do* need a conversion.  */
   if (!tree_ssa_useless_type_conversion_1 (type_d, type_o))
     return false;
@@ -199,12 +214,12 @@ merge_alias_info (tree orig, tree new)
   var_ann_t orig_ann = var_ann (orig_sym);
 
   /* No merging necessary when .MEM is involved.  */
-  if (new_sym == mem_var)
+  if (factoring_name_p (new))
     {
       gcc_assert (!is_gimple_reg (orig_sym));
       return;
     }
-  else if (orig_sym == mem_var)
+  else if (factoring_name_p (orig))
     {
       gcc_assert (!is_gimple_reg (new_sym));
       return;

@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "tree-ssa-propagate.h"
 
 /* TODO:
 
@@ -1864,14 +1865,8 @@ compute_vuse_representatives (void)
 	    }
 	  FOR_EACH_PHI_ARG (usep, phi, iter, SSA_OP_ALL_USES)
 	    {
-	      bitmap usebitmap;
-
 	      tree use = USE_FROM_PTR (usep);
-
-	      if (is_gimple_min_invariant (use))
-		continue;
-
-	      usebitmap = get_representative (vuse_names,
+	      bitmap usebitmap = get_representative (vuse_names,
 						     SSA_NAME_VERSION (use));
 	      if (usebitmap != NULL)
 		{
@@ -1983,7 +1978,7 @@ compute_rvuse_and_antic_safe (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
-	  
+
 	  if (first_store_uid[bb->index] == 0 
 	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VDEF))
 	    {
@@ -2411,6 +2406,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  vn_add (forcedname, val);
 	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
 	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
+	  mark_symbols_for_renaming (stmt);
 	}
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
@@ -2522,6 +2518,29 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
 
       if (can_PRE_operation (eprime))
 	{
+#ifdef ENABLE_CHECKING
+	  tree vh;
+
+	  /* eprime may be an invariant.  */
+	  vh = TREE_CODE (eprime) == VALUE_HANDLE
+	    ? eprime
+	    : get_value_handle (eprime);
+
+	  /* ensure that the virtual uses we need reach our block.  */
+	  if (TREE_CODE (vh) == VALUE_HANDLE)
+	    {
+	      int i;
+	      tree vuse;
+	      for (i = 0;
+		   VEC_iterate (tree, VALUE_HANDLE_VUSES (vh), i, vuse);
+		   i++)
+		{
+		  size_t id = SSA_NAME_VERSION (vuse);
+		  gcc_assert (bitmap_bit_p (RVUSE_OUT (bprime), id)
+			      || IS_EMPTY_STMT (SSA_NAME_DEF_STMT (vuse)));
+		}
+	    }
+#endif
 	  builtexpr = create_expression_by_pieces (bprime,
 						   eprime,
 						   stmts);
@@ -3075,8 +3094,7 @@ try_look_through_load (tree lhs, tree mem_ref, tree stmt, basic_block block)
 	 uses, we can stop right here.  Note that this means we do
 	 not look through PHI nodes, which is intentional.  */
       if (!def_stmt
-	  || TREE_CODE (def_stmt) != MODIFY_EXPR
-	  || !ZERO_SSA_OPERANDS (def_stmt, SSA_OP_VIRTUAL_USES))
+	  || !stmt_makes_single_store (def_stmt))
 	return false;
 
       /* If this is not the same statement as one we have looked at for

@@ -200,7 +200,7 @@ memory_ssa_name_same (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* If we've found a default definition, then there's no problem.  Both
      stores will post-dominate it.  And def_bb will be NULL.  */
-  if (expr == default_def (SSA_NAME_VAR (expr)))
+  if (SSA_NAME_IS_DEFAULT_DEF (expr))
     return NULL_TREE;
 
   def_stmt = SSA_NAME_DEF_STMT (expr);
@@ -242,20 +242,18 @@ memory_address_same (tree store1, tree store2)
    Given a MODIFY_EXPR in STMT, check that each VDEF has one use, and that
    one use is another VDEF clobbering the first one.
 
-   Return TRUE if we above conditions are met, otherwise FALSE.  */
+   Return TRUE if the above conditions are met, otherwise FALSE.  */
 
 static bool
 dse_possible_dead_store_p (tree stmt,
 			   use_operand_p *first_use_p,
 			   use_operand_p *use_p,
 			   tree *use_stmt,
-			   tree *usevar,
 			   struct dse_global_data *dse_gd,
 			   struct dse_block_local_data *bd)
 {
   ssa_op_iter op_iter;
   bool fail = false;
-  use_operand_p var2;
   def_operand_p var1;
   vuse_vec_p vv;
   tree defvar = NULL_TREE, temp;
@@ -270,14 +268,11 @@ dse_possible_dead_store_p (tree stmt,
   *use_stmt = NULL;
   FOR_EACH_SSA_VDEF_OPERAND (var1, vv, stmt, op_iter)
     {
-      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
-      var2 = VUSE_ELEMENT_PTR (*vv, 0);
       defvar = DEF_FROM_PTR (var1);
-      *usevar = USE_FROM_PTR (var2);
 
       /* If this virtual def does not have precisely one use, then
 	 we will not be able to eliminate STMT.  */
-      if (! has_single_use (defvar))
+      if (!has_single_use (defvar))
 	{
 	  fail = true;
 	  break;
@@ -564,10 +559,9 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
       use_operand_p first_use_p = NULL_USE_OPERAND_P;
       use_operand_p use_p = NULL;
       tree use_stmt;
-      tree usevar = NULL_TREE;
 
       if (!dse_possible_dead_store_p (stmt, &first_use_p, &use_p, &use_stmt,
-				    &usevar, dse_gd, bd))
+				      dse_gd, bd))
 	return;
 
       /* If this is a partial store into an aggregate, record it.  */
@@ -585,13 +579,9 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  && memory_address_same (stmt, use_stmt))
 	{
 	  ssa_op_iter op_iter;
-	  use_operand_p var2;
 	  def_operand_p var1;
 	  vuse_vec_p vv;
-
-	  /* Make sure we propagate the ABNORMAL bit setting.  */
-	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (USE_FROM_PTR (first_use_p)))
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (usevar) = 1;
+	  tree stmt_lhs;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
             {
@@ -599,16 +589,36 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
               print_generic_expr (dump_file, bsi_stmt (bsi), dump_flags);
               fprintf (dump_file, "'\n");
             }
+
 	  /* Then we need to fix the operand of the consuming stmt.  */
+	  stmt_lhs = USE_FROM_PTR (first_use_p);
 	  FOR_EACH_SSA_VDEF_OPERAND (var1, vv, stmt, op_iter)
 	    {
-	      tree temp;
+	      struct vdef_optype_d *vdefs;
+	      int i;
+	      tree lhs;
 
-	      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
-	      var2 = VUSE_ELEMENT_PTR (*vv, 0);
-	      single_imm_use (DEF_FROM_PTR (var1), &use_p, &temp);
-	      SET_USE (use_p, USE_FROM_PTR (var2));
+	      /* USE_STMT should have exactly one VDEF operator.  */
+	      vdefs = VDEF_OPS (use_stmt);
+	      gcc_assert (vdefs && vdefs->next == NULL);
+
+	      /* Preserve the original LHS of the consuming statement.  */
+	      lhs = VDEF_RESULT (vdefs);
+
+	      vdefs = realloc_vdef (vdefs, VUSE_VECT_NUM_ELEM (*vv));
+	      for (i = 0; i < VUSE_VECT_NUM_ELEM (*vv); i++)
+		{
+		  tree usevar = VUSE_ELEMENT_VAR (*vv, i);
+		  SET_USE (VDEF_OP_PTR (vdefs, i), usevar);
+
+		  /* Make sure we propagate the ABNORMAL bit setting.  */
+		  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (stmt_lhs))
+		    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (usevar) = 1;
+		}
+
+	      SET_DEF (VDEF_RESULT_PTR (vdefs), lhs);
 	    }
+
 	  /* Remove the dead store.  */
 	  bsi_remove (&bsi, true);
 
@@ -795,8 +805,7 @@ tree_ssa_dse (void)
 static bool
 gate_dse (void)
 {
-  return false;
-  /*return flag_tree_dse != 0;*/
+  return flag_tree_dse != 0;
 }
 
 struct tree_opt_pass pass_dse = {

@@ -1361,10 +1361,7 @@ get_reaching_def (tree var)
      default definition for it (if needed).  */
   if (currdef == NULL_TREE)
     {
-      /* If VAR is not a GIMPLE register, use the default definition
-	 for .MEM.  */
       tree sym = DECL_P (var) ? var : SSA_NAME_VAR (var);
-      sym = (is_gimple_reg (sym)) ? sym : mem_var;
       currdef = get_default_def_for (sym);
       set_current_def (var, currdef);
     }
@@ -2102,6 +2099,8 @@ rewrite_vops (tree stmt, bitmap rdefs, int which_vops)
 static void
 rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
 {
+  use_operand_p use_p;
+  ssa_op_iter iter;
   unsigned i;
   bitmap_iterator bi;
   bitmap unmarked_syms = NULL;
@@ -2131,98 +2130,32 @@ rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
   /* Preserve names from VOPS that are needed for the symbols that
      have not been marked for renaming.  */
   if (unmarked_syms)
-    {
-      tree name;
-      use_operand_p use_p;
-      ssa_op_iter iter;
-      bitmap old_rdefs;
-      unsigned i;
-      bitmap_iterator bi;
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, which_vops)
+      {
+	tree sym, name;
 
-      old_rdefs = BITMAP_ALLOC (NULL);
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, which_vops)
-	{
-	  name = USE_FROM_PTR (use_p);
-	  if (TREE_CODE (name) == SSA_NAME)
-	    bitmap_set_bit (old_rdefs, SSA_NAME_VERSION (name));
-	}
+	name = USE_FROM_PTR (use_p);
+	if (TREE_CODE (name) != SSA_NAME)
+	  continue;
 
-      bitmap_and_compl_into (old_rdefs, rdefs);
-
-      /* Determine which of the existing SSA names in VOPS can be
-	 discarded.  */
-      EXECUTE_IF_SET_IN_BITMAP (old_rdefs, 0, i, bi)
-	{
-	  tree name = ssa_name (i);
-	  tree sym = SSA_NAME_VAR (name);
-
-	  if (name_marked_for_release_p (name) || stale_ssa_name_p (name))
-	    {
-	      /* Names in OLD_RDEFS that are marked for release or
-		 stale are discarded.  */
-	      continue;
-	    }
-	  else if (name == default_def (mem_var))
-	    {
-	      /* .MEM's default definition is always kept.  */
-	      bitmap_set_bit (rdefs, i);
-	    }
-	  else if (is_gimple_reg (name))
-	    {
-	      /* Names that have been promoted to be GIMPLE registers
-		 are discarded, as they clearly do not belong in
-		 virtual operands anymore.  */
-	      gcc_assert (symbol_marked_for_renaming (SSA_NAME_VAR (name)));
-	      continue;
-	    }
-	  else if (!dominated_by_p (CDI_DOMINATORS, bb_for_stmt (stmt),
-		                    bb_for_stmt (SSA_NAME_DEF_STMT (name))))
-	    {
-	      /* If NAME's definition statement no longer dominates
-		 STMT, then it clearly cannot reach it anymore.  */
-	      continue;
-	    }
-	  else if (sym != mem_var && !bitmap_bit_p (syms, DECL_UID (sym)))
-	    {
-	      /* If NAME's symbol is not in SYMS, then it's no longer
-		 loaded/stored by the statement and can be discarded.  */
-	      continue;
-	    }
-	  else
-	    {
-	      /* If a name in OLD_RDEFS only matches symbols that have
-		 been marked for renaming, then those symbols have
-		 already been matched above by their current reaching
-		 definition (i.e., by one of the names in RDEFS),
-		 therefore they need to be discarded.  */
-	      bitmap syms;
-	      syms = get_loads_and_stores (SSA_NAME_DEF_STMT (name))->stores;
-
-	      if (bitmap_empty_p (syms))
-		{
-		  /* If NAME factors no symbols, it must be discarded.  */
-		  continue;
-		}
-	      else if (bitmap_intersect_p (syms, syms_to_rename)
-		       && !bitmap_intersect_p (syms, unmarked_syms))
-		{
-		  /* If NAME factors symbols marked for renaming but
-		     it does not factor any symbols in UNMARKED_SYMS,
-		     then it is not needed because a different name is
-		     now the reaching definition for those symbols.  */
-		  continue;
-		}
-	      else
-		{
-		  /* Otherwise, NAME must be factoring one of the
-		     unmarked symbols.  Leave it.  */
-		  bitmap_set_bit (rdefs, i);
-		}
-	    }
-	}
-
-      BITMAP_FREE (unmarked_syms);
-    }
+	sym = SSA_NAME_VAR (name);
+	if (sym == mem_var
+	    && !name_marked_for_release_p (name))
+	  {
+	    tree def_stmt = SSA_NAME_DEF_STMT (name);
+	    bitmap syms = get_loads_and_stores (def_stmt)->stores;
+	    if (bitmap_intersect_p (syms, unmarked_syms))
+	      bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
+	  }
+	else if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
+	  {
+	    bitmap syms = MPT_SYMBOLS (sym);
+	    if (bitmap_intersect_p (syms, unmarked_syms))
+	      bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
+	  }
+	else if (bitmap_bit_p (unmarked_syms, DECL_UID (sym)))
+	  bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
+      }
 
   /* Rewrite the appropriate virtual operand setting its RHS to RDEFS.  */
   rewrite_vops (stmt, rdefs, which_vops);
@@ -2313,13 +2246,13 @@ rewrite_update_memory_stmt (tree stmt)
   rdefs = BITMAP_ALLOC (NULL);
 
   /* Rewrite loaded symbols marked for renaming.  */
-  if (syms->loads && bitmap_intersect_p (syms->loads, syms_to_rename))
+  if (syms->loads && bitmap_intersect_p (syms->loads, mem_syms_to_rename))
     {
       rewrite_update_stmt_vops (stmt, syms->loads, rdefs, SSA_OP_VUSE);
       bitmap_clear (rdefs);
     }
 
-  if (syms->stores && bitmap_intersect_p (syms->stores, syms_to_rename))
+  if (syms->stores && bitmap_intersect_p (syms->stores, mem_syms_to_rename))
     {
       /* Rewrite stored symbols marked for renaming.  */
       rewrite_update_stmt_vops (stmt, syms->stores, rdefs, SSA_OP_VMAYUSE);
@@ -2437,6 +2370,7 @@ replace_factored_phi_argument (tree phi, edge e)
   bitmap_iterator bi;
   unsigned i;
   tree rdef, last_rdef, lhs_sym;
+  bool all_default_rdefs_p;
 
   phi_syms = get_loads_and_stores (phi)->stores;
   lhs_sym = SSA_NAME_VAR (PHI_RESULT (phi));
@@ -2446,15 +2380,34 @@ replace_factored_phi_argument (tree phi, edge e)
      factor multiple reaching definitions.  If the argument
      corresponding to edge E has more than one reaching definition,
      then a new SIGMA expression is needed in E->SRC to factor the
-     multiple reaching definitions.  */
+     multiple reaching definitions.
+
+     To prevent the insertion of unnecessary SIGMA nodes, we check
+     whether the reaching definitions are all default definitions.  In
+     that case, we can avoid the creation of the SIGMA node by simply
+     using the default definition for the memory partition on the LHS
+     of this PHI node.  */
   rdef = last_rdef = NULL_TREE;
+  all_default_rdefs_p = true;
   EXECUTE_IF_AND_IN_BITMAP (phi_syms, mem_syms_to_rename, 0, i, bi)
     {
       rdef = get_reaching_def (referenced_var (i));
+
+      if (!SSA_NAME_IS_DEFAULT_DEF (rdef))
+	all_default_rdefs_p = false;
+
       if (last_rdef && rdef != last_rdef)
 	{
-	  rdef = create_sigma_node (lhs_sym, e->src);
-	  break;
+	  /* Only create a SIGMA node if RDEF is different from the
+	     previous one and either RDEF or LAST_RDEF are not a
+	     default definition for their symbol.  */
+	  if (!all_default_rdefs_p)
+	    {
+	      rdef = create_sigma_node (lhs_sym, e->src);
+	      break;
+	    }
+	  else
+	    rdef = get_default_def_for (SSA_NAME_VAR (PHI_RESULT (phi)));
 	}
 
       last_rdef = rdef;
@@ -2977,6 +2930,22 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	}
     }
 
+  /* If the last statement in BB is a block terminator that makes a
+     memory store, the renamer will not be able to insert SIGMA nodes
+     at BB.  The reason is that if the name created by LAST needs to
+     be used by the SIGMA node, we will have an SSA name used before
+     its definition.
+     
+     Furthermore, at least one edge coming out of BB will be an
+     abnormal edge, so we cannot insert the SIGMA node on that edge
+     either.  To prevent this problem, we add all the memory
+     partitions marked for renaming to the set of stores in LAST.
+     This way, LAST becomes the memory sink for all those names.
+
+     NOTE: A cleaner alternative would be to allow SIGMA nodes
+	   to live in separate statement lists at the bottom of basic
+	   blocks, much like PHI nodes live in special lists at the
+	   beginning of blocks.  */
   last = last_stmt (bb);
   if (last
       && stmt_references_memory_p (last)
@@ -3496,7 +3465,7 @@ insert_updated_phi_nodes_for (tree var, bitmap *dfs, bitmap blocks,
   if (TREE_CODE (var) == SSA_NAME)
     gcc_assert (is_old_name (var));
   else
-    gcc_assert (var == mem_var || symbol_marked_for_renaming (var));
+    gcc_assert (symbol_marked_for_renaming (var));
 #endif
 
   /* Get all the definition sites for VAR.  */
@@ -3660,8 +3629,8 @@ switch_virtuals_to_full_rewrite (void)
       		x$a_45 = y$a_35;
       		x$b_46 = y$b_34;
       	    endif
-                  # .MEM_59 = PHI <.MEM_15, .MEM_39>
-                  # x$a_60 = PHI <x$a_40, x$a_45>
+            # .MEM_59 = PHI <.MEM_15, .MEM_39>
+            # x$a_60 = PHI <x$a_40, x$a_45>
       	    # x$b_61 = PHI <x$b_41, x$b_46>
 
    Both .MEM_15 and .MEM_39 have disappeared and have been marked
@@ -3671,7 +3640,10 @@ switch_virtuals_to_full_rewrite (void)
    downstream.  However, the SSA verifier will see uses of .MEM_15
    and .MEM_39 and trigger an ICE.  By replacing both of them with
    .MEM's default definition, we placate the verifier and maintain
-   the removability of this PHI node.  */
+   the removability of this PHI node.
+
+   FIXME, this restriction can be lifted.  No special reason not to
+   consider .MEM just another symbol.  */
 
 static void
 replace_stale_ssa_names (void)

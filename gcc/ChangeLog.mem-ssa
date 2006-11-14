@@ -1,3 +1,51 @@
+2006-11-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-into-ssa.c (get_reaching_def): Do not use .MEM's
+	default definition for every memory symbol.
+	(rewrite_update_stmt_vops): Simplify logic used to keep
+	existing SSA names in virtual operands.
+	(rewrite_update_memory_stmt): Check if memory loads and stores
+	against mem_syms_to_rename instead of syms_to_rename.
+	(replace_factored_phi_argument): Do no insert a SIGMA node if
+	all the reaching definitions are default definitions.
+	* tree.c (needs_to_live_in_memory): Revert predicate to the
+	same predicate used in mainline.
+	* tree.h (SSA_NAME_IS_DEFAULT_DEF): Define.
+	Change every check using the call to default_def to use this.
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Adapt to support
+	virtual operators with multiple operands.
+	(dse_optimize_stmt): Likewise.
+	(tree_ssa_dse): Re-enable DSE.
+	* tree-ssa-alias.c (compute_memory_partitions): New.
+	(compute_may_aliases): Call it.
+	(dump_alias_info): Call dump_memory_partitions.
+	(may_be_aliased): Revert changes to use the same predicate
+	used in mainline.
+	* tree-dfa.c (dump_referenced_vars): Call
+	dump_memory_partitions.
+	(set_default_def): Set/clear SSA_NAME_IS_DEFAULT_DEF.
+	* tree-ssa-pre.c: Include tree-ssa-propagate.h
+	(compute_vuse_representatives): Merge with mainline.
+	(create_expression_by_pieces): Likewise.
+	(insert_into_preds_of_block): Likewise.
+	(try_look_through_load): Call stmt_makes_single_store to
+	determine if DEF_STMT is storing an interesting value.
+	* tree-ssa-copy.c (may_propagate_copy): Handle copies between
+	memory symbols and memory partitions.
+	(merge_alias_info): Likewise.
+	* tree-ssa.c (verify_ssa_name): Verify that default names have
+	an empty definition statement.
+	* Makefile.in (tree-ssa-pre.o): Add dependency on
+	tree-ssa-propagate.h.
+	* tree-ssanames.c (make_ssa_name): Initialize
+	SSA_NAME_IS_DEFAULT_DEF.
+	* tree-ssa-operands.c (get_mem_symbols_in_aggregate): Ignore
+	REF if it is an SSA name for a register.
+	(parse_ssa_operands): Assert that the caller is not trying to
+	gather loads and stores for SIGMA nodes.
+	(pop_stmt_changes): Handle memory partitions.
+	(dump_memory_partitions): Add title.
+
 2006-11-10  Diego Novillo  <dnovillo@redhat.com>
 
 	Initial support for memory partitions.

@@ -2218,7 +2218,7 @@ get_constraint_exp_from_ssa_var (tree t)
      decl.  */
   if (TREE_CODE (t) == SSA_NAME 
       && TREE_CODE (SSA_NAME_VAR (t)) == PARM_DECL 
-      && default_def (SSA_NAME_VAR (t)) == t)
+      && SSA_NAME_IS_DEFAULT_DEF (t))
     return get_constraint_exp_from_ssa_var (SSA_NAME_VAR (t));
 
   cexpr.type = SCALAR;
@@ -4175,7 +4175,7 @@ find_what_p_points_to (tree p)
      decl.  */
   if (TREE_CODE (p) == SSA_NAME 
       && TREE_CODE (SSA_NAME_VAR (p)) == PARM_DECL 
-      && default_def (SSA_NAME_VAR (p)) == p)
+      && SSA_NAME_IS_DEFAULT_DEF (p))
     lookup_p = SSA_NAME_VAR (p);
 
   if (lookup_id_for_tree (lookup_p, &id))

@@ -136,12 +136,10 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-  /* All the memory SSA names must use the same default definition.  */
-  if (is_virtual
-      && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && SSA_NAME_VAR (ssa_name) != mem_var)
+  if (SSA_NAME_IS_DEFAULT_DEF (ssa_name)
+      && !IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
     {
-      error ("the default definition of a memory symbol should be .MEM_0(D)");
+      error ("found a default name with a non-empty defining statement");
       return true;
     }
 
@@ -231,7 +229,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
+      && SSA_NAME_IS_DEFAULT_DEF (ssa_name))
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -254,7 +252,6 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
     }
 
   if (check_abnormal
-      && ssa_name != default_def (mem_var)
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name))
     {
       error ("SSA_NAME_OCCURS_IN_ABNORMAL_PHI should be set");

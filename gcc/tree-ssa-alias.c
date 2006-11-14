@@ -440,6 +440,20 @@ compute_call_clobbered (struct alias_info *ai)
 }
 
 
+/* Compute memory partitions for every memory variable.  */
+
+static void
+compute_memory_partitions (void)
+{
+  referenced_var_iterator rvi;
+  tree var;
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    if (!is_gimple_reg (var))
+      get_mpt_for (var);
+}
+
+
 /* Compute may-alias information for every variable referenced in function
    FNDECL.
 
@@ -545,6 +559,9 @@ compute_may_aliases (void)
   if (ai->ref_all_symbol_mem_tag)
     finalize_ref_all_pointers (ai);
 
+  /* Compute memory partitions for every memory variable.  */
+  compute_memory_partitions ();
+
   /* Debugging dumps.  */
   if (dump_file)
     {
@@ -558,15 +575,6 @@ compute_may_aliases (void)
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
 
-  /* Compute memory partitions for every memory variable.  */
-  {
-    referenced_var_iterator rvi;
-    tree var;
-
-    FOR_EACH_REFERENCED_VAR (var, rvi)
-      if (!is_gimple_reg (var))
-	get_mpt_for (var);
-  }
 
   {
     block_stmt_iterator bsi;
@@ -2006,6 +2014,8 @@ dump_alias_info (FILE *file)
 	dump_variable (file, var);
     }
 
+  dump_memory_partitions (file);
+
   fprintf (file, "\n");
 }
 
@@ -2199,7 +2209,11 @@ may_be_aliased (tree var)
 
   /* Globally visible variables can have their addresses taken by other
      translation units.  */
-  if (is_global_var (var))
+  if (MTAG_P (var)
+      && (MTAG_GLOBAL (var) || TREE_PUBLIC (var)))
+    return true;
+  else if (!MTAG_P (var)
+           && (DECL_EXTERNAL (var) || TREE_PUBLIC (var)))
     return true;
 
   /* Automatic variables can't have their addresses escape any other
