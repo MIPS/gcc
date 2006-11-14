@@ -1,5 +1,10 @@
 2006-11-14  Seongbae Park <seongbae.park@gmail.com>
 
+	* function.c (thread_prologue_and_epilogue_insns):
+	Update regs_ever_live during df scanning.
+
+2006-11-14  Seongbae Park <seongbae.park@gmail.com>
+
  	* dbgcnt.c, dbgcnt.h: Added missing copyright notice. Now uses
 	dbgcnt.def for the list of counters.
 	* Makefile.in: Add missing dbgcnt.h header file dependencies.

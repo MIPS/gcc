@@ -5093,7 +5093,7 @@ thread_prologue_and_epilogue_insns (void)
 #endif
   edge_iterator ei;
 
-  prologue_epilogue_df = df_init (0, DF_NO_REGS_EVER_LIVE);
+  prologue_epilogue_df = df_init (0, 0);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and
@@ -5136,7 +5136,6 @@ thread_prologue_and_epilogue_insns (void)
       inserted = 1;
     }
 #endif
-   df_compute_regs_ever_live (prologue_epilogue_df, regs_ever_live);
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
