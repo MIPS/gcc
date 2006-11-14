@@ -128,7 +128,9 @@ enum df_ref_flags
 
     /* This flag is a marker for general purpose use.
        Used for verification of existing refs. */
-    DF_REF_MARKER = 1 << 11
+    DF_REF_MARKER = 1 << 11,
+
+    DF_REF_ARTIFICIAL = 1 << 12
   };
 
 
@@ -326,7 +328,8 @@ enum df_changeable_flags
   DF_LR_RUN_DCE    = 1,  /* Run DCE.  */
   DF_NO_HARD_REGS  = 2,  /* Skip hard registers in RD and CHAIN Building.  */
   DF_EQ_NOTES      = 4,  /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_RI_NO_UPDATE  = 8   /* Do not update the register info when df_analyze is run.  */
+  DF_RI_NO_UPDATE  = 8,  /* Do not update the register info when df_analyze is run.  */
+  DF_NO_REGS_EVER_LIVE = 16 /* Do not compute the regs_ever_live.  */
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -481,7 +484,8 @@ struct df
    but an artificial one created to model 
    always live registers, eh uses, etc.  
    ARTIFICIAL refs has NULL insn.  */
-#define DF_REF_IS_ARTIFICIAL(REF) ((REF)->insn == NULL)
+#define DF_REF_IS_ARTIFICIAL(REF) ((REF)->insn == NULL \
+                        || DF_REF_FLAGS_IS_SET ((REF), DF_REF_ARTIFICIAL))
 #define DF_REF_MARK(REF) (DF_REF_FLAGS_SET ((REF),DF_REF_MARKER))
 #define DF_REF_UNMARK(REF) (DF_REF_FLAGS_CLEAR ((REF),DF_REF_MARKER))
 #define DF_REF_IS_MARKED(REF) (DF_REF_FLAGS_IS_SET ((REF),DF_REF_MARKER))
@@ -766,6 +770,7 @@ extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *);
 extern void df_ref_remove (struct df *, struct df_ref *);
 extern void df_insn_create_insn_record (struct dataflow *, rtx);
 extern void df_insn_delete (rtx);
+extern void df_bb_refs_record (int, bool);
 extern void df_bb_delete (unsigned int);
 extern bool df_insn_rescan (rtx);
 extern void df_insn_refs_record (struct dataflow *, rtx, struct df_ref *);

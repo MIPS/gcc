@@ -69,6 +69,8 @@
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
 #endif
 
+#define IFCVT_MULTIPLE_DUMPS 1
+
 #define NULL_BLOCK	((basic_block) NULL)
 
 /* # of IF-THEN or IF-THEN-ELSE blocks we looked at  */
@@ -3860,10 +3862,14 @@ if_convert (void)
 	  || !targetm.have_named_sections))
     {
       struct loops loops;
+      if (dump_file)
+	fprintf (dump_file, "starting loop analysis.\n");
       flow_loops_find (&loops);
       mark_loop_exit_edges (&loops);
       flow_loops_free (&loops);
       free_dominance_info (CDI_DOMINATORS);
+      if (dump_file)
+	fprintf (dump_file, "ending loop analysis.\n");
     }
 
   /* Compute postdominators if we think we'll use them.  */
@@ -3981,7 +3987,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish |
-  TODO_verify_flow |
+  TODO_df_verify_scan |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4019,7 +4025,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
-  TODO_verify_flow |
+  TODO_df_verify_scan |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4055,7 +4061,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* todo_flags_start */
   TODO_df_finish |
   TODO_dump_func |
-  TODO_verify_flow |
+  TODO_df_verify_scan |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */
 };

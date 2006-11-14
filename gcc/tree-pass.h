@@ -222,6 +222,10 @@ struct dump_file_info
    the instance before it is destroyed.  */
 #define TODO_df_finish                  (1 << 15)
 
+/* Verify that all the incremental scanning of the df infomation is
+   correct.  */
+#define TODO_df_verify_scan             (1 << 16)
+
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
      | TODO_update_ssa_no_phi		\

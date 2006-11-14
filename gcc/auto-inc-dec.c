@@ -1014,6 +1014,7 @@ find_inc (bool first_try)
   rtx insn;
   basic_block bb = BASIC_BLOCK (BLOCK_NUM (mem_insn.insn));
   rtx other_insn;
+  struct df_ref *def;
 
   /* Make sure this reg appears only once in this insn.  */
   if (count_occurrences (PATTERN (mem_insn.insn), mem_insn.reg0, 1) != 1)
@@ -1052,6 +1053,18 @@ find_inc (bool first_try)
 	  return find_inc (false);
 	}
       else
+	return false;
+    }
+
+  /* Need to assure that none of the operands of the inc instruction are 
+     assigned to by the mem insn.  */
+  for (def = DF_INSN_DEFS (df, mem_insn.insn); def; def = def->next_ref)
+    {
+      unsigned int regno = DF_REF_REGNO (def);
+      if ((regno == REGNO (inc_insn.reg0)) 
+	  || (regno == REGNO (inc_insn.reg_res)))
+	return false;
+      if (!inc_insn.reg1_is_const && (regno == REGNO (inc_insn.reg1)))
 	return false;
     }
 

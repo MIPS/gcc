@@ -304,6 +304,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   bb->flags = BB_NEW | BB_RTL;
   link_block (bb, after);
   SET_BASIC_BLOCK (bb->index, bb);
+  df_bb_refs_record (bb->index, false);
   update_bb_for_insn (bb);
   BB_SET_PARTITION (bb, BB_UNPARTITIONED);
 
@@ -389,6 +390,8 @@ rtl_delete_block (basic_block b)
   BB_HEAD (b) = NULL;
   delete_insn_chain (insn, end);
 
+  if (dump_file)
+    fprintf (dump_file, "deleting block %d\n", b->index);
   df_delete_basic_block (b->index);
 }
 
@@ -554,6 +557,9 @@ rtl_merge_blocks (basic_block a, basic_block b)
   rtx b_head = BB_HEAD (b), b_end = BB_END (b), a_end = BB_END (a);
   rtx del_first = NULL_RTX, del_last = NULL_RTX;
   int b_empty = 0;
+
+  if (dump_file)
+    fprintf (dump_file, "merging block %d into block %d\n", b->index, a->index);
 
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (LABEL_P (b_head))
@@ -2574,6 +2580,9 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
 #ifdef ENABLE_CHECKING
   gcc_assert (cfg_layout_can_merge_blocks_p (a, b));
 #endif
+
+  if (dump_file)
+    fprintf (dump_file, "merging block %d into block %d\n", b->index, a->index);
 
   /* If there was a CODE_LABEL beginning B, delete it.  */
   if (LABEL_P (BB_HEAD (b)))

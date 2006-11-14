@@ -39,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -776,6 +777,10 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fcall_saved_:
       fix_register (arg, 0, 0);
+      break;
+
+    case OPT_fdbg_cnt_:
+      dbg_cnt_process_opt (arg);
       break;
 
     case OPT_fdiagnostics_show_location_:

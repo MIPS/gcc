@@ -1976,7 +1976,10 @@ ia64_reload_gp (void)
   rtx tmp;
 
   if (current_frame_info.reg_save_gp)
-    tmp = gen_rtx_REG (DImode, current_frame_info.reg_save_gp);
+    {
+      tmp = gen_rtx_REG (DImode, current_frame_info.reg_save_gp);
+      current_frame_info.initialized = 1;
+    }
   else
     {
       HOST_WIDE_INT offset;
@@ -3553,7 +3556,10 @@ ia64_split_return_addr_rtx (rtx dest)
   if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
     {
       if (current_frame_info.reg_save_b0 != 0)
-	src = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+        {
+	  src = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+	  current_frame_info.initialized = 1;
+	}
       else
 	{
 	  HOST_WIDE_INT off;
@@ -8541,8 +8547,8 @@ ia64_reorg (void)
   else
     emit_all_insn_group_barriers (dump_file);
 
-  df = df_init (DF_HARD_REGS);
-  df_live_add_problem (df, 0);
+  df = df_init (0, 0);
+  df_live_add_problem (df);
   df_analyze (df);
  
   /* A call must not be the last instruction in a function, so that the

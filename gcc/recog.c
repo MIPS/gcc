@@ -391,13 +391,13 @@ void
 confirm_change_group (void)
 {
   int i;
-  basic_block bb;
 
   for (i = 0; i < num_changes; i++)
-    if (changes[i].object
-	&& INSN_P (changes[i].object)
-	&& (bb = BLOCK_FOR_INSN (changes[i].object)))
-      df_set_bb_dirty (bb);
+    {
+      rtx object = changes[i].object;
+      if (object && INSN_P (object))
+	df_insn_rescan (object);
+    }
 
   num_changes = 0;
 }

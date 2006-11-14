@@ -33,6 +33,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "dce.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "dbgcnt.h"
 
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
@@ -68,6 +69,7 @@ deletable_insn_p (rtx insn)
     case USE:
     case PREFETCH:
     case TRAP_IF:
+    case UNSPEC:
       return false;
 
     case CLOBBER:
@@ -221,7 +223,8 @@ delete_unmarked_insns (void)
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, next)
       if (INSN_P (insn) 
-	&& ((!marked_insn_p (insn)) || noop_move_p (insn)))
+	&& ((!marked_insn_p (insn)) || noop_move_p (insn))
+        && dbg_cnt (new_dce))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));

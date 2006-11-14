@@ -3618,7 +3618,47 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	&& SET_DEST (newpat) == pc_rtx)
       *new_direct_jump_p = 1;
   }
+  
+  if (undobuf.other_insn != NULL_RTX)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "modifying other_insn ");
+	  dump_insn_slim (dump_file, undobuf.other_insn);
+	}
+      df_insn_rescan (undobuf.other_insn);
+    }
 
+  if (i1 && !(NOTE_P(i1) && (NOTE_LINE_NUMBER (i1) == NOTE_INSN_DELETED)))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "modifying insn i1 ");
+	  dump_insn_slim (dump_file, i1);
+	}
+      df_insn_rescan (i1);
+    }
+
+  if (i2 && !(NOTE_P(i2) && (NOTE_LINE_NUMBER (i2) == NOTE_INSN_DELETED)))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "modifying insn i2 ");
+	  dump_insn_slim (dump_file, i2);
+	}
+      df_insn_rescan (i2);
+    }
+
+  if (i3 && !(NOTE_P(i3) && (NOTE_LINE_NUMBER (i3) == NOTE_INSN_DELETED)))
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "modifying insn i3 ");
+	  dump_insn_slim (dump_file, i3);
+	}
+      df_insn_rescan (i3);
+    }
+  
   combine_successes++;
   undo_commit ();
 
@@ -12960,6 +13000,7 @@ struct tree_opt_pass pass_combine =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
+  TODO_df_verify_scan |
   TODO_df_finish |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'c'                                   /* letter */

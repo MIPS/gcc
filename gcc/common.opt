@@ -359,6 +359,10 @@ fdata-sections
 Common Report Var(flag_data_sections)
 Place data items into their own section
 
+fdbg-cnt=
+Common RejectNegative Joined
+-fdbg-cnt=<counter>:<limit>             Set the debug counter limit.   
+
 ; Nonzero for -fdefer-pop: don't pop args after each function call
 ; instead save them up to pop many calls' args with one insns.
 fdefer-pop

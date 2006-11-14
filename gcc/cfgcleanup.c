@@ -2022,7 +2022,7 @@ try_optimize_cfg (int mode)
 		  rtx label = BB_HEAD (b);
 
 		  delete_insn_chain (label, label);
-		  /* In the case label is undeletable, move it after the
+		  /* If the case label is undeletable, move it after the
 		     BASIC_BLOCK note.  */
 		  if (NOTE_LINE_NUMBER (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
 		    {

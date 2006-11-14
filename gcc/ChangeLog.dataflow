@@ -1,3 +1,57 @@
+2006-11-13  Seongbae Park <seongbae.park@gmail.com>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (TODO_df_verify_scan): New flag.
+	* auto-inc-def.c (find_inc): Added code to check for case where
+	output of inc is not overwritten by mem to be combined.
+	* df-scan.c (df_scan_set_bb_info): Now increases the size of the
+	array if necessary. 
+	(df_scan_blocks): Added flag to avoid recomputing regs_ever_live.
+	(df_insn_rescan): Fixed missing case for rescanning.
+	(df_insn_refs_collect): Special case for sibling calls.  Changed
+	to not set up loc field with address of regno_reg_rtx element.
+	(df_entry_block_defs_collect, df_exit_block_uses_collect,
+	df_bb_refs_collect): Changed to not set up loc field with address 
+	of regno_reg_rtx element.
+	(df_bb_refs_record): Removed dflow parameter and added scan_insn 
+	parameter. Changed call to df_bb_refs_record.
+	(df_compute_regs_ever_live): New function.
+	(df_reg_chain_unmark): Made to accept NULL blocks parameter.
+	(df_ref_chain_unmark): New function.
+	(df_ref_verify):  Added abort_if_fail parameter.
+	(df_insn_refs_verify): Added abort_if_fail and return_refs
+	parameter and changed function to return bool.  Added code to
+	unmark chains.
+	(df_bb_refs_verify): Added abort_if_fail parameter and now returns
+	nothing. 
+	(df_bb_verify): Changed to expect subroutines to abort.
+	(df_verify_blocks): Now accepts NULL blocks parameter.
+	* ifcvt.c (if_convert): Added more to dump_files.
+	* (pass_rtl_ifcvt, pass_if_after_combine, pass_if_after_reload):
+	added TODO_df_verify_scan.
+	* opts.c (command_handle_option): New flag OPT_fdbg_cnt_
+	* recog.c (confirm_change_group): Fixed updating of df scanning.
+	* function.c (thread_prologue_and_epilogue_insns):
+	Pass DF_NO_REGS_EVER_LIVE in df_init, and
+	call df_compute_regs_ever_live after prologue is generated.
+        * df.h (enum df_ref_flags): Added DF_REF_ARTIFICIAL.
+	(enum df_changeable_flags): Added DF_NO_REGS_EVER_LIVE.
+	(DF_REF_IS_ARTIFICIAL): Added checking for the flag DF_REF_ARTIFICIAL.
+	* cfgcleanup.c: Fixed typo in comment.
+     	* common.opt: New flag -fdbg-cnt=
+	* combine.c (try_combine): Added calls to keep df_scanning up to
+	date.
+	(pass_combine): Added TODO_df_verify_scan.
+	* Makefile.in: New gcc object file dbgcnt.o
+	* passes.c (execute_todo): Added support for TODO_df_verify_scan.
+	* config/ia64/ia64.c (ia64_split_return_addr_rtx): Finalize
+	the frame layout early.
+	(ia64_expand_prologue): Pass DF_NO_REGS_EVER_LIVE to df_init().
+	* cfgrtl.c (rtl_delete_block, rtl_merge_blocks,
+	cfg_layout_merge_blocks): Added debugging.
+	* dbgcnt.c, dbgcnt.h: New files
+	* dce.c (delete_unmarked_insns): Use dbg_cnt. 
+
 2006-11-10  Seongbae Park <seongbae.park@gmail.com>
 
 	* fwprop.c (forward_propagate_into): Use DF_REF_IS_ARTIFICIAL()

@@ -825,6 +825,8 @@ execute_todo (unsigned int flags)
     verify_stmts ();
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
+  if (flags & TODO_df_verify_scan)
+    df_verify_blocks (df_current_instance->problems_by_index[DF_SCAN], NULL);
 #endif
 
   /* Now that the dumping has been done, we can get rid of the df instance.  */
