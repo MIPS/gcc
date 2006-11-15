@@ -314,6 +314,9 @@ DEF_RTL_EXPR(RESX, "resx", "i", RTX_EXTRA)
 /* numeric integer constant */
 DEF_RTL_EXPR(CONST_INT, "const_int", "w", RTX_CONST_OBJ)
 
+/* fixed-point constant */
+DEF_RTL_EXPR(CONST_FIXED, "const_fixed", "www", RTX_CONST_OBJ)
+
 /* numeric floating point constant.
    Operands hold the value.  They are all 'w' and there may be from 2 to 6;
    see real.h.  */

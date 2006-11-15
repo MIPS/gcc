@@ -1,4 +1,68 @@
-2006-11-09  Chao-ying Fu  <fu@mips.com>
+2006-11-14  Chao-ying Fu  <fu@mips.com>
+
+	* c-lex.c (interpret_fixed): Declare.
+	(interpret_float): Process _Fract and _Accum.
+	(interpret_fixed): New function.
+
+	* tree.h (TREE_FIXED_CST_PTR, TREE_FIXED_CST): Define.
+	(struct tree_fixed_cst): New.
+	(tree_node): Add fixed_cst.
+
+	* tree.def (FIXED_CST): New constant.
+
+	* tree.c (fixed_value.h): New include.
+	(tree_code_size): Support FIXED_CST.
+	(build_fixed): New function.
+	(tree_node_structure): Support FIXED_CST.
+	(simple_cst_equal): Likewise.
+	(walk_tree): Likewise.
+
+	* final.c (output_addr_const): Process CONST_FIXED.
+
+	* tree-gimple.c (is_gimple_formal_tmp_rhs): Process FIXED_CST.
+	(is_gimple_min_invariant): Likewise.
+
+	* rtl.h (fixed_value.h): New include.
+	(rtx_def): Add a new field of fixed_value to u.
+	(XCNMPFV): Define for accessing fixed_value.
+	(CONST_FIXED_VALUE, CONST_FIXED_VALUE_HIGH, CONST_FIXED_VALUE_LOW):
+	Define.
+
+	* rtl.def (CONST_FIXED): New constant.
+
+	* expr.c (expand_expr_real_1): Process FIXED_CST.
+
+	* treestruct.def: Add TS_FIXED_CST.
+
+	* gimplify.c (gimplify_expr): Process FIXED_CST.
+
+	* emit-rtl.c (const_fixed_htab): New hash table. 
+	(const_fixed_htab_hash, const_fixed_htab_eq, lookup_const_fixed):
+	Declare.
+	(const_fixed_htab_hash, const_fixed_htab_eq, lookup_const_fixed,
+	const_fixed_from_fixed_value): New functions.
+	(init_emit_once): Create const_fixed_htab.
+
+	* simplify-rtx.c (simplify_immed_subreg): Support CONST_FIXED. 
+	Process MODE_FRACT, MODE_UFRACT, MODE_ACCUM, MODE_UACCUM.
+	(simplify_subreg): Support CONST_FIXED.
+
+	* varasm.c (assemble_integer): Extend to support fixed-point constants
+	by using different machine classes. 
+	(const_rtx_hash_1): Support CONST_FIXED.
+	(output_constant_pool_2): Process MODE_FRACT, MODE_UFRACT, MODE_ACCUM,
+	MODE_UACCUM, MODE_VECTOR_FRACT, MODE_VECTOR_UFRACT, MODE_VECTOR_ACCUM,
+	MODE_VECTOR_UACCUM.
+	(initializer_constant_valid_p): Support FIXED_CST.
+	(output_constant): Support FIXED_POINT_TYPE.
+
+	* Makefile.in (OBJS-common): Add fixed_value.o.
+	(fixed_value.o): New rule to build it. 
+	(GTFILES): Add fixed_value.h.
+
+	* fixed_value.h, fixed_value.c: New files.
+
+200-11-09  Chao-ying Fu  <fu@mips.com>
 
 	* tree.c (make_or_reuse_fract_type): Fix bug to return make_fract_type.
 

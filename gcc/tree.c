@@ -51,6 +51,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-flow.h"
 #include "params.h"
 #include "pointer-set.h"
+#include "fixed_value.h"
 
 /* Each tree code class has an associated string representation.
    These must correspond to the tree_code_class entries.  */
@@ -361,6 +362,7 @@ tree_code_size (enum tree_code code)
 	{
 	case INTEGER_CST:	return sizeof (struct tree_int_cst);
 	case REAL_CST:		return sizeof (struct tree_real_cst);
+	case FIXED_CST:		return sizeof (struct tree_fixed_cst);
 	case COMPLEX_CST:	return sizeof (struct tree_complex);
 	case VECTOR_CST:	return sizeof (struct tree_vector);
 	case STRING_CST:	gcc_unreachable ();
@@ -1053,6 +1055,22 @@ build_constructor_from_list (tree type, tree vals)
   return t;
 }
 
+/* Return a new FIXED_CST node whose type is TYPE and value is F.  */
+
+tree
+build_fixed (tree type, FIXED_VALUE_TYPE f)
+{
+  tree v;
+  FIXED_VALUE_TYPE *fp;
+
+  v = make_node (FIXED_CST);
+  fp = ggc_alloc (sizeof (FIXED_VALUE_TYPE));
+  memcpy (fp, &f, sizeof (FIXED_VALUE_TYPE));
+
+  TREE_TYPE (v) = type;
+  TREE_FIXED_CST_PTR (v) = fp;
+  return v;
+}
 
 /* Return a new REAL_CST node whose type is TYPE and value is D.  */
 
@@ -2141,6 +2159,7 @@ tree_node_structure (tree t)
       /* tcc_constant cases.  */
     case INTEGER_CST:		return TS_INT_CST;
     case REAL_CST:		return TS_REAL_CST;
+    case FIXED_CST:		return TS_FIXED_CST;
     case COMPLEX_CST:		return TS_COMPLEX;
     case VECTOR_CST:		return TS_VECTOR;
     case STRING_CST:		return TS_STRING;
@@ -4649,6 +4668,9 @@ simple_cst_equal (tree t1, tree t2)
 
     case REAL_CST:
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+
+    case FIXED_CST:
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
 
     case STRING_CST:
       return (TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
@@ -7683,6 +7705,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
     case IDENTIFIER_NODE:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case VECTOR_CST:
     case STRING_CST:
     case BLOCK:

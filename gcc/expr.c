@@ -6990,6 +6990,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return CONST_DOUBLE_FROM_REAL_VALUE (TREE_REAL_CST (exp),
 					   TYPE_MODE (TREE_TYPE (exp)));
 
+    case FIXED_CST:
+      return CONST_FIXED_FROM_FIXED_VALUE (TREE_FIXED_CST (exp),
+					   TYPE_MODE (TREE_TYPE (exp)));
+
     case COMPLEX_CST:
       /* Handle evaluating a complex constant in a CONCAT target.  */
       if (original_target && GET_CODE (original_target) == CONCAT)
