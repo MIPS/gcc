@@ -46,8 +46,8 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
-  gfc_option.fixed_line_length = -1;
-  gfc_option.free_line_length = -1;
+  gfc_option.fixed_line_length = 72;
+  gfc_option.free_line_length = 132;
   gfc_option.max_continue_fixed = 19;
   gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
@@ -73,7 +73,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
-  gfc_option.flag_no_backend = 0;
   gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
@@ -518,10 +517,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fmax_stack_var_size_:
       gfc_option.flag_max_stack_var_size = value;
-      break;
-
-    case OPT_fno_backend:
-      gfc_option.flag_no_backend = value;
       break;
 
     case OPT_frange_check:

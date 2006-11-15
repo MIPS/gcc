@@ -1,3 +1,312 @@
+2006-11-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29788
+	* fold-const.c (fold_indirect_ref_1): Fold *&CONST_DECL down
+	to what is the const decl is a place holder for.
+
+2006-11-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.opt: New target option -mx87regparm.
+
+	* config/i386/i386.h (struct ix86_args): Add x87_nregs, x87_regno,
+	float_in_x87: Add new variables. mmx_words, sse_words: Remove.
+	(X87_REGPARM_MAX): Define.
+
+	* config/i386/i386.c (override_options): Error out for
+	-mx87regparm but no 80387 support.
+	(ix86_attribute_table): Add x87regparm.
+	(ix86_handle_cconv_attribute): Update comments for x87regparm.
+	(ix86_comp_type_attributes): Check for mismatched x87regparm types.
+	(ix86_function_x87regparm): New function.
+	(ix86_function_arg_regno_p): Add X87_REGPARM_MAX 80387 floating
+	point registers.
+	(init_cumulative_args): Initialize x87_nregs and float_in_x87
+	variables.
+	(function_arg_advance): Process x87_nregs and x87_regno when
+	floating point argument is to be passed in 80387 register.
+	(function_arg): Pass XFmode arguments in 80387 registers for local
+	functions.  Pass SFmode and DFmode arguments to local functions
+	in 80387 registers when flag_unsafe_math_optimizations is set.
+
+	* reg-stack.c (convert_regs_entry): Disable NaN load for
+	stack registers that are used for argument passing.
+
+	* doc/extend.texi: Document x87regparm function attribute.
+	* doc/invoke.texi: Document -mx87regparm.
+
+2006-11-15  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* tree-flow.h (multiplier_allowed_in_address_p): Adjust prototype.
+	* tree-ssa-loop-ivopts.c (multiplier_allowed_in_address_p): New
+	arg MODE; all callers changed.  Use it to determine validity per
+	machine mode instead of using Pmode for all memory references.
+	(get_address_cost): Likewise add and use new arg MEM_MODE.
+
+2006-11-15  Rask Ingemann Lambertsen <rask@sygehus.dk>
+	    J"orn Rennecke <joern.rennecke@st.com>
+
+	* combine.c (likely_spilled_retval_1): Fix masking operation.
+	(likely_spilled_retval_p): Use proper pattern for call to
+	likely_spilled_retval_1.
+
+2006-11-15  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* tree-ssa-loop-ivopts.c (determine_iv_costs): Fix formatting.
+
+	* config/bfin/bfin.c (legitimize_pic_address): Lose dead code
+	that tests for CONSTANT_POOL_ADDRESS_P.
+
+2006-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29581
+	* lambda-code.c (replace_uses_equiv_to_x_with_y): Add YINIT,
+	REPLACEMENTS, FIRSTBSI arguments.  If initial condition or
+	type is different between Y and USE, create a temporary
+	variable, initialize it at the beginning of the body bb
+	and use it as replacement instead of Y.
+
+2006-11-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR middle-end/29753
+	* gimplify.c (fold_indirect_ref_rhs): Use
+	STRIP_USELESS_TYPE_CONVERSION rather than STRIP_NOPS.
+
+2006-11-14  Richard Earnshaw  <rearnsha@arm.com>
+
+	* expmed.c (emit_store_flag_1): New function.
+	(emit_store_flag): Call it.  If we can't find a suitable scc insn,
+	try a cstore insn.
+	* expr.c (do_store_flag): If we can't find a scc insn, try cstore.
+	Use do_compare_rtx_and_jump.
+	* arm.h (BRANCH_COST): Increase to 2 on Thumb.
+	* arm.md (cstoresi4): New define_expand.
+	(cstoresi_eq0_thumb, cstoresi_ne0_thumb): Likewise.
+	(cstoresi_eq0_thumb_insn, cstore_ne0_thumb_insn): New patterns.
+	(cstoresi_nltu_thumb, thumb_addsi3_addgeu): New patterns.
+
+2006-11-14  Caroline Tice  <ctice@apple.com>
+		
+	* dwarf2out.c (debug_pubtypes_section): New static global variable.
+	(pubname_entry):  Add DEF_VEC_O and DEF_VEC_ALLOC_O statements for
+	this type.
+	(pubname_table):  Redefine as a vector.
+	(pubtype_table):  New static global variable, defined as a vector.
+	(pubname_table_allocated): Remove static global variable.
+	(pubname_table_in_use): Remove static global variable.
+	(PUBNAME_TABLE_INCREMENT): Remove constant.
+	(size_of_pubnames): Add parameter to deal with either pubnames or 
+	pubtypes, and change code to deal with table being a vector.
+	(add_pubname):  Change to deal with table being a vector.
+	(add_pubtype):  New function.
+	(output_pubnames): Add parameter to deal with either pubnames or 
+	pubtypes, and change code to deal with table being a vector.
+	(gen_array_type_die):  Add call to add_pubtype.
+	(gen_enumeration_type_die): Add call to add_pubtype.
+	(gen_struct_or_union_type_die): Add call to add_pubtype.
+	(gen_subroutine_type_die): Add call to add_pubtype.
+	(gen_typedef_die):  Add call to add_pubtype.
+	(dwarf2out_init): Add code to initialize pubname_table and 
+	pubtype_table vectors; also initialize debug_pubtypes_section.
+	(prune_unused_types):  Change to deal with pubnames being a vector.
+	(dwarf2out_finish): Change to deal with pubnames being a vector; add 
+	pubnames table to call to output_pubnames;  Add code to output pubtypes 
+	table if DEBUG_PUBTYPES_SECTION is defined.
+	* config/darwin.c (darwin_file_start):  Add DEBUG_PUBTYPES_SECTION to 
+	debugnames.
+	* config/darwin.h (DEBUG_PUBTYPES_SECTION): Define new global variable.
+
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.h (FUNCTION_ARG_ADVANCE): Only adjust
+	iwmmxt_nregs if TARGET_IWMMXT_ABI.
+	* config/arm/iwmmxt.md (movv8qi_internal, movv4hi_internal,
+	movv2si_internal): Support moves between core registers.
+
+2006-11-14  Eric Christopher  <echristo@apple.com>
+
+	* configure: Regenerate with autoconf 2.59.
+
+2006-11-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/27755
+
+	* tree-ssa-pre.c: Update comments.
+	(bb_bitmap_sets): Add pa_in and  deferred member.
+	(BB_DEFERRED): New macro.
+	(maximal_set): New variable.
+	(pre_stats): Add pa_insert member.
+	(bitmap_set_and): Short circuit orig == dest.
+	(bitmap_set_subtract_values): New function.
+	(bitmap_set_contains_expr): Ditto.
+	(translate_vuses_through_block): Add phiblock argument.
+	(dependent_clean): New function.
+	(compute_antic_aux): Update for maximal_set changes.
+	(compute_partial_antic_aux): New function.
+	(compute_antic): Handle partial anticipation.
+	(do_partial_partial_insertion): New function.
+	(insert_aux): Handle partial anticipation.
+	(add_to_sets): Add to maximal set.
+	(compute_avail): Ditto.
+	(init_pre): Initialize maximal_set.
+	(execute_pre): Do partial anticipation if -O3+.
+
+2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/29798
+
+	* fwprop.c (use_killed_between): Check that DEF_INSN dominates
+	TARGET_INSN before any other check.
+	(fwprop_init): Always calculate dominators.
+	(fwprop_done): Always free them.
+
+2006-11-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fold-const.c (fold_strip_sign_ops): Handle COMPOUND_EXPR and
+	COND_EXPR.
+
+2006-11-13  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.c (m32c_prepare_shift): Use a separate
+	temporary for intermediates.
+
+2006-11-13  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (expand_cbranchdi4): Initialize skip_label.
+	(sh_optimize_target_register_callee_saved): #if 0 the code
+	using NOTE_INSN_LOOP_{BEG,END}.
+
+2006-11-13  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (optimize_bit_field_compare): Recursively call
+	fold when simplifying non-constant comparisons between bit-fields.
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac: Add changequote around __LONG_DOUBLE_MATH_OPTIONAL
+	test.
+	* configure: Rebuilt.
+
+2006-11-13  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/cell.md: New file.
+	* config/rs6000/rs6000.c (rs6000_cell_dont_microcode): New
+	variable.
+	(ppccell_cost): New cost matrix.
+	(TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD): Define.
+	(rs6000_override_options): Set rs6000_always_hint to false
+	for cell. Also align functions/lables/loops to 8byte
+	for the Cell. Use PROCESSOR_CELL.
+	(rs6000_emit_epilogue): Rename using_mfcr_multiple to
+	using_mtcr_multiple.
+	(rs6000_variable_issue): If the insn is a nonpipelined instruction
+	on the Cell, return 0.
+	(rs6000_adjust_cost): Add Cell cost adjustments.
+	(is_microcoded_insn): Return true for Cell microcoded
+	instructions.
+	(is_nonpipeline_insn): New function.
+	(rs6000_issue_rate): Add PROCESSOR_CELL.
+	(rs6000_use_sched_lookahead): If Cell, then we should look ahead 8
+	instructions.
+	(rs6000_use_sched_lookahead_guard): New function.
+	(rs6000_sched_reorder):  Reorder the ready list, if the second
+	to last ready insn is a nonepipeline insn on the Cell.
+	* config/rs6000/rs6000.h (processor_type): Add PROCESSOR_CELL.
+	(ASM_CPU_SPEC): Add Cell.
+	* config/rs6000/rs6000.md (cpu): Add Cell.
+	(cell_micro): New Attr.
+	Include cell.md
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (ld_vers): Parse GNU ld version 2.17.50.0.3-6 20060715
+	style versions.
+	* configure: Rebuilt.
+
+2006-11-13  Richard Guenther  <rguenther@suse.de>
+
+	* config/i386/i386.c (ix86_expand_lround): Handle expand_simple_binop
+	return value.
+	(ix86_expand_lfloorceil): Likewise.
+	(ix86_expand_rint): Likewise.
+	(ix86_expand_floorceildf_32): Likewise.
+	(ix86_expand_floorceil): Likewise.
+	(ix86_expand_rounddf_32): Likewise.
+	(ix86_expand_truncdf_32): Likewise.
+	(ix86_expand_round): Likewise.
+
+2006-11-13  Carlos O'Donell  <carlos@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* gcc.c: Organize search path variables into $prefix relative,
+	and well-known native. Add comments.
+	(add_sysrooted_prefix): Add comment.
+	(process_command): If !gcc_exec_prefix add $prefix based paths.
+	If *cross_compile == '0', add native well-known paths.
+	Assert tooldir_base_prefix is always relative.
+	(main): If print_search_dirs, and if gcc_exec_prefix is set,
+	use this value for 'install:' path.
+	* Makefile.in: Add GCC_EXEC_PREFIX to generated site.exp.
+
+2006-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c: Fix a typo in comment.
+
+2006-11-13  Michael Matz  <matz@suse.de>
+
+	* genemit.c (gen_expand): Allocate enough memory.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/bpapi.h (TARGET_BPABI_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE but not
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/arm/symbian.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_MERGED_TYPEINFO_NAMES.
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Define
+	__GXX_TYPEINFO_EQUALITY_INLINE.
+
+2006-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+	    Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29680
+	* tree-ssa-operands.c (access_can_touch_variable): Revert fix for
+	PR 14784.
+
+2006-11-12  Jason Merrill  <jason@redhat.com>
+	    Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR middle-end/28915
+	* gimplify.c (gimplify_init_constructor): Don't reduce TREE_CONSTANT
+	vector ctors.
+	* tree-cfg.c (verify_expr): Don't look into TREE_CONSTANT
+	vector ctors.
+	* expmed.c (make_tree): Handle CONST, SYMBOL_REF.
+	* tree.c (build_vector): Handle non-_CST elements.
+
+2006-11-12  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* genemit.c (gen_insn): Call gen_exp with a non-null used
+	when handling multiple insns.
+	(gen_expand): Likewise.
+	* reorg.c (emit_delay_sequence): Copy the delay slot insn.
+	* config/sh/sh.md (ashrsi2_31+1): Copy operands[0].
+	(movsi_const_16bit+1): Copy operands[1].
+	(call_pcrel): Copy the call_site pattern.
+	(call_value_pcrel, sibcall_pcrel, GOTaddr2picreg): Likewise.
+
+2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (negate_expr_p) <PLUS_EXPR, MINUS_EXPR>: Correct/refine
+	condition for transformations.  Use !HONOR_SIGN_DEPENDENT_ROUNDING
+	&& !HONOR_SIGNED_ZEROS instead of flag_unsafe_math_optimizations.
+	(fold_negate_expr) <PLUS_EXPR, MINUS_EXPR>: Likewise.
+
+2006-11-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/29587
+	* tree-ssa-structalias.c (process_constraint): Don't
+	mark address taken due only to escaped vars constraint.
+
 2006-11-12  Michael Matz  <matz@suse.de>
 	    Roger Sayle  <roger@eyesopen.com>
 
@@ -326,6 +635,7 @@
 
 2006-11-09  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
+	PR middle-end/29335
 	* builtins.c (do_mpfr_arg3): New.
 	(fold_builtin_1): Handle builtins fma, fmin and fmax.
 

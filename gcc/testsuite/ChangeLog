@@ -1,3 +1,116 @@
+2006-11-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/29788
+	* gfortran.fortran-torture/compile/inline_1.f90:
+	New testcase.
+
+2006-11-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/x87regparm-1.c: New test.
+	* gcc.target/i386/x87regparm-2.c: New test.
+	* gcc.target/i386/x87regparm-3.c: New test.
+	* gcc.target/i386/x87regparm-4.c: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27546
+	* gfortran.dg/import.f90: New test.
+	* gfortran.dg/import2.f90: New test.
+	* gfortran.dg/import3.f90: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27588
+	* gfortran.dg/char_bounds_check_fail_1.f90: New test.
+
+2006-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29806
+	* gfortran.dg/contains.f90: New test.
+	* gfortran.dg/derived_function_interface_1.f90: Add a dg-warning.
+
+2006-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29581
+	* gcc.dg/pr29581-1.c: New test.
+	* gcc.dg/pr29581-2.c: New test.
+	* gcc.dg/pr29581-3.c: New test.
+	* gcc.dg/pr29581-4.c: New test.
+	* gfortran.dg/pr29581.f90: New test.
+
+2006-11-14  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	PR fortran/29702
+	* lib/gfortran-dg.exp (gfortran-dg-test): Ignore column
+	numbers in error message headers.
+
+2006-11-14  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/math-torture/math-torture.exp: Restrict
+	to i?86 and x86_64 targets.
+
+2006-11-14  Caroline Tice  <ctice@apple.com>
+
+	* gcc.dg/pubtypes-1.c: New file/testcase.
+	* gcc.dg/pubtypes-2.c: New file/testcase.
+	* gcc.dg/pubtypes-3.c: New file/testcase.
+	* gcc.dg/pubtypes-4.c: New file/testcase.
+	* g++.dg/pubtypes.C: New file/testcase.
+
+2006-11-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29106
+	* g++.dg/init/self1.C: New test.
+
+2006-11-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29657
+	* gfortran.dg/conflicts.f90: Add.
+
+2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/29798
+
+	* gcc.c-torture/execute/pr29798.c: New.
+
+2006-11-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add more cases.
+
+2006-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/29759
+	* gfortran.dg/gomp/pr29759.f90: New test.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29518
+	* g++.dg/template/static28.C: New test.
+
+2006-11-13  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* lib/c-torture.exp: Use target-libpath.exp.
+	* lib/target-libpath.exp (set_ld_library_path_env_vars): If present,
+	set GCC_EXEC_PREFIX env var from global variable of same name.
+
+2006-11-12  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR fortran/26994
+	* gfortran.fortran-torture/compile/transfer-1.f90:
+	New testcase.
+
+2006-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+	    Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29680
+	* gcc.dg/alias-11.c: New test.
+
+2006-11-12  Jason Merrill  <jason@redhat.com>
+	    Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR middle-end/28915
+	* gcc.target/i386/vectorize1.c: New.
+
 2006-11-12  Roger Sayle  <roger@eyesopen.com>
 
 	PR rtl-optimization/29797
