@@ -83,12 +83,21 @@ static unsigned int
 interpret_float_suffix (const uchar *s, size_t len)
 {
   size_t f = 0, l = 0, i = 0, d = 0;
+  size_t r = 0, k = 0, u = 0, h = 0;
 
   while (len--)
     switch (s[len])
       {
+      case 'r': case 'R': r++; break;
+      case 'k': case 'K': k++; break;
+      case 'u': case 'U': u++; break;
+      case 'h': case 'H': h++; break;
       case 'f': case 'F': f++; break;
-      case 'l': case 'L': l++; break;
+      case 'l': case 'L': l++;
+	/* If there are two Ls, they must be adjacent and the same case.  */
+	if (l == 2 && s[len] != s[len + 1])
+	  return 0;
+        break;
       case 'i': case 'I':
       case 'j': case 'J': i++; break;
       case 'd': case 'D': 
@@ -100,6 +109,33 @@ interpret_float_suffix (const uchar *s, size_t len)
       default:
 	return 0;
       }
+
+  if ((r + k) > 1 || h > 1 || l > 2 || u > 1)
+    return 0;
+
+  if (r == 1)
+    {
+      if (f || i || d)
+	return 0;
+
+      return CPP_N_FRACT
+	     | (u ? CPP_N_UNSIGNED : 0)
+	     | (h ? CPP_N_SMALL :
+		l == 2 ? CPP_N_LARGE :
+		l == 1 ? CPP_N_MEDIUM :  0);
+    }
+
+  if (k == 1)
+    {
+      if (f || i || d)
+	return 0;
+
+      return CPP_N_ACCUM
+	     | (u ? CPP_N_UNSIGNED : 0)
+	     | (h ? CPP_N_SMALL :
+		l == 2 ? CPP_N_LARGE :
+		l == 1 ? CPP_N_MEDIUM :  0);
+    }
 
   if (f + l > 1 || i > 1)
     return 0;

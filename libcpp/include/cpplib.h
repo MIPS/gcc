@@ -736,9 +736,10 @@ struct cpp_num
 #define CPP_N_FLOATING	0x0002
 
 #define CPP_N_WIDTH	0x00F0
-#define CPP_N_SMALL	0x0010	/* int, float.  */
-#define CPP_N_MEDIUM	0x0020	/* long, double.  */
-#define CPP_N_LARGE	0x0040	/* long long, long double.  */
+#define CPP_N_SMALL	0x0010	/* int, float, shrot _Fract/Accum  */
+#define CPP_N_MEDIUM	0x0020	/* long, double, long _Fract/_Accum.  */
+#define CPP_N_LARGE	0x0040	/* long long, long double,
+				   long long_Fract/Accum.  */
 
 #define CPP_N_RADIX	0x0F00
 #define CPP_N_DECIMAL	0x0100
@@ -748,6 +749,8 @@ struct cpp_num
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000
 #define CPP_N_DFLOAT	0x4000
+#define CPP_N_FRACT	0x8000
+#define CPP_N_ACCUM	0x10000
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */

@@ -1,3 +1,12 @@
+2006-11-14  Chao-ying Fu  <fu@mips.com>
+
+	* include/cpplib.h (CPP_N_SMALL, CPP_N_MEDIUM, CPP_N_LARGE): Change
+	comments to support fixed-point values.
+	(CPP_N_FRACT, CPP_N_ACCUM): Define.
+
+	* expr.c (interpret_float_suffix): Support hr, r, lr, llr, uhr, ur,
+	ulr, ullr, hk, k, lk, llk, uhk, uk, ulk, ullk.
+
 2006-10-29  Joseph Myers  <joseph@codesourcery.com>
 
 	* configure.ac (need_64bit_hwint): Set for i[34567]86-*-linux*
