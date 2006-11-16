@@ -1,3 +1,20 @@
+2006-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29581
+	* gcc.dg/pr29581-1.c: New test.
+	* gcc.dg/pr29581-2.c: New test.
+	* gcc.dg/pr29581-3.c: New test.
+	* gcc.dg/pr29581-4.c: New test.
+	* gfortran.dg/pr29581.f90: New test.
+
+2006-11-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2006-11-12  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/29797
+	* gcc.c-torture/execute/pr29797-1.c: New test case.
+
 2006-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/29759
@@ -16,12 +33,6 @@
 	* g++.dg/init/self1.C: New test.
 	* g++.dg/other/fold1.C: Adjust error markers.
 	* g++.dg/init/member1.C: Likewise.
-
-2006-11-12  Jason Merrill  <jason@redhat.com>
-	    Andrew Pinski <pinskia@physics.uc.edu>
-
-	PR middle-end/28915
-	* gcc.target/i386/vectorize1.c: New.
 
 2006-11-13  Janis Johnson  <janis187@us.ibm.com>
 

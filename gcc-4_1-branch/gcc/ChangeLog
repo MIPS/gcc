@@ -1,13 +1,31 @@
-2006-11-12  Jason Merrill  <jason@redhat.com>
-	    Andrew Pinski <pinskia@physics.uc.edu>
+2006-11-16  Joseph Myers  <joseph@codesourcery.com>
 
-	PR middle-end/28915
-	* gimplify.c (gimplify_init_constructor): Don't reduce TREE_CONSTANT
-	vector ctors.
-	* tree-cfg.c (verify_expr): Don't look into TREE_CONSTANT
-	vector ctors.
-	* expmed.c (make_tree): Handle CONST, SYMBOL_REF.
-	* tree.c (build_vector): Handle non-_CST elements.
+	* config/rs6000/spe.md (frob_di_df_2): Handle non-offsettable
+	memory operand.
+
+2006-11-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_hpux_init_libfuncs):  Use HP-UX millicode
+	routines for integer division.
+
+2006-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/29581
+	* lambda-code.c (replace_uses_equiv_to_x_with_y): Add YINIT,
+	REPLACEMENTS, FIRSTBSI arguments.  If initial condition or
+	type is different between Y and USE, create a temporary
+	variable, initialize it at the beginning of the body bb
+	and use it as replacement instead of Y.
+
+2006-11-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline: 
+	2006-11-12  Michael Matz  <matz@suse.de>
+		    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/29797
+	* ifcvt.c (noce_try_bitop): Correct calculation of bitnum on
+	BITS_BIG_ENDIAN targets.
 
 2006-11-13  Jakub Jelinek  <jakub@redhat.com>
 
