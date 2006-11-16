@@ -3899,9 +3899,10 @@ if_convert (void)
 
       FOR_EACH_BB (bb)
 	{
-	  
-	  if (!df_get_bb_dirty (bb))
-	    find_if_header (df, bb, pass);
+          basic_block new_bb;
+          while (!df_get_bb_dirty (bb) 
+                 && (new_bb = find_if_header (df, bb, pass)) != NULL)
+            bb = new_bb;
 	}
 
 #ifdef IFCVT_MULTIPLE_DUMPS

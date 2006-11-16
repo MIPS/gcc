@@ -2022,8 +2022,8 @@ df_insn_refs_collect (struct dataflow *dflow, basic_block bb, rtx insn)
 {
   struct df_ref dummy;
   struct df_ref *insn_refs = &dummy;
-  struct df_ref *cond_uses;
   rtx note;
+  bool is_cond_exec = (GET_CODE (PATTERN (insn)) == COND_EXEC);
 
   DF_REF_NEXT_REF (insn_refs) = NULL;
   
@@ -2047,24 +2047,24 @@ df_insn_refs_collect (struct dataflow *dflow, basic_block bb, rtx insn)
     }
 
   if (CALL_P (insn))
-    {
-       enum df_ref_flags extra_flags = (GET_CODE (PATTERN (insn)) == COND_EXEC) 
-                                ? DF_REF_CONDITIONAL : 0;
-       insn_refs = df_get_call_refs (dflow, insn_refs, bb, insn, extra_flags);
-    }
+    insn_refs = df_get_call_refs (dflow, insn_refs, bb, insn, 
+                                  (is_cond_exec) ? DF_REF_CONDITIONAL : 0);
 
   /* Record the register uses.  */
   insn_refs = df_uses_record (dflow, insn_refs,
                               &PATTERN (insn), DF_REF_REG_USE, bb, insn, 0);
 
   /* DF_REF_CONDITIONAL needs corresponding USES. */
-  cond_uses = df_get_conditional_uses (dflow, DF_REF_NEXT_REF (&dummy));
-
-  if (cond_uses) 
+  if (is_cond_exec)
     {
-      DF_REF_NEXT_REF (insn_refs) = DF_REF_NEXT_REF (cond_uses);
-      DF_REF_NEXT_REF (cond_uses) = NULL;
-      insn_refs = cond_uses;
+      struct df_ref *cond_uses;
+      cond_uses = df_get_conditional_uses (dflow, DF_REF_NEXT_REF (&dummy));
+      if (cond_uses) 
+	{
+	  DF_REF_NEXT_REF (insn_refs) = DF_REF_NEXT_REF (cond_uses);
+	  DF_REF_NEXT_REF (cond_uses) = NULL;
+	  insn_refs = cond_uses;
+	}
     }
 
   return DF_REF_NEXT_REF (&dummy);
@@ -2152,6 +2152,18 @@ df_recompute_luids (struct df *df, basic_block bb)
 	}
       DF_INSN_LUID (df, insn) = luid;
     }
+}
+
+
+/* Returns true if the function entry needs to 
+   define the static chain register.  */
+
+static bool
+df_need_static_chain_reg (struct function *fun)
+{
+  tree fun_context = decl_function_context (fun->decl);
+  return fun_context
+         && DECL_NO_STATIC_CHAIN (fun_context) == false;
 }
 
 
@@ -2253,6 +2265,18 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
     }
 
   targetm.live_on_entry (entry_block_defs);
+
+  /* If the function has an incoming STATIC_CHAIN,
+     it has to show up in the entry def set.  */
+  if (df_need_static_chain_reg (cfun))
+    {
+#if !defined (STATIC_CHAIN_INCOMING_REGNUM) \
+      || STATIC_CHAIN_REGNUM == STATIC_CHAIN_INCOMING_REGNUM
+      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_REGNUM);
+#else 
+      bitmap_set_bit (entry_block_defs, STATIC_CHAIN_INCOMING_REGNUM);
+#endif
+    }
 }
 
 
@@ -2688,7 +2712,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 	df_mark_reg (tmp, exit_block_uses);
     }
 #endif 
-  
+
   /* Mark function return value.  */
   diddle_return_value (df_mark_reg, (void*) exit_block_uses);
 }

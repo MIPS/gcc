@@ -1,3 +1,13 @@
+2006-11-15  Seongbae Park <seongbae.park@gmail.com>
+
+	* df-scan.c (df_insn_refs_collect): Code cleanup
+	for COND_EXEC handling.
+	(df_need_static_chain_reg): New function.
+	(df_get_entry_block_def_set): Check and add the static chain register.
+	* ifcvt.c (if_convert): Don't ignore the return value
+	of find_if_header.
+
+
 2006-11-14  Seongbae Park <seongbae.park@gmail.com>
 
 	* function.c (thread_prologue_and_epilogue_insns):
