@@ -1579,6 +1579,12 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 	return false;
     }
 
+  /* An assignment with a register variable on the RHS is not
+     replaceable.  */
+  if (TREE_CODE (TREE_OPERAND (stmt, 1)) == VAR_DECL
+      && DECL_HARD_REGISTER (TREE_OPERAND (stmt, 1)))
+    return false;
+
   version = SSA_NAME_VERSION (def);
 
   /* Add this expression to the dependency list for each use partition.  */
