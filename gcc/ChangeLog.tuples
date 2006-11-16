@@ -1,3 +1,7 @@
+2006-11-16  Aldy Hernandez  <aldyh@redhat.com>
+
+        * tree.c (build2_stat): Fix comment.
+
 2006-11-13  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree-ssa-propagate.c (get_rhs): Use GIMPLE_MODIFY_STMT and
