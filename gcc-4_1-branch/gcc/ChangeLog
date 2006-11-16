@@ -1,3 +1,9 @@
+2006-11-16  Janis Johnson  <janis187@us.ibm.com>
+
+	* version.c (VERSUFFIX): Use an empty string.
+	(bug_report_url) Use Advance Toolchain Release Notes.
+	* DEV-PHASE: Update for Advance-Toolchain-05.
+
 2006-11-01  Peter Bergner <bergner@vnet.ibm.com>
 
 	* doc/invoke.texi: (RS/6000 and PowerPC Options): Typo: change -mfpgpr
