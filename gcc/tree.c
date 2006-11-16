@@ -2996,7 +2996,7 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
 
   if (code == MODIFY_EXPR && cfun && cfun->gimplified)
     {
-      /* WTF?  We should be talking GIMPLE_MODIFY_STMT by now.  */
+      /* We should be talking GIMPLE_MODIFY_STMT by now.  */
       gcc_unreachable ();
     }
 
