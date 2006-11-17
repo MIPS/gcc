@@ -1,3 +1,8 @@
+2006-11-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* fwprop.c Removed bad version.
+	* tree-ssa-pre.c (init_pre): Added parameter to post_order_compute.
+
 2006-11-15  Seongbae Park <seongbae.park@gmail.com>
 
 	* df-scan.c (df_insn_refs_collect): Code cleanup
