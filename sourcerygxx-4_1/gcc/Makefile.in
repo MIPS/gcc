@@ -2231,7 +2231,7 @@ gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    intl.h $(OBSTACK_H) tree-pass.h
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) \
    coretypes.h $(TM_H) $(REGS_H) $(FLAGS_H) output.h $(RESOURCE_H) \
-   function.h toplev.h $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H)
+   function.h toplev.h $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H) $(TREE_H)
 lcm.o : lcm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h $(FLAGS_H) real.h insn-config.h $(INSN_ATTR_H) $(RECOG_H) \
    $(BASIC_BLOCK_H) $(TM_P_H) function.h output.h

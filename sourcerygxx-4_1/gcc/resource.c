@@ -35,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "except.h"
 #include "insn-attr.h"
 #include "params.h"
+#include "tree.h"
 
 /* This structure is used to record liveness information at the targets or
    fallthrough insns of branches.  We will most likely need the information

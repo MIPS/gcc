@@ -1003,10 +1003,14 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
+/* All registers are live on exit from an interrupt routine.  */
+#define EPILOGUE_USES(REGNO) \
+  m68k_interrupt_function_p (current_function_decl)
+
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
   ((N) < 2 ? (N) : INVALID_REGNUM)
-#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 8)
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, A0_REG)
 #define EH_RETURN_HANDLER_RTX					    \
   gen_rtx_MEM (Pmode,						    \
 	       gen_rtx_PLUS (Pmode, arg_pointer_rtx,		    \

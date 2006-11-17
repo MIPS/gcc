@@ -1,3 +1,41 @@
+2006-11-17  Kazu Hirata  <kazu@codesourcery.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* resource.c: Include tree.h.
+	* Makefile.in (resource.o): Update dependencies accordingly.
+	* config/m68k/m68k-protos.h (m68k_interrupt_function_p): Declare.
+	(m68k_movem_pattern_p, m68k_output_movem): Likewise.
+	(m68k_expand_prologue, m68k_expand_epilogue): Likewise.
+	* config/m68k/m68k.h (EPILOGUE_USES): Define.  Treat all registers
+	as being live on exit from an interrupt function.
+	(EH_RETURN_STACKADJ_RTX): Use A0_REG.
+	* config/m68k/m68k.c (MIN_MOVEM_REGS, MIN_FMOVEM_REGS): New macros.
+	(m68k_frame): Remove reg_rev_mask and fpu_rev_mask.
+	(TARGET_ASM_FUNCTION_PROLOGUE, TARGET_ASM_FUNCTION_EPILOGUE): Delete.
+	(m68k_interrupt_function_p): Globalize.
+	(m68k_compute_frame_layout): Remove reverse mask code.
+	(m68k_save_reg): Fix formatting.
+	(m68k_emit_movem, m68k_set_frame_related): New functions.
+	(m68k_output_function_prologue): Delete in favor of...
+	(m68k_expand_prologue): ...this new function.
+	(m68k_output_function_epilogue): Delete in favor of...
+	(m68k_expand_epilogue): ...this new function.
+	(m68k_split_offset, m68k_valid_movem_base_p): New functions.
+	(m68k_movem_pattern_p, m68k_output_movem): Likewise.
+	* config/m68k/m68k.md (prologue, epilogue): New patterns.
+	(return): Turn into a define_expand.
+	(*return): New pattern, derived from old "return" pattern.  Use rte
+	rather than rts for interrupt functions.  Only use rtd if the pop
+	count is nonzero.
+	(*m68k_store_multiple, *m68k_store_multiple_automod): New patterns.
+	(*m68k_load_multiple, *m68k_load_multiple_automod): Likewise.
+	(link, unlink): Turn into a define_expands.  Use gen_frane_mem
+	to create the memory reference.
+	(*link, *unlink): New, derived from the old "link" and "unlink"
+	patterns.  Fix tabbing.  Fix constraints and match_operand
+	placement for unlink.
+
 2006-11-16  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/
