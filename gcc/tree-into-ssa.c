@@ -2062,6 +2062,8 @@ rewrite_vops (tree stmt, bitmap rdefs, int which_vops)
       j = 0;
       EXECUTE_IF_SET_IN_BITMAP (rdefs, 0, i, bi)
 	SET_USE (VUSE_OP_PTR (vuses, j++), ssa_name (i));
+
+      VUSE_OPS (stmt) = vuses;
     }
   else
     {
@@ -2082,6 +2084,7 @@ rewrite_vops (tree stmt, bitmap rdefs, int which_vops)
 	SET_USE (VDEF_OP_PTR (vdefs, j++), ssa_name (i));
 
       SET_DEF (VDEF_RESULT_PTR (vdefs), lhs);
+      VDEF_OPS (stmt) = vdefs;
     }
 }
 
@@ -2127,8 +2130,9 @@ rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
 	}
     }
 
-  /* Preserve names from VOPS that are needed for the symbols that
-     have not been marked for renaming.  */
+  /* We may need to preserve some existing names in VOPS.  If an
+     existing name N does not factor any of the symbols marked for
+     renaming, then it needs to be preserved.  */
   if (unmarked_syms)
     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, which_vops)
       {
@@ -2144,16 +2148,16 @@ rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
 	  {
 	    tree def_stmt = SSA_NAME_DEF_STMT (name);
 	    bitmap syms = get_loads_and_stores (def_stmt)->stores;
-	    if (bitmap_intersect_p (syms, unmarked_syms))
+	    if (!bitmap_intersect_p (syms, mem_syms_to_rename))
 	      bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
 	  }
 	else if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
 	  {
 	    bitmap syms = MPT_SYMBOLS (sym);
-	    if (bitmap_intersect_p (syms, unmarked_syms))
+	    if (!bitmap_intersect_p (syms, mem_syms_to_rename))
 	      bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
 	  }
-	else if (bitmap_bit_p (unmarked_syms, DECL_UID (sym)))
+	else if (!bitmap_bit_p (mem_syms_to_rename, DECL_UID (sym)))
 	  bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
       }
 
@@ -2470,21 +2474,8 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	    }
 	  else
 	    {
-	      tree arg_sym;
-
-	      /* When updating a PHI node for a recently introduced
-		 symbol we will find NULL arguments.  That's why we
-		 may need to take the symbol from the LHS of the PHI
-		 node.  */
-	      if (arg == NULL_TREE || factoring_name_p (arg))
-		arg_sym = lhs_sym;
-	      else if (DECL_P (arg))
-		arg_sym = arg;
-	      else
-		arg_sym = SSA_NAME_VAR (arg);
-
-	      if (symbol_marked_for_renaming (arg_sym))
-		SET_USE (arg_p, get_reaching_def (arg_sym));
+	      if (symbol_marked_for_renaming (lhs_sym))
+		SET_USE (arg_p, get_reaching_def (lhs_sym));
 	    }
 
 	  if (e->flags & EDGE_ABNORMAL)
@@ -2832,7 +2823,13 @@ mark_use_interesting (tree var, tree stmt, basic_block bb, bool insert_phi_p)
 
    If INSERT_PHI_P is true, mark those uses as live in the
    corresponding block.  This is later used by the PHI placement
-   algorithm to make PHI pruning decisions.  */
+   algorithm to make PHI pruning decisions.
+
+   FIXME.  Most of this would be unnecessary if we could associate a
+	   symbol to all the SSA names that reference it.  But that
+	   sounds like it would be expensive to maintain.  Still, it
+	   would be interesting to see if it makes better sense to do
+	   that.  */
 
 static void
 prepare_block_for_update (basic_block bb, bool insert_phi_p)
@@ -2880,20 +2877,25 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       
       stmt = bsi_stmt (si);
 
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
+      /* If there are gimple registers to rename, see if STMT is
+	 interesting for any of the marked registers.  */
+      if (regs_to_rename)
 	{
-	  tree use = USE_FROM_PTR (use_p);
-	  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
-	  if (symbol_marked_for_renaming (sym))
-	    mark_use_interesting (use, stmt, bb, insert_phi_p);
-	}
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_USE)
+	    {
+	      tree use = USE_FROM_PTR (use_p);
+	      tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+	      if (symbol_marked_for_renaming (sym))
+		mark_use_interesting (use, stmt, bb, insert_phi_p);
+	    }
 
-      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_ALL_DEFS)
-	{
-	  tree def = DEF_FROM_PTR (def_p);
-	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
-	  if (symbol_marked_for_renaming (sym))
-	    mark_def_interesting (def, stmt, bb, insert_phi_p);
+	  FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
+	    {
+	      tree def = DEF_FROM_PTR (def_p);
+	      tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
+	      if (symbol_marked_for_renaming (sym))
+		mark_def_interesting (def, stmt, bb, insert_phi_p);
+	    }
 	}
 
       /* If the statement makes memory references, mark this site as a
@@ -2909,6 +2911,11 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	  unsigned i;
 	  mem_syms_map_t syms = get_loads_and_stores (stmt);
 
+	  prune_stale_vops (stmt);
+
+	  /* FIXME.  Maybe it's faster to traverse VUSE/VDEF operands
+	     instead of the symbols.  Although, the first time we
+	     are renaming, we will not have any operands.  */
 	  if (syms->stores
 	      && bitmap_intersect_p (syms->stores, mem_syms_to_rename))
 	    EXECUTE_IF_AND_IN_BITMAP (syms->stores, mem_syms_to_rename,
@@ -2920,13 +2927,14 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	      }
 
 	  if (syms->loads
-	      && bitmap_intersect_p (syms->loads, syms_to_rename))
+	      && bitmap_intersect_p (syms->loads, mem_syms_to_rename))
 	    EXECUTE_IF_AND_IN_BITMAP (syms->loads, mem_syms_to_rename,
 				      0, i, bi)
 	      {
 		tree mpt = memory_partition (referenced_var (i));
 		mark_use_interesting (mpt, stmt, bb, insert_phi_p);
 	      }
+
 	}
     }
 
@@ -2942,10 +2950,10 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
      partitions marked for renaming to the set of stores in LAST.
      This way, LAST becomes the memory sink for all those names.
 
-     NOTE: A cleaner alternative would be to allow SIGMA nodes
-	   to live in separate statement lists at the bottom of basic
-	   blocks, much like PHI nodes live in special lists at the
-	   beginning of blocks.  */
+     FIXME: A cleaner alternative would be to allow SIGMA nodes
+	    to live in separate statement lists at the bottom of basic
+	    blocks, much like PHI nodes live in special lists at the
+	    beginning of blocks.  */
   last = last_stmt (bb);
   if (last
       && stmt_references_memory_p (last)

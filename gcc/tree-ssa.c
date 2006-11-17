@@ -207,20 +207,19 @@ err:
       is flowing through an abnormal edge (only used when checking PHI
       arguments).
 
-   IS_VIRTUAL is true if SSA_NAME is created by a VDEF.
-   
    If NAMES_DEFINED_IN_BB is not NULL, it contains a bitmap of ssa names
-     that are defined before STMT in basic block BB.  */
+     that are defined before STMT in basic block BB.
+
+   MEM_SYMS_FOUND contains all the memory symbols found in STMT's
+      virtual operands.  */
 
 static bool
 verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
-	    tree stmt, bool check_abnormal, bool is_virtual,
-	    bitmap names_defined_in_bb)
+	    tree stmt, bool check_abnormal, bitmap names_defined_in_bb,
+	    bitmap mem_syms_found)
 {
   bool err = false;
   tree ssa_name = USE_FROM_PTR (use_p);
-
-  err = verify_ssa_name (ssa_name, is_virtual);
 
   if (!TREE_VISITED (ssa_name))
     if (verify_imm_links (stderr, ssa_name))
@@ -249,6 +248,22 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
     {
       error ("definition in block %i follows the use", def_bb->index);
       err = true;
+    }
+
+  if (mem_syms_found
+      && TREE_CODE (ssa_name) == SSA_NAME
+      && SSA_NAME_VAR (ssa_name) != mem_var
+      && !is_gimple_reg (ssa_name))
+    {
+      tree sym = SSA_NAME_VAR (ssa_name);
+
+      if (bitmap_bit_p (mem_syms_found, DECL_UID (sym)))
+	{
+	  error ("Found more than one name for the same symbol");
+	  err = true;
+	}
+
+      bitmap_set_bit (mem_syms_found, DECL_UID (sym));
     }
 
   if (check_abnormal
@@ -386,13 +401,11 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
 	}
 
       if (TREE_CODE (op) == SSA_NAME)
-	err = verify_use (e->src,
-	                  definition_block[SSA_NAME_VERSION (op)],
-			  op_p,
-			  phi,
-			  e->flags & EDGE_ABNORMAL,
-			  !is_gimple_reg (PHI_RESULT (phi)),
-			  NULL);
+	{
+	  err = verify_ssa_name (op, !is_gimple_reg (PHI_RESULT (phi)));
+	  err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)],
+			     op_p, phi, e->flags & EDGE_ABNORMAL, NULL, NULL);
+	}
 
       if (e->dest != bb)
 	{
@@ -730,6 +743,7 @@ verify_ssa (bool check_modified_stmt)
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
   bitmap phi_factored_syms = BITMAP_ALLOC (NULL);
+  bitmap mem_syms_found = BITMAP_ALLOC (NULL);
 
   gcc_assert (!need_ssa_update_p ());
 
@@ -824,17 +838,41 @@ verify_ssa (bool check_modified_stmt)
 		}
 	    }
 
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_VIRTUALS)
+	    {
+	      if (verify_ssa_name (op, true))
+		{
+		  error ("in statement");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS|TDF_MEMSYMS);
+		  goto err;
+		}
+	    }
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE|SSA_OP_DEF)
+	    {
+	      if (verify_ssa_name (op, false))
+		{
+		  error ("in statement");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS|TDF_MEMSYMS);
+		  goto err;
+		}
+	    }
+
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE|SSA_OP_VUSE)
 	    {
 	      op = USE_FROM_PTR (use_p);
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      use_p, stmt, false, !is_gimple_reg (op),
-			      names_defined_in_bb))
+			      use_p, stmt, false, names_defined_in_bb,
+			      mem_syms_found))
 		goto err;
 	    }
 
+	  bitmap_clear (mem_syms_found);
+
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
 	    bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
+
+	  bitmap_clear (mem_syms_found);
 	}
 
       bitmap_clear (names_defined_in_bb);
@@ -855,6 +893,7 @@ verify_ssa (bool check_modified_stmt)
   
   BITMAP_FREE (names_defined_in_bb);
   BITMAP_FREE (phi_factored_syms);
+  BITMAP_FREE (mem_syms_found);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 

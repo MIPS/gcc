@@ -671,7 +671,7 @@ realloc_vdef (struct vdef_optype_d *ptr, int num_elem)
     }
 
   /* its growing. Allocate a new one and replace the old one.  */
-  tmp = ptr;;
+  tmp = ptr;
   ret = add_vdef_op (stmt, val, num_elem, &ptr);
   ret->next = NULL;
   ptr = tmp;
@@ -3091,8 +3091,13 @@ pop_stmt_changes (tree *stmt_p)
 	  op_sym = SSA_NAME_VAR (op);
 	  if (op_sym == mem_var)
 	    {
-	      syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
-	      bitmap_ior_into (factored_by_vops, syms);
+	      if (SSA_NAME_IS_DEFAULT_DEF (op))
+		bitmap_ior_into (factored_by_vops, factored_by_stmt);
+	      else
+		{
+		  syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
+		  bitmap_ior_into (factored_by_vops, syms);
+		}
 	    }
 	  else if (TREE_CODE (op_sym) == MEMORY_PARTITION_TAG)
 	    bitmap_ior_into (factored_by_vops, MPT_SYMBOLS (op_sym));
@@ -3100,10 +3105,9 @@ pop_stmt_changes (tree *stmt_p)
 	    bitmap_set_bit (factored_by_vops, DECL_UID (SSA_NAME_VAR (op)));
 	}
 
-      /* All the symbols in FACTORED_BY_STMT that are not in
-	 FACTORED_BY_VOPS need to be renamed.  */
-      bitmap_and_compl_into (factored_by_stmt, factored_by_vops);
-      mark_set_for_renaming (factored_by_stmt);
+      /* The differences between FACTORED_BY_STMT and FACTORED_BY_VOPS
+	 need to be renamed.  */
+      mark_difference_for_renaming (factored_by_stmt, factored_by_vops);
 
       BITMAP_FREE (factored_by_vops);
       BITMAP_FREE (factored_by_stmt);
@@ -3158,6 +3162,84 @@ stmt_references_memory_p (tree stmt)
 }
 
 
+/* Return true if the operand OP is still a valid virtual operand.  */
+
+static bool
+is_active_vop (tree op)
+{
+  if (DECL_P (op))
+    return true;
+
+  if (is_gimple_reg (op))
+    return false;
+
+  if (name_marked_for_release_p (op))
+    return false;
+
+  return true;
+}
+
+
+/* Prune stale virtual operands from the virtual operators in STMT.
+   Memory operands may become stale when the optimizers prove that
+   STMT is not referencing some memory symbols that were included in
+   the original analysis.  For instance, when variables are marked
+   non-addressable or if symbols disappear from alias sets due to more
+   precise alias analysis.  */
+
+void
+prune_stale_vops (tree stmt)
+{
+  VEC(tree,heap) *new_list = NULL;
+  vdef_optype_p vdefs;
+  vuse_optype_p vuses;
+  int i;
+  unsigned ix;
+  mem_syms_map_t syms;
+  tree op;
+
+  gcc_assert (stmt_references_memory_p (stmt));
+
+  syms = get_loads_and_stores (stmt);
+
+  vdefs = VDEF_OPS (stmt);
+  if (vdefs)
+    {
+      for (i = 0; i < VUSE_VECT_NUM_ELEM (vdefs->usev); i++)
+	{
+	  tree op = VDEF_OP (vdefs, i);
+	  if (is_active_vop (op))
+	    VEC_safe_push (tree, heap, new_list, op);
+	}
+
+      vdefs = realloc_vdef (vdefs, VEC_length (tree, new_list));
+      for (ix = 0; VEC_iterate (tree, new_list, ix, op); ix++)
+	SET_USE (VDEF_OP_PTR (vdefs, ix), op);
+
+      VDEF_OPS (stmt) = vdefs;
+    }
+
+  VEC_truncate (tree, new_list, 0);
+
+  vuses = VUSE_OPS (stmt);
+  if (vuses)
+    {
+      for (i = 0; i < VUSE_VECT_NUM_ELEM (vuses->usev); i++)
+	{
+	  tree op = VUSE_OP (vuses, i);
+	  if (is_active_vop (op, syms->loads, syms->stores))
+	    VEC_safe_push (tree, heap, new_list, op);
+	}
+
+      vuses = realloc_vuse (vuses, VEC_length (tree, new_list));
+      for (ix = 0; VEC_iterate (tree, new_list, ix, op); ix++)
+	SET_USE (VUSE_OP_PTR (vuses, ix), op);
+
+      VUSE_OPS (stmt) = vuses;
+    }
+}
+
+
 /* Return the memory partition tag (MPT) associated with memory
    symbol SYM.  From a correctness standpoint, memory partitions can
    be assigned in any arbitrary fashion as long as these two rules are
@@ -3204,7 +3286,7 @@ get_mpt_for (tree sym)
     HOST_WIDE_INT sym_alias_set;
     sym_alias_set = get_alias_set (sym);
     for (ix = 0; VEC_iterate (tree, mpt_table, ix, mpt); ix++)
-      if (!alias_sets_conflict_p (get_alias_set (mpt), sym_alias_set))
+      if (alias_sets_conflict_p (get_alias_set (mpt), sym_alias_set))
 	break;
   }
 #if 0
@@ -3232,7 +3314,6 @@ get_mpt_for (tree sym)
       add_referenced_var (mpt);
       VEC_replace (tree, mpt_table, ix, mpt);
       MPT_SYMBOLS (mpt) = BITMAP_ALLOC (NULL);
-      bitmap_set_bit (MPT_SYMBOLS (mpt), DECL_UID (mpt));
     }
 
   bitmap_set_bit (MPT_SYMBOLS (mpt), DECL_UID (sym));

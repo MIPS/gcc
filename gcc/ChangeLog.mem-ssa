@@ -1,3 +1,29 @@
+2006-11-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.h (prune_stale_vops): Declare.
+	* tree-into-ssa.c (rewrite_vops): Set VUSE_OPS and VDEF_OPS
+	after rewriting the corresponding virtual operator.
+	(rewrite_update_stmt_vops): Only preserve names that do not
+	match symbols marked for renaming.
+	(rewrite_update_phi_arguments): Always use the symbol on the
+	LHS when not dealing with a factored PHI.
+	(prepare_block_for_update): Only examine real uses if there are
+	register symbols to rename.
+	Call prune_stale_vops.
+	* tree-ssa-copy.c (may_propagate_copy): Allow copies between
+	different SSA names for the same memory partition.
+	* tree-ssa.c (verify_use): Verify that the same memory symbol
+	does not appear more than once in the same virtual operator.
+	Do not call verify_ssa_name.
+	(verify_ssa): Call verify_ssa_name for memory symbols and
+	register symbols separately.
+	* tree-ssa-operands.c (pop_stmt_changes): If a default .MEM
+	definition is found, consider all the memory symbols matched.
+	(is_active_vop): New.
+	(prune_stale_vops): New.
+	(get_mpt_for): Put symbols with compatible alias sets in the
+	same partition.
+
 2006-11-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-into-ssa.c (get_reaching_def): Do not use .MEM's

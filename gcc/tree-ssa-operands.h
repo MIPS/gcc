@@ -151,7 +151,7 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define VUSE_VECT(OP)		&((OP)->usev)
 
 #define VDEF_RESULT_PTR(OP)	(&((OP)->def_var))
-#define VDEF_RESULT(OP)	((OP)->def_var)
+#define VDEF_RESULT(OP)		((OP)->def_var)
 #define VDEF_OP_PTR(OP,X)	VUSE_OP_PTR (OP, X)
 #define VDEF_OP(OP,X)		VUSE_OP (OP, X)
 #define VDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
@@ -183,6 +183,7 @@ extern bool verify_imm_links (FILE *f, tree var);
 
 extern void copy_virtual_operands (tree, tree);
 extern void create_ssa_artficial_load_stmt (tree, tree);
+extern void prune_stale_vops (tree stmt);
 
 extern void dump_immediate_uses (FILE *file);
 extern void dump_immediate_uses_for (FILE *file, tree var);
