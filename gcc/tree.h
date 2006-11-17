@@ -3785,8 +3785,6 @@ extern tree get_inner_array_type (tree);
 
 extern tree make_fract_type (int, int, int);
 extern tree make_accum_type (int, int, int);
-extern tree make_or_reuse_fract_type (unsigned int, int, int);
-extern tree make_or_reuse_accum_type (unsigned int, int, int);
 
 #define make_signed_fract_type(P) make_fract_type (P, 0, 0)
 #define make_unsigned_fract_type(P) make_fract_type (P, 1, 0)

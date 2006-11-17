@@ -2267,6 +2267,11 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
 		 + (unsigned int) CONST_DOUBLE_HIGH (x));
       return hash;
 
+    case CONST_FIXED:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      hash += fixed_hash (CONST_FIXED_VALUE (x));
+      return hash;
+
     case CONST_VECTOR:
       {
 	int units;
@@ -2508,6 +2513,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return x == y;
 
     case LABEL_REF:
@@ -2775,6 +2781,7 @@ canon_reg (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -3255,7 +3262,8 @@ fold_rtx_subreg (rtx x, rtx insn)
 
   /* See if we previously assigned a constant value to this SUBREG.  */
   if ((new = lookup_as_function (x, CONST_INT)) != 0
-      || (new = lookup_as_function (x, CONST_DOUBLE)) != 0)
+      || (new = lookup_as_function (x, CONST_DOUBLE)) != 0
+      || (new = lookup_as_function (x, CONST_FIXED)) != 0)
     return new;
 
   /* If this is a paradoxical SUBREG, we have no idea what value the
@@ -3701,6 +3709,7 @@ fold_rtx (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -3797,6 +3806,7 @@ fold_rtx (rtx x, rtx insn)
 	  case SYMBOL_REF:
 	  case LABEL_REF:
 	  case CONST_DOUBLE:
+	  case CONST_FIXED:
 	  case CONST_VECTOR:
 	    const_arg = arg;
 	    break;
@@ -6575,6 +6585,7 @@ cse_process_notes (rtx x, rtx object)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -7288,6 +7299,7 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:

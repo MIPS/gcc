@@ -4880,6 +4880,12 @@ iterative_hash_expr (tree t, hashval_t val)
 
 	return iterative_hash_hashval_t (val2, val);
       }
+    case FIXED_CST:
+      {
+	unsigned int val2 = fixed_hash (TREE_FIXED_CST_PTR (t));
+
+	return iterative_hash_hashval_t (val2, val);
+      }
     case STRING_CST:
       return iterative_hash (TREE_STRING_POINTER (t),
 			     TREE_STRING_LENGTH (t), val);

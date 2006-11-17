@@ -1,3 +1,27 @@
+2006-11-16  Chao-ying Fu  <fu@mips.com>
+
+	* gengtype.c (main): Handle FIXED_VALUE_TYPE type as scalar typedef.
+	* gengenrtl.c (excluded_rtx): Check CONST_FIXED to exclude.
+	* tree.c (iterative_hash_expr): Handle FIXED_CST. 
+	* tree.h (make_or_reuse_fract_type, make_or_reuse_accum_type): Remove
+	declare, because they are static functions in tree.c.
+	* cse.c (hash_rtx): Handle CONST_FIXED. 
+	(exp_equiv_p): Likewise.
+	(cannon_reg): Likewise.
+	(fold_rtx_subreg): Check CONST_FIXED.
+	(fold_rtx): Handle CONST_FIXED.
+	(cse_process_notes): Likewise.
+	(count_reg_usage): Likewise.
+	* expr.c (emit_move_insn_1): Handle fixed-point mode to move via
+	integer.
+	* rtl.c (rtx_code_size): Check CONST_FIXED to calcualte correct sizes
+	in DEF_RTL_EXPR.
+	(copy_rtx): Handle CONST_FIXED.
+	(rtx_equal_p): Likewise.
+	* Makefile.in (RTL_BASE_H): Add fixed_value.h.
+	(tree.o): Add dependence from fixed_value.h.
+	* doc/c-tree.texi (Expressions): Document FIXED_CST.
+
 2006-11-14  Chao-ying Fu  <fu@mips.com>
 
 	* c-lex.c (interpret_fixed): Declare.

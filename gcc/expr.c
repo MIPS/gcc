@@ -3229,7 +3229,8 @@ emit_move_insn_1 (rtx x, rtx y)
   if (COMPLEX_MODE_P (mode))
     return emit_move_complex (mode, x, y);
 
-  if (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT)
+  if (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT
+      || ALL_FIXED_POINT_MODE_P (mode))
     {
       rtx result = emit_move_via_integer (mode, x, y, true);
 

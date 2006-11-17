@@ -1844,6 +1844,7 @@ This macro returns the attributes on the type @var{type}.
 @findex tree_int_cst_lt
 @findex tree_int_cst_equal
 @tindex REAL_CST
+@tindex FIXED_CST
 @tindex COMPLEX_CST
 @tindex VECTOR_CST
 @tindex STRING_CST
@@ -2027,6 +2028,15 @@ its bit-pattern.
 
 FIXME: Talk about how to obtain representations of this constant, do
 comparisons, and so forth.
+
+@item FIXED_CST
+
+These nodes represent fixed-point constants.  The type of these constants
+is obtained with @code{TREE_TYPE}.  @code{TREE_FIXED_CST_PTR} points to
+to struct fixed_value;  @code{TREE_FIXED_CST} returns the structure itself.
+Struct fixed_value contains @code{data} with the size of two 
+HOST_BITS_PER_WIDE_INT and @code{mode} as the associated fixed-point
+machine mode for @code{data}.
 
 @item COMPLEX_CST
 These nodes are used to represent complex number constants, that is a
