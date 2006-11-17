@@ -600,7 +600,6 @@ static inline unsigned safe_hash (rtx, enum machine_mode);
 static unsigned hash_rtx_string (const char *);
 
 static rtx canon_reg (rtx, rtx);
-static void find_best_addr (rtx, rtx *, enum machine_mode);
 static enum rtx_code find_comparison_args (enum rtx_code, rtx *, rtx *,
 					   enum machine_mode *,
 					   enum machine_mode *);
@@ -729,57 +728,6 @@ approx_reg_cost (rtx x)
     return MAX_COST;
 
   return cost;
-}
-
-/* Returns a canonical version of X for the address, from the point of view,
-   that all multiplications are represented as MULT instead of the multiply
-   by a power of 2 being represented as ASHIFT.  */
-
-static rtx
-canon_for_address (rtx x)
-{
-  enum rtx_code code;
-  enum machine_mode mode;
-  rtx new = 0;
-  int i;
-  const char *fmt;
-  
-  if (!x)
-    return x;
-  
-  code = GET_CODE (x);
-  mode = GET_MODE (x);
-  
-  switch (code)
-    {
-    case ASHIFT:
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && INTVAL (XEXP (x, 1)) < GET_MODE_BITSIZE (mode)
-	  && INTVAL (XEXP (x, 1)) >= 0)
-        {
-	  new = canon_for_address (XEXP (x, 0));
-	  new = gen_rtx_MULT (mode, new,
-			      gen_int_mode ((HOST_WIDE_INT) 1
-				            << INTVAL (XEXP (x, 1)),
-					    mode));
-	}
-      break;
-    default:
-      break;
-      
-    }
-  if (new)
-    return new;
-  
-  /* Now recursively process each operand of this operation.  */
-  fmt = GET_RTX_FORMAT (code);
-  for (i = 0; i < GET_RTX_LENGTH (code); i++)
-    if (fmt[i] == 'e')
-      {
-	new = canon_for_address (XEXP (x, i));
-	XEXP (x, i) = new;
-      }
-  return x;
 }
 
 /* Return a negative value if an rtx A, whose costs are given by COST_A
@@ -1724,7 +1672,7 @@ flush_hash_table (void)
 	/* Note that invalidate can remove elements
 	   after P in the current hash chain.  */
 	if (REG_P (p->exp))
-	  invalidate (p->exp, p->mode);
+	  invalidate (p->exp, VOIDmode);
 	else
 	  remove_from_table (p, i);
       }
@@ -2814,231 +2762,6 @@ canon_reg (rtx x, rtx insn)
   return x;
 }
 
-/* LOC is a location within INSN that is an operand address (the contents of
-   a MEM).  Find the best equivalent address to use that is valid for this
-   insn.
-
-   On most CISC machines, complicated address modes are costly, and rtx_cost
-   is a good approximation for that cost.  However, most RISC machines have
-   only a few (usually only one) memory reference formats.  If an address is
-   valid at all, it is often just as cheap as any other address.  Hence, for
-   RISC machines, we use `address_cost' to compare the costs of various
-   addresses.  For two addresses of equal cost, choose the one with the
-   highest `rtx_cost' value as that has the potential of eliminating the
-   most insns.  For equal costs, we choose the first in the equivalence
-   class.  Note that we ignore the fact that pseudo registers are cheaper than
-   hard registers here because we would also prefer the pseudo registers.  */
-
-static void
-find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
-{
-  struct table_elt *elt;
-  rtx addr = *loc;
-  struct table_elt *p;
-  int found_better = 1;
-  int save_do_not_record = do_not_record;
-  int save_hash_arg_in_memory = hash_arg_in_memory;
-  int addr_volatile;
-  int regno;
-  unsigned hash;
-
-  /* Do not try to replace constant addresses or addresses of local and
-     argument slots.  These MEM expressions are made only once and inserted
-     in many instructions, as well as being used to control symbol table
-     output.  It is not safe to clobber them.
-
-     There are some uncommon cases where the address is already in a register
-     for some reason, but we cannot take advantage of that because we have
-     no easy way to unshare the MEM.  In addition, looking up all stack
-     addresses is costly.  */
-  if ((GET_CODE (addr) == PLUS
-       && REG_P (XEXP (addr, 0))
-       && GET_CODE (XEXP (addr, 1)) == CONST_INT
-       && (regno = REGNO (XEXP (addr, 0)),
-	   regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM
-	   || regno == ARG_POINTER_REGNUM))
-      || (REG_P (addr)
-	  && (regno = REGNO (addr), regno == FRAME_POINTER_REGNUM
-	      || regno == HARD_FRAME_POINTER_REGNUM
-	      || regno == ARG_POINTER_REGNUM))
-      || CONSTANT_ADDRESS_P (addr))
-    return;
-
-  /* If this address is not simply a register, try to fold it.  This will
-     sometimes simplify the expression.  Many simplifications
-     will not be valid, but some, usually applying the associative rule, will
-     be valid and produce better code.  */
-  if (!REG_P (addr))
-    {
-      rtx folded = canon_for_address (fold_rtx (addr, NULL_RTX));
-
-      if (folded != addr)
-	{
-	  int addr_folded_cost = address_cost (folded, mode);
-	  int addr_cost = address_cost (addr, mode);
-
-	  if ((addr_folded_cost < addr_cost
-	       || (addr_folded_cost == addr_cost
-		   /* ??? The rtx_cost comparison is left over from an older
-		      version of this code.  It is probably no longer helpful.*/
-		   && (rtx_cost (folded, MEM) > rtx_cost (addr, MEM)
-		       || approx_reg_cost (folded) < approx_reg_cost (addr))))
-	      && validate_change (insn, loc, folded, 0))
-	    addr = folded;
-	}
-    }
-
-  /* If this address is not in the hash table, we can't look for equivalences
-     of the whole address.  Also, ignore if volatile.  */
-
-  do_not_record = 0;
-  hash = HASH (addr, Pmode);
-  addr_volatile = do_not_record;
-  do_not_record = save_do_not_record;
-  hash_arg_in_memory = save_hash_arg_in_memory;
-
-  if (addr_volatile)
-    return;
-
-  elt = lookup (addr, hash, Pmode);
-
-  if (elt)
-    {
-      /* We need to find the best (under the criteria documented above) entry
-	 in the class that is valid.  We use the `flag' field to indicate
-	 choices that were invalid and iterate until we can't find a better
-	 one that hasn't already been tried.  */
-
-      for (p = elt->first_same_value; p; p = p->next_same_value)
-	p->flag = 0;
-
-      while (found_better)
-	{
-	  int best_addr_cost = address_cost (*loc, mode);
-	  int best_rtx_cost = (elt->cost + 1) >> 1;
-	  int exp_cost;
-	  struct table_elt *best_elt = elt;
-
-	  found_better = 0;
-	  for (p = elt->first_same_value; p; p = p->next_same_value)
-	    if (! p->flag)
-	      {
-		if ((REG_P (p->exp)
-		     || exp_equiv_p (p->exp, p->exp, 1, false))
-		    && ((exp_cost = address_cost (p->exp, mode)) < best_addr_cost
-			|| (exp_cost == best_addr_cost
-			    && ((p->cost + 1) >> 1) > best_rtx_cost)))
-		  {
-		    found_better = 1;
-		    best_addr_cost = exp_cost;
-		    best_rtx_cost = (p->cost + 1) >> 1;
-		    best_elt = p;
-		  }
-	      }
-
-	  if (found_better)
-	    {
-	      if (validate_change (insn, loc,
-				   canon_reg (copy_rtx (best_elt->exp),
-					      NULL_RTX), 0))
-		return;
-	      else
-		best_elt->flag = 1;
-	    }
-	}
-    }
-
-  /* If the address is a binary operation with the first operand a register
-     and the second a constant, do the same as above, but looking for
-     equivalences of the register.  Then try to simplify before checking for
-     the best address to use.  This catches a few cases:  First is when we
-     have REG+const and the register is another REG+const.  We can often merge
-     the constants and eliminate one insn and one register.  It may also be
-     that a machine has a cheap REG+REG+const.  Finally, this improves the
-     code on the Alpha for unaligned byte stores.  */
-
-  if (flag_expensive_optimizations
-      && ARITHMETIC_P (*loc)
-      && REG_P (XEXP (*loc, 0)))
-    {
-      rtx op1 = XEXP (*loc, 1);
-
-      do_not_record = 0;
-      hash = HASH (XEXP (*loc, 0), Pmode);
-      do_not_record = save_do_not_record;
-      hash_arg_in_memory = save_hash_arg_in_memory;
-
-      elt = lookup (XEXP (*loc, 0), hash, Pmode);
-      if (elt == 0)
-	return;
-
-      /* We need to find the best (under the criteria documented above) entry
-	 in the class that is valid.  We use the `flag' field to indicate
-	 choices that were invalid and iterate until we can't find a better
-	 one that hasn't already been tried.  */
-
-      for (p = elt->first_same_value; p; p = p->next_same_value)
-	p->flag = 0;
-
-      while (found_better)
-	{
-	  int best_addr_cost = address_cost (*loc, mode);
-	  int best_rtx_cost = (COST (*loc) + 1) >> 1;
-	  struct table_elt *best_elt = elt;
-	  rtx best_rtx = *loc;
-	  int count;
-
-	  /* This is at worst case an O(n^2) algorithm, so limit our search
-	     to the first 32 elements on the list.  This avoids trouble
-	     compiling code with very long basic blocks that can easily
-	     call simplify_gen_binary so many times that we run out of
-	     memory.  */
-
-	  found_better = 0;
-	  for (p = elt->first_same_value, count = 0;
-	       p && count < 32;
-	       p = p->next_same_value, count++)
-	    if (! p->flag
-		&& (REG_P (p->exp)
-		    || (GET_CODE (p->exp) != EXPR_LIST
-			&& exp_equiv_p (p->exp, p->exp, 1, false))))
-
-	      {
-		rtx new = simplify_gen_binary (GET_CODE (*loc), Pmode,
-					       p->exp, op1);
-		int new_cost;
-		
-		/* Get the canonical version of the address so we can accept
-		   more.  */
-		new = canon_for_address (new);
-		
-		new_cost = address_cost (new, mode);
-
-		if (new_cost < best_addr_cost
-		    || (new_cost == best_addr_cost
-			&& (COST (new) + 1) >> 1 > best_rtx_cost))
-		  {
-		    found_better = 1;
-		    best_addr_cost = new_cost;
-		    best_rtx_cost = (COST (new) + 1) >> 1;
-		    best_elt = p;
-		    best_rtx = new;
-		  }
-	      }
-
-	  if (found_better)
-	    {
-	      if (validate_change (insn, loc,
-				   canon_reg (copy_rtx (best_rtx),
-					      NULL_RTX), 0))
-		return;
-	      else
-		best_elt->flag = 1;
-	    }
-	}
-    }
-}
-
 /* Given an operation (CODE, *PARG1, *PARG2), where code is a comparison
    operation (EQ, NE, GT, etc.), follow it back through the hash table and
    what values are being compared.
@@ -3233,380 +2956,14 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
   return code;
 }
 
-/* Fold SUBREG.  */
+/* If X is a nontrivial arithmetic operation on an argument for which
+   a constant value can be determined, return the result of operating
+   on that value, as a constant.  Otherwise, return X, possibly with
+   one or more operands changed to a forward-propagated constant.
 
-static rtx
-fold_rtx_subreg (rtx x, rtx insn)
-{
-  enum machine_mode mode = GET_MODE (x);
-  rtx folded_arg0;
-  rtx const_arg0;
-  rtx new;
-
-  /* See if we previously assigned a constant value to this SUBREG.  */
-  if ((new = lookup_as_function (x, CONST_INT)) != 0
-      || (new = lookup_as_function (x, CONST_DOUBLE)) != 0)
-    return new;
-
-  /* If this is a paradoxical SUBREG, we have no idea what value the
-     extra bits would have.  However, if the operand is equivalent to
-     a SUBREG whose operand is the same as our mode, and all the modes
-     are within a word, we can just use the inner operand because
-     these SUBREGs just say how to treat the register.
-
-     Similarly if we find an integer constant.  */
-
-  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-    {
-      enum machine_mode imode = GET_MODE (SUBREG_REG (x));
-      struct table_elt *elt;
-
-      if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
-	  && GET_MODE_SIZE (imode) <= UNITS_PER_WORD
-	  && (elt = lookup (SUBREG_REG (x), HASH (SUBREG_REG (x), imode),
-			    imode)) != 0)
-	for (elt = elt->first_same_value; elt; elt = elt->next_same_value)
-	  {
-	    if (CONSTANT_P (elt->exp)
-		&& GET_MODE (elt->exp) == VOIDmode)
-	      return elt->exp;
-
-	    if (GET_CODE (elt->exp) == SUBREG
-		&& GET_MODE (SUBREG_REG (elt->exp)) == mode
-		&& exp_equiv_p (elt->exp, elt->exp, 1, false))
-	      return copy_rtx (SUBREG_REG (elt->exp));
-	  }
-
-      return x;
-    }
-
-  /* Fold SUBREG_REG.  If it changed, see if we can simplify the
-     SUBREG.  We might be able to if the SUBREG is extracting a single
-     word in an integral mode or extracting the low part.  */
-
-  folded_arg0 = fold_rtx (SUBREG_REG (x), insn);
-  const_arg0 = equiv_constant (folded_arg0);
-  if (const_arg0)
-    folded_arg0 = const_arg0;
-
-  if (folded_arg0 != SUBREG_REG (x))
-    {
-      new = simplify_subreg (mode, folded_arg0,
-			     GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-      if (new)
-	return new;
-    }
-
-  if (REG_P (folded_arg0)
-      && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (folded_arg0)))
-    {
-      struct table_elt *elt;
-
-      elt = lookup (folded_arg0,
-		    HASH (folded_arg0, GET_MODE (folded_arg0)),
-		    GET_MODE (folded_arg0));
-
-      if (elt)
-	elt = elt->first_same_value;
-
-      if (subreg_lowpart_p (x))
-	/* If this is a narrowing SUBREG and our operand is a REG, see
-	   if we can find an equivalence for REG that is an arithmetic
-	   operation in a wider mode where both operands are
-	   paradoxical SUBREGs from objects of our result mode.  In
-	   that case, we couldn-t report an equivalent value for that
-	   operation, since we don't know what the extra bits will be.
-	   But we can find an equivalence for this SUBREG by folding
-	   that operation in the narrow mode.  This allows us to fold
-	   arithmetic in narrow modes when the machine only supports
-	   word-sized arithmetic.
-
-	   Also look for a case where we have a SUBREG whose operand
-	   is the same as our result.  If both modes are smaller than
-	   a word, we are simply interpreting a register in different
-	   modes and we can use the inner value.  */
-
-	for (; elt; elt = elt->next_same_value)
-	  {
-	    enum rtx_code eltcode = GET_CODE (elt->exp);
-
-	    /* Just check for unary and binary operations.  */
-	    if (UNARY_P (elt->exp)
-		&& eltcode != SIGN_EXTEND
-		&& eltcode != ZERO_EXTEND
-		&& GET_CODE (XEXP (elt->exp, 0)) == SUBREG
-		&& GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode
-		&& (GET_MODE_CLASS (mode)
-		    == GET_MODE_CLASS (GET_MODE (XEXP (elt->exp, 0)))))
-	      {
-		rtx op0 = SUBREG_REG (XEXP (elt->exp, 0));
-
-		if (!REG_P (op0) && ! CONSTANT_P (op0))
-		  op0 = fold_rtx (op0, NULL_RTX);
-
-		op0 = equiv_constant (op0);
-		if (op0)
-		  new = simplify_unary_operation (GET_CODE (elt->exp), mode,
-						  op0, mode);
-	      }
-	    else if (ARITHMETIC_P (elt->exp)
-		     && eltcode != DIV && eltcode != MOD
-		     && eltcode != UDIV && eltcode != UMOD
-		     && eltcode != ASHIFTRT && eltcode != LSHIFTRT
-		     && eltcode != ROTATE && eltcode != ROTATERT
-		     && ((GET_CODE (XEXP (elt->exp, 0)) == SUBREG
-			  && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 0)))
-			      == mode))
-			 || CONSTANT_P (XEXP (elt->exp, 0)))
-		     && ((GET_CODE (XEXP (elt->exp, 1)) == SUBREG
-			  && (GET_MODE (SUBREG_REG (XEXP (elt->exp, 1)))
-			      == mode))
-			 || CONSTANT_P (XEXP (elt->exp, 1))))
-	      {
-		rtx op0 = gen_lowpart_common (mode, XEXP (elt->exp, 0));
-		rtx op1 = gen_lowpart_common (mode, XEXP (elt->exp, 1));
-
-		if (op0 && !REG_P (op0) && ! CONSTANT_P (op0))
-		  op0 = fold_rtx (op0, NULL_RTX);
-
-		if (op0)
-		  op0 = equiv_constant (op0);
-
-		if (op1 && !REG_P (op1) && ! CONSTANT_P (op1))
-		  op1 = fold_rtx (op1, NULL_RTX);
-
-		if (op1)
-		  op1 = equiv_constant (op1);
-
-		/* If we are looking for the low SImode part of
-		   (ashift:DI c (const_int 32)), it doesn't work to
-		   compute that in SImode, because a 32-bit shift in
-		   SImode is unpredictable.  We know the value is
-		   0.  */
-		if (op0 && op1
-		    && GET_CODE (elt->exp) == ASHIFT
-		    && GET_CODE (op1) == CONST_INT
-		    && INTVAL (op1) >= GET_MODE_BITSIZE (mode))
-		  {
-		    if (INTVAL (op1)
-			< GET_MODE_BITSIZE (GET_MODE (elt->exp)))
-		      /* If the count fits in the inner mode's width,
-			 but exceeds the outer mode's width, the value
-			 will get truncated to 0 by the subreg.  */
-		      new = CONST0_RTX (mode);
-		    else
-		      /* If the count exceeds even the inner mode's width,
-			 don't fold this expression.  */
-		      new = 0;
-		  }
-		else if (op0 && op1)
-		  new = simplify_binary_operation (GET_CODE (elt->exp),
-						   mode, op0, op1);
-	      }
-
-	    else if (GET_CODE (elt->exp) == SUBREG
-		     && GET_MODE (SUBREG_REG (elt->exp)) == mode
-		     && (GET_MODE_SIZE (GET_MODE (folded_arg0))
-			 <= UNITS_PER_WORD)
-		     && exp_equiv_p (elt->exp, elt->exp, 1, false))
-	      new = copy_rtx (SUBREG_REG (elt->exp));
-
-	    if (new)
-	      return new;
-	  }
-      else
-	/* A SUBREG resulting from a zero extension may fold to zero
-	   if it extracts higher bits than the ZERO_EXTEND's source
-	   bits.  FIXME: if combine tried to, er, combine these
-	   instructions, this transformation may be moved to
-	   simplify_subreg.  */
-	for (; elt; elt = elt->next_same_value)
-	  {
-	    if (GET_CODE (elt->exp) == ZERO_EXTEND
-		&& subreg_lsb (x)
-		>= GET_MODE_BITSIZE (GET_MODE (XEXP (elt->exp, 0))))
-	      return CONST0_RTX (mode);
-	  }
-    }
-
-  return x;
-}
-
-/* Fold MEM.  */
-
-static rtx
-fold_rtx_mem (rtx x, rtx insn)
-{
-  enum machine_mode mode = GET_MODE (x);
-  rtx new;
-
-  /* If we are not actually processing an insn, don't try to find the
-     best address.  Not only don't we care, but we could modify the
-     MEM in an invalid way since we have no insn to validate
-     against.  */
-  if (insn != 0)
-    find_best_addr (insn, &XEXP (x, 0), mode);
-
-  {
-    /* Even if we don't fold in the insn itself, we can safely do so
-       here, in hopes of getting a constant.  */
-    rtx addr = fold_rtx (XEXP (x, 0), NULL_RTX);
-    rtx base = 0;
-    HOST_WIDE_INT offset = 0;
-
-    if (REG_P (addr)
-	&& REGNO_QTY_VALID_P (REGNO (addr)))
-      {
-	int addr_q = REG_QTY (REGNO (addr));
-	struct qty_table_elem *addr_ent = &qty_table[addr_q];
-
-	if (GET_MODE (addr) == addr_ent->mode
-	    && addr_ent->const_rtx != NULL_RTX)
-	  addr = addr_ent->const_rtx;
-      }
-
-    /* Call target hook to avoid the effects of -fpic etc....  */
-    addr = targetm.delegitimize_address (addr);
-
-    /* If address is constant, split it into a base and integer
-       offset.  */
-    if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
-      base = addr;
-    else if (GET_CODE (addr) == CONST && GET_CODE (XEXP (addr, 0)) == PLUS
-	     && GET_CODE (XEXP (XEXP (addr, 0), 1)) == CONST_INT)
-      {
-	base = XEXP (XEXP (addr, 0), 0);
-	offset = INTVAL (XEXP (XEXP (addr, 0), 1));
-      }
-    else if (GET_CODE (addr) == LO_SUM
-	     && GET_CODE (XEXP (addr, 1)) == SYMBOL_REF)
-      base = XEXP (addr, 1);
-
-    /* If this is a constant pool reference, we can fold it into its
-       constant to allow better value tracking.  */
-    if (base && GET_CODE (base) == SYMBOL_REF
-	&& CONSTANT_POOL_ADDRESS_P (base))
-      {
-	rtx constant = get_pool_constant (base);
-	enum machine_mode const_mode = get_pool_mode (base);
-	rtx new;
-
-	if (CONSTANT_P (constant) && GET_CODE (constant) != CONST_INT)
-	  {
-	    constant_pool_entries_cost = COST (constant);
-	    constant_pool_entries_regcost = approx_reg_cost (constant);
-	  }
-
-	/* If we are loading the full constant, we have an
-	   equivalence.  */
-	if (offset == 0 && mode == const_mode)
-	  return constant;
-
-	/* If this actually isn't a constant (weird!), we can't do
-	   anything.  Otherwise, handle the two most common cases:
-	   extracting a word from a multi-word constant, and
-	   extracting the low-order bits.  Other cases don't seem
-	   common enough to worry about.  */
-	if (! CONSTANT_P (constant))
-	  return x;
-
-	if (GET_MODE_CLASS (mode) == MODE_INT
-	    && GET_MODE_SIZE (mode) == UNITS_PER_WORD
-	    && offset % UNITS_PER_WORD == 0
-	    && (new = operand_subword (constant,
-				       offset / UNITS_PER_WORD,
-				       0, const_mode)) != 0)
-	  return new;
-
-	if (((BYTES_BIG_ENDIAN
-	      && offset == GET_MODE_SIZE (GET_MODE (constant)) - 1)
-	     || (! BYTES_BIG_ENDIAN && offset == 0))
-	    && (new = gen_lowpart (mode, constant)) != 0)
-	  return new;
-      }
-
-    /* If this is a reference to a label at a known position in a jump
-       table, we also know its value.  */
-    if (base && GET_CODE (base) == LABEL_REF)
-      {
-	rtx label = XEXP (base, 0);
-	rtx table_insn = NEXT_INSN (label);
-
-	if (table_insn && JUMP_P (table_insn)
-	    && GET_CODE (PATTERN (table_insn)) == ADDR_VEC)
-	  {
-	    rtx table = PATTERN (table_insn);
-
-	    if (offset >= 0
-		&& (offset / GET_MODE_SIZE (GET_MODE (table))
-		    < XVECLEN (table, 0)))
-	      {
-		rtx label = XVECEXP
-		  (table, 0, offset / GET_MODE_SIZE (GET_MODE (table)));
-		rtx set;
-
-		/* If we have an insn that loads the label from the
-		   jumptable into a reg, we don't want to set the reg
-		   to the label, because this may cause a reference to
-		   the label to remain after the label is removed in
-		   some very obscure cases (PR middle-end/18628).  */
-		if (!insn)
-		  return label;
-
-		set = single_set (insn);
-
-		if (! set || SET_SRC (set) != x)
-		  return x;
-
-		/* If it's a jump, it's safe to reference the label.  */
-		if (SET_DEST (set) == pc_rtx)
-		  return label;
-
-		return x;
-	      }
-	  }
-	if (table_insn && JUMP_P (table_insn)
-	    && GET_CODE (PATTERN (table_insn)) == ADDR_DIFF_VEC)
-	  {
-	    rtx table = PATTERN (table_insn);
-
-	    if (offset >= 0
-		&& (offset / GET_MODE_SIZE (GET_MODE (table))
-		    < XVECLEN (table, 1)))
-	      {
-		offset /= GET_MODE_SIZE (GET_MODE (table));
-		new = gen_rtx_MINUS (Pmode, XVECEXP (table, 1, offset),
-				     XEXP (table, 0));
-
-		if (GET_MODE (table) != Pmode)
-		  new = gen_rtx_TRUNCATE (GET_MODE (table), new);
-
-		/* Indicate this is a constant.  This isn't a valid
-		   form of CONST, but it will only be used to fold the
-		   next insns and then discarded, so it should be
-		   safe.
-
-		   Note this expression must be explicitly discarded,
-		   by cse_insn, else it may end up in a REG_EQUAL note
-		   and "escape" to cause problems elsewhere.  */
-		return gen_rtx_CONST (GET_MODE (new), new);
-	      }
-	  }
-      }
-
-    return x;
-  }
-}
-
-/* If X is a nontrivial arithmetic operation on an argument
-   for which a constant value can be determined, return
-   the result of operating on that value, as a constant.
-   Otherwise, return X, possibly with one or more operands
-   modified by recursive calls to this function.
-
-   If X is a register whose contents are known, we do NOT
-   return those contents here.  equiv_constant is called to
-   perform that task.
+   If X is a register whose contents are known, we do NOT return
+   those contents here; equiv_constant is called to perform that task.
+   For SUBREGs and MEMs, we do that both here and in equiv_constant.
 
    INSN is the insn that we may be modifying.  If it is 0, make a copy
    of X before modifying it.  */
@@ -3619,10 +2976,9 @@ fold_rtx (rtx x, rtx insn)
   const char *fmt;
   int i;
   rtx new = 0;
-  int copied = 0;
-  int must_swap = 0;
+  int changed = 0;
 
-  /* Folded equivalents of first two operands of X.  */
+  /* Operands of X.  */
   rtx folded_arg0;
   rtx folded_arg1;
 
@@ -3639,10 +2995,16 @@ fold_rtx (rtx x, rtx insn)
   if (x == 0)
     return x;
 
-  mode = GET_MODE (x);
+  /* Try to perform some initial simplifications on X.  */
   code = GET_CODE (x);
   switch (code)
     {
+    case MEM:
+    case SUBREG:
+      if ((new = equiv_constant (x)) != NULL_RTX)
+        return new;
+      return x;
+
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
@@ -3662,20 +3024,14 @@ fold_rtx (rtx x, rtx insn)
       return prev_insn_cc0;
 #endif
 
-    case SUBREG:
-      return fold_rtx_subreg (x, insn);
-
-    case NOT:
-    case NEG:
-      /* If we have (NOT Y), see if Y is known to be (NOT Z).
-	 If so, (NOT Y) simplifies to Z.  Similarly for NEG.  */
-      new = lookup_as_function (XEXP (x, 0), code);
-      if (new)
-	return fold_rtx (copy_rtx (XEXP (new, 0)), insn);
-      break;
-
-    case MEM:
-      return fold_rtx_mem (x, insn);
+    case ASM_OPERANDS:
+      if (insn)
+	{
+	  for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
+	    validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
+			     fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
+	}
+      return x;
 
 #ifdef NO_FUNCTION_CSE
     case CALL:
@@ -3684,19 +3040,12 @@ fold_rtx (rtx x, rtx insn)
       break;
 #endif
 
-    case ASM_OPERANDS:
-      if (insn)
-	{
-	  for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
-	    validate_change (insn, &ASM_OPERANDS_INPUT (x, i),
-			     fold_rtx (ASM_OPERANDS_INPUT (x, i), insn), 0);
-	}
-      break;
-
+    /* Anything else goes through the loop below.  */
     default:
       break;
     }
 
+  mode = GET_MODE (x);
   const_arg0 = 0;
   const_arg1 = 0;
   const_arg2 = 0;
@@ -3709,55 +3058,13 @@ fold_rtx (rtx x, rtx insn)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     if (fmt[i] == 'e')
       {
-	rtx arg = XEXP (x, i);
-	rtx folded_arg = arg, const_arg = 0;
-	enum machine_mode mode_arg = GET_MODE (arg);
-	rtx cheap_arg, expensive_arg;
-	rtx replacements[2];
-	int j;
-	int old_cost = COST_IN (XEXP (x, i), code);
-
-	/* Most arguments are cheap, so handle them specially.  */
-	switch (GET_CODE (arg))
-	  {
-	  case REG:
-	    /* This is the same as calling equiv_constant; it is duplicated
-	       here for speed.  */
-	    if (REGNO_QTY_VALID_P (REGNO (arg)))
-	      {
-		int arg_q = REG_QTY (REGNO (arg));
-		struct qty_table_elem *arg_ent = &qty_table[arg_q];
-
-		if (arg_ent->const_rtx != NULL_RTX
-		    && !REG_P (arg_ent->const_rtx)
-		    && GET_CODE (arg_ent->const_rtx) != PLUS)
-		  const_arg
-		    = gen_lowpart (GET_MODE (arg),
-					       arg_ent->const_rtx);
-	      }
-	    break;
-
-	  case CONST:
-	  case CONST_INT:
-	  case SYMBOL_REF:
-	  case LABEL_REF:
-	  case CONST_DOUBLE:
-	  case CONST_VECTOR:
-	    const_arg = arg;
-	    break;
-
+	rtx folded_arg = XEXP (x, i), const_arg;
+	enum machine_mode mode_arg = GET_MODE (folded_arg);
 #ifdef HAVE_cc0
-	  case CC0:
-	    folded_arg = prev_insn_cc0;
-	    mode_arg = prev_insn_cc0_mode;
-	    const_arg = equiv_constant (folded_arg);
-	    break;
+	if (CC0_P (folded_arg))
+	  folded_arg = prev_insn_cc0, mode_arg = prev_insn_cc0_mode;
 #endif
-
-	  default:
-	    folded_arg = fold_rtx (arg, insn);
-	    const_arg = equiv_constant (folded_arg);
-	  }
+	const_arg = equiv_constant (folded_arg);
 
 	/* For the first three operands, see if the operand
 	   is constant or equivalent to a constant.  */
@@ -3777,120 +3084,50 @@ fold_rtx (rtx x, rtx insn)
 	    break;
 	  }
 
-	/* Pick the least expensive of the folded argument and an
-	   equivalent constant argument.  */
-	if (const_arg == 0 || const_arg == folded_arg
-	    || COST_IN (const_arg, code) > COST_IN (folded_arg, code))
-	  cheap_arg = folded_arg, expensive_arg = const_arg;
-	else
-	  cheap_arg = const_arg, expensive_arg = folded_arg;
-
-	/* Try to replace the operand with the cheapest of the two
-	   possibilities.  If it doesn't work and this is either of the first
-	   two operands of a commutative operation, try swapping them.
-	   If THAT fails, try the more expensive, provided it is cheaper
-	   than what is already there.  */
-
-	if (cheap_arg == XEXP (x, i))
-	  continue;
-
-	if (insn == 0 && ! copied)
-	  {
-	    x = copy_rtx (x);
-	    copied = 1;
-	  }
-
-	/* Order the replacements from cheapest to most expensive.  */
-	replacements[0] = cheap_arg;
-	replacements[1] = expensive_arg;
-
-	for (j = 0; j < 2 && replacements[j]; j++)
-	  {
-	    int new_cost = COST_IN (replacements[j], code);
-
-	    /* Stop if what existed before was cheaper.  Prefer constants
-	       in the case of a tie.  */
-	    if (new_cost > old_cost
-		|| (new_cost == old_cost && CONSTANT_P (XEXP (x, i))))
-	      break;
+	/* Pick the least expensive of the argument and an equivalent constant
+	   argument.  */
+	if (const_arg != 0
+	    && const_arg != folded_arg
+	    && COST_IN (const_arg, code) <= COST_IN (folded_arg, code)
 
 	    /* It's not safe to substitute the operand of a conversion
 	       operator with a constant, as the conversion's identity
 	       depends upon the mode of its operand.  This optimization
 	       is handled by the call to simplify_unary_operation.  */
-	    if (GET_RTX_CLASS (code) == RTX_UNARY
-		&& GET_MODE (replacements[j]) != mode_arg0
-		&& (code == ZERO_EXTEND
-		    || code == SIGN_EXTEND
-		    || code == TRUNCATE
-		    || code == FLOAT_TRUNCATE
-		    || code == FLOAT_EXTEND
-		    || code == FLOAT
-		    || code == FIX
-		    || code == UNSIGNED_FLOAT
-		    || code == UNSIGNED_FIX))
-	      continue;
+	    && (GET_RTX_CLASS (code) != RTX_UNARY
+		|| GET_MODE (const_arg) == mode_arg0
+		|| (code != ZERO_EXTEND
+		    && code != SIGN_EXTEND
+		    && code != TRUNCATE
+		    && code != FLOAT_TRUNCATE
+		    && code != FLOAT_EXTEND
+		    && code != FLOAT
+		    && code != FIX
+		    && code != UNSIGNED_FLOAT
+		    && code != UNSIGNED_FIX)))
+	  folded_arg = const_arg;
 
-	    if (validate_change (insn, &XEXP (x, i), replacements[j], 0))
-	      break;
+	if (folded_arg == XEXP (x, i))
+	  continue;
 
-	    if (GET_RTX_CLASS (code) == RTX_COMM_COMPARE
-		|| GET_RTX_CLASS (code) == RTX_COMM_ARITH)
-	      {
-		validate_change (insn, &XEXP (x, i), XEXP (x, 1 - i), 1);
-		validate_change (insn, &XEXP (x, 1 - i), replacements[j], 1);
-
-		if (apply_change_group ())
-		  {
-		    /* Swap them back to be invalid so that this loop can
-		       continue and flag them to be swapped back later.  */
-		    rtx tem;
-
-		    tem = XEXP (x, 0); XEXP (x, 0) = XEXP (x, 1);
-				       XEXP (x, 1) = tem;
-		    must_swap = 1;
-		    break;
-		  }
-	      }
-	  }
+	if (insn == NULL_RTX && !changed)
+	  x = copy_rtx (x);
+	changed = 1;
+	validate_change (insn, &XEXP (x, i), folded_arg, 1);
       }
 
-    else
-      {
-	if (fmt[i] == 'E')
-	  /* Don't try to fold inside of a vector of expressions.
-	     Doing nothing is harmless.  */
-	  {;}
-      }
-
-  /* If a commutative operation, place a constant integer as the second
-     operand unless the first operand is also a constant integer.  Otherwise,
-     place any constant second unless the first operand is also a constant.  */
-
-  if (COMMUTATIVE_P (x))
+  if (changed)
     {
-      if (must_swap
-	  || swap_commutative_operands_p (const_arg0 ? const_arg0
-						     : XEXP (x, 0),
-					  const_arg1 ? const_arg1
-						     : XEXP (x, 1)))
+      /* Canonicalize X if necessary, and keep const_argN and folded_argN
+	 consistent with the order in X.  */
+      if (canonicalize_change_group (insn, x))
 	{
-	  rtx tem = XEXP (x, 0);
-
-	  if (insn == 0 && ! copied)
-	    {
-	      x = copy_rtx (x);
-	      copied = 1;
-	    }
-
-	  validate_change (insn, &XEXP (x, 0), XEXP (x, 1), 1);
-	  validate_change (insn, &XEXP (x, 1), tem, 1);
-	  if (apply_change_group ())
-	    {
-	      tem = const_arg0, const_arg0 = const_arg1, const_arg1 = tem;
-	      tem = folded_arg0, folded_arg0 = folded_arg1, folded_arg1 = tem;
-	    }
+	  rtx tem;
+	  tem = const_arg0, const_arg0 = const_arg1, const_arg1 = tem;
+	  tem = folded_arg0, folded_arg0 = folded_arg1, folded_arg1 = tem;
 	}
+
+      apply_change_group ();
     }
 
   /* If X is an arithmetic operation, see if we can simplify it.  */
@@ -4262,21 +3499,34 @@ fold_rtx (rtx x, rtx insn)
 	    {
 	      int is_shift
 		= (code == ASHIFT || code == ASHIFTRT || code == LSHIFTRT);
-	      rtx y = lookup_as_function (folded_arg0, code);
-	      rtx inner_const;
+	      rtx y, inner_const, new_const;
 	      enum rtx_code associate_code;
-	      rtx new_const;
 
-	      if (y == 0
-		  || 0 == (inner_const
-			   = equiv_constant (fold_rtx (XEXP (y, 1), 0)))
-		  || GET_CODE (inner_const) != CONST_INT
-		  /* If we have compiled a statement like
-		     "if (x == (x & mask1))", and now are looking at
-		     "x & mask2", we will have a case where the first operand
-		     of Y is the same as our first operand.  Unless we detect
-		     this case, an infinite loop will result.  */
-		  || XEXP (y, 0) == folded_arg0)
+	      if (is_shift
+		  && (INTVAL (const_arg1) >= GET_MODE_BITSIZE (mode)
+		      || INTVAL (const_arg1) < 0))
+		{
+		  if (SHIFT_COUNT_TRUNCATED)
+		    const_arg1 = GEN_INT (INTVAL (const_arg1)
+					  & (GET_MODE_BITSIZE (mode) - 1));
+		  else
+		    break;
+		}
+
+	      y = lookup_as_function (folded_arg0, code);
+	      if (y == 0)
+		break;
+
+	      /* If we have compiled a statement like
+		 "if (x == (x & mask1))", and now are looking at
+		 "x & mask2", we will have a case where the first operand
+		 of Y is the same as our first operand.  Unless we detect
+		 this case, an infinite loop will result.  */
+	      if (XEXP (y, 0) == folded_arg0)
+		break;
+
+	      inner_const = equiv_constant (fold_rtx (XEXP (y, 1), 0));
+	      if (!inner_const || GET_CODE (inner_const) != CONST_INT)
 		break;
 
 	      /* Don't associate these operations if they are a PLUS with the
@@ -4295,6 +3545,17 @@ fold_rtx (rtx x, rtx insn)
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
 		break;
 
+	      if (is_shift
+		  && (INTVAL (inner_const) >= GET_MODE_BITSIZE (mode)
+		      || INTVAL (inner_const) < 0))
+		{
+		  if (SHIFT_COUNT_TRUNCATED)
+		    inner_const = GEN_INT (INTVAL (inner_const)
+					   & (GET_MODE_BITSIZE (mode) - 1));
+		  else
+		    break;
+		}
+
 	      /* Compute the code used to compose the constants.  For example,
 		 A-C1-C2 is A-(C1 + C2), so if CODE == MINUS, we want PLUS.  */
 
@@ -4312,13 +3573,16 @@ fold_rtx (rtx x, rtx insn)
 		 shift on a machine that does a sign-extend as a pair
 		 of shifts.  */
 
-	      if (is_shift && GET_CODE (new_const) == CONST_INT
+	      if (is_shift
+		  && GET_CODE (new_const) == CONST_INT
 		  && INTVAL (new_const) >= GET_MODE_BITSIZE (mode))
 		{
 		  /* As an exception, we can turn an ASHIFTRT of this
 		     form into a shift of the number of bits - 1.  */
 		  if (code == ASHIFTRT)
 		    new_const = GEN_INT (GET_MODE_BITSIZE (mode) - 1);
+		  else if (!side_effects_p (XEXP (y, 0)))
+		    return CONST0_RTX (mode);
 		  else
 		    break;
 		}
@@ -4395,16 +3659,31 @@ equiv_constant (rtx x)
   if (x == 0 || CONSTANT_P (x))
     return x;
 
-  /* If X is a MEM, try to fold it outside the context of any insn to see if
-     it might be equivalent to a constant.  That handles the case where it
-     is a constant-pool reference.  Then try to look it up in the hash table
-     in case it is something whose value we have seen before.  */
+  if (GET_CODE (x) == SUBREG)
+    {
+      rtx new;
+
+      /* See if we previously assigned a constant value to this SUBREG.  */
+      if ((new = lookup_as_function (x, CONST_INT)) != 0
+          || (new = lookup_as_function (x, CONST_DOUBLE)) != 0)
+        return new;
+
+      if (REG_P (SUBREG_REG (x))
+	  && (new = equiv_constant (SUBREG_REG (x))) != 0)
+        return simplify_subreg (GET_MODE (x), SUBREG_REG (x),
+				GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+
+      return 0;
+    }
+
+  /* If X is a MEM, see if it is a constant-pool reference, or look it up in
+     the hash table in case its value was seen before.  */
 
   if (MEM_P (x))
     {
       struct table_elt *elt;
 
-      x = fold_rtx (x, NULL_RTX);
+      x = avoid_constant_pool_reference (x);
       if (CONSTANT_P (x))
 	return x;
 
@@ -4739,6 +4018,8 @@ struct set
   unsigned src_const_hash;
   /* Table entry for constant equivalent for SET_SRC, if any.  */
   struct table_elt *src_const_elt;
+  /* Table entry for the destination address.  */
+  struct table_elt *dest_addr_elt;
 };
 
 static void
@@ -5723,7 +5004,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  rtx addr = XEXP (dest, 0);
 	  if (GET_RTX_CLASS (GET_CODE (addr)) == RTX_AUTOINC
 	      && XEXP (addr, 0) == stack_pointer_rtx)
-	    invalidate (stack_pointer_rtx, Pmode);
+	    invalidate (stack_pointer_rtx, VOIDmode);
 #endif
 	  dest = fold_rtx (dest, insn);
 	}
@@ -5970,6 +5251,40 @@ cse_insn (rtx insn, rtx libcall_insn)
 	 so that the destination goes into that class.  */
       sets[i].src_elt = src_eqv_elt;
 
+  /* Record destination addresses in the hash table.  This allows us to
+     check if they are invalidated by other sets.  */
+  for (i = 0; i < n_sets; i++)
+    {
+      if (sets[i].rtl)
+	{
+	  rtx x = sets[i].inner_dest;
+	  struct table_elt *elt;
+	  enum machine_mode mode;
+	  unsigned hash;
+
+	  if (MEM_P (x))
+	    {
+	      x = XEXP (x, 0);
+	      mode = GET_MODE (x);
+	      hash = HASH (x, mode);
+	      elt = lookup (x, hash, mode);
+	      if (!elt)
+		{
+		  if (insert_regs (x, NULL, 0))
+		    {
+		      rehash_using_reg (x);
+		      hash = HASH (x, mode);
+		    }
+		  elt = insert (x, NULL, hash, mode);
+		}
+
+	      sets[i].dest_addr_elt = elt;
+	    }
+	  else
+	    sets[i].dest_addr_elt = NULL;
+	}
+    }
+
   invalidate_from_clobbers (x);
 
   /* Some registers are invalidated by subroutine calls.  Memory is
@@ -6062,12 +5377,20 @@ cse_insn (rtx insn, rtx libcall_insn)
     }
 
   /* We may have just removed some of the src_elt's from the hash table.
-     So replace each one with the current head of the same class.  */
+     So replace each one with the current head of the same class.
+     Also check if destination addresses have been removed.  */
 
   for (i = 0; i < n_sets; i++)
     if (sets[i].rtl)
       {
-	if (sets[i].src_elt && sets[i].src_elt->first_same_value == 0)
+	if (sets[i].dest_addr_elt
+	    && sets[i].dest_addr_elt->first_same_value == 0)
+	  {
+	    /* The elt was removed, which means this destination is not
+	       valid after this instruction.  */
+	    sets[i].rtl = NULL_RTX;
+	  }
+	else if (sets[i].src_elt && sets[i].src_elt->first_same_value == 0)
 	  /* If elt was removed, find current head of same class,
 	     or 0 if nothing remains of that class.  */
 	  {

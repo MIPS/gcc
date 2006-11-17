@@ -505,7 +505,7 @@ _Jv_Linker::resolve_pool_entry (jclass klass, int index, bool lazy)
 					   class_index, name_and_type_index,
 					   true,
 					   pool->tags[index] == JV_CONSTANT_InterfaceMethodref);
-
+      
 	pool->data[index].rmethod
 	  = klass->engine->resolve_method(the_method,
 					  found_class,
@@ -823,7 +823,7 @@ _Jv_ThrowNoSuchMethodError ()
   throw new java::lang::NoSuchMethodError;
 }
 
-#ifdef USE_LIBFFI
+#if defined USE_LIBFFI && FFI_CLOSURES
 // A function whose invocation is prepared using libffi. It gets called
 // whenever a static method of a missing class is invoked. The data argument
 // holds a reference to a String denoting the missing class.
@@ -1009,7 +1009,7 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
   return i;
 }
 
-#ifdef USE_LIBFFI
+#if defined USE_LIBFFI && FFI_CLOSURES
 // We use a structure of this type to store the closure that
 // represents a missing method.
 struct method_closure
@@ -1062,7 +1062,7 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *)
   // of the missing class then.
   return (void *) _Jv_ThrowNoClassDefFoundError;
 }
-#endif // USE_LIBFFI
+#endif // USE_LIBFFI && FFI_CLOSURES
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
 

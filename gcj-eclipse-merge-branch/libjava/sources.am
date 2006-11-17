@@ -501,6 +501,20 @@ gnu/gcj/io.list: $(gnu_gcj_io_source_files)
 -include gnu/gcj/io.deps
 
 
+gnu_gcj_jvmti_source_files = \
+gnu/gcj/jvmti/Breakpoint.java \
+gnu/gcj/jvmti/BreakpointManager.java \
+gnu/gcj/jvmti/Location.java
+
+gnu_gcj_jvmti_header_files = $(patsubst %.java,%.h,$(gnu_gcj_jvmti_source_files))
+
+gnu/gcj/jvmti.list: $(gnu_gcj_jvmti_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/gnu/gcj/jvmti/*.class > gnu/gcj/jvmti.list
+
+-include gnu/gcj/jvmti.deps
+
+
 gnu_gcj_runtime_source_files = \
 gnu/gcj/runtime/BootClassLoader.java \
 gnu/gcj/runtime/ExtensionClassLoader.java \
@@ -1654,6 +1668,7 @@ gnu/java/rmi/server.list: $(gnu_java_rmi_server_source_files)
 
 
 gnu_java_security_source_files = \
+classpath/gnu/java/security/Configuration.java \
 classpath/gnu/java/security/Engine.java \
 classpath/gnu/java/security/OID.java \
 classpath/gnu/java/security/PolicyFile.java \
@@ -4635,7 +4650,7 @@ classpath/java/net/FileNameMap.java \
 classpath/java/net/HttpURLConnection.java \
 classpath/java/net/Inet4Address.java \
 classpath/java/net/Inet6Address.java \
-java/net/InetAddress.java \
+classpath/java/net/InetAddress.java \
 classpath/java/net/InetSocketAddress.java \
 classpath/java/net/JarURLConnection.java \
 classpath/java/net/MalformedURLException.java \
@@ -4649,6 +4664,7 @@ classpath/java/net/PortUnreachableException.java \
 classpath/java/net/ProtocolException.java \
 classpath/java/net/Proxy.java \
 classpath/java/net/ProxySelector.java \
+classpath/java/net/ResolverCache.java \
 classpath/java/net/ServerSocket.java \
 classpath/java/net/Socket.java \
 classpath/java/net/SocketAddress.java \
@@ -4669,6 +4685,7 @@ classpath/java/net/URLStreamHandler.java \
 classpath/java/net/URLStreamHandlerFactory.java \
 classpath/java/net/UnknownHostException.java \
 classpath/java/net/UnknownServiceException.java \
+java/net/VMInetAddress.java \
 java/net/VMNetworkInterface.java \
 java/net/VMURLConnection.java
 
@@ -4946,7 +4963,7 @@ java/rmi/server.list: $(java_rmi_server_source_files)
 java_security_source_files = \
 classpath/java/security/AccessControlContext.java \
 classpath/java/security/AccessControlException.java \
-java/security/AccessController.java \
+classpath/java/security/AccessController.java \
 classpath/java/security/AlgorithmParameterGenerator.java \
 classpath/java/security/AlgorithmParameterGeneratorSpi.java \
 classpath/java/security/AlgorithmParameters.java \
@@ -5011,6 +5028,8 @@ classpath/java/security/SignedObject.java \
 classpath/java/security/Signer.java \
 classpath/java/security/UnrecoverableKeyException.java \
 classpath/java/security/UnresolvedPermission.java \
+java/security/VMAccessControlState.java \
+java/security/VMAccessController.java \
 java/security/VMSecureRandom.java
 
 java_security_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_security_source_files)))
@@ -8087,6 +8106,7 @@ all_packages_source_files = \
   gnu/gcj.list \
   gnu/gcj/convert.list \
   gnu/gcj/io.list \
+  gnu/gcj/jvmti.list \
   gnu/gcj/runtime.list \
   gnu/gcj/util.list \
   gnu/java/awt.list \
@@ -8325,6 +8345,7 @@ ordinary_header_files = \
   $(gnu_gcj_header_files) \
   $(gnu_gcj_convert_header_files) \
   $(gnu_gcj_io_header_files) \
+  $(gnu_gcj_jvmti_header_files) \
   $(gnu_gcj_runtime_header_files) \
   $(gnu_gcj_tools_gcj_dbtool_header_files) \
   $(gnu_gcj_util_header_files) \

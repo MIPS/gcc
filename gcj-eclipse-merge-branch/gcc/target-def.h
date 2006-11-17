@@ -1,5 +1,6 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -30,8 +31,13 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    definition in a #ifndef, since files include tm.h before this one.  */
 
 /* Assembler output.  */
+#ifndef TARGET_ASM_OPEN_PAREN
 #define TARGET_ASM_OPEN_PAREN "("
+#endif
+#ifndef TARGET_ASM_CLOSE_PAREN
 #define TARGET_ASM_CLOSE_PAREN ")"
+#endif
+
 #define TARGET_ASM_BYTE_OP "\t.byte\t"
 
 #define TARGET_ASM_ALIGNED_HI_OP "\t.short\t"
@@ -326,9 +332,13 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_SCHED_SET_SCHED_FLAGS}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN 0
+#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD 0
 
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,				\
+   TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN,                             \
+   TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD}
 
 #define TARGET_DEFAULT_TARGET_FLAGS 0
 
@@ -577,6 +587,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
+#ifndef TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT
+#define TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT hook_bool_void_false
+#endif
+
 #ifndef TARGET_CXX_ADJUST_CLASS_AT_DEFINITION
 #define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION hook_void_tree
 #endif
@@ -593,6 +607,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
     TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
     TARGET_CXX_USE_AEABI_ATEXIT,		\
+    TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT,	\
     TARGET_CXX_ADJUST_CLASS_AT_DEFINITION	\
   }
 

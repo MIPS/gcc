@@ -1435,7 +1435,7 @@ typedef enum
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
-  AB_CRAY_POINTEE, AB_THREADPRIVATE
+  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP, AB_VOLATILE
 }
 ab_attribute;
 
@@ -1448,6 +1448,7 @@ static const mstring attr_bits[] =
     minit ("OPTIONAL", AB_OPTIONAL),
     minit ("POINTER", AB_POINTER),
     minit ("SAVE", AB_SAVE),
+    minit ("VOLATILE", AB_VOLATILE),
     minit ("TARGET", AB_TARGET),
     minit ("THREADPRIVATE", AB_THREADPRIVATE),
     minit ("DUMMY", AB_DUMMY),
@@ -1465,6 +1466,7 @@ static const mstring attr_bits[] =
     minit ("ALWAYS_EXPLICIT", AB_ALWAYS_EXPLICIT),
     minit ("CRAY_POINTER", AB_CRAY_POINTER),
     minit ("CRAY_POINTEE", AB_CRAY_POINTEE),
+    minit ("ALLOC_COMP", AB_ALLOC_COMP),
     minit (NULL, -1)
 };
 
@@ -1517,6 +1519,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_POINTER, attr_bits);
       if (attr->save)
 	MIO_NAME(ab_attribute) (AB_SAVE, attr_bits);
+      if (attr->volatile_)
+	MIO_NAME(ab_attribute) (AB_VOLATILE, attr_bits);
       if (attr->target)
 	MIO_NAME(ab_attribute) (AB_TARGET, attr_bits);
       if (attr->threadprivate)
@@ -1555,6 +1559,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_CRAY_POINTER, attr_bits);
       if (attr->cray_pointee)
 	MIO_NAME(ab_attribute) (AB_CRAY_POINTEE, attr_bits);
+      if (attr->alloc_comp)
+	MIO_NAME(ab_attribute) (AB_ALLOC_COMP, attr_bits);
 
       mio_rparen ();
 
@@ -1592,6 +1598,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_SAVE:
 	      attr->save = 1;
+	      break;
+	    case AB_VOLATILE:
+	      attr->volatile_ = 1;
 	      break;
 	    case AB_TARGET:
 	      attr->target = 1;
@@ -1643,6 +1652,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_CRAY_POINTEE:
 	      attr->cray_pointee = 1;
+	      break;
+	    case AB_ALLOC_COMP:
+	      attr->alloc_comp = 1;
 	      break;
 	    }
 	}
@@ -1951,6 +1963,7 @@ mio_component (gfc_component * c)
 
   mio_integer (&c->dimension);
   mio_integer (&c->pointer);
+  mio_integer (&c->allocatable);
 
   mio_expr (&c->initializer);
   mio_rparen ();
@@ -3783,7 +3796,7 @@ gfc_use_module (void)
 {
   char *filename;
   gfc_state_data *p;
-  int c, line;
+  int c, line, start;
 
   filename = (char *) alloca(strlen(module_name) + strlen(MODULE_EXTENSION)
 			     + 1);
@@ -3798,15 +3811,23 @@ gfc_use_module (void)
   iomode = IO_INPUT;
   module_line = 1;
   module_column = 1;
+  start = 0;
 
-  /* Skip the first two lines of the module.  */
-  /* FIXME: Could also check for valid two lines here, instead.  */
+  /* Skip the first two lines of the module, after checking that this is
+     a gfortran module file.  */
   line = 0;
   while (line < 2)
     {
       c = module_char ();
       if (c == EOF)
 	bad_module ("Unexpected end of module");
+      if (start++ < 2)
+	parse_name (c);
+      if ((start == 1 && strcmp (atom_name, "GFORTRAN") != 0)
+	    || (start == 2 && strcmp (atom_name, " module") != 0))
+	gfc_fatal_error ("File '%s' opened at %C is not a GFORTRAN module "
+			  "file", filename);
+
       if (c == '\n')
 	line++;
     }

@@ -143,7 +143,10 @@ public class Thread implements Runnable
 
   /** This thread's ID.  */
   private final long threadId;
-  
+
+  /** The next thread ID to use.  */
+  private static long nextThreadId;
+
   /** Used to generate the next thread ID to use.  */
   private static long totalThreadsCreated;
 
@@ -171,6 +174,11 @@ public class Thread implements Runnable
   static final byte THREAD_PARK_PARKED = 2;
   static final byte THREAD_PARK_DEAD = 3;
 
+  /** The access control state for this thread.  Package accessible
+    * for use by java.security.VMAccessControlState's native method.
+    */
+  Object accessControlState = null;
+  
   // This describes the top-most interpreter frame for this thread.
   RawData interp_frame;
 
@@ -390,10 +398,15 @@ public class Thread implements Runnable
       }
     else
       group = g;
-      
+
     data = null;
     interrupt_flag = false;
     startable_flag = true;
+
+    synchronized (Thread.class)
+      {
+        this.threadId = nextThreadId++;
+      }
 
     if (current != null)
       {
@@ -410,11 +423,6 @@ public class Thread implements Runnable
       {
 	daemon = false;
 	priority = NORM_PRIORITY;
-      }
-
-    synchronized (Thread.class)
-      {
-        this.threadId = ++totalThreadsCreated;
       }
 
     name = n;

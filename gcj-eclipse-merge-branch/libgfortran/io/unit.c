@@ -376,6 +376,15 @@ get_internal_unit (st_parameter_dt *dtp)
     }
 
   memset (iunit, '\0', sizeof (gfc_unit));
+#ifdef __GTHREAD_MUTEX_INIT
+  {
+    __gthread_mutex_t tmp = __GTHREAD_MUTEX_INIT;
+    iunit->lock = tmp;
+  }
+#else
+  __GTHREAD_MUTEX_INIT_FUNCTION (&iunit->lock);
+#endif
+  __gthread_mutex_lock (&iunit->lock);
 
   iunit->recl = dtp->internal_unit_len;
   
@@ -411,6 +420,7 @@ get_internal_unit (st_parameter_dt *dtp)
   iunit->flags.form = FORM_FORMATTED;
   iunit->flags.pad = PAD_YES;
   iunit->flags.status = STATUS_UNSPECIFIED;
+  iunit->endfile = NO_ENDFILE;
 
   /* Initialize the data transfer parameters.  */
 
@@ -420,6 +430,7 @@ get_internal_unit (st_parameter_dt *dtp)
   dtp->u.p.skips = 0;
   dtp->u.p.pending_spaces = 0;
   dtp->u.p.max_pos = 0;
+  dtp->u.p.at_eof = 0;
 
   /* This flag tells us the unit is assigned to internal I/O.  */
   
@@ -480,6 +491,15 @@ int
 is_array_io (st_parameter_dt *dtp)
 {
   return dtp->internal_unit_desc != NULL;
+}
+
+
+/* is_stream_io () -- Determine if I/O is access="stream" mode */
+
+int
+is_stream_io (st_parameter_dt *dtp)
+{
+  return dtp->u.p.current_unit->flags.access == ACCESS_STREAM;
 }
 
 

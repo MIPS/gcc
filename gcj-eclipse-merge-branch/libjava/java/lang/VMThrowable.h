@@ -27,7 +27,6 @@ class java::lang::VMThrowable : public ::java::lang::Object
 public: // actually package-private
   static ::java::lang::VMThrowable * fillInStackTrace(::java::lang::Throwable *);
   JArray< ::java::lang::StackTraceElement * > * getStackTrace(::java::lang::Throwable *);
-  static jboolean trace_enabled;
 private:
   ::gnu::gcj::RawDataManaged * __attribute__((aligned(__alignof__( ::java::lang::Object)))) data;
 public:

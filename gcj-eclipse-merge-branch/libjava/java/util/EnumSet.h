@@ -39,7 +39,9 @@ public:
   static ::java::util::EnumSet * of(::java::lang::Enum *, ::java::lang::Enum *, ::java::lang::Enum *, ::java::lang::Enum *, ::java::lang::Enum *);
   static ::java::util::EnumSet * of(::java::lang::Enum *, JArray< ::java::lang::Enum * > *);
   static ::java::util::EnumSet * range(::java::lang::Enum *, ::java::lang::Enum *);
+public: // actually protected
   virtual ::java::lang::Object * clone();
+public:
   virtual jboolean add(::java::lang::Object *);
 private:
   static const jlong serialVersionUID = 4782406773684236311LL;

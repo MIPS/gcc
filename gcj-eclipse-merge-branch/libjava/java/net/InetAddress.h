@@ -39,10 +39,6 @@ public:
   virtual ::java::lang::String * getHostName();
   virtual ::java::lang::String * getCanonicalHostName();
   virtual JArray< jbyte > * getAddress();
-private:
-  static JArray< ::java::net::InetAddress * > * allocArray(jint);
-  static ::java::lang::SecurityException * checkConnect(::java::lang::String *);
-public:
   virtual ::java::lang::String * getHostAddress();
   virtual jint hashCode();
   virtual jboolean equals(::java::lang::Object *);
@@ -51,27 +47,23 @@ public:
   static ::java::net::InetAddress * getByAddress(::java::lang::String *, JArray< jbyte > *);
 private:
   static JArray< jbyte > * aton(::java::lang::String *);
-  static JArray< ::java::net::InetAddress * > * lookup(::java::lang::String *, ::java::net::InetAddress *, jboolean);
-  static jint getFamily(JArray< jbyte > *);
 public:
   static ::java::net::InetAddress * getByName(::java::lang::String *);
   static JArray< ::java::net::InetAddress * > * getAllByName(::java::lang::String *);
-private:
-  static ::java::lang::String * getLocalHostname();
+public: // actually package-private
+  static ::java::net::InetAddress * getInaddrAny();
 public:
   static ::java::net::InetAddress * getLocalHost();
 private:
-  static void getLocalHost(::java::lang::SecurityManager *);
-  void readResolve();
+  ::java::lang::Object * readResolve();
   void readObject(::java::io::ObjectInputStream *);
   void writeObject(::java::io::ObjectOutputStream *);
   static const jlong serialVersionUID = 3286316764910316507LL;
+  static ::java::net::InetAddress * inaddr_any;
 public: // actually package-private
   static ::java::net::InetAddress * ANY_IF;
+  static ::java::net::InetAddress * LOCALHOST;
 private:
-  static JArray< jbyte > * loopbackAddress;
-  static ::java::net::InetAddress * loopback;
-  static ::java::net::InetAddress * localhost;
   jint __attribute__((aligned(__alignof__( ::java::lang::Object)))) address;
 public: // actually package-private
   JArray< jbyte > * addr;

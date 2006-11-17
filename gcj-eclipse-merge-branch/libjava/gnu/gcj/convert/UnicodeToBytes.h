@@ -35,6 +35,7 @@ public:
   virtual jint write(JArray< jchar > *, jint, jint) = 0;
   virtual jint write(::java::lang::String *, jint, jint, JArray< jchar > *);
   virtual jboolean havePendingBytes();
+  virtual void setFinished();
   virtual void done();
   JArray< jbyte > * __attribute__((aligned(__alignof__( ::gnu::gcj::convert::IOConverter)))) buf;
   jint count;

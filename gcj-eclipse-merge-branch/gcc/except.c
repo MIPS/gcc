@@ -893,6 +893,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 
   *n = *old;
   n->outer = outer;
+  n->next_peer = NULL;
   gcc_assert (!old->aka);
 
   n->region_number += eh_offset;
@@ -1600,14 +1601,12 @@ static void
 dw2_build_landing_pads (void)
 {
   int i;
-  unsigned int j;
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
       struct eh_region *region;
       rtx seq;
       basic_block bb;
-      bool clobbers_hard_regs = false;
       edge e;
 
       region = VEC_index (eh_region, cfun->eh->region_array, i);
@@ -1636,30 +1635,6 @@ dw2_build_landing_pads (void)
 	else
 #endif
 	  { /* Nothing */ }
-
-      /* If the eh_return data registers are call-saved, then we
-	 won't have considered them clobbered from the call that
-	 threw.  Kill them now.  */
-      for (j = 0; ; ++j)
-	{
-	  unsigned r = EH_RETURN_DATA_REGNO (j);
-	  if (r == INVALID_REGNUM)
-	    break;
-	  if (! call_used_regs[r])
-	    {
-	      emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, r)));
-	      clobbers_hard_regs = true;
-	    }
-	}
-
-      if (clobbers_hard_regs)
-	{
-	  /* @@@ This is a kludge.  Not all machine descriptions define a
-	     blockage insn, but we must not allow the code we just generated
-	     to be reordered by scheduling.  So emit an ASM_INPUT to act as
-	     blockage insn.  */
-	  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
-	}
 
       emit_move_insn (cfun->eh->exc_ptr,
 		      gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
@@ -2812,6 +2787,9 @@ set_nothrow_function_flags (void)
 {
   rtx insn;
 
+  if (!targetm.binds_local_p (current_function_decl))
+    return 0;
+
   TREE_NOTHROW (current_function_decl) = 1;
 
   /* Assume cfun->all_throwers_are_sibcalls until we encounter
@@ -3542,10 +3520,16 @@ sjlj_output_call_site_table (void)
 /* Switch to the section that should be used for exception tables.  */
 
 static void
-switch_to_exception_section (void)
+switch_to_exception_section (const char * ARG_UNUSED (fnname))
 {
-  if (exception_section == 0)
+  section *s;
+
+  if (exception_section)
+    s = exception_section;
+  else
     {
+      /* Compute the section and cache it into exception_section,
+	 unless it depends on the function name.  */
       if (targetm.have_named_sections)
 	{
 	  int flags;
@@ -3561,12 +3545,26 @@ switch_to_exception_section (void)
 	    }
 	  else
 	    flags = SECTION_WRITE;
-	  exception_section = get_section (".gcc_except_table", flags, NULL);
+
+#ifdef HAVE_LD_EH_GC_SECTIONS
+	  if (flag_function_sections)
+	    {
+	      char *section_name = xmalloc (strlen (fnname) + 32);
+	      sprintf (section_name, ".gcc_except_table.%s", fnname);
+	      s = get_section (section_name, flags, NULL);
+	      free (section_name);
+	    }
+	  else
+#endif
+	    exception_section
+	      = s = get_section (".gcc_except_table", flags, NULL);
 	}
       else
-	exception_section = flag_pic ? data_section : readonly_data_section;
+	exception_section
+	  = s = flag_pic ? data_section : readonly_data_section;
     }
-  switch_to_section (exception_section);
+
+  switch_to_section (s);
 }
 #endif
 
@@ -3588,7 +3586,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
       struct cgraph_varpool_node *node;
 
       type = lookup_type_for_runtime (type);
-      value = expand_normal (type);
+      value = expand_expr (type, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
 
       /* Let cgraph know that the rtti decl is used.  Not all of the
 	 paths below go through assemble_integer, which would take
@@ -3621,7 +3619,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 }
 
 void
-output_function_exception_table (void)
+output_function_exception_table (const char * ARG_UNUSED (fnname))
 {
   int tt_format, cs_format, lp_format, i, n;
 #ifdef HAVE_AS_LEB128
@@ -3649,7 +3647,7 @@ output_function_exception_table (void)
   /* Note that varasm still thinks we're in the function's code section.
      The ".endp" directive that will immediately follow will take us back.  */
 #else
-  switch_to_exception_section ();
+  switch_to_exception_section (fnname);
 #endif
 
   /* If the target wants a label to begin the table, emit it here.  */

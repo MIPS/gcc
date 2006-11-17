@@ -23,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "flags.h"
 #include "gfortran.h"
 #include "parse.h"
 
@@ -264,14 +265,15 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
 {
   static const char *dummy = "DUMMY", *save = "SAVE", *pointer = "POINTER",
     *target = "TARGET", *external = "EXTERNAL", *intent = "INTENT",
-    *intrinsic = "INTRINSIC", *allocatable = "ALLOCATABLE",
-    *elemental = "ELEMENTAL", *private = "PRIVATE", *recursive = "RECURSIVE",
+    *intent_in = "INTENT(IN)", *intrinsic = "INTRINSIC",
+    *allocatable = "ALLOCATABLE", *elemental = "ELEMENTAL",
+    *private = "PRIVATE", *recursive = "RECURSIVE",
     *in_common = "COMMON", *result = "RESULT", *in_namelist = "NAMELIST",
     *public = "PUBLIC", *optional = "OPTIONAL", *entry = "ENTRY",
     *function = "FUNCTION", *subroutine = "SUBROUTINE",
     *dimension = "DIMENSION", *in_equivalence = "EQUIVALENCE",
     *use_assoc = "USE ASSOCIATED", *cray_pointer = "CRAY POINTER",
-    *cray_pointee = "CRAY POINTEE", *data = "DATA";
+    *cray_pointee = "CRAY POINTEE", *data = "DATA", *volatile_ = "VOLATILE";
   static const char *threadprivate = "THREADPRIVATE";
 
   const char *a1, *a2;
@@ -398,6 +400,16 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (data, allocatable);
   conf (data, use_assoc);
 
+  conf (volatile_, intrinsic)
+  conf (volatile_, external)
+
+  if (attr->volatile_ && attr->intent == INTENT_IN)
+    {
+      a1 = volatile_;
+      a2 = intent_in;
+      goto conflict;
+    }
+
   a1 = gfc_code2string (flavors, attr->flavor);
 
   if (attr->in_namelist
@@ -507,6 +519,7 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
       conf2 (dummy);
       conf2 (in_common);
       conf2 (save);
+      conf2 (volatile_);
       conf2 (threadprivate);
       break;
 
@@ -808,6 +821,26 @@ gfc_add_save (symbol_attribute * attr, const char *name, locus * where)
     }
 
   attr->save = 1;
+  return check_conflict (attr, name, where);
+}
+
+try
+gfc_add_volatile (symbol_attribute * attr, const char *name, locus * where)
+{
+
+  if (check_used (attr, name, where))
+    return FAILURE;
+
+  if (attr->volatile_)
+    {
+	if (gfc_notify_std (GFC_STD_LEGACY, 
+			    "Duplicate VOLATILE attribute specified at %L",
+			    where) 
+	    == FAILURE)
+	  return FAILURE;
+    }
+
+  attr->volatile_ = 1;
   return check_conflict (attr, name, where);
 }
 
@@ -1178,9 +1211,18 @@ gfc_add_type (gfc_symbol * sym, gfc_typespec * ts, locus * where)
 
   if (sym->ts.type != BT_UNKNOWN)
     {
-      gfc_error ("Symbol '%s' at %L already has basic type of %s", sym->name,
-		 where, gfc_basic_typename (sym->ts.type));
-      return FAILURE;
+      const char *msg = "Symbol '%s' at %L already has basic type of %s";
+      if (!(sym->ts.type == ts->type
+	     && (sym->attr.flavor == FL_PROCEDURE || sym->attr.result))
+	   || gfc_notification_std (GFC_STD_GNU) == ERROR
+	   || pedantic)
+	{
+	  gfc_error (msg, sym->name, where, gfc_basic_typename (sym->ts.type));
+	  return FAILURE;
+	}
+      else if (gfc_notify_std (GFC_STD_GNU, msg, sym->name, where,
+			       gfc_basic_typename (sym->ts.type)) == FAILURE)
+	  return FAILURE;
     }
 
   flavor = sym->attr.flavor;
@@ -1238,6 +1280,8 @@ gfc_copy_attr (symbol_attribute * dest, symbol_attribute * src, locus * where)
   if (src->pointer && gfc_add_pointer (dest, where) == FAILURE)
     goto fail;
   if (src->save && gfc_add_save (dest, NULL, where) == FAILURE)
+    goto fail;
+  if (src->volatile_ && gfc_add_volatile (dest, NULL, where) == FAILURE)
     goto fail;
   if (src->threadprivate && gfc_add_threadprivate (dest, NULL, where) == FAILURE)
     goto fail;
@@ -1513,6 +1557,7 @@ gfc_set_component_attr (gfc_component * c, symbol_attribute * attr)
 
   c->dimension = attr->dimension;
   c->pointer = attr->pointer;
+  c->allocatable = attr->allocatable;
 }
 
 
@@ -1526,6 +1571,7 @@ gfc_get_component_attr (symbol_attribute * attr, gfc_component * c)
   gfc_clear_attr (attr);
   attr->dimension = c->dimension;
   attr->pointer = c->pointer;
+  attr->allocatable = c->allocatable;
 }
 
 

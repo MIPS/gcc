@@ -89,8 +89,8 @@ typedef enum tinfo_kind
   TK_POINTER_MEMBER_TYPE, /* abi::__pointer_to_member_type_info */
   TK_CLASS_TYPE,	/* abi::__class_type_info */
   TK_SI_CLASS_TYPE,	/* abi::__si_class_type_info */
-  TK_FIXED   		/* end of fixed descriptors. */
-  /* ... 		   abi::__vmi_type_info<I> */
+  TK_FIXED		/* end of fixed descriptors. */
+  /* ...		   abi::__vmi_type_info<I> */
 } tinfo_kind;
 
 /* A vector of all tinfo decls that haven't yet been emitted.  */
@@ -228,7 +228,7 @@ get_tinfo_decl_dynamic (tree exp)
   tree type;
   tree t;
 
-  if (exp == error_mark_node)
+  if (error_operand_p (exp))
     return error_mark_node;
 
   /* peel back references, so they match.  */
@@ -342,11 +342,10 @@ get_tinfo_decl (tree type)
   tree name;
   tree d;
 
-  if (COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
       error ("cannot create type information for type %qT because "
-	     "its size is variable",
+	     "it involves types of variable size",
 	     type);
       return error_mark_node;
     }
@@ -619,6 +618,13 @@ build_dynamic_cast_1 (tree type, tree expr)
 		}
 	    }
 
+	  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
+	  if (!flag_rtti)
+	    {
+	      error ("%<dynamic_cast%> not permitted with -fno-rtti");
+	      return error_mark_node;
+	    }
+
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
@@ -703,13 +709,6 @@ build_dynamic_cast (tree type, tree expr)
 {
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
-
-  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
-  if (!flag_rtti)
-    {
-      error ("%<dynamic_cast%> not permitted with -fno-rtti");
-      return error_mark_node;
-    }
 
   if (processing_template_decl)
     {
@@ -825,13 +824,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     DECL_TINFO_P (name_decl) = 1;
-    if (involves_incomplete_p (target))
-      {
-	TREE_PUBLIC (name_decl) = 0;
-	DECL_INTERFACE_KNOWN (name_decl) = 1;
-      }
-    else
-      set_linkage_according_to_type (target, name_decl);
+    set_linkage_according_to_type (target, name_decl);
     import_export_decl (name_decl);
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);
@@ -865,7 +858,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
 	 size_binop (MULT_EXPR,
 		     size_int (2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE),
 		     TYPE_SIZE_UNIT (vtable_entry_type)));
-      
+
       ti->vtable = vtable_ptr;
     }
 
@@ -890,7 +883,7 @@ static tree
 generic_initializer (tinfo_s *ti, tree target)
 {
   tree init = tinfo_base_init (ti, target);
-  
+
   init = build_constructor_from_list (NULL_TREE, init);
   TREE_CONSTANT (init) = 1;
   TREE_INVARIANT (init) = 1;
@@ -949,7 +942,7 @@ ptm_initializer (tinfo_s *ti, tree target)
   init = tree_cons (NULL_TREE,
 		    get_tinfo_ptr (klass),
 		    init);
-  
+
   init = build_constructor_from_list (NULL_TREE, nreverse (init));
   TREE_CONSTANT (init) = 1;
   TREE_INVARIANT (init) = 1;
@@ -1007,16 +1000,16 @@ static tree
 get_pseudo_ti_init (tree type, unsigned tk_index)
 {
   tinfo_s *ti = VEC_index (tinfo_s, tinfo_descs, tk_index);
-  
+
   gcc_assert (at_eof);
   switch (tk_index)
     {
     case TK_POINTER_MEMBER_TYPE:
       return ptm_initializer (ti, type);
-      
+
     case TK_POINTER_TYPE:
       return ptr_initializer (ti, type);
-      
+
     case TK_BUILTIN_TYPE:
     case TK_ENUMERAL_TYPE:
     case TK_FUNCTION_TYPE:
@@ -1046,9 +1039,9 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	VEC(tree,gc) *base_accesses = BINFO_BASE_ACCESSES (binfo);
 	tree base_inits = NULL_TREE;
 	int ix;
-          
+
 	gcc_assert (tk_index >= TK_FIXED);
-      
+
 	/* Generate the base information initializer.  */
 	for (ix = nbases; ix--;)
 	  {
@@ -1057,21 +1050,21 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	    int flags = 0;
 	    tree tinfo;
 	    tree offset;
-	    
+
 	    if (VEC_index (tree, base_accesses, ix) == access_public_node)
 	      flags |= 2;
 	    tinfo = get_tinfo_ptr (BINFO_TYPE (base_binfo));
 	    if (BINFO_VIRTUAL_P (base_binfo))
 	      {
 		/* We store the vtable offset at which the virtual
-       		   base offset can be found.  */
+		   base offset can be found.  */
 		offset = BINFO_VPTR_FIELD (base_binfo);
 		offset = convert (sizetype, offset);
 		flags |= 1;
 	      }
 	    else
 	      offset = BINFO_OFFSET (base_binfo);
-	    
+
 	    /* Combine offset and flags into one field.  */
 	    offset = cp_build_binary_op (LSHIFT_EXPR, offset,
 					 build_int_cst (NULL_TREE, 8));
@@ -1156,6 +1149,10 @@ create_pseudo_type_info (int tk, const char *real_name, ...)
   ti->name = get_identifier (real_name);
   ti->vtable = NULL_TREE;
 
+  /* Pretend this is public so determine_visibility doesn't give vtables
+     internal linkage.  */
+  TREE_PUBLIC (TYPE_MAIN_DECL (ti->type)) = 1;
+
   va_end (ap);
 }
 
@@ -1167,29 +1164,29 @@ static unsigned
 get_pseudo_ti_index (tree type)
 {
   unsigned ix;
-  
+
   switch (TREE_CODE (type))
     {
     case OFFSET_TYPE:
       ix = TK_POINTER_MEMBER_TYPE;
       break;
-      
+
     case POINTER_TYPE:
       ix = TK_POINTER_TYPE;
       break;
-      
+
     case ENUMERAL_TYPE:
       ix = TK_ENUMERAL_TYPE;
       break;
-      
+
     case FUNCTION_TYPE:
       ix = TK_FUNCTION_TYPE;
       break;
-      
+
     case ARRAY_TYPE:
       ix = TK_ARRAY_TYPE;
       break;
-      
+
     case UNION_TYPE:
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (type))
@@ -1235,7 +1232,7 @@ get_pseudo_ti_index (tree type)
 		{
 		  /* too short, extend.  */
 		  unsigned len = VEC_length (tinfo_s, tinfo_descs);
-		  
+
 		  VEC_safe_grow (tinfo_s, gc, tinfo_descs, ix + 1);
 		  while (VEC_iterate (tinfo_s, tinfo_descs, len++, ti))
 		    ti->type = ti->vtable = ti->name = NULL_TREE;
@@ -1282,11 +1279,11 @@ static void
 create_tinfo_types (void)
 {
   tinfo_s *ti;
-  
+
   gcc_assert (!tinfo_descs);
 
   VEC_safe_grow (tinfo_s, gc, tinfo_descs, TK_FIXED);
-  
+
   push_nested_namespace (abi_node);
 
   /* Create the internal type_info structure. This is used as a base for
@@ -1317,15 +1314,15 @@ create_tinfo_types (void)
   create_pseudo_type_info (TK_ARRAY_TYPE, "__array_type_info", NULL);
   create_pseudo_type_info (TK_FUNCTION_TYPE, "__function_type_info", NULL);
   create_pseudo_type_info (TK_ENUMERAL_TYPE, "__enum_type_info", NULL);
-  
+
   /* Class type_info.  No additional fields.  */
   create_pseudo_type_info (TK_CLASS_TYPE, "__class_type_info", NULL);
-  
-  /* Single public non-virtual base class. Add pointer to base class. 
+
+  /* Single public non-virtual base class. Add pointer to base class.
      This is really a descendant of __class_type_info.  */
   create_pseudo_type_info (TK_SI_CLASS_TYPE, "__si_class_type_info",
-            build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
-            NULL);
+	    build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
+	    NULL);
 
   /* Base class internal helper. Pointer to base type, offset to base,
      flags.  */
@@ -1338,9 +1335,9 @@ create_tinfo_types (void)
     field = build_decl (FIELD_DECL, NULL_TREE, integer_types[itk_long]);
     TREE_CHAIN (field) = fields;
     fields = field;
-  
+
     ti = VEC_index (tinfo_s, tinfo_descs, TK_BASE_TYPE);
-    
+
     ti->type = make_aggr_type (RECORD_TYPE);
     ti->vtable = NULL_TREE;
     ti->name = NULL_TREE;
@@ -1362,10 +1359,10 @@ create_tinfo_types (void)
      This is really a descendant of __pbase_type_info.  */
   create_pseudo_type_info (TK_POINTER_MEMBER_TYPE,
        "__pointer_to_member_type_info",
-        build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
-        build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
-        build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
-        NULL);
+	build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+	build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
+	build_decl (FIELD_DECL, NULL_TREE, type_info_ptr_type),
+	NULL);
 
   pop_nested_namespace (abi_node);
 }
@@ -1482,7 +1479,7 @@ emit_tinfo_decl (tree decl)
   if (DECL_NOT_REALLY_EXTERN (decl) && decl_needed_p (decl))
     {
       tree init;
-      
+
       DECL_EXTERNAL (decl) = 0;
       init = get_pseudo_ti_init (type, get_pseudo_ti_index (type));
       DECL_INITIAL (decl) = init;

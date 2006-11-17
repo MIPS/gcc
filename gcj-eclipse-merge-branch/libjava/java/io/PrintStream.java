@@ -177,6 +177,8 @@ public class PrintStream extends FilterOutputStream implements Appendable
   {
     try
       {
+	converter.setFinished();
+	writeChars(new char[0], 0, 0);
 	flush();
 	out.close();
       }
@@ -254,7 +256,7 @@ public class PrintStream extends FilterOutputStream implements Appendable
   private void writeChars(char[] buf, int offset, int count)
     throws IOException
   {
-    while (count > 0 || converter.havePendingBytes())
+    do
       {
 	converter.setOutput(work_bytes, 0);
 	int converted = converter.write(buf, offset, count);
@@ -262,12 +264,13 @@ public class PrintStream extends FilterOutputStream implements Appendable
 	count -= converted;
 	out.write(work_bytes, 0, converter.count);
       }
+    while (count > 0 || converter.havePendingBytes());
   }
 
   private void writeChars(String str, int offset, int count)
     throws IOException
   {
-    while (count > 0 || converter.havePendingBytes())
+    do
       {
 	converter.setOutput(work_bytes, 0);
 	int converted = converter.write(str, offset, count, work);
@@ -275,6 +278,7 @@ public class PrintStream extends FilterOutputStream implements Appendable
 	count -= converted;
 	out.write(work_bytes, 0, converter.count);
       }
+    while (count > 0 || converter.havePendingBytes());
   }
 
   /**

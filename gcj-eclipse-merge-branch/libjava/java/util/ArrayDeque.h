@@ -59,7 +59,7 @@ public:
 private:
   void writeObject(::java::io::ObjectOutputStream *);
   void readObject(::java::io::ObjectInputStream *);
-public:
+public: // actually protected
   virtual ::java::lang::Object * clone();
 public: // actually package-private
   static jint access$1(::java::util::ArrayDeque *);

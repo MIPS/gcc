@@ -1,6 +1,6 @@
 // class template tuple -*- C++ -*-
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,6 +38,11 @@
 template<_GLIBCXX_TEMPLATE_PARAMS>
   struct tuple_size<tuple<_GLIBCXX_TEMPLATE_ARGS> >
   { static const int value = _GLIBCXX_NUM_ARGS; };
+
+#if _GLIBCXX_NUM_ARGS > 0
+template<_GLIBCXX_TEMPLATE_PARAMS>
+  const int tuple_size<tuple<_GLIBCXX_TEMPLATE_ARGS> >::value;
+#endif
 
 template<_GLIBCXX_TEMPLATE_PARAMS>
 #ifdef _GLIBCXX_LAST_INCLUDE
@@ -108,8 +113,7 @@ template<_GLIBCXX_TEMPLATE_PARAMS>
     template<int __i, typename __Type>
       friend class __get_helper;
 
-    template<typename, typename, typename, typename, typename,
-             typename, typename, typename, typename, typename>
+    template<_GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS_UNNAMED>
       friend class tuple;
   };
 
@@ -130,12 +134,8 @@ template<typename _Tp>
     };
 
 /// @brief class tuple_element
-template<typename _T1, typename _T2, typename _T3, typename _T4,
-         typename _T5, typename _T6, typename _T7, typename _T8,
-         typename _T9, typename _T10>
-   struct tuple_element<_GLIBCXX_NUM_ARGS, tuple<_T1, _T2, _T3, _T4,
-                                                _T5, _T6, _T7, _T8, _T9,
-                                                _T10> >
+template<_GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS>
+   struct tuple_element<_GLIBCXX_NUM_ARGS, tuple<_GLIBCXX_TUPLE_ALL_TEMPLATE_ARGS> >
   { typedef _GLIBCXX_T_NUM_ARGS_PLUS_1 type; };
 
 #endif

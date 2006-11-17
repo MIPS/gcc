@@ -170,6 +170,11 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 
       p = (GC_PTR) c->reflection_data;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+      // The class chain must be marked for runtime-allocated Classes
+      // loaded by the bootstrap ClassLoader.
+      p = (GC_PTR) c->next_or_version;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
     }
   else
     {
@@ -677,11 +682,30 @@ _Jv_RegisterLibForGc (const void *p __attribute__ ((__unused__)))
 }
 
 void
+_Jv_SuspendThread (_Jv_Thread_t *thread)
+{
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+     && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+  GC_suspend_thread (_Jv_GetPlatformThreadID (thread));
+#endif
+}
+
+void
+_Jv_ResumeThread (_Jv_Thread_t *thread)
+{
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+     && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+  GC_resume_thread (_Jv_GetPlatformThreadID (thread));
+#endif
+}
+
+void
 _Jv_GCAttachThread ()
 {
   // The registration interface is only defined on posixy systems and
   // only actually works if pthread_getattr_np is defined.
-#ifdef HAVE_PTHREAD_GETATTR_NP
+  // FIXME: until gc7 it is simpler to disable this on solaris.
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
   GC_register_my_thread ();
 #endif
 }
@@ -689,7 +713,7 @@ _Jv_GCAttachThread ()
 void
 _Jv_GCDetachThread ()
 {
-#ifdef HAVE_PTHREAD_GETATTR_NP
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
   GC_unregister_my_thread ();
 #endif
 }

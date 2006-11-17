@@ -1371,16 +1371,20 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 		if (!note)
 		  {
 		    rtx t = *dest;
+		    if (COMPLEX_MODE_P (GET_MODE (t)))
+		      {
+			rtx u = FP_MODE_REG (REGNO (t) + 1, SFmode);
+			if (get_hard_regnum (regstack, u) == -1)
+			  {
+			    rtx pat2 = gen_rtx_CLOBBER (VOIDmode, u);
+			    rtx insn2 = emit_insn_before (pat2, insn);
+			    control_flow_insn_deleted
+			      |= move_nan_for_stack_reg (insn2, regstack, u);
+			  }
+		      }
 		    if (get_hard_regnum (regstack, t) == -1)
 		      control_flow_insn_deleted
 			|= move_nan_for_stack_reg (insn, regstack, t);
-		    if (COMPLEX_MODE_P (GET_MODE (t)))
-		      {
-			t = FP_MODE_REG (REGNO (t) + 1, DFmode);
-			if (get_hard_regnum (regstack, t) == -1)
-			  control_flow_insn_deleted
-			    |= move_nan_for_stack_reg (insn, regstack, t);
-		      }
 		  }
 	      }
 	  }
@@ -1698,11 +1702,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Empty stack slot
 		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
@@ -1729,11 +1734,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Fill empty slot from
 		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top - 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top - 1] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG + 1);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		replace_reg (src2, FIRST_STACK_REG + 1);
@@ -1756,11 +1762,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Empty stack slot
 		   will be filled in second part of insn.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top + 1] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG);
-		}
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top + 1] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG);
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
@@ -1782,13 +1789,14 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 
 		/* Push the result back onto stack. Fill empty slot from
 		   first part of insn and fix top of stack pointer.  */
-		if (STACK_REG_P (*dest)) {
-		  regstack->reg[regstack->top] = REGNO (*dest);
-		  SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
-		  replace_reg (dest, FIRST_STACK_REG + 1);
+		if (STACK_REG_P (*dest))
+		  {
+		    regstack->reg[regstack->top] = REGNO (*dest);
+		    SET_HARD_REG_BIT (regstack->reg_set, REGNO (*dest));
+		    replace_reg (dest, FIRST_STACK_REG + 1);
 
-		  regstack->top++;
-		}
+		    regstack->top++;
+		  }
 
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
@@ -2277,6 +2285,16 @@ subst_stack_regs (rtx insn, stack regstack)
 
   if (NOTE_P (insn) || INSN_DELETED_P (insn))
     return control_flow_insn_deleted;
+
+  /* If this a noreturn call, we can't insert pop insns after it.
+     Instead, reset the stack state to empty.  */
+  if (CALL_P (insn)
+      && find_reg_note (insn, REG_NORETURN, NULL))
+    {
+      regstack->top = -1;
+      CLEAR_HARD_REG_SET (regstack->reg_set);
+      return control_flow_insn_deleted;
+    }
 
   /* If there is a REG_UNUSED note on a stack register on this insn,
      the indicated reg must be popped.  The REG_UNUSED note is removed,

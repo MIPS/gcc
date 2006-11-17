@@ -1,5 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -48,6 +48,7 @@ extern unsigned xtensa_current_frame_size;
 #define TARGET_MAC16		XCHAL_HAVE_MAC16
 #define TARGET_MUL16		XCHAL_HAVE_MUL16
 #define TARGET_MUL32		XCHAL_HAVE_MUL32
+#define TARGET_MUL32_HIGH	XCHAL_HAVE_MUL32_HIGH
 #define TARGET_DIV32		XCHAL_HAVE_DIV32
 #define TARGET_NSA		XCHAL_HAVE_NSA
 #define TARGET_MINMAX		XCHAL_HAVE_MINMAX
@@ -728,15 +729,7 @@ typedef struct xtensa_args
 #define FUNCTION_INCOMING_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, TRUE)
 
-/* Specify function argument alignment.  */
-#define FUNCTION_ARG_BOUNDARY(MODE, TYPE)				\
-  ((TYPE) != 0								\
-   ? (TYPE_ALIGN (TYPE) <= PARM_BOUNDARY				\
-      ? PARM_BOUNDARY							\
-      : TYPE_ALIGN (TYPE))						\
-   : (GET_MODE_ALIGNMENT (MODE) <= PARM_BOUNDARY			\
-      ? PARM_BOUNDARY							\
-      : GET_MODE_ALIGNMENT (MODE)))
+#define FUNCTION_ARG_BOUNDARY function_arg_boundary
 
 /* Profiling Xtensa code is typically done with the built-in profiling
    feature of Tensilica's instruction set simulator, which does not
@@ -1077,6 +1070,9 @@ typedef struct xtensa_args
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = 32, 1)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  ((VALUE) = -1, 1)
+
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -1193,35 +1189,17 @@ typedef struct xtensa_args
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
 
 
-/* Define output to appear before the constant pool.  If the function
-   has been assigned to a specific ELF section, or if it goes into a
-   unique section, set the name of that section to be the literal
-   prefix.  */
+/* Define output to appear before the constant pool.  */
 #define ASM_OUTPUT_POOL_PROLOGUE(FILE, FUNNAME, FUNDECL, SIZE)          \
   do {									\
-    tree fnsection;							\
-    resolve_unique_section ((FUNDECL), 0, flag_function_sections);	\
-    fnsection = DECL_SECTION_NAME (FUNDECL);				\
-    if (fnsection != NULL_TREE)						\
-      {									\
-	const char *fnsectname = TREE_STRING_POINTER (fnsection);	\
-	fprintf (FILE, "\t.begin\tliteral_prefix %s\n",			\
-		 strcmp (fnsectname, ".text") ? fnsectname : "");	\
-      }									\
     if ((SIZE) > 0)							\
       {									\
+	resolve_unique_section ((FUNDECL), 0, flag_function_sections);	\
 	switch_to_section (function_section (FUNDECL));			\
 	fprintf (FILE, "\t.literal_position\n");			\
       }									\
   } while (0)
 
-
-/* Define code to write out the ".end literal_prefix" directive for a
-   function in a special section.  This is appended to the standard ELF
-   code for ASM_DECLARE_FUNCTION_SIZE.  */
-#define XTENSA_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
-  if (DECL_SECTION_NAME (DECL) != NULL_TREE)				\
-    fprintf (FILE, "\t.end\tliteral_prefix\n")
 
 /* A C statement (with or without semicolon) to output a constant in
    the constant pool, if it needs special treatment.  */

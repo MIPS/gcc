@@ -46,12 +46,12 @@
 ;     e  (a0, a1)
 ;     b  (i0..i3)
 ;     f  (m0..m3)
-;     B
-;     c (i0..i3,m0..m3) CIRCREGS
-;     C (CC)            CCREGS
+;     v  (b0..b3)
+;     c  (i0..i3,m0..m3) CIRCREGS
+;     C  (CC)            CCREGS
 ;     t  (lt0,lt1)
 ;     k  (lc0,lc1)
-;     l  (lb0,lb1)
+;     u  (lb0,lb1)
 ;
 
 ;; Define constants for hard registers.
@@ -1083,18 +1083,11 @@
   "%0 = %1 + %2 (S);"
   [(set_attr "type" "dsp32")])
 
-(define_expand "subsi3"
-  [(set (match_operand:SI 0 "register_operand" "")
-	(minus:SI (match_operand:SI 1 "register_operand" "")
-		  (match_operand:SI 2 "reg_or_7bit_operand" "")))]
-  ""
-  "")
-
-(define_insn ""
+(define_insn "subsi3"
   [(set (match_operand:SI 0 "register_operand" "=da,d,a")
 	(minus:SI (match_operand:SI 1 "register_operand" "0,d,0")
-		  (match_operand:SI 2 "reg_or_7bit_operand" "Ks7,d,a")))]
-  "GET_CODE (operands[2]) != CONST_INT || INTVAL (operands[2]) != -64"
+		  (match_operand:SI 2 "reg_or_neg7bit_operand" "KN7,d,a")))]
+  ""
 {
   static const char *const strings_subsi3[] = {
     "%0 += -%2;",
@@ -1555,7 +1548,7 @@
 
 (define_insn "loop_end"
   [(set (pc)
-	(if_then_else (ne (match_operand:SI 0 "nonimmediate_operand" "+a*d,*b*h*f,m")
+	(if_then_else (ne (match_operand:SI 0 "nonimmediate_operand" "+a*d,*b*v*f,m")
 			  (const_int 1))
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))
@@ -1597,7 +1590,7 @@
 (define_insn "lsetup_with_autoinit"
   [(set (match_operand:SI 0 "lt_register_operand" "=t")
 	(label_ref (match_operand 1 "" "")))
-   (set (match_operand:SI 2 "lb_register_operand" "=l")
+   (set (match_operand:SI 2 "lb_register_operand" "=u")
 	(label_ref (match_operand 3 "" "")))
    (set (match_operand:SI 4 "lc_register_operand" "=k")
 	(match_operand:SI 5 "register_operand" "a"))]
@@ -1608,7 +1601,7 @@
 (define_insn "lsetup_without_autoinit"
   [(set (match_operand:SI 0 "lt_register_operand" "=t")
 	(label_ref (match_operand 1 "" "")))
-   (set (match_operand:SI 2 "lb_register_operand" "=l")
+   (set (match_operand:SI 2 "lb_register_operand" "=u")
 	(label_ref (match_operand 3 "" "")))
    (use (match_operand:SI 4 "lc_register_operand" "k"))]
   ""
@@ -2344,13 +2337,14 @@
   ""
 {
   emit_move_insn (EH_RETURN_HANDLER_RTX, operands[0]);
-  emit_insn (gen_eh_return_internal ());
+  emit_jump_insn (gen_eh_return_internal ());
   emit_barrier ();
   DONE;
 })
 
 (define_insn_and_split "eh_return_internal"
-  [(unspec_volatile [(reg:SI REG_P2)] UNSPEC_VOLATILE_EH_RETURN)]
+  [(set (pc)
+	(unspec_volatile [(reg:SI REG_P2)] UNSPEC_VOLATILE_EH_RETURN))]
   ""
   "#"
   "reload_completed"

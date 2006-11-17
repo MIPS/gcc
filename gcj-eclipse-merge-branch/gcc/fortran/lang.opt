@@ -73,10 +73,6 @@ Wunderflow
 Fortran
 Warn about underflow of numerical constant expressions
 
-Wunused-labels
-Fortran
-Warn when a label is unused
-
 fall-intrinsics
 Fortran RejectNegative
 All intrinsics procedures are available regardless of selected standard
@@ -88,6 +84,14 @@ Do not treat local variables and COMMON blocks as if they were named in SAVE sta
 fbackslash
 Fortran
 Specify that backslash in string introduces an escape character
+
+fexternal-blas
+Fortran
+Specify that an external BLAS library should be used for matmul calls on large-size arrays
+
+fblas-matmul-limit=
+Fortran RejectNegative Joined UInteger
+-fblas-matmul-limit=<n>        Size of the smallest matrix for which matmul will use BLAS
 
 fdefault-double-8
 Fortran
@@ -180,6 +184,10 @@ Set default accessibility of module entities to PRIVATE
 fno-backend
 Fortran RejectNegative
 Don't generate code, just do syntax and semantics checking
+
+frange-check
+Fortran
+Enable range checking during compilation
 
 fpack-derived
 Fortran

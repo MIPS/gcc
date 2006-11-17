@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -137,7 +137,7 @@ static const char *last_filename;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
-  
+
 extern const int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
@@ -816,7 +816,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
   /* Free uid_shuid before reallocating it.  */
   free (uid_shuid);
-  
+
   uid_shuid = XNEWVEC (int, max_uid);
 
   if (max_labelno != max_label_num ())
@@ -857,7 +857,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       INSN_SHUID (insn) = i++;
       if (INSN_P (insn))
 	continue;
-      
+
       if (LABEL_P (insn))
 	{
 	  rtx next;
@@ -1707,9 +1707,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  (*debug_hooks->switch_text_section) ();
 	  switch_to_section (current_function_section ());
 	  break;
-	  
+
 	case NOTE_INSN_BASIC_BLOCK:
-	  
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
 #endif
@@ -1953,6 +1952,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	int insn_code_number;
 	const char *template;
 
+#ifdef HAVE_conditional_execution
+	/* Reset this early so it is correct for ASM statements.  */
+	current_insn_predicate = NULL_RTX;
+#endif
 	/* An INSN, JUMP_INSN or CALL_INSN.
 	   First check for special kinds that recog doesn't recognize.  */
 
@@ -2388,8 +2391,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #ifdef HAVE_conditional_execution
 	if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	  current_insn_predicate = COND_EXEC_TEST (PATTERN (insn));
-	else
-	  current_insn_predicate = NULL_RTX;
 #endif
 
 #ifdef HAVE_cc0
@@ -3049,7 +3050,7 @@ output_asm_insn (const char *template, rtx *operands)
 	    int letter = *p++;
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 
 	    if (endptr == p)
@@ -3094,7 +3095,7 @@ output_asm_insn (const char *template, rtx *operands)
 	  {
 	    unsigned long opnum;
 	    char *endptr;
-	    
+
 	    opnum = strtoul (p, &endptr, 10);
 	    if (this_is_asm_operands && opnum >= insn_noperands)
 	      output_operand_lossage ("operand number out of range");
@@ -3668,7 +3669,7 @@ int
 final_forward_branch_p (rtx insn)
 {
   int insn_id, label_id;
-  
+
   gcc_assert (uid_shuid);
   insn_id = INSN_SHUID (insn);
   label_id = INSN_SHUID (JUMP_LABEL (insn));
@@ -3844,7 +3845,7 @@ debug_flush_symbol_queue (void)
 
   for (i = 0; i < symbol_queue_index; ++i)
     {
-      /* If we pushed queued symbols then such symbols are must be
+      /* If we pushed queued symbols then such symbols must be
          output no matter what anyone else says.  Specifically,
          we need to make sure dbxout_symbol() thinks the symbol was
          used and also we need to override TYPE_DECL_SUPPRESS_DEBUG
@@ -3919,14 +3920,14 @@ rest_of_handle_final (void)
 #ifdef TARGET_UNWIND_INFO
   /* ??? The IA-64 ".handlerdata" directive must be issued before
      the ".endp" directive that closes the procedure descriptor.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   assemble_end_function (current_function_decl, fnname);
 
 #ifndef TARGET_UNWIND_INFO
   /* Otherwise, it feels unclean to switch sections in the middle.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   user_defined_section_attribute = false;
@@ -3979,7 +3980,7 @@ rest_of_handle_shorten_branches (void)
   shorten_branches (get_insns ());
   return 0;
 }
- 
+
 struct tree_opt_pass pass_shorten_branches =
 {
   "shorten",                            /* name */

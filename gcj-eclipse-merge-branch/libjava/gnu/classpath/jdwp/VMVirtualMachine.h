@@ -45,6 +45,7 @@ class gnu::classpath::jdwp::VMVirtualMachine : public ::java::lang::Object
 
 public:
   VMVirtualMachine();
+  static void initialize();
   static void suspendThread(::java::lang::Thread *);
   static void suspendAllThreads();
   static void resumeThread(::java::lang::Thread *);
@@ -65,6 +66,9 @@ public:
   static void registerEvent(::gnu::classpath::jdwp::event::EventRequest *);
   static void unregisterEvent(::gnu::classpath::jdwp::event::EventRequest *);
   static void clearEvents(jbyte);
+private:
+  static ::java::util::Hashtable * _jdwp_suspend_counts;
+public:
   static ::java::lang::Class class$;
 };
 

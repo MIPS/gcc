@@ -25,6 +25,7 @@ class gnu::gcj::runtime::NameFinder : public ::java::lang::Object
 {
 
 public: // actually package-private
+  static jboolean showRaw();
   static jboolean removeUnknown();
 public:
   NameFinder();
@@ -40,6 +41,7 @@ private:
   ::java::util::HashMap * procs;
   static ::java::util::Set * blacklist;
   static jboolean use_addr2line;
+  static jboolean show_raw;
   static jboolean remove_unknown;
 public:
   static ::java::lang::Class class$;

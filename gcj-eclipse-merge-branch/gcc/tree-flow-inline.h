@@ -159,7 +159,19 @@ static inline function_ann_t
 get_function_ann (tree var)
 {
   function_ann_t ann = function_ann (var);
+  gcc_assert (!var->common.ann || var->common.ann->common.type == FUNCTION_ANN);
   return (ann) ? ann : create_function_ann (var);
+}
+
+/* Return true if T has a statement annotation attached to it.  */
+
+static inline bool
+has_stmt_ann (tree t)
+{
+#ifdef ENABLE_CHECKING
+  gcc_assert (is_gimple_stmt (t));
+#endif
+  return t->common.ann && t->common.ann->common.type == STMT_ANN;
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -170,6 +182,7 @@ stmt_ann (tree t)
 #ifdef ENABLE_CHECKING
   gcc_assert (is_gimple_stmt (t));
 #endif
+  gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
   return (stmt_ann_t) t->common.ann;
 }
 
@@ -785,19 +798,19 @@ mark_non_addressable (tree var)
 
 /* Return the common annotation for T.  Return NULL if the annotation
    doesn't already exist.  */
-static inline tree_ann_t
-tree_ann (tree t)
+static inline tree_ann_common_t
+tree_common_ann (tree t)
 {
-  return t->common.ann;
+  return &t->common.ann->common;
 }
 
 /* Return a common annotation for T.  Create the constant annotation if it
    doesn't exist.  */
-static inline tree_ann_t
-get_tree_ann (tree t)
+static inline tree_ann_common_t
+get_tree_common_ann (tree t)
 {
-  tree_ann_t ann = tree_ann (t);
-  return (ann) ? ann : create_tree_ann (t);
+  tree_ann_common_t ann = tree_common_ann (t);
+  return (ann) ? ann : create_tree_common_ann (t);
 }
 
 /*  -----------------------------------------------------------------------  */
@@ -1142,8 +1155,8 @@ single_ssa_def_operand (tree stmt, int flags)
 }
 
 
-/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  */
+/* Return true if there are zero operands in STMT matching the type 
+   given in FLAGS.  */
 static inline bool
 zero_ssa_operands (tree stmt, int flags)
 {
@@ -1616,6 +1629,34 @@ overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
     }
   return false;
 
+}
+
+/* Get the value handle of EXPR.  This is the only correct way to get
+   the value handle for a "thing".  If EXPR does not have a value
+   handle associated, it returns NULL_TREE.  
+   NB: If EXPR is min_invariant, this function is *required* to return
+   EXPR.  */
+
+static inline tree
+get_value_handle (tree expr)
+{
+  if (TREE_CODE (expr) == SSA_NAME)
+    return SSA_NAME_VALUE (expr);
+  else if (DECL_P (expr) || TREE_CODE (expr) == TREE_LIST
+	   || TREE_CODE (expr) == CONSTRUCTOR)
+    {
+      tree_ann_common_t ann = tree_common_ann (expr);
+      return ((ann) ? ann->value_handle : NULL_TREE);
+    }
+  else if (is_gimple_min_invariant (expr))
+    return expr;
+  else if (EXPR_P (expr))
+    {
+      tree_ann_common_t ann = tree_common_ann (expr);
+      return ((ann) ? ann->value_handle : NULL_TREE);
+    }
+  else
+    gcc_unreachable ();
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -70,7 +70,7 @@
    This is only defined for fixed-size encodings, and so does not
    include leb128.  */
 
-static unsigned int
+static inline unsigned int
 size_of_encoded_value (unsigned char encoding)
 {
   if (encoding == DW_EH_PE_omit)

@@ -155,7 +155,8 @@ create_character_intializer (gfc_expr * init, gfc_typespec * ts,
       init->expr_type = EXPR_CONSTANT;
       init->ts = *ts;
       
-      dest = gfc_getmem (len);
+      dest = gfc_getmem (len + 1);
+      dest[len] = '\0';
       init->value.character.length = len;
       init->value.character.string = dest;
       /* Blank the string if we're only setting a substring.  */
@@ -167,13 +168,26 @@ create_character_intializer (gfc_expr * init, gfc_typespec * ts,
 
   if (ref)
     {
+      gfc_expr *start_expr, *end_expr;
+
       gcc_assert (ref->type == REF_SUBSTRING);
 
       /* Only set a substring of the destination.  Fortran substring bounds
          are one-based [start, end], we want zero based [start, end).  */
-      gfc_extract_int (ref->u.ss.start, &start);
+      start_expr = gfc_copy_expr (ref->u.ss.start);
+      end_expr = gfc_copy_expr (ref->u.ss.end);
+
+      if ((gfc_simplify_expr (start_expr, 1) == FAILURE)
+	     || (gfc_simplify_expr (end_expr, 1)) == FAILURE)
+	{
+	  gfc_error ("failure to simplify substring reference in DATA"
+		     "statement at %L", &ref->u.ss.start->where);
+	  return NULL;
+	}
+
+      gfc_extract_int (start_expr, &start);
       start--;
-      gfc_extract_int (ref->u.ss.end, &end);
+      gfc_extract_int (end_expr, &end);
     }
   else
     {
@@ -185,7 +199,12 @@ create_character_intializer (gfc_expr * init, gfc_typespec * ts,
   /* Copy the initial value.  */
   len = rvalue->value.character.length;
   if (len > end - start)
-    len = end - start;
+    {
+      len = end - start;
+      gfc_warning_now ("initialization string truncated to match variable "
+		       "at %L", &rvalue->where);
+    }
+
   memcpy (&dest[start], rvalue->value.character.string, len);
 
   /* Pad with spaces.  Substrings will already be blanked.  */
@@ -226,7 +245,7 @@ gfc_assign_data_value (gfc_expr * lvalue, gfc_expr * rvalue, mpz_t index)
       /* Break out of the loop if we find a substring.  */
       if (ref->type == REF_SUBSTRING)
 	{
-	  /* A substring should always br the last subobject reference.  */
+	  /* A substring should always be the last subobject reference.  */
 	  gcc_assert (ref->next == NULL);
 	  break;
 	}
@@ -335,7 +354,6 @@ gfc_assign_data_value (gfc_expr * lvalue, gfc_expr * rvalue, mpz_t index)
 #endif
 	  gfc_notify_std (GFC_STD_GNU, "Extension: re-initialization "
 			  "of '%s' at %L",  symbol->name, &expr->where);
-	  return;
 	}
 
       expr = gfc_copy_expr (rvalue);

@@ -40,6 +40,9 @@ private:
 public:
   virtual jboolean delete$();
   virtual jboolean equals(::java::lang::Object *);
+private:
+  jboolean internalExists();
+public:
   virtual jboolean exists();
   File(::java::lang::String *);
 private:
@@ -58,6 +61,9 @@ public:
   virtual ::java::lang::String * getPath();
   virtual jint hashCode();
   virtual jboolean isAbsolute();
+private:
+  jboolean internalIsDirectory();
+public:
   virtual jboolean isDirectory();
   virtual jboolean isFile();
   virtual jboolean isHidden();

@@ -593,7 +593,6 @@ static void free_glat (void);
 static void sched_remove_insn (rtx);
 static void clear_priorities (rtx);
 static void add_jump_dependencies (rtx, rtx);
-static rtx bb_note (basic_block);
 static void calc_priorities (rtx);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
@@ -1191,8 +1190,7 @@ schedule_insn (rtx insn)
 
       resolve_dep (next, insn);
 
-      if (!RECOVERY_BLOCK (insn)
-	  || RECOVERY_BLOCK (insn) == EXIT_BLOCK_PTR)
+      if (!IS_SPECULATION_BRANCHY_CHECK_P (insn))
 	{
 	  int effective_cost;      
 	  
@@ -1243,11 +1241,24 @@ unlink_other_notes (rtx insn, rtx tail)
   while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
       /* Delete the note from its current position.  */
       if (prev)
 	NEXT_INSN (prev) = next;
       if (next)
 	PREV_INSN (next) = prev;
+
+      if (bb)
+        {
+          /* Basic block can begin with either LABEL or
+             NOTE_INSN_BASIC_BLOCK.  */
+          gcc_assert (BB_HEAD (bb) != insn);
+
+          /* Check if we are removing last insn in the BB.  */
+          if (BB_END (bb) == insn)
+            BB_END (bb) = prev;
+        }
 
       /* See sched_analyze to see how these are handled.  */
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
@@ -1273,17 +1284,30 @@ unlink_line_notes (rtx insn, rtx tail)
 {
   rtx prev = PREV_INSN (insn);
 
-  while (insn != tail && NOTE_P (insn))
+  while (insn != tail && NOTE_NOT_BB_P (insn))
     {
       rtx next = NEXT_INSN (insn);
 
       if (write_symbols != NO_DEBUG && NOTE_LINE_NUMBER (insn) > 0)
 	{
+          basic_block bb = BLOCK_FOR_INSN (insn);
+
 	  /* Delete the note from its current position.  */
 	  if (prev)
 	    NEXT_INSN (prev) = next;
 	  if (next)
 	    PREV_INSN (next) = prev;
+
+          if (bb)
+            {
+              /* Basic block can begin with either LABEL or
+                 NOTE_INSN_BASIC_BLOCK.  */
+              gcc_assert (BB_HEAD (bb) != insn);
+
+              /* Check if we are removing last insn in the BB.  */
+              if (BB_END (bb) == insn)
+                BB_END (bb) = prev;
+            }
 
 	  /* Record line-number notes so they can be reused.  */
 	  LINE_NOTE (insn) = insn;
@@ -1935,8 +1959,7 @@ move_insn (rtx insn)
 
 	  gcc_assert (!jump_p
 		      || ((current_sched_info->flags & SCHED_RGN)
-			  && RECOVERY_BLOCK (insn)
-			  && RECOVERY_BLOCK (insn) != EXIT_BLOCK_PTR)
+			  && IS_SPECULATION_BRANCHY_CHECK_P (insn))
 		      || (current_sched_info->flags & SCHED_EBB));
 	  
 	  gcc_assert (BLOCK_FOR_INSN (PREV_INSN (insn)) == bb);
@@ -3090,8 +3113,7 @@ try_ready (rtx next)
      or we simply don't care (*ts & HARD_DEP).  */
   
   gcc_assert (!ORIG_PAT (next)
-	      || !RECOVERY_BLOCK (next)
-	      || RECOVERY_BLOCK (next) == EXIT_BLOCK_PTR);
+	      || !IS_SPECULATION_BRANCHY_CHECK_P (next));
   
   if (*ts & HARD_DEP)
     {
@@ -3103,11 +3125,11 @@ try_ready (rtx next)
       change_queue_index (next, QUEUE_NOWHERE);
       return -1;
     }
-  else if (!(*ts & BEGIN_SPEC) && ORIG_PAT (next) && !RECOVERY_BLOCK (next))
+  else if (!(*ts & BEGIN_SPEC) && ORIG_PAT (next) && !IS_SPECULATION_CHECK_P (next))
     /* We should change pattern of every previously speculative 
        instruction - and we determine if NEXT was speculative by using
-       ORIG_PAT field.  Except one case - simple checks have ORIG_PAT
-       pat too, hence we also check for the RECOVERY_BLOCK.  */
+       ORIG_PAT field.  Except one case - speculation checks have ORIG_PAT
+       pat too, so skip them.  */
     {
       change_pattern (next, ORIG_PAT (next));
       ORIG_PAT (next) = 0;
@@ -3419,7 +3441,7 @@ add_to_speculative_block (rtx insn)
 
       check = XEXP (link, 0);
 
-      if (RECOVERY_BLOCK (check))
+      if (IS_SPECULATION_SIMPLE_CHECK_P (check))
 	{
 	  create_check_block_twin (check, true);
 	  link = LOG_LINKS (insn);
@@ -3441,7 +3463,8 @@ add_to_speculative_block (rtx insn)
 		  && (DEP_STATUS (link) & DEP_TYPES) == DEP_TRUE);
 
       check = XEXP (link, 0);
-      gcc_assert (!RECOVERY_BLOCK (check) && !ORIG_PAT (check)
+
+      gcc_assert (!IS_SPECULATION_CHECK_P (check) && !ORIG_PAT (check)
 		  && QUEUE_INDEX (check) == QUEUE_NOWHERE);
       
       rec = BLOCK_FOR_INSN (check);
@@ -3693,7 +3716,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
 
   gcc_assert (ORIG_PAT (insn)
 	      && (!mutate_p 
-		  || (RECOVERY_BLOCK (insn) == EXIT_BLOCK_PTR
+		  || (IS_SPECULATION_SIMPLE_CHECK_P (insn)
 		      && !(TODO_SPEC (insn) & SPECULATIVE))));
 
   /* Create recovery block.  */
@@ -4066,7 +4089,7 @@ speculate_insn (rtx insn, ds_t request, rtx *new_pat)
       || (request & spec_info->mask) != request)    
     return -1;
   
-  gcc_assert (!RECOVERY_BLOCK (insn));
+  gcc_assert (!IS_SPECULATION_CHECK_P (insn));
 
   if (request & BE_IN_SPEC)
     {            
@@ -4274,8 +4297,7 @@ fix_jump_move (rtx jump)
   jump_bb_next = jump_bb->next_bb;
 
   gcc_assert (current_sched_info->flags & SCHED_EBB
-	      || (RECOVERY_BLOCK (jump)
-		  && RECOVERY_BLOCK (jump) != EXIT_BLOCK_PTR));
+	      || IS_SPECULATION_BRANCHY_CHECK_P (jump));
   
   if (!NOTE_INSN_BASIC_BLOCK_P (BB_END (jump_bb_next)))
     /* if jump_bb_next is not empty.  */
@@ -4308,8 +4330,8 @@ move_block_after_check (rtx jump)
   
   update_bb_for_insn (jump_bb);
   
-  gcc_assert (RECOVERY_BLOCK (jump)
-	      || RECOVERY_BLOCK (BB_END (jump_bb_next)));
+  gcc_assert (IS_SPECULATION_CHECK_P (jump)
+	      || IS_SPECULATION_CHECK_P (BB_END (jump_bb_next)));
 
   unlink_block (jump_bb_next);
   link_block (jump_bb_next, bb);
@@ -4523,7 +4545,7 @@ add_jump_dependencies (rtx insn, rtx jump)
 }
 
 /* Return the NOTE_INSN_BASIC_BLOCK of BB.  */
-static rtx
+rtx
 bb_note (basic_block bb)
 {
   rtx note;
@@ -4647,8 +4669,13 @@ check_cfg (rtx head, rtx tail)
 		    gcc_assert (EDGE_COUNT (bb->succs) == 1
 				&& BARRIER_P (NEXT_INSN (head)));
 		  else if (any_condjump_p (head))
-		    gcc_assert (EDGE_COUNT (bb->succs) > 1
-				&& !BARRIER_P (NEXT_INSN (head)));
+		    gcc_assert (/* Usual case.  */
+                                (EDGE_COUNT (bb->succs) > 1
+                                 && !BARRIER_P (NEXT_INSN (head)))
+                                /* Or jump to the next instruction.  */
+                                || (EDGE_COUNT (bb->succs) == 1
+                                    && (BB_HEAD (EDGE_I (bb->succs, 0)->dest)
+                                        == JUMP_LABEL (head))));
 		}
 	      if (BB_END (bb) == head)
 		{

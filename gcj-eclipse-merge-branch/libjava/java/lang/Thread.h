@@ -38,6 +38,8 @@ jint _Jv_AttachCurrentThread(java::lang::Thread* thread);
 java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);
 java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);
 jint _Jv_DetachCurrentThread ();
+struct _Jv_Thread_t;
+_Jv_Thread_t* _Jv_ThreadGetData (java::lang::Thread* thread);
 
 class java::lang::Thread : public ::java::lang::Object
 {
@@ -127,6 +129,7 @@ private:
   jboolean startable_flag;
   ::java::lang::ClassLoader * contextClassLoader;
   jlong threadId;
+  static jlong nextThreadId;
   static jlong totalThreadsCreated;
   static ::java::lang::Thread$UncaughtExceptionHandler * defaultHandler;
 public: // actually package-private
@@ -139,6 +142,7 @@ public: // actually package-private
   static const jbyte THREAD_PARK_PERMIT = 1;
   static const jbyte THREAD_PARK_PARKED = 2;
   static const jbyte THREAD_PARK_DEAD = 3;
+  ::java::lang::Object * accessControlState;
   ::gnu::gcj::RawData * interp_frame;
   volatile jint state;
   ::gnu::gcj::RawDataManaged * data;

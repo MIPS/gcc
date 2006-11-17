@@ -421,10 +421,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
   is_expr = EXPR_P (node);
 
+  /* We use has_stmt_ann because CALL_EXPR can be both an expression
+     and a statement, and we have no guarantee that it will have a
+     stmt_ann when it is used as an RHS expression.  stmt_ann will assert
+     if you call it on something with a non-stmt annotation attached.  */
   if (TREE_CODE (node) != ERROR_MARK
       && is_gimple_stmt (node)
       && (flags & TDF_VOPS)
-      && stmt_ann (node)
+      && has_stmt_ann (node)
       && TREE_CODE (node) != PHI_NODE)
     dump_vops (buffer, node, spc, flags);
 
@@ -730,7 +734,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  {
 	    static char format[10]; /* "%x%09999x\0" */
 	    if (!format[0])
-	      sprintf (format, "%%x%%0%dx", HOST_BITS_PER_INT / 4);
+	      sprintf (format, "0x%%" HOST_WIDE_INT_PRINT "x"
+		       "%%0%d" HOST_WIDE_INT_PRINT "x",
+		       HOST_BITS_PER_WIDE_INT / 4);
 	    sprintf (pp_buffer (buffer)->digit_buffer, format,
 		     TREE_INT_CST_HIGH (val),
 		     TREE_INT_CST_LOW (val));
@@ -1696,9 +1702,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case DOT_PROD_EXPR:
       pp_string (buffer, " DOT_PROD_EXPR < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (buffer, " , ");
+      pp_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      pp_string (buffer, " , ");
+      pp_string (buffer, ", ");
       dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
       pp_string (buffer, " > ");
       break;
@@ -1857,6 +1863,50 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+      pp_string (buffer, " VEC_WIDEN_MULT_HI_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_WIDEN_MULT_LO_EXPR:
+      pp_string (buffer, " VEC_WIDEN_MULT_LO_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_UNPACK_HI_EXPR:
+      pp_string (buffer, " VEC_UNPACK_HI_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_UNPACK_LO_EXPR:
+      pp_string (buffer, " VEC_UNPACK_LO_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+
+    case VEC_PACK_MOD_EXPR:
+      pp_string (buffer, " VEC_PACK_MOD_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+                                                                                
+    case VEC_PACK_SAT_EXPR:
+      pp_string (buffer, " VEC_PACK_SAT_EXPR < ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, " > ");
+      break;
+                                                                                
     case BLOCK:
       {
 	tree t;
@@ -2159,6 +2209,8 @@ op_prio (tree op)
     case MINUS_EXPR:
       return 12;
 
+    case VEC_WIDEN_MULT_HI_EXPR:
+    case VEC_WIDEN_MULT_LO_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
     case MULT_EXPR:
@@ -2212,6 +2264,10 @@ op_prio (tree op)
     case REDUC_PLUS_EXPR:
     case VEC_LSHIFT_EXPR:
     case VEC_RSHIFT_EXPR:
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_LO_EXPR:
+    case VEC_PACK_MOD_EXPR:
+    case VEC_PACK_SAT_EXPR:
       return 16;
 
     case SAVE_EXPR:

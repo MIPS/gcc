@@ -248,10 +248,12 @@ convert_to_real (tree type, tree expr)
   if (itype != type && FLOAT_TYPE_P (type))
     switch (TREE_CODE (expr))
       {
-	/* Convert (float)-x into -(float)x.  This is always safe.  */
+	/* Convert (float)-x into -(float)x.  This is safe for
+	   round-to-nearest rounding mode.  */
 	case ABS_EXPR:
 	case NEGATE_EXPR:
-	  if (TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (expr)))
+	  if (!flag_rounding_math
+	      && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (expr)))
 	    return build1 (TREE_CODE (expr), type,
 			   fold (convert_to_real (type,
 						  TREE_OPERAND (expr, 0))));
@@ -315,8 +317,12 @@ convert_to_real (tree type, tree expr)
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case REAL_TYPE:
-      return build1 (flag_float_store ? CONVERT_EXPR : NOP_EXPR,
-		     type, expr);
+      /* Ignore the conversion if we don't need to store intermediate
+	 results and neither type is a decimal float.  */
+      return build1 ((flag_float_store
+		     || DECIMAL_FLOAT_TYPE_P (type)
+		     || DECIMAL_FLOAT_TYPE_P (itype))
+		     ? CONVERT_EXPR : NOP_EXPR, type, expr);
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
@@ -384,27 +390,36 @@ convert_to_integer (tree type, tree expr)
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_FLOOR):
 	  /* Only convert in ISO C99 mode.  */
 	  if (!TARGET_C99_FUNCTIONS)
 	    break;
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_ROUND):
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
-	  else
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LROUND);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_RINT):
@@ -413,10 +428,13 @@ convert_to_integer (tree type, tree expr)
 	    break;
 	  /* ... Fall through ...  */
 	CASE_FLT_FN (BUILT_IN_NEARBYINT):
-	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
-            fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
-	  else
-            fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
+	  if (outprec < TYPE_PRECISION (long_integer_type_node)
+	      || (outprec == TYPE_PRECISION (long_integer_type_node)
+		  && !TYPE_UNSIGNED (type)))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
+	  else if (outprec == TYPE_PRECISION (long_long_integer_type_node)
+		   && !TYPE_UNSIGNED (type))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLRINT);
 	  break;
 
 	CASE_FLT_FN (BUILT_IN_TRUNC):
@@ -471,6 +489,7 @@ convert_to_integer (tree type, tree expr)
       else if (outprec >= inprec)
 	{
 	  enum tree_code code;
+	  tree tem;
 
 	  /* If the precision of the EXPR's type is K bits and the
 	     destination mode has more bits, and the sign is changing,
@@ -488,7 +507,13 @@ convert_to_integer (tree type, tree expr)
 	  else
 	    code = NOP_EXPR;
 
-	  return fold_build1 (code, type, expr);
+	  tem = fold_unary (code, type, expr);
+	  if (tem)
+	    return tem;
+
+	  tem = build1 (code, type, expr);
+	  TREE_NO_WARNING (tem) = 1;
+	  return tem;
 	}
 
       /* If TYPE is an enumeral type or a type with a precision less

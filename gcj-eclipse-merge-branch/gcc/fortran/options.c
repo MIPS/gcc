@@ -48,6 +48,8 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.source_form = FORM_UNKNOWN;
   gfc_option.fixed_line_length = -1;
   gfc_option.free_line_length = -1;
+  gfc_option.max_continue_fixed = 19;
+  gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
   gfc_option.verbose = 0;
 
@@ -59,7 +61,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_surprising = 0;
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
-  gfc_option.warn_unused_labels = 0;
 
   gfc_option.flag_all_intrinsics = 0;
   gfc_option.flag_default_double = 0;
@@ -73,11 +74,14 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_max_stack_var_size = 32768;
   gfc_option.flag_module_access_private = 0;
   gfc_option.flag_no_backend = 0;
+  gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
   gfc_option.flag_preprocessed = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
+  gfc_option.flag_external_blas = 0;
+  gfc_option.blas_matmul_limit = 30;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
   gfc_option.flag_openmp = 0;
@@ -300,8 +304,7 @@ set_Wall (void)
   gfc_option.warn_surprising = 1;
   gfc_option.warn_tabs = 0;
   gfc_option.warn_underflow = 1;
-  gfc_option.warn_unused_labels = 1;
- 
+
   set_Wunused (1);
   warn_return_type = 1;
   warn_switch = 1;
@@ -425,10 +428,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_underflow = value;
       break;
 
-    case OPT_Wunused_labels:
-      gfc_option.warn_unused_labels = value;
-      break;
-
     case OPT_fall_intrinsics:
       gfc_option.flag_all_intrinsics = 1;
       break;
@@ -451,6 +450,14 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fdollar_ok:
       gfc_option.flag_dollar_ok = value;
+      break;
+
+    case OPT_fexternal_blas:
+      gfc_option.flag_external_blas = value;
+      break;
+
+    case OPT_fblas_matmul_limit_:
+      gfc_option.blas_matmul_limit = value;
       break;
 
     case OPT_fd_lines_as_code:
@@ -519,6 +526,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_no_backend = value;
       break;
 
+    case OPT_frange_check:
+      gfc_option.flag_range_check = value;
+      break;
+
     case OPT_fpack_derived:
       gfc_option.flag_pack_derived = value;
       break;
@@ -581,6 +592,8 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F77 
 	| GFC_STD_F2003 | GFC_STD_F95;
       gfc_option.warn_std = GFC_STD_F95_OBS;
+      gfc_option.max_continue_fixed = 255;
+      gfc_option.max_continue_free = 255;
       gfc_option.max_identifier_length = 63;
       gfc_option.warn_ampersand = 1;
       break;

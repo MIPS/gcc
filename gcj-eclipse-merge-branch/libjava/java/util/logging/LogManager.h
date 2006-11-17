@@ -58,7 +58,12 @@ private:
   static void warn(::java::lang::String *, ::java::lang::String *, ::java::lang::String *, ::java::lang::Throwable *);
   static void warn(::java::lang::String *, ::java::lang::Throwable *);
   static ::java::lang::Class * locateClass(::java::lang::String *);
+public:
+  static ::java::util::logging::LoggingMXBean * getLoggingMXBean();
+  static ::java::lang::String * LOGGING_MXBEAN_NAME;
+private:
   static ::java::util::logging::LogManager * logManager;
+  static ::java::util::logging::LoggingMXBean * loggingBean;
   ::java::util::Map * __attribute__((aligned(__alignof__( ::java::lang::Object)))) loggers;
   ::java::util::Properties * properties;
   ::java::beans::PropertyChangeSupport * pcs;

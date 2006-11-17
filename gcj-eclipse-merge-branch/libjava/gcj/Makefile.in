@@ -53,9 +53,11 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
-	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../libtool.m4 \
-	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 \
+	$(top_srcdir)/../config/unwind_ipinfo.m4 \
+	$(top_srcdir)/../libtool.m4 $(top_srcdir)/mingwld.m4 \
+	$(top_srcdir)/pkg.m4 $(top_srcdir)/shlibpath.m4 \
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/include/config.h libgcj-config.h
@@ -91,8 +93,6 @@ BASH_JAR_FALSE = @BASH_JAR_FALSE@
 BASH_JAR_TRUE = @BASH_JAR_TRUE@
 BUILD_ECJ1_FALSE = @BUILD_ECJ1_FALSE@
 BUILD_ECJ1_TRUE = @BUILD_ECJ1_TRUE@
-CAIRO_CFLAGS = @CAIRO_CFLAGS@
-CAIRO_LIBS = @CAIRO_LIBS@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -130,8 +130,6 @@ GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
-GTK_CAIRO_FALSE = @GTK_CAIRO_FALSE@
-GTK_CAIRO_TRUE = @GTK_CAIRO_TRUE@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
@@ -188,14 +186,10 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
-PANGOFT2_CFLAGS = @PANGOFT2_CFLAGS@
-PANGOFT2_LIBS = @PANGOFT2_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
 PLATFORM = @PLATFORM@
-QT_AWT_FALSE = @QT_AWT_FALSE@
-QT_AWT_TRUE = @QT_AWT_TRUE@
 RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -211,6 +205,7 @@ THREADINCS = @THREADINCS@
 THREADLDFLAGS = @THREADLDFLAGS@
 THREADLIBS = @THREADLIBS@
 THREADSPEC = @THREADSPEC@
+THREADSTARTFILESPEC = @THREADSTARTFILESPEC@
 TOOLKIT = @TOOLKIT@
 UNZIP = @UNZIP@
 USE_LIBGCJ_BC_FALSE = @USE_LIBGCJ_BC_FALSE@
@@ -270,6 +265,7 @@ bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
+build_libsubdir = @build_libsubdir@
 build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@

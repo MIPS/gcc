@@ -39,6 +39,7 @@ Boston, MA 02110-1301, USA.  */
 #include "intl.h"
 #include "target.h"
 #include "convert.h"
+#include "langhooks.h"
 
 /* The various kinds of conversion.  */
 
@@ -632,7 +633,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	  tree bitfield_type;
 	  bitfield_type = is_bitfield_expr_with_lowered_type (expr);
 	  if (bitfield_type)
-	    from = bitfield_type;
+	    from = strip_top_quals (bitfield_type);
 	}
       conv = build_conv (ck_rvalue, from, conv);
     }
@@ -727,7 +728,19 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 		  that necessitates this conversion is ill-formed.
 		  Therefore, we use DERIVED_FROM_P, and do not check
 		  access or uniqueness.  */
-	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from))
+	       /* If FROM is not yet complete, then we must be parsing
+		  the body of a class.  We know what's derived from
+		  what, but we can't actually perform a
+		  derived-to-base conversion.  For example, in:
+
+		     struct D : public B { 
+                       static const int i = sizeof((B*)(D*)0);
+                     };
+
+                  the D*-to-B* conversion is a reinterpret_cast, not a
+		  static_cast.  */
+	       && COMPLETE_TYPE_P (TREE_TYPE (from)))
 	{
 	  from =
 	    cp_build_qualified_type (TREE_TYPE (to),
@@ -2835,7 +2848,7 @@ build_new_function_call (tree fn, tree args, bool koenig_p)
    set, upon return, to the allocation function called.  */
 
 tree
-build_operator_new_call (tree fnname, tree args, 
+build_operator_new_call (tree fnname, tree args,
 			 tree *size, tree *cookie_size,
 			 tree *fn)
 {
@@ -3302,7 +3315,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
 	  error ("operands to ?: have different types %qT and %qT",
-             arg2_type, arg3_type);
+		 arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
       else if (conv2 && (!conv2->bad_p || !conv3))
@@ -3310,12 +3323,21 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
 	  arg2_type = TREE_TYPE (arg2);
+	  /* Even if CONV2 is a valid conversion, the result of the
+	     conversion may be invalid.  For example, if ARG3 has type
+	     "volatile X", and X does not have a copy constructor
+	     accepting a "volatile X&", then even if ARG2 can be
+	     converted to X, the conversion will fail.  */
+	  if (error_operand_p (arg2))
+	    result = error_mark_node;
 	}
       else if (conv3 && (!conv3->bad_p || !conv2))
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
 	  arg3_type = TREE_TYPE (arg3);
+	  if (error_operand_p (arg3))
+	    result = error_mark_node;
 	}
 
       /* Free all the conversions we allocated.  */
@@ -3512,8 +3534,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
   if (!result_type)
     {
-	  error ("operands to ?: have different types %qT and %qT",
-             arg2_type, arg3_type);
+      error ("operands to ?: have different types %qT and %qT",
+	     arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -4055,7 +4077,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  /* On the second pass, the second argument must be
 	     "size_t".  */
 	  else if (pass == 1
-		   && same_type_p (TREE_VALUE (t), sizetype)
+		   && same_type_p (TREE_VALUE (t), size_type_node)
 		   && TREE_CHAIN (t) == void_list_node)
 	    break;
 	}
@@ -4523,10 +4545,12 @@ build_x_va_arg (tree expr, tree type)
 
   if (! pod_type_p (type))
     {
+      /* Remove reference types so we don't ICE later on.  */
+      tree type1 = non_reference (type);
       /* Undefined behavior [expr.call] 5.2.2/7.  */
       warning (0, "cannot receive objects of non-POD type %q#T through %<...%>; "
 	       "call will abort at runtime", type);
-      expr = convert (build_pointer_type (type), null_node);
+      expr = convert (build_pointer_type (type1), null_node);
       expr = build2 (COMPOUND_EXPR, TREE_TYPE (expr),
 		     call_builtin_trap (), expr);
       expr = build_indirect_ref (expr, NULL);
@@ -4826,6 +4850,12 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_VALUE (parm);
 
       conv = convs[i];
+
+      /* Don't make a copy here if build_call is going to.  */
+      if (conv->kind == ck_rvalue
+	  && !TREE_ADDRESSABLE (complete_type (type)))
+	conv = conv->u.next;
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 
@@ -5036,9 +5066,9 @@ build_java_interface_fn_ref (tree fn, tree instance)
 				     tree_cons (NULL_TREE, java_int_type_node,
 						endlink)));
       java_iface_lookup_fn
-	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
-			    build_function_type (ptr_type_node, t),
-			    0, NOT_BUILT_IN, NULL, NULL_TREE);
+	= add_builtin_function ("_Jv_LookupInterfaceMethodIdx",
+				build_function_type (ptr_type_node, t),
+				0, NOT_BUILT_IN, NULL, NULL_TREE);
     }
 
   /* Look up the pointer to the runtime java.lang.Class object for `instance'.
@@ -5480,9 +5510,9 @@ build_new_method_call (tree instance, tree fns, tree args,
 		 none-the-less evaluated.  */
 	      if (TREE_CODE (TREE_TYPE (fn)) != METHOD_TYPE
 		  && !is_dummy_object (instance_ptr)
-		  && TREE_SIDE_EFFECTS (instance))
+		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
-			       instance, call);
+			       instance_ptr, call);
 	    }
 	}
     }
@@ -6068,7 +6098,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	      if (warn)
 		{
 		  warning (OPT_Wsign_promo, "passing %qT chooses %qT over %qT",
-                           type, type1, type2);
+			   type, type1, type2);
 		  warning (OPT_Wsign_promo, "  in call to %qD", w->fn);
 		}
 	      else

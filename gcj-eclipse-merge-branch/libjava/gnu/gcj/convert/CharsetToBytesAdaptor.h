@@ -49,11 +49,13 @@ private:
   void write(::java::nio::CharBuffer *);
 public:
   virtual jboolean havePendingBytes();
+  virtual void setFinished();
   virtual void done();
 private:
   ::java::nio::charset::CharsetEncoder * __attribute__((aligned(__alignof__( ::gnu::gcj::convert::UnicodeToBytes)))) encoder;
   ::java::nio::ByteBuffer * outBuf;
   jboolean closedEncoder;
+  jboolean hasBytes;
   jboolean finished;
 public:
   static ::java::lang::Class class$;

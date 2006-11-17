@@ -3192,7 +3192,7 @@ display_help (void)
   fputs (_("  -std=<standard>          Assume that the input sources are for <standard>\n"), stdout);
   fputs (_("\
   --sysroot=<directory>    Use <directory> as the root directory for headers\n\
-                           for headers and libraries\n"), stdout);
+                           and libraries\n"), stdout);
   fputs (_("  -B <directory>           Add <directory> to the compiler's search paths\n"), stdout);
   fputs (_("  -b <machine>             Run gcc for target <machine>, if installed\n"), stdout);
   fputs (_("  -V <version>             Run gcc version number <version>, if installed\n"), stdout);
@@ -3744,7 +3744,10 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switch (c)
 	    {
 	    case 'b':
-	      if (NULL == strchr(argv[i] + 2, '-')) break;
+	      if (NULL == strchr(argv[i] + 2, '-'))
+		goto normal_switch;
+
+	      /* Fall through.  */
 	    case 'V':
 	      fatal ("'-%c' must come at the start of the command line", c);
 	      break;

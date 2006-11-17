@@ -182,7 +182,7 @@ set_value_handle (tree e, tree v)
     SSA_NAME_VALUE (e) = v;
   else if (EXPR_P (e) || DECL_P (e) || TREE_CODE (e) == TREE_LIST
 	   || TREE_CODE (e) == CONSTRUCTOR)
-    get_tree_ann (e)->common.value_handle = v;
+    get_tree_common_ann (e)->value_handle = v;
   else
     /* Do nothing.  Constants are their own value handles.  */
     gcc_assert (is_gimple_min_invariant (e));
@@ -419,33 +419,6 @@ vn_lookup_or_add_with_vuses (tree expr, VEC (tree, gc) *vuses)
   return v;
 }
 
-
-
-/* Get the value handle of EXPR.  This is the only correct way to get
-   the value handle for a "thing".  If EXPR does not have a value
-   handle associated, it returns NULL_TREE.  
-   NB: If EXPR is min_invariant, this function is *required* to return EXPR.  */
-
-tree
-get_value_handle (tree expr)
-{
-
-  if (is_gimple_min_invariant (expr))
-    return expr;
-
-  if (TREE_CODE (expr) == SSA_NAME)
-    return SSA_NAME_VALUE (expr);
-  else if (EXPR_P (expr) || DECL_P (expr) || TREE_CODE (expr) == TREE_LIST
-	   || TREE_CODE (expr) == CONSTRUCTOR)
-    {
-      tree_ann_t ann = tree_ann (expr);
-      return ((ann) ? ann->common.value_handle : NULL_TREE);
-    }
-  else
-    gcc_unreachable ();
-}
-
-
 /* Initialize data structures used in value numbering.  */
 
 void
@@ -455,7 +428,6 @@ vn_init (void)
 			     val_expr_pair_expr_eq, free);
   shared_lookup_vuses = NULL;
 }
-
 
 /* Delete data used for value numbering.  */
 

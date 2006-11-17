@@ -91,7 +91,7 @@ lib2funcs='_muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3
 	_ffssi2 _ffsdi2 _clz _clzsi2 _clzdi2 _ctzsi2 _ctzdi2 _popcount_tab
 	_popcountsi2 _popcountdi2 _paritysi2 _paritydi2 _powisf2 _powidf2
 	_powixf2 _powitf2 _mulsc3 _muldc3 _mulxc3 _multc3 _divsc3 _divdc3
-	_divxc3 _divtc3'
+	_divxc3 _divtc3 _bswapsi2 _bswapdi2'
 
 if [ "$LIB2_SIDITI_CONV_FUNCS" ]; then
   for func in $swfloatfuncs; do
@@ -883,12 +883,15 @@ for ml in $MULTILIBS; do
     ldir='$(DESTDIR)$(libsubdir)'
   fi
   echo '	$(INSTALL_DATA)' ${dir}/libgcc.a ${ldir}/
+  echo '	chmod 644'  ${ldir}/libgcc.a
   echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc.a
   echo '	$(INSTALL_DATA)' ${dir}/libgcov.a ${ldir}/
+  echo '	chmod 644'  ${ldir}/libgcov.a
   echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcov.a
 
   if [ "$SHLIB_LINK" ]; then
     echo '	$(INSTALL_DATA)' ${dir}/libgcc_eh.a ${ldir}/
+    echo '	chmod 644'  ${ldir}/libgcc_eh.a
     echo '	$(RANLIB_FOR_TARGET)' ${ldir}/libgcc_eh.a
 
     shlib_slibdir_qual=
@@ -907,6 +910,7 @@ for ml in $MULTILIBS; do
 	      -e "s%@shlib_slibdir_qual@%$shlib_slibdir_qual%g"
       libunwinddir='$(DESTDIR)$(slibdir)$(shlib_slibdir_qual)/$(shlib_dir)'
       echo '	$(INSTALL_DATA)' ${dir}/libunwind.a ${libunwinddir}/
+      echo '	chmod 644' ${dir}/libunwind.a
       echo '	$(RANLIB_FOR_TARGET)' ${libunwinddir}/libunwind.a
     fi
   fi

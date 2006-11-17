@@ -32,7 +32,7 @@ void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 
 /* Generate code to create a temporary array.  */
 tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_loopinfo *,
-                                  gfc_ss_info *, tree, bool, bool, bool);
+                                  gfc_ss_info *, tree, bool, bool, bool, bool);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -43,6 +43,15 @@ tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 tree gfc_trans_g77_array (gfc_symbol *, tree);
 /* Generate code to deallocate an array, if it is allocated.  */
 tree gfc_trans_dealloc_allocated (tree);
+
+tree gfc_duplicate_allocatable(tree dest, tree src, tree type, int rank);
+
+tree gfc_nullify_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_deallocate_alloc_comp (gfc_symbol *, tree, int);
+
+tree gfc_copy_alloc_comp (gfc_symbol *, tree, tree, int);
+
 /* Add initialization for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */

@@ -1,5 +1,5 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -751,10 +751,10 @@ ggc_min_heapsize_heuristic (void)
 # endif
 
   /* Don't blindly run over our data limit; do GC at least when the
-     *next* GC would be within 16Mb of the limit.  If GCC does hit the
-     data limit, compilation will fail, so this tries to be
-     conservative.  */
-  limit_kbytes = MAX (0, limit_kbytes - 16 * 1024);
+     *next* GC would be within 20Mb of the limit or within a quarter of
+     the limit, whichever is larger.  If GCC does hit the data limit,
+     compilation will fail, so this tries to be conservative.  */
+  limit_kbytes = MAX (0, limit_kbytes - MAX (limit_kbytes / 4, 20 * 1024));
   limit_kbytes = (limit_kbytes * 100) / (110 + ggc_min_expand_heuristic());
   phys_kbytes = MIN (phys_kbytes, limit_kbytes);
 
@@ -906,7 +906,8 @@ ggc_prune_overhead_list (void)
 }
 
 /* Notice that the pointer has been freed.  */
-void ggc_free_overhead (void *ptr)
+void
+ggc_free_overhead (void *ptr)
 {
   PTR *slot = htab_find_slot_with_hash (ptr_hash, ptr, htab_hash_pointer (ptr),
 					NO_INSERT);
@@ -939,7 +940,8 @@ add_statistics (void **slot, void *b)
 
 /* Dump per-site memory statistics.  */
 #endif
-void dump_ggc_loc_statistics (void)
+void
+dump_ggc_loc_statistics (void)
 {
 #ifdef GATHER_STATISTICS
   int nentries = 0;

@@ -320,6 +320,9 @@ get_tag_node (int tag)
 {
   /* A Cache for build_int_cst (CONSTANT_XXX, 0). */
 
+  if (tag >= 13)
+    return build_int_cst (NULL_TREE, tag);
+
   if (tag_nodes[tag] == NULL_TREE)
     tag_nodes[tag] = build_int_cst (NULL_TREE, tag);
   return tag_nodes[tag];
@@ -519,8 +522,7 @@ build_constants_constructor (void)
 	    temp <<= BITS_PER_WORD - 32;
 
 	  tags_list
-	    = tree_cons (NULL_TREE, 
-			 build_int_cst (NULL_TREE, outgoing_cpool->tags[i]),
+	    = tree_cons (NULL_TREE, get_tag_node (outgoing_cpool->tags[i]),
 			 tags_list);
 	  data_list
 	    = tree_cons (NULL_TREE, 

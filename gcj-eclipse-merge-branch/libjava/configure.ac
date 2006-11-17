@@ -84,6 +84,28 @@ AC_ARG_ENABLE(multilib,
   *)   AC_MSG_ERROR(bad value ${enableval} for multilib option) ;;
  esac], [multilib=yes])dnl
 
+AC_ARG_ENABLE(plugin,
+  AS_HELP_STRING([--enable-plugin],
+                 [build gcjwebplugin web browser plugin]),
+    [case "$enableval" in
+      yes) plugin_enabled=yes ;;
+      no)  plugin_enabled=no ;;
+      *)   AC_MSG_ERROR([Unknown argument to enable/disable plugin]);;
+     esac],
+    [plugin_enabled=no]
+)
+
+AC_ARG_ENABLE(gconf-peer,
+  AS_HELP_STRING([--enable-gconf-peer],
+                 [compile GConf native peers for util.preferences]),
+    [case "$enableval" in
+      yes) gconf_enabled=yes ;;
+      no)  gconf_enabled=no ;;
+      *)   AC_MSG_ERROR([Unknown argument to enable/disable gconf-peer]);;
+     esac],
+    [gconf_enabled=no]
+)
+
 # It may not be safe to run linking tests in AC_PROG_CC/AC_PROG_CXX.
 GCC_NO_EXECUTABLES
 
@@ -262,7 +284,6 @@ for peer in $peerlibs ; do
 done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
-AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 AM_CONDITIONAL(X_AWT, test "$use_x_awt" = yes)
 
 AC_DEFINE_UNQUOTED(AWT_TOOLKIT, "$TOOLKIT", [Name of default AWT toolkit])
@@ -274,9 +295,6 @@ cp $srcdir/standard.omit.in standard.omit
 if test "$use_xlib_awt" != yes; then
    echo gnu/awt/xlib >> standard.omit
    echo gnu/gcj/xlib >> standard.omit
-fi
-if test "$use_qt_awt" != yes; then
-   echo gnu/java/awt/peer/qt >> standard.omit
 fi
 if test "$use_x_awt" != yes; then
    echo gnu/java/awt/peer/x >> standard.omit
@@ -358,6 +376,8 @@ test -f libgcj.spec || touch libgcj.spec
 
 # Set up to configure Classpath.
 # FIXME: no supported way to pass args in autoconf.
+ac_configure_args="$ac_configure_args --with-fastjar=$JAR"
+ac_configure_args="$ac_configure_args --enable-tool-wrappers"
 ac_configure_args="$ac_configure_args --disable-load-library"
 ac_configure_args="$ac_configure_args --${LIBGCJDEBUG}-debug"
 ac_configure_args="$ac_configure_args --enable-default-toolkit=$TOOLKIT"
@@ -368,6 +388,13 @@ ac_configure_args="$ac_configure_args --disable-core-jni"
 dnl FIXME?
 ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
+if test "$plugin_enabled" != yes; then
+  ac_configure_args="$ac_configure_args --disable-plugin"
+fi
+if test "$gconf_enabled" != yes; then
+  ac_configure_args="$ac_configure_args --disable-gconf-peer"
+  ac_configure_args="$ac_configure_args --enable-default-preferences-peer=gnu.java.util.prefs.FileBasedFactory"
+fi
 if test "$use_gtk_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-gtk-peer --disable-plugin"
 fi
@@ -694,9 +721,9 @@ AC_CONFIG_LINKS(java/io/natFile.cc:java/io/natFile${FILE-${PLATFORM}}.cc)
 test -d java/lang || mkdir java/lang
 AC_CONFIG_LINKS(java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc)
 
-# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
+# Likewise for natVMInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
-AC_CONFIG_LINKS(java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc)
+AC_CONFIG_LINKS(java/net/natVMInetAddress.cc:java/net/natVMInetAddress${PLATFORMNET}.cc)
 AC_CONFIG_LINKS(java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc)
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
@@ -737,21 +764,6 @@ ZLIBTESTSPEC=
 AC_SUBST(ZLIBTESTSPEC)
 
 AC_PATH_XTRA
-
-# determine whether to enable the cairo GTK Graphics2D backend
-AC_ARG_ENABLE(gtk-cairo,
-  AS_HELP_STRING([--enable-gtk-cairo],
-                 [build the cairo Graphics2D implementation on GTK]))
-AM_CONDITIONAL(GTK_CAIRO, test "x${enable_gtk_cairo}" = xyes)
-if test "x${enable_gtk_cairo}" = xyes
-then
-	PKG_CHECK_MODULES(CAIRO, cairo)
-	PKG_CHECK_MODULES(PANGOFT2, pangoft2)
-fi
-AC_SUBST(CAIRO_LIBS)
-AC_SUBST(CAIRO_CFLAGS)
-AC_SUBST(PANGOFT2_LIBS)
-AC_SUBST(PANGOFT2_CFLAGS)
 
 # FIXME: this should be _libs on some hosts.
 libsubdir=.libs
@@ -844,6 +856,7 @@ THREADINCS=
 THREADDEPS=
 THREADH=
 THREADSPEC=
+THREADSTARTFILESPEC=
 case "$THREADS" in
  posix)
     case "$host" in
@@ -895,6 +908,20 @@ case "$THREADS" in
 
  win32)
     THREADH=win32-threads.h
+    THREADCXXFLAGS=-mthreads
+    # We need thread-safe exception handling so _CRT_MT should be set to 1.
+    # But we do not want the executables created to be dependent on
+    # mingwm10.dll which provides a __mingwthr_key_dtor() that cleans up
+    # exception handling contexts.  The following kludge achieves this effect
+    # and causes a dummy __mingwthr_key_dtor() to be linked in from
+    # libmingw32.a.  This causes a memory leak of about 24 bytes per thread.
+    # A workaround is to explicitly use -mthreads while linking Java programs.
+    # See PR libgcj/28263.
+    #
+    # FIXME: In Java we are able to detect thread death at the end of
+    # Thread.run() so we should be able to clean up the exception handling
+    # contexts ourselves.
+    THREADSTARTFILESPEC='crtmt%O%s'
     ;;
 
  none)
@@ -906,6 +933,7 @@ AC_SUBST(THREADLIBS)
 AC_SUBST(THREADINCS)
 AC_SUBST(THREADDEPS)
 AC_SUBST(THREADSPEC)
+AC_SUBST(THREADSTARTFILESPEC)
 AC_SUBST(THREADLDFLAGS)
 AC_SUBST(THREADCXXFLAGS)
 AM_CONDITIONAL(USING_POSIX_THREADS, test "$THREADS" = posix)
@@ -962,10 +990,11 @@ if test "x${with_newlib}" = "xyes"; then
 else
    AC_CHECK_FUNCS([strerror ioctl select fstat open fsync sleep opendir \
                    gmtime_r localtime_r readdir_r getpwuid_r getcwd \
-		   access stat mkdir rename rmdir unlink realpath utime chmod \
+		   access stat lstat mkdir rename rmdir unlink utime chmod readlink \
 		   nl_langinfo setlocale \
 		   inet_pton uname inet_ntoa \
-		   fork execvp pipe sigaction ftruncate mmap])
+		   fork execvp pipe sigaction ftruncate mmap \
+		   getifaddrs])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h)
    # Do an additional check on dld, HP-UX for example has dladdr in libdld.sl
@@ -1322,11 +1351,16 @@ AC_SUBST(toolexecdir)
 AC_SUBST(toolexecmainlibdir)
 AC_SUBST(toolexeclibdir)
 
-# Determine where the standard .db file is found.
+# Determine where the standard .db file and GNU Classpath JNI
+# libraries are found.
 multi_os_directory=`$CC -print-multi-os-directory`
 case $multi_os_directory in
-  .) dbexecdir='$(libdir)/gcj-$(gcc_version)' ;; # Avoid /.
-  *) dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)' ;;
+  .)
+   dbexecdir='$(libdir)/gcj-$(gcc_version)' # Avoid /.
+   ;;
+  *)
+   dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)'
+   ;;
 esac
 AC_SUBST(dbexecdir)
 
@@ -1350,7 +1384,7 @@ AC_CHECK_HEADERS([unistd.h bstring.h sys/time.h sys/types.h fcntl.h \
 		  sys/ioctl.h sys/filio.h sys/stat.h sys/select.h \
 		  sys/socket.h netinet/in.h arpa/inet.h netdb.h net/if.h \
 		  pwd.h sys/config.h stdint.h langinfo.h locale.h \
-		  dirent.h sys/rw_lock.h magic.h])
+		  dirent.h sys/rw_lock.h magic.h ifaddrs.h])
 AC_CHECK_HEADERS(inttypes.h, [
     AC_DEFINE(HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
     AC_DEFINE(JV_HAVE_INTTYPES_H, 1, [Define if <inttypes.h> is available])
@@ -1476,7 +1510,7 @@ case "${host}" in
  mips*-*-linux*)
     SIGNAL_HANDLER=include/mips-signal.h
     ;;
- *-*-darwin*)
+ powerpc*-*-darwin*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)
@@ -1507,6 +1541,9 @@ fi
 
 # See if we support thread-local storage.
 GCC_CHECK_TLS
+
+# For _Unwind_GetIPInfo.
+GCC_CHECK_UNWIND_GETIPINFO
 
 # Check if linker supports static linking on a per library basis
 LD_START_STATIC_SPEC=
