@@ -2327,8 +2327,11 @@ process_constraint (constraint_t t)
       varinfo_t vi;
       gcc_assert (rhs.offset == 0);
       
-      for (vi = get_varinfo (rhs.var); vi != NULL; vi = vi->next)
-	vi->address_taken = true;
+      /* No need to mark address taken simply because of escaped vars
+	 constraints.  */
+      if (lhs.var != escaped_vars_id)
+	for (vi = get_varinfo (rhs.var); vi != NULL; vi = vi->next)
+	  vi->address_taken = true;
 
       VEC_safe_push (constraint_t, heap, constraints, t);
     }
@@ -2421,7 +2424,7 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results)
  
   t = get_ref_base_and_extent (t, &bitpos, &bitsize, &bitmaxsize);
 
-  /* String constants's are readonly, so there is nothing to really do
+  /* String constants are readonly, so there is nothing to really do
      here.  */
   if (TREE_CODE (t) == STRING_CST)
     return;

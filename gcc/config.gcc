@@ -303,7 +303,7 @@ powerpc*-*-*)
 	extra_headers="ppc-asm.h altivec.h spe.h"
 	need_64bit_hwint=yes
 	case x$with_cpu in
-	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[3456]|xrs64a)
+	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[3456]|xpower6x|xrs64a)
 		cpu_is_64bit=yes
 		;;
 	esac
@@ -366,7 +366,13 @@ esac
 # Common parts for widely ported systems.
 case ${target} in
 *-*-darwin*)
-  tm_file="${tm_file} darwin.h ${cpu_type}/darwin.h"
+  tm_file="${tm_file} darwin.h"
+  case ${target} in
+  *-*-darwin9*)
+    tm_file="${tm_file} darwin9.h"
+    ;;
+  esac
+  tm_file="${tm_file} ${cpu_type}/darwin.h"
   tm_p_file="${tm_p_file} darwin-protos.h"
   tmake_file="t-darwin ${cpu_type}/t-darwin t-slibgcc-darwin"
   target_gtfiles="\$(srcdir)/config/darwin.c"
@@ -1015,6 +1021,12 @@ i[34567]86-*-darwin*)
 	with_arch=${with_arch:-nocona}
 	with_cpu=${with_cpu:-generic}
 	;;
+x86_64-*-darwin*)
+	with_arch=${with_arch:-nocona}
+	with_cpu=${with_cpu:-generic}
+	tmake_file="t-darwin ${cpu_type}/t-darwin64 t-slibgcc-darwin"
+	tm_file="${tm_file} ${cpu_type}/darwin64.h"
+	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h"
 	tmake_file="i386/t-i386elf t-svr4"
@@ -1077,10 +1089,34 @@ i[34567]86-*-coff*)
 i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu)
 			# Intel 80386's running GNU/*
 			# with ELF format using glibc 2
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h i386/linux.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h linux.h"
 	case ${target} in
-	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
-	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
+	i[34567]86-*-linux*)
+		if test x$enable_targets = xall; then
+			tm_file="${tm_file} i386/x86-64.h i386/linux64.h"
+			tm_defines="${tm_defines} TARGET_BI_ARCH=1"
+			tmake_file="${tmake_file} i386/t-linux64"
+			need_64bit_hwint=yes
+			# FIXME: -m64 for i[34567]86-*-* should be allowed just
+			# like -m32 for x86_64-*-*.
+			case X"${with_cpu}" in
+			Xgeneric|Xnocona|Xx86-64|Xk8|Xopteron|Xathlon64|Xathlon-fx)
+				;;
+			X)
+				with_cpu=generic
+				;;
+			*)
+				echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
+				echo "generic nocona x86-64 k8 opteron athlon64 athlon-fx" 1>&2
+				exit 1
+				;;
+			esac
+		else
+			tm_file="${tm_file} i386/linux.h"
+		fi
+		;;
+	i[34567]86-*-knetbsd*-gnu) tm_file="${tm_file} i386/linux.h knetbsd-gnu.h i386/knetbsd-gnu.h" ;;
+	i[34567]86-*-kfreebsd*-gnu) tm_file="${tm_file} i386/linux.h kfreebsd-gnu.h i386/kfreebsd-gnu.h" ;;
 	esac
 	tmake_file="${tmake_file} i386/t-crtstuff i386/t-crtfm t-dfprules"
 	;;
@@ -1286,6 +1322,7 @@ i[34567]86-*-mingw32*)
 	extra_options="${extra_options} i386/cygming.opt"
 	extra_objs="winnt.o winnt-stubs.o"
 	cxx_target_objs=winnt-cxx.o
+	default_use_cxa_atexit=yes
 	case ${enable_threads} in
 	  "" | yes | win32)
 	  thread_file='win32'
@@ -1709,6 +1746,12 @@ powerpc-*-darwin*)
 	  *-darwin[0-6]*)
 	    ;;
 	esac
+	extra_headers=altivec.h
+	;;
+powerpc64-*-darwin*)
+	tm_file="${tm_file} ${cpu_type}/darwin8.h ${cpu_type}/darwin64.h"
+	extra_options="${extra_options} ${cpu_type}/darwin.opt"
+	# We're omitting t-darwin8 to avoid building any multilibs
 	extra_headers=altivec.h
 	;;
 powerpc*-*-freebsd*)
@@ -2845,7 +2888,7 @@ case "${target}" in
 				eval "with_$which=405"
 				;;
 			"" | common \
-			| power | power[23456] | powerpc | powerpc64 \
+			| power | power[23456] | power6x | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
 			| 601 | 602 | 603 | 603e | ec603e | 604 \

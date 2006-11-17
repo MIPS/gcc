@@ -211,6 +211,8 @@ alias analysis		Diego Novillo		dnovillo@redhat.com
 reload			Ulrich Weigand		uweigand@de.ibm.com
 dfp.c, related		Ben Elliston		bje@au.ibm.com
 RTL optimizers		Eric Botcazou		ebotcazou@libertysurf.fr
+loop optimizer		Zdenek Dvorak		dvorakz@suse.cz
+loop optimizer		Daniel Berlin		dberlin@dberlin.org
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -228,7 +230,7 @@ Peter Bergner					bergner@vnet.ibm.com
 Jan Beulich					jbeulich@novell.com
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@gmail.com
-Uros Bizjak					uros@kss-loka.si
+Uros Bizjak					ubizjak@gmail.com
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@codesourcery.com
 Phil Blundell					pb@futuretv.com
@@ -254,7 +256,6 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 Roberto Costa					roberto.costa@st.com
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
-Zdenek Dvorak					dvorakz@suse.cz
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
@@ -333,11 +334,13 @@ Devang Patel					dpatel@apple.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org
 Clinton Popetz					cpopetz@cpopetz.com
+Vladimir Prus					vladimir@codesourcery.com
 Jerry Quinn					jlquinn@optonline.net
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
+Erven Rohou                                     erven.rohou@st.com
 Gavin Romig-Koch				gavin@redhat.com
 Ira Rosen                                       irar@il.ibm.com
 Maciej W. Rozycki				macro@linux-mips.org
@@ -361,6 +364,7 @@ David Ung					davidu@mips.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 Feng Wang					fengwang@nudt.edu.cn
+Stephen M. Webb					stephen.webb@bregmasoft.com
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Zack Weinberg					zackw@panix.com

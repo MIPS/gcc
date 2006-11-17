@@ -1516,6 +1516,7 @@ darwin_file_start (void)
 	  DEBUG_LINE_SECTION,
 	  DEBUG_LOC_SECTION,
 	  DEBUG_PUBNAMES_SECTION,
+	  DEBUG_PUBTYPES_SECTION,
 	  DEBUG_STR_SECTION,
 	  DEBUG_RANGES_SECTION
 	};
@@ -1610,7 +1611,7 @@ darwin_set_default_type_attributes (tree type)
                                         TYPE_ATTRIBUTES (type));
 }
 
-/* True, iff we're generating code for loadable kernel extentions.  */
+/* True, iff we're generating code for loadable kernel extensions.  */
 
 bool
 darwin_kextabi_p (void) {

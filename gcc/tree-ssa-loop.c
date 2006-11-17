@@ -38,26 +38,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
 
-/* The loop tree currently optimized.  */
-
-struct loops *current_loops = NULL;
-
 /* Initializes the loop structures.  */
 
-static struct loops *
+static void
 tree_loop_optimizer_init (void)
 {
-  struct loops *loops;
- 
-  loops = loop_optimizer_init (LOOPS_NORMAL
-			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
-
-  if (!loops)
-    return NULL;
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
+  if (!current_loops)
+    return;
 
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
-
-  return loops;
 }
 
 /* The loop superpass.  */
@@ -90,7 +81,7 @@ struct tree_opt_pass pass_tree_loop =
 static unsigned int
 tree_ssa_loop_init (void)
 {
-  current_loops = tree_loop_optimizer_init ();
+  tree_loop_optimizer_init ();
   if (!current_loops)
     return 0;
 
@@ -189,8 +180,7 @@ struct tree_opt_pass pass_tree_unswitch =
 static unsigned int
 tree_vectorize (void)
 {
-  vectorize_loops (current_loops);
-  return 0;
+  return vectorize_loops (current_loops);
 }
 
 static bool
@@ -426,7 +416,7 @@ gate_tree_ssa_loop_prefetch (void)
 
 struct tree_opt_pass pass_loop_prefetch =
 {
-  "prefetch",				/* name */
+  "aprefetch",				/* name */
   gate_tree_ssa_loop_prefetch,		/* gate */
   tree_ssa_loop_prefetch,	       	/* execute */
   NULL,					/* sub */
@@ -488,8 +478,7 @@ tree_ssa_loop_done (void)
 
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
-  loop_optimizer_finalize (current_loops);
-  current_loops = NULL;
+  loop_optimizer_finalize ();
   return 0;
 }
   

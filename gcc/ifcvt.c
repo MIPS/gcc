@@ -1329,15 +1329,14 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	return FALSE;
     }
   else
-    {
-      insn_cost = 0;
-    }
+    insn_cost = 0;
 
-  if (insn_b) {
-    insn_cost += insn_rtx_cost (PATTERN (insn_b));
-    if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
-      return FALSE;
-  }
+  if (insn_b)
+    {
+      insn_cost += insn_rtx_cost (PATTERN (insn_b));
+      if (insn_cost == 0 || insn_cost > COSTS_N_INSNS (BRANCH_COST))
+        return FALSE;
+    }
 
   /* Possibly rearrange operands to make things come out more natural.  */
   if (reversed_comparison_code (if_info->cond, if_info->jump) != UNKNOWN)
@@ -1944,7 +1943,9 @@ noce_try_bitop (struct noce_if_info *if_info)
 	return FALSE;
       bitnum = INTVAL (XEXP (cond, 2));
       mode = GET_MODE (x);
-      if (bitnum >= HOST_BITS_PER_WIDE_INT)
+      if (BITS_BIG_ENDIAN)
+	bitnum = GET_MODE_BITSIZE (mode) - 1 - bitnum;
+      if (bitnum < 0 || bitnum >= HOST_BITS_PER_WIDE_INT)
 	return FALSE;
     }
   else
@@ -3861,15 +3862,13 @@ if_convert (void)
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
     {
-      struct loops loops;
-      if (dump_file)
-	fprintf (dump_file, "starting loop analysis.\n");
-      flow_loops_find (&loops);
-      mark_loop_exit_edges (&loops);
-      flow_loops_free (&loops);
+      loop_optimizer_init (0);
+      if (current_loops)
+	{
+	  mark_loop_exit_edges (current_loops);
+	  loop_optimizer_finalize ();
+	}
       free_dominance_info (CDI_DOMINATORS);
-      if (dump_file)
-	fprintf (dump_file, "ending loop analysis.\n");
     }
 
   /* Compute postdominators if we think we'll use them.  */

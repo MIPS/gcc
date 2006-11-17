@@ -158,6 +158,9 @@ avoid_constant_pool_reference (rtx x)
       return x;
     }
 
+  if (GET_MODE (x) == BLKmode)
+    return x;
+
   addr = XEXP (x, 0);
 
   /* Call target hook to avoid the effects of -fpic etc....  */
@@ -1041,6 +1044,9 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	    val++, arg0 &= arg0 - 1;
 	  val &= 1;
 	  break;
+
+	case BSWAP:
+	  return 0;
 
 	case TRUNCATE:
 	  val = arg0;
@@ -4867,4 +4873,3 @@ simplify_rtx (rtx x)
     }
   return NULL;
 }
-

@@ -173,6 +173,9 @@ static FILE *module_fp;
 /* The name of the module we're reading (USE'ing) or writing.  */
 static char module_name[GFC_MAX_SYMBOL_LEN + 1];
 
+/* The way the module we're reading was specified.  */
+static bool specified_nonint, specified_int;
+
 static int module_line, module_column, only_flag;
 static enum
 { IO_INPUT, IO_OUTPUT }
@@ -483,11 +486,64 @@ free_rename (void)
 match
 gfc_match_use (void)
 {
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
   gfc_use_rename *tail = NULL, *new;
   interface_type type;
   gfc_intrinsic_op operator;
   match m;
+
+  specified_int = false;
+  specified_nonint = false;
+
+  if (gfc_match (" , ") == MATCH_YES)
+    {
+      if ((m = gfc_match (" %n ::", module_nature)) == MATCH_YES)
+       {
+         if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: module "
+                             "nature in USE statement at %C") == FAILURE)
+           return MATCH_ERROR;
+
+         if (strcmp (module_nature, "intrinsic") == 0)
+           specified_int = true;
+         else
+           {
+             if (strcmp (module_nature, "non_intrinsic") == 0)
+               specified_nonint = true;
+             else
+               {
+                 gfc_error ("Module nature in USE statement at %C shall "
+                            "be either INTRINSIC or NON_INTRINSIC");
+                 return MATCH_ERROR;
+               }
+           }
+	}
+      else
+	{
+	  /* Help output a better error message than "Unclassifiable
+	     statement".  */
+	  gfc_match (" %n", module_nature);
+	  if (strcmp (module_nature, "intrinsic") == 0
+	      || strcmp (module_nature, "non_intrinsic") == 0)
+	    gfc_error ("\"::\" was expected after module nature at %C "
+		       "but was not found");
+	  return m;
+	}
+    }
+  else
+    {
+      m = gfc_match (" ::");
+      if (m == MATCH_YES &&
+	  gfc_notify_std (GFC_STD_F2003, "Fortran 2003: "
+			  "\"USE :: module\" at %C") == FAILURE)
+	return MATCH_ERROR;
+
+      if (m != MATCH_YES)
+       {
+         m = gfc_match ("% ");
+         if (m != MATCH_YES)
+           return m;
+       }
+    }
 
   m = gfc_match_name (module_name);
   if (m != MATCH_YES)
@@ -1435,7 +1491,7 @@ typedef enum
   AB_DATA, AB_IN_NAMELIST, AB_IN_COMMON, 
   AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE, AB_ELEMENTAL, AB_PURE,
   AB_RECURSIVE, AB_GENERIC, AB_ALWAYS_EXPLICIT, AB_CRAY_POINTER,
-  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP
+  AB_CRAY_POINTEE, AB_THREADPRIVATE, AB_ALLOC_COMP, AB_VOLATILE
 }
 ab_attribute;
 
@@ -1448,6 +1504,7 @@ static const mstring attr_bits[] =
     minit ("OPTIONAL", AB_OPTIONAL),
     minit ("POINTER", AB_POINTER),
     minit ("SAVE", AB_SAVE),
+    minit ("VOLATILE", AB_VOLATILE),
     minit ("TARGET", AB_TARGET),
     minit ("THREADPRIVATE", AB_THREADPRIVATE),
     minit ("DUMMY", AB_DUMMY),
@@ -1518,6 +1575,8 @@ mio_symbol_attribute (symbol_attribute * attr)
 	MIO_NAME(ab_attribute) (AB_POINTER, attr_bits);
       if (attr->save)
 	MIO_NAME(ab_attribute) (AB_SAVE, attr_bits);
+      if (attr->volatile_)
+	MIO_NAME(ab_attribute) (AB_VOLATILE, attr_bits);
       if (attr->target)
 	MIO_NAME(ab_attribute) (AB_TARGET, attr_bits);
       if (attr->threadprivate)
@@ -1595,6 +1654,9 @@ mio_symbol_attribute (symbol_attribute * attr)
 	      break;
 	    case AB_SAVE:
 	      attr->save = 1;
+	      break;
+	    case AB_VOLATILE:
+	      attr->volatile_ = 1;
 	      break;
 	    case AB_TARGET:
 	      attr->target = 1;
@@ -2684,7 +2746,7 @@ mio_namelist (gfc_symbol * sym)
 	  check_name = find_use_name (sym->name);
 	  if (check_name && strcmp (check_name, sym->name) != 0)
 	    gfc_error("Namelist %s cannot be renamed by USE"
-		      " association to %s.",
+		      " association to %s",
 		      sym->name, check_name);
 	}
 
@@ -3407,7 +3469,10 @@ read_module (void)
 
 
 /* Given an access type that is specific to an entity and the default
-   access, return nonzero if the entity is publicly accessible.  */
+   access, return nonzero if the entity is publicly accessible.  If the
+   element is declared as PUBLIC, then it is public; if declared 
+   PRIVATE, then private, and otherwise it is public unless the default
+   access in this context has been declared PRIVATE.  */
 
 bool
 gfc_check_access (gfc_access specific_access, gfc_access default_access)
@@ -3418,12 +3483,7 @@ gfc_check_access (gfc_access specific_access, gfc_access default_access)
   if (specific_access == ACCESS_PRIVATE)
     return FALSE;
 
-  if (gfc_option.flag_module_access_private)
-    return default_access == ACCESS_PUBLIC;
-  else
-    return default_access != ACCESS_PRIVATE;
-
-  return FALSE;
+  return default_access != ACCESS_PRIVATE;
 }
 
 
@@ -3797,7 +3857,33 @@ gfc_use_module (void)
   strcpy (filename, module_name);
   strcat (filename, MODULE_EXTENSION);
 
-  module_fp = gfc_open_included_file (filename, true);
+  /* First, try to find an non-intrinsic module, unless the USE statement
+     specified that the module is intrinsic.  */
+  module_fp = NULL;
+  if (!specified_int)
+    module_fp = gfc_open_included_file (filename, true, true);
+
+  /* Then, see if it's an intrinsic one, unless the USE statement
+     specified that the module is non-intrinsic.  */
+  if (module_fp == NULL && !specified_nonint)
+    {
+#if 0
+      if (strcmp (module_name, "iso_fortran_env") == 0
+         && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: "
+                            "ISO_FORTRAN_ENV intrinsic module at %C") != FAILURE)
+       {
+         use_iso_fortran_env_module ();
+         return;
+       }
+#endif
+
+      module_fp = gfc_open_intrinsic_module (filename);
+
+      if (module_fp == NULL && specified_int)
+       gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
+                        module_name);
+    }
+
   if (module_fp == NULL)
     gfc_fatal_error ("Can't open module file '%s' for reading at %C: %s",
 		     filename, strerror (errno));

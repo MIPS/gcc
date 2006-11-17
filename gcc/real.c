@@ -4923,18 +4923,20 @@ real_copysign (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *x)
 }
 
 /* Convert from REAL_VALUE_TYPE to MPFR.  The caller is responsible
-   for initializing and clearing the MPFR parmeter.  */
+   for initializing and clearing the MPFR parameter.  */
 
 void
 mpfr_from_real (mpfr_ptr m, const REAL_VALUE_TYPE *r)
 {
   /* We use a string as an intermediate type.  */
   char buf[128];
+  int ret;
 
   real_to_hexadecimal (buf, r, sizeof (buf), 0, 1);
   /* mpfr_set_str() parses hexadecimal floats from strings in the same
      format that GCC will output them.  Nothing extra is needed.  */
-  gcc_assert (mpfr_set_str (m, buf, 16, GMP_RNDN) == 0);
+  ret = mpfr_set_str (m, buf, 16, GMP_RNDN);
+  gcc_assert (ret == 0);
 }
 
 /* Convert from MPFR to REAL_VALUE_TYPE.  */

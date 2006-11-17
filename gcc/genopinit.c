@@ -120,9 +120,9 @@ static const char * const optabs[] =
   "copysign_optab->handlers[$A].insn_code = CODE_FOR_$(copysign$F$a3$)",
   "sqrt_optab->handlers[$A].insn_code = CODE_FOR_$(sqrt$a2$)",
   "floor_optab->handlers[$A].insn_code = CODE_FOR_$(floor$a2$)",
-  "lfloor_optab->handlers[$A].insn_code = CODE_FOR_$(lfloor$a2$)",
+  "lfloor_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lfloor$F$a$I$b2$)",
   "ceil_optab->handlers[$A].insn_code = CODE_FOR_$(ceil$a2$)",
-  "lceil_optab->handlers[$A].insn_code = CODE_FOR_$(lceil$a2$)",
+  "lceil_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lceil$F$a$I$b2$)",
   "round_optab->handlers[$A].insn_code = CODE_FOR_$(round$a2$)",
   "btrunc_optab->handlers[$A].insn_code = CODE_FOR_$(btrunc$a2$)",
   "nearbyint_optab->handlers[$A].insn_code = CODE_FOR_$(nearbyint$a2$)",
@@ -149,6 +149,7 @@ static const char * const optabs[] =
   "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
   "one_cmpl_optab->handlers[$A].insn_code = CODE_FOR_$(one_cmpl$a2$)",
+  "bswap_optab->handlers[$A].insn_code = CODE_FOR_$(bswap$a2$)",
   "ffs_optab->handlers[$A].insn_code = CODE_FOR_$(ffs$a2$)",
   "clz_optab->handlers[$A].insn_code = CODE_FOR_$(clz$a2$)",
   "ctz_optab->handlers[$A].insn_code = CODE_FOR_$(ctz$a2$)",
@@ -213,7 +214,17 @@ static const char * const optabs[] =
   "reduc_smin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smin_$a$)",
   "reduc_umin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umin_$a$)",
   "reduc_splus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_splus_$a$)" ,
-  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)" 
+  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)",
+  "vec_widen_umult_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_umult_hi_$a$)",
+  "vec_widen_umult_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_umult_lo_$a$)",
+  "vec_widen_smult_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_smult_hi_$a$)",
+  "vec_widen_smult_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_smult_lo_$a$)",
+  "vec_unpacks_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_hi_$a$)",
+  "vec_unpacks_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_lo_$a$)",
+  "vec_unpacku_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_hi_$a$)",
+  "vec_unpacku_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_lo_$a$)",
+  "vec_pack_mod_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_mod_$a$)",
+  "vec_pack_ssat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",  "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_usat_$a$)"
 };
 
 static void gen_insn (rtx);

@@ -738,9 +738,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, 0, i, 1);
 
-  /* Put the prolog ,  on the one and only entry edge.  */
+  /* Put the prolog on the entry edge.  */
   e = loop_preheader_edge (loop);
-  loop_split_edge_with(e , get_insns());
+  split_edge_and_insert (e, get_insns());
 
   end_sequence ();
 
@@ -750,24 +750,11 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, i + 1, last_stage, 0);
 
-  /* Put the epilogue on the one and only one exit edge.  */
+  /* Put the epilogue on the exit edge.  */
   gcc_assert (loop->single_exit);
   e = loop->single_exit;
-  loop_split_edge_with(e , get_insns());
+  split_edge_and_insert (e, get_insns());
   end_sequence ();
-}
-
-/* Return the line note insn preceding INSN, for debugging.  Taken from
-   emit-rtl.c.  */
-static rtx
-find_line_note (rtx insn)
-{
-  for (; insn; insn = PREV_INSN (insn))
-    if (NOTE_P (insn)
-	&& NOTE_LINE_NUMBER (insn) >= 0)
-      break;
-
-  return insn;
 }
 
 /* Return true if all the BBs of the loop are empty except the
@@ -827,16 +814,7 @@ loop_canon_p (struct loop *loop)
     {
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (BB_END (loop->header));
-
 	  fprintf (dump_file, "SMS loop many exits ");
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, " %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
 	}
       return false;
     }
@@ -845,16 +823,7 @@ loop_canon_p (struct loop *loop)
     {
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (BB_END (loop->header));
-
 	  fprintf (dump_file, "SMS loop many BBs. ");
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-  	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, " %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
 	}
       return false;
     }
@@ -875,7 +844,7 @@ canon_loop (struct loop *loop)
      block.  */
   FOR_EACH_EDGE (e, i, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FALLTHRU) && (EDGE_COUNT (e->src->succs) > 1))
-      loop_split_edge_with (e, NULL_RTX);
+      split_edge (e);
 
   if (loop->latch == loop->header
       || EDGE_COUNT (loop->latch->succs) > 1)
@@ -883,7 +852,7 @@ canon_loop (struct loop *loop)
       FOR_EACH_EDGE (e, i, loop->header->preds)
         if (e->src == loop->latch)
           break;
-      loop_split_edge_with (e, NULL_RTX);
+      split_edge (e);
     }
 }
 
@@ -900,7 +869,6 @@ sms_schedule (void)
   unsigned i,num_loops;
   partial_schedule_ptr ps;
   struct df *df;
-  struct loops *loops;
   basic_block bb = NULL;
   /* vars to the versioning only if needed*/
   struct loop * nloop;
@@ -908,10 +876,10 @@ sms_schedule (void)
   edge latch_edge;
   gcov_type trip_count = 0;
 
-  loops = loop_optimizer_init (LOOPS_HAVE_PREHEADERS
-			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
-  if (!loops)
-    return;  /* There is no loops to schedule.  */
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+		       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
+  if (!current_loops)
+    return;  /* There are no loops to schedule.  */
 
   /* Initialize issue_rate.  */
   if (targetm.sched.issue_rate)
@@ -940,16 +908,16 @@ sms_schedule (void)
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
-  g_arr = XCNEWVEC (ddg_ptr, loops->num);
+  g_arr = XCNEWVEC (ddg_ptr, current_loops->num);
 
 
   /* Build DDGs for all the relevant loops and hold them in G_ARR
      indexed by the loop index.  */
-  for (i = 0; i < loops->num; i++)
+  for (i = 0; i < current_loops->num; i++)
     {
       rtx head, tail;
       rtx count_reg;
-      struct loop *loop = loops->parray[i];
+      struct loop *loop = current_loops->parray[i];
 
       /* For debugging.  */
       if ((passes++ > MAX_SMS_LOOP_NUMBER) && (MAX_SMS_LOOP_NUMBER != -1))
@@ -981,15 +949,6 @@ sms_schedule (void)
 	{
 	  if (dump_file)
 	    {
-	      rtx line_note = find_line_note (tail);
-
-	      if (line_note)
-		{
-		  expanded_location xloc;
-		  NOTE_EXPANDED_LOCATION (xloc, line_note);
-		  fprintf (dump_file, "SMS bb %s %d (file, line)\n",
-			   xloc.file, xloc.line);
-		}
 	      fprintf (dump_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
@@ -1049,7 +1008,7 @@ sms_schedule (void)
     }
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
-  num_loops = loops->num;
+  num_loops = current_loops->num;
   /* Go over the built DDGs and perfrom SMS for each one of them.  */
   for (i = 0; i < num_loops; i++)
     {
@@ -1058,7 +1017,7 @@ sms_schedule (void)
       int mii, rec_mii;
       unsigned stage_count = 0;
       HOST_WIDEST_INT loop_count = 0;
-      struct loop *loop = loops->parray[i];
+      struct loop *loop = current_loops->parray[i];
 
       if (! (g = g_arr[i]))
         continue;
@@ -1075,15 +1034,6 @@ sms_schedule (void)
 
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (tail);
-
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, "SMS bb %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
 	  fprintf (dump_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
@@ -1217,8 +1167,8 @@ sms_schedule (void)
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
 
-		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb,
-					true);
+		  nloop = loop_version (current_loops, loop, comp_rtx,
+					&condition_bb, true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */
@@ -1258,7 +1208,7 @@ sms_schedule (void)
 
   /* Release scheduler data, needed until now because of DFA.  */
   sched_finish ();
-  loop_optimizer_finalize (loops);
+  loop_optimizer_finalize ();
 }
 
 /* The SMS scheduling algorithm itself

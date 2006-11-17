@@ -858,7 +858,7 @@ gfc_match_format (void)
   if (gfc_current_ns->proc_name
 	&& gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
     {
-      gfc_error ("Format statement in module main block at %C.");
+      gfc_error ("Format statement in module main block at %C");
       return MATCH_ERROR;
     }
 
@@ -2596,9 +2596,13 @@ if (condition) \
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
 
-      io_constraint (dt->namelist != NULL,
-		     "Internal file at %L is incompatible with namelist",
-		     &expr->where);
+      if (dt->namelist != NULL)
+        {
+          if (gfc_notify_std(GFC_STD_F2003,
+                         "Fortran 2003: Internal file at %L with namelist",
+                         &expr->where) == FAILURE)
+            m = MATCH_ERROR;
+        }
 
       io_constraint (dt->advance != NULL,
 		     "ADVANCE tag at %L is incompatible with internal file",
@@ -2697,8 +2701,8 @@ if (condition) \
       if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_CHARACTER)
 	{
 	  const char * advance = expr->value.character.string;
-	  not_no = strncasecmp (advance, "no", 2) != 0;
-	  not_yes = strncasecmp (advance, "yes", 2) != 0;
+	  not_no = strcasecmp (advance, "no") != 0;
+	  not_yes = strcasecmp (advance, "yes") != 0;
 	}
       else
 	{

@@ -265,8 +265,7 @@ get_value_range (tree var)
     return vr;
 
   /* Create a default value range.  */
-  vr_value[ver] = vr = XNEW (value_range_t);
-  memset (vr, 0, sizeof (*vr));
+  vr_value[ver] = vr = XCNEW (value_range_t);
 
   /* Allocate an equivalence set.  */
   vr->equiv = BITMAP_ALLOC (NULL);
@@ -1177,7 +1176,7 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
       else if (code == MULT_EXPR && !integer_zerop (val1))
 	{
 	  tree tmp = int_const_binop (TRUNC_DIV_EXPR,
-				      TYPE_MAX_VALUE (TREE_TYPE (val1)),
+				      res,
 				      val1, 0);
 	  int check = compare_values (tmp, val2);
 
@@ -1596,9 +1595,6 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
   /* Refuse to operate on certain unary expressions for which we
      cannot easily determine a resulting range.  */
   if (code == FIX_TRUNC_EXPR
-      || code == FIX_CEIL_EXPR
-      || code == FIX_FLOOR_EXPR
-      || code == FIX_ROUND_EXPR
       || code == FLOAT_EXPR
       || code == BIT_NOT_EXPR
       || code == NON_LVALUE_EXPR
@@ -3350,8 +3346,7 @@ insert_range_assertions (void)
   sbitmap_zero (blocks_visited);
 
   need_assert_for = BITMAP_ALLOC (NULL);
-  asserts_for = XNEWVEC (assert_locus_t, num_ssa_names);
-  memset (asserts_for, 0, num_ssa_names * sizeof (assert_locus_t));
+  asserts_for = XCNEWVEC (assert_locus_t, num_ssa_names);
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -3489,8 +3484,7 @@ vrp_initialize (void)
 {
   basic_block bb;
 
-  vr_value = XNEWVEC (value_range_t *, num_ssa_names);
-  memset (vr_value, 0, num_ssa_names * sizeof (value_range_t *));
+  vr_value = XCNEWVEC (value_range_t *, num_ssa_names);
 
   FOR_EACH_BB (bb)
     {
@@ -4686,8 +4680,7 @@ vrp_finalize (void)
   /* We may have ended with ranges that have exactly one value.  Those
      values can be substituted as any other copy/const propagated
      value using substitute_and_fold.  */
-  single_val_range = XNEWVEC (prop_value_t, num_ssa_names);
-  memset (single_val_range, 0, num_ssa_names * sizeof (*single_val_range));
+  single_val_range = XCNEWVEC (prop_value_t, num_ssa_names);
 
   do_value_subst_p = false;
   for (i = 0; i < num_ssa_names; i++)
@@ -4779,7 +4772,7 @@ execute_vrp (void)
 {
   insert_range_assertions ();
 
-  current_loops = loop_optimizer_init (LOOPS_NORMAL);
+  loop_optimizer_init (LOOPS_NORMAL);
   if (current_loops)
     scev_initialize (current_loops);
 
@@ -4790,8 +4783,7 @@ execute_vrp (void)
   if (current_loops)
     {
       scev_finalize ();
-      loop_optimizer_finalize (current_loops);
-      current_loops = NULL;
+      loop_optimizer_finalize ();
     }
 
   /* ASSERT_EXPRs must be removed before finalizing jump threads

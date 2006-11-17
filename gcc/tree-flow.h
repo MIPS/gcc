@@ -344,6 +344,7 @@ static inline var_ann_t get_var_ann (tree);
 static inline function_ann_t function_ann (tree);
 static inline function_ann_t get_function_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
+static inline bool has_stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
@@ -715,6 +716,7 @@ void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, tree, def_operand_p);
 bool need_ssa_update_p (void);
+bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);
 void release_ssa_name_after_update_ssa (tree name);
@@ -800,7 +802,7 @@ struct tree_niter_desc
 };
 
 /* In tree-vectorizer.c */
-void vectorize_loops (struct loops *);
+unsigned vectorize_loops (struct loops *);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
@@ -834,13 +836,11 @@ void free_numbers_of_iterations_estimates (struct loops *);
 void free_numbers_of_iterations_estimates_loop (struct loop *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
-void loop_commit_inserts (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 void split_loop_exit_edge (edge);
 unsigned force_expr_to_var_cost (tree);
-basic_block bsi_insert_on_edge_immediate_loop (edge, tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -920,7 +920,7 @@ void print_value_expressions (FILE *, tree);
 
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
-tree get_value_handle (tree);
+static inline tree get_value_handle (tree);
 hashval_t vn_compute (tree, hashval_t);
 void sort_vuses (VEC (tree, gc) *);
 tree vn_lookup_or_add (tree, tree);
@@ -947,7 +947,7 @@ extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
 bool expr_invariant_in_loop_p (struct loop *, tree);
-bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
+bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
@@ -1035,4 +1035,7 @@ void swap_tree_operands (tree, tree *, tree *);
 
 extern void recalculate_used_alone (void);
 extern bool updating_used_alone;
+
+int least_common_multiple (int, int);
+
 #endif /* _TREE_FLOW_H  */

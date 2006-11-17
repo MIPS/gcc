@@ -146,6 +146,8 @@ enum optab_index
   /* Abs value */
   OTI_abs,
   OTI_absv,
+  /* Byteswap */
+  OTI_bswap,
   /* Bitwise not */
   OTI_one_cmpl,
   /* Bit scanning and counting */
@@ -189,9 +191,7 @@ enum optab_index
   OTI_log1p,
   /* Rounding functions */
   OTI_floor,
-  OTI_lfloor,
   OTI_ceil,
-  OTI_lceil,
   OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
@@ -260,6 +260,22 @@ enum optab_index
   OTI_vec_shr,
   /* Extract specified elements from vectors, for vector load.  */
   OTI_vec_realign_load,
+  /* Widening multiplication.  
+     The high/low part of the resulting vector of products is returned.  */
+  OTI_vec_widen_umult_hi,
+  OTI_vec_widen_umult_lo,
+  OTI_vec_widen_smult_hi,
+  OTI_vec_widen_smult_lo,
+  /* Extract and widen the high/low part of a vector of signed/unsigned 
+     elements.  */
+  OTI_vec_unpacks_hi,
+  OTI_vec_unpacks_lo,
+  OTI_vec_unpacku_hi,
+  OTI_vec_unpacku_lo,
+  /* Narrow (demote) and merge the elements of two vectors.  */
+  OTI_vec_pack_mod,
+  OTI_vec_pack_usat,
+  OTI_vec_pack_ssat,
 
   /* Perform a raise to the power of integer.  */
   OTI_powi,
@@ -314,6 +330,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define abs_optab (optab_table[OTI_abs])
 #define absv_optab (optab_table[OTI_absv])
 #define one_cmpl_optab (optab_table[OTI_one_cmpl])
+#define bswap_optab (optab_table[OTI_bswap])
 #define ffs_optab (optab_table[OTI_ffs])
 #define clz_optab (optab_table[OTI_clz])
 #define ctz_optab (optab_table[OTI_ctz])
@@ -337,9 +354,7 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log2_optab (optab_table[OTI_log2])
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
-#define lfloor_optab (optab_table[OTI_lfloor])
 #define ceil_optab (optab_table[OTI_ceil])
-#define lceil_optab (optab_table[OTI_lceil])
 #define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
@@ -386,7 +401,18 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define vec_shl_optab (optab_table[OTI_vec_shl])
 #define vec_shr_optab (optab_table[OTI_vec_shr])
 #define vec_realign_load_optab (optab_table[OTI_vec_realign_load])
-
+#define vec_widen_umult_hi_optab (optab_table[OTI_vec_widen_umult_hi])
+#define vec_widen_umult_lo_optab (optab_table[OTI_vec_widen_umult_lo])
+#define vec_widen_smult_hi_optab (optab_table[OTI_vec_widen_smult_hi])
+#define vec_widen_smult_lo_optab (optab_table[OTI_vec_widen_smult_lo])
+#define vec_unpacks_hi_optab (optab_table[OTI_vec_unpacks_hi])
+#define vec_unpacku_hi_optab (optab_table[OTI_vec_unpacku_hi])
+#define vec_unpacks_lo_optab (optab_table[OTI_vec_unpacks_lo])
+#define vec_unpacku_lo_optab (optab_table[OTI_vec_unpacku_lo])
+#define vec_pack_mod_optab (optab_table[OTI_vec_pack_mod])
+#define vec_pack_ssat_optab (optab_table[OTI_vec_pack_ssat])
+#define vec_pack_usat_optab (optab_table[OTI_vec_pack_usat])
+                                                                                
 #define powi_optab (optab_table[OTI_powi])
 
 /* Conversion optabs have their own table and indexes.  */
@@ -407,6 +433,8 @@ enum convert_optab_index
 
   COI_lrint,
   COI_lround,
+  COI_lfloor,
+  COI_lceil,
 
   COI_MAX
 };
@@ -424,6 +452,8 @@ extern GTY(()) convert_optab convert_optab_table[COI_MAX];
 #define ufloat_optab (convert_optab_table[COI_ufloat])
 #define lrint_optab (convert_optab_table[COI_lrint])
 #define lround_optab (convert_optab_table[COI_lround])
+#define lfloor_optab (convert_optab_table[COI_lfloor])
+#define lceil_optab (convert_optab_table[COI_lceil])
 
 /* These arrays record the insn_code of insns that may be needed to
    perform input and output reloads of special objects.  They provide a

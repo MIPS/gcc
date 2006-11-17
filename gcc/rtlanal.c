@@ -2837,7 +2837,6 @@ loc_mentioned_in_p (rtx *loc, rtx in)
   const char *fmt;
   int i, j;
 
-  /* Allow this function to work in EXPR_LISTs.  */
   if (!in)
     return 0;
 

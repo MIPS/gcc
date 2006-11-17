@@ -74,8 +74,6 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 
 static void combine_predictions_for_insn (rtx, basic_block);
 static void dump_prediction (FILE *, enum br_predictor, int, basic_block, int);
-static void estimate_loops_at_level (struct loop *, bitmap);
-static void propagate_freq (struct loop *, bitmap);
 static void estimate_bb_frequencies (struct loops *);
 static void predict_paths_leading_to (basic_block, int *, enum br_predictor, enum prediction);
 static bool last_basic_block_p (basic_block);
@@ -631,12 +629,11 @@ combine_predictions_for_bb (basic_block bb)
    When RTLSIMPLELOOPS is set, attempt to count number of iterations by analyzing
    RTL otherwise use tree based approach.  */
 static void
-predict_loops (struct loops *loops_info, bool rtlsimpleloops)
+predict_loops (struct loops *loops_info)
 {
   unsigned i;
 
-  if (!rtlsimpleloops)
-    scev_initialize (loops_info);
+  scev_initialize (loops_info);
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
@@ -646,69 +643,38 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
       unsigned j;
       unsigned n_exits;
       struct loop *loop = loops_info->parray[i];
-      struct niter_desc desc;
-      unsigned HOST_WIDE_INT niter;
       edge *exits;
+      struct tree_niter_desc niter_desc;
 
       exits = get_loop_exit_edges (loop, &n_exits);
 
-      if (rtlsimpleloops)
+
+      for (j = 0; j < n_exits; j++)
 	{
-	  iv_analysis_loop_init (loop);
-	  find_simple_exit (loop, &desc);
+	  tree niter = NULL;
 
-	  if (desc.simple_p && desc.const_iter)
+	  if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
+	    niter = niter_desc.niter;
+	  if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
+	    niter = loop_niter_by_eval (loop, exits[j]);
+
+	  if (TREE_CODE (niter) == INTEGER_CST)
 	    {
-	      int prob;
-	      niter = desc.niter + 1;
-	      if (niter == 0)        /* We might overflow here.  */
-		niter = desc.niter;
-	      if (niter
-		  > (unsigned int) PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS))
-		niter = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
-
-	      prob = (REG_BR_PROB_BASE
-		      - (REG_BR_PROB_BASE + niter /2) / niter);
-	      /* Branch prediction algorithm gives 0 frequency for everything
-		 after the end of loop for loop having 0 probability to finish.  */
-	      if (prob == REG_BR_PROB_BASE)
-		prob = REG_BR_PROB_BASE - 1;
-	      predict_edge (desc.in_edge, PRED_LOOP_ITERATIONS,
-			    prob);
-	    }
-	}
-      else
-	{
-	  struct tree_niter_desc niter_desc;
-
-	  for (j = 0; j < n_exits; j++)
-	    {
-	      tree niter = NULL;
-
-	      if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
-		niter = niter_desc.niter;
-	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
-	        niter = loop_niter_by_eval (loop, exits[j]);
-
-	      if (TREE_CODE (niter) == INTEGER_CST)
+	      int probability;
+	      int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
+	      if (host_integerp (niter, 1)
+		  && tree_int_cst_lt (niter,
+				      build_int_cstu (NULL_TREE, max - 1)))
 		{
-		  int probability;
-		  int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
-		  if (host_integerp (niter, 1)
-		      && tree_int_cst_lt (niter,
-				          build_int_cstu (NULL_TREE, max - 1)))
-		    {
-		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		      probability = ((REG_BR_PROB_BASE + nitercst / 2)
-				     / nitercst);
-		    }
-		  else
-		    probability = ((REG_BR_PROB_BASE + max / 2) / max);
-
-		  predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
+		  HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
+		  probability = ((REG_BR_PROB_BASE + nitercst / 2)
+				 / nitercst);
 		}
-	    }
+	      else
+		probability = ((REG_BR_PROB_BASE + max / 2) / max);
 
+	      predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
+	    }
 	}
       free (exits);
 
@@ -726,8 +692,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	     statements construct loops via "non-loop" constructs
 	     in the source language and are better to be handled
 	     separately.  */
-	  if ((rtlsimpleloops && !can_predict_insn_p (BB_END (bb)))
-	      || predicted_by_p (bb, PRED_CONTINUE))
+	  if (predicted_by_p (bb, PRED_CONTINUE))
 	    continue;
 
 	  /* Loop branch heuristics - predict an edge back to a
@@ -776,11 +741,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
       free (bbs);
     }
 
-  if (!rtlsimpleloops)
-    {
-      scev_finalize ();
-      current_loops = NULL;
-    }
+  scev_finalize ();
 }
 
 /* Attempt to predict probabilities of BB outgoing edges using local
@@ -1247,8 +1208,7 @@ tree_bb_level_predictions (void)
   basic_block bb;
   int *heads;
 
-  heads = XNEWVEC (int, last_basic_block);
-  memset (heads, ENTRY_BLOCK, sizeof (int) * last_basic_block);
+  heads = XCNEWVEC (int, last_basic_block);
   heads[ENTRY_BLOCK_PTR->next_bb->index] = last_basic_block;
 
   apply_return_prediction (heads);
@@ -1289,11 +1249,10 @@ static unsigned int
 tree_estimate_probability (void)
 {
   basic_block bb;
-  struct loops loops_info;
 
-  flow_loops_find (&loops_info);
+  loop_optimizer_init (0);
   if (dump_file && (dump_flags & TDF_DETAILS))
-    flow_loops_dump (&loops_info, dump_file, NULL, 0);
+    flow_loops_dump (current_loops, dump_file, NULL, 0);
 
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
@@ -1302,8 +1261,9 @@ tree_estimate_probability (void)
 
   tree_bb_level_predictions ();
 
-  mark_irreducible_loops (&loops_info);
-  predict_loops (&loops_info, false);
+  mark_irreducible_loops (current_loops);
+  if (current_loops)
+    predict_loops (current_loops);
 
   FOR_EACH_BB (bb)
     {
@@ -1365,88 +1325,15 @@ tree_estimate_probability (void)
     combine_predictions_for_bb (bb);
 
   strip_builtin_expect ();
-  estimate_bb_frequencies (&loops_info);
+  estimate_bb_frequencies (current_loops);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
-  flow_loops_free (&loops_info);
+  loop_optimizer_finalize ();
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags);
   if (profile_status == PROFILE_ABSENT)
     profile_status = PROFILE_GUESSED;
   return 0;
-}
-
-/* __builtin_expect dropped tokens into the insn stream describing expected
-   values of registers.  Generate branch probabilities based off these
-   values.  */
-
-void
-expected_value_to_br_prob (void)
-{
-  rtx insn, cond, ev = NULL_RTX, ev_reg = NULL_RTX;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case NOTE:
-	  /* Look for expected value notes.  */
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EXPECTED_VALUE)
-	    {
-	      ev = NOTE_EXPECTED_VALUE (insn);
-	      ev_reg = XEXP (ev, 0);
-	      delete_insn (insn);
-	    }
-	  continue;
-
-	case CODE_LABEL:
-	  /* Never propagate across labels.  */
-	  ev = NULL_RTX;
-	  continue;
-
-	case JUMP_INSN:
-	  /* Look for simple conditional branches.  If we haven't got an
-	     expected value yet, no point going further.  */
-	  if (!JUMP_P (insn) || ev == NULL_RTX
-	      || ! any_condjump_p (insn))
-	    continue;
-	  break;
-
-	default:
-	  /* Look for insns that clobber the EV register.  */
-	  if (ev && reg_set_p (ev_reg, insn))
-	    ev = NULL_RTX;
-	  continue;
-	}
-
-      /* Collect the branch condition, hopefully relative to EV_REG.  */
-      /* ???  At present we'll miss things like
-		(expected_value (eq r70 0))
-		(set r71 -1)
-		(set r80 (lt r70 r71))
-		(set pc (if_then_else (ne r80 0) ...))
-	 as canonicalize_condition will render this to us as
-		(lt r70, r71)
-	 Could use cselib to try and reduce this further.  */
-      cond = XEXP (SET_SRC (pc_set (insn)), 0);
-      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg,
-				     false, false);
-      if (! cond || XEXP (cond, 0) != ev_reg
-	  || GET_CODE (XEXP (cond, 1)) != CONST_INT)
-	continue;
-
-      /* Substitute and simplify.  Given that the expression we're
-	 building involves two constants, we should wind up with either
-	 true or false.  */
-      cond = gen_rtx_fmt_ee (GET_CODE (cond), VOIDmode,
-			     XEXP (ev, 1), XEXP (cond, 1));
-      cond = simplify_rtx (cond);
-
-      /* Turn the condition into a scaled branch probability.  */
-      gcc_assert (cond == const_true_rtx || cond == const0_rtx);
-      predict_insn_def (insn, PRED_BUILTIN_EXPECT,
-		        cond == const_true_rtx ? TAKEN : NOT_TAKEN);
-    }
 }
 
 /* Check whether this is the last basic block of function.  Commonly
@@ -1547,12 +1434,12 @@ typedef struct edge_info_def
 #define EDGE_INFO(E)	((edge_info) (E)->aux)
 
 /* Helper function for estimate_bb_frequencies.
-   Propagate the frequencies for LOOP.  */
+   Propagate the frequencies in blocks marked in
+   TOVISIT, starting in HEAD.  */
 
 static void
-propagate_freq (struct loop *loop, bitmap tovisit)
+propagate_freq (basic_block head, bitmap tovisit)
 {
-  basic_block head = loop->header;
   basic_block bb;
   basic_block last;
   unsigned i;
@@ -1689,7 +1576,7 @@ propagate_freq (struct loop *loop, bitmap tovisit)
 /* Estimate probabilities of loopback edges in loops at same nest level.  */
 
 static void
-estimate_loops_at_level (struct loop *first_loop, bitmap tovisit)
+estimate_loops_at_level (struct loop *first_loop)
 {
   struct loop *loop;
 
@@ -1698,23 +1585,42 @@ estimate_loops_at_level (struct loop *first_loop, bitmap tovisit)
       edge e;
       basic_block *bbs;
       unsigned i;
+      bitmap tovisit = BITMAP_ALLOC (NULL);
 
-      estimate_loops_at_level (loop->inner, tovisit);
+      estimate_loops_at_level (loop->inner);
 
-      /* Do not do this for dummy function loop.  */
-      if (EDGE_COUNT (loop->latch->succs) > 0)
-	{
-	  /* Find current loop back edge and mark it.  */
-	  e = loop_latch_edge (loop);
-	  EDGE_INFO (e)->back_edge = 1;
-       }
+      /* Find current loop back edge and mark it.  */
+      e = loop_latch_edge (loop);
+      EDGE_INFO (e)->back_edge = 1;
 
       bbs = get_loop_body (loop);
       for (i = 0; i < loop->num_nodes; i++)
 	bitmap_set_bit (tovisit, bbs[i]->index);
       free (bbs);
-      propagate_freq (loop, tovisit);
+      propagate_freq (loop->header, tovisit);
+      BITMAP_FREE (tovisit);
     }
+}
+
+/* Propates frequencies through structure of LOOPS.  */
+
+static void
+estimate_loops (struct loops *loops)
+{
+  bitmap tovisit = BITMAP_ALLOC (NULL);
+  basic_block bb;
+
+  /* Start by estimating the frequencies in the loops.  */
+  if (loops)
+    estimate_loops_at_level (loops->tree_root->inner);
+
+  /* Now propagate the frequencies through all the blocks.  */
+  FOR_ALL_BB (bb)
+    {
+      bitmap_set_bit (tovisit, bb->index);
+    }
+  propagate_freq (ENTRY_BLOCK_PTR, tovisit);
+  BITMAP_FREE (tovisit);
 }
 
 /* Convert counts measured by profile driven feedback to frequencies.
@@ -1787,7 +1693,6 @@ estimate_bb_frequencies (struct loops *loops)
   if (!flag_branch_probabilities || !counts_to_freqs ())
     {
       static int real_values_initialized = 0;
-      bitmap tovisit;
 
       if (!real_values_initialized)
         {
@@ -1806,7 +1711,6 @@ estimate_bb_frequencies (struct loops *loops)
       single_succ_edge (ENTRY_BLOCK_PTR)->probability = REG_BR_PROB_BASE;
 
       /* Set up block info for each basic block.  */
-      tovisit = BITMAP_ALLOC (NULL);
       alloc_aux_for_blocks (sizeof (struct block_info_def));
       alloc_aux_for_edges (sizeof (struct edge_info_def));
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -1825,7 +1729,7 @@ estimate_bb_frequencies (struct loops *loops)
 
       /* First compute probabilities locally for each loop from innermost
          to outermost to examine probabilities for back edges.  */
-      estimate_loops_at_level (loops->tree_root, tovisit);
+      estimate_loops (loops);
 
       memcpy (&freq_max, &real_zero, sizeof (real_zero));
       FOR_EACH_BB (bb)
@@ -1844,7 +1748,6 @@ estimate_bb_frequencies (struct loops *loops)
 
       free_aux_for_blocks ();
       free_aux_for_edges ();
-      BITMAP_FREE (tovisit);
     }
   compute_function_frequency ();
   if (flag_reorder_functions)
