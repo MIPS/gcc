@@ -3227,7 +3227,7 @@ prune_stale_vops (tree stmt)
       for (i = 0; i < VUSE_VECT_NUM_ELEM (vuses->usev); i++)
 	{
 	  tree op = VUSE_OP (vuses, i);
-	  if (is_active_vop (op, syms->loads, syms->stores))
+	  if (is_active_vop (op))
 	    VEC_safe_push (tree, heap, new_list, op);
 	}
 

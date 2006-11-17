@@ -1,5 +1,10 @@
 2006-11-17  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa-operands.c (prune_stale_vops): Fix call to
+	is_active_vop.
+
+2006-11-17  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-operands.h (prune_stale_vops): Declare.
 	* tree-into-ssa.c (rewrite_vops): Set VUSE_OPS and VDEF_OPS
 	after rewriting the corresponding virtual operator.
