@@ -1216,7 +1216,9 @@ else
    fi
 
    LIBMAGIC=
-   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
+   AC_CHECK_LIB(magic, magic_open, [
+      AC_DEFINE([HAVE_MAGIC_OPEN], 1, [Define if you have magic_open().])
+      LIBMAGIC="-lmagic"])
    AC_SUBST(LIBMAGIC)
 
    # Test for Gtk stuff, if asked for.

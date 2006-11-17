@@ -12,18 +12,18 @@ details.  */
 #include <gcj/cni.h>
 #include <java/lang/UnsupportedOperationException.h>
 
-#ifdef HAVE_MAGIC_H
+#if defined (HAVE_MAGIC_H) && defined (HAVE_MAGIC_OPEN)
 
 #include <magic.h>
 
 static magic_t cookie;
 
-#endif /* HAVE_MAGIC_H */
+#endif /* HAVE_MAGIC_H && HAVE_MAGIC_OPEN */
 
 void
 java::net::VMURLConnection::init ()
 {
-#ifdef HAVE_MAGIC_H
+#if defined (HAVE_MAGIC_H) && defined (HAVE_MAGIC_OPEN)
   cookie = magic_open (MAGIC_MIME);
   if (cookie == (magic_t) NULL)
     return;
@@ -32,14 +32,14 @@ java::net::VMURLConnection::init ()
       magic_close (cookie);
       cookie = (magic_t) NULL;
     }
-#endif /* HAVE_MAGIC_H */
+#endif /* HAVE_MAGIC_H && HAVE_MAGIC_OPEN */
 }
 
 ::java::lang::String *
 java::net::VMURLConnection::guessContentTypeFromBuffer (jbyteArray bytes,
 							jint valid)
 {
-#ifdef HAVE_MAGIC_H
+#if defined (HAVE_MAGIC_H) && defined (HAVE_MAGIC_OPEN)
   const char *result;
 
   if (cookie == (magic_t) NULL)
@@ -52,5 +52,5 @@ java::net::VMURLConnection::guessContentTypeFromBuffer (jbyteArray bytes,
   return _Jv_NewStringUTF (result);
 #else
   return NULL;
-#endif /* HAVE_MAGIC_H */
+#endif /* HAVE_MAGIC_H && HAVE_MAGIC_OPEN */
 }

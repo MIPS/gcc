@@ -13912,7 +13912,12 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_lib_magic_magic_open" >&5
 echo "${ECHO_T}$ac_cv_lib_magic_magic_open" >&6
 if test $ac_cv_lib_magic_magic_open = yes; then
-  LIBMAGIC=-lmagic
+
+      cat >>confdefs.h <<\_ACEOF
+#define HAVE_MAGIC_OPEN 1
+_ACEOF
+
+      LIBMAGIC="-lmagic"
 fi
 
 
