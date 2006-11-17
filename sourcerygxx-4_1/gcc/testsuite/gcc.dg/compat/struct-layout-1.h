@@ -60,6 +60,7 @@ typedef int __m128;
 #if defined (__uClinux__)
 /* The maximum achievable alignment on uClinux is usually 16 bytes.  */
 #define v16sf v4sf
+#define u16sf u4sf
 #endif
 
 #define FLDS_MAX	32
