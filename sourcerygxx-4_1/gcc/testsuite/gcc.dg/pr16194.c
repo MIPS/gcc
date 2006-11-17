@@ -47,7 +47,7 @@ struct C
 void bug (void)
 {
   register char* dst ASMDECL;
-  __asm__ ("":"=g"(*dst): : REG); /* { dg-error "conflict" } */
+  __asm__ ("":"=g"(*dst): : REG);
 }
 
 /* The tree optimizers currently prevent us from finding an overlap -
