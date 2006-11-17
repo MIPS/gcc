@@ -174,6 +174,9 @@ AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
 AC_CHECK_FUNCS(wait setmode)
 
+# Check for types
+AC_CHECK_TYPES([intptr_t])
+
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])
 AC_CHECK_LIB([c],[getpid],[AC_DEFINE([HAVE_GETPID],[1],[libc includes getpid])])
@@ -244,6 +247,9 @@ AC_CHECK_LIB([m],[frexpl],[AC_DEFINE([HAVE_FREXPL],[1],[libm includes frexpl])])
 AC_CHECK_LIB([m],[hypotf],[AC_DEFINE([HAVE_HYPOTF],[1],[libm includes hypotf])])
 AC_CHECK_LIB([m],[hypot],[AC_DEFINE([HAVE_HYPOT],[1],[libm includes hypot])])
 AC_CHECK_LIB([m],[hypotl],[AC_DEFINE([HAVE_HYPOTL],[1],[libm includes hypotl])])
+AC_CHECK_LIB([m],[ldexpf],[AC_DEFINE([HAVE_LDEXPF],[1],[libm includes ldexpf])])
+AC_CHECK_LIB([m],[ldexp],[AC_DEFINE([HAVE_LDEXP],[1],[libm includes ldexp])])
+AC_CHECK_LIB([m],[ldexpl],[AC_DEFINE([HAVE_LDEXPL],[1],[libm includes ldexpl])])
 AC_CHECK_LIB([m],[logf],[AC_DEFINE([HAVE_LOGF],[1],[libm includes logf])])
 AC_CHECK_LIB([m],[log],[AC_DEFINE([HAVE_LOG],[1],[libm includes log])])
 AC_CHECK_LIB([m],[logl],[AC_DEFINE([HAVE_LOGL],[1],[libm includes logl])])

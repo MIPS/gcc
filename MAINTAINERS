@@ -224,10 +224,11 @@ David Ayers                                     d.ayers@inode.at
 Giovanni Bajo					giovannibajo@gcc.gnu.org
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
+Peter Bergner					bergner@vnet.ibm.com
 Jan Beulich					jbeulich@novell.com
 David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@gmail.com
-Uros Bizjak					uros@kss-loka.si
+Uros Bizjak					ubizjak@gmail.com
 Eric Blake					ericb@gcc.gnu.org
 Jim Blandy					jimb@codesourcery.com
 Phil Blundell					pb@futuretv.com
@@ -240,6 +241,7 @@ Robert Bowdidge                                 bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Dave Brolley					brolley@redhat.com
 Kevin Buettner					kevinb@redhat.com
+Tobias Burnus					burnus@net-b.de
 Andrew Cagney					cagney@redhat.com
 John Carr					jfc@mit.edu
 Steve Chamberlain				sac@transmeta.com
@@ -301,6 +303,7 @@ James Lemke					jim@lemke.org
 Kriang Lerdsuwanakij				lerdsuwa@users.sourceforge.net
 Warren Levy					warrenl@cruzio.com
 Don Lindsay					dlindsay@redhat.com
+Chen Liqin					liqin@sunnorth.com.cn
 Ralph Loader					rcl@ihug.co.nz
 Gabor Loki					loki@inf.u-szeged.hu
 Sandra Loosemore				sandra@codesourcery.com
@@ -329,11 +332,13 @@ Devang Patel					dpatel@apple.com
 Alexandre Petit-Bianco				apbianco@redhat.com
 Nicolas Pitre					nico@cam.org
 Clinton Popetz					cpopetz@cpopetz.com
+Vladimir Prus					vladimir@codesourcery.com
 Jerry Quinn					jlquinn@optonline.net
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Volker Reichelt					reichelt@igpm.rwth-aachen.de
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
+Erven Rohou                                     erven.rohou@st.com
 Gavin Romig-Koch				gavin@redhat.com
 Ira Rosen                                       irar@il.ibm.com
 Maciej W. Rozycki				macro@linux-mips.org
@@ -357,6 +362,7 @@ David Ung					davidu@mips.com
 Jonathan Wakely					redi@gcc.gnu.org
 Krister Walfridsson				cato@df.lth.se
 Feng Wang					fengwang@nudt.edu.cn
+Stephen M. Webb					stephen.webb@bregmasoft.com
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Zack Weinberg					zackw@panix.com

@@ -631,12 +631,11 @@ combine_predictions_for_bb (basic_block bb)
    When RTLSIMPLELOOPS is set, attempt to count number of iterations by analyzing
    RTL otherwise use tree based approach.  */
 static void
-predict_loops (struct loops *loops_info, bool rtlsimpleloops)
+predict_loops (struct loops *loops_info)
 {
   unsigned i;
 
-  if (!rtlsimpleloops)
-    scev_initialize (loops_info);
+  scev_initialize (loops_info);
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
@@ -646,69 +645,38 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
       unsigned j;
       unsigned n_exits;
       struct loop *loop = loops_info->parray[i];
-      struct niter_desc desc;
-      unsigned HOST_WIDE_INT niter;
       edge *exits;
+      struct tree_niter_desc niter_desc;
 
       exits = get_loop_exit_edges (loop, &n_exits);
 
-      if (rtlsimpleloops)
+
+      for (j = 0; j < n_exits; j++)
 	{
-	  iv_analysis_loop_init (loop);
-	  find_simple_exit (loop, &desc);
+	  tree niter = NULL;
 
-	  if (desc.simple_p && desc.const_iter)
+	  if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
+	    niter = niter_desc.niter;
+	  if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
+	    niter = loop_niter_by_eval (loop, exits[j]);
+
+	  if (TREE_CODE (niter) == INTEGER_CST)
 	    {
-	      int prob;
-	      niter = desc.niter + 1;
-	      if (niter == 0)        /* We might overflow here.  */
-		niter = desc.niter;
-	      if (niter
-		  > (unsigned int) PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS))
-		niter = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
-
-	      prob = (REG_BR_PROB_BASE
-		      - (REG_BR_PROB_BASE + niter /2) / niter);
-	      /* Branch prediction algorithm gives 0 frequency for everything
-		 after the end of loop for loop having 0 probability to finish.  */
-	      if (prob == REG_BR_PROB_BASE)
-		prob = REG_BR_PROB_BASE - 1;
-	      predict_edge (desc.in_edge, PRED_LOOP_ITERATIONS,
-			    prob);
-	    }
-	}
-      else
-	{
-	  struct tree_niter_desc niter_desc;
-
-	  for (j = 0; j < n_exits; j++)
-	    {
-	      tree niter = NULL;
-
-	      if (number_of_iterations_exit (loop, exits[j], &niter_desc, false))
-		niter = niter_desc.niter;
-	      if (!niter || TREE_CODE (niter_desc.niter) != INTEGER_CST)
-	        niter = loop_niter_by_eval (loop, exits[j]);
-
-	      if (TREE_CODE (niter) == INTEGER_CST)
+	      int probability;
+	      int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
+	      if (host_integerp (niter, 1)
+		  && tree_int_cst_lt (niter,
+				      build_int_cstu (NULL_TREE, max - 1)))
 		{
-		  int probability;
-		  int max = PARAM_VALUE (PARAM_MAX_PREDICTED_ITERATIONS);
-		  if (host_integerp (niter, 1)
-		      && tree_int_cst_lt (niter,
-				          build_int_cstu (NULL_TREE, max - 1)))
-		    {
-		      HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
-		      probability = ((REG_BR_PROB_BASE + nitercst / 2)
-				     / nitercst);
-		    }
-		  else
-		    probability = ((REG_BR_PROB_BASE + max / 2) / max);
-
-		  predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
+		  HOST_WIDE_INT nitercst = tree_low_cst (niter, 1) + 1;
+		  probability = ((REG_BR_PROB_BASE + nitercst / 2)
+				 / nitercst);
 		}
-	    }
+	      else
+		probability = ((REG_BR_PROB_BASE + max / 2) / max);
 
+	      predict_edge (exits[j], PRED_LOOP_ITERATIONS, probability);
+	    }
 	}
       free (exits);
 
@@ -726,8 +694,7 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
 	     statements construct loops via "non-loop" constructs
 	     in the source language and are better to be handled
 	     separately.  */
-	  if ((rtlsimpleloops && !can_predict_insn_p (BB_END (bb)))
-	      || predicted_by_p (bb, PRED_CONTINUE))
+	  if (predicted_by_p (bb, PRED_CONTINUE))
 	    continue;
 
 	  /* Loop branch heuristics - predict an edge back to a
@@ -776,11 +743,8 @@ predict_loops (struct loops *loops_info, bool rtlsimpleloops)
       free (bbs);
     }
 
-  if (!rtlsimpleloops)
-    {
-      scev_finalize ();
-      current_loops = NULL;
-    }
+  scev_finalize ();
+  current_loops = NULL;
 }
 
 /* Attempt to predict probabilities of BB outgoing edges using local
@@ -1303,7 +1267,7 @@ tree_estimate_probability (void)
   tree_bb_level_predictions ();
 
   mark_irreducible_loops (&loops_info);
-  predict_loops (&loops_info, false);
+  predict_loops (&loops_info);
 
   FOR_EACH_BB (bb)
     {
@@ -1374,79 +1338,6 @@ tree_estimate_probability (void)
   if (profile_status == PROFILE_ABSENT)
     profile_status = PROFILE_GUESSED;
   return 0;
-}
-
-/* __builtin_expect dropped tokens into the insn stream describing expected
-   values of registers.  Generate branch probabilities based off these
-   values.  */
-
-void
-expected_value_to_br_prob (void)
-{
-  rtx insn, cond, ev = NULL_RTX, ev_reg = NULL_RTX;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    {
-      switch (GET_CODE (insn))
-	{
-	case NOTE:
-	  /* Look for expected value notes.  */
-	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EXPECTED_VALUE)
-	    {
-	      ev = NOTE_EXPECTED_VALUE (insn);
-	      ev_reg = XEXP (ev, 0);
-	      delete_insn (insn);
-	    }
-	  continue;
-
-	case CODE_LABEL:
-	  /* Never propagate across labels.  */
-	  ev = NULL_RTX;
-	  continue;
-
-	case JUMP_INSN:
-	  /* Look for simple conditional branches.  If we haven't got an
-	     expected value yet, no point going further.  */
-	  if (!JUMP_P (insn) || ev == NULL_RTX
-	      || ! any_condjump_p (insn))
-	    continue;
-	  break;
-
-	default:
-	  /* Look for insns that clobber the EV register.  */
-	  if (ev && reg_set_p (ev_reg, insn))
-	    ev = NULL_RTX;
-	  continue;
-	}
-
-      /* Collect the branch condition, hopefully relative to EV_REG.  */
-      /* ???  At present we'll miss things like
-		(expected_value (eq r70 0))
-		(set r71 -1)
-		(set r80 (lt r70 r71))
-		(set pc (if_then_else (ne r80 0) ...))
-	 as canonicalize_condition will render this to us as
-		(lt r70, r71)
-	 Could use cselib to try and reduce this further.  */
-      cond = XEXP (SET_SRC (pc_set (insn)), 0);
-      cond = canonicalize_condition (insn, cond, 0, NULL, ev_reg,
-				     false, false);
-      if (! cond || XEXP (cond, 0) != ev_reg
-	  || GET_CODE (XEXP (cond, 1)) != CONST_INT)
-	continue;
-
-      /* Substitute and simplify.  Given that the expression we're
-	 building involves two constants, we should wind up with either
-	 true or false.  */
-      cond = gen_rtx_fmt_ee (GET_CODE (cond), VOIDmode,
-			     XEXP (ev, 1), XEXP (cond, 1));
-      cond = simplify_rtx (cond);
-
-      /* Turn the condition into a scaled branch probability.  */
-      gcc_assert (cond == const_true_rtx || cond == const0_rtx);
-      predict_insn_def (insn, PRED_BUILTIN_EXPECT,
-		        cond == const_true_rtx ? TAKEN : NOT_TAKEN);
-    }
 }
 
 /* Check whether this is the last basic block of function.  Commonly

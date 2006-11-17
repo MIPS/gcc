@@ -2089,7 +2089,7 @@ new_ready (rtx next, ds_t ts)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) 
                    > PARAM_VALUE (PARAM_MAX_SCHED_INSN_CONFLICT_DELAY))
-                  || RECOVERY_BLOCK (next)
+                  || IS_SPECULATION_CHECK_P (next)
 		  || !check_live (next, INSN_BB (next))
 		  || (not_ex_free = !is_exception_free (next, INSN_BB (next),
 							target_bb)))))
@@ -2787,7 +2787,6 @@ schedule_region (int rgn)
       if (write_symbols != NO_DEBUG)
 	{
 	  save_line_notes (b, head, tail);
-	  rm_line_notes (head, tail);
 	}
 
       /* rm_other_notes only removes notes which are _inside_ the
@@ -3044,10 +3043,6 @@ schedule_insns (void)
      prologue/epilogue insns.  */
   if (reload_completed)
     reposition_prologue_and_epilogue_notes (get_insns ());
-
-  /* Delete redundant line notes.  */
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
 
   if (sched_verbose)
     {

@@ -197,8 +197,7 @@ in the following sections.
 @item Objective-C and Objective-C++ Language Options
 @xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
 Objective-C and Objective-C++ Dialects}.
-@gccoptlist{
--fconstant-string-class=@var{class-name} @gol
+@gccoptlist{-fconstant-string-class=@var{class-name} @gol
 -fgnu-runtime  -fnext-runtime @gol
 -fno-nil-receivers @gol
 -fobjc-call-cxx-cdtors @gol
@@ -216,8 +215,8 @@ Objective-C and Objective-C++ Dialects}.
 @item Language Independent Options
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
 @gccoptlist{-fmessage-length=@var{n}  @gol
--fdiagnostics-show-location=@r{[}once@r{|}every-line@r{]}} @gol
--fdiagnostics-show-option
+-fdiagnostics-show-location=@r{[}once@r{|}every-line@r{]}  @gol
+-fdiagnostics-show-option}
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -310,7 +309,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks -fearly-inlining @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
--fforce-addr  -ffunction-sections @gol
+-fforce-addr  -fforward-propagate  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
@@ -470,7 +469,7 @@ Objective-C and Objective-C++ Dialects}.
 -twolevel_namespace  -umbrella  -undefined @gol
 -unexported_symbols_list  -weak_reference_mismatches @gol
 -whatsloaded -F -gused -gfull -mmacosx-version-min=@var{version} @gol
--mone-byte-bool}
+-mkernel -mone-byte-bool}
 
 @emph{DEC Alpha Options}
 @gccoptlist{-mno-fp-regs  -msoft-float  -malpha-as  -mgas @gol
@@ -533,11 +532,11 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -mssse3 -m3dnow @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
--m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
--mstackrealign @gol
+-m96bit-long-double  -mregparm=@var{num}  -mx87regparm @gol
+-msseregparm @gol  -mstackrealign @gol
 -momit-leaf-frame-pointer  -mno-red-zone -mno-tls-direct-seg-refs @gol
 -mcmodel=@var{code-model} @gol
 -m32  -m64 -mlarge-data-threshold=@var{num}}
@@ -656,6 +655,7 @@ See RS/6000 and PowerPC Options.
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mmfcrf  -mno-mfcrf  -mpopcntb  -mno-popcntb  -mfprnd  -mno-fprnd @gol
+-mmfpgpr -mno-mfpgpr @gol
 -mnew-mnemonics  -mold-mnemonics @gol
 -mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
 -m64  -m32  -mxl-compat  -mno-xl-compat  -mpe @gol
@@ -694,6 +694,11 @@ See RS/6000 and PowerPC Options.
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
 -mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard}
 
+@emph{Score Options}
+@gccoptlist{-mel -mel @gol
+-mmac @gol
+-mscore5u -mscore7}
+ 
 @emph{SH Options}
 @gccoptlist{-m1  -m2  -m2e  -m3  -m3e @gol
 -m4-nofpu  -m4-single-only  -m4-single  -m4 @gol
@@ -1194,6 +1199,18 @@ The 1998 ISO C++ standard plus amendments.
 @item gnu++98
 The same as @option{-std=c++98} plus GNU extensions.  This is the
 default for C++ code.
+
+@item c++0x
+The working draft of the upcoming ISO C++0x standard. This option
+enables experimental features that are likely to be included in
+C++0x. The working draft is constantly changing, and any feature that is
+enabled by this flag may be removed from future versions of GCC if it is
+not part of the C++0x standard.
+
+@item gnu++0x
+The same as @option{-std=c++0x} plus GNU extensions. As with
+@option{-std=c++0x}, this option enables experimental features that may
+be removed in future versions of GCC.
 @end table
 
 Even when this option is not specified, you can still use some of the
@@ -3930,7 +3947,7 @@ Dump after RTL generation, to @file{@var{file}.104r.expand}.
 @itemx -fdump-rtl-sched2
 @opindex dR
 @opindex fdump-rtl-sched2
-Dump after the second scheduling pass, to @file{@var{file}.150r.sched2}.
+Dump after the second scheduling pass, to @file{@var{file}.149r.sched2}.
 
 @item -ds
 @itemx -fdump-rtl-cse
@@ -3940,10 +3957,10 @@ Dump after CSE (including the jump optimization that sometimes follows
 CSE), to @file{@var{file}.113r.cse}.
 
 @item -dS
-@itemx -fdump-rtl-sched
+@itemx -fdump-rtl-sched1
 @opindex dS
-@opindex fdump-rtl-sched
-Dump after the first scheduling pass, to @file{@var{file}.21.sched}.
+@opindex fdump-rtl-sched1
+Dump after the first scheduling pass, to @file{@var{file}.136r.sched1}.
 
 @item -dt
 @itemx -fdump-rtl-cse2
@@ -4603,6 +4620,16 @@ register-load. This option is now a nop and will be removed in 4.2.
 Force memory address constants to be copied into registers before
 doing arithmetic on them.
 
+@item -fforward-propagate
+@opindex fforward-propagate
+Perform a forward propagation pass on RTL.  The pass tries to combine two
+instructions and checks if the result can be simplified.  If loop unrolling
+is active, two passes are performed and the second is scheduled after
+loop unrolling.
+
+This option is enabled by default at optimization levels @option{-O2},
+@option{-O3}, @option{-Os}.
+
 @item -fomit-frame-pointer
 @opindex fomit-frame-pointer
 Don't keep the frame pointer in a register for functions that
@@ -4706,7 +4733,7 @@ release to an another.
 In C, emit @code{static} functions that are declared @code{inline}
 into the object file, even if the function has been inlined into all
 of its callers.  This switch does not affect functions using the
-@code{extern inline} extension in GNU C@.  In C++, emit any and all
+@code{extern inline} extension in GNU C89@.  In C++, emit any and all
 inline functions into the object file.
 
 @item -fkeep-static-consts
@@ -5348,12 +5375,6 @@ int f() @{
   return *ip;
 @}
 @end smallexample
-
-Every language that wishes to perform language-specific alias analysis
-should define a function that computes, given an @code{tree}
-node, an alias set for the node.  Nodes in different alias sets are not
-allowed to alias.  For an example, see the C front-end function
-@code{c_get_alias_set}.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
@@ -6307,6 +6328,21 @@ duplicated when threading jumps.
 @item max-fields-for-field-sensitive
 Maximum number of fields in a structure we will treat in
 a field sensitive manner during pointer analysis.
+
+@item prefetch-latency
+Estimate on average number of instructions that are executed before
+prefetch finishes.  The distance we prefetch ahead is proportional
+to this constant.  Increasing this number may also lead to less
+streams being prefetched (see @option{simultaneous-prefetches}).
+
+@item simultaneous-prefetches
+Maximum number of prefetches that can run at the same time.
+
+@item l1-cache-line-size
+The size of cache line in L1 cache, in bytes.
+
+@item l1-cache-size
+The number of cache lines in L1 cache.
 
 @end table
 @end table
@@ -7319,6 +7355,7 @@ platform.
 * PowerPC Options::
 * RS/6000 and PowerPC Options::
 * S/390 and zSeries Options::
+* Score Options::
 * SH Options::
 * SPARC Options::
 * System V Options::
@@ -8074,6 +8111,16 @@ is @var{version}.  Typical values of @var{version} include @code{10.1},
 The default for this option is to make choices that seem to be most
 useful.  
 
+@item -mkernel
+@opindex mkernel
+Enable kernel development mode.  The @option{-mkernel} option sets
+@option{-static}, @option{-fno-common}, @option{-fno-cxa-atexit},
+@option{-fno-exceptions}, @option{-fno-non-call-exceptions},
+@option{-fapple-kext}, @option{-fno-weak} and @option{-fno-rtti} where
+applicable.  This mode also sets @option{-mno-altivec},
+@option{-msoft-float}, @option{-fno-builtin} and
+@option{-mlong-branch} for PowerPC targets.
+
 @item -mone-byte-bool
 @opindex -mone-byte-bool
 Override the defaults for @samp{bool} so that @samp{sizeof(bool)==1}.
@@ -8336,7 +8383,7 @@ In addition to the traps enabled by @samp{n}, underflow traps are enabled
 as well.
 
 @item su
-Like @samp{su}, but the instructions are marked to be safe for software
+Like @samp{u}, but the instructions are marked to be safe for software
 completion (see Alpha architecture manual for details).
 
 @item sui
@@ -9274,6 +9321,8 @@ implemented for this chip.)
 @item c3-2
 Via C3-2 CPU with MMX and SSE instruction set support.  (No scheduling is
 implemented for this chip.)
+@item geode
+Embedded AMD CPU with MMX and 3dNOW! instruction set support.
 @end table
 
 While picking a specific @var{cpu-type} will schedule things appropriately
@@ -9493,6 +9542,17 @@ function by using the function attribute @samp{regparm}.
 value, including any libraries.  This includes the system libraries and
 startup modules.
 
+@item -mx87regparm
+@opindex mx87regparm
+Use 80387 register passing conventions for floating point arguments.
+You can control this behavior for a specific function by using the
+function attribute @samp{x87regparm}.
+@xref{Function Attributes}.
+
+@strong{Warning:} if you use this switch then you must build all
+modules with the same value, including any libraries.  This includes
+the system libraries and startup modules.
+
 @item -msseregparm
 @opindex msseregparm
 Use SSE register passing conventions for float and double arguments
@@ -9552,6 +9612,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-sse2
 @item -msse3
 @itemx -mno-sse3
+@item -mssse3
+@itemx -mno-ssse3
 @item -m3dnow
 @itemx -mno-3dnow
 @opindex mmmx
@@ -9561,9 +9623,10 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @opindex m3dnow
 @opindex mno-3dnow
 These switches enable or disable the use of instructions in the MMX,
-SSE, SSE2 or 3DNow! extended instruction sets.  These extensions are
-also available as built-in functions: see @ref{X86 Built-in Functions},
-for details of the functions enabled and disabled by these switches.
+SSE, SSE2, SSE3, SSSE3 or 3DNow! extended instruction sets.
+These extensions are also available as built-in functions: see
+@ref{X86 Built-in Functions}, for details of the functions enabled and
+disabled by these switches.
 
 To have SSE/SSE2 instructions generated automatically from floating-point
 code (as opposed to 387 instructions), see @option{-mfpmath=sse}.
@@ -10446,9 +10509,12 @@ The ISA names are:
 @samp{mips32}, @samp{mips32r2}, and @samp{mips64}.
 The processor names are:
 @samp{4kc}, @samp{4km}, @samp{4kp},
+@samp{4kec}, @samp{4kem}, @samp{4kep},
 @samp{5kc}, @samp{5kf},
 @samp{20kc},
-@samp{24k}, @samp{24kc}, @samp{24kf}, @samp{24kx},
+@samp{24kc}, @samp{24kf}, @samp{24kx},
+@samp{24kec}, @samp{24kef}, @samp{24kex},
+@samp{34kc}, @samp{34kf}, @samp{34kx},
 @samp{m4k},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
@@ -11220,6 +11286,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-popcntb
 @itemx -mfprnd
 @itemx -mno-fprnd
+@itemx -mmfpgpr
+@itemx -mno-mfpgpr
 @opindex mpower
 @opindex mno-power
 @opindex mpower2
@@ -11238,6 +11306,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @opindex mno-popcntb
 @opindex mfprnd
 @opindex mno-fprnd
+@opindex mmfpgpr
+@opindex mno-mfpgpr
 GCC supports two related instruction set architectures for the
 RS/6000 and PowerPC@.  The @dfn{POWER} instruction set are those
 instructions supported by the @samp{rios} chip set used in the original
@@ -11282,6 +11352,10 @@ architecture.
 The @option{-mfprnd} option allows GCC to generate the FP round to
 integer instructions implemented on the POWER5+ processor and other
 processors that support the PowerPC V2.03 architecture.
+The @option{-mmfpgpr} option allows GCC to generate the FP move to/from
+general purpose register instructions implemented on the POWER6X
+processor and other processors that support the extended PowerPC V2.05
+architecture.
 
 The @option{-mpowerpc64} option allows GCC to generate the additional
 64-bit instructions that are found in the full PowerPC64 architecture
@@ -11324,7 +11398,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{860}, @samp{970}, @samp{8540}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
 @samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6},
-@samp{common}, @samp{powerpc}, @samp{powerpc64},
+@samp{power6x}, @samp{common}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
@@ -11348,14 +11422,14 @@ following options: @option{-maltivec}, @option{-mfprnd},
 @option{-mhard-float}, @option{-mmfcrf}, @option{-mmultiple},
 @option{-mnew-mnemonics}, @option{-mpopcntb}, @option{-mpower},
 @option{-mpower2}, @option{-mpowerpc64}, @option{-mpowerpc-gpopt},
-@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw}, @option{dlmzb}.
-The particular options
-set for any particular CPU will vary between compiler versions,
-depending on what setting seems to produce optimal code for that CPU;
-it doesn't necessarily reflect the actual hardware's capabilities.  If
-you wish to set an individual option to a particular value, you may
-specify it after the @option{-mcpu} option, like @samp{-mcpu=970
--mno-altivec}.
+@option{-mpowerpc-gfxopt}, @option{-mstring}, @option{-mmulhw},
+@option{-mdlmzb}, @option{-mmfpgpr}.
+The particular options set for any particular CPU will vary between
+compiler versions, depending on what setting seems to produce optimal
+code for that CPU; it doesn't necessarily reflect the actual hardware's
+capabilities.  If you wish to set an individual option to a particular
+value, you may specify it after the @option{-mcpu} option, like
+@samp{-mcpu=970 -mno-altivec}.
 
 On AIX, the @option{-maltivec} and @option{-mpowerpc64} options are
 not enabled or disabled by the @option{-mcpu} option at present because
@@ -12150,6 +12224,34 @@ powers of 2 and @var{stack-size} has to be greater than @var{stack-guard} withou
 exceeding 64k.
 In order to be efficient the extra code makes the assumption that the stack starts
 at an address aligned to the value given by @var{stack-size}.
+@end table
+
+@node Score Options
+@subsection Score Options
+@cindex Score Options
+
+These options are defined for Score implementations:
+
+@table @gcctabopt
+@item -mel
+@opindex -mel
+Compile code for little endian mode. 
+
+@item -meb
+@opindex meb
+Compile code for big endian mode.  This is the default.
+
+@item -mmac
+@opindex mmac
+Enable the use of multiply-accumulate instructions. Disabled by default. 
+
+@item -mscore5u
+@opindex mscore5u
+Specify the SCORE5U of the target architecture.
+
+@item -mscore7
+@opindex mscore7
+Specify the SCORE7 of the target architecture. This is the default.
 @end table
 
 @node SH Options

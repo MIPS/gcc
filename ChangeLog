@@ -1,3 +1,81 @@
+2006-11-14  Erven Rohou  <erven.rohou@st.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-11-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (clean-stage*): Test separately for package/Makefile
+	and stageN-package/Makefile.
+	* Makefile.in: Regenerated.
+
+2006-11-14  Jie Zhang  <jie.zhang@analog.com>
+
+	* configure.in: Remove target-libgloss from noconfigdirs for
+	bfin-*-*.
+	* configure: Regenerated.
+
+2006-11-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (have_gmp): Only error if the gcc directory exists.
+	
+	* configure: Regenerate.
+
+2006-11-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Robustify error message for missing GMP/MPFR.
+
+	* configure: Regenerate.
+
+2006-10-31  Stephen M. Webb <stephen.webb@bregmasoft.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-10-30  Uros Bizjak <ubizjak@gmail.com>
+
+	* MAINTAINERS: Change email address.
+
+2006-10-30  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-10-26  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-10-25  Chen Liqin  <liqin@sunnorth.com.cn>
+
+	* MAINTAINERS (Write After Approval): Move myself to 
+        Write After Approval section.
+
+2006-10-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Require GMP-4.1+ and MPFR-2.2+.  Don't check
+	need_gmp anymore.
+	* configure: Regenerate.
+
+2006-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-10-16  Ben Elliston  <bje@au.ibm.com>
+
+	* config.guess: Import latest version.
+	* config.sub: Likewise.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Makefile.def: Added pdf target handling.
+	* Makefile.tpl: Added pdf target handling.
+	* Makefile.in: Regenerated.
+
+2006-10-10  Chen Liqin  <liqin@sunnorth.com.cn>
+
+	* MAINTAINERS: Add self as score port maintainer.
+
+2006-10-04  Brooks Moses  <bmoses@stanford.edu>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2006-09-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* configure.in: Check for GMP 4.1 or newer.  Check for MPFR 2.2.0 

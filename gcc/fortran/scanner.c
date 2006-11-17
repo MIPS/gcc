@@ -327,9 +327,11 @@ skip_comment_line (void)
 
 
 /* Comment lines are null lines, lines containing only blanks or lines
-   on which the first nonblank line is a '!'.  */
+   on which the first nonblank line is a '!'.
+   Return true if !$ openmp conditional compilation sentinel was
+   seen.  */
 
-static void
+static bool
 skip_free_comments (void)
 {
   locus start;
@@ -379,7 +381,7 @@ skip_free_comments (void)
 			      openmp_flag = 1;
 			      openmp_locus = old_loc;
 			      gfc_current_locus = start;
-			      return;
+			      return false;
 			    }
 			}
 		      gfc_current_locus = old_loc;
@@ -390,7 +392,8 @@ skip_free_comments (void)
 		    {
 		      gfc_current_locus = old_loc;
 		      next_char ();
-		      return;
+		      openmp_flag = 0;
+		      return true;
 		    }
 		}
 	      gfc_current_locus = old_loc;
@@ -405,6 +408,7 @@ skip_free_comments (void)
   if (openmp_flag && at_bol)
     openmp_flag = 0;
   gfc_current_locus = start;
+  return false;
 }
 
 
@@ -597,6 +601,8 @@ restart:
 
   if (gfc_current_form == FORM_FREE)
     {
+      bool openmp_cond_flag;
+
       if (!in_string && c == '!')
 	{
 	  if (openmp_flag
@@ -668,7 +674,7 @@ restart:
       continue_line = gfc_current_locus.lb->linenum;
 
       /* Now find where it continues. First eat any comment lines.  */
-      gfc_skip_comments ();
+      openmp_cond_flag = skip_free_comments ();
 
       if (prev_openmp_flag != openmp_flag)
 	{
@@ -709,6 +715,10 @@ restart:
 		gfc_warning_now ("Missing '&' in continued character constant at %C");
 	      gfc_current_locus.nextc--;
 	    }
+	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
+	     continuation line only optionally.  */
+	  else if (openmp_flag || openmp_cond_flag)
+	    gfc_current_locus.nextc--;
 	  else
 	    {
 	      c = ' ';
@@ -741,7 +751,7 @@ restart:
       old_loc = gfc_current_locus;
 
       gfc_advance_line ();
-      gfc_skip_comments ();
+      skip_fixed_comments ();
 
       /* See if this line is a continuation line.  */
       if (openmp_flag != prev_openmp_flag)
@@ -931,7 +941,11 @@ gfc_gobble_whitespace (void)
    In fixed mode, we expand a tab that occurs within the statement
    label region to expand to spaces that leave the next character in
    the source region.
-   load_line returns whether the line was truncated.  */
+   load_line returns whether the line was truncated.
+
+   NOTE: The error machinery isn't available at this point, so we can't
+	 easily report line and column numbers consistent with other 
+	 parts of gfortran.  */
 
 static int
 load_line (FILE * input, char **pbuf, int *pbuflen)
@@ -939,35 +953,28 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
   static int linenum = 0, current_line = 1;
   int c, maxlen, i, preprocessor_flag, buflen = *pbuflen;
   int trunc_flag = 0, seen_comment = 0;
+  int seen_printable = 0, seen_ampersand = 0;
   char *buffer;
 
-  /* Determine the maximum allowed line length.
-     The default for free-form is GFC_MAX_LINE, for fixed-form or for
-     unknown form it is 72. Refer to the documentation in gfc_option_t.  */
+  /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
-    {
-      if (gfc_option.free_line_length == -1)
-	maxlen = GFC_MAX_LINE;
-      else
-	maxlen = gfc_option.free_line_length;
-    }
+    maxlen = gfc_option.free_line_length;
   else if (gfc_current_form == FORM_FIXED)
-    {
-      if (gfc_option.fixed_line_length == -1)
-	maxlen = 72;
-      else
-	maxlen = gfc_option.fixed_line_length;
-    }
+    maxlen = gfc_option.fixed_line_length;
   else
     maxlen = 72;
 
   if (*pbuf == NULL)
     {
-      /* Allocate the line buffer, storing its length into buflen.  */
+      /* Allocate the line buffer, storing its length into buflen.
+	 Note that if maxlen==0, indicating that arbitrary-length lines
+	 are allowed, the buffer will be reallocated if this length is
+	 insufficient; since 132 characters is the length of a standard
+	 free-form line, we use that as a starting guess.  */
       if (maxlen > 0)
 	buflen = maxlen;
       else
-	buflen = GFC_MAX_LINE;
+	buflen = 132;
 
       *pbuf = gfc_getmem (buflen + 1);
     }
@@ -990,7 +997,20 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
       if (c == EOF)
 	break;
       if (c == '\n')
-	break;
+	{
+	  /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
+	  if (gfc_current_form == FORM_FREE 
+		&& !seen_printable && seen_ampersand)
+	    {
+	      if (pedantic)
+		gfc_error_now
+		  ("'&' not allowed by itself in line %d", current_line);
+	      else
+		gfc_warning_now
+		  ("'&' not allowed by itself in line %d", current_line);
+	    }
+	  break;
+	}
 
       if (c == '\r')
 	continue;		/* Gobble characters.  */
@@ -1004,6 +1024,25 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 	  break;
 	}
 
+      /* Check for illegal use of ampersand. See F95 Standard 3.3.1.3.  */
+      if (c == '&')
+	seen_ampersand = 1;
+
+      if ((c != ' ' && c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+	seen_printable = 1;
+      
+      if (gfc_current_form == FORM_FREE 
+	    && c == '!' && !seen_printable && seen_ampersand)
+	{
+	  if (pedantic)
+	    gfc_error_now (
+	      "'&' not allowed by itself with comment in line %d", current_line);
+	  else
+	    gfc_warning_now (
+	      "'&' not allowed by itself with comment in line %d", current_line);
+	  seen_printable = 1;
+	}
+
       /* Is this a fixed-form comment?  */
       if (gfc_current_form == FORM_FIXED && i == 0
 	  && (c == '*' || c == 'c' || c == 'd'))
@@ -1011,9 +1050,6 @@ load_line (FILE * input, char **pbuf, int *pbuflen)
 
       if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
 	{
-	  /* The error machinery isn't available at this point, so we can't
-	     easily report line and column numbers consistent with other 
-	     parts of gfortran.  */
 	  if (!gfc_option.warn_tabs && seen_comment == 0
 	      && current_line != linenum)
 	    {

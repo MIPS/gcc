@@ -1,5 +1,6 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -372,6 +373,9 @@ gfc_compare_derived_types (gfc_symbol * derived1, gfc_symbol * derived2)
 	return 0;
 
       if (dt1->dimension != dt2->dimension)
+	return 0;
+
+     if (dt1->allocatable != dt2->allocatable)
 	return 0;
 
       if (dt1->dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)

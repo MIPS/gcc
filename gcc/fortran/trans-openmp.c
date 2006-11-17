@@ -300,6 +300,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   init_val_sym.ts = sym->ts;
   init_val_sym.attr.referenced = 1;
   init_val_sym.declared_at = where;
+  init_val_sym.attr.flavor = FL_VARIABLE;
   backend_decl = omp_reduction_init (c, gfc_sym_type (&init_val_sym));
   init_val_sym.backend_decl = backend_decl;
 
@@ -308,6 +309,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
   outer_sym.as = gfc_copy_array_spec (sym->as);
   outer_sym.attr.dummy = 0;
   outer_sym.attr.result = 0;
+  outer_sym.attr.flavor = FL_VARIABLE;
   outer_sym.backend_decl = create_tmp_var_raw (TREE_TYPE (decl), NULL);
 
   /* Create fake symtrees for it.  */
@@ -424,7 +426,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
 
   /* Create the init statement list.  */
   pushlevel (0);
-  stmt = gfc_trans_assignment (e1, e2);
+  stmt = gfc_trans_assignment (e1, e2, false);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
@@ -433,7 +435,7 @@ gfc_trans_omp_array_reduction (tree c, gfc_symbol *sym, locus where)
 
   /* Create the merge statement list.  */
   pushlevel (0);
-  stmt = gfc_trans_assignment (e3, e4);
+  stmt = gfc_trans_assignment (e3, e4, false);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else

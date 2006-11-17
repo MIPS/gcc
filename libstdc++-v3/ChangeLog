@@ -1,3 +1,465 @@
+2006-11-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/26_numerics/complex/13450.cc: Do not test long double
+	in IBM long double case.
+
+2006-11-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure: Regenerated.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* libsupc++/eh_globals.cc (__cxxabiv1::__cxa_get_globals):
+	Initialize propagatingExceptions if __ARM_EABI_UNWINDER__.
+	* libsupc++/eh_personality.cc (empty_exception_spec): Define
+	separately in __ARM_EABI_UNWINDER__ case.
+
+2006-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* libsupc++/typeinfo (__GXX_TYPEINFO_EQUALITY_INLINE): Define.
+	Use instead of __GXX_MERGED_TYPEINFO_NAMES to condition inline
+	definitions.
+	* libsupc++/tinfo.cc (operator==): Condition on
+	__GXX_TYPEINFO_EQUALITY_INLINE; check __GXX_MERGED_TYPEINFO_NAMES
+	to determine algorithm.
+	* libsupc++/tinfo2.cc (type_info::before): Likewise.
+
+2006-11-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/bitmap_allocator.h: Uglify some names.
+	* include/ext/concurrence.h: Likewise.
+	* src/bitmap_allocator.cc: Likewise.
+
+2006-11-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29496
+	* include/debug/safe_base.h (_Safe_sequence_base::_M_get_mutex,
+	_Safe_iterator_base::_M_get_mutex, _M_attach_single, _M_detach_single):
+	New.
+	* src/debug.cc: Define the latter.
+	(_Safe_sequence_base::_M_detach_all, _M_detach_singular,
+	_M_revalidate_singular, _M_swap): Use the mutex.
+	(_Safe_iterator_base::_M_attach, _M_detach): Adjust, forward to the
+	*_single version.
+	* include/debug/safe_iterator.h (_Safe_iterator<>::_M_attach_single,
+	_M_invalidate_single): New.
+ 	* include/debug/safe_iterator.tcc: Define.
+	(_Safe_iterator<>::_M_invalidate): Adjust, forward to
+	_M_invalidate_single.
+	* include/debug/safe_sequence.h (_Safe_sequence<>::_M_invalidate_if,
+	_M_transfer_iter): Use the mutex, adjust, forward to the *_single
+	versions of _M_invalidate and _M_attach.
+	* config/abi/pre/gnu.ver (_Safe_sequence_base::_M_get_mutex,
+	_Safe_iterator_base::_M_get_mutex, _M_attach_single, _M_detach_single):
+	Add @GLIBCXX_3.4.10; adjust.
+	* configure.ac (libtool_VERSION): To 6:10:0.
+	* testsuite/util/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.10.
+	* configure: Regenerate.
+
+2006-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/locale/gnu/c_locale.cc (__convert_to_v): Prefer
+	strtold_l over __strtold_l if available.
+
+2006-11-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29722
+	* include/ext/concurrence.h (concurrence_lock_error): New.
+	(concurrence_unlock_error): New.
+	(__throw_concurrence_lock_error): New.
+	(__throw_concurrence_unlock_error): New.
+	(__mutex): Use functions.
+	(__recursive_mutex): Same.
+	* testsuite/abi/cxx_runtime_only_linkage.cc: New.
+
+	* include/ext/pb_ds/exception.hpp: Keep exception classes defined
+	even when -fno-exceptions is passed, consistent with other usage.
+	
+2006-11-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/exception.hpp (pb_ds): Modify for -fno-exceptions.
+	(__throw_container_error): New. Conditionalize based on __EXCEPTIONS.
+	(__throw_insert_error): New.
+	(__throw_join_error): New.
+	(__throw_resize_error): New.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_prime_size_policy_imp.hpp: Use them.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_exponential_size_policy_imp.hpp: Same.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Same.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_standard_resize_policy_imp.hpp: Same.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/resize_fn_imps.hpp
+	* include/ext/pb_ds/detail/cc_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/pat_trie_/insert_join_fn_imps.hpp
+	* include/ext/pb_ds/detail/pat_trie_/split_join_branch_bag.hpp
+	* include/ext/pb_ds/detail/pat_trie_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/bin_search_tree_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/bin_search_tree_/
+	split_join_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	insert_no_store_hash_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	resize_store_hash_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	insert_store_hash_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/resize_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	resize_no_store_hash_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/binary_heap_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/binary_heap_/split_join_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/left_child_next_sibling_heap_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/ov_tree_map_/split_join_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/list_update_map_/
+	constructor_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/exception.hpp: Same.	
+	* src/functexcept.cc: Qualify abort with std.
+
+2006-11-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/exception.hpp: Add translation support to
+	exception strings.
+	* include/ext/concurrence.h: Same.
+	* include/tr1/array: Same.
+
+2006-11-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 45.
+	* docs/html/ext/lwg-closed.html: Add.
+	* docs/html/ext/howto.html: Adjust.
+
+2006-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/utility (tuple_size<std::pair<> >::value): Provide
+	definition.
+
+2006-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/tuple_iterate.h (tuple_size<tuple<> >::value): Provide
+	definition.
+	* include/tr1/functional (is_bind_expression<>::value,
+	is_placeholder<>::value, + various partial specializations): Likewise.
+	* include/tr1/array (tuple_size<array<> >::value): Likewise.
+
+2006-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/6_containers/array/capacity/max_size.cc: Actually
+	do test max_size().
+
+2006-10-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/config/default.exp (${tool}_target_compile): Use
+	v3_target_compile.
+
+2006-10-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* src/debug.cc (_Safe_sequence_base::_M_revalidate_singular): Fix
+	pasto, advance __iter only once per iteration.
+
+2006-10-29  Paolo Carlini  <pcarlini@suse.de>
+	
+	PR libstdc++/29520
+	* include/tr1/random (geometric_distribution<>::
+	operator()(_UniformRandomNumberGenerator&)): Only declare.
+	* include/tr1/random.tcc (geometric_distribution<>::
+	operator()(_UniformRandomNumberGenerator&),
+	poisson_distribution<>::operator()(_UniformRandomNumberGenerator&),
+	binomial_distribution<>::operator()(_UniformRandomNumberGenerator&)):
+	Reject candidate floating point values not convertible to the
+	result_type.
+
+2006-10-28  Paolo Carlini  <pcarlini@suse.de>
+	
+	* include/tr1/array (array<>::_M_at): New.
+	(array<>::at): Fix off-by-one bug, use the above.
+	* testsuite/tr1/6_containers/array/element_access/
+	at_out_of_range.cc: Adjust.
+
+	* include/tr1/array (class array<>): Remove non-conforming default
+	for the second parameter.
+	* include/ext/array_allocator.h: Adjust.
+
+	* include/tr1/array (array<>::front, array<>::back): Do not return
+	a reference to memory not belonging to the array when _Nm == 0.
+
+2006-10-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_get<>::__do_get(iter_type,
+	iter_type, bool, ios_base&, ios_base::iostate&, double&),
+	money_get<>::do_get(iter_type, iter_type, bool, ios_base&,
+	ios_base::iostate&, long double&), money_get<>::do_get(iter_type,
+	iter_type, bool, ios_base&, ios_base::iostate&, string_type&)): Tidy.
+
+2006-10-17  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26020
+	* include/bits/stl_iterator_base_funcs.h (advance): Convert
+	distance parameter to iterator_traits<>::difference_type.
+	* testsuite/24_iterators/26020.cc: New.
+
+2006-10-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/random.tcc: Fixup long line.
+
+2006-10-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/28514 
+	* include/bits/cpp_type_traits.h (__detail): Uglify namespace.
+	* include/ext/rope: Remove global-scope anonymous namespace, use
+	nested __detail. Fixup resulting formatting issues.
+	* include/ext/ropeimpl.h: Same.
+	* include/tr1/hashtable_policy.h: Remove anonymous namespace
+	nesting for __detail.
+	* include/tr1/random: Revert anonymous namespace to nested
+	__detail namespace.
+	* include/tr1/random.tcc: Same.
+	* src/ext-inst.cc: Fixups for above.
+
+2006-10-16  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/Makefile.am (tr1_headers): Add new tuple_defs.h.
+	* include/Makefile.in (tr1_headers): Regenerate.
+	* include/tr1/tuple (tuple): Move declaration to tuple_defs.h.
+	(get): Ditto.
+	(operator==): Ditto.
+	(operator<): Ditto.
+	(operator!=): Ditto.
+	(operator>): Ditto.
+	(operator<=): Ditto.
+	(operator>=): Ditto.
+	(__stripped_tuple_type): Ditto.
+	Include tuple.defs.h
+	* include/tr1/tuple_iterate.h (tuple): Use
+	_GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS_UNNAMED macro instead of 10
+	"typename"s.
+	(tuple_element): Use _GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS and
+	_GLIBCXX_TYPLE_ALL_TEMPLATE_ARGS instead of 10
+	parameters/arguments.
+	* include/tr1/tuple_defs.h: New header, contains declarations and
+	definitions for the tuple template with all arguments.
+	* include/tr1/repeat.h (_GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS): New.
+	(_GLIBCXX_TUPLE_ALL_TEMPLATE_PARAMS_UNNAMED): New.
+	(_GLIBCXX_TUPLE_ALL_TEMPLATE_ARGS): New.
+	(_GLIBCXX_TEMPLATE_PARAMS_NULL_CLASS): New.
+	(_GLIBCXX_TEMPLATE_ARGS_STRIPPED): New.
+	* scripts/gen_includers.pl: Update.
+	* scripts/gen_includers2.pl: New.	
+
+2006-10-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29095 continued
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Additions
+	so that testing not in the build directory works for the "C"
+	target language.
+
+2006-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/bits/basic_string.tcc (_Rep::_S_create): Call
+	_M_set_sharable() for backwards compatibility.
+
+2006-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (getline(basic_istream<>&,
+	basic_string<>&)): Move...
+	* include/bits/basic_string.h: ... here.
+	(operator<<(basic_ostream<>&, const basic_string<>&)): Mark inline.
+
+2006-10-15  Geoffrey Keating  <geoffk@apple.com>
+
+	* scripts/make_exports.pl: Use -_ rather than --strip-underscores
+	or --strip-underscore.
+
+2006-10-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate with released autoconf-2.59.
+
+2006-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/faq/index.html: Update.
+	* docs/html/faq/index.txt: Regenerate.
+
+2006-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/ostream.tcc (operator<<(basic_ostream<>&,
+	const char*)): Further fix for throwing widen.
+
+2006-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/ostream.tcc (operator<<(basic_ostream<>&,
+	const char*)): Fix thinko in change for libstdc++/28277,
+	avoid memory leaks.
+
+2006-10-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/istream.tcc (operator>>(__istream_type&
+	(*)(__istream_type&)), operator>>(__ios_type& (*)(__ios_type&)),
+	operator>>(ios_base& (*)(ios_base&))): Move...
+	* include/std/std_istream.h: ... here.
+	(operator>>(basic_istream<char,>&, unsigned char&),
+	operator>>(basic_istream<char,>&, signed char&),
+	operator>>(basic_istream<char,>&, unsigned char*),
+	operator>>(basic_istream<char,>&, signed char*)): Mark inline.
+	* include/bits/ostream.tcc (operator<<(__ostream_type&
+	(*)(__ostream_type&)), operator<<(__ios_type& (*)(__ios_type&)),
+	operator<<(ios_base& (*)(ios_base&))): Move...
+	* include/std/std_ostream.h: ... here.
+	(operator<<(basic_ostream<>&, _CharT),
+	operator<<(basic_ostream<>&, char),
+	operator<<(basic_ostream<char,>&, char),
+	operator<<(basic_ostream<char,>&, signed char),
+	operator<<(basic_ostream<char,>&, unsigned char),
+	operator<<(basic_ostream<>&, const _CharT*),
+	operator<<(basic_ostream<char,>&, const char*),
+	operator<<(basic_ostream<char,>&, const signed char*),
+	operator<<(basic_ostream<char,>&, const unsigned char*),
+	endl(basic_ostream<>&), ends(basic_ostream<>&),
+	flush(basic_ostream<>&)): Mark inline.
+
+2006-10-13  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: ostream bits 2)
+	* include/std/std_ostream.h (basic_ostream<>::_M_insert(const
+	char_type*, streamsize)): New.
+	(basic_ostream<>::_M_write(char_type, streamsize)): Likewise.
+	(operator<<(basic_ostream<>&, _CharT), operator<<(basic_ostream<>&,
+	char), operator<<(basic_ostream<>&, const _CharT*),
+	operator<<(basic_ostream<>&, const char*)): Use the latter.
+	* include/bits/ostream.tcc (basic_ostream<>::_M_insert(const
+	char_type*, streamsize)): Define.
+	(operator<<(basic_ostream<>&, const char*)): Use the latter.
+	(operator<<(basic_ostream<>&, _CharT), operator<<(basic_ostream<>&,
+	char), operator<<(basic_ostream<>&, const _CharT*),
+	operator<<(basic_ostream<>&, const char*),
+	operator<<(basic_ostream<>&, const basic_string<>&)): Remove.
+	* include/bits/basic_string.h (operator<<(basic_ostream<>&,
+	const basic_string<>&)): Use the latter, implement DR 586.
+	* config/abi/pre/gnu.ver: Adjust, export the new _M_insert.
+	* docs/html/ext/howto.html: Add an entry for DR 586.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/
+	28277.cc: New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/
+	28277.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/
+	28277-3.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/char/
+	28277-4.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-2.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-3.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_character/wchar_t/
+	28277-4.cc: Likewise.
+
+2006-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 44.
+
+2006-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29426
+	* libsupc++/guard.cc (get_static_mutex): New. 
+	(mutex_wrapper::mutex_wrapper): Use it to get properly initialized
+	recursive mutex without ordering issues.
+
+	* src/locale_init.cc (__get_locale_mutex): No need to
+	uglify. Change to get_locale_mutex.
+	
+2006-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/22_locale/num_put/put/char/11.cc: New.
+	* testsuite/22_locale/num_put/put/wchar_t/11.cc: Likewise.
+
+2006-10-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Link
+	libtestc++.a, not a bunch of object files.
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29118
+	* src/locale_init.cc (__get_locale_mutex): New. 
+	(locale::locale): Use it.
+	(locale::global): Use it.	
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/29095
+	* libsupc++/cxxabi.h (__cxa_cdtor_type): Explicit "C" linkage.
+	* config/cpu/arm/cxxabi_tweaks.h: Same.
+	* config/cpu/generic/cxxabi_tweaks.h: Same.
+	* testsuite/abi: Add.
+	* testsuite/abi/header_cxxabi.cc: New.
+	* testsuite/demangle: Move...
+	* testsuite/abi/demangle: ...here.
+	* testsuite/libstdc++-dg/conformance.exp: Adjust testsuite file
+	calculation.
+	* scripts/create_testsuite_files: Same.
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): New.
+	(libstdc++-dg-test): Use it.
+	
+2006-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: __add_grouping)
+	* include/bits/locale_facets.tcc (__add_grouping<>(_CharT*, _CharT,
+	const char*, size_t, const _CharT*, const _CharT*)): Rewrite in
+	non-recursive form.
+
+2006-10-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: money_put bits)
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert(iter_type,
+	ios_base&, char_type, const string_type&)): Avoid __builtin_alloca
+	with no limit, do the work in place.
+
+	* include/bits/locale_facets.tcc (money_put<>::do_put(iter_type,
+	bool, ios_base&, char_type, long double)): Avoid unnecessary
+	__builtin_alloca, do the work in place.
+
+2006-10-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/globals_io.cc (_GLIBCXX_once): Remove, unused.
+	(_GLIBCXX_mutex): Same.
+	(_GLIBCXX_mutex_addres): Same.
+	(_GLIBCXX_mutex_init): Same.
+	(_GLIBCXX_mutex_address_init): Same.
+
+2006-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/28277 (partial: money_get bits)
+	* include/bits/locale_facets.tcc (money_get<>::do_get(iter_type,
+	iter_type, bool, ios_base&, ios_base::iostate&, string_type&)):
+	Avoid __builtin_alloca with no limit, do the work in place.
+
+2006-10-07  Ion Gaztanaga  <igaztanaga@gmail.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::erase(const _Key&)): Don't
+	call std::distance unnecessarily.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29368
+	* include/bits/basic_string.h: Adjust rfind documentation.
+	* include/ext/vstring.h: Likewise.
+
+2006-10-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/29354
+	* include/bits/sstream.tcc (basic_stringbuf<>::seekpos(pos_type,
+	ios_base::openmode)): Allow for seek to pos_type(off_type(0))
+	when the stream is empty.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/29354.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekpos/wchar_t/29354.cc: New.
+
 2006-10-04  Benjamin Kosnik  <bkoz@redhat.com>
 	    Mike Stump  <mrs@apple.com>
 	

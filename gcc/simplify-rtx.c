@@ -158,6 +158,9 @@ avoid_constant_pool_reference (rtx x)
       return x;
     }
 
+  if (GET_MODE (x) == BLKmode)
+    return x;
+
   addr = XEXP (x, 0);
 
   /* Call target hook to avoid the effects of -fpic etc....  */
@@ -1041,6 +1044,9 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	    val++, arg0 &= arg0 - 1;
 	  val &= 1;
 	  break;
+
+	case BSWAP:
+	  return 0;
 
 	case TRUNCATE:
 	  val = arg0;
@@ -3747,10 +3753,10 @@ simplify_const_relational_operation (enum rtx_code code,
     return simplify_const_relational_operation (signed_condition (code),
 						mode, tem, const0_rtx);
 
-  if (flag_unsafe_math_optimizations && code == ORDERED)
+  if (! HONOR_NANS (mode) && code == ORDERED)
     return const_true_rtx;
 
-  if (flag_unsafe_math_optimizations && code == UNORDERED)
+  if (! HONOR_NANS (mode) && code == UNORDERED)
     return const0_rtx;
 
   /* For modes without NaNs, if the two operands are equal, we know the
@@ -4867,4 +4873,3 @@ simplify_rtx (rtx x)
     }
   return NULL;
 }
-

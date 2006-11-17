@@ -46,8 +46,8 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
-  gfc_option.fixed_line_length = -1;
-  gfc_option.free_line_length = -1;
+  gfc_option.fixed_line_length = 72;
+  gfc_option.free_line_length = 132;
   gfc_option.max_continue_fixed = 19;
   gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
@@ -61,7 +61,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_surprising = 0;
   gfc_option.warn_tabs = 1;
   gfc_option.warn_underflow = 1;
-  gfc_option.warn_unused_labels = 0;
+  gfc_option.max_errors = 25;
 
   gfc_option.flag_all_intrinsics = 0;
   gfc_option.flag_default_double = 0;
@@ -73,19 +73,17 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
-  gfc_option.flag_module_access_private = 0;
-  gfc_option.flag_no_backend = 0;
   gfc_option.flag_range_check = 1;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
   gfc_option.flag_preprocessed = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
+  gfc_option.flag_external_blas = 0;
+  gfc_option.blas_matmul_limit = 30;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
   gfc_option.flag_openmp = 0;
-
-  gfc_option.q_kind = gfc_default_double_kind;
 
   gfc_option.fpe = 0;
 
@@ -303,8 +301,7 @@ set_Wall (void)
   gfc_option.warn_surprising = 1;
   gfc_option.warn_tabs = 0;
   gfc_option.warn_underflow = 1;
-  gfc_option.warn_unused_labels = 1;
- 
+
   set_Wunused (1);
   warn_return_type = 1;
   warn_switch = 1;
@@ -428,10 +425,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_underflow = value;
       break;
 
-    case OPT_Wunused_labels:
-      gfc_option.warn_unused_labels = value;
-      break;
-
     case OPT_fall_intrinsics:
       gfc_option.flag_all_intrinsics = 1;
       break;
@@ -454,6 +447,14 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fdollar_ok:
       gfc_option.flag_dollar_ok = value;
+      break;
+
+    case OPT_fexternal_blas:
+      gfc_option.flag_external_blas = value;
+      break;
+
+    case OPT_fblas_matmul_limit_:
+      gfc_option.blas_matmul_limit = value;
       break;
 
     case OPT_fd_lines_as_code:
@@ -510,16 +511,12 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_implicit_none = value;
       break;
 
+    case OPT_fmax_errors_:
+      gfc_option.max_errors = value;
+      break;
+
     case OPT_fmax_stack_var_size_:
       gfc_option.flag_max_stack_var_size = value;
-      break;
-
-    case OPT_fmodule_private:
-      gfc_option.flag_module_access_private = value;
-      break;
-
-    case OPT_fno_backend:
-      gfc_option.flag_no_backend = value;
       break;
 
     case OPT_frange_check:
@@ -543,12 +540,6 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 	gfc_fatal_error ("Maximum supported identifier length is %d",
 			 GFC_MAX_SYMBOL_LEN);
       gfc_option.max_identifier_length = value;
-      break;
-
-    case OPT_qkind_:
-      if (gfc_validate_kind (BT_REAL, value, true) < 0)
-	gfc_fatal_error ("Argument to -fqkind isn't a valid real kind");
-      gfc_option.q_kind = value;
       break;
 
     case OPT_fdefault_integer_8:

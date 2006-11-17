@@ -75,6 +75,18 @@ _Jv_InitInterpreter()
 void _Jv_InitInterpreter() {}
 #endif
 
+// The breakpoint instruction. For the direct threaded case,
+// _Jv_InterpMethod::compile will initialize breakpoint_insn
+// the first time it is called.
+#ifdef DIRECT_THREADED
+insn_slot _Jv_InterpMethod::bp_insn_slot;
+pc_t _Jv_InterpMethod::breakpoint_insn = NULL;
+#else
+unsigned char _Jv_InterpMethod::bp_insn_opcode
+  = static_cast<unsigned char> (op_breakpoint);
+pc_t _Jv_InterpMethod::breakpoint_insn = &_Jv_InterpMethod::bp_insn_opcode;
+#endif
+
 extern "C" double __ieee754_fmod (double,double);
 
 static inline void dupx (_Jv_word *sp, int n, int x)
@@ -844,6 +856,7 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 	    case op_getstatic_4:
 	    case op_getstatic_8:
 	    case op_getstatic_a:
+	    case op_breakpoint:
 	    default:
 	      // Fail somehow.
 	      break;
@@ -879,6 +892,12 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
     }  
 
   prepared = insns;
+
+  if (breakpoint_insn == NULL)
+    {
+      bp_insn_slot.insn = const_cast<void *> (insn_targets[op_breakpoint]);
+      breakpoint_insn = &bp_insn_slot;
+    }
 }
 #endif /* DIRECT_THREADED */
 
@@ -1382,6 +1401,52 @@ _Jv_InterpMethod::get_line_table (jlong& start, jlong& end,
 	}
     }
 #endif // !DIRECT_THREADED
+}
+
+pc_t
+_Jv_InterpMethod::install_break (jlong index)
+{
+  return set_insn (index, breakpoint_insn);
+}
+
+pc_t
+_Jv_InterpMethod::get_insn (jlong index)
+{
+  pc_t code;
+
+#ifdef DIRECT_THREADED
+  if (index >= number_insn_slots || index < 0)
+    return NULL;
+
+  code = prepared;
+#else // !DIRECT_THREADED
+  if (index >= code_length || index < 0)
+    return NULL;
+
+  code = reinterpret_cast<pc_t> (bytecode ());
+#endif // !DIRECT_THREADED
+
+  return &code[index];
+}
+
+pc_t
+_Jv_InterpMethod::set_insn (jlong index, pc_t insn)
+{
+#ifdef DIRECT_THREADED
+  if (index >= number_insn_slots || index < 0)
+    return NULL;
+
+  pc_t code = prepared;
+  code[index].insn = insn->insn;
+#else // !DIRECT_THREADED
+  if (index >= code_length || index < 0)
+    return NULL;
+
+  pc_t code = reinterpret_cast<pc_t> (bytecode ());
+  code[index] = *insn;
+#endif // !DIRECT_THREADED
+
+  return &code[index];
 }
 
 void *

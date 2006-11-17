@@ -55,6 +55,10 @@ struct ssa GTY(()) {
   /* Artificial variable used to model the effects of function calls.  */
   tree x_global_var;
 
+  /* Artificial variable used to model the effects of nonlocal
+     variables.  */
+  tree x_nonlocal_all;
+
   /* Call clobbered variables in the function.  If bit I is set, then
      REFERENCED_VARS (I) is call-clobbered.  */
   bitmap call_clobbered_vars;
@@ -112,6 +116,7 @@ struct ssa GTY(()) {
 #define ssa_names cfun->ssa->x_ssa_names
 #define modified_noreturn_calls cfun->ssa->x_modified_noreturn_calls
 #define global_var cfun->ssa->x_global_var
+#define nonlocal_all cfun->ssa->x_nonlocal_all
 #define aliases_computed_p cfun->ssa->x_aliases_computed_p
 #define in_ssa_p (cfun->ssa && cfun->ssa->x_in_ssa_p)
 #define free_ssanames (cfun->ssa->x_free_ssanames)
@@ -270,6 +275,9 @@ struct var_ann_d GTY(())
   /* Used during operand processing to determine if this variable is already 
      in the v_may_def list.  */
   unsigned in_v_may_def_list : 1;
+
+  /* True for HEAP and PARM_NOALIAS artificial variables.  */
+  unsigned is_heapvar : 1;
 
   /* An artificial variable representing the memory location pointed-to by
      all the pointer symbols that flow-insensitive alias analysis
@@ -431,6 +439,7 @@ static inline var_ann_t get_var_ann (tree);
 static inline function_ann_t function_ann (tree);
 static inline function_ann_t get_function_ann (tree);
 static inline stmt_ann_t stmt_ann (tree);
+static inline bool has_stmt_ann (tree);
 static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline basic_block bb_for_stmt (tree);
@@ -509,6 +518,7 @@ typedef struct
        (ITER).i++)
 
 extern tree referenced_var_lookup (unsigned int);
+extern bool referenced_var_check_and_insert (tree);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
@@ -774,6 +784,7 @@ void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, tree, def_operand_p);
 bool need_ssa_update_p (void);
+bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);
 void release_ssa_name_after_update_ssa (tree name);
@@ -859,7 +870,7 @@ struct tree_niter_desc
 };
 
 /* In tree-vectorizer.c */
-void vectorize_loops (struct loops *);
+unsigned vectorize_loops (struct loops *);
 extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
@@ -979,7 +990,7 @@ void print_value_expressions (FILE *, tree);
 
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
-tree get_value_handle (tree);
+static inline tree get_value_handle (tree);
 hashval_t vn_compute (tree, hashval_t);
 void sort_vuses (VEC (tree, gc) *);
 tree vn_lookup_or_add (tree, tree);
@@ -1006,7 +1017,7 @@ extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
 bool expr_invariant_in_loop_p (struct loop *, tree);
-bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
+bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
@@ -1094,4 +1105,7 @@ void swap_tree_operands (tree, tree *, tree *);
 
 extern void recalculate_used_alone (void);
 extern bool updating_used_alone;
+
+int least_common_multiple (int, int);
+
 #endif /* _TREE_FLOW_H  */

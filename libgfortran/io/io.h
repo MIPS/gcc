@@ -108,7 +108,7 @@ array_loop_spec;
      or
       &GROUPNAME  OBJECT=value[s] [,OBJECT=value[s]]...&END
 
-   The object can be a fully qualified, compound name for an instrinsic
+   The object can be a fully qualified, compound name for an intrinsic
    type, derived types or derived type components.  So, a substring
    a(:)%b(4)%ch(2:4)(1:7) has to be treated correctly in namelist
    read. Hence full information about the structure of the object has
@@ -415,7 +415,10 @@ typedef struct st_parameter_dt
 	  /* An internal unit specific flag used to identify that the associated
 	     unit is internal.  */
 	  unsigned unit_is_internal : 1;
-	  /* 17 unused bits.  */
+	  /* An internal unit specific flag to signify an EOF condition for list
+	     directed read.  */
+	  unsigned at_eof : 1;
+	  /* 16 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;

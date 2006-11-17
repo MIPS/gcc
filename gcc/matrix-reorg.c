@@ -962,7 +962,7 @@ analyze_transpose (void **slot, void *data ATTRIBUTE_UNUSED)
     }
   if (!mi->dim_hot_level)
     mi->dim_hot_level =
-      (HOST_WIDE_INT *) xcalloc (min_escape_l, sizeof (HOST_WIDE_INT));
+      (gcov_type *) xcalloc (min_escape_l, sizeof (HOST_WIDE_INT));
   while (VARRAY_ACTIVE_SIZE (mi->access_l))
     {
       struct access_site_info *acc_info;

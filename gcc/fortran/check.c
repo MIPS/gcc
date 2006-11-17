@@ -199,7 +199,7 @@ scalar_check (gfc_expr * e, int n)
 }
 
 
-/* Make sure two expression have the same type.  */
+/* Make sure two expressions have the same type.  */
 
 static try
 same_type_check (gfc_expr * e, int n, gfc_expr * f, int m)
@@ -477,13 +477,16 @@ gfc_check_all_any (gfc_expr * mask, gfc_expr * dim)
 try
 gfc_check_allocated (gfc_expr * array)
 {
+  symbol_attribute attr;
+
   if (variable_check (array, 0) == FAILURE)
     return FAILURE;
 
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
-  if (!array->symtree->n.sym->attr.allocatable)
+  attr = gfc_variable_attr (array, NULL);
+  if (!attr.allocatable)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be ALLOCATABLE",
 		 gfc_current_intrinsic_arg[0], gfc_current_intrinsic,
@@ -1814,6 +1817,64 @@ gfc_check_merge (gfc_expr * tsource, gfc_expr * fsource, gfc_expr * mask)
   return SUCCESS;
 }
 
+try
+gfc_check_move_alloc (gfc_expr * from, gfc_expr * to)
+{
+  symbol_attribute attr;
+
+  if (variable_check (from, 0) == FAILURE)
+    return FAILURE;
+
+  if (array_check (from, 0) == FAILURE)
+    return FAILURE;
+
+  attr = gfc_variable_attr (from, NULL);
+  if (!attr.allocatable)
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must be ALLOCATABLE",
+		 gfc_current_intrinsic_arg[0], gfc_current_intrinsic,
+		 &from->where);
+      return FAILURE;
+    }
+
+  if (variable_check (to, 0) == FAILURE)
+    return FAILURE;
+
+  if (array_check (to, 0) == FAILURE)
+    return FAILURE;
+
+  attr = gfc_variable_attr (to, NULL);
+  if (!attr.allocatable)
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must be ALLOCATABLE",
+		 gfc_current_intrinsic_arg[0], gfc_current_intrinsic,
+		 &to->where);
+      return FAILURE;
+    }
+
+  if (same_type_check (from, 0, to, 1) == FAILURE)
+    return FAILURE;
+
+  if (to->rank != from->rank)
+    {
+      gfc_error ("the '%s' and '%s' arguments of '%s' intrinsic at %L must "
+		 "have the same rank %d/%d", gfc_current_intrinsic_arg[0],
+		 gfc_current_intrinsic_arg[1], gfc_current_intrinsic,
+		 &to->where,  from->rank, to->rank);
+      return FAILURE;
+    }
+
+  if (to->ts.kind != from->ts.kind)
+    {
+      gfc_error ("the '%s' and '%s' arguments of '%s' intrinsic at %L must "
+		 "be of the same kind %d/%d", gfc_current_intrinsic_arg[0],
+		 gfc_current_intrinsic_arg[1], gfc_current_intrinsic,
+		 &to->where, from->ts.kind, to->ts.kind);
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
 
 try
 gfc_check_nearest (gfc_expr * x, gfc_expr * s)
@@ -1827,6 +1888,14 @@ gfc_check_nearest (gfc_expr * x, gfc_expr * s)
   return SUCCESS;
 }
 
+try
+gfc_check_new_line (gfc_expr * a)
+{
+  if (type_check (a, 0, BT_CHARACTER) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
 
 try
 gfc_check_null (gfc_expr * mold)
@@ -2041,6 +2110,7 @@ gfc_check_reshape (gfc_expr * source, gfc_expr * shape,
 		   gfc_expr * pad, gfc_expr * order)
 {
   mpz_t size;
+  mpz_t nelems;
   int m;
 
   if (array_check (source, 0) == FAILURE)
@@ -2079,6 +2149,38 @@ gfc_check_reshape (gfc_expr * source, gfc_expr * shape,
 
   if (order != NULL && array_check (order, 3) == FAILURE)
     return FAILURE;
+
+  if (pad == NULL
+	&& shape->expr_type == EXPR_ARRAY
+	&& gfc_is_constant_expr (shape)
+	&& !(source->expr_type == EXPR_VARIABLE
+	       && source->symtree->n.sym->as
+	       && source->symtree->n.sym->as->type == AS_ASSUMED_SIZE))
+    {
+      /* Check the match in size between source and destination.  */
+      if (gfc_array_size (source, &nelems) == SUCCESS)
+	{
+	  gfc_constructor *c;
+	  bool test;
+
+	  c = shape->value.constructor;
+	  mpz_init_set_ui (size, 1);
+	  for (; c; c = c->next)
+	    mpz_mul (size, size, c->expr->value.integer);
+
+	  test = mpz_cmp (nelems, size) < 0 && mpz_cmp_ui (size, 0) > 0;
+	  mpz_clear (nelems);
+	  mpz_clear (size);
+
+	  if (test)
+	    {
+	      gfc_error ("Without padding, there are not enough elements in the "
+			 "intrinsic RESHAPE source at %L to match the shape",
+			 &source->where);
+	      return FAILURE;
+	    }
+	}
+    }
 
   return SUCCESS;
 }

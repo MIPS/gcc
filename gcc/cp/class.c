@@ -4050,7 +4050,7 @@ type_requires_array_cookie (tree type)
 	 argument is `size_t', it will be the usual deallocation
 	 function -- unless there is one-argument function, too.  */
       if (TREE_CHAIN (second_parm) == void_list_node
-	  && same_type_p (TREE_VALUE (second_parm), sizetype))
+	  && same_type_p (TREE_VALUE (second_parm), size_type_node))
 	has_two_argument_delete_p = true;
     }
 
@@ -5062,6 +5062,7 @@ finish_struct_1 (tree t)
      working on.  */
   for (x = TYPE_FIELDS (t); x; x = TREE_CHAIN (x))
     if (TREE_CODE (x) == VAR_DECL && TREE_STATIC (x)
+        && TREE_TYPE (x) != error_mark_node
 	&& same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (x)), t))
       DECL_MODE (x) = TYPE_MODE (t);
 

@@ -397,7 +397,7 @@ typedef enum
   ERROR_EOR = -2,
   ERROR_END = -1,
   ERROR_OK = 0,			/* Indicates success, must be zero.  */
-  ERROR_OS,			/* Operating system error, more info in errno.  */
+  ERROR_OS = 5000,		/* Operating system error, more info in errno.  */
   ERROR_OPTION_CONFLICT,
   ERROR_BAD_OPTION,
   ERROR_MISSING_OPTION,
@@ -413,6 +413,7 @@ typedef enum
   ERROR_INTERNAL_UNIT,
   ERROR_ALLOCATION,
   ERROR_DIRECT_EOR,
+  ERROR_SHORT_RECORD,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;

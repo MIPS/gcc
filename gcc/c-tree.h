@@ -384,7 +384,6 @@ struct language_function GTY(())
   int returns_null;
   int returns_abnormally;
   int warn_about_return_type;
-  int extern_inline;
 };
 
 /* Save lists of labels used or defined in particular contexts.
@@ -474,8 +473,7 @@ extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
 							struct c_declarator *,
 							bool);
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
+extern tree c_builtin_function (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
 extern tree start_enum (tree);

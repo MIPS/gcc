@@ -1581,8 +1581,8 @@ attributes are currently defined for functions on all targets:
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
-@code{alias}, @code{warn_unused_result}, @code{nonnull}
-and @code{externally_visible}.  Several other
+@code{alias}, @code{warn_unused_result}, @code{nonnull},
+@code{gnu_inline} and @code{externally_visible}.  Several other
 attributes are defined for functions on particular target systems.  Other
 attributes, including @code{section} are supported for variables declarations
 (@pxref{Variable Attributes}) and for types (@pxref{Type Attributes}).
@@ -1619,6 +1619,11 @@ Not all target machines support this attribute.
 Generally, functions are not inlined unless optimization is specified.
 For functions declared inline, this attribute inlines the function even
 if no optimization level was specified.
+
+@item gnu_inline
+@cindex @code{gnu_inline} function attribute
+This attribute on an inline declaration results in the old GNU C89
+inline behavior even in the ISO C99 mode.
 
 @cindex @code{flatten} function attribute
 @item flatten
@@ -2215,6 +2220,14 @@ GNU systems with GLIBC 2.1 or higher, and FreeBSD, are believed to be
 safe since the loaders there save all registers.  (Lazy binding can be
 disabled with the linker or the loader if desired, to avoid the
 problem.)
+
+@item x87regparm
+@cindex @code{x87regparm} attribute
+On the Intel x86 with 80387 @code{x87regparm} attribute causes the
+compiler to pass up to 3 floating point arguments in 80387 registers
+instead of on the stack.  Functions that take a variable number of
+arguments will continue to pass all of their floating point arguments
+on the stack.
 
 @item sseregparm
 @cindex @code{sseregparm} attribute
@@ -3234,7 +3247,7 @@ The @code{weak} attribute is described in @xref{Function Attributes}.
 @item dllimport
 The @code{dllimport} attribute is described in @xref{Function Attributes}.
 
-@item dlexport
+@item dllexport
 The @code{dllexport} attribute is described in @xref{Function Attributes}.
 
 @end table
@@ -3789,25 +3802,46 @@ These attributes mainly are intended to support the @code{__vector},
 @cindex open coding
 @cindex macros, inline alternative
 
-By declaring a function @code{inline}, you can direct GCC to
+By declaring a function inline, you can direct GCC to make
+calls to that function faster.  One way GCC can achieve this is to
 integrate that function's code into the code for its callers.  This
 makes execution faster by eliminating the function-call overhead; in
-addition, if any of the actual argument values are constant, their known
-values may permit simplifications at compile time so that not all of the
-inline function's code needs to be included.  The effect on code size is
-less predictable; object code may be larger or smaller with function
-inlining, depending on the particular case.  Inlining of functions is an
-optimization and it really ``works'' only in optimizing compilation.  If
-you don't use @option{-O}, no function is really inline.
+addition, if any of the actual argument values are constant, their
+known values may permit simplifications at compile time so that not
+all of the inline function's code needs to be included.  The effect on
+code size is less predictable; object code may be larger or smaller
+with function inlining, depending on the particular case.  You can
+also direct GCC to try to integrate all ``simple enough'' functions
+into their callers with the option @option{-finline-functions}.
 
-Inline functions are included in the ISO C99 standard, but there are
-currently substantial differences between what GCC implements and what
-the ISO C99 standard requires.
+GCC implements three different semantics of declaring a function
+inline.  One is available with @option{-std=gnu89} or when @code{gnu_inline}
+attribute is present on all inline declarations, another when
+@option{-std=c99} or @option{-std=gnu99}, and the third is used when
+compiling C++.
 
 To declare a function inline, use the @code{inline} keyword in its
 declaration, like this:
 
 @smallexample
+static inline int
+inc (int *a)
+@{
+  (*a)++;
+@}
+@end smallexample
+
+If you are writing a header file to be included in ISO C89 programs, write
+@code{__inline__} instead of @code{inline}.  @xref{Alternate Keywords}.
+
+The three types of inlining behave similarly in two important cases:
+when the @code{inline} keyword is used on a @code{static} function,
+like the example above, and when a function is first declared without
+using the @code{inline} keyword and then is defined with
+@code{inline}, like this:
+
+@smallexample
+extern int inc (int *a);
 inline int
 inc (int *a)
 @{
@@ -3815,32 +3849,8 @@ inc (int *a)
 @}
 @end smallexample
 
-(If you are writing a header file to be included in ISO C programs, write
-@code{__inline__} instead of @code{inline}.  @xref{Alternate Keywords}.)
-You can also make all ``simple enough'' functions inline with the option
-@option{-finline-functions}.
-
-@opindex Winline
-Note that certain usages in a function definition can make it unsuitable
-for inline substitution.  Among these usages are: use of varargs, use of
-alloca, use of variable sized data types (@pxref{Variable Length}),
-use of computed goto (@pxref{Labels as Values}), use of nonlocal goto,
-and nested functions (@pxref{Nested Functions}).  Using @option{-Winline}
-will warn when a function marked @code{inline} could not be substituted,
-and will give the reason for the failure.
-
-Note that in C and Objective-C, unlike C++, the @code{inline} keyword
-does not affect the linkage of the function.
-
-@cindex automatic @code{inline} for C++ member fns
-@cindex @code{inline} automatic for C++ member fns
-@cindex member fns, automatically @code{inline}
-@cindex C++ member fns, automatically @code{inline}
-@opindex fno-default-inline
-GCC automatically inlines member functions defined within the class
-body of C++ programs even if they are not explicitly declared
-@code{inline}.  (You can override this with @option{-fno-default-inline};
-@pxref{C++ Dialect Options,,Options Controlling C++ Dialect}.)
+In both of these common cases, the program behaves the same as if you
+had not used the @code{inline} keyword, except for its speed.
 
 @cindex inline functions, omission of
 @opindex fkeep-inline-functions
@@ -3855,6 +3865,36 @@ neither can recursive calls within the definition).  If there is a
 nonintegrated call, then the function is compiled to assembler code as
 usual.  The function must also be compiled as usual if the program
 refers to its address, because that can't be inlined.
+
+@opindex Winline
+Note that certain usages in a function definition can make it unsuitable
+for inline substitution.  Among these usages are: use of varargs, use of
+alloca, use of variable sized data types (@pxref{Variable Length}),
+use of computed goto (@pxref{Labels as Values}), use of nonlocal goto,
+and nested functions (@pxref{Nested Functions}).  Using @option{-Winline}
+will warn when a function marked @code{inline} could not be substituted,
+and will give the reason for the failure.
+
+@cindex automatic @code{inline} for C++ member fns
+@cindex @code{inline} automatic for C++ member fns
+@cindex member fns, automatically @code{inline}
+@cindex C++ member fns, automatically @code{inline}
+@opindex fno-default-inline
+As required by ISO C++, GCC considers member functions defined within
+the body of a class to be marked inline even if they are
+not explicitly declared with the @code{inline} keyword.  You can
+override this with @option{-fno-default-inline}; @pxref{C++ Dialect
+Options,,Options Controlling C++ Dialect}.
+
+GCC does not inline any functions when not optimizing unless you specify
+the @samp{always_inline} attribute for the function, like this:
+
+@smallexample
+/* @r{Prototype.}  */
+inline void foo (const char) __attribute__((always_inline));
+@end smallexample
+
+The remainder of this section is specific to GNU C89 inlining.
 
 @cindex non-static inline function
 When an inline function is not @code{static}, then the compiler must assume
@@ -3877,21 +3917,6 @@ definition (lacking @code{inline} and @code{extern}) in a library file.
 The definition in the header file will cause most calls to the function
 to be inlined.  If any uses of the function remain, they will refer to
 the single copy in the library.
-
-Since GCC eventually will implement ISO C99 semantics for
-inline functions, it is best to use @code{static inline} only
-to guarantee compatibility.  (The
-existing semantics will remain available when @option{-std=gnu89} is
-specified, but eventually the default will be @option{-std=gnu99} and
-that will implement the C99 semantics, though it does not do so yet.)
-
-GCC does not inline any functions when not optimizing unless you specify
-the @samp{always_inline} attribute for the function, like this:
-
-@smallexample
-/* @r{Prototype.}  */
-inline void foo (const char) __attribute__((always_inline));
-@end smallexample
 
 @node Extended Asm
 @section Assembler Instructions with C Expression Operands
@@ -5857,10 +5882,9 @@ programmers are notoriously bad at predicting how their programs
 actually perform.  However, there are applications in which this
 data is hard to collect.
 
-The return value is the value of @var{exp}, which should be an
-integral expression.  The value of @var{c} must be a compile-time
-constant.  The semantics of the built-in are that it is expected
-that @var{exp} == @var{c}.  For example:
+The return value is the value of @var{exp}, which should be an integral
+expression.  The semantics of the built-in are that it is expected that
+@var{exp} == @var{c}.  For example:
 
 @smallexample
 if (__builtin_expect (x, 0))
@@ -6105,6 +6129,16 @@ Similar to @code{__builtin_powi}, except the argument and return types
 are @code{long double}.
 @end deftypefn
 
+@deftypefn {Built-in Function} int32_t __builtin_bswap32 (int32_t x)
+Returns @var{x} with the order of the bytes reversed; for example,
+@code{0xaabbccdd} becomes @code{0xddccbbaa}.  Byte here always means
+exactly 8 bits.
+@end deftypefn
+
+@deftypefn {Built-in Function} int64_t __builtin_bswap64 (int64_t x)
+Similar to @code{__builtin_bswap32}, except the argument and return types
+are 64-bit.
+@end deftypefn
 
 @node Target Builtins
 @section Built-in Functions Specific to Particular Target Machines
@@ -6985,16 +7019,175 @@ Generates the @code{movhps} machine instruction as a store to memory.
 Generates the @code{movlps} machine instruction as a store to memory.
 @end table
 
+The following built-in functions are available when @option{-msse2} is used.
+All of them generate the machine instruction that is part of the name.
+
+@smallexample
+int __builtin_ia32_comisdeq (v2df, v2df)
+int __builtin_ia32_comisdlt (v2df, v2df)
+int __builtin_ia32_comisdle (v2df, v2df)
+int __builtin_ia32_comisdgt (v2df, v2df)
+int __builtin_ia32_comisdge (v2df, v2df)
+int __builtin_ia32_comisdneq (v2df, v2df)
+int __builtin_ia32_ucomisdeq (v2df, v2df)
+int __builtin_ia32_ucomisdlt (v2df, v2df)
+int __builtin_ia32_ucomisdle (v2df, v2df)
+int __builtin_ia32_ucomisdgt (v2df, v2df)
+int __builtin_ia32_ucomisdge (v2df, v2df)
+int __builtin_ia32_ucomisdneq (v2df, v2df)
+v2df __builtin_ia32_cmpeqpd (v2df, v2df)
+v2df __builtin_ia32_cmpltpd (v2df, v2df)
+v2df __builtin_ia32_cmplepd (v2df, v2df)
+v2df __builtin_ia32_cmpgtpd (v2df, v2df)
+v2df __builtin_ia32_cmpgepd (v2df, v2df)
+v2df __builtin_ia32_cmpunordpd (v2df, v2df)
+v2df __builtin_ia32_cmpneqpd (v2df, v2df)
+v2df __builtin_ia32_cmpnltpd (v2df, v2df)
+v2df __builtin_ia32_cmpnlepd (v2df, v2df)
+v2df __builtin_ia32_cmpngtpd (v2df, v2df)
+v2df __builtin_ia32_cmpngepd (v2df, v2df)
+v2df __builtin_ia32_cmpordpd (v2df, v2df)
+v2df __builtin_ia32_cmpeqsd (v2df, v2df)
+v2df __builtin_ia32_cmpltsd (v2df, v2df)
+v2df __builtin_ia32_cmplesd (v2df, v2df)
+v2df __builtin_ia32_cmpunordsd (v2df, v2df)
+v2df __builtin_ia32_cmpneqsd (v2df, v2df)
+v2df __builtin_ia32_cmpnltsd (v2df, v2df)
+v2df __builtin_ia32_cmpnlesd (v2df, v2df)
+v2df __builtin_ia32_cmpordsd (v2df, v2df)
+v2di __builtin_ia32_paddq (v2di, v2di)
+v2di __builtin_ia32_psubq (v2di, v2di)
+v2df __builtin_ia32_addpd (v2df, v2df)
+v2df __builtin_ia32_subpd (v2df, v2df)
+v2df __builtin_ia32_mulpd (v2df, v2df)
+v2df __builtin_ia32_divpd (v2df, v2df)
+v2df __builtin_ia32_addsd (v2df, v2df)
+v2df __builtin_ia32_subsd (v2df, v2df)
+v2df __builtin_ia32_mulsd (v2df, v2df)
+v2df __builtin_ia32_divsd (v2df, v2df)
+v2df __builtin_ia32_minpd (v2df, v2df)
+v2df __builtin_ia32_maxpd (v2df, v2df)
+v2df __builtin_ia32_minsd (v2df, v2df)
+v2df __builtin_ia32_maxsd (v2df, v2df)
+v2df __builtin_ia32_andpd (v2df, v2df)
+v2df __builtin_ia32_andnpd (v2df, v2df)
+v2df __builtin_ia32_orpd (v2df, v2df)
+v2df __builtin_ia32_xorpd (v2df, v2df)
+v2df __builtin_ia32_movsd (v2df, v2df)
+v2df __builtin_ia32_unpckhpd (v2df, v2df)
+v2df __builtin_ia32_unpcklpd (v2df, v2df)
+v16qi __builtin_ia32_paddb128 (v16qi, v16qi)
+v8hi __builtin_ia32_paddw128 (v8hi, v8hi)
+v4si __builtin_ia32_paddd128 (v4si, v4si)
+v2di __builtin_ia32_paddq128 (v2di, v2di)
+v16qi __builtin_ia32_psubb128 (v16qi, v16qi)
+v8hi __builtin_ia32_psubw128 (v8hi, v8hi)
+v4si __builtin_ia32_psubd128 (v4si, v4si)
+v2di __builtin_ia32_psubq128 (v2di, v2di)
+v8hi __builtin_ia32_pmullw128 (v8hi, v8hi)
+v8hi __builtin_ia32_pmulhw128 (v8hi, v8hi)
+v2di __builtin_ia32_pand128 (v2di, v2di)
+v2di __builtin_ia32_pandn128 (v2di, v2di)
+v2di __builtin_ia32_por128 (v2di, v2di)
+v2di __builtin_ia32_pxor128 (v2di, v2di)
+v16qi __builtin_ia32_pavgb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pavgw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pcmpeqb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pcmpeqw128 (v8hi, v8hi)
+v4si __builtin_ia32_pcmpeqd128 (v4si, v4si)
+v16qi __builtin_ia32_pcmpgtb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pcmpgtw128 (v8hi, v8hi)
+v4si __builtin_ia32_pcmpgtd128 (v4si, v4si)
+v16qi __builtin_ia32_pmaxub128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmaxsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pminub128 (v16qi, v16qi)
+v8hi __builtin_ia32_pminsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_punpckhbw128 (v16qi, v16qi)
+v8hi __builtin_ia32_punpckhwd128 (v8hi, v8hi)
+v4si __builtin_ia32_punpckhdq128 (v4si, v4si)
+v2di __builtin_ia32_punpckhqdq128 (v2di, v2di)
+v16qi __builtin_ia32_punpcklbw128 (v16qi, v16qi)
+v8hi __builtin_ia32_punpcklwd128 (v8hi, v8hi)
+v4si __builtin_ia32_punpckldq128 (v4si, v4si)
+v2di __builtin_ia32_punpcklqdq128 (v2di, v2di)
+v16qi __builtin_ia32_packsswb128 (v16qi, v16qi)
+v8hi __builtin_ia32_packssdw128 (v8hi, v8hi)
+v16qi __builtin_ia32_packuswb128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmulhuw128 (v8hi, v8hi)
+void __builtin_ia32_maskmovdqu (v16qi, v16qi)
+v2df __builtin_ia32_loadupd (double *)
+void __builtin_ia32_storeupd (double *, v2df)
+v2df __builtin_ia32_loadhpd (v2df, double *)
+v2df __builtin_ia32_loadlpd (v2df, double *)
+int __builtin_ia32_movmskpd (v2df)
+int __builtin_ia32_pmovmskb128 (v16qi)
+void __builtin_ia32_movnti (int *, int)
+void __builtin_ia32_movntpd (double *, v2df)
+void __builtin_ia32_movntdq (v2df *, v2df)
+v4si __builtin_ia32_pshufd (v4si, int)
+v8hi __builtin_ia32_pshuflw (v8hi, int)
+v8hi __builtin_ia32_pshufhw (v8hi, int)
+v2di __builtin_ia32_psadbw128 (v16qi, v16qi)
+v2df __builtin_ia32_sqrtpd (v2df)
+v2df __builtin_ia32_sqrtsd (v2df)
+v2df __builtin_ia32_shufpd (v2df, v2df, int)
+v2df __builtin_ia32_cvtdq2pd (v4si)
+v4sf __builtin_ia32_cvtdq2ps (v4si)
+v4si __builtin_ia32_cvtpd2dq (v2df)
+v2si __builtin_ia32_cvtpd2pi (v2df)
+v4sf __builtin_ia32_cvtpd2ps (v2df)
+v4si __builtin_ia32_cvttpd2dq (v2df)
+v2si __builtin_ia32_cvttpd2pi (v2df)
+v2df __builtin_ia32_cvtpi2pd (v2si)
+int __builtin_ia32_cvtsd2si (v2df)
+int __builtin_ia32_cvttsd2si (v2df)
+long long __builtin_ia32_cvtsd2si64 (v2df)
+long long __builtin_ia32_cvttsd2si64 (v2df)
+v4si __builtin_ia32_cvtps2dq (v4sf)
+v2df __builtin_ia32_cvtps2pd (v4sf)
+v4si __builtin_ia32_cvttps2dq (v4sf)
+v2df __builtin_ia32_cvtsi2sd (v2df, int)
+v2df __builtin_ia32_cvtsi642sd (v2df, long long)
+v4sf __builtin_ia32_cvtsd2ss (v4sf, v2df)
+v2df __builtin_ia32_cvtss2sd (v2df, v4sf)
+void __builtin_ia32_clflush (const void *)
+void __builtin_ia32_lfence (void)
+void __builtin_ia32_mfence (void)
+v16qi __builtin_ia32_loaddqu (const char *)
+void __builtin_ia32_storedqu (char *, v16qi)
+unsigned long long __builtin_ia32_pmuludq (v2si, v2si)
+v2di __builtin_ia32_pmuludq128 (v4si, v4si)
+v8hi __builtin_ia32_psllw128 (v8hi, v2di)
+v4si __builtin_ia32_pslld128 (v4si, v2di)
+v2di __builtin_ia32_psllq128 (v4si, v2di)
+v8hi __builtin_ia32_psrlw128 (v8hi, v2di)
+v4si __builtin_ia32_psrld128 (v4si, v2di)
+v2di __builtin_ia32_psrlq128 (v2di, v2di)
+v8hi __builtin_ia32_psraw128 (v8hi, v2di)
+v4si __builtin_ia32_psrad128 (v4si, v2di)
+v2di __builtin_ia32_pslldqi128 (v2di, int)
+v8hi __builtin_ia32_psllwi128 (v8hi, int)
+v4si __builtin_ia32_pslldi128 (v4si, int)
+v2di __builtin_ia32_psllqi128 (v2di, int)
+v2di __builtin_ia32_psrldqi128 (v2di, int)
+v8hi __builtin_ia32_psrlwi128 (v8hi, int)
+v4si __builtin_ia32_psrldi128 (v4si, int)
+v2di __builtin_ia32_psrlqi128 (v2di, int)
+v8hi __builtin_ia32_psrawi128 (v8hi, int)
+v4si __builtin_ia32_psradi128 (v4si, int)
+v4si __builtin_ia32_pmaddwd128 (v8hi, v8hi)
+@end smallexample
+
 The following built-in functions are available when @option{-msse3} is used.
 All of them generate the machine instruction that is part of the name.
 
 @smallexample
 v2df __builtin_ia32_addsubpd (v2df, v2df)
-v2df __builtin_ia32_addsubps (v2df, v2df)
+v4sf __builtin_ia32_addsubps (v4sf, v4sf)
 v2df __builtin_ia32_haddpd (v2df, v2df)
-v2df __builtin_ia32_haddps (v2df, v2df)
+v4sf __builtin_ia32_haddps (v4sf, v4sf)
 v2df __builtin_ia32_hsubpd (v2df, v2df)
-v2df __builtin_ia32_hsubps (v2df, v2df)
+v4sf __builtin_ia32_hsubps (v4sf, v4sf)
 v16qi __builtin_ia32_lddqu (char const *)
 void __builtin_ia32_monitor (void *, unsigned int, unsigned int)
 v2df __builtin_ia32_movddup (v2df)
@@ -7009,6 +7202,52 @@ The following built-in functions are available when @option{-msse3} is used.
 @item v2df __builtin_ia32_loadddup (double const *)
 Generates the @code{movddup} machine instruction as a load from memory.
 @end table
+
+The following built-in functions are available when @option{-mssse3} is used.
+All of them generate the machine instruction that is part of the name
+with MMX registers.
+
+@smallexample
+v2si __builtin_ia32_phaddd (v2si, v2si)
+v4hi __builtin_ia32_phaddw (v4hi, v4hi)
+v4hi __builtin_ia32_phaddsw (v4hi, v4hi)
+v2si __builtin_ia32_phsubd (v2si, v2si)
+v4hi __builtin_ia32_phsubw (v4hi, v4hi)
+v4hi __builtin_ia32_phsubsw (v4hi, v4hi)
+v8qi __builtin_ia32_pmaddubsw (v8qi, v8qi)
+v4hi __builtin_ia32_pmulhrsw (v4hi, v4hi)
+v8qi __builtin_ia32_pshufb (v8qi, v8qi)
+v8qi __builtin_ia32_psignb (v8qi, v8qi)
+v2si __builtin_ia32_psignd (v2si, v2si)
+v4hi __builtin_ia32_psignw (v4hi, v4hi)
+long long __builtin_ia32_palignr (long long, long long, int)
+v8qi __builtin_ia32_pabsb (v8qi)
+v2si __builtin_ia32_pabsd (v2si)
+v4hi __builtin_ia32_pabsw (v4hi)
+@end smallexample
+
+The following built-in functions are available when @option{-mssse3} is used.
+All of them generate the machine instruction that is part of the name
+with SSE registers.
+
+@smallexample
+v4si __builtin_ia32_phaddd128 (v4si, v4si)
+v8hi __builtin_ia32_phaddw128 (v8hi, v8hi)
+v8hi __builtin_ia32_phaddsw128 (v8hi, v8hi)
+v4si __builtin_ia32_phsubd128 (v4si, v4si)
+v8hi __builtin_ia32_phsubw128 (v8hi, v8hi)
+v8hi __builtin_ia32_phsubsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pmaddubsw128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmulhrsw128 (v8hi, v8hi)
+v16qi __builtin_ia32_pshufb128 (v16qi, v16qi)
+v16qi __builtin_ia32_psignb128 (v16qi, v16qi)
+v4si __builtin_ia32_psignd128 (v4si, v4si)
+v8hi __builtin_ia32_psignw128 (v8hi, v8hi)
+v2di __builtin_ia32_palignr (v2di, v2di, int)
+v16qi __builtin_ia32_pabsb128 (v16qi)
+v4si __builtin_ia32_pabsd128 (v4si)
+v8hi __builtin_ia32_pabsw128 (v8hi)
+@end smallexample
 
 The following built-in functions are available when @option{-m3dnow} is used.
 All of them generate the machine instruction that is part of the name.

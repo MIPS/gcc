@@ -73,10 +73,6 @@ Wunderflow
 Fortran
 Warn about underflow of numerical constant expressions
 
-Wunused-labels
-Fortran
-Warn when a label is unused
-
 fall-intrinsics
 Fortran RejectNegative
 All intrinsics procedures are available regardless of selected standard
@@ -88,6 +84,14 @@ Do not treat local variables and COMMON blocks as if they were named in SAVE sta
 fbackslash
 Fortran
 Specify that backslash in string introduces an escape character
+
+fexternal-blas
+Fortran
+Specify that an external BLAS library should be used for matmul calls on large-size arrays
+
+fblas-matmul-limit=
+Fortran RejectNegative Joined UInteger
+-fblas-matmul-limit=<n>        Size of the smallest matrix for which matmul will use BLAS
 
 fdefault-double-8
 Fortran
@@ -165,6 +169,10 @@ ffree-line-length-
 Fortran RejectNegative Joined UInteger
 -ffree-line-length-<n>		Use n as character line width in free mode
 
+fmax-errors=
+Fortran RejectNegative Joined UInteger
+-fmax-errors=<n>	Maximum number of errors to report
+
 fmax-identifier-length=
 Fortran RejectNegative Joined UInteger
 -fmax-identifier-length=<n>	Maximum identifier length
@@ -172,14 +180,6 @@ Fortran RejectNegative Joined UInteger
 fmax-stack-var-size=
 Fortran RejectNegative Joined UInteger
 -fmax-stack-var-size=<n>	Size in bytes of the largest array that will be put on the stack
-
-fmodule-private
-Fortran
-Set default accessibility of module entities to PRIVATE
-
-fno-backend
-Fortran RejectNegative
-Don't generate code, just do syntax and semantics checking
 
 frange-check
 Fortran
@@ -196,10 +196,6 @@ Copy array sections into a contiguous block on procedure entry
 fpreprocessed
 Fortran
 Treat the input file as preprocessed
-
-qkind=
-Fortran RejectNegative Joined UInteger
--qkind=<n>	Set the kind for a real with the 'q' exponent to 'n'
 
 ffpe-trap=
 Fortran RejectNegative JoinedOrMissing

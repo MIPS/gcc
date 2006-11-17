@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include <stdarg.h>
 #include <string.h>
 #include <float.h>
+#include <errno.h>
 
 #include "libgfortran.h"
 #include "../io/io.h"
@@ -435,6 +436,10 @@ translate_error (int code)
       p = "Write exceeds length of DIRECT access record";
       break;
 
+    case ERROR_SHORT_RECORD:
+      p = "Short record on unformatted read";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -457,7 +462,7 @@ generate_error (st_parameter_common *cmp, int family, const char *message)
 {
   /* Set the error status.  */
   if ((cmp->flags & IOPARM_HAS_IOSTAT))
-    *cmp->iostat = family;
+    *cmp->iostat = (family == ERROR_OS) ? errno : family;
 
   if (message == NULL)
     message =

@@ -277,6 +277,7 @@ insn_locators_initialize (void)
 	      NOTE_EXPANDED_LOCATION (xloc, insn);
 	      line_number = xloc.line;
 	      file_name = xloc.file;
+	      delete_insn (insn);
 	    }
 	}
       else
@@ -996,7 +997,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	    case NOTE_INSN_BASIC_BLOCK:
 	      break;
 
-	    case NOTE_INSN_REPEATED_LINE_NUMBER:
 	    case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	      emit_note_copy (insn);
 	      break;
