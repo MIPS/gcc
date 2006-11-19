@@ -1,3 +1,7 @@
+2006-11-19  Razya Ladklesky  <razya@il.ibm.com>
+		 
+	* ipa-cp.c: Several cleanups.
+
 2006-11-16  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (rev 118928).

@@ -449,7 +449,8 @@ static void
 constant_val_insert (tree fn, tree parm1, tree val)
 {
   struct function *func;
-  tree init_stmt, use_stmt;
+  tree init_stmt = NULL;
+  tree use_stmt;
   edge e_step;
   edge_iterator ei;
   imm_use_iterator imm_iter;
@@ -460,34 +461,35 @@ constant_val_insert (tree fn, tree parm1, tree val)
   cfun = func;
   current_function_decl = fn;
 
-
   if (in_ssa_p && !TREE_ADDRESSABLE (parm1))
     {
       if (!default_def (parm1))
 	return;
-
       new_ssa = make_ssa_name (parm1, NULL);
-      init_stmt =
-	build2 (MODIFY_EXPR, void_type_node,
-		new_ssa /*default_def (parm1) */ , val);
-      TREE_OPERAND (init_stmt, 0) = new_ssa /*default_def (parm1) */ ;
-      SSA_NAME_DEF_STMT (new_ssa /*default_def (parm1) */ ) = init_stmt;
+      init_stmt = build2 (MODIFY_EXPR, void_type_node, new_ssa, val);
 
       FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, default_def (parm1))
 	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter) 
-          SET_USE (use_p, new_ssa);
+	  SET_USE (use_p, new_ssa);
       set_default_def (parm1, NULL);
+      SSA_NAME_DEF_STMT (new_ssa) = init_stmt;
     }
   else
     init_stmt = build2 (MODIFY_EXPR, void_type_node, parm1, val);
+  mark_new_vars_to_rename (init_stmt);
 
-  func = DECL_STRUCT_FUNCTION (fn);
-  cfun = func;
-  current_function_decl = fn;
-
-  if (ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
+  if (init_stmt)
     FOR_EACH_EDGE (e_step, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (func)->succs)
       bsi_insert_on_edge_immediate (e_step, init_stmt);
+  if (in_ssa_p)
+    {
+      update_ssa (TODO_update_ssa);
+#ifdef ENABLE_CHECKING
+      verify_ssa (true);
+#endif
+    }
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
 }
 
 /* build INTEGER_CST tree with type TREE_TYPE and 
@@ -828,7 +830,7 @@ ipcp_profile_bb_print (FILE * f)
   for (node = cgraph_nodes; node; node = node->next)
     {
       fprintf (f, "method %s: \n", cgraph_node_name (node));
-      if (DECL_SAVED_TREE (node->decl))
+      if (node->analyzed)
 	{
 	  bb =
 	    ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl));
@@ -893,16 +895,8 @@ ipcp_replace_map_create (enum cvalue_type type, tree parm_tree,
 
   replace_map = XCNEW (struct ipa_replace_map);
   gcc_assert (ipcp_type_is_const (type));
-  if (type == CONST_VALUE_REF)
-    {
-      const_val =
-	build_const_val (cvalue, type, TREE_TYPE (TREE_TYPE (parm_tree)));
-      replace_map->old_tree = parm_tree;
-      replace_map->new_tree = const_val;
-      replace_map->replace_p = true;
-      replace_map->ref_p = true;
-    }
-  else if (TREE_READONLY (parm_tree) && !TREE_ADDRESSABLE (parm_tree))
+  if (type != CONST_VALUE_REF && TREE_READONLY (parm_tree)
+      && !TREE_ADDRESSABLE (parm_tree))
     {
       const_val = build_const_val (cvalue, type, TREE_TYPE (parm_tree));
       replace_map->old_tree = parm_tree;
@@ -1088,14 +1082,8 @@ ipcp_insert_stage (void)
 	VEC_quick_push (cgraph_edge_p, redirect_callers, cs);
       /* Redirecting all the callers of the node to the
          new versioned node.  */
-      if ((profile_info
-	   && DECL_STRUCT_FUNCTION (node->decl)->function_frequency !=
-	   FUNCTION_FREQUENCY_HOT))
-	node1 = NULL;
-      else
 	node1 =
 	  cgraph_function_versioning (node, redirect_callers, replace_trees);
-
       VEC_free (cgraph_edge_p, heap, redirect_callers);
       VARRAY_CLEAR (replace_trees);
       if (node1 == NULL)
