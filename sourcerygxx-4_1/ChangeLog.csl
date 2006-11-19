@@ -1,5 +1,12 @@
+2006-11-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Fix spacing typo in
+	jump instruction.
+
 2006-11-18  Joseph Myers  <joseph@codesourcery.com>
 
+	gcc/
 	* config/rs6000/spe.md (movv4hi_internal): Add alternative for
 	easy vector constant loads.
 

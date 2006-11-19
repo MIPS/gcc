@@ -4172,7 +4172,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       fmt = "move.l"
 	" %a0@GOT(" REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME "),"
 	" " REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME "\n"
-	"\tjmp ( "REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME ")";
+	"\tjmp (" REGISTER_PREFIX M68K_STATIC_CHAIN_REG_NAME ")";
     }
   
   output_asm_insn (fmt, xops);
