@@ -16,7 +16,9 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+02110-1301, USA.  
+
+See dbgcnt.def for usage information.  */
 
 #include "config.h"
 #include "system.h"

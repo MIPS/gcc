@@ -627,7 +627,6 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
   /* Recompute the df info for the insns that have changed. */
   delete_insn (inc_insn.insn);
 
-  df_insn_rescan (mem_insn.insn);
   if (dump_file && mov_insn)
     {
       fprintf (dump_file, "inserting mov ");
@@ -640,7 +639,11 @@ attempt_change (rtx new_addr_pat, rtx inc_reg)
     = alloc_EXPR_LIST (REG_INC, inc_reg, REG_NOTES (mem_insn.insn));
 
   if (dump_file)
-    fprintf (dump_file, "****success\n");
+    {
+      fprintf (dump_file, "****success ");
+      dump_insn_slim (dump_file, mem_insn.insn);
+    }
+
   return true;
 }
 
@@ -1063,23 +1066,46 @@ find_inc (bool first_try)
       unsigned int regno = DF_REF_REGNO (def);
       if ((regno == REGNO (inc_insn.reg0)) 
 	  || (regno == REGNO (inc_insn.reg_res)))
-	return false;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "inc conflicts with store failure.\n");
+	  return false;
+	}
       if (!inc_insn.reg1_is_const && (regno == REGNO (inc_insn.reg1)))
-	return false;
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "inc conflicts with store failure.\n");
+	  return false;
+	}
     }
 
   if (dump_file)
     dump_inc_insn (dump_file);
 
-  /* For the post_add to work, the result_reg of the inc must not be
-     used in the mem insn since this will become the new index
-     register.  */
-  if (inc_insn.form == FORM_POST_ADD
-      && count_occurrences (PATTERN (mem_insn.insn), inc_insn.reg_res, 1) != 0)
+  if (inc_insn.form == FORM_POST_ADD)
     {
-      if (dump_file)
-	fprintf (dump_file, "base reg replacement failure.\n");
-      return false;
+      /* Make sure that there is no insn that assigns to inc_insn.res
+	 between the mem_insn and the inc_insn.  */
+      rtx other_insn = get_next_ref (REGNO (inc_insn.reg_res), 
+				     BASIC_BLOCK (BLOCK_NUM (mem_insn.insn)), 
+				     reg_next_def);
+      if (other_insn != inc_insn.insn)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, 
+		     "result of inc is assigned to between mem and inc insns.\n");
+	  return false;
+	}
+
+      /* For the post_add to work, the result_reg of the inc must not be
+	 used in the mem insn since this will become the new index
+	 register.  */
+      if (count_occurrences (PATTERN (mem_insn.insn), inc_insn.reg_res, 1) != 0)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "base reg replacement failure.\n");
+	  return false;
+	}
     }
 
   if (mem_insn.reg1_is_const)
@@ -1440,6 +1466,8 @@ merge_in_block (int max_reg, basic_block bb)
 	      reg_next_use[DF_REF_REGNO (use)] = insn;
 	      if (insn_is_add_or_inc)
 		reg_next_inc_use[DF_REF_REGNO (use)] = insn;
+	      else
+		reg_next_inc_use[DF_REF_REGNO (use)] = NULL;
 	    }  
 	}
       else if (dump_file)

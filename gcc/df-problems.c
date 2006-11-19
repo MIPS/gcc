@@ -253,8 +253,10 @@ struct df_ru_bb_info *
 df_ru_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_ru_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_ru_bb_info *) dflow->block_info[index];
+  else
+    return NULL; 
 }
 
 
@@ -817,8 +819,10 @@ struct df_rd_bb_info *
 df_rd_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_rd_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_rd_bb_info *) dflow->block_info[index];
+  else
+    return NULL;
 }
 
 
@@ -1348,8 +1352,10 @@ struct df_lr_bb_info *
 df_lr_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_lr_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_lr_bb_info *) dflow->block_info[index];
+  else
+    return NULL;
 }
 
 
@@ -1881,8 +1887,10 @@ struct df_ur_bb_info *
 df_ur_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_ur_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_ur_bb_info *) dflow->block_info[index];
+  else
+    return NULL;
 }
 
 
@@ -2205,8 +2213,10 @@ struct df_live_bb_info *
 df_live_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_live_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_live_bb_info *) dflow->block_info[index];
+  else
+    return NULL;
 }
 
 
@@ -2415,8 +2425,10 @@ struct df_urec_bb_info *
 df_urec_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
-  gcc_assert (index < dflow->block_info_size);
-  return (struct df_urec_bb_info *) dflow->block_info[index];
+  if (index < dflow->block_info_size)
+    return (struct df_urec_bb_info *) dflow->block_info[index];
+  else
+    return NULL;
 }
 
 
@@ -3108,6 +3120,49 @@ df_chain_copy (struct dataflow *dflow,
 }
 
 
+/* Remove this problem from the stack of dataflow problems.  */
+
+static void
+df_chain_remove_problem (struct dataflow *dflow)
+{
+  struct df *df = dflow->df; 
+
+  /* Wholesale destruction of the old chains.  */ 
+  if (dflow->block_pool)
+    free_alloc_pool (dflow->block_pool);
+
+  if (df->permanent_flags & DF_DU_CHAIN)
+    {
+      unsigned int i;
+
+      df_maybe_reorganize_def_refs (df);
+      /* Clear out the pointers from the refs.  */
+      for (i = 0; i < DF_DEFS_SIZE (df); i++)
+	{
+	  struct df_ref *ref = DF_DEFS_GET(df, i);
+	  if (ref)
+	    DF_REF_CHAIN (ref) = NULL;
+	}
+    }
+  
+  if (df->permanent_flags & DF_UD_CHAIN)
+    {
+      unsigned int i;
+
+      df_maybe_reorganize_use_refs (df);
+      /* Clear out the pointers from the refs.  */
+      for (i = 0; i < DF_USES_SIZE (df); i++)
+	{
+	  struct df_ref *ref = DF_USES_GET (df, i);
+	  if (ref)
+	    DF_REF_CHAIN (ref) = NULL;
+	}
+    }
+
+  dflow->block_pool = NULL;
+}
+
+
 /* Create def-use or use-def chains.  */
 
 static void  
@@ -3116,147 +3171,18 @@ df_chain_alloc (struct dataflow *dflow,
 		bitmap all_blocks ATTRIBUTE_UNUSED)
 
 {
-  struct df *df = dflow->df;
-  unsigned int i;
-
-  /* Wholesale destruction of the old chains.  */ 
-  if (dflow->block_pool)
-    free_alloc_pool (dflow->block_pool);
-
+  df_chain_remove_problem (dflow);
   dflow->block_pool = create_alloc_pool ("df_chain_chain_block pool", 
 					 sizeof (struct df_link), 100);
-
-  if (df->permanent_flags & DF_DU_CHAIN)
-    {
-      df_maybe_reorganize_def_refs (df);
-      /* Clear out the pointers from the refs.  */
-      for (i = 0; i < DF_DEFS_SIZE (df); i++)
-	{
-	  struct df_ref *ref = DF_DEFS_GET(df, i);
-	  DF_REF_CHAIN (ref) = NULL;
-	}
-    }
-  
-  if (df->permanent_flags & DF_UD_CHAIN)
-    {
-      df_maybe_reorganize_use_refs (df);
-      /* Clear out the pointers from the refs.  */
-      for (i = 0; i < DF_USES_SIZE (df); i++)
-	{
-	  struct df_ref *ref = DF_USES_GET (df, i);
-	  DF_REF_CHAIN (ref) = NULL;
-	}
-    }
-}
-
-
-/* Reset all def_use and use_def chains in INSN.  */
-
-static void 
-df_chain_insn_reset (struct dataflow *dflow, rtx insn)
-{
-  struct df *df = dflow->df;
-  unsigned int uid = INSN_UID (insn);
-  struct df_insn_info *insn_info = NULL;
-  struct df_ref *ref;
-
-  if (uid < DF_INSN_SIZE (df))
-    insn_info = DF_INSN_UID_GET (df, uid);
-
-  if (insn_info)
-    {
-      if (df->permanent_flags & DF_DU_CHAIN)
-	{
-	  ref = insn_info->defs;
-	  while (ref)
-	    {
-	      ref->chain = NULL;
-	      ref = ref->next_ref;
-	    }
-	}
-
-      if (df->permanent_flags & DF_UD_CHAIN)
-	{
-	  ref = insn_info->uses;
-	  while (ref) 
-	    {
-	      ref->chain = NULL;
-	      ref = ref->next_ref;
-	    }
-	  ref = insn_info->eq_uses;
-	  while (ref) 
-	    {
-	      ref->chain = NULL;
-	      ref = ref->next_ref;
-	    }
-	}
-    }
-}
-
-
-/* Reset all def_use and use_def chains in basic block.  */
-
-static void 
-df_chain_bb_reset (struct dataflow *dflow, unsigned int bb_index)
-{
-  struct df *df = dflow->df; 
-  rtx insn;
-  basic_block bb = BASIC_BLOCK (bb_index);
-
-  /* Some one deleted the basic block out from under us.  */
-  if (!bb)
-    return;
-
-  FOR_BB_INSNS (bb, insn)
-    {
-      if (INSN_P (insn))
-	{
-	  /* Record defs within INSN.  */
-	  df_chain_insn_reset (dflow, insn);
-	}
-    }
-  
-  /* Get rid of any chains in artificial uses or defs.  */
-  if (df->permanent_flags & DF_DU_CHAIN)
-    {
-      struct df_ref *def;
-      def = df_get_artificial_defs (df, bb_index);
-      while (def)
-	{
-	  def->chain = NULL;
-	  def = def->next_ref;
-	}
-    }
-
-  if (df->permanent_flags & DF_UD_CHAIN)
-    {
-      struct df_ref *use;
-      use = df_get_artificial_uses (df, bb_index);
-      while (use)
-	{
-	  use->chain = NULL;
-	  use = use->next_ref;
-	}
-    }
 }
 
 
 /* Reset all of the chains when the set of basic blocks changes.  */
 
-
 static void
-df_chain_reset (struct dataflow *dflow, bitmap blocks_to_clear)
+df_chain_reset (struct dataflow *dflow, bitmap blocks_to_clear ATTRIBUTE_UNUSED)
 {
-  bitmap_iterator bi;
-  unsigned int bb_index;
-  
-  EXECUTE_IF_SET_IN_BITMAP (blocks_to_clear, 0, bb_index, bi)
-    {
-      df_chain_bb_reset (dflow, bb_index);
-    }
-
-  free_alloc_pool (dflow->block_pool);
-  dflow->block_pool = NULL;
+  df_chain_remove_problem (dflow);
 }
 
 
@@ -3415,23 +3341,6 @@ df_chain_finalize (struct dataflow *dflow, bitmap all_blocks)
     {
       df_chain_create_bb (dflow, rd_dflow, bb_index);
     }
-}
-
-
-/* Remove this problem from the stack of dataflow problems.  */
-
-static void
-df_chain_remove_problem (struct dataflow *dflow)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    {
-      df_chain_bb_reset (dflow, bb->index);
-    }
-
-  free_alloc_pool (dflow->block_pool);
-  dflow->block_pool = NULL;
 }
 
 

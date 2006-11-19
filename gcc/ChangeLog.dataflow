@@ -1,3 +1,47 @@
+2006-11-18  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (print_current_pass, debug_pass): New functions.
+	* passes.c (print_current_pass, debug_pass): New functions.
+	(exec_todo): Changed call to df_verify_blocks.
+	(current_pass): New variable.
+	* auto-inc-dec.c (attempt_change): Removed redundant call to
+	df_insn_rescan and added debugging.
+	(find_inc): Added debugging and fixed post-inc/dec bug.
+	(merge_in_block): Fixed post-inc/dec bug.
+	* dbgcnt.c: Fixed comments.
+	* dbgcnt.c: Fixed comments.
+	* loop-init.c (rtl_unroll_and_peel_loops): Added debugging.
+	* loop-invariant.c (find_defs): Added debugging.
+	* loop-iv.c (iv_analysis_loop_init): Added debugging.
+	* df-scan.c (df_ref): Added parameter to control the deletion of
+	chains.
+	(df_reg_chain_unlink): Take care not to delete non existent refs.
+	(df_ref_remove): Changed call to df_reg_chain_unlink.
+	(df_ref_chain_delete_du_chain, df_ref_chain_delete,
+	df_mw_hardreg_chain_delete): New function
+	(df_insn_delete): Now calls df_ref_chain_delete_du_chain,
+	df_ref_chain_delete, df_mw_hardreg_chain_delete.
+	(df_bb_delete): Now calls df_ref_chain_delete_du_chain,
+	df_ref_chain_delete.
+	(df_insn_rescan): Now supports DF_NO_INSN_RESCAN and added
+	debugging.
+	(df_ref_verify): Added code to ignore refs from notes in the table
+	of refs.
+	(df_bb_verify, df_exit_block_bitmap_verify,
+	df_entry_block_bitmap_verify, df_verify_blocks): Made it possible
+	to abort closer to source of problem.
+	(df_verify_blocks): Removed dflow parameter.  * df-core.c
+	(df_insn_uid_debug, df_ref_debug): Fixed debugging.  *
+	df-problems.c (df_ru_bb_info, df_rd_bb_info, df_lr_bb_info,
+	df_ur_bb_info, df_live_bb_info, df_urec_bb_info): Made tolerant of
+	newly added basic blocks.
+	(df_chain_alloc): Tolerant of missing refs in structure.
+	(df_chain_insn_reset, df_chain_bb_reset, df_chain_remove_problem):
+	Deleted function.
+	(df_chain_alloc): New function.
+	(df_chain_reset): Now just calls df_chain_remove_problem.
+	* df.h: (DF_NO_REGS_EVER_LIVE): New flag.	
+	
 2006-11-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* fwprop.c Removed bad version.
@@ -110,6 +154,7 @@
 	cfg_layout_merge_blocks): Added debugging.
 	* dbgcnt.c, dbgcnt.h: New files
 	* dce.c (delete_unmarked_insns): Use dbg_cnt. 
+	(delete_insn_p): Do not delete unspecs.
 
 2006-11-10  Seongbae Park <seongbae.park@gmail.com>
 

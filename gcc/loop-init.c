@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "df.h"
 
 
 /* Initialize loop structures.  This is used by the tree and RTL loop
@@ -322,6 +323,8 @@ rtl_unroll_and_peel_loops (void)
   if (current_loops)
     {
       int flags = 0;
+      if (dump_file && df_current_instance)
+	df_dump (df_current_instance, dump_file);
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;

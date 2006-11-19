@@ -1514,7 +1514,7 @@ df_insn_uid_debug (struct df *df, unsigned int uid,
 
   if (DF_INSN_UID_EQ_USES (df, uid))
     {
-      fprintf (file, " uses ");
+      fprintf (file, " eq uses ");
       df_refs_chain_dump (DF_INSN_UID_EQ_USES (df, uid), follow_chain, file);
     }
 
@@ -1580,11 +1580,12 @@ df_ref_debug (struct df_ref *ref, FILE *file)
   fprintf (file, "%c%d ",
 	   DF_REF_REG_DEF_P (ref) ? 'd' : 'u',
 	   DF_REF_ID (ref));
-  fprintf (file, "reg %d bb %d insn %d flag %x chain ",
+  fprintf (file, "reg %d bb %d insn %d flag %x chain %x type ",
 	   DF_REF_REGNO (ref),
 	   DF_REF_BBNO (ref),
 	   DF_REF_INSN (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1,
-	   DF_REF_FLAGS (ref));
+	   DF_REF_FLAGS (ref),
+	   DF_REF_TYPE (ref));
   df_chain_dump (DF_REF_CHAIN (ref), file);
   fprintf (file, "\n");
 }

@@ -286,7 +286,7 @@ struct df_ref
   rtx insn;
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
-  unsigned int id;		/* Location in table.  */
+  int id;	          	/* Location in table.  */
   enum df_ref_type type;	/* Type of ref.  */
   enum df_ref_flags flags;	/* Various flags.  */
 
@@ -325,11 +325,15 @@ enum df_changeable_flags
 {
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
-  DF_LR_RUN_DCE    = 1,  /* Run DCE.  */
-  DF_NO_HARD_REGS  = 2,  /* Skip hard registers in RD and CHAIN Building.  */
-  DF_EQ_NOTES      = 4,  /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_RI_NO_UPDATE  = 8,  /* Do not update the register info when df_analyze is run.  */
-  DF_NO_REGS_EVER_LIVE = 16 /* Do not compute the regs_ever_live.  */
+  DF_LR_RUN_DCE           =  1, /* Run DCE.  */
+  DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
+  DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_RI_NO_UPDATE         =  8, /* Do not update the register info when df_analyze is run.  */
+  DF_NO_REGS_EVER_LIVE    = 16, /* Do not compute the regs_ever_live.  */
+
+  /* Cause df_insn_rescan to return immediately.  This is used by
+   passes that know how to update the scanning them selves.  */
+  DF_NO_INSN_RESCAN       = 32  
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -766,7 +770,7 @@ extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,en
 extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
 extern struct df_ref *df_get_artificial_uses (struct df *, unsigned int);
 extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
-extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *);
+extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *, bool);
 extern void df_ref_remove (struct df *, struct df_ref *);
 extern void df_insn_create_insn_record (struct dataflow *, rtx);
 extern void df_insn_delete (rtx);
@@ -781,7 +785,7 @@ extern void df_maybe_reorganize_use_refs (struct df *);
 extern void df_maybe_reorganize_def_refs (struct df *);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
-extern bool df_verify_blocks (struct dataflow *, bitmap);
+extern bool df_verify_blocks (bitmap);
 extern void df_compute_regs_ever_live (struct df *, char [FIRST_PSEUDO_REGISTER]);
 
 /* web */

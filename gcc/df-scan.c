@@ -50,6 +50,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "target-def.h"
 #include "df.h"
+#include "tree-pass.h"
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -713,10 +714,13 @@ df_ref_unlink (struct df_ref *chain, struct df_ref *ref)
 
 /* Unlink and delete REF at the reg_use or reg_def chain.  Also delete
    the def-use or use-def chain if it exists.  Returns the next ref in
-   uses or defs chain.  */
+   uses or defs chain. 
+   Delete the du-chain - DF_REF_CHAIN() - only if DELETE_CHAIN is true. */
 
 struct df_ref *
-df_reg_chain_unlink (struct dataflow *dflow, struct df_ref *ref) 
+df_reg_chain_unlink (struct dataflow *dflow, 
+                     struct df_ref *ref, 
+                     bool delete_chain) 
 {
   struct df *df = dflow->df;
   struct df_ref *next = DF_REF_NEXT_REG (ref);  
@@ -736,15 +740,23 @@ df_reg_chain_unlink (struct dataflow *dflow, struct df_ref *ref)
   else 
     {
       if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
-	reg_info = DF_REG_EQ_USE_GET (df, DF_REF_REGNO (ref));
+	{
+	  reg_info = DF_REG_EQ_USE_GET (df, DF_REF_REGNO (ref));
+	  if (df->use_info.refs 
+	      && (id < df->use_info.refs_size)
+	      && (df->changeable_flags & DF_EQ_NOTES))
+	    DF_USES_SET (df, id, NULL);
+	}
       else
-	reg_info = DF_REG_USE_GET (df, DF_REF_REGNO (ref));
-      if (df->use_info.refs && (id < df->use_info.refs_size))
-	DF_USES_SET (df, id, NULL);
+	{
+	  reg_info = DF_REG_USE_GET (df, DF_REF_REGNO (ref));
+	  if (df->use_info.refs && (id < df->use_info.refs_size))
+	    DF_USES_SET (df, id, NULL);
+	}
     }
   
   /* Delete any def-use or use-def chains that start here.  */
-  if (DF_REF_CHAIN (ref))
+  if (delete_chain && DF_REF_CHAIN (ref))
     df_chain_unlink (df->problems_by_index[DF_CHAIN], ref, NULL);
 
   reg_info->n_refs--;
@@ -811,7 +823,7 @@ df_ref_remove (struct df *df, struct df_ref *ref)
 	DF_USES_SET (df, DF_REF_ID (ref), NULL);
     }
 
-  df_reg_chain_unlink (dflow, ref);
+  df_reg_chain_unlink (dflow, ref, true);
 }
 
 
@@ -836,55 +848,87 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
 }
 
 
+/* Delete all du chain (DF_REF_CHAIN()) of all refs in the ref chain.  */
+
+static void
+df_ref_chain_delete_du_chain (struct df *df, struct df_ref *ref)
+{
+  for (; ref; ref = DF_REF_NEXT_REF (ref)) 
+    {
+      /* CHAIN is allocated by DF_CHAIN. So make sure to 
+         pass dflow instance for the problem.  */
+      if (DF_REF_CHAIN (ref))
+        df_chain_unlink (df->problems_by_index[DF_CHAIN], ref, NULL);
+    }
+}
+
+
+/* Delete all refs in the ref chain.  */
+
+static void
+df_ref_chain_delete (struct dataflow *dflow, struct df_ref *ref)
+{
+  while (ref)
+    ref = df_reg_chain_unlink (dflow, ref, false);
+}
+
+
+/* Delete the hardreg chain.  */
+
+static void
+df_mw_hardreg_chain_delete (struct dataflow *dflow, 
+                            struct df_mw_hardreg *hardregs)
+{
+  struct df_scan_problem_data *problem_data;
+
+  problem_data = (struct df_scan_problem_data *) dflow->problem_data;
+
+  while (hardregs)
+    {
+      struct df_mw_hardreg *next_hr = hardregs->next;
+      struct df_link *link = hardregs->regs;
+      while (link)
+        {
+          struct df_link *next_l = link->next;
+          pool_free (problem_data->mw_link_pool, link);
+          link = next_l;
+        }
+      
+      pool_free (problem_data->mw_reg_pool, hardregs);
+      hardregs = next_hr;
+    }
+}
+
+
 /* Delete all of the refs information from INSN.  */
 
 void 
 df_insn_delete (rtx insn)
 {
   struct df *df = df_current_instance;
-  struct dataflow *dflow;
   unsigned int uid = INSN_UID (insn);
   struct df_insn_info *insn_info = NULL;
-  struct df_ref *ref;
-  struct df_scan_problem_data *problem_data;
 
   if (!df)
     return;
 
-  dflow = df->problems_by_index[DF_SCAN];
-  problem_data = (struct df_scan_problem_data *) dflow->problem_data;
-
   insn_info = DF_INSN_UID_SAFE_GET (df, uid);
   if (insn_info)
     {
-      struct df_mw_hardreg *hardregs = insn_info->mw_hardregs;
-      
-      while (hardregs)
-	{
-	  struct df_mw_hardreg *next_hr = hardregs->next;
-	  struct df_link *link = hardregs->regs;
-	  while (link)
-	    {
-	      struct df_link *next_l = link->next;
-	      pool_free (problem_data->mw_link_pool, link);
-	      link = next_l;
-	    }
-	  
-	  pool_free (problem_data->mw_reg_pool, hardregs);
-	  hardregs = next_hr;
-	}
+      struct dataflow *dflow = df->problems_by_index[DF_SCAN];
+      struct df_scan_problem_data *problem_data;
 
-      ref = insn_info->defs;
-      while (ref) 
-	ref = df_reg_chain_unlink (dflow, ref);
-      
-      ref = insn_info->uses;
-      while (ref) 
-	ref = df_reg_chain_unlink (dflow, ref);
+      problem_data = (struct df_scan_problem_data *) dflow->problem_data;
 
-      ref = insn_info->eq_uses;
-      while (ref) 
-	ref = df_reg_chain_unlink (dflow, ref);
+      df_mw_hardreg_chain_delete (dflow, insn_info->mw_hardregs);
+
+      df_ref_chain_delete_du_chain (df, insn_info->defs);
+      df_ref_chain_delete_du_chain (df, insn_info->uses);
+      df_ref_chain_delete_du_chain (df, insn_info->eq_uses);
+
+      df_ref_chain_delete (dflow, insn_info->defs);
+      df_ref_chain_delete (dflow, insn_info->uses);
+      df_ref_chain_delete (dflow, insn_info->eq_uses);
 
       pool_free (problem_data->insn_pool, insn_info);
       DF_INSN_SET (df, insn, NULL);
@@ -897,8 +941,6 @@ df_insn_delete (rtx insn)
 void
 df_bb_delete (unsigned int bb_index)
 {
-  struct df_ref *def;
-  struct df_ref *use;
   struct df *df = df_current_instance;
   struct dataflow *dflow;
   struct df_scan_bb_info *bb_info = NULL; 
@@ -925,13 +967,11 @@ df_bb_delete (unsigned int bb_index)
   /* Get rid of any artificial uses or defs.  */
   if (bb_info)
     {
-      def = bb_info->artificial_defs;
-      while (def)
-	def = df_reg_chain_unlink (dflow, def);
+      df_ref_chain_delete_du_chain (df, bb_info->artificial_defs);
+      df_ref_chain_delete_du_chain (df, bb_info->artificial_uses);
+      df_ref_chain_delete (dflow, bb_info->artificial_defs);
+      df_ref_chain_delete (dflow, bb_info->artificial_uses);
       bb_info->artificial_defs = NULL;
-      use = bb_info->artificial_uses;
-      while (use)
-	use = df_reg_chain_unlink (dflow, use);
       bb_info->artificial_uses = NULL;
     }
 }
@@ -955,6 +995,10 @@ df_insn_rescan (rtx insn)
   if (!INSN_P (insn))
     return false;
 
+  /* The client has disabled rescanning and plans to do it itself.  */
+  if (df->changeable_flags & DF_NO_INSN_RESCAN)
+    return false;
+
   dflow = df->problems_by_index[DF_SCAN];
   df_grow_bb_info (dflow);
   df_grow_reg_info (dflow);
@@ -971,6 +1015,8 @@ df_insn_rescan (rtx insn)
 	    fprintf (dump_file, "verify found no changes in insn with uid = %d.\n", uid);
 	  return false;
 	}
+      if (dump_file)
+	fprintf (dump_file, "rescanning insn with uid = %d.\n", uid);
 
       /* There's change - we need to delete the existing info. */
       df_insn_delete (insn);
@@ -980,6 +1026,8 @@ df_insn_rescan (rtx insn)
     {
       df_insn_create_insn_record (dflow, insn);
       df_insn_refs_verify (dflow, NULL, bb, insn, &refs, false);
+      if (dump_file)
+	fprintf (dump_file, "scanning new insn with uid = %d.\n", uid);
     }
 
   df_insn_refs_record (dflow, insn, refs); 
@@ -1431,6 +1479,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
     = (struct df_scan_problem_data *) dflow->problem_data;
 
   this_ref = pool_alloc (problem_data->ref_pool);
+  DF_REF_ID (this_ref) = -1;
   DF_REF_REG (this_ref) = reg;
   DF_REF_REGNO (this_ref) =  regno;
   DF_REF_LOC (this_ref) = loc;
@@ -2573,7 +2622,7 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
 
 #if 0
   /* For verifier self-test. If this fails, seomthing is seriously wrong. */
-  gcc_assert (df_verify_blocks (dflow, blocks) == true); 
+  gcc_assert (df_verify_blocks (blocks) == true); 
 #endif
 }
 
@@ -2811,10 +2860,10 @@ df_compute_regs_ever_live (struct df *df,
   df_ref_chain_free (refs)
   df_insn_refs_verify (dflow, reg_chains, bb, insn, refs, bool)
   df_bb_refs_verify (dflow, reg_chains, bb, refs, bool)
-  df_bb_verify (dflow, bb, bool)
-  df_exit_block_verify (dflow)
-  df_entry_block_verify (dflow)
-  df_verify_blocks (dflow, blocks)
+  df_bb_verify (dflow, bb, reg_chains, bool)
+  df_exit_block_bitmap_verify (dflow, bool)
+  df_entry_block_bitmap_verify (dflow, bool)
+  df_verify_blocks (blocks)
 ----------------------------------------------------------------------------*/
 
 
@@ -2889,7 +2938,7 @@ df_ref_verify (struct dataflow *dflow,
   struct df_ref **ref_chain = chains.ref_chain;
   struct df_reg_info *reg_info = chains.reg_info;
   struct df_ref_info *ref_info = chains.ref_info;
-
+  struct df *df = dflow->df;
   struct df_ref *old_ref;
 
   /* Verify the ref chain.  */
@@ -2902,7 +2951,7 @@ df_ref_verify (struct dataflow *dflow,
 	return NULL;
     }
 
-  /* collected ref chain may contain duplicate entries,
+  /* Collected ref chain may contain duplicate entries,
      in which case the reference is already verified. */
   if (DF_REF_IS_MARKED (old_ref))
     return old_ref;
@@ -2943,8 +2992,13 @@ df_ref_verify (struct dataflow *dflow,
   DF_REF_MARK (old_ref);
 
   /* Verify ref_info->refs array.  */
-  if (ref_info->add_refs_inline
-      && (DF_REF_ID (old_ref) >= ref_info->refs_size
+  if ((ref_info->add_refs_inline)
+      /* Need to ignore refs from notes if we are not currently
+	 looking at refs from notes.  */
+      && (!(DF_REF_FLAGS_IS_SET (this_ref, DF_REF_IN_NOTE)
+	    && (!(df->changeable_flags & DF_EQ_NOTES))))
+      /* So it is one we care about, now see if it is ok.  */
+      && (DF_REF_ID (old_ref) >= (int)ref_info->refs_size
           || ref_info->refs[DF_REF_ID (old_ref)] != old_ref))
     {
       if (abort_if_fail)
@@ -3020,7 +3074,8 @@ df_insn_refs_verify (struct dataflow *dflow,
         }
       else 
         {
-          struct df_ref *oref = df_ref_verify (dflow, reg_chains, ref, hardreg, abort_if_fail);
+          struct df_ref *oref 
+	    = df_ref_verify (dflow, reg_chains, ref, hardreg, abort_if_fail);
           if (oref == NULL)
 	    {
 	      *refs_return = refs;
@@ -3107,10 +3162,11 @@ df_bb_verify (struct dataflow *dflow,
 }
 
 
-/* Returns true if the exit block has correct and complete df_ref.  */
+/* Returns true if the exit block has correct and complete df_ref set.  
+   If not it either aborts if ABORT_IF_FAIL is true or returns false. */
 
 static bool
-df_exit_block_bitmap_verify (struct dataflow *dflow)
+df_exit_block_bitmap_verify (struct dataflow *dflow, bool abort_if_fail)
 {
   struct df *df = dflow->df;
   bitmap exit_block_uses = BITMAP_ALLOC (NULL);
@@ -3119,19 +3175,28 @@ df_exit_block_bitmap_verify (struct dataflow *dflow)
   df_get_exit_block_use_set (exit_block_uses);
 
   is_eq = bitmap_equal_p (exit_block_uses, df->exit_block_uses);
+
+  if (!is_eq && abort_if_fail)
+    {
+      print_current_pass (stderr);
+      fprintf (stderr, "exit_block_uses = ");
+      df_print_regset (stderr, exit_block_uses);
+      fprintf (stderr, "df->exit_block_uses = ");
+      df_print_regset (stderr, df->exit_block_uses);
+      gcc_assert (0);
+    }
+
   BITMAP_FREE (exit_block_uses);
 
-  if (!is_eq)
-    return false;
-
-  return true;
+  return is_eq;
 }
 
 
-/* Returns true if the entry block has correct and complete df_ref.  */
+/* Returns true if the entry block has correct and complete df_ref set.  
+   If not it either aborts if ABORT_IF_FAIL is true or returns false.  */
 
 static bool
-df_entry_block_bitmap_verify (struct dataflow *dflow)
+df_entry_block_bitmap_verify (struct dataflow *dflow, bool abort_if_fail)
 {
   struct df *df = dflow->df;
   bitmap entry_block_defs = BITMAP_ALLOC (NULL);
@@ -3140,12 +3205,20 @@ df_entry_block_bitmap_verify (struct dataflow *dflow)
   df_get_entry_block_def_set (entry_block_defs);
 
   is_eq = bitmap_equal_p (entry_block_defs, df->entry_block_defs);
+
+  if (!is_eq && abort_if_fail)
+    {
+      print_current_pass (stderr);
+      fprintf (stderr, "entry_block_defs = ");
+      df_print_regset (stderr, entry_block_defs);
+      fprintf (stderr, "df->entry_block_defs = ");
+      df_print_regset (stderr, df->entry_block_defs);
+      gcc_assert (0);
+    }
+
   BITMAP_FREE (entry_block_defs);
 
-  if (!is_eq)
-    return false;
-
-  return true;
+  return is_eq;
 }
 
 
@@ -3154,15 +3227,24 @@ df_entry_block_bitmap_verify (struct dataflow *dflow)
    checked.  */
 
 bool
-df_verify_blocks (struct dataflow *dflow, bitmap blocks)
+df_verify_blocks (bitmap blocks)
 {
+  struct df *df = df_current_instance;
+  struct dataflow *dflow;
   unsigned int i;
   unsigned int bb_index;
-  struct df *df = dflow->df;
-  bitmap regular_block_artificial_uses = BITMAP_ALLOC (NULL);
-  bitmap eh_block_artificial_uses = BITMAP_ALLOC (NULL);
+  bitmap regular_block_artificial_uses;
+  bitmap eh_block_artificial_uses;
   bool is_eq;
   struct df_reg_chains reg_chains;
+
+  if (!df)
+    return true;
+
+  dflow = df->problems_by_index[DF_SCAN];
+ 
+  regular_block_artificial_uses = BITMAP_ALLOC (NULL);
+  eh_block_artificial_uses = BITMAP_ALLOC (NULL);
 
   df_get_regular_block_artificial_uses (regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (eh_block_artificial_uses);
@@ -3180,12 +3262,11 @@ df_verify_blocks (struct dataflow *dflow, bitmap blocks)
 
   /* Verify entry block. */
   if (!blocks || bitmap_bit_p (blocks, ENTRY_BLOCK))
-    gcc_assert (df_entry_block_bitmap_verify (dflow));
+    df_entry_block_bitmap_verify (dflow, true);
 
   /* Verify exit block. */
   if (!blocks || bitmap_bit_p (blocks, EXIT_BLOCK))
-    gcc_assert (df_exit_block_bitmap_verify (dflow));
-
+    df_exit_block_bitmap_verify (dflow, true);
 
   /* regchain cache. 
      This cache combined with reverse visit of reg chain
@@ -3272,6 +3353,5 @@ df_verify_blocks (struct dataflow *dflow, bitmap blocks)
       ref = DF_REG_EQ_USE_CHAIN (df, i);
       gcc_assert (df_reg_chain_unmark (ref, blocks));
     }
-
   return true;
 }

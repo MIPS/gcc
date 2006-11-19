@@ -641,6 +641,8 @@ find_defs (struct loop *loop, basic_block *body)
   df_set_blocks (df, blocks);
   df_analyze (df);
 
+  if (dump_file)
+    df_dump (df, dump_file);
   check_invariant_table_size ();
 
   BITMAP_FREE (blocks);

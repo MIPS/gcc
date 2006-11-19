@@ -421,5 +421,7 @@ extern struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
 
 extern void execute_pass_list (struct tree_opt_pass *);
 extern void execute_ipa_pass_list (struct tree_opt_pass *);
+extern void print_current_pass (FILE *);
+extern void debug_pass (void);
 
 #endif /* GCC_TREE_PASS_H */

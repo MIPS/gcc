@@ -101,6 +101,33 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+/* This is used for debugging.  It allows the current pass to printed
+   from anywhere in compilation.  */
+struct tree_opt_pass *current_pass;
+
+/* Call from anywhere to find out what pass this is.  Useful for
+   printing out debugging information deep inside an service
+   routine.  */
+void
+print_current_pass (FILE *file)
+{
+  if (current_pass)
+    fprintf (file, "current pass = %s (%d)\n", 
+	     current_pass->name, current_pass->static_pass_number);
+  else
+    fprintf (file, "no current pass.\n");
+}
+
+
+/* Call from the debugger to get the current pass name.  */
+void
+debug_pass (void)
+{
+  print_current_pass (stderr);
+} 
+
+
+
 /* Global variables used to communicate with passes.  */
 int dump_flags;
 bool in_gimple_form;
@@ -667,7 +694,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_see);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
-  /* NEXT_PASS (pass_web); */
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
   NEXT_PASS (pass_postreload);
@@ -825,7 +851,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
   if (flags & TODO_df_verify_scan)
-    df_verify_blocks (df_current_instance->problems_by_index[DF_SCAN], NULL);
+    df_verify_blocks (NULL);
 #endif
 
   /* Now that the dumping has been done, we can get rid of the df instance.  */
@@ -841,6 +867,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   bool initializing_dump;
   unsigned int todo_after = 0;
 
+  current_pass = pass;
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
     return false;
@@ -929,6 +956,8 @@ execute_one_pass (struct tree_opt_pass *pass)
 
   if (pass->properties_destroyed & PROP_smt_usage)
     updating_used_alone = false;
+
+  current_pass = NULL;
 
   return true;
 }
