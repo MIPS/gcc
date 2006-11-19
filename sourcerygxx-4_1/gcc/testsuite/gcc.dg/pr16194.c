@@ -18,6 +18,8 @@
 # define REG "6"
 #elif defined (__x86_64__)
 # define REG "rax"
+#elif defined (__m68k__)
+# define REG "%d0"
 #else
   /* Make this test harmless for any target not recognized above.  */
 # undef ASMDECL
