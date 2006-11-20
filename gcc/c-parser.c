@@ -1534,8 +1534,6 @@ c_parser_asm_definition (c_parser *parser)
      _Decimal128
      _Fract
      _Accum
-
-   type-qualifier:
      _Sat
 
   (_Fract, _Accum, and _Sat are new from ISO/IEC DTR 18037:
@@ -1644,6 +1642,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_BOOL:
 	case RID_FRACT:
 	case RID_ACCUM:
+	case RID_SAT:
 	  if (!typespec_ok)
 	    goto out;
 	  attrs_ok = true;
@@ -1685,7 +1684,6 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_CONST:
 	case RID_VOLATILE:
 	case RID_RESTRICT:
-	case RID_SAT:
 	  attrs_ok = true;
 	  declspecs_add_qual (specs, c_parser_peek_token (parser)->value);
 	  c_parser_consume_token (parser);

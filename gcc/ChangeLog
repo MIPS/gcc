@@ -1,3 +1,21 @@
+2006-11-20  Chao-ying Fu  <fu@mips.com>
+
+	* Makefile.in (tree-pretty-print.o): Add dependence from fixed_value.h.
+	* tree-pretty-print.c (fixed_value.h): New include.
+	(dump_generic_node): Handle FIXED_POINT_TYPE and FIXED_CST.
+	* c-decl.c (declspecs_add_qual): Remove the case of RID_SAT.
+	(declspecs_add_type): Handle RID_SAT and warn when -pedantic.
+	Give errors when _Sat is used with non fixed-point types.
+	* fixed_value.h (fixed_to_decimal): Declare.
+	* fixed_value.c (fixed_to_decimal): New function.
+	* c-common.h (enum rid): Move RID_SAT right after RID_THREAD and before
+	RID_ONEWAY, such that it is checked in declspecs_add_type.
+	* c-common.c (c_common_nodes_and_builtins): Record builtin types for
+	fixed-point types.
+	* c-parser.c (c_parser_declspecs): Change comments such that _Sat
+	belongs to type-specifier.
+	(c_parser_declspecs): Move RID_SAT after RID_ACCUM.
+
 2006-11-16  Chao-ying Fu  <fu@mips.com>
 
 	* gengtype.c (main): Handle FIXED_VALUE_TYPE type as scalar typedef.

@@ -7102,10 +7102,6 @@ declspecs_add_qual (struct c_declspecs *specs, tree qual)
       dupe = specs->restrict_p;
       specs->restrict_p = true;
       break;
-    case RID_SAT:
-      dupe = specs->saturating_p;
-      specs->saturating_p = true;
-      break;
     default:
       gcc_unreachable ();
     }
@@ -7307,6 +7303,40 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else
 		specs->complex_p = true;
 	      break;
+	    case RID_SAT:
+	      dupe = specs->saturating_p;
+	      if (pedantic)
+		pedwarn ("ISO C does not support saturating types");
+	      if (specs->typespec_word == cts_void)
+		error ("both %<_Sat%> and %<void%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_bool)
+		error ("both %<_Sat%> and %<_Bool%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_char)
+		error ("both %<_Sat%> and %<char%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_int)
+		error ("both %<_Sat%> and %<int%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_float)
+		error ("both %<_Sat%> and %<float%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_double)
+		error ("both %<_Sat%> and %<double%> in "
+		       "declaration specifiers");
+              else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<_Sat%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<_Sat%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<_Sat%> and %<_Decimal128%> in "
+		       "declaration specifiers");
+	      else
+		specs->saturating_p = true;
+	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -7342,6 +7372,9 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->complex_p)
 		error ("both %<complex%> and %<void%> in "
 		       "declaration specifiers");
+	      else if (specs->saturating_p)
+		error ("both %<_Sat%> and %<void%> in "
+		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_void;
 	      return specs;
@@ -7361,6 +7394,9 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->complex_p)
 		error ("both %<complex%> and %<_Bool%> in "
 		       "declaration specifiers");
+	      else if (specs->saturating_p)
+		error ("both %<_Sat%> and %<_Bool%> in "
+		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_bool;
 	      return specs;
@@ -7371,11 +7407,18 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->short_p)
 		error ("both %<short%> and %<char%> in "
 		       "declaration specifiers");
+	      else if (specs->saturating_p)
+		error ("both %<_Sat%> and %<char%> in "
+		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_char;
 	      return specs;
 	    case RID_INT:
-	      specs->typespec_word = cts_int;
+	      if (specs->saturating_p)
+		error ("both %<_Sat%> and %<int%> in "
+		       "declaration specifiers");
+	      else
+		specs->typespec_word = cts_int;
 	      return specs;
 	    case RID_FLOAT:
 	      if (specs->long_p)
@@ -7389,6 +7432,9 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->unsigned_p)
 		error ("both %<unsigned%> and %<float%> in "
+		       "declaration specifiers");
+	      else if (specs->saturating_p)
+		error ("both %<_Sat%> and %<float%> in "
 		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_float;
@@ -7405,6 +7451,9 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->unsigned_p)
 		error ("both %<unsigned%> and %<double%> in "
+		       "declaration specifiers");
+	      else if (specs->saturating_p)
+		error ("both %<_Sat%> and %<double%> in "
 		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_double;
@@ -7437,6 +7486,9 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 			 "declaration specifiers", str);
                 else if (specs->complex_p)
                   error ("both %<complex%> and %<%s%> in "
+                         "declaration specifiers", str);
+                else if (specs->saturating_p)
+                  error ("both %<_Sat%> and %<%s%> in "
                          "declaration specifiers", str);
 		else if (i == RID_DFLOAT32)
 		  specs->typespec_word = cts_dfloat32;

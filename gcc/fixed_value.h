@@ -50,4 +50,7 @@ extern unsigned int fixed_hash (const FIXED_VALUE_TYPE *);
 
 #define FIXED_VALUES_IDENTICAL(x, y)	fixed_identical (&(x), &(y))
 
+/* Render F as a decimal floating point constant.  */
+extern void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *, size_t);
+
 #endif /* GCC_FIXED_VALUE_H */

@@ -62,3 +62,19 @@ fixed_from_string (FIXED_VALUE_TYPE *f, const char *str, tree type)
   real_arithmetic (&fixed_value, MULT_EXPR, &real_value, &base_value);
   real_to_integer2 (&f->data.low, &f->data.high,  &fixed_value);
 }
+
+/* Render F as a decimal floating point constant.  */
+
+void fixed_to_decimal (char *str, const FIXED_VALUE_TYPE *f_orig,
+		       size_t buf_size)
+{
+  char base_string[10];
+  REAL_VALUE_TYPE real_value, base_value, fixed_value;
+
+  sprintf (base_string, "0x1.0p%d", GET_MODE_FBIT (f_orig->mode));
+  real_from_string (&base_value, base_string);
+  real_from_integer (&real_value, VOIDmode, f_orig->data.low, f_orig->data.high,
+		     UNSIGNED_FIXED_POINT_MODE_P (f_orig->mode));
+  real_arithmetic (&fixed_value, RDIV_EXPR, &real_value, &base_value);
+  real_to_decimal (str, &fixed_value, buf_size, 0, 1);
+}

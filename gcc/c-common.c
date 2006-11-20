@@ -3345,6 +3345,67 @@ c_common_nodes_and_builtins (void)
       record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
     }
 
+  if (targetm.fixed_point_supported_p ())
+    {
+      record_builtin_type (RID_MAX, "short _Fract", short_fract_type_node);
+      record_builtin_type (RID_FRACT, NULL, fract_type_node);
+      record_builtin_type (RID_MAX, "long _Fract", long_fract_type_node);
+      record_builtin_type (RID_MAX, "long long _Fract",
+			   long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned short _Fract",
+			   unsigned_short_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned _Fract",
+			   unsigned_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned long _Fract",
+			   unsigned_long_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned long long _Fract",
+			   unsigned_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat short _Fract",
+			   sat_short_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat _Fract", sat_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat long _Fract",
+			   sat_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat long long _Fract",
+			   sat_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned short _Fract",
+			   sat_unsigned_short_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned _Fract",
+			   sat_unsigned_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long _Fract",
+			   sat_unsigned_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long long _Fract",
+			   sat_unsigned_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "short _Accum", short_accum_type_node);
+      record_builtin_type (RID_ACCUM, NULL, accum_type_node);
+      record_builtin_type (RID_MAX, "long _Accum", long_accum_type_node);
+      record_builtin_type (RID_MAX, "long long _Accum",
+			   long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned short _Accum",
+			   unsigned_short_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned _Accum",
+			   unsigned_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned long _Accum",
+			   unsigned_long_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned long long _Accum",
+			   unsigned_long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat short _Accum",
+			   sat_short_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat _Accum", sat_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat long _Accum",
+			   sat_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat long long _Accum",
+			  sat_long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned short _Accum",
+			   sat_unsigned_short_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned _Accum",
+			   sat_unsigned_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long _Accum",
+			   sat_unsigned_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long long _Accum",
+			   sat_unsigned_long_long_accum_type_node);
+
+    }
+
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 					 get_identifier ("complex int"),
 					 complex_integer_type_node));
