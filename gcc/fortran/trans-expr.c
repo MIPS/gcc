@@ -234,13 +234,16 @@ gfc_trans_init_string_length (gfc_charlen * cl, stmtblock_t * pblock)
 
 
 static void
-gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
+gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
+		    const char *name, locus *where)
 {
   tree tmp;
   tree type;
   tree var;
+  tree fault;
   gfc_se start;
   gfc_se end;
+  char *msg;
 
   type = gfc_get_character_type (kind, ref->u.ss.length);
   type = build_pointer_type (type);
@@ -272,6 +275,33 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind)
       gfc_conv_expr_type (&end, ref->u.ss.end, gfc_charlen_type_node);
       gfc_add_block_to_block (&se->pre, &end.pre);
     }
+  if (flag_bounds_check)
+    {
+      /* Check lower bound.  */
+      fault = fold_build2 (LT_EXPR, boolean_type_node, start.expr,
+                           build_int_cst (gfc_charlen_type_node, 1));
+      if (name)
+	asprintf (&msg, "Substring out of bounds: lower bound of '%s' "
+		  "is less than one", name);
+      else
+	asprintf (&msg, "Substring out of bounds: lower bound "
+		  "is less than one");
+      gfc_trans_runtime_check (fault, msg, &se->pre, where);
+      gfc_free (msg);
+
+      /* Check upper bound.  */
+      fault = fold_build2 (GT_EXPR, boolean_type_node, end.expr,
+                           se->string_length);
+      if (name)
+	asprintf (&msg, "Substring out of bounds: upper bound of '%s' "
+		  "exceeds string length", name);
+      else
+	asprintf (&msg, "Substring out of bounds: upper bound "
+		  "exceeds string length");
+      gfc_trans_runtime_check (fault, msg, &se->pre, where);
+      gfc_free (msg);
+    }
+
   tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node,
 		     build_int_cst (gfc_charlen_type_node, 1),
 		     start.expr);
@@ -485,7 +515,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  break;
 
 	case REF_SUBSTRING:
-	  gfc_conv_substring (se, ref, expr->ts.kind);
+	  gfc_conv_substring (se, ref, expr->ts.kind,
+			      expr->symtree->name, &expr->where);
 	  break;
 
 	default:
@@ -1296,10 +1327,17 @@ gfc_set_interface_mapping_bounds (stmtblock_t * block, tree type, tree desc)
   offset = gfc_index_zero_node;
   for (n = 0; n < GFC_TYPE_ARRAY_RANK (type); n++)
     {
+      dim = gfc_rank_cst[n];
       GFC_TYPE_ARRAY_STRIDE (type, n) = gfc_conv_array_stride (desc, n);
-      if (GFC_TYPE_ARRAY_UBOUND (type, n) == NULL_TREE)
+      if (GFC_TYPE_ARRAY_LBOUND (type, n) == NULL_TREE)
 	{
-	  dim = gfc_rank_cst[n];
+	  GFC_TYPE_ARRAY_LBOUND (type, n)
+		= gfc_conv_descriptor_lbound (desc, dim);
+	  GFC_TYPE_ARRAY_UBOUND (type, n)
+		= gfc_conv_descriptor_ubound (desc, dim);
+	}
+      else if (GFC_TYPE_ARRAY_UBOUND (type, n) == NULL_TREE)
+	{
 	  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			     gfc_conv_descriptor_ubound (desc, dim),
 			     gfc_conv_descriptor_lbound (desc, dim));
@@ -1708,9 +1746,14 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr,
     }
   else
     {
-      /* Make sure that the temporary declaration survives.  */
-      tmp = gfc_finish_block (&body);
-      gfc_add_expr_to_block (&loop.pre, tmp);
+      /* Make sure that the temporary declaration survives by merging
+       all the loop declarations into the current context.  */
+      for (n = 0; n < loop.dimen; n++)
+	{
+	  gfc_merge_block_scope (&body);
+	  body = loop.code[loop.order[n]];
+	}
+      gfc_merge_block_scope (&body);
     }
 
   /* Add the post block after the second loop, so that any
@@ -1826,7 +1869,8 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr,
   return;
 }
 
-/* Is true if the last array reference is followed by a component reference.  */
+/* Is true if an array reference is followed by a component or substring
+   reference.  */
 
 static bool
 is_aliased_array (gfc_expr * e)
@@ -1837,10 +1881,11 @@ is_aliased_array (gfc_expr * e)
   seen_array = false;	
   for (ref = e->ref; ref; ref = ref->next)
     {
-      if (ref->type == REF_ARRAY)
+      if (ref->type == REF_ARRAY
+	    && ref->u.ar.type != AR_ELEMENT)
 	seen_array = true;
 
-      if (ref->next == NULL
+      if (seen_array
 	    && ref->type != REF_ARRAY)
 	return seen_array;
     }
@@ -1853,7 +1898,7 @@ is_aliased_array (gfc_expr * e)
 
 int
 gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
-			gfc_actual_arglist * arg)
+			gfc_actual_arglist * arg, tree append_args)
 {
   gfc_interface_mapping mapping;
   tree arglist;
@@ -2031,7 +2076,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		    && fsym->value)
 		{
 		  gcc_assert (!fsym->attr.allocatable);
-		  tmp = gfc_trans_assignment (e, fsym->value);
+		  tmp = gfc_trans_assignment (e, fsym->value, false);
 		  gfc_add_expr_to_block (&se->pre, tmp);
 		}
 
@@ -2225,6 +2270,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   /* Add the hidden string length parameters to the arguments.  */
   arglist = chainon (arglist, stringargs);
+
+  /* We may want to append extra arguments here.  This is used e.g. for
+     calls to libgfortran_matmul_??, which need extra information.  */
+  if (append_args != NULL_TREE)
+    arglist = chainon (arglist, append_args);
 
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
@@ -2545,7 +2595,7 @@ gfc_conv_function_expr (gfc_se * se, gfc_expr * expr)
   sym = expr->value.function.esym;
   if (!sym)
     sym = expr->symtree->n.sym;
-  gfc_conv_function_call (se, sym, expr->value.function.actual);
+  gfc_conv_function_call (se, sym, expr->value.function.actual, NULL_TREE);
 }
 
 
@@ -2939,7 +2989,7 @@ gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
   se->string_length = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (se->expr)));
   TYPE_STRING_FLAG (TREE_TYPE (se->expr))=1;
 
-  gfc_conv_substring(se,ref,expr->ts.kind);
+  gfc_conv_substring(se,ref,expr->ts.kind,NULL,&expr->where);
 }
 
 
@@ -3085,6 +3135,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
     {
       var = build_decl (CONST_DECL, NULL, TREE_TYPE (se->expr));
       DECL_INITIAL (var) = se->expr;
+      TREE_STATIC (var) = 1;
       pushdecl (var);
     }
   else
@@ -3363,7 +3414,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
    setting up the scalarizer.  */
 
 tree
-gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
+gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag)
 {
   gfc_se lse;
   gfc_se rse;
@@ -3466,7 +3517,8 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
   else
     gfc_conv_expr (&lse, expr1);
 
-  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts, l_is_temp,
+  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
+				 l_is_temp || init_flag,
 				 expr2->expr_type == EXPR_VARIABLE);
   gfc_add_expr_to_block (&body, tmp);
 
@@ -3500,7 +3552,8 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	  gcc_assert (lse.ss == gfc_ss_terminator
 		      && rse.ss == gfc_ss_terminator);
 
-	  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts, false, false);
+	  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
+					 false, false);
 	  gfc_add_expr_to_block (&body, tmp);
 	}
 
@@ -3518,7 +3571,13 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2)
 }
 
 tree
+gfc_trans_init_assign (gfc_code * code)
+{
+  return gfc_trans_assignment (code->expr, code->expr2, true);
+}
+
+tree
 gfc_trans_assign (gfc_code * code)
 {
-  return gfc_trans_assignment (code->expr, code->expr2);
+  return gfc_trans_assignment (code->expr, code->expr2, false);
 }

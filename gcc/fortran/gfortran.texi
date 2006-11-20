@@ -1380,6 +1380,17 @@ TR 15581:
 The @code{OPEN} statement supports the @code{ACCESS='STREAM'} specifier,
 allowing I/O without any record structure.
 
+@item
+Namelist input/output for internal files.
+
+@item
+@cindex @code{VOLATILE}
+The @code{VOLATILE} statement and attribute.
+
+@item
+@cindex @code{IMPORT}
+The @code{IMPORT} statement, allowing to import
+host-associated derived types.
 
 
 @end itemize

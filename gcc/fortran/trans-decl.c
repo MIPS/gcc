@@ -143,6 +143,12 @@ tree gfor_fndecl_iargc;
 tree gfor_fndecl_si_kind;
 tree gfor_fndecl_sr_kind;
 
+/* BLAS gemm functions.  */
+tree gfor_fndecl_sgemm;
+tree gfor_fndecl_dgemm;
+tree gfor_fndecl_cgemm;
+tree gfor_fndecl_zgemm;
+
 
 static void
 gfc_add_decl_to_parent_function (tree decl)
@@ -507,7 +513,15 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if ((sym->attr.save || sym->attr.data || sym->value)
       && !sym->attr.use_assoc)
     TREE_STATIC (decl) = 1;
-  
+
+  if (sym->attr.volatile_)
+    {
+      tree new;
+      TREE_THIS_VOLATILE (decl) = 1;
+      new = build_qualified_type (TREE_TYPE (decl), TYPE_QUAL_VOLATILE);
+      TREE_TYPE (decl) = new;
+    } 
+
   /* Keep variables larger than max-stack-var-size off stack.  */
   if (!sym->ns->proc_name->attr.recursive
       && INTEGER_CST_P (DECL_SIZE_UNIT (decl))
@@ -994,9 +1008,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
   sym->backend_decl = decl;
 
   if (sym->attr.assign)
-    {
-      gfc_add_assign_aux_vars (sym);
-    }
+    gfc_add_assign_aux_vars (sym);
 
   if (TREE_STATIC (decl) && !sym->attr.use_assoc)
     {
@@ -2186,6 +2198,49 @@ gfc_build_intrinsic_function_decls (void)
 				       gfc_int4_type_node, 1,
 				       gfc_real16_type_node);
 
+  /* BLAS functions.  */
+  {
+    tree pint = build_pointer_type (gfc_c_int_type_node);
+    tree ps = build_pointer_type (gfc_get_real_type (gfc_default_real_kind));
+    tree pd = build_pointer_type (gfc_get_real_type (gfc_default_double_kind));
+    tree pc = build_pointer_type (gfc_get_complex_type (gfc_default_real_kind));
+    tree pz = build_pointer_type
+		(gfc_get_complex_type (gfc_default_double_kind));
+
+    gfor_fndecl_sgemm = gfc_build_library_function_decl
+			  (get_identifier
+			     (gfc_option.flag_underscoring ? "sgemm_"
+							   : "sgemm"),
+			   void_type_node, 15, pchar_type_node,
+			   pchar_type_node, pint, pint, pint, ps, ps, pint,
+			   ps, pint, ps, ps, pint, gfc_c_int_type_node,
+			   gfc_c_int_type_node);
+    gfor_fndecl_dgemm = gfc_build_library_function_decl
+			  (get_identifier
+			     (gfc_option.flag_underscoring ? "dgemm_"
+							   : "dgemm"),
+			   void_type_node, 15, pchar_type_node,
+			   pchar_type_node, pint, pint, pint, pd, pd, pint,
+			   pd, pint, pd, pd, pint, gfc_c_int_type_node,
+			   gfc_c_int_type_node);
+    gfor_fndecl_cgemm = gfc_build_library_function_decl
+			  (get_identifier
+			     (gfc_option.flag_underscoring ? "cgemm_"
+							   : "cgemm"),
+			   void_type_node, 15, pchar_type_node,
+			   pchar_type_node, pint, pint, pint, pc, pc, pint,
+			   pc, pint, pc, pc, pint, gfc_c_int_type_node,
+			   gfc_c_int_type_node);
+    gfor_fndecl_zgemm = gfc_build_library_function_decl
+			  (get_identifier
+			     (gfc_option.flag_underscoring ? "zgemm_"
+							   : "zgemm"),
+			   void_type_node, 15, pchar_type_node,
+			   pchar_type_node, pint, pint, pint, pz, pz, pint,
+			   pz, pint, pz, pz, pint, gfc_c_int_type_node,
+			   gfc_c_int_type_node);
+  }
+
   /* Other functions.  */
   gfor_fndecl_size0 =
     gfc_build_library_function_decl (get_identifier (PREFIX("size0")),
@@ -2534,6 +2589,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
   gfc_symbol *sym;
   gfc_formal_arglist *f;
   stmtblock_t body;
+  bool seen_trans_deferred_array = false;
 
   /* Deal with implicit return variables.  Explicit return variables will
      already have been added.  */
@@ -2590,10 +2646,19 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		  if (TREE_STATIC (sym->backend_decl))
 		    gfc_trans_static_array_pointer (sym);
 		  else
-		    fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    {
+		      seen_trans_deferred_array = true;
+		      fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    }
 		}
 	      else
 		{
+		  if (sym_has_alloc_comp)
+		    {
+		      seen_trans_deferred_array = true;
+		      fnbody = gfc_trans_deferred_array (sym, fnbody);
+		    }
+
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 		  fnbody = gfc_trans_auto_array_allocation (sym->backend_decl,
@@ -2619,14 +2684,14 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	      break;
 
 	    case AS_DEFERRED:
-	      if (!sym_has_alloc_comp)
-		fnbody = gfc_trans_deferred_array (sym, fnbody);
+	      seen_trans_deferred_array = true;
+	      fnbody = gfc_trans_deferred_array (sym, fnbody);
 	      break;
 
 	    default:
 	      gcc_unreachable ();
 	    }
-	  if (sym_has_alloc_comp)
+	  if (sym_has_alloc_comp && !seen_trans_deferred_array)
 	    fnbody = gfc_trans_deferred_array (sym, fnbody);
 	}
       else if (sym_has_alloc_comp)
@@ -3250,7 +3315,7 @@ gfc_generate_constructors (void)
   if (gfc_static_ctors == NULL_TREE)
     return;
 
-  fnname = get_file_function_name ('I');
+  fnname = get_file_function_name ("I");
   type = build_function_type (void_type_node,
 			      gfc_chainon_list (NULL_TREE, void_type_node));
 

@@ -818,6 +818,7 @@ gnu/gcj/convert/natOutput_EUCJIS.cc \
 gnu/gcj/convert/natOutput_SJIS.cc \
 gnu/gcj/io/natSimpleSHSStream.cc \
 gnu/gcj/io/shs.cc \
+gnu/gcj/jvmti/natBreakpoint.cc \
 gnu/gcj/runtime/natFinalizerThread.cc \
 gnu/gcj/runtime/natSharedLibLoader.cc \
 gnu/gcj/runtime/natSystemClassLoader.cc \
@@ -857,7 +858,7 @@ java/lang/reflect/natConstructor.cc \
 java/lang/reflect/natField.cc \
 java/lang/reflect/natMethod.cc \
 java/net/natVMNetworkInterface.cc \
-java/net/natInetAddress.cc \
+java/net/natVMInetAddress.cc \
 java/net/natURLClassLoader.cc \
 java/nio/channels/natVMChannels.cc \
 java/nio/natDirectByteBufferImpl.cc \

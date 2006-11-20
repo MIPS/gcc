@@ -721,10 +721,6 @@ If defined, a space-separated list of files that should be scanned by
 gengtype.c to generate the garbage collection tables and routines for
 this language.  This excludes the files that are common to all front
 ends.  @xref{Type Information}.
-@item need_gmp
-If defined  to @samp{yes}, this frontend requires the GMP library.
-Enables configure tests for GMP, which set @code{GMPLIBS} and
-@code{GMPINC} appropriately.
 
 @end table
 
@@ -1133,6 +1129,12 @@ suffix @var{suffix}.
 @item scan-tree-dump-dem-not @var{regex} @var{suffix} [@{ target/xfail @var{selector} @}]
 Passes if @var{regex} does not match demangled text in the dump file with
 suffix @var{suffix}.
+
+@item output-exists [@{ target/xfail @var{selector} @}]
+Passes if compiler output file exists.
+
+@item output-exists-not [@{ target/xfail @var{selector} @}]
+Passes if compiler output file does not exist.
 
 @item run-gcov @var{sourcefile}
 Check line counts in @command{gcov} tests.

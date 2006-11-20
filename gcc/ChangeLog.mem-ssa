@@ -1,3 +1,7 @@
+2006-11-20  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2006-11-20 (@119010).
+
 2006-11-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa-operands.c (prune_stale_vops): Fix call to

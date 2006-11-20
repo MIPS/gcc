@@ -292,18 +292,20 @@ systems' @command{tar} programs will also work, only try GNU
 
 @item GNU Multiple Precision Library (GMP) version 4.1 (or later)
 
-Necessary to build the Fortran frontend.  If you do not have it
-installed in your library search path, you will have to configure with
-the @option{--with-gmp} or @option{--with-gmp-dir} configure option.
+Necessary to build GCC.  If you do not have it installed in your
+library search path, you will have to configure with the
+@option{--with-gmp} or @option{--with-gmp-dir} configure option.
 
 @item MPFR Library version 2.2 (or later)
 
-Necessary to build the Fortran frontend.  It can be downloaded from
-@uref{http://www.mpfr.org/}.  The version of MPFR that is bundled with
-GMP 4.1.x contains numerous bugs.  Although GNU Fortran will appear
-to function with the buggy versions of MPFR, there are a few GNU Fortran
-bugs that will not be fixed when using this version.  It is strongly
-recommended to upgrade to at least MPFR version 2.2.
+Necessary to build GCC.  It can be downloaded from
+@uref{http://www.mpfr.org/}.  If you're using version 2.2.0, You
+should also apply revision 16 (or later) of the cumulative patch from
+@uref{http://www.mpfr.org/mpfr-current/}.  The version of MPFR that is
+bundled with GMP 4.1.x contains numerous bugs.  Although GNU Fortran
+will appear to function with the buggy versions of MPFR, there are a
+few GNU Fortran bugs that will not be fixed when using this version.
+It is strongly recommended to upgrade to at least MPFR version 2.2.
 
 The @option{--with-mpfr} or @option{--with-mpfr-dir} configure option should
 be used if your MPFR Library is not installed in your library search path.
@@ -325,7 +327,7 @@ to regenerate @file{configure} and @file{config.in} files.  Most
 directories require autoconf 2.59 (exactly), but the toplevel
 still requires autoconf 2.13 (exactly).
 
-@item automake versions 1.9.3
+@item automake version 1.9.6
 
 Necessary when modifying a @file{Makefile.am} file to regenerate its
 associated @file{Makefile.in}.
@@ -336,7 +338,7 @@ file.  Specifically this applies to the @file{gcc}, @file{intl},
 as any of their subdirectories.
 
 For directories that use automake, GCC requires the latest release in
-the 1.9.x series, which is currently 1.9.3.  When regenerating a directory
+the 1.9.x series, which is currently 1.9.6.  When regenerating a directory
 to a newer version, please update all the directories using an older 1.9.x
 to the latest released version.
 
@@ -460,11 +462,11 @@ components.
 Please refer to the @uref{http://gcc.gnu.org/releases.html,,releases web page}
 for information on how to obtain GCC@.
 
-The full distribution includes the C, C++, Objective-C, Fortran 77, Fortran
-(in case of GCC 4.0 and later), Java, and Ada (in case of GCC 3.1 and later)
-compilers.  The full distribution also includes runtime libraries for C++,
-Objective-C, Fortran 77, Fortran, and Java.  In GCC 3.0 and later versions,
-GNU compiler testsuites are also included in the full distribution.
+The full distribution includes the C, C++, Objective-C, Fortran, Java,
+and Ada (in the case of GCC 3.1 and later) compilers.  The full
+distribution also includes runtime libraries for C++, Objective-C,
+Fortran, and Java.  In GCC 3.0 and later versions, the GNU compiler
+testsuites are also included in the full distribution.
 
 If you choose to download specific components, you must download the core
 GCC distribution plus any language specific distributions you wish to
@@ -1152,7 +1154,7 @@ powerpc-linux for powerpc64-linux, only generates 32-bit code.  This
 option enables the 32-bit target to be a bi-arch compiler, which is
 useful when you want a bi-arch compiler that defaults to 32-bit, and
 you are building a bi-arch or multi-arch binutils in a combined tree.
-Currently, this option only affects powerpc-linux.
+Currently, this option only affects powerpc-linux and x86-linux.
 
 @item --enable-secureplt
 This option enables @option{-msecure-plt} by default for powerpc-linux.
@@ -3609,11 +3611,10 @@ binaries are available at
 @uref{http://developer.apple.com/darwin/projects/compiler/} (free
 registration required).
 
-This version of GCC requires at least cctools-590.7.
-
-The version of GCC shipped by Apple typically includes a number of
-extensions not available in a standard GCC release.  These extensions
-are generally for backwards compatibility and best avoided.
+This version of GCC requires at least cctools-590.36.  The
+cctools-590.36 package referenced from
+@uref{http://gcc.gnu.org/ml/gcc/2006-03/msg00507.html} will not work
+on systems older than 10.3.9 (aka darwin7.9.0).
 
 @html
 <hr />
@@ -3848,12 +3849,15 @@ ld: warning: relocation error: R_SPARC_UA32: @dots{}
 To work around this problem, compile with @option{-gstabs+} instead of
 plain @option{-g}.
 
-When configuring the GNU Multiple Precision Library (GMP) version 4.1.x
-on a Solaris 7 or later system, the canonical target triplet must be
-specified as the @command{build} parameter on the configure line:
+When configuring the GNU Multiple Precision Library (GMP) or the MPFR
+library on a Solaris 7 or later system, the canonical target triplet
+must be specified as the @command{build} parameter on the configure
+line.  This triplet can be obtained by invoking ./config.guess in
+the toplevel source directory of GCC (and not that of GMP or MPFR).
+For example on a Solaris 7 system:
 
 @smallexample
-./configure --build=sparc-sun-solaris2.7 --prefix=xxx --enable-mpfr
+   % ./configure --build=sparc-sun-solaris2.7 --prefix=xxx
 @end smallexample
 
 @html
@@ -3933,15 +3937,24 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 @end html
 @heading @anchor{sparc64-x-solaris2}sparc64-*-solaris2*
 
+When configuring the GNU Multiple Precision Library (GMP) or the
+MPFR library, the canonical target triplet must be specified as
+the @command{build} parameter on the configure line.  For example
+on a Solaris 7 system:
+
+@smallexample
+   % ./configure --build=sparc64-sun-solaris2.7 --prefix=xxx
+@end smallexample
+
 The following compiler flags must be specified in the configure
 step in order to bootstrap this target with the Sun compiler:
 
 @smallexample
-   % CC="cc -xildoff -xarch=v9" @var{srcdir}/configure [@var{options}] [@var{target}]
+   % CC="cc -xarch=v9 -xildoff" @var{srcdir}/configure [@var{options}] [@var{target}]
 @end smallexample
 
-@option{-xildoff} turns off the incremental linker, and @option{-xarch=v9}
-specifies the SPARC-V9 architecture to the Sun linker and assembler.
+@option{-xarch=v9} specifies the SPARC-V9 architecture to the Sun toolchain
+and @option{-xildoff} turns off the incremental linker.
 
 @html
 <hr />

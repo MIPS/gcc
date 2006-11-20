@@ -401,6 +401,11 @@ int flag_access_control = 1;
 
 int flag_check_new;
 
+/* Nonzero if we want to allow the use of experimental features that
+   are likely to become part of C++0x. */
+
+int flag_cpp0x = 0;
+
 /* Nonzero if we want the new ISO rules for pushing a new scope for `for'
    initialization variables.
    0: Old rules, set by -fno-for-scope.
@@ -505,6 +510,8 @@ static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_gnu_inline_attribute (tree *, tree, tree, int,
+					 bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
@@ -573,6 +580,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute },
   { "always_inline",          0, 0, true,  false, false,
 			      handle_always_inline_attribute },
+  { "gnu_inline",             0, 0, true,  false, false,
+			      handle_gnu_inline_attribute },
   { "flatten",                0, 0, true,  false, false,
 			      handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
@@ -1010,7 +1019,6 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
     }
 }
 
-
 /* Print a warning about if (); or if () .. else; constructs
    via the special empty statement node that we create.  INNER_THEN
    and INNER_ELSE are the statement lists of the if and the else
@@ -1039,7 +1047,59 @@ empty_body_warning (tree inner_then, tree inner_else)
    }
 }
 
-  
+/* Warn for unlikely, improbable, or stupid DECL declarations
+   of `main'.  */
+
+void
+check_main_parameter_types (tree decl)
+{
+  tree args;
+  int argct = 0;
+
+  for (args = TYPE_ARG_TYPES (TREE_TYPE (decl)); args;
+      args = TREE_CHAIN (args))
+   {
+     tree type = args ? TREE_VALUE (args) : 0;
+
+     if (type == void_type_node)
+       break;
+
+     ++argct;
+     switch (argct)
+       {
+       case 1:
+         if (TYPE_MAIN_VARIANT (type) != integer_type_node)
+           pedwarn ("first argument of %q+D should be %<int%>", decl);
+         break;
+
+       case 2:
+         if (TREE_CODE (type) != POINTER_TYPE
+             || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+             || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
+                 != char_type_node))
+           pedwarn ("second argument of %q+D should be %<char **%>",
+                    decl);
+         break;
+
+       case 3:
+         if (TREE_CODE (type) != POINTER_TYPE
+             || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+             || (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type)))
+                 != char_type_node))
+           pedwarn ("third argument of %q+D should probably be "
+                    "%<char **%>", decl);
+         break;
+       }
+   }
+
+  /* It is intentional that this message does not mention the third
+    argument because it's only mentioned in an appendix of the
+    standard.  */
+  if (argct > 0 && (argct < 2 || argct > 3))
+   pedwarn ("%q+D takes only zero or two arguments", decl);
+}
+
+ 
 /* Nonzero if constant C has a value that is permissible
    for type TYPE (an INTEGER_TYPE).  */
 
@@ -3495,14 +3555,14 @@ def_builtin_1 (enum built_in_function fncode,
 			   strlen ("__builtin_")));
 
   libname = name + strlen ("__builtin_");
-  decl = lang_hooks.builtin_function (name, fntype, fncode, fnclass,
-				      (fallback_p ? libname : NULL),
-				      fnattrs);
+  decl = add_builtin_function (name, fntype, fncode, fnclass,
+			       (fallback_p ? libname : NULL),
+			       fnattrs);
   if (both_p
       && !flag_no_builtin && !builtin_function_disabled_p (libname)
       && !(nonansi_p && flag_no_nonansi_builtin))
-    lang_hooks.builtin_function (libname, libtype, fncode, fnclass,
-				 NULL, fnattrs);
+    add_builtin_function (libname, libtype, fncode, fnclass,
+			  NULL, fnattrs);
 
   built_in_decls[(int) fncode] = decl;
   if (implicit_p)
@@ -4199,6 +4259,29 @@ handle_always_inline_attribute (tree *node, tree name,
 				bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "gnu_inline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_gnu_inline_attribute (tree *node, tree name,
+			     tree ARG_UNUSED (args),
+			     int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (*node))
     {
       /* Do nothing else, just set the attribute.  We'll get at
 	 it later with lookup_attribute.  */

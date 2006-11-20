@@ -1594,7 +1594,7 @@ final (rtx first, FILE *file, int optimize)
   CC_STATUS_INIT;
 
   /* Output the insns.  */
-  for (insn = NEXT_INSN (first); insn;)
+  for (insn = first; insn;)
     {
 #ifdef HAVE_ATTR_length
       if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
@@ -1698,8 +1698,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	{
 	case NOTE_INSN_DELETED:
 	case NOTE_INSN_FUNCTION_END:
-	case NOTE_INSN_REPEATED_LINE_NUMBER:
-	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
@@ -3920,14 +3918,14 @@ rest_of_handle_final (void)
 #ifdef TARGET_UNWIND_INFO
   /* ??? The IA-64 ".handlerdata" directive must be issued before
      the ".endp" directive that closes the procedure descriptor.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   assemble_end_function (current_function_decl, fnname);
 
 #ifndef TARGET_UNWIND_INFO
   /* Otherwise, it feels unclean to switch sections in the middle.  */
-  output_function_exception_table ();
+  output_function_exception_table (fnname);
 #endif
 
   user_defined_section_attribute = false;

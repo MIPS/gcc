@@ -368,17 +368,7 @@ nonzero_address_p (rtx x)
 
     case PLUS:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT)
-	{
-	  /* Pointers aren't allowed to wrap.  If we've got a register
-	     that is known to be a pointer, and a positive offset, then
-	     the composite can't be zero.  */
-	  if (INTVAL (XEXP (x, 1)) > 0
-	      && REG_P (XEXP (x, 0))
-	      && REG_POINTER (XEXP (x, 0)))
-	    return true;
-
-	  return nonzero_address_p (XEXP (x, 0));
-	}
+        return nonzero_address_p (XEXP (x, 0));
       /* Handle PIC references.  */
       else if (XEXP (x, 0) == pic_offset_table_rtx
 	       && CONSTANT_P (XEXP (x, 1)))
@@ -2847,10 +2837,15 @@ auto_inc_p (rtx x)
 int
 loc_mentioned_in_p (rtx *loc, rtx in)
 {
-  enum rtx_code code = GET_CODE (in);
-  const char *fmt = GET_RTX_FORMAT (code);
+  enum rtx_code code;
+  const char *fmt;
   int i, j;
 
+  if (!in)
+    return 0;
+
+  code = GET_CODE (in);
+  fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (loc == &in->u.fld[i].rt_rtx)

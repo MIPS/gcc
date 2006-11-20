@@ -48,6 +48,7 @@ Boston, MA 02110-1301, USA.  */
 #include "c-common.h"
 #include "c-pragma.h"
 #include "diagnostic.h"
+#include "intl.h"
 #include "debug.h"
 #include "timevar.h"
 #include "tree-flow.h"
@@ -64,10 +65,7 @@ static tree grok_reference_init (tree, tree, tree, tree *);
 static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (const char *, tree, tree,
-				enum built_in_function code,
-				enum built_in_class cl, const char *,
-				tree);
+static tree builtin_function_1 (tree, tree);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, const char *, int, int, int, int,
@@ -3359,39 +3357,29 @@ cp_make_fname_decl (tree id, int type_dep)
   return decl;
 }
 
-/* Make a definition for a builtin function named NAME in the current
-   namespace, whose data type is TYPE and whose context is CONTEXT.
-   TYPE should be a function type with argument types.
-
-   CLASS and CODE tell later passes how to compile calls to this function.
-   See tree.h for possible values.
-
-   If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.
-   If ATTRS is nonzero, use that for the function's attribute
-   list.  */
-
 static tree
-builtin_function_1 (const char* name,
-		    tree type,
-		    tree context,
-		    enum built_in_function code,
-		    enum built_in_class class,
-		    const char* libname,
-		    tree attrs)
+builtin_function_1 (tree decl, tree context)
 {
-  tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
-  DECL_BUILT_IN_CLASS (decl) = class;
-  DECL_FUNCTION_CODE (decl) = code;
+  tree          id = DECL_NAME (decl);
+  const char *name = IDENTIFIER_POINTER (id);
+
+  retrofit_lang_decl (decl);
+
+  /* All nesting of C++ functions is lexical; there is never a "static
+     chain" in the sense of GNU C nested functions.  */
+  DECL_NO_STATIC_CHAIN (decl) = 1;
+
+  DECL_ARTIFICIAL (decl) = 1;
+  SET_OVERLOADED_OPERATOR_CODE (decl, ERROR_MARK);
+  SET_DECL_LANGUAGE (decl, lang_c);
+  /* Runtime library routines are, by definition, available in an
+     external shared object.  */
+  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+
   DECL_CONTEXT (decl) = context;
 
   pushdecl (decl);
-
-  /* Since `pushdecl' relies on DECL_ASSEMBLER_NAME instead of DECL_NAME,
-     we cannot change DECL_ASSEMBLER_NAME until we have installed this
-     function in the namespace.  */
-  if (libname)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (libname));
 
   /* A function in the user's namespace should have an explicit
      declaration before it is used.  Mark the built-in function as
@@ -3399,50 +3387,25 @@ builtin_function_1 (const char* name,
   if (name[0] != '_' || name[1] != '_')
     DECL_ANTICIPATED (decl) = 1;
 
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
-
   return decl;
 }
 
-/* Entry point for the benefit of c_common_nodes_and_builtins.
-
-   Make a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.  This
-   function places the anticipated declaration in the global namespace
-   and additionally in the std namespace if appropriate.
-
-   CLASS and CODE tell later passes how to compile calls to this function.
-   See tree.h for possible values.
-
-   If LIBNAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.
-
-   If ATTRS is nonzero, use that for the function's attribute
-   list.  */
-
 tree
-builtin_function (const char* name,
-		  tree type,
-		  int code,
-		  enum built_in_class cl,
-		  const char* libname,
-		  tree attrs)
+cxx_builtin_function (tree decl)
 {
+  tree          id = DECL_NAME (decl);
+  const char *name = IDENTIFIER_POINTER (id);
+  tree       decl2 = copy_node(decl);
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
     {
       push_namespace (std_identifier);
-      builtin_function_1 (name, type, std_node, code, cl, libname, attrs);
+      builtin_function_1 (decl, std_node);
       pop_namespace ();
     }
 
-  return builtin_function_1 (name, type, NULL_TREE, code,
-			     cl, libname, attrs);
+  return builtin_function_1 (decl2, NULL_TREE);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -4485,9 +4448,6 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p)
       /* Handle designated initializers, as an extension.  */
       if (d->cur->index)
 	{
-	  if (pedantic)
-	    pedwarn ("ISO C++ does not allow designated initializers");
-
 	  field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
 
 	  if (!field || TREE_CODE (field) != FIELD_DECL)
@@ -5388,7 +5348,7 @@ get_atexit_node (void)
   if (atexit_node)
     return atexit_node;
 
-  if (flag_use_cxa_atexit)
+  if (flag_use_cxa_atexit && !targetm.cxx.use_atexit_for_cxa_atexit ())
     {
       /* The declaration for `__cxa_atexit' is:
 
@@ -5476,6 +5436,8 @@ start_cleanup_fn (void)
   tree parmtypes;
   tree fntype;
   tree fndecl;
+  bool use_cxa_atexit = flag_use_cxa_atexit
+			&& !targetm.cxx.use_atexit_for_cxa_atexit ();
 
   push_to_top_level ();
 
@@ -5488,7 +5450,7 @@ start_cleanup_fn (void)
      We'll just ignore it.  After we implement the new calling
      convention for destructors, we can eliminate the use of
      additional cleanup functions entirely in the -fnew-abi case.  */
-  if (flag_use_cxa_atexit)
+  if (use_cxa_atexit)
     parmtypes = tree_cons (NULL_TREE, ptr_type_node, parmtypes);
   /* Build the function type itself.  */
   fntype = build_function_type (void_type_node, parmtypes);
@@ -5508,7 +5470,7 @@ start_cleanup_fn (void)
   DECL_DECLARED_INLINE_P (fndecl) = 1;
   DECL_INTERFACE_KNOWN (fndecl) = 1;
   /* Build the parameter.  */
-  if (flag_use_cxa_atexit)
+  if (use_cxa_atexit)
     {
       tree parmdecl;
 
@@ -5577,7 +5539,7 @@ register_dtor_fn (tree decl)
   cxx_mark_addressable (cleanup);
   mark_used (cleanup);
   cleanup = build_unary_op (ADDR_EXPR, cleanup, 0);
-  if (flag_use_cxa_atexit)
+  if (flag_use_cxa_atexit && !targetm.cxx.use_atexit_for_cxa_atexit ())
     {
       args = tree_cons (NULL_TREE,
 			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
@@ -6067,6 +6029,7 @@ grokfndecl (tree ctype,
 					  oldtypeargs);
 	  TREE_TYPE (decl) = newtype;
 	}
+      check_main_parameter_types (decl);
       inlinep = 0;
       publicp = 1;
     }
@@ -6126,8 +6089,10 @@ grokfndecl (tree ctype,
   DECL_EXTERNAL (decl) = 1;
   if (quals && TREE_CODE (type) == FUNCTION_TYPE)
     {
-      error ("%smember function %qD cannot have cv-qualifier",
-	     (ctype ? "static " : "non-"), decl);
+      error (ctype
+             ? G_("static member function %qD cannot have cv-qualifier")
+             : G_("non-member function %qD cannot have cv-qualifier"),
+	     decl);
       quals = TYPE_UNQUALIFIED;
     }
 
@@ -8076,8 +8041,11 @@ grokdeclarator (const cp_declarator *declarator,
 	  if (cp_type_quals (type) != TYPE_UNQUALIFIED
 	      && (current_class_type == NULL_TREE || staticp) )
 	    {
-	      error ("qualified function types cannot be used to declare %s functions",
-		     (staticp? "static member" : "free"));
+	      error (staticp
+                     ? G_("qualified function types cannot be used to "
+                          "declare static member functions")
+                     : G_("qualified function types cannot be used to "
+                          "declare free functions"));
 	      type = TYPE_MAIN_VARIANT (type);
 	    }
 
@@ -9779,9 +9747,12 @@ xref_tag_from_type (tree old, tree id, tag_scope scope)
 /* Create the binfo hierarchy for REF with (possibly NULL) base list
    BASE_LIST.  For each element on BASE_LIST the TREE_PURPOSE is an
    access_* node, and the TREE_VALUE is the type of the base-class.
-   Non-NULL TREE_TYPE indicates virtual inheritance.  */
+   Non-NULL TREE_TYPE indicates virtual inheritance.  
+ 
+   Returns true if the binfo hierarchy was successfully created,
+   false if an error was detected. */
 
-void
+bool
 xref_basetypes (tree ref, tree base_list)
 {
   tree *basep;
@@ -9793,7 +9764,7 @@ xref_basetypes (tree ref, tree base_list)
   tree igo_prev; /* Track Inheritance Graph Order.  */
 
   if (ref == error_mark_node)
-    return;
+    return false;
 
   /* The base of a derived class is private by default, all others are
      public.  */
@@ -9845,13 +9816,19 @@ xref_basetypes (tree ref, tree base_list)
       CLASSTYPE_NON_AGGREGATE (ref) = 1;
 
       if (TREE_CODE (ref) == UNION_TYPE)
-	error ("derived union %qT invalid", ref);
+        {
+	  error ("derived union %qT invalid", ref);
+          return false;
+        }
     }
 
   if (max_bases > 1)
     {
       if (TYPE_FOR_JAVA (ref))
-	error ("Java class %qT cannot have multiple bases", ref);
+        {
+	  error ("Java class %qT cannot have multiple bases", ref);
+          return false;
+        }
     }
 
   if (max_vbases)
@@ -9859,7 +9836,10 @@ xref_basetypes (tree ref, tree base_list)
       CLASSTYPE_VBASECLASSES (ref) = VEC_alloc (tree, gc, max_vbases);
 
       if (TYPE_FOR_JAVA (ref))
-	error ("Java class %qT cannot have virtual bases", ref);
+        {
+	  error ("Java class %qT cannot have virtual bases", ref);
+          return false;
+        }
     }
 
   for (igo_prev = binfo; base_list; base_list = TREE_CHAIN (base_list))
@@ -9880,7 +9860,7 @@ xref_basetypes (tree ref, tree base_list)
 	{
 	  error ("base type %qT fails to be a struct or class type",
 		 basetype);
-	  continue;
+	  return false;
 	}
 
       if (TYPE_FOR_JAVA (basetype) && (current_lang_depth () == 0))
@@ -9914,7 +9894,7 @@ xref_basetypes (tree ref, tree base_list)
 	    error ("recursive type %qT undefined", basetype);
 	  else
 	    error ("duplicate base type %qT invalid", basetype);
-	  continue;
+	  return false;
 	}
       TYPE_MARKED_P (basetype) = 1;
 
@@ -9957,6 +9937,8 @@ xref_basetypes (tree ref, tree base_list)
 	else
 	  break;
     }
+
+  return true;
 }
 
 

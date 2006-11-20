@@ -1937,7 +1937,6 @@ maybe_replace_use (use_operand_p use_p)
 
   if (TREE_CODE (use) == SSA_NAME && is_old_name (use))
     {
-      gcc_assert (!symbol_marked_for_renaming (sym));
       rdef = get_reaching_def (use);
     }
   else if (is_gimple_reg (sym) && symbol_marked_for_renaming (sym))
@@ -1968,7 +1967,6 @@ maybe_register_def (def_operand_p def_p, tree stmt)
     {
       /* If DEF is a new name, register it as a new definition
 	 for all the names replaced by DEF.  */
-      gcc_assert (!symbol_marked_for_renaming (sym));
       register_new_update_set (def, names_replaced_by (def));
     }
 
@@ -1976,7 +1974,6 @@ maybe_register_def (def_operand_p def_p, tree stmt)
     {
       /* If DEF is an old name, register DEF as a new
 	 definition for itself.  */
-      gcc_assert (!symbol_marked_for_renaming (sym));
       register_new_update_single (def, def);
     }
 
@@ -3334,6 +3331,9 @@ mark_sym_for_renaming (tree sym)
 	for (sv = svars; sv; sv = sv->next)
 	  bitmap_set_bit (syms_to_rename, DECL_UID (sv->var));
       }
+
+    if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
+      bitmap_ior_into (syms_to_rename, MPT_SYMBOLS (sym));
   }
 #endif
 
@@ -3374,6 +3374,9 @@ mark_set_for_renaming (bitmap set)
 	  for (sv = svars; sv; sv = sv->next)
 	    bitmap_set_bit (syms_to_rename, DECL_UID (sv->var));
 	}
+
+    if (TREE_CODE (var) == MEMORY_PARTITION_TAG)
+      bitmap_ior_into (syms_to_rename, MPT_SYMBOLS (var));
     }
 #endif
 
@@ -3389,6 +3392,13 @@ need_ssa_update_p (void)
   return syms_to_rename || old_ssa_names || new_ssa_names;
 }
 
+/* Return true if SSA name mappings have been registered for SSA updating.  */
+
+bool
+name_mappings_registered_p (void)
+{
+  return repl_tbl && htab_elements (repl_tbl) > 0;
+}
 
 /* Return true if name N has been registered in the replacement table.  */
 

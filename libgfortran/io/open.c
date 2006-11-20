@@ -178,7 +178,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
       if (flags->pad != PAD_UNSPECIFIED)
 	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			"PAD paramter conflicts with UNFORMATTED form in "
+			"PAD parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
     }
 
@@ -284,7 +284,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       if (flags->form == FORM_UNFORMATTED)
 	{
 	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			  "PAD paramter conflicts with UNFORMATTED form in "
+			  "PAD parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
 	}
@@ -343,7 +343,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	break;
 
       opp->file = tmpname;
-      opp->file_len = sprintf(opp->file, "fort.%d", opp->common.unit);
+      opp->file_len = sprintf(opp->file, "fort.%d", (int) opp->common.unit);
       break;
 
     default:

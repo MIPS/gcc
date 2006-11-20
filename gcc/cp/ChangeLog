@@ -1,4 +1,195 @@
+2006-11-16  Dirk Mueller  <dmueller@suse.de>
+
+	* name-lookup.c (begin_scope): Use GGC_CNEW instead of
+	GGC_NEW and memset.
+
+2006-11-13  Roger Sayle  <roger@eyesopen.com>
+
+	* rtti.c (get_pseudo_ti_init): Ensure that the offset field of the
+	base type info initializer has the correct type.
+
+2006-11-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29518
+	* pt.c (coerce_template_parms): Do not skip_evaluation while
+	substituting template arguments.
+
+2006-11-11  Richard Guenther  <rguenther@suse.de>
+
+	* typeck.c (build_unary_op): Remove handling of FIX_CEIL_EXPR,
+	FIX_FLOOR_EXPR and FIX_ROUND_EXPR.
+
+2006-11-03  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (build_op_delete_call): Test user-visible type against
+	size_type_node, instead of against the internal type, sizetype.
+	* class.c (type_requires_array_cookie): Likewise.
+	* mangle.c (write_builtin_type) <INTEGER_TYPE>: Remove special
+	handling of TYPE_IS_SIZETYPE.
+	* typeck.c (type_after_usual_arithmetic_conversions): Remove
+	special case handling of TYPE_IS_SIZETYPE.
+	(comptypes): Likewise.
+
+2006-11-01  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* decl.c (get_atexit_node): Reference atexit, not __cxa_exit.
+	if targetm.cxx.use_atexit_for cxa_atexit.
+	(start_cleanup_fn): Likewise.
+	(register_dtor_fn): Likewise.
+
+2006-09-25  Geoffrey Keating  <geoffk@apple.com>
+
+	* decl2.c (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-lang.c (finish_file): Don't call cp_finish_file.
+	* cp-tree.h (cp_write_global_declarations): Rename from
+	cp_finish_file.
+	* cp-objcp-common.h (LANG_HOOKS_WRITE_GLOBALS): Define to
+	cp_write_global_declarations.
+
+2006-10-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* name-lookup.c (get_anonymous_namespace_name): New.
+	(push_namespace_with_attribs): Use get_anonymous_namespace_name.
+	* decl2.c (start_objects): Update for rename of
+	get_file_function_name_long.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/28704
+	* decl.c (grokdeclarator): Duplicate diagnostic message
+	for easier translation.
+	* decl.c (grokdeclarator): Fix line-wrapping.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/6321
+	* decl.c (grokfndecl): Use check_main_parameter_types.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/28669
+	* decl.c (grokfndecl): Duplicate warning message for
+	easier translation.
+
+2006-10-30  Dirk Mueller  <dmueller@suse.de>
+
+	* typeck.c (build_unary_op): Fix indenting. Use G_().
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/29089
+	* typeck.c (build_unary_op): Duplicate warning message
+	for easier translation.
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/16307
+	* typeck.c (build_array_ref): Warn for char subscriptions
+	on pointers.
+
+2006-10-29  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c: Fix a comment typo.
+
+2006-10-28  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/29295
+	* typeck.c (build_unary_op): Use same_type_p when comparing to 
+	boolean type.
+
+2006-10-29  Dirk Mueller  <dmueller@suse.de>
+
+	PR c++/29033
+	* typeck.c (build_binary_op): Duplicate warning message
+	for better translation.
+
+2006-10-23  Rafael Avila de Espindola  <rafael.espindola@gmail.com>
+
+	* decl.c (builtin_function_1): Move common code to
+	add_builtin_function.
+	(builtin_function): Rename to cxx_builtin_function.
+	Change the signature.
+	* call.c: Include langhooks.h.
+	(build_java_interface_fn_ref):  Replace calls to
+	builtin_function with add_builtin_function.
+	* Make-lang.in (cp/call.o): Depend on langhooks.h.
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION): Define as
+	cxx_builtin_function.
+	* cp-tree.h (builtin_function): Rename to cxx_builtin_function.
+	Change the signature.
+
+2006-10-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20647
+	* rtti.c (tinfo_base_init): The type info string is always global.
+
+2006-10-20  Lee Millward  <lee.millward@codesourcery.com>
+            Mark Mitchell <mark@codesourcery.com>
+
+        PR c++/28053
+        * decl2.c (grokbitfield): Detect invalid non-integral 
+        types earlier when possible.
+	
+2006-10-18  Mark Shinwell  <shinwell@codesourcery.com>
+
+	PR c++/26884
+	* typeck2.c (digest_init): Raise error upon attempts to
+	initialize arrays with variables.
+
+2006-10-17  Lee Millward  <lee.millward@codesourcery.com> 
+
+        PR c++/27952
+        * cp-tree.h (xref_basetypes): Return bool instead of void.
+        * decl.c (xref_basetypes): Adjust definition. Return false
+        if the class bases are invalid.
+        * parser.c (cp_parser_class_head): Check the return value
+        from xref_basetypes.
+	
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/28261
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): Add
+	comment.
+
+	PR c++/28261
+	* parser.c (cp_lexer_next_token_is_decl_specifier_keyword): New
+	function.
+	(cp_parser_constructor_declarator_p): Use it.
+	(cp_parser_check_type_definition): Return a value indicating
+	whether or not the definition is valid.
+	(cp_parser_enum_specifier): Skip invalid enum definitions.
+
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/29039
+	* typeck2.c (build_functional_cast): Don't zero-initialize
+	non-PODs; instead, call their constructors.
+	* method.c (synthesize_method): Always build mem-initializers, if
+	we're synthesizing the default constructor.
+
+2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27270
+	* decl.c (reshape_init_class): Move check for designated
+	to ...
+	* parser.c (cp_parser_initializer_list): ... here.
+	* pt.c (tsubst_copy_and_build): Use finish_compound_literal.
+
 2006-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27270
+	* typeck2.c (process_init_constructor_array): Reword comment.
+	* pt.c (tsubst_copy_and_built): Call reshape_init before calling
+	digest_init.
+
+	PR c++/29408
+	* parser.c (cp_parser_using_declaration): Stop parsing when
+	something goes wrong with an access declaration.
+
+	PR c++/29435
+	* typeck.c (cxx_sizeof_or_alignof_type): Complete non-dependent
+	types when their sizes are required.  Refine test for VLAs.
 
 	PR c++/28211
 	* parser.c (cp_parser_template_argument): Don't consider "&var" a
