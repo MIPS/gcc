@@ -1,3 +1,10 @@
+2006-11-21  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Class.h: (isEnum, isSynthetic, isAnnotation): Move
+	to native code. 
+	* java/lang/Class.java (isEnum, isSynthetic, isAnnotation):
+	Likewise.
+
 2006-11-17  Andrew Haley  <aph@redhat.com>
 
 	* java/net/natVMURLConnection.cc: Check for HAVE_MAGIC_OPEN.

@@ -441,7 +441,19 @@ public:
 				      jboolean);
   jobjectArray getDeclaredAnnotations(::java::lang::reflect::Field *);
   JArray< ::java::lang::annotation::Annotation *> *getDeclaredAnnotationsInternal();
-  jboolean isEnum (void);
+
+  jboolean isEnum (void)
+  {
+    return (accflags & 0x4000) != 0;
+  }
+  jboolean isSynthetic (void)
+  {
+    return (accflags & 0x1000) != 0;
+  }
+  jboolean isAnnotation (void)
+  {
+    return (accflags & 0x2000) != 0;
+  }
 
   jboolean isAnonymousClass();
   jboolean isLocalClass();
