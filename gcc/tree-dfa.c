@@ -772,9 +772,8 @@ mark_symbols_for_renaming (tree stmt)
 
   if (stmt_references_memory_p (stmt))
     {
-      mem_syms_map_t mp = get_loads_and_stores (stmt);
-      mark_set_for_renaming (mp->loads);
-      mark_set_for_renaming (mp->stores);
+      mark_set_for_renaming (LOADED_SYMS (stmt));
+      mark_set_for_renaming (STORED_SYMS (stmt));
     }
 
   /* Mark all the GIMPLE register operands for renaming.  */

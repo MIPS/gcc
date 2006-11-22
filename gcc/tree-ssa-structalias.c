@@ -3255,12 +3255,8 @@ update_alias_info (tree stmt, struct alias_info *ai)
     }
   
   /* Mark variables in VDEF operands as being written to.  */
-  if (stmt_references_memory_p (stmt))
-    {
-      mem_syms_map_t mp = get_loads_and_stores (stmt);
-      if (mp->stores)
-	bitmap_ior_into (ai->written_vars, mp->stores);
-    }
+  if (stmt_references_memory_p (stmt) && STORED_SYMS (stmt))
+    bitmap_ior_into (ai->written_vars, STORED_SYMS (stmt));
 }
 
 

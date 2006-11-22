@@ -253,8 +253,6 @@ release_phi_node (tree phi)
       delink_imm_use (imm);
     }
 
-  delete_loads_and_stores (phi);
-
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
   PHI_CHAIN (phi) = free_phinodes[bucket];
@@ -304,9 +302,6 @@ resize_phi_node (tree *phi, int len)
       imm->stmt = new_phi;
     }
 
-  if (stmt_references_memory_p (*phi))
-    move_loads_and_stores (new_phi, *phi);
-
   *phi = new_phi;
 }
 
@@ -355,6 +350,13 @@ tree
 create_phi_node (tree var, basic_block bb)
 {
   tree phi;
+
+#if defined ENABLE_CHECKING
+  if (TREE_CODE (var) != SSA_NAME)
+    gcc_assert (var != mem_var);
+  else
+    gcc_assert (SSA_NAME_VAR (var) != mem_var);
+#endif
 
   phi = make_phi_node (var, EDGE_COUNT (bb->preds));
 

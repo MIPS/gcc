@@ -104,7 +104,7 @@ struct vuse_optype_d
 typedef struct vuse_optype_d *vuse_optype_p;
                                                                               
 
-#define SSA_OPERAND_MEMORY_SIZE		(102400 - sizeof (void *))
+#define SSA_OPERAND_MEMORY_SIZE		(10240 - sizeof (void *))
                                                                               
 struct ssa_operand_memory_d GTY((chain_next("%h.next")))
 {
@@ -123,6 +123,10 @@ struct stmt_operands_d
   /* Virtual operands (VDEF, VUSE).  */
   struct vdef_optype_d * vdef_ops;
   struct vuse_optype_d * vuse_ops;
+
+  /* Sets of memory symbols loaded and stored.  */
+  bitmap stores;
+  bitmap loads;
 };
                                                                               
 typedef struct stmt_operands_d *stmt_operands_p;
@@ -138,6 +142,16 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define USE_OPS(STMT)		(stmt_ann (STMT)->operands.use_ops)
 #define VUSE_OPS(STMT)		(stmt_ann (STMT)->operands.vuse_ops)
 #define VDEF_OPS(STMT)		(stmt_ann (STMT)->operands.vdef_ops)
+
+#define LOADED_SYMS(STMT)				\
+    ((TREE_CODE (STMT) == PHI_NODE)			\
+     ? (MPT_SYMBOLS (SSA_NAME_VAR (PHI_RESULT (STMT))))	\
+     : (stmt_ann (STMT)->operands.loads))
+
+#define STORED_SYMS(STMT)				\
+    ((TREE_CODE (STMT) == PHI_NODE)			\
+     ? (MPT_SYMBOLS (SSA_NAME_VAR (PHI_RESULT (STMT))))	\
+     : (stmt_ann (STMT)->operands.stores))
 
 #define USE_OP_PTR(OP)		(&((OP)->use_ptr))
 #define USE_OP(OP)		(USE_FROM_PTR (USE_OP_PTR (OP)))
@@ -177,7 +191,7 @@ extern struct vuse_optype_d *realloc_vuse (struct vuse_optype_d *, int);
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-extern void free_ssa_operands (stmt_operands_p);
+extern void free_ssa_operands (tree, stmt_operands_p);
 extern void update_stmt_operands (tree);
 extern bool verify_imm_links (FILE *f, tree var);
 
@@ -328,19 +342,6 @@ typedef struct ssa_operand_iterator_d
 /* This macro counts the number of operands in STMT matching FLAGS.  */
 #define NUM_SSA_OPERANDS(STMT, FLAGS)	num_ssa_operands (STMT, FLAGS)
 
-/* Mapping between a statement and the symbols referenced by it.  */
-struct mem_syms_map_d
-{
-  tree stmt;
-  bitmap loads;
-  bitmap stores;
-};
-
-typedef struct mem_syms_map_d *mem_syms_map_t;
-
-extern mem_syms_map_t get_loads_and_stores (tree);
-extern void move_loads_and_stores (tree, tree);
-extern void delete_loads_and_stores (tree);
 extern tree get_mpt_for (tree);
 extern void dump_memory_partitions (FILE *);
 extern void debug_memory_partitions (void);

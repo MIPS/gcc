@@ -312,14 +312,10 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
    DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
       version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
       it means that the block in that array slot contains the
-      definition of SSA_NAME.
-
-   PHI_FACTORED_SYMS is the set of symbols factored by previous PHI
-      nodes in BB.  */
+      definition of SSA_NAME.  */
 
 static bool
-verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
-                 bitmap phi_factored_syms)
+verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
@@ -330,52 +326,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block,
       error ("incoming edge count does not match number of PHI arguments");
       err = true;
       goto error;
-    }
-
-  if (stmt_references_memory_p (phi))
-    {
-      bitmap_iterator bi;
-      unsigned i;
-      tree lhs;
-      mem_syms_map_t syms_phi;
-      
-      lhs = PHI_RESULT (phi);
-      syms_phi = get_loads_and_stores (phi);
-      if (syms_phi->loads != syms_phi->stores)
-	{
-	  error ("Sets of loads and stores should be shared");
-	  err = true;
-	  goto error;
-	}
-
-      EXECUTE_IF_SET_IN_BITMAP (syms_phi->stores, 0, i, bi)
-	if (is_gimple_reg (referenced_var (i)))
-	  {
-	    error ("Found GIMPLE register in set of stored memory symbols");
-	    fprintf (stderr, "Symbol: ");
-	    print_generic_stmt (stderr, referenced_var (i), 0);
-	    err = true;
-	  }
-
-      if (bitmap_intersect_p (syms_phi->stores, phi_factored_syms))
-	{
-	  bitmap set = BITMAP_ALLOC (NULL);
-	  bitmap_and (set, syms_phi->stores, phi_factored_syms);
-	  error ("Found more than one memory PHI node associated to the "
-	         "same symbol(s)");
-	  fprintf (stderr, "Symbols: ");
-	  dump_decl_set (stderr, set);
-	  BITMAP_FREE (set);
-	  err = true;
-	}
-
-      /* If this is a factored PHI node, collect the factored symbols
-	 to check if they are factored multiple times.  */
-      if (SSA_NAME_VAR (lhs) == mem_var)
-	bitmap_ior_into (phi_factored_syms, syms_phi->stores);
-
-      if (err)
-	goto error;
     }
 
   for (i = 0; i < phi_num_args; i++)
@@ -742,7 +692,6 @@ verify_ssa (bool check_modified_stmt)
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
-  bitmap phi_factored_syms = BITMAP_ALLOC (NULL);
   bitmap mem_syms_found = BITMAP_ALLOC (NULL);
 
   gcc_assert (!need_ssa_update_p ());
@@ -796,13 +745,12 @@ verify_ssa (bool check_modified_stmt)
       /* Verify the arguments for every PHI node in the block.  */
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  if (verify_phi_args (phi, bb, definition_block, phi_factored_syms))
+	  if (verify_phi_args (phi, bb, definition_block))
 	    goto err;
 
 	  bitmap_set_bit (names_defined_in_bb,
 			  SSA_NAME_VERSION (PHI_RESULT (phi)));
 	}
-      bitmap_clear (phi_factored_syms);
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -892,7 +840,6 @@ verify_ssa (bool check_modified_stmt)
     dom_computed[CDI_DOMINATORS] = orig_dom_state;
   
   BITMAP_FREE (names_defined_in_bb);
-  BITMAP_FREE (phi_factored_syms);
   BITMAP_FREE (mem_syms_found);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
@@ -928,16 +875,10 @@ int_tree_map_hash (const void *item)
 static void
 create_mem_var (void)
 {
-  mem_var = build_decl (VAR_DECL, get_identifier (".MEM"), void_type_node);
-  DECL_ARTIFICIAL (mem_var) = 1;
-  TREE_READONLY (mem_var) = 0;
-  DECL_EXTERNAL (mem_var) = 1;
-  TREE_STATIC (mem_var) = 1;
-  TREE_USED (mem_var) = 1;
-  DECL_CONTEXT (mem_var) = NULL_TREE;
-  TREE_THIS_VOLATILE (mem_var) = 0;
+  mem_var = create_tag_raw (MEMORY_PARTITION_TAG, void_type_node, ".MEM");
   TREE_ADDRESSABLE (mem_var) = 0;
   create_var_ann (mem_var);
+  MPT_SYMBOLS (mem_var) = NULL_TREE;
 }
 
 
@@ -991,7 +932,7 @@ delete_tree_ssa (void)
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = get_stmt_ann (stmt);
 
-	  free_ssa_operands (&ann->operands);
+	  free_ssa_operands (stmt, &ann->operands);
 	  ann->addresses_taken = 0;
 	  mark_stmt_modified (stmt);
 	}

@@ -796,13 +796,12 @@ set_memory_partition (tree sym, tree tag)
 }
 
 /* Return true if NAME is a memory factoring SSA name (i.e., an SSA
-   name for .MEM or for a memory partition.  */
+   name for a memory partition.  */
 
 static inline bool
 factoring_name_p (tree name)
 {
-  return SSA_NAME_VAR (name) == mem_var
-         || TREE_CODE (SSA_NAME_VAR (name)) == MEMORY_PARTITION_TAG;
+  return TREE_CODE (SSA_NAME_VAR (name)) == MEMORY_PARTITION_TAG;
 }
 
 /* Return true if VAR is a clobbered by function calls.  */

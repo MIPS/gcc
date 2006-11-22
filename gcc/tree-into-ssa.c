@@ -667,15 +667,6 @@ add_new_name_mapping (tree new, tree old)
   /* OLD and NEW must be different SSA names for the same symbol.  */
   gcc_assert (new != old && SSA_NAME_VAR (new) == SSA_NAME_VAR (old));
 
-  /* We may need to grow NEW_SSA_NAMES and OLD_SSA_NAMES because our
-     caller may have created new names since the set was created.  */
-  if (new_ssa_names->n_bits <= num_ssa_names - 1)
-    {
-      unsigned int new_sz = num_ssa_names + NAME_SETS_GROWTH_FACTOR;
-      new_ssa_names = sbitmap_resize (new_ssa_names, new_sz, 0);
-      old_ssa_names = sbitmap_resize (old_ssa_names, new_sz, 0);
-    }
-
   /* If this mapping is for virtual names, we will need to update
      virtual operands.  If this is a mapping for .MEM, then we gather
      the symbols associated with each name.  */
@@ -701,22 +692,38 @@ add_new_name_mapping (tree new, tree old)
 	}
       else
 	{
-	  mem_syms_map_t oldsyms, newsyms;
+	  tree old_stmt, new_stmt;
 	  bitmap vs;
 
 	  vs = update_ssa_stats.virtual_symbols;
-	  oldsyms = get_loads_and_stores (SSA_NAME_DEF_STMT (old));
-	  newsyms = get_loads_and_stores (SSA_NAME_DEF_STMT (new));
+	  old_stmt = SSA_NAME_DEF_STMT (old);
+	  new_stmt = SSA_NAME_DEF_STMT (new);
 
-	  if (oldsyms->loads)
-	    bitmap_ior_into (vs, oldsyms->loads);
+	  if (LOADED_SYMS (old_stmt))
+	    bitmap_ior_into (vs, LOADED_SYMS (old_stmt));
 
-	  if (oldsyms->stores)
-	    bitmap_ior_into (vs, oldsyms->stores);
+	  if (STORED_SYMS (old_stmt))
+	    bitmap_ior_into (vs, STORED_SYMS (old_stmt));
 
-	  if (newsyms->stores)
-	    bitmap_ior_into (vs, newsyms->stores);
+	  if (STORED_SYMS (new_stmt))
+	    bitmap_ior_into (vs, STORED_SYMS (new_stmt));
+
+	  if (sym == mem_var)
+	    {
+	      bitmap_ior_into (syms_to_rename, vs);
+	      timevar_pop (TV_TREE_SSA_INCREMENTAL);
+	      return;
+	    }
 	}
+    }
+
+  /* We may need to grow NEW_SSA_NAMES and OLD_SSA_NAMES because our
+     caller may have created new names since the set was created.  */
+  if (new_ssa_names->n_bits <= num_ssa_names - 1)
+    {
+      unsigned int new_sz = num_ssa_names + NAME_SETS_GROWTH_FACTOR;
+      new_ssa_names = sbitmap_resize (new_ssa_names, new_sz, 0);
+      old_ssa_names = sbitmap_resize (old_ssa_names, new_sz, 0);
     }
 
   /* Update the REPL_TBL table.  */
@@ -1362,6 +1369,20 @@ get_reaching_def (tree var)
   if (currdef == NULL_TREE)
     {
       tree sym = DECL_P (var) ? var : SSA_NAME_VAR (var);
+
+      if (!is_gimple_reg (sym))
+	{
+	  /* For memory symbols, use .MEM's default definition to
+	     serve as the default definition for SYM.  However, using
+	     a common default definition may interfere with constant
+	     propagation when the symbol has an initial value (because
+	     CCP cannot find DECL_INITIAL for the original symbol).
+	     So, if SYM has a non-empty DECL_INITIAL, we use SYM
+	     itself.  */
+	  if (MTAG_P (sym) || DECL_INITIAL (sym) == NULL_TREE)
+	    sym = mem_var;
+	}
+
       currdef = get_default_def_for (sym);
       set_current_def (var, currdef);
     }
@@ -1871,7 +1892,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	}
       else if (symbol_marked_for_renaming (lhs_sym))
 	{
-	  if (is_gimple_reg (lhs_sym))
+	  if (TREE_CODE (lhs_sym) != MEMORY_PARTITION_TAG)
 	    {
 	      /* If LHS is a regular symbol marked for renaming, register
 		 LHS as its current reaching definition.  */
@@ -1886,7 +1907,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	      unsigned i;
 	      bitmap syms;
 
-	      syms = get_loads_and_stores (phi)->stores;
+	      syms = MPT_SYMBOLS (lhs_sym);
 	      EXECUTE_IF_AND_IN_BITMAP (syms, mem_syms_to_rename, 0, i, bi)
 		register_new_update_single (lhs, referenced_var (i));
 	    }
@@ -2143,10 +2164,15 @@ rewrite_update_stmt_vops (tree stmt, bitmap syms, bitmap rdefs, int which_vops)
 	if (sym == mem_var
 	    && !name_marked_for_release_p (name))
 	  {
-	    tree def_stmt = SSA_NAME_DEF_STMT (name);
-	    bitmap syms = get_loads_and_stores (def_stmt)->stores;
-	    if (!bitmap_intersect_p (syms, mem_syms_to_rename))
+	    if (SSA_NAME_IS_DEFAULT_DEF (name))
 	      bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
+	    else
+	      {
+		tree def_stmt = SSA_NAME_DEF_STMT (name);
+		bitmap syms = STORED_SYMS (def_stmt);
+		if (!bitmap_intersect_p (syms, mem_syms_to_rename))
+		  bitmap_set_bit (rdefs, SSA_NAME_VERSION (name));
+	      }
 	  }
 	else if (TREE_CODE (sym) == MEMORY_PARTITION_TAG)
 	  {
@@ -2236,31 +2262,30 @@ register_new_vdef_name (tree stmt, bitmap stores)
 static void
 rewrite_update_memory_stmt (tree stmt)
 {
-  bitmap rdefs;
-  mem_syms_map_t syms;
+  bitmap rdefs, loads, stores;
 
-  syms = get_loads_and_stores (stmt);
-
-  if (syms->loads == NULL && syms->stores == NULL)
+  if (LOADED_SYMS (stmt) == NULL && STORED_SYMS (stmt) == NULL)
     return;
 
   rdefs = BITMAP_ALLOC (NULL);
+  loads = LOADED_SYMS (stmt);
+  stores = STORED_SYMS (stmt);
 
   /* Rewrite loaded symbols marked for renaming.  */
-  if (syms->loads && bitmap_intersect_p (syms->loads, mem_syms_to_rename))
+  if (loads && bitmap_intersect_p (loads, mem_syms_to_rename))
     {
-      rewrite_update_stmt_vops (stmt, syms->loads, rdefs, SSA_OP_VUSE);
+      rewrite_update_stmt_vops (stmt, loads, rdefs, SSA_OP_VUSE);
       bitmap_clear (rdefs);
     }
 
-  if (syms->stores && bitmap_intersect_p (syms->stores, mem_syms_to_rename))
+  if (stores && bitmap_intersect_p (stores, mem_syms_to_rename))
     {
       /* Rewrite stored symbols marked for renaming.  */
-      rewrite_update_stmt_vops (stmt, syms->stores, rdefs, SSA_OP_VMAYUSE);
+      rewrite_update_stmt_vops (stmt, stores, rdefs, SSA_OP_VMAYUSE);
 
       /* Register the LHS of the VDEF to be the new reaching
 	 definition of all the symbols in STORES.  */
-      register_new_vdef_name (stmt, syms->stores);
+      register_new_vdef_name (stmt, stores);
     }
 
   BITMAP_FREE (rdefs);
@@ -2373,8 +2398,8 @@ replace_factored_phi_argument (tree phi, edge e)
   tree rdef, last_rdef, lhs_sym;
   bool all_default_rdefs_p;
 
-  phi_syms = get_loads_and_stores (phi)->stores;
   lhs_sym = SSA_NAME_VAR (PHI_RESULT (phi));
+  phi_syms = MPT_SYMBOLS (lhs_sym);
   gcc_assert (bitmap_intersect_p (phi_syms, mem_syms_to_rename));
 
   /* Traverse all the symbols factored in PHI to see if we need to
@@ -2460,13 +2485,13 @@ rewrite_update_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	      /* Process old SSA names first.  */
 	      SET_USE (arg_p, get_reaching_def (arg));
 	    }
-	  else if (stmt_references_memory_p (phi)
-		   && bitmap_intersect_p (get_loads_and_stores (phi)->stores,
+	  else if (TREE_CODE (lhs_sym) == MEMORY_PARTITION_TAG
+		   && bitmap_intersect_p (MPT_SYMBOLS (lhs_sym),
 		                          mem_syms_to_rename))
 	    {
 	      /* If this is a factored PHI node, the argument may
 		 have multiple reaching definitions, which will
-		 require this PHI node to be split up.  */
+		 require a SIGMA node in E->SRC.  */
 	      replace_factored_phi_argument (phi, e);
 	    }
 	  else
@@ -2906,16 +2931,15 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	{
 	  bitmap_iterator bi;
 	  unsigned i;
-	  mem_syms_map_t syms = get_loads_and_stores (stmt);
 
 	  prune_stale_vops (stmt);
 
 	  /* FIXME.  Maybe it's faster to traverse VUSE/VDEF operands
 	     instead of the symbols.  Although, the first time we
 	     are renaming, we will not have any operands.  */
-	  if (syms->stores
-	      && bitmap_intersect_p (syms->stores, mem_syms_to_rename))
-	    EXECUTE_IF_AND_IN_BITMAP (syms->stores, mem_syms_to_rename,
+	  if (STORED_SYMS (stmt)
+	      && bitmap_intersect_p (STORED_SYMS (stmt), mem_syms_to_rename))
+	    EXECUTE_IF_AND_IN_BITMAP (STORED_SYMS (stmt), mem_syms_to_rename,
 				      0, i, bi)
 	      {
 		tree mpt = memory_partition (referenced_var (i));
@@ -2923,9 +2947,9 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 		mark_def_interesting (mpt, stmt, bb, insert_phi_p);
 	      }
 
-	  if (syms->loads
-	      && bitmap_intersect_p (syms->loads, mem_syms_to_rename))
-	    EXECUTE_IF_AND_IN_BITMAP (syms->loads, mem_syms_to_rename,
+	  if (LOADED_SYMS (stmt)
+	      && bitmap_intersect_p (LOADED_SYMS (stmt), mem_syms_to_rename))
+	    EXECUTE_IF_AND_IN_BITMAP (LOADED_SYMS (stmt), mem_syms_to_rename,
 				      0, i, bi)
 	      {
 		tree mpt = memory_partition (referenced_var (i));
@@ -2959,7 +2983,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
     {
       unsigned i;
       bitmap_iterator bi;
-      bitmap stores = get_loads_and_stores (last)->stores;
+      bitmap stores = STORED_SYMS (last);
 
       EXECUTE_IF_SET_IN_BITMAP (mem_syms_to_rename, 0, i, bi)
 	{

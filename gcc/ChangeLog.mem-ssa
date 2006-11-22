@@ -1,3 +1,44 @@
+2006-11-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-operands.h (SSA_OPERAND_MEMORY_SIZE): Reduce to 10240.
+	(struct stmt_operands_d): Add fields 'stores' and 'loads'.
+	(LOADED_SYMS): Define.
+	(STORED_SYMS): Define.
+	(struct mem_syms_map_d): Remove.  Update all users.
+	(get_loads_and_stores): Remove.  Update all users to call
+	LOADED_SYMS or STORED_SYMS accordingly.
+	(move_loads_and_stores): Remove.  Update all users.
+	(delete_loads_and_stores): Remove.  Update all users.
+	* tree-into-ssa.c (add_new_name_mapping): If a memory mapping
+	is requested for .MEM, mark the symbols for renaming instead.
+	(get_reaching_def): If the memory symbol does not have
+	DECL_INITIAL set, use .MEM's default definition.
+	(rewrite_update_init_block): If the LHS is a memory partition,
+	set the PHI node to be the current definition for all the
+	symbols in the partition.
+	(rewrite_update_stmt_vops): Always keep default definition for
+	.MEM.
+	* tree-flow-inline.h (set_memory_partition): Do not special
+	case .MEM
+	* tree-ssa.c (verify_phi_args): Remove argument
+	PHI_FACTORED_SYMS.  Update users.
+	(create_mem_var): Create .MEM as a MEMORY_PARTITION_TAG.
+	* tree-ssa-operands.c (mem_syms_tbl): Remove.  Update all
+	users.
+	(mem_syms_hash): Likewise.
+	(mem_syms_eq): Likewise.
+	(mem_syms_free): Likewise.
+	(get_loads_and_stores): Likewise.
+	(delete_loads_and_stores): Likewise.
+	(move_loads_and_stores): Likewise.
+	(dump_loads_and_stores): Likewise.
+	(debug_loads_and_stores): Likewise.
+	(free_ssa_operands): Add argument STMT.  If STMT is SIGMA_NODE
+	do not free the sets of loads and stores.
+	(update_loads_and_stores): Do not allocate sets of loads and
+	stores for SIGMA_NODE.  Use the symbols in the associated
+	memory partition.
+
 2006-11-20  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge as of 2006-11-20 (@119010).

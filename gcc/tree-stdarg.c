@@ -520,14 +520,14 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	  syms_escape_p = false;
 	  if (stmt_references_memory_p (stmt))
 	    {
-	      mem_syms_map_t mp = get_loads_and_stores (stmt);
-
-	      if (mp->loads
-		  && bitmap_intersect_p (si->va_list_escape_vars, mp->loads))
+	      if (LOADED_SYMS (stmt)
+		  && bitmap_intersect_p (si->va_list_escape_vars,
+		                         LOADED_SYMS (stmt)))
 		continue;
 
-	      if (mp->stores
-		  && bitmap_intersect_p (si->va_list_escape_vars, mp->stores))
+	      if (STORED_SYMS (stmt)
+		  && bitmap_intersect_p (si->va_list_escape_vars,
+		                         STORED_SYMS (stmt)))
 		continue;
 	    }
 

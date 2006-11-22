@@ -2320,7 +2320,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   def_operand_p def_p;
   tree def, def_stmt;
   enum vect_def_type dt;
-  mem_syms_map_t mp;
   stmt_vec_info prev_stmt_info;
   tree dataref_ptr = NULL_TREE;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);

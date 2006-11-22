@@ -897,13 +897,10 @@ free_mem_ref_locs (struct mem_ref_loc *mem_refs)
 static void
 rewrite_mem_refs (tree tmp_var, struct mem_ref_loc *mem_refs)
 {
-  mem_syms_map_t mp;
-
   for (; mem_refs; mem_refs = mem_refs->next)
     {
-      mp = get_loads_and_stores (mem_refs->stmt);
-      mark_set_for_renaming (mp->stores);
-      mark_set_for_renaming (mp->loads);
+      mark_set_for_renaming (STORED_SYMS (mem_refs->stmt));
+      mark_set_for_renaming (LOADED_SYMS (mem_refs->stmt));
       *mem_refs->ref = tmp_var;
       update_stmt (mem_refs->stmt);
     }
@@ -1192,7 +1189,6 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
   PTR *slot;
   struct mem_ref *ref = NULL;
   bool is_stored;
-  mem_syms_map_t mp;
 
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return;
@@ -1249,25 +1245,21 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     }
   ref->is_stored |= is_stored;
 
-  mp = get_loads_and_stores (stmt);
+  if (LOADED_SYMS (stmt))
+    bitmap_ior_into (ref->vops, LOADED_SYMS (stmt));
 
-  if (mp->loads)
-    bitmap_ior_into (ref->vops, mp->loads);
-
-  if (mp->stores)
-    bitmap_ior_into (ref->vops, mp->stores);
+  if (STORED_SYMS (stmt))
+    bitmap_ior_into (ref->vops, STORED_SYMS (stmt));
 
   record_mem_ref_loc (&ref->locs, stmt, mem);
   return;
 
 fail:
-  mp = get_loads_and_stores (stmt);
+  if (LOADED_SYMS (stmt))
+    bitmap_ior_into (clobbered_vops, LOADED_SYMS (stmt));
 
-  if (mp->loads)
-    bitmap_ior_into (clobbered_vops, mp->loads);
-
-  if (mp->stores)
-    bitmap_ior_into (clobbered_vops, mp->stores);
+  if (STORED_SYMS (stmt))
+    bitmap_ior_into (clobbered_vops, STORED_SYMS (stmt));
 }
 
 /* Gathers memory references in LOOP.  Notes vops accessed through unrecognized

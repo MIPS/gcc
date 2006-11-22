@@ -204,62 +204,9 @@ DEF_VEC_ALLOC_P(scb_t,heap);
    of changes for the popped statement.  */
 static VEC(scb_t,heap) *scb_stack;
 
-/* Table, indexed by statement, for symbols loaded and stored by
-   statements that reference memory.  */
-static htab_t mem_syms_tbl;
-
 /* Table of memory partitions.  Indexed according to the partitioning
    scheme defined in get_mpt_for.  */
 static VEC(tree,heap) *mpt_table;
-
-/* Hashing and equality functions for MEM_SYMS_TBL.  */
-
-static hashval_t
-mem_syms_hash (const void *p)
-{
-  return htab_hash_pointer ((const void *)((const mem_syms_map_t)p)->stmt);
-}
-
-static int
-mem_syms_eq (const void *p1, const void *p2)
-{
-  return ((const mem_syms_map_t)p1)->stmt == ((const mem_syms_map_t)p2)->stmt;
-}
-
-static void
-mem_syms_free (void *p)
-{
-  tree stmt = ((mem_syms_map_t) p)->stmt;
-  bitmap loads = ((mem_syms_map_t) p)->loads;
-  bitmap stores = ((mem_syms_map_t) p)->stores;
-
-  if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      /* Do not free loads for PHI nodes for memory partitions.
-	 These PHI nodes take their sets from the memory partition
-	 that they represent.  */
-      tree lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
-      if (TREE_CODE (lhs_sym) != MEMORY_PARTITION_TAG)
-	BITMAP_FREE (loads);
-    }
-  else if (TREE_CODE (stmt) == SIGMA_NODE)
-    {
-      /* SIGMA nodes always take their loads/stores sets from the
-	 associated memory partition, so they should not be
-	 deallocated.  */
-      ;
-    }
-  else
-    {
-      bool shared_p = (loads == stores);
-
-      BITMAP_FREE (loads);
-      if (!shared_p)
-	BITMAP_FREE (stores);
-    }
-
-  free (p);
-}
 
 
 /* Return true if the parser should just gather symbols loaded/stored
@@ -356,8 +303,6 @@ init_ssa_operands (void)
   scb_stack = VEC_alloc (scb_t, heap, 20);
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
-  gcc_assert (mem_syms_tbl == NULL);
-  mem_syms_tbl = htab_create (200, mem_syms_hash, mem_syms_eq, mem_syms_free);
   gcc_assert (mpt_table == NULL);
 
   ops_active = true;
@@ -392,9 +337,6 @@ fini_ssa_operands (void)
       operand_memory = operand_memory->next;
       ggc_free (ptr);
     }
-
-  htab_delete (mem_syms_tbl);
-  mem_syms_tbl = NULL;
 
   for (ix = 0; VEC_iterate (tree, mpt_table, ix, mpt); ix++)
     if (mpt)
@@ -2365,123 +2307,17 @@ build_ssa_operands (tree stmt)
 /* Free any operands vectors in OPS.  */
 
 void 
-free_ssa_operands (stmt_operands_p ops)
+free_ssa_operands (tree stmt, stmt_operands_p ops)
 {
   ops->def_ops = NULL;
   ops->use_ops = NULL;
   ops->vdef_ops = NULL;
   ops->vuse_ops = NULL;
-}
-
-
-/* Lookup in MEM_SYMS_TBL a slot corresponding to STMT.  Create a new
-   one if needed.  */
-
-mem_syms_map_t
-get_loads_and_stores (tree stmt)
-{
-  struct mem_syms_map_d m, *mp;
-  void **slot;
-
-  gcc_assert (mem_syms_tbl);
-  gcc_assert (stmt_references_memory_p (stmt));
-
-  m.stmt = stmt;
-  slot = htab_find_slot (mem_syms_tbl, (void *) &m, INSERT);
-  if (*slot == NULL)
+  if (TREE_CODE (stmt) != SIGMA_NODE)
     {
-      mp = XNEW (struct mem_syms_map_d);
-      mp->stmt = stmt;
-
-      if (TREE_CODE (stmt) == PHI_NODE)
-	{
-	  tree lhs_sym;
-
-	  /* Non-factored PHI nodes load and store exactly one symbol.  */
-	  lhs_sym = SSA_NAME_VAR (PHI_RESULT (stmt));
-	  if (TREE_CODE (lhs_sym) == MEMORY_PARTITION_TAG)
-	      mp->loads = MPT_SYMBOLS (lhs_sym);
-	  else
-	    {
-	      mp->loads = BITMAP_ALLOC (NULL);
-
-	      /* .MEM PHIs do not factor any symbol.  */
-	      if (lhs_sym != mem_var)
-		bitmap_set_bit (mp->loads, DECL_UID (lhs_sym));
-	    }
-
-	  /* PHI nodes load and store the same symbols.  */
-	  mp->stores = mp->loads;
-	}
-      else if (TREE_CODE (stmt) == SIGMA_NODE)
-	{
-	  /* SIGMA nodes take their loads/stores sets directly from the
-	     associated partition.  */
-	  mp->loads = NULL;
-	  mp->stores = MPT_SYMBOLS (SIGMA_MPT (stmt));
-	}
-      else
-	{
-	  mp->loads = BITMAP_ALLOC (NULL);
-	  mp->stores = BITMAP_ALLOC (NULL);
-	}
-
-      *slot = (void *) mp;
+      BITMAP_FREE (ops->loads);
+      BITMAP_FREE (ops->stores);
     }
-  else
-    mp = (mem_syms_map_t) *slot;
-
-  return mp;
-}
-
-
-/* Delete the loads and stores sets associated with STMT.  */
-
-void
-delete_loads_and_stores (tree stmt)
-{
-  if (mem_syms_tbl)
-    {
-      struct mem_syms_map_d m;
-      void **slot;
-
-      m.stmt = stmt;
-      slot = htab_find_slot (mem_syms_tbl, (void *) &m, NO_INSERT);
-      if (slot)
-	htab_remove_elt (mem_syms_tbl, *slot);
-    }
-}
-
-
-/* Move the sets of loads and stores from OLD_STMT into NEW_STMT.
-   Remove the entry for OLD_STMT.  */
-
-void
-move_loads_and_stores (tree new_stmt, tree old_stmt)
-{
-  void **slot;
-  mem_syms_map_t old_mp, new_mp;
-
-  gcc_assert (TREE_CODE (new_stmt) == TREE_CODE (old_stmt));
-
-  old_mp = get_loads_and_stores (old_stmt);
-
-  if (TREE_CODE (new_stmt) != SIGMA_NODE
-      && !(TREE_CODE (new_stmt) == PHI_NODE
-	   && TREE_CODE (SSA_NAME_VAR (PHI_RESULT (new_stmt)))
-	      == MEMORY_PARTITION_TAG))
-    {
-      new_mp = get_loads_and_stores (new_stmt);
-
-      bitmap_copy (new_mp->loads, old_mp->loads);
-
-      /* PHI nodes share their loads and stores sets.  */
-      if (TREE_CODE (new_stmt) != PHI_NODE)
-	bitmap_copy (new_mp->stores, old_mp->stores);
-    }
-
-  slot = htab_find_slot (mem_syms_tbl, (void *) old_mp, NO_INSERT);
-  htab_remove_elt (mem_syms_tbl, *slot);
 }
 
 
@@ -2494,30 +2330,32 @@ move_loads_and_stores (tree new_stmt, tree old_stmt)
 static void
 update_loads_and_stores (tree stmt)
 {
-  mem_syms_map_t mp;
+  stmt_ann_t ann = stmt_ann (stmt);
 
   /* SIGMA nodes do not need scanning, the set of loads and stores is
      taken directly from the associated memory partition.  */
   if (TREE_CODE (stmt) == SIGMA_NODE)
-    return;
+    {
+      ann->operands.loads = NULL;
+      ann->operands.stores = MPT_SYMBOLS (SIGMA_MPT (stmt));
+      return;
+    }
 
   memset (&clobber_stats, 0, sizeof (clobber_stats));
 
-  mp = get_loads_and_stores (stmt);
-
-  if (mp->loads)
-    bitmap_clear (mp->loads);
+  if (ann->operands.loads)
+    bitmap_clear (ann->operands.loads);
   else
-    mp->loads = BITMAP_ALLOC (NULL);
+    ann->operands.loads = BITMAP_ALLOC (NULL);
 
-  if (mp->stores)
-    bitmap_clear (mp->stores);
+  if (ann->operands.stores)
+    bitmap_clear (ann->operands.stores);
   else
-    mp->stores = BITMAP_ALLOC (NULL);
+    ann->operands.stores = BITMAP_ALLOC (NULL);
 
   /* Point the internal loaded/stored sets to the ones provided.  */
-  loaded_syms = mp->loads;
-  stored_syms = mp->stores;
+  loaded_syms = ann->operands.loads;
+  stored_syms = ann->operands.stores;
 
   /* Parse the statement.  We don't really care for its operands, so
      there's no need to initialize anything.  If any operand was added
@@ -2533,14 +2371,11 @@ update_loads_and_stores (tree stmt)
   loaded_syms = NULL;
   stored_syms = NULL;
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    dump_loads_and_stores (dump_file, stmt);
+  if (ann->operands.loads && bitmap_empty_p (ann->operands.loads))
+    ann->operands.loads = NULL;
 
-  if (mp->loads && bitmap_empty_p (mp->loads))
-    BITMAP_FREE (mp->loads);
-
-  if (mp->stores && bitmap_empty_p (mp->stores))
-    BITMAP_FREE (mp->stores);
+  if (ann->operands.stores && bitmap_empty_p (ann->operands.stores))
+    ann->operands.stores = NULL;
 
   if (dump_file && (dump_flags & TDF_STATS))
     {
@@ -2920,44 +2755,6 @@ debug_immediate_uses_for (tree var)
 }
 
 
-/* Dump symbols loaded and stored by STMT to FILE.  */
-
-void
-dump_loads_and_stores (FILE *file, tree stmt)
-{
-  mem_syms_map_t mp;
-
-  print_generic_stmt (file, stmt, TDF_VOPS);
-
-  mp = get_loads_and_stores (stmt);
-
-  if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      fprintf (file, "\tLOADS/STORES: ");
-      dump_decl_set (file, mp->loads);
-      if (mp->loads != mp->stores)
-	fprintf (file, "\n\tWARNING.  LOADS and STORES sets not shared.\n");
-    }
-  else
-    {
-      fprintf (file, "\tLOADS:  ");
-      dump_decl_set (file, mp->loads);
-
-      fprintf (file, "\tSTORES: ");
-      dump_decl_set (file, mp->stores);
-    }
-}
-
-
-/* Dump symbols loaded and stored by STMT to stderr.  */
-
-void
-debug_loads_and_stores (tree stmt)
-{
-  dump_loads_and_stores (stderr, stmt);
-}
-
-
 /* Create a new change buffer for the statement pointed by STMT_P and
    push the buffer into SCB_STACK.  Each change buffer
    records state information needed to determine what changed in the
@@ -2984,18 +2781,14 @@ push_stmt_changes (tree *stmt_p)
 
   if (stmt_references_memory_p (stmt))
     {
-      mem_syms_map_t mp;
-
       buf->loads = BITMAP_ALLOC (NULL);
       buf->stores = BITMAP_ALLOC (NULL);
 
-      mp = get_loads_and_stores (stmt);
+      if (LOADED_SYMS (stmt))
+	bitmap_copy (buf->loads, LOADED_SYMS (stmt));
 
-      if (mp->loads)
-	bitmap_copy (buf->loads, mp->loads);
-
-      if (mp->stores)
-	bitmap_copy (buf->stores, mp->stores);
+      if (STORED_SYMS (stmt))
+	bitmap_copy (buf->stores, STORED_SYMS (stmt));
     }
 
   VEC_safe_push (scb_t, heap, scb_stack, buf);
@@ -3040,7 +2833,6 @@ pop_stmt_changes (tree *stmt_p)
 {
   tree op, stmt;
   ssa_op_iter iter;
-  mem_syms_map_t mp;
   bitmap loads, stores;
   scb_t buf;
 
@@ -3069,9 +2861,8 @@ pop_stmt_changes (tree *stmt_p)
     {
       bitmap factored_by_stmt, factored_by_vops;
 
-      mp = get_loads_and_stores (stmt);
-      loads = mp->loads;
-      stores = mp->stores;
+      loads = LOADED_SYMS (stmt);
+      stores = STORED_SYMS (stmt);
 
       /* Gather all the symbols factored by the virtual operands.
 	 Mark for renaming any symbol in STMT that is no longer
@@ -3079,11 +2870,11 @@ pop_stmt_changes (tree *stmt_p)
       factored_by_vops = BITMAP_ALLOC (NULL);
       factored_by_stmt = BITMAP_ALLOC (NULL);
 
-      if (mp->loads)
-	bitmap_ior_into (factored_by_stmt, mp->loads);
+      if (loads)
+	bitmap_ior_into (factored_by_stmt, loads);
 
-      if (mp->stores)
-	bitmap_ior_into (factored_by_stmt, mp->stores);
+      if (stores)
+	bitmap_ior_into (factored_by_stmt, stores);
 
       /* Gather all the symbols factored by the names in VOPS.  */
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
@@ -3105,8 +2896,9 @@ pop_stmt_changes (tree *stmt_p)
 		bitmap_ior_into (factored_by_vops, factored_by_stmt);
 	      else
 		{
-		  syms = get_loads_and_stores (SSA_NAME_DEF_STMT (op))->stores;
-		  bitmap_ior_into (factored_by_vops, syms);
+		  syms = STORED_SYMS (SSA_NAME_DEF_STMT (op));
+		  if (syms)
+		    bitmap_ior_into (factored_by_vops, syms);
 		}
 	    }
 	  else if (TREE_CODE (op_sym) == MEMORY_PARTITION_TAG)
@@ -3166,7 +2958,7 @@ stmt_references_memory_p (tree stmt)
     return false;
 
   if (TREE_CODE (stmt) == PHI_NODE)
-    return !is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (stmt)));
+    return TREE_CODE (SSA_NAME_VAR (PHI_RESULT (stmt))) == MEMORY_PARTITION_TAG;
 
   return stmt_ann (stmt)->references_memory;
 }
@@ -3205,12 +2997,9 @@ prune_stale_vops (tree stmt)
   vuse_optype_p vuses;
   int i;
   unsigned ix;
-  mem_syms_map_t syms;
   tree op;
 
   gcc_assert (stmt_references_memory_p (stmt));
-
-  syms = get_loads_and_stores (stmt);
 
   vdefs = VDEF_OPS (stmt);
   if (vdefs)

@@ -455,7 +455,7 @@ dump_sigma_node (pretty_printer *buffer, tree sigma, int spc, int flags)
       pp_string (buffer, ">");
 
       if (flags & TDF_MEMSYMS)
-	dump_symbols (buffer, get_loads_and_stores (sigma)->stores, flags);
+	dump_symbols (buffer, STORED_SYMS (sigma), flags);
     }
   else
     {
@@ -1691,7 +1691,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	pp_string (buffer, ">");
 
 	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
-	  dump_symbols (buffer, get_loads_and_stores (node)->stores, flags);
+	  dump_symbols (buffer, STORED_SYMS (node), flags);
       }
       break;
 
@@ -2698,12 +2698,9 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
   struct vdef_optype_d *vdefs;
   struct vuse_optype_d *vuses;
   size_t i, n;
-  mem_syms_map_t syms;
 
   if (!ssa_operands_active () || !stmt_references_memory_p (stmt))
     return;
-
-  syms = (flags & TDF_MEMSYMS) ? get_loads_and_stores (stmt) : NULL;
 
   vuses = VUSE_OPS (stmt);
   if (vuses)
@@ -2720,8 +2717,8 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 
       pp_string (buffer, ">");
 
-      if (syms)
-	dump_symbols (buffer, syms->loads, flags);
+      if (flags & TDF_MEMSYMS)
+	dump_symbols (buffer, LOADED_SYMS (stmt), flags);
 
       newline_and_indent (buffer, spc);
     }
@@ -2743,8 +2740,8 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 
       pp_string (buffer, ">");
 
-      if (syms)
-	dump_symbols (buffer, syms->stores, flags);
+      if (flags & TDF_MEMSYMS)
+	dump_symbols (buffer, STORED_SYMS (stmt), flags);
 
       newline_and_indent (buffer, spc);
     }

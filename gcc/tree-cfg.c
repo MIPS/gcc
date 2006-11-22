@@ -2868,7 +2868,6 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
   mark_stmt_modified (t);
   if (remove_eh_info)
     remove_stmt_from_eh_region (t);
-  delete_loads_and_stores (t);
 }
 
 
@@ -2935,7 +2934,6 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
     }
 
   delink_stmt_imm_use (orig_stmt);
-  delete_loads_and_stores (orig_stmt);
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
   update_modified_stmts (stmt);
