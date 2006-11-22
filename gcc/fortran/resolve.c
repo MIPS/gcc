@@ -89,8 +89,6 @@ resolve_formal_arglist (gfc_symbol * proc)
   gfc_symbol *sym;
   int i;
 
-  /* TODO: Procedures whose return character length parameter is not constant
-     or assumed must also have explicit interfaces.  */
   if (proc->result != NULL)
     sym = proc->result;
   else
@@ -232,7 +230,7 @@ resolve_formal_arglist (gfc_symbol * proc)
                 {
                   gfc_error
                     ("Character-valued argument '%s' of statement function at "
-                     "%L must has constant length",
+                     "%L must have constant length",
                      sym->name, &sym->declared_at);
                   continue;
                 }
@@ -2797,14 +2795,24 @@ resolve_ref (gfc_expr * expr)
 	  break;
 
 	case REF_COMPONENT:
-	  if ((current_part_dimension || seen_part_dimension)
-	      && ref->u.c.component->pointer)
+	  if (current_part_dimension || seen_part_dimension)
 	    {
-	      gfc_error
-		("Component to the right of a part reference with nonzero "
-		 "rank must not have the POINTER attribute at %L",
-		 &expr->where);
-	      return FAILURE;
+	      if (ref->u.c.component->pointer)
+	        {
+		  gfc_error
+		    ("Component to the right of a part reference with nonzero "
+		     "rank must not have the POINTER attribute at %L",
+		     &expr->where);
+		  return FAILURE;
+		}
+	      else if (ref->u.c.component->allocatable)
+	        {
+		  gfc_error
+		    ("Component to the right of a part reference with nonzero "
+		     "rank must not have the ALLOCATABLE attribute at %L",
+		     &expr->where);
+		  return FAILURE;
+		}
 	    }
 
 	  n_components++;
@@ -2956,7 +2964,7 @@ resolve_variable (gfc_expr * e)
   else
     {
       /* Must be a simple variable reference.  */
-      if (gfc_set_default_type (sym, 1, NULL) == FAILURE)
+      if (gfc_set_default_type (sym, 1, sym->ns) == FAILURE)
 	return FAILURE;
       e->ts = sym->ts;
     }
@@ -5519,15 +5527,23 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	&& resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
     return FAILURE;
 
-  if (sym->attr.proc == PROC_ST_FUNCTION)
+  if (sym->ts.type == BT_CHARACTER)
     {
-      if (sym->ts.type == BT_CHARACTER)
-        {
-          gfc_charlen *cl = sym->ts.cl;
-          if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
-            {
+      gfc_charlen *cl = sym->ts.cl;
+      if (!cl || !cl->length || cl->length->expr_type != EXPR_CONSTANT)
+	{
+	  if (sym->attr.proc == PROC_ST_FUNCTION)
+	    {
               gfc_error ("Character-valued statement function '%s' at %L must "
                          "have constant length", sym->name, &sym->declared_at);
+              return FAILURE;
+            }
+
+	  if (sym->attr.external && sym->formal == NULL
+		&& cl && cl->length && cl->length->expr_type != EXPR_CONSTANT)
+            {
+              gfc_error ("Automatic character length function '%s' at %L must "
+                         "have an explicit interface", sym->name, &sym->declared_at);
               return FAILURE;
             }
         }
@@ -5998,16 +6014,14 @@ resolve_symbol (gfc_symbol * sym)
     case FL_PARAMETER:
       if (resolve_fl_parameter (sym) == FAILURE)
 	return;
-
       break;
 
     default:
-
       break;
     }
 
   /* Make sure that intrinsic exist */
-  if (sym->attr.intrinsic
+  if (sym->attr.flavor != FL_MODULE && sym->attr.intrinsic
       && ! gfc_intrinsic_name(sym->name, 0)
       && ! gfc_intrinsic_name(sym->name, 1))
     gfc_error("Intrinsic at %L does not exist", &sym->declared_at);
@@ -6682,7 +6696,7 @@ resolve_equivalence (gfc_equiv *eq)
 	{
 	  if (value_name != NULL)
 	    {
-	      gfc_error ("Initialized objects '%s' and '%s'  cannot both "
+	      gfc_error ("Initialized objects '%s' and '%s' cannot both "
 			 "be in the EQUIVALENCE statement at %L",
 			 value_name, sym->name, &e->where);
 	      continue;

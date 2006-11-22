@@ -547,12 +547,12 @@ frame_related_constant_load (rtx reg, HOST_WIDE_INT constant, bool related)
     RTX_FRAME_RELATED_P (insn) = 1;
 }
 
-/* Generate efficient code to add a value to the frame pointer.  We
-   can use P1 as a scratch register.  Set RTX_FRAME_RELATED_P on the
-   generated insns if FRAME is nonzero.  */
+/* Generate efficient code to add a value to a P register.  We can use
+   P1 as a scratch register.  Set RTX_FRAME_RELATED_P on the generated
+   insns if FRAME is nonzero.  */
 
 static void
-add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
+add_to_reg (rtx reg, HOST_WIDE_INT value, int frame)
 {
   if (value == 0)
     return;
@@ -568,13 +568,9 @@ add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
       if (frame)
 	frame_related_constant_load (tmpreg, value, TRUE);
       else
-	{
-	  insn = emit_move_insn (tmpreg, GEN_INT (value));
-	  if (frame)
-	    RTX_FRAME_RELATED_P (insn) = 1;
-	}
+	insn = emit_move_insn (tmpreg, GEN_INT (value));
 
-      insn = emit_insn (gen_addsi3 (spreg, spreg, tmpreg));
+      insn = emit_insn (gen_addsi3 (reg, reg, tmpreg));
       if (frame)
 	RTX_FRAME_RELATED_P (insn) = 1;
     }
@@ -591,7 +587,7 @@ add_to_sp (rtx spreg, HOST_WIDE_INT value, int frame)
 	     it's no good.  */
 	  size = -60;
 
-	insn = emit_insn (gen_addsi3 (spreg, spreg, GEN_INT (size)));
+	insn = emit_insn (gen_addsi3 (reg, reg, GEN_INT (size)));
 	if (frame)
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	value -= size;
@@ -684,7 +680,7 @@ do_link (rtx spreg, HOST_WIDE_INT frame_size, bool all)
 	  rtx insn = emit_insn (pat);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      add_to_sp (spreg, -frame_size, 1);
+      add_to_reg (spreg, -frame_size, 1);
     }
 }
 
@@ -701,7 +697,7 @@ do_unlink (rtx spreg, HOST_WIDE_INT frame_size, bool all)
     {
       rtx postinc = gen_rtx_MEM (Pmode, gen_rtx_POST_INC (Pmode, spreg));
 
-      add_to_sp (spreg, frame_size, 0);
+      add_to_reg (spreg, frame_size, 0);
       if (must_save_fp_p ())
 	{
 	  rtx fpreg = gen_rtx_REG (Pmode, REG_FP);
@@ -911,16 +907,24 @@ bfin_expand_prologue (void)
       return;
     }
 
-  if (current_function_limit_stack)
+  if (current_function_limit_stack
+      || TARGET_STACK_CHECK_L1)
     {
       HOST_WIDE_INT offset
 	= bfin_initial_elimination_offset (ARG_POINTER_REGNUM,
 					   STACK_POINTER_REGNUM);
-      rtx lim = stack_limit_rtx;
+      rtx lim = current_function_limit_stack ? stack_limit_rtx : NULL_RTX;
+      rtx p2reg = gen_rtx_REG (Pmode, REG_P2);
 
+      if (!lim)
+	{
+	  rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
+	  emit_move_insn (p2reg, gen_int_mode (0xFFB00000, SImode));
+	  emit_move_insn (p2reg, gen_rtx_MEM (Pmode, p2reg));
+	  lim = p2reg;
+	}
       if (GET_CODE (lim) == SYMBOL_REF)
 	{
-	  rtx p2reg = gen_rtx_REG (Pmode, REG_P2);
 	  if (TARGET_ID_SHARED_LIBRARY)
 	    {
 	      rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
@@ -935,10 +939,17 @@ bfin_expand_prologue (void)
 	    }
 	  else
 	    {
-	      rtx limit = plus_constant (stack_limit_rtx, offset);
+	      rtx limit = plus_constant (lim, offset);
 	      emit_move_insn (p2reg, limit);
 	      lim = p2reg;
 	    }
+	}
+      else
+	{
+	  if (lim != p2reg)
+	    emit_move_insn (p2reg, lim);
+	  add_to_reg (p2reg, offset, 0);
+	  lim = p2reg;
 	}
       emit_insn (gen_compare_lt (bfin_cc_rtx, spreg, lim));
       emit_insn (gen_trapifcc ());
@@ -948,6 +959,7 @@ bfin_expand_prologue (void)
   do_link (spreg, frame_size, false);
 
   if (TARGET_ID_SHARED_LIBRARY
+      && !TARGET_SEP_DATA
       && (current_function_uses_pic_offset_table
 	  || !current_function_is_leaf))
     bfin_load_pic_reg (pic_offset_table_rtx);
@@ -1595,7 +1607,28 @@ bfin_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
 			      tree exp ATTRIBUTE_UNUSED)
 {
   e_funkind fkind = funkind (TREE_TYPE (current_function_decl));
-  return fkind == SUBROUTINE;
+  if (fkind != SUBROUTINE)
+    return false;
+  if (!TARGET_ID_SHARED_LIBRARY || TARGET_SEP_DATA)
+    return true;
+
+  /* When compiling for ID shared libraries, can't sibcall a local function
+     from a non-local function, because the local function thinks it does
+     not need to reload P5 in the prologue, but the sibcall wil pop P5 in the
+     sibcall epilogue, and we end up with the wrong value in P5.  */
+
+  if (!flag_unit_at_a_time || decl == NULL)
+    /* Not enough information.  */
+    return false;
+
+  {
+    struct cgraph_local_info *this_func, *called_func;
+    rtx addr, insn;
+ 
+    this_func = cgraph_local_info (current_function_decl);
+    called_func = cgraph_local_info (decl);
+    return !called_func->local || this_func->local;
+  }
 }
 
 /* Emit RTL insns to initialize the variable parts of a trampoline at
@@ -1648,21 +1681,44 @@ emit_pic_move (rtx *operands, enum machine_mode mode ATTRIBUTE_UNUSED)
 					  : pic_offset_table_rtx);
 }
 
-/* Expand a move operation in mode MODE.  The operands are in OPERANDS.  */
+/* Expand a move operation in mode MODE.  The operands are in OPERANDS.
+   Returns true if no further code must be generated, false if the caller
+   should generate an insn to move OPERANDS[1] to OPERANDS[0].  */
 
-void
+bool
 expand_move (rtx *operands, enum machine_mode mode)
 {
   rtx op = operands[1];
   if ((TARGET_ID_SHARED_LIBRARY || TARGET_FDPIC)
       && SYMBOLIC_CONST (op))
     emit_pic_move (operands, mode);
+  else if (mode == SImode && GET_CODE (op) == CONST
+	   && GET_CODE (XEXP (op, 0)) == PLUS
+	   && GET_CODE (XEXP (XEXP (op, 0), 0)) == SYMBOL_REF
+	   && !bfin_legitimate_constant_p (op))
+    {
+      rtx dest = operands[0];
+      rtx op0, op1;
+      gcc_assert (!reload_in_progress && !reload_completed);
+      op = XEXP (op, 0);
+      op0 = force_reg (mode, XEXP (op, 0));
+      op1 = XEXP (op, 1);
+      if (!insn_data[CODE_FOR_addsi3].operand[2].predicate (op1, mode))
+	op1 = force_reg (mode, op1);
+      if (GET_CODE (dest) == MEM)
+	dest = gen_reg_rtx (mode);
+      emit_insn (gen_addsi3 (dest, op0, op1));
+      if (dest == operands[0])
+	return true;
+      operands[1] = dest;
+    }
   /* Don't generate memory->memory or constant->memory moves, go through a
      register */
   else if ((reload_in_progress | reload_completed) == 0
 	   && GET_CODE (operands[0]) == MEM
     	   && GET_CODE (operands[1]) != REG)
     operands[1] = force_reg (mode, operands[1]);
+  return false;
 }
 
 /* Split one or more DImode RTL references into pairs of SImode
@@ -1757,7 +1813,7 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
   else if ((!register_no_elim_operand (callee, Pmode)
 	    && GET_CODE (callee) != SYMBOL_REF)
 	   || (GET_CODE (callee) == SYMBOL_REF
-	       && (flag_pic
+	       && ((TARGET_ID_SHARED_LIBRARY && !TARGET_LEAF_ID_SHARED_LIBRARY)
 		   || bfin_longcall_p (callee, INTVAL (cookie)))))
     {
       callee = copy_to_mode_reg (Pmode, callee);
@@ -1798,10 +1854,16 @@ hard_regno_mode_ok (int regno, enum machine_mode mode)
     return mode == BImode;
   if (mode == PDImode || mode == V2PDImode)
     return regno == REG_A0 || regno == REG_A1;
+
+  /* Allow all normal 32 bit regs, except REG_M3, in case regclass ever comes
+     up with a bad register class (such as ALL_REGS) for DImode.  */
+  if (mode == DImode)
+    return regno < REG_M3;
+
   if (mode == SImode
       && TEST_HARD_REG_BIT (reg_class_contents[PROLOGUE_REGS], regno))
     return 1;
-      
+
   return TEST_HARD_REG_BIT (reg_class_contents[MOST_REGS], regno);
 }
 
@@ -1817,7 +1879,7 @@ bfin_vector_mode_supported_p (enum machine_mode mode)
    one in class CLASS2.  A cost of 2 is the default.  */
 
 int
-bfin_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
+bfin_register_move_cost (enum machine_mode mode,
 			 enum reg_class class1, enum reg_class class2)
 {
   /* These need secondary reloads, so they're more expensive.  */
@@ -1835,6 +1897,15 @@ bfin_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
   if (class1 == DREGS && class2 != DREGS)
     return 2 * 2;
 
+  if (GET_MODE_CLASS (mode) == MODE_INT)
+    {
+      /* Discourage trying to use the accumulators.  */
+      if (TEST_HARD_REG_BIT (reg_class_contents[class1], REG_A0)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class1], REG_A1)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class2], REG_A0)
+	  || TEST_HARD_REG_BIT (reg_class_contents[class2], REG_A1))
+	return 20;
+    }
   return 2;
 }
 
@@ -1981,8 +2052,19 @@ override_options (void)
   if (TARGET_ID_SHARED_LIBRARY && flag_pic == 0)
     flag_pic = 1;
 
+  if (stack_limit_rtx && TARGET_STACK_CHECK_L1)
+    error ("Can't use multiple stack checking methods together.");
+
   if (TARGET_ID_SHARED_LIBRARY && TARGET_FDPIC)
-      error ("ID shared libraries and FD-PIC mode can't be used together.");
+    error ("ID shared libraries and FD-PIC mode can't be used together.");
+
+  /* Don't allow the user to specify -mid-shared-library and -msep-data
+     together, as it makes little sense from a user's point of view...  */
+  if (TARGET_SEP_DATA && TARGET_ID_SHARED_LIBRARY)
+    error ("cannot specify both -msep-data and -mid-shared-library");
+  /* ... internally, however, it's nearly the same.  */
+  if (TARGET_SEP_DATA)
+    target_flags |= MASK_ID_SHARED_LIBRARY | MASK_LEAF_ID_SHARED_LIBRARY;
 
   /* There is no single unaligned SI op for PIC code.  Sometimes we
      need to use ".4byte" and sometimes we need to use ".picptr".
@@ -2304,6 +2386,53 @@ bfin_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
     break;
   }
   return false;
+}
+
+/* Decide whether we can force certain constants to memory.  If we
+   decide we can't, the caller should be able to cope with it in
+   another way.  */
+
+static bool
+bfin_cannot_force_const_mem (rtx x ATTRIBUTE_UNUSED)
+{
+  /* We have only one class of non-legitimate constants, and our movsi
+     expander knows how to handle them.  Dropping these constants into the
+     data section would only shift the problem - we'd still get relocs
+     outside the object, in the data section rather than the text section.  */
+  return true;
+}
+
+/* Ensure that for any constant of the form symbol + offset, the offset
+   remains within the object.  Any other constants are ok.
+   This ensures that flat binaries never have to deal with relocations
+   crossing section boundaries.  */
+
+bool
+bfin_legitimate_constant_p (rtx x)
+{
+  rtx sym;
+  HOST_WIDE_INT offset;
+
+  if (GET_CODE (x) != CONST)
+    return true;
+
+  x = XEXP (x, 0);
+  gcc_assert (GET_CODE (x) == PLUS);
+
+  sym = XEXP (x, 0);
+  x = XEXP (x, 1);
+  if (GET_CODE (sym) != SYMBOL_REF
+      || GET_CODE (x) != CONST_INT)
+    return true;
+  offset = INTVAL (x);
+
+  if (SYMBOL_REF_DECL (sym) == 0)
+    return true;
+  if (offset < 0
+      || offset >= int_size_in_bytes (TREE_TYPE (SYMBOL_REF_DECL (sym))))
+    return false;
+
+  return true;
 }
 
 static bool
@@ -2687,8 +2816,15 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
     }
   return false;
 }
-
 
+/* Implement TARGET_SCHED_ISSUE_RATE.  */
+
+static int
+bfin_issue_rate (void)
+{
+  return 3;
+}
+
 static int
 bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 {
@@ -4398,6 +4534,9 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST bfin_adjust_cost
 
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE bfin_issue_rate
+
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -4431,5 +4570,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS bfin_delegitimize_address
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM bfin_cannot_force_const_mem
 
 struct gcc_target targetm = TARGET_INITIALIZER;

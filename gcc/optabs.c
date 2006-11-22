@@ -363,6 +363,18 @@ optab_for_tree_code (enum tree_code code, tree type)
     case ABS_EXPR:
       return trapv ? absv_optab : abs_optab;
 
+    case VEC_EXTRACT_EVEN_EXPR:
+      return vec_extract_even_optab;
+
+    case VEC_EXTRACT_ODD_EXPR:
+      return vec_extract_odd_optab;
+
+    case VEC_INTERLEAVE_HIGH_EXPR:
+      return vec_interleave_high_optab;
+
+    case VEC_INTERLEAVE_LOW_EXPR:
+      return vec_interleave_low_optab;
+
     default:
       return NULL;
     }
@@ -5400,6 +5412,10 @@ init_optabs (void)
   udot_prod_optab = init_optab (UNKNOWN);
 
   vec_extract_optab = init_optab (UNKNOWN);
+  vec_extract_even_optab = init_optab (UNKNOWN);
+  vec_extract_odd_optab = init_optab (UNKNOWN);
+  vec_interleave_high_optab = init_optab (UNKNOWN);
+  vec_interleave_low_optab = init_optab (UNKNOWN);
   vec_set_optab = init_optab (UNKNOWN);
   vec_init_optab = init_optab (UNKNOWN);
   vec_shl_optab = init_optab (UNKNOWN);

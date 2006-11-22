@@ -41,8 +41,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define LATCH_EDGE(E) (*(int *) (E)->aux)
 
 static void flow_loops_cfg_dump (const struct loops *, FILE *);
-static int flow_loop_level_compute (struct loop *);
-static void flow_loops_level_compute (struct loops *);
 static void establish_preds (struct loop *);
 static void canonicalize_loop_headers (void);
 static bool glb_enum_p (basic_block, void *);
@@ -110,9 +108,8 @@ flow_loop_dump (const struct loop *loop, FILE *file,
 
   fprintf (file, ";;  header %d, latch %d\n",
 	   loop->header->index, loop->latch->index);
-  fprintf (file, ";;  depth %d, level %d, outer %ld\n",
-	   loop->depth, loop->level,
-	   (long) (loop->outer ? loop->outer->num : -1));
+  fprintf (file, ";;  depth %d, outer %ld\n",
+	   loop->depth, (long) (loop->outer ? loop->outer->num : -1));
 
   fprintf (file, ";;  nodes:");
   bbs = get_loop_body (loop);
@@ -254,7 +251,7 @@ mark_single_exit_loops (struct loops *loops)
     {
       loop = loops->parray[i];
       if (loop)
-	loop->single_exit = NULL;
+	set_single_exit (loop, NULL);
     }
 
   FOR_EACH_BB (bb)
@@ -276,10 +273,10 @@ mark_single_exit_loops (struct loops *loops)
 	    {
 	      /* If we have already seen an exit, mark this by the edge that
 		 surely does not occur as any exit.  */
-	      if (loop->single_exit)
-		loop->single_exit = single_succ_edge (ENTRY_BLOCK_PTR);
+	      if (single_exit (loop))
+		set_single_exit (loop, single_succ_edge (ENTRY_BLOCK_PTR));
 	      else
-		loop->single_exit = e;
+		set_single_exit (loop, e);
 	    }
 	}
     }
@@ -290,8 +287,8 @@ mark_single_exit_loops (struct loops *loops)
       if (!loop)
 	continue;
 
-      if (loop->single_exit == single_succ_edge (ENTRY_BLOCK_PTR))
-	loop->single_exit = NULL;
+      if (single_exit (loop) == single_succ_edge (ENTRY_BLOCK_PTR))
+	set_single_exit (loop, NULL);
     }
 
   loops->state |= LOOPS_HAVE_MARKED_SINGLE_EXITS;
@@ -350,45 +347,6 @@ flow_loop_tree_node_remove (struct loop *loop)
   loop->depth = -1;
   free (loop->pred);
   loop->pred = NULL;
-}
-
-/* Helper function to compute loop nesting depth and enclosed loop level
-   for the natural loop specified by LOOP.  Returns the loop level.  */
-
-static int
-flow_loop_level_compute (struct loop *loop)
-{
-  struct loop *inner;
-  int level = 1;
-
-  if (! loop)
-    return 0;
-
-  /* Traverse loop tree assigning depth and computing level as the
-     maximum level of all the inner loops of this loop.  The loop
-     level is equivalent to the height of the loop in the loop tree
-     and corresponds to the number of enclosed loop levels (including
-     itself).  */
-  for (inner = loop->inner; inner; inner = inner->next)
-    {
-      int ilevel = flow_loop_level_compute (inner) + 1;
-
-      if (ilevel > level)
-	level = ilevel;
-    }
-
-  loop->level = level;
-  return level;
-}
-
-/* Compute the loop nesting depth and enclosed loop level for the loop
-   hierarchy tree specified by LOOPS.  Return the maximum enclosed loop
-   level.  */
-
-static void
-flow_loops_level_compute (struct loops *loops)
-{
-  flow_loop_level_compute (loops->tree_root);
 }
 
 /* A callback to update latch and header info for basic block JUMP created
@@ -700,10 +658,6 @@ flow_loops_find (struct loops *loops)
 	  loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
 	}
 
-      /* Assign the loop nesting depth and enclosed loop level for each
-	 loop.  */
-      flow_loops_level_compute (loops);
-
       loops->num = num_loops;
       initialize_loops_parallel_p (loops);
 
@@ -874,30 +828,24 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   return blocks;
 }
 
-/* Gets exit edges of a LOOP, returning their number in N_EDGES.  */
-edge *
-get_loop_exit_edges (const struct loop *loop, unsigned int *num_edges)
+/* Returns the list of the exit edges of a LOOP.  */
+
+VEC (edge, heap) *
+get_loop_exit_edges (const struct loop *loop)
 {
-  edge *edges, e;
-  unsigned i, n;
-  basic_block * body;
+  VEC (edge, heap) *edges = NULL;
+  edge e;
+  unsigned i;
+  basic_block *body;
   edge_iterator ei;
 
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
   body = get_loop_body (loop);
-  n = 0;
   for (i = 0; i < loop->num_nodes; i++)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
       if (!flow_bb_inside_loop_p (loop, e->dest))
-	n++;
-  edges = XNEWVEC (edge, n);
-  *num_edges = n;
-  n = 0;
-  for (i = 0; i < loop->num_nodes; i++)
-    FOR_EACH_EDGE (e, ei, body[i]->succs)
-      if (!flow_bb_inside_loop_p (loop, e->dest))
-	edges[n++] = e;
+	VEC_safe_push (edge, heap, edges, e);
   free (body);
 
   return edges;
@@ -1187,12 +1135,12 @@ verify_loop_structure (struct loops *loops)
 		   loop = loop->outer)
 		{
 		  sizes[loop->num]++;
-		  if (loop->single_exit
-		      && loop->single_exit != e)
+		  if (single_exit (loop)
+		      && single_exit (loop) != e)
 		    {
 		      error ("wrong single exit %d->%d recorded for loop %d",
-			     loop->single_exit->src->index,
-			     loop->single_exit->dest->index,
+			     single_exit (loop)->src->index,
+			     single_exit (loop)->dest->index,
 			     loop->num);
 		      error ("right exit is %d->%d",
 			     e->src->index, e->dest->index);
@@ -1209,19 +1157,19 @@ verify_loop_structure (struct loops *loops)
 	    continue;
 
 	  if (sizes[i] == 1
-	      && !loop->single_exit)
+	      && !single_exit (loop))
 	    {
 	      error ("single exit not recorded for loop %d", loop->num);
 	      err = 1;
 	    }
 
 	  if (sizes[i] != 1
-	      && loop->single_exit)
+	      && single_exit (loop))
 	    {
 	      error ("loop %d should not have single exit (%d -> %d)",
 		     loop->num,
-		     loop->single_exit->src->index,
-		     loop->single_exit->dest->index);
+		     single_exit (loop)->src->index,
+		     single_exit (loop)->dest->index);
 	      err = 1;
 	    }
 	}
@@ -1260,4 +1208,21 @@ loop_exit_edge_p (const struct loop *loop, edge e)
 {
   return (flow_bb_inside_loop_p (loop, e->src)
 	  && !flow_bb_inside_loop_p (loop, e->dest));
+}
+
+/* Returns the single exit edge of LOOP, or NULL if LOOP has either no exit
+   or more than one exit.  */
+
+edge
+single_exit (const struct loop *loop)
+{
+  return loop->single_exit_;
+}
+
+/* Records E as a single exit edge of LOOP.  */
+
+void
+set_single_exit (struct loop *loop, edge e)
+{
+  loop->single_exit_ = e;
 }

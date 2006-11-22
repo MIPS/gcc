@@ -1,3 +1,39 @@
+2006-11-22  Antony King <anthony.king@st.com>
+            J"orn Rennecke <joern.rennecke@st.com>
+
+	* include/Makefile.am (stamp-host): Remove CCODECVT_H line.
+	* include/Makefile.in: Regenerate.
+
+2006-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/ext/hashtable.h: -Wshadow fixes.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/erase_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/cc_hash_table_map_/resize_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/pat_trie_/internal_node.hpp: Same.
+	* include/ext/pb_ds/detail/gp_hash_table_map_/
+	constructor_destructor_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/binary_heap_/split_join_fn_imps.hpp: Same.
+	* include/ext/pb_ds/detail/ov_tree_map_/
+	constructors_destructor_fn_imps.hpp: Same.
+	* src/mt_allocator.cc: Same.
+	* src/debug.cc: Same.
+	* config/locale/gnu/codecvt_members.cc: Same.
+
+2006-11-21  Benjamin Kosnik  <bkoz@redhat.com>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* src/iostream-inst.cc: Remove iostream include.
+
+2006-11-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/functional (hash(long long), hash(unsigned long long)):
+	Add specializations.
+
+2006-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/cpu/powerpc/atomic_word.h (_GLIBCXX_WRITE_MEM_BARRIER):
+	Use plain sync if __NO_LWSYNC__.
+
 2006-11-14  Joseph Myers  <joseph@codesourcery.com>
 
 	* testsuite/26_numerics/complex/13450.cc: Do not test long double

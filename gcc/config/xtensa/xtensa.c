@@ -123,75 +123,6 @@ const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER] =
   ACC_REG,
 };
 
-/* Map register constraint character to register class.  */
-enum reg_class xtensa_char_to_class[256] =
-{
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-  NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
-};
-
 static enum internal_test map_test_to_internal_test (enum rtx_code);
 static rtx gen_int_relational (enum rtx_code, rtx, rtx, int *);
 static rtx gen_float_relational (enum rtx_code, rtx, rtx);
@@ -276,11 +207,9 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #define TARGET_EXPAND_BUILTIN xtensa_expand_builtin
 
 struct gcc_target targetm = TARGET_INITIALIZER;
-
 
-/*
- * Functions to test Xtensa immediate operand validity.
- */
+
+/* Functions to test Xtensa immediate operand validity.  */
 
 bool
 xtensa_simm8 (HOST_WIDE_INT v)
@@ -402,25 +331,6 @@ xtensa_mask_immediate (HOST_WIDE_INT v)
 	return true;
     }
 
-  return false;
-}
-
-
-bool
-xtensa_const_ok_for_letter_p (HOST_WIDE_INT v, int c)
-{
-  switch (c)
-    {
-    case 'I': return xtensa_simm12b (v);
-    case 'J': return xtensa_simm8 (v);
-    case 'K': return (v == 0 || xtensa_b4const (v));
-    case 'L': return xtensa_b4constu (v);
-    case 'M': return (v >= -32 && v <= 95);
-    case 'N': return xtensa_simm8x256 (v);
-    case 'O': return (v == -1 || (v >= 1 && v <= 15));
-    case 'P': return xtensa_mask_immediate (v);
-    default: break;
-    }
   return false;
 }
 
@@ -587,26 +497,6 @@ xtensa_mem_offset (unsigned v, enum machine_mode mode)
     }
 
   return xtensa_uimm8x4 (v);
-}
-
-
-bool
-xtensa_extra_constraint (rtx op, int c)
-{
-  /* Allow pseudo registers during reload.  */
-  if (GET_CODE (op) != MEM)
-    return (c >= 'R' && c <= 'U'
-	    && reload_in_progress && GET_CODE (op) == REG
-	    && REGNO (op) >= FIRST_PSEUDO_REGISTER);
-
-  switch (c)
-    {
-    case 'R': return smalloffset_mem_p (op);
-    case 'T': return !TARGET_CONST16 && constantpool_mem_p (op);
-    case 'U': return !constantpool_mem_p (op);
-    default: break;
-    }
-  return false;
 }
 
 
@@ -1369,6 +1259,101 @@ xtensa_emit_loop_end (rtx insn, rtx *operands)
 
 
 char *
+xtensa_emit_branch (bool inverted, bool immed, rtx *operands)
+{
+  static char result[64];
+  enum rtx_code code;
+  const char *op;
+
+  code = GET_CODE (operands[3]);
+  switch (code)
+    {
+    case EQ:	op = inverted ? "ne" : "eq"; break;
+    case NE:	op = inverted ? "eq" : "ne"; break;
+    case LT:	op = inverted ? "ge" : "lt"; break;
+    case GE:	op = inverted ? "lt" : "ge"; break;
+    case LTU:	op = inverted ? "geu" : "ltu"; break;
+    case GEU:	op = inverted ? "ltu" : "geu"; break;
+    default:	gcc_unreachable ();
+    }
+
+  if (immed)
+    {
+      if (INTVAL (operands[1]) == 0)
+	sprintf (result, "b%sz%s\t%%0, %%2", op,
+		 (TARGET_DENSITY && (code == EQ || code == NE)) ? ".n" : "");
+      else
+	sprintf (result, "b%si\t%%0, %%d1, %%2", op);
+    }
+  else
+    sprintf (result, "b%s\t%%0, %%1, %%2", op);
+
+  return result;
+}
+
+
+char *
+xtensa_emit_bit_branch (bool inverted, bool immed, rtx *operands)
+{
+  static char result[64];
+  const char *op;
+
+  switch (GET_CODE (operands[3]))
+    {
+    case EQ:	op = inverted ? "bs" : "bc"; break;
+    case NE:	op = inverted ? "bc" : "bs"; break;
+    default:	gcc_unreachable ();
+    }
+
+  if (immed)
+    {
+      unsigned bitnum = INTVAL (operands[1]) & 0x1f; 
+      operands[1] = GEN_INT (bitnum); 
+      sprintf (result, "b%si\t%%0, %%d1, %%2", op);
+    }
+  else
+    sprintf (result, "b%s\t%%0, %%1, %%2", op);
+
+  return result;
+}
+
+
+char *
+xtensa_emit_movcc (bool inverted, bool isfp, bool isbool, rtx *operands)
+{
+  static char result[64];
+  enum rtx_code code;
+  const char *op;
+
+  code = GET_CODE (operands[4]);
+  if (isbool)
+    {
+      switch (code)
+	{
+	case EQ:	op = inverted ? "t" : "f"; break;
+	case NE:	op = inverted ? "f" : "t"; break;
+	default:	gcc_unreachable ();
+	}
+    }
+  else
+    {
+      switch (code)
+	{
+	case EQ:	op = inverted ? "nez" : "eqz"; break;
+	case NE:	op = inverted ? "eqz" : "nez"; break;
+	case LT:	op = inverted ? "gez" : "ltz"; break;
+	case GE:	op = inverted ? "ltz" : "gez"; break;
+	default:	gcc_unreachable ();
+	}
+    }
+
+  sprintf (result, "mov%s%s\t%%0, %%%d, %%1",
+	   op, isfp ? ".s" : "", inverted ? 3 : 2);
+  return result;
+}
+
+
+char *
 xtensa_emit_call (int callop, rtx *operands)
 {
   static char result[64];
@@ -1527,17 +1512,6 @@ override_options (void)
 
   if (!TARGET_BOOLEANS && TARGET_HARD_FLOAT)
     error ("boolean registers required for the floating-point option");
-
-  xtensa_char_to_class['q'] = SP_REG;
-  xtensa_char_to_class['a'] = GR_REGS;
-  xtensa_char_to_class['b'] = ((TARGET_BOOLEANS) ? BR_REGS : NO_REGS);
-  xtensa_char_to_class['f'] = ((TARGET_HARD_FLOAT) ? FP_REGS : NO_REGS);
-  xtensa_char_to_class['A'] = ((TARGET_MAC16) ? ACC_REG : NO_REGS);
-  xtensa_char_to_class['B'] = ((TARGET_SEXT) ? GR_REGS : NO_REGS);
-  xtensa_char_to_class['C'] = ((TARGET_MUL16) ? GR_REGS: NO_REGS);
-  xtensa_char_to_class['D'] = ((TARGET_DENSITY) ? GR_REGS: NO_REGS);
-  xtensa_char_to_class['d'] = ((TARGET_DENSITY) ? AR_REGS: NO_REGS);
-  xtensa_char_to_class['W'] = ((TARGET_CONST16) ? GR_REGS: NO_REGS);
 
   /* Set up array giving whether a given register can hold a given mode.  */
   for (mode = VOIDmode;

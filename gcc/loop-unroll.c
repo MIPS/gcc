@@ -899,13 +899,18 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     loop->lpt_decision.times);
 }
 
-/* Splits edge E and inserts INSNS on it.  */
+/* Splits edge E and inserts the sequence of instructions INSNS on it, and
+   returns the newly created block.  If INSNS is NULL_RTX, nothing is changed
+   and NULL is returned instead.  */
 
 basic_block
 split_edge_and_insert (edge e, rtx insns)
 {
-  basic_block bb = split_edge (e); 
-  gcc_assert (insns != NULL_RTX);
+  basic_block bb;
+
+  if (!insns)
+    return NULL;
+  bb = split_edge (e); 
   emit_insn_after (insns, BB_END (bb));
   bb->flags |= BB_SUPERBLOCK;
   return bb;
@@ -1069,6 +1074,10 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 					  block_label (preheader), p,
 					  NULL_RTX);
 
+      /* We rely on the fact that the compare and jump cannot be optimized out,
+	 and hence the cfg we create is correct.  */
+      gcc_assert (branch_code != NULL_RTX);
+
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
@@ -1086,6 +1095,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p,
 					  NULL_RTX);
+      gcc_assert (branch_code != NULL_RTX);
 
       swtch = split_edge_and_insert (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
@@ -1709,14 +1719,15 @@ static struct opt_info *
 analyze_insns_in_loop (struct loop *loop)
 {
   basic_block *body, bb;
-  unsigned i, num_edges = 0;
+  unsigned i;
   struct opt_info *opt_info = XCNEW (struct opt_info);
   rtx insn;
   struct iv_to_split *ivts = NULL;
   struct var_to_expand *ves = NULL;
   PTR *slot1;
   PTR *slot2;
-  edge *edges = get_loop_exit_edges (loop, &num_edges);
+  VEC (edge, heap) *edges = get_loop_exit_edges (loop);
+  edge exit;
   bool can_apply = false;
   
   iv_analysis_loop_init (loop);
@@ -1730,11 +1741,14 @@ analyze_insns_in_loop (struct loop *loop)
   /* Record the loop exit bb and loop preheader before the unrolling.  */
   opt_info->loop_preheader = loop_preheader_edge (loop)->src;
   
-  if (num_edges == 1
-      && !(edges[0]->flags & EDGE_COMPLEX))
+  if (VEC_length (edge, edges) == 1)
     {
-      opt_info->loop_exit = split_edge (edges[0]);
-      can_apply = true;
+      exit = VEC_index (edge, edges, 0);
+      if (!(exit->flags & EDGE_COMPLEX))
+	{
+	  opt_info->loop_exit = split_edge (exit);
+	  can_apply = true;
+	}
     }
   
   if (flag_variable_expansion_in_unroller
@@ -1774,7 +1788,7 @@ analyze_insns_in_loop (struct loop *loop)
       }
     }
   
-  free (edges);
+  VEC_free (edge, heap, edges);
   free (body);
   return opt_info;
 }

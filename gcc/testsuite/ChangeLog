@@ -1,5 +1,135 @@
-2006-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+2006-11-22  Ira Rosen  <irar@il.ibm.com>
 
+	* gcc.dg/vect/vect-1.c: Additional loop is now vectorizable on 
+	platforms that have interleaving support.
+	* gcc.dg/vect/vect-107.c, gcc.dg/vect/vect-98.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i2.c,
+	gcc.dg/vect/vect-strided-a-u16-i4.c, gcc.dg/vect/vect-strided-u16-i2.c,
+	gcc.dg/vect/vect-strided-u16-i4.c, gcc.dg/vect/vect-strided-u32-i4.c,
+	gcc.dg/vect/vect-strided-u32-i8.c, gcc.dg/vect/vect-strided-u8-i2.c,
+	gcc.dg/vect/vect-strided-u8-i2-gap.c,
+	gcc.dg/vect/vect-strided-u8-i8.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap4.c,
+	gcc.dg/vect/vect-strided-u8-i8-gap7.c,
+	gcc.dg/vect/vect-strided-float.c,
+	gcc.dg/vect/vect-strided-a-mult.c,
+	gcc.dg/vect/vect-strided-mult-char-ls.c,
+	gcc.dg/vect/vect-strided-a-u16-mult.c,
+	gcc.dg/vect/vect-strided-a-u32-mult.c,
+	gcc.dg/vect/vect-strided-a-u8-i2-gap.c,
+	gcc.dg/vect/vect-strided-a-u8-i8-gap2.c,
+	gcc.dg/vect/vect-strided-a-u8-i8-gap7.c,
+	gcc.dg/vect/vect-strided-mult.c,
+	gcc.dg/vect/vect-strided-u32-mult.c: New testcases.
+	* lib/target-supports.exp (vect_extract_even_odd, vect_interleave): New.
+
+2006-11-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25087
+	* gfortran.dg/auto_char_len_4.f90: New test.
+
+2006-11-22 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29652
+	* gfortran.dg/generic_7.f90: New test.
+	* gfortran.dg/defined_operators_1.f90: Add new error.
+
+2006-11-22  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/29902
+	* g++.dg/tree-ssa/pr29902.C: New test.
+
+2006-11-21 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29820
+	* gfortran.dg/used_types_13.f90: New test.
+
+2006-11-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/snan.c: Delete.
+
+2006-11-21  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/static_assert1.C: New.
+	* g++.dg/cpp0x/static_assert2.C: New.
+	* g++.dg/cpp0x/static_assert3.C: New.
+
+2006-11-21  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/vect/vect-pow-1.c: New testcase.
+	* gcc.dg/vect/vect-pow-2.c: Likewise.
+
+2006-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/29570
+	* g++.dg/template/static29.C: New test.
+
+	PR c++/29734
+	* g++.dg/conversion/simd4.C: New test.
+
+2006-11-20  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29475
+	* g++.dg/template/access19.C: New test.
+	* g++.old-deja/g++.other/access11.C: Adjusted the line where the
+	error is reported.
+	
+2006-11-20  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/25500
+	* gcc.dg/tree-ssa/sra-4.c: New testcase.
+
+2006-11-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/27546
+	* gfortran.dg/import.f90: Extended test.
+	* gfortran.dg/import2.f90: Extended test.
+
+2006-11-20  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/volatile3.f90: Add conflict test.
+
+2006-11-20  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR fortran/24783
+	* gfortran.dg/implicit_10.f90: New test.
+
+2006-11-19  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/8586
+	* g++.dg/warn/Wall-write-strings.C: New.
+
+2006-11-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* gfortran.dg/alloc_comp_constraint_5.f90: New.
+	* gfortran.dg/alloc_comp_assign_2.f90: Removed invalid code.
+
+2006-11-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* gfortran.dg/use_3.f90: Remove error message.
+	* gfortran.dg/iso_fortran_env_1.f90: New test.
+	* gfortran.dg/iso_fortran_env_2.f90: New test.
+	* gfortran.dg/iso_fortran_env_3.f90: New test.
+	* gfortran.dg/iso_fortran_env_4.f90: New test.
+
+2006-11-19  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-27.c: Fix initialization.
+
+2006-11-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-20.c: Add fmin/fmax cases.
+	* gcc.dg/torture/builtin-minmax-1.c: New.
+
+	* gcc.dg/builtins-20.c: Add cases for copysign.
+
+2006-11-18  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24285
+	* gfortran.dg/dollar_edit_descriptor-3.f: New test.
+
+2006-11-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 	* gfortran.dg/use_1.f90: New test.
 	* gfortran.dg/use_1.f90: New test.
 	* gfortran.dg/use_1.f90: New test.
