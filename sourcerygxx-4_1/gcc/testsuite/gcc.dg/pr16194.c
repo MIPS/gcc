@@ -2,6 +2,7 @@
 /* { dg-options "-O" } */
 /* { dg-bogus "internal compiler error" "ICE" { target *-*-* } 0 } */
 
+#undef SKIP
 #define ASMDECL __asm (REG);
 #define CLOBBER_LIST : REG
 #define INP_CLOBBER_LIST : CLOBBER_LIST
@@ -21,15 +22,11 @@
 #elif defined (__m68k__)
 # define REG "%d0"
 #else
-  /* Make this test harmless for any target not recognized above.  */
-# undef ASMDECL
-# define ASMDECL
-# define REG "conflict"
-# undef CLOBBER_LIST
-# define CLOBBER_LIST
-# undef INP_CLOBBER_LIST
-# define INP_CLOBBER_LIST
+/* Make this test harmless for any target not recognized above.  */
+# define SKIP 1
 #endif
+
+#ifndef SKIP
 
 struct A
 {
@@ -67,3 +64,13 @@ foo (void)
   register struct C *dst ASMDECL;
   __asm__ ("" : "=g"(dst->c.b[1].a) INP_CLOBBER_LIST);
 }
+
+#else
+
+int main ()
+{
+  return 0;
+}
+
+#endif
+
