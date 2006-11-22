@@ -354,11 +354,12 @@ compareAndSwapObject_builtin (tree method_return_type ATTRIBUTE_UNUSED,
       || sync_compare_and_swap[mode] != CODE_FOR_nothing)
   {
     tree newarglist, addr, stmt;
-    UNMARSHAL5 (method_arguments);
+    int builtin;
 
-    int builtin = (POINTER_SIZE == 32 
-		   ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
-		   : BUILT_IN_BOOL_COMPARE_AND_SWAP_8);
+    UNMARSHAL5 (method_arguments);
+    builtin = (POINTER_SIZE == 32 
+	       ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
+	       : BUILT_IN_BOOL_COMPARE_AND_SWAP_8);
 
     addr = build_addr_sum (value_type, obj_arg, offset_arg);
 

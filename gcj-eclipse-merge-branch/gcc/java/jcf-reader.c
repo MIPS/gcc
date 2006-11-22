@@ -103,7 +103,8 @@ skip_attribute (JCF *jcf, int number_of_attribute)
 #endif
 
 static int
-get_attribute (JCF *jcf, int index, jv_attr_type attr_type)
+get_attribute (JCF *jcf, int index, 
+	       jv_attr_type attr_type ATTRIBUTE_UNUSED)
 {
   uint16 attribute_name = (JCF_FILL (jcf, 6), JCF_readu2 (jcf));
   uint32 attribute_length = JCF_readu4 (jcf);

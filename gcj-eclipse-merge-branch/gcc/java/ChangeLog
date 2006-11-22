@@ -1,3 +1,9 @@
+2006-11-22  Andrew Haley  <aph@redhat.com>
+
+	* jcf-reader.c (get_attribute): Mark attr_type unused.
+
+	* builtins.c (compareAndSwapObject_builtin): Fix declaration.
+
 2006-11-06  Andrew Haley  <aph@redhat.com>
 
 	* java-tree.h (CONSTANT_LazyFlag): New.
