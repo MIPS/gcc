@@ -29,6 +29,7 @@ Contact information at STMicroelectronics:
 Roberto Costa <roberto.costa@st.com>   */
 
 using System;
+using System.Collections;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -47,6 +48,25 @@ namespace gcc4net {
                                     Marshal.StringToHGlobalAnsi(argv[i]));
             }
             Marshal.WriteIntPtr(res, ptr_size * argc, IntPtr.Zero);
+
+            return res;
+        }
+
+        public unsafe static IntPtr GetEnvVars() {
+            IDictionary env = Environment.GetEnvironmentVariables();
+            int num_elems = env.Keys.Count;
+            int ptr_size = (int)(sizeof(void*));
+            int size = (num_elems + 1) * ptr_size;
+            IntPtr res = Marshal.AllocHGlobal(size);
+
+            int i = 0;
+            foreach (DictionaryEntry de in env) {
+                String str = de.Key + "=" + de.Value;
+                Marshal.WriteIntPtr(res, ptr_size * i,
+                                    Marshal.StringToHGlobalAnsi(str));
+                ++i;
+            }
+            Marshal.WriteIntPtr(res, ptr_size * num_elems, IntPtr.Zero);
 
             return res;
         }
@@ -102,6 +122,20 @@ namespace gcc4net {
             double d = 1.0;
             byte*  b = (byte*)&d;
             return b[0]==0;
+        }
+    }
+
+    namespace CQualifiers {
+        /* Optional modifier class used to mark "const" types */
+        public sealed class IsConst {
+        }
+
+        /* Optional modifier class used to mark "restrict" types */
+        public sealed class IsRestrict {
+        }
+
+        /* Optional modifier class used to mark "volatile" types */
+        public sealed class IsVolatile {
         }
     }
 }

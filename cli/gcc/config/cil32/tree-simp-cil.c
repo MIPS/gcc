@@ -152,6 +152,17 @@ Roberto Costa <roberto.costa@st.com>   */
       To force arguments of calls to be local variables, new local
       variables are generated.
 
+   *) Expansion of UNEQ_EXPR, UNLE_EXPR and UNGE_EXPR nodes.
+      CIL instruction set has some support for unordered comparisons,
+      but it is not orthogonal. Whenever an unordered comparison
+      is difficult to be translated in CIL, it is expanded by this pass.
+      While this always happens for UNEQ_EXPRs, there is a case in which
+      UNLE_EXPRs and UNGE_EXPRs are kept.
+
+   *) Expansion of LTGT_EXPR nodes.
+      There is no equivalent in CIL instruction set and it is more
+      convenient not to require the CIL emission pass to handle it.
+
    *) Inversion of targets for statements with COND_EXPR nodes
       in which the goto target is fallthru.
       This isn't strictly necessary, but it helps the CIL emission pass
@@ -188,6 +199,8 @@ static void simp_builtin_call (block_stmt_iterator, tree);
 static void simp_abs (block_stmt_iterator *, tree *);
 static void simp_min_max (block_stmt_iterator *, tree *);
 static void simp_cond_expr (block_stmt_iterator *, tree *);
+static void simp_unordered_comp_expr (block_stmt_iterator *, tree *);
+static void simp_ltgt_expr (block_stmt_iterator *, tree *);
 static void simp_rotate (block_stmt_iterator *, tree *);
 static void simp_shift (block_stmt_iterator *, tree);
 static void simp_target_mem_ref (block_stmt_iterator *, tree *);
@@ -296,11 +309,26 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
   switch (TREE_CODE (node))
     {
     case COND_EXPR:
-      simp_cil_node (bsi, &COND_EXPR_COND (node));
       if (bsi_stmt (*bsi) == node)
-        simp_cond_stmt (*bsi, node);
+        {
+          tree cond = COND_EXPR_COND (node);
+
+          /* UNLE_EXPR and UNGE_EXPR nodes are usually simplified.
+             This is the exception, in this case it is better
+             to keep them, since there is a convenient CIL translation.   */
+          if (TREE_CODE (cond) == UNLE_EXPR || TREE_CODE (cond) == UNGE_EXPR)
+            {
+              simp_cil_node (bsi, &TREE_OPERAND (cond, 0));
+              simp_cil_node (bsi, &TREE_OPERAND (cond, 1));
+            }
+          else
+            simp_cil_node (bsi, &COND_EXPR_COND (node));
+
+          simp_cond_stmt (*bsi, node);
+        }
       else
         {
+          simp_cil_node (bsi, &COND_EXPR_COND (node));
           simp_cil_node (bsi, &COND_EXPR_THEN (node));
           simp_cil_node (bsi, &COND_EXPR_ELSE (node));
           simp_cond_expr (bsi, node_ptr);
@@ -353,11 +381,29 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
     case NE_EXPR:
     case LE_EXPR:
     case GE_EXPR:
+    case UNLT_EXPR:
+    case UNGT_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
     case EXACT_DIV_EXPR:
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
       simp_cil_node (bsi, &TREE_OPERAND (node, 0));
       simp_cil_node (bsi, &TREE_OPERAND (node, 1));
+      break;
+
+    case LTGT_EXPR:
+      simp_cil_node (bsi, &TREE_OPERAND (node, 0));
+      simp_cil_node (bsi, &TREE_OPERAND (node, 1));
+      simp_ltgt_expr (bsi, node_ptr);
+      break;
+
+    case UNLE_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+      simp_cil_node (bsi, &TREE_OPERAND (node, 0));
+      simp_cil_node (bsi, &TREE_OPERAND (node, 1));
+      simp_unordered_comp_expr (bsi, node_ptr);
       break;
 
     case LSHIFT_EXPR:
@@ -578,7 +624,9 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
       && cond_code != GE_EXPR
       && cond_code != GT_EXPR
       && cond_code != EQ_EXPR
-      && cond_code != NE_EXPR)
+      && cond_code != NE_EXPR
+      && cond_code != UNORDERED_EXPR
+      && cond_code != ORDERED_EXPR)
     return;
 
   cond_type = TREE_TYPE (TREE_OPERAND (cond_expr, 0));
@@ -1406,6 +1454,132 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   *bsi = bsi_start (bb_sel);
 }
 
+/* Simplify the unordered comparison expression pointed by NODE_PTR
+   by expanding it with an equivalent expression based on UNORDERED_EXPR
+   and TRUTH_OR_EXPR nodes.
+   BSI points to the iterator of the statement that contains *NODE_PTR
+   (in order to allow insertion of new statements).
+   BSI is passed by reference because instructions are inserted.
+   NODE is passed by reference because simplification requires
+   replacing the node.   */
+
+static void
+simp_unordered_comp_expr (block_stmt_iterator *bsi, tree *node_ptr)
+{
+  tree node = *node_ptr;
+  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
+  tree op0, op1;
+  enum tree_code comp_code;
+  tree t;
+
+  gcc_assert (TREE_CODE (node) == UNEQ_EXPR
+              || TREE_CODE (node) == UNLE_EXPR
+              || TREE_CODE (node) == UNGE_EXPR);
+
+  /* Make sure that the two operands have no side effects */
+  op0 = TREE_OPERAND (node, 0);
+  if (is_copy_required (op0))
+    {
+      tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
+      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+
+      SET_EXPR_LOCATION (stmt, locus);
+      bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+      TREE_OPERAND (node, 0) = var;
+      op0 = var;
+    }
+  op1 = TREE_OPERAND (node, 1);
+  if (is_copy_required (op1))
+    {
+      tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
+      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+
+      SET_EXPR_LOCATION (stmt, locus);
+      bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+      TREE_OPERAND (node, 1) = var;
+      op1 = var;
+    }
+
+  switch (TREE_CODE (node))
+    {
+    case UNEQ_EXPR: comp_code = EQ_EXPR; break;
+    case UNLE_EXPR: comp_code = LE_EXPR; break;
+    case UNGE_EXPR: comp_code = GE_EXPR; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Build and gimplify the equivalent expression */
+  t = build2 (TRUTH_OR_EXPR, TREE_TYPE (node),
+              fold_build2 (comp_code, TREE_TYPE (node),
+                           op0,
+                           op1),
+              fold_build2 (UNORDERED_EXPR, TREE_TYPE (node),
+                           op0,
+                           op1));
+  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL);
+
+  /* Update the current node */
+  *node_ptr = t;
+}
+
+/* Simplify the LTGT_EXPR pointed by NODE_PTR by expanding it with
+   the equivalent expression based on LT_EXPR, GT_EXPR and
+   TRUTH_OR_EXPR nodes.
+   BSI points to the iterator of the statement that contains *NODE_PTR
+   (in order to allow insertion of new statements).
+   BSI is passed by reference because instructions are inserted.
+   NODE is passed by reference because simplification requires
+   replacing the node.   */
+
+static void
+simp_ltgt_expr (block_stmt_iterator *bsi, tree *node_ptr)
+{
+  tree node = *node_ptr;
+  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
+  tree op0, op1;
+  tree t;
+
+  gcc_assert (TREE_CODE (node) == LTGT_EXPR);
+
+  /* Make sure that the two operands have no side effects */
+  op0 = TREE_OPERAND (node, 0);
+  if (is_copy_required (op0))
+    {
+      tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
+      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+
+      SET_EXPR_LOCATION (stmt, locus);
+      bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+      TREE_OPERAND (node, 0) = var;
+      op0 = var;
+    }
+  op1 = TREE_OPERAND (node, 1);
+  if (is_copy_required (op1))
+    {
+      tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
+      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+
+      SET_EXPR_LOCATION (stmt, locus);
+      bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+      TREE_OPERAND (node, 1) = var;
+      op1 = var;
+    }
+
+  /* Build and gimplify the equivalent expression */
+  t = build2 (TRUTH_OR_EXPR, TREE_TYPE (node),
+              fold_build2 (LT_EXPR, TREE_TYPE (node),
+                           op0,
+                           op1),
+              fold_build2 (GT_EXPR, TREE_TYPE (node),
+                           op0,
+                           op1));
+  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL);
+
+  /* Update the current node */
+  *node_ptr = t;
+}
+
 /* Remove the LROTATE_EXPR or RROTATE_EXPR pointed by NODE_PTR
    by inserting shifts and bit operations.
    BSI points to the iterator of the statement that contains *NODE_PTR
@@ -1586,6 +1760,7 @@ compute_array_ref_base_disp (tree node, tree *base, tree *disp)
 {
   tree op0 = TREE_OPERAND (node, 0);
   tree op1 = TREE_OPERAND (node, 1);
+  tree t1, t2;
   tree inner_base, inner_disp = NULL;
 
   gcc_assert (TREE_CODE (node) == ARRAY_REF);
@@ -1597,10 +1772,16 @@ compute_array_ref_base_disp (tree node, tree *base, tree *disp)
 
   *base = build4 (ARRAY_REF, TREE_TYPE (node),
                   inner_base, integer_zero_node, NULL, NULL);
-  *disp = fold_build2 (MULT_EXPR, long_integer_type_node,
-                       fold_convert (long_integer_type_node, op1),
-                       fold_convert (long_integer_type_node,
-                                     array_ref_element_size (node)));
+
+  t1 = fold_convert (long_integer_type_node, op1);
+  t2 = fold_convert (long_integer_type_node, array_ref_element_size (node));
+  /* Folding a multiplication having a comparison as first operand
+     may result into a COND_EXPR node, which must not be reintroduced.   */
+  if (COMPARISON_CLASS_P (op1))
+    *disp = build2 (MULT_EXPR, long_integer_type_node, t1, t2);
+  else
+    *disp = fold_build2 (MULT_EXPR, long_integer_type_node, t1, t2);
+
   if (inner_disp)
     *disp = fold_build2 (PLUS_EXPR, long_integer_type_node,
                          inner_disp,

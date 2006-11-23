@@ -56,6 +56,14 @@ Roberto Costa <roberto.costa@st.com>   */
   (! TYPE_CONTEXT (EXP)                                         \
    || TREE_CODE (TYPE_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
 
+/* Nonzero for a zero-length array type */
+#define ARRAY_TYPE_ZEROLENGTH(EXP)                              \
+  (TYPE_SIZE (EXP) == NULL_TREE)
+
+/* Nonzero for a variable-length array type */
+#define ARRAY_TYPE_VARLENGTH(EXP)                               \
+  (TYPE_SIZE (EXP) != NULL_TREE && TREE_CODE (TYPE_SIZE (EXP)) != INTEGER_CST)
+
 /* Length of compacted identifiers (in characters) */
 #define COMPACT_ID_LENGTH 16
 
@@ -97,7 +105,7 @@ static char * append_coded_type (char *, tree, unsigned int *, unsigned int *);
 static char * get_compact_identifier (const char *, size_t, size_t *);
 static tree make_valuetype_identifier (tree);
 static void print_valuetype_decl (FILE *, tree);
-static void dump_type (FILE *, tree, bool);
+static void dump_type (FILE *, tree, bool, bool);
 static void dump_type_promotion (FILE *, tree, bool);
 static void dump_type_promoted_type_def (FILE *, tree, bool);
 static void dump_type_for_builtin (FILE *, tree, bool);
@@ -107,6 +115,7 @@ static void stack_set (unsigned int) ATTRIBUTE_UNUSED;
 static void stack_reset (void);
 static void stack_push (unsigned int);
 static void stack_pop (unsigned int);
+static void gen_conv (FILE *, bool, tree, tree);
 static void gen_integral_conv (FILE *, tree, tree);
 static void gen_binary_cond_branch (FILE *, tree, tree);
 static void gen_start_function (FILE *);
@@ -156,7 +165,7 @@ pointer_id_data_eq (const void *p1, const void *p2)
 static void
 mark_var_defs_uses (tree node)
 {
-  if (node == NULL_TREE)
+  if (node == NULL_TREE || node == error_mark_node)
     return;  /* ER: was spc */
 
   switch (TREE_CODE (node))
@@ -274,6 +283,10 @@ mark_var_defs_uses (tree node)
     case MIN_EXPR:
     case UNORDERED_EXPR:
     case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
       mark_var_defs_uses (TREE_OPERAND (node, 0));
       mark_var_defs_uses (TREE_OPERAND (node, 1));
       break;
@@ -398,7 +411,7 @@ remove_stloc_ldloc (block_stmt_iterator bsi, tree *node_ptr, bool *mod)
   tree node = *node_ptr;
   block_stmt_iterator prev_bsi;
 
-  if (node == NULL_TREE)
+  if (node == NULL_TREE || node == error_mark_node)
     return;  /* ER: was spc */
 
   /* Get iterator for the previous statememt */
@@ -459,6 +472,10 @@ remove_stloc_ldloc (block_stmt_iterator bsi, tree *node_ptr, bool *mod)
     case MIN_EXPR:
     case UNORDERED_EXPR:
     case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
       remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
       remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 1), mod);
       break;
@@ -615,6 +632,9 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
 static void
 mark_referenced_type (tree t)
 {
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
+
   t = TYPE_MAIN_VARIANT (t);
 
   /* If the type was already referenced, nothing else to do */
@@ -624,11 +644,15 @@ mark_referenced_type (tree t)
   /* Give the aggregate a name unless it has it already */
   switch (TREE_CODE (t))
     {
+    /* Incomplete and variable-length arrays are pointers and
+       they must be dealt with as such.   */
+    case ARRAY_TYPE:
+      if (! TYPE_DOMAIN (t) || ARRAY_TYPE_VARLENGTH (t))
+        break;
     case ENUMERAL_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-    case ARRAY_TYPE:
       if (TYPE_NAME (t) == 0)
         {
           tree type_decl = build0 (TYPE_DECL, t);
@@ -703,7 +727,8 @@ mark_referenced_type (tree t)
       break;
 
     case ARRAY_TYPE:
-      pointer_set_insert (referenced_types, t);
+      if (TYPE_DOMAIN (t) && ! ARRAY_TYPE_VARLENGTH (t))
+        pointer_set_insert (referenced_types, t);
       mark_referenced_type (TREE_TYPE (t));
       break;
 
@@ -922,7 +947,7 @@ dump_fun_type (FILE *stream, tree fun_type, tree fun, const char *name, bool ref
   if (varargs)
     fputs ("vararg ", stream);
 
-  dump_type (stream, TREE_TYPE (fun_type), ref);
+  dump_type (stream, TREE_TYPE (fun_type), ref, false);
 
   fputs (" ", stream);
   if (fun)
@@ -949,7 +974,7 @@ dump_fun_type (FILE *stream, tree fun_type, tree fun, const char *name, bool ref
 
   while (args_type != last_arg_type)
     {
-      dump_type (stream, TREE_VALUE (args_type), ref);
+      dump_type (stream, TREE_VALUE (args_type), ref, true);
       args_type = TREE_CHAIN (args_type);
 
       if (args_type != last_arg_type)
@@ -965,11 +990,15 @@ dump_fun_type (FILE *stream, tree fun_type, tree fun, const char *name, bool ref
 /* Dump type NODE.
    REF tells whether the function type (and the types of the return value
    and of the incoming parameters) have to be marked as referenced.
+   QUALIF tells whether to emit C qualifiers (const, restrict, volatile)
    NODE must be a type node.   */
 
 static void
-dump_type (FILE *file, tree node, bool ref)
+dump_type (FILE *file, tree node, bool ref, bool qualif)
 {
+  if (node == NULL_TREE || node == error_mark_node)
+    return;
+
 /*   node = TYPE_MAIN_VARIANT (node); */
 
   if (TYPE_MAIN_VARIANT (node) == va_list_type_node)
@@ -980,8 +1009,12 @@ dump_type (FILE *file, tree node, bool ref)
 
   switch (TREE_CODE (node))
     {
-    case ENUMERAL_TYPE:
+    /* Incomplete and variable-length arrays are pointers and
+       they must be dealt with as such.   */
     case ARRAY_TYPE:
+      if (! TYPE_DOMAIN (node) || ARRAY_TYPE_VARLENGTH (node))
+        goto pointer;
+    case ENUMERAL_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
@@ -1039,6 +1072,7 @@ dump_type (FILE *file, tree node, bool ref)
       fputs ("int8", file);
       break;
 
+    pointer:
     case POINTER_TYPE:
       if (TREE_CODE (TREE_TYPE (node)) == FUNCTION_TYPE)
         {
@@ -1047,7 +1081,7 @@ dump_type (FILE *file, tree node, bool ref)
         }
       else
         {
-          dump_type (file, TREE_TYPE (node), ref);
+          dump_type (file, TREE_TYPE (node), ref, qualif);
           fputs (" *", file);
         }
       break;
@@ -1091,6 +1125,21 @@ dump_type (FILE *file, tree node, bool ref)
       gcc_assert (0);
       break;
     }
+
+  if (qualif)
+    {
+      unsigned int quals = TYPE_QUALS (node);
+
+      if (quals & TYPE_QUAL_CONST)
+        fputs (" modopt([gcc4net]gcc4net.CQualifiers.IsConst)", file);
+      if (quals & TYPE_QUAL_RESTRICT)
+        fputs (" modopt([gcc4net]gcc4net.CQualifiers.IsRestrict)", file);
+#if 0
+      if (quals & TYPE_QUAL_VOLATILE)
+        fputs (" modopt([gcc4net]gcc4net.CQualifiers.IsVolatile)", file);
+#endif
+    }
+
 }
 
 /* Dump type NODE, promoted following C conventions for var args.
@@ -1099,12 +1148,18 @@ dump_type (FILE *file, tree node, bool ref)
    NODE must be a type node.   */
 
 static void
-dump_type_promotion (FILE *file, tree node, bool ref)
+dump_type_promotion (FILE *stream, tree node, bool ref)
 {
+  if (node == NULL_TREE || node == error_mark_node)
+    return;
 
   switch (TREE_CODE (node))
     {
+    /* Incomplete and variable-length arrays are pointers and
+       they must be dealt with as such.   */
     case ARRAY_TYPE:
+      if (! TYPE_DOMAIN (node) || ARRAY_TYPE_VARLENGTH (node))
+        goto pointer;
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
@@ -1115,54 +1170,32 @@ dump_type_promotion (FILE *file, tree node, bool ref)
         mark_referenced_type (node);
 
       /* Print the name of the structure.  */
-      fputs ("valuetype ", file);
-      dump_valuetype_name (file, node);
+      fputs ("valuetype ", stream);
+      dump_valuetype_name (stream, node);
       break;
 
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
+        int type_size = TYPE_PRECISION (node);
 
-        if (TYPE_UNSIGNED (node))
-          {
-            switch (type_size)
-              {
-              case 8:
-              case 16: fputs ("int32",  file); break;
-              case 32: fputs ("unsigned int32", file); break;
-              case 64: fputs ("unsigned int64", file); break;
-              default:
-                fprintf (stderr, "Unsupported integer size %d\n", type_size);
-                gcc_assert (0);
-              }
-          }
+        gcc_assert (type_size <= 64);
+
+        if (type_size <= 32)
+          fputs ("unsigned int32", stream);
         else
-          {
-            switch (type_size)
-              {
-              case 8:
-              case 16:
-              case 32: fputs ("int32", file); break;
-              case 64: fputs ("int64", file); break;
-              default:
-                fprintf (stderr, "Unsupported integer size %d\n", type_size);
-                gcc_assert (0);
-              }
-          }
+          fputs ("unsigned int64", stream);
       }
       break;
 
     case REAL_TYPE:
-      fputs ("float64", file);
+      fputs ("float64", stream);
       break;
 
-    case BOOLEAN_TYPE:
-      fputs ("int32", file);
-      break;
-
+    pointer:
     case POINTER_TYPE:
-      fputs ("native int", file);
+      fputs ("native int", stream);
       break;
 
     default:
@@ -1181,9 +1214,16 @@ dump_type_promotion (FILE *file, tree node, bool ref)
 static void
 dump_type_promoted_type_def (FILE *stream, tree node, bool ref)
 {
+  if (node == NULL_TREE || node == error_mark_node)
+    return;
+
   switch (TREE_CODE (node))
     {
+    /* Incomplete and variable-length arrays are pointers and
+       they must be dealt with as such.   */
     case ARRAY_TYPE:
+      if (! TYPE_DOMAIN (node) || ARRAY_TYPE_VARLENGTH (node))
+        goto pointer;
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
@@ -1200,35 +1240,16 @@ dump_type_promoted_type_def (FILE *stream, tree node, bool ref)
 
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
       {
-        int type_size = GET_MODE_BITSIZE (TYPE_MODE (node));
+        int type_size = TYPE_PRECISION (node);
 
-        if (TYPE_UNSIGNED (node))
-          {
-            switch (type_size)
-              {
-              case 8:
-              case 16: fputs ("class [mscorlib]System.Int32",  stream); break;
-              case 32: fputs ("class [mscorlib]System.UInt32", stream); break;
-              case 64: fputs ("class [mscorlib]System.UInt64", stream); break;
-              default:
-                fprintf (stderr, "Unsupported integer size %d\n", type_size);
-                gcc_assert (0);
-              }
-          }
+        gcc_assert (type_size <= 64);
+
+        if (type_size <= 32)
+          fputs ("class [mscorlib]System.UInt32", stream);
         else
-          {
-            switch (type_size)
-              {
-              case 8:
-              case 16:
-              case 32: fputs ("class [mscorlib]System.Int32", stream); break;
-              case 64: fputs ("class [mscorlib]System.Int64", stream); break;
-              default:
-                fprintf (stderr, "Unsupported integer size %d\n", type_size);
-                gcc_assert (0);
-              }
-          }
+          fputs ("class [mscorlib]System.UInt64", stream);
       }
       break;
 
@@ -1236,10 +1257,7 @@ dump_type_promoted_type_def (FILE *stream, tree node, bool ref)
       fputs ("class [mscorlib]System.Double", stream);
       break;
 
-    case BOOLEAN_TYPE:
-      fputs ("class [mscorlib]System.Int32", stream);
-      break;
-
+    pointer:
     case POINTER_TYPE:
       fputs ("class [mscorlib]System.IntPtr", stream);
       break;
@@ -1254,6 +1272,9 @@ dump_type_promoted_type_def (FILE *stream, tree node, bool ref)
 static void
 dump_type_for_builtin (FILE *file, tree node, bool all_types)
 {
+  if (node == NULL_TREE || node == error_mark_node)
+    return;
+
 /*   node = TYPE_MAIN_VARIANT (node); */
 
   switch (TREE_CODE (node))
@@ -1305,6 +1326,9 @@ dump_type_for_builtin (FILE *file, tree node, bool all_types)
 static void
 dump_type_eval_mode (FILE *stream, tree node, bool all_types)
 {
+  if (node == NULL_TREE || node == error_mark_node)
+    return;
+
   switch (TREE_CODE (node))
     {
     case ENUMERAL_TYPE:
@@ -1352,12 +1376,15 @@ dump_type_eval_mode (FILE *stream, tree node, bool all_types)
 static void
 compute_addr_expr (FILE *file, tree t)
 {
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
+
   switch (TREE_CODE (t))
     {
     case STRING_CST:
       mark_referenced_string (t);
       fputs ("\n\tldsflda\t", file);
-      dump_type (file, TREE_TYPE (t), true);
+      dump_type (file, TREE_TYPE (t), true, false);
       fputs (" ", file);
       dump_string_name (file, t);
       stack_push (1);
@@ -1370,7 +1397,7 @@ compute_addr_expr (FILE *file, tree t)
         {
           fputs ("\n\tldsflda\t", file);
           if (COMPLETE_TYPE_P (TREE_TYPE (t)))
-            dump_type (file, TREE_TYPE (t), true);
+            dump_type (file, TREE_TYPE (t), true, false);
           else
             fputs ("native int", file);
           fputs (" ", file);
@@ -1421,7 +1448,7 @@ compute_addr_expr (FILE *file, tree t)
 
         compute_addr_expr (file, obj);
         fputs ("\n\tldflda\t", file);
-        dump_type (file, TREE_TYPE (fld), true);
+        dump_type (file, TREE_TYPE (fld), true, false);
         fputs (" ", file);
         mark_referenced_type (obj_type);
         dump_valuetype_name (file, obj_type);
@@ -1521,6 +1548,52 @@ print_type_suffix (FILE *file, tree type_node, bool unsign)
     }
 }
 
+/* Emit a conversion from type IN_TYPE to type OUT_TYPE to file FILE.
+   IS_NOP says whether the conversion comes from a NOP_EXPR.   */
+
+static void
+gen_conv (FILE *file, bool is_nop, tree out_type, tree in_type)
+{
+  if (is_nop
+      && INTEGRAL_TYPE_P (out_type)
+      && INTEGRAL_TYPE_P (in_type))
+    {
+      if (TYPE_PRECISION (out_type) > TYPE_PRECISION (in_type))
+        {
+          tree tmp_type = TYPE_UNSIGNED (in_type)
+                          ? unsigned_type_for (out_type)
+                          : signed_type_for (out_type);
+
+          gen_integral_conv (file, tmp_type, in_type);
+          gen_integral_conv (file, out_type, tmp_type);
+        }
+      else
+        gen_integral_conv (file, out_type, in_type);
+    }
+
+  /* Special case for conversion to float type are not orthogonal
+     in CIL opcode set.   */
+  else if (SCALAR_FLOAT_TYPE_P (out_type)
+           && INTEGRAL_TYPE_P (in_type)
+           && TYPE_UNSIGNED (in_type))
+    {
+      fputs ("\n\tconv.r.un", file);
+
+      if (TYPE_PRECISION (out_type) <= 32)
+        fputs ("\n\tconv.r4", file);
+    }
+
+  /* Do nothing for a conversion from two REAL_TYPEs with the
+     same precision.   */
+  else if (! SCALAR_FLOAT_TYPE_P (out_type)
+           || ! SCALAR_FLOAT_TYPE_P (in_type)
+           || TYPE_PRECISION (out_type) != TYPE_PRECISION (in_type))
+    {
+      fputs ("\n\tconv.", file);
+      print_type_suffix (file, out_type, true);
+    }
+}
+
 /* Emit a conversion from integral or pointer type IN_TYPE
    to integral type OUT_TYPE to file FILE.
    If the precision of OUT_TYPE is bigger than that of IN_TYPE,
@@ -1603,17 +1676,50 @@ gen_binary_cond_branch (FILE *file, tree node, tree label)
 
   gcc_assert (TREE_CODE (label) == LABEL_DECL);
 
+  if (TREE_CODE (node) == UNORDERED_EXPR
+      || TREE_CODE (node) == ORDERED_EXPR)
+    {
+      gen_cil_node (file, op0);
+      fputs ("\n\tdup"
+             "\n\tceq", file);
+
+      stack_push (1);
+      stack_pop (1);
+
+      gen_cil_node (file, op1);
+      fputs ("\n\tdup"
+             "\n\tceq"
+             "\n\tand"
+             "\n\tbr", file);
+
+      if (TREE_CODE (node) == UNORDERED_EXPR)
+        fputs ("false\t", file);
+      else
+        fputs ("true\t", file);
+
+      dump_label_name (file, label);
+
+      stack_push (1);
+      stack_pop (3);
+
+      return;
+    }
+
   gen_cil_node (file, op0);
   gen_cil_node (file, op1);
 
   switch (TREE_CODE (node))
     {
-    case LE_EXPR: fputs ("\n\tble", file); break;
-    case LT_EXPR: fputs ("\n\tblt", file); break;
-    case GE_EXPR: fputs ("\n\tbge", file); break;
-    case GT_EXPR: fputs ("\n\tbgt", file); break;
-    case EQ_EXPR: fputs ("\n\tbeq", file); is_unsigned = FALSE; break;
-    case NE_EXPR: fputs ("\n\tbne", file); is_unsigned = TRUE;  break;
+    case LE_EXPR:   fputs ("\n\tble", file); break;
+    case LT_EXPR:   fputs ("\n\tblt", file); break;
+    case GE_EXPR:   fputs ("\n\tbge", file); break;
+    case GT_EXPR:   fputs ("\n\tbgt", file); break;
+    case EQ_EXPR:   fputs ("\n\tbeq", file); is_unsigned = FALSE; break;
+    case NE_EXPR:   fputs ("\n\tbne", file); is_unsigned = TRUE;  break;
+    case UNLT_EXPR: fputs ("\n\tblt", file); is_unsigned = TRUE;  break;
+    case UNLE_EXPR: fputs ("\n\tble", file); is_unsigned = TRUE;  break;
+    case UNGT_EXPR: fputs ("\n\tbgt", file); is_unsigned = TRUE;  break;
+    case UNGE_EXPR: fputs ("\n\tbge", file); is_unsigned = TRUE;  break;
     default:
       gcc_unreachable ();
     }
@@ -1633,7 +1739,7 @@ gen_cil_node (FILE *file, tree node)
 {
   tree op0, op1;
 
-  if (node == NULL_TREE)
+  if (node == NULL_TREE || node == error_mark_node)
     return;  /* ER: was spc */
 
   if (TARGET_EMIT_GIMPLE_COMMENTS && EXPR_HAS_LOCATION (node))
@@ -1810,7 +1916,11 @@ gen_cil_node (FILE *file, tree node)
       else if (TREE_CODE (op0) == LE_EXPR
                || TREE_CODE (op0) == LT_EXPR
                || TREE_CODE (op0) == GE_EXPR
-               || TREE_CODE (op0) == GT_EXPR)
+               || TREE_CODE (op0) == GT_EXPR
+               || TREE_CODE (op0) == UNLT_EXPR
+               || TREE_CODE (op0) == UNLE_EXPR
+               || TREE_CODE (op0) == UNGT_EXPR
+               || TREE_CODE (op0) == UNGE_EXPR)
         {
           gen_binary_cond_branch (file, op0,
                                   GOTO_DESTINATION (COND_EXPR_THEN (node)));
@@ -2167,6 +2277,22 @@ gen_cil_node (FILE *file, tree node)
                     }
                     break;
 
+                  case BUILT_IN_STACK_SAVE:
+                    /* This built-in is only used for the implementation
+                       of variable-length arrays.
+                       It's not needed in CIL.   */
+                    fputs ("\n\tldc.i4.0", file);
+                    stack_push (1);
+                    done = true;
+                    break;
+
+                  case BUILT_IN_STACK_RESTORE:
+                    /* This built-in is only used for the implementation
+                       of variable-length arrays.
+                       It's not needed in CIL.   */
+                    done = true;
+                    break;
+
                   default:
                     if (DECL_ASSEMBLER_NAME_SET_P (node))
                       {
@@ -2256,7 +2382,7 @@ gen_cil_node (FILE *file, tree node)
         if (varargs)
           fputs ("vararg ", file);
 
-        dump_type (file, TREE_TYPE (fun_type), true);
+        dump_type (file, TREE_TYPE (fun_type), true, false);
 
         if (direct_call)
           {
@@ -2282,7 +2408,7 @@ gen_cil_node (FILE *file, tree node)
         while (args_type != last_arg_type)
           {
             ++nargs;
-            dump_type (file, TREE_VALUE (args_type), true);
+            dump_type (file, TREE_VALUE (args_type), true, true);
             args = TREE_CHAIN (args);
             args_type = TREE_CHAIN (args_type);
             if (args_type != last_arg_type)
@@ -2436,6 +2562,8 @@ gen_cil_node (FILE *file, tree node)
     case GT_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
+    case UNLT_EXPR:
+    case UNGT_EXPR:
       op0 = TREE_OPERAND (node, 0);
       op1 = TREE_OPERAND (node, 1);
 
@@ -2452,10 +2580,12 @@ gen_cil_node (FILE *file, tree node)
           fputs (TYPE_UNSIGNED (TREE_TYPE (op0))?"\n\tcgt.un":"\n\tcgt", file);
           break;
 
-        case EQ_EXPR: fputs ("\n\tceq", file); break;
-        case NE_EXPR: fputs ("\n\tceq"
-                             "\n\tldc.i4.1"
-                             "\n\txor", file); break;
+        case EQ_EXPR:   fputs ("\n\tceq", file); break;
+        case NE_EXPR:   fputs ("\n\tceq"
+                               "\n\tldc.i4.1"
+                               "\n\txor", file); break;
+        case UNLT_EXPR: fputs ("\n\tclt.un", file); break;
+        case UNGT_EXPR: fputs ("\n\tcgt.un", file); break;
 
         default:
           gcc_unreachable ();
@@ -2466,7 +2596,6 @@ gen_cil_node (FILE *file, tree node)
 
       stack_pop (1);
       break;
-
 
     case LE_EXPR:
     case GE_EXPR:
@@ -2497,6 +2626,48 @@ gen_cil_node (FILE *file, tree node)
         fputs ("\n\tconv.i8", file);
 
       stack_pop (1);
+      break;
+
+    case UNORDERED_EXPR:
+      op0 = TREE_OPERAND (node, 0);
+      op1 = TREE_OPERAND (node, 1);
+
+      gen_cil_node (file, op0);
+      fputs ("\n\tdup"
+             "\n\tceq", file);
+
+      stack_push (1);
+      stack_pop (1);
+
+      gen_cil_node (file, op1);
+      fputs ("\n\tdup"
+             "\n\tceq"
+             "\n\tand"
+             "\n\tldc.i4.1"
+             "\n\txor", file);
+
+      stack_push (1);
+      stack_pop (2);
+      break;
+
+    case ORDERED_EXPR:
+      op0 = TREE_OPERAND (node, 0);
+      op1 = TREE_OPERAND (node, 1);
+
+      gen_cil_node (file, op0);
+      fputs ("\n\tdup"
+             "\n\tceq", file);
+
+      stack_push (1);
+      stack_pop (1);
+
+      gen_cil_node (file, op1);
+      fputs ("\n\tdup"
+             "\n\tceq"
+             "\n\tand", file);
+
+      stack_push (1);
+      stack_pop (2);
       break;
 
     case EXACT_DIV_EXPR:
@@ -2597,7 +2768,7 @@ gen_cil_node (FILE *file, tree node)
       if (AGGREGATE_TYPE_P (TREE_TYPE (node)))
         {
           fputs ("\n\tldobj\t", file);
-          dump_type (file, TREE_TYPE (node), true);
+          dump_type (file, TREE_TYPE (node), true, false);
         }
       else
         {
@@ -2612,39 +2783,11 @@ gen_cil_node (FILE *file, tree node)
       /* TODO: */
     case FIX_TRUNC_EXPR:
     case NOP_EXPR:
-      {
-        tree op = TREE_OPERAND (node, 0);
-        tree in_type = TREE_TYPE (op);
-        tree out_type = TREE_TYPE (node);
-
-        gen_cil_node (file, op);
-
-        if (TREE_CODE (node) == NOP_EXPR
-            && INTEGRAL_TYPE_P (out_type)
-            && INTEGRAL_TYPE_P (in_type))
-          {
-            if (TYPE_PRECISION (out_type) > TYPE_PRECISION (in_type))
-              {
-                tree tmp_type = TYPE_UNSIGNED (in_type)
-                                ? unsigned_type_for (out_type)
-                                : signed_type_for (out_type);
-
-                gen_integral_conv (file, tmp_type, in_type);
-                gen_integral_conv (file, out_type, tmp_type);
-              }
-            else
-              gen_integral_conv (file, out_type, in_type);
-          }
-        /* Do nothing for a conversion from two REAL_TYPEs with the
-           same precision.   */
-        else if (! SCALAR_FLOAT_TYPE_P (out_type)
-                 || ! SCALAR_FLOAT_TYPE_P (in_type)
-                 || TYPE_PRECISION (out_type) != TYPE_PRECISION (in_type))
-          {
-            fputs ("\n\tconv.", file);
-            print_type_suffix (file, out_type, true);
-          }
-      }
+      gen_cil_node (file, TREE_OPERAND (node, 0));
+      gen_conv (file,
+                (TREE_CODE (node) == NOP_EXPR),
+                TREE_TYPE (node),
+                TREE_TYPE (TREE_OPERAND (node, 0)));
       break;
 
     case LABEL_EXPR:
@@ -2773,7 +2916,7 @@ gen_cil_node (FILE *file, tree node)
               if (AGGREGATE_TYPE_P (TREE_TYPE (node)))
                 {
                   fputs ("\n\tldobj\t", file);
-                  dump_type (file, TREE_TYPE (node), true);
+                  dump_type (file, TREE_TYPE (node), true, false);
                 }
               else
                 {
@@ -2792,7 +2935,7 @@ gen_cil_node (FILE *file, tree node)
           if (TREE_THIS_VOLATILE (node))
             fputs ("\n\tvolatile.", file);
           fputs ("\n\tldsfld\t", file);
-          dump_type (file, TREE_TYPE (node), true);
+          dump_type (file, TREE_TYPE (node), true, false);
           fputs (" ", file);
           if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (node))
             fputs ("[ExternalAssembly]ExternalAssembly::", file);
@@ -2807,6 +2950,13 @@ gen_cil_node (FILE *file, tree node)
       fputs ("\n\tldarg\t", file);
       dump_decl_name (file, node);
       stack_push (1);
+
+      /* K&R C allows declaration type to be wider than the actual type */
+      if (TREE_TYPE (node) != DECL_ARG_TYPE (node))
+        {
+          mark_referenced_type (DECL_ARG_TYPE (node));
+          gen_conv (file, true, TREE_TYPE (node), DECL_ARG_TYPE (node));
+        }
       break;
 
     case FIELD_DECL:
@@ -2843,7 +2993,7 @@ gen_cil_node (FILE *file, tree node)
         if (TREE_THIS_VOLATILE (fld))
           fputs ("\n\tvolatile.", file);
         fputs ("\n\tldfld\t", file);
-        dump_type (file, fld_type, true);
+        dump_type (file, fld_type, true, false);
         fputs (" ", file);
         mark_referenced_type (obj_type);
         dump_valuetype_name (file, obj_type);
@@ -2951,7 +3101,7 @@ gen_cil_modify_expr (FILE *file, tree node)
         {
           gcc_assert (AGGREGATE_TYPE_P (TREE_TYPE (rhs)));
           fputs ("\n\tstobj\t", file);
-          dump_type (file, TREE_TYPE (lhs), true);
+          dump_type (file, TREE_TYPE (lhs), true, false);
         }
       else
         {
@@ -2980,7 +3130,7 @@ gen_cil_modify_expr (FILE *file, tree node)
               if (AGGREGATE_TYPE_P (TREE_TYPE (lhs)))
                 {
                   fputs ("\n\tstobj\t", file);
-                  dump_type (file, TREE_TYPE (lhs), true);
+                  dump_type (file, TREE_TYPE (lhs), true, false);
                 }
               else
                 {
@@ -3003,7 +3153,7 @@ gen_cil_modify_expr (FILE *file, tree node)
           if (TREE_THIS_VOLATILE (lhs))
             fputs ("\n\tvolatile.", file);
           fputs ("\n\tstsfld\t", file);
-          dump_type (file, TREE_TYPE (lhs), true);
+          dump_type (file, TREE_TYPE (lhs), true, false);
           fputs (" ", file);
           if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (lhs))
             fputs ("[ExternalAssembly]ExternalAssembly::", file);
@@ -3035,7 +3185,7 @@ gen_cil_modify_expr (FILE *file, tree node)
         if (TREE_THIS_VOLATILE (fld))
           fputs ("\n\tvolatile.", file);
         fputs ("\n\tstfld\t", file);
-        dump_type (file, fld_type, true);
+        dump_type (file, fld_type, true, false);
         fputs (" ", file);
         dump_valuetype_name (file, obj_type);
         fputs ("::", file);
@@ -3084,6 +3234,9 @@ static char *
 append_coded_type (char *str, tree type,
                    unsigned int *len, unsigned int *max_len)
 {
+  if (type == NULL_TREE || type == error_mark_node)
+    return str;
+
  encode_type:
   type = TYPE_MAIN_VARIANT (type);
 
@@ -3119,20 +3272,24 @@ append_coded_type (char *str, tree type,
       }
       break;
 
+    pointer:
     case POINTER_TYPE:
       str = append_string (str, "*", len, max_len);
       type = TREE_TYPE (type);
       goto encode_type;
 
     case ARRAY_TYPE:
-      str = append_string (str, "[", len, max_len);
-      if (TYPE_DOMAIN (type))
+      if (TYPE_DOMAIN (type) && ! ARRAY_TYPE_VARLENGTH (type))
         {
           tree domain = TYPE_DOMAIN (type);
           tree min = TYPE_MIN_VALUE (domain);
           tree max = TYPE_MAX_VALUE (domain);
 
-          if (min && max
+          str = append_string (str, "[", len, max_len);
+
+          if (ARRAY_TYPE_ZEROLENGTH (type))
+            str = append_string (str, "0", len, max_len);
+          else if (min && max
               && integer_zerop (min)
               && host_integerp (max, 0))
             {
@@ -3144,8 +3301,11 @@ append_coded_type (char *str, tree type,
             }
           else
             str = append_string (str, "unk", len, max_len);
+
+          str = append_string (str, "]", len, max_len);
         }
-      str = append_string (str, "]", len, max_len);
+      else
+        goto pointer;
       type = TREE_TYPE (type);
       goto encode_type;
 
@@ -3306,6 +3466,7 @@ make_valuetype_identifier (tree t)
     }
   else if (TREE_CODE (t) == ARRAY_TYPE)
     {
+      gcc_assert (TYPE_DOMAIN (t) && ! ARRAY_TYPE_VARLENGTH (t));
       tmp_name = append_string (tmp_name, "array?",
                                 &tmp_name_len, &tmp_name_max_len);
       tmp_name = append_coded_type (tmp_name, t,
@@ -3358,6 +3519,9 @@ static void
 print_valuetype_decl (FILE *file, tree t)
 {
   bool is_enum;
+
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
 
   if (!AGGREGATE_TYPE_P (t) && TREE_CODE (t) != ENUMERAL_TYPE)
     return;
@@ -3413,7 +3577,7 @@ print_valuetype_decl (FILE *file, tree t)
       while (tmp)
         {
           fputs ("\t.field public static literal ", file);
-          dump_type (file, t, false);
+          dump_type (file, t, false, false);
           fputs (" '", file);
           gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == IDENTIFIER_NODE);
           fprintf (file, IDENTIFIER_POINTER (TREE_PURPOSE (tmp)));
@@ -3428,7 +3592,7 @@ print_valuetype_decl (FILE *file, tree t)
       fprintf (file, "\t.size %ld\n", TREE_INT_CST_LOW (TYPE_SIZE_UNIT (t)));
       fprintf (file, "\t.pack %u\n", TYPE_ALIGN_UNIT (t));
       fputs ("\t.field [0] public specialname ", file);
-      dump_type (file, TREE_TYPE (t), false);
+      dump_type (file, TREE_TYPE (t), false, false);
       fputs (" 'elem__'\n", file);
     }
   else
@@ -3476,7 +3640,7 @@ print_valuetype_decl (FILE *file, tree t)
             }
 
           fprintf (file, "\t.field [%d] public ", offset);
-          dump_type (file, type, false);
+          dump_type (file, type, false, false);
           fputs (" ", file );
           dump_decl_name (file, tmp);
           fputs ("\n", file);
@@ -3518,7 +3682,7 @@ print_string_decl (FILE *file, tree t)
   fputs (")\n", file);
 
   fputs (".field private static ", file);
-  dump_type (file, TREE_TYPE (t), true);
+  dump_type (file, TREE_TYPE (t), true, false);
   fputs (" ", file);
   dump_string_name (file, t);
   fprintf (file, " at 'DataStr%u'\n", get_string_cst_id (t));
@@ -3539,8 +3703,8 @@ gen_start_function (FILE *stream)
          stream);
   fputs ("\n{"
          "\n\t.entrypoint"
-         "\n\t.maxstack 2"
-         "\n\t.locals (int32 'argc', int8** 'argv')", stream);
+         "\n\t.maxstack 3"
+         "\n\t.locals (int32 'argc', int8** 'argv', int8** 'env')", stream);
   /* TODO: add startup code*/
   switch (nargs)
     {
@@ -3568,6 +3732,19 @@ gen_start_function (FILE *stream)
              "\n\tcall\tint32 main(int32, int8**)", stream);
       break;
 
+    case 3:
+      fputs ("\n\tldloca\t'argc'"
+             "\n\tcall\tnative int [gcc4net]gcc4net.StartupHelper::GetArgv(int32&)"
+             "\n\tstloc\t'argv'"
+             "\n\tcall\tnative int [gcc4net]gcc4net.StartupHelper::GetEnvVars()"
+             "\n\tstloc\t'env'"
+             "\n\tcall\tvoid [gcc4net]gcc4net.StartupHelper::Startup()"
+             "\n\tldloc\t'argc'"
+             "\n\tldloc\t'argv'"
+             "\n\tldloc\t'env'"
+             "\n\tcall\tint32 main(int32, int8**, int8**)", stream);
+      break;
+
     default:
       gcc_assert (0);
     }
@@ -3582,11 +3759,11 @@ gen_start_function (FILE *stream)
 
 /* This function is mostly a copy of the last part of 'gen_cil'. */
 static void
-gen_cil_vcg(FILE* vcg_stream)
+gen_cil_vcg (FILE *vcg_stream)
 {
   block_stmt_iterator bsi;
   edge_iterator ei;
-  const char* fun_name = lang_hooks.decl_printable_name (current_function_decl, 1);
+  const char *fun_name = lang_hooks.decl_printable_name (current_function_decl, 1);
   edge e;
   int  i=0;
 
@@ -3789,7 +3966,7 @@ gen_cil_1 (FILE *stream)
   fputs ("static ", stream);
   if (varargs)
     fputs ("vararg ", stream);
-  dump_type (stream, TREE_TYPE (TREE_TYPE (current_function_decl)), true);
+  dump_type (stream, TREE_TYPE (TREE_TYPE (current_function_decl)), true, false);
   fprintf (stream, " '%s' (",
            lang_hooks.decl_printable_name (current_function_decl, 1));
 
@@ -3797,7 +3974,7 @@ gen_cil_1 (FILE *stream)
 
   while (args)
     {
-      dump_type (stream, DECL_ARG_TYPE (args), true);
+      dump_type (stream, DECL_ARG_TYPE (args), true, true);
       fputs (" ", stream);
       dump_decl_name (stream, args);
       args = TREE_CHAIN (args);
@@ -3826,7 +4003,7 @@ gen_cil_1 (FILE *stream)
             if (!first)
               fputs (", ", stream);
             first = false;
-            dump_type (stream, TREE_TYPE (var), true);
+            dump_type (stream, TREE_TYPE (var), true, false);
             fputs (" ", stream);
             dump_decl_name (stream, var);
           }
@@ -3846,7 +4023,11 @@ gen_cil_1 (FILE *stream)
     {
       tree stmt = NULL_TREE;
 
-      fprintf (stream, "\n\t/* Basic block frequency: %d */\n", bb->frequency * 100 / BB_FREQ_MAX);
+      if (TARGET_EMIT_GIMPLE_COMMENTS)
+        {
+          fprintf (stream, "\n\t/* Basic block frequency: %d */\n",
+                   bb->frequency * 100 / BB_FREQ_MAX);
+        }
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
@@ -3893,18 +4074,19 @@ gen_cil_1 (FILE *stream)
               gcc_assert (stack == 0);
             }
         }
-      
-      {
-	fprintf (stream, "\n\t/* Edge probabilities: ");
-	edge_iterator ei;
-	edge e;
-	FOR_EACH_EDGE (e, ei, bb->succs)
-	  {
-	    dump_entry_label_name (stream, e->dest);
-	    fprintf (stream, ": %d ", e->probability * 100 / REG_BR_PROB_BASE);
-	  }
-	fprintf (stream, "*/");
-      }
+
+      if (TARGET_EMIT_GIMPLE_COMMENTS)
+        {
+          fprintf (stream, "\n\t/* Edge probabilities: ");
+          edge_iterator ei;
+          edge e;
+          FOR_EACH_EDGE (e, ei, bb->succs)
+            {
+              dump_entry_label_name (stream, e->dest);
+              fprintf (stream, ": %d ", e->probability * 100 / REG_BR_PROB_BASE);
+            }
+          fprintf (stream, "*/");
+        }
     }
 
   fprintf (stream, "\n\t.maxstack %d\n", max_stack);
@@ -3986,7 +4168,7 @@ make_decl_cil (FILE *stream, tree decl)
         fputs ("private ", stream);
 
       fputs ("static ", stream);
-      dump_type (stream, TREE_TYPE (decl), true);
+      dump_type (stream, TREE_TYPE (decl), true, false);
       fputs (" ", stream);
       dump_decl_name (stream, decl);
       fputs ("\n", stream);
