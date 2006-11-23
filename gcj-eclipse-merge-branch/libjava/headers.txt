@@ -15,6 +15,8 @@ prepend jint _Jv_AttachCurrentThread(java::lang::Thread* thread);
 prepend java::lang::Thread* _Jv_AttachCurrentThread (jstring name, java::lang::ThreadGroup* group);
 prepend java::lang::Thread* _Jv_AttachCurrentThreadAsDaemon (jstring name, java::lang::ThreadGroup* group);
 prepend jint _Jv_DetachCurrentThread ();
+prepend struct _Jv_Thread_t;
+prepend _Jv_Thread_t* _Jv_ThreadGetData (java::lang::Thread* thread);
 friend _Jv_JNIEnv * ::_Jv_GetCurrentJNIEnv ();
 friend void ::_Jv_SetCurrentJNIEnv (_Jv_JNIEnv *env);
 friend void ::_Jv_ThreadRun (java::lang::Thread* thread);

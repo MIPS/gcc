@@ -30,6 +30,17 @@ details.  */
 using namespace gnu::gcj::runtime;
 using namespace java::lang;
 
+extern "Java"
+{
+  namespace gnu
+  {
+    namespace classpath
+    {
+        class VMStackWalker;
+    }
+  }
+}
+
 enum _Jv_FrameType
 {
   frame_native,
@@ -130,6 +141,7 @@ public:
   static jobjectArray GetAccessControlStack ();
 
   friend jclass _Jv_GetMethodDeclaringClass (jmethodID);
+  friend class gnu::classpath::VMStackWalker;
 };
 
 // Information about a given address.

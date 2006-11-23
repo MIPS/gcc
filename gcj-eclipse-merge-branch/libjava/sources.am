@@ -227,7 +227,8 @@ classpath/gnu/classpath/Pointer32.java \
 classpath/gnu/classpath/Pointer64.java \
 classpath/gnu/classpath/ServiceFactory.java \
 classpath/gnu/classpath/ServiceProviderLoadingAction.java \
-gnu/classpath/SystemProperties.java
+gnu/classpath/SystemProperties.java \
+gnu/classpath/VMStackWalker.java
 
 gnu_classpath_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_classpath_source_files)))
 

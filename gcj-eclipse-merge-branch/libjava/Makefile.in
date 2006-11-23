@@ -261,11 +261,12 @@ am__DEPENDENCIES_3 = $(patsubst classpath/resource/%,%,$(addsuffix \
 am__DEPENDENCIES_4 =
 am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	stacktrace.cc link.cc defineclass.cc interpret.cc verify.cc \
-	gnu/classpath/natSystemProperties.cc \
-	gnu/classpath/natConfiguration.cc \
 	gnu/classpath/jdwp/natVMFrame.cc \
 	gnu/classpath/jdwp/natVMMethod.cc \
-	gnu/classpath/jdwp/natVMVirtualMachine.cc gnu/gcj/natCore.cc \
+	gnu/classpath/jdwp/natVMVirtualMachine.cc \
+	gnu/classpath/natConfiguration.cc \
+	gnu/classpath/natSystemProperties.cc \
+	gnu/classpath/natVMStackWalker.cc gnu/gcj/natCore.cc \
 	gnu/gcj/convert/JIS0208_to_Unicode.cc \
 	gnu/gcj/convert/JIS0212_to_Unicode.cc \
 	gnu/gcj/convert/Unicode_to_JIS.cc gnu/gcj/convert/natIconv.cc \
@@ -325,11 +326,12 @@ am__libgcj_la_SOURCES_DIST = prims.cc jni.cc jvmti.cc exception.cc \
 	sun/reflect/natReflection.cc boehm.cc nogc.cc posix.cc \
 	win32.cc darwin.cc posix-threads.cc win32-threads.cc \
 	no-threads.cc
-am__objects_2 = gnu/classpath/natSystemProperties.lo \
-	gnu/classpath/natConfiguration.lo \
-	gnu/classpath/jdwp/natVMFrame.lo \
+am__objects_2 = gnu/classpath/jdwp/natVMFrame.lo \
 	gnu/classpath/jdwp/natVMMethod.lo \
-	gnu/classpath/jdwp/natVMVirtualMachine.lo gnu/gcj/natCore.lo \
+	gnu/classpath/jdwp/natVMVirtualMachine.lo \
+	gnu/classpath/natConfiguration.lo \
+	gnu/classpath/natSystemProperties.lo \
+	gnu/classpath/natVMStackWalker.lo gnu/gcj/natCore.lo \
 	gnu/gcj/convert/JIS0208_to_Unicode.lo \
 	gnu/gcj/convert/JIS0212_to_Unicode.lo \
 	gnu/gcj/convert/Unicode_to_JIS.lo gnu/gcj/convert/natIconv.lo \
@@ -1085,7 +1087,8 @@ classpath/gnu/classpath/Pointer32.java \
 classpath/gnu/classpath/Pointer64.java \
 classpath/gnu/classpath/ServiceFactory.java \
 classpath/gnu/classpath/ServiceProviderLoadingAction.java \
-gnu/classpath/SystemProperties.java
+gnu/classpath/SystemProperties.java \
+gnu/classpath/VMStackWalker.java
 
 gnu_classpath_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_classpath_source_files)))
 gnu_classpath_debug_source_files = \
@@ -7576,11 +7579,12 @@ gkeytool_LINK = $(GCJLINK)
 gkeytool_LDADD = -L$(here)/.libs libgcj-tools.la
 gkeytool_DEPENDENCIES = libgcj-tools.la
 nat_source_files = \
-gnu/classpath/natSystemProperties.cc \
-gnu/classpath/natConfiguration.cc \
 gnu/classpath/jdwp/natVMFrame.cc \
 gnu/classpath/jdwp/natVMMethod.cc \
 gnu/classpath/jdwp/natVMVirtualMachine.cc \
+gnu/classpath/natConfiguration.cc \
+gnu/classpath/natSystemProperties.cc \
+gnu/classpath/natVMStackWalker.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \
@@ -7902,16 +7906,6 @@ gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXImage.lo:  \
 gnu/gcj/xlib/lib_gnu_awt_xlib_la-natXUnmapEvent.lo:  \
 	gnu/gcj/xlib/$(am__dirstamp) \
 	gnu/gcj/xlib/$(DEPDIR)/$(am__dirstamp)
-gnu/classpath/$(am__dirstamp):
-	@$(mkdir_p) gnu/classpath
-	@: > gnu/classpath/$(am__dirstamp)
-gnu/classpath/$(DEPDIR)/$(am__dirstamp):
-	@$(mkdir_p) gnu/classpath/$(DEPDIR)
-	@: > gnu/classpath/$(DEPDIR)/$(am__dirstamp)
-gnu/classpath/natSystemProperties.lo: gnu/classpath/$(am__dirstamp) \
-	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
-gnu/classpath/natConfiguration.lo: gnu/classpath/$(am__dirstamp) \
-	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
 gnu/classpath/jdwp/$(am__dirstamp):
 	@$(mkdir_p) gnu/classpath/jdwp
 	@: > gnu/classpath/jdwp/$(am__dirstamp)
@@ -7925,6 +7919,18 @@ gnu/classpath/jdwp/natVMMethod.lo: gnu/classpath/jdwp/$(am__dirstamp) \
 gnu/classpath/jdwp/natVMVirtualMachine.lo:  \
 	gnu/classpath/jdwp/$(am__dirstamp) \
 	gnu/classpath/jdwp/$(DEPDIR)/$(am__dirstamp)
+gnu/classpath/$(am__dirstamp):
+	@$(mkdir_p) gnu/classpath
+	@: > gnu/classpath/$(am__dirstamp)
+gnu/classpath/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) gnu/classpath/$(DEPDIR)
+	@: > gnu/classpath/$(DEPDIR)/$(am__dirstamp)
+gnu/classpath/natConfiguration.lo: gnu/classpath/$(am__dirstamp) \
+	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
+gnu/classpath/natSystemProperties.lo: gnu/classpath/$(am__dirstamp) \
+	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
+gnu/classpath/natVMStackWalker.lo: gnu/classpath/$(am__dirstamp) \
+	gnu/classpath/$(DEPDIR)/$(am__dirstamp)
 gnu/gcj/$(am__dirstamp):
 	@$(mkdir_p) gnu/gcj
 	@: > gnu/gcj/$(am__dirstamp)
@@ -8407,6 +8413,8 @@ mostlyclean-compile:
 	-rm -f gnu/classpath/natConfiguration.lo
 	-rm -f gnu/classpath/natSystemProperties.$(OBJEXT)
 	-rm -f gnu/classpath/natSystemProperties.lo
+	-rm -f gnu/classpath/natVMStackWalker.$(OBJEXT)
+	-rm -f gnu/classpath/natVMStackWalker.lo
 	-rm -f gnu/gcj/convert/JIS0208_to_Unicode.$(OBJEXT)
 	-rm -f gnu/gcj/convert/JIS0208_to_Unicode.lo
 	-rm -f gnu/gcj/convert/JIS0212_to_Unicode.$(OBJEXT)
@@ -8634,6 +8642,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/win32.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natConfiguration.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natSystemProperties.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/$(DEPDIR)/natVMStackWalker.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/jdwp/$(DEPDIR)/natVMFrame.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/jdwp/$(DEPDIR)/natVMMethod.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@gnu/classpath/jdwp/$(DEPDIR)/natVMVirtualMachine.Plo@am__quote@

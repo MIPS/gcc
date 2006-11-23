@@ -714,11 +714,12 @@ gkeytool_DEPENDENCIES = libgcj-tools.la
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \
-gnu/classpath/natSystemProperties.cc \
-gnu/classpath/natConfiguration.cc \
 gnu/classpath/jdwp/natVMFrame.cc \
 gnu/classpath/jdwp/natVMMethod.cc \
 gnu/classpath/jdwp/natVMVirtualMachine.cc \
+gnu/classpath/natConfiguration.cc \
+gnu/classpath/natSystemProperties.cc \
+gnu/classpath/natVMStackWalker.cc \
 gnu/gcj/natCore.cc \
 gnu/gcj/convert/JIS0208_to_Unicode.cc \
 gnu/gcj/convert/JIS0212_to_Unicode.cc \

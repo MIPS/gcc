@@ -1,3 +1,14 @@
+2006-11-23  Andrew Haley  <aph@redhat.com>
+
+	* Makefile.am (nat_source_files): Add gnu/classpath/natVMStackWalker.cc.
+	* sources.am: Rebuild.
+	* gnu/classpath/natVMStackWalker.cc: New file.
+	* gnu/classpath/VMStackWalker.java: New file.
+	* headers.txt: prepend 
+	_Jv_Thread_t* _Jv_ThreadGetData(java::lang::Thread* thread)
+	* include/java-stack.h: Add VMStackWalker namespace.
+	Add friend class gnu::classpath::VMStackWalker.
+
 2006-11-23  Gary Benson  <gbenson@redhat.com>
 
 	* java/security/Security.java: Merge with classpath.
