@@ -54,6 +54,6 @@ test01(unsigned iter)
 
 int main()
 {
-  test01(10000000);
+  test01(1000000);
   return 0;
 }

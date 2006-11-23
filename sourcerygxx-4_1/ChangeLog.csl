@@ -1,3 +1,9 @@
+2006-11-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	libstdc++/testsuite/
+	* 27_io/basic_stringbuf/overflow/char/1.cc: Reduce iterations to
+	100000.
+
 2006-11-22  Mark Shinwell  <shinwell@codesourcery.com>
 
 	gcc/testsuite/
