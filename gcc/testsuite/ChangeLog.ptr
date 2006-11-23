@@ -1,0 +1,4 @@
+2006-11-23  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.dg/tree-ssa/ssa-pre-8.c: Update testcase since we don't
+	have a cast which is PREd.

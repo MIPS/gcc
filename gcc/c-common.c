@@ -2483,12 +2483,17 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
      Do this multiplication as signed, then convert to the appropriate
      pointer type (actually unsigned integral).  */
 
-  intop = convert (result_type,
-		   build_binary_op (MULT_EXPR, intop,
-				    convert (TREE_TYPE (intop), size_exp), 1));
+  intop = build_binary_op (MULT_EXPR, intop,
+			   convert (TREE_TYPE (intop), size_exp), 1);
+
+  /* FIXME: maybe add a POINTER_MINUS_EXPR ???  */
+  if (resultcode == MINUS_EXPR)
+    intop = fold_build1 (NEGATE_EXPR, TREE_TYPE (intop), intop);
+
+  intop = convert (sizetype, intop);
 
   /* Create the sum or difference.  */
-  return fold_build2 (resultcode, result_type, ptrop, intop);
+  return fold_build2 (POINTER_PLUS_EXPR, result_type, ptrop, intop);
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,

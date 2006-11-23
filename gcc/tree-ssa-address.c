@@ -360,10 +360,9 @@ add_to_parts (struct mem_address *parts, tree type, tree elt,
     }
 
   if (coef != 1)
-    elt = fold_build2 (MULT_EXPR, type, fold_convert (type, elt),
-		       build_int_cst_type (type, coef));
-  else
-    elt = fold_convert (type, elt);
+    elt = fold_build2 (MULT_EXPR, sizetype, fold_convert (sizetype, elt),
+		       build_int_cst_type (sizetype, coef));
+  elt = fold_convert (type, elt);
 
   if (!parts->base)
     {
@@ -373,12 +372,12 @@ add_to_parts (struct mem_address *parts, tree type, tree elt,
 
   if (!parts->index)
     {
-      parts->index = elt;
+      parts->index = fold_convert (sizetype, elt);
       return;
     }
 
   /* Add ELT to base.  */
-  parts->base = fold_build2 (PLUS_EXPR, type, parts->base, elt);
+  parts->base = fold_build2 (POINTER_PLUS_EXPR, type, parts->base, fold_convert (sizetype, elt));
 }
 
 /* Finds the most expensive multiplication in ADDR that can be
@@ -387,7 +386,7 @@ add_to_parts (struct mem_address *parts, tree type, tree elt,
    construct.  */
 
 static void
-most_expensive_mult_to_index (struct mem_address *parts, tree type,
+most_expensive_mult_to_index (struct mem_address *parts,
 			      struct affine_tree_combination *addr)
 {
   unsigned HOST_WIDE_INT best_mult = 0;
@@ -423,16 +422,16 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
 	  continue;
 	}
 
-      elt = fold_convert (type, addr->elts[i]);
+      elt = fold_convert (sizetype, addr->elts[i]);
       if (!mult_elt)
 	mult_elt = elt;
       else
-	mult_elt = fold_build2 (PLUS_EXPR, type, mult_elt, elt);
+	mult_elt = fold_build2 (PLUS_EXPR, sizetype, mult_elt, elt);
     }
   addr->n = j;
 
   parts->index = mult_elt;
-  parts->step = build_int_cst_type (type, best_mult);
+  parts->step = build_int_cst_type (sizetype, best_mult);
 }
 
 /* Splits address ADDR into PARTS.
@@ -456,13 +455,13 @@ addr_to_parts (struct affine_tree_combination *addr, tree type,
   parts->step = NULL_TREE;
 
   if (addr->offset)
-    parts->offset = build_int_cst_type (type, addr->offset);
+    parts->offset = build_int_cst_type (sizetype, addr->offset);
   else
     parts->offset = NULL_TREE;
 
   /* First move the most expensive feasible multiplication
      to index.  */
-  most_expensive_mult_to_index (parts, type, addr);
+  most_expensive_mult_to_index (parts, addr);
 
   /* Then try to process the remaining elements.  */
   for (i = 0; i < addr->n; i++)

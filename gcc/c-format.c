@@ -1302,6 +1302,7 @@ check_format_arg (void *ctx, tree format_tree,
     }
 
   offset = 0;
+  /* FIXME: Handle POINTER_PLUS_EXPR.  */
   if (TREE_CODE (format_tree) == PLUS_EXPR)
     {
       tree arg0, arg1;

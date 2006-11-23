@@ -1,0 +1,93 @@
+2006-11-23  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* tree.def (POINTER_PLUS_EXPR): New tree code.
+	* tree-pretty-print.c (dump_generic_node): Handle
+	POINTER_PLUS_EXPR.
+	(op_prio): Likewise.
+	(op_symbol_1): Likewise.
+	* optabs.c (optab_for_tree_code): Likewise.
+	* tree-ssa-loop-manip.c (create_iv): Handle pointer base
+	specially.
+	* tree-tailcall.c (process_assignment): Mention
+	POINTER_PLUS_EXPR in a TODO comment.
+	* tree.c (build2_stat): Assert when trying to use PLUS_EXPR or 
+	MINUS_EXPR with a pointer. Also assert for POINTER_PLUS_EXPR
+	not used with a pointer and an integer type.
+	*  tree-scalar-evolution.c (fold_used_pointer): Mention
+	POINTER_PLUS_EXPR is what this needs to handle.
+	* builtins.c (get_pointer_alignment): Handle POINTER_PLUS_EXPR
+	instead of PLUS_EXPR.
+	(expand_builtin_strcat): Create a POINTER_PLUS_EXPR instead of
+	PLUS_EXPR for pointers.
+	(std_gimplify_va_arg_expr): Likewise.
+	(fold_builtin_memory_op): Likewise.
+	(fold_builtin_strstr): Likewise.
+	(fold_builtin_strchr): Likewise.
+	(fold_builtin_strrchr): Likewise.
+	(fold_builtin_strpbrk): Likewise.
+	(expand_builtin_memory_chk): Likewise.
+	(fold_builtin_memory_chk): Likewise.
+	* fold-const.c (build_range_check): Handle pointer types
+	specially.
+	(fold_to_nonsharp_ineq_using_bound): Likewise.
+	(fold_binary): Handle simple POINTER_PLUS_EXPR cases.
+	(tree_expr_nonnegative_p): Handle POINTER_PLUS_EXPR.
+	(tree_expr_nonzero_p): Likewise.
+	(fold_indirect_ref_1): Look at POINTER_PLUS_EXPR instead
+	of PLUS_EXPR for the complex expression folding.
+	* tree-ssa-loop-ivopts.c (determine_base_object): Handle
+	POINTER_PLUS_EXPR.
+	(tree_to_aff_combination): Likewise.
+	(force_expr_to_var_cost): Likewise.
+	(force_expr_to_var_cost): Likewise. Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	* c-format.c (check_format_arg): Mention this should be handling
+	POINTER_PLUS_EXPR.
+	* tree-stdarg.c (va_list_counter_bump): Handle POINTER_PLUS_EXPR
+	instead of PLUS_EXPR.
+	(check_va_list_escapes): Likewise.
+	(check_all_va_list_escapes): Likewise.
+	* expr.c (expand_expr_real_1): Handle POINTER_PLUS_EXPR.
+	(string_constant): Likewise.
+	* tree-ssa-address.c (add_to_parts): Create a POINTER_PLUS_EXPR
+	instead of PLUS_EXPR for pointers.
+	(most_expensive_mult_to_index): Likewise.
+	(addr_to_parts): Use the correct type for the index.
+	* c-typeck.c (build_unary_op): For pointers create the increment
+	as a sizetype. Create a POINTER_PLUS_EXPR instead of PLUS_EXPR
+	for pointers.
+	* gimplify.c (gimplify_self_mod_expr): Create a
+	POINTER_PLUS_EXPR instead of PLUS_EXPR for pointers.
+	(gimplify_omp_atomic_fetch_op): Handle POINTER_PLUS_EXPR.
+	* tree-mudflap.c (mf_xform_derefs_1): Create a
+	POINTER_PLUS_EXPR instead of PLUS_EXPR for pointers.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Add a
+	note this should be handling POINTER_PLUS_EXPR.
+	* varasm.c (initializer_constant_valid_p): Handle
+	POINTER_PLUS_EXPR.
+	* tree-ssa-loop-prefetch.c (idx_analyze_ref):  Handle
+	POINTER_PLUS_EXPR instead of PLUS_EXPR.
+	(issue_prefetch_ref): Create a POINTER_PLUS_EXPR instead
+	of PLUS_EXPR for pointers.
+	* tree-vect-transform.c (vect_create_addr_base_for_vector_ref):
+	Likewise.
+	* tree-inline.c (estimate_num_insns_1): Handle
+	POINTER_PLUS_EXPR.
+	* tree-object-size.c (plus_expr_object_size): Handle
+	POINTER_PLUS_EXPR instead of PLUS_EXPR.  Removing all the extra
+	code which is trying to figure out which side is a pointer and 
+	is the index.
+	(check_for_plus_in_loops_1): Likewise.
+	(check_for_plus_in_loops): Likewise.
+	* c-common.c (pointer_int_sum): Create a
+	POINTER_PLUS_EXPR instead of PLUS_EXPR for pointers.
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle
+	only POINTER_PLUS_EXPR.  Removing all the extra
+	code which is trying to figure out which side is a pointer and 
+	is the index.
+	* tree-cfg.c (verify_expr): Add extra checking for pointers and
+	PLUS_EXPR and MINUS_EXPR.
+	Also add checking to make sure the operands of POINTER_PLUS_EXPR
+	are correct.
+
+

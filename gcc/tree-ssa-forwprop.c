@@ -743,6 +743,7 @@ forward_propagate_addr_expr_1 (tree stmt, tree use_stmt, bool *changed)
       || !integer_zerop (TREE_OPERAND (array_ref, 1)))
     return false;
 
+  /* FIXME: this should be changed to POINTER_PLUS_EXPR.  */
   /* If the use of the ADDR_EXPR must be a PLUS_EXPR, or else there
      is nothing to do. */
   if (TREE_CODE (rhs) != PLUS_EXPR)

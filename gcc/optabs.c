@@ -322,6 +322,7 @@ optab_for_tree_code (enum tree_code code, tree type)
   trapv = flag_trapv && INTEGRAL_TYPE_P (type) && !TYPE_UNSIGNED (type);
   switch (code)
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       return trapv ? addv_optab : add_optab;
 

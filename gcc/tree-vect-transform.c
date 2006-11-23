@@ -152,6 +152,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
 
   /* Create base_offset */
   base_offset = size_binop (PLUS_EXPR, base_offset, init);
+  base_offset = fold_convert (sizetype, base_offset);
   dest = create_tmp_var (TREE_TYPE (base_offset), "base_off");
   add_referenced_var (dest);
   base_offset = force_gimple_operand (base_offset, &new_stmt, false, dest);  
@@ -159,7 +160,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
 
   if (offset)
     {
-      tree tmp = create_tmp_var (TREE_TYPE (base_offset), "offset");
+      tree tmp = create_tmp_var (sizetype, "offset");
       add_referenced_var (tmp);
       offset = fold_build2 (MULT_EXPR, TREE_TYPE (offset), offset,
 			    DR_STEP (dr));
@@ -170,7 +171,7 @@ vect_create_addr_base_for_vector_ref (tree stmt,
     }
   
   /* base + base_offset */
-  addr_base = fold_build2 (PLUS_EXPR, TREE_TYPE (data_ref_base), data_ref_base,
+  addr_base = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (data_ref_base), data_ref_base,
 			   base_offset);
 
   /* addr_expr = addr_base */

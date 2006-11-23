@@ -261,7 +261,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	  align = MIN (inner, max_align);
 	  break;
 
-	case PLUS_EXPR:
+	case POINTER_PLUS_EXPR:
 	  /* If sum of pointer + int, restrict our maximum alignment to that
 	     imposed by the integer.  If not, we can't do any better than
 	     ALIGN.  */
@@ -4023,9 +4023,8 @@ expand_builtin_strcat (tree fndecl, tree arglist, rtx target, enum machine_mode 
 	  newdst =
 	    build_function_call_expr (strlen_fn,
 				      build_tree_list (NULL_TREE, dst));
-	  /* Create (dst + (cast) strlen (dst)).  */
-	  newdst = fold_convert (TREE_TYPE (dst), newdst);
-	  newdst = fold_build2 (PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
+	  /* Create (dst p+ strlen (dst)).  */
+	  newdst = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dst), dst, newdst);
 
 	  newdst = builtin_save_expr (newdst);
 	  arglist = tree_cons (NULL_TREE, newdst, arglist);
@@ -4308,9 +4307,9 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
   if (boundary > align
       && !integer_zerop (TYPE_SIZE (type)))
     {
-      t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
+      t = size_int (boundary - 1);
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
-		  build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
+		  build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t));
       gimplify_and_add (t, pre_p);
 
       t = fold_convert (TREE_TYPE (valist), size_int (-boundary));
@@ -4346,13 +4345,11 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       t = fold_build2 (GT_EXPR, sizetype, rounded_size, size_int (align));
       t = fold_build3 (COND_EXPR, sizetype, t, size_zero_node,
 		       size_binop (MINUS_EXPR, rounded_size, type_size));
-      t = fold_convert (TREE_TYPE (addr), t);
-      addr = fold_build2 (PLUS_EXPR, TREE_TYPE (addr), addr, t);
+      addr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (addr), addr, t);
     }
 
   /* Compute new value for AP.  */
-  t = fold_convert (TREE_TYPE (valist), rounded_size);
-  t = build2 (PLUS_EXPR, TREE_TYPE (valist), valist_tmp, t);
+  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (valist), valist_tmp, rounded_size);
   t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist, t);
   gimplify_and_add (t, pre_p);
 
@@ -8300,8 +8297,7 @@ fold_builtin_memory_op (tree arglist, tree type, bool ignore, int endp)
     len = fold_build2 (MINUS_EXPR, TREE_TYPE (len), len,
 		       ssize_int (1));
 
-  len = fold_convert (TREE_TYPE (dest), len);
-  dest = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len);
+  dest = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
   dest = fold_convert (type, dest);
   if (expr)
     dest = omit_one_operand (type, dest, expr);
@@ -9613,8 +9609,8 @@ fold_builtin_strstr (tree arglist, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, build_int_cst (sizetype, r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -9685,8 +9681,8 @@ fold_builtin_strchr (tree arglist, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, build_int_cst (sizetype, r - p1));
 	  return fold_convert (type, tem);
 	}
       return 0;
@@ -9740,8 +9736,8 @@ fold_builtin_strrchr (tree arglist, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, build_int_cst (sizetype, r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -9799,8 +9795,8 @@ fold_builtin_strpbrk (tree arglist, tree type)
 	    return build_int_cst (TREE_TYPE (s1), 0);
 
 	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build2 (PLUS_EXPR, TREE_TYPE (s1),
-			     s1, build_int_cst (TREE_TYPE (s1), r - p1));
+	  tem = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (s1),
+			     s1, build_int_cst (sizetype, r - p1));
 	  return fold_convert (type, tem);
 	}
 
@@ -10396,8 +10392,7 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	      return expand_expr (dest, target, mode, EXPAND_NORMAL);
 	    }
 
-	  len = fold_convert (TREE_TYPE (dest), len);
-	  expr = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len);
+	  expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
 	  return expand_expr (expr, target, mode, EXPAND_NORMAL);
 	}
 
@@ -10671,8 +10666,7 @@ fold_builtin_memory_chk (tree fndecl, tree arglist, tree maxlen, bool ignore,
 	return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, len);
       else
 	{
-	  tree temp = fold_convert (TREE_TYPE (dest), len);
-	  temp = fold_build2 (PLUS_EXPR, TREE_TYPE (dest), dest, temp);
+	  tree temp = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest, len);
 	  return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), temp);
 	}
     }

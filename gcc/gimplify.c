@@ -1942,6 +1942,15 @@ gimplify_self_mod_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	return ret;
     }
 
+  /* For POINTERs increment, use POINTER_PLUS_EXPR.  */
+  if (POINTER_TYPE_P (TREE_TYPE (lhs)))
+    {
+      rhs = fold_convert (sizetype, rhs);
+      if (arith_code == MINUS_EXPR)
+	rhs = fold_build1 (NEGATE_EXPR, TREE_TYPE (rhs), rhs);
+      arith_code = POINTER_PLUS_EXPR;
+    }
+
   t1 = build2 (arith_code, TREE_TYPE (*expr_p), lhs, rhs);
   t1 = build2 (MODIFY_EXPR, TREE_TYPE (lvalue), lvalue, t1);
 
@@ -5004,6 +5013,7 @@ gimplify_omp_atomic_fetch_op (tree *expr_p, tree addr, tree rhs, int index)
   /* Check for one of the supported fetch-op operations.  */
   switch (TREE_CODE (rhs))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
       base = BUILT_IN_FETCH_AND_ADD_N;
       optab = sync_add_optab;

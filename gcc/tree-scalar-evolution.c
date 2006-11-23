@@ -1816,9 +1816,7 @@ pointer_offset_p (tree expr)
    its evolution is [p + (int *) (4 * (size_t) -n), +, 4], which the optimizers
    can work with.
 
-   ??? Maybe we should use different representation for pointer arithmetics,
-   however that is a long-term project with a lot of potential for creating
-   bugs.  */
+   FIXME: Rewrite using POINTER_PLUS_EXPR which is the orignal ??? about :).  */
 
 static tree
 fold_used_pointer (tree expr, tree at_stmt)

@@ -863,6 +863,10 @@ determine_base_object (tree expr)
       return fold_convert (ptr_type_node,
 		           build_fold_addr_expr (base));
 
+    case POINTER_PLUS_EXPR:
+      return determine_base_object (TREE_OPERAND (expr, 0));
+
+    /* FIXME: these should not exist.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
       op0 = determine_base_object (TREE_OPERAND (expr, 0));
@@ -2818,6 +2822,13 @@ tree_to_aff_combination (tree expr, tree type,
       aff_combination_const (comb, type, int_cst_value (expr));
       return;
 
+    case POINTER_PLUS_EXPR:
+      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
+      tree_to_aff_combination (TREE_OPERAND (expr, 1), sizetype, &tmp);
+      aff_combination_convert (type, &tmp);
+      aff_combination_add (comb, &tmp);
+      return;
+
     case PLUS_EXPR:
     case MINUS_EXPR:
       tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
@@ -3589,9 +3600,9 @@ force_expr_to_var_cost (tree expr)
       symbol_cost = computation_cost (addr) + 1;
 
       address_cost
-	= computation_cost (build2 (PLUS_EXPR, type,
+	= computation_cost (build2 (POINTER_PLUS_EXPR, type,
 				    addr,
-				    build_int_cst (type, 2000))) + 1;
+				    build_int_cst (sizetype, 2000))) + 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "force_expr_to_var_cost:\n");
@@ -3630,6 +3641,7 @@ force_expr_to_var_cost (tree expr)
 
   switch (TREE_CODE (expr))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -3658,6 +3670,7 @@ force_expr_to_var_cost (tree expr)
   mode = TYPE_MODE (TREE_TYPE (expr));
   switch (TREE_CODE (expr))
     {
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       cost = add_cost (mode);

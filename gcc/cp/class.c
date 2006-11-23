@@ -355,8 +355,8 @@ build_base_path (enum tree_code code,
 	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
 				     TREE_TYPE (TREE_TYPE (expr)));
 
-      v_offset = build2 (PLUS_EXPR, TREE_TYPE (v_offset),
-			 v_offset,  BINFO_VPTR_FIELD (v_binfo));
+      v_offset = build2 (POINTER_PLUS_EXPR, TREE_TYPE (v_offset),
+			 v_offset, fold_convert (sizetype, BINFO_VPTR_FIELD (v_binfo)));
       v_offset = build1 (NOP_EXPR,
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
@@ -394,7 +394,12 @@ build_base_path (enum tree_code code,
   expr = build1 (NOP_EXPR, ptr_target_type, expr);
 
   if (!integer_zerop (offset))
-    expr = build2 (code, ptr_target_type, expr, offset);
+    {
+      offset = fold_convert (sizetype, offset);
+      if (code == MINUS_EXPR)
+	offset = build1 (NEGATE_EXPR, sizetype, offset);
+      expr = build2 (POINTER_PLUS_EXPR, ptr_target_type, expr, offset);
+    }
   else
     null_test = NULL;
 
@@ -521,8 +526,8 @@ convert_to_base_statically (tree expr, tree base)
       pointer_type = build_pointer_type (expr_type);
       expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
       if (!integer_zerop (BINFO_OFFSET (base)))
-	  expr = build2 (PLUS_EXPR, pointer_type, expr,
-			 build_nop (pointer_type, BINFO_OFFSET (base)));
+	  expr = build2 (POINTER_PLUS_EXPR, pointer_type, expr,
+			 build_nop (sizetype, BINFO_OFFSET (base)));
       expr = build_nop (build_pointer_type (BINFO_TYPE (base)), expr);
       expr = build1 (INDIRECT_REF, BINFO_TYPE (base), expr);
     }
@@ -5264,6 +5269,7 @@ fixed_type_or_null (tree instance, int* nonnull, int* cdtorp)
 	}
       return fixed_type_or_null (TREE_OPERAND (instance, 0), nonnull, cdtorp);
 
+    case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:
       if (TREE_CODE (TREE_OPERAND (instance, 0)) == ADDR_EXPR)
@@ -6316,7 +6322,7 @@ get_vtbl_decl_for_binfo (tree binfo)
   tree decl;
 
   decl = BINFO_VTABLE (binfo);
-  if (decl && TREE_CODE (decl) == PLUS_EXPR)
+  if (decl && TREE_CODE (decl) == POINTER_PLUS_EXPR)
     {
       gcc_assert (TREE_CODE (TREE_OPERAND (decl, 0)) == ADDR_EXPR);
       decl = TREE_OPERAND (TREE_OPERAND (decl, 0), 0);
@@ -7102,7 +7108,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
       index = size_binop (MULT_EXPR,
 			  TYPE_SIZE_UNIT (vtable_entry_type),
 			  index);
-      vtbl = build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
+      vtbl = build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl, index);
     }
 
   if (ctor_vtbl_p)
