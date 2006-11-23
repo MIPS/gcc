@@ -196,6 +196,12 @@ _Jv_RegisterClasses (const jclass *classes)
 
       if (_Jv_CheckABIVersion ((unsigned long) klass->next_or_version))
 	(*_Jv_RegisterClassHook) (klass);
+      else
+	{
+	  fprintf (stderr, "ABI mismatch: library is compiled with "
+		   "the wrong version of gcj\n");
+	  abort ();
+	}
     }
 }
 
