@@ -2048,13 +2048,30 @@ typedef struct
   tree (*rewrite_arglist) (tree arglist);
 } rewrite_rule;
 
+/* Add __builtin_return_address(0) to the end of an arglist.  */
+
+
+static tree 
+rewrite_arglist_getcaller (tree arglist)
+{
+  tree retaddr 
+    = (build_function_call_expr 
+       (built_in_decls[BUILT_IN_RETURN_ADDRESS],
+	build_tree_list (NULL_TREE, integer_zero_node)));
+  
+  return chainon (arglist, 
+		  tree_cons (NULL_TREE, retaddr, 
+			     NULL_TREE));
+}
+
 /* Add this.class to the end of an arglist.  */
 
 static tree 
 rewrite_arglist_getclass (tree arglist)
 {
   return chainon (arglist, 
-		  tree_cons (NULL_TREE, build_class_ref (output_class), NULL_TREE));
+		  tree_cons (NULL_TREE, build_class_ref (output_class),
+			     NULL_TREE));
 }
 
 static rewrite_rule rules[] =
@@ -2064,6 +2081,14 @@ static rewrite_rule rules[] =
    {"java.lang.Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;",
     "(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Class;",
     ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getclass},
+   {"gnu.classpath.VMStackWalker", "getCallingClass", "()Ljava/lang/Class;",
+    "(Lgnu/gcj/RawData;)Ljava/lang/Class;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getcaller},
+   {"gnu.classpath.VMStackWalker", "getCallingClassLoader", 
+    "()Ljava/lang/ClassLoader;",
+    "(Lgnu/gcj/RawData;)Ljava/lang/ClassLoader;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getcaller},
+
    {NULL, NULL, NULL, NULL, 0, NULL}};
 
 /* Scan the rules list for replacements for *METHOD_P and replace the
