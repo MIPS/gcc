@@ -312,6 +312,7 @@ extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;
 extern struct tree_opt_pass pass_ipa_reference;
 extern struct tree_opt_pass pass_ipa_pure_const;
+extern struct tree_opt_pass pass_instrument_stack_allocate;
 extern struct tree_opt_pass pass_ipa_stack_allocate;
 extern struct tree_opt_pass pass_ipa_type_escape;
 extern struct tree_opt_pass pass_ipa_pta;

@@ -1,3 +1,27 @@
+2006-11-24	Paul Biggar	<paul.biggar@gmail.com>
+
+	* ipa-stack-allocate.c (is_class_type): New function
+	(insert_assignment_from_field, insert_assignment_to_field): Use vectors
+	(replace_with_alloca, replace_object_with_alloca)
+	(replace_array_with_alloca, replace_multi_array_with_alloca)
+	(replace_prim_array_with_alloca): New.
+
+	* ipa-stack-allocate.c (execute_instrument_stack_allocate):
+	(gate_instrument_stack_allocate, pass_instrument_stack_allocate): New pass
+	* common.opt (-fipa-stack-allocate): Take an int as a parameter
+	* passes.c (init_optimization_passes): Add pass_instrument_stack_allocate
+
+	* congraph.c (con_node_hashtable, con_node_id_hash,
+	(init_con_node_hashtable, statement_type_hashtable)
+	(statement_type_hash, htab_statement_type_eq)
+	(init_statement_type_hashtable, find_node)): New
+	(get_field_nodes): Use a vector instead
+	(set_stmt_type): Rename to set_statement_type
+	(get_stmt_type): Rename to get_statement_type
+	(get_ps_and_ts, ps, ts, VEC_contains, clear_end_markers): New
+	(get_points_to_and_terminals): Use vectors
+	* congraph.h (con_node_vec): Declared con_node vector
+
 2006-10-19	Paul Biggar	<paul.biggar@gmail.com>
 
 	* ipa-stack-allocate.c (hashtab.h): Added header
@@ -19,10 +43,6 @@
 
 	* con_graph.h (last_link, merge_next_lists, init_markers)
 	(init_node_hashtable): New declarations
-
-
-
-
 
 2006-10-19	Paul Biggar	<paul.biggar@gmail.com>
 

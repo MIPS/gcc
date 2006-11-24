@@ -26,10 +26,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* -------------------------------------------------------------*
  *			memory and hashtables			*
  * -------------------------------------------------------------*/
-static htab_t node_hashtable;
+static htab_t con_node_hashtable;
 
 static hashval_t
-node_id_hash (const void *p)
+con_node_id_hash (const void *p)
 {
   const con_node n = (con_node) p;
   return htab_hash_pointer (n->id);
@@ -42,14 +42,40 @@ htab_con_node_eq (const void *p1, const void *p2)
   const con_node n2 = (con_node) p2;
   return (n1->id == n2->id 
 	  && n1->graph == n2->graph
-	  && n1->call_id == n2->call_id);
+	  && n1->call_id == n2->call_id
+	  && n1->index == n2->index);
 }
 
 void
-init_node_hashtable (void)
+init_con_node_hashtable (void)
 {
   /* 9 was the average for the data I had on hand */
-  node_hashtable = htab_create (20, node_id_hash, htab_con_node_eq, free);
+  con_node_hashtable = htab_create (20, con_node_id_hash, htab_con_node_eq, free);
+}
+
+static htab_t statement_type_hashtable;
+
+static hashval_t
+statement_type_hash (const void *p)
+{
+  const stmt_type_container container = (stmt_type_container) p;
+  return htab_hash_pointer (container->stmt);
+}
+
+static int
+htab_statement_type_eq (const void *p1, const void *p2)
+{
+  const stmt_type_container container1 = (stmt_type_container) p1;
+  const stmt_type_container container2 = (stmt_type_container) p2;
+  return (container1->graph == container2->graph
+	  && container1->stmt == container2->stmt);
+}
+
+void
+init_statement_type_hashtable (void)
+{
+  /* 9 was the average for the data I had on hand */
+  statement_type_hashtable = htab_create (20, statement_type_hash, htab_statement_type_eq, free);
 }
 
 
@@ -97,7 +123,6 @@ con_graph_dump (con_graph cg)
   gcc_assert (cg->filename);
 
   /* occasionally want to dump graphs that arent complete */
-  /*assert_all_next_link_free (cg); */
 
   out = fopen (cg->filename, "w");
   if (out == NULL)
@@ -355,8 +380,7 @@ add_callee_actual_node (con_graph cg, tree id, int index, tree stmt)
 }
 
 con_node
-add_caller_actual_node (con_graph cg, tree id, int index,
-			tree call_id)
+add_caller_actual_node (con_graph cg, tree id, int index, tree call_id)
 {
   con_node node;
   gcc_assert (cg);
@@ -462,7 +486,7 @@ add_node (con_graph cg, con_node node)
 
   /* put the node into the hashtable */
   finder.id = node->id;
-  slot = htab_find_slot (node_hashtable, &finder, INSERT);
+  slot = htab_find_slot (con_node_hashtable, &finder, INSERT);
   *slot = (void*) node;
   
 }
@@ -485,6 +509,12 @@ get_existing_node (con_graph cg, tree id)
 }
 
 con_node
+get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
+{
+  return find_node (cg, id, call_id, 0);
+}
+
+con_node
 existing_local_node (con_graph cg, tree id)
 {
   con_node result = get_existing_node (cg, id);
@@ -497,8 +527,10 @@ existing_local_node (con_graph cg, tree id)
   return result;
 }
 
+
+
 con_node
-get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
+find_node (con_graph cg, tree id, tree call_id, int index)
 {
   struct _con_node finder;
   gcc_assert (cg);
@@ -506,8 +538,9 @@ get_existing_node_with_call_id (con_graph cg, tree id, tree call_id)
   finder.graph = cg;
   finder.id = id;
   finder.call_id = call_id;
+  finder.index = index;
 
-  return htab_find (node_hashtable, &finder);
+  return htab_find (con_node_hashtable, &finder);
 }
 
 con_node
@@ -561,30 +594,13 @@ is_reference_node (con_node node)
 con_edge
 get_edge (con_node source, con_node target)
 {
-  con_edge edge = NULL;
-  con_edge temp;
-
-  for (temp = source->out; temp != NULL; temp = temp->next_out)
+  con_edge edge;
+  for (edge = source->out; edge != NULL; edge = edge->next_out)
     {
-      if (temp->target == target)
+      if (edge->target == target)
 	{
-	  /* this means we've found two such edges */
-	  gcc_assert (edge == NULL);
-
-	  edge = temp;
+	  return edge;
 	}
-    }
-
-  if (edge)
-    {
-      return edge;
-    }
-
-  for (temp = target->in; temp != NULL; temp = temp->next_in)
-    {
-      /* SANITY CHECK - we should have found this edge in the
-       * first loop, but didnt */
-      gcc_assert (temp->source != source);
     }
 
   return NULL;
@@ -794,16 +810,17 @@ get_single_named_field_node (con_node node, tree field_id)
 }
 
 con_node
-get_field_nodes (con_node node, tree field_id)
+get_field_nodes (con_node_vec node_vec, tree field_id)
 {
   con_edge edge;
   con_node result = NULL;
+  con_node node;
+  int i;
 
-  gcc_assert (node);
-  gcc_assert (field_id);
+  gcc_assert (node_vec && field_id);
 
   /* iterate through the nodes using next_link */
-  while (node)
+  for(i = 0; VEC_iterate (con_node, node_vec, i, node); i++)
     {
       bool field_found = false;
       gcc_assert (node->type == OBJECT_NODE);
@@ -848,10 +865,6 @@ get_field_nodes (con_node node, tree field_id)
 	  field->next_link = result;
 	  result = field;
 	}
-
-
-      /* clear the next_link */
-      NEXT_LINK_CLEAR (node);
     }
   return result;
 }
@@ -1164,6 +1177,8 @@ inline_constructor_graph (con_graph cg,
 	result->phantom = node->phantom;
     }
 
+  /* match the callee nodes in the caller with the caller nodes in the
+   * callee */
   for (node = constructor_graph->root; node; node = node->next)
     {
       con_edge edge;
@@ -1210,8 +1225,8 @@ get_matching_node_in_caller (con_graph cg,
       con_node field_owner;
 
     case FIELD_NODE:
-      field_owner =
-	get_matching_node_in_caller (cg, node->owner, call_id);
+      field_owner = get_matching_node_in_caller (cg, node->owner,
+						 call_id);
       gcc_assert (field_owner);
       return get_existing_field_node_with_call_id (cg, node->id,
 						   field_owner,
@@ -1243,66 +1258,54 @@ get_matching_node_in_caller (con_graph cg,
 }
 
 void
-set_stmt_type (con_graph cg, tree stmt, enum statement_type type)
+set_statement_type (con_graph cg, tree stmt, enum statement_type type)
 {
-  stmt_type_list list = get_stmt_type (cg, stmt);
-  if (list) 
-    list->type = type;
-  else
+  enum statement_type st = get_statement_type (cg, stmt);
+  void** slot;
+  gcc_assert (cg && stmt && type);
+  if (!st)
     {
-      /* if it doesnt exist, add it to the front of the list */
-      list = xcalloc (1, sizeof (struct _stmt_type_list));
-      list->stmt = stmt;
-      list->type = type;
-      list->next = cg->stmts;
-      cg->stmts = list;
+      stmt_type_container finder = xcalloc (1, sizeof (struct
+						       _stmt_type_container));
+      finder->graph= cg;
+      finder->stmt = stmt;
+      finder->type = type;
+      slot = htab_find_slot (statement_type_hashtable, finder, INSERT);
+      *slot = (void*)(finder) ;
     }
 }
 
-stmt_type_list
-get_stmt_type (con_graph cg, tree stmt)
+enum statement_type
+get_statement_type (con_graph cg, tree stmt)
 {
-  stmt_type_list list;
-
-  /* empty list */
-  if (cg->stmts == NULL)
-    {
-      return NULL;
-    }
-
-  /* iterate therough the list */
-  list = cg->stmts;
-  while (list)
-    {
-      if (list->stmt == stmt)
-	{
-	  return list;
-	}
-      list = list->next;
-    }
-
-  /* none found */
-  return NULL;
-
+  struct _stmt_type_container finder;
+  stmt_type_container result;
+  finder.graph = cg;
+  finder.stmt = stmt;
+  result = htab_find (statement_type_hashtable, &finder);
+  if (result)
+    return result->type;
+  else
+    return 0;
 }
 
 
 void 
 print_stmt_type (con_graph cg, FILE* file, tree stmt)
 {
-  stmt_type_list data;
+  enum statement_type data;
   gcc_assert (cg);
   gcc_assert (file);
   gcc_assert (stmt);
 
-  data = get_stmt_type (cg, stmt);
+  data = get_statement_type (cg, stmt);
 
   fprintf(file, " (");
 
   if (data)
     {
-      gcc_assert (data->type >= FUNCTION_CALL);
-      switch (data->type)
+      gcc_assert (data >= FUNCTION_CALL);
+      switch (data)
 	{
 #define HANDLE(A) case A: fprintf (file, #A); break;
 	  HANDLE(FUNCTION_CALL);
@@ -1318,10 +1321,8 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(ASSIGNMENT_FROM_EXCEPTION);
 	  HANDLE(ASSIGNMENT_TO_EXCEPTION);
 	  HANDLE(RETURN);
-	  HANDLE(MEMORY_ALLOCATION);
 	  HANDLE(INDIRECT_GOTO);
 	  HANDLE(IGNORED_FUNCTION_POINTER);
-	  HANDLE(ARRAY_MEMORY_ALLOCATION);
 	  HANDLE(IGNORED_RETURNING_VOID);
 	  HANDLE(IGNORED_NOT_A_POINTER);
 	  HANDLE(IGNORED_LABEL_EXPR);
@@ -1334,6 +1335,10 @@ print_stmt_type (con_graph cg, FILE* file, tree stmt)
 	  HANDLE(IGNORED_ASSIGNMENT_TO_NULL);
 	  HANDLE(ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
 	  HANDLE(IGNORED_NULL_POINTER_EXCEPTION);
+	  HANDLE(OBJECT_ALLOCATION);
+	  HANDLE(OBJECT_ARRAY_ALLOCATION);
+	  HANDLE(PRIM_ARRAY_ALLOCATION);
+	  HANDLE(MULTI_ARRAY_ALLOCATION);
 	}
     }
   else
@@ -1379,7 +1384,6 @@ clear_links (con_node node)
       current->next_link = NULL;
       current = next;
     }
-  assert_all_next_link_free (node->graph);
 }
 
 bool
@@ -1433,11 +1437,117 @@ last_link (con_node node)
   return node;
 }
 
-con_node
+
+static void
+clear_end_markers (con_node_vec vector)
+{
+  int i;
+  con_node node;
+  gcc_assert (vector);
+
+  for(i = 0; VEC_iterate(con_node, vector, i, node); i++)
+    {
+      gcc_assert (node->next_link == END_MARKER);
+      node->next_link = NULL;
+    }
+}
+
+static bool
+VEC_contains (con_node_vec vector, con_node node)
+{
+  int i;
+  con_node vnode;
+  gcc_assert (vector && node);
+
+  for(i = 0; VEC_iterate(con_node, vector, i, vnode); i++)
+    {
+      if (vnode == node)
+	{
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+void
+VEC_print (con_node_vec vector)
+{
+  int i;
+  con_node node;
+
+  for(i = 0; VEC_iterate(con_node, vector, i, node); i++)
+    {
+      d(node);
+    }
+}
+
+/* keep these here so they can be resized */
+static con_node_vec ps;
+static con_node_vec ts;
+
+
+static void
+get_ps_and_ts (con_node source)
+{
+  con_edge edge;
+  gcc_assert (source && ps && ts);
+  gcc_assert (is_reference_node (source));
+  gcc_assert (source->next_link == NULL);
+
+  /* if there are outward nodes, but they point to objects or are
+   * circular, then we should return null */
+  source->next_link = NIL_MARKER;
+
+  if (source->out == NULL)
+    {
+      source->next_link = END_MARKER;
+      VEC_safe_push (con_node, heap, ts, source);
+      return;
+    }
+
+  for (edge = source->out; edge != NULL; edge = edge->next_out)
+    {
+      con_node next_node = edge->target;
+
+      /* recurse more */
+      if (is_reference_node (next_node))
+	{
+	  /* traversed nodes have their next_link set to NIL_MARKER */
+	  /* If a terminal node has two incoming edges, this assertion
+	   * should fail, but it hasnt yet. odd. */
+	  if (next_node->next_link == NULL)
+	    get_ps_and_ts (next_node);
+	}
+      else
+	{
+	  /* already returned nodes have their next_link set to END_MARKER
+	   * */
+	  gcc_assert (next_node->next_link != NIL_MARKER);
+	    
+	  if (next_node->next_link != END_MARKER)
+	    {
+	      unsigned count = VEC_length(con_node, ps);
+	      next_node->next_link = END_MARKER;
+	      VEC_safe_push (con_node, heap, ps, next_node);
+	      gcc_assert (VEC_length(con_node, ps) == count + 1);
+	    }
+	}
+    }
+  gcc_assert (source->next_link == NIL_MARKER);
+  source->next_link = NULL;
+}
+
+con_node_vec
 get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree type)
 {
-  con_node u, terminal, phantom;
-  con_node copy;
+  con_node phantom;
+  con_node terminal; /* used to iterate through the terminal vector */
+  int i;
+  con_node_vec u;
+  con_node_vec terminals;
+  gcc_assert (cg && source && stmt_id);
+  gcc_assert (is_reference_node (source));
 
   /* This comes from the end of section 3 in Choi 99, though we dont
    * exactly follow the recommendations. In particular, the paper alleges
@@ -1445,61 +1555,59 @@ get_points_to_and_terminals (con_graph cg, con_node source, tree stmt_id, tree t
    * in reality, there can be both at the same time.  */
 
   /* get the objects pointed */
-  u = get_points_to (source);
+  ps = VEC_alloc (con_node, heap, 10);
+  ts = VEC_alloc (con_node, heap, 10);
+  get_ps_and_ts (source);
+  u = ps;
+  terminals = ts;
+
 
   /* there may also be nodes which don't end up as an object. These need
    * to point to phantom objects. Note that the final node in this list
    * points to END_MARKER */
-  terminal = get_terminal_nodes (source);
 
   /* this is a lonely node */
-  if (terminal == NULL && u == NULL)
+  if (VEC_empty (con_node, terminals) && VEC_empty (con_node, u))
     {
       gcc_assert (source->out == NULL);
-      terminal = source;
+      source->next_link = END_MARKER;
+      VEC_quick_push (con_node, terminals, source);
     }
 
   /* get the phantom node ready, if needed */
-  if (terminal)
+  if (!VEC_empty (con_node, terminals))
     {
+      /* TODO there should be a dependecny here */
       phantom = get_existing_node (cg, stmt_id); /* 1-limited */
       if (phantom == NULL)
 	{
+	  gcc_assert (type);
 	  phantom = add_object_node (cg, stmt_id, type);
 	  phantom->phantom = true;
 	}
       gcc_assert (phantom->phantom);
 
-      /* add the phantom the the list of u */
-      if (!in_link_list(u, phantom))
+      /* add the phantom the the list of u, and make space for the
+       * terminals list, which will be added soon */
+      if (!VEC_contains (u, phantom))
 	{
-	  phantom->next_link = u;
-	  u = phantom;
+	  phantom->next_link = END_MARKER;
+	  VEC_safe_push (con_node, heap, u, phantom);
 	}
+      gcc_assert (phantom->next_link == END_MARKER);
 
       /* make the terminal nodes point to the node */
-      while (terminal)
+      for(i = 0; VEC_iterate(con_node, terminals, i, terminal); i++)
 	{
 	  gcc_assert (terminal != phantom);
 	  add_edge (terminal, phantom);
-
-	  if (terminal->next_link == END_MARKER)
-	    terminal->next_link = NULL;
-
-	  NEXT_LINK_CLEAR (terminal);
 	}
     }
 
-  /* the last node in u is still marked with an END_MARKER */
-  copy = u;
-  while (copy)
-    {
-      if (copy->next_link == END_MARKER)
-	copy->next_link = NULL;
+  clear_end_markers (terminals);
+  clear_end_markers (u);
 
-      NEXT_LINK (copy);
-    }
-
+  VEC_free (con_node, heap, terminals);
+  
   return u;
-
 }

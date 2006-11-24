@@ -76,8 +76,9 @@ extern java::lang::Class _Jv_byteClass, _Jv_shortClass, _Jv_intClass,
 #define JvPrimClass(TYPE) & _Jv_##TYPE##Class
 
 extern "C" jobjectArray _Jv_NewObjectArray(jsize length, jclass, jobject init);
+extern "C" jobjectArray _Jv_InitObjectArray(jsize length, jclass, jobject init);
 extern "C" jobject _Jv_NewPrimArray (jclass eltype, jint count);
-extern "C" void _Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj);
+extern "C" jobject _Jv_InitPrimArray (jclass eltype, jint count);
 
 extern inline jobjectArray 
 JvNewObjectArray (jsize length, jclass cls, jobject init)

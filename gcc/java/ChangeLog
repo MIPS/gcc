@@ -1,3 +1,14 @@
+2006-11-24  Paul Biggar  <paul.biggar@gmail.com>
+
+	* decl.c (java_init_decl_processing): Initialized init_object_node,
+	and init_newarray_node. Declared as malloc and changed signature of
+	init_no_finalizer_node, init_anewarray_node, init_multianewarray_node.
+	* java-tree.h (JTI_INIT_OBJECT_NODE, JTI_INIT_NEWARRAY_NODE)
+	(JTI_INIT_ANEWARRAY_NODE, JTI_INIT_MULTIANEWARRAY_NODE): Declared
+	(JTI_INIT_NEW_ARRAY_NODE): Removed.
+	(init_object_node, init_newarray_node, init_anewarray_node)
+	(init_multianewarray_node): Declared
+
 2006-10-10  Brooks Moses  <bmoses@stanford.edu>
 
 	* Make-lang.in: Added "java.pdf", "gcj.pdf" target support.

@@ -1,3 +1,30 @@
+2006-11-24  Paul Biggar  <paul.biggar@gmail.com>
+
+	* gcj/javaprims.h (_Jv_InitObject, _Jv_InitObjectNoInitNoFinalizer):
+	Declared
+	(_Jv_InitObjectNoFinalizer): Changed signature.
+	(_Jv_InitUtf8Const): Added friend declaration.
+
+	* gcj/array.h (_Jv_InitPrimArray): New declaration.
+	(_Jv_InitNewObjectArray): Changed signature.
+
+	* boehm.cc (_Jv_AllocBytes, _Jv_AllocObj, _Jv_AllocPtrFreeObject)
+	(_Jv_AllocArray, _Jv_AllocRawObj, _Jv_AllocArray, _Jv_AllocTraceOne)
+	(_Jv_AllocTraceTwo): Add calls to note_memory_usage.
+
+	* java/lang/Class.h (_Jv_InitObject): Add declaration and friend
+	declaration.
+
+	* include/boehm-gc.h (_Jv_AllocObj, _Jv_AllocPtrFreeObj): Add calls to
+	note_memory_usage.
+
+	* prims.cc (note_memory_usage): Remove function static declaration.
+	(_Jv_InitUtf8Const, _Jv_InitObjectNoInitNoFinalizer,
+	_Jv_InitObjectNoFinalizer, _Jv_InitObject, _Jv_InitPtrFreeObject,
+	_Jv_InitPrimArray, _Jv_InitMultiArrayUnchecked, _Jv_InitMultiArray):
+	New functions
+
+
 2006-10-31  Paul Biggar  <paul.biggar@gmail.com>
 
 	* prims.cc (note_memory_usage): New function

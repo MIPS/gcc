@@ -302,10 +302,12 @@ _Jv_BuildGCDescr(jclass self)
   return (void *) (unsigned long) desc;
 }
 
+extern void note_memory_usage (const char* note, jsize size);
 // Allocate some space that is known to be pointer-free.
 void *
 _Jv_AllocBytes (jsize size)
 {
+  note_memory_usage ("j", size);
   void *r = GC_MALLOC_ATOMIC (size);
   // We have to explicitly zero memory here, as the GC doesn't
   // guarantee that PTRFREE allocations are zeroed.  Note that we
@@ -320,12 +322,14 @@ _Jv_AllocBytes (jsize size)
 void *
 _Jv_AllocObj (jsize size, jclass klass)
 {
+  note_memory_usage ("k", size);
   return GC_GCJ_MALLOC (size, klass->vtable);
 }
 
 void *
 _Jv_AllocPtrFreeObj (jsize size, jclass klass)
 {
+  note_memory_usage ("l", size);
 #ifdef JV_HASH_SYNCHRONIZATION
   void * obj = GC_MALLOC_ATOMIC(size);
   *((_Jv_VTable **) obj) = klass->vtable;
@@ -346,6 +350,7 @@ void *
 _Jv_AllocArray (jsize size, jclass klass)
 {
   void *obj;
+  note_memory_usage ("m", size);
 
 #ifdef LIBGCJ_GC_DEBUG
   // There isn't much to lose by scanning this conservatively.
@@ -374,6 +379,7 @@ _Jv_AllocArray (jsize size, jclass klass)
 void *
 _Jv_AllocRawObj (jsize size)
 {
+  note_memory_usage ("n", size);
   return (void *) GC_MALLOC (size ? size : 1);
 }
 
@@ -537,6 +543,7 @@ static _Jv_VTable trace_one_vtable = {
 void *
 _Jv_AllocTraceOne (jsize size /* includes vtable slot */) 
 {
+  note_memory_usage ("o", size);
   return GC_GCJ_MALLOC (size, &trace_one_vtable);
 }
 
@@ -555,6 +562,7 @@ static _Jv_VTable trace_two_vtable =
 void *
 _Jv_AllocTraceTwo (jsize size /* includes vtable slot */) 
 {
+  note_memory_usage ("p", size);
   return GC_GCJ_MALLOC (size, &trace_two_vtable);
 }
 

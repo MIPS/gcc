@@ -469,6 +469,8 @@ extern "C" jobject _Jv_NewArray (jint type, jint size)
   __attribute__((__malloc__));
 extern "C" jobject _Jv_NewMultiArray (jclass klass, jint dims, ...)
   __attribute__((__malloc__));
+extern "C" jobject _Jv_InitMultiArray (jclass klass, jint dims, ...)
+  __attribute__((__malloc__));
 extern "C" void *_Jv_CheckCast (jclass klass, jobject obj);
 extern "C" void *_Jv_LookupInterfaceMethod (jclass klass, Utf8Const *name,
                                            Utf8Const *signature);

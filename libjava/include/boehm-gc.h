@@ -38,9 +38,11 @@ extern "C" void * GC_local_malloc_atomic(size_t);
 
 #ifndef LIBGCJ_GC_DEBUG
 
+extern void note_memory_usage (const char* note, jsize size);
 inline void *
 _Jv_AllocObj (jsize size, jclass klass)
 {
+	note_memory_usage ("K", size);
   // This should call GC_GCJ_MALLOC, but that would involve
   // including gc.h.
 #ifdef THREAD_LOCAL_ALLOC
@@ -53,6 +55,7 @@ _Jv_AllocObj (jsize size, jclass klass)
 inline void *
 _Jv_AllocPtrFreeObj (jsize size, jclass klass)
 {
+	note_memory_usage ("L", size);
 #ifdef JV_HASH_SYNCHRONIZATION
 # ifdef THREAD_LOCAL_ALLOC
     void * obj = GC_local_malloc_atomic(size);

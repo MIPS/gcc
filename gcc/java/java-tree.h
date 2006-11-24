@@ -388,15 +388,18 @@ enum java_tree_index
 
   JTI_THROW_NODE,
   JTI_ALLOC_OBJECT_NODE,
+  JTI_INIT_OBJECT_NODE,
   JTI_ALLOC_NO_FINALIZER_NODE,
   JTI_INIT_NO_FINALIZER_NODE,
-  JTI_INIT_NEW_ARRAY_NODE,
   JTI_SOFT_INSTANCEOF_NODE,
   JTI_SOFT_CHECKCAST_NODE,
   JTI_SOFT_INITCLASS_NODE,
   JTI_SOFT_NEWARRAY_NODE,
+  JTI_INIT_NEWARRAY_NODE,
   JTI_SOFT_ANEWARRAY_NODE,
+  JTI_INIT_ANEWARRAY_NODE,
   JTI_SOFT_MULTIANEWARRAY_NODE,
+  JTI_INIT_MULTIANEWARRAY_NODE,
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
   JTI_SOFT_ABSTRACTMETHOD_NODE,
@@ -643,10 +646,10 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_THROW_NODE]
 #define alloc_object_node \
   java_global_trees[JTI_ALLOC_OBJECT_NODE]
+#define init_object_node \
+  java_global_trees[JTI_INIT_OBJECT_NODE]
 #define alloc_no_finalizer_node \
   java_global_trees[JTI_ALLOC_NO_FINALIZER_NODE]
-#define init_new_array_node \
-  java_global_trees[JTI_INIT_NEW_ARRAY_NODE]
 #define init_no_finalizer_node \
   java_global_trees[JTI_INIT_NO_FINALIZER_NODE]
 #define soft_instanceof_node \
@@ -657,10 +660,16 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_INITCLASS_NODE]
 #define soft_newarray_node \
   java_global_trees[JTI_SOFT_NEWARRAY_NODE]
+#define init_newarray_node \
+  java_global_trees[JTI_INIT_NEWARRAY_NODE]
 #define soft_anewarray_node \
   java_global_trees[JTI_SOFT_ANEWARRAY_NODE]
+#define init_anewarray_node \
+  java_global_trees[JTI_INIT_ANEWARRAY_NODE]
 #define soft_multianewarray_node \
   java_global_trees[JTI_SOFT_MULTIANEWARRAY_NODE]
+#define init_multianewarray_node \
+  java_global_trees[JTI_INIT_MULTIANEWARRAY_NODE]
 #define soft_badarrayindex_node \
   java_global_trees[JTI_SOFT_BADARRAYINDEX_NODE]
 #define soft_nullpointer_node \

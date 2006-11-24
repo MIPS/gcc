@@ -946,6 +946,13 @@ java_init_decl_processing (void)
 					build_function_type (ptr_type_node, t),
 					0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (alloc_object_node) = 1;
+
+  t = tree_cons (NULL_TREE, class_ptr_type, endlink);
+  init_object_node = builtin_function ("_Jv_InitObject",
+					build_function_type (ptr_type_node, t),
+					0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_MALLOC (init_object_node) = 1;
+
   alloc_no_finalizer_node = 
     builtin_function ("_Jv_AllocObjectNoFinalizer",
 		      build_function_type (ptr_type_node, t),
@@ -957,18 +964,9 @@ java_init_decl_processing (void)
     builtin_function ("_Jv_InitObjectNoFinalizer",
 		      build_function_type (void_type_node, t),
 		      0, NOT_BUILT_IN, NULL, NULL_TREE);
-  /* it isnt malloc */
+  DECL_IS_MALLOC (init_no_finalizer_node) = 1;
 
-  /* TODO put proper parameter types in */
-  t = tree_cons (NULL_TREE, class_ptr_type, tree_cons (NULL_TREE, ptr_type_node, endlink));
-  init_new_array_node = 
-    builtin_function ("_Jv_InitNewObjectArray",
-		      build_function_type (void_type_node, t),
-		      0, NOT_BUILT_IN, NULL, NULL_TREE);
-  /* it isnt malloc */
-
-
-
+ 
   t = tree_cons (NULL_TREE, ptr_type_node, endlink);
   soft_initclass_node = builtin_function ("_Jv_InitClass",
 					  build_function_type (void_type_node,
@@ -1005,6 +1003,15 @@ java_init_decl_processing (void)
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_newarray_node) = 1;
 
+  t = tree_cons (NULL_TREE, ptr_type_node, 
+		 tree_cons (NULL_TREE, int_type_node, endlink));
+  init_newarray_node
+      = builtin_function ("_Jv_InitPrimArray",
+			  build_function_type (ptr_type_node, t),
+			  0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_MALLOC (init_newarray_node) = 1;
+
+
   t = tree_cons (NULL_TREE, int_type_node,
 		 tree_cons (NULL_TREE, class_ptr_type,
 			    tree_cons (NULL_TREE, object_ptr_type_node,
@@ -1015,6 +1022,18 @@ java_init_decl_processing (void)
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_anewarray_node) = 1;
 
+  t = tree_cons (NULL_TREE, int_type_node,
+		 tree_cons (NULL_TREE, class_ptr_type,
+			    tree_cons (NULL_TREE, object_ptr_type_node,
+				       endlink)));
+  init_anewarray_node = 
+    builtin_function ("_Jv_InitObjectArray",
+		      build_function_type (ptr_type_node, t),
+		      0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_MALLOC (init_anewarray_node) = 1;
+
+
+
   /* There is no endlink here because _Jv_NewMultiArray is a varargs
      function.  */
   t = tree_cons (NULL_TREE, ptr_type_node,
@@ -1024,6 +1043,15 @@ java_init_decl_processing (void)
 			  build_function_type (ptr_type_node, t),
 			  0, NOT_BUILT_IN, NULL, NULL_TREE);
   DECL_IS_MALLOC (soft_multianewarray_node) = 1;
+
+  t = tree_cons (NULL_TREE, ptr_type_node,
+		 tree_cons (NULL_TREE, int_type_node, NULL_TREE));
+  init_multianewarray_node
+      = builtin_function ("_Jv_InitMultiArray",
+			  build_function_type (ptr_type_node, t),
+			  0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_IS_MALLOC (init_multianewarray_node) = 1;
+
 
   t = build_function_type (void_type_node, 
 			   tree_cons (NULL_TREE, int_type_node, endlink));

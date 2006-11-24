@@ -27,6 +27,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic.h"
+#include "vec.h"
+#include "statistics.h"
 
 enum con_node_type
 {
@@ -35,8 +37,8 @@ enum con_node_type
   FIELD_NODE,
   GLOBAL_NODE,
   RETURN_NODE,
-  CALLEE_ACTUAL_NODE,
-  CALLER_ACTUAL_NODE
+  CALLEE_ACTUAL_NODE, /* node in the callee, which matches a node in the caller */
+  CALLER_ACTUAL_NODE /* node in the caller, which matches a node in the callee */
 };
 
 enum con_edge_type
@@ -61,8 +63,6 @@ enum statement_type
   ASSIGNMENT_FROM_EXCEPTION,
   ASSIGNMENT_TO_EXCEPTION,
   RETURN,
-  MEMORY_ALLOCATION,
-  ARRAY_MEMORY_ALLOCATION,
   IGNORED_RETURNING_VOID,
   IGNORED_NOT_A_POINTER,
   IGNORED_LABEL_EXPR,
@@ -76,7 +76,11 @@ enum statement_type
   ASSIGNMENT_TO_INDIRECT_ARRAY_REF,
   IGNORED_NULL_POINTER_EXCEPTION,
   IGNORED_FUNCTION_POINTER,
-  INDIRECT_GOTO
+  INDIRECT_GOTO,
+  OBJECT_ALLOCATION,
+  OBJECT_ARRAY_ALLOCATION,
+  PRIM_ARRAY_ALLOCATION,
+  MULTI_ARRAY_ALLOCATION,
 };
 
 /* This should be combined in the future with structure aliasing, but
@@ -101,15 +105,21 @@ typedef struct _con_node *con_node;
 struct _con_edge;
 typedef struct _con_edge *con_edge;
 
-struct _stmt_type_list;
-typedef struct _stmt_type_list *stmt_type_list;
+struct _stmt_type_container;
+typedef struct _stmt_type_container *stmt_type_container;
+
+struct _stmt_type_container
+{
+  con_graph graph;
+  tree stmt;
+  enum statement_type type;
+};
 
 struct _con_graph
 {
   con_node root;
   const char *filename;
 
-        
   tree function;
 
   /* for the inter-procedural, we use a return node, and draw an edge
@@ -123,9 +133,6 @@ struct _con_graph
 
   /* I use this as a maximum size for MapsTo vectors */
   int num_objects;
-
-  /* A list containing the types of statements, for dumping */
-  stmt_type_list stmts;
 
 };
 
@@ -199,12 +206,11 @@ struct _con_edge
   enum con_edge_type type;
 };
 
-struct _stmt_type_list
-{
-  tree stmt;
-  enum statement_type type;
-  stmt_type_list next;
-};
+/* set up vectors */
+DEF_VEC_P(con_node);
+DEF_VEC_ALLOC_P(con_node,heap);
+typedef VEC(con_node,heap) *con_node_vec;
+
 
 
 /* print the name of the node for (Graph::Easy) */
@@ -280,6 +286,7 @@ con_node existing_local_node (con_graph cg, tree id);
 con_node get_existing_node_with_call_id (con_graph cg,
 					 tree id, tree call_id);
 
+con_node find_node (con_graph cg, tree id, tree call_id, int index);
 
 
 /* Get the field node with specified id, from cg*/
@@ -328,7 +335,7 @@ con_node get_terminal_nodes (con_node node);
  * Postcondition: The passed nodes will have their next_link fields
  * reset to NULL
 */
-con_node get_field_nodes (con_node node, tree field_id);
+con_node get_field_nodes (con_node_vec nodes, tree field_id);
 
 
 /* bypasses the node by removing all its incoming and outgoing
@@ -401,8 +408,8 @@ con_node get_matching_node_in_caller (con_graph cg,
 				      con_node node, tree call_id);
 
 
-void set_stmt_type (con_graph cg, tree stmt, enum statement_type type);
-stmt_type_list get_stmt_type (con_graph cg, tree stmt);
+void set_statement_type (con_graph cg, tree stmt, enum statement_type type);
+enum statement_type get_statement_type (con_graph cg, tree stmt);
 void print_stmt_type (con_graph cg, FILE* file, tree stmt);
 
 /* NEXT_LINK_CLEAR clears a node's next_link field, then replaces it with
@@ -420,10 +427,13 @@ bool in_link_list (con_node list, con_node subject);
 con_node last_link (con_node node);
 con_node merge_next_lists (con_node list1, con_node list2);
 
-con_node get_points_to_and_terminals (con_graph cg, con_node source, tree
-				      stmt_id, tree type);
+con_node_vec get_points_to_and_terminals (con_graph cg, con_node source,
+					  tree stmt_id, tree type);
 
 void init_markers (void);
-void init_node_hashtable (void);
+void init_con_node_hashtable (void);
+void init_statement_type_hashtable (void);
+
+void VEC_print (con_node_vec);
 
 #endif /* _CON_GRAPH_H */

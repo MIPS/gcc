@@ -125,6 +125,18 @@ is_pointer_type (tree stmt)
   return POINTER_TYPE_P (TREE_TYPE (stmt));
 }
 
+static bool
+is_class_type (tree stmt)
+{
+  tree type;
+  tree type_name;
+  return (is_suitable_decl (stmt)
+      && (type = TREE_TYPE (stmt))
+      && TREE_CODE (type) == RECORD_TYPE
+      && (type_name = TYPE_NAME (type))
+      && get_identifier ("java.lang.Class") == DECL_NAME (type_name));
+}
+
 /* this is supposed to work in theory, but doesnt
 static bool
 is_memory_allocation (tree stmt)
@@ -176,8 +188,6 @@ insert_object (con_graph cg, tree p_name, tree id, tree type, bool killing)
   if (get_edge (p, obj_node) == NULL)
     add_edge (p, obj_node);
 
-  /* link the nodes and return them */
-  assert_all_next_link_free (cg);
   p->next_link = obj_node;
   return p;
 }
@@ -200,8 +210,6 @@ insert_reference (con_graph cg, tree p_name, tree q_name, bool killing)
   if (get_edge (p, q) == NULL)
     add_edge (p, q);
 
-  /* link the nodes and return them */
-  assert_all_next_link_free (cg);
   p->next_link = q;
   return p;
 }
@@ -209,7 +217,8 @@ insert_reference (con_graph cg, tree p_name, tree q_name, bool killing)
 static con_node
 insert_assignment_from_field (con_graph cg, tree p_name, tree q_name, tree f_name, tree stmt_id, tree type, bool killing)
 {
-  con_node p, q, u, v;
+  con_node p, q, v;
+  con_node_vec u;
   int num_u;
 
   gcc_assert (cg && p_name && q_name && f_name && stmt_id && type);
@@ -217,10 +226,8 @@ insert_assignment_from_field (con_graph cg, tree p_name, tree q_name, tree f_nam
   p = existing_local_node (cg, p_name);
   q = existing_local_node (cg, q_name);
 
-  assert_all_next_link_free (cg);
-
   u = get_points_to_and_terminals (cg, q, stmt_id, type);
-  num_u = link_length (u); /* get_field_nodes delinks u */
+  num_u = VEC_length (con_node, u); /* get_field_nodes delinks u */
 
   /* get the field nodes of the pointed-to objects */
   v = get_field_nodes (u, f_name);
@@ -258,7 +265,8 @@ insert_assignment_from_field (con_graph cg, tree p_name, tree q_name, tree f_nam
 static con_node
 insert_assignment_to_field (con_graph cg, tree p_name, tree q_name, tree f_name, tree stmt_id, tree type, bool killing)
 {
-  con_node p, q, u, v;
+  con_node p, q, v;
+  con_node_vec u;
   int num_u;
 
   gcc_assert (cg && p_name && q_name && f_name && stmt_id && type);
@@ -266,12 +274,10 @@ insert_assignment_to_field (con_graph cg, tree p_name, tree q_name, tree f_name,
   p = existing_local_node (cg, p_name);
   q = existing_local_node (cg, q_name);
 
-  assert_all_next_link_free (cg);
-
   u = get_points_to_and_terminals (cg, p, stmt_id, type);
 
   /* get the field nodes of the pointed-to objects */
-  num_u = link_length (u); /* get_field_nodes delinks u */
+  num_u = VEC_length (con_node, u); /* get_field_nodes delinks u */
   v = get_field_nodes (u, f_name);
   gcc_assert (num_u == link_length (v));
   
@@ -450,7 +456,7 @@ check_null_pointer_exception_stmt (con_graph cg, tree call_expr)
     {
       return false;
     }
-  set_stmt_type (cg, call_expr, IGNORED_NULL_POINTER_EXCEPTION);
+  set_statement_type (cg, call_expr, IGNORED_NULL_POINTER_EXCEPTION);
   return true;
 }
 
@@ -485,7 +491,7 @@ check_array_allocation (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ARRAY_MEMORY_ALLOCATION);
+  set_statement_type (cg, modify_expr, OBJECT_ARRAY_ALLOCATION);
   type_name = TREE_TYPE (TREE_TYPE (modify_expr));
 
   p = insert_object (cg, p_name, modify_expr, type_name, true);
@@ -519,7 +525,7 @@ check_memory_allocation (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, MEMORY_ALLOCATION);
+  set_statement_type (cg, modify_expr, OBJECT_ALLOCATION);
   type_name = TREE_TYPE (TREE_TYPE (modify_expr));
 
   p = insert_object (cg, p_name, modify_expr, type_name, true);
@@ -549,12 +555,12 @@ check_indirect_goto (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, INDIRECT_GOTO);
+  set_statement_type (cg, modify_expr, INDIRECT_GOTO);
 
   p = get_existing_node (cg, p_name);
   p->escape = EA_GLOBAL_ESCAPE;
 
-  assert_all_next_link_free (cg);
+  gcc_assert (p->next_link == NULL);
   return true;
 }
 
@@ -584,7 +590,7 @@ check_pointer_arithmetic_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, POINTER_ARITHMETIC);
+  set_statement_type (cg, modify_expr, POINTER_ARITHMETIC);
 
   p = insert_reference (cg, p_name, q_name, false);
   p->escape = EA_GLOBAL_ESCAPE;
@@ -618,7 +624,7 @@ check_pointer_dereference_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, POINTER_DEREFERENCE);
+  set_statement_type (cg, modify_expr, POINTER_DEREFERENCE);
 
   q = insert_reference (cg, q_name, p_name, true);
   clear_links (q); /* we dont need these for anything */
@@ -647,7 +653,7 @@ check_cast_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, CAST);
+  set_statement_type (cg, modify_expr, CAST);
   p = insert_reference (cg, p_name, q_name, true);
   clear_links (p); /* we dont need these for anything */
   return true;
@@ -672,7 +678,7 @@ check_reference_copy_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, REFERENCE_COPY);
+  set_statement_type (cg, modify_expr, REFERENCE_COPY);
   p = insert_reference (cg, p_name, q_name, true);
   clear_links (p); /* we dont need these for anything */
   return true;
@@ -701,7 +707,7 @@ check_return_stmt (con_graph cg, tree stmt)
       return false;
     }
 
-  set_stmt_type (cg, stmt, RETURN);
+  set_statement_type (cg, stmt, RETURN);
   r = insert_return (cg, result_decl, r_name);
   /* no links to clear */
   return true;
@@ -735,11 +741,11 @@ check_function_call_with_return_value (con_graph cg, tree modify_expr)
     {
       return false;
     }
-  set_stmt_type (cg, modify_expr, FUNCTION_CALL_WITH_RETURN);
+  set_statement_type (cg, modify_expr, FUNCTION_CALL_WITH_RETURN);
 
   /* check for arguments */
   if (TREE_OPERAND (call_expr, 1))
-      arguments = TREE_OPERAND (call_expr, 1);
+    arguments = TREE_OPERAND (call_expr, 1);
 
   /* we dont actually link this to anything */
   r = existing_local_node (cg, r_name);
@@ -781,9 +787,9 @@ check_function_call (con_graph cg, tree call_expr)
       arguments = TREE_OPERAND (call_expr, 1);
     }
   if (is_constructor (call_expr))
-    set_stmt_type (cg, call_expr, CONSTRUCTOR_STMT);
+    set_statement_type (cg, call_expr, CONSTRUCTOR_STMT);
   else
-    set_stmt_type (cg, call_expr, FUNCTION_CALL);
+    set_statement_type (cg, call_expr, FUNCTION_CALL);
 
   arg_nodes = insert_function_call (cg, func_decl, arguments, call_expr);
   if (arg_nodes)
@@ -818,7 +824,7 @@ check_indirect_function_call_with_return_value (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, INDIRECT_FUNCTION_CALL_WITH_RETURN);
+  set_statement_type (cg, modify_expr, INDIRECT_FUNCTION_CALL_WITH_RETURN);
   /* we dont actually link this to anything */
   r = existing_local_node (cg, r_name);
 
@@ -852,7 +858,7 @@ check_indirect_function_call (con_graph cg, tree call_expr)
       return false;
     }
 
-  set_stmt_type (cg, call_expr, INDIRECT_FUNCTION_CALL);
+  set_statement_type (cg, call_expr, INDIRECT_FUNCTION_CALL);
 
   arg_nodes = insert_indirect_function_call (cg, T, arguments);
   if (arg_nodes)
@@ -890,7 +896,7 @@ check_assignment_from_data_array_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_FROM_DATA_ARRAY);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_FROM_DATA_ARRAY);
   p = insert_assignment_from_field (cg, p_name, q_name, f_name, modify_expr,
 				    TREE_TYPE (indirect_ref), true);
 
@@ -916,7 +922,7 @@ check_assignment_to_exception_object (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_TO_EXCEPTION);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_TO_EXCEPTION);
   p = insert_reference (cg, p_name, q_name, false);
   p->escape = EA_GLOBAL_ESCAPE;
   clear_links (p);
@@ -940,7 +946,7 @@ check_assignment_from_exception_object (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_FROM_EXCEPTION);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_FROM_EXCEPTION);
   p = insert_reference (cg, p_name, q_name, false);
   q = p->next_link;
   q->escape = EA_GLOBAL_ESCAPE;
@@ -974,7 +980,7 @@ check_assignment_from_array_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_FROM_ARRAY);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_FROM_ARRAY);
   p = insert_reference (cg, p_name, q_name, false);
   clear_links (p); /* we dont need these for anything */
   return true;
@@ -1011,7 +1017,7 @@ check_assignment_to_data_array_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_TO_INDIRECT_ARRAY_REF);
   p = insert_assignment_to_field (cg, p_name, q_name, f_name, modify_expr,
 				  TREE_TYPE (indirect_ref), false);
   clear_links (p);
@@ -1045,7 +1051,7 @@ check_assignment_to_field_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_TO_FIELD);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_TO_FIELD);
 
   p = insert_assignment_to_field (cg, p_name, q_name, f_name, modify_expr,
 				  TREE_TYPE (indirect_ref), true);
@@ -1082,7 +1088,7 @@ check_assignment_from_field_stmt (con_graph cg, tree modify_expr)
       return false;
     }
 
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_FROM_FIELD);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_FROM_FIELD);
   /* TODO: I think we can get rid of type, since we'll do the fields
    * lazily soon */
   p = insert_assignment_from_field (cg, p_name, q_name, f_name, modify_expr, TREE_TYPE (indirect_ref), true);
@@ -1119,7 +1125,7 @@ check_vtable_stmt (con_graph cg, tree modify_expr)
     {
       return false;
     }
-  set_stmt_type (cg, modify_expr, ASSIGNMENT_FROM_VTABLE);
+  set_statement_type (cg, modify_expr, ASSIGNMENT_FROM_VTABLE);
 
   /* this is a sticky situation, so we're choosing a BOTTOM solution */
   p = insert_reference (cg, p_name, q_name, false);
@@ -1132,6 +1138,7 @@ check_vtable_stmt (con_graph cg, tree modify_expr)
  *		 code generation				*
  * -------------------------------------------------------------*/
 
+#if 0  
 static void
 replace_array_with_alloca (con_node node)
 {
@@ -1140,7 +1147,6 @@ replace_array_with_alloca (con_node node)
       gcc_unreachable ();
     }
   return;
-#if 0  
   tree type, alloca_func_call, new_alloca_stmt;
   tree new_jv_func_call_stmt;
 
@@ -1280,8 +1286,47 @@ replace_array_with_alloca (con_node node)
   bsi_insert_before (&bsi, new_jv_func_call_stmt, BSI_SAME_STMT); 
   bsi_remove(&bsi, true);
 
-#endif
 }
+#endif
+
+static void
+replace_with_alloca (con_node node, tree function)
+{
+  tree stmt, call_expr, addr_expr;
+  gcc_assert(node);
+
+  stmt = node->id;
+  call_expr = RHS (stmt);
+  addr_expr = LHS (call_expr);
+  TREE_OPERAND (addr_expr, 0) = function;
+}
+
+static void
+replace_object_with_alloca (con_node node)
+{
+  replace_with_alloca (node, init_no_finalizer_node);
+}
+
+static void
+replace_array_with_alloca (con_node node)
+{
+  replace_with_alloca (node, init_anewarray_node);
+}
+
+static void
+replace_multi_array_with_alloca (con_node node)
+{
+  replace_with_alloca (node, init_multianewarray_node);
+}
+
+static void
+replace_prim_array_with_alloca (con_node node)
+{
+  replace_with_alloca (node, init_newarray_node);
+}
+
+
+#if 0
 
 static void
 replace_with_alloca (con_node node)
@@ -1350,6 +1395,8 @@ replace_with_alloca (con_node node)
   bsi_remove(&bsi, true);
 }
 
+#endif
+
 static void add_actual_parameters (con_graph cg, tree function)
 {
   tree arg_list;
@@ -1379,8 +1426,6 @@ static void add_actual_parameters (con_graph cg, tree function)
       /* move the list on */
       arg_list = TREE_CHAIN (arg_list);
     }
-
-
 }
 
 
@@ -1418,7 +1463,7 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
        *   p[x] = 0B;
        *   p->data[x] = 0B; */
       
-      set_stmt_type (cg, stmt, IGNORED_ASSIGNMENT_TO_NULL);
+      set_statement_type (cg, stmt, IGNORED_ASSIGNMENT_TO_NULL);
 
       /* Done ASSIGNMENT TO NULL */
     }
@@ -1456,30 +1501,28 @@ update_connection_graph_from_statement (con_graph cg, tree stmt)
   else
     {
       if (TREE_CODE (stmt) == COND_EXPR)
-	set_stmt_type (cg, stmt, IGNORED_COND_EXPR);
+	set_statement_type (cg, stmt, IGNORED_COND_EXPR);
 
       else if (TREE_CODE (stmt) == LABEL_EXPR)
-	set_stmt_type (cg, stmt, IGNORED_LABEL_EXPR);
+	set_statement_type (cg, stmt, IGNORED_LABEL_EXPR);
 
       else if (! is_pointer_type (stmt))
-	set_stmt_type (cg, stmt, IGNORED_NOT_A_POINTER);
+	set_statement_type (cg, stmt, IGNORED_NOT_A_POINTER);
 
       else if (TREE_CODE (stmt) == RETURN_EXPR && VOID_TYPE_P (TREE_TYPE
 							       (stmt)))
-	set_stmt_type (cg, stmt, IGNORED_RETURNING_VOID);
+	set_statement_type (cg, stmt, IGNORED_RETURNING_VOID);
 
       else if (TREE_CODE (TREE_TYPE (TREE_TYPE (stmt))) == FUNCTION_TYPE)
-	set_stmt_type (cg, stmt, IGNORED_FUNCTION_POINTER);
+	set_statement_type (cg, stmt, IGNORED_FUNCTION_POINTER);
 
-      if (get_stmt_type (cg, stmt) == NULL)
+      if (get_statement_type (cg, stmt) == 0)
 	{
-	  set_stmt_type (cg, stmt, IGNORED_UNKNOWN);
+	  set_statement_type (cg, stmt, IGNORED_UNKNOWN);
 	  gcc_unreachable ();	/* as if */
 	}
 
     }
-
-  assert_all_next_link_free (cg);
 }
 
 static void
@@ -1502,7 +1545,10 @@ process_function (con_graph cg, tree function)
   for (vnode = cgraph_varpool_nodes_queue;
        vnode; vnode = vnode->next_needed)
     {
-      if (is_pointer_type (vnode->decl))
+      /* occasionally you see something like Jv_InitClass (x), is which x
+       * is a record_type of java.lang.Class, which we should have added
+       * as a global by then */
+      if (is_pointer_type (vnode->decl) || is_class_type (vnode->decl))
 	add_global_node (cg, vnode->decl);
     }
 
@@ -1529,6 +1575,7 @@ process_function (con_graph cg, tree function)
       }
     }
 
+  assert_all_next_link_free (cg);
 
   /* inline the constructors */
   FOR_EACH_BB (bb)
@@ -1548,6 +1595,7 @@ process_function (con_graph cg, tree function)
 
 	    if (callee_cg)
 	      {
+		assert_all_next_link_free (callee_cg);
 		gcc_assert (get_caller_actual_node (cg, 1, stmt));
 		/* the caller nodes should alredy be added (we need them
 		 * to inline) */
@@ -1602,14 +1650,15 @@ process_function (con_graph cg, tree function)
 	   && node->phantom == false 
 	   && node->escape == EA_NO_ESCAPE)
 	{
-	  stmt_type_list type_list = get_stmt_type (cg, node->id);
-	  if (type_list)
-	    {
-	      if (type_list->type == MEMORY_ALLOCATION)
-		replace_with_alloca (node); 
-	      else
-		replace_array_with_alloca (node);
-	    }
+	  enum statement_type type = get_statement_type (cg, node->id);
+	  if (type == OBJECT_ALLOCATION)
+	    replace_object_with_alloca (node); 
+	  else if (type == OBJECT_ARRAY_ALLOCATION)
+	    replace_array_with_alloca (node);
+	  else if (type == PRIM_ARRAY_ALLOCATION)
+	    replace_prim_array_with_alloca (node);
+	  else if (type == MULTI_ARRAY_ALLOCATION)
+	    replace_multi_array_with_alloca (node);
 	}
     }
   dump_escape_function (cg, debug, dump);
@@ -1638,7 +1687,8 @@ execute_ipa_stack_allocate (void)
 
   /* init the markers used to traverse the graph */
   init_markers ();
-  init_node_hashtable ();
+  init_con_node_hashtable ();
+  init_statement_type_hashtable ();
 
   debug = fopen ("debug_log", "a");
   dump = fopen ("dump_log", "a");
@@ -1760,7 +1810,7 @@ execute_ipa_stack_allocate (void)
 static bool
 gate_ipa_stack_allocate (void)
 {
-  return flag_ipa_stack_allocate != 0;
+  return flag_ipa_stack_allocate == 1;
 }
 
 struct tree_opt_pass pass_ipa_stack_allocate = {
@@ -1777,5 +1827,90 @@ struct tree_opt_pass pass_ipa_stack_allocate = {
   TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_start */
   TODO_dump_func | TODO_dump_cgraph,	/* todo_flags_finish */
   0				/* letter */
+};
+
+
+static unsigned int
+execute_instrument_stack_allocate (void)
+{
+  int order_pos;
+  int i;
+
+#ifdef UNHIDE_IT
+  basic_block bb;
+  block_stmt_iterator bsi;
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  tree call_expr, addr_expr, func_decl;
+	  if (TREE_CODE (stmt) == MODIFY_EXPR 
+	      && is_pointer_type (stmt) 
+	      && is_suitable_decl (LHS (stmt)) 
+	      && TREE_CODE (call_expr = RHS (stmt)) == CALL_EXPR
+	      && TREE_CODE (addr_expr = LHS (call_expr)) == ADDR_EXPR
+	      && TREE_CODE (func_decl = LHS (addr_expr)) == FUNCTION_DECL)
+	    {
+	      /* _Jv_AllocObjectNoFinalizer */
+	      if (func_decl == alloc_no_finalizer_node)
+		{
+		  TREE_OPERAND (addr_expr, 0) = init_no_finalizer_node;
+		}
+	      /* _Jv_NewObjectArray */
+	      else if (func_decl == soft_anewarray_node)
+		{
+		  /* _Jv_InitNewObjectArray */
+		  TREE_OPERAND (addr_expr, 0) = init_anewarray_node;
+		}
+	      /* _Jv_NewPrimArray */
+	      else if (func_decl == soft_newarray_node)
+		{
+		  /* _Jv_InitPrimArray */
+		  TREE_OPERAND (addr_expr, 0) = init_newarray_node;
+		}
+	      /* _Jv_AllocObject */
+	      else if (func_decl == alloc_object_node)
+		{
+		  /* Obviously, this one we can't change with
+		   * escape analysis, but its a useful metric */
+		  /* _Jv_InitObject*/
+		  TREE_OPERAND (addr_expr, 0) = init_object_node;
+		}
+	      /* _Jv_NewMultiArray*/
+	      else if (func_decl == soft_multianewarray_node)
+		{
+		  /* _Jv_InitMultiArray */
+		  TREE_OPERAND (addr_expr, 0) = init_multianewarray_node;
+		}
+
+	    }
+	}
+    }
+#endif
+
+  return 0;
+}
+
+static bool
+gate_instrument_stack_allocate (void)
+{
+  return flag_ipa_stack_allocate == 2;
+}
+
+struct tree_opt_pass pass_instrument_stack_allocate = {
+  "instrument-stack-allocate",		/* name */
+  gate_instrument_stack_allocate,	/* gate */
+  execute_instrument_stack_allocate,	/* execute */
+/*  &pass_rebuild_cgraph_edges,*/NULL,		/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
 };
 

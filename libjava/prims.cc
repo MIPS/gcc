@@ -74,12 +74,13 @@ details.  */
 #include <ltdl.h>
 #endif
 
+static FILE* output = NULL;
 
 void
 note_memory_usage (const char* note, jsize size)
 {
-//	static int output = fopen ("mem", "w");
-   fprintf (stderr, "%s%d\n", note, (int)size);
+	if (!output) output = fopen("mem", "w");
+   fprintf (output, "%s%d\n", note, (int)size);
 }
 
 // Execution engine for compiled code.
@@ -417,6 +418,19 @@ _Jv_Utf8Const::init(const char *s, int len)
   hash = _Jv_hashUtf8String (s, len) & 0xFFFF;
 }
 
+/* for info only -same as below*/
+_Jv_Utf8Const *
+_Jv_InitUtf8Const (const char* s, int len)
+{
+  if (len < 0)
+    len = strlen (s);
+  int size = _Jv_Utf8Const::space_needed(s, len);
+  note_memory_usage ("A", size);
+  Utf8Const* m = (Utf8Const*) _Jv_AllocBytes (size);
+  m->init(s, len);
+  return m;
+}
+
 _Jv_Utf8Const *
 _Jv_makeUtf8Const (const char* s, int len)
 {
@@ -426,6 +440,26 @@ _Jv_makeUtf8Const (const char* s, int len)
   note_memory_usage ("a", size);
   Utf8Const* m = (Utf8Const*) _Jv_AllocBytes (size);
   m->init(s, len);
+  return m;
+}
+
+/* for info only */
+_Jv_Utf8Const *
+_Jv_InitUtf8Const (jstring string)
+{
+  jint hash = string->hashCode ();
+  jint len = _Jv_GetStringUTFLength (string);
+
+  note_memory_usage ("B", sizeof(Utf8Const) + len + 1);
+  Utf8Const* m = (Utf8Const*)
+    _Jv_AllocBytes (sizeof(Utf8Const) + len + 1);
+
+  m->hash = hash;
+  m->length = len;
+
+  _Jv_GetStringUTFRegion (string, 0, string->length (), m->data);
+  m->data[len] = 0;
+  
   return m;
 }
 
@@ -566,6 +600,16 @@ _Jv_AllocObjectNoInitNoFinalizer (jclass klass)
   return obj;
 }
 
+jobject
+_Jv_InitObjectNoInitNoFinalizer (jclass klass)
+{
+  jint size = klass->size ();
+  note_memory_usage ("C", size);
+  jobject obj = (jobject) _Jv_AllocObj (size, klass);
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
+  return obj;
+}
+
 // And now a version that initializes if necessary.
 jobject
 _Jv_AllocObjectNoFinalizer (jclass klass)
@@ -582,6 +626,20 @@ _Jv_AllocObjectNoFinalizer (jclass klass)
 }
 
 // Now a version that takes it's memory as a parameter
+jobject
+_Jv_InitObjectNoFinalizer (jclass klass)
+{
+  if (_Jv_IsPhantomClass(klass) )
+    throw new java::lang::NoClassDefFoundError(klass->getName());
+
+  _Jv_InitClass (klass);
+  jint size = klass->size ();
+  note_memory_usage ("D", size);
+  jobject obj = (jobject) _Jv_AllocObj (size, klass);
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
+  return obj;
+}
+#if 0
 void
 _Jv_InitObjectNoFinalizer (jclass klass, jobject obj)
 {
@@ -597,12 +655,13 @@ _Jv_InitObjectNoFinalizer (jclass klass, jobject obj)
    * here.  */
   jint size = klass->size ();
   memset (obj, 0, size);
-  note_memory_usage ("j", size);
+  note_memory_usage ("D", size);
   
   *(void **)obj = klass->vtable;
 
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
 }
+#endif
 
 // And now the general version that registers a finalizer if necessary.
 jobject
@@ -616,6 +675,25 @@ _Jv_AllocObject (jclass klass)
   // be cni calls to this routine.
   // Note that on IA64 get_finalizer() returns the starting address of the
   // function, not a function pointer.  Thus this still works.
+  note_memory_usage ("e", klass->size ());
+  if (klass->vtable->get_finalizer ()
+      != java::lang::Object::class$.vtable->get_finalizer ())
+    _Jv_RegisterFinalizer (obj, _Jv_FinalizeObject);
+  return obj;
+}
+
+jobject
+_Jv_InitObject (jclass klass)
+{
+  jobject obj = _Jv_AllocObjectNoFinalizer (klass);
+  
+  // We assume that the compiler only generates calls to this routine
+  // if there really is an interesting finalizer.
+  // Unfortunately, we still have to the dynamic test, since there may
+  // be cni calls to this routine.
+  // Note that on IA64 get_finalizer() returns the starting address of the
+  // function, not a function pointer.  Thus this still works.
+  note_memory_usage ("E", klass->size ());
   if (klass->vtable->get_finalizer ()
       != java::lang::Object::class$.vtable->get_finalizer ())
     _Jv_RegisterFinalizer (obj, _Jv_FinalizeObject);
@@ -638,8 +716,8 @@ _Jv_AllocString(jsize len)
 
   // String needs no initialization, and there is no finalizer, so
   // we can go directly to the collector's allocator interface.
+  note_memory_usage ("i", sz);
   jstring obj = (jstring) _Jv_AllocPtrFreeObj(sz, &String::class$);
-  note_memory_usage ("e", sz);
 
   obj->data = obj;
   obj->boffset = sizeof(java::lang::String);
@@ -663,6 +741,20 @@ _Jv_AllocPtrFreeObject (jclass klass)
 
   jobject obj = (jobject) _Jv_AllocPtrFreeObj (size, klass);
   note_memory_usage ("f", size);
+
+  JVMPI_NOTIFY_ALLOC (klass, size, obj);
+
+  return obj;
+}
+
+jobject
+_Jv_InitPtrFreeObject (jclass klass)
+{
+  _Jv_InitClass (klass);
+  jint size = klass->size ();
+
+  jobject obj = (jobject) _Jv_AllocPtrFreeObj (size, klass);
+  note_memory_usage ("F", size);
 
   JVMPI_NOTIFY_ALLOC (klass, size, obj);
 
@@ -719,6 +811,49 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
 // Initialize a new array of Java objects from pre-allocated memory.
 // Each object is of type `elementClass'.  `init' is used to initialize
 // each slot in the array.
+jobjectArray
+_Jv_InitObjectArray (jsize count, jclass elementClass, jobject init)
+{
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if ( _Jv_IsPhantomClass(elementClass) )
+    throw new java::lang::NoClassDefFoundError(elementClass->getName());
+
+  if (__builtin_expect (count < 0, false))
+    throw new java::lang::NegativeArraySizeException;
+
+  JvAssert (! elementClass->isPrimitive ());
+
+  // Ensure that elements pointer is properly aligned.
+  jobjectArray obj = NULL;
+  size_t size = (size_t) elements (obj);
+  // Check for overflow.
+  if (__builtin_expect ((size_t) count > 
+			(MAX_OBJECT_SIZE - 1 - size) / sizeof (jobject), false))
+    throw no_memory;
+
+  size += count * sizeof (jobject);
+
+  jclass klass = _Jv_GetArrayClass (elementClass,
+				    elementClass->getClassLoaderInternal());
+
+  note_memory_usage ("G", size);
+  obj = (jobjectArray) _Jv_AllocArray (size, klass);
+  // Cast away const.
+  jsize *lp = const_cast<jsize *> (&obj->length);
+  *lp = count;
+  // We know the allocator returns zeroed memory.  So don't bother
+  // zeroing it again.
+  if (init)
+    {
+      jobject *ptr = elements(obj);
+      while (--count >= 0)
+	*ptr++ = init;
+    }
+  return obj;
+}
+
+#if 0
 void
 _Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj)
 {
@@ -737,7 +872,7 @@ _Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj)
   // memory is already allocated by alloca
   jclass arrayClass = _Jv_GetArrayClass (elementClass,
 					 elementClass->getClassLoaderInternal());
-  note_memory_usage ("h", size);
+  note_memory_usage ("G", size);
 
   // zero the memory (the allocator would otherwise do this)
   memset (obj, 0, size);
@@ -745,6 +880,7 @@ _Jv_InitNewObjectArray (jsize size, jclass elementClass, jobjectArray obj)
   // put in the array's vtable (from _JvAllocArray)
   *((_Jv_VTable **) obj) = arrayClass->vtable;
 }
+#endif
 
 
 // Allocate a new array of primitives.  ELTYPE is the type of the
@@ -766,7 +902,43 @@ _Jv_NewPrimArray (jclass eltype, jint count)
     throw no_memory;
 
   jclass klass = _Jv_GetArrayClass (eltype, 0);
-  note_memory_usage ("i", size + elsize * count);
+  note_memory_usage ("h", size + elsize * count);
+
+# ifdef JV_HASH_SYNCHRONIZATION
+  // Since the vtable is always statically allocated,
+  // these are completely pointerfree!  Make sure the GC doesn't touch them.
+  __JArray *arr =
+    (__JArray*) _Jv_AllocPtrFreeObj (size + elsize * count, klass);
+  memset((char *)arr + size, 0, elsize * count);
+# else
+  __JArray *arr = (__JArray*) _Jv_AllocObj (size + elsize * count, klass);
+  // Note that we assume we are given zeroed memory by the allocator.
+# endif
+  // Cast away const.
+  jsize *lp = const_cast<jsize *> (&arr->length);
+  *lp = count;
+
+  return arr;
+}
+
+jobject
+_Jv_InitPrimArray (jclass eltype, jint count)
+{
+  int elsize = eltype->size();
+  if (__builtin_expect (count < 0, false))
+    throw new java::lang::NegativeArraySizeException;
+
+  JvAssert (eltype->isPrimitive ());
+  jobject dummy = NULL;
+  size_t size = (size_t) _Jv_GetArrayElementFromElementType (dummy, eltype);
+
+  // Check for overflow.
+  if (__builtin_expect ((size_t) count > 
+			(MAX_OBJECT_SIZE - size) / elsize, false))
+    throw no_memory;
+
+  jclass klass = _Jv_GetArrayClass (eltype, 0);
+  note_memory_usage ("H", size + elsize * count);
 
 # ifdef JV_HASH_SYNCHRONIZATION
   // Since the vtable is always statically allocated,
@@ -861,6 +1033,64 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 
   return _Jv_NewMultiArrayUnchecked (array_type, dimensions, sizes);
 }
+
+static jobject
+_Jv_InitMultiArrayUnchecked (jclass type, jint dimensions, jint *sizes)
+{
+  JvAssert (type->isArray());
+  jclass element_type = type->getComponentType();
+  jobject result;
+  if (element_type->isPrimitive())
+    result = _Jv_InitPrimArray (element_type, sizes[0]);
+  else
+    result = _Jv_InitObjectArray (sizes[0], element_type, NULL);
+
+  if (dimensions > 1)
+    {
+      JvAssert (! element_type->isPrimitive());
+      JvAssert (element_type->isArray());
+      jobject *contents = elements ((jobjectArray) result);
+      for (int i = 0; i < sizes[0]; ++i)
+	contents[i] = _Jv_InitMultiArrayUnchecked (element_type, dimensions - 1,
+						  sizes + 1);
+    }
+
+  return result;
+}
+
+jobject
+_Jv_InitMultiArray (jclass type, jint dimensions, jint *sizes)
+{
+  for (int i = 0; i < dimensions; ++i)
+    if (sizes[i] < 0)
+      throw new java::lang::NegativeArraySizeException;
+
+  return _Jv_InitMultiArrayUnchecked (type, dimensions, sizes);
+}
+
+jobject
+_Jv_InitMultiArray (jclass array_type, jint dimensions, ...)
+{
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if (_Jv_IsPhantomClass(array_type))
+    throw new java::lang::NoClassDefFoundError(array_type->getName());
+
+  va_list args;
+  jint sizes[dimensions];
+  va_start (args, dimensions);
+  for (int i = 0; i < dimensions; ++i)
+    {
+      jint size = va_arg (args, jint);
+      if (size < 0)
+	throw new java::lang::NegativeArraySizeException;
+      sizes[i] = size;
+    }
+  va_end (args);
+
+  return _Jv_InitMultiArrayUnchecked (array_type, dimensions, sizes);
+}
+
 
 
 

@@ -553,10 +553,16 @@ extern "C" jobject _Jv_AllocObject (jclass) __attribute__((__malloc__));
 extern "C" jobject _Jv_AllocObjectNoFinalizer (jclass) __attribute__((__malloc__));
 extern "C" jobject _Jv_AllocObjectNoInitNoFinalizer (jclass) __attribute__((__malloc__));
 
-extern "C" void _Jv_InitObjectNoFinalizer (jclass, jobject);
+extern "C" jobject _Jv_InitObject (jclass) __attribute__((__malloc__));
+extern "C" jobject _Jv_InitObjectNoFinalizer (jclass) __attribute__((__malloc__));
+extern "C" jobject _Jv_InitObjectNoInitNoFinalizer (jclass) __attribute__((__malloc__));
+//extern "C" void _Jv_InitObjectNoFinalizer (jclass, jobject);
 
 #ifdef JV_HASH_SYNCHRONIZATION
   extern "C" jobject _Jv_AllocPtrFreeObject (jclass)
+  			    __attribute__((__malloc__));
+
+  extern "C" jobject _Jv_InitPtrFreeObject (jclass)
   			    __attribute__((__malloc__));
 #else
   // Collector still needs to scan sync_info
@@ -667,6 +673,8 @@ class _Jv_Utf8Const
   friend jboolean _Jv_isPrimitiveOrDerived (const _Jv_Utf8Const*);
   friend _Jv_Utf8Const *_Jv_makeUtf8Const (const char*, int);
   friend _Jv_Utf8Const *_Jv_makeUtf8Const (jstring);
+  friend _Jv_Utf8Const *_Jv_InitUtf8Const (const char*, int);
+  friend _Jv_Utf8Const *_Jv_InitUtf8Const (jstring);
   friend jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const*);
 };
 
