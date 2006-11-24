@@ -1,5 +1,10 @@
 2006-11-24  Carlos O'Donell  <carlos@codesourcery.com>
 
+	* config/arm/unwind-arm.c: Adjust __cxa_type_match declaration.
+	(__gnu_unwind_pr_common): Pass is_reference to __cxa_type_match.
+
+2006-11-24  Carlos O'Donell  <carlos@codesourcery.com>
+
 	Backport from mainline:
 	gcc/
 	2006-04-11  Richard Sandiford  <richard@codesourcery.com>
