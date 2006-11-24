@@ -63,7 +63,7 @@ MULTILIB_MATCHES += mcpu?5206e=march?isaa mcpu?5208=march?isaaplus \
 endif
 
 # the new core options
-MULTILIB_MATCHES += $(call M68K_AWK,(CPU_NAME == MLIB) $(M68K_MLIB_CPU),\
+MULTILIB_MATCHES += $(call M68K_AWK,(CPU_NAME != MLIB) $(M68K_MLIB_CPU),\
  "mcpu?"MLIB"=mcpu?"CPU_NAME)
 
 # Add all non-sensical multilibs
