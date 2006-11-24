@@ -1,3 +1,24 @@
+2006-11-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline:
+	gcc/
+	2006-04-11  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcse.c (try_replace_reg): Revert last change.  Continue to search
+	for both REG_EQUAL and REG_EQUIV notes, but only perform replacements
+	on the former.
+
+	gcc/
+	2006-04-09  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcse.c (try_replace_reg): Just propagate into REG_EQUAL notes,
+	not REG_EQUIVs.
+
+	gcc/testsuite/
+	2006-04-09  Richard Sandiford  <richard@codesourcery.com>
+	PR rtl-optimization/27073
+	* gcc.c-torture/execute/pr27073.c: New test.
+
 2006-11-24  Joseph Myers  <joseph@codesourcery.com>
 
 	gcc/
